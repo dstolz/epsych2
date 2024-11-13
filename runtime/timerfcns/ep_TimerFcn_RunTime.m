@@ -74,8 +74,11 @@ for i = 1:RUNTIME.NSubjects
     
     % Collect Buffer if available
     if isfield(RUNTIME,'AcqBufferStr')
-        bufferSize = AX(RUNTIME.AcqBufferSizeIdx(i)).GetTagVal(RUNTIME.AcqBufferSizeStr{i});
-        RUNTIME.TRIALS(i).AcqBuffer = AX(RUNTIME.AcqBufferIdx(i)).ReadTagV(RUNTIME.AcqBufferStr{i},0,bufferSize);
+        % TODO: determine if a buffer actually exists
+        try
+            bufferSize = AX(RUNTIME.AcqBufferSizeIdx(i)).GetTagVal(RUNTIME.AcqBufferSizeStr{i});
+            RUNTIME.TRIALS(i).AcqBuffer = AX(RUNTIME.AcqBufferIdx(i)).ReadTagV(RUNTIME.AcqBufferStr{i},0,bufferSize);
+        end
     end
     
     

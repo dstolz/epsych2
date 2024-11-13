@@ -67,6 +67,35 @@ classdef Helper < handle
             end
             tableH.BackgroundColor = c;
         end
+        
+        
+        function v = get_current_trial_parameter_value(parameter)
+            global RUNTIME
+            
+            ntidx = RUNTIME.TRIALS.NextTrialID;
+            pind = ismember(RUNTIME.TRIALS.writeparams,parameter);
+            
+            v = nan;
+            if any(pind) 
+                v = RUNTIME.TRIALS.trials{ntidx,pind};
+            end
+        end
+        
+        function d = dprime2AFC(HR)
+            HR = max(min(HR,.99),.01);
+            d = sqrt(2)*norminv(HR);
+        end
+        
+        function c = criterion(HR,FR)
+            HR = max(min(HR,.99),.01);
+            FR = max(min(FR,.99),.01);
+            c = -1*(norminv(HR)+norminv(FR))./2;
+        end
+        
+        function pc = percent_correct(HR,FR)
+            pc = 0.5+(HR-FR)./2;
+        end
+        
     end
 end
 

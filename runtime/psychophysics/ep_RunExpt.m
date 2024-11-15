@@ -446,7 +446,7 @@ UpdateGUIstate(h);
 
 
 RUNTIME = feval(FUNCS.TIMERfcn.Start,CONFIG,RUNTIME,AX);
-RUNTIME.StartTime = clock;
+RUNTIME.StartTime = datetime('now');
 vprintf(0,'Experiment started at %s',datestr(RUNTIME.StartTime ,'dd-mmm-yyyy HH:MM'))
 
 % Launch Box figure to display information during experiment

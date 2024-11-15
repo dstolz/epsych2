@@ -13,7 +13,7 @@ function t = TrigRPTrial(RP,trig)
 
 e = RP.SetTagVal(trig,1);
 % t = hat; 
-t = clock; %DJS 6/2015
+t = datetime('now'); 
 if ~e, throwerrormsg(trig); end
 pause(0.001)
 e = RP.SetTagVal(trig,0);

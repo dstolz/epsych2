@@ -14,7 +14,7 @@ function t = TrigDATrial(DA,trig)
 
 e = DA.SetTargetVal(trig,1);
 % t = hat;
-t = clock; %DJS 6/2015
+t = datetime('now');
 if ~e, throwerrormsg(trig); end
 pause(0.001)
 e = DA.SetTargetVal(trig,0); 
@@ -45,7 +45,7 @@ if ~e
 
     %Set and reset the trigger value here
     e = SYN.setParameterValue(RZ6,trig,1);
-    t = clock;
+    t = datetime('now');
     pause(0.001)
     e = SYN.setParameterValue(RZ6,trig,0);
   

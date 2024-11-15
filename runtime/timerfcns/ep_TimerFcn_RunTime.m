@@ -37,7 +37,7 @@ for i = 1:RUNTIME.NSubjects
         data = feval(sprintf('Read%sTags',RUNTIME.TYPE),AX,RUNTIME.TRIALS(i));
         data.ResponseCode = RCtag;
         data.TrialID = TrialNum;
-        data.ComputerTimestamp = clock;
+        data.ComputerTimestamp = datetime("now");
         RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
         
         

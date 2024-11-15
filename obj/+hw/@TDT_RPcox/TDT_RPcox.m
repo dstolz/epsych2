@@ -51,7 +51,7 @@ classdef TDT_RPcox < hw.Interface
         function t = trigger(obj,name)
             e = obj.HW.SetTagVal(name,1);
             % t = hat;
-            t = clock; %DJS 6/2015
+            t = datetime('now');
             if ~e, throwerrormsg(name); end
             pause(0.001)
             e = obj.HW.SetTagVal(name,0);

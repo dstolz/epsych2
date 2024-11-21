@@ -84,11 +84,12 @@ classdef OnlinePlotBM < gui.Helper & handle
             obj.add_context_menu;
             
             % set default trial-based parameter tag to use.
-            % > #TrigState~1 is contained in the standard epsych RPvds
+            % > _TrigState~1 is contained in the standard epsych RPvds
             % macros and is assigned an integer id after the ~ based on the
             % macros settings.  Default = 1.
             obj.BoxID = BoxID;
-            obj.trialParam = sprintf('#TrigState~%d',BoxID);
+            % obj.trialParam = sprintf('#TrigState~%d',BoxID);
+            obj.trialParam = sprintf('_TrigState~%d',BoxID);
             
             obj.Timer = ep_GenericGUITimer(obj.figH,sprintf('OnlinePlot~%d',BoxID));
             obj.Timer.StartFcn = @obj.setup_plot;
@@ -262,7 +263,8 @@ classdef OnlinePlotBM < gui.Helper & handle
         function plot_trialMarker(obj,t)
             if isempty(t), return; end
             line(obj.ax,[1 1]*t,obj.ax.YLim,'Color',[1 0 0],'LineWidth',2);
-            tn = obj.getParamVals(obj.TDTActiveX,'#TrialNum~1');
+            % tn = obj.getParamVals(obj.TDTActiveX,'#TrialNum~1');
+            tn = obj.getParamVals(obj.TDTActiveX,'_TrialNum~1');
             tn = tn - 1;
             text(obj.ax,t,obj.N+0.5,num2str(tn,'%d'),'FontWeight','Bold','FontSize',15);
         end

@@ -81,7 +81,7 @@ classdef Detection
                 p = obj.ValidParameters;
                 T = obj.TRIALS;
                 for i = 1:length(p)
-                    ind = ismember(T.Mwriteparams,p{i});
+                    ind = ismember(T.writeparams_,p{i});
                     if ~any(ind), continue; end
                     a = T.trials(:,ind);
                     if isnumeric(a{1})
@@ -273,18 +273,18 @@ classdef Detection
         function i = get.ParameterIndex(obj)
             i = [];
             if isempty(obj.ParameterName), return; end
-            i = find(ismember(obj.TRIALS.Mwriteparams,obj.ParameterName));
+            i = find(ismember(obj.TRIALS.writeparams_,obj.ParameterName));
         end
 
         function n = get.ParameterFieldName(obj)
             n = [];
             if isempty(obj.ParameterName), return; end
-            n = obj.TRIALS.Mwriteparams{obj.ParameterIndex};
+            n = obj.TRIALS.writeparams_{obj.ParameterIndex};
         end
 
         function p = get.ValidParameters(obj)
             p = fieldnames(obj.DATA);
-            p(~ismember(p,obj.TRIALS.Mwriteparams)) = [];
+            p(~ismember(p,obj.TRIALS.writeparams_)) = [];
         end
         
         function t = get.TRIALS(obj)

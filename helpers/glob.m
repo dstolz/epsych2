@@ -348,9 +348,9 @@ else
             if ispc && ~any(strcmp({list.name}, '.'))
                 % fix strange windows behaviour: root of a volume has no '.' and '..'
                 list(end+1).name = '.';
-                list(end).isdir = true;
+                list(end).isfolder = true;
                 list(end+1).name = '..';
-                list(end).isdir = true;                
+                list(end).isfolder = true;                
             end    
         else
             % remove '.' and '..'
@@ -366,7 +366,7 @@ else
     end
     
     % define shortcuts
-    list_isdir = [list.isdir];
+    list_isdir = [list.isfolder];
     list_name = {list.name};
     
     L = {};  % initialize
@@ -468,14 +468,14 @@ end
 if ~isempty(d)
     % add trailing fileseparator to directories
     trailing_fsep = repmat({''}, size(d));
-    trailing_fsep([d.isdir]) = {'/'};
+    trailing_fsep([d.isfolder]) = {'/'};
     
     % prefix startdir to name and postfix fileseparator for directories
     dname = strcat(startdir, {d.name}, trailing_fsep');
     [d(:).name] = deal(dname{:});
     
     % recurse into subdirectories
-    for subd = {d([d.isdir]).name}
+    for subd = {d([d.isfolder]).name}
         d = [d; dir_recur(char(subd), keep_hidden)]; %#ok<AGROW>
     end
 end

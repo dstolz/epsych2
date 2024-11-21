@@ -1,31 +1,30 @@
 function RUNTIME = ep_TimerFcn_RunTime(RUNTIME, AX)
 % RUNTIME = ep_TimerFcn_RunTime(RUNTIME, RP)
-% RUNTIME = ep_TimerFcn_RunTime(RUNTIME, DA)
 % RUNTIME = ep_TimerFcn_RunTime(RUNTIME, SYN)
 % 
 % Default RunTime timer function
 % 
-
-
 % Copyright (C) 2016  Daniel Stolzberg, PhD
 
 
 for i = 1:RUNTIME.NSubjects
 
     if ~RUNTIME.ON_HOLD(i)
-        % Check #RespCode parameter for non-zero value or if #TrigState is true
-        if RUNTIME.UseOpenEx
-            RCtag = AX.GetTargetVal(RUNTIME.RespCodeStr{i});
-            TStag = AX.GetTargetVal(RUNTIME.TrigStateStr{i});
+        % Check _RespCode parameter for non-zero value or if #TrigState is true
+
+        % SYNAPSE NOTE: Only looking at module 1. Will need to look at correct module.
+        if RUNTIME.usingSynapse
+            RCtag = AX.getParameterValue(RUNTIME.TDT.Module_{1},RUNTIME.RespCodeStr{i});
+            TStag = AX.getParameterValue(RUNTIME.TDT.Module_{1},RUNTIME.TrigStateStr{i});
         else
             RCtag = AX(RUNTIME.RespCodeIdx(i)).GetTagVal(RUNTIME.RespCodeStr{i});
             TStag = AX(RUNTIME.TrigStateIdx(i)).GetTagVal(RUNTIME.TrigStateStr{i});
         end
         
-        if~RCtag || TStag, continue; end
+        if ~RCtag || TStag, continue; end
         
-        if RUNTIME.UseOpenEx
-            TrialNum = AX.GetTargetVal(RUNTIME.TrialNumStr{i}) - 1;
+        if RUNTIME.usingSynapse
+            TrialNum = AX.getParameterValue(RUNTIME.TDT.Module_{1},RUNTIME.TrialNumStr{i}) - 1;
         else
             TrialNum = AX(RUNTIME.TrialNumIdx(i)).GetTagVal(RUNTIME.TrialNumStr{i}) - 1;
         end
@@ -57,11 +56,14 @@ for i = 1:RUNTIME.NSubjects
     
     
     
+
+
+
     
     % If in use, wait for manual completion of trial in RPvds
     if isfield(RUNTIME,'TrialCompleteIdx')
-        if RUNTIME.UseOpenEx            
-            TCtag = AX.GetTargetVal(RUNTIME.TrialCompleteStr{i});
+        if RUNTIME.usingSynapse            
+            TCtag = AX.getParameterValue(RUNTIME.TDT.Module_{1},RUNTIME.TrialCompleteStr{i});
         else
             TCtag = AX(RUNTIME.TrialCompleteIdx(i)).GetTagVal(RUNTIME.TrialCompleteStr{i});
         end
@@ -71,6 +73,11 @@ for i = 1:RUNTIME.NSubjects
     if RUNTIME.ON_HOLD(i), continue; end
     
     
+
+
+
+
+
     
     % Collect Buffer if available
     if isfield(RUNTIME,'AcqBufferStr')
@@ -86,6 +93,11 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).TrialIndex = RUNTIME.TRIALS(i).TrialIndex + 1;
     
     
+
+
+
+
+
 
     
     % Select next trial with default or custom function
@@ -108,6 +120,9 @@ for i = 1:RUNTIME.NSubjects
     
     
     
+
+
+
     
     
     % Increment TRIALS.TrialCount for the selected trial index
@@ -123,37 +138,21 @@ for i = 1:RUNTIME.NSubjects
   
     
     
-    % Send trigger to reset components before updating parameters
-    if RUNTIME.UseOpenEx
-        TrigDATrial(AX,RUNTIME.ResetTrigStr{i});
+    % 1. Send trigger to reset components before updating parameters
+    % 2. Update parameters for next trial
+    % 3. Send trigger to indicate ready for a new trial
+    if RUNTIME.usingSynapse
+        TrigSYNTrial(AX,RUNTIME.TDT.Module_{1},RUNTIME.ResetTrigStr{i});
+        UpdateSYNtags(AX,RUNTIME.TRIALS(i));   
+        TrigSYNTrial(AX,RUNTIME.TDT.Module_{1},RUNTIME.NewTrialStr{i});
     else
         TrigRPTrial(AX(RUNTIME.ResetTrigIdx(i)),RUNTIME.ResetTrigStr{i});
-    end
-    
-
-    
-    
-    
-    
-    
-    
-    
-    % Update parameters for next trial
-    feval(sprintf('Update%stags',RUNTIME.TYPE),AX,RUNTIME.TRIALS(i));   
-
-    
-    
-    
-    
-    % Send trigger to indicate ready for a new trial
-    if RUNTIME.UseOpenEx
-        TrigDATrial(AX,RUNTIME.NewTrialStr{i});
-    else
+        UpdateRPtags(AX,RUNTIME.TRIALS(i)); 
         TrigRPTrial(AX(RUNTIME.NewTrialIdx(i)),RUNTIME.NewTrialStr{i});
     end
-
     
 
+    
 
 end
 

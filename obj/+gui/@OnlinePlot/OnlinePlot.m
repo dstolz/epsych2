@@ -1,7 +1,7 @@
 classdef OnlinePlot < gui.Helper & handle
     
     properties
-        ax    (1,1)   % axes handle
+        hax    (1,1)   % axes handle
         
         watchedParams (:,1)  cell
         
@@ -29,10 +29,11 @@ classdef OnlinePlot < gui.Helper & handle
         
         N           (1,:)  double % number of watched parameters
         
-        startTime   (1,6)  double % = clock
+        startTime   (1,1) datetime
         
         BoxID       (1,1)  uint8 = 1;
-        
+       
+        usingSynapse (1,1) logical
     end
     
     properties (SetAccess = private,Hidden)
@@ -45,10 +46,15 @@ classdef OnlinePlot < gui.Helper & handle
     methods
         
         % Constructor
-        function obj = OnlinePlot(RUNTIME,TDTActiveX,watchedParams,ax,BoxID)
+        function obj = OnlinePlot(RUNTIME,AX,watchedParams,hax,BoxID)
             narginchk(2,5);
+
+            obj.RUNTIME = RUNTIME;
+            obj.AX = AX;
+
+            obj.usingSynapse = RUNTIME.usingSynapse;
             
-            if nargin < 4, ax = []; end
+            if nargin < 4, hax = []; end
             if nargin < 5 || isempty(BoxID), BoxID = 1; end
             
             if nargin < 3 || isempty(watchedParams)
@@ -61,13 +67,12 @@ classdef OnlinePlot < gui.Helper & handle
                 watchedParams = p(s);
             end
             
-            obj.TDTActiveX = TDTActiveX;
             obj.watchedParams = watchedParams;
             
-            if isempty(ax)
+            if isempty(hax)
                 obj.setup_figure;
             else
-                obj.ax = ax;
+                obj.hax = hax;
             end
             
             obj.add_context_menu;
@@ -76,11 +81,12 @@ classdef OnlinePlot < gui.Helper & handle
             
             
             % set default trial-based parameter tag to use.
-            % > #TrigState~1 is contained in the standard epsych RPvds
+            % > _TrigState~1 is contained in the standard epsych RPvds
             % macros and is assigned an integer id after the ~ based on the
             % macros settings.  Default = 1.
             obj.BoxID = BoxID;
-            obj.trialParam = sprintf('#TrigState~%d',BoxID);
+
+            obj.trialParam = sprintf('_TrigState~%d',BoxID);
             
             obj.Timer = ep_GenericGUITimer(obj.figH,sprintf('OnlinePlot~%d',BoxID));
             obj.Timer.StartFcn = @obj.setup_plot; % THESE MIGHT NEED TO BE STATIC FUNCTIONS?!
@@ -111,7 +117,7 @@ classdef OnlinePlot < gui.Helper & handle
         end
         
         function c = get.figH(obj)
-            c = ancestor(obj.ax,'figure');
+            c = ancestor(obj.hax,'figure');
         end
         
         function s = get.figName(obj)
@@ -196,9 +202,10 @@ classdef OnlinePlot < gui.Helper & handle
             
             if ~isempty(obj.trialParam)
                 try
-                    obj.trialBuffer(end+1) = obj.getParamVals(obj.TDTActiveX,obj.trialParam);
+                    obj.trialBuffer(end+1) = obj.getParamVals(obj.trialParam);
+                   
                 catch
-                    vprintf(0,1,'Unable to read the RPvds parameter: %s\nUpdate the trialParam to an existing parameter in the RPvds circuit', ...
+                    vprintf(0,1,'Unable to read the parameter: %s\nUpdate the trialParam to an existing parameter in the RPvds circuit', ...
                         obj.trialParam)
                     c = obj.get_menu_item('uic_plotType');
                     delete(c);
@@ -206,10 +213,12 @@ classdef OnlinePlot < gui.Helper & handle
                 end
             end
             
-            obj.Buffers(:,end+1) = obj.getParamVals(obj.TDTActiveX,obj.watchedParams);
+            obj.Buffers(:,end+1) = obj.getParamVals(obj.watchedParams);
+
+
             if obj.setZeroToNan, obj.Buffers(obj.Buffers(:,end)==0,end) = nan; end
             
-            obj.Time(end+1) = seconds(etime(clock,obj.startTime));
+            obj.Time(end+1) = datetime("now")-obj.startTime;
             
             if obj.paused, return; end
             
@@ -219,11 +228,11 @@ classdef OnlinePlot < gui.Helper & handle
             end
             
             if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
-                obj.ax.XLim = obj.last_trial_onset + obj.timeWindow;
+                obj.hax.XLim = obj.last_trial_onset + obj.timeWindow;
             elseif obj.trialLocked
-                obj.ax.XLim = obj.timeWindow;
+                obj.hax.XLim = obj.timeWindow;
             else
-                obj.ax.XLim = obj.Time(end) + obj.timeWindow;
+                obj.hax.XLim = obj.Time(end) + obj.timeWindow;
             end
             drawnow limitrate
             
@@ -253,25 +262,25 @@ classdef OnlinePlot < gui.Helper & handle
             delete(obj.lineH);
             
             for i = 1:length(obj.watchedParams)
-                obj.lineH(i) = line(obj.ax,seconds(0),obj.yPositions(i), ...
+                obj.lineH(i) = line(obj.hax,seconds(0),obj.yPositions(i), ...
                     'color',obj.lineColors(i,:), ...
                     'linewidth',obj.lineWidth(i));
             end
             
             
-            xtickformat(obj.ax,'mm:ss.S');
-            grid(obj.ax,'on');
+            xtickformat(obj.hax,'mm:ss.S');
+            grid(obj.hax,'on');
             
-            obj.ax.YAxis.Limits = [.8 obj.yPositions(end)+.2];
-            obj.ax.YAxis.TickValues = obj.yPositions;
-            obj.ax.YAxis.TickLabelInterpreter = 'none';
-            obj.ax.YAxis.TickLabels = obj.watchedParams;
-            obj.ax.XMinorGrid = 'on';
-            obj.ax.Box = 'on';
+            obj.hax.YAxis.Limits = [.8 obj.yPositions(end)+.2];
+            obj.hax.YAxis.TickValues = obj.yPositions;
+            obj.hax.YAxis.TickLabelInterpreter = 'none';
+            obj.hax.YAxis.TickLabels = obj.watchedParams;
+            obj.hax.XMinorGrid = 'on';
+            obj.hax.Box = 'on';
             
-            %obj.ax.XAxis.Label.String = 'time since start (mm:ss)';
+            %obj.hax.XAxis.Label.String = 'time since start (mm:ss)';
             
-            obj.startTime = clock;
+            obj.startTime = datetime("now");
         end
         
         
@@ -286,7 +295,7 @@ classdef OnlinePlot < gui.Helper & handle
             figure(f);
             f.Position([3 4]) = [800 175];
             
-            obj.ax = axes(f);
+            obj.hax = axes(f);
             
             f.Visible = 'on';
         end
@@ -294,9 +303,9 @@ classdef OnlinePlot < gui.Helper & handle
         function add_context_menu(obj)
             c = uicontextmenu(obj.figH);
             
-            switch class(obj.ax)
+            switch class(obj.hax)
                 case 'matlab.ui.control.UIAxes'
-                    obj.ax.ContextMenu = c; 
+                    obj.hax.ContextMenu = c; 
                 otherwise
                     c.Parent = obj.figH;
             end
@@ -305,7 +314,7 @@ classdef OnlinePlot < gui.Helper & handle
             uimenu(c,'Tag','uic_pause','Label','Pause ||','Callback',@obj.pause);
             uimenu(c,'Tag','uic_plotType','Label','Set Plot to Trial-Locked','Callback',{@obj.plot_type,true});
             uimenu(c,'Tag','uic_timeWindow','Label',sprintf('Time Window = [%.1f %.1f] seconds',obj.timeWindow2number),'Callback',@obj.update_window);
-            obj.ax.UIContextMenu = c;
+            obj.hax.UIContextMenu = c;
         end
         
         function stay_on_top(obj,varargin)
@@ -366,8 +375,8 @@ classdef OnlinePlot < gui.Helper & handle
         end
         
         function c = get_menu_item(obj,tag) 
-            C = obj.ax.ContextMenu.Children;
-            c = C(ismember({obj.ax.ContextMenu.Children.Tag},tag));
+            C = obj.hax.ContextMenu.Children;
+            c = C(ismember({obj.hax.ContextMenu.Children.Tag},tag));
         end
     end
     

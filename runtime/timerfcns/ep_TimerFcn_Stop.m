@@ -1,10 +1,8 @@
 function RUNTIME = ep_TimerFcn_Stop(RUNTIME,AX)
-% RUNTIME = ep_TimerFcn_Stop(RUNTIME,DA)
+% RUNTIME = ep_TimerFcn_Stop(RUNTIME,SYN)
 % RUNTIME = ep_TimerFcn_Stop(RUNTIME,RP)
 % 
-% Default Stop timer function
-% 
-% Use ep_PsychConfig GUI to specify custom timer function.
+% Default Stop timer function.
 % 
 % Daniel.Stolzberg@gmail.com
 
@@ -13,12 +11,8 @@ function RUNTIME = ep_TimerFcn_Stop(RUNTIME,AX)
 % not doing anything with CONFIG
 
 
-if RUNTIME.UseOpenEx
-    AX.SetSysMode(0);
-    AX.CloseConnection;
-    delete(AX);
-    h = findobj('Type','figure','-and','Name','ODevFig');
-    close(h);
+if RUNTIME.usingSynapse
+    if AX.getMode > 0, AX.setMode(0); end
 else
     for i = 1:length(AX)
         AX(i).Halt;

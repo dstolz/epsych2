@@ -262,7 +262,7 @@ cfg.ref.level = str2num(get(h.ref_dB,'String')); %#ok<ST2NM>
 cfg.ref.norm  = str2num(get(h.norm_level,'String')); %#ok<ST2NM>
 
 function run_calibration_Callback(hObj, ~, h) %#ok<DEFNU>
-if ~isdir('CalUtil_RPvds')
+if ~isfolder('CalUtil_RPvds')
     errordlg('RPvds calibration files directory could not be found on MATLAB search path', ...
         'Calibration');
 end
@@ -906,7 +906,7 @@ if ~isempty(fh), close(fh); end
 function SaveCalibration(hdr,data)  
 % calibration directory
 dd = 'C:\gits\epsych\UserFiles\SanesLab\SpeakerCalibrations';
-if ~isdir(dd), mkdir(dd); end
+if ~isfolder(dd), mkdir(dd); end
 [fn,pn,fidx] = uiputfile({ ...
     '*.cal','Calibration File (*.cal)'; ...
     '*.txt','OLD FORMAT - Text File (*.txt)'; ...

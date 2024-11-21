@@ -1,7 +1,8 @@
 classdef Helper < handle
     
     properties
-        TDTActiveX  % COM.RPco_X || COM.TDevAcc_X
+        AX  % COM.RPco_X || SynapseAPI
+        RUNTIME
     end
     
     properties (SetAccess = private)
@@ -10,50 +11,57 @@ classdef Helper < handle
     
     methods
         % Constructor
-        function obj = Helper(TDTActiveX)
-            if nargin < 1, TDTActiveX = []; end
-            if ~isempty(TDTActiveX)
-                obj.TDTActiveX = TDTActiveX;
+        function obj = Helper(AX)
+            if nargin < 1, AX = []; end
+            if ~isempty(AX)
+                obj.AX = AX;
             end
         end
         
-        function set.TDTActiveX(obj,TDTActiveX)
-            assert(isempty(TDTActiveX)||gui.Helper.isRPcox(TDTActiveX)||gui.Helper.isOpenEx(TDTActiveX), ...
-                'epsych:epGenericHelper:TDTActiveX','TDTActiveX must be COM.RPco_X or COM.TDevAcc_X')
-            obj.TDTActiveX = TDTActiveX;
+        function set.AX(obj,AX)
+            assert(isempty(AX)||gui.Helper.isRPcox(AX)||gui.Helper.isSynapse(AX), ...
+                'epsych:epGenericHelper:AX','AX must be COM.RPco_X or SynapseAPI')
+            obj.AX = AX;
         end
         
         function v = readparamTags(obj,paramTags)
             
         end
-    end
-    
-    
-    methods (Static)
-        function r = isRPcox(TDTActiveX)
-            r = isa(TDTActiveX,'COM.RPco_x');
-        end
-        function x = isOpenEx(TDTActiveX)
-            x = isa(TDTActiveX,'COM.TDevAcc_X');
-        end
-        function v = TDTactiveXisvalid(TDTActiveX)
-            v = gui.Helper.isRPcox(TDTActiveX) || gui.Helper.isOpenEx(TDTActiveX);
-        end
-        
-        function v = getParamVals(TDTActiveX,params)
-            assert(gui.Helper.TDTactiveXisvalid(TDTActiveX), ...
-                'gui.Helper:getParamVals','Invalid TDT ActiveX control!');
+
+
+
+
+        function v = getParamVals(obj,params)
+
+            assert(obj.TDTactiveXisvalid(obj.AX), ...
+                'gui.Helper:getParamVals','Invalid TDT control!');
             params = cellstr(params);
             N = numel(params);
             v = zeros(size(params),'single');
             for i = 1:N
-                if gui.Helper.isOpenEx(TDTActiveX)
-                    v(i) = single(TDTActiveX.GetTargetVal(params{i}));
+                if obj.isSynapse(obj.AX)
+                    v(i) = single(obj.AX.getParameterValue(obj.RUNTIME.TDT.Module_{1},params{i}));
                     
-                elseif gui.Helper.isRPcox(TDTActiveX)
-                    v(i) = single(TDTActiveX.GetTagVal(params{i}));
+                elseif gui.Helper.isRPcox(obj.AX)
+                    v(i) = single(obj.AX.GetTagVal(params{i}));
                 end
             end
+        end
+        
+    end
+    
+    
+    methods (Static)
+        function r = isRPcox(AX)
+            r = isa(AX,'COM.RPco_x');
+        end
+        
+        function s = isSynapse(AX)
+            s = isa(AX,'SynapseAPI');
+        end
+
+        function v = TDTactiveXisvalid(AX)
+            v = gui.Helper.isSynapse(AX) || gui.Helper.isRPcox(AX);
         end
         
         

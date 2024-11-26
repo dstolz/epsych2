@@ -145,110 +145,13 @@ classdef cl_AversiveDetection_GUI < handle
 
             % > Trial Controls
             layoutTrialControls = uigridlayout(panelTrialControls);
-            layoutTrialControls.ColumnWidth = {'1x',100};
+            layoutTrialControls.ColumnWidth = {'1x'};
             layoutTrialControls.RowHeight = repmat({25},1,6);
             layoutTrialControls.RowSpacing = 1;
             layoutTrialControls.ColumnSpacing = 5;
             layoutTrialControls.Padding = [0 0 0 0];
             layoutTrialControls.Scrollable = "on";
 
-
-            % >> Consecutive NOGO min
-            lblConsecutiveNOGOmin = uilabel(layoutTrialControls);
-            lblConsecutiveNOGOmin.Layout.Row = 1;
-            lblConsecutiveNOGOmin.Layout.Column = 1;
-            lblConsecutiveNOGOmin.Text = "Consecutive NOGO (min):";
-            lblConsecutiveNOGOmin.HorizontalAlignment = "right";
-
-            % >> Consecutive NOGO min dropdown
-            ddConsecutiveNOGOmin = uidropdown(layoutTrialControls);
-            ddConsecutiveNOGOmin.Layout.Row = 1;
-            ddConsecutiveNOGOmin.Layout.Column = 2;
-            ddConsecutiveNOGOmin.Tag = 'ddConsecutiveNOGOmin';
-            ddConsecutiveNOGOmin.Items = arrayfun(@num2str,0:10,'uni',0);
-            ddConsecutiveNOGOmin.Value = '3';
-
-
-            % >> Consecutive NOGO max
-            lblConsecutiveNOGOmax = uilabel(layoutTrialControls);
-            lblConsecutiveNOGOmax.Layout.Row = 2;
-            lblConsecutiveNOGOmax.Layout.Column = 1;
-            lblConsecutiveNOGOmax.Text = "Consecutive NOGO (max):";
-            lblConsecutiveNOGOmax.HorizontalAlignment = "right";
-
-            % >> Consecutive NOGO max dropdown
-            ddConsecutiveNOGOmax = uidropdown(layoutTrialControls);
-            ddConsecutiveNOGOmax.Layout.Row = 2;
-            ddConsecutiveNOGOmax.Layout.Column = 2;
-            ddConsecutiveNOGOmax.Tag = 'ddConsecutiveNOGOmax';
-            ddConsecutiveNOGOmax.Items = arrayfun(@num2str,1:20,'uni',0);
-            ddConsecutiveNOGOmax.Value = '5';
-
-
-            % >> Intertrial Interval
-            lblIntertrialInterval = uilabel(layoutTrialControls);
-            lblIntertrialInterval.Layout.Row = 3;
-            lblIntertrialInterval.Layout.Column = 1;
-            lblIntertrialInterval.Text = "Intertrial Interval (s):";
-            lblIntertrialInterval.HorizontalAlignment = "right";
-
-            % >> Intertrial Interval dropdown
-            ddIntertrialInterval = uidropdown(layoutTrialControls);
-            ddIntertrialInterval.Layout.Row = 3;
-            ddIntertrialInterval.Layout.Column = 2;
-            ddIntertrialInterval.Tag = 'ddIntertrialInterval';
-            ddIntertrialInterval.Items = arrayfun(@num2str,0.05:0.05:1,'uni',0);
-            ddIntertrialInterval.Value = '0.1';
-
-            % >> Response Window Duration
-            lblResponseWindowDuration = uilabel(layoutTrialControls);
-            lblResponseWindowDuration.Layout.Row = 4;
-            lblResponseWindowDuration.Layout.Column = 1;
-            lblResponseWindowDuration.Text = "Response Window Duration (s):";
-            lblResponseWindowDuration.HorizontalAlignment = "right";
-
-            % >> Response Window Duration dropdown
-            ddResponseWindowDuration = uidropdown(layoutTrialControls);
-            ddResponseWindowDuration.Layout.Row = 4;
-            ddResponseWindowDuration.Layout.Column = 2;
-            ddResponseWindowDuration.Tag = 'ddResponseWindowDuration';
-            ddResponseWindowDuration.Items = arrayfun(@num2str,0.05:0.05:1,'uni',0);
-            ddResponseWindowDuration.Value = '0.1';
-
-
-            % >> Optogenetic trigger
-            lblOptogeneticTrigger = uilabel(layoutTrialControls);
-            lblOptogeneticTrigger.Layout.Row = 5;
-            lblOptogeneticTrigger.Layout.Column = 1;
-            lblOptogeneticTrigger.Text = "Optogenetic Trigger:";
-            lblOptogeneticTrigger.HorizontalAlignment = "right";
-
-            % >> Optogenetic trigger dropdown
-            ddOptogeneticTrigger = uidropdown(layoutTrialControls);
-            ddOptogeneticTrigger.Layout.Row = 5;
-            ddOptogeneticTrigger.Layout.Column = 2;
-            ddOptogeneticTrigger.Tag = 'ddOptogeneticTrigger';
-            ddOptogeneticTrigger.Items = {'Off','On'};
-            ddOptogeneticTrigger.Value = 'Off';
-
-
-            % >> Trial order
-            lblTrialOrder = uilabel(layoutTrialControls);
-            lblTrialOrder.Layout.Row = 6;
-            lblTrialOrder.Layout.Column = 1;
-            lblTrialOrder.Text = "Trial order:";
-            lblTrialOrder.HorizontalAlignment = "right";
-
-            % >> Trial order dropdown
-            ddTrialOrder = uidropdown(layoutTrialControls);
-            ddTrialOrder.Layout.Row = 6;
-            ddTrialOrder.Layout.Column = 2;
-            ddTrialOrder.Tag = 'ddTrialOrder';
-            ddTrialOrder.Items = {'Descending','Ascending','Random'};
-            ddTrialOrder.Value = 'Descending';
-
-
-            % SOUND CONTROLS -----------------------------------------------------
             % Panel for "Sound Controls"
             panelSoundControls = uipanel(mainLayout, 'Title', 'Sound Controls');
             panelSoundControls.Layout.Row = [6 7];
@@ -263,12 +166,60 @@ classdef cl_AversiveDetection_GUI < handle
             layoutSoundControls.Padding = [0 0 0 0];
             layoutSoundControls.Scrollable = "on";
 
+            % >> Consecutive NOGO min
+            p = obj.RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',3);
+            h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
+            h.h_value.Items = arrayfun(@num2str,0:3,'uni',0);
+            h.h_label.Text = "Consecutive NoGo (min):";
+            
+            % >> Consecutive NOGO max
+            p = obj.RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',5);
+            h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
+            h.h_value.Items = arrayfun(@num2str,3:20,'uni',0);
+            h.h_label.Text = "Consecutive NoGo (max):";
+
+            
+            % >> Trial order
+            p = obj.RUNTIME.S.Module.add_parameter('Trial_Order','Descending');
+            h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
+            h.h_value.Items = {'Descending','Ascending','Random'};
+            h.h_value.Value = 'Descending';
+            h.h_label.Text = "Trial Order:";
+
+
+
+
+            % >> Intertrial Interval
+            p = obj.RUNTIME.HW.find_parameter('ITI_dur');
+            h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
+            h.h_value.Items = arrayfun(@num2str,0.25:0.25:2,'uni',0);
+            h.h_label.Text = "Intertrial Interval (s):";
+
+
+            % >> Response Window Duration
+            p = obj.RUNTIME.HW.find_parameter('RespWinDur');
+            h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
+            h.h_value.Items = arrayfun(@num2str,0.05:0.05:1,'uni',0);
+            h.h_label.Text = "Response Window Duration (s):";
+           
+
+            % >> Optogenetic trigger
+            p = obj.RUNTIME.HW.find_parameter('Optostim');
+            h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
+            h.h_value.Items = {'0','1'};
+            h.h_value.Value = '0';
+            h.h_label.Text = "Optogenetic Trigger:";
+
+
+
+            % SOUND CONTROLS -----------------------------------------------------
 
             % >> dB SPL
             p = obj.RUNTIME.HW.find_parameter('dBSPL');
             hp(1) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             hp(1).h_value.Items = arrayfun(@num2str,0:5:85,'uni',0);
             hp(1).h_label.Text = "Sound Level (dB SPL):";
+
 
             % >> Duration
             p = obj.RUNTIME.HW.find_parameter('Stim_Duration');
@@ -309,7 +260,8 @@ classdef cl_AversiveDetection_GUI < handle
 
             % >> Commit button
             h = gui.Parameter_Update(layoutSoundControls);
-            h.watchedHandles = hp;
+            hp = findall(fig,'-regexp','tag','^PC_');
+            h.watchedHandles = [hp.UserData];
 
 
 

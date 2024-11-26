@@ -15,8 +15,8 @@ classdef Parameter < matlab.mixin.SetGet
         Min (1,1) double = -inf
         Max (1,1) double = inf
         Access (1,:) char {mustBeMember(Access,{'Read','Write','Read / Write'})} = 'Read / Write'
-        Type (1,:) char {mustBeMember(Type,{'Float','Integer','Buffer','Coefficient Buffer','Undefined'})} = 'Float'
-        Format (1,:) char = '%11.4g'
+        Type (1,:) char {mustBeMember(Type,{'Float','Integer','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+        Format (1,:) char = '%g'
 
 
         isArray (1,1) logical = false
@@ -26,9 +26,8 @@ classdef Parameter < matlab.mixin.SetGet
         Visible (1,1) logical = true % optionally hide parameter 
     end
 
-    properties (SetObservable,GetObservable)
-        % don't 
-        Value  % set by parent function using obj.setValue()
+    properties (SetObservable,GetObservable) 
+        Value
         lastUpdated (1,1) datetime = datetime("now");
     end
 
@@ -42,7 +41,6 @@ classdef Parameter < matlab.mixin.SetGet
         function obj = Parameter(Parent)
             if nargin == 1
                 obj.Parent = Parent;
-
                 obj.HW = Parent.HW;
             end
         end
@@ -59,7 +57,12 @@ classdef Parameter < matlab.mixin.SetGet
                 v = nan;
                 return
             end
-            v = obj.HW.get_parameter(obj,includeInvisible=true);
+
+            if isequal(obj.HW,0)
+                v = obj.Value;
+            else
+                v = obj.HW.get_parameter(obj,includeInvisible=true);
+            end
         end
 
         function set.Value(obj,value)
@@ -68,13 +71,15 @@ classdef Parameter < matlab.mixin.SetGet
                 return
             end
 
-            if value < obj.Min || value > obj.Max
+            if ~isequal(obj.Type,'String') && (value < obj.Min || value > obj.Max)
                 vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
                 return
             end
 
             obj.Value = value;
-            obj.HW.set_parameter(obj,value);
+            if ~isequal(obj.HW,0)
+                obj.HW.set_parameter(obj,value);
+            end
             obj.lastUpdated = datetime("now");
         end
 
@@ -92,6 +97,16 @@ classdef Parameter < matlab.mixin.SetGet
 
         function vn = get.validName(obj)
             vn = matlab.lang.makeValidName(obj.Name);
+        end
+
+
+        function set.Type(obj,type)
+            obj.Type = type;
+            if isequal(obj.Type,'String')
+                obj.Format = '%s';
+            else
+                obj.Format = '%g';
+            end
         end
     end
 

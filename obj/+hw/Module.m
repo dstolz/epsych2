@@ -30,6 +30,25 @@ classdef Module < handle
         end
 
         
+        function P = add_parameter(obj,name,value)
+            arguments
+                obj
+                name (1,:) char {mustBeText}
+                value
+            end
+
+            if isstring(value), value = char(value); end
+
+            P = hw.Parameter(obj);
+            P.Name = name;
+            if ischar(value)
+                P.Type = "String";
+            end            
+            P.Value = value;
+            
+
+            obj.Parameters(end+1) = P;
+        end
     end
 
 end

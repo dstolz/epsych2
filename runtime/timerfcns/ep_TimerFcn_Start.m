@@ -146,6 +146,12 @@ for i = 1:RUNTIME.NSubjects
     % 3. Trigger first new trial
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
 
+
+    % TESTING SOFTWWARE INTERFACE
+    RUNTIME.S = hw.Software(wp,trials);
+
+
+
     
 end
 

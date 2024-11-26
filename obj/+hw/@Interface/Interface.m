@@ -16,10 +16,10 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         mode (1,1) hw.DeviceState
     end
 
-    properties (Abstract,Dependent)
-        status (1,:) char {mustBeMember(status,['undefined','idle','ready','running','error'])}
-        statusMessage (1,:) char
-    end
+    % properties (Abstract,Dependent)
+    %     status (1,:) char {mustBeMember(status,['undefined','idle','ready','running','error'])}
+    %     statusMessage (1,:) char
+    % end
 
     methods (Abstract,Access = protected)
         % setup hardware interface. this function must define obj.HW
@@ -32,7 +32,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
     methods (Abstract)
 
-       % trigger a hardware event
+        % trigger a hardware event
         result = trigger(name)
 
         % set new value to one or more hardware parameters
@@ -49,7 +49,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
         function P = find_parameter(obj,name,options)
             % P = find_parameter(obj,name)
-            % 
+            %
             % name can be a single char vector or a cellstr array
             %
             % Returns a handle to the hw.Parameter object(s). Can be
@@ -57,12 +57,12 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % modules
             %
             % options:
-            %   silenceParameterNotFound    default = false  
+            %   silenceParameterNotFound    default = false
             %   includeInvisible            default = false
-            % 
+            %
             arguments
                 obj
-                name 
+                name
                 options.includeInvisible (1,1) logical = false
                 options.silenceParamterNotFound (1,1) logical = false
             end
@@ -75,7 +75,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
             if any(ind)
                 P = P(ind);
-                
+
                 % return in original order
                 [~,idx] = ismember(name,{P.Name});
                 P = P(idx);
@@ -92,15 +92,15 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
         function P = filter_parameters(obj,propertyName,propertyValue,options)
             % P = obj.filter_parameters(propertyName,propertyValue,options)
-            % 
+            %
             % options:
             %   testFcn   default = @isequal
             %               other common functions:
             %                   @contains, @startsWith, etc.
             %   includeInvisible    default = false
-            % 
+            %
             % ex: P = obj.filter_parameters('Access','Read',testFcn=@contains)
-            
+
             arguments
                 obj
                 propertyName (1,:) char
@@ -118,7 +118,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
         function P = all_parameters(obj,options)
             % P = all_parameters(obj,options)
-            % 
+            %
             % options:
             %   includeInvisible    default = false
             %   includeTriggers     default = true
@@ -144,6 +144,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 P=P(~[P.isArray]);
             end
         end
+
     end
 
 end

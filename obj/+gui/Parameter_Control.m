@@ -6,6 +6,8 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             Parameter (1,1) hw.Parameter % handle to parameter
 
             type (1,:) char {mustBeMember(type,{'editfield','dropdown'})} = 'editfield'           
+
+            autoCommit (1,1) logical = false
         end
 
         properties (SetObservable = true)
@@ -29,12 +31,15 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     parent
                     Parameter
                     options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown'})} = 'editfield'
+                    options.autoCommit (1,1) logical = false
                 end
                 obj.parent = parent;
                 
                 obj.Parameter = Parameter;
                 obj.type = options.Type;
                 
+                obj.autoCommit = options.autoCommit;
+
                 obj.create;
             end
 
@@ -44,8 +49,15 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     obj.reset_label;
                     return
                 end
-                obj.ValueUpdated = true;
+                
                 obj.h_label.BackgroundColor = obj.color_updated;
+                if obj.autoCommit
+                    obj.Parameter.Value = event.Value;
+                    drawnow limitrate
+                    obj.reset_label;
+                else
+                    obj.ValueUpdated = true;
+                end
             end
 
             function reset_label(obj)
@@ -85,8 +97,17 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                         h = uidropdown(hl);
                        
                 end
-                h.Tag = sprintf('PC_%s',P.Name);
+
+                if obj.autoCommit
+                    h.Tag = sprintf('ACPC_%s',P.Name);
+                else
+                    h.Tag = sprintf('PC_%s',P.Name);
+                end
+
+                h.UserData = obj;
                 h.ValueChangedFcn = @obj.value_changed;
+                
+                
                 obj.h_value = h;
 
             end

@@ -3,8 +3,7 @@ classdef OnlinePlot < gui.Helper & handle
     properties
         hax    (1,1)   % axes handle
         
-        watchedParams (:,1)  cell
-        
+        watchedParams (1,:) hw.Parameter
         trialParam  (1,1) hw.Parameter
         
         lineWidth   (:,1) double {mustBePositive,mustBeFinite} % line plot width [obj.N,1]
@@ -56,9 +55,7 @@ classdef OnlinePlot < gui.Helper & handle
             obj.HW = RUNTIME.HW;
             
             if nargin < 2 || isempty(watchedParams)
-                wp = RUNTIME.TRIALS(BoxID).writeparams;
-                tp = RUNTIME.TDT.triggers{1}'; % TO DO: design for multiple modules
-                p = [wp,tp];
+                p = RUNTIME.HW.filter_parameters('Access','Read',testFcn=@contains);
                 [s,v] = listdlg('PromptString','Select parameters for plot', ...
                     'SelectionMode','multiple','ListString',p);
                 if v == 0, delete(obj); return; end
@@ -68,7 +65,7 @@ classdef OnlinePlot < gui.Helper & handle
             if nargin < 3, hax = gca; end
             if nargin < 4 || isempty(BoxID), BoxID = 1; end
             
-            obj.watchedParams = watchedParams;
+            obj.watchedParams = obj.HW.find_parameter(watchedParams,includeInvisible=true);
             
             if isempty(hax)
                 obj.setup_figure;
@@ -87,13 +84,14 @@ classdef OnlinePlot < gui.Helper & handle
             % macros settings.  Default = 1.
             obj.BoxID = BoxID;
 
+            % locate and return TrigState parameter handle
             obj.trialParam = obj.HW.find_parameter(sprintf('_TrigState~%d',BoxID),includeInvisible=true);
             
             obj.Timer = ep_GenericGUITimer(obj.figH,sprintf('OnlinePlot~%d',BoxID));
             obj.Timer.StartFcn = @obj.setup_plot; % THESE MIGHT NEED TO BE STATIC FUNCTIONS?!
             obj.Timer.TimerFcn = @obj.update;
             obj.Timer.ErrorFcn = @obj.error;
-            obj.Timer.Period = 0.05;
+            obj.Timer.Period = 0.1;
             
             start(obj.Timer);
             
@@ -215,8 +213,8 @@ classdef OnlinePlot < gui.Helper & handle
             end
             
 
-            % TO DO: UPGRADE TO HW INTERFACE
-            obj.Buffers(:,end+1) = obj.getParamVals(obj.watchedParams);
+
+            obj.Buffers(:,end+1) = [obj.watchedParams.Value];
 
 
             if obj.setZeroToNan, obj.Buffers(obj.Buffers(:,end)==0,end) = nan; end
@@ -277,7 +275,7 @@ classdef OnlinePlot < gui.Helper & handle
             obj.hax.YAxis.Limits = [.8 obj.yPositions(end)+.2];
             obj.hax.YAxis.TickValues = obj.yPositions;
             obj.hax.YAxis.TickLabelInterpreter = 'none';
-            obj.hax.YAxis.TickLabels = obj.watchedParams;
+            obj.hax.YAxis.TickLabels = {obj.watchedParams.Name};
             obj.hax.XMinorGrid = 'on';
             obj.hax.Box = 'on';
             
@@ -299,6 +297,8 @@ classdef OnlinePlot < gui.Helper & handle
             f.Position([3 4]) = [800 175];
             
             obj.hax = axes(f);
+            disableDefaultInteractivity(obj.hax);
+            obj.hax.Toolbar = [];
             
             f.Visible = 'on';
         end
@@ -343,11 +343,14 @@ classdef OnlinePlot < gui.Helper & handle
 
             c = obj.get_menu_item('uic_plotType');
             atw = abs(obj.timeWindow);
+            
             if isempty(obj.trialParam)
                 vprintf(0,1,'Unable to set the plot to Trial-Locked mode because the trialParam is empty')
+
             elseif obj.trialLocked
                 obj.timeWindow = [-min(atw) max(atw)];
                 c.Label = 'Set Plot to Free-Running';
+
             else
                 obj.timeWindow = [-max(atw) min(atw)];
                 c.Label = 'Set Plot to Trial-Locked';

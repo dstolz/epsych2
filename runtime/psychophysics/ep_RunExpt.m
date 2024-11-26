@@ -199,7 +199,7 @@ switch COMMAND
         RUNTIME.TIMER = CreateTimer(h.figure1);
 
         % Update hardware mode
-        RUNTIME.HW.set_mode(COMMAND);
+        RUNTIME.HW.mode = hw.DeviceState(COMMAND);
 
 
         vprintf(0,'System set to ''%s''',COMMAND)
@@ -270,7 +270,7 @@ h = guidata(f);
 
 UpdateGUIstate(h);
 
-RUNTIME = feval(FUNCS.TIMERfcn.Start,CONFIG,RUNTIME);
+RUNTIME = feval(FUNCS.TIMERfcn.Start,RUNTIME,CONFIG);
 
 RUNTIME.StartTime = datetime('now');
 vprintf(0,'Experiment started at %s',RUNTIME.StartTime)
@@ -296,7 +296,7 @@ end
 function PsychTimerRunTime(~,~,f)
 global RUNTIME FUNCS
 
-if RUNTIME.HW.get_mode < 2
+if RUNTIME.HW.mode == hw.DeviceState.Idle
     h = guidata(f);
     ExptDispatch(h.ctrl_halt,h);
     return
@@ -448,8 +448,8 @@ end
 
 
 function LocateBehaviorGUI(h)
-global FUNCS RUNTIME AX
-feval(FUNCS.BoxFig,RUNTIME,AX);
+global FUNCS RUNTIME
+feval(FUNCS.BoxFig,RUNTIME);
 
 
 

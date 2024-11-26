@@ -24,7 +24,8 @@ classdef cl_AversiveDetection_GUI < handle
             obj.RUNTIME = RUNTIME;
 
             % only permit one instance to run
-            f = findall(0,'Type','figure','Tag','cl_AversiveDetection_GUI');
+            f = findall(groot,'Type','figure');
+            f = f(startsWith({f.Tag},'cl_AversiveDetection'));
             if ~isempty(f), delete(f); end
             % obj.psychDetect = psychophysics.Detection;
 
@@ -151,6 +152,7 @@ classdef cl_AversiveDetection_GUI < handle
             layoutTrialControls.Padding = [0 0 0 0];
             layoutTrialControls.Scrollable = "on";
 
+
             % >> Consecutive NOGO min
             lblConsecutiveNOGOmin = uilabel(layoutTrialControls);
             lblConsecutiveNOGOmin.Layout.Row = 1;
@@ -254,157 +256,60 @@ classdef cl_AversiveDetection_GUI < handle
 
             % > Sound Controls
             layoutSoundControls = uigridlayout(panelSoundControls);
-            layoutSoundControls.ColumnWidth = {'1x',100};
+            layoutSoundControls.ColumnWidth = {'1x'};
             layoutSoundControls.RowHeight = repmat({25},1,9);
             layoutSoundControls.RowSpacing = 1;
             layoutSoundControls.ColumnSpacing = 5;
             layoutSoundControls.Padding = [0 0 0 0];
             layoutSoundControls.Scrollable = "on";
 
-            % >> Frequency
-            lblFrequency = uilabel(layoutSoundControls);
-            lblFrequency.Layout.Row = 1;
-            lblFrequency.Layout.Column = 1;
-            lblFrequency.Text = "Frequency (Hz):";
-            lblFrequency.HorizontalAlignment = "right";
-
-            % >> Frequency dropdown
-            ddFrequency = uidropdown(layoutSoundControls);
-            ddFrequency.Layout.Row = 1;
-            ddFrequency.Layout.Column = 2;
-            ddFrequency.Tag = 'ddFrequency';
-            ddFrequency.Items = {'500','1000','2000','4000'};
-            ddFrequency.Value = '1000';
-
 
             % >> dB SPL
-            lbldBSPL = uilabel(layoutSoundControls);
-            lbldBSPL.Layout.Row = 2;
-            lbldBSPL.Layout.Column = 1;
-            lbldBSPL.Text = "dB SPL:";
-            lbldBSPL.HorizontalAlignment = "right";
-
-            % >> dB SPL dropdown
-            dddBSPL = uidropdown(layoutSoundControls);
-            dddBSPL.Layout.Row = 2;
-            dddBSPL.Layout.Column = 2;
-            dddBSPL.Tag = 'dddBSPL';
-            dddBSPL.Items = arrayfun(@num2str,0:5:85,'uni',0);
-            dddBSPL.Value = '60';
-
+            p = obj.RUNTIME.HW.find_parameter('dBSPL');
+            hp(1) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            hp(1).h_value.Items = arrayfun(@num2str,0:5:85,'uni',0);
+            hp(1).h_label.Text = "Sound Level (dB SPL):";
 
             % >> Duration
-            lblDuration = uilabel(layoutSoundControls);
-            lblDuration.Layout.Row = 3;
-            lblDuration.Layout.Column = 1;
-            lblDuration.Text = "Duration (s):";
-            lblDuration.HorizontalAlignment = "right";
-
-            % >> Duration dropdown
-            ddDuration = uidropdown(layoutSoundControls);
-            ddDuration.Layout.Row = 3;
-            ddDuration.Layout.Column = 2;
-            ddDuration.Tag = 'ddDuration';
-            ddDuration.Items = arrayfun(@num2str,0.25:0.25:2,'uni',0);
-            ddDuration.Value = '1';
-
+            p = obj.RUNTIME.HW.find_parameter('Stim_Duration');
+            hp(2) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            hp(2).h_value.Items = arrayfun(@num2str,0.25:0.25:2,'uni',0);
+            hp(2).h_label.Text = "Stimulus Duration (s):";
 
 
             % >> AM Rate
-            lblAMRate = uilabel(layoutSoundControls);
-            lblAMRate.Layout.Row = 4;
-            lblAMRate.Layout.Column = 1;
-            lblAMRate.Text = "AM Rate (Hz):";
-            lblAMRate.HorizontalAlignment = "right";
-
-            % >> AM Rate dropdown
-            ddAMRate = uidropdown(layoutSoundControls);
-            ddAMRate.Layout.Row = 4;
-            ddAMRate.Layout.Column = 2;
-            ddAMRate.Tag = 'ddAMRate';
-            ddAMRate.Items = arrayfun(@num2str,1:20,'uni',0);
-            ddAMRate.Value = '5';
+            p = obj.RUNTIME.HW.find_parameter('AMrate');
+            hp(3) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            hp(3).h_value.Items = arrayfun(@num2str,1:20,'uni',0);
+            hp(3).h_label.Text = "AM Rate (Hz):";
 
 
             % >> AM Depth
-            lblAMDepth = uilabel(layoutSoundControls);
-            lblAMDepth.Layout.Row = 5;
-            lblAMDepth.Layout.Column = 1;
-            lblAMDepth.Text = "AM Depth (%):";
-            lblAMDepth.HorizontalAlignment = "right";
-
-            % >> AM Depth dropdown
-            ddAMRate = uidropdown(layoutSoundControls);
-            ddAMRate.Layout.Row = 5;
-            ddAMRate.Layout.Column = 2;
-            ddAMRate.Tag = 'ddAMDepth';
-            ddAMRate.Items = arrayfun(@num2str,0:10:100,'uni',0);
-            ddAMRate.Value = '100';
-
-
-            % >> FM Rate
-            lblFMRate = uilabel(layoutSoundControls);
-            lblFMRate.Layout.Row = 6;
-            lblFMRate.Layout.Column = 1;
-            lblFMRate.Text = "FM Rate (Hz):";
-            lblFMRate.HorizontalAlignment = "right";
-
-            % >> FM Rate dropdown
-            ddFMRate = uidropdown(layoutSoundControls);
-            ddFMRate.Layout.Row = 6;
-            ddFMRate.Layout.Column = 2;
-            ddFMRate.Tag = 'ddFMRate';
-            ddFMRate.Items = arrayfun(@num2str,1:20,'uni',0);
-            ddFMRate.Value = '4';
-
-
-            % >> FM Depth
-            lblFMDepth = uilabel(layoutSoundControls);
-            lblFMDepth.Layout.Row = 7;
-            lblFMDepth.Layout.Column = 1;
-            lblFMDepth.Text = "FM Depth (%):";
-            lblFMDepth.HorizontalAlignment = "right";
-
-            % >> FM Depth dropdown
-            ddFMRate = uidropdown(layoutSoundControls);
-            ddFMRate.Layout.Row = 7;
-            ddFMRate.Layout.Column = 2;
-            ddFMRate.Tag = 'ddFMDepth';
-            ddFMRate.Items = arrayfun(@num2str,0:10:100,'uni',0);
-            ddFMRate.Value = '100';
+            p = obj.RUNTIME.HW.find_parameter('AMdepth');
+            hp(4) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            hp(4).h_value.Items =  arrayfun(@num2str,0:10:100,'uni',0);
+            hp(4).h_label.Text = "AM Depth (%):";
 
 
 
             % >> Highpass cutoff
-            lblHighpassCutoff = uilabel(layoutSoundControls);
-            lblHighpassCutoff.Layout.Row = 8;
-            lblHighpassCutoff.Layout.Column = 1;
-            lblHighpassCutoff.Text = "Highpass cutoff (Hz):";
-            lblHighpassCutoff.HorizontalAlignment = "right";
-
-            % >> Highpass cutoff dropdown
-            ddHighpassCutoff = uidropdown(layoutSoundControls);
-            ddHighpassCutoff.Layout.Row = 8;
-            ddHighpassCutoff.Layout.Column = 2;
-            ddHighpassCutoff.Tag = 'ddHighpassCutoff';
-            ddHighpassCutoff.Items = arrayfun(@num2str,25:25:300,'uni',0);
-            ddHighpassCutoff.Value = '100';
+            p = obj.RUNTIME.HW.find_parameter('Highpass');
+            hp(5) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            hp(5).h_value.Items =  arrayfun(@num2str,25:25:300,'uni',0);
+            hp(5).h_label.Text = "Highpass cutoff (Hz):";
 
 
             % >> Lowpass cutoff
-            lblLowpassCutoff = uilabel(layoutSoundControls);
-            lblLowpassCutoff.Layout.Row = 9;
-            lblLowpassCutoff.Layout.Column = 1;
-            lblLowpassCutoff.Text = "Lowpass cutoff (kHz):";
-            lblLowpassCutoff.HorizontalAlignment = "right";
+            p = obj.RUNTIME.HW.find_parameter('Lowpass');
+            hp(6) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            hp(6).h_value.Items =  arrayfun(@num2str,5:5:30,'uni',0);
+            hp(6).h_label.Text = "Lowpass cutoff (kHz):";
+            
 
-            % >> Lowpass cutoff dropdown
-            ddLowpassCutoff = uidropdown(layoutSoundControls);
-            ddLowpassCutoff.Layout.Row = 9;
-            ddLowpassCutoff.Layout.Column = 2;
-            ddLowpassCutoff.Tag = 'ddLowpassCutoff';
-            ddLowpassCutoff.Items = arrayfun(@num2str,5:5:30,'uni',0);
-            ddLowpassCutoff.Value = '20';
+
+            % >> Commit button
+            h = gui.Parameter_Update(layoutSoundControls);
+            h.watchedHandles = hp;
 
 
 
@@ -757,7 +662,8 @@ classdef cl_AversiveDetection_GUI < handle
             % Create separate legacy figure for online plotting because
             % it's much faster than uifigure
             % Axes for Behavior Plot --------------------------------------------
-            figOnlinePlot = figure(Name = 'Online Plot');
+            figOnlinePlot = figure(Name = 'Online Plot', ...
+                Tag = 'cl_AversiveDetection_OnlinePlot');
             p = fig.Position;
             figOnlinePlot.Position(1) = p(1);
             figOnlinePlot.Position(2) = p(2) + p(4) + 30;

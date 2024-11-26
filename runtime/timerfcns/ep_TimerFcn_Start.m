@@ -1,7 +1,5 @@
-function RUNTIME = ep_TimerFcn_Start(CONFIG, RUNTIME, AX)
-% RUNTIME = ep_TimerFcn_Start(CONFIG, RUNTIME, RP)
-% RUNTIME = ep_TimerFcn_Start(CONFIG, RUNTIME, DA)
-% RUNTIME = ep_TimerFcn_Start(CONFIG, RUNTIME, SYN)
+function RUNTIME = ep_TimerFcn_Start(RUNTIME,CONFIG)
+% RUNTIME = ep_TimerFcn_Start(RUNTIME,CONFIG)
 % 
 % Default Start timer function
 % 
@@ -10,13 +8,11 @@ function RUNTIME = ep_TimerFcn_Start(CONFIG, RUNTIME, AX)
 % 
 % Use ep_PsychConfig GUI to specify custom timer function.
 % 
-% Daniel.Stolzberg@gmail.com 2019
-
 % Copyright (C) 2019  Daniel Stolzberg, PhD
+% updated for hardware abstraction 2024 DS
+
 
 E = EPsychInfo;
-
-
 
 % make temporary directory in current folder for storing data during
 % runtime in case of a computer crash or Matlab error
@@ -130,7 +126,6 @@ for i = 1:RUNTIME.NSubjects
 
 
     % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
-
     load(RUNTIME.TRIALS(i).protocol_fn,'-mat');
     RUNTIME.TRIALS(i).protocol = protocol;
 
@@ -144,11 +139,9 @@ for i = 1:RUNTIME.NSubjects
     % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE
     % EFFICIENT
     trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
-    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams);
-    arrayfun(@(a,b) a.Parent.set_parameter(a,b{1}),P,trials);
-    % for t = 1:length(wp)
-    %     P.HW.set_parameter(wp{i},trials{t});
-    % end
+    wp = RUNTIME.TRIALS.writeparams;
+    P = RUNTIME.HW.find_parameter(wp);
+    for j = 1:length(P), P(j).Value = trials{j};  end
 
     % 3. Trigger first new trial
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);

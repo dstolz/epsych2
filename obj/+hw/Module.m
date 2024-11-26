@@ -1,7 +1,7 @@
 classdef Module < handle
         
     properties (SetAccess = immutable)
-        Parent (1,1) 
+        HW (1,1)  % parent hardware interface (inherits hw.Interface)
 
         Label   (1,:) char
         Name    (1,:) char
@@ -20,10 +20,10 @@ classdef Module < handle
     end
 
     methods
-        function obj = Module(Parent,Label,Name,Index)
+        function obj = Module(HW,Label,Name,Index)
             narginchk(4,4);
 
-            obj.Parent = Parent;
+            obj.HW = HW;
             obj.Label = Label;
             obj.Name = Name;
             obj.Index = Index;

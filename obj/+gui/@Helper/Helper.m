@@ -31,22 +31,22 @@ classdef Helper < handle
 
 
 
-        function v = getParamVals(obj,params)
-
-            assert(obj.TDTactiveXisvalid(obj.AX), ...
-                'gui.Helper:getParamVals','Invalid TDT control!');
-            params = cellstr(params);
-            N = numel(params);
-            v = zeros(size(params),'single');
-            for i = 1:N
-                if obj.isSynapse(obj.AX)
-                    v(i) = single(obj.AX.getParameterValue(obj.RUNTIME.TDT.Module_{1},params{i}));
-                    
-                elseif gui.Helper.isRPcox(obj.AX)
-                    v(i) = single(obj.AX.GetTagVal(params{i}));
-                end
-            end
-        end
+        % function v = getParamVals(obj,params)
+        % 
+        %     assert(obj.TDTactiveXisvalid(obj.AX), ...
+        %         'gui.Helper:getParamVals','Invalid TDT control!');
+        %     params = cellstr(params);
+        %     N = numel(params);
+        %     v = zeros(size(params),'single');
+        %     for i = 1:N
+        %         if obj.isSynapse(obj.AX)
+        %             v(i) = single(obj.AX.getParameterValue(obj.RUNTIME.TDT.Module_{1},params{i}));
+        % 
+        %         elseif gui.Helper.isRPcox(obj.AX)
+        %             v(i) = single(obj.AX.GetTagVal(params{i}));
+        %         end
+        %     end
+        % end
         
     end
     

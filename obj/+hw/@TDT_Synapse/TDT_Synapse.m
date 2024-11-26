@@ -2,8 +2,7 @@ classdef TDT_Synapse < hw.Interface
 
 
     properties
-        ExperimentInfo
-
+        ExperimentInfo (1,1) struct
     end
 
 
@@ -68,14 +67,14 @@ classdef TDT_Synapse < hw.Interface
 
 
 
-    methods % INHERITED FROM ABSTRACT CLASS hw.Interface
+    methods (Access=protected) % INHERITED FROM ABSTRACT CLASS hw.Interface
         setup_interface(obj)
 
 
 
         function close_interface(obj)
-            if obj.HW.Mode > 0
-                obj.HW.setMode(0);
+            if obj.HW.Mode > hw.DeviceState.Idle
+                obj.HW.mode = hw.DeviceState.Idle;
             end
 
             try %#ok<TRYNC>
@@ -88,11 +87,12 @@ classdef TDT_Synapse < hw.Interface
 
 
 
+    end
 
 
 
 
-
+    methods % INHERITED FROM ABSTRACT CLASS hw.Interface
 
 
 
@@ -108,27 +108,22 @@ classdef TDT_Synapse < hw.Interface
 
 
 
-        function set_mode(obj,mode)
-            if ischar(mode)
-                if isequal(mode,'Run'), mode = 'Record'; end % translate
-                
-                if ~isequal(obj.modeStr,mode)
-                    obj.HW.setModeStr(mode);
-                end
-            else
-                if obj.mode ~= mode
-                    obj.HW.setMode(mode);
-                end
+        function set.mode(obj,mode)
+            % 0 (Idle), 1 (Standby), 2 (Preview), 3 (Record)
+            if obj.mode ~= mode
+                obj.HW.setMode(double(mode));
+                vprintf(2,'HW mode: %s',char(obj.mode))
             end
         end
 
 
         function m = get.mode(obj)
             m = obj.HW.getMode();
+            m = hw.DeviceState(m);
         end
 
         function m = get.modeStr(obj)
-            m = obj.HW.getModeStr();
+            m = char(obj.mode);
         end
 
 
@@ -140,7 +135,13 @@ classdef TDT_Synapse < hw.Interface
         % trigger a hardware event
         function t = trigger(obj,name)
             % t = trigger(obj,name);
-            % t = trigger(obj,hw.Parameter)
+            % t = trigger(obj,P);
+            % 
+            % send trigger; that is quickly set logical parameter to high
+            % and then low.
+            %
+            % name      name of an existing parameter
+            % P         handle to a parameter object
 
             if isa(name,'hw.Parameter')
                 P = name;
@@ -148,7 +149,10 @@ classdef TDT_Synapse < hw.Interface
                 P = obj.find_parameter(name);
             end
 
-            e = obj.HW.setParameterValue(P.Parent.Label,P.Name,1);
+            module = P.Parent.Label;
+            trig = P.Name;
+
+            e = obj.HW.setParameterValue(module,trig,1);
             
             t = datetime('now');
             
@@ -193,16 +197,28 @@ classdef TDT_Synapse < hw.Interface
 
         
         % read current value for one or more hardware parameters
-        function value = get_parameter(obj,name)
+        function value = get_parameter(obj,name,options)
+            arguments
+                obj
+                name
+                options.includeInvisible (1,1) logical = false
+                options.silenceParamterNotFound (1,1) logical = false
+            end
 
             if isa(name,'hw.Parameter')
                 P = name;
+                name = {P.Name};
             else
-                P = obj.find_parameter(name);
+                P = obj.find_parameter(name, ...
+                    includeInvisible = options.includeInvisible, ...
+                    silenceParamterNotFound=options.silenceParamterNotFound);
             end
-
             
             value = arrayfun(@(p) obj.HW.getParameterValue(p.Parent.Label,p.Name),P);
+
+            % return in original order
+            [~,idx] = ismember(name,{P.Name});
+            value = value(idx);
         end
 
 

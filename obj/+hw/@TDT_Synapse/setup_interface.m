@@ -3,6 +3,13 @@ function setup_interface(obj) % hw.TDT_Synapse
 
 vprintf(2,'Establishing Synapse API')
 
+
+% check if SynapseAPI is on the path
+w = which('SynapseAPI');
+if isempty(w)
+    error('SynapseAPI not found on Matlab''s path.')
+end
+
 % Establish SynapseAPI object
 obj.HW = SynapseAPI(obj.Server);
 
@@ -57,7 +64,7 @@ mp = cellfun(@(a) a(~startsWith(a,p)),mp,'uni',0);
 for m = 1:obj.nModules
     tagInfo = cellfun(@(a) obj.HW.getParameterInfo(obj.Module(m).Label,a),mp{m},'uni',1);
     for t = tagInfo(:)'
-        P = hw.Parameter(obj);
+        P = hw.Parameter(obj.Module(m));
 
         P.Name = t.Name;
         P.Unit = t.Unit;

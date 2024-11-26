@@ -56,8 +56,8 @@ classdef TDT_RPcox < hw.Interface
 
 
         function close_interface(obj)
-            if obj.HW.Mode > 0
-                obj.HW.set_mode(0);
+            if obj.HW.Mode > hw.DeviceState.Idle
+                obj.HW.mode = hw.DeviceState.Idle;
             end
 
             try %#ok<TRYNC>
@@ -82,29 +82,21 @@ classdef TDT_RPcox < hw.Interface
 
 
 
-        function set_mode(obj,mode)
-            if ischar(mode)
-                switch mode
-                    case {'Run','Record','Preview','Standby'} % all the same
-                        obj.HW.run;
-
-                    case 'Idle'
-                        obj.HW.halt;
-                end
+        function set.mode(obj,mode)
+            if mode > hw.DeviceState.Idle
+                obj.HW.run;
             else
-                if mode > 0
-                    obj.HW.run;
-                else
-                    obj.HW.halt;
-                end
+                obj.HW.halt;
             end
+            vprintf(2,'HW mode: %s',char(obj.mode))
 
         end
 
 
         function m = get.mode(obj)
-            m = obj.HW.status();
-            
+            % m = obj.HW.status();
+            m = double(obj.HW.RP.GetStatus);
+            m = hw.DeviceState(m);
         end
 
         function m = get.modeStr(obj)
@@ -115,6 +107,8 @@ classdef TDT_RPcox < hw.Interface
                     m = 'Connected';
                 case 2
                     m = 'Circuit loaded';
+                case 3
+                    m = 'Connected & Loaded';
                 case 4
                     m = 'Circuit running';
 
@@ -205,6 +199,7 @@ classdef TDT_RPcox < hw.Interface
 
             if isa(name,'hw.Parameter')
                 P = name;
+                name = {P.Name};
             else
                 P = obj.find_parameter(name, ...
                     includeInvisible = options.includeInvisible, ...
@@ -215,6 +210,11 @@ classdef TDT_RPcox < hw.Interface
             for i = 1:length(P)
                 value(i) = P.HW.read(P.Name);
             end
+
+
+            % return in original order
+            [~,idx] = ismember(name,{P.Name});
+            value = value(idx);
         end
 
     end

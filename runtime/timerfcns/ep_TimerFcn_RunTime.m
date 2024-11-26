@@ -1,10 +1,11 @@
-function RUNTIME = ep_TimerFcn_RunTime(RUNTIME, AX)
-% RUNTIME = ep_TimerFcn_RunTime(RUNTIME, RP)
-% RUNTIME = ep_TimerFcn_RunTime(RUNTIME, SYN)
+function RUNTIME = ep_TimerFcn_RunTime(RUNTIME)
+% RUNTIME = ep_TimerFcn_RunTime(RUNTIME)
 % 
 % Default RunTime timer function
 % 
+
 % Copyright (C) 2016  Daniel Stolzberg, PhD
+% updated for hardware abstraction 2024 DS
 
 
 for i = 1:RUNTIME.NSubjects
@@ -131,7 +132,7 @@ for i = 1:RUNTIME.NSubjects
     
 
     % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
-    vprintf(2,'Triggering first trial on box %d',i)
+    vprintf(2,'Triggering trial on box %d',i)
 
     % 1. Send trigger to reset components before updating parameters
     RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
@@ -140,15 +141,13 @@ for i = 1:RUNTIME.NSubjects
     % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE
     % EFFICIENT
     trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
-    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams);
-    arrayfun(@(a,b) a.Parent.set_parameter(a,b{1}),P,trials);
-    % for t = 1:length(wp)
-    %     P.HW.set_parameter(wp{i},trials{t});
-    % end
+    wp = RUNTIME.TRIALS.writeparams;
+    P = RUNTIME.HW.find_parameter(wp);
+    for j = 1:length(P), P(j).Value = trials{j}; end
 
     % 3. Trigger first new trial
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
-    
+
 
 end
 

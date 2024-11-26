@@ -21,10 +21,6 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         statusMessage (1,:) char
     end
 
-    properties (Abstract)
-       ExperimentInfo (1,1) % custom structure
-    end
-
     methods (Abstract,Access = protected)
         % setup hardware interface. this function must define obj.HW
         setup_interface()
@@ -46,10 +42,6 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         % read current value for one or more hardware parameters
         value  = get_parameter(name)
 
-
-        set_mode(mode)
-
-
     end
 
 
@@ -63,6 +55,11 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % Returns a handle to the hw.Parameter object(s). Can be
             % an array of Parameters if the same tag is found on multiple
             % modules
+            %
+            % options:
+            %   silenceParameterNotFound    default = false  
+            %   includeInvisible            default = false
+            % 
             arguments
                 obj
                 name 
@@ -78,10 +75,18 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
             if any(ind)
                 P = P(ind);
-            elseif ~options.silenceParamterNotFound
-                cellfun(@(a) vprintf(0,1,'Parameter "%s" was not found on any modules',a),name)
+                
+                % return in original order
+                [~,idx] = ismember(name,{P.Name});
+                P = P(idx);
+            else
                 P = [];
+                if ~options.silenceParamterNotFound
+                    cellfun(@(a) vprintf(0,1,'Parameter "%s" was not found on any modules',a),name)
+                end
             end
+
+
         end
 
 
@@ -92,7 +97,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             %   testFcn   default = @isequal
             %               other common functions:
             %                   @contains, @startsWith, etc.
-            %
+            %   includeInvisible    default = false
+            % 
             % ex: P = obj.filter_parameters('Access','Read',testFcn=@contains)
             
             arguments
@@ -111,15 +117,31 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
 
         function P = all_parameters(obj,options)
+            % P = all_parameters(obj,options)
+            % 
+            % options:
+            %   includeInvisible    default = false
+            %   includeTriggers     default = true
+            %   includeArray        default = true
             arguments
                 obj
+                options.includeTriggers (1,1) logical = true
                 options.includeInvisible (1,1) logical = false
+                options.includeArray (1,1) logical = true
             end
 
             P = [obj.Module(:).Parameters];
 
             if ~options.includeInvisible
                 P=P([P.Visible]);
+            end
+
+            if ~options.includeTriggers
+                P=P(~[P.isTrigger]);
+            end
+
+            if ~options.includeArray
+                P=P(~[P.isArray]);
             end
         end
     end

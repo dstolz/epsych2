@@ -3,9 +3,6 @@ classdef Parameter < matlab.mixin.SetGet
     properties (SetAccess = immutable)
         Parent (1,1) %hw.Module % perhaps this can be useful without a parent?
         HW (1,1)  % handle to hardware interface; reflects parent object's handle
-
-        %  bmn = ["RespCode","TrigState","NewTrial","ResetTrig","TrialNum", ...
-        % 'TrialComplete','AcqBuffer','AcqBufferSize'];
     end
 
     properties
@@ -19,7 +16,8 @@ classdef Parameter < matlab.mixin.SetGet
         Max (1,1) double = inf
         Access (1,:) char {mustBeMember(Access,{'Read','Write','Read / Write'})} = 'Read / Write'
         Type (1,:) char {mustBeMember(Type,{'Float','Integer','Buffer','Coefficient Buffer','Undefined'})} = 'Float'
-        Format (1,:) char = '%g%s'
+        Format (1,:) char = '%11.4g'
+
 
         isArray (1,1) logical = false
         isTrigger (1,1) logical = false
@@ -28,7 +26,8 @@ classdef Parameter < matlab.mixin.SetGet
         Visible (1,1) logical = true % optionally hide parameter 
     end
 
-    properties (SetObservable,GetObservable,AbortSet)
+    properties (SetObservable,GetObservable)
+        % don't 
         Value  % set by parent function using obj.setValue()
         lastUpdated (1,1) datetime = datetime("now");
     end
@@ -55,17 +54,31 @@ classdef Parameter < matlab.mixin.SetGet
         % end
 
         function v = get.Value(obj)
-            v = obj.Parent.get_parameter(obj,includeInvisible=true);
+            if isequal(obj.Access,'Write')
+                vprintf(0,1,'"%s" is a write-only parameter',obj.Name)
+                v = nan;
+                return
+            end
+            v = obj.HW.get_parameter(obj,includeInvisible=true);
         end
 
-        function set_Value(obj,value)
+        function set.Value(obj,value)
             if isequal(obj.Access,'Read')
                 vprintf(0,1,'"%s" is a read-only parameter',obj.Name)
                 return
             end
+
+            if value < obj.Min || value > obj.Max
+                vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
+                return
+            end
+
             obj.Value = value;
+            obj.HW.set_parameter(obj,value);
             obj.lastUpdated = datetime("now");
         end
+
+
 
         function vstr = get.ValueStr(obj)
             if isempty(obj.Format)

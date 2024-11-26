@@ -70,7 +70,7 @@ end
 
 SetDefaultFuncs(FUNCS);
 
-clear global PRGMSTATE CONFIG RUNTIME AX SYN SYN_STATUS STATEID FUNCS
+clear global PRGMSTATE CONFIG RUNTIME  SYN SYN_STATUS STATEID FUNCS
 
 delete(hObj)
 
@@ -78,7 +78,7 @@ delete(hObj)
 
 
 function ExptDispatch(hObj,h)
-global PRGMSTATE CONFIG AX RUNTIME
+global PRGMSTATE CONFIG  RUNTIME
 
 
 COMMAND = get(hObj,'String');
@@ -134,114 +134,45 @@ switch COMMAND
         x = strfind(result,'No tasks are running');
         RUNTIME.usingSynapse = isempty(x); %#ok<STREMP>
         
-        
-        if RUNTIME.usingSynapse
-            %-------------------------------------------------
-            %Synapse is running
-            %-------------------------------------------------
-            vprintf(0,'Experiment will be run with Synapse')
-            
-            %Connect to the locally running Synapse
-            AX = SynapseAPI('localhost');
-            
-            pause(1)
-            
 
-            % start in idle if not already there
-            if AX.getMode > 0, AX.setMode(0); end
+        try
+            if RUNTIME.usingSynapse
+                %-------------------------------------------------
+                %Synapse is running
+                %-------------------------------------------------
+                vprintf(0,'Experiment will be run with Synapse')
 
 
-            %Switch Synapse into Standby Mode. Important to do this before
-            %creating an open developer active X control to talk to any
-            %hardware running in legacy mode.
-            AX.setModeStr('Standby');
-            
-            pause(1)
+                RUNTIME.HW = hw.TDT_Synapse();
 
-            % AX.setModeStr('Preview');
-            % 
-            % pause(1)
-            
-            
-            %Get Device Names and Sampling rates
-            tdt = AX.getSamplingRates;
-            fn = fieldnames(tdt);
-            xind = startsWith(fn,'x_');
-            tdt = rmfield(tdt,fn(xind));
-            TDT.Module = fieldnames(tdt);
-            TDT.Fs = struct2array(tdt);
-            TDT.nModules = length(TDT.Module);
 
-            for m = 1:TDT.nModules
-                TDT.Module_{m} = [strrep(TDT.Module{m},'_','('),')'];
-                t = AX.getParameterNames(TDT.Module_{m});
-                t = t(cellfun(@(a) ~any(a(1)=='~%\/_'),t));
-                TDT.Tags{m} = cellfun(@(a) AX.getParameterInfo(TDT.Module_{m},a),t,'uni',1);
+            else % experiment using RPco.x
+
+                %-------------------------------------------------
+                %If Synapse is not running (behavior only)
+                %-------------------------------------------------
+
+
+                M = CONFIG.PROTOCOL.MODULES;
+                moduleAlias = fieldnames(M);
+                rpvdsFile = structfun(@(a) cellstr(a.RPfile),M,'uni',1);
+
+                % *** TEMPORARY FIX. WHERE IS MODULE INFO? ***
+                moduleType = repmat({'RZ6'},size(rpvdsFile)); 
+
+                RUNTIME.HW = hw.TDT_RPcox(rpvdsFile,moduleType,moduleAlias);
+
+
             end
-            
-
-
-            
-                        
-            for m = 1:TDT.nModules
-                modInfo = AX.getGizmoInfo(TDT.Module_{m});
-                if strcmp(modInfo.cat,'Legacy')
-                    ind = m;
-                    break
-                end
-            end
-            
-            mod = TDT.Module_{ind};
-            
-            % copy to RUNTIME
-            RUNTIME.TDT = TDT;
-            
-            %Adjust parameter names for synapse compatibility
-            wp = CONFIG.PROTOCOL.COMPILED.writeparams;
-            rp = CONFIG.PROTOCOL.COMPILED.readparams;
-            
-            CONFIG.PROTOCOL.COMPILED.Mwriteparams = correctTagsSyn(wp,mod);
-            CONFIG.PROTOCOL.COMPILED.Mreadparams  = correctTagsSyn(rp,mod);
-
-            % remove module prefix
-            CONFIG.PROTOCOL.COMPILED.readparams_  = cellfun(@(a) a(find(a=='.',1)+1:end),rp,'uni',0);
-            CONFIG.PROTOCOL.COMPILED.writeparams_ = cellfun(@(a) a(find(a=='.',1)+1:end),wp,'uni',0);
-            
-            % Copy parameters to RUNTIME.TRIALS
-            for i = 1:length(CONFIG)
-                C = CONFIG(i).PROTOCOL.COMPILED;
-                RUNTIME.TRIALS(i).readparams    = C.readparams;
-                RUNTIME.TRIALS(i).readparams_   = C.readparams_;
-                RUNTIME.TRIALS(i).Mreadparams   = C.Mreadparams;
-                RUNTIME.TRIALS(i).writeparams   = C.writeparams;
-                RUNTIME.TRIALS(i).writeparams_  = C.writeparams_;
-                RUNTIME.TRIALS(i).Mwriteparams  = C.Mwriteparams;
-                RUNTIME.TRIALS(i).randparams    = C.randparams;
-            end
-            
-        
-            
-        else % experiment using RPco.x
-                
-            %-------------------------------------------------
-            %If Synapse is not running (behavior only)
-            %-------------------------------------------------
-        
-            try
-                [AX,RUNTIME] = SetupRPexpt(CONFIG);
-            catch me
-                set(h.figure1,'pointer','arrow'); drawnow
-                rethrow(me);
-            end
-            if isempty(AX), return; end
-            
-            
+        catch me
+            set(h.figure1,'pointer','arrow'); drawnow
+            rethrow(me);
         end
-        
-        
-        
-        
-        
+
+
+
+
+
         
         
         %-------------------------------------------------
@@ -259,36 +190,6 @@ switch COMMAND
         
         
         
-        % Do stuff with parameter tags
-        RUNTIME.TDT.triggers = cell(1,RUNTIME.TDT.nModules);
-        for i = 1:RUNTIME.TDT.nModules
-            
-            %If Synapse is not running
-            if ~RUNTIME.usingSynapse
-                
-                %If the module is a PA5
-                if ismember(RUNTIME.TDT.Module{i},{'PA5','UNKNOWN'}) % PA5 is marked 'UNKNOWN' when using OpenDeveloper
-                    RUNTIME.TDT.devinfo(i).tags = {'SetAtten'};
-                    RUNTIME.TDT.devinfo(i).datatype = {'S'};
-                    
-                    %If the module is not a PA5, and there's a circuit loaded
-                elseif ~isempty(RUNTIME.TDT.RPfile{i})
-                    
-                    %Read parameter tags using RPVds Active X Controls
-                    [RUNTIME.TDT.devinfo(i).tags,RUNTIME.TDT.devinfo(i).datatype] = ReadRPvdsTags(RUNTIME.TDT.RPfile{i});
-                end
-            end
-            
-            
-            
-            % look for trigger tags starting with '!'
-            ind = cellfun(@(x) (x(1)=='!'),t);
-            if any(ind)
-                RUNTIME.TDT.triggers{i} = t(ind);
-                RUNTIME.TDT.trigmods(i) = i;
-            end
-            
-        end
         
 
 
@@ -297,22 +198,12 @@ switch COMMAND
         %Create trimer
         RUNTIME.TIMER = CreateTimer(h.figure1);
 
-        
-        %If running synapse, set mode using Synapse API
-        if RUNTIME.usingSynapse
-            
-            switch COMMAND
-                case 'Run'
-                    AX.setModeStr('Record');
+        % Update hardware mode
+        RUNTIME.HW.set_mode(COMMAND);
 
-                case 'Preview'
-                    AX.setModeStr('Preview');
-            end
-            
-            vprintf(0,'System set to ''%s''',COMMAND)
-            pause(1);
-            
-        end
+
+        vprintf(0,'System set to ''%s''',COMMAND)
+        pause(1);
         
         
         
@@ -328,13 +219,15 @@ switch COMMAND
         PRGMSTATE = 'STOP';
         set(h.figure1,'pointer','watch'); %drawnow
         
+        vprintf(3,'ExptDispatch: Stopping BoxTimer')
+        t = timerfind('Name','BoxTimer');
+        if ~isempty(t), stop(t); delete(t); end
+
+
         vprintf(3,'ExptDispatch: Stopping PsychTimer')
         t = timerfind('Name','PsychTimer');
         if ~isempty(t), stop(t); delete(t); end
         
-        vprintf(3,'ExptDispatch: Stopping BoxTimer')
-        t = timerfind('Name','BoxTimer');
-        if ~isempty(t), stop(t); delete(t); end
         
         vprintf(0,'Experiment stopped at %s',datetime("now",Format = 'dd-MMM-yyyy HH:mm'))
         
@@ -369,7 +262,7 @@ T = timer('BusyMode','drop', ...
 
 
 function PsychTimerStart(~,~,f)
-global PRGMSTATE CONFIG AX RUNTIME FUNCS
+global PRGMSTATE CONFIG RUNTIME FUNCS
 
 PRGMSTATE = 'RUNNING';
 
@@ -377,7 +270,7 @@ h = guidata(f);
 
 UpdateGUIstate(h);
 
-RUNTIME = feval(FUNCS.TIMERfcn.Start,CONFIG,RUNTIME,AX);
+RUNTIME = feval(FUNCS.TIMERfcn.Start,CONFIG,RUNTIME);
 
 RUNTIME.StartTime = datetime('now');
 vprintf(0,'Experiment started at %s',RUNTIME.StartTime)
@@ -387,7 +280,7 @@ if isempty(FUNCS.BoxFig)
     vprintf(2,'No Behavior Performance GUI specified')
 else
     try
-        feval(FUNCS.BoxFig, RUNTIME, AX);
+        feval(FUNCS.BoxFig, RUNTIME);
         set(h.mnu_LaunchGUI,'Enable','on');
     catch me
         s = FUNCS.BoxFig;
@@ -401,25 +294,23 @@ end
 
 
 function PsychTimerRunTime(~,~,f)
-global AX RUNTIME FUNCS
+global RUNTIME FUNCS
 
-if RUNTIME.usingSynapse
-    if AX.getMode < 2
-        h = guidata(f);
-        ExptDispatch(h.ctrl_halt,h);
-        return
-    end
+if RUNTIME.HW.get_mode < 2
+    h = guidata(f);
+    ExptDispatch(h.ctrl_halt,h);
+    return
 end
 
-RUNTIME = feval(FUNCS.TIMERfcn.RunTime,RUNTIME,AX);
+RUNTIME = feval(FUNCS.TIMERfcn.RunTime,RUNTIME);
 
 function PsychTimerError(~,~,f)
-global AX PRGMSTATE RUNTIME FUNCS
+global PRGMSTATE RUNTIME FUNCS
 PRGMSTATE = 'ERROR';
 
 RUNTIME.ERROR = lasterror; %#ok<LERR>
 
-RUNTIME = feval(FUNCS.TIMERfcn.Error,RUNTIME,AX);
+RUNTIME = feval(FUNCS.TIMERfcn.Error,RUNTIME);
 
 feval(FUNCS.SavingFcn,RUNTIME);
 
@@ -428,11 +319,11 @@ UpdateGUIstate(guidata(f));
 SaveDataCallback(h);
 
 function PsychTimerStop(~,~,f)
-global AX PRGMSTATE RUNTIME FUNCS
+global PRGMSTATE RUNTIME FUNCS
 PRGMSTATE = 'STOP';
 
 vprintf(3,'PsychTimerStop:Calling timer Stop function: %s',FUNCS.TIMERfcn.Stop)
-RUNTIME = feval(FUNCS.TIMERfcn.Stop,RUNTIME,AX);
+RUNTIME = feval(FUNCS.TIMERfcn.Stop,RUNTIME);
 
 h = guidata(f);
 
@@ -781,7 +672,7 @@ if nargin == 1
 end
 if isempty(idx) || isempty(CONFIG), return; end
 
-if length(CONFIG) == 1
+if isscalar(CONFIG)
     h = ClearConfig(h);
 else
     CONFIG(idx) = [];
@@ -827,7 +718,7 @@ else
     ep_ExperimentDesign(CONFIG.protocolfile{idx},idx);
 end
 
-function SortBoxes(h) %#ok<DEFNU>
+function SortBoxes(h) 
 global STATEID CONFIG
 if STATEID >= 4, return; end
 
@@ -845,7 +736,7 @@ UpdateSubjectList(h);
 
 guidata(h.figure1,h);
 
-function subject_list_CellSelectionCallback(hObj,evnt,~) %#ok<DEFNU>
+function subject_list_CellSelectionCallback(hObj,evnt,~) 
 global CONFIG
 idx = evnt.Indices;
 if isempty(idx)

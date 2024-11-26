@@ -5,7 +5,7 @@ classdef OnlinePlot < gui.Helper & handle
         
         watchedParams (:,1)  cell
         
-        trialParam  (1,:) char
+        trialParam  (1,1) hw.Parameter
         
         lineWidth   (:,1) double {mustBePositive,mustBeFinite} % line plot width [obj.N,1]
         lineColors  (:,3) double {mustBeNonnegative,mustBeLessThanOrEqual(lineColors,1)} % line colors [obj.N,3]
@@ -32,8 +32,11 @@ classdef OnlinePlot < gui.Helper & handle
         startTime   (1,1) datetime
         
         BoxID       (1,1)  uint8 = 1;
-       
-        usingSynapse (1,1) logical
+        
+    end
+
+    properties (SetAccess = immutable)
+        HW
     end
     
     properties (SetAccess = private,Hidden)
@@ -46,18 +49,13 @@ classdef OnlinePlot < gui.Helper & handle
     methods
         
         % Constructor
-        function obj = OnlinePlot(RUNTIME,AX,watchedParams,hax,BoxID)
-            narginchk(2,5);
+        function obj = OnlinePlot(RUNTIME,watchedParams,hax,BoxID)
+            narginchk(2,4);
 
             obj.RUNTIME = RUNTIME;
-            obj.AX = AX;
-
-            obj.usingSynapse = RUNTIME.usingSynapse;
+            obj.HW = RUNTIME.HW;
             
-            if nargin < 4, hax = []; end
-            if nargin < 5 || isempty(BoxID), BoxID = 1; end
-            
-            if nargin < 3 || isempty(watchedParams)
+            if nargin < 2 || isempty(watchedParams)
                 wp = RUNTIME.TRIALS(BoxID).writeparams;
                 tp = RUNTIME.TDT.triggers{1}'; % TO DO: design for multiple modules
                 p = [wp,tp];
@@ -66,6 +64,9 @@ classdef OnlinePlot < gui.Helper & handle
                 if v == 0, delete(obj); return; end
                 watchedParams = p(s);
             end
+            
+            if nargin < 3, hax = gca; end
+            if nargin < 4 || isempty(BoxID), BoxID = 1; end
             
             obj.watchedParams = watchedParams;
             
@@ -86,7 +87,7 @@ classdef OnlinePlot < gui.Helper & handle
             % macros settings.  Default = 1.
             obj.BoxID = BoxID;
 
-            obj.trialParam = sprintf('_TrigState~%d',BoxID);
+            obj.trialParam = obj.HW.find_parameter(sprintf('_TrigState~%d',BoxID),includeInvisible=true);
             
             obj.Timer = ep_GenericGUITimer(obj.figH,sprintf('OnlinePlot~%d',BoxID));
             obj.Timer.StartFcn = @obj.setup_plot; % THESE MIGHT NEED TO BE STATIC FUNCTIONS?!
@@ -202,9 +203,9 @@ classdef OnlinePlot < gui.Helper & handle
             
             if ~isempty(obj.trialParam)
                 try
-                    obj.trialBuffer(end+1) = obj.getParamVals(obj.trialParam);
+                    obj.trialBuffer(end+1) = obj.trialParam.Value;
                    
-                catch
+                catch me
                     vprintf(0,1,'Unable to read the parameter: %s\nUpdate the trialParam to an existing parameter in the RPvds circuit', ...
                         obj.trialParam)
                     c = obj.get_menu_item('uic_plotType');
@@ -213,6 +214,8 @@ classdef OnlinePlot < gui.Helper & handle
                 end
             end
             
+
+            % TO DO: UPGRADE TO HW INTERFACE
             obj.Buffers(:,end+1) = obj.getParamVals(obj.watchedParams);
 
 

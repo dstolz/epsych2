@@ -8,7 +8,6 @@ classdef cl_AversiveDetection_GUI < handle
 
     properties (SetAccess = immutable)
         RUNTIME
-        AX
     end
 
     properties (Hidden)
@@ -19,16 +18,15 @@ classdef cl_AversiveDetection_GUI < handle
 
     methods
         % constructor
-        function obj = cl_AversiveDetection_GUI(RUNTIME,AX)
+        function obj = cl_AversiveDetection_GUI(RUNTIME)
 
 
             obj.RUNTIME = RUNTIME;
-            obj.AX = AX;
 
             % only permit one instance to run
             f = findall(0,'Type','figure','Tag','cl_AversiveDetection_GUI');
             if ~isempty(f), delete(f); end
-            obj.psychDetect = psychophysics.Detection;
+            % obj.psychDetect = psychophysics.Detection;
 
             obj.create_gui;
 
@@ -583,27 +581,6 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-            % Axes for Behavior Plot --------------------------------------------
-            axesBehavior = uiaxes(mainLayout);
-            axesBehavior.Layout.Row = [2, 4];
-            axesBehavior.Layout.Column = [3 7];
-            
-            gui.OnlinePlot(obj.RUNTIME,obj.AX,obj.watchedParameters,axesBehavior,1);
-            
-            % axesBehavior.YLim = [.5 2.5];
-            % axesBehavior.YAxis.TickValues = [1 2];
-            % axesBehavior.YAxis.TickLabels = ["Spout","In Trial"];
-            % axesBehavior.YAxis.FontSize = 12;
-            % axesBehavior.YAxis.FontWeight = "bold";
-            % 
-            % yline(axesBehavior,1.5)
-            % 
-            % box(axesBehavior,'on');
-            % grid(axesBehavior,'on');
-            % xlabel(axesBehavior,'time');
-
-
-
             % Axes for Main Plot ------------------------------------------------
             axesMain = uiaxes(mainLayout);
             axesMain.Layout.Row = [5 10];
@@ -775,6 +752,35 @@ classdef cl_AversiveDetection_GUI < handle
             obj.guiHandles = findobj(fig);
 
             
+
+
+            % Create separate legacy figure for online plotting because
+            % it's much faster than uifigure
+            % Axes for Behavior Plot --------------------------------------------
+            figOnlinePlot = figure(Name = 'Online Plot');
+            p = fig.Position;
+            figOnlinePlot.Position(1) = p(1);
+            figOnlinePlot.Position(2) = p(2) + p(4) + 30;
+            figOnlinePlot.Position(3) = p(3);
+            figOnlinePlot.Position(4) = 200;
+            figOnlinePlot.ToolBar = "none";
+            figOnlinePlot.MenuBar = "none";
+            figOnlinePlot.NumberTitle = "off";
+            axesBehavior = axes(figOnlinePlot);
+            gui.OnlinePlot(obj.RUNTIME,obj.watchedParameters,axesBehavior,1);
+            
+            % axesBehavior.YLim = [.5 2.5];
+            % axesBehavior.YAxis.TickValues = [1 2];
+            % axesBehavior.YAxis.TickLabels = ["Spout","In Trial"];
+            % axesBehavior.YAxis.FontSize = 12;
+            % axesBehavior.YAxis.FontWeight = "bold";
+            % 
+            % yline(axesBehavior,1.5)
+            % 
+            % box(axesBehavior,'on');
+            % grid(axesBehavior,'on');
+            % xlabel(axesBehavior,'time');
+
 
         end
     end

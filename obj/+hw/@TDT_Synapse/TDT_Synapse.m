@@ -2,26 +2,32 @@ classdef TDT_Synapse < hw.Interface
 
 
     properties
-        HW % Synapse API
+        ExperimentInfo
+
     end
 
 
-    properties (SetObservable = true)
-        % hardware setup config. Abort updating if hardware connection is
-        % already established.
+    properties (SetObservable)
+        mode
+        modeStr
+    end
 
-        Server  (1,1) string = "localhost";
+
+    properties (SetAccess = protected)
+        HW (1,1) % handle to Synapse API
+
+        Server  (1,:) char
+
+        nModules
+        Module
     end
 
     properties (Dependent)
-        hw_status
-        hw_statusMessage
+        status
+        statusMessage
     end
 
 
-    properties (SetAccess = private, GetAccess = private)
-        hTDTfig
-    end
 
 
     properties (Constant)
@@ -29,94 +35,179 @@ classdef TDT_Synapse < hw.Interface
     end
 
 
-    methods % INHERITED FROM ABSTRACT CLASS hw.Interface
-        % setup hardware interface. CONFIG is platform dependent
-        function setup_interface(obj)
-            obj.HW = SynapseAPI(obj.Server);
-            
-            %Switch Synapse into Standby Mode. Important to do this before
-            %creating an open developer active X control to talk to any
-            %hardware running in legacy mode.
-            obj.HW.setModeStr('Standby');
-            
-            %Create a hidden figure for active X controls
-            %(for operation in legacy mode)
-            ha = findobj('Type','figure','-and','Name','ODevFig');
-            if isempty(ha)
-                ha = figure('Visible','off','Name','ODevFig');
+
+
+
+
+    methods
+        % constructor
+        function obj = TDT_Synapse(Server)
+            arguments
+                Server (1,:) char = 'localhost';
             end
-            obj.hTDTfig = ha;
+
+            obj.Server = Server;
+
+            obj.setup_interface;
+
+            obj.update_experiment_info;
         end
+    end
+
+
+    methods
+        function update_experiment_info(obj)
+            obj.ExperimentInfo.user         = obj.HW.getCurrentUser();
+            obj.ExperimentInfo.subject      = obj.HW.getCurrentSubject();
+            obj.ExperimentInfo.experiment   = obj.HW.getCurrentExperiment();
+            obj.ExperimentInfo.tank         = obj.HW.getCurrentTank();
+            obj.ExperimentInfo.block        = obj.HW.getCurrentBlock();
+        end
+    end
+
+
+
+
+    methods % INHERITED FROM ABSTRACT CLASS hw.Interface
+        setup_interface(obj)
+
 
 
         function close_interface(obj)
-            obj.HW.setModeStr('Standby');
-            try
+            if obj.HW.Mode > 0
+                obj.HW.setMode(0);
+            end
+
+            try %#ok<TRYNC>
                 delete(obj.HW)
             end
         end
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        function status = get.status(obj)
+        end
+
+        function status = get.statusMessage(obj)
+        end
+
+
+
+
+
+        function set_mode(obj,mode)
+            if ischar(mode)
+                if isequal(mode,'Run'), mode = 'Record'; end % translate
+                
+                if ~isequal(obj.modeStr,mode)
+                    obj.HW.setModeStr(mode);
+                end
+            else
+                if obj.mode ~= mode
+                    obj.HW.setMode(mode);
+                end
+            end
+        end
+
+
+        function m = get.mode(obj)
+            m = obj.HW.getMode();
+        end
+
+        function m = get.modeStr(obj)
+            m = obj.HW.getModeStr();
+        end
+
+
+
+
+
+
+
         % trigger a hardware event
         function t = trigger(obj,name)
+            % t = trigger(obj,name);
+            % t = trigger(obj,hw.Parameter)
 
+            if isa(name,'hw.Parameter')
+                P = name;
+            else
+                P = obj.find_parameter(name);
+            end
 
+            e = obj.HW.setParameterValue(P.Parent.Label,P.Name,1);
+            
+            t = datetime('now');
+            
+            if ~e, throwerrormsg(module,trig); end
+            pause(0.001)
+            
+            e = obj.HW.setParameterValue(module,trig,0);
+            if ~e
+                errordlg(sprintf('UNABLE TO TRIGGER "%s" ON MODULE "%s"',trig,module),'SYNAPSE TRIGGER ERROR','modal')
+                error('UNABLE TO TRIGGER "%s" ON MODULE "%s"',trig,module)
+            end
         end
+        
+        
+
+
 
         % set new value to one or more hardware parameters
         % returns TRUE if successful, FALSE otherwise
-        function result = set_parameter(obj,param,value)
+        function e = set_parameter(obj,name,value)
 
+            if isa(name,'hw.Parameter')
+                P = name;
+            else
+                P = obj.find_parameter(name);
+            end
 
+            if isvector(P) && isscalar(value)
+                value = repmat(value,size(P));
+            end
 
+            assert(numel(value) == numel(P));
 
+            e = arrayfun(@(p,v) obj.HW.setParameterValue(p.Parent.Label,p.Name,v), ...
+                P,value);
         end
 
+
+
+
+
+
+        
         % read current value for one or more hardware parameters
-        function value  = get_parameter(obj,name)
+        function value = get_parameter(obj,name)
 
+            if isa(name,'hw.Parameter')
+                P = name;
+            else
+                P = obj.find_parameter(name);
+            end
+
+            
+            value = arrayfun(@(p) obj.HW.getParameterValue(p.Parent.Label,p.Name),P);
         end
 
 
-
-        function status = get.hw_status(obj)
-            s = double(obj.HW.getMode);
-
-            status = "error"; % default
-            statusMessage = "ok";
-
-            x = bitget(s,1:3);
-
-            if ~any(x)
-                status = "idle";
-            end
-
-            if x(1)
-                status = "connected";
-            else
-                statusMessage = "Error connecting to RP module";
-            end
-
-            if x(2)
-                status = "loaded";
-            else
-                statusMessage = "Error loading circuit to RP module";
-            end
-
-            if x(3)
-                status = "running";
-            else
-                statusMessage = "Error runing the circuit";
-            end
-
-            obj.hw_statusMessage = statusMessage;
-
-        end
     end
 
 
-    methods % CHECK IF hw_status IS "IDLE" AND PARAMETER VALUES
-       
-    end
-
-
+    
 end

@@ -1,3 +1,4 @@
+
 function t = TrigSYNTrial(SYN,module,trig)
 % TrigSYNTrial(SYN,module,trig)
 % t = TrigSYNTrial(SYN,module,trig)

@@ -11,18 +11,5 @@ function RUNTIME = ep_TimerFcn_Stop(RUNTIME,AX)
 % not doing anything with CONFIG
 
 
-if RUNTIME.usingSynapse
-    if AX.getMode > 0, AX.setMode(0); end
-else
-    for i = 1:length(AX)
-        AX(i).Halt;
-        delete(AX(i));
-    end
-    h = findobj('Type','figure','-and','Name','RPfig');
-    close(h);
-end
-
-
-
-
-
+vprintf(2,'Setting mode to Idle')
+RUNTIME.HW.set_mode('Idle');

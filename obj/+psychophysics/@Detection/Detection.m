@@ -81,7 +81,7 @@ classdef Detection
                 p = obj.ValidParameters;
                 T = obj.TRIALS;
                 for i = 1:length(p)
-                    ind = ismember(T.writeparams_,p{i});
+                    ind = ismember(T.writeparams,p{i});
                     if ~any(ind), continue; end
                     a = T.trials(:,ind);
                     if isnumeric(a{1})

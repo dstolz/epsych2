@@ -12,14 +12,8 @@ for i = 1:RUNTIME.NSubjects
     if ~RUNTIME.ON_HOLD(i)
         % Check _RespCode parameter for non-zero value or if #TrigState is true
 
-        % SYNAPSE NOTE: Only looking at module 1. Will need to look at correct module.
-        if RUNTIME.usingSynapse
-            RCtag = AX.getParameterValue(RUNTIME.TDT.Module_{1},RUNTIME.RespCodeStr{i});
-            TStag = AX.getParameterValue(RUNTIME.TDT.Module_{1},RUNTIME.TrigStateStr{i});
-        else
-            RCtag = AX(RUNTIME.RespCodeIdx(i)).GetTagVal(RUNTIME.RespCodeStr{i});
-            TStag = AX(RUNTIME.TrigStateIdx(i)).GetTagVal(RUNTIME.TrigStateStr{i});
-        end
+        RCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).RespCode);
+        TStag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrigState);
         
         if ~RCtag || TStag, continue; end
         
@@ -135,23 +129,25 @@ for i = 1:RUNTIME.NSubjects
     
     
     
-  
-    
-    
-    % 1. Send trigger to reset components before updating parameters
-    % 2. Update parameters for next trial
-    % 3. Send trigger to indicate ready for a new trial
-    if RUNTIME.usingSynapse
-        TrigSYNTrial(AX,RUNTIME.TDT.Module_{1},RUNTIME.ResetTrigStr{i});
-        UpdateSYNtags(AX,RUNTIME.TRIALS(i));   
-        TrigSYNTrial(AX,RUNTIME.TDT.Module_{1},RUNTIME.NewTrialStr{i});
-    else
-        TrigRPTrial(AX(RUNTIME.ResetTrigIdx(i)),RUNTIME.ResetTrigStr{i});
-        UpdateRPtags(AX,RUNTIME.TRIALS(i)); 
-        TrigRPTrial(AX(RUNTIME.NewTrialIdx(i)),RUNTIME.NewTrialStr{i});
-    end
-    
 
+    % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
+    vprintf(2,'Triggering first trial on box %d',i)
+
+    % 1. Send trigger to reset components before updating parameters
+    RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
+
+    % 2. Update parameter tags
+    % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE
+    % EFFICIENT
+    trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
+    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams);
+    arrayfun(@(a,b) a.Parent.set_parameter(a,b{1}),P,trials);
+    % for t = 1:length(wp)
+    %     P.HW.set_parameter(wp{i},trials{t});
+    % end
+
+    % 3. Trigger first new trial
+    RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
     
 
 end

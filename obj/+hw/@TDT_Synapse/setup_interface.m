@@ -43,10 +43,9 @@ mIdx   = uint8(mIdx);
 mLabel = cellfun(@(a,b) sprintf('%s(%d)',a,b),mName,num2cell(mIdx),'uni',0);
 mFs    = struct2array(h);
 
-obj.nModules = length(mName);
 
 % update module info
-for m = 1:obj.nModules
+for m = 1:length(obj.Modules)
     modInfo = obj.HW.getGizmoInfo(mLabel{m});
     obj.Module(m) = hw.Module(obj,mLabel{m},mName{m},mIdx(m));
     obj.Module(m).Info.Legacy = isequal(modInfo.cat,'Legacy');
@@ -61,7 +60,7 @@ mp = cellfun(@(a) obj.HW.getParameterNames(a),{obj.Module.Label},'uni',0);
 p = characterListPattern('%/|\#'); % remove reserved TDT parameters
 mp = cellfun(@(a) a(~startsWith(a,p)),mp,'uni',0);
 
-for m = 1:obj.nModules
+for m = 1:length(obj.Modules)
     tagInfo = cellfun(@(a) obj.HW.getParameterInfo(obj.Module(m).Label,a),mp{m},'uni',1);
     for t = tagInfo(:)'
         P = hw.Parameter(obj.Module(m));

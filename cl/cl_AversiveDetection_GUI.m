@@ -33,7 +33,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             if nargout == 0, clear obj; end
-            
+
         end
 
 
@@ -168,23 +168,27 @@ classdef cl_AversiveDetection_GUI < handle
 
             % >> Consecutive NOGO min
             p = obj.RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',3);
-            h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
-            h.h_value.Items = arrayfun(@num2str,0:3,'uni',0);
-            h.h_label.Text = "Consecutive NoGo (min):";
-            
+            h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
+            h.Evaluator = @evaluate_n_gonogo;
+            h.Values = 0:5;
+            h.Value = 3;
+            h.Text = "Consecutive NoGo (min):";
+
             % >> Consecutive NOGO max
             p = obj.RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',5);
-            h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
-            h.h_value.Items = arrayfun(@num2str,3:20,'uni',0);
-            h.h_label.Text = "Consecutive NoGo (max):";
+            h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
+            h.Evaluator = @evaluate_n_gonogo;
+            h.Values = 3:20;
+            h.Value = 5;
+            h.Text = "Consecutive NoGo (max):";
 
-            
+
             % >> Trial order
             p = obj.RUNTIME.S.Module.add_parameter('Trial_Order','Descending');
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
-            h.h_value.Items = {'Descending','Ascending','Random'};
-            h.h_value.Value = 'Descending';
-            h.h_label.Text = "Trial Order:";
+            h.Values = ["Descending","Ascending","Random"];
+            h.Value = "Descending";
+            h.Text = "Trial Order:";
 
 
 
@@ -192,23 +196,23 @@ classdef cl_AversiveDetection_GUI < handle
             % >> Intertrial Interval
             p = obj.RUNTIME.HW.find_parameter('ITI_dur');
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
-            h.h_value.Items = arrayfun(@num2str,0.25:0.25:2,'uni',0);
-            h.h_label.Text = "Intertrial Interval (s):";
+            h.Values= 250:100:2500;
+            h.Text = "Intertrial Interval (ms):";
 
 
             % >> Response Window Duration
             p = obj.RUNTIME.HW.find_parameter('RespWinDur');
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
-            h.h_value.Items = arrayfun(@num2str,0.05:0.05:1,'uni',0);
-            h.h_label.Text = "Response Window Duration (s):";
-           
+            h.Values = 200:100:1000;
+            h.Text = "Response Window Duration (ms):";
+
 
             % >> Optogenetic trigger
             p = obj.RUNTIME.HW.find_parameter('Optostim');
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
-            h.h_value.Items = {'0','1'};
-            h.h_value.Value = '0';
-            h.h_label.Text = "Optogenetic Trigger:";
+            h.Values = [0 1];
+            h.Value = 0;
+            h.Text = "Optogenetic Trigger:";
 
 
 
@@ -216,46 +220,48 @@ classdef cl_AversiveDetection_GUI < handle
 
             % >> dB SPL
             p = obj.RUNTIME.HW.find_parameter('dBSPL');
-            hp(1) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            hp(1).h_value.Items = arrayfun(@num2str,0:5:85,'uni',0);
-            hp(1).h_label.Text = "Sound Level (dB SPL):";
+            h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            h.Values = 0:5:85;
+            h.Text = "Sound Level (dB SPL):";
 
 
             % >> Duration
             p = obj.RUNTIME.HW.find_parameter('Stim_Duration');
-            hp(2) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            hp(2).h_value.Items = arrayfun(@num2str,0.25:0.25:2,'uni',0);
-            hp(2).h_label.Text = "Stimulus Duration (s):";
+            h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            h.Values = 250:250:2000;
+            h.Value = 1000;
+            h.Text = "Stimulus Duration (ms):";
 
 
             % >> AM Rate
             p = obj.RUNTIME.HW.find_parameter('AMrate');
-            hp(3) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            hp(3).h_value.Items = arrayfun(@num2str,1:20,'uni',0);
-            hp(3).h_label.Text = "AM Rate (Hz):";
+            h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            h.Values = 1:20;
+            h.Value = 5;
+            h.Text = "AM Rate (Hz):";
 
 
             % >> AM Depth
             p = obj.RUNTIME.HW.find_parameter('AMdepth');
-            hp(4) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            hp(4).h_value.Items =  arrayfun(@num2str,0:10:100,'uni',0);
-            hp(4).h_label.Text = "AM Depth (%):";
+            h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            h.Values = 0:10:100;
+            h.Text = "AM Depth (%):";
 
 
 
             % >> Highpass cutoff
             p = obj.RUNTIME.HW.find_parameter('Highpass');
-            hp(5) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            hp(5).h_value.Items =  arrayfun(@num2str,25:25:300,'uni',0);
-            hp(5).h_label.Text = "Highpass cutoff (Hz):";
+            h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            h.Values = 25:25:300;
+            h.Text = "Highpass cutoff (Hz):";
 
 
             % >> Lowpass cutoff
             p = obj.RUNTIME.HW.find_parameter('Lowpass');
-            hp(6) = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            hp(6).h_value.Items =  arrayfun(@num2str,5:5:30,'uni',0);
-            hp(6).h_label.Text = "Lowpass cutoff (kHz):";
-            
+            h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+            h.Values =  5:5:30;
+            h.Text = "Lowpass cutoff (kHz):";
+
 
 
             % >> Commit button
@@ -579,7 +585,7 @@ classdef cl_AversiveDetection_GUI < handle
             panelTrialHistory = uipanel(mainLayout, 'Title', 'Trial History');
             panelTrialHistory.Layout.Row = [7 11];
             panelTrialHistory.Layout.Column = [7 9];
-            
+
 
             % > Trial History
             layoutTrialHistory = simple_layout(panelTrialHistory);
@@ -608,41 +614,74 @@ classdef cl_AversiveDetection_GUI < handle
 
             obj.guiHandles = findobj(fig);
 
-            
+
 
 
             % Create separate legacy figure for online plotting because
             % it's much faster than uifigure
             % Axes for Behavior Plot --------------------------------------------
-            figOnlinePlot = figure(Name = 'Online Plot', ...
-                Tag = 'cl_AversiveDetection_OnlinePlot');
-            p = fig.Position;
-            figOnlinePlot.Position(1) = p(1);
-            figOnlinePlot.Position(2) = p(2) + p(4) + 30;
-            figOnlinePlot.Position(3) = p(3);
-            figOnlinePlot.Position(4) = 200;
-            figOnlinePlot.ToolBar = "none";
-            figOnlinePlot.MenuBar = "none";
-            figOnlinePlot.NumberTitle = "off";
-            axesBehavior = axes(figOnlinePlot);
-            gui.OnlinePlot(obj.RUNTIME,obj.watchedParameters,axesBehavior,1);
-            
-            % axesBehavior.YLim = [.5 2.5];
-            % axesBehavior.YAxis.TickValues = [1 2];
-            % axesBehavior.YAxis.TickLabels = ["Spout","In Trial"];
-            % axesBehavior.YAxis.FontSize = 12;
-            % axesBehavior.YAxis.FontWeight = "bold";
-            % 
-            % yline(axesBehavior,1.5)
-            % 
-            % box(axesBehavior,'on');
-            % grid(axesBehavior,'on');
-            % xlabel(axesBehavior,'time');
+            % figOnlinePlot = figure(Name = 'Online Plot', ...
+            %     Tag = 'cl_AversiveDetection_OnlinePlot');
+            % p = fig.Position;
+            % figOnlinePlot.Position(1) = p(1);
+            % figOnlinePlot.Position(2) = p(2) + p(4) + 30;
+            % figOnlinePlot.Position(3) = p(3);
+            % figOnlinePlot.Position(4) = 200;
+            % figOnlinePlot.ToolBar = "none";
+            % figOnlinePlot.MenuBar = "none";
+            % figOnlinePlot.NumberTitle = "off";
+            % axesBehavior = axes(figOnlinePlot);
+            % gui.OnlinePlot(obj.RUNTIME,obj.watchedParameters,axesBehavior,1);
+
 
 
         end
     end
 
+end
+
+
+
+function [value,success] = evaluate_n_gonogo(obj,event)
+% [value,success] = evaluate_n_gonogo(obj,event)
+%
+% example function (probably not to be used here) that implements the
+% 'Evaluator' function
+success = true;
+
+value = event.Value; % new value
+
+% first find all gui objects we want to evaluate
+h = ancestor(obj.parent,'figure','toplevel');
+h = findall(h,'-property','tag');
+if isempty(h), return; end
+
+
+isMin = endsWith(obj.Name,'_min');
+
+if isMin
+    i = endsWith(get(h,'Tag'),'ConsecutiveNOGO_max');
+else
+    i = endsWith(get(h,'Tag'),'ConsecutiveNOGO_min');
+end
+h = h(i);
+
+if isempty(h), return; end % can happen during setup
+
+% the handle to the Parameter object is included in the gui object's
+% UserData
+
+if isMin
+    success = h.Value > value;
+else
+    success = h.Value < value;
+end
+
+
+if ~success
+    value = event.PreviousValue; % return to previous value
+    vprintf(0,1,'Max NoGo trials can''t be lower than Min NoGo trials')
+end
 end
 
 

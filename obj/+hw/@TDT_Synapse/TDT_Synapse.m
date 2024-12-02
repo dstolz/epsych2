@@ -16,7 +16,6 @@ classdef TDT_Synapse < hw.Interface
 
         Server  (1,:) char
 
-        nModules
         Module
     end
 
@@ -159,7 +158,7 @@ classdef TDT_Synapse < hw.Interface
                 P = obj.find_parameter(name);
             end
 
-            if isvector(P) && isscalar(value)
+            if ~isscalar(P) && isscalar(value)
                 value = repmat(value,size(P));
             end
 

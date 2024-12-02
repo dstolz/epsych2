@@ -7,8 +7,8 @@ classdef Parameter_Update < handle
     properties
         watchedHandles (1,:) % handles we are listening to
 
-        color_needToUpdate (1,:) double = [0 .6 0];
-        color_nothingToUpdate (1,:) double
+        color_needToUpdate (1,:) = '#98fa98';
+        color_nothingToUpdate (1,:) = 'f0f0f0'; 
     end
 
     methods
@@ -24,21 +24,39 @@ classdef Parameter_Update < handle
 
 
         function set.watchedHandles(obj,h)
-            obj.watchedHandles = arrayfun(@(a) addlistener(a,'ValueUpdated','PostSet',@obj.value_changed),h);
+            obj.watchedHandles = h;
+            arrayfun(@(a) addlistener(a,'ValueUpdated','PostSet',@obj.value_changed),h);
         end
 
         function value_changed(obj,src,event)
-            obj.Button.BackgroundColor = obj.color_needToUpdate;
-            obj.Button.Enable = 'on';
+            % THIS IS NOT CORRECT. THE BUTTON SHOULD ENABLE WITH ONE OR
+            % MORE CHANGES, AND DISABLE WHEN NO CHANGES
+
+            vu = [obj.watchedHandles.ValueUpdated];
+
+            if any(vu)
+                obj.Button.BackgroundColor = obj.color_needToUpdate;
+                obj.Button.Enable = 'on';
+            else
+                obj.Button.BackgroundColor = obj.color_nothingToUpdate;
+                obj.Button.Enable = 'off';
+            end
         end
 
         function commit_changes(obj,src,event)
             
-            % TO DO: ACTUALLY UPDATE THE TRIALS TABLE
+            % TO DO: ACTUALLY UPDATE THE PARAMETERS
 
-            arrayfun(@(a) a.Object{1}.reset_label,obj.watchedHandles);
-            obj.Button.Enable = 'off';
-            obj.Button.BackgroundColor = obj.color_nothingToUpdate;
+           
+            vu = [obj.watchedHandles.ValueUpdated];
+            h = obj.watchedHandles(vu);
+
+            for i = 1:length(h)
+                P = h(i).Parameter;
+                P.Value = h(i).Value;
+                h(i).reset_label;
+            end
+
         end
     end
     

@@ -21,7 +21,12 @@ classdef Module < handle
 
     methods
         function obj = Module(HW,Label,Name,Index)
-            narginchk(4,4);
+            arguments
+                HW (1,1)  % parent hardware interface (inherits hw.Interface)
+                Label   (1,:) char
+                Name    (1,:) char
+                Index   (1,1) uint8
+            end
 
             obj.HW = HW;
             obj.Label = Label;
@@ -39,7 +44,10 @@ classdef Module < handle
 
             if isstring(value), value = char(value); end
 
-            P = hw.Parameter(obj);
+
+            P = hw.Parameter(obj.HW);
+             
+
             P.Name = name;
             if ischar(value)
                 P.Type = "String";

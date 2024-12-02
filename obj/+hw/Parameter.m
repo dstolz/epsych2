@@ -24,9 +24,11 @@ classdef Parameter < matlab.mixin.SetGet
         isRandom (1,1) logical = false
         
         Visible (1,1) logical = true % optionally hide parameter 
+
+        Evaluator (1,1) % handle to custom function to handle evaluation of updated values
     end
 
-    properties (SetObservable,GetObservable) 
+    properties (SetObservable,GetObservable,AbortSet) 
         Value
         lastUpdated (1,1) datetime = datetime("now");
     end
@@ -39,10 +41,12 @@ classdef Parameter < matlab.mixin.SetGet
 
     methods
         function obj = Parameter(Parent)
-            if nargin == 1
-                obj.Parent = Parent;
+
+            obj.Parent = Parent;
+            if ~isempty(Parent.HW) % ex: hw.Software
                 obj.HW = Parent.HW;
             end
+
         end
 
         % function disp(obj)
@@ -57,30 +61,24 @@ classdef Parameter < matlab.mixin.SetGet
                 v = nan;
                 return
             end
-
-            if isequal(obj.HW,0)
+            
+            if isa(obj.Parent,'hw.Software') % special case
                 v = obj.Value;
             else
-                v = obj.HW.get_parameter(obj,includeInvisible=true);
+                v = obj.Parent.get_parameter(obj,includeInvisible=true);
             end
         end
 
         function set.Value(obj,value)
-            if isequal(obj.Access,'Read')
-                vprintf(0,1,'"%s" is a read-only parameter',obj.Name)
-                return
+            if isa(obj.Evaluator,'function_handle')
+                value = obj.Evaluator(obj,value);
             end
 
-            if ~isequal(obj.Type,'String') && (value < obj.Min || value > obj.Max)
-                vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
-                return
+            if isa(obj.Parent,'hw.Software') % special case
+                obj.Value = value;
+            else
+                obj.Parent.set_parameter(obj,value);
             end
-
-            obj.Value = value;
-            if ~isequal(obj.HW,0)
-                obj.HW.set_parameter(obj,value);
-            end
-            obj.lastUpdated = datetime("now");
         end
 
 
@@ -107,6 +105,27 @@ classdef Parameter < matlab.mixin.SetGet
             else
                 obj.Format = '%g';
             end
+        end
+    end
+
+    methods (Access = protected)
+        function set_value(obj,value)
+
+            if isequal(obj.Access,'Read')
+                vprintf(0,1,'"%s" is a read-only parameter',obj.Name)
+                return
+            end
+
+            if ~isequal(obj.Type,'String') && (value < obj.Min || value > obj.Max)
+                vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
+                return
+            end
+
+            obj.Value = value;
+            if ~isequal(obj.HW,0)
+                obj.HW.set_parameter(obj,value);
+            end
+            obj.lastUpdated = datetime("now");
         end
     end
 

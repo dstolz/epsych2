@@ -147,9 +147,9 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
 
 
-    % TESTING SOFTWWARE INTERFACE
-    RUNTIME.S = hw.Software(wp,trials);
-
+    % % TESTING SOFTWWARE INTERFACE
+    % RUNTIME.S = hw.Software(wp,trials);
+    RUNTIME.S = hw.Software;
 
 
     

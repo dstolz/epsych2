@@ -5,7 +5,6 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         % HW (1,:) matlab.mixin.Heterogeneous % Actual hardware interface object(s)
 
         Module (1,:) hw.Module
-        nModules (1,1) uint8
     end
 
     properties (Abstract,Constant)

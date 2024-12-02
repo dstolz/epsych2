@@ -11,7 +11,6 @@ classdef TDT_RPcox < hw.Interface
         Server  (1,:) char
 
         Module
-        nModules
     end
 
     properties (SetObservable,AbortSet)
@@ -30,14 +29,11 @@ classdef TDT_RPcox < hw.Interface
     methods
         % constructor
         function obj = TDT_RPcox(RPvdsFile,moduleType,moduleAlias)
-
             RPvdsFile = cellstr(RPvdsFile);
             moduleType = cellstr(moduleType);
             moduleAlias = cellstr(moduleAlias);
 
             obj.setup_interface(RPvdsFile,moduleType,moduleAlias);
-
-
         end
     end
 
@@ -84,7 +80,18 @@ classdef TDT_RPcox < hw.Interface
         function m = get.mode(obj)
             % m = obj.HW.status();
             m = double(obj.HW.RP.GetStatus);
-            m = hw.DeviceState(m);
+            switch m
+                case 0
+                    m = hw.DeviceState.Error; % ?
+                case 1
+                    m = hw.DeviceState.Idle;
+                case 3
+                    m = hw.DeviceState.Standby;
+                case 5
+                    m = hw.DeviceState.Standby; % i think this is correct
+                case 7
+                    m = hw.DeviceState.Record;
+            end
         end
 
 

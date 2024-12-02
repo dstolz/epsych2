@@ -22,9 +22,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         colorOnUpdate (1,:) double = [0 .8 0]
     end
 
-    properties (Access = private)
-        hlMode
-    end
+
 
 
 
@@ -48,14 +46,10 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             obj.create;
 
             if ~isequal(Parameter.HW,0)
-                obj.hlMode = listener(Parameter.HW,'mode','PostSet',@obj.mode_change);
+                addlistener(Parameter.HW,'mode','PostSet',@obj.mode_change);
             end
-
         end
 
-        function delete(obj)
-            delete(obj.hlMode);
-        end
 
 
         function value_changed(obj,src,event)

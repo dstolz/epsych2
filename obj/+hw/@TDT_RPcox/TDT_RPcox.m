@@ -147,11 +147,12 @@ classdef TDT_RPcox < hw.Interface
             assert(numel(value) == numel(P));
 
             for i = 1:length(P)
-                e = P.HW.write(P.Name,value(i));
+                p = P(i);
+                e = P.HW.write(p.Name,value(i));
                 if e
-                    vprintf(3,'Updated "%s" = %g',P.Name,value(i))
+                    vprintf(3,'Updated "%s" = %g',p.Name,value(i))
                 else
-                    vprintf(0,1,'Failed to write value to "%s"',P.Name)
+                    vprintf(0,1,'Failed to write value to "%s"',p.Name)
                 end
             end
         end

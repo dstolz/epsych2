@@ -148,6 +148,7 @@ classdef TDT_Synapse < hw.Interface
 
 
 
+
         % set new value to one or more hardware parameters
         % returns TRUE if successful, FALSE otherwise
         function e = set_parameter(obj,name,value)
@@ -158,15 +159,25 @@ classdef TDT_Synapse < hw.Interface
                 P = obj.find_parameter(name);
             end
 
-            if ~isscalar(P) && isscalar(value)
+            if isvector(P) && isscalar(value)
                 value = repmat(value,size(P));
             end
 
             assert(numel(value) == numel(P));
 
-            e = arrayfun(@(p,v) obj.HW.setParameterValue(p.Parent.Label,p.Name,v), ...
-                P,value);
+
+            for i = 1:length(P)
+                p = P(i);
+                e = p.HW.setParameterValue(p.Parent.Label,p.Name,value(i));
+                if e
+                    vprintf(3,'Updated "%s" = %g',p.Name,value(i))
+                else
+                    vprintf(0,1,'Failed to write value to "%s"',p.Name)
+                end
+            end
         end
+
+
 
 
 

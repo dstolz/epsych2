@@ -14,16 +14,8 @@ classdef TDT_RPcox < hw.Interface
         nModules
     end
 
-    properties (SetObservable)
+    properties (SetObservable,AbortSet)
         mode
-        modeStr
-    end
-
-
-
-    properties (Dependent)
-        status
-        statusMessage
     end
 
 
@@ -44,6 +36,8 @@ classdef TDT_RPcox < hw.Interface
             moduleAlias = cellstr(moduleAlias);
 
             obj.setup_interface(RPvdsFile,moduleType,moduleAlias);
+
+
         end
     end
 
@@ -72,24 +66,18 @@ classdef TDT_RPcox < hw.Interface
     methods
 
 
-        function status = get.status(obj)
-        end
-
-        function status = get.statusMessage(obj)
-        end
-
-
-
 
 
         function set.mode(obj,mode)
+            e.oldMode = obj.mode;
+            e.mode = mode;
+
             if mode > hw.DeviceState.Idle
                 obj.HW.run;
             else
                 obj.HW.halt;
             end
             vprintf(2,'HW mode: %s',char(obj.mode))
-
         end
 
 
@@ -98,27 +86,6 @@ classdef TDT_RPcox < hw.Interface
             m = double(obj.HW.RP.GetStatus);
             m = hw.DeviceState(m);
         end
-
-        function m = get.modeStr(obj)
-            switch obj.mode
-                case 0
-                    m = 'Not connected';
-                case 1
-                    m = 'Connected';
-                case 2
-                    m = 'Circuit loaded';
-                case 3
-                    m = 'Connected & Loaded';
-                case 4
-                    m = 'Circuit running';
-
-                otherwise
-                    m = 'Unknown mode';
-
-            end
-            % m = obj.HW.getModeStr();
-        end
-
 
 
 

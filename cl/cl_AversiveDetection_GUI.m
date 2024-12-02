@@ -352,8 +352,8 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Panel for "Trial Filter" ------------------------------------------
             panelTrialFilter = uipanel(mainLayout, 'Title', 'Trial Filter');
-            panelTrialFilter.Layout.Row = [10 11];
-            panelTrialFilter.Layout.Column = [1 2];
+            panelTrialFilter.Layout.Row = [8 11];
+            panelTrialFilter.Layout.Column = [3 6];
 
 
             % > Trial Filter
@@ -440,7 +440,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Axes for Main Plot ------------------------------------------------
             axesMain = uiaxes(mainLayout);
-            axesMain.Layout.Row = [5 10];
+            axesMain.Layout.Row = [3 7];
             axesMain.Layout.Column = [3, 5];
 
             xlabel(axesMain,'AM depth')
@@ -452,7 +452,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Panel for "Plotting Variables" ----------------------------------
             panelPlottingVariables = uipanel(mainLayout, 'Title', 'Plotting Variables');
-            panelPlottingVariables.Layout.Row = [5 6];
+            panelPlottingVariables.Layout.Row = [3 4];
             panelPlottingVariables.Layout.Column = 6;
 
             % > Plotting Variables
@@ -519,8 +519,8 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Panel for "Microphone Display" ------------------------------------
             panelMicrophoneDisplay = uipanel(mainLayout, 'Title', 'Microphone');
-            panelMicrophoneDisplay.Layout.Row = [9 11];
-            panelMicrophoneDisplay.Layout.Column = 6;
+            panelMicrophoneDisplay.Layout.Row = [3 4];
+            panelMicrophoneDisplay.Layout.Column = 7;
 
             layoutMicrophoneDisplay = simple_layout(panelMicrophoneDisplay);
 

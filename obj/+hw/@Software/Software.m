@@ -19,13 +19,8 @@ classdef Software < hw.Interface
         Type = 'Software'
     end
 
-    properties (SetObservable)
+    properties (SetObservable,AbortSet)
         mode
-    end
-
-    properties (Dependent)
-        status
-        statusMessage
     end
 
     methods (Access = protected)

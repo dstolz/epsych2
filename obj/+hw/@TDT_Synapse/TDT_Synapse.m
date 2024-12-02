@@ -6,9 +6,8 @@ classdef TDT_Synapse < hw.Interface
     end
 
 
-    properties (SetObservable)
+    properties (SetObservable,AbortSet)
         mode
-        modeStr
     end
 
 
@@ -20,14 +19,6 @@ classdef TDT_Synapse < hw.Interface
         nModules
         Module
     end
-
-    properties (Dependent)
-        status
-        statusMessage
-    end
-
-
-
 
     properties (Constant)
         Type = "TDT_Synapse"
@@ -98,22 +89,13 @@ classdef TDT_Synapse < hw.Interface
 
 
 
-        function status = get.status(obj)
-        end
-
-        function status = get.statusMessage(obj)
-        end
-
-
-
-
-
         function set.mode(obj,mode)
+            e.oldMode = obj.mode;
+            e.mode = mode;
+
             % 0 (Idle), 1 (Standby), 2 (Preview), 3 (Record)
-            if obj.mode ~= mode
-                obj.HW.setMode(double(mode));
-                vprintf(2,'HW mode: %s',char(obj.mode))
-            end
+            obj.HW.setMode(double(mode));
+            vprintf(2,'HW mode: %s',char(obj.mode))
         end
 
 
@@ -122,9 +104,6 @@ classdef TDT_Synapse < hw.Interface
             m = hw.DeviceState(m);
         end
 
-        function m = get.modeStr(obj)
-            m = char(obj.mode);
-        end
 
 
 

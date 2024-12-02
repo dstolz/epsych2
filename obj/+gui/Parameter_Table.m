@@ -13,8 +13,8 @@ classdef Parameter_Table < handle
     end
 
     properties
-        style_updated = uistyle('BackgroundColor',[0 0.6 0])
-        style_normal = uistyle('BackgroundColor',[])
+        styleOnUpdate = uistyle('BackgroundColor',[0 0.6 0])
+        styleNormal = uistyle('BackgroundColor',[])
     end
 
 
@@ -39,11 +39,11 @@ classdef Parameter_Table < handle
         function value_changed(obj,src,event)
             % TO DO: CHECK RANGE OF INPUT
             if isequal(event.Value,obj.Parameter.Value)
-                % addStyle(obj.handle,obj.style_normal,'row',event.);
+                % addStyle(obj.handle,obj.styleNormal,'row',event.);
                 return
             end
             obj.ValueUpdated = true;
-            addStyle(obj.handle,obj.style_updated);
+            addStyle(obj.handle,obj.styleOnUpdate);
         end
 
 

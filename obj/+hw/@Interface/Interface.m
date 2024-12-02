@@ -12,14 +12,15 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         Type (1,1) string
     end
 
-    properties (Abstract,SetObservable)
+    properties (Abstract,SetObservable,AbortSet)
         mode (1,1) hw.DeviceState
     end
 
-    % properties (Abstract,Dependent)
-    %     status (1,:) char {mustBeMember(status,['undefined','idle','ready','running','error'])}
-    %     statusMessage (1,:) char
-    % end
+
+    properties
+        h_listeners
+    end
+
 
     methods (Abstract,Access = protected)
         % setup hardware interface. this function must define obj.HW

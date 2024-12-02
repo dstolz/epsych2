@@ -34,6 +34,7 @@ classdef Software < hw.Interface
                 P.Name = params{i};
                 P.Value = trial{i};
                 obj.Module.Parameters(end+1) = P;
+                P.Module = obj.Module;
             end
         end
 

@@ -29,9 +29,6 @@ classdef Parameter_Update < handle
         end
 
         function value_changed(obj,src,event)
-            % THIS IS NOT CORRECT. THE BUTTON SHOULD ENABLE WITH ONE OR
-            % MORE CHANGES, AND DISABLE WHEN NO CHANGES
-
             vu = [obj.watchedHandles.ValueUpdated];
 
             if any(vu)
@@ -44,18 +41,18 @@ classdef Parameter_Update < handle
         end
 
         function commit_changes(obj,src,event)
-            
-            % TO DO: ACTUALLY UPDATE THE PARAMETERS
-
-           
             vu = [obj.watchedHandles.ValueUpdated];
             h = obj.watchedHandles(vu);
 
             for i = 1:length(h)
                 P = h(i).Parameter;
+                vstr = sprintf(P.Format,h(i).Value);
+                vprintf(2,'Updating parameter "%s". New value = "%s"',P.Name,vstr)
                 P.Value = h(i).Value;
                 h(i).reset_label;
             end
+
+            vprintf(0,'Updated %d parameters',length(h))
 
         end
     end

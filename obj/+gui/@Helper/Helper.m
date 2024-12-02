@@ -73,10 +73,10 @@ classdef Helper < handle
                 obj
                 newColor
                 options.duration (1,1) double = 1 % second
-                options.postColor (1,:)
+                options.postColor (1,:) = 'default'
             end
 
-            if isempty(options.postColor)
+            if isequal(options.postColor,'default')
                 options.postColor = obj.BackgroundColor;
             end
 

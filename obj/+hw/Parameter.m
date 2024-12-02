@@ -1,7 +1,7 @@
 classdef Parameter < matlab.mixin.SetGet
    
     properties (SetAccess = immutable)
-        Parent (1,1) %hw.Module % perhaps this can be useful without a parent?
+        Parent (1,1) % hw object
         HW (1,1)  % handle to hardware interface; reflects parent object's handle
     end
 
@@ -11,6 +11,7 @@ classdef Parameter < matlab.mixin.SetGet
         Name    (1,:) char
         Description (1,1) string
         Unit (1,:) char
+        Module (1,1) %hw.Module
 
         Min (1,1) double = -inf
         Max (1,1) double = inf
@@ -41,7 +42,6 @@ classdef Parameter < matlab.mixin.SetGet
 
     methods
         function obj = Parameter(Parent)
-
             obj.Parent = Parent;
             if ~isempty(Parent.HW) % ex: hw.Software
                 obj.HW = Parent.HW;

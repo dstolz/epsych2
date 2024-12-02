@@ -54,6 +54,8 @@ for i = 1:length(moduleType)
                 P.Type = 'Undefined';
         end
 
+        P.Module = M;
+        
         M.Parameters(p) = P;
     end
 

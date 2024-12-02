@@ -222,6 +222,7 @@ classdef cl_AversiveDetection_GUI < handle
             p = obj.RUNTIME.HW.find_parameter('dBSPL');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values = 0:5:85;
+            h.Value = 65;
             h.Text = "Sound Level (dB SPL):";
 
 
@@ -245,6 +246,7 @@ classdef cl_AversiveDetection_GUI < handle
             p = obj.RUNTIME.HW.find_parameter('AMdepth');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values = 0:10:100;
+            h.Value = 100;
             h.Text = "AM Depth (%):";
 
 
@@ -253,20 +255,22 @@ classdef cl_AversiveDetection_GUI < handle
             p = obj.RUNTIME.HW.find_parameter('Highpass');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values = 25:25:300;
+            h.Value = 50;
             h.Text = "Highpass cutoff (Hz):";
 
 
             % >> Lowpass cutoff
             p = obj.RUNTIME.HW.find_parameter('Lowpass');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            h.Values =  5:5:30;
-            h.Text = "Lowpass cutoff (kHz):";
+            h.Values =  1000:500:25000;
+            h.Value = 20000;
+            h.Text = "Lowpass cutoff (Hz):";
 
 
 
             % >> Commit button
             h = gui.Parameter_Update(layoutSoundControls);
-            hp = findall(fig,'-regexp','tag','^PC_');
+            hp = findall(fig,'-regexp','tag','^PC_'); % find all 'Paramete_Control' objects
             h.watchedHandles = [hp.UserData];
 
 
@@ -645,8 +649,7 @@ end
 function [value,success] = evaluate_n_gonogo(obj,event)
 % [value,success] = evaluate_n_gonogo(obj,event)
 %
-% example function (probably not to be used here) that implements the
-% 'Evaluator' function
+% implements the 'Evaluator' function
 success = true;
 
 value = event.Value; % new value
@@ -672,9 +675,9 @@ if isempty(h), return; end % can happen during setup
 % UserData
 
 if isMin
-    success = h.Value > value;
+    success = h.Value >= value;
 else
-    success = h.Value < value;
+    success = h.Value <= value;
 end
 
 

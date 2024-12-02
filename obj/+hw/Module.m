@@ -6,7 +6,6 @@ classdef Module < handle
         Label   (1,:) char
         Name    (1,:) char
         Index   (1,1) uint8
-        
     end
     
 

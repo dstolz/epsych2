@@ -130,7 +130,7 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).protocol = protocol;
 
 
-    vprintf(2,'Triggering first trial on box %d',i)
+    vprintf(2,'Setting up first trial on box %d',i)
 
     % 1. Send trigger to reset components before updating parameters
     RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);

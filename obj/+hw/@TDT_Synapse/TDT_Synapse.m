@@ -127,7 +127,7 @@ classdef TDT_Synapse < hw.Interface
                 P = obj.find_parameter(name);
             end
 
-            module = P.Parent.Label;
+            module = P.Module.Label;
             trig = P.Name;
 
             e = obj.HW.setParameterValue(module,trig,1);
@@ -168,7 +168,7 @@ classdef TDT_Synapse < hw.Interface
 
             for i = 1:length(P)
                 p = P(i);
-                e = p.HW.setParameterValue(p.Parent.Label,p.Name,value(i));
+                e = p.HW.setParameterValue(p.Module.Label,p.Name,value(i));
                 if e
                     vprintf(3,'Updated "%s" = %g',p.Name,value(i))
                 else
@@ -203,7 +203,7 @@ classdef TDT_Synapse < hw.Interface
                     silenceParamterNotFound=options.silenceParamterNotFound);
             end
             
-            value = arrayfun(@(p) obj.HW.getParameterValue(p.Parent.Label,p.Name),P);
+            value = arrayfun(@(p) obj.HW.getParameterValue(p.Module.Label,p.Name),P);
 
             % return in original order
             [~,idx] = ismember(name,{P.Name});

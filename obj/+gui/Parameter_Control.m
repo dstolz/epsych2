@@ -5,7 +5,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         parent (1,1) % handle to parent container
         Parameter (1,1) %hw.Parameter % handle to parameter
 
-        type (1,:) char {mustBeMember(type,{'editfield','dropdown'})} = 'editfield'
+        type (1,:) char {mustBeMember(type,{'editfield','dropdown','checkbox'})} = 'editfield'
 
         autoCommit (1,1) logical = false
     end
@@ -47,7 +47,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             arguments
                 parent
                 Parameter
-                options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown'})} = 'editfield'
+                options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown','checkbox'})} = 'editfield'
                 options.autoCommit (1,1) logical = false
             end
             obj.parent = parent;
@@ -196,6 +196,8 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 case 'dropdown'
                     h = uidropdown(hl);
 
+                case 'checkbox'
+                    h = uicheckbox(hl);
             end
 
             if obj.autoCommit

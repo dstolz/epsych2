@@ -45,7 +45,7 @@ mFs    = struct2array(h);
 
 
 % update module info
-for m = 1:length(obj.Modules)
+for m = 1:length(mName)
     modInfo = obj.HW.getGizmoInfo(mLabel{m});
     obj.Module(m) = hw.Module(obj,mLabel{m},mName{m},mIdx(m));
     obj.Module(m).Info.Legacy = isequal(modInfo.cat,'Legacy');
@@ -60,10 +60,11 @@ mp = cellfun(@(a) obj.HW.getParameterNames(a),{obj.Module.Label},'uni',0);
 p = characterListPattern('%/|\#'); % remove reserved TDT parameters
 mp = cellfun(@(a) a(~startsWith(a,p)),mp,'uni',0);
 
-for m = 1:length(obj.Modules)
+for m = 1:length(obj.Module)
     tagInfo = cellfun(@(a) obj.HW.getParameterInfo(obj.Module(m).Label,a),mp{m},'uni',1);
     for t = tagInfo(:)'
-        P = hw.Parameter(obj.Module(m));
+        % P = hw.Parameter(obj.Module(m));
+        P = hw.Parameter(obj);
 
         P.Name = t.Name;
         P.Unit = t.Unit;
@@ -72,6 +73,8 @@ for m = 1:length(obj.Modules)
         P.Access = t.Access;
         P.Type = t.Type;
         P.isArray = isequal(t.Array,'Yes');
+
+        P.Module = obj.Module(m);
 
         P.isTrigger = P.Name(1) == '!'; % our convention for indicating a trigger
 

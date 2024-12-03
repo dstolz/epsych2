@@ -59,6 +59,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
             obj.create;
 
+
             if ~isa(Parameter.Parent,'hw.Software')
                 addlistener(Parameter.Parent,'mode','PostSet',@obj.mode_change);
             end
@@ -139,7 +140,6 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
            
             value = event.Value;
 
-
             obj.h_value.Value = value;
             obj.Value = value;
 
@@ -198,6 +198,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
                 case 'checkbox'
                     h = uicheckbox(hl);
+                    h.Text = ''; % use label
             end
 
             if obj.autoCommit
@@ -208,7 +209,6 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
             h.UserData = obj;
             h.ValueChangedFcn = @obj.value_changed;
-
 
             obj.h_value = h;
 
@@ -230,12 +230,13 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         function value_change_external(obj,~,event)
             v = event.AffectedObject.Value;
             if isempty(v), return; end % ?????
-            if isequal(obj.type,'dropdown')
-                % need to add to Items
-                if ~ismember(v,obj.h_value.ItemsData)
-                    obj.h_value.ItemsData = sort([obj.h_value.ItemsData, v]);
-                    obj.h_value.Items = string(obj.h_value.Items.Data);
-                end
+            switch obj.type
+                case 'dropdown'
+                    % need to add to Items
+                    if ~ismember(v,obj.h_value.ItemsData)
+                        obj.h_value.ItemsData = sort([obj.h_value.ItemsData, v]);
+                        obj.h_value.Items = string(obj.h_value.Items.Data);
+                    end
             end
             obj.Value = v;
             obj.h_value.Value = v;

@@ -2,7 +2,7 @@ classdef cl_AversiveDetection_GUI < handle
 
     properties
         psychDetect
-        watchedParameters = {'~InTrial_TTL','~RespWindow','~Spout_TTL',...
+        plottedParameters = {'~InTrial_TTL','~RespWindow','~Spout_TTL',...
             '~ShockOn','~GO_Stim','~NOGO_Stim'}
     end
 
@@ -245,8 +245,8 @@ classdef cl_AversiveDetection_GUI < handle
             % >> AM Depth
             p = obj.RUNTIME.HW.find_parameter('AMdepth');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            h.Values = 0:10:100;
-            h.Value = 100;
+            h.Values = 0:.1:1;
+            h.Value = p.Value;
             h.Text = "AM Depth (%):";
 
 
@@ -255,7 +255,7 @@ classdef cl_AversiveDetection_GUI < handle
             p = obj.RUNTIME.HW.find_parameter('Highpass');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values = 25:25:300;
-            h.Value = 50;
+            h.Value = p.Value;
             h.Text = "Highpass cutoff (Hz):";
 
 
@@ -263,14 +263,15 @@ classdef cl_AversiveDetection_GUI < handle
             p = obj.RUNTIME.HW.find_parameter('Lowpass');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values =  1000:500:25000;
-            h.Value = 20000;
+            h.Value = p.Value;
             h.Text = "Lowpass cutoff (Hz):";
 
 
 
             % >> Commit button
             h = gui.Parameter_Update(layoutSoundControls);
-            hp = findall(fig,'-regexp','tag','^PC_'); % find all 'Paramete_Control' objects
+            % find all 'Paramete_Control' objects
+            hp = findall(fig,'-regexp','tag','^PC_'); 
             h.watchedHandles = [hp.UserData];
 
 
@@ -283,20 +284,16 @@ classdef cl_AversiveDetection_GUI < handle
 
             % > Shock Controls
             layoutShockControls = uigridlayout(panelShockControls);
-            layoutShockControls.ColumnWidth = {100,'1x',100};
+            layoutShockControls.ColumnWidth = {'1x'};
             layoutShockControls.RowHeight = {25,25};
             layoutShockControls.RowSpacing = 1;
             layoutShockControls.ColumnSpacing = 5;
             layoutShockControls.Padding = [0 0 0 0];
 
             % >> AutoShock
-            chkAutoShock = uicheckbox(layoutShockControls);
-            chkAutoShock.Layout.Row = 1;
-            chkAutoShock.Layout.Column = 1;
-            chkAutoShock.Text = "AutoShock";
-            chkAutoShock.Tag = "chkAutoShock";
-            chkAutoShock.Value = true;
-            % chkAutoShock.ValueChangedFcn =
+            p = obj.RUNTIME.HW.find_parameter('ShockFlag');
+            h = gui.Parameter_Control(layoutShockControls,p,Type="checkbox");
+            h.Value = true;
 
             % >> Shocker status
             lblShockerStatus = uilabel(layoutShockControls);
@@ -624,18 +621,18 @@ classdef cl_AversiveDetection_GUI < handle
             % Create separate legacy figure for online plotting because
             % it's much faster than uifigure
             % Axes for Behavior Plot --------------------------------------------
-            % figOnlinePlot = figure(Name = 'Online Plot', ...
-            %     Tag = 'cl_AversiveDetection_OnlinePlot');
-            % p = fig.Position;
-            % figOnlinePlot.Position(1) = p(1);
-            % figOnlinePlot.Position(2) = p(2) + p(4) + 30;
-            % figOnlinePlot.Position(3) = p(3);
-            % figOnlinePlot.Position(4) = 200;
-            % figOnlinePlot.ToolBar = "none";
-            % figOnlinePlot.MenuBar = "none";
-            % figOnlinePlot.NumberTitle = "off";
-            % axesBehavior = axes(figOnlinePlot);
-            % gui.OnlinePlot(obj.RUNTIME,obj.watchedParameters,axesBehavior,1);
+            figOnlinePlot = figure(Name = 'Online Plot', ...
+                Tag = 'cl_AversiveDetection_OnlinePlot');
+            p = fig.Position;
+            figOnlinePlot.Position(1) = p(1);
+            figOnlinePlot.Position(2) = p(2) + p(4) + 30;
+            figOnlinePlot.Position(3) = p(3);
+            figOnlinePlot.Position(4) = 200;
+            figOnlinePlot.ToolBar = "none";
+            figOnlinePlot.MenuBar = "none";
+            figOnlinePlot.NumberTitle = "off";
+            axesBehavior = axes(figOnlinePlot);
+            gui.OnlinePlot(obj.RUNTIME,obj.plottedParameters,axesBehavior,1);
 
 
 

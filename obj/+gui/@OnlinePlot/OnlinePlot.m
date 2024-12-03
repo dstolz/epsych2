@@ -3,8 +3,8 @@ classdef OnlinePlot < gui.Helper & handle
     properties
         hax    (1,1)   % axes handle
         
-        watchedParams (1,:) hw.Parameter
-        trialParam  (1,1) hw.Parameter
+        watchedParams (1,:) %hw.Parameter
+        trialParam  (1,1) % hw.Parameter
         
         lineWidth   (:,1) double {mustBePositive,mustBeFinite} % line plot width [obj.N,1]
         lineColors  (:,3) double {mustBeNonnegative,mustBeLessThanOrEqual(lineColors,1)} % line colors [obj.N,3]

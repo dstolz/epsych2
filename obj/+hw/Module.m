@@ -41,6 +41,8 @@ classdef Module < handle
                 value
             end
 
+            
+
             if isstring(value), value = char(value); end
 
 

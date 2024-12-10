@@ -83,9 +83,10 @@ global PRGMSTATE CONFIG  RUNTIME
 
 COMMAND = get(hObj,'String');
 
+if isequal(COMMAND,'Run'), COMMAND = 'Record'; end
 
 switch COMMAND
-    case {'Run','Preview'}
+    case {'Run','Record','Preview'}
         set(h.figure1,'pointer','watch'); drawnow
         
         % elevate Matlab.exe process to a high priority in Windows
@@ -157,7 +158,7 @@ switch COMMAND
                 moduleAlias = fieldnames(M);
                 rpvdsFile = structfun(@(a) cellstr(a.RPfile),M,'uni',1);
 
-                % *** TEMPORARY FIX. WHERE IS MODULE INFO? ***
+                % *** TEMPORARY FIX. WHERE IN PROTOCOL IS MODULE INFO? ***
                 moduleType = repmat({'RZ6'},size(rpvdsFile)); 
 
                 RUNTIME.HW = hw.TDT_RPcox(rpvdsFile,moduleType,moduleAlias);

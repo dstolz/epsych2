@@ -18,16 +18,14 @@ for i = 1:RUNTIME.NSubjects
         
         if ~RCtag || TStag, continue; end
         
-        if RUNTIME.usingSynapse
-            TrialNum = AX.getParameterValue(RUNTIME.TDT.Module_{1},RUNTIME.TrialNumStr{i}) - 1;
-        else
-            TrialNum = AX(RUNTIME.TrialNumIdx(i)).GetTagVal(RUNTIME.TrialNumStr{i}) - 1;
-        end
+        TrialNum = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialNum);
+        
         
         
         
         % There was a response and the trial is over.
         % Retrieve parameter data from RPvds circuits
+        data = RUNTIME.HW.get_parameter(RUNTIME.HW.all_parameters);
         data = feval(sprintf('Read%sTags',RUNTIME.TYPE),AX,RUNTIME.TRIALS(i));
         data.ResponseCode = RCtag;
         data.TrialID = TrialNum;
@@ -35,6 +33,9 @@ for i = 1:RUNTIME.NSubjects
         RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
         
         
+        % Broadcast event data has been updated
+        evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
+        RUNTIME.HELPER.notify('NewData',evtdata);
         
         
         % Save runtime data in case of crash
@@ -43,10 +44,6 @@ for i = 1:RUNTIME.NSubjects
         
         
         
-        % Broadcast event data has been updated
-        evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
-        RUNTIME.HELPER.notify('NewData',evtdata);
-        RUNTIME.HELPER.notify('NewTrial',evtdata);
     end
     
     
@@ -56,12 +53,8 @@ for i = 1:RUNTIME.NSubjects
 
     
     % If in use, wait for manual completion of trial in RPvds
-    if isfield(RUNTIME,'TrialCompleteIdx')
-        if RUNTIME.usingSynapse            
-            TCtag = AX.getParameterValue(RUNTIME.TDT.Module_{1},RUNTIME.TrialCompleteStr{i});
-        else
-            TCtag = AX(RUNTIME.TrialCompleteIdx(i)).GetTagVal(RUNTIME.TrialCompleteStr{i});
-        end
+    if isfield(RUNTIME,'TrialCompleteIdx') % ???
+        TCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialComplete);
         RUNTIME.ON_HOLD(i) = ~TCtag;
     end
     
@@ -76,12 +69,12 @@ for i = 1:RUNTIME.NSubjects
     
     % Collect Buffer if available
     if isfield(RUNTIME,'AcqBufferStr')
-        % TODO: determine if a buffer actually exists
         try
-            bufferSize = AX(RUNTIME.AcqBufferSizeIdx(i)).GetTagVal(RUNTIME.AcqBufferSizeStr{i});
-            RUNTIME.TRIALS(i).AcqBuffer = AX(RUNTIME.AcqBufferIdx(i)).ReadTagV(RUNTIME.AcqBufferStr{i},0,bufferSize);
+            RUNTIME.TRIALS(i).AcqBuffer = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).AcqBuffer);
         end
     end
+    
+
     
     
      % Increment trial index
@@ -110,7 +103,7 @@ for i = 1:RUNTIME.NSubjects
     catch me
         fprintf(2,'Error in Custom Trial Selection Function "%s" on line %d\n\n%s\n%s', ...
             me.stack(1).name,me.stack(1).line,me.identifier,me.message);
-        vprintf(0,me);
+        vprintf(0,1,me);
     end
     
     
@@ -147,6 +140,9 @@ for i = 1:RUNTIME.NSubjects
 
     % 3. Trigger first new trial
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
+
+    % notify of new trial
+    RUNTIME.HELPER.notify('NewTrial');
 
 
 end

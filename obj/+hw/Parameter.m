@@ -67,6 +67,10 @@ classdef Parameter < matlab.mixin.SetGet
             else
                 v = obj.Parent.get_parameter(obj,includeInvisible=true);
             end
+
+            if isnumeric(v)
+                v = double(v);
+            end
         end
 
         function set.Value(obj,value)
@@ -74,21 +78,26 @@ classdef Parameter < matlab.mixin.SetGet
                 value = obj.Evaluator(obj,value);
             end
 
-            if isa(obj.Parent,'hw.Software') % special case
-                obj.Value = value;
-            else
-                obj.Parent.set_parameter(obj,value);
-            end
+            obj.Value = value;
+            obj.Parent.set_parameter(obj,value);
         end
 
 
 
         function vstr = get.ValueStr(obj)
             if isempty(obj.Format)
-                vstr = num2str(obj.Value);
-            else
-                vstr = sprintf(obj.Format, obj.Value, obj.Unit);
+                if isequal(obj.Type,'String')
+                    obj.Format = '%s';
+                else
+                    obj.Format = '%g';
+                end
             end
+            
+            vstr = sprintf(obj.Format, obj.Value);
+            if ~isempty(obj.Unit)
+                vstr = [vstr ' ' obj.Unit];
+            end
+            
         end
 
 

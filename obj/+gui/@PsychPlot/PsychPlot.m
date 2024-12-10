@@ -5,7 +5,7 @@ classdef PsychPlot < handle
         
         ParameterName (1,:) char
         
-        PsychophysicsObj
+        PsychophysicsObj % psychophysics...
         
         % must jive with obj.ValidPlotTypes
         PlotType    (1,:) char {mustBeMember(PlotType,{'DPrime','Hit_Rate','FA_Rate','Bias'})} = 'DPrime';
@@ -30,13 +30,16 @@ classdef PsychPlot < handle
     end
     
     
-    events (ListenAccess = 'public', NotifyAccess = 'protected')
-        PsychPlot_ParameterUpdate
-    end
-    
+
     
     methods
         function obj = PsychPlot(pObj,Helper,ax)
+            % obj = PsychPlot(pObj,Helper,ax)
+            %
+            % pObj      psychophysics object (ex: psychophysics.Detection)
+            % Helper    RUNTIME.HELPER
+            % ax        Target axes (default = gca)
+
             if nargin < 3 || isempty(ax), ax = gca; end
             
             obj.AxesH = ax;
@@ -54,7 +57,11 @@ classdef PsychPlot < handle
         end
         
         
-        
+        function delete(obj)
+            delete(obj.listener_ParameterUpdate);
+            delete(obj.listener_NewData);
+        end
+
         function set.ParameterName(obj,name)
             ind = ismember(obj.ValidParameters,name);
             assert(any(ind),'ep_Psychophysics_Detection:set.ParameterName','Invalid parameter name: %s',name);
@@ -62,9 +69,11 @@ classdef PsychPlot < handle
             obj.update_plot;
         end
         
+
+
+
         function link_with_helper(obj,Helper)
-            if isempty(Helper) || isempty(Helper), return; end
-            obj.listener_NewData = addlistener(Helper,'NewData',@obj.update_plot);
+            obj.listener_NewData = listener(Helper,'NewData',@obj.update_plot);
         end
         
         
@@ -131,7 +140,7 @@ classdef PsychPlot < handle
             title(obj.AxesH,tstr);
         end
         
-        function update_parameter(obj,hObj,mouse)
+        function update_parameter(obj,hObj,event)
             % TO DO: support multiple parameters at a time
             switch hObj.Tag
                 case 'abscissa'

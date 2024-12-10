@@ -6,28 +6,25 @@ classdef Detection
         Go_TrialType    (1,1) double = 0;
         NoGo_TrialType  (1,1) double = 1;
 
+        Parameter       (1,:) % hw.Parameter
         ParameterName   (1,:) char
         ParameterIDs    (1,:) uint8
 
         BoxID           (1,1) uint8 = 1;
         
         BitColors       (5,3) double {mustBeNonnegative,mustBeLessThanOrEqual(BitColors,1)} = [.8 1 .8; 1 .7 .7; .7 .9 1; 1 .7 1; 1 1 .4];
+
+        BitsInUse epsych.BitMask = [3 4 6 7 5] % [Hit Miss CR FA Abort]
+
     end
 
-    properties (SetAccess = private)
-        NumTrials       (1,1) uint16 = 0;
+    properties (Dependent)
+        NumTrials       (1,1) uint16
         
         Go_Ind          (1,:) logical
         NoGo_Ind        (1,:) logical
-        Go_Count        (1,1) uint16 = 0;
-        NoGo_Count      (1,1) uint16 = 0;
-
-        ResponseCodes   (1,:) uint16
-        ResponsesEnum   (1,:) epsych.BitMask
-        ResponsesChar   (1,:) cell
-
-        ValidParameters (1,:) cell
-        
+        Go_Count        (1,1) uint16
+        NoGo_Count      (1,1) uint16
 
         Hit_Ind     (1,:) logical
         Miss_Ind    (1,:) logical
@@ -49,34 +46,46 @@ classdef Detection
         DPrime      (1,:) double
         Bias        (1,:) double
         
-        HR_FA_Diff  (1,:) double
+        % HR_FA_Diff  (1,:) double
                 
         Trial_Index (1,1) double
-        
-        TRIALS
-        DATA
-        SUBJECT
-    end
-    
 
-    properties (SetAccess = private, Dependent)
+
         ParameterValues     (1,:)
         ParameterCount      (1,1)
         ParameterIndex      (1,1)
         ParameterFieldName  (1,:)
         ParameterData       (1,:)
+        
+        TRIALS
+        DATA
+        SUBJECT
     end
 
-    properties (Constant)
-        BitsInUse epsych.BitMask = [3 4 6 7 5] % [Hit Miss CR FA Abort]
+    properties (SetAccess = immutable)
+        RUNTIME
+    end
+
+    properties (SetAccess = private)
+
+        ResponseCodes   (1,:) uint16
+        ResponsesEnum   (1,:) epsych.BitMask
+        ResponsesChar   (1,:) cell
+
+        ValidParameters (1,:) cell
+        
+        
     end
     
+
     
     methods        
-        function obj = Detection(BoxID,parameterName)
+        function obj = Detection(RUNTIME,BoxID,parameterName)
             
-            if nargin < 1 || isempty(BoxID), BoxID = 1; end
-            if nargin < 2 || isempty(parameterName)
+            obj.RUNTIME = RUNTIME;
+
+            if nargin < 2 || isempty(BoxID), BoxID = 1; end
+            if nargin < 3 || isempty(parameterName)
                 % choose most variable parameter
                 p = obj.ValidParameters;
                 T = obj.TRIALS;
@@ -288,8 +297,7 @@ classdef Detection
         end
         
         function t = get.TRIALS(obj)
-            global RUNTIME
-            t = RUNTIME.TRIALS(obj.BoxID);
+            t = obj.RUNTIME.TRIALS(obj.BoxID);
         end
         
         function d = get.DATA(obj)

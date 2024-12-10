@@ -170,7 +170,8 @@ classdef TDT_Synapse < hw.Interface
                 p = P(i);
                 e = p.HW.setParameterValue(p.Module.Label,p.Name,value(i));
                 if e
-                    vprintf(3,'Updated "%s" = %g',p.Name,value(i))
+                    vstr = p.ValueStr;
+                    vprintf(3,'Updated parameter: %s = %s',p.Name,vstr)
                 else
                     vprintf(0,1,'Failed to write value to "%s"',p.Name)
                 end
@@ -203,11 +204,24 @@ classdef TDT_Synapse < hw.Interface
                     silenceParamterNotFound=options.silenceParamterNotFound);
             end
             
-            value = arrayfun(@(p) obj.HW.getParameterValue(p.Module.Label,p.Name),P);
+            value = cell(size(P));
+            for i = 1:length(P)
+                p = P(i);
+                if p.isArray
+                    value{i} = obj.HW.getParameterValues(p.Module.Label,p.Name);
+                else
+                    value{i} = obj.HW.getParameterValue(p.Module.Label,p.Name);
+                end
+            end
 
             % return in original order
             [~,idx] = ismember(name,{P.Name});
             value = value(idx);
+
+
+            if isscalar(value)
+                value = value{1};
+            end
         end
 
 

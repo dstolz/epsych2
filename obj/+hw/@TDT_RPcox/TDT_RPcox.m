@@ -150,7 +150,8 @@ classdef TDT_RPcox < hw.Interface
                 p = P(i);
                 e = P.HW.write(p.Name,value(i));
                 if e
-                    vprintf(3,'Updated "%s" = %g',p.Name,value(i))
+                    vstr = p.ValueStr;
+                    vprintf(3,'Updated parameter: %s = %s',p.Name,vstr)
                 else
                     vprintf(0,1,'Failed to write value to "%s"',p.Name)
                 end
@@ -181,15 +182,21 @@ classdef TDT_RPcox < hw.Interface
                     silenceParamterNotFound=options.silenceParamterNotFound);
             end
             
-            value = nan(size(P));
+            value = cell(size(P));
             for i = 1:length(P)
-                value(i) = P.HW.read(P.Name);
+                p = P(i);
+
+                value{i} = p.HW.read(p.Name);
             end
 
 
             % return in original order
             [~,idx] = ismember(name,{P.Name});
             value = value(idx);
+
+            if isscalar(value)
+                value = value{1};
+            end
         end
 
     end

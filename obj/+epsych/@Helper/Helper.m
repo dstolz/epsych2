@@ -6,6 +6,7 @@ classdef Helper < handle
     end
 
     events (ListenAccess = 'public', NotifyAccess = 'public')
+        % eventually move these to a Runtime object, once it's built
         NewData
         NewTrial
     end

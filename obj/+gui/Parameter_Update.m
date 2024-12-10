@@ -26,6 +26,7 @@ classdef Parameter_Update < handle
         function set.watchedHandles(obj,h)
             obj.watchedHandles = h;
             arrayfun(@(a) addlistener(a,'ValueUpdated','PostSet',@obj.value_changed),h);
+            obj.value_changed;
         end
 
         function value_changed(obj,src,event)

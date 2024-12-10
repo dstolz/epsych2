@@ -52,12 +52,12 @@ classdef PumpCom < handle
         function delete(obj)
             
             try
+                delete(obj.Device);
                 obj.kill_gui_timer;
             catch me
                 warning(me.identifier,me.message) %#ok<MEXCEP>
             end
             
-            clear global PUMPCOMSERIAL
             
             
         end
@@ -152,26 +152,23 @@ classdef PumpCom < handle
         end
         
         function establish_serial_com(obj)
-            global PUMPCOMSERIAL
             
             p = serialportlist('available');
-            if ismember(obj.Port,p) || isempty(PUMPCOMSERIAL) || ~isvalid(PUMPCOMSERIAL)
-                d = serialport(obj.Port,obj.BaudRate, ...
+            if ismember(obj.Port,p) || isempty(obj.Device) || ~isvalid(obj.Device)
+                obj.Device = serialport(obj.Port,obj.BaudRate, ...
                     'DataBits',obj.DataBits, ...
                     'StopBits',obj.StopBits, ...
                     'Parity','none', ...
                     'FlowControl','none', ...
                     'Timeout', 0.1);
                 
-                PUMPCOMSERIAL = d;
             else
                 fprintf('Port "%s" is already in use. Will try using it anyway.\n',obj.Port)
             end
             
 
-            configureTerminator(PUMPCOMSERIAL,'CR');
+            configureTerminator(obj.Device,'CR');
             
-            obj.Device = PUMPCOMSERIAL;
             
             obj.send_command('STP');
             obj.send_command('DIA',obj.SyringeDiameter);
@@ -218,7 +215,6 @@ classdef PumpCom < handle
         
         
         % vvvvvvvvv gui functions vvvvvvvvvvv
-        
         function create_gui(obj,parent)
             if nargin < 2 || isempty(parent)
                 parent = uifigure('CloseRequestFcn',@obj.kill_gui_timer, ...

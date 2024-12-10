@@ -7,7 +7,7 @@ classdef (ConstructOnLoad) TrialsData < event.EventData
    
    methods
       function data = TrialsData(trials)
-         data.Data  = trials;
+         data.Data    = trials;
          data.Subject = trials.Subject;
          data.BoxID   = trials.BoxID;
       end

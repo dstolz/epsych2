@@ -28,7 +28,7 @@ RUNTIME.HELPER = epsych.Helper;
 for i = 1:RUNTIME.NSubjects
     C = CONFIG(i);
 
-    RUNTIME.TRIALS(i).trials       = C.PROTOCOL.COMPILED.trials;
+    RUNTIME.TRIALS(i).trials       = sortrows(C.PROTOCOL.COMPILED.trials);
     RUNTIME.TRIALS(i).TrialCount   = zeros(size(RUNTIME.TRIALS(i).trials,1),1); 
     RUNTIME.TRIALS(i).activeTrials = true(size(RUNTIME.TRIALS(i).TrialCount));
     RUNTIME.TRIALS(i).UserData     = [];
@@ -130,6 +130,12 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).protocol = protocol;
 
 
+    % SOFTWWARE INTERFACE
+    RUNTIME.S = hw.Software;
+    % addlistener(RUNTIME.HW,'mode','PostSet',@RUNTIME.S.mode_handler);
+
+    
+
     vprintf(2,'Setting up first trial on box %d',i)
 
     % 1. Send trigger to reset components before updating parameters
@@ -146,13 +152,9 @@ for i = 1:RUNTIME.NSubjects
     % 3. Trigger first new trial
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
 
+    % notify of new trial
+    RUNTIME.HELPER.notify('NewTrial');
 
-    % % TESTING SOFTWWARE INTERFACE
-    % RUNTIME.S = hw.Software(wp,trials);
-    RUNTIME.S = hw.Software;
-
-
-    
 end
 
 

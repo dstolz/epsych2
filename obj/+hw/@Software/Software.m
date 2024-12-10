@@ -22,6 +22,8 @@ classdef Software < hw.Interface
         mode
     end
 
+    
+
 
     methods (Access = protected)
 
@@ -59,27 +61,28 @@ classdef Software < hw.Interface
         % set new value to one or more hardware parameters
         % returns TRUE if successful, FALSE otherwise
         function result = set_parameter(obj,name,value)
-            % if isa(name,'hw.Parameter')
-            %     P = name;
-            % else
-            %     P = obj.find_parameter(name);
-            % end
-            % 
-            % if ~isscalar(P) && isscalar(value)
-            %     value = repmat(value,size(P));
-            % end
-            % 
-            % assert(numel(value) == numel(P));
-            % 
-            % % UPDATE TRIALS ????
-            % for i = 1:length(P)
-            %     P.Value = value(i);
-            % end
+            % NOTE: ACTUAL VALUE IS UPDATED IN HW.PARAMETER
+            if isa(name,'hw.Parameter')
+                P = name;
+            else
+                P = obj.find_parameter(name);
+            end
+
+
+            for i = 1:length(P)
+                % P(i).Value = value(i);
+                vstr = P(i).ValueStr;
+                vprintf(3,'Updated parameter: %s = %s',P(i).Name,vstr)
+            end
             result = 1;
         end
 
         % read current value for one or more hardware parameters
         function value = get_parameter(obj,name,options)
+            % CAN'T IMPLEMENT THIS FUNCTION SINCE IT LEADS TO INFINITE
+            % RECURSION SINCE IT IS CALLED BY GET.VALUE() IN THE PARAMETER
+            % CLASS. INSTEAD, THIS CLASS IS TREATED AS A SPECIAL CASE IN
+            % GET.VALUE().
             % arguments
             %     obj
             %     name
@@ -95,7 +98,7 @@ classdef Software < hw.Interface
             %         includeInvisible = options.includeInvisible, ...
             %         silenceParamterNotFound=options.silenceParamterNotFound);
             % end
-            % 
+            
             % % **** LEADS TO INF RECURSTION ***
             % value = nan(size(P));
             % for i = 1:length(P)
@@ -107,6 +110,10 @@ classdef Software < hw.Interface
             % [~,idx] = ismember(name,{P.Name});
             % value = value(idx);
             value = nan;
+        end
+
+        function mode_handler(obj,src,event)
+            disp(event)
         end
 
     end

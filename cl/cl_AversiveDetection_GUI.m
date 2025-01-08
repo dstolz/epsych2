@@ -1,15 +1,18 @@
 classdef cl_AversiveDetection_GUI < handle
 
-    properties (SetAccess = immutable)
+    properties (SetAccess = protected)
         psychDetect % psychophysics.Detect
 
         PsychPlot % gui.PsychPlot
 
         plottedParameters = {'~InTrial_TTL','~RespWindow','~Spout_TTL',...
             '~ShockOn','~GO_Stim','~NOGO_Stim'}
-        RUNTIME
 
-        
+
+    end
+    
+    properties (SetAccess = private)
+        RUNTIME
     end
 
     properties (Hidden)
@@ -32,7 +35,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % create detection object
-            obj.psychDetect = psychophysics.Detection;
+            obj.psychDetect = psychophysics.Detection(RUNTIME,1,'AMdepth');
 
             % generate gui layout and components
             obj.create_gui;
@@ -78,9 +81,9 @@ classdef cl_AversiveDetection_GUI < handle
             fig.Position = [100 100 1600 1000];  % Set figure size
 
             % Create a grid layout
-            layoutMain = uigridlayout(fig, [11, 9]);
+            layoutMain = uigridlayout(fig, [11, 7]);
             layoutMain.RowHeight = {60, 40, 90, 110, 60, 130, 40, 100,50,170,'1x'};
-            layoutMain.ColumnWidth = {150, 150, 100, '1x', '1x','1x', '1x', 200,100};
+            layoutMain.ColumnWidth = {150, 150, 100, '1x', '1x','1x', '1x'};
             layoutMain.Padding = [1 1 1 1];
 
 
@@ -375,8 +378,11 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Commit button ---------------------------------------------
             h = gui.Parameter_Update(layoutMain);
-            h.Button.Layout.Row = 11;
-            h.Button.Layout.Column = [1 2];
+            h.Button.Layout.Row = [9 10];
+            h.Button.Layout.Column = [3 4];
+            h.Button.Text = ["Update" "Parameters"];
+            h.Button.FontSize = 24;
+            
             % find all 'Paramete_Control' objects
             hp = findall(fig,'-regexp','tag','^PC_'); 
             h.watchedHandles = [hp.UserData];
@@ -393,9 +399,9 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Panel for "Trial Filter" ------------------------------------------
             panelTrialFilter = uipanel(layoutMain, 'Title', 'Trial Filter');
-            panelTrialFilter.Layout.Row = [10];
+            panelTrialFilter.Layout.Row = [10 11];
             panelTrialFilter.Layout.Column = [1 2];
-
+            panelTrialFilter.Scrollable = 'on';
 
             % > Trial Filter
             layoutTrialFilter = simple_layout(panelTrialFilter);
@@ -421,7 +427,7 @@ classdef cl_AversiveDetection_GUI < handle
             % Panel for "Total Water" ----------------------------------------
             panelTotalWater = uipanel(layoutMain, 'Title', 'Total Water (mL)');
             panelTotalWater.Layout.Row = 1;
-            panelTotalWater.Layout.Column = 7;
+            panelTotalWater.Layout.Column = 6;
 
 
             % > Pump Object
@@ -438,7 +444,7 @@ classdef cl_AversiveDetection_GUI < handle
                 h.create_gui(panelTotalWater);
                 setpref('PumpCom','port',port);
             catch me
-                lblTotalWater = uilabel(layoutTotalWater);
+                lblTotalWater = uilabel(panelTotalWater);
                 lblTotalWater.Text = "*CAN'T CONNECT PUMP*";
                 lblTotalWater.FontColor = 'r';
                 lblTotalWater.FontWeight = 'bold';
@@ -450,7 +456,7 @@ classdef cl_AversiveDetection_GUI < handle
             % Panel for "Next Trial" ----------------------------------------
             panelNextTrial = uipanel(layoutMain, 'Title', 'Next Trial');
             panelNextTrial.Layout.Row = [1 2];
-            panelNextTrial.Layout.Column = 8;
+            panelNextTrial.Layout.Column = 7;
 
             layoutNextTrial = simple_layout(panelNextTrial);
 
@@ -467,7 +473,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Axes for Main Plot ------------------------------------------------
             axPsych = uiaxes(layoutMain);
-            axPsych.Layout.Row = [3 7];
+            axPsych.Layout.Row = [4 8];
             axPsych.Layout.Column = [3, 5];
 
             obj.PsychPlot = gui.PsychPlot(obj.psychDetect,R.HELPER,axPsych);
@@ -537,38 +543,36 @@ classdef cl_AversiveDetection_GUI < handle
             % ddGroupingVariable.Items = {'None'};
             % ddGroupingVariable.Value = 'None';
 
-            % >> Include reminders ???
-            chkIncludeReminders = uicheckbox(layoutPlottingVariables);
-            chkIncludeReminders.Layout.Row = 4;
-            chkIncludeReminders.Layout.Column = [1 2];
-            chkIncludeReminders.Text = "Include reminders";
-            chkIncludeReminders.Value = false;
-            % chkIncludeReminders.ValueChangedFcn =
+            % % >> Include reminders ???
+            % chkIncludeReminders = uicheckbox(layoutPlottingVariables);
+            % chkIncludeReminders.Layout.Row = 4;
+            % chkIncludeReminders.Layout.Column = [1 2];
+            % chkIncludeReminders.Text = "Include reminders";
+            % chkIncludeReminders.Value = false;
+            % % chkIncludeReminders.ValueChangedFcn =
 
 
 
 
 
 
-            % Panel for "Microphone Display" ------------------------------------
-            panelMicrophoneDisplay = uipanel(layoutMain, 'Title', 'Microphone');
-            panelMicrophoneDisplay.Layout.Row = [3 4];
-            panelMicrophoneDisplay.Layout.Column = 7;
-
-            layoutMicrophoneDisplay = simple_layout(panelMicrophoneDisplay);
-
-            % Axes for Microphone Display
-            axesMicrophone = uiaxes(layoutMicrophoneDisplay);
-            axis(axesMicrophone,'image');
             
-            h = gui.MicrophonePlot(p,axesMicrophone);
+            % Axes for Microphone Display -------------------------------
+            axesMicrophone = uiaxes(layoutMain);
+            axesMicrophone.Layout.Row = [9 11];
+            axesMicrophone.Layout.Column = 5;
+            axis(axesMicrophone,'image');
+            box(axesMicrophone,'on')
+            
+            gui.MicrophonePlot(p,axesMicrophone);
             axesMicrophone.YAxis.Label.String = "RMS voltage";
 
 
             % Panel for "FA Rate" --------------------------------------------
+            % TO DO: UPDATE TO NEW HW.PARAMETER OBJECT
             panelFARate = uipanel(layoutMain, 'Title', 'FA Rate');
-            panelFARate.Layout.Row = [1 2];
-            panelFARate.Layout.Column = 9;
+            panelFARate.Layout.Row = 3;
+            panelFARate.Layout.Column = 5;
 
             layoutFARate = simple_layout(panelFARate);
 
@@ -586,24 +590,16 @@ classdef cl_AversiveDetection_GUI < handle
             % Panel for "Response History" --------------------------------------
             panelResponseHistory = uipanel(layoutMain, 'Title', 'Response History');
             panelResponseHistory.Layout.Row = [3, 6];
-            panelResponseHistory.Layout.Column = [8 9];
-
-            % % > Response History
-            % layoutResponseHistory = simple_layout(panelResponseHistory);
+            panelResponseHistory.Layout.Column = [6 7];
 
             % > Response History Table
-            % tableResponseHistory = uitable(layoutResponseHistory);
-            % tableResponseHistory.ColumnName = {'AMdepth','TrialType','Response'};
-            % tableResponseHistory.ColumnEditable = false;
-            % tableResponseHistory.FontSize = 10;
-
             gui.History(obj.psychDetect,R.HELPER,panelResponseHistory);
 
 
             % Panel for "Trial History" ----------------------------------------
             panelTrialHistory = uipanel(layoutMain, 'Title', 'Trial History');
             panelTrialHistory.Layout.Row = [7 11];
-            panelTrialHistory.Layout.Column = [7 9];
+            panelTrialHistory.Layout.Column = [6 7];
 
 
             % > Trial History
@@ -618,7 +614,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-            %
+            % update panel title aesthetics
             hp = findobj(fig,'type','uipanel');
             set(hp, ...
                 BorderType = "none", ...
@@ -626,9 +622,8 @@ classdef cl_AversiveDetection_GUI < handle
                 FontSize = 13)
 
 
-
-
-            ddh = findobj(fig,'Type', 'uidropdown', '-regexp', 'Tag', '^dd');
+            % update dropdown aesthetics
+            ddh = findobj(fig,'Type', 'uidropdown');
             set(ddh,FontColor = 'b');
 
             obj.guiHandles = findobj(fig);

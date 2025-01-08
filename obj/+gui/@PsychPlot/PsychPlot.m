@@ -64,7 +64,7 @@ classdef PsychPlot < handle
 
         function set.ParameterName(obj,name)
             ind = ismember(obj.ValidParameters,name);
-            assert(any(ind),'ep_Psychophysics_Detection:set.ParameterName','Invalid parameter name: %s',name);
+            assert(any(ind),'gui.PsychPlot:set.ParameterName','Invalid parameter name: %s',name);
             obj.ParameterName = name;
             obj.update_plot;
         end
@@ -98,13 +98,16 @@ classdef PsychPlot < handle
                 
                 grid(obj.AxesH,'on');
             end
-            
-            
-            X = obj.PsychophysicsObj.ParameterValues;
-            Y = obj.PsychophysicsObj.(obj.PlotType);
-            %C = obj.PsychophysicsObj.Trial_Count;
-            C = [obj.PsychophysicsObj.Go_Count' obj.PsychophysicsObj.NoGo_Count'];
-            
+
+            try
+                X = obj.PsychophysicsObj.ParameterValues;
+                Y = obj.PsychophysicsObj.(obj.PlotType);
+                %C = obj.PsychophysicsObj.Trial_Count;
+                C = [obj.PsychophysicsObj.Go_Count' obj.PsychophysicsObj.NoGo_Count'];
+            catch me
+                return
+            end
+
             lh.XData = X;
             lh.YData = Y;
             

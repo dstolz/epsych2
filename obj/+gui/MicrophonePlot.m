@@ -25,7 +25,7 @@ classdef MicrophonePlot < handle
 
             obj.ParentFigure = ancestor(Parent,'figure');
 
-            if isequal(class(Parent),'axes',IgnoreCase=true)
+            if contains(class(Parent),'axes',IgnoreCase=true)
                 obj.axes = Parent;
             else
                 % to do: determine if ancestor is figure() or uifigure()
@@ -68,7 +68,7 @@ classdef MicrophonePlot < handle
             obj.h_timer.start;
         end
 
-        function update(obj,src,event)
+        function update(obj,varargin)
             obj.h_line.YData = obj.Parameter.Value;
             drawnow limitrate
         end

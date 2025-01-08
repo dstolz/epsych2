@@ -1,4 +1,4 @@
-classdef OnlinePlot < gui.Helper & handle
+classdef OnlinePlot < handle
     
     properties
         hax    (1,1)   % axes handle
@@ -32,6 +32,7 @@ classdef OnlinePlot < gui.Helper & handle
         
         BoxID       (1,1)  uint8 = 1;
         
+        RUNTIME
     end
 
     properties (SetAccess = immutable)
@@ -87,7 +88,7 @@ classdef OnlinePlot < gui.Helper & handle
             % locate and return TrigState parameter handle
             obj.trialParam = obj.HW.find_parameter(sprintf('_TrigState~%d',BoxID),includeInvisible=true);
             
-            obj.Timer = ep_GenericGUITimer(obj.figH,sprintf('OnlinePlot~%d',BoxID));
+            obj.Timer = gui.GenericTimer(obj.figH,sprintf('OnlinePlot~%d',BoxID));
             obj.Timer.StartFcn = @obj.setup_plot; % THESE MIGHT NEED TO BE STATIC FUNCTIONS?!
             obj.Timer.TimerFcn = @obj.update;
             obj.Timer.ErrorFcn = @obj.error;

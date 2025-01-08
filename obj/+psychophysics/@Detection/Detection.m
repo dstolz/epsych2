@@ -83,6 +83,7 @@ classdef Detection
         function obj = Detection(RUNTIME,BoxID,parameterName)
             
             obj.RUNTIME = RUNTIME;
+            
 
             if nargin < 2 || isempty(BoxID), BoxID = 1; end
             if nargin < 3 || isempty(parameterName)
@@ -282,18 +283,18 @@ classdef Detection
         function i = get.ParameterIndex(obj)
             i = [];
             if isempty(obj.ParameterName), return; end
-            i = find(ismember(obj.TRIALS.writeparams_,obj.ParameterName));
+            i = find(ismember(obj.TRIALS.writeparams,obj.ParameterName));
         end
 
         function n = get.ParameterFieldName(obj)
             n = [];
             if isempty(obj.ParameterName), return; end
-            n = obj.TRIALS.writeparams_{obj.ParameterIndex};
+            n = obj.TRIALS.writeparams{obj.ParameterIndex};
         end
 
         function p = get.ValidParameters(obj)
             p = fieldnames(obj.DATA);
-            p(~ismember(p,obj.TRIALS.writeparams_)) = [];
+            p(~ismember(p,obj.TRIALS.writeparams)) = [];
         end
         
         function t = get.TRIALS(obj)

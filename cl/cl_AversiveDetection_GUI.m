@@ -78,11 +78,11 @@ classdef cl_AversiveDetection_GUI < handle
             % Create the main figure
             fig = uifigure(Tag = 'cl_AversiveDetection_GUI', ...
                 Name = 'Caras Lab Aversive Detection GUI');
-            fig.Position = [100 100 1600 1000];  % Set figure size
+            fig.Position = [50 50 1200 1000];  % Set figure size
 
             % Create a grid layout
             layoutMain = uigridlayout(fig, [11, 7]);
-            layoutMain.RowHeight = {60, 40, 90, 110, 60, 130, 40, 100,50,170,'1x'};
+            layoutMain.RowHeight = {60, 40, 90, 110, 60, 130, 40, 100,100,100,'1x'};
             layoutMain.ColumnWidth = {150, 150, 100, '1x', '1x','1x', '1x'};
             layoutMain.Padding = [1 1 1 1];
 
@@ -362,12 +362,35 @@ classdef cl_AversiveDetection_GUI < handle
             panelPumpControls.Layout.Column = [1 2];
 
 
-            p = R.S.Module.add_parameter('PumpRate',0.3);
-            p.Unit = 'mL/min';
-            h = gui.Parameter_Control(panelPumpControls,p,Type='dropdown',autoCommit=true);
-            h.Values = (1:20)/10;
-            h.Value = 0.3;
-            h.Text = "Pump Rate (mL/min)";
+            % > Pump Object
+            try
+                port = getpref('PumpCom','port',[]);
+                if isempty(port)
+                    freeports = serialportlist("available");
+                    idx = listdlg('ListString',freeports, ...
+                        'PromptString','Pick the Pump port', ...
+                        'SelectionMode','single');
+                    port = freeports{idx};
+                end
+                h = PumpCom(port);
+                h.create_gui(panelPumpControls);
+                setpref('PumpCom','port',port);
+            catch me
+                lblTotalWater = uilabel(panelPumpControls);
+                lblTotalWater.Text = "*CAN'T CONNECT PUMP*";
+                lblTotalWater.FontColor = 'r';
+                lblTotalWater.FontWeight = 'bold';
+                vprintf(0,1,'Couldn''t connect to Pump. Check that the com port is correct')
+            end
+
+
+
+            % p = R.S.Module.add_parameter('PumpRate',0.3);
+            % p.Unit = 'mL/min';
+            % h = gui.Parameter_Control(panelPumpControls,p,Type='dropdown',autoCommit=true);
+            % h.Values = (1:20)/10;
+            % h.Value = 0.3;
+            % h.Text = "Pump Rate (mL/min)";
 
 
     
@@ -424,33 +447,33 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-            % Panel for "Total Water" ----------------------------------------
-            panelTotalWater = uipanel(layoutMain, 'Title', 'Total Water (mL)');
-            panelTotalWater.Layout.Row = 1;
-            panelTotalWater.Layout.Column = 6;
+            % % Panel for "Total Water" ----------------------------------------
+            % panelTotalWater = uipanel(layoutMain, 'Title', 'Total Water (mL)');
+            % panelTotalWater.Layout.Row = 1;
+            % panelTotalWater.Layout.Column = 6;
 
-
-            % > Pump Object
-            try
-                port = getpref('PumpCom','port',[]);
-                if isempty(port)
-                    freeports = serialportlist("available");
-                    idx = listdlg('ListString',freeports, ...
-                        'PromptString','Pick the Pump port', ...
-                        'SelectionMode','single');
-                    port = freeports{idx};
-                end
-                h = PumpCom(port);
-                h.create_gui(panelTotalWater);
-                setpref('PumpCom','port',port);
-            catch me
-                lblTotalWater = uilabel(panelTotalWater);
-                lblTotalWater.Text = "*CAN'T CONNECT PUMP*";
-                lblTotalWater.FontColor = 'r';
-                lblTotalWater.FontWeight = 'bold';
-                vprintf(0,1,'Couldn''t connect to Pump. Check that the com port is correct')
-            end
-
+            % 
+            % % > Pump Object
+            % try
+            %     port = getpref('PumpCom','port',[]);
+            %     if isempty(port)
+            %         freeports = serialportlist("available");
+            %         idx = listdlg('ListString',freeports, ...
+            %             'PromptString','Pick the Pump port', ...
+            %             'SelectionMode','single');
+            %         port = freeports{idx};
+            %     end
+            %     h = PumpCom(port);
+            %     h.create_gui(panelTotalWater);
+            %     setpref('PumpCom','port',port);
+            % catch me
+            %     lblTotalWater = uilabel(panelTotalWater);
+            %     lblTotalWater.Text = "*CAN'T CONNECT PUMP*";
+            %     lblTotalWater.FontColor = 'r';
+            %     lblTotalWater.FontWeight = 'bold';
+            %     vprintf(0,1,'Couldn''t connect to Pump. Check that the com port is correct')
+            % end
+            % 
 
 
             % Panel for "Next Trial" ----------------------------------------
@@ -564,6 +587,7 @@ classdef cl_AversiveDetection_GUI < handle
             axis(axesMicrophone,'image');
             box(axesMicrophone,'on')
             
+            p = R.HW.find_parameter('MicPower');
             gui.MicrophonePlot(p,axesMicrophone);
             axesMicrophone.YAxis.Label.String = "RMS voltage";
 
@@ -633,21 +657,21 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-            % Create separate legacy figure for online plotting because
-            % it's much faster than uifigure
-            % Axes for Behavior Plot --------------------------------------------
-            figOnlinePlot = figure(Name = 'Online Plot', ...
-                Tag = 'cl_AversiveDetection_OnlinePlot');
-            p = fig.Position;
-            figOnlinePlot.Position(1) = p(1);
-            figOnlinePlot.Position(2) = p(2) + p(4) + 30;
-            figOnlinePlot.Position(3) = p(3);
-            figOnlinePlot.Position(4) = 200;
-            figOnlinePlot.ToolBar = "none";
-            figOnlinePlot.MenuBar = "none";
-            figOnlinePlot.NumberTitle = "off";
-            axesBehavior = axes(figOnlinePlot);
-            gui.OnlinePlot(R,obj.plottedParameters,axesBehavior,1);
+            % % Create separate legacy figure for online plotting because
+            % % it's much faster than uifigure
+            % % Axes for Behavior Plot --------------------------------------------
+            % figOnlinePlot = figure(Name = 'Online Plot', ...
+            %     Tag = 'cl_AversiveDetection_OnlinePlot');
+            % p = fig.Position;
+            % figOnlinePlot.Position(1) = p(1);
+            % figOnlinePlot.Position(2) = p(2) + p(4) + 30;
+            % figOnlinePlot.Position(3) = p(3);
+            % figOnlinePlot.Position(4) = 200;
+            % figOnlinePlot.ToolBar = "none";
+            % figOnlinePlot.MenuBar = "none";
+            % figOnlinePlot.NumberTitle = "off";
+            % axesBehavior = axes(figOnlinePlot);
+            % gui.OnlinePlot(R,obj.plottedParameters,axesBehavior,1);
 
 
 

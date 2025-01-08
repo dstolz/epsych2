@@ -64,7 +64,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 obj
                 name
                 options.includeInvisible (1,1) logical = false
-                options.silenceParamterNotFound (1,1) logical = false
+                options.silenceParameterNotFound (1,1) logical = false
             end
 
             P = obj.all_parameters(includeInvisible = options.includeInvisible);
@@ -81,7 +81,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 P = P(idx);
             else
                 P = [];
-                if ~options.silenceParamterNotFound
+                if ~options.silenceParameterNotFound
                     cellfun(@(a) vprintf(0,1,'Parameter "%s" was not found on any modules',a),name)
                 end
             end

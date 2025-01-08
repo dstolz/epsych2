@@ -118,7 +118,7 @@ for i = 1:RUNTIME.NSubjects
         'TrialComplete','AcqBuffer','AcqBufferSize'];
     for cc = bmn
         trigStr = sprintf('_%s~%d',cc,RUNTIME.TRIALS(i).Subject.BoxID);
-        p = RUNTIME.HW.find_parameter(trigStr,includeInvisible=true,silenceParamterNotFound=true);
+        p = RUNTIME.HW.find_parameter(trigStr,includeInvisible=true,silenceParameterNotFound=true);
         RUNTIME.CORE(i).(cc) = p;
     end
 

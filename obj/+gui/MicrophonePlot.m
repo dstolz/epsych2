@@ -38,9 +38,11 @@ classdef MicrophonePlot < handle
             obj.create;
             
             obj.create_timer;
+
         end
 
         function delete(obj)
+            stop(obj.h_timer);
             delete(obj.h_timer);
         end
 
@@ -63,12 +65,21 @@ classdef MicrophonePlot < handle
 
         function create_timer(obj)
             obj.h_timer = gui.GenericTimer(obj.ParentFigure,'MicrophonePlot');
-            obj.h_timer.Period = 0.2;
+            obj.h_timer.Period = 0.25;
             obj.h_timer.TimerFcn = @obj.update;
             obj.h_timer.start;
         end
 
         function update(obj,varargin)
+            % TO DO: CHANGE PRGMSTATE TO LISTENER
+            global PRGMSTATE
+            
+            if isequal(PRGMSTATE,'STOP')
+                stop(obj.h_timer);
+                delete(obj);
+                return
+            end
+
             obj.h_line.YData = obj.Parameter.Value;
             drawnow limitrate
         end

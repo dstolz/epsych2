@@ -192,7 +192,7 @@ classdef TDT_Synapse < hw.Interface
                 obj
                 name
                 options.includeInvisible (1,1) logical = false
-                options.silenceParamterNotFound (1,1) logical = false
+                options.silenceParameterNotFound (1,1) logical = false
             end
 
             if isa(name,'hw.Parameter')
@@ -201,7 +201,7 @@ classdef TDT_Synapse < hw.Interface
             else
                 P = obj.find_parameter(name, ...
                     includeInvisible = options.includeInvisible, ...
-                    silenceParamterNotFound=options.silenceParamterNotFound);
+                    silenceParameterNotFound=options.silenceParameterNotFound);
             end
             
             value = cell(size(P));

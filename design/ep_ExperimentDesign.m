@@ -822,12 +822,12 @@ switch s
         
     case 'rpvds'
         % RPvds file
-        if h.UseOpenEx
-            msgbox(['This protocol is currently designed to work in conjunction with OpenEx. ', ...
-                'The RPvds file can be changed in the OpenEx Workbench.'], ...
-                'Change Module Type','help','modal');
-            return
-        end
+        % if h.UseOpenEx
+        %     msgbox(['This protocol is currently designed to work in conjunction with OpenEx. ', ...
+        %         'The RPvds file can be changed in the OpenEx Workbench.'], ...
+        %         'Change Module Type','help','modal');
+        %     return
+        % end
         [rpfn,rppn] = uigetfile('*.rcx','Associate RPvds File');
         if ~rpfn, return; end
         RPfile = fullfile(rppn,rpfn);

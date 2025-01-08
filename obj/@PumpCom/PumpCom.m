@@ -287,6 +287,7 @@ classdef PumpCom < handle
             if isequal(PRGMSTATE,'STOP')
                 if ~isempty(obj.Device) && isvalid(obj.Device)
                     vprintf(2,'Closing Pump serial port connection on "%s"',obj.Port)
+                    obj.kill_gui_timer;
                     delete(obj.Device);
                 end
                 return 

@@ -58,9 +58,12 @@ end
 % setup parameters
 mp = cellfun(@(a) obj.HW.getParameterNames(a),{obj.Module.Label},'uni',0);
 p = characterListPattern('%/|\#'); % remove reserved TDT parameters
-mp = cellfun(@(a) a(~startsWith(a,p)),mp,'uni',0);
 
 for m = 1:length(obj.Module)
+    if isempty(mp{m}), continue; end
+
+    mp{m} = mp{m}(~startsWith(mp{m},p));
+
     tagInfo = cellfun(@(a) obj.HW.getParameterInfo(obj.Module(m).Label,a),mp{m},'uni',1);
     for t = tagInfo(:)'
         % P = hw.Parameter(obj.Module(m));

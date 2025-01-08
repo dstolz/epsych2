@@ -699,7 +699,7 @@ for i = 1:length(CONFIG)
     data(i,1) = {CONFIG(i).SUBJECT.BoxID}; %#ok<AGROW>
     data(i,2) = {CONFIG(i).SUBJECT.Name};  %#ok<AGROW>
     [~,fn,~] = fileparts(CONFIG(i).protocol_fn);
-    data(i,3) = {fn}; %#ok<AGROW>
+    data(i,3) = {char(fn)}; %#ok<AGROW>
 end
 set(h.subject_list,'Data',data);
 

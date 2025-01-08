@@ -385,16 +385,6 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-            % p = R.S.Module.add_parameter('PumpRate',0.3);
-            % p.Unit = 'mL/min';
-            % h = gui.Parameter_Control(panelPumpControls,p,Type='dropdown',autoCommit=true);
-            % h.Values = (1:20)/10;
-            % h.Value = 0.3;
-            % h.Text = "Pump Rate (mL/min)";
-
-
-    
-
 
 
 
@@ -445,35 +435,6 @@ classdef cl_AversiveDetection_GUI < handle
             tableTrialFilter.CellEditCallback = @obj.update_trial_filter;
 
 
-
-
-            % % Panel for "Total Water" ----------------------------------------
-            % panelTotalWater = uipanel(layoutMain, 'Title', 'Total Water (mL)');
-            % panelTotalWater.Layout.Row = 1;
-            % panelTotalWater.Layout.Column = 6;
-
-            % 
-            % % > Pump Object
-            % try
-            %     port = getpref('PumpCom','port',[]);
-            %     if isempty(port)
-            %         freeports = serialportlist("available");
-            %         idx = listdlg('ListString',freeports, ...
-            %             'PromptString','Pick the Pump port', ...
-            %             'SelectionMode','single');
-            %         port = freeports{idx};
-            %     end
-            %     h = PumpCom(port);
-            %     h.create_gui(panelTotalWater);
-            %     setpref('PumpCom','port',port);
-            % catch me
-            %     lblTotalWater = uilabel(panelTotalWater);
-            %     lblTotalWater.Text = "*CAN'T CONNECT PUMP*";
-            %     lblTotalWater.FontColor = 'r';
-            %     lblTotalWater.FontWeight = 'bold';
-            %     vprintf(0,1,'Couldn''t connect to Pump. Check that the com port is correct')
-            % end
-            % 
 
 
             % Panel for "Next Trial" ----------------------------------------

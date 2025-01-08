@@ -73,13 +73,13 @@ for i = 1:RUNTIME.NSubjects
 
 
     % Initialize data structure
-    ptags = RUNTIME.HW.filter_parameters('Access','Read',testFcn=@contains);
+    ptags = RUNTIME.HW.filter_parameters('Access','Read',testFcn=@contains,includeTriggers=false,includeInvisible=false);
     for p = ptags
         RUNTIME.TRIALS(i).DATA.(p.validName) = [];
     end    
     RUNTIME.TRIALS(i).DATA.ResponseCode = [];
     RUNTIME.TRIALS(i).DATA.TrialID = [];
-    RUNTIME.TRIALS(i).DATA.ComputerTimestamp = [];
+    RUNTIME.TRIALS(i).DATA.inaccurateTimestamp = [];
     
 end
 

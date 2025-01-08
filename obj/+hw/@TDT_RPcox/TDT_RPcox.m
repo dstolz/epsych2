@@ -173,6 +173,7 @@ classdef TDT_RPcox < hw.Interface
                 options.silenceParameterNotFound (1,1) logical = false
             end
 
+            
             if isa(name,'hw.Parameter')
                 P = name;
                 name = {P.Name};

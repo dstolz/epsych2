@@ -1,6 +1,8 @@
 classdef cl_AversiveDetection_GUI < handle
 
     properties (SetAccess = protected)
+        h_figure
+
         psychDetect % psychophysics.Detect
 
         PsychPlot % gui.PsychPlot
@@ -31,7 +33,13 @@ classdef cl_AversiveDetection_GUI < handle
             % only permit one instance to run
             f = findall(groot,'Type','figure');
             f = f(startsWith({f.Tag},'cl_AversiveDetection'));
-            if ~isempty(f), delete(f); end
+
+            
+            if ~isempty(f)
+                % THIS IS A BUG THAT SHOULD BE FIXED
+                vprintf(0,1,'MUST FIRST CLOSE GUI')
+                delete(f);
+            end
 
 
             % create detection object
@@ -39,6 +47,8 @@ classdef cl_AversiveDetection_GUI < handle
 
             % generate gui layout and components
             obj.create_gui;
+
+            obj.create_onlineplot;
 
 
             if nargout == 0, clear obj; end
@@ -78,7 +88,9 @@ classdef cl_AversiveDetection_GUI < handle
             % Create the main figure
             fig = uifigure(Tag = 'cl_AversiveDetection_GUI', ...
                 Name = 'Caras Lab Aversive Detection GUI');
-            fig.Position = [50 50 1200 1000];  % Set figure size
+            fig.Position = [1925 -1050 1200 1000];  % Set figure size
+
+            obj.h_figure = fig;
 
             % Create a grid layout
             layoutMain = uigridlayout(fig, [11, 7]);
@@ -403,7 +415,12 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-
+            % create/locate online plot ------------------------------------
+            h = uibutton(layoutMain);
+            h.Layout.Row = 11;
+            h.Layout.Column = 3;
+            h.Text = "Online Plot";
+            h.ButtonPushedFcn = @obj.create_onlineplot;
 
 
 
@@ -618,27 +635,36 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-            % % Create separate legacy figure for online plotting because
-            % % it's much faster than uifigure
-            % % Axes for Behavior Plot --------------------------------------------
-            % figOnlinePlot = figure(Name = 'Online Plot', ...
-            %     Tag = 'cl_AversiveDetection_OnlinePlot');
-            % p = fig.Position;
-            % figOnlinePlot.Position(1) = p(1);
-            % figOnlinePlot.Position(2) = p(2) + p(4) + 30;
-            % figOnlinePlot.Position(3) = p(3);
-            % figOnlinePlot.Position(4) = 200;
-            % figOnlinePlot.ToolBar = "none";
-            % figOnlinePlot.MenuBar = "none";
-            % figOnlinePlot.NumberTitle = "off";
-            % axesBehavior = axes(figOnlinePlot);
-            % gui.OnlinePlot(R,obj.plottedParameters,axesBehavior,1);
-
-
 
         end
 
+        function create_onlineplot(obj,varargin)
 
+            % Create separate legacy figure for online plotting because
+            % it's much faster than uifigure
+            % Axes for Behavior Plot --------------------------------------------
+            f = findobj('type','figure','-and','name','cl_AversiveDetection_OnlinePlot');
+            if isempty(f)
+                f = figure(Name = 'Online Plot', ...
+                    Tag = 'cl_AversiveDetection_OnlinePlot');
+            else
+                figure(f);
+                return
+            end
+            
+            p = obj.h_figure.Position;
+            f.Position(1) = p(1);
+            f.Position(2) = p(2) + p(4) + 100;
+            f.Position(3) = p(3);
+            f.Position(4) = 200;
+            f.ToolBar = "none";
+            f.MenuBar = "none";
+            f.NumberTitle = "off";
+            axesBehavior = axes(f);
+            gui.OnlinePlot(obj.RUNTIME,obj.plottedParameters,axesBehavior,1);
+
+
+        end
 
         
     end

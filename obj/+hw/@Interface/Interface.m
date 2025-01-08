@@ -90,7 +90,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         end
 
 
-        function P = filter_parameters(obj,propertyName,propertyValue,options)
+        function P = filter_parameters(obj,propertyName,propertyValue,options,poptions)
             % P = obj.filter_parameters(propertyName,propertyValue,options)
             %
             % options:
@@ -106,10 +106,12 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 propertyName (1,:) char
                 propertyValue
                 options.testFcn (1,1) function_handle = @isequal
-                options.includeInvisible (1,1) logical = false
+                poptions.includeTriggers (1,1) logical = false
+                poptions.includeInvisible (1,1) logical = false
             end
 
-            P = obj.all_parameters(includeInvisible = options.includeInvisible);
+            poptions = namedargs2cell(poptions);
+            P = obj.all_parameters(poptions{:});
 
             ind = arrayfun(@(a) options.testFcn(a.(propertyName),propertyValue),P);
             P = P(ind);

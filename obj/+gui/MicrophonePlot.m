@@ -52,9 +52,9 @@ classdef MicrophonePlot < handle
         function create(obj)
             obj.h_line = line(obj.axes,[0 0],[0 1]);
             obj.h_line.Color = 'y';
-            obj.h_line.LineWidth = 15;
-            obj.h_line.XData = 0;
-            obj.h_line.YData = 0;
+            obj.h_line.LineWidth = 30;
+            obj.h_line.XData = [0 0];
+            obj.h_line.YData = [0 0];
 
             obj.axes.YLim = [0 10];
             obj.axes.XLim = [-1 1];
@@ -80,7 +80,7 @@ classdef MicrophonePlot < handle
                 return
             end
 
-            obj.h_line.YData = obj.Parameter.Value;
+            obj.h_line.YData = [0 obj.Parameter.Value];
             drawnow limitrate
         end
     end

@@ -24,12 +24,14 @@ for i = 1:RUNTIME.NSubjects
         
         
         % There was a response and the trial is over.
-        % Retrieve parameter data from RPvds circuits
-        data = RUNTIME.HW.get_parameter(RUNTIME.HW.all_parameters);
-        data = feval(sprintf('Read%sTags',RUNTIME.TYPE),AX,RUNTIME.TRIALS(i));
+        % Retrieve parameter data from HW
+        % AP = RUNTIME.HW.all_parameters(includeTriggers=false);
+        AP = RUNTIME.HW.filter_parameters('Access','Read',testFcn=@contains,includeTriggers=false,includeInvisible=false);
+        AP_nv = [{AP.Name}; {AP.Value}];
+        data = struct(AP_nv{:});
         data.ResponseCode = RCtag;
         data.TrialID = TrialNum;
-        data.ComputerTimestamp = datetime("now");
+        data.inaccurateTimestamp = datetime("now");
         RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
         
         
@@ -41,8 +43,6 @@ for i = 1:RUNTIME.NSubjects
         % Save runtime data in case of crash
         data = RUNTIME.TRIALS(i).DATA;
         save(RUNTIME.DataFile{i},'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
-        
-        
         
     end
     

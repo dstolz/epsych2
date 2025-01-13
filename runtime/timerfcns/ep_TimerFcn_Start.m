@@ -43,6 +43,12 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).BoxID = C.SUBJECT.BoxID; % make BoxID more easily accessible DJS 1/14/2016
 
 
+    % make it a bit easier to find writeparameters
+    for k = 1:length(RUNTIME.TRIALS(i).writeparams)
+        wp = RUNTIME.TRIALS(i).writeparams{k};
+        wpn = matlab.lang.makeValidName(wp);
+        RUNTIME.TRIALS(i).writeParamIdx.(wpn) = find(ismember(RUNTIME.TRIALS(i).writeparams,wp));
+    end
 
 
 
@@ -80,6 +86,16 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).DATA.ResponseCode = [];
     RUNTIME.TRIALS(i).DATA.TrialID = [];
     RUNTIME.TRIALS(i).DATA.inaccurateTimestamp = [];
+    
+    RUNTIME.TRIALS(i).HW = RUNTIME.HW; % make HW object handles available in TRIALS structure
+
+
+    % SOFTWARE INTERFACE
+    RUNTIME.S = hw.Software;
+    RUNTIME.TRIALS(i).S = RUNTIME.S; % make S object handle available in TRIALS structure
+    % addlistener(RUNTIME.HW,'mode','PostSet',@RUNTIME.S.mode_handler);
+
+
     
 end
 
@@ -130,11 +146,6 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).protocol = protocol;
 
 
-    % SOFTWWARE INTERFACE
-    RUNTIME.S = hw.Software;
-    % addlistener(RUNTIME.HW,'mode','PostSet',@RUNTIME.S.mode_handler);
-
-    
 
     vprintf(2,'Setting up first trial on box %d',i)
 
@@ -142,12 +153,11 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
 
     % 2. Update parameter tags
-    % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE
-    % EFFICIENT
+    % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE EFFICIENT
     trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
     wp = RUNTIME.TRIALS.writeparams;
     P = RUNTIME.HW.find_parameter(wp);
-    for j = 1:length(P), P(j).Value = trials{j};  end
+    [P.Value] = deal(trials{:});
 
     % 3. Trigger first new trial
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);

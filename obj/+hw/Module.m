@@ -1,7 +1,7 @@
 classdef Module < handle
         
     properties (SetAccess = immutable)
-        HW (1,1)  % parent hardware interface (inherits hw.Interface)
+        parent (1,1)  % parent hardware interface (inherits hw.Interface)
 
         Label   (1,:) char
         Name    (1,:) char
@@ -27,7 +27,7 @@ classdef Module < handle
                 Index   (1,1) uint8
             end
 
-            obj.HW = HW;
+            obj.parent = HW;
             obj.Label = Label;
             obj.Name = Name;
             obj.Index = Index;
@@ -46,7 +46,7 @@ classdef Module < handle
             if isstring(value), value = char(value); end
 
 
-            P = hw.Parameter(obj.HW);
+            P = hw.Parameter(obj.parent);
              
 
             P.Name = name;

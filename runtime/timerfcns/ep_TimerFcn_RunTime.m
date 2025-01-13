@@ -25,9 +25,11 @@ for i = 1:RUNTIME.NSubjects
         
         % There was a response and the trial is over.
         % Retrieve parameter data from HW
-        % AP = RUNTIME.HW.all_parameters(includeTriggers=false);
+        tic
         AP = RUNTIME.HW.filter_parameters('Access','Read',testFcn=@contains,includeTriggers=false,includeInvisible=false);
+        toc
         AP_nv = [{AP.Name}; {AP.Value}];
+        AP_nv(1,:) = matlab.lang.makeValidName(AP_nv(1,:));
         data = struct(AP_nv{:});
         data.ResponseCode = RCtag;
         data.TrialID = TrialNum;
@@ -131,12 +133,11 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
 
     % 2. Update parameter tags
-    % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE
-    % EFFICIENT
+    % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE EFFICIENT
     trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
     wp = RUNTIME.TRIALS.writeparams;
     P = RUNTIME.HW.find_parameter(wp);
-    for j = 1:length(P), P(j).Value = trials{j}; end
+    [P.Value] = deal(trials{:});
 
     % 3. Trigger first new trial
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);

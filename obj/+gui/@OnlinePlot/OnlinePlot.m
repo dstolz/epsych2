@@ -88,7 +88,7 @@ classdef OnlinePlot < handle
             % locate and return TrigState parameter handle
             obj.trialParam = obj.HW.find_parameter(sprintf('_TrigState~%d',BoxID),includeInvisible=true);
             
-            obj.Timer = gui.GenericTimer(obj.figH,sprintf('OnlinePlot~%d',BoxID));
+            obj.Timer = gui.GenericTimer(obj.figH,sprintf('epsych_gui_OnlinePlot~%d',BoxID));
             obj.Timer.StartFcn = @obj.setup_plot; % THESE MIGHT NEED TO BE STATIC FUNCTIONS?!
             obj.Timer.TimerFcn = @obj.update;
             obj.Timer.ErrorFcn = @obj.error;

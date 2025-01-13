@@ -3,6 +3,8 @@ classdef cl_AversiveDetection_GUI < handle
     properties (SetAccess = protected)
         h_figure
 
+        h_OnlinePlot
+
         psychDetect % psychophysics.Detect
 
         PsychPlot % gui.PsychPlot
@@ -56,6 +58,18 @@ classdef cl_AversiveDetection_GUI < handle
         end
 
 
+        % destructor
+        function delete(obj)
+            t = timerfindall;
+            n = {t.Name};
+            i = startsWith(n,'epsych_gui');
+            stop(t(i));
+            delete(t(i));
+
+            try
+                close(obj.h_OnlinePlot);
+            end
+        end
 
 
         function update_trial_filter(obj,src,event)
@@ -233,7 +247,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % >> Trial order
-            p = R.S.Module.add_parameter('Trial_Order','Descending');
+            p = R.S.Module.add_parameter('TrialOrder','Descending');
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
             h.Values = ["Descending","Ascending","Random"];
             h.Value = "Descending";
@@ -662,6 +676,8 @@ classdef cl_AversiveDetection_GUI < handle
             f.NumberTitle = "off";
             axesBehavior = axes(f);
             gui.OnlinePlot(obj.RUNTIME,obj.plottedParameters,axesBehavior,1);
+
+            obj.h_OnlinePlot = f;
 
 
         end

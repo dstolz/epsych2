@@ -25,12 +25,11 @@ for i = 1:RUNTIME.NSubjects
         
         % There was a response and the trial is over.
         % Retrieve parameter data from HW
-        tic
-        AP = RUNTIME.HW.filter_parameters('Access','Read',testFcn=@contains,includeTriggers=false,includeInvisible=false);
-        toc
-        AP_nv = [{AP.Name}; {AP.Value}];
-        AP_nv(1,:) = matlab.lang.makeValidName(AP_nv(1,:));
-        data = struct(AP_nv{:});
+        wpn = RUNTIME.TRIALS(i).writeparams;
+        wpn = matlab.lang.makeValidName(wpn);
+        wpv = RUNTIME.HW.get_parameter(wpn);
+        wp = [wpn; wpv];
+        data = struct(wp{:});
         data.ResponseCode = RCtag;
         data.TrialID = TrialNum;
         data.inaccurateTimestamp = datetime("now");

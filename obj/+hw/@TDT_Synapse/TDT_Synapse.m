@@ -159,6 +159,8 @@ classdef TDT_Synapse < hw.Interface
                 P = obj.find_parameter(name);
             end
 
+            value = double(value); % must be double
+
             if isvector(P) && isscalar(value)
                 value = repmat(value,size(P));
             end

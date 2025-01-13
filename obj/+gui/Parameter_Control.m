@@ -149,7 +149,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
 
 
-        function value_changed(obj,~,event)
+        function value_changed(obj,src,event)
             warning('off','MATLAB:structOnObject')
             event = struct(event);
             warning('on','MATLAB:structOnObject')
@@ -174,16 +174,16 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
            
             value = event.Value;
 
-
             obj.h_value.Value = value;
-            obj.Value = value;
+            % obj.Value = value;
 
             obj.ValueUpdated = ~isequal(value,obj.Parameter.Value);
 
             if obj.autoCommit
+                if isempty(src), return; end
                 obj.Parameter.Value = value;
                 % gui.Helper.timed_color_change(obj.h_value,obj.colorOnUpdateAuto,postColor=obj.colorNormal);
-                obj.indicate_change;
+                % obj.indicate_change;
 
             elseif ~obj.ValueUpdated && success
                 obj.reset_label;
@@ -307,7 +307,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             if isempty(v), return; end % ?????
 
 
-            obj.Value = v;
+            % obj.Value = v;
             obj.h_value.Value = v;
 
             obj.indicate_change;

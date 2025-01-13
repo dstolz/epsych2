@@ -15,9 +15,6 @@ classdef cl_AversiveDetection_GUI < handle
 
     end
     
-    properties (SetAccess = private)
-        RUNTIME
-    end
 
     properties (Hidden)
         guiHandles
@@ -28,10 +25,6 @@ classdef cl_AversiveDetection_GUI < handle
     methods
         % constructor
         function obj = cl_AversiveDetection_GUI(RUNTIME)
-
-
-            obj.RUNTIME = RUNTIME;
-
             % only permit one instance to run
             f = findall(groot,'Type','figure');
             f = f(startsWith({f.Tag},'cl_AversiveDetection'));
@@ -73,6 +66,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
         function update_trial_filter(obj,src,event)
+            global RUNTIME
 
             amdepth = [src.Data{:,1}];
             present = [src.Data{:,3}];
@@ -82,7 +76,7 @@ classdef cl_AversiveDetection_GUI < handle
                 present(amdepth==0) = true; % always
             end
 
-            obj.RUNTIME.TRIALS.activeTrials = present;
+            RUNTIME.TRIALS.activeTrials = present;
 
             if any(~present)
                 vprintf(2,'Inactive AMdepths: %s',mat2str(amdepth(~present)));
@@ -94,10 +88,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
         function create_gui(obj)
-
-
-            R = obj.RUNTIME;
-
+            global RUNTIME
 
             % Create the main figure
             fig = uifigure(Tag = 'cl_AversiveDetection_GUI', ...
@@ -127,19 +118,20 @@ classdef cl_AversiveDetection_GUI < handle
             buttonLayout.RowSpacing = 0;
             buttonLayout.ColumnSpacing = 0;
 
+            bcmActive = jet(5);
+            % bcmNormal = min(bcmActive+.4,1);
+            bcmNormal = repmat(fig.Color,size(bcmActive,1),1);
             
-            bcmNormal = jet(5);
-            bcmActive = min(bcmNormal+.4,1);
 
             % > Remind
-            p = R.S.Module.add_parameter('ReminderTrials',0);
+            p = RUNTIME.S.Module.add_parameter('ReminderTrials',0);
             h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
-            h.Text = "Remind";
+            h.Text = "Reminders";
             h.colorNormal = bcmNormal(1,:);
             h.colorOnUpdate = bcmActive(1,:);
             
             % > ReferencePhys
-            p = R.S.Module.add_parameter('ReferencePhys',0);
+            p = RUNTIME.S.Module.add_parameter('ReferencePhys',0);
             h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
             h.Text = "ReferencePhys";
             h.colorNormal = bcmNormal(2,:);
@@ -147,21 +139,21 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % > Deliver Trials
-            p = R.S.Module.add_parameter('DeliverTrials',0);
+            p = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
             h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
             h.Text = "Deliver Trials";
             h.colorNormal = bcmNormal(3,:);
             h.colorOnUpdate = bcmActive(3,:);
 
             % > Pause Trials
-            p = R.S.Module.add_parameter('PauseTrials',0);
+            p = RUNTIME.S.Module.add_parameter('PauseTrials',0);
             h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
             h.Text = "Pause Trials";
             h.colorNormal = bcmNormal(4,:);
             h.colorOnUpdate = bcmActive(4,:);
 
             % > Air Puff
-            p = R.S.Module.add_parameter('AirPuff',0);
+            p = RUNTIME.S.Module.add_parameter('AirPuff',0);
             h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
             h.Text = "Air Puff";
             h.colorNormal = bcmNormal(5,:);
@@ -230,7 +222,7 @@ classdef cl_AversiveDetection_GUI < handle
             layoutSoundControls.Scrollable = "on";
 
             % >> Consecutive NOGO min
-            p = R.S.Module.add_parameter('ConsecutiveNOGO_min',3);
+            p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',3);
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
             h.Evaluator = @evaluate_n_gonogo;
             h.Values = 0:5;
@@ -238,7 +230,7 @@ classdef cl_AversiveDetection_GUI < handle
             h.Text = "Consecutive NoGo (min):";
 
             % >> Consecutive NOGO max
-            p = R.S.Module.add_parameter('ConsecutiveNOGO_max',5);
+            p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',5);
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
             h.Evaluator = @evaluate_n_gonogo;
             h.Values = 3:20;
@@ -247,7 +239,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % >> Trial order
-            p = R.S.Module.add_parameter('TrialOrder','Descending');
+            p = RUNTIME.S.Module.add_parameter('TrialOrder','Descending');
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
             h.Values = ["Descending","Ascending","Random"];
             h.Value = "Descending";
@@ -256,21 +248,21 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % >> Intertrial Interval
-            p = R.HW.find_parameter('ITI_dur');
+            p = RUNTIME.HW.find_parameter('ITI_dur');
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
             h.Values= 250:100:2500;
             h.Text = "Intertrial Interval (ms):";
 
 
             % >> Response Window Duration
-            p = R.HW.find_parameter('RespWinDur');
+            p = RUNTIME.HW.find_parameter('RespWinDur');
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
             h.Values = 200:100:1000;
             h.Text = "Response Window Duration (ms):";
 
 
             % >> Optogenetic trigger
-            p = R.HW.find_parameter('Optostim');
+            p = RUNTIME.HW.find_parameter('Optostim');
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
             h.Values = [0 1];
             h.Value = 0;
@@ -288,7 +280,7 @@ classdef cl_AversiveDetection_GUI < handle
             % SOUND CONTROLS -----------------------------------------------------
 
             % >> dB SPL
-            p = R.HW.find_parameter('dBSPL');
+            p = RUNTIME.HW.find_parameter('dBSPL');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values = 0:5:85;
             h.Value = 65;
@@ -296,7 +288,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % >> Duration
-            p = R.HW.find_parameter('Stim_Duration');
+            p = RUNTIME.HW.find_parameter('Stim_Duration');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values = 250:250:2000;
             h.Value = 1000;
@@ -304,7 +296,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % >> AM Rate
-            p = R.HW.find_parameter('AMrate');
+            p = RUNTIME.HW.find_parameter('AMrate');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values = 1:20;
             h.Value = 5;
@@ -312,7 +304,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % % >> AM Depth
-            % p = R.HW.find_parameter('AMdepth');
+            % p = RUNTIME.HW.find_parameter('AMdepth');
             % h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             % h.Values = 0:.01:1;
             % h.Value = p.Value;
@@ -321,7 +313,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % >> Highpass cutoff
-            p = R.HW.find_parameter('Highpass');
+            p = RUNTIME.HW.find_parameter('Highpass');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values = 25:25:300;
             h.Value = p.Value;
@@ -329,7 +321,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % >> Lowpass cutoff
-            p = R.HW.find_parameter('Lowpass');
+            p = RUNTIME.HW.find_parameter('Lowpass');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values =  1000:500:25000;
             h.Value = p.Value;
@@ -353,23 +345,23 @@ classdef cl_AversiveDetection_GUI < handle
             layoutShockControls.Padding = [0 0 0 0];
 
             % >> AutoShock ** WHAT IS AUTOSHOCK? ** 
-            % p = R.HW.find_parameter('ShockFlag');
+            % p = RUNTIME.HW.find_parameter('ShockFlag');
             % h = gui.Parameter_Control(layoutShockControls,p,Type="checkbox",autoCommit=true);
             % h.Value = true;
 
             % >> Shocker status
-            p = R.HW.find_parameter('~ShockOn',includeInvisible=true);
+            p = RUNTIME.HW.find_parameter('~ShockOn',includeInvisible=true);
             h = gui.Parameter_Control(layoutShockControls,p,type='readonly');
             h.Text = 'Shock State';
 
             % >> Shocker flag
-            p = R.HW.find_parameter('ShockFlag');
+            p = RUNTIME.HW.find_parameter('ShockFlag');
             h = gui.Parameter_Control(layoutShockControls,p,Type="checkbox",autoCommit=true);
             h.Value = true;
             h.Text = 'Shock Enabled';
 
             % >> Shock duration dropdown 
-            p = R.HW.find_parameter('ShockDur');
+            p = RUNTIME.HW.find_parameter('ShockDur');
             h = gui.Parameter_Control(layoutShockControls,p,Type='dropdown');
             h.Values = 200:100:1200;
             h.Value = p.Value;
@@ -452,10 +444,10 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % > Trial Filter Table
-            wp = R.TRIALS.writeparams;
-            tt = R.TRIALS.trials;
-            d = tt(:,ismember(wp,'AMdepth'));
-            d(:,2) = tt(:,ismember(wp,'TrialType'));
+            tt = RUNTIME.TRIALS.trials;
+            loc = RUNTIME.TRIALS.writeParamIdx;
+            d = tt(:,loc.AMdepth);
+            d(:,2) = tt(:,loc.TrialType);
             d(:,3) = {true};
             tableTrialFilter = uitable(layoutTrialFilter);
             tableTrialFilter.Tag = 'tblTrialFilter';
@@ -491,7 +483,7 @@ classdef cl_AversiveDetection_GUI < handle
             axPsych.Layout.Row = [4 8];
             axPsych.Layout.Column = [3, 5];
 
-            obj.PsychPlot = gui.PsychPlot(obj.psychDetect,R.HELPER,axPsych);
+            obj.PsychPlot = gui.PsychPlot(obj.psychDetect,RUNTIME.HELPER,axPsych);
 
             % ** I THINK THESE ARE HANDLED BY THE PSYCHPLOT OBJECT **
             % xlabel(axPsych,'AM depth')
@@ -579,7 +571,7 @@ classdef cl_AversiveDetection_GUI < handle
             axis(axesMicrophone,'image');
             box(axesMicrophone,'on')
             
-            p = R.HW.find_parameter('MicPower');
+            p = RUNTIME.HW.find_parameter('MicPower');
             gui.MicrophonePlot(p,axesMicrophone);
             axesMicrophone.YAxis.Label.String = "RMS voltage";
 
@@ -609,7 +601,7 @@ classdef cl_AversiveDetection_GUI < handle
             panelResponseHistory.Layout.Column = [6 7];
 
             % > Response History Table
-            gui.History(obj.psychDetect,R.HELPER,panelResponseHistory);
+            gui.History(obj.psychDetect,RUNTIME.HELPER,panelResponseHistory);
 
 
             % Panel for "Trial History" ----------------------------------------
@@ -653,6 +645,7 @@ classdef cl_AversiveDetection_GUI < handle
         end
 
         function create_onlineplot(obj,varargin)
+            global RUNTIME
 
             % Create separate legacy figure for online plotting because
             % it's much faster than uifigure
@@ -675,7 +668,7 @@ classdef cl_AversiveDetection_GUI < handle
             f.MenuBar = "none";
             f.NumberTitle = "off";
             axesBehavior = axes(f);
-            gui.OnlinePlot(obj.RUNTIME,obj.plottedParameters,axesBehavior,1);
+            gui.OnlinePlot(RUNTIME,obj.plottedParameters,axesBehavior,1);
 
             obj.h_OnlinePlot = f;
 

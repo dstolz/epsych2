@@ -79,9 +79,10 @@ for i = 1:RUNTIME.NSubjects
 
 
     % Initialize data structure
-    ptags = RUNTIME.HW.filter_parameters('Access','Read',testFcn=@contains,includeTriggers=false,includeInvisible=false);
-    for p = ptags
-        RUNTIME.TRIALS(i).DATA.(p.validName) = [];
+    wpn = RUNTIME.TRIALS(i).writeparams;
+    wpn = matlab.lang.makeValidName(wpn);
+    for p = string(wpn)
+        RUNTIME.TRIALS(i).DATA.(p) = [];
     end    
     RUNTIME.TRIALS(i).DATA.ResponseCode = [];
     RUNTIME.TRIALS(i).DATA.TrialID = [];
@@ -95,8 +96,7 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).S = RUNTIME.S; % make S object handle available in TRIALS structure
     % addlistener(RUNTIME.HW,'mode','PostSet',@RUNTIME.S.mode_handler);
 
-
-    
+  
 end
 
 

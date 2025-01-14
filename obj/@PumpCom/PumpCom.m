@@ -169,6 +169,7 @@ classdef PumpCom < handle
 
             configureTerminator(obj.Device,'CR');
             
+            vprintf(0,'Syringe Diameter = %.3g',obj.SyringeDiameter)
             
             obj.send_command('STP');
             obj.send_command('DIA',obj.SyringeDiameter);
@@ -238,6 +239,7 @@ classdef PumpCom < handle
             if nargin < 2 || isempty(parent), parent = gcf; end
             
             h = uilabel(parent,'Text','xxxxx','HorizontalAlignment','right');
+            h.Tooltip = sprintf('Syringe Inner Diameter = %.2f',obj.SyringeDiameter);
             
             T = timerfind('tag','PumpComTimer');
             if ~isempty(T), stop(T); delete(T); end

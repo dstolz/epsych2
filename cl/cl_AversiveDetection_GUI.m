@@ -282,8 +282,8 @@ classdef cl_AversiveDetection_GUI < handle
             % >> dB SPL
             p = RUNTIME.HW.find_parameter('dBSPL');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            h.Values = 0:5:85;
-            h.Value = 65;
+            h.Values = 0:6:84;
+            h.Value = 60;
             h.Text = "Sound Level (dB SPL):";
 
 

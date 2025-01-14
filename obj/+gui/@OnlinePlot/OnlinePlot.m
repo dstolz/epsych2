@@ -45,6 +45,10 @@ classdef OnlinePlot < handle
         trialBuffer (1,:) single
         Time        (:,1) duration
     end
+
+    properties (SetAccess = protected)
+        hl_mode
+    end
     
     methods
         
@@ -94,6 +98,9 @@ classdef OnlinePlot < handle
             obj.Timer.Period = 0.1;
             
             start(obj.Timer);
+
+
+            obj.hl_mode = listener(RUNTIME.HW,'mode','PostSet',@obj.mode_change);
             
         end
         
@@ -189,16 +196,6 @@ classdef OnlinePlot < handle
         
         % -------------------------------------------------------------
         function update(obj,varargin)
-            global PRGMSTATE
-            
-            % stop if the program state has changed
-            if ismember(PRGMSTATE,{'STOP','ERROR'})
-                try
-                    stop(obj.Timer);
-                    delete(obj.Timer);
-                end
-                return
-            end
             
             if ~isempty(obj.trialParam)
                 try
@@ -383,6 +380,13 @@ classdef OnlinePlot < handle
         function c = get_menu_item(obj,tag) 
             C = obj.hax.ContextMenu.Children;
             c = C(ismember({obj.hax.ContextMenu.Children.Tag},tag));
+        end
+
+
+        function mode_change(obj,src,event)
+            if event.AffectedObject.mode < 2
+                stop(obj.Timer);
+            end
         end
     end
     

@@ -176,26 +176,26 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-            % PARAMETERS ----------------------------------------------------
-            % Panel for "Reminder Trial"
-            panelReminderTrial = uipanel(layoutMain, 'Title', 'Reminder Trial');
-            panelReminderTrial.Layout.Row = [2 3];
-            panelReminderTrial.Layout.Column = [1 2];
-
-            % > ReminderTrial
-            layoutReminderTrial = simple_layout(panelReminderTrial);
-
-            % > Reminder Trial Table
-            tableReminderTrial = uitable(layoutReminderTrial);
-            tableReminderTrial.ColumnName = {'AMdepth','TrialType'};
-            tableReminderTrial.ColumnEditable = false;
-            tableReminderTrial.FontSize = 8;
+            % % PARAMETERS ----------------------------------------------------
+            % % Panel for "Reminder Trial"
+            % panelReminderTrial = uipanel(layoutMain, 'Title', 'Reminder Trial');
+            % panelReminderTrial.Layout.Row = [2 3];
+            % panelReminderTrial.Layout.Column = [1 2];
+            % 
+            % % > ReminderTrial
+            % layoutReminderTrial = simple_layout(panelReminderTrial);
+            % 
+            % % > Reminder Trial Table
+            % tableReminderTrial = uitable(layoutReminderTrial);
+            % tableReminderTrial.ColumnName = {'AMdepth','TrialType'};
+            % tableReminderTrial.ColumnEditable = false;
+            % tableReminderTrial.FontSize = 8;
 
 
             % TRIAL CONTROLS -------------------------------------------------
             % Panel for "Trial Controls"
             panelTrialControls = uipanel(layoutMain, 'Title', 'Trial Controls');
-            panelTrialControls.Layout.Row = [4 5];
+            panelTrialControls.Layout.Row = [2 3];
             panelTrialControls.Layout.Column = [1 2];
 
             % > Trial Controls
@@ -209,7 +209,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Panel for "Sound Controls"
             panelSoundControls = uipanel(layoutMain, 'Title', 'Sound Controls');
-            panelSoundControls.Layout.Row = [6 7];
+            panelSoundControls.Layout.Row = [4 5];
             panelSoundControls.Layout.Column = [1 2];
 
             % > Sound Controls
@@ -333,7 +333,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Panel for "Shock Controls" ----------------------------------------
             panelShockControls = uipanel(layoutMain, 'Title', 'Shock Controls');
-            panelShockControls.Layout.Row = 8;
+            panelShockControls.Layout.Row = 6;
             panelShockControls.Layout.Column = [1 2];
 
             % > Shock Controls
@@ -376,7 +376,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Panel for "Pump Controls" ------------------------------------------
             panelPumpControls = uipanel(layoutMain, 'Title', 'Pump Controls');
-            panelPumpControls.Layout.Row = 9;
+            panelPumpControls.Layout.Row = 8;
             panelPumpControls.Layout.Column = [1 2];
 
 
@@ -435,7 +435,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Panel for "Trial Filter" ------------------------------------------
             panelTrialFilter = uipanel(layoutMain, 'Title', 'Trial Filter');
-            panelTrialFilter.Layout.Row = [10 11];
+            panelTrialFilter.Layout.Row = [9 11];
             panelTrialFilter.Layout.Column = [1 2];
             panelTrialFilter.Scrollable = 'on';
 
@@ -446,9 +446,12 @@ classdef cl_AversiveDetection_GUI < handle
             % > Trial Filter Table
             tt = RUNTIME.TRIALS.trials;
             loc = RUNTIME.TRIALS.writeParamIdx;
-            d = tt(:,loc.AMdepth);
-            d(:,2) = tt(:,loc.TrialType);
+            reminderInd = [tt{:,loc.Reminder}];
+            d = tt(~reminderInd,loc.AMdepth);
+            d(:,2) = tt(~reminderInd,loc.TrialType);
             d(:,3) = {true};
+            [~,i] = sort([d{:,1}],'descend');
+            d = d(i,:);
             tableTrialFilter = uitable(layoutTrialFilter);
             tableTrialFilter.Tag = 'tblTrialFilter';
             tableTrialFilter.ColumnName = {'AMdepth','TrialType','Present'};

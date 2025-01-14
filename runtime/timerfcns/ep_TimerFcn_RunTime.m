@@ -108,16 +108,19 @@ for i = 1:RUNTIME.NSubjects
         vprintf(0,1,me);
     end
     
-    if GVerbosity > 3
-        T = RUNTIME.TRIALS(i);
-        for j = 1:size(RUNTIME.TRIALS(i).trials,2)
-            pn = matlab.lang.makeValidName(T.writeparams{j});
-            vprintf(4,'Trial #%d: "%s" = %g', ...
-                T.TrialIndex, ...
-                T.writeparams{j}, ...
-                T.trials{T.NextTrialID,T.writeParamIdx.(pn)})
-        end
+
+    
+    
+    
+    % Indicate next trial parameters in command window if GVerbosity >= 4
+    pn = matlab.lang.makeValidName(RUNTIME.TRIALS(i).writeparams);
+    for j = 1:size(RUNTIME.TRIALS(i).trials,2)
+        vprintf(4,'Trial #%d: %s = %g', ...
+            RUNTIME.TRIALS(i).TrialIndex, ...
+            RUNTIME.TRIALS(i).writeparams{j}, ...
+            RUNTIME.TRIALS(i).trials{RUNTIME.TRIALS(i).NextTrialID,RUNTIME.TRIALS(i).writeParamIdx.(pn{j})})
     end
+
     
     
 

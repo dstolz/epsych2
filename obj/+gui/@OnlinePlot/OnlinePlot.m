@@ -225,8 +225,7 @@ classdef OnlinePlot < handle
             if obj.paused, return; end
             
             for i = 1:obj.N
-                obj.lineH(i).XData = obj.Time;
-                obj.lineH(i).YData = obj.yPositions(i).*obj.Buffers(i,:);
+                set(obj.lineH(i),'XData',obj.Time,'YData',obj.yPositions(i).*obj.Buffers(i,:));
             end
             
             if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)

@@ -73,7 +73,7 @@ classdef MicrophonePlot < handle
         end
 
         function update(obj,varargin)
-            obj.h_line.YData = [0 obj.Parameter.Value];
+            set(obj.h_line,'YData',[0 obj.Parameter.Value]);
             drawnow limitrate
         end
 

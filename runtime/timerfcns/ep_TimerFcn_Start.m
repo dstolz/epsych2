@@ -79,9 +79,9 @@ for i = 1:RUNTIME.NSubjects
 
 
     % Initialize data structure
-    wpn = RUNTIME.TRIALS(i).writeparams;
-    wpn = matlab.lang.makeValidName(wpn);
-    for p = string(wpn)
+    rpn = RUNTIME.TRIALS(i).readparams;
+    rpn = matlab.lang.makeValidName(rpn);
+    for p = string(rpn)
         RUNTIME.TRIALS(i).DATA.(p) = [];
     end    
     RUNTIME.TRIALS(i).DATA.ResponseCode = [];
@@ -138,15 +138,11 @@ for i = 1:RUNTIME.NSubjects
         RUNTIME.CORE(i).(cc) = p;
     end
 
-
-
-
-    % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
     load(RUNTIME.TRIALS(i).protocol_fn,'-mat');
     RUNTIME.TRIALS(i).protocol = protocol;
 
 
-
+    % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
     vprintf(2,'Setting up first trial on box %d',i)
 
     % 1. Send trigger to reset components before updating parameters
@@ -155,14 +151,13 @@ for i = 1:RUNTIME.NSubjects
     % 2. Update parameter tags
     % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE EFFICIENT
     trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
-    wp = RUNTIME.TRIALS.writeparams;
-    P = RUNTIME.HW.find_parameter(wp);
+    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams);
     [P.Value] = deal(trials{:});
 
     % 3. Trigger first new trial
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
 
-    % notify of new trial
+    % 4. Notify whomever is listening of new trial
     RUNTIME.HELPER.notify('NewTrial');
 
 end

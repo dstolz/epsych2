@@ -7,6 +7,7 @@ function RUNTIME = ep_TimerFcn_RunTime(RUNTIME)
 % Copyright (C) 2016  Daniel Stolzberg, PhD
 % updated for hardware abstraction 2024 DS
 
+global GVerbosity
 
 for i = 1:RUNTIME.NSubjects
 
@@ -25,11 +26,11 @@ for i = 1:RUNTIME.NSubjects
         
         % There was a response and the trial is over.
         % Retrieve parameter data from HW
-        wpn = RUNTIME.TRIALS(i).writeparams;
-        wpn = matlab.lang.makeValidName(wpn);
-        wpv = RUNTIME.HW.get_parameter(wpn);
-        wp = [wpn; wpv];
-        data = struct(wp{:});
+        rpn = RUNTIME.TRIALS(i).readparams;
+        rpn = matlab.lang.makeValidName(rpn);
+        rpv = RUNTIME.HW.get_parameter(rpn);
+        rp = [rpn; rpv];
+        data = struct(rp{:});
         data.ResponseCode = RCtag;
         data.TrialID = TrialNum;
         data.inaccurateTimestamp = datetime("now");
@@ -107,6 +108,16 @@ for i = 1:RUNTIME.NSubjects
         vprintf(0,1,me);
     end
     
+    if GVerbosity > 3
+        T = RUNTIME.TRIALS(i);
+        for j = 1:size(RUNTIME.TRIALS(i).trials,2)
+            pn = matlab.lang.makeValidName(T.writeparams{j});
+            vprintf(4,'Trial #%d: "%s" = %g', ...
+                T.TrialIndex, ...
+                T.writeparams{j}, ...
+                T.trials{T.NextTrialID,T.writeParamIdx.(pn)})
+        end
+    end
     
     
 
@@ -126,7 +137,7 @@ for i = 1:RUNTIME.NSubjects
     
 
     % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
-    vprintf(2,'Triggering trial on box %d',i)
+    vprintf(2,'Trial #%d: New Trial trigger for box %d',RUNTIME.TRIALS(i).TrialIndex,i)
 
     % 1. Send trigger to reset components before updating parameters
     RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
@@ -134,14 +145,13 @@ for i = 1:RUNTIME.NSubjects
     % 2. Update parameter tags
     % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE EFFICIENT
     trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
-    wp = RUNTIME.TRIALS.writeparams;
-    P = RUNTIME.HW.find_parameter(wp);
+    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams);
     [P.Value] = deal(trials{:});
 
     % 3. Trigger first new trial
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
 
-    % notify of new trial
+    % 4. Notify whomever is listening of new trial
     RUNTIME.HELPER.notify('NewTrial');
 
 

@@ -32,7 +32,7 @@ classdef cl_AversiveDetection_GUI < handle
             
             if ~isempty(f)
                 % THIS IS A BUG THAT SHOULD BE FIXED
-                vprintf(0,1,'MUST FIRST CLOSE GUI')
+                vprintf(0,1,'RESTARTING GUI')
                 delete(f);
             end
 
@@ -93,7 +93,7 @@ classdef cl_AversiveDetection_GUI < handle
             % Create the main figure
             fig = uifigure(Tag = 'cl_AversiveDetection_GUI', ...
                 Name = 'Caras Lab Aversive Detection GUI');
-            fig.Position = [1925 -1050 1200 1000];  % Set figure size
+            fig.Position = [1925 -1030 1200 1000];  % Set figure size
 
             obj.h_figure = fig;
 

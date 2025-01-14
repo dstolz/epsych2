@@ -18,7 +18,7 @@ classdef OnlinePlot < handle
         stayOnTop   (1,1) logical = false;
         paused      (1,1) logical = false;
         
-        trialLocked (1,1) logical = false;
+        trialLocked (1,1) logical = true;
     end
     
     properties (SetAccess = private)
@@ -32,7 +32,7 @@ classdef OnlinePlot < handle
         
         BoxID       (1,1)  uint8 = 1;
         
-        RUNTIME
+        
     end
 
     properties (SetAccess = immutable)
@@ -52,7 +52,6 @@ classdef OnlinePlot < handle
         function obj = OnlinePlot(RUNTIME,watchedParams,hax,BoxID)
             narginchk(2,4);
 
-            obj.RUNTIME = RUNTIME;
             obj.HW = RUNTIME.HW;
             
             if nargin < 2 || isempty(watchedParams)
@@ -102,6 +101,7 @@ classdef OnlinePlot < handle
         function delete(obj)
             try
                 stop(obj.Timer);
+                delete(obj.Timer);
             end
         end
         

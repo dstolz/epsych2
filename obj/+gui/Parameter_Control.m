@@ -68,9 +68,9 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             obj.create;
 
 
-            if ~isa(Parameter.Parent,'hw.Software')
+            % if ~isa(Parameter.Parent,'hw.Software')
                 obj.hl_mode = listener(Parameter.Parent,'mode','PostSet',@obj.mode_change);
-            end
+            % end
             obj.hl_Value = listener(Parameter,'Value','PostSet',@obj.value_change_external);
             p = properties(obj);
             p = p(startsWith(p,'color'));

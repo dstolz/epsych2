@@ -1,5 +1,5 @@
 classdef MicrophonePlot < handle
- 
+
     properties (SetAccess=immutable)
         Parent
         ParentFigure
@@ -14,12 +14,13 @@ classdef MicrophonePlot < handle
     properties (SetAccess=protected)
         h_line
         h_timer
+        hl_mode
     end
 
     methods
         function obj = MicrophonePlot(Parameter,Parent)
             arguments
-                Parameter 
+                Parameter
                 Parent (1,1) = gcf
             end
 
@@ -36,9 +37,10 @@ classdef MicrophonePlot < handle
             obj.Parameter = Parameter;
 
             obj.create;
-            
+
             obj.create_timer;
 
+            obj.hl_mode = listener(Parameter.Parent,'mode','PostSet',@obj.mode_change);
         end
 
         function delete(obj)
@@ -71,17 +73,14 @@ classdef MicrophonePlot < handle
         end
 
         function update(obj,varargin)
-            % TO DO: CHANGE PRGMSTATE TO LISTENER
-            global PRGMSTATE
-            
-            if isequal(PRGMSTATE,'STOP')
-                stop(obj.h_timer);
-                delete(obj);
-                return
-            end
-
             obj.h_line.YData = [0 obj.Parameter.Value];
             drawnow limitrate
+        end
+
+        function mode_change(obj,src,event)
+            if event.AffectedObject.mode < 2
+                stop(obj.h_timer);
+            end
         end
     end
 

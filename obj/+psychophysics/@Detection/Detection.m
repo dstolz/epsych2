@@ -14,7 +14,7 @@ classdef Detection
         
         BitColors       (5,3) double {mustBeNonnegative,mustBeLessThanOrEqual(BitColors,1)} = [.8 1 .8; 1 .7 .7; .7 .9 1; 1 .7 1; 1 1 .4];
 
-        BitsInUse epsych.BitMask = [3 4 6 7 5] % [Hit Miss CR FA Abort]
+        BitsInUse epsych.BitMask = [1 2 3 4 7] % [Hit Miss CR FA Abort]
 
     end
 
@@ -57,13 +57,8 @@ classdef Detection
         ParameterFieldName  (1,:)
         ParameterData       (1,:)
         
-        TRIALS
         DATA
         SUBJECT
-    end
-
-    properties (SetAccess = immutable)
-        RUNTIME
     end
 
     properties (SetAccess = private)
@@ -75,62 +70,63 @@ classdef Detection
         ValidParameters (1,:) cell
         
         
+        TRIALS
     end
     
 
     
     methods        
-        function obj = Detection(RUNTIME,BoxID,parameterName)
-            
-            obj.RUNTIME = RUNTIME;
-            
+        function obj = Detection(parameterName,BoxID)
+            global RUNTIME
 
             if nargin < 2 || isempty(BoxID), BoxID = 1; end
-            if nargin < 3 || isempty(parameterName)
-                % choose most variable parameter
-                p = obj.ValidParameters;
-                T = obj.TRIALS;
-                for i = 1:length(p)
-                    ind = ismember(T.writeparams,p{i});
-                    if ~any(ind), continue; end
-                    a = T.trials(:,ind);
-                    if isnumeric(a{1})
-                        v(i) = length(unique([a{:}]));
-                    elseif ischar(a{1})
-                        v(i) = length(unique(a));
-                    elseif isstruct(a{1})
-                        v(i) = length(cellfun(@(x) x.file,a,'uni',0));
-                    end
-                end
-                [~,m] = max(v);
-                parameterName = p{m};
-            end
-
             obj.BoxID = BoxID;
+
             obj.ParameterName = parameterName;
             
+            addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
         end
 
-        
-        
+        function update_data(obj,src,event)
+            obj.update_TRIALS(obj,event.Data);
+            obj.TRIALS = event.Data;
+        end
+
+       
 
         % Ind ------------------------------------------------------
         function r = get.Hit_Ind(obj)
+            if isempty(obj.ResponseCodes)
+                r = [];
+                return
+            end
             r = bitget(obj.ResponseCodes,epsych.BitMask.Hit);
             r = logical(r);
         end
 
         function r = get.Miss_Ind(obj)
+            if isempty(obj.ResponseCodes)
+                r = [];
+                return
+            end
             r = bitget(obj.ResponseCodes,epsych.BitMask.Miss);
             r = logical(r);
         end
 
         function r = get.FA_Ind(obj)
+            if isempty(obj.ResponseCodes)
+                r = [];
+                return
+            end
             r = bitget(obj.ResponseCodes,epsych.BitMask.FalseAlarm);
             r = logical(r);
         end
 
         function r = get.CR_Ind(obj)
+            if isempty(obj.ResponseCodes)
+                r = [];
+                return
+            end
             r = bitget(obj.ResponseCodes,epsych.BitMask.CorrectReject);
             r = logical(r);
         end
@@ -229,7 +225,7 @@ classdef Detection
         end
         
         function r = get.ResponsesEnum(obj)
-            RC = obj.ResponseCodes;
+            RC = uint32(obj.ResponseCodes);
             r(length(RC),1) = epsych.BitMask(0);
             for i = obj.BitsInUse
                 ind = logical(bitget(RC,i));
@@ -282,35 +278,49 @@ classdef Detection
 
         function i = get.ParameterIndex(obj)
             i = [];
+            if isempty(obj.TRIALS), return; end
             if isempty(obj.ParameterName), return; end
             i = find(ismember(obj.TRIALS.writeparams,obj.ParameterName));
         end
 
         function n = get.ParameterFieldName(obj)
             n = [];
+            if isempty(obj.TRIALS), return; end
             if isempty(obj.ParameterName), return; end
             n = obj.TRIALS.writeparams{obj.ParameterIndex};
         end
 
         function p = get.ValidParameters(obj)
-            p = fieldnames(obj.DATA);
-            p(~ismember(p,obj.TRIALS.writeparams)) = [];
-        end
-        
-        function t = get.TRIALS(obj)
-            t = obj.RUNTIME.TRIALS(obj.BoxID);
+            if isempty(obj.TRIALS)
+                p = [];
+            else
+                p = fieldnames(obj.DATA);
+                p(~ismember(p,obj.TRIALS.writeparams)) = [];
+            end
         end
         
         function d = get.DATA(obj)
-            d = obj.TRIALS.DATA;
+            if isempty(obj.TRIALS)
+                d = [];
+            else
+                d = obj.TRIALS.DATA;
+            end
         end
         
         function s = get.SUBJECT(obj)
-            s = obj.TRIALS.Subject;
+            if isempty(obj.TRIALS)
+                s = [];
+            else
+                s = obj.TRIALS.Subject;
+            end
         end
         
         function i = get.Trial_Index(obj)
-            i = obj.TRIALS.TrialIndex;
+            if isempty(obj.TRIALS)
+                i = 1;
+            else
+                i = obj.TRIALS.TrialIndex;
+            end
         end
         
     end

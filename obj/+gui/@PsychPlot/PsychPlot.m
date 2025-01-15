@@ -108,12 +108,9 @@ classdef PsychPlot < handle
                 return
             end
 
-            lh.XData = X;
-            lh.YData = Y;
+            set(lh,'XData',X,'YData',Y);            
+            set(sh,'XData',X,'YData',Y);            
             
-            
-            sh.XData = X;
-            sh.YData = Y;
             s = repmat(120,size(X));
             ind = sum(C,2) == 0;
             s(ind) = 30;

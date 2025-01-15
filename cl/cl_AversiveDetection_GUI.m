@@ -38,7 +38,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % create detection object
-            obj.psychDetect = psychophysics.Detection(RUNTIME,1,'AMdepth');
+            obj.psychDetect = psychophysics.Detection('AMdepth');
 
             % generate gui layout and components
             obj.create_gui;
@@ -604,7 +604,8 @@ classdef cl_AversiveDetection_GUI < handle
             panelResponseHistory.Layout.Column = [6 7];
 
             % > Response History Table
-            gui.History(obj.psychDetect,RUNTIME.HELPER,panelResponseHistory);
+            h = gui.History(obj.psychDetect,RUNTIME.HELPER,panelResponseHistory);
+            h.ParametersOfInterest = {'AMdepth','TrialType','Reminder'};
 
 
             % Panel for "Trial History" ----------------------------------------

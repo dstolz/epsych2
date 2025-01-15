@@ -33,7 +33,8 @@ classdef PumpCom < handle
     
     methods
         function obj = PumpCom(Port,BaudRate)
-            
+            global RUNTIME
+
             if nargin >= 1 &&  ~isempty(Port), obj.Port = Port; end
             if nargin >= 2 && ~isempty(BaudRate), obj.BaudRate = BaudRate; end
             
@@ -46,6 +47,7 @@ classdef PumpCom < handle
             
             addlistener(obj,ev,'PostSet',@obj.prop_update);
             addlistener(obj,ev,'PreGet',@obj.prop_read);
+            addlistener(RUNTIME.HW,'mode','PostSet',@obj.mode_change);
             
         end
         
@@ -58,8 +60,15 @@ classdef PumpCom < handle
                 warning(me.identifier,me.message) %#ok<MEXCEP>
             end
             
-            
-            
+        end
+
+
+        function mode_change(obj,src,event)
+            if event.AffectedObject.mode < 2 && ~isempty(obj.Device) && isvalid(obj.Device)
+                vprintf(2,'Closing Pump serial port connection on "%s"',obj.Port)
+                obj.kill_gui_timer;
+                delete(obj.Device);
+            end
         end
         
         function default_reset(obj)
@@ -155,7 +164,10 @@ classdef PumpCom < handle
             
             p = serialportlist('available');
             if ismember(obj.Port,p) || isempty(obj.Device) || ~isvalid(obj.Device)
+                x = serialportfind(Tag = 'Pump');
+                if ~isempty(x), delete(x); end
                 obj.Device = serialport(obj.Port,obj.BaudRate, ...
+                    'Tag','Pump', ...
                     'DataBits',obj.DataBits, ...
                     'StopBits',obj.StopBits, ...
                     'Parity','none', ...
@@ -238,7 +250,7 @@ classdef PumpCom < handle
         function h = create_VolumeDispensed_field(obj,parent)
             if nargin < 2 || isempty(parent), parent = gcf; end
             
-            h = uilabel(parent,'Text','xxxxx','HorizontalAlignment','right');
+            h = uilabel(parent,'Text','---','HorizontalAlignment','right');
             h.Tooltip = sprintf('Syringe Inner Diameter = %.2f',obj.SyringeDiameter);
             
             T = timerfind('tag','PumpComTimer');
@@ -278,22 +290,13 @@ classdef PumpCom < handle
                 'ValueChangedFcn',@obj.gui_update);
             
             h.Value = obj.PumpRate;
+            obj.gui_update(h,[]);
         end
         
         
         function gui_update(obj,hObj,event)
-            global PRGMSTATE
             
             persistent VD
-            
-            if isequal(PRGMSTATE,'STOP')
-                if ~isempty(obj.Device) && isvalid(obj.Device)
-                    vprintf(2,'Closing Pump serial port connection on "%s"',obj.Port)
-                    obj.kill_gui_timer;
-                    delete(obj.Device);
-                end
-                return 
-            end
             
             switch hObj.Tag
                 case 'PumpRate'

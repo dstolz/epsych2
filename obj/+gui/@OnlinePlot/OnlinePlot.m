@@ -18,7 +18,7 @@ classdef OnlinePlot < handle
         stayOnTop   (1,1) logical = false;
         paused      (1,1) logical = false;
         
-        trialLocked (1,1) logical = true;
+        trialLocked (1,1) logical = false;
     end
     
     properties (SetAccess = private)
@@ -44,9 +44,6 @@ classdef OnlinePlot < handle
         Buffers     (:,:) single
         trialBuffer (1,:) single
         Time        (:,1) duration
-    end
-
-    properties (SetAccess = protected)
         hl_mode
     end
     

@@ -7,7 +7,6 @@ function RUNTIME = ep_TimerFcn_RunTime(RUNTIME)
 % Copyright (C) 2016  Daniel Stolzberg, PhD
 % updated for hardware abstraction 2024 DS
 
-global GVerbosity
 
 for i = 1:RUNTIME.NSubjects
 
@@ -19,7 +18,7 @@ for i = 1:RUNTIME.NSubjects
         
         if ~RCtag || TStag, continue; end
         
-        TrialNum = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialNum);
+        TrialNum = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialNum) - 1;
         
         
         
@@ -37,14 +36,14 @@ for i = 1:RUNTIME.NSubjects
         RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
         
         
+        % Save runtime data in case of crash
+        data = RUNTIME.TRIALS(i).DATA;
+        save(RUNTIME.DataFile{i},'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
+        
         % Broadcast event data has been updated
         evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
         RUNTIME.HELPER.notify('NewData',evtdata);
         
-        
-        % Save runtime data in case of crash
-        data = RUNTIME.TRIALS(i).DATA;
-        save(RUNTIME.DataFile{i},'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
         
     end
     

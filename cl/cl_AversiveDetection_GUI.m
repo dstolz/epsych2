@@ -8,7 +8,8 @@ classdef cl_AversiveDetection_GUI < handle
         psychDetect % psychophysics.Detect
 
         PsychPlot % gui.PsychPlot
-
+        ResponseHistory % gui.History
+        
         plottedParameters = {'~InTrial_TTL','~RespWindow','~Spout_TTL',...
             '~ShockOn','~GO_Stim','~NOGO_Stim'}
 
@@ -450,8 +451,8 @@ classdef cl_AversiveDetection_GUI < handle
             d = tt(~reminderInd,loc.AMdepth);
             d(:,2) = tt(~reminderInd,loc.TrialType);
             d(:,3) = {true};
-            [~,i] = sort([d{:,1}],'descend');
-            d = d(i,:);
+            % [~,i] = sort([d{:,1}],'descend');
+            % d = d(i,:);
             tableTrialFilter = uitable(layoutTrialFilter);
             tableTrialFilter.Tag = 'tblTrialFilter';
             tableTrialFilter.ColumnName = {'AMdepth','TrialType','Present'};
@@ -486,7 +487,7 @@ classdef cl_AversiveDetection_GUI < handle
             axPsych.Layout.Row = [4 8];
             axPsych.Layout.Column = [3, 5];
 
-            obj.PsychPlot = gui.PsychPlot(obj.psychDetect,RUNTIME.HELPER,axPsych);
+            obj.PsychPlot = gui.PsychPlot(obj.psychDetect,axPsych);
 
             % ** I THINK THESE ARE HANDLED BY THE PSYCHPLOT OBJECT **
             % xlabel(axPsych,'AM depth')
@@ -604,8 +605,8 @@ classdef cl_AversiveDetection_GUI < handle
             panelResponseHistory.Layout.Column = [6 7];
 
             % > Response History Table
-            h = gui.History(obj.psychDetect,RUNTIME.HELPER,panelResponseHistory);
-            h.ParametersOfInterest = {'AMdepth','TrialType','Reminder'};
+            obj.ResponseHistory = gui.History(obj.psychDetect,panelResponseHistory);
+            obj.ResponseHistory.ParametersOfInterest = {'AMdepth','TrialType','Reminder'};
 
 
             % Panel for "Trial History" ----------------------------------------

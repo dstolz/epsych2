@@ -13,16 +13,15 @@ classdef History < handle
         ColumnName
         Data
         Info
+
+        hl_NewData
     end
 
-    properties (Access = private)
-        listener_NewData
-    end
 
     methods
 
-        function obj = History(pObj,Helper,container)
-            if nargin < 3 || isempty(container), container = figure; end
+        function obj = History(pObj,container)
+            if nargin < 2 || isempty(container), container = figure; end
             
             obj.ContainerH = container;
 
@@ -30,25 +29,22 @@ classdef History < handle
             
             if nargin >= 1 && ~isempty(pObj)
                 obj.PsychophysicsObj = pObj;
-
             end
 
-            if nargin > 1 && ~isempty(Helper)
-                obj.link_with_helper(Helper);
-            end
+            obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
         end
 
+        function delete(obj)
+            try
+                delete(obj.hl_NewData);
+            end
+        end
+        
         function build(obj)
             obj.TableH = uitable(obj.ContainerH,'Unit','Normalized', ...
                 'Position',[0 0 1 1],'RowStriping','off');
         end
         
-        % THIS SHOULD BE DONE FROM PSYCHOPHYSICS OBJECT SO DATA CAN BE
-        % UPDATED DIRECTLY
-        function link_with_helper(obj,Helper)
-            if isempty(Helper), return; end
-            obj.listener_NewData = addlistener(Helper,'NewData',@obj.update);
-        end
         
         function update(obj,src,event)
             if isempty(obj.PsychophysicsObj.DATA), return; end

@@ -1,7 +1,7 @@
 classdef PsychPlot < handle
     
     properties
-        AxesH       (1,1)
+        ax       (1,1)
         
         ParameterName (1,:) char
         
@@ -18,12 +18,10 @@ classdef PsychPlot < handle
         LineH
         ScatterH
         TextH
+
+        hl_NewData
     end
     
-    properties (Access = private)
-        listener_ParameterUpdate
-        listener_NewData
-    end
     
     properties (Constant)
         ValidPlotTypes = {'DPrime','Hit_Rate','FA_Rate','Bias'};
@@ -33,34 +31,31 @@ classdef PsychPlot < handle
 
     
     methods
-        function obj = PsychPlot(pObj,Helper,ax)
-            % obj = PsychPlot(pObj,Helper,ax)
+        function obj = PsychPlot(pObj,ax)
+            % obj = PsychPlot(pObj,ax)
             %
             % pObj      psychophysics object (ex: psychophysics.Detection)
-            % Helper    RUNTIME.HELPER
             % ax        Target axes (default = gca)
 
-            if nargin < 3 || isempty(ax), ax = gca; end
+            if nargin < 2 || isempty(ax), ax = gca; end
             
-            obj.AxesH = ax;
+            obj.ax = ax;
             
-            if nargin >= 1 && ~isempty(pObj)
-                obj.PsychophysicsObj = pObj;
-                obj.setup_xaxis_label;
-                obj.setup_yaxis_label;
-                obj.update_plot;
-            end
-            
-            if nargin > 1 && ~isempty(Helper)
-                obj.link_with_helper(Helper);
-            end
+            obj.PsychophysicsObj = pObj;
+            obj.setup_xaxis_label;
+            obj.setup_yaxis_label;
+
+            obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update_plot);
+
         end
-        
-        
+
         function delete(obj)
-            delete(obj.listener_ParameterUpdate);
-            delete(obj.listener_NewData);
+            try
+                delete(obj.hl_NewData);
+            end
         end
+        
+        
 
         function set.ParameterName(obj,name)
             ind = ismember(obj.ValidParameters,name);
@@ -72,14 +67,8 @@ classdef PsychPlot < handle
 
 
 
-        function link_with_helper(obj,Helper)
-            obj.listener_NewData = listener(Helper,'NewData',@obj.update_plot);
-        end
-        
-        
-
         function h = get.LineH(obj)
-            h = findobj(obj.AxesH,'type','line');
+            h = findobj(obj.ax,'type','line');
         end
 
        
@@ -89,44 +78,50 @@ classdef PsychPlot < handle
             lh = obj.LineH;
             sh = obj.ScatterH;
             if isempty(lh) || isempty(sh) || ~isvalid(lh) || ~isvalid(sh)
-                sh = scatter(nan,nan,100,'filled','Parent',obj.AxesH,'Marker','s');
+                sh = scatter(nan,nan,100,'filled','Parent',obj.ax,'Marker','s');
 %                     'MarkerFaceColor','flat');
                 
-                lh = line(obj.AxesH,nan,nan,'Marker','none', ...
+                lh = line(obj.ax,nan,nan,'Marker','none', ...
                     'AlignVertexCenters','on', ...
                     'LineWidth',2,'Color',obj.LineColor(1,:));
                 
-                grid(obj.AxesH,'on');
+                obj.LineH = lh;
+                obj.ScatterH = sh;
+
+                grid(obj.ax,'on');
             end
 
             try
                 X = obj.PsychophysicsObj.ParameterValues;
                 Y = obj.PsychophysicsObj.(obj.PlotType);
                 %C = obj.PsychophysicsObj.Trial_Count;
-                C = [obj.PsychophysicsObj.Go_Count' obj.PsychophysicsObj.NoGo_Count'];
+                nStim = obj.PsychophysicsObj.Stim_Count;
+                nCatch = sum(obj.PsychophysicsObj.Catch_Count);
             catch me
                 return
             end
 
             set(lh,'XData',X,'YData',Y);            
-            set(sh,'XData',X,'YData',Y);            
+            set(sh,'XData',X,'YData',Y);
+
+            ya = min(0,Y);
+            ylim_ = [min(ya) 0.5+max(Y)];
+            set(obj.ax,'ylim',ylim_)
             
-            s = repmat(120,size(X));
-            ind = sum(C,2) == 0;
-            s(ind) = 30;
-            sh.SizeData = s;
+
+            sh.SizeData = nStim*10+1;
             c = repmat(obj.MarkerColor(1,:),length(X),1);
             sh.CData = c;
             
             uistack(sh,'top');
             
-            for i = 1:length(X)
-                if i > size(C,1), break; end
-                if nnz(C(i,:)) == 0, continue; end
-                obj.TextH(i) = text(obj.AxesH,X(i),Y(i),num2str(C(i,:),'%d/%d'), ...
-                    'HorizontalAlignment','center','VerticalAlignment','middle', ...
-                    'Color',[0 0 0],'FontSize',9);
-            end
+            % for i = 1:length(X)
+            %     if i > size(C,1), break; end
+            %     if nnz(C(i,:)) == 0, continue; end
+            %     obj.TextH(i) = text(obj.ax,X(i),Y(i),num2str(C(i,:),'%d/%d'), ...
+            %         'HorizontalAlignment','center','VerticalAlignment','middle', ...
+            %         'Color',[0 0 0],'FontSize',9);
+            % end
             
             obj.setup_xaxis_label;
             obj.setup_yaxis_label;
@@ -137,7 +132,7 @@ classdef PsychPlot < handle
                 obj.PsychophysicsObj.BoxID, ...
                 obj.PsychophysicsObj.Trial_Index);
             
-            title(obj.AxesH,tstr);
+            title(obj.ax,tstr);
         end
         
         function update_parameter(obj,hObj,event)
@@ -172,12 +167,12 @@ classdef PsychPlot < handle
         
         
         function setup_xaxis_label(obj)
-            x = xlabel(obj.AxesH,obj.PsychophysicsObj.ParameterName,'Tag','abscissa','Interpreter','none');
+            x = xlabel(obj.ax,obj.PsychophysicsObj.ParameterName,'Tag','abscissa','Interpreter','none');
             x.ButtonDownFcn = @obj.update_parameter;
         end
         
         function setup_yaxis_label(obj)
-            y = ylabel(obj.AxesH,obj.PlotType,'Tag','ordinate','Interpreter','none');
+            y = ylabel(obj.ax,obj.PlotType,'Tag','ordinate','Interpreter','none');
             y.ButtonDownFcn = @obj.update_parameter;
         end
         

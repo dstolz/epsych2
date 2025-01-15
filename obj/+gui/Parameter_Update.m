@@ -15,6 +15,8 @@ classdef Parameter_Update < handle
 
     properties (Access = private)
         updateImmediately (1,1) logical = false
+
+        hl_values
     end
 
     methods
@@ -34,10 +36,16 @@ classdef Parameter_Update < handle
             obj.color_nothingToUpdate = obj.Button.BackgroundColor;
         end
 
+        function delete(obj)
+            try
+                delete(obj.hl_values);
+            end
+        end
+
 
         function set.watchedHandles(obj,h)
             obj.watchedHandles = h;
-            arrayfun(@(a) addlistener(a,'ValueUpdated','PostSet',@obj.value_changed),h);
+            obj.hl_values = arrayfun(@(a) listener(a,'ValueUpdated','PostSet',@obj.value_changed),h);
             obj.value_changed;
         end
 

@@ -29,6 +29,7 @@ classdef PumpCom < handle
     
     properties (SetAccess = protected, Hidden)
         Codes
+        hl
     end
     
     methods
@@ -45,15 +46,16 @@ classdef PumpCom < handle
             
             ev = fieldnames(obj.Codes);
             
-            addlistener(obj,ev,'PostSet',@obj.prop_update);
-            addlistener(obj,ev,'PreGet',@obj.prop_read);
-            addlistener(RUNTIME.HW,'mode','PostSet',@obj.mode_change);
+            obj.hl(1) = listener(obj,ev,'PostSet',@obj.prop_update);
+            obj.hl(2) = listener(obj,ev,'PreGet',@obj.prop_read);
+            obj.hl(3) = listener(RUNTIME.HW,'mode','PostSet',@obj.mode_change);
             
         end
         
         function delete(obj)
             
             try
+                delete(obj.hl);
                 delete(obj.Device);
                 obj.kill_gui_timer;
             catch me

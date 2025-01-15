@@ -1,10 +1,10 @@
-classdef Detection
+classdef Detection < handle
 
 % future Dan: update to make use of enumerated types ep.TrialType
 
     properties
-        Go_TrialType    (1,1) double = 0;
-        NoGo_TrialType  (1,1) double = 1;
+        Stim_TrialType   (1,1) double = 0;
+        Catch_TrialType  (1,1) double = 1;
 
         Parameter       (1,:) % hw.Parameter
         ParameterName   (1,:) char
@@ -16,15 +16,17 @@ classdef Detection
 
         BitsInUse epsych.BitMask = [1 2 3 4 7] % [Hit Miss CR FA Abort]
 
+        Helper = epsych.Helper
+
     end
 
     properties (Dependent)
-        NumTrials       (1,1) uint16
+        NumTrials   (1,1) uint16
         
-        Go_Ind          (1,:) logical
-        NoGo_Ind        (1,:) logical
-        Go_Count        (1,1) uint16
-        NoGo_Count      (1,1) uint16
+        Stim_Ind    (1,:) logical
+        Catch_Ind   (1,:) logical
+        Stim_Count  (1,1) uint16
+        Catch_Count (1,1) uint16
 
         Hit_Ind     (1,:) logical
         Miss_Ind    (1,:) logical
@@ -63,7 +65,7 @@ classdef Detection
 
     properties (SetAccess = private)
 
-        ResponseCodes   (1,:) uint16
+        ResponseCodes   (1,:) uint8
         ResponsesEnum   (1,:) epsych.BitMask
         ResponsesChar   (1,:) cell
 
@@ -71,6 +73,8 @@ classdef Detection
         
         
         TRIALS
+
+        hl_NewData
     end
     
 
@@ -84,12 +88,20 @@ classdef Detection
 
             obj.ParameterName = parameterName;
             
-            addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
+            obj.hl_NewData = listener(RUNTIME.HELPER,'NewData',@obj.update_data);
+
+        end
+
+        function delete(obj)
+            try
+                delete(obj.hl_NewData);
+            end
         end
 
         function update_data(obj,src,event)
-            obj.update_TRIALS(obj,event.Data);
             obj.TRIALS = event.Data;
+            evtdata = epsych.TrialsData(obj.TRIALS);
+            obj.Helper.notify('NewData',evtdata);
         end
 
        
@@ -131,46 +143,48 @@ classdef Detection
             r = logical(r);
         end
 
-        function i = get.Go_Ind(obj)
-            i = [obj.DATA.TrialType] == obj.Go_TrialType;
+        function i = get.Stim_Ind(obj)
+            i = [obj.DATA.TrialType] == obj.Stim_TrialType;
         end
 
-        function i = get.NoGo_Ind(obj)
-            i = [obj.DATA.TrialType] == obj.NoGo_TrialType;
+        function i = get.Catch_Ind(obj)
+            i = [obj.DATA.TrialType] == obj.Catch_TrialType;
         end
 
         % Count -----------------------------------------------------
-        function n = get.Go_Count(obj)
+        function n = get.Stim_Count(obj)
             v = obj.ParameterValues;
             d = obj.ParameterData;
-            ind = obj.Go_Ind;
+            ind = obj.Stim_Ind;
             for i =1:length(v)
-                n(i) = sum(ind & d == v(i));
+                n(i) = sum(ind & isapprox(d,v(i),'loose'));
             end
         end
 
-        function n = get.NoGo_Count(obj)
+        function n = get.Catch_Count(obj)
             v = obj.ParameterValues;
             d = obj.ParameterData;
-            ind = obj.NoGo_Ind;
+            ind = obj.Catch_Ind;
             for i =1:length(v)
-                n(i) = sum(ind & d == v(i));
+                n(i) = sum(ind & isapprox(d,v(i),'loose'));
             end
+            
         end
         
         function n = get.Trial_Count(obj)
             v = obj.ParameterValues;
             d = obj.ParameterData;
             for i =1:length(v)
-                n(i) = sum(d == v(i));
+                n(i) = sum(isapprox(d,v(i),'loose'));
             end
         end
 
         function n = get.Hit_Count(obj)
             v = obj.ParameterValues;
             d = obj.ParameterData;
+            hi = obj.Hit_Ind;
             for i = 1:length(v)
-                n(i) = sum(obj.Hit_Ind & d == v(i));
+                n(i) = sum(hi & isapprox(d,v(i),'loose'));
             end
         end
         
@@ -178,7 +192,7 @@ classdef Detection
             v = obj.ParameterValues;
             d = obj.ParameterData;
             for i = 1:length(v)
-                n(i) = sum(obj.Miss_Ind & d == v(i));
+                n(i) = sum(obj.Miss_Ind & isapprox(d,v(i),'loose'));
             end
         end
         
@@ -186,14 +200,15 @@ classdef Detection
             v = obj.ParameterValues;
             d = obj.ParameterData;
             for i = 1:length(v)
-                n(i) = sum(obj.FA_Ind & d == v(i));
+                n(i) = sum(obj.FA_Ind & isapprox(d,v(i),'loose'));
             end
         end
         function n = get.CR_Count(obj)
             v = obj.ParameterValues;
             d = obj.ParameterData;
+            hi = obj.CR_Ind;
             for i = 1:length(v)
-                n(i) = sum(obj.CR_Ind & d == v(i));
+                n(i) = sum(hi & isapprox(d,v(i),'loose'));
             end
         end
 
@@ -201,7 +216,7 @@ classdef Detection
 
         % Rate ----------------------------------------------------
         function r = get.Hit_Rate(obj)
-            r = obj.Hit_Count ./ obj.Go_Count;
+            r = obj.Hit_Count ./ obj.Stim_Count;
         end
 
         function r = get.Miss_Rate(obj)
@@ -209,7 +224,7 @@ classdef Detection
         end
 
         function r = get.CR_Rate(obj)
-            r = obj.CR_Count ./ obj.NoGo_Count;
+            r = obj.CR_Count ./ obj.Catch_Count;
         end
 
         function r = get.FA_Rate(obj)
@@ -217,7 +232,12 @@ classdef Detection
         end
 
         function dp = get.DPrime(obj)
-            dp = obj.zscore(obj.Hit_Rate) - obj.zscore(obj.FA_Rate);
+            far = obj.FA_Rate;
+            far = far(~isnan(far));
+            hr = obj.Hit_Rate;
+            ind = isnan(hr);
+            dp = obj.zscore(hr) - obj.zscore(far);
+            dp(ind) = nan; 
         end
 
         function c = get.Bias(obj)
@@ -225,7 +245,7 @@ classdef Detection
         end
         
         function r = get.ResponsesEnum(obj)
-            RC = uint32(obj.ResponseCodes);
+            RC = obj.ResponseCodes;
             r(length(RC),1) = epsych.BitMask(0);
             for i = obj.BitsInUse
                 ind = logical(bitget(RC,i));
@@ -239,7 +259,7 @@ classdef Detection
         end
         
         function rc = get.ResponseCodes(obj)
-            rc = [obj.DATA.ResponseCode];
+            rc = uint8([obj.DATA.ResponseCode]);
         end
 
         function n = get.NumTrials(obj)

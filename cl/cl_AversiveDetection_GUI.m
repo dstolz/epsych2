@@ -9,13 +9,13 @@ classdef cl_AversiveDetection_GUI < handle
 
         PsychPlot % gui.PsychPlot
         ResponseHistory % gui.History
-        
+
         plottedParameters = {'~InTrial_TTL','~RespWindow','~Spout_TTL',...
             '~ShockOn','~GO_Stim','~NOGO_Stim'}
 
 
     end
-    
+
 
     properties (Hidden)
         guiHandles
@@ -30,7 +30,7 @@ classdef cl_AversiveDetection_GUI < handle
             f = findall(groot,'Type','figure');
             f = f(startsWith({f.Tag},'cl_AversiveDetection'));
 
-            
+
             if ~isempty(f)
                 % THIS IS A BUG THAT SHOULD BE FIXED
                 vprintf(0,1,'RESTARTING GUI')
@@ -60,6 +60,8 @@ classdef cl_AversiveDetection_GUI < handle
             stop(t(i));
             delete(t(i));
 
+            delete(obj.guiHandles);
+
             try
                 close(obj.h_OnlinePlot);
             end
@@ -72,7 +74,7 @@ classdef cl_AversiveDetection_GUI < handle
             amdepth = [src.Data{:,1}];
             trialtype = [src.Data{:,2}];
             present = [src.Data{:,3}];
-            
+
             if ~present(trialtype==1)
                 src.Data{trialtype==1,3} = true;
                 present(trialtype==1) = true; % always
@@ -94,6 +96,23 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
+        function update_NextTrial(obj,src,event)
+            % notified that the next trial is ready
+
+             h = findobj(obj.h_figure,'tag','tblNextTrial');
+             D = event.Data;
+             ntid = D.NextTrialID;
+             nt = D.trials(ntid,:);
+             am = nt{D.writeParamIdx.AMdepth};
+             tt = nt{D.writeParamIdx.TrialType};
+             nd = {am,tt};
+             if tt == 0
+                 nd{2} = 'GO';
+             else
+                 nd{2} = 'NOGO';
+             end
+             h.Data = nd;
+        end
 
         function create_gui(obj)
             global RUNTIME
@@ -101,7 +120,7 @@ classdef cl_AversiveDetection_GUI < handle
             % Create the main figure
             fig = uifigure(Tag = 'cl_AversiveDetection_GUI', ...
                 Name = 'Caras Lab Aversive Detection GUI');
-            fig.Position = [1925 -1030 1200 1000];  % Set figure size
+            fig.Position = [1940 -1044 1400 1000];  % Set figure size
 
             obj.h_figure = fig;
 
@@ -129,7 +148,7 @@ classdef cl_AversiveDetection_GUI < handle
             bcmActive = jet(5);
             % bcmNormal = min(bcmActive+.4,1);
             bcmNormal = repmat(fig.Color,size(bcmActive,1),1);
-            
+
 
             % > Remind
             p = RUNTIME.S.Module.add_parameter('ReminderTrials',0);
@@ -137,7 +156,7 @@ classdef cl_AversiveDetection_GUI < handle
             h.Text = "Reminders";
             h.colorNormal = bcmNormal(1,:);
             h.colorOnUpdate = bcmActive(1,:);
-            
+
             % > ReferencePhys
             p = RUNTIME.S.Module.add_parameter('ReferencePhys',0);
             h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
@@ -189,10 +208,10 @@ classdef cl_AversiveDetection_GUI < handle
             % panelReminderTrial = uipanel(layoutMain, 'Title', 'Reminder Trial');
             % panelReminderTrial.Layout.Row = [2 3];
             % panelReminderTrial.Layout.Column = [1 2];
-            % 
+            %
             % % > ReminderTrial
             % layoutReminderTrial = simple_layout(panelReminderTrial);
-            % 
+            %
             % % > Reminder Trial Table
             % tableReminderTrial = uitable(layoutReminderTrial);
             % tableReminderTrial.ColumnName = {'AMdepth','TrialType'};
@@ -352,7 +371,7 @@ classdef cl_AversiveDetection_GUI < handle
             layoutShockControls.ColumnSpacing = 5;
             layoutShockControls.Padding = [0 0 0 0];
 
-            % >> AutoShock ** WHAT IS AUTOSHOCK? ** 
+            % >> AutoShock ** WHAT IS AUTOSHOCK? **
             % p = RUNTIME.HW.find_parameter('ShockFlag');
             % h = gui.Parameter_Control(layoutShockControls,p,Type="checkbox",autoCommit=true);
             % h.Value = true;
@@ -368,7 +387,7 @@ classdef cl_AversiveDetection_GUI < handle
             h.Value = true;
             h.Text = 'Shock Enabled';
 
-            % >> Shock duration dropdown 
+            % >> Shock duration dropdown
             p = RUNTIME.HW.find_parameter('ShockDur');
             h = gui.Parameter_Control(layoutShockControls,p,Type='dropdown');
             h.Values = 200:100:1200;
@@ -421,9 +440,9 @@ classdef cl_AversiveDetection_GUI < handle
             h.Button.Layout.Column = [3 4];
             h.Button.Text = ["Update" "Parameters"];
             h.Button.FontSize = 24;
-            
+
             % find all 'Paramete_Control' objects
-            hp = findall(fig,'-regexp','tag','^PC_'); 
+            hp = findall(fig,'-regexp','tag','^PC_');
             h.watchedHandles = [hp.UserData];
 
 
@@ -482,9 +501,13 @@ classdef cl_AversiveDetection_GUI < handle
             % > Next Trial Table
             % *** NEED TO SEE HOW THIS IMPLEMENTED ON THE CURRENT GUI ***
             tableNextTrial = uitable(layoutNextTrial);
+            tableNextTrial.Tag = 'tblNextTrial';
             tableNextTrial.ColumnName = {'AMdepth','TrialType'};
+            tableNextTrial.RowName = [];
             tableNextTrial.ColumnEditable = false;
-            tableNextTrial.FontSize = 8;
+            tableNextTrial.FontSize = 20;
+
+            addlistener(RUNTIME.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
 
 
 
@@ -500,7 +523,7 @@ classdef cl_AversiveDetection_GUI < handle
             % ** I THINK THESE ARE HANDLED BY THE PSYCHPLOT OBJECT **
             % xlabel(axPsych,'AM depth')
             % ylabel(axPsych,'Hit Rate')
-            % 
+            %
             % grid(axPsych,'on')
             % box(axPsych,'on')
 
@@ -508,7 +531,7 @@ classdef cl_AversiveDetection_GUI < handle
             % panelPlottingVariables = uipanel(layoutMain, 'Title', 'Plotting Variables');
             % panelPlottingVariables.Layout.Row = [3 4];
             % panelPlottingVariables.Layout.Column = 6;
-            % 
+            %
             % % > Plotting Variables
             % layoutPlottingVariables = uigridlayout(panelPlottingVariables);
             % layoutPlottingVariables.ColumnWidth = {100,100};
@@ -516,14 +539,14 @@ classdef cl_AversiveDetection_GUI < handle
             % layoutPlottingVariables.ColumnSpacing = 5;
             % layoutPlottingVariables.RowSpacing = 1;
             % layoutPlottingVariables.Padding = [0 0 0 0];
-            % 
+            %
             % % >> Y
             % lblY = uilabel(layoutPlottingVariables);
             % lblY.Layout.Row = 1;
             % lblY.Layout.Column = 1;
             % lblY.Text = "Y:";
             % lblY.HorizontalAlignment = "right";
-            % 
+            %
             % % >> Y dropdown
             % ddY = uidropdown(layoutPlottingVariables);
             % ddY.Layout.Row = 1;
@@ -531,14 +554,14 @@ classdef cl_AversiveDetection_GUI < handle
             % ddY.Tag = 'ddY';
             % ddY.Items = {'Hit Rate','d-prime'};
             % ddY.Value = 'Hit Rate';
-            % 
+            %
             % % >> X
             % lblX = uilabel(layoutPlottingVariables);
             % lblX.Layout.Row = 2;
             % lblX.Layout.Column = 1;
             % lblX.Text = "X:";
             % lblX.HorizontalAlignment = "right";
-            % 
+            %
             % % >> X dropdown
             % ddX = uidropdown(layoutPlottingVariables);
             % ddX.Layout.Row = 2;
@@ -546,14 +569,14 @@ classdef cl_AversiveDetection_GUI < handle
             % ddX.Tag = 'ddX';
             % ddX.Items = {'AMdepth'};
             % ddX.Value = 'AMdepth';
-            % 
+            %
             % % >> Grouping variable
             % lblGroupingVariable = uilabel(layoutPlottingVariables);
             % lblGroupingVariable.Layout.Row = 3;
             % lblGroupingVariable.Layout.Column = 1;
             % lblGroupingVariable.Text = "Grouping variable:";
             % lblGroupingVariable.HorizontalAlignment = "right";
-            % 
+            %
             % % >> Grouping variable dropdown
             % ddGroupingVariable = uidropdown(layoutPlottingVariables);
             % ddGroupingVariable.Layout.Row = 3;
@@ -575,14 +598,14 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-            
+
             % Axes for Microphone Display -------------------------------
             axesMicrophone = uiaxes(layoutMain);
             axesMicrophone.Layout.Row = [9 11];
             axesMicrophone.Layout.Column = 5;
             axis(axesMicrophone,'image');
             box(axesMicrophone,'on')
-            
+
             p = RUNTIME.HW.find_parameter('MicPower');
             gui.MicrophonePlot(p,axesMicrophone);
             axesMicrophone.YAxis.Label.String = "RMS voltage";
@@ -671,7 +694,7 @@ classdef cl_AversiveDetection_GUI < handle
                 figure(f);
                 return
             end
-            
+
             p = obj.h_figure.Position;
             f.Position(1) = p(1);
             f.Position(2) = p(2) + p(4) + 100;
@@ -688,11 +711,10 @@ classdef cl_AversiveDetection_GUI < handle
 
         end
 
-        
+
     end
 
 end
-
 
 
 function [value,success] = evaluate_n_gonogo(obj,event)

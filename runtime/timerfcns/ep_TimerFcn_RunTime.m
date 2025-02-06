@@ -154,7 +154,8 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
 
     % 4. Notify whomever is listening of new trial
-    RUNTIME.HELPER.notify('NewTrial');
+    evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
+    RUNTIME.HELPER.notify('NewTrial',evtdata);
 
 
 end

@@ -93,11 +93,10 @@ end
 nNOGOs = randi([NOGOmin, NOGOmax]);
 
 
-% First 3 trials are always reminders
-nReminders = sum(history.Reminder);
+
 
 % REMINDER Trials
-if SP.ReminderTrials.Value || nReminders < 3
+if SP.ReminderTrials.Value
     TRIALS.NextTrialID = find(all.Reminder,1);
     return
 end
@@ -111,14 +110,15 @@ valid.AMdepth = all.AMdepth(activeTrials & all.TrialType == TT.GO & ~all.Reminde
 valid.TrialType = all.TrialType(activeTrials & all.TrialType == TT.GO & ~all.Reminder);
 
 
-lastAMdepth = history.AMdepth(history.TrialType==TT.GO);
-lastAMdepth = lastAMdepth(end);
+lastAMdepth = history.AMdepth(find(history.TrialType==TT.GO,1,'last'));
+
 
 
 % time for a GO trial
 switch SP.TrialOrder.Value
     case 'Descending'
         valid.AMdepth = sort(valid.AMdepth,'descend');
+        if isempty(lastAMdepth),lastAMdepth = inf; end
         i = find(valid.AMdepth < lastAMdepth-1e-6,1);
         if isempty(i)
             nextAMdepth = max(valid.AMdepth);
@@ -128,6 +128,7 @@ switch SP.TrialOrder.Value
 
     case 'Ascending'
         valid.AMdepth = sort(valid.AMdepth,'ascend');
+        if isempty(lastAMdepth),lastAMdepth = -inf; end
         i = find(valid.AMdepth > lastAMdepth+1e-6,1);
         if isempty(i)
             nextAMdepth = min(valid.AMdepth);
@@ -137,6 +138,7 @@ switch SP.TrialOrder.Value
 
     case 'Random'
         % TO DO: ADD RULE FOR MAX CONSECUTIVE NOGO TRIALS
+        % if isempty(lastAMdepth),lastAMdepth = 0; end
         % n = sum(history.TrialType(end-NOGOmax:end)==TT.GO);
         % if n > NOGOmax % next trial must be GO (1)
         %     idx = find(valid.TrialType==TT.GO);

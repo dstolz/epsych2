@@ -105,7 +105,8 @@ classdef PsychPlot < handle
             set(sh,'XData',X,'YData',Y);
 
             ya = min(0,Y);
-            ylim_ = [min(ya) 0.5+max(Y)];
+            ylim_ = [min(ya) 0.5+max(Y,[],'omitnan')];
+            if isnan(ylim_(2)), ylim_(2) = 1; end
             set(obj.ax,'ylim',ylim_)
             
 

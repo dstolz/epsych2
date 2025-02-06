@@ -70,11 +70,12 @@ classdef cl_AversiveDetection_GUI < handle
             global RUNTIME
 
             amdepth = [src.Data{:,1}];
+            trialtype = [src.Data{:,2}];
             present = [src.Data{:,3}];
             
-            if ~present(amdepth==0)
-                src.Data{amdepth==0,3} = true;
-                present(amdepth==0) = true; % always
+            if ~present(trialtype==1)
+                src.Data{trialtype==1,3} = true;
+                present(trialtype==1) = true; % always
             end
 
             RUNTIME.TRIALS.activeTrials = present;
@@ -83,6 +84,12 @@ classdef cl_AversiveDetection_GUI < handle
                 vprintf(2,'Inactive AMdepths: %s',mat2str(amdepth(~present)));
             end
             vprintf(2,'Active AMdepths: %s',mat2str(amdepth(present)));
+
+            % update panel label with trial type counts
+            h = ancestor(src,'uipanel');
+            ind = present&trialtype==0;
+            h.Title = sprintf('Trial Filter: %d Go trials active [%.3f-%.3f]', ...
+                sum(ind),min(amdepth(ind)),max(amdepth(ind)));
         end
 
 
@@ -460,6 +467,7 @@ classdef cl_AversiveDetection_GUI < handle
             tableTrialFilter.FontSize = 10;
             tableTrialFilter.Data = d;
             tableTrialFilter.CellEditCallback = @obj.update_trial_filter;
+            obj.update_trial_filter(tableTrialFilter);
 
 
 

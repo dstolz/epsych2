@@ -1,5 +1,5 @@
-function TRIALS = cl_Aversive_GONOGO(TRIALS)
-% TRIALS = cl_Aversive_GONOGO(TRIALS)
+function TRIALS = cl_TrialSelection_Aversive_GONOGO(TRIALS)
+% TRIALS = cl_TrialSelection_Aversive_GONOGO(TRIALS)
 % 
 % TRIALS is a structure which has many subfields used during an experiment.
 % Below are some important subfields:
@@ -46,7 +46,7 @@ end
 
 
 
-history.AMdepth = [TRIALS.DATA.AMdepth];
+history.Depth = [TRIALS.DATA.Depth];
 history.TrialType = [TRIALS.DATA.TrialType];
 history.Reminder = [TRIALS.DATA.Reminder];
 
@@ -106,39 +106,39 @@ activeTrials = TRIALS.activeTrials(:)';
 activeTrials(find(all.Reminder)) = 0; %#ok<FNDSB> % account for reminder trial
 
 
-valid.AMdepth = all.AMdepth(activeTrials & all.TrialType == TT.GO & ~all.Reminder);
+valid.Depth = all.Depth(activeTrials & all.TrialType == TT.GO & ~all.Reminder);
 valid.TrialType = all.TrialType(activeTrials & all.TrialType == TT.GO & ~all.Reminder);
 
 
-lastAMdepth = history.AMdepth(find(history.TrialType==TT.GO,1,'last'));
+lastDepth = history.Depth(find(history.TrialType==TT.GO,1,'last'));
 
 
 
 % time for a GO trial
 switch SP.TrialOrder.Value
     case 'Descending'
-        valid.AMdepth = sort(valid.AMdepth,'descend');
-        if isempty(lastAMdepth),lastAMdepth = inf; end
-        i = find(valid.AMdepth < lastAMdepth-1e-6,1);
+        valid.Depth = sort(valid.Depth,'descend');
+        if isempty(lastDepth),lastDepth = inf; end
+        i = find(valid.Depth < lastDepth-1e-6,1);
         if isempty(i)
-            nextAMdepth = max(valid.AMdepth);
+            nextDepth = max(valid.Depth);
         else
-            nextAMdepth = valid.AMdepth(i);
+            nextDepth = valid.Depth(i);
         end
 
     case 'Ascending'
-        valid.AMdepth = sort(valid.AMdepth,'ascend');
-        if isempty(lastAMdepth),lastAMdepth = -inf; end
-        i = find(valid.AMdepth > lastAMdepth+1e-6,1);
+        valid.Depth = sort(valid.Depth,'ascend');
+        if isempty(lastDepth),lastDepth = -inf; end
+        i = find(valid.Depth > lastDepth+1e-6,1);
         if isempty(i)
-            nextAMdepth = min(valid.AMdepth);
+            nextDepth = min(valid.Depth);
         else
-            nextAMdepth = valid.AMdepth(i);
+            nextDepth = valid.Depth(i);
         end
 
     case 'Random'
         % TO DO: ADD RULE FOR MAX CONSECUTIVE NOGO TRIALS
-        % if isempty(lastAMdepth),lastAMdepth = 0; end
+        % if isempty(lastDepth),lastDepth = 0; end
         % n = sum(history.TrialType(end-NOGOmax:end)==TT.GO);
         % if n > NOGOmax % next trial must be GO (1)
         %     idx = find(valid.TrialType==TT.GO);
@@ -149,9 +149,9 @@ switch SP.TrialOrder.Value
         % end
         % r = randi(length(idx));
         % i = idx(r);
-        % nextAMdepth = valid.AMdepth(i);
+        % nextDepth = valid.Depth(i);
 
 end
 
-TRIALS.NextTrialID = find(all.AMdepth == nextAMdepth & ~all.Reminder);
+TRIALS.NextTrialID = find(all.Depth == nextDepth & ~all.Reminder);
 

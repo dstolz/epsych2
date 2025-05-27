@@ -39,7 +39,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % create detection object
-            obj.psychDetect = psychophysics.Detection('AMdepth');
+            obj.psychDetect = psychophysics.Detection('Depth');
 
             % generate gui layout and components
             obj.create_gui;
@@ -83,9 +83,9 @@ classdef cl_AversiveDetection_GUI < handle
             RUNTIME.TRIALS.activeTrials = present;
 
             if any(~present)
-                vprintf(2,'Inactive AMdepths: %s',mat2str(amdepth(~present)));
+                vprintf(2,'Inactive Depths: %s',mat2str(amdepth(~present)));
             end
-            vprintf(2,'Active AMdepths: %s',mat2str(amdepth(present)));
+            vprintf(2,'Active Depths: %s',mat2str(amdepth(present)));
 
             % update panel label with trial type counts
             h = ancestor(src,'uipanel');
@@ -103,7 +103,7 @@ classdef cl_AversiveDetection_GUI < handle
              D = event.Data;
              ntid = D.NextTrialID;
              nt = D.trials(ntid,:);
-             am = nt{D.writeParamIdx.AMdepth};
+             am = nt{D.writeParamIdx.Depth};
              tt = nt{D.writeParamIdx.TrialType};
              nd = {am,tt};
              if tt == 0
@@ -214,7 +214,7 @@ classdef cl_AversiveDetection_GUI < handle
             %
             % % > Reminder Trial Table
             % tableReminderTrial = uitable(layoutReminderTrial);
-            % tableReminderTrial.ColumnName = {'AMdepth','TrialType'};
+            % tableReminderTrial.ColumnName = {'Depth','TrialType'};
             % tableReminderTrial.ColumnEditable = false;
             % tableReminderTrial.FontSize = 8;
 
@@ -331,7 +331,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % % >> AM Depth
-            % p = RUNTIME.HW.find_parameter('AMdepth');
+            % p = RUNTIME.HW.find_parameter('Depth');
             % h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             % h.Values = 0:.01:1;
             % h.Value = p.Value;
@@ -474,14 +474,14 @@ classdef cl_AversiveDetection_GUI < handle
             tt = RUNTIME.TRIALS.trials;
             loc = RUNTIME.TRIALS.writeParamIdx;
             reminderInd = [tt{:,loc.Reminder}];
-            d = tt(~reminderInd,loc.AMdepth);
+            d = tt(~reminderInd,loc.Depth);
             d(:,2) = tt(~reminderInd,loc.TrialType);
             d(:,3) = {true};
             % [~,i] = sort([d{:,1}],'descend');
             % d = d(i,:);
             tableTrialFilter = uitable(layoutTrialFilter);
             tableTrialFilter.Tag = 'tblTrialFilter';
-            tableTrialFilter.ColumnName = {'AMdepth','TrialType','Present'};
+            tableTrialFilter.ColumnName = {'Depth','TrialType','Present'};
             tableTrialFilter.ColumnEditable = [false,false,true];
             tableTrialFilter.FontSize = 10;
             tableTrialFilter.Data = d;
@@ -502,7 +502,7 @@ classdef cl_AversiveDetection_GUI < handle
             % *** NEED TO SEE HOW THIS IMPLEMENTED ON THE CURRENT GUI ***
             tableNextTrial = uitable(layoutNextTrial);
             tableNextTrial.Tag = 'tblNextTrial';
-            tableNextTrial.ColumnName = {'AMdepth','TrialType'};
+            tableNextTrial.ColumnName = {'Depth','TrialType'};
             tableNextTrial.RowName = [];
             tableNextTrial.ColumnEditable = false;
             tableNextTrial.FontSize = 20;
@@ -567,8 +567,8 @@ classdef cl_AversiveDetection_GUI < handle
             % ddX.Layout.Row = 2;
             % ddX.Layout.Column = 2;
             % ddX.Tag = 'ddX';
-            % ddX.Items = {'AMdepth'};
-            % ddX.Value = 'AMdepth';
+            % ddX.Items = {'Depth'};
+            % ddX.Value = 'Depth';
             %
             % % >> Grouping variable
             % lblGroupingVariable = uilabel(layoutPlottingVariables);
@@ -637,7 +637,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % > Response History Table
             obj.ResponseHistory = gui.History(obj.psychDetect,panelResponseHistory);
-            obj.ResponseHistory.ParametersOfInterest = {'AMdepth','TrialType','Reminder'};
+            obj.ResponseHistory.ParametersOfInterest = {'Depth','TrialType','Reminder'};
 
 
             % Panel for "Trial History" ----------------------------------------
@@ -651,7 +651,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % > Trial History Table
             tableResponseHistory = uitable(layoutTrialHistory);
-            tableResponseHistory.ColumnName = {'AMdepth','TrialType','# Trials','Hit rate (%)','dprime'};
+            tableResponseHistory.ColumnName = {'Depth','TrialType','# Trials','Hit rate (%)','dprime'};
             tableResponseHistory.ColumnEditable = false;
             tableResponseHistory.FontSize = 10;
 

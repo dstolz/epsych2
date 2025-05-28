@@ -14,6 +14,7 @@ classdef cl_AversiveDetection_GUI < handle
             '~ShockOn','~GO_Stim','~NOGO_Stim'}
 
 
+        lblFARate
     end
 
 
@@ -39,7 +40,8 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % create detection object
-            obj.psychDetect = psychophysics.Detection('Depth');
+            p = RUNTIME.HW.find_parameter('Depth');
+            obj.psychDetect = psychophysics.Detection(p);
 
             % generate gui layout and components
             obj.create_gui;
@@ -71,9 +73,10 @@ classdef cl_AversiveDetection_GUI < handle
         function update_trial_filter(obj,src,event)
             global RUNTIME
 
-            amdepth = [src.Data{:,1}];
+            depth     = [src.Data{:,1}];
             trialtype = [src.Data{:,2}];
-            present = [src.Data{:,3}];
+            shocked   = [src.Data{:,3}];
+            present   = [src.Data{:,4}];
 
             if ~present(trialtype==1)
                 src.Data{trialtype==1,3} = true;
@@ -83,15 +86,15 @@ classdef cl_AversiveDetection_GUI < handle
             RUNTIME.TRIALS.activeTrials = present;
 
             if any(~present)
-                vprintf(2,'Inactive Depths: %s',mat2str(amdepth(~present)));
+                vprintf(2,'Inactive Depths: %s',mat2str(depth(~present)));
             end
-            vprintf(2,'Active Depths: %s',mat2str(amdepth(present)));
+            vprintf(2,'Active Depths: %s',mat2str(depth(present)));
 
             % update panel label with trial type counts
             h = ancestor(src,'uipanel');
             ind = present&trialtype==0;
             h.Title = sprintf('Trial Filter: %d Go trials active [%.3f-%.3f]', ...
-                sum(ind),min(amdepth(ind)),max(amdepth(ind)));
+                sum(ind),min(depth(ind)),max(depth(ind)));
         end
 
 
@@ -106,12 +109,19 @@ classdef cl_AversiveDetection_GUI < handle
              am = nt{D.writeParamIdx.Depth};
              tt = nt{D.writeParamIdx.TrialType};
              nd = {am,tt};
-             if tt == 0
-                 nd{2} = 'GO';
-             else
-                 nd{2} = 'NOGO';
+             switch tt
+                 case 0
+                     nd{2} = 'GO';
+                 case 1
+                     nd{2} = 'NOGO';
+                 case 2
+                     nd{2} = 'REMIND';
              end
              h.Data = nd;
+
+
+             % calculate session FA rate and update
+             obj.lblFARate.Text = num2str(obj.psychDetect.FA_Rate(1)*100,'%.2f');
         end
 
         function create_gui(obj)
@@ -277,7 +287,7 @@ classdef cl_AversiveDetection_GUI < handle
             % >> Intertrial Interval
             p = RUNTIME.HW.find_parameter('ITI_dur');
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
-            h.Values= 250:100:2500;
+            h.Values= 0:100:2500;
             h.Text = "Intertrial Interval (ms):";
 
 
@@ -310,7 +320,7 @@ classdef cl_AversiveDetection_GUI < handle
             p = RUNTIME.HW.find_parameter('dBSPL');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values = 0:6:84;
-            h.Value = 60;
+            h.Value = 48;
             h.Text = "Sound Level (dB SPL):";
 
 
@@ -322,12 +332,12 @@ classdef cl_AversiveDetection_GUI < handle
             h.Text = "Stimulus Duration (ms):";
 
 
-            % >> AM Rate
-            p = RUNTIME.HW.find_parameter('AMrate');
+            % >> Modulation Rate
+            p = RUNTIME.HW.find_parameter('Rate');
             h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
             h.Values = 1:20;
             h.Value = 5;
-            h.Text = "AM Rate (Hz):";
+            h.Text = "Modulation Rate (Hz):";
 
 
             % % >> AM Depth
@@ -340,20 +350,22 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % >> Highpass cutoff
-            p = RUNTIME.HW.find_parameter('Highpass');
-            h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            h.Values = 25:25:300;
-            h.Value = p.Value;
-            h.Text = "Highpass cutoff (Hz):";
-
+            p = RUNTIME.HW.find_parameter('Highpass',silenceParameterNotFound=true);
+            if ~isempty(p)
+                h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+                h.Values = 25:25:300;
+                h.Value = p.Value;
+                h.Text = "Highpass cutoff (Hz):";
+            end
 
             % >> Lowpass cutoff
-            p = RUNTIME.HW.find_parameter('Lowpass');
-            h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-            h.Values =  1000:500:25000;
-            h.Value = p.Value;
-            h.Text = "Lowpass cutoff (Hz):";
-
+            p = RUNTIME.HW.find_parameter('Lowpass',silenceParameterNotFound=true);
+            if ~isempty(p)
+                h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+                h.Values =  1000:500:25000;
+                h.Value = p.Value;
+                h.Text = "Lowpass cutoff (Hz):";
+            end
 
 
 
@@ -371,7 +383,7 @@ classdef cl_AversiveDetection_GUI < handle
             layoutShockControls.ColumnSpacing = 5;
             layoutShockControls.Padding = [0 0 0 0];
 
-            % >> AutoShock ** WHAT IS AUTOSHOCK? **
+            % >> AutoShock
             % p = RUNTIME.HW.find_parameter('ShockFlag');
             % h = gui.Parameter_Control(layoutShockControls,p,Type="checkbox",autoCommit=true);
             % h.Value = true;
@@ -394,7 +406,12 @@ classdef cl_AversiveDetection_GUI < handle
             h.Value = p.Value;
             h.Text = "Shock duration (ms):";
 
-
+            % >> Shock N hardest
+            p = RUNTIME.S.Module.add_parameter('ShockN',3);
+            h = gui.Parameter_Control(layoutShockControls,p,Type='dropdown');%,autoCommit=true);
+            h.Values = 1:5;
+            h.Value = 3;
+            h.Text = "Shock Hardest #:";
 
 
 
@@ -476,13 +493,14 @@ classdef cl_AversiveDetection_GUI < handle
             reminderInd = [tt{:,loc.Reminder}];
             d = tt(~reminderInd,loc.Depth);
             d(:,2) = tt(~reminderInd,loc.TrialType);
-            d(:,3) = {true};
+            d(:,3) = {false};
+            d(:,4) = {true};
             % [~,i] = sort([d{:,1}],'descend');
             % d = d(i,:);
             tableTrialFilter = uitable(layoutTrialFilter);
             tableTrialFilter.Tag = 'tblTrialFilter';
-            tableTrialFilter.ColumnName = {'Depth','TrialType','Present'};
-            tableTrialFilter.ColumnEditable = [false,false,true];
+            tableTrialFilter.ColumnName = {'Depth','TrialType','Shocked','Present'};
+            tableTrialFilter.ColumnEditable = [false,false,false,true];
             tableTrialFilter.FontSize = 10;
             tableTrialFilter.Data = d;
             tableTrialFilter.CellEditCallback = @obj.update_trial_filter;
@@ -612,22 +630,21 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % Panel for "FA Rate" --------------------------------------------
-            % TO DO: UPDATE TO NEW HW.PARAMETER OBJECT
-            panelFARate = uipanel(layoutMain, 'Title', 'FA Rate');
+            panelFARate = uipanel(layoutMain, 'Title', 'Session FA Rate');
             panelFARate.Layout.Row = 3;
             panelFARate.Layout.Column = 5;
 
             layoutFARate = simple_layout(panelFARate);
 
             % > FA Rate
-            lblFARate = uilabel(layoutFARate);
-            lblFARate.Tag = 'lblFARate';
-            lblFARate.Text = "0";
-            lblFARate.FontColor = 'r';
-            lblFARate.FontSize = 40;
-            lblFARate.FontWeight = 'bold';
-            lblFARate.HorizontalAlignment = "center";
-
+            h = uilabel(layoutFARate);
+            h.Tag = 'lblFARate';
+            h.Text = "0";
+            h.FontColor = 'r';
+            h.FontSize = 40;
+            h.FontWeight = 'bold';
+            h.HorizontalAlignment = "center";
+            obj.lblFARate = h;
 
 
             % Panel for "Response History" --------------------------------------

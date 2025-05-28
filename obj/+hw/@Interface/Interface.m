@@ -77,8 +77,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 P = P(ind);
 
                 % return in original order
-                [~,idx] = ismember(name,{P.Name});
-                P = P(idx);
+                [ind,idx] = ismember(name,{P.Name});
+                P = P(idx(ind));
             else
                 P = [];
                 if ~options.silenceParameterNotFound

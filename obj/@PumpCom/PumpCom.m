@@ -29,7 +29,7 @@ classdef PumpCom < handle
     
     properties (SetAccess = protected, Hidden)
         Codes
-        hl
+        hl event.proplistener = event.proplistener.empty; % Initialize as empty event.proplistener array
     end
     
     methods

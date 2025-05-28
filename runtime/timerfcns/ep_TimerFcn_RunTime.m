@@ -61,7 +61,6 @@ for i = 1:RUNTIME.NSubjects
     
     if RUNTIME.ON_HOLD(i), continue; end
     
-    
 
 
 
@@ -139,7 +138,7 @@ for i = 1:RUNTIME.NSubjects
     
 
     % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
-    vprintf(2,'Trial #%d: New Trial trigger for box %d',RUNTIME.TRIALS(i).TrialIndex,i)
+    vprintf(2,'Trial #%d: New Trial Sequence for box %d',RUNTIME.TRIALS(i).TrialIndex,i)
 
     % 1. Send trigger to reset components before updating parameters
     RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
@@ -147,7 +146,7 @@ for i = 1:RUNTIME.NSubjects
     % 2. Update parameter tags
     % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE EFFICIENT
     trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
-    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams);
+    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams,includeInvisible=true);
     [P.Value] = deal(trials{:});
 
     % 3. Trigger first new trial
@@ -156,7 +155,6 @@ for i = 1:RUNTIME.NSubjects
     % 4. Notify whomever is listening of new trial
     evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
     RUNTIME.HELPER.notify('NewTrial',evtdata);
-
 
 end
 

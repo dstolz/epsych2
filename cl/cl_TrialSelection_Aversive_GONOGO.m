@@ -31,6 +31,7 @@ persistent nNOGOs
 
 TT.NOGO = 1;
 TT.GO   = 0;
+TT.REMIND = 2;
 
 for fn = string(fieldnames(TRIALS.writeParamIdx))'
     all.(fn) = [TRIALS.trials{:,TRIALS.writeParamIdx.(fn)}];
@@ -101,17 +102,15 @@ if SP.ReminderTrials.Value
     return
 end
 
+activeTrials = false(size(all.TrialType));
+activeTrials(all.TrialType~=TT.REMIND) = TRIALS.activeTrials;
 
-activeTrials = TRIALS.activeTrials(:)';
-activeTrials(find(all.Reminder)) = 0; %#ok<FNDSB> % account for reminder trial
 
-
-valid.Depth = all.Depth(activeTrials & all.TrialType == TT.GO & ~all.Reminder);
-valid.TrialType = all.TrialType(activeTrials & all.TrialType == TT.GO & ~all.Reminder);
+valid.Depth = all.Depth(activeTrials & all.TrialType == TT.GO);
+valid.TrialType = all.TrialType(activeTrials & all.TrialType == TT.GO);
 
 
 lastDepth = history.Depth(find(history.TrialType==TT.GO,1,'last'));
-
 
 
 % time for a GO trial
@@ -119,7 +118,8 @@ switch SP.TrialOrder.Value
     case 'Descending'
         valid.Depth = sort(valid.Depth,'descend');
         if isempty(lastDepth),lastDepth = inf; end
-        i = find(valid.Depth < lastDepth-1e-6,1);
+        lastDepth = double(lastDepth)-1e-4;
+        i = find(valid.Depth < lastDepth,1);
         if isempty(i)
             nextDepth = max(valid.Depth);
         else
@@ -129,7 +129,8 @@ switch SP.TrialOrder.Value
     case 'Ascending'
         valid.Depth = sort(valid.Depth,'ascend');
         if isempty(lastDepth),lastDepth = -inf; end
-        i = find(valid.Depth > lastDepth+1e-6,1);
+        lastDepth = double(lastDepth)+1e-4;
+        i = find(valid.Depth > lastDepth,1);
         if isempty(i)
             nextDepth = min(valid.Depth);
         else

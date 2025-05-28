@@ -151,7 +151,7 @@ for i = 1:RUNTIME.NSubjects
     % 2. Update parameter tags
     % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE EFFICIENT
     trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
-    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams);
+    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams,includeInvisible=true);
     [P.Value] = deal(trials{:});
 
     % 3. Trigger first new trial

@@ -7,7 +7,6 @@ classdef Detection < handle
         Catch_TrialType  (1,1) double = 1;
 
         Parameter       (1,:) % hw.Parameter
-        ParameterName   (1,:) char
         ParameterIDs    (1,:) uint8
 
         BoxID           (1,1) uint8 = 1;
@@ -58,7 +57,8 @@ classdef Detection < handle
         ParameterIndex      (1,1)
         ParameterFieldName  (1,:)
         ParameterData       (1,:)
-        
+        ParameterName   (1,:) char
+
         DATA
         SUBJECT
     end
@@ -80,13 +80,14 @@ classdef Detection < handle
 
     
     methods        
-        function obj = Detection(parameterName,BoxID)
+        function obj = Detection(Parameter,BoxID)
             global RUNTIME
 
             if nargin < 2 || isempty(BoxID), BoxID = 1; end
             obj.BoxID = BoxID;
 
-            obj.ParameterName = parameterName;
+            obj.Parameter = Parameter;
+           
             
             obj.hl_NewData = listener(RUNTIME.HELPER,'NewData',@obj.update_data);
 
@@ -268,6 +269,9 @@ classdef Detection < handle
 
 
         % Parameter -------------------------------------------------
+        function n = get.ParameterName(obj)
+            n = obj.Parameter.Name;
+        end
 
         function v = get.ParameterValues(obj)
             v = [];

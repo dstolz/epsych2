@@ -15,6 +15,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
         lblFARate
+        tableTrialFilter
     end
 
 
@@ -70,23 +71,33 @@ classdef cl_AversiveDetection_GUI < handle
         end
 
 
-        function update_trial_filter(obj,src,event)
+        function update_trial_filter(obj,~,event)
             global RUNTIME
 
+
+            src = obj.tableTrialFilter; % use this in case call is from outside the class
             depth     = [src.Data{:,1}];
             trialtype = [src.Data{:,2}];
-            shocked   = [src.Data{:,3}];
             present   = [src.Data{:,4}];
 
-            if ~present(trialtype==1)
-                src.Data{trialtype==1,3} = true;
-                present(trialtype==1) = true; % always
-            end
 
+
+            % always vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv            
+            present(trialtype==1) = true;
+            [src.Data{trialtype==1,4}] = deal(true);
+            % ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+            p = RUNTIME.S.find_parameter('ShockN');
+            shocked = find(present,p.Value,"last");
+            [src.Data{:,3}] = deal(false);
+            [src.Data{shocked,3}] = deal(true);
+
+            RUNTIME.TRIALS.shockedTrials = shocked;
             RUNTIME.TRIALS.activeTrials = present;
 
             if any(~present)
-                vprintf(2,'Inactive Depths: %s',mat2str(depth(~present)));
+                vprintf(4,'Inactive Depths: %s',mat2str(depth(~present)));
             end
             vprintf(2,'Active Depths: %s',mat2str(depth(present)));
 
@@ -261,7 +272,7 @@ classdef cl_AversiveDetection_GUI < handle
             % >> Consecutive NOGO min
             p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',3);
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
-            h.Evaluator = @evaluate_n_gonogo;
+            h.EvaluatorFcn = @evaluate_n_gonogo;
             h.Values = 0:5;
             h.Value = 3;
             h.Text = "Consecutive NoGo (min):";
@@ -269,7 +280,7 @@ classdef cl_AversiveDetection_GUI < handle
             % >> Consecutive NOGO max
             p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',5);
             h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
-            h.Evaluator = @evaluate_n_gonogo;
+            h.EvaluatorFcn = @evaluate_n_gonogo;
             h.Values = 3:20;
             h.Value = 5;
             h.Text = "Consecutive NoGo (max):";
@@ -370,6 +381,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
+
             % Panel for "Shock Controls" ----------------------------------------
             panelShockControls = uipanel(layoutMain, 'Title', 'Shock Controls');
             panelShockControls.Layout.Row = 6;
@@ -408,11 +420,12 @@ classdef cl_AversiveDetection_GUI < handle
 
             % >> Shock N hardest
             p = RUNTIME.S.Module.add_parameter('ShockN',3);
-            h = gui.Parameter_Control(layoutShockControls,p,Type='dropdown');%,autoCommit=true);
+            p.PostUpdateFcn = @obj.update_trial_filter;
+            h = gui.Parameter_Control(layoutShockControls,p,Type='dropdown',autoCommit=true);
             h.Values = 1:5;
             h.Value = 3;
             h.Text = "Shock Hardest #:";
-
+            
 
 
 
@@ -448,39 +461,10 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-
-
-
-            % Commit button ---------------------------------------------
-            h = gui.Parameter_Update(layoutMain);
-            h.Button.Layout.Row = [9 10];
-            h.Button.Layout.Column = [3 4];
-            h.Button.Text = ["Update" "Parameters"];
-            h.Button.FontSize = 24;
-
-            % find all 'Paramete_Control' objects
-            hp = findall(fig,'-regexp','tag','^PC_');
-            h.watchedHandles = [hp.UserData];
-
-
-
-
-            % create/locate online plot ------------------------------------
-            h = uibutton(layoutMain);
-            h.Layout.Row = 11;
-            h.Layout.Column = 3;
-            h.Text = "Online Plot";
-            h.ButtonPushedFcn = @obj.create_onlineplot;
-
-
-
-
-
-
             % Panel for "Trial Filter" ------------------------------------------
             panelTrialFilter = uipanel(layoutMain, 'Title', 'Trial Filter');
             panelTrialFilter.Layout.Row = [9 11];
-            panelTrialFilter.Layout.Column = [1 2];
+            panelTrialFilter.Layout.Column = [1 3];
             panelTrialFilter.Scrollable = 'on';
 
             % > Trial Filter
@@ -504,7 +488,40 @@ classdef cl_AversiveDetection_GUI < handle
             tableTrialFilter.FontSize = 10;
             tableTrialFilter.Data = d;
             tableTrialFilter.CellEditCallback = @obj.update_trial_filter;
+            obj.tableTrialFilter = tableTrialFilter;
             obj.update_trial_filter(tableTrialFilter);
+
+
+
+
+
+
+
+
+            % Commit button ---------------------------------------------
+            h = gui.Parameter_Update(layoutMain);
+            h.Button.Layout.Row = [9 10];
+            h.Button.Layout.Column = [4];
+            h.Button.Text = ["Update" "Parameters"];
+            h.Button.FontSize = 24;
+
+            % find all 'Paramete_Control' objects
+            hp = findall(fig,'-regexp','tag','^PC_');
+            h.watchedHandles = [hp.UserData];
+
+
+
+
+            % create/locate online plot ------------------------------------
+            h = uibutton(layoutMain);
+            h.Layout.Row = 11;
+            h.Layout.Column = 4;
+            h.Text = "Online Plot";
+            h.ButtonPushedFcn = @obj.create_onlineplot;
+
+
+
+
 
 
 
@@ -534,7 +551,7 @@ classdef cl_AversiveDetection_GUI < handle
             % Axes for Main Plot ------------------------------------------------
             axPsych = uiaxes(layoutMain);
             axPsych.Layout.Row = [4 8];
-            axPsych.Layout.Column = [3, 5];
+            axPsych.Layout.Column = [3 5];
 
             obj.PsychPlot = gui.PsychPlot(obj.psychDetect,axPsych);
 
@@ -737,7 +754,7 @@ end
 function [value,success] = evaluate_n_gonogo(obj,event)
 % [value,success] = evaluate_n_gonogo(obj,event)
 %
-% implements the 'Evaluator' function
+% implements the 'EvaluatorFcn' function
 success = true;
 
 value = event.Value; % new value

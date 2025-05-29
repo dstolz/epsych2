@@ -26,7 +26,12 @@ classdef Parameter < matlab.mixin.SetGet
         
         Visible (1,1) logical = true % optionally hide parameter 
 
-        Evaluator (1,1) % handle to custom function to handle evaluation of updated values
+        EvaluatorFcn (1,1) % handle to custom function to handle evaluation of updated values
+
+        PreUpdateFcn (1,1) % handle ot custom function called before value has been updated
+                            % note that this gets called prior to the
+                            % EvaluatorFcn
+        PostUpdateFcn (1,1) % handle to custom function called after value has been updated
     end
 
     properties (SetObservable,GetObservable,AbortSet) 
@@ -74,12 +79,21 @@ classdef Parameter < matlab.mixin.SetGet
         end
 
         function set.Value(obj,value)
-            if isa(obj.Evaluator,'function_handle')
-                value = obj.Evaluator(obj,value);
+
+            if isa(obj.PreUpdateFcn ,'function_handle')
+                feval(obj.PreUpdateFcn);
+            end
+
+            if isa(obj.EvaluatorFcn,'function_handle')
+                value = obj.EvaluatorFcn(obj,value);
             end
 
             obj.Value = value;
             obj.Parent.set_parameter(obj,value);
+
+            if isa(obj.PostUpdateFcn,'function_handle')
+                feval(obj.PostUpdateFcn);
+            end
         end
 
 

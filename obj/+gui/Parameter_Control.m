@@ -33,7 +33,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         container % handle to container built within parent
 
         
-        Evaluator (1,1) % handle to custom function to handle evaluation of updated values
+        EvaluatorFcn (1,1) % handle to custom function to handle evaluation of updated values
     end
 
 
@@ -157,11 +157,11 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 event.PreviousValue = []; 
             end
 
-            % run Evaluator function, if specified. It will then be sure to
+            % run EvaluatorFcn function, if specified. It will then be sure to
             % pass when called by hw.Parameter
             success = true;
-            if isa(obj.Evaluator,'function_handle')
-                [value,success] = obj.Evaluator(obj,event);
+            if isa(obj.EvaluatorFcn,'function_handle')
+                [value,success] = obj.EvaluatorFcn(obj,event);
                 if ~success
                     gui.Helper.timed_color_change(obj.h_value,obj.colorOnError);
                 end

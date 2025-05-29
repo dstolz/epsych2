@@ -42,6 +42,7 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).Subject = C.SUBJECT;
     RUNTIME.TRIALS(i).BoxID = C.SUBJECT.BoxID; % make BoxID more easily accessible DJS 1/14/2016
 
+    RUNTIME.TRIALS(i).FORCE_TRIAL = false;
 
     % make it a bit easier to find writeparameters
     for k = 1:length(RUNTIME.TRIALS(i).writeparams)

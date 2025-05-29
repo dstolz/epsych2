@@ -9,88 +9,92 @@ function RUNTIME = ep_TimerFcn_RunTime(RUNTIME)
 
 
 for i = 1:RUNTIME.NSubjects
+    % the following FORCE_TRIAL tells ep_TimerFcn_RunTime to skip waiting
+    % for a trial to complete and just go directly to updating for next trial
+    if ~RUNTIME.TRIALS(i).FORCE_TRIAL
+        if ~RUNTIME.ON_HOLD(i)
+            % Check _RespCode parameter for non-zero value or if #TrigState is true
 
-    if ~RUNTIME.ON_HOLD(i)
-        % Check _RespCode parameter for non-zero value or if #TrigState is true
+            RCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).RespCode);
+            TStag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrigState);
 
-        RCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).RespCode);
-        TStag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrigState);
-        
-        if ~RCtag || TStag, continue; end
-        
-        TrialNum = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialNum) - 1;
-        
-        
-        
-        
-        % There was a response and the trial is over.
-        % Retrieve parameter data from HW
-        rpn = RUNTIME.TRIALS(i).readparams;
-        rpn = matlab.lang.makeValidName(rpn);
-        rpv = RUNTIME.HW.get_parameter(rpn);
-        rp = [rpn; rpv];
-        data = struct(rp{:});
-        data.ResponseCode = RCtag;
-        data.TrialID = TrialNum;
-        data.inaccurateTimestamp = datetime("now");
-        RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
-        
-        
-        % Save runtime data in case of crash
-        data = RUNTIME.TRIALS(i).DATA;
-        save(RUNTIME.DataFile{i},'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
-        
-        % Broadcast event data has been updated
-        evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
-        RUNTIME.HELPER.notify('NewData',evtdata);
-        
-        
-    end
-    
-    
-    
+            if ~RCtag || TStag, continue; end
 
-
-
-    
-    % If in use, wait for manual completion of trial in RPvds
-    if isfield(RUNTIME,'TrialCompleteIdx') % ???
-        TCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialComplete);
-        RUNTIME.ON_HOLD(i) = ~TCtag;
-    end
-    
-    if RUNTIME.ON_HOLD(i), continue; end
-    
+            TrialNum = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialNum) - 1;
 
 
 
 
+            % There was a response and the trial is over.
+            % Retrieve parameter data from HW
+            rpn = RUNTIME.TRIALS(i).readparams;
+            rpn = matlab.lang.makeValidName(rpn);
+            rpv = RUNTIME.HW.get_parameter(rpn);
+            rp = [rpn; rpv];
+            data = struct(rp{:});
+            data.ResponseCode = RCtag;
+            data.TrialID = TrialNum;
+            data.inaccurateTimestamp = datetime("now");
+            RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
 
-    
-    % Collect Buffer if available
-    if isfield(RUNTIME,'AcqBufferStr')
-        try
-            RUNTIME.TRIALS(i).AcqBuffer = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).AcqBuffer);
+
+            % Save runtime data in case of crash
+            data = RUNTIME.TRIALS(i).DATA;
+            save(RUNTIME.DataFile{i},'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
+
+            % Broadcast event data has been updated
+            evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
+            RUNTIME.HELPER.notify('NewData',evtdata);
+
+
         end
+
+
+
+
+
+
+
+        % If in use, wait for manual completion of trial in RPvds
+        if isfield(RUNTIME,'TrialCompleteIdx') % ???
+            TCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialComplete);
+            RUNTIME.ON_HOLD(i) = ~TCtag;
+        end
+
+        if RUNTIME.ON_HOLD(i), continue; end
+
+
+
+
+
+
+
+        % Collect Buffer if available
+        if isfield(RUNTIME,'AcqBufferStr')
+            try
+                RUNTIME.TRIALS(i).AcqBuffer = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).AcqBuffer);
+            end
+        end
+
+
+
+
+        % Increment trial index
+        RUNTIME.TRIALS(i).TrialIndex = RUNTIME.TRIALS(i).TrialIndex + 1;
+
+
+
+
     end
-    
-
-    
-    
-     % Increment trial index
-    RUNTIME.TRIALS(i).TrialIndex = RUNTIME.TRIALS(i).TrialIndex + 1;
-    
-    
 
 
-
-
-
-
+    RUNTIME.TRIALS(i).FORCE_TRIAL(i) = false;
     
     % Select next trial with default or custom function
     try
+        tcf = tic;
         n = feval(RUNTIME.TRIALS(i).trialfunc,RUNTIME.TRIALS(i));
+        vprintf(4,'Custom Trial Function, "%s",ran in %.4f seconds',RUNTIME.TRIALS(i).trialfunc,toc(tcf))
         if isstruct(n)
             RUNTIME.TRIALS(i).trials = n.trials;
             RUNTIME.TRIALS(i).NextTrialID = n.NextTrialID;

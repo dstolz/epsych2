@@ -9,6 +9,7 @@ classdef cl_AversiveDetection_GUI < handle
 
         PsychPlot % gui.PsychPlot
         ResponseHistory % gui.History
+        Performance % gui.Performance
 
         plottedParameters = {'~InTrial_TTL','~RespWindow','~Spout_TTL',...
             '~ShockOn','~GO_Stim','~NOGO_Stim'}
@@ -16,6 +17,8 @@ classdef cl_AversiveDetection_GUI < handle
 
         lblFARate
         tableTrialFilter
+
+        hButtons
     end
 
 
@@ -90,8 +93,10 @@ classdef cl_AversiveDetection_GUI < handle
 
             p = RUNTIME.S.find_parameter('ShockN');
             shocked = find(present,p.Value,"last");
+            shocked(ismember(shocked,find(trialtype==1))) = [];
             [src.Data{:,3}] = deal(false);
             [src.Data{shocked,3}] = deal(true);
+            
 
             RUNTIME.TRIALS.shockedTrials = shocked;
             RUNTIME.TRIALS.activeTrials = present;
@@ -109,12 +114,27 @@ classdef cl_AversiveDetection_GUI < handle
         end
 
 
+        function update_NewData(obj,src,event)
+            D = event.Data;
+
+            % Turn Reminder button off after completing a Reminder trial           % trial
+            h = obj.hButtons.Reminder;
+            if h.Parameter.Value == 1, h.Parameter.Value = 0; end
+
+
+
+             % calculate session FA rate and update
+             obj.lblFARate.Text = num2str(obj.psychDetect.FA_Rate(1)*100,'%.2f');
+
+        end
 
         function update_NextTrial(obj,src,event)
             % notified that the next trial is ready
+            
+            D = event.Data;
 
+            % Update Next Trial table
              h = findobj(obj.h_figure,'tag','tblNextTrial');
-             D = event.Data;
              ntid = D.NextTrialID;
              nt = D.trials(ntid,:);
              am = nt{D.writeParamIdx.Depth};
@@ -130,10 +150,8 @@ classdef cl_AversiveDetection_GUI < handle
              end
              h.Data = nd;
 
-
-             % calculate session FA rate and update
-             obj.lblFARate.Text = num2str(obj.psychDetect.FA_Rate(1)*100,'%.2f');
         end
+
 
         function create_gui(obj)
             global RUNTIME
@@ -173,17 +191,20 @@ classdef cl_AversiveDetection_GUI < handle
 
             % > Remind
             p = RUNTIME.S.Module.add_parameter('ReminderTrials',0);
+            p.PostUpdateFcn = @cl_AversiveDetection_GUI.trigger_ReminderTrial;
             h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
-            h.Text = "Reminders";
+            h.Text = "Reminder";
             h.colorNormal = bcmNormal(1,:);
             h.colorOnUpdate = bcmActive(1,:);
+            obj.hButtons.Reminder = h;
 
             % > ReferencePhys
             p = RUNTIME.S.Module.add_parameter('ReferencePhys',0);
             h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
             h.Text = "ReferencePhys";
             h.colorNormal = bcmNormal(2,:);
-            h.colorOnUpdate = bcmActive(2,:);
+            h.colorOnUpdate = bcmActive(2,:);            
+            obj.hButtons.ReferencePhys = h;
 
 
             % > Deliver Trials
@@ -192,13 +213,15 @@ classdef cl_AversiveDetection_GUI < handle
             h.Text = "Deliver Trials";
             h.colorNormal = bcmNormal(3,:);
             h.colorOnUpdate = bcmActive(3,:);
+            obj.hButtons.DeliverTrials = h;
 
-            % > Pause Trials
-            p = RUNTIME.S.Module.add_parameter('PauseTrials',0);
-            h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
-            h.Text = "Pause Trials";
-            h.colorNormal = bcmNormal(4,:);
-            h.colorOnUpdate = bcmActive(4,:);
+            % % > Pause Trials
+            % p = RUNTIME.S.Module.add_parameter('PauseTrials',0);
+            % h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
+            % h.Text = "Pause Trials";
+            % h.colorNormal = bcmNormal(4,:);
+            % h.colorOnUpdate = bcmActive(4,:);
+            % obj.hButtons.PauseTrials = h;
 
             % > Air Puff
             p = RUNTIME.S.Module.add_parameter('AirPuff',0);
@@ -206,12 +229,13 @@ classdef cl_AversiveDetection_GUI < handle
             h.Text = "Air Puff";
             h.colorNormal = bcmNormal(5,:);
             h.colorOnUpdate = bcmActive(5,:);
+            obj.hButtons.AirPuff = h;
 
 
             bh = findobj(fig,'Type', 'uistatebutton');
             set(bh, ...
                 FontWeight = 'bold', ...
-                FontSize = 13, ...
+                FontSize = 15, ...
                 Enable = "on");
 
 
@@ -534,7 +558,6 @@ classdef cl_AversiveDetection_GUI < handle
             layoutNextTrial = simple_layout(panelNextTrial);
 
             % > Next Trial Table
-            % *** NEED TO SEE HOW THIS IMPLEMENTED ON THE CURRENT GUI ***
             tableNextTrial = uitable(layoutNextTrial);
             tableNextTrial.Tag = 'tblNextTrial';
             tableNextTrial.ColumnName = {'Depth','TrialType'};
@@ -543,6 +566,7 @@ classdef cl_AversiveDetection_GUI < handle
             tableNextTrial.FontSize = 20;
 
             addlistener(RUNTIME.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
+            addlistener(RUNTIME.HELPER,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
 
 
 
@@ -666,7 +690,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % Panel for "Response History" --------------------------------------
             panelResponseHistory = uipanel(layoutMain, 'Title', 'Response History');
-            panelResponseHistory.Layout.Row = [3, 6];
+            panelResponseHistory.Layout.Row = [3, 8];
             panelResponseHistory.Layout.Column = [6 7];
 
             % > Response History Table
@@ -674,20 +698,18 @@ classdef cl_AversiveDetection_GUI < handle
             obj.ResponseHistory.ParametersOfInterest = {'Depth','TrialType','Reminder'};
 
 
-            % Panel for "Trial History" ----------------------------------------
-            panelTrialHistory = uipanel(layoutMain, 'Title', 'Trial History');
-            panelTrialHistory.Layout.Row = [7 11];
-            panelTrialHistory.Layout.Column = [6 7];
+            % Panel for "Performance" ----------------------------------------
+            panelPerformance = uipanel(layoutMain, 'Title', 'Performance');
+            panelPerformance.Layout.Row = [9 11];
+            panelPerformance.Layout.Column = [6 7];
 
+            obj.Performance = gui.Performance(obj.psychDetect,panelPerformance);
+            obj.Performance.ParametersOfInterest = {'Depth'};
 
-            % > Trial History
-            layoutTrialHistory = simple_layout(panelTrialHistory);
-
-            % > Trial History Table
-            tableResponseHistory = uitable(layoutTrialHistory);
-            tableResponseHistory.ColumnName = {'Depth','TrialType','# Trials','Hit rate (%)','dprime'};
-            tableResponseHistory.ColumnEditable = false;
-            tableResponseHistory.FontSize = 10;
+            % tableResponseHistory = uitable(layoutPerformance);
+            % tableResponseHistory.ColumnName = {'Depth','TrialType','# Trials','Hit rate (%)','dprime'};
+            % tableResponseHistory.ColumnEditable = false;
+            % tableResponseHistory.FontSize = 10;
 
 
 
@@ -748,7 +770,32 @@ classdef cl_AversiveDetection_GUI < handle
 
     end
 
+    methods (Static)
+
+        function trigger_ReminderTrial(obj, value)
+            global RUNTIME
+
+
+            pdt = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
+            if pdt.Value == 1
+                obj.Value = 0;
+                vprintf(0,1,'"Deliver Trials" must be inactive to initiate a Reminder trial')
+                return
+            end
+
+            % the following FORCE_TRIAL tells ep_TimerFcn_RunTime to skip
+            % waiting for trial to complete and just go directly to
+            % updating for next trial
+            RUNTIME.TRIALS.FORCE_TRIAL = true;
+
+        end
+
+    end
+
 end
+
+
+
 
 
 function [value,success] = evaluate_n_gonogo(obj,event)

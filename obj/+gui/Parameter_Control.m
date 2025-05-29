@@ -55,7 +55,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             arguments
                 parent
                 Parameter
-                options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown','checkbox','toggle','readonly'})} = 'editfield'
+                options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown','checkbox','toggle','readonly','mommentary'})} = 'editfield'
                 options.autoCommit (1,1) logical = false
             end
             obj.parent = parent;
@@ -110,16 +110,18 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         end
 
         function set.Values(obj,values)
-            if ~isequal(obj.type,'dropdown'), return; end
-            obj.h_value.ItemsData = values;
-            if isnumeric(values)
-                obj.h_value.Items = string(values);
-            else
-                obj.h_value.Items = values;
-            end
-            i = ismember(values,obj.Value);
-            if any(i)
-                obj.h_value.Value = obj.Value;
+            switch obj.type
+                case 'dropdown'
+                    obj.h_value.ItemsData = values;
+                    if isnumeric(values)
+                        obj.h_value.Items = string(values);
+                    else
+                        obj.h_value.Items = values;
+                    end
+                    i = ismember(values,obj.Value);
+                    if any(i)
+                        obj.h_value.Value = obj.Value;
+                    end
             end
         end
 
@@ -262,6 +264,12 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     h.Layout.Column = [1 2];
                     h.Text = P.Name;
 
+                case 'mommentary'
+                    hl.ColumnWidth = {'1x'};
+                    h = uibutton(hl,'push');
+                    h.Layout.Column = [1 2];
+                    h.Text = P.Name;
+
                 case 'readonly'
                     hl.ColumnWidth = {'1x'};
                     h = uilabel(hl);
@@ -338,12 +346,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
                     
 
-                case 'toggle'
+                case {'toggle','mommentary'}
                     if v
                         obj.h_value.BackgroundColor = obj.colorOnUpdate;
                     else
                         obj.h_value.BackgroundColor = obj.colorNormal;
                     end
+
+
                     
             end
 

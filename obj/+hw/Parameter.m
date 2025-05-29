@@ -81,7 +81,7 @@ classdef Parameter < matlab.mixin.SetGet
         function set.Value(obj,value)
 
             if isa(obj.PreUpdateFcn ,'function_handle')
-                feval(obj.PreUpdateFcn);
+                obj.PreUpdateFcn(obj,value);
             end
 
             if isa(obj.EvaluatorFcn,'function_handle')
@@ -92,7 +92,7 @@ classdef Parameter < matlab.mixin.SetGet
             obj.Parent.set_parameter(obj,value);
 
             if isa(obj.PostUpdateFcn,'function_handle')
-                feval(obj.PostUpdateFcn);
+                obj.PostUpdateFcn(obj,value);
             end
         end
 

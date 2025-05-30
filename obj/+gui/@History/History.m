@@ -10,7 +10,6 @@ classdef History < handle
         TableH
         ContainerH
 
-        ColumnName
         Data
         Info
 
@@ -50,19 +49,20 @@ classdef History < handle
             if isempty(obj.psychObj.DATA), return; end
 
             % Call a function to rearrange DATA to make it easier to use (see below).
-            obj.rearrange_data;
+            RD = obj.rearrange_data;
 
-            if isempty(obj.Data), return; end
+            if isempty(RD), return; end
+
 
             % Flip the DATA matrix so that the most recent trials are displayed at the
             % top of the table.
-            obj.TableH.Data = flipud(obj.Data);
+            obj.TableH.Data = flipud(RD);
 
             % set the row names as the trial ids
             obj.TableH.RowName = flipud(obj.Info.TrialID);
 
             % set the column names
-            obj.TableH.ColumnName = obj.ColumnName;
+            obj.TableH.ColumnName = [{'Time'}; {'Response'}; fieldnames(obj.psychObj.DATA)];
             
             obj.update_row_colors;
         end
@@ -90,7 +90,7 @@ classdef History < handle
             obj.TableH.RowStriping = 'on';
         end
         
-        function rearrange_data(obj)           
+        function DataOut = rearrange_data(obj)           
             requiredParams = {'ResponseCode','TrialID','inaccurateTimestamp'};
             DataIn = obj.psychObj.DATA;
 
@@ -134,9 +134,7 @@ classdef History < handle
 
             DataOut = [cellstr(obj.Info.RelativeTimestamp(:)) DataOut];
             
-            obj.ColumnName = [{'Time'}; {'Response'}; fieldnames(DataIn)];
             
-            obj.Data = DataOut;
         end
     end
 end

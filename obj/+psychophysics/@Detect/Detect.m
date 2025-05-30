@@ -44,6 +44,8 @@ classdef Detect < handle & matlab.mixin.SetGet
         % targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
         targetTrialType (1,1) = 0; % SHOULD BE BITMASK
 
+        Bits = epsych.BitMask(1:5);        
+        BitColors (5,1) string = ["#dff7df","#fcdcdc","#d9f2ff","#fcdefc","#fcfcd4"];
 
         Helper = epsych.Helper
     end

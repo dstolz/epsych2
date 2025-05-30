@@ -78,13 +78,13 @@ classdef History < handle
     methods (Access = private)
         function update_row_colors(obj)
             if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
-            C(size(obj.Data,1),3) = 0;
+            C = strings(size(obj.Data,1));
             R = cellfun(@epsych.BitMask,obj.Data(:,2),'uni',0);
             R = [R{:}];
-            for i = 1:length(obj.psychObj.BitsInUse)
-                ind = R == obj.psychObj.BitsInUse(i);
+            for i = 1:length(obj.psychObj.Bits)
+                ind = R == obj.psychObj.Bits(i);
                 if ~any(ind), continue; end
-                C(ind,:) = repmat(obj.psychObj.BitColors(i,:),sum(ind),1);
+                C(ind) = repmat(obj.psychObj.BitColors(i),sum(ind),1);
             end
             obj.TableH.BackgroundColor = flipud(C);
             obj.TableH.RowStriping = 'on';

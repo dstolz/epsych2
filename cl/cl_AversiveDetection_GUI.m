@@ -116,8 +116,6 @@ classdef cl_AversiveDetection_GUI < handle
 
 
         function update_NewData(obj,src,event)
-
-
             % Turn Reminder button off after completing a Reminder trial           % trial
             if obj.hButtons.Reminder.Parameter.Value == 1
                 obj.hButtons.Reminder.Parameter.Value = 0;

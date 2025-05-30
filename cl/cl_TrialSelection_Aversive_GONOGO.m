@@ -30,9 +30,9 @@ function TRIALS = cl_TrialSelection_Aversive_GONOGO(TRIALS)
 persistent nNOGOs
 
 
+reminderTrial = TRIALS.HW.find_parameter('~ReminderTrial',includeInvisible = true);
 deliverTrials = TRIALS.HW.find_parameter('~TrialDelivery',includeInvisible=true);
 shockFlag = TRIALS.HW.find_parameter('ShockFlag');
-% shockFlag.Value = false; % to be safe
 
 TT.NOGO = 1;
 TT.GO   = 0;
@@ -56,11 +56,14 @@ for j = 1:length(sp), SP.(sn{j}) = sp(j); end
 
 
 if SP.ReminderTrials.Value == 1
+    vprintf(4,'Setting up for a Reminder trial')
     TRIALS.NextTrialID = find(all.TrialType == TT.REMIND,1);
     shockFlag.Value = true;
+    reminderTrial.Value = true;
     return
 end
 
+reminderTrial.Value = false;
 
 
 % make first trial NO GO
@@ -73,7 +76,6 @@ end
 
 history.Depth     = [TRIALS.DATA.Depth];
 history.TrialType = [TRIALS.DATA.TrialType];
-history.Reminder  = [TRIALS.DATA.Reminder];
 
 
 
@@ -108,7 +110,7 @@ nNOGOs = randi([NOGOmin, NOGOmax]);
 
 % REMINDER Trials
 if SP.ReminderTrials.Value
-    TRIALS.NextTrialID = find(all.Reminder,1);
+    TRIALS.NextTrialID = find(all.TrialType == TT.REMIND,1);
     p = TRIALS.HW.find_parameter('ShockFlag');
     p.Value = true;
     return
@@ -168,7 +170,7 @@ end
 
 
 % next trial id
-ntid = find(all.Depth == nextDepth & ~all.Reminder);
+ntid = find(all.Depth == nextDepth & ~all.TrialType == TT.REMIND);
 
 % determine if the trial should be shocked
 shockFlag.Value = any(TRIALS.shockedTrials == ntid);

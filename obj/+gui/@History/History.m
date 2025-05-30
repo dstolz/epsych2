@@ -52,6 +52,8 @@ classdef History < handle
             % Call a function to rearrange DATA to make it easier to use (see below).
             obj.rearrange_data;
 
+            if isempty(obj.Data), return; end
+
             % Flip the DATA matrix so that the most recent trials are displayed at the
             % top of the table.
             obj.TableH.Data = flipud(obj.Data);

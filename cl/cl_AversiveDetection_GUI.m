@@ -124,7 +124,9 @@ classdef cl_AversiveDetection_GUI < handle
 
 
              % calculate session FA rate and update
-             obj.lblFARate.Text = num2str(obj.psychDetect.FA_Rate(1)*100,'%.2f');
+             faRate = obj.psychDetect.FA_Rate(1)*100;
+             if isnan(faRate), faTxt = '--'; else, faTxt = num2str(faRate,'%.2f'); end
+             obj.lblFARate.Text = faTxt;
 
         end
 
@@ -498,22 +500,23 @@ classdef cl_AversiveDetection_GUI < handle
             % > Trial Filter Table
             tt = RUNTIME.TRIALS.trials;
             loc = RUNTIME.TRIALS.writeParamIdx;
-            reminderInd = [tt{:,loc.Reminder}];
+            trialTypes = cell2mat(tt(:,loc.TrialType));
+            reminderInd = trialTypes == 2;
             d = tt(~reminderInd,loc.Depth);
             d(:,2) = tt(~reminderInd,loc.TrialType);
             d(:,3) = {false};
             d(:,4) = {true};
             % [~,i] = sort([d{:,1}],'descend');
             % d = d(i,:);
-            tableTrialFilter = uitable(layoutTrialFilter);
-            tableTrialFilter.Tag = 'tblTrialFilter';
-            tableTrialFilter.ColumnName = {'Depth','TrialType','Shocked','Present'};
-            tableTrialFilter.ColumnEditable = [false,false,false,true];
-            tableTrialFilter.FontSize = 10;
-            tableTrialFilter.Data = d;
-            tableTrialFilter.CellEditCallback = @obj.update_trial_filter;
-            obj.tableTrialFilter = tableTrialFilter;
-            obj.update_trial_filter(tableTrialFilter);
+            h = uitable(layoutTrialFilter);
+            h.Tag = 'tblTrialFilter';
+            h.ColumnName = {'Depth','TrialType','Shocked','Present'};
+            h.ColumnEditable = [false,false,false,true];
+            h.FontSize = 10;
+            h.Data = d;
+            h.CellEditCallback = @obj.update_trial_filter;
+            obj.tableTrialFilter = h;
+            obj.update_trial_filter(h);
 
 
 
@@ -775,6 +778,8 @@ classdef cl_AversiveDetection_GUI < handle
         function trigger_ReminderTrial(obj, value)
             global RUNTIME
 
+            prt = RUNTIME.S.find_parameter('ReminderTrials');
+            if prt.Value == 0, return; end
 
             pdt = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
             if pdt.Value == 1
@@ -786,6 +791,7 @@ classdef cl_AversiveDetection_GUI < handle
             % the following FORCE_TRIAL tells ep_TimerFcn_RunTime to skip
             % waiting for trial to complete and just go directly to
             % updating for next trial
+            vprintf(4,'Forcing a Reminder Trial')
             RUNTIME.TRIALS.FORCE_TRIAL = true;
 
         end

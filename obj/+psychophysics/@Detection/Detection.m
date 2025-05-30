@@ -5,6 +5,8 @@ classdef Detection < handle
     properties
         Stim_TrialType   (1,1) double = 0;
         Catch_TrialType  (1,1) double = 1;
+        Other_TrialType  (1,1) double = 2;
+        
 
         Parameter       (1,:) % hw.Parameter
         ParameterIDs    (1,:) uint8
@@ -15,6 +17,8 @@ classdef Detection < handle
 
         BitsInUse epsych.BitMask = [1 2 3 4 7] % [Hit Miss CR FA Abort]
 
+        dprimeBounds (1,2) double {mustBeInRange(dprimeBounds,0,1,"exclusive")} = [0.05 0.95];
+
         Helper = epsych.Helper
 
     end
@@ -22,6 +26,8 @@ classdef Detection < handle
     properties (Dependent)
         NumTrials   (1,1) uint16
         
+        TrialType   (1,:) double
+
         Stim_Ind    (1,:) logical
         Catch_Ind   (1,:) logical
         Stim_Count  (1,1) uint16
@@ -145,11 +151,16 @@ classdef Detection < handle
         end
 
         function i = get.Stim_Ind(obj)
-            i = [obj.DATA.TrialType] == obj.Stim_TrialType;
+            i = tt == obj.Stim_TrialType;
         end
 
         function i = get.Catch_Ind(obj)
-            i = [obj.DATA.TrialType] == obj.Catch_TrialType;
+            i = tt == obj.Catch_TrialType;
+        end
+
+
+        function tt = get.TrialType(obj)
+            tt = [obj.DATA.TrialType];
         end
 
         % Count -----------------------------------------------------
@@ -237,12 +248,14 @@ classdef Detection < handle
             far = far(~isnan(far));
             hr = obj.Hit_Rate;
             ind = isnan(hr);
-            dp = obj.zscore(hr) - obj.zscore(far);
+            if ~all(ind)
+                dp = obj.zscore(hr,obj.dprimeBounds) - obj.zscore(far,obj.dprimeBounds);
+            end
             dp(ind) = nan; 
         end
 
         function c = get.Bias(obj)
-            c = -(obj.zscore(obj.Hit_Rate) + obj.zscore(obj.FA_Rate))./2;
+            c = -(obj.zscore(obj.Hit_Rate,obj.dprimeBounds) + obj.zscore(obj.FA_Rate,obj.dprimeBounds))./2;
         end
         
         function r = get.ResponsesEnum(obj)
@@ -350,10 +363,16 @@ classdef Detection < handle
     end
 
     methods (Static)
-        function z = zscore(a)
+        function z = zscore(a,bounds)
+            if nargin < 2 || isempty(bounds)
+                bounds = [0.01 0.99];
+            end
+
+            assert(numel(bounds)==2)
+
             % bounds input to [0.01 0.99] to avoid inf values
-            a  = max(min(a,0.99),0.01);
-            z = sqrt(2)*erfinv(2*a-1);
+            a  = max(min(a,bounds(2)),bounds(1));
+            z = norminv(a);
         end
     end
 end

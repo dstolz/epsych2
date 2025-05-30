@@ -1,0 +1,273 @@
+classdef Detect < handle & matlab.mixin.SetGet
+    % Detect   Class for analyzing psychophysical detection task data
+    %
+    %   The Detect class processes trial data from psychophysical experiments,
+    %   decoding trial outcomes and computing performance metrics such as
+    %   d-prime and bias. It utilizes information from the TRIALS structure
+    %   and associated parameters to extract and analyze relevant trial data.
+    %
+    %   Detect Properties:
+    %       TRIALS          - Structure containing trial data (RUNTIME.TRIALS)
+    %       Parameter       - Parameter object defining trial parameters (hw.Parameter)
+    %       infCorrection   - Correction bounds for infinite z-scores [lower upper]
+    %       targetTrialType - Target trial type to analyze (epsych.BitMask)
+    %
+    %   Detect Dependent Properties:
+    %       DATA            - Extracted trial data from TRIALS
+    %       trialCount      - Number of trials matching targetTrialType
+    %       trialType       - Array of trial types from DATA
+    %       trialValues     - Parameter values for targetTrialType trials
+    %       uniqueValues    - Unique parameter values in trialValues
+    %       Count           - Struct with counts of trial outcomes (Hit, Miss, etc.)
+    %       Rate            - Struct with rates of trial outcomes
+    %       DPrime          - Computed d-prime values
+    %       Bias            - Computed bias values
+    %
+    %   Detect Methods:
+    %       Detect          - Constructor to initialize the class
+    %       d_prime         - Static method to compute d-prime
+    %       bias            - Static method to compute bias
+    %       norminv         - Static method for bounded inverse normal transformation
+
+    properties
+        % TRIALS - Structure containing trial data (RUNTIME.TRIALS)
+        TRIALS
+
+        % Parameter - Parameter object defining trial parameters (hw.Parameter)
+        Parameter (1,1)
+
+        % infCorrection - Correction bounds for infinite z-scores [lower upper]
+        % Ensures that hit and false alarm rates are within (0,1) exclusive
+        infCorrection (1,2) double {mustBeInRange(infCorrection,0,1,"exclusive")} = [0.01 0.99];
+
+        % targetTrialType - Target trial type to analyze (epsych.BitMask)
+        targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
+    end
+
+    properties (Dependent)
+        % DATA - Extracted trial data from TRIALS
+        DATA
+
+        % trialCount - Number of trials matching targetTrialType
+        trialCount
+
+        % trialType - Array of trial types from DATA
+        trialType
+
+        % trialValues - Parameter values for targetTrialType trials
+        trialValues
+
+        % uniqueValues - Unique parameter values in trialValues
+        uniqueValues
+
+        % Count - Struct with counts of trial outcomes (Hit, Miss, etc.)
+        Count
+
+        % Rate - Struct with rates of trial outcomes (Hit, Miss, etc.)
+        Rate
+
+        % DPrime - Computed d-prime values
+        DPrime
+
+        % Bias - Computed bias values
+        Bias
+    end
+
+    properties (SetAccess = protected)
+        % decodedTrials - Decoded trial outcomes from psychophysics.decodeTrials
+        decodedTrials
+    end
+
+    methods
+        function obj = Detect(TRIALS, Parameter, targetTrialType)
+            % Detect Constructor to initialize the Detect class
+            %
+            %   obj = Detect(TRIALS, Parameter, targetTrialType) initializes
+            %   the Detect object with the provided TRIALS structure,
+            %   Parameter object, and targetTrialType. It also decodes the
+            %   trial outcomes using psychophysics.decodeTrials.
+            %
+            %   Inputs:
+            %       TRIALS          - Structure containing trial data
+            %       Parameter       - Parameter object defining trial parameters
+            %       targetTrialType - Target trial type to analyze
+            %
+            %   Outputs:
+            %       obj - Initialized Detect object
+
+            if nargin >= 1 && ~isempty(TRIALS)
+                obj.TRIALS = TRIALS;
+            end
+            if nargin >= 2 && ~isempty(Parameter)
+                obj.Parameter = Parameter;
+            end
+            if nargin == 3 && ~isempty(targetTrialType)
+                obj.targetTrialType = targetTrialType;
+            end
+
+            assert(~isempty(obj.TRIALS), 'TRIALS must be provided.');
+            assert(~isempty(obj.Parameter), 'Parameter must be provided.');
+            assert(~isempty(obj.targetTrialType), 'targetTrialType must be provided.');
+
+            obj.decodedTrials = psychophysics.decodeTrials(obj.TRIALS, obj.Parameter);
+        end
+
+        function d = get.DATA(obj)
+            % get.DATA Extracts trial data from TRIALS
+            %
+            %   d = obj.DATA returns the DATA field from the TRIALS structure.
+
+            d = obj.TRIALS.DATA;
+        end
+
+        function tt = get.trialType(obj)
+            % get.trialType Retrieves trial types from DATA
+            %
+            %   tt = obj.trialType returns an array of trial types extracted
+            %   from the DATA structure.
+
+            tt = [obj.DATA.TrialType];
+        end
+
+        function n = get.trialCount(obj)
+            % get.trialCount Counts trials matching targetTrialType
+            %
+            %   n = obj.trialCount returns the number of trials in DATA that
+            %   match the specified targetTrialType.
+
+            n = sum(obj.trialType == obj.targetTrialType);
+        end
+
+        function v = get.trialValues(obj)
+            % get.trialValues Retrieves parameter values for targetTrialType
+            %
+            %   v = obj.trialValues returns the values of the parameter
+            %   specified in obj.Parameter.validName for trials matching
+            %   the targetTrialType.
+
+            v = obj.DATA.(obj.Parameter.validName)(obj.trialType == obj.targetTrialType);
+        end
+
+        function uv = get.uniqueValues(obj)
+            % get.uniqueValues Identifies unique parameter values
+            %
+            %   uv = obj.uniqueValues returns the unique values present in
+            %   obj.trialValues.
+
+            uv = unique(obj.trialValues);
+        end
+
+        function c = get.Count(obj)
+            % get.Count Computes counts of trial outcomes
+            %
+            %   c = obj.Count returns a struct array where each element
+            %   corresponds to a unique parameter value and contains fields
+            %   such as Hit, Miss, etc., representing the count of each
+            %   outcome type.
+
+            uv = obj.uniqueValues;
+            tv = obj.trialValues;
+            M = obj.decodedTrials.M;
+            c(length(uv),1) = struct([]);
+            for i = 1:length(uv)
+                ind = uv(i) == tv;
+                c(i) = structfun(@(a) sum(a(ind)), M, 'UniformOutput', false);
+            end
+        end
+
+        function r = get.Rate(obj)
+            % get.Rate Computes rates of trial outcomes
+            %
+            %   r = obj.Rate returns a struct array where each element
+            %   corresponds to a unique parameter value and contains fields
+            %   representing the rate (proportion) of each outcome type.
+
+            c = obj.Count;
+            n = obj.trialCount;
+            r(size(c)) = struct([]);
+            for i = 1:length(c)
+                r(i) = structfun(@(a) a./n, c(i), 'UniformOutput', false);
+            end
+        end
+
+        function d = get.DPrime(obj)
+            % get.DPrime Computes d-prime values
+            %
+            %   d = obj.DPrime returns the d-prime values computed from the
+            %   Hit and FalseAlarm rates using the specified infCorrection
+            %   bounds.
+
+            r = obj.Rate;
+            d = psychophysics.Detect.d_prime(r.Hit, r.FalseAlarm, obj.infCorrection);
+        end
+
+        function c = get.Bias(obj)
+            % get.Bias Computes bias values
+            %
+            %   c = obj.Bias returns the bias values computed from the Hit
+            %   and FalseAlarm rates using the specified infCorrection bounds.
+
+            r = obj.Rate;
+            c = psychophysics.Detect.bias(r.Hit, r.FalseAlarm, obj.infCorrection);
+        end
+    end
+
+    methods (Static)
+        function d = d_prime(hitRate, faRate, bounds)
+            % d_prime Computes d-prime from hit and false alarm rates
+            %
+            %   d = d_prime(hitRate, faRate, bounds) computes the d-prime
+            %   value using the provided hitRate and faRate, applying the
+            %   specified bounds to avoid infinite z-scores.
+            %
+            %   Inputs:
+            %       hitRate - Hit rate(s)
+            %       faRate  - False alarm rate(s)
+            %       bounds  - [lower upper] bounds for rate correction
+            %
+            %   Output:
+            %       d - Computed d-prime value(s)
+
+            arguments
+                hitRate
+                faRate
+                bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
+            end
+            d = psychophysics.Detect.norminv(hitRate, bounds) - psychophysics.Detect.norminv(faRate, bounds);
+        end
+
+        function c = bias(hitRate, faRate, bounds)
+            % bias Computes bias from hit and false alarm rates
+            %
+            %   c = bias(hitRate, faRate, bounds) computes the bias value
+            %   using the provided hitRate and faRate, applying the specified
+            %   bounds to avoid infinite z-scores.
+            %
+            %   Inputs:
+            %       hitRate - Hit rate(s)
+            %       faRate  - False alarm rate(s)
+            %       bounds  - [lower upper] bounds for rate correction
+            %
+            %   Output:
+            %       c - Computed bias value(s)
+
+            arguments
+                hitRate
+                faRate
+                bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
+            end
+            h = psychophysics.Detect.norminv(hitRate, bounds);
+            f = psychophysics.Detect.norminv(faRate, bounds);
+            c = -(h + f) ./ 2;
+        end
+
+        function n = norminv(r,bounds)
+            arguments
+                r
+                bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
+            end
+            r = max(min(r,bounds(2)),bounds(1));
+            n = stats.norminv(r);
+        end
+    end
+end

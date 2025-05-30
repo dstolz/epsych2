@@ -76,5 +76,5 @@ addpath(subdirs);
 path(path)
 fprintf(' done\n')
 
-
+if nargout == 0, clear subdirs; end
 

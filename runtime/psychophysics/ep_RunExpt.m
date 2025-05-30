@@ -1034,4 +1034,31 @@ disp(E.meta)
 commandwindow
 
 
+function verbosity
+global GVerbosity
 
+options = {'0. No extraneous text'
+    '1. Additional info'
+    '2. Detailed info'
+    '3. Highly detailed info'
+    '4. Ludicrously detailed info'};
+
+% Create the modal list dialog
+[indx, tf] = listdlg('ListString', options, ...
+    'SelectionMode', 'single', ...
+    'PromptString', 'Select the level of detail:', ...
+    'Name', 'Detail Level Selection', ...
+    'InitialValue',GVerbosity+1, ...
+    'ListSize', [300, 150]);
+
+% Handle the user's selection
+if tf
+    selectedOption = indx - 1; % Adjusting index to match option numbering
+else
+    selectedOption = []; % User canceled the dialog
+end
+
+if isempty(selectedOption), return; end
+
+GVerbosity = selectedOption;
+vprintf(1,'Verbosity set to %s',options{GVerbosity+1})

@@ -78,15 +78,15 @@ for i = 1:RUNTIME.NSubjects
 
 
 
+        % Increment trial index
+        RUNTIME.TRIALS(i).TrialIndex = RUNTIME.TRIALS(i).TrialIndex + 1;
+
+
 
     end
 
 
     RUNTIME.TRIALS(i).FORCE_TRIAL(i) = false;
-
-
-    % Increment trial index
-    RUNTIME.TRIALS(i).TrialIndex = RUNTIME.TRIALS(i).TrialIndex + 1;
 
 
 

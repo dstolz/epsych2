@@ -12,7 +12,7 @@ classdef cl_AversiveDetection_GUI < handle
         Performance % gui.Performance
 
         plottedParameters = {'~InTrial_TTL','~RespWindow','~Spout_TTL',...
-            '~ShockOn','~GO_Stim','~NOGO_Stim'}
+            '~ShockOn','~GO_Stim','~NOGO_Stim','~ReminderTrial','~TrialDelivery'}
 
 
         lblFARate
@@ -45,7 +45,8 @@ classdef cl_AversiveDetection_GUI < handle
 
             % create detection object
             p = RUNTIME.HW.find_parameter('Depth');
-            obj.psychDetect = psychophysics.Detection(p);
+            obj.psychDetect = psychophysics.Detect([],p);
+            % obj.psychDetect = psychophysics.Detection(p);
 
             % generate gui layout and components
             obj.create_gui;
@@ -115,17 +116,18 @@ classdef cl_AversiveDetection_GUI < handle
 
 
         function update_NewData(obj,src,event)
-            D = event.Data;
+
 
             % Turn Reminder button off after completing a Reminder trial           % trial
-            h = obj.hButtons.Reminder;
-            if h.Parameter.Value == 1, h.Parameter.Value = 0; end
+            if obj.hButtons.Reminder.Parameter.Value == 1
+                obj.hButtons.Reminder.Parameter.Value = 0;
+            end
 
 
 
              % calculate session FA rate and update
-             faRate = obj.psychDetect.FA_Rate(1)*100;
-             if isnan(faRate), faTxt = '--'; else, faTxt = num2str(faRate,'%.2f'); end
+             faRate = obj.psychDetect.Rate.FalseAlarm;
+             if isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
              obj.lblFARate.Text = faTxt;
 
         end

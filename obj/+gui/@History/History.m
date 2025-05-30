@@ -1,7 +1,7 @@
 classdef History < handle
 
     properties
-        PsychophysicsObj
+        psychObj
 
         ParametersOfInterest (:,1) cell
     end
@@ -28,7 +28,7 @@ classdef History < handle
             obj.build;
             
             if nargin >= 1 && ~isempty(pObj)
-                obj.PsychophysicsObj = pObj;
+                obj.psychObj = pObj;
             end
 
             obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
@@ -47,7 +47,7 @@ classdef History < handle
         
         
         function update(obj,src,event)
-            if isempty(obj.PsychophysicsObj.DATA), return; end
+            if isempty(obj.psychObj.DATA), return; end
 
             % Call a function to rearrange DATA to make it easier to use (see below).
             obj.rearrange_data;
@@ -67,24 +67,24 @@ classdef History < handle
             obj.update_row_colors;
         end
         
-        function set.PsychophysicsObj(obj,pobj)
-            assert(epsych.Helper.valid_psych_obj(pobj),'gui.History:set.PsychophysicsObj', ...
-                'PsychophysicsObj must be from the toolbox "psychophysics"');
-            obj.PsychophysicsObj = pobj;
+        function set.psychObj(obj,pobj)
+            assert(epsych.Helper.valid_psych_obj(pobj),'gui.History:set.psychObj', ...
+                'psychObj must be from the toolbox "psychophysics"');
+            obj.psychObj = pobj;
             obj.update;
         end
     end
 
     methods (Access = private)
         function update_row_colors(obj)
-            if ~epsych.Helper.valid_psych_obj(obj.PsychophysicsObj), return; end
+            if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
             C(size(obj.Data,1),3) = 0;
             R = cellfun(@epsych.BitMask,obj.Data(:,2),'uni',0);
             R = [R{:}];
-            for i = 1:length(obj.PsychophysicsObj.BitsInUse)
-                ind = R == obj.PsychophysicsObj.BitsInUse(i);
+            for i = 1:length(obj.psychObj.BitsInUse)
+                ind = R == obj.psychObj.BitsInUse(i);
                 if ~any(ind), continue; end
-                C(ind,:) = repmat(obj.PsychophysicsObj.BitColors(i,:),sum(ind),1);
+                C(ind,:) = repmat(obj.psychObj.BitColors(i,:),sum(ind),1);
             end
             obj.TableH.BackgroundColor = flipud(C);
             obj.TableH.RowStriping = 'on';
@@ -92,7 +92,7 @@ classdef History < handle
         
         function rearrange_data(obj)           
             requiredParams = {'ResponseCode','TrialID','inaccurateTimestamp'};
-            DataIn = obj.PsychophysicsObj.DATA;
+            DataIn = obj.psychObj.DATA;
 
             if ~isempty(obj.ParametersOfInterest)
                 ftr = setdiff(fieldnames(DataIn),[obj.ParametersOfInterest;requiredParams']);
@@ -114,8 +114,7 @@ classdef History < handle
             td.Format = "mm:ss";
             obj.Info.RelativeTimestamp = string(td); 
             
-
-            Response = obj.PsychophysicsObj.ResponsesChar;
+            Response = obj.psychObj.ResponsesChar;
             
             % ignore array fields 
             ind = structfun(@(a) numel(a)>1,DataIn(1));

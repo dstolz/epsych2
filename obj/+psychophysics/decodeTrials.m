@@ -48,7 +48,7 @@ classdef decodeTrials
             bm = epsych.BitMask.getAll;
             s = string(bm);
             for i = 1:length(bm)
-                b = bitget(obj.responseCodes,uint32(bm(i)));
+                b = bitget(obj.responseCodes,bm(i));
                 m.(s(i)) = logical(b);
             end
         end

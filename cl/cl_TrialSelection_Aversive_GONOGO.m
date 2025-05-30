@@ -170,7 +170,7 @@ end
 
 
 % next trial id
-ntid = find(all.Depth == nextDepth & ~all.TrialType == TT.REMIND);
+ntid = find(all.Depth == nextDepth & all.TrialType ~= TT.REMIND);
 
 % determine if the trial should be shocked
 shockFlag.Value = any(TRIALS.shockedTrials == ntid);

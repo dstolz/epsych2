@@ -3,7 +3,6 @@ classdef PsychPlot < handle
     properties
         ax       (1,1)
         
-        ParameterName (1,:) char
         
         PsychophysicsObj % psychophysics...
         
@@ -23,6 +22,9 @@ classdef PsychPlot < handle
     end
     
     
+    properties (Dependent)
+        ParameterName
+    end
     properties (Constant)
         ValidPlotTypes = {'DPrime','Hit_Rate','FA_Rate','Bias'};
     end
@@ -46,7 +48,6 @@ classdef PsychPlot < handle
             obj.setup_yaxis_label;
 
             obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update_plot);
-
         end
 
         function delete(obj)
@@ -57,11 +58,8 @@ classdef PsychPlot < handle
         
         
 
-        function set.ParameterName(obj,name)
-            ind = ismember(obj.ValidParameters,name);
-            assert(any(ind),'gui.PsychPlot:set.ParameterName','Invalid parameter name: %s',name);
-            obj.ParameterName = name;
-            obj.update_plot;
+        function n = get.ParameterName(obj)
+            n = obj.PsychophysicsObj.Parameter.Name;
         end
         
 
@@ -168,7 +166,7 @@ classdef PsychPlot < handle
         
         
         function setup_xaxis_label(obj)
-            x = xlabel(obj.ax,obj.PsychophysicsObj.ParameterName,'Tag','abscissa','Interpreter','none');
+            x = xlabel(obj.ax,obj.ParameterName,'Tag','abscissa','Interpreter','none');
             x.ButtonDownFcn = @obj.update_parameter;
         end
         

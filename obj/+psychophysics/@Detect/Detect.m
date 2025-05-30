@@ -41,7 +41,11 @@ classdef Detect < handle & matlab.mixin.SetGet
         infCorrection (1,2) double {mustBeInRange(infCorrection,0,1,"exclusive")} = [0.01 0.99];
 
         % targetTrialType - Target trial type to analyze (epsych.BitMask)
-        targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
+        % targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
+        targetTrialType (1,1) = 0; % SHOULD BE BITMASK
+
+
+        Helper = epsych.Helper
     end
 
     properties (Dependent)
@@ -78,6 +82,10 @@ classdef Detect < handle & matlab.mixin.SetGet
         decodedTrials
     end
 
+    properties (Access = private)
+        hl_NewData
+    end
+
     methods
         function obj = Detect(TRIALS, Parameter, targetTrialType)
             % Detect Constructor to initialize the Detect class
@@ -95,6 +103,8 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   Outputs:
             %       obj - Initialized Detect object
 
+            global RUNTIME
+
             if nargin >= 1 && ~isempty(TRIALS)
                 obj.TRIALS = TRIALS;
             end
@@ -105,19 +115,28 @@ classdef Detect < handle & matlab.mixin.SetGet
                 obj.targetTrialType = targetTrialType;
             end
 
-            assert(~isempty(obj.TRIALS), 'TRIALS must be provided.');
-            assert(~isempty(obj.Parameter), 'Parameter must be provided.');
-            assert(~isempty(obj.targetTrialType), 'targetTrialType must be provided.');
-
-            obj.decodedTrials = psychophysics.decodeTrials(obj.TRIALS, obj.Parameter);
+            obj.hl_NewData = listener(RUNTIME.HELPER,'NewData',@obj.update_data);
         end
+
+
+        function update_data(obj,src,event)
+            obj.TRIALS = event.Data;
+            obj.decodedTrials = psychophysics.decodeTrials(obj.TRIALS,obj.Parameter);
+            evtdata = epsych.TrialsData(obj.TRIALS);
+            obj.Helper.notify('NewData',evtdata);
+        end
+
+
 
         function d = get.DATA(obj)
             % get.DATA Extracts trial data from TRIALS
             %
             %   d = obj.DATA returns the DATA field from the TRIALS structure.
-
-            d = obj.TRIALS.DATA;
+            if isempty(obj.TRIALS)
+                d = [];
+            else
+                d = obj.TRIALS.DATA;
+            end
         end
 
         function tt = get.trialType(obj)
@@ -125,8 +144,11 @@ classdef Detect < handle & matlab.mixin.SetGet
             %
             %   tt = obj.trialType returns an array of trial types extracted
             %   from the DATA structure.
-
-            tt = [obj.DATA.TrialType];
+            if isempty(obj.DATA)
+                tt = [];
+            else
+                tt = [obj.DATA.TrialType];
+            end
         end
 
         function n = get.trialCount(obj)
@@ -145,7 +167,13 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   specified in obj.Parameter.validName for trials matching
             %   the targetTrialType.
 
-            v = obj.DATA.(obj.Parameter.validName)(obj.trialType == obj.targetTrialType);
+            ind = obj.trialType == obj.targetTrialType;
+            if any(ind)
+                v = [obj.DATA.(obj.Parameter.validName)];
+                v = v(ind);
+            else
+                v = [];
+            end
         end
 
         function uv = get.uniqueValues(obj)
@@ -165,13 +193,19 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   such as Hit, Miss, etc., representing the count of each
             %   outcome type.
 
-            uv = obj.uniqueValues;
+           
             tv = obj.trialValues;
+            if isempty(tv),  c = nan; return; end
+            uv = obj.uniqueValues;
             M = obj.decodedTrials.M;
-            c(length(uv),1) = struct([]);
+
+            n = epsych.BitMask.list;
+            x = [n, cell(size(n))]';
+            c(length(uv),1) = struct(x{:});
+            
             for i = 1:length(uv)
                 ind = uv(i) == tv;
-                c(i) = structfun(@(a) sum(a(ind)), M, 'UniformOutput', false);
+                c(i) = structfun(@(a) sum(a(ind)), M, 'uni', 0);
             end
         end
 
@@ -182,11 +216,17 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   corresponds to a unique parameter value and contains fields
             %   representing the rate (proportion) of each outcome type.
 
+            
             c = obj.Count;
+            if ~isstruct(c), r = nan; return; end
             n = obj.trialCount;
-            r(size(c)) = struct([]);
+            
+            b = epsych.BitMask.list;
+            x = [b, cell(size(b))]';
+            r(length(c),1) = struct(x{:});
+
             for i = 1:length(c)
-                r(i) = structfun(@(a) a./n, c(i), 'UniformOutput', false);
+                r(i) = structfun(@(a) a./n, c(i), 'uni', 0);
             end
         end
 

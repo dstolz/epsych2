@@ -1,6 +1,6 @@
 classdef BitMask < uint32
     enumeration
-        Undefined           (0)
+        % Undefined           (0)
         Hit                 (1)
         Miss                (2)
         CorrectReject       (3)
@@ -22,7 +22,7 @@ classdef BitMask < uint32
         Choice_4            (24)
         Choice_5            (25)
         None                (30)
-        Remind              (32)
+        Remind              (31)
     end
 
     methods

@@ -1,32 +1,24 @@
 classdef cl_AversiveDetection_GUI < handle
+    % cl_AversiveDetection_GUI: Interactive GUI for aversive detection behavior experiments.
+    % This class creates a unified MATLAB app for online control, visualization, and performance review.
 
     properties (SetAccess = protected)
-        h_figure
-
-        h_OnlinePlot
-
-        psychDetect % psychophysics.Detect
-
-        PsychPlot % gui.PsychPlot
-        ResponseHistory % gui.History
-        Performance % gui.Performance
-
-        plottedParameters = {'~InTrial_TTL','~RespWindow','~Spout_TTL',...
-            '~ShockOn','~GO_Stim','~NOGO_Stim','~ReminderTrial','~TrialDelivery'}
-
-
-        lblFARate
-        tableTrialFilter
-
-        hButtons
+        h_figure               % Main figure handle
+        h_OnlinePlot           % Handle to the online plot figure
+        psychDetect            % psychophysics.Detect object
+        psychPlot              % gui.psychPlot instance
+        ResponseHistory        % gui.History instance
+        Performance            % gui.Performance instance
+        plottedParameters = {'~InTrial_TTL','~RespWindow','~Spout_TTL', ...
+            '~ShockOn','~GO_Stim','~NOGO_Stim','~ReminderTrial','~TrialDelivery'} % Logical parameter tags
+        lblFARate              % Label for FA Rate display
+        tableTrialFilter       % Handle for the trial filter table
+        hButtons               % Struct holding references to GUI control buttons
     end
-
 
     properties (Hidden)
-        guiHandles
+        guiHandles             % Handles to all generated GUI components
     end
-
-
 
     methods
         % constructor
@@ -46,7 +38,6 @@ classdef cl_AversiveDetection_GUI < handle
             % create detection object
             p = RUNTIME.HW.find_parameter('Depth');
             obj.psychDetect = psychophysics.Detect([],p);
-            % obj.psychDetect = psychophysics.Detection(p);
 
             % generate gui layout and components
             obj.create_gui;
@@ -86,7 +77,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-            % always vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv            
+            % always vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
             present(trialtype==1) = true;
             [src.Data{trialtype==1,4}] = deal(true);
             % ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -97,7 +88,7 @@ classdef cl_AversiveDetection_GUI < handle
             shocked(ismember(shocked,find(trialtype==1))) = [];
             [src.Data{:,3}] = deal(false);
             [src.Data{shocked,3}] = deal(true);
-            
+
 
             RUNTIME.TRIALS.shockedTrials = shocked;
             RUNTIME.TRIALS.activeTrials = present;
@@ -123,35 +114,35 @@ classdef cl_AversiveDetection_GUI < handle
 
 
 
-             % calculate session FA rate and update
-             obj.psychDetect.targetTrialType = 1; % CATCH TRIALS
-             faRate = obj.psychDetect.Rate.FalseAlarm;
-             if isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
-             obj.lblFARate.Text = faTxt;
+            % calculate session FA rate and update
+            obj.psychDetect.targetTrialType = 1; % CATCH TRIALS
+            faRate = obj.psychDetect.Rate.FalseAlarm;
+            if isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
+            obj.lblFARate.Text = faTxt;
 
         end
 
         function update_NextTrial(obj,src,event)
             % notified that the next trial is ready
-            
+
             D = event.Data;
 
             % Update Next Trial table
-             h = findobj(obj.h_figure,'tag','tblNextTrial');
-             ntid = D.NextTrialID;
-             nt = D.trials(ntid,:);
-             am = nt{D.writeParamIdx.Depth};
-             tt = nt{D.writeParamIdx.TrialType};
-             nd = {am,tt};
-             switch tt
-                 case 0
-                     nd{2} = 'GO';
-                 case 1
-                     nd{2} = 'NOGO';
-                 case 2
-                     nd{2} = 'REMIND';
-             end
-             h.Data = nd;
+            h = findobj(obj.h_figure,'tag','tblNextTrial');
+            ntid = D.NextTrialID;
+            nt = D.trials(ntid,:);
+            am = nt{D.writeParamIdx.Depth};
+            tt = nt{D.writeParamIdx.TrialType};
+            nd = {am,tt};
+            switch tt
+                case 0
+                    nd{2} = 'GO';
+                case 1
+                    nd{2} = 'NOGO';
+                case 2
+                    nd{2} = 'REMIND';
+            end
+            h.Data = nd;
 
         end
 
@@ -206,7 +197,7 @@ classdef cl_AversiveDetection_GUI < handle
             h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
             h.Text = "ReferencePhys";
             h.colorNormal = bcmNormal(2,:);
-            h.colorOnUpdate = bcmActive(2,:);            
+            h.colorOnUpdate = bcmActive(2,:);
             obj.hButtons.ReferencePhys = h;
 
 
@@ -452,7 +443,7 @@ classdef cl_AversiveDetection_GUI < handle
             h.Values = 1:5;
             h.Value = 3;
             h.Text = "Shock Hardest #:";
-            
+
 
 
 
@@ -582,84 +573,7 @@ classdef cl_AversiveDetection_GUI < handle
             axPsych.Layout.Row = [4 8];
             axPsych.Layout.Column = [3 5];
 
-            obj.PsychPlot = gui.PsychPlot(obj.psychDetect,axPsych);
-
-            % ** I THINK THESE ARE HANDLED BY THE PSYCHPLOT OBJECT **
-            % xlabel(axPsych,'AM depth')
-            % ylabel(axPsych,'Hit Rate')
-            %
-            % grid(axPsych,'on')
-            % box(axPsych,'on')
-
-            % % Panel for "Plotting Variables" ----------------------------------
-            % panelPlottingVariables = uipanel(layoutMain, 'Title', 'Plotting Variables');
-            % panelPlottingVariables.Layout.Row = [3 4];
-            % panelPlottingVariables.Layout.Column = 6;
-            %
-            % % > Plotting Variables
-            % layoutPlottingVariables = uigridlayout(panelPlottingVariables);
-            % layoutPlottingVariables.ColumnWidth = {100,100};
-            % layoutPlottingVariables.RowHeight = repmat({25},1,4);
-            % layoutPlottingVariables.ColumnSpacing = 5;
-            % layoutPlottingVariables.RowSpacing = 1;
-            % layoutPlottingVariables.Padding = [0 0 0 0];
-            %
-            % % >> Y
-            % lblY = uilabel(layoutPlottingVariables);
-            % lblY.Layout.Row = 1;
-            % lblY.Layout.Column = 1;
-            % lblY.Text = "Y:";
-            % lblY.HorizontalAlignment = "right";
-            %
-            % % >> Y dropdown
-            % ddY = uidropdown(layoutPlottingVariables);
-            % ddY.Layout.Row = 1;
-            % ddY.Layout.Column = 2;
-            % ddY.Tag = 'ddY';
-            % ddY.Items = {'Hit Rate','d-prime'};
-            % ddY.Value = 'Hit Rate';
-            %
-            % % >> X
-            % lblX = uilabel(layoutPlottingVariables);
-            % lblX.Layout.Row = 2;
-            % lblX.Layout.Column = 1;
-            % lblX.Text = "X:";
-            % lblX.HorizontalAlignment = "right";
-            %
-            % % >> X dropdown
-            % ddX = uidropdown(layoutPlottingVariables);
-            % ddX.Layout.Row = 2;
-            % ddX.Layout.Column = 2;
-            % ddX.Tag = 'ddX';
-            % ddX.Items = {'Depth'};
-            % ddX.Value = 'Depth';
-            %
-            % % >> Grouping variable
-            % lblGroupingVariable = uilabel(layoutPlottingVariables);
-            % lblGroupingVariable.Layout.Row = 3;
-            % lblGroupingVariable.Layout.Column = 1;
-            % lblGroupingVariable.Text = "Grouping variable:";
-            % lblGroupingVariable.HorizontalAlignment = "right";
-            %
-            % % >> Grouping variable dropdown
-            % ddGroupingVariable = uidropdown(layoutPlottingVariables);
-            % ddGroupingVariable.Layout.Row = 3;
-            % ddGroupingVariable.Layout.Column = 2;
-            % ddGroupingVariable.Tag = 'ddGroupingVariable';
-            % ddGroupingVariable.Items = {'None'};
-            % ddGroupingVariable.Value = 'None';
-
-            % % >> Include reminders ???
-            % chkIncludeReminders = uicheckbox(layoutPlottingVariables);
-            % chkIncludeReminders.Layout.Row = 4;
-            % chkIncludeReminders.Layout.Column = [1 2];
-            % chkIncludeReminders.Text = "Include reminders";
-            % chkIncludeReminders.Value = false;
-            % % chkIncludeReminders.ValueChangedFcn =
-
-
-
-
+            obj.psychPlot = gui.psychPlot(obj.psychDetect,axPsych);
 
 
 

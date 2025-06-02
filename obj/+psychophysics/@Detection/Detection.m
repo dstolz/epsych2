@@ -259,17 +259,20 @@ classdef Detection < handle
         end
         
         function r = get.ResponsesEnum(obj)
-            RC = obj.ResponseCodes;
-            r(length(RC),1) = epsych.BitMask(0);
-            for i = obj.BitsInUse
-                ind = logical(bitget(RC,i));
-                if ~any(ind), continue; end
-                r(ind) = i;
-            end
+            % RC = obj.ResponseCodes;
+            % r(length(RC),1) = epsych.BitMask(0);
+            % for i = obj.BitsInUse
+            %     ind = logical(bitget(RC,i));
+            %     if ~any(ind), continue; end
+            %     r(ind) = i;
+            % end
+            r = epsych.BitMask.Mask2Bits(obj.ResponseCodes);
         end
         
         function c = get.ResponsesChar(obj)
-            c = cellfun(@char,num2cell(obj.ResponsesEnum),'uni',0);
+            % c = cellfun(@char,num2cell(obj.ResponsesEnum),'uni',0);
+            [~,b] = epsych.BitMask.Mask2Bits(obj.ResponseCodes);
+            c = cellfun(@cellstr,b,'uni',0);
         end
         
         function rc = get.ResponseCodes(obj)

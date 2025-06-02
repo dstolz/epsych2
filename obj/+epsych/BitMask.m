@@ -38,8 +38,10 @@ classdef BitMask < uint32
             for i = 1:length(obj)
                 fprintf('  %5d\t%s\n', uint32(obj(i)), char(obj(i)));
             end
-
         end
+
+
+
     end
 
     methods (Static)
@@ -75,7 +77,7 @@ classdef BitMask < uint32
         end
 
         function m = getContingencies()
-            m = epsych.BitMask([6 7 30]);
+            m = epsych.BitMask(6:7);
         end
 
         function m = getResponsePeriod()
@@ -90,6 +92,10 @@ classdef BitMask < uint32
             m = epsych.BitMask(20:25);
         end
 
+        function m = getOptions()
+            m = epsych.BitMask(26:32);
+        end
+
         function a = getAll()
             a = enumeration('epsych.BitMask');
         end
@@ -97,6 +103,9 @@ classdef BitMask < uint32
         function tf = isValidValue(val)
             tf = any(uint32(enumeration('epsych.BitMask')) == val);
         end
+
+
+
 
         function [bits, BM] = Mask2Bits(mask, nbits)
             %MASK2BITS Convert an integer bitmask to a binary array and BitMask enum list.
@@ -165,6 +174,8 @@ classdef BitMask < uint32
                 BM = epsych.BitMask(find(bits));
             end
         end
+
+        
 
 
         function mask = Bits2Mask(bits)

@@ -81,9 +81,8 @@ classdef History < handle
             C = strings(size(obj.Data,1));
             R = cellfun(@epsych.BitMask,obj.Data(:,2),'uni',0);
             R = [R{:}];
-            biu = epsych.BitMask.getResponses;
-            for i = 1:length(biu)
-                ind = R == biu(i);
+            for i = 1:length(obj.psychObj.BitsInUse)
+                ind = R == obj.psychObj.BitsInUse(i);
                 if ~any(ind), continue; end
                 C(ind) = repmat(obj.psychObj.BitColors(i),sum(ind),1);
             end

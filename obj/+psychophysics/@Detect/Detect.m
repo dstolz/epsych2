@@ -29,7 +29,7 @@ classdef Detect < handle & matlab.mixin.SetGet
     %       bias            - Static method to compute bias
     %       norminv         - Static method for bounded inverse normal transformation
 
-    properties
+    properties (SetObservable)
         % TRIALS - Structure containing trial data (RUNTIME.TRIALS)
         TRIALS
 
@@ -42,7 +42,7 @@ classdef Detect < handle & matlab.mixin.SetGet
 
         % targetTrialType - Target trial type to analyze (epsych.BitMask)
         % targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
-        targetTrialType (1,1) = 0; % SHOULD BE BITMASK
+        targetTrialType (1,1) = 0; % SHOULD BE BITMASK, but isn't yet
 
         Bits = epsych.BitMask(1:5);        
         BitColors (5,1) string = ["#dff7df","#fcdcdc","#d9f2ff","#fcdefc","#fcfcd4"];
@@ -77,6 +77,8 @@ classdef Detect < handle & matlab.mixin.SetGet
 
         % Bias - Computed bias values
         Bias
+
+
     end
 
     properties (SetAccess = protected)
@@ -123,6 +125,7 @@ classdef Detect < handle & matlab.mixin.SetGet
 
         function update_data(obj,src,event)
             obj.TRIALS = event.Data;
+            vprintf(4,'psychophysics.Detect.update_data: Trial %d',obj.TRIALS.TrialIndex)
             obj.decodedTrials = psychophysics.decodeTrials(obj.TRIALS,obj.Parameter);
             evtdata = epsych.TrialsData(obj.TRIALS);
             obj.Helper.notify('NewData',evtdata);
@@ -240,7 +243,10 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   bounds.
 
             r = obj.Rate;
-            d = psychophysics.Detect.d_prime(r.Hit, r.FalseAlarm, obj.infCorrection);
+            d = nan(size(r));
+            for i = 1:numel(r)
+                d(i) = psychophysics.Detect.d_prime(r(i).Hit, r(i).FalseAlarm, obj.infCorrection);
+            end
         end
 
         function c = get.Bias(obj)
@@ -252,6 +258,12 @@ classdef Detect < handle & matlab.mixin.SetGet
             r = obj.Rate;
             c = psychophysics.Detect.bias(r.Hit, r.FalseAlarm, obj.infCorrection);
         end
+
+
+
+
+
+
     end
 
     methods (Static)
@@ -309,7 +321,7 @@ classdef Detect < handle & matlab.mixin.SetGet
                 bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
             end
             r = max(min(r,bounds(2)),bounds(1));
-            n = stats.norminv(r);
+            n = norminv(r);
         end
     end
 end

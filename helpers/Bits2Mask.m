@@ -18,4 +18,10 @@ function mask = Bits2Mask(bits)
 assert(isvector(bits),'Input must be a vector.')
 
 bits = bits(:)';
+if any(bits>1)
+    % position is assumed
+    b = zeros(1,32);
+    b(bits) = 1;
+    bits = b;
+end
 mask = uint32(sum(bits.*2.^(0:length(bits)-1)));

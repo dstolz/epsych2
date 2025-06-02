@@ -124,6 +124,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
              % calculate session FA rate and update
+             obj.psychDetect.targetTrialType = 1; % CATCH TRIALS
              faRate = obj.psychDetect.Rate.FalseAlarm;
              if isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
              obj.lblFARate.Text = faTxt;
@@ -569,7 +570,8 @@ classdef cl_AversiveDetection_GUI < handle
             tableNextTrial.FontSize = 20;
 
             addlistener(RUNTIME.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
-            addlistener(RUNTIME.HELPER,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
+            % addlistener(RUNTIME.HELPER,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
+            addlistener(obj.psychDetect.Helper,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
 
 
 

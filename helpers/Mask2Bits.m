@@ -9,10 +9,10 @@ function bits = Mask2Bits(mask,nbits)
 % 
 % Output will be an array of 1's and 0's (unit8).
 % 
-% ex:  mask = uint8(14);
+% ex:  mask = 14;
 %      bits = Mask2Bits(mask);
 % 
-% ex:  mask = uint8(14);
+% ex:  mask = 14;
 %      bits = Mask2Bits(mask,8);
 % 
 % See also, Bits2Mask
@@ -25,9 +25,8 @@ if nargin == 1 || isempty(nbits)
     nbits = 32;
 end
 assert(isscalar(nbits) && nbits>0,'nbits must be a scalar integer value greater than zero.')
-nbits = uint8(nbits);
 
-bits = zeros(1,nbits,'uint8');
+bits = zeros(1,nbits);
 try
     for i = 1:nbits
         bits(nbits-i+1) = bitget(mask,i);
@@ -36,5 +35,6 @@ catch ME
     if ~strcmp(ME.identifier,'MATLAB:bitSetGet:BITOutOfRange'), rethrow(me); end
 end
 
+bits = fliplr(bits); % LSB on left
 
 

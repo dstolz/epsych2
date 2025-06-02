@@ -81,8 +81,9 @@ classdef History < handle
             C(size(obj.Data,1),3) = 0;
             R = cellfun(@epsych.BitMask,obj.Data(:,2),'uni',0);
             R = [R{:}];
-            for i = 1:length(obj.psychObj.BitsInUse)
-                ind = R == obj.psychObj.BitsInUse(i);
+            biu = epsych.BitMask.getResponses;
+            for i = 1:length(biu)
+                ind = R == biu(i);
                 if ~any(ind), continue; end
                 C(ind,:) = repmat(obj.psychObj.BitColors(i,:),sum(ind),1);
             end
@@ -114,7 +115,21 @@ classdef History < handle
             td.Format = "mm:ss";
             obj.Info.RelativeTimestamp = string(td); 
             
-            Response = obj.psychObj.ResponsesChar;
+
+
+
+
+
+            RC = obj.psychObj.decodedTrials.responseCodes;
+            r = cell(size(RC));
+            for i = epsych.BitMask.getResponses
+                ind = logical(bitget(RC,i));
+                if ~any(ind), continue; end
+                r{ind} = i;
+            end
+
+            Response = cellfun(@char,r,'uni',0);
+
             
             % ignore array fields 
             ind = structfun(@(a) numel(a)>1,DataIn(1));

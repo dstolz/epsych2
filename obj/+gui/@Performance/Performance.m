@@ -51,11 +51,13 @@ classdef Performance < handle
             if isempty(obj.PsychophysicsObj.DATA), return; end
 
             P = obj.PsychophysicsObj;
+            P.targetTrialType = 0;
             
-            D(:,1) = P.ParameterValues;
-            D(:,2) = P.Trial_Count;
+            HR = [P.Rate.Hit];
+            D(:,1) = P.uniqueValues;
+            D(:,2) = P.trialCount;
             D(:,3) = P.DPrime;
-            D(:,4) = P.Hit_Rate;
+            D(:,4) = HR;
 
             D(any(isnan(D),2),:) = [];
 

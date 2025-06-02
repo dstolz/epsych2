@@ -93,21 +93,43 @@ classdef BitMask < uint32
             tf = any(uint32(enumeration('epsych.BitMask')) == val);
         end
 
+        function [bits, BM] = Mask2Bits(mask, nbits)
+            %MASK2BITS Convert an integer bitmask to a binary array and BitMask enum list.
+            %
+            %   bits = MASK2BITS(mask) returns a 32-element row vector of type uint8
+            %   representing the binary value of the integer 'mask', with the least
+            %   significant bit (LSB) on the left (index 1). Useful for decoding a
+            %   bitmask into its component bits.
+            %
+            %   bits = MASK2BITS(mask, nbits) specifies the number of bits to return
+            %   instead of the default 32. The output will be a 1-by-nbits array.
+            %
+            %   [bits, BM] = MASK2BITS(...) also returns a BitMask array 'BM'
+            %   corresponding to the active bits in the input 'mask'. Each element of
+            %   'BM' is an enumeration of the epsych.BitMask class for which the
+            %   corresponding bit is set (i.e., bit value is 1).
+            %
+            %   Inputs:
+            %       mask  - Scalar integer (positive) value to convert.
+            %       nbits - (Optional) Number of bits to return (default = 32).
+            %
+            %   Outputs:
+            %       bits - 1-by-nbits uint8 array representing binary state of each bit.
+            %       BM   - epsych.BitMask enumeration array indicating active flags.
+            %
+            %   Examples:
+            %       bits = epsych.BitMask.Mask2Bits(14);
+            %           % Returns [0 1 1 1 0 0 0 ... 0] (length 32)
+            %
+            %       bits = epsych.BitMask.Mask2Bits(14, 8);
+            %           % Returns [0 1 1 1 0 0 0 0]
+            %
+            %       [bits, bm] = epsych.BitMask.Mask2Bits(14, 8);
+            %           % bits = [0 1 1 1 0 0 0 0]
+            %           % bm = BitMask enumerations corresponding to bits 2, 3, 4
+            %
+            %   See also: BITGET, epsych.BitMask.Bits2Mask, BITSET, BITSHIFT
 
-        function [bits,BM] = Mask2Bits(mask, nbits)
-            %MASK2BITS Convert a scalar integer mask to a binary bit array.
-            %
-            %   bits = MASK2BITS(mask) returns a 32-element row vector of uint8
-            %   containing the binary representation of the scalar integer 'mask',
-            %   with the least significant bit (LSB) on the left.
-            %
-            %   bits = MASK2BITS(mask, nbits) returns a row vector of length 'nbits'.
-            %
-            %   Example:
-            %       bits = Mask2Bits(14);        % Returns [0 0 0 ... 1 1 1 0]
-            %       bits = Mask2Bits(14, 8);     % Returns [0 0 0 0 1 1 1 0]
-            %
-            %   See also BITGET, BITS2MASK.
 
             narginchk(1, 2);
 

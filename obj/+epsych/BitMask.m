@@ -21,8 +21,13 @@ classdef BitMask < uint32
         Choice_3            (23)
         Choice_4            (24)
         Choice_5            (25)
-        None                (30)
-        Remind              (31)
+        Option_A            (26)
+        Option_B            (27)
+        Option_C            (28)
+        Option_D            (29)
+        Option_E            (30)
+        Option_F            (31)
+        Option_G            (32)
     end
 
     methods

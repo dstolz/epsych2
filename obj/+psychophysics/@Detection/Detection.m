@@ -15,7 +15,7 @@ classdef Detection < handle
         
         BitColors       (5,3) double {mustBeNonnegative,mustBeLessThanOrEqual(BitColors,1)} = [.8 1 .8; 1 .7 .7; .7 .9 1; 1 .7 1; 1 1 .4];
 
-        BitsInUse epsych.BitMask = [1 2 3 4 7] % [Hit Miss CR FA Abort]
+        BitsInUse    (1,:) epsych.BitMask = epsych.BitMask.getResponses % [Hit Miss CR FA Abort]
 
         dprimeBounds (1,2) double {mustBeInRange(dprimeBounds,0,1,"exclusive")} = [0.05 0.95];
 

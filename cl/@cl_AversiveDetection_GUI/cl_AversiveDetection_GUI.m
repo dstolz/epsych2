@@ -21,8 +21,6 @@ classdef cl_AversiveDetection_GUI < handle
     end
 
     methods
-        create(obj);
-
         % constructor
         function obj = cl_AversiveDetection_GUI(RUNTIME)
             % only permit one instance to run

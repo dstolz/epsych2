@@ -32,11 +32,11 @@ classdef BitMask < uint32
 
     methods
         function disp(obj)
-            fprintf('BitMask Enumeration Members:\n');
-            fprintf('  Value\tName\n');
-            fprintf('  -----\t----\n');
+            % fprintf('BitMask Enumeration Members:\n');
+            fprintf('Bit Index\tName\n');
+            fprintf('---------\t----\n');
             for i = 1:length(obj)
-                fprintf('  %5d\t%s\n', uint32(obj(i)), char(obj(i)));
+                fprintf('  %7d\t%s\n', uint32(obj(i)), char(obj(i)));
             end
         end
     end
@@ -100,7 +100,7 @@ classdef BitMask < uint32
         function tf = isValidValue(val)
             tf = any(uint32(enumeration('epsych.BitMask')) == val);
         end
-        
+
         function [bits, BM] = Mask2Bits(mask, nbits)
             %MASK2BITS Convert integer bitmask(s) to binary array(s) and BitMask enum list(s).
             %

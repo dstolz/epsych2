@@ -1,73 +1,69 @@
 classdef History < handle
+    % History displays and updates a trial-by-trial history table for behavioral sessions.
+    %
+    % This class generates a GUI table summarizing trial data from a linked psychophysics object.
+    % The table is automatically updated as new trials are collected, showing details such as
+    % timestamps, response codes, and selected parameters of interest. Row colors can be set based
+    % on response codes for quick visual assessment.
 
     properties
-        psychObj
-
-        ParametersOfInterest (:,1) cell
+        psychObj                     % Reference to the main psychophysics object
+        ParametersOfInterest (:,1) cell   % List of fields to display from the data structure
     end
 
     properties (SetAccess = private)
-        TableH
-        ContainerH
+        TableH                       % Handle to uitable
+        ContainerH                   % Handle to container figure or panel
 
-        Data
-        Info
+        Data                         % Rearranged data for table display
+        Info                         % Metadata for table display (e.g., trial IDs)
 
-        hl_NewData
+        hl_NewData                   % Listener for new data events
     end
-
 
     methods
 
         function obj = History(pObj,container)
+            % Constructor: initializes the history table and sets up listener for new data.
             if nargin < 2 || isempty(container), container = figure; end
-            
             obj.ContainerH = container;
-
             obj.build;
-            
             if nargin >= 1 && ~isempty(pObj)
                 obj.psychObj = pObj;
             end
-
             obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
         end
 
         function delete(obj)
+            % Destructor: cleans up the listener.
             try
                 delete(obj.hl_NewData);
             end
         end
-        
+
         function build(obj)
+            % Builds the table UI component within the container.
             obj.TableH = uitable(obj.ContainerH,'Unit','Normalized', ...
                 'Position',[0 0 1 1],'RowStriping','off');
         end
-        
-        
+
         function update(obj,src,event)
+            % Updates the table with the latest data from the psychObj.
             if isempty(obj.psychObj.DATA), return; end
-
-            % Call a function to rearrange DATA to make it easier to use (see below).
             RD = obj.rearrange_data;
-
             if isempty(RD), return; end
 
 
-            % Flip the DATA matrix so that the most recent trials are displayed at the
-            % top of the table.
-            obj.TableH.Data = flipud(RD);
+            [tid,i] = sort(obj.Info.TrialID,'descend');
 
-            % set the row names as the trial ids
-            obj.TableH.RowName = flipud(obj.Info.TrialID);
-
-            % set the column names
+            obj.TableH.Data = RD(i,:);
+            obj.TableH.RowName = tid;
             obj.TableH.ColumnName = [{'Time'}; {'Response'}; fieldnames(obj.psychObj.DATA)];
-            
             obj.update_row_colors;
         end
-        
+
         function set.psychObj(obj,pobj)
+            % Setter for psychObj property with validation and trigger for update.
             assert(epsych.Helper.valid_psych_obj(pobj),'gui.History:set.psychObj', ...
                 'psychObj must be from the toolbox "psychophysics"');
             obj.psychObj = pobj;
@@ -77,6 +73,7 @@ classdef History < handle
 
     methods (Access = private)
         function update_row_colors(obj)
+            % Updates row background colors based on response bitmask.
             if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
             C = strings(size(obj.Data,1));
             R = cellfun(@epsych.BitMask,obj.Data(:,2),'uni',0);
@@ -89,8 +86,10 @@ classdef History < handle
             obj.TableH.BackgroundColor = flipud(C);
             obj.TableH.RowStriping = 'on';
         end
-        
-        function DataOut = rearrange_data(obj)           
+
+        function DataOut = rearrange_data(obj)
+            % Reorganizes raw DATA from psychObj into a table format suitable for display.
+            % Handles filtering fields, timestamp formatting, and response decoding.
             requiredParams = {'ResponseCode','TrialID','inaccurateTimestamp'};
             DataIn = obj.psychObj.DATA;
 
@@ -98,26 +97,16 @@ classdef History < handle
                 ftr = setdiff(fieldnames(DataIn),[obj.ParametersOfInterest;requiredParams']);
                 DataIn = rmfield(DataIn,ftr);
             end
-            
+
             if isempty(DataIn(1).TrialID)
                 obj.Data = [];
                 return
             end
-            
-            % Trial numbers
+
             obj.Info.TrialID = [DataIn.TrialID]';
-            
-            % Crude timestamp of when the trial occured.  This is not indended for use
-            % in data analysis.  For physiology analysis use timestamps generated by the TDT hardware
-            % since it is much more accurate and precise.
             td = [DataIn.inaccurateTimestamp] - DataIn(1).inaccurateTimestamp;
             td.Format = "mm:ss";
-            obj.Info.RelativeTimestamp = string(td); 
-            
-
-
-
-
+            obj.Info.RelativeTimestamp = string(td);
 
             RC = obj.psychObj.decodedTrials.responseCodes;
             r = cell(size(RC));
@@ -126,29 +115,17 @@ classdef History < handle
                 if ~any(ind), continue; end
                 r{ind} = i;
             end
-
             Response = cellfun(@char,r,'uni',0);
 
-            
-            % ignore array fields 
             ind = structfun(@(a) numel(a)>1,DataIn(1));
             fn = fieldnames(DataIn);
             fn = fn(ind);
             fn = fn(:)';
-
-            % remove these fields
             DataIn = rmfield(DataIn,[requiredParams,fn]);
-            
-            % The remaining fields of the DATA structure contain parameters for each trial.
+
             DataOut = squeeze(struct2cell(DataIn))';
-            
-
-            % prefix Timestamp and Respnose fields
             DataOut = [Response DataOut];
-
             DataOut = [cellstr(obj.Info.RelativeTimestamp(:)) DataOut];
-            
-            
         end
     end
 end

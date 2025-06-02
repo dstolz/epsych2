@@ -1,93 +1,74 @@
 classdef Performance < handle
-
+    % Performance displays and updates a table summarizing behavioral performance metrics.
+    %
+    % This class creates a GUI table to show performance statistics (such as d', hit rate,
+    % and trial count) from a linked psychophysics object. Table updates automatically
+    % when new data is available.
 
     properties
-        PsychophysicsObj
-
-        ParametersOfInterest (:,1) cell
+        psychObj                  % Reference to main psychophysics object providing data
+        ParametersOfInterest (:,1) cell   % Fields to display as key independent variables
     end
 
     properties (SetAccess = private)
-        TableH
-        ContainerH
-
-        ColumnName
-        Data
-        Info
-
-        hl_NewData
+        TableH                           % Handle to uitable for displaying performance metrics
+        ContainerH                       % Handle to the container figure or panel
+        ColumnName                       % Column labels for the uitable
+        Data                             % Latest table data
+        Info                             % Metadata or auxiliary info for the table
+        hl_NewData                       % Listener for data update events
     end
-
 
     methods
 
         function obj = Performance(pObj,container)
+            % Constructor: initializes the performance table and sets up listener for new data.
             if nargin < 2 || isempty(container), container = figure; end
-            
             obj.ContainerH = container;
-
             obj.build;
-            
             if nargin >= 1 && ~isempty(pObj)
-                obj.PsychophysicsObj = pObj;
+                obj.psychObj = pObj;
             end
-
             obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
         end
 
-
         function delete(obj)
+            % Destructor: cleans up the listener.
             try
                 delete(obj.hl_NewData);
             end
         end
-        
+
         function build(obj)
+            % Builds the table UI component within the container.
             obj.TableH = uitable(obj.ContainerH,'Unit','Normalized', ...
                 'Position',[0 0 1 1],'RowStriping','on');
         end
-        
-        function update(obj,src,event)
-            if isempty(obj.PsychophysicsObj.DATA), return; end
 
-            P = obj.PsychophysicsObj;
+        function update(obj,src,event)
+            % Updates the table with the latest performance metrics from psychObj.
+            if isempty(obj.psychObj.DATA), return; end
+            P = obj.psychObj;
             P.targetTrialType = 0;
-            
             HR = [P.Rate.Hit];
             D(:,1) = P.uniqueValues;
             D(:,2) = P.trialCount;
             D(:,3) = P.DPrime;
             D(:,4) = HR;
-
             D(any(isnan(D),2),:) = [];
-
             obj.TableH.Data = D;
-
-            % % Call a function to rearrange DATA to make it easier to use (see below).
-            % obj.rearrange_data;
-            % 
-            % % Flip the DATA matrix so that the most recent trials are displayed at the
-            % % top of the table.
-            % obj.TableH.Data = flipud(obj.Data);
-            % 
-            % % set the row names as the trial ids
-            % obj.TableH.RowName = flipud(obj.Info.TrialID);
-            % 
-            % set the column names
             obj.TableH.ColumnName = [obj.ParametersOfInterest{:}, {'# Trials'}, {'d'''},{'Hit Rate'}];
-            % 
-            % obj.update_row_colors;
         end
-        
-        function set.PsychophysicsObj(obj,pobj)
-            assert(epsych.Helper.valid_psych_obj(pobj),'gui.Performance:set.PsychophysicsObj', ...
-                'PsychophysicsObj must be from the toolbox "psychophysics"');
-            obj.PsychophysicsObj = pobj;
+
+        function set.psychObj(obj,pobj)
+            % Setter for psychObj property with validation and trigger for update.
+            assert(epsych.Helper.valid_psych_obj(pobj),'gui.Performance:set.psychObj', ...
+                'psychObj must be from the toolbox "psychophysics"');
+            obj.psychObj = pobj;
             obj.update;
         end
-        
-    end
 
+    end
 
     methods (Access = private)
 

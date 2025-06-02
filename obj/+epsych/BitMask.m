@@ -39,9 +39,6 @@ classdef BitMask < uint32
                 fprintf('  %5d\t%s\n', uint32(obj(i)), char(obj(i)));
             end
         end
-
-
-
     end
 
     methods (Static)
@@ -103,54 +100,35 @@ classdef BitMask < uint32
         function tf = isValidValue(val)
             tf = any(uint32(enumeration('epsych.BitMask')) == val);
         end
-
-
-
-
+        
         function [bits, BM] = Mask2Bits(mask, nbits)
-            %MASK2BITS Convert an integer bitmask to a binary array and BitMask enum list.
+            %MASK2BITS Convert integer bitmask(s) to binary array(s) and BitMask enum list(s).
             %
-            %   bits = MASK2BITS(mask) returns a 32-element row vector of type uint8
-            %   representing the binary value of the integer 'mask', with the least
-            %   significant bit (LSB) on the left (index 1). Useful for decoding a
-            %   bitmask into its component bits.
+            %   bits = MASK2BITS(mask) returns a binary array of type uint8 with size
+            %   [numel(mask), nbits], where each row represents the binary value of the
+            %   corresponding element in 'mask', with the least significant bit (LSB) on the
+            %   left (column 1).
             %
             %   bits = MASK2BITS(mask, nbits) specifies the number of bits to return
-            %   instead of the default 32. The output will be a 1-by-nbits array.
+            %   instead of the default 32.
             %
-            %   [bits, BM] = MASK2BITS(...) also returns a BitMask array 'BM'
-            %   corresponding to the active bits in the input 'mask'. Each element of
-            %   'BM' is an enumeration of the epsych.BitMask class for which the
-            %   corresponding bit is set (i.e., bit value is 1).
+            %   [bits, BM] = MASK2BITS(...) also returns a cell array 'BM' with the same
+            %   shape as 'mask', where each cell contains an array of epsych.BitMask enums
+            %   corresponding to the active bits in that mask element.
             %
             %   Inputs:
-            %       mask  - Scalar integer (positive) value to convert.
+            %       mask  - Integer array (any size) of non-negative values to convert.
             %       nbits - (Optional) Number of bits to return (default = 32).
             %
             %   Outputs:
-            %       bits - 1-by-nbits uint8 array representing binary state of each bit.
-            %       BM   - epsych.BitMask enumeration array indicating active flags.
-            %
-            %   Examples:
-            %       bits = epsych.BitMask.Mask2Bits(14);
-            %           % Returns [0 1 1 1 0 0 0 ... 0] (length 32)
-            %
-            %       bits = epsych.BitMask.Mask2Bits(14, 8);
-            %           % Returns [0 1 1 1 0 0 0 0]
-            %
-            %       [bits, bm] = epsych.BitMask.Mask2Bits(14, 8);
-            %           % bits = [0 1 1 1 0 0 0 0]
-            %           % bm = BitMask enumerations corresponding to bits 2, 3, 4
-            %
-            %   See also: BITGET, epsych.BitMask.Bits2Mask, BITSET, BITSHIFT
-
+            %       bits - Array of size [numel(mask), nbits] representing binary state of each bit.
+            %       BM   - Cell array of BitMask enumeration arrays indicating active flags.
 
             narginchk(1, 2);
 
-
             % Validate 'mask' input
-            if ~isscalar(mask) || ~isnumeric(mask) || mask ~= floor(mask)
-                error('Input ''mask'' must be a scalar integer value.');
+            if ~isnumeric(mask) || any(mask(:) ~= floor(mask(:))) || any(mask(:) < 0)
+                error('Input ''mask'' must be an array of non-negative integers.');
             end
 
             % Set default 'nbits' if not provided
@@ -163,15 +141,22 @@ classdef BitMask < uint32
                 error('Input ''nbits'' must be a positive scalar integer.');
             end
 
-            % Generate bit positions from LSB to MSB
-            bitPositions = 1:nbits;
+            % Flatten mask for processing
+            maskFlat = mask(:);
+            n = numel(maskFlat);
+            bitPositions = repmat(1:nbits, n, 1);
+            maskMatrix = repmat(maskFlat, 1, nbits);
 
-            % Extract bits using vectorized 'bitget'
-            bits = uint8(bitget(mask, bitPositions));
+            % Generate bits matrix
+            bitsFlat = uint8(bitget(maskMatrix, bitPositions));
 
+            % Reshape bits to match input shape
+            bits = reshape(bitsFlat, [n, nbits]);
 
+            % Return BitMask if requested
             if nargout == 2
-                BM = epsych.BitMask(find(bits));
+                BM = arrayfun(@(idx) epsych.BitMask(find(bits(idx,:))), 1:n, 'UniformOutput', false);
+                BM = reshape(BM, size(mask));
             end
         end
 

@@ -49,13 +49,17 @@ classdef Performance < handle
             % Updates the table with the latest performance metrics from psychObj.
             if isempty(obj.psychObj.DATA), return; end
             P = obj.psychObj;
-            P.targetTrialType = 0;
-            HR = [P.Rate.Hit];
+
+            P.targetTrialType = epsych.BitMask.TrialType_0; % THIS SHOULD BE SETTABLE BY CALLER
+
+
             D(:,1) = P.uniqueValues;
-            D(:,2) = P.trialCount;
+            D(:,2) = [P.Count.TrialType_0];
             D(:,3) = P.DPrime;
-            D(:,4) = HR;
+            D(:,4) = [P.Rate.Hit];
             D(any(isnan(D),2),:) = [];
+            
+            if ~isvalid(obj.TableH), return; end % TO DO: Track down why this function is being called twice
             obj.TableH.Data = D;
             obj.TableH.ColumnName = [obj.ParametersOfInterest{:}, {'# Trials'}, {'d'''},{'Hit Rate'}];
         end

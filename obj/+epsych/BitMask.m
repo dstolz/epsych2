@@ -93,6 +93,11 @@ classdef BitMask < uint32
             m = epsych.BitMask(26:32);
         end
 
+        function d = getDefined()
+            d = epsych.BitMask.getAll;
+            d(1) = [];
+        end
+
         function a = getAll()
             a = enumeration('epsych.BitMask');
         end

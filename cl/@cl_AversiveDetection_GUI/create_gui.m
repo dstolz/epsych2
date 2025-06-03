@@ -143,7 +143,7 @@ layoutSoundControls.Scrollable = "on";
 % >> Consecutive NOGO min
 p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',3);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
-h.EvaluatorFcn = @evaluate_n_gonogo;
+h.EvaluatorFcn = @obj.eval_gonogo;
 h.Values = 0:5;
 h.Value = 3;
 h.Text = "Consecutive NoGo (min):";
@@ -151,7 +151,7 @@ h.Text = "Consecutive NoGo (min):";
 % >> Consecutive NOGO max
 p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',5);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
-h.EvaluatorFcn = @evaluate_n_gonogo;
+h.EvaluatorFcn = @obj.eval_gonogo;
 h.Values = 3:20;
 h.Value = 5;
 h.Text = "Consecutive NoGo (max):";
@@ -426,8 +426,8 @@ axPsych = uiaxes(layoutMain);
 axPsych.Layout.Row = [4 8];
 axPsych.Layout.Column = [3 5];
 
-obj.psychPlot = gui.psychPlot(obj.psychDetect,axPsych);
-
+obj.psychPlot = gui.PsychPlot(obj.psychDetect,axPsych);
+% obj.psychPlot.logx = true;
 
 
 % Axes for Microphone Display -------------------------------
@@ -478,11 +478,6 @@ panelPerformance.Layout.Column = [6 7];
 obj.Performance = gui.Performance(obj.psychDetect,panelPerformance);
 obj.Performance.ParametersOfInterest = {'Depth'};
 
-% tableResponseHistory = uitable(layoutPerformance);
-% tableResponseHistory.ColumnName = {'Depth','TrialType','# Trials','Hit rate (%)','dprime'};
-% tableResponseHistory.ColumnEditable = false;
-% tableResponseHistory.FontSize = 10;
-
 
 
 
@@ -501,8 +496,17 @@ set(ddh,FontColor = 'b');
 obj.guiHandles = findobj(fig);
 
 
+end
 
 
 
 
 
+
+% used by create_gui
+function h = simple_layout(p)
+h = uigridlayout(p);
+h.ColumnWidth = {'1x'};
+h.RowHeight = {'1x'};
+h.Padding = [0 0 0 0];
+end

@@ -5,7 +5,9 @@ global RUNTIME
 
 % Create the main figure
 fig = uifigure(Tag = 'cl_AversiveDetection_GUI', ...
-    Name = 'Caras Lab Aversive Detection GUI');
+    Name = 'Caras Lab Aversive Detection GUI', ...
+    CloseRequestFcn = @(src, event) obj.closeGUI(src, event), ...
+    UserData=obj);
 fig.Position = [1940 -1044 1400 1000];  % Set figure size
 
 obj.h_figure = fig;
@@ -400,8 +402,8 @@ h.ButtonPushedFcn = @obj.create_onlineplot;
 
 % Panel for "Next Trial" ----------------------------------------
 panelNextTrial = uipanel(layoutMain, 'Title', 'Next Trial');
-panelNextTrial.Layout.Row = [1 2];
-panelNextTrial.Layout.Column = 7;
+panelNextTrial.Layout.Row = 3;
+panelNextTrial.Layout.Column = 5;
 
 layoutNextTrial = simple_layout(panelNextTrial);
 
@@ -413,9 +415,8 @@ tableNextTrial.RowName = [];
 tableNextTrial.ColumnEditable = false;
 tableNextTrial.FontSize = 20;
 
-addlistener(RUNTIME.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
-% addlistener(RUNTIME.HELPER,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
-addlistener(obj.psychDetect.Helper,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
+obj.hl_NewTrial = addlistener(RUNTIME.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
+obj.hl_NewData  = addlistener(obj.psychDetect.Helper,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
 
 
 
@@ -445,7 +446,7 @@ axesMicrophone.YAxis.Label.String = "RMS voltage";
 % Panel for "FA Rate" --------------------------------------------
 panelFARate = uipanel(layoutMain, 'Title', 'Session FA Rate');
 panelFARate.Layout.Row = 3;
-panelFARate.Layout.Column = 5;
+panelFARate.Layout.Column = 4;
 
 layoutFARate = simple_layout(panelFARate);
 
@@ -462,7 +463,7 @@ obj.lblFARate = h;
 
 % Panel for "Response History" --------------------------------------
 panelResponseHistory = uipanel(layoutMain, 'Title', 'Response History');
-panelResponseHistory.Layout.Row = [3, 8];
+panelResponseHistory.Layout.Row = [1 8];
 panelResponseHistory.Layout.Column = [6 7];
 
 % > Response History Table

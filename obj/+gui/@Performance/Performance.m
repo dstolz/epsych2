@@ -42,12 +42,15 @@ classdef Performance < handle
         function build(obj)
             % Builds the table UI component within the container.
             obj.TableH = uitable(obj.ContainerH,'Unit','Normalized', ...
-                'Position',[0 0 1 1],'RowStriping','on');
+                'Position',[0 0 1 1],'RowStriping','on','FontSize',14);
         end
 
         function update(obj,src,event)
             % Updates the table with the latest performance metrics from psychObj.
             if isempty(obj.psychObj.DATA), return; end
+            
+            if ~isvalid(obj.TableH), return; end % TO DO: Track down why this function is being called twice
+            
             P = obj.psychObj;
 
             P.targetTrialType = epsych.BitMask.TrialType_0; % THIS SHOULD BE SETTABLE BY CALLER
@@ -56,11 +59,16 @@ classdef Performance < handle
             D(:,1) = P.uniqueValues;
             D(:,2) = [P.Count.TrialType_0];
             D(:,3) = P.DPrime;
-            D(:,4) = [P.Rate.Hit];
+            D(:,4) = [P.Rate.Hit]*100;
             D(any(isnan(D),2),:) = [];
             
-            if ~isvalid(obj.TableH), return; end % TO DO: Track down why this function is being called twice
-            obj.TableH.Data = D;
+            % S = string(D);
+            S(:,1) = compose("%.2f",D(:,1));
+            S(:,2) = compose("%d",D(:,2));
+            S(:,3) = compose("%.4f",D(:,3));
+            S(:,4) = compose("%.1f",D(:,4));
+            
+            obj.TableH.Data = S;
             obj.TableH.ColumnName = [obj.ParametersOfInterest{:}, {'# Trials'}, {'d'''},{'Hit Rate'}];
         end
 

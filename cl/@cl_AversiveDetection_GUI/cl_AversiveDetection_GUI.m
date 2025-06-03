@@ -26,6 +26,8 @@ classdef cl_AversiveDetection_GUI < handle
 
     properties (Hidden)
         guiHandles             % Handles to all generated GUI components
+        hl_NewTrial
+        hl_NewData
     end
 
     methods
@@ -42,11 +44,16 @@ classdef cl_AversiveDetection_GUI < handle
             if ~isempty(f)
                 % THIS IS A BUG THAT SHOULD BE FIXED
                 vprintf(0,1,'RESTARTING GUI')
-                delete(f);
+                for i = 1:length(f)
+                    try
+                        delete(f(i).UserData);
+                        delete(f(i));
+                    end
+                end
             end
 
 
-            % create detection object
+            % create psychophysics object
             p = RUNTIME.HW.find_parameter('Depth');
             obj.psychDetect = psychophysics.Detect([],p);
 
@@ -63,19 +70,33 @@ classdef cl_AversiveDetection_GUI < handle
 
         % destructor
         function delete(obj)
-            t = timerfindall;
-            n = {t.Name};
-            i = startsWith(n,'epsych_gui');
-            stop(t(i));
-            delete(t(i));
+            % t = timerfindall;
+            % n = {t.Name};
+            % i = startsWith(n,'epsych_gui');
+            % stop(t(i));
+            % delete(t(i));
 
+            vprintf(3,'cl_AversiveDetection_GUI destructor')
             delete(obj.guiHandles);
-
+            obj.hl_NewTrial.Enabled = 0;
+            obj.hl_NewData.Enabled = 0;
+            delete(obj.hl_NewTrial);
+            delete(obj.hl_NewData);
+            
             try
                 close(obj.h_OnlinePlot);
             end
+
+            delete(timerfindall("Tag","GUIGenericTimer"))
         end
 
+        function closeGUI(obj,src,event)
+            vprintf(3,'cl_AversiveDetection_GUI:closeGUI')
+            try
+                delete(obj);
+                delete(src)
+            end
+        end
 
         function update_trial_filter(obj,~,event)
             global RUNTIME
@@ -128,7 +149,7 @@ classdef cl_AversiveDetection_GUI < handle
             % calculate session FA rate and update
             obj.psychDetect.targetTrialType = obj.bmCatch; % CATCH TRIALS
             faRate = obj.psychDetect.Rate.FalseAlarm;
-            if isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
+            if isempty(faRate) || isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
             obj.lblFARate.Text = faTxt;
 
         end

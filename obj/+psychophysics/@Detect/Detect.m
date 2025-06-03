@@ -38,7 +38,7 @@ classdef Detect < handle & matlab.mixin.SetGet
 
         % infCorrection - Correction bounds for infinite z-scores [lower upper]
         % Ensures that hit and false alarm rates are within (0,1) exclusive
-        infCorrection (1,2) double {mustBeInRange(infCorrection,0,1,"exclusive")} = [0.01 0.99];
+        infCorrection (1,2) double {mustBeInRange(infCorrection,0,1,"exclusive")} = [0.05 0.95];
 
         % targetTrialType - Target trial type to analyze (epsych.BitMask)
         targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
@@ -126,9 +126,15 @@ classdef Detect < handle & matlab.mixin.SetGet
                 obj.targetTrialType = targetTrialType;
             end
 
-            addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
+            obj.hl_NewData = addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
         end
 
+        function delete(obj)
+            % Destructor: cleans up the listener.
+            try
+                delete(obj.hl_NewData);
+            end
+        end
 
         function update_data(obj,src,event)
             obj.TRIALS = event.Data;

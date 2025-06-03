@@ -31,7 +31,7 @@ classdef OnlinePlot < handle
     end
 
     properties (SetAccess = private, Hidden)
-        Timer       (1,1)      % Update timer object
+        h_timer       (1,1)      % Update h_timer object
         Buffers     (:,:) single   % Plot data buffer [N, time]
         BufferIdx
         DrawCounter
@@ -64,20 +64,25 @@ classdef OnlinePlot < handle
             obj.add_context_menu;
             obj.BoxID = BoxID;
             obj.trialParam = obj.HW.find_parameter(sprintf('_TrigState~%d',BoxID),includeInvisible=true);
-            obj.Timer = gui.GenericTimer(obj.figH,sprintf('epsych_gui_OnlinePlot~%d',BoxID));
-            obj.Timer.StartFcn = @obj.setup_plot;
-            obj.Timer.TimerFcn = @obj.update;
-            obj.Timer.ErrorFcn = @obj.error;
-            obj.Timer.Period = 0.1;
-            start(obj.Timer);
+            obj.h_timer = gui.GenericTimer(obj.figH,sprintf('epsych_gui_OnlinePlot~%d',BoxID));
+            obj.h_timer.Timer.StartFcn = @obj.setup_plot;
+            obj.h_timer.Timer.TimerFcn = @obj.update;
+            obj.h_timer.Timer.ErrorFcn = @obj.error;
+            obj.h_timer.Timer.Period = 0.05;
+            obj.h_timer.Timer.start;
             obj.hl_mode = listener(RUNTIME.HW,'mode','PostSet',@obj.mode_change);
         end
 
         function delete(obj)
-            % Destructor: Stops timer and cleans up resources.
+            % Destructor: Stops h_timer and cleans up resources.
             try
-                stop(obj.Timer);
-                delete(obj.Timer);
+                stop(obj.h_timer);
+                delete(obj.h_timer);
+            end
+
+            try
+                obj.hl_mode.Enabled = 0;
+                delete(obj.hl_mode);
             end
         end
 
@@ -200,10 +205,10 @@ classdef OnlinePlot < handle
         % UPDATE: Efficient circular buffer, throttled draw, and windowed plotting
         function update(obj,varargin)
             % --- 1. Initialize circular buffers if empty ---
-            blockSize = 10000; % Set or store as a property for flexibility
+            blockSize = 1000; % Set or store as a property for flexibility
             if isempty(obj.Buffers)
                 obj.Buffers = nan(obj.N, blockSize, 'single');
-                obj.Time = nan(blockSize, 1, 'like', datetime('now')-datetime('now'));
+                obj.Time = duration(nan(blockSize, 1),0,0);
                 obj.BufferIdx = 1;
                 obj.DrawCounter = 0; % For throttling
             end
@@ -272,7 +277,7 @@ classdef OnlinePlot < handle
 
             % --- 8. Throttle graphics updates (e.g., only draw every 3 updates) ---
             obj.DrawCounter = obj.DrawCounter + 1;
-            throttleRate = 3; % update plot every 3 timer ticks
+            throttleRate = 1; % update plot every 3 h_timer ticks
             if mod(obj.DrawCounter, throttleRate) ~= 0
                 obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
                 return
@@ -284,21 +289,22 @@ classdef OnlinePlot < handle
             end
 
             % --- 10. Adjust x-limits ---
-            if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
-                obj.hax.XLim = obj.last_trial_onset + win;
-            elseif obj.trialLocked
-                obj.hax.XLim = win;
-            else
-                obj.hax.XLim = plotTime(end) + win;
+            try
+                if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
+                    obj.hax.XLim = obj.last_trial_onset + win;
+                elseif obj.trialLocked
+                    obj.hax.XLim = win;
+                else
+                    obj.hax.XLim = obj.Time(obj.BufferIdx) + win;
+                end
+                drawnow limitrate
             end
-            drawnow limitrate
-
             % --- 11. Advance circular buffer pointer ---
             obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
         end
 
         function error(obj,varargin)
-            % Handles timer errors.
+            % Handles h_timer errors.
             vprintf(-1,'OnlinePlot closed with error')
             vprintf(-1,varargin{2}.Data.messageID)
             vprintf(-1,varargin{2}.Data.message)
@@ -418,9 +424,9 @@ classdef OnlinePlot < handle
         end
 
         function mode_change(obj,src,event)
-            % Stop timer if hardware mode changes.
+            % Stop h_timer if hardware mode changes.
             if event.AffectedObject.mode < 2
-                stop(obj.Timer);
+                stop(obj.h_timer);
             end
         end
     end

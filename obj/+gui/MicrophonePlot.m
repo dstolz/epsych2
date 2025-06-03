@@ -67,9 +67,9 @@ classdef MicrophonePlot < handle
 
         function create_timer(obj)
             obj.h_timer = gui.GenericTimer(obj.ParentFigure,'epsych_gui_MicrophonePlot');
-            obj.h_timer.Period = 0.25;
-            obj.h_timer.TimerFcn = @obj.update;
-            obj.h_timer.start;
+            obj.h_timer.Timer.Period = 0.25;
+            obj.h_timer.Timer.TimerFcn = @obj.update;
+            obj.h_timer.Timer.start;
         end
 
         function update(obj,varargin)

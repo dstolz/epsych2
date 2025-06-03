@@ -10,8 +10,6 @@ function ep_SaveDataFcn(RUNTIME)
 % Copyright (C) 2016  Daniel Stolzberg, PhD
 
 
-% FOR TESTING
-return
 
 for i = 1:RUNTIME.NSubjects
     vprintf(3,'Save Data for ''%s'' in Box ID %d',RUNTIME.TRIALS(i).Subject.Name,RUNTIME.TRIALS(i).Subject.BoxID)

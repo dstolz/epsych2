@@ -54,11 +54,11 @@ classdef PsychPlot < handle
         end
 
         function delete(obj)
+            % Destructor: cleans up the listener.
             try
                 delete(obj.hl_NewData);
             end
         end
-        
         
 
         function n = get.ParameterName(obj)
@@ -76,6 +76,9 @@ classdef PsychPlot < handle
         
         function update_plot(obj,src,event)
             % although data is updated in src and event, just use the obj.psychObj
+
+            if ~isvalid(obj.ax), return; end
+
             lh = obj.LineH;
             sh = obj.ScatterH;
             if isempty(lh) || isempty(sh) || ~isvalid(lh) || ~isvalid(sh)
@@ -89,7 +92,10 @@ classdef PsychPlot < handle
                 obj.LineH = lh;
                 obj.ScatterH = sh;
 
-                yline(0,'-k','threshold');
+                line(obj.ax,[-1 1]*1e6,[1 1],Color = 'k', ...
+                    AffectAutoLimits = 'off', ...
+                    HandleVisibility = 'off')
+
                 grid(obj.ax,'on');
             end
 
@@ -137,11 +143,16 @@ classdef PsychPlot < handle
             obj.setup_yaxis_label;
             
 
+            sstr = sprintf('# Trials = %d',obj.psychObj.trialCount);
+            subtitle(obj.ax,sstr);
+
             tstr = sprintf('%s [%d]', ...
                 obj.psychObj.TRIALS.Subject.Name, ...
                 obj.psychObj.TRIALS.BoxID);
-            
+
             title(obj.ax,tstr);
+
+            obj.ax.TitleHorizontalAlignment ='right';
         end
         
         function update_parameter(obj,hObj,event)

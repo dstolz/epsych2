@@ -9,3 +9,5 @@ function RUNTIME = ep_TimerFcn_Stop(RUNTIME)
 
 vprintf(2,'Setting mode to Idle')
 RUNTIME.HW.mode = hw.DeviceState.Idle;
+
+delete(RUNTIME.HELPER)

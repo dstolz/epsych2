@@ -42,7 +42,7 @@ classdef Detect < handle & matlab.mixin.SetGet
 
         % targetTrialType - Target trial type to analyze (epsych.BitMask)
         targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
-        % targetTrialType (1,1) = 0; % SHOULD BE BITMASK, but isn't yet
+
 
         Bits (1,:) epsych.BitMask = epsych.BitMask.getResponses;
         BitColors (5,1) string = ["#dff7df","#fcdcdc","#d9f2ff","#fcdefc","#fcfcd4"];
@@ -269,11 +269,17 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   Hit and FalseAlarm rates using the specified infCorrection
             %   bounds.
 
+
+            % the following needs to be user settable
+            obj.targetTrialType = epsych.BitMask.TrialType_1;
+            CT = obj.Rate;
+                        
+            obj.targetTrialType = epsych.BitMask.TrialType_0;
             r = obj.Rate;
             d = nan(size(r));
             if isempty(r(1).Hit), return; end
             for i = 1:numel(r)
-                d(i) = psychophysics.Detect.d_prime(r(i).Hit, r(i).FalseAlarm, obj.infCorrection);
+                d(i) = psychophysics.Detect.d_prime(r(i).Hit, CT.FalseAlarm, obj.infCorrection);
             end
         end
 
@@ -283,8 +289,13 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   c = obj.Bias returns the bias values computed from the Hit
             %   and FalseAlarm rates using the specified infCorrection bounds.
 
+            % the following needs to be user settable
+            obj.targetTrialType = epsych.BitMask.TrialType_1;
+            CT = obj.Rate;
+
+            obj.targetTrialType = epsych.BitMask.TrialType_0;
             r = obj.Rate;
-            c = psychophysics.Detect.bias(r.Hit, r.FalseAlarm, obj.infCorrection);
+            c = psychophysics.Detect.bias(r.Hit, CT.FalseAlarm, obj.infCorrection);
         end
 
 

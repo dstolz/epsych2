@@ -9,8 +9,7 @@ classdef cl_AversiveDetection_GUI < handle
         psychPlot              % gui.psychPlot instance
         ResponseHistory        % gui.History instance
         Performance            % gui.Performance instance
-        plottedParameters = {'~RespWindow','~Spout_TTL', ...
-            '~ShockOn','~GO_Stim','~NOGO_Stim','~ReminderTrial'} % Logical parameter tags
+        plottedParameters = {'~Spout_TTL','~ShockOn','~GO_Stim','~NOGO_Stim'} % Logical parameter tags
         lblFARate              % Label for FA Rate display
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons

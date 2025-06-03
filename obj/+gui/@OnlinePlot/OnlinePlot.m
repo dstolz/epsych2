@@ -173,36 +173,7 @@ classdef OnlinePlot < handle
             end
         end
 
-        % function update(obj,varargin)
-        %     % Update the plot with new hardware parameter values.
-        %     if ~isempty(obj.trialParam)
-        %         try
-        %             obj.trialBuffer(end+1) = obj.trialParam.Value;
-        %         catch me
-        %             vprintf(0,1,'Unable to read the parameter: %s\nUpdate the trialParam to an existing parameter in the RPvds circuit', ...
-        %                 obj.trialParam)
-        %             c = obj.get_menu_item('uic_plotType');
-        %             delete(c);
-        %             obj.trialParam = '';
-        %         end
-        %     end
-        %     obj.Buffers(:,end+1) = [obj.watchedParams.Value];
-        %     if obj.setZeroToNan, obj.Buffers(obj.Buffers(:,end)==0,end) = nan; end
-        %     obj.Time(end+1) = datetime("now")-obj.startTime;
-        %     if obj.paused, return; end
-        %     for i = 1:obj.N
-        %         set(obj.lineH(i),'XData',obj.Time,'YData',obj.yPositions(i).*obj.Buffers(i,:));
-        %     end
-        %     if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
-        %         obj.hax.XLim = obj.last_trial_onset + obj.timeWindow;
-        %     elseif obj.trialLocked
-        %         obj.hax.XLim = obj.timeWindow;
-        %     else
-        %         obj.hax.XLim = obj.Time(end) + obj.timeWindow;
-        %     end
-        %     drawnow limitrate
-        % end
-        % UPDATE: Efficient circular buffer, throttled draw, and windowed plotting
+        % Efficient circular buffer, throttled draw, and windowed plotting
         function update(obj,varargin)
             % --- 1. Initialize circular buffers if empty ---
             blockSize = 1000; % Set or store as a property for flexibility
@@ -236,15 +207,13 @@ classdef OnlinePlot < handle
             % --- 4. Optionally set zero to nan (only for new column) ---
             if obj.setZeroToNan
                 newcol = obj.Buffers(:, obj.BufferIdx);
-                if any(newcol == 0)
-                    obj.Buffers(newcol == 0, obj.BufferIdx) = nan;
-                end
+                obj.Buffers(newcol == 0, obj.BufferIdx) = nan;
             end
 
             % --- 5. Plot only if not paused ---
             if obj.paused
                 obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
-                return;
+                return
             end
 
             % --- 6. Choose data to plot (latest window, in time order) ---
@@ -274,14 +243,16 @@ classdef OnlinePlot < handle
             end
             plotTimeWin = plotTime(tspan);
             plotBuffersWin = plotBuffers(:, tspan);
-
-            % --- 8. Throttle graphics updates (e.g., only draw every 3 updates) ---
-            obj.DrawCounter = obj.DrawCounter + 1;
-            throttleRate = 1; % update plot every 3 h_timer ticks
-            if mod(obj.DrawCounter, throttleRate) ~= 0
-                obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
-                return
-            end
+            [plotTimeWin,i] = sort(plotTimeWin);
+            plotBuffersWin = plotBuffersWin(:,i);
+            % 
+            % % --- 8. Throttle graphics updates (e.g., only draw every 3 updates) ---
+            % obj.DrawCounter = obj.DrawCounter + 1;
+            % throttleRate = 1; % update plot every 3 h_timer ticks
+            % if mod(obj.DrawCounter, throttleRate) ~= 0
+            %     obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
+            %     return
+            % end
 
             % --- 9. Update line data for visible window ---
             for i = 1:obj.N
@@ -289,16 +260,15 @@ classdef OnlinePlot < handle
             end
 
             % --- 10. Adjust x-limits ---
-            try
-                if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
-                    obj.hax.XLim = obj.last_trial_onset + win;
-                elseif obj.trialLocked
-                    obj.hax.XLim = win;
-                else
-                    obj.hax.XLim = obj.Time(obj.BufferIdx) + win;
-                end
-                drawnow limitrate
+            if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
+                obj.hax.XLim = obj.last_trial_onset + win;
+            elseif obj.trialLocked
+                obj.hax.XLim = win;
+            else
+                obj.hax.XLim = obj.Time(obj.BufferIdx) + win;
             end
+            drawnow limitrate
+
             % --- 11. Advance circular buffer pointer ---
             obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
         end

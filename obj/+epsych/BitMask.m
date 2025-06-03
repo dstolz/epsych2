@@ -153,7 +153,7 @@ classdef BitMask < uint32
             maskMatrix = repmat(maskFlat, 1, nbits);
 
             % Generate bits matrix
-            bitsFlat = uint8(bitget(maskMatrix, bitPositions));
+            bitsFlat = logical(bitget(maskMatrix, bitPositions));
 
             % Reshape bits to match input shape
             bits = reshape(bitsFlat, [n, nbits]);

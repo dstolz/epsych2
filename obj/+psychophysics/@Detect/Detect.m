@@ -41,8 +41,8 @@ classdef Detect < handle & matlab.mixin.SetGet
         infCorrection (1,2) double {mustBeInRange(infCorrection,0,1,"exclusive")} = [0.01 0.99];
 
         % targetTrialType - Target trial type to analyze (epsych.BitMask)
-        % targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
-        targetTrialType (1,1) = 0; % SHOULD BE BITMASK, but isn't yet
+        targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
+        % targetTrialType (1,1) = 0; % SHOULD BE BITMASK, but isn't yet
 
         Bits (1,:) epsych.BitMask = epsych.BitMask.getResponses;
         BitColors (5,1) string = ["#dff7df","#fcdcdc","#d9f2ff","#fcdefc","#fcfcd4"];
@@ -69,6 +69,9 @@ classdef Detect < handle & matlab.mixin.SetGet
 
         % uniqueValues - Unique parameter values in trialValues
         uniqueValues
+
+
+        countUniqueValues
 
         % Count - Struct with counts of trial outcomes (Hit, Miss, etc.)
         Count
@@ -123,7 +126,7 @@ classdef Detect < handle & matlab.mixin.SetGet
                 obj.targetTrialType = targetTrialType;
             end
 
-            obj.hl_NewData = listener(RUNTIME.HELPER,'NewData',@obj.update_data);
+            addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
         end
 
 
@@ -157,6 +160,9 @@ classdef Detect < handle & matlab.mixin.SetGet
                 tt = [];
             else
                 tt = [obj.DATA.TrialType];
+                % convert number to BitMask
+                tts = "TrialType_" + tt;
+                tt = epsych.BitMask(tts);
             end
         end
 
@@ -194,6 +200,11 @@ classdef Detect < handle & matlab.mixin.SetGet
             uv = unique(obj.trialValues);
         end
 
+
+        function n = get.countUniqueValues(obj)
+            n = arrayfun(@(a) sum(obj.trialValues==a),obj.uniqueValues);
+        end
+
         function c = get.Count(obj)
             % get.Count Computes counts of trial outcomes
             %
@@ -204,14 +215,17 @@ classdef Detect < handle & matlab.mixin.SetGet
 
            
             tv = obj.trialValues;
-            if isempty(tv),  c = nan; return; end
             uv = obj.uniqueValues;
-            M = obj.decodedTrials.M;
+            bm = epsych.BitMask.getDefined;
+            x = [cellstr(bm), cell(size(bm))]';
+            c = struct(x{:});
+            c = repmat(c,length(uv),1);
 
-            n = epsych.BitMask.list;
-            x = [n, cell(size(n))]';
-            c(length(uv),1) = struct(x{:});
-            
+            if isempty(c), return; end
+
+            M = obj.decodedTrials.M;
+            ind = obj.trialType == obj.targetTrialType;
+            M = structfun(@(a) a(ind),M,'uni',0);
             for i = 1:length(uv)
                 ind = uv(i) == tv;
                 c(i) = structfun(@(a) sum(a(ind)), M, 'uni', 0);
@@ -227,15 +241,18 @@ classdef Detect < handle & matlab.mixin.SetGet
 
             
             c = obj.Count;
-            if ~isstruct(c), r = nan; return; end
-            n = obj.trialCount;
-            
-            b = epsych.BitMask.list;
-            x = [b, cell(size(b))]';
-            r(length(c),1) = struct(x{:});
+            n = obj.countUniqueValues;
+
+            bm = epsych.BitMask.getDefined;
+            x = [cellstr(bm), cell(size(bm))]';
+            r = struct(x{:});
+
+            if isempty(c), return; end
+
+            r = repmat(r,length(c),1);
 
             for i = 1:length(c)
-                r(i) = structfun(@(a) a./n, c(i), 'uni', 0);
+                r(i) = structfun(@(a) a./n(i), c(i), 'uni', 0);
             end
         end
 
@@ -248,6 +265,7 @@ classdef Detect < handle & matlab.mixin.SetGet
 
             r = obj.Rate;
             d = nan(size(r));
+            if isempty(r(1).Hit), return; end
             for i = 1:numel(r)
                 d(i) = psychophysics.Detect.d_prime(r(i).Hit, r(i).FalseAlarm, obj.infCorrection);
             end

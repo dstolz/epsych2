@@ -42,7 +42,7 @@ classdef decodeTrials
                 m = [];
                 return
             end
-            bm = epsych.BitMask.getAll;
+            bm = epsych.BitMask.getDefined;
             s = string(bm);
             for i = 1:length(bm)
                 b = bitget(obj.responseCodes,bm(i));

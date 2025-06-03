@@ -56,9 +56,10 @@ classdef History < handle
 
             [tid,i] = sort(obj.Info.TrialID,'descend');
 
+            if ~isvalid(obj.TableH), return; end % TO DO: Track down why this function is being called twice
             obj.TableH.Data = RD(i,:);
             obj.TableH.RowName = tid;
-            obj.TableH.ColumnName = [{'Time'}; {'Response'}; fieldnames(obj.psychObj.DATA)];
+            obj.TableH.ColumnName = [{'Time'}; {'Response'}; obj.ParametersOfInterest];
             obj.update_row_colors;
         end
 
@@ -75,15 +76,16 @@ classdef History < handle
         function update_row_colors(obj)
             % Updates row background colors based on response bitmask.
             if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
-            C = strings(size(obj.Data,1));
-            R = cellfun(@epsych.BitMask,obj.Data(:,2),'uni',0);
-            R = [R{:}];
-            for i = 1:length(obj.psychObj.BitsInUse)
-                ind = R == obj.psychObj.BitsInUse(i);
+
+            D = rearrange_data(obj);
+            C = strings(size(D,1),1);
+            R = epsych.BitMask(D(:,2));
+            for b = epsych.BitMask.getResponses
+                ind = R == b;
                 if ~any(ind), continue; end
-                C(ind) = repmat(obj.psychObj.BitColors(i),sum(ind),1);
+                C(ind) = repmat(obj.psychObj.BitColors(b),sum(ind),1);
             end
-            obj.TableH.BackgroundColor = flipud(C);
+            obj.TableH.BackgroundColor = flipud(hex2rgb(C));
             obj.TableH.RowStriping = 'on';
         end
 
@@ -109,13 +111,13 @@ classdef History < handle
             obj.Info.RelativeTimestamp = string(td);
 
             RC = obj.psychObj.decodedTrials.responseCodes;
-            r = cell(size(RC));
-            for i = epsych.BitMask.getResponses
-                ind = logical(bitget(RC,i));
+            r = repmat(epsych.BitMask(0),size(RC)); % preallocate
+            for bm = epsych.BitMask.getResponses
+                ind = logical(bitget(RC,bm));
                 if ~any(ind), continue; end
-                r{ind} = i;
+                r(ind) = bm;
             end
-            Response = cellfun(@char,r,'uni',0);
+            Response = arrayfun(@char,r,'uni',0);
 
             ind = structfun(@(a) numel(a)>1,DataIn(1));
             fn = fieldnames(DataIn);
@@ -124,7 +126,7 @@ classdef History < handle
             DataIn = rmfield(DataIn,[requiredParams,fn]);
 
             DataOut = squeeze(struct2cell(DataIn))';
-            DataOut = [Response DataOut];
+            DataOut = [Response(:) DataOut];
             DataOut = [cellstr(obj.Info.RelativeTimestamp(:)) DataOut];
         end
     end

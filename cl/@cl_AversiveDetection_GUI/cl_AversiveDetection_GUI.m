@@ -9,11 +9,19 @@ classdef cl_AversiveDetection_GUI < handle
         psychPlot              % gui.psychPlot instance
         ResponseHistory        % gui.History instance
         Performance            % gui.Performance instance
-        plottedParameters = {'~InTrial_TTL','~RespWindow','~Spout_TTL', ...
-            '~ShockOn','~GO_Stim','~NOGO_Stim','~ReminderTrial','~TrialDelivery'} % Logical parameter tags
+        plottedParameters = {'~RespWindow','~Spout_TTL', ...
+            '~ShockOn','~GO_Stim','~NOGO_Stim','~ReminderTrial'} % Logical parameter tags
         lblFARate              % Label for FA Rate display
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons
+
+        bmStimulus  = epsych.BitMask.TrialType_0;
+        bmCatch     = epsych.BitMask.TrialType_1;
+        bmReminder  = epsych.BitMask.TrialType_2;
+
+        ttStimulus  = 0;
+        ttCatch     = 1;
+        ttReminder  = 1;
     end
 
     properties (Hidden)
@@ -21,6 +29,9 @@ classdef cl_AversiveDetection_GUI < handle
     end
 
     methods
+        create_gui(obj)
+        [value,success] = eval_gonogo(obj,src,event)
+
         % constructor
         function obj = cl_AversiveDetection_GUI(RUNTIME)
             % only permit one instance to run
@@ -78,14 +89,14 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % always vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-            present(trialtype==1) = true;
-            [src.Data{trialtype==1,4}] = deal(true);
+            present(trialtype==obj.ttCatch) = true;
+            [src.Data{trialtype==obj.ttCatch,4}] = deal(true);
             % ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
             p = RUNTIME.S.find_parameter('ShockN');
             shocked = find(present,p.Value,"last");
-            shocked(ismember(shocked,find(trialtype==1))) = [];
+            shocked(ismember(shocked,find(trialtype==obj.ttCatch))) = [];
             [src.Data{:,3}] = deal(false);
             [src.Data{shocked,3}] = deal(true);
 
@@ -100,7 +111,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % update panel label with trial type counts
             h = ancestor(src,'uipanel');
-            ind = present&trialtype==0;
+            ind = present&trialtype==obj.ttStimulus;
             h.Title = sprintf('Trial Filter: %d Go trials active [%.3f-%.3f]', ...
                 sum(ind),min(depth(ind)),max(depth(ind)));
         end
@@ -115,7 +126,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % calculate session FA rate and update
-            obj.psychDetect.targetTrialType = 1; % CATCH TRIALS
+            obj.psychDetect.targetTrialType = obj.bmCatch; % CATCH TRIALS
             faRate = obj.psychDetect.Rate.FalseAlarm;
             if isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
             obj.lblFARate.Text = faTxt;
@@ -211,54 +222,3 @@ end
 
 
 
-
-
-function [value,success] = evaluate_n_gonogo(obj,event)
-% [value,success] = evaluate_n_gonogo(obj,event)
-%
-% implements the 'EvaluatorFcn' function
-success = true;
-
-value = event.Value; % new value
-
-% first find all gui objects we want to evaluate
-h = ancestor(obj.parent,'figure','toplevel');
-h = findall(h,'-property','tag');
-if isempty(h), return; end
-
-
-isMin = endsWith(obj.Name,'_min');
-
-if isMin
-    i = endsWith(get(h,'Tag'),'ConsecutiveNOGO_max');
-else
-    i = endsWith(get(h,'Tag'),'ConsecutiveNOGO_min');
-end
-h = h(i);
-
-if isempty(h), return; end % can happen during setup
-
-% the handle to the Parameter object is included in the gui object's
-% UserData
-
-if isMin
-    success = h.Value >= value;
-else
-    success = h.Value <= value;
-end
-
-
-if ~success
-    value = event.PreviousValue; % return to previous value
-    vprintf(0,1,'Max NoGo trials can''t be lower than Min NoGo trials')
-end
-end
-
-
-% used by create_gui
-function h = simple_layout(p)
-h = uigridlayout(p);
-h.ColumnWidth = {'1x'};
-h.RowHeight = {'1x'};
-h.Padding = [0 0 0 0];
-end

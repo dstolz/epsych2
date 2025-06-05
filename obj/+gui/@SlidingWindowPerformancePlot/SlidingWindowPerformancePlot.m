@@ -160,7 +160,7 @@ classdef SlidingWindowPerformancePlot < handle
                 idx(idx>nTrials) = [];
 
                 for i = 1:length(uv)
-                    iv = intersect(idx,find(uv(i) == vals(:));  % Trials for this stimulus value
+                    iv = intersect(idx,find(uv(i) == vals(:)));  % Trials for this stimulus value
                     nStim(k,i) = sum(obj.trialBits(iv,iStim),1);         % Stimulus count
                     nHit(k,i)  = sum(obj.trialBits(iv,iStim & iHit),1);  % Hit count
                 end

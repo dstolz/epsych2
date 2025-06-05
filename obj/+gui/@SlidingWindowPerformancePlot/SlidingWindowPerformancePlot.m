@@ -20,7 +20,6 @@ classdef SlidingWindowPerformancePlot < handle
     end
     
     properties (SetAccess = private)
-        ContainerH                       % Handle to the container figure or panel
         hAxes
         Data
         hl_NewData                       % Listener for data update events
@@ -36,29 +35,25 @@ classdef SlidingWindowPerformancePlot < handle
 
     methods
     % SlidingWindowPerformancePlot Construct a SlidingWindowPerformancePlot object.
-    %   OBJ = SlidingWindowPerformancePlot(POBJ, CONTAINER) creates a SlidingWindowPerformancePlot object
+    %   OBJ = SlidingWindowPerformancePlot(POBJ, AX) creates a SlidingWindowPerformancePlot object
     %   associated with the given psychometric object POBJ and displays it in the
-    %   specified CONTAINER (typically a UI figure or panel). If CONTAINER is not
-    %   provided or is empty, a new UIFIGURE is created.
+    %   specified (typically a UI figure or panel). 
     %
     %   Inputs:
     %       pObj      - (optional) Psychometric object to associate with the plot.
-    %       container - (optional) UI container (e.g., UIFIGURE or UIPANEL) for the plot.
+    %       ax        - (optional) axes
     %
     %   Outputs:
     %       obj       - Instance of the SlidingWindowPerformancePlot class.
-    %
-    %   The constructor initializes the plot, sets up the container, and adds a
-    %   listener to update the plot when new data is available from pObj.Helper.
 
-        function obj = SlidingWindowPerformancePlot(pObj, container)
-            if nargin < 2 || isempty(container), container = uifigure; end
+        function obj = SlidingWindowPerformancePlot(pObj, ax)
+
+            if nargin < 2 || isempty(ax), ax = gca; end
             
+            obj.hAxes = ax;
+
             if nargin >= 1 && ~isempty(pObj), obj.psychObj = pObj; end
 
-            obj.ContainerH = container;
-
-            obj.build;
 
             obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
 
@@ -71,9 +66,6 @@ classdef SlidingWindowPerformancePlot < handle
             end
         end
 
-        function build(obj)
-            obj.hAxes = uiaxes(obj.ContainerH);
-        end
 
         function update(obj,src,event)
             obj.compute;

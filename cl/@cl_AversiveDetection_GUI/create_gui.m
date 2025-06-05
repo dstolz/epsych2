@@ -162,7 +162,8 @@ h.Text = "Consecutive NoGo (max):";
 % >> Trial order
 p = RUNTIME.S.Module.add_parameter('TrialOrder','Descending');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
-h.Values = ["Descending","Ascending","Random"];
+h.Values = ["Descending","Ascending"];
+% h.Values = ["Descending","Ascending","Random"];
 h.Value = "Descending";
 h.Text = "Trial Order:";
 
@@ -178,7 +179,8 @@ h.Text = "Intertrial Interval (ms):";
 % >> Response Window Duration
 p = RUNTIME.HW.find_parameter('RespWinDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
-h.Values = 200:100:1000;
+h.Values = 100:100:1000;
+h.Value = 100;
 h.Text = "Response Window Duration (ms):";
 
 
@@ -291,13 +293,13 @@ h.Values = 200:100:1200;
 h.Value = p.Value;
 h.Text = "Shock duration (ms):";
 
-% >> Shock N hardest
+% >> Shock N easiest
 p = RUNTIME.S.Module.add_parameter('ShockN',3);
 p.PostUpdateFcn = @obj.update_trial_filter;
 h = gui.Parameter_Control(layoutShockControls,p,Type='dropdown',autoCommit=true);
 h.Values = 1:5;
 h.Value = 3;
-h.Text = "Shock Hardest #:";
+h.Text = "Shock Easiest #:";
 
 
 

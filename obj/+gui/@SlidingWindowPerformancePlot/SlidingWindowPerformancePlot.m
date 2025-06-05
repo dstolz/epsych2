@@ -12,7 +12,7 @@ classdef SlidingWindowPerformancePlot < handle
         MarkerSize (1,1) {mustBePositive} = 10;
         Marker (1,1) char = '.'; % Allow user to set marker type
 
-        LineStyle (1,1) char = 'none'; % Allow user to set line style
+        LineStyle (1,:) char = 'none'; % Allow user to set line style
 
         % Add any other plot properties you want to expose here
         LineWidth (1,1) double = 1.5;
@@ -126,11 +126,12 @@ classdef SlidingWindowPerformancePlot < handle
             if isempty(obj.psychObj.DATA), return; end
 
             P = obj.psychObj;
+            P.targetTrialType = epsych.BitMask.Undefined;
 
             uv = P.uniqueValues;           % Unique stimulus values
             vals = P.trialValues;          % Stimulus value for each trial
             
-            RC = [P.TRIALS.ResponseCode];  % Response codes for all trials
+            RC = P.responseCodes;  % Response codes for all trials
 
             obj.trialBits = epsych.BitMask.Mask2Bits(RC); % Logical matrix of trial outcomes
             nTrials = size(obj.trialBits,1);
@@ -155,11 +156,13 @@ classdef SlidingWindowPerformancePlot < handle
 
             k = 1;
             for w = wvec
-                idx = w:w+obj.window;             % Indices for current window
+                idx = w:w+obj.window-1;             % Indices for current window
                 idx(idx>nTrials) = [];
 
                 for i = 1:length(uv)
-                    iSV = iStim & uv(i) == vals;  % Trials for this stimulus value
+                    % vals is the length of nTrials, whereas iStim is the
+                    % size of bn, FIX ME
+                    iSV = iStim & uv(i) == vals(:);  % Trials for this stimulus value
                     nStim(k,i) = sum(obj.trialBits(idx,iSV),1);         % Stimulus count
                     nHit(k,i)  = sum(obj.trialBits(idx,iSV & iHit),1);  % Hit count
                 end

@@ -404,8 +404,8 @@ h.ButtonPushedFcn = @obj.create_onlineplot;
 
 % Panel for "Next Trial" ----------------------------------------
 panelNextTrial = uipanel(layoutMain, 'Title', 'Next Trial');
-panelNextTrial.Layout.Row = 3;
-panelNextTrial.Layout.Column = 5;
+panelNextTrial.Layout.Row = 1;
+panelNextTrial.Layout.Column = 6;
 
 layoutNextTrial = simple_layout(panelNextTrial);
 
@@ -461,8 +461,8 @@ axesMicrophone.YAxis.Label.String = "RMS voltage";
 
 % Panel for "FA Rate" --------------------------------------------
 panelFARate = uipanel(layoutMain, 'Title', 'Session FA Rate');
-panelFARate.Layout.Row = 3;
-panelFARate.Layout.Column = 4;
+panelFARate.Layout.Row = 1;
+panelFARate.Layout.Column = 5;
 
 layoutFARate = simple_layout(panelFARate);
 
@@ -479,7 +479,7 @@ obj.lblFARate = h;
 
 % Panel for "Response History" --------------------------------------
 panelResponseHistory = uipanel(layoutMain, 'Title', 'Response History');
-panelResponseHistory.Layout.Row = [1 8];
+panelResponseHistory.Layout.Row = [2 8];
 panelResponseHistory.Layout.Column = [6 7];
 
 % > Response History Table

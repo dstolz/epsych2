@@ -47,13 +47,13 @@ h.colorNormal = bcmNormal(1,:);
 h.colorOnUpdate = bcmActive(1,:);
 obj.hButtons.Reminder = h;
 
-% > ReferencePhys
-p = RUNTIME.S.Module.add_parameter('ReferencePhys',0);
-h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
-h.Text = "ReferencePhys";
-h.colorNormal = bcmNormal(2,:);
-h.colorOnUpdate = bcmActive(2,:);
-obj.hButtons.ReferencePhys = h;
+% % > ReferencePhys
+% p = RUNTIME.S.Module.add_parameter('ReferencePhys',0);
+% h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
+% h.Text = "ReferencePhys";
+% h.colorNormal = bcmNormal(2,:);
+% h.colorOnUpdate = bcmActive(2,:);
+% obj.hButtons.ReferencePhys = h;
 
 
 % > Deliver Trials
@@ -404,7 +404,7 @@ h.ButtonPushedFcn = @obj.create_onlineplot;
 
 % Panel for "Next Trial" ----------------------------------------
 panelNextTrial = uipanel(layoutMain, 'Title', 'Next Trial');
-panelNextTrial.Layout.Row = 1;
+panelNextTrial.Layout.Row = [1 2];
 panelNextTrial.Layout.Column = 6;
 
 layoutNextTrial = simple_layout(panelNextTrial);
@@ -431,7 +431,7 @@ obj.hl_NewData  = addlistener(obj.psychDetect.Helper,'NewData',@(src,evnt) obj.u
 
 % Axes for Sliding Window Performance Plot ------------------------
 axSlidingWindow = uiaxes(layoutMain);
-axSlidingWindow.Layout.Row = [4 5];
+axSlidingWindow.Layout.Row = [2 3];
 axSlidingWindow.Layout.Column = [3 5];
 obj.slidingWindowPlot = gui.SlidingWindowPerformancePlot(obj.psychDetect,axSlidingWindow);
 obj.slidingWindowPlot.plotType = 'dPrime';
@@ -440,11 +440,25 @@ obj.slidingWindowPlot.plotType = 'dPrime';
 
 % Axes for Main Plot ------------------------------------------------
 axPsych = uiaxes(layoutMain);
-axPsych.Layout.Row = [6 7];
+axPsych.Layout.Row = [4 8];
 axPsych.Layout.Column = [3 5];
 
 obj.psychPlot = gui.PsychPlot(obj.psychDetect,axPsych);
 % obj.psychPlot.logx = true;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 % Axes for Microphone Display -------------------------------
@@ -461,8 +475,8 @@ axesMicrophone.YAxis.Label.String = "RMS voltage";
 
 % Panel for "FA Rate" --------------------------------------------
 panelFARate = uipanel(layoutMain, 'Title', 'Session FA Rate');
-panelFARate.Layout.Row = 1;
-panelFARate.Layout.Column = 5;
+panelFARate.Layout.Row = [1 2];
+panelFARate.Layout.Column = 7;
 
 layoutFARate = simple_layout(panelFARate);
 
@@ -471,7 +485,7 @@ h = uilabel(layoutFARate);
 h.Tag = 'lblFARate';
 h.Text = "0";
 h.FontColor = 'r';
-h.FontSize = 40;
+h.FontSize = 30;
 h.FontWeight = 'bold';
 h.HorizontalAlignment = "center";
 obj.lblFARate = h;
@@ -479,7 +493,7 @@ obj.lblFARate = h;
 
 % Panel for "Response History" --------------------------------------
 panelResponseHistory = uipanel(layoutMain, 'Title', 'Response History');
-panelResponseHistory.Layout.Row = [2 8];
+panelResponseHistory.Layout.Row = [3 8];
 panelResponseHistory.Layout.Column = [6 7];
 
 % > Response History Table

@@ -110,10 +110,10 @@ classdef History < handle
             td.Format = "mm:ss";
             obj.Info.RelativeTimestamp = string(td);
 
-            RC = obj.psychObj.decodedTrials.responseCodes;
+            RC = obj.psychObj.responseCodes;
             r = repmat(epsych.BitMask(0),size(RC)); % preallocate
             for bm = epsych.BitMask.getResponses
-                ind = logical(bitget(RC,bm));
+                ind = logical(bitget(RC,uint32(bm)));
                 if ~any(ind), continue; end
                 r(ind) = bm;
             end

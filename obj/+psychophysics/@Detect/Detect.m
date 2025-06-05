@@ -95,6 +95,12 @@ classdef Detect < handle & matlab.mixin.SetGet
 
     end
 
+
+    properties(SetAccess = private)
+        M
+        N
+    end
+
     properties (Access = private)
         hl_NewData
     end
@@ -172,6 +178,7 @@ classdef Detect < handle & matlab.mixin.SetGet
                 rc = [obj.DATA.ResponseCode];
                 if isempty(rc), rc = uint32([]); end
             end
+            rc = uint32(rc);
         end
 
         function tt = get.trialType(obj)
@@ -195,7 +202,11 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   n = obj.trialCount returns the number of trials in DATA that
             %   match the specified targetTrialType.
 
-            n = sum(obj.trialType == obj.targetTrialType);
+            if obj.targetTrialType == epsych.BitMask.Undefined
+                n = length(obj.trialType);
+            else
+                n = sum(obj.trialType == obj.targetTrialType);
+            end
         end
 
         function v = get.trialValues(obj)
@@ -205,7 +216,11 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   specified in obj.Parameter.validName for trials matching
             %   the targetTrialType.
 
-            ind = obj.trialType == obj.targetTrialType;
+            if obj.targetTrialType == epsych.BitMask.Undefined
+                ind = true(size(obj.trialType));
+            else
+                ind = obj.trialType == obj.targetTrialType;
+            end
             if any(ind)
                 v = [obj.DATA.(obj.Parameter.validName)];
                 v = v(ind);
@@ -247,8 +262,10 @@ classdef Detect < handle & matlab.mixin.SetGet
             if isempty(c), return; end
 
             M = obj.M;
-            ind = obj.trialType == obj.targetTrialType;
-            M = structfun(@(a) a(ind),M,'uni',0);
+            if obj.targetTrialType ~= epsych.BitMask.Undefined
+                ind = obj.trialType == obj.targetTrialType;
+                M = structfun(@(a) a(ind),M,'uni',0);
+            end
             for i = 1:length(uv)
                 ind = uv(i) == tv;
                 c(i) = structfun(@(a) sum(a(ind)), M, 'uni', 0);

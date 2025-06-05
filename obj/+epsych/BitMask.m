@@ -228,15 +228,17 @@ classdef BitMask < uint32
         %       M - Structure with logical arrays for each bitmask flag.
         %       N - (Optional) Structure with counts for each bitmask flag.
 
+        responseCodes = uint32(responseCodes);
         bm = epsych.BitMask.getDefined;
         s = string(bm);
+        bm = uint32(bm);
         for i = 1:length(bm)
             b = bitget(responseCodes,bm(i));
-            m.(s(i)) = logical(b);
+            M.(s(i)) = logical(b);
         end
 
         if nargout == 2
-            n = struct(@sum,m);
+            N = structfun(@sum,M,'uni',0);
         end
         end
 

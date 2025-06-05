@@ -15,6 +15,11 @@ classdef BitMask < uint32
         TrialType_1         (12)
         TrialType_2         (13)
         TrialType_3         (14)
+        TrialType_4         (15)
+        TrialType_5         (16)
+        Stimulus_0          (17)
+        Stimulus_1          (18)
+        Stimulus_2          (19)     
         Choice_0            (20)
         Choice_1            (21)
         Choice_2            (22)
@@ -42,13 +47,12 @@ classdef BitMask < uint32
     end
 
     methods (Static)
-        function [names, values, tbl] = list()
+        function [names, values] = list()
             %LIST List all BitMask enumerations and their corresponding values.
             %
-            %   [names, values, tbl] = epsych.BitMask.list() returns:
+            %   [names, values] = epsych.BitMask.list() returns:
             %     - names  : Cell array of enumeration names (char)
             %     - values : Corresponding uint32 values
-            %     - tbl    : A table with 'Value' and 'Name' columns
             %
             %   If no output is specified, the list is printed to the command window.
             %
@@ -63,8 +67,6 @@ classdef BitMask < uint32
             if nargout == 0
                 disp(enumObjs)
                 clear names values
-            else
-                tbl = table(values(:), names(:), 'VariableNames', {'Value', 'Name'});
             end
         end
 

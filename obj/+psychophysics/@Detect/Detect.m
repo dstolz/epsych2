@@ -143,7 +143,7 @@ classdef Detect < handle & matlab.mixin.SetGet
         function update_data(obj,src,event)
             obj.TRIALS = event.Data;
             vprintf(4,'psychophysics.Detect.update_data: Trial %d',obj.TRIALS.TrialIndex)
-            obj.decodedTrials = psychophysics.decodeTrials(obj.TRIALS,obj.Parameter);
+            obj.decodedTrials = psychophysics.decodeTrials(obj.TRIALS);
             evtdata = epsych.TrialsData(obj.TRIALS);
             obj.Helper.notify('NewData',evtdata);
         end

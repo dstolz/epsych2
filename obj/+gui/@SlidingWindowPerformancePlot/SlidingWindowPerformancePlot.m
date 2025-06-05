@@ -12,7 +12,7 @@ classdef SlidingWindowPerformancePlot < handle
         MarkerSize (1,1) {mustBePositive} = 10;
         Marker (1,1) char = '.'; % Allow user to set marker type
 
-        LineStyle (1,:) char = 'none'; % Allow user to set line style
+        LineStyle (1,:) char = '-'; % Allow user to set line style
 
         % Add any other plot properties you want to expose here
         LineWidth (1,1) double = 1.5;
@@ -29,6 +29,7 @@ classdef SlidingWindowPerformancePlot < handle
         FARate
         dPrime
         Bias
+        plotValues
 
         trialBits
     end
@@ -100,19 +101,26 @@ classdef SlidingWindowPerformancePlot < handle
             % Plot the selected metric for each stimulus value
             plot(plotArgs{:});
 
+           
             colororder(obj.hAxes, obj.palettename);  % Set color palette
 
             grid(obj.hAxes, 'on');  % Enable grid
+            box(obj.hAxes,'on');
 
             % Add legend for all but FARate (since it is not stimulus-specific)
             if obj.plotType ~= "FARate"
-                luv = string(P.uniqueValues);
-                legend(obj.hAxes, luv, ...
-                    Location = "east")
+                luv = string(obj.plotValues);
+                h = legend(obj.hAxes, luv, ...
+                    Location = "eastoutside");
+                h.Title.String = obj.psychObj.Parameter.Name;
+            end
+
+            if obj.plotType == "dPrime"
+                yline(obj.hAxes,1,'-k',HandleVisibility="off");
             end
 
             % Set x-axis limits to cover all trial windows
-            obj.hAxes.XLim = [0 obj.trialWindows(end) * 1.1];
+            obj.hAxes.XLim = [0 obj.trialWindows(end)];
 
             ylabel(obj.hAxes, obj.plotType)  % Y-axis label
             xlabel(obj.hAxes, 'trials')      % X-axis label
@@ -124,24 +132,33 @@ classdef SlidingWindowPerformancePlot < handle
             %   window of trials, grouped by unique stimulus values.
 
             if isempty(obj.psychObj.DATA), return; end
+            tic
 
             P = obj.psychObj;
             P.targetTrialType = epsych.BitMask.Undefined;
 
-            uv = P.uniqueValues;           % Unique stimulus values
             vals = P.trialValues;          % Stimulus value for each trial
             
             RC = P.responseCodes;  % Response codes for all trials
+            
 
             obj.trialBits = epsych.BitMask.Mask2Bits(RC); % Logical matrix of trial outcomes
+
+
+            
+
             nTrials = size(obj.trialBits,1);
 
             bn = string(epsych.BitMask.list); % Bit names
             
-            sttStim = string(P.ttStimulus);   % Name for stimulus trials
-            sttCatch = string(P.ttCatch);     % Name for catch trials
 
-            wvec = 1:nTrials-obj.window;      % Start indices for each window
+            idxCatch = uint32(P.ttCatch);
+            i = obj.trialBits(:,idxCatch);
+            valCatch = unique(vals(i));
+            uv = unique(vals);
+            uv(ismember(uv,valCatch)) = [];
+
+            wvec = 1:nTrials;      % Start indices for each window
 
             nStim = nan(length(wvec),length(uv)); % Number of stimulus trials per window/value
             nHit = nStim;                         % Number of hits per window/value
@@ -149,20 +166,22 @@ classdef SlidingWindowPerformancePlot < handle
             nCatch = nan(size(wvec));             % Number of catch trials per window
             nFA = nCatch;                         % Number of false alarms per window
 
-            iStim =  sttStim == bn;               % Index for stimulus trials in bitmask
-            iCatch = sttCatch == bn;              % Index for catch trials in bitmask
-            iHit = bn == "Hit";                   % Index for hit outcome in bitmask
-            iFA = bn == "FalseAlarm";             % Index for false alarm outcome in bitmask
+            iStim =  uint32(P.ttStimulus);               % Index for stimulus trials in bitmask
+            iCatch = uint32(P.ttCatch);              % Index for catch trials in bitmask
+            iHit = uint32(epsych.BitMask.Hit);                   % Index for hit outcome in bitmask
+            iFA = uint32(epsych.BitMask.FalseAlarm);             % Index for false alarm outcome in bitmask
 
             k = 1;
             for w = wvec
-                idx = w:w+obj.window-1;             % Indices for current window
-                idx(idx>nTrials) = [];
+                idx = 1:w;             % Indices for current window
 
                 for i = 1:length(uv)
                     iv = intersect(idx,find(uv(i) == vals(:)));  % Trials for this stimulus value
-                    nStim(k,i) = sum(obj.trialBits(iv,iStim),1);         % Stimulus count
-                    nHit(k,i)  = sum(obj.trialBits(iv,iStim & iHit),1);  % Hit count
+                    if isempty(iv), continue; end
+                    sn = sum(obj.trialBits(iv,iStim),1);         % Stimulus count
+                    if ~isempty(sn), nStim(k,i) = sn; end
+                    sh = sum(obj.trialBits(iv,iStim & iHit),1);  % Hit count
+                    if ~isempty(sh), nHit(k,i) = sh; end
                 end
 
                 nCatch(k) = sum(obj.trialBits(idx,iCatch),1);           % Catch count
@@ -177,11 +196,20 @@ classdef SlidingWindowPerformancePlot < handle
             obj.FARate = nFA ./ nCatch;
 
             % Compute d-prime
-            obj.dPrime = obj.psychObj.d_prime(obj.HitRate,obj.FARate,obj.psychObj.infCorrection);
+            FAR = repmat(obj.FARate(:),1,length(uv));
+            obj.dPrime = obj.psychObj.d_prime(obj.HitRate,FAR,obj.psychObj.infCorrection);
 
             % Compute bias
-            obj.Bias = obj.psychObj.bias(obj.HitRate,obj.FARate,obj.psychObj.infCorrection);
+            obj.Bias = obj.psychObj.bias(obj.HitRate,FAR,obj.psychObj.infCorrection);
             
+
+            i = isnan(obj.HitRate);
+            obj.dPrime(i) = nan;
+            obj.Bias(i) = nan;
+
+            obj.plotValues = uv;
+
+            toc
         end
 
     end

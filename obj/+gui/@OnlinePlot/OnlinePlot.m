@@ -21,6 +21,7 @@ classdef OnlinePlot < handle
         figH        (1,1)  % Main figure handle
         figName     (1,:)  char % Name for figure window
         lineH       (:,1)  matlab.graphics.primitive.Line % Handles to plot lines
+        nowLine     (1,1)  matlab.graphics.primitive.Line 
         N           (1,:)  double % Number of watched parameters
         startTime   (1,1) datetime
         BoxID       (1,1) {mustBePositive,mustBeInteger} = 1;
@@ -267,6 +268,9 @@ classdef OnlinePlot < handle
             else
                 obj.hax.XLim = obj.Time(obj.BufferIdx) + win;
             end
+            if ~isempty(plotTimeWin)
+                obj.nowLine.XData = plotTimeWin(end).*[1 1];
+            end
             drawnow limitrate
 
             % --- 11. Advance circular buffer pointer ---
@@ -299,6 +303,8 @@ classdef OnlinePlot < handle
             obj.hax.XMinorGrid = 'on';
             obj.hax.Box = 'on';
             obj.startTime = datetime("now");
+            obj.nowLine = line(obj.hax,seconds([0 0]),[-1e6 1e6],AffectAutoLimits="off");
+
         end
 
         function setup_figure(obj)

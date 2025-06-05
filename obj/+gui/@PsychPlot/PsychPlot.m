@@ -97,6 +97,7 @@ classdef PsychPlot < handle
                     HandleVisibility = 'off')
 
                 grid(obj.ax,'on');
+                box(obj.ax,'on');
             end
 
             try
@@ -143,7 +144,7 @@ classdef PsychPlot < handle
             obj.setup_yaxis_label;
             
 
-            sstr = sprintf('# Trials = %d',obj.psychObj.trialCount);
+            sstr = sprintf('# Stimulus Trials = %d',obj.psychObj.trialCount);
             subtitle(obj.ax,sstr);
 
             tstr = sprintf('%s [%d]', ...

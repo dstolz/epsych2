@@ -147,10 +147,10 @@ classdef BitMask < uint32
             end
 
             % Flatten mask for processing
-            maskFlat = mask(:);
-            n = numel(maskFlat);
+            mask = mask(:);
+            n = numel(mask);
             bitPositions = repmat(1:nbits, n, 1);
-            maskMatrix = repmat(maskFlat, 1, nbits);
+            maskMatrix = repmat(mask, 1, nbits);
 
             % Generate bits matrix
             bitsFlat = logical(bitget(maskMatrix, bitPositions));

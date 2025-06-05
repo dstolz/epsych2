@@ -388,12 +388,12 @@ h.watchedHandles = [hp.UserData];
 
 
 
-% create/locate online plot ------------------------------------
-h = uibutton(layoutMain);
-h.Layout.Row = 11;
-h.Layout.Column = 4;
-h.Text = "Online Plot";
-h.ButtonPushedFcn = @obj.create_onlineplot;
+% % create/locate online plot ------------------------------------
+% h = uibutton(layoutMain);
+% h.Layout.Row = 11;
+% h.Layout.Column = 4;
+% h.Text = "Online Plot";
+% h.ButtonPushedFcn = @obj.create_onlineplot;
 
 
 

@@ -16,28 +16,26 @@ classdef BitMask < uint32
         TrialType_2         (13)
         TrialType_3         (14)
         TrialType_4         (15)
-        TrialType_5         (16)
-        Stimulus_0          (17)
-        Stimulus_1          (18)
-        Stimulus_2          (19)     
-        Choice_0            (20)
-        Choice_1            (21)
-        Choice_2            (22)
-        Choice_3            (23)
-        Choice_4            (24)
-        Choice_5            (25)
-        Option_A            (26)
-        Option_B            (27)
-        Option_C            (28)
-        Option_D            (29)
-        Option_E            (30)
-        Option_F            (31)
-        Option_G            (32)
+        TrialType_5         (16)    
+        Choice_0            (17)
+        Choice_1            (18)
+        Choice_2            (19)
+        Choice_3            (20)
+        Choice_4            (21)
+        Choice_5            (22)
+        Option_A            (23)
+        Option_B            (24)
+        Option_C            (25)
+        Option_D            (26)
+        Option_E            (27)
+        Option_F            (28)
+        Option_G            (29)
+        OPtion_H            (30)
+        Option_I            (31)
     end
 
     methods
         function disp(obj)
-            % fprintf('BitMask Enumeration Members:\n');
             fprintf('Bit Index\tName\n');
             fprintf('---------\t----\n');
             for i = 1:length(obj)
@@ -209,6 +207,38 @@ classdef BitMask < uint32
 
         end
 
+
+        function [M,N] = decodeResponseCodes(responseCodes)
+        %DECODERESPONSECODES Decodes response codes into a structure of bitmask flags.
+        %   [M, N] = DECODERESPONSECODES(RESPONSECODES) takes an array of response
+        %   codes and decodes them using the bitmask definitions from
+        %   epsych.BitMask.getDefined. The function returns a structure M where each
+        %   field corresponds to a bitmask name and contains a logical array indicating
+        %   the presence of that bit in each response code.
+        %
+        %   If two output arguments are requested, the function also returns N, a
+        %   structure with the same fields as M, where each field contains the sum of
+        %   true values in the corresponding field of M (i.e., the count of times each
+        %   bitmask was set across all response codes).
+        %
+        %   Inputs:
+        %       responseCodes - Array of integer response codes to decode.
+        %
+        %   Outputs:
+        %       M - Structure with logical arrays for each bitmask flag.
+        %       N - (Optional) Structure with counts for each bitmask flag.
+
+        bm = epsych.BitMask.getDefined;
+        s = string(bm);
+        for i = 1:length(bm)
+            b = bitget(responseCodes,bm(i));
+            m.(s(i)) = logical(b);
+        end
+
+        if nargout == 2
+            n = struct(@sum,m);
+        end
+        end
 
 
     end

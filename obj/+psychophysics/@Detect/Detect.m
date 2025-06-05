@@ -62,6 +62,9 @@ classdef Detect < handle & matlab.mixin.SetGet
         % DATA - Extracted trial data from TRIALS
         DATA
 
+        % responseCodes - Response codes from TRIALS.DATA
+        responseCodes (1,:) uint32 = []
+
         % trialCount - Number of trials matching targetTrialType
         trialCount
 
@@ -92,11 +95,6 @@ classdef Detect < handle & matlab.mixin.SetGet
 
     end
 
-    properties (SetAccess = protected)
-        % decodedTrials - Decoded trial outcomes from psychophysics.decodeTrials
-        decodedTrials
-    end
-
     properties (Access = private)
         hl_NewData
     end
@@ -107,8 +105,7 @@ classdef Detect < handle & matlab.mixin.SetGet
             %
             %   obj = Detect(TRIALS, Parameter, targetTrialType) initializes
             %   the Detect object with the provided TRIALS structure,
-            %   Parameter object, and targetTrialType. It also decodes the
-            %   trial outcomes using psychophysics.decodeTrials.
+            %   Parameter object, and targetTrialType..
             %
             %   Inputs:
             %       TRIALS          - Structure containing trial data
@@ -143,7 +140,10 @@ classdef Detect < handle & matlab.mixin.SetGet
         function update_data(obj,src,event)
             obj.TRIALS = event.Data;
             vprintf(4,'psychophysics.Detect.update_data: Trial %d',obj.TRIALS.TrialIndex)
-            obj.decodedTrials = psychophysics.decodeTrials(obj.TRIALS);
+            % Decode response codes into M and N
+            % M contains logical arrays for each bitmask flag
+            % N contains counts of each bitmask flag
+            [obj.M,obj.N] = epsych.BitMask.decodeResponseCodes(obj.responseCodes);
             evtdata = epsych.TrialsData(obj.TRIALS);
             obj.Helper.notify('NewData',evtdata);
         end
@@ -158,6 +158,19 @@ classdef Detect < handle & matlab.mixin.SetGet
                 d = [];
             else
                 d = obj.TRIALS.DATA;
+            end
+        end
+
+        function rc = get.responseCodes(obj)
+            % get.responseCodes Retrieves response codes from DATA
+            %
+            %   rc = obj.responseCodes returns the response codes extracted
+            %   from the DATA structure.
+            if isempty(obj.DATA)
+                rc = [];
+            else
+                rc = [obj.DATA.ResponseCode];
+                if isempty(rc), rc = uint32([]); end
             end
         end
 
@@ -233,7 +246,7 @@ classdef Detect < handle & matlab.mixin.SetGet
 
             if isempty(c), return; end
 
-            M = obj.decodedTrials.M;
+            M = obj.M;
             ind = obj.trialType == obj.targetTrialType;
             M = structfun(@(a) a(ind),M,'uni',0);
             for i = 1:length(uv)

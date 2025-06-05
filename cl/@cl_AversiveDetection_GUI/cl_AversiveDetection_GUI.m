@@ -7,6 +7,7 @@ classdef cl_AversiveDetection_GUI < handle
         h_OnlinePlot           % Handle to the online plot figure
         psychDetect            % psychophysics.Detect object
         psychPlot              % gui.psychPlot instance
+        slidingWindowPlot      % gui.SlidingWindowPerformancePlot instance
         ResponseHistory        % gui.History instance
         Performance            % gui.Performance instance
         plottedParameters = {'~Spout_TTL','~ShockOn','~GO_Stim','~NOGO_Stim'} % Logical parameter tags

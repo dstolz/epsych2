@@ -224,7 +224,7 @@ h.Value = 5;
 h.Text = "Modulation Rate (Hz):";
 
 
-% % >> AM Depth
+% % >> Depth
 % p = RUNTIME.HW.find_parameter('Depth');
 % h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
 % h.Values = 0:.01:1;
@@ -422,9 +422,23 @@ obj.hl_NewData  = addlistener(obj.psychDetect.Helper,'NewData',@(src,evnt) obj.u
 
 
 
+
+
+
+
+
+% Axes for Sliding Window Performance Plot ------------------------
+axSlidingWindow = uiaxes(layoutMain);
+axSlidingWindow.Layout.Row = [4 5];
+axSlidingWindow.Layout.Column = [3 5];
+obj.slidingWindowPlot = gui.SlidingWindowPerformancePlot(obj.psychDetect,axSlidingWindow);
+obj.slidingWindowPlot.plotType = 'dPrime';
+
+
+
 % Axes for Main Plot ------------------------------------------------
 axPsych = uiaxes(layoutMain);
-axPsych.Layout.Row = [4 8];
+axPsych.Layout.Row = [6 7];
 axPsych.Layout.Column = [3 5];
 
 obj.psychPlot = gui.PsychPlot(obj.psychDetect,axPsych);

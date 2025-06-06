@@ -38,14 +38,15 @@ classdef SlidingWindowPerformancePlot < handle
             )
 
 
-    end
+        Rate = struct( ...
+            'Hit', [], ...         % Hit rate per window/value
+            'FalseAlarm', [] ...   % False alarm rate per window
+            )
 
-    properties (Dependent)
-        dPrime  % D-prime values for each window
-        Bias    % Bias values for each window
-        HitRate % Hit rate values for each window
-        FARate  % False alarm rate values for each window
+        dPrime = [];  % D-prime values per window/value
+        Bias = [];    % Bias values per window/value
     end
+    
 
     methods
         % SlidingWindowPerformancePlot Construct a SlidingWindowPerformancePlot object.
@@ -217,42 +218,37 @@ classdef SlidingWindowPerformancePlot < handle
             obj.N(tidx).Values     = uv;     % Store unique values
             obj.N(tidx).TrialIdx   = tidx;   % Store current trial index
 
-            obj.plotValues = uv;
-        end
+            nuv = unique([obj.N.Values]);
+            obj.plotValues = nuv;
 
+            if size(obj.Rate.Hit,2) < length(nuv)
+                obj.Rate.Hit(:,end:length(nuv)) = nan;
+            end
+            
+            ind = ismember(nuv,uv);
+            
+            HR = nHit ./ nStim;  % Hit rate for each stimulus value
+            FAR = nFA ./ nCatch; % False alarm rate for the catch trials
 
-        function d = get.dPrime(obj)
+            obj.Rate.Hit(tidx,ind) = HR;
+            obj.Rate.FalseAlarm(tidx) = FAR;
+
             % Compute d-prime
-            FAR = repmat(obj.FARate(:),1,length(obj.plotValues));
-            if isempty(FAR), d = []; return; end
-
-            HR = obj.HitRate;
-            d = obj.psychObj.d_prime(HR,FAR,obj.psychObj.infCorrection);
+            d = P.d_prime(HR,FAR,obj.P.infCorrection);
             i = isnan(HR);
             d(i) = nan;  % Set d-prime to NaN where Hit is NaN
-        end
+            obj.dPrime(tidx,ind) = d;
 
-        function b = get.Bias(obj)
+
+            
             % Compute bias
             b = P.bias(obj.HitRate,FAR,obj.psychObj.infCorrection);
             i = isnan([obj.N.Hit]);
             b(i) = nan;  % Set bias to NaN where Hit is NaN
+            obj.Bias(tidx,ind) = b;
         end
 
-        function hr = get.HitRate(obj)
-            a = arrayfun(@(a) a.Hit ./ a.Stimulus,obj.N,'uni',0);
-            n = cellfun(@numel,a);
-            hr = nan(length(a),max(n));
-            for i = 1:length(hr)
-                if n(i) == 0, continue; end
-                ind = ismember(obj.plotValues,obj.N(i).Values);
-                hr(i,ind) = a{i};
-            end
-        end
 
-        function fa = get.FARate(obj)
-            fa = [obj.N.FalseAlarm] ./ [obj.N.Catch];
-        end
     end
 
 end

@@ -15,9 +15,11 @@ classdef SlidingWindowPerformancePlot < handle
         % Add any other plot properties you want to expose here
         LineWidth (1,1) double = 1.5;
     end
-    
+
     properties (SetAccess = private)
         hAxes
+        hLines (:,1) matlab.graphics.primitive.Line
+        
         Data
         hl_NewData                       % Listener for data update events
 
@@ -32,9 +34,9 @@ classdef SlidingWindowPerformancePlot < handle
             'Catch', [], ...       % Number of catch trials per window/value
             'FalseAlarm', [], ...  % Number of false alarms per window/value
             'TrialIdx', [] ...     % Index for the current trial
-        )
+            )
 
-        
+
     end
 
     properties (Dependent)
@@ -45,22 +47,22 @@ classdef SlidingWindowPerformancePlot < handle
     end
 
     methods
-    % SlidingWindowPerformancePlot Construct a SlidingWindowPerformancePlot object.
-    %   OBJ = SlidingWindowPerformancePlot(POBJ, AX) creates a SlidingWindowPerformancePlot object
-    %   associated with the given psychometric object POBJ and displays it in the
-    %   specified (typically a UI figure or panel). 
-    %
-    %   Inputs:
-    %       pObj      - (optional) Psychometric object to associate with the plot.
-    %       ax        - (optional) axes
-    %
-    %   Outputs:
-    %       obj       - Instance of the SlidingWindowPerformancePlot class.
+        % SlidingWindowPerformancePlot Construct a SlidingWindowPerformancePlot object.
+        %   OBJ = SlidingWindowPerformancePlot(POBJ, AX) creates a SlidingWindowPerformancePlot object
+        %   associated with the given psychometric object POBJ and displays it in the
+        %   specified (typically a UI figure or panel).
+        %
+        %   Inputs:
+        %       pObj      - (optional) Psychometric object to associate with the plot.
+        %       ax        - (optional) axes
+        %
+        %   Outputs:
+        %       obj       - Instance of the SlidingWindowPerformancePlot class.
 
         function obj = SlidingWindowPerformancePlot(pObj, ax)
 
             if nargin < 2 || isempty(ax), ax = gca; end
-            
+
             obj.hAxes = ax;
 
             if nargin >= 1 && ~isempty(pObj), obj.psychObj = pObj; end
@@ -83,6 +85,23 @@ classdef SlidingWindowPerformancePlot < handle
             obj.plot;
         end
 
+        function setup_plot(obj)
+            addArgs = {'Marker', obj.Marker, ...
+                'MarkerSize', obj.MarkerSize, ...
+                'LineStyle', obj.LineStyle, ...
+                'LineWidth', obj.LineWidth};
+
+            obj.hLines = line(obj.hAxes,nan,nan,addArgs{:});
+
+            colororder(obj.hAxes, obj.palettename);  % Set color palette
+
+
+            grid(obj.hAxes, 'on');
+            box(obj.hAxes,'on');
+
+            xlabel(obj.hAxes, 'trials')      % X-axis label
+        end
+
         function plot(obj)
             %PLOT Plots the selected performance metric over trial windows.
             %   Plots d-prime, hit rate, false alarm rate, or bias as selected by
@@ -90,30 +109,13 @@ classdef SlidingWindowPerformancePlot < handle
 
             if isempty(obj.dPrime), return; end  % No data to plot
 
-            P = obj.psychObj;
+            if isempty(obj.hLines) || ~isvalid(obj.hLines(1))
+                obj.setup_plot;
+            end
+            
+            obj.hLines.XData = [obj.N.TrialIdx];
+            obj.hLines.YData = obj.(obj.plotType);
 
-            cla(obj.hAxes);  % Clear axes
-
-            % Prepare plot arguments
-            plotArgs = { ...
-                obj.hAxes, ...
-                obj.trialWindows(:), ...
-                obj.(obj.plotType), ...
-                'Marker', obj.Marker, ...
-                'MarkerSize', obj.MarkerSize, ...
-                'LineStyle', obj.LineStyle, ...
-                'LineWidth', obj.LineWidth ...
-            };
-
-
-            % Plot the selected metric for each stimulus value
-            plot(plotArgs{:});
-
-           
-            colororder(obj.hAxes, obj.palettename);  % Set color palette
-
-            grid(obj.hAxes, 'on');
-            box(obj.hAxes,'on');
 
             % Add legend for all but FARate (since it is not stimulus-specific)
             if obj.plotType ~= "FARate"
@@ -127,11 +129,7 @@ classdef SlidingWindowPerformancePlot < handle
                 yline(obj.hAxes,1,'-k',HandleVisibility="off");
             end
 
-            % Set x-axis limits to cover all trial windows
-            obj.hAxes.XLim = [0 obj.trialWindows(end)];
-
             ylabel(obj.hAxes, obj.plotType)  % Y-axis label
-            xlabel(obj.hAxes, 'trials')      % X-axis label
         end
 
         function compute(obj)
@@ -145,15 +143,15 @@ classdef SlidingWindowPerformancePlot < handle
             P.targetTrialType = epsych.BitMask.Undefined;
 
             vals = P.trialValues;          % Stimulus value for each trial
-            
+
             RC = P.responseCodes;  % Response codes for all trials
-            
+
             if isempty(RC), return; end  % No response codes to process
 
-            
+
             obj.trialBits = epsych.BitMask.Mask2Bits(RC); % Logical matrix of trial outcomes
 
-            
+
             if isempty(obj.trialBits), return; end  % No valid trials to process
 
             % Get unique stimulus values
@@ -163,7 +161,6 @@ classdef SlidingWindowPerformancePlot < handle
             uv = unique(vals);
             uv(ismember(uv,valCatch)) = [];
 
-            if isempty(uv), return; end  % No valid stimulus values to process
 
             nStim = nan(1,length(uv)); % Number of stimulus trials per value
             nHit = nStim;              % Number of hits per value
@@ -197,7 +194,7 @@ classdef SlidingWindowPerformancePlot < handle
             if ~isstruct(obj.N) || isempty(obj.N)
                 obj.N = struct('Stimulus', [], 'Hit', [], 'Catch', [], 'FalseAlarm', [], 'TrialIdx', []);
             end
-    
+
 
             obj.N(tidx).Stimulus   = nStim;  % Store number of stimulus trials
             obj.N(tidx).Hit        = nHit;   % Store number of hits
@@ -212,20 +209,24 @@ classdef SlidingWindowPerformancePlot < handle
 
         function d = get.dPrime(obj)
             % Compute d-prime
-            FAR = repmat(obj.FARate(:),1,length(uv));
+            FAR = repmat(obj.FARate(:),1,length(obj.plotValues));
+            if isempty(FAR), d = []; return; end
             d = P.d_prime(obj.Rate.Hit,FAR,P.infCorrection);
             i = isnan([obj.N.Hit]);
             d(i) = nan;  % Set d-prime to NaN where Hit is NaN
         end
+
         function b = get.Bias(obj)
             % Compute bias
             b = P.bias(obj.HitRate,FAR,P.infCorrection);
             i = isnan([obj.N.Hit]);
             b(i) = nan;  % Set bias to NaN where Hit is NaN
         end
+
         function hr = get.HitRate(obj)
             hr  = [obj.N.Hit] ./ [obj.N.Stimulus];
         end
+
         function fa = get.FARate(obj)
             fa = [obj.N.FalseAlarm] ./ [obj.N.Catch];
         end

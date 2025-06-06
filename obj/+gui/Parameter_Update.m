@@ -103,7 +103,10 @@ classdef Parameter_Update < handle
                 if obj.updateImmediately
                     P.Value = h(i).Value;
                 end
-                [T{:,loc.(P.validName)}] = deal(h(i).Value);
+
+                if isfield(loc,P.validName)
+                    [T{:,loc.(P.validName)}] = deal(h(i).Value);
+                end
 
                 h(i).reset_label;                
             end

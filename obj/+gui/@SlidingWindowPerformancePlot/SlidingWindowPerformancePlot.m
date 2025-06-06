@@ -33,6 +33,7 @@ classdef SlidingWindowPerformancePlot < handle
             'Hit', [], ...         % Number of hits per window/value
             'Catch', [], ...       % Number of catch trials per window/value
             'FalseAlarm', [], ...  % Number of false alarms per window/value
+            'Values', [], ...      % Stimulus values
             'TrialIdx', [] ...     % Index for the current trial
             )
 
@@ -67,6 +68,7 @@ classdef SlidingWindowPerformancePlot < handle
 
             if nargin >= 1 && ~isempty(pObj), obj.psychObj = pObj; end
 
+            obj.setup_plot;
 
             obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
 
@@ -107,21 +109,39 @@ classdef SlidingWindowPerformancePlot < handle
             %   Plots d-prime, hit rate, false alarm rate, or bias as selected by
             %   obj.plotType, using the current trial windows and color palette.
 
-            if isempty(obj.dPrime), return; end  % No data to plot
+            y = obj.(obj.plotType);
+            if isempty(y), return; end  % No data to plot
 
             if isempty(obj.hLines) || ~isvalid(obj.hLines(1))
                 obj.setup_plot;
             end
             
-            obj.hLines.XData = [obj.N.TrialIdx];
-            obj.hLines.YData = obj.(obj.plotType);
+            x = [obj.N.TrialIdx]';
+
+            n = size(y,2);
+            if n > length(obj.hLines)
+                k = n - length(obj.hLines);
+                obj.hLines(end+1:n) = repmat(line(obj.hAxes,nan,nan),1,k);
+            end
+
+            for i = 1:n
+                obj.hLines(i).XData = x;
+                obj.hLines(i).YData = y(:,i);
+                obj.hLines(i).DisplayName = string(obj.plotValues(i));
+            end
+
+
+            addArgs = {'Marker', obj.Marker, ...
+                'MarkerSize', obj.MarkerSize, ...
+                'LineStyle', obj.LineStyle, ...
+                'LineWidth', obj.LineWidth};
+
+            set(obj.hLines,addArgs{:})
 
 
             % Add legend for all but FARate (since it is not stimulus-specific)
             if obj.plotType ~= "FARate"
-                luv = string(obj.plotValues);
-                h = legend(obj.hAxes, luv, ...
-                    Location = "eastoutside");
+                h = legend(obj.hAxes, Location = "eastoutside");
                 h.Title.String = obj.psychObj.Parameter.Name;
             end
 
@@ -190,20 +210,14 @@ classdef SlidingWindowPerformancePlot < handle
             nFA    = sum(obj.trialBits(idx,iFA),1);              % False alarm count
 
 
-            % Initialize N structure if it doesn't exist
-            if ~isstruct(obj.N) || isempty(obj.N)
-                obj.N = struct('Stimulus', [], 'Hit', [], 'Catch', [], 'FalseAlarm', [], 'TrialIdx', []);
-            end
-
-
             obj.N(tidx).Stimulus   = nStim;  % Store number of stimulus trials
             obj.N(tidx).Hit        = nHit;   % Store number of hits
             obj.N(tidx).Catch      = nCatch; % Store number of catch trials
             obj.N(tidx).FalseAlarm = nFA;    % Store number of false alarms
+            obj.N(tidx).Values     = uv;     % Store unique values
             obj.N(tidx).TrialIdx   = tidx;   % Store current trial index
 
             obj.plotValues = uv;
-
         end
 
 
@@ -211,20 +225,29 @@ classdef SlidingWindowPerformancePlot < handle
             % Compute d-prime
             FAR = repmat(obj.FARate(:),1,length(obj.plotValues));
             if isempty(FAR), d = []; return; end
-            d = P.d_prime(obj.Rate.Hit,FAR,P.infCorrection);
-            i = isnan([obj.N.Hit]);
+
+            HR = obj.HitRate;
+            d = obj.psychObj.d_prime(HR,FAR,obj.psychObj.infCorrection);
+            i = isnan(HR);
             d(i) = nan;  % Set d-prime to NaN where Hit is NaN
         end
 
         function b = get.Bias(obj)
             % Compute bias
-            b = P.bias(obj.HitRate,FAR,P.infCorrection);
+            b = P.bias(obj.HitRate,FAR,obj.psychObj.infCorrection);
             i = isnan([obj.N.Hit]);
             b(i) = nan;  % Set bias to NaN where Hit is NaN
         end
 
         function hr = get.HitRate(obj)
-            hr  = [obj.N.Hit] ./ [obj.N.Stimulus];
+            a = arrayfun(@(a) a.Hit ./ a.Stimulus,obj.N,'uni',0);
+            n = cellfun(@numel,a);
+            hr = nan(length(a),max(n));
+            for i = 1:length(hr)
+                if n(i) == 0, continue; end
+                ind = ismember(obj.plotValues,obj.N(i).Values);
+                hr(i,ind) = a{i};
+            end
         end
 
         function fa = get.FARate(obj)

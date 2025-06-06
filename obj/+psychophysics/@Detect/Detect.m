@@ -53,8 +53,10 @@ classdef Detect < handle & matlab.mixin.SetGet
 
         
         
+    end
 
-
+    properties (SetAccess = private)
+        % Helper - Global helper object for event handling
         Helper = epsych.Helper
     end
 
@@ -64,6 +66,9 @@ classdef Detect < handle & matlab.mixin.SetGet
 
         % responseCodes - Response codes from TRIALS.DATA
         responseCodes (1,:) uint32 = []
+
+        % trialIndex - Current trial index from TRIALS
+        trialIndex 
 
         % trialCount - Number of trials matching targetTrialType
         trialCount
@@ -77,7 +82,7 @@ classdef Detect < handle & matlab.mixin.SetGet
         % uniqueValues - Unique parameter values in trialValues
         uniqueValues
 
-
+        % countUniqueValues - Counts of unique parameter values in trialValues
         countUniqueValues
 
         % Count - Struct with counts of trial outcomes (Hit, Miss, etc.)
@@ -164,6 +169,18 @@ classdef Detect < handle & matlab.mixin.SetGet
                 d = [];
             else
                 d = obj.TRIALS.DATA;
+            end
+        end
+
+        function ti = get.trialIndex(obj)
+            % get.trialIndex Retrieves the current trial index
+            %
+            %   ti = obj.trialIndex returns the current trial index from
+            %   the TRIALS structure.
+            if isempty(obj.TRIALS)
+                ti = [];
+            else
+                ti = obj.TRIALS.TrialIndex;
             end
         end
 

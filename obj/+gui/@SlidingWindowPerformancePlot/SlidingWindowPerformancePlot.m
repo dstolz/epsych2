@@ -3,8 +3,6 @@ classdef SlidingWindowPerformancePlot < handle
     properties (SetObservable)
         psychObj                  % Reference to main psychophysics object providing data
 
-        window (1,1) {mustBePositive,mustBeInteger} = 20
-
         plotType (1,1) string {mustBeMember(plotType,["dPrime","HitRate","FARate","Bias"])} = "dPrime";
 
         palettename (1,1) string = "gem12"
@@ -16,7 +14,6 @@ classdef SlidingWindowPerformancePlot < handle
 
         % Add any other plot properties you want to expose here
         LineWidth (1,1) double = 1.5;
-        Color % Optional: user can set a color or leave empty for default
     end
     
     properties (SetAccess = private)
@@ -24,14 +21,27 @@ classdef SlidingWindowPerformancePlot < handle
         Data
         hl_NewData                       % Listener for data update events
 
-        trialWindows
-        HitRate
-        FARate
-        dPrime
-        Bias
+
         plotValues
 
         trialBits
+
+        N = struct( ...
+            'Stimulus', [], ...    % Number of stimulus trials per window/value
+            'Hit', [], ...         % Number of hits per window/value
+            'Catch', [], ...       % Number of catch trials per window/value
+            'FalseAlarm', [], ...  % Number of false alarms per window/value
+            'TrialIdx', [] ...     % Index for the current trial
+        )
+
+        
+    end
+
+    properties (Dependent)
+        dPrime  % D-prime values for each window
+        Bias    % Bias values for each window
+        HitRate % Hit rate values for each window
+        FARate  % False alarm rate values for each window
     end
 
     methods
@@ -94,9 +104,7 @@ classdef SlidingWindowPerformancePlot < handle
                 'LineStyle', obj.LineStyle, ...
                 'LineWidth', obj.LineWidth ...
             };
-            if ~isempty(obj.Color)
-                plotArgs = [plotArgs, {'Color', obj.Color}];
-            end
+
 
             % Plot the selected metric for each stimulus value
             plot(plotArgs{:});
@@ -104,7 +112,7 @@ classdef SlidingWindowPerformancePlot < handle
            
             colororder(obj.hAxes, obj.palettename);  % Set color palette
 
-            grid(obj.hAxes, 'on');  % Enable grid
+            grid(obj.hAxes, 'on');
             box(obj.hAxes,'on');
 
             % Add legend for all but FARate (since it is not stimulus-specific)
@@ -132,7 +140,6 @@ classdef SlidingWindowPerformancePlot < handle
             %   window of trials, grouped by unique stimulus values.
 
             if isempty(obj.psychObj.DATA), return; end
-            tic
 
             P = obj.psychObj;
             P.targetTrialType = epsych.BitMask.Undefined;
@@ -141,77 +148,87 @@ classdef SlidingWindowPerformancePlot < handle
             
             RC = P.responseCodes;  % Response codes for all trials
             
+            if isempty(RC), return; end  % No response codes to process
 
+            
             obj.trialBits = epsych.BitMask.Mask2Bits(RC); % Logical matrix of trial outcomes
 
-
             
+            if isempty(obj.trialBits), return; end  % No valid trials to process
 
-            nTrials = size(obj.trialBits,1);
-
-            bn = string(epsych.BitMask.list); % Bit names
-            
-
+            % Get unique stimulus values
             idxCatch = uint32(P.ttCatch);
             i = obj.trialBits(:,idxCatch);
             valCatch = unique(vals(i));
             uv = unique(vals);
             uv(ismember(uv,valCatch)) = [];
 
-            wvec = 1:nTrials;      % Start indices for each window
+            if isempty(uv), return; end  % No valid stimulus values to process
 
-            nStim = nan(length(wvec),length(uv)); % Number of stimulus trials per window/value
-            nHit = nStim;                         % Number of hits per window/value
+            nStim = nan(1,length(uv)); % Number of stimulus trials per value
+            nHit = nStim;              % Number of hits per value
 
-            nCatch = nan(size(wvec));             % Number of catch trials per window
-            nFA = nCatch;                         % Number of false alarms per window
+            iStim  = uint32(P.ttStimulus);              % Index for stimulus trials in bitmask
+            iCatch = uint32(P.ttCatch);                 % Index for catch trials in bitmask
+            iHit   = uint32(epsych.BitMask.Hit);        % Index for hit outcome in bitmask
+            iFA    = uint32(epsych.BitMask.FalseAlarm); % Index for false alarm outcome in bitmask
 
-            iStim =  uint32(P.ttStimulus);               % Index for stimulus trials in bitmask
-            iCatch = uint32(P.ttCatch);              % Index for catch trials in bitmask
-            iHit = uint32(epsych.BitMask.Hit);                   % Index for hit outcome in bitmask
-            iFA = uint32(epsych.BitMask.FalseAlarm);             % Index for false alarm outcome in bitmask
+            tidx = P.trialIndex;  % Current trial index from psychObj
 
-            k = 1;
-            for w = wvec
-                idx = 1:w;             % Indices for current window
+            idx = 1:tidx;
+            for i = 1:length(uv)
+                iv = intersect(idx,find(uv(i) == vals(:)));  % Trials for this stimulus value
 
-                for i = 1:length(uv)
-                    iv = intersect(idx,find(uv(i) == vals(:)));  % Trials for this stimulus value
-                    if isempty(iv), continue; end
-                    sn = sum(obj.trialBits(iv,iStim),1);         % Stimulus count
-                    if ~isempty(sn), nStim(k,i) = sn; end
-                    sh = sum(obj.trialBits(iv,iStim & iHit),1);  % Hit count
-                    if ~isempty(sh), nHit(k,i) = sh; end
-                end
+                if isempty(iv), continue; end % Skip if no trials for this value
 
-                nCatch(k) = sum(obj.trialBits(idx,iCatch),1);           % Catch count
-                nFA(k)    = sum(obj.trialBits(idx,iFA),1);              % False alarm count
-                k = k + 1;
+                sn = sum(obj.trialBits(iv,iStim),1);         % Stimulus count
+                if ~isempty(sn), nStim(i) = sn; end
+
+                sh = sum(obj.trialBits(iv,iStim & iHit),1);  % Hit count
+                if ~isempty(sh), nHit(i) = sh; end
             end
 
-            obj.trialWindows = wvec;
 
-            % Compute hit and false alarm rates
-            obj.HitRate = nHit ./ nStim;
-            obj.FARate = nFA ./ nCatch;
+            nCatch = sum(obj.trialBits(idx,iCatch),1);           % Catch count
+            nFA    = sum(obj.trialBits(idx,iFA),1);              % False alarm count
 
-            % Compute d-prime
-            FAR = repmat(obj.FARate(:),1,length(uv));
-            obj.dPrime = obj.psychObj.d_prime(obj.HitRate,FAR,obj.psychObj.infCorrection);
 
-            % Compute bias
-            obj.Bias = obj.psychObj.bias(obj.HitRate,FAR,obj.psychObj.infCorrection);
-            
+            % Initialize N structure if it doesn't exist
+            if ~isstruct(obj.N) || isempty(obj.N)
+                obj.N = struct('Stimulus', [], 'Hit', [], 'Catch', [], 'FalseAlarm', [], 'TrialIdx', []);
+            end
+    
 
-            i = isnan(obj.HitRate);
-            obj.dPrime(i) = nan;
-            obj.Bias(i) = nan;
+            obj.N(tidx).Stimulus   = nStim;  % Store number of stimulus trials
+            obj.N(tidx).Hit        = nHit;   % Store number of hits
+            obj.N(tidx).Catch      = nCatch; % Store number of catch trials
+            obj.N(tidx).FalseAlarm = nFA;    % Store number of false alarms
+            obj.N(tidx).TrialIdx   = tidx;   % Store current trial index
 
             obj.plotValues = uv;
 
-            toc
         end
 
+
+        function d = get.dPrime(obj)
+            % Compute d-prime
+            FAR = repmat(obj.FARate(:),1,length(uv));
+            d = P.d_prime(obj.Rate.Hit,FAR,P.infCorrection);
+            i = isnan([obj.N.Hit]);
+            d(i) = nan;  % Set d-prime to NaN where Hit is NaN
+        end
+        function b = get.Bias(obj)
+            % Compute bias
+            b = P.bias(obj.HitRate,FAR,P.infCorrection);
+            i = isnan([obj.N.Hit]);
+            b(i) = nan;  % Set bias to NaN where Hit is NaN
+        end
+        function hr = get.HitRate(obj)
+            hr  = [obj.N.Hit] ./ [obj.N.Stimulus];
+        end
+        function fa = get.FARate(obj)
+            fa = [obj.N.FalseAlarm] ./ [obj.N.Catch];
+        end
     end
 
 end

@@ -753,6 +753,8 @@ end
 
 %% Function Definitions
 function h = DefineTimerFcns(h,a,echo)
+msgbox('Defining custom timer functions is no longer supported.  Customizations should be implemented in the TrialSelection Function','ep_RunExpt','help')
+%{
 global STATEID FUNCS
 if STATEID >= 4, return; end
 
@@ -833,6 +835,7 @@ else
     AlwaysOnTop(h,ontop);
 end
 CheckReady(h);
+%}
 
 function h = DefineSavingFcn(h,a)
 global STATEID FUNCS

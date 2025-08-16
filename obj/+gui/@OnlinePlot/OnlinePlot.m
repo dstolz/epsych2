@@ -69,7 +69,7 @@ classdef OnlinePlot < handle
             obj.h_timer.Timer.StartFcn = @obj.setup_plot;
             obj.h_timer.Timer.TimerFcn = @obj.update;
             obj.h_timer.Timer.ErrorFcn = @obj.error;
-            obj.h_timer.Timer.Period = 0.05;
+            obj.h_timer.Timer.Period = 0.1;
             obj.h_timer.Timer.start;
             obj.hl_mode = listener(RUNTIME.HW,'mode','PostSet',@obj.mode_change);
         end

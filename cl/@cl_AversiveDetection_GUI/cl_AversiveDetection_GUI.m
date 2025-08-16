@@ -10,7 +10,7 @@ classdef cl_AversiveDetection_GUI < handle
         slidingWindowPlot      % gui.SlidingWindowPerformancePlot instance
         ResponseHistory        % gui.History instance
         Performance            % gui.Performance instance
-        plottedParameters = {'~Spout_TTL','~ShockOn','~GO_Stim','~NOGO_Stim'} % Logical parameter tags
+        plottedParameters = {'~Spout_TTL','~GO_Stim','~NOGO_Stim'} % Logical parameter tags
         lblFARate              % Label for FA Rate display
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons
@@ -199,7 +199,7 @@ classdef cl_AversiveDetection_GUI < handle
             f.Position(1) = p(1);
             f.Position(2) = p(2) + p(4) + 100;
             f.Position(3) = p(3);
-            f.Position(4) = 200;
+            f.Position(4) = 150;
             f.ToolBar = "none";
             f.MenuBar = "none";
             f.NumberTitle = "off";

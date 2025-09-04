@@ -5,6 +5,7 @@ classdef DeviceState < int8
         Standby (1)
         Preview (2)
         Record  (3)
+        Stop    (4)
         Error   (-1)
     end
 end

@@ -1,4 +1,3 @@
-
 function figAlwaysOnTop(figh,state)
 % figAlwaysOnTop(figh,state)
 %

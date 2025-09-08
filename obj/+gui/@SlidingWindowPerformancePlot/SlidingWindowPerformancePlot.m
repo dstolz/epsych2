@@ -221,6 +221,10 @@ classdef SlidingWindowPerformancePlot < handle
             nuv = unique([obj.N.Values]);
             obj.plotValues = nuv;
 
+            if isempty(obj.Rate.Hit)
+                obj.Rate.Hit = nan;
+            end
+
             if size(obj.Rate.Hit,2) < length(nuv)
                 obj.Rate.Hit(:,end:length(nuv)) = nan;
             end
@@ -234,7 +238,7 @@ classdef SlidingWindowPerformancePlot < handle
             obj.Rate.FalseAlarm(tidx) = FAR;
 
             % Compute d-prime
-            d = P.d_prime(HR,FAR,obj.P.infCorrection);
+            d = P.d_prime(HR,FAR,P.infCorrection);
             i = isnan(HR);
             d(i) = nan;  % Set d-prime to NaN where Hit is NaN
             obj.dPrime(tidx,ind) = d;
@@ -242,10 +246,10 @@ classdef SlidingWindowPerformancePlot < handle
 
             
             % Compute bias
-            b = P.bias(obj.HitRate,FAR,obj.psychObj.infCorrection);
+            b = P.bias(obj.Rate.Hit,FAR,obj.psychObj.infCorrection);
             i = isnan([obj.N.Hit]);
             b(i) = nan;  % Set bias to NaN where Hit is NaN
-            obj.Bias(tidx,ind) = b;
+            % obj.Bias(tidx,ind) = b;
         end
 
 

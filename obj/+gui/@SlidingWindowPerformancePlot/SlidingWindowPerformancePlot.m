@@ -109,7 +109,7 @@ classdef SlidingWindowPerformancePlot < handle
             %PLOT Plots the selected performance metric over trial windows.
             %   Plots d-prime, hit rate, false alarm rate, or bias as selected by
             %   obj.plotType, using the current trial windows and color palette.
-
+            vprintf(4,'Plotting psychometric data')
             y = obj.(obj.plotType);
             if isempty(y), return; end  % No data to plot
 
@@ -157,9 +157,9 @@ classdef SlidingWindowPerformancePlot < handle
             %COMPUTE Calculates performance metrics over sliding trial windows.
             %   Computes hit rate, false alarm rate, d-prime, and bias for each
             %   window of trials, grouped by unique stimulus values.
-
+            
             if isempty(obj.psychObj.DATA), return; end
-
+            vprintf(4,'Computing psychometric data')
             P = obj.psychObj;
             P.targetTrialType = epsych.BitMask.Undefined;
 

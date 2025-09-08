@@ -46,6 +46,7 @@ classdef Performance < handle
         end
 
         function update(obj,src,event)
+            vprintf(4,'Updating performance table')
             % Updates the table with the latest performance metrics from psychObj.
             if isempty(obj.psychObj.DATA), return; end
             

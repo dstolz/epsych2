@@ -49,6 +49,7 @@ classdef History < handle
 
         function update(obj,src,event)
             % Updates the table with the latest data from the psychObj.
+            vprintf(4,'Updating History table')
             if isempty(obj.psychObj.DATA), return; end
             RD = obj.rearrange_data;
             if isempty(RD), return; end

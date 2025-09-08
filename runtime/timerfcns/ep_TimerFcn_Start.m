@@ -66,7 +66,7 @@ for i = 1:RUNTIME.NSubjects
     
     dfn = sprintf('RUNTIME_DATA_%s_Box_%02d_%s.mat', ...
         genvarname(RUNTIME.TRIALS(i).Subject.Name), ...
-        RUNTIME.TRIALS(i).Subject.BoxID,datetime('today',Format='MMM-dd-yyyy'));
+        RUNTIME.TRIALS(i).Subject.BoxID,datetime('now',Format='yyMMddHHmmSS'));
     RUNTIME.DataFile{i} = fullfile(RUNTIME.DataDir,dfn);
 
     if exist(RUNTIME.DataFile{i},'file')

@@ -47,6 +47,12 @@ classdef Performance < handle
 
         function update(obj,src,event)
             vprintf(4,'Updating performance table')
+            % Diagnostic: print time + call stack
+            fprintf('%s: %s called\n', datestr(now,'HH:MM:SS.FFF'), mfilename);
+            st = dbstack('-completenames');
+            for k = 1:numel(st)
+                fprintf('  %d: %s\n', k, st(k).name);
+            end
             % Updates the table with the latest performance metrics from psychObj.
             if isempty(obj.psychObj.DATA), return; end
             

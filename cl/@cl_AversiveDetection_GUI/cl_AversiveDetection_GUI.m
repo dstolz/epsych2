@@ -158,7 +158,7 @@ classdef cl_AversiveDetection_GUI < handle
 
         function update_NextTrial(obj,src,event)
             % notified that the next trial is ready
-
+            vprintf(4,'Update GUI for next trial')
             D = event.Data;
 
             % Update Next Trial table

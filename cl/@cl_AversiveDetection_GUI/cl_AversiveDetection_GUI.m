@@ -145,12 +145,14 @@ classdef cl_AversiveDetection_GUI < handle
             end
 
 
+            try % TODO: FIGURE OUT WHY THIS IS HAPPENING
 
-            % calculate session FA rate and update
-            obj.psychDetect.targetTrialType = obj.bmCatch; % CATCH TRIALS
-            faRate = obj.psychDetect.Rate.FalseAlarm;
-            if isempty(faRate) || isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
-            obj.lblFARate.Text = faTxt;
+                % calculate session FA rate and update
+                obj.psychDetect.targetTrialType = obj.bmCatch; % CATCH TRIALS
+                faRate = obj.psychDetect.Rate.FalseAlarm;
+                if isempty(faRate) || isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
+                obj.lblFARate.Text = faTxt;
+            end
 
         end
 

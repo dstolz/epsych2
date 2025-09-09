@@ -76,7 +76,7 @@ classdef PsychPlot < handle
         
         function update_plot(obj,src,event)
             % although data is updated in src and event, just use the obj.psychObj
-
+            vprintf(4,'Updating PsychPlot')
             if ~isvalid(obj.ax), return; end
 
             lh = obj.LineH;

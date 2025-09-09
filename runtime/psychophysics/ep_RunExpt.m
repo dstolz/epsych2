@@ -371,7 +371,7 @@ try
     vprintf(1,'Calling Saving Function: %s',FUNCS.SavingFcn)
     feval(FUNCS.SavingFcn,RUNTIME);
 catch me
-    vprintf(-1,me)
+    vprintf(0,1,me)
 end
 
 % vprintf(3,'SaveDataCallback: Calling AlwaysOnTop')

@@ -8,8 +8,8 @@ fig = uifigure(Tag = 'cl_AversiveDetection_GUI', ...
     Name = 'Caras Lab Aversive Detection GUI', ...
     CloseRequestFcn = @(src, event) obj.closeGUI(src, event), ...
     UserData=obj);
-fig.Position = [1940 -1044 1400 1000];  % Set figure size
-
+fig.Position = [1940 20 1400 1000];  % Set figure size
+movegui(fig,'onscreen');
 obj.h_figure = fig;
 
 % Create a grid layout

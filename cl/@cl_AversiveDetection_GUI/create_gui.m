@@ -47,14 +47,6 @@ h.colorNormal = bcmNormal(1,:);
 h.colorOnUpdate = bcmActive(1,:);
 obj.hButtons.Reminder = h;
 
-% % > ReferencePhys
-% p = RUNTIME.S.Module.add_parameter('ReferencePhys',0);
-% h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
-% h.Text = "ReferencePhys";
-% h.colorNormal = bcmNormal(2,:);
-% h.colorOnUpdate = bcmActive(2,:);
-% obj.hButtons.ReferencePhys = h;
-
 
 % > Deliver Trials
 p = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
@@ -63,14 +55,6 @@ h.Text = "Deliver Trials";
 h.colorNormal = bcmNormal(3,:);
 h.colorOnUpdate = bcmActive(3,:);
 obj.hButtons.DeliverTrials = h;
-
-% % > Pause Trials
-% p = RUNTIME.S.Module.add_parameter('PauseTrials',0);
-% h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
-% h.Text = "Pause Trials";
-% h.colorNormal = bcmNormal(4,:);
-% h.colorOnUpdate = bcmActive(4,:);
-% obj.hButtons.PauseTrials = h;
 
 % > Air Puff
 p = RUNTIME.S.Module.add_parameter('AirPuff',0);
@@ -94,23 +78,6 @@ set(bh, ...
 
 
 
-
-
-
-% % PARAMETERS ----------------------------------------------------
-% % Panel for "Reminder Trial"
-% panelReminderTrial = uipanel(layoutMain, 'Title', 'Reminder Trial');
-% panelReminderTrial.Layout.Row = [2 3];
-% panelReminderTrial.Layout.Column = [1 2];
-%
-% % > ReminderTrial
-% layoutReminderTrial = simple_layout(panelReminderTrial);
-%
-% % > Reminder Trial Table
-% tableReminderTrial = uitable(layoutReminderTrial);
-% tableReminderTrial.ColumnName = {'Depth','TrialType'};
-% tableReminderTrial.ColumnEditable = false;
-% tableReminderTrial.FontSize = 8;
 
 
 % TRIAL CONTROLS -------------------------------------------------

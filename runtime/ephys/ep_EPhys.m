@@ -993,7 +993,7 @@ end
 
 set(h.figure1,'WindowStyle','normal');
 
-FigOnTop(h.figure1,ontop);
+figAlwaysOnTop(h.figure1,ontop);
 
 setpref('ep_EPhys','AlwaysOnTop',ontop);
 

@@ -1,18 +1,39 @@
 classdef ep_RunExpt2 < handle
-    % ep_RunExpt2
+    % ep_RunExpt2 — Run and manage psychophysics experiments with a UIFigure-based GUI.
     %
-    % Run Psychophysics experiment
+    % Description
+    %   Provides subject/configuration management, protocol loading, TDT hardware
+    %   initialization (Synapse or RPvds), a timer-driven runtime loop, data
+    %   saving hooks, and optional behavior-performance GUI integration. The UI
+    %   is built with uifigure/uigridlayout and exposes core controls (Run,
+    %   Preview, Pause, Stop) plus utilities for editing protocols and saving.
     %
-    % Usage:
-    %   app = ep_RunExpt2;
-    %   % Interact via UI or call methods:
-    %   % app.LoadConfig(); app.Run(); app.Stop(); app.SaveData();
+    % Key Features
+    %   • Maintains experiment state via PRGMSTATE
+    %   • Loads/saves .config files containing subjects, protocols, and callbacks
+    %   • Selects hardware driver (hw.TDT_Synapse or hw.TDT_RPcox) from context
+    %   • Uses TIMERfcn callbacks for Start/RunTime/Stop/Error
+    %   • Delegates saving, subject creation, and GUI creation to user-defined functions
+    %
+    % Properties (brief)
+    %   H            — UI handle struct
+    %   ProgramState — PRGMSTATE enum (lifecycle state)
+    %   STATEID      — Numeric state mirror for legacy codepaths
+    %   CONFIG       — Per-subject config array (SUBJECT/PROTOCOL/RUNTIME/protocol_fn)
+    %   FUNCS        — Function handles/names for Saving/AddSubject/BoxFig/TIMERfcn
+    %   RUNTIME      — Runtime state container shared with callbacks
+    %   GVerbosity   — Verbosity level for vprintf()
+    %
+    % Notes
+    %   External utilities are expected on-path: EPsychInfo, vprintf, figAlwaysOnTop,
+    %   epsych.Helper, ep_CompiledProtocolTrials, ep_ExperimentDesign, and
+    %   functions referenced by FUNCS.* and hw.* classes.
     %
     % Daniel.Stolzberg@gmail.com 2014–2025
 
     properties
         H % struct of UI handles
-        PRGMSTATE string = "NOCONFIG"
+        ProgramState PRGMSTATE = PRGMSTATE.NOCONFIG
         STATEID double = 0
         CONFIG struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])
         FUNCS struct
@@ -22,13 +43,31 @@ classdef ep_RunExpt2 < handle
 
     methods
         function self = ep_RunExpt2()
+            % Constructor — Build UI, initialize callbacks, and clear config.
+            %   Initializes the UIFigure, loads default function preferences,
+            %   resets CONFIG, and updates the GUI to reflect readiness.
+
+            % check if an instance of the gui already exists
+            f = findobj('tag','ep_RunExpt2');
+            if ~isempty(f)
+                figure(f);
+                movegui(f,'onscreen');
+                self = f.UserData;
+                return
+            end
+
+
             self.buildUI
             self.FUNCS = self.GetDefaultFuncs;
             self.ClearConfig
             self.UpdateGUIstate
+
         end
 
         function delete(self)
+            % Destructor — Ensures orderly shutdown and onClose handling.
+            %   Invokes onCloseRequest if still valid to stop timers and
+            %   release UI resources.
             try
                 if isvalid(self)
                     self.onCloseRequest
@@ -38,30 +77,47 @@ classdef ep_RunExpt2 < handle
         end
 
         function Run(self)
+            % Run — Convenience wrapper to start experiment (Record mode).
+            %   For legacy compatibility; forwards to ExptDispatch("Run").
             self.ExptDispatch("Run")
         end
 
         function Record(self)
+            % Record — Start experiment in acquisition mode.
+            %   Forwards to ExptDispatch("Record").
             self.ExptDispatch("Record")
         end
 
         function Preview(self)
+            % Preview — Start non-recording preview session.
+            %   Forwards to ExptDispatch("Preview").
             self.ExptDispatch("Preview")
         end
 
         function Pause(self)
-            % Placeholder for future pause handling
+            % Pause — Placeholder for future pause handling.
+            %   Reserved for implementing a paused runtime state.
         end
 
         function Stop(self)
+            % Stop — Halt the running experiment and timers.
+            %   Forwards to ExptDispatch("Stop").
             self.ExptDispatch("Stop")
         end
 
         function SaveData(self)
+            % SaveData — Trigger save using the configured SavingFcn.
+            %   Calls SaveDataCallback to serialize RUNTIME via FUNCS.SavingFcn.
             self.SaveDataCallback
         end
 
         function LoadConfig(self, cfn)
+            % LoadConfig — Load a .config file and apply stored functions.
+            % Inputs
+            %   cfn (string) — Optional config filepath; prompts if empty.
+            % Behavior
+            %   Loads CONFIG and FUNCS from file (if present), updates subject
+            %   list, and sets ProgramState to READY when requirements are met.
             arguments
                 self
                 cfn string = ""
@@ -106,6 +162,10 @@ classdef ep_RunExpt2 < handle
         end
 
         function SaveConfig(self)
+            % SaveConfig — Persist CONFIG, FUNCS, and meta to a .config file.
+            % Behavior
+            %   Prompts for a destination, serializes current config/functions
+            %   together with EPsychInfo meta for reproducibility.
             if self.STATEID == 0
                 warndlg('Please first add a subject.','Save Configuration','modal')
                 return
@@ -130,6 +190,11 @@ classdef ep_RunExpt2 < handle
         end
 
         function ok = LocateProtocol(self, pfn)
+            % LocateProtocol — Set or add the protocol file for a subject.
+            % Inputs
+            %   pfn (string) — Optional protocol filepath; prompts if empty.
+            % Output
+            %   ok (logical) — True when a valid protocol file is assigned.
             arguments
                 self
                 pfn string = ""
@@ -160,6 +225,12 @@ classdef ep_RunExpt2 < handle
         end
 
         function AddSubject(self, S)
+            % AddSubject — Create a new subject entry and assign a protocol.
+            % Inputs
+            %   S (struct) — Optional pre-filled subject fields; dialog if empty.
+            % Behavior
+            %   Invokes FUNCS.AddSubjectFcn(S, boxids), enforces unique names,
+            %   prompts for a protocol file, appends to CONFIG, and updates UI.
             arguments
                 self
                 S struct = struct()
@@ -214,6 +285,12 @@ classdef ep_RunExpt2 < handle
         end
 
         function RemoveSubject(self, idx)
+            % RemoveSubject — Delete a subject from CONFIG.
+            % Inputs
+            %   idx (double) — Optional row index; uses selected table row if NaN.
+            % Behavior
+            %   Removes the specified subject (or clears CONFIG if singleton)
+            %   then updates the table and readiness state.
             arguments
                 self
                 idx double = NaN
@@ -236,6 +313,10 @@ classdef ep_RunExpt2 < handle
         end
 
         function ViewTrials(self)
+            % ViewTrials — Display compiled trial definitions for selection.
+            % Behavior
+            %   Loads the selected subject's protocol and shows trial summary
+            %   using ep_CompiledProtocolTrials (truncated for readability).
             idx = self.H.subject_list.UserData;
             if isempty(idx), return, end
 
@@ -247,6 +328,9 @@ classdef ep_RunExpt2 < handle
         end
 
         function EditProtocol(self)
+            % EditProtocol — Launch protocol editor for selected subject.
+            % Behavior
+            %   Opens ep_ExperimentDesign with the selected protocol path/index.
             idx = self.H.subject_list.UserData;
             if isempty(idx), return, end
 
@@ -255,6 +339,9 @@ classdef ep_RunExpt2 < handle
         end
 
         function SortBoxes(self)
+            % SortBoxes — Reorder CONFIG by SUBJECT.BoxID.
+            % Behavior
+            %   Rebuilds CONFIG so array order matches assigned BoxID values.
             if self.STATEID >= 4, return, end
             if ~isfield(self.CONFIG,'SUBJECT'), return, end
             ids = arrayfun(@(c) c.SUBJECT.BoxID, self.CONFIG);
@@ -267,6 +354,11 @@ classdef ep_RunExpt2 < handle
         end
 
         function DefineSavingFcn(self, a)
+            % DefineSavingFcn — Configure the data-saving function.
+            % Inputs
+            %   a — Function name/handle or 'default'; prompts if empty.
+            % Requirements
+            %   The function must accept one input (RUNTIME) and return no outputs.
             arguments
                 self
                 a = []
@@ -300,7 +392,7 @@ classdef ep_RunExpt2 < handle
             if nargin(a) ~= 1 || nargout(a) ~= 0
                 ontop = self.AlwaysOnTop;
                 self.AlwaysOnTop(false)
-                errordlg('The Saving Data function must have 2 inputs and 0 outputs.','Saving Function','modal')
+                errordlg('The Saving Data function must take 1 input and return 0 outputs.','Saving Function','modal')
                 self.AlwaysOnTop(ontop)
                 return
             end
@@ -311,6 +403,11 @@ classdef ep_RunExpt2 < handle
         end
 
         function DefineAddSubject(self, a)
+            % DefineAddSubject — Configure the subject creation function.
+            % Inputs
+            %   a — Function name/handle or 'default'; prompts if empty.
+            % Expected Signature
+            %   S = AddSubjectFcn(S, boxids)
             arguments
                 self
                 a = []
@@ -347,6 +444,11 @@ classdef ep_RunExpt2 < handle
         end
 
         function DefineBoxFig(self, a)
+            % DefineBoxFig — Configure the per-box behavior GUI function.
+            % Inputs
+            %   a — Function name/handle or 'default'; prompts if empty; empty to disable.
+            % Expected Signature
+            %   BoxFig(RUNTIME)
             arguments
                 self
                 a = []
@@ -391,11 +493,17 @@ classdef ep_RunExpt2 < handle
         end
 
         function LocateBehaviorGUI(self)
+            % LocateBehaviorGUI — Launch the configured behavior GUI.
+            % Behavior
+            %   Calls FUNCS.BoxFig(RUNTIME) if BoxFig is configured.
             if isempty(self.FUNCS.BoxFig), return, end
             feval(self.FUNCS.BoxFig, self.RUNTIME);
         end
 
         function AlwaysOnTop(self, ontop)
+            % AlwaysOnTop — Toggle the main window "always on top" setting.
+            % Inputs
+            %   ontop (logical) — Optional; when omitted, flips current state.
             if nargout==0 && nargin==1
                 ontop = getpref('ep_RunExpt','AlwaysOnTop',false);
             elseif nargin<2
@@ -410,17 +518,23 @@ classdef ep_RunExpt2 < handle
             end
 
             set(self.H.figure1,'WindowStyle','normal')
-            FigOnTop(self.H.figure1, ontop)
+            figAlwaysOnTop(self.H.figure1, ontop)
             setpref('ep_RunExpt','AlwaysOnTop',ontop)
         end
 
         function version_info(~)
+            % version_info — Display EPsych metadata in the command window.
+            % Behavior
+            %   Prints EPsychInfo.meta and returns focus to the command window.
             E = EPsychInfo;
             disp(E.meta)
             commandwindow
         end
 
         function verbosity(self)
+            % verbosity — Set the global verbosity level via dialog.
+            % Behavior
+            %   Presents a list dialog and updates GVerbosity accordingly.
             options = {'0. No extraneous text'
                 '1. Additional info'
                 '2. Detailed info'
@@ -437,98 +551,107 @@ classdef ep_RunExpt2 < handle
 
     methods (Access=private)
         function buildUI(self)
-            f = figure('Name','ep_RunExpt','NumberTitle','off','Tag','figure1', ...
-                'MenuBar','none','ToolBar','none','Units','normalized','Position',[.2 .2 .6 .6], ...
-                'CloseRequestFcn', @(~,~) self.onCloseRequest);
-            self.H.figure1 = f;
+            % buildUI — Create UIFigure, menus, layouts, and controls.
+            % Behavior
+            %   Assembles the main grid, subject table, bottom control bar, and
+            %   right-side utilities using uigridlayout and uibutton components.
 
+            f = uifigure('Name','EPsych','Tag','ep_RunExpt2', ...
+                'Position',[100 100 700 300], ...
+                'CloseRequestFcn', @(~,~) self.onCloseRequest);
+
+            f.UserData = self;
+
+            self.H.figure1 = f;
+            
+
+            movegui(f,'onscreen');
+
+            % Menus
             mFile = uimenu(f,'Label','File');
-            uimenu(mFile,'Label','Load Config...','Callback', @(~,~) self.LoadConfig)
-            uimenu(mFile,'Label','Save Config...','Callback', @(~,~) self.SaveConfig)
-            uimenu(mFile,'Label','Exit','Separator','on','Callback', @(~,~) self.onCloseRequest)
+            uimenu(mFile,'Label','Load Config...','MenuSelectedFcn', @(~,~) self.LoadConfig)
+            uimenu(mFile,'Label','Save Config...','MenuSelectedFcn', @(~,~) self.SaveConfig)
+            uimenu(mFile,'Label','Exit','Separator','on','MenuSelectedFcn', @(~,~) self.onCloseRequest)
 
             mView = uimenu(f,'Label','View');
             self.H.always_on_top = uimenu(mView,'Label','Always On Top','Checked','off', ...
-                'Callback', @(~,~) self.AlwaysOnTop);
+                'MenuSelectedFcn', @(~,~) self.AlwaysOnTop);
 
             mHelp = uimenu(f,'Label','Help');
-            uimenu(mHelp,'Label','Version Info','Callback', @(~,~) self.version_info)
-            uimenu(mHelp,'Label','Verbosity...','Callback', @(~,~) self.verbosity)
+            uimenu(mHelp,'Label','Version Info','MenuSelectedFcn', @(~,~) self.version_info)
+            uimenu(mHelp,'Label','Verbosity...','MenuSelectedFcn', @(~,~) self.verbosity)
 
             self.H.mnu_LaunchGUI = uimenu(mView,'Label','Launch Behavior GUI','Enable','off', ...
-                'Callback', @(~,~) self.LocateBehaviorGUI);
+                'MenuSelectedFcn', @(~,~) self.LocateBehaviorGUI);
 
-            % -------- Layout parameters --------
-            pad      = .01;   % general padding
-            rightW   = .18;   % width of the right-side vertical button column
-            bottomH  = .08;   % height of the bottom control bar
+            
+            g = uigridlayout(f,[2 2]);
+            g.RowHeight   = {'1x',40};
+            g.ColumnWidth = {'1x',100};
+            g.RowSpacing = 8; g.ColumnSpacing = 8; g.Padding = [8 8 8 8];
 
-            % Compute regions
-            tableX = pad;
-            tableY = pad + bottomH + pad;                  % leave room for bottom buttons
-            tableW = 1 - rightW - 3*pad;                   % leave room for right column
-            tableH = 1 - (tableY + pad);                   % up to top padding
+            % ---------- Subject table (left, top) ----------
+            self.H.subject_list = uitable(g, ...
+                'Tag','subject_list', ...
+                'Data',{}, ...
+                'ColumnName',{'BoxID','Name','Protocol'}, ...
+                'ColumnEditable',[false false false]);
+            self.H.subject_list.Layout.Row = 1;
+            self.H.subject_list.Layout.Column = 1;
+            % In UIFIGURE, use SelectionChangedFcn
+            self.H.subject_list.SelectionChangedFcn = @(h,ev) self.subject_list_SelectionChanged(h,ev);
 
-            % -------- Subject table (left) --------
-            self.H.subject_list = uitable(f,'Tag','subject_list','Units','normalized', ...
-                'Position',[tableX tableY tableW tableH], 'Data',{}, ...
-                'ColumnName',{'BoxID','Name','Protocol'}, 'ColumnEditable',[false false false], ...
-                'CellSelectionCallback', @(h,ev) self.subject_list_CellSelectionCallback(h,ev));
+            % ---------- Bottom control bar (Run/Preview/Pause/Stop) ----------
+            gBottom = uigridlayout(g,[1 4]);
+            gBottom.Layout.Row = 2; gBottom.Layout.Column = 1;
+            gBottom.ColumnWidth = {'1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
+            gBottom.RowSpacing = 0; gBottom.ColumnSpacing = 8; gBottom.Padding = [0 0 0 0];
 
-            % -------- Bottom control buttons (Run/Preview/Pause/Stop) --------
-            bbW = (tableW - 3*pad)/4;  % four buttons with pad spacing between
-            bbH = bottomH;
-            bbY = pad;
+            self.H.ctrl_run = uibutton(gBottom,'push','Text','Run', ...
+                'Tag','ctrl_run','FontWeight','bold','FontSize',18, ...
+                'BackgroundColor',[0.20 0.75 0.20], 'FontColor','w', ...
+                'ButtonPushedFcn', @(h,~) self.onCommand(h));
 
-            self.H.ctrl_run = uicontrol(f,'Style','pushbutton','String','Run', ...
-                'Units','normalized','Position',[tableX, bbY, bbW, bbH], ...
-                'Tag','ctrl_run','FontWeight','bold', ...
-                'BackgroundColor',[0.20 0.75 0.20], 'ForegroundColor',[0 0 0], ...
-                'Callback', @(h,~) self.onCommand(h));
+            self.H.ctrl_preview = uibutton(gBottom,'push','Text','Preview', ...
+                'Tag','ctrl_preview','FontWeight','bold','FontSize',18, ...
+                'BackgroundColor',[0.20 0.50 0.90], 'FontColor','w', ...
+                'ButtonPushedFcn', @(h,~) self.onCommand(h));
 
-            self.H.ctrl_preview = uicontrol(f,'Style','pushbutton','String','Preview', ...
-                'Units','normalized','Position',[tableX + (bbW+pad), bbY, bbW, bbH], ...
-                'Tag','ctrl_preview','FontWeight','bold', ...
-                'BackgroundColor',[0.20 0.50 0.90], 'ForegroundColor',[0 0 0], ...
-                'Callback', @(h,~) self.onCommand(h));
+            self.H.ctrl_pauseall = uibutton(gBottom,'push','Text','Pause', ...
+                'Tag','ctrl_pauseall','FontWeight','bold','FontSize',18, ...
+                'BackgroundColor',[1.00 0.80 0.20], 'FontColor','w', ...
+                'ButtonPushedFcn', @(h,~) self.onCommand(h));
 
-            self.H.ctrl_pauseall = uicontrol(f,'Style','pushbutton','String','Pause', ...
-                'Units','normalized','Position',[tableX + 2*(bbW+pad), bbY, bbW, bbH], ...
-                'Tag','ctrl_pauseall','FontWeight','bold', ...
-                'BackgroundColor',[1.00 0.80 0.20], 'ForegroundColor',[0 0 0], ...
-                'Callback', @(h,~) self.onCommand(h));
+            self.H.ctrl_halt = uibutton(gBottom,'push','Text','Stop', ...
+                'Tag','ctrl_halt','FontWeight','bold','FontSize',18, ...
+                'BackgroundColor',[0.85 0.25 0.25], 'FontColor','w', ...
+                'ButtonPushedFcn', @(h,~) self.onCommand(h));
 
-            self.H.ctrl_halt = uicontrol(f,'Style','pushbutton','String','Stop', ...
-                'Units','normalized','Position',[tableX + 3*(bbW+pad), bbY, bbW, bbH], ...
-                'Tag','ctrl_halt','FontWeight','bold', ...
-                'BackgroundColor',[0.85 0.25 0.25], 'ForegroundColor',[1 1 1], ...
-                'Callback', @(h,~) self.onCommand(h));
+            % ---------- Right-side vertical buttons (stacked) ----------
+            gRight = uigridlayout(g,[4 1]);
+            gRight.Layout.Row = 1; gRight.Layout.Column = 2;
+            gRight.RowHeight = {'fit','fit','fit','fit'};
+            gRight.RowSpacing = 8; gRight.Padding = [0 0 0 0];
 
-            % -------- Right-side vertical buttons --------
-            sideX   = tableX + tableW + pad;
-            sideW   = rightW;
-            sideH   = .08;    % height of each right-side button
-            yTop    = 1 - pad - sideH;
+            self.H.save_data = uibutton(gRight,'push','Text','Save Data', ...
+                'Tag','save_data', 'ButtonPushedFcn', @(~,~) self.SaveData);
 
-            self.H.save_data = uicontrol(f,'Style','pushbutton','String','Save Data', ...
-                'Units','normalized','Position',[sideX yTop sideW sideH], ...
-                'Tag','save_data','Callback', @(varargin) []);
+            self.H.setup_remove_subject = uibutton(gRight,'push','Text','Remove Subject', ...
+                'Tag','setup_remove_subject','ButtonPushedFcn', @(~,~) self.RemoveSubject);
 
-            self.H.setup_remove_subject = uicontrol(f,'Style','pushbutton','String','Remove Subject', ...
-                'Units','normalized','Position',[sideX yTop-(sideH+pad) sideW sideH], ...
-                'Tag','setup_remove_subject','Callback', @(~,~) self.RemoveSubject);
+            self.H.edit_protocol = uibutton(gRight,'push','Text','Edit Protocol', ...
+                'Tag','edit_protocol','ButtonPushedFcn', @(~,~) self.EditProtocol);
 
-            self.H.edit_protocol = uicontrol(f,'Style','pushbutton','String','Edit Protocol', ...
-                'Units','normalized','Position',[sideX yTop-2*(sideH+pad) sideW sideH], ...
-                'Tag','edit_protocol','Callback', @(~,~) self.EditProtocol);
-
-            self.H.view_trials = uicontrol(f,'Style','pushbutton','String','View Trials', ...
-                'Units','normalized','Position',[sideX yTop-3*(sideH+pad) sideW sideH], ...
-                'Tag','view_trials','Callback', @(~,~) self.ViewTrials);
+            self.H.view_trials = uibutton(gRight,'push','Text','View Trials', ...
+                'Tag','view_trials','ButtonPushedFcn', @(~,~) self.ViewTrials);
         end
 
         function onCloseRequest(self)
-            if strcmp(self.PRGMSTATE,'RUNNING')
+            % onCloseRequest — Graceful shutdown of running experiment and UI.
+            % Behavior
+            %   Warns if running, stops/deletes timers, resets functions to
+            %   preferences, and deletes the main figure.
+            if self.ProgramState == PRGMSTATE.RUNNING
                 b = questdlg('Experiment is currently running. Closing will stop the experiment.', ...
                     'Experiment','Close Experiment','Cancel','Cancel');
                 if strcmp(b,'Cancel'), return, end
@@ -547,15 +670,25 @@ classdef ep_RunExpt2 < handle
         end
 
         function onCommand(self, hObj)
-            self.ExptDispatch(string(get(hObj,'String')))
+            % onCommand — Route button clicks to the dispatcher.
+            % Inputs
+            %   hObj — The source button; its Text determines the command.
+            % For uibuttons, use Text instead of String
+            self.ExptDispatch(string(hObj.Text));
         end
 
         function ExptDispatch(self, COMMAND)
+            % ExptDispatch — Core state dispatcher for run/preview/stop.
+            % Inputs
+            %   COMMAND (string) — "Run"|"Record"|"Preview"|"Stop".
+            % Behavior
+            %   Prepares RUNTIME, loads protocols, initializes hardware,
+            %   configures/starts the PsychTimer, and manages Stop/cleanup.
             if COMMAND == "Run", COMMAND = "Record"; end
 
             switch COMMAND
                 case {"Run","Record","Preview"}
-                    set(self.H.figure1,'pointer','watch'); drawnow
+                    drawnow
 
                     [~,~] = dos('wmic process where name="MATLAB.exe" CALL setpriority "high priority"');
 
@@ -602,7 +735,7 @@ classdef ep_RunExpt2 < handle
                             self.RUNTIME.HW = hw.TDT_RPcox(rpvdsFile,moduleType,moduleAlias);
                         end
                     catch me
-                        set(self.H.figure1,'pointer','arrow'); drawnow
+                        drawnow
                         rethrow(me)
                     end
 
@@ -624,13 +757,13 @@ classdef ep_RunExpt2 < handle
 
                     start(self.RUNTIME.TIMER)
 
-                    set(self.H.figure1,'pointer','arrow'); drawnow
+                    drawnow
 
                 case 'Pause'
                     % reserved for future pause
 
                 case 'Stop'
-                    self.PRGMSTATE = "STOP";
+                    self.ProgramState = PRGMSTATE.STOP;
                     set(self.H.figure1,'pointer','watch')
 
                     vprintf(3,'ExptDispatch: Stopping BoxTimer')
@@ -643,13 +776,16 @@ classdef ep_RunExpt2 < handle
 
                     vprintf(0,'Experiment stopped at %s',datetime("now",Format='dd-MMM-yyyy HH:mm'))
 
-                    set(self.H.figure1,'pointer','arrow')
+                    
             end
 
             self.UpdateGUIstate
         end
 
         function T = CreateTimer(self)
+            % CreateTimer — Build (or rebuild) the main PsychTimer.
+            % Output
+            %   T — MATLAB timer object configured for the runtime loop.
             T = timerfind('Name','PsychTimer');
             if ~isempty(T)
                 stop(T)
@@ -668,7 +804,11 @@ classdef ep_RunExpt2 < handle
         end
 
         function PsychTimerStart(self)
-            self.PRGMSTATE = "RUNNING";
+            % PsychTimerStart — Initialize runtime and optional performance GUI.
+            % Behavior
+            %   Updates state, calls TIMERfcn.Start, records StartTime, and
+            %   attempts to launch BoxFig if configured.
+            self.ProgramState = PRGMSTATE.RUNNING;
             self.UpdateGUIstate
 
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Start, self.RUNTIME, self.CONFIG);
@@ -693,6 +833,10 @@ classdef ep_RunExpt2 < handle
         end
 
         function PsychTimerRunTime(self)
+            % PsychTimerRunTime — Per-period runtime callback.
+            % Behavior
+            %   Stops when hardware returns Idle; otherwise delegates loop
+            %   work to TIMERfcn.RunTime(RUNTIME).
             if isfield(self.RUNTIME,'HW') && self.RUNTIME.HW.mode == hw.DeviceState.Idle
                 self.ExptDispatch("Stop")
                 return
@@ -701,7 +845,11 @@ classdef ep_RunExpt2 < handle
         end
 
         function PsychTimerError(self)
-            self.PRGMSTATE = "ERROR";
+            % PsychTimerError — Error handler for the runtime loop.
+            % Behavior
+            %   Records last error, calls TIMERfcn.Error, saves data, and
+            %   updates GUI state to reflect the error condition.
+            self.ProgramState = PRGMSTATE.ERROR;
             self.RUNTIME.ERROR = lasterror; %#ok<LERR>
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Error, self.RUNTIME);
             feval(self.FUNCS.SavingFcn, self.RUNTIME);
@@ -710,7 +858,10 @@ classdef ep_RunExpt2 < handle
         end
 
         function PsychTimerStop(self)
-            self.PRGMSTATE = "STOP";
+            % PsychTimerStop — Clean shutdown after the runtime loop ends.
+            % Behavior
+            %   Calls TIMERfcn.Stop, refreshes GUI, and triggers save logic.
+            self.ProgramState = PRGMSTATE.STOP;
             vprintf(3,'PsychTimerStop:Calling timer Stop function: %s',self.FUNCS.TIMERfcn.Stop)
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Stop, self.RUNTIME);
             vprintf(3,'PsychTimerStop:Calling UpdateGUIstate')
@@ -720,24 +871,39 @@ classdef ep_RunExpt2 < handle
         end
 
         function SaveDataCallback(self)
-            oldstate = self.PRGMSTATE;
-            self.PRGMSTATE = "";
-            vprintf(3,'SaveDataCallback: Calling UpdateGUIstate')
-            self.UpdateGUIstate
+            % SaveDataCallback — Invoke SavingFcn with UI-safe control state.
+            % Behavior
+            %   Disables controls during save, calls FUNCS.SavingFcn(RUNTIME),
+            %   and restores GUI state per ProgramState.
+            oldstate = self.ProgramState; %#ok<NASGU>
+            % Temporarily disable controls during save without changing state enum
+            try
+                hCtrl = findobj(self.H.figure1,'-regexp','tag','^ctrl')';
+                set([hCtrl self.H.save_data],'Enable','off')
+            catch
+            end
 
+            vprintf(3,'SaveDataCallback: Saving via %s',self.FUNCS.SavingFcn)
             try
                 vprintf(1,'Calling Saving Function: %s',self.FUNCS.SavingFcn)
                 feval(self.FUNCS.SavingFcn, self.RUNTIME);
             catch me
-                vprintf(-1,me)
+                vprintf(0,1,me)
             end
 
-            self.PRGMSTATE = oldstate;
+            % Restore UI based on current state
+            self.UpdateGUIstate
+            
+            self.ProgramState = oldstate;
             vprintf(3,'SaveDataCallback: Calling UpdateGUIstate')
             self.UpdateGUIstate
         end
 
         function CheckReady(self)
+            % CheckReady — Evaluate readiness based on subjects and functions.
+            % Behavior
+            %   Sets ProgramState to CONFIGLOADED when both subjects and
+            %   required functions are defined; otherwise to NOCONFIG.
             if self.STATEID >= 4, return, end
 
             Subjects = ~isempty(self.CONFIG) && numel(self.CONFIG) > 0 && isfield(self.CONFIG,'SUBJECT') && ~isempty(self.CONFIG(1).SUBJECT);
@@ -746,55 +912,61 @@ classdef ep_RunExpt2 < handle
 
             isready = Subjects & Functions;
             if isready
-                self.PRGMSTATE = "CONFIGLOADED";
+                self.ProgramState = PRGMSTATE.CONFIGLOADED;
             else
-                self.PRGMSTATE = "NOCONFIG";
+                self.ProgramState = PRGMSTATE.NOCONFIG;
             end
 
             self.UpdateGUIstate
         end
 
         function UpdateGUIstate(self)
-            if strlength(self.PRGMSTATE)==0, self.PRGMSTATE = "NOCONFIG"; end
+            % UpdateGUIstate — Enable/disable controls based on ProgramState.
+            % Behavior
+            %   Centralizes UI state transitions for all major states.
+            
 
             hCtrl = findobj(self.H.figure1,'-regexp','tag','^ctrl')';
             set([hCtrl self.H.save_data],'Enable','off')
 
             hSetup = findobj(self.H.figure1,'-regexp','tag','^setup')';
 
-            switch self.PRGMSTATE
-                case "NOCONFIG"
+            switch self.ProgramState
+                case PRGMSTATE.NOCONFIG
                     self.STATEID = 0;
 
-                case "CONFIGLOADED"
-                    self.PRGMSTATE = "READY";
+                case PRGMSTATE.CONFIGLOADED
+                    self.ProgramState = PRGMSTATE.READY;
                     self.STATEID = 1;
                     set(self.H.view_trials,'Enable','on');
                     self.UpdateGUIstate
 
-                case "READY"
+                case PRGMSTATE.READY
                     self.STATEID = 3;
-                    set([self.H.ctrl_run self.H.ctrl_preview hSetup'],'Enable','on')
+                    set([self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
 
-                case "RUNNING"
+                case PRGMSTATE.RUNNING
                     self.STATEID = 4;
                     set([self.H.ctrl_pauseall self.H.ctrl_halt],'Enable','on')
                     set(hSetup,'Enable','off')
 
-                case "POSTRUN"
+                case PRGMSTATE.POSTRUN
                     self.STATEID = 5;
 
-                case "STOP"
+                case PRGMSTATE.STOP
                     self.STATEID = 2;
-                    set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup'],'Enable','on')
+                    set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
 
-                case "ERROR"
+                case PRGMSTATE.ERROR
                     self.STATEID = -1;
-                    set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup'],'Enable','on')
+                    set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
             end
         end
 
         function UpdateSubjectList(self)
+            % UpdateSubjectList — Populate the subject uitable and controls.
+            % Behavior
+            %   Reflects CONFIG contents in the table and toggles action buttons.
             if self.STATEID >= 4, return, end
 
             if isempty(self.CONFIG) || isempty(self.CONFIG(1).SUBJECT)
@@ -818,7 +990,13 @@ classdef ep_RunExpt2 < handle
             end
         end
 
-        function subject_list_CellSelectionCallback(self, hObj, evnt)
+        function subject_list_SelectionChanged(self, hObj, evnt)
+            % subject_list_SelectionChanged — Track selected subject row.
+            % Inputs
+            %   hObj — The uitable; evnt.Indices provides the selected row.
+            % Behavior
+            %   Saves the selected row index in UserData and echoes SUBJECT.
+            % UIFigure uitable SelectionChangedFcn
             idx = evnt.Indices;
             if isempty(idx)
                 set(hObj,'UserData',[])
@@ -829,6 +1007,9 @@ classdef ep_RunExpt2 < handle
         end
 
         function SetDefaultFuncs(self, F)
+            % SetDefaultFuncs — Persist FUNCS selections to preferences.
+            % Inputs
+            %   F — Struct containing function names/handles for callbacks.
             setpref('ep_RunExpt_FUNCS','SavingFcn',    F.SavingFcn)
             setpref('ep_RunExpt_FUNCS','AddSubjectFcn',F.AddSubjectFcn)
             setpref('ep_RunExpt_FUNCS','BoxFig',       F.BoxFig)
@@ -840,6 +1021,9 @@ classdef ep_RunExpt2 < handle
         end
 
         function F = GetDefaultFuncs(self) %#ok<MANU>
+            % GetDefaultFuncs — Load FUNCS selections from preferences.
+            % Output
+            %   F — Struct of function names resolved from stored prefs.
             F.SavingFcn      = getpref('ep_RunExpt_FUNCS','SavingFcn',    'ep_SaveDataFcn');
             F.AddSubjectFcn  = getpref('ep_RunExpt_FUNCS','AddSubjectFcn','ep_AddSubject');
             F.BoxFig         = getpref('ep_RunExpt_FUNCS','BoxFig',       'ep_GenericGUI');
@@ -851,9 +1035,13 @@ classdef ep_RunExpt2 < handle
         end
 
         function ClearConfig(self)
+            % ClearConfig — Reset CONFIG and GUI to an unconfigured state.
+            % Behavior
+            %   Clears subjects/protocols, sets ProgramState to NOCONFIG, and
+            %   empties the subject list if present.
             self.CONFIG = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[]);
             if self.STATEID >= 4, return, end
-            self.PRGMSTATE = "NOCONFIG";
+            self.ProgramState = PRGMSTATE.NOCONFIG;
             if isfield(self.H,'subject_list') && isgraphics(self.H.subject_list)
                 set(self.H.subject_list,'Data',[])
             end

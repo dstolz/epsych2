@@ -348,7 +348,7 @@ classdef OnlinePlot < handle
                 c.Label = 'Keep Window on Top';
                 obj.figH.Name = obj.figName;
             end
-            FigOnTop(obj.figH,obj.stayOnTop);
+            figAlwaysOnTop(obj.figH,obj.stayOnTop);
         end
 
         function plot_type(obj,src,event,toggle)
@@ -373,7 +373,7 @@ classdef OnlinePlot < handle
 
         function update_window(obj,varargin)
             % Adjust time window for plot x-axis.
-            FigOnTop(obj.figH,false); % temporarily disable stay-on-top
+            figAlwaysOnTop(obj.figH,false); % temporarily disable stay-on-top
             r = inputdlg('Adjust time windpw (seconds)','Online Plot', 1, {sprintf('[%.1f %.1f]',obj.timeWindow2number)});
             if isempty(r), return; end
             r = str2num(char(r)); %#ok<ST2NM>
@@ -384,7 +384,7 @@ classdef OnlinePlot < handle
             obj.timeWindow = seconds(r(:)');
             c = obj.get_menu_item('uic_timeWindow');
             c.Label = sprintf('Time Window = [%.1f %.1f] seconds',obj.timeWindow2number);
-            FigOnTop(obj.figH,obj.stayOnTop);
+            figAlwaysOnTop(obj.figH,obj.stayOnTop);
         end
 
         function s = timeWindow2number(obj)

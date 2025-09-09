@@ -367,7 +367,7 @@ classdef OnlinePlotBM < gui.Helper & handle
                 c.Label = 'Keep Window on Top';
                 obj.figH.Name = obj.figName;
             end
-            FigOnTop(obj.figH,obj.stayOnTop);
+            figAlwaysOnTop(obj.figH,obj.stayOnTop);
         end
         
         function plot_type(obj,src,event,toggle)
@@ -392,7 +392,7 @@ classdef OnlinePlotBM < gui.Helper & handle
         
         function update_window(obj,varargin)
             % temporarily disable stay on top if selected
-            FigOnTop(obj.figH,false);
+            figAlwaysOnTop(obj.figH,false);
             r = inputdlg('Adjust time windpw (seconds)','Online Plot', ...
                 1,{sprintf('[%.1f %.1f]',obj.timeWindow2number)});
             if isempty(r), return; end
@@ -406,7 +406,7 @@ classdef OnlinePlotBM < gui.Helper & handle
 
             c = obj.get_menu_item('uic_timeWindow');
             c.Label = sprintf('Time Window = [%.1f %.1f] seconds',obj.timeWindow2number);
-            FigOnTop(obj.figH,obj.stayOnTop);
+            figAlwaysOnTop(obj.figH,obj.stayOnTop);
         end
         
         function s = timeWindow2number(obj)

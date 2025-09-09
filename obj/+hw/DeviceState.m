@@ -8,4 +8,16 @@ classdef DeviceState < int8
         Stop    (4)
         Error   (-1)
     end
+
+    methods 
+        function s = asString(obj)
+            % Return the enum name as a scalar string
+            s = string(char(obj));
+        end
+
+        function tf = isIdle(obj)
+            % Helper: whether state is terminal
+            tf = ismember(obj, [DeviceState.Idle, DeviceState.Stop, DeviceState.Error]);
+        end
+    end
 end

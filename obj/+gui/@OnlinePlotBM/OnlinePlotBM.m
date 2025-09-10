@@ -42,7 +42,7 @@ classdef OnlinePlotBM < handle
     end
     
     properties (Constant)
-        BufferLength = 1000;
+        BufferLength = 100;
     end
     
     
@@ -124,11 +124,15 @@ classdef OnlinePlotBM < handle
             % obj.trialParam = sprintf('#TrigState~%d',BoxID);
             obj.trialParam = sprintf('_TrigState~%d',BoxID);
             
-            obj.Timer = ep_GenericGUITimer(obj.figH,sprintf('OnlinePlot~%d',BoxID));
+            
+            obj.Timer = timer(Tag = sprintf('OnlinePlotBM~%d',BoxID));
+            obj.Timer.TasksToExecute = inf;
+            obj.Timer.BusyMode = 'drop';
+            obj.Timer.ExecutionMode = 'fixedRate';
             obj.Timer.StartFcn = @obj.setup_plot;
             obj.Timer.TimerFcn = @obj.update;
             obj.Timer.ErrorFcn = @obj.error;
-            obj.Timer.Period = 0.05;
+            obj.Timer.Period = 0.1;
             
             start(obj.Timer);
         end
@@ -137,6 +141,7 @@ classdef OnlinePlotBM < handle
         function delete(obj)
             try
                 stop(obj.Timer);
+                delete(obj.Timer);
             end
         end
         

@@ -278,14 +278,14 @@ classdef Detect < handle & matlab.mixin.SetGet
 
             if isempty(c), return; end
 
-            M = obj.M;
+            M_ = obj.M;
             if obj.targetTrialType ~= epsych.BitMask.Undefined
                 ind = obj.trialType == obj.targetTrialType;
-                M = structfun(@(a) a(ind),M,'uni',0);
+                M_ = structfun(@(a) a(ind),M_,'uni',0);
             end
             for i = 1:length(uv)
                 ind = uv(i) == tv;
-                c(i) = structfun(@(a) sum(a(ind)), M, 'uni', 0);
+                c(i) = structfun(@(a) sum(a(ind)), M_, 'uni', 0);
             end
         end
 

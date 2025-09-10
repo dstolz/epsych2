@@ -319,11 +319,11 @@ loc = RUNTIME.TRIALS.writeParamIdx;
 trialTypes = cell2mat(tt(:,loc.TrialType));
 reminderInd = trialTypes == 2;
 d = tt(~reminderInd,loc.Depth);
+n = size(d,1);
 d(:,2) = tt(~reminderInd,loc.TrialType);
 d(:,3) = {false};
-d(:,4) = {true};
-% [~,i] = sort([d{:,1}],'descend');
-% d = d(i,:);
+d(:,4) = num2cell([true(1); false(n-5-1,1); true(5,1)]);
+
 h = uitable(layoutTrialFilter);
 h.Tag = 'tblTrialFilter';
 h.ColumnName = {'Depth','TrialType','Shocked','Present'};

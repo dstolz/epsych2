@@ -52,7 +52,7 @@ for i = 1:RUNTIME.NSubjects
     
     % user cancelled
     if fn == 0
-        vprintf(0,1,'NOT SAVING DATA FOR SUBJECT ''%s'' IN BOX ID %d\n',name,boxid);
+        vprintf(0,1,'NOT SAVING DATA FOR SUBJECT ''%s'' IN BOX ID %d',name,boxid);
         continue
     end
     

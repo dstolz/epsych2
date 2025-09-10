@@ -92,7 +92,7 @@ classdef OnlinePlotBM < handle
                     id(j)  = str2double(tokens{j}{1});
                     label{j} = tokens{j}{2};
                 end
-        
+
                 obj.BM(i).Bank = p0;                
                 obj.BM(i).Label = label;
                 obj.BM(i).Bit = id;
@@ -183,7 +183,7 @@ classdef OnlinePlotBM < handle
                 
             end
         end
-
+        
         
         function w = get.lineWidth(obj)
             if isempty(obj.lineWidth)
@@ -252,7 +252,7 @@ classdef OnlinePlotBM < handle
                 obj.BM(i).Mask = obj.BM(i).Bank.Value;
                 obj.BM(i).State = bitget(obj.BM(i).Mask,obj.BM(i).Bit+1);
             end
-            
+
             % combine bitmasks
             bms = cat(1,obj.BM(:).State);
 

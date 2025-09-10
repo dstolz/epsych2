@@ -12,11 +12,11 @@ function varargout = ep_CalibrationUtil(varargin)
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
-                   'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @ep_CalibrationUtil_OpeningFcn, ...
-                   'gui_OutputFcn',  @ep_CalibrationUtil_OutputFcn, ...
-                   'gui_LayoutFcn',  [] , ...
-                   'gui_Callback',   []);
+    'gui_Singleton',  gui_Singleton, ...
+    'gui_OpeningFcn', @ep_CalibrationUtil_OpeningFcn, ...
+    'gui_OutputFcn',  @ep_CalibrationUtil_OutputFcn, ...
+    'gui_LayoutFcn',  [] , ...
+    'gui_Callback',   []);
 if nargin && ischar(varargin{1})
     gui_State.gui_Callback = str2func(varargin{1});
 end
@@ -123,19 +123,19 @@ switch v
         prompt = {'Frequencies (Hz):'};
         name   = 'Tone Calibration';
         dflt   = getpref('CalibrationUtil','TONEVALS',{'1000:100:42000'});
-        
+
     case 'Noise'
         prompt = {'Highpass (Hz)','Lowpass (Hz)'};
         name   = 'Noise';
         dflt   = {'7127.2,10090,14254,20158,28509'; ...
-                  '8979.7,12700,17959,25398,35919'};
+            '8979.7,12700,17959,25398,35919'};
         dflt   = getpref('CalibrationUtil','NOISEVALS',dflt);
-        
+
     case 'Click'
         prompt = {'Click Duration (microseconds):'};
         name   = 'Click Calibration';
         dflt   = getpref('CalibrationUtil','CLICKVALS',{'1'});
-        
+
     case 'MultiSpeaker_Tone'
         prompt = {'Speaker Channels:','Frequencies (Hz)'};
         name   = 'MultiSpeaker Tone Calibration';
@@ -160,42 +160,42 @@ end
 switch v
     case 'Tone'
         setpref('CalibrationUtil','TONEVALS',res);
-        
+
         cfg.stimtype = 'Tone';
         cfg.freqs    = str2num(char(res)); %#ok<ST2NM>
-        
+
         % data table properties
         colname  = {'Freq',sprintf('Level (%dV)',SigAmp),'AdjV'};
         colform  = {'numeric','numeric','numeric'};
         dfltdata = num2cell([cfg.freqs(:) nan(length(cfg.freqs),2)]);
-        
+
 
     case 'Noise'
         setpref('CalibrationUtil','NOISEVALS',res);
-        
+
         cfg.stimtype = 'Noise';
         cfg.hp = str2num(res{1}); %#ok<ST2NM>
         cfg.lp = str2num(res{2}); %#ok<ST2NM>
-        
+
         % data table properties
         colname = {'HP','LP',sprintf('Level (%dV)',SigAmp),'AdjV'};
         colform = {'numeric','numeric','numeric','numeric'};
         dfltdata = num2cell([cfg.hp(:) cfg.lp(:) nan(length(cfg.hp),2)]);
-        
+
     case 'Click'
         setpref('CalibrationUtil','CLICKVALS',res);
-        
+
         cfg.stimtype = 'Click';
         cfg.duration = str2num(char(res)); %#ok<ST2NM>
-        
+
         % data table properties
         colname  = {'Duration',sprintf('Level (%dV)',SigAmp),'AdjV'};
         colform  = {'numeric','numeric','numeric'};
         dfltdata = num2cell([cfg.duration(:) nan(length(cfg.duration),2)]);
-        
+
     case 'MultiSpeaker_Tone'
         setpref('CalibrationUtil','MULTISPEAKERTONEVALS',res);
-        
+
         cfg.stimtype = 'Tone';
         cfg.freqs = str2num(res{2}); %#ok<ST2NM>
         cfg.dac   = str2num(res{1}); %#ok<ST2NM>
@@ -203,14 +203,14 @@ switch v
         cfg.dac = repmat(cfg.dac,length(cfg.freqs),1);
         cfg.dac = cfg.dac(:);
         cfg.freqs = f;
-        
+
         % data table properties
         colname  = {'SpeakerID','Freq',sprintf('Level (%dV)',SigAmp),'AdjV'};
         colform  = {'numeric','numeric','numeric','numeric'};
-        
+
         dfltdata = num2cell([cfg.dac cfg.freqs nan(length(cfg.freqs),2)]);
-        
-        
+
+
 end
 
 set(h.data_table,'ColumnName',colname,'ColumnFormat',colform,'Data',dfltdata);
@@ -274,13 +274,13 @@ switch get(hObj,'String')
         CloseConnection(StimRP,AcqRP);
         disp('Calibration interrupted by user')
         set(hObj,'String','Run');
-        
+
     case 'Run'
         cfg = GatherCFG(h);
-        
+
         ST = get(h.stim_type,'String');
         ST = ST{get(h.stim_type,'Value')};
-        
+
         switch ST
             case 'Tone'
                 if cfg.single_mod
@@ -291,8 +291,8 @@ switch get(hObj,'String')
                     cfg.acq.rpfile  = 'ACQ_Calibration';
                 end
                 calfunc = @CalibrateTones;
-                
-                
+
+
             case 'Noise'
                 if cfg.single_mod
                     cfg.stim.rpfile = 'STACQ_FiltNoise_Calibration';
@@ -302,17 +302,17 @@ switch get(hObj,'String')
                     cfg.acq.rpfile  = 'ACQ_Calibration';
                 end
                 calfunc = @CalibrateNoise;
-                
+
             case 'Click'
-               if cfg.single_mod
-                   cfg.stim.rpfile = 'STACQ_Clicks_Calibration';
-                   cfg.acq.rpfile  = 'STACQ_Clicks_Calibration';
-               else
-                   cfg.stim.rpfile = 'STIM_Clicks_Calibration';
-                   cfg.acq.rpfile  = 'ACQ_Calibration';
-               end
-               calfunc = @CalibrateClicks;
-               
+                if cfg.single_mod
+                    cfg.stim.rpfile = 'STACQ_Clicks_Calibration';
+                    cfg.acq.rpfile  = 'STACQ_Clicks_Calibration';
+                else
+                    cfg.stim.rpfile = 'STIM_Clicks_Calibration';
+                    cfg.acq.rpfile  = 'ACQ_Calibration';
+                end
+                calfunc = @CalibrateClicks;
+
             case 'MultiSpeaker_Tone'
                 % NEED TO UPDATE WITH NEW FILES ************************
                 if cfg.single_mod
@@ -324,34 +324,34 @@ switch get(hObj,'String')
                 end
                 calfunc = @CalibrateMultiSpeakerTones;
         end
-        
+
         if cfg.single_mod && isequal(cfg.stim.mod,'RX6')
-            cfg.stim.rpfile = [cfg.stim.rpfile '_RX6'];   
+            cfg.stim.rpfile = [cfg.stim.rpfile '_RX6'];
         end
         if cfg.single_mod && isequal(cfg.acq.mod,'RX6')
-            cfg.acq.rpfile = [cfg.acq.rpfile '_RX6'];   
+            cfg.acq.rpfile = [cfg.acq.rpfile '_RX6'];
         end
-        
+
         if cfg.single_mod && isequal(cfg.stim.mod,'RZ6')
-            cfg.stim.rpfile = [cfg.stim.rpfile '_RZ6'];   
+            cfg.stim.rpfile = [cfg.stim.rpfile '_RZ6'];
         end
         if cfg.single_mod && isequal(cfg.acq.mod,'RZ6')
-            cfg.acq.rpfile = [cfg.acq.rpfile '_RZ6'];   
+            cfg.acq.rpfile = [cfg.acq.rpfile '_RZ6'];
         end
-        
+
         cfg.stim.rpfile = [cfg.stim.rpfile '.rcx'];
         cfg.acq.rpfile  = [cfg.acq.rpfile  '.rcx'];
-        
+
         cfg.stim.rpfile = which(cfg.stim.rpfile);
         if isempty(cfg.stim.rpfile)
             error('The RPvds file: ''%s'' was not found along the Matlab path',cfg.stim.rpfile);
         end
-        
+
         cfg.acq.rpfile  = which(cfg.acq.rpfile);
         if isempty(cfg.acq.rpfile)
             error('The RPvds file: ''%s'' was not found along the Matlab path',cfg.stim.rpfile);
         end
-        
+
         try
             set(hObj,'String','Halt')
             [hdr,data] = feval(calfunc,cfg,h);
@@ -363,10 +363,10 @@ switch get(hObj,'String')
             CloseConnection(StimRP,AcqRP);
             set(hObj,'String','Run')
             rethrow(me);
-            
+
         end
-        
-        
+
+
 end
 
 
@@ -383,7 +383,7 @@ if isempty(pHd) || pFs ~= Fs
     Astop = 30;          % Stopband Attenuation (dB)
     Apass = 1;           % Passband Ripple (dB)
     match = 'passband';  % Band to match exactly
-    
+
     % Construct an FDESIGN object and call its BUTTER method.
     hd  = fdesign.highpass(Fstop, Fpass, Astop, Apass, Fs);
     pHd = design(hd, 'butter', 'MatchExactly', match);
@@ -429,7 +429,7 @@ if ~isempty(freq)
 end
 plot(fax,f,a);
 hold(fax,'off');
-set(fax,'ylim',[-150 ref.level],'xlim',[0 max(f)],'yscale','linear'); 
+set(fax,'ylim',[-150 ref.level],'xlim',[0 max(f)],'yscale','linear');
 % axis(fax,'tight');
 grid(fax,'on');
 xlabel(fax,'Frequency (Hz)'); ylabel(fax,'dB (approx)'); title(fax,'Power Spectrum')
@@ -481,7 +481,7 @@ buffer = AcqRP.ReadTagV('buffer',0,buffersize);
 
 
 if isempty(buffer) || ~any(buffer)
-%     CloseConnection(StimRP,AcqRP);
+    %     CloseConnection(StimRP,AcqRP);
     error('CalibrationUtil:ACQUISITION ERROR:Empty Buffer');
 end
 
@@ -562,40 +562,40 @@ data(:,2) = lp;
 xr = [min(hp)*2^-0.5 max(hp)*2^0.5];
 
 for i = 1:length(hp)
-        StimRP.SetTagVal('HPFc',hp(i));
-        StimRP.SetTagVal('LPFc',lp(i));
-        StimRP.SoftTrg(2);
-        
-        res.adjV = hdr.V; % starting voltage
-        StimRP.SetTagVal('Amp',res.adjV);
-        
-        pause(0.2);
-        buffer = GetBuffer(AcqRP,Fs,1);
+    StimRP.SetTagVal('HPFc',hp(i));
+    StimRP.SetTagVal('LPFc',lp(i));
+    StimRP.SoftTrg(2);
 
-        buffer = FilterBuffer(buffer,Fs);
-        
-        % get rid of transient which may occur within first 5 ms of signal
-        t = round(Fs*0.01);
-        buffer = buffer(t+1:end);
-        
-        % ANALYZE, PLOT, UPDATE TABLE
-        res = SignalAnalysis(buffer,cfg.ref,res.adjV);
-        
-        PlotSignal(buffer,cfg.ref,Fs,h,data(i,[1 2]));
-        tax = h.time_domain;
-        plot(tax,linspace(0,0.1,length(buffer))*1000,buffer);
+    res.adjV = hdr.V; % starting voltage
+    StimRP.SetTagVal('Amp',res.adjV);
 
-        % Plot Calibration Function
-        plot(cax,xlim,[ref.norm ref.norm],'-k','linewidth',2);
-        hold(cax,'on');
-        plot(cax,data(:,1),data(:,2),'-ob','markerfacecolor','b');
-        set(cax,'xlim',xr,'ylim',[0 130]); grid(cax,'on');
-        hold(cax,'off');
-        data(i,3) = res.level; % sound level
-        data(i,4) = res.adjV;% adjusted voltage
-        
-        % Update table
-        set(h.data_table,'Data',num2cell(data)); drawnow
+    pause(0.2);
+    buffer = GetBuffer(AcqRP,Fs,1);
+
+    buffer = FilterBuffer(buffer,Fs);
+
+    % get rid of transient which may occur within first 5 ms of signal
+    t = round(Fs*0.01);
+    buffer = buffer(t+1:end);
+
+    % ANALYZE, PLOT, UPDATE TABLE
+    res = SignalAnalysis(buffer,cfg.ref,res.adjV);
+
+    PlotSignal(buffer,cfg.ref,Fs,h,data(i,[1 2]));
+    tax = h.time_domain;
+    plot(tax,linspace(0,0.1,length(buffer))*1000,buffer);
+
+    % Plot Calibration Function
+    plot(cax,xlim,[ref.norm ref.norm],'-k','linewidth',2);
+    hold(cax,'on');
+    plot(cax,data(:,1),data(:,2),'-ob','markerfacecolor','b');
+    set(cax,'xlim',xr,'ylim',[0 130]); grid(cax,'on');
+    hold(cax,'off');
+    data(i,3) = res.level; % sound level
+    data(i,4) = res.adjV;% adjusted voltage
+
+    % Update table
+    set(h.data_table,'Data',num2cell(data)); drawnow
 end
 CloseConnection(StimRP,AcqRP);
 
@@ -615,37 +615,37 @@ ref = cfg.ref;
 
 try %#ok<TRYNC>
     cfg.Fs = Fs;
-    
+
     cax = h.calibration_curve;
-    
+
     f = cfg.freqs;
     xr = [min(f)*2^-0.5 max(f)*2^0.5];
-    
+
     hdr.timestamp = datestr(now);
     hdr.cfg = cfg;
     hdr.V = getpref('CalibrationUtil','SIGNALAMP',nan); % starting voltage
-    
+
     data = nan(length(f),3);
     data(:,1) = f;
-    
+
     for i = 1:length(f)
         % update tone frequency
-        StimRP.SetTagVal('Freq',f(i));        
+        StimRP.SetTagVal('Freq',f(i));
         StimRP.SetTagVal('Amp',hdr.V);
-        
+
         buffer = GetBuffer(AcqRP,Fs);
 
         buffer = FilterBuffer(buffer,Fs);
-        
+
         % get rid of transient which may occur within first 5 ms of signal
         t = round(Fs*0.01);
         buffer = buffer(t+1:end);
-        
+
         % ANALYZE, PLOT, UPDATE TABLE
         res = SignalAnalysis(buffer,cfg.ref,hdr.V);
-        
+
         PlotSignal(buffer,cfg.ref,Fs,h,f(i));
-        
+
         % Plot Calibration Function
         plot(cax,xr,[ref.norm ref.norm],'-k','linewidth',2);
         hold(cax,'on');
@@ -653,13 +653,13 @@ try %#ok<TRYNC>
         set(cax,'xlim',xr,'ylim',[0 130]); grid(cax,'on');
         hold(cax,'off');
         ylabel(cax,'dB SPL')
-        
-        
+
+
         data(i,2) = res.level; % sound level
         data(i,3) = res.adjV; % adjusted voltage
-        
+
         % Update table
-        set(h.data_table,'Data',num2cell(data)); drawnow        
+        set(h.data_table,'Data',num2cell(data)); drawnow
     end
 end
 CloseConnection(StimRP,AcqRP);
@@ -679,22 +679,22 @@ ref = cfg.ref;
 
 try %#ok<TRYNC>
     cfg.Fs = Fs;
-    
+
     cax = h.calibration_curve;
-    
+
     dac = cfg.dac;
     f = cfg.freqs;
     xr = [min(f)*2^-0.5 max(f)*2^0.5];
-    
+
     hdr.timestamp = datestr(now);
     hdr.cfg = cfg;
     hdr.V = getpref('CalibrationUtil','SIGNALAMP',nan); % starting voltage
-    
+
     data = nan(length(f),4);
-    
+
     data(:,1) = dac;
     data(:,2) = f;
-    
+
     for c = 1:length(dac)
         for i = 1:length(f)
             % update tone frequency
@@ -702,19 +702,19 @@ try %#ok<TRYNC>
             StimRP.SetTagVal('Freq',f(i));
             StimRP.SetTagVal('Amp',hdr.V);
             pause(0.002); % allow time for PM2R relay to settle
-            
+
             buffer = GetBuffer(AcqRP,Fs);
             buffer = FilterBuffer(buffer,Fs);
-            
+
             % get rid of transient which may occur within first few millis of buffer
             t = round(Fs*0.015);
             buffer = buffer(t+1:end);
-            
+
             % ANALYZE, PLOT, UPDATE TABLE
             res = SignalAnalysis(buffer,cfg.ref,hdr.V);
-            
+
             PlotSignal(buffer,cfg.ref,Fs,h,f(i));
-            
+
             % Plot Calibration Function
             plot(cax,xr,[ref.norm ref.norm],'-k','linewidth',2);
             hold(cax,'on');
@@ -722,11 +722,11 @@ try %#ok<TRYNC>
             set(cax,'xlim',xr,'ylim',[0 130]); grid(cax,'on');
             hold(cax,'off');
             ylabel(cax,'dB SPL')
-            
-            
+
+
             data(i,3) = res.level; % sound level
             data(i,4) = res.adjV; % adjusted voltage
-            
+
             % Update table
             set(h.data_table,'Data',num2cell(data)); drawnow
         end
@@ -753,9 +753,9 @@ d = cfg.duration / 1e+3; % microsec -> millisec
 
 % offline highpass filter added 12/2021 DJS
 hpFilt = designfilt('highpassfir','StopbandFrequency',50, ...
-         'PassbandFrequency',100,'PassbandRipple',0.5, ...
-         'StopbandAttenuation',15,'DesignMethod','kaiserwin', ...
-         'SampleRate',hdr.cfg.Fs);
+    'PassbandFrequency',100,'PassbandRipple',0.5, ...
+    'StopbandAttenuation',15,'DesignMethod','kaiserwin', ...
+    'SampleRate',hdr.cfg.Fs);
 % fvtool(hpFilt)
 hdr.hpFilt = hpFilt;
 
@@ -764,33 +764,33 @@ data(:,1) = d;
 t = round(Fs*0.05);
 try %#ok<TRYNC>
     for i = 1:length(d)
-        
+
         StimRP.SetTagVal('duration',d(i));
         StimRP.SetTagVal('Amp',hdr.V);
-        
+
         buffer = GetBuffer(AcqRP,Fs,0.2+d(i));
 
         buffer = filter(hpFilt,buffer);
-        
-%         dc = buffer(1:t);
+
+        %         dc = buffer(1:t);
         buffer(1:t) = [];
-%         buffer = buffer - mean(dc);
-        
+        %         buffer = buffer - mean(dc);
+
 
 
         % ANALYZE, PLOT, UPDATE TABLE
         pk = max(abs(buffer));
         res.level = 20 * log10(pk/(ref.rms*sqrt(2))) + ref.level; % calibrated level
         res.adjV  = hdr.V * 10 ^ ((ref.norm-res.level) / 20); % adjusted voltage
-        
+
         PlotSignal(buffer,ref,Fs,h,[]);
         tax = h.time_domain;
         axis(tax,'tight');
-%         set(tax,'xlim',[0 5]);
-               
+        %         set(tax,'xlim',[0 5]);
+
         data(i,2) = res.level; % sound level
         data(i,3) = res.adjV; % adjusted voltage
-        
+
         cla(cax)
         plot(cax,[0.9*min(d) 1.1*max(d)],[ref.norm ref.norm],'-k','linewidth',2);
         hold(cax,'on');
@@ -798,7 +798,7 @@ try %#ok<TRYNC>
         hold(cax,'off');
         grid(cax,'on');
         set(cax,'ylim',[0 120]);
-        
+
         % Update table
         set(h.data_table,'Data',num2cell(data)); drawnow
     end
@@ -839,7 +839,7 @@ end
 
 Fs = AcqRP.GetSFreq;
 
-    
+
 % pause(0.25);
 
 function CloseConnection(StimRP,AcqRP)
@@ -865,7 +865,7 @@ if ~isempty(fh), close(fh); end
 
 
 % Save/Load Functions --------------------------
-function SaveCalibration(hdr,data)  
+function SaveCalibration(hdr,data)
 % calibration directory
 dd = 'C:\Electrophys\Calibrations';
 if ~isfolder(dd), mkdir(dd); end
@@ -888,14 +888,14 @@ switch fidx
             tmat(1,1) = -1; tmat(1,2) = hdr.V;
             tmat(2:size(data,1)+1,:) = data(:,[1 2]);
             dlmwrite(fullfile(pn,fn),tmat,'delimiter',',','newline','pc');
-            
+
         elseif isequal(hdr.calfunc,@CalibrateNoise)
             tmat(1,1:2) = -1; tmat(1,3) = hdr.V;
             tmat(2:size(data,1)+1,:) = data(:,[1 2 3]);
             dlmwrite(fullfile(pn,fn),tmat,'delimiter',',','newline','pc');
-            
+
         end
-        
+
     case 3 % CSV file
         dlmwrite(fullfile(pn,fn),data,'delimiter',',','newline','pc');
 end

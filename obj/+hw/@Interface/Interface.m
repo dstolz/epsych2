@@ -113,7 +113,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             poptions = namedargs2cell(poptions);
             P = obj.all_parameters(poptions{:});
 
-            ind = arrayfun(@(a) options.testFcn(a.(propertyName),propertyValue),P);
+            % normalize testFcn output to a logical scalar
+            ind = arrayfun(@(a) obj.local_test(options.testFcn, a.(propertyName), propertyValue), P);
             P = P(ind);
         end
 
@@ -144,6 +145,26 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
             if ~options.includeArray
                 P=P(~[P.isArray]);
+            end
+        end
+
+    end
+
+    methods (Static)
+
+
+        function tf = local_test(fcn, val, pat)
+            res = fcn(val, pat);
+            if islogical(res) && isscalar(res)
+                tf = res;
+            elseif isnumeric(res)
+                % numeric (e.g. regexp indices) -> match if non-empty
+                tf = ~isempty(res);
+            elseif iscell(res)
+                % cell of matches -> match if any non-empty element
+                tf = any(~cellfun(@isempty, res));
+            else
+                tf = ~isempty(res);
             end
         end
 

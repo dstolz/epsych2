@@ -348,7 +348,7 @@ h.Button.Layout.Column = [4];
 h.Button.Text = ["Update" "Parameters"];
 h.Button.FontSize = 24;
 
-% find all 'Paramete_Control' objects
+% find all 'Parameter_Control' objects
 hp = findall(fig,'-regexp','tag','^PC_');
 h.watchedHandles = [hp.UserData];
 

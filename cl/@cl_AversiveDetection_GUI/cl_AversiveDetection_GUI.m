@@ -162,7 +162,10 @@ classdef cl_AversiveDetection_GUI < handle
             D = event.Data;
 
             % Update Next Trial table
-            h = findobj(obj.h_figure,'tag','tblNextTrial');
+            persistent h
+            if isempty(h) || ~ishandle(h) || ~isvalid(h)
+                h = findobj(obj.h_figure,'tag','tblNextTrial');
+            end
             ntid = D.NextTrialID;
             nt = D.trials(ntid,:);
             am = nt{D.writeParamIdx.Depth};
@@ -206,7 +209,8 @@ classdef cl_AversiveDetection_GUI < handle
             f.MenuBar = "none";
             f.NumberTitle = "off";
             axesBehavior = axes(f);
-            gui.OnlinePlot(RUNTIME,obj.plottedParameters,axesBehavior,1);
+            % gui.OnlinePlot(RUNTIME,obj.plottedParameters,axesBehavior,1);
+            gui.OnlinePlotBM(RUNTIME,'OnlinePlotBits',axesBehavior,1);
 
             obj.h_OnlinePlot = f;
 

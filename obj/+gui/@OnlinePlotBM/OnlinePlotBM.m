@@ -38,7 +38,7 @@ classdef OnlinePlotBM < handle
         Timer       (1,1)
         Buffers     (:,:) single
         trialBuffer (1,:) single
-        Time        (:,1) duration
+        Time        (:,1) single
     end
     
     properties (Constant)
@@ -102,7 +102,7 @@ classdef OnlinePlotBM < handle
             
             % set buffer size
             obj.Buffers     = nan(obj.BufferLength,obj.N,'single');
-            obj.Time        = seconds(zeros(obj.BufferLength,1));
+            obj.Time        = zeros(obj.BufferLength,1,'single');
             obj.trialBuffer = zeros(obj.BufferLength,1,'single');
             
             obj.lineColors = jet(obj.N);
@@ -263,7 +263,7 @@ classdef OnlinePlotBM < handle
             
             
             obj.Time(1:end-1,:) = obj.Time(2:end,:);
-            obj.Time(end) = seconds(datetime('now')-obj.startTime);
+            obj.Time(end) = single(seconds(datetime('now')-obj.startTime));
             
             if obj.paused, return; end
             

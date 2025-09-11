@@ -28,6 +28,7 @@ classdef cl_AversiveDetection_GUI < handle
         guiHandles             % Handles to all generated GUI components
         hl_NewTrial
         hl_NewData
+        hl_ModeChange
     end
 
     methods
@@ -137,6 +138,14 @@ classdef cl_AversiveDetection_GUI < handle
                 sum(ind),min(depth(ind)),max(depth(ind)));
         end
 
+        function onModeChange(obj,src,ev)
+            % fprintf('Mode changed to: %s\n', string(ev.NewMode));
+            
+            switch ev.NewMode
+                case hw.DeviceState.Stop
+                    fprintf('TO DO: Update filename\n')
+            end
+        end
 
         function update_NewData(obj,src,event)
             % Turn Reminder button off after completing a Reminder trial           % trial

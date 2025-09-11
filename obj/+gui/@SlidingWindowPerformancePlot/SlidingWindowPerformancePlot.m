@@ -34,12 +34,12 @@ classdef SlidingWindowPerformancePlot < handle
         plotType (1,1) string {mustBeMember(plotType,["dPrime","HitRate","FARate","Bias"])} = "dPrime";
         % Type of metric to plot. Options: 'dPrime', 'HitRate', 'FARate', 'Bias'
 
-        palettename (1,1) string = "gem12";  % Color palette for the lines
+        palettename (1,1) string = "lines";  % Color palette for the lines
 
         MarkerSize (1,1) {mustBePositive} = 10;  % Marker size for plot points
         Marker (1,1) char = '.';               % Marker type (e.g. '.', 'o', etc.)
 
-        LineStyle (1,:) char = '-';            % Line style for connecting points
+        LineStyle (1,:) char = ':';            % Line style for connecting points
         LineWidth (1,1) double = 1.5;          % Line width
 
         windowSize (1,1) double {mustBeNonnegative,mustBeInteger,mustBeFinite} = 0;
@@ -50,7 +50,7 @@ classdef SlidingWindowPerformancePlot < handle
 
     properties (SetAccess = private)
         hAxes                               % Axes handle for plotting
-        hLines (:,1) matlab.graphics.primitive.Line  % Line object handles
+        hLines %(:,1) matlab.graphics.primitive.Line  % Line object handles
 
         Data                                % Placeholder for future data struct
         hl_NewData                          % Listener for new data events
@@ -77,6 +77,8 @@ classdef SlidingWindowPerformancePlot < handle
 
         dPrime = [];  % Matrix of d-prime values by trial
         Bias = [];    % Matrix of bias values by trial
+
+        cm % colormap
     end
 
     methods
@@ -115,18 +117,23 @@ classdef SlidingWindowPerformancePlot < handle
         function setup_plot(obj)
             % Initializes the plot with default line styles and appearance
 
-            addArgs = {'Marker', obj.Marker, ...
-                       'MarkerSize', obj.MarkerSize, ...
-                       'LineStyle', obj.LineStyle, ...
-                       'LineWidth', obj.LineWidth};
+            obj.cm = colormap(obj.palettename);
 
-            obj.hLines = line(obj.hAxes, nan, nan, addArgs{:});
-
-            colororder(obj.hAxes, obj.palettename);  % Apply color palette
-
+            % obj.hLines = matlab.graphics.primitive.Line;
+            obj.hLines = [];
+            
             grid(obj.hAxes, 'on');
             box(obj.hAxes, 'on');
             xlabel(obj.hAxes, 'Trials');
+
+
+            % Add legend unless plotting non-stimulus-specific metric
+            if obj.plotType == "FARate"
+                legend(obj.hAxes, 'off');
+            else
+                h = legend(obj.hAxes, Location = "eastoutside");
+                h.Title.String = obj.psychObj.Parameter.Name;
+            end
         end
 
         function plot(obj)
@@ -138,23 +145,29 @@ classdef SlidingWindowPerformancePlot < handle
             y = obj.(obj.plotType);
             if isempty(y), return; end  % No data yet
 
-            if isempty(obj.hLines) || ~isvalid(obj.hLines(1))
-                obj.setup_plot;
+            % if isempty(obj.hLines) || ~isvalid(obj.hLines(1))
+            %     obj.setup_plot;
+            % end
+
+            x = [obj.N.TrialIdx]'; % X-axis: Trial indices
+            nStim = size(y, 2);  % Number of stimulus values
+
+
+            if nStim > length(obj.hLines)  % Add new line objects if needed
+                for i = length(obj.hLines)+1:nStim
+                    obj.hLines(i) = line(obj.hAxes, nan, nan, ...
+                        Color = obj.cm(i,:), ...
+                        UserData = obj.plotValues(i)); 
+                end
             end
 
-            x = [obj.N.TrialIdx]';
-            n = size(y, 2);  % Number of stimulus values
-
-            if n > length(obj.hLines)
-                % Add new line objects if needed
-                k = n - length(obj.hLines);
-                obj.hLines(end+1:n) = repmat(line(obj.hAxes, nan, nan), 1, k);
-            end
-
-            for i = 1:n
-                obj.hLines(i).XData = x;
-                obj.hLines(i).YData = y(:, i);
-                obj.hLines(i).DisplayName = string(obj.plotValues(i));
+            % Update existing lines
+            % Map plot values to line handles
+            ud = get(obj.hLines,'UserData');
+            if iscell(ud), ud = cell2mat(ud); end
+            for i = 1:nStim
+                ind = obj.plotValues == ud(i);
+                set(obj.hLines(ind),XData = x,YData = y(:,i),DisplayName = string(ud(i)));
             end
 
             % Update appearance
@@ -164,14 +177,10 @@ classdef SlidingWindowPerformancePlot < handle
                        'LineWidth', obj.LineWidth};
             set(obj.hLines, addArgs{:});
 
-            % Add legend unless plotting non-stimulus-specific metric
-            if obj.plotType ~= "FARate"
-                h = legend(obj.hAxes, Location = "eastoutside");
-                h.Title.String = obj.psychObj.Parameter.Name;
-            end
 
+            % Add reference line for d' = 1
             if obj.plotType == "dPrime"
-                yline(obj.hAxes, 1, '-k', HandleVisibility = "off");
+                yline(obj.hAxes, 1, '--k', HandleVisibility = "off");
             end
 
             ylabel(obj.hAxes, obj.plotType);
@@ -204,7 +213,7 @@ classdef SlidingWindowPerformancePlot < handle
             idxCatch = uint32(P.ttCatch);
             isCatch = obj.trialBits(:, idxCatch);
             valCatch = unique(vals(isCatch));
-            uv = unique(vals);
+            uv = unique(vals,'stable');
             uv(ismember(uv, valCatch)) = [];  % Exclude catch-only values
 
             nStim = nan(1, length(uv));
@@ -246,12 +255,10 @@ classdef SlidingWindowPerformancePlot < handle
             obj.N(tidx).Values     = uv;
             obj.N(tidx).TrialIdx   = tidx;
 
-            nuv = unique([obj.N.Values]);
+            nuv = unique([obj.N.Values],'stable');
             obj.plotValues = nuv;
 
-            if isempty(obj.Rate.Hit)
-                obj.Rate.Hit = nan;
-            end
+            if isempty(obj.Rate.Hit), obj.Rate.Hit = nan; end
 
             if size(obj.Rate.Hit,2) < length(nuv)
                 obj.Rate.Hit(:,end:length(nuv)) = nan;

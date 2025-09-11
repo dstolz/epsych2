@@ -165,6 +165,8 @@ switch COMMAND
 
 
             end
+
+
         catch me
             set(h.figure1,'pointer','arrow'); drawnow
             rethrow(me);
@@ -209,16 +211,22 @@ switch COMMAND
         
         
         start(RUNTIME.TIMER); % Begin Experiment
-        
+
+        RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Record));
+
         
         set(h.figure1,'pointer','arrow'); drawnow
         
         
     case 'Pause'
-        
+        RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Pause));
+
     case 'Stop'
         PRGMSTATE = 'STOP';
+
         set(h.figure1,'pointer','watch'); %drawnow
+        
+        RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Stop));
         
         vprintf(3,'ExptDispatch: Stopping BoxTimer')
         t = timerfind('Name','BoxTimer');
@@ -229,7 +237,7 @@ switch COMMAND
         t = timerfind('Name','PsychTimer');
         if ~isempty(t), stop(t); delete(t); end
         
-        
+
         vprintf(0,'Experiment stopped at %s',datetime("now",Format = 'dd-MMM-yyyy HH:mm'))
         
         set(h.figure1,'pointer','arrow'); %drawnow

@@ -9,6 +9,7 @@ classdef Helper < handle
         % eventually move these to a Runtime object, once it's built
         NewData
         NewTrial
+        ModeChange
     end
 
     methods

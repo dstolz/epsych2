@@ -17,7 +17,7 @@ classdef OnlinePlotBM < handle
         stayOnTop   (1,1) logical = false;
         paused      (1,1) logical = false;
         
-        trialLocked (1,1) logical = true;
+        trialLocked (1,1) logical = false;
     end
     
     properties (SetAccess = private)
@@ -293,7 +293,7 @@ classdef OnlinePlotBM < handle
                 obj.ax.XLim = obj.timeWindow;
                 
             elseif ~obj.trialLocked
-                obj.ax.XLim = obj.Time(end) + obj.timeWindow;
+                obj.ax.XLim = seconds(obj.Time(end) + [-6 1]);
                 obj.ax.XAxis.TickValuesMode = 'auto';
                 
             end

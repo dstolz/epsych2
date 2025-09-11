@@ -42,7 +42,7 @@ classdef OnlinePlotBM < handle
     end
     
     properties (Constant)
-        BufferLength = 100;
+        BufferLength = 200;
     end
     
     
@@ -132,7 +132,7 @@ classdef OnlinePlotBM < handle
             obj.Timer.StartFcn = @obj.setup_plot;
             obj.Timer.TimerFcn = @obj.update;
             obj.Timer.ErrorFcn = @obj.error;
-            obj.Timer.Period = 0.1;
+            obj.Timer.Period = 0.05; % seconds
             
             start(obj.Timer);
         end
@@ -228,7 +228,10 @@ classdef OnlinePlotBM < handle
         function update(obj,varargin)
             global PRGMSTATE
             
-            persistent LTO
+            persistent LTO % last trial onset
+            persistent lastPlotTime
+
+            
             
             % stop if the program state has changed
             if ismember(PRGMSTATE,{'STOP','ERROR'}), stop(obj.Timer); return; end
@@ -267,6 +270,10 @@ classdef OnlinePlotBM < handle
             
             if obj.paused, return; end
             
+            if isempty(lastPlotTime), lastPlotTime = datetime('now') - seconds(1); end 
+            if seconds(datetime('now') - lastPlotTime) < 0.1, return; end
+            vprintf(5,'Updating Online Plot')
+            
             for i = 1:obj.N
                 obj.lineH(i).XData = obj.Time;
                 obj.lineH(i).YData = obj.yPositions(i).*obj.Buffers(:,i);
@@ -296,7 +303,8 @@ classdef OnlinePlotBM < handle
             end
             
             drawnow limitrate
-            
+            lastPlotTime = datetime('now');
+
             LTO = lto;
 
         end

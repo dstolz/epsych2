@@ -129,22 +129,12 @@ classdef BitMask < uint32
             %       bits - Array of size [numel(mask), nbits] representing binary state of each bit.
             %       BM   - Cell array of BitMask enumeration arrays indicating active flags.
 
-            narginchk(1, 2);
-
-            % Validate 'mask' input
-            if ~isnumeric(mask) || any(mask(:) ~= floor(mask(:))) || any(mask(:) < 0)
-                error('Input ''mask'' must be an array of non-negative integers.');
+            arguments
+                mask (1,:) {mustBeNonnegative, mustBeFinite,mustBeNonempty,mustBeInteger}
+                nbits (1,1) double = 32 
             end
 
-            % Set default 'nbits' if not provided
-            if nargin < 2 || isempty(nbits)
-                nbits = 32;
-            end
-
-            % Validate 'nbits' input
-            if ~isscalar(nbits) || ~isnumeric(nbits) || nbits <= 0 || nbits ~= floor(nbits)
-                error('Input ''nbits'' must be a positive scalar integer.');
-            end
+            mask = feval(sprintf('uint%d',nbits),mask);
 
             % Flatten mask for processing
             mask = mask(:);
@@ -168,41 +158,53 @@ classdef BitMask < uint32
         
 
 
-        function mask = Bits2Mask(bits)
+        function mask = Bits2Mask(bits,dim)
             %BITS2MASK Convert a binary vector or bit positions to a scalar bitmask.
             %
             %   mask = BITS2MASK(bits) converts:
             %     - A binary vector (e.g., [0 1 1 1 0]) with LSB leftmost, or
             %     - A vector of bit positions (e.g., [2 3 4]) to a uint32 bitmask.
+            %   
+            %  mask = BITS2MASK(bits, dim) specifies the dimension along which to
+            %  interpret the input bits. For example, if bits is a 2D array with
+            %  multiple rows, dim = 1 will treat each row as a separate binary
+            %  vector, while dim = 2 will treat each column as a separate binary
+            %  vector. The default is dim = 1.
             %
             %   Examples:
             %       mask = Bits2Mask([0 1 1 1 0]);    % -> 14
             %       mask = Bits2Mask([2 3 4]);        % -> 14
             %
+            %  b = epsych.BitMask.Mask2Bits([Data.ResponseCode]);
+            %  isequal(epsych.BitMask.Bits2Mask(b),[Data.ResponseCode]')
+            %               
             %   See also MASK2BITS, BITGET, BITSET.
 
-            narginchk(1, 1);
-
-            % Validate input
-            if ~isvector(bits)
-                error('Input must be a vector.');
+            arguments
+                bits {mustBeNonempty}
+                dim (1,1) double {mustBePositive,mustBeInteger,mustBeInRange(dim,1,2)} = 1
             end
 
-            bits = bits(:)';  % Ensure row vector
+            if dim == 2, bits = bits'; end
 
-            if islogical(bits) || all(bits == 0 | bits == 1)
-                % Input is a binary vector
-                n = length(bits);
-                weights = bitshift(uint32(1), 0:n-1);
-                mask = sum(uint32(bits) .* weights);
-            elseif all(bits == floor(bits)) && all(bits > 0)
-                % Input is a vector of bit positions
-                if any(bits > 32)
-                    error('Bit positions must be in the range 1 to 32.');
+            [nm,nb] = size(bits);
+            mask = zeros(nm,1,'uint32');
+            for i = 1:nm
+                b = bits(i,:);
+
+                if islogical(b) || all(b == 0 | b == 1)
+                    % Input is a binary vector
+                    weights = bitshift(uint32(1), 0:nb-1);
+                    mask(i) = sum(uint32(b) .* weights);
+                elseif all(b == floor(b)) && all(b > 0)
+                    % Input is a vector of bit positions
+                    if any(b > 32)
+                        error('Bit positions must be in the range 1 to 32.');
+                    end
+                    mask(i) = sum(bitshift(uint32(1), b - 1));
+                else
+                    error('Input must be a binary vector or a vector of positive integers.');
                 end
-                mask = sum(bitshift(uint32(1), bits - 1));
-            else
-                error('Input must be a binary vector or a vector of positive integers.');
             end
 
         end

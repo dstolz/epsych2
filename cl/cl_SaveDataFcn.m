@@ -11,9 +11,6 @@ function cl_SaveDataFcn(RUNTIME)
 
 hcDefaultPath = "D:\matlab_data_files";
 
-td = datetime('today');
-td.Format ="dd-MMM-uuuu";
-letters = char(65:90);
 for i = 1:RUNTIME.NSubjects
     name  = RUNTIME.TRIALS(i).Subject.Name;
     boxid = RUNTIME.TRIALS(i).Subject.BoxID;
@@ -27,22 +24,10 @@ for i = 1:RUNTIME.NSubjects
     
     subjPath = fullfile(hcDefaultPath,name);
     
-    if ~isfolder(subjPath)
-        mkdir(subjPath)
-    end
+    if ~isfolder(subjPath), mkdir(subjPath); end
     
-    fn = sprintf('%s_%s.mat',name,td);
-    ffn = fullfile(subjPath,fn);
 
-    % avoid overwriting existing files
-    % append _A, _B, etc.
-    k = 1;
-    while isfile(ffn)
-        fn = sprintf('%s_%s_%s.mat',name,td,letters(k));
-        ffn = fullfile(subjPath,fn);
-        k = k + 1;
-    end
-    
+    ffn = gui.FilenameValidator.defaultFilename(subjPath,name);
 
     % prompt user for file location
     % suggest default location

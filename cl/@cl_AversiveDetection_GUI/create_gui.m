@@ -362,9 +362,18 @@ h.watchedHandles = [hp.UserData];
 % h.Text = "Online Plot";
 % h.ButtonPushedFcn = @obj.create_onlineplot;
 
+% Filename field -----------------------------------------------
+panelFilename = uipanel(layoutMain, 'Title', 'Filename');
+panelFilename.Layout.Row = 11;
+panelFilename.Layout.Column = [4 5];
 
+layoutFilename = simple_layout(panelFilename);
 
-
+dfltPth = 'D:\matlab_data_files';
+sn = RUNTIME.TRIALS.Subject.Name;
+pth = fullfile(dfltPth,sn);
+ffn = gui.FilenameValidator.defaultFilename(pth,sn);
+gui.FilenameValidator(layoutFilename,ffn);
 
 
 
@@ -386,7 +395,6 @@ tableNextTrial.FontSize = 20;
 
 obj.hl_NewTrial = addlistener(RUNTIME.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
 obj.hl_NewData  = addlistener(obj.psychDetect.Helper,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
-
 
 
 
@@ -430,7 +438,7 @@ obj.psychPlot = gui.PsychPlot(obj.psychDetect,axPsych);
 
 % Axes for Microphone Display -------------------------------
 axesMicrophone = uiaxes(layoutMain);
-axesMicrophone.Layout.Row = [9 11];
+axesMicrophone.Layout.Row = [9 10];
 axesMicrophone.Layout.Column = 5;
 axis(axesMicrophone,'image');
 box(axesMicrophone,'on')

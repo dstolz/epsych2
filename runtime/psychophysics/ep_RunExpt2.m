@@ -331,7 +331,7 @@ classdef ep_RunExpt2 < handle
             % EditProtocol — Launch protocol editor for selected subject.
             % Behavior
             %   Opens ep_ExperimentDesign with the selected protocol path/index.
-            idx = self.H.subject_list.UserData;
+            idx = self.H.subject_list.Selection(1);
             if isempty(idx), return, end
 
             self.AlwaysOnTop(false);
@@ -757,14 +757,21 @@ classdef ep_RunExpt2 < handle
 
                     start(self.RUNTIME.TIMER)
 
+                    RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Record));
+
                     drawnow
 
                 case 'Pause'
-                    % reserved for future pause
+                    
+                    RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Pause));
+
 
                 case 'Stop'
                     self.ProgramState = PRGMSTATE.STOP;
                     set(self.H.figure1,'pointer','watch')
+
+                    RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Stop));
+
 
                     vprintf(3,'ExptDispatch: Stopping BoxTimer')
                     t = timerfind('Name','BoxTimer');
@@ -991,19 +998,8 @@ classdef ep_RunExpt2 < handle
         end
 
         function subject_list_SelectionChanged(self, hObj, evnt)
-            % subject_list_SelectionChanged — Track selected subject row.
-            % Inputs
-            %   hObj — The uitable; evnt.Indices provides the selected row.
-            % Behavior
-            %   Saves the selected row index in UserData and echoes SUBJECT.
-            % UIFigure uitable SelectionChangedFcn
-            idx = evnt.Indices;
-            if isempty(idx)
-                set(hObj,'UserData',[])
-            else
-                disp(self.CONFIG(idx(1)).SUBJECT)
-                set(hObj,'UserData',idx(1))
-            end
+            % subject_list_SelectionChanged — Display Subject Info
+            disp(self.CONFIG(hObj.Selection(1)).SUBJECT)
         end
 
         function SetDefaultFuncs(self, F)

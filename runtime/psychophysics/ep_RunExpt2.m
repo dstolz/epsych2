@@ -298,7 +298,7 @@ classdef ep_RunExpt2 < handle
             if self.STATEID >= 4, return, end
 
             if isnan(idx)
-                idx = self.H.subject_list.UserData;
+                idx = self.H.subject_list.Selection(1);
             end
             if isempty(idx) || isempty(self.CONFIG), return, end
 
@@ -317,7 +317,7 @@ classdef ep_RunExpt2 < handle
             % Behavior
             %   Loads the selected subject's protocol and shows trial summary
             %   using ep_CompiledProtocolTrials (truncated for readability).
-            idx = self.H.subject_list.UserData;
+            idx = self.H.subject_list.Selection(1);
             if isempty(idx), return, end
 
             warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');

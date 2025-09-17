@@ -710,8 +710,8 @@ classdef ep_RunExpt2 < handle
             %   configures/starts the PsychTimer, and manages Stop/cleanup.
             if COMMAND == "Run", COMMAND = "Record"; end
 
-            switch COMMAND
-                case {"Run","Record","Preview"}
+            switch lower(COMMAND)
+                case {"run","record","preview"}
                     drawnow
 
                     [~,~] = dos('wmic process where name="MATLAB.exe" CALL setpriority "high priority"');
@@ -788,12 +788,12 @@ classdef ep_RunExpt2 < handle
 
                     drawnow
 
-                case 'Pause'
+                case 'pause'
                     
                     self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Pause));
 
 
-                case 'Stop'
+                case 'stop'
                     self.STATE = PRGMSTATE.STOP;
                     set(self.H.figure1,'pointer','watch')
 

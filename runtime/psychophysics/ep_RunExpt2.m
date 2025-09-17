@@ -24,10 +24,6 @@ classdef ep_RunExpt2 < handle
     %   GVerbosity   — Verbosity level for vprintf()
     %   dfltDataPath — Default data directory for saving
     %
-    % Notes
-    %   External utilities are expected on-path: EPsychInfo, vprintf, figAlwaysOnTop,
-    %   epsych.Helper, ep_CompiledProtocolTrials, ep_ExperimentDesign, and
-    %   functions referenced by FUNCS.* and hw.* classes.
     %
     % Daniel.Stolzberg@gmail.com 2014–2025
 
@@ -403,8 +399,8 @@ classdef ep_RunExpt2 < handle
             self.CheckReady
         end
 
-        function SetDataPath(self)
-            % SetDataPath — Configure the default data-saving directory.
+        function DefineDataPath(self)
+            % DefineDataPath — Configure the default data-saving directory.
             ontop = self.AlwaysOnTop(false);
             pth = uigetdir(self.dfltDataPath,'Select Default Data Directory');
             self.AlwaysOnTop(ontop);
@@ -479,8 +475,7 @@ classdef ep_RunExpt2 < handle
                 if ~isfield(self.FUNCS,'BoxFig') || isempty(self.FUNCS.BoxFig)
                     self.FUNCS.BoxFig = 'ep_GenericGUI';
                 end
-                ontop = self.AlwaysOnTop;
-                self.AlwaysOnTop(false);
+                ontop = self.AlwaysOnTop(false);
                 if isa(self.FUNCS.BoxFig,'function_handle'), self.FUNCS.BoxFig = func2str(self.FUNCS.BoxFig); end
                 a = inputdlg('GUI Figure','Specify Custom GUI Figure:',1,{self.FUNCS.BoxFig});
                 self.AlwaysOnTop(ontop);
@@ -498,8 +493,7 @@ classdef ep_RunExpt2 < handle
             if isa(a,'function_handle'), a = func2str(a); end
             b = which(a);
             if isempty(b)
-                ontop = self.AlwaysOnTop;
-                self.AlwaysOnTop(false)
+                ontop = self.AlwaysOnTop(false);
                 errordlg(sprintf('The figure ''%s'' was not found on the current path.',a),'Define Function','modal')
                 self.AlwaysOnTop(ontop)
                 return
@@ -522,17 +516,17 @@ classdef ep_RunExpt2 < handle
             % AlwaysOnTop — Toggle the main window "always on top" setting.
             % Inputs
             %   ontop (logical) — Optional; when omitted, flips current state.
+            originalState = isequal(self.H.figure1.WindowStyle,'alwaysontop');
             if nargin<2
-                s = get(self.H.always_on_top,'Checked');
-                ontop = strcmp(s,'off');
+                ontop = ~originalState;
             end
 
-            originalState = ontop;
 
             if ontop
                 set(self.H.always_on_top,'Checked','on');
                 set(self.H.figure1,'WindowStyle','alwaysontop');
-            else
+               
+            else 
                 set(self.H.always_on_top,'Checked','off');
                 set(self.H.figure1,'WindowStyle','normal');
             end
@@ -594,7 +588,7 @@ classdef ep_RunExpt2 < handle
 
             mCustom = uimenu(f,'Label','Customize');
             uimenu(mCustom,'Label','Define Saving Function...','MenuSelectedFcn', @(~,~) self.DefineSavingFcn)
-            uimenu(mCustom,'Label','Define Save path...','MenuSelectedFcn', @(~,~) self.SetDataPath)
+            uimenu(mCustom,'Label','Define Save path...','MenuSelectedFcn', @(~,~) self.DefineDataPath)
             uimenu(mCustom,'Label','Define Box GUI Function...','MenuSelectedFcn', @(~,~) self.DefineBoxFig)
 
             mView = uimenu(f,'Label','View');

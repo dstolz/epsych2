@@ -22,6 +22,7 @@ classdef ep_RunExpt2 < handle
     %   FUNCS        — Function handles/names for Saving/AddSubject/BoxFig/TIMERfcn
     %   RUNTIME      — Runtime state container shared with callbacks
     %   GVerbosity   — Verbosity level for vprintf()
+    %   dfltDataPath — Default data directory for saving
     %
     % Notes
     %   External utilities are expected on-path: EPsychInfo, vprintf, figAlwaysOnTop,
@@ -32,13 +33,13 @@ classdef ep_RunExpt2 < handle
 
     properties
         H % struct of UI handles
-        STATE (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG
-        CONFIG (1,1)  struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])
-        FUNCS (1,1) struct
-        RUNTIME (1,1) struct = struct()
-        GVerbosity (1,1) double = 1
+        STATE (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG % current program state
+        CONFIG (1,1)  struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[]) % array of subject configs
+        FUNCS (1,1) struct = struct() % function handles/names for callbacks
+        RUNTIME (1,1) struct = struct() % runtime state, shared with timer functions
+        GVerbosity (1,1) double = 1 % verbosity level for vprintf
 
-        dfltDataPath (1,1) string = cd
+        dfltDataPath (1,1) string = cd % default data path for saving
     end
 
     methods

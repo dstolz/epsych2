@@ -17,8 +17,7 @@ classdef ep_RunExpt2 < handle
     %
     % Properties (brief)
     %   H            — UI handle struct
-    %   ProgramState — PRGMSTATE enum (lifecycle state)
-    %   STATEID      — Numeric state mirror for legacy codepaths
+    %   STATE — PRGMSTATE enum (lifecycle state)
     %   CONFIG       — Per-subject config array (SUBJECT/PROTOCOL/RUNTIME/protocol_fn)
     %   FUNCS        — Function handles/names for Saving/AddSubject/BoxFig/TIMERfcn
     %   RUNTIME      — Runtime state container shared with callbacks
@@ -33,12 +32,13 @@ classdef ep_RunExpt2 < handle
 
     properties
         H % struct of UI handles
-        ProgramState PRGMSTATE = PRGMSTATE.NOCONFIG
-        STATEID double = 0
-        CONFIG struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])
-        FUNCS struct
-        RUNTIME struct = struct()
-        GVerbosity double = 1
+        STATE (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG
+        CONFIG (1,1)  struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])
+        FUNCS (1,1) struct
+        RUNTIME (1,1) struct = struct()
+        GVerbosity (1,1) double = 1
+
+        dfltDataPath (1,1) string = cd
     end
 
     methods
@@ -62,6 +62,9 @@ classdef ep_RunExpt2 < handle
             self.ClearConfig
             self.UpdateGUIstate
 
+            self.dfltDataPath = getpref('ep_RunExpt','DataPath',cd);
+
+            if nargout == 0, clear self; end
         end
 
         function delete(self)
@@ -117,12 +120,12 @@ classdef ep_RunExpt2 < handle
             %   cfn (string) — Optional config filepath; prompts if empty.
             % Behavior
             %   Loads CONFIG and FUNCS from file (if present), updates subject
-            %   list, and sets ProgramState to READY when requirements are met.
+            %   list, and sets STATE to READY when requirements are met.
             arguments
                 self
                 cfn string = ""
             end
-            if self.STATEID >= 4, return, end
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
 
             if strlength(cfn) == 0
                 pn = getpref('ep_RunExpt_Setup','CDir',cd);
@@ -166,7 +169,7 @@ classdef ep_RunExpt2 < handle
             % Behavior
             %   Prompts for a destination, serializes current config/functions
             %   together with EPsychInfo meta for reproducibility.
-            if self.STATEID == 0
+            if self.STATE == PRGMSTATE.NOCONFIG
                 warndlg('Please first add a subject.','Save Configuration','modal')
                 return
             end
@@ -200,7 +203,7 @@ classdef ep_RunExpt2 < handle
                 pfn string = ""
             end
             ok = false;
-            if self.STATEID >= 4, return, end
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
 
             if strlength(pfn) == 0
                 pn = getpref('ep_RunExpt_Setup','PDir',cd);
@@ -235,7 +238,7 @@ classdef ep_RunExpt2 < handle
                 self
                 S struct = struct()
             end
-            if self.STATEID >= 4, return, end
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
 
             boxids = 1:16;
             curboxids = [];
@@ -295,7 +298,7 @@ classdef ep_RunExpt2 < handle
                 self
                 idx double = NaN
             end
-            if self.STATEID >= 4, return, end
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
 
             if isnan(idx)
                 idx = self.H.subject_list.Selection(1);
@@ -342,7 +345,7 @@ classdef ep_RunExpt2 < handle
             % SortBoxes — Reorder CONFIG by SUBJECT.BoxID.
             % Behavior
             %   Rebuilds CONFIG so array order matches assigned BoxID values.
-            if self.STATEID >= 4, return, end
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
             if ~isfield(self.CONFIG,'SUBJECT'), return, end
             ids = arrayfun(@(c) c.SUBJECT.BoxID, self.CONFIG);
             C = self.CONFIG;
@@ -363,7 +366,7 @@ classdef ep_RunExpt2 < handle
                 self
                 a = []
             end
-            if self.STATEID >= 4, return, end
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
 
             if ~isempty(a) && ischar(a) && strcmp(a,'default')
                 a = 'ep_SaveDataFcn';
@@ -371,10 +374,9 @@ classdef ep_RunExpt2 < handle
                 if ~isfield(self.FUNCS,'SavingFcn') || isempty(self.FUNCS.SavingFcn)
                     self.FUNCS.SavingFcn = 'ep_SaveDataFcn';
                 end
-                ontop = self.AlwaysOnTop;
-                self.AlwaysOnTop(false)
+                ontop = self.AlwaysOnTop(false);
                 a = inputdlg('Data Saving Function','Saving Function',1,{self.FUNCS.SavingFcn});
-                self.AlwaysOnTop(ontop)
+                self.AlwaysOnTop(ontop);
                 a = char(a);
                 if isempty(a), return, end
             end
@@ -382,25 +384,40 @@ classdef ep_RunExpt2 < handle
             if isa(a,'function_handle'), a = func2str(a); end
             b = which(a);
             if isempty(b)
-                ontop = self.AlwaysOnTop;
-                self.AlwaysOnTop(false)
+                ontop = self.AlwaysOnTop(false);
                 errordlg(sprintf('The function ''%s'' was not found on the current path.',a),'Saving Function','modal')
-                self.AlwaysOnTop(ontop)
+                self.AlwaysOnTop(ontop);
                 return
             end
 
             if nargin(a) ~= 1 || nargout(a) ~= 0
-                ontop = self.AlwaysOnTop;
-                self.AlwaysOnTop(false)
+                ontop = self.AlwaysOnTop(false);
                 errordlg('The Saving Data function must take 1 input and return 0 outputs.','Saving Function','modal')
-                self.AlwaysOnTop(ontop)
+                self.AlwaysOnTop(ontop);
                 return
             end
 
-            fprintf('Saving Data function:\t%s\t(%s)\n',a,b)
+            vprintf(0,'Saving Data function:\t%s\t(%s)\n',a,b)
             self.FUNCS.SavingFcn = a;
             self.CheckReady
         end
+
+        function SetDataPath(self)
+            % SetDataPath — Configure the default data-saving directory.
+            ontop = self.AlwaysOnTop(false);
+            pth = uigetdir(self.dfltDataPath,'Select Default Data Directory');
+            self.AlwaysOnTop(ontop);
+
+            if isequal(pth,0) || strlength(string(pth))==0, return, end
+
+            pth = string(pth);
+
+            self.dfltDataPath = pth;
+            setpref('ep_RunExpt','DataPath',pth);
+
+            self.CheckReady
+        end
+
 
         function DefineAddSubject(self, a)
             % DefineAddSubject — Configure the subject creation function.
@@ -412,7 +429,7 @@ classdef ep_RunExpt2 < handle
                 self
                 a = []
             end
-            if self.STATEID >= 4, return, end
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
             if ~isempty(a) && ischar(a) && strcmp(a,'default')
                 a = 'ep_AddSubject';
             elseif isempty(a) || ~isfield(self.FUNCS,'AddSubjectFcn')
@@ -453,7 +470,7 @@ classdef ep_RunExpt2 < handle
                 self
                 a = []
             end
-            if self.STATEID >= 4, return, end
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
 
             if ~isempty(a) && ischar(a) && strcmp(a,'default')
                 a = 'ep_GenericGUI';
@@ -462,10 +479,10 @@ classdef ep_RunExpt2 < handle
                     self.FUNCS.BoxFig = 'ep_GenericGUI';
                 end
                 ontop = self.AlwaysOnTop;
-                self.AlwaysOnTop(false)
+                self.AlwaysOnTop(false);
                 if isa(self.FUNCS.BoxFig,'function_handle'), self.FUNCS.BoxFig = func2str(self.FUNCS.BoxFig); end
                 a = inputdlg('GUI Figure','Specify Custom GUI Figure:',1,{self.FUNCS.BoxFig});
-                self.AlwaysOnTop(ontop)
+                self.AlwaysOnTop(ontop);
                 if isempty(a), return, end
                 a = char(a);
             end
@@ -500,26 +517,27 @@ classdef ep_RunExpt2 < handle
             feval(self.FUNCS.BoxFig, self.RUNTIME);
         end
 
-        function AlwaysOnTop(self, ontop)
+        function originalState = AlwaysOnTop(self, ontop)
             % AlwaysOnTop — Toggle the main window "always on top" setting.
             % Inputs
             %   ontop (logical) — Optional; when omitted, flips current state.
-            if nargout==0 && nargin==1
-                ontop = getpref('ep_RunExpt','AlwaysOnTop',false);
-            elseif nargin<2
+            if nargin<2
                 s = get(self.H.always_on_top,'Checked');
                 ontop = strcmp(s,'off');
             end
 
+            originalState = ontop;
+
             if ontop
                 set(self.H.always_on_top,'Checked','on');
+                set(self.H.figure1,'WindowStyle','alwaysontop');
             else
                 set(self.H.always_on_top,'Checked','off');
+                set(self.H.figure1,'WindowStyle','normal');
             end
 
-            set(self.H.figure1,'WindowStyle','normal')
-            figAlwaysOnTop(self.H.figure1, ontop)
-            setpref('ep_RunExpt','AlwaysOnTop',ontop)
+            if nargout == 0, clear ontop; end
+
         end
 
         function version_info(~)
@@ -547,7 +565,7 @@ classdef ep_RunExpt2 < handle
             self.GVerbosity = indx-1;
             vprintf(1,'Verbosity set to %s',options{self.GVerbosity+1})
         end
-    end
+    end % methods
 
     methods (Access=private)
         function buildUI(self)
@@ -572,6 +590,11 @@ classdef ep_RunExpt2 < handle
             uimenu(mFile,'Label','Load Config...','MenuSelectedFcn', @(~,~) self.LoadConfig)
             uimenu(mFile,'Label','Save Config...','MenuSelectedFcn', @(~,~) self.SaveConfig)
             uimenu(mFile,'Label','Exit','Separator','on','MenuSelectedFcn', @(~,~) self.onCloseRequest)
+
+            mCustom = uimenu(f,'Label','Customize');
+            uimenu(mCustom,'Label','Define Saving Function...','MenuSelectedFcn', @(~,~) self.DefineSavingFcn)
+            uimenu(mCustom,'Label','Define Save path...','MenuSelectedFcn', @(~,~) self.SetDataPath)
+            uimenu(mCustom,'Label','Define Box GUI Function...','MenuSelectedFcn', @(~,~) self.DefineBoxFig)
 
             mView = uimenu(f,'Label','View');
             self.H.always_on_top = uimenu(mView,'Label','Always On Top','Checked','off', ...
@@ -651,7 +674,7 @@ classdef ep_RunExpt2 < handle
             % Behavior
             %   Warns if running, stops/deletes timers, resets functions to
             %   preferences, and deletes the main figure.
-            if self.ProgramState == PRGMSTATE.RUNNING
+            if self.STATE == PRGMSTATE.RUNNING
                 b = questdlg('Experiment is currently running. Closing will stop the experiment.', ...
                     'Experiment','Close Experiment','Cancel','Cancel');
                 if strcmp(b,'Cancel'), return, end
@@ -718,6 +741,7 @@ classdef ep_RunExpt2 < handle
                     end
 
                     self.RUNTIME.NSubjects = length(self.CONFIG);
+                    
 
                     [~,result] = system('tasklist/FI "imagename eq Synapse.exe"');
                     x = strfind(result,'No tasks are running');
@@ -745,6 +769,11 @@ classdef ep_RunExpt2 < handle
                         for j = 1:length(modnames)
                             self.RUNTIME.TRIALS(i).MODULES.(modnames{j}) = j;
                         end
+                        
+                        % Initialize default data filename
+                        sn = self.RUNTIME.TRIALS.Subject.Name;
+                        pth = fullfile(self.dfltDataPath,sn);
+                        self.RUNTIME.TRIALS(i).DataFilename = ep_RunExpt2.defaultFilename(pth,sn);
                     end
 
                     self.RUNTIME.HELPER = epsych.Helper;
@@ -767,7 +796,7 @@ classdef ep_RunExpt2 < handle
 
 
                 case 'Stop'
-                    self.ProgramState = PRGMSTATE.STOP;
+                    self.STATE = PRGMSTATE.STOP;
                     set(self.H.figure1,'pointer','watch')
 
                     RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Stop));
@@ -815,7 +844,7 @@ classdef ep_RunExpt2 < handle
             % Behavior
             %   Updates state, calls TIMERfcn.Start, records StartTime, and
             %   attempts to launch BoxFig if configured.
-            self.ProgramState = PRGMSTATE.RUNNING;
+            self.STATE = PRGMSTATE.RUNNING;
             self.UpdateGUIstate
 
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Start, self.RUNTIME, self.CONFIG);
@@ -856,7 +885,7 @@ classdef ep_RunExpt2 < handle
             % Behavior
             %   Records last error, calls TIMERfcn.Error, saves data, and
             %   updates GUI state to reflect the error condition.
-            self.ProgramState = PRGMSTATE.ERROR;
+            self.STATE = PRGMSTATE.ERROR;
             self.RUNTIME.ERROR = lasterror; %#ok<LERR>
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Error, self.RUNTIME);
             feval(self.FUNCS.SavingFcn, self.RUNTIME);
@@ -868,7 +897,7 @@ classdef ep_RunExpt2 < handle
             % PsychTimerStop — Clean shutdown after the runtime loop ends.
             % Behavior
             %   Calls TIMERfcn.Stop, refreshes GUI, and triggers save logic.
-            self.ProgramState = PRGMSTATE.STOP;
+            self.STATE = PRGMSTATE.STOP;
             vprintf(3,'PsychTimerStop:Calling timer Stop function: %s',self.FUNCS.TIMERfcn.Stop)
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Stop, self.RUNTIME);
             vprintf(3,'PsychTimerStop:Calling UpdateGUIstate')
@@ -881,8 +910,8 @@ classdef ep_RunExpt2 < handle
             % SaveDataCallback — Invoke SavingFcn with UI-safe control state.
             % Behavior
             %   Disables controls during save, calls FUNCS.SavingFcn(RUNTIME),
-            %   and restores GUI state per ProgramState.
-            oldstate = self.ProgramState; %#ok<NASGU>
+            %   and restores GUI state per STATE.
+            oldstate = self.STATE;
             % Temporarily disable controls during save without changing state enum
             try
                 hCtrl = findobj(self.H.figure1,'-regexp','tag','^ctrl')';
@@ -901,7 +930,7 @@ classdef ep_RunExpt2 < handle
             % Restore UI based on current state
             self.UpdateGUIstate
             
-            self.ProgramState = oldstate;
+            self.STATE = oldstate;
             vprintf(3,'SaveDataCallback: Calling UpdateGUIstate')
             self.UpdateGUIstate
         end
@@ -909,9 +938,9 @@ classdef ep_RunExpt2 < handle
         function CheckReady(self)
             % CheckReady — Evaluate readiness based on subjects and functions.
             % Behavior
-            %   Sets ProgramState to CONFIGLOADED when both subjects and
+            %   Sets STATE to CONFIGLOADED when both subjects and
             %   required functions are defined; otherwise to NOCONFIG.
-            if self.STATEID >= 4, return, end
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
 
             Subjects = ~isempty(self.CONFIG) && numel(self.CONFIG) > 0 && isfield(self.CONFIG,'SUBJECT') && ~isempty(self.CONFIG(1).SUBJECT);
             Functions = ~isempty(self.FUNCS) && ~any([isempty(self.FUNCS.SavingFcn); ...
@@ -919,16 +948,16 @@ classdef ep_RunExpt2 < handle
 
             isready = Subjects & Functions;
             if isready
-                self.ProgramState = PRGMSTATE.CONFIGLOADED;
+                self.STATE = PRGMSTATE.CONFIGLOADED;
             else
-                self.ProgramState = PRGMSTATE.NOCONFIG;
+                self.STATE = PRGMSTATE.NOCONFIG;
             end
 
             self.UpdateGUIstate
         end
 
         function UpdateGUIstate(self)
-            % UpdateGUIstate — Enable/disable controls based on ProgramState.
+            % UpdateGUIstate — Enable/disable controls based on STATE.
             % Behavior
             %   Centralizes UI state transitions for all major states.
             
@@ -938,34 +967,27 @@ classdef ep_RunExpt2 < handle
 
             hSetup = findobj(self.H.figure1,'-regexp','tag','^setup')';
 
-            switch self.ProgramState
+            switch self.STATE
                 case PRGMSTATE.NOCONFIG
-                    self.STATEID = 0;
 
                 case PRGMSTATE.CONFIGLOADED
-                    self.ProgramState = PRGMSTATE.READY;
-                    self.STATEID = 1;
+                    self.STATE = PRGMSTATE.READY;
                     set(self.H.view_trials,'Enable','on');
                     self.UpdateGUIstate
 
                 case PRGMSTATE.READY
-                    self.STATEID = 3;
                     set([self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
 
                 case PRGMSTATE.RUNNING
-                    self.STATEID = 4;
                     set([self.H.ctrl_pauseall self.H.ctrl_halt],'Enable','on')
                     set(hSetup,'Enable','off')
 
                 case PRGMSTATE.POSTRUN
-                    self.STATEID = 5;
 
                 case PRGMSTATE.STOP
-                    self.STATEID = 2;
                     set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
 
                 case PRGMSTATE.ERROR
-                    self.STATEID = -1;
                     set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
             end
         end
@@ -974,7 +996,7 @@ classdef ep_RunExpt2 < handle
             % UpdateSubjectList — Populate the subject uitable and controls.
             % Behavior
             %   Reflects CONFIG contents in the table and toggles action buttons.
-            if self.STATEID >= 4, return, end
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
 
             if isempty(self.CONFIG) || isempty(self.CONFIG(1).SUBJECT)
                 set(self.H.subject_list,'data',[])
@@ -1033,15 +1055,37 @@ classdef ep_RunExpt2 < handle
         function ClearConfig(self)
             % ClearConfig — Reset CONFIG and GUI to an unconfigured state.
             % Behavior
-            %   Clears subjects/protocols, sets ProgramState to NOCONFIG, and
+            %   Clears subjects/protocols, sets STATE to NOCONFIG, and
             %   empties the subject list if present.
             self.CONFIG = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[]);
-            if self.STATEID >= 4, return, end
-            self.ProgramState = PRGMSTATE.NOCONFIG;
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
+            self.STATE = PRGMSTATE.NOCONFIG;
             if isfield(self.H,'subject_list') && isgraphics(self.H.subject_list)
                 set(self.H.subject_list,'Data',[])
             end
             self.CheckReady
         end
-    end
+    end %  methods (Access=private)
+
+
+
+    methods (Static)
+        function ffn = defaultFilename(pth,name)
+            td = datetime('today');
+            td.Format ="dd-MMM-uuuu";
+            fn = sprintf('%s_%s.mat',name,td);
+
+            ffn = fullfile(pth,fn);
+
+            % avoid overwriting existing files
+            % append _A, _B, etc.
+            letters = char(65:90);
+            k = 1;
+            while isfile(ffn)
+                fn = sprintf('%s_%s_%s.mat',name,td,letters(k));
+                ffn = fullfile(pth,fn);
+                k = k + 1;
+            end
+        end
+    end % methods (Static)
 end

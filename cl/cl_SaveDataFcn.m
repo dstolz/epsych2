@@ -27,8 +27,15 @@ for i = 1:RUNTIME.NSubjects
     if ~isfolder(subjPath), mkdir(subjPath); end
     
 
-    ffn = gui.FilenameValidator.defaultFilename(subjPath,name);
-
+    if isfield(RUNTIME.TRIALS(i),'DataFilename') && ~isempty(RUNTIME.TRIALS(i).DataFilename)
+        % use existing filename if available
+        ffn = RUNTIME.TRIALS(i).DataFilename;
+    else
+        % otherwise use default location
+        ffn = ep_RunExpt2.defaultFilename(subjPath,name);
+    end
+    
+    
     % prompt user for file location
     % suggest default location
     [fn,pn] = uiputfile({'*.mat','MATLAB File'}, ...

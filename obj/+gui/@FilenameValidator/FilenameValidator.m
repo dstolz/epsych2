@@ -82,25 +82,4 @@ classdef FilenameValidator < handle
         end
     end
 
-    methods (Static)
-        function ffn = defaultFilename(pth,name)
-            td = datetime('today');
-            td.Format ="dd-MMM-uuuu";
-            fn = sprintf('%s_%s.mat',name,td);
-
-            ffn = fullfile(pth,fn);
-
-            % avoid overwriting existing files
-            % append _A, _B, etc.
-            letters = char(65:90);
-            k = 1;
-            while isfile(ffn)
-                fn = sprintf('%s_%s_%s.mat',name,td,letters(k));
-                ffn = fullfile(pth,fn);
-                k = k + 1;
-            end
-
-            
-        end
-    end
 end

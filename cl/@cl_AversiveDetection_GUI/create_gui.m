@@ -369,11 +369,8 @@ panelFilename.Layout.Column = [4 5];
 
 layoutFilename = simple_layout(panelFilename);
 
-dfltPth = 'D:\matlab_data_files';
-sn = RUNTIME.TRIALS.Subject.Name;
-pth = fullfile(dfltPth,sn);
-ffn = gui.FilenameValidator.defaultFilename(pth,sn);
-gui.FilenameValidator(layoutFilename,ffn);
+
+gui.FilenameValidator(layoutFilename,RUNTIME.TRIALS.DataFilename);
 
 
 

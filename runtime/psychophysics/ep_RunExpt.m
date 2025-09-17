@@ -192,7 +192,8 @@ switch COMMAND
         end
         
         
-        
+        RUNTIME.dfltDataPath = getpref('ep_RunExpt','DataPath',cd);
+
         
 
 

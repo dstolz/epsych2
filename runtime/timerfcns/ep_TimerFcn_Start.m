@@ -77,6 +77,13 @@ for i = 1:RUNTIME.NSubjects
     end
     save(RUNTIME.DataFile{i},'info','-v6');
 
+
+
+    % Initialize default data filename
+    sn = RUNTIME.TRIALS(i).Subject.Name;
+    pth = fullfile(RUNTIME.dfltDataPath,sn);
+    RUNTIME.TRIALS(i).DataFilename = ep_RunExpt2.defaultFilename(pth,sn);
+
     RUNTIME.ON_HOLD(i) = false;
 
 

@@ -769,12 +769,9 @@ classdef ep_RunExpt2 < handle
                         for j = 1:length(modnames)
                             self.RUNTIME.TRIALS(i).MODULES.(modnames{j}) = j;
                         end
-                        
-                        % Initialize default data filename
-                        sn = self.RUNTIME.TRIALS.Subject.Name;
-                        pth = fullfile(self.dfltDataPath,sn);
-                        self.RUNTIME.TRIALS(i).DataFilename = ep_RunExpt2.defaultFilename(pth,sn);
                     end
+
+                    self.RUNTIME.dfltDataPath = self.dfltDataPath;
 
                     self.RUNTIME.HELPER = epsych.Helper;
 
@@ -786,20 +783,20 @@ classdef ep_RunExpt2 < handle
 
                     start(self.RUNTIME.TIMER)
 
-                    RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Record));
+                    self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Record));
 
                     drawnow
 
                 case 'Pause'
                     
-                    RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Pause));
+                    self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Pause));
 
 
                 case 'Stop'
                     self.STATE = PRGMSTATE.STOP;
                     set(self.H.figure1,'pointer','watch')
 
-                    RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Stop));
+                    self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Stop));
 
 
                     vprintf(3,'ExptDispatch: Stopping BoxTimer')

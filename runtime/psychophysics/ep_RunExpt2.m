@@ -32,7 +32,8 @@ classdef ep_RunExpt2 < handle
         STATE (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG % current program state
         CONFIG (1,1)  struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[]) % array of subject configs
         FUNCS (1,1) struct = struct() % function handles/names for callbacks
-        RUNTIME (1,1) struct = struct() % runtime state, shared with timer functions
+        % RUNTIME (1,1) struct = struct() % runtime state, shared with timer functions
+        RUNTIME (1,1) epsych.Runtime = epsych.Runtime
         GVerbosity (1,1) double = 1 % verbosity level for vprintf
 
         dfltDataPath (1,1) string = cd % default data path for saving
@@ -712,7 +713,8 @@ classdef ep_RunExpt2 < handle
 
                     fprintf('\n%s\n',repmat('~',1,50))
 
-                    self.RUNTIME = struct();
+                    % self.RUNTIME = struct();
+                    self.RUNTIME = epsych.Runtime; % reset RUNTIME
 
                     % Load protocols
                     for i = 1:length(self.CONFIG)

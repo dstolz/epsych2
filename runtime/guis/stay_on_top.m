@@ -11,5 +11,5 @@ function stay_on_top(hObj)
 f = ancestor(hObj,'figure');
 if isempty(f), return; end
 v = hObj.Value;
-FigOnTop(f,v);
+figAlwaysOnTop(f,v);
 setpref(f.Tag,'stayOnTop',v);

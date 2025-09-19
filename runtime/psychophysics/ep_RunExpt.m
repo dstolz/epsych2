@@ -2,7 +2,7 @@ function varargout = ep_RunExpt(varargin)
 % ep_RunExpt
 %
 % Run Psychophysics experiment with/without electrophysiology using OpenEx
-% 
+%
 % Daniel.Stolzberg@gmail.com 2014
 
 % Copyright (C) 2016  Daniel Stolzberg, PhD
@@ -15,11 +15,11 @@ function varargout = ep_RunExpt(varargin)
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
-                   'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @ep_RunExpt_OpeningFcn, ...
-                   'gui_OutputFcn',  @ep_RunExpt_OutputFcn, ...
-                   'gui_LayoutFcn',  [] , ...
-                   'gui_Callback',   []);
+    'gui_Singleton',  gui_Singleton, ...
+    'gui_OpeningFcn', @ep_RunExpt_OpeningFcn, ...
+    'gui_OutputFcn',  @ep_RunExpt_OutputFcn, ...
+    'gui_LayoutFcn',  [] , ...
+    'gui_Callback',   []);
 if nargin && ischar(varargin{1})
     gui_State.gui_Callback = str2func(varargin{1});
 end
@@ -51,7 +51,7 @@ guidata(hObj, h);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = ep_RunExpt_OutputFcn(~, ~, h) 
+function varargout = ep_RunExpt_OutputFcn(~, ~, h)
 varargout{1} = h.output;
 
 function ep_RunExpt_CloseRequestFcn(hObj,~) %#ok<DEFNU>
@@ -65,29 +65,28 @@ if strcmp(PRGMSTATE,'RUNNING')
     if isfield(RUNTIME,'TIMER') && isvalid(timerfind('Name','PsychTimer'))
         stop(RUNTIME.TIMER);
         delete(RUNTIME.TIMER);
-    end    
+    end
 end
 
 SetDefaultFuncs(FUNCS);
 
-clear global PRGMSTATE CONFIG RUNTIME AX STATEID FUNCS
+clear global PRGMSTATE CONFIG RUNTIME  SYN SYN_STATUS STATEID FUNCS
 
 delete(hObj)
 
 
 
 
-
-%%
-function ExptDispatch(hObj,h) 
-global PRGMSTATE CONFIG AX RUNTIME
+function ExptDispatch(hObj,h)
+global PRGMSTATE CONFIG  RUNTIME
 
 
 COMMAND = get(hObj,'String');
 
+if isequal(COMMAND,'Run'), COMMAND = 'Record'; end
 
 switch COMMAND
-    case {'Run','Preview'}
+    case {'Run','Record','Preview'}
         set(h.figure1,'pointer','watch'); drawnow
         
         % elevate Matlab.exe process to a high priority in Windows
@@ -95,14 +94,19 @@ switch COMMAND
         
         fprintf('\n%s\n',repmat('~',1,50))
         
+        
+        
         RUNTIME = []; % start fresh
-
+        
+        
+        
+        
         % Load protocols
         for i = 1:length(CONFIG)
             warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
             load(CONFIG(i).protocol_fn,'protocol','-mat');
             warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
-
+            
             CONFIG(i).PROTOCOL = protocol;
             
             [pn,fn] = fileparts(CONFIG(i).protocol_fn);
@@ -120,49 +124,62 @@ switch COMMAND
         
         RUNTIME.NSubjects = length(CONFIG);
         
-        if CONFIG(1).PROTOCOL.OPTIONS.UseOpenEx
-             vprintf(0,'Experiment is designed for use with OpenEx')
-            [AX,TDT] = SetupDAexpt;
-            if isempty(AX) || ~isa(AX,'COM.TDevAcc_X'), return; end
-                        
-            vprintf(0,'Server:\t''%s''\nTank:\t''%s''\n', ...
-                TDT.server,TDT.tank)
-            
-            
-            RUNTIME.TDT = TDT_GetDeviceInfo(AX,false);
-            if isempty(RUNTIME.TDT)
-                vprintf(0,1,'Unable to communicate with OpenEx.  Make certain the correct OpenEx file is open.')
-                errordlg('Unable to communicate with OpenEx.  Make certain the correct OpenEx file is open.', ...
-                    'ep_RunExpt','modal')
-            end
-            RUNTIME.TDT.server = TDT.server;
-            RUNTIME.TDT.tank   = TDT.tank;
-            
-            
-            % Copy parameters to RUNTIME.TRIALS
-            for i = 1:length(CONFIG)
-                C = CONFIG(i).PROTOCOL.COMPILED;
-                RUNTIME.TRIALS(i).readparams    = C.readparams;
-                RUNTIME.TRIALS(i).Mreadparams   = cellfun(@ModifyParamTag, ...
-                    RUNTIME.TRIALS(i).readparams,'UniformOutput',false);
-                RUNTIME.TRIALS(i).writeparams   = C.writeparams; 
-                RUNTIME.TRIALS(i).randparams    = C.randparams;
+        
+        %-------------------------------------------------
+        %-------------------------------------------------
+        %Check to see if we're running Synapse
+        % > SYN_STATUS == TRUE if task is running, FALSE otherwise
+        %-------------------------------------------------
+        %-------------------------------------------------
+        [~,result] = system('tasklist/FI "imagename eq Synapse.exe"');
+        x = strfind(result,'No tasks are running');
+        RUNTIME.usingSynapse = isempty(x); %#ok<STREMP>
+        
+
+        try
+            if RUNTIME.usingSynapse
+                %-------------------------------------------------
+                %Synapse is running
+                %-------------------------------------------------
+                vprintf(0,'Experiment will be run with Synapse')
+
+
+                RUNTIME.HW = hw.TDT_Synapse();
+
+
+            else % experiment using RPco.x
+
+                %-------------------------------------------------
+                %If Synapse is not running (behavior only)
+                %-------------------------------------------------
+
+
+                M = CONFIG.PROTOCOL.MODULES;
+                moduleAlias = fieldnames(M);
+                rpvdsFile = structfun(@(a) cellstr(a.RPfile),M,'uni',1);
+
+                % *** TEMPORARY FIX. WHERE IN PROTOCOL IS MODULE INFO? ***
+                moduleType = repmat({'RZ6'},size(rpvdsFile)); 
+
+                RUNTIME.HW = hw.TDT_RPcox(rpvdsFile,moduleType,moduleAlias);
+
 
             end
 
 
-        else
-            vprintf(0,'Experiment is not using OpenEx')
-            
-            try
-                [AX,RUNTIME] = SetupRPexpt(CONFIG);
-            catch me
-                set(h.figure1,'pointer','arrow'); drawnow
-                rethrow(me);
-            end
-            if isempty(AX), return; end
-            
+        catch me
+            set(h.figure1,'pointer','arrow'); drawnow
+            rethrow(me);
         end
+
+
+
+
+
+        
+        
+        %-------------------------------------------------
+        %-------------------------------------------------
         
         
         for i = 1:length(CONFIG)
@@ -171,93 +188,60 @@ switch COMMAND
             modnames = fieldnames(CONFIG(i).PROTOCOL.MODULES);
             for j = 1:length(modnames)
                 RUNTIME.TRIALS(i).MODULES.(modnames{j}) = j;
-%                 modtype = RUNTIME.TDT.Module{ismember(RUNTIME.TDT.name,modnames{j})};
-%                 vprintf(1,['%2d. ''%s'' on %s module: ' ...
-%                            '<a href = "matlab: !explorer %s">%s</a>'], ...
-%                            i,modnames{j},modtype, ...
-%                            CONFIG(i).PROTOCOL.MODULES.PM2R_Control.RPfile, ...
-%                            CONFIG(i).PROTOCOL.MODULES.PM2R_Control.RPfile)
             end
         end
         
-        pause(1);
         
-        
-        RUNTIME.UseOpenEx = CONFIG(1).PROTOCOL.OPTIONS.UseOpenEx;
-        if RUNTIME.UseOpenEx, RUNTIME.TYPE = 'DA'; else RUNTIME.TYPE = 'RP'; end
+        RUNTIME.dfltDataPath = getpref('ep_RunExpt','DataPath',cd);
 
         
-       % Do stuff with parameter tags
-       RUNTIME.TDT.NumMods = length(RUNTIME.TDT.RPfile);
-       RUNTIME.TDT.triggers = cell(1,RUNTIME.TDT.NumMods);
-       for i = 1:RUNTIME.TDT.NumMods
-           if ismember(RUNTIME.TDT.Module{i},{'PA5','UNKNOWN'}) % PA5 is marked 'UNKNOWN' when using OpenDeveloper
-               RUNTIME.TDT.devinfo(i).tags = {'SetAtten'};
-               RUNTIME.TDT.devinfo(i).datatype = {'S'};
-               
-           elseif ~isempty(RUNTIME.TDT.RPfile{i})
-               [RUNTIME.TDT.devinfo(i).tags,RUNTIME.TDT.devinfo(i).datatype] = ReadRPvdsTags(RUNTIME.TDT.RPfile{i});
-               t = RUNTIME.TDT.devinfo(i).tags;
-               
-               % look for trigger tags starting with '!'
-               ind = cellfun(@(x) (x(1)=='!'),t);
-               if any(ind)
-                   if RUNTIME.UseOpenEx
-                       RUNTIME.TDT.triggers{i} = cellfun(@(a) ([RUNTIME.TDT.name{i} '.' a]),t(ind),'UniformOutput',false);
-                   else
-                       RUNTIME.TDT.triggers{i} = t(ind);
-                       RUNTIME.TDT.trigmods(i) = i;
-                   end
-               end
-               
-           end
-           
-           
-       end
-        
-       
-              
-
-
-
-        if RUNTIME.UseOpenEx
-            switch COMMAND
-                case 'Preview', AX.SetSysMode(2);
-                case 'Run',     AX.SetSysMode(3);
-            end
-            vprintf(0,'System set to ''%s''',COMMAND)            
-            pause(1);
-        end
 
 
         RUNTIME.HELPER = epsych.Helper;
-
-
+        
+        %Create trimer
         RUNTIME.TIMER = CreateTimer(h.figure1);
-                
+
+        % Update hardware mode
+        RUNTIME.HW.mode = hw.DeviceState(COMMAND);
+
+
+        vprintf(0,'System set to ''%s''',COMMAND)
+        pause(1);
+        
+        
+        
         start(RUNTIME.TIMER); % Begin Experiment
-               
+
+        RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Record));
+
         
         set(h.figure1,'pointer','arrow'); drawnow
-
+        
         
     case 'Pause'
-        
+        RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Pause));
+
     case 'Stop'
         PRGMSTATE = 'STOP';
+
         set(h.figure1,'pointer','watch'); %drawnow
         
-        vprintf(3,'ExptDispatch: Stopping PsychTimer')
-        t = timerfind('Name','PsychTimer');
-        if ~isempty(t), stop(t); delete(t); end
+        RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Stop));
         
         vprintf(3,'ExptDispatch: Stopping BoxTimer')
         t = timerfind('Name','BoxTimer');
         if ~isempty(t), stop(t); delete(t); end
+
+
+        vprintf(3,'ExptDispatch: Stopping PsychTimer')
+        t = timerfind('Name','PsychTimer');
+        if ~isempty(t), stop(t); delete(t); end
         
-        vprintf(0,'Experiment stopped at %s',datestr(now,'dd-mmm-yyyy HH:MM'))
+
+        vprintf(0,'Experiment stopped at %s',datetime("now",Format = 'dd-MMM-yyyy HH:mm'))
         
-        set(h.figure1,'pointer','arrow'); %drawnow 
+        set(h.figure1,'pointer','arrow'); %drawnow
 end
 
 
@@ -278,7 +262,7 @@ end
 T = timer('BusyMode','drop', ...
     'ExecutionMode','fixedSpacing', ...
     'Name','PsychTimer', ...
-    'Period',0.1, ... % 'Period',0.01, ... % decreased timer period from 0.1 to 0.01 DJS Nov 5, 2015
+    'Period',0.01, ...
     'StartFcn',{@PsychTimerStart,f}, ...
     'TimerFcn',{@PsychTimerRunTime,f}, ...
     'ErrorFcn',{@PsychTimerError,f}, ...
@@ -288,7 +272,7 @@ T = timer('BusyMode','drop', ...
 
 
 function PsychTimerStart(~,~,f)
-global PRGMSTATE CONFIG AX RUNTIME FUNCS
+global PRGMSTATE CONFIG RUNTIME FUNCS
 
 PRGMSTATE = 'RUNNING';
 
@@ -296,17 +280,17 @@ h = guidata(f);
 
 UpdateGUIstate(h);
 
+RUNTIME = feval(FUNCS.TIMERfcn.Start,RUNTIME,CONFIG);
 
-RUNTIME = feval(FUNCS.TIMERfcn.Start,CONFIG,RUNTIME,AX);
-RUNTIME.StartTime = clock;
-vprintf(0,'Experiment started at %s',datestr(RUNTIME.StartTime ,'dd-mmm-yyyy HH:MM'))
+RUNTIME.StartTime = datetime('now');
+vprintf(0,'Experiment started at %s',RUNTIME.StartTime)
 
 % Launch Box figure to display information during experiment
 if isempty(FUNCS.BoxFig)
     vprintf(2,'No Behavior Performance GUI specified')
 else
     try
-        feval(FUNCS.BoxFig);
+        feval(FUNCS.BoxFig, RUNTIME);
         set(h.mnu_LaunchGUI,'Enable','on');
     catch me
         s = FUNCS.BoxFig;
@@ -319,27 +303,24 @@ else
 end
 
 
-function PsychTimerRunTime(~,~,f) 
-global AX RUNTIME FUNCS
+function PsychTimerRunTime(~,~,f)
+global RUNTIME FUNCS
 
-if RUNTIME.UseOpenEx
-    sysmode = AX.GetSysMode;
-    if sysmode < 2
-        h = guidata(f);
-        ExptDispatch(h.ctrl_halt,h);
-        return
-    end
+if RUNTIME.HW.mode == hw.DeviceState.Idle
+    h = guidata(f);
+    ExptDispatch(h.ctrl_halt,h);
+    return
 end
 
-RUNTIME = feval(FUNCS.TIMERfcn.RunTime,RUNTIME,AX);
+RUNTIME = feval(FUNCS.TIMERfcn.RunTime,RUNTIME);
 
 function PsychTimerError(~,~,f)
-global AX PRGMSTATE RUNTIME FUNCS
+global PRGMSTATE RUNTIME FUNCS
 PRGMSTATE = 'ERROR';
 
 RUNTIME.ERROR = lasterror; %#ok<LERR>
 
-RUNTIME = feval(FUNCS.TIMERfcn.Error,RUNTIME,AX);
+RUNTIME = feval(FUNCS.TIMERfcn.Error,RUNTIME);
 
 feval(FUNCS.SavingFcn,RUNTIME);
 
@@ -348,11 +329,11 @@ UpdateGUIstate(guidata(f));
 SaveDataCallback(h);
 
 function PsychTimerStop(~,~,f)
-global AX PRGMSTATE RUNTIME FUNCS
+global PRGMSTATE RUNTIME FUNCS
 PRGMSTATE = 'STOP';
 
 vprintf(3,'PsychTimerStop:Calling timer Stop function: %s',FUNCS.TIMERfcn.Stop)
-RUNTIME = feval(FUNCS.TIMERfcn.Stop,RUNTIME,AX);
+RUNTIME = feval(FUNCS.TIMERfcn.Stop,RUNTIME);
 
 h = guidata(f);
 
@@ -399,7 +380,7 @@ try
     vprintf(1,'Calling Saving Function: %s',FUNCS.SavingFcn)
     feval(FUNCS.SavingFcn,RUNTIME);
 catch me
-    vprintf(-1,me)
+    vprintf(0,1,me)
 end
 
 % vprintf(3,'SaveDataCallback: Calling AlwaysOnTop')
@@ -443,7 +424,7 @@ hSetup = findobj(h.figure1,'-regexp','tag','^setup')';
 switch PRGMSTATE
     case 'NOCONFIG'
         STATEID = 0;
-    
+        
     case 'CONFIGLOADED'
         PRGMSTATE = 'READY';
         STATEID = 1;
@@ -468,17 +449,17 @@ switch PRGMSTATE
         
     case 'ERROR'
         STATEID = -1;
-        set([h.save_data,h.ctrl_run,h.ctrl_preview,hSetup],'Enable','on');     
+        set([h.save_data,h.ctrl_run,h.ctrl_preview,hSetup],'Enable','on');
 end
-    
-% drawnow 
+
+% drawnow
 
 
 
 
 function LocateBehaviorGUI(h)
-global FUNCS
-feval(FUNCS.BoxFig);
+global FUNCS RUNTIME
+feval(FUNCS.BoxFig,RUNTIME);
 
 
 
@@ -637,7 +618,7 @@ boxids = 1:16;
 curboxids = [];
 curnames = {[]};
 if ~isempty(CONFIG) && ~isempty(CONFIG(1).SUBJECT)
-
+    
     for i = 1:length(CONFIG)
         curboxids(i) = CONFIG(i).SUBJECT.BoxID; %#ok<AGROW>
         curnames{i} = CONFIG(i).SUBJECT.Name;
@@ -701,7 +682,7 @@ if nargin == 1
 end
 if isempty(idx) || isempty(CONFIG), return; end
 
-if length(CONFIG) == 1
+if isscalar(CONFIG)
     h = ClearConfig(h);
 else
     CONFIG(idx) = [];
@@ -727,7 +708,7 @@ for i = 1:length(CONFIG)
     data(i,1) = {CONFIG(i).SUBJECT.BoxID}; %#ok<AGROW>
     data(i,2) = {CONFIG(i).SUBJECT.Name};  %#ok<AGROW>
     [~,fn,~] = fileparts(CONFIG(i).protocol_fn);
-    data(i,3) = {fn}; %#ok<AGROW>
+    data(i,3) = {char(fn)}; %#ok<AGROW>
 end
 set(h.subject_list,'Data',data);
 
@@ -747,7 +728,7 @@ else
     ep_ExperimentDesign(CONFIG.protocolfile{idx},idx);
 end
 
-function SortBoxes(h) %#ok<DEFNU>
+function SortBoxes(h) 
 global STATEID CONFIG
 if STATEID >= 4, return; end
 
@@ -765,7 +746,7 @@ UpdateSubjectList(h);
 
 guidata(h.figure1,h);
 
-function subject_list_CellSelectionCallback(hObj,evnt,~) %#ok<DEFNU>
+function subject_list_CellSelectionCallback(hObj,evnt,~) 
 global CONFIG
 idx = evnt.Indices;
 if isempty(idx)
@@ -781,6 +762,8 @@ end
 
 %% Function Definitions
 function h = DefineTimerFcns(h,a,echo)
+msgbox('Defining custom timer functions is no longer supported.  Customizations should be implemented in the TrialSelection Function','ep_RunExpt','help')
+%{
 global STATEID FUNCS
 if STATEID >= 4, return; end
 
@@ -804,12 +787,12 @@ if nargin == 1 || isempty(a)
     if isempty(a), return; end
     
 elseif nargin >= 2 && ischar(a) && strcmp(a,'default')
-        % hardcoded default functions
-        FUNCS.TIMERfcn.Start   = 'ep_TimerFcn_Start';
-        FUNCS.TIMERfcn.RunTime = 'ep_TimerFcn_RunTime';
-        FUNCS.TIMERfcn.Stop    = 'ep_TimerFcn_Stop';
-        FUNCS.TIMERfcn.Error   = 'ep_TimerFcn_Error';
-        return
+    % hardcoded default functions
+    FUNCS.TIMERfcn.Start   = 'ep_TimerFcn_Start';
+    FUNCS.TIMERfcn.RunTime = 'ep_TimerFcn_RunTime';
+    FUNCS.TIMERfcn.Stop    = 'ep_TimerFcn_Stop';
+    FUNCS.TIMERfcn.Error   = 'ep_TimerFcn_Error';
+    return
 end
 
 b = cellfun(@which,a,'UniformOutput',false);
@@ -861,6 +844,7 @@ else
     AlwaysOnTop(h,ontop);
 end
 CheckReady(h);
+%}
 
 function h = DefineSavingFcn(h,a)
 global STATEID FUNCS
@@ -929,7 +913,7 @@ elseif nargin == 1 || isempty(a) || ~isfield(FUNCS,'AddSubjectFcn')
     a = inputdlg('Add Subject Fcn','Specify Custom Add Subject:',1, ...
         {FUNCS.AddSubjectFcn});
     AlwaysOnTop(h,ontop);
-
+    
     a = char(a);
     if isempty(a), return; end
 end
@@ -959,13 +943,13 @@ if STATEID >= 4, return; end
 
 if nargin == 2 && ~isempty(a) && ischar(a) && strcmp(a,'default')
     a = 'ep_GenericGUI';
-
+    
 elseif nargin == 1 || ~isfield(FUNCS,'BoxFig')
     if isempty(FUNCS.BoxFig)
         % hardcoded default function
         FUNCS.BoxFig = 'ep_GenericGUI';
     end
-
+    
     
     ontop = AlwaysOnTop(h);
     AlwaysOnTop(h,false);
@@ -973,7 +957,7 @@ elseif nargin == 1 || ~isfield(FUNCS,'BoxFig')
     a = inputdlg('GUI Figure','Specify Custom GUI Figure:',1, ...
         {FUNCS.BoxFig});
     AlwaysOnTop(h,ontop);
-
+    
     if isempty(a), return; end
     
     a = char(a);
@@ -1052,7 +1036,7 @@ end
 
 set(h.figure1,'WindowStyle','normal');
 
-FigOnTop(h.figure1,ontop);
+figAlwaysOnTop(h.figure1,ontop);
 
 setpref('ep_RunExpt','AlwaysOnTop',ontop);
 
@@ -1062,4 +1046,31 @@ disp(E.meta)
 commandwindow
 
 
+function verbosity
+global GVerbosity
 
+options = {'0. No extraneous text'
+    '1. Additional info'
+    '2. Detailed info'
+    '3. Highly detailed info'
+    '4. Ludicrously detailed info'};
+
+% Create the modal list dialog
+[indx, tf] = listdlg('ListString', options, ...
+    'SelectionMode', 'single', ...
+    'PromptString', 'Select the level of detail:', ...
+    'Name', 'Detail Level Selection', ...
+    'InitialValue',min(GVerbosity+1,length(options)), ...
+    'ListSize', [300, 150]);
+
+% Handle the user's selection
+if tf
+    selectedOption = indx - 1; % Adjusting index to match option numbering
+else
+    selectedOption = []; % User canceled the dialog
+end
+
+if isempty(selectedOption), return; end
+
+GVerbosity = selectedOption;
+vprintf(1,'Verbosity set to %s',options{GVerbosity+1})

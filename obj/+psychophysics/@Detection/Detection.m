@@ -1,33 +1,37 @@
-classdef Detection
+classdef Detection < handle
 
 % future Dan: update to make use of enumerated types ep.TrialType
 
     properties
-        Go_TrialType    (1,1) double = 0;
-        NoGo_TrialType  (1,1) double = 1;
+        Stim_TrialType   (1,1) double = 0;
+        Catch_TrialType  (1,1) double = 1;
+        Other_TrialType  (1,1) double = 2;
+        
 
-        ParameterName   (1,:) char
+        Parameter       (1,:) % hw.Parameter
         ParameterIDs    (1,:) uint8
 
         BoxID           (1,1) uint8 = 1;
         
         BitColors       (5,3) double {mustBeNonnegative,mustBeLessThanOrEqual(BitColors,1)} = [.8 1 .8; 1 .7 .7; .7 .9 1; 1 .7 1; 1 1 .4];
+
+        BitsInUse    (1,:) epsych.BitMask = epsych.BitMask.getResponses % [Hit Miss CR FA Abort]
+
+        dprimeBounds (1,2) double {mustBeInRange(dprimeBounds,0,1,"exclusive")} = [0.05 0.95];
+
+        Helper = epsych.Helper
+
     end
 
-    properties (SetAccess = private)
-        NumTrials       (1,1) uint16 = 0;
+    properties (Dependent)
+        NumTrials   (1,1) uint16
         
-        Go_Ind          (1,:) logical
-        NoGo_Ind        (1,:) logical
-        Go_Count        (1,1) uint16 = 0;
-        NoGo_Count      (1,1) uint16 = 0;
+        TrialType   (1,:) double
 
-        ResponseCodes   (1,:) uint16
-        ResponsesEnum   (1,:) epsych.BitMask
-        ResponsesChar   (1,:) cell
-
-        ValidParameters (1,:) cell
-        
+        Stim_Ind    (1,:) logical
+        Catch_Ind   (1,:) logical
+        Stim_Count  (1,1) uint16
+        Catch_Count (1,1) uint16
 
         Hit_Ind     (1,:) logical
         Miss_Ind    (1,:) logical
@@ -49,122 +53,150 @@ classdef Detection
         DPrime      (1,:) double
         Bias        (1,:) double
         
-        HR_FA_Diff  (1,:) double
+        % HR_FA_Diff  (1,:) double
                 
         Trial_Index (1,1) double
-        
-        TRIALS
-        DATA
-        SUBJECT
-    end
-    
 
-    properties (SetAccess = private, Dependent)
+
         ParameterValues     (1,:)
         ParameterCount      (1,1)
         ParameterIndex      (1,1)
         ParameterFieldName  (1,:)
         ParameterData       (1,:)
+        ParameterName   (1,:) char
+
+        DATA
+        SUBJECT
     end
 
-    properties (Constant)
-        BitsInUse epsych.BitMask = [3 4 6 7 5] % [Hit Miss CR FA Abort]
+    properties (SetAccess = private)
+
+        ResponseCodes   (1,:) uint8
+        ResponsesEnum   (1,:) epsych.BitMask
+        ResponsesChar   (1,:) cell
+
+        ValidParameters (1,:) cell
+        
+        
+        TRIALS
+
+        hl_NewData
     end
     
+
     
     methods        
-        function obj = Detection(BoxID,parameterName)
-            
-            if nargin < 1 || isempty(BoxID), BoxID = 1; end
-            if nargin < 2 || isempty(parameterName)
-                % choose most variable parameter
-                p = obj.ValidParameters;
-                T = obj.TRIALS;
-                for i = 1:length(p)
-                    ind = ismember(T.Mwriteparams,p{i});
-                    if ~any(ind), continue; end
-                    a = T.trials(:,ind);
-                    if isnumeric(a{1})
-                        v(i) = length(unique([a{:}]));
-                    elseif ischar(a{1})
-                        v(i) = length(unique(a));
-                    elseif isstruct(a{1})
-                        v(i) = length(cellfun(@(x) x.file,a,'uni',0));
-                    end
-                end
-                [~,m] = max(v);
-                parameterName = p{m};
-            end
+        function obj = Detection(Parameter,BoxID)
+            global RUNTIME
 
+            if nargin < 2 || isempty(BoxID), BoxID = 1; end
             obj.BoxID = BoxID;
-            obj.ParameterName = parameterName;
+
+            obj.Parameter = Parameter;
+           
             
+            obj.hl_NewData = listener(RUNTIME.HELPER,'NewData',@obj.update_data);
+
         end
 
-        
-        
+        function delete(obj)
+            try
+                delete(obj.hl_NewData);
+            end
+        end
+
+        function update_data(obj,src,event)
+            obj.TRIALS = event.Data;
+            evtdata = epsych.TrialsData(obj.TRIALS);
+            obj.Helper.notify('NewData',evtdata);
+        end
+
+       
 
         % Ind ------------------------------------------------------
         function r = get.Hit_Ind(obj)
+            if isempty(obj.ResponseCodes)
+                r = [];
+                return
+            end
             r = bitget(obj.ResponseCodes,epsych.BitMask.Hit);
             r = logical(r);
         end
 
         function r = get.Miss_Ind(obj)
+            if isempty(obj.ResponseCodes)
+                r = [];
+                return
+            end
             r = bitget(obj.ResponseCodes,epsych.BitMask.Miss);
             r = logical(r);
         end
 
         function r = get.FA_Ind(obj)
+            if isempty(obj.ResponseCodes)
+                r = [];
+                return
+            end
             r = bitget(obj.ResponseCodes,epsych.BitMask.FalseAlarm);
             r = logical(r);
         end
 
         function r = get.CR_Ind(obj)
+            if isempty(obj.ResponseCodes)
+                r = [];
+                return
+            end
             r = bitget(obj.ResponseCodes,epsych.BitMask.CorrectReject);
             r = logical(r);
         end
 
-        function i = get.Go_Ind(obj)
-            i = [obj.DATA.TrialType] == obj.Go_TrialType;
+        function i = get.Stim_Ind(obj)
+            i = tt == obj.Stim_TrialType;
         end
 
-        function i = get.NoGo_Ind(obj)
-            i = [obj.DATA.TrialType] == obj.NoGo_TrialType;
+        function i = get.Catch_Ind(obj)
+            i = tt == obj.Catch_TrialType;
+        end
+
+
+        function tt = get.TrialType(obj)
+            tt = [obj.DATA.TrialType];
         end
 
         % Count -----------------------------------------------------
-        function n = get.Go_Count(obj)
+        function n = get.Stim_Count(obj)
             v = obj.ParameterValues;
             d = obj.ParameterData;
-            ind = obj.Go_Ind;
+            ind = obj.Stim_Ind;
             for i =1:length(v)
-                n(i) = sum(ind & d == v(i));
+                n(i) = sum(ind & isapprox(d,v(i),'loose'));
             end
         end
 
-        function n = get.NoGo_Count(obj)
+        function n = get.Catch_Count(obj)
             v = obj.ParameterValues;
             d = obj.ParameterData;
-            ind = obj.NoGo_Ind;
+            ind = obj.Catch_Ind;
             for i =1:length(v)
-                n(i) = sum(ind & d == v(i));
+                n(i) = sum(ind & isapprox(d,v(i),'loose'));
             end
+            
         end
         
         function n = get.Trial_Count(obj)
             v = obj.ParameterValues;
             d = obj.ParameterData;
             for i =1:length(v)
-                n(i) = sum(d == v(i));
+                n(i) = sum(isapprox(d,v(i),'loose'));
             end
         end
 
         function n = get.Hit_Count(obj)
             v = obj.ParameterValues;
             d = obj.ParameterData;
+            hi = obj.Hit_Ind;
             for i = 1:length(v)
-                n(i) = sum(obj.Hit_Ind & d == v(i));
+                n(i) = sum(hi & isapprox(d,v(i),'loose'));
             end
         end
         
@@ -172,7 +204,7 @@ classdef Detection
             v = obj.ParameterValues;
             d = obj.ParameterData;
             for i = 1:length(v)
-                n(i) = sum(obj.Miss_Ind & d == v(i));
+                n(i) = sum(obj.Miss_Ind & isapprox(d,v(i),'loose'));
             end
         end
         
@@ -180,14 +212,15 @@ classdef Detection
             v = obj.ParameterValues;
             d = obj.ParameterData;
             for i = 1:length(v)
-                n(i) = sum(obj.FA_Ind & d == v(i));
+                n(i) = sum(obj.FA_Ind & isapprox(d,v(i),'loose'));
             end
         end
         function n = get.CR_Count(obj)
             v = obj.ParameterValues;
             d = obj.ParameterData;
+            hi = obj.CR_Ind;
             for i = 1:length(v)
-                n(i) = sum(obj.CR_Ind & d == v(i));
+                n(i) = sum(hi & isapprox(d,v(i),'loose'));
             end
         end
 
@@ -195,7 +228,7 @@ classdef Detection
 
         % Rate ----------------------------------------------------
         function r = get.Hit_Rate(obj)
-            r = obj.Hit_Count ./ obj.Go_Count;
+            r = obj.Hit_Count ./ obj.Stim_Count;
         end
 
         function r = get.Miss_Rate(obj)
@@ -203,7 +236,7 @@ classdef Detection
         end
 
         function r = get.CR_Rate(obj)
-            r = obj.CR_Count ./ obj.NoGo_Count;
+            r = obj.CR_Count ./ obj.Catch_Count;
         end
 
         function r = get.FA_Rate(obj)
@@ -211,29 +244,39 @@ classdef Detection
         end
 
         function dp = get.DPrime(obj)
-            dp = obj.zscore(obj.Hit_Rate) - obj.zscore(obj.FA_Rate);
+            far = obj.FA_Rate;
+            far = far(~isnan(far));
+            hr = obj.Hit_Rate;
+            ind = isnan(hr);
+            if ~all(ind)
+                dp = obj.zscore(hr,obj.dprimeBounds) - obj.zscore(far,obj.dprimeBounds);
+            end
+            dp(ind) = nan; 
         end
 
         function c = get.Bias(obj)
-            c = -(obj.zscore(obj.Hit_Rate) + obj.zscore(obj.FA_Rate))./2;
+            c = -(obj.zscore(obj.Hit_Rate,obj.dprimeBounds) + obj.zscore(obj.FA_Rate,obj.dprimeBounds))./2;
         end
         
         function r = get.ResponsesEnum(obj)
-            RC = obj.ResponseCodes;
-            r(length(RC),1) = epsych.BitMask(0);
-            for i = obj.BitsInUse
-                ind = logical(bitget(RC,i));
-                if ~any(ind), continue; end
-                r(ind) = i;
-            end
+            % RC = obj.ResponseCodes;
+            % r(length(RC),1) = epsych.BitMask(0);
+            % for i = obj.BitsInUse
+            %     ind = logical(bitget(RC,i));
+            %     if ~any(ind), continue; end
+            %     r(ind) = i;
+            % end
+            r = epsych.BitMask.Mask2Bits(obj.ResponseCodes);
         end
         
         function c = get.ResponsesChar(obj)
-            c = cellfun(@char,num2cell(obj.ResponsesEnum),'uni',0);
+            % c = cellfun(@char,num2cell(obj.ResponsesEnum),'uni',0);
+            [~,b] = epsych.BitMask.Mask2Bits(obj.ResponseCodes);
+            c = cellfun(@cellstr,b,'uni',0);
         end
         
         function rc = get.ResponseCodes(obj)
-            rc = [obj.DATA.ResponseCode];
+            rc = uint8([obj.DATA.ResponseCode]);
         end
 
         function n = get.NumTrials(obj)
@@ -242,6 +285,9 @@ classdef Detection
 
 
         % Parameter -------------------------------------------------
+        function n = get.ParameterName(obj)
+            n = obj.Parameter.Name;
+        end
 
         function v = get.ParameterValues(obj)
             v = [];
@@ -272,45 +318,64 @@ classdef Detection
 
         function i = get.ParameterIndex(obj)
             i = [];
+            if isempty(obj.TRIALS), return; end
             if isempty(obj.ParameterName), return; end
-            i = find(ismember(obj.TRIALS.Mwriteparams,obj.ParameterName));
+            i = find(ismember(obj.TRIALS.writeparams,obj.ParameterName));
         end
 
         function n = get.ParameterFieldName(obj)
             n = [];
+            if isempty(obj.TRIALS), return; end
             if isempty(obj.ParameterName), return; end
-            n = obj.TRIALS.Mwriteparams{obj.ParameterIndex};
+            n = obj.TRIALS.writeparams{obj.ParameterIndex};
         end
 
         function p = get.ValidParameters(obj)
-            p = fieldnames(obj.DATA);
-            p(~ismember(p,obj.TRIALS.Mwriteparams)) = [];
-        end
-        
-        function t = get.TRIALS(obj)
-            global RUNTIME
-            t = RUNTIME.TRIALS(obj.BoxID);
+            if isempty(obj.TRIALS)
+                p = [];
+            else
+                p = fieldnames(obj.DATA);
+                p(~ismember(p,obj.TRIALS.writeparams)) = [];
+            end
         end
         
         function d = get.DATA(obj)
-            d = obj.TRIALS.DATA;
+            if isempty(obj.TRIALS)
+                d = [];
+            else
+                d = obj.TRIALS.DATA;
+            end
         end
         
         function s = get.SUBJECT(obj)
-            s = obj.TRIALS.Subject;
+            if isempty(obj.TRIALS)
+                s = [];
+            else
+                s = obj.TRIALS.Subject;
+            end
         end
         
         function i = get.Trial_Index(obj)
-            i = obj.TRIALS.TrialIndex;
+            if isempty(obj.TRIALS)
+                i = 1;
+            else
+                i = obj.TRIALS.TrialIndex;
+            end
         end
         
     end
 
     methods (Static)
-        function z = zscore(a)
+        function z = zscore(a,bounds)
+            if nargin < 2 || isempty(bounds)
+                bounds = [0.01 0.99];
+            end
+
+            assert(numel(bounds)==2)
+
             % bounds input to [0.01 0.99] to avoid inf values
-            a  = max(min(a,0.99),0.01);
-            z = sqrt(2)*erfinv(2*a-1);
+            a  = max(min(a,bounds(2)),bounds(1));
+            z = norminv(a);
         end
     end
 end

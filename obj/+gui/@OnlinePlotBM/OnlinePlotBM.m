@@ -1,4 +1,4 @@
-classdef OnlinePlotBM < gui.Helper & handle
+classdef OnlinePlotBM < handle
     
     properties
         ax    (1,1)   % axes handle
@@ -17,7 +17,7 @@ classdef OnlinePlotBM < gui.Helper & handle
         stayOnTop   (1,1) logical = false;
         paused      (1,1) logical = false;
         
-        trialLocked (1,1) logical = true;
+        trialLocked (1,1) logical = false;
     end
     
     properties (SetAccess = private)
@@ -27,55 +27,88 @@ classdef OnlinePlotBM < gui.Helper & handle
         
         N           (1,:)  double % number of watched parameters
         
-        startTime   (1,6)  double % = clock
+        startTime   (1,1)  datetime
         
-        BoxID       (1,1)  uint8 = 1;
+        BoxID       (1,1)  double {mustBePositive,mustBeInteger,mustBeFinite} = 1;
         
-        RPvdsBitmask
+        BM   % a structure of bitmask parameters
     end
     
     properties (SetAccess = private,Hidden)
         Timer       (1,1)
         Buffers     (:,:) single
         trialBuffer (1,:) single
-        Time        (:,1) duration
+        Time        (:,1) single
     end
     
     properties (Constant)
-        BufferLength = 1000;
+        BufferLength = 200;
     end
     
     
     methods
         
         % Constructor
-        function obj = OnlinePlotBM(TDTActiveX,BMBank,ax,BoxID)
-            global RUNTIME
-            
+        function obj = OnlinePlotBM(RUNTIME,BMBank,ax,BoxID)            
             narginchk(2,4);
             
-            if nargin < 3, ax = []; end
-            if nargin < 4 || isempty(BoxID), BoxID = 1; end
-                       
-            obj.TDTActiveX = TDTActiveX;
+            if nargin >= 3, obj.ax = ax; end
+            if nargin == 4, obj.BoxID=BoxID; end
             
             BMBank = cellstr(BMBank);
+            pattern = '#(\d+)\^(.+)';
+            
+
             
             for i = 1:length(BMBank)
-                obj.RPvdsBitmask{i} = RPvdsBitmask(RUNTIME,TDTActiveX,BMBank{i});
+
+                p0 = RUNTIME.HW.filter_parameters('Name',sprintf('~BMid-%s',BMBank{i}),...
+                    testFcn = @isequal, ...
+                    includeInvisible=true);
+
+                if isempty(p0)
+                    vprintf(0,1,'BM Bank Not Found: %s',BMBank{i});
+                    return
+                end
+                
+                p = RUNTIME.HW.filter_parameters('Name',sprintf('~BM-%s',BMBank{i}), ...
+                    testFcn = @startsWith, ...
+                    includeInvisible=true);
+
+                if isempty(p)
+                    vprintf(0,1,'No bitmask parameters found for bank: %s',BMBank{i});
+                    return
+                end
+                
+                strs = {p.Name};
+                tokens = regexp(strs, pattern, 'tokens','once');
+
+                n = numel(strs);
+                id = NaN(n,1);        % numeric result (NaN when no match)
+                label = cell(n,1);      % text result ('' when no match)
+
+                for j = 1:n
+                    % tk is a 1x2 cell: {numberStr, textStr}
+                    id(j)  = str2double(tokens{j}{1});
+                    label{j} = tokens{j}{2};
+                end
+
+                obj.BM(i).Bank = p0;                
+                obj.BM(i).Label = label;
+                obj.BM(i).Bit = id;
+                obj.BM(i).N = n;
             end
+            obj.N = sum([obj.BM.N]);
             
             % set buffer size
             obj.Buffers     = nan(obj.BufferLength,obj.N,'single');
-            obj.Time        = seconds(zeros(obj.BufferLength,1));
+            obj.Time        = zeros(obj.BufferLength,1,'single');
             obj.trialBuffer = zeros(obj.BufferLength,1,'single');
             
             obj.lineColors = jet(obj.N);
             
-            if isempty(ax)
+            if isempty(obj.ax)
                 obj.setup_figure;
-            else
-                obj.ax = ax;
             end
             
             disableDefaultInteractivity(ax)
@@ -84,17 +117,22 @@ classdef OnlinePlotBM < gui.Helper & handle
             obj.add_context_menu;
             
             % set default trial-based parameter tag to use.
-            % > #TrigState~1 is contained in the standard epsych RPvds
+            % > _TrigState~1 is contained in the standard epsych RPvds
             % macros and is assigned an integer id after the ~ based on the
             % macros settings.  Default = 1.
-            obj.BoxID = BoxID;
-            obj.trialParam = sprintf('#TrigState~%d',BoxID);
+
+            % obj.trialParam = sprintf('#TrigState~%d',BoxID);
+            obj.trialParam = sprintf('_TrigState~%d',BoxID);
             
-            obj.Timer = ep_GenericGUITimer(obj.figH,sprintf('OnlinePlot~%d',BoxID));
+            
+            obj.Timer = timer(Tag = sprintf('OnlinePlotBM~%d',BoxID));
+            obj.Timer.TasksToExecute = inf;
+            obj.Timer.BusyMode = 'drop';
+            obj.Timer.ExecutionMode = 'fixedRate';
             obj.Timer.StartFcn = @obj.setup_plot;
             obj.Timer.TimerFcn = @obj.update;
             obj.Timer.ErrorFcn = @obj.error;
-            obj.Timer.Period = 0.05;
+            obj.Timer.Period = 0.05; % seconds
             
             start(obj.Timer);
         end
@@ -103,6 +141,7 @@ classdef OnlinePlotBM < gui.Helper & handle
         function delete(obj)
             try
                 stop(obj.Timer);
+                delete(obj.Timer);
             end
         end
         
@@ -145,6 +184,7 @@ classdef OnlinePlotBM < gui.Helper & handle
             end
         end
         
+        
         function w = get.lineWidth(obj)
             if isempty(obj.lineWidth)
                 w = repmat(10,obj.N,1);
@@ -173,9 +213,6 @@ classdef OnlinePlotBM < gui.Helper & handle
             end
         end
         
-        function n = get.N(obj)
-            n = sum(cellfun(@(a) a.N,obj.RPvdsBitmask));
-        end
         
         function to = last_trial_onset(obj)
             idx = find(obj.trialBuffer(2:end) > obj.trialBuffer(1:end-1),1,'last'); % find onsets
@@ -191,7 +228,10 @@ classdef OnlinePlotBM < gui.Helper & handle
         function update(obj,varargin)
             global PRGMSTATE
             
-            persistent LTO
+            persistent LTO % last trial onset
+            persistent lastPlotTime
+
+            
             
             % stop if the program state has changed
             if ismember(PRGMSTATE,{'STOP','ERROR'}), stop(obj.Timer); return; end
@@ -200,9 +240,9 @@ classdef OnlinePlotBM < gui.Helper & handle
             if ~isempty(obj.trialParam)
                 try
                     obj.trialBuffer(1:end-1) = obj.trialBuffer(2:end);
-                    obj.trialBuffer(end) = obj.getParamVals(obj.TDTActiveX,obj.trialParam);
+                    obj.trialBuffer(end) = obj.HW.get_parameter(obj.trialParam);
                 catch
-                    vprintf(0,1,'Unable to read the RPvds parameter: %s\nUpdate the trialParam to an existing parameter in the RPvds circuit', ...
+                    vprintf(0,1,'Unable to read the parameter: %s\nUpdate the trialParam to an existing parameter in the RPvds circuit', ...
                         obj.trialParam)
                     c = obj.get_menu_item('uic_plotType');
                     delete(c);
@@ -210,21 +250,29 @@ classdef OnlinePlotBM < gui.Helper & handle
                 end
             end
             
-            BS = {};
-            for i= 1:length(obj.RPvdsBitmask)
-                BS(end+1:end+obj.RPvdsBitmask{i}.N,:) = obj.RPvdsBitmask{i}.BitStates;
+            % convert bitmasks
+            for i = 1:length(obj.BM)
+                obj.BM(i).Mask = obj.BM(i).Bank.Value;
+                obj.BM(i).State = bitget(obj.BM(i).Mask,obj.BM(i).Bit+1);
             end
+
+            % combine bitmasks
+            bms = cat(1,obj.BM(:).State);
 
             % shift and update Buffers
             obj.Buffers(1:end-1,:) = obj.Buffers(2:end,:);
-            obj.Buffers(end,:) = single([BS{:,2}]);
+            obj.Buffers(end,:) = single(bms);
             if obj.setZeroToNan, obj.Buffers(end,obj.Buffers(end,:)==0) = nan; end
             
             
             obj.Time(1:end-1,:) = obj.Time(2:end,:);
-            obj.Time(end) = seconds(etime(clock,obj.startTime));
+            obj.Time(end) = single(seconds(datetime('now')-obj.startTime));
             
             if obj.paused, return; end
+            
+            if isempty(lastPlotTime), lastPlotTime = datetime('now') - seconds(1); end 
+            if seconds(datetime('now') - lastPlotTime) < 0.1, return; end
+            vprintf(5,'Updating Online Plot')
             
             for i = 1:obj.N
                 obj.lineH(i).XData = obj.Time;
@@ -236,15 +284,16 @@ classdef OnlinePlotBM < gui.Helper & handle
             if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(lto) && ~isequal(lto,LTO)
                 obj.ax.XLim = lto + obj.timeWindow;
 
-                w = obj.timeWindow2number;
-                s = seconds(diff(w)/10);
-                obj.ax.XAxis.TickValues = lto-s:s:lto+seconds(w(2));
+                
+                % w = obj.timeWindow2number;
+                % s = seconds(diff(w)/10);
+                % obj.ax.XAxis.TickValues = lto-s:s:lto+seconds(w(2));
                 
             elseif obj.trialLocked && ~isequal(lto,LTO)
                 obj.ax.XLim = obj.timeWindow;
                 
             elseif ~obj.trialLocked
-                obj.ax.XLim = obj.Time(end) + obj.timeWindow;
+                obj.ax.XLim = seconds(obj.Time(end) + [-6 1]);
                 obj.ax.XAxis.TickValuesMode = 'auto';
                 
             end
@@ -254,7 +303,8 @@ classdef OnlinePlotBM < gui.Helper & handle
             end
             
             drawnow limitrate
-            
+            lastPlotTime = datetime('now');
+
             LTO = lto;
 
         end
@@ -262,7 +312,9 @@ classdef OnlinePlotBM < gui.Helper & handle
         function plot_trialMarker(obj,t)
             if isempty(t), return; end
             line(obj.ax,[1 1]*t,obj.ax.YLim,'Color',[1 0 0],'LineWidth',2);
-            tn = obj.getParamVals(obj.TDTActiveX,'#TrialNum~1');
+            
+            
+            tn = obj.getParamVals(obj.TDTActiveX,'_TrialNum~1');
             tn = tn - 1;
             text(obj.ax,t,obj.N+0.5,num2str(tn,'%d'),'FontWeight','Bold','FontSize',15);
         end
@@ -301,17 +353,14 @@ classdef OnlinePlotBM < gui.Helper & handle
             obj.ax.YAxis.Limits = [.8 obj.yPositions(end)+.2];
             obj.ax.YAxis.TickValues = obj.yPositions;
             obj.ax.YAxis.TickLabelInterpreter = 'none';
-            lbl = {};
-            for i = 1:length(obj.RPvdsBitmask)
-                lbl(end+1:end+obj.RPvdsBitmask{i}.N) = obj.RPvdsBitmask{i}.Labels;
-            end
+            lbl = cat(1,obj.BM(:).Label);
             obj.ax.YAxis.TickLabels = lbl;
             obj.ax.XMinorGrid = 'on';
             obj.ax.Box = 'on';
             
             %obj.ax.XAxis.Label.String = 'time since start (mm:ss)';
             
-            obj.startTime = clock;
+            obj.startTime = datetime('now');
         end
         
         
@@ -365,7 +414,7 @@ classdef OnlinePlotBM < gui.Helper & handle
                 c.Label = 'Keep Window on Top';
                 obj.figH.Name = obj.figName;
             end
-            FigOnTop(obj.figH,obj.stayOnTop);
+            figAlwaysOnTop(obj.figH,obj.stayOnTop);
         end
         
         function plot_type(obj,src,event,toggle)
@@ -390,7 +439,7 @@ classdef OnlinePlotBM < gui.Helper & handle
         
         function update_window(obj,varargin)
             % temporarily disable stay on top if selected
-            FigOnTop(obj.figH,false);
+            figAlwaysOnTop(obj.figH,false);
             r = inputdlg('Adjust time windpw (seconds)','Online Plot', ...
                 1,{sprintf('[%.1f %.1f]',obj.timeWindow2number)});
             if isempty(r), return; end
@@ -404,7 +453,7 @@ classdef OnlinePlotBM < gui.Helper & handle
 
             c = obj.get_menu_item('uic_timeWindow');
             c.Label = sprintf('Time Window = [%.1f %.1f] seconds',obj.timeWindow2number);
-            FigOnTop(obj.figH,obj.stayOnTop);
+            figAlwaysOnTop(obj.figH,obj.stayOnTop);
         end
         
         function s = timeWindow2number(obj)

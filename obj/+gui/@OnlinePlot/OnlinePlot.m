@@ -1,107 +1,95 @@
-classdef OnlinePlot < gui.Helper & handle
-    
+classdef OnlinePlot < handle
+    % OnlinePlot: Real-time multi-parameter plotting for behavioral hardware.
+    %   Plots and updates hardware parameters online for a single experimental box.
+    %   Provides pause, context menus, time window, and trial-locked plotting.
+
     properties
-        ax    (1,1)   % axes handle
-        
-        watchedParams (:,1)  cell
-        
-        trialParam  (1,:) char
-        
-        lineWidth   (:,1) double {mustBePositive,mustBeFinite} % line plot width [obj.N,1]
-        lineColors  (:,3) double {mustBeNonnegative,mustBeLessThanOrEqual(lineColors,1)} % line colors [obj.N,3]
-        
-        yPositions  (:,1) double {mustBeFinite}
-        
-        timeWindow  (1,2) duration = seconds([-10 3]);
-        
-        setZeroToNan (1,1) logical = true;
-        
-        stayOnTop   (1,1) logical = false;
-        paused      (1,1) logical = false;
-        
-        trialLocked (1,1) logical = false;
+        hax            (1,1)   % Axes handle for plotting
+        watchedParams  (1,:)   % Array of hw.Parameter objects being plotted
+        trialParam     (1,1)   % Parameter for trial-based (triggered) plotting
+        lineWidth      (:,1) double {mustBePositive,mustBeFinite} % Line width per plot
+        lineColors     (:,3) double {mustBeNonnegative,mustBeLessThanOrEqual(lineColors,1)} % Line RGB colors per plot
+        yPositions     (:,1) double {mustBeFinite}   % Y offsets for each trace
+        timeWindow     (1,2) duration = seconds([-10 3]); % Time axis window
+        setZeroToNan   (1,1) logical = true;         % Replace 0s with NaN for visibility
+        stayOnTop      (1,1) logical = false;        % Keep window always on top
+        paused         (1,1) logical = false;        % If true, pause updating
+        trialLocked    (1,1) logical = false;        % If true, plot is trial-locked
     end
-    
+
     properties (SetAccess = private)
-        figH        (1,1)  %matlab.ui.Figure
-        figName     (1,:)  char
-        lineH       (:,1)  matlab.graphics.primitive.Line % handles to line objects [obj.N,1]
-        
-        N           (1,:)  double % number of watched parameters
-        
-        startTime   (1,6)  double % = clock
-        
-        BoxID       (1,1)  uint8 = 1;
-        
+        figH        (1,1)  % Main figure handle
+        figName     (1,:)  char % Name for figure window
+        lineH       (:,1)  matlab.graphics.primitive.Line % Handles to plot lines
+        nowLine     (1,1)  matlab.graphics.primitive.Line 
+        N           (1,:)  double % Number of watched parameters
+        startTime   (1,1) datetime
+        BoxID       (1,1) {mustBePositive,mustBeInteger} = 1;
     end
-    
-    properties (SetAccess = private,Hidden)
-        Timer       (1,1)
-        Buffers     (:,:) single
-        trialBuffer (1,:) single
-        Time        (:,1) duration
+
+    properties (SetAccess = immutable)
+        HW                 % Hardware interface (assigned at construction)
     end
-    
+
+    properties (SetAccess = private, Hidden)
+        h_timer       (1,1)      % Update h_timer object
+        Buffers     (:,:) single   % Plot data buffer [N, time]
+        BufferIdx
+        DrawCounter
+        trialBuffer (1,:) single   % Buffer for trial trigger parameter
+        Time        (:,1) duration % Buffer for time values
+        hl_mode               % Listener for mode changes
+    end
+
     methods
-        
-        % Constructor
-        function obj = OnlinePlot(RUNTIME,TDTActiveX,watchedParams,ax,BoxID)
-            narginchk(2,5);
-            
-            if nargin < 4, ax = []; end
-            if nargin < 5 || isempty(BoxID), BoxID = 1; end
-            
-            if nargin < 3 || isempty(watchedParams)
-                wp = RUNTIME.TRIALS(BoxID).writeparams;
-                tp = RUNTIME.TDT.triggers{1}'; % TO DO: design for multiple modules
-                p = [wp,tp];
+        function obj = OnlinePlot(RUNTIME,watchedParams,hax,BoxID)
+            % Constructor: initializes online plot with chosen parameters and axes.
+            narginchk(2,4);
+            obj.HW = RUNTIME.HW;
+            % Select parameters to plot if not provided
+            if nargin < 2 || isempty(watchedParams)
+                p = RUNTIME.HW.filter_parameters('Access','Read',testFcn=@contains);
                 [s,v] = listdlg('PromptString','Select parameters for plot', ...
                     'SelectionMode','multiple','ListString',p);
                 if v == 0, delete(obj); return; end
                 watchedParams = p(s);
             end
-            
-            obj.TDTActiveX = TDTActiveX;
-            obj.watchedParams = watchedParams;
-            
-            if isempty(ax)
+            if nargin < 3, hax = gca; end
+            if nargin < 4 || isempty(BoxID), BoxID = 1; end
+            obj.watchedParams = obj.HW.find_parameter(watchedParams,includeInvisible=true);
+            if isempty(hax)
                 obj.setup_figure;
             else
-                obj.ax = ax;
+                obj.hax = hax;
             end
-            
             obj.add_context_menu;
-            
-            
-            
-            
-            % set default trial-based parameter tag to use.
-            % > #TrigState~1 is contained in the standard epsych RPvds
-            % macros and is assigned an integer id after the ~ based on the
-            % macros settings.  Default = 1.
             obj.BoxID = BoxID;
-            obj.trialParam = sprintf('#TrigState~%d',BoxID);
-            
-            obj.Timer = ep_GenericGUITimer(obj.figH,sprintf('OnlinePlot~%d',BoxID));
-            obj.Timer.StartFcn = @obj.setup_plot; % THESE MIGHT NEED TO BE STATIC FUNCTIONS?!
-            obj.Timer.TimerFcn = @obj.update;
-            obj.Timer.ErrorFcn = @obj.error;
-            obj.Timer.Period = 0.05;
-            
-            start(obj.Timer);
-            
+            obj.trialParam = obj.HW.find_parameter(sprintf('_TrigState~%d',BoxID),includeInvisible=true);
+            obj.h_timer = gui.GenericTimer(obj.figH,sprintf('epsych_gui_OnlinePlot~%d',BoxID));
+            obj.h_timer.Timer.StartFcn = @obj.setup_plot;
+            obj.h_timer.Timer.TimerFcn = @obj.update;
+            obj.h_timer.Timer.ErrorFcn = @obj.error;
+            obj.h_timer.Timer.Period = 0.1;
+            obj.h_timer.Timer.start;
+            obj.hl_mode = listener(RUNTIME.HW,'mode','PostSet',@obj.mode_change);
         end
-        
-        % Destructor
+
         function delete(obj)
+            % Destructor: Stops h_timer and cleans up resources.
             try
-                stop(obj.Timer);
+                stop(obj.h_timer);
+                delete(obj.h_timer);
+            end
+
+            try
+                obj.hl_mode.Enabled = 0;
+                delete(obj.hl_mode);
             end
         end
-        
+
         function pause(obj,varargin)
+            % Toggle paused state, update menu label.
             obj.paused = ~obj.paused;
-            
             c = obj.get_menu_item('uic_pause');
             if obj.paused
                 c.Label = 'Catch up >';
@@ -109,22 +97,26 @@ classdef OnlinePlot < gui.Helper & handle
                 c.Label = 'Pause ||';
             end
         end
-        
+
         function c = get.figH(obj)
-            c = ancestor(obj.ax,'figure');
+            % Get the ancestor figure handle from axes.
+            c = ancestor(obj.hax,'figure');
         end
-        
+
         function s = get.figName(obj)
+            % Get name string for the figure window.
             s = sprintf('Online Plot | Box %d',obj.BoxID);
         end
-        
+
         function set.yPositions(obj,y)
+            % Set Y offsets for each trace, must match number of parameters.
             assert(length(y) == obj.N,'epsych:OnlinePlot:set.yPositions', ...
                 'Must set all yPositions at once');
             obj.yPositions = y;
         end
-        
+
         function y = get.yPositions(obj)
+            % Return current or default Y offsets.
             if isempty(obj.yPositions)
                 y = 1:obj.N;
             else
@@ -134,11 +126,11 @@ classdef OnlinePlot < gui.Helper & handle
                 else
                     y = y(1:obj.N);
                 end
-                
             end
         end
-        
+
         function w = get.lineWidth(obj)
+            % Get or set default line widths for all traces.
             if isempty(obj.lineWidth)
                 w = repmat(10,obj.N,1);
             else
@@ -150,8 +142,9 @@ classdef OnlinePlot < gui.Helper & handle
                 end
             end
         end
-        
+
         function c = get.lineColors(obj)
+            % Get or expand default RGB colors for lines.
             if isempty(obj.lineColors)
                 c = lines(obj.N);
             else
@@ -163,154 +156,190 @@ classdef OnlinePlot < gui.Helper & handle
                     c = c(1:obj.N);
                 end
             end
-            
         end
-        
+
         function s = get.N(obj)
+            % Number of watched parameters.
             s = numel(obj.watchedParams);
         end
-        
+
         function to = last_trial_onset(obj)
+            % Get last trial onset time from trialBuffer.
             B = obj.trialBuffer;
-            idx = find(B(2:end) > B(1:end-1),1,'last'); % find onsets
+            idx = find(B(2:end) > B(1:end-1),1,'last');
             if isempty(idx)
-                %to = obj.Time(end);
                 to = [];
             else
                 to = obj.Time(idx);
-            end                
-        end
-        
-        % -------------------------------------------------------------
-        function update(obj,varargin)
-            global PRGMSTATE
-            
-            % stop if the program state has changed
-            if ismember(PRGMSTATE,{'STOP','ERROR'})
-                try
-                    stop(obj.Timer);
-                    delete(obj.Timer);
-                end
-                return
             end
-            
+        end
+
+        % Efficient circular buffer, throttled draw, and windowed plotting
+        function update(obj,varargin)
+            % --- 1. Initialize circular buffers if empty ---
+            blockSize = 1000; % Set or store as a property for flexibility
+            if isempty(obj.Buffers)
+                obj.Buffers = nan(obj.N, blockSize, 'single');
+                obj.Time = duration(nan(blockSize, 1),0,0);
+                obj.BufferIdx = 1;
+                obj.DrawCounter = 0; % For throttling
+            end
+
+            % --- 2. Update trial buffer if trialParam available ---
             if ~isempty(obj.trialParam)
                 try
-                    obj.trialBuffer(end+1) = obj.getParamVals(obj.TDTActiveX,obj.trialParam);
+                    % Grow trialBuffer if needed (use circular logic if long)
+                    if ~isfield(obj, 'trialBuffer') || isempty(obj.trialBuffer)
+                        obj.trialBuffer = zeros(1, blockSize, 'single');
+                    end
+                    obj.trialBuffer(obj.BufferIdx) = obj.trialParam.Value;
                 catch
-                    vprintf(0,1,'Unable to read the RPvds parameter: %s\nUpdate the trialParam to an existing parameter in the RPvds circuit', ...
-                        obj.trialParam)
+                    vprintf(0,1,'Unable to read the parameter: %s\nUpdate the trialParam to an existing parameter in the RPvds circuit', obj.trialParam)
                     c = obj.get_menu_item('uic_plotType');
                     delete(c);
                     obj.trialParam = '';
                 end
             end
-            
-            obj.Buffers(:,end+1) = obj.getParamVals(obj.TDTActiveX,obj.watchedParams);
-            if obj.setZeroToNan, obj.Buffers(obj.Buffers(:,end)==0,end) = nan; end
-            
-            obj.Time(end+1) = seconds(etime(clock,obj.startTime));
-            
-            if obj.paused, return; end
-            
-            for i = 1:obj.N
-                obj.lineH(i).XData = obj.Time;
-                obj.lineH(i).YData = obj.yPositions(i).*obj.Buffers(i,:);
+
+            % --- 3. Store watched parameter values and time ---
+            obj.Buffers(:, obj.BufferIdx) = [obj.watchedParams.Value];
+            obj.Time(obj.BufferIdx) = datetime("now") - obj.startTime;
+
+            % --- 4. Optionally set zero to nan (only for new column) ---
+            if obj.setZeroToNan
+                newcol = obj.Buffers(:, obj.BufferIdx);
+                obj.Buffers(newcol == 0, obj.BufferIdx) = nan;
             end
-            
-            if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
-                obj.ax.XLim = obj.last_trial_onset + obj.timeWindow;
-            elseif obj.trialLocked
-                obj.ax.XLim = obj.timeWindow;
+
+            % --- 5. Plot only if not paused ---
+            if obj.paused
+                obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
+                return
+            end
+
+            % --- 6. Choose data to plot (latest window, in time order) ---
+            if obj.BufferIdx == 1
+                idx = 1:blockSize; % buffer has wrapped, full window
             else
-                obj.ax.XLim = obj.Time(end) + obj.timeWindow;
+                idx = [obj.BufferIdx:blockSize 1:obj.BufferIdx-1]; % recent data
+            end
+            plotTime = obj.Time(idx);
+            plotBuffers = obj.Buffers(:, idx);
+            plotTrialBuffer = [];
+            if isfield(obj, 'trialBuffer') && ~isempty(obj.trialBuffer)
+                plotTrialBuffer = obj.trialBuffer(idx);
+            end
+
+            % --- 7. Plot update: only plot within visible time window ---
+            win = obj.timeWindow;
+            if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
+                t0 = obj.last_trial_onset;
+                tspan = (plotTime >= (t0 + win(1))) & (plotTime <= (t0 + win(2)));
+            elseif obj.trialLocked
+                t0 = 0;
+                tspan = (plotTime >= win(1)) & (plotTime <= win(2));
+            else
+                t0 = plotTime(end);
+                tspan = (plotTime >= (t0 + win(1))) & (plotTime <= (t0 + win(2)));
+            end
+            plotTimeWin = plotTime(tspan);
+            plotBuffersWin = plotBuffers(:, tspan);
+            [plotTimeWin,i] = sort(plotTimeWin);
+            plotBuffersWin = plotBuffersWin(:,i);
+            % 
+            % % --- 8. Throttle graphics updates (e.g., only draw every 3 updates) ---
+            % obj.DrawCounter = obj.DrawCounter + 1;
+            % throttleRate = 1; % update plot every 3 h_timer ticks
+            % if mod(obj.DrawCounter, throttleRate) ~= 0
+            %     obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
+            %     return
+            % end
+
+            % --- 9. Update line data for visible window ---
+            for i = 1:obj.N
+                set(obj.lineH(i),'XData',plotTimeWin,'YData',obj.yPositions(i).*plotBuffersWin(i,:));
+            end
+
+            % --- 10. Adjust x-limits ---
+            if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
+                obj.hax.XLim = obj.last_trial_onset + win;
+            elseif obj.trialLocked
+                obj.hax.XLim = win;
+            else
+                obj.hax.XLim = obj.Time(obj.BufferIdx) + win;
+            end
+            if ~isempty(plotTimeWin)
+                obj.nowLine.XData = plotTimeWin(end).*[1 1];
             end
             drawnow limitrate
-            
+
+            % --- 11. Advance circular buffer pointer ---
+            obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
         end
-        
-        
-        
+
         function error(obj,varargin)
+            % Handles h_timer errors.
             vprintf(-1,'OnlinePlot closed with error')
             vprintf(-1,varargin{2}.Data.messageID)
             vprintf(-1,varargin{2}.Data.message)
         end
     end
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     methods (Access = protected)
-        
         function setup_plot(obj,varargin)
+            % Create/recreate plot lines and initialize plot axes/labels.
             delete(obj.lineH);
-            
             for i = 1:length(obj.watchedParams)
-                obj.lineH(i) = line(obj.ax,seconds(0),obj.yPositions(i), ...
+                obj.lineH(i) = line(obj.hax,seconds(0),obj.yPositions(i), ...
                     'color',obj.lineColors(i,:), ...
                     'linewidth',obj.lineWidth(i));
             end
-            
-            
-            xtickformat(obj.ax,'mm:ss.S');
-            grid(obj.ax,'on');
-            
-            obj.ax.YAxis.Limits = [.8 obj.yPositions(end)+.2];
-            obj.ax.YAxis.TickValues = obj.yPositions;
-            obj.ax.YAxis.TickLabelInterpreter = 'none';
-            obj.ax.YAxis.TickLabels = obj.watchedParams;
-            obj.ax.XMinorGrid = 'on';
-            obj.ax.Box = 'on';
-            
-            %obj.ax.XAxis.Label.String = 'time since start (mm:ss)';
-            
-            obj.startTime = clock;
+            xtickformat(obj.hax,'mm:ss.S');
+            grid(obj.hax,'on');
+            obj.hax.YAxis.Limits = [.8 obj.yPositions(end)+.2];
+            obj.hax.YAxis.TickValues = obj.yPositions;
+            obj.hax.YAxis.TickLabelInterpreter = 'none';
+            obj.hax.YAxis.TickLabels = {obj.watchedParams.Name};
+            obj.hax.XMinorGrid = 'on';
+            obj.hax.Box = 'on';
+            obj.startTime = datetime("now");
+            obj.nowLine = line(obj.hax,seconds([0 0]),[-1e6 1e6],AffectAutoLimits="off");
+
         end
-        
-        
-        
+
         function setup_figure(obj)
-            f = findobj('type','figure','-and', ...
-                '-regexp','name',[obj.figName '*']);
+            % Create or reuse a figure/axes for plotting if none supplied.
+            f = findobj('type','figure','-and', '-regexp','name',[obj.figName '*']);
             if isempty(f)
                 f = figure('Name',obj.figName,'color','w','NumberTitle','off','visible','off');
             end
-            clf(f);
-            figure(f);
+            clf(f); figure(f);
             f.Position([3 4]) = [800 175];
-            
-            obj.ax = axes(f);
-            
+            obj.hax = axes(f);
+            disableDefaultInteractivity(obj.hax);
+            obj.hax.Toolbar = [];
             f.Visible = 'on';
         end
-        
+
         function add_context_menu(obj)
+            % Add right-click menu to axes for extra plot options.
             c = uicontextmenu(obj.figH);
-            
-            switch class(obj.ax)
+            switch class(obj.hax)
                 case 'matlab.ui.control.UIAxes'
-                    obj.ax.ContextMenu = c; 
+                    obj.hax.ContextMenu = c;
                 otherwise
                     c.Parent = obj.figH;
             end
-            
             uimenu(c,'Tag','uic_stayOnTop','Label','Keep Window on Top','Callback',@obj.stay_on_top);
             uimenu(c,'Tag','uic_pause','Label','Pause ||','Callback',@obj.pause);
             uimenu(c,'Tag','uic_plotType','Label','Set Plot to Trial-Locked','Callback',{@obj.plot_type,true});
             uimenu(c,'Tag','uic_timeWindow','Label',sprintf('Time Window = [%.1f %.1f] seconds',obj.timeWindow2number),'Callback',@obj.update_window);
-            obj.ax.UIContextMenu = c;
+            obj.hax.UIContextMenu = c;
         end
-        
+
         function stay_on_top(obj,varargin)
+            % Toggle window always-on-top state and update menu/label.
             obj.stayOnTop = ~obj.stayOnTop;
-            
             c = obj.get_menu_item('uic_stayOnTop');
             if obj.stayOnTop
                 c.Label = 'Don''t Keep Window on Top';
@@ -319,16 +348,16 @@ classdef OnlinePlot < gui.Helper & handle
                 c.Label = 'Keep Window on Top';
                 obj.figH.Name = obj.figName;
             end
-            FigOnTop(obj.figH,obj.stayOnTop);
+            figAlwaysOnTop(obj.figH,obj.stayOnTop);
         end
-        
+
         function plot_type(obj,src,event,toggle)
+            % Toggle between trial-locked and free-running plot x-axis.
             if nargin > 1 && isequal(class(src),'logical')
                 obj.trialLocked = src;
             elseif nargin == 4 && toggle
-                obj.trialLocked = ~obj.trialLocked; 
+                obj.trialLocked = ~obj.trialLocked;
             end
-
             c = obj.get_menu_item('uic_plotType');
             atw = abs(obj.timeWindow);
             if isempty(obj.trialParam)
@@ -341,12 +370,11 @@ classdef OnlinePlot < gui.Helper & handle
                 c.Label = 'Set Plot to Trial-Locked';
             end
         end
-        
+
         function update_window(obj,varargin)
-            % temporarily disable stay on top if selected
-            FigOnTop(obj.figH,false);
-            r = inputdlg('Adjust time windpw (seconds)','Online Plot', ...
-                1,{sprintf('[%.1f %.1f]',obj.timeWindow2number)});
+            % Adjust time window for plot x-axis.
+            figAlwaysOnTop(obj.figH,false); % temporarily disable stay-on-top
+            r = inputdlg('Adjust time windpw (seconds)','Online Plot', 1, {sprintf('[%.1f %.1f]',obj.timeWindow2number)});
             if isempty(r), return; end
             r = str2num(char(r)); %#ok<ST2NM>
             if numel(r) ~= 2
@@ -354,32 +382,28 @@ classdef OnlinePlot < gui.Helper & handle
                 return
             end
             obj.timeWindow = seconds(r(:)');
-
             c = obj.get_menu_item('uic_timeWindow');
             c.Label = sprintf('Time Window = [%.1f %.1f] seconds',obj.timeWindow2number);
-            FigOnTop(obj.figH,obj.stayOnTop);
+            figAlwaysOnTop(obj.figH,obj.stayOnTop);
         end
-        
+
         function s = timeWindow2number(obj)
+            % Helper to convert duration timeWindow to numeric vector.
             s = cellstr(char(obj.timeWindow));
             s = cellfun(@(a) str2double(a(1:find(a==' ',1,'last')-1)),s);
         end
-        
-        function c = get_menu_item(obj,tag) 
-            C = obj.ax.ContextMenu.Children;
-            c = C(ismember({obj.ax.ContextMenu.Children.Tag},tag));
+
+        function c = get_menu_item(obj,tag)
+            % Find context menu item by tag.
+            C = obj.hax.ContextMenu.Children;
+            c = C(ismember({obj.hax.ContextMenu.Children.Tag},tag));
+        end
+
+        function mode_change(obj,src,event)
+            % Stop h_timer if hardware mode changes.
+            if event.AffectedObject.mode < 2
+                stop(obj.h_timer);
+            end
         end
     end
-    
-    
 end
-
-
-
-
-
-
-
-
-
-

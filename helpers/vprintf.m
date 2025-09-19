@@ -137,7 +137,7 @@ end
 
 if needNewLog || isempty(GLogFID) || GLogFID == -1
     errlogs = fullfile(epsych_path,'.error_logs');
-    if ~isdir(errlogs), mkdir(errlogs); end
+    if ~isfolder(errlogs), mkdir(errlogs); end
     GLogFID = fopen(fullfile(errlogs,['error_log_' datestr(now,'ddmmmyyyy') '.txt']),'at');
 end
 

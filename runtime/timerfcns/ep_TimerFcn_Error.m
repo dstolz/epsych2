@@ -1,18 +1,12 @@
-function RUNTIME = ep_TimerFcn_Error(RUNTIME, AX)
-% ep_TimerFcn_Error(RUNTIME, RP)
-% ep_TimerFcn_Error(RUNTIME, DA)
+function RUNTIME = ep_TimerFcn_Error(RUNTIME)
+% ep_TimerFcn_Error(RUNTIME)
 % 
 % Default Error timer function
 % 
-% Use ep_PsychConfig GUI to specify custom timer function.
-% 
-% Daniel.Stolzberg@gmail.com 2014
 
 % Copyright (C) 2016  Daniel Stolzberg, PhD
+% updated for hardware abstraction 2024 DS
 
-% not doing anything with CONFIG
-
-
-RUNTIME = ep_TimerFcn_Stop(RUNTIME,AX); % same as TimerFcn_Stop function
+% RUNTIME = ep_TimerFcn_Stop(RUNTIME); % same as TimerFcn_Stop function
 vprintf(1,1,RUNTIME.ERROR);
 rethrow(RUNTIME.ERROR)

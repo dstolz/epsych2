@@ -29,7 +29,7 @@ for i = 1:length(posstanks)
     % check if legacy tank
     islegacy(i) = ~isempty(findincell(strfind({blockdir.name},'.Tbk')));
     istank(i)   = islegacy(i);
-    if islegacy(i) || ~any([blockdir.isdir]), continue; end
+    if islegacy(i) || ~any([blockdir.isfolder]), continue; end
     
     ff = fullfile(parentdir,posstanks(i).name,blockdir(1).name);
     blockcont = dir(ff);

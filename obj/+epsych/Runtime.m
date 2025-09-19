@@ -1,9 +1,6 @@
 classdef Runtime < handle
 
     properties
-
-        ProgramState (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG
-
         NSubjects (1,1) double {mustBeNonnegative,mustBeInteger} = 1
 
         % TO DO: REPLACE USINGSYNAPSE WITH GENERALIZED HWINUSE
@@ -16,15 +13,19 @@ classdef Runtime < handle
         HELPER            % e.g., epsych.Helper
         TIMER (1,1) timer % MATLAB timer object
 
-        DataDir (1,1) string = ""
-        DataFile string = strings(0,1)   % vector of filepaths
-        ON_HOLD (1,1) logical = false
-
         S                 % e.g., hw.Software
         CORE              % RuntimeCore or struct-compatible
 
         StartTime datetime = NaT
     end
+
+    properties (SetObservable)
+        ProgramState (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG
+        DataDir (1,1) string = ""
+        DataFile string = strings(0,1)   % vector of filepaths
+        onHold (1,1) logical = false
+    end
+
 
     methods
         function self = Runtime

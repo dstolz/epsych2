@@ -84,7 +84,7 @@ for i = 1:RUNTIME.NSubjects
     pth = fullfile(RUNTIME.dfltDataPath,sn);
     RUNTIME.TRIALS(i).DataFilename = ep_RunExpt2.defaultFilename(pth,sn);
 
-    RUNTIME.ON_HOLD(i) = false;
+    RUNTIME.onHold(i) = false;
 
 
     % Initialize data structure

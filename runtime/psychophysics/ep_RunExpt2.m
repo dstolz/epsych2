@@ -885,11 +885,8 @@ classdef ep_RunExpt2 < handle
             % Behavior
             %   Calls TIMERfcn.Stop, refreshes GUI, and triggers save logic.
             self.RUNTIME.ProgramState = PRGMSTATE.STOP;
-            vprintf(3,'PsychTimerStop:Calling timer Stop function: %s',self.FUNCS.TIMERfcn.Stop)
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Stop, self.RUNTIME);
-            vprintf(3,'PsychTimerStop:Calling UpdateGUIstate')
             self.UpdateGUIstate
-            vprintf(3,'PsychTimerStop:Calling SaveDataCallback')
             self.SaveDataCallback
         end
 
@@ -903,7 +900,8 @@ classdef ep_RunExpt2 < handle
             try
                 hCtrl = findobj(self.H.figure1,'-regexp','tag','^ctrl')';
                 set([hCtrl self.H.save_data],'Enable','off')
-            catch
+            catch me
+                vprintf(0,1,me)
             end
 
             vprintf(3,'SaveDataCallback: Saving via %s',self.FUNCS.SavingFcn)
@@ -977,6 +975,8 @@ classdef ep_RunExpt2 < handle
                 case PRGMSTATE.ERROR
                     set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
             end
+
+            drawnow
         end
 
         function UpdateSubjectList(self)

@@ -12,7 +12,7 @@ for i = 1:RUNTIME.NSubjects
     % the following FORCE_TRIAL tells ep_TimerFcn_RunTime to skip waiting
     % for a trial to complete and just go directly to updating for next trial
     if ~RUNTIME.TRIALS(i).FORCE_TRIAL
-        if ~RUNTIME.ON_HOLD(i)
+        if ~RUNTIME.onHold(i)
             % Check _RespCode parameter for non-zero value or if #TrigState is true
 
             RCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).RespCode);
@@ -58,10 +58,10 @@ for i = 1:RUNTIME.NSubjects
         % If in use, wait for manual completion of trial in RPvds
         if isfield(RUNTIME,'TrialCompleteIdx') % ???
             TCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialComplete);
-            RUNTIME.ON_HOLD(i) = ~TCtag;
+            RUNTIME.onHold(i) = ~TCtag;
         end
 
-        if RUNTIME.ON_HOLD(i), continue; end
+        if RUNTIME.onHold(i), continue; end
 
 
 

@@ -25,16 +25,11 @@ classdef PRGMSTATE < int32
             if ~ischar(s)
                 error('PRGMSTATE:InvalidType','fromString expects char or string.');
             end
-            switch upper(strtrim(s))
-                case 'ERROR',        e = PRGMSTATE.ERROR;
-                case 'NOCONFIG',     e = PRGMSTATE.NOCONFIG;
-                case 'CONFIGLOADED', e = PRGMSTATE.CONFIGLOADED;
-                case 'STOP',         e = PRGMSTATE.STOP;
-                case 'READY',        e = PRGMSTATE.READY;
-                case 'RUNNING',      e = PRGMSTATE.RUNNING;
-                case 'POSTRUN',      e = PRGMSTATE.POSTRUN;
-                otherwise
-                    error('PRGMSTATE:InvalidString','Unknown state "%s".', s);
+
+            try
+                e = PRGMSTATE.(upper(strtrim(s)));
+            catch 
+                error('PRGMSTATE:InvalidString','Unknown state "%s".', s);
             end
         end
     end

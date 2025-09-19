@@ -1,5 +1,5 @@
-classdef ep_RunExpt2 < handle
-    % ep_RunExpt2 — Run and manage psychophysics experiments with a UIFigure-based GUI.
+classdef RunExpt < handle
+    % RunExpt — Run and manage psychophysics experiments with a UIFigure-based GUI.
     %
     % Description
     %   Provides subject/configuration management, protocol loading, TDT hardware
@@ -9,7 +9,7 @@ classdef ep_RunExpt2 < handle
     %   Preview, Pause, Stop) plus utilities for editing protocols and saving.
     %
     % Key Features
-    %   • Maintains experiment state via PRGMSTATE
+    %   • Maintains experiment state via self.RUNTIME.PRGMSTATE
     %   • Loads/saves .config files containing subjects, protocols, and callbacks
     %   • Selects hardware driver (hw.TDT_Synapse or hw.TDT_RPcox) from context
     %   • Uses TIMERfcn callbacks for Start/RunTime/Stop/Error
@@ -35,9 +35,9 @@ classdef ep_RunExpt2 < handle
     end
 
     methods
-        function self = ep_RunExpt2()
+        function self = RunExpt()
             
-            f = findobj('tag','ep_RunExpt2');
+            f = findobj('tag','RunExpt');
             if ~isempty(f)
                 figure(f);
                 movegui(f,'onscreen');
@@ -50,7 +50,7 @@ classdef ep_RunExpt2 < handle
             self.FUNCS = self.GetDefaultFuncs;
             self.ClearConfig
 
-            self.UpdateGUIstate;
+            %self.UpdateGUIstate;
             addlistener(self.RUNTIME,'ProgramState','PostSet',@(src,ev) self.UpdateGUIstate);
 
             if nargout == 0, clear self; end
@@ -61,10 +61,9 @@ classdef ep_RunExpt2 < handle
             %   Invokes onCloseRequest if still valid to stop timers and
             %   release UI resources.
             try
-                if isvalid(self)
-                    self.onCloseRequest
-                end
-            catch
+                % setpref('EPsych','RunExpt_GUI',self.H.figure_epsych.Position);
+            catch me
+                vprintf(0,1,me)
             end
         end
 
@@ -508,7 +507,7 @@ classdef ep_RunExpt2 < handle
             % AlwaysOnTop — Toggle the main window "always on top" setting.
             % Inputs
             %   ontop (logical) — Optional; when omitted, flips current state.
-            originalState = isequal(self.H.figure1.WindowStyle,'alwaysontop');
+            originalState = isequal(self.H.figure_epsych.WindowStyle,'alwaysontop');
             if nargin<2
                 ontop = ~originalState;
             end
@@ -516,11 +515,11 @@ classdef ep_RunExpt2 < handle
 
             if ontop
                 set(self.H.always_on_top,'Checked','on');
-                set(self.H.figure1,'WindowStyle','alwaysontop');
+                set(self.H.figure_epsych,'WindowStyle','alwaysontop');
                
             else 
                 set(self.H.always_on_top,'Checked','off');
-                set(self.H.figure1,'WindowStyle','normal');
+                set(self.H.figure_epsych,'WindowStyle','normal');
             end
 
             if nargout == 0, clear ontop; end
@@ -574,11 +573,21 @@ classdef ep_RunExpt2 < handle
                 end
             end
 
-            self.SetDefaultFuncs(self.FUNCS)
+            setpref('EPsych','RunExpt_GUI',self.H.figure_epsych.Position);
+
             try
-                delete(self.H.figure1)
-            catch
+                delete(self.H.figure_epsych)
+            catch me
+                vprintf(0,1,me)
             end
+
+            try
+                delete(self);
+            catch me
+                vprintf(0,1,me)
+            end
+
+
         end
 
         function onCommand(self, hObj)
@@ -684,7 +693,7 @@ classdef ep_RunExpt2 < handle
 
                 case 'stop'
                     self.RUNTIME.ProgramState = PRGMSTATE.STOP;
-                    set(self.H.figure1,'pointer','watch')
+                    set(self.H.figure_epsych,'pointer','watch')
 
                     self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Stop));
 
@@ -793,12 +802,12 @@ classdef ep_RunExpt2 < handle
             %   and restores GUI state per STATE.
             oldstate = self.RUNTIME.ProgramState;
             % Temporarily disable controls during save without changing state enum
-            try
-                hCtrl = findobj(self.H.figure1,'-regexp','tag','^ctrl')';
-                set([hCtrl self.H.save_data],'Enable','off')
-            catch me
-                vprintf(0,1,me)
-            end
+            % try
+            %     hCtrl = findobj(self.H.figure_epsych,'-regexp','tag','^ctrl')';
+            %     set([hCtrl self.H.save_data],'Enable','off')
+            % catch me
+            %     vprintf(0,1,me)
+            % end
 
             vprintf(3,'SaveDataCallback: Saving via %s',self.FUNCS.SavingFcn)
             try
@@ -839,10 +848,18 @@ classdef ep_RunExpt2 < handle
             
             vprintf(3,'UpdateGUIstate: State is %s',char(self.RUNTIME.ProgramState))
 
-            hCtrl = findobj(self.H.figure1,'-regexp','tag','^ctrl')';
-            set([hCtrl self.H.save_data],'Enable','off')
+            fn = fieldnames(self.H);
 
-            hSetup = findobj(self.H.figure1,'-regexp','tag','^setup')';
+            ind = startsWith(fn,'ctrl');
+            hCtrl = cellfun(@(a) self.H.(a),fn(ind));
+            hCtrl = hCtrl(:)';
+
+
+            ind = startsWith(fn,'setup');
+            hSetup = cellfun(@(a) self.H.(a),fn(ind));
+            hSetup = hSetup(:)';
+            
+            set([hCtrl self.H.save_data],'Enable','off')
 
             switch self.RUNTIME.ProgramState
                 case PRGMSTATE.NOCONFIG

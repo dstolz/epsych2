@@ -4,13 +4,15 @@ function buildUI(self)
 %   Assembles the main grid, subject table, bottom control bar, and
 %   right-side utilities using uigridlayout and uibutton components.
 
-f = uifigure('Name','EPsych','Tag','ep_RunExpt2', ...
-    'Position',[100 100 700 300], ...
+pos = getpref('EPsych','RunExpt_GUI',[100 100 700 300]);
+
+f = uifigure('Name','EPsych','Tag','RunExpt', ...
+    'Position',pos, ...
     'CloseRequestFcn', @(~,~) self.onCloseRequest);
 
 f.UserData = self;
 
-self.H.figure1 = f;
+self.H.figure_epsych = f;
 
 
 movegui(f,'onscreen');
@@ -48,11 +50,12 @@ self.H.subject_list = uitable(g, ...
     'Tag','subject_list', ...
     'Data',{}, ...
     'ColumnName',{'BoxID','Name','Protocol'}, ...
-    'ColumnEditable',[false false false]);
+    'ColumnEditable',[false false false], ...
+    'ColumnWidth',{50,200,300}, ...
+    'CellSelectionCallback', @(h,ev) self.subject_list_CellSelection(h,ev));
 self.H.subject_list.Layout.Row = 1;
 self.H.subject_list.Layout.Column = 1;
 % In UIFIGURE, use SelectionChangedFcn
-self.H.subject_list.SelectionChangedFcn = @(h,ev) self.subject_list_SelectionChanged(h,ev);
 
 % ---------- Bottom control bar (Run/Preview/Pause/Stop) ----------
 gBottom = uigridlayout(g,[1 4]);

@@ -138,7 +138,7 @@ classdef ep_RunExpt2 < handle
                 return
             end
 
-            fprintf('Loading configuration file: ''%s''\n',cfn)
+            vprintf(0,'Loading configuration file: ''%s''\n',cfn)
             warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
             S = load(cfn,'-mat');
             warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
@@ -179,11 +179,11 @@ classdef ep_RunExpt2 < handle
                 return
             end
 
-            config = self.CONFIG; 
-            funcs  = self.FUNCS;  
+            config = self.CONFIG; %#ok<NASGU>
+            funcs  = self.FUNCS;  %#ok<NASGU>
 
             E = EPsychInfo;
-            meta = E.meta; 
+            meta = E.meta; %#ok<NASGU>
 
             save(fullfile(pn,fn),'config','funcs','meta','-mat')
             setpref('ep_RunExpt_Setup','CDir',pn)
@@ -239,6 +239,7 @@ classdef ep_RunExpt2 < handle
             if self.STATE >= PRGMSTATE.RUNNING, return, end
 
             boxids = 1:16;
+            curboxids = [];
             curnames = {[]};
             if ~isempty(self.CONFIG) && ~isempty(self.CONFIG(1).SUBJECT)
                 curboxids = arrayfun(@(c) c.SUBJECT.BoxID, self.CONFIG);
@@ -452,7 +453,7 @@ classdef ep_RunExpt2 < handle
                 return
             end
 
-            fprintf('AddSubject function:\t%s\t(%s)\n',a,b)
+            vprintf(0,'AddSubject function:\t%s\t(%s)\n',a,b)
             self.FUNCS.AddSubjectFcn = a;
             self.CheckReady
         end
@@ -710,7 +711,7 @@ classdef ep_RunExpt2 < handle
 
                     [~,~] = dos('wmic process where name="MATLAB.exe" CALL setpriority "high priority"');
 
-                    fprintf('\n%s\n',repmat('~',1,50))
+                    vprintf(0,'\n%s\n',repmat('~',1,50))
 
                     % self.RUNTIME = struct();
                     self.RUNTIME = epsych.Runtime; % reset RUNTIME
@@ -738,9 +739,10 @@ classdef ep_RunExpt2 < handle
 
                     self.RUNTIME.NSubjects = length(self.CONFIG);
                     
-                    % TO DO: ROLL UP HARDWARE IN USE INTO A USER-DEFINABLE CONFIGURATION
+
                     [~,result] = system('tasklist/FI "imagename eq Synapse.exe"');
-                    self.RUNTIME.usingSynapse = ~contains(result,'No tasks are running');
+                    x = strfind(result,'No tasks are running');
+                    self.RUNTIME.usingSynapse = isempty(x);
 
                     try
                         if self.RUNTIME.usingSynapse
@@ -759,7 +761,7 @@ classdef ep_RunExpt2 < handle
                     end
 
                     for i = 1:length(self.CONFIG)
-                        self.RUNTIME.TRIALS(i).protocol_fn = self.CONFIG(i).protocol_fn; 
+                        self.RUNTIME.TRIALS(i).protocol_fn = self.CONFIG(i).protocol_fn; %#ok<AGROW>
                         modnames = fieldnames(self.CONFIG(i).PROTOCOL.MODULES);
                         for j = 1:length(modnames)
                             self.RUNTIME.TRIALS(i).MODULES.(modnames{j}) = j;

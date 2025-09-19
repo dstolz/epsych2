@@ -31,7 +31,7 @@ classdef ep_RunExpt2 < handle
         FUNCS (1,1) struct = struct() % function handles/names for callbacks
         RUNTIME (1,1) epsych.Runtime = epsych.Runtime
 
-        dfltDataPath (1,1) string = cd % default data path for saving
+        dfltDataPath (1,1) string = getpref('ep_RunExpt','DataPath',cd) % default data path for saving
     end
 
     methods
@@ -49,9 +49,9 @@ classdef ep_RunExpt2 < handle
             self.buildUI
             self.FUNCS = self.GetDefaultFuncs;
             self.ClearConfig
-            self.UpdateGUIstate
 
-            self.dfltDataPath = getpref('ep_RunExpt','DataPath',cd);
+            self.UpdateGUIstate;
+            addlistener(self.RUNTIME,'ProgramState','PostSet',@(src,ev) self.UpdateGUIstate);
 
             if nargout == 0, clear self; end
         end
@@ -802,7 +802,6 @@ classdef ep_RunExpt2 < handle
                     
             end
 
-            self.UpdateGUIstate
         end
 
         function T = CreateTimer(self)
@@ -832,7 +831,6 @@ classdef ep_RunExpt2 < handle
             %   Updates state, calls TIMERfcn.Start, records StartTime, and
             %   attempts to launch BoxFig if configured.
             self.RUNTIME.ProgramState = PRGMSTATE.RUNNING;
-            self.UpdateGUIstate
 
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Start, self.RUNTIME, self.CONFIG);
             self.RUNTIME.StartTime = datetime('now');
@@ -876,7 +874,6 @@ classdef ep_RunExpt2 < handle
             self.RUNTIME.ERROR = lasterror; %#ok<LERR>
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Error, self.RUNTIME);
             feval(self.FUNCS.SavingFcn, self.RUNTIME);
-            self.UpdateGUIstate
             self.SaveDataCallback
         end
 
@@ -886,7 +883,6 @@ classdef ep_RunExpt2 < handle
             %   Calls TIMERfcn.Stop, refreshes GUI, and triggers save logic.
             self.RUNTIME.ProgramState = PRGMSTATE.STOP;
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Stop, self.RUNTIME);
-            self.UpdateGUIstate
             self.SaveDataCallback
         end
 
@@ -912,12 +908,8 @@ classdef ep_RunExpt2 < handle
                 vprintf(0,1,me)
             end
 
-            % Restore UI based on current state
-            self.UpdateGUIstate
-            
             self.RUNTIME.ProgramState = oldstate;
             vprintf(3,'SaveDataCallback: Calling UpdateGUIstate')
-            self.UpdateGUIstate
         end
 
         function CheckReady(self)
@@ -938,14 +930,14 @@ classdef ep_RunExpt2 < handle
                 self.RUNTIME.ProgramState = PRGMSTATE.NOCONFIG;
             end
 
-            self.UpdateGUIstate
         end
 
-        function UpdateGUIstate(self)
+        function UpdateGUIstate(self,src,evnt)
             % UpdateGUIstate — Enable/disable controls based on STATE.
             % Behavior
             %   Centralizes UI state transitions for all major states.
             
+            vprintf(3,'UpdateGUIstate: State is %s',char(self.RUNTIME.ProgramState))
 
             hCtrl = findobj(self.H.figure1,'-regexp','tag','^ctrl')';
             set([hCtrl self.H.save_data],'Enable','off')
@@ -954,11 +946,13 @@ classdef ep_RunExpt2 < handle
 
             switch self.RUNTIME.ProgramState
                 case PRGMSTATE.NOCONFIG
+                    set(hSetup','Enable','on')
+                    set(self.H.view_trials,'Enable','off');
+                    set(self.H.mnu_LaunchGUI,'Enable','off');
 
                 case PRGMSTATE.CONFIGLOADED
-                    self.RUNTIME.ProgramState = PRGMSTATE.READY;
+                    set([self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
                     set(self.H.view_trials,'Enable','on');
-                    self.UpdateGUIstate
 
                 case PRGMSTATE.READY
                     set([self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
@@ -967,12 +961,7 @@ classdef ep_RunExpt2 < handle
                     set([self.H.ctrl_pauseall self.H.ctrl_halt],'Enable','on')
                     set(hSetup,'Enable','off')
 
-                case PRGMSTATE.POSTRUN
-
-                case PRGMSTATE.STOP
-                    set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
-
-                case PRGMSTATE.ERROR
+                case {PRGMSTATE.POSTRUN, PRGMSTATE.STOP, PRGMSTATE.ERROR}
                     set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
             end
 

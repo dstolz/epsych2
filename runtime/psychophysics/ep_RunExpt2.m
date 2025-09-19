@@ -179,11 +179,11 @@ classdef ep_RunExpt2 < handle
                 return
             end
 
-            config = self.CONFIG; %#ok<NASGU>
-            funcs  = self.FUNCS;  %#ok<NASGU>
+            config = self.CONFIG; 
+            funcs  = self.FUNCS;  
 
             E = EPsychInfo;
-            meta = E.meta; %#ok<NASGU>
+            meta = E.meta; 
 
             save(fullfile(pn,fn),'config','funcs','meta','-mat')
             setpref('ep_RunExpt_Setup','CDir',pn)
@@ -239,7 +239,6 @@ classdef ep_RunExpt2 < handle
             if self.STATE >= PRGMSTATE.RUNNING, return, end
 
             boxids = 1:16;
-            curboxids = [];
             curnames = {[]};
             if ~isempty(self.CONFIG) && ~isempty(self.CONFIG(1).SUBJECT)
                 curboxids = arrayfun(@(c) c.SUBJECT.BoxID, self.CONFIG);
@@ -739,10 +738,9 @@ classdef ep_RunExpt2 < handle
 
                     self.RUNTIME.NSubjects = length(self.CONFIG);
                     
-
+                    % TO DO: ROLL UP HARDWARE IN USE INTO A USER-DEFINABLE CONFIGURATION
                     [~,result] = system('tasklist/FI "imagename eq Synapse.exe"');
-                    x = strfind(result,'No tasks are running');
-                    self.RUNTIME.usingSynapse = isempty(x);
+                    self.RUNTIME.usingSynapse = ~contains(result,'No tasks are running');
 
                     try
                         if self.RUNTIME.usingSynapse
@@ -761,7 +759,7 @@ classdef ep_RunExpt2 < handle
                     end
 
                     for i = 1:length(self.CONFIG)
-                        self.RUNTIME.TRIALS(i).protocol_fn = self.CONFIG(i).protocol_fn; %#ok<AGROW>
+                        self.RUNTIME.TRIALS(i).protocol_fn = self.CONFIG(i).protocol_fn; 
                         modnames = fieldnames(self.CONFIG(i).PROTOCOL.MODULES);
                         for j = 1:length(modnames)
                             self.RUNTIME.TRIALS(i).MODULES.(modnames{j}) = j;

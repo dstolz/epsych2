@@ -304,7 +304,7 @@ end
 
 
 function PsychTimerRunTime(~,~,f)
-global RUNTIME FUNCS
+ FUNCS
 
 if RUNTIME.HW.mode == hw.DeviceState.Idle
     h = guidata(f);

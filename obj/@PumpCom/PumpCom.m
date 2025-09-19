@@ -22,22 +22,21 @@ classdef PumpCom < handle
         Port
         BaudRate = 19200;
         DataBits = 8
-        StopBits = 1;
-        
-        
+        StopBits = 1;        
     end
     
     properties (SetAccess = protected, Hidden)
         Codes
         hl event.proplistener = event.proplistener.empty; % Initialize as empty event.proplistener array
     end
+
     
     methods
-        function obj = PumpCom(Port,BaudRate)
-            global RUNTIME
-
-            if nargin >= 1 &&  ~isempty(Port), obj.Port = Port; end
-            if nargin >= 2 && ~isempty(BaudRate), obj.BaudRate = BaudRate; end
+        function obj = PumpCom(RUNTIME,Port,BaudRate)
+            
+            narginchk(1,3);
+            if nargin >= 2 &&  ~isempty(Port), obj.Port = Port; end
+            if nargin >= 3 && ~isempty(BaudRate), obj.BaudRate = BaudRate; end
             
             
             obj.establish_serial_com;

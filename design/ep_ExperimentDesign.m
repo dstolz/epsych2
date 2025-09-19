@@ -89,7 +89,7 @@ function UpdateRunningProtocol(h) %#ok<DEFNU>
 % 
 % DJS 3/2016
 
-global CONFIG RUNTIME PRGMSTATE
+global CONFIG PRGMSTATE
 
 
 if isempty(h.CURRENT_BOX_IDX) || ~strcmp(PRGMSTATE,'RUNNING')
@@ -140,14 +140,14 @@ end
 CONFIG(CIDX).PROTOCOL = protocol;
 
 C = CONFIG(CIDX).PROTOCOL.COMPILED;
-RUNTIME.TRIALS(CIDX).trials = C.trials;
-RUNTIME.TRIALS(CIDX).readparams = C.readparams;
-RUNTIME.TRIALS(CIDX).Mreadparams = cellfun(@ModifyParamTag, ...
-    RUNTIME.TRIALS(CIDX).readparams,'UniformOutput',false);
-RUNTIME.TRIALS(CIDX).writeparams = C.writeparams;
-RUNTIME.TRIALS(CIDX).randparams = C.randparams;
+obj.RUNTIME.TRIALS(CIDX).trials = C.trials;
+obj.RUNTIME.TRIALS(CIDX).readparams = C.readparams;
+obj.RUNTIME.TRIALS(CIDX).Mreadparams = cellfun(@ModifyParamTag, ...
+    obj.RUNTIME.TRIALS(CIDX).readparams,'UniformOutput',false);
+obj.RUNTIME.TRIALS(CIDX).writeparams = C.writeparams;
+obj.RUNTIME.TRIALS(CIDX).randparams = C.randparams;
 
-RUNTIME.TRIALS(CIDX).TrialCount = zeros(size(C.trials,1),1); % reset trial count
+obj.RUNTIME.TRIALS(CIDX).TrialCount = zeros(size(C.trials,1),1); % reset trial count
 
 vprintf(0,'Protocol update successful!')
 

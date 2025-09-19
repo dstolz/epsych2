@@ -17,10 +17,14 @@ classdef Parameter_Update < handle
         updateImmediately (1,1) logical = false
 
         hl_values
+
+        RUNTIME % reference to RUNTIME object
     end
 
     methods
-        function obj = Parameter_Update(parent)
+        function obj = Parameter_Update(parent,RUNTIME)
+
+            obj.RUNTIME = RUNTIME;;
             obj.Button = uibutton(parent);
             obj.Button.Text = "Update Parameters";
             obj.Button.Tooltip = "Hold Ctrl+Shift+Alt while clicking to update parameters immediately.";
@@ -79,7 +83,7 @@ classdef Parameter_Update < handle
         end
 
         function commit_changes(obj,src,event)
-            global RUNTIME % must be global
+             % must be global
 
             if obj.updateImmediately
                 vprintf(0,1,'Updating Parameters Immediately')
@@ -88,12 +92,12 @@ classdef Parameter_Update < handle
             end
 
             % CURRENTLY ONLY WORKS FOR SINGLE SUBJECT
-            T = RUNTIME.TRIALS.trials;
+            T = obj.RUNTIME.TRIALS.trials;
 
             vu = [obj.watchedHandles.ValueUpdated];
             h = obj.watchedHandles(vu);
 
-            loc = RUNTIME.TRIALS.writeParamIdx;
+            loc = obj.RUNTIME.TRIALS.writeParamIdx;
 
             for i = 1:length(h)
                 P = h(i).Parameter;
@@ -110,7 +114,7 @@ classdef Parameter_Update < handle
 
                 h(i).reset_label;                
             end
-            RUNTIME.TRIALS.trials = T;
+            obj.RUNTIME.TRIALS.trials = T;
             vprintf(0,'Updated %d parameters',length(h))
 
             obj.updateImmediately = false;

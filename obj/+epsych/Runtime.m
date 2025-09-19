@@ -1,6 +1,9 @@
 classdef Runtime < handle
 
     properties
+
+        ProgramState (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG
+
         NSubjects (1,1) double {mustBeNonnegative,mustBeInteger} = 1
 
         % TO DO: REPLACE USINGSYNAPSE WITH GENERALIZED HWINUSE

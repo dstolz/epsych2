@@ -16,7 +16,7 @@
 %
 % * Note that a protocol needs to be running in order for this to work
 
-global RUNTIME % Need to pass RUNTIME to GUI objects
+ % Need to pass RUNTIME to GUI objects
 global AX % Need to pass AX to the GUI objects that access the TDT hardware directly using ActiveX
 
 BoxID = 1; % define which Subject is being used (if running multiple subjects simultaneously)

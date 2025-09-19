@@ -126,7 +126,7 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   Outputs:
             %       obj - Initialized Detect object
 
-            global RUNTIME
+            
 
             if nargin >= 1 && ~isempty(TRIALS)
                 obj.TRIALS = TRIALS;

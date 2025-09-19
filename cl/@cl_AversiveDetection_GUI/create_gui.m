@@ -1,7 +1,7 @@
 % create_gui: Assembles the GUI layout, controls, panels, and plots for aversive detection.
 % All UI and control setup for the experiment is performed here.
 function create_gui(obj)
-global RUNTIME
+
 
 % Create the main figure
 fig = uifigure(Tag = 'cl_AversiveDetection_GUI', ...
@@ -39,7 +39,7 @@ bcmNormal = repmat(fig.Color,size(bcmActive,1),1);
 
 
 % > Remind
-p = RUNTIME.S.Module.add_parameter('ReminderTrials',0);
+p =obj.RUNTIME.S.Module.add_parameter('ReminderTrials',0);
 p.PostUpdateFcn = @cl_AversiveDetection_GUI.trigger_ReminderTrial;
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Reminder";
@@ -49,7 +49,7 @@ obj.hButtons.Reminder = h;
 
 
 % > Deliver Trials
-p = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
+p =obj.RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Deliver Trials";
 h.colorNormal = bcmNormal(3,:);
@@ -57,7 +57,7 @@ h.colorOnUpdate = bcmActive(3,:);
 obj.hButtons.DeliverTrials = h;
 
 % > Air Puff
-p = RUNTIME.S.Module.add_parameter('AirPuff',0);
+p =obj.RUNTIME.S.Module.add_parameter('AirPuff',0);
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Air Puff";
 h.colorNormal = bcmNormal(5,:);
@@ -110,7 +110,7 @@ layoutSoundControls.Padding = [0 0 0 0];
 layoutSoundControls.Scrollable = "on";
 
 % >> Consecutive NOGO min
-p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',3);
+p =obj.RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',3);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
 h.EvaluatorFcn = @obj.eval_gonogo;
 h.Values = 0:5;
@@ -118,7 +118,7 @@ h.Value = 3;
 h.Text = "Consecutive NoGo (min):";
 
 % >> Consecutive NOGO max
-p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',5);
+p =obj.RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',5);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
 h.EvaluatorFcn = @obj.eval_gonogo;
 h.Values = 3:20;
@@ -127,7 +127,7 @@ h.Text = "Consecutive NoGo (max):";
 
 
 % >> Trial order
-p = RUNTIME.S.Module.add_parameter('TrialOrder','Descending');
+p =obj.RUNTIME.S.Module.add_parameter('TrialOrder','Descending');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
 h.Values = ["Descending","Ascending"];
 % h.Values = ["Descending","Ascending","Random"];
@@ -137,14 +137,14 @@ h.Text = "Trial Order:";
 
 
 % >> Intertrial Interval
-p = RUNTIME.HW.find_parameter('ITI_dur');
+p =obj.RUNTIME.HW.find_parameter('ITI_dur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
 h.Values= 0:100:2500;
 h.Text = "Intertrial Interval (ms):";
 
 
 % >> Response Window Duration
-p = RUNTIME.HW.find_parameter('RespWinDur');
+p =obj.RUNTIME.HW.find_parameter('RespWinDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
 h.Values = 100:100:1000;
 h.Value = 100;
@@ -152,7 +152,7 @@ h.Text = "Response Window Duration (ms):";
 
 
 % >> Optogenetic trigger
-p = RUNTIME.HW.find_parameter('Optostim');
+p =obj.RUNTIME.HW.find_parameter('Optostim');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
 h.Values = [0 1];
 h.Value = 0;
@@ -170,7 +170,7 @@ h.Text = "Optogenetic Trigger:";
 % SOUND CONTROLS -----------------------------------------------------
 
 % >> dB SPL
-p = RUNTIME.HW.find_parameter('dBSPL');
+p =obj.RUNTIME.HW.find_parameter('dBSPL');
 h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
 h.Values = 0:6:84;
 h.Value = 48;
@@ -178,7 +178,7 @@ h.Text = "Sound Level (dB SPL):";
 
 
 % >> Duration
-p = RUNTIME.HW.find_parameter('Stim_Duration');
+p =obj.RUNTIME.HW.find_parameter('Stim_Duration');
 h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
 h.Values = 250:250:2000;
 h.Value = 1000;
@@ -186,7 +186,7 @@ h.Text = "Stimulus Duration (ms):";
 
 
 % >> Modulation Rate
-p = RUNTIME.HW.find_parameter('Rate');
+p =obj.RUNTIME.HW.find_parameter('Rate');
 h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
 h.Values = 1:20;
 h.Value = 5;
@@ -194,7 +194,7 @@ h.Text = "Modulation Rate (Hz):";
 
 
 % % >> Depth
-% p = RUNTIME.HW.find_parameter('Depth');
+% p =obj.RUNTIME.HW.find_parameter('Depth');
 % h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
 % h.Values = 0:.01:1;
 % h.Value = p.Value;
@@ -203,7 +203,7 @@ h.Text = "Modulation Rate (Hz):";
 
 
 % >> Highpass cutoff
-p = RUNTIME.HW.find_parameter('Highpass',silenceParameterNotFound=true);
+p =obj.RUNTIME.HW.find_parameter('Highpass',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
     h.Values = 25:25:300;
@@ -212,7 +212,7 @@ if ~isempty(p)
 end
 
 % >> Lowpass cutoff
-p = RUNTIME.HW.find_parameter('Lowpass',silenceParameterNotFound=true);
+p =obj.RUNTIME.HW.find_parameter('Lowpass',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
     h.Values =  1000:500:25000;
@@ -238,30 +238,30 @@ layoutShockControls.ColumnSpacing = 5;
 layoutShockControls.Padding = [0 0 0 0];
 
 % >> AutoShock
-% p = RUNTIME.HW.find_parameter('ShockFlag');
+% p =obj.RUNTIME.HW.find_parameter('ShockFlag');
 % h = gui.Parameter_Control(layoutShockControls,p,Type="checkbox",autoCommit=true);
 % h.Value = true;
 
 % >> Shocker status
-p = RUNTIME.HW.find_parameter('~ShockOn',includeInvisible=true);
+p =obj.RUNTIME.HW.find_parameter('~ShockOn',includeInvisible=true);
 h = gui.Parameter_Control(layoutShockControls,p,type='readonly');
 h.Text = 'Shock State';
 
 % >> Shocker flag
-p = RUNTIME.HW.find_parameter('ShockFlag');
+p =obj.RUNTIME.HW.find_parameter('ShockFlag');
 h = gui.Parameter_Control(layoutShockControls,p,Type="checkbox",autoCommit=true);
 h.Value = true;
 h.Text = 'Shock Enabled';
 
 % >> Shock duration dropdown
-p = RUNTIME.HW.find_parameter('ShockDur');
+p =obj.RUNTIME.HW.find_parameter('ShockDur');
 h = gui.Parameter_Control(layoutShockControls,p,Type='dropdown');
 h.Values = 200:100:1200;
 h.Value = p.Value;
 h.Text = "Shock duration (ms):";
 
 % >> Shock N easiest
-p = RUNTIME.S.Module.add_parameter('ShockN',3);
+p =obj.RUNTIME.S.Module.add_parameter('ShockN',3);
 p.PostUpdateFcn = @obj.update_trial_filter;
 h = gui.Parameter_Control(layoutShockControls,p,Type='dropdown',autoCommit=true);
 h.Values = 1:5;
@@ -314,8 +314,8 @@ layoutTrialFilter = simple_layout(panelTrialFilter);
 
 
 % > Trial Filter Table
-tt = RUNTIME.TRIALS.trials;
-loc = RUNTIME.TRIALS.writeParamIdx;
+tt =obj.RUNTIME.TRIALS.trials;
+loc =obj.RUNTIME.TRIALS.writeParamIdx;
 trialTypes = cell2mat(tt(:,loc.TrialType));
 reminderInd = trialTypes == 2;
 d = tt(~reminderInd,loc.Depth);
@@ -342,7 +342,7 @@ obj.update_trial_filter(h);
 
 
 % Commit button ---------------------------------------------
-h = gui.Parameter_Update(layoutMain);
+h = gui.Parameter_Update(layoutMain,obj.RUNTIME);
 h.Button.Layout.Row = [9 10];
 h.Button.Layout.Column = [4];
 h.Button.Text = ["Update" "Parameters"];
@@ -440,7 +440,7 @@ axesMicrophone.Layout.Column = 5;
 axis(axesMicrophone,'image');
 box(axesMicrophone,'on')
 
-p = RUNTIME.HW.find_parameter('MicPower');
+p =obj.RUNTIME.HW.find_parameter('MicPower');
 gui.MicrophonePlot(p,axesMicrophone);
 axesMicrophone.YAxis.Label.String = "RMS voltage";
 

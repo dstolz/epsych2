@@ -24,11 +24,13 @@ classdef cl_AversiveDetection_GUI < handle
         ttReminder  = 1;
     end
 
-    properties (Hidden)
+    properties (Hidden,SetAccess = private)
         guiHandles             % Handles to all generated GUI components
         hl_NewTrial
         hl_NewData
         hl_ModeChange
+
+        RUNTIME              % Reference to the RUNTIME object handle
     end
 
     methods
@@ -41,6 +43,7 @@ classdef cl_AversiveDetection_GUI < handle
             f = findall(groot,'Type','figure');
             f = f(startsWith({f.Tag},'cl_AversiveDetection'));
 
+            obj.RUNTIME = RUNTIME;
 
             if ~isempty(f)
                 % THIS IS A BUG THAT SHOULD BE FIXED
@@ -55,7 +58,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
             % create psychophysics object
-            p = RUNTIME.HW.find_parameter('Depth');
+            p = obj.RUNTIME.HW.find_parameter('Depth');
             obj.psychDetect = psychophysics.Detect([],p);
 
             % generate gui layout and components
@@ -100,8 +103,6 @@ classdef cl_AversiveDetection_GUI < handle
         end
 
         function update_trial_filter(obj,~,event)
-            global RUNTIME
-
 
             src = obj.tableTrialFilter; % use this in case call is from outside the class
             depth     = [src.Data{:,1}];
@@ -116,15 +117,15 @@ classdef cl_AversiveDetection_GUI < handle
             % ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-            p = RUNTIME.S.find_parameter('ShockN');
+            p = obj.RUNTIME.S.find_parameter('ShockN');
             shocked = find(present,p.Value,"last");
             shocked(ismember(shocked,find(trialtype==obj.ttCatch))) = [];
             [src.Data{:,3}] = deal(false);
             [src.Data{shocked,3}] = deal(true);
 
 
-            RUNTIME.TRIALS.shockedTrials = shocked;
-            RUNTIME.TRIALS.activeTrials = present;
+            obj.RUNTIME.TRIALS.shockedTrials = shocked;
+            obj.RUNTIME.TRIALS.activeTrials = present;
 
             if any(~present)
                 vprintf(4,'Inactive Depths: %s',mat2str(depth(~present)));
@@ -195,8 +196,6 @@ classdef cl_AversiveDetection_GUI < handle
 
 
         function create_onlineplot(obj,varargin)
-            global RUNTIME
-
             % Create separate legacy figure for online plotting because
             % it's much faster than uifigure
             % Axes for Behavior Plot --------------------------------------------
@@ -218,8 +217,8 @@ classdef cl_AversiveDetection_GUI < handle
             f.MenuBar = "none";
             f.NumberTitle = "off";
             axesBehavior = axes(f);
-            % gui.OnlinePlot(RUNTIME,obj.plottedParameters,axesBehavior,1);
-            gui.OnlinePlotBM(RUNTIME,'OnlinePlotBits',axesBehavior,1);
+            % gui.OnlinePlot(obj.RUNTIME,obj.plottedParameters,axesBehavior,1);
+            gui.OnlinePlotBM(obj.RUNTIME,'OnlinePlotBits',axesBehavior,1);
 
             obj.h_OnlinePlot = f;
 
@@ -232,12 +231,10 @@ classdef cl_AversiveDetection_GUI < handle
     methods (Static)
 
         function trigger_ReminderTrial(obj, value)
-            global RUNTIME
-
-            prt = RUNTIME.S.find_parameter('ReminderTrials');
+            prt = obj.RUNTIME.S.find_parameter('ReminderTrials');
             if prt.Value == 0, return; end
 
-            pdt = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
+            pdt = obj.RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
             if pdt.Value == 1
                 obj.Value = 0;
                 vprintf(0,1,'"Deliver Trials" must be inactive to initiate a Reminder trial')
@@ -248,7 +245,7 @@ classdef cl_AversiveDetection_GUI < handle
             % waiting for trial to complete and just go directly to
             % updating for next trial
             vprintf(4,'Forcing a Reminder Trial')
-            RUNTIME.TRIALS.FORCE_TRIAL = true;
+            obj.RUNTIME.TRIALS.FORCE_TRIAL = true;
 
         end
 

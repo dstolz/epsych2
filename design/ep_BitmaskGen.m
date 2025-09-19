@@ -103,7 +103,7 @@ setpref('ep_DisplayPrefs','filepath',pn);
 
 function design_table_CellEditCallback(hObj, evnt, h)
 data = get(hObj,'Data');
-bm = Bits2Mask(cell2mat(data(:,2)));
+bm = epsych.BitMask.Mask2Bits(cell2mat(data(:,2)));
 
 curidx = get(h.bitmask_table,'UserData');
 if isempty(curidx)

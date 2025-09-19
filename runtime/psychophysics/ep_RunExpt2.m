@@ -41,11 +41,7 @@ classdef ep_RunExpt2 < handle
 
     methods
         function self = ep_RunExpt2()
-            % Constructor — Build UI, initialize callbacks, and clear config.
-            %   Initializes the UIFigure, loads default function preferences,
-            %   resets CONFIG, and updates the GUI to reflect readiness.
-
-            % check if an instance of the gui already exists
+            
             f = findobj('tag','ep_RunExpt2');
             if ~isempty(f)
                 figure(f);

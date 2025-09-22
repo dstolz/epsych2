@@ -609,7 +609,7 @@ classdef RunExpt < handle
             switch lower(COMMAND)
                 case {"run","record","preview"}
                     drawnow
-
+                    vprintf(4,'Rasing priority of MATLAB.exe process to "high priority"')
                     [~,~] = dos('wmic process where name="MATLAB.exe" CALL setpriority "high priority"');
 
                     vprintf(0,'\n%s\n',repmat('~',1,50))
@@ -640,10 +640,9 @@ classdef RunExpt < handle
 
                     self.RUNTIME.NSubjects = length(self.CONFIG);
                     
-
+                    % TO DO: Move hardware discoverability to configuration step
                     [~,result] = system('tasklist/FI "imagename eq Synapse.exe"');
-                    x = strfind(result,'No tasks are running');
-                    self.RUNTIME.usingSynapse = isempty(x);
+                    self.RUNTIME.usingSynapse = ~contains(result,'No tasks are running');
 
                     try
                         if self.RUNTIME.usingSynapse
@@ -662,7 +661,7 @@ classdef RunExpt < handle
                     end
 
                     for i = 1:length(self.CONFIG)
-                        self.RUNTIME.TRIALS(i).protocol_fn = self.CONFIG(i).protocol_fn; %#ok<AGROW>
+                        self.RUNTIME.TRIALS(i).protocol_fn = self.CONFIG(i).protocol_fn; 
                         modnames = fieldnames(self.CONFIG(i).PROTOCOL.MODULES);
                         for j = 1:length(modnames)
                             self.RUNTIME.TRIALS(i).MODULES.(modnames{j}) = j;

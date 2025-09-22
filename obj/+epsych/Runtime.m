@@ -22,7 +22,7 @@ classdef Runtime < handle
     properties (SetObservable)
         ProgramState (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG
         DataDir (1,1) string = ""
-        DataFile string = strings(0,1)   % vector of filepaths
+        DataFile string = "" % resereved for backup data file; use TRIALS.DataFilename for saving data
         onHold (1,1) logical = false
     end
 

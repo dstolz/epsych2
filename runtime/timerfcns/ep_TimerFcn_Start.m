@@ -68,7 +68,7 @@ for i = 1:RUNTIME.NSubjects
         RUNTIME.TRIALS(i).Subject.Name, ...
         RUNTIME.TRIALS(i).Subject.BoxID, ...
         datetime('now',Format='yyMMddHHmmSS'));
-    RUNTIME.DataFile{i} = fullfile(RUNTIME.DataDir,dfn);
+    RUNTIME.DataFile{i} = char(fullfile(RUNTIME.DataDir,dfn));
 
     if exist(RUNTIME.DataFile{i},'file')
         oldstate = recycle('on');
@@ -82,7 +82,7 @@ for i = 1:RUNTIME.NSubjects
     % Initialize default data filename
     sn = RUNTIME.TRIALS(i).Subject.Name;
     pth = fullfile(RUNTIME.dfltDataPath,sn);
-    RUNTIME.TRIALS(i).DataFilename = ep_RunExpt2.defaultFilename(pth,sn);
+    RUNTIME.TRIALS(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
 
     RUNTIME.onHold(i) = false;
 

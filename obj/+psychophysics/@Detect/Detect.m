@@ -148,7 +148,7 @@ classdef Detect < handle & matlab.mixin.SetGet
         end
 
         function update_data(obj,src,event)
-            obj.TRIALS = event.Data;
+            % obj.TRIALS = event.Data;
             vprintf(4,'psychophysics.Detect.update_data: Trial %d',obj.TRIALS.TrialIndex)
             % Decode response codes into M and N
             % M contains logical arrays for each bitmask flag
@@ -205,7 +205,7 @@ classdef Detect < handle & matlab.mixin.SetGet
             %
             %   tt = obj.trialType returns an array of trial types extracted
             %   from the DATA structure.
-            if isempty(obj.DATA)
+            if isempty(obj.DATA.TrialType)
                 tt = [];
             else
                 tt = [obj.DATA.TrialType];

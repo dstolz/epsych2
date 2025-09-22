@@ -9,12 +9,14 @@ classdef EPsychInfo < handle
     end
     
     properties (Constant)
-        Version  = '1.2';
+        Version  = '2.0';
         DataVersion = '1.1';        
         Author = 'Daniel Stolzberg';
         AuthorEmail = 'daniel.stolzberg@gmail.com';
         License = 'GNU General Public License v3.0';
-        
+        LicenseURL = 'https://www.gnu.org/licenses/gpl-3.0.en.html';
+        Copyright = '(C) 2016-2025  Daniel Stolzberg, PhD';
+        RepositoryURL = 'https://github.com/dstolz/epsych2';
     end
     
     methods
@@ -27,13 +29,13 @@ classdef EPsychInfo < handle
         function m = get.meta(obj)
             m.Author      = obj.Author;
             m.AuthorEmail = obj.AuthorEmail;
-            m.Copyright   = 'Copyright to Daniel Stolzberg, 2023';
+            m.Copyright   = obj.Copyright;
             m.License     = obj.License;
             m.Version     = obj.Version;
             m.DataVersion = obj.DataVersion;
             m.Checksum    = obj.chksum;
             m.commitTimestamp = obj.commitTimestamp;
-            m.SmileyFace  = ':)';
+            m.RepositoryURL = obj.RepositoryURL;
             m.CurrentTimestamp = datetime("now");
         end
         

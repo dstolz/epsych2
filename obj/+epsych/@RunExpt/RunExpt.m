@@ -41,16 +41,15 @@ classdef RunExpt < handle
             if ~isempty(f)
                 figure(f);
                 movegui(f,'onscreen');
-                self = f.UserData;
                 return
             end
 
 
-            self.buildUI
+            self.buildUI;
             self.FUNCS = self.GetDefaultFuncs;
-            self.ClearConfig
+            self.ClearConfig;
 
-            %self.UpdateGUIstate;
+            self.UpdateGUIstate;
             addlistener(self.RUNTIME,'ProgramState','PostSet',@(src,ev) self.UpdateGUIstate);
 
             if nargout == 0, clear self; end
@@ -841,11 +840,12 @@ classdef RunExpt < handle
 
         end
 
-        function UpdateGUIstate(self,src,evnt)
+        function UpdateGUIstate(self,~,~)
             % UpdateGUIstate — Enable/disable controls based on STATE.
             % Behavior
             %   Centralizes UI state transitions for all major states.
             
+            if ~isvalid(self), return; end
             vprintf(3,'UpdateGUIstate: State is %s',char(self.RUNTIME.ProgramState))
 
             fn = fieldnames(self.H);

@@ -46,7 +46,6 @@ warning('off','MATLAB:ui:actxcontrol:FunctionToBeRemoved');
 
 if nargin < 2 || isempty(showsplash), showsplash = true; end
 
-if showsplash, epsych_printBanner; end
 
 fprintf('\nSetting Paths for EPsych Toolbox ...')
 
@@ -75,6 +74,9 @@ subdirs = cell2mat(subdirs');
 addpath(subdirs);
 path(path)
 fprintf(' done\n')
+
+if showsplash, epsych_printBanner; end
+
 
 if nargout == 0, clear subdirs; end
 

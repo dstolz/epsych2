@@ -32,6 +32,10 @@ classdef Runtime < handle
         
 
         end
+
+        function delete(self)
+            % disp(self)
+        end
     end
 end
 

@@ -59,7 +59,7 @@ classdef cl_AversiveDetection_GUI < handle
 
             % create psychophysics object
             p = obj.RUNTIME.HW.find_parameter('Depth');
-            obj.psychDetect = psychophysics.Detect([],p);
+            obj.psychDetect = psychophysics.Detect(RUNTIME,p);
 
             % generate gui layout and components
             obj.create_gui;
@@ -80,7 +80,7 @@ classdef cl_AversiveDetection_GUI < handle
             % stop(t(i));
             % delete(t(i));
 
-            vprintf(3,'cl_AversiveDetection_GUI destructor')
+            vprintf(4,'cl_AversiveDetection_GUI destructor')
             delete(obj.guiHandles);
             obj.hl_NewTrial.Enabled = 0;
             obj.hl_NewData.Enabled = 0;

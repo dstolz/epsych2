@@ -18,6 +18,8 @@ classdef PumpCom < handle
     end
     
     properties (SetAccess = protected)
+        RUNTIME (1,1) epsych.Runtime % RUNTIME
+
         Device
         Port
         BaudRate = 19200;
@@ -35,6 +37,9 @@ classdef PumpCom < handle
         function obj = PumpCom(RUNTIME,Port,BaudRate)
             
             narginchk(1,3);
+
+            obj.RUNTIME = RUNTIME;
+
             if nargin >= 2 &&  ~isempty(Port), obj.Port = Port; end
             if nargin >= 3 && ~isempty(BaudRate), obj.BaudRate = BaudRate; end
             

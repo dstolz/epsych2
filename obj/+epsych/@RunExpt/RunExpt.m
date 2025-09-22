@@ -613,9 +613,8 @@ classdef RunExpt < handle
                     [~,~] = dos('wmic process where name="MATLAB.exe" CALL setpriority "high priority"');
 
                     vprintf(0,'\n%s\n',repmat('~',1,50))
-
-                    % self.RUNTIME = struct();
-                    self.RUNTIME = epsych.Runtime; % reset RUNTIME
+                    
+                    % self.RUNTIME = epsych.Runtime; % reset RUNTIME
 
                     % Load protocols
                     for i = 1:length(self.CONFIG)

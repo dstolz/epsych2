@@ -30,8 +30,8 @@ classdef Detect < handle & matlab.mixin.SetGet
     %       norminv         - Static method for bounded inverse normal transformation
 
     properties (SetObservable)
-        % TRIALS - Structure containing trial data (RUNTIME.TRIALS)
-        TRIALS
+        % handle to RUNTIME
+        RUNTIME (1,1) epsych.Runtime
 
         % Parameter - Parameter object defining trial parameters (hw.Parameter)
         Parameter (1,1)
@@ -50,8 +50,6 @@ classdef Detect < handle & matlab.mixin.SetGet
 
         Bits (1,:) epsych.BitMask = epsych.BitMask.getResponses;
         BitColors (5,1) string = ["#dff7df","#fcdcdc","#d9f2ff","#fcdefc","#fcfcd4"];
-
-        
         
     end
 
@@ -61,6 +59,10 @@ classdef Detect < handle & matlab.mixin.SetGet
     end
 
     properties (Dependent)
+
+        % TRIALS - Structure containing trial data derived from RUNTIME.TRIALS
+        TRIALS
+
         % DATA - Extracted trial data from TRIALS
         DATA
 
@@ -111,26 +113,23 @@ classdef Detect < handle & matlab.mixin.SetGet
     end
 
     methods
-        function obj = Detect(TRIALS, Parameter, targetTrialType)
+        function obj = Detect(RUNTIME, Parameter, targetTrialType)
             % Detect Constructor to initialize the Detect class
             %
-            %   obj = Detect(TRIALS, Parameter, targetTrialType) initializes
+            %   obj = Detect(RUNTIME, Parameter, targetTrialType) initializes
             %   the Detect object with the provided TRIALS structure,
             %   Parameter object, and targetTrialType..
             %
             %   Inputs:
-            %       TRIALS          - Structure containing trial data
+            %       RUNTIME         - Handle to RUNTIME object
             %       Parameter       - Parameter object defining trial parameters
             %       targetTrialType - Target trial type to analyze
             %
             %   Outputs:
             %       obj - Initialized Detect object
 
-            
+            obj.RUNTIME = RUNTIME;
 
-            if nargin >= 1 && ~isempty(TRIALS)
-                obj.TRIALS = TRIALS;
-            end
             if nargin >= 2 && ~isempty(Parameter)
                 obj.Parameter = Parameter;
             end
@@ -138,7 +137,7 @@ classdef Detect < handle & matlab.mixin.SetGet
                 obj.targetTrialType = targetTrialType;
             end
 
-            obj.hl_NewData = addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
+            obj.hl_NewData = addlistener(obj.RUNTIME.HELPER,'NewData',@obj.update_data);
         end
 
         function delete(obj)
@@ -160,6 +159,9 @@ classdef Detect < handle & matlab.mixin.SetGet
         end
 
 
+        function t = get.TRIALS(obj)
+            t = obj.RUNTIME.TRIALS;
+        end
 
         function d = get.DATA(obj)
             % get.DATA Extracts trial data from TRIALS

@@ -8,6 +8,7 @@ classdef Performance < handle
     properties
         psychObj                  % Reference to main psychophysics object providing data
         ParametersOfInterest (:,1) cell   % Fields to display as key independent variables
+        SortDirection (1,1) string {mustBeMember(SortDirection,["descend","ascend"])} = "descend"
     end
 
     properties (SetAccess = private)
@@ -63,6 +64,8 @@ classdef Performance < handle
             D(:,3) = P.DPrime;
             D(:,4) = [P.Rate.Hit]*100;
             D(any(isnan(D),2),:) = [];
+
+            D = sortrows(D,1,obj.SortDirection);
             
             % S = string(D);
             S(:,1) = compose("%.2f",D(:,1));

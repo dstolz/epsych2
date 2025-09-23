@@ -400,13 +400,13 @@ obj.hl_ModeChange =addlistener(RUNTIME.HELPER,'ModeChange',@(src,ev) obj.onModeC
 
 
 
-
-% Axes for Sliding Window Performance Plot ------------------------
-axSlidingWindow = uiaxes(layoutMain);
-axSlidingWindow.Layout.Row = [2 3];
-axSlidingWindow.Layout.Column = [3 5];
-obj.slidingWindowPlot = gui.SlidingWindowPerformancePlot(obj.psychDetect,axSlidingWindow);
-obj.slidingWindowPlot.plotType = 'dPrime';
+% DS 9/23/2025 --- removed due to performance issues
+% % Axes for Sliding Window Performance Plot ------------------------
+% axSlidingWindow = uiaxes(layoutMain);
+% axSlidingWindow.Layout.Row = [2 3];
+% axSlidingWindow.Layout.Column = [3 5];
+% obj.slidingWindowPlot = gui.SlidingWindowPerformancePlot(obj.psychDetect,axSlidingWindow);
+% obj.slidingWindowPlot.plotType = 'dPrime';
 
 
 

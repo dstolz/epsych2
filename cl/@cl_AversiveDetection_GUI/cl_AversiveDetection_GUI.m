@@ -61,7 +61,7 @@ classdef cl_AversiveDetection_GUI < handle
             % generate gui layout and components
             obj.create_gui;
 
-            obj.create_onlineplot;
+            % obj.create_onlineplot; % FIX PERFORMANCE
 
 
             if nargout == 0, clear obj; end

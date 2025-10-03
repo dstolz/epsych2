@@ -857,28 +857,31 @@ classdef RunExpt < handle
             hSetup = cellfun(@(a) self.H.(a),fn(ind));
             hSetup = hSetup(:)';
             
-            set([hCtrl self.H.save_data],'Enable','off')
+            set([hCtrl self.H.save_data hSetup],'Enable','off')
 
+            h_on = [];
+            h_off = [];
             switch self.RUNTIME.ProgramState
                 case PRGMSTATE.NOCONFIG
-                    set(hSetup','Enable','on')
-                    set(self.H.view_trials,'Enable','off');
-                    set(self.H.mnu_LaunchGUI,'Enable','off');
+                    h_on = self.H.setup_add_subject;
+                    h_off = self.H.mnu_LaunchGUI;
+                    
 
                 case PRGMSTATE.CONFIGLOADED
-                    set([self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
-                    set(self.H.view_trials,'Enable','on');
+                    h_on = [self.H.ctrl_run self.H.ctrl_preview hSetup];
 
                 case PRGMSTATE.READY
-                    set([self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
+                    h_on = [self.H.ctrl_run self.H.ctrl_preview hSetup];
 
                 case PRGMSTATE.RUNNING
-                    set([self.H.ctrl_pauseall self.H.ctrl_halt],'Enable','on')
-                    set(hSetup,'Enable','off')
+                    h_on = [self.H.ctrl_pauseall self.H.ctrl_halt];
+                    h_off = hSetup;
 
                 case {PRGMSTATE.POSTRUN, PRGMSTATE.STOP, PRGMSTATE.ERROR}
-                    set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
+                    h_on = [self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup];
             end
+            if ~isempty(h_off), set(h_off,'Enable','off'); end
+            if ~isempty(h_on), set(h_on,'Enable','on'); end
 
             drawnow
         end
@@ -903,11 +906,13 @@ classdef RunExpt < handle
             end
             set(self.H.subject_list,'Data',data)
 
-            if size(data,1) == 0
-                set([self.H.setup_remove_subject self.H.view_trials],'Enable','off')
-            else
-                set([self.H.setup_remove_subject self.H.edit_protocol self.H.view_trials],'Enable','on')
-            end
+            self.CheckReady;
+            self.UpdateGUIstate;
+            % if size(data,1) == 0
+            %     set([self.H.setup_remove_subject self.H.view_trials],'Enable','off')
+            % else
+            %     set([self.H.setup_remove_subject self.H.edit_protocol self.H.view_trials],'Enable','on')
+            % end
         end
 
         function subject_list_SelectionChanged(self, hObj, evnt)

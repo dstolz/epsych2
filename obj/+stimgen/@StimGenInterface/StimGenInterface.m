@@ -1,4 +1,4 @@
-classdef StimGenInterface < handle & gui.Helper
+classdef StimGenInterface < handle% & gui.Helper
     
     properties
         StimPlayObjs (:,1) stimgen.StimPlay
@@ -34,6 +34,8 @@ classdef StimGenInterface < handle & gui.Helper
     end
     
     properties (Access = private)
+        RUNTIME
+        TDTActiveX % TO DO: REMOVE AND UPGRADE
         els
         elsnsspi
     end
@@ -55,12 +57,11 @@ classdef StimGenInterface < handle & gui.Helper
         idx = stimselect_Serial(obj);
         idx = stimselect_Shuffle(obj);
         
-        function obj = StimGenInterface(parent,ffn)
-            global AX
-            
-            obj.TDTActiveX = AX;
-            
-            if nargin > 0, obj.parent = parent; end
+        function obj = StimGenInterface(RUNTIME,parent,ffn)
+            obj.RUNTIME = RUNTIME;
+            obj.TDTActiveX = RUNTIME.TRIALS.MODULES; % TO DO: REMOVE AND REPLACE
+
+            if nargin > 1, obj.parent = parent; end
             
             
             % get a list of available stimgen objects
@@ -99,14 +100,17 @@ classdef StimGenInterface < handle & gui.Helper
         
         function trigger_stim_playback(obj)
             if obj.nextSPOIdx < 1, return; end % flag to finish playback
-                                    
+            
+            % TO DO: CHANGE TO PARAMETER
             s(1) = obj.TDTActiveX.SetTagVal(obj.TrigParamStr{obj.TrigBufferID+1},1);
+            
             
             lastToc = toc(obj.lastTrigTic);
             obj.lastTrigTic = tic;
             
             pause(0.001);
             
+            % TO DO: CHANGE TO PARAMETER
             s(2) = obj.TDTActiveX.SetTagVal(obj.TrigParamStr{obj.TrigBufferID+1},0);
             
             tdiff = lastToc-obj.currentISI;
@@ -142,6 +146,7 @@ classdef StimGenInterface < handle & gui.Helper
                     
             bid = obj.TrigBufferID + 1;
             
+            % TO DO: CHANGE TO PARAMETER
             obj.TDTActiveX.SetTagVal(obj.BufferSize{bid},nSamps);
             s = obj.TDTActiveX.WriteTagV(obj.BufferData{bid},0,buffer);
             if ~s
@@ -160,7 +165,7 @@ classdef StimGenInterface < handle & gui.Helper
             
 %             TrialNumber = obj.currentTrialNumber
             
-            save(ffn,var{:},'-append','-nocompression');
+            % save(ffn,var{:},'-append','-nocompression');
             
             
         end
@@ -224,6 +229,7 @@ classdef StimGenInterface < handle & gui.Helper
                 case 'run'
                    
                     obj.Fs = obj.TDTActiveX.GetSFreq;
+                    % obj.Fs = obj.RUNTIME.TRIALS.MODULES.Fs;
                     set(obj.StimPlayObjs,'Fs',obj.Fs);
                     vprintf(3,'Module sampling rate = %.3f Hz',obj.Fs);
                     arrayfun(@update_signal,obj.StimPlayObjs);
@@ -281,7 +287,9 @@ classdef StimGenInterface < handle & gui.Helper
         end
         
         function n = get.currentTrialNumber(obj)
+            % TO DO: CHANGE TO PARAMETER
             n = obj.TDTActiveX.GetTagVal('TrialNumber');
+            % n = obj.RUNTIME.TRIALS.MODULES.Parameters
         end
         
         function stimtype_changed(obj,src,event)

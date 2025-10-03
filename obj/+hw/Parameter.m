@@ -89,6 +89,9 @@ classdef Parameter < matlab.mixin.SetGet
             end
 
             obj.Value = value;
+            obj.isArray = numel(value) > 1;
+            if obj.isArray, value = {value}; end
+
             obj.Parent.set_parameter(obj,value);
 
             if isa(obj.PostUpdateFcn,'function_handle')
@@ -107,7 +110,17 @@ classdef Parameter < matlab.mixin.SetGet
                 end
             end
             
-            vstr = sprintf(obj.Format, obj.Value);
+            v = obj.Value;
+            if obj.isArray
+                ov = length(v);
+                n = min(12,ov);
+                v = v(1:n);
+                vstr = num2str(v,[obj.Format ' ']);
+                vstr = sprintf('[%s ... (%d values)]',vstr,ov);
+            else
+                vstr = sprintf(obj.Format, v);
+            end
+
             if ~isempty(obj.Unit)
                 vstr = [vstr ' ' obj.Unit];
             end

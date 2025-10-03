@@ -58,8 +58,8 @@ classdef StimGenInterface < handle% & gui.Helper
         idx = stimselect_Shuffle(obj);
         
         function obj = StimGenInterface(RUNTIME,parent,ffn)
-            obj.RUNTIME = RUNTIME;
-            obj.TDTActiveX = RUNTIME.TRIALS.MODULES; % TO DO: REMOVE AND REPLACE
+            % obj.RUNTIME = RUNTIME;
+            % obj.TDTActiveX = RUNTIME.TRIALS.MODULES; % TO DO: REMOVE AND REPLACE
 
             if nargin > 1, obj.parent = parent; end
             

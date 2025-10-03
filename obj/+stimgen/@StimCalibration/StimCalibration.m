@@ -35,15 +35,14 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
     
     properties (SetAccess = private)
         Fs
+        RUNTIME
+        PARAMS
     end
     
     properties (SetAccess = protected, Hidden)
         handles
     end
-    
-    properties (SetAccess = immutable)
-        ActiveX
-    end
+
     
     methods
         gui(obj);
@@ -51,28 +50,30 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
         calibrate_tones(obj,freqs);
         v = compute_adjusted_voltage(obj,type,value,level);
         
-        function obj = StimCalibration(parent)
-            if nargin >= 1
+        function obj = StimCalibration(RUNTIME,parent)
+            if nargin > 1
                 obj.handles.parent = parent;
             else
                 obj.handles.parent = [];
             end
-            
-            
-            global AX
-            
-            obj.ActiveX = AX;
-            
-            if ~isempty(AX)
-                try
-                    obj.Fs = obj.ActiveX.GetSFreq;
+
+            if nargin > 0
+                obj.RUNTIME = RUNTIME;
+
+                p = RUNTIME.HW.all_parameters;
+                for ip = p
+                    obj.PARAMS.(ip.validName) = ip;
                 end
+
+                obj.Fs = RUNTIME.HW.HW.FS;
+
+                obj.gui;
             end
         end
         
         
         
-        function plot_signal(obj,ax)
+        function plot_signal(obj)
             figure(999);
             
             subplot(211)
@@ -85,7 +86,7 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
         
 
         
-        function plot_spectrum(obj,ax)
+        function plot_spectrum(obj)
             figure(999);
             
             subplot(212)
@@ -103,7 +104,7 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
             ylim([-20 120]);
         end
         
-        function plot_transferfcn(obj,ax,type)
+        function plot_transferfcn(obj,type)
             figure(999);
             
             subplot(212)
@@ -295,29 +296,29 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
             nsamps = length(obj.ExcitationSignal)-1;
             
             % update buffer
-            obj.ActiveX.SetTagVal('BufferSize',nsamps);
-            s=obj.ActiveX.WriteTagV('BufferOut',0,double(signal));
-            if ~s
-                warning('StimCalibration:calibrate:RPvdsFail','Failed to write BufferOut to circuit')
-            end
+            obj.PARAMS.BufferSize.Value = nsamps;
+            obj.PARAMS.BufferOut.Value = signal;
+            % if ~s
+            %     warning('StimCalibration:calibrate:RPvdsFail','Failed to write BufferOut to circuit')
+            % end
             
             
             % trigger playback/recording
-            obj.ActiveX.SetTagVal('!Trigger',1);
+            obj.PARAMS.x_Trigger.Value = 1;
             pause(0.001);
-            obj.ActiveX.SetTagVal('!Trigger',0);
+            obj.PARAMS.x_Trigger.Value = 0;
             
             % wait until the buffer is filled
             t = tic;
             timeout = nsamps / obj.Fs;
-            bidx = obj.ActiveX.GetTagVal('BufferIndex');
+            bidx = obj.PARAMS.BufferIndex.Value;
             while toc(t) < timeout || bidx < nsamps && bidx > 0
                 pause(0.05);
-                bidx = obj.ActiveX.GetTagVal('BufferIndex');
+                bidx = obj.PARAMS.BufferIndex.Value;
             end
             
             % download the acquired signal
-            y = obj.ActiveX.ReadTagV('BufferIn',0,nsamps-1);
+            y = obj.PARAMS.BufferIn.Value;
             
             t = obj.Time;
             
@@ -429,10 +430,6 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
         end
         
         
-        function h = launch_gui
-            h = stimgen.StimCalibration;
-            h.gui;
-        end
         
         
         function obj = loadobj(s)

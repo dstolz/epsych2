@@ -142,10 +142,19 @@ for i = 1:RUNTIME.NSubjects
     bmn = ["RespCode","TrigState","NewTrial","ResetTrig","TrialNum", ...
         'TrialComplete','AcqBuffer','AcqBufferSize'];
     for cc = bmn
-        trigStr = sprintf('_%s~%d',cc,RUNTIME.TRIALS(i).Subject.BoxID);
+        trigStr = sprintf('#%s~%d',cc,RUNTIME.TRIALS(i).Subject.BoxID);
         p = RUNTIME.HW.find_parameter(trigStr,includeInvisible=true,silenceParameterNotFound=true);
         RUNTIME.CORE(i).(cc) = p;
+        if any(ismember(["RespCode","TrigState","NewTrial","ResetTrig","TrialNum"],cc)) % MANDATORY FIELDS
+            try
+                assert(~isempty(RUNTIME.CORE(i).(cc)),sprintf('"%s" tag not found',trigStr))
+            catch me
+                vprintf(0,1,me)
+                rethrow(me);
+            end
+        end
     end
+
 
     load(RUNTIME.TRIALS(i).protocol_fn,'-mat');
     RUNTIME.TRIALS(i).protocol = protocol;

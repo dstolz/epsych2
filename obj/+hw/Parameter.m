@@ -1,28 +1,27 @@
 classdef Parameter < matlab.mixin.SetGet
    
     properties (SetAccess = immutable)
-        Parent (1,1) % hw object
+        Parent (1,1) % handle to parent object (e.g., hw.Software)
         HW (1,1)  % handle to hardware interface; reflects parent object's handle
     end
 
     properties
         handle (1,1) % handle to an associated gui object
 
-        Name    (1,:) char
-        Description (1,1) string
-        Unit (1,:) char
-        Module (1,1) %hw.Module
+        Name    (1,:) char = 'Param' % name of parameter
+        Description (1,1) string = ""; % short description of parameter
+        Unit    (1,:) char = ''; % unit string (e.g., 'V', 'ms', etc.)
+        Module  (1,1) % handle to module object that this parameter belongs to
 
-        Min (1,1) double = -inf
-        Max (1,1) double = inf
-        Access (1,:) char {mustBeMember(Access,{'Read','Write','Read / Write'})} = 'Read / Write'
-        Type (1,:) char {mustBeMember(Type,{'Float','Integer','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
-        Format (1,:) char = '%g'
+        Min (1,1) double = -inf % minimum valid value
+        Max (1,1) double = inf % maximum valid value
+        Access  (1,:) char {mustBeMember(Access,{'Read','Write','Read / Write'})} = 'Read / Write'
+        Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+        Format  (1,:) char = '%g' % default format for displaying value
 
-
-        isArray (1,1) logical = false
-        isTrigger (1,1) logical = false
-        isRandom (1,1) logical = false
+        isArray     (1,1) logical = false 
+        isTrigger   (1,1) logical = false
+        isRandom    (1,1) logical = false
         
         Visible (1,1) logical = true % optionally hide parameter 
 
@@ -35,13 +34,13 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     properties (SetObservable,GetObservable,AbortSet) 
-        Value
-        lastUpdated (1,1) datetime = datetime("now");
+        Value % current/settable value of parameter
+        lastUpdated (1,1) double = 0; % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
     end
 
     properties (Dependent)
-        ValueStr
-        validName
+        ValueStr % string representation of Value based on Format
+        validName % valid MATLAB variable name based on Name
     end
 
 
@@ -161,7 +160,9 @@ classdef Parameter < matlab.mixin.SetGet
             if ~isequal(obj.HW,0)
                 obj.HW.set_parameter(obj,value);
             end
-            obj.lastUpdated = datetime("now");
+            % `now` is much faster than `datetime("now")`
+            % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
+             obj.lastUpdated = now;
         end
     end
 

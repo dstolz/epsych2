@@ -7,11 +7,11 @@ classdef StimGenInterface < handle% & gui.Helper
     end
     
     properties (Hidden)
-        isiAdjustment = 0.0405; % seconds
+        isiAdjustment = 0.0405; % seconds; adjust ISI timing so that we're not between timer calls just before a trigger
     end
     
     properties (SetAccess = protected, SetObservable = true)
-        parent
+        parent 
         handles
         sgTypes
         sgObjs
@@ -20,34 +20,29 @@ classdef StimGenInterface < handle% & gui.Helper
         
         FileLoaded (1,1) string
         
-        Timer
+        Timer 
         
-        lastTrigTic = tic;
+        lastTrigTic = tic; % tic right before triggering stim playback
         
-        TrigBufferID
+        TrigBufferID (1,1) double = 0; % alternates between 0 and 1 to indicate which buffer to trigger
         
         
-        nextSPOIdx
-        currentISI
+        nextSPOIdx (1,1) double = 1; % index of next StimPlayObj to play
+        currentISI (1,1) double = 1; % current inter-stimulus interval (seconds)
         
-        Fs
+        Fs (1,1) double {mustBePositive,mustBeFinite,mustBeNonNan} = 1
     end
     
     properties (Access = private)
-        RUNTIME
-        TDTActiveX % TO DO: REMOVE AND UPGRADE
-        els
-        elsnsspi
+        RUNTIME % espsych.Runtime
+        PARAMS struct = struct() % struct of hw.Parameter objects, field names are valid parameter names
+        els % event listeners
+        elsnsspi % listener for nextSPOIdx property
     end
     
-    properties (Constant)
-        TrigParamStr = {'!Trigger_0','!Trigger_1'};
-        BufferSize = {'BufferSize_0','BufferSize_1'};
-        BufferData = {'BufferData_0','BufferData_1'};
-    end
     
     properties (Dependent)
-        currentTrialNumber
+        currentTrialNumber (1,1) double % current trial number from TDT
         CurrentSGObj % stimgen obj
         CurrentSPObj % stimplay obj
     end
@@ -58,8 +53,19 @@ classdef StimGenInterface < handle% & gui.Helper
         idx = stimselect_Shuffle(obj);
         
         function obj = StimGenInterface(RUNTIME,parent,ffn)
-            % obj.RUNTIME = RUNTIME;
-            % obj.TDTActiveX = RUNTIME.TRIALS.MODULES; % TO DO: REMOVE AND REPLACE
+            obj.RUNTIME = RUNTIME;
+
+            
+            if nargin > 0
+                obj.RUNTIME = RUNTIME;
+
+                p = RUNTIME.HW.all_parameters;
+                for ip = p
+                    obj.PARAMS.(ip.validName) = ip;
+                end
+
+                obj.Fs = RUNTIME.HW.HW.FS;
+            end
 
             if nargin > 1, obj.parent = parent; end
             
@@ -101,29 +107,29 @@ classdef StimGenInterface < handle% & gui.Helper
         function trigger_stim_playback(obj)
             if obj.nextSPOIdx < 1, return; end % flag to finish playback
             
-            % TO DO: CHANGE TO PARAMETER
-            s(1) = obj.TDTActiveX.SetTagVal(obj.TrigParamStr{obj.TrigBufferID+1},1);
+            trigStr = sprintf('x_Trigger_%d',obj.TrigBufferID+1);
+
+            obj.PARAMS.(trigStr).Value = 1; % trigger the buffer            
             
-            
-            lastToc = toc(obj.lastTrigTic);
+            lastToc = obj.PARAMS.(trigStr).lastUpdated;
+            %lastToc = toc(obj.lastTrigTic); % time since last trigger
             obj.lastTrigTic = tic;
             
             pause(0.001);
             
-            % TO DO: CHANGE TO PARAMETER
-            s(2) = obj.TDTActiveX.SetTagVal(obj.TrigParamStr{obj.TrigBufferID+1},0);
+            obj.PARAMS.(trigStr).Value = 0;
             
             tdiff = lastToc-obj.currentISI;
             if isempty(tdiff), tdiff = 0; end
             vprintf(3,'trigger_stim_playback: TrigBufferID = %d; nextSPOidx = %d; ITI diff = %.4f sec', ...
                 obj.TrigBufferID,obj.nextSPOIdx,tdiff)
             
-            
-            
+            %{
             if ~all(s)
                 warning('StimGenInterface:trigger_stim_playback:RPvdsFail','Failed to trigger Stim buffer')
             end
-            
+            %}
+
             obj.currentISI = obj.CurrentSPObj.get_isi - tdiff;
             
             vprintf(3,'trigger_stim_playback: obj.currentISI = %.3f s',obj.currentISI)
@@ -146,11 +152,12 @@ classdef StimGenInterface < handle% & gui.Helper
                     
             bid = obj.TrigBufferID + 1;
             
-            % TO DO: CHANGE TO PARAMETER
-            obj.TDTActiveX.SetTagVal(obj.BufferSize{bid},nSamps);
-            s = obj.TDTActiveX.WriteTagV(obj.BufferData{bid},0,buffer);
-            if ~s
-                warning('StimGenInterface:update_buffer:RPvdsFail','Failed to write Stim buffer')
+            try
+                obj.PARAMS.('BufferSize_'+string(bid)).Value = nSamps;
+                obj.PARAMS.('BufferData_'+string(bid)).Value = buffer;
+            catch me
+                vprintf(0,1,'StimGenInterface:update_buffer:RPvdsFail','Failed to write Stim buffer')
+                rethrow(me)
             end
             
             vprintf(3,'update_buffer END:   TrigBufferID = %d; nextSPOidx = %d; took %.2f seconds',obj.TrigBufferID,obj.nextSPOIdx, toc(t))
@@ -185,7 +192,7 @@ classdef StimGenInterface < handle% & gui.Helper
 
             obj.update_buffer; % update the buffer with the first stimulus
             
-            obj.lastTrigTic = tic;
+            obj.lastTrigTic = tic; % tic right before triggering stim playback
         end
         
         
@@ -201,7 +208,6 @@ classdef StimGenInterface < handle% & gui.Helper
             end            
             
             % hold the computer hostage until ISI has expired
-            
             while toc(obj.lastTrigTic)+obj.isiAdjustment < isi, end
             
             obj.trigger_stim_playback; % trigger playback of the obj.nextSPIdx buffer
@@ -227,9 +233,6 @@ classdef StimGenInterface < handle% & gui.Helper
             switch lower(c)
                 
                 case 'run'
-                   
-                    obj.Fs = obj.TDTActiveX.GetSFreq;
-                    % obj.Fs = obj.RUNTIME.TRIALS.MODULES.Fs;
                     set(obj.StimPlayObjs,'Fs',obj.Fs);
                     vprintf(3,'Module sampling rate = %.3f Hz',obj.Fs);
                     arrayfun(@update_signal,obj.StimPlayObjs);
@@ -287,9 +290,7 @@ classdef StimGenInterface < handle% & gui.Helper
         end
         
         function n = get.currentTrialNumber(obj)
-            % TO DO: CHANGE TO PARAMETER
-            n = obj.TDTActiveX.GetTagVal('TrialNumber');
-            % n = obj.RUNTIME.TRIALS.MODULES.Parameters
+            n = obj.PARAMS.TrialNumber.Value;
         end
         
         function stimtype_changed(obj,src,event)

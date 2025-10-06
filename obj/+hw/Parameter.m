@@ -35,7 +35,9 @@ classdef Parameter < matlab.mixin.SetGet
 
     properties (SetObservable,GetObservable,AbortSet) 
         Value % current/settable value of parameter
-        lastUpdated (1,1) double = 0; % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
+        % convert to datetime: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
+        % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
+        lastUpdated (1,1) double = 0; 
     end
 
     properties (Dependent)

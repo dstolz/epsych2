@@ -16,7 +16,7 @@ classdef Parameter < matlab.mixin.SetGet
         Min (1,1) double = -inf % minimum valid value
         Max (1,1) double = inf % maximum valid value
         Access  (1,:) char {mustBeMember(Access,{'Read','Write','Read / Write'})} = 'Read / Write'
-        Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+        Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
         Format  (1,:) char = '%g' % default format for displaying value
 
         isArray     (1,1) logical = false 
@@ -44,6 +44,7 @@ classdef Parameter < matlab.mixin.SetGet
         ValueStr % string representation of Value based on Format
         validName % valid MATLAB variable name based on Name
     end
+
 
 
     methods

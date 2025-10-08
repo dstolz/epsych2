@@ -22,7 +22,8 @@ classdef StimGenInterface < handle% & gui.Helper
         
         Timer 
         
-        lastTrigTic = tic; % tic right before triggering stim playback
+        firstTrigTime (1,1) double = 0; % time right before first stim
+        lastTrigTime (1,1) double = 0; % time right after each stim
         
         TrigBufferID (1,1) double = 0; % alternates between 0 and 1 to indicate which buffer to trigger
         
@@ -86,11 +87,7 @@ classdef StimGenInterface < handle% & gui.Helper
         end
         
         
-        function delete(obj)
-            
-        end
-        
-        
+
         
         
         function set.Calibration(obj,calObj)
@@ -107,19 +104,15 @@ classdef StimGenInterface < handle% & gui.Helper
         function trigger_stim_playback(obj)
             if obj.nextSPOIdx < 1, return; end % flag to finish playback
             
-            trigStr = sprintf('x_Trigger_%d',obj.TrigBufferID+1);
+            trigStr = sprintf('x_Trigger_%d',obj.TrigBufferID);
 
-            obj.PARAMS.(trigStr).Value = 1; % trigger the buffer            
-            
-            lastToc = obj.PARAMS.(trigStr).lastUpdated;
-            %lastToc = toc(obj.lastTrigTic); % time since last trigger
-            obj.lastTrigTic = tic;
-            
-            pause(0.001);
+            obj.PARAMS.(trigStr).Value = 1; % trigger the buffer     
+            obj.lastTrigTime = obj.timeSinceStart; % time right after triggering stim playback
+            % Note: Do not use the parameter `lastUpdated` time since we switch between them during playback
             
             obj.PARAMS.(trigStr).Value = 0;
             
-            tdiff = lastToc-obj.currentISI;
+            tdiff = obj.lastTrigTime - obj.currentISI;
             if isempty(tdiff), tdiff = 0; end
             vprintf(3,'trigger_stim_playback: TrigBufferID = %d; nextSPOidx = %d; ITI diff = %.4f sec', ...
                 obj.TrigBufferID,obj.nextSPOIdx,tdiff)
@@ -130,7 +123,8 @@ classdef StimGenInterface < handle% & gui.Helper
             end
             %}
 
-            obj.currentISI = obj.CurrentSPObj.get_isi - tdiff;
+            obj.currentISI = obj.CurrentSPObj.get_isi;
+            % obj.currentISI = obj.CurrentSPObj.get_isi - tdiff;
             
             vprintf(3,'trigger_stim_playback: obj.currentISI = %.3f s',obj.currentISI)
         end
@@ -150,32 +144,19 @@ classdef StimGenInterface < handle% & gui.Helper
             % write constructed Stim to RPvds circuit buffer
             nSamps = length(buffer);
                     
-            bid = obj.TrigBufferID + 1;
+            bid = obj.TrigBufferID;
             
             try
-                obj.PARAMS.('BufferSize_'+string(bid)).Value = nSamps;
-                obj.PARAMS.('BufferData_'+string(bid)).Value = buffer;
+                obj.PARAMS.("BufferSize_"+string(bid)).Value = nSamps;
+                obj.PARAMS.("BufferData_"+string(bid)).Value = buffer;
             catch me
                 vprintf(0,1,'StimGenInterface:update_buffer:RPvdsFail','Failed to write Stim buffer')
                 rethrow(me)
             end
             
-            vprintf(3,'update_buffer END:   TrigBufferID = %d; nextSPOidx = %d; took %.2f seconds',obj.TrigBufferID,obj.nextSPOIdx, toc(t))
+            vprintf(4,'update_buffer END:   TrigBufferID = %d; nextSPOidx = %d; took %.2f seconds',obj.TrigBufferID,obj.nextSPOIdx, toc(t))
         end
         
-        
-        
-        
-        function write_trial_data(obj)
-            ffn = fullfile(obj.DataPath,obj.DataFilename);
-            
-            
-%             TrialNumber = obj.currentTrialNumber
-            
-            % save(ffn,var{:},'-append','-nocompression');
-            
-            
-        end
         
         
         
@@ -192,7 +173,8 @@ classdef StimGenInterface < handle% & gui.Helper
 
             obj.update_buffer; % update the buffer with the first stimulus
             
-            obj.lastTrigTic = tic; % tic right before triggering stim playback
+            obj.firstTrigTime = now;
+            obj.lastTrigTime =0; % initialize time right before triggering stim playback
         end
         
         
@@ -203,13 +185,15 @@ classdef StimGenInterface < handle% & gui.Helper
             isi = obj.currentISI;
             
             % wait until ISI has elapsed 
-            if toc(obj.lastTrigTic) - isi < src.Period - obj.isiAdjustment
+            if obj.timeSinceStart - obj.lastTrigTime - isi < src.Period - obj.isiAdjustment
                 return
             end            
             
+
             % hold the computer hostage until ISI has expired
-            while toc(obj.lastTrigTic)+obj.isiAdjustment < isi, end
+            while obj.timeSinceStart - obj.lastTrigTime + obj.isiAdjustment < isi, end
             
+
             obj.trigger_stim_playback; % trigger playback of the obj.nextSPIdx buffer
             
             obj.CurrentSPObj.increment; % increment the StimPlay object
@@ -233,9 +217,12 @@ classdef StimGenInterface < handle% & gui.Helper
             switch lower(c)
                 
                 case 'run'
-                    set(obj.StimPlayObjs,'Fs',obj.Fs);
                     vprintf(3,'Module sampling rate = %.3f Hz',obj.Fs);
-                    arrayfun(@update_signal,obj.StimPlayObjs);
+                    for i = 1:length(obj.StimPlayObjs)
+                        obj.StimPlayObjs(i).StimObj.Fs = obj.Fs;
+                        obj.StimPlayObjs(i).StimObj.update_signal;
+                    end
+                    
                     
                     delete(obj.elsnsspi);
                     
@@ -270,6 +257,7 @@ classdef StimGenInterface < handle% & gui.Helper
                 case 'stop'
                     
                     stop(obj.Timer);
+                    delete(obj.Timer);
                     
                     src.Text = 'Run';
                     
@@ -374,9 +362,6 @@ classdef StimGenInterface < handle% & gui.Helper
             obj.update_signal_plot;
         end
         
-        function update_playmode(obj,src,event)
-            
-        end
         
         function update_isi(obj,src,event)
             h = obj.handles;
@@ -515,6 +500,9 @@ classdef StimGenInterface < handle% & gui.Helper
                 'StimGenInterface','Icon','success','Modal',true);
             
         end
+
+
+        
         
         
     end % methods (Access = public)
@@ -773,5 +761,11 @@ classdef StimGenInterface < handle% & gui.Helper
             movegui(f,'onscreen');
         end
         
+        function s = timeSinceStart(obj)
+            a = (now - 719529) * 86400;
+            b = (obj.firstTrigTime - 719529) * 86400;
+            s = a - b;
+        end
     end
+
 end

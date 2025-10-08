@@ -72,7 +72,7 @@ classdef Software < hw.Interface
             for i = 1:length(P)
                 %P(i).Value = value(i);
                 vstr = P(i).ValueStr;
-                vprintf(3,'Updated parameter: %s = %s',P(i).Name,vstr)
+                vprintf(4,'Updated parameter: %s = %s',P(i).Name,vstr)
             end
             result = 1;
         end

@@ -8,7 +8,6 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
         
         ReferenceLevel      (1,1) double {mustBeFinite,mustBePositive} = 94; % dBSPL
         ReferenceFrequency  (1,1) double {mustBeFinite,mustBePositive} = 1000; % Hz
-        ReferenceSignal     (1,:) double
         
         MicSensitivity      (1,1) double = 1; % V/Pa
         

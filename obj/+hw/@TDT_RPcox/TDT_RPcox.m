@@ -154,7 +154,7 @@ classdef TDT_RPcox < hw.Interface
                 e = P.HW.write(p.Name,v);
                 if e
                     vstr = p.ValueStr;
-                    vprintf(3,'Updated parameter: %s = %s',p.Name,vstr)
+                    vprintf(4,'Updated parameter: %s = %s',p.Name,vstr)
                 else
                     vprintf(0,1,'Failed to write value to "%s"',p.Name)
                 end

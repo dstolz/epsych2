@@ -95,6 +95,11 @@ classdef Parameter < matlab.mixin.SetGet
 
             obj.Parent.set_parameter(obj,value);
 
+            % `now` is much faster than `datetime("now")`
+            % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
+            % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
+             obj.lastUpdated = now;
+        
             if isa(obj.PostUpdateFcn,'function_handle')
                 obj.PostUpdateFcn(obj,value);
             end
@@ -164,6 +169,7 @@ classdef Parameter < matlab.mixin.SetGet
             end
             % `now` is much faster than `datetime("now")`
             % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
+            % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
              obj.lastUpdated = now;
         end
     end

@@ -68,10 +68,10 @@ classdef Performance < handle
             D = sortrows(D,1,obj.SortDirection);
             
             % S = string(D);
-            S(:,1) = compose("%.2f",D(:,1));
+            S(:,1) = compose("%.4g",D(:,1));
             S(:,2) = compose("%d",D(:,2));
-            S(:,3) = compose("%.4f",D(:,3));
-            S(:,4) = compose("%.1f",D(:,4));
+            S(:,3) = compose("%.4g",D(:,3));
+            S(:,4) = compose("%.1g",D(:,4));
             
             obj.TableH.Data = S;
             obj.TableH.ColumnName = [obj.ParametersOfInterest{:}, {'# Trials'}, {'d'''},{'Hit Rate'}];

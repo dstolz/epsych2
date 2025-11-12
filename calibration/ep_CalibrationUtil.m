@@ -262,10 +262,10 @@ cfg.ref.level = str2num(get(h.ref_dB,'String')); %#ok<ST2NM>
 cfg.ref.norm  = str2num(get(h.norm_level,'String')); %#ok<ST2NM>
 
 function run_calibration_Callback(hObj, ~, h) %#ok<DEFNU>
-if ~isfolder('CalUtil_RPvds')
-    errordlg('RPvds calibration files directory could not be found on MATLAB search path', ...
-        'Calibration');
-end
+% if ~isfolder('CalUtil_RPvds')
+%     errordlg('RPvds calibration files directory could not be found on MATLAB search path', ...
+%         'Calibration');
+% end
 
 global StimRP AcqRP
 
@@ -501,6 +501,8 @@ cfg.acq.fsid = cfg.stim.fsid;
 cfg.stim = [];
 
 [~,AcqRP,Fs] = OpenConnection(cfg);
+
+pause(1)
 
 fax = h.freq_domain;
 cax = h.calibration_curve;
@@ -867,8 +869,7 @@ if ~isempty(fh), close(fh); end
 % Save/Load Functions --------------------------
 function SaveCalibration(hdr,data)
 % calibration directory
-dd = 'C:\Electrophys\Calibrations';
-if ~isfolder(dd), mkdir(dd); end
+dd = cd;
 [fn,pn,fidx] = uiputfile({ ...
     '*.cal','Calibration File (*.cal)'; ...
     '*.txt','OLD FORMAT - Text File (*.txt)'; ...

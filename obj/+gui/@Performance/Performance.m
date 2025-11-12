@@ -71,7 +71,7 @@ classdef Performance < handle
             S(:,1) = compose("%.4g",D(:,1));
             S(:,2) = compose("%d",D(:,2));
             S(:,3) = compose("%.4g",D(:,3));
-            S(:,4) = compose("%.1g",D(:,4));
+            S(:,4) = compose("%.1f",D(:,4));
             
             obj.TableH.Data = S;
             obj.TableH.ColumnName = [obj.ParametersOfInterest{:}, {'# Trials'}, {'d'''},{'Hit Rate'}];

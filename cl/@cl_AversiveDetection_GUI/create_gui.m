@@ -171,11 +171,30 @@ h.Text = "Optogenetic Trigger:";
 
 % >> dB SPL
 p = RUNTIME.HW.find_parameter('dBSPL');
-h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-h.Values = 0:6:84;
-h.Value = 48;
-h.Text = "Sound Level (dB SPL):";
+if ~isempty(p)
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+    h.Values = 0:6:84;
+    h.Value = 48;
+    h.Text = "Sound Level (dB SPL):";
+end
 
+% >> Tone dB SPL
+p = RUNTIME.HW.find_parameter('TonedBSPL',silenceParameterNotFound=true);
+if ~isempty(p)
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+    h.Values = 0:6:84;
+    h.Value = 48;
+    h.Text = "Tone Sound Level (dB SPL):";
+end
+
+% >> Noise dB SPL
+p = RUNTIME.HW.find_parameter('NoisedBSPL',silenceParameterNotFound=true);
+if ~isempty(p)
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
+    h.Values = 0:6:84;
+    h.Value = 48;
+    h.Text = "Noise Sound Level (dB SPL):";
+end
 
 % >> Duration
 p = RUNTIME.HW.find_parameter('Stim_Duration');

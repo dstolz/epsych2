@@ -148,10 +148,13 @@ classdef TDT_RPcox < hw.Interface
 
             for i = 1:length(P)
                 p = P(i);
-                e = P.HW.write(p.Name,value(i));
+                v = value(i);
+                if iscell(v), v = v{1}; end % array
+
+                e = P.HW.write(p.Name,v);
                 if e
                     vstr = p.ValueStr;
-                    vprintf(3,'Updated parameter: %s = %s',p.Name,vstr)
+                    vprintf(4,'Updated parameter: %s = %s',p.Name,vstr)
                 else
                     vprintf(0,1,'Failed to write value to "%s"',p.Name)
                 end

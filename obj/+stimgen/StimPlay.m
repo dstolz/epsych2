@@ -19,6 +19,11 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
     end
     
     methods
+        function obj = StimPlay(StimObj)
+            if nargin == 1 && ~isempty(StimObj)
+                obj.StimObj = StimObj;
+            end
+        end
         
         function t = get.Type(obj)
             t = class(obj.StimObj);

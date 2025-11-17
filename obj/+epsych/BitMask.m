@@ -16,7 +16,7 @@ classdef BitMask < uint32
         TrialType_2         (13)
         TrialType_3         (14)
         TrialType_4         (15)
-        TrialType_5         (16)    
+        TrialType_5         (16)
         Choice_0            (17)
         Choice_1            (18)
         Choice_2            (19)
@@ -66,6 +66,11 @@ classdef BitMask < uint32
                 disp(enumObjs)
                 clear names values
             end
+        end
+
+        function f = GUI()
+            f = bitmask_gui;
+            if nargout == 0, clear f; end
         end
 
 
@@ -131,10 +136,10 @@ classdef BitMask < uint32
 
             arguments
                 mask (1,:) {mustBeNonnegative, mustBeFinite,mustBeNonempty,mustBeInteger}
-                nbits (1,1) double = 32 
+                nbits (1,1) double = 32
             end
 
-            mask = feval(sprintf('uint%d',nbits),mask);
+            mask = uint32(mask);
 
             % Flatten mask for processing
             mask = mask(:);
@@ -155,7 +160,7 @@ classdef BitMask < uint32
             end
         end
 
-        
+
 
 
         function mask = Bits2Mask(bits,dim)
@@ -164,7 +169,7 @@ classdef BitMask < uint32
             %   mask = BITS2MASK(bits) converts:
             %     - A binary vector (e.g., [0 1 1 1 0]) with LSB leftmost, or
             %     - A vector of bit positions (e.g., [2 3 4]) to a uint32 bitmask.
-            %   
+            %
             %  mask = BITS2MASK(bits, dim) specifies the dimension along which to
             %  interpret the input bits. For example, if bits is a 2D array with
             %  multiple rows, dim = 1 will treat each row as a separate binary
@@ -177,7 +182,7 @@ classdef BitMask < uint32
             %
             %  b = epsych.BitMask.Mask2Bits([Data.ResponseCode]);
             %  isequal(epsych.BitMask.Bits2Mask(b),[Data.ResponseCode]')
-            %               
+            %
             %   See also MASK2BITS, BITGET, BITSET.
 
             arguments
@@ -211,37 +216,37 @@ classdef BitMask < uint32
 
 
         function [M,N] = decodeResponseCodes(responseCodes)
-        %DECODERESPONSECODES Decodes response codes into a structure of bitmask flags.
-        %   [M, N] = DECODERESPONSECODES(RESPONSECODES) takes an array of response
-        %   codes and decodes them using the bitmask definitions from
-        %   epsych.BitMask.getDefined. The function returns a structure M where each
-        %   field corresponds to a bitmask name and contains a logical array indicating
-        %   the presence of that bit in each response code.
-        %
-        %   If two output arguments are requested, the function also returns N, a
-        %   structure with the same fields as M, where each field contains the sum of
-        %   true values in the corresponding field of M (i.e., the count of times each
-        %   bitmask was set across all response codes).
-        %
-        %   Inputs:
-        %       responseCodes - Array of integer response codes to decode.
-        %
-        %   Outputs:
-        %       M - Structure with logical arrays for each bitmask flag.
-        %       N - (Optional) Structure with counts for each bitmask flag.
+            %DECODERESPONSECODES Decodes response codes into a structure of bitmask flags.
+            %   [M, N] = DECODERESPONSECODES(RESPONSECODES) takes an array of response
+            %   codes and decodes them using the bitmask definitions from
+            %   epsych.BitMask.getDefined. The function returns a structure M where each
+            %   field corresponds to a bitmask name and contains a logical array indicating
+            %   the presence of that bit in each response code.
+            %
+            %   If two output arguments are requested, the function also returns N, a
+            %   structure with the same fields as M, where each field contains the sum of
+            %   true values in the corresponding field of M (i.e., the count of times each
+            %   bitmask was set across all response codes).
+            %
+            %   Inputs:
+            %       responseCodes - Array of integer response codes to decode.
+            %
+            %   Outputs:
+            %       M - Structure with logical arrays for each bitmask flag.
+            %       N - (Optional) Structure with counts for each bitmask flag.
 
-        responseCodes = uint32(responseCodes);
-        bm = epsych.BitMask.getDefined;
-        s = string(bm);
-        bm = uint32(bm);
-        for i = 1:length(bm)
-            b = bitget(responseCodes,bm(i));
-            M.(s(i)) = logical(b);
-        end
+            responseCodes = uint32(responseCodes);
+            bm = epsych.BitMask.getDefined;
+            s = string(bm);
+            bm = uint32(bm);
+            for i = 1:length(bm)
+                b = bitget(responseCodes,bm(i));
+                M.(s(i)) = logical(b);
+            end
 
-        if nargout == 2
-            N = structfun(@sum,M,'uni',0);
-        end
+            if nargout == 2
+                N = structfun(@sum,M,'uni',0);
+            end
         end
 
 

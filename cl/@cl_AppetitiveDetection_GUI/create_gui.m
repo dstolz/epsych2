@@ -356,6 +356,7 @@ h.ColumnName = {'Depth','TrialType','Shocked','Present'};
 h.ColumnEditable = [false,false,false,true];
 h.FontSize = 10;
 h.Data = d;
+h.Interruptible = 'off';
 h.CellEditCallback = @obj.update_trial_filter;
 obj.tableTrialFilter = h;
 obj.update_trial_filter(h);

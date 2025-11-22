@@ -47,32 +47,49 @@ bcmActive = jet(5);
 bcmNormal = repmat(fig.Color,size(bcmActive,1),1);
 
 
+k = 1;
+
+
+% > Free Delivery
+p = RUNTIME.HW.find_parameter('~FreeReward',includeInvisible=true);
+p.PostUpdateFcn = @cl_AppetitiveDetection_GUI.trigger_FreeReward;
+h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
+h.Text = "Freebie";
+h.colorNormal = bcmNormal(k,:);
+h.colorOnUpdate = bcmActive(k,:);
+obj.hButtons.FreeReward = h;
+k = k + 1;
+
+
 % > Remind
 p = RUNTIME.S.Module.add_parameter('ReminderTrials',0);
 p.PostUpdateFcn = @cl_AppetitiveDetection_GUI.trigger_ReminderTrial;
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Reminder";
-h.colorNormal = bcmNormal(1,:);
-h.colorOnUpdate = bcmActive(1,:);
+h.colorNormal = bcmNormal(k,:);
+h.colorOnUpdate = bcmActive(k,:);
 obj.hButtons.Reminder = h;
+k = k + 1;
 
 
 % > Deliver Trials
 p = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Deliver Trials";
-h.colorNormal = bcmNormal(3,:);
-h.colorOnUpdate = bcmActive(3,:);
+h.colorNormal = bcmNormal(k,:);
+h.colorOnUpdate = bcmActive(k,:);
 obj.hButtons.DeliverTrials = h;
+k = k + 1;
 
-% > Air Puff
-p = RUNTIME.S.Module.add_parameter('AirPuff',0);
+
+% > Manual Trial
+p = RUNTIME.HW.find_parameter('~ManualTrigger',includeInvisible=true);
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
-h.Text = "Air Puff";
-h.colorNormal = bcmNormal(5,:);
-h.colorOnUpdate = bcmActive(5,:);
-obj.hButtons.AirPuff = h;
-
+h.Text = "Manual Trial";
+h.colorNormal = bcmNormal(k,:);
+h.colorOnUpdate = bcmActive(k,:);
+obj.hButtons.ManualTrial = h;
+k = k + 1;
 
 bh = findobj(fig,'Type', 'uistatebutton');
 set(bh, ...
@@ -92,13 +109,13 @@ set(bh, ...
 % TRIAL CONTROLS -------------------------------------------------
 % Panel for "Trial Controls"
 panelTrialControls = uipanel(layoutMain, 'Title', 'Trial Controls');
-panelTrialControls.Layout.Row = [2 3];
+panelTrialControls.Layout.Row = [2 5];
 panelTrialControls.Layout.Column = [1 2];
 
 % > Trial Controls
 layoutTrialControls = uigridlayout(panelTrialControls);
 layoutTrialControls.ColumnWidth = {'1x'};
-layoutTrialControls.RowHeight = repmat({25},1,6);
+layoutTrialControls.RowHeight = repmat({25},1,10);
 layoutTrialControls.RowSpacing = 1;
 layoutTrialControls.ColumnSpacing = 5;
 layoutTrialControls.Padding = [0 0 0 0];
@@ -106,7 +123,7 @@ layoutTrialControls.Scrollable = "on";
 
 % Panel for "Sound Controls"
 panelSoundControls = uipanel(layoutMain, 'Title', 'Sound Controls');
-panelSoundControls.Layout.Row = [4 5];
+panelSoundControls.Layout.Row = [6];
 panelSoundControls.Layout.Column = [1 2];
 
 % > Sound Controls
@@ -149,7 +166,7 @@ h.Text = "Consecutive NoGo (max):";
 p = RUNTIME.S.Module.add_parameter('TrialOrder','Descending');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
 h.Values = ["Descending","Ascending"];
-% h.Values = ["Descending","Ascending","Random"];
+% h.Values = ["Descending","Ascending","Random","Staircase"];
 h.Value = "Descending";
 h.Text = "Trial Order:";
 
@@ -157,18 +174,37 @@ h.Text = "Trial Order:";
 
 % >> Intertrial Interval
 p = RUNTIME.HW.find_parameter('ITI_dur');
-h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
-h.Values= 0:100:2500;
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Intertrial Interval (ms):";
 
 
 % >> Response Window Duration
 p = RUNTIME.HW.find_parameter('RespWinDur');
-h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');
-h.Values = 100:100:1000;
-h.Value = p.Value;
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Response Window Duration (ms):";
 
+
+
+% >> Response Window Delay
+p = RUNTIME.HW.find_parameter('RespWinDelay');
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+h.Text = "Response Window Delay (ms):";
+
+
+
+
+% >> Water Trigger Duration
+p = RUNTIME.HW.find_parameter('WaterTrigDur');
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+h.Text = "Reward Duration (ms):";
+
+
+
+
+% >> Response Window Duration
+p = RUNTIME.HW.find_parameter('MaxAccessDur');
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+h.Text = "Max Water Access Duration(ms):";
 
 
 
@@ -181,11 +217,10 @@ h.Text = "Response Window Duration (ms):";
 % SOUND CONTROLS -----------------------------------------------------
 
 % >> dB SPL
-p = RUNTIME.HW.find_parameter('dBSPL');
+p = RUNTIME.HW.find_parameter('dBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
     h.Values = 0:6:84;
-    h.Value = 60;
     h.Text = "Sound Level (dB SPL):";
 end
 
@@ -194,7 +229,6 @@ p = RUNTIME.HW.find_parameter('TonedBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
     h.Values = 0:6:84;
-    h.Value = 48;
     h.Text = "Tone Sound Level (dB SPL):";
 end
 
@@ -203,16 +237,14 @@ p = RUNTIME.HW.find_parameter('NoisedBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
     h.Values = 0:6:84;
-    h.Value = 60;
     h.Text = "Noise Sound Level (dB SPL):";
 end
 
 % >> Duration
-p = RUNTIME.HW.find_parameter('Stim_Duration');
+p = RUNTIME.HW.find_parameter('Stim_Duration',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
     h.Values = 250:250:2000;
-    h.Value = 1000;
     h.Text = "Stimulus Duration (ms):";
 end
 
@@ -221,78 +253,8 @@ p = RUNTIME.HW.find_parameter('Rate');
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
     h.Values = 1:20;
-    h.Value = 5;
     h.Text = "Modulation Rate (Hz):";
 end
-
-
-
-
-% >> Highpass cutoff
-p = RUNTIME.HW.find_parameter('Highpass',silenceParameterNotFound=true);
-if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-    h.Values = 25:25:300;
-    h.Value = p.Value;
-    h.Text = "Highpass cutoff (Hz):";
-end
-
-% >> Lowpass cutoff
-p = RUNTIME.HW.find_parameter('Lowpass',silenceParameterNotFound=true);
-if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-    h.Values =  1000:500:25000;
-    h.Value = p.Value;
-    h.Text = "Lowpass cutoff (Hz):";
-end
-
-
-
-
-
-% Panel for "Shock Controls" ----------------------------------------
-panelShockControls = uipanel(layoutMain, 'Title', 'Shock Controls');
-panelShockControls.Layout.Row = 6;
-panelShockControls.Layout.Column = [1 2];
-
-% > Shock Controls
-layoutShockControls = uigridlayout(panelShockControls);
-layoutShockControls.ColumnWidth = {'1x'};
-layoutShockControls.RowHeight = {25,25,25};
-layoutShockControls.RowSpacing = 1;
-layoutShockControls.ColumnSpacing = 5;
-layoutShockControls.Padding = [0 0 0 0];
-
-% >> AutoShock
-% p = RUNTIME.HW.find_parameter('ShockFlag');
-% h = gui.Parameter_Control(layoutShockControls,p,Type="checkbox",autoCommit=true);
-% h.Value = true;
-
-% >> Shocker status
-p = RUNTIME.HW.find_parameter('~ShockOn',includeInvisible=true);
-h = gui.Parameter_Control(layoutShockControls,p,type='readonly');
-h.Text = 'Shock State';
-
-% >> Shocker flag
-p = RUNTIME.HW.find_parameter('ShockFlag');
-h = gui.Parameter_Control(layoutShockControls,p,Type="checkbox",autoCommit=true);
-h.Value = true;
-h.Text = 'Shock Enabled';
-
-% >> Shock duration dropdown
-p = RUNTIME.HW.find_parameter('ShockDur');
-h = gui.Parameter_Control(layoutShockControls,p,Type='dropdown');
-h.Values = 200:100:1200;
-h.Value = p.Value;
-h.Text = "Shock duration (ms):";
-
-% >> Shock N easiest
-p = RUNTIME.S.Module.add_parameter('ShockN',3);
-p.PostUpdateFcn = @obj.update_trial_filter;
-h = gui.Parameter_Control(layoutShockControls,p,Type='dropdown',autoCommit=true);
-h.Values = 1:5;
-h.Value = 3;
-h.Text = "Shock Easiest #:";
 
 
 
@@ -301,7 +263,7 @@ h.Text = "Shock Easiest #:";
 
 % Panel for "Pump Controls" ------------------------------------------
 panelPumpControls = uipanel(layoutMain, 'Title', 'Pump Controls');
-panelPumpControls.Layout.Row = 8;
+panelPumpControls.Layout.Row = [7 8];
 panelPumpControls.Layout.Column = [1 2];
 
 
@@ -328,7 +290,6 @@ end
 
 
 
-
 % Panel for "Trial Filter" ------------------------------------------
 panelTrialFilter = uipanel(layoutMain, 'Title', 'Trial Filter');
 panelTrialFilter.Layout.Row = [9 11];
@@ -347,13 +308,12 @@ reminderInd = trialTypes == 2;
 d = tt(~reminderInd,loc.Depth);
 n = size(d,1);
 d(:,2) = tt(~reminderInd,loc.TrialType);
-d(:,3) = {false};
-d(:,4) = num2cell([true(1); false(n-5-1,1); true(5,1)]);
+d(:,3) = num2cell([true(1); false(n-5-1,1); true(5,1)]);
 
 h = uitable(layoutTrialFilter);
 h.Tag = 'tblTrialFilter';
-h.ColumnName = {'Depth','TrialType','Shocked','Present'};
-h.ColumnEditable = [false,false,false,true];
+h.ColumnName = {'Depth','TrialType','Present'};
+h.ColumnEditable = [false,false,true];
 h.FontSize = 10;
 h.Data = d;
 h.Interruptible = 'off';
@@ -467,10 +427,11 @@ axesMicrophone.Layout.Column = 5;
 axis(axesMicrophone,'image');
 box(axesMicrophone,'on')
 
-p = RUNTIME.HW.find_parameter('MicPower');
-gui.MicrophonePlot(p,axesMicrophone);
-axesMicrophone.YAxis.Label.String = "RMS voltage";
-
+p = RUNTIME.HW.find_parameter('MicPower',silenceParameterNotFound=true);
+if ~isempty(p)
+    gui.MicrophonePlot(p,axesMicrophone);
+    axesMicrophone.YAxis.Label.String = "RMS voltage";
+end
 
 % Panel for "FA Rate" --------------------------------------------
 panelFARate = uipanel(layoutMain, 'Title', 'Session FA Rate');

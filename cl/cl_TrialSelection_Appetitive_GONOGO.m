@@ -29,12 +29,12 @@ function TRIALS = cl_TrialSelection_Appetitive_GONOGO(TRIALS)
 
 persistent nNOGOs
 
-
-reminderTrial = TRIALS.HW.find_parameter('~ReminderTrial',includeInvisible = true);
+reminderTrial = TRIALS.HW.find_parameter('~ReminderTrial',includeInvisible=true);
 deliverTrials = TRIALS.HW.find_parameter('~TrialDelivery',includeInvisible=true);
 
-TT.NOGO = 1;
+
 TT.GO   = 0;
+TT.NOGO = 1;
 TT.REMIND = 2;
 
 for fn = string(fieldnames(TRIALS.writeParamIdx))'
@@ -74,7 +74,8 @@ end
 
 history.Depth     = [TRIALS.DATA.Depth];
 history.TrialType = [TRIALS.DATA.TrialType];
-
+history.RespCode  = [TRIALS.DATA.RespCode];
+RC = epsych.BitMask.decodeResponseCodes(history.RespCode);
 
 
 % Determine if enough consecutive NOGO trials have been presented
@@ -96,8 +97,11 @@ if nRecentNOGOs < nNOGOs % next trial must be a NOGO
     return
 end
 
-
-
+% % if the gerbil got a correct reject, then give an easy one
+% if RC.CorrectReject(end)
+%     TRIALS.NextTrialID = find(all.TrialType == TT.REMIND,1);
+%     return
+% end
 
 
 % set nNOGOs for next block
@@ -148,7 +152,7 @@ switch SP.TrialOrder.Value
         end
 
     case 'Random'
-        % TO DO: ADD RULE FOR MAX CONSECUTIVE NOGO TRIALS
+        % % TO DO: ADD RULE FOR MAX CONSECUTIVE NOGO TRIALS
         % if isempty(lastDepth),lastDepth = 0; end
         % n = sum(history.TrialType(end-NOGOmax:end)==TT.GO);
         % if n > NOGOmax % next trial must be GO (1)

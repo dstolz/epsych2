@@ -104,24 +104,16 @@ classdef cl_AppetitiveDetection_GUI < handle
             src = obj.tableTrialFilter; % use this in case call is from outside the class
             depth     = [src.Data{:,1}];
             trialtype = [src.Data{:,2}];
-            present   = [src.Data{:,4}];
+            present   = [src.Data{:,3}];
 
 
 
             % always vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
             present(trialtype==obj.ttCatch) = true;
-            [src.Data{trialtype==obj.ttCatch,4}] = deal(true);
+            [src.Data{trialtype==obj.ttCatch,3}] = deal(true);
             % ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-            p = RUNTIME.S.find_parameter('ShockN');
-            shocked = find(present,p.Value,"last");
-            shocked(ismember(shocked,find(trialtype==obj.ttCatch))) = [];
-            [src.Data{:,3}] = deal(false);
-            [src.Data{shocked,3}] = deal(true);
-
-
-            RUNTIME.TRIALS.shockedTrials = shocked;
             RUNTIME.TRIALS.activeTrials = present;
 
             if any(~present)
@@ -233,7 +225,9 @@ classdef cl_AppetitiveDetection_GUI < handle
             global RUNTIME
 
             prt = RUNTIME.S.find_parameter('ReminderTrials');
-            if prt.Value == 0, return; end
+            if prt.Value == 0
+                return
+            end
 
             pdt = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
             if pdt.Value == 1
@@ -242,11 +236,35 @@ classdef cl_AppetitiveDetection_GUI < handle
                 return
             end
 
+            pcd = RUNTIME.HW.find_parameter('~FreeReward',includeInvisible=true);
+            if pcd.Value == 1
+                obj.Value = 0;
+                vprintf(0,1,'"Free Reward" must be inactive to initiate a Reminder trial')
+                return
+            end
+
+
             % the following FORCE_TRIAL tells ep_TimerFcn_RunTime to skip
             % waiting for trial to complete and just go directly to
             % updating for next trial
-            vprintf(4,'Forcing a Reminder Trial')
+            vprintf(3,'Forcing a Reminder Trial')
             RUNTIME.TRIALS.FORCE_TRIAL = true;
+
+        end
+
+        function trigger_FreeReward(obj, value)
+            global RUNTIME
+
+            pcd = RUNTIME.HW.find_parameter('~FreeReward',includeInvisible=true);
+            if pcd.Value == 0
+                return
+            end
+
+            vprintf(3,'Initiating Free Trial Delivery')
+            AMdepth = RUNTIME.HW.find_parameter('Depth');
+            AMdepth.Value = 1; % 100% depth
+
+
 
         end
 

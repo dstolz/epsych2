@@ -329,7 +329,9 @@ classdef Detect < handle & matlab.mixin.SetGet
             d = nan(size(r));
             if isempty(r(1).Hit), return; end
             for i = 1:numel(r)
-                d(i) = psychophysics.Detect.d_prime(r(i).Hit, CT.FalseAlarm, obj.infCorrection);
+                x = psychophysics.Detect.d_prime(r(i).Hit, CT.FalseAlarm, obj.infCorrection);
+                if isempty(x), x = inf; end
+                d(i) = x;
             end
         end
 

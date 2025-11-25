@@ -190,6 +190,8 @@ classdef cl_AversiveDetection_GUI < handle
             end
             h.Data = nd;
 
+            % make sure 'active trials' are indeed updated
+            obj.update_trial_filter;
         end
 
 

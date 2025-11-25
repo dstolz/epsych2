@@ -179,7 +179,9 @@ classdef cl_AppetitiveDetection_GUI < handle
                     nd{2} = 'REMIND';
             end
             h.Data = nd;
-
+            
+            % make sure 'active trials' are indeed updated
+            obj.update_trial_filter;
         end
 
 

@@ -218,7 +218,6 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             hl.Padding = [0 0 0 0];
             obj.container = hl;
 
-            obj.colorNormal = obj.container.BackgroundColor;
 
             P = obj.Parameter;
 
@@ -277,6 +276,10 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     h.Text = P.ValueStr;
                     h.HorizontalAlignment = 'center';
             end
+
+
+            obj.colorNormal = h.BackgroundColor;
+
 
             if obj.autoCommit
                 h.Tag = sprintf('ACPC_%s',P.Name);

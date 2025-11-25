@@ -188,17 +188,17 @@ h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Intertrial Interval (ms):";
 
 
-% >> Response Window Duration
-p = RUNTIME.HW.find_parameter('RespWinDur');
-h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
-h.Text = "Response Window Duration (ms):";
-
-
-
 % >> Response Window Delay
 p = RUNTIME.HW.find_parameter('RespWinDelay');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Response Window Delay (ms):";
+
+
+
+% >> Response Window Duration
+p = RUNTIME.HW.find_parameter('RespWinDur');
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+h.Text = "Response Window Duration (ms):";
 
 
 

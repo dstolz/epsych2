@@ -277,9 +277,9 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     h.HorizontalAlignment = 'center';
             end
 
-
-            obj.colorNormal = h.BackgroundColor;
-
+            if isfield(h,'BackgroundColor')
+                obj.colorNormal = h.BackgroundColor;
+            end
 
             if obj.autoCommit
                 h.Tag = sprintf('ACPC_%s',P.Name);

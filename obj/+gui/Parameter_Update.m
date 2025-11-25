@@ -98,12 +98,12 @@ classdef Parameter_Update < handle
             for i = 1:length(h)
                 P = h(i).Parameter;
                 vstr = sprintf(P.Format,h(i).Value);
-                vprintf(2,'Updating parameter "%s". New value = "%s"',P.Name,vstr)
                 
-                if obj.updateImmediately
+                if obj.updateImmediately || P.Parent.Type == "Software"
+                    vprintf(2,'Updating parameter "%s". New value = "%s"',P.Name,vstr)
                     P.Value = h(i).Value;
                 end
-
+                    
                 if isfield(loc,P.validName)
                     [T{:,loc.(P.validName)}] = deal(h(i).Value);
                 end
@@ -111,10 +111,11 @@ classdef Parameter_Update < handle
                 h(i).reset_label;                
             end
             RUNTIME.TRIALS.trials = T;
-            vprintf(0,'Updated %d parameters',length(h))
 
             obj.updateImmediately = false;
+
         end
     end
+
     
 end

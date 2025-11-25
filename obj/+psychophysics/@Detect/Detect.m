@@ -322,14 +322,16 @@ classdef Detect < handle & matlab.mixin.SetGet
 
 
             obj.targetTrialType = obj.ttCatch;
+            % this is kludgy and should be reworked
             CT = obj.Rate;
+            FAR = CT(1).FalseAlarm;
                         
             obj.targetTrialType = obj.ttStimulus;
             r = obj.Rate;
             d = nan(size(r));
             if isempty(r(1).Hit), return; end
             for i = 1:numel(r)
-                x = psychophysics.Detect.d_prime(r(i).Hit, CT.FalseAlarm, obj.infCorrection);
+                x = psychophysics.Detect.d_prime(r(i).Hit, FAR, obj.infCorrection);
                 if isempty(x), x = inf; end
                 d(i) = x;
             end

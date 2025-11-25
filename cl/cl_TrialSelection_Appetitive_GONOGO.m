@@ -64,18 +64,15 @@ end
 reminderTrial.Value = false;
 
 
-% make first trial NO GO
-if TRIALS.TrialIndex == 1 || deliverTrials.Value == 0
-    TRIALS.NextTrialID = find(all.TrialType == TT.NOGO,1);
-    return
-end
+% % make first trial NO GO
+% if TRIALS.TrialIndex == 1 || deliverTrials.Value == 0
+%     TRIALS.NextTrialID = find(all.TrialType == TT.NOGO,1);
+%     return
+% end
 
 
 
-history.Depth     = [TRIALS.DATA.Depth];
-history.TrialType = [TRIALS.DATA.TrialType];
-history.RespCode  = [TRIALS.DATA.RespCode];
-RC = epsych.BitMask.decodeResponseCodes(history.RespCode);
+RC = epsych.BitMask.decodeResponseCodes([TRIALS.DATA.RespCode]);
 
 
 % Determine if enough consecutive NOGO trials have been presented
@@ -84,14 +81,14 @@ NOGOmin = SP.ConsecutiveNOGO_min.Value;
 
 
 
-if isempty(nNOGOs)
+if isempty(nNOGOs) || nNOGOs > NOGOmax % can happen if user changes max value after nNOGOs was set
     nNOGOs = randi([NOGOmin, NOGOmax]);
 end
 
 nBack = min(nNOGOs,TRIALS.TrialIndex-1);
 
 % how many NOGOs have we had in the last n trials?
-nRecentNOGOs = sum(history.TrialType(end-nBack+1:end)==TT.NOGO);
+nRecentNOGOs = sum(RC.("TrialType_"+TT.NOGO)(end-nBack+1:end));
 if nRecentNOGOs < nNOGOs % next trial must be a NOGO
     TRIALS.NextTrialID = find(all.TrialType == TT.NOGO,1);
     return
@@ -123,17 +120,22 @@ activeTrials(all.TrialType~=TT.REMIND) = TRIALS.activeTrials;
 valid.Depth = all.Depth(activeTrials & all.TrialType == TT.GO);
 valid.TrialType = all.TrialType(activeTrials & all.TrialType == TT.GO);
 
+goTrials = RC.("TrialType_"+TT.GO);
+lastGoTrialIdx = find(goTrials,1,'last');
+lastStim = [];
+stim = [TRIALS.DATA.Depth];
+if ~isempty(lastGoTrialIdx), lastStim = stim(lastGoTrialIdx); end
 
-lastDepth = history.Depth(find(history.TrialType==TT.GO,1,'last'));
+
 
 
 % time for a GO trial
 switch SP.TrialOrder.Value
     case 'Descending'
         valid.Depth = sort(valid.Depth,'descend');
-        if isempty(lastDepth),lastDepth = inf; end
-        lastDepth = double(lastDepth)-1e-4;
-        i = find(valid.Depth < lastDepth,1);
+        if isempty(lastStim),lastStim = inf; end
+        lastStim = double(lastStim)-1e-4;
+        i = find(valid.Depth < lastStim,1);
         if isempty(i)
             nextDepth = max(valid.Depth);
         else
@@ -142,9 +144,9 @@ switch SP.TrialOrder.Value
 
     case 'Ascending'
         valid.Depth = sort(valid.Depth,'ascend');
-        if isempty(lastDepth),lastDepth = -inf; end
-        lastDepth = double(lastDepth)+1e-4;
-        i = find(valid.Depth > lastDepth,1);
+        if isempty(lastStim),lastStim = -inf; end
+        lastStim = double(lastStim)+1e-4;
+        i = find(valid.Depth > lastStim,1);
         if isempty(i)
             nextDepth = min(valid.Depth);
         else
@@ -152,20 +154,26 @@ switch SP.TrialOrder.Value
         end
 
     case 'Random'
-        % % TO DO: ADD RULE FOR MAX CONSECUTIVE NOGO TRIALS
-        % if isempty(lastDepth),lastDepth = 0; end
-        % n = sum(history.TrialType(end-NOGOmax:end)==TT.GO);
-        % if n > NOGOmax % next trial must be GO (1)
-        %     idx = find(valid.TrialType==TT.GO);
-        % elseif n < NOGOmin % next trial must be NOGO (0)
-        %     idx = find(valid.TrialType==TT.GO);
-        % else
-        %     idx = 1:length(history.TrialType);
-        % end
-        % r = randi(length(idx));
-        % i = idx(r);
-        % nextDepth = valid.Depth(i);
+        % limit how far back we look
+        n = length(valid.Depth);
 
+        goTrials = stim(RC.("TrialType_"+TT.GO));
+        if length(goTrials) > n
+            goTrials = goTrials(end-n+1:end);
+        end
+
+        % how many times has each value been present on the last nGO trials?
+        nPresentations = arrayfun(@(a) sum(isapprox(goTrials,a,"loose")),valid.Depth);
+
+        % priorities stimuli that have been presented least
+        m = min(nPresentations);
+        idx = find(nPresentations == m);
+        r = randi(length(idx));
+        i = idx(r);
+        nextDepth = valid.Depth(i);
+
+    case 'Staircase'
+        vprintf(0,1,'STAIRCASE NOT YET IMPLEMENTED')
 end
 
 

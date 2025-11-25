@@ -54,10 +54,21 @@ k = 1;
 p = RUNTIME.HW.find_parameter('~FreeReward',includeInvisible=true);
 p.PostUpdateFcn = @cl_AppetitiveDetection_GUI.trigger_FreeReward;
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
-h.Text = "Freebie";
+h.Text = "Free Access";
 h.colorNormal = bcmNormal(k,:);
 h.colorOnUpdate = bcmActive(k,:);
 obj.hButtons.FreeReward = h;
+k = k + 1;
+
+
+% > Gimme
+p = RUNTIME.HW.find_parameter('~Gimme',includeInvisible=true);
+p.PostUpdateFcn = @cl_AppetitiveDetection_GUI.trigger_Gimme;
+h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
+h.Text = "Gimme";
+h.colorNormal = bcmNormal(k,:);
+h.colorOnUpdate = bcmActive(k,:);
+obj.hButtons.Gimme = h;
 k = k + 1;
 
 
@@ -71,6 +82,14 @@ h.colorOnUpdate = bcmActive(k,:);
 obj.hButtons.Reminder = h;
 k = k + 1;
 
+% > Manual Trial
+p = RUNTIME.HW.find_parameter('~ManualTrigger',includeInvisible=true);
+h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
+h.Text = "Observe";
+h.colorNormal = bcmNormal(k,:);
+h.colorOnUpdate = bcmActive(k,:);
+obj.hButtons.ManualTrial = h;
+k = k + 1;
 
 % > Deliver Trials
 p = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
@@ -82,14 +101,6 @@ obj.hButtons.DeliverTrials = h;
 k = k + 1;
 
 
-% > Manual Trial
-p = RUNTIME.HW.find_parameter('~ManualTrigger',includeInvisible=true);
-h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
-h.Text = "Manual Trial";
-h.colorNormal = bcmNormal(k,:);
-h.colorOnUpdate = bcmActive(k,:);
-obj.hButtons.ManualTrial = h;
-k = k + 1;
 
 bh = findobj(fig,'Type', 'uistatebutton');
 set(bh, ...
@@ -154,20 +165,19 @@ h.Value = 0;
 h.Text = "Consecutive NoGo (min):";
 
 % >> Consecutive NOGO max
-p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',2);
+p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',1);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
 h.EvaluatorFcn = @obj.eval_gonogo;
-h.Values = 1:20;
-h.Value = 2;
+h.Values = 0:10;
+h.Value = 1;
 h.Text = "Consecutive NoGo (max):";
 
 
 % >> Trial order
-p = RUNTIME.S.Module.add_parameter('TrialOrder','Descending');
+p = RUNTIME.S.Module.add_parameter('TrialOrder','Random');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
-h.Values = ["Descending","Ascending"];
-% h.Values = ["Descending","Ascending","Random","Staircase"];
-h.Value = "Descending";
+h.Values = ["Descending","Ascending","Random","Staircase"];
+h.Value = "Random";
 h.Text = "Trial Order:";
 
 
@@ -193,21 +203,22 @@ h.Text = "Response Window Delay (ms):";
 
 
 
+% >> Max Access Window Duration
+p = RUNTIME.HW.find_parameter('MaxAccessDur');
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+h.Text = "Max Water Access Duration(ms):";
+
+
 % >> Water Trigger Duration
 p = RUNTIME.HW.find_parameter('WaterTrigDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Reward Duration (ms):";
 
 
-
-
-% >> Response Window Duration
-p = RUNTIME.HW.find_parameter('MaxAccessDur');
+% >> Timeout Duration
+p = RUNTIME.HW.find_parameter('TimeoutDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
-h.Text = "Max Water Access Duration(ms):";
-
-
-
+h.Text = "Timeout Duration (ms):";
 
 
 
@@ -219,40 +230,35 @@ h.Text = "Max Water Access Duration(ms):";
 % >> dB SPL
 p = RUNTIME.HW.find_parameter('dBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-    h.Values = 0:6:84;
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Sound Level (dB SPL):";
 end
 
 % >> Tone dB SPL
 p = RUNTIME.HW.find_parameter('TonedBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-    h.Values = 0:6:84;
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Tone Sound Level (dB SPL):";
 end
 
 % >> Noise dB SPL
 p = RUNTIME.HW.find_parameter('NoisedBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-    h.Values = 0:6:84;
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Noise Sound Level (dB SPL):";
 end
 
 % >> Duration
 p = RUNTIME.HW.find_parameter('Stim_Duration',silenceParameterNotFound=true);
 if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-    h.Values = 250:250:2000;
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Stimulus Duration (ms):";
 end
 
 % >> Modulation Rate
 p = RUNTIME.HW.find_parameter('Rate');
 if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-    h.Values = 1:20;
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Modulation Rate (Hz):";
 end
 

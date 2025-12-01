@@ -267,20 +267,23 @@ classdef cl_AppetitiveDetection_GUI < handle
             AMdepth.Value = 1; % 100% depth
         end
 
-        function trigger_Gimme(obj, value)
+        function trigger_Shape(obj, value)
             global RUNTIME
 
-            pcd = RUNTIME.HW.find_parameter('~Gimme',includeInvisible=true);
+            pcd = RUNTIME.HW.find_parameter('~Shape',includeInvisible=true);
             if pcd.Value == 0
                 return
             end
 
-            vprintf(3,'Initiating Gimme Trial')
+            vprintf(3,'Initiating Shape Trial')
             pStim = RUNTIME.HW.find_parameter('Depth');
             cv = pStim.Value; % current value
             pStim.Value = 1; % 100% depth
 
-            pause(0.2);
+            pht = RUNTIME.HW.find_parameter('~HoldTrial',includeInvisible=true);
+            while pht.Value == 1
+                pause(0.1);
+            end
             pcd.Value = 0;
 
             pStim.Value = cv;

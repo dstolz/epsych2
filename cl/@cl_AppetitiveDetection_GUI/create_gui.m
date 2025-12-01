@@ -61,14 +61,14 @@ obj.hButtons.FreeReward = h;
 k = k + 1;
 
 
-% > Gimme
-p = RUNTIME.HW.find_parameter('~Gimme',includeInvisible=true);
-p.PostUpdateFcn = @cl_AppetitiveDetection_GUI.trigger_Gimme;
+% > Shape
+p = RUNTIME.HW.find_parameter('~Shape',includeInvisible=true);
+p.PostUpdateFcn = @cl_AppetitiveDetection_GUI.trigger_Shape;
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
-h.Text = "Gimme";
+h.Text = "Shape";
 h.colorNormal = bcmNormal(k,:);
 h.colorOnUpdate = bcmActive(k,:);
-obj.hButtons.Gimme = h;
+obj.hButtons.Shape = h;
 k = k + 1;
 
 
@@ -183,7 +183,7 @@ h.Text = "Trial Order:";
 
 
 % >> Intertrial Interval
-p = RUNTIME.HW.find_parameter('ITI_dur');
+p = RUNTIME.HW.find_parameter('ITIDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Intertrial Interval (ms):";
 
@@ -249,7 +249,7 @@ if ~isempty(p)
 end
 
 % >> Duration
-p = RUNTIME.HW.find_parameter('Stim_Duration',silenceParameterNotFound=true);
+p = RUNTIME.HW.find_parameter('StimDur',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Stimulus Duration (ms):";

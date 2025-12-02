@@ -22,6 +22,7 @@ for i = 1:length(clickdur)
     
     obj.plot_signal;
     obj.plot_spectrum;
+    obj.plot_transferfcn('click');
 %     obj.plot_transferfcn([],'click');
 end
 % RMS -> peak

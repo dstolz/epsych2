@@ -27,5 +27,6 @@ for i = 1:length(freqs)
 
     obj.plot_signal;
     obj.plot_spectrum;
-    obj.plot_transferfcn([],'tone');
+    obj.plot_transferfcn('tone');
+    % obj.plot_transferfcn([],'tone');
 end

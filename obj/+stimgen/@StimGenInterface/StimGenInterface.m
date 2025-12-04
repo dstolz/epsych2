@@ -32,6 +32,11 @@ classdef StimGenInterface < handle% & gui.Helper
         currentISI (1,1) double = 1; % current inter-stimulus interval (seconds)
         
         Fs (1,1) double {mustBePositive,mustBeFinite,mustBeNonNan} = 1
+        
+        % New: log of stimuli in order they were presented
+        StimOrder (:,1) double = double.empty(0,1);      % index into StimPlayObjs
+        StimOrderTime (:,1) double = double.empty(0,1);  % timeSinceStart at trigger
+        StimOrderTrial (:,1) double = double.empty(0,1); % TDT trial number at trigger
     end
     
     properties (Access = private)
@@ -137,8 +142,7 @@ classdef StimGenInterface < handle% & gui.Helper
             
             t = tic;
             
-            % make first and last samples 0 since RPvds circuit uses SerSource
-            % components
+            % make first and last samples 0 since RPvds circuit uses SerSource components
             buffer = [0, obj.CurrentSPObj.Signal, 0]; 
             
             % write constructed Stim to RPvds circuit buffer
@@ -163,11 +167,14 @@ classdef StimGenInterface < handle% & gui.Helper
         
         
         
-        
-        
         function timer_startfcn(obj,src,event)
             % reset reps for all StimPlay objects
             set(obj.StimPlayObjs,'RepsPresented',0);
+            
+            % clear stimulus order log
+            obj.StimOrder = [];
+            obj.StimOrderTime = [];
+            obj.StimOrderTrial = [];
             
             obj.select_next_spo_idx; % select the first idx
 
@@ -194,6 +201,11 @@ classdef StimGenInterface < handle% & gui.Helper
             while obj.timeSinceStart - obj.lastTrigTime + obj.isiAdjustment < isi, end
             
 
+            % log which stimulus is about to be presented
+            obj.StimOrder(end+1,1)      = obj.nextSPOIdx;
+            obj.StimOrderTime(end+1,1)  = obj.timeSinceStart;
+            obj.StimOrderTrial(end+1,1) = obj.currentTrialNumber;
+
             obj.trigger_stim_playback; % trigger playback of the obj.nextSPIdx buffer
             
             obj.CurrentSPObj.increment; % increment the StimPlay object
@@ -208,6 +220,13 @@ classdef StimGenInterface < handle% & gui.Helper
         function timer_stopfcn(obj,src,event)
             h = obj.handles;
             h.RunStopButton.Text = 'Run';
+
+            % save stimulus order log when playback stops
+            try
+                obj.save_stim_order();
+            catch me
+                vprintf(0,'StimGenInterface:timer_stopfcn','Failed to save stimulus order: %s',me.message);
+            end
         end
         
         function playback_control(obj,src,event)
@@ -379,6 +398,7 @@ classdef StimGenInterface < handle% & gui.Helper
         function play_current_stim_audio(obj,src,event)
             h = obj.handles.PlayStimAudio;
             
+            vprintf(1,'Playing current stimulus audio...');
             c = h.BackgroundColor;
             h.BackgroundColor = [.2 1 .2];
             drawnow
@@ -387,6 +407,7 @@ classdef StimGenInterface < handle% & gui.Helper
         end
         
         function update_signal_plot(obj,src,event)
+            vprintf(4,'Updating signal plot...');
             obj.CurrentSGObj.update_signal;
             h = obj.handles.SignalPlotLine;
             h.XData = obj.CurrentSGObj.Time;
@@ -404,6 +425,7 @@ classdef StimGenInterface < handle% & gui.Helper
         end
         
         function update_samplerate(obj,src,event)
+            vprintf(3,'Updating sample rate to %.3f Hz',event.Value);
             for i = 1:length(obj.sgObjs)
                 obj.sgObjs{i}.Fs = event.Value;
             end
@@ -426,6 +448,7 @@ classdef StimGenInterface < handle% & gui.Helper
             figure(f);
             
             warning('off','MATLAB:class:LoadInvalidDefaultElement');
+            vprintf(2,'Loading StimGenInterface configuration from: "%s"',ffn);
             load(ffn,'SGI','-mat');
             warning('on','MATLAB:class:LoadInvalidDefaultElement');
 
@@ -437,6 +460,8 @@ classdef StimGenInterface < handle% & gui.Helper
             h.StimObjList.Items = [obj.StimPlayObjs.DisplayName];
             h.StimObjList.ItemsData = 1:length(h.StimObjList.Items);
             
+            vprintf(2,'Loaded configuration successfully.');
+
             event.Value = 1;
             obj.stim_list_item_selected(h.StimObjList,event);
         end
@@ -462,6 +487,7 @@ classdef StimGenInterface < handle% & gui.Helper
                 ffn = [ffn '.sgi'];
             end
             
+            vprintf(1,'Saving StimGenInterface configuration to: "%s"',ffn);
             save(ffn,'SGI','-mat');
             
             f = ancestor(obj.parent,'figure');
@@ -487,7 +513,7 @@ classdef StimGenInterface < handle% & gui.Helper
                 
                 setpref('StimGenInterface','calpath',pn);
             end
-            
+            vprintf(1,'Loading Calibration from: "%s"',ffn);
             x = load(ffn,'-mat');
             obj.Calibration = x.obj;
             
@@ -501,9 +527,37 @@ classdef StimGenInterface < handle% & gui.Helper
             
         end
 
+        % save stimulus order to disk
+        function save_stim_order(obj,ffn)
+            if nargin < 2 || isempty(ffn)
+                if isempty(obj.DataFilename)
+                    obj.DataFilename = sprintf('SGIData_%s.mat',datestr(now,30));
+                end
+                ffn = fullfile(obj.DataPath,obj.DataFilename);
+            end
 
-        
-        
+            StimOrder      = obj.StimOrder; %#ok<NASGU>
+            StimOrderTime  = obj.StimOrderTime; %#ok<NASGU>
+            StimOrderTrial = obj.StimOrderTrial; %#ok<NASGU>
+
+            % Also save a cell array of stimulus display names for convenience
+            StimOrderNames = strings(size(StimOrder)); %#ok<NASGU>
+            for k = 1:numel(StimOrder)
+                idx = StimOrder(k);
+                if idx >= 1 && idx <= numel(obj.StimPlayObjs)
+                    StimOrderNames(k) = string(obj.StimPlayObjs(idx).DisplayName);
+                else
+                    StimOrderNames(k) = "";
+                end
+            end
+
+            vprintf(1,'Saving stimulus order to: "%s"',ffn);
+            if isfile(ffn)
+                save(ffn,'StimOrder','StimOrderTime','StimOrderTrial','StimOrderNames','-append');
+            else
+                save(ffn,'StimOrder','StimOrderTime','StimOrderTrial','StimOrderNames','-mat');
+            end
+        end
         
     end % methods (Access = public)
     

@@ -131,7 +131,7 @@ classdef StimGenInterface < handle% & gui.Helper
             obj.currentISI = obj.CurrentSPObj.get_isi;
             % obj.currentISI = obj.CurrentSPObj.get_isi - tdiff;
             
-            vprintf(3,'trigger_stim_playback: obj.currentISI = %.3f s',obj.currentISI)
+            vprintf(3,'trigger_stim_playback: currentISI = %.3f s',obj.currentISI)
         end
         
         function update_buffer(obj)            
@@ -181,7 +181,7 @@ classdef StimGenInterface < handle% & gui.Helper
             obj.update_buffer; % update the buffer with the first stimulus
             
             obj.firstTrigTime = now;
-            obj.lastTrigTime =0; % initialize time right before triggering stim playback
+            obj.lastTrigTime = 0; % initialize time right before triggering stim playback
         end
         
         
@@ -198,7 +198,8 @@ classdef StimGenInterface < handle% & gui.Helper
             
 
             % hold the computer hostage until ISI has expired
-            while obj.timeSinceStart - obj.lastTrigTime + obj.isiAdjustment < isi, end
+            %while obj.timeSinceStart - obj.lastTrigTime + obj.isiAdjustment < isi, end
+            while obj.timeSinceStart - obj.lastTrigTime < isi, end
             
 
             % log which stimulus is about to be presented
@@ -218,15 +219,15 @@ classdef StimGenInterface < handle% & gui.Helper
         end
         
         function timer_stopfcn(obj,src,event)
-            h = obj.handles;
-            h.RunStopButton.Text = 'Run';
-
             % save stimulus order log when playback stops
             try
                 obj.save_stim_order();
             catch me
                 vprintf(0,'StimGenInterface:timer_stopfcn','Failed to save stimulus order: %s',me.message);
             end
+
+            h = obj.handles;
+            h.RunStopButton.Text = 'Run';
         end
         
         function playback_control(obj,src,event)
@@ -290,7 +291,7 @@ classdef StimGenInterface < handle% & gui.Helper
             h = obj.handles;
             fnc = h.SelectionTypeList.Value;
             obj.nextSPOIdx = fnc(obj);
-            
+            vprintf(4,'stimgen:StimGenInterface:select_next_spo_idx:nextSPOidx = %d',obj.nextSPOIdx)
             if obj.nextSPOIdx < 1 % flag to finish playback
                 stop(obj.Timer);
             end
@@ -530,23 +531,24 @@ classdef StimGenInterface < handle% & gui.Helper
         % save stimulus order to disk
         function save_stim_order(obj,ffn)
             if nargin < 2 || isempty(ffn)
-                if isempty(obj.DataFilename)
-                    obj.DataFilename = sprintf('SGIData_%s.mat',datestr(now,30));
-                end
-                ffn = fullfile(obj.DataPath,obj.DataFilename);
+                fn = sprintf('SGIData_%s.mat',datestr(now,30));
+                
+                ffn = fullfile(obj.DataPath,fn);
+                [fn,pn] = uiputfile({'*.mat','MAT-file (*.mat)'}, 'Save Stim Order As', ffn);
+                if isequal(fn,0) || isequal(pn,0), return; end
+
+                [~,~,ext] = fileparts(fn);
+                if isempty(ext), fn = [fn '.mat']; end
+
+                obj.DataFilename = fn;
+                obj.DataPath = pn;
+                ffn = fullfile(pn,fn);
             end
 
             SG.StimOrder      = obj.StimOrder;
             SG.StimOrderTime  = obj.StimOrderTime;
             SG.StimOrderTrial = obj.StimOrderTrial;
-
-            % Also save a cell array of stimulus display names for convenience
-            SG.StimOrderNames = strings(size(SG.StimOrder)); 
-            for k = 1:numel(SG.StimOrder)
-                idx = SG.StimOrder(k);
-                SG.StimOrderNames(k) = string(obj.StimPlayObjs(idx).DisplayName);
-
-            end
+            SG.StimOrderNames = [obj.StimPlayObjs.DisplayName]';
 
             SG.timestamp = datetime('now');
             

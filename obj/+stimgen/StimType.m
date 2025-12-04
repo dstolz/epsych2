@@ -214,7 +214,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             pth = fileparts(r);
             d = dir(fullfile(pth,'*.m'));
             f = {d.name};
-            f(ismember(f,{'StimType.m','StimPlay.m'})) = [];
+            f(ismember(f,{'StimType.m','StimPlay.m','donotsavedatafcn.m'})) = [];
             f(contains(f,'Calib')) = [];
             c = cellfun(@(a) a(1:end-2),f,'uni',0);
         end

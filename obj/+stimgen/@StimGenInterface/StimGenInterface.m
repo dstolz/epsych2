@@ -2,7 +2,7 @@ classdef StimGenInterface < handle% & gui.Helper
     
     properties
         StimPlayObjs (:,1) stimgen.StimPlay
-        DataPath = fullfile('C:\Users\',getenv('USERNAME'));
+        DataPath = getpref('StimGenInterface','dataPath',cd);
         DataFilename = '';
     end
     
@@ -546,6 +546,7 @@ classdef StimGenInterface < handle% & gui.Helper
                 obj.DataFilename = fn;
                 obj.DataPath = pn;
                 ffn = fullfile(pn,fn);
+                setpref('StimGenInterface','dataPath',pn);
             end
 
             SG.StimOrder      = obj.StimOrder;

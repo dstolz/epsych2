@@ -536,27 +536,24 @@ classdef StimGenInterface < handle% & gui.Helper
                 ffn = fullfile(obj.DataPath,obj.DataFilename);
             end
 
-            StimOrder      = obj.StimOrder; %#ok<NASGU>
-            StimOrderTime  = obj.StimOrderTime; %#ok<NASGU>
-            StimOrderTrial = obj.StimOrderTrial; %#ok<NASGU>
+            SG.StimOrder      = obj.StimOrder;
+            SG.StimOrderTime  = obj.StimOrderTime;
+            SG.StimOrderTrial = obj.StimOrderTrial;
 
             % Also save a cell array of stimulus display names for convenience
-            StimOrderNames = strings(size(StimOrder)); %#ok<NASGU>
-            for k = 1:numel(StimOrder)
-                idx = StimOrder(k);
-                if idx >= 1 && idx <= numel(obj.StimPlayObjs)
-                    StimOrderNames(k) = string(obj.StimPlayObjs(idx).DisplayName);
-                else
-                    StimOrderNames(k) = "";
-                end
+            SG.StimOrderNames = strings(size(SG.StimOrder)); 
+            for k = 1:numel(SG.StimOrder)
+                idx = SG.StimOrder(k);
+                SG.StimOrderNames(k) = string(obj.StimPlayObjs(idx).DisplayName);
+
             end
 
+            SG.timestamp = datetime('now');
+            
             vprintf(1,'Saving stimulus order to: "%s"',ffn);
-            if isfile(ffn)
-                save(ffn,'StimOrder','StimOrderTime','StimOrderTrial','StimOrderNames','-append');
-            else
-                save(ffn,'StimOrder','StimOrderTime','StimOrderTrial','StimOrderNames','-mat');
-            end
+            
+            save(ffn,'SG','-mat');
+            
         end
         
     end % methods (Access = public)

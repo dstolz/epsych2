@@ -11,6 +11,8 @@ obj.StimTypeObj = so;
 obj.CalibrationMode = "specfreq";
 m = nan(size(freqs));
 obj.CalibrationData.tone = nan(length(freqs),4);
+
+obj.plot_reset;
 for i = 1:length(freqs)
     vprintf(1,'[%d/%d] Calibrating tone frequency = %.3f kHz', ...
         i,length(freqs),freqs(i)/1000)

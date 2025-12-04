@@ -349,6 +349,7 @@ classdef StimGenInterface < handle% & gui.Helper
         function stim_list_item_selected(obj,src,event)
             h = obj.handles;
             
+            
             if isprop(src,'Name') && isequal(src.Name,'nextSPOIdx')
                 value = obj.nextSPOIdx;
             elseif isempty(event.Value)
@@ -357,6 +358,8 @@ classdef StimGenInterface < handle% & gui.Helper
                 value = event.Value;
             end
             
+            vprintf(4,'StimGenInterface:stim_list_item_selected: value = %d',value);
+
             if value == -1, return; end
             
             spo = obj.StimPlayObjs(value);

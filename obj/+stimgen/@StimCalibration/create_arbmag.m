@@ -22,7 +22,7 @@ else
 end
 
 obj.CalibrationData.filter = arbFilt;
-obj.CalibrationData.filterGrpDelay = mean(grpdelay(arbFilt));
+obj.CalibrationData.filterGrpDelay = round(mean(grpdelay(arbFilt)));
 
 assignin('base','arbFilt',arbFilt);
 fprintf('<a href="matlab:fvtool(arbFilt)">View filter</a>\n')

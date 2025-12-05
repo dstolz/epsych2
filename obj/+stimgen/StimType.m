@@ -1,6 +1,5 @@
 classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable & matlab.mixin.SetGet
     
-    
     properties
         Calibration     (1,1) stimgen.StimCalibration
     end
@@ -35,6 +34,8 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         els
         GUIHandles
         calibrationWarningIssued (1,1) logical = false;
+        plotLineHandle matlab.graphics.chart.primitive.Line = matlab.graphics.chart.primitive.Line.empty
+        plotAxHandle   matlab.graphics.axis.Axes = matlab.graphics.axis.Axes.empty
     end
     
     
@@ -44,7 +45,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
     end
         
     methods (Abstract)
-        update_signal(obj,src,evnt); % updates obj.Signal
+        update_signal(obj); % implemented in subclasses
         h = create_gui(obj,src,evnt);
     end
     
@@ -53,7 +54,9 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         function obj = StimType(varargin)
             % does no property name case matching
             for i = 1:2:length(varargin)
-                obj.(varargin{i}) = varargin{i+1};
+                if isfield(obj,varargin{i})
+                    obj.(varargin{i}) = varargin{i+1};
+                end
             end
             
             obj.create_listeners;
@@ -84,9 +87,30 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         end
         
         function h = plot(obj,ax)
-            if nargin < 2 || isempty(ax), ax = gca; end
+            % PLOT  Plot current Signal vs Time.
+            %   If a valid plot already exists, its data are updated instead
+            %   of creating a new line.
+            if nargin < 2 || isempty(ax)
+                if ~isempty(obj.plotAxHandle) && isvalid(obj.plotAxHandle)
+                    ax = obj.plotAxHandle;
+                else
+                    ax = gca;
+                end
+            end
             
-            h = plot(ax,obj.Time,obj.Signal);
+            if isempty(obj.Signal)
+                obj.update_signal; % subclass implementation
+            end
+            
+            if ~isempty(obj.plotLineHandle) && isvalid(obj.plotLineHandle) && ...
+                    isvalid(obj.plotAxHandle) && obj.plotAxHandle == ax
+                set(obj.plotLineHandle,'XData',obj.Time,'YData',obj.Signal);
+                h = obj.plotLineHandle;
+            else
+                h = plot(ax,obj.Time,obj.Signal);
+                obj.plotLineHandle = h;
+                obj.plotAxHandle   = ax;
+            end
             grid(ax,'on');
             xlabel(ax,'time (s)');
         end
@@ -179,23 +203,29 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             p(~ind) = [];
             
             for i = 1:length(p)
-                e(i) = addlistener(obj,p(i).Name,'PostSet',@(~,~) obj.update_signal);
+                e(i) = addlistener(obj,p(i).Name,'PostSet',@obj.onPropertyChanged);
             end
             obj.els = e;
         end
         
-%         function create_handle_listeners(obj)
-%             m = metaclass(obj);
-%             p = m.PropertyList;
-%             ind = [p.SetObservable] & string({p.SetAccess}) == "public";
-%             p(~ind) = [];
-%             
-% 
-%             for i = 1:length(p)
-%                 e(i) = addlistener(obj,p(i).Name,'PostSet',@obj.update_handle_value);
-%             end
-%             obj.hels = e;       
-%         end
+        function onPropertyChanged(obj,~,~)
+            % Listener callback: update signal and refresh plot if it exists.
+            obj.update_signal; % subclass implementation handles args
+            obj.refresh_plot_if_valid;
+        end
+        
+        function refresh_plot_if_valid(obj)
+            if ~isempty(obj.plotLineHandle) && isvalid(obj.plotLineHandle)
+                if isempty(obj.Signal)
+                    return
+                end
+                set(obj.plotLineHandle,'XData',obj.Time,'YData',obj.Signal);
+                if ~isempty(obj.plotAxHandle) && isvalid(obj.plotAxHandle)
+                    grid(obj.plotAxHandle,'on');
+                    xlabel(obj.plotAxHandle,'time (s)');
+                end
+            end
+        end
         
         function update_handle_value(obj,src,event)
             h = obj.GUIHandles;

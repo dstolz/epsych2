@@ -34,6 +34,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         temporarilyDisableSignalMods (1,1) logical = false;
         els
         GUIHandles
+        calibrationWarningIssued (1,1) logical = false;
     end
     
     
@@ -136,8 +137,12 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             C = obj.Calibration;
             
             if ~isa(C,'stimgen.StimCalibration') || isempty(C.CalibrationData)
-%                 warning('stimgen:StimType:apply_calibration:NoCalibration', ...
-%                     'No calibration data available for stim')
+                if obj.calibrationWarningIssued
+                    vprintf(2,1,'No calibration data available for stim');    
+                else
+                    vprintf(0,1,'No calibration data available for stim');
+                    obj.calibrationWarningIssued = true;
+                end
                 return
             end
             

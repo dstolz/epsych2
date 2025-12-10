@@ -18,19 +18,23 @@ classdef FMtone < stimgen.StimType
         ModulationDepth     (1,1) double {mustBeNonnegative} = 1000
         OnsetPhase          (1,1) double                     = 0
     end
+    
 
-    properties (Constant, Hidden)
+    properties (Constant)
+        IsMultiObj      = false;
         CalibrationType = "tone"
         Normalization   = "absmax"
     end
 
     methods
-        function obj = FMtone(Fs, Calibration)
+        function obj = FMtone(varargin)
             %FMtone  Construct an FM tone stimulus.
 
-            obj@stimgen.StimType(Fs, Calibration);
-            obj.Name        = 'FM Tone';
-            obj.DisplayName = 'FMtone';
+            obj@stimgen.StimType(varargin{:});
+
+            obj.DisplayName = 'FM Tone';
+            obj.UserProperties = ["SoundLevel","Duration","WindowDuration","ApplyWindow","CarrierFrequency","ModulationFrequency","ModulationDepth","OnsetPhase"];
+
 
             obj.update_signal;
         end
@@ -68,24 +72,12 @@ classdef FMtone < stimgen.StimType
             obj.apply_calibration;
         end
 
-        function h = create_gui(obj, parent)
-            %CREATE_GUI  Create parameter controls for FMtone.
-            %   h = create_gui(obj, parent) creates UI controls for
-            %   CarrierFrequency, ModulationFrequency, ModulationDepth, and
-            %   OnsetPhase in the specified parent container (uipanel/figure).
-            %   Returns a struct of handle references.
+        function h = create_gui(obj, src, evnt)
 
-            arguments
-                obj
-                parent = []
-            end
 
-            if isempty(parent)
-                parent = uipanel('Title','FM Tone');
-            end
 
             % Use a simple grid, similar to Tone
-            gl = uigridlayout(parent, [4 2]);
+            gl = uigridlayout(src, [4 2]);
             gl.RowHeight    = repmat({'fit'}, 1, 4);
             gl.ColumnWidth  = {'1x','1x'};
 

@@ -2,6 +2,8 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
     
     properties
         Calibration     (1,1) stimgen.StimCalibration
+        UserProperties  (1,:) string = string.empty
+        DisplayName   (1,1) string = "undefined";
     end
     
     properties (SetObservable,AbortSet)
@@ -40,6 +42,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
     
     
     properties (Abstract, Constant)
+        IsMultiObj      (1,1) logical
         CalibrationType (1,1) string % "noise","tone","click"
         Normalization   (1,1) string % "absmax","max","min","rms"
     end

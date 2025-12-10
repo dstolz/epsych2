@@ -15,7 +15,7 @@ f.DeleteFcn = @obj.delete_main_figure;
 
 
 g = uigridlayout(f);
-g.ColumnWidth = {250,'1x',250};
+g.ColumnWidth = {300,'1x',300};
 g.RowHeight   = {150,'1x',25};
 
 
@@ -46,7 +46,7 @@ for i = 1:length(obj.sgTypes)
         sgt = obj.sgTypes{i};
         sgo = obj.sgObjs{i};
         fnc = @sgo.create_gui;
-        t = uitab(tg,'Title',sgt,'CreateFcn',fnc);
+        t = uitab(tg,'Tag',sgt,'Title',sgo.DisplayName,'CreateFcn',fnc);
         t.Scrollable = 'on';
         obj.handles.Tabs.(sgt) = t;
         addlistener(sgo,'Signal','PostSet',@obj.update_signal_plot);
@@ -54,6 +54,7 @@ for i = 1:length(obj.sgTypes)
     catch me
         t.Title = sprintf('%s ERROR',sgt);
         disp(me)
+        rethrow(me)
     end
 end
 
@@ -153,14 +154,15 @@ obj.handles.AddStimToList = h;
 R = R + 1;
 
 % stimulus list
-h = uilistbox(sbg,'Tag','StimObjList');
+h = uitree(sbg,'Tag','StimObjList');
+h.SelectionChangedFcn = @obj.onTreeSelectionChanged;
+h.Multiselect = 'off';
 h.Layout.Column = [1 2];
-h.Layout.Row = [R R+2];
-h.Items = {};
-h.ValueChangedFcn = @obj.stim_list_item_selected;
+h.Layout.Row = [R R+5];
 obj.handles.StimObjList = h;
+obj.populateTree();
 
-R = R + 3;            
+R = R + 6;
 
 %             % advance stim button
 %             h = uibutton(sbg,'Tag','AdvanceStimFromList');

@@ -13,7 +13,10 @@ classdef AMnoise < stimgen.Noise
         ApplyViemeisterCorrection (1,1) logical = true;
     end
     
+    
+
     properties (Constant)
+        %IsMultiObj      = false;
         %CalibrationType = "noise"; % defined in stimgen.Noise superclass
         %Normalization = "rms"; % defined in stimgen.Noise superclass
     end
@@ -22,9 +25,10 @@ classdef AMnoise < stimgen.Noise
                 
         function obj = AMnoise(varargin)
             obj = obj@stimgen.Noise(varargin{:});
-            
-            obj.create_listeners;
-            
+
+            obj.DisplayName = 'AM Noise';
+            obj.UserProperties = ["SoundLevel","Duration","WindowDuration","ApplyWindow","HighPass","LowPass","AMDepth","AMRate","OnsetPhase","EnvelopeOnly","ApplyViemeisterCorrection"]; 
+                        
             obj.Duration = 1;
         end
         

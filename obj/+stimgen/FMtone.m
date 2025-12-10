@@ -36,7 +36,6 @@ classdef FMtone < stimgen.StimType
             obj.UserProperties = ["SoundLevel","Duration","WindowDuration","ApplyWindow","CarrierFrequency","ModulationFrequency","ModulationDepth","OnsetPhase"];
 
 
-            obj.update_signal;
         end
 
         function update_signal(obj)
@@ -77,41 +76,86 @@ classdef FMtone < stimgen.StimType
 
 
             % Use a simple grid, similar to Tone
-            gl = uigridlayout(src, [4 2]);
-            gl.RowHeight    = repmat({'fit'}, 1, 4);
-            gl.ColumnWidth  = {'1x','1x'};
+            g = uigridlayout(src, [4 2]);
+            g.RowHeight    = repmat({'fit'}, 1, 8);
+            g.ColumnWidth  = {'1x','1x'};
 
             % Carrier frequency
-            uilabel(gl, 'Text', 'Carrier (Hz)');
-            h.edCarrier = uieditfield(gl, 'numeric', ...
+            uilabel(g, 'Text', 'Carrier (Hz)');
+            h.CarrierFrequency = uieditfield(g, 'numeric', ...
+                'Tag','CarrierFrequency', ...
                 'Value', obj.CarrierFrequency, ...
                 'Limits', [1 80000], ...  % Hz
-                'ValueDisplayFormat', '%.1f', ...
-                'ValueChangedFcn', @(src,~) set(obj, 'CarrierFrequency', src.Value));
+                'ValueDisplayFormat', '%.1f');
 
             % Modulation frequency
-            uilabel(gl, 'Text', 'FM rate (Hz)');
-            h.edModFreq = uieditfield(gl, 'numeric', ...
+            uilabel(g, 'Text', 'FM rate (Hz)');
+            h.ModulationFrequency = uieditfield(g, 'numeric', ...
+                'Tag','ModulationFrequency', ...
                 'Value', obj.ModulationFrequency, ...
                 'Limits', [0 40000], ...  % Hz
-                'ValueDisplayFormat', '%.2f', ...
-                'ValueChangedFcn', @(src,~) set(obj, 'ModulationFrequency', src.Value));
+                'ValueDisplayFormat', '%.2f');
 
             % Modulation depth
-            uilabel(gl, 'Text', 'FM depth (Hz)');
-            h.edModDepth = uieditfield(gl, 'numeric', ...
+            uilabel(g, 'Text', 'FM depth (Hz)');
+            h.ModulationDepth = uieditfield(g, 'numeric', ...
+                'Tag','ModulationDepth', ...
                 'Value', obj.ModulationDepth, ...
                 'Limits', [0 20000], ...  % Hz deviation
-                'ValueDisplayFormat', '%.1f', ...
-                'ValueChangedFcn', @(src,~) set(obj, 'ModulationDepth', src.Value));
+                'ValueDisplayFormat', '%.1f');
 
             % Onset phase
-            uilabel(gl, 'Text', 'Onset phase (rad)');
-            h.edPhase = uieditfield(gl, 'numeric', ...
+            uilabel(g, 'Text', 'Onset phase (rad)');
+            h.OnsetPhase = uieditfield(g, 'numeric', ...
+                'Tag','OnsetPhase', ...
                 'Value', obj.OnsetPhase, ...
                 'Limits', [-2*pi 2*pi], ...  % radians
-                'ValueDisplayFormat', '%.3f', ...
-                'ValueChangedFcn', @(src,~) set(obj, 'OnsetPhase', src.Value));
+                'ValueDisplayFormat', '%.3f');
+
+
+            
+            x = uilabel(g,'Text','Duration:');
+            x.HorizontalAlignment = 'right';
+            
+            x = uieditfield(g,'numeric','Tag','Duration');
+            x.Limits = [0.001 10];
+            x.ValueDisplayFormat = '%.3f s';
+            x.Value = obj.Duration;
+            h.Duration = x;
+
+
+            structfun(@(a) set(a,'ValueChangedFcn',@obj.interpret_gui),h);
+            
+            obj.GUIHandles = h;
+            
+                        
         end
+        
+    end
+
+
+    methods (Access = protected)
+        function interpret_gui(obj,src,event)
+            try
+                obj.(src.Tag) = event.Value;
+            catch
+                obj.(src.Tag) = event.PreviousValue;
+            end
+            
+            if isequal(src.Tag,'WindowMethod')
+                switch src.Value
+                    case 'Proportional'
+                        fmt = '%.2f%%';
+                    case 'Duration'
+                        fmt = '%.4f s';
+                    case '#Periods'
+                        fmt = '%.1f periods';
+                end
+                obj.GUIHandles.WindowDuration.ValueDisplayFormat = fmt;
+            end
+
+            obj.update_signal;
+        end
+        
     end
 end

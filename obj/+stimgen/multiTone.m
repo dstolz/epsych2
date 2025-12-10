@@ -1,6 +1,6 @@
 classdef multiTone < stimgen.StimType
     properties (SetObservable)
-        ToneObjects (1,:) stimgen.Tone = stimgen.Tone.empty
+        MultiObjects (1,:) stimgen.Tone = stimgen.Tone.empty
 
         OnsetPhase (1,1) double = 0
 
@@ -8,13 +8,14 @@ classdef multiTone < stimgen.StimType
     end
 
     properties
-        Frequency_  (1,:) double
-        SoundLevel_ (1,:) double
-
         Frequency_MO  (1,1) string = "500*2.^(0:6)";
         SoundLevel_MO (1,1) string = "10:10:70";
     end
     
+    properties (Dependent)
+        Frequency_  (1,:) double
+        SoundLevel_ (1,:) double
+    end
 
     properties (Constant)
         IsMultiObj      = true;
@@ -35,13 +36,13 @@ classdef multiTone < stimgen.StimType
         function update_signal(obj)
             obj.update_tone_objs();
 
-            if isempty(obj.ToneObjects)
+            if isempty(obj.MultiObjects)
                 obj.Signal = [];
                 return
             end
 
             % Concatenate signals from all tone objects
-            sigs = cellfun(@(t) t.Signal(:),num2cell(obj.ToneObjects),'UniformOutput',false);
+            sigs = cellfun(@(t) t.Signal(:),num2cell(obj.MultiObjects),'UniformOutput',false);
             obj.Signal = vertcat(sigs{:})';
             
             
@@ -138,6 +139,15 @@ classdef multiTone < stimgen.StimType
             
 %             obj.create_handle_listeners;
         end
+
+
+        function f = get.Frequency_(obj)
+            f = eval(obj.Frequency_MO);
+        end
+
+        function s = get.SoundLevel_(obj)
+            s = eval(obj.SoundLevel_MO);
+        end
         
     end
 
@@ -149,14 +159,14 @@ classdef multiTone < stimgen.StimType
             s = obj.SoundLevel_;
 
             nTones = numel(f)*numel(s);
-            obj.ToneObjects = repmat(stimgen.Tone(),1,nTones);
+            obj.MultiObjects = repmat(stimgen.Tone(),1,nTones);
 
             for i = 1:nTones
                 fi = mod(i-1,numel(f))+1;
                 si = mod(floor((i-1)/numel(f)),numel(s))+1;
 
-                obj.ToneObjects(i).Frequency = f(fi);
-                obj.ToneObjects(i).SoundLevel = s(si);
+                obj.MultiObjects(i).Frequency = f(fi);
+                obj.MultiObjects(i).SoundLevel = s(si);
             end
 
 
@@ -182,14 +192,7 @@ classdef multiTone < stimgen.StimType
                 obj.(t) = pv;
             end
 
-            if isStr
-                ct = replace(t,"MO","");
-                try
-                    obj.(ct) = eval(obj.(t));
-                catch
-                    obj.(t) = pv;
-                end
-            end
+            obj.(t) = pv;
             
             if isequal(t,'WindowMethod')
                 switch src.Value

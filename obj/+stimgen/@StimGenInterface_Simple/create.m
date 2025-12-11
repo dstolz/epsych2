@@ -16,12 +16,12 @@ f.DeleteFcn = @obj.delete_main_figure;
 
 g = uigridlayout(f);
 g.ColumnWidth = {300,'1x',300};
-g.RowHeight   = {150,'1x',25};
+g.RowHeight   = {250,'1x'};
 
 
 % signal plot
 ax = uiaxes(g);
-ax.Layout.Column = [1 2];
+ax.Layout.Column = [1 3];
 ax.Layout.Row = 1;
 grid(ax,'on');
 box(ax,'on');
@@ -60,22 +60,14 @@ end
 pause(1); % neeeded?
 obj.stimtype_changed(tg);
 
-% play stim
-h = uibutton(g,'Tag','Play');
-h.Layout.Row = 3;
-h.Layout.Column = 2;
-h.Text = 'Play Stim';
-h.ButtonPushedFcn = @obj.play_current_stim_audio;
-obj.handles.PlayStimAudio = h;
-
 
 
 % side-bar grid
 sbg = uigridlayout(g);
 sbg.Layout.Column = 3;
-sbg.Layout.Row = [1 3];
+sbg.Layout.Row = 2;
 sbg.ColumnWidth = {'1x', '1x'};
-sbg.RowHeight = {30,30,30,30,200};
+sbg.RowHeight = {30,30,30,30,200,30};
 
 R = 1;
 
@@ -170,6 +162,16 @@ h.ButtonPushedFcn = @obj.playback_control;
 h.Enable = 'off';
 obj.handles.PauseButton = h;
 
+R = R + 1;
+
+% play stim
+h = uibutton(sbg,'Tag','Play');
+h.Layout.Row = R;
+h.Layout.Column = [1 2];
+h.Text = 'Play Stim';
+h.ButtonPushedFcn = @obj.play_current_stim_audio;
+obj.handles.PlayStimAudio = h;
+
 
 
 % toolbar
@@ -181,10 +183,11 @@ h = uimenu(hf,'Tag','menu_Load','Text','&Load','Accelerator','L', ...
 h = uimenu(hf,'Tag','menu_Save','Text','&Save','Accelerator','S', ...
     'MenuSelectedFcn',@(~,~) obj.save_config);
 
-h = uimenu(hf,'Tag','menu_Save','Text','&Calibration','Accelerator','C', ...
+h = uimenu(hf,'Tag','menu_Save','Text','&Calibration','Accelerator','A', ...
     'MenuSelectedFcn',@(~,~) obj.set_calibration);
 
 
 
 
 movegui(f,'onscreen');
+

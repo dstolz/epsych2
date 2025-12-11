@@ -70,6 +70,26 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
             end
         end
         
+        function S = toStruct(obj)
+            %TOSTRUCT  Serialize StimCalibration object to a struct.
+
+            S = struct;
+            S.Class                   = "stimgen.StimCalibration";
+
+            % Core calibration parameters
+            S.CalibrationData         = obj.CalibrationData;
+            S.CalibrationMode         = obj.CalibrationMode;
+            S.MicSensitivity          = obj.MicSensitivity;
+            S.NormativeValue          = obj.NormativeValue;
+            S.ReferenceLevel          = obj.ReferenceLevel;
+            S.ReferenceFrequency      = obj.ReferenceFrequency;
+            S.ExcitationSignalVoltage = obj.ExcitationSignalVoltage;
+            S.CalibrationTimestamp    = obj.CalibrationTimestamp;
+
+            % Useful derived/diagnostic info
+            S.ResponseTHD             = obj.ResponseTHD;
+            S.Fs                      = obj.Fs;
+        end
 
         function plot_reset(obj)
             vprintf(4,'Resetting calibration plots')

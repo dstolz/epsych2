@@ -66,6 +66,43 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             obj.create_listeners;
         end
 
+        function S = toStruct(obj)
+            %TOSTRUCT  Serialize StimType object to a struct.
+
+            % Basic class metadata
+            S = struct;
+            S.Class        = string(class(obj));
+            S.DisplayName  = obj.DisplayName;
+
+            % Core StimType properties
+            S.SoundLevel       = obj.SoundLevel;
+            S.Duration         = obj.Duration;
+            S.WindowDuration   = obj.WindowDuration;
+            S.WindowFcn        = obj.WindowFcn;
+            S.ApplyCalibration = obj.ApplyCalibration;
+            S.ApplyWindow      = obj.ApplyWindow;
+            S.Fs               = obj.Fs;
+
+            % Abstract/constant properties (same across instances of subclass)
+            S.CalibrationType  = obj.CalibrationType;
+            S.Normalization    = obj.Normalization;
+            S.IsMultiObj       = obj.IsMultiObj;
+
+            % Calibration
+            S.Calibration = obj.Calibration.toStruct;
+
+
+            % User-defined property list and values
+            S.UserProperties = obj.UserProperties;
+            for k = 1:numel(obj.UserProperties)
+                pname = obj.UserProperties(k);
+                if isprop(obj,pname)
+                    S.(pname) = obj.(pname);
+                end
+            end
+
+            % Do NOT store Signal, GUIHandles, listeners, etc. here
+        end
         
         function set.Calibration(obj,calObj)
             obj.Calibration = calObj;

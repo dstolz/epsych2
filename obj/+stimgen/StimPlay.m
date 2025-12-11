@@ -46,6 +46,35 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
             end
         end
 
+        function S = toStruct(obj)
+            %TOSTRUCT  Serialize StimPlay object to a struct.
+
+            % Basic metadata
+            S.Timestamp   = datetime('now');
+            S.Name           = obj.Name;
+            S.DisplayName    = obj.DisplayName;
+            S.Fs             = obj.Fs;
+            S.Reps           = obj.Reps;
+            S.ISI            = obj.ISI;
+            S.RepsPresented  = obj.RepsPresented;
+            S.SelectionType  = obj.SelectionType;
+            S.StimOrder      = obj.StimOrder;
+
+            % Calibration (assume toStruct exists if not empty)
+            if isempty(obj.Calibration)
+                S.Calibration = [];
+            else
+                S.Calibration = obj.Calibration.toStruct;
+            end
+
+            % Stimulus objects: delegate to StimType.toStruct
+            if obj.StimObj.IsMultiObj
+                S.StimObj = arrayfun(@toStruct, obj.StimObj.MultiObjects);
+            else
+                S.StimObj = obj.StimObj.toStruct;
+            end
+        end
+
         function i = get.StimIdx(obj)
             i = min(obj.StimIdx,obj.NStimObj);
         end

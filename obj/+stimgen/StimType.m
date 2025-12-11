@@ -13,7 +13,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         WindowDuration (1,1) double {mustBeNonnegative,mustBeFinite} = 0.002; % seconds
         WindowFcn      (1,1) string = "cos2";
         
-        ApplyCalibration (1,1) logical = false;
+        ApplyCalibration (1,1) logical = true;
         ApplyWindow      (1,1) logical = true;
         
         Fs             (1,1) double {mustBePositive,mustBeFinite} = 97656.25; % Hz

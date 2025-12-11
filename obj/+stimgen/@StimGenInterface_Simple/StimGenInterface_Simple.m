@@ -41,7 +41,6 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
         RUNTIME % espsych.Runtime
         PARAMS struct = struct() % struct of hw.Parameter objects, field names are valid parameter names
         els % event listeners
-        elsnsspi % listener for nextSPOIdx property
     end
 
 
@@ -112,8 +111,8 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
             tdiff = obj.lastTrigTime - obj.currentISI;
             if isempty(tdiff), tdiff = 0; end
-            vprintf(3,'trigger_stim_playback: TrigBufferID = %d; nextSPOidx = %d; ITI diff = %.4f sec', ...
-                obj.TrigBufferID,obj.nextSPOIdx,tdiff)
+            vprintf(3,'trigger_stim_playback: TrigBufferID = %d; ITI diff = %.4f sec', ...
+                obj.TrigBufferID,tdiff)
 
             %{
             if ~all(s)
@@ -130,8 +129,8 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
         function update_buffer(obj)
             obj.TrigBufferID = mod(obj.currentTrialNumber,2);
 
-            vprintf(3,'update_buffer START: TrigBufferID = %d; nextSPOidx = %d', ...
-                obj.TrigBufferID,obj.nextSPOIdx)
+            vprintf(3,'update_buffer START: TrigBufferID = %d', ...
+                obj.TrigBufferID)
 
             t = tic;
 
@@ -151,7 +150,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
                 rethrow(me)
             end
 
-            vprintf(4,'update_buffer END:   TrigBufferID = %d; nextSPOidx = %d; took %.2f seconds',obj.TrigBufferID,obj.nextSPOIdx, toc(t))
+            vprintf(4,'update_buffer END:   TrigBufferID = %d; took %.2f seconds',obj.TrigBufferID, toc(t))
         end
 
 
@@ -163,6 +162,8 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
         function timer_startfcn(obj,src,event)
             % reset reps for StimPlay objects
             obj.StimPlayObj.reset;
+
+            obj.update_isi;
 
 
             obj.StimPlayObj.increment; % select the first idx
@@ -176,7 +177,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
         function timer_runtimefcn(obj,src,event)
 
-            if obj.nextSPOIdx < 1, return; end % flag to finish playback
+            if obj.StimPlayObj.Complete, return; end % flag to finish playback
 
             isi = obj.currentISI;
 
@@ -195,9 +196,9 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
             obj.StimPlayObj.increment; % increment the StimPlay object
 
-            if obj.Complete, return; end % flag indicating session is complete
+            if obj.StimPlayObj.Complete, return; end % flag indicating session is complete
 
-            obj.update_buffer; % update the non-triggered buffer with the nextSPOIdx stimulus
+            obj.update_buffer; % update the non-triggered buffer
         end
 
         function timer_stopfcn(obj,src,event)
@@ -289,10 +290,12 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             v = str2num(v);
             v = sort(v(:)');
             try
+                assert(numel(v) <= 2 & numel(v) >= 1, 'Invalid entry for ISI. Must be a scalar value or a 1x2 range for randomization.')
                 src.Value = mat2str(v);
+                h.StimPlayObj.ISI = v;
             catch me
                 uialert(obj.parent,me.message,'InvalidEntry','modal',true)
-                h.ISI.Value = vent.Previous;
+                src.Value = event.PreviousValue;
             end
         end
 

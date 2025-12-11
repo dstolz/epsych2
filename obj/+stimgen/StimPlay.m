@@ -20,7 +20,7 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
 
         SelectionType {mustBeMember(SelectionType,["Shuffle","Serial"])} = "Shuffle";
 
-        Complete (1,1) logical = false;
+        
     end
 
     properties (SetAccess = private)
@@ -32,6 +32,8 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
         Signal
         CurrentStimObj
         NStimObj
+
+        Complete
     end
     
     methods
@@ -61,11 +63,7 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
         end
         
         function increment(obj)
-
-            if sum(obj.RepsPresented) == obj.Reps * obj.NStimObj
-                obj.Complete = true;
-                return
-            end
+            if obj.Complete, return; end
 
             switch obj.SelectionType
                 case "Shuffle"
@@ -135,6 +133,10 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
             else
                 n = numel(obj.StimObj);
             end
+        end
+
+        function c = get.Complete(obj)
+            c = sum(obj.RepsPresented) == obj.Reps * obj.NStimObj;
         end
     end
 

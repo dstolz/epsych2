@@ -31,10 +31,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
         Fs (1,1) double {mustBePositive,mustBeFinite,mustBeNonNan} = 1
 
-        % New: log of stimuli in order they were presented
-        StimOrder (:,1) double = double.empty(0,1);      % index into StimPlayObj
-        StimOrderTime (:,1) double = double.empty(0,1);  % timeSinceStart at trigger
-        StimOrderTrial (:,1) double = double.empty(0,1); % TDT trial number at trigger
+
     end
 
     properties (Access = private)
@@ -190,8 +187,11 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
 
             obj.trigger_stim_playback; % trigger playback of the obj.nextSPIdx buffer
-
-            obj.handles.StimulusCounter.Text = sprintf('%d of %d',obj.StimPlayObj.StimPresented,obj.StimPlayObj.StimTotal);
+            
+            a = obj.StimPlayObj.StimPresented;
+            b = obj.StimPlayObj.StimTotal;
+            obj.handles.StimulusCounter.Text = sprintf('% 3d/%d (%.1f%% complete)', ...
+                a,b,a/b*100);
 
             if obj.StimPlayObj.LastStim
                 stop(src);
@@ -279,7 +279,10 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             i = ismember(obj.sgTypes,t);
             so = obj.sgObj{i};
 
+
             obj.StimPlayObj.StimObj = so;
+
+            so.Calibration = obj.Calibration;
             
             addlistener(so,'Signal','PostSet',@obj.update_signal_plot);
 
@@ -348,8 +351,22 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             h.XData = so.Time;
             h.YData = so.Signal;
 
-            yline(obj.handles.SignalPlotAx,0,'-k');
-            ylim(obj.handles.SignalPlotAx,[-1.05 1.05]*max(abs(so.Signal)))
+            ax = obj.handles.SignalPlotAx;
+            yline(ax,0,'-k');
+            ylim(ax,[-1.05 1.05]*max(abs(so.Signal)))
+
+            ylabel(ax,'Amplitude (V)')
+
+            if isnat(obj.Calibration.CalibrationTimestamp)
+                tstr = "Uncalibrated";
+                clr = 'r';
+            else
+                tstr = "Calibrated";
+                clr = 'k';
+            end
+            tstr = sprintf('%s - %s',so.DisplayName,tstr);
+            title(ax,tstr,Color=clr);
+            subtitle(ax,so.StrProps);
         end
 
 
@@ -432,7 +449,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
             if nargin < 2 || isempty(ffn)
                 pn = getpref('StimGenInterface','calpath',cd);
-                [fn,pn] = uigetfile({'*.sgc','StimGenInterface Calibration (*.sgc)'},pn);
+                [fn,pn] = uigetfile({'*.sgc','StimGenInterface Calibration (*.sgc)'},'Calibration',pn);
                 if isequal(fn,0), return; end
 
                 ffn = fullfile(pn,fn);
@@ -450,6 +467,8 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             uialert(f, ...
                 sprintf('Updated Calibration: "%s"',ffn), ...
                 'StimGenInterface','Icon','success','Modal',true);
+
+            obj.update_signal_plot;
 
         end
 
@@ -471,12 +490,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
                 setpref('StimGenInterface','dataPath',pn);
             end
 
-            SG.StimObjs = obj.StimPlayObj;
-            SG.StimOrder      = obj.StimOrder;
-            SG.StimOrderTime  = obj.StimOrderTime;
-            SG.StimOrderTrial = obj.StimOrderTrial;
-            SG.StimOrderNames = [obj.StimPlayObj.DisplayName]';
-
+            SG.StimPlay = obj.StimPlayObj;
             SG.timestamp = datetime('now');
 
             vprintf(1,'Saving stimulus order to: "%s"',ffn);

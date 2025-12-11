@@ -414,7 +414,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
             if nargin < 2 || isempty(ffn)
                 pn = getpref('StimGenInterface','path',cd);
-                [fn,pn] = uiputfile({'*.sgi','StimGenInterface Config (*.sgi)'},pn);
+                [fn,pn] = uiputfile({'*.sgi','StimGenInterface Config (*.sgi)'},'Save StimGen Config',pn);
                 if isequal(fn,0), return; end
 
                 ffn = fullfile(pn,fn);
@@ -490,8 +490,8 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
                 setpref('StimGenInterface','dataPath',pn);
             end
 
-            SG.StimPlay = obj.StimPlayObj;
-            SG.timestamp = datetime('now');
+            SG = obj.StimPlayObjs.toStruct;
+
 
             vprintf(1,'Saving stimulus order to: "%s"',ffn);
 

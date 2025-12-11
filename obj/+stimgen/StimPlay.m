@@ -20,7 +20,7 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
 
         SelectionType {mustBeMember(SelectionType,["Shuffle","Serial"])} = "Shuffle";
 
-        
+        Calibration (1,1) 
     end
 
     properties (SetAccess = private)
@@ -33,7 +33,10 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
         CurrentStimObj
         NStimObj
 
-        Complete
+        StimPresented
+        StimTotal
+
+        LastStim
     end
     
     methods
@@ -41,6 +44,10 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
             if nargin == 1 && ~isempty(StimObj)
                 obj.StimObj = StimObj;
             end
+        end
+
+        function i = get.StimIdx(obj)
+            i = min(obj.StimIdx,obj.NStimObj);
         end
         
         function t = get.Type(obj)
@@ -63,7 +70,7 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
         end
         
         function increment(obj)
-            if obj.Complete, return; end
+            if obj.LastStim, return; end
 
             switch obj.SelectionType
                 case "Shuffle"
@@ -74,6 +81,7 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
             end
 
             obj.StimIdx = idx;
+
 
             obj.RepsPresented(idx) = obj.RepsPresented(idx) + 1;
             obj.StimOrder(sum(obj.RepsPresented)) = idx;            
@@ -90,9 +98,11 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
         end
         
         function reset(obj)
-            obj.StimIdx = 0;
-            obj.RepsPresented = zeros(size(obj.StimObj));
-            obj.StimOrder = nan(1,obj.Reps*obj.NStimObj);
+            obj.StimObj.update_signal;
+
+            obj.StimIdx = 1;
+            obj.RepsPresented = zeros(1,obj.NStimObj);
+            obj.StimOrder = nan(1,obj.StimTotal);
         end
 
 
@@ -110,7 +120,7 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
             if obj.StimObj.IsMultiObj
                 arrayfun(@update_signal,obj.StimObj.MultiObjects);
             else
-                arrayfun(@update_signal,obj.StimObj);
+                obj.StimObj.update_signal;
             end
         end
 
@@ -135,8 +145,22 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
             end
         end
 
-        function c = get.Complete(obj)
-            c = sum(obj.RepsPresented) == obj.Reps * obj.NStimObj;
+        function c = get.LastStim(obj)
+           c = obj.StimPresented == obj.StimTotal;
+        end
+
+        function n = get.StimPresented(obj)
+            n = sum(obj.RepsPresented);
+        end
+
+        function n = get.StimTotal(obj)
+            n = obj.Reps * obj.NStimObj;
+        end
+
+        function set.Calibration(obj,calObj)
+            obj.Calibration = calObj;
+            obj.StimObj.Calibration = calObj;
+            
         end
     end
 

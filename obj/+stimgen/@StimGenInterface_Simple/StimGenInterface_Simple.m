@@ -88,19 +88,12 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
 
         function set.Calibration(obj,calObj)
-
             obj.Calibration = calObj;
-
-            for i = 1:obj.StimPlayObj.NStimObj
-                obj.StimPlayObj.StimObj(i).Calibration = calObj;
-            end
-
+            obj.StimPlayObj.Calibration = calObj;
         end
 
 
         function trigger_stim_playback(obj)
-            if obj.StimPlayObj.Complete, return; end % flag to finish playback
-
             trigStr = sprintf('x_Trigger_%d',obj.TrigBufferID);
 
             obj.PARAMS.(trigStr).Value = 1; % trigger the buffer
@@ -129,7 +122,12 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
         function update_buffer(obj)
             obj.TrigBufferID = mod(obj.currentTrialNumber,2);
 
-            vprintf(3,'update_buffer START: TrigBufferID = %d', ...
+            so = obj.StimPlayObj.CurrentStimObj;
+            vprintf(4,'CurrentStimObj: %s',so.DisplayName)
+            vprintf(4,'CurrentStimObj properties: %s',so.StrProps)
+
+
+            vprintf(4,'update_buffer START: TrigBufferID = %d', ...
                 obj.TrigBufferID)
 
             t = tic;
@@ -163,22 +161,21 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             % reset reps for StimPlay objects
             obj.StimPlayObj.reset;
 
-            obj.update_isi;
+            obj.currentISI = obj.StimPlayObj.get_isi;
 
 
             obj.StimPlayObj.increment; % select the first idx
 
+            
             obj.update_buffer; % update the buffer with the first stimulus
-
+            
+            
             obj.firstTrigTime = now;
             obj.lastTrigTime = 0; % initialize time right before triggering stim playback
         end
 
 
         function timer_runtimefcn(obj,src,event)
-
-            if obj.StimPlayObj.Complete, return; end % flag to finish playback
-
             isi = obj.currentISI;
 
             % wait until ISI has elapsed
@@ -194,10 +191,15 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
             obj.trigger_stim_playback; % trigger playback of the obj.nextSPIdx buffer
 
+            obj.handles.StimulusCounter.Text = sprintf('%d of %d',obj.StimPlayObj.StimPresented,obj.StimPlayObj.StimTotal);
+
+            if obj.StimPlayObj.LastStim
+                stop(src);
+                return
+            end % flag to finish playback
+
             obj.StimPlayObj.increment; % increment the StimPlay object
-
-            if obj.StimPlayObj.Complete, return; end % flag indicating session is complete
-
+            
             obj.update_buffer; % update the non-triggered buffer
         end
 
@@ -206,7 +208,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             try
                 obj.save_stim_order();
             catch me
-                vprintf(0,'StimGenInterface:timer_stopfcn','Failed to save stimulus order: %s',me.message);
+                vprintf(0,1,'StimGenInterface:timer_stopfcn','Failed to save stimulus order: %s',me.message);
             end
 
             h = obj.handles;
@@ -278,11 +280,26 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             so = obj.sgObj{i};
 
             obj.StimPlayObj.StimObj = so;
-            so.update_signal();
+            
+            addlistener(so,'Signal','PostSet',@obj.update_signal_plot);
+
+            so.update_signal;
 
         end
 
 
+        function update_reps(obj,src,event)
+            h = obj.handles;
+            v = h.Reps.Value;
+            try
+                assert(v >= 1 && v == round(v), 'Invalid entry for # Presentations. Must be a positive integer.')
+                obj.StimPlayObj.Reps = v;
+                vprintf(3,'Updated # Presentations to %d',v);
+            catch me
+                uialert(obj.parent,me.message,'InvalidEntry','modal',true)
+                src.Value = event.PreviousValue;
+            end
+        end
 
         function update_isi(obj,src,event)
             h = obj.handles;
@@ -292,7 +309,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             try
                 assert(numel(v) <= 2 & numel(v) >= 1, 'Invalid entry for ISI. Must be a scalar value or a 1x2 range for randomization.')
                 src.Value = mat2str(v);
-                h.StimPlayObj.ISI = v;
+                obj.StimPlayObj.ISI = v;
             catch me
                 uialert(obj.parent,me.message,'InvalidEntry','modal',true)
                 src.Value = event.PreviousValue;
@@ -311,7 +328,18 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
         end
 
         function update_signal_plot(obj,src,event)
-            % TO DO: add in inter trial interval period
+            persistent lastCalled
+
+            if isempty(lastCalled), lastCalled = datetime("now"); end
+
+            t = datetime("now");
+            if t - lastCalled < seconds(0.2)
+                lastCalled = t;
+                return
+            end
+            lastCalled = t;
+          
+
             vprintf(4,'Updating signal plot...');
 
             so = obj.StimPlayObj.CurrentStimObj;

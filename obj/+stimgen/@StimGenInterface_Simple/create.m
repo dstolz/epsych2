@@ -40,7 +40,6 @@ tg.TabLocation = 'left';
 tg.SelectionChangedFcn = @obj.stimtype_changed;
 obj.handles.TabGroup = tg;
 
-flag = 1;
 for i = 1:length(obj.sgTypes)
     try
         sgt = obj.sgTypes{i};
@@ -49,13 +48,8 @@ for i = 1:length(obj.sgTypes)
         t = uitab(tg,'Tag',sgt,'Title',sgo.DisplayName,'CreateFcn',fnc);
         t.Scrollable = 'on';
         obj.handles.Tabs.(sgt) = t;
-        addlistener(sgo,'Signal','PostSet',@obj.update_signal_plot);
-        if flag
-            obj.StimPlayObj.StimObj = sgo;
-            % obj.update_signal_plot; 
-            obj.stimtype_changed(tg);
-            flag = 0; 
-        end
+
+
     catch me
         t.Title = sprintf('%s ERROR',sgt);
         disp(me)
@@ -63,6 +57,8 @@ for i = 1:length(obj.sgTypes)
     end
 end
 
+pause(1); % neeeded?
+obj.stimtype_changed(tg);
 
 % play stim
 h = uibutton(g,'Tag','Play');
@@ -83,17 +79,6 @@ sbg.RowHeight = {30,30,30,30,200};
 
 R = 1;
 
-% stimulus counter
-h = uilabel(sbg);
-h.Layout.Column = [1 2];
-h.Layout.Row = R;
-h.Text = '---';
-h.FontSize = 18;
-h.FontWeight = 'bold';
-obj.handles.StimulusCounter = h;
-
-R = R + 1;
-
 % stim name field
 h = uilabel(sbg);
 h.Layout.Column = 1;
@@ -101,7 +86,7 @@ h.Layout.Row = R;
 h.Text = 'Stim Name:';
 h.HorizontalAlignment = 'right';
 h.FontSize = 16;
-obj.handles.StimulusCounter = h;
+
 
 h = uieditfield(sbg,'Tag','StimName');
 h.Layout.Column = 2;
@@ -112,7 +97,8 @@ obj.handles.StimName = h;
 R = R + 1;            
 
 % inter-stimulus interval
-h = uilabel(sbg,'Text','ISI');
+h = uilabel(sbg,'Text','Inter-Stimulus Interval (s)');
+h.Tooltip = "Time between onsets of consecutive stimulus presentations in seconds. May be a range of values, e.g., 0.5 1.5";
 h.Layout.Column = 1;
 h.Layout.Row = R;
 h.HorizontalAlignment = 'right';
@@ -124,11 +110,12 @@ h.Layout.Row = R;
 h.Value = '1.00';
 h.ValueChangedFcn = @obj.update_isi;
 obj.handles.ISI = h;
+obj.update_isi;
 
 R = R + 1;
 
 % rep field
-h = uilabel(sbg,'Text','Reps per Stim');
+h = uilabel(sbg,'Text','# Presentations');
 h.Layout.Column = 1;
 h.Layout.Row = R;
 h.HorizontalAlignment = 'right';
@@ -141,9 +128,21 @@ h.Limits = [1 1e6];
 h.RoundFractionalValues = 'on';
 h.ValueDisplayFormat = '%d reps';
 h.Value = 20;
+h.ValueChangedFcn = @obj.update_reps;
 obj.handles.Reps = h;
             
 
+
+R = R + 1;
+
+% stimulus counter
+h = uilabel(sbg);
+h.Layout.Column = [1 2];
+h.Layout.Row = R;
+h.Text = '---';
+h.FontSize = 18;
+h.FontWeight = 'bold';
+obj.handles.StimulusCounter = h;
 
 R = R + 1;
 

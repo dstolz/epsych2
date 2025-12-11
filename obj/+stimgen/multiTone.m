@@ -33,6 +33,7 @@ classdef multiTone < stimgen.StimType
 
         end
 
+
         function update_signal(obj)
             obj.update_tone_objs();
 
@@ -44,7 +45,6 @@ classdef multiTone < stimgen.StimType
             % Concatenate signals from all tone objects
             sigs = cellfun(@(t) t.Signal(:),num2cell(obj.MultiObjects),'UniformOutput',false);
             obj.Signal = vertcat(sigs{:})';
-            
             
         end
 
@@ -165,10 +165,13 @@ classdef multiTone < stimgen.StimType
                 fi = mod(i-1,numel(f))+1;
                 si = mod(floor((i-1)/numel(f)),numel(s))+1;
 
+                obj.MultiObjects(i) = stimgen.Tone(); % create a new handle for each object
+                obj.MultiObjects(i).Calibration = obj.Calibration;
                 obj.MultiObjects(i).Frequency = f(fi);
                 obj.MultiObjects(i).SoundLevel = s(si);
             end
 
+            % arrayfun(@update_signal,obj.MultiObjects);
 
         end
 

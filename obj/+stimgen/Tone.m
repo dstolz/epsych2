@@ -21,7 +21,7 @@ classdef Tone < stimgen.StimType
 
             obj.DisplayName = 'Tone';
 
-            obj.UserProperties = ["SoundLevel","Duration","WindowDuration","ApplyWindow","Frequency","OnsetPhase","WindowMethod"];
+            obj.UserProperties = ["Frequency","SoundLevel","Duration","WindowDuration","ApplyWindow","OnsetPhase","WindowMethod"];
         end
         
         function update_signal(obj)

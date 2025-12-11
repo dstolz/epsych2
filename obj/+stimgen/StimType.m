@@ -1,7 +1,7 @@
 classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable & matlab.mixin.SetGet
     
     properties
-        Calibration     (1,1) stimgen.StimCalibration
+        Calibration     (1,1) stimgen.StimCalibration 
         UserProperties  (1,:) string = string.empty
         DisplayName   (1,1) string = "undefined";
     end
@@ -13,7 +13,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         WindowDuration (1,1) double {mustBeNonnegative,mustBeFinite} = 0.002; % seconds
         WindowFcn      (1,1) string = "cos2";
         
-        ApplyCalibration (1,1) logical = true;
+        ApplyCalibration (1,1) logical = false;
         ApplyWindow      (1,1) logical = true;
         
         Fs             (1,1) double {mustBePositive,mustBeFinite} = 97656.25; % Hz
@@ -28,6 +28,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         N
         Time
         Window
+        StrProps
     end
     
 
@@ -64,7 +65,23 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             
             obj.create_listeners;
         end
+
         
+        function set.Calibration(obj,calObj)
+            obj.Calibration = calObj;
+            if obj.IsMultiObj
+                arrayfun(@(x) set(x,'Calibration',calObj), obj.MultiObjects);
+            end
+        end
+        
+        function s = get.StrProps(obj)
+            pr = obj.UserProperties;
+            s = string();
+            for i = 1:length(pr)
+                s = s+pr(i)+": "+string(obj.(pr(i))) + "; ";
+            end
+        end
+
         function t = get.Time(obj)
             t = linspace(0,obj.Duration-1./obj.Fs,obj.N);
         end

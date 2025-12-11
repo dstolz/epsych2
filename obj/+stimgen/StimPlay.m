@@ -101,9 +101,9 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
         function set.Fs(obj,fs)
             for i = 1:obj.NStimObj
                 if obj.StimObj.IsMultiObj
-                    obj.StimObj(i).Fs = fs;
-                else
                     obj.StimObj.MultiObjects(i).Fs = fs;
+                else
+                    obj.StimObj(i).Fs = fs;
                 end
             end
         end

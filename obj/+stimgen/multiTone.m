@@ -5,9 +5,8 @@ classdef multiTone < stimgen.StimType
         OnsetPhase (1,1) double = 0
 
         WindowMethod  (1,1) string {mustBeMember(WindowMethod,["Duration" "Proportional" "#Periods"])} = "Duration"        
-    end
 
-    properties
+        
         Frequency_MO  (1,1) string = "500*2.^(0:6)";
         SoundLevel_MO (1,1) string = "10:10:70";
     end

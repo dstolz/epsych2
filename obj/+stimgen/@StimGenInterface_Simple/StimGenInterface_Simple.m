@@ -275,19 +275,34 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
         function stimtype_changed(obj,src,event)
             vprintf(4,'Stim Type Changed')
+
             t = src.SelectedTab.Tag;
             i = ismember(obj.sgTypes,t);
+
             so = obj.sgObj{i};
 
 
             obj.StimPlayObj.StimObj = so;
 
-            so.Calibration = obj.Calibration;
-            
+            % so.Calibration = obj.Calibration;
+
             addlistener(so,'Signal','PostSet',@obj.update_signal_plot);
+
+            % addlistener(so,so.UserProperties,'PostSet',@obj.stimtype_property_updated);
+            
 
             so.update_signal;
 
+        end
+
+        % function stimtype_property_updated(obj,src,event)
+        %     i = ismember(obj.sgTypes,obj.StimPlayObj.Type);
+        %     obj.sgObj{i} = obj.StimPlayObj;
+        % end
+
+        
+        function update_stim_name(obj,src,event)
+            obj.StimPlayObj.Name = src.Value;
         end
 
 
@@ -303,6 +318,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
                 src.Value = event.PreviousValue;
             end
         end
+        
 
         function update_isi(obj,src,event)
             h = obj.handles;
@@ -382,7 +398,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
             if nargin < 2 || isempty(ffn)
                 pn = getpref('StimGenInterface','path',cd);
-                [fn,pn] = uigetfile({'*.sgi','StimGenInterface Config (*.sgi)'},pn);
+                [fn,pn] = uigetfile({'*.sgi','StimGenInterface Config (*.sgi)'},'StimGen Config',pn);
                 if isequal(fn,0), return; end
 
                 ffn = fullfile(pn,fn);
@@ -396,14 +412,26 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
 
             warning('off','MATLAB:class:LoadInvalidDefaultElement');
             vprintf(2,'Loading StimGenInterface configuration from: "%s"',ffn);
-            load(ffn,'SGI','-mat');
+            load(ffn,'SGO','-mat');
             warning('on','MATLAB:class:LoadInvalidDefaultElement');
 
-            obj.StimPlayObj = SGI.StimPlayObj;
-            obj.Calibration = SGI.Calibration;
+            obj.StimPlayObj = SGO;
+            if SGO.Calibration ~= 0
+                obj.Calibration = SGO.Calibration;
+            end
 
+            h = obj.handles;
+            h.Reps.Value = obj.StimPlayObj.Reps;
+            v = obj.StimPlayObj.ISI;
+            v = unique(v);
+            h.ISI.Value = mat2str(v);
+            h.StimName.Value = obj.StimPlayObj.Name;
+            
+            i = ismember(obj.sgTypes,obj.StimPlayObj.Type);
+            h.TabGroup.SelectedTab = h.TabGroup.Children(i);
+            obj.sgObj{i} = obj.StimPlayObj.StimObj;
 
-            % TO DO: Select correct loaded stim object
+            obj.stimtype_changed(h.TabGroup);
 
             vprintf(2,'Loaded configuration successfully.');
 
@@ -422,8 +450,17 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
                 setpref('StimGenInterface','path',pn);
             end
 
-            SGI.StimPlayObj = obj.StimPlayObj;
-            SGI.Calibration = obj.Calibration;
+            % delete listeners created by this interface so proplistener
+            % objects are not written into the saved config
+            try
+                if ~isempty(obj.els)
+                    delete(obj.els);
+                    obj.els = [];
+                end
+            catch
+            end
+
+            SGO = obj.StimPlayObj;
 
             [~,~,ext] = fileparts(ffn);
             if ~isequal(ext,'.sgi')
@@ -431,7 +468,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             end
 
             vprintf(1,'Saving StimGenInterface configuration to: "%s"',ffn);
-            save(ffn,'SGI','-mat');
+            save(ffn,'SGO','-mat');
 
             f = ancestor(obj.parent,'figure');
 

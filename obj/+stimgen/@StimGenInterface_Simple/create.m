@@ -84,6 +84,7 @@ h = uieditfield(sbg,'Tag','StimName');
 h.Layout.Column = 2;
 h.Layout.Row = R;
 h.Value = '';
+h.ValueChangedFcn = @obj.update_stim_name;
 obj.handles.StimName = h;
 
 R = R + 1;            

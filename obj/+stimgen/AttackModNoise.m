@@ -16,6 +16,7 @@ classdef AttackModNoise < stimgen.Noise
     
     
     properties (Constant)
+        %IsMultiObj      = false;
         %CalibrationType = "noise"; % defined in stimgen.Noise superclass
         %Normalization = "rms"; % defined in stimgen.Noise superclass
     end
@@ -25,8 +26,11 @@ classdef AttackModNoise < stimgen.Noise
         function obj = AttackModNoise(varargin)
             obj = obj@stimgen.Noise(varargin{:});
             
-            obj.create_listeners;
+            obj.DisplayName = 'Attack Modulated Noise';
+
+            obj.UserProperties = ["SoundLevel","Duration","WindowDuration","ApplyWindow","HighPass","LowPass","AMDepth","AMRate","Z","EnvelopeOnly","ApplyViemeisterCorrection"];
             
+            % override some default StimType property values
             obj.Duration = 1;
         end
         

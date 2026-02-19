@@ -12,8 +12,10 @@ classdef ClickTrain < stimgen.StimType
     properties (Dependent)
         ClickInterval
     end
+
     
     properties (Constant)
+        IsMultiObj      = false;
         CalibrationType = "click";
         Normalization   = "absmax"
     end
@@ -24,11 +26,15 @@ classdef ClickTrain < stimgen.StimType
             
             obj = obj@stimgen.StimType(varargin{:});
 
+            obj.DisplayName = 'Click Train';
+
+            obj.UserProperties = ["SoundLevel","Duration","WindowDuration","ApplyWindow","Rate","Polarity","ClickDuration","OnsetDelay","Truncate"];
+
+            % override some default StimType property values
             obj.Duration = 1;
             obj.ApplyWindow = false;
             obj.WindowFcn = "";
             
-%             obj.create_listeners;
             
         end
         

@@ -2,20 +2,41 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
     
     
     properties (AbortSet,SetObservable)
-        StimObj % stimgen objects
-        ListIdx (1,1) double {mustBeInteger} = 0;
+        StimObj (1,:) %stimgen objects
+
+
+        Fs      (1,1) double {mustBePositive,mustBeFinite} = 1;
+
+
         Reps    (1,1) double {mustBeInteger} = 20;
         ISI     (1,2) double {mustBePositive,mustBeFinite} = 1;
         
         Name    (1,1) string
         DisplayName (1,1) string
         
-        RepsPresented (1,1) double {mustBeInteger,mustBeFinite} = 0;
+        RepsPresented (1,:) double {mustBeInteger,mustBeFinite} = 0;
+
+        StimIdx (1,1) double {mustBeInteger} = 1;
+
+        SelectionType {mustBeMember(SelectionType,["Shuffle","Serial"])} = "Shuffle";
+
+        Calibration (1,1) 
+    end
+
+    properties (SetAccess = private)
+        StimOrder (1,:)
     end
     
     properties (Dependent)
         Type
         Signal
+        CurrentStimObj
+        NStimObj
+
+        StimPresented
+        StimTotal
+
+        LastStim
     end
     
     methods
@@ -23,6 +44,39 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
             if nargin == 1 && ~isempty(StimObj)
                 obj.StimObj = StimObj;
             end
+        end
+
+        function S = toStruct(obj)
+            %TOSTRUCT  Serialize StimPlay object to a struct.
+
+            % Basic metadata
+            S.Timestamp   = datetime('now');
+            S.Name           = obj.Name;
+            S.DisplayName    = obj.DisplayName;
+            S.Fs             = obj.Fs;
+            S.Reps           = obj.Reps;
+            S.ISI            = obj.ISI;
+            S.RepsPresented  = obj.RepsPresented;
+            S.SelectionType  = obj.SelectionType;
+            S.StimOrder      = obj.StimOrder;
+
+            % Calibration (assume toStruct exists if not empty)
+            if isempty(obj.Calibration)
+                S.Calibration = [];
+            else
+                S.Calibration = obj.Calibration.toStruct;
+            end
+
+            % Stimulus objects: delegate to StimType.toStruct
+            if obj.StimObj.IsMultiObj
+                S.StimObj = arrayfun(@toStruct, obj.StimObj.MultiObjects);
+            else
+                S.StimObj = obj.StimObj.toStruct;
+            end
+        end
+
+        function i = get.StimIdx(obj)
+            i = min(obj.StimIdx,obj.NStimObj);
         end
         
         function t = get.Type(obj)
@@ -45,13 +99,23 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
         end
         
         function increment(obj)
-            obj.RepsPresented = obj.RepsPresented + 1;
+            if obj.LastStim, return; end
+
+            switch obj.SelectionType
+                case "Shuffle"
+                    idx = obj.select_Shuffle();
+
+                case "Serial"
+                    idx = obj.select_Serial();
+            end
+
+            obj.StimIdx = idx;
+
+
+            obj.RepsPresented(idx) = obj.RepsPresented(idx) + 1;
+            obj.StimOrder(sum(obj.RepsPresented)) = idx;            
         end
         
-        function y = get.Signal(obj)
-            y = obj.StimObj.Signal;
-        end
-               
         
         function i = get_isi(obj)
             d = diff(obj.ISI);
@@ -62,6 +126,93 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
             end
         end
         
-        
+        function reset(obj)
+            obj.StimObj.update_signal;
+
+            obj.StimIdx = 1;
+            obj.RepsPresented = zeros(1,obj.NStimObj);
+            obj.StimOrder = nan(1,obj.StimTotal);
+        end
+
+
+        function set.Fs(obj,fs)
+            for i = 1:obj.NStimObj
+                if obj.StimObj.IsMultiObj
+                    obj.StimObj.MultiObjects(i).Fs = fs;
+                else
+                    obj.StimObj(i).Fs = fs;
+                end
+            end
+        end
+
+        function update_signal(obj)
+            if obj.StimObj.IsMultiObj
+                arrayfun(@update_signal,obj.StimObj.MultiObjects);
+            else
+                obj.StimObj.update_signal;
+            end
+        end
+
+
+        function y = get.Signal(obj)
+            y = obj.CurrentStimObj.Signal;
+        end
+
+        function so = get.CurrentStimObj(obj)
+            if obj.StimObj.IsMultiObj
+                so = obj.StimObj.MultiObjects(obj.StimIdx);
+            else
+                so = obj.StimObj(obj.StimIdx);
+            end
+        end
+               
+        function n = get.NStimObj(obj)
+            if obj.StimObj.IsMultiObj
+                n = numel(obj.StimObj.MultiObjects);
+            else
+                n = numel(obj.StimObj);
+            end
+        end
+
+        function c = get.LastStim(obj)
+           c = obj.StimPresented == obj.StimTotal;
+        end
+
+        function n = get.StimPresented(obj)
+            n = sum(obj.RepsPresented);
+        end
+
+        function n = get.StimTotal(obj)
+            n = obj.Reps * obj.NStimObj;
+        end
+
+        function set.Calibration(obj,calObj)
+            obj.Calibration = calObj;
+            obj.StimObj.Calibration = calObj;
+            
+        end
+    end
+
+    methods (Access = private)
+        function idx = select_Shuffle(obj)
+            r = obj.RepsPresented;
+
+            m = min(r);
+
+            idx = find(r == m);
+
+            i = randi(numel(idx));
+
+            idx = idx(i);
+        end
+
+        function idx = select_Serial(obj)
+            r = obj.RepsPresented;
+
+            m = min(r);
+
+            idx = find(r == m,1);
+
+        end
     end
 end

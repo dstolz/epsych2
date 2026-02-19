@@ -6,8 +6,11 @@ classdef Tone < stimgen.StimType
         
         WindowMethod  (1,1) string {mustBeMember(WindowMethod,["Duration" "Proportional" "#Periods"])} = "Duration"
     end
+
+    
     
     properties (Constant)
+        IsMultiObj      = false;
         CalibrationType = "tone";
         Normalization   = "absmax";
     end
@@ -15,6 +18,10 @@ classdef Tone < stimgen.StimType
     methods
         function obj = Tone(varargin)
             obj = obj@stimgen.StimType(varargin{:});
+
+            obj.DisplayName = 'Tone';
+
+            obj.UserProperties = ["Frequency","SoundLevel","Duration","WindowDuration","ApplyWindow","OnsetPhase","WindowMethod"];
         end
         
         function update_signal(obj)
@@ -61,6 +68,20 @@ classdef Tone < stimgen.StimType
             
             R = R + 1;
             
+            x = uilabel(g,'Text','Sound Level:');
+            x.Layout.Column = 1;
+            x.Layout.Row    = R;
+            x.HorizontalAlignment = 'right';
+            
+            x = uieditfield(g,'Numeric','Tag','SoundLevel');
+            x.Layout.Column = 2;
+            x.Layout.Row = R;
+            x.Value = obj.SoundLevel;
+            h.SoundLevel = x;
+            
+            
+            R = R + 1;
+            
             x = uilabel(g,'Text','Duration:');
             x.Layout.Column = 1;
             x.Layout.Row    = R;
@@ -95,20 +116,6 @@ classdef Tone < stimgen.StimType
             x.Items = ["Duration" "Proportional" "#Periods"];
             x.Value = obj.WindowMethod;
             h.WindowDurationMethod = x;
-            
-            
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Sound Level:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'Numeric','Tag','SoundLevel');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Value = obj.SoundLevel;
-            h.SoundLevel = x;
             
             structfun(@(a) set(a,'ValueChangedFcn',@obj.interpret_gui),h);
             

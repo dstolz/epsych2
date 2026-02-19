@@ -1,8 +1,9 @@
 classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable & matlab.mixin.SetGet
     
-    
     properties
-        Calibration     (1,1) stimgen.StimCalibration
+        Calibration     (1,1) stimgen.StimCalibration 
+        UserProperties  (1,:) string = string.empty
+        DisplayName   (1,1) string = "undefined";
     end
     
     properties (SetObservable,AbortSet)
@@ -27,6 +28,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         N
         Time
         Window
+        StrProps
     end
     
 
@@ -34,16 +36,20 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         temporarilyDisableSignalMods (1,1) logical = false;
         els
         GUIHandles
+        calibrationWarningIssued (1,1) logical = false;
+        plotLineHandle matlab.graphics.chart.primitive.Line = matlab.graphics.chart.primitive.Line.empty
+        plotAxHandle   matlab.graphics.axis.Axes = matlab.graphics.axis.Axes.empty
     end
     
     
     properties (Abstract, Constant)
+        IsMultiObj      (1,1) logical
         CalibrationType (1,1) string % "noise","tone","click"
         Normalization   (1,1) string % "absmax","max","min","rms"
     end
         
     methods (Abstract)
-        update_signal(obj,src,evnt); % updates obj.Signal
+        update_signal(obj); % implemented in subclasses
         h = create_gui(obj,src,evnt);
     end
     
@@ -52,12 +58,67 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         function obj = StimType(varargin)
             % does no property name case matching
             for i = 1:2:length(varargin)
-                obj.(varargin{i}) = varargin{i+1};
+                if isfield(obj,varargin{i})
+                    obj.(varargin{i}) = varargin{i+1};
+                end
             end
             
             obj.create_listeners;
         end
+
+        function S = toStruct(obj)
+            %TOSTRUCT  Serialize StimType object to a struct.
+
+            % Basic class metadata
+            S = struct;
+            S.Class        = string(class(obj));
+            S.DisplayName  = obj.DisplayName;
+
+            % Core StimType properties
+            S.SoundLevel       = obj.SoundLevel;
+            S.Duration         = obj.Duration;
+            S.WindowDuration   = obj.WindowDuration;
+            S.WindowFcn        = obj.WindowFcn;
+            S.ApplyCalibration = obj.ApplyCalibration;
+            S.ApplyWindow      = obj.ApplyWindow;
+            S.Fs               = obj.Fs;
+
+            % Abstract/constant properties (same across instances of subclass)
+            S.CalibrationType  = obj.CalibrationType;
+            S.Normalization    = obj.Normalization;
+            S.IsMultiObj       = obj.IsMultiObj;
+
+            % Calibration
+            S.Calibration = obj.Calibration.toStruct;
+
+
+            % User-defined property list and values
+            S.UserProperties = obj.UserProperties;
+            for k = 1:numel(obj.UserProperties)
+                pname = obj.UserProperties(k);
+                if isprop(obj,pname)
+                    S.(pname) = obj.(pname);
+                end
+            end
+
+            % Do NOT store Signal, GUIHandles, listeners, etc. here
+        end
         
+        function set.Calibration(obj,calObj)
+            obj.Calibration = calObj;
+            if obj.IsMultiObj
+                arrayfun(@(x) set(x,'Calibration',calObj), obj.MultiObjects);
+            end
+        end
+        
+        function s = get.StrProps(obj)
+            pr = obj.UserProperties;
+            s = string();
+            for i = 1:length(pr)
+                s = s+pr(i)+": "+string(obj.(pr(i))) + "; ";
+            end
+        end
+
         function t = get.Time(obj)
             t = linspace(0,obj.Duration-1./obj.Fs,obj.N);
         end
@@ -83,9 +144,30 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         end
         
         function h = plot(obj,ax)
-            if nargin < 2 || isempty(ax), ax = gca; end
+            % PLOT  Plot current Signal vs Time.
+            %   If a valid plot already exists, its data are updated instead
+            %   of creating a new line.
+            if nargin < 2 || isempty(ax)
+                if ~isempty(obj.plotAxHandle) && isvalid(obj.plotAxHandle)
+                    ax = obj.plotAxHandle;
+                else
+                    ax = gca;
+                end
+            end
             
-            h = plot(ax,obj.Time,obj.Signal);
+            if isempty(obj.Signal)
+                obj.update_signal; % subclass implementation
+            end
+            
+            if ~isempty(obj.plotLineHandle) && isvalid(obj.plotLineHandle) && ...
+                    isvalid(obj.plotAxHandle) && obj.plotAxHandle == ax
+                set(obj.plotLineHandle,'XData',obj.Time,'YData',obj.Signal);
+                h = obj.plotLineHandle;
+            else
+                h = plot(ax,obj.Time,obj.Signal);
+                obj.plotLineHandle = h;
+                obj.plotAxHandle   = ax;
+            end
             grid(ax,'on');
             xlabel(ax,'time (s)');
         end
@@ -136,8 +218,12 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             C = obj.Calibration;
             
             if ~isa(C,'stimgen.StimCalibration') || isempty(C.CalibrationData)
-%                 warning('stimgen:StimType:apply_calibration:NoCalibration', ...
-%                     'No calibration data available for stim')
+                if obj.calibrationWarningIssued
+                    vprintf(2,1,'No calibration data available for stim');    
+                else
+                    vprintf(0,1,'No calibration data available for stim');
+                    obj.calibrationWarningIssued = true;
+                end
                 return
             end
             
@@ -174,23 +260,29 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             p(~ind) = [];
             
             for i = 1:length(p)
-                e(i) = addlistener(obj,p(i).Name,'PostSet',@(~,~) obj.update_signal);
+                e(i) = addlistener(obj,p(i).Name,'PostSet',@obj.onPropertyChanged);
             end
             obj.els = e;
         end
         
-%         function create_handle_listeners(obj)
-%             m = metaclass(obj);
-%             p = m.PropertyList;
-%             ind = [p.SetObservable] & string({p.SetAccess}) == "public";
-%             p(~ind) = [];
-%             
-% 
-%             for i = 1:length(p)
-%                 e(i) = addlistener(obj,p(i).Name,'PostSet',@obj.update_handle_value);
-%             end
-%             obj.hels = e;       
-%         end
+        function onPropertyChanged(obj,~,~)
+            % Listener callback: update signal and refresh plot if it exists.
+            obj.update_signal; % subclass implementation handles args
+            obj.refresh_plot_if_valid;
+        end
+        
+        function refresh_plot_if_valid(obj)
+            if ~isempty(obj.plotLineHandle) && isvalid(obj.plotLineHandle)
+                if isempty(obj.Signal)
+                    return
+                end
+                set(obj.plotLineHandle,'XData',obj.Time,'YData',obj.Signal);
+                if ~isempty(obj.plotAxHandle) && isvalid(obj.plotAxHandle)
+                    grid(obj.plotAxHandle,'on');
+                    xlabel(obj.plotAxHandle,'time (s)');
+                end
+            end
+        end
         
         function update_handle_value(obj,src,event)
             h = obj.GUIHandles;
@@ -214,7 +306,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             pth = fileparts(r);
             d = dir(fullfile(pth,'*.m'));
             f = {d.name};
-            f(ismember(f,{'StimType.m','StimPlay.m'})) = [];
+            f(ismember(f,{'StimType.m','StimPlay.m','donotsavedatafcn.m'})) = [];
             f(contains(f,'Calib')) = [];
             c = cellfun(@(a) a(1:end-2),f,'uni',0);
         end

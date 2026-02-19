@@ -1,7 +1,7 @@
-classdef StimGenInterface < handle% & gui.Helper
+classdef StimGenInterface_Simple < handle% & gui.Helper
 
     properties
-        StimPlayObjs (:,1) stimgen.StimPlay
+        StimPlayObj (1,1) stimgen.StimPlay
         DataPath = getpref('StimGenInterface','dataPath',fullfile('C:\Users\',getenv('USERNAME')));
         DataFilename = '';
     end
@@ -14,7 +14,7 @@ classdef StimGenInterface < handle% & gui.Helper
         parent
         handles
         sgTypes
-        sgObjs
+        sgObj
 
         Calibration (1,1) stimgen.StimCalibration
 
@@ -27,38 +27,29 @@ classdef StimGenInterface < handle% & gui.Helper
 
         TrigBufferID (1,1) double = 0; % alternates between 0 and 1 to indicate which buffer to trigger
 
-
-        nextSPOIdx (1,1) double = 1; % index of next StimPlayObj to play
         currentISI (1,1) double = 1; % current inter-stimulus interval (seconds)
 
         Fs (1,1) double {mustBePositive,mustBeFinite,mustBeNonNan} = 1
 
-        % New: log of stimuli in order they were presented
-        StimOrder (:,1) double = double.empty(0,1);      % index into StimPlayObjs
-        StimOrderTime (:,1) double = double.empty(0,1);  % timeSinceStart at trigger
-        StimOrderTrial (:,1) double = double.empty(0,1); % TDT trial number at trigger
+
     end
 
     properties (Access = private)
         RUNTIME % espsych.Runtime
         PARAMS struct = struct() % struct of hw.Parameter objects, field names are valid parameter names
         els % event listeners
-        elsnsspi % listener for nextSPOIdx property
     end
 
 
     properties (Dependent)
         currentTrialNumber (1,1) double % current trial number from TDT
-        CurrentSGObj % stimgen obj
-        CurrentSPObj % stimplay obj
     end
 
     methods
         create(obj);
-        idx = stimselect_Serial(obj);
-        idx = stimselect_Shuffle(obj);
 
-        function obj = StimGenInterface(RUNTIME,parent,ffn)
+
+        function obj = StimGenInterface_Simple(RUNTIME,parent,ffn)
 
             if nargin > 0
                 obj.RUNTIME = RUNTIME;
@@ -77,7 +68,7 @@ classdef StimGenInterface < handle% & gui.Helper
             % get a list of available stimgen objects
             obj.sgTypes = stimgen.StimType.list;
 
-            obj.sgObjs = cellfun(@(a) stimgen.(a),obj.sgTypes,'uni',0);
+            obj.sgObj = cellfun(@(a) stimgen.(a),obj.sgTypes,'uni',0);
 
             obj.create;
 
@@ -94,19 +85,12 @@ classdef StimGenInterface < handle% & gui.Helper
 
 
         function set.Calibration(obj,calObj)
-
             obj.Calibration = calObj;
-
-            for i = 1:length(obj.StimPlayObjs)
-                obj.StimPlayObjs(i).StimObj.Calibration = calObj;
-            end
-
+            obj.StimPlayObj.Calibration = calObj;
         end
 
 
         function trigger_stim_playback(obj)
-            if obj.nextSPOIdx < 1, return; end % flag to finish playback
-
             trigStr = sprintf('x_Trigger_%d',obj.TrigBufferID);
 
             obj.PARAMS.(trigStr).Value = 1; % trigger the buffer
@@ -117,8 +101,8 @@ classdef StimGenInterface < handle% & gui.Helper
 
             tdiff = obj.lastTrigTime - obj.currentISI;
             if isempty(tdiff), tdiff = 0; end
-            vprintf(3,'trigger_stim_playback: TrigBufferID = %d; nextSPOidx = %d; ITI diff = %.4f sec', ...
-                obj.TrigBufferID,obj.nextSPOIdx,tdiff)
+            vprintf(3,'trigger_stim_playback: TrigBufferID = %d; ITI diff = %.4f sec', ...
+                obj.TrigBufferID,tdiff)
 
             %{
             if ~all(s)
@@ -126,8 +110,8 @@ classdef StimGenInterface < handle% & gui.Helper
             end
             %}
 
-            obj.currentISI = obj.CurrentSPObj.get_isi;
-            % obj.currentISI = obj.CurrentSPObj.get_isi - tdiff;
+            obj.currentISI = obj.StimPlayObj.get_isi;
+            % obj.currentISI = obj.StimPlayObj.get_isi - tdiff;
 
             vprintf(3,'trigger_stim_playback: currentISI = %.3f s',obj.currentISI)
         end
@@ -135,13 +119,18 @@ classdef StimGenInterface < handle% & gui.Helper
         function update_buffer(obj)
             obj.TrigBufferID = mod(obj.currentTrialNumber,2);
 
-            vprintf(3,'update_buffer START: TrigBufferID = %d; nextSPOidx = %d', ...
-                obj.TrigBufferID,obj.nextSPOIdx)
+            so = obj.StimPlayObj.CurrentStimObj;
+            vprintf(4,'CurrentStimObj: %s',so.DisplayName)
+            vprintf(4,'CurrentStimObj properties: %s',so.StrProps)
+
+
+            vprintf(4,'update_buffer START: TrigBufferID = %d', ...
+                obj.TrigBufferID)
 
             t = tic;
 
             % make first and last samples 0 since RPvds circuit uses SerSource components
-            buffer = [0, obj.CurrentSPObj.Signal, 0];
+            buffer = [0, obj.StimPlayObj.Signal, 0];
 
             % write constructed Stim to RPvds circuit buffer
             nSamps = length(buffer);
@@ -156,7 +145,7 @@ classdef StimGenInterface < handle% & gui.Helper
                 rethrow(me)
             end
 
-            vprintf(4,'update_buffer END:   TrigBufferID = %d; nextSPOidx = %d; took %.2f seconds',obj.TrigBufferID,obj.nextSPOIdx, toc(t))
+            vprintf(4,'update_buffer END:   TrigBufferID = %d; took %.2f seconds',obj.TrigBufferID, toc(t))
         end
 
 
@@ -166,27 +155,24 @@ classdef StimGenInterface < handle% & gui.Helper
 
 
         function timer_startfcn(obj,src,event)
-            % reset reps for all StimPlay objects
-            set(obj.StimPlayObjs,'RepsPresented',0);
+            % reset reps for StimPlay objects
+            obj.StimPlayObj.reset;
 
-            % clear stimulus order log
-            obj.StimOrder = [];
-            obj.StimOrderTime = [];
-            obj.StimOrderTrial = [];
+            obj.currentISI = obj.StimPlayObj.get_isi;
 
-            obj.select_next_spo_idx; % select the first idx
 
+            obj.StimPlayObj.increment; % select the first idx
+
+            
             obj.update_buffer; % update the buffer with the first stimulus
-
+            
+            
             obj.firstTrigTime = now;
             obj.lastTrigTime = 0; % initialize time right before triggering stim playback
         end
 
 
         function timer_runtimefcn(obj,src,event)
-
-            if obj.nextSPOIdx < 1, return; end % flag to finish playback
-
             isi = obj.currentISI;
 
             % wait until ISI has elapsed
@@ -200,20 +186,21 @@ classdef StimGenInterface < handle% & gui.Helper
             while obj.timeSinceStart - obj.lastTrigTime < isi, end
 
 
-            % log which stimulus is about to be presented
-            obj.StimOrder(end+1,1)      = obj.nextSPOIdx;
-            obj.StimOrderTime(end+1,1)  = obj.timeSinceStart;
-            obj.StimOrderTrial(end+1,1) = obj.currentTrialNumber;
-
             obj.trigger_stim_playback; % trigger playback of the obj.nextSPIdx buffer
+            
+            a = obj.StimPlayObj.StimPresented;
+            b = obj.StimPlayObj.StimTotal;
+            obj.handles.StimulusCounter.Text = sprintf('% 3d/%d (%.1f%% complete)', ...
+                a,b,a/b*100);
 
-            obj.CurrentSPObj.increment; % increment the StimPlay object
+            if obj.StimPlayObj.LastStim
+                stop(src);
+                return
+            end % flag to finish playback
 
-            obj.select_next_spo_idx; % select the obj.nextSPOIdx
-
-            if obj.nextSPOIdx < 1, return; end % flag less than 1 means session is complete
-
-            obj.update_buffer; % update the non-triggered buffer with the nextSPOIdx stimulus
+            obj.StimPlayObj.increment; % increment the StimPlay object
+            
+            obj.update_buffer; % update the non-triggered buffer
         end
 
         function timer_stopfcn(obj,src,event)
@@ -221,7 +208,7 @@ classdef StimGenInterface < handle% & gui.Helper
             try
                 obj.save_stim_order();
             catch me
-                vprintf(0,'StimGenInterface:timer_stopfcn','Failed to save stimulus order: %s',me.message);
+                vprintf(0,1,'StimGenInterface:timer_stopfcn','Failed to save stimulus order: %s',me.message);
             end
 
             h = obj.handles;
@@ -236,15 +223,11 @@ classdef StimGenInterface < handle% & gui.Helper
 
                 case 'run'
                     vprintf(3,'Module sampling rate = %.3f Hz',obj.Fs);
-                    for i = 1:length(obj.StimPlayObjs)
-                        obj.StimPlayObjs(i).StimObj.Fs = obj.Fs;
-                        obj.StimPlayObjs(i).StimObj.update_signal;
-                    end
+                    
+                    obj.StimPlayObj.Fs = obj.Fs;
+                    obj.StimPlayObj.update_signal;
 
 
-                    delete(obj.elsnsspi);
-
-                    obj.elsnsspi = addlistener(obj,'nextSPOIdx','PostSet',@obj.stim_list_item_selected);
 
 
                     if isempty(obj.DataFilename)
@@ -285,52 +268,57 @@ classdef StimGenInterface < handle% & gui.Helper
 
         end
 
-        function select_next_spo_idx(obj)
-            h = obj.handles;
-            fnc = h.SelectionTypeList.Value;
-            obj.nextSPOIdx = fnc(obj);
-            vprintf(4,'StimGenInterface:select_next_spo_idx:nextSPOidx = %d',obj.nextSPOIdx)
-            if obj.nextSPOIdx < 1 % flag to finish playback
-                stop(obj.Timer);
-            end
-        end
 
         function n = get.currentTrialNumber(obj)
             n = obj.PARAMS.TrialNumber.Value;
         end
 
         function stimtype_changed(obj,src,event)
-            obj.update_signal_plot;
-        end
+            vprintf(4,'Stim Type Changed')
 
-        function add_stim_to_list(obj,src,event)
-            h = obj.handles;
+            t = src.SelectedTab.Tag;
+            i = ismember(obj.sgTypes,t);
 
-            n = h.Reps.Value;
+            so = obj.sgObj{i};
 
-            sn = h.StimName.Value;
 
-            v = h.ISI.Value;
-            v = str2num(v);
+            obj.StimPlayObj.StimObj = so;
 
-            obj.StimPlayObjs(end+1).StimObj = copy(obj.CurrentSGObj);
-            obj.StimPlayObjs(end).StimObj.Calibration = obj.Calibration;
-            obj.StimPlayObjs(end).Reps = n;
-            obj.StimPlayObjs(end).Name = sn;
-            obj.StimPlayObjs(end).ISI  = v;
+            % so.Calibration = obj.Calibration;
 
-            obj.addStimObjtoTree(obj.StimPlayObjs(end));
+            addlistener(so,'Signal','PostSet',@obj.update_signal_plot);
 
-        end
-
-        function rem_stim_from_list(obj,src,event)
-            t = obj.handles.StimObjList;
+            % addlistener(so,so.UserProperties,'PostSet',@obj.stimtype_property_updated);
             
+
+            so.update_signal;
+
+        end
+
+        % function stimtype_property_updated(obj,src,event)
+        %     i = ismember(obj.sgTypes,obj.StimPlayObj.Type);
+        %     obj.sgObj{i} = obj.StimPlayObj;
+        % end
+
+        
+        function update_stim_name(obj,src,event)
+            obj.StimPlayObj.Name = src.Value;
+        end
+
+
+        function update_reps(obj,src,event)
+            h = obj.handles;
+            v = h.Reps.Value;
             try
-                delete(t.SelectedNodes)
+                assert(v >= 1 && v == round(v), 'Invalid entry for # Presentations. Must be a positive integer.')
+                obj.StimPlayObj.Reps = v;
+                vprintf(3,'Updated # Presentations to %d',v);
+            catch me
+                uialert(obj.parent,me.message,'InvalidEntry','modal',true)
+                src.Value = event.PreviousValue;
             end
         end
-
+        
 
         function update_isi(obj,src,event)
             h = obj.handles;
@@ -338,10 +326,12 @@ classdef StimGenInterface < handle% & gui.Helper
             v = str2num(v);
             v = sort(v(:)');
             try
+                assert(numel(v) <= 2 & numel(v) >= 1, 'Invalid entry for ISI. Must be a scalar value or a 1x2 range for randomization.')
                 src.Value = mat2str(v);
+                obj.StimPlayObj.ISI = v;
             catch me
                 uialert(obj.parent,me.message,'InvalidEntry','modal',true)
-                h.ISI.Value = vent.Previous;
+                src.Value = event.PreviousValue;
             end
         end
 
@@ -352,43 +342,63 @@ classdef StimGenInterface < handle% & gui.Helper
             c = h.BackgroundColor;
             h.BackgroundColor = [.2 1 .2];
             drawnow
-            play(obj.CurrentSGObj);
+            play(obj.StimPlayObj.CurrentStimObj);
             h.BackgroundColor = c;
         end
 
         function update_signal_plot(obj,src,event)
-            % TO DO: add in inter trial interval period
+            persistent lastCalled
+
+            if isempty(lastCalled), lastCalled = datetime("now"); end
+
+            t = datetime("now");
+            if t - lastCalled < seconds(0.2)
+                lastCalled = t;
+                return
+            end
+            lastCalled = t;
+          
+
             vprintf(4,'Updating signal plot...');
-            obj.CurrentSGObj.update_signal;
+
+            so = obj.StimPlayObj.CurrentStimObj;
+
             h = obj.handles.SignalPlotLine;
-            h.XData = obj.CurrentSGObj.Time;
-            h.YData = obj.CurrentSGObj.Signal;
+            h.XData = so.Time;
+            h.YData = so.Signal;
+
+            ax = obj.handles.SignalPlotAx;
+            yline(ax,0,'-k');
+            ylim(ax,[-1.05 1.05]*max(abs(so.Signal)))
+
+            ylabel(ax,'Amplitude (V)')
+
+            if isnat(obj.Calibration.CalibrationTimestamp)
+                tstr = "Uncalibrated";
+                clr = 'r';
+            else
+                tstr = "Calibrated";
+                clr = 'k';
+            end
+            tstr = sprintf('%s - %s',so.DisplayName,tstr);
+            title(ax,tstr,Color=clr);
+            subtitle(ax,so.StrProps);
         end
 
-        function sobj = get.CurrentSGObj(obj)
-            st = obj.handles.TabGroup.SelectedTab;
-            ind = ismember(obj.sgTypes,st.Tag);
-            sobj = obj.sgObjs{ind};
 
-            obj.handles.StimName.Value = st.Title;
-        end
 
-        function sp = get.CurrentSPObj(obj)
-            sp = obj.StimPlayObjs(obj.nextSPOIdx);
-        end
+
 
         function update_samplerate(obj,src,event)
             vprintf(3,'Updating sample rate to %.3f Hz',event.Value);
-            for i = 1:length(obj.sgObjs)
-                obj.sgObjs{i}.Fs = event.Value;
-            end
+            obj.StimPlayObj.Fs = event.Value;
         end
 
         function load_config(obj,ffn)
 
             if nargin < 2 || isempty(ffn)
                 pn = getpref('StimGenInterface','path',cd);
-                [fn,pn] = uigetfile({'*.sgi','StimGenInterface Config (*.sgi)'},pn);
+                [fn,pn] = uigetfile({'*.sgi','StimGenInterface Config (*.sgi)'},'StimGen Config',pn);
                 if isequal(fn,0), return; end
 
                 ffn = fullfile(pn,fn);
@@ -402,21 +412,29 @@ classdef StimGenInterface < handle% & gui.Helper
 
             warning('off','MATLAB:class:LoadInvalidDefaultElement');
             vprintf(2,'Loading StimGenInterface configuration from: "%s"',ffn);
-            load(ffn,'SGI','-mat');
+            load(ffn,'SGO','-mat');
             warning('on','MATLAB:class:LoadInvalidDefaultElement');
 
-            obj.StimPlayObjs = SGI.StimPlayObjs;
-            obj.Calibration  = SGI.Calibration;
+            obj.StimPlayObj = SGO;
+            if SGO.Calibration ~= 0
+                obj.Calibration = SGO.Calibration;
+            end
 
             h = obj.handles;
+            h.Reps.Value = obj.StimPlayObj.Reps;
+            v = obj.StimPlayObj.ISI;
+            v = unique(v);
+            h.ISI.Value = mat2str(v);
+            h.StimName.Value = obj.StimPlayObj.Name;
+            
+            i = ismember(obj.sgTypes,obj.StimPlayObj.Type);
+            h.TabGroup.SelectedTab = h.TabGroup.Children(i);
+            obj.sgObj{i} = obj.StimPlayObj.StimObj;
 
-            h.StimObjList.Items = [obj.StimPlayObjs.DisplayName];
-            h.StimObjList.ItemsData = 1:length(h.StimObjList.Items);
+            obj.stimtype_changed(h.TabGroup);
 
             vprintf(2,'Loaded configuration successfully.');
 
-            event.Value = 1;
-            obj.stim_list_item_selected(h.StimObjList,event);
         end
 
 
@@ -424,7 +442,7 @@ classdef StimGenInterface < handle% & gui.Helper
 
             if nargin < 2 || isempty(ffn)
                 pn = getpref('StimGenInterface','path',cd);
-                [fn,pn] = uiputfile({'*.sgi','StimGenInterface Config (*.sgi)'},pn);
+                [fn,pn] = uiputfile({'*.sgi','StimGenInterface Config (*.sgi)'},'Save StimGen Config',pn);
                 if isequal(fn,0), return; end
 
                 ffn = fullfile(pn,fn);
@@ -432,8 +450,17 @@ classdef StimGenInterface < handle% & gui.Helper
                 setpref('StimGenInterface','path',pn);
             end
 
-            SGI.StimPlayObjs = obj.StimPlayObjs;
-            SGI.Calibration  = obj.Calibration;
+            % delete listeners created by this interface so proplistener
+            % objects are not written into the saved config
+            try
+                if ~isempty(obj.els)
+                    delete(obj.els);
+                    obj.els = [];
+                end
+            catch
+            end
+
+            SGO = obj.StimPlayObj;
 
             [~,~,ext] = fileparts(ffn);
             if ~isequal(ext,'.sgi')
@@ -441,7 +468,7 @@ classdef StimGenInterface < handle% & gui.Helper
             end
 
             vprintf(1,'Saving StimGenInterface configuration to: "%s"',ffn);
-            save(ffn,'SGI','-mat');
+            save(ffn,'SGO','-mat');
 
             f = ancestor(obj.parent,'figure');
 
@@ -459,7 +486,7 @@ classdef StimGenInterface < handle% & gui.Helper
 
             if nargin < 2 || isempty(ffn)
                 pn = getpref('StimGenInterface','calpath',cd);
-                [fn,pn] = uigetfile({'*.sgc','StimGenInterface Calibration (*.sgc)'},pn);
+                [fn,pn] = uigetfile({'*.sgc','StimGenInterface Calibration (*.sgc)'},'Calibration',pn);
                 if isequal(fn,0), return; end
 
                 ffn = fullfile(pn,fn);
@@ -477,6 +504,8 @@ classdef StimGenInterface < handle% & gui.Helper
             uialert(f, ...
                 sprintf('Updated Calibration: "%s"',ffn), ...
                 'StimGenInterface','Icon','success','Modal',true);
+
+            obj.update_signal_plot;
 
         end
 
@@ -498,13 +527,8 @@ classdef StimGenInterface < handle% & gui.Helper
                 setpref('StimGenInterface','dataPath',pn);
             end
 
-            SG.StimObjs = obj.StimPlayObjs;
-            SG.StimOrder      = obj.StimOrder;
-            SG.StimOrderTime  = obj.StimOrderTime;
-            SG.StimOrderTrial = obj.StimOrderTrial;
-            SG.StimOrderNames = [obj.StimPlayObjs.DisplayName]';
+            SG = obj.StimPlayObjs.toStruct;
 
-            SG.timestamp = datetime('now');
 
             vprintf(1,'Saving stimulus order to: "%s"',ffn);
 
@@ -514,131 +538,7 @@ classdef StimGenInterface < handle% & gui.Helper
 
     end % methods (Access = public)
 
-    methods (Access = protected)
 
-
-        function populateTree(obj)
-            %POPULATETREE  Populate UITREE with StimPlay objects & params.
-            t = obj.handles.StimObjList;
-            delete(t.Children) % clear existing nodes
-
-            for i = 1:numel(obj.StimPlayObjs)
-                spo = obj.StimPlayObjs(i);
-
-                obj.addStimObjtoTree(spo);
-                
-            end
-        end
-
-        function addStimObjtoTree(obj,spo)
-            t = obj.handles.StimObjList;
-
-
-            parentNode = uitreenode(t, ...
-                'Text', spo.DisplayName, ...
-                'NodeData', spo);
-
-            % Child nodes: editable properties of underlying stim object
-            stimObj = spo.StimObj;
-            if stimObj.IsMultiObj
-
-            else
-
-            end
-
-            pList = stimObj.UserProperties;
-            for k = 1:numel(pList)
-                propName = pList{k};
-                
-                v = stimObj.(propName);
-                if endsWith(propName,"_MO")
-                    propName = replace(propName,"_MO","*");
-                end
-
-                if isvector(v)
-                    txt = sprintf('%s: %s',propName,mat2str(v));
-                elseif isstring(stimobj.(propName))
-                    txt = sprintf('%s: %s',propName,v);
-                else
-                    txt = sprintf('%s: %g',propName,v);
-                end
-
-                uitreenode(parentNode,Text = txt);
-            end      
-        end
-
-        function onTreeSelectionChanged(obj, src, event) 
-            %ONTREESELECTIONCHANGED  Sync parameter panel with selected node.
-            node = event.SelectedNodes;
-            if isempty(node) || numel(node) > 1
-                return
-            end
-            % obj.updateParamPanelFromNode(node);
-            h = obj.handles;
-
-            spo = obj.StimPlayObjs(value);
-
-            ind = ismember(obj.sgTypes,spo.Type);
-
-            co = copy(spo.StimObj);
-
-            obj.sgObjs{ind} = co;
-
-            h.TabGroup.SelectedTab = h.Tabs.(spo.Type);
-
-            tg = h.TabGroup;
-
-            st = tg.SelectedTab;
-
-            delete(st.Children);
-
-            co.create_gui(st);
-
-            addlistener(co,'Signal','PostSet',@obj.update_signal_plot);
-
-            obj.update_signal_plot;
-        end
-
-        function onParamValueChanged(obj, h, iStim, propName)
-            %ONPARAMVALUECHANGED  Update underlying stim property from UI.
-            spo = obj.StimPlayObjs(iStim);
-            stimObj = spo.Stim;
-
-            strVal = h.Value;
-            oldVal = stimObj.(propName);
-
-            try
-                if isnumeric(oldVal)
-                    newVal = str2num(strVal); %#ok<ST2NM>
-                    if isempty(newVal)
-                        error('Invalid numeric value.');
-                    end
-                elseif isstring(oldVal) || ischar(oldVal)
-                    newVal = strVal;
-                else
-                    % Fallback: keep as string or attempt eval
-                    newVal = strVal;
-                end
-
-                stimObj.(propName) = newVal;
-
-            catch ME
-                uialert(ancestor(h,'figure'), ME.message, ...
-                    sprintf('Error setting %s',propName));
-                % revert UI on error
-                if isnumeric(oldVal)
-                    h.Value = mat2str(oldVal);
-                else
-                    h.Value = char(oldVal);
-                end
-                return
-            end
-
-            % Optionally: trigger any existing update/plot logic here.
-            % spo.update_signal();
-        end
-
-    end
 
     methods (Access = private)
         function delete_main_figure(obj,src,event)

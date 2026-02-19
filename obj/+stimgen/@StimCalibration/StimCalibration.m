@@ -13,7 +13,7 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
         
         CalibrationMode     (1,1) string {mustBeMember(CalibrationMode,["rms","peak","specfreq"])} = "rms";
         
-        CalibrationTimestamp (1,1) string = "unknown"
+        CalibrationTimestamp (1,1) datetime = datetime("");
         
         ResponseTHD
         
@@ -70,12 +70,43 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
             end
         end
         
+        function S = toStruct(obj)
+            %TOSTRUCT  Serialize StimCalibration object to a struct.
+
+            S = struct;
+            S.Class                   = "stimgen.StimCalibration";
+
+            % Core calibration parameters
+            S.CalibrationData         = obj.CalibrationData;
+            S.CalibrationMode         = obj.CalibrationMode;
+            S.MicSensitivity          = obj.MicSensitivity;
+            S.NormativeValue          = obj.NormativeValue;
+            S.ReferenceLevel          = obj.ReferenceLevel;
+            S.ReferenceFrequency      = obj.ReferenceFrequency;
+            S.ExcitationSignalVoltage = obj.ExcitationSignalVoltage;
+            S.CalibrationTimestamp    = obj.CalibrationTimestamp;
+
+            % Useful derived/diagnostic info
+            S.ResponseTHD             = obj.ResponseTHD;
+            S.Fs                      = obj.Fs;
+        end
+
+        function plot_reset(obj)
+            vprintf(4,'Resetting calibration plots')
+            obj.plot_signal(true);
+            obj.plot_spectrum(true);
+            obj.plot_transferfcn('',true);
+            drawnow
+        end
         
         
-        function plot_signal(obj)
-            figure(999);
-            
+        function plot_signal(obj,reset)
+            obj.fig('signal');
+
             subplot(211)
+
+            if nargin == 2 && reset, cla; drawnow; return; end
+            
             plot(obj.Time,obj.ResponseSignal);
             grid on
             xlabel('time (sec)');
@@ -85,10 +116,13 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
         
 
         
-        function plot_spectrum(obj)
-            figure(999);
-            
+        function plot_spectrum(obj,reset)
+            obj.fig('signal');
+
             subplot(212)
+
+            if nargin == 2 && reset, cla; drawnow; return; end
+
             n = length(obj.ResponseSignal);
             w = flattopwin(n);
             [pxx,f] = periodogram(obj.ResponseSignal,w,2^nextpow2(n),obj.Fs,'power');
@@ -103,13 +137,20 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
             ylim([-20 120]);
         end
         
-        function plot_transferfcn(obj,type)
-            figure(999);
-            
+        function plot_transferfcn(obj,type,reset)
+            obj.fig('signal');
+
             subplot(212)
+            
+            if nargin == 3 && reset, cla; drawnow; return; end
+
             d = obj.CalibrationData.(type);
             hold on
-            plot(d(:,1)./1000,d(:,3),'x-r');
+            switch type
+                case 'tone'
+                    plot(d(:,1)./1000,d(:,3),'x-r');
+                case 'click'
+            end
             hold off
         end
         
@@ -221,7 +262,7 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
                     drawnow
                     
                     try
-                        obj.CalibrationTimestamp = datestr(now);
+                        obj.CalibrationTimestamp = datetime("now");
                         
                         obj.calibrate_clicks;
                         
@@ -316,12 +357,28 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
                 bidx = obj.PARAMS.BufferIndex.Value;
             end
             
+            vprintf(4,'bidx = %d',bidx)
+            
             % download the acquired signal
             y = obj.PARAMS.BufferIn.Value;
-            
-            t = obj.Time;
-            
-                        
+
+            % trim to signal length
+            y = y(1:nsamps);
+
+            vprintf(4,'BufferIn: %s',obj.PARAMS.BufferIn.ValueStr);
+
+           
+            y(y==0) = [];
+
+            % clip first 3 ms to exclude conduction time in air --- ~343 m/s
+            idx = 1:round(3e-3*obj.Fs);
+            y(idx) = [];
+
+            obj.ResponseSignal = y;
+
+
+
+
             % calculate metric to return
             switch obj.CalibrationMode
                 case "rms"
@@ -329,8 +386,6 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
                 case "peak"
                     r = max(abs(y));
                 case "specfreq"
-                    ind = t<0.01;
-                    y(ind) = [];
                     r = obj.spectral_rms(y,obj.StimTypeObj.Frequency,obj.Fs);
             end
             
@@ -338,7 +393,6 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
                 obj.MicSensitivity = r;
             end
             
-            obj.ResponseSignal = y;
             
             obj.ResponseTHD = thd(y, obj.Fs);
         end
@@ -417,6 +471,13 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
     end
     
     methods (Static)
+        function f = fig(name)
+            f = findobj('type','figure','-and','name',name);
+            if isempty(f)
+                f = figure(Name=name);
+            end
+            figure(f);
+        end
         
         function p = spectral_rms(x,freq,fs)
             n = length(x);

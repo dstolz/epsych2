@@ -10,14 +10,19 @@ classdef Noise < stimgen.StimType
    
     
     properties (Constant)
+        IsMultiObj      = false;
         CalibrationType = "filter";
-        Normalization   = "rms"
+        Normalization   = "rms";
     end
     
     methods
                 
         function obj = Noise(varargin)
             obj = obj@stimgen.StimType(varargin{:});
+
+            obj.DisplayName = 'Noise';
+
+            obj.UserProperties = ["SoundLevel","Duration","WindowDuration","ApplyWindow","HighPass","LowPass"];
         end
         
         function set.HighPass(obj,fc)

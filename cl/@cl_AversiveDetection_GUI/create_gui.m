@@ -170,29 +170,23 @@ h.Text = "Optogenetic Trigger:";
 % SOUND CONTROLS -----------------------------------------------------
 
 % >> dB SPL
-p = RUNTIME.HW.find_parameter('dBSPL');
+p = RUNTIME.HW.find_parameter('dBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-    h.Values = 0:6:84;
-    h.Value = 48;
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Sound Level (dB SPL):";
 end
 
 % >> Tone dB SPL
 p = RUNTIME.HW.find_parameter('TonedBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-    h.Values = 0:6:84;
-    h.Value = 48;
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Tone Sound Level (dB SPL):";
 end
 
 % >> Noise dB SPL
 p = RUNTIME.HW.find_parameter('NoisedBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='dropdown');
-    h.Values = 0:6:84;
-    h.Value = 48;
+    h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Noise Sound Level (dB SPL):";
 end
 

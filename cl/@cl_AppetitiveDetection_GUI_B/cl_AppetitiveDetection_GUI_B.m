@@ -238,13 +238,6 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                 return
             end
 
-            pcd = RUNTIME.HW.find_parameter('~FreeReward',includeInvisible=true);
-            if pcd.Value == 1
-                obj.Value = 0;
-                vprintf(0,1,'"Free Reward" must be inactive to initiate a Reminder trial')
-                return
-            end
-
 
             % the following FORCE_TRIAL tells ep_TimerFcn_RunTime to skip
             % waiting for trial to complete and just go directly to
@@ -257,10 +250,6 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         function trigger_FreeReward(obj, value)
             global RUNTIME
 
-            pcd = RUNTIME.HW.find_parameter('~FreeReward',includeInvisible=true);
-            if pcd.Value == 0
-                return
-            end
 
             vprintf(3,'Initiating Free Trial Delivery')
             AMdepth = RUNTIME.HW.find_parameter('Depth');

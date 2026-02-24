@@ -97,8 +97,16 @@ set(bh, ...
     Enable = "on");
 
 
+% INFO ----------------------------------------------------
 
+% >> PelletTotal --- updated with "NewData" event
+h = uilabel(layoutMain);
+h.Layout.Column = [4 5];
+h.Layout.Row    = 2;
+h.FontSize = 20;
+h.FontWeight = "bold";
 
+obj.hTotalPellets = h;
 
 
 
@@ -145,19 +153,19 @@ layoutSoundControls.Scrollable = "on";
 
 
 % >> Consecutive NOGO min
-p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',2);
+p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',1);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
 h.EvaluatorFcn = @obj.eval_gonogo;
 h.Values = 0:5;
-h.Value = 2;
+h.Value = 1;
 h.Text = "Consecutive NoGo (min):";
 
 % >> Consecutive NOGO max
-p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',5);
+p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',2);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
 h.EvaluatorFcn = @obj.eval_gonogo;
 h.Values = 0:10;
-h.Value = 5;
+h.Value = 2;
 h.Text = "Consecutive NoGo (max):";
 
 

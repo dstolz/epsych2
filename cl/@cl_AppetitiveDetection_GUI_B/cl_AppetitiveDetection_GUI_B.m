@@ -13,6 +13,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons
 
+        hTotalPellets
+
         bmStimulus  = epsych.BitMask.TrialType_0;
         bmCatch     = epsych.BitMask.TrialType_1;
         bmReminder  = epsych.BitMask.TrialType_2;
@@ -145,13 +147,16 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
 
             try % TODO: FIGURE OUT WHY THIS IS HAPPENING
-
                 % calculate session FA rate and update
                 obj.psychDetect.targetTrialType = obj.bmCatch; % CATCH TRIALS
                 faRate = obj.psychDetect.Rate.FalseAlarm;
                 if isempty(faRate) || isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
                 obj.lblFARate.Text = faTxt;
             end
+
+            n = event.Data.DATA(end).PelletTotal;
+            obj.hTotalPellets.Text = sprintf("Pellets Delivered: %d",n);
+
 
         end
 

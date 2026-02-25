@@ -13,7 +13,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons
 
-        hTotalPellets
+        ParameterMonitorTable
 
         bmStimulus  = epsych.BitMask.TrialType_0;
         bmCatch     = epsych.BitMask.TrialType_1;
@@ -136,6 +136,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             switch ev.NewMode
                 case hw.DeviceState.Stop
                     fprintf('TO DO: Update filename\n')
+
+                    delete(obj.ParameterMonitorTable);
             end
         end
 
@@ -153,9 +155,6 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                 if isempty(faRate) || isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
                 obj.lblFARate.Text = faTxt;
             end
-
-            n = event.Data.DATA(end).PelletTotal;
-            obj.hTotalPellets.Text = sprintf("Pellets Delivered: %d",n);
 
 
         end

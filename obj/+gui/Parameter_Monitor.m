@@ -17,9 +17,9 @@ classdef Parameter_Monitor < handle
 %     - "text"           : uicontrol text block with one line per parameter
 %
 %   Construction
-%     M = Parameter_Monitor(parent)
-%     M = Parameter_Monitor(parent, Parameters)
-%     M = Parameter_Monitor(parent, Parameters, pollPeriod=..., type=...)
+%     M = gui.Parameter_Monitor(parent)
+%     M = gui.Parameter_Monitor(parent, Parameters)
+%     M = gui.Parameter_Monitor(parent, Parameters, pollPeriod=..., type=...)
 %
 %   Inputs
 %     parent
@@ -146,6 +146,13 @@ classdef Parameter_Monitor < handle
             end
         end
 
+        function delete(obj)
+            try
+                obj.Timer.stop();
+                delete(obj.Timer);
+            end
+        end
+
         function add_parameter(obj, parameter)
             if ~isa(parameter, 'hw.Parameter')
                 error('Only hw.Parameter objects can be added to the monitor.');
@@ -167,8 +174,8 @@ classdef Parameter_Monitor < handle
         end
 
         function update_parameters(obj)
-            obj.ParameterValues = arrayfun(@(p) p.ValueStr, obj.Parameters);
-            obj.ParameterNames = arrayfun(@(p) p.Name, obj.Parameters);
+            obj.ParameterValues = string(arrayfun(@(p) p.ValueStr, obj.Parameters,'uni',0));
+            obj.ParameterNames  = string(arrayfun(@(p) p.Name, obj.Parameters,'uni',0));
         end
 
         function update_gui(obj)
@@ -195,29 +202,26 @@ classdef Parameter_Monitor < handle
     methods (Access = private)
 
         function create_gui(obj)
+
+
             switch obj.type
                 case "text"
                     % Create a single text area with scrollbar
-                    textStr = '';
-                    for i = 1:length(obj.Parameters)
-                        textStr = sprintf('%s%s: %s\n', textStr, obj.Parameters(i).Name, num2str(obj.Parameters(i).Value));
-                    end
                     obj.handle = uicontrol(obj.Parent, 'Style', 'text', ...
-                        'String', textStr, ...
+                        'String', '', ...
                         'Tag', 'ParameterTextBox', ...
                         'HorizontalAlignment', 'left', ...
                         'Position', [10, 10, 300, 200]);
                 case "table"
                     % Create a table to display parameters
-                    data = cell(length(obj.Parameters), 2);
-                    for i = 1:length(obj.Parameters)
-                        data{i, 1} = obj.Parameters(i).Name;
-                        data{i, 2} = obj.Parameters(i).ValueStr;
-                    end
-                    obj.handle = uitable(obj.Parent, 'Data', data, ...
+                    pos = obj.Parent.Position;
+                    obj.handle = uitable(obj.Parent, ...
                         'ColumnName', {'Parameter', 'Value'}, ...
-                        'Position', [10, 10, 300, 30*length(obj.Parameters)]);
+                        'ColumnEditable',[false false], ...
+                        'Position', [1, 1, pos([3 4])-10]);
             end
+            
+
         end
 
         function create_timer(obj)

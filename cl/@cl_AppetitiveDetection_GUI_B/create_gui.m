@@ -99,14 +99,14 @@ set(bh, ...
 
 % INFO ----------------------------------------------------
 
-% >> PelletTotal --- updated with "NewData" event
-h = uilabel(layoutMain);
-h.Layout.Column = [4 5];
-h.Layout.Row    = 2;
-h.FontSize = 20;
-h.FontWeight = "bold";
+% >> Info table
+h = uipanel(layoutMain);
+h.Layout.Column = 5;
+h.Layout.Row    = [1 3];
 
-obj.hTotalPellets = h;
+p = RUNTIME.HW.find_parameter('PelletTotal');
+p(2) = RUNTIME.HW.find_parameter('Platform');
+obj.ParameterMonitorTable = gui.Parameter_Monitor(h,p,pollPeriod=0.1);
 
 
 

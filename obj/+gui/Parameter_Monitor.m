@@ -1,9 +1,9 @@
 classdef Parameter_Monitor < handle
 %PARAMETER_MONITOR Poll hw.Parameter objects and display their current values.
 %
-%   Parameter_Monitor attaches to a parent graphics container (e.g., uifigure,
-%   uipanel, or figure), creates a small display, and periodically refreshes
-%   the display by polling a set of hw.Parameter objects.
+%   Parameter_Monitor attaches to a graphics parent (e.g., uifigure, uipanel,
+%   uigridlayout, or figure), creates a small display, and periodically
+%   refreshes that display by polling an array of hw.Parameter objects.
 %
 %   The monitor reads each parameter's:
 %     - Name     (display label)
@@ -14,7 +14,7 @@ classdef Parameter_Monitor < handle
 %
 %   Display types
 %     - "table" (default): uitable with columns {"Parameter","Value"}
-%     - "text"            : uicontrol text block with one line per parameter
+%     - "text"           : uicontrol text block with one line per parameter
 %
 %   Construction
 %     M = Parameter_Monitor(parent)
@@ -22,43 +22,81 @@ classdef Parameter_Monitor < handle
 %     M = Parameter_Monitor(parent, Parameters, pollPeriod=..., type=...)
 %
 %   Inputs
-%     parent      Graphics parent that will contain the display UI.
-%                 If empty, no UI or timer is created.
+%     parent
+%       Graphics parent that will contain the display UI. If parent is empty,
+%       no UI or timer is created.
 %
-%     Parameters  1×N cell array of hw.Parameter objects.
+%     Parameters
+%       1×N hw.Parameter array (may be empty). Duplicates are ignored by
+%       add_parameter().
 %
 %   Name-Value options
-%     pollPeriod  Poll period in seconds (fixed-rate timer). Default 1.
-%     type        Display type: "table" or "text". Default "table".
+%     pollPeriod
+%       Poll period in seconds for the fixed-rate timer. Default 1.
+%
+%     type
+%       Display type: "table" or "text". Default "table".
 %
 %   Examples
 %     % Show parameters in a uitable, updated at 2 Hz
 %     f = uifigure('Name','Params');
-%     p = {hw.Parameter(...), hw.Parameter(...)};
+%     p = [hw.Parameter(...), hw.Parameter(...)];
 %     M = Parameter_Monitor(f, p, pollPeriod=0.5, type="table");
 %
 %     % Add a parameter at runtime (display updates on next poll)
 %     M.add_parameter(hw.Parameter(...));
 %
 %   Public read-only properties (SetAccess = private)
-%     Parent           Parent graphics container.
-%     Parameters       Cell array of hw.Parameter objects to monitor.
-%     ParameterValues  Current polled values (cellstr), from ValueStr.
-%     ParameterNames   Current polled names (cellstr), from Name.
-%     pollPeriod       Timer period (seconds).
-%     Timer            MATLAB timer object used for polling.
-%     handle           Handle to the display UI control (uitable/uicontrol).
-%     type             Display type ("text" or "table").
+%     Parent
+%       Parent graphics container.
+%
+%     Parameters
+%       1×N hw.Parameter array being monitored.
+%
+%     ParameterNames
+%       Cell array of parameter names (from hw.Parameter.Name).
+%
+%     ParameterValues
+%       Cell array of parameter display strings (from hw.Parameter.ValueStr).
+%
+%     pollPeriod
+%       Timer period in seconds.
+%
+%     Timer
+%       MATLAB timer object used for polling.
+%
+%     handle
+%       Handle to the display UI element (uitable or uicontrol).
+%
+%     type
+%       Display type ("text" or "table").
 %
 %   Public methods
-%     add_parameter(param)   Append a hw.Parameter to the monitor list.
-%     poll_parameters()     Poll parameters then update the display.
-%     update_parameters()   Refresh ParameterNames/ParameterValues.
-%     update_gui()          Render current values into the UI element.
+%     add_parameter(parameter)
+%       Append a hw.Parameter to the monitored list. If the parameter is
+%       already present, it is ignored with a warning.
+%
+%     poll_parameters()
+%       Poll parameters (update_parameters) then refresh the UI (update_gui).
+%
+%     update_parameters()
+%       Refresh ParameterNames/ParameterValues from the current Parameters.
+%
+%     update_gui()
+%       Render ParameterNames/ParameterValues into the current UI element.
 %
 %   Private methods
-%     create_gui()          Create the UI element for the selected type.
-%     create_timer()        Create and configure the polling timer.
+%     create_gui()
+%       Create the UI element according to type.
+%
+%     create_timer()
+%       Create/configure the polling timer and delete any existing timer with
+%       the same name.
+%
+%   Notes
+%     - The constructor validates that the supplied Parameters are hw.Parameter
+%       objects (and accepts empty).
+%     - The timer BusyMode is set to "drop".
 %
 %   See also timer, uitable, uicontrol
 
@@ -70,7 +108,7 @@ classdef Parameter_Monitor < handle
 
         ParameterValues % current values of the parameters being monitored
         ParameterNames % names of the parameters being monitored
-        
+
         pollPeriod (1,1) double = 1 % seconds
 
         Timer
@@ -98,7 +136,7 @@ classdef Parameter_Monitor < handle
             obj.Parameters = Parameters;        % already validated as hw.Parameter array
             obj.type = options.type;
 
-            
+
             if ~isempty(parent)
                 obj.create_gui();
 
@@ -129,8 +167,8 @@ classdef Parameter_Monitor < handle
         end
 
         function update_parameters(obj)
-            obj.ParameterValues = {obj.Parameters{:}.ValueStr};
-            obj.ParameterNames = {obj.Parameters{:}.Name};    
+            obj.ParameterValues = arrayfun(@(p) p.ValueStr, obj.Parameters);
+            obj.ParameterNames = arrayfun(@(p) p.Name, obj.Parameters);
         end
 
         function update_gui(obj)
@@ -145,12 +183,12 @@ classdef Parameter_Monitor < handle
                         textStr = sprintf('%s%s: %s\n', textStr, N{j}, V{j});
                     end
                     obj.handle.String = textStr;
-                    
+
                 case "table"
                     data = [N(:), V(:)];
                     obj.handle.Data = data;
             end
-        
+
         end
     end
 
@@ -181,7 +219,7 @@ classdef Parameter_Monitor < handle
                         'Position', [10, 10, 300, 30*length(obj.Parameters)]);
             end
         end
-        
+
         function create_timer(obj)
             delete(timerfindall("Name", "Parameter_Monitor_Timer"));
             obj.Timer = timer("Name", "Parameter_Monitor_Timer", ...

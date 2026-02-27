@@ -5,7 +5,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         parent (1,1) % handle to parent container
         Parameter (1,1) %hw.Parameter % handle to parameter
 
-        type (1,:) char {mustBeMember(type,{'editfield','dropdown','checkbox','toggle','readonly'})} = 'editfield'
+        type (1,:) char {mustBeMember(type,{'editfield','dropdown','checkbox','toggle','readonly','mommentary'})} = 'editfield'
 
         autoCommit (1,1) logical = false
     end
@@ -169,6 +169,10 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 end
                 event.Value = value;
 
+            elseif isequal(event.EventName,'ButtonPushed')
+                obj.Parameter.Trigger;
+                return
+
             elseif isnumeric(event.Value) && (event.Value < obj.Parameter.Min || event.Value > obj.Parameter.Max)
                 vprintf(0,1,'New parameter value for "%s" outside bounds [%g %g]', ...
                     obj.Name,obj.Parameter.Min,obj.Parameter.Max)
@@ -289,8 +293,13 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
             h.UserData = obj;
 
-            if ~isequal(obj.type,'readonly')
-                h.ValueChangedFcn = @obj.value_changed;
+            switch obj.type
+                case 'readonly'
+                    % do nothing
+                case 'mommentary'
+                    h.ButtonPushedFcn = @obj.value_changed;
+                otherwise
+                    h.ValueChangedFcn = @obj.value_changed;
             end
 
 

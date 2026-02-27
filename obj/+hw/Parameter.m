@@ -80,6 +80,16 @@ classdef Parameter < matlab.mixin.SetGet
             end
         end
 
+        function Trigger(obj)
+            if ~obj.isTrigger
+                vprintf(0,'"%s" is not recognized as a parameter',obj.Name)
+                return
+            end
+
+            obj.Parent.set_parameter(obj,1);
+            obj.Parent.set_parameter(obj,0);
+        end
+
         function set.Value(obj,value)
 
             if isa(obj.PreUpdateFcn ,'function_handle')

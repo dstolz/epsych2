@@ -75,6 +75,8 @@ reminderTrial.Value = false;
 RC = epsych.BitMask.decodeResponseCodes([TRIALS.DATA.RespCode]);
 
 
+
+
 % Determine if enough consecutive NOGO trials have been presented
 NOGOmax = SP.ConsecutiveNOGO_max.Value;
 NOGOmin = SP.ConsecutiveNOGO_min.Value;
@@ -89,7 +91,11 @@ nBack = min(nNOGOs,TRIALS.TrialIndex-1);
 
 % how many NOGOs have we had in the last n trials?
 nRecentNOGOs = sum(RC.("TrialType_"+TT.NOGO)(end-nBack+1:end));
-if nRecentNOGOs < nNOGOs % next trial must be a NOGO
+
+
+% If the last response was a false alarm, then make sure to present a catch
+% trial again
+if nRecentNOGOs < nNOGOs || RC.FalseAlarm(end) % next trial must be a NOGO
     TRIALS.NextTrialID = find(all.TrialType == TT.NOGO,1);
     return
 end

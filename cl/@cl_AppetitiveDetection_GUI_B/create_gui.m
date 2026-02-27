@@ -119,7 +119,7 @@ p(2) = RUNTIME.HW.find_parameter('Platform');
 p(3) = RUNTIME.HW.find_parameter('Trough');
 p(4) = RUNTIME.HW.find_parameter('InTrial');
 obj.ParameterMonitorTable = gui.Parameter_Monitor(h,p,pollPeriod=0.1);
-
+obj.ParameterMonitorTable.handle.FontSize = 12;
 
 
 

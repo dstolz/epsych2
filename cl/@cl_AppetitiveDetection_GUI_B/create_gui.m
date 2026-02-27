@@ -42,12 +42,20 @@ buttonLayout.RowHeight = {'1x'};
 buttonLayout.RowSpacing = 0;
 buttonLayout.ColumnSpacing = 0;
 
-bcmActive = jet(5);
-% bcmNormal = min(bcmActive+.4,1);
-bcmNormal = repmat(fig.Color,size(bcmActive,1),1);
+bcmNormal = lines(6);
+bcmActive = min(bcmNormal+.4,1);
+% bcmNormal = repmat(fig.Color,size(bcmActive,1),1);
 
 
 k = 1;
+% > Drop Pellet
+p = RUNTIME.HW.find_parameter('!DropPellet',includeInvisible=true);
+h = gui.Parameter_Control(buttonLayout,p,Type='mommentary',autoCommit=true);
+h.Text = "Pellet";
+h.colorNormal = bcmNormal(k,:);
+h.colorOnUpdate = bcmActive(k,:);
+obj.hButtons.DropPellet = h;
+k = k + 1;
 
 % > Shape
 p = RUNTIME.HW.find_parameter('~Shape',includeInvisible=true);
@@ -90,12 +98,14 @@ k = k + 1;
 
 
 
-bh = findobj(fig,'Type', 'uistatebutton');
-set(bh, ...
+bh = structfun(@(a) a.h_value,obj.hButtons,'uni',0);
+bh = struct2cell(bh);
+for i = 1:length(bh)
+set(bh{i}, ...
     FontWeight = 'bold', ...
     FontSize = 15, ...
     Enable = "on");
-
+end
 
 % INFO ----------------------------------------------------
 
@@ -106,6 +116,8 @@ h.Layout.Row    = [1 3];
 
 p = RUNTIME.HW.find_parameter('PelletTotal');
 p(2) = RUNTIME.HW.find_parameter('Platform');
+p(3) = RUNTIME.HW.find_parameter('Trough');
+p(4) = RUNTIME.HW.find_parameter('InTrial');
 obj.ParameterMonitorTable = gui.Parameter_Monitor(h,p,pollPeriod=0.1);
 
 

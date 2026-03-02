@@ -29,7 +29,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
     properties
         h_label % handle to uilabel
-        h_value % handle to uieditfield or uidropdown
+        h_uiobj % handle to uieditfield or uidropdown
         container % handle to container built within parent
 
         
@@ -85,7 +85,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         
 
         function v = get.Value(obj)
-            v = obj.h_value.Value;
+            v = obj.h_uiobj.Value;
         end
 
         function set.Value(obj,value)
@@ -106,21 +106,21 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
 
         function v = get.Values(obj)
-            v = obj.h_value.ItemsData;
+            v = obj.h_uiobj.ItemsData;
         end
 
         function set.Values(obj,values)
             switch obj.type
                 case 'dropdown'
-                    obj.h_value.ItemsData = values;
+                    obj.h_uiobj.ItemsData = values;
                     if isnumeric(values)
-                        obj.h_value.Items = string(values);
+                        obj.h_uiobj.Items = string(values);
                     else
-                        obj.h_value.Items = values;
+                        obj.h_uiobj.Items = values;
                     end
                     i = ismember(values,obj.Value);
                     if any(i)
-                        obj.h_value.Value = obj.Value;
+                        obj.h_uiobj.Value = obj.Value;
                     end
             end
         end
@@ -135,7 +135,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             if ishandle(obj.h_label)
                 t = obj.h_label.Text;
             else
-                t = obj.h_value.Text;
+                t = obj.h_uiobj.Text;
             end
         end
 
@@ -145,7 +145,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             if ishandle(obj.h_label)
                 obj.h_label.Text = t;
             else
-                obj.h_value.Text = t;
+                obj.h_uiobj.Text = t;
             end
         end
 
@@ -165,7 +165,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             if isa(obj.EvaluatorFcn,'function_handle')
                 [value,success] = obj.EvaluatorFcn(obj,event);
                 if ~success
-                    gui.Helper.timed_color_change(obj.h_value,obj.colorOnError);
+                    gui.Helper.timed_color_change(obj.h_uiobj,obj.colorOnError);
                 end
                 event.Value = value;
 
@@ -180,7 +180,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
            
             value = event.Value;
 
-            obj.h_value.Value = value;
+            obj.h_uiobj.Value = value;
             % obj.Value = value;
 
             obj.ValueUpdated = ~isequal(value,obj.Parameter.Value);
@@ -188,19 +188,19 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             if obj.autoCommit
                 if isempty(src), return; end
                 obj.Parameter.Value = value;
-                % gui.Helper.timed_color_change(obj.h_value,obj.colorOnUpdateAuto,postColor=obj.colorNormal);
+                % gui.Helper.timed_color_change(obj.h_uiobj,obj.colorOnUpdateAuto,postColor=obj.colorNormal);
                 % obj.indicate_change;
 
             elseif ~obj.ValueUpdated && success
                 obj.reset_label;
 
             elseif obj.ValueUpdated
-                obj.h_value.BackgroundColor = obj.colorOnUpdate;
+                obj.h_uiobj.BackgroundColor = obj.colorOnUpdate;
             end
         end
 
         function reset_label(obj)
-            obj.h_value.BackgroundColor = obj.colorNormal;
+            obj.h_uiobj.BackgroundColor = obj.colorNormal;
             obj.ValueUpdated = false;
         end
 
@@ -209,7 +209,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
         function update_color(obj,src,event)
             % s = src.Name;
-            obj.h_value.BackgroundColor = obj.colorNormal;
+            obj.h_uiobj.BackgroundColor = obj.colorNormal;
         end
     end
 
@@ -303,7 +303,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             end
 
 
-            obj.h_value = h;
+            obj.h_uiobj = h;
 
         end
 
@@ -315,7 +315,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     s = 'on';
                 end
 
-                obj.h_value.Enable = s;
+                obj.h_uiobj.Enable = s;
                 if ishandle(obj.h_label)
                     obj.h_label.Enable = s;
                 end
@@ -328,7 +328,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
 
             % obj.Value = v;
-            obj.h_value.Value = v;
+            obj.h_uiobj.Value = v;
 
             obj.indicate_change;
         end
@@ -340,29 +340,29 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             switch obj.type
                 case 'dropdown'
                     % need to add to Items
-                    if ~ismember(v,obj.h_value.ItemsData)
-                        obj.h_value.ItemsData = sort([obj.h_value.ItemsData, v]);
-                        obj.h_value.Items = string(obj.h_value.Items.Data);
+                    if ~ismember(v,obj.h_uiobj.ItemsData)
+                        obj.h_uiobj.ItemsData = sort([obj.h_uiobj.ItemsData, v]);
+                        obj.h_uiobj.Items = string(obj.h_uiobj.Items.Data);
                     end
-                    gui.Helper.timed_color_change(obj.h_value, ...
+                    gui.Helper.timed_color_change(obj.h_uiobj, ...
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
 
                 case 'readonly'
-                    obj.h_value.Text = obj.Parameter.ValueStr;
-                    gui.Helper.timed_color_change(obj.h_value, ...
+                    obj.h_uiobj.Text = obj.Parameter.ValueStr;
+                    gui.Helper.timed_color_change(obj.h_uiobj, ...
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
                     
 
                 case 'checkbox'
-                    gui.Helper.timed_color_change(obj.h_value, ...
+                    gui.Helper.timed_color_change(obj.h_uiobj, ...
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
                     
 
                 case {'toggle','mommentary'}
                     if v
-                        obj.h_value.BackgroundColor = obj.colorOnUpdate;
+                        obj.h_uiobj.BackgroundColor = obj.colorOnUpdate;
                     else
-                        obj.h_value.BackgroundColor = obj.colorNormal;
+                        obj.h_uiobj.BackgroundColor = obj.colorNormal;
                     end
 
 

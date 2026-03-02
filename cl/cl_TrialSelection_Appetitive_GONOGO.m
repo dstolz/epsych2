@@ -89,10 +89,9 @@ nRecentNOGOs = sum(RC.("TrialType_"+TT.NOGO)(end-nBack+1:end));
 %--------------------------------------------------------------------------
 % 12) Enforce NOGO continuation rule
 %     - If required NOGO run not satisfied
-%     - OR last trial was a false alarm
 %     -> Force next trial to NOGO
 %--------------------------------------------------------------------------
-if nRecentNOGOs < nNOGOs || RC.FalseAlarm(end)
+if nRecentNOGOs < nNOGOs
     TRIALS.NextTrialID = find(all.TrialType == TT.NOGO,1);
     return
 end

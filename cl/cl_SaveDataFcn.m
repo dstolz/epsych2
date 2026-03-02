@@ -11,7 +11,7 @@ function cl_SaveDataFcn(RUNTIME)
 
 hcDefaultPath = "D:\epsych_files\Data"; % DS 11/6/25
 
-
+try
 % Create modal figure
 fig = figure( ...
     'Color','#ffc4c4', ...
@@ -70,7 +70,8 @@ uicontrol(fig, ...
     'Callback',cbFood);
 
 uiwait(fig);
-    
+catch
+end
 
 
 for i = 1:RUNTIME.NSubjects

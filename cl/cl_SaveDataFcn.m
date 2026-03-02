@@ -90,8 +90,8 @@ for i = 1:RUNTIME.NSubjects
 
     vprintf(3,'Save Data for ''%s'' in Box ID %d',name,boxid)
 
-    h = msgbox(sprintf('Save Data for ''%s'' in Box ID %d',name,boxid), ...
-        'Save Behavioural Data','help','modal');
+    % h = msgbox(sprintf('Save Data for ''%s'' in Box ID %d',name,boxid), ...
+    %     'Save Behavioural Data','help','modal');
 
     subjPath = fullfile(hcDefaultPath,name);
     

@@ -87,6 +87,7 @@ classdef Parameter < matlab.mixin.SetGet
             end
 
             obj.lastUpdated = obj.Parent.trigger(obj);
+            vprintf(3,'%s triggered',obj.Name)
 
         end
 

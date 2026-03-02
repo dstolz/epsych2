@@ -112,7 +112,7 @@ classdef TDT_RPcox < hw.Interface
 
             e = obj.HW.write(P.Name,1);
             
-            t = datetime('now');
+            t = now;
             
             if ~e, throwerrormsg(module,trig); end
             pause(0.001)

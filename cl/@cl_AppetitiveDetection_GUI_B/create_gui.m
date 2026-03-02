@@ -98,7 +98,7 @@ k = k + 1;
 
 
 
-bh = structfun(@(a) a.h_value,obj.hButtons,'uni',0);
+bh = structfun(@(a) a.h_uiobj,obj.hButtons,'uni',0);
 bh = struct2cell(bh);
 for i = 1:length(bh)
 set(bh{i}, ...
@@ -119,13 +119,13 @@ p(2) = RUNTIME.HW.find_parameter('Platform');
 p(3) = RUNTIME.HW.find_parameter('Trough');
 p(4) = RUNTIME.HW.find_parameter('InTrial');
 obj.ParameterMonitorTable = gui.Parameter_Monitor(h,p,pollPeriod=0.1);
-obj.ParameterMonitorTable.handle.FontSize = 12;
+obj.ParameterMonitorTable.handle.FontSize = 14;
 
 
 
 
 
-% TRIAL CONTROLS -------------------------------------------------
+% LAYOUTS -------------------------------------------------
 % Panel for "Trial Controls"
 panelTrialControls = uipanel(layoutMain, 'Title', 'Trial Controls');
 panelTrialControls.Layout.Row = [2 5];
@@ -196,12 +196,31 @@ h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Intertrial Interval (ms):";
 
 
-% >> Response Window Delay
+
+% >> Response Window Delay (Mean)
 p = RUNTIME.HW.find_parameter('RespWinDelay');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+h.EvaluatorFcn = @obj.eval_rwdelay;
 h.Text = "Response Window Delay (ms):";
 
+%{
+% >> Response Window Delay Range
+p = RUNTIME.S.Module.add_parameter('RespWinDelayRange',0);
+p.Min = 0;
+p.Max = Inf;
+p.Unit = 'ms';
+p.Type = 'Integer';
+p.Description = "Range of random jitter (+/-) added to Response Window Delay";
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+h.Text = "Response Window Delay Range (ms):";
 
+
+% >> Response Window Delay Training Mode --- launches a small gui to adjust parameters for training with variable response window delay
+p = RUNTIME.S.Module.add_parameter('RespWinDelayTrainingMode',0);
+h = gui.Parameter_Control(layoutTrialControls,p,Type='toggle');
+h.Text = "Response Window Delay Training Mode";
+h.EvaluatorFcn = @obj.eval_rwdelay_training_mode;
+%}
 
 % >> Response Window Duration
 p = RUNTIME.HW.find_parameter('RespWinDur');

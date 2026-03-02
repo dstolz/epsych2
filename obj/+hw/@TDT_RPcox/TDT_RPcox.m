@@ -121,8 +121,8 @@ classdef TDT_RPcox < hw.Interface
             if e
                 vprintf(3,'Triggered "%s"',P.Name)
             else
-                errordlg(sprintf('UNABLE TO TRIGGER "%s" ON MODULE "%s"',trig,module),'SYNAPSE TRIGGER ERROR','modal')
-                error('UNABLE TO TRIGGER "%s" ON MODULE "%s"',trig,module)
+                vprintf(0,1,'UNABLE TO TRIGGER "%s" ON MODULE "%s"',trig,module)
+                % error('UNABLE TO TRIGGER "%s" ON MODULE "%s"',trig,module)
             end
         end
         

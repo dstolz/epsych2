@@ -86,8 +86,8 @@ classdef Parameter < matlab.mixin.SetGet
                 return
             end
 
-            obj.Parent.set_parameter(obj,1);
-            obj.Parent.set_parameter(obj,0);
+            obj.lastUpdated = obj.Parent.trigger(obj);
+
         end
 
         function set.Value(obj,value)

@@ -8,14 +8,14 @@ try
     
     if event.NewValue == 1
         % launch the training mode GUI
-        if isvalid(obj.h_ProgressiveTrainingGUI) % if the GUI doesn't exist or has been deleted, create it
-            obj.h_ProgressiveTrainingGUI = ProgressiveTrainingGUI(Parameter);
+        if isvalid(obj.h_RWDelayTrainingGUI) % if the GUI doesn't exist or has been deleted, create it
+            obj.h_RWDelayTrainingGUI = ProgressiveTrainingGUI(Parameter);
         else
-            uifigure(obj.h_ProgressiveTrainingGUI.UIFigure); % bring to front if it already exists
+            uifigure(obj.h_RWDelayTrainingGUI.UIFigure); % bring to front if it already exists
         end
     else
         % close the training mode GUI if it's open
-        delete(obj.h_ProgressiveTrainingGUI);
+        delete(obj.h_RWDelayTrainingGUI);
     end
 
 catch e

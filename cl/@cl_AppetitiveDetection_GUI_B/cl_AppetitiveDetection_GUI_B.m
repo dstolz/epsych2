@@ -13,6 +13,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons
 
+        h_RWDelayTrainingGUI
+
         ParameterMonitorTable
 
         bmStimulus  = epsych.BitMask.TrialType_0;
@@ -22,6 +24,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         ttStimulus  = 0;
         ttCatch     = 1;
         ttReminder  = 2;
+
+        
     end
 
     properties (Hidden)
@@ -30,7 +34,6 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         hl_NewData
         hl_ModeChange
 
-        h_ProgressiveTrainingGUI
     end
 
     methods

@@ -7,6 +7,11 @@ classdef ProgressiveTrainingGUI < handle
 %   properties until explicitly committed.
 %
 %   VALIDATION RULES
+%     - StepUp and StepDown must be finite, nonnegative scalars.
+%     - StepUp represents a positive increment added to the current
+%       Parameter.Value when stepping "up".
+%     - StepDown represents a positive decrement subtracted from the
+%       current Parameter.Value when stepping "down".
 %     - Limits (≥, ≤) must be numeric scalars.
 %     - Lower bound must be ≤ upper bound.
 %     - Value must be numeric scalar within the displayed limits.
@@ -23,6 +28,11 @@ classdef ProgressiveTrainingGUI < handle
 %     updateParameter(stepDirection) modifies Parameter.Value by:
 %       + StepUp   when stepDirection == "up"
 %       - StepDown when stepDirection == "down"
+%
+%     StepUp and StepDown are always treated as positive magnitudes.
+%     Stepping "down" subtracts StepDown from the current value;
+%     Stepping "up" adds StepUp to the current value.
+%
 %     The updated value is clamped to the closed interval
 %       [MinValue, MaxValue].
 %
@@ -96,7 +106,7 @@ classdef ProgressiveTrainingGUI < handle
             arguments
                 Parameter % hw.Parameter
 
-                options.MinValue (1,1) = 0
+                options.MinValue (1,1) = -inf
                 options.MaxValue (1,1) = inf
                 options.StepUp   (1,1) = 1
                 options.StepDown (1,1) = 1
@@ -128,6 +138,13 @@ classdef ProgressiveTrainingGUI < handle
 
 
         function updateParameter(obj,stepDirection)
+            % updateParameter(stepDirection) adjusts Parameter.Value by:
+            %   + StepUp   when stepDirection == "up"
+            %   - StepDown when stepDirection == "down"
+            % The result is clamped to [MinValue, MaxValue].
+            %
+            % NOTE: This function should only be called during the appropriate interval when 
+            % updating will not interfere with other processes (e.g. during inter-trial interval).
             v = obj.Parameter.Value;
             switch lower(stepDirection)
                 case "up"

@@ -70,14 +70,15 @@ TT.REMIND = 2;   % reminder trial
 
 %--------------------------------------------------------------------------
 % 3) Outcome-conditioned probabilities for selecting the next trial type
+%    It's important to insure that the probabilities sum to 1 for each outcome (HIT/MISS/CR/FA)
 %--------------------------------------------------------------------------
-p.HIT_STIM   = 0.5;  % P(STIM | HIT)
+p.HIT_STIM   = 0.5;  % P(STIM  | HIT)
 p.HIT_CATCH  = 0.5;  % P(CATCH | HIT)
-p.MISS_STIM  = 1.0;  % P(STIM | MISS)
+p.MISS_STIM  = 1.0;  % P(STIM  | MISS)
 p.MISS_CATCH = 0.0;  % P(CATCH | MISS)
-p.FA_STIM    = 0.0;  % P(STIM | FA)
+p.FA_STIM    = 0.0;  % P(STIM  | FA)
 p.FA_CATCH   = 1.0;  % P(CATCH | FA)
-p.CR_STIM    = 1.0;  % P(STIM | CR)
+p.CR_STIM    = 1.0;  % P(STIM  | CR)
 p.CR_CATCH   = 0.0;  % P(CATCH | CR)
 
 %--------------------------------------------------------------------------

@@ -62,7 +62,8 @@ classdef ProgressiveTrainingGUI < handle
 
     properties (SetAccess = private, GetAccess = public)
         Parameter (1,1) % hw.Parameter object this GUI is configuring
-        UIFigure matlab.ui.Figure = matlab.ui.Figure.empty
+
+        Parent
     end
 
     properties (Access = protected)
@@ -87,6 +88,8 @@ classdef ProgressiveTrainingGUI < handle
             arguments
                 Parameter % hw.Parameter
 
+                options.parent = []
+
                 options.MinValue (1,1) double = -inf
                 options.MaxValue (1,1) double = inf
                 options.StepUp   (1,1) double {mustBeFinite, mustBePositive} = 1
@@ -109,9 +112,9 @@ classdef ProgressiveTrainingGUI < handle
         end
 
         function delete(obj)
-            if ~isempty(obj.UIFigure) && isvalid(obj.UIFigure)
-                setpref('ProgressiveTrainingGUI','Position',obj.UIFigure.Position);
-                delete(obj.UIFigure)
+            if ~isempty(obj.Parent) && isvalid(obj.Parent) && isa(obj.Parent,'matlab.ui.Figure')
+                setpref('ProgressiveTrainingGUI','Position',obj.Parent.Position);
+                delete(obj.Parent)
             end
         end
 
@@ -146,28 +149,33 @@ classdef ProgressiveTrainingGUI < handle
 
     methods (Access = private)
         function createUI(obj)
-            fpos = getpref('ProgressiveTrainingGUI','Position',[500 400 520 320]);
-            fig = uifigure('Name','Progressive Training','Position',fpos);
-            movegui(fig,'onscreen');
-            fig.WindowStyle = char(obj.WindowStyle);
-            fig.CloseRequestFcn = @(~,~)delete(obj);
-            obj.UIFigure = fig;
 
-            gl = uigridlayout(fig,[4 1]);
+            if isempty(options.parent)
+                fpos = getpref('ProgressiveTrainingGUI','Position',[500 400 520 320]);
+                parent = uifigure('Name','Progressive Training','Position',fpos);
+                movegui(parent,'onscreen');
+                parent.WindowStyle = char(obj.WindowStyle);
+                parent.CloseRequestFcn = @(~,~)delete(obj);
+                obj.Parent = parent;
+            end
+
+            parent = obj.Parent;
+
+            gl = uigridlayout(parent,[4 1]);
             gl.RowHeight = {22,22,'1x',34};
             gl.ColumnWidth = {'1x'};
             gl.Padding = [12 12 12 12];
             gl.RowSpacing = 8;
 
-            obj.ParamNameLabel = uilabel(gl,'Text',"",'FontWeight','bold');
+            obj.ParamNameLabel = uilabel(gl,'Text',obj.Parameter.Name,'FontWeight','bold');
             obj.ParamNameLabel.Layout.Row = 1;
 
-            obj.ParamValueLabel = uilabel(gl,'Text',"",'FontAngle','italic');
+            obj.ParamValueLabel = uilabel(gl,'Text',obj.Parameter.ValueStr,'FontAngle','italic');
             obj.ParamValueLabel.Layout.Row = 2;
 
             obj.ParamTable = uitable(gl);
             obj.ParamTable.Layout.Row = 3;
-            obj.ParamTable.ColumnName = {'Name', char(8805), char(8804), 'Value'};
+            obj.ParamTable.ColumnName = {'Param', char(8805), char(8804), 'Value'};
             obj.ParamTable.ColumnEditable = [false true true true];
             obj.ParamTable.CellEditCallback = @(src,evt)obj.tableCellEdited(src,evt);
             obj.ParamTable.RowName = [];

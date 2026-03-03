@@ -1,52 +1,31 @@
 classdef ProgressiveTrainingGUI < handle
-%PROGRESSIVETRAININGGUI Modal GUI for configuring progressive training parameters.
+%PROGRESSIVETRAININGGUI Configure progressive training parameters with staged edits.
 %
-%   This class provides a modal configuration interface for adjusting
-%   step sizes and bounds associated with a hw.Parameter object. The GUI
-%   operates in a staged-edit model: user edits are not applied to class
-%   properties until explicitly committed.
+%   This class provides a small configuration GUI for adjusting step sizes
+%   and bounds associated with a hw.Parameter object.
 %
-%   VALIDATION RULES
-%     - StepUp and StepDown must be finite, nonnegative scalars.
-%     - StepUp represents a positive increment added to the current
-%       Parameter.Value when stepping "up".
-%     - StepDown represents a positive decrement subtracted from the
-%       current Parameter.Value when stepping "down".
-%     - Limits (≥, ≤) must be numeric scalars.
-%     - Lower bound must be ≤ upper bound.
-%     - Value must be numeric scalar within the displayed limits.
+%   STAGED EDIT MODEL
+%     - Table edits are staged (not immediately applied to properties).
+%     - Rows with staged edits are highlighted yellow.
+%     - Pressing "Commit" applies all staged values/limits to the public
+%       properties and clears row highlighting.
 %     - Invalid edits are reverted to the previous value.
 %
-%   STAGED EDIT BEHAVIOR
-%     - Any valid edit to a row stages that row.
-%     - Staged rows are highlighted in yellow using uistyle.
-%     - Staged values are stored internally in the Staged struct.
-%     - Pressing "Commit" copies all staged values/limits to the
-%       corresponding public properties and clears row highlighting.
-%
-%   PARAMETER UPDATE
-%     updateParameter(stepDirection) modifies Parameter.Value by:
-%       + StepUp   when stepDirection == "up"
-%       - StepDown when stepDirection == "down"
-%
-%     StepUp and StepDown are always treated as positive magnitudes.
-%     Stepping "down" subtracts StepDown from the current value;
-%     Stepping "up" adds StepUp to the current value.
-%
-%     The updated value is clamped to the closed interval
-%       [MinValue, MaxValue].
+%   STEP SEMANTICS
+%     - StepUp and StepDown are positive magnitudes.
+%     - updateParameter("up")   adds StepUp to Parameter.Value.
+%     - updateParameter("down") subtracts StepDown from Parameter.Value.
+%     - The updated value is clamped to [MinValue, MaxValue].
 %
 %     IMPORTANT:
 %       updateParameter() directly writes to Parameter.Value. It does not
 %       perform synchronization, locking, or state checks. The caller is
-%       responsible for ensuring this method is invoked only during a
-%       safe execution window (e.g., inter-trial interval) where updating
-%       the underlying parameter will not interfere with acquisition,
-%       stimulus delivery, or other time-critical processes.
+%       responsible for ensuring this method is invoked only during a safe
+%       execution window (e.g., inter-trial interval).
 %
-%   WINDOW BEHAVIOR
-%     - Window position is stored in preferences under
-%       'ProgressiveTrainingGUI'.
+%   WINDOW POSITION
+%     - The window position is stored in preferences under
+%       'ProgressiveTrainingGUI' on deletion.
 %
 %   CONSTRUCTOR
 %     G = ProgressiveTrainingGUI(Parameter)
@@ -61,27 +40,29 @@ classdef ProgressiveTrainingGUI < handle
 %     StepDownLimits    (1,2) double
 %     MinValueLimits    (1,2) double
 %     MaxValueLimits    (1,2) double
+%     WindowStyle       (1,1) string   "modal" | "normal"
 %
-
+%   See also uifigure, uitable, uistyle
 
     properties (SetObservable)
-
         % Committed (active) values
-        StepUp   (1,1) double {mustBeFinite}
-        StepDown (1,1) double {mustBeFinite}
-        MinValue (1,1) double
-        MaxValue (1,1) double
+        StepUp   (1,1) double {mustBeFinite, mustBePositive} = 1
+        StepDown (1,1) double {mustBeFinite, mustBePositive} = 1
+        MinValue (1,1) double = -inf
+        MaxValue (1,1) double = inf
 
         % Limits for each field (modifiable by user of the class)
-        StepUpLimits   (1,2) double
-        StepDownLimits (1,2) double
-        MinValueLimits (1,2) double
-        MaxValueLimits (1,2) double
+        StepUpLimits   (1,2) double = [0 100]
+        StepDownLimits (1,2) double = [0 100]
+        MinValueLimits (1,2) double = [-inf inf]
+        MaxValueLimits (1,2) double = [-inf inf]
+
+        WindowStyle (1,1) string {mustBeMember(WindowStyle,["normal","modal"])} = "modal"
     end
 
     properties (SetAccess = private, GetAccess = public)
         Parameter (1,1) % hw.Parameter object this GUI is configuring
-        UIFigure matlab.ui.Figure
+        UIFigure matlab.ui.Figure = matlab.ui.Figure.empty
     end
 
     properties (Access = protected)
@@ -106,19 +87,18 @@ classdef ProgressiveTrainingGUI < handle
             arguments
                 Parameter % hw.Parameter
 
-                options.MinValue (1,1) = -inf
-                options.MaxValue (1,1) = inf
-                options.StepUp   (1,1) = 1
-                options.StepDown (1,1) = 1
-                options.StepUpLimits   (1,2) = [0 100]
-                options.StepDownLimits (1,2) = [-100 0]
-                options.MinValueLimits (1,2) = [-inf inf]
-                options.MaxValueLimits (1,2) = [-inf inf]
-                options.WindowStyle (1,:) char {mustBeMember(options.WindowStyle,{'normal','modal','docked','floating'})} = 'modal'
+                options.MinValue (1,1) double = -inf
+                options.MaxValue (1,1) double = inf
+                options.StepUp   (1,1) double {mustBeFinite, mustBePositive} = 1
+                options.StepDown (1,1) double {mustBeFinite, mustBePositive} = 1
+                options.StepUpLimits   (1,2) double = [0 100]
+                options.StepDownLimits (1,2) double = [0 100]
+                options.MinValueLimits (1,2) double = [-inf inf]
+                options.MaxValueLimits (1,2) double = [-inf inf]
+                options.WindowStyle (1,1) string {mustBeMember(options.WindowStyle,["normal","modal"])} = "modal"
             end
 
             obj.Parameter = Parameter;
-
 
             for f = string(fieldnames(options))'
                 obj.(f) = options.(f);
@@ -135,29 +115,31 @@ classdef ProgressiveTrainingGUI < handle
             end
         end
 
-
-
-        function updateParameter(obj,stepDirection)
+        function updateParameter(obj, stepDirection)
             % updateParameter(stepDirection) adjusts Parameter.Value by:
             %   + StepUp   when stepDirection == "up"
             %   - StepDown when stepDirection == "down"
             % The result is clamped to [MinValue, MaxValue].
             %
-            % NOTE: This function should only be called during the appropriate interval when 
-            % updating will not interfere with other processes (e.g. during inter-trial interval).
+            % NOTE: Only call during an appropriate interval where updating
+            % will not interfere with other processes (e.g. ITI).
+
+            sd = lower(string(stepDirection));
             v = obj.Parameter.Value;
-            switch lower(stepDirection)
+
+            switch sd
                 case "up"
                     v = v + obj.StepUp;
                 case "down"
                     v = v - obj.StepDown;
+                otherwise
+                    return
             end
 
             % Ensure new value is within Min/Max bounds
             v = max(v, obj.MinValue);
             v = min(v, obj.MaxValue);
 
-            % Apply the current Value to the Parameter
             obj.Parameter.Value = v;
         end
     end
@@ -167,7 +149,7 @@ classdef ProgressiveTrainingGUI < handle
             fpos = getpref('ProgressiveTrainingGUI','Position',[500 400 520 320]);
             fig = uifigure('Name','Progressive Training','Position',fpos);
             movegui(fig,'onscreen');
-            fig.WindowStyle = options.WindowStyle;
+            fig.WindowStyle = char(obj.WindowStyle);
             fig.CloseRequestFcn = @(~,~)delete(obj);
             obj.UIFigure = fig;
 
@@ -199,75 +181,90 @@ classdef ProgressiveTrainingGUI < handle
             r = evt.Indices(1);
             c = evt.Indices(2);
 
-            field = src.Data{r,1};
+            field = obj.rowFieldName(r);
+            if field == ""
+                return
+            end
 
             switch c
                 case 2 % >= (lower limit)
                     v = evt.NewData;
-                    if ~(isnumeric(v) && isscalar(v))
+                    if ~(isnumeric(v) && isscalar(v) && ~isnan(v))
                         src.Data{r,c} = evt.PreviousData;
                         vprintf(0,1,'Invalid input: limits must be numeric scalars.')
                         return
                     end
 
-                    % Determine current (committed) limits, then overwrite staged side
                     limField = field + "Limits";
                     L = obj.(limField);
                     if ~isempty(obj.Staged.(limField))
                         L = obj.Staged.(limField);
                     end
-                    
-                    if v > L(2)
+                    if isempty(L) || numel(L)~=2
+                        L = [-inf inf];
+                    end
+
+                    if any(field == ["StepUp","StepDown"]) && v < 0
                         src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Lower limit must be ≤ upper limit (%g).', L(2))
+                        vprintf(0,1,'Invalid input: step limits must be nonnegative.')
                         return
                     end
-                    L(1) = double(v);
 
+                    if v > L(2)
+                        src.Data{r,c} = evt.PreviousData;
+                        vprintf(0,1,'Lower limit must be ≤ upper limit (%g).', L(2));
+                        return
+                    end
                     obj.Staged.(limField) = L;
-
-                    % Keep table consistent
                     src.Data{r,2} = L(1);
                     src.Data{r,3} = L(2);
 
                 case 3 % <= (upper limit)
                     v = evt.NewData;
-                    if ~(isnumeric(v) && isscalar(v))
+                    if ~(isnumeric(v) && isscalar(v) && ~isnan(v))
                         src.Data{r,c} = evt.PreviousData;
                         vprintf(0,1,'Invalid input: limits must be numeric scalars.')
                         return
                     end
 
-                    % Determine current (committed) limits, then overwrite staged side
                     limField = field + "Limits";
                     L = obj.(limField);
                     if ~isempty(obj.Staged.(limField))
                         L = obj.Staged.(limField);
                     end
-                    
-                    if v < L(1)
+                    if isempty(L) || numel(L)~=2
+                        L = [-inf inf];
+                    end
+
+                    if any(field == ["StepUp","StepDown"]) && v <= 0
                         src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Upper limit must be ≥ lower limit (%g).', L(1))
+                        vprintf(0,1,'Invalid input: step upper limit must be > 0.')
                         return
                     end
-                    L(2) = double(v);
 
+                    if v < L(1)
+                        src.Data{r,c} = evt.PreviousData;
+                        vprintf(0,1,'Upper limit must be ≥ lower limit (%g).', L(1));
+                        return
+                    end
                     obj.Staged.(limField) = L;
-
-                    % Keep table consistent
                     src.Data{r,2} = L(1);
                     src.Data{r,3} = L(2);
 
-
                 case 4 % Value
                     v = evt.NewData;
-                    if ~(isnumeric(v) && isscalar(v))
+                    if ~(isnumeric(v) && isscalar(v) && ~isnan(v))
                         src.Data{r,c} = evt.PreviousData;
                         vprintf(0,1,'Invalid input: value must be a numeric scalar.')
                         return
                     end
 
-                    % Check if value is within limits
+                    if any(field == ["StepUp","StepDown"]) && ~(isfinite(v) && v > 0)
+                        src.Data{r,c} = evt.PreviousData;
+                        vprintf(0,1,'Invalid input: step size must be finite and > 0.')
+                        return
+                    end
+
                     lowerLimit = src.Data{r,2};
                     upperLimit = src.Data{r,3};
                     if v < lowerLimit || v > upperLimit
@@ -275,6 +272,7 @@ classdef ProgressiveTrainingGUI < handle
                         vprintf(0,1,'Value must be between %g and %g.', lowerLimit, upperLimit)
                         return
                     end
+
                     obj.Staged.(field) = double(v);
 
                 otherwise
@@ -297,7 +295,6 @@ classdef ProgressiveTrainingGUI < handle
             end
 
             obj.ModifiedRows(:) = false;
-            obj.resetRowStyles();
             obj.updateUIFromCommitted();
         end
 
@@ -305,7 +302,9 @@ classdef ProgressiveTrainingGUI < handle
             if ~isempty(obj.ParamTable) && isvalid(obj.ParamTable)
                 removeStyle(obj.ParamTable)
             end
-            obj.Staged = structfun(@(a) [],obj.Staged,'uni',0);
+
+            obj.Staged = structfun(@(x)[], obj.Staged,'uni',0);
+            
         end
 
         function applyRowStyles(obj)
@@ -344,8 +343,15 @@ classdef ProgressiveTrainingGUI < handle
             data(4,:) = {'Maximum',   obj.MaxValueLimits(1), obj.MaxValueLimits(2), obj.MaxValue};
         end
 
- 
+        function field = rowFieldName(~,row)
+            switch row
+                case 1, field = "StepUp";
+                case 2, field = "StepDown";
+                case 3, field = "MinValue";
+                case 4, field = "MaxValue";
+                otherwise, field = "";
+            end
+        end
 
-        
     end
 end

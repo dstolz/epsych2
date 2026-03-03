@@ -44,7 +44,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
     properties (Access=private)
         hl_mode
-        hl_Value
+        hl_uiobj
         hl_color
     end
 
@@ -71,7 +71,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % if ~isa(Parameter.Parent,'hw.Software')
                 obj.hl_mode = listener(Parameter.Parent,'mode','PostSet',@obj.mode_change);
             % end
-            obj.hl_Value = listener(Parameter,'Value','PostSet',@obj.value_change_external);
+            obj.hl_uiobj = listener(Parameter,'Value','PostSet',@obj.value_change_external);
             p = properties(obj);
             p = p(startsWith(p,'color'));
             obj.hl_color = listener(obj,p,'PostSet',@obj.update_color);
@@ -79,7 +79,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
         function delete(obj)
             delete(obj.hl_mode)
-            delete(obj.hl_Value)
+            delete(obj.hl_uiobj)
             delete(obj.hl_color)
         end
         

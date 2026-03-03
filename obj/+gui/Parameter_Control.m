@@ -163,7 +163,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % pass when called by hw.Parameter
             success = true;
             if isa(obj.EvaluatorFcn,'function_handle')
-                [value,success] = obj.EvaluatorFcn(obj,event);
+                [value,success] = obj.EvaluatorFcn(obj,event,obj.Parameter);
                 if ~success
                     gui.Helper.timed_color_change(obj.h_uiobj,obj.colorOnError);
                 end

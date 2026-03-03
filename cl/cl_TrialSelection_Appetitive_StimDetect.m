@@ -2,9 +2,6 @@ function TRIALS = cl_TrialSelection_Appetitive_StimDetect(TRIALS)
 % TRIALS = cl_TrialSelection_Appetitive_StimDetect(TRIALS)
 %
 % Select the next trial in an appetitive stimulus-detection task.
-% Uses the last trial outcome (HIT/MISS/CR/FA) to probabilistically choose
-% the next trial *type* (STIM vs CATCH). Supports an optional REMIND trial
-% override via GUI parameter.
 %
 % PARAMETERS USED FROM TRIALS.trials (via "all" struct):
 %
@@ -13,16 +10,14 @@ function TRIALS = cl_TrialSelection_Appetitive_StimDetect(TRIALS)
 %     Depth       - stimulus depth (selection and matching)
 %
 %   Used ONLY in 'Staircase' mode:
-%     StepHarder  - decrement applied after HIT
-%     StepEasier  - increment applied after MISS
+%     StepDown    - decrement applied after HIT
+%     StepUp      - increment applied after MISS
 %     MinDepth    - lower bound for Depth
 %     MaxDepth    - upper bound for Depth
 %
 % OTHER TRIALS FIELDS USED:
 %   TRIALS.activeTrials - logical mask of currently enabled trials
-%                         (used in Descending/Ascending/Random modes)
 %   TRIALS.DATA.Depth   - depth history for completed trials
-%                         (used in Random and Staircase modes)
 %   TRIALS.DATA.RespCode- response codes for outcome decoding
 %
 % GUI PARAMETERS USED:
@@ -38,6 +33,26 @@ function TRIALS = cl_TrialSelection_Appetitive_StimDetect(TRIALS)
 %   Random mode balancing rule: choose least-presented Depth (loose match)
 
 
+% OVERVIEW (numbered to match code sections):
+%   1)  Access hidden hardware Reminder flag
+%   2)  Define trial-type codes (STIM/CATCH/REMIND)
+%   3)  Define outcome-conditioned transition probabilities
+%   4)  Extract write parameters into struct "all"
+%   5)  Set default NextTrialID (CATCH)
+%   6)  Read GUI parameters
+%   7)  Apply Reminder override (if enabled)
+%   8)  Clear Reminder flag (normal path)
+%   9)  Decode last trial outcome (HIT/MISS/CR/FA)
+%  10)  Select next trial type (STIM vs CATCH)
+%  11)  Define valid trials for Depth selection (exclude REMIND;
+%       respect TRIALS.activeTrials)
+%  12)  Select next Depth based on TrialOrder
+%         - Descending / Ascending
+%         - Random (least-presented Depth)
+%         - Staircase (delegated to section 13)
+%  12a)  Staircase mode: update Depth and assign NextTrialID
+%  12b)  Non-staircase: map selected Depth to trial row
+%
 
 
 
@@ -137,12 +152,14 @@ end
 
 %--------------------------------------------------------------------------
 % 11) Define valid trials for Depth selection (exclude REMIND; respect activeTrials)
+%     NOTE: This block references TT.GO. If TT.GO is not defined elsewhere,
+%     it should be set equal to TT.STIM.
 %--------------------------------------------------------------------------
 activeTrials = false(size(all.TrialType));
 activeTrials(all.TrialType~=TT.REMIND) = TRIALS.activeTrials;
 
-valid.Depth = all.Depth(activeTrials & all.TrialType == TT.STIM);
-valid.TrialType = all.TrialType(activeTrials & all.TrialType == TT.STIM);
+valid.Depth = all.Depth(activeTrials & all.TrialType == TT.GO);
+valid.TrialType = all.TrialType(activeTrials & all.TrialType == TT.GO);
 
 %--------------------------------------------------------------------------
 % 12) Select next Depth based on TrialOrder
@@ -151,48 +168,12 @@ valid.TrialType = all.TrialType(activeTrials & all.TrialType == TT.STIM);
 %     Staircase: handled in the 'Staircase' case (updates Depth directly)
 %--------------------------------------------------------------------------
 switch SP.TrialOrder.Value
-       
-    case 'Descending'
-        valid.Depth = sort(valid.Depth,'descend');
-        if isempty(lastStim), lastStim = inf; end
-        lastStim = double(lastStim)-1e-4;
-        i = find(valid.Depth < lastStim,1);
-        if isempty(i)
-            nextDepth = max(valid.Depth);
-        else
-            nextDepth = valid.Depth(i);
-        end
-
-    case 'Ascending'
-        valid.Depth = sort(valid.Depth,'ascend');
-        if isempty(lastStim), lastStim = -inf; end
-        lastStim = double(lastStim)+1e-4;
-        i = find(valid.Depth > lastStim,1);
-        if isempty(i)
-            nextDepth = min(valid.Depth);
-        else
-            nextDepth = valid.Depth(i);
-        end
-
-    case 'Random'
-        n = length(valid.Depth);
-        goTrials = stim(RC.("TrialType_"+TT.STIM));
-        if length(goTrials) > n
-            goTrials = goTrials(end-n+1:end);
-        end
-        nPresentations = arrayfun(@(a) sum(isapprox(goTrials,a,"loose")),valid.Depth);
-        m = min(nPresentations);
-        idx = find(nPresentations == m);
-        r = randi(length(idx));
-        i = idx(r);
-        nextDepth = valid.Depth(i);
-        
+  
     case 'Staircase'
-
         %--------------------------------------------------------------------------
-        % 13a) Staircase: update Depth on STIM trials
-        %     HIT  -> StepHarder (harder)
-        %     MISS -> StepEasier (easier)
+        % 12a) Staircase: update Depth on STIM trials
+        %     HIT  -> StepDown (shallower)
+        %     MISS -> StepUp   (deeper)
         %--------------------------------------------------------------------------
         lastGoTrialIdx = find(RC.("TrialType_"+TT.STIM),1,'last');
         stim = [TRIALS.DATA.Depth];
@@ -204,10 +185,10 @@ switch SP.TrialOrder.Value
 
         if nextTrialType == TT.STIM
             if latestOutcome == "HIT"
-                nextStim = lastStim - all.StepHarder(1);
+                nextStim = lastStim - all.StepDown(1);
                 nextStim = max(nextStim, all.MinDepth(1));
             elseif latestOutcome == "MISS"
-                nextStim = lastStim + all.StepEasier(1);
+                nextStim = lastStim + all.StepUp(1);
                 nextStim = min(nextStim, all.MaxDepth(1));
             end
 
@@ -216,13 +197,58 @@ switch SP.TrialOrder.Value
         end
 
         %--------------------------------------------------------------------------
-        % 13b) Assign NextTrialID for Staircase mode and return
+        % Assign NextTrialID for Staircase mode and return
         %--------------------------------------------------------------------------
         TRIALS.NextTrialID = find(all.TrialType == TT.(nextTrialType),1);
         return
+
+    case 'Descending'
+        %--------------------------------------------------------------------------
+        % 12b) Descending: choose valid Depth just below lastStim
+        %--------------------------------------------------------------------------
+        valid.Depth = sort(valid.Depth,'descend');
+        if isempty(lastStim), lastStim = inf; end
+        lastStim = double(lastStim)-1e-4;
+        i = find(valid.Depth < lastStim,1);
+        if isempty(i)
+            nextDepth = max(valid.Depth);
+        else
+            nextDepth = valid.Depth(i);
+        end
+
+    case 'Ascending'
+        %--------------------------------------------------------------------------
+        % 12c) Ascending: choose valid Depth just above lastStim
+        %--------------------------------------------------------------------------
+        valid.Depth = sort(valid.Depth,'ascend');
+        if isempty(lastStim), lastStim = -inf; end
+        lastStim = double(lastStim)+1e-4;
+        i = find(valid.Depth > lastStim,1);
+        if isempty(i)
+            nextDepth = min(valid.Depth);
+        else
+            nextDepth = valid.Depth(i);
+        end
+
+    case 'Random'
+        %--------------------------------------------------------------------------
+        % 12d) Random: choose among least-presented valid Depths (loose match)
+        %--------------------------------------------------------------------------
+        n = length(valid.Depth);
+        goTrials = stim(RC.("TrialType_"+TT.GO));
+        if length(goTrials) > n
+            goTrials = goTrials(end-n+1:end);
+        end
+        nPresentations = arrayfun(@(a) sum(isapprox(goTrials,a,"loose")),valid.Depth);
+        m = min(nPresentations);
+        idx = find(nPresentations == m);
+        r = randi(length(idx));
+        i = idx(r);
+        nextDepth = valid.Depth(i);
+        
 end
 
 %--------------------------------------------------------------------------
-% 14) Map selected Depth to trial row and assign NextTrialID (non-staircase)
+% 12b) Map selected Depth to trial row and assign NextTrialID (non-staircase)
 %--------------------------------------------------------------------------
 TRIALS.NextTrialID = find(all.Depth == nextDepth & all.TrialType ~= TT.REMIND);

@@ -1,5 +1,5 @@
-function [value,success] = eval_rwdelay_training_mode(obj,src,event)
-% [value,success] = eval_rwdelay_training_mode(obj,src,event)
+function [value,success] = eval_rwdelay_training_mode(obj,src,event,Parameter)
+% [value,success] = eval_rwdelay_training_mode(obj,src,event,Parameter)
 %
 % implements the 'EvaluatorFcn' function
 success = true;
@@ -8,22 +8,19 @@ try
     
     if event.NewValue == 1
         % launch the training mode GUI
-        if ~isvalid(obj.RWDelayTrainingGUI) % if the GUI doesn't exist or has been deleted, create it
-            obj.h_RWDelayTrainingGUI = RWDelayTrainingGUI(obj.RUNTIME);
+        if isvalid(obj.h_ProgressiveTrainingGUI) % if the GUI doesn't exist or has been deleted, create it
+            obj.h_ProgressiveTrainingGUI = ProgressiveTrainingGUI(Parameter);
         else
-            % if it already exists, just make it visible
-            obj.h_RWDelayTrainingGUI.UIFigure.Visible = 'on';
+            uifigure(obj.h_ProgressiveTrainingGUI.UIFigure); % bring to front if it already exists
         end
     else
         % close the training mode GUI if it's open
-        if isvalid(obj.RWDelayTrainingGUI)
-            obj.h_RWDelayTrainingGUI.UIFigure.Visible = 'off';
-        end
+        delete(obj.h_ProgressiveTrainingGUI);
     end
 
 catch e
     success = false;
-    value = event.PreviousValue; % return to previous value
+    value = 0; % default to 0 (training mode off) on error
     vprintf(0,1,'Error evaluating Response Window Delay Training Mode: %s',getReport(e,'basic'))
 end
 

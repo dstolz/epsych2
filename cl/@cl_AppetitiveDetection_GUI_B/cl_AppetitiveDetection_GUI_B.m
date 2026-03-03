@@ -30,7 +30,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         hl_NewData
         hl_ModeChange
 
-        h_RWDelayTrainingGUI
+        h_ProgressiveTrainingGUI
     end
 
     methods

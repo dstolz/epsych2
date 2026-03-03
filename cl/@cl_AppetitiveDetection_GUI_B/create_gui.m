@@ -203,6 +203,8 @@ h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.EvaluatorFcn = @obj.eval_rwdelay;
 h.Text = "Response Window Delay (ms):";
 
+
+
 %{
 % >> Response Window Delay Range
 p = RUNTIME.S.Module.add_parameter('RespWinDelayRange',0);
@@ -213,6 +215,7 @@ p.Type = 'Integer';
 p.Description = "Range of random jitter (+/-) added to Response Window Delay";
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Response Window Delay Range (ms):";
+%}
 
 
 % >> Response Window Delay Training Mode --- launches a small gui to adjust parameters for training with variable response window delay
@@ -220,7 +223,10 @@ p = RUNTIME.S.Module.add_parameter('RespWinDelayTrainingMode',0);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='toggle');
 h.Text = "Response Window Delay Training Mode";
 h.EvaluatorFcn = @obj.eval_rwdelay_training_mode;
-%}
+h.colorNormal = obj.h_uiobj.BackgroundColor;
+h.colorOnUpdate = "#65e05d";
+
+
 
 % >> Response Window Duration
 p = RUNTIME.HW.find_parameter('RespWinDur');

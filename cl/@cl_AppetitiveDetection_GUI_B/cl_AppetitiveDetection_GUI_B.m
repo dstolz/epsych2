@@ -33,7 +33,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         hl_NewTrial
         hl_NewData
         hl_ModeChange
-
+        hl_RWDelayTrainingGUI
     end
 
     methods
@@ -88,6 +88,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             obj.hl_NewData.Enabled = 0;
             delete(obj.hl_NewTrial);
             delete(obj.hl_NewData);
+            delete(obj.hl_RWDelayTrainingGUI);
 
             try
                 close(obj.h_OnlinePlot);

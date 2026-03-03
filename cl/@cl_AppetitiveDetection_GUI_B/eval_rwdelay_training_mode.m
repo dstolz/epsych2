@@ -15,7 +15,7 @@ try
             uifigure(obj.h_RWDelayTrainingGUI.UIFigure); % bring to front if it already exists
         else
             h = ProgressiveTrainingGUI(Parameter);
-            addlistener(RUNTIME.HELPER,'NewData',@(src,event,h) obj.update_rwdelay_training_mode);
+            obj.hl_RWDelayTrainingGUI = addlistener(RUNTIME.HELPER,'NewData',@(src,event) update_rwdelay_training_mode(src,event,h));
             obj.h_RWDelayTrainingGUI = h;
         end
     else
@@ -31,7 +31,7 @@ end
 
 end
 
-function update_rwdelay_training_mode(obj,src,event,h)
+function update_rwdelay_training_mode(src,event,h)
     % This function is called whenever new trial data is available, and updates the training mode parameters
     % based on the most recent trial data.
 global RUNTIME

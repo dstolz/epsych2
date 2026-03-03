@@ -80,7 +80,7 @@ classdef ProgressiveTrainingGUI < handle
     end
 
     properties (SetAccess = private, GetAccess = public)
-        Parameter % hw.Parameter object this GUI is configuring
+        Parameter (1,1) % hw.Parameter object this GUI is configuring
         UIFigure matlab.ui.Figure
     end
 

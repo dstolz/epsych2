@@ -14,7 +14,16 @@ try
         if isvalid(obj.h_RWDelayTrainingGUI) % if the GUI doesn't exist or has been deleted, create it
             uifigure(obj.h_RWDelayTrainingGUI.UIFigure); % bring to front if it already exists
         else
-            h = ProgressiveTrainingGUI(Parameter);
+            h = ProgressiveTrainingGUI(Parameter, ...
+                'MinValue', 100, ...
+                'MaxValue', 4000, ...
+                'StepUp', 20, ...
+                'StepDown', 40, ...
+                'StepDownLimits', [0 500], ...
+                'StepUpLimits', [0 500], ...
+                'MinValueLimits', [100 2000], ...
+                'MaxValueLimits', [200 6000]);
+
             obj.hl_RWDelayTrainingGUI = addlistener(RUNTIME.HELPER,'NewData',@(src,event) update_rwdelay_training_mode(src,event,h));
             obj.h_RWDelayTrainingGUI = h;
         end
@@ -45,6 +54,8 @@ elseif RC.Miss
 else
     return % only update parameters on Hit or Miss trials
 end
-h.update_training_mode(s);
+
+vprintf(3,'Updating Response Window Delay Training Mode parameters based on trial outcome: %s',s)
+h.updateParameter(s); % this will update the training parameters based on the trial outcome (Hit/Miss)
 
 end

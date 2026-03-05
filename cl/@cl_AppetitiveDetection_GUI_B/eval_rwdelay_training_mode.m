@@ -1,17 +1,16 @@
-function [value,success] = eval_rwdelay_training_mode(obj,src,event,Parameter)
-% [value,success] = eval_rwdelay_training_mode(obj,src,event,Parameter)
+function eval_rwdelay_training_mode(obj,src,event,Parameter)
+% eval_rwdelay_training_mode(obj,src,event,Parameter)
 %
 % implements the 'EvaluatorFcn' function
 
 global RUNTIME % TO DO: FIND A BETTER WAY TO ACCESS RUNTIME.HELPER
 
-success = true;
 
 try
     
-    if event.NewValue == 1
+    if event.Value == 1
         % launch the training mode GUI
-        if isvalid(obj.h_RWDelayTrainingGUI) % if the GUI doesn't exist or has been deleted, create it
+        if ~isempty(obj.h_RWDelayTrainingGUI) && isvalid(obj.h_RWDelayTrainingGUI) % if the GUI doesn't exist or has been deleted, create it
             uifigure(obj.h_RWDelayTrainingGUI.UIFigure); % bring to front if it already exists
         else
             h = ProgressiveTrainingGUI(Parameter, ...
@@ -33,8 +32,6 @@ try
     end
 
 catch e
-    success = false;
-    value = 0; % default to 0 (training mode off) on error
     vprintf(0,1,'Error evaluating Response Window Delay Training Mode: %s',getReport(e,'basic'))
 end
 
@@ -45,6 +42,7 @@ function update_rwdelay_training_mode(src,event,h)
     % based on the most recent trial data.
 global RUNTIME
 
+if isempty(h) || ~isvalid(h), return; end
 
 RC = epsych.BitMask.decodeResponseCodes(RUNTIME.TRIALS.DATA(end).RespCode);
 if RC.Hit

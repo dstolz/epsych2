@@ -42,9 +42,9 @@ buttonLayout.RowHeight = {'1x'};
 buttonLayout.RowSpacing = 0;
 buttonLayout.ColumnSpacing = 0;
 
-bcmNormal = lines(6);
-bcmActive = min(bcmNormal+.4,1);
-% bcmNormal = repmat(fig.Color,size(bcmActive,1),1);
+% bcmNormal = max(lines(6)-0.1,0);
+bcmActive = min(lines(6)+0.4,1);
+bcmNormal = repmat(fig.Color,size(bcmActive,1),1);
 
 
 k = 1;
@@ -159,10 +159,42 @@ layoutSoundControls.Scrollable = "on";
 
 
 
+% >> Min Depth
+p = RUNTIME.S.Module.add_parameter('MinDepth',0.001);
+p.Min = 1e-6;
+p.Max = 1;
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield',autoCommit=true);
+h.Text = "Minimum Depth (%):";
+
+
+% >> Max Depth
+p = RUNTIME.S.Module.add_parameter('MaxDepth',1);
+p.Min = 1e-6;
+p.Max = 1;
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield',autoCommit=true);
+h.Text = "Maximum Depth (%):";
+
+
+% >> Step on Miss
+p = RUNTIME.S.Module.add_parameter('StepOnMiss',0.01);
+p.Min = 1e-6;
+p.Max = 0.5;
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield',autoCommit=true);
+h.Text = "Increment on Miss (%):";
+
+% >> Step on Hit
+p = RUNTIME.S.Module.add_parameter('StepOnHit',0.02);
+p.Min = 1e-6;
+p.Max = 0.5;
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield',autoCommit=true);
+h.Text = "Decrement on Hit (%):";
 
 
 
 
+
+
+%{
 
 % >> Consecutive NOGO min
 p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',1);
@@ -182,13 +214,13 @@ h.Text = "Consecutive NoGo (max):";
 
 
 % >> Trial order
-p = RUNTIME.S.Module.add_parameter('TrialOrder','Random');
+p = RUNTIME.S.Module.add_parameter('TrialOrder','Staircase');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
 h.Values = ["Descending","Ascending","Random","Staircase"];
-h.Value = "Descending";
+h.Value = "Staircase";
 h.Text = "Trial Order:";
 
-
+%}
 
 % >> Intertrial Interval
 p = RUNTIME.HW.find_parameter('ITIDur');
@@ -199,8 +231,9 @@ h.Text = "Intertrial Interval (ms):";
 
 % >> Response Window Delay (Mean)
 p = RUNTIME.HW.find_parameter('RespWinDelay');
+% p.Units = 'ms';
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
-h.EvaluatorFcn = @obj.eval_rwdelay;
+% h.EvaluatorFcn = @obj.eval_rwdelay;
 h.Text = "Response Window Delay (ms):";
 
 
@@ -219,12 +252,14 @@ h.Text = "Response Window Delay Range (ms):";
 
 
 % >> Response Window Delay Training Mode --- launches a small gui to adjust parameters for training with variable response window delay
-p = RUNTIME.S.Module.add_parameter('RespWinDelayTrainingMode',0);
-h = gui.Parameter_Control(layoutTrialControls,p,Type='toggle');
+% p = RUNTIME.S.Module.add_parameter('RespWinDelayTrainingMode',0);
+% h = gui.Parameter_Control(layoutTrialControls,p,Type='toggle');
+h = uibutton(layoutTrialControls,"state");
 h.Text = "Response Window Delay Training Mode";
-h.EvaluatorFcn = @obj.eval_rwdelay_training_mode;
-h.colorNormal = obj.h_uiobj.BackgroundColor;
-h.colorOnUpdate = "#65e05d";
+h.ValueChangedFcn = @(src,event) obj.eval_rwdelay_training_mode(src,event,p);
+% h.EvaluatorFcn = @obj.eval_rwdelay_training_mode;
+% h.colorNormal = h.h_uiobj.BackgroundColor;
+% h.colorOnUpdate = "#65e05d";
 
 
 
@@ -292,7 +327,7 @@ end
 
 
 
-
+%{
 
 % Panel for "Trial Filter" ------------------------------------------
 panelTrialFilter = uipanel(layoutMain, 'Title', 'Trial Filter');
@@ -326,8 +361,7 @@ obj.tableTrialFilter = h;
 obj.update_trial_filter(h);
 
 
-
-
+%}
 
 
 

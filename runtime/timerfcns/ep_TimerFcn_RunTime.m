@@ -27,9 +27,13 @@ for i = 1:RUNTIME.NSubjects
 
             % There was a response and the trial is over.
             % Retrieve parameter data from HW
+            % NOTE: Asterisk (*) prefix flag is not handled yet. Probably
+            % should make a software parameter
             rpn = RUNTIME.TRIALS(i).readparams;
+            rpnind = startsWith(rpn,'*');
             rpn = matlab.lang.makeValidName(rpn);
-            rpv = RUNTIME.HW.get_parameter(rpn);
+            rpv = cell(size(rpn));
+            rpv(~rpnind) = RUNTIME.HW.get_parameter(rpn(~rpnind));
             rp = [rpn; rpv];
             data = struct(rp{:});
             data.ResponseCode = RCtag;
@@ -116,14 +120,16 @@ for i = 1:RUNTIME.NSubjects
 
     
     
-    
-    % Indicate next trial parameters in command window if GVerbosity >= 4
-    pn = matlab.lang.makeValidName(RUNTIME.TRIALS(i).writeparams);
+    wp = RUNTIME.TRIALS(i).writeparams;
+    wpind = ~startsWith(wp,'*'); % ignore asterisk flag
+
+    % Indicate next trial parameters in command window if GVerbosity >= 4    
+    pn = matlab.lang.makeValidName(wp);
     for j = 1:size(RUNTIME.TRIALS(i).trials,2)
         vprintf(4,'Trial #%d: %s = %g', ...
             RUNTIME.TRIALS(i).TrialIndex, ...
-            RUNTIME.TRIALS(i).writeparams{j}, ...
-            RUNTIME.TRIALS(i).trials{RUNTIME.TRIALS(i).NextTrialID,RUNTIME.TRIALS(i).writeParamIdx.(pn{j})})
+            wp{j}, ...
+            RUNTIME.TRIALS(i).trials{RUNTIME.TRIALS(i).NextTrialID, RUNTIME.TRIALS(i).writeParamIdx.(pn{j})})
     end
 
     
@@ -154,8 +160,8 @@ for i = 1:RUNTIME.NSubjects
     % 2. Update parameter tags
     % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE EFFICIENT
     vprintf(4,'Update parameter tags')
-    trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
-    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams,includeInvisible=true);
+    trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,wpind);
+    P = RUNTIME.HW.find_parameter(wp,includeInvisible=true);
     [P.Value] = deal(trials{:});
 
     % 3. Trigger new trial

@@ -43,7 +43,7 @@ classdef ProgressiveTrainingGUI < handle
 %     StepDownLimits    (1,2) double
 %     MinValueLimits    (1,2) double
 %     MaxValueLimits    (1,2) double
-%     WindowStyle       (1,1) string   "modal" | "normal" (only if Parent=[])
+%     WindowStyle       (1,1) string   "alwaysontop" | "modal" | "normal" (only if Parent=[])
 %
 %   See also uifigure, uitable, uigridlayout
 
@@ -60,7 +60,7 @@ classdef ProgressiveTrainingGUI < handle
         MinValueLimits (1,2) double = [-inf inf]
         MaxValueLimits (1,2) double = [-inf inf]
 
-        WindowStyle (1,1) string {mustBeMember(WindowStyle,["normal","modal"])} = "modal"
+        WindowStyle (1,1) string {mustBeMember(WindowStyle,["normal","alwaysontop","modal"])} = "alwaysontop"
     end
 
     properties (SetAccess = private, GetAccess = public)
@@ -76,8 +76,8 @@ classdef ProgressiveTrainingGUI < handle
         ParamValueLabel matlab.ui.control.Label
         ParamTable      matlab.ui.control.Table
 
-        ValueHistoryAxes matlab.ui.control.UIAxes
-        ValueHistoryLine matlab.graphics.chart.primitive.Line
+        ValueHistoryAxes %matlab.ui.control.UIAxes
+        ValueHistoryLine %matlab.graphics.chart.primitive.Line
 
         StatusLabel matlab.ui.control.Label
 
@@ -102,7 +102,7 @@ classdef ProgressiveTrainingGUI < handle
                 options.StepDownLimits (1,2) double = [0 100]
                 options.MinValueLimits (1,2) double = [-inf inf]
                 options.MaxValueLimits (1,2) double = [-inf inf]
-                options.WindowStyle (1,1) string {mustBeMember(options.WindowStyle,["normal","modal"])} = "modal"
+                options.WindowStyle (1,1) string {mustBeMember(options.WindowStyle,["normal","alwaysontop","modal"])} = "alwaysontop"
             end
 
             obj.Parameter = Parameter;
@@ -119,6 +119,8 @@ classdef ProgressiveTrainingGUI < handle
             obj.WindowStyle = options.WindowStyle;
 
             obj.validateAndReconcileInitialState();
+
+            obj.ValueHistory = Parameter.Value;
 
             obj.createUI();
             obj.updateUIFromCommitted();
@@ -157,8 +159,10 @@ classdef ProgressiveTrainingGUI < handle
             obj.Parameter.Value = v; % direct write (caller must ensure safety)
             obj.ValueHistory(end+1) = v;
 
+            obj.ParamValueLabel.Text = "Current: " + string(obj.Parameter.ValueStr);
             obj.updateValueHistoryPlot();
-            obj.refreshParameterText();
+
+            drawnow
         end
     end
 
@@ -218,7 +222,7 @@ classdef ProgressiveTrainingGUI < handle
         function createUI(obj)
             % Create UI under Parent (embedded) or inside a new owned figure.
             if isempty(obj.Parent)
-                fpos = getpref('ProgressiveTrainingGUI','Position',[500 400 600 320]);
+                fpos = getpref('ProgressiveTrainingGUI','Position',[500 400 300 400]);
                 fig = uifigure('Name','Progressive Training','Position',fpos);
                 movegui(fig,'onscreen');
                 fig.WindowStyle = char(obj.WindowStyle);
@@ -236,7 +240,7 @@ classdef ProgressiveTrainingGUI < handle
             end
 
             obj.RootGrid = uigridlayout(obj.Parent,[5 1]);
-            obj.RootGrid.RowHeight = {22,22,'1x','0.25x',22};
+            obj.RootGrid.RowHeight = {22,22,'1x',100,22};
             obj.RootGrid.ColumnWidth = {'1x'};
             obj.RootGrid.Padding = [5 5 5 5];
             obj.RootGrid.RowSpacing = 2;

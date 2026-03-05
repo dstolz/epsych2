@@ -154,13 +154,19 @@ for i = 1:RUNTIME.NSubjects
     % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
     vprintf(2,'Setting up first trial on box %d',i)
 
+    % ignore parameters with an asterisk (*) prefix
+    wp = RUNTIME.TRIALS(i).writeparams;
+    wpind = ~startsWith(wp,'*');
+
     % 1. Send trigger to reset components before updating parameters
     RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
-
+    
     % 2. Update parameter tags
-    % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE EFFICIENT
-    trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,:);
-    P = RUNTIME.HW.find_parameter(RUNTIME.TRIALS.writeparams,includeInvisible=true);
+    % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENERALLY MORE EFFICIENT
+    trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,wpind);
+
+    
+    P = RUNTIME.HW.find_parameter(wp(wpind),includeInvisible=true);
     [P.Value] = deal(trials{:});
 
     % 3. Trigger first new trial

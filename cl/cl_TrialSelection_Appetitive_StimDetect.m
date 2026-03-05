@@ -187,11 +187,12 @@ switch SP.TrialOrder.Value
         if nextTrialType == TT.STIM
             if latestOutcome == "HIT"
                 nextStim = lastStim - all.StepDown(1);
-                nextStim = max(nextStim, all.MinDepth(1));
             elseif latestOutcome == "MISS"
                 nextStim = lastStim + all.StepUp(1);
-                nextStim = min(nextStim, all.MaxDepth(1));
             end
+
+            nextStim = max(nextStim, all.MinDepth(1));
+            nextStim = min(nextStim, all.MaxDepth(1));
 
             ind = all.TrialType == TT.STIM;
             [TRIALS.trials{1,ind}] = deal(nextStim);

@@ -1,15 +1,18 @@
 classdef ProgressiveTrainingGUI < handle
-%PROGRESSIVETRAININGGUI Configure progressive training parameters with staged edits.
+%PROGRESSIVETRAININGGUI Configure progressive training parameters (immediate commit).
 %
-%   This class provides a small configuration GUI for adjusting step sizes
-%   and bounds associated with a hw.Parameter object.
+%   This GUI edits StepUp, StepDown, MinValue, MaxValue and their limits.
+%   Edits apply immediately: any valid change in the table is written
+%   directly to the corresponding public property.
 %
-%   STAGED EDIT MODEL
-%     - Table edits are staged (not immediately applied to properties).
-%     - Rows with staged edits are highlighted yellow.
-%     - Pressing "Commit" applies all staged values/limits to the public
-%       properties and clears row highlighting.
-%     - Invalid edits are reverted to the previous value.
+%   CONSTRAINT POLICY (REJECT)
+%     - MinValue must be <= MaxValue. Edits that would violate this are
+%       rejected and reverted.
+%     - Each value must lie within its corresponding limits. Edits outside
+%       limits are rejected and reverted.
+%
+%   STATUS
+%     - Validation failures are shown in a status label at the bottom.
 %
 %   STEP SEMANTICS
 %     - StepUp and StepDown are positive magnitudes.
@@ -17,21 +20,21 @@ classdef ProgressiveTrainingGUI < handle
 %     - updateParameter("down") subtracts StepDown from Parameter.Value.
 %     - The updated value is clamped to [MinValue, MaxValue].
 %
-%     IMPORTANT:
-%       updateParameter() directly writes to Parameter.Value. It does not
-%       perform synchronization, locking, or state checks. The caller is
-%       responsible for ensuring this method is invoked only during a safe
-%       execution window (e.g., inter-trial interval).
+%   EMBEDDING
+%     - Provide Parent=... to embed the GUI inside an existing container
+%       (uifigure/uipanel/uigridlayout/etc.). If Parent is empty, a new
+%       uifigure is created and owned by the object.
 %
-%   WINDOW POSITION
-%     - The window position is stored in preferences under
-%       'ProgressiveTrainingGUI' on deletion.
+%   NOTE
+%     - updateParameter() directly writes Parameter.Value; the caller must
+%       ensure it is safe to update (synchronization is external).
 %
 %   CONSTRUCTOR
 %     G = ProgressiveTrainingGUI(Parameter)
 %     G = ProgressiveTrainingGUI(Parameter, Name=Value,...)
 %
 %   NAME–VALUE OPTIONS
+%     Parent           handle   (default = [])
 %     StepUp            (1,1) double
 %     StepDown          (1,1) double
 %     MinValue          (1,1) double
@@ -40,9 +43,9 @@ classdef ProgressiveTrainingGUI < handle
 %     StepDownLimits    (1,2) double
 %     MinValueLimits    (1,2) double
 %     MaxValueLimits    (1,2) double
-%     WindowStyle       (1,1) string   "modal" | "normal"
+%     WindowStyle       (1,1) string   "modal" | "normal" (only if Parent=[])
 %
-%   See also uifigure, uitable, uistyle
+%   See also uifigure, uitable, uigridlayout
 
     properties (SetObservable)
         % Committed (active) values
@@ -62,33 +65,34 @@ classdef ProgressiveTrainingGUI < handle
 
     properties (SetAccess = private, GetAccess = public)
         Parameter (1,1) % hw.Parameter object this GUI is configuring
-
-        Parent
+        Parent % parent container handle (user-supplied or owned figure)
+        ValueHistory (1,:) double = [] % history of committed parameter values
     end
 
     properties (Access = protected)
+        RootGrid matlab.ui.container.GridLayout
+
         ParamNameLabel  matlab.ui.control.Label
         ParamValueLabel matlab.ui.control.Label
         ParamTable      matlab.ui.control.Table
-        CommitButton    matlab.ui.control.Button
 
-        % staged values/limits (hold until Commit)
-        Staged struct = struct( ...
-            'StepUp',[],'StepDown',[],'MinValue',[],'MaxValue',[], ...
-            'StepUpLimits',[],'StepDownLimits',[],'MinValueLimits',[],'MaxValueLimits',[])
+        ValueHistoryAxes matlab.ui.control.UIAxes
+        ValueHistoryLine matlab.graphics.chart.primitive.Line
 
-        % staged row tracking for uistyle
-        ModifiedRows (1,4) logical = false(1,4)
+        StatusLabel matlab.ui.control.Label
 
-        StagedBG (1,3) double = [1 1 0] % yellow
+        OwnsParentFigure (1,1) logical = false
+        ParentDestroyedListener event.listener = event.listener.empty
+
     end
 
     methods
         function obj = ProgressiveTrainingGUI(Parameter, options)
+            % Constructor; embed into Parent if provided, otherwise create figure.
             arguments
                 Parameter % hw.Parameter
 
-                options.parent = []
+                options.Parent = []
 
                 options.MinValue (1,1) double = -inf
                 options.MaxValue (1,1) double = inf
@@ -102,31 +106,40 @@ classdef ProgressiveTrainingGUI < handle
             end
 
             obj.Parameter = Parameter;
+            obj.Parent = options.Parent;
 
-            for f = string(fieldnames(options))'
-                obj.(f) = options.(f);
-            end
+            obj.MinValue = options.MinValue;
+            obj.MaxValue = options.MaxValue;
+            obj.StepUp = options.StepUp;
+            obj.StepDown = options.StepDown;
+            obj.StepUpLimits = options.StepUpLimits;
+            obj.StepDownLimits = options.StepDownLimits;
+            obj.MinValueLimits = options.MinValueLimits;
+            obj.MaxValueLimits = options.MaxValueLimits;
+            obj.WindowStyle = options.WindowStyle;
+
+            obj.validateAndReconcileInitialState();
 
             obj.createUI();
             obj.updateUIFromCommitted();
         end
 
         function delete(obj)
-            if ~isempty(obj.Parent) && isvalid(obj.Parent) && isa(obj.Parent,'matlab.ui.Figure')
+            % Destructor: delete owned UI and persist window position if we owned the figure.
+            if ~isempty(obj.ParentDestroyedListener)
+                delete(obj.ParentDestroyedListener)
+            end
+            if ~isempty(obj.RootGrid) && isvalid(obj.RootGrid)
+                delete(obj.RootGrid)
+            end
+            if obj.OwnsParentFigure && ~isempty(obj.Parent) && isvalid(obj.Parent)
                 setpref('ProgressiveTrainingGUI','Position',obj.Parent.Position);
                 delete(obj.Parent)
             end
         end
 
         function updateParameter(obj, stepDirection)
-            % updateParameter(stepDirection) adjusts Parameter.Value by:
-            %   + StepUp   when stepDirection == "up"
-            %   - StepDown when stepDirection == "down"
-            % The result is clamped to [MinValue, MaxValue].
-            %
-            % NOTE: Only call during an appropriate interval where updating
-            % will not interfere with other processes (e.g. ITI).
-
+            % Apply a step to Parameter.Value and append to history.
             sd = lower(string(stepDirection));
             v = obj.Parameter.Value;
 
@@ -139,211 +152,316 @@ classdef ProgressiveTrainingGUI < handle
                     return
             end
 
-            % Ensure new value is within Min/Max bounds
-            v = max(v, obj.MinValue);
-            v = min(v, obj.MaxValue);
+            v = min(max(v, obj.MinValue), obj.MaxValue);
 
-            obj.Parameter.Value = v;
+            obj.Parameter.Value = v; % direct write (caller must ensure safety)
+            obj.ValueHistory(end+1) = v;
+
+            obj.updateValueHistoryPlot();
+            obj.refreshParameterText();
         end
     end
 
     methods (Access = private)
-        function createUI(obj)
+        function validateAndReconcileInitialState(obj)
+            % Validate limit properties and clamp values to limits.
+            obj.validateLimits("StepUpLimits",  isStep=true);
+            obj.validateLimits("StepDownLimits",isStep=true);
+            obj.validateLimits("MinValueLimits",isStep=false);
+            obj.validateLimits("MaxValueLimits",isStep=false);
 
-            if isempty(options.parent)
-                fpos = getpref('ProgressiveTrainingGUI','Position',[500 400 520 320]);
-                parent = uifigure('Name','Progressive Training','Position',fpos);
-                movegui(parent,'onscreen');
-                parent.WindowStyle = char(obj.WindowStyle);
-                parent.CloseRequestFcn = @(~,~)delete(obj);
-                obj.Parent = parent;
+            obj.StepUp   = min(max(obj.StepUp,   obj.StepUpLimits(1)),   obj.StepUpLimits(2));
+            obj.StepDown = min(max(obj.StepDown, obj.StepDownLimits(1)), obj.StepDownLimits(2));
+            obj.MinValue = min(max(obj.MinValue, obj.MinValueLimits(1)), obj.MinValueLimits(2));
+            obj.MaxValue = min(max(obj.MaxValue, obj.MaxValueLimits(1)), obj.MaxValueLimits(2));
+
+            if obj.MinValue > obj.MaxValue
+                vprintf(0,1,'ProgressiveTrainingGUI:InvalidMinMax', ...
+                    'MinValue must be <= MaxValue.');
+            end
+        end
+
+        function validateLimits(obj, propName, options)
+            % Validate a 1x2 limits property.
+            arguments
+                obj
+                propName (1,1) string
+                options.isStep (1,1) logical = false
             end
 
-            parent = obj.Parent;
+            L = obj.(propName);
+            if ~(isnumeric(L) && isvector(L) && numel(L)==2 && all(~isnan(L)))
+                vprintf(0,1,'ProgressiveTrainingGUI:InvalidLimits', ...
+                    '%s must be a 1x2 numeric vector.', propName);
+            end
+            L = double(L(:)).';
 
-            gl = uigridlayout(parent,[4 1]);
-            gl.RowHeight = {22,22,'1x',34};
-            gl.ColumnWidth = {'1x'};
-            gl.Padding = [12 12 12 12];
-            gl.RowSpacing = 8;
+            if L(1) > L(2)
+                vprintf(0,1,'ProgressiveTrainingGUI:InvalidLimits', ...
+                    '%s lower bound must be <= upper bound.', propName);
+            end
 
-            obj.ParamNameLabel = uilabel(gl,'Text',obj.Parameter.Name,'FontWeight','bold');
+            if options.isStep
+                if L(1) < 0
+                    vprintf(0,1,'ProgressiveTrainingGUI:InvalidLimits', ...
+                        '%s lower bound must be >= 0.', propName);
+                end
+                if L(2) <= 0
+                    vprintf(0,1,'ProgressiveTrainingGUI:InvalidLimits', ...
+                        '%s upper bound must be > 0.', propName);
+                end
+            end
+
+            obj.(propName) = L;
+        end
+
+        function createUI(obj)
+            % Create UI under Parent (embedded) or inside a new owned figure.
+            if isempty(obj.Parent)
+                fpos = getpref('ProgressiveTrainingGUI','Position',[500 400 600 320]);
+                fig = uifigure('Name','Progressive Training','Position',fpos);
+                movegui(fig,'onscreen');
+                fig.WindowStyle = char(obj.WindowStyle);
+                fig.CloseRequestFcn = @(~,~)delete(obj);
+                obj.Parent = fig;
+                obj.OwnsParentFigure = true;
+            else
+                if ~isvalid(obj.Parent)
+                    vprintf(0,1,'ProgressiveTrainingGUI:InvalidParent','Parent is not valid.');
+                end
+            end
+
+            if ~obj.OwnsParentFigure
+                obj.ParentDestroyedListener = listener(obj.Parent,'ObjectBeingDestroyed',@(~,~)delete(obj));
+            end
+
+            obj.RootGrid = uigridlayout(obj.Parent,[5 1]);
+            obj.RootGrid.RowHeight = {22,22,'1x','0.25x',22};
+            obj.RootGrid.ColumnWidth = {'1x'};
+            obj.RootGrid.Padding = [5 5 5 5];
+            obj.RootGrid.RowSpacing = 2;
+
+            obj.ParamNameLabel = uilabel(obj.RootGrid,'Text',"",'FontWeight','bold');
             obj.ParamNameLabel.Layout.Row = 1;
 
-            obj.ParamValueLabel = uilabel(gl,'Text',obj.Parameter.ValueStr,'FontAngle','italic');
+            obj.ParamValueLabel = uilabel(obj.RootGrid,'Text',"",'FontAngle','italic');
             obj.ParamValueLabel.Layout.Row = 2;
 
-            obj.ParamTable = uitable(gl);
+            obj.ParamTable = uitable(obj.RootGrid);
             obj.ParamTable.Layout.Row = 3;
             obj.ParamTable.ColumnName = {'Param', char(8805), char(8804), 'Value'};
             obj.ParamTable.ColumnEditable = [false true true true];
             obj.ParamTable.CellEditCallback = @(src,evt)obj.tableCellEdited(src,evt);
             obj.ParamTable.RowName = [];
 
-            obj.CommitButton = uibutton(gl,'push','Text','Commit',...
-                'ButtonPushedFcn',@(~,~)obj.commitButtonPushed());
-            obj.CommitButton.Layout.Row = 4;
+            obj.ValueHistoryAxes = uiaxes(obj.RootGrid);
+            obj.ValueHistoryAxes.Layout.Row = 4;
+            obj.ValueHistoryAxes.XAxis.Visible = 'off';
+            obj.ValueHistoryAxes.YAxis.Visible = 'off';
+            obj.ValueHistoryLine = line(obj.ValueHistoryAxes, NaN, NaN, LineWidth=1, Color='k');
+
+            obj.StatusLabel = uilabel(obj.RootGrid,'Text',"",'FontColor',[0.20 0.20 0.20]);
+            obj.StatusLabel.Layout.Row = 5;
         end
 
         function tableCellEdited(obj,src,evt)
+            % Validate and immediately apply edits from the table.
             r = evt.Indices(1);
             c = evt.Indices(2);
-
             field = obj.rowFieldName(r);
             if field == ""
                 return
             end
 
-            switch c
-                case 2 % >= (lower limit)
-                    v = evt.NewData;
-                    if ~(isnumeric(v) && isscalar(v) && ~isnan(v))
-                        src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Invalid input: limits must be numeric scalars.')
-                        return
-                    end
+            [ok,msg] = obj.applyTableEdit(field, c, evt.NewData);
 
-                    limField = field + "Limits";
-                    L = obj.(limField);
-                    if ~isempty(obj.Staged.(limField))
-                        L = obj.Staged.(limField);
-                    end
-                    if isempty(L) || numel(L)~=2
-                        L = [-inf inf];
-                    end
+            obj.refreshRow(r);
 
-                    if any(field == ["StepUp","StepDown"]) && v < 0
-                        src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Invalid input: step limits must be nonnegative.')
-                        return
-                    end
-
-                    if v > L(2)
-                        src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Lower limit must be ≤ upper limit (%g).', L(2));
-                        return
-                    end
-                    obj.Staged.(limField) = L;
-                    src.Data{r,2} = L(1);
-                    src.Data{r,3} = L(2);
-
-                case 3 % <= (upper limit)
-                    v = evt.NewData;
-                    if ~(isnumeric(v) && isscalar(v) && ~isnan(v))
-                        src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Invalid input: limits must be numeric scalars.')
-                        return
-                    end
-
-                    limField = field + "Limits";
-                    L = obj.(limField);
-                    if ~isempty(obj.Staged.(limField))
-                        L = obj.Staged.(limField);
-                    end
-                    if isempty(L) || numel(L)~=2
-                        L = [-inf inf];
-                    end
-
-                    if any(field == ["StepUp","StepDown"]) && v <= 0
-                        src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Invalid input: step upper limit must be > 0.')
-                        return
-                    end
-
-                    if v < L(1)
-                        src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Upper limit must be ≥ lower limit (%g).', L(1));
-                        return
-                    end
-                    obj.Staged.(limField) = L;
-                    src.Data{r,2} = L(1);
-                    src.Data{r,3} = L(2);
-
-                case 4 % Value
-                    v = evt.NewData;
-                    if ~(isnumeric(v) && isscalar(v) && ~isnan(v))
-                        src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Invalid input: value must be a numeric scalar.')
-                        return
-                    end
-
-                    if any(field == ["StepUp","StepDown"]) && ~(isfinite(v) && v > 0)
-                        src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Invalid input: step size must be finite and > 0.')
-                        return
-                    end
-
-                    lowerLimit = src.Data{r,2};
-                    upperLimit = src.Data{r,3};
-                    if v < lowerLimit || v > upperLimit
-                        src.Data{r,c} = evt.PreviousData;
-                        vprintf(0,1,'Value must be between %g and %g.', lowerLimit, upperLimit)
-                        return
-                    end
-
-                    obj.Staged.(field) = double(v);
-
-                otherwise
-                    return
+            if ok
+                obj.setStatus("");
+            else
+                obj.setStatus(msg, isError=true);
             end
-
-            obj.ModifiedRows(r) = true;
-            obj.applyRowStyles();
         end
 
-        function commitButtonPushed(obj)
-            fields = ["StepUp","StepDown","MinValue","MaxValue", ...
-                "StepUpLimits","StepDownLimits","MinValueLimits","MaxValueLimits"];
+        function [ok,msg] = applyTableEdit(obj, field, col, newData)
+            % Apply a table edit to properties with reject-on-violation policy.
+            ok = false;
+            msg = "";
 
-            for f = fields
-                if ~isempty(obj.Staged.(f))
-                    obj.(f) = obj.Staged.(f);
-                    obj.Staged.(f) = [];
+            if col == 2 || col == 3
+                idx = col - 1; % 2->1 (lower), 3->2 (upper)
+                [ok,msg] = obj.applyLimitEdit(field, idx, newData);
+                return
+            end
+
+            if col == 4
+                [ok,msg] = obj.applyValueEdit(field, newData);
+                return
+            end
+
+            ok = true;
+        end
+
+        function [ok,msg] = applyLimitEdit(obj, field, idx, v)
+            % Apply an edit to a lower/upper limit with validation.
+            ok = false;
+            msg = "Invalid limit.";
+
+            if ~(isnumeric(v) && isscalar(v) && ~isnan(v))
+                msg = "Limits must be numeric scalars.";
+                return
+            end
+
+            limField = field + "Limits";
+            L = obj.(limField);
+            if isempty(L) || numel(L)~=2
+                L = [-inf inf];
+            end
+
+            Lcand = double(L);
+            Lcand(idx) = double(v);
+
+            if Lcand(1) > Lcand(2)
+                msg = "Lower limit must be ≤ upper limit.";
+                return
+            end
+
+            isStep = any(field == ["StepUp","StepDown"]);
+            if isStep
+                if Lcand(1) < 0
+                    msg = "Step limits must be ≥ 0.";
+                    return
+                end
+                if Lcand(2) <= 0
+                    msg = "Step upper limit must be > 0.";
+                    return
                 end
             end
 
-            obj.ModifiedRows(:) = false;
-            obj.updateUIFromCommitted();
-        end
+            valCand = obj.(field);
+            valCand = min(max(double(valCand), Lcand(1)), Lcand(2));
 
-        function resetRowStyles(obj)
-            if ~isempty(obj.ParamTable) && isvalid(obj.ParamTable)
-                removeStyle(obj.ParamTable)
+            if isStep
+                if ~(isfinite(valCand) && valCand > 0)
+                    msg = "Step value must be finite and > 0.";
+                    return
+                end
             end
 
-            obj.Staged = structfun(@(x)[], obj.Staged,'uni',0);
-            
+            % Cross-field constraint (reject)
+            if field == "MinValue" && valCand > obj.MaxValue
+                msg = "Rejected: MinValue must be ≤ MaxValue.";
+                return
+            end
+            if field == "MaxValue" && obj.MinValue > valCand
+                msg = "Rejected: MaxValue must be ≥ MinValue.";
+                return
+            end
+
+            obj.(limField) = Lcand;
+            obj.(field) = valCand;
+
+            ok = true;
+            msg = "";
         end
 
-        function applyRowStyles(obj)
+        function [ok,msg] = applyValueEdit(obj, field, v)
+            % Apply an edit to a value cell with validation.
+            ok = false;
+            msg = "Invalid value.";
+
+            if ~(isnumeric(v) && isscalar(v) && ~isnan(v))
+                msg = "Value must be a numeric scalar.";
+                return
+            end
+
+            v = double(v);
+
+            isStep = any(field == ["StepUp","StepDown"]);
+            if isStep
+                if ~(isfinite(v) && v > 0)
+                    msg = "Step size must be finite and > 0.";
+                    return
+                end
+            end
+
+            limField = field + "Limits";
+            L = obj.(limField);
+            if isempty(L) || numel(L)~=2
+                L = [-inf inf];
+            end
+
+            if v < L(1) || v > L(2)
+                msg = sprintf('Value must be between %g and %g.', L(1), L(2));
+                return
+            end
+
+            % Cross-field constraint (reject)
+            if field == "MinValue" && v > obj.MaxValue
+                msg = "Rejected: MinValue must be ≤ MaxValue.";
+                return
+            end
+            if field == "MaxValue" && obj.MinValue > v
+                msg = "Rejected: MaxValue must be ≥ MinValue.";
+                return
+            end
+
+            obj.(field) = v;
+
+            ok = true;
+            msg = "";
+        end
+
+        function refreshRow(obj, r)
+            % Refresh one table row from committed properties.
             if isempty(obj.ParamTable) || ~isvalid(obj.ParamTable)
                 return
             end
-            removeStyle(obj.ParamTable)
-            st = uistyle('BackgroundColor',obj.StagedBG);
-            for r = 1:numel(obj.ModifiedRows)
-                if obj.ModifiedRows(r)
-                    addStyle(obj.ParamTable,st,'row',r);
-                end
+            data = obj.ParamTable.Data;
+            if isempty(data)
+                data = obj.committedTableData();
+            end
+            data(r,:) = obj.committedRowData(r);
+            obj.ParamTable.Data = data;
+        end
+
+        function row = committedRowData(obj, r)
+            % Return a 1x4 row cell for the given table row index.
+            switch r
+                case 1
+                    row = {'Step Up',   obj.StepUpLimits(1),   obj.StepUpLimits(2),   obj.StepUp};
+                case 2
+                    row = {'Step Down', obj.StepDownLimits(1), obj.StepDownLimits(2), obj.StepDown};
+                case 3
+                    row = {'Minimum',   obj.MinValueLimits(1), obj.MinValueLimits(2), obj.MinValue};
+                case 4
+                    row = {'Maximum',   obj.MaxValueLimits(1), obj.MaxValueLimits(2), obj.MaxValue};
+                otherwise
+                    row = {'',NaN,NaN,NaN};
             end
         end
 
         function updateUIFromCommitted(obj)
+            % Refresh labels and table to reflect committed values.
+            % Refresh Parameter name/value text.
             if ~isempty(obj.ParamNameLabel) && isvalid(obj.ParamNameLabel)
                 obj.ParamNameLabel.Text = string(obj.Parameter.Name);
             end
             if ~isempty(obj.ParamValueLabel) && isvalid(obj.ParamValueLabel)
                 obj.ParamValueLabel.Text = "Current: " + string(obj.Parameter.ValueStr);
             end
-
+            
+            obj.setStatus("");
             if ~isempty(obj.ParamTable) && isvalid(obj.ParamTable)
                 obj.ParamTable.Data = obj.committedTableData();
             end
-
-            obj.resetRowStyles();
         end
 
+        
+
         function data = committedTableData(obj)
+            % Build the table data from committed properties.
             data = cell(4,4);
             data(1,:) = {'Step Up',   obj.StepUpLimits(1),   obj.StepUpLimits(2),   obj.StepUp};
             data(2,:) = {'Step Down', obj.StepDownLimits(1), obj.StepDownLimits(2), obj.StepDown};
@@ -352,6 +470,7 @@ classdef ProgressiveTrainingGUI < handle
         end
 
         function field = rowFieldName(~,row)
+            % Map table row index to the corresponding property name.
             switch row
                 case 1, field = "StepUp";
                 case 2, field = "StepDown";
@@ -361,5 +480,35 @@ classdef ProgressiveTrainingGUI < handle
             end
         end
 
+        function updateValueHistoryPlot(obj)
+            % Refresh the value-history plot.
+            if isempty(obj.ValueHistory) || isempty(obj.ValueHistoryAxes) || ~isvalid(obj.ValueHistoryAxes)
+                if ~isempty(obj.ValueHistoryAxes) && isvalid(obj.ValueHistoryAxes)
+                    cla(obj.ValueHistoryAxes);
+                end
+                return
+            end
+            obj.ValueHistoryLine.XData = 1:numel(obj.ValueHistory);
+            obj.ValueHistoryLine.YData = obj.ValueHistory;
+            axis(obj.ValueHistoryAxes,'tight');
+        end
+
+        function setStatus(obj, msg, options)
+            % Set the status label text (optionally as an error).
+            arguments
+                obj
+                msg (1,1) string
+                options.isError (1,1) logical = false
+            end
+            if isempty(obj.StatusLabel) || ~isvalid(obj.StatusLabel)
+                return
+            end
+            obj.StatusLabel.Text = msg;
+            if options.isError && strlength(msg) > 0
+                obj.StatusLabel.FontColor = [0.70 0.00 0.00];
+            else
+                obj.StatusLabel.FontColor = [0.20 0.20 0.20];
+            end
+        end
     end
 end

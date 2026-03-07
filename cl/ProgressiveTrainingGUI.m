@@ -140,8 +140,21 @@ classdef ProgressiveTrainingGUI < handle
             end
         end
 
-        function updateParameter(obj, stepDirection)
+        function v = updateParameter(obj, stepDirection)
             % Apply a step to Parameter.Value and append to history.
+            % stepDirection should be "up" or "down" (case-insensitive); anything else is a no-op.
+            % The updated value is clamped to [MinValue, MaxValue]. The new value is returned.
+            % The caller must ensure it is safe to update Parameter.Value when calling this method.
+            % The updated value is appended to ValueHistory and the plot is refreshed.
+            % Example usage: call this method from a trial-completion event listener, passing "up" or "down" based on trial outcome.
+            % e.g. in a trial completion callback:
+            %   if trial was a HIT
+            %       G.updateParameter("down"); % make it harder
+            %   elseif trial was a MISS
+            %       G.updateParameter("up");   % make it easier
+            %   end
+            %
+            % v = obj.updateParameter("up"); % returns the new parameter value after applying the step
             sd = lower(string(stepDirection));
             v = obj.Parameter.Value;
 

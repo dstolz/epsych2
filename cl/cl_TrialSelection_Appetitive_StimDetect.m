@@ -116,7 +116,7 @@ reminderTrial.Value = false;
 % 9) Decode response codes for completed trials and label the latest outcome
 %    See epsych.BitMask.list() for decoded field names.
 %--------------------------------------------------------------------------
-RC = epsych.BitMask.decodeResponseCodes([TRIALS.DATA.RespCode]);
+RC = epsych.BitMask.decode([TRIALS.DATA.RespCode]);
 
 
 

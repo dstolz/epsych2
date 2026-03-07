@@ -68,7 +68,7 @@ reminderTrial.Value = false;
 % 9) Decode response codes from completed trials to an struct of logical vectors
 % see epsych.BitMask.list() for structure field names
 %--------------------------------------------------------------------------
-RC = epsych.BitMask.decodeResponseCodes([TRIALS.DATA.RespCode]);
+RC = epsych.BitMask.decode([TRIALS.DATA.RespCode]);
 
 %--------------------------------------------------------------------------
 % 10) Determine required number of consecutive NOGOs from sofware parameters

@@ -154,7 +154,7 @@ classdef Detect < handle & matlab.mixin.SetGet
             % Decode response codes into M and N
             % M contains logical arrays for each bitmask flag
             % N contains counts of each bitmask flag
-            [obj.M,obj.N] = epsych.BitMask.decodeResponseCodes(obj.responseCodes);
+            [obj.M,obj.N] = epsych.BitMask.decode(obj.responseCodes);
             evtdata = epsych.TrialsData(obj.TRIALS);
             obj.Helper.notify('NewData',evtdata);
         end

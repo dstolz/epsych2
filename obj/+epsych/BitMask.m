@@ -215,9 +215,9 @@ classdef BitMask < uint32
         end
 
 
-        function [M,N] = decodeResponseCodes(responseCodes)
-            %DECODERESPONSECODES Decodes response codes into a structure of bitmask flags.
-            %   [M, N] = DECODERESPONSECODES(RESPONSECODES) takes an array of response
+        function [M,N] = decode(responseCodes)
+            %decode Decodes response codes into a structure of bitmask flags.
+            %   [M, N] = decode(RESPONSECODES) takes an array of response
             %   codes and decodes them using the bitmask definitions from
             %   epsych.BitMask.getDefined. The function returns a structure M where each
             %   field corresponds to a bitmask name and contains a logical array indicating

@@ -279,10 +279,10 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             cv = pStim.Value; % current value
             pStim.Value = 1; % 100% depth
 
-            pht = RUNTIME.HW.find_parameter('~HoldTrial',includeInvisible=true);
-            while pht.Value == 1
-                pause(0.1);
-            end
+            % pht = RUNTIME.HW.find_parameter('~PreventTrial',includeInvisible=true);
+            % while pht.Value == 1
+            %     pause(0.1);
+            % end
             pcd.Value = 0;
 
             pStim.Value = cv;

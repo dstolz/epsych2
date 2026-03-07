@@ -127,11 +127,11 @@ obj.ParameterMonitorTable.handle.FontSize = 14;
 
 % LAYOUTS -------------------------------------------------
 % Panel for "Trial Controls"
-panelTrialControls = uipanel(layoutMain, 'Title', 'Trial Controls');
+panelTrialControls = uipanel(layoutMain);
 panelTrialControls.Layout.Row = [2 5];
 panelTrialControls.Layout.Column = [1 2];
 
-% > Trial Controls
+% Ppanel for Trial Controls
 layoutTrialControls = uigridlayout(panelTrialControls);
 layoutTrialControls.ColumnWidth = {'1x'};
 layoutTrialControls.RowHeight = repmat({25},1,10);
@@ -156,6 +156,14 @@ layoutSoundControls.Scrollable = "on";
 
 
 
+
+% Staircase controls --------------------------------------------------
+
+% >> Staircase label
+h = uilabel(layoutTrialControls);
+h.Text = "Staircase Parameters";
+h.FontSize = 16;
+h.FontWeight = 'bold';
 
 
 
@@ -222,6 +230,12 @@ h.Text = "Trial Order:";
 
 %}
 
+% TRIAL CONTROLS --------------------------------------------------
+h = uilabel(layoutTrialControls);
+h.Text = "Trial Parameters"; 
+h.FontSize = 16;
+h.FontWeight = 'bold';
+
 % >> Intertrial Interval
 p = RUNTIME.HW.find_parameter('ITIDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
@@ -231,35 +245,21 @@ h.Text = "Intertrial Interval (ms):";
 
 % >> Response Window Delay (Mean)
 p = RUNTIME.HW.find_parameter('RespWinDelay');
-% p.Units = 'ms';
+p.Unit = 'ms';
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 % h.EvaluatorFcn = @obj.eval_rwdelay;
 h.Text = "Response Window Delay (ms):";
-
+obj.h_RWDelayParameterControl = h; % store handle for later use in training mode evaluation
 
 
 %{
-% >> Response Window Delay Range
-p = RUNTIME.S.Module.add_parameter('RespWinDelayRange',0);
-p.Min = 0;
-p.Max = Inf;
-p.Unit = 'ms';
-p.Type = 'Integer';
-p.Description = "Range of random jitter (+/-) added to Response Window Delay";
-h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
-h.Text = "Response Window Delay Range (ms):";
-%}
 
 
 % >> Response Window Delay Training Mode --- launches a small gui to adjust parameters for training with variable response window delay
-% p = RUNTIME.S.Module.add_parameter('RespWinDelayTrainingMode',0);
-% h = gui.Parameter_Control(layoutTrialControls,p,Type='toggle');
 h = uibutton(layoutTrialControls,"state");
 h.Text = "Response Window Delay Training Mode";
 h.ValueChangedFcn = @(src,event) obj.eval_rwdelay_training_mode(src,event,p);
-% h.EvaluatorFcn = @obj.eval_rwdelay_training_mode;
-% h.colorNormal = h.h_uiobj.BackgroundColor;
-% h.colorOnUpdate = "#65e05d";
+%}
 
 
 

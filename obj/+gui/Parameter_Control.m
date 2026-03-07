@@ -169,13 +169,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 end
                 event.Value = value;
 
+            elseif isfield(event,'EventName') && isequal(event.EventName,'ButtonPushed')
+                obj.Parameter.Trigger;
+                return
+                
             elseif isnumeric(event.Value) && (event.Value < obj.Parameter.Min || event.Value > obj.Parameter.Max)
                 vprintf(0,1,'New parameter value for "%s" outside bounds [%g %g]', ...
                     obj.Name,obj.Parameter.Min,obj.Parameter.Max)
 
-            elseif isfield(event,'EventName') && isequal(event.EventName,'ButtonPushed')
-                obj.Parameter.Trigger;
-                return
 
             end
            

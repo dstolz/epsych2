@@ -7,20 +7,24 @@ classdef Runtime < handle
         HWinUse (1,:) string
         usingSynapse (1,1) logical = false
 
-        HW                % e.g., hw.TDT_RPcox
-        TRIALS            % RuntimeTrials or struct-compatible
+        TRIALS            % Protocol-specific trial information, including trial selection function, trial parameters, and trial count
         dfltDataPath (1,1) string = ""
         HELPER            % e.g., epsych.Helper
         TIMER (1,1) timer % MATLAB timer object
 
         DataDir (1,1) string = ""
         DataFile string = strings(0,1)   % vector of filepaths
-        ON_HOLD (1,1) logical = false
+        ON_HOLD (1,:) logical = false
 
+        HW                % e.g., hw.TDT_RPcox
         S                 % e.g., hw.Software
         CORE              % RuntimeCore or struct-compatible
 
         StartTime datetime = NaT
+
+        TrialCompleteIdx  % If in use, wait for manual completion of trial in RPvds
+
+        AcqBufferStr = "" % If in use, collect AcqBuffer data at end of trial
     end
 
     methods

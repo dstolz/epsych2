@@ -3,6 +3,7 @@ classdef Runtime < handle
     properties
         NSubjects (1,1) double {mustBeNonnegative,mustBeInteger} = 1
 
+
         % TO DO: REPLACE USINGSYNAPSE WITH GENERALIZED HWINUSE
         HWinUse (1,:) string
         usingSynapse (1,1) logical = false

@@ -28,6 +28,8 @@ classdef FilenameValidator < handle
 
     methods (Access = private)
         function onValueChanged(obj)
+            global RUNTIME
+
             newValue = strtrim(obj.EditField.Value);
 
             % Validate extension
@@ -64,6 +66,9 @@ classdef FilenameValidator < handle
 
             % Passed validation
             obj.PreviousValue = newValue;
+            vprintf(1,'Data filename updated: "%s.mat"; location: "%s"',name,folder)
+
+            RUNTIME.TRIALS.DataFilename = newValue;
         end
 
         function revertValue(obj)

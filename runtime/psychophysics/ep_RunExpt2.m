@@ -1061,8 +1061,9 @@ classdef ep_RunExpt2 < handle
 
     methods (Static)
         function ffn = defaultFilename(pth,name)
-            td = datetime('today');
-            td.Format ="dd-MMM-uuuu";
+            td = datetime('now');
+            td.Format = "yyMMdd'T'HHmmss";
+            % td.Format ="dd-MMM-uuuu";
             fn = sprintf('%s_%s.mat',name,td);
 
             ffn = fullfile(pth,fn);

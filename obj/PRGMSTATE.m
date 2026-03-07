@@ -1,5 +1,5 @@
 classdef PRGMSTATE < int32
-    % Program state enumeration for ep_RunExpt2
+    % Program state enumeration for epsych.RunExpt
     %
     % Values extracted from current codebase (Ep Run Expt (updated Layout)):
     %   NOCONFIG, CONFIGLOADED, READY, RUNNING, POSTRUN, STOP, ERROR

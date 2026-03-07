@@ -4,11 +4,11 @@ function buildUI(self)
 %   Assembles the main grid, subject table, bottom control bar, and
 %   right-side utilities using uigridlayout and uibutton components.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 
-fpos = getpref('ep_RunExpt2','FigurePosition',[100 100 800 400]);
-f = uifigure('Name','EPsych','Tag','ep_RunExpt2', ...
+fpos = getpref('RunExpt','FigurePosition',[100 100 800 400]);
+f = uifigure('Name','EPsych','Tag','RunExpt', ...
     'Position',fpos, ...
     'CloseRequestFcn', @(~,~) self.onCloseRequest);
 
@@ -17,11 +17,10 @@ self.H.figure1 = f;
 movegui(f,'onscreen');
 
 % Menus
-mFile = uimenu(f,'Label','File');
-uimenu(mFile,'Label','Load Config...','MenuSelectedFcn', @(~,~) self.LoadConfig)
-uimenu(mFile,'Label','Browse Configs...','MenuSelectedFcn', @(~,~) self.BrowseConfigs)
-uimenu(mFile,'Label','Save Config...','MenuSelectedFcn', @(~,~) self.SaveConfig)
-uimenu(mFile,'Label','Exit','Separator','on','MenuSelectedFcn', @(~,~) self.onCloseRequest)
+mConfig = uimenu(f,'Label','Config');
+uimenu(mConfig,'Label','Browse &Configs...','MenuSelectedFcn', @(~,~) self.BrowseConfigs,'Accelerator','C')
+uimenu(mConfig,'Label','&Load Config...','MenuSelectedFcn', @(~,~) self.LoadConfig,'Accelerator','L')
+uimenu(mConfig,'Label','&Save Config...','MenuSelectedFcn', @(~,~) self.SaveConfig,'Accelerator','S')
 
 mCustom = uimenu(f,'Label','Customize');
 uimenu(mCustom,'Label','Define Saving Function...','MenuSelectedFcn', @(~,~) self.DefineSavingFcn)
@@ -54,7 +53,9 @@ self.H.subject_list = uitable(g, ...
     'Data',{}, ...
     'ColumnName',{'BoxID','Name','Protocol'}, ...
     'ColumnEditable',[false false false], ...
-    'ColumnWidth',{60,200,400});
+    'ColumnWidth',{60,200,350}, ...
+    'RowStriping','on', ...
+    'FontSize',18);
 self.H.subject_list.Layout.Row = 1;
 self.H.subject_list.Layout.Column = 1;
 self.H.subject_list.SelectionChangedFcn = @(h,ev) self.subject_list_SelectionChanged(h,ev);

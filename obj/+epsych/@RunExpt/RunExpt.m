@@ -52,9 +52,9 @@ classdef RunExpt < handle
         DefineAddSubject(self, a)
         DefineBoxFig(self, a)
 
-        function self = ep_RunExpt2()
+        function self = RunExpt()
 
-            f = findobj('tag','ep_RunExpt2');
+            f = findobj('tag','RunExpt');
             if ~isempty(f)
                 figure(f); movegui(f,'onscreen');
                 self = f.UserData;
@@ -73,7 +73,7 @@ classdef RunExpt < handle
         function delete(self)
             % delete — Ensure resources are released when object is cleared.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             try
                 if isvalid(self)
@@ -86,7 +86,7 @@ classdef RunExpt < handle
         function Run(self)
             % Run — Convenience wrapper to start experiment (Record mode).
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             self.ExptDispatch("Run")
         end
@@ -94,7 +94,7 @@ classdef RunExpt < handle
         function Record(self)
             % Record — Start experiment in acquisition mode.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             self.ExptDispatch("Record")
         end
@@ -102,7 +102,7 @@ classdef RunExpt < handle
         function Preview(self)
             % Preview — Start non-recording preview session.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             self.ExptDispatch("Preview")
         end
@@ -110,14 +110,14 @@ classdef RunExpt < handle
         function Pause(self)
             % Pause — Placeholder for future pause handling.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
         end
 
         function Stop(self)
             % Stop — Halt the running experiment and timers.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             self.ExptDispatch("Stop")
         end
@@ -125,7 +125,7 @@ classdef RunExpt < handle
         function SaveData(self)
             % SaveData — Trigger save using the configured SavingFcn.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             self.SaveDataCallback
         end
@@ -133,7 +133,7 @@ classdef RunExpt < handle
         function ViewTrials(self)
             % ViewTrials — Display compiled trial definitions for selection.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             idx = self.H.subject_list.Selection(1);
             if isempty(idx), return, end
@@ -148,7 +148,7 @@ classdef RunExpt < handle
         function EditProtocol(self)
             % EditProtocol — Launch protocol editor for selected subject.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             idx = self.H.subject_list.Selection(1);
             if isempty(idx), return, end
@@ -160,7 +160,7 @@ classdef RunExpt < handle
         function SortBoxes(self)
             % SortBoxes — Reorder CONFIG by SUBJECT.BoxID.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             if self.STATE >= PRGMSTATE.RUNNING, return, end
             if ~isfield(self.CONFIG,'SUBJECT'), return, end
@@ -177,7 +177,7 @@ classdef RunExpt < handle
         function DefineDataPath(self)
             % DefineDataPath — Configure the default data-saving directory.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             ontop = self.AlwaysOnTop(false);
             pth = uigetdir(self.dfltDataPath,'Select Default Data Directory');
@@ -195,7 +195,7 @@ classdef RunExpt < handle
         function LocateBehaviorGUI(self)
             % LocateBehaviorGUI — Launch the configured behavior GUI.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             if isempty(self.FUNCS.BoxFig), return, end
             feval(self.FUNCS.BoxFig, self.RUNTIME);
@@ -206,7 +206,7 @@ classdef RunExpt < handle
         function version_info(self)
             % version_info — Display EPsych metadata in the command window.
             arguments
-                self (1,1) ep_RunExpt2 %#ok<INUSA>
+                self
             end
             E = EPsychInfo;
             disp(E.meta)
@@ -234,7 +234,7 @@ classdef RunExpt < handle
         function onCommand(self, hObj)
             % onCommand — Route button clicks to the dispatcher.
             arguments
-                self (1,1) ep_RunExpt2
+                self
                 hObj (1,1)
             end
             self.ExptDispatch(string(hObj.Text));
@@ -243,7 +243,7 @@ classdef RunExpt < handle
         function PsychTimerRunTime(self)
             % PsychTimerRunTime — Per-period runtime callback.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             if isfield(self.RUNTIME,'HW') && self.RUNTIME.HW.mode == hw.DeviceState.Idle
                 self.ExptDispatch("Stop")
@@ -255,7 +255,7 @@ classdef RunExpt < handle
         function PsychTimerError(self)
             % PsychTimerError — Error handler for the runtime loop.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             self.STATE = PRGMSTATE.ERROR;
             self.RUNTIME.ERROR = lasterror; %#ok<LERR>
@@ -268,7 +268,7 @@ classdef RunExpt < handle
         function PsychTimerStop(self)
             % PsychTimerStop — Clean shutdown after the runtime loop ends.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             self.STATE = PRGMSTATE.STOP;
             vprintf(3,'PsychTimerStop:Calling timer Stop function: %s',self.FUNCS.TIMERfcn.Stop)
@@ -283,7 +283,7 @@ classdef RunExpt < handle
         function subject_list_SelectionChanged(self, hObj, evnt)
             % subject_list_SelectionChanged — Display Subject Info
             arguments
-                self (1,1) ep_RunExpt2
+                self
                 hObj (1,1)
                 evnt %#ok<INUSA>
             end
@@ -293,7 +293,7 @@ classdef RunExpt < handle
         function SetDefaultFuncs(self, F)
             % SetDefaultFuncs — Persist FUNCS selections to preferences.
             arguments
-                self (1,1) ep_RunExpt2
+                self
                 F (1,1) struct
             end
             setpref('ep_RunExpt_FUNCS','SavingFcn',    F.SavingFcn)
@@ -309,7 +309,7 @@ classdef RunExpt < handle
         function F = GetDefaultFuncs(self) %#ok<MANU>
             % GetDefaultFuncs — Load FUNCS selections from preferences.
             arguments
-                self (1,1) ep_RunExpt2 %#ok<INUSA>
+                self 
             end
             F.SavingFcn      = getpref('ep_RunExpt_FUNCS','SavingFcn',    'ep_SaveDataFcn');
             F.AddSubjectFcn  = getpref('ep_RunExpt_FUNCS','AddSubjectFcn','ep_AddSubject');
@@ -324,7 +324,7 @@ classdef RunExpt < handle
         function ClearConfig(self)
             % ClearConfig — Reset CONFIG and GUI to an unconfigured state.
             arguments
-                self (1,1) ep_RunExpt2
+                self
             end
             self.CONFIG = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[]);
             if self.STATE >= PRGMSTATE.RUNNING, return, end
@@ -338,7 +338,7 @@ classdef RunExpt < handle
 
         function ConfigBrowserRestoreOnTop(self, ontop)
             arguments
-                self (1,1) ep_RunExpt2
+                self
                 ontop (1,1) logical
             end
             if ~isfield(self.H,'figure1') || ~isgraphics(self.H.figure1), return, end

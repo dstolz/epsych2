@@ -4,7 +4,7 @@ function CheckReady(self)
 %   Sets STATE to CONFIGLOADED when both subjects and
 %   required functions are defined; otherwise to NOCONFIG.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end
 

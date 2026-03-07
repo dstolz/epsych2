@@ -4,7 +4,7 @@ function onCloseRequest(self)
 %   Warns if running, stops/deletes timers, resets functions to
 %   preferences, and deletes the main figure.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 if self.STATE == PRGMSTATE.RUNNING
     b = questdlg('Experiment is currently running. Closing will stop the experiment.', ...
@@ -19,7 +19,7 @@ end
 
 self.SetDefaultFuncs(self.FUNCS)
 
-setpref('ep_RunExpt2','FigurePosition',self.H.figure1.Position);
+setpref('RunExpt','FigurePosition',self.H.figure1.Position);
 
 try
     delete(self.H.figure1)

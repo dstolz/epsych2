@@ -1,7 +1,7 @@
 function ConfigBrowserCancel(self, fig)
 % ConfigBrowserCancel — Callback for closing/canceling the config browser.
 arguments
-    self (1,1) ep_RunExpt2
+    self
     fig (1,1)
 end
 

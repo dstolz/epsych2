@@ -4,7 +4,7 @@ function DefineConfigBrowserRoot(self)
 %   Stores the selected folder in preferences and uses it as the
 %   parent directory for recursive "*.config" browsing.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end
 

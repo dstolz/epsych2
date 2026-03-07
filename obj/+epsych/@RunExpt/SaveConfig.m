@@ -4,7 +4,7 @@ function SaveConfig(self)
 %   Prompts for a destination, serializes current config/functions
 %   together with EPsychInfo meta for reproducibility.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 if self.STATE == PRGMSTATE.NOCONFIG
     warndlg('Please first add a subject.','Save Configuration','modal')

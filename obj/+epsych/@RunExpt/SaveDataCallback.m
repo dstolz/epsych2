@@ -4,7 +4,7 @@ function SaveDataCallback(self)
 %   Disables controls during save, calls FUNCS.SavingFcn(RUNTIME),
 %   and restores GUI state per STATE.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 oldstate = self.STATE;
 

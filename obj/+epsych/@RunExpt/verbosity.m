@@ -3,7 +3,7 @@ function verbosity(self)
 % Behavior
 %   Presents a list dialog and updates GVerbosity accordingly.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 options = {'0. No extraneous text'
     '1. Additional info'

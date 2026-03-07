@@ -123,7 +123,7 @@ end
 
 function fileloc = prompt_user(subjPath,name,boxid)
 % otherwise use default location
-ffn = ep_RunExpt2.defaultFilename(subjPath,name);
+ffn = epsych.RunExpt.defaultFilename(subjPath,name);
 
 % prompt user for file location
 % suggest default location

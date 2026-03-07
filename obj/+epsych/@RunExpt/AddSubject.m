@@ -6,7 +6,7 @@ function AddSubject(self, S)
 %   Invokes FUNCS.AddSubjectFcn(S, boxids), enforces unique names,
 %   prompts for a protocol file, appends to CONFIG, and updates UI.
 arguments
-    self (1,1) ep_RunExpt2
+    self
     S struct = struct()
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end

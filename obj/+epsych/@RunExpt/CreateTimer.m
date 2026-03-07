@@ -3,7 +3,7 @@ function T = CreateTimer(self)
 % Output
 %   T — MATLAB timer object configured for the runtime loop.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 T = timerfind('Name','PsychTimer');
 if ~isempty(T)

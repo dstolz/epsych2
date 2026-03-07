@@ -5,7 +5,7 @@ function DefineAddSubject(self, a)
 % Expected Signature
 %   S = AddSubjectFcn(S, boxids)
 arguments
-    self (1,1) ep_RunExpt2
+    self
     a = []
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end

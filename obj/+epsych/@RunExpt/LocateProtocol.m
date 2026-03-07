@@ -5,7 +5,7 @@ function ok = LocateProtocol(self, pfn)
 % Output
 %   ok (logical) — True when a valid protocol file is assigned.
 arguments
-    self (1,1) ep_RunExpt2
+    self
     pfn string = ""
 end
 ok = false;

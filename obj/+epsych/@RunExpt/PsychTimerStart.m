@@ -4,7 +4,7 @@ function PsychTimerStart(self)
 %   Updates state, calls TIMERfcn.Start, records StartTime, and
 %   attempts to launch BoxFig if configured.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 self.STATE = PRGMSTATE.RUNNING;
 self.UpdateGUIstate

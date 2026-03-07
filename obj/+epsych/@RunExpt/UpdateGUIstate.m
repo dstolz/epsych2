@@ -3,7 +3,7 @@ function UpdateGUIstate(self)
 % Behavior
 %   Centralizes UI state transitions for all major states.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 
 hCtrl = findobj(self.H.figure1,'-regexp','tag','^ctrl')';

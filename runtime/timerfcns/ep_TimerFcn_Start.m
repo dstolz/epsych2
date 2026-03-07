@@ -82,7 +82,7 @@ for i = 1:RUNTIME.NSubjects
     % Initialize default data filename
     sn = RUNTIME.TRIALS(i).Subject.Name;
     pth = fullfile(RUNTIME.dfltDataPath,sn);
-    RUNTIME.TRIALS(i).DataFilename = ep_RunExpt2.defaultFilename(pth,sn);
+    RUNTIME.TRIALS(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
 
     RUNTIME.ON_HOLD(i) = false;
 

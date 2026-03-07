@@ -5,7 +5,7 @@ function DefineBoxFig(self, a)
 % Expected Signature
 %   BoxFig(RUNTIME)
 arguments
-    self (1,1) ep_RunExpt2
+    self
     a = []
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end

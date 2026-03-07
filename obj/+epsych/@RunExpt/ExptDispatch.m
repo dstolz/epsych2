@@ -6,7 +6,7 @@ function ExptDispatch(self, COMMAND)
 %   Prepares RUNTIME, loads protocols, initializes hardware,
 %   configures/starts the PsychTimer, and manages Stop/cleanup.
 arguments
-    self (1,1) ep_RunExpt2
+    self
     COMMAND {mustBeTextScalar}
 end
 

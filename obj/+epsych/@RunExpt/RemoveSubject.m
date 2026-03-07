@@ -6,7 +6,7 @@ function RemoveSubject(self, idx)
 %   Removes the specified subject (or clears CONFIG if singleton)
 %   then updates the table and readiness state.
 arguments
-    self (1,1) ep_RunExpt2
+    self
     idx double = NaN
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end

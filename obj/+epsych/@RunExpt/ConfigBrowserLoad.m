@@ -1,7 +1,7 @@
 function ConfigBrowserLoad(self, fig, lb)
 % ConfigBrowserLoad — Callback for "Load" button in BrowseConfigs().
 arguments
-    self (1,1) ep_RunExpt2
+    self
     fig (1,1)
     lb (1,1)
 end

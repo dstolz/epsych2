@@ -3,7 +3,7 @@ function UpdateSubjectList(self)
 % Behavior
 %   Reflects CONFIG contents in the table and toggles action buttons.
 arguments
-    self (1,1) ep_RunExpt2
+    self
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end
 

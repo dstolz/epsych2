@@ -6,7 +6,7 @@ function LoadConfig(self, cfn)
 %   Loads CONFIG and FUNCS from file (if present), updates subject
 %   list, and sets STATE to READY when requirements are met.
 arguments
-    self (1,1) ep_RunExpt2
+    self
     cfn string = ""
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end

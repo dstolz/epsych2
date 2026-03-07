@@ -5,7 +5,7 @@ function DefineSavingFcn(self, a)
 % Requirements
 %   The function must accept one input (RUNTIME) and return no outputs.
 arguments
-    self (1,1) ep_RunExpt2
+    self
     a = []
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end

@@ -3,7 +3,7 @@ function originalState = AlwaysOnTop(self, ontop)
 % Inputs
 %   ontop (logical) — Optional; when omitted, flips current state.
 arguments
-    self (1,1) ep_RunExpt2
+    self
     ontop (1,1) logical = false
 end
 originalState = isequal(self.H.figure1.WindowStyle,'alwaysontop');

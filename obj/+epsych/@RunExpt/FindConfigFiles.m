@@ -1,7 +1,7 @@
 function [items, fullpaths] = FindConfigFiles(self, root)
 % FindConfigFiles — Return relative list and fullpaths of *.config under root.
 arguments
-    self (1,1) ep_RunExpt2 %#ok<INUSA>
+    self %#ok<INUSA>
     root (1,1) string
 end
 

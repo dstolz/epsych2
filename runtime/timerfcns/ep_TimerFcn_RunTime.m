@@ -20,7 +20,7 @@ for i = 1:RUNTIME.NSubjects
 
             if ~RCtag || TStag, continue; end
 
-            TrialNum = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialNum) - 1;
+            TrialNum = RUNTIME.CORE(i).TrialNum.Value - 1;
 
 
 
@@ -98,6 +98,7 @@ for i = 1:RUNTIME.NSubjects
 
     % Select next trial with default or custom function
     try
+        vprintf(4,1,'**** %d ***',RUNTIME.TRIALS.trials{1,4})
         vprintf(3,'Selecting next trial for box %d using "%s"',i,RUNTIME.TRIALS(i).trialfunc)
         tcf = tic;
         n = feval(RUNTIME.TRIALS(i).trialfunc,RUNTIME.TRIALS(i));

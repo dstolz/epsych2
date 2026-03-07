@@ -13,6 +13,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons
 
+
+        h_RWDelayParameterControl
         h_RWDelayTrainingGUI
 
         ParameterMonitorTable
@@ -82,13 +84,18 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             % stop(t(i));
             % delete(t(i));
 
-            vprintf(3,'cl_AppetitiveDetection_GUI_B destructor')
+            vprintf(3,'cl_AppetitiveDetection_GUI_B: destructor')
+
+            try
+                close(obj.hl_RWDelayTrainingGUI);
+                delete(obj.hl_RWDelayTrainingGUI);
+            end
+
             delete(obj.guiHandles);
             obj.hl_NewTrial.Enabled = 0;
             obj.hl_NewData.Enabled = 0;
             delete(obj.hl_NewTrial);
             delete(obj.hl_NewData);
-            delete(obj.hl_RWDelayTrainingGUI);
 
             try
                 close(obj.h_OnlinePlot);

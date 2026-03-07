@@ -240,7 +240,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
                     h = uieditfield(hl,"numeric");
                     h.Value = P.Value;
-                    h.ValueDisplayFormat = [P.Format P.Unit];
+                    %h.ValueDisplayFormat = [P.Format ' ' P.Unit];
                     h.Limits = [P.Min P.Max];
                     if isequal(P.Type,'Integer')
                         h.RoundFractionalValues = 'on';

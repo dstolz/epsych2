@@ -15,7 +15,7 @@ classdef EPsychInfo < handle
         AuthorEmail = 'daniel.stolzberg@gmail.com';
         License = 'GNU General Public License v3.0';
         LicenseURL = 'https://www.gnu.org/licenses/gpl-3.0.en.html';
-        Copyright = '(C) 2016-2025  Daniel Stolzberg, PhD';
+        Copyright = '(C) 2016-2026  Daniel Stolzberg, PhD';
         RepositoryURL = 'https://github.com/dstolz/epsych2';
     end
     

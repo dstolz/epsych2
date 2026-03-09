@@ -17,9 +17,10 @@ switch lower(COMMAND)
     case {"run","record","preview"}
         drawnow
 
+        % Set process priority to high
         [~,~] = dos('wmic process where name="MATLAB.exe" CALL setpriority "high priority"');
 
-        vprintf(0,'\n%s\n',repmat('~',1,50))
+        vprintf(0,'%s',repmat('~',1,50))
 
         self.RUNTIME = epsych.Runtime; % reset RUNTIME
 

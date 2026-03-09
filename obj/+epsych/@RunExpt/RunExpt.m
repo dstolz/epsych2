@@ -26,7 +26,10 @@ classdef RunExpt < handle
         DefineAddSubject(self, a)
         DefineBoxFig(self, a)
 
-        function self = RunExpt()
+        function self = RunExpt(ffnConfig)
+            arguments
+                ffnConfig (1,1) string = ""
+            end
             f = findobj('tag','RunExpt');
             if ~isempty(f)
                 figure(f); movegui(f,'onscreen');
@@ -39,6 +42,10 @@ classdef RunExpt < handle
             self.ClearConfig
             self.UpdateGUIstate
             self.dfltDataPath = getpref('RunExpt','DataPath',cd);
+
+            if ffnConfig ~= ""
+                self.LoadConfig(ffnConfig)
+            end
 
             if nargout == 0, clear self; end
         end

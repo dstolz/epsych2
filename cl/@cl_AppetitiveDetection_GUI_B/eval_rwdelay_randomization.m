@@ -1,13 +1,16 @@
-function eval_rwdelay_randomization(obj,src,event,RWDelayParameter)
-% eval_rwdelay_randomization(obj,src,event,RWDelayParameter)
+function eval_rwdelay_randomization(obj,src,value)
+% eval_rwdelay_randomization(~,~,event,RWDelayParameter)
 % This function is called whenever the Response Window Delay Min/Max parameter is changed, 
 % and randomizes the value within the specified range.
 % This function will also check that the min and max values are valid before attempting to randomize.
 
 global RUNTIME
 
-pMin = RUNTIME.HW.find_parameter('ResponseWindowDelayMin');
-pMax = RUNTIME.HW.find_parameter('ResponseWindowDelayMax');
+
+pMin = RUNTIME.S.find_parameter('RespWinDelayMin');
+pMax = RUNTIME.S.find_parameter('RespWinDelayMax');
+
+RWDelayParameter = RUNTIME.HW.find_parameter('RespWinDelay');
 
 if isempty(pMin) || isempty(pMax) || isempty(RWDelayParameter)      
     vprintf(0,1,'Error: Could not find parameters for Response Window Delay randomization')
@@ -28,7 +31,6 @@ if pMin.Value < 0 || pMax.Value < 0
     pMin.Value = max(pMin.Value,0);
     pMax.Value = max(pMax.Value,0);
     vprintf(0,1,'Response Window Delay values cannot be negative. Resetting to minimum of 0 ms.')
-    return
 end
 
 if pMin.Value == pMax.Value
@@ -40,9 +42,10 @@ end
 
 
 try
-    newVal = randi([pMin.Value, pMax.Value]);
-    RWDelayParameter.Value = newVal;
-    vprintf(3,'Randomized Response Window Delay parameter to %d ms (range: %d-%d ms)',newVal,pMin.Value,pMax.Value)
+    RWDelayParameter.Min = pMin.Value;
+    RWDelayParameter.Max = pMax.Value;
+    
+    vprintf(3,'Randomized Response Window Delay range: %d-%d ms',pMin.Value,pMax.Value)
 catch e
     vprintf(0,1,'Error randomizing Response Window Delay parameter: %s',getReport(e,'basic'))
 end

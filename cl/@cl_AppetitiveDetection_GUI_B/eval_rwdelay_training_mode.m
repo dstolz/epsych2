@@ -1,13 +1,15 @@
-function eval_rwdelay_training_mode(obj,src,event,Parameter)
+function [value,success] = eval_rwdelay_training_mode(obj,src,event,Parameter)
 % eval_rwdelay_training_mode(obj,src,event,Parameter)
 %
 % implements the 'EvaluatorFcn' function
 
+success = false;
 
 RUNTIME = obj.RUNTIME;
 
 try
 
+    value = event.Value; % the new value of the training mode toggle (true/false)
     if event.Value == 1
         % launch the training mode GUI
         if ~isempty(obj.h_RWDelayTrainingGUI) && isvalid(obj.h_RWDelayTrainingGUI) % if the GUI doesn't exist or has been deleted, create it
@@ -32,6 +34,8 @@ try
 
         % disable the parameter control in the main GUI while training mode is active
         obj.h_RWDelayParameterControl.h_uiobj.Enable = 'off';
+
+        success = true;
     else
         vprintf(2,'Closing Response Window Delay Training GUI')
 
@@ -40,11 +44,18 @@ try
 
         % re-enable the parameter control in the main GUI
         obj.h_RWDelayParameterControl.h_uiobj.Enable = 'on';
+
+        % remove the event listener for training mode updates
+        delete(obj.hl_RWDelayTrainingGUI);
     end
 
 catch e
     vprintf(0,1,'Error evaluating Response Window Delay Training Mode: %s',getReport(e,'basic'))
     obj.h_RWDelayParameterControl.h_uiobj.Enable = 'on'; % ensure the parameter control is re-enabled if there's an error
+    delete(obj.hl_RWDelayTrainingGUI);
+    if ~isempty(obj.h_RWDelayTrainingGUI) && isvalid(obj.h_RWDelayTrainingGUI)
+        delete(obj.h_RWDelayTrainingGUI);
+    end
 end
 
 end

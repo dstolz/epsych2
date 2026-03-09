@@ -243,6 +243,9 @@ h.Text = "Intertrial Interval (ms):";
 
 pRWDelay = RUNTIME.HW.find_parameter('RespWinDelay');
 pRWDelay.Unit = 'ms';
+pRWDelay.Min = 100;
+pRWDelay.Max = 10000;
+pRWDelay.isRandom = true;
 %{
 h = gui.Parameter_Control(layoutTrialControls,pRWDelay,Type='editfield');
 % h.EvaluatorFcn = @obj.eval_rwdelay;
@@ -260,19 +263,23 @@ h.ValueChangedFcn = @(src,event) obj.eval_rwdelay_training_mode(src,event,p);
 
 
 % >> Response Window Delay (min)
-p = RUNTIME.S.Module.add_parameter('RespWinDelayMin',100);
+p = RUNTIME.S.Module.add_parameter('RespWinDelayMin',400);
 p.Unit = 'ms';
+p.Min = 100;
+p.Max = 10000;
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Response Window Delay Min (ms):";
-h.EvaluatorFcn = @(src,event) obj.eval_rwdelay_randomization(src,event,pRWDelay);
+p.EvaluatorFcn = @obj.eval_rwdelay_randomization;
 
 
 % >> Response Window Delay (max)
-p = RUNTIME.S.Module.add_parameter('RespWinDelayMax',10000);
+p = RUNTIME.S.Module.add_parameter('RespWinDelayMax',400);
 p.Unit = 'ms';
+p.Min = 100;
+p.Max = 10000;
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Response Window Delay Max (ms):";
-h.EvaluatorFcn = @(src,event) obj.eval_rwdelay_randomization(src,event,pRWDelay);
+p.PostUpdateFcn = @obj.eval_rwdelay_randomization;
 
 
 

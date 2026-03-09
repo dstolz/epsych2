@@ -75,6 +75,8 @@ classdef Parameter < matlab.mixin.SetGet
                 v = obj.Parent.get_parameter(obj,includeInvisible=true);
             end
 
+            if obj.isRandom, v = obj.randomize_value(v); end
+
             if isnumeric(v)
                 v = double(v);
             end
@@ -163,6 +165,21 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     methods (Access = protected)
+        
+        function v = randomize_value(obj)
+            if ~obj.isRandom || ~isnumeric(obj.Value) || numel(obj.Value) > 1
+                v = obj.Value;
+                return
+            end
+
+            try
+                v = randi([obj.Min obj.Max]);
+                vprintf(3,'Randomized parameter "%s" to value: %g',obj.Name,v)
+            catch e
+                vprintf(0,1,'Error randomizing parameter "%s": %s',obj.Name,getReport(e,'basic'))
+            end
+        end
+
         function set_value(obj,value)
 
             if isequal(obj.Access,'Read')
@@ -173,6 +190,10 @@ classdef Parameter < matlab.mixin.SetGet
             if ~isequal(obj.Type,'String') && (value < obj.Min || value > obj.Max)
                 vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
                 return
+            end
+
+            if obj.isRandom
+                value = obj.randomize_value();
             end
 
             obj.Value = value;

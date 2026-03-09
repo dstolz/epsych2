@@ -3,8 +3,8 @@ function eval_rwdelay_training_mode(obj,src,event,Parameter)
 %
 % implements the 'EvaluatorFcn' function
 
-global RUNTIME % TO DO: FIND A BETTER WAY TO ACCESS RUNTIME.HELPER
 
+RUNTIME = obj.RUNTIME;
 
 try
 
@@ -25,7 +25,7 @@ try
                 'MinValueLimits', [100 2000], ...
                 'MaxValueLimits', [200 6000]);
 
-            obj.hl_RWDelayTrainingGUI = addlistener(RUNTIME.HELPER,'NewData',@(src,event) update_rwdelay_training_mode(src,event,h));
+            obj.hl_RWDelayTrainingGUI = addlistener(RUNTIME.HELPER,'NewData',@(src,event) update_rwdelay_training_mode(src,event,h,RUNTIME));
             obj.h_RWDelayTrainingGUI = h;
             
         end
@@ -49,11 +49,9 @@ end
 
 end
 
-function update_rwdelay_training_mode(src,event,h)
+function update_rwdelay_training_mode(src,event,h,RUNTIME)
 % This function is called whenever new trial data is available, and updates the training mode parameters
 % based on the most recent trial data.
-global RUNTIME
-
 if isempty(h) || ~isvalid(h), return; end
 
 RC = epsych.BitMask.decode(RUNTIME.TRIALS.DATA(end).RespCode);

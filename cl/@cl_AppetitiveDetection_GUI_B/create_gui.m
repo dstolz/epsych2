@@ -241,25 +241,39 @@ p = RUNTIME.HW.find_parameter('ITIDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Intertrial Interval (ms):";
 
-
-
-% >> Response Window Delay (Mean)
-p = RUNTIME.HW.find_parameter('RespWinDelay');
-p.Unit = 'ms';
-h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+pRWDelay = RUNTIME.HW.find_parameter('RespWinDelay');
+pRWDelay.Unit = 'ms';
+%{
+h = gui.Parameter_Control(layoutTrialControls,pRWDelay,Type='editfield');
 % h.EvaluatorFcn = @obj.eval_rwdelay;
 h.Text = "Response Window Delay (ms):";
 obj.h_RWDelayParameterControl = h; % store handle for later use in training mode evaluation
-
+%}
 
 %{
-
-
 % >> Response Window Delay Training Mode --- launches a small gui to adjust parameters for training with variable response window delay
 h = uibutton(layoutTrialControls,"state");
 h.Text = "Response Window Delay Training Mode";
 h.ValueChangedFcn = @(src,event) obj.eval_rwdelay_training_mode(src,event,p);
 %}
+
+
+
+% >> Response Window Delay (min)
+p = RUNTIME.S.Module.add_parameter('RespWinDelayMin',100);
+p.Unit = 'ms';
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+h.Text = "Response Window Delay Min (ms):";
+h.EvaluatorFcn = @(src,event) obj.eval_rwdelay_randomization(src,event,pRWDelay);
+
+
+% >> Response Window Delay (max)
+p = RUNTIME.S.Module.add_parameter('RespWinDelayMax',10000);
+p.Unit = 'ms';
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+h.Text = "Response Window Delay Max (ms):";
+h.EvaluatorFcn = @(src,event) obj.eval_rwdelay_randomization(src,event,pRWDelay);
+
 
 
 

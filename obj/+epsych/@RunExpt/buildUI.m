@@ -3,9 +3,6 @@ function buildUI(self)
 % Behavior
 %   Assembles the main grid, subject table, bottom control bar, and
 %   right-side utilities using uigridlayout and uibutton components.
-arguments
-    self
-end
 
 fpos = getpref('RunExpt','FigurePosition',[100 100 800 400]);
 f = uifigure('Name','EPsych','Tag','RunExpt', ...

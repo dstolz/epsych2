@@ -3,9 +3,8 @@ function PsychTimerStart(self)
 % Behavior
 %   Updates state, calls TIMERfcn.Start, records StartTime, and
 %   attempts to launch BoxFig if configured.
-arguments
-    self
-end
+
+
 self.STATE = PRGMSTATE.RUNNING;
 self.UpdateGUIstate
 
@@ -14,7 +13,7 @@ self.RUNTIME.StartTime = datetime('now');
 vprintf(0,'Experiment started at %s',self.RUNTIME.StartTime)
 
 if isempty(self.FUNCS.BoxFig)
-    vprintf(2,'No Behavior Performance GUI specified')
+    vprintf(0,'No Behavior GUI specified')
 else
     try
         feval(self.FUNCS.BoxFig, self.RUNTIME);

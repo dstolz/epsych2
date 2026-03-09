@@ -23,14 +23,17 @@ classdef Runtime < handle
 
         StartTime datetime = NaT
 
-        TrialCompleteIdx  % If in use, wait for manual completion of trial in RPvds
+        TrialComplete  % If in use, wait for manual completion of trial in RPvds
 
         AcqBufferStr = "" % If in use, collect AcqBuffer data at end of trial
     end
 
+
+    
+
     methods
         function self = Runtime
-        
+            vprintf(2,'Initializing Runtime object')
 
         end
     end

@@ -44,12 +44,12 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         Text (1,:) char = 'label' % label text
 
 
-        colorNormal           = '#f0f0f0';
-        colorOnUpdate         = '#00c700';
-        colorOnUpdateAuto     = '#7ad5ff';
-        colorOnUpdateExternal = '#fad85c';
-        colorOnError          = '#e66367';
-    end
+        colorNormal           = "#f0f0f0";
+        colorOnUpdate         = "#00c700";
+        colorOnUpdateAuto     = "#7ad5ff";
+        colorOnUpdateExternal = "#fad85c";
+        colorOnError          = "#e66367";
+        end
 
     properties (SetObservable,AbortSet,SetAccess = protected)
         ValueUpdated (1,1) logical = false % flag indicating that the gui value has been updated

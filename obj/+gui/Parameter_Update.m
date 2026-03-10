@@ -8,8 +8,8 @@ classdef Parameter_Update < handle
     properties
         watchedHandles (1,:) % handles we are listening to
 
-        color_needToUpdate (1,1) = "#98fa98";
-        color_nothingToUpdate (1,1) = "#f0f0f0"; 
+        color_needToUpdate      (1,1) = "#98fa98";
+        color_nothingToUpdate   (1,1) = "#f0f0f0"; 
         color_updateImmediately (1,1) = "#e28743";
     end
 
@@ -44,7 +44,7 @@ classdef Parameter_Update < handle
             obj.Figure.WindowKeyPressFcn = @obj.key_press;
             obj.Figure.WindowKeyReleaseFcn  = @obj.key_release;
 
-            obj.color_nothingToUpdate = obj.Button.BackgroundColor;
+            obj.color_nothingToUpdate = rgb2hex(obj.Button.BackgroundColor);
         end
 
         function delete(obj)

@@ -60,7 +60,7 @@ for i = 1:RUNTIME.NSubjects
 
 
         % If in use, wait for manual completion of trial in RPvds
-        if isfield(RUNTIME,'TrialCompleteIdx') % ???
+        if isfield(RUNTIME,'TrialComplete')
             vprintf(4,'Checking TrialComplete tag for box %d',i)
             TCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialComplete);
             RUNTIME.ON_HOLD(i) = ~TCtag;

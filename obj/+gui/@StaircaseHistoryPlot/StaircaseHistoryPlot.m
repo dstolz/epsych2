@@ -1,10 +1,16 @@
 classdef StaircaseHistoryPlot < handle
-    % StaircaseHistoryPlot - Live staircase value history visualization.
+    % StaircaseHistoryPlot Plot staircase values against trial index.
     %
-    %   This class renders the running history of a psychophysics.Staircase
-    %   object's tracked parameter against trial index. The plot updates in
-    %   response to NewData events from the staircase's event source and can
-    %   optionally highlight inferred staircase steps and reversals.
+    %   gui.StaircaseHistoryPlot renders stimulusValues from a
+    %   psychophysics.Staircase object on the target axes and updates the
+    %   graphics when the attached event source emits NewData. The plot can
+    %   show the full history, inferred step directions, and reversal
+    %   markers when those values are available from the staircase object.
+    %
+    %   P = gui.StaircaseHistoryPlot(staircaseObj)
+    %   P = gui.StaircaseHistoryPlot(staircaseObj, ax)
+    %
+    %   2026-03-10
 
     properties
         ax (1,1)
@@ -39,10 +45,16 @@ classdef StaircaseHistoryPlot < handle
 
     methods
         function obj = StaircaseHistoryPlot(staircaseObj, ax)
-            % obj = StaircaseHistoryPlot(staircaseObj, ax)
+            % StaircaseHistoryPlot Construct a staircase history plot.
             %
-            % staircaseObj   psychophysics.Staircase object
-            % ax             Target axes (default = gca)
+            %   P = gui.StaircaseHistoryPlot(staircaseObj)
+            %   P = gui.StaircaseHistoryPlot(staircaseObj, ax)
+            %
+            %   staircaseObj is a psychophysics.Staircase object. ax is
+            %   the target axes. When ax is empty, the current axes are
+            %   used.
+            %
+            %   2026-03-10
             arguments
                 staircaseObj {mustBeA(staircaseObj,'psychophysics.Staircase')}
                 ax (1,1) = []
@@ -51,9 +63,8 @@ classdef StaircaseHistoryPlot < handle
             if isempty(ax), ax = gca; end
 
             obj.ax = ax;
-            obj.setup_axes();
-
             obj.staircaseObj = staircaseObj;
+            obj.setup_axes();
         end
 
         function delete(obj)
@@ -62,7 +73,7 @@ classdef StaircaseHistoryPlot < handle
         end
 
         function n = get.ParameterName(obj)
-            n = obj.staircaseObj.Parameter.Name;
+            n = obj.get_parameter_name();
         end
 
         function set.staircaseObj(obj, sObj)
@@ -79,6 +90,10 @@ classdef StaircaseHistoryPlot < handle
         function update_plot(obj, ~, ~)
             % Update the staircase history visualization from current data.
             vprintf(4, 'Updating StaircaseHistoryPlot')
+
+            if isempty(obj.ax) || ~isvalid(obj.ax)
+                return
+            end
 
             [x, y, c, xStep, yStep, cStep, xRev, yRev] = obj.get_plot_data();
             obj.ensure_graphics();
@@ -108,10 +123,12 @@ classdef StaircaseHistoryPlot < handle
 
     methods (Access = private)
         function attach_listener(obj)
-            try
+            source = [];
+
+            if isprop(obj.staircaseObj, 'Helper')
+                source = obj.staircaseObj.Helper;
+            elseif isprop(obj.staircaseObj, 'Source')
                 source = obj.staircaseObj.Source;
-            catch
-                return
             end
 
             if isempty(source)
@@ -182,11 +199,14 @@ classdef StaircaseHistoryPlot < handle
             xRev = nan(0,1);
             yRev = nan(0,1);
 
-            trialIndex = obj.staircaseObj.TrialIndexHistory(:);
-            trialValue = obj.staircaseObj.TrialValueHistory(:);
-            direction = obj.staircaseObj.DirectionHistory(:);
-            stepApplied = obj.staircaseObj.StepAppliedHistory(:);
-            reversalApplied = obj.staircaseObj.ReversalHistory(:);
+            trialValue = obj.columnize(obj.staircaseObj.stimulusValues);
+            if isempty(trialValue)
+                return
+            end
+
+            trialIndex = obj.get_trial_indices(numel(trialValue));
+            direction = obj.get_step_direction(numel(trialValue));
+            reversalIdx = obj.get_reversal_indices(numel(trialValue));
 
             valid = ~isnan(trialIndex) & ~isnan(trialValue);
             if ~any(valid)
@@ -197,17 +217,16 @@ classdef StaircaseHistoryPlot < handle
             y = trialValue(valid);
             c = obj.direction_colors(direction(valid));
 
-            stepMask = valid & stepApplied;
+            stepMask = valid & ~isnan(direction) & direction ~= 0;
             if any(stepMask)
                 xStep = trialIndex(stepMask);
                 yStep = trialValue(stepMask);
                 cStep = obj.direction_colors(direction(stepMask));
             end
 
-            revMask = valid & reversalApplied;
-            if any(revMask)
-                xRev = trialIndex(revMask);
-                yRev = trialValue(revMask);
+            if ~isempty(reversalIdx)
+                xRev = trialIndex(reversalIdx);
+                yRev = trialValue(reversalIdx);
             end
         end
 
@@ -243,7 +262,7 @@ classdef StaircaseHistoryPlot < handle
             ylabel(obj.ax, char(obj.ParameterName), 'Interpreter', 'none');
             xlabel(obj.ax, 'Trial Index', 'Interpreter', 'none');
 
-            nPlotted = nnz(~isnan(obj.staircaseObj.TrialValueHistory));
+            nPlotted = numel(obj.columnize(obj.staircaseObj.stimulusValues));
             subtitle(obj.ax, sprintf('# Plotted Trials = %d', nPlotted));
 
             [titleText, hasTitle] = obj.get_title_text();
@@ -259,7 +278,7 @@ classdef StaircaseHistoryPlot < handle
             titleText = '';
             hasTitle = false;
 
-            if isempty(obj.staircaseObj.TRIALS)
+            if ~isprop(obj.staircaseObj, 'TRIALS') || isempty(obj.staircaseObj.TRIALS)
                 return
             end
 
@@ -289,11 +308,107 @@ classdef StaircaseHistoryPlot < handle
                 return
             end
 
-            isUp = direction == "up";
-            isDown = direction == "down";
+            if isstring(direction) || ischar(direction)
+                direction = string(direction);
+                isUp = lower(direction) == "up";
+                isDown = lower(direction) == "down";
+            else
+                isUp = direction > 0;
+                isDown = direction < 0;
+            end
 
             c(isUp,:) = repmat(obj.StepColor, nnz(isUp), 1);
             c(isDown,:) = repmat(obj.LineColor, nnz(isDown), 1);
+        end
+
+        function n = get_parameter_name(obj)
+            n = "Staircase Value";
+
+            if isempty(obj.staircaseObj) || ~isprop(obj.staircaseObj, 'Parameter')
+                return
+            end
+
+            parameter = obj.staircaseObj.Parameter;
+            if isempty(parameter)
+                return
+            end
+
+            if isprop(parameter, 'Name')
+                n = string(parameter.Name);
+            end
+        end
+
+        function x = get_trial_indices(obj, nTrials)
+            x = (1:nTrials).';
+
+            if ~isprop(obj.staircaseObj, 'responseCodes') || ~isprop(obj.staircaseObj, 'StimulusTrialType')
+                return
+            end
+
+            responseCodes = obj.columnize(obj.staircaseObj.responseCodes);
+            if isempty(responseCodes)
+                return
+            end
+
+            try
+                decoded = epsych.BitMask.decode(responseCodes);
+            catch
+                return
+            end
+
+            if ~isstruct(decoded) || ~isfield(decoded, 'TrialType')
+                return
+            end
+
+            stimMask = decoded.TrialType == obj.staircaseObj.StimulusTrialType;
+            stimIdx = find(stimMask(:));
+            if numel(stimIdx) < nTrials
+                return
+            end
+
+            x = stimIdx(1:nTrials);
+        end
+
+        function direction = get_step_direction(obj, nTrials)
+            direction = nan(nTrials, 1);
+
+            if ~isprop(obj.staircaseObj, 'StepDirection')
+                return
+            end
+
+            rawDirection = obj.columnize(obj.staircaseObj.StepDirection);
+            if isempty(rawDirection)
+                return
+            end
+
+            nCopy = min(nTrials, numel(rawDirection));
+            direction(1:nCopy) = rawDirection(1:nCopy);
+        end
+
+        function reversalIdx = get_reversal_indices(obj, nTrials)
+            reversalIdx = zeros(0,1);
+
+            if ~isprop(obj.staircaseObj, 'ReversalIdx')
+                return
+            end
+
+            reversalIdx = obj.columnize(obj.staircaseObj.ReversalIdx);
+            if isempty(reversalIdx)
+                reversalIdx = zeros(0,1);
+                return
+            end
+
+            reversalIdx = reversalIdx(~isnan(reversalIdx));
+            reversalIdx = round(reversalIdx);
+            reversalIdx = reversalIdx(reversalIdx >= 1 & reversalIdx <= nTrials);
+        end
+
+        function values = columnize(~, values)
+            if isempty(values)
+                values = nan(0,1);
+            else
+                values = values(:);
+            end
         end
     end
 end

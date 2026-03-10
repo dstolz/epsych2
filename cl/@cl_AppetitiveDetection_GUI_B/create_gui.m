@@ -111,13 +111,12 @@ end
 
 % >> Info table
 h = uipanel(layoutMain);
-h.Layout.Column = 5;
-h.Layout.Row    = [1 3];
+h.Layout.Column = [1 2];
+h.Layout.Row    = [7 11];
 
-p = RUNTIME.HW.find_parameter('PelletTotal');
-p(2) = RUNTIME.HW.find_parameter('Platform');
-p(3) = RUNTIME.HW.find_parameter('Trough');
-p(4) = RUNTIME.HW.find_parameter('InTrial');
+p = RUNTIME.HW.find_parameter({'PelletTotal','Platform','Trough','TrialType', ...
+    'InTrial','~DelayPeriod','~RespWindow','RespLatency','RespCode','RespWinDelay'}, ...
+    includeInvisible=true,silenceParameterNotFound=true);
 obj.ParameterMonitorTable = gui.Parameter_Monitor(h,p,pollPeriod=0.1);
 obj.ParameterMonitorTable.handle.FontSize = 14;
 
@@ -246,7 +245,7 @@ h.Text = "Intertrial Interval (ms):";
 % >> Response Window Delay (randomized --- value based on min/max settings below)
 pRWDelay = RUNTIME.HW.find_parameter('RespWinDelay');
 pRWDelay.Unit = 'ms';
-pRWDelay.Min = 400;
+pRWDelay.Min = 400; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "RespWinDelayMin/Max" parameters below.
 pRWDelay.Max = 400;
 pRWDelay.isRandom = true; % enable randomization for this parameter
 
@@ -258,9 +257,9 @@ h.Text = "Response Window Delay Training Mode";
 h.ValueChangedFcn = @(src,event) obj.eval_rwdelay_training_mode(src,event,p);
 %}
 
-
-pMin = RUNTIME.S.Module.add_parameter('RespWinDelayMin',400);
-pMax = RUNTIME.S.Module.add_parameter('RespWinDelayMax',400);
+% Response Window Delay randomization parameters
+pMin = RUNTIME.S.Module.add_parameter('RespWinDelayMin',pRWDelay.Min);
+pMax = RUNTIME.S.Module.add_parameter('RespWinDelayMax',pRWDelay.Max);
 
 % >> Response Window Delay (min)
 pMin.Unit = 'ms';

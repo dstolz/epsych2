@@ -115,10 +115,10 @@ h = uipanel(layoutMain);
 h.Layout.Column = [1 2];
 h.Layout.Row    = [7 11];
 
-p = R.HW.find_parameter('PelletTotal');
-p(2) = R.HW.find_parameter('Platform');
-p(3) = R.HW.find_parameter('Trough');
-p(4) = R.HW.find_parameter('InTrial');
+p = R.HW.find_parameter({'PelletTotal','Platform','Trough','RespWinDelay','InTrial', ...
+    '~DelayPeriod','~RespWindow','RespLatency','RespCode'}, ...
+    includeInvisible=true);
+
 obj.ParameterMonitorTable = gui.Parameter_Monitor(h,p,pollPeriod=0.1);
 obj.ParameterMonitorTable.handle.FontSize = 14;
 

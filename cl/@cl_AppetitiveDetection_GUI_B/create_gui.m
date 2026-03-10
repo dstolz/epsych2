@@ -112,8 +112,8 @@ end
 
 % >> Info table
 h = uipanel(layoutMain);
-h.Layout.Column = 5;
-h.Layout.Row    = [1 3];
+h.Layout.Column = [1 2];
+h.Layout.Row    = [7 11];
 
 p = R.HW.find_parameter('PelletTotal');
 p(2) = R.HW.find_parameter('Platform');
@@ -247,8 +247,8 @@ h.Text = "Intertrial Interval (ms):";
 % >> Response Window Delay (randomized --- value based on min/max settings below)
 pRWDelay = R.HW.find_parameter('RespWinDelay');
 pRWDelay.Unit = 'ms';
-pRWDelay.Min = 100;
-pRWDelay.Max = 10000;
+pRWDelay.Min = 400; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "RespWinDelayMin/Max" parameters below.
+pRWDelay.Max = 400;
 pRWDelay.isRandom = true; % enable randomization for this parameter
 
 
@@ -260,8 +260,8 @@ h.ValueChangedFcn = @(src,event) obj.eval_rwdelay_training_mode(src,event,p);
 %}
 
 
-pMin = R.S.Module.add_parameter('RespWinDelayMin',400);
-pMax = R.S.Module.add_parameter('RespWinDelayMax',400);
+pMin = R.S.Module.add_parameter('RespWinDelayMin',pRWDelay.Min);
+pMax = R.S.Module.add_parameter('RespWinDelayMax',pRWDelay.Max);
 
 % >> Response Window Delay (min)
 pMin.Unit = 'ms';

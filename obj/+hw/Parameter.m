@@ -28,10 +28,14 @@ classdef Parameter < matlab.mixin.SetGet
         PostUpdateFcn (1,1) % handle to custom function called after value has been updated
     end
 
-    properties (SetObservable,GetObservable,AbortSet) 
+    properties (SetObservable,GetObservable) 
         Value % current/settable value of parameter
         % convert to datetime: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
         % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
+
+    end
+
+    properties (SetObservable,GetObservable,AbortSet)
         lastUpdated (1,1) double = 0; 
         
         isArray     (1,1) logical = false 

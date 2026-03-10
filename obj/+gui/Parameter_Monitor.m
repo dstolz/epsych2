@@ -218,7 +218,8 @@ classdef Parameter_Monitor < handle
                     obj.handle = uitable(obj.Parent, ...
                         'ColumnName', {'Parameter', 'Value'}, ...
                         'ColumnEditable',[false false], ...
-                        'Position', [1, 1, pos([3 4])-10]);
+                        'Position', [1, 1, pos([3 4])-1]);
+                    drawnow
             end
             
 

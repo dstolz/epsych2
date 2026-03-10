@@ -147,8 +147,6 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
             switch ev.NewMode
                 case hw.DeviceState.Stop
-                    fprintf('TO DO: Update filename\n')
-
                     delete(obj.ParameterMonitorTable);
             end
         end

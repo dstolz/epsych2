@@ -26,6 +26,10 @@ classdef Parameter < matlab.mixin.SetGet
         EvaluatorFcn (1,1) % handle to custom function to handle evaluation of updated values
 
         PostUpdateFcn (1,1) % handle to custom function called after value has been updated
+
+        % TO DO: Make this available for all custom fcn
+        PostUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to EvaluatorFcn
+
     end
 
     properties (SetObservable,GetObservable) 
@@ -123,7 +127,11 @@ classdef Parameter < matlab.mixin.SetGet
              obj.lastUpdated = now;
         
             if isa(obj.PostUpdateFcn,'function_handle')
-                obj.PostUpdateFcn(obj,value);
+                if isempty(obj.PostUpdateFcnArgs)
+                    obj.PostUpdateFcn(obj,value);
+                else
+                    obj.PostUpdateFcn(obj,value,obj.PostUpdateFcnArgs{:});
+                end
             end
         end
 

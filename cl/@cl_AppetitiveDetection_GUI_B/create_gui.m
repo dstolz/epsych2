@@ -61,6 +61,7 @@ k = k + 1;
 % > Shape
 p = R.HW.find_parameter('~Shape',includeInvisible=true);
 p.PostUpdateFcn = @cl_AppetitiveDetection_GUI_B.trigger_Shape;
+p.PostUpdateFcnArgs = {R};
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Shape";
 h.colorNormal = bcmNormal(k,:);
@@ -72,6 +73,7 @@ k = k + 1;
 % > Remind
 p = R.S.Module.add_parameter('ReminderTrials',0);
 p.PostUpdateFcn = @cl_AppetitiveDetection_GUI_B.trigger_ReminderTrial;
+p.PostUpdateFcnArgs = {R};
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Reminder";
 h.colorNormal = bcmNormal(k,:);

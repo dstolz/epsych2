@@ -81,8 +81,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
 
             % create psychophysics object
-            p = R.HW.find_parameter('Depth');
-            obj.psychDetect = psychophysics.Detect(R,p);
+            p = RUNTIME.HW.find_parameter('Depth');
+            obj.psychDetect = psychophysics.Detect(RUNTIME,p);
 
             % generate gui layout and components
             obj.create_gui;
@@ -255,13 +255,9 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
     methods (Static)
 
-        function trigger_ReminderTrial(obj, value)
-            global R
+        function trigger_ReminderTrial(obj, value,R)
 
-            prt = R.S.find_parameter('ReminderTrials');
-            if prt.Value == 0
-                return
-            end
+            if value == 0, return; end
 
             pdt = R.HW.find_parameter('~TrialDelivery',includeInvisible=true);
             if pdt.Value == 1
@@ -279,22 +275,15 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
         end
 
-        function trigger_FreeReward(obj, value)
-            R = obj.RUNTIME;
-
-
+        function trigger_FreeReward(obj, value,R)
             vprintf(3,'Initiating Free Trial Delivery')
-            AMdepth = R.HW.find_parameter('Depth');
-            AMdepth.Value = 1; % 100% depth
+            obj.Value = 1; % 100% depth
         end
 
-        function trigger_Shape(obj, value)
-            R = obj.RUNTIME;
+        function trigger_Shape(obj, value, R)
 
-            pcd = R.HW.find_parameter('~Shape',includeInvisible=true);
-            if pcd.Value == 0
-                return
-            end
+            
+            if value == 0, return; end
 
             vprintf(3,'Initiating Shape Trial')
             pStim = R.HW.find_parameter('Depth');
@@ -305,7 +294,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             % while pht.Value == 1
             %     pause(0.1);
             % end
-            pcd.Value = 0;
+            obj.Value = 0;
 
             pStim.Value = cv;
         end

@@ -114,6 +114,7 @@ end
 h = uipanel(layoutMain);
 h.Layout.Column = [1 2];
 h.Layout.Row    = [7 11];
+drawnow
 
 p = R.HW.find_parameter({'PelletTotal','Platform','Trough','RespWinDelay','InTrial', ...
     '~DelayPeriod','~RespWindow','RespLatency','RespCode'}, ...

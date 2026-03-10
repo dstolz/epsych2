@@ -2,20 +2,20 @@ classdef cl_AppetitiveDetection_GUI_B < handle
     %CL_APPETITIVEDETECTION_GUI_B Appetitive detection task control GUI.
     %   cl_AppetitiveDetection_GUI_B builds and manages the main GUI used
     %   for the Caras Lab appetitive detection task. The class creates the
-    %   figure, wires parameter controls to the runtime hardware and module
+    %   figure, wires parameter controls to the R hardware and module
     %   parameters, and updates task displays such as the next-trial view,
     %   false-alarm rate, response history, and performance panels.
     %
-    %   OBJ = cl_AppetitiveDetection_GUI_B(RUNTIME) creates a single GUI
-    %   instance for the supplied runtime object. If an older GUI instance
+    %   OBJ = cl_AppetitiveDetection_GUI_B(R) creates a single GUI
+    %   instance for the supplied R object. If an older GUI instance
     %   is already open, it is closed before the new instance is created.
     %
     %   The GUI coordinates with a psychophysics.Detect object to visualize
     %   behavior and to keep online task summaries synchronized with trial
-    %   events emitted by the runtime helper objects.
+    %   events emitted by the R helper objects.
 
     properties 
-        RUNTIME (1,1) % handle to Runtime object
+        RUNTIME (1,1) % handle to R object
     end
 
     properties (SetAccess = protected)
@@ -81,8 +81,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
 
             % create psychophysics object
-            p = RUNTIME.HW.find_parameter('Depth');
-            obj.psychDetect = psychophysics.Detect(RUNTIME,p);
+            p = R.HW.find_parameter('Depth');
+            obj.psychDetect = psychophysics.Detect(R,p);
 
             % generate gui layout and components
             obj.create_gui;
@@ -132,7 +132,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         end
 
         function update_trial_filter(obj,~,event)
-            global RUNTIME
+            R = obj.RUNTIME;
 
 
             src = obj.tableTrialFilter; % use this in case call is from outside the class
@@ -148,7 +148,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             % ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-            RUNTIME.TRIALS.activeTrials = present;
+            R.TRIALS.activeTrials = present;
 
             if any(~present)
                 vprintf(4,'Inactive Depths: %s',mat2str(depth(~present)));
@@ -221,8 +221,6 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
 
         function create_onlineplot(obj,varargin)
-            global RUNTIME
-
             % Create separate legacy figure for online plotting because
             % it's much faster than uifigure
             % Axes for Behavior Plot --------------------------------------------
@@ -244,8 +242,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             f.MenuBar = "none";
             f.NumberTitle = "off";
             axesBehavior = axes(f);
-            % gui.OnlinePlot(RUNTIME,obj.plottedParameters,axesBehavior,1);
-            gui.OnlinePlotBM(RUNTIME,'OnlinePlotBits',axesBehavior,1);
+            % gui.OnlinePlot(R,obj.plottedParameters,axesBehavior,1);
+            gui.OnlinePlotBM(R,'OnlinePlotBits',axesBehavior,1);
 
             obj.h_OnlinePlot = f;
 
@@ -258,14 +256,14 @@ classdef cl_AppetitiveDetection_GUI_B < handle
     methods (Static)
 
         function trigger_ReminderTrial(obj, value)
-            global RUNTIME
+            global R
 
-            prt = RUNTIME.S.find_parameter('ReminderTrials');
+            prt = R.S.find_parameter('ReminderTrials');
             if prt.Value == 0
                 return
             end
 
-            pdt = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
+            pdt = R.HW.find_parameter('~TrialDelivery',includeInvisible=true);
             if pdt.Value == 1
                 obj.Value = 0;
                 vprintf(0,1,'"Deliver Trials" must be inactive to initiate a Reminder trial')
@@ -273,37 +271,37 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             end
 
 
-            % the following FORCE_TRIAL tells ep_TimerFcn_RunTime to skip
+            % the following FORCE_TRIAL tells ep_TimerFcn_R to skip
             % waiting for trial to complete and just go directly to
             % updating for next trial
             vprintf(3,'Forcing a Reminder Trial')
-            RUNTIME.TRIALS.FORCE_TRIAL = true;
+            R.TRIALS.FORCE_TRIAL = true;
 
         end
 
         function trigger_FreeReward(obj, value)
-            global RUNTIME
+            R = obj.RUNTIME;
 
 
             vprintf(3,'Initiating Free Trial Delivery')
-            AMdepth = RUNTIME.HW.find_parameter('Depth');
+            AMdepth = R.HW.find_parameter('Depth');
             AMdepth.Value = 1; % 100% depth
         end
 
         function trigger_Shape(obj, value)
-            global RUNTIME
+            R = obj.RUNTIME;
 
-            pcd = RUNTIME.HW.find_parameter('~Shape',includeInvisible=true);
+            pcd = R.HW.find_parameter('~Shape',includeInvisible=true);
             if pcd.Value == 0
                 return
             end
 
             vprintf(3,'Initiating Shape Trial')
-            pStim = RUNTIME.HW.find_parameter('Depth');
+            pStim = R.HW.find_parameter('Depth');
             cv = pStim.Value; % current value
             pStim.Value = 1; % 100% depth
 
-            % pht = RUNTIME.HW.find_parameter('~PreventTrial',includeInvisible=true);
+            % pht = R.HW.find_parameter('~PreventTrial',includeInvisible=true);
             % while pht.Value == 1
             %     pause(0.1);
             % end

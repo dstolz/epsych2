@@ -181,8 +181,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             try % TODO: FIGURE OUT WHY THIS IS HAPPENING
                 % calculate session Abort rate and update
                 obj.psychDetect.targetTrialType = obj.bmStimulus; % STIM TRIALS
-                abortRate = obj.psychDetect.Rate.Abort;
-                if isempty(abortRate) || isnan(abortRate), abortTxt = '--'; else, abortTxt = num2str(100*abortRate,'%.2f'); end
+                abortRate = sum([obj.psychDetect.Count.Abort]) ./ obj.psychDetect.trialCount;
+                if isempty(abortRate) || isnan(abortRate), abortTxt = '--'; else, abortTxt = num2str(100*abortRate,'%.1f%%'); end
                 obj.lblAbortRate.Text = abortTxt;
             end
 

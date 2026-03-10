@@ -59,7 +59,7 @@ classdef History < handle
 
             if ~isvalid(obj.TableH), return; end % TO DO: Track down why this function is being called twice
             obj.TableH.Data = RD(i,:);
-            obj.TableH.RowName = tid;
+            obj.TableH.RowName = size(RD,1):-1:1;
             obj.TableH.ColumnName = [{'Time'}; {'Response'}; obj.ParametersOfInterest];
             obj.update_row_colors;
         end

@@ -3,7 +3,7 @@ function epsych_printBanner()
 %
 % Print text EPsych banner and a link to the online manual
 %
-% daniel.stolzberg@gmail.com 2023 (c)
+% daniel.stolzberg@gmail.com 2026 (c)
 
 
 m = ['  ___  ___                _      ___     __  '; ...
@@ -23,7 +23,8 @@ cm{end+1} = '--> <a href="matlab: ep_ExperimentDesign">ep_ExperimentDesign</a>  
 %cm{end+1} = '--> <a href="matlab: ep_BitmaskGen">ep_BitmaskGen</a>        ... Bitmask table generator for behavioral experiments';
 cm{end+1} = '--> <a href="matlab: ep_CalibrationUtil">ep_CalibrationUtil</a>   ... Sound calibration utility';
 %cm{end+1} = '--> <a href="matlab: ep_EPhys">ep_EPhys</a>             ... Electrophysiology experiments with OpenEx';
-cm{end+1} = '--> <a href="matlab: ep_RunExpt">ep_RunExpt</a>           ... Behavioral/Electrophysiology with or without OpenEx';
+%cm{end+1} = '--> <a href="matlab: ep_RunExpt">ep_RunExpt</a>           ... Behavioral/Electrophysiology with or without OpenEx';
+cm{end+1} = '--> <a href="matlab: epsych.RunExpt">epsych.RunExpt</a>           ... Behavioral/Electrophysiology';
 
 fprintf('\n')
 for i = 1:length(cm), fprintf('%s\n',cm{i}); end

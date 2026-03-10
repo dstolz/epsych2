@@ -392,7 +392,7 @@ obj.update_trial_filter(h);
 
 
 % Commit button ---------------------------------------------
-h = gui.Parameter_Update(layoutMain);
+h = gui.Parameter_Update(R,layoutMain);
 h.Button.Layout.Row = [9 10];
 h.Button.Layout.Column = [4];
 h.Button.Text = ["Update" "Parameters"];

@@ -14,13 +14,24 @@ classdef Parameter_Update < handle
     end
 
     properties (Access = private)
+        RUNTIME
+    end
+
+    properties (Access = private)
         updateImmediately (1,1) logical = false
 
         hl_values
     end
 
     methods
-        function obj = Parameter_Update(parent)
+        function obj = Parameter_Update(RUNTIME,parent)
+            arguments
+                RUNTIME
+                parent (1,1)
+            end
+
+            obj.RUNTIME = RUNTIME;
+
             obj.Button = uibutton(parent);
             obj.Button.Text = "Update Parameters";
             obj.Button.Tooltip = "Hold Ctrl+Shift+Alt while clicking to update parameters immediately.";
@@ -79,7 +90,7 @@ classdef Parameter_Update < handle
         end
 
         function commit_changes(obj,src,event)
-            RUNTIME = obj.RUNTIME;
+            R = obj.RUNTIME;
 
             if obj.updateImmediately
                 vprintf(0,1,'Updating Parameters Immediately')
@@ -88,12 +99,12 @@ classdef Parameter_Update < handle
             end
 
             % CURRENTLY ONLY WORKS FOR SINGLE SUBJECT
-            T = RUNTIME.TRIALS.trials;
+            T = R.TRIALS.trials;
 
             vu = [obj.watchedHandles.ValueUpdated];
             h = obj.watchedHandles(vu);
 
-            loc = RUNTIME.TRIALS.writeParamIdx;
+            loc = R.TRIALS.writeParamIdx;
 
             for i = 1:length(h)
                 P = h(i).Parameter;
@@ -111,7 +122,7 @@ classdef Parameter_Update < handle
 
                 h(i).reset_label;                
             end
-            RUNTIME.TRIALS.trials = T;
+            R.TRIALS.trials = T;
 
             obj.updateImmediately = false;
 

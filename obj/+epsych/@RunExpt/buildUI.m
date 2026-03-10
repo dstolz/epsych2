@@ -18,24 +18,29 @@ mConfig = uimenu(f,'Label','Config');
 uimenu(mConfig,'Label','Browse &Configs...','MenuSelectedFcn', @(~,~) self.BrowseConfigs,'Accelerator','C')
 uimenu(mConfig,'Label','&Load Config...','MenuSelectedFcn', @(~,~) self.LoadConfig,'Accelerator','L')
 uimenu(mConfig,'Label','&Save Config...','MenuSelectedFcn', @(~,~) self.SaveConfig,'Accelerator','S')
+self.H.mnu_recent_configs = uimenu(mConfig,'Label','Recent configs ...','Separator','on');
 
 mCustom = uimenu(f,'Label','Customize');
-uimenu(mCustom,'Label','Define Saving Function...','MenuSelectedFcn', @(~,~) self.DefineSavingFcn)
-uimenu(mCustom,'Label','Define Save path...','MenuSelectedFcn', @(~,~) self.DefineDataPath)
-uimenu(mCustom,'Label','Define Config Browser Root...','MenuSelectedFcn', @(~,~) self.DefineConfigBrowserRoot)
-uimenu(mCustom,'Label','Define Box GUI Function...','MenuSelectedFcn', @(~,~) self.DefineBoxFig)
-uimenu(mCustom,'Label','Define Add Subject Function...','MenuSelectedFcn', @(~,~) self.DefineAddSubject)
+uimenu(mCustom,'Label','Define Saving Function...','MenuSelectedFcn', @(~,~) self.DefineSavingFcn,'Accelerator','S')
+uimenu(mCustom,'Label','Define Save path...','MenuSelectedFcn', @(~,~) self.DefineDataPath,'Accelerator','P')
+uimenu(mCustom,'Label','Define Config Browser Root...','MenuSelectedFcn', @(~,~) self.DefineConfigBrowserRoot,'Accelerator','R')
+uimenu(mCustom,'Label','Define Box GUI Function...','MenuSelectedFcn', @(~,~) self.DefineBoxFig,'Accelerator','B')
+uimenu(mCustom,'Label','Define Add Subject Function...','MenuSelectedFcn', @(~,~) self.DefineAddSubject,'Accelerator','A')
 
 mView = uimenu(f,'Label','View');
 self.H.always_on_top = uimenu(mView,'Label','Always On Top','Checked','off', ...
+    'Accelerator','T', ...
     'MenuSelectedFcn', @(~,~) self.AlwaysOnTop);
 
 mHelp = uimenu(f,'Label','Help');
-uimenu(mHelp,'Label','Version Info','MenuSelectedFcn', @(~,~) self.version_info)
-uimenu(mHelp,'Label','Verbosity...','MenuSelectedFcn', @(~,~) self.verbosity)
+uimenu(mHelp,'Label','Version Info','MenuSelectedFcn', @(~,~) self.version_info,'Accelerator','I')
+uimenu(mHelp,'Label','Verbosity...','MenuSelectedFcn', @(~,~) self.verbosity,'Accelerator','V')
 
 self.H.mnu_LaunchGUI = uimenu(mView,'Label','Launch Behavior GUI','Enable','off', ...
+    'Accelerator','O', ...
     'MenuSelectedFcn', @(~,~) self.LocateBehaviorGUI);
+
+self.UpdateRecentConfigsMenu
 
 % Layout
 

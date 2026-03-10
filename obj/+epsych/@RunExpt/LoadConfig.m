@@ -46,3 +46,4 @@ end
 
 self.UpdateSubjectList
 self.CheckReady
+self.RememberRecentConfig(cfn)

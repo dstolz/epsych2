@@ -34,6 +34,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
         
         EvaluatorFcn (1,1) % handle to custom function to handle evaluation of updated values
+        EvaluatorArgs (1,:) cell = {} % optional extra arguments passed to EvaluatorFcn
     end
 
 
@@ -163,7 +164,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % pass when called by hw.Parameter
             success = true;
             if isa(obj.EvaluatorFcn,'function_handle')
-                [value,success] = obj.EvaluatorFcn(obj,event,obj.Parameter);
+                [value,success] = obj.EvaluatorFcn(obj,event,obj.Parameter,obj.EvaluatorArgs{:});
                 if ~success
                     gui.Helper.timed_color_change(obj.h_uiobj,obj.colorOnError);
                 end

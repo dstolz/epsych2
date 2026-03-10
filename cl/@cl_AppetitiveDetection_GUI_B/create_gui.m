@@ -241,21 +241,15 @@ p = RUNTIME.HW.find_parameter('ITIDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Intertrial Interval (ms):";
 
+
+
+% >> Response Window Delay (randomized --- value based on min/max settings below)
 pRWDelay = RUNTIME.HW.find_parameter('RespWinDelay');
 pRWDelay.Unit = 'ms';
 pRWDelay.Min = 100;
 pRWDelay.Max = 10000;
-h = gui.Parameter_Control(layoutTrialControls,pRWDelay,Type='editfield');
-h.Text = "Response Window Delay (ms):";
+pRWDelay.isRandom = true; % enable randomization for this parameter
 
-
-%{ 
-pRWDelay.isRandom = true;
-h = gui.Parameter_Control(layoutTrialControls,pRWDelay,Type='editfield');
-h.EvaluatorFcn = @obj.eval_rwdelay;
-h.Text = "Response Window Delay (ms):";
-obj.h_RWDelayParameterControl = h; % store handle for later use in training mode evaluation
-%}
 
 %{
 % >> Response Window Delay Training Mode --- launches a small gui to adjust parameters for training with variable response window delay
@@ -265,26 +259,28 @@ h.ValueChangedFcn = @(src,event) obj.eval_rwdelay_training_mode(src,event,p);
 %}
 
 
-%{
+pMin = RUNTIME.S.Module.add_parameter('RespWinDelayMin',400);
+pMax = RUNTIME.S.Module.add_parameter('RespWinDelayMax',400);
+
 % >> Response Window Delay (min)
-p = RUNTIME.S.Module.add_parameter('RespWinDelayMin',400);
-p.Unit = 'ms';
-p.Min = 100;
-p.Max = 10000;
-h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+pMin.Unit = 'ms';
+pMin.Min = 100;
+pMin.Max = 10000;
+h = gui.Parameter_Control(layoutTrialControls,pMin,Type='editfield');
 h.Text = "Response Window Delay Min (ms):";
-p.EvaluatorFcn = @obj.eval_rwdelay_randomization;
+h.EvaluatorFcn = @obj.eval_rwdelay_randomization;
+h.EvaluatorArgs = {[pMin pMax pRWDelay]};
 
 
 % >> Response Window Delay (max)
-p = RUNTIME.S.Module.add_parameter('RespWinDelayMax',400);
-p.Unit = 'ms';
-p.Min = 100;
-p.Max = 10000;
-h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
+pMax.Unit = 'ms';
+pMax.Min = 100;
+pMax.Max = 10000;
+h = gui.Parameter_Control(layoutTrialControls,pMax,Type='editfield');
 h.Text = "Response Window Delay Max (ms):";
-p.PostUpdateFcn = @obj.eval_rwdelay_randomization;
-%}
+h.EvaluatorFcn = @obj.eval_rwdelay_randomization;
+h.EvaluatorArgs = {[pMin pMax pRWDelay]};
+
 
 
 

@@ -13,23 +13,18 @@ classdef Parameter < matlab.mixin.SetGet
         Unit    (1,:) char = ''; % unit string (e.g., 'V', 'ms', etc.)
         Module  (1,1) % handle to module object that this parameter belongs to
 
-        Min (1,1) double = -inf % minimum valid value
-        Max (1,1) double = inf % maximum valid value
         Access  (1,:) char {mustBeMember(Access,{'Read','Write','Read / Write'})} = 'Read / Write'
         Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
         Format  (1,:) char = '%g' % default format for displaying value
 
-        isArray     (1,1) logical = false 
-        isTrigger   (1,1) logical = false
-        isRandom    (1,1) logical = false
-        
         Visible (1,1) logical = true % optionally hide parameter 
-
-        EvaluatorFcn (1,1) % handle to custom function to handle evaluation of updated values
 
         PreUpdateFcn (1,1) % handle ot custom function called before value has been updated
                             % note that this gets called prior to the
                             % EvaluatorFcn
+
+        EvaluatorFcn (1,1) % handle to custom function to handle evaluation of updated values
+
         PostUpdateFcn (1,1) % handle to custom function called after value has been updated
     end
 
@@ -38,6 +33,13 @@ classdef Parameter < matlab.mixin.SetGet
         % convert to datetime: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
         % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
         lastUpdated (1,1) double = 0; 
+        
+        isArray     (1,1) logical = false 
+        isTrigger   (1,1) logical = false
+        isRandom    (1,1) logical = false
+
+        Min (1,1) double = -inf % minimum valid value
+        Max (1,1) double = inf % maximum valid value
     end
 
     properties (Dependent)
@@ -75,8 +77,6 @@ classdef Parameter < matlab.mixin.SetGet
                 v = obj.Parent.get_parameter(obj,includeInvisible=true);
             end
 
-            
-
             if isnumeric(v)
                 v = double(v);
             end
@@ -97,6 +97,10 @@ classdef Parameter < matlab.mixin.SetGet
 
             if isa(obj.PreUpdateFcn ,'function_handle')
                 obj.PreUpdateFcn(obj,value);
+            end
+
+            if obj.isRandom
+                value = obj.randomize_value();
             end
 
             if isa(obj.EvaluatorFcn,'function_handle')
@@ -167,7 +171,7 @@ classdef Parameter < matlab.mixin.SetGet
     methods (Access = protected)
         
         function v = randomize_value(obj)
-            if ~obj.isRandom || ~isnumeric(obj.Value) || numel(obj.Value) > 1
+            if ~obj.isRandom
                 v = obj.Value;
                 return
             end
@@ -192,9 +196,6 @@ classdef Parameter < matlab.mixin.SetGet
                 return
             end
 
-            if obj.isRandom
-                value = obj.randomize_value();
-            end
 
             obj.Value = value;
             if ~isequal(obj.HW,0)

@@ -44,7 +44,7 @@ for i = 1:RUNTIME.NSubjects
 
             % Save runtime data in case of crash
             data = RUNTIME.TRIALS(i).DATA;
-            save(RUNTIME.DataFile{i},'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
+            save(RUNTIME.DataFile(i),'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
 
             % Broadcast event data has been updated
             evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));

@@ -104,6 +104,8 @@ classdef Detect < handle & matlab.mixin.SetGet
     properties(SetAccess = private)
         M
         N
+
+        RUNTIME
     end
 
     properties (Access = private)
@@ -111,32 +113,29 @@ classdef Detect < handle & matlab.mixin.SetGet
     end
 
     methods
-        function obj = Detect(TRIALS, Parameter, targetTrialType)
+        function obj = Detect(RUNTIME, Parameter, targetTrialType)
             % Detect Constructor to initialize the Detect class
             %
-            %   obj = Detect(TRIALS, Parameter, targetTrialType) initializes
-            %   the Detect object with the provided TRIALS structure,
+            %   obj = Detect(RUNTIME, Parameter, targetTrialType) initializes
+            %   the Detect object with the provided RUNTIME structure,
             %   Parameter object, and targetTrialType..
             %
             %   Inputs:
-            %       TRIALS          - Structure containing trial data
+            %       RUNTIME          - Runtime structure containing trial data
             %       Parameter       - Parameter object defining trial parameters
             %       targetTrialType - Target trial type to analyze
             %
             %   Outputs:
             %       obj - Initialized Detect object
+            arguments
+                RUNTIME
+                Parameter (1,1)  %hw.Parameter
+                targetTrialType (1,1) epsych.BitMask = epsych.BitMask.Undefined
+            end
 
-            global RUNTIME
-
-            if nargin >= 1 && ~isempty(TRIALS)
-                obj.TRIALS = TRIALS;
-            end
-            if nargin >= 2 && ~isempty(Parameter)
-                obj.Parameter = Parameter;
-            end
-            if nargin == 3 && ~isempty(targetTrialType)
-                obj.targetTrialType = targetTrialType;
-            end
+            obj.RUNTIME = RUNTIME;
+            obj.Parameter = Parameter;
+            obj.targetTrialType = targetTrialType;
 
             obj.hl_NewData = addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
         end

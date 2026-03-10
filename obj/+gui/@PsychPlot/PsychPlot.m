@@ -42,7 +42,10 @@ classdef PsychPlot < handle
             % pObj      psychophysics object (ex: psychophysics.Detection)
             % ax        Target axes (default = gca)
 
-            if nargin < 2 || isempty(ax), ax = gca; end
+            arguments
+                pObj (1,1) 
+                ax (1,1) matlab.graphics.axis.Axes = gca
+            end
             
             obj.ax = ax;
             

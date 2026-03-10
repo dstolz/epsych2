@@ -82,7 +82,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
             % create psychophysics object
             p = RUNTIME.HW.find_parameter('Depth');
-            obj.psychDetect = psychophysics.Detect([],p);
+            obj.psychDetect = psychophysics.Detect(RUNTIME,p);
 
             % generate gui layout and components
             obj.create_gui;

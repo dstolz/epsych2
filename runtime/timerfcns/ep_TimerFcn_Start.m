@@ -68,14 +68,16 @@ for i = 1:RUNTIME.NSubjects
         RUNTIME.TRIALS(i).Subject.Name, ...
         RUNTIME.TRIALS(i).Subject.BoxID, ...
         datetime('now',Format='yyMMddHHmmSS'));
-    RUNTIME.DataFile{i} = fullfile(RUNTIME.DataDir,dfn);
 
-    if exist(RUNTIME.DataFile{i},'file')
+    assert(isfolder(RUNTIME.DataDir),'Invalid Data Directory "%s"',RUNTIME.DataDir)
+    RUNTIME.DataFile(i) = fullfile(RUNTIME.DataDir,dfn);
+
+    if exist(RUNTIME.DataFile(i),'file')
         oldstate = recycle('on');
-        delete(RUNTIME.DataFile{i});
+        delete(RUNTIME.DataFile(i));
         recycle(oldstate);
     end
-    save(RUNTIME.DataFile{i},'info','-v6');
+    save(RUNTIME.DataFile(i),'info','-v6');
 
 
 

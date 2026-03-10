@@ -246,8 +246,8 @@ h.Text = "Intertrial Interval (ms):";
 % >> Response Window Delay (randomized --- value based on min/max settings below)
 pRWDelay = RUNTIME.HW.find_parameter('RespWinDelay');
 pRWDelay.Unit = 'ms';
-pRWDelay.Min = 100;
-pRWDelay.Max = 10000;
+pRWDelay.Min = 400;
+pRWDelay.Max = 400;
 pRWDelay.isRandom = true; % enable randomization for this parameter
 
 

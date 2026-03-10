@@ -14,47 +14,46 @@ pMin   = p(1);
 pMax   = p(2);
 pDelay = p(3);
 
-if pMin.Value == pMax.Value
-    pDelay.Value = pMin.Value; % if min and max are the same, just set to that value
-    vprintf(3,'Response Window Delay Min and Max values are the same (%d ms), setting parameter to that value',pMin.Value)
+if changedParam == pMin
+    A = event.Value;
+    B = pMax.Value;
+elseif changedParam == pMax
+    A = pMin.Value;
+    B = event.Value;
+end
+
+
+if A == B
+    value = A; % if min and max are the same, just set to that value
+    vprintf(3,'Response Window Delay Min and Max values are the same (%d ms), setting parameter to that value',A)
     return
 end
 
-if pMin.Value > pMax.Value
+if A > B
     value = event.PreviousValue; % reset to previous value if min is greater than max
-    vprintf(0,1,'Response Window Delay Min value (%d ms) cannot be greater than Max value (%d ms)',pMin.Value,pMax.Value)
+    vprintf(0,1,'Response Window Delay Min value (%d ms) cannot be greater than Max value (%d ms)',A,B)
     return
 end
 
-if pMax.Value < pMin.Value
+if B < A
     value = event.PreviousValue; % reset to previous value if max is less than min
-    vprintf(0,1,'Response Window Delay Max value (%d ms) cannot be less than Min value (%d ms)',pMax.Value,pMin.Value)
+    vprintf(0,1,'Response Window Delay Max value (%d ms) cannot be less than Min value (%d ms)',B,A)
     return
 end
 
-if pMin.Value < 0 || pMax.Value < 0
+if A < 0 || B < 0
     value = event.PreviousValue; % reset to previous value if either value is negative
     vprintf(0,1,'Response Window Delay values cannot be negative. Resetting to minimum of 0 ms.')
     return
 end
 
 
-% return value of the parameter that was changed (either min or max, depending on which one triggered the event)
-if changedParam == pMin
-    value = pMin.Value;
-elseif changedParam == pMax
-    value = pMax.Value;
-else
-    vprintf(0,1,'Error: Could not determine which parameter was changed for Response Window Delay randomization')
-    success = false;
-    return
-end
 
 try
-    pDelay.Min = pMin.Value;
-    pDelay.Max = pMax.Value;
+    pDelay.Min = A;
+    pDelay.Max = B;
     
-    vprintf(3,'Randomized Response Window Delay range: %d-%d ms',pMin.Value,pMax.Value)
+    vprintf(3,'Randomized Response Window Delay range: %d-%d ms',A,B)
 catch e
     vprintf(0,1,'Error randomizing Response Window Delay parameter: %s',getReport(e,'basic'))
     success = false;

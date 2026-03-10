@@ -1,6 +1,29 @@
 classdef RunExpt < handle
-    % RunExpt — Run and manage psychophysics experiments with a UIFigure-based GUI.
-    % (class header and properties unchanged)
+    % RunExpt Run and manage psychophysics experiments from a session GUI.
+    %
+    % OBJ = epsych.RunExpt creates or reuses the main RunExpt window used to
+    % configure subjects, load saved configurations, and start or stop an
+    % experiment session.
+    %
+    % OBJ = epsych.RunExpt(CONFIGFILE) additionally loads the configuration MAT
+    % file specified by CONFIGFILE after the GUI is initialized.
+    %
+    % The class coordinates three layers of state:
+    %   CONFIG  - Per-subject protocol and runtime configuration entries.
+    %   FUNCS   - Preference-backed callback names for saving, timers, and GUIs.
+    %   RUNTIME - Shared epsych.Runtime state used while the experiment runs.
+    %
+    % Common interactive tasks include:
+    %   LoadConfig / SaveConfig    Load or persist a RunExpt configuration.
+    %   AddSubject / RemoveSubject Manage the configured subject list.
+    %   ViewTrials / EditProtocol  Inspect or edit a selected protocol.
+    %   DefineDataPath             Choose the default folder for saved data.
+    %
+    % Only one live RunExpt window is kept open at a time. Constructing a new
+    % instance returns the existing object when possible and brings its figure
+    % to the foreground.
+    %
+    % See also epsych.Runtime, ep_ExperimentDesign, ep_CompiledProtocolTrials.
 
     properties
         H
@@ -9,6 +32,7 @@ classdef RunExpt < handle
         FUNCS (1,1) struct = struct()
         RUNTIME (1,1) epsych.Runtime = epsych.Runtime
         dfltDataPath (1,1) string = cd
+        IsClosing (1,1) logical = false
     end
 
     methods
@@ -26,6 +50,7 @@ classdef RunExpt < handle
         DefineBoxFig(self, a)
 
         function self = RunExpt(ffnConfig)
+            % RunExpt Create or reactivate the main experiment control window.
             arguments
                 ffnConfig (1,1) string = ""
             end
@@ -35,10 +60,62 @@ classdef RunExpt < handle
                 GVerbosity = 1;
             end
 
-            f = findobj('tag','RunExpt');
-            if ~isempty(f)
-                figure(f); movegui(f,'onscreen');
-                self = f.UserData;
+            f = findall(groot,'Type','figure','-and','Tag','RunExpt');
+            existingFigure = [];
+            existingInstance = [];
+            for i = 1:numel(f)
+                if ~isgraphics(f(i)), continue, end
+
+                try
+                    candidate = f(i).UserData;
+                catch
+                    candidate = [];
+                end
+
+                if isa(candidate,'epsych.RunExpt') && isvalid(candidate) && ~candidate.IsClosing
+                    if isempty(existingInstance)
+                        existingFigure = f(i);
+                        existingInstance = candidate;
+                    else
+                        try
+                            f(i).UserData = [];
+                            f(i).CloseRequestFcn = [];
+                            f(i).Tag = '';
+                            delete(f(i));
+                        catch
+                        end
+                    end
+                else
+                    try
+                        f(i).UserData = [];
+                        f(i).CloseRequestFcn = [];
+                        f(i).Tag = '';
+                        delete(f(i));
+                    catch
+                    end
+                end
+            end
+
+            if ~isempty(existingInstance)
+                try
+                    existingFigure.Visible = 'on';
+                catch
+                end
+                movegui(existingFigure,'onscreen');
+                try
+                    uifigure(existingFigure);
+                catch
+                    try
+                        figure(existingFigure);
+                    catch
+                    end
+                end
+                self = existingInstance;
+
+                if ffnConfig ~= ""
+                    self.LoadConfig(ffnConfig)
+                end
+
                 return
             end
 
@@ -56,8 +133,9 @@ classdef RunExpt < handle
         end
 
         function delete(self)
+            % delete Close the GUI cleanly when the object is destroyed.
             try
-                if isvalid(self)
+                if isvalid(self) && ~self.IsClosing
                     self.onCloseRequest
                 end
             catch
@@ -66,6 +144,7 @@ classdef RunExpt < handle
 
 
         function ViewTrials(self)
+            % ViewTrials Display a preview of trials for the selected subject.
             idx = self.H.subject_list.Selection(1);
             if isempty(idx), return, end
 
@@ -77,6 +156,7 @@ classdef RunExpt < handle
         end
 
         function EditProtocol(self)
+            % EditProtocol Open the selected protocol in the design editor.
             idx = self.H.subject_list.Selection(1);
             if isempty(idx), return, end
 
@@ -85,6 +165,7 @@ classdef RunExpt < handle
         end
 
         function SortBoxes(self)
+            % SortBoxes Reorder subjects by their assigned behavioral box ID.
             if self.STATE >= PRGMSTATE.RUNNING, return, end
             if ~isfield(self.CONFIG,'SUBJECT'), return, end
             ids = arrayfun(@(c) c.SUBJECT.BoxID, self.CONFIG);
@@ -97,6 +178,7 @@ classdef RunExpt < handle
         end
 
         function DefineDataPath(self)
+            % DefineDataPath Set the default directory used for saved data.
             ontop = self.AlwaysOnTop(false);
             pth = uigetdir(self.dfltDataPath,'Select Default Data Directory');
             self.AlwaysOnTop(ontop);
@@ -111,6 +193,7 @@ classdef RunExpt < handle
         end
 
         function LocateBehaviorGUI(self)
+            % LocateBehaviorGUI Open the configured per-box behavior GUI.
             if isempty(self.FUNCS.BoxFig), return, end
             feval(self.FUNCS.BoxFig, self.RUNTIME);
         end
@@ -118,6 +201,7 @@ classdef RunExpt < handle
         originalState = AlwaysOnTop(self, ontop)
 
         function version_info(self)
+            % version_info Display toolbox metadata in the command window.
             E = EPsychInfo;
             disp(E.meta)
             commandwindow

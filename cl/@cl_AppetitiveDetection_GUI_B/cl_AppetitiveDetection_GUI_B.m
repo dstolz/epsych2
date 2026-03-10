@@ -26,7 +26,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         % slidingWindowPlot      % gui.SlidingWindowPerformancePlot instance
         ResponseHistory        % gui.History instance
         Performance            % gui.Performance instance
-        lblFARate              % Label for FA Rate display
+        lblAbortRate           % Label for Abort Rate display
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons
 
@@ -179,11 +179,11 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
 
             try % TODO: FIGURE OUT WHY THIS IS HAPPENING
-                % calculate session FA rate and update
-                obj.psychDetect.targetTrialType = obj.bmCatch; % CATCH TRIALS
-                faRate = obj.psychDetect.Rate.FalseAlarm;
-                if isempty(faRate) || isnan(faRate), faTxt = '--'; else, faTxt = num2str(100*faRate,'%.2f'); end
-                obj.lblFARate.Text = faTxt;
+                % calculate session Abort rate and update
+                obj.psychDetect.targetTrialType = obj.bmStimulus; % STIM TRIALS
+                abortRate = obj.psychDetect.Rate.Abort;
+                if isempty(abortRate) || isnan(abortRate), abortTxt = '--'; else, abortTxt = num2str(100*abortRate,'%.2f'); end
+                obj.lblAbortRate.Text = abortTxt;
             end
 
 

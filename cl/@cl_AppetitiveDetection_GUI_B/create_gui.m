@@ -115,7 +115,7 @@ end
 % >> Info table
 h = uipanel(layoutMain);
 h.Layout.Column = [1 2];
-h.Layout.Row    = [7 11];
+h.Layout.Row    = [9 11];
 drawnow
 
 p = R.HW.find_parameter({'PelletTotal','Platform','Trough','RespWinDelay','InTrial', ...
@@ -393,8 +393,8 @@ obj.update_trial_filter(h);
 
 % Commit button ---------------------------------------------
 h = gui.Parameter_Update(R,layoutMain);
-h.Button.Layout.Row = [9 10];
-h.Button.Layout.Column = [4];
+h.Button.Layout.Row = [7 8];
+h.Button.Layout.Column = [1 2];
 h.Button.Text = ["Update" "Parameters"];
 h.Button.FontSize = 24;
 
@@ -496,27 +496,27 @@ if ~isempty(p)
     axesMicrophone.YAxis.Label.String = "RMS voltage";
 end
 
-% Panel for "FA Rate" --------------------------------------------
-panelFARate = uipanel(layoutMain, 'Title', 'Session FA Rate');
-panelFARate.Layout.Row = [1 2];
-panelFARate.Layout.Column = 7;
+% Panel for "Abort Rate" --------------------------------------------
+panelAbortRate = uipanel(layoutMain, 'Title', 'Session Abort Rate');
+panelAbortRate.Layout.Row = [1 2];
+panelAbortRate.Layout.Column = 7;
 
-layoutFARate = simple_layout(panelFARate);
+layoutAbortRate = simple_layout(panelAbortRate);
 
-% > FA Rate
-h = uilabel(layoutFARate);
-h.Tag = 'lblFARate';
+% > Abort Rate
+h = uilabel(layoutAbortRate);
+h.Tag = 'lblAbortRate';
 h.Text = "0";
 h.FontColor = 'r';
 h.FontSize = 30;
 h.FontWeight = 'bold';
 h.HorizontalAlignment = "center";
-obj.lblFARate = h;
+obj.lblAbortRate = h;
 
 
 % Panel for "Response History" --------------------------------------
 panelResponseHistory = uipanel(layoutMain, 'Title', 'Response History');
-panelResponseHistory.Layout.Row = [3 8];
+panelResponseHistory.Layout.Row = [3 11];
 panelResponseHistory.Layout.Column = [6 7];
 
 % > Response History Table
@@ -524,6 +524,7 @@ obj.ResponseHistory = gui.History(obj.psychDetect,panelResponseHistory);
 obj.ResponseHistory.ParametersOfInterest = {'Depth','TrialType','Reminder'};
 
 
+%{
 % Panel for "Performance" ----------------------------------------
 panelPerformance = uipanel(layoutMain, 'Title', 'Performance');
 panelPerformance.Layout.Row = [9 11];
@@ -531,7 +532,7 @@ panelPerformance.Layout.Column = [6 7];
 
 obj.Performance = gui.Performance(obj.psychDetect,panelPerformance);
 obj.Performance.ParametersOfInterest = {'Depth'};
-
+%}
 
 
 

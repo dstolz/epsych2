@@ -1,14 +1,15 @@
 classdef Staircase < handle & matlab.mixin.SetGet
     % STAIRCASE Store staircase analysis settings and listener state.
     %
-    %   psychophysics.Staircase keeps the parameter name, staircase
+    %   psychophysics.Staircase keeps the tracked parameter, staircase
     %   direction, and trial-type masks used to analyze staircase data.
-    %   The constructor registers a NewData listener on RUNTIME.HELPER,
-    %   and the class exposes dependent accessors for DATA,
+    %   The constructor takes RUNTIME and Parameter inputs, registers a
+    %   NewData listener on RUNTIME.HELPER, and exposes dependent
+    %   accessors for DATA,
     %   responseCodes, stimulusValues, and trialCount.
     %
-    %   S = psychophysics.Staircase(RUNTIME)
-    %   S = psychophysics.Staircase(RUNTIME, Name=Value)
+    %   S = psychophysics.Staircase(RUNTIME, Parameter)
+    %   S = psychophysics.Staircase(RUNTIME, Parameter, Name=Value)
     %
     %   ReversalCount, ReversalIdx, and StepDirection are maintained as
     %   private state for inferred staircase history.
@@ -44,26 +45,27 @@ classdef Staircase < handle & matlab.mixin.SetGet
     end
 
     methods
-        function obj = Staircase(RUNTIME, options)
+        function obj = Staircase(RUNTIME, Parameter,options)
             % STAIRCASE Construct a Staircase object and attach its listener.
             %
-            %   S = psychophysics.Staircase(RUNTIME)
-            %   S = psychophysics.Staircase(RUNTIME, Name=Value)
+            %   S = psychophysics.Staircase(RUNTIME, Parameter)
+            %   S = psychophysics.Staircase(RUNTIME, Parameter, Name=Value)
             %
-            %   Name-value options configure Parameter,
-            %   StimulusTrialType, CatchTrialType, and StaircaseDirection.
+            %   Parameter is stored in the Parameter property. Name-value
+            %   options configure StimulusTrialType, CatchTrialType, and
+            %   StaircaseDirection.
             %
             %   2026-03-10
             arguments
-                RUNTIME = []
-                options.Parameter = []
+                RUNTIME 
+                Parameter
                 options.StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
                 options.CatchTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
                 options.Attach (1,1) logical = true
                 options.StaircaseDirection (1,1) string {mustBeMember(options.StaircaseDirection,["Up","Down"])} = "Down"
             end
 
-            obj.Parameter = options.Parameter;
+            obj.Parameter = Parameter;
             obj.StimulusTrialType = options.StimulusTrialType;
             obj.CatchTrialType = options.CatchTrialType;
             obj.AbortBehavior = options.AbortBehavior;

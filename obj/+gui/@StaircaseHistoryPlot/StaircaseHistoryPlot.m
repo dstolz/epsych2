@@ -204,9 +204,9 @@ classdef StaircaseHistoryPlot < handle
                 return
             end
 
-            trialIndex = obj.get_trial_indices(numel(trialValue));
-            direction = obj.get_step_direction(numel(trialValue));
-            reversalIdx = obj.get_reversal_indices(numel(trialValue));
+            trialIndex = 1:obj.staircaseObj.trialCount;
+            direction = obj.staircaseObj.StepDirection;
+            reversalIdx = obj.staircaseObj.ReversalIdx;
 
             valid = ~isnan(trialIndex) & ~isnan(trialValue);
             if ~any(valid)

@@ -83,6 +83,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             % create psychophysics object
             p = RUNTIME.HW.find_parameter('Depth');
             obj.psychDetect = psychophysics.Detect(RUNTIME,p);
+            % TO DO: IMPLEMENT STAIRCASE
+            % obj.psychStaircase = psychophysics.Staircase(RUNTIME,p);
 
             % generate gui layout and components
             obj.create_gui;
@@ -180,8 +182,9 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
             try % TODO: FIGURE OUT WHY THIS IS HAPPENING
                 % calculate session Abort rate and update
+                % TO DO: USE NEW PSYCHSTAIRCASE OBJECT TO CALCULATE ABORT RATE FOR STIMULUS TRIALS ONLY
                 obj.psychDetect.targetTrialType = obj.bmStimulus; % STIM TRIALS
-                abortRate = sum([obj.psychDetect.Count.Abort]) ./ obj.psychDetect.trialCount;
+                abortRate = sum([obj.psychDetect.Rate.Abort]) ./ obj.psychDetect.trialCount;
                 if isempty(abortRate) || isnan(abortRate), abortTxt = '--'; else, abortTxt = num2str(100*abortRate,'%.1f%%'); end
                 obj.lblAbortRate.Text = abortTxt;
             end

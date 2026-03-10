@@ -75,7 +75,7 @@ classdef Parameter < matlab.mixin.SetGet
                 v = obj.Parent.get_parameter(obj,includeInvisible=true);
             end
 
-            if obj.isRandom, v = obj.randomize_value(v); end
+            
 
             if isnumeric(v)
                 v = double(v);

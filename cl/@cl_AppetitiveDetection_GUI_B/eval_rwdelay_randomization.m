@@ -44,7 +44,9 @@ end
 try
     RWDelayParameter.Min = pMin.Value;
     RWDelayParameter.Max = pMax.Value;
-    
+    RWDelayParameter.isRandom = true; % enable randomization for this parameter
+    idx=RUNTIME.TRIALS.writeParamIdx.RespWinDelay;
+    RUNTIME.TRIALS.trials(:,idx) = {RWDelayParameter.Value}; % update the trial structure with the new randomized values for this parameter
     vprintf(3,'Randomized Response Window Delay range: %d-%d ms',pMin.Value,pMax.Value)
 catch e
     vprintf(0,1,'Error randomizing Response Window Delay parameter: %s',getReport(e,'basic'))

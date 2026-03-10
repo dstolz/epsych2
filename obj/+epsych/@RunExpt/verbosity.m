@@ -1,10 +1,8 @@
-function verbosity(~)
+function verbosity()
 % verbosity — Set the global verbosity level via dialog.
 % Behavior
 %   Presents a list dialog and updates GVerbosity accordingly.
-arguments
-    ~
-end
+
 global GVerbosity
 
 if isempty(GVerbosity) || ~isnumeric(GVerbosity)

@@ -8,7 +8,6 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         % slidingWindowPlot      % gui.SlidingWindowPerformancePlot instance
         ResponseHistory        % gui.History instance
         Performance            % gui.Performance instance
-        plottedParameters = {'~Observation_TTL','~Spout_TTL','~GO_Stim','~NOGO_Stim'} % Logical parameter tags
         lblFARate              % Label for FA Rate display
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons

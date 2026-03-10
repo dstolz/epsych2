@@ -1,4 +1,22 @@
 classdef cl_AppetitiveDetection_GUI_B < handle
+    %CL_APPETITIVEDETECTION_GUI_B Appetitive detection task control GUI.
+    %   cl_AppetitiveDetection_GUI_B builds and manages the main GUI used
+    %   for the Caras Lab appetitive detection task. The class creates the
+    %   figure, wires parameter controls to the runtime hardware and module
+    %   parameters, and updates task displays such as the next-trial view,
+    %   false-alarm rate, response history, and performance panels.
+    %
+    %   OBJ = cl_AppetitiveDetection_GUI_B(RUNTIME) creates a single GUI
+    %   instance for the supplied runtime object. If an older GUI instance
+    %   is already open, it is closed before the new instance is created.
+    %
+    %   The GUI coordinates with a psychophysics.Detect object to visualize
+    %   behavior and to keep online task summaries synchronized with trial
+    %   events emitted by the runtime helper objects.
+
+    properties 
+        RUNTIME (1,1) % handle to Runtime object
+    end
 
     properties (SetAccess = protected)
         h_figure               % Main figure handle
@@ -43,6 +61,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
         % constructor
         function obj = cl_AppetitiveDetection_GUI_B(RUNTIME)
+            obj.RUNTIME = RUNTIME;
+
             % only permit one instance to run
             f = findall(groot,'Type','figure');
             f = f(startsWith({f.Tag},'cl_AppetitiveDetection_GUI_B'));

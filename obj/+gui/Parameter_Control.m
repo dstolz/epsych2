@@ -1,11 +1,39 @@
 classdef Parameter_Control < handle & matlab.mixin.SetGet
+    %PARAMETER_CONTROL Bind a hw.Parameter to a small UI control.
+    %   gui.Parameter_Control creates a labeled UI component that displays
+    %   and edits a parameter object. The control keeps the UI state in sync
+    %   with the underlying parameter and can optionally commit edits
+    %   immediately.
+    %
+    %   OBJ = gui.Parameter_Control(PARENT, PARAMETER) creates a numeric edit
+    %   field for PARAMETER inside PARENT.
+    %
+    %   OBJ = gui.Parameter_Control(PARENT, PARAMETER, Type=TYPE,
+    %   autoCommit=TF) selects the UI style and whether user edits are
+    %   written to PARAMETER immediately.
+    %
+    %   Supported TYPE values are:
+    %       'editfield'  - numeric edit field with label
+    %       'dropdown'   - dropdown with label
+    %       'checkbox'   - checkbox
+    %       'toggle'     - state button
+    %       'readonly'   - label showing Parameter.ValueStr
+    %       'momentary'  - push button
+    %
+    %   Custom validation can be attached through EvaluatorFcn. The callback
+    %   is invoked as:
+    %       [VALUE,SUCCESS] = EvaluatorFcn(OBJ, EVENT, PARAMETER, EXTRAARGS...)
+    %   where EXTRAARGS are supplied through the EvaluatorArgs cell array.
+    %   VALUE is written back to the UI, and SUCCESS controls error coloring.
+    %
+    % See also gui.Parameter_Monitor, gui.Parameter_Update
 
     properties (SetAccess = immutable)
         handle (1,1) % handle to graphics object
         parent (1,1) % handle to parent container
         Parameter (1,1) %hw.Parameter % handle to parameter
 
-        type (1,:) char {mustBeMember(type,{'editfield','dropdown','checkbox','toggle','readonly','mommentary'})} = 'editfield'
+        type (1,:) char {mustBeMember(type,{'editfield','dropdown','checkbox','toggle','readonly','momentary'})} = 'editfield'
 
         autoCommit (1,1) logical = false
     end
@@ -16,11 +44,11 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         Text (1,:) char = 'label' % label text
 
 
-        colorNormal = '#f0f0f0';
-        colorOnUpdate = '#00c700';
-        colorOnUpdateAuto = '#7ad5ff';
+        colorNormal           = '#f0f0f0';
+        colorOnUpdate         = '#00c700';
+        colorOnUpdateAuto     = '#7ad5ff';
         colorOnUpdateExternal = '#fad85c';
-        colorOnError = '#e66367';
+        colorOnError          = '#e66367';
     end
 
     properties (SetObservable,AbortSet,SetAccess = protected)
@@ -56,7 +84,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             arguments
                 parent
                 Parameter
-                options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown','checkbox','toggle','readonly','mommentary'})} = 'editfield'
+                options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown','checkbox','toggle','readonly','momentary'})} = 'editfield'
                 options.autoCommit (1,1) logical = false
             end
             obj.parent = parent;
@@ -270,7 +298,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     h.Layout.Column = [1 2];
                     h.Text = P.Name;
 
-                case 'mommentary'
+                case 'momentary'
                     hl.ColumnWidth = {'1x'};
                     h = uibutton(hl,'push');
                     h.Layout.Column = [1 2];
@@ -299,7 +327,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             switch obj.type
                 case 'readonly'
                     % do nothing
-                case 'mommentary'
+                case 'momentary'
                     h.ButtonPushedFcn = @obj.value_changed;
                 otherwise
                     h.ValueChangedFcn = @obj.value_changed;
@@ -361,7 +389,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
                     
 
-                case {'toggle','mommentary'}
+                case {'toggle','momentary'}
                     if v
                         obj.h_uiobj.BackgroundColor = obj.colorOnUpdate;
                     else

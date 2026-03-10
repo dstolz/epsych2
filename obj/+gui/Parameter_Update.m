@@ -8,9 +8,9 @@ classdef Parameter_Update < handle
     properties
         watchedHandles (1,:) % handles we are listening to
 
-        color_needToUpdate (1,:) = '#98fa98';
-        color_nothingToUpdate (1,:) = '#f0f0f0'; 
-        color_updateImmediately (1,:) = '#e28743';
+        color_needToUpdate (1,1) = "#98fa98";
+        color_nothingToUpdate (1,1) = "#f0f0f0"; 
+        color_updateImmediately (1,1) = "#e28743";
     end
 
     properties (Access = private)
@@ -79,7 +79,7 @@ classdef Parameter_Update < handle
         end
 
         function commit_changes(obj,src,event)
-            global RUNTIME % must be global
+            RUNTIME = obj.RUNTIME;
 
             if obj.updateImmediately
                 vprintf(0,1,'Updating Parameters Immediately')

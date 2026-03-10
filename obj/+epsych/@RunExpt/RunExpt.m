@@ -8,7 +8,6 @@ classdef RunExpt < handle
         CONFIG (1,1) struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])
         FUNCS (1,1) struct = struct()
         RUNTIME (1,1) epsych.Runtime = epsych.Runtime
-        GVerbosity (1,1) double = 1
         dfltDataPath (1,1) string = cd
     end
 
@@ -30,6 +29,12 @@ classdef RunExpt < handle
             arguments
                 ffnConfig (1,1) string = ""
             end
+            global GVerbosity
+
+            if isempty(GVerbosity) || ~isnumeric(GVerbosity)
+                GVerbosity = 1;
+            end
+
             f = findobj('tag','RunExpt');
             if ~isempty(f)
                 figure(f); movegui(f,'onscreen');

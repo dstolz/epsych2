@@ -5,7 +5,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
     %   direction, and trial-type masks used to analyze staircase data.
     %   The constructor takes RUNTIME and Parameter inputs, registers a
     %   NewData listener on RUNTIME.HELPER, and exposes dependent
-    %   accessors for DATA,
+    %   accessors for Data,
     %   responseCodes, stimulusValues, and trialCount.
     %
     %   S = psychophysics.Staircase(RUNTIME, Parameter)
@@ -23,18 +23,26 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
         StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
         CatchTrialType    (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
+
+        ThresholdFromLastNReversals (1,1) double {mustBePositive, mustBeInteger} = 6
+        ThresholdFormula (1,1) string {mustBeMember(ThresholdFormula,["Mean","GeometricMean"])} = "Mean"
   end
 
     properties (SetAccess = private)
+        RUNTIME
+        Helper = epsych.Helper
         
+        Data
+
         ReversalCount   % total number of reversals observed
         ReversalIdx     % indices of trials where reversals occurred
         StepDirection   % inferred direction of staircase step at each trial (1=up, -1=down, nan=neutral)
-        
+        Threshold       % current threshold estimate based on last N reversals and ThresholdFormula
+        ThresholdStd    % standard deviation of threshold estimates from last N reversals
     end
 
     properties (Dependent)
-        DATA
+        
         responseCodes
         stimulusValues
         trialCount
@@ -65,6 +73,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 options.StaircaseDirection (1,1) string {mustBeMember(options.StaircaseDirection,["Up","Down"])} = "Down"
             end
 
+            obj.RUNTIME = RUNTIME;
             obj.Parameter = Parameter;
             obj.StimulusTrialType = options.StimulusTrialType;
             obj.CatchTrialType = options.CatchTrialType;
@@ -76,10 +85,6 @@ classdef Staircase < handle & matlab.mixin.SetGet
         end
 
         function delete(obj)
-            obj.detach();
-        end
-
-        function detach(obj)
             % DETACH Remove any active NewData listener.
             if ~isempty(obj.hl_NewData)
                 delete(obj.hl_NewData);
@@ -88,35 +93,34 @@ classdef Staircase < handle & matlab.mixin.SetGet
         end
 
         function update_data(obj, ~, event)
-            
+            vprintf(4, "psychophysics.Staircase received NewData event with %d trials", numel(event.Data));
+            obj.Data = event.Data;
+
+            obj.recompute_history();
+
+            evtdata = epsych.TrialsData(obj.Data);
+            obj.Helper.notify('NewData',evtdata);
         end
 
-        function d = get.DATA(obj)
-            if isempty(obj.TRIALS)
-                d = [];
-            else
-                d = obj.TRIALS.DATA;
-            end
-        end
 
         function rc = get.responseCodes(obj)
-            if isempty(obj.DATA)
-                rc = uint32([]);
+            if isempty(obj.Data)
+                rc = [];
                 return
             end
 
-            rc = uint32([obj.DATA.ResponseCode]);
+            rc = [obj.Data.ResponseCode];
         end
 
         function n = get.trialCount(obj)
-            n = numel(obj.DATA);
+            n = numel(obj.Data);
         end
 
         function v = get.stimulusValues(obj)
-            if isempty(obj.DATA)
+            if isempty(obj.Data)
                 v = [];
             else
-                v = [obj.DATA.(obj.Parameter.validName)];
+                v = [obj.Data.(obj.Parameter.validName)];
             end
         end
 
@@ -128,7 +132,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
         function recompute_history(obj)
             obj.ReversalCount = 0;
 
-            data = obj.DATA;
+            data = obj.Data;
             if isempty(data)
                 return
             end
@@ -149,6 +153,22 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
 
             obj.ReversalCount = length(obj.ReversalIdx);
+
+            if obj.ReversalCount > 0
+                lastNReversals = obj.ReversalIdx(max(1, end - obj.ThresholdFromLastNReversals + 1):end);
+                thresholdValues = obj.stimulusValues(lastNReversals);
+                
+                if obj.ThresholdFormula == "Mean"
+                    obj.Threshold = mean(thresholdValues);
+                else % GeometricMean
+                    obj.Threshold = geomean(thresholdValues);
+                end
+                obj.ThresholdStd = std(thresholdValues);
+
+            else
+                obj.Threshold = [];
+                obj.ThresholdStd = [];
+            end
         end
 
         

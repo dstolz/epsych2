@@ -83,7 +83,7 @@ classdef StaircaseHistoryPlot < handle
 
             obj.detach_listener();
             obj.staircaseObj = sObj;
-            obj.attach_listener();
+            obj.hl_NewData = addlistener(sObj, 'NewData', @obj.update_plot);
             obj.update_plot();
         end
 
@@ -122,21 +122,6 @@ classdef StaircaseHistoryPlot < handle
     end
 
     methods (Access = private)
-        function attach_listener(obj)
-            source = [];
-
-            if isprop(obj.staircaseObj, 'Helper')
-                source = obj.staircaseObj.Helper;
-            elseif isprop(obj.staircaseObj, 'Source')
-                source = obj.staircaseObj.Source;
-            end
-
-            if isempty(source)
-                return
-            end
-
-            obj.hl_NewData = addlistener(source, 'NewData', @obj.update_plot);
-        end
 
         function detach_listener(obj)
             if ~isempty(obj.hl_NewData)

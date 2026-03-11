@@ -30,7 +30,7 @@ layoutMain.Padding = [1 1 1 1];
 
 
 % visualize grid (for testing)
-% showGridBorders(layoutMain)
+%showGridBorders(layoutMain)
 
 % CONTROL BUTTONS ---------------------------------------
 % Grid layout for buttons
@@ -114,8 +114,8 @@ end
 
 % >> Info table
 h = uipanel(layoutMain);
-h.Layout.Column = [1 2];
-h.Layout.Row    = [9 11];
+h.Layout.Column = [3 4];
+h.Layout.Row    = [6 10];
 drawnow
 
 p = R.HW.find_parameter({'PelletTotal','Platform','Trough','RespWinDelay','InTrial', ...
@@ -255,12 +255,12 @@ pRWDelay.Max = 400;
 pRWDelay.isRandom = true; % enable randomization for this parameter
 
 
-%{
+
 % >> Response Window Delay Training Mode --- launches a small gui to adjust parameters for training with variable response window delay
 h = uibutton(layoutTrialControls,"state");
 h.Text = "Response Window Delay Training Mode";
-h.ValueChangedFcn = @(src,event) obj.eval_rwdelay_training_mode(src,event,p);
-%}
+h.ValueChangedFcn = @(src,event) obj.eval_rwdelay_training_mode(src,event,pRWDelay);
+
 
 
 pMin = R.S.Module.add_parameter('RespWinDelayMin',pRWDelay.Min);
@@ -415,7 +415,7 @@ h.watchedHandles = [hp.UserData];
 % Filename field -----------------------------------------------
 panelFilename = uipanel(layoutMain, 'Title', 'Filename');
 panelFilename.Layout.Row = 11;
-panelFilename.Layout.Column = [4 5];
+panelFilename.Layout.Column = [3 5];
 
 layoutFilename = simple_layout(panelFilename);
 
@@ -441,7 +441,7 @@ tableNextTrial.ColumnEditable = false;
 tableNextTrial.FontSize = 20;
 
 obj.hl_NewTrial = addlistener(R.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
-obj.hl_NewData  = addlistener(obj.psychDetect.Helper,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
+obj.hl_NewData  = addlistener(obj.Psych.Helper,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
 obj.hl_ModeChange =addlistener(R.HELPER,'ModeChange',@(src,ev) obj.onModeChange(src,ev));
 
 
@@ -462,12 +462,10 @@ obj.hl_ModeChange =addlistener(R.HELPER,'ModeChange',@(src,ev) obj.onModeChange(
 
 % Axes for Main Plot ------------------------------------------------
 axPsych = uiaxes(layoutMain);
-axPsych.Layout.Row = [4 8];
-axPsych.Layout.Column = [3 5];
+axPsych.Layout.Row = [3 5];
+axPsych.Layout.Column = [3 7];
 
-obj.psychPlot = gui.PsychPlot(obj.psychDetect,axPsych);
-% obj.psychPlot.logx = true;
-
+obj.psychPlot = gui.StaircaseHistoryPlot(obj.Psych,axPsych);
 
 
 
@@ -483,6 +481,7 @@ obj.psychPlot = gui.PsychPlot(obj.psychDetect,axPsych);
 
 
 
+%{
 % Axes for Microphone Display -------------------------------
 axesMicrophone = uiaxes(layoutMain);
 axesMicrophone.Layout.Row = [9 10];
@@ -495,6 +494,8 @@ if ~isempty(p)
     gui.MicrophonePlot(p,axesMicrophone);
     axesMicrophone.YAxis.Label.String = "RMS voltage";
 end
+%}
+
 
 % Panel for "Abort Rate" --------------------------------------------
 panelAbortRate = uipanel(layoutMain, 'Title', 'Session Abort Rate');
@@ -516,11 +517,11 @@ obj.lblAbortRate = h;
 
 % Panel for "Response History" --------------------------------------
 panelResponseHistory = uipanel(layoutMain, 'Title', 'Response History');
-panelResponseHistory.Layout.Row = [3 11];
+panelResponseHistory.Layout.Row = [6 11];
 panelResponseHistory.Layout.Column = [6 7];
 
 % > Response History Table
-obj.ResponseHistory = gui.History(obj.psychDetect,panelResponseHistory);
+obj.ResponseHistory = gui.History(obj.Psych,panelResponseHistory);
 obj.ResponseHistory.ParametersOfInterest = {'Depth','TrialType','Reminder'};
 
 

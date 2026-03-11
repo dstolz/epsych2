@@ -26,13 +26,20 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
         ThresholdFromLastNReversals (1,1) double {mustBePositive, mustBeInteger} = 6
         ThresholdFormula (1,1) string {mustBeMember(ThresholdFormula,["Mean","GeometricMean"])} = "Mean"
+
+        
+
+        Bits (1,:) epsych.BitMask = epsych.BitMask.getResponses;
+        BitColors (5,1) string = ["#dff7df","#fcdcdc","#d9f2ff","#fcdefc","#fcfcd4"];
+
+        
   end
 
     properties (SetAccess = private)
         RUNTIME
         Helper = epsych.Helper
         
-        Data
+        DATA
 
         ReversalCount   % total number of reversals observed
         ReversalIdx     % indices of trials where reversals occurred
@@ -69,7 +76,6 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 Parameter
                 options.StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
                 options.CatchTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
-                options.Attach (1,1) logical = true
                 options.StaircaseDirection (1,1) string {mustBeMember(options.StaircaseDirection,["Up","Down"])} = "Down"
             end
 
@@ -77,7 +83,6 @@ classdef Staircase < handle & matlab.mixin.SetGet
             obj.Parameter = Parameter;
             obj.StimulusTrialType = options.StimulusTrialType;
             obj.CatchTrialType = options.CatchTrialType;
-            obj.AbortBehavior = options.AbortBehavior;
             obj.StaircaseDirection = options.StaircaseDirection;
 
             obj.hl_NewData = addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
@@ -93,34 +98,39 @@ classdef Staircase < handle & matlab.mixin.SetGet
         end
 
         function update_data(obj, ~, event)
-            vprintf(4, "psychophysics.Staircase received NewData event with %d trials", numel(event.Data));
-            obj.Data = event.Data;
+            vprintf(4, 'psychophysics.Staircase received NewData event with %d trials', numel(event.Data.DATA));
+            obj.DATA = event.Data.DATA;
 
             obj.recompute_history();
 
-            evtdata = epsych.TrialsData(obj.Data);
+            evtdata = epsych.TrialsData(event.Data);
             obj.Helper.notify('NewData',evtdata);
+        end
+
+        function refresh_history(obj)
+            obj.recompute_history();
+            obj.notify_history_update();
         end
 
 
         function rc = get.responseCodes(obj)
-            if isempty(obj.Data)
+            if isempty(obj.DATA)
                 rc = [];
                 return
             end
 
-            rc = [obj.Data.ResponseCode];
+            rc = [obj.DATA.ResponseCode];
         end
 
         function n = get.trialCount(obj)
-            n = numel(obj.Data);
+            n = numel(obj.DATA);
         end
 
         function v = get.stimulusValues(obj)
-            if isempty(obj.Data)
+            if isempty(obj.DATA)
                 v = [];
             else
-                v = [obj.Data.(obj.Parameter.validName)];
+                v = [obj.DATA.(obj.Parameter.validName)];
             end
         end
 
@@ -132,14 +142,18 @@ classdef Staircase < handle & matlab.mixin.SetGet
         function recompute_history(obj)
             obj.ReversalCount = 0;
 
-            data = obj.Data;
+            data = obj.DATA;
             if isempty(data)
+                obj.ReversalIdx = [];
+                obj.StepDirection = [];
+                obj.Threshold = [];
+                obj.ThresholdStd = [];
                 return
             end
 
             RCD = epsych.BitMask.decode(obj.responseCodes);
 
-            ind = RCD.TrialType == obj.StimulusTrialType;
+            ind = RCD.(char(obj.StimulusTrialType));
 
             stimValues = obj.stimulusValues(ind);
             
@@ -169,6 +183,15 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 obj.Threshold = [];
                 obj.ThresholdStd = [];
             end
+        end
+
+        function notify_history_update(obj)
+            if isempty(obj.RUNTIME) || ~isprop(obj.RUNTIME, 'TRIALS') || isempty(obj.RUNTIME.TRIALS)
+                return
+            end
+
+            evtdata = epsych.TrialsData(obj.RUNTIME.TRIALS);
+            obj.Helper.notify('NewData', evtdata);
         end
 
         

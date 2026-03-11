@@ -30,6 +30,7 @@ classdef Parameter < matlab.mixin.SetGet
         % TO DO: Make this available for all custom fcn
         PostUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to EvaluatorFcn
 
+        UserData % general-purpose field for storing any additional data related to the parameter
     end
 
     properties (SetObservable,GetObservable) 

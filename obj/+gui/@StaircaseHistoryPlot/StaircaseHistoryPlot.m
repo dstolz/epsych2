@@ -15,8 +15,6 @@ classdef StaircaseHistoryPlot < handle
     properties
         ax (1,1)
 
-        staircaseObj
-
         LineColor   (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(LineColor,1)} = [0.15 0.35 0.75]
         StepColor   (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(StepColor,1)} = [0.90 0.35 0.10]
         NeutralColor (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(NeutralColor,1)} = [0.60 0.60 0.60]
@@ -31,12 +29,17 @@ classdef StaircaseHistoryPlot < handle
     end
 
     properties (SetAccess = private)
-        LineH
-        ScatterH
+        h_line
+        h_points
+        h_thrreg
+        h_thrline
         StepH
-        ReversalH
+        ReversalUpH
+        ReversalDownH
 
         hl_NewData = event.listener.empty
+
+        staircaseObj
     end
 
     properties (Dependent)
@@ -62,9 +65,16 @@ classdef StaircaseHistoryPlot < handle
             
             if isempty(ax), ax = gca; end
 
+
             obj.ax = ax;
+            
             obj.staircaseObj = staircaseObj;
+
             obj.setup_axes();
+            obj.detach_listener();
+            obj.hl_NewData = addlistener(staircaseObj.Helper, 'NewData', @(src, event)obj.update_plot(src, event));
+            obj.update_plot();
+            
         end
 
         function delete(obj)
@@ -73,19 +83,9 @@ classdef StaircaseHistoryPlot < handle
         end
 
         function n = get.ParameterName(obj)
-            n = obj.get_parameter_name();
+            n = obj.staircaseObj.Parameter.Name;
         end
 
-        function set.staircaseObj(obj, sObj)
-            assert(isa(sObj, 'psychophysics.Staircase'), ...
-                'gui.StaircaseHistoryPlot:set.staircaseObj', ...
-                'staircaseObj must be a psychophysics.Staircase object');
-
-            obj.detach_listener();
-            obj.staircaseObj = sObj;
-            obj.hl_NewData = addlistener(sObj, 'NewData', @obj.update_plot);
-            obj.update_plot();
-        end
 
         function update_plot(obj, ~, ~)
             % Update the staircase history visualization from current data.
@@ -95,11 +95,13 @@ classdef StaircaseHistoryPlot < handle
                 return
             end
 
-            [x, y, c, xStep, yStep, cStep, xRev, yRev] = obj.get_plot_data();
-            obj.ensure_graphics();
+            [x, y, c, xStep, yStep, cStep, xRevUp, yRevUp, xRevDown, yRevDown] = obj.get_plot_data();
 
-            set(obj.LineH, 'XData', x, 'YData', y);
-            set(obj.ScatterH, 'XData', x, 'YData', y, ...
+            if isempty(obj.h_line) || ~isvalid(obj.h_line), return; end
+
+
+            set(obj.h_line, 'XData', x, 'YData', y);
+            set(obj.h_points, 'XData', x, 'YData', y, ...
                 'SizeData', obj.MarkerSize, 'CData', c);
 
             if obj.ShowSteps
@@ -110,13 +112,28 @@ classdef StaircaseHistoryPlot < handle
             end
 
             if obj.ShowReversals
-                set(obj.ReversalH, 'Visible', 'on', 'XData', xRev, 'YData', yRev, ...
+                set(obj.ReversalUpH, 'Visible', 'on', 'XData', xRevUp, 'YData', yRevUp, ...
+                    'SizeData', obj.ReversalMarkerSize);
+                set(obj.ReversalDownH, 'Visible', 'on', 'XData', xRevDown, 'YData', yRevDown, ...
                     'SizeData', obj.ReversalMarkerSize);
             else
-                set(obj.ReversalH, 'Visible', 'off', 'XData', nan, 'YData', nan);
+                set(obj.ReversalUpH, 'Visible', 'off', 'XData', nan, 'YData', nan);
+                set(obj.ReversalDownH, 'Visible', 'off', 'XData', nan, 'YData', nan);
             end
 
-            obj.update_axes_limits(x, y);
+            if ~isempty(obj.staircaseObj.Threshold)
+                ridx = obj.staircaseObj.ReversalIdx;
+                xThr = ridx(max(1,length(ridx)-obj.staircaseObj.ThresholdFromLastNReversals));
+                xThr(2) = ridx(end);
+                yThr = [1 1]*obj.staircaseObj.Threshold;
+                set(obj.h_thrline,'XData',xThr,'YData',yThr)
+
+                yThrStd = obj.staircaseObj.ThresholdStd;
+                set(obj.h_thrreg,'XData',[xThr(1) xThr(2) xThr(2) xThr(1)], ...
+                    'YData',[yThr(1)-yThrStd, yThr(2)-yThrStd, yThr(2)+yThrStd, yThr(1)+yThrStd])
+            end
+
+            axis(obj.ax,'normal')
             obj.update_labels();
         end
     end
@@ -135,63 +152,78 @@ classdef StaircaseHistoryPlot < handle
             box(obj.ax, 'on');
             xlabel(obj.ax, 'Trial Index', 'Interpreter', 'none');
             ylabel(obj.ax, char(obj.ParameterName), 'Interpreter', 'none');
+
+            hold(obj.ax,'on')
+
+            obj.h_thrreg = patch(obj.ax,nan,nan,[0.85 0.85 0.85], ...
+                EdgeColor='none', ...
+                FaceAlpha=0.5);
+            
+            obj.h_thrline = line(obj.ax, nan, nan, ...
+                'Color', [0.25 0.25 0.25], ...
+                'LineWidth', 2, ...
+                'LineStyle', '-', ...
+                'Marker', 'none');
+
+            obj.h_line = line(obj.ax, nan, nan, ...
+                'Color', obj.LineColor, ...
+                'LineWidth', 1.5, ...
+                'Marker', 'none');
+
+
+            obj.h_points = scatter(obj.ax, nan, nan, obj.MarkerSize, ...
+                'filled', ...
+                'Marker', 'o', ...
+                'MarkerEdgeColor', 'none');
+
+
+            obj.StepH = scatter(obj.ax, nan, nan, obj.StepMarkerSize, ...
+                'filled', ...
+                'Marker', 's', ...
+                'MarkerEdgeColor', 'none', ...
+                'Visible', 'off');
+
+
+            obj.ReversalUpH = scatter(obj.ax, nan, nan, obj.ReversalMarkerSize, ...
+                'Marker', 'v', ...
+                'MarkerEdgeColor', obj.ReversalColor, ...
+                'MarkerFaceColor', obj.ReversalColor, ...
+                'LineWidth', 1.25, ...
+                'Visible', 'off');
+
+
+            obj.ReversalDownH = scatter(obj.ax, nan, nan, obj.ReversalMarkerSize, ...
+                'Marker', '^', ...
+                'MarkerEdgeColor', obj.ReversalColor, ...
+                'MarkerFaceColor', obj.ReversalColor, ...
+                'LineWidth', 1.25, ...
+                'Visible', 'off');
+            hold(obj.ax,'off')
+
+
         end
 
-        function ensure_graphics(obj)
-            if isempty(obj.LineH) || ~isvalid(obj.LineH)
-                obj.LineH = line(obj.ax, nan, nan, ...
-                    'Color', obj.LineColor, ...
-                    'LineWidth', 1.5, ...
-                    'Marker', 'none');
-            end
 
-            if isempty(obj.ScatterH) || ~isvalid(obj.ScatterH)
-                obj.ScatterH = scatter(obj.ax, nan, nan, obj.MarkerSize, ...
-                    'filled', ...
-                    'Marker', 'o', ...
-                    'MarkerEdgeColor', 'none');
-            end
-
-            if isempty(obj.StepH) || ~isvalid(obj.StepH)
-                obj.StepH = scatter(obj.ax, nan, nan, obj.StepMarkerSize, ...
-                    'filled', ...
-                    'Marker', 's', ...
-                    'MarkerEdgeColor', 'none', ...
-                    'Visible', 'off');
-            end
-
-            if isempty(obj.ReversalH) || ~isvalid(obj.ReversalH)
-                obj.ReversalH = scatter(obj.ax, nan, nan, obj.ReversalMarkerSize, ...
-                    'Marker', 'o', ...
-                    'MarkerEdgeColor', obj.ReversalColor, ...
-                    'MarkerFaceColor', 'none', ...
-                    'LineWidth', 1.25, ...
-                    'Visible', 'off');
-            end
-
-            uistack(obj.ScatterH, 'top');
-            uistack(obj.StepH, 'top');
-            uistack(obj.ReversalH, 'top');
-        end
-
-        function [x, y, c, xStep, yStep, cStep, xRev, yRev] = get_plot_data(obj)
-            x = nan(0,1);
-            y = nan(0,1);
-            c = zeros(0,3);
-            xStep = nan(0,1);
-            yStep = nan(0,1);
-            cStep = zeros(0,3);
-            xRev = nan(0,1);
-            yRev = nan(0,1);
+        function [x, y, c, xStep, yStep, cStep, xRevUp, yRevUp, xRevDown, yRevDown] = get_plot_data(obj)
+            x = nan;
+            y = nan;
+            c = zeros(1,3);
+            xStep = nan;
+            yStep = nan;
+            cStep = zeros(1,3);
+            xRevUp = nan;
+            yRevUp = nan;
+            xRevDown = nan;
+            yRevDown = nan;
 
             trialValue = obj.columnize(obj.staircaseObj.stimulusValues);
             if isempty(trialValue)
                 return
             end
 
-            trialIndex = 1:obj.staircaseObj.trialCount;
-            direction = obj.staircaseObj.StepDirection;
-            reversalIdx = obj.staircaseObj.ReversalIdx;
+            trialIndex  = obj.columnize(1:obj.staircaseObj.trialCount);
+            direction   = obj.columnize(obj.staircaseObj.StepDirection);
+            reversalIdx = obj.columnize(obj.staircaseObj.ReversalIdx);
 
             valid = ~isnan(trialIndex) & ~isnan(trialValue);
             if ~any(valid)
@@ -209,38 +241,23 @@ classdef StaircaseHistoryPlot < handle
                 cStep = obj.direction_colors(direction(stepMask));
             end
 
+            reversalIdx = reversalIdx(~isnan(reversalIdx));
+            reversalIdx = reversalIdx(reversalIdx >= 1 & reversalIdx <= numel(direction));
             if ~isempty(reversalIdx)
-                xRev = trialIndex(reversalIdx);
-                yRev = trialValue(reversalIdx);
+                reversalDir = direction(reversalIdx);
+
+                upMask = reversalDir > 0;
+                if any(upMask)
+                    xRevUp = trialIndex(reversalIdx(upMask));
+                    yRevUp = trialValue(reversalIdx(upMask));
+                end
+
+                downMask = reversalDir < 0;
+                if any(downMask)
+                    xRevDown = trialIndex(reversalIdx(downMask));
+                    yRevDown = trialValue(reversalIdx(downMask));
+                end
             end
-        end
-
-        function update_axes_limits(obj, x, y)
-            if isempty(x)
-                return
-            end
-
-            if numel(x) == 1
-                xlim_ = [x(1)-1 x(1)+1];
-            else
-                xlim_ = [min(x) max(x)];
-            end
-
-            yMin = min(y, [], 'omitnan');
-            yMax = max(y, [], 'omitnan');
-            if isempty(yMin) || isempty(yMax) || any(isnan([yMin yMax]))
-                return
-            end
-
-            if yMin == yMax
-                pad = max(abs(yMin) * 0.05, 0.01);
-            else
-                pad = max((yMax - yMin) * 0.08, 0.01);
-            end
-
-            ylim_ = [yMin - pad yMax + pad];
-
-            set(obj.ax, 'XLim', xlim_, 'YLim', ylim_);
         end
 
         function update_labels(obj)
@@ -260,29 +277,71 @@ classdef StaircaseHistoryPlot < handle
         end
 
         function [titleText, hasTitle] = get_title_text(obj)
-            titleText = '';
-            hasTitle = false;
+            titleParts = {};
 
-            if ~isprop(obj.staircaseObj, 'TRIALS') || isempty(obj.staircaseObj.TRIALS)
-                return
+            if isprop(obj.staircaseObj, 'TRIALS') && ~isempty(obj.staircaseObj.TRIALS)
+                trials = obj.staircaseObj.TRIALS;
+
+                subjectName = "";
+                if isprop(trials, 'Subject') && ~isempty(trials.Subject) && isprop(trials.Subject, 'Name')
+                    subjectName = string(trials.Subject.Name);
+                end
+
+                boxID = [];
+                if isprop(trials, 'BoxID')
+                    boxID = trials.BoxID;
+                end
+
+                if isempty(boxID)
+                    if strlength(subjectName) > 0
+                        titleParts{end+1} = char(subjectName); %#ok<AGROW>
+                    end
+                elseif strlength(subjectName) == 0
+                    titleParts{end+1} = sprintf('[%d]', boxID); %#ok<AGROW>
+                else
+                    titleParts{end+1} = sprintf('%s [%d]', subjectName, boxID); %#ok<AGROW>
+                end
             end
 
-            trials = obj.staircaseObj.TRIALS;
+            if isprop(obj.staircaseObj, 'ReversalCount') && ~isempty(obj.staircaseObj.ReversalCount)
+                reversalCount = obj.staircaseObj.ReversalCount;
+                if isscalar(reversalCount) && isfinite(reversalCount)
+                    titleParts{end+1} = sprintf('Reversals: %d', reversalCount); %#ok<AGROW>
+                end
+            end
 
-            subjectName = trials.Subject.Name;
+            if isprop(obj.staircaseObj, 'Threshold') && ~isempty(obj.staircaseObj.Threshold)
+                threshold = obj.staircaseObj.Threshold;
+                if isscalar(threshold) && isfinite(threshold)
+                    configuredReversals = [];
+                    if isprop(obj.staircaseObj, 'ThresholdFromLastNReversals')
+                        configuredReversals = obj.staircaseObj.ThresholdFromLastNReversals;
+                    end
 
-            boxID = trials.BoxID;
+                    actualReversals = [];
+                    if isprop(obj.staircaseObj, 'ReversalCount')
+                        actualReversals = obj.staircaseObj.ReversalCount;
+                    end
 
-                
-            if isempty(boxID)
-                titleText = char(subjectName);
-            elseif strlength(subjectName) == 0
-                titleText = sprintf('[%d]', boxID);
+                    if isscalar(configuredReversals) && isfinite(configuredReversals)
+                        if isscalar(actualReversals) && isfinite(actualReversals)
+                            nUsed = min(actualReversals, configuredReversals);
+                            titleParts{end+1} = sprintf('Threshold (%d/%d rev): %.3f', nUsed, configuredReversals, threshold); %#ok<AGROW>
+                        else
+                            titleParts{end+1} = sprintf('Threshold (last %d rev): %.3f', configuredReversals, threshold); %#ok<AGROW>
+                        end
+                    else
+                        titleParts{end+1} = sprintf('Threshold: %.3f', threshold); %#ok<AGROW>
+                    end
+                end
+            end
+
+            hasTitle = ~isempty(titleParts);
+            if hasTitle
+                titleText = strjoin(titleParts, ' | ');
             else
-                titleText = sprintf('%s [%d]', subjectName, boxID);
+                titleText = '';
             end
-
-            hasTitle = true;
         end
 
         function c = direction_colors(obj, direction)
@@ -306,91 +365,14 @@ classdef StaircaseHistoryPlot < handle
             c(isDown,:) = repmat(obj.LineColor, nnz(isDown), 1);
         end
 
-        function n = get_parameter_name(obj)
-            n = "Staircase Value";
 
-            if isempty(obj.staircaseObj) || ~isprop(obj.staircaseObj, 'Parameter')
-                return
-            end
 
-            parameter = obj.staircaseObj.Parameter;
-            if isempty(parameter)
-                return
-            end
 
-            if isprop(parameter, 'Name')
-                n = string(parameter.Name);
-            end
-        end
 
-        function x = get_trial_indices(obj, nTrials)
-            x = (1:nTrials).';
-
-            if ~isprop(obj.staircaseObj, 'responseCodes') || ~isprop(obj.staircaseObj, 'StimulusTrialType')
-                return
-            end
-
-            responseCodes = obj.columnize(obj.staircaseObj.responseCodes);
-            if isempty(responseCodes)
-                return
-            end
-
-            try
-                decoded = epsych.BitMask.decode(responseCodes);
-            catch
-                return
-            end
-
-            if ~isstruct(decoded) || ~isfield(decoded, 'TrialType')
-                return
-            end
-
-            stimMask = decoded.TrialType == obj.staircaseObj.StimulusTrialType;
-            stimIdx = find(stimMask(:));
-            if numel(stimIdx) < nTrials
-                return
-            end
-
-            x = stimIdx(1:nTrials);
-        end
-
-        function direction = get_step_direction(obj, nTrials)
-            direction = nan(nTrials, 1);
-
-            if ~isprop(obj.staircaseObj, 'StepDirection')
-                return
-            end
-
-            rawDirection = obj.columnize(obj.staircaseObj.StepDirection);
-            if isempty(rawDirection)
-                return
-            end
-
-            nCopy = min(nTrials, numel(rawDirection));
-            direction(1:nCopy) = rawDirection(1:nCopy);
-        end
-
-        function reversalIdx = get_reversal_indices(obj, nTrials)
-            reversalIdx = zeros(0,1);
-
-            if ~isprop(obj.staircaseObj, 'ReversalIdx')
-                return
-            end
-
-            reversalIdx = obj.columnize(obj.staircaseObj.ReversalIdx);
-            if isempty(reversalIdx)
-                reversalIdx = zeros(0,1);
-                return
-            end
-
-            reversalIdx = reversalIdx(~isnan(reversalIdx));
-            reversalIdx = round(reversalIdx);
-            reversalIdx = reversalIdx(reversalIdx >= 1 & reversalIdx <= nTrials);
-        end
 
         function values = columnize(~, values)
             if isempty(values)
-                values = nan(0,1);
+                values = nan;
             else
                 values = values(:);
             end

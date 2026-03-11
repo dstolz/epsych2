@@ -21,7 +21,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
     properties (SetAccess = protected)
         h_figure               % Main figure handle
         h_OnlinePlot           % Handle to the online plot figure
-        psychDetect            % psychophysics.Detect object
+        Psych                  % psychophysics object
         psychPlot              % gui.psychPlot instance
         % slidingWindowPlot      % gui.SlidingWindowPerformancePlot instance
         ResponseHistory        % gui.History instance
@@ -82,9 +82,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
             % create psychophysics object
             p = RUNTIME.HW.find_parameter('Depth');
-            obj.psychDetect = psychophysics.Detect(RUNTIME,p);
-            % TO DO: IMPLEMENT STAIRCASE
-            % obj.psychStaircase = psychophysics.Staircase(RUNTIME,p);
+            obj.Psych = psychophysics.Staircase(RUNTIME,p);
 
             % generate gui layout and components
             obj.create_gui;
@@ -180,11 +178,10 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             end
 
 
-            try % TODO: FIGURE OUT WHY THIS IS HAPPENING
+            try
                 % calculate session Abort rate and update
                 % TO DO: USE NEW PSYCHSTAIRCASE OBJECT TO CALCULATE ABORT RATE FOR STIMULUS TRIALS ONLY
-                obj.psychDetect.targetTrialType = obj.bmStimulus; % STIM TRIALS
-                abortRate = sum([obj.psychDetect.Rate.Abort]) ./ obj.psychDetect.trialCount;
+                abortRate = sum(obj.Psych.responseCodes.Abort) ./ obj.Psych.trialCount;
                 if isempty(abortRate) || isnan(abortRate), abortTxt = '--'; else, abortTxt = num2str(100*abortRate,'%.1f%%'); end
                 obj.lblAbortRate.Text = abortTxt;
             end

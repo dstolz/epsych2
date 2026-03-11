@@ -112,13 +112,14 @@ classdef History < handle
             obj.Info.RelativeTimestamp = string(td);
 
             RC = obj.psychObj.responseCodes;
+            RCD = epsych.BitMask.decode(RC);
             r = repmat(epsych.BitMask(0),size(RC)); % preallocate
             for bm = epsych.BitMask.getResponses
-                ind = logical(bitget(RC,uint32(bm)));
+                ind = RCD.(char(bm));
                 if ~any(ind), continue; end
                 r(ind) = bm;
             end
-            Response = arrayfun(@char,r,'uni',0);
+            Response = string(r);
 
             ind = structfun(@(a) numel(a)>1,DataIn(1));
             fn = fieldnames(DataIn);
@@ -127,7 +128,7 @@ classdef History < handle
             DataIn = rmfield(DataIn,[requiredParams,fn]);
 
             DataOut = squeeze(struct2cell(DataIn))';
-            DataOut = [Response(:) DataOut];
+            DataOut = [cellstr(Response(:)) DataOut];
             DataOut = [cellstr(obj.Info.RelativeTimestamp(:)) DataOut];
         end
     end

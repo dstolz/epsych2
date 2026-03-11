@@ -11,6 +11,9 @@ try
 
     value = event.Value; % the new value of the training mode toggle (true/false)
     if event.Value == 1
+        Parameter.UserData.isRandom = Parameter.isRandom;
+        Parameter.isRandom = false;
+
         % launch the training mode GUI
         if ~isempty(obj.h_RWDelayTrainingGUI) && isvalid(obj.h_RWDelayTrainingGUI) % if the GUI doesn't exist or has been deleted, create it
             vprintf(2,'locating Response Window Delay Training GUI')
@@ -38,6 +41,8 @@ try
         success = true;
     else
         vprintf(2,'Closing Response Window Delay Training GUI')
+
+        Parameter.isRandom = Parameter.UserData.isRandom;
 
         % close the training mode GUI if it's open
         delete(obj.h_RWDelayTrainingGUI);

@@ -17,6 +17,13 @@ While all files in this toolbox are free to view and use for learning, please co
 * Software available for purchase from TDT http://www.tdt.com
 	* Behavior experiments (no electrophysiology):	*TDT ActiveX Controls*
 	* Electrophysiology experiments:  *TDT OpenEx* and *TDT OpenDeveloper Controls*
+    * Optional standalone webcam recording: *Image Acquisition Toolbox* for `videoinput`, plus a working microphone input if audio capture is enabled
+
+
+**Standalone Webcam Recorder**
+* `epsych.WebcamRecorder` provides programmatic start/stop camera recording without EPsych runtime integration.
+* Outputs are written as separate video (`.avi`), audio (`.wav`), and metadata (`.mat`) files.
+* A minimal smoke-test script is available at `obj/exampleWebcamRecorder.m`.
 		
 		
 **NOTES ON V1.1**

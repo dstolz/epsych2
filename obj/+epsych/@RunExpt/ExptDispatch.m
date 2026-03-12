@@ -109,6 +109,7 @@ switch lower(COMMAND)
         t = timerfind('Name','PsychTimer');
         if ~isempty(t), stop(t); delete(t); end
 
+        set(self.H.figure1,'pointer','arrow')
         vprintf(0,'Experiment stopped at %s',datetime("now",Format='dd-MMM-yyyy HH:mm'))
 
 end

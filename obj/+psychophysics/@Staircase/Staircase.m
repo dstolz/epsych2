@@ -163,7 +163,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
             end
 
             obj.StepDirection = [nan,d];
-            obj.ReversalIdx = find(d(2:end)>d(1:end-1)) + 1;
+            obj.ReversalIdx = find(d(2:end)>d(1:end-1) | d(2:end)<d(1:end-1)) + 1;
 
 
             obj.ReversalCount = length(obj.ReversalIdx);

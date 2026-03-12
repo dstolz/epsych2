@@ -24,6 +24,8 @@ While all files in this toolbox are free to view and use for learning, please co
 * `epsych.WebcamRecorder` provides programmatic start/stop camera recording without EPsych runtime integration.
 * Outputs are written as separate video (`.avi`), audio (`.wav`), and metadata (`.mat`) files.
 * A minimal smoke-test script is available at `obj/exampleWebcamRecorder.m`.
+* `helpers/@VlcRecorder/VlcRecorder.m` now also supports VLC-based DirectShow webcam capture for live preview, HTTP streaming, and file recording via `launchWebcam(...)`.
+* A minimal VLC webcam example is available at `obj/exampleVlcWebcamRecorder.m`.
 		
 		
 **NOTES ON V1.1**

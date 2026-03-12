@@ -497,22 +497,22 @@ end
 %}
 
 
-% Panel for "Abort Rate" --------------------------------------------
-panelAbortRate = uipanel(layoutMain, 'Title', 'Session Abort Rate');
-panelAbortRate.Layout.Row = [1 2];
-panelAbortRate.Layout.Column = 7;
+% Panel for "Performance" --------------------------------------------
+panelPerformance = uipanel(layoutMain, 'Title', 'Session Performance');
+panelPerformance.Layout.Row = [1 2];
+panelPerformance.Layout.Column = 7;
 
-layoutAbortRate = simple_layout(panelAbortRate);
+layoutPerformance = simple_layout(panelPerformance);
 
-% > Abort Rate
-h = uilabel(layoutAbortRate);
-h.Tag = 'lblAbortRate';
+% > Performance
+h = uilabel(layoutPerformance);
+h.Tag = 'lblPerformance';
 h.Text = "0";
 h.FontColor = 'r';
-h.FontSize = 30;
+h.FontSize = 15;
 h.FontWeight = 'bold';
 h.HorizontalAlignment = "center";
-obj.lblAbortRate = h;
+obj.lblPerformance = h;
 
 
 % Panel for "Response History" --------------------------------------

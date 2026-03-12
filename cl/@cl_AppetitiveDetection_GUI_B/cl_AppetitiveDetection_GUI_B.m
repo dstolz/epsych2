@@ -26,7 +26,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         % slidingWindowPlot      % gui.SlidingWindowPerformancePlot instance
         ResponseHistory        % gui.History instance
         Performance            % gui.Performance instance
-        lblAbortRate           % Label for Abort Rate display
+        lblPerformance           % Label for Performance display
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons
 
@@ -181,9 +181,12 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             try
                 % calculate session Abort rate and update
                 % TO DO: USE NEW PSYCHSTAIRCASE OBJECT TO CALCULATE ABORT RATE FOR STIMULUS TRIALS ONLY
-                abortRate = sum(obj.Psych.responseCodes.Abort) ./ obj.Psych.trialCount;
-                if isempty(abortRate) || isnan(abortRate), abortTxt = '--'; else, abortTxt = num2str(100*abortRate,'%.1f%%'); end
-                obj.lblAbortRate.Text = abortTxt;
+                rc = obj.Psych.responseCodes;
+                rc = epsych.BitMask.decode(rc);
+                abortRate = sum(rc.Abort) ./ obj.Psych.trialCount;
+                hitRate = sum(rc.Hit) ./ obj.Psych.trialCount;
+                ptxt = sprintf('Hit Rate: %.1f%%\nAbort Rate: %.1f%%', hitRate*100, abortRate*100);
+                obj.lblPerformance.Text = ptxt;
             end
 
 

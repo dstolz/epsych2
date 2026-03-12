@@ -24,7 +24,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
         StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
         CatchTrialType    (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
 
-        ThresholdFromLastNReversals (1,1) double {mustBePositive, mustBeInteger} = 6
+        ThresholdFromLastNReversals (1,1) double {mustBePositive, mustBeInteger} = 12
         ThresholdFormula (1,1) string {mustBeMember(ThresholdFormula,["Mean","GeometricMean"])} = "Mean"
 
         

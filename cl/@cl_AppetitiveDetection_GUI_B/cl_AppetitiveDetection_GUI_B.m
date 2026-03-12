@@ -185,7 +185,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                 rc = epsych.BitMask.decode(rc);
                 abortRate = sum(rc.Abort) ./ obj.Psych.trialCount;
                 hitRate = sum(rc.Hit) ./ obj.Psych.trialCount;
-                ptxt = sprintf('Hit Rate: %.1f%%\nAbort Rate: %.1f%%', hitRate*100, abortRate*100);
+                ptxt = sprintf('Hit Rate:\t%.1f%%\nAbort Rate:\t%.1f%%', hitRate*100, abortRate*100);
                 obj.lblPerformance.Text = ptxt;
             end
 

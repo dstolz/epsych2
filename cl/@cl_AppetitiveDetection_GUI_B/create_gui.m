@@ -509,9 +509,9 @@ h = uilabel(layoutPerformance);
 h.Tag = 'lblPerformance';
 h.Text = "0";
 h.FontColor = 'r';
-h.FontSize = 15;
+h.FontSize = 18;
 h.FontWeight = 'bold';
-h.HorizontalAlignment = "center";
+h.HorizontalAlignment = "left";
 obj.lblPerformance = h;
 
 

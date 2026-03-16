@@ -25,18 +25,29 @@ classdef VlcRecorder < handle
     %   vlc = VlcRecorder();
     %   streamUrl = vlc.launchWebcam(webcams(1), ...
     %       'RecordingFile', fullfile(tempdir, 'vlc_webcam_capture.ts'), ...
+    %       'FrameRate', 30, ...
     %       'StreamPort', 8080, ...
     %       'ShowPreview', true);
     %   vlc.connect();
     %   disp(streamUrl)
     %   pause(10);
     %   vlc.quit();
+    %
+    % Webcam recording/HTTP outputs are transcoded to a transport-stream-
+    % compatible format before being duplicated to disk/network targets.
+    %
+    % For coordinated multi-camera capture, use VlcRecorderGroup to manage
+    % one VLC instance per webcam.
 
     properties
-        VlcPath (1,1) string = "C:\Program Files (x86)\VideoLAN\VLC\vlc.exe"
+        VlcPath (1,1) string = "C:\Program Files\VideoLAN\VLC\vlc.exe"
         Host (1,1) string = "127.0.0.1"
         Port (1,1) double = 4212
         Timeout (1,1) double = 5
+        WindowWidth (1,1) double = 500
+        WindowHeight (1,1) double = 400
+        WindowX (1,1) double = 80
+        WindowY (1,1) double = 80
     end
 
     properties (Access = private)
@@ -71,11 +82,17 @@ classdef VlcRecorder < handle
                     "VLC executable not found: %s", obj.VlcPath);
             end
 
-            rcArgs = sprintf('--extraintf rc --rc-host %s:%d', obj.Host, obj.Port);
+            obj.assertRcEndpointAvailable();
+
+            rcArgs = sprintf('--extraintf rc --rc-host %s:%d --rc-quiet', obj.Host, obj.Port);
+            windowArgs = obj.buildWindowArgs();
             extraArgs = strtrim(string(extraArgs));
             mediaTarget = strtrim(string(mediaTarget));
 
             launchParts = ["""" + obj.VlcPath + """", string(rcArgs)];
+            if ~isempty(windowArgs)
+                launchParts = [launchParts, windowArgs];
+            end
             if strlength(extraArgs) > 0
                 launchParts(end+1) = extraArgs;
             end
@@ -92,6 +109,7 @@ classdef VlcRecorder < handle
             end
 
             pause(1.5);
+            obj.applyWindowGeometry();
         end
 
         function streamUrl = launchWebcam(obj, webcamName, varargin)
@@ -230,9 +248,12 @@ classdef VlcRecorder < handle
                 end
             end
 
-            if ispc
+            % Prefer MATLAB's webcamlist when available so duplicate model
+            % names are preserved without being doubled by the Windows
+            % fallback enumeration.
+            if isempty(webcamNames) && ispc
                 windowsNames = VlcRecorder.listWindowsCameraDevices();
-                webcamNames = [webcamNames; windowsNames(:)]; %#ok<AGROW>
+                webcamNames = [webcamNames; windowsNames(:)];
             end
 
             webcamNames = strtrim(webcamNames(:));
@@ -240,7 +261,7 @@ classdef VlcRecorder < handle
             if isempty(webcamNames)
                 webcams = strings(0, 1);
             else
-                webcams = unique(webcamNames, 'stable');
+                webcams = webcamNames;
             end
         end
     end
@@ -252,6 +273,7 @@ classdef VlcRecorder < handle
             addParameter(parser, 'AudioDevice', "", @(x) ischar(x) || isstring(x));
             addParameter(parser, 'RecordingFile', "", @(x) ischar(x) || isstring(x));
             addParameter(parser, 'RecordingMux', "ts", @(x) ischar(x) || isstring(x));
+            addParameter(parser, 'FrameRate', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x) && isfinite(x) && x > 0));
             addParameter(parser, 'StreamPort', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x) && isfinite(x) && x > 0));
             addParameter(parser, 'StreamPath', "/webcam", @(x) ischar(x) || isstring(x));
             addParameter(parser, 'StreamMux', "ts", @(x) ischar(x) || isstring(x));
@@ -265,6 +287,11 @@ classdef VlcRecorder < handle
             options.AudioDevice = string(options.AudioDevice);
             options.RecordingFile = string(options.RecordingFile);
             options.RecordingMux = lower(string(options.RecordingMux));
+            if isempty(options.FrameRate)
+                options.FrameRate = [];
+            else
+                options.FrameRate = double(options.FrameRate);
+            end
             options.StreamPath = string(options.StreamPath);
             options.StreamMux = lower(string(options.StreamMux));
             options.StreamBind = string(options.StreamBind);
@@ -289,8 +316,15 @@ classdef VlcRecorder < handle
                 ":dshow-vdev=" + obj.quoteCliValue(webcamName), ...
                 ":live-caching=" + string(options.LiveCaching)];
 
+            if ~isempty(options.FrameRate)
+                mediaArgs(end+1) = ":dshow-fps=" + string(options.FrameRate);
+            end
+
             if strlength(options.AudioDevice) > 0
                 mediaArgs(end+1) = ":dshow-adev=" + obj.quoteCliValue(options.AudioDevice);
+            else
+                % Prevent VLC from auto-selecting a default capture audio device.
+                mediaArgs(end+1) = ":dshow-adev=none";
             end
 
             mediaTarget = strjoin(mediaArgs, " ");
@@ -330,8 +364,15 @@ classdef VlcRecorder < handle
             end
 
             if ~isempty(soutTargets)
-                soutArg = "--sout=""#duplicate{" + strjoin(soutTargets, ",") + "}""";
-                extraParts(end+1) = soutArg;
+                if (strlength(options.RecordingFile) > 0 || ~isempty(options.StreamPort))
+                    extraParts = [extraParts, obj.buildWebcamEncoderArgs()];
+                end
+
+                soutChain = obj.buildWebcamSoutChain(soutTargets, ...
+                    (strlength(options.RecordingFile) > 0 || ~isempty(options.StreamPort)), ...
+                    strlength(options.AudioDevice) > 0, ...
+                    options.FrameRate);
+                extraParts(end+1) = string(sprintf('--sout="%s"', char(soutChain)));
             end
 
             extraArgs = strjoin(extraParts, " ");
@@ -366,6 +407,138 @@ classdef VlcRecorder < handle
             end
         end
 
+        function assertRcEndpointAvailable(obj)
+            try
+                tcpclient(char(obj.Host), obj.Port, "Timeout", 0.2);
+                error("VlcRecorder:RcPortInUse", ...
+                    ["Cannot launch VLC because %s:%d is already accepting TCP connections. ", ...
+                    "An existing VLC RC instance may still be running. Quit the old instance or use a different port."], ...
+                    obj.Host, obj.Port);
+            catch me
+                if strcmp(me.identifier, "VlcRecorder:RcPortInUse")
+                    rethrow(me)
+                end
+            end
+        end
+
+        function out = buildWindowArgs(obj)
+            out = strings(0, 1);
+
+            hasWindowGeometry = obj.hasWindowGeometry();
+
+            if hasWindowGeometry
+                out(end+1) = "--intf dummy";
+                out(end+1) = "--dummy-quiet";
+                out(end+1) = "--no-embedded-video";
+                out(end+1) = "--no-qt-video-autoresize";
+            end
+
+            if isfinite(obj.WindowWidth) && obj.WindowWidth > 0
+                out(end+1) = "--width=" + string(round(obj.WindowWidth));
+            end
+            if isfinite(obj.WindowHeight) && obj.WindowHeight > 0
+                out(end+1) = "--height=" + string(round(obj.WindowHeight));
+            end
+            if isfinite(obj.WindowX)
+                out(end+1) = "--video-x=" + string(round(obj.WindowX));
+            end
+            if isfinite(obj.WindowY)
+                out(end+1) = "--video-y=" + string(round(obj.WindowY));
+            end
+        end
+
+        function tf = hasWindowGeometry(obj)
+            tf = ...
+                (isfinite(obj.WindowWidth) && obj.WindowWidth > 0) || ...
+                (isfinite(obj.WindowHeight) && obj.WindowHeight > 0) || ...
+                isfinite(obj.WindowX) || ...
+                isfinite(obj.WindowY);
+        end
+
+        function applyWindowGeometry(obj)
+            if ~ispc || ~obj.hasWindowGeometry()
+                return;
+            end
+
+            processId = obj.findLaunchedProcessId();
+            if isempty(processId)
+                return;
+            end
+
+            width = round(obj.WindowWidth);
+            height = round(obj.WindowHeight);
+            xpos = round(obj.WindowX);
+            ypos = round(obj.WindowY);
+
+            if ~isfinite(width) || width <= 0
+                width = 0;
+            end
+            if ~isfinite(height) || height <= 0
+                height = 0;
+            end
+            if ~isfinite(xpos)
+                xpos = 80;
+            end
+            if ~isfinite(ypos)
+                ypos = 80;
+            end
+
+            commandText = sprintf([ ...
+                'powershell -NoProfile -Command ', ...
+                '"Add-Type @''''', ...
+                'using System; ', ...
+                'using System.Runtime.InteropServices; ', ...
+                'public static class Win32 { ', ...
+                '[DllImport(\"user32.dll\")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam); ', ...
+                'public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam); ', ...
+                '[DllImport(\"user32.dll\")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId); ', ...
+                '[DllImport(\"user32.dll\")] public static extern bool IsWindowVisible(IntPtr hWnd); ', ...
+                '[DllImport(\"user32.dll\")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect); ', ...
+                '[DllImport(\"user32.dll\")] public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint); ', ...
+                '[StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; } ', ...
+                '} ', ...
+                '''''@; ', ...
+                '$targetPid = %d; $target = [IntPtr]::Zero; ', ...
+                'for ($attempt = 0; $attempt -lt 40 -and $target -eq [IntPtr]::Zero; $attempt++) { ', ...
+                '  [Win32]::EnumWindows({ param($hWnd, $lParam) ', ...
+                '    $pid = 0; [Win32]::GetWindowThreadProcessId($hWnd, [ref]$pid) | Out-Null; ', ...
+                '    if ($pid -eq $targetPid -and [Win32]::IsWindowVisible($hWnd)) { $script:target = $hWnd; return $false } ', ...
+                '    return $true }, [IntPtr]::Zero) | Out-Null; ', ...
+                '  if ($target -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 100 } ', ...
+                '} ', ...
+                'if ($target -ne [IntPtr]::Zero) { ', ...
+                '  $rect = New-Object Win32+RECT; ', ...
+                '  for ($attempt = 0; $attempt -lt 20; $attempt++) { ', ...
+                '    [Win32]::GetWindowRect($target, [ref]$rect) | Out-Null; ', ...
+                '    $targetWidth = %d; if ($targetWidth -le 0) { $targetWidth = $rect.Right - $rect.Left } ', ...
+                '    $targetHeight = %d; if ($targetHeight -le 0) { $targetHeight = $rect.Bottom - $rect.Top } ', ...
+                '    [Win32]::MoveWindow($target, %d, %d, $targetWidth, $targetHeight, $true) | Out-Null; ', ...
+                '    Start-Sleep -Milliseconds 150 ', ...
+                '  } ', ...
+                '}"'], ...
+                processId, width, height, xpos, ypos);
+            system(commandText);
+        end
+
+        function processId = findLaunchedProcessId(obj)
+            processId = [];
+            queryText = sprintf([ ...
+                'powershell -NoProfile -Command ', ...
+                '"Get-CimInstance Win32_Process | ', ...
+                'Where-Object { $_.Name -eq ''vlc.exe'' -and $_.CommandLine -like ''*--rc-host %s:%d*'' } | ', ...
+                'Select-Object -ExpandProperty ProcessId"'], ...
+                char(obj.Host), obj.Port);
+            [status, output] = system(queryText);
+            if status ~= 0
+                return;
+            end
+
+            matches = regexp(strtrim(output), '\d+', 'match');
+            if ~isempty(matches)
+                processId = str2double(matches{end});
+            end
+        end
+
         function out = quoteCliValue(~, value)
             textValue = strrep(char(string(value)), '"', '""');
             out = '"' + string(textValue) + '"';
@@ -387,6 +560,39 @@ classdef VlcRecorder < handle
             elseif ~startsWith(out, "/")
                 out = "/" + out;
             end
+        end
+
+        function out = buildWebcamSoutChain(obj, soutTargets, hasEncodedOutput, hasAudioInput, frameRate)
+            duplicateChain = "duplicate{" + strjoin(soutTargets, ",") + "}";
+            if ~hasEncodedOutput
+                out = "#" + duplicateChain;
+                return;
+            end
+
+            out = "#" + obj.buildWebcamTranscodeSpec(hasAudioInput, frameRate) + ":" + duplicateChain;
+        end
+
+        function out = buildWebcamTranscodeSpec(~, hasAudioInput, frameRate)
+            transcodeParts = ["vcodec=h264", "vb=2500"];
+            if ~isempty(frameRate)
+                transcodeParts(end+1) = "fps=" + string(frameRate);
+            end
+            if hasAudioInput
+                transcodeParts(end+1) = "acodec=mp4a";
+                transcodeParts(end+1) = "ab=128";
+            else
+                transcodeParts(end+1) = "acodec=none";
+            end
+
+            out = "transcode{" + strjoin(transcodeParts, ",") + "}";
+        end
+
+        function out = buildWebcamEncoderArgs(~)
+            out = [ ...
+                "--sout-x264-keyint=30", ...
+                "--sout-x264-min-keyint=30", ...
+                "--sout-x264-bframes=0", ...
+                "--sout-x264-tune=zerolatency"];
         end
     end
 

@@ -25,14 +25,20 @@ outputFile = fullfile(outputDir, 'vlc_webcam_capture.ts');
 streamPort = 8080;
 
 vlc = VlcRecorder();
-cleanupVlc = onCleanup(@() delete(vlc)); %#ok<NASGU>
+cleanupVlc = onCleanup(@() delete(vlc));
 
 streamUrl = vlc.launchWebcam(webcams(1), ...
     'RecordingFile', outputFile, ...
     'RecordingMux', 'ts', ...
+    'FrameRate', 30, ...
     'StreamPort', streamPort, ...
     'StreamPath', '/webcam', ...
     'ShowPreview', true);
+
+vlc.WindowWidth = 500;
+vlc.WindowHeight = 400;
+vlc.WindowX = 100;
+vlc.WindowY = 1500;
 
 vlc.connect();
 

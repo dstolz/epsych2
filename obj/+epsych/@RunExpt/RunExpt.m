@@ -207,11 +207,12 @@ classdef RunExpt < handle
             commandwindow
         end
 
-        verbosity(self)
+        verbosity(self, varargin)
     end
 
     methods (Access=private)
         buildUI(self)
+        onFigureKeyPress(self, evt)
         onCloseRequest(self)
         SaveDataCallback(self)
         recent = GetRecentConfigs(self)

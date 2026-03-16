@@ -37,3 +37,10 @@ When parsing input parameters in a Matlab functin, always make use of the `argum
     end
     ```
 - Avoid using unhandled `try/catch` blocks that may suppress important error information. Only use `try/catch` when you have a specific error handling strategy in place, such as logging the error or providing a user-friendly message.
+
+## Commenting
+ - Use concise and clear comments to explain the purpose of code blocks, especially for complex logic or non-obvious implementations.
+ - Avoid redundant comments that simply restate what the code does. Instead, focus on explaining why the code is doing something, or any important context that may not be immediately clear from the code itself.
+ - Use comments to indicate any assumptions, limitations, or important considerations related to the code.
+ - For public functions and methods, include a brief description of the function's purpose, its input parameters, and its return values in the comments. For private functions, focus on explaining the logic and any important details that may not be immediately clear from the code itself.
+ - For classes, include comments that describe the overall purpose of the class, its properties, and its methods. For complex classes, consider adding comments to explain the relationships between different properties and methods, as well as any important design decisions or patterns used in the implementation. Also provide minimmal usage examples in the class comments when appropriate.

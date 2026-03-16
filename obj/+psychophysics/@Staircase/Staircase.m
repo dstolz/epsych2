@@ -174,17 +174,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
             end
 
             obj.StepDirection = [nan,d];
-            % Count reversals only when non-zero step directions flip sign.
-            % This avoids false reversals from neutral steps (e.g., abort/no-change trials).
-            nonZeroStepIdx = find(d ~= 0);
-            if numel(nonZeroStepIdx) >= 2
-                prevStepIdx = nonZeroStepIdx(1:end-1);
-                nextStepIdx = nonZeroStepIdx(2:end);
-                isReversal = d(prevStepIdx).*d(nextStepIdx) < 0;
-                obj.ReversalIdx = nextStepIdx(isReversal) + 1;
-            else
-                obj.ReversalIdx = [];
-            end
+            obj.ReversalIdx = find(diff(sign(obj.StepDirection))~=0) + 1;
 
 
             obj.ReversalCount = length(obj.ReversalIdx);

@@ -207,6 +207,13 @@ classdef RunExpt < handle
             commandwindow
         end
 
+        function AssignRuntimeToCommandWindow(self)
+            % AssignRuntimeToCommandWindow Export RUNTIME to base workspace.
+            assignin('base','RUNTIME',self.RUNTIME);
+            vprintf(0,'Assigned `RunExpt.RUNTIME` to workspace variable `RUNTIME`.')
+            commandwindow
+        end
+
         verbosity(self, varargin)
     end
 

@@ -34,3 +34,12 @@ switch self.STATE
     case PRGMSTATE.ERROR
         set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
 end
+
+try
+    if double(self.RUNTIME.HW.mode) > 0
+        set(self.H.mnu_assign_runtime,'Enable','on')
+    else
+        set(self.H.mnu_assign_runtime,'Enable','off')
+    end
+end
+

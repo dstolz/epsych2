@@ -51,9 +51,9 @@ classdef VlcRecorder < handle
     end
 
     properties (Access = private)
-        Client = [] % Active tcpclient handle for VLC RC communication.
-        IsRecording (1,1) logical = false % Cached VLC record-toggle state.
-        IsConnected (1,1) logical = false % Tracks whether the RC socket is connected.
+        client_ = [] % Active tcpclient handle for VLC RC communication.
+        isRecording_ (1,1) logical = false % Cached VLC record-toggle state.
+        isConnected_ (1,1) logical = false % Tracks whether the RC socket is connected.
     end
 
     methods
@@ -147,6 +147,7 @@ classdef VlcRecorder < handle
                 options.AudioDevice {mustBeTextScalar} = ""
                 options.RecordingFile {mustBeTextScalar} = ""
                 options.RecordingMux {mustBeTextScalar} = "ts"
+                options.FrameRate = []
                 options.StreamPort = []
                 options.StreamPath {mustBeTextScalar} = "/webcam"
                 options.StreamMux {mustBeTextScalar} = "ts"
@@ -170,28 +171,28 @@ classdef VlcRecorder < handle
         function connect(obj)
             % obj.connect()
             % Open TCP connection to the VLC RC interface.
-            if obj.IsConnected
+            if obj.isConnected_
                 return;
             end
 
-            obj.Client = tcpclient(char(obj.Host), obj.Port, "Timeout", obj.Timeout);
-            configureTerminator(obj.Client, "LF");
+            obj.client_ = tcpclient(char(obj.Host), obj.Port, "Timeout", obj.Timeout);
+            configureTerminator(obj.client_, "LF");
 
             pause(0.2);
             obj.readAvailable();
 
-            obj.IsConnected = true;
+            obj.isConnected_ = true;
         end
 
         function disconnect(obj)
             % obj.disconnect()
             % Close the TCP connection to the VLC RC interface.
-            if ~obj.IsConnected
+            if ~obj.isConnected_
                 return;
             end
 
-            obj.Client = [];
-            obj.IsConnected = false;
+            obj.client_ = [];
+            obj.isConnected_ = false;
         end
 
         function add(obj, mediaUri)
@@ -231,7 +232,7 @@ classdef VlcRecorder < handle
             % Stop playback and clear the cached recording toggle state.
             obj.requireConnection();
             obj.sendCommand("stop");
-            obj.IsRecording = false;
+            obj.isRecording_ = false;
         end
 
         function clearPlaylist(obj)
@@ -239,7 +240,7 @@ classdef VlcRecorder < handle
             % Clear the VLC playlist and reset the cached recording state.
             obj.requireConnection();
             obj.sendCommand("clear");
-            obj.IsRecording = false;
+            obj.isRecording_ = false;
         end
 
         function startRecording(obj)
@@ -249,9 +250,9 @@ classdef VlcRecorder < handle
             %   VLC implements record as a toggle, so state is tracked locally.
             obj.requireConnection();
 
-            if ~obj.IsRecording
+            if ~obj.isRecording_
                 obj.sendCommand("record");
-                obj.IsRecording = true;
+                obj.isRecording_ = true;
             end
         end
 
@@ -262,9 +263,9 @@ classdef VlcRecorder < handle
             %   VLC implements record as a toggle, so state is tracked locally.
             obj.requireConnection();
 
-            if obj.IsRecording
+            if obj.isRecording_
                 obj.sendCommand("record");
-                obj.IsRecording = false;
+                obj.isRecording_ = false;
             end
         end
 
@@ -273,7 +274,7 @@ classdef VlcRecorder < handle
             % Query the cached recording state.
             % Output:
             %   tf - True when recording is believed active.
-            tf = obj.IsRecording;
+            tf = obj.isRecording_;
         end
 
         function out = status(obj)
@@ -308,16 +309,17 @@ classdef VlcRecorder < handle
         function quit(obj)
             % obj.quit()
             % Request VLC to quit and reset local connection state.
-            if obj.IsConnected
+            if obj.isConnected_
                 try
                     obj.sendCommand("quit");
-                catch
+                catch ME
+                    vprintf(0, 1, ME);
                 end
             end
 
-            obj.Client = [];
-            obj.IsConnected = false;
-            obj.IsRecording = false;
+            obj.client_ = [];
+            obj.isConnected_ = false;
+            obj.isRecording_ = false;
         end
 
         function delete(obj)
@@ -325,7 +327,8 @@ classdef VlcRecorder < handle
             % Perform best-effort cleanup of VLC connection and process state.
             try
                 obj.quit();
-            catch
+            catch ME
+                vprintf(0, 1, ME);
             end
         end
     end
@@ -361,31 +364,30 @@ classdef VlcRecorder < handle
     end
 
     methods (Access = private)
-        function options = parseWebcamOptions(~, varargin)
-            parser = inputParser;
-            parser.FunctionName = 'VlcRecorder.launchWebcam';
-            addParameter(parser, 'AudioDevice', "", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'RecordingFile', "", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'RecordingMux', "ts", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'FrameRate', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x) && isfinite(x) && x > 0));
-            addParameter(parser, 'StreamPort', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x) && isfinite(x) && x > 0));
-            addParameter(parser, 'StreamPath', "/webcam", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'StreamMux', "ts", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'StreamBind', "0.0.0.0", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'ShowPreview', true, @(x) islogical(x) || isnumeric(x));
-            addParameter(parser, 'LiveCaching', 300, @(x) isscalar(x) && isnumeric(x) && isfinite(x) && x >= 0);
-            addParameter(parser, 'ExtraArgs', "--no-video-title-show", @(x) ischar(x) || isstring(x));
-            parse(parser, varargin{:});
+        function options = normalizeWebcamOptions(~, options)
+            % options = obj.normalizeWebcamOptions(options)
+            % Normalize webcam launch option field types and ranges.
+            % Input:
+            %   options - Struct created by launchWebcam arguments parsing.
+            % Output:
+            %   options - Normalized struct with string/numeric canonical forms.
+            arguments
+                ~
+                options struct
+            end
 
-            options = parser.Results;
             options.AudioDevice = string(options.AudioDevice);
             options.RecordingFile = string(options.RecordingFile);
             options.RecordingMux = lower(string(options.RecordingMux));
+
             if isempty(options.FrameRate)
                 options.FrameRate = [];
             else
+                validateattributes(options.FrameRate, {"numeric"}, {"scalar", "finite", "positive"}, ...
+                    "VlcRecorder.launchWebcam", "FrameRate");
                 options.FrameRate = double(options.FrameRate);
             end
+
             options.StreamPath = string(options.StreamPath);
             options.StreamMux = lower(string(options.StreamMux));
             options.StreamBind = string(options.StreamBind);
@@ -396,6 +398,8 @@ classdef VlcRecorder < handle
             if isempty(options.StreamPort)
                 options.StreamPort = [];
             else
+                validateattributes(options.StreamPort, {"numeric"}, {"scalar", "finite", "positive"}, ...
+                    "VlcRecorder.launchWebcam", "StreamPort");
                 options.StreamPort = round(options.StreamPort);
             end
 
@@ -499,7 +503,7 @@ classdef VlcRecorder < handle
                 command {mustBeTextScalar}
             end
 
-            write(obj.Client, uint8([char(command), newline]), "uint8");
+            write(obj.client_, uint8([char(command), newline]), "uint8");
             pause(0.15);
             out = obj.readAvailable();
         end
@@ -510,13 +514,13 @@ classdef VlcRecorder < handle
             % Output:
             %   out - Buffered RC response text with surrounding whitespace removed.
             out = "";
-            if isempty(obj.Client)
+            if isempty(obj.client_)
                 return;
             end
 
             pause(0.05);
-            while obj.Client.NumBytesAvailable > 0
-                chunk = read(obj.Client, obj.Client.NumBytesAvailable, "uint8");
+            while obj.client_.NumBytesAvailable > 0
+                chunk = read(obj.client_, obj.client_.NumBytesAvailable, "uint8");
                 out = out + string(char(chunk(:).'));
                 pause(0.02);
             end
@@ -527,7 +531,7 @@ classdef VlcRecorder < handle
         function requireConnection(obj)
             % obj.requireConnection()
             % Guard helper to enforce an active RC connection.
-            if ~obj.IsConnected || isempty(obj.Client)
+            if ~obj.isConnected_ || isempty(obj.client_)
                 error("VlcRecorder:NotConnected", ...
                     "Not connected to VLC. Call launch/connect first.");
             end

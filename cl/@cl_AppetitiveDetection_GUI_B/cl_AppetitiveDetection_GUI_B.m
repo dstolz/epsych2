@@ -311,10 +311,10 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                     'StreamPath', '/webcam', ...
                     'ShowPreview', true);
 
-                vlc.WindowWidth = 500;
-                vlc.WindowHeight = 400;
-                vlc.WindowX = 100;
-                vlc.WindowY = 1500;
+                vlc.windowWidth = 500;
+                vlc.windowHeight = 400;
+                vlc.windowX = 100;
+                vlc.windowY = 1500;
 
                 vlc.connect();
                 obj.VLC = vlc;

@@ -40,14 +40,14 @@ classdef VlcRecorder < handle
     % one VLC instance per webcam.
 
     properties
-        VlcPath (1,1) string = "C:\Program Files\VideoLAN\VLC\vlc.exe"
-        Host (1,1) string = "127.0.0.1"
-        Port (1,1) double = 4212
-        Timeout (1,1) double = 5
-        WindowWidth (1,1) double = 500
-        WindowHeight (1,1) double = 400
-        WindowX (1,1) double = 80
-        WindowY (1,1) double = 80
+        vlcPath (1,1) string = "C:\Program Files\VideoLAN\VLC\vlc.exe"
+        host (1,1) string = "127.0.0.1"
+        port (1,1) double = 4212
+        timeout (1,1) double = 5
+        windowWidth (1,1) double = 500
+        windowHeight (1,1) double = 400
+        windowX (1,1) double = 80
+        windowY (1,1) double = 80
     end
 
     properties (Access = private)
@@ -76,13 +76,13 @@ classdef VlcRecorder < handle
             host = string(host);
 
             if strlength(vlcPath) > 0
-                obj.VlcPath = vlcPath;
+                obj.vlcPath = vlcPath;
             end
             if strlength(host) > 0
-                obj.Host = host;
+                obj.host = host;
             end
             if ~isnan(port)
-                obj.Port = port;
+                obj.port = port;
             end
         end
 
@@ -98,19 +98,19 @@ classdef VlcRecorder < handle
                 mediaTarget {mustBeTextScalar} = ""
             end
 
-            if ~isfile(obj.VlcPath)
+            if ~isfile(obj.vlcPath)
                 error("VlcRecorder:VlcNotFound", ...
-                    "VLC executable not found: %s", obj.VlcPath);
+                    "VLC executable not found: %s", obj.vlcPath);
             end
 
             obj.assertRcEndpointAvailable();
 
-            rcArgs = sprintf('--extraintf rc --rc-host %s:%d --rc-quiet', obj.Host, obj.Port);
+            rcArgs = sprintf('--extraintf rc --rc-host %s:%d --rc-quiet', obj.host, obj.port);
             windowArgs = obj.buildWindowArgs();
             extraArgs = strtrim(string(extraArgs));
             mediaTarget = strtrim(string(mediaTarget));
 
-            launchParts = ["""" + obj.VlcPath + """", string(rcArgs)];
+            launchParts = ["""" + obj.vlcPath + """", string(rcArgs)];
             if ~isempty(windowArgs)
                 launchParts = [launchParts, windowArgs];
             end
@@ -175,7 +175,7 @@ classdef VlcRecorder < handle
                 return;
             end
 
-            obj.client_ = tcpclient(char(obj.Host), obj.Port, "Timeout", obj.Timeout);
+            obj.client_ = tcpclient(char(obj.host), obj.port, "Timeout", obj.timeout);
             configureTerminator(obj.client_, "LF");
 
             pause(0.2);
@@ -312,8 +312,8 @@ classdef VlcRecorder < handle
             if obj.isConnected_
                 try
                     obj.sendCommand("quit");
-                catch ME
-                    vprintf(0, 1, ME);
+                catch me
+                    vprintf(0, 1, me);
                 end
             end
 
@@ -327,8 +327,8 @@ classdef VlcRecorder < handle
             % Perform best-effort cleanup of VLC connection and process state.
             try
                 obj.quit();
-            catch ME
-                vprintf(0, 1, ME);
+            catch me
+                vprintf(0, 1, me);
             end
         end
     end
@@ -466,7 +466,7 @@ classdef VlcRecorder < handle
 
                 publicHost = options.StreamBind;
                 if publicHost == "0.0.0.0"
-                    publicHost = obj.Host;
+                    publicHost = obj.host;
                 end
                 streamUrl = "http://" + publicHost + ":" + string(options.StreamPort) + streamPath;
             end
@@ -539,11 +539,11 @@ classdef VlcRecorder < handle
 
         function assertRcEndpointAvailable(obj)
             try
-                tcpclient(char(obj.Host), obj.Port, "Timeout", 0.2);
+                tcpclient(char(obj.host), obj.port, "Timeout", 0.2);
                 error("VlcRecorder:RcPortInUse", ...
                     ["Cannot launch VLC because %s:%d is already accepting TCP connections. ", ...
                     "An existing VLC RC instance may still be running. Quit the old instance or use a different port."], ...
-                    obj.Host, obj.Port);
+                    obj.host, obj.port);
             catch me
                 if strcmp(me.identifier, "VlcRecorder:RcPortInUse")
                     rethrow(me)
@@ -563,26 +563,26 @@ classdef VlcRecorder < handle
                 out(end+1) = "--no-qt-video-autoresize";
             end
 
-            if isfinite(obj.WindowWidth) && obj.WindowWidth > 0
-                out(end+1) = "--width=" + string(round(obj.WindowWidth));
+            if isfinite(obj.windowWidth) && obj.windowWidth > 0
+                out(end+1) = "--width=" + string(round(obj.windowWidth));
             end
-            if isfinite(obj.WindowHeight) && obj.WindowHeight > 0
-                out(end+1) = "--height=" + string(round(obj.WindowHeight));
+            if isfinite(obj.windowHeight) && obj.windowHeight > 0
+                out(end+1) = "--height=" + string(round(obj.windowHeight));
             end
-            if isfinite(obj.WindowX)
-                out(end+1) = "--video-x=" + string(round(obj.WindowX));
+            if isfinite(obj.windowX)
+                out(end+1) = "--video-x=" + string(round(obj.windowX));
             end
-            if isfinite(obj.WindowY)
-                out(end+1) = "--video-y=" + string(round(obj.WindowY));
+            if isfinite(obj.windowY)
+                out(end+1) = "--video-y=" + string(round(obj.windowY));
             end
         end
 
         function tf = hasWindowGeometry(obj)
             tf = ...
-                (isfinite(obj.WindowWidth) && obj.WindowWidth > 0) || ...
-                (isfinite(obj.WindowHeight) && obj.WindowHeight > 0) || ...
-                isfinite(obj.WindowX) || ...
-                isfinite(obj.WindowY);
+                (isfinite(obj.windowWidth) && obj.windowWidth > 0) || ...
+                (isfinite(obj.windowHeight) && obj.windowHeight > 0) || ...
+                isfinite(obj.windowX) || ...
+                isfinite(obj.windowY);
         end
 
         function applyWindowGeometry(obj)
@@ -595,10 +595,10 @@ classdef VlcRecorder < handle
                 return;
             end
 
-            width = round(obj.WindowWidth);
-            height = round(obj.WindowHeight);
-            xpos = round(obj.WindowX);
-            ypos = round(obj.WindowY);
+            width = round(obj.windowWidth);
+            height = round(obj.windowHeight);
+            xpos = round(obj.windowX);
+            ypos = round(obj.windowY);
 
             if ~isfinite(width) || width <= 0
                 width = 0;
@@ -657,7 +657,7 @@ classdef VlcRecorder < handle
                 '"Get-CimInstance Win32_Process | ', ...
                 'Where-Object { $_.Name -eq ''vlc.exe'' -and $_.CommandLine -like ''*--rc-host %s:%d*'' } | ', ...
                 'Select-Object -ExpandProperty ProcessId"'], ...
-                char(obj.Host), obj.Port);
+                char(obj.host), obj.port);
             [status, output] = system(queryText);
             if status ~= 0
                 return;

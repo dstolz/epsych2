@@ -81,7 +81,7 @@ classdef VlcRecorderGroup < handle
                 for idx = 1:recorderCount
                     cameraConfig = obj.Cameras(idx);
                     recorder = VlcRecorder(cameraConfig.VlcPath, cameraConfig.Host, cameraConfig.Port);
-                    recorder.Timeout = cameraConfig.Timeout;
+                    recorder.timeout = cameraConfig.Timeout;
                     optionPairs = obj.cameraOptionPairs(cameraConfig);
 
                     streamUrls(idx) = recorder.launchWebcam( ...

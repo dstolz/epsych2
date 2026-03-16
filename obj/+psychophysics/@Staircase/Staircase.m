@@ -174,14 +174,24 @@ classdef Staircase < handle & matlab.mixin.SetGet
             end
 
             obj.StepDirection = [nan,d];
-            obj.ReversalIdx = find(d(2:end)>d(1:end-1) | d(2:end)<d(1:end-1)) + 1;
+            % Count reversals only when non-zero step directions flip sign.
+            % This avoids false reversals from neutral steps (e.g., abort/no-change trials).
+            nonZeroStepIdx = find(d ~= 0);
+            if numel(nonZeroStepIdx) >= 2
+                prevStepIdx = nonZeroStepIdx(1:end-1);
+                nextStepIdx = nonZeroStepIdx(2:end);
+                isReversal = d(prevStepIdx).*d(nextStepIdx) < 0;
+                obj.ReversalIdx = nextStepIdx(isReversal) + 1;
+            else
+                obj.ReversalIdx = [];
+            end
 
 
             obj.ReversalCount = length(obj.ReversalIdx);
 
             if obj.ReversalCount > 0
                 lastNReversals = obj.ReversalIdx(max(1, end - obj.ThresholdFromLastNReversals + 1):end);
-                thresholdValues = obj.stimulusValues(lastNReversals);
+                thresholdValues = stimValues(lastNReversals);
                 
                 if obj.ThresholdFormula == "Mean"
                     obj.Threshold = mean(thresholdValues);

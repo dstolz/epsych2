@@ -1,9 +1,20 @@
 function showGridBorders(gridLayout)
-    % Visualizes a uigridlayout's cells with colored borders and descriptive labels.
-    
-    % Ensure the gridLayout is valid
-    assert(isa(gridLayout, 'matlab.ui.container.GridLayout'), ...
-        'Input must be a uigridlayout object');
+% showGridBorders(gridLayout)
+% Visualize uigridlayout cells for debugging.
+%
+% Adds a uilabel to each cell of the provided uigridlayout, coloring each
+% cell and showing row/column indices plus row/column size strings.
+%
+% Parameters
+%   gridLayout (1,1) matlab.ui.container.GridLayout
+%
+% Notes
+%   This function modifies the layout by adding child components (labels).
+%   Use on an empty/debug layout (or clear existing children first).
+
+    arguments
+        gridLayout (1,1) matlab.ui.container.GridLayout
+    end
     
     % Get grid dimensions
     numRows = numel(gridLayout.RowHeight);
@@ -40,7 +51,15 @@ function showGridBorders(gridLayout)
 end
 
 function dimStr = gridDimensionToStr(dim)
-    % Helper function to convert grid dimension to a string
+% gridDimensionToStr(dim)
+% Convert a GridLayout row/column dimension to a readable string.
+%
+% Parameters
+%   dim - Value from GridLayout RowHeight/ColumnWidth cell arrays.
+%
+% Returns
+%   dimStr (1,:) char
+
     if isnumeric(dim)
         dimStr = sprintf('%dpx', dim);
     else

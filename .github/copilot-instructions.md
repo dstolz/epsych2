@@ -36,3 +36,4 @@ When parsing input parameters in a Matlab functin, always make use of the `argum
         vprintf(0,1,ME);
     end
     ```
+- Avoid using unhandled `try/catch` blocks that may suppress important error information. Only use `try/catch` when you have a specific error handling strategy in place, such as logging the error or providing a user-friendly message.

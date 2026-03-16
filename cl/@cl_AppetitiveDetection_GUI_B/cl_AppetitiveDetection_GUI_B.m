@@ -44,7 +44,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         ttCatch     = 1;
         ttReminder  = 2;
 
-        
+        VLC % VlcRecorder instance for webcam recording
     end
 
     properties (Hidden)
@@ -89,6 +89,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
             % obj.create_onlineplot; % FIX PERFORMANCE
 
+            % obj.start_vlc_recording();
+
 
             if nargout == 0, clear obj; end
 
@@ -104,6 +106,10 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             % delete(t(i));
 
             vprintf(3,'cl_AppetitiveDetection_GUI_B: destructor')
+
+            try
+                obj.end_vlc_recording();
+            end
 
             try
                 close(obj.hl_RWDelayTrainingGUI);
@@ -253,7 +259,71 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
         end
 
+    end
 
+    methods (Access = protected)
+        function end_vlc_recording(obj)
+            vprintf(3,'Ending VLC webcam recording')
+            try
+                vprintf(2,'Video saved to: %s', obj.VLC.RecordingFile)
+                obj.VLC.quit();
+                delete(obj.VLC);
+            catch ME
+                vprintf(0,1,'Failed to end VLC webcam recording: %s', ME.message)
+                vprintf(-1,ME);
+            end
+        end
+
+        function start_vlc_recording(obj)
+            R = obj.RUNTIME;
+
+            vprintf(3,'Starting VLC webcam recording')
+
+            try
+                webcams = VlcRecorder.listWebcams();
+                if isempty(webcams)
+                    vprintf(0,1,'EPsych:exampleVlcWebcamRecorder:NoWebcams', ...
+                        'No webcam devices were found for VLC capture.')
+                end
+
+                effn = R.TRIALS.DataFilename;
+                [epth,efn,~] = fileparts(effn);
+                efn = [efn '_video.ts'];
+                [epth,~] = fileparts(epth);
+                [epth,~] = fileparts(epth);
+
+                outputDir = fullfile(epth, 'Videos');
+                if ~isfolder(outputDir)
+                    mkdir(outputDir)
+                end
+
+                outputFile = fullfile(outputDir, efn);
+                streamPort = 8080;
+
+                vlc = VlcRecorder();
+                cleanupVlc = onCleanup(@() delete(vlc));
+
+                vlc.launchWebcam(webcams(1), ...
+                    'RecordingFile', outputFile, ...
+                    'RecordingMux', 'ts', ...
+                    'FrameRate', 30, ...
+                    'StreamPort', streamPort, ...
+                    'StreamPath', '/webcam', ...
+                    'ShowPreview', true);
+
+                vlc.WindowWidth = 500;
+                vlc.WindowHeight = 400;
+                vlc.WindowX = 100;
+                vlc.WindowY = 1500;
+
+                vlc.connect();
+                obj.VLC = vlc;
+
+            catch ME
+                vprintf(0,1,'Failed to start VLC webcam recording: %s', ME.message)
+                vprintf(-1,ME);
+            end
+        end
     end
 
     methods (Static)

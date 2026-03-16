@@ -188,14 +188,14 @@ h.Text = "Maximum Depth (%):";
 
 
 % >> Step on Miss
-p = R.S.Module.add_parameter('StepOnMiss',0.01);
+p = R.S.Module.add_parameter('StepOnMiss',0.09);
 p.Min = 1e-6;
 p.Max = 0.5;
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield',autoCommit=true);
 h.Text = "Increment on Miss (%):";
 
 % >> Step on Hit
-p = R.S.Module.add_parameter('StepOnHit',0.02);
+p = R.S.Module.add_parameter('StepOnHit',0.03);
 p.Min = 1e-6;
 p.Max = 0.5;
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield',autoCommit=true);

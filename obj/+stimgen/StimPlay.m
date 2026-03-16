@@ -1,4 +1,16 @@
 classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
+
+    % obj = stimgen.StimPlay(StimObj)
+    % Playback scheduler for one or more StimType objects.
+    %
+    % StimPlay tracks repetitions and selection order (Serial/Shuffle) and
+    % exposes the currently-selected stimulus waveform via Signal.
+    %
+    % Properties (selected):
+    %   StimObj, Reps, ISI, SelectionType
+    %
+    % Methods:
+    %   increment, reset, update_signal
     
     
     properties (AbortSet,SetObservable)

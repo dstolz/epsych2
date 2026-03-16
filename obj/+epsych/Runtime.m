@@ -1,4 +1,18 @@
 classdef Runtime < handle
+    % r = epsych.Runtime()
+    % Runtime container for EPsych experiment execution state.
+    %
+    % This class holds experiment-wide runtime state such as subject count,
+    % trial metadata, hardware interfaces, helper event dispatch, and the
+    % MATLAB timer used by GUI / runtime services.
+    %
+    % Properties:
+    %   TRIALS, HW, S, CORE - Primary runtime components.
+    %   HELPER, TIMER       - Helper/event dispatcher and timer handle.
+    %   DataDir, DataFile   - Output location(s) for acquired data.
+    %
+    % Methods:
+    %   Runtime             - Construct an empty runtime container.
 
     properties
         NSubjects (1,1) double {mustBeNonnegative,mustBeInteger} = 1

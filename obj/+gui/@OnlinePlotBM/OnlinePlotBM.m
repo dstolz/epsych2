@@ -1,4 +1,15 @@
 classdef OnlinePlotBM < handle
+    % obj = gui.OnlinePlotBM(RUNTIME, BMBank, ax, BoxID)
+    % Online plot of bitmask parameters from a named bank.
+    %
+    % This plot polls bitmask parameters on a timer and renders their
+    % activity over a sliding time window.
+    %
+    % Inputs:
+    %   RUNTIME - Runtime providing HW parameter access.
+    %   BMBank  - Bank name(s) used to find bitmask parameters.
+    %   ax      - Target axes (optional; creates a figure if empty).
+    %   BoxID   - Box identifier (default = 1).
     
     properties
         ax    (1,1)   % axes handle

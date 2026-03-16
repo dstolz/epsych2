@@ -1,4 +1,12 @@
 classdef FilenameValidator < handle
+    % obj = gui.FilenameValidator(RUNTIME, parent, defaultFilename)
+    % Edit-field helper that validates and updates the runtime data filename.
+    %
+    % This widget enforces a ".mat" extension, disallows invalid characters,
+    % and warns when the requested file already exists.
+    %
+    % Methods:
+    %   (private) onValueChanged - Validate and commit the new filename.
     properties 
         EditField           matlab.ui.control.EditField
         PreviousValue       string

@@ -1,4 +1,17 @@
 classdef PumpCom < handle
+    % obj = epsych.PumpCom(RUNTIME, Port, BaudRate)
+    % Serial controller for a syringe pump used for reward delivery.
+    %
+    % This class manages a serialport connection to the pump and exposes a
+    % small set of observable properties (rate/units/trigger/diameter).
+    % Property changes are forwarded to the device via serial commands.
+    %
+    % Properties:
+    %   PumpRate, PumpUnits, SyringeDiameter, PumpOperationalTrigger
+    %   VolumeDispensed (Dependent) - Query dispensed volume from the pump.
+    %
+    % Methods:
+    %   create_gui - Create a small UI for monitoring/adjusting pump state.
     
     properties (SetObservable = true,GetObservable = true)
         PumpRate                (1,1) double {mustBePositive} = 0.7;
@@ -58,7 +71,7 @@ classdef PumpCom < handle
                 delete(obj.Device);
                 obj.kill_gui_timer;
             catch me
-                warning(me.identifier,me.message) %#ok<MEXCEP>
+                warning(me.identifier,me.message)
             end
             
         end

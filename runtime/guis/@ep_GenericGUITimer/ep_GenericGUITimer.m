@@ -1,4 +1,11 @@
 classdef ep_GenericGUITimer < handle
+    % obj = ep_GenericGUITimer(hFig, timerName)
+    % Legacy GUI timer wrapper (runtime/guis).
+    %
+    % This class wraps a MATLAB timer and stores user-supplied callbacks
+    % (StartFcn/TimerFcn/ErrorFcn/StopFcn) for periodically updating GUIs.
+    %
+    % See also gui.GenericTimer
     
     properties
         Period (1,1) double {mustBeFinite,mustBePositive} = 0.5;

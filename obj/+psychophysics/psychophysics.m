@@ -1,4 +1,16 @@
 classdef psychophysics < handle
+    % obj = psychophysics.psychophysics(Runtime, BoxID)
+    % Abstract base class for computing psychophysics metrics from trial data.
+    %
+    % Subclasses define ResponseBits and Type, and this class derives common
+    % dependent quantities (counts, rates, d-prime) from the Runtime trial data.
+    %
+    % Properties (selected):
+    %   Runtime, BoxID - Runtime handle and box identifier.
+    %   Count, Rate    - Derived counts/rates per trial type.
+    %
+    % Methods:
+    %   dprime         - Compute d' for each active trial type.
     
     properties (Abstract,Constant)
         ResponseBits

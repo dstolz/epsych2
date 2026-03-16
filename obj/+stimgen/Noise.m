@@ -1,4 +1,10 @@
 classdef Noise < stimgen.StimType
+
+    % obj = stimgen.Noise(Name,Value,...)
+    % Band-limited noise stimulus generator.
+    %
+    % Generates Gaussian noise filtered between HighPass and LowPass.
+    % The waveform is optionally windowed/gated and calibrated.
     
     properties (SetObservable,AbortSet)
         HighPass  (1,1) double {mustBeNonnegative,mustBeFinite} = 500; % Hz

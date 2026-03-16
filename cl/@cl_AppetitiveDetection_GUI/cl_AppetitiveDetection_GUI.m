@@ -1,4 +1,18 @@
 classdef cl_AppetitiveDetection_GUI < handle
+    % obj = cl_AppetitiveDetection_GUI(RUNTIME)
+    % GUI controller for the appetitive detection protocol.
+    %
+    % This class creates and manages the protocol GUI, including online
+    % plotting, trial filtering, and session performance displays.
+    %
+    % Properties:
+    %   psychDetect, psychPlot - Psychophysics object + plotting helper.
+    %   ResponseHistory        - Trial history display helper.
+    %   Performance            - Summary performance display helper.
+    %
+    % Methods:
+    %   create_gui             - Build the GUI layout and controls.
+    %   eval_gonogo            - Evaluate a Go/NoGo response event.
 
     properties (SetAccess = protected)
         h_figure               % Main figure handle
@@ -30,8 +44,8 @@ classdef cl_AppetitiveDetection_GUI < handle
     end
 
     methods
-        create_gui(obj)
-        [value,success] = eval_gonogo(obj,src,event)
+        create_gui(obj) % Create the GUI layout and register callbacks.
+        [value,success] = eval_gonogo(obj,src,event) % Evaluate a Go/NoGo response.
 
         % constructor
         function obj = cl_AppetitiveDetection_GUI(RUNTIME)

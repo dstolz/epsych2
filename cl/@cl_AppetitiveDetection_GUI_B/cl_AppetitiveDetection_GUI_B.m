@@ -56,8 +56,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
     end
 
     methods
-        create_gui(obj)
-        [value,success] = eval_gonogo(obj,src,event)
+        create_gui(obj) % Create the GUI layout and register callbacks.
+        [value,success] = eval_gonogo(obj,src,event) % Evaluate a Go/NoGo response.
 
         % constructor
         function obj = cl_AppetitiveDetection_GUI_B(RUNTIME)

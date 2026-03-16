@@ -1,4 +1,13 @@
 classdef Software < hw.Interface
+    % obj = hw.Software(params, trial)
+    % Software-only hw.Interface implementation.
+    %
+    % This class provides a minimal hw.Interface that stores parameters in
+    % memory (no physical hardware I/O). It is useful for testing GUIs and
+    % protocol logic without a device connection.
+    %
+    % Properties:
+    %   Module - Single hw.Module instance containing hw.Parameter entries.
 
 
     properties (SetAccess = protected)

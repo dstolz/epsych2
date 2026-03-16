@@ -1,5 +1,14 @@
 classdef TDT_Synapse < hw.Interface
 
+    % obj = hw.TDT_Synapse(Server)
+    % Hardware interface for TDT Synapse via the Synapse API wrapper.
+    %
+    % This interface implements the hw.Interface contract for reading and
+    % writing Synapse parameters and issuing trigger pulses.
+    %
+    % Methods:
+    %   trigger, set_parameter, get_parameter, update_experiment_info
+
 
     properties
         ExperimentInfo (1,1) struct
@@ -58,7 +67,7 @@ classdef TDT_Synapse < hw.Interface
 
 
     methods (Access=protected) % INHERITED FROM ABSTRACT CLASS hw.Interface
-        setup_interface(obj)
+        setup_interface(obj) % Initialize Synapse connection and parameter modules.
 
 
 
@@ -67,7 +76,7 @@ classdef TDT_Synapse < hw.Interface
                 obj.HW.mode = hw.DeviceState.Idle;
             end
 
-            try %#ok<TRYNC>
+            if ~isempty(obj.HW) && isvalid(obj.HW)
                 delete(obj.HW)
             end
         end

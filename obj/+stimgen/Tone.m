@@ -1,4 +1,10 @@
 classdef Tone < stimgen.StimType
+
+    % obj = stimgen.Tone(Name,Value,...)
+    % Pure-tone stimulus generator.
+    %
+    % Generates a sine tone at Frequency for Duration seconds, optionally
+    % windowed/gated and calibrated.
     
     properties (SetObservable,AbortSet)
         Frequency  (1,1) double {mustBePositive,mustBeFinite} = 1000; % Hz

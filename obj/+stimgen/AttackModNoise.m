@@ -1,4 +1,10 @@
 classdef AttackModNoise < stimgen.Noise
+
+    % obj = stimgen.AttackModNoise(Name,Value,...)
+    % Attack-modulated band-limited noise stimulus.
+    %
+    % Generates a noise carrier (via stimgen.Noise) and applies a ramped/
+    % damped modulation envelope controlled by Z and AMRate.
     
     properties (SetObservable,AbortSet)
         AMDepth (1,1) double {mustBeGreaterThanOrEqual(AMDepth,0),mustBeLessThanOrEqual(AMDepth,1)} = 1; % [0 1] 

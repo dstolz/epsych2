@@ -1,4 +1,16 @@
 classdef Module < handle
+    % obj = hw.Module(HW, Label, Name, Index)
+    % Container for a hardware module and its parameters.
+    %
+    % A Module groups hw.Parameter objects under a named hardware unit
+    % (real hardware or a software shim) for use by hw.Interface.
+    %
+    % Properties (selected):
+    %   parent     - Parent hw.Interface instance.
+    %   Parameters - Array of hw.Parameter handles belonging to this module.
+    %
+    % Methods:
+    %   add_parameter - Convenience method for creating/adding a parameter.
         
     properties (SetAccess = immutable)
         parent (1,1)  % parent hardware interface (inherits hw.Interface)

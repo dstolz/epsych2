@@ -1,5 +1,17 @@
 classdef EPsychInfo < handle
-    % class contains general inormation for the EPsych software
+    % obj = EPsychInfo()
+    % Repository/version metadata for EPsych.
+    %
+    % This class centralizes version strings, license info, and repository
+    % details, and can compute a git checksum / last commit timestamp when
+    % available.
+    %
+    % Properties:
+    %   Version, DataVersion, Author, License, RepositoryURL
+    %   meta - Struct snapshot of the current metadata.
+    %
+    % Methods:
+    %   icon_img - Load an icon image from the EPsych install.
     
     properties (SetAccess = private)
         iconPath

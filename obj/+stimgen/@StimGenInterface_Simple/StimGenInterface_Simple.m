@@ -1,5 +1,14 @@
 classdef StimGenInterface_Simple < handle% & gui.Helper
 
+    % obj = stimgen.StimGenInterface_Simple(RUNTIME, parent, ffn)
+    % Simplified stimgen interface for a single StimPlay object.
+    %
+    % This controller writes stimulus buffers to hardware parameters and
+    % triggers playback on a timer.
+    %
+    % Methods:
+    %   create - Build UI and initialize state.
+
     properties
         StimPlayObj (1,1) stimgen.StimPlay
         DataPath = getpref('StimGenInterface','dataPath',fullfile('C:\Users\',getenv('USERNAME')));
@@ -46,7 +55,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
     end
 
     methods
-        create(obj);
+        create(obj) % Build UI and initialize timers/listeners.
 
 
         function obj = StimGenInterface_Simple(RUNTIME,parent,ffn)

@@ -1,4 +1,13 @@
 classdef PsychPlot < handle
+    % obj = gui.PsychPlot(pObj, ax)
+    % Online psychometric summary plot (d', hit rate, FA rate, bias).
+    %
+    % The plot listens to the psychophysics object's Helper.NewData event
+    % and refreshes automatically when new trial data arrive.
+    %
+    % Inputs:
+    %   pObj - psychophysics object (e.g., psychophysics.Detection).
+    %   ax   - Target axes (default = gca).
     
     properties
         ax       (1,1)

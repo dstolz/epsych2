@@ -1,4 +1,15 @@
 classdef BitMask < uint32
+    % bm = epsych.BitMask.Undefined
+    % Enumerated bit positions used for EPsych response/trial coding.
+    %
+    % This enum maps named behavioral and trial-state fields to bit indices.
+    % Use it to build, decode, and validate bitmasks stored in trial data.
+    %
+    % Methods:
+    %   list       - List all enumeration names and numeric values.
+    %   Mask2Bits  - Convert integer mask(s) into binary arrays / enums.
+    %   Bits2Mask  - Convert binary arrays / bit positions into uint32 masks.
+    %   GUI        - Launch the bitmask GUI helper.
     enumeration
         Undefined           (0)
         Hit                 (1)

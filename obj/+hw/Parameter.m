@@ -1,4 +1,17 @@
 classdef Parameter < matlab.mixin.SetGet
+    % obj = hw.Parameter(Parent)
+    % Representation of a hardware parameter exposed to EPsych.
+    %
+    % A Parameter wraps metadata (name/type/access/unit/format) and a current
+    % Value. For non-software interfaces, Value accesses delegate to the
+    % parent hw.Interface implementation.
+    %
+    % Properties (selected):
+    %   Name, Description, Unit, Access, Type, Format
+    %   Value, ValueStr, lastUpdated
+    %
+    % Methods:
+    %   Trigger - Trigger the associated hardware event (if isTrigger=true).
    
     properties (SetAccess = immutable)
         Parent (1,1) % handle to parent object (e.g., hw.Software)

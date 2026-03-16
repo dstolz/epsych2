@@ -1,4 +1,16 @@
 classdef Triggers < gui.Helper & handle
+    % gui.Triggers
+    % obj = gui.Triggers(RUNTIME, TDTActiveX)
+    % obj = gui.Triggers(RUNTIME, TDTActiveX, container, boxId)
+    %
+    % Simple GUI helper that displays available TDT trigger tags and allows
+    % toggling them interactively via a table control.
+    %
+    % Properties
+    % - BoxID: Trial/box index used to pick module trigger definitions
+    %
+    % Methods
+    % - build: Populate the table based on current runtime trigger config
 
     properties
         BoxID   (1,1)   uint8 = 1;

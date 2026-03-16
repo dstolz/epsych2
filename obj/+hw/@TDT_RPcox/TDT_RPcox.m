@@ -1,5 +1,14 @@
 classdef TDT_RPcox < hw.Interface
 
+    % obj = hw.TDT_RPcox(RPvdsFile, moduleType, moduleAlias)
+    % Hardware interface for TDT RPvds devices via the TDTRP wrapper.
+    %
+    % This interface implements the hw.Interface contract for reading and
+    % writing RPvds tags/parameters and for issuing trigger pulses.
+    %
+    % Methods:
+    %   trigger, set_parameter, get_parameter
+
 
     properties
         ExperimentInfo
@@ -42,7 +51,7 @@ classdef TDT_RPcox < hw.Interface
 
 
     methods (Access = protected)% INHERITED FROM ABSTRACT CLASS hw.Interface
-        setup_interface(obj,RPvdsFile,moduleType,moduleAlias)
+        setup_interface(obj,RPvdsFile,moduleType,moduleAlias) % Initialize RPvds modules and parameters.
 
 
         function close_interface(obj)

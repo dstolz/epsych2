@@ -1,4 +1,16 @@
 classdef StimCalibration < handle & matlab.mixin.SetGet
+
+    % obj = stimgen.StimCalibration(RUNTIME, parent)
+    % Calibration workflow for mapping desired SPL to output voltage.
+    %
+    % This class provides GUI-driven reference measurement and calibration
+    % routines, storing results in CalibrationData for use by StimType
+    % subclasses.
+    %
+    % Methods:
+    %   gui                    - Launch calibration GUI.
+    %   calibrate_tones/clicks  - Measure tone/click calibration.
+    %   compute_adjusted_voltage - Convert desired level to voltage.
     
     properties (SetAccess = protected,SetObservable,AbortSet)
         StimTypeObj         (1,1)
@@ -44,10 +56,10 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
 
     
     methods
-        gui(obj);
-        calibrate_clicks(obj,clickdur);
-        calibrate_tones(obj,freqs);
-        v = compute_adjusted_voltage(obj,type,value,level);
+        gui(obj) % Launch calibration GUI.
+        calibrate_clicks(obj,clickdur) % Calibrate click stimuli.
+        calibrate_tones(obj,freqs) % Calibrate tone stimuli.
+        v = compute_adjusted_voltage(obj,type,value,level) % Map type/value/level to voltage.
         
         function obj = StimCalibration(RUNTIME,parent)
             if nargin > 1

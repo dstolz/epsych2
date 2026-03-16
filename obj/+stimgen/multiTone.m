@@ -1,4 +1,9 @@
 classdef multiTone < stimgen.StimType
+    % obj = stimgen.multiTone(Name,Value,...)
+    % Multi-tone stimulus generator (grid of frequency x level).
+    %
+    % This StimType builds a set of stimgen.Tone objects from the expression
+    % strings Frequency_MO and SoundLevel_MO and concatenates their signals.
     properties (SetObservable)
         MultiObjects (1,:) stimgen.Tone = stimgen.Tone.empty
 

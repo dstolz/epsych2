@@ -1,4 +1,10 @@
 classdef AMnoise < stimgen.Noise
+
+    % obj = stimgen.AMnoise(Name,Value,...)
+    % Amplitude-modulated band-limited noise stimulus.
+    %
+    % Generates a noise carrier (via stimgen.Noise) and applies sinusoidal
+    % amplitude modulation with adjustable depth and rate.
     
     properties (SetObservable,AbortSet)
         AMDepth (1,1) double {mustBeGreaterThanOrEqual(AMDepth,0),mustBeLessThanOrEqual(AMDepth,1)} = 1; % [0 1] 

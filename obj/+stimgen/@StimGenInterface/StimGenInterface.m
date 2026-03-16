@@ -1,5 +1,17 @@
 classdef StimGenInterface < handle% & gui.Helper
 
+    % obj = stimgen.StimGenInterface(RUNTIME, parent, ffn)
+    % GUI/controller for scheduling and triggering stimulus playback.
+    %
+    % This interface manages stimgen.StimPlay objects, writes stimulus
+    % buffers to the underlying hardware parameter interface, and triggers
+    % playback on a timer.
+    %
+    % Methods:
+    %   create                - Build UI and initialize state.
+    %   stimselect_Serial     - Select stimuli in serial order.
+    %   stimselect_Shuffle    - Select stimuli in shuffled order.
+
     properties
         StimPlayObjs (:,1) stimgen.StimPlay
         DataPath = getpref('StimGenInterface','dataPath',fullfile('C:\Users\',getenv('USERNAME')));
@@ -54,9 +66,9 @@ classdef StimGenInterface < handle% & gui.Helper
     end
 
     methods
-        create(obj);
-        idx = stimselect_Serial(obj);
-        idx = stimselect_Shuffle(obj);
+        create(obj) % Build UI and initialize timers/listeners.
+        idx = stimselect_Serial(obj) % Select next stimulus in serial order.
+        idx = stimselect_Shuffle(obj) % Select next stimulus in shuffled order.
 
         function obj = StimGenInterface(RUNTIME,parent,ffn)
 

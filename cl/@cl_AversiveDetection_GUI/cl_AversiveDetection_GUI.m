@@ -1,6 +1,14 @@
 classdef cl_AversiveDetection_GUI < handle
-    % cl_AversiveDetection_GUI: Interactive GUI for aversive detection behavior experiments.
-    % This class creates a unified MATLAB app for online control, visualization, and performance review.
+    % obj = cl_AversiveDetection_GUI(RUNTIME)
+    % Interactive GUI for aversive detection behavior experiments.
+    %
+    % This class creates a unified MATLAB app for online control,
+    % visualization, and performance review.
+    %
+    % Properties (selected):
+    %   psychDetect, psychPlot - Psychophysics object + plotting helper.
+    %   ResponseHistory        - Trial history display helper.
+    %   Performance            - Summary performance display helper.
 
     properties (SetAccess = protected)
         RUNTIME
@@ -33,8 +41,8 @@ classdef cl_AversiveDetection_GUI < handle
     end
 
     methods
-        create_gui(obj)
-        [value,success] = eval_gonogo(obj,src,event)
+        create_gui(obj) % Create the GUI layout and register callbacks.
+        [value,success] = eval_gonogo(obj,src,event) % Evaluate a Go/NoGo response.
 
         % constructor
         function obj = cl_AversiveDetection_GUI(RUNTIME)

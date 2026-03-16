@@ -1,5 +1,20 @@
 classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable & matlab.mixin.SetGet
 
+    % obj = stimgen.StimType(Name,Value,...)
+    % Abstract base class for stimulus generation objects.
+    %
+    % Subclasses implement update_signal() and define calibration and
+    % normalization behavior. This base class provides shared properties for
+    % level, duration, gating/windowing, sampling rate, plotting, and audio
+    % playback.
+    %
+    % Properties (selected):
+    %   SoundLevel, Duration, Fs, ApplyCalibration, ApplyWindow
+    %
+    % Methods:
+    %   update_signal  - (Abstract) Update Signal based on current properties.
+    %   plot, play     - Convenience visualization/playback helpers.
+
     properties
         Calibration     (1,1) stimgen.StimCalibration
         UserProperties  (1,:) string = string.empty

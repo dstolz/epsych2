@@ -1,4 +1,11 @@
 classdef (Sealed) Helper < handle
+    % gui.Helper
+    % Small static GUI utilities (highlighting, timed color changes, metrics).
+    %
+    % Methods (static):
+    %   update_highlight     - Update alternating row colors + highlight rows.
+    %   timed_color_change   - Temporarily set a color-like property then reset.
+    %   dprime2AFC, criterion, percent_correct - Common SDT helpers.
 
 
 

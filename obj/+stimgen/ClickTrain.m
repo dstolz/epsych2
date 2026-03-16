@@ -1,4 +1,10 @@
 classdef ClickTrain < stimgen.StimType
+
+    % obj = stimgen.ClickTrain(Name,Value,...)
+    % Click-train stimulus generator.
+    %
+    % Generates a train of short-duration clicks at a specified Rate,
+    % polarity pattern, and duration.
     
     
     properties (AbortSet,SetObservable)

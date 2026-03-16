@@ -1,4 +1,13 @@
 classdef MicrophonePlot < handle
+    % obj = gui.MicrophonePlot(Parameter, Parent)
+    % Simple live plot of a microphone/level parameter.
+    %
+    % The plot is refreshed on a lightweight gui.GenericTimer and is paused
+    % automatically when the associated hw.Interface mode drops below active.
+    %
+    % Inputs:
+    %   Parameter - hw.Parameter (or compatible) with numeric Value.
+    %   Parent    - Target axes/container (default = gcf).
 
     properties (SetAccess=immutable)
         Parent

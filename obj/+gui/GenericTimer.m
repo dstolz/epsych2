@@ -1,4 +1,16 @@
 classdef GenericTimer < handle
+    % obj = gui.GenericTimer(hFig, timerName)
+    % Small wrapper around MATLAB timers for GUI refresh loops.
+    %
+    % This class centralizes timer creation/lookup and provides simple
+    % start/stop lifecycle helpers tied to a GUI figure.
+    %
+    % Properties:
+    %   Period, StartFcn, TimerFcn, ErrorFcn, StopFcn
+    %   Timer - Underlying MATLAB timer object.
+    %
+    % Methods:
+    %   start, stop - Control the underlying timer.
     
     properties
         Period (1,1) double {mustBeFinite,mustBePositive} = 0.5;

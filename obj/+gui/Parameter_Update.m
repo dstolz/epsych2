@@ -1,4 +1,13 @@
 classdef Parameter_Update < handle
+    % obj = gui.Parameter_Update(RUNTIME, parent)
+    % Update button controller for committing pending parameter edits.
+    %
+    % This class owns a uibutton whose enabled state and label reflect
+    % whether any watched parameter editors have uncommitted changes.
+    %
+    % Methods:
+    %   set.watchedHandles - Register parameter editor handles to watch.
+    %   commit_changes     - Commit pending changes to runtime/trials.
 
     properties (SetAccess = immutable)
         Button % underlying uibutton object

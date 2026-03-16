@@ -420,7 +420,7 @@ panelFilename.Layout.Column = [3 5];
 layoutFilename = simple_layout(panelFilename);
 
 
-gui.FilenameValidator(layoutFilename,R.TRIALS.DataFilename);
+gui.FilenameValidator(R,layoutFilename,R.TRIALS.DataFilename);
 
 
 

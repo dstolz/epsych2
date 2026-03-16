@@ -86,10 +86,9 @@ classdef Detection < handle
 
     
     methods        
-        function obj = Detection(Parameter,BoxID)
-            global RUNTIME
-
-            if nargin < 2 || isempty(BoxID), BoxID = 1; end
+        function obj = Detection(RUNTIME,Parameter,BoxID)
+            
+            if nargin < 3 || isempty(BoxID), BoxID = 1; end
             obj.BoxID = BoxID;
 
             obj.Parameter = Parameter;

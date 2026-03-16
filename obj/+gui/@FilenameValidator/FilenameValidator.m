@@ -5,13 +5,19 @@ classdef FilenameValidator < handle
         Parent              matlab.ui.container.Container
     end
 
+    properties (SetAccess = private)
+        RUNTIME              % Reference to the main runtime object
+    end
+
     methods
-        function obj = FilenameValidator(parent, defaultFilename)
+        function obj = FilenameValidator(RUNTIME, parent, defaultFilename)
             arguments
+                RUNTIME
                 parent matlab.ui.container.Container
                 defaultFilename string
             end
 
+            obj.RUNTIME = RUNTIME;
             obj.Parent = parent;
             p = obj.Parent.Position;
 
@@ -28,7 +34,8 @@ classdef FilenameValidator < handle
 
     methods (Access = private)
         function onValueChanged(obj)
-            global RUNTIME
+            R = obj.RUNTIME;
+            
 
             newValue = strtrim(obj.EditField.Value);
 
@@ -68,7 +75,7 @@ classdef FilenameValidator < handle
             obj.PreviousValue = newValue;
             vprintf(1,'Data filename updated: "%s.mat"; location: "%s"',name,folder)
 
-            RUNTIME.TRIALS.DataFilename = newValue;
+            R.TRIALS.DataFilename = newValue;
         end
 
         function revertValue(obj)

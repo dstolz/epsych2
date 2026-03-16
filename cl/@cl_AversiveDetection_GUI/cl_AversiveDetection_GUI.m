@@ -3,6 +3,7 @@ classdef cl_AversiveDetection_GUI < handle
     % This class creates a unified MATLAB app for online control, visualization, and performance review.
 
     properties (SetAccess = protected)
+        RUNTIME
         h_figure               % Main figure handle
         h_OnlinePlot           % Handle to the online plot figure
         psychDetect            % psychophysics.Detect object
@@ -37,6 +38,7 @@ classdef cl_AversiveDetection_GUI < handle
 
         % constructor
         function obj = cl_AversiveDetection_GUI(RUNTIME)
+            obj.RUNTIME = RUNTIME;
             % only permit one instance to run
             f = findall(groot,'Type','figure');
             f = f(startsWith({f.Tag},'cl_AversiveDetection'));
@@ -100,7 +102,7 @@ classdef cl_AversiveDetection_GUI < handle
         end
 
         function update_trial_filter(obj,~,event)
-            global RUNTIME
+            RUNTIME = obj.RUNTIME;
 
 
             src = obj.tableTrialFilter; % use this in case call is from outside the class
@@ -197,7 +199,7 @@ classdef cl_AversiveDetection_GUI < handle
 
 
         function create_onlineplot(obj,varargin)
-            global RUNTIME
+            R = obj.RUNTIME;
 
             % Create separate legacy figure for online plotting because
             % it's much faster than uifigure
@@ -221,7 +223,7 @@ classdef cl_AversiveDetection_GUI < handle
             f.NumberTitle = "off";
             axesBehavior = axes(f);
             % gui.OnlinePlot(RUNTIME,obj.plottedParameters,axesBehavior,1);
-            gui.OnlinePlotBM(RUNTIME,'OnlinePlotBits',axesBehavior,1);
+            gui.OnlinePlotBM(R,'OnlinePlotBits',axesBehavior,1);
 
             obj.h_OnlinePlot = f;
 
@@ -234,12 +236,12 @@ classdef cl_AversiveDetection_GUI < handle
     methods (Static)
 
         function trigger_ReminderTrial(obj, value)
-            global RUNTIME
+            R = obj.RUNTIME;
 
-            prt = RUNTIME.S.find_parameter('ReminderTrials');
+            prt = R.S.find_parameter('ReminderTrials');
             if prt.Value == 0, return; end
 
-            pdt = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
+            pdt = R.HW.find_parameter('~TrialDelivery',includeInvisible=true);
             if pdt.Value == 1
                 obj.Value = 0;
                 vprintf(0,1,'"Deliver Trials" must be inactive to initiate a Reminder trial')
@@ -250,7 +252,7 @@ classdef cl_AversiveDetection_GUI < handle
             % waiting for trial to complete and just go directly to
             % updating for next trial
             vprintf(4,'Forcing a Reminder Trial')
-            RUNTIME.TRIALS.FORCE_TRIAL = true;
+            R.TRIALS.FORCE_TRIAL = true;
 
         end
 

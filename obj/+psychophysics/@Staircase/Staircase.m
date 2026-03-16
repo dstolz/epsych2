@@ -12,7 +12,9 @@ classdef Staircase < handle & matlab.mixin.SetGet
     %   S = psychophysics.Staircase(RUNTIME, Parameter, Name=Value)
     %
     %   ReversalCount, ReversalIdx, and StepDirection are maintained as
-    %   private state for inferred staircase history.
+    %   private state for inferred staircase history. Set
+    %   ConvertToDecibels=true to compute stimulus values as
+    %   dB = 20*log10(x), where non-positive x values are replaced by NaN.
     %
     %   2026-03-10
 
@@ -26,6 +28,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
         ThresholdFromLastNReversals (1,1) double {mustBePositive, mustBeInteger} = 12
         ThresholdFormula (1,1) string {mustBeMember(ThresholdFormula,["Mean","GeometricMean"])} = "Mean"
+        ConvertToDecibels (1,1) logical = false
 
         
 
@@ -67,8 +70,10 @@ classdef Staircase < handle & matlab.mixin.SetGet
             %   S = psychophysics.Staircase(RUNTIME, Parameter, Name=Value)
             %
             %   Parameter is stored in the Parameter property. Name-value
-            %   options configure StimulusTrialType, CatchTrialType, and
-            %   StaircaseDirection.
+            %   options configure StimulusTrialType, CatchTrialType,
+            %   StaircaseDirection, and ConvertToDecibels.
+            %   When ConvertToDecibels is true, stimulus values are
+            %   transformed as dB = 20*log10(x) after setting x<=0 to NaN.
             %
             %   2026-03-10
             arguments
@@ -77,6 +82,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 options.StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
                 options.CatchTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
                 options.StaircaseDirection (1,1) string {mustBeMember(options.StaircaseDirection,["Up","Down"])} = "Down"
+                options.ConvertToDecibels (1,1) logical = false
             end
 
             obj.RUNTIME = RUNTIME;
@@ -84,6 +90,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
             obj.StimulusTrialType = options.StimulusTrialType;
             obj.CatchTrialType = options.CatchTrialType;
             obj.StaircaseDirection = options.StaircaseDirection;
+            obj.ConvertToDecibels = options.ConvertToDecibels;
 
             obj.hl_NewData = addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
             
@@ -131,6 +138,10 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 v = [];
             else
                 v = [obj.DATA.(obj.Parameter.validName)];
+                if obj.ConvertToDecibels
+                    v(v<=0) = nan;
+                    v = 20*log10(v);
+                end
             end
         end
 

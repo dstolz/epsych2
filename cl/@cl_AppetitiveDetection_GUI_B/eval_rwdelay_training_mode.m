@@ -73,7 +73,7 @@ if isempty(h) || ~isvalid(h), return; end
 RC = epsych.BitMask.decode(RUNTIME.TRIALS.DATA(end).RespCode);
 if RC.Hit
     s = "up";
-elseif RC.Miss
+elseif RC.Abort % RC.Miss
     s = "down";
 else
     return % only update parameters on Hit or Miss trials

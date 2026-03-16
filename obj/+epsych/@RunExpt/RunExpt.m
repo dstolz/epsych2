@@ -26,31 +26,35 @@ classdef RunExpt < handle
     % See also epsych.Runtime, ep_ExperimentDesign, ep_CompiledProtocolTrials.
 
     properties
-        H
-        STATE (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG
-        CONFIG (1,1) struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])
-        FUNCS (1,1) struct = struct()
-        RUNTIME (1,1) epsych.Runtime = epsych.Runtime
-        dfltDataPath (1,1) string = cd
-        IsClosing (1,1) logical = false
+        H                                                                                        % Handles to UI components and figures
+        STATE (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG                                              % Current experiment program state
+        CONFIG (1,1) struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])  % Per-subject configuration array; each element holds SUBJECT, PROTOCOL, RUNTIME, and protocol_fn
+        FUNCS (1,1) struct = struct()                                                            % Preference-backed callback function names for saving, timers, and GUI
+        RUNTIME (1,1) epsych.Runtime = epsych.Runtime                                           % Shared runtime state passed to all callbacks during the session
+        dfltDataPath (1,1) string = cd                                                          % Default directory for saving experiment data
+        IsClosing (1,1) logical = false                                                         % True while the close sequence is in progress; prevents re-entrant callbacks
     end
 
     methods
-        LoadConfig(self, cfn)
-        SaveConfig(self)
-        ok = LocateProtocol(self, pfn)
-        AddSubject(self, S)
-        RemoveSubject(self, idx)
+        LoadConfig(self, cfn)           % Load configuration from MAT file cfn
+        SaveConfig(self)                % Persist current configuration to file
+        ok = LocateProtocol(self, pfn)  % Validate and register protocol file pfn; ok is true on success
+        AddSubject(self, S)             % Append subject struct S to CONFIG
+        RemoveSubject(self, idx)        % Remove subject at index idx from CONFIG
 
-        DefineSavingFcn(self, a)
-        DefineConfigBrowserRoot(self)
-        BrowseConfigs(self)
+        DefineSavingFcn(self, a)        % Set the data-saving callback function name
+        DefineConfigBrowserRoot(self)   % Set the root folder used by the config browser
+        BrowseConfigs(self)             % Open the config browser dialog
 
-        DefineAddSubject(self, a)
-        DefineBoxFig(self, a)
+        DefineAddSubject(self, a)       % Set the add-subject callback function name
+        DefineBoxFig(self, a)           % Set the behavioral box figure callback function name
 
         function self = RunExpt(ffnConfig)
-            % RunExpt Create or reactivate the main experiment control window.
+            % self = RunExpt()
+            % self = RunExpt(ffnConfig)
+            % Create or reactivate the main experiment control window.
+            % Returns the existing instance when a RunExpt figure is already open.
+            %  ffnConfig - (optional) path to a configuration MAT file to load
             arguments
                 ffnConfig (1,1) string = ""
             end
@@ -133,7 +137,8 @@ classdef RunExpt < handle
         end
 
         function delete(self)
-            % delete Close the GUI cleanly when the object is destroyed.
+            % delete(self)
+            % Close the GUI cleanly when the object is destroyed.
             try
                 if isvalid(self) && ~self.IsClosing
                     self.onCloseRequest
@@ -144,7 +149,8 @@ classdef RunExpt < handle
 
 
         function ViewTrials(self)
-            % ViewTrials Display a preview of trials for the selected subject.
+            % obj.ViewTrials
+            % Display a preview of compiled trials for the selected subject.
             idx = self.H.subject_list.Selection(1);
             if isempty(idx), return, end
 
@@ -156,7 +162,8 @@ classdef RunExpt < handle
         end
 
         function EditProtocol(self)
-            % EditProtocol Open the selected protocol in the design editor.
+            % obj.EditProtocol
+            % Open the selected subject's protocol in the experiment design editor.
             idx = self.H.subject_list.Selection(1);
             if isempty(idx), return, end
 
@@ -165,20 +172,22 @@ classdef RunExpt < handle
         end
 
         function SortBoxes(self)
-            % SortBoxes Reorder subjects by their assigned behavioral box ID.
+            % obj.SortBoxes
+            % Reorder subjects in CONFIG by their assigned behavioral box ID.
             if self.STATE >= PRGMSTATE.RUNNING, return, end
             if ~isfield(self.CONFIG,'SUBJECT'), return, end
             ids = arrayfun(@(c) c.SUBJECT.BoxID, self.CONFIG);
             C = self.CONFIG;
             for i = 1:length(ids)
-                CS(i) = C(ids(i)); %#ok<AGROW>
+                CS(i) = C(ids(i));
             end
-            self.CONFIG = CS; %#ok<*PROP>
+            self.CONFIG = CS;
             self.UpdateSubjectList
         end
 
         function DefineDataPath(self)
-            % DefineDataPath Set the default directory used for saved data.
+            % obj.DefineDataPath
+            % Prompt for and persist the default data-saving directory.
             ontop = self.AlwaysOnTop(false);
             pth = uigetdir(self.dfltDataPath,'Select Default Data Directory');
             self.AlwaysOnTop(ontop);
@@ -193,55 +202,60 @@ classdef RunExpt < handle
         end
 
         function LocateBehaviorGUI(self)
-            % LocateBehaviorGUI Open the configured per-box behavior GUI.
+            % obj.LocateBehaviorGUI
+            % Launch the per-box behavior GUI specified in FUNCS.BoxFig.
             if isempty(self.FUNCS.BoxFig), return, end
             feval(self.FUNCS.BoxFig, self.RUNTIME);
         end
 
-        originalState = AlwaysOnTop(self, ontop)
+        originalState = AlwaysOnTop(self, ontop)  % Set always-on-top state of main figure; returns previous state
 
         function version_info(self)
-            % version_info Display toolbox metadata in the command window.
+            % obj.version_info
+            % Display toolbox version metadata in the command window.
             E = EPsychInfo;
             disp(E.meta)
             commandwindow
         end
 
         function AssignRuntimeToCommandWindow(self)
-            % AssignRuntimeToCommandWindow Export RUNTIME to base workspace.
+            % obj.AssignRuntimeToCommandWindow
+            % Export the RUNTIME object to the base workspace as 'RUNTIME'.
             assignin('base','RUNTIME',self.RUNTIME);
             vprintf(0,'Assigned `RunExpt.RUNTIME` to workspace variable `RUNTIME`.')
             commandwindow
         end
 
-        verbosity(self, varargin)
+        verbosity(self, varargin)  % Set or query the global output verbosity level
     end
 
     methods (Access=private)
-        buildUI(self)
-        onFigureKeyPress(self, evt)
-        onCloseRequest(self)
-        SaveDataCallback(self)
-        recent = GetRecentConfigs(self)
-        LoadRecentConfig(self, cfn)
-        RememberRecentConfig(self, cfn)
-        UpdateRecentConfigsMenu(self)
-        CheckReady(self)
-        UpdateGUIstate(self)
-        UpdateSubjectList(self)
-        ExptDispatch(self, COMMAND)
-        T = CreateTimer(self)
-        PsychTimerStart(self)
+        buildUI(self)                                      % Build main figure and all UI components
+        onFigureKeyPress(self, evt)                        % Handle key-press events on the main figure
+        onCloseRequest(self)                               % Stop experiment if running and destroy the figure
+        SaveDataCallback(self)                             % Invoke the configured data-saving callback
+        recent = GetRecentConfigs(self)                    % Return cell array of recently opened config file paths
+        LoadRecentConfig(self, cfn)                        % Load config at path cfn and update recents list
+        RememberRecentConfig(self, cfn)                    % Add cfn to the persistent recent config registry
+        UpdateRecentConfigsMenu(self)                      % Rebuild the recent-configs submenu items
+        CheckReady(self)                                   % Evaluate whether all conditions to run are met and update STATE
+        UpdateGUIstate(self)                               % Refresh all UI control states to match current STATE
+        UpdateSubjectList(self)                            % Repopulate the subject list with current CONFIG entries
+        ExptDispatch(self, COMMAND)                        % Dispatch a named command (Start/Stop/Pause) to the experiment
+        T = CreateTimer(self)                              % Create and configure the psychophysics trial timer object
+        PsychTimerStart(self)                              % Initialize runtime state and start the trial timer
 
-        [items, fullpaths] = FindConfigFiles(self, root)
-        ConfigBrowserLoad(self, fig, lb)
-        ConfigBrowserCancel(self, fig)
+        [items, fullpaths] = FindConfigFiles(self, root)   % Recursively find config MAT files under root directory
+        ConfigBrowserLoad(self, fig, lb)                   % Load config selected in list box lb and close fig
+        ConfigBrowserCancel(self, fig)                     % Close config browser figure without loading
 
         function onCommand(self, hObj)
+            % Adapts menu item callbacks; forwards the item's text label to ExptDispatch.
             self.ExptDispatch(string(hObj.Text));
         end
 
         function PsychTimerRunTime(self)
+            % Timer runtime callback; stops the experiment automatically if hardware enters idle state.
             if isfield(self.RUNTIME,'HW') && self.RUNTIME.HW.mode == hw.DeviceState.Idle
                 self.ExptDispatch("Stop")
                 return
@@ -250,8 +264,9 @@ classdef RunExpt < handle
         end
 
         function PsychTimerError(self)
+            % Timer error callback; records the last error, invokes the error handler, saves data, and updates GUI state.
             self.STATE = PRGMSTATE.ERROR;
-            self.RUNTIME.ERROR = lasterror; %#ok<LERR>
+            self.RUNTIME.ERROR = lasterror;
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Error, self.RUNTIME);
             feval(self.FUNCS.SavingFcn, self.RUNTIME);
             self.UpdateGUIstate
@@ -259,6 +274,7 @@ classdef RunExpt < handle
         end
 
         function PsychTimerStop(self)
+            % Timer stop callback; invokes the stop handler, updates GUI state, and saves data.
             self.STATE = PRGMSTATE.STOP;
             vprintf(3,'PsychTimerStop:Calling timer Stop function: %s',self.FUNCS.TIMERfcn.Stop)
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Stop, self.RUNTIME);
@@ -269,10 +285,13 @@ classdef RunExpt < handle
         end
 
         function subject_list_SelectionChanged(self, hObj, evnt)
+            % Displays subject info in the command window when the list selection changes.
             disp(self.CONFIG(hObj.Selection(1)).SUBJECT)
         end
 
         function SetDefaultFuncs(self, F)
+            % SetDefaultFuncs(self, F)
+            % Persist all callback function names from struct F to MATLAB preferences.
             setpref('ep_RunExpt_FUNCS','SavingFcn',    F.SavingFcn)
             setpref('ep_RunExpt_FUNCS','AddSubjectFcn',F.AddSubjectFcn)
             setpref('ep_RunExpt_FUNCS','BoxFig',       F.BoxFig)
@@ -284,6 +303,8 @@ classdef RunExpt < handle
         end
 
         function F = GetDefaultFuncs(self)
+            % F = GetDefaultFuncs(self)
+            % Load all callback function names from MATLAB preferences into struct F.
             F.SavingFcn      = getpref('ep_RunExpt_FUNCS','SavingFcn',    'ep_SaveDataFcn');
             F.AddSubjectFcn  = getpref('ep_RunExpt_FUNCS','AddSubjectFcn','ep_AddSubject');
             F.BoxFig         = getpref('ep_RunExpt_FUNCS','BoxFig',       'ep_GenericGUI');
@@ -295,6 +316,8 @@ classdef RunExpt < handle
         end
 
         function ClearConfig(self)
+            % ClearConfig(self)
+            % Reset CONFIG to empty defaults and update program state if not running.
             self.CONFIG = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[]);
             if self.STATE >= PRGMSTATE.RUNNING, return, end
             self.STATE = PRGMSTATE.NOCONFIG;
@@ -305,6 +328,8 @@ classdef RunExpt < handle
         end
 
         function ConfigBrowserRestoreOnTop(self, ontop)
+            % ConfigBrowserRestoreOnTop(self, ontop)
+            % Restore the always-on-top state of the main figure after a config browser closes.
             if ~isfield(self.H,'figure1') || ~isgraphics(self.H.figure1), return, end
             if ~isfield(self.H,'always_on_top') || ~isgraphics(self.H.always_on_top), return, end
             self.AlwaysOnTop(ontop)

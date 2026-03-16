@@ -1,5 +1,5 @@
 ---
-applyTo: "**"
+applyTo: "**/*.m"
 ---
 # Project general coding instructions
 Use syntax valid for Matlab R2024b, unless explicitly requested otherwise. Assume access to the following toobloxes:
@@ -17,6 +17,8 @@ Statistics and Machine Learning Toolbox
 Make use of built-in and toolbox functions before generating a custom function when needed.
 
 When parsing input parameters in a Matlab functin, always make use of the `arguments` syntax. Specify parameter class and validations where appropriate. Only use `arguments` syntax for functions with more than 2 input parameters, or when input validation is needed. For simple functions with 1-2 parameters and no validation needs, use traditional parameter parsing when necessary.
+
+- Do not use compiler directives (e.g. `%#ok<AGROW>`)
 
 ## Naming Conventions
 - Use PascalCase for component names, interfaces, and type aliases

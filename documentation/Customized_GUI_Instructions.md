@@ -312,6 +312,7 @@ Example patterns:
 ## 9) Suggested development workflow
 
 1. Start with a minimal `uifigure` + `uigridlayout` skeleton.
+  - During layout development, temporarily call `showGridBorders(layoutHandle)` (e.g., `showGridBorders(layoutMain)`) to visualize grid cell boundaries and quickly spot mis-assigned `Layout.Row`/`Layout.Column` settings. Disable/remove this once the layout is finalized.
 2. Add parameter controls using `gui.Parameter_Control` for the most important parameters.
 3. Add a `gui.Parameter_Update` commit button if you want batch updates.
 4. Add monitoring using `gui.Parameter_Monitor` and/or event listeners.

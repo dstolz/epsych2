@@ -33,9 +33,8 @@ classdef PumpCom < handle
     end
     
     methods
-        function obj = PumpCom(Port,BaudRate)
-            global RUNTIME
-
+        function obj = PumpCom(RUNTIME,Port,BaudRate)
+            
             if nargin >= 1 &&  ~isempty(Port), obj.Port = Port; end
             if nargin >= 2 && ~isempty(BaudRate), obj.BaudRate = BaudRate; end
             
@@ -48,7 +47,7 @@ classdef PumpCom < handle
             
             obj.hl(1) = listener(obj,ev,'PostSet',@obj.prop_update);
             obj.hl(2) = listener(obj,ev,'PreGet',@obj.prop_read);
-            obj.hl(3) = listener(RUNTIME.HW,'mode','PostSet',@obj.mode_change);
+            obj.hl(3) = listener(RUNTIME,'mode','PostSet',@obj.mode_change);
             
         end
         

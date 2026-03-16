@@ -1,7 +1,7 @@
 % create_gui: Assembles the GUI layout, controls, panels, and plots for aversive detection.
 % All UI and control setup for the experiment is performed here.
 function create_gui(obj)
-global RUNTIME
+R = obj.RUNTIME;
 
 % Create the main figure
 fig = uifigure(Tag = 'cl_AppetitiveDetection_GUI', ...
@@ -51,7 +51,7 @@ k = 1;
 
 
 % > Free Delivery
-p = RUNTIME.HW.find_parameter('~FreeReward',includeInvisible=true);
+p = R.HW.find_parameter('~FreeReward',includeInvisible=true);
 p.PostUpdateFcn = @cl_AppetitiveDetection_GUI.trigger_FreeReward;
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Free Access";
@@ -62,7 +62,7 @@ k = k + 1;
 
 
 % > Shape
-p = RUNTIME.HW.find_parameter('~Shape',includeInvisible=true);
+p = R.HW.find_parameter('~Shape',includeInvisible=true);
 p.PostUpdateFcn = @cl_AppetitiveDetection_GUI.trigger_Shape;
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Shape";
@@ -73,7 +73,7 @@ k = k + 1;
 
 
 % > Remind
-p = RUNTIME.S.Module.add_parameter('ReminderTrials',0);
+p = R.S.Module.add_parameter('ReminderTrials',0);
 p.PostUpdateFcn = @cl_AppetitiveDetection_GUI.trigger_ReminderTrial;
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Reminder";
@@ -83,7 +83,7 @@ obj.hButtons.Reminder = h;
 k = k + 1;
 
 % > Manual Trial
-p = RUNTIME.HW.find_parameter('~ManualTrigger',includeInvisible=true);
+p = R.HW.find_parameter('~ManualTrigger',includeInvisible=true);
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Observe";
 h.colorNormal = bcmNormal(k,:);
@@ -92,7 +92,7 @@ obj.hButtons.ManualTrial = h;
 k = k + 1;
 
 % > Deliver Trials
-p = RUNTIME.HW.find_parameter('~TrialDelivery',includeInvisible=true);
+p = R.HW.find_parameter('~TrialDelivery',includeInvisible=true);
 h = gui.Parameter_Control(buttonLayout,p,Type='toggle',autoCommit=true);
 h.Text = "Deliver Trials";
 h.colorNormal = bcmNormal(k,:);
@@ -157,7 +157,7 @@ layoutSoundControls.Scrollable = "on";
 
 
 % >> Consecutive NOGO min
-p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_min',0);
+p = R.S.Module.add_parameter('ConsecutiveNOGO_min',0);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
 h.EvaluatorFcn = @obj.eval_gonogo;
 h.Values = 0:5;
@@ -165,7 +165,7 @@ h.Value = 0;
 h.Text = "Consecutive NoGo (min):";
 
 % >> Consecutive NOGO max
-p = RUNTIME.S.Module.add_parameter('ConsecutiveNOGO_max',1);
+p = R.S.Module.add_parameter('ConsecutiveNOGO_max',1);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
 h.EvaluatorFcn = @obj.eval_gonogo;
 h.Values = 0:10;
@@ -174,7 +174,7 @@ h.Text = "Consecutive NoGo (max):";
 
 
 % >> Trial order
-p = RUNTIME.S.Module.add_parameter('TrialOrder','Random');
+p = R.S.Module.add_parameter('TrialOrder','Random');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
 h.Values = ["Descending","Ascending","Random","Staircase"];
 h.Value = "Random";
@@ -183,20 +183,20 @@ h.Text = "Trial Order:";
 
 
 % >> Intertrial Interval
-p = RUNTIME.HW.find_parameter('ITIDur');
+p = R.HW.find_parameter('ITIDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Intertrial Interval (ms):";
 
 
 % >> Response Window Delay
-p = RUNTIME.HW.find_parameter('RespWinDelay');
+p = R.HW.find_parameter('RespWinDelay');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Response Window Delay (ms):";
 
 
 
 % >> Response Window Duration
-p = RUNTIME.HW.find_parameter('RespWinDur');
+p = R.HW.find_parameter('RespWinDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Response Window Duration (ms):";
 
@@ -204,19 +204,19 @@ h.Text = "Response Window Duration (ms):";
 
 
 % >> Max Access Window Duration
-p = RUNTIME.HW.find_parameter('MaxAccessDur');
+p = R.HW.find_parameter('MaxAccessDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Max Water Access Duration(ms):";
 
 
 % >> Water Trigger Duration
-p = RUNTIME.HW.find_parameter('WaterTrigDur');
+p = R.HW.find_parameter('WaterTrigDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Reward Duration (ms):";
 
 
 % >> Timeout Duration
-p = RUNTIME.HW.find_parameter('TimeoutDur');
+p = R.HW.find_parameter('TimeoutDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Timeout Duration (ms):";
 
@@ -228,35 +228,35 @@ h.Text = "Timeout Duration (ms):";
 % SOUND CONTROLS -----------------------------------------------------
 
 % >> dB SPL
-p = RUNTIME.HW.find_parameter('dBSPL',silenceParameterNotFound=true);
+p = R.HW.find_parameter('dBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Sound Level (dB SPL):";
 end
 
 % >> Tone dB SPL
-p = RUNTIME.HW.find_parameter('TonedBSPL',silenceParameterNotFound=true);
+p = R.HW.find_parameter('TonedBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Tone Sound Level (dB SPL):";
 end
 
 % >> Noise dB SPL
-p = RUNTIME.HW.find_parameter('NoisedBSPL',silenceParameterNotFound=true);
+p = R.HW.find_parameter('NoisedBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Noise Sound Level (dB SPL):";
 end
 
 % >> Duration
-p = RUNTIME.HW.find_parameter('StimDur',silenceParameterNotFound=true);
+p = R.HW.find_parameter('StimDur',silenceParameterNotFound=true);
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Stimulus Duration (ms):";
 end
 
 % >> Modulation Rate
-p = RUNTIME.HW.find_parameter('Rate');
+p = R.HW.find_parameter('Rate');
 if ~isempty(p)
     h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Modulation Rate (Hz):";
@@ -283,7 +283,7 @@ try
             'SelectionMode','single');
         port = freeports{idx};
     end
-    h = PumpCom(port);
+    h = PumpCom(R,port);
     h.create_gui(panelPumpControls);
     setpref('PumpCom','port',port);
 catch me
@@ -307,8 +307,8 @@ layoutTrialFilter = simple_layout(panelTrialFilter);
 
 
 % > Trial Filter Table
-tt = RUNTIME.TRIALS.trials;
-loc = RUNTIME.TRIALS.writeParamIdx;
+tt = R.TRIALS.trials;
+loc = R.TRIALS.writeParamIdx;
 trialTypes = cell2mat(tt(:,loc.TrialType));
 reminderInd = trialTypes == 2;
 d = tt(~reminderInd,loc.Depth);
@@ -363,7 +363,7 @@ panelFilename.Layout.Column = [4 5];
 layoutFilename = simple_layout(panelFilename);
 
 
-gui.FilenameValidator(layoutFilename,RUNTIME.TRIALS.DataFilename);
+gui.FilenameValidator(R,layoutFilename,R.TRIALS.DataFilename);
 
 
 
@@ -383,9 +383,9 @@ tableNextTrial.RowName = [];
 tableNextTrial.ColumnEditable = false;
 tableNextTrial.FontSize = 20;
 
-obj.hl_NewTrial = addlistener(RUNTIME.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
+obj.hl_NewTrial = addlistener(R.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
 obj.hl_NewData  = addlistener(obj.psychDetect.Helper,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
-obj.hl_ModeChange =addlistener(RUNTIME.HELPER,'ModeChange',@(src,ev) obj.onModeChange(src,ev));
+obj.hl_ModeChange =addlistener(R.HELPER,'ModeChange',@(src,ev) obj.onModeChange(src,ev));
 
 
 
@@ -433,7 +433,7 @@ axesMicrophone.Layout.Column = 5;
 axis(axesMicrophone,'image');
 box(axesMicrophone,'on')
 
-p = RUNTIME.HW.find_parameter('MicPower',silenceParameterNotFound=true);
+p = R.HW.find_parameter('MicPower',silenceParameterNotFound=true);
 if ~isempty(p)
     gui.MicrophonePlot(p,axesMicrophone);
     axesMicrophone.YAxis.Label.String = "RMS voltage";

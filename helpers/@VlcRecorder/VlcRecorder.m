@@ -51,30 +51,51 @@ classdef VlcRecorder < handle
     end
 
     properties (Access = private)
-        Client = []
-        IsRecording (1,1) logical = false
-        IsConnected (1,1) logical = false
+        Client = [] % Active tcpclient handle for VLC RC communication.
+        IsRecording (1,1) logical = false % Cached VLC record-toggle state.
+        IsConnected (1,1) logical = false % Tracks whether the RC socket is connected.
     end
 
     methods
         function obj = VlcRecorder(vlcPath, host, port)
-            if nargin >= 1 && strlength(string(vlcPath)) > 0
-                obj.VlcPath = string(vlcPath);
+            % obj = VlcRecorder(vlcPath, host, port)
+            % Construct VLC recorder controller.
+            % Inputs:
+            %   vlcPath - Optional VLC executable path.
+            %   host    - Optional RC interface host.
+            %   port    - Optional RC interface port.
+            % Output:
+            %   obj     - Configured VlcRecorder instance.
+            arguments
+                vlcPath {mustBeTextScalar} = ""
+                host {mustBeTextScalar} = ""
+                port (1,1) double {mustBePositive} = NaN
             end
-            if nargin >= 2 && strlength(string(host)) > 0
-                obj.Host = string(host);
+
+            vlcPath = string(vlcPath);
+            host = string(host);
+
+            if strlength(vlcPath) > 0
+                obj.VlcPath = vlcPath;
             end
-            if nargin >= 3 && ~isempty(port)
+            if strlength(host) > 0
+                obj.Host = host;
+            end
+            if ~isnan(port)
                 obj.Port = port;
             end
         end
 
         function launch(obj, extraArgs, mediaTarget)
-            if nargin < 2
-                extraArgs = "";
-            end
-            if nargin < 3
-                mediaTarget = "";
+            % obj.launch(extraArgs, mediaTarget)
+            % Launch VLC process with RC interface enabled.
+            % Inputs:
+            %   extraArgs   - Optional additional VLC CLI switches.
+            %   mediaTarget - Optional media URI or capture source.
+            arguments
+                obj
+                extraArgs {mustBeTextScalar} = ""
+                mediaTarget {mustBeTextScalar} = ""
             end
 
             if ~isfile(obj.VlcPath)
@@ -112,19 +133,43 @@ classdef VlcRecorder < handle
             obj.applyWindowGeometry();
         end
 
-        function streamUrl = launchWebcam(obj, webcamName, varargin)
+        function streamUrl = launchWebcam(obj, webcamName, options)
+            % streamUrl = obj.launchWebcam(webcamName, Name=Value)
+            % Launch webcam capture with optional recording/streaming outputs.
+            % Inputs:
+            %   webcamName - DirectShow webcam device name.
+            %   options    - Name/value capture options for recording, stream, and preview.
+            % Output:
+            %   streamUrl  - HTTP stream URL when StreamPort is configured; otherwise "".
+            arguments
+                obj
+                webcamName {mustBeTextScalar}
+                options.AudioDevice {mustBeTextScalar} = ""
+                options.RecordingFile {mustBeTextScalar} = ""
+                options.RecordingMux {mustBeTextScalar} = "ts"
+                options.StreamPort = []
+                options.StreamPath {mustBeTextScalar} = "/webcam"
+                options.StreamMux {mustBeTextScalar} = "ts"
+                options.StreamBind {mustBeTextScalar} = "0.0.0.0"
+                options.ShowPreview (1,1) logical = true
+                options.LiveCaching (1,1) double {mustBeNonnegative} = 300
+                options.ExtraArgs {mustBeTextScalar} = "--no-video-title-show"
+            end
+
             webcamName = string(webcamName);
             if strlength(webcamName) == 0
                 error("VlcRecorder:InvalidWebcam", ...
                     "A webcam device name is required.");
             end
 
-            options = obj.parseWebcamOptions(varargin{:});
+            options = obj.normalizeWebcamOptions(options);
             [extraArgs, mediaTarget, streamUrl] = obj.buildWebcamLaunchArguments(webcamName, options);
             obj.launch(extraArgs, mediaTarget);
         end
 
         function connect(obj)
+            % obj.connect()
+            % Open TCP connection to the VLC RC interface.
             if obj.IsConnected
                 return;
             end
@@ -139,6 +184,8 @@ classdef VlcRecorder < handle
         end
 
         function disconnect(obj)
+            % obj.disconnect()
+            % Close the TCP connection to the VLC RC interface.
             if ~obj.IsConnected
                 return;
             end
@@ -148,38 +195,58 @@ classdef VlcRecorder < handle
         end
 
         function add(obj, mediaUri)
+            % obj.add(mediaUri)
+            % Add a media item and begin playback.
+            % Inputs:
+            %   mediaUri - URI or file path supported by VLC.
             obj.requireConnection();
             obj.sendCommand(sprintf('add %s', char(string(mediaUri))));
         end
 
         function enqueue(obj, mediaUri)
+            % obj.enqueue(mediaUri)
+            % Queue a media item without forcing immediate playback.
+            % Inputs:
+            %   mediaUri - URI or file path supported by VLC.
             obj.requireConnection();
             obj.sendCommand(sprintf('enqueue %s', char(string(mediaUri))));
         end
 
         function play(obj)
+            % obj.play()
+            % Send the play command to VLC.
             obj.requireConnection();
             obj.sendCommand("play");
         end
 
         function pausePlayback(obj)
+            % obj.pausePlayback()
+            % Toggle VLC pause state.
             obj.requireConnection();
             obj.sendCommand("pause");
         end
 
         function stop(obj)
+            % obj.stop()
+            % Stop playback and clear the cached recording toggle state.
             obj.requireConnection();
             obj.sendCommand("stop");
             obj.IsRecording = false;
         end
 
         function clearPlaylist(obj)
+            % obj.clearPlaylist()
+            % Clear the VLC playlist and reset the cached recording state.
             obj.requireConnection();
             obj.sendCommand("clear");
             obj.IsRecording = false;
         end
 
         function startRecording(obj)
+            % obj.startRecording()
+            % Start recording via VLC RC toggle command.
+            % Note:
+            %   VLC implements record as a toggle, so state is tracked locally.
             obj.requireConnection();
 
             if ~obj.IsRecording
@@ -189,6 +256,10 @@ classdef VlcRecorder < handle
         end
 
         function stopRecording(obj)
+            % obj.stopRecording()
+            % Stop recording via VLC RC toggle command.
+            % Note:
+            %   VLC implements record as a toggle, so state is tracked locally.
             obj.requireConnection();
 
             if obj.IsRecording
@@ -198,25 +269,45 @@ classdef VlcRecorder < handle
         end
 
         function tf = recording(obj)
+            % tf = obj.recording()
+            % Query the cached recording state.
+            % Output:
+            %   tf - True when recording is believed active.
             tf = obj.IsRecording;
         end
 
         function out = status(obj)
+            % out = obj.status()
+            % Request VLC status text.
+            % Output:
+            %   out - Raw response from the VLC RC interface.
             obj.requireConnection();
             out = obj.sendCommand("status");
         end
 
         function out = info(obj)
+            % out = obj.info()
+            % Request VLC stream and media information.
+            % Output:
+            %   out - Raw response from the VLC RC interface.
             obj.requireConnection();
             out = obj.sendCommand("info");
         end
 
         function out = raw(obj, command)
+            % out = obj.raw(command)
+            % Send an arbitrary RC command string to VLC.
+            % Inputs:
+            %   command - RC command text.
+            % Output:
+            %   out     - Raw response text.
             obj.requireConnection();
             out = obj.sendCommand(command);
         end
 
         function quit(obj)
+            % obj.quit()
+            % Request VLC to quit and reset local connection state.
             if obj.IsConnected
                 try
                     obj.sendCommand("quit");
@@ -230,6 +321,8 @@ classdef VlcRecorder < handle
         end
 
         function delete(obj)
+            % delete(obj)
+            % Perform best-effort cleanup of VLC connection and process state.
             try
                 obj.quit();
             catch
@@ -239,13 +332,14 @@ classdef VlcRecorder < handle
 
     methods (Static)
         function webcams = listWebcams()
+            % webcams = VlcRecorder.listWebcams()
+            % Enumerate available webcam device names.
+            % Output:
+            %   webcams - Unique device-name list from webcamlist and Windows cameras.
             webcamNames = strings(0, 1);
 
             if exist('webcamlist', 'file') == 2 && exist('webcam', 'file') == 2
-                try
-                    webcamNames = string(webcamlist);
-                catch
-                end
+                webcamNames = string(webcamlist);
             end
 
             % Prefer MATLAB's webcamlist when available so duplicate model
@@ -312,6 +406,21 @@ classdef VlcRecorder < handle
         end
 
         function [extraArgs, mediaTarget, streamUrl] = buildWebcamLaunchArguments(obj, webcamName, options)
+            % [extraArgs, mediaTarget, streamUrl] = obj.buildWebcamLaunchArguments(webcamName, options)
+            % Build VLC launch arguments for webcam capture mode.
+            % Inputs:
+            %   webcamName - DirectShow webcam device name.
+            %   options    - Normalized webcam capture options.
+            % Outputs:
+            %   extraArgs   - VLC CLI switches for RC, preview, record, and stream outputs.
+            %   mediaTarget - DirectShow capture target string.
+            %   streamUrl   - Public HTTP stream URL when streaming is enabled.
+            arguments
+                obj
+                webcamName {mustBeTextScalar, mustBeNonzeroLengthText}
+                options struct
+            end
+
             mediaArgs = ["dshow://", ...
                 ":dshow-vdev=" + obj.quoteCliValue(webcamName), ...
                 ":live-caching=" + string(options.LiveCaching)];
@@ -379,12 +488,27 @@ classdef VlcRecorder < handle
         end
 
         function out = sendCommand(obj, command)
+            % out = obj.sendCommand(command)
+            % Send one RC command and collect currently available response text.
+            % Inputs:
+            %   command - VLC RC command text.
+            % Output:
+            %   out     - Available response text from the RC socket.
+            arguments
+                obj
+                command {mustBeTextScalar}
+            end
+
             write(obj.Client, uint8([char(command), newline]), "uint8");
             pause(0.15);
             out = obj.readAvailable();
         end
 
         function out = readAvailable(obj)
+            % out = obj.readAvailable()
+            % Read buffered RC output until the socket receive queue is empty.
+            % Output:
+            %   out - Buffered RC response text with surrounding whitespace removed.
             out = "";
             if isempty(obj.Client)
                 return;
@@ -401,6 +525,8 @@ classdef VlcRecorder < handle
         end
 
         function requireConnection(obj)
+            % obj.requireConnection()
+            % Guard helper to enforce an active RC connection.
             if ~obj.IsConnected || isempty(obj.Client)
                 error("VlcRecorder:NotConnected", ...
                     "Not connected to VLC. Call launch/connect first.");
@@ -540,20 +666,44 @@ classdef VlcRecorder < handle
         end
 
         function out = quoteCliValue(~, value)
+            % out = obj.quoteCliValue(value)
+            % Quote a value for standard VLC CLI argument parsing.
+            % Inputs:
+            %   value - Unquoted CLI argument text.
+            % Output:
+            %   out   - CLI-safe quoted text.
             textValue = strrep(char(string(value)), '"', '""');
             out = '"' + string(textValue) + '"';
         end
 
         function out = quoteSoutValue(~, value)
+            % out = obj.quoteSoutValue(value)
+            % Quote a destination value inside a VLC --sout expression.
+            % Inputs:
+            %   value - Unquoted destination text.
+            % Output:
+            %   out   - Quoted destination text for --sout.
             textValue = strrep(char(string(value)), '''', '''''');
             out = "'" + string(textValue) + "'";
         end
 
         function out = normalizeFileDestination(~, value)
+            % out = obj.normalizeFileDestination(value)
+            % Convert file destination separators to a VLC-friendly form.
+            % Inputs:
+            %   value - File path text.
+            % Output:
+            %   out   - File path with forward slashes for VLC.
             out = string(strrep(char(string(value)), '\', '/'));
         end
 
         function out = normalizeHttpPath(~, value)
+            % out = obj.normalizeHttpPath(value)
+            % Ensure HTTP stream path is non-empty and starts with '/'.
+            % Inputs:
+            %   value - Requested HTTP path text.
+            % Output:
+            %   out   - Normalized HTTP path beginning with '/'.
             out = string(value);
             if strlength(out) == 0
                 out = "/webcam";
@@ -598,6 +748,10 @@ classdef VlcRecorder < handle
 
     methods (Static, Access = private)
         function webcamNames = listWindowsCameraDevices()
+            % webcamNames = VlcRecorder.listWindowsCameraDevices()
+            % Enumerate Windows camera device names via CIM query.
+            % Output:
+            %   webcamNames - Camera device names reported by the Windows CIM query.
             commandText = [ ...
                 'powershell -NoProfile -Command ', ...
                 '"Get-CimInstance Win32_PnPEntity | ', ...

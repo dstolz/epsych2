@@ -247,10 +247,7 @@ classdef VlcRecorder < handle
             webcamNames = strings(0, 1);
 
             if exist('webcamlist', 'file') == 2 && exist('webcam', 'file') == 2
-                try
-                    webcamNames = string(webcamlist);
-                catch
-                end
+                webcamNames = string(webcamlist);
             end
 
             if ispc

@@ -15,7 +15,7 @@ obj.h_figure = fig;
 
 % Create a grid layout
 layoutMain = uigridlayout(fig, [11, 7]);
-layoutMain.RowHeight = {60, 40, 90, 110, 60, 130, 40, 100,100,100,'1x'};
+layoutMain.RowHeight = {60, 40, 90, 110, 60, 130, 40, '1x','1x','1x',40};
 layoutMain.ColumnWidth = {150, 150, 100, '1x', '1x','1x', '1x'};
 layoutMain.Padding = [1 1 1 1];
 

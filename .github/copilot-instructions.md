@@ -39,6 +39,7 @@ When parsing input parameters in a Matlab functin, always make use of the `argum
     end
     ```
 - Avoid using unhandled `try/catch` blocks that may suppress important error information. Only use `try/catch` when you have a specific error handling strategy in place, such as logging the error or providing a user-friendly message.
+- Do not check for `isprop` or `isfield` before accessing properties or fields. Assume they exist unless there is a specific reason to check for their existence. 
 
 ## Commenting
  - Use concise and clear comments to explain the purpose of code blocks, especially for complex logic or non-obvious implementations.

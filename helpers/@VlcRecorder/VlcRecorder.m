@@ -47,23 +47,31 @@ classdef VlcRecorder < handle
 
     methods
         function obj = VlcRecorder(vlcPath, host, port)
-            if nargin >= 1 && strlength(string(vlcPath)) > 0
-                obj.VlcPath = string(vlcPath);
+            arguments
+                vlcPath {mustBeTextScalar} = ""
+                host {mustBeTextScalar} = ""
+                port (1,1) double {mustBePositive} = NaN
             end
-            if nargin >= 2 && strlength(string(host)) > 0
-                obj.Host = string(host);
+
+            vlcPath = string(vlcPath);
+            host = string(host);
+
+            if strlength(vlcPath) > 0
+                obj.VlcPath = vlcPath;
             end
-            if nargin >= 3 && ~isempty(port)
+            if strlength(host) > 0
+                obj.Host = host;
+            end
+            if ~isnan(port)
                 obj.Port = port;
             end
         end
 
         function launch(obj, extraArgs, mediaTarget)
-            if nargin < 2
-                extraArgs = "";
-            end
-            if nargin < 3
-                mediaTarget = "";
+            arguments
+                obj
+                extraArgs {mustBeTextScalar} = ""
+                mediaTarget {mustBeTextScalar} = ""
             end
 
             if ~isfile(obj.VlcPath)
@@ -94,14 +102,29 @@ classdef VlcRecorder < handle
             pause(1.5);
         end
 
-        function streamUrl = launchWebcam(obj, webcamName, varargin)
+        function streamUrl = launchWebcam(obj, webcamName, options)
+            arguments
+                obj
+                webcamName {mustBeTextScalar}
+                options.AudioDevice {mustBeTextScalar} = ""
+                options.RecordingFile {mustBeTextScalar} = ""
+                options.RecordingMux {mustBeTextScalar} = "ts"
+                options.StreamPort = []
+                options.StreamPath {mustBeTextScalar} = "/webcam"
+                options.StreamMux {mustBeTextScalar} = "ts"
+                options.StreamBind {mustBeTextScalar} = "0.0.0.0"
+                options.ShowPreview (1,1) logical = true
+                options.LiveCaching (1,1) double {mustBeNonnegative} = 300
+                options.ExtraArgs {mustBeTextScalar} = "--no-video-title-show"
+            end
+
             webcamName = string(webcamName);
             if strlength(webcamName) == 0
                 error("VlcRecorder:InvalidWebcam", ...
                     "A webcam device name is required.");
             end
 
-            options = obj.parseWebcamOptions(varargin{:});
+            options = obj.normalizeWebcamOptions(options);
             [extraArgs, mediaTarget, streamUrl] = obj.buildWebcamLaunchArguments(webcamName, options);
             obj.launch(extraArgs, mediaTarget);
         end
@@ -246,31 +269,25 @@ classdef VlcRecorder < handle
     end
 
     methods (Access = private)
-        function options = parseWebcamOptions(~, varargin)
-            parser = inputParser;
-            parser.FunctionName = 'VlcRecorder.launchWebcam';
-            addParameter(parser, 'AudioDevice', "", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'RecordingFile', "", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'RecordingMux', "ts", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'StreamPort', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x) && isfinite(x) && x > 0));
-            addParameter(parser, 'StreamPath', "/webcam", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'StreamMux', "ts", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'StreamBind', "0.0.0.0", @(x) ischar(x) || isstring(x));
-            addParameter(parser, 'ShowPreview', true, @(x) islogical(x) || isnumeric(x));
-            addParameter(parser, 'LiveCaching', 300, @(x) isscalar(x) && isnumeric(x) && isfinite(x) && x >= 0);
-            addParameter(parser, 'ExtraArgs', "--no-video-title-show", @(x) ischar(x) || isstring(x));
-            parse(parser, varargin{:});
+        function options = normalizeWebcamOptions(obj, options)
+            arguments
+                obj
+                options.AudioDevice {mustBeTextScalar} = ""
+                options.RecordingFile {mustBeTextScalar} = ""
+                options.RecordingMux {mustBeTextScalar} = "ts"
+                options.StreamPort = []
+                options.StreamPath {mustBeTextScalar} = "/webcam"
+                options.StreamMux {mustBeTextScalar} = "ts"
+                options.StreamBind {mustBeTextScalar} = "0.0.0.0"
+                options.ShowPreview (1,1) logical = true
+                options.LiveCaching (1,1) double {mustBeNonnegative} = 300
+                options.ExtraArgs {mustBeTextScalar} = "--no-video-title-show"
+            end
 
-            options = parser.Results;
-            options.AudioDevice = string(options.AudioDevice);
-            options.RecordingFile = string(options.RecordingFile);
-            options.RecordingMux = lower(string(options.RecordingMux));
-            options.StreamPath = string(options.StreamPath);
-            options.StreamMux = lower(string(options.StreamMux));
-            options.StreamBind = string(options.StreamBind);
-            options.ShowPreview = logical(options.ShowPreview);
-            options.LiveCaching = round(options.LiveCaching);
-            options.ExtraArgs = string(options.ExtraArgs);
+            if isempty(obj)
+                return;
+            end
+
 
             if isempty(options.StreamPort)
                 options.StreamPort = [];
@@ -285,6 +302,12 @@ classdef VlcRecorder < handle
         end
 
         function [extraArgs, mediaTarget, streamUrl] = buildWebcamLaunchArguments(obj, webcamName, options)
+            arguments
+                obj
+                webcamName {mustBeTextScalar, mustBeNonzeroLengthText}
+                options struct
+            end
+
             mediaArgs = ["dshow://", ...
                 ":dshow-vdev=" + obj.quoteCliValue(webcamName), ...
                 ":live-caching=" + string(options.LiveCaching)];
@@ -338,6 +361,11 @@ classdef VlcRecorder < handle
         end
 
         function out = sendCommand(obj, command)
+            arguments
+                obj
+                command {mustBeTextScalar}
+            end
+
             write(obj.Client, uint8([char(command), newline]), "uint8");
             pause(0.15);
             out = obj.readAvailable();

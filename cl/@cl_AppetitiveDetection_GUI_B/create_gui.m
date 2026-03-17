@@ -465,7 +465,7 @@ axPsych = uiaxes(layoutMain);
 axPsych.Layout.Row = [3 5];
 axPsych.Layout.Column = [3 7];
 
-obj.psychPlot = gui.StaircaseHistoryPlot(obj.Psych,axPsych);
+obj.Psych.enablePlot(axPsych);
 
 
 

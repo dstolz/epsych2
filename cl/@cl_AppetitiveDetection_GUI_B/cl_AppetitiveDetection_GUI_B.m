@@ -22,7 +22,6 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         h_figure               % Main figure handle
         h_OnlinePlot           % Handle to the online plot figure
         Psych                  % psychophysics object
-        psychPlot              % gui.psychPlot instance
         % slidingWindowPlot      % gui.SlidingWindowPerformancePlot instance
         ResponseHistory        % gui.History instance
         Performance            % gui.Performance instance

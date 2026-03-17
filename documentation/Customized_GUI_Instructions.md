@@ -283,7 +283,7 @@ The example GUI uses several helper classes that encapsulate common UI elements:
 * `gui.Parameter_Monitor`: read-only monitoring table
 * `gui.Parameter_Update`: a unified “Update Parameters”/commit mechanism
 * `gui.FilenameValidator`: file naming / data filename UX
-* `gui.StaircaseHistoryPlot`: online staircase visualization
+* `psychophysics.Staircase` plotting (`enablePlot`): online staircase visualization
 * `gui.History`: response history table
 
 General advice:
@@ -386,11 +386,11 @@ Example patterns:
 
 * During layout development, temporarily call `showGridBorders(layoutHandle)` (e.g., `showGridBorders(layoutMain)`) to visualize grid cell boundaries and quickly spot mis-assigned `Layout.Row`/`Layout.Column` settings. Disable/remove this once the layout is finalized.
 
-2. Add parameter controls using `gui.Parameter_Control` for the most important parameters.
-3. Add a `gui.Parameter_Update` commit button if you want batch updates.
-4. Add monitoring using `gui.Parameter_Monitor` and/or event listeners.
-5. Add plots (`gui.StaircaseHistoryPlot`, etc.) once the basics are stable.
-6. Audit cleanup (listeners/timers/figures) and verify closing the GUI leaves no background processes.
+1. Add parameter controls using `gui.Parameter_Control` for the most important parameters.
+1. Add a `gui.Parameter_Update` commit button if you want batch updates.
+1. Add monitoring using `gui.Parameter_Monitor` and/or event listeners.
+1. Add plots (e.g., `S.enablePlot(ax)` on a `psychophysics.Staircase`) once the basics are stable.
+1. Audit cleanup (listeners/timers/figures) and verify closing the GUI leaves no background processes.
 
 ## 10) Minimal skeleton (conceptual)
 

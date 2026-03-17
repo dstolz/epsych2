@@ -15,6 +15,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
     %   StaircaseDirection — "Up" or "Down"; defines direction for reversal detection
     %   StimulusTrialType — BitMask identifying stimulus trials for analysis
     %   ConvertToDecibels — when true, converts stimulus values using 20*log10(x)
+    %
+    % See also: documentation/Staircase.md
 
     properties (SetObservable)
         Parameter = []  % Parameter object to track in staircase analysis
@@ -32,6 +34,19 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
         Bits (1,:) epsych.BitMask = epsych.BitMask.getResponses;  % Response codes for visualization
         BitColors (5,1) string = ["#dff7df","#fcdcdc","#d9f2ff","#fcdefc","#fcfcd4"];  % Colors for response visualization
+
+        % Optional plotting configuration (when enabled via enablePlot or constructor option).
+        LineColor   (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(LineColor,1)} = [0.15 0.35 0.75]
+        StepColor   (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(StepColor,1)} = [0.90 0.35 0.10]
+        NeutralColor (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(NeutralColor,1)} = [0.60 0.60 0.60]
+        ReversalColor (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(ReversalColor,1)} = [0.10 0.10 0.10]
+
+        MarkerSize (1,1) double {mustBePositive} = 40
+        StepMarkerSize (1,1) double {mustBePositive} = 72
+        ReversalMarkerSize (1,1) double {mustBePositive} = 110
+
+        ShowSteps (1,1) logical = true
+        ShowReversals (1,1) logical = true
     end
 
     properties (SetAccess = private)
@@ -41,8 +56,10 @@ classdef Staircase < handle & matlab.mixin.SetGet
         DATA  % Trial data array extracted from RUNTIME
 
         ReversalCount   % Total number of reversals observed in staircase history
-        ReversalIdx     % Indices of trials where reversals occurred in stimulus sequence
-        StepDirection   % Direction of staircase step at each trial (1=up, -1=down, nan=neutral)
+        ReversalIdx     % Absolute trial indices in DATA where reversals occur (turning points)
+        ReversalDirection  % Direction after each reversal (+1=up, -1=down)
+        StepDirection   % Per-trial step direction (NaN for non-stim trials)
+        StimulusTrialIdx  % Absolute trial indices in DATA that are stimulus trials
         Threshold       % Current threshold estimate based on last N reversals
         ThresholdStd    % Standard deviation of threshold values from last N reversals
     end
@@ -52,30 +69,66 @@ classdef Staircase < handle & matlab.mixin.SetGet
         responseCodes  % Response codes extracted from DATA
         stimulusValues  % Stimulus parameter values from DATA, optionally converted to decibels
         trialCount  % Total number of trials in DATA
+
+        ParameterName % Convenience accessor for plot labels/titles
     end
 
     properties (Access = private)
         hl_NewData = event.listener.empty
+
+        % Plot state (optional).
+        plotEnabled_ (1,1) logical = false
+        plotAxes_ = []
+        plotFigure_ = []
+        plotOwnsFigure_ (1,1) logical = false
+        plotListeners_ = event.listener.empty
+
+        h_line
+        h_points
+        h_thrreg
+        h_thrline
+        StepH
+        ReversalUpH
+        ReversalDownH
     end
 
     methods
         function obj = Staircase(RUNTIME, Parameter,options)
             % S = psychophysics.Staircase(RUNTIME, Parameter)
             % S = psychophysics.Staircase(RUNTIME, Parameter, StaircaseDirection="Up", ConvertToDecibels=true)
+            % S = psychophysics.Staircase(DATA, Parameter)
+            % S = psychophysics.Staircase(RUNTIME, Parameter, EnablePlot=true)
+            % S = psychophysics.Staircase(RUNTIME, Parameter, EnablePlot=true, PlotAxes=ax)
             %
-            % Construct a Staircase object and attach a listener to RUNTIME.HELPER.
+            % Construct a Staircase object for online or offline analysis.
+            %
+            % Online mode:
+            %   Pass RUNTIME as the first input to attach a listener to RUNTIME.HELPER
+            %   and automatically update history on each NewData event.
+            %
+            % Offline mode:
+            %   Pass DATA (the per-trial struct array, e.g. event.Data.DATA) as the first
+            %   input to compute staircase history immediately without attaching listeners.
             % The staircase automatically recomputes reversals and thresholds when new 
             % trial data arrives. Stimulus trials are filtered by StimulusTrialType mask 
             % for reversal detection. When ConvertToDecibels is true, stimulus values are 
             % transformed as dB = 20*log10(x) with x<=0 replaced by NaN.
             %
+            % Plotting is optional. When EnablePlot is true and PlotAxes is empty, the
+            % Staircase creates and owns a new figure/axes for online updates.
+            %
             % Parameters:
-            %   RUNTIME — Runtime object with HELPER and trial data
+            %   RUNTIME — Runtime object with HELPER and trial data (online mode)
+            %   DATA — per-trial struct array (offline mode), typically event.Data.DATA
             %   Parameter — hw.Parameter object to track in staircase
             %   StimulusTrialType — BitMask for stimulus trials (default: TrialType_0)
             %   CatchTrialType — BitMask for catch trials (default: TrialType_1)
             %   StaircaseDirection — "Up" or "Down" (default: "Down")
             %   ConvertToDecibels — convert stimulus values to dB (default: false)
+            %   EnablePlot — enable online plotting (default: false)
+            %   PlotAxes — axes for plotting; when empty, creates a new figure (default: [])
+            %   ShowSteps — show step markers when plotting (default: true)
+            %   ShowReversals — show reversal markers when plotting (default: true)
             arguments
                 RUNTIME 
                 Parameter
@@ -83,22 +136,46 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 options.CatchTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
                 options.StaircaseDirection (1,1) string {mustBeMember(options.StaircaseDirection,["Up","Down"])} = "Down"
                 options.ConvertToDecibels (1,1) logical = false
+                options.EnablePlot (1,1) logical = false
+                options.PlotAxes = []
+                options.ShowSteps (1,1) logical = true
+                options.ShowReversals (1,1) logical = true
             end
 
-            obj.RUNTIME = RUNTIME;
+            if isstruct(RUNTIME)
+                obj.RUNTIME = [];
+                obj.DATA = RUNTIME;
+            else
+                obj.RUNTIME = RUNTIME;
+            end
+
             obj.Parameter = Parameter;
             obj.StimulusTrialType = options.StimulusTrialType;
             obj.CatchTrialType = options.CatchTrialType;
             obj.StaircaseDirection = options.StaircaseDirection;
             obj.ConvertToDecibels = options.ConvertToDecibels;
 
-            obj.hl_NewData = addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
+            if isempty(obj.RUNTIME)
+                obj.hl_NewData = event.listener.empty;
+                obj.recompute_history();
+            else
+                obj.hl_NewData = addlistener(obj.RUNTIME.HELPER,'NewData',@obj.update_data);
+            end
+
+            if options.EnablePlot
+                obj.enablePlot(options.PlotAxes, ShowSteps=options.ShowSteps, ShowReversals=options.ShowReversals);
+            end
             
         end
 
         function delete(obj)
-            % Remove NewData listener and clean up event infrastructure.
-            % This destructor ensures proper cleanup of the listener attached in the constructor.
+            % delete(obj)
+            % Destroy Staircase and release listeners/graphics.
+            %
+            % Parameters:
+            %   obj — psychophysics.Staircase instance
+            obj.disablePlot();
+
             if ~isempty(obj.hl_NewData)
                 delete(obj.hl_NewData);
                 obj.hl_NewData = event.listener.empty;
@@ -106,23 +183,125 @@ classdef Staircase < handle & matlab.mixin.SetGet
         end
 
         function update_data(obj, ~, event)
-            % Handle NewData event from RUNTIME.HELPER and update staircase state.
-            % Extracts trial data from the event, recomputes reversal history, and 
-            % broadcasts a NewData notification to listeners.
+            % update_data(obj, ~, event)
+            % Update staircase state from a runtime NewData event.
+            %
+            % Parameters:
+            %   obj — psychophysics.Staircase instance
+            %   event — event data containing event.Data.DATA (trial struct array)
             vprintf(4, 'psychophysics.Staircase received NewData event with %d trials', numel(event.Data.DATA));
             obj.DATA = event.Data.DATA;
 
             obj.recompute_history();
+
+            if obj.plotEnabled_
+                obj.updatePlot_();
+            end
 
             evtdata = epsych.TrialsData(event.Data);
             obj.Helper.notify('NewData',evtdata);
         end
 
         function refresh_history(obj)
-            % Recompute staircase history and notify listeners of updates.
-            % Call this method when data may have changed outside the normal NewData event pathway.
+            % refresh_history(obj)
+            % Recompute staircase history and notify listeners.
+            %
+            % Parameters:
+            %   obj — psychophysics.Staircase instance
             obj.recompute_history();
+
+            if obj.plotEnabled_
+                obj.updatePlot_();
+            end
+
             obj.notify_history_update();
+        end
+
+        function enablePlot(obj, ax, options)
+            % obj.enablePlot()
+            % obj.enablePlot(ax)
+            % obj.enablePlot(ax, ShowSteps=true, ShowReversals=true)
+            %
+            % Enable optional online plotting of staircase history.
+            % If ax is empty, a new uifigure and uiaxes are created and owned.
+            %
+            % Parameters:
+            %   obj — psychophysics.Staircase instance
+            %   ax — target axes; when empty, a new figure/axes is created (default: [])
+            %   ShowSteps — show step-direction markers (default: obj.ShowSteps)
+            %   ShowReversals — show reversal markers (default: obj.ShowReversals)
+            arguments
+                obj
+                ax = []
+                options.ShowSteps (1,1) logical = obj.ShowSteps
+                options.ShowReversals (1,1) logical = obj.ShowReversals
+            end
+
+            obj.disablePlot();
+
+            obj.ShowSteps = options.ShowSteps;
+            obj.ShowReversals = options.ShowReversals;
+
+            if isempty(ax)
+                fig = uifigure('Name', sprintf('Staircase | %s', char(obj.ParameterName)));
+                fig.CloseRequestFcn = @(src,~)obj.onPlotFigureClose_(src);
+                layout = uigridlayout(fig, [1 1]);
+                layout.RowHeight = {'1x'};
+                layout.ColumnWidth = {'1x'};
+                ax = uiaxes(layout);
+                obj.plotFigure_ = fig;
+                obj.plotOwnsFigure_ = true;
+            else
+                obj.plotFigure_ = ancestor(ax,'figure');
+                obj.plotOwnsFigure_ = false;
+            end
+
+            obj.plotAxes_ = ax;
+            obj.plotEnabled_ = true;
+
+            obj.attachPlotDestructionListeners_();
+            obj.setupPlotAxes_();
+            obj.updatePlot_();
+        end
+
+        function disablePlot(obj)
+            % disablePlot(obj)
+            % Disable plotting and release graphics/listeners.
+            %
+            % Parameters:
+            %   obj — psychophysics.Staircase instance
+            obj.plotEnabled_ = false;
+
+            if ~isempty(obj.plotListeners_)
+                L = obj.plotListeners_;
+                L = L(isvalid(L));
+                if ~isempty(L)
+                    delete(L);
+                end
+                obj.plotListeners_ = event.listener.empty;
+            end
+
+            obj.deletePlotGraphics_();
+
+            if obj.plotOwnsFigure_ && ~isempty(obj.plotFigure_) && isvalid(obj.plotFigure_)
+                delete(obj.plotFigure_);
+            end
+
+            obj.plotAxes_ = [];
+            obj.plotFigure_ = [];
+            obj.plotOwnsFigure_ = false;
+        end
+
+        function refreshPlot(obj)
+            % refreshPlot(obj)
+            % Re-render plot from current staircase state (no-op if disabled).
+            %
+            % Parameters:
+            %   obj — psychophysics.Staircase instance
+            if ~obj.plotEnabled_
+                return
+            end
+            obj.updatePlot_();
         end
 
 
@@ -156,6 +335,18 @@ classdef Staircase < handle & matlab.mixin.SetGet
             end
         end
 
+        function n = get.ParameterName(obj)
+            if isempty(obj.Parameter)
+                n = "";
+                return
+            end
+            if isprop(obj.Parameter,'Name')
+                n = string(obj.Parameter.Name);
+            else
+                n = string(class(obj.Parameter));
+            end
+        end
+
         
         
     end
@@ -171,7 +362,9 @@ classdef Staircase < handle & matlab.mixin.SetGet
             data = obj.DATA;
             if isempty(data)
                 obj.ReversalIdx = [];
+                obj.ReversalDirection = [];
                 obj.StepDirection = [];
+                obj.StimulusTrialIdx = [];
                 obj.Threshold = [];
                 obj.ThresholdStd = [];
                 return
@@ -179,24 +372,35 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
             RCD = epsych.BitMask.decode(obj.responseCodes);
 
-            ind = RCD.(char(obj.StimulusTrialType));
+            stimMask = RCD.(char(obj.StimulusTrialType));
+            obj.StimulusTrialIdx = find(stimMask);
 
-            stimValues = obj.stimulusValues(ind);
-            
+            stimValues = obj.stimulusValues(stimMask);
+
             d = sign(diff(stimValues));
             if obj.StaircaseDirection == "Up"
                 d = -d;
             end
 
-            obj.StepDirection = [nan,d];
-            obj.ReversalIdx = find(d(2:end)~=0 & (d(2:end)<d(1:end-1) | d(2:end) > d(1:end-1))) + 1;
+            stepDirection = nan(1, obj.trialCount);
+            if ~isempty(d)
+                stepDirection(obj.StimulusTrialIdx(2:end)) = d;
+            end
+            obj.StepDirection = stepDirection;
 
+            obj.ReversalIdx = [];
+            obj.ReversalDirection = [];
+            if numel(d) >= 2
+                reversalStimIdx = find(d(2:end)~=0 & (d(2:end)<d(1:end-1) | d(2:end) > d(1:end-1))) + 1;
+                obj.ReversalIdx = obj.StimulusTrialIdx(reversalStimIdx);
+                obj.ReversalDirection = d(reversalStimIdx);
+            end
 
-            obj.ReversalCount = length(obj.ReversalIdx);
+            obj.ReversalCount = numel(obj.ReversalIdx);
 
             if obj.ReversalCount > 0
-                lastNReversals = obj.ReversalIdx(max(1, end - obj.ThresholdFromLastNReversals + 1):end);
-                thresholdValues = stimValues(lastNReversals);
+                lastN = max(1, obj.ReversalCount - obj.ThresholdFromLastNReversals + 1):obj.ReversalCount;
+                thresholdValues = obj.stimulusValues(obj.ReversalIdx(lastN));
                 
                 if obj.ThresholdFormula == "Mean"
                     obj.Threshold = mean(thresholdValues);
@@ -224,6 +428,22 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
         
 
+    end
+
+    methods (Access = private)
+        % Plot helper methods (implemented as separate files in @Staircase)
+        attachPlotDestructionListeners_(obj)
+        onPlotFigureClose_(obj, fig)
+        deletePlotGraphics_(obj)
+        setupPlotAxes_(obj)
+        updatePlot_(obj)
+        updateThresholdOverlay_(obj)
+
+        [x, y, c, xStep, yStep, cStep, xRevUp, yRevUp, xRevDown, yRevDown] = getPlotData_(obj)
+        updatePlotLabels_(obj)
+        [titleText, hasTitle] = getTitleText_(obj)
+        c = directionColors_(obj, direction)
+        values = columnize_(obj, values)
     end
 
     

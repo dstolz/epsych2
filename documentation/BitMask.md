@@ -82,6 +82,10 @@ mask = uint32([0 1 3 14]);
 % activeFlags is a cell array: one epsych.BitMask array per element in mask
 ```
 
+Notes:
+- `Mask2Bits` accepts `mask` arrays of any shape; `bits` is always returned as `[numel(mask) x nbits]`.
+- When you request the second output, `activeFlags` is reshaped to the same size as `mask`.
+
 If you only need a limited number of bits:
 
 ```matlab
@@ -161,8 +165,12 @@ These return subsets of the enumeration (as `epsych.BitMask` arrays):
 - **Enum values are bit indices.** The enumeration stores positions (e.g., `Hit = 1`), not powers of two.
 - **`Undefined (0)` is not a bit position.** It is a sentinel value; `getDefined()` excludes it.
 - **Bit order in vectors:** `Mask2Bits` and `Bits2Mask` use “LSB in column 1”. A binary vector `[0 1 1 1 0]` corresponds to bits 2–4 being set.
-- **Typos and ranges:** in the current file there is an enum name `OPtion_H` (capital `P`), and some group helper ranges (`getChoices`, `getOptions`) may not align with the listed enum values. If you rely on the group helpers, verify the returned names with `string(epsych.BitMask.getChoices())` etc.
+- **Enum name typo:** the enum includes `OPtion_H` (capital `P`). This is a real enum member name, so the decoded struct field will also be `M.OPtion_H`.
 
 ## Related files
 
 - `helpers/bitmask_gui.m` — interactive UI to build/copy masks using `epsych.BitMask`.
+
+## Changelog
+
+- 2026-03-17: Updated docs to match the current `Mask2Bits` shape behavior and the corrected group helper ranges.

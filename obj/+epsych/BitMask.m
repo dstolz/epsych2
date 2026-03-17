@@ -5,6 +5,8 @@ classdef BitMask < uint32
     % This enum maps named behavioral and trial-state fields to bit indices.
     % Use it to build, decode, and validate bitmasks stored in trial data.
     %
+    % See documentation/BitMask.md for a user-focused overview and examples.
+    %
     % Methods:
     %   list       - List all enumeration names and numeric values.
     %   Mask2Bits  - Convert integer mask(s) into binary arrays / enums.
@@ -41,7 +43,7 @@ classdef BitMask < uint32
         Option_E            (27)
         Option_F            (28)
         Option_G            (29)
-        OPtion_H            (30)
+        Option_H            (30)
         Option_I            (31)
     end
 
@@ -79,8 +81,12 @@ classdef BitMask < uint32
             end
         end
 
-        function f = GUI()
-            f = bitmask_gui;
+        function f = GUI(options)
+            %GUI Launch the BitMask GUI helper for interactive mask construction and decoding.
+            arguments
+                options.InitialMask (1,1) {mustBeNonnegative, mustBeFinite, mustBeInteger} = 0
+            end
+            f = bitmask_gui(InitialMask = options.InitialMask);
             if nargout == 0, clear f; end
         end
 
@@ -98,15 +104,15 @@ classdef BitMask < uint32
         end
 
         function m = getTrialTypes()
-            m = epsych.BitMask(11:14);
+            m = epsych.BitMask(11:16);
         end
 
         function m = getChoices()
-            m = epsych.BitMask(20:25);
+            m = epsych.BitMask(17:22);
         end
 
         function m = getOptions()
-            m = epsych.BitMask(26:32);
+            m = epsych.BitMask(23:31);
         end
 
         function d = getDefined()
@@ -146,14 +152,12 @@ classdef BitMask < uint32
             %       BM   - Cell array of BitMask enumeration arrays indicating active flags.
 
             arguments
-                mask (1,:) {mustBeNonnegative, mustBeFinite,mustBeNonempty,mustBeInteger}
-                nbits (1,1) double = 32
+                mask {mustBeNonnegative, mustBeFinite, mustBeNonempty, mustBeInteger}
+                nbits (1,1) double {mustBePositive, mustBeInteger} = 32
             end
 
-            mask = uint32(mask);
-
-            % Flatten mask for processing
-            mask = mask(:);
+            inputSize = size(mask);
+            mask = uint32(mask(:));
             n = numel(mask);
             bitPositions = repmat(1:nbits, n, 1);
             maskMatrix = repmat(mask, 1, nbits);
@@ -167,7 +171,7 @@ classdef BitMask < uint32
             % Return BitMask if requested
             if nargout == 2
                 BM = arrayfun(@(idx) epsych.BitMask(find(bits(idx,:))), 1:n, 'UniformOutput', false);
-                BM = reshape(BM, size(mask));
+                BM = reshape(BM, inputSize);
             end
         end
 

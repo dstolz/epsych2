@@ -31,10 +31,9 @@ function vprintf(verbose_level,varargin)
 %      18:51:35.958: This is a level 2 message: medium verbosity
 % 
 %      vprintf(3,'This message will not be printed because GVerbosity = %d',GVerbosity)
-%      18:51:35.958: This is a level 2 message: medium verbosity
 % 
-%      vprintf(1,1,'This is a level %d message: %s',1,'low verbosity')
-%      18:51:35.958: This is a level 1 message: low verbosity
+%      vprintf(1,1,'This is a red level %d message: %s',1,'low verbosity')
+%      18:51:35.958: This is a red level 1 message: low verbosity
 %
 % 
 % It is probably a good idea to close the log file when done.
@@ -45,6 +44,8 @@ function vprintf(verbose_level,varargin)
 %
 % The msg input can also be an MException object and the entire error
 % message and stack will be printed to the log.
+%
+% See documentation/helpers_vprintf.md for a usage overview and examples.
 %
 % Daniel.Stolzberg@gmail.com 2015
 

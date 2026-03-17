@@ -170,20 +170,6 @@ classdef StaircaseHistoryPlot < handle
                 'LineWidth', 1.5, ...
                 'Marker', 'none');
 
-
-            obj.h_points = scatter(obj.ax, nan, nan, obj.MarkerSize, ...
-                'filled', ...
-                'Marker', 'o', ...
-                'MarkerEdgeColor', 'none');
-
-
-            obj.StepH = scatter(obj.ax, nan, nan, obj.StepMarkerSize, ...
-                'filled', ...
-                'Marker', 's', ...
-                'MarkerEdgeColor', 'none', ...
-                'Visible', 'off');
-
-
             obj.ReversalUpH = scatter(obj.ax, nan, nan, obj.ReversalMarkerSize, ...
                 'Marker', '^', ...
                 'MarkerEdgeColor', obj.ReversalColor, ...
@@ -198,6 +184,20 @@ classdef StaircaseHistoryPlot < handle
                 'MarkerFaceColor', obj.ReversalColor, ...
                 'LineWidth', 1, ...
                 'Visible', 'off');
+
+            obj.h_points = scatter(obj.ax, nan, nan, obj.MarkerSize, ...
+                'filled', ...
+                'Marker', 'o', ...
+                'MarkerEdgeColor', 'none');
+
+
+            obj.StepH = scatter(obj.ax, nan, nan, obj.StepMarkerSize, ...
+                'filled', ...
+                'Marker', 's', ...
+                'MarkerEdgeColor', 'none', ...
+                'Visible', 'off');
+
+
             hold(obj.ax,'off')
 
 
@@ -294,19 +294,19 @@ classdef StaircaseHistoryPlot < handle
 
                 if isempty(boxID)
                     if strlength(subjectName) > 0
-                        titleParts{end+1} = char(subjectName); %#ok<AGROW>
+                        titleParts{end+1} = char(subjectName);
                     end
                 elseif strlength(subjectName) == 0
-                    titleParts{end+1} = sprintf('[%d]', boxID); %#ok<AGROW>
+                    titleParts{end+1} = sprintf('[%d]', boxID);
                 else
-                    titleParts{end+1} = sprintf('%s [%d]', subjectName, boxID); %#ok<AGROW>
+                    titleParts{end+1} = sprintf('%s [%d]', subjectName, boxID);
                 end
             end
 
             if isprop(obj.staircaseObj, 'ReversalCount') && ~isempty(obj.staircaseObj.ReversalCount)
                 reversalCount = obj.staircaseObj.ReversalCount;
                 if isscalar(reversalCount) && isfinite(reversalCount)
-                    titleParts{end+1} = sprintf('Reversals: %d', reversalCount); %#ok<AGROW>
+                    titleParts{end+1} = sprintf('Reversals: %d', reversalCount);
                 end
             end
 
@@ -326,12 +326,12 @@ classdef StaircaseHistoryPlot < handle
                     if isscalar(configuredReversals) && isfinite(configuredReversals)
                         if isscalar(actualReversals) && isfinite(actualReversals)
                             nUsed = min(actualReversals, configuredReversals);
-                            titleParts{end+1} = sprintf('Threshold (%d/%d rev): %.3f', nUsed, configuredReversals, threshold); %#ok<AGROW>
+                            titleParts{end+1} = sprintf('Threshold (%d/%d rev): %.3f', nUsed, configuredReversals, threshold);
                         else
-                            titleParts{end+1} = sprintf('Threshold (last %d rev): %.3f', configuredReversals, threshold); %#ok<AGROW>
+                            titleParts{end+1} = sprintf('Threshold (last %d rev): %.3f', configuredReversals, threshold);
                         end
                     else
-                        titleParts{end+1} = sprintf('Threshold: %.3f', threshold); %#ok<AGROW>
+                        titleParts{end+1} = sprintf('Threshold: %.3f', threshold);
                     end
                 end
             end

@@ -184,8 +184,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                 % TO DO: USE NEW PSYCHSTAIRCASE OBJECT TO CALCULATE ABORT RATE FOR STIMULUS TRIALS ONLY
                 rc = obj.Psych.responseCodes;
                 rc = epsych.BitMask.decode(rc);
-                abortRate = sum(rc.Abort) ./ obj.Psych.trialCount;
-                hitRate = sum(rc.Hit) ./ obj.Psych.trialCount;
+                abortRate = sum(rc.Abort) ./ sum(rc.TrialType_0);
+                hitRate = sum(rc.Hit) ./ sum(rc.Hit|rc.Miss);
                 ptxt = sprintf('  Hit Rate:\t%4.1f%%\nAbort Rate:\t%4.1f%%', hitRate*100, abortRate*100);
                 obj.lblPerformance.Text = ptxt;
             end

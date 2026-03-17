@@ -4,7 +4,7 @@
 
 It adds a timestamp to each message, filters output using the global verbosity level, and writes messages to a daily log file under `.error_logs` in the EPsych root folder.
 
-**All EPsych functions should consider using this in place of directly calling `fprintf`\**
+**_All EPsych functions should consider using this in place of directly calling `fprintf`_**
 
 ## Function signature
 

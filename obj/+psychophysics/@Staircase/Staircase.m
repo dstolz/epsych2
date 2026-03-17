@@ -1,15 +1,25 @@
 classdef Staircase < handle & matlab.mixin.SetGet
     % Adaptive staircase analysis that tracks reversals and computes thresholds.
     % 
-    % psychophysics.Staircase analyzes trial data to maintain staircase state, including 
-    % reversals, step direction, and threshold estimates. It listens to RUNTIME.HELPER 
-    % NewData events and recomputes staircase history with each trial. The class exposes 
-    % dependent accessors for responseCodes, stimulusValues, and trialCount, as well as 
-    % computed properties ReversalCount, ReversalIdx, and Threshold.
+    % psychophysics.Staircase analyzes trial data to maintain staircase state, including
+    % reversals, step direction, and threshold estimates. The class exposes dependent
+    % accessors for responseCodes, stimulusValues, and trialCount, as well as computed
+    % properties ReversalCount, ReversalIdx, and Threshold.
+    %
+    % Modes:
+    %   Online mode  — Construct with a Runtime object as the first input. The Staircase
+    %                 attaches a listener to RUNTIME.HELPER and recomputes history on
+    %                 each NewData event.
+    %   Offline mode — Construct with DATA (a per-trial struct array, often loaded from session files)
+    %                 as the first input. No listener is attached; history is computed
+    %                 immediately from DATA and can be recomputed via refresh_history().
     %
     % Usage:
     %   S = psychophysics.Staircase(RUNTIME, Parameter)
     %   S = psychophysics.Staircase(RUNTIME, Parameter, StaircaseDirection="Up")
+    %   S = psychophysics.Staircase(DATA, Parameter)
+    %   S = psychophysics.Staircase(DATA, Parameter, EnablePlot=true)
+    %   S = psychophysics.Staircase(DATA, Parameter, EnablePlot=true, PlotAxes=ax)
     %
     % Key properties:
     %   StaircaseDirection — "Up" or "Down"; defines direction for reversal detection
@@ -99,6 +109,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % S = psychophysics.Staircase(DATA, Parameter)
             % S = psychophysics.Staircase(RUNTIME, Parameter, EnablePlot=true)
             % S = psychophysics.Staircase(RUNTIME, Parameter, EnablePlot=true, PlotAxes=ax)
+            % S = psychophysics.Staircase(DATA, Parameter, EnablePlot=true)
+            % S = psychophysics.Staircase(DATA, Parameter, EnablePlot=true, PlotAxes=ax)
             %
             % Construct a Staircase object for online or offline analysis.
             %
@@ -109,10 +121,14 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % Offline mode:
             %   Pass DATA (the per-trial struct array, e.g. event.Data.DATA) as the first
             %   input to compute staircase history immediately without attaching listeners.
-            % The staircase automatically recomputes reversals and thresholds when new 
-            % trial data arrives. Stimulus trials are filtered by StimulusTrialType mask 
-            % for reversal detection. When ConvertToDecibels is true, stimulus values are 
-            % transformed as dB = 20*log10(x) with x<=0 replaced by NaN.
+            %
+            % In online mode, the staircase automatically recomputes reversals and
+            % thresholds when new trial data arrives. In offline mode, call refresh_history()
+            % after modifying obj.DATA.
+            %
+            % Stimulus trials are filtered by StimulusTrialType mask for reversal detection.
+            % When ConvertToDecibels is true, stimulus values are transformed as
+            % dB = 20*log10(x) with x<=0 replaced by NaN.
             %
             % Plotting is optional. When EnablePlot is true and PlotAxes is empty, the
             % Staircase creates and owns a new figure/axes for online updates.

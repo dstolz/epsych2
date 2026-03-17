@@ -1,5 +1,15 @@
 classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
-    % Abstract class for creating hardware interfaces for use by EPsych
+    % hw.Interface
+    %
+    % Abstract base class for creating hardware interfaces used by EPsych.
+    % Implementations provide a set of Modules and expose Parameters that can
+    % be queried/modified in a uniform way.
+    %
+    % Usage:
+    %   % Concrete subclasses implement setup/close and parameter I/O
+    %   I = MyInterfaceSubclass(...);
+    %   P = I.find_parameter("Reward");
+    %   ok = I.set_parameter("Reward", 1);
 
     properties (Abstract,SetAccess = protected)
         % HW (1,:) matlab.mixin.Heterogeneous % Actual hardware interface object(s)
@@ -48,24 +58,30 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     methods
 
         function P = find_parameter(obj,name,options)
-            % P = find_parameter(obj,name)
-            %
-            % name can be a single char vector or a cellstr array
-            %
-            % Returns a handle to the hw.Parameter object(s). Can be
-            % an array of Parameters if the same tag is found on multiple
-            % modules
-            %
-            % options:
-            %   silenceParameterNotFound    default = false
-            %   includeInvisible            default = false
-            %
             arguments
                 obj
                 name
                 options.includeInvisible (1,1) logical = false
                 options.silenceParameterNotFound (1,1) logical = false
             end
+
+            % P = find_parameter(obj,name)
+            % P = find_parameter(obj,name, includeInvisible=..., silenceParameterNotFound=...)
+            %
+            % Return handle(s) to matching hw.Parameter objects by Name.
+            % If the same Name exists on multiple modules, P can be an array.
+            %
+            % Parameters
+            %   name: char | string | cellstr
+            %       Parameter name(s) to search for.
+            %   includeInvisible: logical (default=false)
+            %       Include Parameters where Visible is false.
+            %   silenceParameterNotFound: logical (default=false)
+            %       Suppress warning output if nothing is found.
+            %
+            % Returns
+            %   P: hw.Parameter[]
+            %       Matching Parameter handle(s). Empty if not found.
 
             P = obj.all_parameters(includeInvisible = options.includeInvisible);
 
@@ -91,16 +107,6 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
 
         function P = filter_parameters(obj,propertyName,propertyValue,options,poptions)
-            % P = obj.filter_parameters(propertyName,propertyValue,options)
-            %
-            % options:
-            %   testFcn   default = @isequal
-            %               other common functions:
-            %                   @contains, @startsWith, etc.
-            %   includeInvisible    default = false
-            %
-            % ex: P = obj.filter_parameters('Access','Read',testFcn=@contains)
-
             arguments
                 obj
                 propertyName (1,:) char
@@ -109,6 +115,27 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 poptions.includeTriggers (1,1) logical = false
                 poptions.includeInvisible (1,1) logical = false
             end
+
+            % P = filter_parameters(obj,propertyName,propertyValue)
+            % P = filter_parameters(obj,propertyName,propertyValue, testFcn=..., includeTriggers=..., includeInvisible=...)
+            %
+            % Filter Parameters by comparing a property to a target value.
+            %
+            % Parameters
+            %   propertyName: char
+            %       Name of the hw.Parameter property to test (e.g. 'Access').
+            %   propertyValue: any
+            %       Target value/pattern passed to the test function.
+            %   testFcn: function_handle (default=@isequal)
+            %       Comparator function, e.g. @contains, @startsWith.
+            %   includeTriggers: logical (default=false)
+            %       Include trigger Parameters.
+            %   includeInvisible: logical (default=false)
+            %       Include Parameters where Visible is false.
+            %
+            % Returns
+            %   P: hw.Parameter[]
+            %       Parameters matching the filter criteria.
 
             poptions = namedargs2cell(poptions);
             P = obj.all_parameters(poptions{:});
@@ -120,18 +147,29 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
 
         function P = all_parameters(obj,options)
-            % P = all_parameters(obj,options)
-            %
-            % options:
-            %   includeInvisible    default = false
-            %   includeTriggers     default = true
-            %   includeArray        default = true
             arguments
                 obj
                 options.includeTriggers (1,1) logical = true
                 options.includeInvisible (1,1) logical = false
                 options.includeArray (1,1) logical = true
             end
+
+            % P = all_parameters(obj)
+            % P = all_parameters(obj, includeTriggers=..., includeInvisible=..., includeArray=...)
+            %
+            % Return all Parameters across all Modules, optionally filtered.
+            %
+            % Parameters
+            %   includeTriggers: logical (default=true)
+            %       Include trigger Parameters.
+            %   includeInvisible: logical (default=false)
+            %       Include Parameters where Visible is false.
+            %   includeArray: logical (default=true)
+            %       Include array-valued Parameters.
+            %
+            % Returns
+            %   P: hw.Parameter[]
+            %       Concatenated Parameters from all modules.
 
             P = [obj.Module(:).Parameters];
 
@@ -154,6 +192,22 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
 
         function tf = local_test(fcn, val, pat)
+            % tf = local_test(fcn,val,pat)
+            %
+            % Normalize the output of a comparison function to a logical
+            % scalar for filtering operations.
+            %
+            % Parameters
+            %   fcn: function_handle
+            %       Comparison function, e.g. @isequal, @contains.
+            %   val: any
+            %       Value from the Parameter property.
+            %   pat: any
+            %       Pattern/target value passed to the comparison function.
+            %
+            % Returns
+            %   tf: logical
+            %       True if the comparison indicates a match.
             res = fcn(val, pat);
             if islogical(res) && isscalar(res)
                 tf = res;

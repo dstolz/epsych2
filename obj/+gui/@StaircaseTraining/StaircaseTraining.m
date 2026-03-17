@@ -1,5 +1,5 @@
-classdef ProgressiveTrainingGUI < handle
-%PROGRESSIVETRAININGGUI Configure progressive training parameters (immediate commit).
+classdef StaircaseTraining < handle
+%STAIRCASETRAINING Configure staircase training parameters (immediate commit).
 %
 %   This GUI edits StepUp, StepDown, MinValue, MaxValue and their limits.
 %   Edits apply immediately: any valid change in the table is written
@@ -30,8 +30,8 @@ classdef ProgressiveTrainingGUI < handle
 %       ensure it is safe to update (synchronization is external).
 %
 %   CONSTRUCTOR
-%     G = ProgressiveTrainingGUI(Parameter)
-%     G = ProgressiveTrainingGUI(Parameter, Name=Value,...)
+%     G = gui.StaircaseTraining(Parameter)
+%     G = gui.StaircaseTraining(Parameter, Name=Value,...)
 %
 %   NAME–VALUE OPTIONS
 %     Parent           handle   (default = [])
@@ -60,7 +60,7 @@ classdef ProgressiveTrainingGUI < handle
         MinValueLimits (1,2) double = [-inf inf]
         MaxValueLimits (1,2) double = [-inf inf]
 
-        WindowStyle (1,1) string {mustBeMember(WindowStyle,["normal","alwaysontop","modal"])} = "alwaysontop"
+        WindowStyle (1,1) string {mustBeMember(WindowStyle, ["normal","alwaysontop","modal"])} = "alwaysontop"
     end
 
     properties (SetAccess = private, GetAccess = public)
@@ -83,11 +83,10 @@ classdef ProgressiveTrainingGUI < handle
 
         OwnsParentFigure (1,1) logical = false
         ParentDestroyedListener event.listener = event.listener.empty
-
     end
 
     methods
-        function obj = ProgressiveTrainingGUI(Parameter, options)
+        function obj = StaircaseTraining(Parameter, options)
             % Constructor; embed into Parent if provided, otherwise create figure.
             arguments
                 Parameter % hw.Parameter
@@ -102,7 +101,7 @@ classdef ProgressiveTrainingGUI < handle
                 options.StepDownLimits (1,2) double = [0 100]
                 options.MinValueLimits (1,2) double = [-inf inf]
                 options.MaxValueLimits (1,2) double = [-inf inf]
-                options.WindowStyle (1,1) string {mustBeMember(options.WindowStyle,["normal","alwaysontop","modal"])} = "alwaysontop"
+                options.WindowStyle (1,1) string {mustBeMember(options.WindowStyle, ["normal","alwaysontop","modal"])} = "alwaysontop"
             end
 
             obj.Parameter = Parameter;
@@ -135,7 +134,7 @@ classdef ProgressiveTrainingGUI < handle
                 delete(obj.RootGrid)
             end
             if obj.OwnsParentFigure && ~isempty(obj.Parent) && isvalid(obj.Parent)
-                setpref('ProgressiveTrainingGUI','Position',obj.Parent.Position);
+                setpref('StaircaseTraining', 'Position', obj.Parent.Position);
                 delete(obj.Parent)
             end
         end
@@ -182,10 +181,10 @@ classdef ProgressiveTrainingGUI < handle
     methods (Access = private)
         function validateAndReconcileInitialState(obj)
             % Validate limit properties and clamp values to limits.
-            obj.validateLimits("StepUpLimits",  isStep=true);
-            obj.validateLimits("StepDownLimits",isStep=true);
-            obj.validateLimits("MinValueLimits",isStep=false);
-            obj.validateLimits("MaxValueLimits",isStep=false);
+            obj.validateLimits("StepUpLimits", isStep=true);
+            obj.validateLimits("StepDownLimits", isStep=true);
+            obj.validateLimits("MinValueLimits", isStep=false);
+            obj.validateLimits("MaxValueLimits", isStep=false);
 
             obj.StepUp   = min(max(obj.StepUp,   obj.StepUpLimits(1)),   obj.StepUpLimits(2));
             obj.StepDown = min(max(obj.StepDown, obj.StepDownLimits(1)), obj.StepDownLimits(2));
@@ -193,7 +192,7 @@ classdef ProgressiveTrainingGUI < handle
             obj.MaxValue = min(max(obj.MaxValue, obj.MaxValueLimits(1)), obj.MaxValueLimits(2));
 
             if obj.MinValue > obj.MaxValue
-                vprintf(0,1,'ProgressiveTrainingGUI:InvalidMinMax', ...
+                vprintf(0,1,'StaircaseTraining:InvalidMinMax', ...
                     'MinValue must be <= MaxValue.');
             end
         end
@@ -207,24 +206,24 @@ classdef ProgressiveTrainingGUI < handle
             end
 
             L = obj.(propName);
-            if ~(isnumeric(L) && isvector(L) && numel(L)==2 && all(~isnan(L)))
-                vprintf(0,1,'ProgressiveTrainingGUI:InvalidLimits', ...
+            if ~(isnumeric(L) && isvector(L) && numel(L) == 2 && all(~isnan(L)))
+                vprintf(0,1,'StaircaseTraining:InvalidLimits', ...
                     '%s must be a 1x2 numeric vector.', propName);
             end
             L = double(L(:)).';
 
             if L(1) > L(2)
-                vprintf(0,1,'ProgressiveTrainingGUI:InvalidLimits', ...
+                vprintf(0,1,'StaircaseTraining:InvalidLimits', ...
                     '%s lower bound must be <= upper bound.', propName);
             end
 
             if options.isStep
                 if L(1) < 0
-                    vprintf(0,1,'ProgressiveTrainingGUI:InvalidLimits', ...
+                    vprintf(0,1,'StaircaseTraining:InvalidLimits', ...
                         '%s lower bound must be >= 0.', propName);
                 end
                 if L(2) <= 0
-                    vprintf(0,1,'ProgressiveTrainingGUI:InvalidLimits', ...
+                    vprintf(0,1,'StaircaseTraining:InvalidLimits', ...
                         '%s upper bound must be > 0.', propName);
                 end
             end
@@ -235,24 +234,24 @@ classdef ProgressiveTrainingGUI < handle
         function createUI(obj)
             % Create UI under Parent (embedded) or inside a new owned figure.
             if isempty(obj.Parent)
-                fpos = getpref('ProgressiveTrainingGUI','Position',[500 400 300 400]);
-                fig = uifigure('Name','Progressive Training','Position',fpos);
-                movegui(fig,'onscreen');
+                fpos = getpref('StaircaseTraining', 'Position', [500 400 300 400]);
+                fig = uifigure('Name', 'Staircase Training', 'Position', fpos);
+                movegui(fig, 'onscreen');
                 fig.WindowStyle = char(obj.WindowStyle);
                 fig.CloseRequestFcn = @(~,~)delete(obj);
                 obj.Parent = fig;
                 obj.OwnsParentFigure = true;
             else
                 if ~isvalid(obj.Parent)
-                    vprintf(0,1,'ProgressiveTrainingGUI:InvalidParent','Parent is not valid.');
+                    vprintf(0,1,'StaircaseTraining:InvalidParent','Parent is not valid.');
                 end
             end
 
             if ~obj.OwnsParentFigure
-                obj.ParentDestroyedListener = listener(obj.Parent,'ObjectBeingDestroyed',@(~,~)delete(obj));
+                obj.ParentDestroyedListener = listener(obj.Parent, 'ObjectBeingDestroyed', @(~,~)delete(obj));
             end
 
-            obj.RootGrid = uigridlayout(obj.Parent,[5 1]);
+            obj.RootGrid = uigridlayout(obj.Parent, [5 1]);
             obj.RootGrid.RowHeight = {22,22,'1x',100,22};
             obj.RootGrid.ColumnWidth = {'1x'};
             obj.RootGrid.Padding = [5 5 5 5];
@@ -281,7 +280,7 @@ classdef ProgressiveTrainingGUI < handle
             obj.StatusLabel.Layout.Row = 5;
         end
 
-        function tableCellEdited(obj,src,evt)
+        function tableCellEdited(obj, ~, evt)
             % Validate and immediately apply edits from the table.
             r = evt.Indices(1);
             c = evt.Indices(2);
@@ -303,9 +302,6 @@ classdef ProgressiveTrainingGUI < handle
 
         function [ok,msg] = applyTableEdit(obj, field, col, newData)
             % Apply a table edit to properties with reject-on-violation policy.
-            ok = false;
-            msg = "";
-
             if col == 2 || col == 3
                 idx = col - 1; % 2->1 (lower), 3->2 (upper)
                 [ok,msg] = obj.applyLimitEdit(field, idx, newData);
@@ -318,12 +314,12 @@ classdef ProgressiveTrainingGUI < handle
             end
 
             ok = true;
+            msg = "";
         end
 
         function [ok,msg] = applyLimitEdit(obj, field, idx, v)
             % Apply an edit to a lower/upper limit with validation.
             ok = false;
-            msg = "Invalid limit.";
 
             if ~(isnumeric(v) && isscalar(v) && ~isnan(v))
                 msg = "Limits must be numeric scalars.";
@@ -332,7 +328,7 @@ classdef ProgressiveTrainingGUI < handle
 
             limField = field + "Limits";
             L = obj.(limField);
-            if isempty(L) || numel(L)~=2
+            if isempty(L) || numel(L) ~= 2
                 L = [-inf inf];
             end
 
@@ -386,7 +382,6 @@ classdef ProgressiveTrainingGUI < handle
         function [ok,msg] = applyValueEdit(obj, field, v)
             % Apply an edit to a value cell with validation.
             ok = false;
-            msg = "Invalid value.";
 
             if ~(isnumeric(v) && isscalar(v) && ~isnan(v))
                 msg = "Value must be a numeric scalar.";
@@ -405,7 +400,7 @@ classdef ProgressiveTrainingGUI < handle
 
             limField = field + "Limits";
             L = obj.(limField);
-            if isempty(L) || numel(L)~=2
+            if isempty(L) || numel(L) ~= 2
                 L = [-inf inf];
             end
 
@@ -447,13 +442,13 @@ classdef ProgressiveTrainingGUI < handle
             % Return a 1x4 row cell for the given table row index.
             switch r
                 case 1
-                    row = {'Step Up',   obj.StepUpLimits(1),   obj.StepUpLimits(2),   obj.StepUp};
+                    row = {'Step Up', obj.StepUpLimits(1), obj.StepUpLimits(2), obj.StepUp};
                 case 2
                     row = {'Step Down', obj.StepDownLimits(1), obj.StepDownLimits(2), obj.StepDown};
                 case 3
-                    row = {'Minimum',   obj.MinValueLimits(1), obj.MinValueLimits(2), obj.MinValue};
+                    row = {'Minimum', obj.MinValueLimits(1), obj.MinValueLimits(2), obj.MinValue};
                 case 4
-                    row = {'Maximum',   obj.MaxValueLimits(1), obj.MaxValueLimits(2), obj.MaxValue};
+                    row = {'Maximum', obj.MaxValueLimits(1), obj.MaxValueLimits(2), obj.MaxValue};
                 otherwise
                     row = {'',NaN,NaN,NaN};
             end
@@ -461,32 +456,29 @@ classdef ProgressiveTrainingGUI < handle
 
         function updateUIFromCommitted(obj)
             % Refresh labels and table to reflect committed values.
-            % Refresh Parameter name/value text.
             if ~isempty(obj.ParamNameLabel) && isvalid(obj.ParamNameLabel)
                 obj.ParamNameLabel.Text = string(obj.Parameter.Name);
             end
             if ~isempty(obj.ParamValueLabel) && isvalid(obj.ParamValueLabel)
                 obj.ParamValueLabel.Text = "Current: " + string(obj.Parameter.ValueStr);
             end
-            
+
             obj.setStatus("");
             if ~isempty(obj.ParamTable) && isvalid(obj.ParamTable)
                 obj.ParamTable.Data = obj.committedTableData();
             end
         end
 
-        
-
         function data = committedTableData(obj)
             % Build the table data from committed properties.
             data = cell(4,4);
-            data(1,:) = {'Step Up',   obj.StepUpLimits(1),   obj.StepUpLimits(2),   obj.StepUp};
+            data(1,:) = {'Step Up', obj.StepUpLimits(1), obj.StepUpLimits(2), obj.StepUp};
             data(2,:) = {'Step Down', obj.StepDownLimits(1), obj.StepDownLimits(2), obj.StepDown};
-            data(3,:) = {'Minimum',   obj.MinValueLimits(1), obj.MinValueLimits(2), obj.MinValue};
-            data(4,:) = {'Maximum',   obj.MaxValueLimits(1), obj.MaxValueLimits(2), obj.MaxValue};
+            data(3,:) = {'Minimum', obj.MinValueLimits(1), obj.MinValueLimits(2), obj.MinValue};
+            data(4,:) = {'Maximum', obj.MaxValueLimits(1), obj.MaxValueLimits(2), obj.MaxValue};
         end
 
-        function field = rowFieldName(~,row)
+        function field = rowFieldName(~, row)
             % Map table row index to the corresponding property name.
             switch row
                 case 1, field = "StepUp";
@@ -507,7 +499,7 @@ classdef ProgressiveTrainingGUI < handle
             end
             obj.ValueHistoryLine.XData = 1:numel(obj.ValueHistory);
             obj.ValueHistoryLine.YData = obj.ValueHistory;
-            axis(obj.ValueHistoryAxes,'tight');
+            axis(obj.ValueHistoryAxes, 'tight');
         end
 
         function setStatus(obj, msg, options)

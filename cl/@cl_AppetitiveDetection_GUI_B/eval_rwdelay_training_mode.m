@@ -1,7 +1,27 @@
-function [value,success] = eval_rwdelay_training_mode(obj,src,event,Parameter)
+function [value,success] = eval_rwdelay_training_mode(obj,~,event,Parameter)
 % eval_rwdelay_training_mode(obj,src,event,Parameter)
+% Toggle response-window-delay “training mode” and manage the associated
+% gui.StaircaseTraining instance.
 %
-% implements the 'EvaluatorFcn' function
+% This function is intended to be used as an EvaluatorFcn callback for a
+% parameter toggle in the main GUI. When training mode is enabled, it forces
+% the underlying parameter to non-random mode, opens (or focuses) the
+% training GUI, and starts a NewData listener to update the parameter based
+% on trial outcomes.
+%
+% Parameters:
+%   obj - GUI controller instance (expects obj.RUNTIME and RWDelay handles).
+%   src - Callback source (unused).
+%   event - Callback event data (expects event.Value as logical/0/1).
+%   Parameter - Parameter object for response-window delay; its isRandom
+%       field is temporarily overridden while training mode is active.
+%
+% Returns:
+%   value - The new toggle value (event.Value).
+%   success - True if the callback completed without throwing an error.
+%
+% See also:
+%   gui.StaircaseTraining (documentation/StaircaseTraining.md)
 
 success = false;
 
@@ -17,10 +37,12 @@ try
         % launch the training mode GUI
         if ~isempty(obj.h_RWDelayTrainingGUI) && isvalid(obj.h_RWDelayTrainingGUI) % if the GUI doesn't exist or has been deleted, create it
             vprintf(2,'locating Response Window Delay Training GUI')
-            uifigure(obj.h_RWDelayTrainingGUI.UIFigure); % bring to front if it already exists
+            if isvalid(obj.h_RWDelayTrainingGUI.Parent) && isa(obj.h_RWDelayTrainingGUI.Parent,'matlab.ui.Figure')
+                figure(obj.h_RWDelayTrainingGUI.Parent); % bring to front if it already exists
+            end
         else
             vprintf(2,'Launching Response Window Delay Training GUI')
-            h = ProgressiveTrainingGUI(Parameter, ...
+            h = gui.StaircaseTraining(Parameter, ...
                 'MinValue', 100, ...
                 'MaxValue', 4000, ...
                 'StepUp', 350, ...
@@ -65,9 +87,21 @@ end
 
 end
 
-function update_rwdelay_training_mode(src,event,h,RUNTIME)
-% This function is called whenever new trial data is available, and updates the training mode parameters
-% based on the most recent trial data.
+function update_rwdelay_training_mode(~,~,h,RUNTIME)
+% update_rwdelay_training_mode(src,event,h,RUNTIME)
+% Update the training GUI parameter based on the most recent trial outcome.
+%
+% This function is called on each RUNTIME.HELPER NewData event while training
+% mode is active. It maps response codes to an “up” or “down” update, applies
+% the update via gui.StaircaseTraining, and writes the resulting value into
+% the current trials table (for the parameter matching P.validName).
+%
+% Parameters:
+%   src - Callback source (unused).
+%   event - Callback event data (unused).
+%   h - gui.StaircaseTraining instance.
+%   RUNTIME - Runtime state (expects TRIALS.DATA, TRIALS.trials, and
+%       TRIALS.writeParamIdx).
 if isempty(h) || ~isvalid(h), return; end
 
 RC = epsych.BitMask.decode(RUNTIME.TRIALS.DATA(end).RespCode);

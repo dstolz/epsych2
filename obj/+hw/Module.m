@@ -51,13 +51,18 @@ classdef Module < handle
             obj
             name (1,:) char {mustBeText}
             value
-            options.Type (1,:) string = string.empty
-            options.Units (1,:) string = string.empty
+            options.Description (1,1) string = ""
+            options.Unit (1,:) char = ''
+            options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
+            options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+            options.Format (1,:) char = '%g'
+            options.Visible (1,1) logical = true
+            options.UserData = []
+            options.isArray (1,1) logical = false
+            options.isTrigger (1,1) logical = false
+            options.isRandom (1,1) logical = false
             options.Min (1,1) double = -inf
             options.Max (1,1) double = inf
-            options.Resolution (1,1) double = 0
-            options.ReadOnly (1,1) logical = false
-            options.Hidden (1,1) logical = false
             end
 
             if isstring(value), value = char(value); end

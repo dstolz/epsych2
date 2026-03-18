@@ -46,20 +46,26 @@ classdef Module < handle
         end
 
         
-        function P = add_parameter(obj,name,value)
+        function P = add_parameter(obj,name,value,options)
             arguments
-                obj
-                name (1,:) char {mustBeText}
-                value
+            obj
+            name (1,:) char {mustBeText}
+            value
+            options.Type (1,:) string = string.empty
+            options.Units (1,:) string = string.empty
+            options.Min (1,1) double = -inf
+            options.Max (1,1) double = inf
+            options.Resolution (1,1) double = 0
+            options.ReadOnly (1,1) logical = false
+            options.Hidden (1,1) logical = false
             end
-
-            
 
             if isstring(value), value = char(value); end
 
-
-            P = hw.Parameter(obj.parent);
-             
+            nopts = namedargs2cell(options);
+            P = hw.Parameter(obj.parent,nopts{:});
+            
+            obj.Parameters(end+1) = P;
 
             P.Name = name;
             if ischar(value)

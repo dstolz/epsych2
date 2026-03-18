@@ -72,12 +72,55 @@ classdef Parameter < matlab.mixin.SetGet
 
 
     methods
-        function obj = Parameter(Parent)
-            obj.Parent = Parent;
-            if ~isempty(Parent.HW) % ex: hw.Software
-                obj.HW = Parent.HW;
+        function obj = Parameter(Parent, options)
+            arguments
+            Parent (1,1)
+            options.Name (1,:) char = 'Param'
+            options.Description (1,1) string = ""
+            options.Unit (1,:) char = ''
+            options.Module (1,1) = matlab.lang.OnUndefinedVariableBehavior.error
+            options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
+            options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+            options.Format (1,:) char = '%g'
+            options.Visible (1,1) logical = true
+            options.PreUpdateFcn (1,1) = []
+            options.EvaluatorFcn (1,1) = []
+            options.PostUpdateFcn (1,1) = []
+            options.PostUpdateFcnArgs (1,:) cell = {}
+            options.UserData = []
+            options.isArray (1,1) logical = false
+            options.isTrigger (1,1) logical = false
+            options.isRandom (1,1) logical = false
+            options.Min (1,1) double = -inf
+            options.Max (1,1) double = inf
             end
-
+            
+            obj.Parent = Parent;
+            if ~isempty(Parent.HW)
+            obj.HW = Parent.HW;
+            end
+            
+            % Set all provided options
+            obj.Name = options.Name;
+            obj.Description = options.Description;
+            obj.Unit = options.Unit;
+            if ~isequal(options.Module, matlab.lang.OnUndefinedVariableBehavior.error)
+            obj.Module = options.Module;
+            end
+            obj.Access = options.Access;
+            obj.Type = options.Type;
+            obj.Format = options.Format;
+            obj.Visible = options.Visible;
+            obj.PreUpdateFcn = options.PreUpdateFcn;
+            obj.EvaluatorFcn = options.EvaluatorFcn;
+            obj.PostUpdateFcn = options.PostUpdateFcn;
+            obj.PostUpdateFcnArgs = options.PostUpdateFcnArgs;
+            obj.UserData = options.UserData;
+            obj.isArray = options.isArray;
+            obj.isTrigger = options.isTrigger;
+            obj.isRandom = options.isRandom;
+            obj.Min = options.Min;
+            obj.Max = options.Max;
         end
 
         % function disp(obj)

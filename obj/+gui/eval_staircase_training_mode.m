@@ -1,5 +1,5 @@
-function [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,ParameterControl,options)
-% [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,ParameterControl,Name,Value)
+function [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,options)
+% [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,Name,Value)
 % Toggle staircase "training mode" for any parameter and manage the
 % associated gui.StaircaseTraining instance.
 %
@@ -16,9 +16,6 @@ function [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,
 %   event            - Callback event data (expects event.Value as logical).
 %   Parameter        - hw.Parameter object whose value is adjusted by the
 %                      staircase procedure.
-%   ParameterControl - gui.Parameter_Control for the parameter in the main
-%                      GUI; disabled while training mode is active. Pass []
-%                      to skip enabling/disabling a control.
 %   Name-Value pairs forwarded to gui.StaircaseTraining constructor:
 %       MinValue, MaxValue, StepUp, StepDown,
 %       StepDownLimits, StepUpLimits, MinValueLimits, MaxValueLimits
@@ -35,7 +32,6 @@ arguments
     src
     event
     Parameter
-    ParameterControl = []
     options.MinValue       (1,1) double = Parameter.Min
     options.MaxValue       (1,1) double = Parameter.Max
     options.StepUp         (1,1) double = 350

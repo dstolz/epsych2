@@ -1,5 +1,5 @@
-function [value,success] = eval_dependent_parameter_randomization(~,~,event,changedParam,p)
-% [value,success] = eval_dependent_parameter_randomization(~,~,event,changedParam,p)
+function [value,success] = eval_dependent_parameter_randomization(src,event,changedParam,p)
+% [value,success] = eval_dependent_parameter_randomization(src,event,changedParam,p)
 % Validate and apply randomized min/max bounds for a parameter.
 %
 % Parameters:

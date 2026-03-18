@@ -132,13 +132,13 @@ obj.ParameterMonitorTable.handle.FontSize = 14;
 % LAYOUTS -------------------------------------------------
 % Panel for "Trial Controls"
 panelTrialControls = uipanel(layoutMain);
-panelTrialControls.Layout.Row = [2 5];
+panelTrialControls.Layout.Row = [2 6];
 panelTrialControls.Layout.Column = [1 2];
 
 % Ppanel for Trial Controls
 layoutTrialControls = uigridlayout(panelTrialControls);
 layoutTrialControls.ColumnWidth = {'1x'};
-layoutTrialControls.RowHeight = repmat({25},1,10);
+layoutTrialControls.RowHeight = repmat({25},1,20);
 layoutTrialControls.RowSpacing = 1;
 layoutTrialControls.ColumnSpacing = 5;
 layoutTrialControls.Padding = [0 0 0 0];
@@ -146,7 +146,7 @@ layoutTrialControls.Scrollable = "on";
 
 % Panel for "Sound Controls"
 panelSoundControls = uipanel(layoutMain, 'Title', 'Sound Controls');
-panelSoundControls.Layout.Row = [6];
+panelSoundControls.Layout.Row = [7 8];
 panelSoundControls.Layout.Column = [1 2];
 
 % > Sound Controls
@@ -264,7 +264,7 @@ pRespWinDur.Unit = 'ms';
 
 % note that "Pre" and "Post" stimulus refer to the Stimulus Offset
 % >> Pre-stimulus portion of response window --- this is used in the post_stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
-pRespWinPreStim = R.S.Module.add_parameter('RespWinPreStim',0, ...
+pRespWinPreStim = R.S.Module.add_parameter('RespWinPreStim',1000, ...
                         Unit = 'ms', ...
                         Min = 0, ...
                         Max = 10000);
@@ -272,12 +272,15 @@ h = gui.Parameter_Control(layoutTrialControls,pRespWinPreStim,Type='editfield');
 h.Text = "RW Pre-Stimulus Offset (ms):";
 
 
-
+% >> RW Pre-stimulus delay training
+h = uibutton(layoutTrialControls,"state");
+h.Text = "RW Pre-Stimulus Offset Training Mode";
+h.ValueChangedFcn = @(src,event) obj.eval_staircase_training_mode(src,event,pRespWinPreStim);
 
 % >> Post-stimulus portion of response window --- this is used in the post-stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
 pRespWinPostStim = R.S.Module.add_parameter('RespWinPostStim',0, ...
                         Unit = 'ms', ...
-                        Min = 0, ...
+                        Min = 1000, ...
                         Max = 10000);
 h = gui.Parameter_Control(layoutTrialControls,pRespWinPostStim,Type='editfield');
 h.Text = "RW Post-Stimulus Offset (ms):";
@@ -441,7 +444,7 @@ obj.update_trial_filter(h);
 
 % Commit button ---------------------------------------------
 h = gui.Parameter_Update(R,layoutMain);
-h.Button.Layout.Row = [7 8];
+h.Button.Layout.Row = [9 10];
 h.Button.Layout.Column = [1 2];
 h.Button.Text = ["Update" "Parameters"];
 h.Button.FontSize = 24;

@@ -296,7 +296,7 @@ pStimDelay.PostUpdateFcnArgs = {pStimDur,pRespWinDelay,pRespWinDur,pRespWinPreSt
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
 h = uibutton(layoutTrialControls,"state");
 h.Text = "Stimulus Delay Training Mode";
-h.ValueChangedFcn = @(src,event) obj.eval_stimdelay_training_mode(src,event,pStimDelay);
+h.ValueChangedFcn = @(src,event) obj.eval_staircase_training_mode(src,event,pStimDelay);
 
 
 pMin = R.S.Module.add_parameter('StimDelayMin',pStimDelay.Min, ...

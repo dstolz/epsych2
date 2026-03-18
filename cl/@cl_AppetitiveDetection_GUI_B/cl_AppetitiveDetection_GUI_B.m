@@ -33,6 +33,9 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         h_RWDelayParameterControl
         h_RWDelayTrainingGUI
 
+        StaircaseTrainingGUIs       % containers.Map of gui.StaircaseTraining instances keyed by parameter name
+        StaircaseTrainingListeners  % containers.Map of NewData listener handles keyed by parameter name
+
         ParameterMonitorTable
 
         bmStimulus  = epsych.BitMask.TrialType_0;
@@ -53,6 +56,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         hl_ModeChange
         hl_RWDelayTrainingGUI
     end
+
 
     methods
         create_gui(obj) % Create the GUI layout and register callbacks.

@@ -24,9 +24,12 @@ if nargin >= 2 && ~isempty(varargin{1})
         return
     end
 else
+    os = self.H.figure1.WindowState;
+    self.H.figure1.WindowState = 'normal'; % Ensure the dialog is visible
     [indx, tf] = listdlg('ListString', options, 'SelectionMode','single', ...
         'PromptString','Select the level of detail:', 'Name','Detail Level Selection', ...
         'InitialValue',min(GVerbosity+1,length(options)), 'ListSize',[300,150]);
+    self.H.figure1.WindowState = os; % Restore original window state
     if ~tf, return, end
     level = indx-1;
 end

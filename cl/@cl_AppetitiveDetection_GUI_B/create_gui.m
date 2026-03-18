@@ -247,43 +247,63 @@ h.Text = "Intertrial Interval (ms):";
 
 
 
-% >> Response Window Delay (randomized --- value based on min/max settings below)
-pRWDelay = R.HW.find_parameter('RespWinDelay');
-pRWDelay.Unit = 'ms';
-pRWDelay.Min = 400; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "RespWinDelayMin/Max" parameters below.
-pRWDelay.Max = 400;
-pRWDelay.isRandom = true; % enable randomization for this parameter
+% >> Response window delay --- computed relative to end of stimulus, so that it can be adjusted based on stimulus duration changes
+pRespWinDelay = R.HW.find_parameter('RespWinDelay');
+pRespWinDelay.Unit = 'ms';
 
 
+% >> Response Window Duration --- this is separate from the response window delay because we want it to be independently adjustable during training with variable stimulus delay
+pRespWinDur = R.HW.find_parameter('RespWinDur');
+pRespWinDur.Unit = 'ms';
 
-% >> Response Window Delay Training Mode --- launches a small gui to adjust parameters for training with variable response window delay
+
+% >> Post-stimulus portion of response window --- this is used in the post-stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
+pRespWinPostStim = R.S.Module.add_parameter('RespWinPostStim',0, ...
+                        Unit = 'ms', ...
+                        Min = 0, ...
+                        Max = 10000);
+h = gui.Parameter_Control(layoutTrialControls,pRespWinPostStim,Type='editfield');
+h.Text = "Response Window Post-Stimulus (ms):";
+
+
+% >> Stimulus Delay (randomized --- value based on min/max settings below)
+pStimDelay = R.HW.find_parameter('StimDelay');
+pStimDelay.Unit = 'ms';
+pStimDelay.Min = 500; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "StimDelayMin/Max" parameters below.
+pStimDelay.Max = 500;
+pStimDelay.isRandom = true; % enable randomization for this parameter
+pStimDelay.PostUpdateFcn = @obj.post_stimdelay_update;
+pStimDelay.PostUpdateFcnArgs = {pRespWinDelay,pRespWinDur};
+
+
+% >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
 h = uibutton(layoutTrialControls,"state");
-h.Text = "Response Window Delay Training Mode";
-h.ValueChangedFcn = @(src,event) obj.eval_rwdelay_training_mode(src,event,pRWDelay);
+h.Text = "Stimulus Delay Training Mode";
+h.ValueChangedFcn = @(src,event) obj.eval_stimdelay_training_mode(src,event,pStimDelay);
 
 
+pMin = R.S.Module.add_parameter('StimDelayMin',pStimDelay.Min, ...
+                        Unit = 'ms', ...
+                        Min = 100, ...
+                        Max = 10000);
+pMax = R.S.Module.add_parameter('StimDelayMax',pStimDelay.Max, ...
+                        Unit = 'ms', ...
+                        Min = 100, ...
+                        Max = 10000);
 
-pMin = R.S.Module.add_parameter('RespWinDelayMin',pRWDelay.Min);
-pMax = R.S.Module.add_parameter('RespWinDelayMax',pRWDelay.Max);
-
-% >> Response Window Delay (min)
-pMin.Unit = 'ms';
-pMin.Min = 100;
-pMin.Max = 10000;
+% >> Stimulus Delay (min)
 h = gui.Parameter_Control(layoutTrialControls,pMin,Type='editfield');
-h.Text = "Response Window Delay Min (ms):";
-h.EvaluatorFcn = @obj.eval_rwdelay_randomization;
-h.EvaluatorArgs = {[pMin pMax pRWDelay]};
+h.Text = "Stimulus Delay Min (ms):";
+h.EvaluatorFcn = @obj.eval_parameter_randomization;
+h.EvaluatorArgs = {R}; % resolve paired min/max and target parameters from the changed parameter name
 
 
-% >> Response Window Delay (max)
-pMax.Unit = 'ms';
-pMax.Min = 100;
-pMax.Max = 10000;
+% >> Stimulus Delay (max)
 h = gui.Parameter_Control(layoutTrialControls,pMax,Type='editfield');
-h.Text = "Response Window Delay Max (ms):";
-h.EvaluatorFcn = @obj.eval_rwdelay_randomization;
-h.EvaluatorArgs = {[pMin pMax pRWDelay]};
+h.Text = "Stimulus Delay Max (ms):";
+h.EvaluatorFcn = @obj.eval_parameter_randomization;
+h.EvaluatorArgs = {R}; % pass the dependent parameters as additional arguments for range validation and automatic updating when min/max values change
+
 
 
 
@@ -450,13 +470,6 @@ obj.hl_ModeChange =addlistener(R.HELPER,'ModeChange',@(src,ev) obj.onModeChange(
 
 
 
-% DS 9/23/2025 --- removed due to performance issues
-% % Axes for Sliding Window Performance Plot ------------------------
-% axSlidingWindow = uiaxes(layoutMain);
-% axSlidingWindow.Layout.Row = [2 3];
-% axSlidingWindow.Layout.Column = [3 5];
-% obj.slidingWindowPlot = gui.SlidingWindowPerformancePlot(obj.psychDetect,axSlidingWindow);
-% obj.slidingWindowPlot.plotType = 'dPrime';
 
 
 

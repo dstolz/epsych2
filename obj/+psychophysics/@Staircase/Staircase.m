@@ -36,7 +36,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
         StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0  % BitMask identifying stimulus trials
         CatchTrialType    (1,1) epsych.BitMask = epsych.BitMask.TrialType_1  % BitMask identifying catch trials
 
-        ThresholdFromLastNReversals (1,1) double {mustBePositive, mustBeInteger} = 12  % Number of reversals to use in threshold calculation
+        ThresholdFromLastNReversals (1,1) double {mustBePositive, mustBeInteger} = 6  % Number of reversals to use in threshold calculation
         ThresholdFormula (1,1) string {mustBeMember(ThresholdFormula,["Mean","GeometricMean"])} = "Mean"  % Formula for computing threshold from reversals
         ConvertToDecibels (1,1) logical = false  % If true, convert stimulus values to dB using 20*log10(x)
 

@@ -1,41 +1,38 @@
-function [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,ParameterControl,options)
-% [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,ParameterControl,Name,Value)
-% Toggle staircase "training mode" for any parameter and manage the
-% associated gui.StaircaseTraining instance.
+function [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,options)
+% [value,success] = eval_staircase_training_mode(obj,src,event,Parameter)
+% [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,Name,Value)
 %
-% This function is intended to be used as a ValueChangedFcn callback for a
-% state button in the main GUI. When training mode is enabled, it forces
-% the underlying parameter to non-random mode, opens (or focuses) the
-% training GUI, and starts a NewData listener to update the parameter based
-% on trial outcomes. When disabled, it restores the previous random state,
-% closes the GUI, and removes the listener.
+% Toggle staircase training mode for any hw.Parameter. Intended as a
+% ValueChangedFcn callback for a state button. When enabled, randomisation
+% is suspended, a gui.StaircaseTraining window is opened, and a NewData
+% listener adjusts the parameter on each trial outcome. When disabled, the
+% previous random state is restored and the GUI/listener are torn down.
 %
-% Parameters:
-%   obj              - GUI controller instance (expects obj.RUNTIME).
-%   src              - Callback source (unused).
-%   event            - Callback event data (expects event.Value as logical).
-%   Parameter        - hw.Parameter object whose value is adjusted by the
-%                      staircase procedure.
-%   ParameterControl - gui.Parameter_Control for the parameter in the main
-%                      GUI; disabled while training mode is active. Pass []
-%                      to skip enabling/disabling a control.
-%   Name-Value pairs forwarded to gui.StaircaseTraining constructor:
-%       MinValue, MaxValue, StepUp, StepDown,
-%       StepDownLimits, StepUpLimits, MinValueLimits, MaxValueLimits
+% If src is a gui.Parameter_Control, its UI widget is disabled while
+% training mode is active and re-enabled on close. Pass [] to skip.
 %
-% Returns:
-%   value   - The new toggle value (event.Value).
-%   success - True if the callback completed without error.
+%   obj       - GUI controller (must expose obj.RUNTIME,
+%               obj.StaircaseTrainingGUIs, obj.StaircaseTrainingListeners).
+%   src       - gui.Parameter_Control to disable during training, or [].
+%   event     - Callback event; event.Value is logical on/off toggle.
+%   Parameter - hw.Parameter whose value the staircase adjusts.
 %
-% See also:
-%   gui.StaircaseTraining (documentation/StaircaseTraining.md)
+% Name-Value options (forwarded to gui.StaircaseTraining):
+%   MinValue, MaxValue       - Value clamp bounds (default: Parameter.Min/Max).
+%   StepUp, StepDown         - Step magnitudes (default: 350, 100).
+%   StepUpLimits, StepDownLimits   - Two-element limit vectors (default: [0 500]).
+%   MinValueLimits, MaxValueLimits - Two-element limit vectors.
+%
+%   value   - New toggle state (event.Value).
+%   success - True when the callback completes without error.
+%
+% See also gui.StaircaseTraining, documentation/StaircaseTraining.md
 
 arguments
     obj
     src
     event
     Parameter
-    ParameterControl = []
     options.MinValue       (1,1) double = Parameter.Min
     options.MaxValue       (1,1) double = Parameter.Max
     options.StepUp         (1,1) double = 350
@@ -83,8 +80,8 @@ try
             obj.StaircaseTrainingGUIs(pName) = h;
         end
 
-        if ~isempty(ParameterControl)
-            ParameterControl.h_uiobj.Enable = 'off';
+        if ~isempty(src)
+            src.h_uiobj.Enable = 'off';
         end
         success = true;
 
@@ -98,8 +95,8 @@ try
             remove(obj.StaircaseTrainingGUIs, pName);
         end
 
-        if ~isempty(ParameterControl)
-            ParameterControl.h_uiobj.Enable = 'on';
+        if ~isempty(src)
+            src.h_uiobj.Enable = 'on';
         end
 
         if obj.StaircaseTrainingListeners.isKey(pName)
@@ -112,8 +109,8 @@ try
 
 catch e
     vprintf(0,1,'Error in %s Training Mode: %s',pName,getReport(e,'basic'))
-    if ~isempty(ParameterControl)
-        ParameterControl.h_uiobj.Enable = 'on';
+    if ~isempty(src)
+        src.h_uiobj.Enable = 'on';
     end
     if obj.StaircaseTrainingListeners.isKey(pName)
         delete(obj.StaircaseTrainingListeners(pName));
@@ -130,18 +127,14 @@ end
 
 function update_staircase_training(~,~,h,RUNTIME)
 % update_staircase_training(src,event,h,RUNTIME)
-% Update the staircase parameter based on the most recent trial outcome.
 %
-% Called on each RUNTIME.HELPER NewData event while training mode is
-% active. Maps response codes to "up" or "down", applies the update via
-% gui.StaircaseTraining, and writes the resulting value into the current
-% trials table when the parameter is backed by hardware (non-Software).
+% NewData listener callback that steps the staircase parameter after each
+% trial. Hit responses step "up"; Abort responses step "down"; all other
+% codes are ignored. For hardware-backed parameters (parent is not
+% hw.Software), the new value is also written into RUNTIME.TRIALS.trials.
 %
-% Parameters:
-%   src     - Callback source (unused).
-%   event   - Callback event data (unused).
-%   h       - gui.StaircaseTraining instance.
-%   RUNTIME - Runtime state.
+%   h       - gui.StaircaseTraining instance managing the parameter.
+%   RUNTIME - Runtime state (TRIALS.DATA, TRIALS.trials, TRIALS.writeParamIdx).
 
 if isempty(h) || ~isvalid(h), return; end
 

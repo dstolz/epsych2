@@ -1,17 +1,36 @@
 classdef Parameter < matlab.mixin.SetGet
     % obj = hw.Parameter(Parent)
-    % Representation of a hardware parameter exposed to EPsych.
+    % obj = hw.Parameter(Parent, Name=Value)
+    % Represent a hardware or software parameter exposed to EPsych.
     %
-    % A Parameter wraps metadata (name/type/access/unit/format) and a current
-    % Value. For non-software interfaces, Value accesses delegate to the
-    % parent hw.Interface implementation.
+    % A Parameter stores metadata used by GUIs and experiment code together
+    % with a current Value. For software-backed parents, Value can be stored
+    % locally. For hardware-backed parents, reads and writes delegate to the
+    % parent interface.
     %
-    % Properties (selected):
-    %   Name, Description, Unit, Access, Type, Format
-    %   Value, ValueStr, lastUpdated
+    % Parameters
+    %   Parent - Parent object that owns the parameter and implements the
+    %       backing read/write operations.
+    %   Name=Value - Optional metadata and behavior settings including Name,
+    %       Description, Unit, Access, Type, Format, callbacks, and bounds.
     %
-    % Methods:
-    %   Trigger - Trigger the associated hardware event (if isTrigger=true).
+    % Properties
+    %   Name, Description, Unit, Module - Display and grouping metadata.
+    %   Access, Type, Format, Visible - Access rules and display behavior.
+    %   Value, ValueStr, lastUpdated - Current value and display state.
+    %   isArray, isTrigger, isRandom, Min, Max - Runtime flags and bounds.
+    %
+    % Methods
+    %   Parameter - Construct and initialize a parameter instance.
+    %   Trigger - Trigger the associated hardware event when enabled.
+    %
+    % Example
+    %   p = hw.Parameter(parent, Name='PulseWidth', Unit='ms', ...
+    %       Type='Float', Min=0, Max=50);
+    %   p.Value = 10;
+    %   disp(p.ValueStr)
+    %
+    % See also: documentation/hw_Parameter.md
    
     properties (SetAccess = immutable)
         Parent (1,1) % handle to parent object (e.g., hw.Software)
@@ -73,6 +92,18 @@ classdef Parameter < matlab.mixin.SetGet
 
     methods
         function obj = Parameter(Parent, options)
+            % obj = hw.Parameter(Parent)
+            % obj = hw.Parameter(Parent, Name=Value)
+            % Construct a parameter and initialize its metadata and behavior.
+            %
+            % Parameters
+            %   Parent - Parent object that provides the backing hardware or
+            %       software interface.
+            %   Name=Value - Optional constructor settings for metadata,
+            %       callbacks, visibility, and bounds.
+            %
+            % Returns
+            %   obj - Configured hw.Parameter instance.
             arguments
             Parent (1,1)
             options.Name (1,:) char = 'Param'
@@ -148,6 +179,11 @@ classdef Parameter < matlab.mixin.SetGet
         end
 
         function Trigger(obj)
+            % obj.Trigger()
+            % Trigger the parent event associated with this parameter.
+            %
+            % Trigger only performs an action when isTrigger is true. On
+            % success, lastUpdated is set from the parent trigger call.
             if ~obj.isTrigger
                 vprintf(0,'"%s" is not recognized as a parameter',obj.Name)
                 return

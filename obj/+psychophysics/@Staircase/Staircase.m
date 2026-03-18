@@ -408,8 +408,10 @@ classdef Staircase < handle & matlab.mixin.SetGet
             obj.ReversalDirection = [];
             if numel(sd) >= 2
                 aborts = sd == 0;
-                rind = ~aborts(2:end) & sd(2:end)~=sd(1:end-1);
-                reversalStimIdx = find(rind) + 1;
+                naidx = find(~aborts);
+                nasd = sd(~aborts);
+                rind = nasd(2:end) ~= nasd(1:end-1);
+                reversalStimIdx = naidx(rind) + 1;
                 obj.ReversalIdx = obj.StimulusTrialIdx(reversalStimIdx);
                 obj.ReversalDirection = sd(reversalStimIdx);
             end

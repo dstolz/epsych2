@@ -262,13 +262,25 @@ pRespWinDur = R.HW.find_parameter('RespWinDur');
 pRespWinDur.Unit = 'ms';
 
 
+% note that "Pre" and "Post" stimulus refer to the Stimulus Offset
+% >> Pre-stimulus portion of response window --- this is used in the post_stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
+pRespWinPreStim = R.S.Module.add_parameter('RespWinPreStim',0, ...
+                        Unit = 'ms', ...
+                        Min = 0, ...
+                        Max = 10000);
+h = gui.Parameter_Control(layoutTrialControls,pRespWinPreStim,Type='editfield');
+h.Text = "RW Pre-Stimulus Offset (ms):";
+
+
+
+
 % >> Post-stimulus portion of response window --- this is used in the post-stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
 pRespWinPostStim = R.S.Module.add_parameter('RespWinPostStim',0, ...
                         Unit = 'ms', ...
                         Min = 0, ...
                         Max = 10000);
 h = gui.Parameter_Control(layoutTrialControls,pRespWinPostStim,Type='editfield');
-h.Text = "Response Window Post-Stimulus (ms):";
+h.Text = "RW Post-Stimulus Offset (ms):";
 
 
 % >> Stimulus Delay (randomized --- value based on min/max settings below)
@@ -278,7 +290,7 @@ pStimDelay.Min = 500; % default min/max values, can be adjusted by user. These a
 pStimDelay.Max = 500;
 pStimDelay.isRandom = true; % enable randomization for this parameter
 pStimDelay.PostUpdateFcn = @obj.post_stimdelay_update;
-pStimDelay.PostUpdateFcnArgs = {pStimDur,pRespWinDelay,pRespWinDur,pRespWinPostStim};
+pStimDelay.PostUpdateFcnArgs = {pStimDur,pRespWinDelay,pRespWinDur,pRespWinPreStim,pRespWinPostStim};
 
 
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay

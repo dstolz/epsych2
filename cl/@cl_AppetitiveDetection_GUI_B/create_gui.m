@@ -272,7 +272,10 @@ h = gui.Parameter_Control(layoutTrialControls,pRespWinPreStim,Type='editfield');
 h.Text = "RW Pre-Stimulus Offset (ms):";
 
 
-
+% >> RW Pre-stimulus delay training
+h = uibutton(layoutTrialControls,"state");
+h.Text = "RW Pre-Stimulus Offset Training Mode";
+h.ValueChangedFcn = @(src,event) obj.eval_staircase_training_mode(src,event,pRespWinPreStim);
 
 % >> Post-stimulus portion of response window --- this is used in the post-stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
 pRespWinPostStim = R.S.Module.add_parameter('RespWinPostStim',0, ...

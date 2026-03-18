@@ -246,6 +246,11 @@ h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Intertrial Interval (ms):";
 
 
+% >> Stimulus Delay --- this is the time from trial start to stimulus onset, and is used in the post_stimdelay_update function to adjust the response window parameters to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
+pStimDur = R.HW.find_parameter('StimDur',silenceParameterNotFound=true);
+pStimDur.Unit = 'ms';
+pStimDur.Min = 1;
+pStimDur.Max = 10000;
 
 % >> Response window delay --- computed relative to end of stimulus, so that it can be adjusted based on stimulus duration changes
 pRespWinDelay = R.HW.find_parameter('RespWinDelay');
@@ -273,7 +278,7 @@ pStimDelay.Min = 500; % default min/max values, can be adjusted by user. These a
 pStimDelay.Max = 500;
 pStimDelay.isRandom = true; % enable randomization for this parameter
 pStimDelay.PostUpdateFcn = @obj.post_stimdelay_update;
-pStimDelay.PostUpdateFcnArgs = {pRespWinDelay,pRespWinDur,pRespWinPostStim};
+pStimDelay.PostUpdateFcnArgs = {pStimDur,pRespWinDelay,pRespWinDur,pRespWinPostStim};
 
 
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
@@ -338,6 +343,9 @@ h.Text = "Timeout Duration (ms):";
 % >> dB SPL
 p = R.HW.find_parameter('dBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
+    p.Unit = 'dB SPL';
+    p.Min = -20;
+    p.Max = 80;
     h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Sound Level (dB SPL):";
 end
@@ -345,6 +353,9 @@ end
 % >> Tone dB SPL
 p = R.HW.find_parameter('TonedBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
+    p.Unit = 'dB SPL';
+    p.Min = -20;
+    p.Max = 80;
     h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Tone Sound Level (dB SPL):";
 end
@@ -352,20 +363,25 @@ end
 % >> Noise dB SPL
 p = R.HW.find_parameter('NoisedBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
+    p.Unit = 'dB SPL';
+    p.Min = -20;
+    p.Max = 80;
     h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Noise Sound Level (dB SPL):";
 end
 
 % >> Duration
-p = R.HW.find_parameter('StimDur',silenceParameterNotFound=true);
-if ~isempty(p)
-    h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
+if ~isempty(pStimDur)    
+    h = gui.Parameter_Control(layoutSoundControls,pStimDur,Type='editfield');
     h.Text = "Stimulus Duration (ms):";
 end
 
 % >> Modulation Rate
 p = R.HW.find_parameter('Rate');
 if ~isempty(p)
+    p.Unit = 'Hz';
+    p.Min = 0.1;
+    p.Max = 1000;
     h = gui.Parameter_Control(layoutSoundControls,p,Type='editfield');
     h.Text = "Modulation Rate (Hz):";
 end

@@ -1,5 +1,5 @@
-function [value,success] = eval_parameter_randomization(~,~,event,changedParam,p)
-% [value,success] = eval_parameter_randomization(~,~,event,changedParam,p)
+function [value,success] = eval_dependent_parameter_randomization(~,~,event,changedParam,p)
+% [value,success] = eval_dependent_parameter_randomization(~,~,event,changedParam,p)
 % Validate and apply randomized min/max bounds for a parameter.
 %
 % Parameters:
@@ -60,6 +60,7 @@ if minValue < pMin.Min || maxValue > pMax.Max
 end
 
 try
+    % update the randomized parameter's bounds based on the edited min/max values
     pTarget.Min = minValue;
     pTarget.Max = maxValue;
 

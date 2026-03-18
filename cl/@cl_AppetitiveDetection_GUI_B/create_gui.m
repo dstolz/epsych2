@@ -294,14 +294,14 @@ pMax = R.S.Module.add_parameter('StimDelayMax',pStimDelay.Max, ...
 % >> Stimulus Delay (min)
 h = gui.Parameter_Control(layoutTrialControls,pMin,Type='editfield');
 h.Text = "Stimulus Delay Min (ms):";
-h.EvaluatorFcn = @obj.eval_parameter_randomization;
+h.EvaluatorFcn = @obj.eval_dependent_parameter_randomization;
 h.EvaluatorArgs = {pMin,pMax,pStimDelay}; % resolve paired min/max and target parameters from the changed parameter name
 
 
 % >> Stimulus Delay (max)
 h = gui.Parameter_Control(layoutTrialControls,pMax,Type='editfield');
 h.Text = "Stimulus Delay Max (ms):";
-h.EvaluatorFcn = @obj.eval_parameter_randomization;
+h.EvaluatorFcn = @obj.eval_dependent_parameter_randomization;
 h.EvaluatorArgs = {pMin,pMax,pStimDelay}; % pass the dependent parameters as additional arguments for range validation and automatic updating when min/max values change
 
 

@@ -273,7 +273,7 @@ pStimDelay.Min = 500; % default min/max values, can be adjusted by user. These a
 pStimDelay.Max = 500;
 pStimDelay.isRandom = true; % enable randomization for this parameter
 pStimDelay.PostUpdateFcn = @obj.post_stimdelay_update;
-pStimDelay.PostUpdateFcnArgs = {pRespWinDelay,pRespWinDur};
+pStimDelay.PostUpdateFcnArgs = {pRespWinDelay,pRespWinDur,pRespWinPostStim};
 
 
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
@@ -295,14 +295,14 @@ pMax = R.S.Module.add_parameter('StimDelayMax',pStimDelay.Max, ...
 h = gui.Parameter_Control(layoutTrialControls,pMin,Type='editfield');
 h.Text = "Stimulus Delay Min (ms):";
 h.EvaluatorFcn = @obj.eval_parameter_randomization;
-h.EvaluatorArgs = {R}; % resolve paired min/max and target parameters from the changed parameter name
+h.EvaluatorArgs = {pMin,pMax,pStimDelay}; % resolve paired min/max and target parameters from the changed parameter name
 
 
 % >> Stimulus Delay (max)
 h = gui.Parameter_Control(layoutTrialControls,pMax,Type='editfield');
 h.Text = "Stimulus Delay Max (ms):";
 h.EvaluatorFcn = @obj.eval_parameter_randomization;
-h.EvaluatorArgs = {R}; % pass the dependent parameters as additional arguments for range validation and automatic updating when min/max values change
+h.EvaluatorArgs = {pMin,pMax,pStimDelay}; % pass the dependent parameters as additional arguments for range validation and automatic updating when min/max values change
 
 
 

@@ -1,16 +1,11 @@
-function [value,success] = eval_parameter_randomization(~,~,event,changedParam,context)
-% [value,success] = eval_parameter_randomization(~,~,event,changedParam,context)
+function [value,success] = eval_parameter_randomization(~,~,event,changedParam,p)
+% [value,success] = eval_parameter_randomization(~,~,event,changedParam,p)
 % Validate and apply randomized min/max bounds for a parameter.
-%
-% This evaluator supports two calling patterns:
-%   1) context = [pMin pMax pTarget]
-%   2) context = RUNTIME, where the paired parameters are resolved from the
-%      edited parameter name (for example StimDelayMin/StimDelayMax -> StimDelay).
 %
 % Parameters:
 %   event - Callback event data with Value and PreviousValue.
 %   changedParam - Parameter edited by the UI control.
-%   context - Parameter triplet or runtime object used to resolve them.
+%   p - Parameter triplet ordered as [pMin pMax pTarget].
 %
 % Returns:
 %   value - Value to keep in the edited UI control.
@@ -19,15 +14,16 @@ function [value,success] = eval_parameter_randomization(~,~,event,changedParam,c
 value = event.Value;
 success = true;
 
-try
-    [pMin,pMax,pTarget] = resolve_randomization_parameters(changedParam,context);
-catch ME
-    vprintf(0,1,'Error resolving randomized parameter for "%s": %s', ...
-        changedParam.Name,getReport(ME,'basic'))
+if isempty(p) || numel(p) ~= 3
+    vprintf(0,1,'Error: expected [pMin pMax pTarget] for randomized parameter evaluation.')
     value = event.PreviousValue;
     success = false;
     return
 end
+
+pMin = p(1);
+pMax = p(2);
+pTarget = p(3);
 
 if changedParam == pMin
     minValue = event.Value;
@@ -80,40 +76,4 @@ catch ME
     success = false;
 end
 
-end
-
-
-function [pMin,pMax,pTarget] = resolve_randomization_parameters(changedParam,context)
-if isa(context,'hw.Parameter') && numel(context) == 3
-    pMin = context(1);
-    pMax = context(2);
-    pTarget = context(3);
-    return
-end
-
-parameterBaseName = extractBefore(changedParam.Name,'Min');
-isMinControl = true;
-if strlength(parameterBaseName) == 0
-    parameterBaseName = extractBefore(changedParam.Name,'Max');
-    isMinControl = false;
-end
-
-if strlength(parameterBaseName) == 0
-    error('Unable to infer randomized parameter name from "%s".',changedParam.Name)
-end
-
-runtime = context;
-pMin = runtime.S.Module.find_parameter(char(parameterBaseName) + "Min");
-pMax = runtime.S.Module.find_parameter(char(parameterBaseName) + "Max");
-pTarget = runtime.HW.find_parameter(char(parameterBaseName));
-
-if isempty(pMin) || isempty(pMax) || isempty(pTarget)
-    error('Could not resolve randomized parameter triplet for "%s".',changedParam.Name)
-end
-
-if isMinControl && changedParam ~= pMin
-    pMin = changedParam;
-elseif ~isMinControl && changedParam ~= pMax
-    pMax = changedParam;
-end
 end

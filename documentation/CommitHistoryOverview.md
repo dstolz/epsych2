@@ -2,36 +2,30 @@
 
 Period covered: 2026-01-01 through 2026-03-19
 
-## Summary
+## March 2026
 
-- January 2026: no commits found.
-- February 2026: 17 commits, centered on new GUI features, parameter monitoring, training controls, and trial-selection logic.
-- March 2026: 168 commits, dominated by RunExpt/runtime refactoring, substantial Staircase work, recording and hardware integration, and extensive documentation updates.
+- 169 commits. The month was dominated by a broad runtime and GUI modernization pass centered on the newer RunExpt flow, RUNTIME-handle propagation, recent-configuration support, runtime filename updates, and cleaner parameter wiring across GUI and psychophysics classes.
+- Adaptive timing and training behavior expanded substantially. Response-window delay randomization, evaluator-driven parameter updates, stimulus-delay controls, pre-stimulus offset handling, ProgressiveTrainingGUI, and Staircase training mode all landed or were refined during this period.
+- Staircase became a major development focus. Commits repeatedly tightened reversal detection and threshold calculations, added decibel conversion support, improved listener and history handling, and expanded plotting with richer plot management, response-code colors, BitMask-derived defaults, and context-menu interactions.
+- GUI behavior was polished in parallel, including updated performance and abort-rate displays, normalized layout adjustments, clearer row ordering in history views, and updated appetitive/aversive GUI integration with newer psychophysics objects.
+- Hardware and recording support expanded quickly. The project added VlcRecorder, then extended it to multi-camera and frame-rate-aware workflows, introduced NanoMotorControl and NanoMotorControlGUI, and retired older standalone WebcamRecorder and deprecated figure-based paths.
+- Documentation and project guidance also accelerated sharply, with new or expanded guides for RunExpt GUI behavior, custom EPsych GUIs, Staircase, BitMask, vprintf, Parameter classes, and MATLAB coding/commenting conventions.
 
 ## February 2026
 
-- Added the pellet appetitive-detection GUI, including trial controls, sound settings, and a modal save-data workflow.
-- Introduced parameter-monitoring support in the GUI, including a monitor table, total-pellet display, trigger handling, and richer Parameter_Control behavior.
-- Added variable response-window delay support and training UI, then evolved that flow into ProgressiveTrainingGUI.
-- Added an appetitive stimulus-detection trial-selection routine and refined NO-GO handling, false-alarm logic, depth constraints, and probability normalization.
-- Improved GUI usability and presentation, including button styling, sound-level editors, and modal layout cleanup.
+- 17 commits. Work in February established the next wave of GUI and training features, starting with a pellet-focused appetitive-detection GUI that added trial controls, sound settings, and a modal save-data workflow.
+- Parameter monitoring became a clear theme. The month introduced Parameter_Monitor, replaced simpler total-pellet displays with monitor-table behavior, added trigger support to Parameter, and expanded Parameter_Control event and type handling.
+- Trial execution and training logic also broadened. Commits added variable response-window delay support, the initial training UI around that behavior, an appetitive stimulus-detection trial-selection routine, and repeated adjustments to NO-GO, false-alarm, depth, and probability logic.
+- Several smaller usability commits improved button styling, font sizing, control layout, sound-level editing, and help text, showing an early emphasis on making the new GUI workflows easier to operate.
 
-## March 2026
+## January 2026
 
-- Reworked the RunExpt/runtime architecture with a newer RunExpt flow, broader runtime-handle propagation, recent-configuration management, and runtime filename updates.
-- Expanded adaptive timing and training behavior through response-window randomization, evaluator functions, stimulus-delay controls, pre-stimulus offset support, and staircase-training mode.
-- Integrated Staircase behavior more deeply into GUI and trial execution.
-- Overhauled Staircase internals with repeated fixes to reversal detection and threshold calculation, decibel conversion support, improved listeners/history handling, and major plot-management upgrades.
-- Added recent Staircase visualization improvements, including BitMask-based color defaults, response-code color mapping, and context-menu plot interactions.
-- Updated appetitive and aversive GUIs to use newer psychophysics objects and improved performance reporting, including clearer abort/performance metrics and layout cleanup.
-- Added recording and hardware capabilities, including VlcRecorder, multi-camera VLC support with frame-rate control, and NanoMotorControl/NanoMotorControlGUI.
-- Removed deprecated recording paths and older figure-based/runtime code, including the standalone WebcamRecorder path and obsolete GUI artifacts.
-- Expanded documentation substantially across Staircase, BitMask, vprintf, RunExpt GUI behavior, custom GUI construction, Parameter classes, and related infrastructure.
+- 0 commits were recorded in this repository during January 2026.
 
-## Major Themes
+## Overarching Trends
 
-- Modernization of psychophysics workflows, especially adaptive Staircase analysis and training.
-- Migration toward parameter-driven GUI behavior and clearer runtime state management.
-- Stronger support for adaptive timing, randomized response windows, and training-specific interaction modes.
-- Broader device integration for video recording and motor control.
-- Ongoing cleanup of deprecated code paired with a large documentation push.
+- The project shifted toward parameter-driven GUI behavior and explicit runtime-state management rather than older global or figure-centric patterns.
+- Adaptive psychophysics and training workflows became a central product direction, especially through response-window control, ProgressiveTraining, and deeper Staircase integration.
+- Staircase evolved from a supporting analysis tool into a core workflow component spanning online execution, threshold logic, and visualization.
+- Hardware integration broadened while legacy paths were actively removed, indicating a move toward newer recorder and device-control abstractions.
+- Documentation matured alongside implementation, with mid-March showing a particularly strong push to codify usage patterns, APIs, and coding standards.

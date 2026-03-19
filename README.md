@@ -1,8 +1,6 @@
-# epsych v1.1
+# epsych v2.1.0
 
-## Wiki documentation in progress: https://github.com/dstolz/epsych_v1.1/wiki
-
-This Matlab toolbox is designed to facilitate behavioral experiments with/without simultaneous electrophysiology using Matlab with Tucker-Davis Technologies (TDT) hardware and software.
+This Matlab toolbox is designed to facilitate behavioral experiments with/without simultaneous electrophysiology using Matlab with Tucker-Davis Technologies (TDT) hardware and software. Version 2 now supports hardware abstraction (see `hw.Interface`) allowing integration with just about any hardware or software.
 
 The hardware and software available from TDT is used in many labs for electrophysiology and behavioral experiments.  
 
@@ -13,28 +11,11 @@ Currently documentation is weak, but a brief introduction can be found in  Intro
 While all files in this toolbox are free to view and use for learning, please contact me (daniel.stolzberg@gmail.com) if you have any questions on how to get started.
 
 **Requirements**
-* Matlab R2014b or newer (recommended 2018b or later; currently being developed on 2020a)
-* Software available for purchase from TDT http://www.tdt.com
-	* Behavior experiments (no electrophysiology):	*TDT ActiveX Controls*
-	* Electrophysiology experiments:  *TDT OpenEx* and *TDT OpenDeveloper Controls*
-    * Optional standalone webcam recording: *Image Acquisition Toolbox* for `videoinput`, plus a working microphone input if audio capture is enabled
+* Matlab R2014b or newer (recommended 2018b or later; currently being developed on 2024b)
 
+		
+		
 
-**Standalone Webcam Recorder**
-* `epsych.WebcamRecorder` provides programmatic start/stop camera recording without EPsych runtime integration.
-* Outputs are written as separate video (`.avi`), audio (`.wav`), and metadata (`.mat`) files.
-* A minimal smoke-test script is available at `obj/exampleWebcamRecorder.m`.
-* `helpers/@VlcRecorder/VlcRecorder.m` now also supports VLC-based DirectShow webcam capture for live preview, HTTP streaming, and file recording via `launchWebcam(...)`.
-* VLC webcam selection currently relies on the DirectShow friendly device name, so two cameras with the exact same Windows-visible name cannot be distinguished reliably in a single VLC-backed multi-camera launch.
-* A minimal VLC webcam example is available at `obj/exampleVlcWebcamRecorder.m`.
-		
-		
-**NOTES ON V1.1**
-epsych V1.1 is essentially the same as the original epsych, minding the following:
-	1. The UserData is no longer part of the v1.1 repository (still available on the original epsych repository) since it has become huge.  Please make a repository for your own files or manage it some other way.  Sharing your developments is still highly encouraged!
-	2. I am slowly migrating code to an object oriented programming style.  This will eventually (hopefully) lead to a v2.0 which will be largely an object oriented-based toolbox that will greatly increase the toolbox's organizational structure and usability.
-	3. TDT Synapse is not currently supported by this version.  Maybe in the future.
-		
 		
 Daniel Stolzberg, PhD
 Daniel.Stolzberg@gmail.com

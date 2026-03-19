@@ -36,7 +36,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
         StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0  % BitMask identifying stimulus trials
         CatchTrialType    (1,1) epsych.BitMask = epsych.BitMask.TrialType_1  % BitMask identifying catch trials
 
-        ThresholdFromLastNReversals (1,1) double {mustBePositive, mustBeInteger} = 6  % Number of reversals to use in threshold calculation
+        ThresholdFromLastNReversals (1,1) double {mustBePositive, mustBeInteger} = 12  % Number of reversals to use in threshold calculation
         ThresholdFormula (1,1) string {mustBeMember(ThresholdFormula,["Mean","GeometricMean"])} = "Mean"  % Formula for computing threshold from reversals
         ConvertToDecibels (1,1) logical = false  % If true, convert stimulus values to dB using 20*log10(x)
 
@@ -393,27 +393,29 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
             stimValues = obj.stimulusValues(stimMask);
 
-            sd = sign(diff(stimValues));
+            aborts = RCD.Abort;
+
+            naidx = find(~aborts);
+            sv = stimValues(~aborts);
+
+            sd = sign(diff(sv));
             if obj.StaircaseDirection == "Up"
                 sd = -sd;
             end
 
             stepDirection = nan(1, obj.trialCount);
             if ~isempty(sd)
-                stepDirection(obj.StimulusTrialIdx(2:end)) = sd;
+                stepDirection(obj.StimulusTrialIdx(naidx)) = [nan sd];
             end
             obj.StepDirection = stepDirection;
 
             obj.ReversalIdx = [];
             obj.ReversalDirection = [];
             if numel(sd) >= 2
-                aborts = sd == 0;
-                naidx = find(~aborts);
-                nasd = sd(~aborts);
-                rind = nasd(2:end) ~= nasd(1:end-1);
+                rind = sd(2:end) ~= sd(1:end-1);
                 reversalStimIdx = naidx(rind) + 1;
-                obj.ReversalIdx = obj.StimulusTrialIdx(reversalStimIdx);
-                obj.ReversalDirection = sd(reversalStimIdx);
+                obj.ReversalIdx = reversalStimIdx;
+                obj.ReversalDirection = sd(find(rind)+1);
             end
 
             obj.ReversalCount = numel(obj.ReversalIdx);

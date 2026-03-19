@@ -51,6 +51,12 @@ classdef Staircase < handle & matlab.mixin.SetGet
         NeutralColor (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(NeutralColor,1)} = [0.60 0.60 0.60]
         ReversalColor (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(ReversalColor,1)} = [0.10 0.10 0.10]
 
+        HitColor (1,1) string = "#1fa050"
+        MissColor (1,1) string = "#db3939" 
+        AbortColor (1,1) string = "#585757"
+        CorrectRejectionColor (1,1) string = "#0d42f0"
+        FalseAlarmColor (1,1) string = "#ff8800"
+
         MarkerSize (1,1) double {mustBePositive} = 40
         StepMarkerSize (1,1) double {mustBePositive} = 72
         ReversalMarkerSize (1,1) double {mustBePositive} = 110
@@ -463,6 +469,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
         updatePlotLabels_(obj)
         [titleText, hasTitle] = getTitleText_(obj)
         c = directionColors_(obj, direction)
+        c = responseCodeColors_(obj, responseCodes)
         values = columnize_(obj, values)
     end
 

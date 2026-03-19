@@ -43,19 +43,13 @@ classdef Staircase < handle & matlab.mixin.SetGet
         
 
         Bits (1,:) epsych.BitMask = epsych.BitMask.getResponses;  % Response codes for visualization
-        BitColors (5,1) string = ["#dff7df","#fcdcdc","#d9f2ff","#fcdefc","#fcfcd4"];  % Colors for response visualization
+        BitColors (:,1) string = epsych.BitMask.getDefaultColors(epsych.BitMask.getResponses(:));  % Colors mapped to Bits for response visualization
 
         % Optional plotting configuration (when enabled via enablePlot or constructor option).
-        LineColor   (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(LineColor,1)} = [0.15 0.35 0.75]
-        StepColor   (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(StepColor,1)} = [0.90 0.35 0.10]
-        NeutralColor (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(NeutralColor,1)} = [0.60 0.60 0.60]
-        ReversalColor (1,3) double {mustBeNonnegative,mustBeLessThanOrEqual(ReversalColor,1)} = [0.10 0.10 0.10]
-
-        HitColor (1,1) string = "#1fa050"
-        MissColor (1,1) string = "#db3939" 
-        AbortColor (1,1) string = "#585757"
-        CorrectRejectionColor (1,1) string = "#0d42f0"
-        FalseAlarmColor (1,1) string = "#ff8800"
+        LineColor     (1,1) string = "#2659bf"
+        StepColor     (1,1) string = "#e65a1a"
+        NeutralColor  (1,1) string = "#999999"
+        ReversalColor (1,1) string = "#1a1a1a"
 
         MarkerSize (1,1) double {mustBePositive} = 40
         StepMarkerSize (1,1) double {mustBePositive} = 72
@@ -106,6 +100,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
         StepH
         ReversalUpH
         ReversalDownH
+        plotContextMenu_ = []  % uicontextmenu for plot axes
     end
 
     methods
@@ -462,6 +457,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
         onPlotFigureClose_(obj, fig)
         deletePlotGraphics_(obj)
         setupPlotAxes_(obj)
+        createPlotContextMenu_(obj)
         updatePlot_(obj)
         updateThresholdOverlay_(obj)
 

@@ -23,11 +23,11 @@ end
 
 set(obj.h_line, 'XData', x, 'YData', y);
 set(obj.h_points, 'XData', x, 'YData', y, ...
-    'SizeData', obj.MarkerSize, 'CData', c);
+    'SizeData', obj.MarkerSize, 'CData', hex2rgb(c));
 
 if obj.ShowSteps
     set(obj.StepH, 'Visible', 'on', 'XData', xStep, 'YData', yStep, ...
-        'SizeData', obj.StepMarkerSize, 'CData', cStep);
+        'SizeData', obj.StepMarkerSize, 'CData', hex2rgb(cStep));
 else
     set(obj.StepH, 'Visible', 'off', 'XData', nan, 'YData', nan);
 end

@@ -8,16 +8,16 @@ function [x, y, c, xStep, yStep, cStep, xRevUp, yRevUp, xRevDown, yRevDown] = ge
 % Returns:
 %   x, y — plotted trial indices and stimulus values
 %   c — Nx1 hex colors for each point (response-code coded)
-%   xStep, yStep, cStep — step markers (subset of points with step direction)
+%   xStep, yStep, cStep — step markers (subset of points with hex colors)
 %   xRevUp, yRevUp — reversal markers (up)
 %   xRevDown, yRevDown — reversal markers (down)
 
 x = nan;
 y = nan;
-c = "";
+c = obj.NeutralColor;
 xStep = nan;
 yStep = nan;
-cStep = zeros(1,3);
+cStep = obj.StepColor;
 xRevUp = nan;
 yRevUp = nan;
 xRevDown = nan;

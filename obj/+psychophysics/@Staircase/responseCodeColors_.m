@@ -10,16 +10,16 @@ function c = responseCodeColors_(obj, responseCodes)
 %   c — Nx1 string array of hex colors
 
 n = numel(responseCodes);
-c = repmat(obj.NeutralColor, n, 1);
+c = repmat(epsych.BitMask.getDefaultColors(epsych.BitMask.Undefined), n, 1);
 
-if n == 0
-    return
-end
+if n == 0, return; end
 
+    
 decoded = epsych.BitMask.decode(responseCodes);
 
-c(decoded.Hit) = obj.HitColor;
-c(decoded.Miss) = obj.MissColor;
-c(decoded.Abort) = obj.AbortColor;
-c(decoded.CorrectReject) = obj.CorrectRejectionColor;
-c(decoded.FalseAlarm) = obj.FalseAlarmColor;
+for idx = 1:numel(obj.Bits)
+    bitName = char(obj.Bits(idx));
+    bitMask = decoded.(bitName);
+    if ~any(bitMask), continue; end
+    c(bitMask) = obj.BitColors(idx);
+end

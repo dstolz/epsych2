@@ -57,3 +57,5 @@ obj.StepH = scatter(obj.plotAxes_, nan, nan, obj.StepMarkerSize, ...
     'Visible', 'off');
 
 hold(obj.plotAxes_,'off')
+
+obj.createPlotContextMenu_();

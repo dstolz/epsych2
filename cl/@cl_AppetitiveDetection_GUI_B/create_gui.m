@@ -277,8 +277,8 @@ h = uibutton(layoutTrialControls,"state");
 h.Text = "RW Pre-Stimulus Offset Training Mode";
 h.ValueChangedFcn = @(src,event) obj.eval_staircase_training_mode(src,event,pRespWinPreStim);
 
-% >> Post-stimulus portion of response window --- this is used in the post-stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
-pRespWinPostStim = R.S.Module.add_parameter('RespWinPostStim',0, ...
+% >> Post-stimulus portion of response window --- this is used in the post_stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
+pRespWinPostStim = R.S.Module.add_parameter('RespWinPostStim',1000, ...
                         Unit = 'ms', ...
                         Min = 1000, ...
                         Max = 10000);
@@ -566,6 +566,7 @@ panelResponseHistory.Layout.Column = [6 7];
 
 % > Response History Table
 obj.ResponseHistory = gui.History(obj.Psych,panelResponseHistory);
+obj.ResponseHistory.BitColors = ["#b4ffca", "#ffcdcd", "#76c8ff","#ffce8f","#f0fc86"]; % override default BitMask colors with black for no response, orange for miss, and black for hit
 obj.ResponseHistory.ParametersOfInterest = {'Depth','TrialType','Reminder'};
 
 

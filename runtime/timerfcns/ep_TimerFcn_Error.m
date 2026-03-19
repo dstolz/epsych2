@@ -9,4 +9,11 @@ function RUNTIME = ep_TimerFcn_Error(RUNTIME)
 
 % RUNTIME = ep_TimerFcn_Stop(RUNTIME); % same as TimerFcn_Stop function
 vprintf(1,1,RUNTIME.ERROR);
+
+
+try
+    stop(timerfindall);
+    delete(timerfindall);
+end
+
 rethrow(RUNTIME.ERROR)

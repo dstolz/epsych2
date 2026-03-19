@@ -212,10 +212,93 @@ classdef RunExpt < handle
 
         function version_info(self)
             % obj.version_info
-            % Display toolbox version metadata in the command window.
+            % Display toolbox version metadata in a dedicated dialog window.
+            fig = findall(groot,'Type','figure','-and','Tag','RunExptVersionInfo');
+            if ~isempty(fig) && isgraphics(fig(1))
+                fig = fig(1);
+                fig.Visible = 'on';
+                movegui(fig,'onscreen');
+                return
+            end
+
             E = EPsychInfo;
-            disp(E.meta)
-            commandwindow
+            checksumText = self.formatVersionChecksum(E.chksum);
+            commitText = self.formatVersionTimestamp(E.commitTimestamp);
+
+            fig = uifigure('Name','EPsych Version Info', ...
+                'Tag','RunExptVersionInfo', ...
+                'Position',[100 100 560 360], ...
+                'Resize','off', ...
+                'Color',[0.97 0.98 1.00]);
+            movegui(fig,'center');
+
+            rootGrid = uigridlayout(fig,[3 1]);
+            rootGrid.RowHeight = {92,'1x',44};
+            rootGrid.ColumnWidth = {'1x'};
+            rootGrid.RowSpacing = 12;
+            rootGrid.Padding = [18 18 18 18];
+            rootGrid.BackgroundColor = fig.Color;
+
+            headerPanel = uipanel(rootGrid,'BorderType','none', ...
+                'BackgroundColor',[0.13 0.25 0.47]);
+            headerPanel.Layout.Row = 1;
+
+            headerGrid = uigridlayout(headerPanel,[2 1]);
+            headerGrid.RowHeight = {'fit','fit'};
+            headerGrid.ColumnWidth = {'1x'};
+            headerGrid.RowSpacing = 4;
+            headerGrid.Padding = [16 14 16 14];
+            headerGrid.BackgroundColor = headerPanel.BackgroundColor;
+
+            titleLink = uihyperlink(headerGrid, ...
+                'Text','EPsych', ...
+                'URL',E.RepositoryURL);
+            titleLink.FontSize = 24;
+            titleLink.FontWeight = 'bold';
+            titleLink.FontColor = [1 1 1];
+            uilabel(headerGrid, ...
+                'Text',sprintf('Version %s   Data %s',E.Version,E.DataVersion), ...
+                'FontSize',13, ...
+                'FontColor',[0.89 0.93 1.00]);
+
+            cardPanel = uipanel(rootGrid,'BorderType','none', ...
+                'BackgroundColor',[1 1 1]);
+            cardPanel.Layout.Row = 2;
+
+            cardGrid = uigridlayout(cardPanel,[8 2]);
+            cardGrid.ColumnWidth = {140,'1x'};
+            cardGrid.RowHeight = {'fit','fit','fit','fit','fit','fit','fit','1x'};
+            cardGrid.RowSpacing = 8;
+            cardGrid.ColumnSpacing = 14;
+            cardGrid.Padding = [16 16 16 12];
+            cardGrid.BackgroundColor = cardPanel.BackgroundColor;
+
+            self.addVersionInfoRow(cardGrid,1,'Author',E.Author);
+            self.addVersionInfoLinkRow(cardGrid,2,'Email',E.AuthorEmail,['mailto:' E.AuthorEmail]);
+            self.addVersionInfoLinkRow(cardGrid,3,'License',E.License,E.LicenseURL);
+            self.addVersionInfoRow(cardGrid,4,'Copyright',E.Copyright);
+            self.addVersionInfoRow(cardGrid,5,'Latest Commit',commitText);
+            self.addVersionInfoRow(cardGrid,6,'Checksum',checksumText);
+            self.addVersionInfoLinkRow(cardGrid,7,'Repository', ...
+                'GitHub Repository',E.RepositoryURL);
+            self.addVersionInfoLinkRow(cardGrid,8,'History', ...
+                'Commit History Overview',E.CommitHistoryURL);
+
+            footerGrid = uigridlayout(rootGrid,[1 2]);
+            footerGrid.Layout.Row = 3;
+            footerGrid.ColumnWidth = {'1x',90};
+            footerGrid.RowHeight = {'1x'};
+            footerGrid.Padding = [0 0 0 0];
+            footerGrid.BackgroundColor = fig.Color;
+
+            uilabel(footerGrid, ...
+                'Text','Links open in your default browser.', ...
+                'FontAngle','italic', ...
+                'FontColor',[0.35 0.39 0.46]);
+
+            uibutton(footerGrid,'push', ...
+                'Text','Close', ...
+                'ButtonPushedFcn', @(~,~) delete(fig));
         end
 
         function AssignRuntimeToCommandWindow(self)
@@ -333,6 +416,68 @@ classdef RunExpt < handle
             if ~isfield(self.H,'figure1') || ~isgraphics(self.H.figure1), return, end
             if ~isfield(self.H,'always_on_top') || ~isgraphics(self.H.always_on_top), return, end
             self.AlwaysOnTop(ontop)
+        end
+
+        function addVersionInfoRow(~, parent, rowIdx, labelText, valueText)
+            % addVersionInfoRow(self, parent, rowIdx, labelText, valueText)
+            % Create a label/value row in the version info dialog.
+            lbl = uilabel(parent,'Text',[labelText ':']);
+            lbl.Layout.Row = rowIdx;
+            lbl.Layout.Column = 1;
+            lbl.FontWeight = 'bold';
+            lbl.FontColor = [0.21 0.25 0.31];
+
+            value = uilabel(parent,'Text',string(valueText));
+            value.Layout.Row = rowIdx;
+            value.Layout.Column = 2;
+            value.WordWrap = 'on';
+            value.FontColor = [0.16 0.18 0.23];
+        end
+
+        function addVersionInfoLinkRow(~, parent, rowIdx, labelText, linkText, url)
+            % addVersionInfoLinkRow(self, parent, rowIdx, labelText, linkText, url)
+            % Create a label/hyperlink row in the version info dialog.
+            lbl = uilabel(parent,'Text',[labelText ':']);
+            lbl.Layout.Row = rowIdx;
+            lbl.Layout.Column = 1;
+            lbl.FontWeight = 'bold';
+            lbl.FontColor = [0.21 0.25 0.31];
+
+            link = uihyperlink(parent,'Text',string(linkText),'URL',char(url));
+            link.Layout.Row = rowIdx;
+            link.Layout.Column = 2;
+            link.FontColor = [0.00 0.35 0.72];
+        end
+
+        function checksumText = formatVersionChecksum(~, checksum)
+            % checksumText = formatVersionChecksum(self, checksum)
+            % Normalize the git checksum display for the version info dialog.
+            if ischar(checksum) || (isstring(checksum) && strlength(checksum) > 0)
+                checksumText = char(string(checksum));
+                return
+            end
+
+            checksumText = 'Unavailable';
+        end
+
+        function commitText = formatVersionTimestamp(~, commitTimestamp)
+            % commitText = formatVersionTimestamp(self, commitTimestamp)
+            % Format the latest commit timestamp for display in the version info dialog.
+            if isdatetime(commitTimestamp)
+                if isnat(commitTimestamp)
+                    commitText = 'Unavailable';
+                else
+                    commitText = datestr(commitTimestamp,'ddd, mmm dd, yyyy HH:MM PM');
+                end
+                return
+            end
+
+            if ischar(commitTimestamp) || isstring(commitTimestamp)
+                commitText = char(string(commitTimestamp));
+                return
+            end
+
+            commitText = 'Unavailable';
         end
     end
 

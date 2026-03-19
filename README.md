@@ -1,4 +1,4 @@
-# epsych v1.1
+# epsych v2.1.0
 
 EPsych is a MATLAB toolbox for building and running behavioral experiments primarily built around Tucker-Davis Technologies (TDT) hardware and software, but can also talk to any hardware and software through the `hw.Interface`.
 

@@ -1,0 +1,1905 @@
+### 2026-03`tfaa66a0`tfeat(ResponseWindow): Add pre-stimulus offset parameter and update timing logic for response window alignment (1 commits)
+-  
+
+### 2026-03`tfa73b33`tfeat(StaircaseTraining): Implement staircase training mode functionality in GUI (1 commits)
+-  
+
+### 2026-03`tfa4ca8a`tAdd temporary grid visualization instructions for layout development in Customized GUI documentation (1 commits)
+-  
+
+### 2026-03`tf8ea065`tfix(Staircase): Update threshold calculation to use last 6 reversals (1 commits)
+-  
+
+### 2026-03`tf86ee38`tRemove deprecated figures and associated functions for ep_BoxFig and ep_RunExpt Conversion from `global RUNTIME` to handle (1 commits)
+-  
+
+### 2026-03`tf866cfe`tfix: ensure nextStim respects MinDepth and MaxDepth constraints in trial selection (1 commits)
+-  
+
+### 2026-03`tf6c419e`tfeat(PrintBanner): Add latest commit information to banner output (1 commits)
+-  
+
+### 2026-03`tf53cccf`tRefine commenting guidelines to specify consistent formatting for function and method descriptions, enhancing clarity and usability. (1 commits)
+-  
+
+### 2026-03`tf4b9221`tfeat(Staircase): Add response code color mapping and update plot data function (1 commits)
+-  
+
+### 2026-03`tf3a7b82`tUpdate performance display formatting in GUI; adjust label alignment and font size for better visibility. (1 commits)
+-  
+
+### 2026-03`tf1d866b`trefactor Response Window Delay parameters for improved randomization and validation logic (1 commits)
+-  
+
+### 2026-03`tf1ae90b`tadd eval_rwdelay_randomization function to handle Response Window Delay randomization (1 commits)
+-  
+
+### 2026-03`tedf9564`tMerge branch 'master' of https://github.com/dstolz/epsych_v1.1 (1 commits)
+-  
+
+### 2026-03`tebb679e`tMerge branch 'master' of https://github.com/dstolz/epsych2 (1 commits)
+-  
+
+### 2026-03`teb8f1f0`tEnhance Staircase class to support ConvertToDecibels option for stimulus value transformation (1 commits)
+-  
+
+### 2026-03`teafd5af`tfeat(GUI): Add stimulus delay parameter and update response window logic for temporal consistency (1 commits)
+-  
+
+### 2026-03`te7ead7d`tfix: update hl_RWDelayTrainingGUI listener and ensure proper deletion in AppetitiveDetection_GUI_B class (1 commits)
+-  
+
+### 2026-03`te7d942d`tImplement recent configuration management: add GetRecentConfigs, LoadRecentConfig, RememberRecentConfig, and UpdateRecentConfigsMenu functions; integrate recent config handling into RunExpt and buildUI methods. (1 commits)
+-  
+
+### 2026-03`te663991`tAdd standalone webcam recording functionality; implement WebcamRecorder class and example script (1 commits)
+-  
+
+### 2026-03`te5de56e`tRefactor parameter handling in psychophysics and GUI classes for improved functionality (1 commits)
+-  
+
+### 2026-03`te4a055d`tEnhance VlcRecorder class with comprehensive documentation and method descriptions for improved clarity and usability (1 commits)
+-  
+
+### 2026-03`te2d3eb4`tfeat(History): Enhance version info dialog with detailed metadata and links fix(Staircase): Update BitColors and LineColor for improved visualization fix(AppetitiveDetection_GUI_B): Add error handling for GUI component deletion feat(RunExpt): Implement version info dialog with repository links feat(buildUI): Add menu options for GitHub repository and commit history feat(History): Allow optional BitColors for response visualization (1 commits)
+-  
+
+### 2026-03`te2a4d17`tMerge branch 'master' of https://github.com/dstolz/epsych_v1.1 (1 commits)
+-  
+
+### 2026-03`te2092cc`tFix reversal index calculation in Staircase class to account for both increases and decreases in step direction (1 commits)
+-  
+
+### 2026-03`te179b10`tfeat(CommitHistory): Add comprehensive commit history overview for early 2026 (1 commits)
+-  
+
+### 2026-03`tdcdbc13`tfix(Staircase): Rename variable for clarity in step direction calculation (1 commits)
+-  
+
+### 2026-03`tdc50390`tfeat: update timestamp retrieval method in TDT_RPcox and add logging for parameter trigger events (1 commits)
+-  
+
+### 2026-03`tdb928af`tRefactor control button layout naming and improve scrollable parameter section instructions in Customized GUI documentation (1 commits)
+-  
+
+### 2026-03`tda569eb`tAdd VlcRecorder class for VLC webcam streaming and recording; include example script for usage (1 commits)
+-  
+
+### 2026-03`tda32f92`tAdd VLC recording functionality and adjust parameter increments in GUI (1 commits)
+-  
+
+### 2026-03`td9f5dfa`tRefactor VlcRecorder properties to use private naming conventions for better encapsulation (1 commits)
+-  
+
+### 2026-03`td86fb3b`tImprove reversal detection logic in Staircase class to avoid false reversals from neutral steps (1 commits)
+-  
+
+### 2026-03`td8324f0`tcontinued updates (1 commits)
+-  
+
+### 2026-03`td800517`tdocs(Staircase): Update class documentation for clarity on online and offline modes (1 commits)
+-  
+
+### 2026-03`td6ef221`tEnhance VLC webcam functionality with multi-camera support and frame rate configuration (1 commits)
+-  
+
+### 2026-03`td6ad93d`tupdate TrialComplete field check in ep_TimerFcn_RunTime for clarity (1 commits)
+-  
+
+### 2026-03`td358c5d`tfeat(PrintBanner): Add link to Commit History Overview in banner output (1 commits)
+-  
+
+### 2026-03`td1f5a7f`tcommented out message box (1 commits)
+-  
+
+### 2026-03`td02e73b`tfix(post_stimdelay_update): Update function signature to include 'obj' parameter (1 commits)
+-  
+
+### 2026-03`tcf87b95`tRename FA Rate to Abort Rate in GUI; update related calculations and labels for clarity. (1 commits)
+-  
+
+### 2026-03`tcf4f703`tfix(Staircase): Update threshold calculation to use last 12 reversals and improve reversal detection logic (1 commits)
+-  
+
+### 2026-03`tcef9eb2`tfix: pass Parameter to EvaluatorFcn for improved value evaluation (1 commits)
+-  
+
+### 2026-03`tceb3bc0`tUpdate performance display formatting in GUI; adjust Hit Rate and Abort Rate text alignment for improved readability. (1 commits)
+-  
+
+### 2026-03`tce685a5`tworking on new RunExpt class (1 commits)
+-  
+
+### 2026-03`tcc0ebdf`tcomments (1 commits)
+-  
+
+### 2026-03`tcbdf7a8`tAdd NanoMotorControl and NanoMotorControlGUI classes for motor control interface (1 commits)
+-  
+
+### 2026-03`tc9ae05b`tfeat(BitMask): Add getDefaultColors method for hex color mapping of BitMask values (1 commits)
+-  
+
+### 2026-03`tc8eb8af`tEnhance parameter handling in cl_AppetitiveDetection_GUI_B and create_gui for improved functionality and flexibility (1 commits)
+-  
+
+### 2026-03`tc8d5f64`tAdd variable response-window delay and training UI (1 commits)
+-  
+
+### 2026-03`tc688b2f`tRefactor color property definitions in Parameter_Update for consistency and clarity; update global RUNTIME assignment in commit_changes method (1 commits)
+-  
+
+### 2026-03`tc4c2323`tchanged BitMask.decodeResponseCode to BitMask.decode (1 commits)
+-  
+
+### 2026-03`tc4b84cd`tUpdate copilot instructions to specify file pattern for applyTo and enhance error handling guidelines (1 commits)
+-  
+
+### 2026-03`tc244bcd`tRefactor AppetitiveDetection GUI to use updated psychophysics objects; improve data handling and listener management in Staircase and History classes. (1 commits)
+-  
+
+### 2026-03`tc1f11e4`tadd optional ffnConfig argument to RunExpt constructor and load configuration if provided (1 commits)
+-  
+
+### 2026-03`tc1204ed`tRefactor color property definitions in Parameter_Control and Parameter_Update for consistency; update color assignment in Parameter_Update for clarity (1 commits)
+-  
+
+### 2026-03`tc05b4c7`tAdd functionality to assign RUNTIME to command window and update UI state based on runtime mode (1 commits)
+-  
+
+### 2026-03`tbec4625`tfix(BitMask): Correct enum name typo and update method documentation for clarity (1 commits)
+-  
+
+### 2026-03`tbd7a196`tImplement staircase functionality in GUI; update abort rate calculation and improve Staircase class constructor (1 commits)
+-  
+
+### 2026-03`tbcf66d1`tRename "Abort Rate" panel and label to "Performance"; update performance calculation and display in GUI. (1 commits)
+-  
+
+### 2026-03`tb9fd0ee`tRefactor verbosity function to remove unnecessary argument; simplify function signature. (1 commits)
+-  
+
+### 2026-03`tb74c789`tfix(verbosity): Correct window state property for dialog visibility (1 commits)
+-  
+
+### 2026-03`tb704e1c`tUpdate help comments prompt to include guidance on using the /document prompt for generating documentation files (1 commits)
+-  
+
+### 2026-03`tb5fe9f8`tAdds appetitive stimulus-detection trial selection routine (1 commits)
+-  
+
+### 2026-03`tb499586`tfix(Parameter): Refactor options structure for clarity and consistency (1 commits)
+-  
+
+### 2026-03`tb2b8bb8`tRefactor parameter retrieval in create_gui for improved efficiency and clarity (1 commits)
+-  
+
+### 2026-03`tb1277ce`tMerge branch 'master' of https://github.com/dstolz/epsych_v1.1 (1 commits)
+-  
+
+### 2026-03`tb10a806`tUpdate ThresholdFromLastNReversals to 12 for improved staircase analysis accuracy (1 commits)
+-  
+
+### 2026-03`taffe5df`tAdjust StepUp and StepDown values in ProgressiveTrainingGUI for improved training mode responsiveness (1 commits)
+-  
+
+### 2026-03`tad661a8`tfix: handle button push event for parameter triggering in Parameter_Control (1 commits)
+-  
+
+### 2026-03`tacd4dc0`tfix: simplify NOGO continuation logic by removing false alarm condition (1 commits)
+-  
+
+### 2026-03`tac42781`tremoved test line (1 commits)
+-  
+
+### 2026-03`ta9d226b`trefactor Response Window Delay parameters to support randomization and improve event handling (1 commits)
+-  
+
+### 2026-03`ta972b2d`tEnhance documentation across various classes in the GUI and hardware modules. - Added detailed descriptions for constructors, properties, and methods in cl_AppetitiveDetection_GUI, cl_AversiveDetection_GUI, EPsychInfo, and others. - Improved clarity of method functionalities in Helper, PumpCom, and various stimgen classes. - Removed the deprecated TrialType class and updated relevant comments in TrialsData. - Updated comments in GenericTimer and other GUI-related classes to reflect their purpose and usage. (1 commits)
+-  
+
+### 2026-03`ta7b25a1`tfeat: rename h_value to h_uiobj for consistency and update related references (1 commits)
+-  
+
+### 2026-03`ta26ef57`tRemove deprecated functions and update help comments for clarity (1 commits)
+-  
+
+### 2026-03`t9fb9620`tfeat: streamline trial selection logic and enhance comments for clarity (1 commits)
+-  
+
+### 2026-03`t9c7e286`tReplace RWDelay training GUI with ProgressiveTraining GUI (1 commits)
+-  
+
+### 2026-03`t945edfb`tRefine commenting guidelines to specify the placement of function call syntax in comments for improved clarity and consistency. (1 commits)
+-  
+
+### 2026-03`t92e6c76`tItalicize recommendation for using vprintf (1 commits)
+-  
+
+### 2026-03`t8ff64fc`tRefactor StaircaseHistoryPlot to directly add listener for NewData; remove obsolete attach_listener method. Update Staircase class to improve data handling and threshold calculations. (1 commits)
+-  
+
+### 2026-03`t8eec55a`tfix: rename hl_Value to hl_uiobj for clarity in Parameter_Control class (1 commits)
+-  
+
+### 2026-03`t8ed280e`tfix: enhance Response Window Delay parameters in training mode and improve GUI handling (1 commits)
+-  
+
+### 2026-03`t8e1f112`tfeat(Module, Parameter): Enhance parameter handling with additional options in constructors (1 commits)
+-  
+
+### 2026-03`t8db05e5`tfeat: add new parameters for trial selection and update GUI components (1 commits)
+-  
+
+### 2026-03`t8d0e3c1`tfeat(Staircase): Enhance plot visualization with context menu and color mapping updates (1 commits)
+-  
+
+### 2026-03`t8cd7695`trefactor response window delay parameters in GUI setup (1 commits)
+-  
+
+### 2026-03`t874c049`trefactor eval_rwdelay_training_mode to improve RUNTIME access and update listener function signature (1 commits)
+-  
+
+### 2026-03`t83270d0`tFix reversal index calculation and update marker properties in StaircaseHistoryPlot (1 commits)
+-  
+
+### 2026-03`t81b1478`tdon't use field formatting (1 commits)
+-  
+
+### 2026-03`t7f9b621`tRefactor parameter references in cl_AppetitiveDetection_GUI_B for consistency and clarity (1 commits)
+-  
+
+### 2026-03`t7ef5580`trefactor(eval_staircase_training_mode): Simplify function parameters and improve documentation (1 commits)
+-  
+
+### 2026-03`t7b2fa3f`tRefactor Parameter_Update to accept RUNTIME as an argument; update commit_changes method for improved clarity and consistency (1 commits)
+-  
+
+### 2026-03`t78df7d4`tClarify input parameter parsing guidelines in coding instructions for Matlab R2024b (1 commits)
+-  
+
+### 2026-03`t77c262c`tfix: improve documentation and validation in ProgressiveTrainingGUI class (1 commits)
+-  
+
+### 2026-03`t77583ef`tRefactor comments and improve property descriptions in RunExpt class for better clarity (1 commits)
+-  
+
+### 2026-03`t72cff91`tFix reversal index calculation to account for both upward and downward direction changes in staircase analysis. (1 commits)
+-  
+
+### 2026-03`t7207568`tfeat: update error handling in TDT_RPcox and modify parameter update logic in Parameter class (1 commits)
+-  
+
+### 2026-03`t71b7ec4`timplemented runtime updating of data filename (1 commits)
+-  
+
+### 2026-03`t706b467`tfix: refactor eval_rwdelay_training_mode to properly handle GUI instantiation and event listening (1 commits)
+-  
+
+### 2026-03`t6f32e35`tAdd varargin parameter to verbosity function for improved flexibility (1 commits)
+-  
+
+### 2026-03`t6e6fde7`tAdd guidance on handling unhandled try/catch blocks in error handling section (1 commits)
+-  
+
+### 2026-03`t6d9106a`tCalculate Abort Rate using trial counts; update display format for clarity (1 commits)
+-  
+
+### 2026-03`t6c1f69a`trefactor create_gui and Parameter_Monitor for improved parameter handling and display (1 commits)
+-  
+
+### 2026-03`t6b17ced`tfix: update modal figure appearance and improve header text for clarity (1 commits)
+-  
+
+### 2026-03`t6a89a2b`tfeat(GUI): Update layout for trial and sound controls; add eval functions for parameter randomization and staircase training mode (1 commits)
+-  
+
+### 2026-03`t6a7d033`tfix formatting in vprintf call and add comment for process priority (1 commits)
+-  
+
+### 2026-03`t6992b65`trefactor Response Window Delay handling to enable randomization and update trial structure (1 commits)
+-  
+
+### 2026-03`t6966d98`tRefactor VlcRecorder and related classes to use camelCase for property names for consistency (1 commits)
+-  
+
+### 2026-03`t68899da`tRemove VLC recording methods and associated properties from AppetitiveDetection GUI class (1 commits)
+-  
+
+### 2026-03`t686c214`tfeat(Parameter): Implement eval_dependent_parameter_randomization for improved min/max parameter validation (1 commits)
+-  
+
+### 2026-03`t67ea25a`tclose training gui (temp) (1 commits)
+-  
+
+### 2026-03`t6580ca3`tUpdate row names in History table to display in descending order based on data size (1 commits)
+-  
+
+### 2026-03`t6296182`tRemove WebcamRecorder class; deprecate standalone webcam recording functionality (1 commits)
+-  
+
+### 2026-03`t5dbc886`tfix: add Parent property to ProgressiveTrainingGUI and update UI creation logic (1 commits)
+-  
+
+### 2026-03`t5ccb8d0`tMerge branch 'master' of https://github.com/dstolz/epsych2 (1 commits)
+-  
+
+### 2026-03`t5aadf68`tAdd comprehensive documentation for building custom MATLAB GUIs in EPsych style (1 commits)
+-  
+
+### 2026-03`t5a84c29`tAdd keyboard shortcut handling for verbosity level adjustment (1 commits)
+-  
+
+### 2026-03`t57bda8d`tAdd documentation for epsych.BitMask enumeration and its functionalities (1 commits)
+-  
+
+### 2026-03`t56092c6`tEnhance commenting guidelines in coding instructions for clarity and conciseness (1 commits)
+-  
+
+### 2026-03`t54b70d2`tAdd guideline to avoid checking for property existence in Matlab functions (1 commits)
+-  
+
+### 2026-03`t511a620`tEnhance commenting guidelines to include function call syntax in descriptions for improved clarity and consistency. (1 commits)
+-  
+
+### 2026-03`t4f5c3e7`tMerge branch 'master' of https://github.com/dstolz/epsych_v1.1 (1 commits)
+-  
+
+### 2026-03`t4ed16d3`tmore updates towards RUNTIME hanlde (1 commits)
+-  
+
+### 2026-03`t4d85cc6`tremove TODO comment for filename update in onModeChange method (1 commits)
+-  
+
+### 2026-03`t4d7916e`tSimplify reversal counting logic in Staircase class to enhance accuracy and reduce false reversals from neutral steps (1 commits)
+-  
+
+### 2026-03`t4af0331`tfeat(Parameter): Revise documentation and enhance constructor details for hw.Parameter (1 commits)
+-  
+
+### 2026-03`t4a2ae38`tfix(Staircase): Improve reversal detection logic by handling aborted trials (1 commits)
+-  
+
+### 2026-03`t4940121`trefactor Response Window Delay handling to support randomization and improve evaluation logic (1 commits)
+-  
+
+### 2026-03`t4649fb1`tAdd documentation for hw.Parameter, gui.Parameter_Control, gui.Parameter_Update, and related classes (1 commits)
+-  
+
+### 2026-03`t4575aa9`tRefactor verbosity function to accept an optional verbosity level argument (1 commits)
+-  
+
+### 2026-03`t44944aa`tfix(Staircase): Correct stepDirection initialization and reversal direction assignment (1 commits)
+-  
+
+### 2026-03`t44502b5`tdo not update '~PreventTrial` anymore (1 commits)
+-  
+
+### 2026-03`t4407e02`tUpdate help comments and class descriptions for clarity and accuracy; add date to comments. (1 commits)
+-  
+
+### 2026-03`t3f26b06`tAdd gui.StaircaseTraining class and update eval_rwdelay_training_mode documentation (1 commits)
+-  
+
+### 2026-03`t3eaf339`tRefine reversal index calculation in Staircase class to improve accuracy in detecting reversals (1 commits)
+-  
+
+### 2026-03`t3ea4967`tAdjust RowHeight values in create_gui for improved layout consistency (1 commits)
+-  
+
+### 2026-03`t3d37a98`tUpdate GUI components in create_gui and Parameter_Monitor for improved layout and responsiveness; change Position properties to use normalized units. (1 commits)
+-  
+
+### 2026-03`t399fcf7`tdocs(vprintf): Add detailed documentation for vprintf function and usage examples (1 commits)
+-  
+
+### 2026-03`t387d3df`tremove plottedParameters from cl_AppetitiveDetection_GUI_B and cl_AppetitiveDetection_GUI_2026 classes (1 commits)
+-  
+
+### 2026-03`t3861524`tMerge branch 'master' of https://github.com/dstolz/epsych2 (1 commits)
+-  
+
+### 2026-03`t376db93`tRefactor GUI and Psychophysics Classes (1 commits)
+-  
+
+### 2026-03`t3301338`tfix: update trial selection logic for Staircase mode and refine Depth handling (1 commits)
+-  
+
+### 2026-03`t3200b54`tfix: ensure outcome-conditioned probabilities sum to 1 in trial selection function (1 commits)
+-  
+
+### 2026-03`t2fb30b5`tRemove unnecessary try/catch block when retrieving webcam names in VlcRecorder (1 commits)
+-  
+
+### 2026-03`t2e8a482`tUpdate copyright year in epsych_printBanner and adjust comments for clarity (1 commits)
+-  
+
+### 2026-03`t2d6b93e`tfix(verbosity): Ensure dialog visibility by restoring window state correctly (1 commits)
+-  
+
+### 2026-03`t2cc23d3`tgui updates (1 commits)
+-  
+
+### 2026-03`t2c6bf00`tfeat(Staircase): Enhance plotting capabilities and refactor plot management (1 commits)
+-  
+
+### 2026-03`t282baf3`tEnhance VlcRecorder class documentation with detailed method descriptions and consistent formatting for improved clarity and usability. (1 commits)
+-  
+
+### 2026-03`t248a15b`tremove unnecessary arguments block from PsychTimerStart and buildUI functions (1 commits)
+-  
+
+### 2026-03`t2277e01`tUpdate copilot instructions to enhance commenting guidelines for properties and methods (1 commits)
+-  
+
+### 2026-03`t20af5fc`tfix: update references to RWDelayTrainingGUI in AppetitiveDetection and ProgressiveTraining classes (1 commits)
+-  
+
+### 2026-03`t20ad678`tadded vprintfs (1 commits)
+-  
+
+### 2026-03`t1fe7ff0`tRemove example script for standalone webcam recording functionality (1 commits)
+-  
+
+### 2026-03`t1f74b0e`tfix: update ProgressiveTrainingGUI documentation and improve immediate commit behavior (1 commits)
+-  
+
+### 2026-03`t1e302a5`tEnhance documentation for Staircase class and improve comments for clarity (1 commits)
+-  
+
+### 2026-03`t1b401b1`tfix: reorder event handling logic for button push event in Parameter_Control (1 commits)
+-  
+
+### 2026-03`t1a8c2b4`tAdds progressive training modal GUI (1 commits)
+-  
+
+### 2026-03`t15492cc`tRefine commenting guidelines to emphasize clarity and context, and ensure comprehensive class and property documentation. (1 commits)
+-  
+
+### 2026-03`t13ec07c`tAdd comprehensive overview documentation for epsych.RunExpt GUI (1 commits)
+-  
+
+### 2026-03`t123af28`tfeat(Parameter): Update eval_parameter_randomization to streamline parameter handling and improve error reporting (1 commits)
+-  
+
+### 2026-03`t11f25fa`tfeat(CommitHistory): Add prompt for summarizing commit history and trends (1 commits)
+-  
+
+### 2026-03`t1123ad4`tupdated for 2026 (1 commits)
+-  
+
+### 2026-03`t10baa54`tfix(create_gui): Update post-stimulus response window parameter to default to 1000 ms (1 commits)
+-  
+
+### 2026-03`t0f66e5b`tFix abort and hit rate calculations in AppetitiveDetection GUI (1 commits)
+-  
+
+### 2026-03`t0ea2892`tfeat(CommitHistory): Update commit history overview for early 2026 with detailed summaries for January, February, and March (1 commits)
+-  
+
+### 2026-03`t0e4ee77`tfeat(ResponseWindow): Refactor response window parameters and introduce stimulus delay controls (1 commits)
+-  
+
+### 2026-03`t095a677`tRefactor VlcRecorder constructor and methods to use argument validation for improved input handling (1 commits)
+-  
+
+### 2026-03`t075f555`trefactor TrialComplete property for clarity and consistency (1 commits)
+-  
+
+### 2026-03`t0680230`tfeat(ResponseWindow): Add button for pre-stimulus offset training mode with event handling (1 commits)
+-  
+
+### 2026-03`t053209b`tuse simpler syntax (1 commits)
+-  
+
+### 2026-03`t049f7ac`tMerge branch 'master' of https://github.com/dstolz/epsych_v1.1 (1 commits)
+-  
+
+### 2026-03`t0465ad3`tdocs(document.prompt): Add guidance for updating existing documentation and maintaining clarity (1 commits)
+-  
+
+### 2026-03`t04231b4`tfix: specify dimensions for Parameter property in ProgressiveTrainingGUI class (1 commits)
+-  
+
+### 2026-03`t03bea98`tUpdate response handling in eval_rwdelay_training_mode to clarify trial outcomes (1 commits)
+-  
+
+### 2026-03`t03731b9`tfix: add error handling to cl_SaveDataFcn for improved robustness (1 commits)
+-  
+
+### 2026-03`t034cb8f`tAdd general coding instructions for Matlab R2024b, including naming conventions and error handling guidelines. (1 commits)
+-  
+
+### 2026-03`t0183ded`tRefactor verbosity function to use global GVerbosity variable; update initial value handling and remove unnecessary self argument. (1 commits)
+-  
+
+### 2026-02`tff15e81`tMerge branch 'master' of https://github.com/dstolz/epsych2 (1 commits)
+-  
+
+### 2026-02`tf88f950`tMerge branch 'master' of https://github.com/dstolz/epsych_v1.1 (1 commits)
+-  
+
+### 2026-02`tf756a26`tfeat: add total pellets display and update parameters in GUI (1 commits)
+-  
+
+### 2026-02`tdca0cae`tfeat: extend type options for Parameter_Control and enhance event handling (1 commits)
+-  
+
+### 2026-02`tc1d6598`tFixed Remind trial (1 commits)
+-  
+
+### 2026-02`tbdc8795`tfeat: enhance NOGO trial selection logic to account for false alarms (1 commits)
+-  
+
+### 2026-02`t8ae3661`tfeat: replace hTotalPellets with ParameterMonitorTable and update GUI layout (1 commits)
+-  
+
+### 2026-02`t860f7b6`tfeat: implement modal figure for data saving with buttons for WATER and FOOD (1 commits)
+-  
+
+### 2026-02`t7498104`tupdated help text (1 commits)
+-  
+
+### 2026-02`t718c93a`tfeat: add Trigger method to Parameter class for handling trigger events (1 commits)
+-  
+
+### 2026-02`t6e1876e`tMerge branch 'master' of https://github.com/dstolz/epsych2 (1 commits)
+-  
+
+### 2026-02`t3a0439a`tfeat: implement GUI for pellet appetitive detection with trial controls and sound settings (1 commits)
+-  
+
+### 2026-02`t3269c41`tfeat: update button color handling and enhance button properties in GUI (1 commits)
+-  
+
+### 2026-02`t1c607b5`tfeat: implement Parameter_Monitor class for polling and displaying hw.Parameter values (1 commits)
+-  
+
+### 2026-02`t1a2b236`tfix: update sound level controls to use edit fields instead of dropdowns (1 commits)
+-  
+
+### 2026-02`t18695e3`tstyle: format code for improved readability in StimType class (1 commits)
+-  
+
+### 2026-02`t08017f8`tfeat: set font size for ParameterMonitorTable handle to improve readability (1 commits)
+-  
+
+### 2025-12`tfdaac91`trefactor: enhance stimulus playback logging and update signal plot display (1 commits)
+-  
+
+### 2025-12`te1c6b95`tfeat: add FMtone class for frequency-modulated tone stimulus generation (1 commits)
+-  
+
+### 2025-12`te053ba1`trefactor: adjust layout for signal plot and sidebar, and relocate Play Stim button (1 commits)
+-  
+
+### 2025-12`td9bf0eb`tfeat: add toStruct method for serialization of StimCalibration, StimPlay, and StimType objects (1 commits)
+-  
+
+### 2025-12`td79ede5`tfix: update CalibrationType from "tone" to "filter" in FMtone class (1 commits)
+-  
+
+### 2025-12`td3d3544`tfix: round group delay calculation in create_arbmag function (1 commits)
+-  
+
+### 2025-12`tcf37493`tfix: add calibration warning logic to prevent repeated messages in StimType (1 commits)
+-  
+
+### 2025-12`tcc49054`tfeat: enhance StimGenInterface and related classes with improved UI and properties (1 commits)
+-  
+
+### 2025-12`tc82f30f`tfix: improve signal update and plotting logic in StimType class (1 commits)
+-  
+
+### 2025-12`tc05e885`trefactor: streamline calibration handling and improve signal update logic in StimGenInterface_Simple and related classes (1 commits)
+-  
+
+### 2025-12`tb74c6cb`trefactor: remove unused listener property and streamline logging in playback functions (1 commits)
+-  
+
+### 2025-12`tb0fb3d7`tfeat: add donotsavedatafcn function to handle no save scenario (1 commits)
+-  
+
+### 2025-12`ta67325a`tfeat: implement create method for StimGenInterface GUI initialization (1 commits)
+-  
+
+### 2025-12`ta21ce22`tMerge branch 'master' of https://github.com/dstolz/epsych_v1.1 (1 commits)
+-  
+
+### 2025-12`t9807d33`tfeat: implement StimGenInterface_Simple and create GUI for stimulus generation (1 commits)
+-  
+
+### 2025-12`t8d8a3a3`tfeat: add stimulus order logging and saving functionality (1 commits)
+-  
+
+### 2025-12`t8d109c6`tfix: correct order of conditions in Fs setter for StimObj (1 commits)
+-  
+
+### 2025-12`t892e656`tMerge branch 'master' of https://github.com/dstolz/epsych2 (1 commits)
+-  
+
+### 2025-12`t832382a`trefactor: clean up unused calibration assignments and improve signal loading in StimGenInterface_Simple (1 commits)
+-  
+
+### 2025-12`t7fc5490`tfeat: update calibration methods and improve plot handling (1 commits)
+-  
+
+### 2025-12`t7d4ea85`tfix: update DataPath retrieval to use full user directory path in StimGenInterface (1 commits)
+-  
+
+### 2025-12`t78652f3`tfix: enable ApplyCalibration by default in StimType class (1 commits)
+-  
+
+### 2025-12`t76903f8`tfix: update DataPath retrieval and improve stimulus selection logic in StimGenInterface (1 commits)
+-  
+
+### 2025-12`t70abd37`trefactor: update file save dialog and improve stimulus object serialization (1 commits)
+-  
+
+### 2025-12`t625bd88`tCALIBRATION REQUIRES WORK fix: update plot_transferfcn calls in calibrate_clicks and calibrate_tones functions (1 commits)
+-  
+
+### 2025-12`t61475da`tfeat: update StimGen configuration file (1 commits)
+-  
+
+### 2025-12`t5e478a6`tChanged to use Out/In B (1 commits)
+-  
+
+### 2025-12`t4d428c3`tfeat: exclude 'donotsavedatafcn.m' from StimType list (1 commits)
+-  
+
+### 2025-12`t43e9a09`tfeat: refactor stimulus order saving to use structured data (1 commits)
+-  
+
+### 2025-12`t3a3b67d`trefactor: remove redundant Complete property and streamline increment logic (1 commits)
+-  
+
+### 2025-12`t32ebe65`tfix: rename Gimme to Shape in GUI and update associated trigger function (1 commits)
+-  
+
+### 2025-12`t2387987`tfix: improve logging and buffer management in StimGenInterface (1 commits)
+-  
+
+### 2025-12`t1b0c97a`tfeat: add logging for selected stimulus in StimGenInterface (1 commits)
+-  
+
+### 2025-12`t0ac94c3`trm (1 commits)
+-  
+
+### 2025-11`tfee260e`tAppettive GUI untested (1 commits)
+-  
+
+### 2025-11`tfc4829f`tmade table interruptible = 'off' (1 commits)
+-  
+
+### 2025-11`tf927830`tfix: update colorNormal property to reflect the background color of the UI component (1 commits)
+-  
+
+### 2025-11`tf7d7971`tMerge branch 'master' of https://github.com/dstolz/epsych2 (1 commits)
+-  
+
+### 2025-11`te580fa9`tfix: add check for BackgroundColor field and improve parameter update logging (1 commits)
+-  
+
+### 2025-11`te47c05d`tadd: implement quick recalculation of response codes and statistics (1 commits)
+-  
+
+### 2025-11`te227962`tcomment out RPvds calibration directory check for debugging; added pause before connection (1 commits)
+-  
+
+### 2025-11`td222c4c`tfix: update d-prime calculation to use False Alarm rate from Rate structure (1 commits)
+-  
+
+### 2025-11`tcdb2c06`tfix: ensure 'active trials' are updated in both GUI classes (1 commits)
+-  
+
+### 2025-11`tb613312`tfix: handle empty d-prime results by assigning infinity (1 commits)
+-  
+
+### 2025-11`tb2f27e8`tupdated to new "_" prefix (1 commits)
+-  
+
+### 2025-11`taea129c`tfix: rename parameters for clarity in response window duration and delay (1 commits)
+-  
+
+### 2025-11`ta3da65b`tMerge branch 'master' of https://github.com/dstolz/epsych2 (1 commits)
+-  
+
+### 2025-11`t8e8164f`tfix: enhance parameter update logic to include software type checks and add new properties (1 commits)
+-  
+
+### 2025-11`t8908bdf`tupdated paths (1 commits)
+-  
+
+### 2025-11`t83a4d18`tnot used (1 commits)
+-  
+
+### 2025-11`t7efdb1b`tallow circuit level access to response code (1 commits)
+-  
+
+### 2025-11`t6d625ba`tfix: update data formatting to use fixed-point notation for improved precision (1 commits)
+-  
+
+### 2025-11`t63306ae`tadd: implement Free Reward functionality and enhance trial controls in GUI (1 commits)
+-  
+
+### 2025-11`t5681161`tfix: add Gimme and Manual Trial buttons to GUI and update trial selection logic (1 commits)
+-  
+
+### 2025-11`t5043aeb`tfix: improve parameter handling and update methods in TDT_RPcox, Parameter, StimCalibration, StimGenInterface, and StimPlay classes (1 commits)
+-  
+
+### 2025-11`t4543f26`tupdate default data path in cl_SaveDataFcn to match current directory structure (1 commits)
+-  
+
+### 2025-11`t39fa726`tfix: disable interruptibility for trial filter table to enhance user experience (1 commits)
+-  
+
+### 2025-11`t336f463`tfix: enhance trial completion logging and buffer data collection (1 commits)
+-  
+
+### 2025-11`t308fc43`tadd sound level controls for tone and noise; ensure dropdowns only created if parameters exist (1 commits)
+-  
+
+### 2025-11`t1808b66`tadd: implement bitmask GUI for interactive bitmask creation and management (1 commits)
+-  
+
+### 2025-11`t1063372`tMerge branch 'master' of https://github.com/dstolz/epsych_v1.1 (1 commits)
+-  
+
+### 2025-10`t2143518`trefine data formatting in performance table for improved readability (1 commits)
+-  
+
+### 2025-09`tfdb6ecf`tTO DOs (1 commits)
+-  
+
+### 2025-09`tf49bb95`tIncrease BufferLength to 200 and adjust Timer period for improved performance; add lastPlotTime tracking to optimize update frequency (1 commits)
+-  
+
+### 2025-09`tf442127`tAdd ep_RunExpt2 class for managing psychophysics experiments with GUI (1 commits)
+-  
+
+### 2025-09`tef8b5e6`tmake use of DataFilename (1 commits)
+-  
+
+### 2025-09`teee659f`tMerge branch 'SynapseIntegration' of https://github.com/dstolz/epsych_v1.1 into SynapseIntegration (1 commits)
+-  
+
+### 2025-09`te54c177`tFix data file naming in ep_TimerFcn_Start.m to ensure correct formatting of subject name and timestamp (1 commits)
+-  
+
+### 2025-09`te3a27f7`tAdd filename panel and layout for subject-specific file handling; adjust microphone display row (1 commits)
+-  
+
+### 2025-09`tde34788`tRefactor filename handling to use existing DataFilename if available; otherwise, generate default filename in saving functions. (1 commits)
+-  
+
+### 2025-09`td7ea721`tAdd cl_SaveDataFcn for saving behavioral data with user prompts and file management (1 commits)
+-  
+
+### 2025-09`td0e7a21`tAdd PRGMSTATE class for program state enumeration in ep_RunExpt2 (1 commits)
+-  
+
+### 2025-09`tcdc753d`tChange Time property type to single for consistency and memory efficiency (1 commits)
+-  
+
+### 2025-09`tcbe3c74`tEnhance documentation and improve code clarity in SlidingWindowPerformancePlot class (1 commits)
+-  
+
+### 2025-09`tc8f4ff4`tUpdate buffer length and timer configuration for improved performance (1 commits)
+-  
+
+### 2025-09`tc679d6e`tFixed line colors so they don't change with new values (1 commits)
+-  
+
+### 2025-09`tc3b9ed2`tAdd PRGMSTATE class for program state enumeration in ep_RunExpt2 (1 commits)
+-  
+
+### 2025-09`tbe2eca1`tAdd diagnostic logging for GUI updates and suppress notification in Detect class (1 commits)
+-  
+
+### 2025-09`tb8463be`tRemove unnecessary stack trace logging from performance table update method for cleaner output (1 commits)
+-  
+
+### 2025-09`tb0b6329`tUpdate trial data handling in create_gui.m to improve trial type filtering and ensure correct boolean assignment for trial states (1 commits)
+-  
+
+### 2025-09`tafcac6b`tupdated property comments (1 commits)
+-  
+
+### 2025-09`tac7db7b`tAdd ModeChange event handling and ModeChangeEvent class for improved state management (1 commits)
+-  
+
+### 2025-09`tac43f30`tAdd ModeChange event listener and handler for mode updates in GUI (1 commits)
+-  
+
+### 2025-09`ta866691`tupdated program info and banner (1 commits)
+-  
+
+### 2025-09`ta731bae`tEnhance parameter filtering by normalizing test function output and add local_test method for improved logical checks (1 commits)
+-  
+
+### 2025-09`ta133f0d`tcommented out gui components to improve trila performance; need to fix these components (1 commits)
+-  
+
+### 2025-09`t958c631`tbuidling epsych.Runtime class (1 commits)
+-  
+
+### 2025-09`t942f107`tRemove unused parameters and controls from the GUI setup for clarity and maintainability (1 commits)
+-  
+
+### 2025-09`t88e7bd7`tRefactor subject selection handling and enhance ModeChange notifications in experiment control (1 commits)
+-  
+
+### 2025-09`t853b28a`tRefactor window management to use figAlwaysOnTop function across multiple GUIs and update ep_RunExpt2 class documentation for clarity and completeness. (1 commits)
+-  
+
+### 2025-09`t7c2ba2c`tReintroduce figAlwaysOnTop function with updated support for uifigure (1 commits)
+-  
+
+### 2025-09`t7ae5cc4`tFix formatting in save data functions to remove unnecessary newline in cancellation message (1 commits)
+-  
+
+### 2025-09`t76d3fd7`tRefactor ep_CalibrationUtil.m for improved code readability by removing unnecessary whitespace and aligning code structure. (1 commits)
+-  
+
+### 2025-09`t7315a89`tAdd 'Stop' state to DeviceState enumeration (1 commits)
+-  
+
+### 2025-09`t70b21fa`tignore case (1 commits)
+-  
+
+### 2025-09`t67c8967`tInitialize default data path and filename for trials in ep_RunExpt and ep_TimerFcn_Start (1 commits)
+-  
+
+### 2025-09`t63a9bbc`tFix FA rate calculation in update_NewData method and add error handling (1 commits)
+-  
+
+### 2025-09`t5d2068d`tFixed 'AlwaysOnTop' (1 commits)
+-  
+
+### 2025-09`t57f622b`tFix verbosity level in error handling for saving function in ep_RunExpt (1 commits)
+-  
+
+### 2025-09`t566c67d`tHandle empty Hit rate in SlidingWindowPerformancePlot and adjust bias computation (1 commits)
+-  
+
+### 2025-09`t5616f5b`tAdd early return in figAlwaysOnTop function to prevent further execution (1 commits)
+-  
+
+### 2025-09`t5598ed0`tAdd verbose logging for updates and computations in GUI components (1 commits)
+-  
+
+### 2025-09`t51aa5e5`tcleanup (1 commits)
+-  
+
+### 2025-09`t5123a2e`tAdd FilenameValidator class for validating and managing filename inputs (1 commits)
+-  
+
+### 2025-09`t46ed1ff`tUpdate data file naming format to include timestamp with seconds precision (1 commits)
+-  
+
+### 2025-09`t3deb5a6`tMerge pull request #1 from dstolz/SynapseIntegration (1 commits)
+-  
+
+### 2025-09`t37ccdda`tmoved banner to after addpath now that it uses `EPsychInfo` (1 commits)
+-  
+
+### 2025-09`t27e5496`tFix subject selection handling to use the selected item from the UI instead of UserData (1 commits)
+-  
+
+### 2025-09`t26ed53c`tSet trialLocked property to false and adjust XLim calculation for improved axis behavior (1 commits)
+-  
+
+### 2025-09`t23f602f`tFix typos in comments and update performance table logging for clarity (1 commits)
+-  
+
+### 2025-09`t234e663`tnow do using Bitmask object (1 commits)
+-  
+
+### 2025-09`t1d6ea69`tFix initial verbosity value selection to prevent out-of-bounds errors (1 commits)
+-  
+
+### 2025-09`t1c5aa4d`tFix variable naming in Detect.m to improve clarity and avoid conflicts (1 commits)
+-  
+
+### 2025-09`t132b768`tFix GUI figure position for proper on-screen display (1 commits)
+-  
+
+### 2025-09`t10ed778`tClean up whitespace in OnlinePlotBM.m for improved code readability (1 commits)
+-  
+
+### 2025-09`t0f2e5bf`tRefactor Bits2Mask and Mask2Bits methods for improved input validation and flexibility; add dimension handling for Bits2Mask (1 commits)
+-  
+
+### 2025-09`t0ec4a6f`tfprintf -> vprintf (1 commits)
+-  
+
+### 2025-09`t0580b5a`tRefactor Next Trial table handle management and update online plot method for improved performance (1 commits)
+-  
+
+### 2025-08`tc4ffabb`tMerge branch 'SynapseIntegration' of https://github.com/dstolz/epsych_v1.1 into SynapseIntegration (1 commits)
+-  
+
+### 2025-08`tc318969`tRemove 'ShockOn' from plotted parameters and adjust GUI figure height (1 commits)
+-  
+
+### 2025-08`t312101f`tRemove support for custom timer functions and update user guidance in ep_RunExpt (1 commits)
+-  
+
+### 2025-08`t226709d`tIncrease timer period in OnlinePlot for improved update performance (1 commits)
+-  
+
+### 2025-06`tf4d657e`tworking ? (1 commits)
+-  
+
+### 2025-06`tf0714ae`tcompleted enumeration set (1 commits)
+-  
+
+### 2025-06`tef8b907`tAdded user-definable trial types (1 commits)
+-  
+
+### 2025-06`tebd517f`tRefactors trial decoding to use response codes directly (1 commits)
+-  
+
+### 2025-06`tebd252f`tRefactors BitMask enum and adds response code decoding (1 commits)
+-  
+
+### 2025-06`tea380e0`timproved comments (1 commits)
+-  
+
+### 2025-06`te56f7d2`tuntested improvements (1 commits)
+-  
+
+### 2025-06`te27792d`tUpdated enumeration definitions (1 commits)
+-  
+
+### 2025-06`te21bd5c`tremoved unnecessary Parameter input to decodeTrials (1 commits)
+-  
+
+### 2025-06`te0b9076`tcomments/reorganiztion (1 commits)
+-  
+
+### 2025-06`te013b5b`tfix needs testing (1 commits)
+-  
+
+### 2025-06`tddc3c0d`tAdds SlidingWindowPerformancePlot class for performance visualization (1 commits)
+-  
+
+### 2025-06`td6b436c`tAdds sliding window performance plot to GUI (1 commits)
+-  
+
+### 2025-06`td3a7fca`tminor fixes; needs work (1 commits)
+-  
+
+### 2025-06`tcea0a7b`tRefactor SlidingWindowPerformancePlot to include Rate struct for Hit and False Alarm rates (1 commits)
+-  
+
+### 2025-06`tc56c6a9`tminor improvements (1 commits)
+-  
+
+### 2025-06`tc1fa83d`tupdates (1 commits)
+-  
+
+### 2025-06`tbc29d3a`tuse psychObj (1 commits)
+-  
+
+### 2025-06`tb3c38d6`tMerge branch 'SynapseIntegration' of https://github.com/dstolz/epsych_v1.1 into SynapseIntegration (1 commits)
+-  
+
+### 2025-06`tafdbb5f`tAdds trialIndex property and corresponding getter method to Detect class (1 commits)
+-  
+
+### 2025-06`ta1c9275`tuse ax, not container (1 commits)
+-  
+
+### 2025-06`ta09e054`tRefactors trial data handling and calculation logic (1 commits)
+-  
+
+### 2025-06`t964c691`tfixes (1 commits)
+-  
+
+### 2025-06`t9474afe`tupdates (1 commits)
+-  
+
+### 2025-06`t8ffc794`tMerge branch 'SynapseIntegration' of https://github.com/dstolz/epsych_v1.1 into SynapseIntegration (1 commits)
+-  
+
+### 2025-06`t86bb318`treplaced by epsych.BitMask.decodeResponseCodes (1 commits)
+-  
+
+### 2025-06`t80edcf3`tMerge branch 'SynapseIntegration' of https://github.com/dstolz/epsych_v1.1 into SynapseIntegration (1 commits)
+-  
+
+### 2025-06`t7c8a595`tprocess arrays (1 commits)
+-  
+
+### 2025-06`t79587fe`tUpdate README.md (1 commits)
+-  
+
+### 2025-06`t740e2c4`tuse enumerated class (1 commits)
+-  
+
+### 2025-06`t6eb29ec`tUse epsych.BitMask functionality (1 commits)
+-  
+
+### 2025-06`t6c3a1b9`tFixes syntax error in intersect function call (1 commits)
+-  
+
+### 2025-06`t6bc8434`tfixed folder name (1 commits)
+-  
+
+### 2025-06`t5e33d1e`tfurther integration of BitMask and other updates (1 commits)
+-  
+
+### 2025-06`t4c2193e`tminor fixes (1 commits)
+-  
+
+### 2025-06`t48a5722`tMerge branch 'SynapseIntegration' of https://github.com/dstolz/epsych_v1.1 into SynapseIntegration (1 commits)
+-  
+
+### 2025-06`t332674d`tcheck if parameter is in trials matrix (1 commits)
+-  
+
+### 2025-06`t2c21327`tcomments (1 commits)
+-  
+
+### 2025-06`t29e1d36`timproved epsych.BitMask (1 commits)
+-  
+
+### 2025-06`t24aff6c`tworking (1 commits)
+-  
+
+### 2025-06`t16731e8`ttested (1 commits)
+-  
+
+### 2025-06`t0bb9def`tUpdated comments (1 commits)
+-  
+
+### 2025-06`t07cd44c`tneeds fixing (1 commits)
+-  
+
+### 2025-05`tf7ad21e`t... (1 commits)
+-  
+
+### 2025-05`te81a365`tupdate (1 commits)
+-  
+
+### 2025-05`te609f86`tremoved bad code (1 commits)
+-  
+
+### 2025-05`tc68bf6a`tNew class for stimulus detection and trial decoding (1 commits)
+-  
+
+### 2025-05`ta44a962`tadded Verbosity menu item (1 commits)
+-  
+
+### 2025-05`ta0d8392`tprogress (1 commits)
+-  
+
+### 2025-05`t9961acc`thide output if not wanted (1 commits)
+-  
+
+### 2025-05`t6a58834`timproved enumerated class (1 commits)
+-  
+
+### 2025-05`t48baba4`t... (1 commits)
+-  
+
+### 2025-05`t2fe9a00`tGeneralized "Depth" variable (1 commits)
+-  
+
+### 2025-05`t27df94e`tupdates (1 commits)
+-  
+
+### 2025-05`t1e99038`tprogress (1 commits)
+-  
+
+### 2025-02`td4aaf75`tgui updates (1 commits)
+-  
+
+### 2025-02`t21098d9`tTrial selection info (1 commits)
+-  
+
+### 2025-01`tfebb6f1`tinclude test files (1 commits)
+-  
+
+### 2025-01`tea9fbcd`t. (1 commits)
+-  
+
+### 2025-01`te8fb913`tcombined pump controls (1 commits)
+-  
+
+### 2025-01`tdbc4404`ttrying to improve plotting performance (1 commits)
+-  
+
+### 2025-01`tdb37010`tImproved (1 commits)
+-  
+
+### 2025-01`tb48679c`tredirected test file paths (1 commits)
+-  
+
+### 2025-01`taf59965`tMerge branch 'SynapseIntegration' of https://github.com/dstolz/epsych_v1.1.git into SynapseIntegration (1 commits)
+-  
+
+### 2025-01`tad75760`tadded SynapseAPI and moved TDTRP to TDTfun dir (1 commits)
+-  
+
+### 2025-01`ta1a204a`tfixes (1 commits)
+-  
+
+### 2025-01`t89f6ba0`t... (1 commits)
+-  
+
+### 2025-01`t887bcb5`tprogress (1 commits)
+-  
+
+### 2025-01`t85ec8bc`t... (1 commits)
+-  
+
+### 2025-01`t8589e98`trunning with TDT_RPcox (1 commits)
+-  
+
+### 2025-01`t6c3c2d1`t... (1 commits)
+-  
+
+### 2025-01`t5f13606`tUpdated test protocol values (1 commits)
+-  
+
+### 2025-01`t1feab12`t... (1 commits)
+-  
+
+### 2025-01`t19534b2`tprogress (1 commits)
+-  
+
+### 2024-12`t86f5cfb`tprogress on parameter and parameter_control (1 commits)
+-  
+
+### 2024-12`t6f09b3a`tdon't need (1 commits)
+-  
+
+### 2024-12`t4baaa59`tadded hw mode event and listeners and other updates (1 commits)
+-  
+
+### 2024-12`t45ca6a1`tModule is now under Paramater (1 commits)
+-  
+
+### 2024-12`t34c67e7`tminor (1 commits)
+-  
+
+### 2024-12`t203fa54`tlistener() -> addlistener() (1 commits)
+-  
+
+### 2024-12`t183bfa0`tupdates (1 commits)
+-  
+
+### 2024-12`t1604d5f`tstandardize parameter messaging (1 commits)
+-  
+
+### 2024-11`tfcd3942`tImprovements to hardware 'mode' handling and Parameter/GUI (1 commits)
+-  
+
+### 2024-11`te02bd2a`tadd some useful fncs to helper (1 commits)
+-  
+
+### 2024-11`td04323a`tMerge branch 'master' into SynapseIntegration (1 commits)
+-  
+
+### 2024-11`tc3d84b4`tprogress on gui components (1 commits)
+-  
+
+### 2024-11`t9877e24`tcleanup (1 commits)
+-  
+
+### 2024-11`t8a8c740`tcleanup (1 commits)
+-  
+
+### 2024-11`t6a6d66a`tneed to fix (1 commits)
+-  
+
+### 2024-11`t39e82ec`tMajor progress on conversion to HW abstraction. Needs testing. (1 commits)
+-  
+
+### 2024-11`t2e3618a`tready for initial testing on rig (1 commits)
+-  
+
+### 2024-11`t19fb53f`tconform to new datetime (1 commits)
+-  
+
+### 2024-11`t0db240f`tShell GUI for replicating the original (1 commits)
+-  
+
+### 2023-08`tfe7c11f`tcaught some more SYN_STATUS lines (1 commits)
+-  
+
+### 2023-08`te59b546`tmeta updates (1 commits)
+-  
+
+### 2023-08`td59a030`tminor work (1 commits)
+-  
+
+### 2023-08`tb609965`tminor fixes to get Synapse working. (1 commits)
+-  
+
+### 2023-08`tafdd0d3`tadded Synapse prototype (1 commits)
+-  
+
+### 2023-08`t9d01c43`tNeed more info on checking if Synapse is in use (see code notes) (1 commits)
+-  
+
+### 2023-08`t7e5a6d5`tminor updates to datestr->datetime (1 commits)
+-  
+
+### 2023-08`t3a9ed1a`tIntegrated Melissa's Synapse code (not tested) (1 commits)
+-  
+
+### 2023-08`t35050c5`tprogress on synapse integration, needs testing! (1 commits)
+-  
+
+### 2023-08`t2db098d`tfunction name change (1 commits)
+-  
+
+### 2023-08`t27dad1d`tbuilding object oriented hardware interface (1 commits)
+-  
+
+### 2023-08`t152686c`tunpaired if (1 commits)
+-  
+
+### 2023-08`t1015e5e`tIntegrated Melissa's Synapase code (1 commits)
+-  
+
+### 2023-08`t031a622`tAdded/Incorporated Melissa's Synapse functions (1 commits)
+-  
+
+### 2022-09`ta376fd6`tUpdated copyright year (1 commits)
+-  
+
+### 2022-09`t77de0e5`tbuffer (1 commits)
+-  
+
+### 2022-09`t38f5b90`tUseful RPvds macro (1 commits)
+-  
+
+### 2022-09`t2660299`tAdded AcqBuffer (1 commits)
+-  
+
+### 2022-09`t119ffdc`twait until trial over to update the RespCode (1 commits)
+-  
+
+### 2022-08`t17d46a0`tmatlab controlled trials with duration specified in samples (1 commits)
+-  
+
+### 2022-03`td8b604b`tignore any buffer structures (1 commits)
+-  
+
+### 2022-03`t5539903`tissues handling wav files (1 commits)
+-  
+
+### 2022-03`t4532fee`tminor fix (1 commits)
+-  
+
+### 2022-01`teb34d3f`treturn pumprate (1 commits)
+-  
+
+### 2021-12`tfeee903`tadded highpass filter to click buffer (1 commits)
+-  
+
+### 2021-12`te843fcc`tadded Truncate to stim length option and ClickInterval dependent prop (1 commits)
+-  
+
+### 2021-12`tda0832d`tMerge branch 'stable' (1 commits)
+-  
+
+### 2021-12`tbee4945`tfixed type (1 commits)
+-  
+
+### 2021-12`t7d3797d`trestored original time calculation (1 commits)
+-  
+
+### 2021-12`t7c11e37`tchanged how to compute Time vector (1 commits)
+-  
+
+### 2021-12`t6994479`treduced onset delay of click (1 commits)
+-  
+
+### 2021-12`t3864850`tadded excitation voltage (1 commits)
+-  
+
+### 2021-12`t078e997`tignore no calibration warning (1 commits)
+-  
+
+### 2021-10`tf89c793`tseparate files for fncs (1 commits)
+-  
+
+### 2021-10`tf3c26e5`tcatch for empty calibration. What to do about warning? (1 commits)
+-  
+
+### 2021-10`tdb867a7`tcalibration basically working. TODO: save/load cal (1 commits)
+-  
+
+### 2021-10`td9f1b3d`tstarted creating trial save fcn (1 commits)
+-  
+
+### 2021-10`td907280`timplement calibration in stimgen.StimType. Needs testing (1 commits)
+-  
+
+### 2021-10`tca41c33`tcreate arb. mag. filter (1 commits)
+-  
+
+### 2021-10`tc5e3aa6`tincreased filter order of test calibration (1 commits)
+-  
+
+### 2021-10`tc0ea355`tcomments (1 commits)
+-  
+
+### 2021-10`tac905a6`tlimit freqs; todo: make user settable?? (1 commits)
+-  
+
+### 2021-10`ta1f9366`tsaveobj/loadobj (1 commits)
+-  
+
+### 2021-10`t96594c1`tchanged default windowfcn (1 commits)
+-  
+
+### 2021-10`t95d87b6`tadd listeners for plotting (1 commits)
+-  
+
+### 2021-10`t94b31de`tAbstract Constant CalibrationTyep (1 commits)
+-  
+
+### 2021-10`t941fa54`tuse RPvds circuit highpass filter Fc = 50 Hz (1 commits)
+-  
+
+### 2021-10`t7e202d5`tworking, but needs more real-world testing (1 commits)
+-  
+
+### 2021-10`t737cae1`tread Fs from module (1 commits)
+-  
+
+### 2021-10`t729bb81`tcalibration fully implemented (1 commits)
+-  
+
+### 2021-10`t603bbe3`trough framework for calibration. needs testing. create arb.mag. filter from lut tone data (1 commits)
+-  
+
+### 2021-10`t5467375`tprogress (1 commits)
+-  
+
+### 2021-10`t4e17c15`ttrivial (1 commits)
+-  
+
+### 2021-10`t4a31a2a`tcalibration works/needs more testing (1 commits)
+-  
+
+### 2021-10`t37e1fa6`tcalibration progress (1 commits)
+-  
+
+### 2021-10`t330544f`tchanged highpass fc (1 commits)
+-  
+
+### 2021-10`t23c473a`tplotting needs attention,but ready to integrate with StimType obj (1 commits)
+-  
+
+### 2021-10`t2023968`tcompute adj voltage: needs testing (1 commits)
+-  
+
+### 2021-10`t201ded0`tneeds testing (1 commits)
+-  
+
+### 2021-10`t1aa0680`tCalibrationeType specififed in superclass (1 commits)
+-  
+
+### 2021-10`t1a0ff17`tdon't auto create gui; call obj.gui manually; enables saving obj (1 commits)
+-  
+
+### 2021-10`t153c287`tdon't apply window fcn by default (1 commits)
+-  
+
+### 2021-10`t1446990`tsave/load functional; (1 commits)
+-  
+
+### 2021-09`tf9a6828`tstimlist reloads obj gui funcitonality (1 commits)
+-  
+
+### 2021-09`tf8836db`tnew stim type (1 commits)
+-  
+
+### 2021-09`tf82187c`tApplyGate property (1 commits)
+-  
+
+### 2021-09`te23b808`tcatch if empty time (1 commits)
+-  
+
+### 2021-09`td9f1f1b`tmanually trigger each buffer (1 commits)
+-  
+
+### 2021-09`td88849a`tgeneral improvements (1 commits)
+-  
+
+### 2021-09`td4c7cb1`tinherit copyable; gui handle listeners (1 commits)
+-  
+
+### 2021-09`tcd59e39`tdisabled DAC-B (1 commits)
+-  
+
+### 2021-09`ta4ee2b0`t'empty' protocol (1 commits)
+-  
+
+### 2021-09`t9cfdd05`tintegrating new StimPlay obj (1 commits)
+-  
+
+### 2021-09`t910eb12`tstarting to integrate RPvds circuit control (1 commits)
+-  
+
+### 2021-09`t85c6e5f`tworking. Maybe an issue with click on buffer reset (1 commits)
+-  
+
+### 2021-09`t8162218`tAX (1 commits)
+-  
+
+### 2021-09`t813e47f`tbuilding calibration module(s) (1 commits)
+-  
+
+### 2021-09`t7132af8`tminor fixes and added double buffering (1 commits)
+-  
+
+### 2021-09`t6c8f655`trename "Gate" -> "Window" (1 commits)
+-  
+
+### 2021-09`t620507b`tchanged default value (1 commits)
+-  
+
+### 2021-09`t4ecb495`tworking version, but could use some more functionality (1 commits)
+-  
+
+### 2021-09`t3d60b15`tRPvds circuit/macro (1 commits)
+-  
+
+### 2021-09`t33a9906`tadded record buffer (1 commits)
+-  
+
+### 2021-09`t2b9097c`tmacro, not working (1 commits)
+-  
+
+### 2021-09`t2b2f0a9`tstarting to build gui (1 commits)
+-  
+
+### 2021-09`t242df21`tdummy trialselect function (1 commits)
+-  
+
+### 2021-09`t15b9e61`tupdate buffer (1 commits)
+-  
+
+### 2021-08`te31addb`tworking (1 commits)
+-  
+
+### 2021-08`te2c0dfb`tcompatibility <2021a (1 commits)
+-  
+
+### 2021-08`tcc28a28`trn stimtype>stimgen (1 commits)
+-  
+
+### 2021-08`tcbbb458`tStimTypes (1 commits)
+-  
+
+### 2021-08`tc4715cc`tBuilding 'StimType' (1 commits)
+-  
+
+### 2021-08`tbf78f75`tworking on stimgen gui components (1 commits)
+-  
+
+### 2021-08`tb680c6d`tstop pump timer in destructor (1 commits)
+-  
+
+### 2021-08`tab27156`tonset phase is in degrees; fixed attack am formula (1 commits)
+-  
+
+### 2021-08`taab8fdb`tAttackModNoise needs testing; added audio playback (1 commits)
+-  
+
+### 2021-08`t9a71da1`tfixed display (1 commits)
+-  
+
+### 2021-08`t92390bd`ttone working/Recursively calling update_digFilter FIXME (1 commits)
+-  
+
+### 2021-08`t7a0fb7c`tlonger default duration (1 commits)
+-  
+
+### 2021-08`t67b7906`tadded vprintfs (1 commits)
+-  
+
+### 2021-08`t6419ef5`tdflt StimReps should be empt (1 commits)
+-  
+
+### 2021-08`t588591f`tplay button color (1 commits)
+-  
+
+### 2021-08`t54d1b20`tdelete serial port object on STOP (1 commits)
+-  
+
+### 2021-08`t3ec4905`ttrivial (1 commits)
+-  
+
+### 2021-08`t373e4d0`tprogress (1 commits)
+-  
+
+### 2021-08`t2cfd9cc`tgui update (1 commits)
+-  
+
+### 2021-08`t296c9be`tadded EnvelopeOnly option (1 commits)
+-  
+
+### 2021-08`t2034edf`tisi (1 commits)
+-  
+
+### 2021-08`t0dd38aa`tfixed some bugs on stopping ep_RunExpt/updated drawnow xpose to nocallbacks (1 commits)
+-  
+
+### 2021-08`t0d83767`tupdate triallocked context menu label (1 commits)
+-  
+
+### 2021-08`t0a29c7f`tlowered trial number position (1 commits)
+-  
+
+### 2021-08`t0318e88`tper stim name/isi/reps (1 commits)
+-  
+
+### 2021-01`t9ec11b4`tminor (1 commits)
+-  
+
+### 2021-01`t9c0cdec`tPumpCom object (1 commits)
+-  
+
+### 2021-01`t131ebe8`tadded development matlab version (1 commits)
+-  
+
+### 2020-12`td8fa74a`tfixed low value issue (1 commits)
+-  
+
+### 2020-12`tae4d82c`tuse event triggers instead of timer (1 commits)
+-  
+
+### 2020-12`t7c98116`ttrivial (1 commits)
+-  
+
+### 2020-12`t7b8573d`thelper function (1 commits)
+-  
+
+### 2020-12`t6c49427`tconvert to single data type (1 commits)
+-  
+
+### 2020-11`tef18768`tdelay at 0 before trial starts (1 commits)
+-  
+
+### 2020-11`t48c9498`tdelay = 0 before trial (1 commits)
+-  
+
+### 2020-10`te681881`tchanged default display parameters (1 commits)
+-  
+
+### 2020-10`tbc7817a`tfinite length buffer (1 commits)
+-  
+
+### 2020-10`ta839f50`tminor performance improvement (1 commits)
+-  
+
+### 2020-10`t9c170c1`tminor (1 commits)
+-  
+
+### 2020-10`t76eecdb`tadded protocol_fn to RUNTIME.TRIALS (1 commits)
+-  
+
+### 2020-09`tfae6ec4`tremoved test PROBE (1 commits)
+-  
+
+### 2020-09`tf412f8a`tmodifications, not tested (1 commits)
+-  
+
+### 2020-09`teebd4be`ttrivial (1 commits)
+-  
+
+### 2020-09`tdf29b18`tminor fix (1 commits)
+-  
+
+### 2020-09`tc36c182`tNew RPvds Bitmask macro and plotting (1 commits)
+-  
+
+### 2020-09`tbfe2a23`tconvert all numeric values to char (1 commits)
+-  
+
+### 2020-09`tb89f910`tfixed lineColors (1 commits)
+-  
+
+### 2020-09`tb5bf5dc`tworking, but rough (1 commits)
+-  
+
+### 2020-09`tb478753`timproved plotting (1 commits)
+-  
+
+### 2020-09`tb03988e`tFellows trial sequences (1 commits)
+-  
+
+### 2020-09`tae40dca`tfixed cancel/abort (1 commits)
+-  
+
+### 2020-09`tadecf58`tpermit online plotting of multiple bitmask banks (1 commits)
+-  
+
+### 2020-09`t854f172`tminor improved plot (1 commits)
+-  
+
+### 2020-09`t737e0ff`tfixed BufferBuddy issue (1 commits)
+-  
+
+### 2020-09`t6d9faef`tfixed inhibit trial (1 commits)
+-  
+
+### 2020-09`t6ce1399`tbetter error msg for trialselectfcn (1 commits)
+-  
+
+### 2020-09`t479de91`tminor fix (1 commits)
+-  
+
+### 2020-09`t39c91b6`tnew psychophysics class (1 commits)
+-  
+
+### 2020-09`t21a2599`tcomments (1 commits)
+-  
+
+### 2020-09`t1f495c3`tremoved NoResponse bit (1 commits)
+-  
+
+### 2020-09`t1c7b22f`tnew superclass (1 commits)
+-  
+
+### 2020-08`t7928672`tUpdate README.md (1 commits)
+-  
+
+### 2020-08`t11de0fe`tclear buffers on restart/fixed param input order (1 commits)
+-  
+
+### 2020-07`t934aadb`tclear buffers on startup; needs real-world testing (1 commits)
+-  
+
+### 2020-02`te19a77f`tdflt timer BusyMode -> 'drop' (1 commits)
+-  
+
+### 2020-02`t94dde8e`tCorrected initialization of activeTrials (1 commits)
+-  
+
+### 2020-02`t9119151`tturn off javaframe/activex warnings (1 commits)
+-  
+
+### 2020-02`t68148f9`tgeneralized some code (1 commits)
+-  
+
+### 2020-02`t4c5840b`tadded external control of Trial Updating (1 commits)
+-  
+
+### 2020-02`t38c627f`tAdded S4 and renamed Outputs (1 commits)
+-  
+
+### 2020-02`t2107e23`tremoved some debug lines (1 commits)
+-  
+
+### 2020-02`t0e575de`tcommented user specific gui (1 commits)
+-  
+
+### 2019-12`t80c2552`tcatch error for users not using git (1 commits)
+-  
+
+### 2019-12`t531fda3`tcleaned up function (1 commits)
+-  
+
+### 2019-11`tb9a3c2f`tmoved root from private property to static method (1 commits)
+-  
+
+### 2019-07`tf0ac65d`tset timer busymode to queue and fixedrate execution (1 commits)
+-  
+
+### 2019-07`tecc4f33`tfixed psychplot w/ #go/#nogo text (1 commits)
+-  
+
+### 2019-07`tb786ac4`tmoved event data broadcast to a more appropriate place (1 commits)
+-  
+
+### 2019-07`ta9738c4`tMerge remote-tracking branch 'origin/master' (1 commits)
+-  
+
+### 2019-07`ta4cc4ed`tfixed default color order (1 commits)
+-  
+
+### 2019-07`t2f9a0a2`t#Go/#NoGo trial count on plot (1 commits)
+-  
+
+### 2019-07`t2c55576`tfixed psychophysics obj (1 commits)
+-  
+
+### 2019-07`t08d140d`tadded abort code (1 commits)
+-  
+
+### 2019-06`te4affbc`taslke;fjse (1 commits)
+-  
+
+### 2019-06`tdc231a7`tAdded Helper obj to Runtime; notify of NewData and NewTrial events (1 commits)
+-  
+
+### 2019-06`td8b786f`tsize column re container size (1 commits)
+-  
+
+### 2019-06`td283af7`tonward and upward (1 commits)
+-  
+
+### 2019-06`td008b48`tChanged Detection from handle to value class obj; GUI objs take Psychophysics obj as public property (1 commits)
+-  
+
+### 2019-06`tc0fd611`tupdates (1 commits)
+-  
+
+### 2019-06`tbc66937`tsome fixes (1 commits)
+-  
+
+### 2019-06`ta4a1e9b`tnew enumerations (1 commits)
+-  
+
+### 2019-06`t86c425e`tprogress (1 commits)
+-  
+
+### 2019-06`t865761e`tminor fixes (1 commits)
+-  
+
+### 2019-06`t70b3883`tDetection object and plotting (1 commits)
+-  
+
+### 2019-06`t51bddb0`tadded some commentary (1 commits)
+-  
+
+### 2019-06`t50c165a`thandle buffer data types (1 commits)
+-  
+
+### 2019-06`t42271dd`tvalidate psychophysics object (1 commits)
+-  
+
+### 2019-06`t1fba247`tHelper object includes events to notify for important events (1 commits)
+-  
+
+### 2019-06`t0d3ce25`tgeneric plot needs work and testing (1 commits)
+-  
+
+### 2019-06`t097dc1b`ttimestamp re first trial; Use epsych.BitMask to populate response column (1 commits)
+-  
+
+### 2019-05`tf8aa34d`tset default value (1 commits)
+-  
+
+### 2019-05`tefcce59`tUpdates to meta data (1 commits)
+-  
+
+### 2019-05`tef77c40`tjust replot data each time instead of updating existing line...whatever (1 commits)
+-  
+
+### 2019-05`tee9cb72`tfixed bug with floating point rounding imprecision by limiting to 7 decimal places for 24 bits (1 commits)
+-  
+
+### 2019-05`tec9b94a`tUploading calibration utility (1 commits)
+-  
+
+### 2019-05`tec5ff32`tObject to access common program data (1 commits)
+-  
+
+### 2019-05`te2f5152`thandles arrays with mismatched dimensions (1 commits)
+-  
+
+### 2019-05`tdc38f6f`tadded meta data field to files derived from EPsychInfo object (1 commits)
+-  
+
+### 2019-05`td1a094a`tupdated notes on v1.1 (1 commits)
+-  
+
+### 2019-05`td18ce8a`tmore files that didn't upload (1 commits)
+-  
+
+### 2019-05`tc9f8050`ttranspose activeTrials (1 commits)
+-  
+
+### 2019-05`tb19f026`taefasef (1 commits)
+-  
+
+### 2019-05`tb0ed5b6`tupdated for v1.1 (1 commits)
+-  
+
+### 2019-05`ta92306b`tAdded core RPvds macros (1 commits)
+-  
+
+### 2019-05`t9965430`tuntested attempt to make tank registry gui work again (1 commits)
+-  
+
+### 2019-05`t923209b`tfixed trialsActive bug (1 commits)
+-  
+
+### 2019-05`t8d31dab`tfixed bug with floating point rounding imprecision by limiting to 7 decimal places for 24 bits (1 commits)
+-  
+
+### 2019-05`t7cbe898`tFixed trial history table (1 commits)
+-  
+
+### 2019-05`t76cac35`tSome general compatibility for r2017a (1 commits)
+-  
+
+### 2019-05`t6d931e6`tInitial commit (1 commits)
+-  
+
+### 2019-05`t6a9869f`tupdated timer frequency (1 commits)
+-  
+
+### 2019-05`t5d50a25`tpoll for parameter changes between files (1 commits)
+-  
+
+### 2019-05`t5b23043`tadded reset button (1 commits)
+-  
+
+### 2019-05`t5a3fb14`toptions for no constructor inputs. prompt user for parameters. (1 commits)
+-  
+
+### 2019-05`t56c0d91`tfiles that failed to upload (1 commits)
+-  
+
+### 2019-05`t5162a5c`tcatch for nan values; NEEDS TESTING (1 commits)
+-  
+
+### 2019-05`t4f2ce63`tinitial upload (1 commits)
+-  
+
+### 2019-05`t4e277d1`tadded design functions (1 commits)
+-  
+
+### 2019-05`t425420b`tremoved some unnecessary static functions (1 commits)
+-  
+
+### 2019-05`t3edb6e9`tadded view version info to menu (1 commits)
+-  
+
+### 2019-05`t2f5ce25`tworking on plot, something screwed up with timer handles (1 commits)
+-  
+
+### 2019-05`t2ec5911`tadded call for ep_GenericOnlinePlot (1 commits)
+-  
+
+### 2019-05`t295cb10`tMerge branch 'master' of https://github.com/dstolz/epsych_v1.1 (1 commits)
+-  
+
+### 2019-05`t22f7118`tafeaef (1 commits)
+-  
+
+### 2019-05`t217b43e`tfix for trial history (1 commits)
+-  
+
+### 2019-05`t1dc37f0`tadded view version info to menu (1 commits)
+-  
+
+### 2019-05`t1577cd4`tNeeds to be redone! DJS (1 commits)
+-  
+
+### 2019-05`t1031bf5`tRemoved top/bottom buttons; put timestamp/respcode first in table (1 commits)
+-  
+

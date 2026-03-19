@@ -45,7 +45,7 @@ stepMask = valid & ~isnan(direction) & direction ~= 0;
 if any(stepMask)
     xStep = trialIndex(stepMask);
     yStep = trialValue(stepMask);
-    cStep = obj.directionColors_(direction(stepMask));
+    cStep = obj.responseCodeColors_(responseCodes(stepMask));
 end
 
 ridx = obj.columnize_(obj.ReversalIdx);

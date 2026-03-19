@@ -43,13 +43,13 @@ classdef Staircase < handle & matlab.mixin.SetGet
         
 
         Bits (1,:) epsych.BitMask = epsych.BitMask.getResponses;  % Response codes for visualization
-        BitColors (:,1) string = epsych.BitMask.getDefaultColors(epsych.BitMask.getResponses(:));  % Colors mapped to Bits for response visualization
+        BitColors (:,1) string = epsych.BitMask.getDefaultColors(epsych.BitMask.getResponses);  % Colors mapped to Bits for response visualization
 
         % Optional plotting configuration (when enabled via enablePlot or constructor option).
-        LineColor     (1,1) string = "#2659bf"
+        LineColor     (1,1) string = "#1a1a1a"
         StepColor     (1,1) string = "#e65a1a"
         NeutralColor  (1,1) string = "#999999"
-        ReversalColor (1,1) string = "#1a1a1a"
+        ReversalColor (1,1) string = "#ff0095"
 
         MarkerSize (1,1) double {mustBePositive} = 40
         StepMarkerSize (1,1) double {mustBePositive} = 72

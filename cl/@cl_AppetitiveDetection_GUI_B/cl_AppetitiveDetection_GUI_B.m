@@ -114,11 +114,13 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                 delete(obj.hl_RWDelayTrainingGUI);
             end
 
-            delete(obj.guiHandles);
-            obj.hl_NewTrial.Enabled = 0;
-            obj.hl_NewData.Enabled = 0;
-            delete(obj.hl_NewTrial);
-            delete(obj.hl_NewData);
+            try
+                delete(obj.guiHandles);
+                obj.hl_NewTrial.Enabled = 0;
+                obj.hl_NewData.Enabled = 0;
+                delete(obj.hl_NewTrial);
+                delete(obj.hl_NewData);
+            end
 
             try
                 close(obj.h_OnlinePlot);

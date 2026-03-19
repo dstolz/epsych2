@@ -9,6 +9,7 @@ classdef History < handle
     properties
         psychObj                     % Reference to the main psychophysics object
         ParametersOfInterest (:,1) cell   % List of fields to display from the data structure
+        BitColors string = string.empty(0,1)  % Optional hex color override; defaults to psychObj.BitColors
     end
 
     properties (SetAccess = private)
@@ -23,21 +24,37 @@ classdef History < handle
 
     methods
 
-        function obj = History(pObj,container)
-            % Constructor: initializes the history table and sets up listener for new data.
-            if nargin < 2 || isempty(container), container = figure; end
+        function obj = History(pObj,container,options)
+            % H = gui.History(pObj, container)
+            % H = gui.History(pObj, container, BitColors=colors)
+            % Initialize the history table and optionally override response-row colors.
+            %
+            % Parameters:
+            %   pObj - Psychophysics object providing DATA, responseCodes, and BitColors
+            %   container - Figure or panel that will host the table
+            %   BitColors - Optional hex color scheme, one color per response
+            arguments
+                pObj = []
+                container = []
+                options.BitColors = string.empty(0,1)
+            end
+
+            if isempty(container), container = figure; end
             obj.ContainerH = container;
+            obj.BitColors = string(options.BitColors(:));
             obj.build;
             if nargin >= 1 && ~isempty(pObj)
                 obj.psychObj = pObj;
+                obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
             end
-            obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
         end
 
         function delete(obj)
             % Destructor: cleans up the listener.
-            try
+            if isempty(obj.hl_NewData), return; end
+            if isvalid(obj.hl_NewData)
                 delete(obj.hl_NewData);
+                obj.hl_NewData = event.listener.empty;
             end
         end
 
@@ -47,7 +64,7 @@ classdef History < handle
                 'Position',[0 0 1 1],'RowStriping','off');
         end
 
-        function update(obj,src,event)
+        function update(obj,~,~)
             % Updates the table with the latest data from the psychObj.
             vprintf(4,'Updating History table')
             if isempty(obj.psychObj.DATA), return; end
@@ -55,7 +72,7 @@ classdef History < handle
             if isempty(RD), return; end
 
 
-            [tid,i] = sort(obj.Info.TrialID,'descend');
+            [~,i] = sort(obj.Info.TrialID,'descend');
 
             if ~isvalid(obj.TableH), return; end % TO DO: Track down why this function is being called twice
             obj.TableH.Data = RD(i,:);
@@ -78,15 +95,20 @@ classdef History < handle
             % Updates row background colors based on response bitmask.
             if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
 
-            D = rearrange_data(obj);
-            C = strings(size(D,1),1);
-            R = epsych.BitMask(D(:,2));
-            for b = epsych.BitMask.getResponses
+            if isempty(obj.Info) || ~isfield(obj.Info,'ResponseBit'), return; end
+
+            responseBits = epsych.BitMask.getResponses;
+            [~,i] = sort(obj.Info.TrialID,'descend');
+            R = obj.Info.ResponseBit(i);
+            C = repmat(epsych.BitMask.getDefaultColors(epsych.BitMask.Undefined),numel(R),1);
+            bitColors = obj.getBitColors(responseBits);
+            for idx = 1:numel(responseBits)
+                b = responseBits(idx);
                 ind = R == b;
                 if ~any(ind), continue; end
-                C(ind) = repmat(obj.psychObj.BitColors(b),sum(ind),1);
+                C(ind) = repmat(bitColors(idx),sum(ind),1);
             end
-            obj.TableH.BackgroundColor = flipud(hex2rgb(C));
+            obj.TableH.BackgroundColor = hex2rgb(C);
             obj.TableH.RowStriping = 'on';
         end
 
@@ -119,6 +141,7 @@ classdef History < handle
                 if ~any(ind), continue; end
                 r(ind) = bm;
             end
+            obj.Info.ResponseBit = r(:);
             Response = string(r);
 
             ind = structfun(@(a) numel(a)>1,DataIn(1));
@@ -130,6 +153,46 @@ classdef History < handle
             DataOut = squeeze(struct2cell(DataIn))';
             DataOut = [cellstr(Response(:)) DataOut];
             DataOut = [cellstr(obj.Info.RelativeTimestamp(:)) DataOut];
+        end
+
+        function colors = getBitColors(obj,bits)
+            % Resolve response colors from the hex override or the linked psychophysics object.
+            bitIdx = double(bits(:));
+            if ~isempty(obj.BitColors)
+                colorSource = obj.BitColors;
+                if numel(colorSource) == numel(bits)
+                    colors = colorSource;
+                elseif numel(colorSource) >= max(bitIdx)
+                    colors = colorSource(bitIdx);
+                else
+                    error("BitColors must provide one hex color per response or per BitMask value.");
+                end
+                return
+            end
+
+            colorSource = obj.psychObj.BitColors;
+            if isnumeric(colorSource)
+                if size(colorSource,2) ~= 3
+                    error("psychObj.BitColors must be an Nx3 RGB array or hex color strings.");
+                end
+                if size(colorSource,1) == numel(bits)
+                    colors = rgb2hex(colorSource);
+                elseif size(colorSource,1) >= max(bitIdx)
+                    colors = rgb2hex(colorSource(bitIdx,:));
+                else
+                    error("psychObj.BitColors must provide one color per response or per BitMask value.");
+                end
+                return
+            end
+
+            colorSource = string(colorSource(:));
+            if numel(colorSource) == numel(bits)
+                colors = colorSource;
+            elseif numel(colorSource) >= max(bitIdx)
+                colors = colorSource(bitIdx);
+            else
+                error("psychObj.BitColors must provide one color per response or per BitMask value.");
+            end
         end
     end
 end

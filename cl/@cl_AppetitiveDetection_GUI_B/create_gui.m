@@ -566,6 +566,7 @@ panelResponseHistory.Layout.Column = [6 7];
 
 % > Response History Table
 obj.ResponseHistory = gui.History(obj.Psych,panelResponseHistory);
+obj.ResponseHistory.BitColors = ["#b4ffca", "#ffcdcd", "#76c8ff","#ffce8f","#f0fc86"]; % override default BitMask colors with black for no response, orange for miss, and black for hit
 obj.ResponseHistory.ParametersOfInterest = {'Depth','TrialType','Reminder'};
 
 

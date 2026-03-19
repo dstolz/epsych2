@@ -122,6 +122,19 @@ This is often the most convenient representation for analysis.
 - `f = epsych.BitMask.GUI()`
   - Launches the interactive bitmask builder (calls `bitmask_gui`).
 
+### Default colors
+
+- `colors = epsych.BitMask.getDefaultColors(bitMasks)`
+  - Returns default hex color strings for the requested BitMask values.
+  - Accepts either an `epsych.BitMask` array or numeric enum values.
+  - If called without inputs, returns colors for all enum members, including `Undefined`.
+
+Example:
+
+```matlab
+responseColors = epsych.BitMask.getDefaultColors(epsych.BitMask.getResponses);
+```
+
 ### Group helpers
 
 These return subsets of the enumeration (as `epsych.BitMask` arrays):

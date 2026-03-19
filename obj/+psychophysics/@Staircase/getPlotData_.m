@@ -7,17 +7,17 @@ function [x, y, c, xStep, yStep, cStep, xRevUp, yRevUp, xRevDown, yRevDown] = ge
 %
 % Returns:
 %   x, y — plotted trial indices and stimulus values
-%   c — Nx3 RGB colors for each point (direction-coded)
-%   xStep, yStep, cStep — step markers (subset of points with step direction)
+%   c — Nx1 hex colors for each point (response-code coded)
+%   xStep, yStep, cStep — step markers (subset of points with hex colors)
 %   xRevUp, yRevUp — reversal markers (up)
 %   xRevDown, yRevDown — reversal markers (down)
 
 x = nan;
 y = nan;
-c = zeros(1,3);
+c = obj.NeutralColor;
 xStep = nan;
 yStep = nan;
-cStep = zeros(1,3);
+cStep = obj.StepColor;
 xRevUp = nan;
 yRevUp = nan;
 xRevDown = nan;
@@ -30,6 +30,7 @@ end
 
 trialIndex  = obj.columnize_(1:obj.trialCount);
 direction   = obj.columnize_(obj.StepDirection);
+responseCodes = obj.columnize_(obj.responseCodes);
 
 valid = ~isnan(trialIndex) & ~isnan(trialValue);
 if ~any(valid)
@@ -38,7 +39,7 @@ end
 
 x = trialIndex(valid);
 y = trialValue(valid);
-c = obj.directionColors_(direction(valid));
+c = obj.responseCodeColors_(responseCodes(valid));
 
 stepMask = valid & ~isnan(direction) & direction ~= 0;
 if any(stepMask)

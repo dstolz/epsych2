@@ -1,13 +1,13 @@
 function c = directionColors_(obj, direction)
 % c = directionColors_(obj, direction)
-% Map step directions to RGB colors.
+% Map step directions to hex colors.
 %
 % Parameters:
 %   obj — psychophysics.Staircase instance
 %   direction — numeric vector (positive=up, negative=down) or string labels
 %
 % Returns:
-%   c — Nx3 RGB colors
+%   c — Nx1 string array of hex colors
 
 n = numel(direction);
 c = repmat(obj.NeutralColor, n, 1);
@@ -25,5 +25,5 @@ else
     isDown = direction < 0;
 end
 
-c(isUp,:) = repmat(obj.StepColor, nnz(isUp), 1);
-c(isDown,:) = repmat(obj.LineColor, nnz(isDown), 1);
+c(isUp) = obj.StepColor;
+c(isDown) = obj.LineColor;

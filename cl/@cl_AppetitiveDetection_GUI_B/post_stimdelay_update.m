@@ -1,4 +1,4 @@
-function post_stimdelay_update(objStimDelay,StimDelayValue,pStimDur,pRespWinDelay,pRespWinDur,pRespWinPreStim,pRespWinPostStim)
+function post_stimdelay_update(obj, objStimDelay,StimDelayValue,pStimDur,pRespWinDelay,pRespWinDur,pRespWinPreStim,pRespWinPostStim)
 % post_stimdelay_update(objStimDelay,StimDelayValue,pStimDur,pRespWinDelay,...
 %     pRespWinDur,pRespWinPreStim,pRespWinPostStim)
 %

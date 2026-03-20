@@ -1,23 +1,36 @@
 classdef EPsychInfo < handle
     % obj = EPsychInfo()
-    % Repository/version metadata for EPsych.
+    % EPsych repository and release metadata helper.
     %
-    % This class centralizes version strings, license info, and repository
-    % details, and can compute a git checksum / last commit timestamp when
-    % available.
+    % EPsychInfo centralizes version strings, license information, and git
+    % metadata used by startup banners, saved protocol metadata, and runtime
+    % version dialogs.
     %
     % Properties:
-    %   Version, DataVersion, Author, License, RepositoryURL
+    %   Version, DataVersion, Author, AuthorEmail, License, LicenseURL
+    %   Copyright, RepositoryURL, CommitHistoryURL
+    %   iconPath - Path to the EPsych icon directory.
+    %   chksum - Latest commit checksum from the local git checkout.
+    %   commitTimestamp - Timestamp of the latest local commit log entry.
+    %   latestTag - Latest reachable git tag in the local repository.
     %   meta - Struct snapshot of the current metadata.
     %
     % Methods:
     %   icon_img - Load an icon image from the EPsych install.
+    %   getLatestTag - Query git for the latest reachable repository tag.
+    %
+    % Example:
+    %   info = EPsychInfo();
+    %   disp(info.latestTag)
+    %
+    % See also documentation/EPsychInfo.md
     
     properties (SetAccess = private)
-        iconPath
-        chksum
-        commitTimestamp
-        meta
+        iconPath % Path to the EPsych icon assets.
+        chksum % Latest commit checksum from the local checkout.
+        commitTimestamp % Timestamp of the latest local commit log entry.
+        latestTag % Latest reachable git tag for the local checkout.
+        meta % Struct snapshot of version and repository metadata.
     end
     
     properties (Constant)
@@ -48,6 +61,7 @@ classdef EPsychInfo < handle
             m.DataVersion = obj.DataVersion;
             m.Checksum    = obj.chksum;
             m.commitTimestamp = obj.commitTimestamp;
+            m.LatestTag = obj.latestTag;
             m.RepositoryURL = obj.RepositoryURL;
             m.CurrentTimestamp = datetime("now");
         end
@@ -83,8 +97,47 @@ classdef EPsychInfo < handle
                 c = datetime(0);
             end
         end
+
+        function tag = get.latestTag(obj)
+            tag = obj.getLatestTag();
+        end
+
+        function tag = getLatestTag(obj)
+            % tag = getLatestTag(obj)
+            % Return the latest reachable git tag for the local EPsych checkout.
+            %
+            % Input:
+            %   obj - EPsychInfo scalar.
+            %
+            % Return:
+            %   tag - Tag name as a character vector. Returns '' when git is
+            %       unavailable or no reachable tag exists.
+
+            tag = '';
+            rootPath = obj.root;
+            if isempty(rootPath) || ~isfolder(rootPath)
+                return
+            end
+
+            gitCommand = sprintf('git -C "%s" describe --tags --abbrev=0 2> NUL',rootPath);
+            [status,cmdout] = system(gitCommand);
+            if status ~= 0
+                return
+            end
+
+            tag = strtrim(cmdout);
+        end
         
         function img = icon_img(obj,type)
+            % img = icon_img(obj, type)
+            % Load an icon image from the EPsych icon directory.
+            %
+            % Input:
+            %   type - Icon filename stem within the icons directory.
+            %
+            % Return:
+            %   img - RGB image with zero-valued pixels mapped to NaN.
+
             d = dir(obj.iconPath);
             d(ismember({d.name},{'.','..'})) = [];
             
@@ -106,6 +159,9 @@ classdef EPsychInfo < handle
     
     methods (Static)
         function r = root
+            % r = root
+            % Return the EPsych installation root directory.
+
             r = fileparts(which('epsych_startup'));
         end
         

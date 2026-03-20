@@ -13,10 +13,15 @@ m = ['  ___  ___                _      ___     __  '; ...
      '                |__/                         '];
 
 E = EPsychInfo;
+latestTag = E.latestTag;
+if isempty(latestTag)
+     latestTag = 'Unavailable';
+end
 
 cm = cellstr(m);
 cm{end} = sprintf('%s\nv%s <a href="%s">%s</a>',cm{end},E.Version,E.LicenseURL,E.Copyright);
 cm{end+1} = sprintf('Latest commit: %s; %s; <a href="%s">Commit History Overview</a>',E.commitTimestamp,E.chksum(1:7),E.CommitHistoryURL);
+cm{end+1} = sprintf('Latest tag: %s',latestTag);
 lnk = E.RepositoryURL;
 cm{end+1} = sprintf('Repository: <a href="%s">%s</a>',lnk,lnk);
 %cm{end+1} = '-> <a href="matlab: ep_LaunchPad">ep_LaunchPad</a>  ... Launch panel for EPsych utilities';

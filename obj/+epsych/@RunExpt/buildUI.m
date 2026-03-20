@@ -5,7 +5,13 @@ function buildUI(self)
 %   right-side utilities using uigridlayout and uibutton components.
 
 fpos = getpref('RunExpt','FigurePosition',[100 100 800 400]);
-f = uifigure('Name','EPsych','Tag','RunExpt', ...
+info = EPsychInfo();
+figureName = 'EPsych';
+if ~isempty(info.latestTag)
+    figureName = sprintf('EPsych %s',info.latestTag);
+end
+
+f = uifigure('Name',figureName,'Tag','RunExpt', ...
     'Position',fpos, ...
     'WindowKeyPressFcn', @(~,evt) self.onFigureKeyPress(evt), ...
     'CloseRequestFcn', @(~,~) self.onCloseRequest);

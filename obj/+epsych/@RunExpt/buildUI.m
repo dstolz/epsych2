@@ -4,7 +4,7 @@ function buildUI(self)
 %   Assembles the main grid, subject table, bottom control bar, and
 %   right-side utilities using uigridlayout and uibutton components.
 
-fpos = getpref('RunExpt','FigurePosition',[100 100 800 400]);
+fpos = epsych.RunExpt.getSavedFigurePosition([100 100 800 400]);
 info = EPsychInfo();
 figureName = 'EPsych';
 if ~isempty(info.latestTag)

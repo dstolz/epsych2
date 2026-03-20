@@ -82,6 +82,7 @@ classdef RunExpt < handle
                         existingInstance = candidate;
                     else
                         try
+                            epsych.RunExpt.saveFigurePosition(f(i).Position);
                             f(i).UserData = [];
                             f(i).CloseRequestFcn = [];
                             f(i).Tag = '';
@@ -91,6 +92,7 @@ classdef RunExpt < handle
                     end
                 else
                     try
+                        epsych.RunExpt.saveFigurePosition(f(i).Position);
                         f(i).UserData = [];
                         f(i).CloseRequestFcn = [];
                         f(i).Tag = '';
@@ -482,6 +484,8 @@ classdef RunExpt < handle
     end
 
     methods (Static)
+        position = getSavedFigurePosition(defaultPosition)
+        saveFigurePosition(position)
         ffn = defaultFilename(pth,name)
     end
 end

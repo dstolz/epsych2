@@ -32,7 +32,7 @@ end
 self.SetDefaultFuncs(self.FUNCS)
 
 if isfield(self.H,'figure1') && isgraphics(self.H.figure1)
-    setpref('RunExpt','FigurePosition',self.H.figure1.Position);
+    epsych.RunExpt.saveFigurePosition(self.H.figure1.Position);
 
     try
         self.H.figure1.UserData = [];

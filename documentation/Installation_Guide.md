@@ -15,8 +15,7 @@ An EPsych installation has four layers:
 
 - MATLAB R2014b or newer
 - Recommended MATLAB release: R2018b or later
-- Historical development has been done on MATLAB 2020a
-- Windows is the expected environment for the legacy TDT ActiveX workflow
+- Historical development has been done on MATLAB 2024b
 
 ## Choose your experiment mode
 

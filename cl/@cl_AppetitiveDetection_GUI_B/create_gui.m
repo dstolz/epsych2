@@ -307,8 +307,8 @@ h.Text = "RW Post-Stimulus Offset (ms):";
 % >> Stimulus Delay (randomized --- value based on min/max settings below)
 pStimDelay = R.HW.find_parameter('StimDelay');
 pStimDelay.Unit = 'ms';
-pStimDelay.Min = 500; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "StimDelayMin/Max" parameters below.
-pStimDelay.Max = 500;
+pStimDelay.Min = 1000; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "StimDelayMin/Max" parameters below.
+pStimDelay.Max = 1000;
 pStimDelay.isRandom = true; % enable randomization for this parameter
 pStimDelay.PostUpdateFcn = @obj.post_stimdelay_update;
 pStimDelay.PostUpdateFcnArgs = {pStimDur,pRespWinDelay,pRespWinDur,pRespWinPreStim,pRespWinPostStim};

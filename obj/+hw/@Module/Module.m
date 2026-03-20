@@ -10,7 +10,13 @@ classdef Module < handle
     %   Parameters - Array of hw.Parameter handles belonging to this module.
     %
     % Methods:
-    %   add_parameter - Convenience method for creating/adding a parameter.
+    %   add_parameter          - Convenience method for creating/adding a parameter.
+    %   writeParametersJSON    - Serialize Parameters to a JSON file.
+    %   readParametersJSON     - Load Parameters from a JSON file.
+    %
+    % Limitations:
+    %   PostUpdateFcnArgs is not serialized by writeParametersJSON/readParametersJSON
+    %   because heterogeneous cell arrays do not round-trip reliably through JSON.
         
     properties (SetAccess = immutable)
         parent (1,1)  % parent hardware interface (inherits hw.Interface)
@@ -31,6 +37,9 @@ classdef Module < handle
     end
 
     methods
+        writeParametersJSON(obj, filepath) % serialize Parameters to a JSON file
+        readParametersJSON(obj, filepath)  % load Parameters from a JSON file
+
         function obj = Module(HW,Label,Name,Index)
             arguments
                 HW (1,1)  % parent hardware interface (inherits hw.Interface)
@@ -69,18 +78,21 @@ classdef Module < handle
 
             nopts = namedargs2cell(options);
             P = hw.Parameter(obj.parent,nopts{:});
-            
-            obj.Parameters(end+1) = P;
 
             P.Name = name;
             if ischar(value)
                 P.Type = "String";
             end            
             P.Value = value;
-            
 
             obj.Parameters(end+1) = P;
         end
+
+    end
+
+    methods (Access = private)
+        S = parameterToStruct(obj, P)      % convert one hw.Parameter to a serialization-safe struct
+        applyParameterStruct(obj, P, S)    % apply a decoded struct onto an hw.Parameter
     end
 
 end

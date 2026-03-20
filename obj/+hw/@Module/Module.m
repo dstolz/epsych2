@@ -91,8 +91,8 @@ classdef Module < handle
     end
 
     methods (Access = private)
-        S = parameterToStruct(obj, P)      % convert one hw.Parameter to a serialization-safe struct
-        applyParameterStruct(obj, P, S)    % apply a decoded struct onto an hw.Parameter
+        S = toStruct(obj, P)       % convert one hw.Parameter to a serialization-safe struct
+        fromStruct(obj, P, S)      % apply a decoded struct onto an hw.Parameter
     end
 
 end

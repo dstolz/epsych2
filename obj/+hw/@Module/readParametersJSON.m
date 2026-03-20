@@ -63,9 +63,9 @@ for k = 1:nP
         % Create new Parameter with default value, then apply full struct
         P = obj.add_parameter(S.Name, S.Value, ...
             Access=S.Access, Type=S.Type);
-        obj.applyParameterStruct(P, S);
+        obj.fromStruct(P, S);
     else
-        obj.applyParameterStruct(obj.Parameters(idx), S);
+        obj.fromStruct(obj.Parameters(idx), S);
     end
 end
 

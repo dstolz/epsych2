@@ -29,7 +29,7 @@ data.Fs    = obj.Fs;
 nP = numel(obj.Parameters);
 paramStructs = cell(1, nP);
 for k = 1:nP
-    paramStructs{k} = obj.parameterToStruct(obj.Parameters(k));
+    paramStructs{k} = obj.toStruct(obj.Parameters(k));
 end
 
 if nP == 0

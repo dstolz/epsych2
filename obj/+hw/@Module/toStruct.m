@@ -1,5 +1,5 @@
-function S = parameterToStruct(~, P)
-% S = parameterToStruct(obj, P)
+function S = toStruct(~, P)
+% S = toStruct(obj, P)
 % Convert one hw.Parameter to a struct safe for JSON serialization.
 %
 % Parameters
@@ -8,5 +8,5 @@ function S = parameterToStruct(~, P)
 % Returns
 %   S - struct with serialization-safe field values.
 
-S = P.parameterToStruct();
+S = P.toStruct();
 end

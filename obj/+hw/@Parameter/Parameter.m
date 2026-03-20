@@ -22,8 +22,8 @@ classdef Parameter < matlab.mixin.SetGet
     %
     % Methods
     %   Parameter - Construct and initialize a parameter instance.
-    %   parameterToStruct - Serialize parameter metadata and value to a struct.
-    %   applyParameterStruct - Apply serialized parameter data to this instance.
+    %   toStruct - Serialize parameter metadata and value to a struct.
+    %   fromStruct - Apply serialized parameter data to this instance.
     %   Trigger - Trigger the associated hardware event when enabled.
     %
     % Example
@@ -33,7 +33,7 @@ classdef Parameter < matlab.mixin.SetGet
     %   disp(p.ValueStr)
     %
     % See also: documentation/hw_Parameter.md
-   
+
     properties (SetAccess = immutable)
         Parent (1,1) % handle to parent object (e.g., hw.Software)
         HW (1,1)  % handle to hardware interface; reflects parent object's handle
@@ -51,7 +51,7 @@ classdef Parameter < matlab.mixin.SetGet
         Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
         Format  (1,:) char = '%g' % default format for displaying value
 
-        Visible (1,1) logical = true % optionally hide parameter 
+        Visible (1,1) logical = true % optionally hide parameter
 
         PreUpdateFcn (1,1) % handle ot custom function called before value has been updated
                             % note that this gets called prior to the
@@ -67,7 +67,7 @@ classdef Parameter < matlab.mixin.SetGet
         UserData % general-purpose field for storing any additional data related to the parameter
     end
 
-    properties (SetObservable,GetObservable) 
+    properties (SetObservable,GetObservable)
         Value % current/settable value of parameter
         % convert to datetime: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
         % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
@@ -75,9 +75,9 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     properties (SetObservable,GetObservable,AbortSet)
-        lastUpdated (1,1) double = 0; 
-        
-        isArray     (1,1) logical = false 
+        lastUpdated (1,1) double = 0;
+
+        isArray     (1,1) logical = false
         isTrigger   (1,1) logical = false
         isRandom    (1,1) logical = false
 
@@ -90,9 +90,10 @@ classdef Parameter < matlab.mixin.SetGet
         validName % valid MATLAB variable name based on Name
     end
 
-
-
     methods
+        S = toStruct(obj)           % serialize this parameter to a struct
+        fromStruct(obj, S)          % restore this parameter from a struct
+
         function obj = Parameter(Parent, options)
             % obj = hw.Parameter(Parent)
             % obj = hw.Parameter(Parent, Name=Value)
@@ -122,12 +123,12 @@ classdef Parameter < matlab.mixin.SetGet
                 options.Min (1,1) double = -inf
                 options.Max (1,1) double = inf
             end
-            
+
             obj.Parent = Parent;
             if ~isempty(Parent.HW)
                 obj.HW = Parent.HW;
             end
-            
+
             % Set all provided options
             obj.Name = options.Name;
             obj.Description = options.Description;
@@ -156,7 +157,7 @@ classdef Parameter < matlab.mixin.SetGet
                 v = nan;
                 return
             end
-            
+
             if isa(obj.Parent,'hw.Software') % special case
                 v = obj.Value;
             else
@@ -184,90 +185,6 @@ classdef Parameter < matlab.mixin.SetGet
 
         end
 
-        function S = parameterToStruct(obj)
-            % S = obj.parameterToStruct()
-            % Convert this parameter to a struct safe for JSON serialization.
-            %
-            % Returns
-            %   S - struct with serialization-safe field values.
-
-            S = struct();
-
-            % Metadata
-            S.Name = obj.Name;
-            S.Description = obj.Description;
-            S.Unit = obj.Unit;
-            S.Access = obj.Access;
-            S.Type = obj.Type;
-            S.Format = obj.Format;
-            S.Visible = obj.Visible;
-
-            % Callbacks
-            S.PreUpdateFcn = obj.fcnToStr_(obj.PreUpdateFcn);
-            S.EvaluatorFcn = obj.fcnToStr_(obj.EvaluatorFcn);
-            S.PostUpdateFcn = obj.fcnToStr_(obj.PostUpdateFcn);
-
-            % Value and state
-            S.Value = obj.Value;
-            S.lastUpdated = obj.lastUpdated;
-            S.isArray = obj.isArray;
-            S.isTrigger = obj.isTrigger;
-            S.isRandom = obj.isRandom;
-
-            % Bounds
-            S.Min = obj.numericToSafe_(obj.Min);
-            S.Max = obj.numericToSafe_(obj.Max);
-
-            % General-purpose data
-            S.UserData = obj.UserData;
-        end
-
-        function applyParameterStruct(obj, S)
-            % obj.applyParameterStruct(S)
-            % Apply a decoded serialized struct onto this parameter.
-            %
-            % Parameters
-            %   S - struct decoded from JSON with serialized parameter
-            %       fields.
-
-            arguments
-                obj (1,1) hw.Parameter
-                S (1,1) struct
-            end
-
-            % Metadata
-            obj.Name = char(S.Name);
-            obj.Description = string(S.Description);
-            obj.Unit = char(S.Unit);
-            obj.Access = char(S.Access);
-            obj.Type = char(S.Type);
-            obj.Format = char(S.Format);
-            obj.Visible = logical(S.Visible);
-
-            % Callbacks
-            obj.PreUpdateFcn = obj.strToFcn_(S.PreUpdateFcn);
-            obj.EvaluatorFcn = obj.strToFcn_(S.EvaluatorFcn);
-            obj.PostUpdateFcn = obj.strToFcn_(S.PostUpdateFcn);
-
-            % Flags
-            obj.isArray = logical(S.isArray);
-            obj.isTrigger = logical(S.isTrigger);
-            obj.isRandom = logical(S.isRandom);
-
-            % Bounds
-            obj.Min = obj.safeToNumeric_(S.Min);
-            obj.Max = obj.safeToNumeric_(S.Max);
-
-            % Value (set after Type/bounds so validation context is correct)
-            obj.Value = S.Value;
-
-            % Timestamp
-            obj.lastUpdated = S.lastUpdated;
-
-            % General-purpose data
-            obj.UserData = S.UserData;
-        end
-
         function set.Value(obj,value)
 
             if isa(obj.PreUpdateFcn ,'function_handle')
@@ -292,7 +209,7 @@ classdef Parameter < matlab.mixin.SetGet
             % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
             % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
              obj.lastUpdated = now;
-        
+
             if isa(obj.PostUpdateFcn,'function_handle')
                 if isempty(obj.PostUpdateFcnArgs)
                     obj.PostUpdateFcn(obj,value);
@@ -302,8 +219,6 @@ classdef Parameter < matlab.mixin.SetGet
             end
         end
 
-
-
         function vstr = get.ValueStr(obj)
             if isempty(obj.Format)
                 if isequal(obj.Type,'String')
@@ -312,7 +227,7 @@ classdef Parameter < matlab.mixin.SetGet
                     obj.Format = '%g';
                 end
             end
-            
+
             v = obj.Value;
             if obj.isArray
                 ov = length(v);
@@ -327,15 +242,12 @@ classdef Parameter < matlab.mixin.SetGet
             if ~isempty(obj.Unit)
                 vstr = [vstr ' ' obj.Unit];
             end
-            
+
         end
-
-
 
         function vn = get.validName(obj)
             vn = matlab.lang.makeValidName(obj.Name);
         end
-
 
         function set.Type(obj,type)
             obj.Type = type;
@@ -348,7 +260,7 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     methods (Access = protected)
-        
+
         function v = randomize_value(obj)
             if ~obj.isRandom
                 v = obj.Value;
@@ -374,7 +286,6 @@ classdef Parameter < matlab.mixin.SetGet
                 vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
                 return
             end
-
 
             obj.Value = value;
             if ~isequal(obj.HW,0)
@@ -439,7 +350,4 @@ classdef Parameter < matlab.mixin.SetGet
             end
         end
     end
-
-    
-
 end

@@ -1,32 +1,43 @@
 function [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,options)
 % [value,success] = eval_staircase_training_mode(obj,src,event,Parameter)
-% [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,Name,Value)
+% [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,Name=Value)
+% Enable or disable staircase-training mode for a single hw.Parameter.
 %
-% Toggle staircase training mode for any hw.Parameter. Intended as a
-% ValueChangedFcn callback for a state button. When enabled, randomisation
-% is suspended, a gui.StaircaseTraining window is opened, and a NewData
-% listener adjusts the parameter on each trial outcome. When disabled, the
-% previous random state is restored and the GUI/listener are torn down.
+% This callback is intended for a state-button ValueChangedFcn. When
+% enabled, it suspends Parameter.isRandom, opens or focuses a
+% gui.StaircaseTraining window, and attaches a NewData listener that steps
+% the parameter after selected trial outcomes. When disabled, it restores
+% the previous randomisation state and removes the training GUI/listener.
 %
-% If src is a gui.Parameter_Control, its UI widget is disabled while
-% training mode is active and re-enabled on close. Pass [] to skip.
+% Inputs
+%   obj - GUI controller exposing RUNTIME, StaircaseTrainingGUIs, and
+%       StaircaseTrainingListeners.
+%   src - gui.Parameter_Control to disable while training is active, or
+%       [] to skip UI state changes.
+%   event - Callback event whose Value field is the on/off toggle state.
+%   Parameter - hw.Parameter adjusted by the staircase listener.
 %
-%   obj       - GUI controller (must expose obj.RUNTIME,
-%               obj.StaircaseTrainingGUIs, obj.StaircaseTrainingListeners).
-%   src       - gui.Parameter_Control to disable during training, or [].
-%   event     - Callback event; event.Value is logical on/off toggle.
-%   Parameter - hw.Parameter whose value the staircase adjusts.
+% Name-Value options
+%   MinValue, MaxValue - Value clamp bounds passed to
+%       gui.StaircaseTraining. Defaults use Parameter.Min/Max.
+%   StepUp, StepDown - Positive step magnitudes passed to
+%       gui.StaircaseTraining. Defaults are 350 and 100.
+%   StepUpLimits, StepDownLimits - Two-element edit limits passed to
+%       gui.StaircaseTraining. Defaults are [0 500].
+%   MinValueLimits, MaxValueLimits - Two-element edit limits for the
+%       staircase min/max controls.
+%   StepUpResponse - Trial outcome that triggers an "up" step. Supported
+%       values are "Hit", "Miss", "CorrectReject", "FalseAlarm", and
+%       "Abort". The legacy spelling "CorrectRejct" is also accepted.
+%   StepDownResponse - Trial outcome that triggers a "down" step. Uses the
+%       same supported values as StepUpResponse.
 %
-% Name-Value options (forwarded to gui.StaircaseTraining):
-%   MinValue, MaxValue       - Value clamp bounds (default: Parameter.Min/Max).
-%   StepUp, StepDown         - Step magnitudes (default: 350, 100).
-%   StepUpLimits, StepDownLimits   - Two-element limit vectors (default: [0 500]).
-%   MinValueLimits, MaxValueLimits - Two-element limit vectors.
+% Returns
+%   value - New toggle state copied from event.Value.
+%   success - True when setup or teardown completes without error.
 %
-%   value   - New toggle state (event.Value).
-%   success - True when the callback completes without error.
-%
-% See also gui.StaircaseTraining, documentation/StaircaseTraining.md
+% See also gui.StaircaseTraining, documentation/StaircaseTraining.md,
+% documentation/eval_staircase_training_mode.md
 
 arguments
     obj
@@ -41,13 +52,23 @@ arguments
     options.StepUpLimits   (1,2) double = [0 500]
     options.MinValueLimits (1,2) double = [Parameter.Min Parameter.Max]
     options.MaxValueLimits (1,2) double = [Parameter.Min Parameter.Max]
-    options.StepUpResponse (1,1) string {mustBeMember(options.StepUpResponse,["Hit","Miss","CorrectRejct","FalseAlarm","Abort"])} = "Hit"
-    options.StepDownResponse (1,1) string {mustBeMember(options.StepDownResponse,["Hit","Miss","CorrectRejct","FalseAlarm","Abort"])} = "Abort"
+    options.StepUpResponse (1,1) string {mustBeMember(options.StepUpResponse,["Hit","Miss","CorrectReject","CorrectReject","FalseAlarm","Abort"])} = "Hit"
+    options.StepDownResponse (1,1) string {mustBeMember(options.StepDownResponse,["Hit","Miss","CorrectReject","CorrectReject","FalseAlarm","Abort"])} = "Abort"
 end
 
 success = false;
 RUNTIME = obj.RUNTIME;
 pName = Parameter.Name;
+
+constructorOptions = struct( ...
+    'MinValue', options.MinValue, ...
+    'MaxValue', options.MaxValue, ...
+    'StepUp', options.StepUp, ...
+    'StepDown', options.StepDown, ...
+    'StepDownLimits', options.StepDownLimits, ...
+    'StepUpLimits', options.StepUpLimits, ...
+    'MinValueLimits', options.MinValueLimits, ...
+    'MaxValueLimits', options.MaxValueLimits);
 
 % initialise maps on first call
 if isempty(obj.StaircaseTrainingGUIs) || ~isa(obj.StaircaseTrainingGUIs,'containers.Map')
@@ -73,12 +94,13 @@ try
             end
         else
             vprintf(2,'Launching %s Training GUI',pName)
-            nvArgs = namedargs2cell(options);
+            nvArgs = namedargs2cell(constructorOptions);
             h = gui.StaircaseTraining(Parameter, nvArgs{:});
 
             obj.StaircaseTrainingListeners(pName) = addlistener( ...
                 RUNTIME.HELPER, 'NewData', ...
-                @(src,ev) update_staircase_training(src, ev, h, RUNTIME));
+                @(src,ev) update_staircase_training(src, ev, h, RUNTIME, ...
+                stepUpResponse, stepDownResponse));
             obj.StaircaseTrainingGUIs(pName) = h;
         end
 
@@ -127,23 +149,30 @@ end
 end
 
 
-function update_staircase_training(~,~,h,RUNTIME)
-% update_staircase_training(src,event,h,RUNTIME)
+function update_staircase_training(~,~,h,RUNTIME,stepUpResponse,stepDownResponse)
+% update_staircase_training(~,~,h,RUNTIME,stepUpResponse,stepDownResponse)
+% Step the training parameter after matching trial outcomes.
 %
-% NewData listener callback that steps the staircase parameter after each
-% trial. Hit responses step "up"; Abort responses step "down"; all other
-% codes are ignored. For hardware-backed parameters (parent is not
-% hw.Software), the new value is also written into RUNTIME.TRIALS.trials.
+% This NewData listener decodes the most recent response code and compares
+% it against the configured StepUpResponse and StepDownResponse values.
+% Matching trials step the parameter "up" or "down". Non-matching trials
+% are ignored. For hardware-backed parameters (parent is not hw.Software),
+% the updated value is also mirrored into RUNTIME.TRIALS.trials.
 %
-%   h       - gui.StaircaseTraining instance managing the parameter.
-%   RUNTIME - Runtime state (TRIALS.DATA, TRIALS.trials, TRIALS.writeParamIdx).
+% Inputs
+%   h - gui.StaircaseTraining instance managing the target parameter.
+%   RUNTIME - Runtime state containing TRIALS.DATA, TRIALS.trials, and
+%       TRIALS.writeParamIdx.
+%   stepUpResponse - Trial outcome name that maps to an "up" step.
+%   stepDownResponse - Trial outcome name that maps to a "down" step.
 
 if isempty(h) || ~isvalid(h), return; end
+if isempty(RUNTIME.TRIALS.DATA), return; end
 
 RC = epsych.BitMask.decode(RUNTIME.TRIALS.DATA(end).RespCode);
-if RC.Hit
+if RC.(stepUpResponse)
     s = "up";
-elseif RC.Abort
+elseif RC.(stepDownResponse)
     s = "down";
 else
     return
@@ -171,3 +200,5 @@ end
 RUNTIME.TRIALS.trials = T;
 
 end
+
+

@@ -33,10 +33,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         h_RWDelayParameterControl
         h_RWDelayTrainingGUI
 
-        StaircaseTrainingGUIs       % containers.Map of gui.StaircaseTraining instances keyed by parameter name
-        StaircaseTrainingListeners  % containers.Map of NewData listener handles keyed by parameter name
-
-        ParameterMonitorTable
+          ParameterMonitorTable
 
         bmStimulus  = epsych.BitMask.TrialType_0;
         bmCatch     = epsych.BitMask.TrialType_1;
@@ -55,6 +52,9 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         hl_NewData
         hl_ModeChange
         hl_RWDelayTrainingGUI
+
+        StaircaseTrainingGUIs       % containers.Map of gui.StaircaseTraining instances keyed by parameter name
+        StaircaseTrainingListeners  % containers.Map of NewData listener handles keyed by parameter name
     end
 
 

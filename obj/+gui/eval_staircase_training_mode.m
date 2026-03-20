@@ -41,6 +41,8 @@ arguments
     options.StepUpLimits   (1,2) double = [0 500]
     options.MinValueLimits (1,2) double = [Parameter.Min Parameter.Max]
     options.MaxValueLimits (1,2) double = [Parameter.Min Parameter.Max]
+    options.StepUpResponse (1,1) string {mustBeMember(options.StepUpResponse,["Hit","Miss","CorrectRejct","FalseAlarm","Abort"])} = "Hit"
+    options.StepDownResponse (1,1) string {mustBeMember(options.StepDownResponse,["Hit","Miss","CorrectRejct","FalseAlarm","Abort"])} = "Abort"
 end
 
 success = false;

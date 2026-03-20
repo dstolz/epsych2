@@ -280,13 +280,20 @@ pRespWinPreStim = R.S.Module.add_parameter('RespWinPreStim',1000, ...
                         Min = 0, ...
                         Max = 10000);
 h = gui.Parameter_Control(layoutTrialControls,pRespWinPreStim,Type='editfield');
-h.Text = "RW Pre-Stimulus Offset (ms):";
-
+par = h.h_label.Parent;
+lay = h.h_label.Layout;
+delete(h.h_label);
 
 % >> RW Pre-stimulus delay training
-h = uibutton(layoutTrialControls,"state");
-h.Text = "RW Pre-Stimulus Offset Training Mode";
-h.ValueChangedFcn = @(src,event) obj.eval_staircase_training_mode(src,event,pRespWinPreStim);
+h = uibutton(par,"state");
+h.Layout = lay;
+h.Text = "RW Pre-Stimulus Offset (ms):";
+h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,pRespWinPreStim, ...
+        MinValue = pRespWinPreStim.Min, ...
+        MaxValue = pRespWinPreStim.Max, ...
+        StepUpResponse = "Abort", ...
+        StepDownResponse = "Hit");
+        
 
 % >> Post-stimulus portion of response window --- this is used in the post_stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
 pRespWinPostStim = R.S.Module.add_parameter('RespWinPostStim',1000, ...
@@ -310,7 +317,7 @@ pStimDelay.PostUpdateFcnArgs = {pStimDur,pRespWinDelay,pRespWinDur,pRespWinPreSt
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
 h = uibutton(layoutTrialControls,"state");
 h.Text = "Stimulus Delay Training Mode";
-h.ValueChangedFcn = @(src,event) obj.eval_staircase_training_mode(src,event,pStimDelay);
+h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,pStimDelay);
 
 
 pMin = R.S.Module.add_parameter('StimDelayMin',pStimDelay.Min, ...
@@ -325,14 +332,14 @@ pMax = R.S.Module.add_parameter('StimDelayMax',pStimDelay.Max, ...
 % >> Stimulus Delay (min)
 h = gui.Parameter_Control(layoutTrialControls,pMin,Type='editfield');
 h.Text = "Stimulus Delay Min (ms):";
-h.EvaluatorFcn = @obj.eval_dependent_parameter_randomization;
+h.EvaluatorFcn = @gui.eval_dependent_parameter_randomization;
 h.EvaluatorArgs = {pMin,pMax,pStimDelay}; % resolve paired min/max and target parameters from the changed parameter name
 
 
 % >> Stimulus Delay (max)
 h = gui.Parameter_Control(layoutTrialControls,pMax,Type='editfield');
 h.Text = "Stimulus Delay Max (ms):";
-h.EvaluatorFcn = @obj.eval_dependent_parameter_randomization;
+h.EvaluatorFcn = @gui.eval_dependent_parameter_randomization;
 h.EvaluatorArgs = {pMin,pMax,pStimDelay}; % pass the dependent parameters as additional arguments for range validation and automatic updating when min/max values change
 
 

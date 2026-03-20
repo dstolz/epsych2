@@ -22,6 +22,8 @@ classdef Parameter < matlab.mixin.SetGet
     %
     % Methods
     %   Parameter - Construct and initialize a parameter instance.
+    %   parameterToStruct - Serialize parameter metadata and value to a struct.
+    %   applyParameterStruct - Apply serialized parameter data to this instance.
     %   Trigger - Trigger the associated hardware event when enabled.
     %
     % Example
@@ -182,6 +184,90 @@ classdef Parameter < matlab.mixin.SetGet
 
         end
 
+        function S = parameterToStruct(obj)
+            % S = obj.parameterToStruct()
+            % Convert this parameter to a struct safe for JSON serialization.
+            %
+            % Returns
+            %   S - struct with serialization-safe field values.
+
+            S = struct();
+
+            % Metadata
+            S.Name = obj.Name;
+            S.Description = obj.Description;
+            S.Unit = obj.Unit;
+            S.Access = obj.Access;
+            S.Type = obj.Type;
+            S.Format = obj.Format;
+            S.Visible = obj.Visible;
+
+            % Callbacks
+            S.PreUpdateFcn = obj.fcnToStr_(obj.PreUpdateFcn);
+            S.EvaluatorFcn = obj.fcnToStr_(obj.EvaluatorFcn);
+            S.PostUpdateFcn = obj.fcnToStr_(obj.PostUpdateFcn);
+
+            % Value and state
+            S.Value = obj.Value;
+            S.lastUpdated = obj.lastUpdated;
+            S.isArray = obj.isArray;
+            S.isTrigger = obj.isTrigger;
+            S.isRandom = obj.isRandom;
+
+            % Bounds
+            S.Min = obj.numericToSafe_(obj.Min);
+            S.Max = obj.numericToSafe_(obj.Max);
+
+            % General-purpose data
+            S.UserData = obj.UserData;
+        end
+
+        function applyParameterStruct(obj, S)
+            % obj.applyParameterStruct(S)
+            % Apply a decoded serialized struct onto this parameter.
+            %
+            % Parameters
+            %   S - struct decoded from JSON with serialized parameter
+            %       fields.
+
+            arguments
+                obj (1,1) hw.Parameter
+                S (1,1) struct
+            end
+
+            % Metadata
+            obj.Name = char(S.Name);
+            obj.Description = string(S.Description);
+            obj.Unit = char(S.Unit);
+            obj.Access = char(S.Access);
+            obj.Type = char(S.Type);
+            obj.Format = char(S.Format);
+            obj.Visible = logical(S.Visible);
+
+            % Callbacks
+            obj.PreUpdateFcn = obj.strToFcn_(S.PreUpdateFcn);
+            obj.EvaluatorFcn = obj.strToFcn_(S.EvaluatorFcn);
+            obj.PostUpdateFcn = obj.strToFcn_(S.PostUpdateFcn);
+
+            % Flags
+            obj.isArray = logical(S.isArray);
+            obj.isTrigger = logical(S.isTrigger);
+            obj.isRandom = logical(S.isRandom);
+
+            % Bounds
+            obj.Min = obj.safeToNumeric_(S.Min);
+            obj.Max = obj.safeToNumeric_(S.Max);
+
+            % Value (set after Type/bounds so validation context is correct)
+            obj.Value = S.Value;
+
+            % Timestamp
+            obj.lastUpdated = S.lastUpdated;
+
+            % General-purpose data
+            obj.UserData = S.UserData;
+        end
+
         function set.Value(obj,value)
 
             if isa(obj.PreUpdateFcn ,'function_handle')
@@ -298,6 +384,59 @@ classdef Parameter < matlab.mixin.SetGet
             % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
             % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
              obj.lastUpdated = now;
+        end
+    end
+
+    methods (Access = private)
+
+        function s = fcnToStr_(~, f)
+            if isa(f, 'function_handle')
+                s = func2str(f);
+            else
+                s = "";
+            end
+        end
+
+        function f = strToFcn_(~, s)
+            if isstring(s)
+                s = char(s);
+            end
+
+            if ischar(s) && ~isempty(s)
+                f = str2func(s);
+            else
+                f = [];
+            end
+        end
+
+        function v = numericToSafe_(~, x)
+            if isnan(x)
+                v = "NaN";
+            elseif isinf(x) && x > 0
+                v = "Inf";
+            elseif isinf(x) && x < 0
+                v = "-Inf";
+            else
+                v = x;
+            end
+        end
+
+        function v = safeToNumeric_(~, x)
+            if isstring(x) || ischar(x)
+                x = char(x);
+                switch x
+                    case 'Inf'
+                        v = Inf;
+                    case '-Inf'
+                        v = -Inf;
+                    case 'NaN'
+                        v = NaN;
+                    otherwise
+                        v = str2double(x);
+                end
+            else
+                v = double(x);
+            end
         end
     end
 

@@ -99,7 +99,13 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).DATA.TrialID = [];
     RUNTIME.TRIALS(i).DATA.inaccurateTimestamp = [];
     
-    RUNTIME.TRIALS(i).HW = RUNTIME.HW; % make HW object handles available in TRIALS structure
+    % make HW object handles available in TRIALS structure
+    RUNTIME.TRIALS(i).HW = RUNTIME.HW; 
+    hp = RUNTIME.HW.Module.Parameters;
+    hn = {hp.validName};
+    for j = 1:length(hp)
+        RUNTIME.TRIALS(i).HW_Parameters.(hn{j}) = hp(j);
+    end
 
 
     % SOFTWARE INTERFACE

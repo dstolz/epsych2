@@ -71,8 +71,7 @@ if isempty(sp), return; end
 sn = {sp.validName};
 for j = 1:length(sp), SP.(sn{j}) = sp(j); end
 
-
-
+HP = TRIALS.HW_Parameters;
 
 %--------------------------------------------------------------------------
 % 6) Reminder override: force the reminder row and set the hardware flag
@@ -117,15 +116,22 @@ end
 
 if RC.Hit(end)
     nextStim = lastStim - SP.StepOnHit.Value;
+
 elseif RC.Miss(end)
     nextStim = lastStim + SP.StepOnMiss.Value;
+
 elseif RC.Abort(end)
     % no change to nextStim (repeat same depth)
     nextStim = lastStim;
 
-    % Retain the previous stimulus delay for the repeated trial.
-    sdval = TRIALS.DATA.StimDelay(end);
-    SP.StimDelay.Value = sdval; % TODO: DOUBLE CHECK THAT THIS INDEED UPDATES THE GUI PARAMETER FOR THE NEXT TRIAL
+    if SP.RepeatDelayOnAbort.Value
+        % Retain the previous stimulus delay for the repeated trial.
+        sdval = TRIALS.DATA(end).StimDelay;
+    
+        % temporarily disable PostUpdateFcn and randomization
+        HP.StimDelay.UserData.PUF = TRIALS.HW_Parameters.StimDelay.PostUpdateFcn;;
+
+    end
 elseif RC.CorrectRejection(end) || RC.FalseAlarm(end)
     % no change to nextStim (same depth for next STIM trial)
     nextStim = lastStim;

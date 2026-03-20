@@ -128,36 +128,6 @@ Expected result:
 
 This order matters because it separates MATLAB path problems from hardware or driver problems.
 
-## Optional webcam support
-
-EPsych includes standalone webcam recording utilities outside the main runtime.
-
-### MATLAB-based webcam recording
-
-Recommended requirement:
-
-- Image Acquisition Toolbox for `videoinput`
-
-Notes:
-
-- if audio capture is enabled, a working microphone input is also required
-- output is written as separate `.avi`, `.wav`, and `.mat` files
-
-### VLC-based webcam recording
-
-There is also VLC-backed DirectShow support in the recorder classes.
-
-Notes:
-
-- this path is useful for live preview, HTTP streaming, and file recording
-- camera selection relies on the Windows-visible DirectShow device name
-- two cameras with identical visible device names cannot be distinguished reliably in a single VLC-backed multi-camera launch
-
-Example scripts:
-
-- `obj/exampleWebcamRecorder.m`
-- `obj/exampleVlcWebcamRecorder.m`
-
 ## Legacy installation notes
 
 The repository still includes historical setup notes in `Notes_on_Installation.txt`.

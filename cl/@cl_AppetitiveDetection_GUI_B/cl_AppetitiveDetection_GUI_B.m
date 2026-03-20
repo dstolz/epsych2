@@ -76,6 +76,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                 vprintf(0,1,'RESTARTING GUI')
                 for i = 1:length(f)
                     try
+                        cl_AppetitiveDetection_GUI_B.saveFigurePosition(f(i).Position);
                         delete(f(i).UserData);
                         delete(f(i));
                     end
@@ -132,6 +133,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         function closeGUI(obj,src,event)
             vprintf(3,'cl_AppetitiveDetection_GUI_B:closeGUI')
             try
+                cl_AppetitiveDetection_GUI_B.saveFigurePosition(src.Position);
                 delete(obj);
                 delete(src)
             end
@@ -264,6 +266,26 @@ classdef cl_AppetitiveDetection_GUI_B < handle
     
 
     methods (Static)
+
+        function position = getSavedFigurePosition(defaultPosition)
+            position = getpref('cl_AppetitiveDetection_GUI_B', ...
+                'FigurePosition', defaultPosition);
+
+            if ~isnumeric(position) || numel(position) ~= 4 || any(~isfinite(position))
+                position = defaultPosition;
+            end
+
+            position = double(reshape(position,1,[]));
+        end
+
+        function saveFigurePosition(position)
+            if ~isnumeric(position) || numel(position) ~= 4 || any(~isfinite(position))
+                return
+            end
+
+            setpref('cl_AppetitiveDetection_GUI_B', ...
+                'FigurePosition', double(reshape(position,1,[])));
+        end
 
         function trigger_ReminderTrial(obj, value,R)
 

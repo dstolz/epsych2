@@ -150,7 +150,7 @@ ind = all.TrialType == TT.STIM;
 
 
 %--------------------------------------------------------------------------
-% 11) Optionally schedule a catch trial based on p(Catch)
+% 14) Optionally schedule a catch trial based on p(Catch)
 %     A catch trial is only inserted when the latest completed trial was
 %     not already a catch trial.
 %--------------------------------------------------------------------------
@@ -158,11 +158,10 @@ pCT = SP.P_Catch.Value; % probability of catch trial (0 to 1)
 if ~RC.("TrialType_" + TT.CATCH)(end) && rand() < pCT
     % Override next trial to CATCH based on p(CATCH) and current trial type
     TRIALS.NextTrialID = find(all.TrialType == TT.CATCH,1);
+
 else
-
-
     %--------------------------------------------------------------------------
-    % 14) Select the first stimulus row as the next trial and return
+    % 15) Select the first stimulus row as the next trial and return
     %--------------------------------------------------------------------------
     TRIALS.NextTrialID = find(all.TrialType == TT.STIM,1);
 end

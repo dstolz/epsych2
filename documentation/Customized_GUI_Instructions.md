@@ -13,6 +13,14 @@ In EPsych-style code you will usually have a runtime object (often abbreviated *
 * **Trial logic (`R.TRIALS`)**: what trial is next, what happened on the last trial, and “force” flags for training/testing.
 * **Event sources (`R.HELPER`, task helpers)**: events like *NewTrial*, *NewData*, *ModeChange* that let the GUI update without constant polling.
 
+
+### A practical mental model
+
+* **Parameters** are shared “handles” that both the runtime and GUI can read/write.
+* **Controls** (buttons/edit fields) write to parameters.
+* **Monitors** (tables/text labels/plots) read parameters or respond to events.
+* **Listeners** keep the GUI responsive without high CPU usage.
+
 A typical EPsych GUI follows this workflow:
 
 1. **Pick what the GUI needs to control vs. monitor.**
@@ -38,13 +46,6 @@ A typical EPsych GUI follows this workflow:
 6. **Clean up on close.**
 
    * Delete listeners, timers, helper objects, and any secondary figures you created.
-
-### A practical mental model
-
-* **Parameters** are shared “handles” that both the runtime and GUI can read/write.
-* **Controls** (buttons/edit fields) write to parameters.
-* **Monitors** (tables/text labels/plots) read parameters or respond to events.
-* **Listeners** keep the GUI responsive without high CPU usage.
 
 ### Common beginner mistakes to avoid
 

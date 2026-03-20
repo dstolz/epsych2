@@ -119,7 +119,7 @@ h.Layout.Row    = [6 10];
 
 
 p = R.HW.find_parameter({'PelletTotal','Platform','Trough','RespWinDelay','InTrial', ...
-    '~DelayPeriod','~RespWindow','RespLatency','RespCode'}, ...
+    'StimDelay','~DelayPeriod','~RespWindow','RespLatency','RespCode'}, ...
     includeInvisible=true);
 
 obj.ParameterMonitorTable = gui.Parameter_Monitor(h,p,pollPeriod=0.1);
@@ -205,6 +205,12 @@ h.Text = "Decrement on Hit (%):";
 
 
 
+% >> Probability of Catch Trial
+p = R.S.Module.add_parameter('P_Catch',0.1);
+p.Min = 0;
+p.Max = 1;
+h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield',autoCommit=true);
+h.Text = "p(Catch Trial):";
 
 %{
 
@@ -245,6 +251,11 @@ p = R.HW.find_parameter('ITIDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Intertrial Interval (ms):";
 
+
+% >> Repeat Delay Following Abort?
+p = R.S.Module.add_parameter('RepeatDelayOnAbort',true);
+h = gui.Parameter_Control(layoutTrialControls,p,Type='checkbox',autoCommit=true);
+h.Text = "Repeat Delay on Abort:";
 
 % >> Stimulus Delay --- this is the time from trial start to stimulus onset, and is used in the post_stimdelay_update function to adjust the response window parameters to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
 pStimDur = R.HW.find_parameter('StimDur',silenceParameterNotFound=true);

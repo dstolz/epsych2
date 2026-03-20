@@ -1,85 +1,61 @@
 function TRIALS = cl_TrialSelection_Appetitive_StimDetect(TRIALS)
-% TRIALS = cl_TrialSelection_Appetitive_StimDetect(TRIALS)
+% cl_TrialSelection_Appetitive_StimDetect(TRIALS)
+% Select the next trial for the appetitive stimulus-detection task.
 %
-% Select the next trial in an appetitive stimulus-detection task.
+% This callback updates TRIALS.NextTrialID from the most recent response
+% outcome, with support for reminder trials, catch-trial insertion, and
+% staircase-style stimulus-depth updates.
 %
-% PARAMETERS USED FROM TRIALS.trials (via "all" struct):
+% Inputs:
+%   TRIALS  Experiment runtime struct. The function reads trial metadata
+%           from TRIALS.trials and TRIALS.writeParamIdx, completed-trial
+%           history from TRIALS.DATA, the hidden hardware parameter
+%           '~ReminderTrial', and software parameters stored in
+%           TRIALS.S.Module.Parameters.
 %
-%   Used in ALL TrialOrder modes:
-%     TrialType   - numeric trial code (STIM/CATCH/REMIND filtering)
-%     Depth       - stimulus depth (selection and matching)
+% Returns:
+%   TRIALS  Updated runtime struct with NextTrialID set to the next trial
+%           row. For stimulus trials, the selected Depth value is also
+%           written back to the STIM trial rows in TRIALS.trials.
 %
-%   Used ONLY in 'Staircase' mode:
-%     StepDown    - decrement applied after HIT
-%     StepUp      - increment applied after MISS
-%     MinDepth    - lower bound for Depth
-%     MaxDepth    - upper bound for Depth
+% Notes:
+%   - Trial types are encoded locally as STIM = 0, CATCH = 1, and
+%     REMIND = 2.
+%   - ReminderTrials forces the reminder row and sets '~ReminderTrial'.
+%   - Staircase updates use StepOnHit, StepOnMiss, MinDepth, MaxDepth,
+%     and P_Catch.
+%   - The first selected trial is the first STIM row.
+%   - See documentation/cl_TrialSelection_Appetitive_StimDetect.md for a
+%     behavior summary and parameter notes.
 %
-% OTHER TRIALS FIELDS USED:
-%   TRIALS.activeTrials - logical mask of currently enabled trials
-%   TRIALS.DATA.Depth   - depth history for completed trials
-%   TRIALS.DATA.RespCode- response codes for outcome decoding
-%
-% GUI PARAMETERS USED:
-%   ReminderTrials  - forces REMIND trial when enabled (all modes)
-%   TrialOrder      - 'Descending' | 'Ascending' | 'Random' | 'Staircase'
-%
-% PARAMETERS / VALUES HARDCODED IN THIS FUNCTION:
-%   TT.STIM   = 0
-%   TT.CATCH  = 1
-%   TT.REMIND = 2
-%   Outcome-conditioned probabilities p.* (HIT/MISS/CR/FA transitions)
-%   Default first-trial behavior: CATCH
-%   Random mode balancing rule: choose least-presented Depth (loose match)
-
-
-% OVERVIEW (numbered to match code sections):
-%   1)  Access hidden hardware Reminder flag
-%   2)  Define trial-type codes (STIM/CATCH/REMIND)
-%   3)  Define outcome-conditioned transition probabilities
-%   4)  Extract write parameters into struct "all"
-%   5)  Set default NextTrialID (CATCH)
-%   6)  Read GUI parameters
-%   7)  Apply Reminder override (if enabled)
-%   8)  Clear Reminder flag (normal path)
-%   9)  Decode last trial outcome (HIT/MISS/CR/FA)
-%  10)  Select next trial type (STIM vs CATCH)
-%  11)  Define valid trials for Depth selection (exclude REMIND;
-%       respect TRIALS.activeTrials)
-%  12)  Select next Depth based on TrialOrder
-%         - Descending / Ascending
-%         - Random (least-presented Depth)
-%         - Staircase (delegated to section 13)
-%  12a)  Staircase mode: update Depth and assign NextTrialID
-%  12b)  Non-staircase: map selected Depth to trial row
-%
-
-
+% See also cl_TrialSelection_Appetitive_GONOGO
 
 %--------------------------------------------------------------------------
-% 1) Hidden hardware flag: marks the next trial as a reminder to the circuit
+% 1) Get the hidden reminder-trial hardware parameter
+%    This flag tells the circuit whether the next scheduled trial is a
+%    reminder trial.
 %--------------------------------------------------------------------------
 reminderTrial = TRIALS.HW.find_parameter('~ReminderTrial',includeInvisible=true);
 
 %--------------------------------------------------------------------------
-% 2) Numeric trial-type codes used in TRIALS.trials and response decoding
+% 2) Define local trial-type codes used in trial rows and decoded history
 %--------------------------------------------------------------------------
-TT.STIM   = 0;   % stimulus (GO) trial
-TT.CATCH  = 1;   % catch (NOGO) trial
+TT.STIM   = 0;   % stimulus (Stim) trial
+TT.CATCH  = 1;   % catch (NOStim) trial
 TT.REMIND = 2;   % reminder trial
 % TT = dictionary(["STIM","CATCH","REMIND"],0:2)
 
 
 
 %--------------------------------------------------------------------------
-% 4) Copy each write-parameter column from TRIALS.trials into numeric arrays
+% 3) Copy write-parameter columns into numeric vectors for easier access
 %--------------------------------------------------------------------------
 for fn = string(fieldnames(TRIALS.writeParamIdx))'
     all.(fn) = [TRIALS.trials{:,TRIALS.writeParamIdx.(fn)}];
 end
 
 %--------------------------------------------------------------------------
-% 5) Default next trial = first CATCH (used on trial 1 / unknown outcome)
+% 4) On the first trial, start with the first stimulus row and return
 %--------------------------------------------------------------------------
 if TRIALS.TrialIndex == 1
     TRIALS.NextTrialID = find(all.TrialType == TT.STIM,1);
@@ -87,7 +63,8 @@ if TRIALS.TrialIndex == 1
 end
 
 %--------------------------------------------------------------------------
-% 6) Read software parameters (GUI). If not initialized, keep default.
+% 5) Read software parameters created by the task GUI
+%    If the GUI has not been initialized yet, leave the current default.
 %--------------------------------------------------------------------------
 sp = TRIALS.S.Module.Parameters;
 if isempty(sp), return; end
@@ -98,7 +75,7 @@ for j = 1:length(sp), SP.(sn{j}) = sp(j); end
 
 
 %--------------------------------------------------------------------------
-% 7) Reminder override: force REMIND trial and set hardware flag
+% 6) Reminder override: force the reminder row and set the hardware flag
 %--------------------------------------------------------------------------
 if SP.ReminderTrials.Value == 1
     TRIALS.NextTrialID = find(all.TrialType == TT.REMIND,1);
@@ -108,12 +85,12 @@ end
 
 
 %--------------------------------------------------------------------------
-% 8) Clear reminder flag (normal trial selection path)
+% 7) Clear the reminder flag for the normal selection path
 %--------------------------------------------------------------------------
 reminderTrial.Value = false;
 
 %--------------------------------------------------------------------------
-% 9) Decode response codes for completed trials and label the latest outcome
+% 8) Decode completed-trial response codes into outcome/trial-type masks
 %    See epsych.BitMask.list() for decoded field names.
 %--------------------------------------------------------------------------
 RC = epsych.BitMask.decode([TRIALS.DATA.RespCode]);
@@ -121,43 +98,71 @@ RC = epsych.BitMask.decode([TRIALS.DATA.RespCode]);
 
 
 %--------------------------------------------------------------------------
-% 12) Select next Depth based on TrialOrder
-%     Descending/Ascending: step through sorted Depth values relative to lastStim
-%     Random: choose among least-presented Depth values (loose match)
-%     Staircase: handled in the 'Staircase' case (updates Depth directly)
+% 9) Find the depth of the most recent stimulus trial
+%    If no prior stimulus trial exists, begin from the maximum depth.
 %--------------------------------------------------------------------------
-lastGoTrialIdx = find(RC.("TrialType_"+TT.STIM),1,'last');
+lastStimTrialIdx = find(RC.("TrialType_"+TT.STIM),1,'last');
 stim = [TRIALS.DATA.Depth];
-if isempty(lastGoTrialIdx)
+if isempty(lastStimTrialIdx)
     lastStim = max(all.Depth); % no prior STIM: start at max depth
 else
-    lastStim = stim(lastGoTrialIdx);
+    lastStim = stim(lastStimTrialIdx);
 end
 
 %--------------------------------------------------------------------------
-% 12a) Staircase: update Depth on STIM trials
-%     HIT  -> StepDown (shallower)
-%     MISS -> StepUp   (deeper)
+% 10) Update the next stimulus depth from the latest behavioral outcome
+%     Hit  decreases depth, Miss increases depth, and Abort/CR/FA keep the
+%     previous stimulus depth for the next stimulus trial.
 %--------------------------------------------------------------------------
-
-nextStim = lastStim; % no change after 'aborted' trial
 
 if RC.Hit(end)
     nextStim = lastStim - SP.StepOnHit.Value;
 elseif RC.Miss(end)
     nextStim = lastStim + SP.StepOnMiss.Value;
+elseif RC.Abort(end)
+    % no change to nextStim (repeat same depth)
+    nextStim = lastStim;
+
+    % Retain the previous stimulus delay for the repeated trial.
+    sdval = TRIALS.DATA.StimDelay(end);
+    SP.StimDelay.Value = sdval; % TODO: DOUBLE CHECK THAT THIS INDEED UPDATES THE GUI PARAMETER FOR THE NEXT TRIAL
+elseif RC.CorrectRejection(end) || RC.FalseAlarm(end)
+    % no change to nextStim (same depth for next STIM trial)
+    nextStim = lastStim;
 end
 
+
+
+%--------------------------------------------------------------------------
+% 12) Clamp the new depth to the configured staircase bounds
+%--------------------------------------------------------------------------
 nextStim = max(nextStim, SP.MinDepth.Value);
 nextStim = min(nextStim, SP.MaxDepth.Value);
 vprintf(4,'nextStim = %g',nextStim)
 
+%--------------------------------------------------------------------------
+% 13) Write the selected depth into all stimulus trial rows
+%--------------------------------------------------------------------------
 ind = all.TrialType == TT.STIM;
 
 
 [TRIALS.trials{ind,TRIALS.writeParamIdx.Depth}] = deal(nextStim);
 
+
 %--------------------------------------------------------------------------
-% Assign NextTrialID for Staircase mode and return
+% 11) Optionally schedule a catch trial based on p(Catch)
+%     A catch trial is only inserted when the latest completed trial was
+%     not already a catch trial.
 %--------------------------------------------------------------------------
-TRIALS.NextTrialID = find(all.TrialType == TT.STIM,1);
+pCT = SP.P_Catch.Value; % probability of catch trial (0 to 1)
+if ~RC.("TrialType_" + TT.CATCH)(end) && rand() < pCT
+    % Override next trial to CATCH based on p(CATCH) and current trial type
+    TRIALS.NextTrialID = find(all.TrialType == TT.CATCH,1);
+else
+
+
+    %--------------------------------------------------------------------------
+    % 14) Select the first stimulus row as the next trial and return
+    %--------------------------------------------------------------------------
+    TRIALS.NextTrialID = find(all.TrialType == TT.STIM,1);
+end

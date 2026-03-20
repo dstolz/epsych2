@@ -20,6 +20,9 @@ S.Visible = obj.Visible;
 S.PreUpdateFcn = obj.fcnToStr_(obj.PreUpdateFcn);
 S.EvaluatorFcn = obj.fcnToStr_(obj.EvaluatorFcn);
 S.PostUpdateFcn = obj.fcnToStr_(obj.PostUpdateFcn);
+S.PreUpdateFcnEnabled = obj.PreUpdateFcnEnabled;
+S.EvaluatorFcnEnabled = obj.EvaluatorFcnEnabled;
+S.PostUpdateFcnEnabled = obj.PostUpdateFcnEnabled;
 
 % Value and state
 S.Value = obj.Value;

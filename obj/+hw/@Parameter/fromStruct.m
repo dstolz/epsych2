@@ -23,6 +23,15 @@ obj.Visible = logical(S.Visible);
 obj.PreUpdateFcn = obj.strToFcn_(S.PreUpdateFcn);
 obj.EvaluatorFcn = obj.strToFcn_(S.EvaluatorFcn);
 obj.PostUpdateFcn = obj.strToFcn_(S.PostUpdateFcn);
+if isfield(S, 'PreUpdateFcnEnabled')
+    obj.PreUpdateFcnEnabled = logical(S.PreUpdateFcnEnabled);
+end
+if isfield(S, 'EvaluatorFcnEnabled')
+    obj.EvaluatorFcnEnabled = logical(S.EvaluatorFcnEnabled);
+end
+if isfield(S, 'PostUpdateFcnEnabled')
+    obj.PostUpdateFcnEnabled = logical(S.PostUpdateFcnEnabled);
+end
 
 % Flags
 obj.isArray = logical(S.isArray);

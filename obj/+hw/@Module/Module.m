@@ -66,6 +66,9 @@ classdef Module < handle
             options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
             options.Format (1,:) char = '%g'
             options.Visible (1,1) logical = true
+            options.PreUpdateFcnEnabled (1,1) logical = true
+            options.EvaluatorFcnEnabled (1,1) logical = true
+            options.PostUpdateFcnEnabled (1,1) logical = true
             options.UserData = []
             options.isArray (1,1) logical = false
             options.isTrigger (1,1) logical = false

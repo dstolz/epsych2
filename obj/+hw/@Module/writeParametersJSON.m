@@ -4,9 +4,10 @@ function writeParametersJSON(obj, filepath)
 %
 % Writes Module metadata (Label, Name, Index, Fs) and the publicly
 % writable properties of each hw.Parameter to a human-readable JSON file.
-% Function handles are stored as strings. Inf/-Inf/NaN bounds are stored
-% as string sentinels. PostUpdateFcnArgs is not included because
-% heterogeneous cell arrays do not round-trip reliably through JSON.
+% Function handles are stored as strings. Callback enabled flags are
+% included. Inf/-Inf/NaN bounds are stored as string sentinels.
+% PostUpdateFcnArgs is not included because heterogeneous cell arrays do
+% not round-trip reliably through JSON.
 %
 % Parameters
 %   filepath - path to the output JSON file (char or string)

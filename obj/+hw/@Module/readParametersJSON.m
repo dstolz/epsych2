@@ -9,9 +9,10 @@ function readParametersJSON(obj, filepath)
 % the Module metadata (Label, Name, Index) in the file does not match
 % this Module.
 %
-% Function handle strings are restored via str2func. String sentinels
-% for Inf/-Inf/NaN are converted back to numeric values.
-% PostUpdateFcnArgs is not restored (see class-level Limitations note).
+% Function handle strings are restored via str2func and callback enabled
+% flags are restored when present. String sentinels for Inf/-Inf/NaN are
+% converted back to numeric values. PostUpdateFcnArgs is not restored (see
+% class-level Limitations note).
 %
 % Parameters
 %   filepath - path to the input JSON file (char or string)

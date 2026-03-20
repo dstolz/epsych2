@@ -18,6 +18,8 @@ classdef Parameter < matlab.mixin.SetGet
     %   Name, Description, Unit, Module - Display and grouping metadata.
     %   Access, Type, Format, Visible - Access rules and display behavior.
     %   Value, ValueStr, lastUpdated - Current value and display state.
+    %   PreUpdateFcnEnabled, EvaluatorFcnEnabled, PostUpdateFcnEnabled -
+    %       Callback enable flags.
     %   isArray, isTrigger, isRandom, Min, Max - Runtime flags and bounds.
     %
     % Methods
@@ -61,6 +63,10 @@ classdef Parameter < matlab.mixin.SetGet
 
         PostUpdateFcn (1,1) % handle to custom function called after value has been updated
 
+        PreUpdateFcnEnabled (1,1) logical = true % flag to enable or disable PreUpdateFcn without removing the function handle
+        EvaluatorFcnEnabled (1,1) logical = true % flag to enable or disable EvaluatorFcn without removing the function handle
+        PostUpdateFcnEnabled (1,1) logical = true % flag to enable or disable PostUpdateFcn without removing the function handle
+
         % TO DO: Make this available for all custom fcn
         PostUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to EvaluatorFcn
 
@@ -103,7 +109,7 @@ classdef Parameter < matlab.mixin.SetGet
             %   Parent - Parent object that provides the backing hardware or
             %       software interface.
             %   Name=Value - Optional constructor settings for metadata,
-            %       callbacks, visibility, and bounds.
+            %       callbacks, callback enable flags, visibility, and bounds.
             %
             % Returns
             %   obj - Configured hw.Parameter instance.
@@ -116,6 +122,9 @@ classdef Parameter < matlab.mixin.SetGet
                 options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
+                options.PreUpdateFcnEnabled (1,1) logical = true
+                options.EvaluatorFcnEnabled (1,1) logical = true
+                options.PostUpdateFcnEnabled (1,1) logical = true
                 options.UserData = []
                 options.isArray (1,1) logical = false
                 options.isTrigger (1,1) logical = false
@@ -137,6 +146,9 @@ classdef Parameter < matlab.mixin.SetGet
             obj.Type = options.Type;
             obj.Format = options.Format;
             obj.Visible = options.Visible;
+            obj.PreUpdateFcnEnabled = options.PreUpdateFcnEnabled;
+            obj.EvaluatorFcnEnabled = options.EvaluatorFcnEnabled;
+            obj.PostUpdateFcnEnabled = options.PostUpdateFcnEnabled;
             obj.UserData = options.UserData;
             obj.isArray = options.isArray;
             obj.isTrigger = options.isTrigger;
@@ -187,7 +199,7 @@ classdef Parameter < matlab.mixin.SetGet
 
         function set.Value(obj,value)
 
-            if isa(obj.PreUpdateFcn ,'function_handle')
+            if isa(obj.PreUpdateFcn ,'function_handle') && obj.PreUpdateFcnEnabled
                 obj.PreUpdateFcn(obj,value);
             end
 
@@ -195,7 +207,7 @@ classdef Parameter < matlab.mixin.SetGet
                 value = obj.randomize_value();
             end
 
-            if isa(obj.EvaluatorFcn,'function_handle')
+            if isa(obj.EvaluatorFcn,'function_handle') && obj.EvaluatorFcnEnabled
                 value = obj.EvaluatorFcn(obj,value);
             end
 
@@ -210,7 +222,7 @@ classdef Parameter < matlab.mixin.SetGet
             % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
              obj.lastUpdated = now;
 
-            if isa(obj.PostUpdateFcn,'function_handle')
+            if isa(obj.PostUpdateFcn,'function_handle') && obj.PostUpdateFcnEnabled
                 if isempty(obj.PostUpdateFcnArgs)
                     obj.PostUpdateFcn(obj,value);
                 else

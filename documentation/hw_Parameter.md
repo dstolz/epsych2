@@ -23,6 +23,7 @@ settings, including:
 - `Name`, `Description`, `Unit`, `Module`
 - `Access`, `Type`, `Format`, `Visible`
 - `PreUpdateFcn`, `EvaluatorFcn`, `PostUpdateFcn`, `PostUpdateFcnArgs`
+- `PreUpdateFcnEnabled`, `EvaluatorFcnEnabled`, `PostUpdateFcnEnabled`
 - `UserData`, `isArray`, `isTrigger`, `isRandom`, `Min`, `Max`
 
 ### Constructor example
@@ -131,6 +132,15 @@ the total number of values.
 - `PreUpdateFcn(obj, value)`: Runs before randomization and evaluation.
 - `EvaluatorFcn(obj, value)`: Can validate or transform the input value.
 - `PostUpdateFcn(obj, value, ...)`: Runs after the parent write and timestamp update.
+
+Each callback also has a matching logical enable flag:
+
+- `PreUpdateFcnEnabled`
+- `EvaluatorFcnEnabled`
+- `PostUpdateFcnEnabled`
+
+This lets code temporarily disable a callback without clearing its function
+handle.
 
 `PostUpdateFcnArgs` lets you append extra arguments when calling
 `PostUpdateFcn`.

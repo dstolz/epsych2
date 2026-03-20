@@ -24,12 +24,15 @@ function post_stimdelay_update(obj, objStimDelay,StimDelayValue,pStimDur,pRespWi
 
 
 
-
+if isfield(objStimDelay.UserData,'CORRECTVAL') && ~isempty(objStimDelay.UserData.CORRECTVAL)
+    StimDelayValue = objStimDelay.UserData.CORRECTVAL;
+    objStimDelay.Parent.set_parameter(objStimDelay,StimDelayValue);
+end
 preStim  = pRespWinPreStim.Value;
 postStim = pRespWinPostStim.Value;
 
 rwDelay = StimDelayValue + pStimDur.Value - preStim;
-rwDur   = preStim + postStim; 
+rwDur   = preStim + postStim;
 
 
 pRespWinDelay.Value = rwDelay;

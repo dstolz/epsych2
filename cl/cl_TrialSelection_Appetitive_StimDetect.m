@@ -51,14 +51,14 @@ TT.REMIND = 2;   % reminder trial
 % 3) Copy write-parameter columns into numeric vectors for easier access
 %--------------------------------------------------------------------------
 for fn = string(fieldnames(TRIALS.writeParamIdx))'
-    all.(fn) = [TRIALS.trials{:,TRIALS.writeParamIdx.(fn)}];
+    T.(fn) = [TRIALS.trials{:,TRIALS.writeParamIdx.(fn)}];
 end
 
 %--------------------------------------------------------------------------
 % 4) On the first trial, start with the first stimulus row and return
 %--------------------------------------------------------------------------
 if TRIALS.TrialIndex == 1
-    TRIALS.NextTrialID = find(all.TrialType == TT.STIM,1);
+    TRIALS.NextTrialID = find(T.TrialType == TT.STIM,1);
     return
 end
 
@@ -77,7 +77,7 @@ HP = TRIALS.HW_Parameters;
 % 6) Reminder override: force the reminder row and set the hardware flag
 %--------------------------------------------------------------------------
 if SP.ReminderTrials.Value == 1
-    TRIALS.NextTrialID = find(all.TrialType == TT.REMIND,1);
+    TRIALS.NextTrialID = find(T.TrialType == TT.REMIND,1);
     reminderTrial.Value = true;
     return
 end
@@ -103,7 +103,7 @@ RC = epsych.BitMask.decode([TRIALS.DATA.RespCode]);
 lastStimTrialIdx = find(RC.("TrialType_"+TT.STIM),1,'last');
 stim = [TRIALS.DATA.Depth];
 if isempty(lastStimTrialIdx)
-    lastStim = max(all.Depth); % no prior STIM: start at max depth
+    lastStim = max(T.Depth); % no prior STIM: start at max depth
 else
     lastStim = stim(lastStimTrialIdx);
 end
@@ -113,24 +113,48 @@ end
 %     Hit  decreases depth, Miss increases depth, and Abort/CR/FA keep the
 %     previous stimulus depth for the next stimulus trial.
 %--------------------------------------------------------------------------
-
+rda = SP.RepeatDelayOnAbort.Value;
 if RC.Hit(end)
     nextStim = lastStim - SP.StepOnHit.Value;
 
-elseif RC.Miss(end)
+    if rda && length(RC.Abort) > 1 && RC.Abort(end-1) && ~isempty(HP.StimDelay.UserData)
+        % restore StimDelay values
+        HP.StimDelay.isRandom = HP.StimDelay.UserData.isRandom;
+        HP.StimDelay.UserData.CORRECTVAL = [];
+    end
+
+elseif SP.RepeatDelayOnAbort.Value && RC.Miss(end)
     nextStim = lastStim + SP.StepOnMiss.Value;
+
+    if rda && length(RC.Abort) > 1 && RC.Abort(end-1) && ~isempty(HP.StimDelay.UserData)
+        % restore StimDelay values
+        HP.StimDelay.fromStruct(HP.StimDelay.UserData)
+    end
 
 elseif RC.Abort(end)
     % no change to nextStim (repeat same depth)
     nextStim = lastStim;
 
-    if SP.RepeatDelayOnAbort.Value
-        % Retain the previous stimulus delay for the repeated trial.
+    tooManyAborts = length(RC.Abort) >= 3 && all(RC.Abort(end-2:end));
+
+    if tooManyAborts
+        vprintf(2,'Too many Aborts: resetting nextStim to max depth and clearing StimDelay randomization')
+
+        % restore StimDelay values
+        HP.StimDelay.isRandom = HP.StimDelay.UserData.isRandom;
+        HP.StimDelay.UserData.CORRECTVAL = [];
+    elseif rda
         sdval = TRIALS.DATA(end).StimDelay;
     
         % temporarily disable PostUpdateFcn and randomization
-        HP.StimDelay.UserData.PUF = TRIALS.HW_Parameters.StimDelay.PostUpdateFcn;;
+        HP.StimDelay.UserData = HP.StimDelay.toStruct;
 
+        HP.StimDelay.isRandom = false;
+
+        HP.StimDelay.Value = sdval;
+        HP.StimDelay.UserData.CORRECTVAL = sdval;
+
+        vprintf(3,'Repeating trial due to Abort: nextStim = %g, StimDelay = %g',nextStim,sdval)
     end
 elseif RC.CorrectRejection(end) || RC.FalseAlarm(end)
     % no change to nextStim (same depth for next STIM trial)
@@ -149,7 +173,7 @@ vprintf(4,'nextStim = %g',nextStim)
 %--------------------------------------------------------------------------
 % 13) Write the selected depth into all stimulus trial rows
 %--------------------------------------------------------------------------
-ind = all.TrialType == TT.STIM;
+ind = T.TrialType == TT.STIM;
 
 
 [TRIALS.trials{ind,TRIALS.writeParamIdx.Depth}] = deal(nextStim);
@@ -163,11 +187,11 @@ ind = all.TrialType == TT.STIM;
 pCT = SP.P_Catch.Value; % probability of catch trial (0 to 1)
 if ~RC.("TrialType_" + TT.CATCH)(end) && rand() < pCT
     % Override next trial to CATCH based on p(CATCH) and current trial type
-    TRIALS.NextTrialID = find(all.TrialType == TT.CATCH,1);
+    TRIALS.NextTrialID = find(T.TrialType == TT.CATCH,1);
 
 else
     %--------------------------------------------------------------------------
     % 15) Select the first stimulus row as the next trial and return
     %--------------------------------------------------------------------------
-    TRIALS.NextTrialID = find(all.TrialType == TT.STIM,1);
+    TRIALS.NextTrialID = find(T.TrialType == TT.STIM,1);
 end

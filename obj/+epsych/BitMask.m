@@ -29,7 +29,7 @@ classdef BitMask < uint32
     %   getDefaultColors - Return default hex colors for enum values.
     %   Mask2Bits        - Convert integer masks to logical bit arrays.
     %   Bits2Mask        - Convert bit arrays or bit positions to uint32 masks.
-    %   decode           - Decode masks into named logical fields.
+    %   decode           - Decode masks into a struct with named logical fields.
     enumeration
         Undefined           (0)
         Hit                 (1)

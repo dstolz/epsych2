@@ -2,6 +2,7 @@ function varargout = ep_ExperimentDesign(varargin)
 % h = ep_ExperimentDesign
 %
 % Design protocols for EPsych experiments
+% Documentation: documentation/design_ep_ExperimentDesign.md
 %
 % Daniel.Stolzberg@gmail.com 2014
 
@@ -89,70 +90,8 @@ function UpdateRunningProtocol(h) %#ok<DEFNU>
 % 
 % DJS 3/2016
 
-global CONFIG RUNTIME PRGMSTATE
-
-
-if isempty(h.CURRENT_BOX_IDX) || ~strcmp(PRGMSTATE,'RUNNING')
-    set(h.mnu_UpdateRunningExpt,'Enable','off');
-    return
-end
-
-CIDX = h.CURRENT_BOX_IDX;
-
-vprintf(0,'Attempting to update the protocol for currently running box %d ...',CIDX);
-
-protocol = h.protocol;
-if isfield(protocol,'COMPILED')
-    protocol = rmfield(protocol,'COMPILED');
-end
-
-% trim any undefined parameters
-fldn = fieldnames(protocol.MODULES);
-for i = 1:length(fldn)
-    v = protocol.MODULES.(fldn{i}).data;
-    v(~ismember(1:size(v,1),findincell(v(:,1))),:) = [];
-    protocol.MODULES.(fldn{i}).data = v;
-end
-
-protocol = AffixOptions(h,protocol);
-[protocol,fail] = ep_CompileProtocol(protocol);
-
-if fail
-    vprintf(0,1,'Failed to recompile the protocol!  No parameters have been updated.');
-    return
-end
-
-% replace buffers with file ids
-for i = 1:length(fldn)
-    d = protocol.MODULES.(fldn{i}).data;
-    idx = find(cell2mat(d(:,6)));
-    for j = 1:length(idx)
-        v = ['File IDs: [' num2str(1:length(d{idx(j),4})) ']'];
-        d{idx(j),4} = v;
-        protocol.MODULES.(fldn{i}).data = d;
-    end
-end
-
-if protocol.OPTIONS.compile_at_runtime
-    protocol.COMPILED = rmfield(protocol.COMPILED,'trials');
-end
-
-CONFIG(CIDX).PROTOCOL = protocol;
-
-C = CONFIG(CIDX).PROTOCOL.COMPILED;
-RUNTIME.TRIALS(CIDX).trials = C.trials;
-RUNTIME.TRIALS(CIDX).readparams = C.readparams;
-RUNTIME.TRIALS(CIDX).Mreadparams = cellfun(@ModifyParamTag, ...
-    RUNTIME.TRIALS(CIDX).readparams,'UniformOutput',false);
-RUNTIME.TRIALS(CIDX).writeparams = C.writeparams;
-RUNTIME.TRIALS(CIDX).randparams = C.randparams;
-
-RUNTIME.TRIALS(CIDX).TrialCount = zeros(size(C.trials,1),1); % reset trial count
-
-vprintf(0,'Protocol update successful!')
-
-
-
+vprintf(0,1,'Functionality disabled permanently')
+return
 
 
 %% Protocol Setup

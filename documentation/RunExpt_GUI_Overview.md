@@ -45,7 +45,7 @@ A typical session looks like this:
    - Click **Add Subject**.
    - Fill in subject information (including BoxID).
    - Choose the subject’s protocol file when prompted (`*.prot`).
-5. Sanity check the protocol/trials:
+5. (Optional) Sanity check the protocol/trials:
    - Select a subject row.
    - Click **View Trials** to preview compiled trials.
 6. Start the session:
@@ -55,7 +55,7 @@ A typical session looks like this:
    - Use **Stop** to end the session.
 8. After stopping:
    - Click **Save Data** and save each subject’s data file.
-9. (Optional) Save your session setup for reuse:
+9. (Optional) Save your session configuration for reuse:
    - **Config → Save Config...**
 
 ## 3) Main window layout

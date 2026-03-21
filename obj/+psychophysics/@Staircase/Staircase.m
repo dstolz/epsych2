@@ -1,32 +1,31 @@
 classdef Staircase < handle & matlab.mixin.SetGet
-    % Adaptive staircase analysis that tracks reversals and computes thresholds.
-    % 
-    % psychophysics.Staircase analyzes trial data to maintain staircase state, including
-    % reversals, step direction, and threshold estimates. The class exposes dependent
-    % accessors for responseCodes, stimulusValues, and trialCount, as well as computed
-    % properties ReversalCount, ReversalIdx, and Threshold.
+    % S = psychophysics.Staircase(RUNTIME, Parameter)
+    % S = psychophysics.Staircase(DATA, Parameter)
+    % S = psychophysics.Staircase(..., Name=Value)
+    % psychophysics.Staircase Track adaptive reversals and compute staircase thresholds.
+    % psychophysics.Staircase analyzes trial history to compute stimulus step
+    % direction, reversal locations, and threshold estimates for adaptive
+    % psychophysics procedures.
     %
-    % Modes:
-    %   Online mode  — Construct with a Runtime object as the first input. The Staircase
-    %                 attaches a listener to RUNTIME.HELPER and recomputes history on
-    %                 each NewData event.
-    %   Offline mode — Construct with DATA (a per-trial struct array, often loaded from session files)
-    %                 as the first input. No listener is attached; history is computed
-    %                 immediately from DATA and can be recomputed via refresh_history().
-    %
-    % Usage:
-    %   S = psychophysics.Staircase(RUNTIME, Parameter)
-    %   S = psychophysics.Staircase(RUNTIME, Parameter, StaircaseDirection="Up")
-    %   S = psychophysics.Staircase(DATA, Parameter)
-    %   S = psychophysics.Staircase(DATA, Parameter, EnablePlot=true)
-    %   S = psychophysics.Staircase(DATA, Parameter, EnablePlot=true, PlotAxes=ax)
+    % The class supports two operating modes:
+    %   Online mode  - Construct with a Runtime object to listen for NewData events
+    %       and update automatically as trials are completed.
+    %   Offline mode - Construct with a per-trial DATA struct array to analyze saved
+    %       sessions without attaching event listeners.
     %
     % Key properties:
-    %   StaircaseDirection — "Up" or "Down"; defines direction for reversal detection
-    %   StimulusTrialType — BitMask identifying stimulus trials for analysis
-    %   ConvertToDecibels — when true, converts stimulus values using 20*log10(x)
+    %   Parameter - hw.Parameter object used to extract stimulus values from DATA.
+    %   StaircaseDirection - "Up" or "Down" reversal convention.
+    %   StimulusTrialType - BitMask identifying trials included in the staircase.
+    %   ConvertToDecibels - Convert stimulus values using 20*log10(x).
+    %   Threshold - Threshold estimate computed from recent reversal values.
     %
-    % See also: documentation/Staircase.md
+    % Example:
+    %   S = psychophysics.Staircase(RUNTIME, Parameter, EnablePlot=true);
+    %   S = psychophysics.Staircase(DATA, Parameter, StaircaseDirection="Up");
+    %
+    % See documentation/Staircase.md for workflow notes, threshold details, and
+    % event-system integration examples.
 
     properties (SetObservable)
         Parameter = []  % Parameter object to track in staircase analysis
@@ -115,13 +114,11 @@ classdef Staircase < handle & matlab.mixin.SetGet
             %
             % Construct a Staircase object for online or offline analysis.
             %
-            % Online mode:
-            %   Pass RUNTIME as the first input to attach a listener to RUNTIME.HELPER
-            %   and automatically update history on each NewData event.
+            % Pass a Runtime object as the first input to attach a listener to
+            % RUNTIME.HELPER and update automatically on each NewData event.
             %
-            % Offline mode:
-            %   Pass DATA (the per-trial struct array, e.g. event.Data.DATA) as the first
-            %   input to compute staircase history immediately without attaching listeners.
+            % Pass a DATA struct array as the first input to compute staircase history
+            % immediately without attaching listeners.
             %
             % In online mode, the staircase automatically recomputes reversals and
             % thresholds when new trial data arrives. In offline mode, call refresh_history()
@@ -135,17 +132,22 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % Staircase creates and owns a new figure/axes for online updates.
             %
             % Parameters:
-            %   RUNTIME — Runtime object with HELPER and trial data (online mode)
-            %   DATA — per-trial struct array (offline mode), typically event.Data.DATA
-            %   Parameter — hw.Parameter object to track in staircase
-            %   StimulusTrialType — BitMask for stimulus trials (default: TrialType_0)
-            %   CatchTrialType — BitMask for catch trials (default: TrialType_1)
-            %   StaircaseDirection — "Up" or "Down" (default: "Down")
-            %   ConvertToDecibels — convert stimulus values to dB (default: false)
-            %   EnablePlot — enable online plotting (default: false)
-            %   PlotAxes — axes for plotting; when empty, creates a new figure (default: [])
-            %   ShowSteps — show step markers when plotting (default: true)
-            %   ShowReversals — show reversal markers when plotting (default: true)
+            %   RUNTIME - Runtime object with HELPER and trial data for online mode.
+            %   DATA - Per-trial struct array for offline mode, typically event.Data.DATA.
+            %   Parameter - hw.Parameter object to track in the staircase.
+            %   StimulusTrialType - BitMask for stimulus trials. The default is TrialType_0.
+            %   CatchTrialType - BitMask for catch trials. The default is TrialType_1.
+            %   StaircaseDirection - "Up" or "Down". The default is "Down".
+            %   ConvertToDecibels - Convert stimulus values to dB. The default is false.
+            %   EnablePlot - Enable staircase plotting. The default is false.
+            %   PlotAxes - Axes to draw into. When empty, a new figure is created.
+            %   ShowSteps - Show step-direction markers when plotting.
+            %   ShowReversals - Show reversal markers when plotting.
+            %
+            % Returns:
+            %   obj - Configured psychophysics.Staircase instance.
+            %
+            % See documentation/Staircase.md for offline analysis and plotting examples.
             arguments
                 RUNTIME 
                 Parameter
@@ -188,9 +190,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
         function delete(obj)
             % delete(obj)
             % Destroy Staircase and release listeners/graphics.
-            %
             % Parameters:
-            %   obj — psychophysics.Staircase instance
+            %   obj - psychophysics.Staircase instance.
             obj.disablePlot();
 
             if ~isempty(obj.hl_NewData)
@@ -202,10 +203,9 @@ classdef Staircase < handle & matlab.mixin.SetGet
         function update_data(obj, ~, event)
             % update_data(obj, ~, event)
             % Update staircase state from a runtime NewData event.
-            %
             % Parameters:
-            %   obj — psychophysics.Staircase instance
-            %   event — event data containing event.Data.DATA (trial struct array)
+            %   obj - psychophysics.Staircase instance.
+            %   event - Event payload containing event.Data.DATA.
             vprintf(4, 'psychophysics.Staircase received NewData event with %d trials', numel(event.Data.DATA));
             obj.DATA = event.Data.DATA;
 
@@ -222,9 +222,10 @@ classdef Staircase < handle & matlab.mixin.SetGet
         function refresh_history(obj)
             % refresh_history(obj)
             % Recompute staircase history and notify listeners.
-            %
             % Parameters:
-            %   obj — psychophysics.Staircase instance
+            %   obj - psychophysics.Staircase instance.
+            %
+            % Use this after changing DATA or analysis settings in offline workflows.
             obj.recompute_history();
 
             if obj.plotEnabled_
@@ -238,15 +239,15 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % obj.enablePlot()
             % obj.enablePlot(ax)
             % obj.enablePlot(ax, ShowSteps=true, ShowReversals=true)
-            %
-            % Enable optional online plotting of staircase history.
+            % Enable optional staircase plotting.
             % If ax is empty, a new uifigure and uiaxes are created and owned.
-            %
             % Parameters:
-            %   obj — psychophysics.Staircase instance
-            %   ax — target axes; when empty, a new figure/axes is created (default: [])
-            %   ShowSteps — show step-direction markers (default: obj.ShowSteps)
-            %   ShowReversals — show reversal markers (default: obj.ShowReversals)
+            %   obj - psychophysics.Staircase instance.
+            %   ax - Target axes. When empty, a new figure and axes are created.
+            %   ShowSteps - Show step-direction markers. The default is obj.ShowSteps.
+            %   ShowReversals - Show reversal markers. The default is obj.ShowReversals.
+            %
+            % See documentation/Staircase.md for plotting workflows.
             arguments
                 obj
                 ax = []
@@ -284,9 +285,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
         function disablePlot(obj)
             % disablePlot(obj)
             % Disable plotting and release graphics/listeners.
-            %
             % Parameters:
-            %   obj — psychophysics.Staircase instance
+            %   obj - psychophysics.Staircase instance.
             obj.plotEnabled_ = false;
 
             if ~isempty(obj.plotListeners_)
@@ -312,9 +312,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
         function refreshPlot(obj)
             % refreshPlot(obj)
             % Re-render plot from current staircase state (no-op if disabled).
-            %
             % Parameters:
-            %   obj — psychophysics.Staircase instance
+            %   obj - psychophysics.Staircase instance.
             if ~obj.plotEnabled_
                 return
             end
@@ -323,7 +322,12 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
 
         function rc = get.responseCodes(obj)
-            % Extract response codes from DATA. Returns empty array if no data available.
+            % rc = obj.responseCodes
+            % Return response codes extracted from obj.DATA.
+            % Parameters:
+            %   obj - psychophysics.Staircase instance.
+            % Returns:
+            %   rc - Numeric response-code array, or empty when DATA is empty.
             if isempty(obj.DATA)
                 rc = [];
                 return
@@ -333,14 +337,23 @@ classdef Staircase < handle & matlab.mixin.SetGet
         end
 
         function n = get.trialCount(obj)
-            % Return total number of trials in DATA.
+            % n = obj.trialCount
+            % Return the total number of trials in obj.DATA.
+            % Parameters:
+            %   obj - psychophysics.Staircase instance.
+            % Returns:
+            %   n - Number of trials currently stored in DATA.
             n = numel(obj.DATA);
         end
 
         function v = get.stimulusValues(obj)
-            % Extract stimulus values from DATA using Parameter.validName. 
-            % If ConvertToDecibels is true, transforms values as dB = 20*log10(x) 
-            % with non-positive values replaced by NaN. Returns empty array if no data.
+            % v = obj.stimulusValues
+            % Return tracked stimulus values extracted from obj.DATA.
+            % Parameters:
+            %   obj - psychophysics.Staircase instance.
+            % Returns:
+            %   v - Stimulus values for the tracked Parameter, optionally converted to
+            %       decibels with nonpositive values replaced by NaN.
             if isempty(obj.DATA)
                 v = [];
             else
@@ -353,6 +366,12 @@ classdef Staircase < handle & matlab.mixin.SetGet
         end
 
         function n = get.ParameterName(obj)
+            % n = obj.ParameterName
+            % Return a display name for the tracked parameter.
+            % Parameters:
+            %   obj - psychophysics.Staircase instance.
+            % Returns:
+            %   n - Parameter name for labels and plot titles.
             if isempty(obj.Parameter)
                 n = "";
                 return

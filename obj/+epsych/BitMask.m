@@ -1,18 +1,35 @@
 classdef BitMask < uint32
     % bm = epsych.BitMask.Undefined
-    % Enumerated bit positions used for EPsych response/trial coding.
+    % epsych.BitMask Enumerated bit indices used for EPsych trial and response coding.
+    % This enumeration maps named behavioral states, contingencies, trial types,
+    % choices, and options to bit positions used in uint32 response masks.
     %
-    % This enum maps named behavioral and trial-state fields to bit indices.
-    % Use it to build, decode, and validate bitmasks stored in trial data.
+    % Use epsych.BitMask to build masks, decode stored response codes, validate
+    % enum values, and retrieve default colors for visualization.
     %
-    % See documentation/BitMask.md for a user-focused overview and examples.
+    % Example:
+    %   flags = [epsych.BitMask.Hit epsych.BitMask.Reward];
+    %   mask = epsych.BitMask.Bits2Mask(uint32(flags));
+    %   [bits, activeFlags] = epsych.BitMask.Mask2Bits(mask);
+    %
+    % See also documentation/BitMask.md for additional examples and workflow notes.
     %
     % Methods:
-    %   list       - List all enumeration names and numeric values.
-    %   getDefaultColors - Return default hex color strings for enum values.
-    %   Mask2Bits  - Convert integer mask(s) into binary arrays / enums.
-    %   Bits2Mask  - Convert binary arrays / bit positions into uint32 masks.
-    %   GUI        - Launch the bitmask GUI helper.
+    %   list             - Return or print enumeration names and bit indices.
+    %   GUI              - Launch the interactive bitmask GUI helper.
+    %   getResponses     - Return response outcome flags.
+    %   getContingencies - Return contingency flags.
+    %   getResponsePeriod - Return response window flags.
+    %   getTrialTypes    - Return trial type flags.
+    %   getChoices       - Return choice flags.
+    %   getOptions       - Return option flags.
+    %   getDefined       - Return all defined flags except Undefined.
+    %   getAll           - Return all enumeration members.
+    %   isValidValue     - Test whether a value is a defined enum member.
+    %   getDefaultColors - Return default hex colors for enum values.
+    %   Mask2Bits        - Convert integer masks to logical bit arrays.
+    %   Bits2Mask        - Convert bit arrays or bit positions to uint32 masks.
+    %   decode           - Decode masks into named logical fields.
     enumeration
         Undefined           (0)
         Hit                 (1)
@@ -50,6 +67,10 @@ classdef BitMask < uint32
 
     methods
         function disp(obj)
+            % disp(obj)
+            % Display BitMask values as a bit-index table.
+            % Parameters:
+            %   obj - epsych.BitMask array to display.
             fprintf('Bit Index\tName\n');
             fprintf('---------\t----\n');
             for i = 1:length(obj)
@@ -60,18 +81,16 @@ classdef BitMask < uint32
 
     methods (Static)
         function [names, values] = list()
-            %LIST List all BitMask enumerations and their corresponding values.
+            % [names, values] = epsych.BitMask.list()
+            % Return or print all BitMask enumeration names and bit indices.
+            % Parameters:
+            %   None.
+            % Returns:
+            %   names  - Cell array of enumeration member names.
+            %   values - uint32 array of corresponding bit indices.
             %
-            %   [names, values] = epsych.BitMask.list() returns:
-            %     - names  : Cell array of enumeration names (char)
-            %     - values : Corresponding uint32 values
-            %
-            %   If no output is specified, the list is printed to the command window.
-            %
-            %   Example:
-            %       epsych.BitMask.list()
-            %
-            %   See also: enumeration
+            % When called with no output arguments, the method prints the full list.
+            % See also documentation/BitMask.md for usage examples.
 
             [enumObjs, names] = enumeration('epsych.BitMask');
             values = uint32(enumObjs);
@@ -83,7 +102,15 @@ classdef BitMask < uint32
         end
 
         function f = GUI(options)
-            %GUI Launch the BitMask GUI helper for interactive mask construction and decoding.
+            % f = epsych.BitMask.GUI(options)
+            % Launch the interactive bitmask GUI helper.
+            % Parameters:
+            %   options.InitialMask - Optional uint32-compatible scalar mask loaded into
+            %       the GUI at startup.
+            % Returns:
+            %   f - Figure handle for the launched GUI.
+            %
+            % See also documentation/BitMask.md and helpers/bitmask_gui.m.
             arguments
                 options.InitialMask (1,1) {mustBeNonnegative, mustBeFinite, mustBeInteger} = 0
             end
@@ -93,54 +120,92 @@ classdef BitMask < uint32
 
 
         function m = getResponses()
+            % m = epsych.BitMask.getResponses()
+            % Return the response outcome flags.
+            % Returns:
+            %   m - epsych.BitMask array containing Hit, Miss, CorrectReject,
+            %       FalseAlarm, and Abort.
             m = epsych.BitMask(1:5);
         end
 
         function m = getContingencies()
+            % m = epsych.BitMask.getContingencies()
+            % Return the contingency flags.
+            % Returns:
+            %   m - epsych.BitMask array containing Reward and Punish.
             m = epsych.BitMask(6:7);
         end
 
         function m = getResponsePeriod()
+            % m = epsych.BitMask.getResponsePeriod()
+            % Return the response-period flags.
+            % Returns:
+            %   m - epsych.BitMask array containing PreResponseWindow,
+            %       ResponseWindow, and PostResponseWindow.
             m = epsych.BitMask(8:10);
         end
 
         function m = getTrialTypes()
+            % m = epsych.BitMask.getTrialTypes()
+            % Return the trial-type flags.
+            % Returns:
+            %   m - epsych.BitMask array containing TrialType_0 through TrialType_5.
             m = epsych.BitMask(11:16);
         end
 
         function m = getChoices()
+            % m = epsych.BitMask.getChoices()
+            % Return the choice flags.
+            % Returns:
+            %   m - epsych.BitMask array containing Choice_0 through Choice_5.
             m = epsych.BitMask(17:22);
         end
 
         function m = getOptions()
+            % m = epsych.BitMask.getOptions()
+            % Return the option flags.
+            % Returns:
+            %   m - epsych.BitMask array containing Option_A through Option_I.
             m = epsych.BitMask(23:31);
         end
 
         function d = getDefined()
+            % d = epsych.BitMask.getDefined()
+            % Return all defined flags except Undefined.
+            % Returns:
+            %   d - epsych.BitMask array containing all nonzero enum members.
             d = epsych.BitMask.getAll;
             d(1) = [];
         end
 
         function a = getAll()
+            % a = epsych.BitMask.getAll()
+            % Return all BitMask enumeration members.
+            % Returns:
+            %   a - epsych.BitMask array including Undefined.
             a = enumeration('epsych.BitMask');
         end
 
         function tf = isValidValue(val)
+            % tf = epsych.BitMask.isValidValue(val)
+            % Test whether a numeric value matches a defined BitMask member.
+            % Parameters:
+            %   val - Numeric value to test against the enumeration values.
+            % Returns:
+            %   tf - Logical scalar or array indicating whether each value is valid.
             tf = any(uint32(enumeration('epsych.BitMask')) == val);
         end
 
         function colors = getDefaultColors(bitMasks)
-            %GETDEFAULTCOLORS Return default hex color strings for BitMask values.
+            % colors = epsych.BitMask.getDefaultColors(bitMasks)
+            % Return default hex colors for BitMask values.
+            % Parameters:
+            %   bitMasks - Optional epsych.BitMask array or numeric array of valid enum
+            %       values. If omitted, colors are returned for all enum members.
+            % Returns:
+            %   colors - String array of hex color values matching the size of bitMasks.
             %
-            %   colors = epsych.BitMask.getDefaultColors() returns a string array of
-            %   default hex colors for all BitMask enumerations, including Undefined.
-            %
-            %   colors = epsych.BitMask.getDefaultColors(bitMasks) returns a string
-            %   array of hex colors with the same size as bitMasks. bitMasks may be an
-            %   epsych.BitMask array or a numeric array containing valid BitMask values.
-            %
-            %   Example:
-            %       c = epsych.BitMask.getDefaultColors(epsych.BitMask.getResponses)
+            % See also documentation/BitMask.md for grouped usage examples.
 
             if nargin < 1 || isempty(bitMasks)
                 bitMasks = epsych.BitMask.getAll;
@@ -200,27 +265,18 @@ classdef BitMask < uint32
         end
 
         function [bits, BM] = Mask2Bits(mask, nbits)
-            %MASK2BITS Convert integer bitmask(s) to binary array(s) and BitMask enum list(s).
+            % [bits, BM] = epsych.BitMask.Mask2Bits(mask, nbits)
+            % Convert integer masks to logical bit arrays and active BitMask values.
+            % Parameters:
+            %   mask  - Integer array of nonnegative mask values to decode.
+            %   nbits - Optional number of bit positions to return. The default is 32.
+            % Returns:
+            %   bits - Logical array of size [numel(mask), nbits] with the least
+            %       significant bit in column 1.
+            %   BM   - Cell array, shaped like mask, containing active epsych.BitMask
+            %       values for each element.
             %
-            %   bits = MASK2BITS(mask) returns a binary array of type uint8 with size
-            %   [numel(mask), nbits], where each row represents the binary value of the
-            %   corresponding element in 'mask', with the least significant bit (LSB) on the
-            %   left (column 1).
-            %
-            %   bits = MASK2BITS(mask, nbits) specifies the number of bits to return
-            %   instead of the default 32.
-            %
-            %   [bits, BM] = MASK2BITS(...) also returns a cell array 'BM' with the same
-            %   shape as 'mask', where each cell contains an array of epsych.BitMask enums
-            %   corresponding to the active bits in that mask element.
-            %
-            %   Inputs:
-            %       mask  - Integer array (any size) of non-negative values to convert.
-            %       nbits - (Optional) Number of bits to return (default = 32).
-            %
-            %   Outputs:
-            %       bits - Array of size [numel(mask), nbits] representing binary state of each bit.
-            %       BM   - Cell array of BitMask enumeration arrays indicating active flags.
+            % See also epsych.BitMask.Bits2Mask and documentation/BitMask.md.
 
             arguments
                 mask {mustBeNonnegative, mustBeFinite, mustBeNonempty, mustBeInteger}
@@ -250,26 +306,21 @@ classdef BitMask < uint32
 
 
         function mask = Bits2Mask(bits,dim)
-            %BITS2MASK Convert a binary vector or bit positions to a scalar bitmask.
+            % mask = epsych.BitMask.Bits2Mask(bits, dim)
+            % Convert bit vectors or bit positions to uint32 masks.
+            % Parameters:
+            %   bits - Binary vectors with the least significant bit first, or vectors
+            %       of positive bit positions.
+            %   dim  - Dimension whose rows define independent masks. Use dim = 2 to
+            %       treat columns as independent masks.
+            % Returns:
+            %   mask - Column vector of uint32 mask values.
             %
-            %   mask = BITS2MASK(bits) converts:
-            %     - A binary vector (e.g., [0 1 1 1 0]) with LSB leftmost, or
-            %     - A vector of bit positions (e.g., [2 3 4]) to a uint32 bitmask.
+            % Example:
+            %   mask = epsych.BitMask.Bits2Mask([0 1 1 1 0]);
+            %   mask = epsych.BitMask.Bits2Mask([2 3 4]);
             %
-            %  mask = BITS2MASK(bits, dim) specifies the dimension along which to
-            %  interpret the input bits. For example, if bits is a 2D array with
-            %  multiple rows, dim = 1 will treat each row as a separate binary
-            %  vector, while dim = 2 will treat each column as a separate binary
-            %  vector. The default is dim = 1.
-            %
-            %   Examples:
-            %       mask = Bits2Mask([0 1 1 1 0]);    % -> 14
-            %       mask = Bits2Mask([2 3 4]);        % -> 14
-            %
-            %  b = epsych.BitMask.Mask2Bits([Data.ResponseCode]);
-            %  isequal(epsych.BitMask.Bits2Mask(b),[Data.ResponseCode]')
-            %
-            %   See also MASK2BITS, BITGET, BITSET.
+            % See also epsych.BitMask.Mask2Bits and documentation/BitMask.md.
 
             arguments
                 bits {mustBeNonempty}
@@ -302,24 +353,16 @@ classdef BitMask < uint32
 
 
         function [M,N] = decode(responseCodes)
-            %decode Decodes response codes into a structure of bitmask flags.
-            %   [M, N] = decode(RESPONSECODES) takes an array of response
-            %   codes and decodes them using the bitmask definitions from
-            %   epsych.BitMask.getDefined. The function returns a structure M where each
-            %   field corresponds to a bitmask name and contains a logical array indicating
-            %   the presence of that bit in each response code.
+            % [M, N] = epsych.BitMask.decode(responseCodes)
+            % Decode response codes into named logical flag arrays.
+            % Parameters:
+            %   responseCodes - Integer array of response masks to decode.
+            % Returns:
+            %   M - Structure with one logical field per defined BitMask member.
+            %   N - Structure of per-field counts, returned when requested.
             %
-            %   If two output arguments are requested, the function also returns N, a
-            %   structure with the same fields as M, where each field contains the sum of
-            %   true values in the corresponding field of M (i.e., the count of times each
-            %   bitmask was set across all response codes).
-            %
-            %   Inputs:
-            %       responseCodes - Array of integer response codes to decode.
-            %
-            %   Outputs:
-            %       M - Structure with logical arrays for each bitmask flag.
-            %       N - (Optional) Structure with counts for each bitmask flag.
+            % The Undefined member is excluded from the output fields. See also
+            % documentation/BitMask.md for common decoding workflows.
 
             responseCodes = uint32(responseCodes);
             bm = epsych.BitMask.getDefined;

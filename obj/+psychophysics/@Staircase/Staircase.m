@@ -394,10 +394,10 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
             stimValues = obj.stimulusValues(stimMask);
 
-            aborts = RCD.Abort;
+            stimTrials = RCD.(char(obj.StimulusTrialType));
 
-            naidx = find(~aborts);
-            sv = stimValues(~aborts);
+            idxStimTrials = find(stimTrials);
+            sv = stimValues(stimTrials);
 
             sd = sign(diff(sv));
             if obj.StaircaseDirection == "Up"
@@ -406,7 +406,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
             stepDirection = zeros(1, obj.trialCount);
             if ~isempty(sd)
-                stepDirection(obj.StimulusTrialIdx(naidx)) = [0 sd];
+                stepDirection(obj.StimulusTrialIdx(idxStimTrials)) = [0 sd];
             end
             obj.StepDirection = stepDirection;
 
@@ -414,7 +414,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
             obj.ReversalDirection = [];
             if numel(sd) >= 2
                 rind = sd(2:end) ~= sd(1:end-1);
-                reversalStimIdx = naidx(rind) + 1;
+                reversalStimIdx = idxStimTrials(rind) + 1;
                 obj.ReversalIdx = reversalStimIdx;
                 obj.ReversalDirection = sd(rind+1);
             end

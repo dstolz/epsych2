@@ -15,6 +15,7 @@ The project is designed for labs that want a practical experiment framework with
 
 Start here if you are setting up EPsych for the first time:
 
+- Toolbox orientation guide: [documentation/Toolbox_Overview.md](documentation/Toolbox_Overview.md)
 - Installation and first-run guide: [documentation/Installation_Guide.md](documentation/Installation_Guide.md)
 - Session GUI walkthrough: [documentation/RunExpt_GUI_Overview.md](documentation/RunExpt_GUI_Overview.md)
 - Developer-facing architecture notes: [documentation/Architecture_Overview.md](documentation/Architecture_Overview.md)
@@ -33,6 +34,7 @@ The repository includes both legacy procedural code and a gradual migration towa
 
 ## Documentation status
 
+- A concise onboarding map of the main tools is available in [documentation/Toolbox_Overview.md](documentation/Toolbox_Overview.md)
 - A practical overview of the session GUI is available in [documentation/RunExpt_GUI_Overview.md](documentation/RunExpt_GUI_Overview.md)
 - A detailed setup guide is available in [documentation/Installation_Guide.md](documentation/Installation_Guide.md)
 - A developer-oriented codebase map is available in [documentation/Architecture_Overview.md](documentation/Architecture_Overview.md)
@@ -152,10 +154,8 @@ This workflow is described in more detail in [documentation/RunExpt_GUI_Overview
 
 Code-confirmed toolbox usage:
 
-- Signal Processing Toolbox
-    - filter design and analysis paths in calibration and stimulus-generation helpers
-- Optimization Toolbox
-    - nonlinear fitting via `lsqcurvefit` in `helpers/chunkwiseDeline.m`
+- Signal Processing Toolbox: filter design and analysis paths in calibration and stimulus-generation helpers
+- Optimization Toolbox: nonlinear fitting via `lsqcurvefit` in `helpers/chunkwiseDeline.m`
 
 Documented optional toolbox usage:
 

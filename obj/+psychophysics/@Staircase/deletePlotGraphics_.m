@@ -7,6 +7,7 @@ function deletePlotGraphics_(obj)
 
 if ~isempty(obj.h_line) && isvalid(obj.h_line), delete(obj.h_line); end
 if ~isempty(obj.h_points) && isvalid(obj.h_points), delete(obj.h_points); end
+if ~isempty(obj.CatchH) && isvalid(obj.CatchH), delete(obj.CatchH); end
 if ~isempty(obj.h_thrreg) && isvalid(obj.h_thrreg), delete(obj.h_thrreg); end
 if ~isempty(obj.h_thrline) && isvalid(obj.h_thrline), delete(obj.h_thrline); end
 if ~isempty(obj.StepH) && isvalid(obj.StepH), delete(obj.StepH); end
@@ -16,6 +17,7 @@ if ~isempty(obj.plotContextMenu_) && isvalid(obj.plotContextMenu_), delete(obj.p
 
 obj.h_line = [];
 obj.h_points = [];
+obj.CatchH = [];
 obj.h_thrreg = [];
 obj.h_thrline = [];
 obj.StepH = [];

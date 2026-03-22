@@ -212,33 +212,8 @@ p.Max = 1;
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield',autoCommit=true);
 h.Text = "p(Catch Trial):";
 
-%{
-
-% >> Consecutive NOGO min
-p = R.S.Module.add_parameter('ConsecutiveNOGO_min',1);
-h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
-h.EvaluatorFcn = @obj.eval_gonogo;
-h.Values = 0:5;
-h.Value = 1;
-h.Text = "Consecutive NoGo (min):";
-
-% >> Consecutive NOGO max
-p = R.S.Module.add_parameter('ConsecutiveNOGO_max',2);
-h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');%,autoCommit=true);
-h.EvaluatorFcn = @obj.eval_gonogo;
-h.Values = 0:10;
-h.Value = 2;
-h.Text = "Consecutive NoGo (max):";
 
 
-% >> Trial order
-p = R.S.Module.add_parameter('TrialOrder','Staircase');
-h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown',autoCommit=true);
-h.Values = ["Descending","Ascending","Random","Staircase"];
-h.Value = "Staircase";
-h.Text = "Trial Order:";
-
-%}
 
 % TRIAL CONTROLS --------------------------------------------------
 h = uilabel(layoutTrialControls);

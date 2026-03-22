@@ -19,11 +19,13 @@ if isempty(obj.h_line) || ~isvalid(obj.h_line)
     return
 end
 
-[x, y, c, xStep, yStep, cStep, xRevUp, yRevUp, xRevDown, yRevDown] = obj.getPlotData_();
+[x, y, c, xCatch, yCatch, cCatch, xStep, yStep, cStep, xRevUp, yRevUp, xRevDown, yRevDown] = obj.getPlotData_();
 
 set(obj.h_line, 'XData', x, 'YData', y);
 set(obj.h_points, 'XData', x, 'YData', y, ...
     'SizeData', obj.MarkerSize, 'CData', hex2rgb(c));
+set(obj.CatchH, 'XData', xCatch, 'YData', yCatch, ...
+    'SizeData', obj.MarkerSize, 'CData', hex2rgb(cCatch));
 
 if obj.ShowSteps
     set(obj.StepH, 'Visible', 'on', 'XData', xStep, 'YData', yStep, ...

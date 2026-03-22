@@ -94,6 +94,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
         h_line
         h_points
+        CatchH
         h_thrreg
         h_thrline
         StepH

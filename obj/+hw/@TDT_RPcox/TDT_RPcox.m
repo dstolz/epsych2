@@ -6,8 +6,20 @@ classdef TDT_RPcox < hw.Interface
     % This interface implements the hw.Interface contract for reading and
     % writing RPvds tags/parameters and for issuing trigger pulses.
     %
-    % Methods:
-    %   trigger, set_parameter, get_parameter
+    % Parameters
+    %   RPvdsFile - RPvds circuit file or files to load.
+    %   moduleType - Hardware model/type for each RPvds circuit.
+    %   moduleAlias - EPsych module label for each configured device.
+    %
+    % Properties
+    %   ExperimentInfo - Experiment metadata populated by the backend.
+    %   Module - Array of configured hw.Module objects.
+    %   mode - Current hw.DeviceState derived from RP status.
+    %
+    % Methods
+    %   trigger, set_parameter, get_parameter - Interface I/O methods.
+    %
+    % See also: documentation/hw_Interface.md, hw.Module, hw.Parameter
 
 
     properties

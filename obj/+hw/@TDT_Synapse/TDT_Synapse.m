@@ -4,10 +4,23 @@ classdef TDT_Synapse < hw.Interface
     % Hardware interface for TDT Synapse via the Synapse API wrapper.
     %
     % This interface implements the hw.Interface contract for reading and
-    % writing Synapse parameters and issuing trigger pulses.
+    % writing Synapse parameters, reporting device mode, and issuing
+    % trigger pulses through the Synapse API.
     %
-    % Methods:
-    %   trigger, set_parameter, get_parameter, update_experiment_info
+    % Parameters
+    %   Server - Synapse server host name. Defaults to 'localhost'.
+    %
+    % Properties
+    %   ExperimentInfo - Current Synapse user, subject, experiment, tank,
+    %       and block metadata.
+    %   Module - Array of discovered hw.Module objects.
+    %   mode - Current hw.DeviceState reported by Synapse.
+    %
+    % Methods
+    %   update_experiment_info - Refresh ExperimentInfo from Synapse.
+    %   trigger, set_parameter, get_parameter - Interface I/O methods.
+    %
+    % See also: documentation/hw_Interface.md, hw.Module, hw.Parameter
 
 
     properties

@@ -1,5 +1,15 @@
 classdef DeviceState < int8
-    % Enumerated type representing device states
+    % hw.DeviceState
+    % Enumerated device-state values used by hw.Interface implementations.
+    %
+    % Members
+    %   Idle, Standby, Preview, Record, Stop, Pause, Error
+    %
+    % Methods
+    %   asString - Return the enumeration name as a string scalar.
+    %   isIdle - True for terminal or inactive states.
+    %
+    % See also: documentation/hw_Interface.md, hw.Interface
     enumeration
         Idle    (0)
         Standby (1)

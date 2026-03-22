@@ -1,13 +1,23 @@
 classdef Module < handle
     % obj = hw.Module(HW, Label, Name, Index)
-    % Container for a hardware module and its parameters.
+    % Represent one named hardware module and its exposed parameters.
     %
-    % A Module groups hw.Parameter objects under a named hardware unit
-    % (real hardware or a software shim) for use by hw.Interface.
+    % A Module groups hw.Parameter objects under a hardware unit label
+    % and index. Modules are typically owned by a hw.Interface subclass
+    % and provide the organization layer used by GUIs, runtime code, and
+    % JSON parameter import/export helpers.
     %
-    % Properties (selected):
-    %   parent     - Parent hw.Interface instance.
+    % Parameters
+    %   HW - Parent hardware interface that owns this module.
+    %   Label - Short module label used for display and serialization.
+    %   Name - Hardware-specific module name.
+    %   Index - Module index within the parent interface.
+    %
+    % Properties
+    %   parent - Parent hw.Interface instance.
+    %   Fs - Module sample rate or update rate metadata.
     %   Parameters - Array of hw.Parameter handles belonging to this module.
+    %   Info - Module-specific metadata defined by the parent interface.
     %
     % Methods:
     %   add_parameter          - Convenience method for creating/adding a parameter.
@@ -17,6 +27,8 @@ classdef Module < handle
     % Limitations:
     %   PostUpdateFcnArgs is not serialized by writeParametersJSON/readParametersJSON
     %   because heterogeneous cell arrays do not round-trip reliably through JSON.
+    %
+    % See also: documentation/hw_Module.md, hw.Interface, hw.Parameter
         
     properties (SetAccess = immutable)
         parent (1,1)  % parent hardware interface (inherits hw.Interface)
@@ -56,6 +68,21 @@ classdef Module < handle
 
         
         function P = add_parameter(obj,name,value,options)
+            % P = obj.add_parameter(name, value)
+            % P = obj.add_parameter(name, value, Name=Value)
+            % Create a hw.Parameter, initialize it, and append it to this Module.
+            %
+            % Parameters
+            %   name - Display name for the new parameter.
+            %   value - Initial parameter value. String scalars are converted to
+            %       char and force the created parameter Type to 'String'.
+            %   Name=Value - Optional metadata and behavior settings passed to
+            %       hw.Parameter, including Description, Unit, Access, Type,
+            %       Format, Visible, callback enable flags, UserData, array/
+            %       trigger/random flags, and Min/Max bounds.
+            %
+            % Returns
+            %   P - Created hw.Parameter handle.
             arguments
             obj
             name (1,:) char {mustBeText}

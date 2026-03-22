@@ -1,13 +1,25 @@
 classdef Software < hw.Interface
     % obj = hw.Software(params, trial)
-    % Software-only hw.Interface implementation.
+    % Software-backed hw.Interface implementation for local parameter storage.
     %
-    % This class provides a minimal hw.Interface that stores parameters in
-    % memory (no physical hardware I/O). It is useful for testing GUIs and
-    % protocol logic without a device connection.
+    % This class provides a minimal hw.Interface that stores parameter
+    % values in memory with no physical hardware I/O. It is useful for
+    % testing GUIs, parameter workflows, and protocol logic without a
+    % device connection.
     %
-    % Properties:
+    % Parameters
+    %   params - Optional parameter-name list used by legacy call sites.
+    %   trial - Optional initial values paired with params.
+    %
+    % Properties
     %   Module - Single hw.Module instance containing hw.Parameter entries.
+    %   Type - Constant interface identifier 'Software'.
+    %
+    % Notes
+    %   Reads are handled as a special case by hw.Parameter because calling
+    %   get_parameter from Parameter.Value would otherwise recurse.
+    %
+    % See also: documentation/hw_Interface.md, hw.Module, hw.Parameter
 
 
     properties (SetAccess = protected)

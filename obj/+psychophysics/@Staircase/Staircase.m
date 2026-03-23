@@ -5,7 +5,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
     % psychophysics.Staircase Track adaptive reversals and compute staircase thresholds.
     % psychophysics.Staircase analyzes trial history to compute stimulus step
     % direction, reversal locations, and threshold estimates for adaptive
-    % psychophysics procedures.
+    % psychophysics procedures. Only trials matching StimulusTrialType are used
+    % in the computation of step direction, reversals, and thresholds.
     %
     % The class supports two operating modes:
     %   Online mode  - Construct with a Runtime object to listen for NewData events
@@ -391,8 +392,9 @@ classdef Staircase < handle & matlab.mixin.SetGet
     methods (Access = private)
         function recompute_history(obj)
             % Recompute reversal indices, step direction, and threshold estimates.
-            % Filters trial data by StimulusTrialType, detects reversals by comparing 
-            % consecutive step directions, and calculates threshold from the last N reversals 
+            % Only trials matching StimulusTrialType are used in the computation of step direction,
+            % reversals, and thresholds. Filters trial data by StimulusTrialType, detects reversals by comparing
+            % consecutive step directions, and calculates threshold from the last N reversals
             % using the specified ThresholdFormula. Sets properties to empty if no data available.
             obj.ReversalCount = 0;
 

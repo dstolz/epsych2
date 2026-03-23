@@ -2,7 +2,7 @@
 
 ## Overview
 
-`psychophysics.Staircase` tracks the state of an adaptive staircase from EPsych trial data. It extracts the tracked stimulus values, computes step direction, detects reversals, and derives threshold statistics from recent reversal values.
+`psychophysics.Staircase` tracks the state of an adaptive staircase from EPsych trial data. It extracts the tracked stimulus values, computes step direction, detects reversals, and derives threshold statistics from recent reversal values. Only trials matching `StimulusTrialType` are used in the computation of step direction, reversals, and thresholds.
 
 The class supports two workflows:
 
@@ -59,7 +59,7 @@ S = psychophysics.Staircase(..., Name=Value)
 ### Name-value options
 
 - `StimulusTrialType`
-  - `epsych.BitMask` used to choose which trials participate in staircase analysis.
+  - `epsych.BitMask` used to choose which trials participate in staircase analysis. Only these trials are used for step direction, reversal, and threshold computations.
   - Default: `epsych.BitMask.TrialType_0`
 - `CatchTrialType`
   - Stored as a configuration property for workflows that distinguish catch trials.
@@ -119,7 +119,7 @@ S = psychophysics.Staircase(..., Name=Value)
   - Per-trial direction array.
   - In the current implementation, non-step positions are represented as `0`, while nonempty step changes are stored as `-1` or `1`.
 - `StimulusTrialIdx`
-  - Indices of trials selected by `StimulusTrialType`.
+  - Indices of trials selected by `StimulusTrialType`. Only these trials are used for step direction, reversal, and threshold computations.
 - `Threshold`
   - Current threshold estimate from recent reversals.
 - `ThresholdStd`
@@ -165,7 +165,7 @@ S.disablePlot()
 
 ### 1. Trial selection
 
-The class decodes `responseCodes` with `epsych.BitMask.decode` and selects the trials marked by `StimulusTrialType`.
+The class decodes `responseCodes` with `epsych.BitMask.decode` and selects the trials marked by `StimulusTrialType`. Only these selected trials are used for all subsequent computations, including step direction, reversal detection, and threshold estimation.
 
 ### 2. Stimulus extraction
 
@@ -178,13 +178,13 @@ v = 20*log10(v);
 
 ### 3. Step direction
 
-For consecutive selected stimulus values, the class computes:
+Step direction is computed only for consecutive stimulus values from trials matching `StimulusTrialType`. For these selected trials, the class computes:
 
 ```matlab
 sd = sign(diff(stimulusValues));
 ```
 
-If `StaircaseDirection` is `'Up'`, the sign is inverted before reversals are detected. The resulting directions are stored in `StepDirection` for plotting and inspection.
+If `StaircaseDirection` is `'Up'`, the sign is inverted before reversals are detected. The resulting directions are stored in `StepDirection` for plotting and inspection. Trials not matching `StimulusTrialType` are ignored in this computation.
 
 ### 4. Reversal detection
 

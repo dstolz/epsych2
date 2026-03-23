@@ -12,7 +12,7 @@ m = ['  ___  ___                _      ___     __  '; ...
      ' |___||_|  /__/ \_, |\__||_||_| /___|(_)\__/ '; ...
      '                |__/                         '];
 
-E = EPsychInfo;
+E = utils.EPsychInfo;
 latestTag = E.latestTag;
 if isempty(latestTag)
      latestTag = 'Unavailable';

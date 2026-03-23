@@ -133,8 +133,9 @@ if isfield(S,'Notes')
     set(h.notes,'String',S.Notes);
 end
 
+
 function species_Callback(hObj)
-s = get_string(hObj);
+s = utils.get_string(hObj);
 
 if ~strcmp(s,'< ADD SPECIES >')
     setpref('ep_AddSubject','user_species',s);
@@ -173,10 +174,10 @@ fprintf('A new species was added to the list: %s\n',news)
 
 
 function S = CollectSubjectInfo(h)
-S.BoxID   = str2double(get_string(h.box_id));
+S.BoxID   = str2double(utils.get_string(h.box_id));
 S.Name    = strtrim(get(h.subject_name,'String'));
-S.Sex     = strtrim(get_string(h.sex));
-S.Species = get_string(h.species);
+S.Sex     = strtrim(utils.get_string(h.sex));
+S.Species = utils.get_string(h.species);
 S.Notes   = get(h.notes,'String');
 
 

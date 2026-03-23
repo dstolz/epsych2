@@ -238,7 +238,7 @@ set(h.protocol_list,'String',pinfo.name,'Value',ind+1,'UserData',pinfo);
 ProtocolList_Select(h.protocol_list,h);
 
 function EditProtocol(h) %#ok<DEFNU>
-a = get_string(h.protocol_list);
+a = utils.get_string(h.protocol_list);
 if isempty(a)
     ep_ExperimentDesign;
 else
@@ -247,7 +247,7 @@ else
 end
 
 function ViewTrials(h) %#ok<DEFNU>
-a = get_string(h.protocol_list);
+a = utils.get_string(h.protocol_list);
 if isempty(a), return; end
 d = get(h.protocol_list,'UserData');
 fn = fullfile(d.dir,[a '.prot']);
@@ -377,32 +377,32 @@ G_DA.SetTankName(h.TDT.tank); pause(0.5);
 
 
 % Prepare OpenWorkbench
-vprintf(2,'Setting System Mode to ''Idle'' (0)')
+    utils.vprintf(2,'Setting System Mode to ''Idle'' (0)')
 G_DA.SetSysMode(0); 
-timeout(10);
+    utils.timeout(10);
 to = false;
-while G_DA.GetSysMode~=0
-    pause(0.1);
-    to = timeout;
-    if to, break; end
-end % Idle
-if to, vprintf(0,1,'Unable to Set System Mode to ''Idle'' (0)'); end
+    while G_DA.GetSysMode~=0
+        pause(0.1);
+        to = utils.timeout;
+        if to, break; end
+    end % Idle
+    if to, utils.vprintf(0,1,'Unable to Set System Mode to ''Idle'' (0)'); end
 
-vprintf(2,'Setting System Mode to ''Standby'' (1)')
+    utils.vprintf(2,'Setting System Mode to ''Standby'' (1)')
 G_DA.SetSysMode(1);
-timeout(10);
-while G_DA.GetSysMode~=1
-    pause(0.1);
-    to = timeout;
-    if to, break; end
-end % Standby
-if to, vprintf(0,1,'Unable to Set System Mode to ''Standby'' (1)'); end
+    utils.timeout(10);
+    while G_DA.GetSysMode~=1
+        pause(0.1);
+        to = utils.timeout;
+        if to, break; end
+    end % Standby
+    if to, utils.vprintf(0,1,'Unable to Set System Mode to ''Standby'' (1)'); end
 
 % Check tank name
 t = G_DA.GetTankName;
-vprintf(2,'Current tank name: %s',t);
+    utils.vprintf(2,'Current tank name: %s',t);
 if ~strcmp(t,h.TDT.tank)
-    vprintf(0,1,'Incorrect tank!  %s ~= %s',t,h.TDT.tank)
+        utils.vprintf(0,1,'Incorrect tank!  %s ~= %s',t,h.TDT.tank)
     error('Incorrect tank!  %s ~= %s',t,h.TDT.tank)
 end
 
@@ -416,7 +416,7 @@ if ~isfield(G_COMPILED.OPTIONS,'optcontrol'), G_COMPILED.OPTIONS.optcontrol = fa
 % Find modules with required parameters
 dinfo = TDT_GetDeviceInfo(G_DA);
 if isempty(dinfo)
-    vprintf(0,1,'ep_EPhys|dinfo is empty. Cannot read device info. You may need to restart Matlab and TDT software & hardware.')
+    utils.vprintf(0,1,'ep_EPhys|dinfo is empty. Cannot read device info. You may need to restart Matlab and TDT software & hardware.')
     G_DA.SetSysMode(0); pause(0.5); % Idle
     error('ep_EPhys|dinfo is empty. Cannot read device info. You may need to restart Matlab and TDT software & hardware.')
 end    
@@ -424,7 +424,7 @@ G_FLAGS = struct('TrigState',[],'OpTrigState',[],'ResetOpTrig',[],'ZBUSB_ON',[],
 F = fieldnames(G_FLAGS)';
 
 for i = 1:length(dinfo.name)
-    vprintf(3,'Module info:\n\tAlias:\t%s\n\tType:\t%s\n\tStatus:\t%d\n\tRPvds:\t%s\n\tFs:\t%0.3f Hz', ...
+    utils.vprintf(3,'Module info:\n\tAlias:\t%s\n\tType:\t%s\n\tStatus:\t%d\n\tRPvds:\t%s\n\tFs:\t%0.3f Hz', ...
         dinfo.name{i},dinfo.Module{i},dinfo.status(i),dinfo.RPfile{i},dinfo.Fs(i))
     
     if strcmp(dinfo.Module{i},'UNKNOWN'), continue; end
@@ -436,7 +436,7 @@ for i = 1:length(dinfo.name)
     for f = F
         fidx = strcmp(tags,char(f));
         if ~any(fidx), continue; end
-        vprintf(2,'Found Flag: ''%s'' on module ''%s''',char(f),dinfo.name{i})
+        utils.vprintf(2,'Found Flag: ''%s'' on module ''%s''',char(f),dinfo.name{i})
         G_FLAGS.(char(f)) = [dinfo.name{i} '.#' tags{fidx}];
     end
 end
@@ -464,7 +464,7 @@ try
     G_FLAGS.useHAT = true;
 catch me
     if isequal(me.identifier,'MATLAB:unassignedOutputs')
-        vprintf(0,1,['High Accuracy Timer (hat) is not working properly. \n' ...
+        utils.vprintf(0,1,['High Accuracy Timer (hat) is not working properly. \n' ...
             'Please consult directions in ..\\epsych\\runtime\\ephys\\hat_setup.txt ' ...
             'or just continue if you''re ok with this.'])
         t = cputime;
@@ -488,9 +488,9 @@ if isfield(G_COMPILED.OPTIONS,'trialfunc') && ~isempty(G_COMPILED.OPTIONS.trialf
         % The global variable G_DA can be accessed from the trialfunc
         G_COMPILED = feval(G_COMPILED.OPTIONS.trialfunc,G_COMPILED);
     catch me
-        vprintf(0,1,'\n%s\nThere was an error in custom trial select function "%s"\n%s\n', ...
+        utils.vprintf(0,1,'\n%s\nThere was an error in custom trial select function "%s"\n%s\n', ...
             repmat('*',1,50),G_COMPILED.OPTIONS.trialfunc,repmat('*',1,50))
-        vprintf(-1,me);
+        utils.vprintf(-1,me);
         rethrow(me)
     end
 end
@@ -514,12 +514,12 @@ T = timer(                                   ...
     'TimerFcn',     {@RunTime},              ...
     'StartDelay',   firstTriggerDelay,       ...
     'UserData',     {h.figure1 t per});
-vprintf(3,'Timer name: ''%s'',\tPeriod: %0.3f sec',T.Name,T.Period);
+    utils.vprintf(3,'Timer name: ''%s'',\tPeriod: %0.3f sec',T.Name,T.Period);
 
 if strcmp(get(hObj,'String'),'Record')
     % Begin recording
     G_DA.SetSysMode(3); % Record
-    vprintf(1,'Recording session started at %s',datestr(now,'HH:MM:SS'))
+    utils.vprintf(1,'Recording session started at %s',datestr(now,'HH:MM:SS'))
     pause(1);
     ht = G_DA.GetTankName;
     [TT,~,TDTfig] = TDT_SetupTT;
@@ -529,10 +529,10 @@ if strcmp(get(hObj,'String'),'Record')
     TT.ReleaseServer;
     delete(TT);
     close(TDTfig);
-    vprintf(1,'\tTank:\t%s\n\tBlock:\t%s',ht,hb)
+    utils.vprintf(1,'\tTank:\t%s\n\tBlock:\t%s',ht,hb)
 else
     G_DA.SetSysMode(2); % Preview
-    vprintf(1,'* Previewing data *')
+    utils.vprintf(1,'* Previewing data *')
 end
 
 % approximate start time of the recording
@@ -642,8 +642,8 @@ if isfield(G_COMPILED.OPTIONS,'trialfunc') && ~isempty(G_COMPILED.OPTIONS.trialf
         % The global variable G_DA can be accessed from the trialfunc
         G_COMPILED = feval(G_COMPILED.OPTIONS.trialfunc,G_COMPILED);
     catch me
-        fprintf(2,'\n%s\nThere was an error in custom trial select function "%s"\n%s\n', ...
-            repmat('*',1,50),G_COMPILED.OPTIONS.trialfunc,repmat('*',1,50)) %#ok<PRTCAL>
+        utils.vprintf(0,1,'\n%s\nThere was an error in custom trial select function "%s"\n%s\n', ...
+            repmat('*',1,50),G_COMPILED.OPTIONS.trialfunc,repmat('*',1,50))
         rethrow(me);
     end
 end
@@ -732,7 +732,7 @@ switch a
 end
 
 for i = 1:length(resp)
-    tk = tokenize(prompt{i},'.');
+    tk = utils.tokenize(prompt{i},'.');
     ind = strcmp(tk{2},mods.(tk{1}).data(:,1));
     mods.(tk{1}).data{ind,1} = mods.(tk{1}).data{ind,1}(2:end); % remove '$'
     mods.(tk{1}).data(ind,4) = resp(i);

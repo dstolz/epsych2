@@ -36,8 +36,6 @@ else
 end
 
 GVerbosity = level;
-if GVerbosity == 0
-    disp(sprintf('Verbosity set to %s', options{GVerbosity+1}))
-else
-    vprintf(1,'Verbosity set to %s',options{GVerbosity+1})
-end
+
+vprintf(0,'Verbosity set to %s',options{GVerbosity+1});
+

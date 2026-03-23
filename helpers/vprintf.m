@@ -22,7 +22,8 @@ function vprintf(verbose_level,varargin)
 % logging at verbose level 3 may probably screw up critical timing slightly
 % and should only be used for debugging code.  A new log will be
 % automatically generated for each day this script is called in a
-% subdirectory to the current working directory called 'logs'.
+% subdirectory to the current working directory called 'logs'.  The log
+% file handle is managed internally by this function.
 %
 % ex:  
 %      global GVerbosity
@@ -34,13 +35,6 @@ function vprintf(verbose_level,varargin)
 % 
 %      vprintf(1,1,'This is a red level %d message: %s',1,'low verbosity')
 %      18:51:35.958: This is a red level 1 message: low verbosity
-%
-% 
-% It is probably a good idea to close the log file when done.
-%       global GLogFID % file id of the log
-%       if ~isempty(GLogFID) && GLogFID >2
-%           fclose(GLogFID); 
-%       end
 %
 % The msg input can also be an MException object and the entire error
 % message and stack will be printed to the log.
@@ -127,22 +121,31 @@ end
 
 function logmessage(msg,curTimeStr,moreinputs)
 % Print to log file
-global GLogFID
+persistent logFid logDate
 
-try
-    ftell(GLogFID);
-    needNewLog = false;
-catch %#ok<CTCH>
-    needNewLog = true;
-end
+currentLogDate = datestr(now,'ddmmmyyyy');
 
-if needNewLog || isempty(GLogFID) || GLogFID == -1
+needNewLog = isempty(logFid) || ~isnumeric(logFid) || logFid <= 2;
+
+
+if needNewLog
+    if isnumeric(logFid) && logFid > 2
+        fclose(logFid);
+    end
     errlogs = fullfile(epsych_path,'.error_logs');
     if ~isfolder(errlogs), mkdir(errlogs); end
-    GLogFID = fopen(fullfile(errlogs,['error_log_' datestr(now,'ddmmmyyyy') '.txt']),'at');
+    logFid = fopen(fullfile(errlogs,['error_log_' currentLogDate '.txt']),'at');
+    logDate = currentLogDate;
+else
+    try
+        ftell(logFid);
+        needNewLog = ~strcmp(logDate,currentLogDate);
+    catch %#ok<CTCH>
+        needNewLog = true;
+    end
 end
 
-if isnumeric(GLogFID) && GLogFID > 2
+if isnumeric(logFid) && logFid > 2
     st = dbstack;
     if length(st)>=3
         st = st(3);
@@ -150,9 +153,9 @@ if isnumeric(GLogFID) && GLogFID > 2
         st = st(end);
     end
     if isempty(moreinputs)
-        fprintf(GLogFID,['%s,%s,%d: ' msg '\n'],curTimeStr,st.name,st.line);
+        fprintf(logFid,['%s,%s,%d: ' msg '\n'],curTimeStr,st.name,st.line);
     else
-        fprintf(GLogFID,['%s,%s,%d: ' msg '\n'],curTimeStr,st.name,st.line,moreinputs{:});
+        fprintf(logFid,['%s,%s,%d: ' msg '\n'],curTimeStr,st.name,st.line,moreinputs{:});
     end
 end
 

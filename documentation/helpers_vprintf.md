@@ -76,17 +76,15 @@ This caller information is gathered from `dbstack` inside the nested `logmessage
 `vprintf` relies on two globals:
 
 - `GVerbosity`: Controls whether a message is processed.
-- `GLogFID`: Stores the open file identifier for the current log file.
 
 Typical setup:
 
 ```matlab
-global GVerbosity GLogFID
+global GVerbosity
 GVerbosity = 2;
-GLogFID = [];
 ```
 
-If `GLogFID` is missing, invalid, or closed, `vprintf` opens a new daily log file automatically.
+The log file handle is managed internally with persistent function state. If the current handle is missing, invalid, closed, or belongs to a previous day, `vprintf` opens a new daily log file automatically.
 
 ## Basic examples
 

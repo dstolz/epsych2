@@ -1,10 +1,13 @@
-# `vprintf`
 
-`vprintf` is EPsych's shared console and log printing helper.
+# `utils.vprintf`
+
+`utils.vprintf` is EPsych's shared console and log printing helper.
 
 It adds a timestamp to each message, filters output using the global verbosity level, and writes messages to a daily log file under `.error_logs` in the EPsych root folder.
 
 **_All EPsych functions should consider using this in place of directly calling `fprintf`_**
+
+**Location:** `obj/+utils/vprintf.m`
 
 ## Function signature
 
@@ -90,23 +93,24 @@ The log file handle is managed internally with persistent function state. If the
 
 ### Print a standard message
 
+vprintf(1, 'Starting acquisition for box %d', boxId)
 ```matlab
 global GVerbosity
 GVerbosity = 2;
 
-vprintf(1, 'Starting acquisition for box %d', boxId)
+utils.vprintf(1, 'Starting acquisition for box %d', boxId)
 ```
 
 ### Print to the error stream
 
 ```matlab
-vprintf(0, 1, 'Unable to connect to pump on COM%d', comPort)
+utils.vprintf(0, 1, 'Unable to connect to pump on COM%d', comPort)
 ```
 
 ### Log without showing anything in the command window
 
 ```matlab
-vprintf(-1, 'Custom trial selection failed for subject %s', subjectName)
+utils.vprintf(-1, 'Custom trial selection failed for subject %s', subjectName)
 ```
 
 ### Log an exception
@@ -115,7 +119,7 @@ vprintf(-1, 'Custom trial selection failed for subject %s', subjectName)
 try
     doSomethingRisky();
 catch ME
-    vprintf(0, 1, ME)
+    utils.vprintf(0, 1, ME)
 end
 ```
 
@@ -134,5 +138,5 @@ When the input message is an `MException`, `vprintf` logs:
 
 ## Related files
 
-- [helpers/vprintf.m](../helpers/vprintf.m)
+- [obj/+utils/vprintf.m](../obj/+utils/vprintf.m)
 - [epsych_path.m](../epsych_path.m)

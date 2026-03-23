@@ -34,7 +34,7 @@ M = epsych.BitMask.decode(responseCodes);
 fig = epsych.BitMask.GUI();
 
 % Or pre-load an existing mask
-fig = bitmask_gui(InitialMask=uint32(2626));
+fig = utils.bitmask_gui(InitialMask=uint32(2626));
 ```
 
 ## Enumeration values (bit indices)
@@ -182,7 +182,7 @@ These return subsets of the enumeration (as `epsych.BitMask` arrays):
 
 ## Related files
 
-- `helpers/bitmask_gui.m` — interactive UI to build/copy masks using `epsych.BitMask`.
+- `obj/+utils/bitmask_gui.m` — interactive UI to build/copy masks using `epsych.BitMask`.
 
 ## Changelog
 

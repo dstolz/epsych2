@@ -85,13 +85,14 @@ This directory contains helpers for:
 
 Think of this area as a utility layer beneath the higher-level runtime and hardware abstractions.
 
-### `helpers/`
 
-General utilities and support classes live here.
+### `obj/+utils/` and `obj/+peripherals/`
+
+General utilities and support classes now live in `obj/+utils/` (for general-purpose functions and classes) and `obj/+peripherals/` (for hardware-related helpers).
 
 This includes:
 
-- formatting and logging helpers such as `vprintf`
+- formatting and logging helpers such as `utils.vprintf`
 - GUI helpers
 - utility functions used across many parts of the codebase
 - support classes such as recorder-related helpers

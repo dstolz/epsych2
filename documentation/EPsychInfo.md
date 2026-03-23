@@ -1,11 +1,11 @@
 # EPsychInfo
 
-`EPsychInfo` centralizes repository and release metadata for EPsych. It is used by the startup banner, saved protocol metadata, and the RunExpt version dialog.
+`utils.EPsychInfo` centralizes repository and release metadata for EPsych. It is used by the startup banner, saved protocol metadata, and the RunExpt version dialog.
 
 ## Usage
 
 ```matlab
-info = EPsychInfo();
+info = utils.EPsychInfo();
 disp(info.Version)
 disp(info.latestTag)
 meta = info.meta;

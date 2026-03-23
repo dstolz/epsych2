@@ -64,7 +64,7 @@ Important saved fields include:
 - `protocol.MODULES`: one entry per hardware module
 - `protocol.OPTIONS`: protocol-level settings such as randomization and repetitions
 - `protocol.INFO`: free-form text from the protocol info area
-- `protocol.meta`: EPsych metadata from `EPsychInfo`
+- `protocol.meta`: EPsych metadata from `utils.EPsychInfo`
 - `protocol.COMPILED`: compiled trial information, unless runtime compilation is enabled
 
 Before saving, the GUI:
@@ -270,7 +270,7 @@ The Include WAV Buffers menu controls whether full buffer data should remain emb
 The save process also stores EPsych metadata:
 
 ```matlab
-E = EPsychInfo;
+E = utils.EPsychInfo;
 protocol.meta = E.meta;
 ```
 
@@ -323,7 +323,7 @@ This representation is then consumed by [design/ep_CompileProtocol.m](design/ep_
 - [design/ep_CompiledProtocolTrials.m](design/ep_CompiledProtocolTrials.m): previews compiled trials in a separate figure or returns compiled data programmatically
 - [design/ep_AddTrial.m](design/ep_AddTrial.m): lower-level helper used by the compiler to combine parameters, buddy groups, and randomized ranges into trial definitions
 - [design/ep_SchedWAVgui.m](design/ep_SchedWAVgui.m): GUI for attaching and ordering WAV buffers
-- [helpers/findincell.m](helpers/findincell.m): used throughout for locating populated cells
+- [obj/+utils/findincell.m](../obj/+utils/findincell.m): used throughout for locating populated cells
 - [documentation/RunExpt_GUI_Overview.md](documentation/RunExpt_GUI_Overview.md): describes how saved protocols are consumed by the runtime session GUI
 
 ## 12) Common gotchas

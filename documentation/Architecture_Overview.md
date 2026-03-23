@@ -66,10 +66,6 @@ This area is responsible for work that happens once a session is running, such a
 - runtime save and cleanup logic
 - trial selection and per-trial bookkeeping
 
-Examples:
-
-- `runtime/helpers/SetupDAexpt.m`
-- `runtime/helpers/SetupRPexpt.m`
 - `runtime/savefcns/`
 - `runtime/timerfcns/`
 
@@ -84,7 +80,6 @@ This directory contains helpers for:
 - working with tags, RPvds circuits, and TDT-specific file structures
 
 Think of this area as a utility layer beneath the higher-level runtime and hardware abstractions.
-
 
 ### `obj/+utils/` and `obj/+peripherals/`
 
@@ -148,7 +143,6 @@ Relevant components:
 - `hw.TDT_RPcox`
 - `TDTRP`
 - `TDT_SetupRP`
-- `runtime/helpers/SetupRPexpt.m`
 
 The practical implication is that protocol metadata and runtime assumptions must stay compatible with both higher-level experiment logic and the underlying hardware access path.
 
@@ -190,7 +184,6 @@ Look first at:
 
 - `obj/+epsych/@RunExpt/`
 - `obj/+epsych/Runtime.m`
-- `runtime/helpers/`
 - `runtime/timerfcns/`
 
 ### If you are changing protocol loading or compilation
@@ -214,7 +207,7 @@ Look first at:
 Look first at:
 
 - `obj/+epsych/@RunExpt/`
-- any related helper GUIs in `design/` or `helpers/`
+- any related helper GUIs in `design/` or previously in `helpers/` (now in `obj/+utils/`)
 
 ## Documentation map
 

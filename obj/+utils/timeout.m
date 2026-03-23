@@ -21,7 +21,6 @@ function done = timeout(numSeconds)
 % Daniel.Stolzberg@gmail.com 2019
 % [MIGRATED from helpers/timeout.m to obj/+utils/timeout.m]
 
-% Copyright (C) 2019  Daniel Stolzberg, PhD
 
 persistent t finishTime
 

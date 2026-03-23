@@ -49,7 +49,7 @@ epsych.RunExpt
 | Calibrate outputs | `Calibrate`, `ep_CalibrationUtil`, `ep_PostCalibrationUtil` | Support hardware or stimulus calibration workflows before experiments are run. |
 | Work with hardware backends | `obj/+hw/`, `TDTfun/` | Provide TDT-facing interfaces and lower-level hardware utilities used by runtime code. |
 | Run closed-loop paradigms | `cl/` tools and GUIs | Task-specific closed-loop trial selection, GUIs, and saving behavior for specialized workflows. |
-| Use common utilities | `obj/+utils/` | Shared functions for logging, GUI support, timing, randomization, analysis helpers, and small utilities used across the toolbox. |
+| Use common utilities | `obj/+utils/` | Shared functions for logging, GUI support, timing, randomization, analysis helpers, and small utilities previously in `helpers/`, now consolidated in `obj/+utils/`. |
 
 ## What each major area means
 

@@ -63,7 +63,7 @@ Subclasses are expected to define these abstract members:
 - `get_parameter(name)`: Read one or more parameters.
 
 The abstract API is intentionally small. Discovery and filtering helpers are
-implemented once in `hw.Interface` so subclasses only need to handle device-
+implemented once in `hw.Interface` (previously in `helpers/`, now consolidated) so subclasses only need to handle device-
 specific I/O.
 
 In practice, a concrete subclass is responsible for:
@@ -91,7 +91,7 @@ that should run without a physical device connection.
 
 `hw.TDT_Synapse` connects EPsych to TDT Synapse through the Synapse API
 wrapper. It exposes Synapse modules and parameters through the common
-interface helpers and tracks current experiment metadata.
+interface helpers (now in `hw.Interface`) and tracks current experiment metadata.
 
 ### `hw.TDT_RPcox`
 

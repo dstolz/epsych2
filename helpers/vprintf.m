@@ -127,22 +127,24 @@ currentLogDate = datestr(now,'ddmmmyyyy');
 
 needNewLog = isempty(logFid) || ~isnumeric(logFid) || logFid <= 2;
 
-
-if needNewLog
-    if isnumeric(logFid) && logFid > 2
-        fclose(logFid);
-    end
-    errlogs = fullfile(epsych_path,'.error_logs');
-    if ~isfolder(errlogs), mkdir(errlogs); end
-    logFid = fopen(fullfile(errlogs,['error_log_' currentLogDate '.txt']),'at');
-    logDate = currentLogDate;
-else
+if ~needNewLog
     try
         ftell(logFid);
         needNewLog = ~strcmp(logDate,currentLogDate);
     catch %#ok<CTCH>
         needNewLog = true;
     end
+end
+
+if needNewLog
+    if ~isempty(logFid) && logFid > 2
+        fclose(logFid);
+    end
+    errlogs = fullfile(epsych_path,'.error_logs');
+    if ~isfolder(errlogs), mkdir(errlogs); end
+    logFid = fopen(fullfile(errlogs,['error_log_' currentLogDate '.txt']),'at');
+    logDate = currentLogDate;
+
 end
 
 if isnumeric(logFid) && logFid > 2

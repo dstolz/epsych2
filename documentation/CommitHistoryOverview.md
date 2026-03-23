@@ -6,7 +6,7 @@ Only months with recorded commits are listed below.
 
 ## 2026
 
-- March 2026, 178 commits. This was the largest modernization wave in the repository: RunExpt and related GUIs were pushed toward handle-based runtime state, recent-configuration support, richer version/history links, runtime filename updates, and cleaner parameter plumbing. Adaptive behavior expanded at the same time through randomizable response-window delays, stimulus-delay and pre-stimulus offset controls, ProgressiveTraining, and full Staircase training integration. Staircase itself saw repeated work on reversal detection, threshold estimation, plotting, BitMask-derived colors, and decibel conversion. Hardware support also broadened with VlcRecorder, multi-camera and frame-rate features, NanoMotorControl, and removal of deprecated webcam and figure-centric paths. Documentation and coding guidance accelerated sharply alongside the code changes.
+- March 2026, 178 commits. This was the largest modernization wave in the repository: RunExpt and related GUIs were pushed toward handle-based runtime state, recent-configuration support, richer version/history links, runtime filename updates, and cleaner parameter plumbing. Adaptive behavior expanded at the same time through randomizable response-window delays, stimulus-delay and pre-stimulus offset controls, ProgressiveTraining, and full Staircase training integration. Staircase itself saw repeated work on reversal detection, threshold estimation, plotting, BitMask-derived colors, and decibel conversion. Hardware support also broadened with additional device-control work, NanoMotorControl, and removal of deprecated webcam and figure-centric paths. Documentation and coding guidance accelerated sharply alongside the code changes.
 - February 2026, 17 commits. Work centered on the new pellet-focused appetitive detection workflow: the GUI gained trial controls, sound settings, save-data dialogs, and better button and table presentation. Parameter_Monitor was introduced, Parameter gained trigger support, and trial-selection logic was refined for reminder trials, NO-GO handling, and false alarms.
 
 ## 2025
@@ -66,7 +66,7 @@ Only months with recorded commits are listed below.
 ## Overarching Trends
 
 - The repository moved steadily from procedural and figure-centric workflows toward object-oriented, event-driven, and parameter-driven designs, especially in the GUI and runtime layers.
-- Hardware support expanded in waves: RPvds infrastructure came first, then calibration-heavy stimulus support, then Synapse integration, and finally more general hardware abstractions and recorder/device-control classes.
+- Hardware support expanded in waves: RPvds infrastructure came first, then calibration-heavy stimulus support, then Synapse integration, and finally more general hardware abstractions and device-control classes.
 - BitMask handling evolved from a supporting utility into a core representation for response decoding, trial classification, visualization, and GUI reporting.
 - Adaptive training and online psychophysics became a central product direction over time, culminating in 2026 with ProgressiveTraining, Staircase training, richer response-window control, and better live performance displays.
 - Documentation matured alongside the implementation. Early history is code-first and exploratory, while late 2025 and especially 2026 show deliberate efforts to document APIs, GUI patterns, coding conventions, and project history.

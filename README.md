@@ -1,17 +1,10 @@
-# epsych v2.1.0
+# EPsych v2.0
 
 EPsych is a MATLAB toolbox for building and running behavioral experiments primarily built around Tucker-Davis Technologies (TDT) hardware and software, but can also talk to any hardware and software through the `hw.Interface`.
 
 The project is designed for labs that want a practical experiment framework without giving up the flexibility of normal MATLAB scripting. It combines protocol design tools, runtime GUIs, hardware integration, trial selection utilities, calibration tools, stimulus generation, and experiment-specific helper code in one repository.
 
-## At a glance
-
-- MATLAB-first framework for behavioral and electrophysiology experiments
-- Designed around TDT hardware workflows, with both OpenEx-style and RPvds-based paths present in the codebase
-- Includes protocol design tools, runtime session control, calibration utilities, hardware wrappers, and support classes
-- Supports both legacy procedural workflows and newer object-oriented APIs under `obj/+epsych/`
-
-## For new users
+## For new user
 
 Start here if you are setting up EPsych for the first time:
 
@@ -19,6 +12,15 @@ Start here if you are setting up EPsych for the first time:
 - Installation and first-run guide: [documentation/Installation_Guide.md](documentation/Installation_Guide.md)
 - Session GUI walkthrough: [documentation/RunExpt_GUI_Overview.md](documentation/RunExpt_GUI_Overview.md)
 - Developer-facing architecture notes: [documentation/Architecture_Overview.md](documentation/Architecture_Overview.md)
+
+## At a glance
+
+- MATLAB-first framework for behavioral and electrophysiology experiments
+- Designed around TDT hardware workflows, with both OpenEx-style and RPvds-based paths present in the codebase
+- Includes protocol design tools, runtime session control, calibration utilities, hardware wrappers, and support classes
+- Supports both legacy procedural workflows and newer object-oriented APIs under `obj/+epsych/`
+- Includes both direct RPvds/RPco.x workflows and a Synapse-backed hardware path in the current runtime code
+
 
 ## What EPsych is for
 
@@ -38,8 +40,9 @@ The repository includes both legacy procedural code and a gradual migration towa
 - A practical overview of the session GUI is available in [documentation/RunExpt_GUI_Overview.md](documentation/RunExpt_GUI_Overview.md)
 - A detailed setup guide is available in [documentation/Installation_Guide.md](documentation/Installation_Guide.md)
 - A developer-oriented codebase map is available in [documentation/Architecture_Overview.md](documentation/Architecture_Overview.md)
+- For the hardware abstraction layer centered on `hw.Interface`, see [documentation/hw_Interface.md](documentation/hw_Interface.md)
 - Additional notes and feature-specific documentation live under [documentation/](documentation/)
-- Legacy onboarding material may still be useful, including `Intro_to_ElectroPsych_Toolbox.ppt` if it is present in your local copy
+- Legacy onboarding material is still available in [Intro_to_ElectroPsych_Toolbox.pptx](Intro_to_ElectroPsych_Toolbox.pptx)
 
 ## Quick start
 
@@ -70,41 +73,26 @@ EPsych setup is mostly about getting four pieces aligned:
 - the correct TDT software for your workflow
 - any optional toolboxes or hardware-specific dependencies you plan to use
 
+In practice, if you want broad compatibility with the main components currently checked into this repository, use MATLAB R2021a or newer.
+
 For full step-by-step instructions, see [documentation/Installation_Guide.md](documentation/Installation_Guide.md).
 
 ### Minimum setup checklist
 
-1. Choose a MATLAB release that matches the workflow you plan to use.
-2. Clone or unpack this repository to a stable local folder.
-3. Add that folder to the MATLAB path and run `epsych_startup`.
-4. Install the required TDT components for your experiment type.
-5. Open a protocol designer or run `epsych.RunExpt` to confirm the toolbox loads.
-
-### MATLAB compatibility matrix
-
-EPsych contains both older GUIDE-era code paths and newer object-oriented UIFigure-based components. The minimum compatible MATLAB release therefore depends on which parts of the repository you actually intend to use.
-
-| Workflow or component | Earliest practical MATLAB release | Notes |
-| --- | --- | --- |
-| Legacy design and runtime subset | R2014b | Matches the long-standing documented baseline for older design GUIs, legacy runtime code, and older TDT workflows. |
-| Main modern `epsych.RunExpt` workflow | R2021a | Safest minimum for the current UIFigure-based runtime entry points and newer name=value call syntax used across `obj/+epsych/`, `cl/`, and several helper classes. |
-| Closed-loop behavior GUIs in `cl/` | R2021a | Uses UIFigure components and modern name=value syntax extensively. |
-| Newer helper classes using `arguments` blocks | R2019b | `arguments` blocks were introduced in R2019b, but other syntax used nearby can still raise the practical floor to R2021a. |
-| Serial hardware helpers using `serialport` | R2019b | Applies to newer serial helpers such as pump and nanomotor control classes. |
-| VLC recorder helpers using `tcpclient` and `arguments` blocks | R2019b | The helper classes themselves fit R2019b+, but repository-wide modern GUI syntax still makes R2021a the safer overall recommendation. |
-
-In practice, if you want broad compatibility with the main components currently checked into this repository, use MATLAB R2021a or newer.
+1. Clone or unpack this repository to a stable local folder.
+2. Add that folder to the MATLAB path using `addpath()` (do not use `genpath()`) and run `epsych_startup`.
+3. If using TDT, install the required TDT components for your experiment type.
+4. Open a protocol designer or run `epsych.RunExpt` to confirm the toolbox loads.
 
 ### TDT software matrix
 
 - Behavioral experiments without electrophysiology: `TDT ActiveX Controls`
 - Electrophysiology experiments using OpenEx: `TDT OpenEx` and `TDT OpenDeveloper Controls`
+- Synapse-backed workflows: TDT Synapse must be installed and reachable from MATLAB through the bundled `SynapseAPI` path
 - Non-OpenEx RPvds workflows: ActiveX-based RPco.x access must be available to MATLAB
 
 ### Optional MATLAB capabilities
 
-- Image Acquisition Toolbox for camera recording via `videoinput`
-- Audio input hardware if webcam recording should also capture audio
 - Older Windows/MATLAB combinations may require legacy MEX setup for timer-related components
 
 ### First verification step
@@ -120,11 +108,13 @@ If the GUI opens successfully, the basic MATLAB-side installation is working.
 
 ## Repository layout
 
-- `obj/+epsych/`: object-oriented APIs and higher-level entry points
+- `obj/+epsych/`: object-oriented APIs and higher-level runtime entry points
+- `obj/+hw/`: hardware abstraction classes for Synapse and RPco.x-backed workflows
 - `design/`: protocol and experiment design GUIs
 - `runtime/`: runtime callbacks, timers, save functions, and trial-selection support
 - `helpers/`: general utilities and support classes
 - `calibration/`: calibration GUIs and helpers
+- `cl/`: closed-loop trial selection logic and specialized GUIs
 - `TDTfun/`: TDT-specific integration utilities
 - `documentation/`: focused usage notes and developer-facing references
 
@@ -147,7 +137,7 @@ This workflow is described in more detail in [documentation/RunExpt_GUI_Overview
 
 - Legacy baseline: MATLAB R2014b or newer
 - Recommended release for the current main repository workflows: MATLAB R2021a or newer
-- Historical development has been done on MATLAB 2020a and newer releases
+- Recent development and documentation updates have been maintained against current MATLAB releases, including MATLAB R2024b
 - TDT software available from [Tucker-Davis Technologies](http://www.tdt.com)
 
 ### Toolbox references in the current codebase
@@ -157,15 +147,10 @@ Code-confirmed toolbox usage:
 - Signal Processing Toolbox: filter design and analysis paths in calibration and stimulus-generation helpers
 - Optimization Toolbox: nonlinear fitting via `lsqcurvefit` in `helpers/chunkwiseDeline.m`
 
-Documented optional toolbox usage:
-
-- Image Acquisition Toolbox for camera recording via `videoinput`
-
 Other external dependencies referenced in code or documentation:
 
 - TDT ActiveX / OpenEx / Synapse components for hardware workflows
 - Psychtoolbox helpers in selected utility code
-- VLC for standalone DirectShow webcam recording helpers
 
 Required TDT software depends on your use case:
 
@@ -174,8 +159,7 @@ Required TDT software depends on your use case:
 
 Optional components:
 
-- Standalone webcam recording: Image Acquisition Toolbox for `videoinput`
-- Audio capture during webcam recording: a working microphone input
+- Hardware-specific optional components may be required depending on your local experiment setup
 
 ## For developers
 
@@ -189,34 +173,18 @@ The short version is:
 - `obj/+hw/` and `TDTfun/` handle hardware-facing integration
 - `helpers/` contains general utilities and support classes used across the codebase
 
-## Standalone webcam recording
+## Notes on v2.0
 
-EPsych also includes webcam-recording utilities that can be used outside the main experiment runtime.
+EPsych v2.0 is essentially the same codebase as the original EPsych repository, with a few important practical differences:
 
-- `epsych.WebcamRecorder` provides programmatic start/stop recording
-- Outputs are written as separate video (`.avi`), audio (`.wav`), and metadata (`.mat`) files
-- `obj/exampleWebcamRecorder.m` provides a minimal smoke test
-- `helpers/@VlcRecorder/VlcRecorder.m` supports VLC-based DirectShow webcam capture for preview, HTTP streaming, and file recording via `launchWebcam(...)`
-- `obj/exampleVlcWebcamRecorder.m` provides a minimal VLC-backed example
-
-Current limitation:
-
-- VLC webcam selection relies on the Windows DirectShow friendly device name, so two cameras with the exact same visible device name cannot be distinguished reliably in a single VLC-backed multi-camera launch
-
-For additional background on recorder capabilities currently present in the codebase, see the examples in `obj/` and the recorder classes under `helpers/` and `obj/+epsych/`.
-
-## Notes on v1.1
-
-EPsych v1.1 is essentially the same codebase as the original EPsych repository, with a few important practical differences:
-
-1. `UserData` is no longer included in this repository because it became too large. Manage your own experimental data and local assets in a separate repository or storage location.
+1. `UserData` directory is no longer included in this repository because it became too large. Manage your own experimental data and local assets in a separate repository or storage location.
 2. The codebase is being migrated gradually toward an object-oriented structure, which should make future versions easier to maintain and extend.
-3. TDT Synapse is not currently supported by this version.
+3. Hardware support has expanded since the original software version. The current repository includes both a Synapse-backed hardware path (`hw.TDT_Synapse`) and a direct RPvds/RPco.x path (`hw.TDT_RPcox`).
 
 ## Contact
 
 Daniel Stolzberg, PhD  
-[Daniel.Stolzberg@gmail.com](mailto:Daniel.Stolzberg@gmail.com)
++[Daniel.Stolzberg@gmail.com](mailto:Daniel.Stolzberg@gmail.com)
 
 All files in this toolbox are available for learning and research use under the license below. If you are trying to get started with a new setup, direct questions to the contact above.
 

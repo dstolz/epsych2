@@ -25,7 +25,7 @@ function subdirs = epsych_startup(rootdir,showsplash)
 % Daniel.Stolzberg@gmail.com 2014
 
 %     EPsych  
-%     Copyright (C) 2016  Daniel Stolzberg, PhD
+%     Copyright (C) 2026  Daniel Stolzberg, PhD
 % 
 %     This program is free software: you can redistribute it and/or modify
 %     it under the terms of the GNU General Public License as published by

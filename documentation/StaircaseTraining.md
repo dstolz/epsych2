@@ -133,20 +133,25 @@ p.Value = 20;
 G = gui.StaircaseTraining(p, ...
     MinValue=0, MaxValue=80, ...
     StepUp=5, StepDown=2);
+```
+Later, after a trial completes:
 
-% Later, after a trial completes:
+```matlab
 G.updateParameter("down");   % make it harder
+```
+or
+```matlab
 G.updateParameter("up");     % make it easier
 ```
 
-### Example 2: Embedded in an existing app layout
+### Example 2: Embedded in an existing app container
 
 ```matlab
-fig = uifigure('Name','Task');
-g = uigridlayout(fig,[1 1]);
+fig = uifigure();
+h = uipanel();
 
 % p is a hw.Parameter
-G = gui.StaircaseTraining(p, Parent=g);
+G = gui.StaircaseTraining(p, Parent=h);
 ```
 
 ## Lifecycle and cleanup

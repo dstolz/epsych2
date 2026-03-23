@@ -44,6 +44,8 @@ The repository includes both legacy procedural code and a gradual migration towa
 - Additional notes and feature-specific documentation live under [documentation/](documentation/)
 - Legacy onboarding material is still available in [Intro_to_ElectroPsych_Toolbox.pptx](Intro_to_ElectroPsych_Toolbox.pptx)
 
+*Note that I have been leveraging AI to help flesh out documentation for this software and there may be mistakes.*
+
 ## Quick start
 
 1. Add the repository to the MATLAB path and run startup:

@@ -72,6 +72,13 @@ classdef VlcRecorder < handle
                 port (1,1) double {mustBePositive} = NaN
             end
 
+            sp = matlabshared.supportpkg.getSupportPackageRoot;
+            wp = fullfile(sp, "toolbox", "matlab", "webcam", "supportpackages");
+            if isfolder(wp) && ~contains(path, wp)
+                addpath(wp)
+            end
+            rehash toolboxcache
+
             vlcPath = string(vlcPath);
             host = string(host);
 

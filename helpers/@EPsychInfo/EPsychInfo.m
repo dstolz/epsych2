@@ -34,7 +34,7 @@ classdef EPsychInfo < handle
     end
     
     properties (Constant)
-        Version  = '2.0';
+        Version  = '2';
         DataVersion = '1.1';        
         Author = 'Daniel Stolzberg';
         AuthorEmail = 'daniel.stolzberg@gmail.com';

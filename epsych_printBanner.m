@@ -19,9 +19,9 @@ if isempty(latestTag)
 end
 
 cm = cellstr(m);
-cm{end} = sprintf('%s\nv%s <a href="%s">%s</a>',cm{end},E.Version,E.LicenseURL,E.Copyright);
+cm{end} = sprintf('%s\n%s <a href="%s">%s</a>',cm{end},latestTag,E.LicenseURL,E.Copyright);
 cm{end+1} = sprintf('Latest commit: %s; %s; <a href="%s">Commit History Overview</a>',E.commitTimestamp,E.chksum(1:7),E.CommitHistoryURL);
-cm{end+1} = sprintf('Latest tag: %s',latestTag);
+cm{end+1} = sprintf('<a href="%s">View License (GPL-3.0)</a>', E.LicenseURL);
 lnk = E.RepositoryURL;
 cm{end+1} = sprintf('Repository: <a href="%s">%s</a>',lnk,lnk);
 %cm{end+1} = '-> <a href="matlab: ep_LaunchPad">ep_LaunchPad</a>  ... Launch panel for EPsych utilities';
@@ -34,7 +34,6 @@ cm{end+1} = '--> <a href="matlab: epsych.RunExpt">epsych.RunExpt</a>           .
 
 fprintf('\n')
 for i = 1:length(cm), fprintf('%s\n',cm{i}); end
-
 
 
 

@@ -485,7 +485,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
         updatePlot_(obj)
         updateThresholdOverlay_(obj)
 
-        [x, y, c, xStep, yStep, cStep, xRevUp, yRevUp, xRevDown, yRevDown] = getPlotData_(obj)
+        plotData = getPlotData_(obj);
+        % Update any code here that used the old outputs to use plotData fields
         updatePlotLabels_(obj)
         [titleText, hasTitle] = getTitleText_(obj)
         c = directionColors_(obj, direction)

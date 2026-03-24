@@ -19,25 +19,29 @@ if isempty(obj.h_line) || ~isvalid(obj.h_line)
     return
 end
 
-[x, y, c, xCatch, yCatch, cCatch, xStep, yStep, cStep, xRevUp, yRevUp, xRevDown, yRevDown] = obj.getPlotData_();
 
-set(obj.h_line, 'XData', x, 'YData', y);
-set(obj.h_points, 'XData', x, 'YData', y, ...
-    'SizeData', obj.MarkerSize, 'CData', hex2rgb(c));
-set(obj.CatchH, 'XData', xCatch, 'YData', yCatch, ...
-    'SizeData', obj.MarkerSize, 'CData', hex2rgb(cCatch));
+p = obj.getp_();
+
+
+set(obj.h_line, 'XData', p.main.x, 'YData', p.main.y);
+set(obj.h_points, 'XData', p.main.x, 'YData', p.main.y, ...
+    'SizeData', obj.MarkerSize, 'CData', hex2rgb(p.main.c));
+set(obj.CatchH, 'XData', p.catch.x, 'YData', p.catch.y, ...
+    'SizeData', obj.MarkerSize, 'CData', hex2rgb(p.catch.c));
+
 
 if obj.ShowSteps
-    set(obj.StepH, 'Visible', 'on', 'XData', xStep, 'YData', yStep, ...
-        'SizeData', obj.StepMarkerSize, 'CData', hex2rgb(cStep));
+    set(obj.StepH, 'Visible', 'on', 'XData', p.step.x, 'YData', p.step.y, ...
+        'SizeData', obj.StepMarkerSize, 'CData', hex2rgb(p.step.c));
 else
     set(obj.StepH, 'Visible', 'off', 'XData', nan, 'YData', nan);
 end
 
+
 if obj.ShowReversals
-    set(obj.ReversalUpH, 'Visible', 'on', 'XData', xRevUp, 'YData', yRevUp, ...
+    set(obj.ReversalUpH, 'Visible', 'on', 'XData', p.revUp.x, 'YData', p.revUp.y, ...
         'SizeData', obj.ReversalMarkerSize);
-    set(obj.ReversalDownH, 'Visible', 'on', 'XData', xRevDown, 'YData', yRevDown, ...
+    set(obj.ReversalDownH, 'Visible', 'on', 'XData', p.revDown.x, 'YData', p.revDown.y, ...
         'SizeData', obj.ReversalMarkerSize);
 else
     set(obj.ReversalUpH, 'Visible', 'off', 'XData', nan, 'YData', nan);

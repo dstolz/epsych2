@@ -34,7 +34,7 @@ if obj.ShowSteps
     set(obj.StepH, 'Visible', 'on', 'XData', p.step.x, 'YData', p.step.y, ...
         'SizeData', obj.StepMarkerSize, 'CData', hex2rgb(p.step.c));
 else
-    set(obj.StepH, 'Visible', 'off', 'XData', nan, 'YData', nan);
+    set(obj.StepH, 'Visible', 'off', 'XData', nan, 'YData', nan, 'CData', "#0");
 end
 
 

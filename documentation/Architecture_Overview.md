@@ -116,7 +116,7 @@ Use this directory for:
 
 At a high level, a typical EPsych session looks like this:
 
-1. A protocol is created or edited in `design/` and saved as a `.prot` file.
+1. A protocol is created or edited using `ep_ExperimentDesign()` and saved as a `.prot` file.
 2. `epsych.RunExpt` loads session configuration and selected protocols.
 3. `epsych.Runtime` is created or reset to hold session state.
 4. EPsych decides which hardware path to use.

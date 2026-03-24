@@ -156,7 +156,7 @@ elseif RC.Abort(end)
 
         vprintf(3,'Repeating trial due to Abort: nextStim = %g, StimDelay = %g',nextStim,sdval)
     end
-elseif RC.CorrectRejection(end) || RC.FalseAlarm(end)
+elseif RC.CorrectReject(end) || RC.FalseAlarm(end)
     % no change to nextStim (same depth for next STIM trial)
     nextStim = lastStim;
 end

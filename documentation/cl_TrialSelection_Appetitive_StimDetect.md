@@ -116,7 +116,7 @@ Related GUI definitions are in [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](.
    - `Hit`: decrement by `StepOnHit`
    - `Miss`: increment by `StepOnMiss`
    - `Abort`: keep the same depth
-   - `CorrectRejection` or `FalseAlarm`: keep the same depth for the next stimulus trial
+   - `CorrectReject` or `FalseAlarm`: keep the same depth for the next stimulus trial
 6. With probability `P_Catch`, and only when the last completed trial was not a catch trial, it selects the first `CATCH` row and returns.
 7. Otherwise it clamps the new depth to `[MinDepth, MaxDepth]`, writes that value into all stimulus rows, and selects the first `STIM` row.
 
@@ -176,7 +176,7 @@ For this to work correctly, `TRIALS` must already contain:
 
 ## Common assumptions
 
-- The function assumes `epsych.BitMask.decode` returns logical fields such as `Hit`, `Miss`, `Abort`, `CorrectRejection`, and `FalseAlarm`.
+- The function assumes `epsych.BitMask.decode` returns logical fields such as `Hit`, `Miss`, `Abort`, `CorrectReject`, and `FalseAlarm`.
 - The function assumes the latest completed trial has a valid `RespCode`.
 - The function assumes `Depth` is a numeric write parameter for all stimulus rows.
 - The function assumes the GUI has already created the parameters named in the previous section.

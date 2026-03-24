@@ -20,7 +20,7 @@ if isempty(obj.h_line) || ~isvalid(obj.h_line)
 end
 
 
-p = obj.getp_();
+p = obj.getPlotData_();
 
 
 set(obj.h_line, 'XData', p.main.x, 'YData', p.main.y);

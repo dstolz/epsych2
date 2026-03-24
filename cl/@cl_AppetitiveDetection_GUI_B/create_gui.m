@@ -248,7 +248,7 @@ pRespWinDur = R.HW.find_parameter('RespWinDur');
 pRespWinDur.Unit = 'ms';
 
 
-% note that "Pre" and "Post" stimulus refer to the Stimulus Offset
+% note that "Pre" and "Post" stimulus refer to the Stimulus durations
 % >> Pre-stimulus portion of response window --- this is used in the post_stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
 pRespWinPreStim = R.S.Module.add_parameter('RespWinPreStim',1000, ...
                         Unit = 'ms', ...
@@ -262,7 +262,7 @@ delete(h.h_label);
 % >> RW Pre-stimulus delay training
 h = uibutton(par,"state");
 h.Layout = lay;
-h.Text = "RW Pre-Stimulus Offset (ms):";
+h.Text = "RW Pre-Stimulus Duration (ms):";
 h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,pRespWinPreStim, ...
         MinValue = pRespWinPreStim.Min, ...
         MaxValue = pRespWinPreStim.Max, ...
@@ -276,7 +276,7 @@ pRespWinPostStim = R.S.Module.add_parameter('RespWinPostStim',1000, ...
                         Min = 1000, ...
                         Max = 10000);
 h = gui.Parameter_Control(layoutTrialControls,pRespWinPostStim,Type='editfield');
-h.Text = "RW Post-Stimulus Offset (ms):";
+h.Text = "RW Post-Stimulus Duration (ms):";
 
 
 % >> Stimulus Delay (randomized --- value based on min/max settings below)

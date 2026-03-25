@@ -203,11 +203,17 @@ classdef RunExpt < handle
             self.CheckReady
         end
 
-        function LocateBehaviorGUI(self)
-            % obj.LocateBehaviorGUI
-            % Launch the per-box behavior GUI specified in FUNCS.BoxFig.
-            if isempty(self.FUNCS.BoxFig), return, end
-            feval(self.FUNCS.BoxFig, self.RUNTIME);
+        function LaunchCommutatorGUI(self)
+            % obj.LaunchCommutatorGUI
+            % Launch the Commutator GUI
+            comPort = getpref('ep_RunExpt_Commutator','Port',"COM6");
+            try
+                NanoMotorControlGUI(Port=comPort);
+            catch me
+                vprintf(0,1,me)
+                a = repmat('*',1,50);
+                vprintf(0,1,'%s\nFailed to launch Commutator GUI: %s\n%s',a,comPort,a)
+            end
         end
 
         originalState = AlwaysOnTop(self, ontop)  % Set always-on-top state of main figure; returns previous state

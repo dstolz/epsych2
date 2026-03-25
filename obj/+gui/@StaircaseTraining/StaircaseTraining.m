@@ -60,6 +60,9 @@ classdef StaircaseTraining < handle
         MinValueLimits (1,2) double = [-inf inf]
         MaxValueLimits (1,2) double = [-inf inf]
 
+        StepUpResponse (1,1) string {mustBeMember(StepUpResponse,["Hit","Miss","CorrectReject","CorrectReject","FalseAlarm","Abort"])} = "Hit"
+        StepDownResponse (1,1) string {mustBeMember(StepDownResponse,["Hit","Miss","CorrectReject","CorrectReject","FalseAlarm","Abort"])} = "Abort"
+
         WindowStyle (1,1) string {mustBeMember(WindowStyle, ["normal","alwaysontop","modal"])} = "alwaysontop"
     end
 
@@ -102,6 +105,8 @@ classdef StaircaseTraining < handle
                 options.MinValueLimits (1,2) double = [-inf inf]
                 options.MaxValueLimits (1,2) double = [-inf inf]
                 options.WindowStyle (1,1) string {mustBeMember(options.WindowStyle, ["normal","alwaysontop","modal"])} = "alwaysontop"
+                options.StepUpResponse (1,1) string {mustBeMember(options.StepUpResponse,["Hit","Miss","CorrectReject","CorrectReject","FalseAlarm","Abort"])} = "Hit"
+                options.StepDownResponse (1,1) string {mustBeMember(options.StepDownResponse,["Hit","Miss","CorrectReject","CorrectReject","FalseAlarm","Abort"])} = "Abort"
             end
 
             obj.Parameter = Parameter;

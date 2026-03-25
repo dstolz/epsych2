@@ -282,8 +282,8 @@ h.Text = "RW Post-Stimulus Duration (ms):";
 % >> Stimulus Delay (randomized --- value based on min/max settings below)
 pStimDelay = R.HW.find_parameter('StimDelay');
 pStimDelay.Unit = 'ms';
-pStimDelay.Min = 1000; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "StimDelayMin/Max" parameters below.
-pStimDelay.Max = 1000;
+pStimDelay.Min = 400; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "StimDelayMin/Max" parameters below.
+pStimDelay.Max = 400;
 pStimDelay.isRandom = true; % enable randomization for this parameter
 pStimDelay.PostUpdateFcn = @obj.post_stimdelay_update;
 pStimDelay.PostUpdateFcnArgs = {pStimDur,pRespWinDelay,pRespWinDur,pRespWinPreStim,pRespWinPostStim};
@@ -320,12 +320,12 @@ h.EvaluatorArgs = {pMin,pMax,pStimDelay}; % pass the dependent parameters as add
 
 
 
-
+%{
 % >> Response Window Duration
 p = R.HW.find_parameter('RespWinDur');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Response Window Duration (ms):";
-
+%}
 
 
 % >> Number of Pellets to Deliver
@@ -351,6 +351,7 @@ h.Text = "Timeout Duration (ms):";
 % >> dB SPL
 p = R.HW.find_parameter('dBSPL',silenceParameterNotFound=true);
 if ~isempty(p)
+    p.Value = 60; % default value, can be adjusted by user
     p.Unit = 'dB SPL';
     p.Min = -20;
     p.Max = 80;

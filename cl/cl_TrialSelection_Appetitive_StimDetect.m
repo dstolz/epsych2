@@ -185,7 +185,12 @@ ind = T.TrialType == TT.STIM;
 %     not already a catch trial.
 %--------------------------------------------------------------------------
 pCT = SP.P_Catch.Value; % probability of catch trial (0 to 1)
-if ~RC.("TrialType_" + TT.CATCH)(end) && rand() < pCT
+if length(RC.("TrialType_" + TT.STIM)) >= 10
+    nLast10Stim = sum(RC.("TrialType_" + TT.STIM)(end-9:end));
+else
+    nLast10Stim = 0;
+end
+if ~RC.("TrialType_" + TT.CATCH)(end) && (rand() < pCT || nLast10Stim >= 10)
     % Override next trial to CATCH based on p(CATCH) and current trial type
     TRIALS.NextTrialID = find(T.TrialType == TT.CATCH,1);
 

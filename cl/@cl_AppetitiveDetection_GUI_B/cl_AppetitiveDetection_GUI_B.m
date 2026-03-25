@@ -187,13 +187,13 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
 
             try
-                % calculate session Abort rate and update
-                % TO DO: USE NEW PSYCHSTAIRCASE OBJECT TO CALCULATE ABORT RATE FOR STIMULUS TRIALS ONLY
+                % calculate session performance and update
                 rc = obj.Psych.responseCodes;
                 rc = epsych.BitMask.decode(rc);
                 abortRate = sum(rc.Abort) ./ sum(rc.TrialType_0);
                 hitRate = sum(rc.Hit) ./ sum(rc.Hit|rc.Miss);
-                ptxt = sprintf('  Hit Rate:\t%4.1f%%\nAbort Rate:\t%4.1f%%', hitRate*100, abortRate*100);
+                faRate = sum(rc.FalseAlarm) ./ sum(rc.TrialType_1);
+                ptxt = sprintf('  Hit Rate:\t%4.1f%%\nAbort Rate:\t%4.1f%%\nFalse Alarm Rate:\t%4.1f%%', hitRate*100, abortRate*100, faRate*100);
                 obj.lblPerformance.Text = ptxt;
             end
 

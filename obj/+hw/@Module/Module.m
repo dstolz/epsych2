@@ -84,24 +84,24 @@ classdef Module < handle
             % Returns
             %   P - Created hw.Parameter handle.
             arguments
-            obj
-            name (1,:) char {mustBeText}
-            value
-            options.Description (1,1) string = ""
-            options.Unit (1,:) char = ''
-            options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
-            options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
-            options.Format (1,:) char = '%g'
-            options.Visible (1,1) logical = true
-            options.PreUpdateFcnEnabled (1,1) logical = true
-            options.EvaluatorFcnEnabled (1,1) logical = true
-            options.PostUpdateFcnEnabled (1,1) logical = true
-            options.UserData = []
-            options.isArray (1,1) logical = false
-            options.isTrigger (1,1) logical = false
-            options.isRandom (1,1) logical = false
-            options.Min (1,1) double = -inf
-            options.Max (1,1) double = inf
+                obj
+                name (1,:) char {mustBeText}
+                value
+                options.Description (1,1) string = ""
+                options.Unit (1,:) char = ''
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
+                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+                options.Format (1,:) char = '%g'
+                options.Visible (1,1) logical = true
+                options.PreUpdateFcnEnabled (1,1) logical = true
+                options.EvaluatorFcnEnabled (1,1) logical = true
+                options.PostUpdateFcnEnabled (1,1) logical = true
+                options.UserData = []
+                options.isArray (1,1) logical = false
+                options.isTrigger (1,1) logical = false
+                options.isRandom (1,1) logical = false
+                options.Min (1,1) double = -inf
+                options.Max (1,1) double = inf
             end
 
             if isstring(value), value = char(value); end

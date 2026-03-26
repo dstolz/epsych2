@@ -1,14 +1,42 @@
-function fromStruct(obj, S)
-% obj.fromStruct(S)
-% Apply a decoded serialized struct onto this parameter.
+
+function fromStruct(obj, S, options)
+% fromStruct(obj, S)
+% Apply a decoded serialized struct to this hw.Parameter object.
 %
-% Parameters
-%   S - struct decoded from JSON with serialized parameter fields.
+% Used to restore parameter state from a struct, typically decoded from JSON. Updates all relevant fields, including metadata, callbacks, flags, bounds, value, timestamp, and user data.
+%
+% Parameters:
+%   obj (1,1) hw.Parameter
+%       The parameter object to update.
+%   S (1,1) struct
+%       Struct decoded from JSON with serialized parameter fields.
+%
+% Returns:
+%   None. Updates the parameter object in-place.
+%
+% See also: writeParametersJSON, readParametersJSON, jsondecode
+
 
 arguments
     obj (1,1) hw.Parameter
     S (1,1) struct
+    options.UpdateValue (1,1) logical = true % Whether to update the Value field or leave it unchanged (useful for preserving current value when loading metadata changes)
+    options.AddParameterIfMissing (1,1) logical = true % If true, will add a new parameter if the struct references a parameter name that doesn't exist in the current module. Use with caution as this may have unintended consequences.
 end
+
+% If AddParameterIfMissing is true, check if parameter exists in parent module, and add if missing
+if options.AddParameterIfMissing
+
+    % Check if parameter exists on module
+    x = obj.Module.find_parameter(S.Name,silenceParameterNotFound=true);
+    
+    if isempty(x)
+        % Add parameter to parent module
+        obj.Module.add_parameter(S.Name, S.Value);
+    end
+end
+
+
 
 % Metadata
 obj.Name = char(S.Name);
@@ -23,15 +51,9 @@ obj.Visible = logical(S.Visible);
 obj.PreUpdateFcn = obj.strToFcn_(S.PreUpdateFcn);
 obj.EvaluatorFcn = obj.strToFcn_(S.EvaluatorFcn);
 obj.PostUpdateFcn = obj.strToFcn_(S.PostUpdateFcn);
-if isfield(S, 'PreUpdateFcnEnabled')
-    obj.PreUpdateFcnEnabled = logical(S.PreUpdateFcnEnabled);
-end
-if isfield(S, 'EvaluatorFcnEnabled')
-    obj.EvaluatorFcnEnabled = logical(S.EvaluatorFcnEnabled);
-end
-if isfield(S, 'PostUpdateFcnEnabled')
-    obj.PostUpdateFcnEnabled = logical(S.PostUpdateFcnEnabled);
-end
+obj.PreUpdateFcnEnabled = logical(S.PreUpdateFcnEnabled);
+obj.EvaluatorFcnEnabled = logical(S.EvaluatorFcnEnabled);
+obj.PostUpdateFcnEnabled = logical(S.PostUpdateFcnEnabled);
 
 % Flags
 obj.isArray = logical(S.isArray);
@@ -43,11 +65,10 @@ obj.Min = obj.safeToNumeric_(S.Min);
 obj.Max = obj.safeToNumeric_(S.Max);
 
 % Value (set after Type/bounds so validation context is correct)
-obj.Value = S.Value;
+if options.UpdateValue
+    obj.Value = S.Value;
+end
 
-% Timestamp
-obj.lastUpdated = S.lastUpdated;
 
 % General-purpose data
 obj.UserData = S.UserData;
-end

@@ -67,8 +67,10 @@ classdef Parameter < matlab.mixin.SetGet
         EvaluatorFcnEnabled (1,1) logical = true % flag to enable or disable EvaluatorFcn without removing the function handle
         PostUpdateFcnEnabled (1,1) logical = true % flag to enable or disable PostUpdateFcn without removing the function handle
 
-        % TO DO: Make this available for all custom fcn
-        PostUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to EvaluatorFcn
+        % Cell array of optional extra arguments passed to PreUpdateFcn, EvaluatorFcn, and PostUpdateFcn
+        PreUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to PreUpdateFcn
+        EvaluatorFcnArgs (1,:) cell = {} % optional extra arguments passed to EvaluatorFcn
+        PostUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to PostUpdateFcn
 
         UserData % general-purpose field for storing any additional data related to the parameter
     end
@@ -197,19 +199,14 @@ classdef Parameter < matlab.mixin.SetGet
 
         end
 
+        
         function set.Value(obj,value)
 
-            if isa(obj.PreUpdateFcn ,'function_handle') && obj.PreUpdateFcnEnabled
-                obj.PreUpdateFcn(obj,value);
-            end
+            obj.execute_PreUpdateFcn(value);
 
-            if obj.isRandom
-                value = obj.randomize_value();
-            end
+            value = obj.randomize_value(); % if isRandom is false, this will just return the original value
 
-            if isa(obj.EvaluatorFcn,'function_handle') && obj.EvaluatorFcnEnabled
-                value = obj.EvaluatorFcn(obj,value);
-            end
+            value = obj.execute_EvaluatorFcn(value);
 
             obj.Value = value;
             obj.isArray = numel(value) > 1;
@@ -222,13 +219,7 @@ classdef Parameter < matlab.mixin.SetGet
             % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
              obj.lastUpdated = now;
 
-            if isa(obj.PostUpdateFcn,'function_handle') && obj.PostUpdateFcnEnabled
-                if isempty(obj.PostUpdateFcnArgs)
-                    obj.PostUpdateFcn(obj,value);
-                else
-                    obj.PostUpdateFcn(obj,value,obj.PostUpdateFcnArgs{:});
-                end
-            end
+            obj.execute_PostUpdateFcn(value);
         end
 
         function vstr = get.ValueStr(obj)
@@ -272,6 +263,37 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     methods (Access = protected)
+        function execute_PreUpdateFcn(obj, newValue)
+            if isa(obj.PreUpdateFcn ,'function_handle') && obj.PreUpdateFcnEnabled
+                if isempty(obj.PreUpdateFcnArgs)
+                    obj.PreUpdateFcn(obj,newValue);
+                else
+                    obj.PreUpdateFcn(obj,newValue,obj.PreUpdateFcnArgs{:});
+                end
+            end
+        end
+
+        function v = execute_EvaluatorFcn(obj, newValue)
+            if isa(obj.EvaluatorFcn,'function_handle') && obj.EvaluatorFcnEnabled
+                if isempty(obj.EvaluatorFcnArgs)
+                    v = obj.EvaluatorFcn(obj,newValue);
+                else
+                    v = obj.EvaluatorFcn(obj,newValue,obj.EvaluatorFcnArgs{:});
+                end
+            else
+                v = newValue;
+            end
+        end
+
+        function execute_PostUpdateFcn(obj, newValue)
+            if isa(obj.PostUpdateFcn,'function_handle') && obj.PostUpdateFcnEnabled
+                if isempty(obj.PostUpdateFcnArgs)
+                    obj.PostUpdateFcn(obj,newValue);
+                else
+                    obj.PostUpdateFcn(obj,newValue,obj.PostUpdateFcnArgs{:});
+                end
+            end
+        end
 
         function v = randomize_value(obj)
             if ~obj.isRandom

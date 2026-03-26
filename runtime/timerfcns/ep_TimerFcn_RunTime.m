@@ -29,6 +29,9 @@ for i = 1:RUNTIME.NSubjects
             % Retrieve parameter data from HW
             % NOTE: Asterisk (*) prefix flag is not handled yet. Probably
             % should make a software parameter
+
+            % TO DO: RETRIEVE THE VALUE FROM ALL HW AND S PARAMETERS, NOT JUST THE ONES IN THE TRIALS STRUCTURE.
+            % TO DO: CONSIDER SAVING ALL PARAMETER DATA TO JSON AT THE END OF EACH TRIAL USING RUNTIME.writeParametersJSON
             rpn = RUNTIME.TRIALS(i).readparams;
             rpnind = startsWith(rpn,'*');
             rpn = matlab.lang.makeValidName(rpn);

@@ -1,12 +1,14 @@
 classdef PhaseSelector < handle
 
-    properties
-        Names (1,:) string
-        Filenames (1,:) string {mustBeFile}
+    properties (SetObservable)
+        PhasePath (1,1) string
     end
 
     properties (SetAccess = private)
         RUNTIME
+
+        Names (1,:) string
+        Filenames (1,:) string {mustBeFile}
 
         CurrentPhase (1,1) uint8 = 0
 
@@ -16,23 +18,83 @@ classdef PhaseSelector < handle
 
 
     methods
-        function obj = PhaseSelector(RUNTIME, options)
+        function obj = PhaseSelector(RUNTIME, PhasePath)
             arguments
                 RUNTIME
-
-                options.Names (1,:) string
-                options.Filenames (1,:) string {mustBeFile}
+                PhasePath (1,1) string = ""
             end
 
-            if numel(options.Names) ~= numel(options.Filenames)
-                error('Names and Filenames must have the same number of elements.')
-            end
+            
 
             obj.RUNTIME = RUNTIME;
-            obj.Names = options.Names;
-            obj.Filenames = options.Filenames;
+            obj.PhasePath = PhasePath;
+
+        end
+
+        function set.PhasePath(obj, newPath)
+            obj.PhasePath = newPath;
+            obj.loadPhaseFiles();
+        end
+
+        function loadPhaseFiles(obj)
+            % Load JSON files from the specified PhasePath and populate Names and Filenames properties.
+            if obj.PhasePath == "" || ~isfolder(obj.PhasePath)
+                [fn,pth] = uigetfile('*.json','Select Directory Containing Phase JSON Files','MultiSelect','off');
+                if isequal(fn,0) || isequal(pth,0)
+                    vprintf(3,'User canceled directory selection. No phase files loaded.')
+                    return
+                end
+                obj.PhasePath = pth;
+            end
+
+            jsonFiles = dir(fullfile(obj.PhasePath, '*.json'));
+            nFiles = numel(jsonFiles);
+
+            if nFiles == 0
+                vprintf(3, 'No JSON files found in PhasePath: "%s".', obj.PhasePath)
+                return
+            end
+
+            obj.Names = string({jsonFiles.name});
+            obj.Filenames = string(fullfile({jsonFiles.folder}, {jsonFiles.name}));
+
+            vprintf(3, 'Loaded %d phase files from "%s".', nFiles, obj.PhasePath)
+        end
+
+        function writePhaseParameters(obj, src)
+            % write all hardware and software parameters to a new file
+
+            [fn,pth] = uiputfile('*.json','Save Current Parameters');
+            if isequal(fn,0) || isequal(pth,0)
+                vprintf(3,'User canceled save operation.')
+                return
+            end
+
+            filepath = fullfile(pth, fn);
+
+            [~,fn] = fileparts(filepath);
+            vprintf(0, 'Writing current parameters to "%s" (%s)', fn, filepath)
+            obj.RUNTIME.writeParametersJSON(filepath);
             
         end
+
+        function readPhaseParameters(obj, src)
+            % Callback for dropdown value change
+            % Updates CurrentPhase based on selected value
+            idx = find(obj.Names == string(src.Value), 1);
+            if ~isempty(idx)
+                obj.CurrentPhase = uint8(idx);
+            end
+
+            % read parameters from file corresponding to selected phase
+            filepath = obj.Filenames(idx);
+
+            [~,fn] = fileparts(filepath);
+            vprintf(0, 'Reading parameters from "%s" (%s)', fn, filepath)
+            obj.RUNTIME.readParametersJSON(filepath);
+        end
+
+
 
         function h = addWritePhase(obj, parent, position)
             % h = addWritePhase(obj, parent, position)
@@ -57,21 +119,6 @@ classdef PhaseSelector < handle
             obj.h_WritePhase = h;
         end
 
-        function writePhaseParameters(obj, src)
-            % write all hardware and software parameters to a new file
-
-            [fn,pth] = uiputfile('*.json','Save Current Parameters');
-            if isequal(fn,0) || isequal(pth,0)
-                vprintf(3,'User canceled save operation.')
-                return
-            end
-
-            filepath = fullfile(pth, fn);
-
-
-            
-        end
-
 
         function h = addPhaseSelect(obj, parent, position)
             % hDropdown = addPhaseSelect(obj, parent, position)
@@ -91,18 +138,9 @@ classdef PhaseSelector < handle
             h = uidropdown(parent, ...
                 'Items', cellstr(obj.Names), ...
                 'Position', position, ...
-                'ValueChangedFcn', @(src,evt)obj.onDropdownChanged(src));
+                'ValueChangedFcn', @(src,evt)obj.readPhaseParameters(src));
 
             obj.h_PhaseSelect = h;
-        end
-
-        function onDropdownChanged(obj, src)
-            % Callback for dropdown value change
-            % Updates CurrentPhase based on selected value
-            idx = find(obj.Names == string(src.Value), 1);
-            if ~isempty(idx)
-                obj.CurrentPhase = uint8(idx);
-            end
         end
 
         

@@ -84,15 +84,38 @@ classdef Runtime < handle
             vprintf(2,'Initializing Runtime object')
         end
 
-
-        function P = getAllParameters(obj)
+        function P = getAllParameters(obj,options)
             % getAllParameters(obj)
             % Retrieve all parameters from hardware and software interfaces.
-            vprintf(3,'Retrieving all parameters from hardware and software interfaces')
-            P = obj.S.all_parameters;
 
-            for i = 1:numel(obj.HW)
-                P = [P, obj.HW(i).all_parameters];
+            arguments
+                obj
+                options.HW (1,1) logical = true
+                options.S (1,1) logical = true
+                options.includeInvisible (1,1) logical = false
+                options.includeTriggers (1,1) logical = false
+                options.includeArray (1,1) logical = true
+                options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
+            end
+
+            if options.S
+                 vprintf(3,'Retrieving all parameters from software interface')
+                P = obj.S.all_parameters( ...
+                        includeTriggers=options.includeTriggers, ...
+                        includeInvisible=options.includeInvisible, ...
+                        includeArray=options.includeArray, ...
+                        Access=options.Access);
+            end
+
+            if options.HW
+                for i = 1:numel(obj.HW)
+                    vprintf(3,'Retrieving all parameters from hardware interface: %s', class(obj.HW(i).Name))
+                    P = [P, obj.HW(i).all_parameters( ...
+                        includeTriggers=options.includeTriggers, ...
+                        includeInvisible=options.includeInvisible, ...
+                        includeArray=options.includeArray, ...
+                        Access=options.Access)];
+                end
             end
         end
     end

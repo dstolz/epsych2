@@ -80,6 +80,18 @@ classdef Runtime < handle
             % Construct an empty Runtime container and initialize state.
             vprintf(2,'Initializing Runtime object')
         end
+
+
+        function P = getAllParameters(obj)
+            % getAllParameters(obj)
+            % Retrieve all parameters from hardware and software interfaces.
+            vprintf(3,'Retrieving all parameters from hardware and software interfaces')
+            P = obj.S.all_parameters;
+
+            for i = 1:numel(obj.HW)
+                P = [P, obj.HW(i).all_parameters];
+            end
+        end
     end
 end
 

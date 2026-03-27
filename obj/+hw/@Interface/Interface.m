@@ -7,28 +7,25 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     % This lets GUIs, runtime code, and tests interact with different
     % hardware backends through the same interface contract.
     %
-    % Usage
-    %   % Concrete subclasses implement construction and hardware I/O.
+    % Example usage:
     %   I = hw.TDT_Synapse(...);
     %   P = I.find_parameter("Reward");
     %   ok = I.set_parameter("Reward", 1);
     %
-    % Core properties
+    % Properties:
     %   Module - Array of hw.Module objects exposed by the interface.
     %   Type   - Constant identifier for the interface implementation.
     %   mode   - Current hw.DeviceState for the interface.
     %
-    % Helper methods
+    % Methods:
     %   all_parameters    - Return Parameters across all modules.
     %   find_parameter    - Resolve Parameters by name.
     %   filter_parameters - Filter Parameters by property value.
-    %
-    % Concrete subclasses implement
-    %   setup_interface - Allocate or connect backend resources.
-    %   close_interface - Release backend resources.
-    %   trigger - Issue a named hardware event.
-    %   set_parameter - Write one or more parameter values.
-    %   get_parameter - Read one or more parameter values.
+    %   setup_interface   - Allocate or connect backend resources (abstract).
+    %   close_interface   - Release backend resources (abstract).
+    %   trigger          - Issue a named hardware event (abstract).
+    %   set_parameter    - Write one or more parameter values (abstract).
+    %   get_parameter    - Read one or more parameter values (abstract).
     %
     % See also: documentation/hw_Interface.md, hw.Module, hw.Parameter
 
@@ -78,25 +75,18 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
     methods
 
-        function P = find_parameter(obj,name,options)
-            % P = find_parameter(obj,name)
-            % P = find_parameter(obj,name, includeInvisible=..., silenceParameterNotFound=...)
+        function P = find_parameter(obj, name, options)
+            % P = find_parameter(obj, name, options)
             % Return handle(s) to matching hw.Parameter objects by name.
             %
-            % Parameters
-            %   obj: hw.Interface
-            %       Hardware interface to search.
-            %   name: char | string | cellstr
-            %       Parameter name or names to search for.
-            %   includeInvisible: logical (default=false)
-            %       Include Parameters where Visible is false.
-            %   silenceParameterNotFound: logical (default=false)
-            %       Suppress warning output when no matches are found.
+            % Parameters:
+            %   obj    - hw.Interface. Hardware interface to search.
+            %   name   - char | string | cellstr. Parameter name(s) to search for.
+            %   options.includeInvisible - logical (default=false). Include Parameters where Visible is false.
+            %   options.silenceParameterNotFound - logical (default=false). Suppress warning output when no matches are found.
             %
-            % Returns
-            %   P: hw.Parameter[]
-            %       Matching Parameter handle(s) returned in the requested
-            %       name order. Empty when no match is found.
+            % Returns:
+            %   P - hw.Parameter[]. Matching Parameter handle(s) in requested name order. Empty if no match.
             arguments
                 obj
                 name
@@ -127,29 +117,20 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         end
 
 
-        function P = filter_parameters(obj,propertyName,propertyValue,options,poptions)
-            % P = filter_parameters(obj,propertyName,propertyValue)
-            % P = filter_parameters(obj,propertyName,propertyValue, testFcn=..., includeTriggers=..., includeInvisible=...)
+        function P = filter_parameters(obj, propertyName, propertyValue, options, poptions)
+            % P = filter_parameters(obj, propertyName, propertyValue, options, poptions)
             % Filter Parameters by comparing a property to a target value.
             %
-            % Parameters
-            %   obj: hw.Interface
-            %       Hardware interface that owns the Parameters.
-            %   propertyName: char
-            %       Name of the hw.Parameter property to test.
-            %   propertyValue: any
-            %       Target value or pattern passed to testFcn.
-            %   testFcn: function_handle (default=@isequal)
-            %       Comparator such as @isequal, @contains, or @startsWith.
-            %   includeTriggers: logical (default=false)
-            %       Include trigger Parameters in the candidate set.
-            %   includeInvisible: logical (default=false)
-            %       Include Parameters where Visible is false.
+            % Parameters:
+            %   obj           - hw.Interface. Hardware interface that owns the Parameters.
+            %   propertyName  - char. Name of the hw.Parameter property to test.
+            %   propertyValue - any. Target value or pattern passed to testFcn.
+            %   options.testFcn - function_handle (default=@isequal). Comparator such as @isequal, @contains, or @startsWith.
+            %   poptions.includeTriggers - logical (default=false). Include trigger Parameters in the candidate set.
+            %   poptions.includeInvisible - logical (default=false). Include Parameters where Visible is false.
             %
-            % Returns
-            %   P: hw.Parameter[]
-            %       Parameters whose selected property matches according to
-            %       testFcn.
+            % Returns:
+            %   P - hw.Parameter[]. Parameters whose selected property matches according to testFcn.
             arguments
                 obj
                 propertyName (1,:) char
@@ -168,31 +149,25 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         end
 
 
-        function P = all_parameters(obj,options)
-            % P = all_parameters(obj)
-            % P = all_parameters(obj, includeTriggers=..., includeInvisible=..., includeArray=...)
+        function P = all_parameters(obj, options)
+            % P = all_parameters(obj, options)
             % Return all Parameters across all Modules, optionally filtered.
             %
-            % Parameters
-            %   obj: hw.Interface
-            %       Hardware interface whose modules are queried.
-            %   includeTriggers: logical (default=true)
-            %       Include trigger Parameters.
-            %   includeInvisible: logical (default=false)
-            %       Include Parameters where Visible is false.
-            %   includeArray: logical (default=true)
-            %       Include Parameters with array-valued contents.
+            % Parameters:
+            %   obj - hw.Interface. Hardware interface whose modules are queried.
+            %   options.includeTriggers   - logical (default=true). Include trigger Parameters.
+            %   options.includeInvisible  - logical (default=false). Include Parameters where Visible is false.
+            %   options.includeArray      - logical (default=true). Include Parameters with array-valued contents.
+            %   options.Access            - char (default='Any'). Filter by access type: 'Read', 'Write', 'Read / Write', or 'Any'.
             %
-            % Returns
-            %   P: hw.Parameter[]
-            %       Concatenated Parameters from every module after the
-            %       requested filters are applied.
+            % Returns:
+            %   P - hw.Parameter[]. Concatenated Parameters from every module after requested filters are applied.
             arguments
                 obj
                 options.includeTriggers (1,1) logical = true
                 options.includeInvisible (1,1) logical = false
                 options.includeArray (1,1) logical = true
-                options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
+                options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Read / Write','Any'})} = 'Any'
             end
 
             P = [obj.Module(:).Parameters];
@@ -209,8 +184,17 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 P=P(~[P.isArray]);
             end
 
-            a = {P.Access};
-            P = P(ismember(a, options.Access));
+            % if Access filter is 'Read' or 'Read/Write', exclude Write-only parameters
+            switch options.Access
+                case 'Read'
+                    P = P(~strcmp({P.Access}, 'Write'));
+                case 'Write'
+                    P = P(~strcmp({P.Access}, 'Read'));
+                case 'Read / Write'
+                    P = P(strcmp({P.Access}, 'Read / Write'));
+                otherwise
+                    % no filtering needed
+            end
         end
 
     end
@@ -219,20 +203,16 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
 
         function tf = local_test(fcn, val, pat)
-            % tf = local_test(fcn,val,pat)
+            % tf = local_test(fcn, val, pat)
             % Normalize comparison output to a logical scalar.
             %
-            % Parameters
-            %   fcn: function_handle
-            %       Comparison function, e.g. @isequal, @contains.
-            %   val: any
-            %       Value from the Parameter property.
-            %   pat: any
-            %       Pattern/target value passed to the comparison function.
+            % Parameters:
+            %   fcn - function_handle. Comparison function, e.g. @isequal, @contains.
+            %   val - any. Value from the Parameter property.
+            %   pat - any. Pattern/target value passed to the comparison function.
             %
-            % Returns
-            %   tf: logical
-            %       True if the comparison indicates a match.
+            % Returns:
+            %   tf - logical. True if the comparison indicates a match.
             res = fcn(val, pat);
             if islogical(res) && isscalar(res)
                 tf = res;

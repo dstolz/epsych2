@@ -1,8 +1,17 @@
+
 function RUNTIME = ep_TimerFcn_RunTime(RUNTIME)
 % RUNTIME = ep_TimerFcn_RunTime(RUNTIME)
-% 
-% Default RunTime timer function
-% 
+%
+% Default RunTime timer function for EPsych.
+% Handles trial completion, data saving, trial selection, and hardware triggers for each subject.
+%
+% Parameters:
+%   RUNTIME - (struct or epsych.Runtime) Current runtime state, including hardware, trial, and data fields.
+%
+% Returns:
+%   RUNTIME - Updated runtime state after timer tick.
+%
+% See also: epsych.Runtime, documentation/RunExpt_GUI_Overview.md
 
 % Copyright (C) 2016  Daniel Stolzberg, PhD
 % updated for hardware abstraction 2024 DS
@@ -32,7 +41,8 @@ for i = 1:RUNTIME.NSubjects
             data.TrialID = TrialNum;
             data.inaccurateTimestamp = datetime("now");
 
-            P = RUNTIME.getAllParameters;
+            % get all 'Read' or 'Read / Write' parameters from hardware and software interfaces and save in data struct
+            P = RUNTIME.getAllParameters(Access = 'Read');
             for k = 1:numel(P)
                 data.(P(k).ValidName) = P(k).Value;
             end

@@ -32,10 +32,10 @@ if filepath == "" || ~isfile(filepath)
 end
 
 % retrieve all software parameters from the runtime
-Parameters = obj.S.all_parameters;
-
-HW = arrayfun(@all_parameters, obj.HW,'uni',0);
-Parameters = [Parameters, [HW{:}]];
+Parameters = obj.getAllParameters(includeTriggers=true, ...
+                                    includeInvisible=true, ...
+                                    includeArray=true, ...
+                                    Access='Any');
 
 
 

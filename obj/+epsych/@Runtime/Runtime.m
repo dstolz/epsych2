@@ -27,13 +27,14 @@ classdef Runtime < handle
     %   Runtime             - Construct an empty runtime container
     %   writeParametersJSON - Write parameters to JSON file
     %   readParametersJSON  - Read parameters from JSON file
+    %   getAllParameters    - Retrieve all parameters from hardware/software
     %
-    % Example:
+    % Example usage:
     %   r = epsych.Runtime();
     %   r.NSubjects = 2;
     %   r.writeParametersJSON('params.json');
     %
-    % See also: epsych, hw.Parameter
+    % See also: epsych, hw.Parameter, documentation/Architecture_Overview.md
 
     properties
         NSubjects (1,1) double {mustBeNonnegative,mustBeInteger} = 1
@@ -78,15 +79,30 @@ classdef Runtime < handle
         %   Load runtime parameters from a JSON file.
         readParametersJSON(obj, filepath)
 
+
         function self = Runtime
             % self = Runtime
             % Construct an empty Runtime container and initialize state.
             vprintf(2,'Initializing Runtime object')
         end
 
-        function P = getAllParameters(obj,options)
-            % getAllParameters(obj)
+        function P = getAllParameters(obj, options)
+            % P = getAllParameters(obj, options)
             % Retrieve all parameters from hardware and software interfaces.
+            %
+            % Parameters:
+            %   obj - epsych.Runtime. The runtime object.
+            %   options.HW (logical) - Include hardware parameters (default: true)
+            %   options.S (logical) - Include software parameters (default: true)
+            %   options.includeTriggers (logical) - Include trigger parameters (default: false)
+            %   options.includeInvisible (logical) - Include invisible parameters (default: false)
+            %   options.includeArray (logical) - Include array-valued parameters (default: true)
+            %   options.Access (char) - Filter by access type (default: 'Read')
+            %
+            % Returns:
+            %   P - Array of hw.Parameter objects
+            %
+            % See also: hw.Parameter, hw.Interface, documentation/Parameter_Control.md
 
             arguments
                 obj
@@ -95,11 +111,11 @@ classdef Runtime < handle
                 options.includeInvisible (1,1) logical = false
                 options.includeTriggers (1,1) logical = false
                 options.includeArray (1,1) logical = true
-                options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
+                options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read'
             end
 
             if options.S
-                 vprintf(3,'Retrieving all parameters from software interface')
+                vprintf(3,'Retrieving all parameters from software interface')
                 P = obj.S.all_parameters( ...
                         includeTriggers=options.includeTriggers, ...
                         includeInvisible=options.includeInvisible, ...

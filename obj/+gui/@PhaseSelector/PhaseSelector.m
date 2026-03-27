@@ -7,6 +7,11 @@ classdef PhaseSelector < handle
 %   RUNTIME   - Main runtime object with read/write parameter methods
 %   PhasePath - (optional) Directory containing phase JSON files
 %
+% Example usage:
+%   ps = gui.PhaseSelector(RUNTIME, 'C:\path\to\phase_files');
+%   parentUI = uipanel(...); % create parent UI container
+%   ps.addPhaseSelect(parentUI, [10 10 150 30]);
+%
 % See also: documentation/Architecture_Overview.md
 
     properties (SetObservable)
@@ -142,11 +147,10 @@ classdef PhaseSelector < handle
             %
             % Returns:
             %   h - Handle to created button UI control
-
             arguments
                 obj
-                parent {mustBeNonempty}
-                position (1,4) double {mustBeFinite, mustBeNonnegative}
+                parent {mustBeNonempty} = gcf
+                position (1,4) double {mustBeFinite, mustBeNonnegative} = [10 10 150 30]
             end
 
             h = uibutton(parent, ...
@@ -169,11 +173,10 @@ classdef PhaseSelector < handle
             %
             % Returns:
             %   h - Handle to created dropdown UI control
-
             arguments
                 obj
-                parent {mustBeNonempty}
-                position (1,4) double {mustBeFinite, mustBeNonnegative}
+                parent {mustBeNonempty} = gcf
+                position (1,4) double {mustBeFinite, mustBeNonnegative} = [10 10 150 30]
             end
 
             h = uidropdown(parent, ...

@@ -192,6 +192,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 options.includeTriggers (1,1) logical = true
                 options.includeInvisible (1,1) logical = false
                 options.includeArray (1,1) logical = true
+                options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
             end
 
             P = [obj.Module(:).Parameters];
@@ -207,6 +208,9 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             if ~options.includeArray
                 P=P(~[P.isArray]);
             end
+
+            a = {P.Access};
+            P = P(ismember(a, options.Access));
         end
 
     end

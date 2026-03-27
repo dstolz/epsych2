@@ -1,6 +1,7 @@
 
+
 classdef Runtime < handle
-    % r = epsych.Runtime()
+    % epsych.Runtime
     % Container for EPsych experiment execution runtime state.
     %
     % Holds experiment-wide state including subject count, trial metadata, hardware interfaces, event dispatchers, and the MATLAB timer for GUI/runtime services.
@@ -30,60 +31,63 @@ classdef Runtime < handle
     %   getAllParameters    - Retrieve all parameters from hardware/software
     %
     % Example usage:
-    %   r = epsych.Runtime();
+    %   r = epsych.Runtime;
     %   r.NSubjects = 2;
     %   r.writeParametersJSON('params.json');
     %
-    % See also: epsych, hw.Parameter, documentation/Architecture_Overview.md
+    % For more details, see:
+    %   documentation/Architecture_Overview.md
+    %   documentation/Parameter_Control.md
+    %   documentation/EPsychInfo.md
+
 
     properties
-        NSubjects (1,1) double {mustBeNonnegative,mustBeInteger} = 1
+        NSubjects (1,1) double {mustBeNonnegative,mustBeInteger} = 1 % Number of subjects in the experiment (default: 1)
 
-
-        % TO DO: REPLACE USINGSYNAPSE WITH GENERALIZED HWINUSE
-        HWinUse (1,:) string
-        usingSynapse (1,1) logical = false
+        HWinUse (1,:) string % List of hardware in use (string array)
+        usingSynapse (1,1) logical = false % True if using Synapse hardware
 
         TRIALS            % Protocol-specific trial information, including trial selection function, trial parameters, and trial count
-        dfltDataPath (1,1) string = ""
-        HELPER            % e.g., epsych.Helper
-        TIMER (1,1) timer % MATLAB timer object
-
+        dfltDataPath (1,1) string = "" % Default data path for output
+        HELPER            % Helper/event dispatcher object (e.g., epsych.Helper)
+        TIMER (1,1) timer % MATLAB timer object for runtime services
 
         DATA (1,:) struct = struct.empty % Container for acquired data, updated at end of each trial
 
-        DataDir (1,1) string = ""
-        DataFile string = strings(0,1)   % vector of filepaths
-        ON_HOLD (1,:) logical = false
+        DataDir (1,1) string = "" % Directory for acquired data
+        DataFile string = strings(0,1)   % Filepath(s) for acquired data
+        ON_HOLD (1,:) logical = false % Logical flag for hold state
 
-        HW                % e.g., hw.TDT_RPcox
-        S                 % e.g., hw.Software
-        CORE              % RuntimeCore or struct-compatible
+        HW                % Hardware interface object(s) (e.g., hw.TDT_RPcox)
+        S                 % Software interface object(s) (e.g., hw.Software)
+        CORE              % Runtime core or struct-compatible
 
-        StartTime datetime = NaT
+        StartTime datetime = NaT % Experiment start time (datetime)
 
-        TrialComplete  % If in use, wait for manual completion of trial in RPvds
+        TrialComplete  % Manual trial completion flag (if in use, wait for manual completion of trial in RPvds)
 
-        AcqBufferStr = "" % If in use, collect AcqBuffer data at end of trial
+        AcqBufferStr = "" % Buffer for acquired data (if in use, collect AcqBuffer data at end of trial)
     end
 
 
     
 
+
     methods
         % writeParametersJSON(obj, filepath)
         %   Serialize runtime parameters to a JSON file.
+        %   See also: documentation/Parameter_Control.md
         writeParametersJSON(obj, filepath)
 
         % readParametersJSON(obj, filepath)
         %   Load runtime parameters from a JSON file.
+        %   See also: documentation/Parameter_Control.md
         readParametersJSON(obj, filepath)
-
 
         function self = Runtime
             % self = Runtime
             % Construct an empty Runtime container and initialize state.
-            vprintf(2,'Initializing Runtime object')
+            vprintf(2, 'Initializing Runtime object')
         end
 
         function P = getAllParameters(obj, options)
@@ -91,13 +95,20 @@ classdef Runtime < handle
             % Retrieve all parameters from hardware and software interfaces.
             %
             % Parameters:
-            %   obj - epsych.Runtime. The runtime object.
-            %   options.HW (logical) - Include hardware parameters (default: true)
-            %   options.S (logical) - Include software parameters (default: true)
-            %   options.includeTriggers (logical) - Include trigger parameters (default: false)
-            %   options.includeInvisible (logical) - Include invisible parameters (default: false)
-            %   options.includeArray (logical) - Include array-valued parameters (default: true)
-            %   options.Access (char) - Filter by access type (default: 'Read')
+            %   obj (1,1) epsych.Runtime
+            %       The runtime object.
+            %   options.HW (1,1) logical
+            %       Include hardware parameters (default: true)
+            %   options.S (1,1) logical
+            %       Include software parameters (default: true)
+            %   options.includeTriggers (1,1) logical
+            %       Include trigger parameters (default: false)
+            %   options.includeInvisible (1,1) logical
+            %       Include invisible parameters (default: false)
+            %   options.includeArray (1,1) logical
+            %       Include array-valued parameters (default: true)
+            %   options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})}
+            %       Filter by access type (default: 'Read')
             %
             % Returns:
             %   P - Array of hw.Parameter objects
@@ -115,7 +126,7 @@ classdef Runtime < handle
             end
 
             if options.S
-                vprintf(3,'Retrieving all parameters from software interface')
+                vprintf(3, 'Retrieving all parameters from software interface')
                 P = obj.S.all_parameters( ...
                         includeTriggers=options.includeTriggers, ...
                         includeInvisible=options.includeInvisible, ...
@@ -125,7 +136,7 @@ classdef Runtime < handle
 
             if options.HW
                 for i = 1:numel(obj.HW)
-                    vprintf(3,'Retrieving all parameters from hardware interface: %s', class(obj.HW(i).Name))
+                    vprintf(3, 'Retrieving all parameters from hardware interface: %s', class(obj.HW(i).Name))
                     P = [P, obj.HW(i).all_parameters( ...
                         includeTriggers=options.includeTriggers, ...
                         includeInvisible=options.includeInvisible, ...
@@ -138,65 +149,65 @@ classdef Runtime < handle
 
     methods (Static)
         function createTemplateJSON(filepath)
-        % createTemplateJSON(filepath)
-        % Creates a template JSON phase file with example fields.
-        %
-        % Parameters:
-        %   filepath - Full path to save the template JSON file
-        %
-        % Example usage:
-        %   epsych.Runtime.createTemplateJSON('C:/path/to/template.json');
-        %
-        % The template includes example fields for hardware and software parameters.
+            % createTemplateJSON(filepath)
+            % Create a template JSON phase file with example fields for hw.Parameter serialization.
+            %
+            % Parameters:
+            %   filepath (1,:) string
+            %       Full path to save the template JSON file. If not provided, prompts user to select location.
+            %
+            % Returns:
+            %   None. Writes template JSON file to disk.
+            %
+            % Example usage:
+            %   epsych.Runtime.createTemplateJSON('C:/path/to/template.json');
+            %
+            % The template includes example fields for hardware and software parameters.
+            %
+            % See also: documentation/Parameter_Control.md
 
-        if nargin < 1 || isempty(filepath)
-            [fn, pth] = uiputfile('*.json', 'Save Template Phase JSON As');
-            if isequal(fn,0) || isequal(pth,0)
-                vprintf(3, 'User canceled template save operation.');
-                return
+            if nargin < 1 || isempty(filepath)
+                [fn, pth] = uiputfile('*.json', 'Save Template Phase JSON As');
+                if isequal(fn,0) || isequal(pth,0)
+                    vprintf(3, 'User canceled template save operation.');
+                    return
+                end
+                filepath = fullfile(pth, fn);
             end
-            filepath = fullfile(pth, fn);
-        end
 
+            % Align template with hw.Parameter fields (see hw.Parameter and toStruct)
+            templateParam = struct(...
+                'Name', 'ExampleParam', ...
+                'Description', "Example parameter for template", ...
+                'Unit', '', ...
+                'Module', '', ...
+                'Access', 'Read / Write', ...
+                'Type', 'Float', ...
+                'Format', '%g', ...
+                'Visible', true, ...
+                'PreUpdateFcnEnabled', true, ...
+                'EvaluatorFcnEnabled', true, ...
+                'PostUpdateFcnEnabled', true, ...
+                'isArray', false, ...
+                'isTrigger', false, ...
+                'isRandom', false, ...
+                'Min', 0, ...
+                'Max', 100, ...
+                'Value', 0, ...
+                'lastUpdated', 0 ...
+            );
 
+            comment = 'This JSON file is a template for hw.Parameter serialization. Duplicate the template entries and edit values as needed.';
+            templateStruct = struct('Comment', comment, 'Parameters', templateParam);
 
-
-        % Align template with hw.Parameter fields (see hw.Parameter and toStruct)
-        templateParam = struct(...
-            'Name', 'ExampleParam', ...
-            'Description', "Example parameter for template", ...
-            'Unit', '', ...
-            'Module', '', ...
-            'Access', 'Read / Write', ...
-            'Type', 'Float', ...
-            'Format', '%g', ...
-            'Visible', true, ...
-            'PreUpdateFcnEnabled', true, ...
-            'EvaluatorFcnEnabled', true, ...
-            'PostUpdateFcnEnabled', true, ...
-            'isArray', false, ...
-            'isTrigger', false, ...
-            'isRandom', false, ...
-            'Min', 0, ...
-            'Max', 100, ...
-            'Value', 0, ...
-            'lastUpdated', 0 ...
-        );
-
-
-        comment = 'This JSON file is a template for hw.Parameter serialization. Duplicate the template entries and edit values as needed.';
-        templateStruct = struct('Header', comment,'Parameters', templateParam);
-
-        
-
-        jsonStr = jsonencode(templateStruct, 'PrettyPrint', true);
-        fid = fopen(filepath, 'w');
-        if fid == -1
-            error('Could not open file for writing: %s', filepath);
-        end
-        fwrite(fid, jsonStr, 'char');
-        fclose(fid);
-        vprintf(0, 'Template phase JSON file created at: %s', filepath);
+            jsonStr = jsonencode(templateStruct, 'PrettyPrint', true);
+            fid = fopen(filepath, 'w');
+            if fid == -1
+                error('Could not open file for writing: %s', filepath);
+            end
+            fwrite(fid, jsonStr, 'char');
+            fclose(fid);
+            vprintf(0, 'Template phase JSON file created at: %s', filepath);
         end
     end
 end

@@ -65,7 +65,7 @@ classdef PhaseSelector < handle
             %
             % Updates:
             %   obj.Names, obj.Filenames
-            if obj.PhasePath == "" || ~isfolder(obj.PhasePath)
+            if obj.PhasePath == ""
                 [fn,pth] = uigetfile('*.json','Select Directory Containing Phase JSON Files','MultiSelect','off');
                 if isequal(fn,0) || isequal(pth,0)
                     vprintf(3,'User canceled directory selection. No phase files loaded.')
@@ -73,6 +73,8 @@ classdef PhaseSelector < handle
                 end
                 obj.PhasePath = pth;
             end
+
+            assert(isfolder(obj.PhasePath), 'PhasePath must be a valid directory. Provided: "%s"', obj.PhasePath)
 
             jsonFiles = dir(fullfile(obj.PhasePath, '*.json'));
             nFiles = numel(jsonFiles);

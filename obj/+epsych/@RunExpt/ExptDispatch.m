@@ -47,6 +47,7 @@ switch lower(COMMAND)
 
         self.RUNTIME.NSubjects = length(self.CONFIG);
 
+        % TO DO: CREATE BETTER SYSTEM FOR MANAGING MULTIPLE HARDWARE INTERFACES
         [~,result] = system('tasklist/FI "imagename eq Synapse.exe"');
         x = strfind(result,'No tasks are running');
         self.RUNTIME.usingSynapse = isempty(x);

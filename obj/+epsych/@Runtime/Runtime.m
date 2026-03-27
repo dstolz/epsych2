@@ -48,6 +48,9 @@ classdef Runtime < handle
         HELPER            % e.g., epsych.Helper
         TIMER (1,1) timer % MATLAB timer object
 
+
+        DATA (1,:) struct = struct.empty % Container for acquired data, updated at end of each trial
+
         DataDir (1,1) string = ""
         DataFile string = strings(0,1)   % vector of filepaths
         ON_HOLD (1,:) logical = false

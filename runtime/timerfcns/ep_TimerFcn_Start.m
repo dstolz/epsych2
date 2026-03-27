@@ -88,17 +88,6 @@ for i = 1:RUNTIME.NSubjects
 
     RUNTIME.ON_HOLD(i) = false;
 
-
-    % Initialize data structure
-    rpn = RUNTIME.TRIALS(i).readparams;
-    rpn = matlab.lang.makeValidName(rpn);
-    for p = string(rpn)
-        RUNTIME.TRIALS(i).DATA.(p) = [];
-    end    
-    RUNTIME.TRIALS(i).DATA.ResponseCode = [];
-    RUNTIME.TRIALS(i).DATA.TrialID = [];
-    RUNTIME.TRIALS(i).DATA.inaccurateTimestamp = [];
-    
     % make HW object handles available in TRIALS structure
     RUNTIME.TRIALS(i).HW = RUNTIME.HW; 
     hp = RUNTIME.HW.Module.Parameters;

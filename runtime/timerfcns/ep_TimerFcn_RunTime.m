@@ -26,28 +26,20 @@ for i = 1:RUNTIME.NSubjects
 
 
             % There was a response and the trial is over.
-            % Retrieve parameter data from HW
-            % NOTE: Asterisk (*) prefix flag is not handled yet. Probably
-            % should make a software parameter
-
-            % TO DO: RETRIEVE THE VALUE FROM ALL HW AND S PARAMETERS, NOT JUST THE ONES IN THE TRIALS STRUCTURE.
-            % TO DO: CONSIDER SAVING ALL PARAMETER DATA TO JSON AT THE END OF EACH TRIAL USING RUNTIME.writeParametersJSON
-            rpn = RUNTIME.TRIALS(i).readparams;
-            rpnind = startsWith(rpn,'*');
-            rpn = matlab.lang.makeValidName(rpn);
-            rpv = cell(size(rpn));
-            rpv(~rpnind) = RUNTIME.HW.get_parameter(rpn(~rpnind));
-            rp = [rpn; rpv];
-            data = struct(rp{:});
+            % Retrieve parameter data for this trial and save in TRIALS structure. 
+            data = struct([]);
             data.ResponseCode = RCtag;
             data.TrialID = TrialNum;
             data.inaccurateTimestamp = datetime("now");
-            RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
 
-
+            P = RUNTIME.getAllParameters;
+            for k = 1:numel(P)
+                data.(P(k).ValidName) = P(k).Value;
+            end
             % Save runtime data in case of crash
-            data = RUNTIME.TRIALS(i).DATA;
             save(RUNTIME.DataFile(i),'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
+
+            RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
 
             % Broadcast event data has been updated
             evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));

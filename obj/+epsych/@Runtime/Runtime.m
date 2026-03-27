@@ -135,5 +135,69 @@ classdef Runtime < handle
             end
         end
     end
+
+    methods (Static)
+        function createTemplateJSON(filepath)
+        % createTemplateJSON(filepath)
+        % Creates a template JSON phase file with example fields.
+        %
+        % Parameters:
+        %   filepath - Full path to save the template JSON file
+        %
+        % Example usage:
+        %   epsych.Runtime.createTemplateJSON('C:/path/to/template.json');
+        %
+        % The template includes example fields for hardware and software parameters.
+
+        if nargin < 1 || isempty(filepath)
+            [fn, pth] = uiputfile('*.json', 'Save Template Phase JSON As');
+            if isequal(fn,0) || isequal(pth,0)
+                vprintf(3, 'User canceled template save operation.');
+                return
+            end
+            filepath = fullfile(pth, fn);
+        end
+
+
+
+
+        % Align template with hw.Parameter fields (see hw.Parameter and toStruct)
+        templateParam = struct(...
+            'Name', 'ExampleParam', ...
+            'Description', "Example parameter for template", ...
+            'Unit', '', ...
+            'Module', '', ...
+            'Access', 'Read / Write', ...
+            'Type', 'Float', ...
+            'Format', '%g', ...
+            'Visible', true, ...
+            'PreUpdateFcnEnabled', true, ...
+            'EvaluatorFcnEnabled', true, ...
+            'PostUpdateFcnEnabled', true, ...
+            'isArray', false, ...
+            'isTrigger', false, ...
+            'isRandom', false, ...
+            'Min', 0, ...
+            'Max', 100, ...
+            'Value', 0, ...
+            'lastUpdated', 0 ...
+        );
+
+
+        comment = 'This JSON file is a template for hw.Parameter serialization. Duplicate the template entries and edit values as needed.';
+        templateStruct = struct('Header', comment,'Parameters', templateParam);
+
+        
+
+        jsonStr = jsonencode(templateStruct, 'PrettyPrint', true);
+        fid = fopen(filepath, 'w');
+        if fid == -1
+            error('Could not open file for writing: %s', filepath);
+        end
+        fwrite(fid, jsonStr, 'char');
+        fclose(fid);
+        vprintf(0, 'Template phase JSON file created at: %s', filepath);
+        end
+    end
 end
 

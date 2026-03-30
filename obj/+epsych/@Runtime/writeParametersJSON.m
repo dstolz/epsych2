@@ -1,27 +1,28 @@
-
-function writeParametersJSON(obj, filepath)
+function writeParametersJSON(obj, filepath, description)
 % writeParametersJSON(obj, filepath)
 % Serialize hw.Parameter objects to a human-readable JSON file.
 %
-% This function writes module metadata (Label, Name, Index, Fs) and all publicly writable properties of each hw.Parameter to a JSON file. Function handles are stored as strings, callback enabled flags are included, and Inf/-Inf/NaN bounds are stored as string sentinels. PostUpdateFcnArgs is excluded due to unreliable round-tripping through JSON.
+% Writes module metadata (Label, Name, Index, Fs) and all publicly writable properties of each hw.Parameter
+% to a JSON file. Function handles are stored as strings, callback enabled flags are included, and Inf/-Inf/NaN
+% bounds are stored as string sentinels. PostUpdateFcnArgs is excluded due to unreliable round-tripping through JSON.
 %
 % Parameters:
-%   obj (1,1) hw.Runtime
-%       The runtime object containing the parameters.
-%   filepath (1,:) string
-%       Path to the output JSON file. If not provided or invalid, prompts user to select location.
+%   obj                         The runtime object containing the parameters.
+%   filepath (1,:) string       Path to the output JSON file. If not provided or invalid, prompts user to select location.
+%   description (1,1) string    Optional description for the JSON file. Defaults to creation timestamp.
 %
 % Returns:
 %   None. Writes JSON file to disk.
 %
 % See also: hw.Parameter, jsonencode
-% For more details, see documentation/Parameter_Control.md
 
 arguments
-    obj (1,1) hw.Runtime
+    obj
     filepath (1,:) string = ""
+    description (1,1) string = "Created on " + string(datetime('now'))
 end
 
+% If filepath is not provided or invalid, prompt user to select file
 if filepath == "" || ~isfile(filepath)
     [fn,pth] = uiputfile('*.json','Save Current Parameters');
     if isequal(fn,0) || isequal(pth,0)
@@ -40,36 +41,31 @@ Parameters = obj.getAllParameters(includeTriggers=true, ...
 
 
 % Serialize each Parameter
-% TO DO: May be able to simply use jsonencode(Parameters) direclty : https://www.mathworks.com/help/releases/R2024b/matlab/import_export/customize-json-encoding-for-matlab-classes.html
 nP = numel(Parameters);
 paramStructs = cell(1, nP);
 for k = 1:nP
     paramStructs{k} = Parameters(k).toStruct;
+    paramStructs{k} = rmfield(paramStructs{k}, 'UserData'); % exclude UserData from JSON output since it can contain non-serializable data and is not essential for parameter reconstruction
 end
 
+% Create output struct with metadata and parameter data
+data = struct();
+data.Description = description;
+data.Timestamp   = datetime('now');
+data.Parameters  = [paramStructs{:}];
 
-data.Description = sprintf('Generated on %s', datetime('now'));
 
-if nP == 0
-    data.Parameters = struct.empty;
-elseif nP == 1
-    data.Parameters = paramStructs{1};
-else
-    data.Parameters = [paramStructs{:}];
-end
-
-% remove the "UserData" field if present, as it can contain non-serializable data.
-data.Parameters = rmfield(data.Parameters, 'UserData');
-
+% Convert to JSON string with pretty printing
 jsonStr = jsonencode(data, PrettyPrint=true);
 
+% Write JSON string to file
 fid = fopen(filepath, 'w');
 if fid == -1
     vprintf(0, 1, 'Failed to open file for writing: %s', filepath)
     return
 end
-cleanupObj = onCleanup(@() fclose(fid));
 fwrite(fid, jsonStr, 'char');
+fclose(fid);
 
 vprintf(3, 'Wrote %d parameters to %s', nP, filepath)
 

@@ -146,7 +146,7 @@ classdef PhaseSelector < handle
 
             % update description text to show currently loaded phase (if description label exists)
             if ~isempty(obj.h_PhaseSelect)
-                obj.h_Description.Text = obj.Phase.Description;
+                obj.h_Description.Text = obj.Phase(end).Description;
             end
         end
 

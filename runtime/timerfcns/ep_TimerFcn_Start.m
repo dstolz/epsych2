@@ -73,15 +73,18 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.DataFile(i) = fullfile(RUNTIME.TempDataDir,dfn);
 
     if exist(RUNTIME.DataFile(i),'file')
+        vprintf(3, 'Data file already exists for runtime: %s. Deleting existing file.', RUNTIME.DataFile(i))
         oldstate = recycle('on');
         delete(RUNTIME.DataFile(i));
         recycle(oldstate);
     end
+    vprintf(3, 'Creating temporary data file for runtime: %s', RUNTIME.DataFile(i))
     save(RUNTIME.DataFile(i),'info','-v6');
 
 
 
     % Initialize default data filename
+    vprintf(3, 'Initializing data filename for subject "%s" on box %d', RUNTIME.TRIALS(i).Subject.Name, RUNTIME.TRIALS(i).Subject.BoxID)
     sn = RUNTIME.TRIALS(i).Subject.Name;
     pth = fullfile(RUNTIME.dfltDataPath,sn);
     RUNTIME.TRIALS(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);

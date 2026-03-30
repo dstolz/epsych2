@@ -73,6 +73,14 @@ for k = 1:nP
     
 end
 
+if ~isprop(obj,'Phase')
+    obj.addprop('Phase');
+end
+obj.Phase(end+1).Description = data.Description;
+obj.Phase(end).ParametersLoaded = true;
+obj.Phase(end).JSONPath = filepath;
+obj.Phase(end).ParameterData = paramData;
+
 vprintf(3, 'Read %d parameters from %s', nP, filepath)
 
 end

@@ -16,15 +16,16 @@ classdef PhaseSelector < handle
 
     properties (SetObservable)
         PhasePath (1,1) string % Directory containing phase JSON files
+        CurrentPhase (1,1) uint8 = 0 % Index of currently selected phase
+        h_PhaseSelect           % Handle to dropdown UI control
+        h_WritePhase            % Handle to write button UI control
+        h_Description           % Handle to description label UI control
     end
 
     properties (SetAccess = private)
         RUNTIME                 % Main runtime object
         Names (1,:) string      % List of phase file names
         Filenames (1,:) string {mustBeFile} % Full paths to phase files
-        CurrentPhase (1,1) uint8 = 0 % Index of currently selected phase
-        h_PhaseSelect           % Handle to dropdown UI control
-        h_WritePhase            % Handle to write button UI control
     end
 
 
@@ -134,6 +135,19 @@ classdef PhaseSelector < handle
             [~,fn] = fileparts(filepath);
             vprintf(0, 'Reading parameters from "%s" (%s)', fn, filepath)
             obj.RUNTIME.readParametersJSON(filepath);
+
+            % update dropdown value to match selected phase (in case it was changed programmatically)
+            src.Value = obj.Names(obj.CurrentPhase);
+
+            % update write button state (disable if no valid phase selected)
+            if ~isempty(obj.h_WritePhase)
+                obj.h_WritePhase.Enable = "on";
+            end
+
+            % update description text to show currently loaded phase (if description label exists)
+            if ~isempty(obj.h_PhaseSelect)
+                obj.h_Description.Text = obj.Phase.Description;
+            end
         end
 
 
@@ -189,11 +203,34 @@ classdef PhaseSelector < handle
             obj.h_PhaseSelect = h;
         end
 
-        
+        function h = addDescription(obj, parent, position)
+            % h = addDescription(obj, parent, position)
+            % Adds a label UI control to parent for displaying description text.
+            %
+            % Parameters:
+            %   parent   - Handle to parent container (e.g., uifigure, uipanel)
+            %   position - [left bottom width height] position vector
+            %
+            % Returns:
+            %   h - Handle to created label UI control
+            arguments
+                obj
+                parent {mustBeNonempty} = gcf
+                position (1,4) double {mustBeFinite, mustBeNonnegative} = [10 10 300 60]
+            end
+
+            descriptionText = sprintf(['Select a phase from the dropdown to load its parameters.\n' ...
+                                       'Click "Write Phase" to save current parameters to a new JSON file.']);
+                                   
+            h = uilabel(parent, ...
+                'Text', descriptionText, ...
+                'Position', position);
+
+            obj.h_Description = h;
+
+        end
 
     end
 
     
-end
-
 end

@@ -1,5 +1,6 @@
 
 
+
 classdef Runtime < handle
     % epsych.Runtime
     % Container for EPsych experiment execution runtime state.
@@ -36,6 +37,7 @@ classdef Runtime < handle
     %   r.writeParametersJSON('params.json');
     %
     % For more details, see:
+    %   documentation/epsych_Runtime.md
     %   documentation/Architecture_Overview.md
     %   documentation/Parameter_Control.md
     %   documentation/EPsychInfo.md

@@ -1,7 +1,4 @@
-
-
-
-classdef Runtime < handle
+classdef Runtime < handle & dynamicprops
     % epsych.Runtime
     % Container for EPsych experiment execution runtime state.
     %
@@ -15,7 +12,7 @@ classdef Runtime < handle
     %   dfltDataPath   - Default data path for output
     %   HELPER         - Helper/event dispatcher object
     %   TIMER          - MATLAB timer object for runtime services
-    %   DataDir        - Directory for acquired data
+    %   TempDataDir        - Directory for acquired data
     %   DataFile       - Filepath(s) for acquired data
     %   ON_HOLD        - Logical flag for hold state
     %   HW             - Hardware interface object(s)
@@ -44,10 +41,10 @@ classdef Runtime < handle
 
 
     properties
-        NSubjects (1,1) double {mustBeNonnegative,mustBeInteger} = 1 % Number of subjects in the experiment (default: 1)
+        NSubjects (1,1) double {mustBePositive,mustBeInteger} = 1 % Number of subjects in the experiment (default: 1)
 
         HWinUse (1,:) string % List of hardware in use (string array)
-        usingSynapse (1,1) logical = false % True if using Synapse hardware
+        usingSynapse (1,1) logical = false % True if using Synapse hardware (TO DO: DEPRECATE in favor of checking for presence of Synapse in HW array)
 
         TRIALS            % Protocol-specific trial information, including trial selection function, trial parameters, and trial count
         dfltDataPath (1,1) string = "" % Default data path for output
@@ -56,7 +53,7 @@ classdef Runtime < handle
 
         DATA (1,:) struct = struct.empty % Container for acquired data, updated at end of each trial
 
-        DataDir (1,1) string = "" % Directory for acquired data
+        TempDataDir (1,1) string = "" % Directory for acquired data
         DataFile string = strings(0,1)   % Filepath(s) for acquired data
         ON_HOLD (1,:) logical = false % Logical flag for hold state
 

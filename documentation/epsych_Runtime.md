@@ -25,7 +25,7 @@ The `epsych.Runtime` class is a central container for managing the execution sta
 - **HELPER:** Helper/event dispatcher object
 - **TIMER:** MATLAB timer object for runtime services
 - **DATA:** Container for acquired data, updated at the end of each trial
-- **DataDir:** Directory for acquired data
+- **TempDataDir:** Directory for acquired data
 - **DataFile:** Filepath(s) for acquired data
 - **ON_HOLD:** Logical flag for hold state
 - **HW:** Hardware interface object(s)

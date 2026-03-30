@@ -16,10 +16,10 @@ E = EPsychInfo;
 
 % make temporary directory in current folder for storing data during
 % runtime in case of a computer crash or Matlab error
-if ~isfield(RUNTIME,'DataDir') || ~isfolder(RUNTIME.DataDir)
-    RUNTIME.DataDir = fullfile(fileparts(E.root),'DATA');
+if ~isfield(RUNTIME,'TempDataDir') || ~isfolder(RUNTIME.TempDataDir)
+    RUNTIME.TempDataDir = fullfile(fileparts(E.root),'DATA');
 end
-if ~isfolder(RUNTIME.DataDir), mkdir(RUNTIME.DataDir); end
+if ~isfolder(RUNTIME.TempDataDir), mkdir(RUNTIME.TempDataDir); end
 
 RUNTIME.NSubjects = length(CONFIG);
 
@@ -69,8 +69,8 @@ for i = 1:RUNTIME.NSubjects
         RUNTIME.TRIALS(i).Subject.BoxID, ...
         datetime('now',Format='yyMMddHHmmSS'));
 
-    assert(isfolder(RUNTIME.DataDir),'Invalid Data Directory "%s"',RUNTIME.DataDir)
-    RUNTIME.DataFile(i) = fullfile(RUNTIME.DataDir,dfn);
+    assert(isfolder(RUNTIME.TempDataDir),'Invalid Data Directory "%s"',RUNTIME.TempDataDir)
+    RUNTIME.DataFile(i) = fullfile(RUNTIME.TempDataDir,dfn);
 
     if exist(RUNTIME.DataFile(i),'file')
         oldstate = recycle('on');

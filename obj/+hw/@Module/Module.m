@@ -88,8 +88,8 @@ classdef Module < handle
                 value
                 options.Description (1,1) string = ""
                 options.Unit (1,:) char = ''
-                options.Access (1,:) char {mustBeMember(options.Access,{"Read","Write","Read / Write"})} = 'Read / Write'
-                options.Type (1,:) char {mustBeMember(options.Type,{"Float","Integer","Boolean","Buffer","Coefficient Buffer","String","Undefined"})} = 'Float'
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
+                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
                 options.PreUpdateFcnEnabled (1,1) logical = true

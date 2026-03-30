@@ -58,8 +58,9 @@ else
 end
 
 
-
-existingModuleNames = string(unique({obj.getAllParameters.Module.Name}));
+existingParameters = obj.getAllParameters;
+existingModuleNames = arrayfun(@(x) string(x.Module.Name),existingParameters);
+existingModuleNames = unique(existingModuleNames);
 
 % match parameters by Name and update in-place, create new parameters for unmatched entries
 for k = 1:nP

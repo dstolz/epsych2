@@ -121,7 +121,7 @@ classdef Runtime < handle & dynamicprops
                 options.includeInvisible (1,1) logical = false
                 options.includeTriggers (1,1) logical = false
                 options.includeArray (1,1) logical = true
-                options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read'
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read'
             end
 
             if options.S

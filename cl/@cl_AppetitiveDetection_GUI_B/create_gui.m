@@ -1,5 +1,18 @@
-% create_gui: Assembles the GUI layout, controls, panels, and plots for aversive detection.
-% All UI and control setup for the experiment is performed here.
+
+% create_gui(obj)
+% Assemble the GUI layout, controls, panels, and plots for the Appetitive Detection experiment.
+% 
+% This method creates and arranges all UI components for the experiment, including control buttons, parameter panels, plots, and tables. It is called during GUI initialization and configures all interactive elements for the session.
+%
+% Parameters:
+%   obj : cl_AppetitiveDetection_GUI_B instance
+%       The GUI object for which the layout is being created.
+%
+% Returns:
+%   None. All handles and UI objects are stored in the obj properties.
+%
+% For more details, see documentation/design_ep_ExperimentDesign.md
+%
 function create_gui(obj)
 
 R = obj.RUNTIME;    
@@ -109,6 +122,31 @@ set(bh{i}, ...
     FontSize = 15, ...
     Enable = "on");
 end
+
+
+
+
+% PHASE SELECTION ------------------------------------------
+PhasePath = fullfile(EPsychInfo.root,'cl','+cl_AppetitiveDetection_GUI_B','Phases');
+if isfolder(PhasePath)
+    obj.PhaseSelector = gui.PhaseSelector(R,PhasePath);
+    h = uipanel(layoutMain);
+    h.Layout.Row = 1;
+    h.Layout.Column = 5;
+
+    obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
+else
+    vprintf(0,1,'Phase directory not found: %s', PhasePath)
+end
+
+
+
+
+
+
+
+
+
 
 % INFO ----------------------------------------------------
 
@@ -599,9 +637,21 @@ end
 
 
 % used by create_gui
+
+% simple_layout(p)
+% Helper function to create a simple 1x1 uigridlayout inside a parent panel.
+% Used for consistent layout of subpanels in the GUI.
+%
+% Parameters:
+%   p : uipanel
+%       The parent panel in which to create the layout.
+%
+% Returns:
+%   h : uigridlayout
+%       The created grid layout object.
 function h = simple_layout(p)
-h = uigridlayout(p);
-h.ColumnWidth = {'1x'};
-h.RowHeight = {'1x'};
-h.Padding = [0 0 0 0];
+    h = uigridlayout(p);
+    h.ColumnWidth = {'1x'};
+    h.RowHeight = {'1x'};
+    h.Padding = [0 0 0 0];
 end

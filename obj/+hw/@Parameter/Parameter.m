@@ -352,7 +352,9 @@ classdef Parameter < matlab.mixin.SetGet
         end
 
         function f = strToFcn_(~, s)
-            if ~isempty(s) && (isstring(s) || ischar(s))
+            if isempty(s)
+                f = 0;
+            elseif isstring(s) || ischar(s)
                 f = str2func(s);
             else
                 f = s;

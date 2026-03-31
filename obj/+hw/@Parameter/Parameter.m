@@ -183,6 +183,14 @@ classdef Parameter < matlab.mixin.SetGet
             end
         end
 
+        function M = get.Module(obj)
+            if isempty(obj.Module) || isequal(obj.Module,0)
+                M = obj.Parent.Module;
+            else
+                M = obj.Module;
+            end
+        end
+
         function Trigger(obj)
             % obj.Trigger()
             % Trigger the parent event associated with this parameter.
@@ -190,7 +198,7 @@ classdef Parameter < matlab.mixin.SetGet
             % Trigger only performs an action when isTrigger is true. On
             % success, lastUpdated is set from the parent trigger call.
             if ~obj.isTrigger
-                vprintf(0,'"%s" is not recognized as a parameter',obj.Name)
+                vprintf(0,'"%s" is not recognized as a trigger',obj.Name)
                 return
             end
 
@@ -204,7 +212,8 @@ classdef Parameter < matlab.mixin.SetGet
 
             obj.execute_PreUpdateFcn(value);
 
-            value = obj.randomize_value(); % if isRandom is false, this will just return the original value
+            value = obj.randomize_value(value); % if isRandom is false, this will just return the original value
+            
 
             value = obj.execute_EvaluatorFcn(value);
 
@@ -295,9 +304,9 @@ classdef Parameter < matlab.mixin.SetGet
             end
         end
 
-        function v = randomize_value(obj)
+        function v = randomize_value(obj,value)
             if ~obj.isRandom
-                v = obj.Value;
+                v = value;
                 return
             end
 
@@ -343,14 +352,10 @@ classdef Parameter < matlab.mixin.SetGet
         end
 
         function f = strToFcn_(~, s)
-            if isstring(s)
-                s = char(s);
-            end
-
-            if ischar(s) && ~isempty(s)
+            if ~isempty(s) && (isstring(s) || ischar(s))
                 f = str2func(s);
             else
-                f = [];
+                f = s;
             end
         end
 

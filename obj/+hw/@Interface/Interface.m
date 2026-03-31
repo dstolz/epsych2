@@ -1,26 +1,30 @@
+
+
 classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     % hw.Interface
     % Abstract base class for EPsych hardware interfaces.
     %
-    % Concrete subclasses define one or more hw.Module objects and expose
-    % hw.Parameter instances through a uniform trigger/read/write API.
-    % This lets GUIs, runtime code, and tests interact with different
-    % hardware backends through the same interface contract.
+    % Provides a uniform API for interacting with hardware modules and parameters.
+    % Concrete subclasses define one or more hw.Module objects and expose hw.Parameter
+    % instances through trigger, read, and write methods. This enables GUIs, runtime code,
+    % and tests to interact with different hardware backends using a consistent interface contract.
     %
-    % Example usage:
+    % Example:
     %   I = hw.TDT_Synapse(...);
     %   P = I.find_parameter("Reward");
     %   ok = I.set_parameter("Reward", 1);
     %
     % Properties:
-    %   Module - Array of hw.Module objects exposed by the interface.
-    %   Type   - Constant identifier for the interface implementation.
-    %   mode   - Current hw.DeviceState for the interface.
+    %   Module      - Array of hw.Module objects exposed by the interface.
+    %   Type        - Constant identifier for the interface implementation.
+    %   mode        - Current hw.DeviceState for the interface.
+    %   h_listeners - Listeners for property or event changes.
     %
     % Methods:
+    %   add_parameter     - Create and append a hw.Parameter to this Module.
     %   all_parameters    - Return Parameters across all modules.
-    %   find_parameter    - Resolve Parameters by name.
     %   filter_parameters - Filter Parameters by property value.
+    %   find_parameter    - Resolve Parameters by name.
     %   setup_interface   - Allocate or connect backend resources (abstract).
     %   close_interface   - Release backend resources (abstract).
     %   trigger          - Issue a named hardware event (abstract).
@@ -30,8 +34,6 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     % See also: documentation/hw_Interface.md, hw.Module, hw.Parameter
 
     properties (Abstract,SetAccess = protected)
-        % HW (1,:) matlab.mixin.Heterogeneous % Actual hardware interface object(s)
-
         Module (1,:) hw.Module
     end
 
@@ -49,74 +51,114 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     end
 
 
-    methods (Abstract,Access = protected)
-        % setup hardware interface. this function must define obj.HW
-        setup_interface()
 
-        % close interface
+    methods (Abstract,Access = protected)
+        % close_interface - Release backend resources (abstract)
         close_interface()
 
+        % setup_interface - Allocate or connect backend resources (abstract)
+        setup_interface()
     end
+
 
     methods (Abstract)
-
-        % trigger a hardware event
-        result = trigger(name)
-
-        % set new value to one or more hardware parameters
-        % returns TRUE if successful, FALSE otherwise
-        result = set_parameter(name,value)
-
-        % read current value for one or more hardware parameters
+        % get_parameter - Read current value for one or more hardware parameters
         value  = get_parameter(name)
 
+        % set_parameter - Set new value to one or more hardware parameters
+        % Returns TRUE if successful, FALSE otherwise
+        result = set_parameter(name,value)
+
+        % trigger - Trigger a hardware event
+        result = trigger(name)
     end
+
 
 
     methods
-
-        function P = find_parameter(obj, name, options)
-            % P = find_parameter(obj, name, options)
-            % Return handle(s) to matching hw.Parameter objects by name.
+        % add_parameter - Create, initialize, and append a hw.Parameter to this Module
+        function P = add_parameter(obj, name, value, options)
+            % P = obj.add_parameter(name, value)
+            % P = obj.add_parameter(name, value, Name=Value)
+            % Create, initialize, and append a hw.Parameter to this Module.
             %
-            % Parameters:
-            %   obj    - hw.Interface. Hardware interface to search.
-            %   name   - char | string | cellstr. Parameter name(s) to search for.
-            %   options.includeInvisible - logical (default=false). Include Parameters where Visible is false.
-            %   options.silenceParameterNotFound - logical (default=false). Suppress warning output when no matches are found.
+            % Parameters
+            %   name    - Display name for the new parameter (char).
+            %   value   - Initial parameter value. String scalars are converted to char and force Type to 'String'.
+            %   options - Name=Value pairs for hw.Parameter metadata (Description, Unit, Access, Type, Format, Visible, callback flags, UserData, isArray, isTrigger, isRandom, Min, Max).
             %
-            % Returns:
-            %   P - hw.Parameter[]. Matching Parameter handle(s) in requested name order. Empty if no match.
+            % Returns
+            %   P       - Created hw.Parameter handle.
+            %
+            % See also: hw.Parameter, documentation/hw_Module.md
             arguments
                 obj
-                name
-                options.includeInvisible (1,1) logical = false
-                options.silenceParameterNotFound (1,1) logical = false
+                name (1,:) char {mustBeText}
+                value
+                options.Description (1,1) string = ""
+                options.Unit (1,:) char = ''
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
+                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+                options.Format (1,:) char = '%g'
+                options.Visible (1,1) logical = true
+                options.PreUpdateFcnEnabled (1,1) logical = true
+                options.EvaluatorFcnEnabled (1,1) logical = true
+                options.PostUpdateFcnEnabled (1,1) logical = true
+                options.UserData = []
+                options.isArray (1,1) logical = false
+                options.isTrigger (1,1) logical = false
+                options.isRandom (1,1) logical = false
+                options.Min (1,1) double = -inf
+                options.Max (1,1) double = inf
             end
-
-            P = obj.all_parameters(includeInvisible = options.includeInvisible);
-
-            name = cellstr(name);
-
-            ind = ismember({P.Name},name);
-
-            if any(ind)
-                P = P(ind);
-
-                % return in original order
-                [ind,idx] = ismember(name,{P.Name});
-                P = P(idx(ind));
-            else
-                P = [];
-                if ~options.silenceParameterNotFound
-                    cellfun(@(a) vprintf(0,1,'Parameter "%s" was not found on any modules',a),name)
-                end
-            end
-
-
+            copts = namedargs2cell(options);
+            P = obj.Module.add_parameter(name, value, copts{:});
         end
 
+        % all_parameters - Return all Parameters across all Modules, optionally filtered
+        function P = all_parameters(obj, options)
+            % P = all_parameters(obj, options)
+            % Return all Parameters across all Modules, optionally filtered.
+            %
+            % Parameters:
+            %   obj - hw.Interface. Hardware interface whose modules are queried.
+            %   options.includeTriggers   - logical (default=true). Include trigger Parameters.
+            %   options.includeInvisible  - logical (default=false). Include Parameters where Visible is false.
+            %   options.includeArray      - logical (default=true). Include Parameters with array-valued contents.
+            %   options.Access            - char (default='Any'). Filter by access type: 'Read', 'Write', 'Read / Write', or 'Any'.
+            %
+            % Returns:
+            %   P - hw.Parameter[]. Concatenated Parameters from every module after requested filters are applied.
+            arguments
+                obj
+                options.includeTriggers (1,1) logical = true
+                options.includeInvisible (1,1) logical = false
+                options.includeArray (1,1) logical = true
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write','Any'})} = 'Any'
+            end
+            P = [obj.Module(:).Parameters];
+            if ~options.includeInvisible
+                P=P([P.Visible]);
+            end
+            if ~options.includeTriggers
+                P=P(~[P.isTrigger]);
+            end
+            if ~options.includeArray
+                P=P(~[P.isArray]);
+            end
+            switch options.Access
+                case 'Read'
+                    P = P(~strcmp({P.Access}, 'Write'));
+                case 'Write'
+                    P = P(~strcmp({P.Access}, 'Read'));
+                case 'Read / Write'
+                    P = P(strcmp({P.Access}, 'Read / Write'));
+                otherwise
+                    % no filtering needed
+            end
+        end
 
+        % filter_parameters - Filter Parameters by comparing a property to a target value
         function P = filter_parameters(obj, propertyName, propertyValue, options, poptions)
             % P = filter_parameters(obj, propertyName, propertyValue, options, poptions)
             % Filter Parameters by comparing a property to a target value.
@@ -139,64 +181,45 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 poptions.includeTriggers (1,1) logical = false
                 poptions.includeInvisible (1,1) logical = false
             end
-
             poptions = namedargs2cell(poptions);
             P = obj.all_parameters(poptions{:});
-
-            % normalize testFcn output to a logical scalar
             ind = arrayfun(@(a) obj.local_test(options.testFcn, a.(propertyName), propertyValue), P);
             P = P(ind);
         end
 
-
-        function P = all_parameters(obj, options)
-            % P = all_parameters(obj, options)
-            % Return all Parameters across all Modules, optionally filtered.
+        % find_parameter - Return handle(s) to matching hw.Parameter objects by name
+        function P = find_parameter(obj, name, options)
+            % P = find_parameter(obj, name, options)
+            % Return handle(s) to matching hw.Parameter objects by name.
             %
             % Parameters:
-            %   obj - hw.Interface. Hardware interface whose modules are queried.
-            %   options.includeTriggers   - logical (default=true). Include trigger Parameters.
-            %   options.includeInvisible  - logical (default=false). Include Parameters where Visible is false.
-            %   options.includeArray      - logical (default=true). Include Parameters with array-valued contents.
-            %   options.Access            - char (default='Any'). Filter by access type: 'Read', 'Write', 'Read / Write', or 'Any'.
+            %   obj    - hw.Interface. Hardware interface to search.
+            %   name   - char | string | cellstr. Parameter name(s) to search for.
+            %   options.includeInvisible - logical (default=false). Include Parameters where Visible is false.
+            %   options.silenceParameterNotFound - logical (default=false). Suppress warning output when no matches are found.
             %
             % Returns:
-            %   P - hw.Parameter[]. Concatenated Parameters from every module after requested filters are applied.
+            %   P - hw.Parameter[]. Matching Parameter handle(s) in requested name order. Empty if no match.
             arguments
                 obj
-                options.includeTriggers (1,1) logical = true
+                name
                 options.includeInvisible (1,1) logical = false
-                options.includeArray (1,1) logical = true
-                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write','Any'})} = 'Any'
+                options.silenceParameterNotFound (1,1) logical = false
             end
-
-            P = [obj.Module(:).Parameters];
-
-            if ~options.includeInvisible
-                P=P([P.Visible]);
-            end
-
-            if ~options.includeTriggers
-                P=P(~[P.isTrigger]);
-            end
-
-            if ~options.includeArray
-                P=P(~[P.isArray]);
-            end
-
-            % if Access filter is 'Read' or 'Read/Write', exclude Write-only parameters
-            switch options.Access
-                case 'Read'
-                    P = P(~strcmp({P.Access}, 'Write'));
-                case 'Write'
-                    P = P(~strcmp({P.Access}, 'Read'));
-                case 'Read / Write'
-                    P = P(strcmp({P.Access}, 'Read / Write'));
-                otherwise
-                    % no filtering needed
+            P = obj.all_parameters(includeInvisible = options.includeInvisible);
+            name = cellstr(name);
+            ind = ismember({P.Name},name);
+            if any(ind)
+                P = P(ind);
+                [ind,idx] = ismember(name,{P.Name});
+                P = P(idx(ind));
+            else
+                P = [];
+                if ~options.silenceParameterNotFound
+                    cellfun(@(a) vprintf(0,1,'Parameter "%s" was not found on any modules',a),name)
+                end
             end
         end
-
     end
 
     methods (Static)

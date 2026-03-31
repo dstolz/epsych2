@@ -104,12 +104,11 @@ classdef Module < handle
             end
 
             if isstring(value), value = char(value); end
+            if ischar(value), P.Type = "String"; end
             nopts = namedargs2cell(options);
             P = hw.Parameter(obj.parent, nopts{:});
             P.Name = name;
-            if ischar(value)
-                P.Type = "String";
-            end
+            
             P.Value = value;
             obj.Parameters(end+1) = P;
         end

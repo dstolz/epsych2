@@ -21,9 +21,10 @@ arguments
     obj (1,1) hw.Parameter
     S (1,1) struct
     options.UpdateValue (1,1) logical = true % Whether to update the Value field or leave it unchanged (useful for preserving current value when loading metadata changes)
-    options.AddParameterIfMissing (1,1) logical = true % If true, will add a new parameter if the struct references a parameter name that doesn't exist in the current module. Use with caution as this may have unintended consequences.
+    %options.AddParameterIfMissing (1,1) logical = true % If true, will add a new parameter if the struct references a parameter name that doesn't exist in the current module. Use with caution as this may have unintended consequences.
 end
 
+%{
 % If AddParameterIfMissing is true, check if parameter exists in parent module, and add if missing
 if options.AddParameterIfMissing
 
@@ -35,7 +36,7 @@ if options.AddParameterIfMissing
         obj.Module.add_parameter(S.Name, S.Value);
     end
 end
-
+%}
 
 
 % Metadata
@@ -51,6 +52,9 @@ obj.Visible = logical(S.Visible);
 obj.PreUpdateFcn = obj.strToFcn_(S.PreUpdateFcn);
 obj.EvaluatorFcn = obj.strToFcn_(S.EvaluatorFcn);
 obj.PostUpdateFcn = obj.strToFcn_(S.PostUpdateFcn);
+obj.PreUpdateFcnArgs = S.PreUpdateFcnArgs;
+obj.EvaluatorFcnArgs = S.EvaluatorFcnArgs;
+obj.PostUpdateFcnArgs = S.PostUpdateFcnArgs;
 obj.PreUpdateFcnEnabled = logical(S.PreUpdateFcnEnabled);
 obj.EvaluatorFcnEnabled = logical(S.EvaluatorFcnEnabled);
 obj.PostUpdateFcnEnabled = logical(S.PostUpdateFcnEnabled);
@@ -69,6 +73,3 @@ if options.UpdateValue
     obj.Value = S.Value;
 end
 
-
-% General-purpose data
-obj.UserData = S.UserData;

@@ -18,7 +18,7 @@ function S = toStruct(obj)
 S = struct();
 
 % Metadata
-S.ModuleName = obj.Module.Name;
+%S.InterfaceType = obj.Parent.Type;
 
 S.Name = obj.Name;
 S.Description = obj.Description;

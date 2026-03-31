@@ -59,27 +59,31 @@ end
 
 
 existingParameters = obj.getAllParameters;
-existingModuleNames = arrayfun(@(x) string(x.Module.Name),existingParameters);
-existingModuleNames = unique(existingModuleNames);
+existingInterfaces = arrayfun(@(x) string(x.Parent.Type),existingParameters);
+existingInterfaces = unique(existingInterfaces);
 
 % match parameters by Name and update in-place, create new parameters for unmatched entries
 for k = 1:nP
     P = paramData(k);
 
-    vprintf(4,'Processing parameter %d/%d: "%s" (Module: "%s")', k, nP, P.Name, P.ModuleName)
+    parentType = P.ParentType;
+    P = rmfield(P, 'ParentType'); % remove ParentType from struct before applying to Parameter since it's not an actual field of hw.Parameter and is only used for matching to the correct interface during load
+
+    vprintf(4,'Processing parameter %d/%d: "%s" (Module: "%s")', k, nP, P.Name, parentType)
 
     % Match existing HW Parameter by Name
-    i = find(existingModuleNames == P.ModuleName, 1);
+    i = find(existingInterfaces == parentType, 1);
     if isempty(i)
-        vprintf(0,1, 'No matching module found for parameter "%s" with ModuleName "%s". Skipping.', P.Name, P.ModuleName)
+        vprintf(0,1, 'No matching module found for parameter "%s" with parent "%s". Skipping.', P.Name, parentType)
         continue
     end
         
-    if P.ModuleName == "Software"
-        obj.S.fromStruct(obj.S.Parameters(P.Name), P);
+    if parentType == "Software"
+        xp = obj.S.find_parameter(P.Name);
     else
-        obj.HW(i).fromStruct(obj.HW(i).Parameters(P.Name), P);
+        xp = obj.HW(i).find_parameter(P.Name);
     end
+    xp.fromStruct(P);
 end
 
 % append metadata about the loaded phase to the obj.Phase property (create if it doesn't exist). This can be used by the GUI to display information about the currently loaded phase.

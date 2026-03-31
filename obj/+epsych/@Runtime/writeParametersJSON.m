@@ -46,7 +46,10 @@ paramStructs = cell(1, nP);
 for k = 1:nP
     paramStructs{k} = Parameters(k).toStruct;
     paramStructs{k} = rmfield(paramStructs{k}, 'UserData'); % exclude UserData from JSON output since it can contain non-serializable data and is not essential for parameter reconstruction
+    paramStructs{k}.ParentType = Parameters(k).Parent.Type; % Store parent interface type for matching during load
 end
+
+
 
 % Create output struct with metadata and parameter data
 data = struct();

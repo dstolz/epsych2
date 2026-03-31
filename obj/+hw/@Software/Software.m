@@ -91,7 +91,7 @@ classdef Software < hw.Interface
 
 
             for i = 1:length(P)
-                %P(i).Value = value(i);
+                %P(i).Value = value(i); % DO NOT SET VALUE AGAIN; RESULTS IN RECURSION
                 vstr = P(i).ValueStr;
                 vprintf(3,'Updated parameter: %s = %s',P(i).Name,vstr)
             end
@@ -137,6 +137,12 @@ classdef Software < hw.Interface
             disp(event)
         end
 
+    end
+
+    methods (Hidden)
+        function set_module(obj, M)
+            obj.Module = M;
+        end
     end
 
 

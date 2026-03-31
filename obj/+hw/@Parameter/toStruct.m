@@ -32,6 +32,11 @@ S.Visible = obj.Visible;
 S.PreUpdateFcn = obj.fcnToStr_(obj.PreUpdateFcn);
 S.EvaluatorFcn = obj.fcnToStr_(obj.EvaluatorFcn);
 S.PostUpdateFcn = obj.fcnToStr_(obj.PostUpdateFcn);
+
+S.PreUpdateFcnArgs = obj.PreUpdateFcnArgs;
+S.EvaluatorFcnArgs = obj.EvaluatorFcnArgs;
+S.PostUpdateFcnArgs = obj.PostUpdateFcnArgs;
+
 S.PreUpdateFcnEnabled = obj.PreUpdateFcnEnabled;
 S.EvaluatorFcnEnabled = obj.EvaluatorFcnEnabled;
 S.PostUpdateFcnEnabled = obj.PostUpdateFcnEnabled;

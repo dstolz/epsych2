@@ -131,7 +131,7 @@ PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phase
 if isfolder(PhasePath)
     obj.PhaseSelector = gui.PhaseSelector(R,PhasePath);
     h = uipanel(layoutMain);
-    h.Layout.Row = 1;
+    h.Layout.Row = [1 2];
     h.Layout.Column = 5;
 
     obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);

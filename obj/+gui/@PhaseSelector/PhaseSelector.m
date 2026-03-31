@@ -1,22 +1,45 @@
 classdef PhaseSelector < handle
-% PhaseSelector(RUNTIME, PhasePath)
-% GUI component for selecting and saving experimental phase parameter sets.
-% Loads JSON files from a directory, provides dropdown for phase selection, and button for saving current parameters.
-%
-% Parameters:
-%   RUNTIME   - Main runtime object with read/write parameter methods
-%   PhasePath - (optional) Directory containing phase JSON files
-%
-% Example usage:
-%   ps = gui.PhaseSelector(RUNTIME, 'C:\path\to\phase_files');
-%   parentUI = uipanel(...); % create parent UI container
-%   ps.addPhaseSelect(parentUI, [10 10 150 30]);
-%
-% See also: documentation/Architecture_Overview.md
+    % PhaseSelector(RUNTIME, PhasePath)
+    % GUI component for selecting and saving experimental phase parameter sets.
+    %
+    % Loads JSON files from a directory, provides dropdown for phase selection, and button for saving current parameters.
+    %
+    % Parameters:
+    %   RUNTIME   - Main runtime object with read/write parameter methods.
+    %   PhasePath - (optional) Directory containing phase JSON files.
+    %
+    % Example:
+    %   ps = gui.PhaseSelector(RUNTIME, 'C:\path\to\phase_files');
+    %   parentUI = uipanel(...); % create parent UI container
+    %   ps.addPhaseSelect(parentUI, [10 10 150 30]);
+    %
+    % Properties:
+    %   PhasePath      - Directory containing phase JSON files.
+    %   CurrentPhase   - Index of currently selected phase.
+    %   h_PhaseSelect  - Handle to dropdown UI control.
+    %   h_WritePhase   - Handle to write button UI control.
+    %   h_Description  - Handle to description label UI control.
+    %   RUNTIME        - Main runtime object.
+    %   Names          - List of phase file names without extension.
+    %   Filenames      - List of phase file names without path.
+    %   FullFilenames  - Full paths to phase files.
+    %
+    % Methods:
+    %   PhaseSelector         - Constructor for PhaseSelector class.
+    %   addDescriptionLabel   - Add label UI control for description text.
+    %   addPhaseSelectDropdown- Add dropdown UI control for phase selection.
+    %   addSavePhaseButton    - Add button UI control for saving phase parameters.
+    %   createGUI             - Create dropdown and button UI controls for phase selection and saving.
+    %   findPhaseFiles        - Load JSON files from PhasePath and update Names and FullFilenames.
+    %   readPhaseParameters   - Callback for dropdown value change, loads parameters from selected phase file.
+    %   set.PhasePath         - Set method for PhasePath property, loads phase files from new path.
+    %   writePhaseParameters  - Save current hardware and software parameters to a new JSON file.
+    %
+    % See also: documentation/Architecture_Overview.md
 
     properties (SetObservable)
         PhasePath (1,1) string % Directory containing phase JSON files
-        CurrentPhase (1,1) uint8 = 0 % Index of currently selected phase
+        CurrentPhase (1,1) uint8 = 0 % Index of currently selected phase (0 = no phase)
         h_PhaseSelect           % Handle to dropdown UI control
         h_WritePhase            % Handle to write button UI control
         h_Description           % Handle to description label UI control
@@ -81,20 +104,24 @@ classdef PhaseSelector < handle
             jsonFiles = dir(fullfile(obj.PhasePath, '*.json'));
             nFiles = numel(jsonFiles);
 
-            if nFiles == 0
+            % Always prepend the null/default phase
+            obj.Names = ["< Select Phase >"];
+            obj.Filenames = strings(1, 0); % always string array
+            obj.FullFilenames = strings(1, 0); % always string array
+
+            if nFiles > 0
+                obj.Filenames = string({jsonFiles.name});
+                obj.FullFilenames = string(fullfile({jsonFiles.folder}, {jsonFiles.name}));
+                [~,names, ~] = fileparts(string({jsonFiles.name}));
+                obj.Names = ["< Select Phase >", names];
+                % Do NOT prepend empty string to Filenames/FullFilenames (mustBeFile constraint)
+                vprintf(3, 'Found %d phase files from "%s".', nFiles, obj.PhasePath)
+            else
+                % No files: use string.empty for Filenames/FullFilenames (valid for mustBeFile)
+                obj.Filenames = string.empty;
+                obj.FullFilenames = string.empty;
                 vprintf(3, 'No JSON files found in PhasePath: "%s".', obj.PhasePath)
-                return
             end
-
-            
-            obj.Filenames = string({jsonFiles.name});
-            obj.FullFilenames = string(fullfile({jsonFiles.folder}, {jsonFiles.name}));
-
-            [~,obj.Names, ~] = fileparts(string({jsonFiles.name}));
-            
-            vprintf(3, 'Found %d phase files from "%s".', nFiles, obj.PhasePath)
-
-
         end
 
 
@@ -131,13 +158,18 @@ classdef PhaseSelector < handle
             % Updates:
             %   obj.CurrentPhase
             idx = find(obj.Names == string(src.Value), 1);
-            if ~isempty(idx)
-                obj.CurrentPhase = uint8(idx);
+            if isempty(idx) || idx == 1 || isempty(obj.FullFilenames) || idx > numel(obj.FullFilenames)
+                % Null phase selected or no files: update description, disable write button
+                obj.CurrentPhase = uint8(0);
+                if ~isempty(obj.h_Description)
+                    obj.h_Description.Text = "No phase selected. Please select a phase to load its parameters.";
+                end
+
+                return
             end
 
-            % Read parameters from file corresponding to selected phase
-            filepath = obj.FullFilenames(idx);
-
+            obj.CurrentPhase = uint8(idx);
+            filepath = obj.FullFilenames(idx-1); % idx-1 because Names includes the null entry
             [~,fn] = fileparts(filepath);
             vprintf(0, 'Reading parameters from "%s" (%s)', fn, filepath)
             obj.RUNTIME.readParametersJSON(filepath);
@@ -145,39 +177,71 @@ classdef PhaseSelector < handle
             % update dropdown value to match selected phase (in case it was changed programmatically)
             src.Value = obj.Names(obj.CurrentPhase);
 
-            % update write button state (disable if no valid phase selected)
+            % update write button state (enable if valid phase selected)
             if ~isempty(obj.h_WritePhase)
                 obj.h_WritePhase.Enable = "on";
             end
 
             % update description text to show currently loaded phase (if description label exists)
-            if ~isempty(obj.h_PhaseSelect)
-                obj.h_Description.Text = obj.Phase(end).Description;
+            if ~isempty(obj.h_Description)
+                obj.h_Description.Text = sprintf('Loaded phase: %s', obj.Names(obj.CurrentPhase));
             end
         end
 
+        function h = createGUI(obj, parent)
+            % createGUI(obj, parent)
+            % Creates dropdown and button UI controls for phase selection and saving.
+            %
+            % Parameters:
+            %   parent - Handle to parent UI container (e.g., uifigure, uipanel)
+            %
+            % Returns:
+            %   h - Struct containing handles to created UI controls
+            arguments
+                obj
+                parent {mustBeNonempty} = uifigure
+            end
+
+            gl = uigridlayout(parent, [2 2]);
+            gl.RowHeight = {30,'fit'};
+            gl.ColumnWidth = {'fit',50};
+
+            h.PhaseSelect = obj.addPhaseSelectDropdown(gl);
+            h.PhaseSelect.Layout.Row = 1;
+            h.PhaseSelect.Layout.Column = 1;
+
+            h.SavePhase = obj.addSavePhaseButton(gl);
+            h.SavePhase.Layout.Row = 1;
+            h.SavePhase.Layout.Column = 2;
+
+            h.Description = obj.addDescriptionLabel(gl);
+            h.Description.Layout.Row = 2;
+            h.Description.Layout.Column = [1 2];
+
+            % Set initial dropdown value and disable write button
+            if ~isempty(obj.h_PhaseSelect)
+                obj.h_PhaseSelect.Value = obj.Names(1);
+            end
+            
+        end
 
 
-
-        function h = addWritePhase(obj, parent, position)
-            % h = addWritePhase(obj, parent, position)
+        function h = addSavePhaseButton(obj, parent)
+            % h = addSavePhaseButton(obj, parent)
             % Adds a button UI control to parent for saving current phase parameters to file.
             %
             % Parameters:
             %   parent   - Handle to parent container (e.g., uifigure, uipanel)
-            %   position - [left bottom width height] position vector
             %
             % Returns:
             %   h - Handle to created button UI control
             arguments
                 obj
                 parent {mustBeNonempty} = gcf
-                position (1,4) double {mustBeFinite, mustBeNonnegative} = [10 10 150 30]
             end
 
             h = uibutton(parent, ...
-                'Text', 'Write Phase', ...
-                'Position', position, ...
+                'Text', 'Save', ...
                 'ButtonPushedFcn', @(src,evt) obj.writePhaseParameters(src));
 
             obj.h_WritePhase = h;
@@ -185,8 +249,8 @@ classdef PhaseSelector < handle
 
 
 
-        function h = addPhaseSelect(obj, parent)
-            % h = addPhaseSelect(obj, parent)
+        function h = addPhaseSelectDropdown(obj, parent)
+            % h = addPhaseSelectDropdown(obj, parent)
             % Adds a dropdown UI control to parent for selecting phase files.
             %
             % Parameters:
@@ -201,13 +265,14 @@ classdef PhaseSelector < handle
 
             h = uidropdown(parent, ...
                 'Items', cellstr(obj.Names), ...
+                'Value', obj.Names(1), ...
                 'ValueChangedFcn', @(src,evt)obj.readPhaseParameters(src));
 
             obj.h_PhaseSelect = h;
         end
 
-        function h = addDescription(obj, parent)
-            % h = addDescription(obj, parent)
+        function h = addDescriptionLabel(obj, parent)
+            % h = addDescriptionLabel(obj, parent)
             % Adds a label UI control to parent for displaying description text.
             %
             % Parameters:
@@ -220,17 +285,14 @@ classdef PhaseSelector < handle
                 parent {mustBeNonempty} = gcf
             end
 
-            descriptionText = sprintf(['Select a phase from the dropdown to load its parameters.\n' ...
-                                       'Click "Write Phase" to save current parameters to a new JSON file.']);
-                                   
+            descriptionText = "No phase selected. Please select a phase to load its parameters.";
             h = uilabel(parent, ...
                 'Text', descriptionText);
 
             obj.h_Description = h;
-
         end
 
     end
 
-    
+
 end

@@ -23,7 +23,7 @@ arguments
 end
 
 % If filepath is not provided or invalid, prompt user to select file
-if filepath == "" || ~isfile(filepath)
+if filepath == ""
     [fn,pth] = uiputfile('*.json','Save Current Parameters');
     if isequal(fn,0) || isequal(pth,0)
         vprintf(3,'User canceled save operation.')
@@ -35,8 +35,7 @@ end
 % retrieve all software parameters from the runtime
 Parameters = obj.getAllParameters(includeTriggers=true, ...
                                     includeInvisible=true, ...
-                                    includeArray=true, ...
-                                    Access='Any');
+                                    includeArray=true);
 
 
 

@@ -15,7 +15,7 @@ end
 
 vprintf(3,'SaveDataCallback: Saving via %s',self.FUNCS.SavingFcn)
 try
-    if isfield(self.RUNTIME,'TRIALS') && isfield(self.RUNTIME.TRIALS,'DATA')
+    if isfield(self.RUNTIME.TRIALS,'DATA')
         vprintf(1,'Calling Saving Function: %s',self.FUNCS.SavingFcn)
         feval(self.FUNCS.SavingFcn, self.RUNTIME);
     else

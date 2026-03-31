@@ -127,7 +127,7 @@ end
 
 
 % PHASE SELECTION ------------------------------------------
-PhasePath = fullfile(EPsychInfo.root,'cl','+cl_AppetitiveDetection_GUI_B','Phases');
+PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases');
 if isfolder(PhasePath)
     obj.PhaseSelector = gui.PhaseSelector(R,PhasePath);
     h = uipanel(layoutMain);

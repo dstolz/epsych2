@@ -23,6 +23,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         h_OnlinePlot           % Handle to the online plot figure
         Psych                  % psychophysics object
         % slidingWindowPlot      % gui.SlidingWindowPerformancePlot instance
+        PhaseSelector         % gui.PhaseSelector instance
         ResponseHistory        % gui.History instance
         Performance            % gui.Performance instance
         lblPerformance           % Label for Performance display
@@ -30,6 +31,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         hButtons               % Struct holding references to GUI control buttons
 
 
+        h_PhaseSelector
         h_RWDelayParameterControl
         h_RWDelayTrainingGUI
 

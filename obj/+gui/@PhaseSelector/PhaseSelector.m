@@ -173,7 +173,12 @@ classdef PhaseSelector < handle
             description = string(descEdit.String);
             delete(d);
 
-            [fn,pth] = uiputfile('*.json','Save Current Parameters');
+            % Use obj.PhasePath as default save path if set, else current directory
+            defaultPath = '.';
+            if ~isempty(obj.PhasePath) && isfolder(obj.PhasePath)
+                defaultPath = obj.PhasePath;
+            end
+            [fn,pth] = uiputfile('*.json','Save Current Parameters', defaultPath);
             if isequal(fn,0) || isequal(pth,0)
                 vprintf(3,'User canceled save operation.');
                 return

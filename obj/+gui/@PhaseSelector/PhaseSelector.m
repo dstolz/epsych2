@@ -128,23 +128,61 @@ classdef PhaseSelector < handle
         function writePhaseParameters(obj, src)
             % writePhaseParameters(obj, src)
             % Save current hardware and software parameters to a new JSON file.
-            % Prompts user for file location.
+            % Prompts user for a description and file location.
             %
             % Parameters:
             %   src - Source UI control (unused)
             %
             % See also: documentation/Architecture_Overview.md
+
+            % Improved modal dialog for description entry
+            d = dialog('Position',[300 300 440 210],'Name','Save Parameters','WindowStyle','modal','Color',[1 1 1]);
+
+            % Title
+            uicontrol('Parent',d,'Style','text','Position',[0 170 440 30], ...
+                'String','Save Parameter Set','FontSize',15,'FontWeight','bold', ...
+                'BackgroundColor',[1 1 1],'ForegroundColor',[0.1 0.2 0.4]);
+
+            % Prompt
+            uicontrol('Parent',d,'Style','text','Position',[30 120 380 30], ...
+                'String','Enter a description for this parameter set:','HorizontalAlignment','left', ...
+                'FontSize',12,'BackgroundColor',[1 1 1],'ForegroundColor',[0.1 0.1 0.1]);
+
+            % Description edit box
+            descEdit = uicontrol('Parent',d,'Style','edit','Position',[30 90 380 28], ...
+                'HorizontalAlignment','left','FontSize',12,'String','', ...
+                'BackgroundColor',[0.97 0.97 1]);
+
+            % OK and Cancel buttons
+            okBtn = uicontrol('Parent',d,'Style','pushbutton','String','Save','Position',[240 30 80 32], ...
+                'FontSize',12,'FontWeight','bold','BackgroundColor',[0.8 0.93 0.8],'Callback','uiresume(gcbf)');
+            cancelBtn = uicontrol('Parent',d,'Style','pushbutton','String','Cancel','Position',[330 30 80 32], ...
+                'FontSize',12,'BackgroundColor',[0.95 0.85 0.85],'Callback','delete(gcbf)');
+
+            % Add a border around the edit box (simulate with a frame)
+            uicontrol('Parent',d,'Style','frame','Position',[28 88 384 32],'BackgroundColor',[0.85 0.88 0.95]);
+            % Move edit box to front
+            uistack(descEdit,'top');
+
+            movegui(d,'center');
+            uiwait(d);
+            if ~isvalid(descEdit) || ~isvalid(d)
+                vprintf(3,'User canceled description entry.');
+                return
+            end
+            description = string(descEdit.String);
+            delete(d);
+
             [fn,pth] = uiputfile('*.json','Save Current Parameters');
             if isequal(fn,0) || isequal(pth,0)
-                vprintf(3,'User canceled save operation.')
+                vprintf(3,'User canceled save operation.');
                 return
             end
 
             filepath = fullfile(pth, fn);
-
             [~,fn] = fileparts(filepath);
             vprintf(0, 'Writing current parameters to "%s" (%s)', fn, filepath)
-            obj.RUNTIME.writeParametersJSON(filepath);
+            obj.RUNTIME.writeParametersJSON(filepath, description);
         end
 
 
@@ -182,9 +220,17 @@ classdef PhaseSelector < handle
                 obj.h_WritePhase.Enable = "on";
             end
 
-            % update description text to show currently loaded phase (if description label exists)
+            % update description text to show loaded phase description from JSON, if available
             if ~isempty(obj.h_Description)
-                obj.h_Description.Text = sprintf('Loaded phase: %s', obj.Names(obj.CurrentPhase));
+                desc = "";
+                if isprop(obj.RUNTIME, 'Phase') && ~isempty(obj.RUNTIME.Phase) && isfield(obj.RUNTIME.Phase(end), 'Description')
+                    desc = obj.RUNTIME.Phase(end).Description;
+                end
+                if strlength(desc) > 0
+                    obj.h_Description.Text = desc;
+                else
+                    obj.h_Description.Text = sprintf('Loaded phase: %s', obj.Names(obj.CurrentPhase));
+                end
             end
         end
 

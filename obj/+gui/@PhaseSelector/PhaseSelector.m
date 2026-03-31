@@ -24,8 +24,9 @@ classdef PhaseSelector < handle
 
     properties (SetAccess = private)
         RUNTIME                 % Main runtime object
-        Names (1,:) string      % List of phase file names
-        Filenames (1,:) string {mustBeFile} % Full paths to phase files
+        Names (1,:) string      % List of phase file names without extension
+        Filenames (1,:) string      % List of phase file names without path
+        FullFilenames (1,:) string {mustBeFile} % Full paths to phase files
     end
 
 
@@ -55,17 +56,17 @@ classdef PhaseSelector < handle
             % Parameters:
             %   newPath - New directory path for phase JSON files
             obj.PhasePath = newPath;
-            obj.loadPhaseFiles();
+            obj.findPhaseFiles();
         end
 
 
-        function loadPhaseFiles(obj)
-            % loadPhaseFiles(obj)
-            % Loads JSON files from PhasePath and updates Names and Filenames.
+        function findPhaseFiles(obj)
+            % findPhaseFiles(obj)
+            % Loads JSON files from PhasePath and updates Names and FullFilenames.
             % Prompts user to select directory if PhasePath is not set or invalid.
             %
             % Updates:
-            %   obj.Names, obj.Filenames
+            %   obj.Names, obj.FullFilenames
             if obj.PhasePath == ""
                 [fn,pth] = uigetfile('*.json','Select Directory Containing Phase JSON Files','MultiSelect','off');
                 if isequal(fn,0) || isequal(pth,0)
@@ -85,10 +86,15 @@ classdef PhaseSelector < handle
                 return
             end
 
-            obj.Names = string({jsonFiles.name});
-            obj.Filenames = string(fullfile({jsonFiles.folder}, {jsonFiles.name}));
+            
+            obj.Filenames = string({jsonFiles.name});
+            obj.FullFilenames = string(fullfile({jsonFiles.folder}, {jsonFiles.name}));
 
-            vprintf(3, 'Loaded %d phase files from "%s".', nFiles, obj.PhasePath)
+            [~,obj.Names, ~] = fileparts(string({jsonFiles.name}));
+            
+            vprintf(3, 'Found %d phase files from "%s".', nFiles, obj.PhasePath)
+
+
         end
 
 
@@ -130,7 +136,7 @@ classdef PhaseSelector < handle
             end
 
             % Read parameters from file corresponding to selected phase
-            filepath = obj.Filenames(idx);
+            filepath = obj.FullFilenames(idx);
 
             [~,fn] = fileparts(filepath);
             vprintf(0, 'Reading parameters from "%s" (%s)', fn, filepath)
@@ -179,52 +185,46 @@ classdef PhaseSelector < handle
 
 
 
-        function h = addPhaseSelect(obj, parent, position)
-            % h = addPhaseSelect(obj, parent, position)
+        function h = addPhaseSelect(obj, parent)
+            % h = addPhaseSelect(obj, parent)
             % Adds a dropdown UI control to parent for selecting phase files.
             %
             % Parameters:
             %   parent   - Handle to parent container (e.g., uifigure, uipanel)
-            %   position - [left bottom width height] position vector
             %
             % Returns:
             %   h - Handle to created dropdown UI control
             arguments
                 obj
                 parent {mustBeNonempty} = gcf
-                position (1,4) double {mustBeFinite, mustBeNonnegative} = [10 10 150 30]
             end
 
             h = uidropdown(parent, ...
                 'Items', cellstr(obj.Names), ...
-                'Position', position, ...
                 'ValueChangedFcn', @(src,evt)obj.readPhaseParameters(src));
 
             obj.h_PhaseSelect = h;
         end
 
-        function h = addDescription(obj, parent, position)
-            % h = addDescription(obj, parent, position)
+        function h = addDescription(obj, parent)
+            % h = addDescription(obj, parent)
             % Adds a label UI control to parent for displaying description text.
             %
             % Parameters:
             %   parent   - Handle to parent container (e.g., uifigure, uipanel)
-            %   position - [left bottom width height] position vector
             %
             % Returns:
             %   h - Handle to created label UI control
             arguments
                 obj
                 parent {mustBeNonempty} = gcf
-                position (1,4) double {mustBeFinite, mustBeNonnegative} = [10 10 300 60]
             end
 
             descriptionText = sprintf(['Select a phase from the dropdown to load its parameters.\n' ...
                                        'Click "Write Phase" to save current parameters to a new JSON file.']);
                                    
             h = uilabel(parent, ...
-                'Text', descriptionText, ...
-                'Position', position);
+                'Text', descriptionText);
 
             obj.h_Description = h;
 

@@ -24,8 +24,8 @@ for i = 1:RUNTIME.NSubjects
         if ~RUNTIME.ON_HOLD(i)
             % Check _RespCode parameter for non-zero value or if #TrigState is true
 
-            RCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).RespCode);
-            TStag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrigState);
+            RCtag = RUNTIME.CORE(i).RespCode.Value;
+            TStag = RUNTIME.CORE(i).TrigState.Value;
 
             if ~RCtag || TStag, continue; end
 
@@ -36,7 +36,6 @@ for i = 1:RUNTIME.NSubjects
 
             % There was a response and the trial is over.
             % Retrieve parameter data for this trial and save in TRIALS structure. 
-            data = struct([]);
             data.ResponseCode = RCtag;
             data.TrialID = TrialNum;
             data.inaccurateTimestamp = datetime("now");
@@ -44,7 +43,7 @@ for i = 1:RUNTIME.NSubjects
             % get all 'Read' or 'Read / Write' parameters from hardware and software interfaces and save in data struct
             P = RUNTIME.getAllParameters(Access = 'Read');
             for k = 1:numel(P)
-                data.(P(k).ValidName) = P(k).Value;
+                data.(P(k).validName) = P(k).Value;
             end
             % Save runtime data in case of crash
             save(RUNTIME.DataFile(i),'data','-append','-v6'); % -v6 is much faster because it doesn't use compression

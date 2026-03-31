@@ -1,15 +1,24 @@
+
 function cl_SaveDataFcn(RUNTIME)
 % cl_SaveDataFcn(RUNTIME)
 %
-% Default function fo saving behavioral data
+% Save behavioral data for all subjects in RUNTIME.TRIALS.
 %
-% Use ep_RunExpt GUI to specify custom function.
+% This is the default function for saving behavioral data in the ePsych system.
+% Use the ep_RunExpt GUI to specify a custom save function if needed.
 %
-% Daniel.Stolzberg@gmail.com 2025
+% Parameters:
+%   RUNTIME (struct): Structure containing experiment runtime information, including TRIALS and NSubjects fields.
+%
+% This function prompts the user to update the appropriate log (WATER or FOOD) and then saves each subject's data to a .mat file in the default data directory. If a DataFilename is already specified, it is used; otherwise, the user is prompted for a save location.
+%
+% For more details, see documentation/cl_SaveDataFcn.md
+%
+% Copyright (C) 2016-2025 Daniel Stolzberg, PhD
+% Contact: Daniel.Stolzberg@gmail.com
 
-% Copyright (C) 2016  Daniel Stolzberg, PhD
 
-hcDefaultPath = "D:\epsych_files\Data"; % DS 11/6/25
+hcDefaultPath = "D:\epsych_files\Data"; 
 
 try
     % Create modal figure
@@ -122,16 +131,25 @@ end
 
 
 function fileloc = prompt_user(subjPath,name,boxid)
-% otherwise use default location
+% fileloc = prompt_user(subjPath, name, boxid)
+%
+% Prompt the user for a file location to save subject data.
+% Suggests a default location and filename based on subject and box ID.
+%
+% Parameters:
+%   subjPath (char): Directory path for the subject's data.
+%   name (char): Subject name.
+%   boxid (numeric): Box ID for the subject.
+%
+% Returns:
+%   fileloc (char or 0): Full path to the file selected by the user, or 0 if cancelled.
+
 ffn = epsych.RunExpt.defaultFilename(subjPath,name);
 
-% prompt user for file location
-% suggest default location
 [fn,pn] = uiputfile({'*.mat','MATLAB File'}, ...
     sprintf('Save ''%s (%d)'' Data',name,boxid), ...
     ffn);
 
-% user cancelled
 if fn == 0
     vprintf(0,1,'NOT SAVING DATA FOR SUBJECT ''%s'' IN BOX ID %d',name,boxid);
     fileloc = 0;

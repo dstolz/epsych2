@@ -48,16 +48,21 @@ obj.Type = char(S.Type);
 obj.Format = char(S.Format);
 obj.Visible = logical(S.Visible);
 
+%{
 % Callbacks
 obj.PreUpdateFcn = obj.strToFcn_(S.PreUpdateFcn);
 obj.EvaluatorFcn = obj.strToFcn_(S.EvaluatorFcn);
 obj.PostUpdateFcn = obj.strToFcn_(S.PostUpdateFcn);
-obj.PreUpdateFcnArgs = S.PreUpdateFcnArgs;
-obj.EvaluatorFcnArgs = S.EvaluatorFcnArgs;
-obj.PostUpdateFcnArgs = S.PostUpdateFcnArgs;
+
+
+obj.PreUpdateFcnArgs = obj.strToFcnArgs_(S.PreUpdateFcnArgs);
+obj.EvaluatorFcnArgs = obj.strToFcnArgs_(S.EvaluatorFcnArgs);
+obj.PostUpdateFcnArgs = obj.strToFcnArgs_(S.PostUpdateFcnArgs);
+
 obj.PreUpdateFcnEnabled = logical(S.PreUpdateFcnEnabled);
 obj.EvaluatorFcnEnabled = logical(S.EvaluatorFcnEnabled);
 obj.PostUpdateFcnEnabled = logical(S.PostUpdateFcnEnabled);
+%}
 
 % Flags
 obj.isArray = logical(S.isArray);
@@ -70,6 +75,6 @@ obj.Max = obj.safeToNumeric_(S.Max);
 
 % Value (set after Type/bounds so validation context is correct)
 if options.UpdateValue
-    obj.Value = S.Value;
+    obj.Value = obj.safeToNumeric_(S.Value);
 end
 

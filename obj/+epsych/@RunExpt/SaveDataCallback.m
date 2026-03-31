@@ -11,13 +11,16 @@ oldstate = self.STATE;
 try
     hCtrl = findobj(self.H.figure1,'-regexp','tag','^ctrl')';
     set([hCtrl self.H.save_data],'Enable','off')
-catch
 end
 
 vprintf(3,'SaveDataCallback: Saving via %s',self.FUNCS.SavingFcn)
 try
-    vprintf(1,'Calling Saving Function: %s',self.FUNCS.SavingFcn)
-    feval(self.FUNCS.SavingFcn, self.RUNTIME);
+    if isfield(self.RUNTIME,'TRIALS') && isfield(self.RUNTIME.TRIALS,'DATA')
+        vprintf(1,'Calling Saving Function: %s',self.FUNCS.SavingFcn)
+        feval(self.FUNCS.SavingFcn, self.RUNTIME);
+    else
+        vprintf(0,1,'No data to save!')
+    end
 catch me
     vprintf(0,1,me)
 end

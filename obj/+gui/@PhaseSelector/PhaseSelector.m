@@ -135,7 +135,8 @@ classdef PhaseSelector < handle
             %
             % See also: documentation/Architecture_Overview.md
 
-            % Improved modal dialog for description entry
+            %{
+            %  modal dialog for description entry
             d = dialog('Position',[300 300 440 210],'Name','Save Parameters','WindowStyle','modal','Color',[1 1 1]);
 
             % Title
@@ -172,6 +173,7 @@ classdef PhaseSelector < handle
             end
             description = string(descEdit.String);
             delete(d);
+            %}
 
             % Use obj.PhasePath as default save path if set, else current directory
             defaultPath = '.';
@@ -187,7 +189,14 @@ classdef PhaseSelector < handle
             filepath = fullfile(pth, fn);
             [~,fn] = fileparts(filepath);
             vprintf(0, 'Writing current parameters to "%s" (%s)', fn, filepath)
-            obj.RUNTIME.writeParametersJSON(filepath, description);
+            obj.RUNTIME.writeParametersJSON(filepath);
+            % obj.RUNTIME.writeParametersJSON(filepath, description);
+            % Refresh phase file list and update dropdown if it exists
+            obj.findPhaseFiles();
+            if ~isempty(obj.h_PhaseSelect) && isvalid(obj.h_PhaseSelect)
+                obj.h_PhaseSelect.Items = cellstr(obj.Names);
+                obj.h_PhaseSelect.Value = obj.Names(1);
+            end
         end
 
 
@@ -201,7 +210,7 @@ classdef PhaseSelector < handle
             % Updates:
             %   obj.CurrentPhase
             idx = find(obj.Names == string(src.Value), 1);
-            if isempty(idx) || idx == 1 || isempty(obj.FullFilenames) || idx > numel(obj.FullFilenames)
+            if isempty(idx) || idx == 1 || isempty(obj.FullFilenames) || idx > numel(obj.FullFilenames)+1
                 % Null phase selected or no files: update description, disable write button
                 obj.CurrentPhase = uint8(0);
                 if ~isempty(obj.h_Description)

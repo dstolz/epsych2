@@ -28,6 +28,7 @@ S.Type = obj.Type;
 S.Format = obj.Format;
 S.Visible = obj.Visible;
 
+%{
 % Callbacks
 S.PreUpdateFcn = obj.fcnToStr_(obj.PreUpdateFcn);
 S.EvaluatorFcn = obj.fcnToStr_(obj.EvaluatorFcn);
@@ -37,9 +38,15 @@ S.PreUpdateFcnArgs = obj.PreUpdateFcnArgs;
 S.EvaluatorFcnArgs = obj.EvaluatorFcnArgs;
 S.PostUpdateFcnArgs = obj.PostUpdateFcnArgs;
 
+
+S.PreUpdateFcnArgs = obj.argsToStr_(obj.PreUpdateFcnArgs);
+S.EvaluatorFcnArgs = obj.argsToStr_(obj.EvaluatorFcnArgs);
+S.PostUpdateFcnArgs = obj.argsToStr_(obj.PostUpdateFcnArgs);
+
 S.PreUpdateFcnEnabled = obj.PreUpdateFcnEnabled;
 S.EvaluatorFcnEnabled = obj.EvaluatorFcnEnabled;
 S.PostUpdateFcnEnabled = obj.PostUpdateFcnEnabled;
+%}
 
 
 % Value and state

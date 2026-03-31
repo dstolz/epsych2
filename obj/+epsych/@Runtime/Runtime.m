@@ -132,7 +132,7 @@ classdef Runtime < handle & dynamicprops
 
             if optInt.HW
                 for i = 1:numel(obj.HW)
-                    vprintf(3, 'Retrieving all parameters from hardware interface: %s', class(obj.HW(i).Name))
+                    vprintf(3, 'Retrieving all parameters from hardware interface: %s', class(obj.HW(i).Type))
                     P = [P, obj.HW(i).all_parameters(copts{:})];
                 end
             end

@@ -79,9 +79,9 @@ for k = 1:nP
     end
         
     if parentType == "Software"
-        xp = obj.S.find_parameter(P.Name);
+        xp = obj.S.find_parameter(P.Name,includeInvisible=true);
     else
-        xp = obj.HW(i).find_parameter(P.Name);
+        xp = obj.HW(i-1).find_parameter(P.Name,includeInvisible=true);
     end
     xp.fromStruct(P);
 end

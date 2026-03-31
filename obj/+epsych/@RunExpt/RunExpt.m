@@ -359,7 +359,6 @@ classdef RunExpt < handle
             self.STATE = PRGMSTATE.ERROR;
             self.RUNTIME.ERROR = lasterror;
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Error, self.RUNTIME);
-            feval(self.FUNCS.SavingFcn, self.RUNTIME);
             self.UpdateGUIstate
             self.SaveDataCallback
         end

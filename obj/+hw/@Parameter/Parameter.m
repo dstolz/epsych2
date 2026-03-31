@@ -342,7 +342,30 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function s = argsToStr_(obj, args)
+            s = cell(size(args));
+            for i = 1:numel(args)
+                if isa(args{i}, 'function_handle')
+                    s{i} = func2str(args{i});
+                elseif isobject(args{i})
+                    s{i} = class(args{i});
+                else
+                    s{i} = args{i};
+                end
+            end
+        end
 
+        function args = strToFcnArgs_(obj, s)
+            args = cell(size(s));
+            for i = 1:numel(s)
+                if startsWith(s{i}, '@')
+                    args{i} = str2func(s{i}(2:end));
+                else
+                    args{i} = s{i};
+                end
+            end
+        end
+        
         function s = fcnToStr_(~, f)
             if isa(f, 'function_handle')
                 s = func2str(f);

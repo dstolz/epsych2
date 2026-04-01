@@ -43,6 +43,7 @@ classdef EPsychInfo < handle
         Copyright = '(C) 2016-2026  Daniel Stolzberg, PhD';
         RepositoryURL = 'https://github.com/dstolz/epsych2';
         CommitHistoryURL = 'https://github.com/dstolz/epsych2/blob/master/documentation/CommitHistoryOverview.md';
+        DocumentationURL = 'https://github.com/dstolz/epsych2/blob/669b7581a731394d4b3ac7bd11bea68aa9e7608f/README.md';
     end
     
     methods

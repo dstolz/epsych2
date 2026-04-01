@@ -137,9 +137,43 @@ classdef Runtime < handle & dynamicprops
                 end
             end
         end
+
+        function updateTrialsFromParameters(obj, Parameters)
+            % updateTrialsFromParameters(obj, trialParams)
+            % Update runtime TRIALS information based on current parameter values.
+            %
+            % Parameters:
+            %   obj (1,1) epsych.Runtime
+            %       The runtime object.
+            %   trialParams (1,:) string
+            %       Names of parameters to include in trial information.
+            %
+            % Returns:
+            %   None. Updates obj.TRIALS in-place.
+            %
+            % See also: documentation/Trial_Selection.md
+
+            arguments
+                obj
+                Parameters (1,:) hw.Parameter
+            end
+
+            ind = ismember({Parameters.Name}, obj.TRIALS.writeparams);
+            Parameters(~ind) = [];
+
+            vprintf(3, 'Updating TRIALS information from %d parameters: %s', numel(Parameters), strjoin({Parameters.Name},', '))
+            for k = 1:numel(Parameters)
+                pName = Parameters(k).Name;
+                pVal = Parameters(k).Value;
+
+                idx = obj.TRIALS.writeParamIdx.(pName);
+                obj.TRIALS.trials(:,idx) = {pVal};
+            end
+        end
     end
 
     methods (Static)
+
         function createTemplateJSON(filepath)
             % createTemplateJSON(filepath)
             % Create a template JSON phase file with example fields for hw.Parameter serialization.

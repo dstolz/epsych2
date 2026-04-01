@@ -180,7 +180,7 @@
       "Type": "Float",
       "Format": "%g",
       "Visible": true,
-      "Value": 1000,
+      "Value": 4000,
       "lastUpdated": 740072.67211503477,
       "isArray": false,
       "isTrigger": false,
@@ -473,9 +473,9 @@
       "lastUpdated": 740072.67223731487,
       "isArray": false,
       "isTrigger": false,
-      "isRandom": false,
+      "isRandom": true,
       "Min": 1000,
-      "Max": 1000,
+      "Max": 4000,
       "ParentType": "TDT_RPcox"
     },
     {

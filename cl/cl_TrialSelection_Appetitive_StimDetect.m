@@ -1,32 +1,26 @@
 function TRIALS = cl_TrialSelection_Appetitive_StimDetect(TRIALS)
 % cl_TrialSelection_Appetitive_StimDetect(TRIALS)
-% Select the next trial for the appetitive stimulus-detection task.
+% Selects the next trial for the appetitive stimulus-detection task.
 %
-% This callback updates TRIALS.NextTrialID from the most recent response
-% outcome, with support for reminder trials, catch-trial insertion, and
-% staircase-style stimulus-depth updates.
+% Input:
+%   TRIALS  Runtime struct used by the trial loop. Reads trial metadata
+%           from TRIALS.trials and TRIALS.writeParamIdx, trial history from
+%           TRIALS.DATA, the hidden hardware parameter '~ReminderTrial', and
+%           task parameters from TRIALS.Parameters.
 %
-% Inputs:
-%   TRIALS  Experiment runtime struct. The function reads trial metadata
-%           from TRIALS.trials and TRIALS.writeParamIdx, completed-trial
-%           history from TRIALS.DATA, the hidden hardware parameter
-%           '~ReminderTrial', and software parameters stored in
-%           TRIALS.S.Module.Parameters.
-%
-% Returns:
+% Output:
 %   TRIALS  Updated runtime struct with NextTrialID set to the next trial
-%           row. For stimulus trials, the selected Depth value is also
-%           written back to the STIM trial rows in TRIALS.trials.
+%           row. For STIM trials, also writes the selected Depth value into
+%           all STIM rows in TRIALS.trials.
 %
 % Notes:
-%   - Trial types are encoded locally as STIM = 0, CATCH = 1, and
-%     REMIND = 2.
-%   - ReminderTrials forces the reminder row and sets '~ReminderTrial'.
-%   - Staircase updates use StepOnHit, StepOnMiss, MinDepth, MaxDepth,
-%     and P_Catch.
-%   - The first selected trial is the first STIM row.
-%   - See documentation/cl_TrialSelection_Appetitive_StimDetect.md for a
-%     behavior summary and parameter notes.
+%   - Local trial-type codes: STIM = 0, CATCH = 1, REMIND = 2.
+%   - ReminderTrials forces a REMIND trial and sets '~ReminderTrial'.
+%   - Staircase depth update uses StepOnHit, StepOnMiss, MinDepth, and
+%     MaxDepth.
+%   - Catch scheduling is controlled by P_Catch.
+%   - The initial scheduled trial is the first STIM row.
+%   - Documentation: documentation/cl_TrialSelection_Appetitive_StimDetect.md.
 %
 % See also cl_TrialSelection_Appetitive_GONOGO
 
@@ -66,17 +60,12 @@ end
 % 5) Read software parameters created by the task GUI
 %    If the GUI has not been initialized yet, leave the current default.
 %--------------------------------------------------------------------------
-sp = TRIALS.S.Module.Parameters;
-if isempty(sp), return; end
-sn = {sp.validName};
-for j = 1:length(sp), SP.(sn{j}) = sp(j); end
-
-HP = TRIALS.HW_Parameters;
+P = TRIALS.Parameters;
 
 %--------------------------------------------------------------------------
 % 6) Reminder override: force the reminder row and set the hardware flag
 %--------------------------------------------------------------------------
-if SP.ReminderTrials.Value == 1
+if P.ReminderTrials.Value == 1
     TRIALS.NextTrialID = find(T.TrialType == TT.REMIND,1);
     reminderTrial.Value = true;
     return
@@ -113,23 +102,23 @@ end
 %     Hit  decreases depth, Miss increases depth, and Abort/CR/FA keep the
 %     previous stimulus depth for the next stimulus trial.
 %--------------------------------------------------------------------------
-rda = SP.RepeatDelayOnAbort.Value && length(RC.Abort) > 1 && RC.Abort(end-1) && ~isempty(HP.StimDelay.UserData);
+rda = P.RepeatDelayOnAbort.Value && length(RC.Abort) > 1 && RC.Abort(end-1) && ~isempty(P.StimDelay.UserData);
 if RC.Hit(end)
-    nextStim = lastStim - SP.StepOnHit.Value;
+    nextStim = lastStim - P.StepOnHit.Value;
 
     if rda 
         % restore StimDelay values
-        HP.StimDelay.isRandom = HP.StimDelay.UserData.isRandom;
-        HP.StimDelay.UserData.CORRECTVAL = [];
+        P.StimDelay.isRandom = P.StimDelay.UserData.isRandom;
+        P.StimDelay.UserData.CORRECTVAL = [];
     end
 
 elseif RC.Miss(end) 
-    nextStim = lastStim + SP.StepOnMiss.Value;
+    nextStim = lastStim + P.StepOnMiss.Value;
 
     if rda
         % restore StimDelay values
-        HP.StimDelay.isRandom = HP.StimDelay.UserData.isRandom;
-        HP.StimDelay.UserData.CORRECTVAL = [];
+        P.StimDelay.isRandom = P.StimDelay.UserData.isRandom;
+        P.StimDelay.UserData.CORRECTVAL = [];
     end
 
 elseif RC.Abort(end)
@@ -142,19 +131,19 @@ elseif RC.Abort(end)
         vprintf(2,'Too many Aborts: resetting nextStim to max depth and clearing StimDelay randomization')
 
         % restore StimDelay values
-        HP.StimDelay.isRandom = HP.StimDelay.UserData.isRandom;
-        HP.StimDelay.UserData.CORRECTVAL = [];
+        P.StimDelay.isRandom = P.StimDelay.UserData.isRandom;
+        P.StimDelay.UserData.CORRECTVAL = [];
 
     elseif rda
         sdval = TRIALS.DATA(end).StimDelay;
     
         % temporarily disable PostUpdateFcn and randomization
-        HP.StimDelay.UserData = HP.StimDelay.toStruct;
+        P.StimDelay.UserData = P.StimDelay.toStruct;
 
-        HP.StimDelay.isRandom = false;
+        P.StimDelay.isRandom = false;
 
-        HP.StimDelay.Value = sdval;
-        HP.StimDelay.UserData.CORRECTVAL = sdval;
+        P.StimDelay.Value = sdval;
+        P.StimDelay.UserData.CORRECTVAL = sdval;
 
         vprintf(3,'Repeating trial due to Abort: nextStim = %g, StimDelay = %g',nextStim,sdval)
     end
@@ -169,8 +158,8 @@ end
 %--------------------------------------------------------------------------
 % 12) Clamp the new depth to the configured staircase bounds
 %--------------------------------------------------------------------------
-nextStim = max(nextStim, SP.MinDepth.Value);
-nextStim = min(nextStim, SP.MaxDepth.Value);
+nextStim = max(nextStim, P.MinDepth.Value);
+nextStim = min(nextStim, P.MaxDepth.Value);
 vprintf(4,'nextStim = %g',nextStim)
 
 %--------------------------------------------------------------------------
@@ -187,7 +176,7 @@ ind = T.TrialType == TT.STIM;
 %     A catch trial is only inserted when the latest completed trial was
 %     not already a catch trial.
 %--------------------------------------------------------------------------
-pCT = SP.P_Catch.Value; % probability of catch trial (0 to 1)
+pCT = P.P_Catch.Value; % probability of catch trial (0 to 1)
 if length(RC.("TrialType_" + TT.STIM)) >= 10
     nLast10Stim = sum(RC.("TrialType_" + TT.STIM)(end-9:end));
 else

@@ -31,6 +31,7 @@ try
 
     value = event.Value; % the new value of the training mode toggle (true/false)
     if event.Value == 1
+        % store the original isRandom value in the Parameter's UserData for later restoration
         Parameter.UserData.isRandom = Parameter.isRandom;
         Parameter.isRandom = false;
 

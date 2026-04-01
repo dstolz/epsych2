@@ -134,8 +134,8 @@
       "isArray": false,
       "isTrigger": false,
       "isRandom": false,
-      "Min": 0,
-      "Max": 10000,
+      "Min": 200,
+      "Max": 1000,
       "ParentType": "Software"
     },
     {
@@ -152,7 +152,7 @@
       "isTrigger": false,
       "isRandom": false,
       "Min": 1000,
-      "Max": 10000,
+      "Max": 3000,
       "ParentType": "Software"
     },
     {

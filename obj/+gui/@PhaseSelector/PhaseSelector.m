@@ -223,8 +223,12 @@ classdef PhaseSelector < handle
             obj.CurrentPhase = uint8(idx);
             filepath = obj.FullFilenames(idx-1); % idx-1 because Names includes the null entry
             [~,fn] = fileparts(filepath);
+
             vprintf(0, 'Reading parameters from "%s" (%s)', fn, filepath)
             obj.RUNTIME.readParametersJSON(filepath);
+
+            P = obj.RUNTIME.getAllParameters;
+            obj.RUNTIME.updateTrialsFromParameters(P);
 
             % update dropdown value to match selected phase (in case it was changed programmatically)
             src.Value = obj.Names(obj.CurrentPhase);

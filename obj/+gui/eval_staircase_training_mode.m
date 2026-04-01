@@ -72,6 +72,7 @@ try
     value = event.Value;
 
     if value == 1
+        % enable training mode
         Parameter.UserData.isRandom = Parameter.isRandom;
         Parameter.isRandom = false;
 
@@ -102,6 +103,7 @@ try
     else
         vprintf(2,'Closing %s Training GUI',pName)
 
+        % restore randomization state
         Parameter.isRandom = Parameter.UserData.isRandom;
 
         if obj.StaircaseTrainingGUIs.isKey(pName)

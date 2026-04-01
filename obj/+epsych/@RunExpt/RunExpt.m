@@ -326,7 +326,7 @@ classdef RunExpt < handle
         onFigureKeyPress(self, evt)                        % Handle key-press events on the main figure
         onCloseRequest(self)                               % Stop experiment if running and destroy the figure
         SaveDataCallback(self)                             % Invoke the configured data-saving callback
-        recent = GetRecentConfigs(self)                    % Return cell array of recently opened config file paths
+        recent = GetRecentConfigs(self)                    % Return config paths loaded within the past seven days
         LoadRecentConfig(self, cfn)                        % Load config at path cfn and update recents list
         RememberRecentConfig(self, cfn)                    % Add cfn to the persistent recent config registry
         UpdateRecentConfigsMenu(self)                      % Rebuild the recent-configs submenu items

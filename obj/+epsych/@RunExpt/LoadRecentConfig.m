@@ -1,5 +1,14 @@
 function LoadRecentConfig(self, cfn)
-% LoadRecentConfig — Load a config file selected from the recent list.
+% LoadRecentConfig(self, cfn)
+% Load a config selected from the recent-config menu.
+% Inputs
+%   self (epsych.RunExpt) - Scalar RunExpt instance.
+%   cfn (char|string) - Full path to a config file.
+% Outputs
+%   None.
+% Notes
+%   If cfn no longer exists, removes stale entries from both recent path and
+%   timestamp preferences before updating the menu.
 
 cfn = string(cfn);
 

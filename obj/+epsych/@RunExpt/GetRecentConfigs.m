@@ -1,8 +1,13 @@
 function recent = GetRecentConfigs(self)
-% GetRecentConfigs — Return the persisted recent configuration file list.
-% Behavior
-%   Normalizes preference storage to a row cell array of existing files and
-%   keeps entries loaded within the past seven days.
+% recent = GetRecentConfigs(self)
+% Return persisted recent config paths loaded within the past seven days.
+% Inputs
+%   self (epsych.RunExpt) - Scalar RunExpt instance.
+% Outputs
+%   recent (1,:) cell - Row cell array of existing config file paths.
+% Notes
+%   Reads ep_RunExpt_Setup.RecentConfigs and matching load-time metadata,
+%   then normalizes and persists cleaned preference values.
 
 if ~isscalar(self)
     recent = {};

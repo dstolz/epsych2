@@ -1,5 +1,13 @@
 function UpdateRecentConfigsMenu(self)
-% UpdateRecentConfigsMenu — Refresh the recent-config submenu entries.
+% UpdateRecentConfigsMenu(self)
+% Rebuild the recent-config submenu from persisted recent entries.
+% Inputs
+%   self (epsych.RunExpt) - Scalar RunExpt instance.
+% Outputs
+%   None.
+% Notes
+%   Menu items are sourced from GetRecentConfigs, which applies the seven-day
+%   recent window and removes stale preference entries.
 
 if ~isfield(self.H,'mnu_recent_configs') || ~isgraphics(self.H.mnu_recent_configs)
     return

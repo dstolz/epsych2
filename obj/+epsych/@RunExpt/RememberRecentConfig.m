@@ -11,9 +11,18 @@ else
     recent = [{cfn} recent(keep)];
 end
 
-if numel(recent) > 9
-    recent = recent(1:9);
+meta = getpref('ep_RunExpt_Setup','RecentConfigLoadedOn',struct('path',{},'loadedOn',{}));
+if ~isstruct(meta) || ~all(isfield(meta,{'path','loadedOn'}))
+    meta = struct('path',{},'loadedOn',{});
 end
 
+if ~isempty(meta)
+    keepMeta = ~strcmpi({meta.path}, cfn);
+    meta = meta(keepMeta);
+end
+
+meta = [struct('path',cfn,'loadedOn',now) meta];
+
 setpref('ep_RunExpt_Setup','RecentConfigs',recent)
+setpref('ep_RunExpt_Setup','RecentConfigLoadedOn',meta)
 self.UpdateRecentConfigsMenu

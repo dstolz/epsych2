@@ -1,6 +1,8 @@
-# cl_AppetitiveDetection_GUI_B GUI Layout Summary
+# create_gui Layout Summary (Appetitive Detection GUI B)
 
-This document summarizes the layout structure of the GUI created by `create_gui.m` for the Appetitive Detection experiment. The summary includes a table mapping components to their grid positions, a description of the layout, and a diagram to illustrate the structure.
+This document summarizes the layout structure of the GUI created by `cl/@cl_AppetitiveDetection_GUI_B/create_gui.m` for the Appetitive Detection experiment. The summary includes a table mapping components to their grid positions, a description of the layout, and a diagram to illustrate the structure.
+
+Note: this file is retained as a compatibility alias. The canonical layout documentation is [documentation/layouts/cl_AppetitiveDetection_GUI_B_layout.md](cl_AppetitiveDetection_GUI_B_layout.md).
 
 ---
 
@@ -80,4 +82,4 @@ Legend:
 
 The GUI layout is highly modular, with clear separation of control, information, and visualization areas. The use of a large grid allows for flexible arrangement and future expansion. Some areas are intentionally left unoccupied or are reserved for features that are currently commented out in the code.
 
-For further details, see the code in `cl/@cl_AppetitiveDetection_GUI_B/create_gui.m`.
+For further details, see the code in [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m).

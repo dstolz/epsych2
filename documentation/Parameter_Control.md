@@ -174,6 +174,8 @@ u.watchedHandles = h;
 - Polling display: obj/+gui/Parameter_Monitor.m
 - GUI utility: obj/+gui/@Helper/Helper.m
 
+This documentation describes: [obj/+gui/Parameter_Control.m](../obj/+gui/Parameter_Control.m)
+
 ## Notes and gotchas
 
 - `readonly` controls display `Parameter.ValueStr` and highlight when the parameter changes externally.

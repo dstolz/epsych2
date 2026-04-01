@@ -1,20 +1,18 @@
 # `gui.Parameter_Update`
 
-`gui.Parameter_Update` is a small controller class that owns an **â€œUpdate Parametersâ€** button and keeps it in sync with a set of parameter editor widgets.
+`gui.Parameter_Update` is a small controller class that owns an **"Update Parameters"** button and keeps it in sync with a set of parameter editor widgets.
 
 It solves a common GUI workflow:
 
 - Let the user edit several parameters without immediately pushing changes to hardware.
-- Visually indicate when there are **pending (uncommitted) edits**.
+- Visually indicate when there are pending (uncommitted) edits.
 - Commit those edits either:
-  - **for upcoming trials** (default), or
-  - **immediately** (when a modifier key chord is held).
-
----
+  - for upcoming trials (default), or
+  - immediately (when a modifier key chord is held).
 
 ## Where it fits
 
-In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
+In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
 
 `gui.Parameter_Update` watches one or more `gui.Parameter_Control` objects and:
 
@@ -23,8 +21,6 @@ In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](..
 - Commits pending edits into:
   - `RUNTIME.TRIALS.trials` (so the new values apply to subsequent trials), and
   - optionally into `hw.Parameter.Value` (immediate mode, or software-only parameters).
-
----
 
 ## Basic usage
 
@@ -44,19 +40,17 @@ updater.watchedHandles = ctrl;
 
 User experience:
 
-- If the user changes any control, the button becomes enabled and shows **â€œUpdate Parametersâ€**.
-- If nothing is pending, the button disables and shows **â€œNothing to Updateâ€**.
+- If the user changes any control, the button becomes enabled and shows **"Update Parameters"**.
+- If nothing is pending, the button disables and shows **"Nothing to Update"**.
 - Holding **Ctrl + Shift + Alt** while clicking changes behavior to **Immediate** (see below).
-
----
 
 ## Immediate vs. next-trial updates
 
-### Default: â€œUpdate Parameters for the Next Trialâ€
+### Default: "Update Parameters for the Next Trial"
 
-When clicked normally, `commit_changes` updates the **trial table** (`RUNTIME.TRIALS.trials`) for any parameters that are part of the protocolâ€™s write-parameters list.
+When clicked normally, `commit_changes` updates the trial table (`RUNTIME.TRIALS.trials`) for any parameters that are part of the protocol's write-parameters list.
 
-This is done by looking up the parameterâ€™s protocol column via:
+This is done by looking up the parameter's protocol column via:
 
 - `loc = RUNTIME.TRIALS.writeParamIdx`
 - `P.validName` (from `hw.Parameter.validName`)
@@ -65,9 +59,9 @@ and assigning the updated value into the corresponding column.
 
 Important nuance:
 
-- For non-software interfaces, this mode typically **does not** write directly to `P.Value` (hardware) unless the parameter belongs to a software-only parent.
+- For non-software interfaces, this mode typically does not write directly to `P.Value` (hardware) unless the parameter belongs to a software-only parent.
 
-### â€œUpdate Parameters Immediatelyâ€ (Ctrl + Shift + Alt)
+### "Update Parameters Immediately" (Ctrl + Shift + Alt)
 
 When the modifier chord is held, `commit_changes` will additionally write the current UI value into the underlying `hw.Parameter`:
 
@@ -75,20 +69,16 @@ When the modifier chord is held, `commit_changes` will additionally write the cu
 
 This is intended for situations where you need the new setting applied right away (e.g., during an ongoing run), rather than waiting for the next trial boundary.
 
----
-
 ## What `watchedHandles` must provide
 
 `watchedHandles` is expected to be an array of handle objects with at least:
 
-- A **set-observable** logical property `ValueUpdated`
+- A set-observable logical property `ValueUpdated`
 - A property `Value` containing the current UI value
 - A property `Parameter` referencing an `hw.Parameter`
 - A method `reset_label()` that clears the pending-edit indication
 
 `gui.Parameter_Control` satisfies this contract.
-
----
 
 ## Runtime/trials expectations
 
@@ -99,9 +89,7 @@ This is intended for situations where you need the new setting applied right awa
 
 This mapping is created during runtime start-up (see [`ep_TimerFcn_Start`](../runtime/timerfcns/ep_TimerFcn_Start.m)).
 
-**Current limitation:** the implementation notes â€œCURRENTLY ONLY WORKS FOR SINGLE SUBJECTâ€ and uses `RUNTIME.TRIALS` as a scalar struct. If your experiment runs multiple subjects simultaneously (where `RUNTIME.TRIALS(i)` is used), youâ€™ll need one updater per subject (or extend the class with a subject index).
-
----
+Current limitation: the implementation notes "CURRENTLY ONLY WORKS FOR SINGLE SUBJECT" and uses `RUNTIME.TRIALS` as a scalar struct. If your experiment runs multiple subjects simultaneously (where `RUNTIME.TRIALS(i)` is used), you'll need one updater per subject (or extend the class with a subject index).
 
 ## Keyboard handling note
 
@@ -112,11 +100,11 @@ The constructor installs callbacks on the owning figure:
 
 If other code in your GUI also needs `WindowKeyPressFcn`/`WindowKeyReleaseFcn`, you may need to chain callbacks or centralize key handling so the most recent assignment does not overwrite other handlers.
 
----
-
 ## Related files
 
 - [obj/+gui/Parameter_Update.m](../obj/+gui/Parameter_Update.m): Implementation
 - [obj/+gui/Parameter_Control.m](../obj/+gui/Parameter_Control.m): Typical watched editor control
-- [documentation/Parameter.md](Parameter.md): `hw.Parameter` overview
+- [documentation/hw_Parameter.md](hw_Parameter.md): `hw.Parameter` overview
 - [runtime/timerfcns/ep_TimerFcn_Start.m](../runtime/timerfcns/ep_TimerFcn_Start.m): Creates `TRIALS.writeParamIdx`
+
+This documentation describes: [obj/+gui/Parameter_Update.m](../obj/+gui/Parameter_Update.m)

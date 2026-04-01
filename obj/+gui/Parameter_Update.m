@@ -8,6 +8,7 @@ classdef Parameter_Update < handle
     % Methods:
     %   set.watchedHandles - Register parameter editor handles to watch.
     %   commit_changes     - Commit pending changes to runtime/trials.
+    % Documentation: documentation/Parameter_Update.md
 
     properties (SetAccess = immutable)
         Button % underlying uibutton object

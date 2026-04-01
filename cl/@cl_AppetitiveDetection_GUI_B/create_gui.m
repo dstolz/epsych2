@@ -11,7 +11,8 @@
 % Returns:
 %   None. All handles and UI objects are stored in the obj properties.
 %
-% For more details, see documentation/design_ep_ExperimentDesign.md
+% Documentation: documentation/design_ep_ExperimentDesign.md
+% Documentation: documentation/layouts/cl_AppetitiveDetection_GUI_B_layout.md
 %
 function create_gui(obj)
 

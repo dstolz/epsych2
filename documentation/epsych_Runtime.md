@@ -40,8 +40,8 @@ The `epsych.Runtime` class is a central container for managing the execution sta
 ## Methods
 
 - **Runtime:** Constructor. Initializes an empty runtime container and state.
-- **writeParametersJSON:** Serializes runtime parameters to a JSON file. See also: [documentation/writeParametersJSON.md](writeParametersJSON.md)
-- **readParametersJSON:** Loads runtime parameters from a JSON file. See also: [documentation/readParametersJSON.md](readParametersJSON.md)
+- **writeParametersJSON:** Serializes runtime parameters to a JSON file. Implementation: [obj/+epsych/@Runtime/writeParametersJSON.m](../obj/+epsych/@Runtime/writeParametersJSON.m)
+- **readParametersJSON:** Loads runtime parameters from a JSON file. Implementation: [obj/+epsych/@Runtime/readParametersJSON.m](../obj/+epsych/@Runtime/readParametersJSON.m)
 - **getAllParameters:** Retrieves all parameters from hardware and software interfaces, with options for filtering by type, visibility, and access.
 - **createTemplateJSON (Static):** Creates a template JSON file for parameter serialization, useful for configuration setup.
 
@@ -67,6 +67,7 @@ r.readParametersJSON('params.json');
 ---
 
 ## Version History
+
 - Initial version: March 2026
 
 ---

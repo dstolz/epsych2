@@ -26,6 +26,7 @@ classdef Parameter < matlab.mixin.SetGet
     %   Parameter - Construct and initialize a parameter instance.
     %   toStruct - Serialize parameter metadata and value to a struct.
     %   fromStruct - Apply serialized parameter data to this instance.
+    %   toJSON - Serialize this parameter to a pretty-printed JSON string.
     %   Trigger - Trigger the associated hardware event when enabled.
     %
     % Example
@@ -101,6 +102,7 @@ classdef Parameter < matlab.mixin.SetGet
     methods
         S = toStruct(obj)           % serialize this parameter to a struct
         fromStruct(obj, S)          % restore this parameter from a struct
+        jsonText = toJSON(obj)      % serialize this parameter to a JSON string
 
         function obj = Parameter(Parent, options)
             % obj = hw.Parameter(Parent)

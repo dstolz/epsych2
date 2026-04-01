@@ -198,8 +198,53 @@ varName = p.validName;
 
 ---
 
+## Serialization
+
+`hw.Parameter` provides three methods for serializing and restoring parameter
+state.
+
+### `toStruct`
+
+Converts the parameter to a plain MATLAB struct suitable for JSON encoding or
+other storage formats. Bounds that are `Inf`, `-Inf`, or `NaN` are stored as
+string sentinels to survive round-tripping through `jsonencode` / `jsondecode`.
+
+```matlab
+S = p.toStruct();
+```
+
+### `fromStruct`
+
+Restores parameter fields from a struct previously produced by `toStruct`.
+
+```matlab
+p.fromStruct(S);
+```
+
+### `toJSON`
+
+Serializes the parameter to a pretty-printed JSON string. `UserData` is
+excluded (not reliably serializable) and `ParentType` is appended so the
+JSON record is self-describing.
+
+When called with no output argument, the JSON text is copied to the system
+clipboard and a message is logged via `vprintf`.
+
+```matlab
+% Return JSON text
+jsonText = p.toJSON();
+
+% Copy to clipboard (no output)
+p.toJSON();
+```
+
+---
+
 ## Recent updates
 
+- Added `toJSON` method: returns pretty-printed JSON string and optionally
+  copies it to the clipboard when called with no output.
+- Added Serialization section documenting `toStruct`, `fromStruct`, and `toJSON`.
 - Updated to match the current named-option constructor signature.
 - Renamed documentation file to follow the subdirectory-based naming
   convention used in the repository prompt.
@@ -208,4 +253,7 @@ varName = p.validName;
 
 ## Related files
 
-- [obj/+hw/Parameter.m](../obj/+hw/Parameter.m): Implementation of the class
+- [obj/+hw/@Parameter/Parameter.m](../obj/+hw/@Parameter/Parameter.m): Class definition
+- [obj/+hw/@Parameter/toStruct.m](../obj/+hw/@Parameter/toStruct.m): Serialization to struct
+- [obj/+hw/@Parameter/toJSON.m](../obj/+hw/@Parameter/toJSON.m): Serialization to JSON string
+- [obj/+epsych/@Runtime/writeParametersJSON.m](../obj/+epsych/@Runtime/writeParametersJSON.m): Writes all runtime parameters to a JSON file

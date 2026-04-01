@@ -113,22 +113,23 @@ end
 %     Hit  decreases depth, Miss increases depth, and Abort/CR/FA keep the
 %     previous stimulus depth for the next stimulus trial.
 %--------------------------------------------------------------------------
-rda = SP.RepeatDelayOnAbort.Value;
+rda = SP.RepeatDelayOnAbort.Value && length(RC.Abort) > 1 && RC.Abort(end-1) && ~isempty(HP.StimDelay.UserData);
 if RC.Hit(end)
     nextStim = lastStim - SP.StepOnHit.Value;
 
-    if rda && length(RC.Abort) > 1 && RC.Abort(end-1) && ~isempty(HP.StimDelay.UserData)
+    if rda 
         % restore StimDelay values
         HP.StimDelay.isRandom = HP.StimDelay.UserData.isRandom;
         HP.StimDelay.UserData.CORRECTVAL = [];
     end
 
-elseif SP.RepeatDelayOnAbort.Value && RC.Miss(end)
+elseif RC.Miss(end) 
     nextStim = lastStim + SP.StepOnMiss.Value;
 
-    if rda && length(RC.Abort) > 1 && RC.Abort(end-1) && ~isempty(HP.StimDelay.UserData)
+    if rda
         % restore StimDelay values
-        HP.StimDelay.fromStruct(HP.StimDelay.UserData)
+        HP.StimDelay.isRandom = HP.StimDelay.UserData.isRandom;
+        HP.StimDelay.UserData.CORRECTVAL = [];
     end
 
 elseif RC.Abort(end)
@@ -143,6 +144,7 @@ elseif RC.Abort(end)
         % restore StimDelay values
         HP.StimDelay.isRandom = HP.StimDelay.UserData.isRandom;
         HP.StimDelay.UserData.CORRECTVAL = [];
+
     elseif rda
         sdval = TRIALS.DATA(end).StimDelay;
     
@@ -156,6 +158,7 @@ elseif RC.Abort(end)
 
         vprintf(3,'Repeating trial due to Abort: nextStim = %g, StimDelay = %g',nextStim,sdval)
     end
+    
 elseif RC.CorrectReject(end) || RC.FalseAlarm(end)
     % no change to nextStim (same depth for next STIM trial)
     nextStim = lastStim;

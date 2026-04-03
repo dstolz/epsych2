@@ -169,6 +169,7 @@ candidate set unless they are explicitly requested.
 ```matlab
 P = I.all_parameters()
 P = I.all_parameters(includeTriggers=false, includeInvisible=true)
+P = I.all_parameters(Access='Read', asStruct=true)
 ```
 
 Collects every parameter from every module and optionally filters out:
@@ -176,6 +177,10 @@ Collects every parameter from every module and optionally filters out:
 - trigger parameters
 - invisible parameters
 - array-valued parameters
+- access mode (`'Read'`, `'Write'`, `'Read / Write'`, or `'Any'`)
+
+When `asStruct=true`, the result is returned as a struct keyed by each
+parameter's `validName`.
 
 This is the common starting point for parameter introspection logic.
 
@@ -188,6 +193,21 @@ tf = hw.Interface.local_test(fcn, val, pat)
 This static helper converts the output of a comparison function into a single
 logical result. It is mainly used internally by `filter_parameters`, but it is
 useful to understand because it defines what counts as a match.
+
+### `add_parameter`
+
+```matlab
+P = I.add_parameter(name, value)
+P = I.add_parameter(name, value, Name=Value)
+```
+
+Creates a new `hw.Parameter` in the interface module context and applies
+metadata options such as `Description`, `Unit`, `Access`, `Type`, `Visible`,
+callback enable flags, and bounds (`Min`, `Max`).
+
+If `value` is a MATLAB string scalar, it is converted to character data before
+construction so parameter typing stays compatible with current hardware-layer
+conventions.
 
 ---
 
@@ -298,3 +318,10 @@ subclass implementation.
 
 These implementations are the main code references when building a new
 hardware backend.
+
+---
+
+## Version history
+
+- 2026-04-03: Updated helper-method reference to document `all_parameters`
+  access filtering, `asStruct` output mode, and `add_parameter` behavior.

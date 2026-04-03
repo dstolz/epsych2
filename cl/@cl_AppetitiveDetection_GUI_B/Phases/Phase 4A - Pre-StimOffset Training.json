@@ -151,7 +151,7 @@
       "isArray": false,
       "isTrigger": false,
       "isRandom": false,
-      "Min": 1000,
+      "Min": 500,
       "Max": 3000,
       "ParentType": "Software"
     },
@@ -248,7 +248,7 @@
       "Type": "Float",
       "Format": "%g",
       "Visible": true,
-      "Value": 3236,
+      "Value": 500,
       "lastUpdated": 740072.67038954864,
       "isArray": false,
       "isTrigger": false,

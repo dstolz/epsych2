@@ -228,6 +228,10 @@ classdef PhaseSelector < handle
             obj.RUNTIME.readParametersJSON(filepath);
 
             P = obj.RUNTIME.getAllParameters;
+
+            % REMOVE TRIALTYPE
+            P(string({P.Name}) == "TrialType") = [];
+
             obj.RUNTIME.updateTrialsFromParameters(P);
 
             % update dropdown value to match selected phase (in case it was changed programmatically)

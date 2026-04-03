@@ -27,10 +27,7 @@ else
 end
 
 % make all parameters available in TRIALS structure for easy access by trial functions
-P = self.RUNTIME.getAllParameters();
-P = {P.validName};
+P = self.RUNTIME.getAllParameters(asStruct = true);
 for i = 1:self.RUNTIME.NSubjects
-    for j = 1:length(P)
-        self.RUNTIME.TRIALS(i).Parameters.(P{j}) = P(j);
-    end
+    self.RUNTIME.TRIALS(i).Parameters = P;
 end

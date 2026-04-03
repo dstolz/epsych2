@@ -102,24 +102,16 @@ end
 %     Hit  decreases depth, Miss increases depth, and Abort/CR/FA keep the
 %     previous stimulus depth for the next stimulus trial.
 %--------------------------------------------------------------------------
-rda = P.RepeatDelayOnAbort.Value && length(RC.Abort) > 1 && RC.Abort(end-1) && ~isempty(P.StimDelay.UserData);
+rda = P.RepeatDelayOnAbort.Value && RC.Abort(end);
 if RC.Hit(end)
     nextStim = lastStim - P.StepOnHit.Value;
 
-    if rda 
-        % restore StimDelay values
-        P.StimDelay.isRandom = P.StimDelay.UserData.isRandom;
-        P.StimDelay.UserData.CORRECTVAL = [];
-    end
+    restore_stimdelay_randomization(P.StimDelay);
 
 elseif RC.Miss(end) 
     nextStim = lastStim + P.StepOnMiss.Value;
 
-    if rda
-        % restore StimDelay values
-        P.StimDelay.isRandom = P.StimDelay.UserData.isRandom;
-        P.StimDelay.UserData.CORRECTVAL = [];
-    end
+    restore_stimdelay_randomization(P.StimDelay);
 
 elseif RC.Abort(end)
     % no change to nextStim (repeat same depth)
@@ -129,21 +121,20 @@ elseif RC.Abort(end)
 
     if tooManyAborts
         vprintf(2,'Too many Aborts: resetting nextStim to max depth and clearing StimDelay randomization')
-
-        % restore StimDelay values
-        P.StimDelay.isRandom = P.StimDelay.UserData.isRandom;
-        P.StimDelay.UserData.CORRECTVAL = [];
+        restore_stimdelay_randomization(P.StimDelay);
 
     elseif rda
         sdval = TRIALS.DATA(end).StimDelay;
     
         % temporarily disable PostUpdateFcn and randomization
-        P.StimDelay.UserData = P.StimDelay.toStruct;
+        if ~isfield(P.StimDelay.UserData,'CORRECTVAL') || isempty(P.StimDelay.UserData.CORRECTVAL)
+            P.StimDelay.UserData = P.StimDelay.toStruct;
 
-        P.StimDelay.isRandom = false;
+            P.StimDelay.isRandom = false;
 
-        P.StimDelay.Value = sdval;
-        P.StimDelay.UserData.CORRECTVAL = sdval;
+            P.StimDelay.Value = sdval;
+            P.StimDelay.UserData.CORRECTVAL = sdval;
+        end
 
         vprintf(3,'Repeating trial due to Abort: nextStim = %g, StimDelay = %g',nextStim,sdval)
     end
@@ -177,6 +168,9 @@ ind = T.TrialType == TT.STIM;
 %     not already a catch trial.
 %--------------------------------------------------------------------------
 pCT = P.P_Catch.Value; % probability of catch trial (0 to 1)
+
+if RC.Abort(end), pCT = 0; end % do not present a catch trial if the previous trial result was an Abort
+
 if length(RC.("TrialType_" + TT.STIM)) >= 10
     nLast10Stim = sum(RC.("TrialType_" + TT.STIM)(end-9:end));
 else
@@ -191,4 +185,14 @@ else
     % 15) Select the first stimulus row as the next trial and return
     %--------------------------------------------------------------------------
     TRIALS.NextTrialID = find(T.TrialType == TT.STIM,1);
+end
+
+end
+
+
+function restore_stimdelay_randomization(pStimDelay)
+    if isfield(pStimDelay.UserData,'isRandom') && ~isempty(pStimDelay.UserData.isRandom)
+        pStimDelay.isRandom = pStimDelay.UserData.isRandom;
+    end
+    pStimDelay.UserData.CORRECTVAL = [];
 end

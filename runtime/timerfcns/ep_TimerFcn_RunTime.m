@@ -44,6 +44,10 @@ for i = 1:RUNTIME.NSubjects
             P = RUNTIME.getAllParameters(Access = 'Read');
             for k = 1:numel(P)
                 data.(P(k).validName) = P(k).Value;
+                vprintf(4,'Trial #%d: Retrieved parameter ''%s''\t:\t%g', ...
+                    TrialNum, ...
+                    P(k).validName, ...
+                    P(k).Value)
             end
             % Save runtime data in case of crash
             save(RUNTIME.DataFile(i),'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
@@ -77,7 +81,6 @@ for i = 1:RUNTIME.NSubjects
 
 
 
-        % WHY IS THIS NOT WITHIN THE TRIAL OVER BLOCK ABOVE???
         % Collect Buffer if available
         if isfield(RUNTIME,'AcqBufferStr')
             vprintf(4,'Collecting AcqBuffer data for box %d',i)
@@ -166,7 +169,10 @@ for i = 1:RUNTIME.NSubjects
     vprintf(4,'Update parameter tags')
     trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,wpind);
     P = RUNTIME.HW.find_parameter(wp,includeInvisible=true);
-    [P.Value] = deal(trials{:});
+    for k = 1:length(trials)
+        P(k).Value = trials{k};
+    end
+    % [P.Value] = deal(trials{:});
 
     % 3. Trigger new trial
     vprintf(4,'Hardware Trigger for NewTrial')

@@ -45,7 +45,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         Text (1,:) char = 'label' % label text
 
 
-        colorNormal           = "#f0f0f0";
+        colorNormal           = "#ffffff";
         colorOnUpdate         = "#00c700";
         colorOnUpdateAuto     = "#7ad5ff";
         colorOnUpdateExternal = "#fad85c";

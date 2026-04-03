@@ -1,14 +1,35 @@
 classdef History < handle
-    % History displays and updates a trial-by-trial history table for behavioral sessions.
+    % gui.History
+    % Trial-by-trial history table for behavioral sessions.
     %
-    % This class generates a GUI table summarizing trial data from a linked psychophysics object.
-    % The table is automatically updated as new trials are collected, showing details such as
-    % timestamps, response codes, and selected parameters of interest. Row colors can be set based
-    % on response codes for quick visual assessment.
+    % Creates a GUI table that summarizes trial data from a linked
+    % psychophysics object. The table updates when new data are available,
+    % can color rows by decoded response bit for rapid session review, and
+    % supports optional per-parameter column format overrides.
+    %
+    % Properties:
+    %   psychObj             - Linked psychophysics object
+    %   ParametersOfInterest - Data fields shown after Time and Response
+    %   ColumnFormats        - Optional sprintf formats for all displayed columns
+    %   ParameterColumnFormats - Legacy sprintf formats for ParametersOfInterest columns
+    %   BitColors            - Optional response color override
+    %
+    % Methods:
+    %   History      - Construct the history table UI and optional listener
+    %   build        - Create the underlying uitable
+    %   update       - Refresh table data and row colors
+    %   delete       - Cleanup listener resources
+    %
+    % Example:
+    %   H = gui.History(pObj, uifigure);
+    %
+    % See also: documentation/gui_History.md, epsych.BitMask
 
     properties
         psychObj                     % Reference to the main psychophysics object
         ParametersOfInterest (:,1) cell   % List of fields to display from the data structure
+        ColumnFormats (:,1) string = string.empty(0,1) % Optional sprintf format strings for all displayed columns
+        ParameterColumnFormats (:,1) string = string.empty(0,1) % Legacy sprintf format strings for parameter-only columns
         BitColors string = string.empty(0,1)  % Optional hex color override; defaults to psychObj.BitColors
     end
 
@@ -27,20 +48,29 @@ classdef History < handle
         function obj = History(pObj,container,options)
             % H = gui.History(pObj, container)
             % H = gui.History(pObj, container, BitColors=colors)
-            % Initialize the history table and optionally override response-row colors.
+            % H = gui.History(pObj, container, ColumnFormats=formats)
+            % Initialize the history table and optional display overrides.
             %
             % Parameters:
-            %   pObj - Psychophysics object providing DATA, responseCodes, and BitColors
-            %   container - Figure or panel that will host the table
-            %   BitColors - Optional hex color scheme, one color per response
+            %   pObj - Psychophysics object providing DATA, responseCodes, and BitColors.
+            %   container - Figure or panel host for the table. If empty, creates a figure.
+            %   options.ColumnFormats - Optional sprintf formats for all displayed columns.
+            %   options.BitColors - Optional hex color scheme override.
+            %
+            % Returns:
+            %   obj - gui.History object.
+            %
+            % See also: documentation/gui_History.md
             arguments
                 pObj = []
                 container = []
+                options.ColumnFormats = string.empty(0,1)
                 options.BitColors = string.empty(0,1)
             end
 
             if isempty(container), container = figure; end
             obj.ContainerH = container;
+            obj.ColumnFormats = string(options.ColumnFormats(:));
             obj.BitColors = string(options.BitColors(:));
             obj.build;
             if nargin >= 1 && ~isempty(pObj)
@@ -50,7 +80,8 @@ classdef History < handle
         end
 
         function delete(obj)
-            % Destructor: cleans up the listener.
+            % delete(obj)
+            % Release NewData listener resources.
             if isempty(obj.hl_NewData), return; end
             if isvalid(obj.hl_NewData)
                 delete(obj.hl_NewData);
@@ -59,30 +90,36 @@ classdef History < handle
         end
 
         function build(obj)
-            % Builds the table UI component within the container.
+            % build(obj)
+            % Create the history uitable in the configured container.
             obj.TableH = uitable(obj.ContainerH,'Unit','Normalized', ...
                 'Position',[0 0 1 1],'RowStriping','off');
         end
 
         function update(obj,~,~)
-            % Updates the table with the latest data from the psychObj.
+            % update(obj, ~, ~)
+            % Refresh table data, row ordering, labels, formats, and row colors.
             vprintf(4,'Updating History table')
             if isempty(obj.psychObj.DATA), return; end
-            RD = obj.rearrange_data;
+            [RD,FN] = obj.rearrange_data;
             if isempty(RD), return; end
 
 
             [~,i] = sort(obj.Info.TrialID,'descend');
 
             if ~isvalid(obj.TableH), return; end % TO DO: Track down why this function is being called twice
-            obj.TableH.Data = RD(i,:);
+            columnNames = [{'Time'}; {'Response'}; FN];
+            obj.TableH.Data = obj.formatTableData(RD(i,:),columnNames);
             obj.TableH.RowName = size(RD,1):-1:1;
-            obj.TableH.ColumnName = [{'Time'}; {'Response'}; obj.ParametersOfInterest];
+            obj.TableH.ColumnName = columnNames;
+            obj.TableH.ColumnFormat = repmat({'char'},1,numel(columnNames));
+
             obj.update_row_colors;
         end
 
         function set.psychObj(obj,pobj)
-            % Setter for psychObj property with validation and trigger for update.
+            % set.psychObj(obj, pobj)
+            % Validate and assign psychObj, then refresh table display.
             assert(epsych.Helper.valid_psych_obj(pobj),'gui.History:set.psychObj', ...
                 'psychObj must be from the toolbox "psychophysics"');
             obj.psychObj = pobj;
@@ -92,7 +129,8 @@ classdef History < handle
 
     methods (Access = private)
         function update_row_colors(obj)
-            % Updates row background colors based on response bitmask.
+            % update_row_colors(obj)
+            % Update row background colors from decoded response bits.
             if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
 
             if isempty(obj.Info) || ~isfield(obj.Info,'ResponseBit'), return; end
@@ -112,14 +150,14 @@ classdef History < handle
             obj.TableH.RowStriping = 'on';
         end
 
-        function DataOut = rearrange_data(obj)
-            % Reorganizes raw DATA from psychObj into a table format suitable for display.
-            % Handles filtering fields, timestamp formatting, and response decoding.
+        function [DataOut,FN] = rearrange_data(obj)
+            % [DataOut, FN] = rearrange_data(obj)
+            % Rearrange DATA into table rows with relative time and response text.
             requiredParams = {'ResponseCode','TrialID','inaccurateTimestamp'};
             DataIn = obj.psychObj.DATA;
 
             if ~isempty(obj.ParametersOfInterest)
-                ftr = setdiff(fieldnames(DataIn),[obj.ParametersOfInterest;requiredParams']);
+                ftr = setdiff(fieldnames(DataIn), [obj.ParametersOfInterest; requiredParams'], 'stable');
                 DataIn = rmfield(DataIn,ftr);
             end
 
@@ -147,16 +185,19 @@ classdef History < handle
             ind = structfun(@(a) numel(a)>1,DataIn(1));
             fn = fieldnames(DataIn);
             fn = fn(ind);
-            fn = fn(:)';
-            DataIn = rmfield(DataIn,[requiredParams,fn]);
+            removeFields = [requiredParams(:); fn(:)];
+            DataIn = rmfield(DataIn,removeFields);
 
             DataOut = squeeze(struct2cell(DataIn))';
             DataOut = [cellstr(Response(:)) DataOut];
             DataOut = [cellstr(obj.Info.RelativeTimestamp(:)) DataOut];
+
+            FN = fieldnames(DataIn);
         end
 
         function colors = getBitColors(obj,bits)
-            % Resolve response colors from the hex override or the linked psychophysics object.
+            % colors = getBitColors(obj, bits)
+            % Resolve response colors from override settings or psychObj defaults.
             bitIdx = double(bits(:));
             if ~isempty(obj.BitColors)
                 colorSource = obj.BitColors;
@@ -192,6 +233,89 @@ classdef History < handle
                 colors = colorSource(bitIdx);
             else
                 error("psychObj.BitColors must provide one color per response or per BitMask value.");
+            end
+        end
+
+        function dataOut = formatTableData(obj,dataIn,columnNames)
+            % dataOut = formatTableData(obj, dataIn, columnNames)
+            % Convert all table values to char using resolved sprintf formats.
+            formats = obj.resolveColumnFormats(columnNames);
+            nRows = size(dataIn,1);
+            nCols = size(dataIn,2);
+            dataOut = cell(nRows,nCols);
+            for colIdx = 1:nCols
+                fmt = formats(colIdx);
+                for rowIdx = 1:nRows
+                    dataOut{rowIdx,colIdx} = obj.formatCellValue(dataIn{rowIdx,colIdx},fmt);
+                end
+            end
+        end
+
+        function formats = resolveColumnFormats(obj,columnNames)
+            % formats = resolveColumnFormats(obj, columnNames)
+            % Resolve one sprintf format per displayed column.
+            nCols = numel(columnNames);
+            formats = repmat("%s",nCols,1);
+
+            allFormats = string(obj.ColumnFormats(:));
+            if ~isempty(allFormats)
+                if numel(allFormats) == 1
+                    formats = repmat(allFormats,nCols,1);
+                elseif numel(allFormats) == nCols
+                    formats = allFormats;
+                else
+                    error("ColumnFormats must provide one format or one format per displayed column.");
+                end
+                return
+            end
+
+            parameterFormats = string(obj.ParameterColumnFormats(:));
+            if isempty(parameterFormats)
+                return
+            end
+
+            nParameterCols = max(nCols-2,0);
+            if nParameterCols == 0
+                return
+            end
+
+            if isscalar(parameterFormats)
+                formats(3:end) = repmat(parameterFormats,nParameterCols,1);
+            elseif numel(parameterFormats) == nParameterCols
+                formats(3:end) = parameterFormats;
+            else
+                error("ParameterColumnFormats must provide one format or one format per parameter column.");
+            end
+        end
+
+        function valueOut = formatCellValue(~,valueIn,fmt)
+            % valueOut = formatCellValue(valueIn, fmt)
+            % Format one table value to a char row vector via sprintf.
+            if isstring(valueIn)
+                if isscalar(valueIn)
+                    valueIn = char(valueIn);
+                else
+                    valueIn = char(strjoin(valueIn,", "));
+                end
+            end
+
+            if isdatetime(valueIn) || isduration(valueIn)
+                valueIn = char(string(valueIn));
+            end
+
+            if iscell(valueIn)
+                valueIn = char(string(valueIn));
+            end
+
+            if ~ischar(valueIn) && ~(isnumeric(valueIn) || islogical(valueIn))
+                valueIn = char(string(valueIn));
+            end
+
+            try
+                valueOut = sprintf(char(fmt),valueIn);
+            catch
+                % Keep table refresh robust if caller format and value type mismatch.
+                valueOut = sprintf("%s",char(string(valueIn)));
             end
         end
     end

@@ -24,7 +24,7 @@ fig = uifigure(Tag = 'cl_AppetitiveDetection_GUI_B', ...
     CloseRequestFcn = @(src, event) obj.closeGUI(src, event), ...
     UserData=obj);
 fig.Position = cl_AppetitiveDetection_GUI_B.getSavedFigurePosition([1940 20 1400 1000]);
-movegui(fig,'onscreen');
+% movegui(fig,'onscreen');
 obj.h_figure = fig;
 
 % Create a grid layout
@@ -266,11 +266,6 @@ h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
 h.Text = "Intertrial Interval (ms):";
 
 
-% >> Repeat Delay Following Abort?
-p = R.S.Module.add_parameter('RepeatDelayOnAbort',true);
-h = gui.Parameter_Control(layoutTrialControls,p,Type='checkbox',autoCommit=true);
-h.Text = "Repeat Delay on Abort:";
-
 % >> Stimulus Delay --- this is the time from trial start to stimulus onset, and is used in the post_stimdelay_update function to adjust the response window parameters to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
 pStimDur = R.HW.find_parameter('StimDur',silenceParameterNotFound=true);
 pStimDur.Unit = 'ms';
@@ -299,8 +294,8 @@ lay = h.h_label.Layout;
 delete(h.h_label);
 
 % >> RW Pre-stimulus delay training
-pup = R.S.Module.add_parameter('preStimDelayTrain_StepUp',50);
-pdown = R.S.Module.add_parameter('preStimDelayTrain_StepDown',25);
+pup = R.S.Module.add_parameter('preStimDelayTrain_StepUp',25);
+pdown = R.S.Module.add_parameter('preStimDelayTrain_StepDown',50);
 h = uibutton(par,"state");
 h.Layout = lay;
 h.Text = "RW Pre-Stimulus Duration (ms):";
@@ -325,11 +320,18 @@ h.Text = "RW Post-Stimulus Duration (ms):";
 % >> Stimulus Delay (randomized --- value based on min/max settings below)
 pStimDelay = R.HW.find_parameter('StimDelay');
 pStimDelay.Unit = 'ms';
-pStimDelay.Min = 400; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "StimDelayMin/Max" parameters below.
-pStimDelay.Max = 400;
-pStimDelay.isRandom = true; % enable randomization for this parameter
+% pStimDelay.Min = 400; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "StimDelayMin/Max" parameters below.
+% pStimDelay.Max = 400;
+pStimDelay.isRandom = false; % enable randomization for this parameter
 pStimDelay.PostUpdateFcn = @obj.post_stimdelay_update;
 pStimDelay.PostUpdateFcnArgs = {pStimDur,pRespWinDelay,pRespWinDur,pRespWinPreStim,pRespWinPostStim};
+
+
+
+% >> Repeat Delay Following Abort Option
+p = R.S.Module.add_parameter('RepeatDelayOnAbort',true);
+h = gui.Parameter_Control(layoutTrialControls,p,Type='checkbox',autoCommit=true);
+h.Text = "Repeat Delay on Abort:";
 
 
 % >> Stimulus Delay (direct value)
@@ -375,8 +377,8 @@ pRandomizeStimDelay.PostUpdateFcnArgs = {pStimDelay,pMin,pMax,hStimDelayValue,hS
 set_stimdelay_randomization_state(pRandomizeStimDelay,pRandomizeStimDelay.Value,pStimDelay,pMin,pMax,hStimDelayValue,hStimDelayMin,hStimDelayMax);
 
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
-pup = R.S.Module.add_parameter('StimDelayTrain_StepUp',100);
-pdown = R.S.Module.add_parameter('StimDelayTrain_StepDown',200);
+pup = R.S.Module.add_parameter('StimDelayTrain_StepUp',200);
+pdown = R.S.Module.add_parameter('StimDelayTrain_StepDown',100);
 h = uibutton(layoutTrialControls,"state");
 h.Text = "Stimulus Delay Training Mode";
 h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,pStimDelay, ...
@@ -384,8 +386,8 @@ h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,p
         MaxValue = pStimDelay.Max, ...
         StepUp = pup.Value, ...
         StepDown = pdown.Value, ...
-        StepUpResponse = "Abort", ...
-        StepDownResponse = "Hit");
+        StepUpResponse = "Hit", ...
+        StepDownResponse = "Abort");
 
 
 
@@ -631,7 +633,8 @@ panelResponseHistory.Layout.Column = [6 7];
 % > Response History Table
 obj.ResponseHistory = gui.History(obj.Psych,panelResponseHistory);
 obj.ResponseHistory.BitColors = ["#b4ffca", "#ffcdcd", "#76c8ff","#ffce8f","#f0fc86"]; % override default BitMask colors with black for no response, orange for miss, and black for hit
-obj.ResponseHistory.ParametersOfInterest = {'Depth','TrialType','Reminder'};
+obj.ResponseHistory.ParametersOfInterest = {'Depth','TrialType','RespLatency'};
+obj.ResponseHistory.ParameterColumnFormats = {'%0.3f %%', '%d', '%.0f ms'};
 
 
 %{
@@ -725,31 +728,31 @@ end
 isRandom = logical(newValue);
 pStimDelay.isRandom = isRandom;
 
+pStimDelay.Min = pMin.Value;
+pStimDelay.Max = pMax.Value;
+
 if isRandom
-    pStimDelay.Min = min(pMin.Value,pMax.Value);
-    pStimDelay.Max = max(pMin.Value,pMax.Value);
     editState = "off";
     minMaxState = "on";
     valueFieldColor = [0.94 0.94 0.94];
 else
     % Allow direct fixed-value editing when randomization is disabled.
-    pStimDelay.Min = pMin.Min;
-    pStimDelay.Max = pMax.Max;
     editState = "on";
     minMaxState = "off";
     valueFieldColor = hStimDelayValue.colorNormal;
 end
 
-hStimDelayValue.h_uiobj.Limits = [pStimDelay.Min pStimDelay.Max];
+%hStimDelayValue.h_uiobj.Limits = [pStimDelay.Min pStimDelay.Max];
 hStimDelayValue.h_uiobj.Editable = editState;
 hStimDelayValue.h_uiobj.BackgroundColor = valueFieldColor;
 
 hStimDelayMin.h_uiobj.Enable = minMaxState;
 hStimDelayMax.h_uiobj.Enable = minMaxState;
-if ishandle(hStimDelayMin.h_label)
-    hStimDelayMin.h_label.Enable = minMaxState;
-end
+
 if ishandle(hStimDelayMax.h_label)
     hStimDelayMax.h_label.Enable = minMaxState;
+end
+if ishandle(hStimDelayMin.h_label)
+    hStimDelayMin.h_label.Enable = minMaxState;
 end
 end

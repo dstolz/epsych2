@@ -111,6 +111,8 @@ classdef Runtime < handle & dynamicprops
             %       Include array-valued parameters (default: true)
             %   options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})}
             %       Filter by access type (default: 'Read')
+            %   options.asStruct (1,1) logical = false
+            %       Return parameters as struct with valid field names instead of array (default: false)
             %
             % Returns:
             %   P - Array of hw.Parameter objects

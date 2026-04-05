@@ -20,6 +20,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
     %   StaircaseDirection - "Up" or "Down" reversal convention.
     %   StimulusTrialType - BitMask identifying trials included in the staircase.
     %   ConvertToDecibels - Convert stimulus values using 20*log10(x).
+    %   ExcludedTrials - Trial exclusions specified as a logical mask or
+    %       1-based trial indices.
     %   Results - Structure containing computed staircase outputs such as
     %       Threshold, ReversalIdx, and StepDirection.
     %
@@ -27,6 +29,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
     %   S = psychophysics.Staircase(RUNTIME, Parameter, Plot=true);
     %   S = psychophysics.Staircase(DATA, Parameter, StaircaseDirection="Up");
     %   S = psychophysics.Staircase(DATA, 'Depth');
+    %   S.ExcludedTrials = [1 4 7];
     %   S.Plot();
     %   S.Plot(ax, ShowSteps=false);
     %
@@ -84,12 +87,14 @@ classdef Staircase < handle & matlab.mixin.SetGet
         responseCodes  % Response codes extracted from DATA
         stimulusValues  % Stimulus parameter values from DATA, optionally converted to decibels
         trialCount  % Total number of trials in DATA
+        ExcludedTrials  % Trial exclusions as a logical mask or 1-based trial indices
 
         ParameterName % Convenience accessor for plot labels/titles
     end
 
     properties (Access = private)
         hl_NewData = event.listener.empty
+        excludedTrials_ = zeros(1,0)
 
         % Plot state (optional).
         plotEnabled_ (1,1) logical = false
@@ -148,6 +153,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
             %   ConvertToDecibels    - Convert stimulus values to dB (default: false).
             %   Plot                 - Enable staircase plotting (default: false).
             %   PlotAxes             - Axes to draw into; creates new figure when empty.
+            %   ExcludedTrials       - Trial exclusions as a logical mask or 1-based indices.
             %   ShowSteps            - Show step-direction markers when plotting.
             %   ShowReversals        - Show reversal markers when plotting.
             %
@@ -164,6 +170,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 options.ConvertToDecibels (1,1) logical = false
                 options.Plot (1,1) logical = false
                 options.PlotAxes = []
+                options.ExcludedTrials = []
                 options.ShowSteps (1,1) logical = true
                 options.ShowReversals (1,1) logical = true
             end
@@ -195,6 +202,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
             else
                 obj.hl_NewData = addlistener(obj.RUNTIME.HELPER,'NewData',@obj.update_data);
             end
+
+            obj.ExcludedTrials = options.ExcludedTrials;
 
             if options.Plot
                 obj.Plot(options.PlotAxes, ShowSteps=options.ShowSteps, ShowReversals=options.ShowReversals);
@@ -385,6 +394,31 @@ classdef Staircase < handle & matlab.mixin.SetGet
             n = numel(obj.DATA);
         end
 
+        function value = get.ExcludedTrials(obj)
+            % value = obj.ExcludedTrials
+            % Return configured trial exclusions.
+            % Parameters:
+            %   obj - psychophysics.Staircase instance.
+            % Returns:
+            %   value - Logical exclusion mask or 1-based trial indices.
+            value = obj.excludedTrials_;
+        end
+
+        function set.ExcludedTrials(obj, value)
+            % obj.ExcludedTrials = value
+            % Exclude trials from staircase analysis and plotting.
+            % Parameters:
+            %   obj - psychophysics.Staircase instance.
+            %   value - Empty, a logical mask, or 1-based trial indices.
+            normalizedValue = obj.normalizeExcludedTrialsValue_(value);
+            if isequaln(obj.excludedTrials_, normalizedValue)
+                return
+            end
+
+            obj.excludedTrials_ = normalizedValue;
+            obj.refresh_history();
+        end
+
         function v = get.stimulusValues(obj)
             % v = obj.stimulusValues
             % Return tracked stimulus values extracted from obj.DATA.
@@ -523,17 +557,24 @@ classdef Staircase < handle & matlab.mixin.SetGet
             tt = obj.trialTypeValues_();
             if ~isempty(tt)
                 mask = tt == obj.bitMaskToTrialTypeValue_(trialTypeBit);
-                return
+            else
+                rc = obj.responseCodes;
+                if isempty(rc)
+                    mask = false(1, obj.trialCount);
+                else
+                    decodedResponses = epsych.BitMask.decode(rc);
+                    mask = decodedResponses.(char(trialTypeBit));
+                end
             end
 
-            rc = obj.responseCodes;
-            if isempty(rc)
-                mask = false(1, obj.trialCount);
-                return
+            mask = reshape(logical(mask), 1, []);
+            if numel(mask) < obj.trialCount
+                mask(end+1:obj.trialCount) = false;
+            elseif numel(mask) > obj.trialCount
+                mask = mask(1:obj.trialCount);
             end
 
-            decodedResponses = epsych.BitMask.decode(rc);
-            mask = decodedResponses.(char(trialTypeBit));
+            mask(obj.excludedTrialMask_()) = false;
         end
 
         function ttValue = bitMaskToTrialTypeValue_(~, trialTypeBit)
@@ -561,6 +602,52 @@ classdef Staircase < handle & matlab.mixin.SetGet
             results.StimulusTrialIdx = [];
             results.Threshold = [];
             results.ThresholdStd = [];
+        end
+
+        function value = normalizeExcludedTrialsValue_(~, value)
+            % Validate and normalize ExcludedTrials property values.
+            if isempty(value)
+                value = zeros(1,0);
+                return
+            end
+
+            if islogical(value)
+                value = reshape(value, 1, []);
+                return
+            end
+
+            if isnumeric(value)
+                if ~isreal(value) || any(~isfinite(value(:))) || any(value(:) < 1) || any(fix(value(:)) ~= value(:))
+                    ME = MException('psychophysics.Staircase:InvalidExcludedTrials', ...
+                        'ExcludedTrials must be empty, a logical mask, or a vector of finite positive integer trial indices.');
+                    throwAsCaller(ME);
+                end
+
+                value = unique(reshape(double(value), 1, []), 'stable');
+                return
+            end
+
+            ME = MException('psychophysics.Staircase:InvalidExcludedTrials', ...
+                'ExcludedTrials must be empty, a logical mask, or a vector of finite positive integer trial indices.');
+            throwAsCaller(ME);
+        end
+
+        function mask = excludedTrialMask_(obj)
+            % Resolve configured trial exclusions to a logical mask.
+            mask = false(1, obj.trialCount);
+            if obj.trialCount == 0 || isempty(obj.excludedTrials_)
+                return
+            end
+
+            if islogical(obj.excludedTrials_)
+                count = min(obj.trialCount, numel(obj.excludedTrials_));
+                mask(1:count) = obj.excludedTrials_(1:count);
+                return
+            end
+
+            idx = obj.excludedTrials_;
+            idx = idx(idx >= 1 & idx <= obj.trialCount);
+            mask(idx) = true;
         end
 
         

@@ -25,7 +25,8 @@ In online mode, the constructor attaches a listener to `RUNTIME.HELPER` and upda
 
 ```matlab
 S = psychophysics.Staircase(DATA, Parameter);
-fprintf('Threshold: %.3f\n', S.Threshold);
+S = psychophysics.Staircase(DATA, 'Depth');
+fprintf('Threshold: %.3f\n', S.Results.Threshold);
 ```
 
 In offline mode, no listener is attached. The staircase is computed immediately from `DATA`.
@@ -37,7 +38,7 @@ S = psychophysics.Staircase(DATA, Parameter, ...
     StaircaseDirection='Up', ...
     StimulusTrialType=epsych.BitMask.TrialType_0, ...
     ConvertToDecibels=true, ...
-    EnablePlot=true);
+  Plot=true);
 ```
 
 ## Constructor
@@ -55,6 +56,8 @@ S = psychophysics.Staircase(..., Name=Value)
   - Use `DATA` for saved-trial analysis.
 - `Parameter`
   - The tracked parameter object. The class uses `Parameter.validName` to extract values from each trial.
+  - In offline mode, this can also be a field name string such as `'Depth'` when the saved `DATA` struct already contains that field.
+  - Saved trial structs are also accepted in offline mode when they expose the tracked parameter field and either `ResponseCode` or legacy `RespCode`.
 
 ### Name-value options
 
@@ -70,17 +73,17 @@ S = psychophysics.Staircase(..., Name=Value)
   - Default: `'Down'`
   - Controls how step-direction signs are normalized before reversal detection.
 - `ThresholdFromLastNReversals`
-  - Number of most recent reversals used to compute `Threshold` and `ThresholdStd`.
+  - Number of most recent reversals used to compute `Results.Threshold` and `Results.ThresholdStd`.
   - Default: `12`
 - `ThresholdFormula`
   - Accepts `'Mean'` or `'GeometricMean'`.
   - Default: `'Mean'`
 - `ConvertToDecibels`
   - When `true`, stimulus values are converted with `20*log10(x)` and nonpositive values become `NaN`.
-- `EnablePlot`
+- `Plot`
   - When `true`, plotting is enabled during construction.
 - `PlotAxes`
-  - Optional axes handle. If omitted or empty, `enablePlot` creates and owns a new figure.
+  - Optional axes handle. If omitted or empty, `Plot` creates and owns a new figure.
 - `ShowSteps`
   - Toggle plotting of step-direction markers.
 - `ShowReversals`
@@ -109,26 +112,14 @@ S = psychophysics.Staircase(..., Name=Value)
 
 ### Computed properties
 
-- `ReversalCount`
-  - Number of detected reversals.
-- `ReversalIdx`
-  - Indices used by the class to reference detected reversal points.
-- `ReversalDirection`
-  - Direction assigned to each reversal after the class normalizes step signs.
-- `StepDirection`
-  - Per-trial direction array.
-  - In the current implementation, non-step positions are represented as `0`, while nonempty step changes are stored as `-1` or `1`.
-- `StimulusTrialIdx`
-  - Indices of trials selected by `StimulusTrialType`. Only these trials are used for step direction, reversal, and threshold computations.
-- `Threshold`
-  - Current threshold estimate from recent reversals.
-- `ThresholdStd`
-  - Standard deviation of the same reversal values used for `Threshold`.
+- `Results`
+  - Structure containing computed staircase outputs.
+  - Fields include `ReversalCount`, `ReversalIdx`, `ReversalDirection`, `StepDirection`, `StimulusTrialIdx`, `Threshold`, and `ThresholdStd`.
 
 ### Dependent read-only properties
 
 - `responseCodes`
-  - Returns `[obj.DATA.ResponseCode]` or `[]` when no data is available.
+  - Returns codes from `DATA.ResponseCode` and falls back to `DATA.RespCode` for older saved structs, or `[]` when no data is available.
 - `stimulusValues`
   - Returns the tracked parameter values, optionally converted to decibels.
 - `trialCount`
@@ -151,13 +142,13 @@ Use this after changing analysis settings such as `StaircaseDirection`, `Stimulu
 ### Plot control
 
 ```matlab
-S.enablePlot()
-S.enablePlot(ax)
+S.Plot()
+S.Plot(ax)
 S.refreshPlot()
 S.disablePlot()
 ```
 
-- `enablePlot` creates or binds plotting axes and renders the current staircase state.
+- `Plot` creates or binds plotting axes and renders the current staircase state.
 - `refreshPlot` redraws the plot from the current computed state.
 - `disablePlot` deletes listeners and graphics owned by the staircase.
 
@@ -165,16 +156,18 @@ S.disablePlot()
 
 ### 1. Trial selection
 
-The class decodes `responseCodes` with `epsych.BitMask.decode` and selects the trials marked by `StimulusTrialType`. Only these selected trials are used for all subsequent computations, including step direction, reversal detection, and threshold estimation.
+The class selects staircase trials from `DATA.TrialType` when that field is available in saved offline data. Otherwise, it decodes `responseCodes` with `epsych.BitMask.decode` and selects the trials marked by `StimulusTrialType`. Only these selected trials are used for all subsequent computations, including step direction, reversal detection, and threshold estimation.
 
 ### 2. Stimulus extraction
 
-The tracked values are read from `DATA.(Parameter.validName)`. If `ConvertToDecibels` is enabled, the values are converted with:
+The tracked values are read from `DATA.(Parameter.validName)` for object-based parameters, or directly from the named DATA field when offline mode is constructed with a string parameter name. If `ConvertToDecibels` is enabled, the values are converted with:
 
 ```matlab
 v(v <= 0) = NaN;
 v = 20*log10(v);
 ```
+
+For offline compatibility, `responseCodes` are read from `DATA.ResponseCode` when present and fall back to `DATA.RespCode` for older saved structs.
 
 ### 3. Step direction
 
@@ -184,18 +177,18 @@ Step direction is computed only for consecutive stimulus values from trials matc
 sd = sign(diff(stimulusValues));
 ```
 
-If `StaircaseDirection` is `'Up'`, the sign is inverted before reversals are detected. The resulting directions are stored in `StepDirection` for plotting and inspection. Trials not matching `StimulusTrialType` are ignored in this computation.
+If `StaircaseDirection` is `'Up'`, the sign is inverted before reversals are detected. The resulting directions are stored in `Results.StepDirection` for plotting and inspection. Trials not matching `StimulusTrialType` are ignored in this computation.
 
 ### 4. Reversal detection
 
-A reversal is detected when consecutive normalized step directions differ. The class stores the resulting locations in `ReversalIdx` and the post-reversal direction in `ReversalDirection`.
+A reversal is detected when consecutive normalized step directions differ. The class stores the resulting locations in `Results.ReversalIdx` and the post-reversal direction in `Results.ReversalDirection`.
 
 ### 5. Threshold estimation
 
 If at least one reversal is available, the class uses the most recent `ThresholdFromLastNReversals` reversal values and computes:
 
-- `Threshold` with either `mean` or `geomean`
-- `ThresholdStd` with `std`
+- `Results.Threshold` with either `mean` or `geomean`
+- `Results.ThresholdStd` with `std`
 
 ## Examples
 
@@ -204,23 +197,23 @@ If at least one reversal is available, the class uses the most recent `Threshold
 ```matlab
 S = psychophysics.Staircase(DATA, Parameter, ThresholdFormula='GeometricMean');
 
-fprintf('Reversals: %d\n', S.ReversalCount);
-fprintf('Threshold: %.3f\n', S.Threshold);
-fprintf('Threshold std: %.3f\n', S.ThresholdStd);
+fprintf('Reversals: %d\n', S.Results.ReversalCount);
+fprintf('Threshold: %.3f\n', S.Results.Threshold);
+fprintf('Threshold std: %.3f\n', S.Results.ThresholdStd);
 ```
 
 ### Listening for live updates
 
 ```matlab
 S = psychophysics.Staircase(RUNTIME, Parameter);
-addlistener(S.Helper, 'NewData', @(src, evt) disp(S.Threshold));
+addlistener(S.Helper, 'NewData', @(src, evt) disp(S.Results.Threshold));
 ```
 
 ### Plotting an existing staircase
 
 ```matlab
 S = psychophysics.Staircase(DATA, Parameter);
-S.enablePlot();
+S.Plot();
 ```
 
 ## Notes and Limitations
@@ -229,7 +222,7 @@ S.enablePlot();
 2. Trial selection matters. If `StimulusTrialType` does not match the real staircase trials, threshold estimates will be wrong.
 3. `ConvertToDecibels` replaces nonpositive values with `NaN` before conversion.
 4. `CatchTrialType` is stored by the object, but the main history computation path is driven by `StimulusTrialType`.
-5. With only a small number of reversals, `Threshold` and `ThresholdStd` may be unstable.
+5. With only a small number of reversals, `Results.Threshold` and `Results.ThresholdStd` may be unstable.
 
 ## See Also
 

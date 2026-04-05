@@ -573,7 +573,7 @@ axPsych = uiaxes(layoutMain);
 axPsych.Layout.Row = [3 5];
 axPsych.Layout.Column = [3 7];
 
-obj.Psych.enablePlot(axPsych);
+obj.Psych.Plot(axPsych);
 
 
 

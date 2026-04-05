@@ -35,9 +35,11 @@ if isempty(trialValue)
 end
 
 trialIndex  = obj.columnize_(1:obj.trialCount);
-direction   = obj.columnize_(obj.StepDirection);
+direction   = obj.columnize_(obj.Results.StepDirection);
 responseCodes = obj.columnize_(obj.responseCodes);
-decodedResponses = epsych.BitMask.decode(responseCodes);
+if isempty(responseCodes)
+    responseCodes = zeros(size(trialIndex), 'uint32');
+end
 
 valid = ~isnan(trialIndex) & ~isnan(trialValue);
 
@@ -46,8 +48,8 @@ if ~any(valid)
 end
 
 
-catchMask = valid & decodedResponses.(char(obj.CatchTrialType));
-stimMask = valid & ~catchMask;
+catchMask = valid & obj.columnize_(obj.trialTypeMask_(obj.CatchTrialType));
+stimMask = valid & obj.columnize_(obj.trialTypeMask_(obj.StimulusTrialType));
 
 if any(stimMask)
     plotData.main.x = trialIndex(stimMask);
@@ -69,8 +71,8 @@ if any(stepMask)
 end
 
 
-ridx = obj.columnize_(obj.ReversalIdx);
-rdir = obj.columnize_(obj.ReversalDirection);
+ridx = obj.columnize_(obj.Results.ReversalIdx);
+rdir = obj.columnize_(obj.Results.ReversalDirection);
 if isempty(ridx) || isempty(rdir)
     return
 end

@@ -15,21 +15,26 @@ classdef Staircase < handle & matlab.mixin.SetGet
     %       sessions without attaching event listeners.
     %
     % Key properties:
-    %   Parameter - hw.Parameter object used to extract stimulus values from DATA.
+    %   Parameter - hw.Parameter object or offline DATA field name used to
+    %       extract stimulus values from DATA.
     %   StaircaseDirection - "Up" or "Down" reversal convention.
     %   StimulusTrialType - BitMask identifying trials included in the staircase.
     %   ConvertToDecibels - Convert stimulus values using 20*log10(x).
-    %   Threshold - Threshold estimate computed from recent reversal values.
+    %   Results - Structure containing computed staircase outputs such as
+    %       Threshold, ReversalIdx, and StepDirection.
     %
     % Example:
-    %   S = psychophysics.Staircase(RUNTIME, Parameter, EnablePlot=true);
+    %   S = psychophysics.Staircase(RUNTIME, Parameter, Plot=true);
     %   S = psychophysics.Staircase(DATA, Parameter, StaircaseDirection="Up");
+    %   S = psychophysics.Staircase(DATA, 'Depth');
+    %   S.Plot();
+    %   S.Plot(ax, ShowSteps=false);
     %
     % See documentation/Staircase.md for workflow notes, threshold details, and
     % event-system integration examples.
 
     properties (SetObservable)
-        Parameter = []  % Parameter object to track in staircase analysis
+        Parameter = []  % Parameter object or offline DATA field name to track in staircase analysis
 
         StaircaseDirection (1,1) string {mustBeMember(StaircaseDirection,["Up","Down"])} = "Down"  % Direction for reversal detection
 
@@ -45,7 +50,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
         Bits (1,:) epsych.BitMask = epsych.BitMask.getResponses;  % Response codes for visualization
         BitColors (:,1) string = epsych.BitMask.getDefaultColors(epsych.BitMask.getResponses);  % Colors mapped to Bits for response visualization
 
-        % Optional plotting configuration (when enabled via enablePlot or constructor option).
+        % Optional plotting configuration (when enabled via Plot or constructor option).
         LineColor     (1,1) string = "#1a1a1a"
         StepColor     (1,1) string = "#e65a1a"
         NeutralColor  (1,1) string = "#999999"
@@ -64,14 +69,14 @@ classdef Staircase < handle & matlab.mixin.SetGet
         Helper = epsych.Helper  % Helper object for event broadcasting
         
         DATA  % Trial data array extracted from RUNTIME
-
-        ReversalCount   % Total number of reversals observed in staircase history
-        ReversalIdx     % Absolute trial indices in DATA where reversals occur (turning points)
-        ReversalDirection  % Direction after each reversal (+1=up, -1=down)
-        StepDirection   % Per-trial step direction (NaN for non-stim trials)
-        StimulusTrialIdx  % Absolute trial indices in DATA that are stimulus trials
-        Threshold       % Current threshold estimate based on last N reversals
-        ThresholdStd    % Standard deviation of threshold values from last N reversals
+        Results = struct( ...
+            'ReversalCount', [], ...
+            'ReversalIdx', [], ...
+            'ReversalDirection', [], ...
+            'StepDirection', [], ...
+            'StimulusTrialIdx', [], ...
+            'Threshold', [], ...
+            'ThresholdStd', [])  % Computed staircase outputs
     end
 
     properties (Dependent)
@@ -109,10 +114,10 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % S = psychophysics.Staircase(RUNTIME, Parameter)
             % S = psychophysics.Staircase(RUNTIME, Parameter, StaircaseDirection="Up", ConvertToDecibels=true)
             % S = psychophysics.Staircase(DATA, Parameter)
-            % S = psychophysics.Staircase(RUNTIME, Parameter, EnablePlot=true)
-            % S = psychophysics.Staircase(RUNTIME, Parameter, EnablePlot=true, PlotAxes=ax)
-            % S = psychophysics.Staircase(DATA, Parameter, EnablePlot=true)
-            % S = psychophysics.Staircase(DATA, Parameter, EnablePlot=true, PlotAxes=ax)
+            % S = psychophysics.Staircase(RUNTIME, Parameter, Plot=true)
+            % S = psychophysics.Staircase(RUNTIME, Parameter, Plot=true, PlotAxes=ax)
+            % S = psychophysics.Staircase(DATA, Parameter, Plot=true)
+            % S = psychophysics.Staircase(DATA, Parameter, Plot=true, PlotAxes=ax)
             %
             % Construct a Staircase object for online or offline analysis.
             %
@@ -130,18 +135,18 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % When ConvertToDecibels is true, stimulus values are transformed as
             % dB = 20*log10(x) with x<=0 replaced by NaN.
             %
-            % Plotting is optional. When EnablePlot is true and PlotAxes is empty, the
+            % Plotting is optional. When Plot is true and PlotAxes is empty, the
             % Staircase creates and owns a new figure/axes for online updates.
             %
             % Parameters:
             %   RUNTIME - Runtime object with HELPER and trial data for online mode.
-            %   DATA - Per-trial struct array for offline mode, typically event.Data.DATA.
-            %   Parameter - hw.Parameter object to track in the staircase.
+            %   DATA - Per-trial struct array for offline mode, typically the loaded `Data` struct.
+            %   Parameter - hw.Parameter object, or in offline mode a field name from DATA.
             %   StimulusTrialType - BitMask for stimulus trials. The default is TrialType_0.
             %   CatchTrialType - BitMask for catch trials. The default is TrialType_1.
             %   StaircaseDirection - "Up" or "Down". The default is "Down".
             %   ConvertToDecibels - Convert stimulus values to dB. The default is false.
-            %   EnablePlot - Enable staircase plotting. The default is false.
+            %   Plot - Enable staircase plotting. The default is false.
             %   PlotAxes - Axes to draw into. When empty, a new figure is created.
             %   ShowSteps - Show step-direction markers when plotting.
             %   ShowReversals - Show reversal markers when plotting.
@@ -157,7 +162,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 options.CatchTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
                 options.StaircaseDirection (1,1) string {mustBeMember(options.StaircaseDirection,["Up","Down"])} = "Down"
                 options.ConvertToDecibels (1,1) logical = false
-                options.EnablePlot (1,1) logical = false
+                options.Plot (1,1) logical = false
                 options.PlotAxes = []
                 options.ShowSteps (1,1) logical = true
                 options.ShowReversals (1,1) logical = true
@@ -168,6 +173,14 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 obj.DATA = RUNTIME;
             else
                 obj.RUNTIME = RUNTIME;
+            end
+
+            if isempty(obj.RUNTIME) && (ischar(Parameter) || (isstring(Parameter) && isscalar(Parameter)))
+                Parameter = string(Parameter);
+            elseif ~isempty(obj.RUNTIME) && (ischar(Parameter) || (isstring(Parameter) && isscalar(Parameter)))
+                ME = MException('psychophysics.Staircase:InvalidParameter', ...
+                    'In online mode, Parameter must be a parameter object rather than a DATA field name.');
+                throwAsCaller(ME);
             end
 
             obj.Parameter = Parameter;
@@ -183,8 +196,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 obj.hl_NewData = addlistener(obj.RUNTIME.HELPER,'NewData',@obj.update_data);
             end
 
-            if options.EnablePlot
-                obj.enablePlot(options.PlotAxes, ShowSteps=options.ShowSteps, ShowReversals=options.ShowReversals);
+            if options.Plot
+                obj.Plot(options.PlotAxes, ShowSteps=options.ShowSteps, ShowReversals=options.ShowReversals);
             end
             
         end
@@ -237,12 +250,22 @@ classdef Staircase < handle & matlab.mixin.SetGet
             obj.notify_history_update();
         end
 
-        function enablePlot(obj, ax, options)
-            % obj.enablePlot()
-            % obj.enablePlot(ax)
-            % obj.enablePlot(ax, ShowSteps=true, ShowReversals=true)
+        function Plot(obj, ax, options)
+            % obj.Plot()
+            % obj.Plot(ax)
+            % obj.Plot(ax, ShowSteps=true, ShowReversals=true)
             % Enable optional staircase plotting.
             % If ax is empty, a new uifigure and uiaxes are created and owned.
+            %
+            % In offline mode, first construct the staircase from saved DATA and then
+            % call Plot() to visualize the computed history:
+            %   S = psychophysics.Staircase(DATA, 'Depth');
+            %   S.Plot();
+            %
+            % To draw into existing axes during offline review:
+            %   S = psychophysics.Staircase(DATA, Parameter);
+            %   S.Plot(ax, ShowSteps=false, ShowReversals=true);
+            %
             % Parameters:
             %   obj - psychophysics.Staircase instance.
             %   ax - Target axes. When empty, a new figure and axes are created.
@@ -329,13 +352,28 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % Parameters:
             %   obj - psychophysics.Staircase instance.
             % Returns:
-            %   rc - Numeric response-code array, or empty when DATA is empty.
+            %   rc - Numeric response-code array from ResponseCode or legacy
+            %       RespCode, or empty when DATA is empty.
             if isempty(obj.DATA)
-                rc = [];
+                rc = uint32([]);
                 return
             end
 
-            rc = [obj.DATA.ResponseCode];
+            if isfield(obj.DATA, 'ResponseCode')
+                rc = [obj.DATA.ResponseCode];
+            elseif isfield(obj.DATA, 'RespCode')
+                rc = [obj.DATA.RespCode];
+            else
+                rc = uint32([]);
+                return
+            end
+
+            if isempty(rc)
+                rc = uint32([]);
+                return
+            end
+
+            rc = uint32(rc);
         end
 
         function n = get.trialCount(obj)
@@ -359,7 +397,13 @@ classdef Staircase < handle & matlab.mixin.SetGet
             if isempty(obj.DATA)
                 v = [];
             else
-                v = [obj.DATA.(obj.Parameter.validName)];
+                fieldName = obj.parameterFieldName_();
+                if ~isfield(obj.DATA, fieldName)
+                    ME = MException('psychophysics.Staircase:MissingParameterField', ...
+                        ['DATA does not contain the field ''' fieldName ''' required for staircase analysis.']);
+                    throwAsCaller(ME);
+                end
+                v = [obj.DATA.(fieldName)];
                 if obj.ConvertToDecibels
                     v(v<=0) = nan;
                     v = 20*log10(v);
@@ -378,6 +422,10 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 n = "";
                 return
             end
+            if ischar(obj.Parameter) || (isstring(obj.Parameter) && isscalar(obj.Parameter))
+                n = string(obj.Parameter);
+                return
+            end
             if isprop(obj.Parameter,'Name')
                 n = string(obj.Parameter.Name);
             else
@@ -394,27 +442,21 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % Recompute reversal indices, step direction, and threshold estimates.
             % Only trials matching StimulusTrialType are used in the computation of step direction,
             % reversals, and thresholds. Filters trial data by StimulusTrialType, detects reversals by comparing
-            % consecutive step directions, and calculates threshold from the last N reversals
+            % consecutive step directions, and calculates threshold from the last N reversals.
+            % When DATA includes a TrialType field, that explicit value is used for
+            % stimulus/catch selection before falling back to decoded response-code bits.
             % using the specified ThresholdFormula. Sets properties to empty if no data available.
-            obj.ReversalCount = 0;
+            results = obj.emptyResults_();
+            results.ReversalCount = 0;
 
             data = obj.DATA;
             if isempty(data)
-                obj.ReversalIdx = [];
-                obj.ReversalDirection = [];
-                obj.StepDirection = [];
-                obj.StimulusTrialIdx = [];
-                obj.Threshold = [];
-                obj.ThresholdStd = [];
+                obj.Results = results;
                 return
             end
 
-            RCD = epsych.BitMask.decode(obj.responseCodes);
-
-            charTrialType = char(obj.StimulusTrialType);
-
-            stimMask = RCD.(charTrialType);
-            obj.StimulusTrialIdx = find(stimMask);
+            stimMask = obj.trialTypeMask_(obj.StimulusTrialType);
+            results.StimulusTrialIdx = find(stimMask);
 
             stimValues = obj.stimulusValues(stimMask);
 
@@ -427,35 +469,31 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
             stepDirection = nan(1, obj.trialCount);
             if ~isempty(sd)
-                stepDirection(obj.StimulusTrialIdx) = [0 sd];
+                stepDirection(results.StimulusTrialIdx) = [0 sd];
             end
-            obj.StepDirection = stepDirection;
+            results.StepDirection = stepDirection;
 
-            obj.ReversalIdx = [];
-            obj.ReversalDirection = [];
             if numel(sd) >= 2
                 rind = sd(1:end-1) ~= 0 & (sd(2:end) > sd(1:end-1) | sd(2:end) < sd(1:end-1));
-                obj.ReversalIdx = obj.StimulusTrialIdx([false rind false]);
-                obj.ReversalDirection = sd([false rind]);
+                results.ReversalIdx = results.StimulusTrialIdx([false rind false]);
+                results.ReversalDirection = sd([false rind]);
             end
 
-            obj.ReversalCount = numel(obj.ReversalIdx);
+            results.ReversalCount = numel(results.ReversalIdx);
 
-            if obj.ReversalCount > 0
-                lastN = max(1, obj.ReversalCount - obj.ThresholdFromLastNReversals + 1):obj.ReversalCount;
-                thresholdValues = obj.stimulusValues(obj.ReversalIdx(lastN));
+            if results.ReversalCount > 0
+                lastN = max(1, results.ReversalCount - obj.ThresholdFromLastNReversals + 1):results.ReversalCount;
+                thresholdValues = obj.stimulusValues(results.ReversalIdx(lastN));
                 
                 if obj.ThresholdFormula == "Mean"
-                    obj.Threshold = mean(thresholdValues);
+                    results.Threshold = mean(thresholdValues);
                 else % GeometricMean
-                    obj.Threshold = geomean(thresholdValues);
+                    results.Threshold = geomean(thresholdValues);
                 end
-                obj.ThresholdStd = std(thresholdValues);
-
-            else
-                obj.Threshold = [];
-                obj.ThresholdStd = [];
+                results.ThresholdStd = std(thresholdValues);
             end
+
+            obj.Results = results;
         end
 
         function notify_history_update(obj)
@@ -467,6 +505,61 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
             evtdata = epsych.TrialsData(obj.RUNTIME.TRIALS);
             obj.Helper.notify('NewData', evtdata);
+        end
+
+        function tt = trialTypeValues_(obj)
+            % Return per-trial TrialType values when present in DATA.
+            if isempty(obj.DATA) || ~isfield(obj.DATA, 'TrialType')
+                tt = [];
+                return
+            end
+
+            tt = double([obj.DATA.TrialType]);
+        end
+
+        function mask = trialTypeMask_(obj, trialTypeBit)
+            % Resolve a logical mask for the requested trial type.
+            tt = obj.trialTypeValues_();
+            if ~isempty(tt)
+                mask = tt == obj.bitMaskToTrialTypeValue_(trialTypeBit);
+                return
+            end
+
+            rc = obj.responseCodes;
+            if isempty(rc)
+                mask = false(1, obj.trialCount);
+                return
+            end
+
+            decodedResponses = epsych.BitMask.decode(rc);
+            mask = decodedResponses.(char(trialTypeBit));
+        end
+
+        function ttValue = bitMaskToTrialTypeValue_(~, trialTypeBit)
+            % Convert TrialType_* bit selections to the saved numeric TrialType value.
+            ttValue = double(uint32(trialTypeBit) - uint32(epsych.BitMask.TrialType_0));
+        end
+
+        function fieldName = parameterFieldName_(obj)
+            % Resolve the tracked DATA field name from Parameter.
+            if ischar(obj.Parameter) || (isstring(obj.Parameter) && isscalar(obj.Parameter))
+                fieldName = char(string(obj.Parameter));
+                return
+            end
+
+            fieldName = obj.Parameter.validName;
+        end
+
+        function results = emptyResults_(obj)
+            % Return an empty staircase-results structure.
+            results = obj.Results;
+            results.ReversalCount = [];
+            results.ReversalIdx = [];
+            results.ReversalDirection = [];
+            results.StepDirection = [];
+            results.StimulusTrialIdx = [];
+            results.Threshold = [];
+            results.ThresholdStd = [];
         end
 
         

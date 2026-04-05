@@ -35,18 +35,18 @@ if ~isempty(obj.RUNTIME) && isprop(obj.RUNTIME,'TRIALS') && ~isempty(obj.RUNTIME
     end
 end
 
-if ~isempty(obj.ReversalCount)
-    reversalCount = obj.ReversalCount;
+if ~isempty(obj.Results.ReversalCount)
+    reversalCount = obj.Results.ReversalCount;
     if isscalar(reversalCount) && isfinite(reversalCount)
         titleParts{end+1} = sprintf('Reversals: %d', reversalCount);
     end
 end
 
-if ~isempty(obj.Threshold)
-    threshold = obj.Threshold;
+if ~isempty(obj.Results.Threshold)
+    threshold = obj.Results.Threshold;
     if isscalar(threshold) && isfinite(threshold)
         configuredReversals = obj.ThresholdFromLastNReversals;
-        actualReversals = obj.ReversalCount;
+        actualReversals = obj.Results.ReversalCount;
 
         if isscalar(configuredReversals) && isfinite(configuredReversals)
             if isscalar(actualReversals) && isfinite(actualReversals)

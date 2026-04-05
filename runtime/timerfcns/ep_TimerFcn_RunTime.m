@@ -29,30 +29,21 @@ for i = 1:RUNTIME.NSubjects
 
             if ~RCtag || TStag, continue; end
 
-            TrialNum = RUNTIME.CORE(i).TrialNum.Value - 1;
 
 
-
-
+                
             % There was a response and the trial is over.
             % Retrieve parameter data for this trial and save in TRIALS structure. 
-            data.ResponseCode = RCtag;
-            data.TrialID = TrialNum;
-            data.inaccurateTimestamp = datetime("now");
 
             % get all 'Read' or 'Read / Write' parameters from hardware and software interfaces and save in data struct
-            P = RUNTIME.getAllParameters(Access = 'Read');
-            for k = 1:numel(P)
-                data.(P(k).validName) = P(k).Value;
-                vprintf(4,'Trial #%d: Retrieved parameter ''%s''\t:\t%g', ...
-                    TrialNum, ...
-                    P(k).validName, ...
-                    P(k).Value)
-            end
-            % Save runtime data in case of crash
-            save(RUNTIME.DataFile(i),'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
-
+            data = RUNTIME.getAllParameters(Access = 'Read', asStruct = true);
+            
             RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
+
+            data = RUNTIME.TRIALS(i).DATA; % get current trial data struct for saving
+
+            % Save updated runtime data in case of crash
+            save(RUNTIME.DataFile(i),'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
 
             % Broadcast event data has been updated
             evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));

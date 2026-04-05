@@ -124,7 +124,7 @@ elseif RC.Abort(end)
         restore_stimdelay_randomization(P.StimDelay);
 
     elseif rda
-        sdval = TRIALS.DATA(end).StimDelay;
+        sdval = TRIALS.DATA(end).StimDelay.Value;
     
         % temporarily disable PostUpdateFcn and randomization
         if ~isfield(P.StimDelay.UserData,'CORRECTVAL') || isempty(P.StimDelay.UserData.CORRECTVAL)

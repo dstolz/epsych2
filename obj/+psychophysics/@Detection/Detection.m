@@ -101,10 +101,12 @@ classdef Detection < handle
         function delete(obj)
             try
                 delete(obj.hl_NewData);
+            catch ME
+                vprintf(0,1,ME);
             end
         end
 
-        function update_data(obj,src,event)
+        function update_data(obj,~,event)
             obj.TRIALS = event.Data;
             evtdata = epsych.TrialsData(obj.TRIALS);
             obj.Helper.notify('NewData',evtdata);
@@ -275,7 +277,13 @@ classdef Detection < handle
         end
         
         function rc = get.ResponseCodes(obj)
-            rc = uint8([obj.DATA.ResponseCode]);
+            if isempty(obj.DATA)
+                rc = uint8([]);
+            elseif isfield(obj.DATA, 'RespCode')
+                rc = uint8([obj.DATA.RespCode]);
+            else
+                rc = uint8([]);
+            end
         end
 
         function n = get.NumTrials(obj)
@@ -343,6 +351,14 @@ classdef Detection < handle
                 d = [];
             else
                 d = obj.TRIALS.DATA;
+                if isempty(d), return; end
+                fn = fieldnames(d);
+                for i = 1:numel(d)
+                    for j = 1:numel(fn)
+                        p = d(i).(fn{j});
+                        d(i).(fn{j}) = [p.Value];
+                    end
+                end
             end
         end
         

@@ -54,7 +54,6 @@ classdef Runtime < handle & dynamicprops
         HELPER            % Helper/event dispatcher object (e.g., epsych.Helper)
         TIMER (1,1) timer % MATLAB timer object for runtime services
 
-        DATA (1,:) struct = struct.empty % Container for acquired data, updated at end of each trial
 
         TempDataDir (1,1) string = "" % Directory for acquired data
         DataFile string = strings(0,1)   % Filepath(s) for acquired data

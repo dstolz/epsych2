@@ -221,8 +221,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % Parameters:
             %   obj - psychophysics.Staircase instance.
             %   event - Event payload containing event.Data.DATA.
-            vprintf(4, 'psychophysics.Staircase received NewData event with %d trials', numel(event.Data.DATA));
             obj.DATA = event.Data.DATA;
+            vprintf(4, 'psychophysics.Staircase received NewData event with %d trials', numel(obj.DATA));
 
             obj.recompute_history();
 
@@ -352,17 +352,16 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % Parameters:
             %   obj - psychophysics.Staircase instance.
             % Returns:
-            %   rc - Numeric response-code array from ResponseCode or legacy
-            %       RespCode, or empty when DATA is empty.
+            %   rc - Numeric response-code array from RespCode, or empty
+            %       when DATA is empty.
             if isempty(obj.DATA)
                 rc = uint32([]);
                 return
             end
 
-            if isfield(obj.DATA, 'ResponseCode')
-                rc = [obj.DATA.ResponseCode];
-            elseif isfield(obj.DATA, 'RespCode')
-                rc = [obj.DATA.RespCode];
+            if isfield(obj.DATA, 'RespCode')
+                p = [obj.DATA.RespCode];
+                rc = [p.Value];
             else
                 rc = uint32([]);
                 return
@@ -403,7 +402,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
                         ['DATA does not contain the field ''' fieldName ''' required for staircase analysis.']);
                     throwAsCaller(ME);
                 end
-                v = [obj.DATA.(fieldName)];
+                p = [obj.DATA.(fieldName)];
+                v = [p.Value];
                 if obj.ConvertToDecibels
                     v(v<=0) = nan;
                     v = 20*log10(v);
@@ -514,7 +514,8 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 return
             end
 
-            tt = double([obj.DATA.TrialType]);
+            p = [obj.DATA.TrialType];
+            tt = double([p.Value]);
         end
 
         function mask = trialTypeMask_(obj, trialTypeBit)

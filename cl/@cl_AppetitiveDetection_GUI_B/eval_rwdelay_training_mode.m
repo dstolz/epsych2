@@ -105,7 +105,8 @@ function update_rwdelay_training_mode(~,~,h,RUNTIME)
 %       TRIALS.writeParamIdx).
 if isempty(h) || ~isvalid(h), return; end
 
-RC = epsych.BitMask.decode(RUNTIME.TRIALS.DATA(end).RespCode);
+p = RUNTIME.TRIALS.DATA(end).RespCode;
+RC = epsych.BitMask.decode([p.Value]);
 if RC.Hit
     s = "up";
 elseif RC.Abort % RC.Miss

@@ -65,7 +65,7 @@ classdef Detect < handle & matlab.mixin.SetGet
         DATA
 
         % responseCodes - Response codes from TRIALS.DATA
-        responseCodes (1,:) uint32 = []
+        responseCodes (1,:) uint32
 
         % trialIndex - Current trial index from TRIALS
         trialIndex 
@@ -144,10 +144,12 @@ classdef Detect < handle & matlab.mixin.SetGet
             % Destructor: cleans up the listener.
             try
                 delete(obj.hl_NewData);
+            catch ME
+                vprintf(0,1,ME);
             end
         end
 
-        function update_data(obj,src,event)
+        function update_data(obj,~,event)
             obj.TRIALS = event.Data;
             vprintf(4,'psychophysics.Detect.update_data: Trial %d',obj.TRIALS.TrialIndex)
             % Decode response codes into M and N
@@ -168,6 +170,14 @@ classdef Detect < handle & matlab.mixin.SetGet
                 d = [];
             else
                 d = obj.TRIALS.DATA;
+                if isempty(d), return; end
+                fn = fieldnames(d);
+                for i = 1:numel(d)
+                    for j = 1:numel(fn)
+                        p = d(i).(fn{j});
+                        d(i).(fn{j}) = [p.Value];
+                    end
+                end
             end
         end
 
@@ -189,12 +199,12 @@ classdef Detect < handle & matlab.mixin.SetGet
             %   rc = obj.responseCodes returns the response codes extracted
             %   from the DATA structure.
             if isempty(obj.DATA)
-                rc = [];
+                rc = uint32([]);
+            elseif isfield(obj.DATA, 'RespCode')
+                rc = uint32([obj.DATA.RespCode]);
             else
-                rc = [obj.DATA.ResponseCode];
-                if isempty(rc), rc = uint32([]); end
+                rc = uint32([]);
             end
-            rc = uint32(rc);
         end
 
         function tt = get.trialType(obj)

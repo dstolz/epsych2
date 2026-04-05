@@ -1,8 +1,9 @@
 classdef Runtime < handle & dynamicprops
     % epsych.Runtime
-    % Container for EPsych experiment execution runtime state.
+    % Runtime state container for EPsych experiment execution.
     %
-    % Holds experiment-wide state including subject count, trial metadata, hardware interfaces, event dispatchers, and the MATLAB timer for GUI/runtime services.
+    % Stores experiment-wide state including subject count, trial metadata,
+    % hardware/software interfaces, event dispatchers, and timer services.
     %
     % Properties:
     %   NSubjects      - Number of subjects in the experiment (default: 1)
@@ -27,6 +28,8 @@ classdef Runtime < handle & dynamicprops
     %   writeParametersJSON - Write parameters to JSON file
     %   readParametersJSON  - Read parameters from JSON file
     %   getAllParameters    - Retrieve all parameters from hardware/software
+    %   updateTrialsFromParameters - Sync writable TRIALS fields from parameters
+    %   createTemplateJSON  - Create a template JSON for parameter files
     %
     % Example usage:
     %   r = epsych.Runtime;
@@ -75,12 +78,12 @@ classdef Runtime < handle & dynamicprops
     methods
         % writeParametersJSON(obj, filepath)
         %   Serialize runtime parameters to a JSON file.
-        %   See also: documentation/Parameter_Control.md
+        %   See also: documentation/Parameter_Control.md, documentation/epsych_Runtime.md
         writeParametersJSON(obj, filepath)
 
         % readParametersJSON(obj, filepath)
         %   Load runtime parameters from a JSON file.
-        %   See also: documentation/Parameter_Control.md
+        %   See also: documentation/Parameter_Control.md, documentation/epsych_Runtime.md
         readParametersJSON(obj, filepath)
 
         function self = Runtime
@@ -118,11 +121,16 @@ classdef Runtime < handle & dynamicprops
                 obj
                 optInt.HW (1,1) logical = true
                 optInt.S (1,1) logical = true
+                options.asStruct (1,1) logical = false
                 options.includeInvisible (1,1) logical = false
                 options.includeTriggers (1,1) logical = false
                 options.includeArray (1,1) logical = true
                 options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read'
             end
+
+            asStruct = options.asStruct;
+
+            options = rmfield(options, 'asStruct');
 
             copts = namedargs2cell(options);
             if optInt.S
@@ -132,26 +140,36 @@ classdef Runtime < handle & dynamicprops
 
             if optInt.HW
                 for i = 1:numel(obj.HW)
-                    vprintf(3, 'Retrieving all parameters from hardware interface: %s', class(obj.HW(i).Type))
+                    vprintf(3, 'Retrieving all parameters from hardware interface: %s', obj.HW(i).Type)
                     P = [P, obj.HW(i).all_parameters(copts{:})];
                 end
             end
+
+            if asStruct
+                P_ = struct();
+                for k = 1:numel(P)
+                    P_.(P(k).validName) = P(k);
+                end
+                P = P_;
+            end
+
+
         end
 
         function updateTrialsFromParameters(obj, Parameters)
-            % updateTrialsFromParameters(obj, trialParams)
+            % updateTrialsFromParameters(obj, Parameters)
             % Update runtime TRIALS information based on current parameter values.
             %
             % Parameters:
             %   obj (1,1) epsych.Runtime
             %       The runtime object.
-            %   trialParams (1,:) string
-            %       Names of parameters to include in trial information.
+            %   Parameters (1,:) hw.Parameter
+            %       Parameters used to update writable TRIALS fields.
             %
             % Returns:
             %   None. Updates obj.TRIALS in-place.
             %
-            % See also: documentation/Trial_Selection.md
+            % See also: documentation/epsych_Runtime.md, documentation/Parameter_Control.md
 
             arguments
                 obj
@@ -190,7 +208,7 @@ classdef Runtime < handle & dynamicprops
             %
             % The template includes example fields for hardware and software parameters.
             %
-            % See also: documentation/Parameter_Control.md
+            % See also: documentation/Parameter_Control.md, documentation/epsych_Runtime.md
 
             if nargin < 1 || isempty(filepath)
                 [fn, pth] = uiputfile('*.json', 'Save Template Phase JSON As');

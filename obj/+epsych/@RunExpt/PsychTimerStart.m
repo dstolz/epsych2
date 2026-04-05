@@ -25,3 +25,9 @@ else
         vprintf(0,1,'%s\nFailed to launch behavior performance GUI: %s\n%s',a,s,a)
     end
 end
+
+% make all parameters available in TRIALS structure for easy access by trial functions
+P = self.RUNTIME.getAllParameters(asStruct = true);
+for i = 1:self.RUNTIME.NSubjects
+    self.RUNTIME.TRIALS(i).Parameters = P;
+end

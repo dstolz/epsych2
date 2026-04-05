@@ -21,7 +21,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     %   h_listeners - Listeners for property or event changes.
     %
     % Methods:
-    %   add_parameter     - Create and append a hw.Parameter to this Module.
+    %   add_parameter     - Create and append a hw.Parameter to a module.
     %   all_parameters    - Return Parameters across all modules.
     %   filter_parameters - Filter Parameters by property value.
     %   find_parameter    - Resolve Parameters by name.
@@ -31,7 +31,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     %   set_parameter    - Write one or more parameter values (abstract).
     %   get_parameter    - Read one or more parameter values (abstract).
     %
-    % See also: documentation/hw_Interface.md, hw.Module, hw.Parameter
+    % See also: documentation/hw_Interface.md, documentation/hw_Module.md,
+    %   documentation/hw_Parameter.md, hw.Module, hw.Parameter
 
     properties (Abstract,SetAccess = protected)
         Module (1,:) hw.Module
@@ -53,23 +54,28 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
 
     methods (Abstract,Access = protected)
-        % close_interface - Release backend resources (abstract)
+        % close_interface()
+        %   Release backend resources.
         close_interface()
 
-        % setup_interface - Allocate or connect backend resources (abstract)
+        % setup_interface()
+        %   Allocate or connect backend resources.
         setup_interface()
     end
 
 
     methods (Abstract)
-        % get_parameter - Read current value for one or more hardware parameters
+        % value = get_parameter(name)
+        %   Read current value for one or more hardware parameters.
         value  = get_parameter(name)
 
-        % set_parameter - Set new value to one or more hardware parameters
-        % Returns TRUE if successful, FALSE otherwise
+        % result = set_parameter(name, value)
+        %   Set new value for one or more hardware parameters.
+        %   Returns true if successful and false otherwise.
         result = set_parameter(name,value)
 
-        % trigger - Trigger a hardware event
+        % result = trigger(name)
+        %   Trigger a named hardware event.
         result = trigger(name)
     end
 
@@ -80,7 +86,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         function P = add_parameter(obj, name, value, options)
             % P = obj.add_parameter(name, value)
             % P = obj.add_parameter(name, value, Name=Value)
-            % Create, initialize, and append a hw.Parameter to this Module.
+            % Create, initialize, and append a hw.Parameter to the module.
             %
             % Parameters
             %   name    - Display name for the new parameter (char).
@@ -90,7 +96,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % Returns
             %   P       - Created hw.Parameter handle.
             %
-            % See also: hw.Parameter, documentation/hw_Module.md
+            % See also: documentation/hw_Module.md, documentation/hw_Parameter.md, hw.Parameter
             arguments
                 obj
                 name (1,:) char {mustBeText}
@@ -129,12 +135,15 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             %
             % Returns:
             %   P - hw.Parameter[]. Concatenated Parameters from every module after requested filters are applied.
+            %
+            % See also: documentation/hw_Interface.md, documentation/hw_Parameter.md
             arguments
                 obj
                 options.includeTriggers (1,1) logical = true
                 options.includeInvisible (1,1) logical = false
                 options.includeArray (1,1) logical = true
                 options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write','Any'})} = 'Any'
+                options.asStruct (1,1) logical = false
             end
             P = [obj.Module(:).Parameters];
             if ~options.includeInvisible
@@ -156,6 +165,14 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 otherwise
                     % no filtering needed
             end
+            if options.asStruct
+                P_ = struct();
+                for k = 1:numel(P)
+                    P_.(P(k).validName) = P(k);
+                end
+                P = P_;
+            end
+
         end
 
         % filter_parameters - Filter Parameters by comparing a property to a target value
@@ -173,6 +190,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             %
             % Returns:
             %   P - hw.Parameter[]. Parameters whose selected property matches according to testFcn.
+            %
+            % See also: documentation/hw_Interface.md, documentation/hw_Parameter.md
             arguments
                 obj
                 propertyName (1,:) char
@@ -200,6 +219,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             %
             % Returns:
             %   P - hw.Parameter[]. Matching Parameter handle(s) in requested name order. Empty if no match.
+            %
+            % See also: documentation/hw_Interface.md, documentation/hw_Parameter.md
             arguments
                 obj
                 name
@@ -236,6 +257,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             %
             % Returns:
             %   tf - logical. True if the comparison indicates a match.
+            %
+            % See also: documentation/hw_Interface.md
             res = fcn(val, pat);
             if islogical(res) && isscalar(res)
                 tf = res;

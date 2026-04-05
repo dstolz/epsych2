@@ -93,18 +93,13 @@ for i = 1:RUNTIME.NSubjects
 
     % make HW object handles available in TRIALS structure
     RUNTIME.TRIALS(i).HW = RUNTIME.HW; 
-    P = RUNTIME.getAllParameters();
-    P = {P.validName};
-    for j = 1:length(P)
-        RUNTIME.TRIALS(i).Parameters.(P{j}) = P(j);
-    end
-
 
     % SOFTWARE INTERFACE
     RUNTIME.S = hw.Software;
     % addlistener(RUNTIME.HW,'mode','PostSet',@RUNTIME.S.mode_handler);
 
   
+
 end
 
 

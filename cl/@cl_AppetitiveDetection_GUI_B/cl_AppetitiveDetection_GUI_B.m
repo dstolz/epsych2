@@ -219,9 +219,9 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             nd = {am,tt};
             switch tt
                 case 0
-                    nd{2} = 'GO';
+                    nd{2} = 'STIM';
                 case 1
-                    nd{2} = 'NOGO';
+                    nd{2} = 'CATCH';
                 case 2
                     nd{2} = 'REMIND';
             end

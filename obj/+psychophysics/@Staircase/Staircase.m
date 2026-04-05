@@ -139,17 +139,17 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % Staircase creates and owns a new figure/axes for online updates.
             %
             % Parameters:
-            %   RUNTIME - Runtime object with HELPER and trial data for online mode.
-            %   DATA - Per-trial struct array for offline mode, typically the loaded `Data` struct.
-            %   Parameter - hw.Parameter object, or in offline mode a field name from DATA.
-            %   StimulusTrialType - BitMask for stimulus trials. The default is TrialType_0.
-            %   CatchTrialType - BitMask for catch trials. The default is TrialType_1.
-            %   StaircaseDirection - "Up" or "Down". The default is "Down".
-            %   ConvertToDecibels - Convert stimulus values to dB. The default is false.
-            %   Plot - Enable staircase plotting. The default is false.
-            %   PlotAxes - Axes to draw into. When empty, a new figure is created.
-            %   ShowSteps - Show step-direction markers when plotting.
-            %   ShowReversals - Show reversal markers when plotting.
+            %   RUNTIME              - Runtime object with HELPER and trial data for online mode.
+            %   DATA                 - Per-trial struct array for offline mode, typically the loaded `Data` struct.
+            %   Parameter            - hw.Parameter object, or in offline mode a field name from DATA.
+            %   StimulusTrialType    - BitMask for stimulus trials (default: TrialType_0).
+            %   CatchTrialType       - BitMask for catch trials (default: TrialType_1).
+            %   StaircaseDirection   - "Up" or "Down" (default: "Down").
+            %   ConvertToDecibels    - Convert stimulus values to dB (default: false).
+            %   Plot                 - Enable staircase plotting (default: false).
+            %   PlotAxes             - Axes to draw into; creates new figure when empty.
+            %   ShowSteps            - Show step-direction markers when plotting.
+            %   ShowReversals        - Show reversal markers when plotting.
             %
             % Returns:
             %   obj - Configured psychophysics.Staircase instance.

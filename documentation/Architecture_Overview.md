@@ -165,21 +165,6 @@ In practice, a protocol captures:
 
 Several parts of the codebase depend on protocol structures being stable, so changes to protocol fields tend to have wide impact.
 
-## Why the code feels mixed
-
-There are two simultaneous modernization pressures visible in the repository:
-
-1. preserve compatibility with older experiments, GUIs, and TDT workflows
-2. move core behavior into more maintainable object-oriented code
-
-As a result, a change that looks local may still have to preserve expectations from:
-
-- older `.prot` files
-- GUIDE-generated GUIs
-- callback-by-name configuration patterns
-- legacy ActiveX behavior
-
-When editing the code, assume compatibility constraints are real unless verified otherwise.
 
 ## Practical guidance for contributors
 

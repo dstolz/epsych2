@@ -302,7 +302,7 @@ try
             'SelectionMode','single');
         port = freeports{idx};
     end
-    h = PumpCom(R,port);
+    h = peripherals.PumpCom(R,port);
     h.create_gui(panelPumpControls);
     setpref('PumpCom','port',port);
 catch me

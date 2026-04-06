@@ -19,7 +19,6 @@ EPsych major classes
 │  ├─ RunExpt
 │  ├─ Runtime
 │  ├─ Helper
-│  ├─ PumpCom
 │  ├─ BitMask
 │  ├─ ModeChangeEvent
 │  └─ TrialsData
@@ -81,6 +80,7 @@ Analysis and GUI classes
 ```text
 Support and task-specific classes
 ├─ peripherals
+│  ├─ PumpCom
 │  └─ WebcamRecorder
 ├─ helpers
 │  ├─ EPsychInfo
@@ -137,7 +137,7 @@ flowchart TD
     D --> K[gui.OnlinePlot<br/>gui.OnlinePlotBM<br/>gui.PsychPlot]
     D --> L[gui.History<br/>gui.Performance<br/>gui.SlidingWindowPerformancePlot]
     C --> M[cl_AppetitiveDetection_GUI_B<br/>cl_AversiveDetection_GUI]
-    C --> N[epsych.PumpCom]
+   C --> N[peripherals.PumpCom]
     C --> O[peripherals.WebcamRecorder]
     C --> P[stimgen.StimType family<br/>StimCalibration<br/>StimPlay]
     C --> Q[EPsychInfo<br/>NanoMotorControl<br/>VlcRecorder family]
@@ -175,7 +175,7 @@ Analysis and visualization
    ↓
 Task and support branches
 ├─ cl_AppetitiveDetection_GUI_B / cl_AversiveDetection_GUI
-├─ epsych.PumpCom
+├─ peripherals.PumpCom
 ├─ peripherals.WebcamRecorder
 ├─ stimgen.StimType family / StimCalibration / StimPlay
 └─ EPsychInfo / NanoMotorControl / VlcRecorder family

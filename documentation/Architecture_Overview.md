@@ -2,6 +2,8 @@
 
 This document is a high-level map of the EPsych repository for developers and advanced users who need to understand where functionality lives and how the major pieces relate to each other.
 
+_Please note that I am actively working on improving the organizational structure and readability of the code._
+
 ## Design goals reflected in the codebase
 
 EPsych is not a greenfield framework with a single centralized abstraction. It is an evolved toolbox that combines:

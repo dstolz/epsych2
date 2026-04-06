@@ -5,7 +5,7 @@ function T = CreateTimer(self)
 arguments
     self
 end
-T = timerfind('Name','PsychTimer');
+T = timerfindall('Name','PsychTimer');
 if ~isempty(T)
     stop(T)
     delete(T)

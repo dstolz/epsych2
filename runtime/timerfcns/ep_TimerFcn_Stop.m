@@ -12,4 +12,6 @@ RUNTIME.HW.mode = hw.DeviceState.Idle;
 
 RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Idle));
 
-delete(RUNTIME.HELPER)
+if ~isempty(RUNTIME.HELPER) && isvalid(RUNTIME.HELPER)
+	delete(RUNTIME.HELPER)
+end

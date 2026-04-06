@@ -103,11 +103,11 @@ switch lower(COMMAND)
         self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Stop));
 
         vprintf(3,'ExptDispatch: Stopping BoxTimer')
-        t = timerfind('Name','BoxTimer');
+        t = timerfindall('Name','BoxTimer');
         if ~isempty(t), stop(t); delete(t); end
 
         vprintf(3,'ExptDispatch: Stopping PsychTimer')
-        t = timerfind('Name','PsychTimer');
+        t = timerfindall('Name','PsychTimer');
         if ~isempty(t), stop(t); delete(t); end
 
         set(self.H.figure1,'pointer','arrow')

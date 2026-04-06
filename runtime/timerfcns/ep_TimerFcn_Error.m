@@ -12,7 +12,7 @@ vprintf(1,1,RUNTIME.ERROR);
 
 
 try
-    t = timerfind('Name','PsychTimer');
+    t = timerfindall;
     if ~isempty(t)
         stop(t);
         delete(t);

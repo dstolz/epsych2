@@ -1,4 +1,4 @@
-classdef Staircase < handle & matlab.mixin.SetGet
+classdef Staircase < psychophysics.Psych
     % S = psychophysics.Staircase(RUNTIME, Parameter)
     % S = psychophysics.Staircase(DATA, Parameter)
     % S = psychophysics.Staircase(..., Name=Value)
@@ -37,8 +37,6 @@ classdef Staircase < handle & matlab.mixin.SetGet
     % event-system integration examples.
 
     properties (SetObservable)
-        Parameter = []  % Parameter object or offline DATA field name to track in staircase analysis
-
         StaircaseDirection (1,1) string {mustBeMember(StaircaseDirection,["Up","Down"])} = "Down"  % Direction for reversal detection
 
         StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0  % BitMask identifying stimulus trials
@@ -68,10 +66,6 @@ classdef Staircase < handle & matlab.mixin.SetGet
     end
 
     properties (SetAccess = private)
-        RUNTIME  % Runtime object containing trial data and event infrastructure
-        Helper = epsych.Helper  % Helper object for event broadcasting
-        
-        DATA  % Trial data array extracted from RUNTIME
         Results = struct( ...
             'ReversalCount', [], ...
             'ReversalIdx', [], ...
@@ -84,18 +78,10 @@ classdef Staircase < handle & matlab.mixin.SetGet
 
     properties (Dependent)
         % Dependent properties provide read-only access to computed trial data
-        responseCodes  % Response codes extracted from DATA
         stimulusValues  % Stimulus parameter values from DATA, optionally converted to decibels
-        trialCount  % Total number of trials in DATA
-        ExcludedTrials  % Trial exclusions as a logical mask or 1-based trial indices
-
-        ParameterName % Convenience accessor for plot labels/titles
     end
 
     properties (Access = private)
-        hl_NewData = event.listener.empty
-        excludedTrials_ = zeros(1,0)
-
         % Plot state (optional).
         plotEnabled_ (1,1) logical = false
         plotAxes_ = []
@@ -175,35 +161,15 @@ classdef Staircase < handle & matlab.mixin.SetGet
                 options.ShowReversals (1,1) logical = true
             end
 
-            if isstruct(RUNTIME)
-                obj.RUNTIME = [];
-                obj.DATA = RUNTIME;
-            else
-                obj.RUNTIME = RUNTIME;
-            end
-
-            if isempty(obj.RUNTIME) && (ischar(Parameter) || (isstring(Parameter) && isscalar(Parameter)))
-                Parameter = string(Parameter);
-            elseif ~isempty(obj.RUNTIME) && (ischar(Parameter) || (isstring(Parameter) && isscalar(Parameter)))
-                ME = MException('psychophysics.Staircase:InvalidParameter', ...
-                    'In online mode, Parameter must be a parameter object rather than a DATA field name.');
-                throwAsCaller(ME);
-            end
-
-            obj.Parameter = Parameter;
+            obj = obj@psychophysics.Psych(RUNTIME, Parameter, ExcludedTrials=options.ExcludedTrials);
             obj.StimulusTrialType = options.StimulusTrialType;
             obj.CatchTrialType = options.CatchTrialType;
             obj.StaircaseDirection = options.StaircaseDirection;
             obj.ConvertToDecibels = options.ConvertToDecibels;
 
             if isempty(obj.RUNTIME)
-                obj.hl_NewData = event.listener.empty;
-                obj.recompute_history();
-            else
-                obj.hl_NewData = addlistener(obj.RUNTIME.HELPER,'NewData',@obj.update_data);
+                obj.refresh();
             end
-
-            obj.ExcludedTrials = options.ExcludedTrials;
 
             if options.Plot
                 obj.Plot(options.PlotAxes, ShowSteps=options.ShowSteps, ShowReversals=options.ShowReversals);
@@ -217,30 +183,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
             % Parameters:
             %   obj - psychophysics.Staircase instance.
             obj.disablePlot();
-
-            if ~isempty(obj.hl_NewData)
-                delete(obj.hl_NewData);
-                obj.hl_NewData = event.listener.empty;
-            end
-        end
-
-        function update_data(obj, ~, event)
-            % update_data(obj, ~, event)
-            % Update staircase state from a runtime NewData event.
-            % Parameters:
-            %   obj - psychophysics.Staircase instance.
-            %   event - Event payload containing event.Data.DATA.
-            obj.DATA = event.Data.DATA;
-            vprintf(4, 'psychophysics.Staircase received NewData event with %d trials', numel(obj.DATA));
-
-            obj.recompute_history();
-
-            if obj.plotEnabled_
-                obj.updatePlot_();
-            end
-
-            evtdata = epsych.TrialsData(event.Data);
-            obj.Helper.notify('NewData',evtdata);
+            delete@psychophysics.Psych(obj);
         end
 
         function refresh_history(obj)
@@ -250,13 +193,7 @@ classdef Staircase < handle & matlab.mixin.SetGet
             %   obj - psychophysics.Staircase instance.
             %
             % Use this after changing DATA or analysis settings in offline workflows.
-            obj.recompute_history();
-
-            if obj.plotEnabled_
-                obj.updatePlot_();
-            end
-
-            obj.notify_history_update();
+            obj.refresh();
         end
 
         function Plot(obj, ax, options)
@@ -353,72 +290,6 @@ classdef Staircase < handle & matlab.mixin.SetGet
             end
             obj.updatePlot_();
         end
-
-
-        function rc = get.responseCodes(obj)
-            % rc = obj.responseCodes
-            % Return response codes extracted from obj.DATA.
-            % Parameters:
-            %   obj - psychophysics.Staircase instance.
-            % Returns:
-            %   rc - Numeric response-code array from RespCode, or empty
-            %       when DATA is empty.
-            if isempty(obj.DATA)
-                rc = uint32([]);
-                return
-            end
-
-            if isfield(obj.DATA, 'RespCode')
-                p = [obj.DATA.RespCode];
-                rc = [p.Value];
-            else
-                rc = uint32([]);
-                return
-            end
-
-            if isempty(rc)
-                rc = uint32([]);
-                return
-            end
-
-            rc = uint32(rc);
-        end
-
-        function n = get.trialCount(obj)
-            % n = obj.trialCount
-            % Return the total number of trials in obj.DATA.
-            % Parameters:
-            %   obj - psychophysics.Staircase instance.
-            % Returns:
-            %   n - Number of trials currently stored in DATA.
-            n = numel(obj.DATA);
-        end
-
-        function value = get.ExcludedTrials(obj)
-            % value = obj.ExcludedTrials
-            % Return configured trial exclusions.
-            % Parameters:
-            %   obj - psychophysics.Staircase instance.
-            % Returns:
-            %   value - Logical exclusion mask or 1-based trial indices.
-            value = obj.excludedTrials_;
-        end
-
-        function set.ExcludedTrials(obj, value)
-            % obj.ExcludedTrials = value
-            % Exclude trials from staircase analysis and plotting.
-            % Parameters:
-            %   obj - psychophysics.Staircase instance.
-            %   value - Empty, a logical mask, or 1-based trial indices.
-            normalizedValue = obj.normalizeExcludedTrialsValue_(value);
-            if isequaln(obj.excludedTrials_, normalizedValue)
-                return
-            end
-
-            obj.excludedTrials_ = normalizedValue;
-            obj.refresh_history();
-        end
-
         function v = get.stimulusValues(obj)
             % v = obj.stimulusValues
             % Return tracked stimulus values extracted from obj.DATA.
@@ -432,12 +303,11 @@ classdef Staircase < handle & matlab.mixin.SetGet
             else
                 fieldName = obj.parameterFieldName_();
                 if ~isfield(obj.DATA, fieldName)
-                    ME = MException('psychophysics.Staircase:MissingParameterField', ...
+                    ME = MException(obj.classIdentifier_('MissingParameterField'), ...
                         ['DATA does not contain the field ''' fieldName ''' required for staircase analysis.']);
                     throwAsCaller(ME);
                 end
-                p = [obj.DATA.(fieldName)];
-                v = [p.Value];
+                v = obj.dataFieldValues_(fieldName);
                 if obj.ConvertToDecibels
                     v(v<=0) = nan;
                     v = 20*log10(v);
@@ -445,34 +315,12 @@ classdef Staircase < handle & matlab.mixin.SetGet
             end
         end
 
-        function n = get.ParameterName(obj)
-            % n = obj.ParameterName
-            % Return a display name for the tracked parameter.
-            % Parameters:
-            %   obj - psychophysics.Staircase instance.
-            % Returns:
-            %   n - Parameter name for labels and plot titles.
-            if isempty(obj.Parameter)
-                n = "";
-                return
-            end
-            if ischar(obj.Parameter) || (isstring(obj.Parameter) && isscalar(obj.Parameter))
-                n = string(obj.Parameter);
-                return
-            end
-            if isprop(obj.Parameter,'Name')
-                n = string(obj.Parameter.Name);
-            else
-                n = string(class(obj.Parameter));
-            end
-        end
-
         
         
     end
 
-    methods (Access = private)
-        function recompute_history(obj)
+    methods (Access = protected)
+        function recomputeResults_(obj)
             % Recompute reversal indices, step direction, and threshold estimates.
             % Only trials matching StimulusTrialType are used in the computation of step direction,
             % reversals, and thresholds. Filters trial data by StimulusTrialType, detects reversals by comparing
@@ -530,68 +378,6 @@ classdef Staircase < handle & matlab.mixin.SetGet
             obj.Results = results;
         end
 
-        function notify_history_update(obj)
-            % Broadcast NewData event to listeners with current trial state.
-            % Returns silently if RUNTIME or RUNTIME.TRIALS is not available.
-            if isempty(obj.RUNTIME) || ~isprop(obj.RUNTIME, 'TRIALS') || isempty(obj.RUNTIME.TRIALS)
-                return
-            end
-
-            evtdata = epsych.TrialsData(obj.RUNTIME.TRIALS);
-            obj.Helper.notify('NewData', evtdata);
-        end
-
-        function tt = trialTypeValues_(obj)
-            % Return per-trial TrialType values when present in DATA.
-            if isempty(obj.DATA) || ~isfield(obj.DATA, 'TrialType')
-                tt = [];
-                return
-            end
-
-            p = [obj.DATA.TrialType];
-            tt = double([p.Value]);
-        end
-
-        function mask = trialTypeMask_(obj, trialTypeBit)
-            % Resolve a logical mask for the requested trial type.
-            tt = obj.trialTypeValues_();
-            if ~isempty(tt)
-                mask = tt == obj.bitMaskToTrialTypeValue_(trialTypeBit);
-            else
-                rc = obj.responseCodes;
-                if isempty(rc)
-                    mask = false(1, obj.trialCount);
-                else
-                    decodedResponses = epsych.BitMask.decode(rc);
-                    mask = decodedResponses.(char(trialTypeBit));
-                end
-            end
-
-            mask = reshape(logical(mask), 1, []);
-            if numel(mask) < obj.trialCount
-                mask(end+1:obj.trialCount) = false;
-            elseif numel(mask) > obj.trialCount
-                mask = mask(1:obj.trialCount);
-            end
-
-            mask(obj.excludedTrialMask_()) = false;
-        end
-
-        function ttValue = bitMaskToTrialTypeValue_(~, trialTypeBit)
-            % Convert TrialType_* bit selections to the saved numeric TrialType value.
-            ttValue = double(uint32(trialTypeBit) - uint32(epsych.BitMask.TrialType_0));
-        end
-
-        function fieldName = parameterFieldName_(obj)
-            % Resolve the tracked DATA field name from Parameter.
-            if ischar(obj.Parameter) || (isstring(obj.Parameter) && isscalar(obj.Parameter))
-                fieldName = char(string(obj.Parameter));
-                return
-            end
-
-            fieldName = obj.Parameter.validName;
-        end
-
         function results = emptyResults_(obj)
             % Return an empty staircase-results structure.
             results = obj.Results;
@@ -604,50 +390,11 @@ classdef Staircase < handle & matlab.mixin.SetGet
             results.ThresholdStd = [];
         end
 
-        function value = normalizeExcludedTrialsValue_(~, value)
-            % Validate and normalize ExcludedTrials property values.
-            if isempty(value)
-                value = zeros(1,0);
-                return
+        function afterRefresh_(obj)
+            % Update the staircase plot after analysis refreshes when enabled.
+            if obj.plotEnabled_
+                obj.updatePlot_();
             end
-
-            if islogical(value)
-                value = reshape(value, 1, []);
-                return
-            end
-
-            if isnumeric(value)
-                if ~isreal(value) || any(~isfinite(value(:))) || any(value(:) < 1) || any(fix(value(:)) ~= value(:))
-                    ME = MException('psychophysics.Staircase:InvalidExcludedTrials', ...
-                        'ExcludedTrials must be empty, a logical mask, or a vector of finite positive integer trial indices.');
-                    throwAsCaller(ME);
-                end
-
-                value = unique(reshape(double(value), 1, []), 'stable');
-                return
-            end
-
-            ME = MException('psychophysics.Staircase:InvalidExcludedTrials', ...
-                'ExcludedTrials must be empty, a logical mask, or a vector of finite positive integer trial indices.');
-            throwAsCaller(ME);
-        end
-
-        function mask = excludedTrialMask_(obj)
-            % Resolve configured trial exclusions to a logical mask.
-            mask = false(1, obj.trialCount);
-            if obj.trialCount == 0 || isempty(obj.excludedTrials_)
-                return
-            end
-
-            if islogical(obj.excludedTrials_)
-                count = min(obj.trialCount, numel(obj.excludedTrials_));
-                mask(1:count) = obj.excludedTrials_(1:count);
-                return
-            end
-
-            idx = obj.excludedTrials_;
-            idx = idx(idx >= 1 & idx <= obj.trialCount);
-            mask(idx) = true;
         end
 
         

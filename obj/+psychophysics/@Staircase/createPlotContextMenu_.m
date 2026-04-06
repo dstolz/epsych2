@@ -52,8 +52,7 @@ end
 
 function setReversalCount(obj, parentMenu, n)
     obj.ThresholdFromLastNReversals = n;
-    obj.recompute_history();
-    obj.updatePlot_();
+    obj.refresh();
     updateReversalChecks(parentMenu, n);
 end
 
@@ -68,8 +67,7 @@ function customReversalCount(obj, parentMenu)
         return
     end
     obj.ThresholdFromLastNReversals = n;
-    obj.recompute_history();
-    obj.updatePlot_();
+    obj.refresh();
     updateReversalChecks(parentMenu, n);
 end
 
@@ -86,8 +84,7 @@ end
 
 function setFormula(obj, parentMenu, formula)
     obj.ThresholdFormula = formula;
-    obj.recompute_history();
-    obj.updatePlot_();
+    obj.refresh();
     formulaMap = struct('Mean', 'Mean', 'GeometricMean', 'Geometric Mean');
     activeText = formulaMap.(char(formula));
     for k = 1:numel(parentMenu.Children)

@@ -2,7 +2,7 @@
 
 
 %%
-m = NanoMotorControl(Port="COM6");%, AutoDetect=true); % "AutoDetect = true" will try other ports if 'Port="COM#"' fails
+m = peripherals.NanoMotorControl(Port="COM6");%, AutoDetect=true); % "AutoDetect = true" will try other ports if 'Port="COM#"' fails
 m.connect();
 
 %%
@@ -55,5 +55,5 @@ m.disconnect();
 %%
 
 
-m = NanoMotorControlGUI(Port="COM6");
+m = peripherals.NanoMotorControlGUI(Port="COM6");
 

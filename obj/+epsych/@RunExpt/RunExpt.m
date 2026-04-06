@@ -209,7 +209,7 @@ classdef RunExpt < handle
             % Launch the Commutator GUI
             comPort = getpref('ep_RunExpt_Commutator','Port',"COM6");
             try
-                NanoMotorControlGUI(Port=comPort);
+                peripherals.NanoMotorControlGUI(Port=comPort);
             catch me
                 vprintf(0,1,me)
                 a = repmat('*',1,50);

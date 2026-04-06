@@ -1,7 +1,7 @@
 classdef NanoMotorControl < handle
 %NANOMOTORCONTROL Serial interface for the Arduino Nano DM320T stepper controller sketch.
 %
-%   NanoMotorControl wraps the sketch's newline-terminated ASCII serial
+%   peripherals.NanoMotorControl wraps the sketch's newline-terminated ASCII serial
 %   protocol (115200 baud). It manages the serial connection and provides
 %   synchronous command/response transactions plus convenience wrappers for
 %   all core protocol commands.
@@ -15,10 +15,10 @@ classdef NanoMotorControl < handle
 %     - POSD? returns the commanded/open-loop *output-shaft degrees*.
 %
 %   Construction
-%     m = NanoMotorControl(Name,Value,...)
+%     m = peripherals.NanoMotorControl(Name,Value,...)
 %
 %   Typical usage
-%     m = NanoMotorControl(Port="COM6", AutoDetect=true);
+%     m = peripherals.NanoMotorControl(Port="COM6", AutoDetect=true);
 %     m.connect();
 %     m.setRPM(60);           % motor RPM (continuous)
 %     p = m.positionDeg();    % output-shaft degrees (open-loop)

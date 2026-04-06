@@ -1,8 +1,8 @@
 classdef NanoMotorControlGUI < handle
 %NANAMOTORCONTROLGUI GUI front-end for NanoMotorControl.
 %
-%   NanoMotorControlGUI builds a compact uigridlayout-based control panel for
-%   the NanoMotorControl serial interface.
+%   peripherals.NanoMotorControlGUI builds a compact uigridlayout-based
+%   control panel for the peripherals.NanoMotorControl serial interface.
 %
 %   Capabilities
 %     - Jog CW/CCW (click-to-toggle)
@@ -11,10 +11,10 @@ classdef NanoMotorControlGUI < handle
 %     - STOP (halts jogging and stops any active MOVE)
 %     - Display current commanded position (degrees)
 %     - Lamp + text status indicator (disconnected/connected/moving/error)
-%     - Menu control of NanoMotorControl.Verbosity
+%     - Menu control of peripherals.NanoMotorControl.Verbosity
 %     - Menu toggle to keep the figure always on top
 %
-%   See also NanoMotorControl, uigridlayout, uifigure, timer, serialport, uilamp, uimenu
+%   See also peripherals.NanoMotorControl, uigridlayout, uifigure, timer, serialport, uilamp, uimenu
 
     properties
         Parent = []
@@ -36,7 +36,7 @@ classdef NanoMotorControlGUI < handle
     end
 
     properties (SetAccess=private)
-        Motor NanoMotorControl = NanoMotorControl.empty
+        Motor peripherals.NanoMotorControl = peripherals.NanoMotorControl.empty
         Figure = []
         Grid = []
     end
@@ -402,7 +402,7 @@ classdef NanoMotorControlGUI < handle
         end
 
         function connectMotor(obj)
-            obj.Motor = NanoMotorControl(Port=obj.Port, AutoDetect=obj.AutoDetect, Verbosity=obj.Verbosity);
+            obj.Motor = peripherals.NanoMotorControl(Port=obj.Port, AutoDetect=obj.AutoDetect, Verbosity=obj.Verbosity);
             obj.Motor.connect(Port=obj.Port, AutoDetect=obj.AutoDetect);
             obj.Motor.mode("USB");
             obj.Motor.enable(true);
@@ -672,7 +672,7 @@ classdef NanoMotorControlGUI < handle
                 obj.Motor.stop();
                 obj.Motor.disconnect();
             end
-            obj.Motor = NanoMotorControl.empty;
+            obj.Motor = peripherals.NanoMotorControl.empty;
 
             if ~isempty(obj.Listeners)
                 L = obj.Listeners;

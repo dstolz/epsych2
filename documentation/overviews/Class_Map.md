@@ -81,11 +81,11 @@ Analysis and GUI classes
 Support and task-specific classes
 ├─ peripherals
 │  ├─ PumpCom
-│  └─ WebcamRecorder
+│  ├─ WebcamRecorder
+│  ├─ NanoMotorControl
+│  └─ NanoMotorControlGUI
 ├─ helpers
 │  ├─ EPsychInfo
-│  ├─ NanoMotorControl
-│  ├─ NanoMotorControlGUI
 │  ├─ VlcRecorder
 │  └─ VlcRecorderGroup
 ├─ cl
@@ -140,7 +140,7 @@ flowchart TD
    C --> N[peripherals.PumpCom]
     C --> O[peripherals.WebcamRecorder]
     C --> P[stimgen.StimType family<br/>StimCalibration<br/>StimPlay]
-    C --> Q[EPsychInfo<br/>NanoMotorControl<br/>VlcRecorder family]
+   C --> Q[EPsychInfo<br/>peripherals.NanoMotorControl<br/>peripherals.NanoMotorControlGUI<br/>VlcRecorder family]
 ```
 
 ### Layered runtime view
@@ -177,8 +177,9 @@ Task and support branches
 ├─ cl_AppetitiveDetection_GUI_B / cl_AversiveDetection_GUI
 ├─ peripherals.PumpCom
 ├─ peripherals.WebcamRecorder
+├─ peripherals.NanoMotorControl / peripherals.NanoMotorControlGUI
 ├─ stimgen.StimType family / StimCalibration / StimPlay
-└─ EPsychInfo / NanoMotorControl / VlcRecorder family
+└─ EPsychInfo / VlcRecorder family
 ```
 
 ### Main dependency patterns

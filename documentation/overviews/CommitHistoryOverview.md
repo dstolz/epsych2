@@ -1,12 +1,13 @@
 # Commit History Overview
 
-Period covered: 2019-05-14 through 2026-03-19
+Period covered: 2019-05-14 through 2026-04-06
 
 Only months with recorded commits are listed below.
 
 ## 2026
 
-- March 2026, 178 commits. This was the largest modernization wave in the repository: RunExpt and related GUIs were pushed toward handle-based runtime state, recent-configuration support, richer version/history links, runtime filename updates, and cleaner parameter plumbing. Adaptive behavior expanded at the same time through randomizable response-window delays, stimulus-delay and pre-stimulus offset controls, ProgressiveTraining, and full Staircase training integration. Staircase itself saw repeated work on reversal detection, threshold estimation, plotting, BitMask-derived colors, and decibel conversion. Hardware support also broadened with additional device-control work, NanoMotorControl, and removal of deprecated webcam and figure-centric paths. Documentation and coding guidance accelerated sharply alongside the code changes.
+- April 2026, 34 commits. Documentation became more operational and interconnected, with major updates to [README](../../README.md), [Event Notifications](../epsych/Event_Notifications.md), [StaircaseTraining](../gui/StaircaseTraining.md), and [psychophysics_Staircase](../psychophysics/psychophysics_Staircase.md). In parallel, the codebase added documented PumpCom and NanoMotorControl peripherals, tightened runtime and timer completion handling, expanded JSON and recent-configuration support, and pushed Staircase and response-code data handling further toward a cleaner shared model.
+- March 2026, 265 commits. This was the repository's largest modernization wave. RunExpt, Runtime, and related GUIs were pushed toward handle-based runtime state, [EPsychInfo](../epsych/EPsychInfo.md)-driven version and history links, recent-configuration support, figure-position persistence, JSON phase/template workflows, and cleaner parameter plumbing. Adaptive behavior expanded at the same time through randomizable response-window delays, stimulus-delay and pre-stimulus offset controls, catch-trial phases, ProgressiveTraining, and full Staircase training integration. Staircase itself saw repeated work on reversal detection, threshold estimation, plotting, BitMask-derived colors, and decibel conversion, while [Installation_Guide](Installation_Guide.md), [Architecture_Overview](Architecture_Overview.md), [RunExpt_GUI_Overview](RunExpt_GUI_Overview.md), and [Toolbox_Overview](Toolbox_Overview.md) marked a sharp jump in documentation maturity.
 - February 2026, 17 commits. Work centered on the new pellet-focused appetitive detection workflow: the GUI gained trial controls, sound settings, save-data dialogs, and better button and table presentation. Parameter_Monitor was introduced, Parameter gained trigger support, and trial-selection logic was refined for reminder trials, NO-GO handling, and false alarms.
 
 ## 2025
@@ -66,7 +67,7 @@ Only months with recorded commits are listed below.
 ## Overarching Trends
 
 - The repository moved steadily from procedural and figure-centric workflows toward object-oriented, event-driven, and parameter-driven designs, especially in the GUI and runtime layers.
-- Hardware support expanded in waves: RPvds infrastructure came first, then calibration-heavy stimulus support, then Synapse integration, and finally more general hardware abstractions and device-control classes.
+- Hardware support expanded in waves: RPvds infrastructure came first, then calibration-heavy stimulus support, then Synapse integration, and finally more general hardware abstractions and device-control classes such as [peripherals_PumpCom](../peripherals/peripherals_PumpCom.md) and [peripherals_NanoMotorControl](../peripherals/peripherals_NanoMotorControl.md).
 - BitMask handling evolved from a supporting utility into a core representation for response decoding, trial classification, visualization, and GUI reporting.
-- Adaptive training and online psychophysics became a central product direction over time, culminating in 2026 with ProgressiveTraining, Staircase training, richer response-window control, and better live performance displays.
-- Documentation matured alongside the implementation. Early history is code-first and exploratory, while late 2025 and especially 2026 show deliberate efforts to document APIs, GUI patterns, coding conventions, and project history.
+- Adaptive training and online psychophysics became a central product direction over time, culminating in 2026 with ProgressiveTraining, Staircase training, richer response-window control, catch-trial and stimulus-delay phase work, and stronger analysis/documentation around [psychophysics_Staircase](../psychophysics/psychophysics_Staircase.md) and [StaircaseTraining](../gui/StaircaseTraining.md).
+- Documentation matured alongside the implementation. Early history is code-first and exploratory, while late 2025 and especially 2026 show deliberate efforts to document APIs, GUI patterns, runtime architecture, onboarding, and project history through overviews such as [Architecture_Overview](Architecture_Overview.md), [RunExpt_GUI_Overview](RunExpt_GUI_Overview.md), [Toolbox_Overview](Toolbox_Overview.md), and [Installation_Guide](Installation_Guide.md).

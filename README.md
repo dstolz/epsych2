@@ -6,10 +6,17 @@ The project is aimed at labs that want a practical experiment framework without 
 
 The repository includes both legacy procedural code and a gradual migration toward newer object-oriented APIs under `obj/+epsych/`. In practice, EPsych is broad and actively useful, but not yet fully unified behind a single modern API.
 
+## Project wiki
+
+The associated wiki is here: <https://github.com/dstolz/epsych2/wiki>
+
+Use the wiki for evolving setup notes, usage guidance, and project context that may be updated independently from the repository files.
+
 ## Start here
 
 If you are setting up EPsych for the first time, use these documents in this order:
 
+- Project wiki: <https://github.com/dstolz/epsych2/wiki>
 - Toolbox orientation: [documentation/overviews/Toolbox_Overview.md](documentation/overviews/Toolbox_Overview.md)
 - Installation and first-run setup: [documentation/overviews/Installation_Guide.md](documentation/overviews/Installation_Guide.md)
 - Session GUI walkthrough: [documentation/overviews/RunExpt_GUI_Overview.md](documentation/overviews/RunExpt_GUI_Overview.md)

@@ -12,7 +12,7 @@ function cl_SaveDataFcn(RUNTIME)
 %
 % This function prompts the user to update the appropriate log (WATER or FOOD) and then saves each subject's data to a .mat file in the default data directory. If a DataFilename is already specified, it is used; otherwise, the user is prompted for a save location.
 %
-% For more details, see documentation/cl_SaveDataFcn.md
+% For more details, see documentation/cl/cl_SaveDataFcn.md
 %
 % Copyright (C) 2016-2025 Daniel Stolzberg, PhD
 % Contact: Daniel.Stolzberg@gmail.com

@@ -89,7 +89,7 @@ Buttons at the bottom:
 
 ## 4) Running, pausing, stopping, and saving data
 
-If you need the underlying event model for GUI updates or runtime hooks, see [Event_Notifications.md](Event_Notifications.md).
+If you need the underlying event model for GUI updates or runtime hooks, see [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md).
 
 ### 4.1 What happens when you click Run / Preview
 
@@ -229,5 +229,6 @@ In the RunExpt figure:
 
 ## Related documentation
 
-- [Event_Notifications.md](Event_Notifications.md)
+- [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md)
 - [Architecture_Overview.md](Architecture_Overview.md)
+

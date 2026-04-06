@@ -191,9 +191,10 @@ For this to work correctly, `TRIALS` must already contain:
 
 - [cl/cl_TrialSelection_Appetitive_StimDetect.m](../cl/cl_TrialSelection_Appetitive_StimDetect.m)
 - [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m)
-- [documentation/RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
+- [../overviews/RunExpt_GUI_Overview.md](../overviews/RunExpt_GUI_Overview.md)
 
 ## Change history
 
 - 2026-03-20: Expanded the documentation with examples, assumptions, and task context to match the current implementation.
+
 

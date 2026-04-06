@@ -23,7 +23,7 @@ classdef RunExpt < handle
     % instance returns the existing object when possible and brings its figure
     % to the foreground.
     %
-    % Documentation: documentation/RunExpt_GUI_Overview.md
+    % Documentation: documentation/overviews/RunExpt_GUI_Overview.md
     % See also epsych.Runtime, ep_ExperimentDesign, ep_CompiledProtocolTrials.
 
     properties
@@ -497,3 +497,4 @@ classdef RunExpt < handle
         ffn = defaultFilename(pth,name)
     end
 end
+

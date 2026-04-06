@@ -45,7 +45,7 @@ classdef StaircaseTraining < handle
 %     MaxValueLimits    (1,2) double
 %     WindowStyle       (1,1) string   "alwaysontop" | "modal" | "normal" (only if Parent=[])
 %
-%   Documentation: documentation/StaircaseTraining.md
+%   Documentation: documentation/gui/StaircaseTraining.md
 %   See also uifigure, uitable, uigridlayout
 
     properties (SetObservable)
@@ -527,3 +527,4 @@ classdef StaircaseTraining < handle
         end
     end
 end
+

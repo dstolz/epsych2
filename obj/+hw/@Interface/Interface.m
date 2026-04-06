@@ -31,8 +31,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     %   set_parameter    - Write one or more parameter values (abstract).
     %   get_parameter    - Read one or more parameter values (abstract).
     %
-    % See also: documentation/hw_Interface.md, documentation/hw_Module.md,
-    %   documentation/hw_Parameter.md, hw.Module, hw.Parameter
+    % See also: documentation/hw/hw_Interface.md, documentation/hw/hw_Module.md,
+    %   documentation/hw/hw_Parameter.md, hw.Module, hw.Parameter
 
     properties (Abstract,SetAccess = protected)
         Module (1,:) hw.Module
@@ -96,7 +96,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % Returns
             %   P       - Created hw.Parameter handle.
             %
-            % See also: documentation/hw_Module.md, documentation/hw_Parameter.md, hw.Parameter
+            % See also: documentation/hw/hw_Module.md, documentation/hw/hw_Parameter.md, hw.Parameter
             arguments
                 obj
                 name (1,:) char {mustBeText}
@@ -136,7 +136,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % Returns:
             %   P - hw.Parameter[]. Concatenated Parameters from every module after requested filters are applied.
             %
-            % See also: documentation/hw_Interface.md, documentation/hw_Parameter.md
+            % See also: documentation/hw/hw_Interface.md, documentation/hw/hw_Parameter.md
             arguments
                 obj
                 options.includeTriggers (1,1) logical = true
@@ -191,7 +191,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % Returns:
             %   P - hw.Parameter[]. Parameters whose selected property matches according to testFcn.
             %
-            % See also: documentation/hw_Interface.md, documentation/hw_Parameter.md
+            % See also: documentation/hw/hw_Interface.md, documentation/hw/hw_Parameter.md
             arguments
                 obj
                 propertyName (1,:) char
@@ -220,7 +220,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % Returns:
             %   P - hw.Parameter[]. Matching Parameter handle(s) in requested name order. Empty if no match.
             %
-            % See also: documentation/hw_Interface.md, documentation/hw_Parameter.md
+            % See also: documentation/hw/hw_Interface.md, documentation/hw/hw_Parameter.md
             arguments
                 obj
                 name
@@ -258,7 +258,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % Returns:
             %   tf - logical. True if the comparison indicates a match.
             %
-            % See also: documentation/hw_Interface.md
+            % See also: documentation/hw/hw_Interface.md
             res = fcn(val, pat);
             if islogical(res) && isscalar(res)
                 tf = res;

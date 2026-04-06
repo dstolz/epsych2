@@ -21,7 +21,7 @@ function [value,success] = eval_rwdelay_training_mode(obj,~,event,Parameter)
 %   success - True if the callback completed without throwing an error.
 %
 % See also:
-%   gui.StaircaseTraining (documentation/StaircaseTraining.md)
+%   gui.StaircaseTraining (documentation/gui/StaircaseTraining.md)
 
 success = false;
 

@@ -205,6 +205,7 @@ Look first at:
 
 - User setup guide: [Installation_Guide.md](Installation_Guide.md)
 - Session walkthrough: [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
-- Runtime event reference: [Event_Notifications.md](Event_Notifications.md)
+- Runtime event reference: [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md)
 - Class and dependency maps: [Class_Map.md](Class_Map.md)
 - General repository landing page: [../README.md](../README.md)
+

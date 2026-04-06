@@ -2,7 +2,7 @@ function varargout = ep_ExperimentDesign(varargin)
 % h = ep_ExperimentDesign
 %
 % Design protocols for EPsych experiments
-% Documentation: documentation/ep_ExperimentDesign.md
+% Documentation: documentation/design/ep_ExperimentDesign.md
 %
 % Daniel.Stolzberg@gmail.com 2014
 
@@ -1052,6 +1052,7 @@ guidata(h.ProtocolDesign,h);
 
 msgbox(sprintf('%d instances of ''%s'' were changed to ''%s''',i,a{1},a{2}), ...
     'Find&Replace','help','modal');
+
 
 
 

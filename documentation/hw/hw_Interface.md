@@ -325,3 +325,4 @@ hardware backend.
 
 - 2026-04-03: Updated helper-method reference to document `all_parameters`
   access filtering, `asStruct` output mode, and `add_parameter` behavior.
+

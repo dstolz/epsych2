@@ -26,7 +26,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     %   where EXTRAARGS are supplied through the EvaluatorArgs cell array.
     %   VALUE is written back to the UI, and SUCCESS controls error coloring.
     %
-    % Documentation: documentation/Parameter_Control.md
+    % Documentation: documentation/gui/Parameter_Control.md
     % See also gui.Parameter_Monitor, gui.Parameter_Update
 
     properties (SetAccess = immutable)

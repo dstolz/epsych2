@@ -1,20 +1,34 @@
 ---
 name: document
-description: generate documentation for code
+description: Generate clear documentation for code
 ---
 
 <!-- Tip: Use /create-prompt in chat to generate content with agent assistance -->
 
-Generate documentation for code in a clear and concise manner, ensuring that it is easy to understand for developers of all levels. The documentation should include explanations of the code's functionality, usage examples, and any relevant information that would help other developers understand and utilize the code effectively.The documentation should be well-structured, with headings and subheadings to organize the content. Additionally, it should be free of jargon and technical terms that may be confusing to beginners, while still providing enough detail for more experienced developers.
+Generate developer documentation for the target code file.
 
-The documentation should focus on the file of interest, but can also include relevant information from other files in the codebase if necessary. It should be written in a way that is accessible to developers who may not be familiar with the specific programming language or framework used in the code. The goal is to create documentation that is informative, easy to read, and helpful for developers who want to understand and use the code effectively.
+Write the documentation so it is clear, concise, and approachable for developers with varying levels of experience. Explain what the code does, how to use it, and any context needed to work with it effectively. Use plain language where possible, but include enough technical detail to remain useful.
 
-By default, place the generated documentation in a file located under the `documentation` directory, with a filename that reflects the name of the file being documented. For example, if the file being documented is `src/utils/helpers.m`, the generated documentation should be placed in `documentation/helpers.md`. This will help keep the documentation organized and easily accessible for developers who want to reference it in the future.
+The documentation should:
+- Focus primarily on the file being documented.
+- Pull in relevant context from other files only when it helps explain behavior, dependencies, or usage.
+- Be well structured with clear headings and subheadings.
+- Include usage examples when they help clarify the API or workflow.
+- Avoid unnecessary jargon and overly dense explanations.
 
-Name the new file using the name of the original file being documented, but with a `.md` extension and placed in the `documentation` directory. For example, if the original file being documented is `src/utils/helpers.m`, the generated documentation should be placed in `documentation/helpers.md`. If the file is part of a subdirectory, include the subdirectory name in the documentation filename. For example, if the file being documented is `src/utils/helpers.m`, the generated documentation should be placed in `documentation/utils_helpers.md`. This will help maintain a clear connection between the original code and its corresponding documentation, making it easier for developers to find and reference the documentation when needed.
+Place the generated documentation under the `documentation` directory, organized by subsystem.
 
-If the original file being documented is located in a subdirectory, include the subdirectory name in the documentation filename. For example, if the file being documented is `src/utils/helpers.m`, the generated documentation should be placed in `documentation/utils_helpers.md`. This will help maintain a clear connection between the original code and its corresponding documentation, making it easier for developers to find and reference the documentation when needed.
+Use these placement rules:
+- Put subsystem-specific documentation in the matching `documentation/<subsystem>` directory.
+- If the file is a general onboarding or repository-map document, place it under `documentation/overviews`.
+- Preserve existing naming conventions where they already imply a subsystem prefix.
 
-If the original file help comments does not refer to the documentation file, add a reference to the documentation file in the help comments. For example, if the original file being documented is `src/utils/helpers.m`, and the generated documentation is placed in `documentation/utils_helpers.md`, add a reference to `documentation/utils_helpers.md` in the help comments of `src/utils/helpers.m`. This will ensure that developers can easily find the documentation when they access the help comments for the original file.
+Examples:
+- `obj/+hw/@Interface/Interface.m` -> `documentation/hw/hw_Interface.md`
+- `obj/+gui/Parameter_Update.m` -> `documentation/gui/Parameter_Update.md`
+- `obj/+psychophysics/Psych.m` -> `documentation/psychophysics/psychophysics_Psych.md`
+- `helpers/vprintf.m` -> `documentation/helpers/helpers_vprintf.md`
 
-If documentation already exists for the file being documented, update the existing documentation with any new information or changes to the code. Ensure that the updated documentation remains clear and concise, and that it continues to provide valuable information for developers who want to understand and use the code effectively. If necessary, add a version history or changelog to the documentation to track changes over time and provide context for developers who may be referencing older versions of the documentation.
+If documentation for the target file already exists, update it instead of creating a duplicate. Preserve useful existing content and refresh it to match the current code. Add a short version history or changelog only when it meaningfully helps track important updates.
+
+If the source file's help comments do not already reference the documentation file, add a reference to the generated documentation path in the help comments so developers can find the fuller documentation from the source.

@@ -189,11 +189,11 @@ r.updateTrialsFromParameters(params);
 
 ## Related Documentation
 
-- [Parameter_Control.md](Parameter_Control.md)
-- [hw_Interface.md](hw_Interface.md)
-- [hw_Parameter.md](hw_Parameter.md)
-- [Architecture_Overview.md](Architecture_Overview.md)
-- [Class_Map.md](Class_Map.md)
+- [../gui/Parameter_Control.md](../gui/Parameter_Control.md)
+- [../hw/hw_Interface.md](../hw/hw_Interface.md)
+- [../hw/hw_Parameter.md](../hw/hw_Parameter.md)
+- [../overviews/Architecture_Overview.md](../overviews/Architecture_Overview.md)
+- [../overviews/Class_Map.md](../overviews/Class_Map.md)
 - [EPsychInfo.md](EPsychInfo.md)
 
 ## Version History
@@ -201,3 +201,4 @@ r.updateTrialsFromParameters(params);
 - 2026-04-06: Updated the runtime documentation to match the current class and split method implementations, including JSON import/export details, dynamic `Phase` behavior, and trial synchronization assumptions.
 - 2026-04-03: Updated to reflect the `Runtime.m` API and added practical usage examples.
 - March 2026: Initial documentation.
+

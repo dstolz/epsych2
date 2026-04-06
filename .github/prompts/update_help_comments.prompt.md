@@ -3,29 +3,64 @@ name: update-help-comments
 description: update help comments code to conform to `copilot-instructions.md`
 ---
 
-<!-- Tip: Use /create-prompt in chat to generate content with agent assistance -->
+Update MATLAB help comments so they conform to `.github/copilot-instructions.md`, with special focus on tightening what information is included and how it is formatted.
 
-update help comments code to conform to `copilot-instructions.md`.
+Treat this as an editing task, not a general rewrite. Preserve code behavior and public APIs. Only change comments that are missing, misleading, inconsistent, too verbose, or not aligned with the project comment style.
 
-If you are unsure about how to update the comments, please refer to the `copilot-instructions.md` file for guidance on formatting and style. The goal is to ensure that the comments are clear, concise, and provide helpful information to users who may be new to the codebase.
+Follow these rules exactly:
 
-Example formatting for parameter comments:
+1. Read `.github/copilot-instructions.md` first and apply its comment guidance strictly.
+2. For function and method help comments, place the help block immediately below the `function` line.
+3. Start the help block with the function call syntax on the first comment line. Do not label it as `Syntax:`.
+4. Follow with a brief purpose statement of 1 to 2 lines.
+5. Then include `Parameters:` and `Returns:` sections when they add value. Omit empty or trivial sections.
+6. For classes, describe overall purpose, important properties, and key methods. Include a minimal usage example only when it materially helps.
+7. For properties, keep inline comments short and practical.
+
+Constrain the content of help comments:
+
+- Include only information that helps a developer use or maintain the code.
+- Prefer concrete descriptions over implementation detail.
+- Document units, defaults, expected shapes, allowed values, and important assumptions when relevant.
+- Call out side effects, required state, hardware dependencies, and notable limitations when relevant.
+- Do not restate obvious code behavior line by line.
+- Do not add tutorial-style explanations, marketing language, or speculative guidance.
+- Do not invent behavior that is not supported by the code.
+- Do not mention internal history, prior implementations, or TODO-style notes in help comments.
+- Keep wording concise; prefer short sentences and predictable section structure.
+
+Use this exact formatting guidance for parameter and return lists:
+
+- Keep entry names aligned using tabs or equivalent uniform spacing.
+- Use one entry per line.
+- Format each entry as `Name<TAB>- Description`.
+- Start descriptions with a noun phrase or imperative fragment, not a full paragraph.
+- Include defaults in parentheses when helpful, for example `(default: false)`.
+- Use consistent naming that matches the code exactly, including capitalization.
+
+Example:
 
 ```matlab
+% myFunction(inputSignal, sampleRate, mode)
+% Compute the trial-aligned envelope used by the online detector.
+%
 % Parameters:
-%   RUNTIME              - Runtime object with HELPER and trial data for online mode.
-%   DATA                 - Per-trial struct array for offline mode, typically the loaded `Data` struct.
-%   Parameter            - hw.Parameter object, or in offline mode a field name from DATA.
-%   StimulusTrialType    - BitMask for stimulus trials (default: TrialType_0).
-%   CatchTrialType       - BitMask for catch trials (default: TrialType_1).
-%   StaircaseDirection   - "Up" or "Down" (default: "Down").
-%   ConvertToDecibels    - Convert stimulus values to dB (default: false).
-%   Plot                 - Enable staircase plotting (default: false).
-%   PlotAxes             - Axes to draw into; creates new figure when empty.
-%   ShowSteps            - Show step-direction markers when plotting.
-%   ShowReversals        - Show reversal markers when plotting.
+% 	inputSignal	- Input waveform vector in volts.
+% 	sampleRate	- Sampling rate in Hz.
+% 	mode		- Processing mode: "online" or "offline".
+%
+% Returns:
+% 	envelope	- Smoothed magnitude envelope with one value per sample.
 ```
 
-Make comments on parameters/properties uniformly spaced using tabs, and ensure that the descriptions are informative and easy to understand. Avoid using overly technical jargon or abbreviations that may not be familiar to all users. Additionally, make sure to include any relevant examples or use cases in the comments to help users understand how to use the code effectively.
+When deciding what to document, prefer this order of importance:
 
-If a `*.md` file already exists in the `documentation` folder that corresponds to the code being commented, please make sure to link to it in the comments where appropriate. This will help users find more detailed information about the code and its functionality. If a corresponding `*.md` file does not exist, you may want to create one to provide additional context, explanations, and usage examples for the code. Make use of the `/document` prompt to generate the content for these documentation files, ensuring that they are well-structured and informative for developers of all levels.
+1. How to call it.
+2. What it does.
+3. Inputs, outputs, defaults, and constraints.
+4. Side effects, assumptions, dependencies, and failure conditions.
+5. A minimal example, only if it removes ambiguity.
+
+When corresponding documentation exists under `documentation/`, mention it briefly in the help comments only if the reference is directly useful and can be stated concisely. Do not create new `documentation/*.md` files unless explicitly asked.
+
+If existing comments are mostly correct, normalize formatting instead of rewriting them from scratch. If comments are absent, add the smallest complete help block that satisfies the rules above.

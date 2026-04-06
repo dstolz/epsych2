@@ -324,7 +324,7 @@ This representation is then consumed by [design/ep_CompileProtocol.m](design/ep_
 - [design/ep_AddTrial.m](design/ep_AddTrial.m): lower-level helper used by the compiler to combine parameters, buddy groups, and randomized ranges into trial definitions
 - [design/ep_SchedWAVgui.m](design/ep_SchedWAVgui.m): GUI for attaching and ordering WAV buffers
 - [helpers/findincell.m](helpers/findincell.m): used throughout for locating populated cells
-- [documentation/RunExpt_GUI_Overview.md](documentation/RunExpt_GUI_Overview.md): describes how saved protocols are consumed by the runtime session GUI
+- [documentation/overviews/RunExpt_GUI_Overview.md](documentation/overviews/RunExpt_GUI_Overview.md): describes how saved protocols are consumed by the runtime session GUI
 
 ## 12) Common gotchas
 
@@ -347,3 +347,4 @@ If you embed WAV buffers, the saved `*.prot` file may grow substantially. Disabl
 ### 12.5 RPvds tag import depends on TDT components
 
 Reading tags from an `*.rcx` file requires the TDT ActiveX interface (`RPco.x`) to be available in MATLAB on Windows.
+

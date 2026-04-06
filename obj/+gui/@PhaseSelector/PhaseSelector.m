@@ -35,7 +35,7 @@ classdef PhaseSelector < handle
     %   set.PhasePath         - Set method for PhasePath property, loads phase files from new path.
     %   writePhaseParameters  - Save current hardware and software parameters to a new JSON file.
     %
-    % See also: documentation/Architecture_Overview.md
+    % See also: documentation/overviews/Architecture_Overview.md
 
     properties (SetObservable)
         PhasePath (1,1) string % Directory containing phase JSON files
@@ -133,7 +133,7 @@ classdef PhaseSelector < handle
             % Parameters:
             %   src - Source UI control (unused)
             %
-            % See also: documentation/Architecture_Overview.md
+            % See also: documentation/overviews/Architecture_Overview.md
 
             %{
             %  modal dialog for description entry
@@ -364,3 +364,4 @@ classdef PhaseSelector < handle
 
 
 end
+

@@ -20,7 +20,7 @@ function TRIALS = cl_TrialSelection_Appetitive_StimDetect(TRIALS)
 %     MaxDepth.
 %   - Catch scheduling is controlled by P_Catch.
 %   - The initial scheduled trial is the first STIM row.
-%   - Documentation: documentation/cl_TrialSelection_Appetitive_StimDetect.md.
+%   - Documentation: documentation/cl/cl_TrialSelection_Appetitive_StimDetect.md.
 %
 % See also cl_TrialSelection_Appetitive_GONOGO
 

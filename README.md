@@ -8,10 +8,10 @@ The project is designed for labs that want a practical experiment framework with
 
 Start here if you are setting up EPsych for the first time:
 
-- Toolbox orientation guide: [documentation/Toolbox_Overview.md](documentation/Toolbox_Overview.md)
-- Installation and first-run guide: [documentation/Installation_Guide.md](documentation/Installation_Guide.md)
-- Session GUI walkthrough: [documentation/RunExpt_GUI_Overview.md](documentation/RunExpt_GUI_Overview.md)
-- Developer-facing architecture notes: [documentation/Architecture_Overview.md](documentation/Architecture_Overview.md)
+- Toolbox orientation guide: [documentation/overviews/Toolbox_Overview.md](documentation/overviews/Toolbox_Overview.md)
+- Installation and first-run guide: [documentation/overviews/Installation_Guide.md](documentation/overviews/Installation_Guide.md)
+- Session GUI walkthrough: [documentation/overviews/RunExpt_GUI_Overview.md](documentation/overviews/RunExpt_GUI_Overview.md)
+- Developer-facing architecture notes: [documentation/overviews/Architecture_Overview.md](documentation/overviews/Architecture_Overview.md)
 
 ## At a glance
 
@@ -36,11 +36,11 @@ The repository includes both legacy procedural code and a gradual migration towa
 
 ## Documentation status
 
-- A concise onboarding map of the main tools is available in [documentation/Toolbox_Overview.md](documentation/Toolbox_Overview.md)
-- A practical overview of the session GUI is available in [documentation/RunExpt_GUI_Overview.md](documentation/RunExpt_GUI_Overview.md)
-- A detailed setup guide is available in [documentation/Installation_Guide.md](documentation/Installation_Guide.md)
-- A developer-oriented codebase map is available in [documentation/Architecture_Overview.md](documentation/Architecture_Overview.md)
-- For the hardware abstraction layer centered on `hw.Interface`, see [documentation/hw_Interface.md](documentation/hw_Interface.md)
+- A concise onboarding map of the main tools is available in [documentation/overviews/Toolbox_Overview.md](documentation/overviews/Toolbox_Overview.md)
+- A practical overview of the session GUI is available in [documentation/overviews/RunExpt_GUI_Overview.md](documentation/overviews/RunExpt_GUI_Overview.md)
+- A detailed setup guide is available in [documentation/overviews/Installation_Guide.md](documentation/overviews/Installation_Guide.md)
+- A developer-oriented codebase map is available in [documentation/overviews/Architecture_Overview.md](documentation/overviews/Architecture_Overview.md)
+- For the hardware abstraction layer centered on `hw.Interface`, see [documentation/hw/hw_Interface.md](documentation/hw/hw_Interface.md)
 - Additional notes and feature-specific documentation live under [documentation/](documentation/)
 - Legacy onboarding material is still available in [Intro_to_ElectroPsych_Toolbox.pptx](Intro_to_ElectroPsych_Toolbox.pptx)
 
@@ -77,7 +77,7 @@ EPsych setup is mostly about getting four pieces aligned:
 
 In practice, if you want broad compatibility with the main components currently checked into this repository, use MATLAB R2021a or newer.
 
-For full step-by-step instructions, see [documentation/Installation_Guide.md](documentation/Installation_Guide.md).
+For full step-by-step instructions, see [documentation/overviews/Installation_Guide.md](documentation/overviews/Installation_Guide.md).
 
 ### Minimum setup checklist
 
@@ -120,7 +120,7 @@ If the GUI opens successfully, the basic MATLAB-side installation is working.
 - `TDTfun/`: TDT-specific integration utilities
 - `documentation/`: focused usage notes and developer-facing references
 
-For a higher-level description of how these pieces fit together, see [documentation/Architecture_Overview.md](documentation/Architecture_Overview.md).
+For a higher-level description of how these pieces fit together, see [documentation/overviews/Architecture_Overview.md](documentation/overviews/Architecture_Overview.md).
 
 ## Typical workflow
 
@@ -133,7 +133,7 @@ For a standard experiment session, the usual flow is:
 5. Preview the session or run it in record mode.
 6. Save acquired data and optionally save the session configuration.
 
-This workflow is described in more detail in [documentation/RunExpt_GUI_Overview.md](documentation/RunExpt_GUI_Overview.md).
+This workflow is described in more detail in [documentation/overviews/RunExpt_GUI_Overview.md](documentation/overviews/RunExpt_GUI_Overview.md).
 
 ## Requirements
 
@@ -165,7 +165,7 @@ Optional components:
 
 ## For developers
 
-This repository is not a small single-entry-point library. It is a toolbox with a mix of GUI code, runtime orchestration, hardware abstraction, calibration support, and legacy helpers. If you are modifying internals, read [documentation/Architecture_Overview.md](documentation/Architecture_Overview.md) first.
+This repository is not a small single-entry-point library. It is a toolbox with a mix of GUI code, runtime orchestration, hardware abstraction, calibration support, and legacy helpers. If you are modifying internals, read [documentation/overviews/Architecture_Overview.md](documentation/overviews/Architecture_Overview.md) first.
 
 The short version is:
 
@@ -204,3 +204,4 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
+

@@ -78,5 +78,5 @@ This keeps the trial record aligned with the value that was applied after the re
 
 ## Related documentation
 
-- See `documentation/StaircaseTraining.md` for the training-window UI and stepping rules.
+- See `documentation/gui/StaircaseTraining.md` for the training-window UI and stepping rules.
 - See `obj/+gui/@StaircaseTraining/StaircaseTraining.m` for the class implementation.

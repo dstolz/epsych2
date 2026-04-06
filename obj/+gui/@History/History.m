@@ -23,7 +23,7 @@ classdef History < handle
     % Example:
     %   H = gui.History(pObj, uifigure);
     %
-    % See also: documentation/gui_History.md, epsych.BitMask
+    % See also: documentation/gui/gui_History.md, epsych.BitMask
 
     properties
         psychObj                     % Reference to the main psychophysics object
@@ -60,7 +60,7 @@ classdef History < handle
             % Returns:
             %   obj - gui.History object.
             %
-            % See also: documentation/gui_History.md
+            % See also: documentation/gui/gui_History.md
             arguments
                 pObj = []
                 container = []
@@ -320,3 +320,4 @@ classdef History < handle
         end
     end
 end
+

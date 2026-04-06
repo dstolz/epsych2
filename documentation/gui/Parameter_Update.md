@@ -12,7 +12,7 @@ It solves a common GUI workflow:
 
 ## Where it fits
 
-In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
+In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](../hw/hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
 
 `gui.Parameter_Update` watches one or more `gui.Parameter_Control` objects and:
 
@@ -104,7 +104,8 @@ If other code in your GUI also needs `WindowKeyPressFcn`/`WindowKeyReleaseFcn`, 
 
 - [obj/+gui/Parameter_Update.m](../obj/+gui/Parameter_Update.m): Implementation
 - [obj/+gui/Parameter_Control.m](../obj/+gui/Parameter_Control.m): Typical watched editor control
-- [documentation/hw_Parameter.md](hw_Parameter.md): `hw.Parameter` overview
+- [../hw/hw_Parameter.md](../hw/hw_Parameter.md): `hw.Parameter` overview
 - [runtime/timerfcns/ep_TimerFcn_Start.m](../runtime/timerfcns/ep_TimerFcn_Start.m): Creates `TRIALS.writeParamIdx`
 
 This documentation describes: [obj/+gui/Parameter_Update.m](../obj/+gui/Parameter_Update.m)
+

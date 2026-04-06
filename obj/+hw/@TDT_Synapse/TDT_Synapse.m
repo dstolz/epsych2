@@ -20,7 +20,7 @@ classdef TDT_Synapse < hw.Interface
     %   update_experiment_info - Refresh ExperimentInfo from Synapse.
     %   trigger, set_parameter, get_parameter - Interface I/O methods.
     %
-    % See also: documentation/hw_Interface.md, hw.Module, hw.Parameter
+    % See also: documentation/hw/hw_Interface.md, hw.Module, hw.Parameter
 
 
     properties

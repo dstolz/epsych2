@@ -36,8 +36,8 @@ function [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,
 %   value - New toggle state copied from event.Value.
 %   success - True when setup or teardown completes without error.
 %
-% See also gui.StaircaseTraining, documentation/StaircaseTraining.md,
-% documentation/eval_staircase_training_mode.md
+% See also gui.StaircaseTraining, documentation/gui/StaircaseTraining.md,
+% documentation/gui/eval_staircase_training_mode.md
 
 arguments
     obj
@@ -193,5 +193,6 @@ end
 RUNTIME.TRIALS.trials = T;
 
 end
+
 
 

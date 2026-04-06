@@ -19,7 +19,7 @@ classdef Software < hw.Interface
     %   Reads are handled as a special case by hw.Parameter because calling
     %   get_parameter from Parameter.Value would otherwise recurse.
     %
-    % See also: documentation/hw_Interface.md, hw.Module, hw.Parameter
+    % See also: documentation/hw/hw_Interface.md, hw.Module, hw.Parameter
 
 
     properties (SetAccess = protected)

@@ -39,7 +39,7 @@ function vprintf(verbose_level,varargin)
 % The msg input can also be an MException object and the entire error
 % message and stack will be printed to the log.
 %
-% See documentation/helpers_vprintf.md for a usage overview and examples.
+% See documentation/helpers/helpers_vprintf.md for a usage overview and examples.
 %
 % Daniel.Stolzberg@gmail.com 2015
 
@@ -160,4 +160,5 @@ if isnumeric(logFid) && logFid > 2
         fprintf(logFid,['%s,%s,%d: ' msg '\n'],curTimeStr,st.name,st.line,moreinputs{:});
     end
 end
+
 

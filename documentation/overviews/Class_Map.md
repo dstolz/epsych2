@@ -207,9 +207,10 @@ If you are tracing online plots or task summaries, start with the task GUI class
 ## Related documentation
 
 - Architecture overview: [Architecture_Overview.md](Architecture_Overview.md)
-- Runtime details: [epsych_Runtime.md](epsych_Runtime.md)
-- Hardware interfaces: [hw_Interface.md](hw_Interface.md)
-- Hardware modules: [hw_Module.md](hw_Module.md)
-- Hardware parameters: [hw_Parameter.md](hw_Parameter.md)
-- Psychophysics base class: [psychophysics_Psych.md](psychophysics_Psych.md)
+- Runtime details: [../epsych/epsych_Runtime.md](../epsych/epsych_Runtime.md)
+- Hardware interfaces: [../hw/hw_Interface.md](../hw/hw_Interface.md)
+- Hardware modules: [../hw/hw_Module.md](../hw/hw_Module.md)
+- Hardware parameters: [../hw/hw_Parameter.md](../hw/hw_Parameter.md)
+- Psychophysics base class: [../psychophysics/psychophysics_Psych.md](../psychophysics/psychophysics_Psych.md)
 - RunExpt walkthrough: [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
+

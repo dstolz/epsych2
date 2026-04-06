@@ -9,7 +9,7 @@ classdef DeviceState < int8
     %   asString - Return the enumeration name as a string scalar.
     %   isIdle - True for terminal or inactive states.
     %
-    % See also: documentation/hw_Interface.md, hw.Interface
+    % See also: documentation/hw/hw_Interface.md, hw.Interface
     enumeration
         Idle    (0)
         Standby (1)
@@ -32,3 +32,4 @@ classdef DeviceState < int8
         end
     end
 end
+

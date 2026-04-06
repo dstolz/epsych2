@@ -36,10 +36,10 @@ classdef Runtime < handle & dynamicprops
     %   r.writeParametersJSON('params.json');
     %
     % For more details, see:
-    %   documentation/epsych_Runtime.md
-    %   documentation/Architecture_Overview.md
-    %   documentation/Parameter_Control.md
-    %   documentation/EPsychInfo.md
+    %   documentation/epsych/epsych_Runtime.md
+    %   documentation/overviews/Architecture_Overview.md
+    %   documentation/gui/Parameter_Control.md
+    %   documentation/epsych/EPsychInfo.md
 
 
     properties
@@ -74,12 +74,12 @@ classdef Runtime < handle & dynamicprops
     methods
         % writeParametersJSON(obj, filepath)
         %   Serialize runtime parameters to a JSON file.
-        %   See also: documentation/Parameter_Control.md, documentation/epsych_Runtime.md
+        %   See also: documentation/gui/Parameter_Control.md, documentation/epsych/epsych_Runtime.md
         writeParametersJSON(obj, filepath)
 
         % readParametersJSON(obj, filepath)
         %   Load runtime parameters from a JSON file.
-        %   See also: documentation/Parameter_Control.md, documentation/epsych_Runtime.md
+        %   See also: documentation/gui/Parameter_Control.md, documentation/epsych/epsych_Runtime.md
         readParametersJSON(obj, filepath)
 
         function self = Runtime
@@ -113,7 +113,7 @@ classdef Runtime < handle & dynamicprops
             % Returns:
             %   P - Array of hw.Parameter objects
             %
-            % See also: hw.Parameter, hw.Interface, documentation/Parameter_Control.md
+            % See also: hw.Parameter, hw.Interface, documentation/gui/Parameter_Control.md
 
             arguments
                 obj
@@ -167,7 +167,7 @@ classdef Runtime < handle & dynamicprops
             % Returns:
             %   None. Updates obj.TRIALS in-place.
             %
-            % See also: documentation/epsych_Runtime.md, documentation/Parameter_Control.md
+            % See also: documentation/epsych/epsych_Runtime.md, documentation/gui/Parameter_Control.md
 
             arguments
                 obj
@@ -206,7 +206,7 @@ classdef Runtime < handle & dynamicprops
             %
             % The template includes example fields for hardware and software parameters.
             %
-            % See also: documentation/Parameter_Control.md, documentation/epsych_Runtime.md
+            % See also: documentation/gui/Parameter_Control.md, documentation/epsych/epsych_Runtime.md
 
             if nargin < 1 || isempty(filepath)
                 [fn, pth] = uiputfile('*.json', 'Save Template Phase JSON As');
@@ -262,4 +262,5 @@ classdef Runtime < handle & dynamicprops
         end
     end
 end
+
 

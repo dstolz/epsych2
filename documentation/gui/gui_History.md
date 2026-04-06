@@ -103,10 +103,11 @@ H.update();
 
 ## Related Documentation
 
-- [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
-- [EPsychInfo.md](EPsychInfo.md)
-- [Architecture_Overview.md](Architecture_Overview.md)
+- [../overviews/RunExpt_GUI_Overview.md](../overviews/RunExpt_GUI_Overview.md)
+- [../epsych/EPsychInfo.md](../epsych/EPsychInfo.md)
+- [../overviews/Architecture_Overview.md](../overviews/Architecture_Overview.md)
 
 ## Version History
 
 - 2026-04-03: Initial documentation for `gui.History`.
+

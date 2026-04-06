@@ -31,7 +31,7 @@ classdef PumpCom < handle
     %   pump.PumpRate = 0.5;
     %   pump.create_gui();
     %
-    % See also documentation/PumpCom.md.
+    % See also documentation/peripherals/peripherals_PumpCom.md.
 
     properties (SetObservable = true,GetObservable = true)
         PumpRate                (1,1) double {mustBePositive} = 0.7;   % Infusion rate value sent with RAT.

@@ -12,7 +12,7 @@ classdef BitMask < uint32
     %   mask = epsych.BitMask.Bits2Mask(uint32(flags));
     %   [bits, activeFlags] = epsych.BitMask.Mask2Bits(mask);
     %
-    % See also documentation/epsych_BitMask.md for additional examples and workflow notes.
+    % See also documentation/epsych/epsych_BitMask.md for additional examples and workflow notes.
     %
     % Methods:
     %   list             - Return or print enumeration names and bit indices.
@@ -90,7 +90,7 @@ classdef BitMask < uint32
             %   values - uint32 array of corresponding bit indices.
             %
             % When called with no output arguments, the method prints the full list.
-            % See also documentation/epsych_BitMask.md for usage examples.
+            % See also documentation/epsych/epsych_BitMask.md for usage examples.
 
             [enumObjs, names] = enumeration('epsych.BitMask');
             values = uint32(enumObjs);
@@ -110,7 +110,7 @@ classdef BitMask < uint32
             % Returns:
             %   f - Figure handle for the launched GUI.
             %
-            % See also documentation/epsych_BitMask.md and helpers/bitmask_gui.m.
+            % See also documentation/epsych/epsych_BitMask.md and helpers/bitmask_gui.m.
             arguments
                 options.InitialMask (1,1) {mustBeNonnegative, mustBeFinite, mustBeInteger} = 0
             end
@@ -205,7 +205,7 @@ classdef BitMask < uint32
             % Returns:
             %   colors - String array of hex color values matching the size of bitMasks.
             %
-            % See also documentation/epsych_BitMask.md for grouped usage examples.
+            % See also documentation/epsych/epsych_BitMask.md for grouped usage examples.
 
             if nargin < 1 || isempty(bitMasks)
                 bitMasks = epsych.BitMask.getAll;
@@ -276,7 +276,7 @@ classdef BitMask < uint32
             %   BM   - Cell array, shaped like mask, containing active epsych.BitMask
             %       values for each element.
             %
-            % See also epsych.BitMask.Bits2Mask and documentation/epsych_BitMask.md.
+            % See also epsych.BitMask.Bits2Mask and documentation/epsych/epsych_BitMask.md.
 
             arguments
                 mask {mustBeNonnegative, mustBeFinite, mustBeNonempty, mustBeInteger}
@@ -320,7 +320,7 @@ classdef BitMask < uint32
             %   mask = epsych.BitMask.Bits2Mask([0 1 1 1 0]);
             %   mask = epsych.BitMask.Bits2Mask([2 3 4]);
             %
-            % See also epsych.BitMask.Mask2Bits and documentation/epsych_BitMask.md.
+            % See also epsych.BitMask.Mask2Bits and documentation/epsych/epsych_BitMask.md.
 
             arguments
                 bits {mustBeNonempty}
@@ -362,7 +362,7 @@ classdef BitMask < uint32
             %   N - Structure of per-field counts, returned when requested.
             %
             % The Undefined member is excluded from the output fields. See also
-            % documentation/epsych_BitMask.md for common decoding workflows.
+            % documentation/epsych/epsych_BitMask.md for common decoding workflows.
 
             responseCodes = uint32(responseCodes);
             bm = epsych.BitMask.getDefined;
@@ -382,3 +382,4 @@ classdef BitMask < uint32
     end
 
 end
+

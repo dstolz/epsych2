@@ -35,7 +35,7 @@ classdef Parameter < matlab.mixin.SetGet
     %   p.Value = 10;
     %   disp(p.ValueStr)
     %
-    % See also: documentation/hw_Parameter.md
+    % See also: documentation/hw/hw_Parameter.md
 
     properties (SetAccess = immutable)
         Parent (1,1) % handle to parent object (e.g., hw.Software)

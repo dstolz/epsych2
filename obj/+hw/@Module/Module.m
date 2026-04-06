@@ -31,7 +31,7 @@ classdef Module < handle
     %   m = hw.Module(hw, 'AMP', 'Amplifier', 1);
     %   p = m.add_parameter('Gain', 1.0, Description="Amplifier gain");
     %
-    % For more details, see: documentation/hw_Module.md
+    % For more details, see: documentation/hw/hw_Module.md
     % See also: hw.Interface, hw.Parameter
         
     properties (SetAccess = immutable)
@@ -81,7 +81,7 @@ classdef Module < handle
             % Returns
             %   P       - Created hw.Parameter handle.
             %
-            % See also: hw.Parameter, documentation/hw_Module.md
+            % See also: hw.Parameter, documentation/hw/hw_Module.md
             arguments
                 obj
                 name (1,:) char {mustBeText}

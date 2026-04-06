@@ -11,7 +11,7 @@ function RUNTIME = ep_TimerFcn_RunTime(RUNTIME)
 % Returns:
 %   RUNTIME - Updated runtime state after timer tick.
 %
-% See also: epsych.Runtime, documentation/RunExpt_GUI_Overview.md
+% See also: epsych.Runtime, documentation/overviews/RunExpt_GUI_Overview.md
 
 % Copyright (C) 2016  Daniel Stolzberg, PhD
 % updated for hardware abstraction 2024 DS
@@ -163,6 +163,7 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.HELPER.notify('NewTrial',evtdata);
 
 end
+
 
 
 

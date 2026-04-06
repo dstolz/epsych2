@@ -102,6 +102,7 @@ If you are trying to get productive quickly, use this order:
 
 - For setup and prerequisites: [Installation_Guide.md](Installation_Guide.md)
 - For running sessions: [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
+- For runtime and analysis events: [Event_Notifications.md](Event_Notifications.md)
 - For internals and code structure: [Architecture_Overview.md](Architecture_Overview.md)
 
 ## Short version

@@ -89,6 +89,8 @@ Buttons at the bottom:
 
 ## 4) Running, pausing, stopping, and saving data
 
+If you need the underlying event model for GUI updates or runtime hooks, see [Event_Notifications.md](Event_Notifications.md).
+
 ### 4.1 What happens when you click Run / Preview
 
 When you click **Run** or **Preview**, RunExpt:
@@ -224,3 +226,8 @@ In the RunExpt figure:
 - **Data saving is intentionally “post-run”** by default: the Save Data button is enabled after Stop (and on Error).
 - **Synapse detection is process-based**: the GUI checks whether `Synapse.exe` appears in the Windows task list. If your Synapse setup differs, hardware selection may not match expectations.
 - **Closing the GUI stops the session**: closing while running prompts first, then stops timers and cleans up.
+
+## Related documentation
+
+- [Event_Notifications.md](Event_Notifications.md)
+- [Architecture_Overview.md](Architecture_Overview.md)

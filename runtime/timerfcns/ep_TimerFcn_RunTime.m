@@ -39,6 +39,7 @@ for i = 1:RUNTIME.NSubjects
             data = RUNTIME.getAllParameters(Access = 'Read', asStruct = true);
             
             data = structfun(@toStruct,data,'uni',0);
+            data = structfun(@(a) a.Value,data,'uni',0);
 
             data.TrialID = RUNTIME.TRIALS(i).TrialIndex;
             data.computerTimestamp = datetime('now');
@@ -64,9 +65,9 @@ for i = 1:RUNTIME.NSubjects
 
 
         % If in use, wait for manual completion of trial in RPvds
-        if ~isempty(RUNTIME.CORE(i),TrialComplete)
+        if ~isempty(RUNTIME.CORE(i).TrialComplete)
             vprintf(4,'Checking TrialComplete tag for box %d',i)
-            RUNTIME.ON_HOLD(i) = ~RUNTIME.CORE(i).TrialComplete.Value;
+            RUNTIME.ON_HOLD(i) = ~RUNTIME.CORE(i).TrialComplete;
         end
 
         if RUNTIME.ON_HOLD(i), continue; end

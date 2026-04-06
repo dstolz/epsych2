@@ -105,7 +105,6 @@ If the session GUI opens, the basic MATLAB-side installation is working.
 Code-confirmed toolbox usage in the current repository includes:
 
 - Signal Processing Toolbox for filter design and analysis in calibration and stimulus-generation helpers
-- Optimization Toolbox for nonlinear fitting via `lsqcurvefit` in `helpers/chunkwiseDeline.m`
 
 Other external dependencies referenced in code or documentation include:
 
@@ -122,7 +121,7 @@ Some experiment setups may also require local hardware-specific components that 
 - `runtime/`: runtime callbacks, timers, save functions, and trial-selection support
 - `helpers/`: general utilities and support classes
 - `calibration/`: calibration GUIs and support code
-- `cl/`: closed-loop trial selection logic and specialized GUIs
+- `cl/`: customized trial selection logic and specialized GUIs for the Caras Lab
 - `TDTfun/`: TDT-specific integration utilities
 - `documentation/`: focused usage notes and developer-facing references
 

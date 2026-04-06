@@ -21,7 +21,6 @@ classdef Runtime < handle & dynamicprops
     %   CORE           - Runtime core or struct-compatible
     %   StartTime      - Experiment start time (datetime)
     %   TrialComplete  - Manual trial completion flag
-    %   AcqBufferStr   - Buffer for acquired data (if used)
     %
     % Methods:
     %   Runtime             - Construct an empty runtime container
@@ -66,8 +65,6 @@ classdef Runtime < handle & dynamicprops
         StartTime datetime = NaT % Experiment start time (datetime)
 
         TrialComplete  % Manual trial completion flag (if in use, wait for manual completion of trial in RPvds)
-
-        AcqBufferStr = "" % Buffer for acquired data (if in use, collect AcqBuffer data at end of trial)
     end
 
 

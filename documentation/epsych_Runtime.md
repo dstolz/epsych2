@@ -23,7 +23,6 @@ Source file: [obj/+epsych/@Runtime/Runtime.m](../obj/+epsych/@Runtime/Runtime.m)
 - `TRIALS`: Trial-selection metadata and writable trial parameter table.
 - `dfltDataPath`, `TempDataDir`, `DataFile`: Data path and file tracking.
 - `HELPER`, `TIMER`: Runtime helper/event and timer service handles.
-- `DATA`, `AcqBufferStr`: Acquired-trial data containers.
 - `HW`, `S`: Hardware and software interface objects.
 - `StartTime`, `TrialComplete`, `ON_HOLD`: Runtime state flags and timestamps.
 

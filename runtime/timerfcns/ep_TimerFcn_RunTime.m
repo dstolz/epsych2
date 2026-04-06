@@ -59,26 +59,13 @@ for i = 1:RUNTIME.NSubjects
 
 
         % If in use, wait for manual completion of trial in RPvds
-        if isfield(RUNTIME,'TrialComplete')
-            vprintf(4,'Checking TrialComplete tag for box %d',i)
-            TCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialComplete);
-            RUNTIME.ON_HOLD(i) = ~TCtag;
-        end
+        vprintf(4,'Checking TrialComplete tag for box %d',i)
+        TCtag = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).TrialComplete);
+        RUNTIME.ON_HOLD(i) = ~TCtag;
 
         if RUNTIME.ON_HOLD(i), continue; end
 
 
-
-
-
-
-        % Collect Buffer if available
-        if isfield(RUNTIME,'AcqBufferStr')
-            vprintf(4,'Collecting AcqBuffer data for box %d',i)
-            try
-                RUNTIME.TRIALS(i).AcqBuffer = RUNTIME.HW.get_parameter(RUNTIME.CORE(i).AcqBuffer);
-            end
-        end
 
 
 

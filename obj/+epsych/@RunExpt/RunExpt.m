@@ -274,9 +274,9 @@ classdef RunExpt < handle
                 'BackgroundColor',[1 1 1]);
             cardPanel.Layout.Row = 2;
 
-            cardGrid = uigridlayout(cardPanel,[8 2]);
+            cardGrid = uigridlayout(cardPanel,[9 2]);
             cardGrid.ColumnWidth = {140,'1x'};
-            cardGrid.RowHeight = {'fit','fit','fit','fit','fit','fit','fit','1x'};
+            cardGrid.RowHeight = {'fit','fit','fit','fit','fit','fit','fit','fit','1x'};
             cardGrid.RowSpacing = 8;
             cardGrid.ColumnSpacing = 14;
             cardGrid.Padding = [16 16 16 12];
@@ -292,6 +292,8 @@ classdef RunExpt < handle
                 'GitHub Repository',E.RepositoryURL);
             self.addVersionInfoLinkRow(cardGrid,8,'History', ...
                 'Commit History Overview',E.CommitHistoryURL);
+            self.addVersionInfoLinkRow(cardGrid,9,'Wiki', ...
+                'Repository Wiki',E.WikiURL);
 
             footerGrid = uigridlayout(rootGrid,[1 2]);
             footerGrid.Layout.Row = 3;

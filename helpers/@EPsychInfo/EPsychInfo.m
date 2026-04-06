@@ -8,7 +8,7 @@ classdef EPsychInfo < handle
     %
     % Properties:
     %   Version, DataVersion, Author, AuthorEmail, License, LicenseURL
-    %   Copyright, RepositoryURL, CommitHistoryURL
+    %   Copyright, RepositoryURL, CommitHistoryURL, WikiURL
     %   iconPath - Path to the EPsych icon directory.
     %   chksum - Latest commit checksum from the local git checkout.
     %   commitTimestamp - Timestamp of the latest local commit log entry.
@@ -43,6 +43,7 @@ classdef EPsychInfo < handle
         Copyright = '(C) 2016-2026  Daniel Stolzberg, PhD';
         RepositoryURL = 'https://github.com/dstolz/epsych2';
         CommitHistoryURL = 'https://github.com/dstolz/epsych2/blob/master/documentation/overviews/CommitHistoryOverview.md';
+        WikiURL = 'https://github.com/dstolz/epsych2/wiki';
         DocumentationURL = 'https://github.com/dstolz/epsych2/blob/669b7581a731394d4b3ac7bd11bea68aa9e7608f/README.md';
     end
     
@@ -64,6 +65,7 @@ classdef EPsychInfo < handle
             m.commitTimestamp = obj.commitTimestamp;
             m.LatestTag = obj.latestTag;
             m.RepositoryURL = obj.RepositoryURL;
+            m.WikiURL = obj.WikiURL;
             m.CurrentTimestamp = datetime("now");
         end
         

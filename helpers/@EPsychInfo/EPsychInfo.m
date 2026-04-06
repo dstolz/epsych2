@@ -35,7 +35,7 @@ classdef EPsychInfo < handle
     
     properties (Constant)
         Version  = '2';
-        DataVersion = '2.0';   
+        DataVersion = '1.2';   
         Author = 'Daniel Stolzberg';
         AuthorEmail = 'daniel.stolzberg@gmail.com';
         License = 'GNU General Public License v3.0';

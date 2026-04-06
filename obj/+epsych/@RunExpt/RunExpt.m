@@ -236,7 +236,7 @@ classdef RunExpt < handle
 
             fig = uifigure('Name','EPsych Version Info', ...
                 'Tag','RunExptVersionInfo', ...
-                'Position',[100 100 560 360], ...
+                'Position',[100 100 560 520], ...
                 'Resize','off', ...
                 'Color',[0.97 0.98 1.00]);
             movegui(fig,'center');
@@ -271,12 +271,13 @@ classdef RunExpt < handle
                 'FontColor',[0.89 0.93 1.00]);
 
             cardPanel = uipanel(rootGrid,'BorderType','none', ...
-                'BackgroundColor',[1 1 1]);
+                'BackgroundColor',[1 1 1], ...
+                'Scrollable','on');
             cardPanel.Layout.Row = 2;
 
             cardGrid = uigridlayout(cardPanel,[9 2]);
             cardGrid.ColumnWidth = {140,'1x'};
-            cardGrid.RowHeight = {'fit','fit','fit','fit','fit','fit','fit','fit','1x'};
+            cardGrid.RowHeight = {'fit','fit','fit','fit','fit','fit','fit','fit','fit'};
             cardGrid.RowSpacing = 8;
             cardGrid.ColumnSpacing = 14;
             cardGrid.Padding = [16 16 16 12];

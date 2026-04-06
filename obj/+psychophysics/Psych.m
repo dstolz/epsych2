@@ -2,6 +2,7 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
     % P = psychophysics.Psych(SOURCE, Parameter)
     % P = psychophysics.Psych(SOURCE, Parameter, ExcludedTrials=value)
     % psychophysics.Psych Abstract base for behavioral-paradigm analyses.
+    % See documentation/psychophysics_Psych.md for subclassing and usage details.
     % psychophysics.Psych centralizes the shared data lifecycle used by
     % online and offline behavioral analyses. It supports construction from
     % either a Runtime object that emits NewData events or a saved DATA

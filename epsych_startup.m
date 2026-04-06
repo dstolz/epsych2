@@ -75,6 +75,9 @@ addpath(subdirs);
 path(path)
 fprintf(' done\n')
 
+
+vprintf(-1,'EPsych Toolbox version %s',EPsychInfo.Version);
+
 if showsplash, epsych_printBanner; end
 
 

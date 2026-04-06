@@ -318,6 +318,8 @@ classdef RunExpt < handle
             commandwindow
         end
 
+        OpenCurrentErrorLog(self)      % Open today's EPsych error log in the OS-associated text editor
+
         verbosity(self, varargin)  % Set or query the global output verbosity level
     end
 

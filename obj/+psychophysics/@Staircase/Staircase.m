@@ -46,7 +46,7 @@ classdef Staircase < psychophysics.Psych
         ThresholdFormula (1,1) string {mustBeMember(ThresholdFormula,["Mean","GeometricMean"])} = "Mean"  % Formula for computing threshold from reversals
         ConvertToDecibels (1,1) logical = false  % If true, convert stimulus values to dB using 20*log10(x)
 
-        
+
 
         Bits (1,:) epsych.BitMask = epsych.BitMask.getResponses;  % Response codes for visualization
         BitColors (:,1) string = epsych.BitMask.getDefaultColors(epsych.BitMask.getResponses);  % Colors mapped to Bits for response visualization
@@ -148,7 +148,7 @@ classdef Staircase < psychophysics.Psych
             %
             % See documentation/psychophysics/psychophysics_Staircase.md for offline analysis and plotting examples.
             arguments
-                RUNTIME 
+                RUNTIME
                 Parameter
                 options.StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
                 options.CatchTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
@@ -174,7 +174,7 @@ classdef Staircase < psychophysics.Psych
             if options.Plot
                 obj.Plot(options.PlotAxes, ShowSteps=options.ShowSteps, ShowReversals=options.ShowReversals);
             end
-            
+
         end
 
         function delete(obj)
@@ -315,8 +315,8 @@ classdef Staircase < psychophysics.Psych
             end
         end
 
-        
-        
+
+
     end
 
     methods (Access = protected)
@@ -331,8 +331,7 @@ classdef Staircase < psychophysics.Psych
             results = obj.emptyResults_();
             results.ReversalCount = 0;
 
-            data = obj.DATA;
-            if isempty(data)
+            if isempty(obj.DATA)
                 obj.Results = results;
                 return
             end
@@ -366,7 +365,7 @@ classdef Staircase < psychophysics.Psych
             if results.ReversalCount > 0
                 lastN = max(1, results.ReversalCount - obj.ThresholdFromLastNReversals + 1):results.ReversalCount;
                 thresholdValues = obj.stimulusValues(results.ReversalIdx(lastN));
-                
+
                 if obj.ThresholdFormula == "Mean"
                     results.Threshold = mean(thresholdValues);
                 else % GeometricMean
@@ -397,7 +396,7 @@ classdef Staircase < psychophysics.Psych
             end
         end
 
-        
+
 
     end
 
@@ -420,5 +419,5 @@ classdef Staircase < psychophysics.Psych
         values = columnize_(obj, values)
     end
 
-    
+
 end

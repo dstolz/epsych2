@@ -1,33 +1,19 @@
 classdef (Abstract) Psych < handle & matlab.mixin.SetGet
-    % P = psychophysics.Psych(SOURCE, Parameter)
-    % P = psychophysics.Psych(SOURCE, Parameter, ExcludedTrials=value)
-    % psychophysics.Psych Abstract base for behavioral-paradigm analyses.
-    % See documentation/psychophysics/psychophysics_Psych.md for subclassing and usage details.
-    % psychophysics.Psych centralizes the shared data lifecycle used by
-    % online and offline behavioral analyses. It supports construction from
-    % either a Runtime object that emits NewData events or a saved DATA
-    % struct array for offline review.
-    %
-    % Subclasses implement paradigm-specific recomputation while this base
-    % class manages trial-data storage, response-code extraction, trial-type
-    % masking, excluded-trial handling, and rebroadcasting updates through a
-    % local Helper instance.
+    % psych = psychophysics.Psych(source, Parameter)
+    % psych = psychophysics.Psych(source, Parameter, ExcludedTrials=value)
+    % Abstract base class for psychophysics analyses in online and offline modes.
+    % Manages shared trial data, exclusion masks, and NewData propagation.
     %
     % Key properties:
-    %   Parameter - Parameter object for online use, or a DATA field name for
-    %       offline analysis.
-    %   RUNTIME - Runtime object in online mode.
-    %   DATA - Cached per-trial data array.
-    %   ExcludedTrials - Logical mask or 1-based trial indices excluded from
-    %       subclass analysis.
-    %   Results - Paradigm-specific analysis outputs defined by subclasses.
+    %   Parameter      - Parameter object (online) or DATA field name (offline).
+    %   ExcludedTrials - Logical mask or 1-based trial indices excluded from analysis.
+    %   Results        - Paradigm-specific outputs implemented by subclasses.
     %
-    % Example:
-    %   % Subclasses call the base constructor from their own constructor.
-    %   obj = obj@psychophysics.Psych(RUNTIME, Parameter, ExcludedTrials=[]);
+    % Key methods:
+    %   refresh        - Recompute subclass results and rebroadcast updates.
+    %   update_data    - Handle runtime NewData events and refresh results.
     %
-    % Returns:
-    %   P - Abstract psychophysics.Psych subclass instance.
+    % See documentation/psychophysics/psychophysics_Psych.md for subclassing details.
 
     properties (Abstract, SetAccess = protected)
         Results  % Paradigm-specific computed outputs
@@ -35,6 +21,10 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
     properties (SetObservable)
         Parameter = []  % Parameter object or offline DATA field name tracked by the analysis
+        StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0  % BitMask identifying stimulus trials
+        CatchTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_1  % BitMask identifying catch trials
+        Bits (1,:) epsych.BitMask = epsych.BitMask.getResponses  % Response codes for visualization
+        BitColors (:,1) string = epsych.BitMask.getDefaultColors(epsych.BitMask.getResponses)  % Colors mapped to Bits for response visualization
     end
 
     properties (SetAccess = protected)
@@ -45,6 +35,7 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
     properties (Dependent)
         responseCodes  % Response codes extracted from DATA
+        responseBits  % Response bit labels mapped from responseCodes
         trialCount  % Total number of trials in DATA
         ExcludedTrials  % Trial exclusions as a logical mask or 1-based trial indices
         ParameterName  % Convenience accessor for labels and plot titles
@@ -59,11 +50,12 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
         function obj = Psych(source, Parameter, options)
             % obj = psychophysics.Psych(source, Parameter)
             % obj = psychophysics.Psych(source, Parameter, ExcludedTrials=value)
-            % Initialize shared online/offline analysis state.
+            % Initialize shared analysis state for online or offline data sources.
+            %
             % Parameters:
-            %   source - Runtime object for online updates, or DATA struct array for offline analysis.
-            %   Parameter - Parameter object, or in offline mode a DATA field name.
-            %   ExcludedTrials - Logical mask or 1-based trial indices to exclude.
+            %   source          - Runtime object for online updates, or DATA struct array for offline analysis.
+            %   Parameter       - Parameter object, or in offline mode a DATA field name.
+            %   ExcludedTrials  - Trial exclusions as a logical mask or 1-based trial indices.
             arguments
                 source = []
                 Parameter = []
@@ -81,9 +73,7 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
         function delete(obj)
             % delete(obj)
-            % Destroy the analysis object and release runtime listeners.
-            % Parameters:
-            %   obj - psychophysics.Psych subclass instance.
+            % Release runtime listeners before object destruction.
             if ~isempty(obj.hl_NewData)
                 listeners = obj.hl_NewData;
                 listeners = listeners(isvalid(listeners));
@@ -96,9 +86,7 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
         function refresh(obj)
             % refresh(obj)
-            % Recompute subclass analysis outputs and notify listeners when online.
-            % Parameters:
-            %   obj - psychophysics.Psych subclass instance.
+            % Recompute subclass results and emit a NewData update.
             obj.recomputeResults_();
             obj.afterRefresh_();
             obj.notifyDataUpdate_([]);
@@ -106,10 +94,10 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
         function update_data(obj, ~, event)
             % update_data(obj, ~, event)
-            % Update cached DATA from a runtime NewData event.
+            % Update cached DATA from a runtime NewData event and refresh results.
+            %
             % Parameters:
-            %   obj - psychophysics.Psych subclass instance.
-            %   event - Event payload containing event.Data.DATA.
+            %   event   - Event payload containing event.Data.DATA.
             obj.DATA = event.Data.DATA;
             vprintf(4, '%s received NewData event with %d trials', class(obj), numel(obj.DATA));
 
@@ -120,11 +108,10 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
         function rc = get.responseCodes(obj)
             % rc = obj.responseCodes
-            % Return response codes extracted from obj.DATA.
-            % Parameters:
-            %   obj - psychophysics.Psych subclass instance.
+            % Response codes extracted from DATA.
+            %
             % Returns:
-            %   rc - Row vector of response codes, or empty when unavailable.
+            %   rc  - Row vector of response codes, or empty when unavailable.
             fieldName = obj.resolveDataFieldName_(["RespCode", "ResponseCode"]);
             if strlength(fieldName) == 0
                 rc = uint32([]);
@@ -142,30 +129,54 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
         function n = get.trialCount(obj)
             % n = obj.trialCount
-            % Return the total number of trials in obj.DATA.
-            % Parameters:
-            %   obj - psychophysics.Psych subclass instance.
+            % Total number of trials currently in DATA.
+            %
             % Returns:
-            %   n - Number of trials currently stored in DATA.
+            %   n  - Number of trials in DATA.
             n = numel(obj.DATA);
+        end
+
+        function r = get.responseBits(obj)
+            % r = obj.responseBits
+            % Response bit labels decoded from responseCodes.
+            %
+            % Returns:
+            %   r  - Row vector of epsych.BitMask values, one per trial.
+            rc = obj.responseCodes;
+            if isempty(rc)
+                r = epsych.BitMask.empty(1,0);
+                return
+            end
+
+            decoded = epsych.BitMask.decode(rc);
+            r = repmat(epsych.BitMask(0), size(rc));
+
+            for bm = obj.Bits
+                ind = decoded.(char(bm));
+                if ~any(ind)
+                    continue
+                end
+                r(ind) = bm;
+            end
+
+            r = reshape(r, 1, []);
         end
 
         function value = get.ExcludedTrials(obj)
             % value = obj.ExcludedTrials
-            % Return configured trial exclusions.
-            % Parameters:
-            %   obj - psychophysics.Psych subclass instance.
+            % Configured trial exclusions.
+            %
             % Returns:
-            %   value - Logical exclusion mask or 1-based trial indices.
+            %   value  - Logical exclusion mask or 1-based trial indices.
             value = obj.excludedTrials_;
         end
 
         function set.ExcludedTrials(obj, value)
             % obj.ExcludedTrials = value
-            % Exclude trials from subclass analysis.
+            % Set trial exclusions and trigger result recomputation when changed.
+            %
             % Parameters:
-            %   obj - psychophysics.Psych subclass instance.
-            %   value - Empty, logical mask, or 1-based trial indices.
+            %   value  - Empty, logical mask, or 1-based trial indices.
             normalizedValue = obj.normalizeExcludedTrialsValue_(value);
             if isequaln(obj.excludedTrials_, normalizedValue)
                 return
@@ -177,11 +188,10 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
         function n = get.ParameterName(obj)
             % n = obj.ParameterName
-            % Return a display name for the tracked parameter.
-            % Parameters:
-            %   obj - psychophysics.Psych subclass instance.
+            % Display name for the tracked parameter.
+            %
             % Returns:
-            %   n - Parameter name for labels and plot titles.
+            %   n  - Parameter label used in plots and summaries.
             if isempty(obj.Parameter)
                 n = "";
                 return

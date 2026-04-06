@@ -117,6 +117,24 @@ classdef History < handle
             obj.update_row_colors;
         end
 
+        function set.ParametersOfInterest(obj,paramNames)
+            % set.ParametersOfInterest(obj, paramNames)
+            % Normalize parameters and validate format correspondence.
+            if isempty(paramNames)
+                obj.ParametersOfInterest = cell.empty(0,1);
+            else
+                obj.ParametersOfInterest = cellstr(string(paramNames(:)));
+            end
+            obj.validateParameterFormatCorrespondence;
+        end
+
+        function set.ParameterColumnFormats(obj,formats)
+            % set.ParameterColumnFormats(obj, formats)
+            % Normalize per-parameter formats and validate correspondence.
+            obj.ParameterColumnFormats = string(formats(:));
+            obj.validateParameterFormatCorrespondence;
+        end
+
         function set.psychObj(obj,pobj)
             % set.psychObj(obj, pobj)
             % Validate and assign psychObj, then refresh table display.
@@ -153,7 +171,7 @@ classdef History < handle
         function [DataOut,FN] = rearrange_data(obj)
             % [DataOut, FN] = rearrange_data(obj)
             % Rearrange DATA into table rows with relative time and response text.
-            requiredParams = {'ResponseCode','TrialID','inaccurateTimestamp'};
+            requiredParams = {'RespCode','TrialID','computerTimestamp'};
             DataIn = obj.psychObj.DATA;
 
             if ~isempty(obj.ParametersOfInterest)
@@ -167,26 +185,26 @@ classdef History < handle
             end
 
             obj.Info.TrialID = [DataIn.TrialID]';
-            td = [DataIn.inaccurateTimestamp] - DataIn(1).inaccurateTimestamp;
+            td = [DataIn.computerTimestamp] - DataIn(1).computerTimestamp;
             td.Format = "mm:ss";
             obj.Info.RelativeTimestamp = string(td);
 
-            RC = obj.psychObj.responseCodes;
-            RCD = epsych.BitMask.decode(RC);
-            r = repmat(epsych.BitMask(0),size(RC)); % preallocate
-            for bm = epsych.BitMask.getResponses
-                ind = RCD.(char(bm));
-                if ~any(ind), continue; end
-                r(ind) = bm;
-            end
-            obj.Info.ResponseBit = r(:);
-            Response = string(r);
+            rb = obj.psychObj.responseBits;
+            obj.Info.ResponseBit = rb(:);
+            Response = string(rb);
 
             ind = structfun(@(a) numel(a)>1,DataIn(1));
             fn = fieldnames(DataIn);
             fn = fn(ind);
             removeFields = [requiredParams(:); fn(:)];
             DataIn = rmfield(DataIn,removeFields);
+
+            if ~isempty(obj.ParametersOfInterest)
+                availableOrder = obj.ParametersOfInterest(ismember(obj.ParametersOfInterest,fieldnames(DataIn)));
+                if ~isempty(availableOrder)
+                    DataIn = orderfields(DataIn,availableOrder);
+                end
+            end
 
             DataOut = squeeze(struct2cell(DataIn))';
             DataOut = [cellstr(Response(:)) DataOut];
@@ -259,7 +277,7 @@ classdef History < handle
 
             allFormats = string(obj.ColumnFormats(:));
             if ~isempty(allFormats)
-                if numel(allFormats) == 1
+                if isscalar(allFormats)
                     formats = repmat(allFormats,nCols,1);
                 elseif numel(allFormats) == nCols
                     formats = allFormats;
@@ -281,10 +299,31 @@ classdef History < handle
 
             if isscalar(parameterFormats)
                 formats(3:end) = repmat(parameterFormats,nParameterCols,1);
+            elseif ~isempty(obj.ParametersOfInterest) && numel(parameterFormats) == numel(obj.ParametersOfInterest)
+                parameterNames = string(columnNames(3:end));
+                [isMatched,formatIdx] = ismember(parameterNames,string(obj.ParametersOfInterest));
+                if ~all(isMatched)
+                    error("ParameterColumnFormats must correspond to ParametersOfInterest names.");
+                end
+                formats(3:end) = parameterFormats(formatIdx);
             elseif numel(parameterFormats) == nParameterCols
                 formats(3:end) = parameterFormats;
             else
                 error("ParameterColumnFormats must provide one format or one format per parameter column.");
+            end
+        end
+
+        function validateParameterFormatCorrespondence(obj)
+            % validateParameterFormatCorrespondence(obj)
+            % Ensure per-parameter formats correspond to configured parameters.
+            if isempty(obj.ParameterColumnFormats) || isempty(obj.ParametersOfInterest)
+                return
+            end
+
+            nFormats = numel(obj.ParameterColumnFormats);
+            nParams = numel(obj.ParametersOfInterest);
+            if ~(isscalar(obj.ParameterColumnFormats) || nFormats == nParams)
+                error("ParameterColumnFormats must provide one format or exactly one format per ParametersOfInterest entry (%d).",nParams);
             end
         end
 

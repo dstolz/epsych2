@@ -38,9 +38,14 @@ for i = 1:RUNTIME.NSubjects
             % get all 'Read' or 'Read / Write' parameters from hardware and software interfaces and save in data struct
             data = RUNTIME.getAllParameters(Access = 'Read', asStruct = true);
             
+            data = structfun(@toStruct,data,'uni',0);
+
+            data.TrialID = RUNTIME.TRIALS(i).TrialIndex;
+            data.computerTimestamp = datetime('now');
+
             RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
 
-            data = RUNTIME.TRIALS(i).DATA; % get current trial data struct for saving
+
 
             % Save updated runtime data in case of crash
             save(RUNTIME.DataFile(i),'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
@@ -101,6 +106,13 @@ for i = 1:RUNTIME.NSubjects
         fprintf(2,'Error in Custom Trial Selection Function "%s" on line %d\n\n%s\n%s', ...
             me.stack(1).name,me.stack(1).line,me.identifier,me.message);
         vprintf(0,1,me);
+        % Ensure stale timers do not survive runtime failures.
+        t = timerfindall;
+        if ~isempty(t)
+            stop(t);
+            delete(t);
+        end
+        rethrow(me)
     end
     
 

@@ -12,8 +12,13 @@ vprintf(1,1,RUNTIME.ERROR);
 
 
 try
-    stop(timerfindall);
-    delete(timerfindall);
+    t = timerfindall;
+    if ~isempty(t)
+        stop(t);
+        delete(t);
+    end
+catch me
+    vprintf(0,1,me);
 end
 
 rethrow(RUNTIME.ERROR)

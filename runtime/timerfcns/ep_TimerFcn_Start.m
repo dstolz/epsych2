@@ -133,8 +133,7 @@ for i = 1:RUNTIME.NSubjects
 
 
     % SIMPLIFY ACCESS TO BUILTIN TRIGGERS
-    bmn = ["RespCode","TrigState","NewTrial","ResetTrig","TrialNum", ...
-        'TrialComplete','AcqBuffer','AcqBufferSize'];
+    bmn = ["RespCode","TrigState","NewTrial","ResetTrig","TrialNum", "TrialComplete"];
     for cc = bmn
         trigStr = sprintf('_%s~%d',cc,RUNTIME.TRIALS(i).Subject.BoxID);
         p = RUNTIME.HW.find_parameter(trigStr,includeInvisible=true,silenceParameterNotFound=true);

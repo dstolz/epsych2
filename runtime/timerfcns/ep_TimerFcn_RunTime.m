@@ -106,8 +106,8 @@ for i = 1:RUNTIME.NSubjects
         fprintf(2,'Error in Custom Trial Selection Function "%s" on line %d\n\n%s\n%s', ...
             me.stack(1).name,me.stack(1).line,me.identifier,me.message);
         vprintf(0,1,me);
-        % Ensure stale timers do not survive runtime failures.
-        t = timerfindall;
+        % Ensure only the main PsychTimer is cleaned up after runtime failures.
+        t = timerfind('Name','PsychTimer');
         if ~isempty(t)
             stop(t);
             delete(t);

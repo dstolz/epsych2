@@ -82,6 +82,7 @@ try
 catch
 end
 
+Info = EPsychInfo.meta;
 
 for i = 1:RUNTIME.NSubjects
     name  = RUNTIME.TRIALS(i).Subject.Name;
@@ -107,8 +108,9 @@ for i = 1:RUNTIME.NSubjects
         if isequal(fileloc,0), continue; end
     end
 
+
     try
-        save(fileloc,'Data')
+        save(fileloc,'Data','Info');
     catch me
         vprintf(0,1,me);
         vprintf(0,1,'Failed to save the file, try again!')

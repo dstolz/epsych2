@@ -2,7 +2,7 @@ function varargout = ep_ExperimentDesign(varargin)
 % h = ep_ExperimentDesign
 %
 % Design protocols for EPsych experiments
-% Documentation: documentation/design_ep_ExperimentDesign.md
+% Documentation: documentation/ep_ExperimentDesign.md
 %
 % Daniel.Stolzberg@gmail.com 2014
 

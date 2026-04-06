@@ -334,7 +334,7 @@ This allows GUIs or downstream analyses to respond when the psychophysics object
 - `obj/+epsych/BitMask.m`
 - `obj/+epsych/@Helper/Helper.m`
 - `obj/+epsych/TrialsData.m`
-- `documentation/Staircase.md`
+- `documentation/psychophysics_Staircase.md`
 - `documentation/Architecture_Overview.md`
 
 ## Changelog

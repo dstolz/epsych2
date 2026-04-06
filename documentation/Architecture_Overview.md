@@ -165,7 +165,6 @@ In practice, a protocol captures:
 
 Several parts of the codebase depend on protocol structures being stable, so changes to protocol fields tend to have wide impact.
 
-
 ## Practical guidance for contributors
 
 ### If you are changing experiment startup or runtime behavior
@@ -205,4 +204,5 @@ Look first at:
 - User setup guide: [Installation_Guide.md](Installation_Guide.md)
 - Session walkthrough: [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
 - Runtime event reference: [Event_Notifications.md](Event_Notifications.md)
+- Class and dependency maps: [Class_Map.md](Class_Map.md)
 - General repository landing page: [../README.md](../README.md)

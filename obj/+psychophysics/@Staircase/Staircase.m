@@ -33,7 +33,7 @@ classdef Staircase < psychophysics.Psych
     %   S.Plot();
     %   S.Plot(ax, ShowSteps=false);
     %
-    % See documentation/Staircase.md for workflow notes, threshold details, and
+    % See documentation/psychophysics_Staircase.md for workflow notes, threshold details, and
     % event-system integration examples.
 
     properties (SetObservable)
@@ -146,7 +146,7 @@ classdef Staircase < psychophysics.Psych
             % Returns:
             %   obj - Configured psychophysics.Staircase instance.
             %
-            % See documentation/Staircase.md for offline analysis and plotting examples.
+            % See documentation/psychophysics_Staircase.md for offline analysis and plotting examples.
             arguments
                 RUNTIME 
                 Parameter
@@ -218,7 +218,7 @@ classdef Staircase < psychophysics.Psych
             %   ShowSteps - Show step-direction markers. The default is obj.ShowSteps.
             %   ShowReversals - Show reversal markers. The default is obj.ShowReversals.
             %
-            % See documentation/Staircase.md for plotting workflows.
+            % See documentation/psychophysics_Staircase.md for plotting workflows.
             arguments
                 obj
                 ax = []

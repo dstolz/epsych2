@@ -147,6 +147,7 @@ More detail is available in [documentation/overviews/RunExpt_GUI_Overview.md](do
 
 ## Documentation map
 
+- Project wiki: <https://github.com/dstolz/epsych2/wiki>
 - Toolbox overview: [documentation/overviews/Toolbox_Overview.md](documentation/overviews/Toolbox_Overview.md)
 - Installation guide: [documentation/overviews/Installation_Guide.md](documentation/overviews/Installation_Guide.md)
 - Session GUI walkthrough: [documentation/overviews/RunExpt_GUI_Overview.md](documentation/overviews/RunExpt_GUI_Overview.md)

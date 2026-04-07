@@ -130,15 +130,9 @@ This order matters because it separates MATLAB path problems from hardware or dr
 
 ## Legacy installation notes
 
-The repository still includes historical setup notes in `Notes_on_Installation.txt`.
+Legacy setup notes previously included with older distributions covered rebuilding MEX components, configuring Microsoft SDK 7.1, and other older Windows MATLAB environment setup steps. Those notes are no longer included in the current repository.
 
-Those notes are mainly relevant if:
-
-- you are maintaining an older Windows MATLAB environment
-- you need to rebuild older MEX components
-- you are dealing with legacy dependencies such as Microsoft SDK 7.1
-
-In modern setups, start with the normal MATLAB path configuration first and only fall back to those notes if a specific component fails.
+If you are maintaining an older Windows MATLAB environment and encounter problems with missing MEX components or legacy dependencies, configure `mex -setup` and build only the specific missing component.
 
 ## Common setup issues
 
@@ -178,9 +172,8 @@ Likely cause:
 
 What to do:
 
-1. Review `Notes_on_Installation.txt`
-2. Configure `mex -setup`
-3. Build only the specific missing component rather than changing unrelated parts of the environment
+1. Configure `mex -setup`
+2. Build only the specific missing component rather than changing unrelated parts of the environment
 
 ## Next documents to read
 

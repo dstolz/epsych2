@@ -4,7 +4,7 @@
 
 `cl_SaveDataFcn` is a customized function for saving behavioral data in the ePsych system. It is designed to be called at the end of an experiment to save all subject data contained in the `RUNTIME.TRIALS` structure. The function also prompts the user to update the appropriate log (WATER or FOOD) via a modal GUI, and then saves each subject's data to a `.mat` file in a default or user-specified directory.
 
-This function is typically invoked automatically by the ePsych runtime, but a custom save function can be specified using the `ep_RunExpt` GUI if needed.
+This function is typically invoked automatically by the ePsych runtime, but a custom save function can be specified using the `epsych.RunExpt` GUI if needed.
 
 ## Function Signature
 
@@ -34,11 +34,11 @@ cl_SaveDataFcn(RUNTIME);
 
 ## Customization
 
-- To use a custom save function, specify it in the `ep_RunExpt` GUI.
+- To use a custom save function, specify it in the `epsych.RunExpt` GUI.
 - The default save directory is set to `D:\epsych_files\Data`, but this can be changed in the code if needed.
 
 ## Related Files
-- `ep_RunExpt` GUI (for specifying custom save functions)
+- `epsych.RunExpt` GUI (for specifying custom save functions)
 - `vprintf.m` (for formatted printing)
 - `epsych.RunExpt.defaultFilename` (for generating default filenames)
 

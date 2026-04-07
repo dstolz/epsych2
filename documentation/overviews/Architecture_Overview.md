@@ -70,8 +70,7 @@ This area is responsible for work that happens once a session is running, such a
 
 Examples:
 
-- `runtime/helpers/SetupDAexpt.m`
-- `runtime/helpers/SetupRPexpt.m`
+- `runtime/helpers/SelectTrial.m`
 - `runtime/savefcns/`
 - `runtime/timerfcns/`
 
@@ -148,8 +147,7 @@ Relevant components:
 
 - `hw.TDT_RPcox`
 - `TDTRP`
-- `TDT_SetupRP`
-- `runtime/helpers/SetupRPexpt.m`
+- `TDTfun/TDT_SetupRP.m`
 
 The practical implication is that protocol metadata and runtime assumptions must stay compatible with both higher-level experiment logic and the underlying hardware access path.
 

@@ -107,26 +107,12 @@ function compile_internal(obj)
         return
     end
     
-    % === PHASE 3: Apply repetitions and randomization ===
+    % === PHASE 3: Apply repetitions without reordering ===
     nreps = obj.Options.numReps;
     if ~isinf(nreps) && nreps > 0
-        if obj.Options.randomize
-            % Randomized: shuffle each repetition independently
-            n_unique = size(trials, 1);
-            trials_repeated = {};
-            for rep = 1:nreps
-                idx = randperm(n_unique);
-                for trial_idx = 1:n_unique
-                    row_in = trials(idx(trial_idx), :);
-                    row_out_idx = (rep - 1) * n_unique + trial_idx;
-                    trials_repeated(row_out_idx, :) = row_in;
-                end
-            end
-            trials = trials_repeated;
-        else
-            % Serialized: repeat as-is
-            trials = repmat(trials, nreps, 1);
-        end
+        % Preserve compiled row order even when the protocol requests
+        % randomized execution so previewed compiled trials remain stable.
+        trials = repmat(trials, nreps, 1);
     end
     
     % === OUTPUT ===
@@ -141,7 +127,7 @@ function compile_internal(obj)
         length(writeparams), obj.COMPILED.ntrials, nreps);
 end
 
-function trials_out = expand_cross_product(obj, trials_in, randparams_in)
+function trials_out = expand_cross_product(~, trials_in, ~)
     % expand_cross_product(obj, trials_in, randparams_in)
     % 
     % Perform cross-product expansion on initial trial rows.
@@ -154,18 +140,25 @@ function trials_out = expand_cross_product(obj, trials_in, randparams_in)
         return
     end
     
-    % Find columns that have arrays (need expansion)
+    % Find columns that have arrays or file lists that need expansion.
     n_cols = size(trials_in, 2);
     expand_cols = [];
     expand_values = {};
     
     for col = 1:n_cols
         val = trials_in{1, col};
-        if isnumeric(val) && length(val) > 1
-            % This column has multiple values that need expansion
+        if isnumeric(val) && numel(val) > 1
             expand_cols(end+1) = col; %#ok<AGROW>
-            expand_values{end+1} = val; %#ok<AGROW>
-            vprintf(2, '  Expanding col %d with %d values: [%s]', col, length(val), num2str(val));
+            expand_values{end+1} = num2cell(val(:).'); %#ok<AGROW>
+            vprintf(2, '  Expanding numeric col %d with %d values: [%s]', col, numel(val), num2str(val));
+        elseif isstring(val) && numel(val) > 1
+            expand_cols(end+1) = col; %#ok<AGROW>
+            expand_values{end+1} = cellstr(val(:).'); %#ok<AGROW>
+            vprintf(2, '  Expanding string col %d with %d values', col, numel(val));
+        elseif iscell(val) && numel(val) > 1
+            expand_cols(end+1) = col; %#ok<AGROW>
+            expand_values{end+1} = reshape(val, 1, []); %#ok<AGROW>
+            vprintf(2, '  Expanding cell col %d with %d values', col, numel(val));
         end
     end
     
@@ -177,25 +170,21 @@ function trials_out = expand_cross_product(obj, trials_in, randparams_in)
         return
     end
     
-    % Generate all combinations of the expandable values
-    % Use ndgrid to create all combinations
+    % Generate all combinations of the expandable value indices.
     n_expand = length(expand_cols);
     vprintf(2, 'n_expand = %d', n_expand);
     if n_expand == 1
-        combos = expand_values{1}(:);  % column vector
+        combos = (1:numel(expand_values{1}))';
         vprintf(2, 'Single expand: combos size %dx%d', size(combos));
     else
-        % Create ndgrid arguments
         grid_args = cell(1, n_expand);
         for i = 1:n_expand
-            grid_args{i} = expand_values{i}(:)';
-            vprintf(2, 'grid_args{%d}: [%s]', i, num2str(grid_args{i}));
+            grid_args{i} = 1:numel(expand_values{i});
+            vprintf(2, 'grid_args{%d}: 1:%d', i, numel(expand_values{i}));
         end
         
-        % Generate grid
         [grid{1:n_expand}] = ndgrid(grid_args{:});
         
-        % Convert to combinations matrix
         combos = zeros(numel(grid{1}), n_expand);
         for i = 1:n_expand
             combos(:, i) = grid{i}(:);
@@ -211,11 +200,10 @@ function trials_out = expand_cross_product(obj, trials_in, randparams_in)
         % Start with the base trial
         for col = 1:n_cols
             if ismember(col, expand_cols)
-                % This column is being expanded
                 expand_idx = find(expand_cols == col);
-                trials_out{combo_idx, col} = combos(combo_idx, expand_idx);
+                value_idx = combos(combo_idx, expand_idx);
+                trials_out{combo_idx, col} = expand_values{expand_idx}{value_idx};
             else
-                % This column stays the same
                 trials_out{combo_idx, col} = trials_in{1, col};
             end
         end

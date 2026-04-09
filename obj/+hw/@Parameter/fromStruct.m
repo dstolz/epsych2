@@ -73,9 +73,17 @@ obj.Min = obj.safeToNumeric_(S.Min);
 obj.Max = obj.safeToNumeric_(S.Max);
 obj.isRandom = logical(S.isRandom);
 
+if isfield(S, 'UserData')
+    obj.UserData = S.UserData;
+end
+
+if isfield(S, 'lastUpdated')
+    obj.lastUpdated = double(S.lastUpdated);
+end
+
 % Value (set after Type/bounds so validation context is correct)
 if options.UpdateValue
-    obj.Value = obj.safeToNumeric_(S.Value);
+    obj.Value = restoreSerializedValue(obj, S.Value);
 end
 
 end
@@ -85,5 +93,55 @@ function access = normalizeLegacyAccess(access)
 if isequal(access, 'Read / Write')
     access = 'Any';
 end
+end
+
+function value = restoreSerializedValue(obj, storedValue)
+if ismember(obj.Type, {'String', 'File'})
+    value = restoreTextLikeValue(storedValue);
+    return
+end
+
+if iscell(storedValue)
+    value = cellfun(@(item) restoreSerializedValue(obj, item), storedValue, 'UniformOutput', false);
+    if all(cellfun(@(item) isnumeric(item) || islogical(item), value))
+        value = cell2mat(cellfun(@double, value, 'UniformOutput', false));
+    end
+    return
+end
+
+if isstring(storedValue) || ischar(storedValue)
+    numericValue = obj.safeToNumeric_(storedValue);
+    if isnan(numericValue) && ~any(strcmp(char(string(storedValue)), {'NaN', 'Inf', '-Inf'}))
+        value = 0;
+    else
+        value = numericValue;
+    end
+    return
+end
+
+value = double(storedValue);
+end
+
+function value = restoreTextLikeValue(storedValue)
+if isstring(storedValue)
+    if isscalar(storedValue)
+        value = char(storedValue);
+    else
+        value = cellstr(storedValue);
+    end
+    return
+end
+
+if ischar(storedValue)
+    value = storedValue;
+    return
+end
+
+if iscell(storedValue)
+    value = cellfun(@restoreTextLikeValue, storedValue, 'UniformOutput', false);
+    return
+end
+
+value = char(string(storedValue));
 end
 

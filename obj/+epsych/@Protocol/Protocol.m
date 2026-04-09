@@ -468,9 +468,31 @@ classdef Protocol < handle & matlab.mixin.SetGet
             struct_out.Info = obj.Info;
             struct_out.COMPILED = obj.COMPILED;
             
-            % Serialize interfaces as a cell array of structs
+            % Serialize interfaces, modules, and parameters.
             struct_out.InterfaceCount = length(obj.Interfaces);
-            struct_out.InterfaceData = {};
+            struct_out.InterfaceData = cell(1, length(obj.Interfaces));
+            for ifaceIdx = 1:length(obj.Interfaces)
+                iface = obj.Interfaces(ifaceIdx);
+                ifaceStruct = struct();
+                ifaceStruct.Type = char(iface.Type);
+                ifaceStruct.ClassName = class(iface);
+                ifaceStruct.Modules = cell(1, length(iface.Module));
+                for moduleIdx = 1:length(iface.Module)
+                    module = iface.Module(moduleIdx);
+                    moduleStruct = struct();
+                    moduleStruct.Label = module.Label;
+                    moduleStruct.Name = module.Name;
+                    moduleStruct.Index = double(module.Index);
+                    moduleStruct.Fs = module.Fs;
+                    moduleStruct.Info = module.Info;
+                    moduleStruct.Parameters = cell(1, length(module.Parameters));
+                    for paramIdx = 1:length(module.Parameters)
+                        moduleStruct.Parameters{paramIdx} = module.Parameters(paramIdx).toStruct();
+                    end
+                    ifaceStruct.Modules{moduleIdx} = moduleStruct;
+                end
+                struct_out.InterfaceData{ifaceIdx} = ifaceStruct;
+            end
         end
 
         function obj = fromStruct(obj, struct_in)
@@ -497,6 +519,32 @@ classdef Protocol < handle & matlab.mixin.SetGet
             
             if isfield(struct_in, 'COMPILED')
                 obj.COMPILED = struct_in.COMPILED;
+            end
+
+            obj.Interfaces = hw.Interface.empty();
+            obj.SoftwareModule = hw.Software();
+
+            if isfield(struct_in, 'InterfaceData') && ~isempty(struct_in.InterfaceData)
+                for ifaceIdx = 1:length(struct_in.InterfaceData)
+                    ifaceStruct = struct_in.InterfaceData{ifaceIdx};
+                    if isempty(ifaceStruct)
+                        continue
+                    end
+
+                    restoredInterface = obj.createSerializedInterface_(ifaceStruct);
+                    obj.Interfaces(end + 1) = restoredInterface; %#ok<AGROW>
+                    if isa(restoredInterface, 'hw.Software')
+                        obj.SoftwareModule = restoredInterface;
+                    end
+                end
+            elseif isfield(obj.COMPILED, 'writeparams') && ~isempty(obj.COMPILED.writeparams)
+                recoveredInterface = obj.createRecoveredInterfaceFromCompiled_();
+                obj.Interfaces = recoveredInterface;
+                if isa(recoveredInterface, 'hw.Software')
+                    obj.SoftwareModule = recoveredInterface;
+                end
+            else
+                obj.Interfaces = obj.SoftwareModule;
             end
         end
 
@@ -536,6 +584,143 @@ classdef Protocol < handle & matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function interface = createSerializedInterface_(~, ifaceStruct)
+            ifaceType = char(string(ifaceStruct.Type));
+            switch ifaceType
+                case 'Software'
+                    interface = hw.Software();
+                case 'TDT_Synapse'
+                    interface = hw.SerializedTDT_Synapse();
+                case 'TDT_RPcox'
+                    interface = hw.SerializedTDT_RPcox();
+                otherwise
+                    interface = hw.SerializedTDT_RPcox();
+            end
+
+            modules = hw.Module.empty(1, 0);
+            if isfield(ifaceStruct, 'Modules') && ~isempty(ifaceStruct.Modules)
+                for moduleIdx = 1:length(ifaceStruct.Modules)
+                    moduleStruct = ifaceStruct.Modules{moduleIdx};
+                    module = hw.Module(interface, char(moduleStruct.Label), char(moduleStruct.Name), uint8(moduleStruct.Index));
+                    if isfield(moduleStruct, 'Fs') && ~isempty(moduleStruct.Fs)
+                        module.Fs = double(moduleStruct.Fs);
+                    end
+                    if isfield(moduleStruct, 'Info') && isstruct(moduleStruct.Info)
+                        module.Info = moduleStruct.Info;
+                    end
+                    if isfield(moduleStruct, 'Parameters') && ~isempty(moduleStruct.Parameters)
+                        for paramIdx = 1:length(moduleStruct.Parameters)
+                            paramStruct = moduleStruct.Parameters{paramIdx};
+                            parameter = hw.Parameter(interface);
+                            parameter.Module = module;
+                            parameter.fromStruct(paramStruct);
+                            module.Parameters(end + 1) = parameter; %#ok<AGROW>
+                        end
+                    end
+                    modules(end + 1) = module; %#ok<AGROW>
+                end
+            end
+
+            if isa(interface, 'hw.Software')
+                interface.set_module(modules);
+            else
+                interface.setModules(modules);
+            end
+        end
+
+        function interface = createRecoveredInterfaceFromCompiled_(obj)
+            writeparams = obj.COMPILED.writeparams;
+            trials = obj.COMPILED.trials;
+            hasModuleNames = any(contains(string(writeparams), '.'));
+
+            if hasModuleNames
+                interface = hw.SerializedTDT_RPcox();
+            else
+                interface = hw.Software();
+            end
+
+            moduleMap = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            modules = hw.Module.empty(1, 0);
+            for colIdx = 1:numel(writeparams)
+                writeParamName = char(string(writeparams{colIdx}));
+                if contains(writeParamName, '.')
+                    parts = split(string(writeParamName), '.');
+                    moduleName = char(parts(1));
+                    parameterName = char(parts(2));
+                else
+                    moduleName = 'Params';
+                    parameterName = writeParamName;
+                end
+
+                if ~isKey(moduleMap, moduleName)
+                    module = hw.Module(interface, moduleName, moduleName, uint8(length(modules) + 1));
+                    modules(end + 1) = module; %#ok<AGROW>
+                    moduleMap(moduleName) = module;
+                end
+                module = moduleMap(moduleName);
+
+                parameter = hw.Parameter(interface, Type = obj.inferSerializedParameterType_(trials, colIdx));
+                parameter.Name = parameterName;
+                parameter.Module = module;
+                parameter.Value = obj.getRecoveredParameterValue_(trials, colIdx);
+                parameter.Access = 'Any';
+                parameter.Visible = true;
+                parameter.isArray = numel(obj.normalizeRecoveredValue_(parameter.Value)) > 1;
+                module.Parameters(end + 1) = parameter; %#ok<AGROW>
+            end
+
+            if isa(interface, 'hw.Software')
+                interface.set_module(modules);
+            else
+                interface.setModules(modules);
+            end
+        end
+
+        function parameterType = inferSerializedParameterType_(~, trials, colIdx)
+            parameterType = 'String';
+            if isempty(trials)
+                return
+            end
+
+            sampleValue = trials{1, colIdx};
+            if islogical(sampleValue)
+                parameterType = 'Boolean';
+            elseif isnumeric(sampleValue)
+                if all(abs(sampleValue(:) - round(sampleValue(:))) < 1e-9)
+                    parameterType = 'Integer';
+                else
+                    parameterType = 'Float';
+                end
+            elseif ischar(sampleValue) || isstring(sampleValue)
+                [~, fileName, extension] = fileparts(char(string(sampleValue)));
+                if ~isempty(fileName) || ~isempty(extension)
+                    parameterType = 'File';
+                end
+            elseif iscell(sampleValue)
+                parameterType = 'File';
+            end
+        end
+
+        function value = getRecoveredParameterValue_(~, trials, colIdx)
+            if isempty(trials)
+                value = '';
+            else
+                value = trials{1, colIdx};
+            end
+        end
+
+        function values = normalizeRecoveredValue_(~, value)
+            if iscell(value)
+                values = value;
+            elseif isstring(value)
+                values = cellstr(value);
+            elseif isnumeric(value) || islogical(value)
+                values = num2cell(value);
+            else
+                values = {value};
+            end
+        end
+
         function compile_internal(obj)
             % compile_internal(obj) - Private method implementing the compile logic
             %
@@ -649,26 +834,12 @@ classdef Protocol < handle & matlab.mixin.SetGet
                 return
             end
             
-            % === PHASE 3: Apply repetitions and randomization ===
+            % === PHASE 3: Apply repetitions without reordering ===
             nreps = obj.Options.numReps;
             if ~isinf(nreps) && nreps > 0
-                if obj.Options.randomize
-                    % Randomized: shuffle each repetition independently
-                    n_unique = size(trials, 1);
-                    trials_repeated = {};
-                    for rep = 1:nreps
-                        idx = randperm(n_unique);
-                        for trial_idx = 1:n_unique
-                            row_in = trials(idx(trial_idx), :);
-                            row_out_idx = (rep - 1) * n_unique + trial_idx;
-                            trials_repeated(row_out_idx, :) = row_in;
-                        end
-                    end
-                    trials = trials_repeated;
-                else
-                    % Serialized: repeat as-is
-                    trials = repmat(trials, nreps, 1);
-                end
+                % Preserve compiled row order even when the protocol requests
+                % randomized execution so previewed compiled trials remain stable.
+                trials = repmat(trials, nreps, 1);
             end
             
             % === OUTPUT ===
@@ -683,7 +854,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
                 size(trials,1)/nreps, obj.COMPILED.ntrials, nreps);
         end
 
-        function trials_out = expand_cross_product(obj, trials_in, randparams_in)
+        function trials_out = expand_cross_product(~, trials_in, ~)
             % expand_cross_product(obj, trials_in, randparams_in)
             % 
             % Perform cross-product expansion on initial trial rows.
@@ -694,17 +865,22 @@ classdef Protocol < handle & matlab.mixin.SetGet
                 return
             end
             
-            % Find columns that have arrays (need expansion)
+            % Find columns that have arrays or file lists that need expansion.
             n_cols = size(trials_in, 2);
             expand_cols = [];
             expand_values = {};
             
             for col = 1:n_cols
                 val = trials_in{1, col};
-                if isnumeric(val) && length(val) > 1
-                    % This column has multiple values that need expansion
+                if isnumeric(val) && numel(val) > 1
                     expand_cols(end+1) = col; %#ok<AGROW>
-                    expand_values{end+1} = val; %#ok<AGROW>
+                    expand_values{end+1} = num2cell(val(:).'); %#ok<AGROW>
+                elseif isstring(val) && numel(val) > 1
+                    expand_cols(end+1) = col; %#ok<AGROW>
+                    expand_values{end+1} = cellstr(val(:).'); %#ok<AGROW>
+                elseif iscell(val) && numel(val) > 1
+                    expand_cols(end+1) = col; %#ok<AGROW>
+                    expand_values{end+1} = reshape(val, 1, []); %#ok<AGROW>
                 end
             end
             
@@ -714,22 +890,18 @@ classdef Protocol < handle & matlab.mixin.SetGet
                 return
             end
             
-            % Generate all combinations of the expandable values
-            % Use ndgrid to create all combinations
+            % Generate all combinations of the expandable value indices.
             n_expand = length(expand_cols);
             if n_expand == 1
-                combos = expand_values{1}(:);  % column vector
+                combos = (1:numel(expand_values{1}))';
             else
-                % Create ndgrid arguments
                 grid_args = cell(1, n_expand);
                 for i = 1:n_expand
-                    grid_args{i} = expand_values{i}(:)';
+                    grid_args{i} = 1:numel(expand_values{i});
                 end
                 
-                % Generate grid
                 [grid{1:n_expand}] = ndgrid(grid_args{:});
                 
-                % Convert to combinations matrix
                 combos = zeros(numel(grid{1}), n_expand);
                 for i = 1:n_expand
                     combos(:, i) = grid{i}(:);
@@ -741,14 +913,12 @@ classdef Protocol < handle & matlab.mixin.SetGet
             trials_out = cell(n_combos, n_cols);
             
             for combo_idx = 1:n_combos
-                % Start with the base trial
                 for col = 1:n_cols
                     if ismember(col, expand_cols)
-                        % This column is being expanded
                         expand_idx = find(expand_cols == col);
-                        trials_out{combo_idx, col} = combos(combo_idx, expand_idx);
+                        value_idx = combos(combo_idx, expand_idx);
+                        trials_out{combo_idx, col} = expand_values{expand_idx}{value_idx};
                     else
-                        % This column stays the same
                         trials_out{combo_idx, col} = trials_in{1, col};
                     end
                 end

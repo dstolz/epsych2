@@ -2,6 +2,8 @@
 
 `epsych.ProtocolDesigner` provides a lightweight editor for `epsych.Protocol` objects. It is intended to replace the older GUIDE-based protocol editing workflow with a package-based UI that operates directly on the object model.
 
+The designer edits the in-memory protocol directly. Most changes are applied immediately to the bound `epsych.Protocol` instance, and invalid edits are reverted by refreshing the affected table or control state.
+
 ## Launching
 
 Open the designer from MATLAB with:
@@ -25,7 +27,7 @@ The header area exposes the protocol info field together with buttons for:
 - Saving the current protocol to an `.eprot` file
 - Loading an existing `.eprot` or `.prot` file
 
-The status label at the top right reports the last successful action or validation error.
+The status label along the bottom of the window reports the last successful action or validation error.
 
 ## Parameters Tab
 
@@ -40,31 +42,60 @@ Use **Remove Interface** to remove the currently selected interface.
 ### Filtering and Target Selection
 
 - **Filter Interface** controls which interfaces appear in the parameter table.
-- **Target Interface** selects where new parameters will be added.
-- **Target Module** selects the module within that interface.
+- **Add To Interface** selects where new parameters will be added.
+- **Module** selects the target module within that interface.
 
 ### Parameter Table
 
 The parameter table exposes the key editable fields for each `hw.Parameter`.
 
+The visible columns are:
+
+- `Interface`
+- `Module`
+- `Name`
+- `Type`
+- `Expression`
+- `Value`
+- `Min`
+- `Max`
+- `Random`
+- `Access`
+- `Unit`
+- `Visible`
+- `Trigger`
+- `Description`
+
 Important behaviors:
 
 - `Type` is constrained to the supported parameter types.
 - `Access` is constrained to the supported access modes.
-- `Is Random` can only remain enabled when the parameter has finite `Min` and `Max` values.
-- `File` parameters open a file-picker workflow for the `Value` field instead of requiring manual path entry.
+- `File` parameters use a dedicated file editor instead of relying on direct path entry.
 - `Expression` is available for numeric scalar parameter types and computes the underlying `Value` from other parameters.
-- Interface-specific parameter names displayed in the GUI may be uniquified for readability, while the original hardware-facing name is preserved internally for backend communication.
 
-For file parameters, use **Browse File Value** after selecting a row in the parameter table. Editing the `Value` cell or changing `Type` to `File` also launches the file picker.
+The parameter table is also where cross-parameter validation shows up. If an expression can no longer be evaluated, for example because it references a parameter that was changed to `File`, the row is highlighted in red and the status line shows the error message.
+
+For file parameters, use **Edit Selected File Value** after selecting a row in the parameter table. Editing the `Value` cell or changing `Type` to `File` launches the same modal file editor.
+
+The file editor supports:
+
+- replacing the current file or file list
+- adding one or more files at once
+- removing selected entries from the list
+- clearing the current file value
+- previewing the full path of the current selection
+
+The list emphasizes file names and shows a shortened folder hint. The full selected path or paths appear in a separate preview area below the list.
 
 For derived numeric parameters, enter a formula in the `Expression` column. The table keeps the computed result in `Value` and recalculates expression-backed parameters when dependent parameter values change or when the parameter table refreshes.
 
 Expression notes:
 
 - Expressions are only allowed for `Float`, `Integer`, and `Boolean` parameter types.
-- Expressions must evaluate to a finite numeric scalar.
+- Expressions can be general MATLAB expressions and may evaluate to a single value or an array.
+- Results must remain numeric or logical, and numeric results must be finite.
 - You can reference other numeric scalar parameters by their parameter name when it is unique, or by a qualified alias based on interface, module, and parameter names.
+- Rows with expression-evaluation errors are highlighted in red until the expression is fixed.
 
 Parameter-level file-picker behavior can be customized through `hw.Parameter.UserData` fields such as:
 
@@ -82,7 +113,7 @@ Default values currently include:
 
 - `Value = 1`
 - `Type = 'Float'`
-- `Access = 'Any'`
+- `Access = 'Read / Write'`
 - visible, non-random, non-array, non-trigger
 - `Min = -inf`, `Max = inf`
 
@@ -92,16 +123,12 @@ If the requested name already exists in the selected module, a unique suffix is 
 
 The Options tab edits protocol-level settings stored on the `epsych.Protocol` object.
 
-This includes:
+The current controls are:
 
 - trial function name
-- number of repetitions
 - inter-stimulus interval
-- randomization
 - runtime compilation
 - WAV buffer inclusion
-- OpenEx usage
-- connection type
 
 Changes in this tab are applied directly to the protocol object.
 
@@ -113,7 +140,6 @@ The compiled preview is useful for checking:
 
 - trial counts
 - cross-product expansion behavior
-- randomized and repeated trial generation
 - final parameter values before runtime execution
 
 ## Interface Metadata Contract
@@ -135,3 +161,4 @@ When `getFile` is enabled, the designer adds a **Browse** button backed by `uige
 - The designer works directly against the object model, so edits affect the in-memory `epsych.Protocol` instance immediately.
 - Compile-time and runtime validation still depend on the underlying protocol and parameter classes.
 - If an edit fails, the status label reports the error and the table is refreshed back to the last valid state.
+- The file editor can promote a single-file parameter to a file list when multiple files are added in one operation.

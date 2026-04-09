@@ -50,8 +50,8 @@ classdef Parameter < matlab.mixin.SetGet
         Unit    (1,:) char = ''; % unit string (e.g., 'V', 'ms', etc.)
         Module  (1,1) % handle to module object that this parameter belongs to
 
-        Access  (1,:) char {mustBeMember(Access,{'Read','Write','Read / Write'})} = 'Read / Write'
-        Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+        Access  (1,:) char {mustBeMember(Access,{'Read','Write','Any','Read / Write'})} = 'Any'
+        Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined'})} = 'Float'
         Format  (1,:) char = '%g' % default format for displaying value
 
         Visible (1,1) logical = true % optionally hide parameter
@@ -122,8 +122,8 @@ classdef Parameter < matlab.mixin.SetGet
                 options.Name (1,:) char = 'Param'
                 options.Description (1,1) string = ""
                 options.Unit (1,:) char = ''
-                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
-                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Any','Read / Write'})} = 'Any'
+                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
                 options.PreUpdateFcnEnabled (1,1) logical = true
@@ -146,7 +146,7 @@ classdef Parameter < matlab.mixin.SetGet
             obj.Name = options.Name;
             obj.Description = options.Description;
             obj.Unit = options.Unit;
-            obj.Access = options.Access;
+            obj.Access = normalizeLegacyAccess(options.Access);
             obj.Type = options.Type;
             obj.Format = options.Format;
             obj.Visible = options.Visible;
@@ -154,11 +154,11 @@ classdef Parameter < matlab.mixin.SetGet
             obj.EvaluatorFcnEnabled = options.EvaluatorFcnEnabled;
             obj.PostUpdateFcnEnabled = options.PostUpdateFcnEnabled;
             obj.UserData = options.UserData;
+            obj.Min = options.Min;
+            obj.Max = options.Max;
             obj.isArray = options.isArray;
             obj.isTrigger = options.isTrigger;
             obj.isRandom = options.isRandom;
-            obj.Min = options.Min;
-            obj.Max = options.Max;
         end
 
         % function disp(obj)
@@ -235,7 +235,7 @@ classdef Parameter < matlab.mixin.SetGet
 
         function vstr = get.ValueStr(obj)
             if isempty(obj.Format)
-                if isequal(obj.Type,'String')
+                if ismember(obj.Type, {'String', 'File'})
                     obj.Format = '%s';
                 else
                     obj.Format = '%g';
@@ -243,7 +243,9 @@ classdef Parameter < matlab.mixin.SetGet
             end
 
             v = obj.Value;
-            if obj.isArray
+            if isequal(obj.Type, 'File')
+                vstr = obj.formatFileValue_(v);
+            elseif obj.isArray
                 ov = length(v);
                 n = min(12,ov);
                 v = v(1:n);
@@ -265,11 +267,35 @@ classdef Parameter < matlab.mixin.SetGet
 
         function set.Type(obj,type)
             obj.Type = type;
-            if isequal(obj.Type,'String')
+            if ismember(obj.Type, {'String', 'File'})
                 obj.Format = '%s';
             else
                 obj.Format = '%g';
             end
+        end
+
+        function set.isRandom(obj, isRandom)
+            if isRandom && ~obj.hasFiniteRandomBounds()
+                error('hw:Parameter:RandomBoundsRequired', ...
+                    'Random parameter "%s" must have finite Min and Max values.', obj.Name);
+            end
+            obj.isRandom = logical(isRandom);
+        end
+
+        function set.Min(obj, minValue)
+            if obj.isRandom && ~isfinite(minValue)
+                error('hw:Parameter:RandomMinFinite', ...
+                    'Min must be finite when parameter "%s" is random.', obj.Name);
+            end
+            obj.Min = minValue;
+        end
+
+        function set.Max(obj, maxValue)
+            if obj.isRandom && ~isfinite(maxValue)
+                error('hw:Parameter:RandomMaxFinite', ...
+                    'Max must be finite when parameter "%s" is random.', obj.Name);
+            end
+            obj.Max = maxValue;
         end
     end
 
@@ -327,7 +353,7 @@ classdef Parameter < matlab.mixin.SetGet
                 return
             end
 
-            if ~isequal(obj.Type,'String') && (value < obj.Min || value > obj.Max)
+            if ~ismember(obj.Type, {'String', 'File'}) && (value < obj.Min || value > obj.Max)
                 vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
                 return
             end
@@ -344,6 +370,45 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function valueText = formatFileValue_(~, value)
+            if isstring(value)
+                value = cellstr(value);
+            end
+
+            if ischar(value)
+                valueText = value;
+                return
+            end
+
+            if iscell(value)
+                flatValues = value;
+                if numel(flatValues) == 1 && iscell(flatValues{1})
+                    flatValues = flatValues{1};
+                end
+                flatValues = flatValues(~cellfun(@isempty, flatValues));
+                if isempty(flatValues)
+                    valueText = '';
+                elseif numel(flatValues) == 1
+                    valueText = char(string(flatValues{1}));
+                else
+                    previewCount = min(3, numel(flatValues));
+                    preview = strjoin(cellfun(@char, flatValues(1:previewCount), UniformOutput = false), ', ');
+                    if numel(flatValues) > previewCount
+                        valueText = sprintf('[%s, ... (%d files)]', preview, numel(flatValues));
+                    else
+                        valueText = sprintf('[%s]', preview);
+                    end
+                end
+                return
+            end
+
+            valueText = char(string(value));
+        end
+
+        function tf = hasFiniteRandomBounds(obj)
+            tf = isfinite(obj.Min) && isfinite(obj.Max);
+        end
+
         function s = argsToStr_(obj, args)
             s = cell(size(args));
             for i = 1:numel(args)
@@ -416,4 +481,11 @@ classdef Parameter < matlab.mixin.SetGet
             end
         end
     end
+end
+
+
+function access = normalizeLegacyAccess(access)
+if isequal(access, 'Read / Write')
+    access = 'Any';
+end
 end

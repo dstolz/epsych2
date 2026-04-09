@@ -74,6 +74,22 @@ classdef Software < hw.Interface
             obj.Module = hw.Module(obj,'Software','Params',1);
         end
 
+        function mode_handler(obj,src,event)
+            disp(event)
+        end
+    end
+
+    methods (Static)
+        function spec = getCreationSpec()
+            spec.type = char(hw.Software.Type);
+            spec.label = 'Software';
+            spec.description = 'In-memory interface for design-time parameters and testing.';
+            spec.options = struct('name', {}, 'label', {}, 'defaultValue', {}, 'required', {}, 'inputType', {}, 'choices', {}, 'isList', {}, 'controlType', {}, 'getFile', {}, 'getFolder', {}, 'fileFilter', {}, 'fileDialogTitle', {}, 'description', {});
+            spec.createFcn = @(~) hw.Software();
+        end
+    end
+
+    methods
         % trigger a hardware event
         function result = trigger(obj,name)
 
@@ -131,10 +147,6 @@ classdef Software < hw.Interface
             % [~,idx] = ismember(name,{P.Name});
             % value = value(idx);
             value = nan;
-        end
-
-        function mode_handler(obj,src,event)
-            disp(event)
         end
 
     end

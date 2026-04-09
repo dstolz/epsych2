@@ -117,7 +117,7 @@ Supported options in the current implementation:
 - `includeInvisible`: Include invisible parameters. Default is `false`.
 - `includeTriggers`: Include trigger parameters. Default is `false`.
 - `includeArray`: Include array-valued parameters. Default is `true`.
-- `Access`: Restrict to `Read`, `Write`, or `Read / Write`. Default is `Read`.
+- `Access`: Restrict to `Read`, `Write`, `Any`, or `All`. Default is `Read`.
 - `asStruct`: Return a struct keyed by each parameter's `validName` instead of an array. Default is `false`.
 
 This method is the main way higher-level code gets a filtered view of runtime parameters without needing to know whether they came from hardware or software.

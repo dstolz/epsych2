@@ -43,7 +43,7 @@ end
 obj.Name = char(S.Name);
 obj.Description = string(S.Description);
 obj.Unit = char(S.Unit);
-obj.Access = char(S.Access);
+obj.Access = normalizeLegacyAccess(char(S.Access));
 obj.Type = char(S.Type);
 obj.Format = char(S.Format);
 obj.Visible = logical(S.Visible);
@@ -67,14 +67,23 @@ obj.PostUpdateFcnEnabled = logical(S.PostUpdateFcnEnabled);
 % Flags
 obj.isArray = logical(S.isArray);
 obj.isTrigger = logical(S.isTrigger);
-obj.isRandom = logical(S.isRandom);
 
 % Bounds
 obj.Min = obj.safeToNumeric_(S.Min);
 obj.Max = obj.safeToNumeric_(S.Max);
+obj.isRandom = logical(S.isRandom);
 
 % Value (set after Type/bounds so validation context is correct)
 if options.UpdateValue
     obj.Value = obj.safeToNumeric_(S.Value);
+end
+
+end
+
+
+function access = normalizeLegacyAccess(access)
+if isequal(access, 'Read / Write')
+    access = 'Any';
+end
 end
 

@@ -105,7 +105,7 @@ classdef Runtime < handle & dynamicprops
             %       Include invisible parameters (default: false)
             %   options.includeArray (1,1) logical
             %       Include array-valued parameters (default: true)
-            %   options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})}
+            %   options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Any','All','Read / Write'})}
             %       Filter by access type (default: 'Read')
             %   options.asStruct (1,1) logical = false
             %       Return parameters as struct with valid field names instead of array (default: false)
@@ -123,7 +123,7 @@ classdef Runtime < handle & dynamicprops
                 options.includeInvisible (1,1) logical = false
                 options.includeTriggers (1,1) logical = false
                 options.includeArray (1,1) logical = true
-                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read'
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Any','All','Read / Write'})} = 'Read'
             end
 
             asStruct = options.asStruct;
@@ -223,7 +223,7 @@ classdef Runtime < handle & dynamicprops
                 'Description', "Example parameter for template", ...
                 'Unit', '', ...
                 'Module', '', ...
-                'Access', 'Read / Write', ...
+                'Access', 'Any', ...
                 'Type', 'Float', ...
                 'Format', '%g', ...
                 'Visible', true, ...

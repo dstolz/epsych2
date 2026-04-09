@@ -1,4 +1,4 @@
-function setup_interface(obj,RPvdsFile,moduleType,moduleAlias)
+function setup_interface(obj,RPvdsFile,moduleType,moduleAlias,options)
 % hw.TDT_RPcox
 vprintf(2,'Establishing RPcox ActiveX')
 
@@ -10,17 +10,20 @@ end
 % use TDTRP to establish connection, but use hardware
 % abstraction object (hw.Module) for interface
 for i = 1:length(moduleType)
-    obj.HW(i) = TDTRP(RPvdsFile{i},moduleType{i});
+    obj.HW(i) = TDTRP(RPvdsFile{i}, moduleType{i}, ...
+        'INTERFACE', options.Interface, ...
+        'NUMBER', options.Number, ...
+        'FS', options.Fs);
 
-    M = hw.Module(obj,moduleType{i},moduleAlias{i},1);
+    M = hw.Module(obj,moduleType{i},moduleAlias{i},i);
 
 
-    M.Fs = obj.HW.RP.GetSFreq;
+    M.Fs = obj.HW(i).RP.GetSFreq;
     M.Info.RPvdsFile = RPvdsFile{i};
 
 
     % setup parameters
-    pt = obj.HW.PARTAG;
+    pt = obj.HW(i).PARTAG;
     pt = [pt{:}];
     ind = arrayfun(@(a) a.tag_name(1)=='%',pt);
     pt(ind) = [];
@@ -28,6 +31,7 @@ for i = 1:length(moduleType)
         P = hw.Parameter(obj);
 
         P.Name = pt(p).tag_name;
+        obj.setHardwareParameterName(P, pt(p).tag_name);
         P.isArray = pt(p).tag_size > 1;
 
         P.isTrigger = P.Name(1) == '!'; % our convention for a trigger
@@ -61,6 +65,8 @@ for i = 1:length(moduleType)
 
     obj.Module(i) = M;
 end
+
+obj.ensureUniqueParameterNames();
 
 
 

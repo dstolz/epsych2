@@ -176,7 +176,7 @@ This gives you a cleaner starting table containing only relevant parameter tags.
 The default row layout is:
 
 ```matlab
-{'' 'Write/Read' '< NONE >' '' false false '< NONE >'}
+{'' 'Any' '< NONE >' '' false false '< NONE >'}
 ```
 
 In practice the columns represent:
@@ -195,7 +195,7 @@ The first column must not be empty. If the name begins with `$`, the GUI automat
 
 ### 6.2 Direction / access mode
 
-Typical values are `Write`, `Read`, or `Read/Write`. These are passed to the compiler so it can populate the write-parameter and read-parameter lists.
+Typical values are `Write`, `Read`, or `Any`. These are passed to the compiler so it can populate the write-parameter and read-parameter lists.
 
 ### 6.3 Buddy variables
 

@@ -167,7 +167,7 @@ for i = 1:length(fn)
         v(end+1,:) = {sprintf('~%s_Size',v{idx,1}), ...
             'Write', bb, buflengths, 0, 0, '< NONE >'}; %#ok<AGROW>
         v(end+1,:) = {sprintf('~%s_ID',v{idx,1}), ...
-            'Read/Write', bb, 1:length(buflengths), 0, 0, '< NONE >'}; %#ok<AGROW>
+            'Any', bb, 1:length(buflengths), 0, 0, '< NONE >'}; %#ok<AGROW>
         v(end+1,:) = v(idx,:); %#ok<AGROW> Place buffer tag last so that the buffer size is updated first (DJS 5/2016)
         v(idx,:) = []; % delete original buffer tag
     end
@@ -183,13 +183,19 @@ end
 mod = mod(idx);
 
 % fields: 1 - parameter tag
-%         2 - Write/Read
+%         2 - access mode
 %         3 - buddy variable
 %         4 - Associated parameter values
 %         5 - Random within range (specified in values)
 
 for i = 1:size(data,1)
     module = mod{i};
+    if strcmpi(data{i,2}, 'Any')
+        comp.writeparams{end+1} = [module '.' data{i,1}];
+        comp.readparams{end+1} = [module '.' data{i,1}];
+        continue
+    end
+
     if isempty(strfind(data{i,2},'Write')) % 'Read' only
         comp.readparams{end+1} = [module '.' data{i,1}];
         continue

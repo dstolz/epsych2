@@ -65,6 +65,29 @@ classdef TDT_Synapse < hw.Interface
         end
     end
 
+    methods (Static)
+        function spec = getCreationSpec()
+            spec.type = char(hw.TDT_Synapse.Type);
+            spec.label = 'TDT Synapse';
+            spec.description = 'Connect to a Synapse server and discover its exposed modules and parameters.';
+            spec.options = struct(...
+                'name', {'server'}, ...
+                'label', {'Server'}, ...
+                'defaultValue', {'localhost'}, ...
+                'required', {false}, ...
+                'inputType', {'text'}, ...
+                'choices', {{}}, ...
+                'isList', {false}, ...
+                'controlType', {'text'}, ...
+                'getFile', {false}, ...
+                'getFolder', {false}, ...
+                'fileFilter', {{{'*.*', 'All Files (*.*)'}}}, ...
+                'fileDialogTitle', {'Select Synapse Server Target'}, ...
+                'description', {'Synapse server host name.'});
+            spec.createFcn = @(opts) hw.TDT_Synapse(char(opts.server));
+        end
+    end
+
 
     methods
         function update_experiment_info(obj)
@@ -150,7 +173,7 @@ classdef TDT_Synapse < hw.Interface
             end
 
             module = P.Module.Label;
-            trig = P.Name;
+            trig = obj.getHardwareParameterName(P);
 
             e = obj.HW.setParameterValue(module,trig,1);
             
@@ -192,7 +215,8 @@ classdef TDT_Synapse < hw.Interface
 
             for i = 1:length(P)
                 p = P(i);
-                e = p.HW.setParameterValue(p.Module.Label,p.Name,value(i));
+                parameterName = obj.getHardwareParameterName(p);
+                e = obj.HW.setParameterValue(p.Module.Label, parameterName, value(i));
                 if e
                     vstr = p.ValueStr;
                     vprintf(3,'Updated parameter: %s = %s',p.Name,vstr)
@@ -231,10 +255,11 @@ classdef TDT_Synapse < hw.Interface
             value = cell(size(P));
             for i = 1:length(P)
                 p = P(i);
+                parameterName = obj.getHardwareParameterName(p);
                 if p.isArray
-                    value{i} = obj.HW.getParameterValues(p.Module.Label,p.Name);
+                    value{i} = obj.HW.getParameterValues(p.Module.Label, parameterName);
                 else
-                    value{i} = obj.HW.getParameterValue(p.Module.Label,p.Name);
+                    value{i} = obj.HW.getParameterValue(p.Module.Label, parameterName);
                 end
             end
 

@@ -88,8 +88,8 @@ classdef Module < handle
                 value
                 options.Description (1,1) string = ""
                 options.Unit (1,:) char = ''
-                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
-                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Any','Read / Write'})} = 'Any'
+                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
                 options.PreUpdateFcnEnabled (1,1) logical = true
@@ -103,8 +103,12 @@ classdef Module < handle
                 options.Max (1,1) double = inf
             end
 
-            if isstring(value), value = char(value); end
-            if ischar(value), P.Type = "String"; end
+            if isstring(value)
+                value = char(value);
+            end
+            if ischar(value) && ~strcmp(options.Type, 'File')
+                options.Type = 'String';
+            end
             nopts = namedargs2cell(options);
             P = hw.Parameter(obj.parent, nopts{:});
             P.Name = name;

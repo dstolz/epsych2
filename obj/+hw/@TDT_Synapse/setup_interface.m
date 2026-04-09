@@ -70,6 +70,7 @@ for m = 1:length(obj.Module)
         P = hw.Parameter(obj);
 
         P.Name = t.Name;
+        obj.setHardwareParameterName(P, t.Name);
         P.Unit = t.Unit;
         P.Min = t.Min;
         P.Max = t.Max;
@@ -89,6 +90,8 @@ for m = 1:length(obj.Module)
     end
 
 end
+
+obj.ensureUniqueParameterNames();
 
 end
 

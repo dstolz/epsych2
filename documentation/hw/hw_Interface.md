@@ -177,7 +177,7 @@ Collects every parameter from every module and optionally filters out:
 - trigger parameters
 - invisible parameters
 - array-valued parameters
-- access mode (`'Read'`, `'Write'`, `'Read / Write'`, or `'Any'`)
+- access mode (`'Read'`, `'Write'`, `'Any'`, or `'All'` when requesting no filtering)
 
 When `asStruct=true`, the result is returned as a struct keyed by each
 parameter's `validName`.
@@ -253,7 +253,7 @@ different subclasses.
 I = hw.TDT_Synapse(...);
 
 visibleParams = I.all_parameters();
-readWriteParams = I.filter_parameters('Access', 'Read / Write');
+anyAccessParams = I.filter_parameters('Access', 'Any');
 rewardParam = I.find_parameter("Reward");
 
 if ~isempty(rewardParam)

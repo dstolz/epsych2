@@ -79,6 +79,26 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         result = trigger(name)
     end
 
+    methods (Abstract, Static)
+        % spec = getCreationSpec()
+        %   Return a struct describing the options required to create this
+        %   interface, including defaults, UI control hints, and a factory function.
+        %   Each spec.options entry may include fields such as:
+        %     name, label, defaultValue, required, inputType, choices,
+        %     isList, controlType, getFile, getFolder, fileFilter,
+        %     fileDialogTitle, and description.
+        %   controlType is optional and can be used to steer GUIs toward a
+        %   specific widget such as text, textarea, numeric, dropdown,
+        %   multiselect, or checkbox.
+        %   getFile is optional and, when true, indicates the GUI should
+        %   provide a file picker backed by uigetfile for that option.
+        %   getFolder is optional and, when true, indicates the GUI should
+        %   provide a folder picker backed by uigetdir for that option.
+        %   fileFilter and fileDialogTitle are optional picker settings
+        %   used when getFile or getFolder are enabled.
+        spec = getCreationSpec()
+    end
+
 
 
     methods
@@ -103,8 +123,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 value
                 options.Description (1,1) string = ""
                 options.Unit (1,:) char = ''
-                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
-                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Any','Read / Write'})} = 'Any'
+                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
                 options.PreUpdateFcnEnabled (1,1) logical = true
@@ -131,7 +151,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             %   options.includeTriggers   - logical (default=true). Include trigger Parameters.
             %   options.includeInvisible  - logical (default=false). Include Parameters where Visible is false.
             %   options.includeArray      - logical (default=true). Include Parameters with array-valued contents.
-            %   options.Access            - char (default='Any'). Filter by access type: 'Read', 'Write', 'Read / Write', or 'Any'.
+            %   options.Access            - char (default='All'). Filter by access type: 'Read', 'Write', 'Any', or 'All'.
             %
             % Returns:
             %   P - hw.Parameter[]. Concatenated Parameters from every module after requested filters are applied.
@@ -142,7 +162,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 options.includeTriggers (1,1) logical = true
                 options.includeInvisible (1,1) logical = false
                 options.includeArray (1,1) logical = true
-                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write','Any'})} = 'Any'
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Any','All','Read / Write'})} = 'All'
                 options.asStruct (1,1) logical = false
             end
             P = [obj.Module(:).Parameters];
@@ -160,8 +180,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                     P = P(~strcmp({P.Access}, 'Write'));
                 case 'Write'
                     P = P(~strcmp({P.Access}, 'Read'));
-                case 'Read / Write'
-                    P = P(strcmp({P.Access}, 'Read / Write'));
+                case {'Any', 'Read / Write'}
+                    P = P(ismember({P.Access}, {'Any', 'Read / Write'}));
                 otherwise
                     % no filtering needed
             end
@@ -243,7 +263,82 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         end
     end
 
+    methods (Access = protected)
+        function ensureUniqueParameterNames(obj)
+            parameters = obj.all_parameters(includeInvisible = true, includeTriggers = true);
+            if isempty(parameters)
+                return
+            end
+
+            hardwareNames = arrayfun(@hw.Interface.getHardwareParameterName, parameters, 'UniformOutput', false);
+            [uniqueNames, ~, groupIdx] = unique(hardwareNames, 'stable'); %#ok<ASGLU>
+            counts = accumarray(groupIdx(:), 1);
+
+            for paramIdx = 1:numel(parameters)
+                if counts(groupIdx(paramIdx)) <= 1
+                    continue
+                end
+
+                parameter = parameters(paramIdx);
+                hardwareName = hardwareNames{paramIdx};
+                parameter.Name = sprintf('%s[%d].%s', parameter.Module.Name, parameter.Module.Index, hardwareName);
+            end
+        end
+
+        function setHardwareParameterName(~, parameter, hardwareName)
+            if isempty(parameter.UserData) || ~isstruct(parameter.UserData)
+                parameter.UserData = struct();
+            end
+
+            parameter.UserData.HardwareName = char(hardwareName);
+        end
+    end
+
     methods (Static)
+        function spec = normalizeCreationSpec(spec)
+            if ~isfield(spec, 'options') || isempty(spec.options)
+                spec.options = struct('name', {}, 'label', {}, 'defaultValue', {}, 'required', {}, ...
+                    'inputType', {}, 'choices', {}, 'isList', {}, 'controlType', {}, 'getFile', {}, ...
+                    'getFolder', {}, 'fileFilter', {}, 'fileDialogTitle', {}, 'description', {});
+                return
+            end
+
+            for optionIdx = 1:numel(spec.options)
+                option = spec.options(optionIdx);
+
+                if ~isfield(option, 'choices') || isempty(option.choices)
+                    spec.options(optionIdx).choices = {};
+                end
+                if ~isfield(option, 'isList') || isempty(option.isList)
+                    spec.options(optionIdx).isList = false;
+                end
+                if ~isfield(option, 'description') || isempty(option.description)
+                    spec.options(optionIdx).description = '';
+                end
+                if ~isfield(option, 'getFile') || isempty(option.getFile)
+                    spec.options(optionIdx).getFile = false;
+                end
+                if ~isfield(option, 'getFolder') || isempty(option.getFolder)
+                    spec.options(optionIdx).getFolder = false;
+                end
+                if ~isfield(option, 'fileFilter') || isempty(option.fileFilter)
+                    spec.options(optionIdx).fileFilter = {'*.*', 'All Files (*.*)'};
+                end
+                if ~isfield(option, 'fileDialogTitle') || isempty(option.fileDialogTitle)
+                    spec.options(optionIdx).fileDialogTitle = char(string(spec.options(optionIdx).label));
+                end
+                if ~isfield(option, 'controlType') || isempty(option.controlType)
+                    spec.options(optionIdx).controlType = hw.Interface.inferCreationControlType(spec.options(optionIdx));
+                end
+            end
+        end
+
+        function name = getHardwareParameterName(parameter)
+            name = parameter.Name;
+            if isstruct(parameter.UserData) && isfield(parameter.UserData, 'HardwareName') && ~isempty(parameter.UserData.HardwareName)
+                name = char(parameter.UserData.HardwareName);
+            end
+        end
 
 
         function tf = local_test(fcn, val, pat)
@@ -273,6 +368,36 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             end
         end
 
+    end
+
+    methods (Static, Access = private)
+        function controlType = inferCreationControlType(option)
+            if isfield(option, 'inputType')
+                inputType = char(string(option.inputType));
+            else
+                inputType = 'text';
+            end
+
+            if isfield(option, 'isList') && option.isList
+                if isfield(option, 'choices') && ~isempty(option.choices)
+                    controlType = 'multiselect';
+                else
+                    controlType = 'textarea';
+                end
+                return
+            end
+
+            switch lower(inputType)
+                case 'choice'
+                    controlType = 'dropdown';
+                case 'numeric'
+                    controlType = 'numeric';
+                case {'logical', 'boolean', 'bool'}
+                    controlType = 'checkbox';
+                otherwise
+                    controlType = 'text';
+            end
+        end
     end
 
 end

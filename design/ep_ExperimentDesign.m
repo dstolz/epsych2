@@ -556,7 +556,7 @@ end
 
 function d = dfltrow
 % default row definition
-d = {'' 'Write/Read' '< NONE >' '' false false '< NONE >'};
+d = {'' 'Any' '< NONE >' '' false false '< NONE >'};
 
 function view_compiled_Callback(h) %#ok<DEFNU>
 if ~isfield(h,'protocol') || isempty(h.protocol), return; end

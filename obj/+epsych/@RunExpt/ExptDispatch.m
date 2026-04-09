@@ -27,10 +27,8 @@ switch lower(COMMAND)
         % Load protocols
         for i = 1:length(self.CONFIG)
             warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
-            S = load(self.CONFIG(i).protocol_fn,'protocol','-mat');
+            self.CONFIG(i).PROTOCOL = epsych.Protocol.load(self.CONFIG(i).protocol_fn);
             warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
-
-            self.CONFIG(i).PROTOCOL = S.protocol;
 
             [pn,fn] = fileparts(self.CONFIG(i).protocol_fn);
             vprintf(0,['%2d. ''%s''\tProtocol: ', ...
@@ -39,9 +37,9 @@ switch lower(COMMAND)
                 self.CONFIG(i).SUBJECT.BoxID,self.CONFIG(i).SUBJECT.Name, ...
                 self.CONFIG(i).protocol_fn,fn,pn,pn)
 
-            if isempty(self.CONFIG(i).PROTOCOL.OPTIONS.trialfunc) ...
-                    || strcmp(self.CONFIG(i).PROTOCOL.OPTIONS.trialfunc,'< default >')
-                self.CONFIG(i).PROTOCOL.OPTIONS.trialfunc = @DefaultTrialSelectFcn;
+            if isempty(self.CONFIG(i).PROTOCOL.Options.trialFunc) ...
+                    || strcmp(self.CONFIG(i).PROTOCOL.Options.trialFunc,'< default >')
+                self.CONFIG(i).PROTOCOL.Options.trialFunc = @DefaultTrialSelectFcn;
             end
         end
 
@@ -57,11 +55,27 @@ switch lower(COMMAND)
                 vprintf(0,'Experiment will be run with Synapse')
                 self.RUNTIME.HW = hw.TDT_Synapse();
             else
-                M = self.CONFIG.PROTOCOL.MODULES;
-                moduleAlias = fieldnames(M);
-                rpvdsFile = structfun(@(a) cellstr(a.RPfile),M,'uni',1);
-                moduleType = repmat({'RZ6'},size(rpvdsFile));
-                self.RUNTIME.HW = hw.TDT_RPcox(rpvdsFile,moduleType,moduleAlias);
+                % Get hardware interfaces from loaded protocol
+                % If protocol was designed with Software only, create minimal hardware
+                protocol_interfaces = self.CONFIG.PROTOCOL.Interfaces;
+                
+                % Filter out Software interfaces and find hardware interfaces
+                hw_interfaces = [];
+                for iface_idx = 1:length(protocol_interfaces)
+                    iface = protocol_interfaces(iface_idx);
+                    if ~strcmp(char(iface.Type), 'Software')
+                        hw_interfaces = [hw_interfaces, iface];  %#ok<AGROW>
+                    end
+                end
+                
+                if isempty(hw_interfaces)
+                    % Create minimal TDT_RPcox with Software fallback
+                    vprintf(1,'No hardware interfaces found in protocol; creating TDT_RPcox placeholder');
+                    self.RUNTIME.HW = hw.Software();
+                else
+                    % Use first hardware interface (or could select based on ConnectionType)
+                    self.RUNTIME.HW = hw_interfaces(1);
+                end
             end
         catch me
             drawnow
@@ -70,9 +84,16 @@ switch lower(COMMAND)
 
         for i = 1:length(self.CONFIG)
             self.RUNTIME.TRIALS(i).protocol_fn = self.CONFIG(i).protocol_fn; %#ok<AGROW>
-            modnames = fieldnames(self.CONFIG(i).PROTOCOL.MODULES);
-            for j = 1:length(modnames)
-                self.RUNTIME.TRIALS(i).MODULES.(modnames{j}) = j;
+            % Map interface names to indices  for backward compatibility
+            protocol_interfaces = self.CONFIG(i).PROTOCOL.Interfaces;
+            for j = 1:length(protocol_interfaces)
+                % Store interface index mapping
+                if isprop(protocol_interfaces(j), 'Name')
+                    iface_name = protocol_interfaces(j).Name;
+                else
+                    iface_name = char(protocol_interfaces(j).Type);
+                end
+                self.RUNTIME.TRIALS(i).MODULES.(iface_name) = j;  %#ok<AGROW>
             end
         end
 

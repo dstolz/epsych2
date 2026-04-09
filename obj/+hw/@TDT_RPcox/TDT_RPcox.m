@@ -49,12 +49,62 @@ classdef TDT_RPcox < hw.Interface
 
     methods
         % constructor
-        function obj = TDT_RPcox(RPvdsFile,moduleType,moduleAlias)
+        function obj = TDT_RPcox(RPvdsFile,moduleType,moduleAlias, options)
+            arguments
+                RPvdsFile
+                moduleType
+                moduleAlias = {}
+                options.Interface (1,:) char = 'GB'
+                options.Number (1,1) double {mustBeInteger, mustBePositive} = 1
+                options.Fs (1,1) double {mustBeNonnegative, mustBeFinite} = 0
+            end
+
             RPvdsFile = cellstr(RPvdsFile);
             moduleType = cellstr(moduleType);
             moduleAlias = cellstr(moduleAlias);
+            options.Interface = upper(options.Interface);
+            if ~ismember(options.Interface, {'USB', 'GB'})
+                error('hw:TDT_RPcox:InvalidInterface', ...
+                    'Interface must be either "USB" or "GB".');
+            end
 
-            obj.setup_interface(RPvdsFile,moduleType,moduleAlias);
+            obj.setup_interface(RPvdsFile,moduleType,moduleAlias, options);
+        end
+    end
+
+    methods (Static)
+        function spec = getCreationSpec()
+            spec.type = char(hw.TDT_RPcox.Type);
+            spec.label = 'TDT RPcoX';
+            spec.description = 'Connect to one or more RPcoX devices using RPvds circuits and a transport interface.';
+            spec.options = struct(...
+                'name', {'RPvdsFile', 'moduleType', 'moduleAlias', 'interface', 'number', 'fs'}, ...
+                'label', {'RPvds File(s)', 'Device Type(s)', 'Module Alias(es)', 'Connection Type', 'Device Number', 'Sample Rate Override'}, ...
+                'defaultValue', {'', '', '', 'GB', 1, 0}, ...
+                'required', {true, true, false, false, false, false}, ...
+                'inputType', {'text', 'text', 'text', 'choice', 'numeric', 'numeric'}, ...
+                'choices', {{}, {'RP2', 'RA16', 'RL2', 'RV8', 'RM1', 'RM2', 'RX5', 'RX6', 'RX7', 'RX8', 'RZ2', 'RZ5', 'RZ6'}, {}, {'GB', 'USB'}, {}, {}}, ...
+                'isList', {true, true, true, false, false, false}, ...
+                'controlType', {'textarea', 'textarea', 'textarea', 'dropdown', 'numeric', 'numeric'}, ...
+                'getFile', {true, false, false, false, false, false}, ...
+                'getFolder', {false, false, false, false, false, false}, ...
+                'fileFilter', { ...
+                    {{'*.rcx;*.rco;*.rpx;*.rpvds', 'TDT Circuit Files (*.rcx, *.rco, *.rpx, *.rpvds)'; '*.*', 'All Files (*.*)'}}, ...
+                    {{'*.*', 'All Files (*.*)'}}, ...
+                    {{'*.*', 'All Files (*.*)'}}, ...
+                    {{'*.*', 'All Files (*.*)'}}, ...
+                    {{'*.*', 'All Files (*.*)'}}, ...
+                    {{'*.*', 'All Files (*.*)'}}}, ...
+                'fileDialogTitle', {'Select RPvds Circuit Files', 'Select Device Type Definitions', 'Select Module Alias Source', 'Select Connection Type', 'Select Device Number', 'Select Sample Rate Source'}, ...
+                'description', { ...
+                    'One or more RPvds circuit files.', ...
+                    'One or more TDT device types, one per circuit.', ...
+                    'Optional aliases for the created modules.', ...
+                    'Transport used to connect to the hardware.', ...
+                    'Device number as enumerated by zBusMon.', ...
+                    'Optional sample rate override passed to TDTRP.'});
+            spec.createFcn = @(opts) hw.TDT_RPcox(opts.RPvdsFile, opts.moduleType, opts.moduleAlias, ...
+                Interface = char(opts.interface), Number = opts.number, Fs = opts.fs);
         end
     end
 
@@ -131,14 +181,16 @@ classdef TDT_RPcox < hw.Interface
                 P = obj.find_parameter(name);
             end
 
-            e = obj.HW.write(P.Name,1);
+            trig = obj.getHardwareParameterName(P);
+            hwHandle = obj.HW(P.Module.Index);
+            e = hwHandle.write(trig,1);
             
             t = now;
             
             if ~e, throwerrormsg(module,trig); end
             pause(0.001)
             
-            e = obj.HW.write(P.Name,0);
+            e = hwHandle.write(trig,0);
             if e
                 vprintf(3,'Triggered "%s"',P.Name)
             else
@@ -171,8 +223,10 @@ classdef TDT_RPcox < hw.Interface
                 p = P(i);
                 v = value(i);
                 if iscell(v), v = v{1}; end % array
+                parameterName = obj.getHardwareParameterName(p);
+                hwHandle = obj.HW(p.Module.Index);
 
-                e = P.HW.write(p.Name,v);
+                e = hwHandle.write(parameterName,v);
                 if e
                     vstr = p.ValueStr;
                     vprintf(4,'Updated parameter: %s = %s',p.Name,vstr)
@@ -210,8 +264,10 @@ classdef TDT_RPcox < hw.Interface
             value = cell(size(P));
             for i = 1:length(P)
                 p = P(i);
+                parameterName = obj.getHardwareParameterName(p);
+                hwHandle = obj.HW(p.Module.Index);
 
-                value{i} = p.HW.read(p.Name);
+                value{i} = hwHandle.read(parameterName);
             end
 
 

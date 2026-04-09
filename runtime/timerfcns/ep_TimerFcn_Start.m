@@ -32,7 +32,7 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).TrialCount   = zeros(size(RUNTIME.TRIALS(i).trials,1),1); 
     RUNTIME.TRIALS(i).activeTrials = true(size(RUNTIME.TRIALS(i).TrialCount));
     RUNTIME.TRIALS(i).UserData     = [];
-    RUNTIME.TRIALS(i).trialfunc    = C.PROTOCOL.OPTIONS.trialfunc;
+    RUNTIME.TRIALS(i).trialfunc    = C.PROTOCOL.Options.trialFunc;
     RUNTIME.TRIALS(i).writeparams  = C.PROTOCOL.COMPILED.writeparams;
     RUNTIME.TRIALS(i).readparams   = C.PROTOCOL.COMPILED.readparams;
 
@@ -140,8 +140,8 @@ for i = 1:RUNTIME.NSubjects
         RUNTIME.CORE(i).(cc) = p;
     end
 
-    load(RUNTIME.TRIALS(i).protocol_fn,'-mat');
-    RUNTIME.TRIALS(i).protocol = protocol;
+    % Protocol already loaded by ExptDispatch; use it directly
+    RUNTIME.TRIALS(i).protocol = CONFIG(i).PROTOCOL;
 
 
     % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv

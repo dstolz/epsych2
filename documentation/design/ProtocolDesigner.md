@@ -1,6 +1,6 @@
 # Protocol Designer
 
-`epsych.ProtocolDesigner` provides a lightweight editor for `epsych.Protocol` objects. It is intended to replace the older GUIDE-based protocol editing workflow with a package-based UI that operates directly on the object model.
+`epsych.ProtocolDesigner` provides a lightweight editor for `epsych.Protocol` objects. It is implemented as a package class folder under `obj/+epsych/@ProtocolDesigner` with separate method files for UI construction, callbacks, and private helpers.
 
 The designer edits the in-memory protocol directly. Most changes are applied immediately to the bound `epsych.Protocol` instance, and invalid edits are reverted by refreshing the affected table or control state.
 

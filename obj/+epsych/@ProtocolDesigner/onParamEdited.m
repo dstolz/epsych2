@@ -51,6 +51,22 @@ function onParamEdited(obj, evt)
                     parameter.isArray = updatedAllowMultiple;
                     parameter.Value = fileValue;
                     nextStep = 'Review the selected files, then compile to verify they produce the expected trials.';
+                elseif isequal(parameter.Type, 'String')
+                    if ~(ischar(originalValue) || isstring(originalValue) || iscell(originalValue))
+                        parameter.Value = '';
+                    end
+                    [stringValue, cancelled, isArrayValue] = obj.editParameterStringValue(parameter);
+                    if cancelled
+                        parameter.Type = originalType;
+                        parameter.Value = originalValue;
+                        obj.refreshParameterTable();
+                        obj.setStatus(sprintf('String edit cancelled for %s', parameter.Name), ...
+                            'Use Edit Selected Value when you are ready to set one or more string values for this parameter.');
+                        return
+                    end
+                    parameter.isArray = isArrayValue;
+                    parameter.Value = stringValue;
+                    nextStep = 'Review the entered string values, then compile to verify the updated trials.';
                 else
                     [coercedValue, isArrayValue] = obj.coerceValueForType(originalValue, parameter.Type);
                     parameter.Value = coercedValue;
@@ -100,10 +116,22 @@ function onParamEdited(obj, evt)
                     nextStep = 'Assign the same pair group to the related parameter if needed.';
                 end
             case 7
-                obj.refreshParameterTable();
-                obj.setStatus(sprintf('Value for %s is read-only', parameter.Name), ...
-                    'Edit the Expression column instead, then compile to refresh the result.');
-                return
+                if isequal(parameter.Type, 'String')
+                    [stringValue, isArrayValue] = obj.parseStringParameterValue(evt.NewData);
+                    parameter.isArray = isArrayValue;
+                    parameter.Value = stringValue;
+                    statusMessage = sprintf('Updated string value for %s', parameter.Name);
+                    if isArrayValue
+                        nextStep = 'Use semicolons in the Value cell to keep editing the string list, or open Edit Selected Value for a larger editor.';
+                    else
+                        nextStep = 'Edit the Value cell again or open Edit Selected Value to switch this parameter to a string array.';
+                    end
+                else
+                    obj.refreshParameterTable();
+                    obj.setStatus(sprintf('Value for %s is read-only', parameter.Name), ...
+                        'Only String values support direct table edits. Use Expression or the type-specific editor instead.');
+                    return
+                end
             case 8
                 parameter.Min = double(evt.NewData);
             case 9

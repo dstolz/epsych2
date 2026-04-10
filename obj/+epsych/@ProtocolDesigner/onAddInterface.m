@@ -32,8 +32,22 @@ function onAddInterface(obj)
             obj.DropDownInterfaceFilter.Value = newLabel;
             obj.refreshParameterTable();
         end
+
+        if obj.canEditInterfaceModules(interface)
+            previousModuleCount = length(interface.Module);
+            obj.onAddModule();
+            updatedInterface = obj.Protocol.Interfaces(newInterfaceIndex);
+            if length(updatedInterface.Module) > previousModuleCount
+                return
+            end
+
+            obj.setStatus(sprintf('Added interface %s', char(interface.Type)), ...
+                'Add a module when ready or review the interface options first.');
+            return
+        end
+
         obj.setStatus(sprintf('Added interface %s', char(interface.Type)), ...
-            'Select the interface in the tree, then add a module or review its options.');
+            'Review the interface options or select it in the tree to inspect its modules.');
     catch ME
         obj.setStatus(sprintf('Add interface failed: %s', ME.message), ...
             'Check the interface options and required files, then try again.');

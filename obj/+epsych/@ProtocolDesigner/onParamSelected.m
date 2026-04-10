@@ -16,7 +16,15 @@ function onParamSelected(obj, evt)
                 'Use Browse or edit the Value cell to choose one or more files.');
         else
             obj.setStatus(sprintf('%s: %d file(s) selected', parameter.Name, numel(fileList)), ...
-                'Use Browse to replace the selection or compile to verify the input set.');
+                'Use Edit Selected Value to replace the selection or compile to verify the input set.');
+        end
+    elseif isequal(parameter.Type, 'String')
+        if parameter.isArray && iscell(parameter.Value)
+            obj.setStatus(sprintf('%s: %d string value(s)', parameter.Name, numel(parameter.Value)), ...
+                'Edit the Value cell with semicolon-delimited text, or use Edit Selected Value to add, remove, or reorder entries.');
+        else
+            obj.setStatus(sprintf('Selected String parameter %s', parameter.Name), ...
+                'Edit the Value cell directly, using semicolons for arrays, or use Edit Selected Value for a larger editor.');
         end
     elseif obj.hasParameterExpression(parameter)
         obj.setStatus(sprintf('%s = %s', obj.getParameterExpression(parameter), parameter.ValueStr), ...

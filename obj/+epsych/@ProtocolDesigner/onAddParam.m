@@ -17,7 +17,15 @@ function onAddParam(obj)
         requestedName = defaultName;
     end
 
-    parameterName = obj.getUniqueParameterName(module, requestedName);
+    try
+        requestedName = obj.validateParameterName(requestedName);
+        parameterName = obj.getUniqueParameterName(module, requestedName);
+    catch ME
+        obj.setStatus(ME.message, ...
+            'Use a valid MATLAB identifier such as stimLevel or targetGain.');
+        return
+    end
+
     module.add_parameter(parameterName, 1, ...
         Type = 'Float', ...
         Access = 'Read / Write', ...

@@ -1,4 +1,4 @@
-function uniqueName = getUniqueParameterName(~, module, baseName)
+function uniqueName = getUniqueParameterName(obj, module, baseName)
     if isstring(baseName)
         baseName = char(baseName);
     end
@@ -7,6 +7,7 @@ function uniqueName = getUniqueParameterName(~, module, baseName)
     if isempty(baseName)
         baseName = 'param';
     end
+    baseName = obj.validateParameterName(baseName);
 
     existingNames = {module.Parameters.Name};
     uniqueName = baseName;

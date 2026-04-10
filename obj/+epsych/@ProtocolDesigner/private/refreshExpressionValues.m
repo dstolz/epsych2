@@ -2,7 +2,12 @@ function refreshExpressionValues(obj)
     parameters = obj.getAllParameters();
     expressionParameters = parameters(arrayfun(@(p) obj.hasParameterExpression(p), parameters));
     if isempty(expressionParameters)
-        obj.setExpressionErrors(struct('parameter', {}, 'message', {}));
+        pairErrors = obj.validatePairedParameterLengths();
+        obj.setExpressionErrors(pairErrors);
+        if ~isempty(pairErrors)
+            obj.setStatus(pairErrors(1).message, ...
+                'Fix the highlighted parameter values or expressions, then compile again.');
+        end
         return
     end
 
@@ -29,13 +34,19 @@ function refreshExpressionValues(obj)
         end
 
         if isempty(nextPending)
-            obj.setExpressionErrors(struct('parameter', {}, 'message', {}));
+            pairErrors = obj.validatePairedParameterLengths();
+            obj.setExpressionErrors(pairErrors);
+            if ~isempty(pairErrors)
+                obj.setStatus(pairErrors(1).message, ...
+                    'Fix the highlighted parameter values or expressions, then compile again.');
+            end
             return
         end
         if ~progressMade
             obj.setExpressionErrors(currentErrors);
             if ~isempty(currentErrors)
-                obj.LabelStatus.Text = currentErrors(1).message;
+                obj.setStatus(currentErrors(1).message, ...
+                    'Fix the highlighted parameter values or expressions, then compile again.');
             end
             return
         end
@@ -45,7 +56,8 @@ function refreshExpressionValues(obj)
 
     obj.setExpressionErrors(lastErrors);
     if ~isempty(lastErrors)
-        obj.LabelStatus.Text = lastErrors(1).message;
+        obj.setStatus(lastErrors(1).message, ...
+            'Fix the highlighted parameter values or expressions, then compile again.');
     end
 end
 

@@ -6,6 +6,6 @@ function onLoad(obj)
 
     obj.Protocol = epsych.Protocol.load(fullfile(folder, fileName));
     obj.refreshUI();
-    obj.LabelStatus.Text = 'Protocol loaded';
+    obj.setStatus(sprintf('Loaded protocol %s', fileName));
 end
 

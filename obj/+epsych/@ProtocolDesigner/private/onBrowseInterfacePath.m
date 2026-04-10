@@ -30,7 +30,7 @@ function onBrowseInterfacePath(obj, control, field)
     if ~isValidSelection
         extensionSummary = strjoin(allowedExtensions, ', ');
         message = sprintf('Selection for %s must use one of these extensions: %s', field.label, extensionSummary);
-        obj.LabelStatus.Text = message;
+        obj.setStatus(message, 'Choose a file that matches the allowed extensions, then try again.');
         uialert(obj.Figure, message, 'Invalid File Selection');
         return
     end
@@ -48,9 +48,11 @@ function onBrowseInterfacePath(obj, control, field)
     end
 
     if field.getFolder
-        obj.LabelStatus.Text = sprintf('Selected folder for %s', field.label);
+        obj.setStatus(sprintf('Selected folder for %s', field.label), ...
+            'Review the interface options, then apply the interface changes.');
     else
-        obj.LabelStatus.Text = sprintf('Selected %d file(s) for %s', numel(selectedPaths), field.label);
+        obj.setStatus(sprintf('Selected %d file(s) for %s', numel(selectedPaths), field.label), ...
+            'Review the selected paths, then apply the interface changes.');
     end
 end
 

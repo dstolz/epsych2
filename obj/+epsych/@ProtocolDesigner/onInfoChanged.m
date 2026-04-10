@@ -3,6 +3,6 @@ function onInfoChanged(obj)
         return
     end
     obj.Protocol.Info = obj.EditInfo.Value;
-    obj.LabelStatus.Text = 'Protocol info updated';
+    obj.setStatus('Protocol info updated', 'Continue editing or save when the description is complete.');
 end
 

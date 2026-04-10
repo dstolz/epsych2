@@ -1,24 +1,24 @@
 classdef ProtocolDesigner < handle
     % epsych.ProtocolDesigner(protocol)
-    % Edit epsych.Protocol objects with interface-aware parameter editing,
-    % protocol option controls, and compiled trial preview tables.
+    % Edit epsych.Protocol objects from a dedicated UI for interfaces,
+    % parameters, protocol options, and compiled trial preview data.
     %
     % Important properties:
-    %  Protocol		- Protocol model currently bound to the UI.
-    %  TableParams	- Parameter table with inline editing and error styling.
-    %  TableCompiled	- Preview table populated after compile().
+    % 	Protocol		- Protocol instance currently bound to the designer.
+    % 	TableParams	- Parameter table for interface and module settings.
+    % 	TableCompiled	- Trial preview table populated after compilation.
     %
     % Key methods:
-    %  refreshUI		- Reload all visible controls from the bound protocol.
-    %  onCompile		- Compile the current protocol and update preview data.
-    %  onSave		- Save the bound protocol to an .eprot file.
-    %  onLoad		- Load a protocol from disk and rebuild the visible state.
+    % 	refreshUI	- Reload visible controls from the bound protocol.
+    % 	onCompile	- Compile the current protocol and refresh preview data.
+    % 	onSave		- Save the bound protocol to an .eprot file.
+    % 	onLoad		- Load a protocol from disk and rebuild the UI state.
     %
-    % See also documentation/design/ProtocolDesigner.md for workflow details.
+    % See also documentation/design/ProtocolDesigner.md.
     %
     % Example:
-    %  gui = epsych.ProtocolDesigner();
-    %  gui = epsych.ProtocolDesigner(protocolObj);
+    % 	gui = epsych.ProtocolDesigner();
+    % 	gui = epsych.ProtocolDesigner(protocolObj);
 
     properties
         Figure matlab.ui.Figure
@@ -72,11 +72,14 @@ classdef ProtocolDesigner < handle
     methods
         function obj = ProtocolDesigner(protocol)
             % ProtocolDesigner(protocol)
-            % Construct the designer and bind it to a protocol instance.
-            % Creates the UI immediately and populates controls from Protocol.
+            % Construct a protocol designer and bind it to a protocol instance.
+            % Creates the UI immediately and loads the visible state from Protocol.
             %
             % Parameters:
-            % 	protocol	- epsych.Protocol instance to edit (default: new protocol).
+            % 	protocol	- Protocol instance to edit (default: epsych.Protocol()).
+            %
+            % Returns:
+            % 	obj		- Initialized epsych.ProtocolDesigner handle.
             if nargin < 1 || isempty(protocol)
                 obj.Protocol = epsych.Protocol();
             else
@@ -87,5 +90,33 @@ classdef ProtocolDesigner < handle
             obj.refreshUI();
         end
 
+    end
+
+    methods (Static)
+        function obj = openFromFile(fileName)
+            % obj = epsych.ProtocolDesigner.openFromFile(fileName)
+            % Load a serialized protocol from disk and open it in the designer.
+            %
+            % Parameters:
+            % 	fileName	- Path to a .eprot or .prot file.
+            %
+            % Returns:
+            % 	obj		- Initialized epsych.ProtocolDesigner handle.
+            arguments
+                fileName {mustBeTextScalar}
+            end
+
+            fileName = string(fileName);
+            if strlength(fileName) == 0 || ~isfile(fileName)
+                error('epsych:ProtocolDesigner:FileNotFound', ...
+                    'Protocol file not found: %s', fileName);
+            end
+
+            warning('off', 'MATLAB:dispatcher:UnresolvedFunctionHandle');
+            protocol = epsych.Protocol.load(char(fileName));
+            warning('on', 'MATLAB:dispatcher:UnresolvedFunctionHandle');
+
+            obj = epsych.ProtocolDesigner(protocol);
+        end
     end
 end

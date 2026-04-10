@@ -1,6 +1,6 @@
 function onRemoveParam(obj)
     if obj.SelectedParamRow < 1 || obj.SelectedParamRow > numel(obj.ParameterHandles)
-        obj.LabelStatus.Text = 'Select a parameter to remove';
+        obj.setStatus('No parameter selected for removal', 'Select a parameter row in the table first.');
         return
     end
 
@@ -10,6 +10,7 @@ function onRemoveParam(obj)
     module.Parameters = module.Parameters(keepMask);
 
     obj.refreshParameterTab();
-    obj.LabelStatus.Text = sprintf('Removed parameter %s', parameter.Name);
+    obj.setStatus(sprintf('Removed parameter %s', parameter.Name), ...
+        'Add a replacement parameter or compile to confirm the remaining settings.');
 end
 

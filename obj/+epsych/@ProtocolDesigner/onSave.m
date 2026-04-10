@@ -5,6 +5,7 @@ function onSave(obj)
     end
 
     obj.Protocol.save(fullfile(folder, fileName));
-    obj.LabelStatus.Text = 'Protocol saved';
+    obj.setStatus(sprintf('Saved protocol to %s', fileName), ...
+        'Compile again after further edits, or close the designer if you are finished.');
 end
 

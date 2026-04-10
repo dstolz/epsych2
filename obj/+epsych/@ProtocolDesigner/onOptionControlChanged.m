@@ -6,9 +6,9 @@ function onOptionControlChanged(obj)
     obj.Protocol.setOption('IncludeWAVBuffers', obj.CheckIncludeWAVBuffers.Value);
     trialFuncWarning = obj.getTrialFunctionPathWarning(trialFuncName);
     if isempty(trialFuncWarning)
-        obj.LabelStatus.Text = 'Options updated';
+        obj.setStatus('Protocol options updated', 'Compile to refresh the preview with the new settings.');
     else
-        obj.LabelStatus.Text = trialFuncWarning;
+        obj.setStatus(trialFuncWarning, 'Fix the trial function path or choose a callable function before compiling.');
     end
 end
 

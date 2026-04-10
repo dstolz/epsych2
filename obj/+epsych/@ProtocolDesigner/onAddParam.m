@@ -1,7 +1,8 @@
 function onAddParam(obj)
     module = obj.getSelectedTargetModule();
     if isempty(module)
-        obj.LabelStatus.Text = 'No target module selected';
+        obj.setStatus('No target module selected', ...
+            'Choose a target interface and module before adding a parameter.');
         return
     end
 
@@ -29,6 +30,7 @@ function onAddParam(obj)
         Description = "");
 
     obj.refreshParameterTab();
-    obj.LabelStatus.Text = sprintf('Added parameter %s. Edit the new row to customize it.', parameterName);
+    obj.setStatus(sprintf('Added parameter %s', parameterName), ...
+        'Edit the new row to set type, value, and limits before compiling.');
 end
 

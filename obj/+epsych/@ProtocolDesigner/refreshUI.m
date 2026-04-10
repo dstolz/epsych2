@@ -5,5 +5,15 @@ function refreshUI(obj)
     obj.refreshParameterTab();
     obj.refreshOptionsTab();
     obj.refreshCompiledPreview();
+
+    interfaceCount = length(obj.Protocol.Interfaces);
+    if interfaceCount == 0
+        obj.setStatus('New protocol ready');
+    elseif obj.Protocol.COMPILED.ntrials > 0
+        obj.setStatus(sprintf('Loaded %d interface(s) and %d compiled trial(s)', interfaceCount, obj.Protocol.COMPILED.ntrials), ...
+            'Review the preview table or save the protocol.');
+    else
+        obj.setStatus(sprintf('Loaded %d interface(s)', interfaceCount));
+    end
 end
 

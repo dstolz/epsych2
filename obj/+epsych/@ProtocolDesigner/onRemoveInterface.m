@@ -1,7 +1,7 @@
 function onRemoveInterface(obj)
     interfaceIndex = obj.getSelectedInterfaceRowIndex();
     if interfaceIndex < 1 || interfaceIndex > length(obj.Protocol.Interfaces)
-        obj.LabelStatus.Text = 'Select an interface to remove';
+        obj.setStatus('No interface selected for removal', 'Select an interface in the tree first.');
         return
     end
 
@@ -13,6 +13,7 @@ function onRemoveInterface(obj)
 
     obj.Protocol.removeInterface(interfaceIndex);
     obj.refreshParameterTab();
-    obj.LabelStatus.Text = sprintf('Removed interface %s', char(iface.Type));
+    obj.setStatus(sprintf('Removed interface %s', char(iface.Type)), ...
+        'Add another interface or review the remaining modules before compiling.');
 end
 

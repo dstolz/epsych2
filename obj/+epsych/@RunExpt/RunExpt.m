@@ -166,12 +166,20 @@ classdef RunExpt < handle
 
         function EditProtocol(self)
             % obj.EditProtocol
-            % Open the selected subject's protocol in the experiment design editor.
-            idx = self.H.subject_list.Selection(1);
-            if isempty(idx), return, end
+            % Open the selected subject's protocol in ProtocolDesigner.
+            selection = self.H.subject_list.Selection;
+            if isempty(selection), return, end
+
+            idx = selection(1);
+            protocolFile = string(self.CONFIG(idx).protocol_fn);
+            if strlength(protocolFile) == 0 || ~isfile(protocolFile)
+                errordlg(sprintf('The protocol file "%s" could not be found.', protocolFile), ...
+                    'EPsych', 'modal');
+                return
+            end
 
             self.AlwaysOnTop(false);
-            ep_ExperimentDesign(char(self.CONFIG(idx).protocol_fn),idx);
+            epsych.ProtocolDesigner.openFromFile(protocolFile);
         end
 
         function SortBoxes(self)

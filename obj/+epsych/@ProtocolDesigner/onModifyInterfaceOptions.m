@@ -1,7 +1,7 @@
 function onModifyInterfaceOptions(obj)
     interfaceIndex = obj.getSelectedInterfaceRowIndex();
     if interfaceIndex < 1 || interfaceIndex > length(obj.Protocol.Interfaces)
-        obj.LabelStatus.Text = 'Select an interface to modify';
+        obj.setStatus('No interface selected for modification', 'Select an interface row in Current Interfaces first.');
         uialert(obj.Figure, 'Select an interface row in Current Interfaces first.', 'No Interface Selected');
         return
     end
@@ -11,7 +11,8 @@ function onModifyInterfaceOptions(obj)
         [spec, options] = obj.getInterfaceEditState(iface);
         updatedOptions = obj.promptForInterfaceOptions(spec, options, 'Apply Options', 'interface');
         if isempty(updatedOptions)
-            obj.LabelStatus.Text = sprintf('Modify %s cancelled', char(iface.Type));
+            obj.setStatus(sprintf('Modify %s cancelled', char(iface.Type)), ...
+                'Review the interface options and reopen the dialog when ready.');
             return
         end
 
@@ -32,9 +33,11 @@ function onModifyInterfaceOptions(obj)
             obj.refreshParameterTable();
         end
         obj.SelectedInterfaceRow = interfaceIndex;
-        obj.LabelStatus.Text = sprintf('Updated options for %s', char(replacement.Type));
+        obj.setStatus(sprintf('Updated options for %s', char(replacement.Type)), ...
+            'Review affected modules and parameters, then compile again.');
     catch ME
-        obj.LabelStatus.Text = sprintf('Modify interface failed: %s', ME.message);
+        obj.setStatus(sprintf('Modify interface failed: %s', ME.message), ...
+            'Check the option values and required files, then try again.');
         uialert(obj.Figure, ME.message, 'Modify Interface Failed');
     end
 end

@@ -6,5 +6,5 @@ function onEditInfo(obj)
     end
 
     obj.Protocol.Info = char(answer{1});
-    obj.LabelStatus.Text = 'Protocol info updated';
+    obj.setStatus('Protocol info updated', 'Compile or save if the description change is final.');
 end

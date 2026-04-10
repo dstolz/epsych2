@@ -4,18 +4,26 @@ function onAddInterface(obj)
         existingTypes = arrayfun(@(iface) char(string(iface.Type)), obj.Protocol.Interfaces, 'UniformOutput', false);
         if any(strcmp(spec.type, existingTypes))
             obj.refreshInterfaceBuilder();
-            obj.LabelStatus.Text = sprintf('Interface %s already exists. Only one instance of each interface class is allowed.', spec.label);
+            obj.setStatus(sprintf('Interface %s already exists', spec.label), ...
+                'Modify the existing interface or choose a different interface type.');
             return
         end
         options = obj.promptForInterfaceOptions(spec, struct(), 'Add Interface', 'interface');
         if isempty(options)
-            obj.LabelStatus.Text = sprintf('Add %s cancelled', spec.label);
+            obj.setStatus(sprintf('Add %s cancelled', spec.label), ...
+                'Review the interface options and try Add Interface again when ready.');
             return
         end
         interface = spec.createFcn(options);
         obj.Protocol.addInterface(interface);
+        newInterfaceIndex = length(obj.Protocol.Interfaces);
+        obj.SelectedInterfaceRow = newInterfaceIndex;
+        obj.setSelectedModuleRow(0);
         obj.refreshParameterTab();
-        newLabel = obj.interfaceLabel(interface, length(obj.Protocol.Interfaces));
+        newLabel = obj.interfaceLabel(interface, newInterfaceIndex);
+        if ~isempty(obj.InterfaceTree) && isvalid(obj.InterfaceTree) && ~isempty(obj.InterfaceTree.SelectedNodes)
+            obj.onInterfaceRegistrySelected(struct('SelectedNodes', obj.InterfaceTree.SelectedNodes));
+        end
         if any(strcmp(newLabel, obj.DropDownTargetInterface.Items))
             obj.DropDownTargetInterface.Value = newLabel;
             obj.onTargetInterfaceChanged();
@@ -24,9 +32,11 @@ function onAddInterface(obj)
             obj.DropDownInterfaceFilter.Value = newLabel;
             obj.refreshParameterTable();
         end
-        obj.LabelStatus.Text = sprintf('Added interface %s', char(interface.Type));
+        obj.setStatus(sprintf('Added interface %s', char(interface.Type)), ...
+            'Select the interface in the tree, then add a module or review its options.');
     catch ME
-        obj.LabelStatus.Text = sprintf('Add interface failed: %s', ME.message);
+        obj.setStatus(sprintf('Add interface failed: %s', ME.message), ...
+            'Check the interface options and required files, then try again.');
     end
 end
 

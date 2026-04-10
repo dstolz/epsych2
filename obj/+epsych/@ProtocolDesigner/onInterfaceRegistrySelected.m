@@ -33,8 +33,10 @@ function onInterfaceRegistrySelected(obj, evt)
     obj.refreshParameterTable();
     obj.refreshModuleActionButtons();
     if selectedModuleRow >= 1
-        obj.LabelStatus.Text = sprintf('Focused on %s / %s', selectedLabel, obj.Protocol.Interfaces(interfaceIndex).Module(selectedModuleRow).Name);
+        obj.setStatus(sprintf('Focused on %s / %s', selectedLabel, obj.Protocol.Interfaces(interfaceIndex).Module(selectedModuleRow).Name), ...
+            'Edit parameters for this module or click Add Parameter.');
     else
-        obj.LabelStatus.Text = sprintf('Focused on %s', selectedLabel);
+        obj.setStatus(sprintf('Focused on %s', selectedLabel), ...
+            'Select a module in the tree or add a module if this interface allows it.');
     end
 end

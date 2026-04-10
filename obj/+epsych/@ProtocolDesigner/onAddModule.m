@@ -1,13 +1,15 @@
 function onAddModule(obj)
     interfaceIndex = obj.getSelectedInterfaceRowIndex();
     if interfaceIndex < 1 || interfaceIndex > length(obj.Protocol.Interfaces)
-        obj.LabelStatus.Text = 'Select an interface before adding a module';
+        obj.setStatus('No interface selected for Add Module', ...
+            'Select an interface in the tree first.');
         return
     end
 
     iface = obj.Protocol.Interfaces(interfaceIndex);
     if ~obj.canEditInterfaceModules(iface)
-        obj.LabelStatus.Text = sprintf('Modules for %s are managed by the interface itself', char(iface.Type));
+        obj.setStatus(sprintf('Modules for %s are managed by the interface itself', char(iface.Type)), ...
+            'Review the interface options instead of adding modules manually.');
         return
     end
 
@@ -26,13 +28,15 @@ function onAddModule(obj)
         try
             moduleOptions = obj.promptForInterfaceOptions(spec, initialOptions, 'Add Module', 'module');
             if isempty(moduleOptions)
-                obj.LabelStatus.Text = sprintf('Add module cancelled for %s', char(iface.Type));
+                obj.setStatus(sprintf('Add module cancelled for %s', char(iface.Type)), ...
+                    'Review the module options and try again when ready.');
                 return
             end
 
             newModule = localBuildModuleFromOptions_(iface, moduleOptions, defaultLabel);
         catch ME
-            obj.LabelStatus.Text = sprintf('Add module failed: %s', ME.message);
+            obj.setStatus(sprintf('Add module failed: %s', ME.message), ...
+                'Check the module options and required hardware files, then try again.');
             uialert(obj.Figure, ME.message, 'Add Module Failed');
             return
         end
@@ -41,7 +45,8 @@ function onAddModule(obj)
         defaultLabel = obj.getUniqueModuleText(iface, defaultName, 'Label');
         answer = inputdlg({'Module Name', 'Module Label'}, 'Add Module', 1, {defaultName, defaultLabel});
         if isempty(answer)
-            obj.LabelStatus.Text = sprintf('Add module cancelled for %s', char(iface.Type));
+            obj.setStatus(sprintf('Add module cancelled for %s', char(iface.Type)), ...
+                'Enter a module name and label when you are ready to add one.');
             return
         end
 
@@ -66,7 +71,8 @@ function onAddModule(obj)
     obj.SelectedInterfaceRow = interfaceIndex;
     obj.setSelectedModuleRow(length(modules));
     obj.refreshParameterTab();
-    obj.LabelStatus.Text = sprintf('Added module %s to %s', newModule.Name, char(iface.Type));
+    obj.setStatus(sprintf('Added module %s to %s', newModule.Name, char(iface.Type)), ...
+        'Add parameters to the new module, then compile to preview trials.');
 end
 
 function tf = localHasModuleScopedFields_(spec)

@@ -18,6 +18,8 @@ function onParamSelected(obj, evt)
         end
     elseif obj.hasParameterExpression(parameter)
         obj.LabelStatus.Text = sprintf('%s = %s', obj.getParameterExpression(parameter), parameter.ValueStr);
+    else
+        obj.LabelStatus.Text = sprintf('Selected %s on %s', parameter.Name, parameter.Module.Name);
     end
 end
 

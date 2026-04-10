@@ -27,11 +27,11 @@ function options = promptForInterfaceOptions(obj, spec, initialOptions, dialogAc
         'WordWrap', 'on');
 
     uilabel(dialog, ...
-        'Text', 'Select a Value cell to edit it with the control type defined for that option.', ...
+        'Text', 'Select a Value cell to edit it with the control type defined for that option. Module-level rows expect one value per module.', ...
         'Position', [20 dialogHeight - 84 860 18], ...
         'FontColor', [0.36 0.43 0.52]);
 
-    tableData = cell(numel(fields), 5);
+    tableData = cell(numel(fields), 6);
     rawValues = cell(numel(fields), 1);
     for idx = 1:numel(fields)
         field = fields(idx);
@@ -65,17 +65,18 @@ function options = promptForInterfaceOptions(obj, spec, initialOptions, dialogAc
 
         tableData{idx, 1} = field.label;
         tableData{idx, 2} = obj.formatInterfaceOptionDisplayValue(field, rawValue);
-        tableData{idx, 3} = localRequiredText_(field.required);
-        tableData{idx, 4} = inputType;
-        tableData{idx, 5} = guidance;
+        tableData{idx, 3} = localScopeText_(field);
+        tableData{idx, 4} = localRequiredText_(field.required);
+        tableData{idx, 5} = inputType;
+        tableData{idx, 6} = guidance;
     end
 
     table = uitable(dialog, ...
         'Position', [20 74 860 dialogHeight - 156], ...
-        'ColumnName', {'Option', 'Value', 'Required', 'Input', 'Guidance'}, ...
+        'ColumnName', {'Option', 'Value', 'Level', 'Required', 'Input', 'Guidance'}, ...
         'ColumnEditable', false, ...
-        'ColumnFormat', {'char', 'char', 'char', 'char', 'char'}, ...
-        'ColumnWidth', {180, 250, 76, 90, 236}, ...
+        'ColumnFormat', {'char', 'char', 'char', 'char', 'char', 'char'}, ...
+        'ColumnWidth', {150, 220, 88, 76, 90, 222}, ...
         'BackgroundColor', [1 1 1; 0.979 0.984 0.992], ...
         'Data', tableData, ...
         'CellSelectionCallback', @onTableSelectionChanged);
@@ -142,6 +143,7 @@ function options = promptForInterfaceOptions(obj, spec, initialOptions, dialogAc
                     error('Option "%s" must be numeric.', innerField.label);
                 end
             end
+            validateModuleScope_(obj, fields, rawValues);
         catch ME
             uialert(dialog, ME.message, 'Invalid Interface Options');
             return
@@ -186,6 +188,69 @@ function text = localRequiredText_(isRequired)
         text = 'Required';
     else
         text = 'Optional';
+    end
+end
+
+function text = localScopeText_(field)
+    if strcmpi(char(string(field.scope)), 'module')
+        text = 'Module';
+    else
+        text = 'Interface';
+    end
+end
+
+function validateModuleScope_(obj, fields, rawValues)
+    moduleCount = 0;
+    for idx = 1:numel(fields)
+        field = fields(idx);
+        if ~strcmpi(char(string(field.scope)), 'module')
+            continue
+        end
+
+        value = obj.parseInterfaceOptionValue(field, rawValues{idx});
+        if isempty(value)
+            continue
+        end
+
+        valueCount = numel(value);
+        if valueCount > moduleCount
+            moduleCount = valueCount;
+        end
+    end
+
+    if moduleCount == 0
+        return
+    end
+
+    for idx = 1:numel(fields)
+        field = fields(idx);
+        if ~strcmpi(char(string(field.scope)), 'module')
+            continue
+        end
+
+        value = obj.parseInterfaceOptionValue(field, rawValues{idx});
+        if isempty(value)
+            continue
+        end
+
+        valueCount = numel(value);
+        if valueCount == moduleCount
+            continue
+        end
+        if valueCount == 1 && field.allowScalarExpansion
+            continue
+        end
+
+        error('Module-level option "%s" must contain %d values%s.', ...
+            field.label, moduleCount, localScalarExpansionSuffix_(field));
+    end
+end
+
+function suffix = localScalarExpansionSuffix_(field)
+    if field.allowScalarExpansion
+        suffix = ' or a single broadcast value';
+    else
+        suffix = '';
     end
 end
 

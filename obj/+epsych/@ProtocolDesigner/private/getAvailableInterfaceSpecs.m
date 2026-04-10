@@ -5,7 +5,7 @@ function specs = getAvailableInterfaceSpecs(~)
         hw.TDT_RPcox.getCreationSpec() ...
         };
     for specIdx = 1:numel(specs)
-        specs{specIdx} = hw.Interface.normalizeCreationSpec(specs{specIdx});
+        specs{specIdx} = hw.InterfaceSpec.normalize(specs{specIdx});
     end
 end
 

@@ -4,5 +4,6 @@ function refreshParameterTab(obj)
     obj.refreshInterfaceControls();
     obj.refreshInterfaceSummary();
     obj.refreshParameterTable();
+    obj.refreshModuleActionButtons();
 end
 

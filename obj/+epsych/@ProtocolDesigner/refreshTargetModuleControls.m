@@ -10,7 +10,16 @@ function refreshTargetModuleControls(obj)
         obj.DropDownTargetModule.Value = '<none>';
     else
         obj.DropDownTargetModule.Items = moduleItems;
-        if any(strcmp(currentModule, moduleItems))
+        preferredModule = '';
+        interfaceIndex = obj.selectedTargetInterfaceIndex();
+        selectedModuleRow = obj.getSelectedModuleRow();
+        if selectedModuleRow >= 1 && interfaceIndex >= 1 && interfaceIndex <= length(obj.Protocol.Interfaces) ...
+                && selectedModuleRow <= length(obj.Protocol.Interfaces(interfaceIndex).Module)
+            preferredModule = obj.moduleDisplayLabel(obj.Protocol.Interfaces(interfaceIndex).Module(selectedModuleRow), selectedModuleRow);
+        end
+        if ~isempty(preferredModule) && any(strcmp(preferredModule, moduleItems))
+            obj.DropDownTargetModule.Value = preferredModule;
+        elseif any(strcmp(currentModule, moduleItems))
             obj.DropDownTargetModule.Value = currentModule;
         else
             obj.DropDownTargetModule.Value = moduleItems{1};

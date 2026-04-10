@@ -28,6 +28,20 @@ function displayValue = formatInterfaceOptionDisplayValue(obj, field, rawValue)
         return
     end
 
+    if field.isList
+        if isnumeric(rawValue)
+            displayValue = strjoin(arrayfun(@num2str, rawValue(:).', 'UniformOutput', false), ', ');
+            return
+        end
+        if iscell(rawValue)
+            values = cellstr(string(rawValue));
+        else
+            values = obj.parseList(rawValue);
+        end
+        displayValue = strjoin(values, ', ');
+        return
+    end
+
     if strcmp(field.controlType, 'dropdown')
         displayValue = sprintf('v %s', char(string(rawValue)));
         return
@@ -67,16 +81,6 @@ function displayValue = formatInterfaceOptionDisplayValue(obj, field, rawValue)
         else
             displayValue = sprintf('[%d paths] %s', numel(paths), paths{1});
         end
-        return
-    end
-
-    if field.isList
-        if iscell(rawValue)
-            values = cellstr(string(rawValue));
-        else
-            values = obj.parseList(rawValue);
-        end
-        displayValue = strjoin(values, ', ');
         return
     end
 

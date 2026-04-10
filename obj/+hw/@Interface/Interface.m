@@ -81,15 +81,20 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
     methods (Abstract, Static)
         % spec = getCreationSpec()
-        %   Return a struct describing the options required to create this
+        %   Return a hw.InterfaceSpec describing the options required to create this
         %   interface, including defaults, UI control hints, and a factory function.
         %   Each spec.options entry may include fields such as:
         %     name, label, defaultValue, required, inputType, choices,
-        %     isList, controlType, getFile, getFolder, fileFilter,
-        %     fileDialogTitle, and description.
+        %     isList, scope, allowScalarExpansion, controlType, getFile,
+        %     getFolder, fileFilter, fileDialogTitle, and description.
         %   controlType is optional and can be used to steer GUIs toward a
         %   specific widget such as text, textarea, numeric, dropdown,
         %   multiselect, or checkbox.
+        %   scope is optional and may be either 'interface' or 'module'.
+        %   Module-scoped options represent one value per Module owned by
+        %   the interface instance.
+        %   allowScalarExpansion is optional and, when true, allows a
+        %   single module-scoped value to be applied to every module.
         %   getFile is optional and, when true, indicates the GUI should
         %   provide a file picker backed by uigetfile for that option.
         %   getFolder is optional and, when true, indicates the GUI should
@@ -295,44 +300,6 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     end
 
     methods (Static)
-        function spec = normalizeCreationSpec(spec)
-            if ~isfield(spec, 'options') || isempty(spec.options)
-                spec.options = struct('name', {}, 'label', {}, 'defaultValue', {}, 'required', {}, ...
-                    'inputType', {}, 'choices', {}, 'isList', {}, 'controlType', {}, 'getFile', {}, ...
-                    'getFolder', {}, 'fileFilter', {}, 'fileDialogTitle', {}, 'description', {});
-                return
-            end
-
-            for optionIdx = 1:numel(spec.options)
-                option = spec.options(optionIdx);
-
-                if ~isfield(option, 'choices') || isempty(option.choices)
-                    spec.options(optionIdx).choices = {};
-                end
-                if ~isfield(option, 'isList') || isempty(option.isList)
-                    spec.options(optionIdx).isList = false;
-                end
-                if ~isfield(option, 'description') || isempty(option.description)
-                    spec.options(optionIdx).description = '';
-                end
-                if ~isfield(option, 'getFile') || isempty(option.getFile)
-                    spec.options(optionIdx).getFile = false;
-                end
-                if ~isfield(option, 'getFolder') || isempty(option.getFolder)
-                    spec.options(optionIdx).getFolder = false;
-                end
-                if ~isfield(option, 'fileFilter') || isempty(option.fileFilter)
-                    spec.options(optionIdx).fileFilter = {'*.*', 'All Files (*.*)'};
-                end
-                if ~isfield(option, 'fileDialogTitle') || isempty(option.fileDialogTitle)
-                    spec.options(optionIdx).fileDialogTitle = char(string(spec.options(optionIdx).label));
-                end
-                if ~isfield(option, 'controlType') || isempty(option.controlType)
-                    spec.options(optionIdx).controlType = hw.Interface.inferCreationControlType(spec.options(optionIdx));
-                end
-            end
-        end
-
         function name = getHardwareParameterName(parameter)
             name = parameter.Name;
             if isstruct(parameter.UserData) && isfield(parameter.UserData, 'HardwareName') && ~isempty(parameter.UserData.HardwareName)
@@ -369,35 +336,4 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         end
 
     end
-
-    methods (Static, Access = private)
-        function controlType = inferCreationControlType(option)
-            if isfield(option, 'inputType')
-                inputType = char(string(option.inputType));
-            else
-                inputType = 'text';
-            end
-
-            if isfield(option, 'isList') && option.isList
-                if isfield(option, 'choices') && ~isempty(option.choices)
-                    controlType = 'multiselect';
-                else
-                    controlType = 'textarea';
-                end
-                return
-            end
-
-            switch lower(inputType)
-                case 'choice'
-                    controlType = 'dropdown';
-                case 'numeric'
-                    controlType = 'numeric';
-                case {'logical', 'boolean', 'bool'}
-                    controlType = 'checkbox';
-                otherwise
-                    controlType = 'text';
-            end
-        end
-    end
-
 end

@@ -1,4 +1,8 @@
-function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex)
+function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex, moduleFilterIndex)
+    if nargin < 3
+        moduleFilterIndex = 0;
+    end
+
     tableData = cell(0, 15);
     parameterHandles = {};
 
@@ -12,11 +16,14 @@ function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex)
 
         for moduleIdx = 1:length(iface.Module)
             module = iface.Module(moduleIdx);
+            if filterIndex ~= 0 && ifaceIdx == filterIndex && moduleFilterIndex ~= 0 && moduleIdx ~= moduleFilterIndex
+                continue
+            end
             for paramIdx = 1:length(module.Parameters)
                 parameter = module.Parameters(paramIdx);
                 tableData(end + 1, :) = { ...
                     ifaceLabel, ...
-                    module.Name, ...
+                    obj.moduleDisplayLabel(module, moduleIdx), ...
                     parameter.Name, ...
                     parameter.Type, ...
                     obj.getParameterExpression(parameter), ...

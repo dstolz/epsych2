@@ -3,6 +3,7 @@ function refreshInterfaceSummary(obj)
 
     interfaceCount = length(obj.Protocol.Interfaces);
     selectedNode = [];
+    selectedModuleRow = obj.getSelectedModuleRow();
     for ifaceIdx = 1:interfaceCount
         iface = obj.Protocol.Interfaces(ifaceIdx);
         moduleCount = length(iface.Module);
@@ -25,7 +26,7 @@ function refreshInterfaceSummary(obj)
         for moduleIdx = 1:moduleCount
             module = iface.Module(moduleIdx);
             moduleNode = uitreenode(ifaceNode, ...
-                'Text', sprintf('Module %d: %s', moduleIdx, module.Name), ...
+                'Text', obj.moduleDisplayLabel(module, moduleIdx), ...
                 'NodeData', struct('kind', 'module', 'interfaceIndex', ifaceIdx, 'moduleIndex', moduleIdx));
 
             uitreenode(moduleNode, ...
@@ -55,8 +56,10 @@ function refreshInterfaceSummary(obj)
         end
 
         expand(ifaceNode);
-        if ifaceIdx == obj.SelectedInterfaceRow
+        if ifaceIdx == obj.SelectedInterfaceRow && selectedModuleRow == 0
             selectedNode = ifaceNode;
+        elseif ifaceIdx == obj.SelectedInterfaceRow && selectedModuleRow >= 1 && selectedModuleRow <= moduleCount
+            selectedNode = ifaceNode.Children(selectedModuleRow + 3);
         end
     end
 

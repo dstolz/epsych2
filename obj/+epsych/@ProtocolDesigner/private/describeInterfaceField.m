@@ -1,5 +1,14 @@
 function description = describeInterfaceField(~, field)
     parts = {};
+    if strcmpi(char(string(field.scope)), 'module')
+        parts{end + 1} = 'Module-level option; provide one value per module.';
+        if field.allowScalarExpansion
+            parts{end + 1} = 'A single value is applied to every module.';
+        end
+    else
+        parts{end + 1} = 'Interface-level option.';
+    end
+
     if field.getFile
         if field.isList
             parts{end + 1} = 'Use Browse to select one or more files.'; %#ok<AGROW>

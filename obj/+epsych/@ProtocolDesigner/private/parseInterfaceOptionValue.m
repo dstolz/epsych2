@@ -3,6 +3,22 @@ function value = parseInterfaceOptionValue(obj, field, rawValue)
         rawValue = char(rawValue);
     end
 
+    if field.isList
+        switch field.inputType
+            case 'numeric'
+                value = obj.parseNumericList(rawValue);
+            case {'logical', 'boolean', 'bool'}
+                value = logical(obj.parseNumericList(rawValue));
+            otherwise
+                if iscell(rawValue)
+                    value = rawValue;
+                else
+                    value = obj.parseList(rawValue);
+                end
+        end
+        return
+    end
+
     switch field.inputType
         case 'numeric'
             if isnumeric(rawValue)
@@ -21,15 +37,7 @@ function value = parseInterfaceOptionValue(obj, field, rawValue)
         case 'choice'
             value = strtrim(rawValue);
         otherwise
-            if field.isList
-                if iscell(rawValue)
-                    value = rawValue;
-                else
-                    value = obj.parseList(rawValue);
-                end
-            else
-                value = strtrim(rawValue);
-            end
+            value = strtrim(rawValue);
     end
 end
 

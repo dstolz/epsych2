@@ -19,6 +19,16 @@ function onParamEdited(obj, evt)
     statusMessage = sprintf('Updated parameter %s', parameter.Name);
     try
         switch col
+            case 2
+                destinationModule = obj.resolveParameterTargetModule(parameter, evt.NewData);
+                sourceModule = parameter.Module;
+                if ~isequal(destinationModule, sourceModule)
+                    sourceKeepMask = sourceModule.Parameters ~= parameter;
+                    sourceModule.Parameters = sourceModule.Parameters(sourceKeepMask);
+                    destinationModule.Parameters(end + 1) = parameter;
+                    parameter.Module = destinationModule;
+                end
+                statusMessage = sprintf('Assigned %s to %s', parameter.Name, destinationModule.Name);
             case 4
                 parameter.Type = char(evt.NewData);
                 if isequal(parameter.Type, 'File')

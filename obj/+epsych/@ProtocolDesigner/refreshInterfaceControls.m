@@ -27,6 +27,10 @@ function refreshInterfaceControls(obj)
         obj.DropDownTargetInterface.Value = interfaceItems{1};
     end
 
+    if obj.selectedTargetInterfaceIndex() ~= obj.SelectedInterfaceRow
+        obj.setSelectedModuleRow(0);
+    end
+
     obj.refreshTargetModuleControls();
 end
 

@@ -81,11 +81,12 @@ classdef Software < hw.Interface
 
     methods (Static)
         function spec = getCreationSpec()
-            spec.type = char(hw.Software.Type);
-            spec.label = 'Software';
-            spec.description = 'In-memory interface for design-time parameters and testing.';
-            spec.options = struct('name', {}, 'label', {}, 'defaultValue', {}, 'required', {}, 'inputType', {}, 'choices', {}, 'isList', {}, 'controlType', {}, 'getFile', {}, 'getFolder', {}, 'fileFilter', {}, 'fileDialogTitle', {}, 'description', {});
-            spec.createFcn = @(~) hw.Software();
+            spec = hw.InterfaceSpec( ...
+                char(hw.Software.Type), ...
+                'Software', ...
+                'In-memory interface for design-time parameters and testing.', ...
+                hw.InterfaceSpecOption.empty(1, 0), ...
+                @(~) hw.Software());
         end
     end
 

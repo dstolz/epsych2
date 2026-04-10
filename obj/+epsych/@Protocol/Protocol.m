@@ -1061,9 +1061,11 @@ classdef Protocol < handle & matlab.mixin.SetGet
             for groupIdx = 1:numel(pairGroups)
                 valueCounts = pairGroups(groupIdx).valueCounts;
                 if any(valueCounts ~= valueCounts(1))
-                    memberSummary = compose('%s (%d)', string(pairGroups(groupIdx).members), valueCounts);
+                    memberNames = cellfun(@(name) char(string(name)), pairGroups(groupIdx).members, 'UniformOutput', false);
+                    memberSummary = arrayfun(@(idx) sprintf('%s (%d)', memberNames{idx}, double(valueCounts(idx))), ...
+                        1:numel(memberNames), 'UniformOutput', false);
                     report(idx).field = sprintf('Pair.%s', pairGroups(groupIdx).name);
-                    report(idx).message = sprintf('Paired parameters must have the same number of values: %s', char(join(memberSummary, ', ')));
+                    report(idx).message = sprintf('Paired parameters must have the same number of values: %s', strjoin(memberSummary, ', '));
                     report(idx).severity = 2;
                     idx = idx + 1;
                 end

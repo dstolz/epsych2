@@ -1,0 +1,9 @@
+function onOpenCompiledPreviewDialog(obj)
+    dialog = uifigure( ...
+        'Name', 'Compiled Preview', ...
+        'Position', [140 100 1100 720], ...
+        'Resize', 'off');
+
+    obj.buildPreviewTab(dialog);
+    obj.refreshCompiledPreview();
+end

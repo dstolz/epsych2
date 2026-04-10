@@ -1,7 +1,7 @@
 function [fileValue, cancelled] = promptForParameterFileValue(obj, parameter, allowMultiple)
     fileConfig = obj.getParameterFileConfig(parameter);
     startPath = obj.getParameterFileStartPath(parameter, fileConfig.initialPath);
-    fileFilter = fileConfig.fileFilter;
+    fileFilter = obj.normalizeDialogFileFilter(fileConfig.fileFilter);
     dialogTitle = fileConfig.dialogTitle;
 
     if allowMultiple

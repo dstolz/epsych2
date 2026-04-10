@@ -1,10 +1,11 @@
 function onBrowseInterfacePath(obj, control, field)
     startPath = obj.getBrowseStartPath(control, field);
+    fileFilter = obj.normalizeDialogFileFilter(field.fileFilter);
 
     if field.isList
-        [fileName, folder] = uigetfile(field.fileFilter, field.fileDialogTitle, fullfile(startPath, '*'), 'MultiSelect', 'on');
+        [fileName, folder] = uigetfile(fileFilter, field.fileDialogTitle, fullfile(startPath, '*'), 'MultiSelect', 'on');
     elseif field.getFile
-        [fileName, folder] = uigetfile(field.fileFilter, field.fileDialogTitle, fullfile(startPath, '*'));
+        [fileName, folder] = uigetfile(fileFilter, field.fileDialogTitle, fullfile(startPath, '*'));
     else
         folder = uigetdir(startPath, field.fileDialogTitle);
         if isequal(folder, 0)

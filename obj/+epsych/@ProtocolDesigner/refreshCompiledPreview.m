@@ -1,4 +1,8 @@
 function refreshCompiledPreview(obj)
+    if isempty(obj.TableCompiled) || ~isvalid(obj.TableCompiled) || isempty(obj.LabelCompileSummary) || ~isvalid(obj.LabelCompileSummary)
+        return
+    end
+
     writeParams = obj.Protocol.COMPILED.writeparams;
     trials = obj.Protocol.COMPILED.trials;
 

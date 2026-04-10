@@ -1,0 +1,9 @@
+function onOpenOptionsDialog(obj)
+    dialog = uifigure( ...
+        'Name', 'Protocol Options', ...
+        'Position', [180 140 800 410], ...
+        'Resize', 'off');
+
+    obj.buildOptionsTab(dialog);
+    obj.refreshOptionsTab();
+end

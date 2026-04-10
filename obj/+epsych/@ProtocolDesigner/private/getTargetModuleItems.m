@@ -12,7 +12,7 @@ function items = getTargetModuleItems(obj)
     iface = obj.Protocol.Interfaces(interfaceIndex);
     items = cell(1, length(iface.Module));
     for moduleIdx = 1:length(iface.Module)
-        items{moduleIdx} = sprintf('%d: %s', moduleIdx, iface.Module(moduleIdx).Name);
+        items{moduleIdx} = obj.moduleDisplayLabel(iface.Module(moduleIdx), moduleIdx);
     end
 end
 

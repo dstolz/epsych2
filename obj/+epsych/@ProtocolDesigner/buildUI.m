@@ -1,6 +1,6 @@
 function buildUI(obj)
     % buildUI(obj)
-    % Create the top-level figure, tabs, and persistent controls.
+    % Create the top-level figure and persistent controls.
     % Call once during construction before refreshUI().
     obj.Figure = uifigure( ...
         'Name', 'Protocol Designer', ...
@@ -23,15 +23,11 @@ function buildUI(obj)
         'HorizontalAlignment', 'left', ...
         'BackgroundColor', [0.17 0.24 0.34]);
 
-    obj.TabGroup = uitabgroup(obj.Figure, ...
+    obj.MainPanel = uipanel(obj.Figure, ...
         'Position', [20 56 1340 844], ...
-        'SelectionChangedFcn', @(~, evt) obj.onTabSelectionChanged(evt));
-    obj.ParametersTab = uitab(obj.TabGroup, 'Title', 'Parameters');
-    obj.OptionsTab = uitab(obj.TabGroup, 'Title', 'Options');
-    obj.PreviewTab = uitab(obj.TabGroup, 'Title', 'Compiled Preview');
+        'BackgroundColor', [0.972 0.978 0.986], ...
+        'BorderType', 'none');
 
     obj.buildParametersTab();
-    obj.buildOptionsTab();
-    obj.buildPreviewTab();
 end
 

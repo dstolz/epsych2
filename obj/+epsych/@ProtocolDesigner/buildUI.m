@@ -7,10 +7,12 @@ function buildUI(obj)
         'Position', [52 38 1380 920], ...
         'Color', [0.945 0.951 0.960]);
 
-    fileMenu = uimenu(obj.Figure, 'Text', 'File');
-    uimenu(fileMenu, 'Text', 'Edit Info...', 'MenuSelectedFcn', @(~, ~) obj.onEditInfo());
-    uimenu(fileMenu, 'Text', 'Load Protocol...', 'MenuSelectedFcn', @(~, ~) obj.onLoad());
-    uimenu(fileMenu, 'Text', 'Save Protocol...', 'MenuSelectedFcn', @(~, ~) obj.onSave());
+    obj.FileMenu = uimenu(obj.Figure, 'Text', 'File');
+    uimenu(obj.FileMenu, 'Text', 'Edit Info...', 'MenuSelectedFcn', @(~, ~) obj.onEditInfo());
+    uimenu(obj.FileMenu, 'Text', 'Load Protocol...', 'MenuSelectedFcn', @(~, ~) obj.onLoad());
+    uimenu(obj.FileMenu, 'Text', 'Save Protocol...', 'MenuSelectedFcn', @(~, ~) obj.onSave());
+    obj.RecentProtocolsMenu = uimenu(obj.FileMenu, 'Text', 'Recent Protocols');
+    obj.refreshRecentProtocolMenu();
 
     helpMenu = uimenu(obj.Figure, 'Text', 'Help');
     uimenu(helpMenu, 'Text', 'Open Documentation', 'MenuSelectedFcn', @(~, ~) obj.onOpenDocumentation());

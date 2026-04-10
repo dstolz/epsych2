@@ -1,11 +1,11 @@
 function onLoad(obj)
-    [fileName, folder] = uigetfile({'*.eprot;*.prot', 'Protocol Files (*.eprot, *.prot)'}, 'Load Protocol');
+    startPath = obj.getProtocolFileDialogStartPath('*.eprot');
+    [fileName, folder] = uigetfile({'*.eprot;*.prot', 'Protocol Files (*.eprot, *.prot)'}, 'Load Protocol', startPath);
     if isequal(fileName, 0)
         return
     end
 
-    obj.Protocol = epsych.Protocol.load(fullfile(folder, fileName));
-    obj.refreshUI();
+    obj.openProtocolFile(fullfile(folder, fileName));
     obj.setStatus(sprintf('Loaded protocol %s', fileName));
 end
 

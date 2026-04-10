@@ -1,4 +1,9 @@
 function valueText = getParameterValueDisplay(obj, parameter)
+    if isequal(parameter.Type, 'String')
+        valueText = obj.formatStringParameterValue(parameter.Value);
+        return
+    end
+
     valueText = parameter.ValueStr;
     if ~isequal(parameter.Type, 'File')
         return

@@ -23,8 +23,11 @@ classdef ProtocolDesigner < handle
     properties
         Figure matlab.ui.Figure
         Protocol (1,1) epsych.Protocol
+        CurrentProtocolPath (1,:) char = ''
 
         MainPanel matlab.ui.container.Panel
+        FileMenu matlab.ui.container.Menu
+        RecentProtocolsMenu matlab.ui.container.Menu
 
         EditInfo matlab.ui.control.EditField
         BtnSave matlab.ui.control.Button
@@ -117,6 +120,9 @@ classdef ProtocolDesigner < handle
             warning('on', 'MATLAB:dispatcher:UnresolvedFunctionHandle');
 
             obj = epsych.ProtocolDesigner(protocol);
+            obj.CurrentProtocolPath = char(fileName);
+            obj.addRecentProtocolPath(fileName);
+            obj.refreshRecentProtocolMenu();
         end
     end
 end

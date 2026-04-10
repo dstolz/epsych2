@@ -20,7 +20,7 @@ EPsych major classes
 │  ├─ Runtime
 │  ├─ Helper
 │  ├─ BitMask
-│  ├─ ModeChangeEvent
+│  ├─ eventModeChange
 │  └─ TrialsData
 ├─ hw
 │  ├─ Interface

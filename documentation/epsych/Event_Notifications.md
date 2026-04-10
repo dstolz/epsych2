@@ -29,15 +29,15 @@ Properties:
 
 Source: [obj/+epsych/TrialsData.m](../obj/+epsych/TrialsData.m)
 
-### `epsych.ModeChangeEvent`
+### `epsych.eventModeChange`
 
-`ModeChange` sends an `epsych.ModeChangeEvent` payload.
+`ModeChange` sends an `epsych.eventModeChange` payload.
 
 Properties:
 
 - `NewMode`: new runtime state, typically a `hw.DeviceState`
 
-Source: [obj/+epsych/ModeChangeEvent.m](../obj/+epsych/ModeChangeEvent.m)
+Source: [obj/+epsych/eventModeChange.m](../obj/+epsych/eventModeChange.m)
 
 ## Runtime Events
 
@@ -228,7 +228,7 @@ end
 | `NewData` | `RUNTIME.HELPER` | `epsych.TrialsData` | completed-trial updates and raw runtime data |
 | `NewData` | `psychObj.Helper` | `epsych.TrialsData` | derived analysis refresh and analysis-driven GUIs |
 | `NewTrial` | `RUNTIME.HELPER` | usually `epsych.TrialsData` | upcoming-trial UI and scheduling state |
-| `ModeChange` | `RUNTIME.HELPER` | `epsych.ModeChangeEvent` | runtime state transitions |
+| `ModeChange` | `RUNTIME.HELPER` | `epsych.eventModeChange` | runtime state transitions |
 
 ## Notes
 

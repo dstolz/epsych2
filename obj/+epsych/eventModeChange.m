@@ -1,5 +1,5 @@
-classdef ModeChangeEvent < event.EventData
-    % ev = epsych.ModeChangeEvent(newMode)
+classdef eventModeChange < event.EventData
+    % ev = epsych.eventModeChange(newMode)
     % Event data for runtime mode transitions.
     %
     % Properties:
@@ -8,7 +8,7 @@ classdef ModeChangeEvent < event.EventData
         NewMode
     end
     methods
-        function obj = ModeChangeEvent(newMode)
+        function obj = eventModeChange(newMode)
             if nargin>0
                 obj.NewMode = newMode;
             end

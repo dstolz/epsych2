@@ -10,7 +10,7 @@ function RUNTIME = ep_TimerFcn_Stop(RUNTIME)
 vprintf(2,'Setting mode to Idle')
 RUNTIME.HW.mode = hw.DeviceState.Idle;
 
-RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Idle));
+RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Idle));
 
 if ~isempty(RUNTIME.HELPER) && isvalid(RUNTIME.HELPER)
 	delete(RUNTIME.HELPER)

@@ -109,19 +109,19 @@ switch lower(COMMAND)
 
         start(self.RUNTIME.TIMER)
 
-        self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Record));
+        self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Record));
 
         drawnow
 
     case "pause"
 
-        self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Pause));
+        self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Pause));
 
     case "stop"
         self.STATE = PRGMSTATE.STOP;
         set(self.H.figure1,'pointer','watch')
 
-        self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Stop));
+        self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Stop));
 
         vprintf(3,'ExptDispatch: Stopping BoxTimer')
         t = timerfindall('Name','BoxTimer');

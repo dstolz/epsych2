@@ -7,6 +7,33 @@ function onModifyInterfaceOptions(obj)
     end
 
     iface = obj.Protocol.Interfaces(interfaceIndex);
+    moduleIndex = obj.getSelectedModuleRow();
+
+    if moduleIndex >= 1 && moduleIndex <= length(iface.Module)
+        try
+            [spec, moduleOptions] = obj.getModuleEditState(iface, moduleIndex);
+            updatedOptions = obj.promptForInterfaceOptions(spec, moduleOptions, 'Apply Module Options', 'module');
+            if isempty(updatedOptions)
+                obj.setStatus(sprintf('Modify module cancelled for %s', iface.Module(moduleIndex).Name), ...
+                    'Review the module options and reopen the dialog when ready.');
+                return
+            end
+
+            updatedModule = obj.applyUpdatedModuleOptions(iface, moduleIndex, updatedOptions);
+            obj.refreshParameterTab();
+            obj.SelectedInterfaceRow = interfaceIndex;
+            obj.setSelectedModuleRow(moduleIndex);
+            obj.setStatus(sprintf('Updated options for module %s', updatedModule.Name), ...
+                'Review affected parameters, then compile again.');
+            return
+        catch ME
+            obj.setStatus(sprintf('Modify module failed: %s', ME.message), ...
+                'Check the module option values and required files, then try again.');
+            uialert(obj.Figure, ME.message, 'Modify Module Failed');
+            return
+        end
+    end
+
     try
         [spec, options] = obj.getInterfaceEditState(iface);
         updatedOptions = obj.promptForInterfaceOptions(spec, options, 'Apply Options', 'interface');

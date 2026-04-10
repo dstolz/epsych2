@@ -73,6 +73,10 @@ function onParamEdited(obj, evt)
                     parameter.isArray = isArrayValue;
                     nextStep = 'Check Value, Min, and Max for the new type, then compile.';
                 end
+                if obj.sanitizeParameterTrigger(parameter)
+                    statusMessage = sprintf('Cleared Trigger for %s because only Boolean parameters can be triggers', parameter.Name);
+                    nextStep = 'Enable Trigger again only after setting the Type to Boolean.';
+                end
                 if obj.hasParameterExpression(parameter) && ~obj.parameterSupportsExpression(parameter)
                     obj.clearParameterExpression(parameter);
                     statusMessage = sprintf('Cleared expression for %s because type %s does not support expressions', parameter.Name, parameter.Type);
@@ -145,6 +149,13 @@ function onParamEdited(obj, evt)
             case 13
                 parameter.Visible = logical(evt.NewData);
             case 14
+                if ~obj.parameterAllowsTrigger(parameter)
+                    parameter.isTrigger = false;
+                    obj.refreshParameterTable();
+                    obj.setStatus(sprintf('Trigger is only available for Boolean parameters like %s', parameter.Name), ...
+                        'Set Type to Boolean first, then optionally enable Trigger.');
+                    return
+                end
                 parameter.isTrigger = logical(evt.NewData);
             case 15
                 parameter.Description = string(evt.NewData);

@@ -1,7 +1,13 @@
 function onAddInterface(obj)
     try
         [spec, ~] = obj.getSelectedInterfaceSpec();
-        options = obj.promptForInterfaceOptions(spec);
+        existingTypes = arrayfun(@(iface) char(string(iface.Type)), obj.Protocol.Interfaces, 'UniformOutput', false);
+        if any(strcmp(spec.type, existingTypes))
+            obj.refreshInterfaceBuilder();
+            obj.LabelStatus.Text = sprintf('Interface %s already exists. Only one instance of each interface class is allowed.', spec.label);
+            return
+        end
+        options = obj.promptForInterfaceOptions(spec, struct(), 'Add Interface', 'interface');
         if isempty(options)
             obj.LabelStatus.Text = sprintf('Add %s cancelled', spec.label);
             return

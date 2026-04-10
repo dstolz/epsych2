@@ -9,13 +9,16 @@ function onModifyInterfaceOptions(obj)
     iface = obj.Protocol.Interfaces(interfaceIndex);
     try
         [spec, options] = obj.getInterfaceEditState(iface);
-        updatedOptions = obj.promptForInterfaceOptions(spec, options, 'Apply Options');
+        updatedOptions = obj.promptForInterfaceOptions(spec, options, 'Apply Options', 'interface');
         if isempty(updatedOptions)
             obj.LabelStatus.Text = sprintf('Modify %s cancelled', char(iface.Type));
             return
         end
 
         replacement = spec.createFcn(updatedOptions);
+        if ~isempty(iface.Module)
+            replacement = obj.cloneModulesToInterface(iface, replacement);
+        end
         obj.Protocol.replaceInterface(interfaceIndex, replacement);
         obj.refreshParameterTab();
 

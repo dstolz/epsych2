@@ -97,6 +97,13 @@ classdef InterfaceSpecOption
             obj.fileDialogTitle = char(string(obj.fileDialogTitle));
             obj.description = char(string(obj.description));
 
+            if iscell(obj.choices) && isscalar(obj.choices) && iscell(obj.choices{1})
+                obj.choices = obj.choices{1};
+            end
+            if isstring(obj.choices)
+                obj.choices = cellstr(obj.choices);
+            end
+
             if isempty(obj.scope)
                 obj.scope = 'interface';
             end

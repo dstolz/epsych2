@@ -1,9 +1,10 @@
 function refreshInterfaceBuilder(obj)
-    specs = obj.getAvailableInterfaceSpecs();
+    specs = obj.getAddableInterfaceSpecs();
     if isempty(specs)
         obj.DropDownInterfaceType.Items = {'<none>'};
         obj.DropDownInterfaceType.Value = '<none>';
-        obj.LabelInterfaceDescription.Text = 'No interface types are available.';
+        obj.LabelInterfaceDescription.Text = 'All available interface types are already present in the protocol.';
+        obj.BtnAddInterface.Enable = false;
         return
     end
 
@@ -22,4 +23,5 @@ function refreshInterfaceBuilder(obj)
 
     [spec, ~] = obj.getSelectedInterfaceSpec();
     obj.LabelInterfaceDescription.Text = spec.description;
+    obj.BtnAddInterface.Enable = true;
 end

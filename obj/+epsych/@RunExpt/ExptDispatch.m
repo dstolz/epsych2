@@ -75,6 +75,9 @@ switch lower(COMMAND)
                 else
                     % Use first hardware interface (or could select based on ConnectionType)
                     self.RUNTIME.HW = hw_interfaces(1);
+                    if isprop(self.RUNTIME.HW, 'IsConnected') && ~self.RUNTIME.HW.IsConnected && ismethod(self.RUNTIME.HW, 'connect')
+                        self.RUNTIME.HW.connect();
+                    end
                 end
             end
         catch me

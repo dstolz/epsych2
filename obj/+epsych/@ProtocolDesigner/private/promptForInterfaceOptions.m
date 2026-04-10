@@ -1,14 +1,17 @@
-function options = promptForInterfaceOptions(obj, spec, initialOptions, dialogAction)
+function options = promptForInterfaceOptions(obj, spec, initialOptions, dialogAction, scopeMode)
     if nargin < 3 || isempty(initialOptions)
         initialOptions = struct();
     end
     if nargin < 4 || isempty(dialogAction)
         dialogAction = 'Add Interface';
     end
+    if nargin < 5 || isempty(scopeMode)
+        scopeMode = 'all';
+    end
 
-    fields = spec.options;
+    fields = localFilterFields_(spec.options, scopeMode);
     if isempty(fields)
-        options = showNoOptionsDialog_(spec, dialogAction);
+        options = showNoOptionsDialog_(spec, dialogAction, scopeMode);
         return
     end
 
@@ -27,11 +30,11 @@ function options = promptForInterfaceOptions(obj, spec, initialOptions, dialogAc
         'WordWrap', 'on');
 
     uilabel(dialog, ...
-        'Text', 'Select a Value cell to edit it with the control type defined for that option. Module-level rows expect one value per module.', ...
+        'Text', localInstructionText_(scopeMode), ...
         'Position', [20 dialogHeight - 84 860 18], ...
         'FontColor', [0.36 0.43 0.52]);
 
-    tableData = cell(numel(fields), 6);
+    tableData = cell(numel(fields), 3);
     rawValues = cell(numel(fields), 1);
     for idx = 1:numel(fields)
         field = fields(idx);
@@ -49,34 +52,17 @@ function options = promptForInterfaceOptions(obj, spec, initialOptions, dialogAc
         end
         rawValues{idx} = rawValue;
 
-        if field.getFile && field.isList
-            inputType = 'file list';
-        elseif field.getFile
-            inputType = 'file';
-        elseif field.getFolder
-            inputType = 'folder';
-        elseif strcmp(field.inputType, 'choice')
-            inputType = 'choice';
-        elseif field.isList
-            inputType = 'list';
-        else
-            inputType = char(string(field.inputType));
-        end
-
-        tableData{idx, 1} = field.label;
+        tableData{idx, 1} = localOptionLabel_(field);
         tableData{idx, 2} = obj.formatInterfaceOptionDisplayValue(field, rawValue);
-        tableData{idx, 3} = localScopeText_(field);
-        tableData{idx, 4} = localRequiredText_(field.required);
-        tableData{idx, 5} = inputType;
-        tableData{idx, 6} = guidance;
+        tableData{idx, 3} = guidance;
     end
 
     table = uitable(dialog, ...
         'Position', [20 74 860 dialogHeight - 156], ...
-        'ColumnName', {'Option', 'Value', 'Level', 'Required', 'Input', 'Guidance'}, ...
+        'ColumnName', {'Option', 'Value', 'Guidance'}, ...
         'ColumnEditable', false, ...
-        'ColumnFormat', {'char', 'char', 'char', 'char', 'char', 'char'}, ...
-        'ColumnWidth', {150, 220, 88, 76, 90, 222}, ...
+        'ColumnFormat', {'char', 'char', 'char'}, ...
+        'ColumnWidth', {190, 240, 410}, ...
         'BackgroundColor', [1 1 1; 0.979 0.984 0.992], ...
         'Data', tableData, ...
         'CellSelectionCallback', @onTableSelectionChanged);
@@ -143,7 +129,12 @@ function options = promptForInterfaceOptions(obj, spec, initialOptions, dialogAc
                     error('Option "%s" must be numeric.', innerField.label);
                 end
             end
-            validateModuleScope_(obj, fields, rawValues);
+            switch lower(scopeMode)
+                case 'module'
+                    validateSingleModuleScope_(obj, fields, rawValues);
+                otherwise
+                    validateModuleScope_(obj, fields, rawValues);
+            end
         catch ME
             uialert(dialog, ME.message, 'Invalid Interface Options');
             return
@@ -183,19 +174,30 @@ function options = promptForInterfaceOptions(obj, spec, initialOptions, dialogAc
     end
 end
 
-function text = localRequiredText_(isRequired)
-    if isRequired
-        text = 'Required';
-    else
-        text = 'Optional';
+function fields = localFilterFields_(fields, scopeMode)
+    switch lower(scopeMode)
+        case 'interface'
+            keepMask = arrayfun(@(field) ~strcmpi(char(string(field.scope)), 'module'), fields);
+            fields = fields(keepMask);
+        case 'module'
+            keepMask = arrayfun(@(field) strcmpi(char(string(field.scope)), 'module'), fields);
+            fields = fields(keepMask);
     end
 end
 
-function text = localScopeText_(field)
-    if strcmpi(char(string(field.scope)), 'module')
-        text = 'Module';
+function text = localInstructionText_(scopeMode)
+    if strcmpi(scopeMode, 'module')
+        text = 'Select a Value cell to edit the settings for the new module.';
     else
-        text = 'Interface';
+        text = 'Select a Value cell to edit it with the control type defined for that option.';
+    end
+end
+
+function label = localOptionLabel_(field)
+    if field.required
+        label = sprintf('* %s', field.label);
+    else
+        label = field.label;
     end
 end
 
@@ -246,6 +248,19 @@ function validateModuleScope_(obj, fields, rawValues)
     end
 end
 
+function validateSingleModuleScope_(obj, fields, rawValues)
+    for idx = 1:numel(fields)
+        field = fields(idx);
+        value = obj.parseInterfaceOptionValue(field, rawValues{idx});
+        if isempty(value)
+            continue
+        end
+        if numel(value) ~= 1
+            error('Module option "%s" must contain exactly one value when adding a module.', field.label);
+        end
+    end
+end
+
 function suffix = localScalarExpansionSuffix_(field)
     if field.allowScalarExpansion
         suffix = ' or a single broadcast value';
@@ -254,7 +269,7 @@ function suffix = localScalarExpansionSuffix_(field)
     end
 end
 
-function options = showNoOptionsDialog_(spec, dialogAction)
+function options = showNoOptionsDialog_(spec, dialogAction, scopeMode)
     dialog = uifigure( ...
         'Name', sprintf('%s: %s', dialogAction, spec.label), ...
         'Position', [360 260 520 210], ...
@@ -269,7 +284,7 @@ function options = showNoOptionsDialog_(spec, dialogAction)
         'WordWrap', 'on');
 
     uilabel(dialog, ...
-        'Text', 'This interface has no configurable creation options.', ...
+        'Text', localNoOptionsText_(scopeMode), ...
         'Position', [20 86 480 24], ...
         'FontWeight', 'bold', ...
         'FontColor', [0.22 0.28 0.36]);
@@ -300,6 +315,16 @@ function options = showNoOptionsDialog_(spec, dialogAction)
     function closeDialog_(choice)
         response = choice;
         uiresume(dialog);
+    end
+end
+
+function text = localNoOptionsText_(scopeMode)
+    if strcmpi(scopeMode, 'module')
+        text = 'This interface has no configurable module-level options.';
+    elseif strcmpi(scopeMode, 'interface')
+        text = 'This interface has no configurable interface-level options.';
+    else
+        text = 'This interface has no configurable creation options.';
     end
 end
 

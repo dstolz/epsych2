@@ -35,15 +35,15 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     %   documentation/hw/hw_Parameter.md, hw.Module, hw.Parameter
 
     properties (Abstract,SetAccess = protected)
-        Module (1,:) hw.Module
+        Module
     end
 
     properties (Abstract,Constant)
-        Type (1,1) string
+        Type
     end
 
     properties (Abstract,SetObservable,AbortSet)
-        mode (1,1) hw.DeviceState
+        mode
     end
 
 

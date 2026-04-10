@@ -37,11 +37,11 @@ The Parameters tab is the main editing surface.
 
 Use **Add Interface** to create a new interface. Available interface types and their required setup options come from each hardware class through `getCreationSpec()`. This keeps the GUI aligned with the interface implementation instead of duplicating option definitions in the designer.
 
-Creation options can now be marked as either interface-level or module-level. Interface-level options apply once to the owning `hw.Interface`, while module-level options supply one value per `hw.Module` created under that interface. The add/edit dialog shows this distinction in a dedicated `Level` column.
+Creation options can be marked as either interface-level or module-level. Interface-level options apply once to the owning `hw.Interface`, while module-level options supply values for individual `hw.Module` objects created under that interface. The **Add Interface** and **Modify Options** dialogs now show only interface-level options. The **Add Module** dialog shows module-level options when the selected interface type defines them.
 
 Use **Remove Interface** to remove the currently selected interface.
 
-For interfaces that expose editable module lists, use **Add Module** and **Remove Module** from the Current Interfaces panel. This is primarily intended for software-backed or serialized interfaces where the designer owns the module list directly. Hardware interfaces such as live TDT backends can still expose multiple modules through their creation options and discovery logic, but may not support manual module edits after construction.
+For interfaces that expose editable module lists, use **Add Module** and **Remove Module** from the Current Interfaces panel. This is primarily intended for software-backed or offline hardware interface objects where the designer owns the module list directly. Required options are indicated with a leading `*` in the option table instead of a separate Required column.
 
 ### Filtering and Target Selection
 

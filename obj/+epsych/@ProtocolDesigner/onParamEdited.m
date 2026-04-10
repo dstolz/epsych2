@@ -67,7 +67,21 @@ function onParamEdited(obj, evt)
                     statusMessage = sprintf('%s = %s', expressionText, parameter.ValueStr);
                 end
             case 6
-                obj.setParameterPair(parameter, evt.NewData);
+                pairSelection = char(string(evt.NewData));
+                if strcmp(pairSelection, '<Create Pair...>')
+                    pairName = obj.promptForNewPairName();
+                    if isempty(pairName)
+                        obj.refreshParameterTable();
+                        obj.LabelStatus.Text = sprintf('Pair creation cancelled for %s', parameter.Name);
+                        return
+                    end
+                elseif strcmp(pairSelection, '<None>')
+                    pairName = '';
+                else
+                    pairName = pairSelection;
+                end
+
+                obj.setParameterPair(parameter, pairName);
                 pairName = obj.getParameterPair(parameter);
                 if isempty(pairName)
                     statusMessage = sprintf('Cleared pair for %s', parameter.Name);
@@ -75,23 +89,9 @@ function onParamEdited(obj, evt)
                     statusMessage = sprintf('Paired %s with group %s', parameter.Name, pairName);
                 end
             case 7
-                if obj.hasParameterExpression(parameter)
-                    obj.refreshParameterTable();
-                    obj.LabelStatus.Text = sprintf('Parameter %s is expression-controlled. Edit the Expression column instead.', parameter.Name);
-                    return
-                end
-                if isequal(parameter.Type, 'File')
-                    [fileValue, cancelled, updatedAllowMultiple] = obj.editParameterFileValue(parameter, parameter.isArray);
-                    if cancelled
-                        obj.refreshParameterTable();
-                        obj.LabelStatus.Text = sprintf('File selection cancelled for %s', parameter.Name);
-                        return
-                    end
-                    parameter.isArray = updatedAllowMultiple;
-                    parameter.Value = fileValue;
-                else
-                    parameter.Value = obj.parseValue(evt.NewData);
-                end
+                obj.refreshParameterTable();
+                obj.LabelStatus.Text = sprintf('Value for %s is read-only. Edit the Expression column instead.', parameter.Name);
+                return
             case 8
                 parameter.Min = double(evt.NewData);
             case 9

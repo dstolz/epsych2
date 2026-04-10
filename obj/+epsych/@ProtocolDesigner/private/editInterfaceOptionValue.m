@@ -1,7 +1,9 @@
 function [rawValue, cancelled] = editInterfaceOptionValue(obj, field, currentValue)
+    editField = localNormalizeEditableField_(field, currentValue);
     dialogHeight = 236;
     controlHeight = 28;
-    if strcmp(field.controlType, 'textarea') || strcmp(field.controlType, 'multiselect') || field.isList
+    if strcmp(editField.controlType, 'textarea') || strcmp(editField.controlType, 'multiselect') || ...
+            (editField.isList && ~strcmp(editField.controlType, 'dropdown'))
         dialogHeight = 290;
         controlHeight = 56;
     end
@@ -33,7 +35,6 @@ function [rawValue, cancelled] = editInterfaceOptionValue(obj, field, currentVal
             'FontColor', [0.36 0.43 0.52]);
     end
 
-    editField = field;
     editField.defaultValue = currentValue;
     control = obj.createInterfaceOptionControl(dialog, editField, [20 dialogHeight - 142 580 controlHeight]);
 
@@ -94,4 +95,35 @@ function [rawValue, cancelled] = editInterfaceOptionValue(obj, field, currentVal
         response = choice;
         uiresume(dialog);
     end
+end
+
+function editField = localNormalizeEditableField_(field, currentValue)
+    editField = field;
+    if isempty(field.choices)
+        return
+    end
+
+    if strcmp(field.controlType, 'multiselect')
+        return
+    end
+
+    if field.isList && ~localIsSingleValue_(currentValue)
+        return
+    end
+
+    editField.controlType = 'dropdown';
+end
+
+function tf = localIsSingleValue_(value)
+    if iscell(value)
+        tf = numel(value) <= 1;
+        return
+    end
+
+    if isstring(value)
+        tf = numel(value) <= 1;
+        return
+    end
+
+    tf = true;
 end

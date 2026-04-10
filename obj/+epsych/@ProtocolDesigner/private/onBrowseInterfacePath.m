@@ -3,9 +3,9 @@ function onBrowseInterfacePath(obj, control, field)
     fileFilter = obj.normalizeDialogFileFilter(field.fileFilter);
 
     if field.isList
-        [fileName, folder] = uigetfile(fileFilter, field.fileDialogTitle, fullfile(startPath, '*'), 'MultiSelect', 'on');
+        [fileName, folder] = uigetfile(fileFilter, field.fileDialogTitle, startPath, 'MultiSelect', 'on');
     elseif field.getFile
-        [fileName, folder] = uigetfile(fileFilter, field.fileDialogTitle, fullfile(startPath, '*'));
+        [fileName, folder] = uigetfile(fileFilter, field.fileDialogTitle, startPath);
     else
         folder = uigetdir(startPath, field.fileDialogTitle);
         if isequal(folder, 0)
@@ -24,6 +24,15 @@ function onBrowseInterfacePath(obj, control, field)
         selectedPaths = cellfun(@(name) fullfile(folder, name), fileName, 'UniformOutput', false);
     else
         selectedPaths = {fullfile(folder, fileName)};
+    end
+
+    [isValidSelection, allowedExtensions] = obj.validateDialogSelectionPaths(selectedPaths, fileFilter);
+    if ~isValidSelection
+        extensionSummary = strjoin(allowedExtensions, ', ');
+        message = sprintf('Selection for %s must use one of these extensions: %s', field.label, extensionSummary);
+        obj.LabelStatus.Text = message;
+        uialert(obj.Figure, message, 'Invalid File Selection');
+        return
     end
 
     if field.getFolder

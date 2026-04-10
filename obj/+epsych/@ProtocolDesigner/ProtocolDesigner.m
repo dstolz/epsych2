@@ -34,6 +34,7 @@ classdef ProtocolDesigner < handle
         DropDownInterfaceType matlab.ui.control.DropDown
         LabelInterfaceDescription matlab.ui.control.Label
         DropDownInterfaceFilter matlab.ui.control.DropDown
+        DropDownColorBy matlab.ui.control.DropDown
         DropDownTargetInterface matlab.ui.control.DropDown
         DropDownTargetModule matlab.ui.control.DropDown
         BtnAddInterface matlab.ui.control.Button

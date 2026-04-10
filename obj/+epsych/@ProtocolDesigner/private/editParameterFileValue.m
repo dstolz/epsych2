@@ -1,7 +1,7 @@
 function [fileValue, cancelled, allowMultiple] = editParameterFileValue(obj, parameter, allowMultiple)
     % editParameterFileValue(obj, parameter, allowMultiple)
     % Open the modal file-value editor for one File parameter.
-    % The dialog supports replace, add, remove, and clear actions and
+    % The dialog supports add, remove, and clear actions and
     % returns the final value only when Apply is pressed.
     %
     % Parameters:
@@ -27,11 +27,7 @@ function [fileValue, cancelled, allowMultiple] = editParameterFileValue(obj, par
         'FontSize', 14, ...
         'FontWeight', 'bold');
 
-    if allowMultiple
-        summaryText = 'Use Replace to set the list, Add to append more files, or Clear to remove all files.';
-    else
-        summaryText = 'Use Replace for one file, or Add to select multiple files and switch this parameter to a file list.';
-    end
+    summaryText = localSummaryText_(allowMultiple);
     summaryLabel = uilabel(dialog, ...
         'Text', summaryText, ...
         'Position', [20 400 760 18], ...
@@ -68,23 +64,18 @@ function [fileValue, cancelled, allowMultiple] = editParameterFileValue(obj, par
         'ValueChangedFcn', @onSelectionChanged);
 
     uibutton(dialog, 'push', ...
-        'Text', 'Replace...', ...
-        'Position', [690 300 104 30], ...
-        'ButtonPushedFcn', @onReplace);
-
-    uibutton(dialog, 'push', ...
         'Text', 'Add...', ...
-        'Position', [690 258 104 30], ...
+        'Position', [690 300 104 30], ...
         'ButtonPushedFcn', @onAdd);
 
     removeButton = uibutton(dialog, 'push', ...
         'Text', 'Remove Selected', ...
-        'Position', [690 216 104 30], ...
+        'Position', [690 258 104 30], ...
         'ButtonPushedFcn', @onRemove);
 
     clearButton = uibutton(dialog, 'push', ...
         'Text', 'Clear', ...
-        'Position', [690 174 104 30], ...
+        'Position', [690 216 104 30], ...
         'ButtonPushedFcn', @onClear);
 
     uibutton(dialog, 'push', ...
@@ -127,25 +118,17 @@ function [fileValue, cancelled, allowMultiple] = editParameterFileValue(obj, par
         delete(dialog);
     end
 
-    function onReplace(~, ~)
-        [selectedFiles, wasCancelled] = obj.promptForParameterFileValue(parameter, allowMultiple);
-        if wasCancelled
-            return
-        end
-        currentItemPaths = obj.normalizeFileValueToList(selectedFiles);
-        refreshListPresentation(1);
-    end
-
     function onAdd(~, ~)
         [selectedFiles, wasCancelled] = obj.promptForParameterFileValue(parameter, true);
         if wasCancelled
             return
         end
         newItems = obj.normalizeFileValueToList(selectedFiles);
-        if ~allowMultiple && numel(newItems) > 1
+        combinedItems = unique([currentItemPaths, newItems], 'stable');
+        if ~allowMultiple && numel(combinedItems) > 1
             allowMultiple = true;
         end
-        currentItemPaths = unique([currentItemPaths, newItems], 'stable');
+        currentItemPaths = combinedItems;
         selectedIndices = find(ismember(currentItemPaths, newItems));
         refreshListPresentation(selectedIndices);
     end
@@ -202,11 +185,7 @@ function [fileValue, cancelled, allowMultiple] = editParameterFileValue(obj, par
         items = currentItemPaths;
         selectedIndices = getSelectedIndices();
         selectedItems = items(selectedIndices);
-        if allowMultiple
-            summaryLabel.Text = 'Use Replace to set the list, Add to append more files, or Clear to remove all files.';
-        else
-            summaryLabel.Text = 'Use Replace for one file, or Add to select multiple files and switch this parameter to a file list.';
-        end
+        summaryLabel.Text = localSummaryText_(allowMultiple);
         countLabel.Text = obj.getFileSelectionCountText(items, allowMultiple);
         emptyStateLabel.Visible = matlab.lang.OnOffSwitchState(obj.onOffForCondition(isempty(items)));
         removeButton.Enable = matlab.lang.OnOffSwitchState(obj.onOffForCondition(~isempty(selectedItems)));
@@ -218,6 +197,14 @@ function [fileValue, cancelled, allowMultiple] = editParameterFileValue(obj, par
         displayItems = obj.getFileDisplayItems(currentItemPaths);
         selectedLabels = cellstr(listBox.Value);
         selectedIndices = find(ismember(displayItems, selectedLabels));
+    end
+end
+
+function summaryText = localSummaryText_(allowMultiple)
+    if allowMultiple
+        summaryText = 'Use Add to append more files, Remove Selected to drop specific entries, or Clear to remove all files.';
+    else
+        summaryText = 'Use Add to select a file. Add more than one file to switch this parameter to a file list, or Remove/Clear the current file before choosing another.';
     end
 end
 

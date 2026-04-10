@@ -25,6 +25,7 @@ classdef TDT_Synapse < hw.Interface
 
     properties
         ExperimentInfo (1,1) struct
+        IsConnected (1,1) logical = false
     end
 
 
@@ -34,11 +35,15 @@ classdef TDT_Synapse < hw.Interface
 
 
     properties (SetAccess = protected)
-        HW (1,1) % handle to Synapse API
+        HW = [] % handle to Synapse API
 
         Server  (1,:) char
 
         Module
+    end
+
+    properties (Access = private)
+        ModeState_ (1,1) hw.DeviceState = hw.DeviceState.Idle
     end
 
     properties (Constant)
@@ -52,16 +57,46 @@ classdef TDT_Synapse < hw.Interface
 
     methods
         % constructor
-        function obj = TDT_Synapse(Server)
+        function obj = TDT_Synapse(Server, options)
             arguments
-                Server (1,:) char = 'localhost';
+                Server (1,:) char = 'localhost'
+                options.Connect (1,1) logical = true
             end
 
             obj.Server = Server;
+            obj.Module = hw.Module.empty(1, 0);
 
-            obj.setup_interface;
+            if options.Connect
+                obj.connect();
+            end
+        end
 
+        function connect(obj)
+            if obj.IsConnected
+                return
+            end
+
+            obj.setup_interface();
+            obj.IsConnected = true;
+            obj.ModeState_ = obj.mode;
             obj.update_experiment_info;
+        end
+
+        function disconnect(obj)
+            if ~obj.IsConnected
+                return
+            end
+
+            obj.close_interface();
+        end
+
+        function setModules(obj, modules)
+            if obj.IsConnected
+                error('hw:TDT_Synapse:ConnectedModuleEdit', ...
+                    'Modules can only be reassigned while the interface is offline.');
+            end
+
+            obj.Module = modules;
         end
     end
 
@@ -77,7 +112,7 @@ classdef TDT_Synapse < hw.Interface
                     'defaultValue', 'localhost', ...
                     'required', false, ...
                     'inputType', 'text', ...
-                    'choices', {{}}, ...
+                    'choices', {}, ...
                     'isList', false, ...
                     'scope', 'interface', ...
                     'allowScalarExpansion', false, ...
@@ -94,6 +129,11 @@ classdef TDT_Synapse < hw.Interface
 
     methods
         function update_experiment_info(obj)
+            if ~obj.IsConnected || isempty(obj.HW)
+                obj.ExperimentInfo = struct();
+                return
+            end
+
             obj.ExperimentInfo.user         = obj.HW.getCurrentUser();
             obj.ExperimentInfo.subject      = obj.HW.getCurrentSubject();
             obj.ExperimentInfo.experiment   = obj.HW.getCurrentExperiment();
@@ -111,6 +151,11 @@ classdef TDT_Synapse < hw.Interface
 
 
         function close_interface(obj)
+            if isempty(obj.HW)
+                obj.IsConnected = false;
+                return
+            end
+
             if obj.HW.Mode > hw.DeviceState.Idle
                 obj.HW.mode = hw.DeviceState.Idle;
             end
@@ -118,6 +163,9 @@ classdef TDT_Synapse < hw.Interface
             if ~isempty(obj.HW) && isvalid(obj.HW)
                 delete(obj.HW)
             end
+
+            obj.HW = [];
+            obj.IsConnected = false;
         end
 
 
@@ -137,18 +185,12 @@ classdef TDT_Synapse < hw.Interface
 
 
         function set.mode(obj,mode)
-            e.oldMode = obj.mode;
-            e.mode = mode;
-
-            % 0 (Idle), 1 (Standby), 2 (Preview), 3 (Record)
-            obj.HW.setMode(double(mode));
-            vprintf(2,'HW mode: %s',char(obj.mode))
+            obj.applyModeState_(mode);
         end
 
 
         function m = get.mode(obj)
-            m = obj.HW.getMode();
-            m = hw.DeviceState(m);
+            m = obj.queryModeState_();
         end
 
 
@@ -173,6 +215,11 @@ classdef TDT_Synapse < hw.Interface
                 P = name;
             else
                 P = obj.find_parameter(name);
+            end
+
+            if ~obj.IsConnected || isempty(obj.HW)
+                t = datetime('now');
+                return
             end
 
             module = P.Module.Label;
@@ -200,6 +247,11 @@ classdef TDT_Synapse < hw.Interface
         % set new value to one or more hardware parameters
         % returns TRUE if successful, FALSE otherwise
         function e = set_parameter(obj,name,value)
+
+            if ~obj.IsConnected || isempty(obj.HW)
+                e = true;
+                return
+            end
 
             if isa(name,'hw.Parameter')
                 P = name;
@@ -254,6 +306,20 @@ classdef TDT_Synapse < hw.Interface
                     includeInvisible = options.includeInvisible, ...
                     silenceParameterNotFound=options.silenceParameterNotFound);
             end
+
+            if ~obj.IsConnected || isempty(obj.HW)
+                value = cell(size(P));
+                for i = 1:length(P)
+                    value{i} = P(i).Value;
+                end
+
+                [~,idx] = ismember(name,{P.Name});
+                value = value(idx);
+                if isscalar(value)
+                    value = value{1};
+                end
+                return
+            end
             
             value = cell(size(P));
             for i = 1:length(P)
@@ -277,6 +343,28 @@ classdef TDT_Synapse < hw.Interface
         end
 
 
+    end
+
+    methods (Access = private)
+        function applyModeState_(obj, mode)
+            obj.ModeState_ = mode;
+            if ~obj.IsConnected || isempty(obj.HW)
+                return
+            end
+
+            obj.HW.setMode(double(mode));
+            vprintf(2,'HW mode: %s',char(obj.queryModeState_()))
+        end
+
+        function mode = queryModeState_(obj)
+            if ~obj.IsConnected || isempty(obj.HW)
+                mode = obj.ModeState_;
+                return
+            end
+
+            mode = hw.DeviceState(obj.HW.getMode());
+            obj.ModeState_ = mode;
+        end
     end
 
 

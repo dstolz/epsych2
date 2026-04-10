@@ -1,7 +1,7 @@
 function [spec, specIndex] = getSelectedInterfaceSpec(obj)
-    specs = obj.getAvailableInterfaceSpecs();
+    specs = obj.getAddableInterfaceSpecs();
     if isempty(specs)
-        error('No interface specifications are available.');
+        error('All available interface types are already present in the protocol.');
     end
 
     labels = cellfun(@(entry) entry.label, specs, 'UniformOutput', false);

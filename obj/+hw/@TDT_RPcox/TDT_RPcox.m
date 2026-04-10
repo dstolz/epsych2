@@ -25,6 +25,7 @@ classdef TDT_RPcox < hw.Interface
 
     properties
         ExperimentInfo
+        IsConnected (1,1) logical = false
     end
 
     properties (SetAccess = protected)
@@ -34,6 +35,10 @@ classdef TDT_RPcox < hw.Interface
         ConnectionType (1,:) char = 'GB'
 
         Module
+    end
+
+    properties (Access = private)
+        ModeState_ (1,1) hw.DeviceState = hw.DeviceState.Idle
     end
 
     properties (SetObservable,AbortSet)
@@ -50,13 +55,16 @@ classdef TDT_RPcox < hw.Interface
         % constructor
         function obj = TDT_RPcox(RPvdsFile,moduleType,moduleAlias, options)
             arguments
-                RPvdsFile
-                moduleType
+                RPvdsFile = {}
+                moduleType = {}
                 moduleAlias = {}
                 options.Interface (1,:) char = 'GB'
                 options.Number (1,:) double {mustBeInteger, mustBePositive} = 1
                 options.Fs (1,:) double {mustBeNonnegative, mustBeFinite} = 0
+                options.Connect (1,1) logical = true
             end
+
+            obj.Module = hw.Module.empty(1, 0);
 
             RPvdsFile = cellstr(RPvdsFile);
             moduleType = cellstr(moduleType);
@@ -70,6 +78,8 @@ classdef TDT_RPcox < hw.Interface
 
             if isempty(moduleAlias)
                 moduleAlias = moduleType;
+            elseif moduleCount == 0
+                moduleAlias = {};
             elseif isscalar(moduleAlias) && moduleCount > 1
                 moduleAlias = repmat(moduleAlias, 1, moduleCount);
             elseif numel(moduleAlias) ~= moduleCount
@@ -77,14 +87,18 @@ classdef TDT_RPcox < hw.Interface
                     'moduleAlias must be empty, scalar, or one entry per module.');
             end
 
-            if isscalar(options.Number) && moduleCount > 1
+            if moduleCount == 0
+                options.Number = double.empty(1, 0);
+            elseif isscalar(options.Number) && moduleCount > 1
                 options.Number = repmat(options.Number, 1, moduleCount);
             elseif numel(options.Number) ~= moduleCount
                 error('hw:TDT_RPcox:ModuleNumberCountMismatch', ...
                     'Number must be scalar or one value per module.');
             end
 
-            if isscalar(options.Fs) && moduleCount > 1
+            if moduleCount == 0
+                options.Fs = double.empty(1, 0);
+            elseif isscalar(options.Fs) && moduleCount > 1
                 options.Fs = repmat(options.Fs, 1, moduleCount);
             elseif numel(options.Fs) ~= moduleCount
                 error('hw:TDT_RPcox:ModuleFsCountMismatch', ...
@@ -99,7 +113,68 @@ classdef TDT_RPcox < hw.Interface
 
             obj.ConnectionType = options.Interface;
 
-            obj.setup_interface(RPvdsFile,moduleType,moduleAlias, options);
+            if options.Connect && moduleCount > 0
+                obj.setup_interface(RPvdsFile,moduleType,moduleAlias, options);
+                obj.IsConnected = true;
+                obj.ModeState_ = obj.mode;
+            end
+        end
+
+        function connect(obj)
+            if obj.IsConnected
+                return
+            end
+
+            if isempty(obj.Module)
+                error('hw:TDT_RPcox:OfflineConfigurationMissing', ...
+                    'No modules are configured for this offline TDT_RPcox interface.');
+            end
+
+            obj.HW = TDTRP.empty(1, 0);
+            obj.ConnectionType = localNormalizeConnectionType_(obj.ConnectionType);
+
+            for idx = 1:length(obj.Module)
+                module = obj.Module(idx);
+                [rpvdsFile, deviceNumber, fsOverride] = localGetModuleConfig_(module, idx);
+                obj.HW(idx) = TDTRP(rpvdsFile, module.Label, ...
+                    'INTERFACE', obj.ConnectionType, ...
+                    'NUMBER', deviceNumber, ...
+                    'FS', fsOverride);
+
+                module.Fs = obj.HW(idx).RP.GetSFreq;
+                module.Info.RPvdsFile = rpvdsFile;
+                module.Info.Number = double(deviceNumber);
+                module.Info.FsOverride = double(fsOverride);
+                module.Info.ConnectionType = obj.ConnectionType;
+
+                if isempty(module.Parameters)
+                    localPopulateModuleParameters_(obj, module, obj.HW(idx));
+                end
+            end
+
+            obj.ensureUniqueParameterNames();
+            obj.IsConnected = true;
+            obj.ModeState_ = obj.mode;
+        end
+
+        function disconnect(obj)
+            if ~obj.IsConnected
+                return
+            end
+
+            obj.close_interface();
+        end
+
+        function setModules(obj, modules)
+            if obj.IsConnected
+                error('hw:TDT_RPcox:ConnectedModuleEdit', ...
+                    'Modules can only be reassigned while the interface is offline.');
+            end
+
+            obj.Module = modules;
+            if ~isempty(modules) && isfield(modules(1).Info, 'ConnectionType') && ~isempty(modules(1).Info.ConnectionType)
+                obj.ConnectionType = localNormalizeConnectionType_(modules(1).Info.ConnectionType);
+            end
         end
     end
 
@@ -112,7 +187,7 @@ classdef TDT_RPcox < hw.Interface
                 [ ...
                 hw.InterfaceSpecOption( ...
                     'name', 'connectionType', 'label', 'Connection Type', 'defaultValue', 'GB', ...
-                    'required', true, 'inputType', 'choice', 'choices', {{'GB', 'USB'}}, ...
+                    'required', true, 'inputType', 'choice', 'choices', {'GB', 'USB'}, ...
                     'isList', false, 'scope', 'interface', 'allowScalarExpansion', false, ...
                     'controlType', 'dropdown', 'getFile', false, 'getFolder', false, ...
                     'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
@@ -120,7 +195,7 @@ classdef TDT_RPcox < hw.Interface
                     'description', 'Transport used to connect to the hardware interface.'), ...
                 hw.InterfaceSpecOption( ...
                     'name', 'RPvdsFile', 'label', 'RPvds File', 'defaultValue', '', ...
-                    'required', true, 'inputType', 'text', 'choices', {{}}, ...
+                    'required', true, 'inputType', 'text', 'choices', {}, ...
                     'isList', true, 'scope', 'module', 'allowScalarExpansion', false, ...
                     'controlType', 'textarea', 'getFile', true, 'getFolder', false, ...
                     'fileFilter', {{'*.rcx;*.rco;*.rpx;*.rpvds', 'TDT Circuit Files (*.rcx, *.rco, *.rpx, *.rpvds)'; '*.*', 'All Files (*.*)'}}, ...
@@ -129,7 +204,7 @@ classdef TDT_RPcox < hw.Interface
                 hw.InterfaceSpecOption( ...
                     'name', 'moduleType', 'label', 'Device Type', 'defaultValue', '', ...
                     'required', false, 'inputType', 'text', ...
-                    'choices', {{'RP2', 'RA16', 'RL2', 'RV8', 'RM1', 'RM2', 'RX5', 'RX6', 'RX7', 'RX8', 'RZ2', 'RZ5', 'RZ6'}}, ...
+                    'choices', {'RP2', 'RA16', 'RL2', 'RV8', 'RM1', 'RM2', 'RX5', 'RX6', 'RX7', 'RX8', 'RZ2', 'RZ5', 'RZ6'}, ...
                     'isList', true, 'scope', 'module', 'allowScalarExpansion', false, ...
                     'controlType', 'textarea', 'getFile', false, 'getFolder', false, ...
                     'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
@@ -137,7 +212,7 @@ classdef TDT_RPcox < hw.Interface
                     'description', 'One or more TDT device types, one per circuit.'), ...
                 hw.InterfaceSpecOption( ...
                     'name', 'moduleAlias', 'label', 'Module Alias', 'defaultValue', '', ...
-                    'required', false, 'inputType', 'text', 'choices', {{}}, ...
+                    'required', false, 'inputType', 'text', 'choices', {}, ...
                     'isList', true, 'scope', 'module', 'allowScalarExpansion', false, ...
                     'controlType', 'textarea', 'getFile', false, 'getFolder', false, ...
                     'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
@@ -145,7 +220,7 @@ classdef TDT_RPcox < hw.Interface
                     'description', 'Optional aliases for the created modules.'), ...
                 hw.InterfaceSpecOption( ...
                     'name', 'number', 'label', 'Device Number', 'defaultValue', 1, ...
-                    'required', false, 'inputType', 'numeric', 'choices', {{}}, ...
+                    'required', false, 'inputType', 'numeric', 'choices', {}, ...
                     'isList', true, 'scope', 'module', 'allowScalarExpansion', true, ...
                     'controlType', 'textarea', 'getFile', false, 'getFolder', false, ...
                     'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
@@ -153,7 +228,7 @@ classdef TDT_RPcox < hw.Interface
                     'description', 'Device number as enumerated by zBusMon, one per module. A single value is applied to all modules.'), ...
                 hw.InterfaceSpecOption( ...
                     'name', 'fs', 'label', 'Sample Rate Override', 'defaultValue', 0, ...
-                    'required', false, 'inputType', 'numeric', 'choices', {{}}, ...
+                    'required', false, 'inputType', 'numeric', 'choices', {}, ...
                     'isList', true, 'scope', 'module', 'allowScalarExpansion', true, ...
                     'controlType', 'textarea', 'getFile', false, 'getFolder', false, ...
                     'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
@@ -173,6 +248,11 @@ classdef TDT_RPcox < hw.Interface
 
 
         function close_interface(obj)
+            if isempty(obj.HW)
+                obj.IsConnected = false;
+                return
+            end
+
             if obj.HW.Mode > hw.DeviceState.Idle
                 obj.HW.mode = hw.DeviceState.Idle;
             end
@@ -180,6 +260,9 @@ classdef TDT_RPcox < hw.Interface
             try %#ok<TRYNC>
                 delete(obj.HW)
             end
+
+            obj.HW = TDTRP.empty(1, 0);
+            obj.IsConnected = false;
         end
 
     end
@@ -192,33 +275,12 @@ classdef TDT_RPcox < hw.Interface
 
 
         function set.mode(obj,mode)
-            e.oldMode = obj.mode;
-            e.mode = mode;
-
-            if mode > hw.DeviceState.Idle
-                obj.HW.run;
-            else
-                obj.HW.halt;
-            end
-            vprintf(2,'HW mode: %s',char(obj.mode))
+            obj.applyModeState_(mode);
         end
 
 
         function m = get.mode(obj)
-            % m = obj.HW.status();
-            m = double(obj.HW.RP.GetStatus);
-            switch m
-                case 0
-                    m = hw.DeviceState.Error; % ?
-                case 1
-                    m = hw.DeviceState.Idle;
-                case 3
-                    m = hw.DeviceState.Standby;
-                case 5
-                    m = hw.DeviceState.Standby; % i think this is correct
-                case 7
-                    m = hw.DeviceState.Record;
-            end
+            m = obj.queryModeState_();
         end
 
 
@@ -235,6 +297,11 @@ classdef TDT_RPcox < hw.Interface
                 P = name;
             else
                 P = obj.find_parameter(name);
+            end
+
+            if ~obj.IsConnected || isempty(obj.HW)
+                t = now;
+                return
             end
 
             trig = obj.getHardwareParameterName(P);
@@ -262,6 +329,11 @@ classdef TDT_RPcox < hw.Interface
         % set new value to one or more hardware parameters
         % returns TRUE if successful, FALSE otherwise
         function e = set_parameter(obj,name,value)
+
+            if ~obj.IsConnected || isempty(obj.HW)
+                e = true;
+                return
+            end
 
             if isa(name,'hw.Parameter')
                 P = name;
@@ -316,6 +388,20 @@ classdef TDT_RPcox < hw.Interface
                     includeInvisible = options.includeInvisible, ...
                     silenceParameterNotFound=options.silenceParameterNotFound);
             end
+
+            if ~obj.IsConnected || isempty(obj.HW)
+                value = cell(size(P));
+                for i = 1:length(P)
+                    value{i} = P(i).Value;
+                end
+
+                [~,idx] = ismember(name,{P.Name});
+                value = value(idx);
+                if isscalar(value)
+                    value = value{1};
+                end
+                return
+            end
             
             value = cell(size(P));
             for i = 1:length(P)
@@ -338,6 +424,108 @@ classdef TDT_RPcox < hw.Interface
 
     end
 
+    methods (Access = private)
+        function applyModeState_(obj, mode)
+            obj.ModeState_ = mode;
+            if ~obj.IsConnected || isempty(obj.HW)
+                return
+            end
+
+            if mode > hw.DeviceState.Idle
+                obj.HW.run;
+            else
+                obj.HW.halt;
+            end
+            vprintf(2,'HW mode: %s',char(obj.queryModeState_()))
+        end
+
+        function mode = queryModeState_(obj)
+            if ~obj.IsConnected || isempty(obj.HW)
+                mode = obj.ModeState_;
+                return
+            end
+
+            status = double(obj.HW.RP.GetStatus);
+            switch status
+                case 0
+                    mode = hw.DeviceState.Error;
+                case 1
+                    mode = hw.DeviceState.Idle;
+                case 3
+                    mode = hw.DeviceState.Standby;
+                case 5
+                    mode = hw.DeviceState.Standby;
+                case 7
+                    mode = hw.DeviceState.Record;
+                otherwise
+                    mode = obj.ModeState_;
+            end
+            obj.ModeState_ = mode;
+        end
+    end
+
 
     
+end
+
+function connectionType = localNormalizeConnectionType_(connectionType)
+connectionType = upper(char(string(connectionType)));
+if ~ismember(connectionType, {'USB', 'GB'})
+    error('hw:TDT_RPcox:InvalidInterface', ...
+        'Interface must be either "USB" or "GB".');
+end
+end
+
+function [rpvdsFile, deviceNumber, fsOverride] = localGetModuleConfig_(module, defaultNumber)
+if ~isfield(module.Info, 'RPvdsFile') || isempty(module.Info.RPvdsFile)
+    error('hw:TDT_RPcox:MissingRPvdsFile', ...
+        'Module "%s" is missing RPvdsFile in Module.Info.', module.Name);
+end
+
+rpvdsFile = char(string(module.Info.RPvdsFile));
+
+if isfield(module.Info, 'Number') && ~isempty(module.Info.Number)
+    deviceNumber = double(module.Info.Number);
+else
+    deviceNumber = double(defaultNumber);
+end
+
+if isfield(module.Info, 'FsOverride') && ~isempty(module.Info.FsOverride)
+    fsOverride = double(module.Info.FsOverride);
+else
+    fsOverride = 0;
+end
+end
+
+function localPopulateModuleParameters_(obj, module, hwHandle)
+pt = hwHandle.PARTAG;
+pt = [pt{:}];
+ind = arrayfun(@(tag) tag.tag_name(1) == '%', pt);
+pt(ind) = [];
+for paramIdx = 1:length(pt)
+    parameter = hw.Parameter(obj);
+    parameter.Name = pt(paramIdx).tag_name;
+    obj.setHardwareParameterName(parameter, pt(paramIdx).tag_name);
+    parameter.isArray = pt(paramIdx).tag_size > 1;
+    parameter.isTrigger = parameter.Name(1) == '!';
+    parameter.Visible = ~any(parameter.Name(1) == '_~#%');
+
+    switch pt(paramIdx).tag_type
+        case 68
+            parameter.Type = 'Buffer';
+        case 73
+            parameter.Type = 'Integer';
+        case 78
+            parameter.Type = 'Logical';
+        case 83
+            parameter.Type = 'Float';
+        case 80
+            parameter.Type = 'Coefficient Buffer';
+        case 65
+            parameter.Type = 'Undefined';
+    end
+
+    parameter.Module = module;
+    module.Parameters(paramIdx) = parameter;
+end
 end

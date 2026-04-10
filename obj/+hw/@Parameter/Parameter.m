@@ -174,7 +174,7 @@ classdef Parameter < matlab.mixin.SetGet
                 return
             end
 
-            if isa(obj.Parent,'hw.Software') % special case
+            if isa(obj.Parent,'hw.Software') || (isprop(obj.Parent, 'IsConnected') && ~obj.Parent.IsConnected)
                 v = obj.Value;
             else
                 v = obj.Parent.get_parameter(obj,includeInvisible=true);

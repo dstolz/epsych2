@@ -520,6 +520,12 @@ classdef Protocol < handle & matlab.mixin.SetGet
                 ifaceStruct = struct();
                 ifaceStruct.Type = char(iface.Type);
                 ifaceStruct.ClassName = class(iface);
+                if isprop(iface, 'Server') && ~isempty(iface.Server)
+                    ifaceStruct.Server = iface.Server;
+                end
+                if isprop(iface, 'ConnectionType') && ~isempty(iface.ConnectionType)
+                    ifaceStruct.ConnectionType = iface.ConnectionType;
+                end
                 ifaceStruct.Modules = cell(1, length(iface.Module));
                 for moduleIdx = 1:length(iface.Module)
                     module = iface.Module(moduleIdx);
@@ -575,7 +581,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
                         continue
                     end
 
-                    restoredInterface = obj.createSerializedInterface_(ifaceStruct);
+                    restoredInterface = obj.createInterfaceFromStruct_(ifaceStruct);
                     obj.Interfaces(end + 1) = restoredInterface; %#ok<AGROW>
                     if isa(restoredInterface, 'hw.Software')
                         obj.SoftwareModule = restoredInterface;
@@ -628,17 +634,28 @@ classdef Protocol < handle & matlab.mixin.SetGet
     end
 
     methods (Access = private)
-        function interface = createSerializedInterface_(~, ifaceStruct)
+        function interface = createInterfaceFromStruct_(~, ifaceStruct)
             ifaceType = char(string(ifaceStruct.Type));
             switch ifaceType
                 case 'Software'
                     interface = hw.Software();
                 case 'TDT_Synapse'
-                    interface = hw.SerializedTDT_Synapse();
+                    server = 'localhost';
+                    if isfield(ifaceStruct, 'Server') && ~isempty(ifaceStruct.Server)
+                        server = char(string(ifaceStruct.Server));
+                    end
+                    interface = hw.TDT_Synapse(server, Connect = false);
                 case 'TDT_RPcox'
-                    interface = hw.SerializedTDT_RPcox();
+                    connectionType = 'GB';
+                    if isfield(ifaceStruct, 'ConnectionType') && ~isempty(ifaceStruct.ConnectionType)
+                        connectionType = char(string(ifaceStruct.ConnectionType));
+                    elseif isfield(ifaceStruct, 'Modules') && ~isempty(ifaceStruct.Modules) ...
+                            && isfield(ifaceStruct.Modules{1}.Info, 'ConnectionType') && ~isempty(ifaceStruct.Modules{1}.Info.ConnectionType)
+                        connectionType = char(string(ifaceStruct.Modules{1}.Info.ConnectionType));
+                    end
+                    interface = hw.TDT_RPcox({}, {}, {}, Interface = connectionType, Connect = false);
                 otherwise
-                    interface = hw.SerializedTDT_RPcox();
+                    interface = hw.TDT_RPcox({}, {}, {}, Connect = false);
             end
 
             modules = hw.Module.empty(1, 0);
@@ -678,7 +695,11 @@ classdef Protocol < handle & matlab.mixin.SetGet
             hasModuleNames = any(contains(string(writeparams), '.'));
 
             if hasModuleNames
-                interface = hw.SerializedTDT_RPcox();
+                connectionType = 'GB';
+                if isfield(obj.Options, 'ConnectionType') && ~isempty(obj.Options.ConnectionType)
+                    connectionType = char(string(obj.Options.ConnectionType));
+                end
+                interface = hw.TDT_RPcox({}, {}, {}, Interface = connectionType, Connect = false);
             else
                 interface = hw.Software();
             end

@@ -1,5 +1,5 @@
 function onRemoveInterface(obj)
-    interfaceIndex = obj.selectedTargetInterfaceIndex();
+    interfaceIndex = obj.getSelectedInterfaceRowIndex();
     if interfaceIndex < 1 || interfaceIndex > length(obj.Protocol.Interfaces)
         obj.LabelStatus.Text = 'Select an interface to remove';
         return

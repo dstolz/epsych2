@@ -9,7 +9,11 @@ function displayItems = getFileDisplayItems(obj, fileList)
         filePath = char(string(fileList{idx}));
         [folderPath, fileName, extension] = fileparts(filePath);
         shortFolder = obj.getShortDisplayPath(folderPath);
-        displayItems{idx} = sprintf('%s%s  |  %s', fileName, extension, shortFolder);
+        if isempty(shortFolder)
+            displayItems{idx} = sprintf('%s%s', fileName, extension);
+        else
+            displayItems{idx} = sprintf('%s  |  %s%s', shortFolder, fileName, extension);
+        end
     end
 
     displayItems = obj.makeUniqueDisplayItems(displayItems);

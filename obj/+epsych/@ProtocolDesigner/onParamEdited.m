@@ -57,6 +57,14 @@ function onParamEdited(obj, evt)
                     statusMessage = sprintf('%s = %s', expressionText, parameter.ValueStr);
                 end
             case 6
+                obj.setParameterPair(parameter, evt.NewData);
+                pairName = obj.getParameterPair(parameter);
+                if isempty(pairName)
+                    statusMessage = sprintf('Cleared pair for %s', parameter.Name);
+                else
+                    statusMessage = sprintf('Paired %s with group %s', parameter.Name, pairName);
+                end
+            case 7
                 if obj.hasParameterExpression(parameter)
                     obj.refreshParameterTable();
                     obj.LabelStatus.Text = sprintf('Parameter %s is expression-controlled. Edit the Expression column instead.', parameter.Name);
@@ -74,21 +82,21 @@ function onParamEdited(obj, evt)
                 else
                     parameter.Value = obj.parseValue(evt.NewData);
                 end
-            case 7
-                parameter.Min = double(evt.NewData);
             case 8
-                parameter.Max = double(evt.NewData);
+                parameter.Min = double(evt.NewData);
             case 9
-                parameter.isRandom = logical(evt.NewData);
+                parameter.Max = double(evt.NewData);
             case 10
-                parameter.Access = char(evt.NewData);
+                parameter.isRandom = logical(evt.NewData);
             case 11
-                parameter.Unit = char(evt.NewData);
+                parameter.Access = char(evt.NewData);
             case 12
-                parameter.Visible = logical(evt.NewData);
+                parameter.Unit = char(evt.NewData);
             case 13
-                parameter.isTrigger = logical(evt.NewData);
+                parameter.Visible = logical(evt.NewData);
             case 14
+                parameter.isTrigger = logical(evt.NewData);
+            case 15
                 parameter.Description = string(evt.NewData);
         end
     catch ME

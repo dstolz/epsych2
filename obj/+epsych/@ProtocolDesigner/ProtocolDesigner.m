@@ -34,12 +34,15 @@ classdef ProtocolDesigner < handle
         BtnLoad matlab.ui.control.Button
         LabelStatus matlab.ui.control.Label
 
+        DropDownInterfaceType matlab.ui.control.DropDown
+        LabelInterfaceDescription matlab.ui.control.Label
         DropDownInterfaceFilter matlab.ui.control.DropDown
         DropDownTargetInterface matlab.ui.control.DropDown
         DropDownTargetModule matlab.ui.control.DropDown
         BtnAddInterface matlab.ui.control.Button
         BtnRemoveInterface matlab.ui.control.Button
-        TextAreaInterfaceSummary matlab.ui.control.TextArea
+        BtnModifyInterface matlab.ui.control.Button
+        InterfaceTree matlab.ui.container.Tree
         TableParams matlab.ui.control.Table
         BtnAddParam matlab.ui.control.Button
         BtnRemoveParam matlab.ui.control.Button
@@ -58,6 +61,7 @@ classdef ProtocolDesigner < handle
         LabelCompileSummary matlab.ui.control.Label
         TableCompiled matlab.ui.control.Table
 
+        SelectedInterfaceRow (1,1) double = 0
         SelectedParamRow (1,1) double = 0
         ParameterHandles cell = {}
     end

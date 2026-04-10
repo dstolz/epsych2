@@ -56,6 +56,7 @@ The visible columns are:
 - `Name`
 - `Type`
 - `Expression`
+- `Pair`
 - `Value`
 - `Min`
 - `Max`
@@ -70,10 +71,13 @@ Important behaviors:
 
 - `Type` is constrained to the supported parameter types.
 - `Access` is constrained to the supported access modes.
+- `Pair` makes parameters co-vary during compilation, even across different modules or interfaces.
 - `File` parameters use a dedicated file editor instead of relying on direct path entry.
 - `Expression` is available for numeric scalar parameter types and computes the underlying `Value` from other parameters.
 
 The parameter table is also where cross-parameter validation shows up. If an expression can no longer be evaluated, for example because it references a parameter that was changed to `File`, the row is highlighted in red and the status line shows the error message.
+
+Paired parameters must expose the same number of values. A paired group behaves like the legacy buddy mechanism: the first value of each paired parameter is compiled together, then the second value of each paired parameter, and so on.
 
 For file parameters, use **Edit Selected File Value** after selecting a row in the parameter table. Editing the `Value` cell or changing `Type` to `File` launches the same modal file editor.
 

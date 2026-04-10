@@ -8,7 +8,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
     % hw.TDT_Synapse, or custom interfaces). By default, a new Protocol contains a
     % hw.Software instance as a design-time parameter store. Users can add parameters
     % to any interface via addParameter(), and compile() generates trials from the
-    % cross-product of parameter values and their buddy groups.
+    % cross-product of parameter values and their paired groups.
     %
     % Properties:
     %   Interfaces       - Array of hw.Interface instances owned by this protocol
@@ -201,6 +201,50 @@ classdef Protocol < handle & matlab.mixin.SetGet
                 end
 
                 obj.SoftwareModule = replacement;
+            end
+        end
+
+        function replaceInterface(obj, identifier, interface)
+            % replaceInterface(obj, identifier, interface)
+            %
+            % Replace one existing interface by index or type.
+            %
+            % Parameters:
+            %   identifier - numeric index or interface type string
+            %   interface - replacement hw.Interface instance
+            arguments
+                obj
+                identifier
+                interface (1,1) hw.Interface
+            end
+
+            idx = [];
+
+            if isnumeric(identifier) && isscalar(identifier)
+                if identifier >= 1 && identifier <= length(obj.Interfaces)
+                    idx = double(identifier);
+                end
+            elseif isstring(identifier) || ischar(identifier)
+                name = char(identifier);
+                for i = 1:length(obj.Interfaces)
+                    ifaceType = char(obj.Interfaces(i).Type);
+                    if strcmp(ifaceType, name)
+                        idx = i;
+                        break
+                    end
+                end
+            end
+
+            if isempty(idx)
+                error('Interface not found');
+            end
+
+            obj.Interfaces(idx) = interface;
+
+            if isa(interface, 'hw.Software')
+                obj.SoftwareModule = interface;
+            elseif idx == 1 && isa(obj.SoftwareModule, 'hw.Software') && isa(obj.Interfaces(1), 'hw.Software')
+                obj.SoftwareModule = obj.Interfaces(1);
             end
         end
 
@@ -725,201 +769,159 @@ classdef Protocol < handle & matlab.mixin.SetGet
             % compile_internal(obj) - Private method implementing the compile logic
             %
             % Migrates the multi-stage process from legacy ep_CompileProtocol:
-            % 1. Gather parameters and calibrations from all interfaces
+            % 1. Gather parameters from all interfaces
             % 2. Build writeparams/readparams arrays
-            % 3. Apply calibration injection
-            % 4. Apply WAV buffer expansion
-            % 5. Cross-product expansion (includes partner grouping and randomization)
-            % 6. Apply repetitions and randomization at trial level
-            
-            % Initialize output fields
+            % 3. Expand parameter values while preserving paired groups
+            % 4. Apply repetitions without reordering preview rows
+
             writeparams = {};
             readparams = {};
             randparams = [];
-            trials = {};
-            partner_groups = {};
-            
-            % === PHASE 1: Gather parameters from all interfaces ===
-            col_idx = 1;
-            param_metadata = {};  % Track {name, access, partner, calibration} for later use
-            
+            trials = cell(1, 0);
+            colIdx = 1;
+            paramMetadata = {};
+
             for iface_idx = 1:length(obj.Interfaces)
                 iface = obj.Interfaces(iface_idx);
                 iface_type = char(iface.Type);
-                
+
                 for mod_idx = 1:length(iface.Module)
                     module = iface.Module(mod_idx);
-                    
+
                     for param_idx = 1:length(module.Parameters)
                         p = module.Parameters(param_idx);
-                        
-                        % Skip hidden/internal parameters
+
                         if ~p.Visible
                             continue
                         end
-                        
-                        % Build fully qualified parameter name
-                        if strcmp(iface_type, 'Software')
-                            full_name = p.Name;  % Software params use simple names
-                        else
-                            full_name = sprintf('%s.%s', module.Name, p.Name);
-                        end
-                        
-                        % Add to param lists based on access
+
+                        full_name = obj.getCompiledParameterName_(p, iface_type, module);
                         if ~strcmp(p.Access, 'Write')
                             readparams{end+1} = full_name;  %#ok<AGROW>
                         end
-                        if ~strcmp(p.Access, 'Read')
-                            writeparams{end+1} = full_name;  %#ok<AGROW>
+
+                        if strcmp(p.Access, 'Read')
+                            continue
                         end
-                        
-                        % Track random flag (simplified; no calibration complexity yet)
+
+                        writeparams{end+1} = full_name;  %#ok<AGROW>
                         randparams(end+1) = p.isRandom;  %#ok<AGROW>
-                        
-                        % Initialize trial column with parameter values
-                        if isscalar(p.Value)
-                            trials{1, col_idx} = p.Value;
-                        else
-                            trials{1, col_idx} = p.Value;
-                        end
-                        
-                        param_metadata{col_idx} = struct(...
+
+                        trials{1, colIdx} = p.Value;
+                        paramMetadata{colIdx} = struct(...
                             'name', full_name, ...
-                            'access', p.Access, ...
-                            'partner', '', ...
-                            'calibration', '', ...
-                            'type', p.Type, ...
-                            'isArray', p.isArray);  %#ok<AGROW>
-                        
-                        col_idx = col_idx + 1;
-                    end
-                end
-            end
-            
+                            'pair', obj.getParameterPairName_(p)); %#ok<AGROW>
 
-            % === PHASE 2: Calibration injection (if needed) ===
-            % If calibration is required, apply it to relevant parameters before expansion.
-            % (Extend this logic as needed for your protocol/calibration system)
-            if isprop(obj, 'Calibration') && ~isempty(obj.Calibration)
-                vprintf(2, 'Applying calibration to parameters...');
-                % Example: apply to all numeric parameters (customize as needed)
-                for col = 1:numel(param_metadata)
-                    if isfield(param_metadata{col}, 'calibration') && ~isempty(param_metadata{col}.calibration)
-                        trials{1, col} = obj.apply_calibration(trials{1, col}, obj.Calibration);
+                        colIdx = colIdx + 1;
                     end
                 end
             end
 
-            % === PHASE 3: WAV buffer handling (if enabled) ===
-            if isfield(obj.Options, 'IncludeWAVBuffers') && obj.Options.IncludeWAVBuffers
-                if isprop(obj, 'WAVBuffers') && ~isempty(obj.WAVBuffers)
-                    vprintf(2, 'Applying WAV buffer expansion...');
-                    trials = obj.apply_wav_buffers(trials, obj.WAVBuffers);
-                end
-            end
-
-            % === PHASE 4: Cross-product expansion ===
-            trials = obj.expand_cross_product(trials, randparams);
-
-            vprintf(2, 'After expansion: trials size %dx%d', size(trials));
-
-            if isempty(trials)
-                vprintf(0, 1, 'No trials generated after cross-product expansion');
+            if isempty(writeparams)
                 obj.COMPILED.writeparams = {};
-                obj.COMPIILED.readparams = {};
+                obj.COMPILED.readparams = readparams;
                 obj.COMPILED.randparams = [];
                 obj.COMPILED.trials = {};
                 obj.COMPILED.OPTIONS = obj.Options;
                 obj.COMPILED.ntrials = 0;
                 return
             end
-            
-            % === PHASE 3: Apply repetitions without reordering ===
+
+            trials = obj.expand_cross_product(trials, paramMetadata);
+            if isempty(trials)
+                vprintf(0, 1, 'No trials generated after paired expansion');
+                obj.COMPILED.writeparams = writeparams;
+                obj.COMPILED.readparams = readparams;
+                obj.COMPILED.randparams = randparams;
+                obj.COMPILED.trials = {};
+                obj.COMPILED.OPTIONS = obj.Options;
+                obj.COMPILED.ntrials = 0;
+                return
+            end
+
+            uniqueTrialCount = size(trials, 1);
             nreps = obj.Options.numReps;
             if ~isinf(nreps) && nreps > 0
-                % Preserve compiled row order even when the protocol requests
-                % randomized execution so previewed compiled trials remain stable.
                 trials = repmat(trials, nreps, 1);
             end
-            
-            % === OUTPUT ===
+
             obj.COMPILED.writeparams = writeparams;
             obj.COMPILED.readparams = readparams;
             obj.COMPILED.randparams = randparams;
             obj.COMPILED.trials = trials;
             obj.COMPILED.OPTIONS = obj.Options;
             obj.COMPILED.ntrials = size(trials, 1);
-            
+
             vprintf(2, 'Protocol compiled: %d unique trials, %d total with %d repetitions', ...
-                size(trials,1)/nreps, obj.COMPILED.ntrials, nreps);
+                uniqueTrialCount, obj.COMPILED.ntrials, nreps);
         end
 
-        function trials_out = expand_cross_product(~, trials_in, ~)
+        function trials_out = expand_cross_product(obj, trials_in, paramMetadata)
             % expand_cross_product(obj, trials_in, randparams_in)
-            % 
-            % Perform cross-product expansion on initial trial rows.
-            % Detects parameters with multiple values and generates all combinations.
-            
+
             if isempty(trials_in)
                 trials_out = {};
                 return
             end
-            
-            % Find columns that have arrays or file lists that need expansion.
-            n_cols = size(trials_in, 2);
-            expand_cols = [];
-            expand_values = {};
-            
-            for col = 1:n_cols
-                val = trials_in{1, col};
-                if isnumeric(val) && numel(val) > 1
-                    expand_cols(end+1) = col; %#ok<AGROW>
-                    expand_values{end+1} = num2cell(val(:).'); %#ok<AGROW>
-                elseif isstring(val) && numel(val) > 1
-                    expand_cols(end+1) = col; %#ok<AGROW>
-                    expand_values{end+1} = cellstr(val(:).'); %#ok<AGROW>
-                elseif iscell(val) && numel(val) > 1
-                    expand_cols(end+1) = col; %#ok<AGROW>
-                    expand_values{end+1} = reshape(val, 1, []); %#ok<AGROW>
+
+            nCols = size(trials_in, 2);
+            groupKeys = {};
+            groupColumns = {};
+            groupValueSets = {};
+
+            for col = 1:nCols
+                valueSet = obj.normalizeParameterValuesForTrials_(trials_in{1, col});
+                pairName = strtrim(char(string(paramMetadata{col}.pair)));
+                if isempty(pairName)
+                    groupKey = sprintf('__solo_%d__', col);
+                else
+                    groupKey = sprintf('pair:%s', pairName);
+                end
+
+                groupIdx = find(strcmp(groupKeys, groupKey), 1);
+                if isempty(groupIdx)
+                    groupKeys{end + 1} = groupKey; %#ok<AGROW>
+                    groupColumns{end + 1} = col; %#ok<AGROW>
+                    groupValueSets{end + 1} = {valueSet}; %#ok<AGROW>
+                else
+                    groupColumns{groupIdx}(end + 1) = col;
+                    groupValueSets{groupIdx}{end + 1} = valueSet;
                 end
             end
-            
-            if isempty(expand_cols)
-                % No expansion needed, return as-is
-                trials_out = trials_in;
-                return
+
+            groupLengths = ones(1, numel(groupKeys));
+            for groupIdx = 1:numel(groupKeys)
+                valueLengths = cellfun(@numel, groupValueSets{groupIdx});
+                if any(valueLengths ~= valueLengths(1))
+                    error('Pair group %s has mismatched value counts.', groupKeys{groupIdx});
+                end
+                groupLengths(groupIdx) = valueLengths(1);
             end
-            
-            % Generate all combinations of the expandable value indices.
-            n_expand = length(expand_cols);
-            if n_expand == 1
-                combos = (1:numel(expand_values{1}))';
+
+            if numel(groupLengths) == 1
+                combos = (1:groupLengths(1)).';
             else
-                grid_args = cell(1, n_expand);
-                for i = 1:n_expand
-                    grid_args{i} = 1:numel(expand_values{i});
+                gridArgs = cell(1, numel(groupLengths));
+                for groupIdx = 1:numel(groupLengths)
+                    gridArgs{groupIdx} = 1:groupLengths(groupIdx);
                 end
-                
-                [grid{1:n_expand}] = ndgrid(grid_args{:});
-                
-                combos = zeros(numel(grid{1}), n_expand);
-                for i = 1:n_expand
-                    combos(:, i) = grid{i}(:);
+
+                grid = cell(1, numel(groupLengths));
+                [grid{:}] = ndgrid(gridArgs{:});
+                combos = zeros(numel(grid{1}), numel(groupLengths));
+                for groupIdx = 1:numel(groupLengths)
+                    combos(:, groupIdx) = grid{groupIdx}(:);
                 end
             end
-            
-            % Create expanded trials matrix
-            n_combos = size(combos, 1);
-            trials_out = cell(n_combos, n_cols);
-            
-            for combo_idx = 1:n_combos
-                for col = 1:n_cols
-                    if ismember(col, expand_cols)
-                        expand_idx = find(expand_cols == col);
-                        value_idx = combos(combo_idx, expand_idx);
-                        trials_out{combo_idx, col} = expand_values{expand_idx}{value_idx};
-                    else
-                        trials_out{combo_idx, col} = trials_in{1, col};
+
+            trials_out = cell(size(combos, 1), nCols);
+            for comboIdx = 1:size(combos, 1)
+                for groupIdx = 1:numel(groupKeys)
+                    valueIdx = combos(comboIdx, groupIdx);
+                    groupCols = groupColumns{groupIdx};
+                    groupValues = groupValueSets{groupIdx};
+                    for memberIdx = 1:numel(groupCols)
+                        trials_out{comboIdx, groupCols(memberIdx)} = groupValues{memberIdx}{valueIdx};
                     end
                 end
             end
@@ -931,6 +933,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
 
             report = struct('field', {}, 'message', {}, 'severity', {});
             idx = 1;
+            pairGroups = struct('name', {}, 'members', {}, 'valueCounts', {});
 
             if isempty(obj.Interfaces)
                 report(idx).field = 'Interfaces';
@@ -1031,13 +1034,102 @@ classdef Protocol < handle & matlab.mixin.SetGet
                                 idx = idx + 1;
                             end
                         end
+
+                        if strcmp(p.Access, 'Read')
+                            continue
+                        end
+
+                        pairName = obj.getParameterPairName_(p);
+                        if isempty(pairName)
+                            continue
+                        end
+
+                        valueCount = numel(obj.normalizeParameterValuesForTrials_(p.Value));
+                        groupIdx = find(strcmp({pairGroups.name}, pairName), 1);
+                        if isempty(groupIdx)
+                            pairGroups(end + 1).name = pairName; %#ok<AGROW>
+                            pairGroups(end).members = {fullName};
+                            pairGroups(end).valueCounts = valueCount;
+                        else
+                            pairGroups(groupIdx).members{end + 1} = fullName;
+                            pairGroups(groupIdx).valueCounts(end + 1) = valueCount;
+                        end
                     end
+                end
+            end
+
+            for groupIdx = 1:numel(pairGroups)
+                valueCounts = pairGroups(groupIdx).valueCounts;
+                if any(valueCounts ~= valueCounts(1))
+                    memberSummary = compose('%s (%d)', string(pairGroups(groupIdx).members), valueCounts);
+                    report(idx).field = sprintf('Pair.%s', pairGroups(groupIdx).name);
+                    report(idx).message = sprintf('Paired parameters must have the same number of values: %s', char(join(memberSummary, ', ')));
+                    report(idx).severity = 2;
+                    idx = idx + 1;
                 end
             end
 
             if idx == 1
                 report = struct('field', {}, 'message', {}, 'severity', {});
             end
+        end
+
+        function fullName = getCompiledParameterName_(~, parameter, interfaceType, module)
+            if strcmp(interfaceType, 'Software')
+                fullName = parameter.Name;
+            else
+                fullName = sprintf('%s.%s', module.Name, parameter.Name);
+            end
+        end
+
+        function pairName = getParameterPairName_(~, parameter)
+            pairName = '';
+            userData = parameter.UserData;
+            if ~isstruct(userData)
+                return
+            end
+
+            if isfield(userData, 'Pair') && ~isempty(userData.Pair)
+                pairName = strtrim(char(string(userData.Pair)));
+            elseif isfield(userData, 'Buddy') && ~isempty(userData.Buddy)
+                pairName = strtrim(char(string(userData.Buddy)));
+            end
+        end
+
+        function values = normalizeParameterValuesForTrials_(~, value)
+            if isnumeric(value) || islogical(value)
+                if isempty(value) || isscalar(value)
+                    values = {value};
+                else
+                    values = num2cell(reshape(value, 1, []));
+                end
+                return
+            end
+
+            if isstring(value)
+                if isscalar(value)
+                    values = {char(value)};
+                else
+                    values = reshape(cellstr(value), 1, []);
+                end
+                return
+            end
+
+            if ischar(value)
+                values = {value};
+                return
+            end
+
+            if iscell(value)
+                if isempty(value)
+                    values = {value};
+                else
+                    values = reshape(value, 1, []);
+                end
+                return
+            end
+
+            values = {value};
         end
     end
 

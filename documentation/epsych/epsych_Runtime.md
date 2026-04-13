@@ -69,7 +69,7 @@ Implementation: [obj/+epsych/@Runtime/writeParametersJSON.m](../obj/+epsych/@Run
 Behavior details:
 
 - If `filepath` is omitted, the user is prompted with `uiputfile`.
-- Parameters are collected through `obj.getAllParameters`.
+- Parameters are collected through `obj.all_parameters`.
 - Each parameter is serialized with `hw.Parameter.toStruct`.
 - `UserData` is removed before writing, because it may contain content that cannot be reliably serialized.
 - A `ParentType` field is added so the reader can map each parameter back to the correct interface.
@@ -106,7 +106,7 @@ Behavior details:
 
 ### Parameter Query
 
-`P = getAllParameters(obj, optInt, Name=Value...)`
+`P = all_parameters(obj, optInt, Name=Value...)`
 
 Collects parameters from the runtime's software and hardware interfaces.
 
@@ -140,7 +140,7 @@ Use this after parameter values have changed and the trial table needs to stay c
 
 1. Create or receive an `epsych.Runtime` object during experiment setup.
 2. Attach hardware and software interface objects to `HW` and `S`.
-3. Query parameters with `getAllParameters` when building GUIs, validation logic, or save data.
+3. Query parameters with `all_parameters` when building GUIs, validation logic, or save data.
 4. Save a parameter snapshot with `writeParametersJSON` when a session state should be reproducible.
 5. Reload a saved state with `readParametersJSON` when restoring a phase or repeating a known configuration.
 6. Push writable parameter values into `TRIALS` with `updateTrialsFromParameters` before trial execution logic depends on them.
@@ -169,20 +169,20 @@ end
 ### Get Parameters As A Struct
 
 ```matlab
-P = r.getAllParameters(HW=true, S=true, Access='Read', asStruct=true);
+P = r.all_parameters(HW=true, S=true, Access='Read', asStruct=true);
 disp(fieldnames(P))
 ```
 
 ### Update Trial Values From Writable Parameters
 
 ```matlab
-params = r.getAllParameters(HW=true, S=false, includeTriggers=false);
+params = r.all_parameters(HW=true, S=false, includeTriggers=false);
 r.updateTrialsFromParameters(params);
 ```
 
 ## Assumptions And Integration Notes
 
-- `HW` and `S` must expose the parameter query APIs used by `getAllParameters`.
+- `HW` and `S` must expose the parameter query APIs used by `all_parameters`.
 - `readParametersJSON` assumes interface identity can be recovered through `ParentType` strings stored in the JSON file.
 - `updateTrialsFromParameters` assumes the `TRIALS` structure has already been prepared by protocol compilation or setup code.
 - The class derives from `dynamicprops`, which is why `readParametersJSON` can create `obj.Phase` on demand.

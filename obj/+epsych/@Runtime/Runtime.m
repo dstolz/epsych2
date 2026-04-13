@@ -26,7 +26,7 @@ classdef Runtime < handle & dynamicprops
     %   Runtime             - Construct an empty runtime container
     %   writeParametersJSON - Write parameters to JSON file
     %   readParametersJSON  - Read parameters from JSON file
-    %   getAllParameters    - Retrieve all parameters from hardware/software
+    %   all_parameters    - Retrieve all parameters from hardware/software
     %   updateTrialsFromParameters - Sync writable TRIALS fields from parameters
     %   createTemplateJSON  - Create a template JSON for parameter files
     %
@@ -88,8 +88,74 @@ classdef Runtime < handle & dynamicprops
             vprintf(2, 'Initializing Runtime object')
         end
 
-        function P = getAllParameters(obj,optInt,options)
-            % P = getAllParameters(obj, options)
+        function P = filter_parameters(obj, propertyName, propertyValue, options, poptions)
+            % P = filter_parameters(obj, propertyName, propertyValue, options, poptions)
+            % Filter Parameters by comparing a property to a target value.
+            %
+            % Parameters:
+            %   obj           - hw.Interface. Hardware interface that owns the Parameters.
+            %   propertyName  - char. Name of the hw.Parameter property to test.
+            %   propertyValue - any. Target value or pattern passed to testFcn.
+            %   options.testFcn - function_handle (default=@isequal). Comparator such as @isequal, @contains, or @startsWith.
+            %   poptions.includeTriggers - logical (default=false). Include trigger Parameters in the candidate set.
+            %   poptions.includeInvisible - logical (default=false). Include Parameters where Visible is false.
+            %
+            % Returns:
+            %   P - hw.Parameter[]. Parameters whose selected property matches according to testFcn.
+            %
+            % See also: documentation/hw/hw_Interface.md, documentation/hw/hw_Parameter.md
+            arguments
+                obj
+                propertyName (1,:) char
+                propertyValue
+                options.testFcn (1,1) function_handle = @isequal
+                poptions.includeTriggers (1,1) logical = false
+                poptions.includeInvisible (1,1) logical = false
+            end
+            poptions = namedargs2cell(poptions);
+            P = obj.all_parameters(poptions{:});
+            ind = arrayfun(@(a) obj.local_test(options.testFcn, a.(propertyName), propertyValue), P);
+            P = P(ind);
+
+        end
+
+        % find_parameter - Return handle(s) to matching hw.Parameter objects by name
+        function P = find_parameter(obj, name, options)
+            % P = find_parameter(obj, name, options)
+            % Return handle(s) to matching hw.Parameter objects by name.
+            %
+            % Parameters:
+            %   obj    - hw.Interface. Hardware interface to search.
+            %   name   - char | string | cellstr. Parameter name(s) to search for.
+            %   options.includeInvisible - logical (default=false). Include Parameters where Visible is false.
+            %   options.silenceParameterNotFound - logical (default=false). Suppress warning output when no matches are found.
+            %
+            % Returns:
+            %   P - hw.Parameter[]. Matching Parameter handle(s) in requested name order. Empty if no match.
+            %
+            % See also: documentation/hw/hw_Interface.md, documentation/hw/hw_Parameter.md
+            arguments
+                obj
+                name
+                options.includeInvisible (1,1) logical = false
+                options.silenceParameterNotFound (1,1) logical = false
+            end
+            P = obj.all_parameters(includeInvisible = options.includeInvisible);
+            name = cellstr(name);
+            ind = ismember({P.Name},name);
+            if any(ind)
+                P = P(ind);
+                [ind,idx] = ismember(name,{P.Name});
+                P = P(idx(ind));
+            else
+                P = [];
+                if ~options.silenceParameterNotFound
+                    cellfun(@(a) vprintf(0,1,'Parameter "%s" was not found on any modules',a),name)
+                end
+            end
+        end
+        function P = all_parameters(obj,optInt,options)
+            % P = all_parameters(obj, options)
             % Retrieve all parameters from hardware and software interfaces.
             %
             % Parameters:
@@ -189,6 +255,35 @@ classdef Runtime < handle & dynamicprops
     end
 
     methods (Static)
+
+        function tf = local_test(fcn, val, pat)
+            % tf = local_test(fcn, val, pat)
+            % Normalize comparison output to a logical scalar.
+            %
+            % Parameters:
+            %   fcn - function_handle. Comparison function, e.g. @isequal, @contains.
+            %   val - any. Value from the Parameter property.
+            %   pat - any. Pattern/target value passed to the comparison function.
+            %
+            % Returns:
+            %   tf - logical. True if the comparison indicates a match.
+            %
+            % See also: documentation/hw/hw_Interface.md
+            res = fcn(val, pat);
+            if islogical(res) && isscalar(res)
+                tf = res;
+            elseif isnumeric(res)
+                % numeric (e.g. regexp indices) -> match if non-empty
+                tf = ~isempty(res);
+            elseif iscell(res)
+                % cell of matches -> match if any non-empty element
+                tf = any(~cellfun(@isempty, res));
+            else
+                tf = ~isempty(res);
+            end
+        end
+
+    
 
         function createTemplateJSON(filepath)
             % createTemplateJSON(filepath)

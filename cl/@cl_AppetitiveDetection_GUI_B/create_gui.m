@@ -318,7 +318,7 @@ h.Text = "RW Post-Stimulus Duration (ms):";
 
 
 % >> Stimulus Delay (randomized --- value based on min/max settings below)
-pStimDelay = R.HW.find_parameter('StimDelay');
+pStimDelay = R.find_parameter('StimDelay');
 pStimDelay.Unit = 'ms';
 % pStimDelay.Min = 400; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "StimDelayMin/Max" parameters below.
 % pStimDelay.Max = 400;

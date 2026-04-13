@@ -36,7 +36,7 @@ for i = 1:RUNTIME.NSubjects
             % Retrieve parameter data for this trial and save in TRIALS structure. 
 
             % get all 'Read' or 'Read / Write' parameters from hardware and software interfaces and save in data struct
-            data = RUNTIME.getAllParameters(Access = 'Read', asStruct = true);
+            data = RUNTIME.all_parameters(Access = 'Read', asStruct = true);
             
             data = structfun(@toStruct,data,'uni',0);
             data = structfun(@(a) a.Value,data,'uni',0);

@@ -58,7 +58,7 @@ else
 end
 
 
-existingParameters = obj.getAllParameters;
+existingParameters = obj.all_parameters;
 existingInterfaces = arrayfun(@(x) string(x.Parent.Type),existingParameters);
 existingInterfaces = unique(existingInterfaces);
 

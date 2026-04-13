@@ -331,6 +331,7 @@ pStimDelay.PostUpdateFcnArgs = {pStimDur,pRespWinDelay,pRespWinDur,pRespWinPreSt
 % >> Repeat Delay Following Abort Option
 p = R.S.Module.add_parameter('RepeatDelayOnAbort',true);
 h = gui.Parameter_Control(layoutTrialControls,p,Type='checkbox',autoCommit=true);
+h.Value = p.Value; % ensure checkbox reflects the parameter value (in case it was loaded from a previous session)
 h.Text = "Repeat Delay on Abort:";
 
 

@@ -106,12 +106,16 @@ rda = P.RepeatDelayOnAbort.Value && RC.Abort(end);
 if RC.Hit(end)
     nextStim = lastStim - P.StepOnHit.Value;
 
-    restore_stimdelay_randomization(P.StimDelay);
+    if rda
+        restore_stimdelay_randomization(P.StimDelay);
+    end
 
 elseif RC.Miss(end) 
     nextStim = lastStim + P.StepOnMiss.Value;
 
-    restore_stimdelay_randomization(P.StimDelay);
+    if rda
+        restore_stimdelay_randomization(P.StimDelay);
+    end
 
 elseif RC.Abort(end)
     % no change to nextStim (repeat same depth)
@@ -119,7 +123,11 @@ elseif RC.Abort(end)
 
     tooManyAborts = length(RC.Abort) >= 3 && all(RC.Abort(end-2:end));
 
-    if tooManyAborts
+    if ~isfield(P.StimDelay.UserData,'CORRECTVAL')
+        P.StimDelay.UserData.CORRECTVAL = []; % initialize CORRECTVAL if it doesn't exist
+    end
+
+    if rda && tooManyAborts
         vprintf(2,'Too many Aborts: resetting nextStim to max depth and clearing StimDelay randomization')
         restore_stimdelay_randomization(P.StimDelay);
 
@@ -171,12 +179,18 @@ pCT = P.P_Catch.Value; % probability of catch trial (0 to 1)
 
 if RC.Abort(end), pCT = 0; end % do not present a catch trial if the previous trial result was an Abort
 
+vprintf(4,'p(Catch) = %g',pCT)
+
+
+
 if length(RC.("TrialType_" + TT.STIM)) >= 10
     nLast10Stim = sum(RC.("TrialType_" + TT.STIM)(end-9:end));
 else
     nLast10Stim = 0;
 end
-if ~RC.("TrialType_" + TT.CATCH)(end) && (rand() < pCT || nLast10Stim >= 10)
+
+
+if pCT > 0 && ~RC.("TrialType_" + TT.CATCH)(end) && (rand() < pCT || nLast10Stim >= 10)
     % Override next trial to CATCH based on p(CATCH) and current trial type
     TRIALS.NextTrialID = find(T.TrialType == TT.CATCH,1);
 

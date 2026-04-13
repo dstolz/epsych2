@@ -167,8 +167,7 @@ function update_staircase_training(~,~,h,RUNTIME,stepUpResponse,stepDownResponse
 if isempty(h) || ~isvalid(h), return; end
 if isempty(RUNTIME.TRIALS.DATA), return; end
 
-p = RUNTIME.TRIALS.DATA(end).RespCode;
-RC = epsych.BitMask.decode([p.Value]);
+RC = epsych.BitMask.decode(RUNTIME.TRIALS.DATA(end).RespCode);
 if RC.(stepUpResponse)
     s = "up";
 elseif RC.(stepDownResponse)

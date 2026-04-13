@@ -30,6 +30,14 @@ colors = jet(5);
 ctrl.colorOnUpdate = colors(3,:);      % single 1x3 RGB value
 ```
 
+### Bind checkbox to a non-value parameter field
+
+```matlab
+p = R.S.Module.add_parameter("StimDelay", 100, isRandom=false);
+h = gui.Parameter_Control(layout, p, Type="checkbox", BoundProperty="isRandom", autoCommit=true);
+h.Text = "Randomize Stim Delay";
+```
+
 ## Construction
 
 ```matlab
@@ -48,8 +56,12 @@ obj = gui.Parameter_Control(parent, parameter, Type=TYPE, autoCommit=TF)
 
 - `Type` (char)
   - One of: `editfield`, `dropdown`, `checkbox`, `toggle`, `readonly`, `momentary`.
+- `BoundProperty` (char)
+  - Optional property name on the bound `hw.Parameter` to synchronize with the control.
+  - Defaults to `Value`.
+  - Common choices include `Value`, `isRandom`, `Min`, and `Max`.
 - `autoCommit` (logical)
-  - If `true`, user changes are written to `parameter.Value` immediately.
+  - If `true`, user changes are written to the bound parameter property immediately.
   - If `false`, user changes only update the UI and set `obj.ValueUpdated=true` until committed elsewhere.
 
 ## UI types

@@ -1,10 +1,28 @@
 function onParamSelected(obj, evt)
+    % Restore the truncated display for the Value cell if we are leaving it.
+    prevRow = obj.SelectedParamRow;
+    prevCol = obj.SelectedParamCol;
     obj.SelectedParamRow = 0;
+    obj.SelectedParamCol = 0;
+
+    if prevCol == 7 && prevRow >= 1 && prevRow <= numel(obj.ParameterHandles)
+        obj.TableParams.Data{prevRow, 7} = obj.getParameterValueDisplay(obj.ParameterHandles{prevRow});
+    end
+
     if isempty(evt.Indices)
         return
     end
 
-    obj.SelectedParamRow = evt.Indices(1, 1);
+    row = evt.Indices(1, 1);
+    col = evt.Indices(1, 2);
+    obj.SelectedParamRow = row;
+    obj.SelectedParamCol = col;
+
+    % Swap in full untruncated value when entering the Value column.
+    if col == 7 && row >= 1 && row <= numel(obj.ParameterHandles)
+        obj.TableParams.Data{row, 7} = obj.getParameterValueFull(obj.ParameterHandles{row});
+    end
+
     parameter = obj.ParameterHandles{obj.SelectedParamRow};
     expressionErrorMessage = obj.getExpressionErrorMessage(parameter);
     if ~isempty(expressionErrorMessage)

@@ -69,6 +69,7 @@ classdef ProtocolDesigner < handle
         SelectedInterfaceRow (1,1) double = 0
         SelectedModuleRow (1,1) double = 0
         SelectedParamRow (1,1) double = 0
+        SelectedParamCol (1,1) double = 0
         ParameterHandles cell = {}
     end
 

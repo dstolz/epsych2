@@ -5,6 +5,7 @@ function refreshParameterTable(obj)
     obj.TableParams.ColumnFormat = {'char', 'char', 'char', obj.getTypeOptions(), 'char', obj.getPairDropdownOptions(), 'char', 'numeric', 'numeric', 'logical', obj.getAccessOptions(), 'char', 'logical', 'logical', 'char'};
     obj.TableParams.Data = tableData;
     obj.SelectedParamRow = 0;
+    obj.SelectedParamCol = 0;
     obj.applyExpressionErrorStyles();
 end
 

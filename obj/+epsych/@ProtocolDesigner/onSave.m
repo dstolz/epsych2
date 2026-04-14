@@ -1,6 +1,8 @@
 function onSave(obj)
     startPath = obj.getProtocolFileDialogStartPath('*.eprot');
-    [fileName, folder] = uiputfile('*.eprot', 'Save Protocol', startPath);
+    [fileName, folder] = uiputfile( ...
+        {'*.eprot', 'Protocol MAT File (*.eprot)'; '*.json', 'Protocol JSON File (*.json)'}, ...
+        'Save Protocol', startPath);
     if isequal(fileName, 0)
         return
     end

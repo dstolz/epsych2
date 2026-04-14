@@ -1,37 +1,49 @@
 function obj = load(filename)
     % obj = epsych.Protocol.load(filename)
     %
-    % Deserialize protocol from .eprot MAT file. This is a static method.
+    % Deserialize protocol from an .eprot MAT file or a .json file.
+    % This is a static method.
     %
     % Parameters:
-    %   filename (char) - MAT file to load (should end in .eprot)
+    %   filename (char) - File to load (.eprot, .prot, or .json)
     %
     % Returns:
     %   obj - Deserialized epsych.Protocol instance
-    
+
     arguments
         filename (1,:) char
     end
 
     if ~isfile(filename)
-        error('File not found: %s', filename);
+        error('epsych:Protocol:FileNotFound', 'File not found: %s', filename);
+    end
+
+    [~, ~, ext] = fileparts(filename);
+    if strcmpi(ext, '.json')
+        obj = epsych.Protocol.fromJSON(filename);
+        return
     end
 
     % Load MAT file using builtin load function
     S = builtin('load', filename, '-mat');
-    
-    % Determine what variable name was used
+
+    % Direct object load (current format)
+    if isfield(S, 'protocol') && isa(S.protocol, 'epsych.Protocol')
+        obj = S.protocol;
+        fprintf('[INFO] Protocol loaded from: %s\n', filename);
+        return
+    end
+
+    % Legacy fallback: struct-based files
     if isfield(S, 'protocol_struct')
         struct_in = S.protocol_struct;
     elseif isfield(S, 'protocol')
         struct_in = S.protocol;
     else
-        error('MAT file does not contain expected protocol data');
+        error('epsych:Protocol:InvalidFile', 'MAT file does not contain expected protocol data');
     end
 
-    % Create new Protocol and populate from struct
     obj = epsych.Protocol();
     obj.fromStruct(struct_in);
-    
     fprintf('[INFO] Protocol loaded from: %s\n', filename);
 end

@@ -438,7 +438,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
             % Parameters:
             %   filename (char) - Output filename (should end in .eprot)
             %
-            % The MAT file contains a single variable 'protocol_struct' for
+            % The MAT file contains a single variable 'protocol' for
             % deserialization.
             
             arguments
@@ -450,10 +450,10 @@ classdef Protocol < handle & matlab.mixin.SetGet
             obj.meta.lastModified = datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss');
 
             % Convert to struct for MAT serialization
-            protocol_struct = obj.toStruct();
+            protocol = obj.toStruct();
 
             % Save to MAT file using builtin save function
-            builtin('save', filename, 'protocol_struct', '-mat');
+            builtin('save', filename, 'protocol', '-mat');
             fprintf('[INFO] Protocol saved to: %s\n', filename);
         end
 
@@ -602,34 +602,70 @@ classdef Protocol < handle & matlab.mixin.SetGet
 
     methods (Static)
         function obj = load(filename)
-            % obj = epsych.Protocol.load(filename) - Deserialize protocol from .eprot MAT file
-            % Static method for loading protocols
+            % obj = epsych.Protocol.load(filename)
+            % Deserialize protocol from an .eprot MAT file or a .json file.
+            %
+            % Parameters:
+            %   filename (char) - File to load (.eprot, .prot, or .json)
+            %
+            % Returns:
+            %   obj - Deserialized epsych.Protocol instance
 
             arguments
                 filename (1,:) char
             end
 
             if ~isfile(filename)
-                error('File not found: %s', filename);
+                error('epsych:Protocol:FileNotFound', 'File not found: %s', filename);
+            end
+
+            [~, ~, ext] = fileparts(filename);
+            if strcmpi(ext, '.json')
+                obj = epsych.Protocol.fromJSON(filename);
+                return
             end
 
             % Load MAT file using builtin function
             S = builtin('load', filename, '-mat');
-            
-            % Determine what variable name was used
+
+            % Direct object load (current format)
+            if isfield(S, 'protocol') && isa(S.protocol, 'epsych.Protocol')
+                obj = S.protocol;
+                fprintf('[INFO] Protocol loaded from: %s\n', filename);
+                return
+            end
+
+            % Legacy fallback: struct-based files
             if isfield(S, 'protocol_struct')
                 struct_in = S.protocol_struct;
             elseif isfield(S, 'protocol')
                 struct_in = S.protocol;
             else
-                error('MAT file does not contain expected protocol data');
+                error('epsych:Protocol:InvalidFile', 'MAT file does not contain expected protocol data');
             end
 
-            % Create new Protocol and populate from struct
             obj = epsych.Protocol();
             obj.fromStruct(struct_in);
-            
             fprintf('[INFO] Protocol loaded from: %s\n', filename);
+        end
+
+        function obj = fromJSON(filename)
+            % obj = epsych.Protocol.fromJSON(filename)
+            % Deserialize a protocol from a JSON file.
+            %
+            % Parameters:
+            %   filename (char) - Path to a .json protocol file
+            %
+            % Returns:
+            %   obj - Initialized epsych.Protocol instance
+            %
+            % Implementation is provided by fromJSON.m in the class folder,
+            % which takes precedence over this inline definition per MATLAB rules.
+            arguments
+                filename (1,:) char
+            end
+            error('epsych:Protocol:MissingMethodFile', ...
+                'fromJSON.m not found in the @Protocol class folder.');
         end
     end
 

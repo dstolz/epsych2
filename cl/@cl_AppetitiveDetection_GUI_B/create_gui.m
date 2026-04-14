@@ -340,15 +340,6 @@ hStimDelayValue = gui.Parameter_Control(layoutTrialControls,pStimDelay,Type='edi
 hStimDelayValue.Text = "Stimulus Delay (ms):";
 
 
-%{
-% >> Enable randomized stimulus delay
-pRandomizeStimDelay = R.S.Module.add_parameter('RandomizeStimDelay',logical(pStimDelay.isRandom), ...
-    Type='Boolean',Min=0,Max=1);
-% normalize persisted/non-boolean values so checkbox and callbacks start from a valid logical state
-pRandomizeStimDelay.Value = logical(pRandomizeStimDelay.Value);
-hRandomizeStimDelay = gui.Parameter_Control(layoutTrialControls,pRandomizeStimDelay,Type='checkbox',autoCommit=true);
-hRandomizeStimDelay.Text = "Randomize Stimulus Delay:";
-%}
 
 % >> Stimulus Delay (randomization)
 hStimDelayRand = gui.Parameter_Control(layoutTrialControls,pStimDelay,Type='checkbox',autoCommit=true, BoundProperty='isRandom');
@@ -366,34 +357,6 @@ hStimDelayRand.PostUpdateFcn = @set_stimdelay_randomization_state;
 hStimDelayRand.PostUpdateFcnArgs = {hStimDelayValue,hStimDelayMin,hStimDelayMax};
 set_stimdelay_randomization_state(hStimDelayRand,pStimDelay.isRandom,pStimDelay,hStimDelayValue,hStimDelayMin,hStimDelayMax);
 
-%{
-pMin = R.S.Module.add_parameter('StimDelayMin',pStimDelay.Min, ...
-                        Unit = 'ms', ...
-                        Min = 100, ...
-                        Max = 10000);
-pMax = R.S.Module.add_parameter('StimDelayMax',pStimDelay.Max, ...
-                        Unit = 'ms', ...
-                        Min = 100, ...
-                        Max = 10000);
-
-% >> Stimulus Delay (min)
-hStimDelayMin = gui.Parameter_Control(layoutTrialControls,pMin,Type='editfield');
-hStimDelayMin.Text = "Stimulus Delay Min (ms):";
-hStimDelayMin.EvaluatorFcn = @gui.eval_dependent_parameter_randomization;
-hStimDelayMin.EvaluatorArgs = {pMin,pMax,pStimDelay}; % resolve paired min/max and target parameters from the changed parameter name
-
-
-% >> Stimulus Delay (max)
-hStimDelayMax = gui.Parameter_Control(layoutTrialControls,pMax,Type='editfield');
-hStimDelayMax.Text = "Stimulus Delay Max (ms):";
-hStimDelayMax.EvaluatorFcn = @gui.eval_dependent_parameter_randomization;
-hStimDelayMax.EvaluatorArgs = {pMin,pMax,pStimDelay}; % pass the dependent parameters as additional arguments for range validation and automatic updating when min/max values change
-
-% synchronize randomized StimDelay state and min/max control availability
-pRandomizeStimDelay.PostUpdateFcn = @set_stimdelay_randomization_state;
-pRandomizeStimDelay.PostUpdateFcnArgs = {pStimDelay,pMin,pMax,hStimDelayValue,hStimDelayMin,hStimDelayMax};
-set_stimdelay_randomization_state(pRandomizeStimDelay,pRandomizeStimDelay.Value,pStimDelay,pMin,pMax,hStimDelayValue,hStimDelayMin,hStimDelayMax);
-%}
 
 
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
@@ -411,15 +374,7 @@ h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,p
 
 
 
-
-%{
-% >> Response Window Duration
-p = R.HW.find_parameter('RespWinDur');
-h = gui.Parameter_Control(layoutTrialControls,p,Type='editfield');
-h.Text = "Response Window Duration (ms):";
-%}
-
-
+        
 % >> Number of Pellets to Deliver
 p = R.HW.find_parameter('NumPellets');
 h = gui.Parameter_Control(layoutTrialControls,p,Type='dropdown');

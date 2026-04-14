@@ -9,8 +9,9 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     %   field for PARAMETER inside PARENT.
     %
     %   OBJ = gui.Parameter_Control(PARENT, PARAMETER, Type=TYPE,
-    %   autoCommit=TF) selects the UI style and whether user edits are
-    %   written to PARAMETER immediately.
+    %   BoundProperty=PROP, autoCommit=TF) selects the UI style, the
+    %   hw.Parameter field to bind, and whether user edits are written to
+    %   the parameter immediately.
     %
     %   Supported TYPE values are:
     %       'editfield'  - numeric edit field with label
@@ -35,6 +36,8 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         Parameter (1,1) %hw.Parameter % handle to parameter
 
         type (1,:) char {mustBeMember(type,{'editfield','dropdown','checkbox','toggle','readonly','momentary'})} = 'editfield'
+
+        BoundProperty (1,:) char = 'Value' % hw.Parameter property to bind
 
         autoCommit (1,1) logical = false
     end
@@ -61,9 +64,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         h_uiobj % handle to uieditfield or uidropdown
         container % handle to container built within parent
 
+        PreUpdateFcn = [] % handle to function to call before value update
+        PreUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to PreUpdate
         
-        EvaluatorFcn (1,1) % handle to custom function to handle evaluation of updated values
+        EvaluatorFcn = [] % handle to custom function to handle evaluation of updated values
         EvaluatorArgs (1,:) cell = {} % optional extra arguments passed to EvaluatorFcn
+
+        PostUpdateFcn = [] % handle to function to call after value update
+        PostUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to PostUpdate
     end
 
 
@@ -86,12 +94,20 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 parent
                 Parameter
                 options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown','checkbox','toggle','readonly','momentary'})} = 'editfield'
+                options.BoundProperty (1,:) char = 'Value'
                 options.autoCommit (1,1) logical = false
             end
             obj.parent = parent;
 
             obj.Parameter = Parameter;
             obj.type = options.Type;
+            obj.BoundProperty = options.BoundProperty;
+
+            pNames = properties(Parameter);
+            if ~ismember(obj.BoundProperty,pNames)
+                error('gui:Parameter_Control:InvalidBoundProperty', ...
+                    'Invalid bound property "%s" for hw.Parameter.', obj.BoundProperty);
+            end
 
             obj.autoCommit = options.autoCommit;
 
@@ -101,7 +117,12 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % if ~isa(Parameter.Parent,'hw.Software')
                 obj.hl_mode = listener(Parameter.Parent,'mode','PostSet',@obj.mode_change);
             % end
-            obj.hl_uiobj = listener(Parameter,'Value','PostSet',@obj.value_change_external);
+            try
+                obj.hl_uiobj = listener(Parameter,obj.BoundProperty,'PostSet',@obj.value_change_external);
+            catch ME
+                error('gui:Parameter_Control:UnobservableBoundProperty', ...
+                    'Parameter property "%s" is not observable and cannot be bound.', obj.BoundProperty);
+            end
             p = properties(obj);
             p = p(startsWith(p,'color'));
             obj.hl_color = listener(obj,p,'PostSet',@obj.update_color);
@@ -160,6 +181,36 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             n = obj.Parameter.Name;
         end
 
+        function value = getBoundValue(obj)
+            value = obj.Parameter.(obj.BoundProperty);
+        end
+
+        function setBoundValue(obj,value)
+            obj.Parameter.(obj.BoundProperty) = value;
+        end
+
+        function s = boundValueText(obj)
+            if isequal(obj.BoundProperty,'Value')
+                s = obj.Parameter.ValueStr;
+                return
+            end
+
+            v = obj.getBoundValue();
+            if isempty(v)
+                s = "";
+                return
+            end
+
+            if isscalar(v)
+                s = string(v);
+            elseif isnumeric(v) || islogical(v)
+                s = string(mat2str(v));
+            else
+                s = string(v);
+            end
+
+            s = char(s);
+        end
 
         function t = get.Text(obj)
             if ishandle(obj.h_label)
@@ -189,6 +240,11 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 event.PreviousValue = []; 
             end
 
+            % run pre-update function, if specified. This allows for any necessary setup before the value is changed, such as temporarily disabling randomization or other PostUpdate behavior when repeating a trial after an Abort.
+            if isa(obj.PreUpdateFcn,'function_handle')
+                obj.PreUpdateFcn(obj,event,obj.Parameter,obj.PreUpdateFcnArgs{:});
+            end
+
             % run EvaluatorFcn function, if specified. It will then be sure to
             % pass when called by hw.Parameter
             success = true;
@@ -206,8 +262,6 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             elseif isnumeric(event.Value) && (event.Value < obj.Parameter.Min || event.Value > obj.Parameter.Max)
                 vprintf(0,1,'New parameter value for "%s" outside bounds [%g %g]', ...
                     obj.Name,obj.Parameter.Min,obj.Parameter.Max)
-
-
             end
            
             value = event.Value;
@@ -215,11 +269,16 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             obj.h_uiobj.Value = value;
             % obj.Value = value;
 
-            obj.ValueUpdated = ~isequal(value,obj.Parameter.Value);
+            obj.ValueUpdated = ~isequal(value,obj.getBoundValue());
+
+            % run post-update function, if specified. This allows for any necessary updates after the value is changed, such as re-enabling randomization when repeating a trial after an Abort, or updating other controls based on the new value.
+            if isa(obj.PostUpdateFcn,'function_handle')
+                obj.PostUpdateFcn(obj,event,obj.Parameter,obj.PostUpdateFcnArgs{:});
+            end
 
             if obj.autoCommit
                 if isempty(src), return; end
-                obj.Parameter.Value = value;
+                obj.setBoundValue(value);
                 % gui.Helper.timed_color_change(obj.h_uiobj,obj.colorOnUpdateAuto,postColor=obj.colorNormal);
                 % obj.indicate_change;
 
@@ -269,7 +328,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     obj.h_label = h;
 
                     h = uieditfield(hl,"numeric");
-                    h.Value = P.Value;
+                    h.Value = obj.getBoundValue();
                     %h.ValueDisplayFormat = [P.Format ' ' P.Unit];
                     h.Limits = [P.Min P.Max];
                     if isequal(P.Type,'Integer')
@@ -309,12 +368,16 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     hl.ColumnWidth = {'1x'};
                     h = uilabel(hl);
                     h.Layout.Column = [1 2];
-                    h.Text = P.ValueStr;
+                    h.Text = obj.boundValueText();
                     h.HorizontalAlignment = 'center';
             end
 
             if isfield(h,'BackgroundColor')
                 obj.colorNormal = h.BackgroundColor;
+            end
+
+            if isprop(h,'Value') && ~isequal(obj.type,'dropdown')
+                h.Value = obj.getBoundValue();
             end
 
             if obj.autoCommit
@@ -355,19 +418,20 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         end
 
         function value_change_external(obj,~,event)
-            v = event.AffectedObject.Value;
+            v = event.AffectedObject.(obj.BoundProperty);
             if isempty(v), return; end % ?????
 
-
             % obj.Value = v;
-            obj.h_uiobj.Value = v;
+            if isprop(obj.h_uiobj,'Value')
+                obj.h_uiobj.Value = v;
+            end
 
             obj.indicate_change;
         end
 
 
         function indicate_change(obj)
-            v = obj.Value;
+            v = obj.getBoundValue();
 
             switch obj.type
                 case 'dropdown'
@@ -380,7 +444,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
 
                 case 'readonly'
-                    obj.h_uiobj.Text = obj.Parameter.ValueStr;
+                    obj.h_uiobj.Text = obj.boundValueText();
                     gui.Helper.timed_color_change(obj.h_uiobj, ...
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
                     

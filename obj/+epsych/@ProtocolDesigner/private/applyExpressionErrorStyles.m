@@ -14,6 +14,8 @@ function applyExpressionErrorStyles(obj)
             localApplyCategoricalRowStyles_(obj, localGetTableColumn_(obj.TableParams.Data, 1));
         case 'module'
             localApplyCategoricalRowStyles_(obj, localGetTableColumn_(obj.TableParams.Data, 2));
+        case 'pair'
+            localApplyCategoricalRowStyles_(obj, localGetTableColumn_(obj.TableParams.Data, 6));
         otherwise
             localApplyTypeRowStyles_(obj);
     end

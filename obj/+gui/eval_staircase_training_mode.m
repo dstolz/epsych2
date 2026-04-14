@@ -73,7 +73,10 @@ try
 
     if value == 1
         % enable training mode
-        Parameter.UserData.isRandom = Parameter.isRandom;
+        Parameter.UserData.STAIRCASE.isRandom = Parameter.isRandom;
+        rda = RUNTIME.S.find_parameter('RepeatDelayOnAbort');
+        rda.UserData.STAIRCASE.Value = rda.Value;
+        rda.Value = false;
         Parameter.isRandom = false;
 
         % launch or focus the training mode GUI
@@ -103,8 +106,11 @@ try
     else
         vprintf(2,'Closing %s Training GUI',pName)
 
-        % restore randomization state
-        Parameter.isRandom = Parameter.UserData.isRandom;
+        % Restore the parameter's prior randomization behavior.
+        Parameter.isRandom = Parameter.UserData.STAIRCASE.isRandom;
+        rda = RUNTIME.S.find_parameter('RepeatDelayOnAbort');
+        rda.Value = rda.UserData.STAIRCASE.Value;
+        Parameter.UserData.CORRECTVAL = []; % NEEDED DUE TO CONFLICT WITH TRIALSELECTION
 
         if obj.StaircaseTrainingGUIs.isKey(pName)
             delete(obj.StaircaseTrainingGUIs(pName));

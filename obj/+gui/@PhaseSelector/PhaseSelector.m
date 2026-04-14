@@ -227,7 +227,7 @@ classdef PhaseSelector < handle
             vprintf(0, 'Reading parameters from "%s" (%s)', fn, filepath)
             obj.RUNTIME.readParametersJSON(filepath);
 
-            P = obj.RUNTIME.getAllParameters;
+            P = obj.RUNTIME.all_parameters;
 
             % REMOVE TRIALTYPE
             P(string({P.Name}) == "TrialType") = [];

@@ -56,13 +56,13 @@ classdef Parameter < matlab.mixin.SetGet
 
         Visible (1,1) logical = true % optionally hide parameter
 
-        PreUpdateFcn (1,1) % handle ot custom function called before value has been updated
+        PreUpdateFcn = [] % handle ot custom function called before value has been updated
                             % note that this gets called prior to the
                             % EvaluatorFcn
 
-        EvaluatorFcn (1,1) % handle to custom function to handle evaluation of updated values
+        EvaluatorFcn = [] % handle to custom function to handle evaluation of updated values
 
-        PostUpdateFcn (1,1) % handle to custom function called after value has been updated
+        PostUpdateFcn = [] % handle to custom function called after value has been updated
 
         PreUpdateFcnEnabled (1,1) logical = true % flag to enable or disable PreUpdateFcn without removing the function handle
         EvaluatorFcnEnabled (1,1) logical = true % flag to enable or disable EvaluatorFcn without removing the function handle

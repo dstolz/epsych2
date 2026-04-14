@@ -35,8 +35,8 @@ for i = 1:RUNTIME.NSubjects
             % There was a response and the trial is over.
             % Retrieve parameter data for this trial and save in TRIALS structure. 
 
-            % get all readable parameters, including combined-access 'Any' parameters, and save in data struct
-            data = RUNTIME.getAllParameters(Access = 'Read', asStruct = true);
+            % get all 'Read' or 'Read / Write' parameters from hardware and software interfaces and save in data struct
+            data = RUNTIME.all_parameters(Access = 'Read', asStruct = true);
             
             data = structfun(@toStruct,data,'uni',0);
             data = structfun(@(a) a.Value,data,'uni',0);

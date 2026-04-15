@@ -98,7 +98,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
 
             % Initialize EPsych metadata
             E = EPsychInfo;
-            obj.meta.epsychVersion = sprintf('EPsych v%s (Data v%s)', E.Version, E.DataVersion);
+            obj.meta.epsychVersion = sprintf('EPsych v%s (Data v%s)', E.latestTag, E.DataVersion);
             obj.meta.createdDate = datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss');
             obj.meta.lastModified = datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss');
             obj.meta.formatVersion = 1.0;

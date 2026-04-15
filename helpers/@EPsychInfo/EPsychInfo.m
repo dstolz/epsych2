@@ -31,10 +31,10 @@ classdef EPsychInfo < handle
         commitTimestamp % Timestamp of the latest local commit log entry.
         latestTag % Latest reachable git tag for the local checkout.
         meta % Struct snapshot of version and repository metadata.
+        Version % Latest git tag; falls back to '2' when git is unavailable.
     end
     
     properties (Constant)
-        Version  = '2';
         DataVersion = '1.2';   
         Author = 'Daniel Stolzberg';
         AuthorEmail = 'daniel.stolzberg@gmail.com';
@@ -103,6 +103,10 @@ classdef EPsychInfo < handle
 
         function tag = get.latestTag(obj)
             tag = obj.getLatestTag();
+        end
+
+        function v = get.Version(obj)
+            v = obj.getLatestTag();
         end
 
         function tag = getLatestTag(obj)

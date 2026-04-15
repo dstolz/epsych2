@@ -502,8 +502,8 @@ classdef Protocol < handle & matlab.mixin.SetGet
             
             % Start with basic structure
             struct_out = struct();
-            struct_out.formatVersion = '1.0';
-            struct_out.epsychVersion = '1.0.0';
+            struct_out.formatVersion = obj.meta.formatVersion;
+            struct_out.epsychVersion = obj.meta.epsychVersion;
             struct_out.createdDate = datestr(now);
             struct_out.lastModified = datestr(now);
             

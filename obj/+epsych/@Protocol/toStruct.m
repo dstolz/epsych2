@@ -8,8 +8,8 @@ function struct_out = toStruct(obj)
     
     % Start with basic metadata
     struct_out = struct();
-    struct_out.formatVersion = getappdata(0, 'epsych_version');  % placeholder
-    struct_out.epsychVersion = '1.0.0';  % placeholder
+    struct_out.formatVersion = obj.meta.formatVersion;
+    struct_out.epsychVersion = obj.meta.epsychVersion;
     struct_out.createdDate = datestr(now);
     struct_out.lastModified = datestr(now);
     

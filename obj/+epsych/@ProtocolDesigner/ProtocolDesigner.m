@@ -20,7 +20,7 @@ classdef ProtocolDesigner < handle
     % 	gui = epsych.ProtocolDesigner();
     % 	gui = epsych.ProtocolDesigner(protocolObj);
 
-    properties
+    properties (Hidden, SetAccess = protected)
         Figure matlab.ui.Figure
         Protocol (1,1) epsych.Protocol
         CurrentProtocolPath (1,:) char = ''

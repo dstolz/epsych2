@@ -11,7 +11,8 @@ function buildUI(obj)
     uimenu(obj.FileMenu, 'Text', 'Edit Info...', 'MenuSelectedFcn', @(~, ~) obj.onEditInfo());
     uimenu(obj.FileMenu, 'Text', 'Load Protocol...', 'MenuSelectedFcn', @(~, ~) obj.onLoad());
     uimenu(obj.FileMenu, 'Text', 'Save Protocol...', 'MenuSelectedFcn', @(~, ~) obj.onSave());
-    obj.RecentProtocolsMenu = uimenu(obj.FileMenu, 'Text', 'Recent Protocols');
+    uimenu(obj.FileMenu, 'Text', 'Open as JSON in Editor', 'Separator', 'on', 'MenuSelectedFcn', @(~, ~) obj.onOpenAsJSON());
+    obj.RecentProtocolsMenu = uimenu(obj.FileMenu, 'Text', 'Recent Protocols', 'Separator', 'on');
     obj.refreshRecentProtocolMenu();
 
     helpMenu = uimenu(obj.Figure, 'Text', 'Help');

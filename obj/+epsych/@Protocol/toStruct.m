@@ -1,25 +1,66 @@
 function struct_out = toStruct(obj)
     % struct_out = toStruct(obj)
     %
-    % Convert protocol to a serializable struct. Called by save().
+    % Convert protocol to a serializable struct. Inverse of fromStruct.
+    % Used by toJSON and as the serialization format for JSON exports.
     %
     % Returns:
-    %   struct_out - Struct with fields: Options, Info, COMPILED, meta, InterfaceData
-    
-    % Start with basic metadata
+    %   struct_out - Struct with fields: formatVersion, epsychVersion,
+    %       createdDate, lastModified, Options, Info, COMPILED, InterfaceData.
+    %       InterfaceData is a cell array of interface structs, each with
+    %       Type, ClassName, Server (if applicable), ConnectionType (if
+    %       applicable), and Modules (cell array of module structs with Label,
+    %       Name, Index, Fs, Info, and Parameters from hw.Parameter.toStruct).
+
     struct_out = struct();
     struct_out.formatVersion = obj.meta.formatVersion;
     struct_out.epsychVersion = obj.meta.epsychVersion;
     struct_out.createdDate = datestr(now);
     struct_out.lastModified = datestr(now);
-    
-    % Protocol options and info
+
     struct_out.Options = obj.Options;
     struct_out.Info = obj.Info;
     struct_out.COMPILED = obj.COMPILED;
-    
-    % For now, serialize interfaces as a simple cell array
-    struct_out.InterfaceCount = length(obj.Interfaces);
+
     struct_out.InterfaceData = {};
-    
+    for ifaceIdx = 1:length(obj.Interfaces)
+        iface = obj.Interfaces(ifaceIdx);
+        ifaceStruct = struct();
+        ifaceStruct.Type = char(iface.Type);
+        ifaceStruct.ClassName = class(iface);
+
+        if isprop(iface, 'Server') && ~isempty(iface.Server)
+            ifaceStruct.Server = char(iface.Server);
+        end
+        if isprop(iface, 'ConnectionType') && ~isempty(iface.ConnectionType)
+            ifaceStruct.ConnectionType = char(iface.ConnectionType);
+        end
+
+        rawModules = iface.Module;
+        if isempty(rawModules)
+            moduleList = {};
+        elseif isa(rawModules, 'hw.Module')
+            moduleList = num2cell(reshape(rawModules, 1, []));
+        else
+            moduleList = {};
+        end
+
+        ifaceStruct.Modules = {};
+        for moduleIdx = 1:length(moduleList)
+            module = moduleList{moduleIdx};
+            moduleStruct = struct();
+            moduleStruct.Label = module.Label;
+            moduleStruct.Name = module.Name;
+            moduleStruct.Index = double(module.Index);
+            moduleStruct.Fs = module.Fs;
+            moduleStruct.Info = module.Info;
+            moduleStruct.Parameters = {};
+            for paramIdx = 1:length(module.Parameters)
+                moduleStruct.Parameters{end + 1} = module.Parameters(paramIdx).toStruct();
+            end
+            ifaceStruct.Modules{end + 1} = moduleStruct;
+        end
+
+        struct_out.InterfaceData{end + 1} = ifaceStruct;
+    end
 end

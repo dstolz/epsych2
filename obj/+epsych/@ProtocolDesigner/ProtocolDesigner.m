@@ -92,6 +92,10 @@ classdef ProtocolDesigner < handle
 
             obj.buildUI();
             obj.refreshUI();
+
+            if nargout == 0
+                clear obj
+            end
         end
 
     end

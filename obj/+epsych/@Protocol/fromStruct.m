@@ -40,16 +40,31 @@ function fromStruct(obj, struct_in)
         obj.meta.lastModified = struct_in.lastModified;
     end
     
-    % Restore interfaces from JSON data
-    if isfield(struct_in, 'InterfaceData')
-        for i = 1:length(struct_in.InterfaceData)
-            ifdata = struct_in.InterfaceData{i};
-            iface_type = ifdata.Type;
-            
-            % Reconstruct appropriate interface based on type
-            % For now, skip interface reconstruction; assume interfaces
-            % will be added separately or reconstructed elsewhere
-            vprintf(3, 'Protocol loaded with %d interfaces', length(struct_in.InterfaceData));
+    % Restore interfaces
+    obj.Interfaces = hw.Interface.empty();
+    obj.SoftwareModule = hw.Software();
+
+    if isfield(struct_in, 'InterfaceData') && ~isempty(struct_in.InterfaceData)
+        for ifaceIdx = 1:length(struct_in.InterfaceData)
+            ifaceStruct = struct_in.InterfaceData{ifaceIdx};
+            if isempty(ifaceStruct)
+                continue
+            end
+            restoredInterface = obj.createInterfaceFromStruct_(ifaceStruct);
+            obj.Interfaces(end + 1) = restoredInterface;
+            if isa(restoredInterface, 'hw.Software')
+                obj.SoftwareModule = restoredInterface;
+            end
         end
+        vprintf(3, 'Protocol loaded with %d interface(s)', length(obj.Interfaces));
+    elseif isfield(obj.COMPILED, 'writeparams') && ~isempty(obj.COMPILED.writeparams)
+        recoveredInterface = obj.createRecoveredInterfaceFromCompiled_();
+        obj.Interfaces = recoveredInterface;
+        if isa(recoveredInterface, 'hw.Software')
+            obj.SoftwareModule = recoveredInterface;
+        end
+        vprintf(3, 'Protocol interfaces recovered from compiled data');
+    else
+        obj.Interfaces = obj.SoftwareModule;
     end
 end

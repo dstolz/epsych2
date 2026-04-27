@@ -29,7 +29,7 @@ classdef TDT_RPcox < hw.Interface
     end
 
     properties (SetAccess = protected)
-        HW (1,:) TDTRP
+        HW = [] % handle to RPcoX device(s) (TDTRP); untyped for cross-machine MAT-file compatibility
 
         Server  (1,:) char
         ConnectionType (1,:) char = 'GB'

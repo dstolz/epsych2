@@ -30,9 +30,8 @@ classdef Software < hw.Interface
 
     end
 
-
     properties
-        % TRIALS
+        IsConnected (1,1) logical = true  % software interface is always connected
     end
 
     properties (Constant)
@@ -72,6 +71,10 @@ classdef Software < hw.Interface
         function obj = Software(params,trial)
             % obj.setup_interface(params,trial);
             obj.Module = hw.Module(obj,'Software','Params',1);
+        end
+
+        function connect(obj)
+            obj.IsConnected = true;
         end
 
         function mode_handler(obj,src,event)

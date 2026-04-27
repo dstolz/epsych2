@@ -11,10 +11,13 @@ arguments
 end
 
 COMMAND = string(COMMAND);
-if COMMAND == "Run", COMMAND = "Record"; end
-
 switch lower(COMMAND)
-    case {"run","record","preview"}
+    case {"run","record"}, COMMAND = "Record";
+    case "preview",        COMMAND = "Preview";
+end
+
+switch COMMAND
+    case {"Record","Preview"}
         drawnow
 
         % Set process priority to high
@@ -22,6 +25,7 @@ switch lower(COMMAND)
 
         vprintf(0,'%s',repmat('~',1,50))
 
+        prevRuntime_ = self.RUNTIME; % preserve for rollback on hardware init failure
         self.RUNTIME = epsych.Runtime; % reset RUNTIME
 
         % Validate embedded protocols
@@ -80,7 +84,7 @@ switch lower(COMMAND)
             else
                 % Get hardware interfaces from loaded protocol
                 % If protocol was designed with Software only, create minimal hardware
-                protocol_interfaces = self.CONFIG.PROTOCOL.Interfaces;
+                protocol_interfaces = self.CONFIG(1).PROTOCOL.Interfaces;
                 
                 % Filter out Software interfaces and find hardware interfaces
                 hw_interfaces = [];
@@ -98,10 +102,8 @@ switch lower(COMMAND)
                 else
                     % Use first hardware interface (or could select based on ConnectionType)
                     self.RUNTIME.HW = hw_interfaces(1);
-                    if isprop(self.RUNTIME.HW, 'IsConnected') && ~self.RUNTIME.HW.IsConnected
-                        if ismethod(self.RUNTIME.HW, 'connect')
-                            self.RUNTIME.HW.connect();
-                        end
+                    if ~self.RUNTIME.HW.IsConnected
+                        self.RUNTIME.HW.connect();
                         assert(self.RUNTIME.HW.IsConnected, ...
                             'epsych:RunExpt:HardwareConnectionFailed', ...
                             'Hardware interface "%s" failed to connect. Check hardware status before starting.', ...
@@ -110,6 +112,7 @@ switch lower(COMMAND)
                 end
             end
         catch me
+            self.RUNTIME = prevRuntime_; % roll back to previous valid RUNTIME
             drawnow
             rethrow(me)
         end
@@ -128,11 +131,11 @@ switch lower(COMMAND)
 
         drawnow
 
-    case "pause"
+    case "Pause"
 
         self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Pause));
 
-    case "stop"
+    case "Stop"
         self.STATE = PRGMSTATE.STOP;
         set(self.H.figure1,'pointer','watch')
 

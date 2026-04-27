@@ -50,7 +50,8 @@ for i = 1:RUNTIME.NSubjects
                 data.(P_read(k).validName) = P_read(k).Value;
             end
 
-            data.TrialID = RUNTIME.TRIALS(i).TrialIndex;
+            data.TrialNumber = RUNTIME.TRIALS(i).TrialIndex;
+            data.TrialID     = RUNTIME.TRIALS(i).NextTrialID;
             data.computerTimestamp = datetime('now');
 
             RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
@@ -58,8 +59,9 @@ for i = 1:RUNTIME.NSubjects
             % Notify selector that this trial completed
             RUNTIME.TRIALS(i).selector.onComplete(RUNTIME.TRIALS(i).NextTrialID, data);
 
-            % Save updated runtime data in case of crash
-            save(RUNTIME.DataFile(i),'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
+            % Save updated runtime data in case of crash (saves all accumulated trials)
+            allData = RUNTIME.TRIALS(i).DATA;
+            save(RUNTIME.DataFile(i),'allData','-append','-v6'); % -v6 is much faster because it doesn't use compression
 
             % Broadcast event data has been updated
             evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));

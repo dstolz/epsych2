@@ -46,6 +46,10 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         mode
     end
 
+    properties (Abstract)
+        IsConnected (1,1) logical   % true when the backend is connected and ready
+    end
+
 
     properties
         h_listeners
@@ -77,6 +81,11 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         % result = trigger(name)
         %   Trigger a named hardware event.
         result = trigger(name)
+
+        % connect()
+        %   Establish a connection to the hardware backend.
+        %   Sets IsConnected to true on success.
+        connect()
     end
 
     methods (Abstract, Static)

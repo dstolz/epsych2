@@ -55,20 +55,31 @@ if ~isfinite(obj.Options.numReps) || (obj.Options.numReps < 1 && ~isinf(obj.Opti
     idx = idx + 1;
 end
 
-if ~isempty(obj.Options.trialFunc) && ischar(obj.Options.trialFunc)
-    try
-        funcHandle = str2func(obj.Options.trialFunc);
-        if isempty(functions(funcHandle))
+if ~isempty(obj.Options.trialFunc)
+    if ischar(obj.Options.trialFunc)
+        try
+            funcHandle = str2func(obj.Options.trialFunc);
+            info = functions(funcHandle);
+            if isempty(info.file)
+                report(idx).field = 'Options.trialFunc';
+                report(idx).message = sprintf('Trial function "%s" not found on path', obj.Options.trialFunc);
+                report(idx).severity = 2;
+                idx = idx + 1;
+            end
+        catch
             report(idx).field = 'Options.trialFunc';
-            report(idx).message = sprintf('Trial function "%s" not found on path', obj.Options.trialFunc);
+            report(idx).message = sprintf('Trial function "%s" not accessible', obj.Options.trialFunc);
             report(idx).severity = 2;
             idx = idx + 1;
         end
-    catch
-        report(idx).field = 'Options.trialFunc';
-        report(idx).message = sprintf('Trial function "%s" not accessible', obj.Options.trialFunc);
-        report(idx).severity = 2;
-        idx = idx + 1;
+    elseif isa(obj.Options.trialFunc, 'function_handle')
+        info = functions(obj.Options.trialFunc);
+        if isempty(info.file)
+            report(idx).field = 'Options.trialFunc';
+            report(idx).message = 'Trial function handle refers to an unresolved or anonymous function';
+            report(idx).severity = 1;
+            idx = idx + 1;
+        end
     end
 end
 

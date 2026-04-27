@@ -37,7 +37,8 @@ end
 
 pn = getpref('ep_RunExpt_Setup','PDir',cd);
 if ~exist(pn,'dir'), pn = cd; end
-[fn,pn] = uigetfile('*.prot','Locate Protocol',pn);
+[fn,pn] = uigetfile({'*.eprot;*.prot','Protocol Files (*.eprot, *.prot)'; ...
+    '*.*','All Files (*.*)'},'Locate Protocol',pn);
 if isequal(fn,0), return, end
 setpref('ep_RunExpt_Setup','PDir',pn)
 pfn = fullfile(pn,fn);
@@ -47,10 +48,14 @@ if ~exist(pfn,'file')
     return
 end
 
+protocol = epsych.Protocol.load(pfn);
+
 if ~isfield(self.CONFIG, 'protocol_fn') || isempty(self.CONFIG(1).protocol_fn)
     self.CONFIG(1).protocol_fn = pfn;
+    self.CONFIG(1).PROTOCOL    = protocol;
 else
     self.CONFIG(end+1).protocol_fn = pfn;
+    self.CONFIG(end).PROTOCOL      = protocol;
 end
 
 self.CONFIG(end).SUBJECT = S;

@@ -239,6 +239,8 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % Parameters:
             %   obj    - hw.Interface. Hardware interface to search.
             %   name   - char | string | cellstr. Parameter name(s) to search for.
+            %            Accepts both short names ('Param') and fully qualified
+            %            names ('Module.Param').
             %   options.includeInvisible - logical (default=false). Include Parameters where Visible is false.
             %   options.silenceParameterNotFound - logical (default=false). Suppress warning output when no matches are found.
             %
@@ -252,18 +254,32 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 options.includeInvisible (1,1) logical = false
                 options.silenceParameterNotFound (1,1) logical = false
             end
-            P = obj.all_parameters(includeInvisible = options.includeInvisible);
+            allP = obj.all_parameters(includeInvisible = options.includeInvisible);
             name = cellstr(name);
-            ind = ismember({P.Name},name);
-            if any(ind)
-                P = P(ind);
-                [ind,idx] = ismember(name,{P.Name});
-                P = P(idx(ind));
-            else
-                P = [];
-                if ~options.silenceParameterNotFound
-                    cellfun(@(a) vprintf(0,1,'Parameter "%s" was not found on any modules',a),name)
+
+            % Build short and qualified name arrays for matching.
+            % Qualified names have the form 'Module.Param'.
+            shortNames = {allP.Name};
+            qualNames  = arrayfun(@(p) [p.Module.Name '.' p.Name], allP, 'UniformOutput', false);
+
+            result = hw.Parameter.empty(1, 0);
+            for k = 1:numel(name)
+                n = name{k};
+                idx = find(strcmp(shortNames, n), 1);
+                if isempty(idx)
+                    idx = find(strcmp(qualNames, n), 1);
                 end
+                if ~isempty(idx)
+                    result(end + 1) = allP(idx); %#ok<AGROW>
+                elseif ~options.silenceParameterNotFound
+                    vprintf(0, 1, 'Parameter "%s" was not found on any modules', n);
+                end
+            end
+
+            if isempty(result)
+                P = [];
+            else
+                P = result;
             end
         end
     end

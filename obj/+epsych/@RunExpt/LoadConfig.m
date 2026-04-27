@@ -37,6 +37,24 @@ end
 self.ClearConfig
 self.CONFIG = S.config;
 
+% Reconstruct Protocol objects from serialized structs stored in config.
+for i = 1:length(self.CONFIG)
+    ps = self.CONFIG(i).PROTOCOL;
+    if isstruct(ps) && isfield(ps, 'formatVersion')
+        P = epsych.Protocol();
+        P.fromStruct(ps);
+        self.CONFIG(i).PROTOCOL = P;
+    end
+    if isa(self.CONFIG(i).PROTOCOL, 'epsych.Protocol')
+        report = self.CONFIG(i).PROTOCOL.validate();
+        errs = report([report.severity] == 2);
+        if ~isempty(errs)
+            vprintf(0, 1, 'Protocol for subject "%s" has %d validation error(s). Review before starting.', ...
+                self.CONFIG(i).SUBJECT.Name, numel(errs));
+        end
+    end
+end
+
 if isfield(S,'funcs')
     self.FUNCS = S.funcs;
     self.SetDefaultFuncs(self.FUNCS)

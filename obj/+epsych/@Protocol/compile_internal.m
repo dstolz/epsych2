@@ -86,6 +86,8 @@ obj.COMPILED.trials = trials;
 obj.COMPILED.OPTIONS = obj.Options;
 obj.COMPILED.ntrials = size(trials, 1);
 
+obj.assertCompiledInvariants_();
+
 vprintf(2, 'Protocol compiled: %d unique trials, %d total with %d repetitions', ...
     uniqueTrialCount, obj.COMPILED.ntrials, nreps);
 end

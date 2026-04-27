@@ -24,22 +24,38 @@ switch lower(COMMAND)
 
         self.RUNTIME = epsych.Runtime; % reset RUNTIME
 
-        % Load protocols
+        % Validate embedded protocols
         for i = 1:length(self.CONFIG)
-            warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
-            self.CONFIG(i).PROTOCOL = epsych.Protocol.load(self.CONFIG(i).protocol_fn);
-            warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
+            assert(isa(self.CONFIG(i).PROTOCOL, 'epsych.Protocol') && isvalid(self.CONFIG(i).PROTOCOL), ...
+                'epsych:RunExpt:MissingProtocol', ...
+                'CONFIG(%d) does not contain a valid epsych.Protocol object. Add subjects with a protocol before starting.', i);
 
-            [pn,fn] = fileparts(self.CONFIG(i).protocol_fn);
-            vprintf(0,['%2d. ''%s''\tProtocol: ', ...
-                '<a href="matlab: epsych.ProtocolDesigner.openFromFile(''%s'');">%s</a>' ...
-                '(<a href="matlab: !explorer %s">%s</a>)'], ...
-                self.CONFIG(i).SUBJECT.BoxID,self.CONFIG(i).SUBJECT.Name, ...
-                self.CONFIG(i).protocol_fn,fn,pn,pn)
+            report = self.CONFIG(i).PROTOCOL.validate();
+            if ~isempty(report)
+                errs = report([report.severity] == 2);
+                if ~isempty(errs)
+                    msgs = strjoin(arrayfun(@(r) sprintf('[%s] %s', r.field, r.message), errs, 'UniformOutput', false), newline);
+                    error('epsych:RunExpt:ProtocolValidationFailed', ...
+                        'Protocol for subject "%s" has validation errors:\n%s', ...
+                        self.CONFIG(i).SUBJECT.Name, msgs);
+                end
+            end
 
-            if isempty(self.CONFIG(i).PROTOCOL.Options.trialFunc) ...
-                    || strcmp(self.CONFIG(i).PROTOCOL.Options.trialFunc,'< default >')
-                self.CONFIG(i).PROTOCOL.Options.trialFunc = @DefaultTrialSelectFcn;
+            if self.CONFIG(i).PROTOCOL.COMPILED.ntrials == 0
+                vprintf(0, 'Compiling protocol for subject "%s"...', self.CONFIG(i).SUBJECT.Name);
+                self.CONFIG(i).PROTOCOL.compile();
+            end
+
+            pfn = string(self.CONFIG(i).protocol_fn);
+            if strlength(pfn) > 0 && isfile(pfn)
+                [pn, fn] = fileparts(pfn);
+                vprintf(0, ['%2d. ''%s''\tProtocol: ', ...
+                    '<a href="matlab: epsych.ProtocolDesigner.openFromFile(''%s'');">%s</a>' ...
+                    '(<a href="matlab: !explorer %s">%s</a>)'], ...
+                    self.CONFIG(i).SUBJECT.BoxID, self.CONFIG(i).SUBJECT.Name, pfn, fn, pn, pn)
+            else
+                vprintf(0, '%2d. ''%s''\tProtocol: <embedded>', ...
+                    self.CONFIG(i).SUBJECT.BoxID, self.CONFIG(i).SUBJECT.Name)
             end
         end
 
@@ -75,29 +91,20 @@ switch lower(COMMAND)
                 else
                     % Use first hardware interface (or could select based on ConnectionType)
                     self.RUNTIME.HW = hw_interfaces(1);
-                    if isprop(self.RUNTIME.HW, 'IsConnected') && ~self.RUNTIME.HW.IsConnected && ismethod(self.RUNTIME.HW, 'connect')
-                        self.RUNTIME.HW.connect();
+                    if isprop(self.RUNTIME.HW, 'IsConnected') && ~self.RUNTIME.HW.IsConnected
+                        if ismethod(self.RUNTIME.HW, 'connect')
+                            self.RUNTIME.HW.connect();
+                        end
+                        assert(self.RUNTIME.HW.IsConnected, ...
+                            'epsych:RunExpt:HardwareConnectionFailed', ...
+                            'Hardware interface "%s" failed to connect. Check hardware status before starting.', ...
+                            class(self.RUNTIME.HW));
                     end
                 end
             end
         catch me
             drawnow
             rethrow(me)
-        end
-
-        for i = 1:length(self.CONFIG)
-            self.RUNTIME.TRIALS(i).protocol_fn = self.CONFIG(i).protocol_fn; %#ok<AGROW>
-            % Map interface names to indices  for backward compatibility
-            protocol_interfaces = self.CONFIG(i).PROTOCOL.Interfaces;
-            for j = 1:length(protocol_interfaces)
-                % Store interface index mapping
-                if isprop(protocol_interfaces(j), 'Name')
-                    iface_name = protocol_interfaces(j).Name;
-                else
-                    iface_name = char(protocol_interfaces(j).Type);
-                end
-                self.RUNTIME.TRIALS(i).MODULES.(iface_name) = j;  %#ok<AGROW>
-            end
         end
 
         self.RUNTIME.dfltDataPath = self.dfltDataPath;

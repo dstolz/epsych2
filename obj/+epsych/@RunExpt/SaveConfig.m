@@ -18,7 +18,16 @@ if isequal(fn,0)
     return
 end
 
-config = self.CONFIG; %#ok<NASGU>
+config = self.CONFIG;
+
+% Serialize embedded Protocol objects to portable structs so the .config
+% file contains only plain MAT data (no handle class objects).
+for i = 1:length(config)
+    if isa(config(i).PROTOCOL, 'epsych.Protocol') && isvalid(config(i).PROTOCOL)
+        config(i).PROTOCOL = config(i).PROTOCOL.toStruct();
+    end
+end
+
 funcs  = self.FUNCS;  %#ok<NASGU>
 
 E = EPsychInfo;

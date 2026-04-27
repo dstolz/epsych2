@@ -46,7 +46,8 @@ for i = 1:RUNTIME.NSubjects
 
             RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
 
-
+            % Notify selector that this trial completed
+            RUNTIME.TRIALS(i).selector.onComplete(RUNTIME.TRIALS(i).NextTrialID, data);
 
             % Save updated runtime data in case of crash
             save(RUNTIME.DataFile(i),'data','-append','-v6'); % -v6 is much faster because it doesn't use compression
@@ -88,26 +89,15 @@ for i = 1:RUNTIME.NSubjects
 
 
 
-    % Select next trial with default or custom function
+    % Select next trial using selector object
     try
-        vprintf(3,'Selecting next trial for box %d using "%s"',i,RUNTIME.TRIALS(i).trialfunc)
+        vprintf(3,'Selecting next trial for box %d using %s',i,class(RUNTIME.TRIALS(i).selector))
         tcf = tic;
-        n = feval(RUNTIME.TRIALS(i).trialfunc,RUNTIME.TRIALS(i));
-        vprintf(4,'Custom Trial Function, "%s",ran in %.4f seconds',RUNTIME.TRIALS(i).trialfunc,toc(tcf))
-        if isstruct(n)
-            RUNTIME.TRIALS(i).trials = n.trials;
-            RUNTIME.TRIALS(i).NextTrialID = n.NextTrialID;
-        elseif isscalar(n)
-            RUNTIME.TRIALS(i).NextTrialID = n;
-        else
-            error('Invalid output from custom trial selection function ''%s''',RUNTIME.TRIALS(i).trialfunc)
-        end
-
+        RUNTIME.TRIALS(i).NextTrialID = RUNTIME.TRIALS(i).selector.selectNext(RUNTIME.TRIALS(i).TrialIndex);
+        vprintf(4,'%s ran in %.4f seconds',class(RUNTIME.TRIALS(i).selector),toc(tcf))
     catch me
-        fprintf(2,'Error in Custom Trial Selection Function "%s" on line %d\n\n%s\n%s', ...
-            me.stack(1).name,me.stack(1).line,me.identifier,me.message);
+        vprintf(0,1,'Error in trial selector "%s": %s', class(RUNTIME.TRIALS(i).selector), me.message);
         vprintf(0,1,me);
-        % Ensure stale timers do not survive runtime failures.
         t = timerfindall;
         if ~isempty(t)
             stop(t);
@@ -130,24 +120,6 @@ for i = 1:RUNTIME.NSubjects
             wp{j}, ...
             RUNTIME.TRIALS(i).trials{RUNTIME.TRIALS(i).NextTrialID, RUNTIME.TRIALS(i).writeParamIdx.(pn{j})})
     end
-
-    
-    
-
-
-
-    
-    
-    % Increment TRIALS.TrialCount for the selected trial index
-    RUNTIME.TRIALS(i).TrialCount(RUNTIME.TRIALS(i).NextTrialID) = ...
-        RUNTIME.TRIALS(i).TrialCount(RUNTIME.TRIALS(i).NextTrialID) + 1;
-
-    
-
-    
-    
-    
-    
 
     % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
     vprintf(2,'Trial #%d: New Trial Sequence for box %d',RUNTIME.TRIALS(i).TrialIndex,i)

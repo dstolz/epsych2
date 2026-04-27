@@ -112,6 +112,7 @@ classdef Module < handle
             nopts = namedargs2cell(options);
             P = hw.Parameter(obj.parent, nopts{:});
             P.Name = name;
+            P.Module = obj;
             
             P.Value = value;
             obj.Parameters(end+1) = P;

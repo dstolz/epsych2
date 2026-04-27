@@ -177,7 +177,16 @@ classdef Parameter < matlab.mixin.SetGet
             if isa(obj.Parent,'hw.Software') || (isprop(obj.Parent, 'IsConnected') && ~obj.Parent.IsConnected)
                 v = obj.Value;
             else
-                v = obj.Parent.get_parameter(obj,includeInvisible=true);
+                try
+                    v = obj.Parent.get_parameter(obj,includeInvisible=true);
+                catch ME
+                    if strcmp(ME.identifier, 'MATLAB:TooManyInputs') || contains(ME.message, 'Too many input arguments')
+                        % Backward-compatible fallback for legacy interface implementations.
+                        v = obj.Parent.get_parameter(obj);
+                    else
+                        rethrow(ME)
+                    end
+                end
             end
 
             if isnumeric(v)
@@ -186,11 +195,42 @@ classdef Parameter < matlab.mixin.SetGet
         end
 
         function M = get.Module(obj)
-            if isempty(obj.Module) || isequal(obj.Module,0)
-                M = obj.Parent.Module;
-            else
+            if ~(isempty(obj.Module) || isequal(obj.Module,0))
                 M = obj.Module;
+                return
             end
+
+            if isa(obj.Parent, 'hw.Module')
+                M = obj.Parent;
+                obj.Module = M;
+                return
+            end
+
+            if isprop(obj.Parent, 'Module')
+                parentModules = obj.Parent.Module;
+                if isscalar(parentModules)
+                    M = parentModules;
+                    obj.Module = M;
+                    return
+                end
+
+                matchMask = false(1, numel(parentModules));
+                for moduleIdx = 1:numel(parentModules)
+                    moduleParameters = parentModules(moduleIdx).Parameters;
+                    if any(arrayfun(@(p) isequal(p, obj), moduleParameters))
+                        matchMask(moduleIdx) = true;
+                    end
+                end
+
+                if nnz(matchMask) == 1
+                    M = parentModules(find(matchMask, 1, 'first'));
+                    obj.Module = M;
+                    return
+                end
+            end
+
+            error('hw:Parameter:ModuleUnresolved', ...
+                'Could not resolve owner module for parameter "%s".', obj.Name);
         end
 
         function Trigger(obj)

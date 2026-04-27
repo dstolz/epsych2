@@ -54,9 +54,6 @@ classdef ProtocolDesigner < handle
         BtnRemoveParam matlab.ui.control.Button
         BtnRefreshParams matlab.ui.control.Button
 
-        CheckRandomize matlab.ui.control.CheckBox
-        SpinnerNumReps matlab.ui.control.Spinner
-        EditISI matlab.ui.control.NumericEditField
         EditTrialFunc matlab.ui.control.EditField
         CheckCompileAtRuntime matlab.ui.control.CheckBox
         CheckIncludeWAVBuffers matlab.ui.control.CheckBox

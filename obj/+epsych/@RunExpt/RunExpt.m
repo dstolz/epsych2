@@ -154,14 +154,65 @@ classdef RunExpt < handle
         function ViewTrials(self)
             % obj.ViewTrials
             % Display a preview of compiled trials for the selected subject.
+            % Supports both epsych.Protocol objects and legacy struct-based protocols.
             idx = self.H.subject_list.Selection(1);
             if isempty(idx), return, end
 
-            warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
-            S = load(self.CONFIG(idx).protocol_fn,'protocol','-mat');
-            warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
+            pfn = char(self.CONFIG(idx).protocol_fn);
+            if isempty(pfn) || ~isfile(pfn)
+                uialert(self.H.figure1, 'Protocol file not found.', 'EPsych', 'Icon', 'warning');
+                return
+            end
 
-            ep_CompiledProtocolTrials(S.protocol,'trunc',2000);
+            warning('off', 'MATLAB:dispatcher:UnresolvedFunctionHandle');
+            try
+                protocol = epsych.Protocol.load(pfn);
+            catch ME
+                warning('on', 'MATLAB:dispatcher:UnresolvedFunctionHandle');
+                vprintf(0, 1, ME);
+                return
+            end
+            warning('on', 'MATLAB:dispatcher:UnresolvedFunctionHandle');
+
+            protocol.compile();
+            C = protocol.COMPILED;
+
+            if C.ntrials == 0
+                uialert(self.H.figure1, 'Protocol compiled no trials. Check parameter definitions.', ...
+                    'EPsych', 'Icon', 'warning');
+                return
+            end
+
+            TRUNC = 2000;
+            trials = C.trials;
+            if size(trials, 1) > TRUNC
+                trials = trials(1:TRUNC, :);
+            end
+
+            % Normalize cell values for uitable display
+            for r = 1:size(trials, 1)
+                for c = 1:size(trials, 2)
+                    v = trials{r, c};
+                    if isstring(v)
+                        trials{r, c} = char(v);
+                    elseif ~ischar(v) && ~isnumeric(v) && ~islogical(v)
+                        trials{r, c} = mat2str(v);
+                    end
+                end
+            end
+
+            columnNames = {C.parameters.Name};
+            fig = uifigure('Name', sprintf('Compiled Trials — %s', pfn), ...
+                'Position', [200 100 900 520]);
+            uilabel(fig, ...
+                'Text', sprintf('Showing %d of %d compiled trials', size(trials, 1), C.ntrials), ...
+                'Position', [20 486 860 25], ...
+                'FontWeight', 'bold');
+            uitable(fig, ...
+                'Position', [20 20 860 460], ...
+                'ColumnName', columnNames, ...
+                'Data', trials, ...
+                'ColumnEditable', false(1, length(columnNames)));
         end
 
         function EditProtocol(self)
@@ -390,9 +441,54 @@ classdef RunExpt < handle
             self.SaveDataCallback
         end
 
-        function subject_list_SelectionChanged(self, hObj, evnt)
-            % Displays subject info in the command window when the list selection changes.
-            disp(self.CONFIG(hObj.Selection(1)).SUBJECT)
+        function subject_list_SelectionChanged(self, hObj, ~)
+            % Prints subject and protocol info to the command window when selection changes.
+            if isempty(hObj.Selection), return, end
+            idx = hObj.Selection(1);
+            S = self.CONFIG(idx).SUBJECT;
+            C = self.CONFIG(idx);
+
+            fprintf('\n--- Subject ---\n')
+            fprintf('  Name:     %s\n', S.Name);
+            fprintf('  Box ID:   %d\n', S.BoxID);
+            if isfield(S,'Species') && ~isempty(S.Species)
+                fprintf('  Species:  %s\n', S.Species);
+            end
+            if isfield(S,'Sex') && ~isempty(S.Sex)
+                fprintf('  Sex:      %s\n', S.Sex);
+            end
+            if isfield(S,'Weight') && ~isempty(S.Weight)
+                fprintf('  Weight:   %g g\n', S.Weight);
+            end
+            if isfield(S,'Notes') && ~isempty(strtrim(char(S.Notes)))
+                fprintf('  Notes:    %s\n', strtrim(char(S.Notes)));
+            end
+
+            [~,pfn,pext] = fileparts(C.protocol_fn);
+            fprintf('--- Protocol ---\n')
+            fprintf('  File:     %s%s\n', pfn, pext);
+
+            proto = C.PROTOCOL;
+            if isa(proto,'epsych.Protocol')
+                opt = proto.Options;
+                if ~isempty(proto.Info)
+                    fprintf('  Info:     %s\n', proto.Info);
+                end
+                fprintf('  Reps:     %d\n', opt.numReps);
+                fprintf('  ISI:      %d ms\n', opt.ISI);
+                fprintf('  Randomize:%s\n', mat2str(opt.randomize));
+                if proto.COMPILED.ntrials > 0
+                    fprintf('  Trials:   %d\n', proto.COMPILED.ntrials);
+                end
+            elseif isstruct(proto) && isfield(proto,'OPTIONS')
+                opt = proto.OPTIONS;
+                if isfield(opt,'numReps'), fprintf('  Reps:     %d\n', opt.numReps); end
+                if isfield(opt,'ISI'),     fprintf('  ISI:      %d ms\n', opt.ISI); end
+                if isfield(opt,'randomize'), fprintf('  Randomize:%s\n', mat2str(opt.randomize)); end
+                if isfield(proto,'ntrials') && proto.ntrials > 0
+                    fprintf('  Trials:   %d\n', proto.ntrials);
+                end
+            end
         end
 
         function SetDefaultFuncs(self, F)

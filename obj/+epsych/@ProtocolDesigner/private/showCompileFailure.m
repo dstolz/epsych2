@@ -35,7 +35,7 @@ function details = localBuildCompileFailureDetails_(obj, compileError)
     details.statusMessage = sprintf('Compile failed: %s', compileMessage);
     details.nextStep = 'Review the compile details, fix the reported parameters or options, then compile again.';
 
-    if isempty(obj.Protocol.COMPILED.writeparams)
+    if isempty(obj.Protocol.COMPILED.parameters)
         details.summaryText = 'Compile failed. No compiled preview available.';
     else
         details.summaryText = 'Compile failed. Preview shows the last successful compile.';

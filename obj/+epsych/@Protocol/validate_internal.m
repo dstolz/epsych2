@@ -41,20 +41,6 @@ if writeParamCount == 0
     idx = idx + 1;
 end
 
-if ~isfinite(obj.Options.ISI) || obj.Options.ISI <= 0
-    report(idx).field = 'Options.ISI';
-    report(idx).message = sprintf('ISI must be positive (got %.1f)', obj.Options.ISI);
-    report(idx).severity = 2;
-    idx = idx + 1;
-end
-
-if ~isfinite(obj.Options.numReps) || (obj.Options.numReps < 1 && ~isinf(obj.Options.numReps))
-    report(idx).field = 'Options.numReps';
-    report(idx).message = sprintf('numReps must be >= 1 (got %.1f)', obj.Options.numReps);
-    report(idx).severity = 2;
-    idx = idx + 1;
-end
-
 if ~isempty(obj.Options.trialFunc)
     if ischar(obj.Options.trialFunc)
         try
@@ -95,6 +81,15 @@ for ifaceIdx = 1:length(obj.Interfaces)
             end
 
             fullName = sprintf('%s.%s.%s', ifaceType, module.Name, p.Name);
+
+            if ~strcmp(p.Access, 'Read') && isempty(p.Values)
+                report(idx).field = fullName;
+                report(idx).message = sprintf('Parameter "%s" has no Values defined', p.Name);
+                report(idx).severity = 2;
+                idx = idx + 1;
+                continue
+            end
+
             if p.Min > p.Max
                 report(idx).field = fullName;
                 report(idx).message = sprintf('Min (%.2f) > Max (%.2f)', p.Min, p.Max);

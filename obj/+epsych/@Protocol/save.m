@@ -23,8 +23,8 @@ function save(obj, filename)
     % Update modification time
     obj.meta.lastModified = datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss');
 
-    % Save the Protocol object directly
-    protocol = obj;
-    builtin('save', filename, 'protocol', '-mat');
+    % Serialize to a version-stable struct and save
+    protocol_struct = obj.toStruct();
+    builtin('save', filename, 'protocol_struct', '-mat');
     fprintf('[INFO] Protocol saved to: %s\n', filename);
 end

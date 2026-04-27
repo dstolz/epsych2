@@ -31,3 +31,6 @@ P = self.RUNTIME.all_parameters(asStruct = true);
 for i = 1:self.RUNTIME.NSubjects
     self.RUNTIME.TRIALS(i).Parameters = P;
 end
+
+% Notify listeners now that BoxFig is launched and HELPER is fully initialized.
+self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Record));

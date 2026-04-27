@@ -31,9 +31,6 @@ for iface_idx = 1:length(obj.Interfaces)
                 continue
             end
 
-            assert(~isempty(p.Values), 'epsych:Protocol:EmptyValues', ...
-                'Parameter "%s" has no Values defined. Set values before compiling.', p.Name);
-
             parameters(end+1) = p;
             trials{1, colIdx} = p.Values;
             paramMetadata{colIdx} = struct( ...
@@ -46,10 +43,11 @@ for iface_idx = 1:length(obj.Interfaces)
 end
 
 if isempty(parameters)
-    obj.COMPILED.parameters = hw.Parameter.empty(1, 0);
-    obj.COMPILED.trials     = {};
-    obj.COMPILED.OPTIONS    = obj.Options;
-    obj.COMPILED.ntrials    = 0;
+    obj.COMPILED.parameters  = hw.Parameter.empty(1, 0);
+    obj.COMPILED.trials      = {};
+    obj.COMPILED.OPTIONS     = obj.Options;
+    obj.COMPILED.ntrials     = 0;
+    obj.COMPILED.writeparams = {};
     return
 end
 
@@ -64,10 +62,6 @@ if isempty(trials)
 end
 
 uniqueTrialCount = size(trials, 1);
-nreps = obj.Options.numReps;
-if ~isinf(nreps) && nreps > 0
-    trials = repmat(trials, nreps, 1);
-end
 
 % Inline invariant checks
 assert(size(trials, 2) == length(parameters), ...
@@ -80,11 +74,11 @@ assert(length(unique(names)) == length(names), ...
     'epsych:Protocol:DuplicateParameterNames', ...
     'Duplicate parameter names found in compiled protocol.');
 
-obj.COMPILED.parameters = parameters;
-obj.COMPILED.trials     = trials;
-obj.COMPILED.OPTIONS    = obj.Options;
-obj.COMPILED.ntrials    = size(trials, 1);
+obj.COMPILED.parameters  = parameters;
+obj.COMPILED.trials      = trials;
+obj.COMPILED.OPTIONS     = obj.Options;
+obj.COMPILED.ntrials     = size(trials, 1);
+obj.COMPILED.writeparams = {paramMetadata.name};
 
-vprintf(2, 'Protocol compiled: %d unique trials, %d total with %d repetitions', ...
-    uniqueTrialCount, obj.COMPILED.ntrials, nreps);
+vprintf(2, 'Protocol compiled: %d unique trials', uniqueTrialCount);
 end

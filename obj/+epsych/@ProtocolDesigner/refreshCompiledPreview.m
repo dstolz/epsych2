@@ -3,10 +3,10 @@ function refreshCompiledPreview(obj)
         return
     end
 
-    writeParams = obj.Protocol.COMPILED.writeparams;
+    parameters = obj.Protocol.COMPILED.parameters;
     trials = obj.Protocol.COMPILED.trials;
 
-    if isempty(writeParams)
+    if isempty(parameters)
         obj.TableCompiled.ColumnName = {'No Compiled Trials'};
         obj.TableCompiled.Data = cell(0, 1);
         obj.LabelCompileSummary.Text = 'Not compiled';
@@ -14,9 +14,10 @@ function refreshCompiledPreview(obj)
     end
 
     previewCount = min(size(trials, 1), 200);
-    writeParamTypes = obj.getCompiledWriteParamTypes(writeParams);
-    previewData = obj.normalizeCompiledPreviewData(trials(1:previewCount, :), writeParamTypes);
-    obj.TableCompiled.ColumnName = cellstr(string(writeParams));
+    columnTypes = {parameters.Type};
+    columnNames = {parameters.Name};
+    previewData = obj.normalizeCompiledPreviewData(trials(1:previewCount, :), columnTypes);
+    obj.TableCompiled.ColumnName = columnNames;
     obj.TableCompiled.Data = previewData;
     obj.LabelCompileSummary.Text = sprintf('Showing %d of %d compiled trials', previewCount, obj.Protocol.COMPILED.ntrials);
 end

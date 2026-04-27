@@ -15,8 +15,8 @@ function struct_out = toStruct(obj)
     struct_out = struct();
     struct_out.formatVersion = obj.meta.formatVersion;
     struct_out.epsychVersion = obj.meta.epsychVersion;
-    struct_out.createdDate = datestr(now);
-    struct_out.lastModified = datestr(now);
+    struct_out.createdDate  = char(obj.meta.createdDate);
+    struct_out.lastModified = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
 
     struct_out.Options = obj.Options;
     struct_out.Info = obj.Info;

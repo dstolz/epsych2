@@ -35,11 +35,20 @@ for i = 1:RUNTIME.NSubjects
             % There was a response and the trial is over.
             % Retrieve parameter data for this trial and save in TRIALS structure. 
 
-            % get all 'Read' or 'Read / Write' parameters from hardware and software interfaces and save in data struct
-            data = RUNTIME.all_parameters(Access = 'Read', asStruct = true);
-            
-            data = structfun(@toStruct,data,'uni',0);
-            data = structfun(@(a) a.Value,data,'uni',0);
+            % Get Read parameters scoped to this subject's box.
+            % Box-specific parameters carry a "~BoxID" suffix; global parameters
+            % (software interface, no suffix) are included for every subject.
+            boxSuffix = sprintf('~%d', RUNTIME.TRIALS(i).BoxID);
+            P_read = RUNTIME.all_parameters(Access = 'Read');
+            if ~isempty(P_read)
+                names = string({P_read.Name});
+                boxMask = endsWith(names, boxSuffix) | ~contains(names, '~');
+                P_read = P_read(boxMask);
+            end
+            data = struct();
+            for k = 1:numel(P_read)
+                data.(P_read(k).validName) = P_read(k).Value;
+            end
 
             data.TrialID = RUNTIME.TRIALS(i).TrialIndex;
             data.computerTimestamp = datetime('now');
@@ -85,7 +94,7 @@ for i = 1:RUNTIME.NSubjects
     end
 
 
-    RUNTIME.TRIALS(i).FORCE_TRIAL(i) = false;
+    RUNTIME.TRIALS(i).FORCE_TRIAL = false;
 
     % --- Safe-boundary operator recompile ---
     % Applied between trials so that hardware state is stable and no

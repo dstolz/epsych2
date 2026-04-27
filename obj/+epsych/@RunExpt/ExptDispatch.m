@@ -62,6 +62,13 @@ switch lower(COMMAND)
         self.RUNTIME.NSubjects = length(self.CONFIG);
 
         % TO DO: CREATE BETTER SYSTEM FOR MANAGING MULTIPLE HARDWARE INTERFACES
+        % Currently: detects Synapse by checking for Synapse.exe process; in
+        % non-Synapse mode only the first non-Software interface from CONFIG(1)
+        % is used — all other interfaces and multi-subject per-box configs are
+        % silently dropped.  A proper implementation should:
+        %   1. Compose all hardware interfaces declared across CONFIG(i).PROTOCOL
+        %   2. Expose them as an array on RUNTIME.HW rather than a scalar
+        %   3. Drive mode/connect on each interface independently
         [~,result] = system('tasklist/FI "imagename eq Synapse.exe"');
         x = strfind(result,'No tasks are running');
         self.RUNTIME.usingSynapse = isempty(x);
@@ -119,8 +126,6 @@ switch lower(COMMAND)
 
         start(self.RUNTIME.TIMER)
 
-        self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Record));
-
         drawnow
 
     case "pause"
@@ -143,6 +148,9 @@ switch lower(COMMAND)
 
         set(self.H.figure1,'pointer','arrow')
         vprintf(0,'Experiment stopped at %s',datetime("now",Format='dd-MMM-yyyy HH:mm'))
+
+        % Auto-save data on stop so users don't lose organized results.
+        self.SaveDataCallback
 
 end
 

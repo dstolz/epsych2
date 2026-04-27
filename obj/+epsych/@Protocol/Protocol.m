@@ -12,7 +12,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
     %
     % Properties:
     %   Interfaces       - Array of hw.Interface instances owned by this protocol
-    %   Options          - Struct holding randomize, numReps, ISI, trialFunc, compileAtRuntime
+    %   Options          - Struct holding trialFunc, compileAtRuntime
     %   Info             - User-provided description string
     %   COMPILED         - Struct output from compile() with writeparams, readparams, trials
     %   meta             - Metadata including EPsych version, creation date, format version
@@ -33,8 +33,6 @@ classdef Protocol < handle & matlab.mixin.SetGet
     % Example:
     %   P = epsych.Protocol('MyProtocol');
     %   P.addParameter('SoftwareModule', 'ToneFreq', [1000 2000 4000], Unit='Hz', Type='Float');
-    %   P.setOption('randomize', true);
-    %   P.setOption('numReps', 3);
     %   P.compile();
     %   P.save('MyProtocol.eprot');
     %
@@ -47,9 +45,6 @@ classdef Protocol < handle & matlab.mixin.SetGet
 
     properties
         Options struct = struct(...
-            'randomize', true, ...
-            'numReps', 1, ...
-            'ISI', 1000, ...
             'trialFunc', '', ...
             'compileAtRuntime', false, ...
             'IncludeWAVBuffers', true, ...
@@ -61,6 +56,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
         COMPILED struct = struct(...
             'parameters', [], ...
             'trials', {{}}, ...
+            'writeparams', {{}}, ...
             'OPTIONS', struct(), ...
             'ntrials', 0)
         
@@ -125,16 +121,10 @@ classdef Protocol < handle & matlab.mixin.SetGet
                 options.Name (1,:) char = char(interface.Type)
             end
 
-            % Check for duplicate names
-            existing_names = [];
-            for i = 1:length(obj.Interfaces)
-                if isprop(obj.Interfaces(i), 'Name')
-                    existing_names = [existing_names, {obj.Interfaces(i).Name}]; %#ok<AGROW>
-                end
-            end
-            
-            if any(strcmp(options.Name, existing_names))
-                vprintf(0, 1, 'Interface with name "%s" already exists', options.Name);
+            % Check for duplicate interface types
+            existing_types = arrayfun(@(iface) char(iface.Type), obj.Interfaces, 'UniformOutput', false);
+            if any(strcmp(char(interface.Type), existing_types))
+                vprintf(0, 1, 'Interface of type "%s" already exists', char(interface.Type));
                 return
             end
 
@@ -382,7 +372,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
             % Update a protocol option field.
             %
             % Parameters:
-            %   name (char) - Option field name (e.g., 'randomize', 'numReps', 'ISI', 'trialFunc')
+            %   name (char) - Option field name (e.g., 'trialFunc', 'compileAtRuntime')
             %   value - New value for the option
             arguments
                 obj
@@ -406,7 +396,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
         function dur_sec = estimateDuration(obj)
             % dur_sec = estimateDuration(obj)
             %
-            % Estimate total trial duration in seconds based on COMPILED trials and ISI.
+            % Estimate total trial duration in seconds based on COMPILED trials.
             %
             % Returns:
             %   dur_sec (double) - Estimated duration in seconds, or NaN if compilation incomplete
@@ -417,10 +407,9 @@ classdef Protocol < handle & matlab.mixin.SetGet
             end
 
             ntrials = size(obj.COMPILED.trials, 1);
-            isi_sec = obj.Options.ISI / 1000;  % ISI is in ms
             trial_duration_sec = 2;  % Assume 2 sec per trial (baseline)
             
-            dur_sec = ntrials * (trial_duration_sec + isi_sec);
+            dur_sec = ntrials * trial_duration_sec;
         end
 
         % ===== SERIALIZATION =====

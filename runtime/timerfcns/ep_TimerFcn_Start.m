@@ -23,8 +23,6 @@ if ~isfolder(RUNTIME.TempDataDir), mkdir(RUNTIME.TempDataDir); end
 
 RUNTIME.NSubjects = length(CONFIG);
 
-RUNTIME.HELPER = epsych.Helper;
-
 for i = 1:RUNTIME.NSubjects
     C = CONFIG(i);
 

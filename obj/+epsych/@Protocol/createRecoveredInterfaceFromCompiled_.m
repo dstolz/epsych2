@@ -45,10 +45,11 @@ for colIdx = 1:numel(writeparams)
     parameter = hw.Parameter(interface, Type = obj.inferSerializedParameterType_(trials, colIdx));
     parameter.Name = parameterName;
     parameter.Module = module;
-    parameter.Value = obj.getRecoveredParameterValue_(trials, colIdx);
+    recoveredValue = obj.getRecoveredParameterValue_(trials, colIdx);
+    parameter.Values = hw.Parameter.normalizeValues(recoveredValue);
     parameter.Access = 'Any';
     parameter.Visible = true;
-    parameter.isArray = numel(obj.normalizeRecoveredValue_(parameter.Value)) > 1;
+    parameter.isArray = numel(parameter.Values) > 1;
     module.Parameters(end + 1) = parameter; %#ok<AGROW>
 end
 

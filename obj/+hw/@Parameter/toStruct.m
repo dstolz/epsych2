@@ -49,7 +49,10 @@ S.PostUpdateFcnEnabled = obj.PostUpdateFcnEnabled;
 %}
 
 
-% Value and state
+% Design-time trial levels
+S.Values = obj.Values;
+
+% Value and state (runtime; not restored on load)
 S.Value = obj.Value;
 S.lastUpdated = obj.lastUpdated;
 S.isArray = obj.isArray;

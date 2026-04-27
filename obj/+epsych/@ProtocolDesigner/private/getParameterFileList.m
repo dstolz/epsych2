@@ -1,4 +1,4 @@
 function fileList = getParameterFileList(obj, parameter)
-    fileList = obj.normalizeFileValueToList(parameter.Value);
+    fileList = obj.normalizeFileValueToList(parameter.Values);
 end
 

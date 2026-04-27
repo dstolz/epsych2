@@ -6,6 +6,6 @@ function evaluateAndApplyParameterExpression(obj, parameter, expressionText)
     result = obj.evaluateParameterExpression(parameter, expressionText);
     result = obj.normalizeExpressionResult(parameter, result);
 
-    parameter.Value = result;
+    parameter.Values = hw.Parameter.normalizeValues(result);
 end
 

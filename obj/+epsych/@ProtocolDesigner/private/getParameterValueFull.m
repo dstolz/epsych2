@@ -11,7 +11,7 @@ function valueText = getParameterValueFull(obj, parameter)
     %   valueText   - Full string representation of the parameter value.
 
     if isequal(parameter.Type, 'String')
-        valueText = obj.formatStringParameterValue(parameter.Value);
+        valueText = obj.formatStringParameterValue(parameter.Values);
         return
     end
 
@@ -26,16 +26,19 @@ function valueText = getParameterValueFull(obj, parameter)
         return
     end
 
-    v = parameter.Value;
+    v = parameter.Values;
     if isempty(v)
         valueText = '';
         return
     end
 
-    if isscalar(v)
-        valueText = sprintf(parameter.Format, v);
+    fmt = parameter.Format;
+    if isempty(fmt), fmt = '%g'; end
+    if numel(v) == 1
+        valueText = sprintf(fmt, v{1});
     else
-        valueText = mat2str(v, 6);
+        nums = cellfun(@(x) x, v);
+        valueText = mat2str(nums, 6);
     end
 
     if ~isempty(parameter.Unit)

@@ -56,6 +56,8 @@ classdef Parameter < matlab.mixin.SetGet
 
         Visible (1,1) logical = true % optionally hide parameter
 
+        Values (1,:) cell = {} % design-time trial levels; one cell element per level; set via add_parameter; expanded by compile()
+
         PreUpdateFcn = [] % handle ot custom function called before value has been updated
                             % note that this gets called prior to the
                             % EvaluatorFcn
@@ -97,6 +99,39 @@ classdef Parameter < matlab.mixin.SetGet
     properties (Dependent)
         ValueStr % string representation of Value based on Format
         validName % valid MATLAB variable name based on Name
+    end
+
+    methods (Static)
+        function values = normalizeValues(value)
+            % values = hw.Parameter.normalizeValues(value)
+            % Convert any scalar, vector, cell array, or string array to a uniform
+            % 1×N cell array of individual trial levels, for storage in hw.Parameter.Values.
+            %
+            % Parameters:
+            %   value - any type: numeric scalar/vector, logical, char, string array, or cell array
+            %
+            % Returns:
+            %   values (1,:) cell - one element per trial level
+            if isnumeric(value) || islogical(value)
+                if isempty(value)
+                    values = {};
+                else
+                    values = num2cell(reshape(value, 1, []));
+                end
+            elseif isstring(value)
+                if isscalar(value)
+                    values = {char(value)};
+                else
+                    values = reshape(cellstr(value), 1, []);
+                end
+            elseif ischar(value)
+                values = {value};
+            elseif iscell(value)
+                values = reshape(value, 1, []);
+            else
+                values = {value};
+            end
+        end
     end
 
     methods

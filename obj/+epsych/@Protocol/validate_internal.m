@@ -110,18 +110,25 @@ for ifaceIdx = 1:length(obj.Interfaces)
             end
 
             if isequal(p.Type, 'File')
-                if ~(ischar(p.Value) || isstring(p.Value) || iscellstr(p.Value))
+                % All levels in Values must be file path strings
+                validFileValues = all(cellfun(@(v) ischar(v) || (isstring(v) && isscalar(v)), p.Values));
+                if isempty(p.Values) || ~validFileValues
                     report(idx).field = fullName;
                     report(idx).message = 'File parameters must contain a file path or a cell array of file paths';
                     report(idx).severity = 2;
                     idx = idx + 1;
                 end
-            elseif isnumeric(p.Value) && isscalar(p.Value)
-                if p.Value < p.Min || p.Value > p.Max
-                    report(idx).field = fullName;
-                    report(idx).message = sprintf('Value %.2f outside bounds [%.2f, %.2f]', p.Value, p.Min, p.Max);
-                    report(idx).severity = 1;
-                    idx = idx + 1;
+            else
+                % Check all numeric levels are within [Min, Max]
+                numericLevels = p.Values(cellfun(@(v) isnumeric(v) && isscalar(v), p.Values));
+                for lvl = numericLevels
+                    v = lvl{1};
+                    if v < p.Min || v > p.Max
+                        report(idx).field = fullName;
+                        report(idx).message = sprintf('Value %.2f outside bounds [%.2f, %.2f]', v, p.Min, p.Max);
+                        report(idx).severity = 1;
+                        idx = idx + 1;
+                    end
                 end
             end
 
@@ -134,7 +141,7 @@ for ifaceIdx = 1:length(obj.Interfaces)
                 continue
             end
 
-            valueCount = numel(obj.normalizeParameterValuesForTrials_(p.Value));
+            valueCount = numel(p.Values);
             groupIdx = find(strcmp({pairGroups.name}, pairName), 1);
             if isempty(groupIdx)
                 pairGroups(end + 1).name = pairName; %#ok<AGROW>

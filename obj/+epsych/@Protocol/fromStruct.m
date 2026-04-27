@@ -23,7 +23,10 @@ function fromStruct(obj, struct_in)
     end
     
     if isfield(struct_in, 'COMPILED')
-        obj.COMPILED = struct_in.COMPILED;
+        compiled = struct_in.COMPILED;
+        % parameters holds hw.Parameter handles; not serialized — reset to empty
+        compiled.parameters = [];
+        obj.COMPILED = compiled;
     end
     
     % Restore metadata

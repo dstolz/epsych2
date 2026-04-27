@@ -28,14 +28,18 @@ RUNTIME.HELPER = epsych.Helper;
 for i = 1:RUNTIME.NSubjects
     C = CONFIG(i);
 
-    snap = C.PROTOCOL.runtimeSnapshot();
-    RUNTIME.TRIALS(i).writeparams   = snap.writeparams;
-    RUNTIME.TRIALS(i).readparams    = snap.readparams;
-    RUNTIME.TRIALS(i).trials        = snap.trials;
-    RUNTIME.TRIALS(i).writeParamIdx = snap.writeParamIdx;
-    RUNTIME.TRIALS(i).selector      = epsych.TrialSelector.create(snap.selectorConfig);
-    RUNTIME.TRIALS(i).selector.initialize(snap);
-    RUNTIME.TRIALS(i).UserData      = [];
+    compiled = C.PROTOCOL.COMPILED;
+    parameters = compiled.parameters;
+    selectorConfig = struct( ...
+        'trialFunc',  C.PROTOCOL.Options.trialFunc, ...
+        'numReps',    C.PROTOCOL.Options.numReps, ...
+        'randomize',  C.PROTOCOL.Options.randomize, ...
+        'ISI',        C.PROTOCOL.Options.ISI);
+
+    RUNTIME.TRIALS(i).parameters    = parameters;
+    RUNTIME.TRIALS(i).trials        = compiled.trials;
+    RUNTIME.TRIALS(i).selector      = epsych.TrialSelector.create(selectorConfig);
+    RUNTIME.TRIALS(i).selector.initialize(RUNTIME.TRIALS(i));
     RUNTIME.TRIALS(i).Subject       = C.SUBJECT;
     RUNTIME.TRIALS(i).BoxID         = C.SUBJECT.BoxID;
 
@@ -120,20 +124,15 @@ for i = 1:RUNTIME.NSubjects
     % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
     vprintf(2,'Setting up first trial on box %d',i)
 
-    % ignore parameters with an asterisk (*) prefix
-    wp = RUNTIME.TRIALS(i).writeparams;
-    wpind = ~startsWith(wp,'*');
-
     % 1. Send trigger to reset components before updating parameters
     RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
     
-    % 2. Update parameter tags
-    % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENERALLY MORE EFFICIENT
-    trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,wpind);
-
-    
-    P = RUNTIME.HW.find_parameter(wp(wpind),includeInvisible=true);
-    [P.Value] = deal(trials{:});
+    % 2. Dispatch write parameters for the first trial
+    params = RUNTIME.TRIALS(i).parameters;
+    dispatchIdx = ~strcmp({params.Access}, 'Read');
+    P = params(dispatchIdx);
+    trial_row = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID, dispatchIdx);
+    [P.Value] = deal(trial_row{:});
 
     % 3. Trigger first new trial
     RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);

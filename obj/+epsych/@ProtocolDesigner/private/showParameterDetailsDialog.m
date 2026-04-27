@@ -119,7 +119,7 @@ if ~isempty(pairName)
     else
         for idx = 1:numel(pairedParams)
             p = pairedParams(idx);
-            valueCount = localValueCount_(p.Value);
+            valueCount = localValueCount_(p.Values);
             addField(sprintf('%s.%s', p.Module.Name, p.Name), ...
                 sprintf('%s  |  %d value(s)', p.Type, valueCount));
         end
@@ -200,14 +200,6 @@ function name = localInterfaceName_(parameter)
     end
 end
 
-function count = localValueCount_(value)
-    if isempty(value)
-        count = 0;
-    elseif isnumeric(value) || islogical(value)
-        count = numel(value);
-    elseif iscell(value)
-        count = numel(value);
-    else
-        count = 1;
-    end
+function count = localValueCount_(values)
+    count = numel(values);
 end

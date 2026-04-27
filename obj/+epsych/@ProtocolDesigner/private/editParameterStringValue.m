@@ -10,7 +10,7 @@ function [stringValue, cancelled, isArrayValue] = editParameterStringValue(~, pa
     % 	stringValue	- Final char value or cell array of char values.
     % 	cancelled	- True when the dialog is dismissed without Apply.
     % 	isArrayValue	- True when multiple string entries were applied.
-    currentItems = localNormalizeStringItems_(parameter.Value);
+    currentItems = localNormalizeStringItems_(parameter.Values);
 
     dialog = uifigure( ...
         'Name', sprintf('Edit String Values: %s', parameter.Name), ...

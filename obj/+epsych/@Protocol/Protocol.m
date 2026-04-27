@@ -59,9 +59,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
         Info (1,:) char = ''
         
         COMPILED struct = struct(...
-            'writeparams', {{}}, ...
-            'readparams', {{}}, ...
-            'randparams', {[]}, ...
+            'parameters', [], ...
             'trials', {{}}, ...
             'OPTIONS', struct(), ...
             'ntrials', 0)
@@ -404,7 +402,6 @@ classdef Protocol < handle & matlab.mixin.SetGet
 
         compile(obj)                  % Compile protocol trials - compile.m
         report = validate(obj)        % Validate protocol - validate.m
-        snap = runtimeSnapshot(obj)   % Return runtime execution snapshot - runtimeSnapshot.m
 
         function dur_sec = estimateDuration(obj)
             % dur_sec = estimateDuration(obj)
@@ -451,7 +448,6 @@ classdef Protocol < handle & matlab.mixin.SetGet
 
         % Validation helpers - separate method files
         report = validate_internal(obj)                                  % Core validate logic - validate_internal.m
-        assertCompiledInvariants_(obj)                                   % Assert COMPILED schema invariants - assertCompiledInvariants_.m
 
         % Calibration / WAV buffer helpers - separate method files
         out_vals = apply_calibration(obj, in_vals, cal_struct)           % Apply calibration - apply_calibration.m

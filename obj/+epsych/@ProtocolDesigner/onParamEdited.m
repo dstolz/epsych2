@@ -15,7 +15,7 @@ function onParamEdited(obj, evt)
 
     parameter = obj.ParameterHandles{row};
     originalType = parameter.Type;
-    originalValue = parameter.Value;
+    originalValues = parameter.Values;
     statusMessage = sprintf('Updated parameter %s', parameter.Name);
     nextStep = 'Review the updated row, then compile to refresh the preview.';
     try
@@ -34,42 +34,46 @@ function onParamEdited(obj, evt)
             case 4
                 parameter.Type = char(evt.NewData);
                 if isequal(parameter.Type, 'File')
-                    if ~isequal(originalType, 'File') && ~obj.isFileLikeValue(originalValue)
-                        parameter.Value = '';
+                    originalFileLike = ~isempty(originalValues) && ...
+                        any(cellfun(@(v) ischar(v) || (isstring(v) && isscalar(v)), originalValues));
+                    if ~isequal(originalType, 'File') && ~originalFileLike
+                        parameter.Values = {};
                     end
                     allowMultiple = obj.resolveFileSelectionMode(parameter);
                     parameter.isArray = allowMultiple;
                     [fileValue, cancelled, updatedAllowMultiple] = obj.editParameterFileValue(parameter, allowMultiple);
                     if cancelled
                         parameter.Type = originalType;
-                        parameter.Value = originalValue;
+                        parameter.Values = originalValues;
                         obj.refreshParameterTable();
                         obj.setStatus(sprintf('File selection cancelled for %s', parameter.Name), ...
                             'Use Browse again when you are ready to choose files for this parameter.');
                         return
                     end
                     parameter.isArray = updatedAllowMultiple;
-                    parameter.Value = fileValue;
+                    parameter.Values = hw.Parameter.normalizeValues(fileValue);
                     nextStep = 'Review the selected files, then compile to verify they produce the expected trials.';
                 elseif isequal(parameter.Type, 'String')
-                    if ~(ischar(originalValue) || isstring(originalValue) || iscell(originalValue))
-                        parameter.Value = '';
+                    originalStringLike = isempty(originalValues) || ...
+                        all(cellfun(@(v) ischar(v) || isstring(v), originalValues));
+                    if ~originalStringLike
+                        parameter.Values = {};
                     end
                     [stringValue, cancelled, isArrayValue] = obj.editParameterStringValue(parameter);
                     if cancelled
                         parameter.Type = originalType;
-                        parameter.Value = originalValue;
+                        parameter.Values = originalValues;
                         obj.refreshParameterTable();
                         obj.setStatus(sprintf('String edit cancelled for %s', parameter.Name), ...
                             'Use Edit Selected Value when you are ready to set one or more string values for this parameter.');
                         return
                     end
                     parameter.isArray = isArrayValue;
-                    parameter.Value = stringValue;
+                    parameter.Values = hw.Parameter.normalizeValues(stringValue);
                     nextStep = 'Review the entered string values, then compile to verify the updated trials.';
                 else
-                    [coercedValue, isArrayValue] = obj.coerceValueForType(originalValue, parameter.Type);
-                    parameter.Value = coercedValue;
+                    [coercedValue, isArrayValue] = obj.coerceValueForType(originalValues, parameter.Type);
+                    parameter.Values = hw.Parameter.normalizeValues(coercedValue);
                     parameter.isArray = isArrayValue;
                     nextStep = 'Check Value, Min, and Max for the new type, then compile.';
                 end
@@ -91,7 +95,7 @@ function onParamEdited(obj, evt)
                 else
                     obj.setParameterExpression(parameter, expressionText);
                     obj.evaluateAndApplyParameterExpression(parameter, expressionText);
-                    statusMessage = sprintf('%s = %s', expressionText, parameter.ValueStr);
+                    statusMessage = sprintf('%s = %s', expressionText, obj.getParameterValueDisplay(parameter));
                     nextStep = 'Confirm the computed value, then compile to check the updated trial set.';
                 end
             case 6
@@ -123,7 +127,7 @@ function onParamEdited(obj, evt)
                 if isequal(parameter.Type, 'String')
                     [stringValue, isArrayValue] = obj.parseStringParameterValue(evt.NewData);
                     parameter.isArray = isArrayValue;
-                    parameter.Value = stringValue;
+                    parameter.Values = hw.Parameter.normalizeValues(stringValue);
                     statusMessage = sprintf('Updated string value for %s', parameter.Name);
                     if isArrayValue
                         nextStep = 'Use semicolons in the Value cell to keep editing the string list, or open Edit Selected Value for a larger editor.';

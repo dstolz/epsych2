@@ -15,7 +15,7 @@ function onBrowseSelectedFileParameter(obj)
         end
 
         parameter.isArray = updatedAllowMultiple;
-        parameter.Value = fileValue;
+        parameter.Values = hw.Parameter.normalizeValues(fileValue);
         obj.refreshParameterTable();
         obj.setStatus(sprintf('Updated file value for %s', parameter.Name), ...
             'Compile to confirm the selected files produce the expected trial preview.');
@@ -31,7 +31,7 @@ function onBrowseSelectedFileParameter(obj)
         end
 
         parameter.isArray = isArrayValue;
-        parameter.Value = stringValue;
+        parameter.Values = hw.Parameter.normalizeValues(stringValue);
         obj.refreshParameterTable();
         obj.setStatus(sprintf('Updated string value for %s', parameter.Name), ...
             'Compile to confirm the updated String values produce the expected trial preview.');

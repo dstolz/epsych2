@@ -114,7 +114,7 @@ classdef Module < handle
             P.Name = name;
             P.Module = obj;
             
-            P.Value = value;
+            P.Values = hw.Parameter.normalizeValues(value);
             obj.Parameters(end+1) = P;
         end
     end

@@ -96,16 +96,14 @@ for i = 1:RUNTIME.NSubjects
         try
             CONFIG_ITEM = RUNTIME.TRIALS(i).protocol;
             CONFIG_ITEM.compile();
-            snap = CONFIG_ITEM.runtimeSnapshot();
+            compiled = CONFIG_ITEM.COMPILED;
 
-            RUNTIME.TRIALS(i).writeparams   = snap.writeparams;
-            RUNTIME.TRIALS(i).readparams    = snap.readparams;
-            RUNTIME.TRIALS(i).trials        = snap.trials;
-            RUNTIME.TRIALS(i).writeParamIdx = snap.writeParamIdx;
+            RUNTIME.TRIALS(i).parameters = compiled.parameters;
+            RUNTIME.TRIALS(i).trials     = compiled.trials;
 
-            RUNTIME.TRIALS(i).selector.onRecompile(snap);
+            RUNTIME.TRIALS(i).selector.onRecompile(RUNTIME.TRIALS(i));
 
-            vprintf(1,'Recompile complete: %d trials now active for subject %d.', snap.ntrials, i)
+            vprintf(1,'Recompile complete: %d trials now active for subject %d.', compiled.ntrials, i)
         catch me
             vprintf(0,1,me);
             vprintf(0,1,'Recompile failed for subject %d — preserving last valid runtime state.',i)
@@ -132,16 +130,15 @@ for i = 1:RUNTIME.NSubjects
 
     
     
-    wp = RUNTIME.TRIALS(i).writeparams;
-    wpind = ~startsWith(wp,'*'); % ignore asterisk flag
+    params = RUNTIME.TRIALS(i).parameters;
+    dispatchIdx = ~strcmp({params.Access}, 'Read');
 
     % Indicate next trial parameters in command window if GVerbosity >= 4    
-    pn = matlab.lang.makeValidName(wp);
-    for j = 1:size(RUNTIME.TRIALS(i).trials,2)
+    for j = 1:numel(params)
         vprintf(4,'Trial #%d: %s = %g', ...
             RUNTIME.TRIALS(i).TrialIndex, ...
-            wp{j}, ...
-            RUNTIME.TRIALS(i).trials{RUNTIME.TRIALS(i).NextTrialID, RUNTIME.TRIALS(i).writeParamIdx.(pn{j})})
+            params(j).Name, ...
+            RUNTIME.TRIALS(i).trials{RUNTIME.TRIALS(i).NextTrialID, j})
     end
 
     % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
@@ -151,14 +148,11 @@ for i = 1:RUNTIME.NSubjects
     vprintf(4,'Hardware Trigger for ResetTrig')
     RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
 
-    % 2. Update parameter tags
+    % 2. Dispatch write parameters for this trial (Access ~= 'Read')
     vprintf(4,'Update parameter tags')
-    trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID, wpind);
-    P = RUNTIME.HW.find_parameter(wp(wpind), includeInvisible=true);
-    for k = 1:length(trials)
-        P(k).Value = trials{k};
-    end
-    % [P.Value] = deal(trials{:});
+    P = params(dispatchIdx);
+    trial_row = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID, dispatchIdx);
+    [P.Value] = deal(trial_row{:});
 
     % 3. Trigger new trial
     vprintf(4,'Hardware Trigger for NewTrial')

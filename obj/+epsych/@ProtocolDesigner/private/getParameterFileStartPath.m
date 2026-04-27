@@ -3,15 +3,10 @@ function startPath = getParameterFileStartPath(obj, parameter, configuredInitial
     if nargin >= 3 && ~isempty(configuredInitialPath) && isfolder(configuredInitialPath)
         startPath = configuredInitialPath;
     end
-    currentValue = parameter.Value;
+    currentValues = parameter.Values;
 
-    if ischar(currentValue) || isstring(currentValue)
-        candidatePath = fileparts(char(string(currentValue)));
-        if isfolder(candidatePath)
-            startPath = candidatePath;
-        end
-    elseif iscell(currentValue) && ~isempty(currentValue)
-        firstValue = currentValue{1};
+    if ~isempty(currentValues)
+        firstValue = currentValues{1};
         if iscell(firstValue) && ~isempty(firstValue)
             firstValue = firstValue{1};
         end

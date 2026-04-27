@@ -16,7 +16,8 @@ function buildUI(obj)
     obj.refreshRecentProtocolMenu();
 
     helpMenu = uimenu(obj.Figure, 'Text', 'Help');
-    uimenu(helpMenu, 'Text', 'Open Documentation', 'MenuSelectedFcn', @(~, ~) obj.onOpenDocumentation());
+    uimenu(helpMenu, 'Text', 'Open User Guide', 'MenuSelectedFcn', @(~, ~) obj.onOpenDocumentation('user'));
+    uimenu(helpMenu, 'Text', 'Open Developer Documentation', 'MenuSelectedFcn', @(~, ~) obj.onOpenDocumentation('developer'));
 
     obj.LabelStatus = uilabel(obj.Figure, ...
         'Text', 'Loading Protocol Designer...', ...

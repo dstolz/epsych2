@@ -1,62 +1,166 @@
 # Protocol Designer
 
-`epsych.ProtocolDesigner` provides a lightweight editor for `epsych.Protocol` objects. It is implemented as a package class folder under `obj/+epsych/@ProtocolDesigner` with separate method files for UI construction, callbacks, and private helpers, replacing the previous monolithic single-file class.
+`epsych.ProtocolDesigner` is the interactive editor for `epsych.Protocol` objects. The implementation lives in the class folder `obj/+epsych/@ProtocolDesigner`, where the constructor, UI builders, callbacks, refresh methods, and private helper utilities are split into small files.
 
-The designer edits the in-memory protocol directly. Most changes are applied immediately to the bound `epsych.Protocol` instance, and invalid edits are reverted by refreshing the affected table or control state.
+This documentation is for developers working on the designer itself, not just using it. It explains the runtime model, the main files in the class folder, and the extension points that matter when you add interface types or change protocol-editing behavior.
 
-## Launching
+## Purpose
 
-Open the designer from MATLAB with:
+The designer gives a MATLAB UI for:
+
+- creating and removing protocol interfaces
+- adding and removing editable modules for supported interfaces
+- editing `hw.Parameter` objects in a table-driven workflow
+- changing protocol-level execution options
+- compiling the current protocol and inspecting the resulting trial preview
+- saving, loading, and opening the current protocol as JSON for inspection
+
+Edits are applied directly to the bound `epsych.Protocol` object in memory. The UI is not a detached form buffer. In practice, that means most control changes mutate the model immediately, and invalid edits are rolled back by refreshing the affected control or table state.
+
+## Entry Points
+
+The main class file is `obj/+epsych/@ProtocolDesigner/ProtocolDesigner.m`.
+
+Typical usage:
 
 ```matlab
 ui = epsych.ProtocolDesigner();
 ```
 
-To edit an existing protocol object:
+Open an existing protocol object:
 
 ```matlab
 protocol = epsych.Protocol.load('example.eprot');
 ui = epsych.ProtocolDesigner(protocol);
 ```
 
-## Header Controls
+Open directly from a saved protocol file:
 
-The header area exposes the protocol info field together with buttons for:
+```matlab
+ui = epsych.ProtocolDesigner.openFromFile('example.eprot');
+```
 
-- Opening this documentation
-- Saving the current protocol to an `.eprot` file
-- Loading an existing `.eprot` or `.prot` file
+Construction flow:
 
-The status label along the bottom of the window reports the last successful action or validation error.
+1. The constructor stores the bound `epsych.Protocol` object.
+2. `buildUI()` creates the top-level figure, menus, status label, and the main parameter-editing layout.
+3. `refreshUI()` populates all visible state from the protocol.
 
-## Parameters Tab
+The Help menu opens this file through `onOpenDocumentation()`, which resolves the path with `private/getDocumentationPath.m`.
 
-The Parameters tab is the main editing surface.
+## File Layout
 
-### Interface Controls
+The class folder is organized by responsibility.
 
-Use **Add Interface** to create a new interface. Available interface types and their required setup options come from each hardware class through `getCreationSpec()`. This keeps the GUI aligned with the interface implementation instead of duplicating option definitions in the designer.
+### Core class surface
 
-Creation options can be marked as either interface-level or module-level. Interface-level options apply once to the owning `hw.Interface`, while module-level options supply values for individual `hw.Module` objects created under that interface. The **Add Interface** and **Modify Options** dialogs now show only interface-level options. The **Add Module** dialog shows module-level options when the selected interface type defines them.
+- `ProtocolDesigner.m`: class definition, shared properties, constructor, and `openFromFile()`.
+- `buildUI.m`: top-level figure, menus, footer status label, and the primary layout entry point.
+- `refreshUI.m`: top-level sync from model to visible controls.
+- `setStatus.m`: footer messaging used across nearly every workflow.
+- `suggestNextStep.m`: follow-up hint text for the status area.
 
-Use **Remove Interface** to remove the currently selected interface.
+### UI builders
 
-For interfaces that expose editable module lists, use **Add Module** and **Remove Module** from the Current Interfaces panel. This is primarily intended for software-backed or offline hardware interface objects where the designer owns the module list directly. Required options are indicated with a leading `*` in the option table instead of a separate Required column.
+- `buildParametersTab.m`: main designer surface for interfaces, modules, and parameters.
+- `buildOptionsTab.m`: modal protocol-options panel.
+- `buildPreviewTab.m`: modal compiled-preview panel.
 
-### Filtering and Target Selection
+Despite the names, the current implementation opens the options and preview views as separate dialog figures via `onOpenOptionsDialog.m` and `onOpenCompiledPreviewDialog.m`.
 
-- **Filter Interface** controls which interfaces appear in the parameter table.
-- **Add To Interface** selects where new parameters will be added.
-- **Module** selects the target module within that interface.
-- Selecting a module node in the tree focuses the parameter table on that module within the selected interface.
+### Model mutation callbacks
 
-For module-level creation options, enter one value per module. Some fields may allow a single scalar value to be broadcast to every module; the dialog guidance calls that out explicitly.
+- `onAddInterface.m`, `onRemoveInterface.m`
+- `onAddModule.m`, `onRemoveModule.m`
+- `onAddParam.m`, `onRemoveParam.m`
+- `onParamEdited.m`, `onParamSelected.m`
+- `onOptionControlChanged.m`
+- `onCompile.m`
+- `onSave.m`, `onLoad.m`, `onOpenAsJSON.m`
 
-### Parameter Table
+These files are the first place to read when behavior changes are needed.
 
-The parameter table exposes the key editable fields for each `hw.Parameter`.
+### Refresh and synchronization helpers
 
-The visible columns are:
+- `refreshParameterTab.m`
+- `refreshParameterTable.m`
+- `refreshInterfaceControls.m`
+- `refreshInterfaceSummary.m`
+- `refreshModuleActionButtons.m`
+- `refreshOptionsTab.m`
+- `refreshCompiledPreview.m`
+
+These methods rebuild table contents, dropdown items, tree state, and button enablement from the current protocol object.
+
+### Private helper layer
+
+The `private/` folder contains the reusable editing and formatting logic that keeps the callback files short. Common categories include:
+
+- interface-spec discovery and option-dialog building
+- parameter coercion and expression evaluation
+- file and string value editors
+- preview normalization and display formatting
+- module editability checks and interface edit-state reconstruction
+
+If a callback feels too specific or too long, similar logic probably already exists in `private/`.
+
+## Runtime Model
+
+The designer stores the active protocol in the `Protocol` property. Most other public properties are UI handles or selection state.
+
+Important runtime state includes:
+
+- `Protocol`: the bound `epsych.Protocol`
+- `CurrentProtocolPath`: last save or load path
+- `SelectedInterfaceRow`: currently focused interface index
+- `SelectedModuleRow`: currently focused module index within the selected interface
+- `SelectedParamRow` and `SelectedParamCol`: current parameter-table selection
+- `ParameterHandles`: row-to-`hw.Parameter` mapping for the current table view
+
+The general pattern is:
+
+1. A callback mutates the model.
+2. The designer refreshes only the affected slice when possible.
+3. The footer status is updated with both a result message and a suggested next action.
+
+`refreshUI()` is the full reset path and is used after initial construction and after loading a protocol from disk.
+
+## Main Workflows
+
+## Interface and module management
+
+The left side of the main window is owned by `buildParametersTab.m`.
+
+Available interface types are supplied by `private/getAvailableInterfaceSpecs.m`. The current implementation exposes normalized creation specs for:
+
+- `hw.Software`
+- serialized `hw.TDT_Synapse`
+- serialized `hw.TDT_RPcox`
+
+Two design details matter here:
+
+- TDT-backed interfaces are created in a disconnected or serialized form for protocol editing, not as live hardware sessions.
+- Duplicate interface types are prevented in `onAddInterface.m`.
+
+When a new interface is added, `onAddInterface.m`:
+
+1. resolves the selected interface spec
+2. prompts for interface-scoped options
+3. creates the interface through the spec's `createFcn`
+4. adds it to the protocol
+5. refreshes the interface tree, target dropdowns, and parameter table
+
+If the interface supports editable modules, the designer immediately tries to continue into the Add Module flow.
+
+Manual module editing is intentionally restricted. `onAddModule.m` first checks `canEditInterfaceModules()`. This supports software-backed or serialized interfaces where the designer owns the module list, while leaving live or self-managed hardware backends responsible for their own module structure.
+
+Selecting a node in the interface tree affects both filtering and parameter-target defaults. Selecting a module node focuses the parameter view on that module within the selected interface.
+
+## Parameter editing
+
+The parameter table is the main editing surface. It shows one row per currently visible `hw.Parameter` and stores the backing objects in `ParameterHandles`.
+
+Current columns are:
 
 - `Interface`
 - `Module`
@@ -74,41 +178,36 @@ The visible columns are:
 - `Trigger`
 - `Description`
 
-Important behaviors:
+`onParamEdited.m` is the central mutation callback. It handles several special cases beyond simple property assignment.
 
-- `Type` is constrained to the supported parameter types.
-- `Access` is constrained to the supported access modes.
-- `Pair` makes parameters co-vary during compilation, even across different modules or interfaces.
-- `File` parameters use a dedicated file editor instead of relying on direct path entry.
-- `Expression` is available for numeric scalar parameter types and computes the underlying `Value` from other parameters.
+### Type-aware editing
 
-The parameter table is also where cross-parameter validation shows up. If an expression can no longer be evaluated, for example because it references a parameter that was changed to `File`, the row is highlighted in red and the status line shows the error message.
+- Changing `Type` can coerce the current value into the new type.
+- Switching to `File` opens the dedicated file editor rather than expecting direct cell editing.
+- Switching to `String` can open a larger string-value editor that supports arrays.
+- Non-string `Value` cells are treated as read-only in the main table.
 
-Paired parameters must expose the same number of values. A paired group behaves like the legacy buddy mechanism: the first value of each paired parameter is compiled together, then the second value of each paired parameter, and so on.
+### Expressions
 
-For file parameters, use **Edit Selected File Value** after selecting a row in the parameter table. Editing the `Value` cell or changing `Type` to `File` launches the same modal file editor.
+Expressions are supported for numeric or logical scalar parameter types. The computed result is written back into the parameter value, and expression-backed rows are re-evaluated when the table refreshes.
 
-The file editor supports:
+Practical rules:
 
-- replacing the current file or file list
-- adding one or more files at once
-- removing selected entries from the list
-- clearing the current file value
-- previewing the full path of the current selection
+- expression-capable types are `Float`, `Integer`, and `Boolean`
+- results must remain numeric or logical
+- numeric results must be finite
+- invalid expressions are highlighted and surfaced in the status label
+- changing a parameter to a non-supported type clears any existing expression
 
-The list emphasizes file names and shows a shortened folder hint. The full selected path or paths appear in a separate preview area below the list.
+The expression implementation is intentionally separate from the table callback. Read the helpers around `evaluateAndApplyParameterExpression.m`, `evaluateParameterExpression.m`, `buildExpressionContext.m`, and `applyExpressionErrorStyles.m` before changing this behavior.
 
-For derived numeric parameters, enter a formula in the `Expression` column. The table keeps the computed result in `Value` and recalculates expression-backed parameters when dependent parameter values change or when the parameter table refreshes.
+### Pairing
 
-Expression notes:
+The `Pair` column groups parameters that should advance together during compilation. Paired parameters must expose matching value counts. This is the modern version of the older buddy-style coupling behavior.
 
-- Expressions are only allowed for `Float`, `Integer`, and `Boolean` parameter types.
-- Expressions can be general MATLAB expressions and may evaluate to a single value or an array.
-- Results must remain numeric or logical, and numeric results must be finite.
-- You can reference other numeric scalar parameters by their parameter name when it is unique, or by a qualified alias based on interface, module, and parameter names.
-- Rows with expression-evaluation errors are highlighted in red until the expression is fixed.
+### File-backed values
 
-Parameter-level file-picker behavior can be customized through `hw.Parameter.UserData` fields such as:
+File parameters are edited through a dedicated modal flow. The editor supports replacing, extending, clearing, and previewing selected paths. Parameter-specific picker behavior can be influenced through `hw.Parameter.UserData` fields such as:
 
 - `FileFilter`
 - `FileExtensions`
@@ -116,60 +215,92 @@ Parameter-level file-picker behavior can be customized through `hw.Parameter.Use
 - `AllowMultipleFiles` or `FileMultiSelect`
 - `InitialPath` or `FileInitialPath`
 
-### Add Parameter
+This behavior is implemented in the private editing helpers rather than directly in the table callback.
 
-**Add Parameter** creates a new parameter immediately in the selected module using default values. After creation, edit the new row directly in the table.
+### New parameters
 
-Default values currently include:
+`onAddParam.m` creates a new parameter in the currently selected target module using default values, then refreshes the table so the row can be edited in place. If the requested name already exists, the designer generates a unique suffix.
 
-- `Value = 1`
-- `Type = 'Float'`
-- `Access = 'Read / Write'`
-- visible, non-random, non-array, non-trigger
-- `Min = -inf`, `Max = inf`
+## Protocol options
 
-If the requested name already exists in the selected module, a unique suffix is appended automatically.
+The Protocol Options dialog is opened from `onOpenOptionsDialog.m` and built by `buildOptionsTab.m`.
 
-## Options Tab
+The current editable protocol-level settings are:
 
-The Options tab edits protocol-level settings stored on the `epsych.Protocol` object.
+- trial function
+- inter-stimulus interval in milliseconds
+- compile-at-runtime flag
+- include-WAV-buffers flag
 
-The current controls are:
+These controls write directly to the bound protocol through `onOptionControlChanged.m`. They are not staged separately.
 
-- trial function name
-- inter-stimulus interval
-- runtime compilation
-- WAV buffer inclusion
+## Compiled preview
 
-Changes in this tab are applied directly to the protocol object.
+The Compiled Preview dialog is opened from `onOpenCompiledPreviewDialog.m`. That dialog is immediately compiled by calling `onCompile(dialog)` after the preview UI is built.
 
-## Compiled Preview Tab
+`onCompile.m` delegates to `obj.Protocol.compile()`, refreshes the preview table, and reports the resulting trial count. Compile failures are routed through the designer's error-reporting path instead of being left as raw command-window exceptions.
 
-Use **Compile Protocol** to compile the current protocol and inspect the resulting trial table.
+The preview path is useful when you need to verify:
 
-The compiled preview is useful for checking:
+- final trial count
+- parameter expansion behavior
+- cross-parameter pairing effects
+- the display format of compiled values before runtime execution
 
-- trial counts
-- cross-product expansion behavior
-- final parameter values before runtime execution
+The normalization helpers in files such as `normalizeCompiledPreviewData.m`, `normalizeCompiledPreviewValue.m`, and `normalizeCompiledPreviewValueAsText.m` are the right place to adjust preview formatting.
 
-## Interface Metadata Contract
+## Persistence and inspection
 
-Hardware interface classes are expected to define a static `getCreationSpec()` method. The returned struct describes:
+The File menu created in `buildUI.m` exposes four developer-relevant workflows:
 
-- the interface label and description
-- the creation function
-- required and optional input fields
-- input types such as text, numeric, choice, or list
-- optional GUI hints such as `controlType`, `getFile`, `getFolder`, `fileFilter`, and `fileDialogTitle`
+- edit protocol info text
+- load a saved protocol
+- save the current protocol
+- open the current protocol as JSON
 
-This is how the designer knows which prompts to show when adding hardware like `hw.TDT_Synapse` or `hw.TDT_RPcox`.
+`onOpenAsJSON.m` serializes the current protocol to a temporary JSON file and asks the host OS to open it with the default JSON editor. This is useful when you need to inspect the serialized shape without saving over a working `.eprot` file.
 
-When `getFile` is enabled, the designer adds a **Browse** button backed by `uigetfile`. When `getFolder` is enabled, it uses `uigetdir`. File pickers remember the last browsed directory for the current MATLAB session and otherwise fall back to the repository root.
+Recent protocol handling is managed through the recent-protocol menu helpers and `CurrentProtocolPath`.
 
-## Notes
+## Interface-spec contract
 
-- The designer works directly against the object model, so edits affect the in-memory `epsych.Protocol` instance immediately.
-- Compile-time and runtime validation still depend on the underlying protocol and parameter classes.
-- If an edit fails, the status label reports the error and the table is refreshed back to the last valid state.
-- The file editor can promote a single-file parameter to a file list when multiple files are added in one operation.
+The designer does not hardcode most interface prompts. Instead, it relies on interface creation specs and normalizes them through `hw.InterfaceSpec.normalize(...)`.
+
+An interface spec provides the metadata required to build add-interface and option dialogs, including:
+
+- label and description
+- creation function
+- available fields
+- field types
+- default values
+- optional scopes such as interface-level versus module-level
+- UI hints such as file and folder pickers
+
+When you add support for a new interface type in ProtocolDesigner, the usual steps are:
+
+1. expose or adapt a `getCreationSpec()` contract on the interface class
+2. register the spec in `private/getAvailableInterfaceSpecs.m`
+3. ensure the interface can be created in a protocol-editing-safe mode
+4. implement or verify module-edit support if the interface should allow manual module management
+
+If the interface requires special module construction, extend the type-specific logic in `onAddModule.m` or move that logic into a more reusable helper when it grows.
+
+## Working on this code
+
+For most changes, start in the file that owns the user gesture:
+
+- button or menu behavior: the matching `on*.m` callback
+- UI layout changes: `build*.m`
+- stale or inconsistent visible state: `refresh*.m`
+- parameter type coercion, expressions, or editor dialogs: `private/`
+- documentation launch issues: `onOpenDocumentation.m` and `private/getDocumentationPath.m`
+
+The lowest-friction way to debug behavior is to construct a designer with a small protocol object, perform one UI action, and then inspect the mutated `ui.Protocol` object in MATLAB.
+
+## Notes and limitations
+
+- The designer mutates the live in-memory protocol object immediately.
+- Validation still depends heavily on the underlying `epsych.Protocol`, `hw.Interface`, `hw.Module`, and `hw.Parameter` implementations.
+- Some interfaces intentionally do not allow manual module edits.
+- The options and preview surfaces are currently dialogs, even though their builder files retain tab-oriented names.
+- Invalid edits usually recover by refreshing the affected control state and updating the footer status instead of throwing the user out of the workflow.

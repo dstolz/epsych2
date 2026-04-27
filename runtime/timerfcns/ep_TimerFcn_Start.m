@@ -31,7 +31,7 @@ for i = 1:RUNTIME.NSubjects
     snap = C.PROTOCOL.runtimeSnapshot();
     RUNTIME.TRIALS(i).writeparams   = snap.writeparams;
     RUNTIME.TRIALS(i).readparams    = snap.readparams;
-    RUNTIME.TRIALS(i).trials        = sortrows(snap.trials);
+    RUNTIME.TRIALS(i).trials        = snap.trials;
     RUNTIME.TRIALS(i).writeParamIdx = snap.writeParamIdx;
     RUNTIME.TRIALS(i).selector      = epsych.TrialSelector.create(snap.selectorConfig);
     RUNTIME.TRIALS(i).selector.initialize(snap);
@@ -40,6 +40,7 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).BoxID         = C.SUBJECT.BoxID;
 
     RUNTIME.TRIALS(i).FORCE_TRIAL = false;
+    RUNTIME.TRIALS(i).RECOMPILE_REQUESTED = false;
 
 
 
@@ -100,7 +101,7 @@ end
 for i = 1:RUNTIME.NSubjects
     % Initialize first trial using selector
     RUNTIME.TRIALS(i).TrialIndex = 1;
-    RUNTIME.TRIALS(i).NextTrialID = RUNTIME.TRIALS(i).selector.selectNext(1);
+    RUNTIME.TRIALS(i).NextTrialID = RUNTIME.TRIALS(i).selector.selectNext(RUNTIME.TRIALS(i));
 
 
 

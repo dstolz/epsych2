@@ -30,12 +30,14 @@ classdef TrialSelector < handle
         % Parameters:
         %   snapshot - struct from Protocol.runtimeSnapshot()
 
-        nextTrialID = selectNext(obj, trialIndex)
-        % nextTrialID = selectNext(obj, trialIndex)
+        nextTrialID = selectNext(obj, TRIALS)
+        % nextTrialID = selectNext(obj, TRIALS)
         % Select the next trial row index and update internal selection state.
         %
         % Parameters:
-        %   trialIndex - scalar, the current sequential trial number (1 on first call)
+        %   TRIALS - struct, the current runtime TRIALS entry for this subject.
+        %            Contains: trials, writeparams, writeParamIdx, readparams,
+        %            TrialIndex, NextTrialID, DATA, HW, S, selector, etc.
         %
         % Returns:
         %   nextTrialID - scalar row index into the trials matrix

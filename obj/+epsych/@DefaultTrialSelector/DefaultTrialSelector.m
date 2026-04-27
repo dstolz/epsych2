@@ -29,12 +29,12 @@ classdef DefaultTrialSelector < epsych.TrialSelector
         end
 
         function nextTrialID = selectNext(obj, ~)
-            % nextTrialID = selectNext(obj, trialIndex)
+            % nextTrialID = selectNext(obj, TRIALS)
             % Select the least-used active trial, breaking ties at random.
             % Increments the internal use count for the selected trial.
             %
             % Parameters:
-            %   trialIndex - (ignored) current sequential trial number
+            %   TRIALS - (ignored) runtime TRIALS struct for this subject
             %
             % Returns:
             %   nextTrialID - row index into the trials matrix

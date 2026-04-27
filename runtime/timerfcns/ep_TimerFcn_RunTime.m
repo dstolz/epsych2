@@ -87,13 +87,36 @@ for i = 1:RUNTIME.NSubjects
 
     RUNTIME.TRIALS(i).FORCE_TRIAL(i) = false;
 
+    % --- Safe-boundary operator recompile ---
+    % Applied between trials so that hardware state is stable and no
+    % trial parameters have been dispatched for the upcoming trial yet.
+    if RUNTIME.TRIALS(i).RECOMPILE_REQUESTED
+        RUNTIME.TRIALS(i).RECOMPILE_REQUESTED = false;
+        vprintf(1,'Operator recompile requested for subject %d — attempting at trial boundary.',i)
+        try
+            CONFIG_ITEM = RUNTIME.TRIALS(i).protocol;
+            CONFIG_ITEM.compile();
+            snap = CONFIG_ITEM.runtimeSnapshot();
 
+            RUNTIME.TRIALS(i).writeparams   = snap.writeparams;
+            RUNTIME.TRIALS(i).readparams    = snap.readparams;
+            RUNTIME.TRIALS(i).trials        = snap.trials;
+            RUNTIME.TRIALS(i).writeParamIdx = snap.writeParamIdx;
+
+            RUNTIME.TRIALS(i).selector.onRecompile(snap);
+
+            vprintf(1,'Recompile complete: %d trials now active for subject %d.', snap.ntrials, i)
+        catch me
+            vprintf(0,1,me);
+            vprintf(0,1,'Recompile failed for subject %d — preserving last valid runtime state.',i)
+        end
+    end
 
     % Select next trial using selector object
     try
         vprintf(3,'Selecting next trial for box %d using %s',i,class(RUNTIME.TRIALS(i).selector))
         tcf = tic;
-        RUNTIME.TRIALS(i).NextTrialID = RUNTIME.TRIALS(i).selector.selectNext(RUNTIME.TRIALS(i).TrialIndex);
+        RUNTIME.TRIALS(i).NextTrialID = RUNTIME.TRIALS(i).selector.selectNext(RUNTIME.TRIALS(i));
         vprintf(4,'%s ran in %.4f seconds',class(RUNTIME.TRIALS(i).selector),toc(tcf))
     catch me
         vprintf(0,1,'Error in trial selector "%s": %s', class(RUNTIME.TRIALS(i).selector), me.message);
@@ -129,10 +152,9 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
 
     % 2. Update parameter tags
-    % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENEREALLY MORE EFFICIENT
     vprintf(4,'Update parameter tags')
-    trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,wpind);
-    P = RUNTIME.HW.find_parameter(wp,includeInvisible=true);
+    trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID, wpind);
+    P = RUNTIME.HW.find_parameter(wp(wpind), includeInvisible=true);
     for k = 1:length(trials)
         P(k).Value = trials{k};
     end

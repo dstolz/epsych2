@@ -332,6 +332,8 @@ classdef RunExpt < handle
         OpenCurrentErrorLog(self)      % Open today's EPsych error log in the OS-associated text editor
 
         verbosity(self, varargin)  % Set or query the global output verbosity level
+
+        requestRecompile(self, subjectIdx)  % Request a safe-boundary Protocol recompile for subject subjectIdx
     end
 
     methods (Access=private)

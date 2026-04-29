@@ -1,5 +1,5 @@
 function LoadConfig(self, cfn)
-% LoadConfig — Load a .config file and apply stored functions.
+% LoadConfig — Load a .ecfg file and apply stored functions.
 % Inputs
 %   cfn (string) — Optional config filepath; prompts if empty.
 % Behavior
@@ -13,7 +13,7 @@ if self.STATE >= PRGMSTATE.RUNNING, return, end
 
 if strlength(cfn) == 0
     pn = getpref('ep_RunExpt_Setup','CDir',cd);
-    [fn,pn] = uigetfile('*.config','Open Configuration File',pn);
+    [fn,pn] = uigetfile('*.ecfg','Open Configuration File',pn);
     if isequal(fn,0), return, end
     setpref('ep_RunExpt_Setup','CDir',pn);
     cfn = fullfile(pn,fn);

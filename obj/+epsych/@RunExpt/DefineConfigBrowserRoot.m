@@ -2,7 +2,7 @@ function DefineConfigBrowserRoot(self)
 % DefineConfigBrowserRoot — Set the root folder for the Config Browser.
 % Behavior
 %   Stores the selected folder in preferences and uses it as the
-%   parent directory for recursive "*.config" browsing.
+%   parent directory for recursive "*.ecfg" browsing.
 arguments
     self
 end

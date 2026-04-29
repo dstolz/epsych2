@@ -4,14 +4,30 @@ This document is a practical overview of how to use the `epsych.RunExpt` session
 
 ## Table of contents
 
-- [1) Launching the GUI](#1-launching-the-gui)
-- [2) Quick-start workflow](#2-quick-start-workflow)
-- [3) Main window layout](#3-main-window-layout)
-- [4) Running, pausing, stopping, and saving data](#4-running-pausing-stopping-and-saving-data)
-- [5) Config files (`*.config`)](#5-config-files-config)
-- [6) Customization (menus + callback function signatures)](#6-customization-menus--callback-function-signatures)
-- [7) Keyboard shortcuts](#7-keyboard-shortcuts)
-- [8) Notes and common gotchas](#8-notes-and-common-gotchas)
+- [epsych.RunExpt GUI overview](#epsychrunexpt-gui-overview)
+  - [Table of contents](#table-of-contents)
+  - [1) Launching the GUI](#1-launching-the-gui)
+  - [2) Quick-start workflow](#2-quick-start-workflow)
+  - [3) Main window layout](#3-main-window-layout)
+    - [3.1 Subject table (left)](#31-subject-table-left)
+    - [3.2 Bottom control bar](#32-bottom-control-bar)
+    - [3.3 Right-side action buttons](#33-right-side-action-buttons)
+  - [4) Running, pausing, stopping, and saving data](#4-running-pausing-stopping-and-saving-data)
+    - [4.1 What happens when you click Run / Preview](#41-what-happens-when-you-click-run--preview)
+    - [4.2 Pause](#42-pause)
+    - [4.3 Stop](#43-stop)
+    - [4.4 Save Data](#44-save-data)
+  - [5) Config files (`*.ecfg`)](#5-config-files-ecfg)
+    - [5.1 Loading and saving](#51-loading-and-saving)
+    - [5.2 Browsing configs](#52-browsing-configs)
+  - [6) Customization (menus + callback function signatures)](#6-customization-menus--callback-function-signatures)
+    - [6.1 Saving function](#61-saving-function)
+    - [6.2 Add-subject function](#62-add-subject-function)
+    - [6.3 Behavior GUI (per-box performance GUI)](#63-behavior-gui-per-box-performance-gui)
+    - [6.4 Default data directory](#64-default-data-directory)
+  - [7) Keyboard shortcuts](#7-keyboard-shortcuts)
+  - [8) Notes and common gotchas](#8-notes-and-common-gotchas)
+  - [Related documentation](#related-documentation)
 
 ## 1) Launching the GUI
 
@@ -24,7 +40,7 @@ epsych.RunExpt
 Optional: load a saved configuration immediately:
 
 ```matlab
-epsych.RunExpt("C:\path\to\mySession.config")
+epsych.RunExpt("C:\path\to\mySession.ecfg")
 ```
 
 Notes:
@@ -126,9 +142,9 @@ By default, `ep_SaveDataFcn(RUNTIME)` prompts once per subject for an output `.m
 
 The runtime also maintains a temporary runtime file per subject during the session (intended as a crash-recovery aid). The precise location/name is determined by the active timer Start callback.
 
-## 5) Config files (`*.config`)
+## 5) Config files (`*.ecfg`)
 
-RunExpt session configurations are stored in MAT-files with the extension `*.config`. A saved config includes:
+RunExpt session configurations are stored in MAT-files with the extension `*.ecfg`. A saved config includes:
 
 - `config`: the subject list and protocol associations (the RunExpt `CONFIG` struct array).
 - `funcs`: the configured callback function names (saving function, add-subject function, timer callback names, etc.).
@@ -136,17 +152,17 @@ RunExpt session configurations are stored in MAT-files with the extension `*.con
 
 ### 5.1 Loading and saving
 
-- **Config → Load Config...** loads a `*.config` file.
+- **Config → Load Config...** loads a `*.ecfg` file.
 - **Config → Save Config...** saves the current configuration.
 
 ### 5.2 Browsing configs
 
-- **Config → Browse Configs...** opens a modal config browser that recursively lists `*.config` files under a chosen root folder.
+- **Config → Browse Configs...** opens a modal config browser that recursively lists `*.ecfg` files under a chosen root folder.
 - **Customize → Define Config Browser Root...** sets that root folder (stored in MATLAB preferences).
 
 ## 6) Customization (menus + callback function signatures)
 
-Most customization is done by setting function names via the **Customize** menu. These values are stored in MATLAB preferences and also saved/restored when you save/load `*.config` files.
+Most customization is done by setting function names via the **Customize** menu. These values are stored in MATLAB preferences and also saved/restored when you save/load `*.ecfg` files.
 
 ### 6.1 Saving function
 

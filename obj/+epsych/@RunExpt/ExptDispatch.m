@@ -65,56 +65,43 @@ switch COMMAND
 
         self.RUNTIME.NSubjects = length(self.CONFIG);
 
-        % TO DO: CREATE BETTER SYSTEM FOR MANAGING MULTIPLE HARDWARE INTERFACES
-        % Currently: detects Synapse by checking for Synapse.exe process; in
-        % non-Synapse mode only the first non-Software interface from CONFIG(1)
-        % is used — all other interfaces and multi-subject per-box configs are
-        % silently dropped.  A proper implementation should:
-        %   1. Compose all hardware interfaces declared across CONFIG(i).PROTOCOL
-        %   2. Expose them as an array on RUNTIME.HW rather than a scalar
-        %   3. Drive mode/connect on each interface independently
-        [~,result] = system('tasklist/FI "imagename eq Synapse.exe"');
-        x = strfind(result,'No tasks are running');
-        self.RUNTIME.usingSynapse = isempty(x);
 
+        % connect hardware interfaces
         try
-            if self.RUNTIME.usingSynapse
-                vprintf(0,'Experiment will be run with Synapse')
-                self.RUNTIME.HW = hw.TDT_Synapse();
-            else
-                % Get hardware interfaces from loaded protocol
-                % If protocol was designed with Software only, create minimal hardware
-                protocol_interfaces = self.CONFIG(1).PROTOCOL.Interfaces;
-                
-                % Filter out Software interfaces and find hardware interfaces
-                hw_interfaces = [];
-                for iface_idx = 1:length(protocol_interfaces)
-                    iface = protocol_interfaces(iface_idx);
-                    if ~strcmp(char(iface.Type), 'Software')
-                        hw_interfaces = [hw_interfaces, iface];  %#ok<AGROW>
-                    end
+            % Get hardware interfaces from loaded protocol
+            % If protocol was designed with Software only, create minimal hardware
+            protocol_interfaces = self.CONFIG(1).PROTOCOL.Interfaces;
+            
+            % Filter out Software interfaces and find hardware interfaces
+            hw_interfaces = [];
+            for iface_idx = 1:length(protocol_interfaces)
+                iface = protocol_interfaces(iface_idx);
+                if ~strcmp(char(iface.Type), 'Software')
+                    hw_interfaces = [hw_interfaces, iface];  %#ok<AGROW>
                 end
-                
-                if isempty(hw_interfaces)
-                    % Create minimal TDT_RPcox with Software fallback
-                    vprintf(1,'No hardware interfaces found in protocol; creating TDT_RPcox placeholder');
-                    self.RUNTIME.HW = hw.Software();
-                else
-                    % Use first hardware interface (or could select based on ConnectionType)
-                    self.RUNTIME.HW = hw_interfaces(1);
-                    if ~self.RUNTIME.HW.IsConnected
-                        self.RUNTIME.HW.connect();
-                        assert(self.RUNTIME.HW.IsConnected, ...
-                            'epsych:RunExpt:HardwareConnectionFailed', ...
-                            'Hardware interface "%s" failed to connect. Check hardware status before starting.', ...
-                            class(self.RUNTIME.HW));
-                    end
+            end
+            
+            if isempty(hw_interfaces)
+                % Create minimal TDT_RPcox with Software fallback
+                vprintf(1,'No hardware interfaces found in protocol; creating TDT_RPcox placeholder');
+                self.RUNTIME.HW = hw.Software();
+            else
+                % Use first hardware interface (or could select based on ConnectionType)
+                self.RUNTIME.HW = hw_interfaces(1);
+                if ~self.RUNTIME.HW.IsConnected
+                    self.RUNTIME.HW.connect();
+                    assert(self.RUNTIME.HW.IsConnected, ...
+                        'epsych:RunExpt:HardwareConnectionFailed', ...
+                        'Hardware interface "%s" failed to connect. Check hardware status before starting.', ...
+                        class(self.RUNTIME.HW));
                 end
             end
         catch me
             self.RUNTIME = prevRuntime_; % roll back to previous valid RUNTIME
             drawnow
-            rethrow(me)
+            vprintf(0,1,me);
+            error('epsych:RunExpt:HardwareInitializationFailed', ...
+                'Failed to initialize hardware interface. Check connection and configuration, then try again');
         end
 
         self.RUNTIME.dfltDataPath = self.dfltDataPath;

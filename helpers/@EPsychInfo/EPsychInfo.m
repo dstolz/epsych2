@@ -14,6 +14,7 @@ classdef EPsychInfo < handle
     %   commitTimestamp - Timestamp of the latest local commit log entry.
     %   latestTag - Latest reachable git tag in the local repository.
     %   meta - Struct snapshot of the current metadata.
+    %   diagnostics - Struct of host computer and software environment info.
     %
     % Methods:
     %   icon_img - Load an icon image from the EPsych install.
@@ -31,6 +32,7 @@ classdef EPsychInfo < handle
         commitTimestamp % Timestamp of the latest local commit log entry.
         latestTag % Latest reachable git tag for the local checkout.
         meta % Struct snapshot of version and repository metadata.
+        diagnostics % Struct of host machine and software environment details.
     end
     
     properties (Constant)
@@ -103,6 +105,55 @@ classdef EPsychInfo < handle
 
         function tag = get.latestTag(obj)
             tag = obj.getLatestTag();
+        end
+
+        function d = get.diagnostics(~)
+            % d = get.diagnostics(obj)
+            % Return a struct of host computer and software environment details
+            % for diagnostic and logging purposes.
+            %
+            % Return:
+            %   d - Struct with fields:
+            %       matlabVersion    - Full MATLAB version string.
+            %       matlabRelease    - MATLAB release name (e.g. 'R2024b').
+            %       javaVersion      - Java runtime version string.
+            %       platform         - Platform/architecture identifier from `computer`.
+            %       hostname         - Network hostname of the current machine.
+            %       numLogicalCores  - Number of logical CPU cores available to MATLAB.
+            %       physicalMemoryGB - Total physical RAM in GB (NaN on non-Windows).
+            %       availableMemoryGB- Available physical RAM in GB (NaN on non-Windows).
+            %       screenSize       - Root display size in pixels [left bottom width height].
+            %       toolboxes        - Cell array of installed MathWorks toolbox names.
+            %       timestamp        - datetime when diagnostics were collected.
+
+            d.matlabVersion   = version;
+            d.matlabRelease   = version('-release');
+            d.javaVersion     = version('-java');
+            d.platform        = computer;
+
+            try
+                d.hostname = char(java.net.InetAddress.getLocalHost.getHostName);
+            catch
+                d.hostname = '';
+            end
+
+            d.numLogicalCores = double(java.lang.Runtime.getRuntime().availableProcessors());
+
+            try
+                [~, mem]            = memory;
+                d.physicalMemoryGB  = mem.PhysicalMemory.Total  / 1024^3;
+                d.availableMemoryGB = mem.PhysicalMemory.Available / 1024^3;
+            catch
+                d.physicalMemoryGB  = nan;
+                d.availableMemoryGB = nan;
+            end
+
+            d.screenSize = get(0, 'ScreenSize');
+
+            tbx = ver;
+            d.toolboxes = {tbx.Name};
+
+            d.timestamp = datetime('now');
         end
 
         function tag = getLatestTag(obj)

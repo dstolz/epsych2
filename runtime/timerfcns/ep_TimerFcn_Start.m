@@ -43,8 +43,6 @@ for i = 1:RUNTIME.NSubjects
     info.Subject = RUNTIME.TRIALS(i).Subject;
     info.CompStartTimestamp = datetime("now");
     info.EPsychMeta = E.meta;
-    [~, computer] = system('hostname'); 
-    info.Computer = strtrim(computer);
     
     dfn = sprintf('RUNTIME_DATA_%s_Box_%02d_%s.mat', ...
         RUNTIME.TRIALS(i).Subject.Name, ...
@@ -100,7 +98,7 @@ for i = 1:RUNTIME.NSubjects
     bmn = ["RespCode","TrigState","NewTrial","ResetTrig","TrialNum", "TrialComplete"];
     for cc = bmn
         trigStr = sprintf('_%s~%d',cc,RUNTIME.TRIALS(i).Subject.BoxID);
-        p = RUNTIME.HW.find_parameter(trigStr,includeInvisible=true,silenceParameterNotFound=true);
+        p = RUNTIME.find_parameter(trigStr,includeInvisible=true,silenceParameterNotFound=true);
         RUNTIME.CORE(i).(cc) = p;
     end
 

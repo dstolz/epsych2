@@ -45,7 +45,7 @@ switch COMMAND
                 end
             end
 
-            if self.CONFIG(i).PROTOCOL.COMPILED.ntrials == 0
+            if self.CONFIG(i).PROTOCOL.needsCompile
                 vprintf(0, 'Compiling protocol for subject "%s"...', self.CONFIG(i).SUBJECT.Name);
                 self.CONFIG(i).PROTOCOL.compile();
             end
@@ -81,11 +81,7 @@ switch COMMAND
                 end
             end
             
-            if isempty(hw_interfaces)
-                % Create minimal TDT_RPcox with Software fallback
-                vprintf(1,'No hardware interfaces found in protocol; creating TDT_RPcox placeholder');
-                self.RUNTIME.HW = hw.Software();
-            else
+            if ~isempty(hw_interfaces)
                 % Use first hardware interface (or could select based on ConnectionType)
                 self.RUNTIME.HW = hw_interfaces(1);
                 if ~self.RUNTIME.HW.IsConnected

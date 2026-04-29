@@ -13,10 +13,11 @@ function struct_out = toStruct(obj)
     %       Name, Index, Fs, Info, and Parameters from hw.Parameter.toStruct).
 
     struct_out = struct();
-    struct_out.formatVersion = obj.meta.formatVersion;
-    struct_out.epsychVersion = obj.meta.epsychVersion;
-    struct_out.createdDate  = char(obj.meta.createdDate);
-    struct_out.lastModified = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
+    struct_out.formatVersion    = obj.meta.formatVersion;
+    struct_out.epsychVersion    = obj.meta.epsychVersion;
+    struct_out.createdDate      = char(obj.meta.createdDate);
+    struct_out.lastModified     = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
+    struct_out.protocolVersion  = obj.meta.protocolVersion;
 
     struct_out.Options = obj.Options;
     struct_out.Info = obj.Info;

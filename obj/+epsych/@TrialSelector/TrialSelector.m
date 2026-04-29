@@ -7,28 +7,30 @@ classdef TrialSelector < handle
     %
     % Required abstract methods (must be implemented by subclasses):
     %   initialize(obj, snapshot)      - Set up internal state from Protocol snapshot.
-    %   nextTrialID = selectNext(obj, trialIndex) - Select and return the next trial row.
+    %   nextTrialID = selectNext(obj, TRIALS)    - Select and return the next trial row.
     %   onRecompile(obj, snapshot)     - Reconcile state after operator-triggered recompile.
     %
     % Optional concrete methods (override to add adaptive behavior):
     %   onComplete(obj, trialID, data) - Called after each trial completes.
     %
     % Example:
-    %   sel = epsych.TrialSelector.create(snap.selectorConfig);
-    %   sel.initialize(snap);
-    %   id = sel.selectNext(1);
+    %   sel = epsych.TrialSelector.create(selectorConfig);
+    %   sel.initialize(TRIALS);
+    %   id = sel.selectNext(TRIALS);
     %   sel.onComplete(id, responseData);
     %
-    % See also: epsych.DefaultTrialSelector, epsych.Protocol.runtimeSnapshot
+    % See also: epsych.DefaultTrialSelector
+    %
+    % Full documentation: documentation/epsych/epsych_TrialSelector.md
 
     methods (Abstract)
-        initialize(obj, snapshot)
-        % initialize(obj, snapshot)
-        % Called once at run start with the Protocol runtime snapshot.
+        initialize(obj, TRIALS)
+        % initialize(obj, TRIALS)
+        % Called once at run start with the runtime TRIALS struct for this subject.
         % Sets up internal state (trial counts, active trial mask, etc.).
         %
         % Parameters:
-        %   snapshot - struct from Protocol.runtimeSnapshot()
+        %   TRIALS - runtime TRIALS struct for this subject (see selectNext for fields)
 
         nextTrialID = selectNext(obj, TRIALS)
         % nextTrialID = selectNext(obj, TRIALS)
@@ -36,19 +38,20 @@ classdef TrialSelector < handle
         %
         % Parameters:
         %   TRIALS - struct, the current runtime TRIALS entry for this subject.
-        %            Contains: trials, writeparams, writeParamIdx, readparams,
-        %            TrialIndex, NextTrialID, DATA, HW, S, selector, etc.
+        %            Contains: parameters, trials, selector, Subject, BoxID,
+        %            HW, protocol, DataFilename, FORCE_TRIAL,
+        %            RECOMPILE_REQUESTED, TrialIndex, NextTrialID, DATA, etc.
         %
         % Returns:
         %   nextTrialID - scalar row index into the trials matrix
 
-        onRecompile(obj, snapshot)
-        % onRecompile(obj, snapshot)
+        onRecompile(obj, TRIALS)
+        % onRecompile(obj, TRIALS)
         % Called when an operator triggers a recompile during an active run.
-        % Reconcile internal state with the new snapshot (e.g., resize trial counts).
+        % Reconcile internal state with the updated TRIALS struct (e.g., resize trial counts).
         %
         % Parameters:
-        %   snapshot - struct from Protocol.runtimeSnapshot() after recompile
+        %   TRIALS - runtime TRIALS struct for this subject after recompile
     end
 
     methods

@@ -23,6 +23,16 @@ function save(obj, filename)
     % Update modification time
     obj.meta.lastModified = datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss');
 
+    % Increment protocol version: vN.YYMMDD
+    dateTag = char(datetime('now', 'Format', 'yyMMdd'));
+    tok = regexp(obj.meta.protocolVersion, '^v(\d+)\.', 'tokens', 'once');
+    if isempty(tok)
+        n = 0;
+    else
+        n = str2double(tok{1});
+    end
+    obj.meta.protocolVersion = sprintf('v%d.%s', n + 1, dateTag);
+
     % Serialize to a version-stable struct and save
     protocol = obj.toStruct();
     builtin('save', filename, 'protocol', '-mat');

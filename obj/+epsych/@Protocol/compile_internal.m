@@ -48,6 +48,7 @@ if isempty(parameters)
     obj.COMPILED.OPTIONS     = obj.Options;
     obj.COMPILED.ntrials     = 0;
     obj.COMPILED.writeparams = {};
+    obj.COMPILED.compiledAt  = NaT;
     return
 end
 
@@ -58,6 +59,7 @@ if isempty(trials)
     obj.COMPILED.trials     = {};
     obj.COMPILED.OPTIONS    = obj.Options;
     obj.COMPILED.ntrials    = 0;
+    obj.COMPILED.compiledAt = NaT;
     return
 end
 
@@ -79,6 +81,7 @@ obj.COMPILED.trials      = trials;
 obj.COMPILED.OPTIONS     = obj.Options;
 obj.COMPILED.ntrials     = size(trials, 1);
 obj.COMPILED.writeparams = cellfun(@(m) m.name, paramMetadata, 'UniformOutput', false);
+obj.COMPILED.compiledAt  = datetime('now');
 
 vprintf(2, 'Protocol compiled: %d unique trials', uniqueTrialCount);
 end

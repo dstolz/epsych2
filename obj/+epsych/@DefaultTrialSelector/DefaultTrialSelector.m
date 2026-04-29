@@ -6,11 +6,11 @@ classdef DefaultTrialSelector < epsych.TrialSelector
     %
     % Usage:
     %   sel = epsych.DefaultTrialSelector();
-    %   sel.initialize(snapshot);
-    %   id = sel.selectNext(trialIndex);
+    %   sel.initialize(TRIALS);
+    %   id = sel.selectNext(TRIALS);
     %   sel.onComplete(id, data);
     %
-    % See also: epsych.TrialSelector, epsych.Protocol.runtimeSnapshot
+    % See also: epsych.TrialSelector
 
     properties (SetAccess = private)
         TrialCount  (:,1) double  = zeros(0,1)  % Use count per trial row
@@ -18,14 +18,15 @@ classdef DefaultTrialSelector < epsych.TrialSelector
     end
 
     methods
-        function initialize(obj, snapshot)
-            % initialize(obj, snapshot)
-            % Set up trial counts and active mask from Protocol snapshot.
+        function initialize(obj, TRIALS)
+            % initialize(obj, TRIALS)
+            % Set up trial counts and active mask from the runtime TRIALS struct.
             %
             % Parameters:
-            %   snapshot - struct from Protocol.runtimeSnapshot()
-            obj.TrialCount   = zeros(snapshot.ntrials, 1);
-            obj.activeTrials = true(snapshot.ntrials, 1);
+            %   TRIALS - runtime TRIALS struct for this subject
+            n = size(TRIALS.trials, 1);
+            obj.TrialCount   = zeros(n, 1);
+            obj.activeTrials = true(n, 1);
         end
 
         function nextTrialID = selectNext(obj, ~)
@@ -46,15 +47,15 @@ classdef DefaultTrialSelector < epsych.TrialSelector
             obj.TrialCount(nextTrialID) = obj.TrialCount(nextTrialID) + 1;
         end
 
-        function onRecompile(obj, snapshot)
-            % onRecompile(obj, snapshot)
-            % Reconcile trial counts with the new snapshot after recompile.
+        function onRecompile(obj, TRIALS)
+            % onRecompile(obj, TRIALS)
+            % Reconcile trial counts with the updated TRIALS struct after recompile.
             % Resets counts and active mask when trial count changes.
             %
             % Parameters:
-            %   snapshot - struct from Protocol.runtimeSnapshot() after recompile
+            %   TRIALS - runtime TRIALS struct for this subject after recompile
             oldN = numel(obj.TrialCount);
-            newN = snapshot.ntrials;
+            newN = size(TRIALS.trials, 1);
             if newN == oldN
                 return
             end

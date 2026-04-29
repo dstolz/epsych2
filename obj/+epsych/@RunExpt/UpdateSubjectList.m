@@ -18,6 +18,7 @@ for i = 1:length(self.CONFIG)
     data(i,2) = {self.CONFIG(i).SUBJECT.Name};  %#ok<AGROW>
     [~,fn,~] = fileparts(self.CONFIG(i).protocol_fn);
     data(i,3) = {char(fn)}; %#ok<AGROW>
+    data(i,4) = {char(self.CONFIG(i).PROTOCOL.meta.protocolVersion)}; %#ok<AGROW>
 end
 set(self.H.subject_list,'Data',data)
 

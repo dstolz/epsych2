@@ -15,6 +15,8 @@ function onSave(obj)
     obj.setLastBrowseDirectory(folder);
     obj.addRecentProtocolPath(fullPath);
     obj.refreshRecentProtocolMenu();
+    ver = obj.Protocol.meta.protocolVersion;
+    obj.Figure.Name = sprintf('Protocol Designer  [%s]', ver);
     obj.setStatus(sprintf('Saved protocol to %s', fileName), ...
         'Compile again after further edits, or close the designer if you are finished.');
 end

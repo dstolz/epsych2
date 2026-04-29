@@ -42,6 +42,9 @@ function fromStruct(obj, struct_in)
     if isfield(struct_in, 'lastModified')
         obj.meta.lastModified = struct_in.lastModified;
     end
+    if isfield(struct_in, 'protocolVersion')
+        obj.meta.protocolVersion = struct_in.protocolVersion;
+    end
     
     % Restore interfaces
     obj.Interfaces = hw.Interface.empty();

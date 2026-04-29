@@ -6,6 +6,14 @@ function refreshUI(obj)
     obj.refreshOptionsTab();
     obj.refreshCompiledPreview();
 
+    % Update figure title with current protocol version
+    ver = obj.Protocol.meta.protocolVersion;
+    if isempty(ver)
+        obj.Figure.Name = 'Protocol Designer';
+    else
+        obj.Figure.Name = sprintf('Protocol Designer  [%s]', ver);
+    end
+
     interfaceCount = length(obj.Protocol.Interfaces);
     if interfaceCount == 0
         obj.setStatus('New protocol ready');

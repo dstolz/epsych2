@@ -49,6 +49,7 @@ classdef RunExpt < handle
 
         DefineAddSubject(self, a)       % Set the add-subject callback function name
         DefineBoxFig(self, a)           % Set the behavioral box figure callback function name
+        DefineTimerPeriod(self)         % Set the PsychTimer period (0.001–1 s)
 
         function self = RunExpt(ffnConfig)
             % self = RunExpt()
@@ -473,6 +474,12 @@ classdef RunExpt < handle
 
             proto = C.PROTOCOL;
             if isa(proto,'epsych.Protocol') && isvalid(proto)
+                if isfield(proto.meta,'createdDate') && ~isempty(proto.meta.createdDate)
+                    fprintf('  Created:  %s\n', proto.meta.createdDate);
+                end
+                if isfield(proto.meta,'lastModified') && ~isempty(proto.meta.lastModified)
+                    fprintf('  Modified: %s\n', proto.meta.lastModified);
+                end
                 opt = proto.Options;
                 if ~isempty(proto.Info)
                     fprintf('  Info:     %s\n', proto.Info);
@@ -505,6 +512,7 @@ classdef RunExpt < handle
             setpref('ep_RunExpt_TIMER','RunTime',   F.TIMERfcn.RunTime)
             setpref('ep_RunExpt_TIMER','Stop',      F.TIMERfcn.Stop)
             setpref('ep_RunExpt_TIMER','Error',     F.TIMERfcn.Error)
+            setpref('ep_RunExpt_TIMER','Period',    F.TimerPeriod)
         end
 
         function F = GetDefaultFuncs(self)
@@ -518,6 +526,7 @@ classdef RunExpt < handle
             F.TIMERfcn.RunTime  = getpref('ep_RunExpt_TIMER','RunTime', 'ep_TimerFcn_RunTime');
             F.TIMERfcn.Stop     = getpref('ep_RunExpt_TIMER','Stop',    'ep_TimerFcn_Stop');
             F.TIMERfcn.Error    = getpref('ep_RunExpt_TIMER','Error',   'ep_TimerFcn_Error');
+            F.TimerPeriod       = getpref('ep_RunExpt_TIMER','Period',   0.01);
         end
 
         function ClearConfig(self)

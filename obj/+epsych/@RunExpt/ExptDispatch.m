@@ -106,6 +106,13 @@ switch COMMAND
 
         self.RUNTIME.dfltDataPath = self.dfltDataPath;
 
+        % make temporary directory for storing data during runtime in case of a computer crash
+        E_ = EPsychInfo;
+        if strlength(self.RUNTIME.TempDataDir) == 0 || ~isfolder(self.RUNTIME.TempDataDir)
+            self.RUNTIME.TempDataDir = fullfile(fileparts(E_.root), 'DATA');
+        end
+        if ~isfolder(self.RUNTIME.TempDataDir), mkdir(self.RUNTIME.TempDataDir); end
+
         self.RUNTIME.HELPER = epsych.Helper;
 
         self.RUNTIME.TIMER = self.CreateTimer;

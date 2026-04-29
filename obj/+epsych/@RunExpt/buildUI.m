@@ -34,6 +34,7 @@ uimenu(mCustom,'Label','Define Save path...','MenuSelectedFcn', @(~,~) self.Defi
 uimenu(mCustom,'Label','Define Config Browser Root...','MenuSelectedFcn', @(~,~) self.DefineConfigBrowserRoot,'Accelerator','R')
 uimenu(mCustom,'Label','Define Box GUI Function...','MenuSelectedFcn', @(~,~) self.DefineBoxFig,'Accelerator','B')
 uimenu(mCustom,'Label','Define Add Subject Function...','MenuSelectedFcn', @(~,~) self.DefineAddSubject,'Accelerator','A')
+uimenu(mCustom,'Label','Timer Period...','Separator','on','MenuSelectedFcn', @(~,~) self.DefineTimerPeriod,'Accelerator','T')
 
 mView = uimenu(f,'Label','View');
 self.H.always_on_top = uimenu(mView,'Label','Always On Top','Checked','off', ...

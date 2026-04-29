@@ -28,10 +28,10 @@ function obj = load(filename)
     S = builtin('load', filename, '-mat');
 
     % Struct-based format (current and legacy)
-    if isfield(S, 'protocol_struct')
-        struct_in = S.protocol_struct;
-    elseif isfield(S, 'protocol') && isstruct(S.protocol)
+    if isfield(S, 'protocol') && isstruct(S.protocol)
         struct_in = S.protocol;
+    elseif isfield(S, 'protocol_struct')
+        struct_in = S.protocol_struct;
     elseif isfield(S, 'protocol') && isa(S.protocol, 'epsych.Protocol')
         % Legacy: file saved as a live handle object before struct migration
         obj = S.protocol;

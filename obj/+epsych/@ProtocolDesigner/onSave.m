@@ -10,6 +10,7 @@ function onSave(obj)
     fullPath = fullfile(folder, fileName);
     obj.Protocol.save(fullPath);
     obj.CurrentProtocolPath = fullPath;
+    obj.IsModified_ = false;
     obj.setLastProtocolFilePath(fullPath);
     obj.setLastBrowseDirectory(folder);
     obj.addRecentProtocolPath(fullPath);

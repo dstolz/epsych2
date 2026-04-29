@@ -16,6 +16,7 @@ function onAddInterface(obj)
         end
         interface = spec.createFcn(options);
         obj.Protocol.addInterface(interface);
+        obj.IsModified_ = true;
         newInterfaceIndex = length(obj.Protocol.Interfaces);
         obj.SelectedInterfaceRow = newInterfaceIndex;
         obj.setSelectedModuleRow(0);

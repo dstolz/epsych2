@@ -69,6 +69,8 @@ classdef ProtocolDesigner < handle
         SelectedParamRow (1,1) double = 0
         SelectedParamCol (1,1) double = 0
         ParameterHandles cell = {}
+
+        IsModified_ (1,1) logical = false  % true when unsaved changes exist
     end
 
     methods

@@ -30,6 +30,7 @@ function onRemoveModule(obj)
 
     obj.SelectedInterfaceRow = interfaceIndex;
     obj.setSelectedModuleRow(min(moduleIndex, length(modules)));
+    obj.IsModified_ = true;
     obj.refreshParameterTab();
     obj.setStatus(sprintf('Removed module %s (%d parameters)', module.Name, removedParameterCount), ...
         'Add a replacement module or compile to confirm the remaining trial set.');

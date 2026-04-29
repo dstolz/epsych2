@@ -409,6 +409,9 @@ classdef RunExpt < handle
 
         function onCommand(self, hObj)
             % Adapts menu item callbacks; forwards the item's text label to ExptDispatch.
+            hCtrl = findobj(self.H.figure1, '-regexp', 'tag', '^ctrl')';
+            set(hCtrl, 'Enable', 'off');
+            drawnow
             self.ExptDispatch(string(hObj.Text));
         end
 
@@ -469,7 +472,7 @@ classdef RunExpt < handle
             fprintf('  File:     %s%s\n', pfn, pext);
 
             proto = C.PROTOCOL;
-            if isa(proto,'epsych.Protocol')
+            if isa(proto,'epsych.Protocol') && isvalid(proto)
                 opt = proto.Options;
                 if ~isempty(proto.Info)
                     fprintf('  Info:     %s\n', proto.Info);

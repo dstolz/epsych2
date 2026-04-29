@@ -31,7 +31,7 @@ classdef Software < hw.Interface
     end
 
     properties
-        IsConnected (1,1) logical = true  % software interface is always connected
+        IsConnected = true  % software interface is always connected
     end
 
     properties (Constant)

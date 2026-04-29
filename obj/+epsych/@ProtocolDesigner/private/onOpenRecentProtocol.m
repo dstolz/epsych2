@@ -11,6 +11,10 @@ function onOpenRecentProtocol(obj, filePath)
         return
     end
 
+    if ~obj.confirmDiscardChanges()
+        return
+    end
+
     obj.openProtocolFile(filePath);
     [~, fileName, extension] = fileparts(filePath);
     obj.setStatus(sprintf('Loaded protocol %s%s', fileName, extension), ...

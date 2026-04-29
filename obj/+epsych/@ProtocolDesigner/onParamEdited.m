@@ -20,18 +20,7 @@ function onParamEdited(obj, evt)
     nextStep = 'Review the updated row, then compile to refresh the preview.';
     try
         switch col
-            case 2
-                destinationModule = obj.resolveParameterTargetModule(parameter, evt.NewData);
-                sourceModule = parameter.Module;
-                if ~isequal(destinationModule, sourceModule)
-                    sourceKeepMask = sourceModule.Parameters ~= parameter;
-                    sourceModule.Parameters = sourceModule.Parameters(sourceKeepMask);
-                    destinationModule.Parameters(end + 1) = parameter;
-                    parameter.Module = destinationModule;
-                end
-                statusMessage = sprintf('Assigned %s to %s', parameter.Name, destinationModule.Name);
-                nextStep = 'Edit the parameter in its new module or add another parameter there.';
-            case 4
+            case 3
                 parameter.Type = char(evt.NewData);
                 if isequal(parameter.Type, 'File')
                     originalFileLike = ~isempty(originalValues) && ...
@@ -86,7 +75,7 @@ function onParamEdited(obj, evt)
                     statusMessage = sprintf('Cleared expression for %s because type %s does not support expressions', parameter.Name, parameter.Type);
                     nextStep = 'Edit the Value column for this type, then compile again.';
                 end
-            case 5
+            case 4
                 expressionText = strtrim(char(string(evt.NewData)));
                 if isempty(expressionText)
                     obj.clearParameterExpression(parameter);
@@ -98,7 +87,7 @@ function onParamEdited(obj, evt)
                     statusMessage = sprintf('%s = %s', expressionText, obj.getParameterValueDisplay(parameter));
                     nextStep = 'Confirm the computed value, then compile to check the updated trial set.';
                 end
-            case 6
+            case 5
                 pairSelection = char(string(evt.NewData));
                 if strcmp(pairSelection, '<Create Pair...>')
                     pairName = obj.promptForNewPairName();
@@ -123,7 +112,7 @@ function onParamEdited(obj, evt)
                     statusMessage = sprintf('Paired %s with group %s', parameter.Name, pairName);
                     nextStep = 'Assign the same pair group to the related parameter if needed.';
                 end
-            case 7
+            case 6
                 if isequal(parameter.Type, 'String')
                     [stringValue, isArrayValue] = obj.parseStringParameterValue(evt.NewData);
                     parameter.isArray = isArrayValue;
@@ -140,19 +129,19 @@ function onParamEdited(obj, evt)
                         'Only String values support direct table edits. Use Expression or the type-specific editor instead.');
                     return
                 end
-            case 8
+            case 7
                 parameter.Min = double(evt.NewData);
-            case 9
+            case 8
                 parameter.Max = double(evt.NewData);
-            case 10
+            case 9
                 parameter.isRandom = logical(evt.NewData);
-            case 11
+            case 10
                 parameter.Access = char(evt.NewData);
-            case 12
+            case 11
                 parameter.Unit = char(evt.NewData);
-            case 13
+            case 12
                 parameter.Visible = logical(evt.NewData);
-            case 14
+            case 13
                 if ~obj.parameterAllowsTrigger(parameter)
                     parameter.isTrigger = false;
                     obj.refreshParameterTable();
@@ -161,7 +150,7 @@ function onParamEdited(obj, evt)
                     return
                 end
                 parameter.isTrigger = logical(evt.NewData);
-            case 15
+            case 14
                 parameter.Description = string(evt.NewData);
         end
     catch ME
@@ -170,6 +159,7 @@ function onParamEdited(obj, evt)
         return
     end
 
+    obj.IsModified_ = true;
     obj.refreshExpressionValues();
     obj.refreshParameterTable();
     currentErrorMessage = obj.getExpressionErrorMessage(parameter);

@@ -25,7 +25,7 @@ classdef TDT_RPcox < hw.Interface
 
     properties
         ExperimentInfo
-        IsConnected (1,1) logical = false
+        IsConnected = false
     end
 
     properties (SetAccess = protected)

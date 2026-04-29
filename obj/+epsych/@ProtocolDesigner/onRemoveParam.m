@@ -9,6 +9,7 @@ function onRemoveParam(obj)
     keepMask = module.Parameters ~= parameter;
     module.Parameters = module.Parameters(keepMask);
 
+    obj.IsModified_ = true;
     obj.refreshParameterTab();
     obj.setStatus(sprintf('Removed parameter %s', parameter.Name), ...
         'Add a replacement parameter or compile to confirm the remaining settings.');

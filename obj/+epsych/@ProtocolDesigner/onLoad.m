@@ -1,4 +1,8 @@
 function onLoad(obj)
+    if ~obj.confirmDiscardChanges()
+        return
+    end
+
     startPath = obj.getProtocolFileDialogStartPath('*.eprot');
     [fileName, folder] = uigetfile( ...
         {'*.eprot;*.prot;*.json', 'Protocol Files (*.eprot, *.prot, *.json)'; ...

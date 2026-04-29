@@ -12,6 +12,7 @@ function onRemoveInterface(obj)
     end
 
     obj.Protocol.removeInterface(interfaceIndex);
+    obj.IsModified_ = true;
     obj.refreshParameterTab();
     obj.setStatus(sprintf('Removed interface %s', char(iface.Type)), ...
         'Add another interface or review the remaining modules before compiling.');

@@ -23,6 +23,7 @@ function onModifyInterfaceOptions(obj)
             obj.refreshParameterTab();
             obj.SelectedInterfaceRow = interfaceIndex;
             obj.setSelectedModuleRow(moduleIndex);
+            obj.IsModified_ = true;
             obj.setStatus(sprintf('Updated options for module %s', updatedModule.Name), ...
                 'Review affected parameters, then compile again.');
             return
@@ -60,6 +61,7 @@ function onModifyInterfaceOptions(obj)
             obj.refreshParameterTable();
         end
         obj.SelectedInterfaceRow = interfaceIndex;
+        obj.IsModified_ = true;
         obj.setStatus(sprintf('Updated options for %s', char(replacement.Type)), ...
             'Review affected modules and parameters, then compile again.');
     catch ME

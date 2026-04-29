@@ -5,8 +5,8 @@ function onParamSelected(obj, evt)
     obj.SelectedParamRow = 0;
     obj.SelectedParamCol = 0;
 
-    if prevCol == 7 && prevRow >= 1 && prevRow <= numel(obj.ParameterHandles)
-        obj.TableParams.Data{prevRow, 7} = obj.getParameterValueDisplay(obj.ParameterHandles{prevRow});
+    if prevCol == 6 && prevRow >= 1 && prevRow <= numel(obj.ParameterHandles)
+        obj.TableParams.Data{prevRow, 6} = obj.getParameterValueDisplay(obj.ParameterHandles{prevRow});
     end
 
     if isempty(evt.Indices)
@@ -19,8 +19,8 @@ function onParamSelected(obj, evt)
     obj.SelectedParamCol = col;
 
     % Swap in full untruncated value when entering the Value column.
-    if col == 7 && row >= 1 && row <= numel(obj.ParameterHandles)
-        obj.TableParams.Data{row, 7} = obj.getParameterValueFull(obj.ParameterHandles{row});
+    if col == 6 && row >= 1 && row <= numel(obj.ParameterHandles)
+        obj.TableParams.Data{row, 6} = obj.getParameterValueFull(obj.ParameterHandles{row});
     end
 
     parameter = obj.ParameterHandles{obj.SelectedParamRow};

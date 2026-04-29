@@ -25,7 +25,7 @@ classdef TDT_Synapse < hw.Interface
 
     properties
         ExperimentInfo (1,1) struct
-        IsConnected (1,1) logical = false
+        IsConnected = false
     end
 
 

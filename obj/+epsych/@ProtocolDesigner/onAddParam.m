@@ -37,6 +37,7 @@ function onAddParam(obj)
         Max = inf, ...
         Description = "");
 
+    obj.IsModified_ = true;
     obj.refreshParameterTab();
     obj.setStatus(sprintf('Added parameter %s', parameterName), ...
         'Edit the new row to set type, value, and limits before compiling.');

@@ -15,7 +15,10 @@ function result = normalizeExpressionResult(~, parameter, result)
             end
             result = rounded;
         case 'Boolean'
-            result = logical(result ~= 0);
+            if isnumeric(result) && any(result(:) ~= 0 & result(:) ~= 1)
+                error('Expression for %s must evaluate to boolean (0 or 1) values.', parameter.Name);
+            end
+            result = logical(result);
         otherwise
             result = double(result);
     end

@@ -70,6 +70,7 @@ function onAddModule(obj)
 
     obj.SelectedInterfaceRow = interfaceIndex;
     obj.setSelectedModuleRow(length(modules));
+    obj.IsModified_ = true;
     obj.refreshParameterTab();
     obj.setStatus(sprintf('Added module %s to %s', newModule.Name, char(iface.Type)), ...
         'Add parameters to the new module, then compile to preview trials.');

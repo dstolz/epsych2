@@ -78,7 +78,7 @@ obj.COMPILED.parameters  = parameters;
 obj.COMPILED.trials      = trials;
 obj.COMPILED.OPTIONS     = obj.Options;
 obj.COMPILED.ntrials     = size(trials, 1);
-obj.COMPILED.writeparams = {paramMetadata.name};
+obj.COMPILED.writeparams = cellfun(@(m) m.name, paramMetadata, 'UniformOutput', false);
 
 vprintf(2, 'Protocol compiled: %d unique trials', uniqueTrialCount);
 end

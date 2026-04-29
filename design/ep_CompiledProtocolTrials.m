@@ -22,14 +22,28 @@ if nargin > 1
     end
 end
 
-[protocol,fail] = ep_CompileProtocol(protocol);
-if fail
-    vprintf(0,1,'Unable to properly compile protocol.\nCheck all ''buddy'' variables are balanced.\n')
-    varargout{1} = [];
-    varargout{2} = fail;
-    return
+% New-format protocol structs (from epsych.Protocol) use InterfaceData
+% rather than MODULES; route through the Protocol object's own compiler.
+if isfield(protocol, 'InterfaceData')
+    P = epsych.Protocol();
+    P.fromStruct(protocol);
+    P.compile();
+    C = P.COMPILED;
+    % ShowGUI expects legacy OPTIONS fields; supply defaults when absent
+    if ~isfield(C.OPTIONS, 'num_reps'),  C.OPTIONS.num_reps  = 1;     end
+    if ~isfield(C.OPTIONS, 'randomize'), C.OPTIONS.randomize = false;  end
+    if ~isfield(C.OPTIONS, 'ISI'),       C.OPTIONS.ISI       = 0;      end
+    fail = false;
+else
+    [protocol,fail] = ep_CompileProtocol(protocol);
+    if fail
+        vprintf(0,1,'Unable to properly compile protocol.\nCheck all ''buddy'' variables are balanced.\n')
+        varargout{1} = [];
+        varargout{2} = fail;
+        return
+    end
+    C = protocol.COMPILED;
 end
-C = protocol.COMPILED;
 
 if argin.showgui
     trials = C.trials;

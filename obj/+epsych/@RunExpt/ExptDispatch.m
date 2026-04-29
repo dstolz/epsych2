@@ -20,8 +20,8 @@ switch COMMAND
     case {"Record","Preview"}
         drawnow
 
-        % Set process priority to high
-        [~,~] = dos('wmic process where name="MATLAB.exe" CALL setpriority "high priority"');
+        % Set process priority to high for this MATLAB instance only
+        [~,~] = dos(sprintf('wmic process where processid="%d" CALL setpriority "high priority"', feature('getpid')));
 
         vprintf(0,'%s',repmat('~',1,50))
 

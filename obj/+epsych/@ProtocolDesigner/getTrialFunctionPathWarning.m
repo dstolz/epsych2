@@ -11,6 +11,3 @@ function warningText = getTrialFunctionPathWarning(~, trialFuncName)
         warningText = '';
     end
 end
-    end
-
-    methods (Access = private)

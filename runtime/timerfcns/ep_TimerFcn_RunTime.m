@@ -159,7 +159,7 @@ for i = 1:RUNTIME.NSubjects
 
     % 1. Send trigger to reset components before updating parameters
     vprintf(4,'Hardware Trigger for ResetTrig')
-    RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
+    RUNTIME.CORE(i).ResetTrig.trigger();
 
     % 2. Dispatch write parameters for this trial (Access ~= 'Read')
     vprintf(4,'Update parameter tags')
@@ -169,7 +169,7 @@ for i = 1:RUNTIME.NSubjects
 
     % 3. Trigger new trial
     vprintf(4,'Hardware Trigger for NewTrial')
-    RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
+    RUNTIME.CORE(i).NewTrial.trigger();
 
     % 4. Notify whomever is listening of new trial
     vprintf(4,'Notify listeners with new trial data')

@@ -60,7 +60,7 @@ for i = 1:RUNTIME.NSubjects
         recycle(oldstate);
     end
     vprintf(3, 'Creating temporary data file for runtime: %s', RUNTIME.DataFile(i))
-    save(RUNTIME.DataFile(i),'info','-v6');
+    save(RUNTIME.DataFile(i),'info','-v7.3');
 
 
 
@@ -71,13 +71,6 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
 
     RUNTIME.ON_HOLD(i) = false;
-
-    % make HW object handles available in TRIALS structure
-    RUNTIME.TRIALS(i).HW = RUNTIME.HW; 
-
-    % SOFTWARE INTERFACE
-    RUNTIME.S = hw.Software;
-    % addlistener(RUNTIME.HW,'mode','PostSet',@RUNTIME.S.mode_handler);
 
   
 
@@ -111,7 +104,7 @@ for i = 1:RUNTIME.NSubjects
     vprintf(2,'Setting up first trial on box %d',i)
 
     % 1. Send trigger to reset components before updating parameters
-    RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
+    RUNTIME.CORE(i).ResetTrig.trigger();
     
     % 2. Dispatch write parameters for the first trial
     params = RUNTIME.TRIALS(i).parameters;
@@ -121,7 +114,7 @@ for i = 1:RUNTIME.NSubjects
     [P.Value] = deal(trial_row{:});
 
     % 3. Trigger first new trial
-    RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
+    RUNTIME.CORE(i).NewTrial.trigger();
 
     % 4. Notify whomever is listening of new trial
     RUNTIME.HELPER.notify('NewTrial');

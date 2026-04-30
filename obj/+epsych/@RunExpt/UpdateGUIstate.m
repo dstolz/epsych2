@@ -36,7 +36,7 @@ switch self.STATE
 end
 
 try
-    if double(self.RUNTIME.HW.mode) > 0
+    if all(double(self.RUNTIME.Interfaces.mode) > 0)
         set(self.H.mnu_assign_runtime,'Enable','on')
     else
         set(self.H.mnu_assign_runtime,'Enable','off')

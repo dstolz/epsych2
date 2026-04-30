@@ -72,34 +72,29 @@ switch COMMAND
             % If protocol was designed with Software only, create minimal hardware
             protocol_interfaces = self.CONFIG(1).PROTOCOL.Interfaces;
             
-            % Filter out Software interfaces and find hardware interfaces
-            hw_interfaces = [];
-            for iface_idx = 1:length(protocol_interfaces)
-                iface = protocol_interfaces(iface_idx);
-                if ~strcmp(char(iface.Type), 'Software')
-                    hw_interfaces = [hw_interfaces, iface];  %#ok<AGROW>
-                end
-            end
             
-            if ~isempty(hw_interfaces)
-                % Use first hardware interface (or could select based on ConnectionType)
-                self.RUNTIME.HW = hw_interfaces(1);
-                if ~self.RUNTIME.HW.IsConnected
-                    self.RUNTIME.HW.connect();
-                    assert(self.RUNTIME.HW.IsConnected, ...
+            for i = 1:length(protocol_interfaces)
+                vprintf(0,'Connecting to hardware interface: %s', class(hw_interfaces(i)))
+                
+                if ~protocol_interfaces(i).IsConnected
+                    protocol_interfaces(i).connect();
+                    assert(protocol_interfaces(i).IsConnected, ...
                         'epsych:RunExpt:HardwareConnectionFailed', ...
                         'Hardware interface "%s" failed to connect. Check hardware status before starting.', ...
-                        class(self.RUNTIME.HW));
+                        class(protocol_interfaces(i)));
                 end
             end
+
+            self.RUNTIME.Interfaces = protocol_interfaces;
+
+
         catch me
-            self.RUNTIME = prevRuntime_; % roll back to previous valid RUNTIME
-            drawnow
             vprintf(0,1,me);
             error('epsych:RunExpt:HardwareInitializationFailed', ...
                 'Failed to initialize hardware interface. Check connection and configuration, then try again');
         end
 
+        % copy default data path to RUNTIME for use in timer functions and trial selectors
         self.RUNTIME.dfltDataPath = self.dfltDataPath;
 
         % make temporary directory for storing data during runtime in case of a computer crash
@@ -113,9 +108,8 @@ switch COMMAND
 
         self.RUNTIME.TIMER = self.CreateTimer;
 
-        self.RUNTIME.HW.mode = hw.DeviceState(COMMAND);
-        vprintf(0,'System set to ''%s''',COMMAND)
-        pause(1)
+        vprintf(0,'Initialization complete. Starting experiment...')
+        set(self.RUNTIME.Interfaces,'mode',hw.DeviceState(COMMAND));
 
         start(self.RUNTIME.TIMER)
 

@@ -20,10 +20,9 @@ for i = 1:RUNTIME.NSubjects
     C = CONFIG(i);
 
     compiled = C.PROTOCOL.COMPILED;
-    parameters = compiled.parameters;
     selectorConfig = struct('trialFunc', C.PROTOCOL.Options.trialFunc);
 
-    RUNTIME.TRIALS(i).parameters    = parameters;
+    RUNTIME.TRIALS(i).parameters    = compiled.parameters;
     RUNTIME.TRIALS(i).trials        = compiled.trials;
     RUNTIME.TRIALS(i).selector      = epsych.TrialSelector.create(selectorConfig);
     RUNTIME.TRIALS(i).selector.initialize(RUNTIME.TRIALS(i));

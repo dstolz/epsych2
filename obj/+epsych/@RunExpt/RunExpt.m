@@ -418,7 +418,7 @@ classdef RunExpt < handle
 
         function PsychTimerRunTime(self)
             % Timer runtime callback; stops the experiment automatically if hardware enters idle state.
-            if isfield(self.RUNTIME,'HW') && self.RUNTIME.HW.mode == hw.DeviceState.Idle
+            if any(get(self.RUNTIME.Interfaces,'mode') == hw.DeviceState.Idle)
                 self.ExptDispatch("Stop")
                 return
             end

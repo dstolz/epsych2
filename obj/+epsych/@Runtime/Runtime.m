@@ -16,6 +16,7 @@ classdef Runtime < handle & dynamicprops
     %   TempDataDir        - Directory for acquired data
     %   DataFile       - Filepath(s) for acquired data
     %   ON_HOLD        - Logical flag for hold state
+    %   Interfaces
     %   HW             - Hardware interface object(s)
     %   S              - Software interface object(s)
     %   CORE           - Runtime core or struct-compatible
@@ -58,6 +59,7 @@ classdef Runtime < handle & dynamicprops
         DataFile string = strings(0,1)   % Filepath(s) for acquired data
         ON_HOLD (1,:) logical = false % Logical flag for hold state
 
+        Interfaces        % Cell array of hardware and software interfaces (e.g., hw.TDT_RPcox, hw.Software)
         HW                % Hardware interface object(s) (e.g., hw.TDT_RPcox)
         S                 % Software interface object(s) (e.g., hw.Software)
         CORE              % Runtime core or struct-compatible

@@ -8,7 +8,7 @@ function RUNTIME = ep_TimerFcn_Stop(RUNTIME)
 % updated for hardware abstraction 2024 DS
 
 vprintf(2,'Setting mode to Idle')
-RUNTIME.HW.mode = hw.DeviceState.Idle;
+set(RUNTIME.Interfaces,'mode',hw.DeviceState.Idle);
 
 RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Idle));
 

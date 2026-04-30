@@ -57,8 +57,7 @@ for i = 1:RUNTIME.NSubjects
             RUNTIME.TRIALS(i).DATA(trialIdx) = data;
 
             % Append only the new trial entry to the data file (avoids rewriting all accumulated trials)
-            m = matfile(RUNTIME.DataFile(i), 'Writable', true);
-            m.allData(1, trialIdx) = data;
+            RUNTIME.DataFileObj(i).allData(1, trialIdx) = data;
 
             
             % Notify selector that this trial completed

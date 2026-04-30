@@ -25,7 +25,6 @@ switch COMMAND
 
         vprintf(0,'%s',repmat('~',1,50))
 
-        prevRuntime_ = self.RUNTIME; % preserve for rollback on hardware init failure
         self.RUNTIME = epsych.Runtime; % reset RUNTIME
 
         % Validate embedded protocols

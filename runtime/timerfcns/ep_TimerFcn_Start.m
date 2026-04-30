@@ -88,36 +88,14 @@ for i = 1:RUNTIME.NSubjects
 
 
 
-    % SIMPLIFY ACCESS TO BUILTIN TRIGGERS
-    bmn = ["RespCode","TrigState","NewTrial","ResetTrig","TrialNum", "TrialComplete"];
-    for cc = bmn
-        trigStr = sprintf('_%s~%d',cc,RUNTIME.TRIALS(i).Subject.BoxID);
-        p = RUNTIME.find_parameter(trigStr,includeInvisible=true,silenceParameterNotFound=true);
-        RUNTIME.CORE(i).(cc) = p;
-    end
-
-    % Protocol already loaded by ExptDispatch; use it directly
-    RUNTIME.TRIALS(i).protocol = CONFIG(i).PROTOCOL;
+    RUNTIME.resolveCoreParameters(i);
 
 
-    % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
-    vprintf(2,'Setting up first trial on box %d',i)
 
-    % 1. Send trigger to reset components before updating parameters
-    RUNTIME.CORE(i).ResetTrig.trigger();
-    
-    % 2. Dispatch write parameters for the first trial
-    params = RUNTIME.TRIALS(i).parameters;
-    dispatchIdx = ~strcmp({params.Access}, 'Read');
-    P = params(dispatchIdx);
-    trial_row = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID, dispatchIdx);
-    [P.Value] = deal(trial_row{:});
 
-    % 3. Trigger first new trial
-    RUNTIME.CORE(i).NewTrial.trigger();
 
-    % 4. Notify whomever is listening of new trial
-    RUNTIME.HELPER.notify('NewTrial');
+
+    RUNTIME.dispatchNextTrial(i);
 
 end
 

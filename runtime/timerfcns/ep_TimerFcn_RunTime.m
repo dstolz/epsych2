@@ -18,12 +18,14 @@ for i = 1:RUNTIME.NSubjects
     % for a trial to complete and just go directly to updating for next trial
     if ~RUNTIME.TRIALS(i).FORCE_TRIAL
         if ~RUNTIME.ON_HOLD(i)
-            % Check _RespCode parameter for non-zero value or if #TrigState is true
 
-            RCtag = RUNTIME.CORE(i).RespCode.Value;
-            TStag = RUNTIME.CORE(i).TrigState.Value;
+            % Check for trial completion by polling the TrialComplete trigger parameter for this subject's box.
+            TrialComplete = RUNTIME.CORE(i).TrialComplete.Value;
 
-            if ~RCtag || TStag, continue; end
+            % If the trial is not complete, skip to the next subject without updating or advancing the trial index.
+            if ~TrialComplete, continue; end
+
+                
                 
             % There was a response and the trial is over.
             % Retrieve parameter data for this trial and save in TRIALS structure. 
@@ -70,19 +72,6 @@ for i = 1:RUNTIME.NSubjects
             vprintf(3,'Trial #%d: Trial Over for box %d',RUNTIME.TRIALS(i).TrialIndex,i)
         end
 
-
-
-
-
-
-
-        % If in use, wait for manual completion of trial in RPvds
-        if ~isempty(RUNTIME.CORE(i).TrialComplete)
-            vprintf(4,'Checking TrialComplete tag for box %d',i)
-            RUNTIME.ON_HOLD(i) = ~RUNTIME.CORE(i).TrialComplete;
-        end
-
-        if RUNTIME.ON_HOLD(i), continue; end
 
 
 
@@ -140,39 +129,8 @@ for i = 1:RUNTIME.NSubjects
     
 
     
-    
-    params = RUNTIME.TRIALS(i).parameters;
-    dispatchIdx = ~strcmp({params.Access}, 'Read');
 
-    % Indicate next trial parameters in command window if GVerbosity >= 4    
-    for j = 1:numel(params)
-        vprintf(4,'Trial #%d: %s = %g', ...
-            RUNTIME.TRIALS(i).TrialIndex, ...
-            params(j).Name, ...
-            RUNTIME.TRIALS(i).trials{RUNTIME.TRIALS(i).NextTrialID, j})
-    end
-
-    % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
-    vprintf(2,'Trial #%d: New Trial Sequence for box %d',RUNTIME.TRIALS(i).TrialIndex,i)
-
-    % 1. Send trigger to reset components before updating parameters
-    vprintf(4,'Hardware Trigger for ResetTrig')
-    RUNTIME.CORE(i).ResetTrig.trigger();
-
-    % 2. Dispatch write parameters for this trial (Access ~= 'Read')
-    vprintf(4,'Update parameter tags')
-    P = params(dispatchIdx);
-    trial_row = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID, dispatchIdx);
-    [P.Value] = deal(trial_row{:});
-
-    % 3. Trigger new trial
-    vprintf(4,'Hardware Trigger for NewTrial')
-    RUNTIME.CORE(i).NewTrial.trigger();
-
-    % 4. Notify whomever is listening of new trial
-    vprintf(4,'Notify listeners with new trial data')
-    evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
-    RUNTIME.HELPER.notify('NewTrial',evtdata);
+    RUNTIME.dispatchNextTrial(i);
 
 end
 

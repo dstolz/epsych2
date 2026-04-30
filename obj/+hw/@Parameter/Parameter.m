@@ -38,7 +38,7 @@ classdef Parameter < matlab.mixin.SetGet
     % See also: documentation/hw/hw_Parameter.md
 
     properties (SetAccess = immutable)
-        Parent (1,1) % handle to parent object (e.g., hw.Software)
+        Parent (1,1) % handle to parent object (hw.Module)
         HW (1,1)  % handle to hardware interface; reflects parent object's handle
     end
 

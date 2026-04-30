@@ -84,6 +84,14 @@ classdef Runtime < handle & dynamicprops
         %   See also: documentation/gui/Parameter_Control.md, documentation/epsych/epsych_Runtime.md
         readParametersJSON(obj, filepath)
 
+        % dispatchNextTrial(obj, subjectIdx)
+        %   Dispatch the already selected next trial for one subject.
+        dispatchNextTrial(obj, subjectIdx)
+
+        % resolveCoreParameters(obj, subjectIdx)
+        %   Locate and cache mandatory trigger parameters (NewTrial, ResetTrig, TrialComplete) for one subject.
+        resolveCoreParameters(obj, subjectIdx)
+
         function self = Runtime
             % self = Runtime
             % Construct an empty Runtime container and initialize state.

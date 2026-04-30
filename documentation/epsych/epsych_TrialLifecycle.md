@@ -59,55 +59,29 @@ These are resolved once at startup by `resolveCoreParameters` and reused every t
 Session Start
      │
      ▼
-ep_TimerFcn_Start
-  ├── Compile protocol → populate TRIALS.parameters, TRIALS.trials
-  ├── Create selector (epsych.TrialSelector.create)
-  ├── selector.initialize(TRIALS)
-  ├── Resolve CORE triggers (NewTrial, ResetTrig, TrialComplete)
-  ├── Select first NextTrialID
-  └── dispatchNextTrial (Trial #1)
-            │
-            ▼
-    ┌───────────────────────┐
-    │  Timer tick fires     │  ←──────────────────────────┐
-    │  ep_TimerFcn_RunTime  │                             │
-    └───────────────────────┘                             │
-            │                                             │
-            ▼                                             │
-    Poll TrialComplete                                    │
-    (hardware tag)                                        │
-            │                                             │
-     ┌──────┴──────┐                                     │
-     │ Not done?   │ → skip, wait for next tick           │
-     └──────┬──────┘                                     │
-            │ Trial done                                  │
-            ▼                                             │
-    Collect Read parameters → build data struct           │
-    Store in TRIALS.DATA(TrialIndex)                      │
-    Append trial to .mat file on disk                     │
-    selector.onComplete(trialID, data)                    │
-    Broadcast NewData event                               │
-    Increment TrialIndex                                  │
-            │                                             │
-            ▼                                             │
-    (Optional) Operator recompile                         │
-            │                                             │
-            ▼                                             │
-    selector.selectNext → NextTrialID                     │
-            │                                             │
-            ▼                                             │
-    dispatchNextTrial ──────────────────────────────────► │
-      ├── ResetTrig.trigger()                             │
-      ├── Write TRIALS.trials(NextTrialID, :) to          │
-      │   all writable hw.Parameter objects              │
-      ├── NewTrial.trigger()                             │
-      └── Broadcast NewTrial event                       │
-            │                                             │
-            └─────────────────────────────────────────── ┘
-                       (repeat for each trial)
+Initialize runtime state, compile protocol, dispatch Trial #1
+     │
+     ▼
+┌─────────────────────────────────────────────────────┐
+│              Timer tick (ep_TimerFcn_RunTime)       │ ◄─┐
+└─────────────────────────────────────────────────────┘   │
+     │                                                    │
+     ▼                                                    │
+Poll TrialComplete (hardware)                             │
+     │                                                    │
+     ├── Not complete → wait for next tick                │
+     │                                                    │
+     └── Complete ──►  Collect & save response data       │
+                              │                           │
+                              ▼                           │
+                       Select next trial                  │
+                              │                           │
+                              ▼                           │
+                       Dispatch next trial ───────────────┘
+                       (write parameters → trigger hardware)
 
 Session Stop
-  └── ep_TimerFcn_Stop: set all interfaces to Idle
+  └── Set all interfaces to Idle
 ```
 
 ---

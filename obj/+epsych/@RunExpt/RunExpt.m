@@ -1,30 +1,17 @@
 classdef RunExpt < handle
-    % RunExpt Run and manage psychophysics experiments from a session GUI.
+    % Run and manage experiment sessions from the main RunExpt GUI.
     %
-    % OBJ = epsych.RunExpt creates or reuses the main RunExpt window used to
-    % configure subjects, load saved configurations, and start or stop an
-    % experiment session.
+    % Constructing epsych.RunExpt creates or reuses the session window, loads
+    % configuration files when requested, and coordinates CONFIG, FUNCS, and
+    % RUNTIME state for the active run.
     %
-    % OBJ = epsych.RunExpt(CONFIGFILE) additionally loads the configuration MAT
-    % file specified by CONFIGFILE after the GUI is initialized.
-    %
-    % The class coordinates three layers of state:
-    %   CONFIG  - Per-subject protocol and runtime configuration entries.
-    %   FUNCS   - Preference-backed callback names for saving, timers, and GUIs.
-    %   RUNTIME - Shared epsych.Runtime state used while the experiment runs.
-    %
-    % Common interactive tasks include:
-    %   LoadConfig / SaveConfig    Load or persist a RunExpt configuration.
-    %   AddSubject / RemoveSubject Manage the configured subject list.
-    %   ViewTrials / EditProtocol  Inspect or edit a selected protocol.
-    %   DefineDataPath             Choose the default folder for saved data.
-    %
-    % Only one live RunExpt window is kept open at a time. Constructing a new
-    % instance returns the existing object when possible and brings its figure
-    % to the foreground.
+    % Important properties:
+    %   CONFIG   - Per-subject protocol and runtime configuration entries.
+    %   FUNCS    - Callback names for saving, timers, and auxiliary GUIs.
+    %   RUNTIME  - Shared epsych.Runtime state for the active session.
     %
     % Documentation: documentation/overviews/RunExpt_GUI_Overview.md
-    % See also epsych.Runtime, ep_ExperimentDesign, ep_CompiledProtocolTrials.
+    % See also: epsych.Runtime, ep_ExperimentDesign, ep_CompiledProtocolTrials.
 
     properties
         H                                                                                        % Handles to UI components and figures
@@ -55,8 +42,12 @@ classdef RunExpt < handle
             % self = RunExpt()
             % self = RunExpt(ffnConfig)
             % Create or reactivate the main experiment control window.
-            % Returns the existing instance when a RunExpt figure is already open.
-            %  ffnConfig - (optional) path to a configuration MAT file to load
+            %
+            % Parameters:
+            %	ffnConfig	- Configuration MAT file to load after the GUI is created.
+            %
+            % Returns:
+            %	self	- Existing or newly created RunExpt instance.
             arguments
                 ffnConfig (1,1) string = ""
             end

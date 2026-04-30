@@ -1,19 +1,10 @@
 
 function S = toStruct(obj)
 % S = toStruct(obj)
-% Convert this hw.Parameter object to a struct safe for JSON serialization.
-%
-% Serializes all relevant fields, including metadata, callbacks, value, bounds, and user data, into a struct suitable for JSON encoding. Used for saving parameter state to disk or transferring between sessions.
-%
-% Parameters:
-%   obj (1,1) hw.Parameter
-%       The parameter object to serialize.
+% Convert a hw.Parameter object to a serialization-safe struct.
 %
 % Returns:
-%   S (1,1) struct
-%       Struct with serialization-safe field values.
-%
-% See also: fromStruct, writeParametersJSON, jsonencode
+%	S	- Struct containing metadata, design-time values, runtime state, and user data.
 
 S = struct();
 

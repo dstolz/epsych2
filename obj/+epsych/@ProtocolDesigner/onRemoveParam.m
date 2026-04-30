@@ -1,4 +1,6 @@
 function onRemoveParam(obj)
+% onRemoveParam(obj)
+% Remove the selected parameter from its parent module.
     if obj.SelectedParamRow < 1 || obj.SelectedParamRow > numel(obj.ParameterHandles)
         obj.setStatus('No parameter selected for removal', 'Select a parameter row in the table first.');
         return

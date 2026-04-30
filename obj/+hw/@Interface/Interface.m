@@ -1,38 +1,25 @@
 
 
 classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
-    % hw.Interface
     % Abstract base class for EPsych hardware interfaces.
     %
-    % Provides a uniform API for interacting with hardware modules and parameters.
-    % Concrete subclasses define one or more hw.Module objects and expose hw.Parameter
-    % instances through trigger, read, and write methods. This enables GUIs, runtime code,
-    % and tests to interact with different hardware backends using a consistent interface contract.
+    % Concrete subclasses expose one or more hw.Module objects and implement
+    % connection, parameter I/O, and trigger operations behind a common API.
     %
-    % Example:
-    %   I = hw.TDT_Synapse(...);
-    %   P = I.find_parameter("Reward");
-    %   ok = I.set_parameter("Reward", 1);
+    % Important properties:
+    %   Module      - Modules owned by the interface.
+    %   Type        - Constant interface identifier.
+    %   mode        - Current hw.DeviceState for the backend.
+    %   IsConnected - True when the backend connection is ready.
     %
-    % Properties:
-    %   Module      - Array of hw.Module objects exposed by the interface.
-    %   Type        - Constant identifier for the interface implementation.
-    %   mode        - Current hw.DeviceState for the interface.
-    %   h_listeners - Listeners for property or event changes.
+    % Key methods:
+    %   add_parameter  - Add a parameter through the shared interface API.
+    %   all_parameters - Return parameters across all modules.
+    %   find_parameter - Resolve parameters by name.
+    %   connect        - Establish the backend connection.
+    %   trigger        - Issue a named hardware event.
     %
-    % Methods:
-    %   add_parameter     - Create and append a hw.Parameter to a module.
-    %   all_parameters    - Return Parameters across all modules.
-    %   filter_parameters - Filter Parameters by property value.
-    %   find_parameter    - Resolve Parameters by name.
-    %   setup_interface   - Allocate or connect backend resources (abstract).
-    %   close_interface   - Release backend resources (abstract).
-    %   trigger          - Issue a named hardware event (abstract).
-    %   set_parameter    - Write one or more parameter values (abstract).
-    %   get_parameter    - Read one or more parameter values (abstract).
-    %
-    % See also: documentation/hw/hw_Interface.md, documentation/hw/hw_Module.md,
-    %   documentation/hw/hw_Parameter.md, hw.Module, hw.Parameter
+    % Documentation: documentation/hw/hw_Interface.md
 
     properties (Abstract,SetAccess = protected)
         Module

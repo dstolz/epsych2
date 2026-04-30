@@ -1,4 +1,9 @@
 function openProtocolFile(obj, filePath)
+% openProtocolFile(obj, filePath)
+% Load a protocol file and refresh the designer state around it.
+%
+% Parameters:
+%	filePath	- Protocol file to load.
     if isstring(filePath)
         filePath = char(filePath);
     end

@@ -1,4 +1,12 @@
 function tf = parameterCanParticipateInExpression(~, parameter)
+% tf = parameterCanParticipateInExpression(~, parameter)
+% Return true when a parameter type and value shape support expressions.
+%
+% Parameters:
+%	parameter	- Parameter to test for expression compatibility.
+%
+% Returns:
+%	tf	- True when the parameter can be referenced in expressions.
     if ~ismember(parameter.Type, {'Float', 'Integer', 'Boolean'})
         tf = false;
         return

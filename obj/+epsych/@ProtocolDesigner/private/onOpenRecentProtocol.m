@@ -1,4 +1,9 @@
 function onOpenRecentProtocol(obj, filePath)
+% onOpenRecentProtocol(obj, filePath)
+% Open a protocol from the recent-files list after validating the path.
+%
+% Parameters:
+%	filePath	- Saved protocol file path selected from the recent-files menu.
     if isstring(filePath)
         filePath = char(filePath);
     end

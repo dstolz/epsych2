@@ -1,4 +1,9 @@
 function buildOptionsTab(obj, parent)
+% buildOptionsTab(obj, parent)
+% Build the protocol options controls for trial function and compile settings.
+%
+% Parameters:
+%	parent	- Parent container for the tab contents. Uses obj.Figure when omitted.
     if nargin < 2 || isempty(parent)
         parent = obj.Figure;
     end

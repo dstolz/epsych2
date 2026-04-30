@@ -1,4 +1,13 @@
 function result = normalizeExpressionResult(~, parameter, result)
+% result = normalizeExpressionResult(~, parameter, result)
+% Validate an expression result and convert it to the target parameter type.
+%
+% Parameters:
+%	parameter	- Target parameter that defines the required output type.
+%	result		- Numeric or logical expression result to normalize.
+%
+% Returns:
+%	result		- Type-correct value ready to assign back to the parameter.
     if ~(isnumeric(result) || islogical(result)) || isempty(result)
         error('Expression for %s must evaluate to a numeric or logical value.', parameter.Name);
     end

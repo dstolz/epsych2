@@ -1,4 +1,6 @@
 function refreshCompiledPreview(obj)
+% refreshCompiledPreview(obj)
+% Refresh the compiled trial preview table and summary label.
     if isempty(obj.TableCompiled) || ~isvalid(obj.TableCompiled) || isempty(obj.LabelCompileSummary) || ~isvalid(obj.LabelCompileSummary)
         return
     end

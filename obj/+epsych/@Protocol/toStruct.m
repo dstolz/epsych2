@@ -1,16 +1,10 @@
 function struct_out = toStruct(obj)
     % struct_out = toStruct(obj)
-    %
-    % Convert protocol to a serializable struct. Inverse of fromStruct.
-    % Used by toJSON and as the serialization format for JSON exports.
+    % Convert the protocol to a serializable struct for JSON or MAT persistence.
     %
     % Returns:
-    %   struct_out - Struct with fields: formatVersion, epsychVersion,
-    %       createdDate, lastModified, Options, Info, COMPILED, InterfaceData.
-    %       InterfaceData is a cell array of interface structs, each with
-    %       Type, ClassName, Server (if applicable), ConnectionType (if
-    %       applicable), and Modules (cell array of module structs with Label,
-    %       Name, Index, Fs, Info, and Parameters from hw.Parameter.toStruct).
+    %	struct_out	- Serializable struct containing metadata, options, compiled state,
+    %			  and interface definitions.
 
     struct_out = struct();
     struct_out.formatVersion    = obj.meta.formatVersion;

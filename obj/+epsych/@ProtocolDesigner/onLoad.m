@@ -1,4 +1,6 @@
 function onLoad(obj)
+% onLoad(obj)
+% Open a protocol file after confirming any unsaved changes.
     if ~obj.confirmDiscardChanges()
         return
     end

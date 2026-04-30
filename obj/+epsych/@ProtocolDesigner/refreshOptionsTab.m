@@ -1,4 +1,6 @@
 function refreshOptionsTab(obj)
+% refreshOptionsTab(obj)
+% Sync protocol options from the model into the tab controls.
     if isempty(obj.EditTrialFunc) || ~isvalid(obj.EditTrialFunc)
         return
     end

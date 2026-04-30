@@ -1,12 +1,13 @@
 function RUNTIME = ep_TimerFcn_Start(RUNTIME,CONFIG)
 % RUNTIME = ep_TimerFcn_Start(RUNTIME,CONFIG)
-% 
-% Default Start timer function
-% 
-% Initialize parameters and take care of some other things just before
-% beginning experiment
-% 
-% Use ep_PsychConfig GUI to specify custom timer function.
+% Initialize runtime state and trial selectors before an experiment starts.
+%
+% Parameters:
+%	RUNTIME	- Runtime state struct to populate for the upcoming session.
+%	CONFIG	- Per-subject configuration array with compiled protocols.
+%
+% Returns:
+%	RUNTIME	- Updated runtime state ready for timer-driven execution.
 % 
 % Copyright (C) 2019  Daniel Stolzberg, PhD
 % updated for hardware abstraction 2024 DS

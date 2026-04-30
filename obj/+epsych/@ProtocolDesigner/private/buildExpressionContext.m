@@ -1,4 +1,12 @@
 function context = buildExpressionContext(obj, targetParameter)
+% context = buildExpressionContext(obj, targetParameter)
+% Build the parameter-value context used to evaluate expressions for one parameter.
+%
+% Parameters:
+%	targetParameter	- Parameter whose module scope defines the available references.
+%
+% Returns:
+%	context	- Struct mapping expression aliases to numeric values.
     parameters = obj.getAllParameters();
     context = struct();
     targetModule = targetParameter.Module;

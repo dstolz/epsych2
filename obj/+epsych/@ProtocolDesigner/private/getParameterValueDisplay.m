@@ -1,4 +1,12 @@
 function valueText = getParameterValueDisplay(obj, parameter)
+% valueText = getParameterValueDisplay(obj, parameter)
+% Format parameter values for compact display in the parameter table.
+%
+% Parameters:
+%	parameter	- Parameter whose current Values content is being rendered.
+%
+% Returns:
+%	valueText	- Display string shown in the table Value column.
     if isequal(parameter.Type, 'String')
         valueText = obj.formatStringParameterValue(parameter.Values);
         return

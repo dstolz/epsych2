@@ -1,4 +1,6 @@
 function onAddModule(obj)
+% onAddModule(obj)
+% Prompt for module settings and add a module to the selected interface.
     interfaceIndex = obj.getSelectedInterfaceRowIndex();
     if interfaceIndex < 1 || interfaceIndex > length(obj.Protocol.Interfaces)
         obj.setStatus('No interface selected for Add Module', ...

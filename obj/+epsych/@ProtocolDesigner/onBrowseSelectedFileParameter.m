@@ -1,4 +1,6 @@
 function onBrowseSelectedFileParameter(obj)
+% onBrowseSelectedFileParameter(obj)
+% Edit values for the selected File or String parameter.
     parameter = obj.getSelectedParameter();
     if isempty(parameter)
         obj.setStatus('No parameter selected', 'Select a File or String parameter row before editing its value.');

@@ -1,4 +1,6 @@
 function onModifyInterfaceOptions(obj)
+% onModifyInterfaceOptions(obj)
+% Edit interface or module creation options for the current selection.
     interfaceIndex = obj.getSelectedInterfaceRowIndex();
     if interfaceIndex < 1 || interfaceIndex > length(obj.Protocol.Interfaces)
         obj.setStatus('No interface selected for modification', 'Select an interface row in Current Interfaces first.');

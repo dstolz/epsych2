@@ -1,4 +1,6 @@
 function onSave(obj)
+% onSave(obj)
+% Save the current protocol and refresh recent-file state.
     startPath = obj.getProtocolFileDialogStartPath('*.eprot');
     [fileName, folder] = uiputfile( ...
         {'*.eprot', 'Protocol MAT File (*.eprot)'; '*.json', 'Protocol JSON File (*.json)'}, ...

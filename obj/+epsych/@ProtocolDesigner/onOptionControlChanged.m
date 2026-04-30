@@ -1,4 +1,6 @@
 function onOptionControlChanged(obj)
+% onOptionControlChanged(obj)
+% Copy option control values into obj.Protocol.Options and refresh path warnings.
     trialFuncName = char(string(obj.EditTrialFunc.Value));
     obj.Protocol.setOption('trialFunc', trialFuncName);
     obj.Protocol.setOption('compileAtRuntime', obj.CheckCompileAtRuntime.Value);

@@ -1,4 +1,9 @@
 function onParamSelected(obj, evt)
+% onParamSelected(obj, evt)
+% Update the selected parameter state and show full values for the active table cell.
+%
+% Parameters:
+%	evt	- UITable selection event with row and column indices.
     % Restore the truncated display for the Value cell if we are leaving it.
     prevRow = obj.SelectedParamRow;
     prevCol = obj.SelectedParamCol;

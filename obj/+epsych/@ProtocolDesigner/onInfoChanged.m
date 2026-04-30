@@ -1,4 +1,6 @@
 function onInfoChanged(obj)
+% onInfoChanged(obj)
+% Copy the info editor text into obj.Protocol.Info and mark the protocol modified.
     if isempty(obj.EditInfo) || ~isvalid(obj.EditInfo)
         return
     end

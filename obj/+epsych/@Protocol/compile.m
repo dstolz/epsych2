@@ -1,10 +1,8 @@
 function compile(obj)
 % compile(obj)
+% Validate the protocol and populate obj.COMPILED when no blocking errors remain.
 %
-% Compile protocol into COMPILED struct containing writeparams, readparams,
-% randparams, trials, OPTIONS, and ntrials. Validates first; errors abort.
-%
-% See also: validate, compile_internal
+% Call validate() to inspect nonblocking issues before compilation.
 
 report = obj.validate();
 if ~isempty(report)

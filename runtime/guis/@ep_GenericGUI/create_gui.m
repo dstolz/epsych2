@@ -1,22 +1,9 @@
 function create_gui(obj)
 % create_gui(obj)
-% Auto-discover parameters from RUNTIME and build the generic GUI layout.
-%
-% Classifies parameters into three groups:
-%   Triggers/toggles  (isTrigger=true or name prefixed '~' or '!')
-%     -> control buttons in the top panel.
-%   Writable visible  (Access = 'Any', 'Write', or 'Read / Write')
-%     -> labeled controls in a scrollable left panel.
-%   Read-only visible (Access = 'Read')
-%     -> rows in a polling Parameter Monitor table (right panel).
-%
-% An event log (uitextarea) sits below the monitor panel.
+% Build the generic runtime GUI from the current RUNTIME parameter set.
 %
 % Parameters:
-%   obj - ep_GenericGUI instance
-%
-% Returns:
-%   None. All handles are stored in obj properties.
+%	obj	- ep_GenericGUI instance whose UI handles are populated by this method.
 
 R = obj.RUNTIME;
 

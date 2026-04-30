@@ -1,14 +1,12 @@
 
 function fromStruct(obj, S)
 % fromStruct(obj, S)
-% Apply a serialized struct to this hw.Parameter object.
-%
-% Restores metadata, flags, bounds, and design-time trial levels (Values).
-% Does NOT restore Value (runtime-only state).
+% Restore serialized metadata and design-time values onto a hw.Parameter object.
 %
 % Parameters:
-%   obj (1,1) hw.Parameter
-%   S (1,1) struct — struct from toStruct()
+%	S	- Struct produced by toStruct().
+%
+% Does not restore the runtime Value property.
 
 arguments
     obj (1,1) hw.Parameter

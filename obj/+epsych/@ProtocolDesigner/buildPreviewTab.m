@@ -1,4 +1,9 @@
 function buildPreviewTab(obj, parent)
+% buildPreviewTab(obj, parent)
+% Build the compiled trial preview controls and summary table.
+%
+% Parameters:
+%	parent	- Parent container for the tab contents. Uses obj.Figure when omitted.
     if nargin < 2 || isempty(parent)
         parent = obj.Figure;
     end

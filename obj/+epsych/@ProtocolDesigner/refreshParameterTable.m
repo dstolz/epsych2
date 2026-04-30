@@ -1,4 +1,6 @@
 function refreshParameterTable(obj)
+% refreshParameterTable(obj)
+% Rebuild the parameter table from the current interface and module filters.
     filterIndex = obj.selectedFilterIndex();
     [tableData, parameterHandles] = obj.getParameterTableData(filterIndex, obj.getSelectedModuleRow());
     obj.ParameterHandles = parameterHandles;

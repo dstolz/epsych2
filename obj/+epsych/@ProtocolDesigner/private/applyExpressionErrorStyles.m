@@ -1,4 +1,6 @@
 function applyExpressionErrorStyles(obj)
+% applyExpressionErrorStyles(obj)
+% Apply table row styles for expression errors and the active grouping mode.
     try
         removeStyle(obj.TableParams);
     catch

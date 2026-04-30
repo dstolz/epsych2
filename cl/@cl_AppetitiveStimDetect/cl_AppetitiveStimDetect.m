@@ -1,27 +1,12 @@
 classdef cl_AppetitiveStimDetect < epsych.TrialSelector
-    % cl_AppetitiveStimDetect  Trial selector for the appetitive stimulus-detection task.
+    % Trial selector for the appetitive stimulus-detection task.
     %
-    % Implements a 1-up/1-down staircase on signal depth, with optional catch
-    % trials and reminder-trial override.  Register this class as the trialFunc
-    % in Protocol Options to replace the legacy cl_TrialSelection_Appetitive_StimDetect
-    % function.
+    % Implements the staircase, catch-trial handling, and reminder-trial override
+    % used when this selector is configured as Protocol.Options.trialFunc.
     %
-    % Trial type codes (TrialType column in the trials table):
-    %   0 – STIM   (signal-present trial)
-    %   1 – CATCH  (no signal)
-    %   2 – REMIND (reminder / training trial)
-    %
-    % Required TRIALS.Parameters fields (hw.Parameter handles):
-    %   ReminderTrials, StepOnHit, StepOnMiss, MinDepth, MaxDepth,
-    %   P_Catch, RepeatDelayOnAbort, StimDelay
-    %
-    % Usage:
-    %   sel = cl_AppetitiveStimDetect();
-    %   sel.initialize(TRIALS);
-    %   sel.setRuntime(RUNTIME, subjectIdx);
-    %   id  = sel.selectNext(TRIALS);
-    %   sel.onComplete(id, data);
-    %   sel.onRecompile(TRIALS);
+    % Required parameters:
+    %   ReminderTrials, StepOnHit, StepOnMiss, MinDepth, MaxDepth, P_Catch,
+    %   RepeatDelayOnAbort, and StimDelay in TRIALS.parameters.
     %
     % See also: epsych.TrialSelector, cl_TrialSelection_Appetitive_StimDetect
 

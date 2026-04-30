@@ -1,4 +1,6 @@
 function onRemoveInterface(obj)
+% onRemoveInterface(obj)
+% Confirm and remove the selected interface from the protocol.
     interfaceIndex = obj.getSelectedInterfaceRowIndex();
     if interfaceIndex < 1 || interfaceIndex > length(obj.Protocol.Interfaces)
         obj.setStatus('No interface selected for removal', 'Select an interface in the tree first.');

@@ -1,4 +1,6 @@
 function onAddInterface(obj)
+% onAddInterface(obj)
+% Prompt for interface settings and add the interface to the active protocol.
     try
         [spec, ~] = obj.getSelectedInterfaceSpec();
         existingTypes = arrayfun(@(iface) char(string(iface.Type)), obj.Protocol.Interfaces, 'UniformOutput', false);

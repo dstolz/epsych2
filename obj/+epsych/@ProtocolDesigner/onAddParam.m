@@ -1,4 +1,6 @@
 function onAddParam(obj)
+% onAddParam(obj)
+% Create a new parameter in the selected module using default metadata.
     module = obj.getSelectedTargetModule();
     if isempty(module)
         obj.setStatus('No target module selected', ...

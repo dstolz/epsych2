@@ -1,4 +1,9 @@
 function onOpenDocumentation(obj, docType)
+% onOpenDocumentation(obj, docType)
+% Open the requested Protocol Designer documentation page in the MATLAB editor.
+%
+% Parameters:
+%	docType	- Documentation selector: "user" or "developer".
     if nargin < 2 || strlength(string(docType)) == 0
         docType = 'developer';
     end

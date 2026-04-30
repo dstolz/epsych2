@@ -1,4 +1,6 @@
 function onRemoveModule(obj)
+% onRemoveModule(obj)
+% Remove the selected module and refresh dependent UI state.
     interfaceIndex = obj.getSelectedInterfaceRowIndex();
     if interfaceIndex < 1 || interfaceIndex > length(obj.Protocol.Interfaces)
         obj.setStatus('No interface selected for Remove Module', 'Select an interface in the tree first.');

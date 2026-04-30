@@ -1,4 +1,14 @@
 function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex, moduleFilterIndex)
+% [tableData, parameterHandles] = getParameterTableData(obj, filterIndex, moduleFilterIndex)
+% Build table rows and parameter handles for the current interface and module filters.
+%
+% Parameters:
+%	filterIndex		- Selected interface filter index.
+%	moduleFilterIndex	- Selected module filter index within the active interface.
+%
+% Returns:
+%	tableData		- Cell array used as the parameter table Data value.
+%	parameterHandles	- Parameter handles corresponding to each table row.
     if nargin < 3
         moduleFilterIndex = 0;
     end

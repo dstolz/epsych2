@@ -57,7 +57,10 @@ for i = 1:RUNTIME.NSubjects
             RUNTIME.TRIALS(i).DATA(trialIdx) = data;
 
             % Append only the new trial entry to the data file (avoids rewriting all accumulated trials)
-            RUNTIME.DataFileObj(i).allData(1, trialIdx) = data;
+            % Each trial is saved as a uniquely named variable so prior trials are never overwritten.
+            trialVarName = sprintf('data_%04d', trialIdx);
+            eval([trialVarName ' = data;']);
+            save(RUNTIME.DataFile(i), trialVarName, '-append', '-v6');
 
             
             % Notify selector that this trial completed

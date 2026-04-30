@@ -60,8 +60,7 @@ for i = 1:RUNTIME.NSubjects
         recycle(oldstate);
     end
     vprintf(3, 'Creating temporary data file for runtime: %s', RUNTIME.DataFile(i))
-    save(RUNTIME.DataFile(i),'info','-v7.3');
-    RUNTIME.DataFileObj(i) = matfile(RUNTIME.DataFile(i), 'Writable', true);
+    save(RUNTIME.DataFile(i),'info','-v6');
 
 
 

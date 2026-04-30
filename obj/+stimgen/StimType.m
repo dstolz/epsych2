@@ -65,7 +65,6 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
 
     methods (Abstract)
         update_signal(obj); % implemented in subclasses
-        h = create_gui(obj,src,evnt);
     end
 
     methods
@@ -191,6 +190,75 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             ap = audioplayer(obj.Signal./max(abs(obj.Signal)),obj.Fs);
             playblocking(ap);
             delete(ap);
+        end
+
+        function h = create_gui(obj, src, ~)
+            % create_gui(obj, src) - Auto-build parameter GUI from propMeta().
+            % Creates a two-column label+widget grid for each property returned
+            % by propMeta(). Widget type is inferred from the property class
+            % (double->numeric editfield, logical->checkbox, string->text
+            % editfield) unless overridden via the 'widget' metadata field.
+            %
+            % Parameters:
+            %   src - parent UI container (e.g. uipanel)
+            % Returns:
+            %   h   - struct of widget handles keyed by property name
+
+            meta   = obj.propMeta();
+            fields = fieldnames(meta);
+            nRows  = numel(fields);
+
+            mc = metaclass(obj);
+            pl = mc.PropertyList;
+
+            g = uigridlayout(src);
+            g.ColumnWidth = {'1x', '1x'};
+            g.RowHeight   = repmat({25}, 1, nRows);
+
+            h = struct();
+            for i = 1:nRows
+                propName = fields{i};
+                pm = meta.(propName);
+
+                lbl = uilabel(g, 'Text', pm.label);
+                lbl.Layout.Column = 1;
+                lbl.Layout.Row    = i;
+                lbl.HorizontalAlignment = 'right';
+
+                wt = stimgen.StimType.resolve_widget_type(propName, pm, pl);
+
+                switch wt
+                    case 'numeric'
+                        x = uieditfield(g, 'numeric', 'Tag', propName);
+                        x.Value = obj.(propName);
+                        if isfield(pm, 'format')
+                            x.ValueDisplayFormat = pm.format;
+                        end
+                        if isfield(pm, 'limits')
+                            x.Limits = pm.limits;
+                        end
+                    case 'checkbox'
+                        x = uicheckbox(g, 'Tag', propName, 'Text', '');
+                        x.Value = obj.(propName);
+                    case 'dropdown'
+                        x = uidropdown(g, 'Tag', propName);
+                        x.Items = pm.items;
+                        if isfield(pm, 'itemsData')
+                            x.ItemsData = pm.itemsData;
+                        end
+                        x.Value = obj.(propName);
+                    otherwise % 'text'
+                        x = uieditfield(g, 'Tag', propName);
+                        x.Value = char(obj.(propName));
+                end
+
+                x.Layout.Column = 2;
+                x.Layout.Row    = i;
+                h.(propName)    = x;
+            end
+
+            structfun(@(a) set(a, 'ValueChangedFcn', @obj.interpret_gui), h);
+            obj.GUIHandles = h;
         end
     end % methods (Access = public)
 
@@ -323,15 +391,76 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             h.(src.Name).Value = obj.(src.Name);
         end
 
-        function interpret_gui(obj,src,event)
+        function interpret_gui(obj, src, event)
             try
                 obj.(src.Tag) = event.Value;
-                obj.update_signal;
             catch
                 obj.(src.Tag) = event.PreviousValue;
+                return
             end
+            obj.on_gui_changed(src.Tag, event.Value);
+            obj.update_signal;
+        end
+
+        function on_gui_changed(~, ~, ~)
+            % Override in subclasses to respond to a specific property change
+            % triggered from the GUI, e.g. to update a sibling widget's format.
+        end
+
+        function m = propMeta(~)
+            % propMeta() - Return display metadata for GUI-visible base properties.
+            % Subclasses override this and chain via propMeta@stimgen.StimType(obj),
+            % merging results with stimgen.StimType.merge_prop_meta(subMeta, baseMeta).
+            %
+            % Each field name matches a property name. Each value is a struct with:
+            %   label     (required) - display label string
+            %   format    (optional) - printf format string for numeric fields
+            %   limits    (optional) - [min max] for numeric editfield
+            %   widget    (optional) - 'numeric'|'text'|'checkbox'|'dropdown'
+            %   items     (optional) - string/cell array of dropdown items
+            %   itemsData (optional) - cell array of underlying dropdown values
+            m = struct();
+            m.SoundLevel     = struct('label', 'Sound Level',     'format', '%.1f dB SPL');
+            m.Duration       = struct('label', 'Duration',        'format', '%.3f s',  'limits', [0.001 10]);
+            m.WindowDuration = struct('label', 'Window Duration', 'format', '%.4f s',  'limits', [1e-6 10]);
+            m.ApplyWindow    = struct('label', 'Apply Window');
         end
     end % methods (Access = protected)
+
+    methods (Static, Access = protected)
+        function m = merge_prop_meta(a, b)
+            % merge_prop_meta(a, b) - Append fields of struct b into struct a.
+            % Used by subclass propMeta() to append base-class metadata.
+            bf = fieldnames(b);
+            for i = 1:numel(bf)
+                a.(bf{i}) = b.(bf{i});
+            end
+            m = a;
+        end
+
+        function wt = resolve_widget_type(propName, pm, pl)
+            % resolve_widget_type - Determine widget type for a property.
+            % Uses explicit 'widget' field in pm if present; otherwise infers
+            % from property class: double->numeric, logical->checkbox, else text.
+            if isfield(pm, 'widget')
+                wt = pm.widget;
+                return
+            end
+            idx = strcmp({pl.Name}, propName);
+            if ~any(idx) || isempty(pl(idx).Validation) || isempty(pl(idx).Validation.Class)
+                wt = 'text';
+                return
+            end
+            switch pl(idx).Validation.Class.Name
+                case 'double'
+                    wt = 'numeric';
+                case 'logical'
+                    wt = 'checkbox';
+                otherwise
+                    wt = 'text';
+            end
+        end
+    end % methods (Static, Access = protected)
 
     methods (Static)
         function c = list

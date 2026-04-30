@@ -17,75 +17,62 @@ for i = 1:RUNTIME.NSubjects
     % the following FORCE_TRIAL tells ep_TimerFcn_RunTime to skip waiting
     % for a trial to complete and just go directly to updating for next trial
     if ~RUNTIME.TRIALS(i).FORCE_TRIAL
-        if ~RUNTIME.ON_HOLD(i)
 
-            % Check for trial completion by polling the TrialComplete trigger parameter for this subject's box.
-            TrialComplete = RUNTIME.CORE(i).TrialComplete.Value;
+        % Check for trial completion by polling the TrialComplete trigger parameter for this subject's box.
+        TrialComplete = RUNTIME.CORE(i).TrialComplete.Value;
 
-            % If the trial is not complete, skip to the next subject without updating or advancing the trial index.
-            if ~TrialComplete, continue; end
-
-                
-                
-            % There was a response and the trial is over.
-            % Retrieve parameter data for this trial and save in TRIALS structure. 
-
-            % Get Read parameters scoped to this subject's box.
-            % Box-specific parameters carry a "~BoxID" suffix; global parameters
-            % (software interface, no suffix) are included for every subject.
-            boxSuffix = sprintf('~%d', RUNTIME.TRIALS(i).BoxID);
-            P_read = RUNTIME.all_parameters(Access = 'Read');
-            if ~isempty(P_read)
-                names = string({P_read.Name});
-                boxMask = endsWith(names, boxSuffix) | ~contains(names, '~');
-                P_read = P_read(boxMask);
-            end
-            data = struct();
-            for k = 1:numel(P_read)
-                data.(P_read(k).validName) = P_read(k).Value;
-            end
-
-            data.TrialNumber = RUNTIME.TRIALS(i).TrialIndex;
-            data.TrialID     = RUNTIME.TRIALS(i).NextTrialID;
-            data.computerTimestamp = datetime('now');
-
-            trialIdx = RUNTIME.TRIALS(i).TrialIndex;
-
-            % Store data in runtime struct for this trial
-            RUNTIME.TRIALS(i).DATA(trialIdx) = data;
-
-            % Append only the new trial entry to the data file (avoids rewriting all accumulated trials)
-            % Each trial is saved as a uniquely named variable so prior trials are never overwritten.
-            trialVarName = sprintf('data_%04d', trialIdx);
-            eval([trialVarName ' = data;']);
-            save(RUNTIME.DataFile(i), trialVarName, '-append', '-v6');
-
-            
-            % Notify selector that this trial completed
-            RUNTIME.TRIALS(i).selector.onComplete(RUNTIME.TRIALS(i).NextTrialID, data);
-
-
-            % Broadcast event data has been updated
-            evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
-            RUNTIME.HELPER.notify('NewData',evtdata);
-
-            vprintf(3,'Trial #%d: Trial Over for box %d',RUNTIME.TRIALS(i).TrialIndex,i)
-        end
-
-
-
-
-
-
-        % Increment trial index
-        RUNTIME.TRIALS(i).TrialIndex = RUNTIME.TRIALS(i).TrialIndex + 1;
-
-
+        % If the trial is not complete, skip to the next subject without updating or advancing the trial index.
+        if ~TrialComplete, continue; end
 
     end
 
 
+    % Reset FORCE_TRIAL flag for next trial
     RUNTIME.TRIALS(i).FORCE_TRIAL = false;
+
+    
+    % There was a response and the trial is over.
+    % Retrieve parameter data for this trial and save in TRIALS structure.
+
+    % Get Read parameters scoped to this subject's box.
+    % Box-specific parameters carry a "~BoxID" suffix; global parameters
+    % (software interface, no suffix) are included for every subject.
+    P_read = RUNTIME.all_parameters(Access = 'Read');
+
+    data = struct();
+    for k = 1:numel(P_read)
+        data.(P_read(k).validName) = P_read(k).Value;
+    end
+
+    data.TrialIndex = RUNTIME.TRIALS(i).TrialIndex;
+    data.TrialID     = RUNTIME.TRIALS(i).NextTrialID;
+    data.computerTimestamp = datetime('now');
+
+    trialIdx = RUNTIME.TRIALS(i).TrialIndex;
+
+    % Store data in runtime struct for this trial
+    RUNTIME.TRIALS(i).DATA(trialIdx) = data;
+
+    % Append only the new trial entry to the data file (avoids rewriting all accumulated trials)
+    % Each trial is saved as a uniquely named variable so prior trials are never overwritten.
+    trialVarName = sprintf('data_%04d', trialIdx);
+    eval([trialVarName ' = data;']);
+    save(RUNTIME.DataFile(i), trialVarName, '-append', '-v6');
+
+    % Notify selector that this trial completed
+    RUNTIME.TRIALS(i).selector.onComplete(RUNTIME.TRIALS(i).NextTrialID, data);
+
+    % Broadcast event data has been updated
+    evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
+    RUNTIME.HELPER.notify('NewData',evtdata);
+
+    vprintf(3,'Trial #%d: Trial Over for box %d',RUNTIME.TRIALS(i).TrialIndex,i)
+
+    
+    % Increment trial index
+    RUNTIME.TRIALS(i).TrialIndex = RUNTIME.TRIALS(i).TrialIndex + 1;
+
+
 
     % --- Safe-boundary operator recompile ---
     % Applied between trials so that hardware state is stable and no
@@ -116,6 +103,7 @@ for i = 1:RUNTIME.NSubjects
         tcf = tic;
         RUNTIME.TRIALS(i).NextTrialID = RUNTIME.TRIALS(i).selector.selectNext(RUNTIME.TRIALS(i));
         vprintf(4,'%s ran in %.4f seconds',class(RUNTIME.TRIALS(i).selector),toc(tcf))
+
     catch me
         vprintf(0,1,'Error in trial selector "%s": %s', class(RUNTIME.TRIALS(i).selector), me.message);
         vprintf(0,1,me);
@@ -129,7 +117,7 @@ for i = 1:RUNTIME.NSubjects
     
 
     
-
+    % --- End of trial processing, now next trial is selected and ready to dispatch on the next timer tick ---
     RUNTIME.dispatchNextTrial(i);
 
 end

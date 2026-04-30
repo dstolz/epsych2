@@ -178,44 +178,32 @@ classdef multiTone < stimgen.StimType
             % arrayfun(@update_signal,obj.MultiObjects);
 
         end
+    end
 
-        function interpret_gui(obj,src,event)
-            t = src.Tag;
-
-            isStr = endsWith(t,"MO");
-
-            v = event.Value;
-            pv = event.PreviousValue;
-
-            
-            if isStr
-                v = string(v);
-                pv = string(pv);
-            end
-
-            try
-                obj.(t) = v;
-            catch
-                obj.(t) = pv;
-            end
-
-            obj.(t) = pv;
-            
-            if isequal(t,'WindowMethod')
-                switch src.Value
-                    case 'Proportional'
-                        fmt = '%.2f%%';
-                    case 'Duration'
-                        fmt = '%.4f s';
-                    case '#Periods'
-                        fmt = '%.1f periods';
-                end
-                obj.GUIHandles.WindowDuration.ValueDisplayFormat = fmt;
-            end
-
-            if isStr, obj.update_tone_objs(); end
-
+    methods (Access = protected)
+        function m = propMeta(obj)
+            % propMeta() - Display metadata for multiTone GUI properties.
+            m = struct();
+            m.Frequency_MO  = struct('label', 'Frequencies (Hz)',  'widget', 'text');
+            m.SoundLevel_MO = struct('label', 'Sound Levels (dB)', 'widget', 'text');
+            m.OnsetPhase    = struct('label', 'Onset Phase',        'format', '%.1f deg');
+            m.WindowMethod  = struct('label', 'Window Method', 'widget', 'dropdown', ...
+                                    'items', ["Duration" "Proportional" "#Periods"]);
+            m = stimgen.StimType.merge_prop_meta(m, propMeta@stimgen.StimType(obj));
         end
-        
+
+        function on_gui_changed(obj, propName, ~)
+            % Update WindowDuration format label when WindowMethod changes.
+            if strcmp(propName, 'WindowMethod')
+                switch obj.WindowMethod
+                    case 'Proportional', fmt = '%.2f%%';
+                    case 'Duration',     fmt = '%.4f s';
+                    case '#Periods',     fmt = '%.1f periods';
+                end
+                if isfield(obj.GUIHandles, 'WindowDuration') && isvalid(obj.GUIHandles.WindowDuration)
+                    obj.GUIHandles.WindowDuration.ValueDisplayFormat = fmt;
+                end
+            end
+        end
     end
 end

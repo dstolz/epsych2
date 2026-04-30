@@ -12,6 +12,8 @@ function resolveCoreParameters(obj, subjectIdx)
 %
 % Returns:
 %   None. Populates obj.CORE(subjectIdx).NewTrial, .ResetTrig, and .TrialComplete.
+%
+% See also: documentation/epsych/epsych_Runtime.md (CORE Triggers section)
 
 arguments
     obj (1,1) epsych.Runtime

@@ -5,49 +5,32 @@ classdef Runtime < handle & dynamicprops
     % Stores experiment-wide state including subject count, trial metadata,
     % hardware/software interfaces, event dispatchers, and timer services.
     %
-    % Properties:
-    %   NSubjects      - Number of subjects in the experiment (default: 1)
-    %   HWinUse        - List of hardware in use (string array)
-    %   usingSynapse   - True if using Synapse hardware
-    %   TRIALS         - Protocol-specific trial information
-    %   dfltDataPath   - Default data path for output
-    %   HELPER         - Helper/event dispatcher object
-    %   TIMER          - MATLAB timer object for runtime services
-    %   TempDataDir        - Directory for acquired data
-    %   DataFile       - Filepath(s) for acquired data
-    %   ON_HOLD        - Logical flag for hold state
-    %   Interfaces
-    %   HW             - Hardware interface object(s)
-    %   S              - Software interface object(s)
-    %   CORE           - Runtime core or struct-compatible
-    %   StartTime      - Experiment start time (datetime)
-    %   TrialComplete  - Manual trial completion flag
+    % Key properties:
+    %   NSubjects   - Number of subjects (default: 1)
+    %   TRIALS      - Protocol trial data and selection state
+    %   HW          - Hardware interface object(s)
+    %   S           - Software interface object(s)
+    %   HELPER      - Event dispatcher object
+    %   TIMER       - Timer object for runtime services
     %
-    % Methods:
-    %   Runtime             - Construct an empty runtime container
-    %   writeParametersJSON - Write parameters to JSON file
-    %   readParametersJSON  - Read parameters from JSON file
-    %   all_parameters    - Retrieve all parameters from hardware/software
+    % Key methods:
+    %   Runtime                    - Construct an empty runtime container
+    %   writeParametersJSON        - Serialize runtime parameters to JSON
+    %   readParametersJSON         - Load runtime parameters from JSON
+    %   all_parameters             - Retrieve all hardware/software parameters
     %   updateTrialsFromParameters - Sync writable TRIALS fields from parameters
-    %   createTemplateJSON  - Create a template JSON for parameter files
+    %   createTemplateJSON         - Create a template JSON for parameter files
     %
-    % Example usage:
+    % Usage:
     %   r = epsych.Runtime;
     %   r.NSubjects = 2;
     %   r.writeParametersJSON('params.json');
-    %
-    % For more details, see:
-    %   documentation/epsych/epsych_Runtime.md
-    %   documentation/overviews/Architecture_Overview.md
-    %   documentation/gui/Parameter_Control.md
-    %   documentation/epsych/EPsychInfo.md
 
 
     properties
         NSubjects (1,1) double {mustBePositive,mustBeInteger} = 1 % Number of subjects in the experiment (default: 1)
 
         HWinUse (1,:) string % List of hardware in use (string array)
-        usingSynapse (1,1) logical = false % True if using Synapse hardware (TO DO: DEPRECATE in favor of checking for presence of Synapse in HW array)
 
         TRIALS            % Protocol-specific trial information, including trial selection function, trial parameters, and trial count
         dfltDataPath (1,1) string = "" % Default data path for output
@@ -57,7 +40,6 @@ classdef Runtime < handle & dynamicprops
 
         TempDataDir (1,1) string = "" % Directory for acquired data
         DataFile string = strings(0,1)   % Filepath(s) for acquired data
-        ON_HOLD (1,:) logical = false % Logical flag for hold state
 
         Interfaces        % Cell array of hardware and software interfaces (e.g., hw.TDT_RPcox, hw.Software)
         HW                % Hardware interface object(s) (e.g., hw.TDT_RPcox)
@@ -74,23 +56,10 @@ classdef Runtime < handle & dynamicprops
 
 
     methods
-        % writeParametersJSON(obj, filepath)
-        %   Serialize runtime parameters to a JSON file.
-        %   See also: documentation/gui/Parameter_Control.md, documentation/epsych/epsych_Runtime.md
-        writeParametersJSON(obj, filepath)
-
-        % readParametersJSON(obj, filepath)
-        %   Load runtime parameters from a JSON file.
-        %   See also: documentation/gui/Parameter_Control.md, documentation/epsych/epsych_Runtime.md
-        readParametersJSON(obj, filepath)
-
-        % dispatchNextTrial(obj, subjectIdx)
-        %   Dispatch the already selected next trial for one subject.
-        dispatchNextTrial(obj, subjectIdx)
-
-        % resolveCoreParameters(obj, subjectIdx)
-        %   Locate and cache mandatory trigger parameters (NewTrial, ResetTrig, TrialComplete) for one subject.
-        resolveCoreParameters(obj, subjectIdx)
+        writeParametersJSON(obj, filepath)      % Serialize runtime parameters to a JSON file.
+        readParametersJSON(obj, filepath)       % Load runtime parameters from a JSON file.
+        dispatchNextTrial(obj, subjectIdx)      % Dispatch the already selected next trial for one subject.
+        resolveCoreParameters(obj, subjectIdx)  % Locate and cache mandatory trigger parameters (NewTrial, ResetTrig, TrialComplete) for one subject.
 
         function self = Runtime
             % self = Runtime
@@ -100,20 +69,18 @@ classdef Runtime < handle & dynamicprops
 
         function P = filter_parameters(obj, propertyName, propertyValue, options, poptions)
             % P = filter_parameters(obj, propertyName, propertyValue, options, poptions)
-            % Filter Parameters by comparing a property to a target value.
+            % Return hw.Parameter objects whose named property matches a target value.
             %
             % Parameters:
-            %   obj           - hw.Interface. Hardware interface that owns the Parameters.
-            %   propertyName  - char. Name of the hw.Parameter property to test.
-            %   propertyValue - any. Target value or pattern passed to testFcn.
-            %   options.testFcn - function_handle (default=@isequal). Comparator such as @isequal, @contains, or @startsWith.
-            %   poptions.includeTriggers - logical (default=false). Include trigger Parameters in the candidate set.
-            %   poptions.includeInvisible - logical (default=false). Include Parameters where Visible is false.
+            %   obj                       - epsych.Runtime instance.
+            %   propertyName              - Name of the hw.Parameter property to test.
+            %   propertyValue             - Target value or pattern passed to testFcn.
+            %   options.testFcn           - Comparator function (default: @isequal); e.g. @contains.
+            %   poptions.includeTriggers  - Include trigger parameters (default: false).
+            %   poptions.includeInvisible - Include invisible parameters (default: false).
             %
             % Returns:
-            %   P - hw.Parameter[]. Parameters whose selected property matches according to testFcn.
-            %
-            % See also: documentation/hw/hw_Interface.md, documentation/hw/hw_Parameter.md
+            %   P - hw.Parameter array matching the filter criterion.
             arguments
                 obj
                 propertyName (1,:) char
@@ -132,18 +99,16 @@ classdef Runtime < handle & dynamicprops
         % find_parameter - Return handle(s) to matching hw.Parameter objects by name
         function P = find_parameter(obj, name, options)
             % P = find_parameter(obj, name, options)
-            % Return handle(s) to matching hw.Parameter objects by name.
+            % Return hw.Parameter handles matching the given name(s).
             %
             % Parameters:
-            %   obj    - hw.Interface. Hardware interface to search.
-            %   name   - char | string | cellstr. Parameter name(s) to search for.
-            %   options.includeInvisible - logical (default=false). Include Parameters where Visible is false.
-            %   options.silenceParameterNotFound - logical (default=false). Suppress warning output when no matches are found.
+            %   obj                               - epsych.Runtime instance.
+            %   name                              - Parameter name(s); char, string, or cellstr.
+            %   options.includeInvisible          - Include invisible parameters (default: false).
+            %   options.silenceParameterNotFound  - Suppress not-found warnings (default: false).
             %
             % Returns:
-            %   P - hw.Parameter[]. Matching Parameter handle(s) in requested name order. Empty if no match.
-            %
-            % See also: documentation/hw/hw_Interface.md, documentation/hw/hw_Parameter.md
+            %   P - hw.Parameter array in requested name order; empty if no match.
             arguments
                 obj
                 name
@@ -164,59 +129,50 @@ classdef Runtime < handle & dynamicprops
                 end
             end
         end
-        function P = all_parameters(obj,optInt,options)
+        
+        function P = all_parameters(obj, options)
             % P = all_parameters(obj, options)
-            % Retrieve all parameters from hardware and software interfaces.
+            % Retrieve all parameters from all registered interfaces, with optional filtering.
             %
             % Parameters:
-            %   obj (1,1) epsych.Runtime
-            %       The runtime object.
-            %   options.HW (1,1) logical
-            %       Include hardware parameters (default: true)
-            %   options.S (1,1) logical
-            %       Include software parameters (default: true)
-            %   options.includeTriggers (1,1) logical
-            %       Include trigger parameters (default: false)
-            %   options.includeInvisible (1,1) logical
-            %       Include invisible parameters (default: false)
-            %   options.includeArray (1,1) logical
-            %       Include array-valued parameters (default: true)
-            %   options.Access (1,1) char {mustBeMember(options.Access,{'Read','Write','Any','All','Read / Write'})}
-            %       Filter by access type (default: 'Read')
-            %   options.asStruct (1,1) logical = false
-            %       Return parameters as struct with valid field names instead of array (default: false)
+            %   obj                      - epsych.Runtime instance.
+            %   options.includeTriggers  - Include trigger parameters (default: false).
+            %   options.includeInvisible - Include invisible parameters (default: false).
+            %   options.includeArray     - Include array-valued parameters (default: true).
+            %   options.Access           - Filter by access: 'Read', 'Write', 'Any', 'All', 'Read / Write' (default: 'Read').
+            %   options.asStruct         - Return as struct keyed by validName instead of array (default: false).
+            %   options.Interface        - Char, string, or cellstr of class name(s) to restrict results to one or
+            %                             more specific interface classes (default: {}, returns all interfaces).
             %
             % Returns:
-            %   P - Array of hw.Parameter objects
-            %
-            % See also: hw.Parameter, hw.Interface, documentation/gui/Parameter_Control.md
+            %   P - hw.Parameter array, or struct if asStruct is true.
 
             arguments
                 obj
-                optInt.HW (1,1) logical = true
-                optInt.S (1,1) logical = true
                 options.asStruct (1,1) logical = false
                 options.includeInvisible (1,1) logical = false
                 options.includeTriggers (1,1) logical = false
                 options.includeArray (1,1) logical = true
                 options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Any','All','Read / Write'})} = 'Read'
+                options.Interface = {}
             end
 
             asStruct = options.asStruct;
-
             options = rmfield(options, 'asStruct');
 
-            copts = namedargs2cell(options);
-            if optInt.S
-                vprintf(3, 'Retrieving all parameters from software interface')
-                P = obj.S.all_parameters(copts{:});
-            end
+            interfaceFilter = cellstr(options.Interface);  % normalize to cellstr; empty cellstr means no filter
+            
+            options = rmfield(options, 'Interface');
 
-            if optInt.HW
-                for i = 1:numel(obj.HW)
-                    vprintf(3, 'Retrieving all parameters from hardware interface: %s', obj.HW(i).Type)
-                    P = [P, obj.HW(i).all_parameters(copts{:})];
+            copts = namedargs2cell(options);
+            P = hw.Parameter.empty;
+            for i = 1:numel(obj.Interfaces)
+                iface = obj.Interfaces{i};
+                if ~isempty(interfaceFilter) && ~any(cellfun(@(c) isa(iface, c), interfaceFilter))
+                    continue
                 end
+                vprintf(4, 'Retrieving all parameters from %s', class(iface))
+                P = [P, iface.all_parameters(copts{:})];
             end
 
             if asStruct
@@ -226,24 +182,15 @@ classdef Runtime < handle & dynamicprops
                 end
                 P = P_;
             end
-
-
         end
 
         function updateTrialsFromParameters(obj, Parameters)
             % updateTrialsFromParameters(obj, Parameters)
-            % Update runtime TRIALS information based on current parameter values.
+            % Sync writable TRIALS fields from current parameter values. Updates obj.TRIALS in-place.
             %
             % Parameters:
-            %   obj (1,1) epsych.Runtime
-            %       The runtime object.
-            %   Parameters (1,:) hw.Parameter
-            %       Parameters used to update writable TRIALS fields.
-            %
-            % Returns:
-            %   None. Updates obj.TRIALS in-place.
-            %
-            % See also: documentation/epsych/epsych_Runtime.md, documentation/gui/Parameter_Control.md
+            %   obj        - epsych.Runtime instance.
+            %   Parameters - hw.Parameter array to sync from; non-writable entries are ignored.
 
             arguments
                 obj
@@ -268,17 +215,15 @@ classdef Runtime < handle & dynamicprops
 
         function tf = local_test(fcn, val, pat)
             % tf = local_test(fcn, val, pat)
-            % Normalize comparison output to a logical scalar.
+            % Normalize any comparison result to a logical scalar.
             %
             % Parameters:
-            %   fcn - function_handle. Comparison function, e.g. @isequal, @contains.
-            %   val - any. Value from the Parameter property.
-            %   pat - any. Pattern/target value passed to the comparison function.
+            %   fcn - Comparison function; e.g. @isequal, @contains, @regexp.
+            %   val - Value from the Parameter property.
+            %   pat - Pattern or target value passed to fcn.
             %
             % Returns:
-            %   tf - logical. True if the comparison indicates a match.
-            %
-            % See also: documentation/hw/hw_Interface.md
+            %   tf - True if fcn indicates a match.
             res = fcn(val, pat);
             if islogical(res) && isscalar(res)
                 tf = res;
@@ -297,21 +242,14 @@ classdef Runtime < handle & dynamicprops
 
         function createTemplateJSON(filepath)
             % createTemplateJSON(filepath)
-            % Create a template JSON phase file with example fields for hw.Parameter serialization.
+            % Write a template JSON file with example hw.Parameter fields to disk.
+            % Prompts for location if filepath is omitted.
             %
             % Parameters:
-            %   filepath (1,:) string
-            %       Full path to save the template JSON file. If not provided, prompts user to select location.
+            %   filepath - Full path for the output JSON file (optional; opens uiputfile if empty).
             %
-            % Returns:
-            %   None. Writes template JSON file to disk.
-            %
-            % Example usage:
+            % Example:
             %   epsych.Runtime.createTemplateJSON('C:/path/to/template.json');
-            %
-            % The template includes example fields for hardware and software parameters.
-            %
-            % See also: documentation/gui/Parameter_Control.md, documentation/epsych/epsych_Runtime.md
 
             if nargin < 1 || isempty(filepath)
                 [fn, pth] = uiputfile('*.json', 'Save Template Phase JSON As');

@@ -72,140 +72,18 @@ classdef AMnoise < stimgen.Noise
             
             obj.apply_calibration;
         end
-    
-        function create_gui(obj,src,evnt)
-            g = uigridlayout(src);
-            g.ColumnWidth = {'1x','1x','1x'};
-            g.RowHeight = repmat({25},1,8);
-            
-            R = 1;
-            x = uilabel(g,'Text','AM Depth:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','AMDepth');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [0 1];
-            x.ValueDisplayFormat = '%.2f';
-            x.Value = obj.AMDepth;
-            h.AMDepth = x;
-            
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Onset Phase:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','OnsetPhase');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [-180 180];
-            x.ValueDisplayFormat = '%.2f deg';
-            x.Value = obj.OnsetPhase;
-            h.OnsetPhase = x;
-            
-            R = R + 1;
-            
-            
-            
-            x = uilabel(g,'Text','HighPass Fc:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','HighPass');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [100 40000];
-            x.ValueDisplayFormat = '%.1f Hz';
-            x.Value = obj.HighPass;
-            h.HighPass = x;
-            
-            R = R + 1;
-            x = uilabel(g,'Text','LowPass Fc:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','LowPass');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [100 40000];
-            x.ValueDisplayFormat = '%.1f Hz';
-            x.Value = obj.LowPass;
-            h.LowPass = x;
-                        
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Duration:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','Duration');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [0.001 10];
-            x.ValueDisplayFormat = '%.3f s';
-            x.Value = obj.Duration;
-            h.Duration = x;
-                        
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Window Duration:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','WindowDuration');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [1e-6 10];
-            x.ValueDisplayFormat = '%.4f s';
-            x.Value = obj.WindowDuration;
-            h.WindowDuration = x;
-            
-                 
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Sound Level:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'Numeric','Tag','SoundLevel');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Value = obj.SoundLevel;
-            h.SoundLevel = x;
-            
-%             R = R + 1;
-%             
-%             x = uilabel(g,'Text','Normalization:');
-%             x.Layout.Column = 1;
-%             x.Layout.Row    = R;
-%             x.HorizontalAlignment = 'right';
-%             
-%             x = uidropdown(g,'Tag','Normalization');
-%             x.Layout.Column = 2;
-%             x.Layout.Row = R;
-%             x.Items = ["none","absmax","rms","max","min"];
-%             x.Value = obj.Normalization;
-%             h.Normalization = x;
-%             
-%             
-            
-            
-            structfun(@(a) set(a,'ValueChangedFcn',@obj.interpret_gui),h);
-            
-            obj.GUIHandles = h;
-            
-%             obj.create_handle_listeners;
-        end
-        
     end
-    
-end
+
+    methods (Access = protected)
+        function m = propMeta(obj)
+            % propMeta() - Display metadata for AMnoise GUI properties.
+            m = struct();
+            m.AMDepth    = struct('label', 'AM Depth',              'format', '%.2f',     'limits', [0 1]);
+            m.AMRate     = struct('label', 'AM Rate',               'format', '%.1f Hz',  'limits', [0.1 500]);
+            m.OnsetPhase = struct('label', 'Onset Phase',           'format', '%.1f deg');
+            m.EnvelopeOnly               = struct('label', 'Envelope Only');
+            m.ApplyViemeisterCorrection  = struct('label', 'Viemeister Correction');
+            m = stimgen.StimType.merge_prop_meta(m, propMeta@stimgen.Noise(obj));
+        end
+    end
+

@@ -53,105 +53,30 @@ classdef Tone < stimgen.StimType
             obj.apply_calibration;
         end
         
-        function h = create_gui(obj,src,evnt)
-            g = uigridlayout(src);
-            g.ColumnWidth = {'1x','1x','1x'};
-            g.RowHeight = repmat({25},1,8);
-            
-            R = 1;
-            x = uilabel(g,'Text','Frequency:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','Frequency');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [100 40000];
-            x.ValueDisplayFormat = '%.1f Hz';
-            x.Value = obj.Frequency;
-            h.Frequency = x;
-            
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Sound Level:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'Numeric','Tag','SoundLevel');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Value = obj.SoundLevel;
-            h.SoundLevel = x;
-            
-            
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Duration:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','Duration');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [0.001 10];
-            x.ValueDisplayFormat = '%.3f s';
-            x.Value = obj.Duration;
-            h.Duration = x;
-                        
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Window Duration:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','WindowDuration');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [1e-6 10];
-            x.ValueDisplayFormat = '%.4f s';
-            x.Value = obj.WindowDuration;
-            h.WindowDuration = x;
-            
-            x = uidropdown(g,'Tag','WindowMethod');
-            x.Layout.Column = 3;
-            x.Layout.Row = R;
-            x.Items = ["Duration" "Proportional" "#Periods"];
-            x.Value = obj.WindowMethod;
-            h.WindowDurationMethod = x;
-            
-            structfun(@(a) set(a,'ValueChangedFcn',@obj.interpret_gui),h);
-            
-            obj.GUIHandles = h;
-            
-%             obj.create_handle_listeners;
-        end
-        
     end
-    
+
     methods (Access = protected)
-        function interpret_gui(obj,src,event)
-            try
-                obj.(src.Tag) = event.Value;
-            catch
-                obj.(src.Tag) = event.PreviousValue;
-            end
-            
-            if isequal(src.Tag,'WindowMethod')
-                switch src.Value
-                    case 'Proportional'
-                        fmt = '%.2f%%';
-                    case 'Duration'
-                        fmt = '%.4f s';
-                    case '#Periods'
-                        fmt = '%.1f periods';
+        function m = propMeta(obj)
+            % propMeta() - Display metadata for Tone GUI properties.
+            m = struct();
+            m.Frequency    = struct('label', 'Frequency',     'format', '%.1f Hz',  'limits', [100 40000]);
+            m.OnsetPhase   = struct('label', 'Onset Phase',   'format', '%.1f deg');
+            m.WindowMethod = struct('label', 'Window Method', 'widget', 'dropdown', 'items', ["Duration" "Proportional" "#Periods"]);
+            m = stimgen.StimType.merge_prop_meta(m, propMeta@stimgen.StimType(obj));
+        end
+
+        function on_gui_changed(obj, propName, ~)
+            % Update WindowDuration format label when WindowMethod changes.
+            if strcmp(propName, 'WindowMethod')
+                switch obj.WindowMethod
+                    case 'Proportional', fmt = '%.2f%%';
+                    case 'Duration',     fmt = '%.4f s';
+                    case '#Periods',     fmt = '%.1f periods';
                 end
-                obj.GUIHandles.WindowDuration.ValueDisplayFormat = fmt;
+                if isfield(obj.GUIHandles, 'WindowDuration') && isvalid(obj.GUIHandles.WindowDuration)
+                    obj.GUIHandles.WindowDuration.ValueDisplayFormat = fmt;
+                end
             end
         end
-        
     end
 end

@@ -102,110 +102,23 @@ classdef ClickTrain < stimgen.StimType
             
             obj.apply_calibration;
         end
-        
-        
-        function h = create_gui(obj,src,evnt)
-            g = uigridlayout(src);
-            g.ColumnWidth = {'1x','1x','1x'};
-            g.RowHeight = repmat({25},1,8);
-            
-            R = 1;
-            x = uilabel(g,'Text','Rate:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','Rate');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [.1 1e6];
-            x.ValueDisplayFormat = '%.1f Hz';
-            x.Value = obj.Rate;
-            h.Rate = x;
-            
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Click Duration:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','ClickDuration');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [1e-6 1];
-            x.ValueDisplayFormat = '%.6f s';
-            x.Value = obj.ClickDuration;
-            h.ClickDuration = x;
-                        
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Train Duration:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','Duration');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [1e-6 10];
-            x.ValueDisplayFormat = '%.3f s';
-            x.Value = obj.Duration;
-            h.Duration = x;
-            
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Polarity:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uidropdown(g,'Tag','Polarity');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Items = ["+ Positive","+/- Alternate","- Negative"];
-            x.ItemsData = {1, 0, -1};
-            x.Value = obj.Polarity;
-            h.Polarity = x;
-            
-            
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Sound Level:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'Numeric','Tag','SoundLevel');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Value = obj.SoundLevel;
-            h.SoundLevel = x;
-            
-%             
-%             R = R + 1;
-%             
-%             x = uilabel(g,'Text','Normalization:');
-%             x.Layout.Column = 1;
-%             x.Layout.Row    = R;
-%             x.HorizontalAlignment = 'right';
-%             
-%             x = uidropdown(g,'Tag','Normalization');
-%             x.Layout.Column = 2;
-%             x.Layout.Row = R;
-%             x.Items = ["none","absmax","rms","max","min"];
-%             x.Value = obj.Normalization;
-%             h.Normalization = x;
-%             
-            
-            
-            structfun(@(a) set(a,'ValueChangedFcn',@obj.interpret_gui),h);
-            
-            obj.GUIHandles = h;
-            
-%             obj.create_handle_listeners;
-        end
-        
     end
-    
+
+    methods (Access = protected)
+        function m = propMeta(obj)
+            % propMeta() - Display metadata for ClickTrain GUI properties.
+            m = struct();
+            m.Rate          = struct('label', 'Rate',           'format', '%.1f Hz',  'limits', [0.1 1e6]);
+            m.ClickDuration = struct('label', 'Click Duration', 'format', '%.6f s',   'limits', [1e-6 1]);
+            m.Polarity      = struct('label', 'Polarity', 'widget', 'dropdown', ...
+                                    'items',     {{'+ Positive', '+/- Alternate', '- Negative'}}, ...
+                                    'itemsData', {{1, 0, -1}});
+            m.OnsetDelay    = struct('label', 'Onset Delay',    'format', '%.4f s');
+            m.Truncate      = struct('label', 'Truncate');
+            base = propMeta@stimgen.StimType(obj);
+            base.Duration.label = 'Train Duration';
+            m = stimgen.StimType.merge_prop_meta(m, base);
+        end
+    end
+
 end

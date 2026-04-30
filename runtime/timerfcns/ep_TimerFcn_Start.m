@@ -70,9 +70,7 @@ for i = 1:RUNTIME.NSubjects
     pth = fullfile(RUNTIME.dfltDataPath,sn);
     RUNTIME.TRIALS(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
 
-    RUNTIME.ON_HOLD(i) = false;
 
-  
 
 end
 

@@ -133,29 +133,13 @@ classdef FMtone < stimgen.StimType
         
     end
 
-
     methods (Access = protected)
-        function interpret_gui(obj,src,event)
-            try
-                obj.(src.Tag) = event.Value;
-            catch
-                obj.(src.Tag) = event.PreviousValue;
-            end
-            
-            if isequal(src.Tag,'WindowMethod')
-                switch src.Value
-                    case 'Proportional'
-                        fmt = '%.2f%%';
-                    case 'Duration'
-                        fmt = '%.4f s';
-                    case '#Periods'
-                        fmt = '%.1f periods';
-                end
-                obj.GUIHandles.WindowDuration.ValueDisplayFormat = fmt;
-            end
-
-            obj.update_signal;
+        function m = propMeta(obj)
+            % propMeta() - Display metadata for FMtone GUI properties.
+            m = struct();
+            m.CarrierFrequency    = struct('label', 'Carrier Freq',  'format', '%.1f Hz',  'limits', [1 80000]);
+            m.ModulationFrequency = struct('label', 'FM Rate',        'format', '%.2f Hz',  'limits', [0 40000]);
+            m.ModulationDepth     = struct('label', 'FM Depth (Hz)',  'format', '%.1f Hz',  'limits', [0 20000]);
+            m.OnsetPhase          = struct('label', 'Onset Phase',    'format', '%.3f rad');
+            m = stimgen.StimType.merge_prop_meta(m, propMeta@stimgen.StimType(obj));
         end
-        
-    end
-end

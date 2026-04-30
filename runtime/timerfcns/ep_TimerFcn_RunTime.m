@@ -28,9 +28,6 @@ for i = 1:RUNTIME.NSubjects
             TStag = RUNTIME.CORE(i).TrigState.Value;
 
             if ~RCtag || TStag, continue; end
-
-
-
                 
             % There was a response and the trial is over.
             % Retrieve parameter data for this trial and save in TRIALS structure. 
@@ -54,14 +51,19 @@ for i = 1:RUNTIME.NSubjects
             data.TrialID     = RUNTIME.TRIALS(i).NextTrialID;
             data.computerTimestamp = datetime('now');
 
-            RUNTIME.TRIALS(i).DATA(RUNTIME.TRIALS(i).TrialIndex) = data;
+            trialIdx = RUNTIME.TRIALS(i).TrialIndex;
 
+            % Store data in runtime struct for this trial
+            RUNTIME.TRIALS(i).DATA(trialIdx) = data;
+
+            % Append only the new trial entry to the data file (avoids rewriting all accumulated trials)
+            m = matfile(RUNTIME.DataFile(i), 'Writable', true);
+            m.allData(1, trialIdx) = data;
+
+            
             % Notify selector that this trial completed
             RUNTIME.TRIALS(i).selector.onComplete(RUNTIME.TRIALS(i).NextTrialID, data);
 
-            % Save updated runtime data in case of crash (saves all accumulated trials)
-            allData = RUNTIME.TRIALS(i).DATA;
-            save(RUNTIME.DataFile(i),'allData','-append','-v6'); % -v6 is much faster because it doesn't use compression
 
             % Broadcast event data has been updated
             evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));

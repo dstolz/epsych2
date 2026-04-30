@@ -27,6 +27,7 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).trials        = compiled.trials;
     RUNTIME.TRIALS(i).selector      = epsych.TrialSelector.create(selectorConfig);
     RUNTIME.TRIALS(i).selector.initialize(RUNTIME.TRIALS(i));
+    RUNTIME.TRIALS(i).selector.setRuntime(RUNTIME, i);
     RUNTIME.TRIALS(i).Subject       = C.SUBJECT;
     RUNTIME.TRIALS(i).BoxID         = C.SUBJECT.BoxID;
 

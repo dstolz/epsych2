@@ -23,6 +23,11 @@ classdef TrialSelector < handle
     %
     % Full documentation: documentation/epsych/epsych_TrialSelector.md
 
+    properties (Access = protected)
+        runtime_                      % epsych.Runtime handle (set via setRuntime)
+        subjectIdx_ (1,1) double = 1  % subject index into RUNTIME.TRIALS
+    end
+
     methods (Abstract)
         initialize(obj, TRIALS)
         % initialize(obj, TRIALS)
@@ -63,6 +68,20 @@ classdef TrialSelector < handle
             % Parameters:
             %   trialID - scalar row index of the completed trial
             %   data    - struct of response parameter values from runtime
+        end
+
+        function setRuntime(~, ~, ~)
+            % setRuntime(obj, runtime, subjectIdx)
+            % Called after initialize with the live RUNTIME handle and subject index.
+            % Default implementation is a no-op.
+            % Override in subclasses that need to write back to RUNTIME.TRIALS
+            % (e.g., to update the trials table with staircase-computed values).
+            %
+            % Parameters:
+            %   runtime    - epsych.Runtime handle
+            %   subjectIdx - scalar index into RUNTIME.TRIALS
+            obj.runtime_    = runtime;
+            obj.subjectIdx_ = subjectIdx;
         end
     end
 

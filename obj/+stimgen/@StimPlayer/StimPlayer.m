@@ -4,6 +4,8 @@ classdef StimPlayer < handle
     % obj = stimgen.StimPlayer(RUNTIME)
     % Standalone stimulus bank and playback peripheral for EPsych.
     %
+    % Developer guide: documentation/stimgen/stimgen_StimPlayer.md
+    %
     % Manages a named bank of stimgen.StimPlay objects, schedules them
     % using a serial or shuffle strategy at a configurable global ISI,
     % uploads audio buffers to hardware via epsych.Runtime, and triggers

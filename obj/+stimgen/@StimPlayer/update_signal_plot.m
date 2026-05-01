@@ -1,5 +1,6 @@
 function update_signal_plot(obj)
 % update_signal_plot(obj) - Refresh the signal plot with the current bank item.
+% Developer guide: documentation/stimgen/stimgen_StimPlayer.md
 % Uses the listbox selection when idle; falls back to CurrentSPObj during playback.
 
 h = obj.handles;

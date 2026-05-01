@@ -4,6 +4,7 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
     % Calibration workflow for mapping desired SPL to output voltage.
     %
     % Package guide: documentation/stimgen/stimgen_overview.md
+    % Class guide: documentation/stimgen/stimgen_StimCalibration.md
     %
     % This class provides GUI-driven reference measurement and calibration
     % routines, storing results in CalibrationData for use by StimType

@@ -4,6 +4,7 @@ classdef StimGenInterface < handle% & gui.Helper
     % GUI/controller for scheduling and triggering stimulus playback.
     %
     % Package guide: documentation/stimgen/stimgen_overview.md
+    % Controller guide: documentation/stimgen/stimgen_StimGenInterface.md
     %
     % This interface manages stimgen.StimPlay objects, writes stimulus
     % buffers to the underlying hardware parameter interface, and triggers

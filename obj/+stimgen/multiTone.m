@@ -3,6 +3,7 @@ classdef multiTone < stimgen.StimType
     % Multi-tone stimulus generator (grid of frequency x level).
     %
     % Package guide: documentation/stimgen/stimgen_overview.md
+    % Class guide: documentation/stimgen/stimgen_StimType.md
     %
     % This StimType builds a set of stimgen.Tone objects from the expression
     % strings Frequency_MO and SoundLevel_MO and concatenates their signals.

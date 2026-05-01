@@ -4,6 +4,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
     % Abstract base class for stimulus generation objects.
     %
     % Package guide: documentation/stimgen/stimgen_overview.md
+    % Class guide: documentation/stimgen/stimgen_StimType.md
     %
     % Subclasses implement update_signal() and define calibration and
     % normalization behavior. This base class provides shared properties for

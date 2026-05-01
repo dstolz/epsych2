@@ -4,6 +4,7 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
     % Simplified stimgen interface for a single StimPlay object.
     %
     % Package guide: documentation/stimgen/stimgen_overview.md
+    % Controller guide: documentation/stimgen/stimgen_StimGenInterface.md
     %
     % This controller writes stimulus buffers to hardware parameters and
     % triggers playback on a timer.

@@ -118,185 +118,160 @@ sg.Calibration = cal;
 ```
 
 The full interface also exposes a `Calibration` menu item. Once a calibration object is attached, it propagates through `StimPlay` into the underlying `StimType` objects.
+# Stimulus Generation Package
 
-When you press `Run`, the interface:
+`stimgen` is EPsych's stimulus authoring, calibration, and playback layer.
 
-- resets repetition counts
-- selects the next stimulus group
-- writes the next waveform into the non-triggered hardware buffer
-- triggers playback on a timer using `x_Trigger_0` and `x_Trigger_1`
-- alternates buffers using `BufferData_0/1` and `BufferSize_0/1`
-- logs stimulus order and trigger time for later saving
+At a high level, the package lets you:
 
-## Runtime and Hardware Expectations
+- define waveforms as MATLAB objects
+- scale those waveforms with acoustic calibration data
+- present them through MATLAB preview audio or the stimgen RPvds circuit
 
-The stimgen GUIs are not generic standalone waveform tools. They expect an EPsych runtime object that exposes hardware parameters with names used by the RPvds stimgen circuit.
+This overview is the entry point for the subsystem. Use the linked guides for
+the details behind each major class.
 
-The playback controllers depend on parameters such as:
+## Documentation map
 
-- `BufferData_0`, `BufferData_1`
-- `BufferSize_0`, `BufferSize_1`
-- `x_Trigger_0`, `x_Trigger_1`
+- [stimgen_StimType.md](stimgen_StimType.md): base stimulus contract, built-in
+    stimulus classes, discovery rules, and extension points
+- [stimgen_StimPlay.md](stimgen_StimPlay.md): repetition and selection wrapper
+    used by all playback tools
+- [stimgen_StimCalibration.md](stimgen_StimCalibration.md): calibration
+    workflow, `.sgc` files, and voltage lookup behavior
+- [stimgen_StimGenInterface.md](stimgen_StimGenInterface.md): classic full and
+    simple playback GUIs, `.sgi` configs, and timer-driven hardware playback
+- [stimgen_StimPlayer.md](stimgen_StimPlayer.md): standalone stimulus-bank tool
+    with `.spl` save/load support
 
-The sample rate is taken from `RUNTIME.HW.HW.FS`. If the runtime or parameter names do not match the expected stimgen circuit, the GUIs will construct but playback and calibration will fail.
+## Core workflow
 
-## Developer Architecture
+Most `stimgen` workflows follow the same model:
 
-### `StimType`: base abstraction
+1. Create or edit a `stimgen.StimType` object such as `Tone` or `Noise`.
+2. Wrap it in `stimgen.StimPlay` if you need repetitions, ISI handling, or
+     multi-object sweep presentation.
+3. Attach a `stimgen.StimCalibration` object when output level must be tied to
+     measured SPL.
+4. Present the result through `StimGenInterface`,
+     `StimGenInterface_Simple`, or `StimPlayer`.
 
-`stimgen.StimType` owns the shared signal-generation contract.
-
-Responsibilities of the base class:
-
-- stores common parameters such as `SoundLevel`, `Duration`, `Fs`, and windowing controls
-- listens to public `SetObservable` properties and regenerates the waveform when they change
-- auto-builds a parameter GUI from `propMeta()`
-- provides `plot`, `play`, `toStruct`, gating, normalization, and calibration helpers
-
-Every concrete stimulus type must define these constants:
-
-- `IsMultiObj`
-- `CalibrationType`
-- `Normalization`
-
-Every concrete stimulus type must also implement:
-
-- `update_signal(obj)`
-
-Typical `update_signal` pipeline:
+Minimal example:
 
 ```matlab
-obj.Signal = ...;          % generate raw waveform
-obj.apply_gate();          % optional onset/offset windowing
-obj.apply_normalization(); % normalize using the class constant
-obj.apply_calibration();   % convert to calibrated output voltage
+tone = stimgen.Tone('Frequency', 4000, 'SoundLevel', 60);
+sp   = stimgen.StimPlay(tone);
+sp.Reps = 20;
+
+cal = stimgen.StimCalibration(RUNTIME);
+tone.Calibration = cal;
+
+gui = stimgen.StimGenInterface(RUNTIME);
+gui.Calibration = cal;
 ```
 
-### GUI metadata and callbacks
+## Built-in stimulus classes
 
-The current base class includes a generic `create_gui()` implementation driven by `propMeta()` metadata. In practice this means new stimulus classes do not need to hand-build UI controls unless they need custom behavior.
+The repository currently includes these main stimulus-definition classes:
 
-Relevant hooks:
+- `stimgen.Tone`
+- `stimgen.Noise`
+- `stimgen.AMnoise`
+- `stimgen.AttackModNoise`
+- `stimgen.ClickTrain`
+- `stimgen.FMtone`
+- `stimgen.ParamSweep`
 
-- `propMeta()`: returns labels, limits, formats, and widget types for GUI-visible properties
-- `on_gui_changed(propName, value)`: optional hook for side effects after a GUI edit
-- `UserProperties`: ordered list used for serialization and display
-- `DisplayName`: title used in the full stimgen tab set
+The older `stimgen.multiTone` class is still present, but it is deprecated and
+hidden from the modern auto-discovery path. For new sweep-style work, prefer
+`stimgen.ParamSweep`.
 
-### `StimPlay`: scheduling wrapper
+## Choosing the right tool
 
-`stimgen.StimPlay` wraps one `StimType` instance or one multi-object stimulus and adds playback state:
+### Use `StimCalibration` when
 
-- repetition count (`Reps`)
-- inter-stimulus interval (`ISI`)
-- selection mode (`Serial` or `Shuffle`)
-- current stimulus index within the wrapped set
+- you need measured SPL-to-voltage mapping
+- you want to save or load reusable `.sgc` calibration files
+- your stimulus classes will run with `ApplyCalibration = true`
 
-This class is the bridge between a waveform definition and the playback GUIs. It is also where `multiTone` becomes manageable during repeated presentation, because `StimPlay` knows how to address either `StimObj(i)` or `StimObj.MultiObjects(i)`.
+### Use `StimGenInterface` when
 
-### `StimCalibration`: calibration lookup manager
+- you want the classic full playback GUI
+- you need multiple named `StimPlay` entries in one session
+- you want one editing tab per discoverable stimulus type
 
-`stimgen.StimCalibration` measures reference responses and stores the result in `CalibrationData`. `StimType.apply_calibration()` later reads that data and maps requested stimulus parameters to output voltage.
+### Use `StimGenInterface_Simple` when
 
-Current calibration behavior is organized by `CalibrationType`, with built-in handling for cases such as:
+- you only need one `StimPlay` entry
+- you want the same hardware playback path with less session management UI
 
-- `"tone"`
-- `"click"`
-- filter-based equalization for noise-like signals
+### Use `StimPlayer` when
 
-If you add a new calibration mode, you will likely need coordinated changes in both the stimulus class and the calibration code path.
+- you want a standalone bank editor outside a full experiment workflow
+- you want easy local preview even when hardware is absent
+- you want to save and reload stimulus banks as `.spl` files
 
-### `StimGenInterface`: timed playback controller
+## Runtime and hardware expectations
 
-`stimgen.StimGenInterface` manages a list of `StimPlay` objects and drives timed hardware playback through a MATLAB timer.
+The active playback and calibration tools assume an `epsych.Runtime` whose
+hardware layer exposes the parameter names expected by the stimgen RPvds
+circuit.
 
-Important implementation details:
+The most important playback parameters are:
 
-- stimulus classes are discovered by `stimgen.StimType.list()` scanning `obj/+stimgen/*.m`
-- the GUI creates one tab per discovered class and instantiates each class once for editing
-- playback uses ping-pong buffering to prepare the next waveform while the current one is being presented
-- the timer loop busy-waits until the target ISI expires, then triggers hardware and schedules the next stimulus
+- `BufferData_0`
+- `BufferData_1`
+- `BufferSize_0`
+- `BufferSize_1`
+- `x_Trigger_0`
+- `x_Trigger_1`
 
-Because discovery is file-based, helper classes placed directly in `obj/+stimgen` can accidentally appear as stimulus tabs. Keep non-stimulus helpers elsewhere, or update the filtering logic in `StimType.list()`.
+The sample rate is taken from `RUNTIME.HW.HW.FS`.
 
-## Adding a New Stimulus Type
+If the runtime object is missing or the expected parameters are unavailable,
+the GUIs may still open, but hardware-triggered playback and calibration will
+not work correctly.
 
-### Minimum implementation
+## Saved file types
 
-Create a new class file in `obj/+stimgen` that subclasses `stimgen.StimType`.
+The subsystem uses several save formats depending on the tool.
 
-```matlab
-classdef MyStim < stimgen.StimType
+- `.sgc`: calibration files from `StimCalibration`
+- `.sgi`: saved configurations for `StimGenInterface` and
+    `StimGenInterface_Simple`
+- `.spl`: stimulus-bank files from `StimPlayer`
+- `.mat`: presentation-order logs saved after a playback run
 
-    properties (SetObservable, AbortSet)
-        Frequency (1,1) double {mustBePositive,mustBeFinite} = 2000
-    end
+The repository also includes older `StimGen.prot` and `StimGen.ecfg` assets.
+Those are part of the broader stimgen tooling history, but the current GUI
+save/load paths described here revolve around `.sgc`, `.sgi`, and `.spl`.
 
-    properties (Constant)
-        IsMultiObj = false
-        CalibrationType = "tone"
-        Normalization = "absmax"
-    end
+## Developer notes
 
-    methods
-        function obj = MyStim(varargin)
-            obj = obj@stimgen.StimType(varargin{:});
-            obj.DisplayName = 'My Stim';
-            obj.UserProperties = ["Frequency","SoundLevel","Duration","WindowDuration","ApplyWindow"];
-        end
+Several package behaviors are driven by file and metadata conventions.
 
-        function update_signal(obj)
-            obj.Signal = sin(2*pi*obj.Frequency*obj.Time);
-            obj.apply_gate();
-            obj.apply_normalization();
-            obj.apply_calibration();
-        end
-    end
+- `StimType.list()` scans `obj/+stimgen` to decide which classes appear in GUI
+    lists.
+- `StimType.propMeta()` and `create_gui()` control how stimulus editors are
+    built.
+- `StimGenInterface` discovers cross-item selection strategies from
+    `stimselect_*.m` files.
+- `StimType.apply_calibration()` and `StimCalibration` are coupled through the
+    stimulus class `CalibrationType` constant.
 
-    methods (Access = protected)
-        function m = propMeta(obj)
-            m = struct();
-            m.Frequency = struct('label', 'Frequency', 'format', '%.1f Hz', 'limits', [100 40000]);
-            m = stimgen.StimType.merge_prop_meta(m, propMeta@stimgen.StimType(obj));
-        end
-    end
-end
-```
+Two practical implications follow from that design.
 
-### How discovery works
+- Adding a new stimulus class is usually straightforward if its constructor,
+    metadata, and `update_signal()` implementation are clean.
+- Adding a new calibration mode or a new cross-item selection strategy often
+    requires coordinated edits across multiple files.
 
-New classes appear automatically in `StimGenInterface` and `StimGenInterface_Simple` if all of these are true:
-
-- the class lives directly in `obj/+stimgen`
-- the filename matches the class name
-- the constructor can be called with no required positional arguments
-- the file is not filtered out by `StimType.list()`
-
-### Calibration decisions
-
-Before adding a new type, decide which calibration behavior it should use:
-
-- reuse an existing `CalibrationType` if one already matches the signal
-- add new lookup logic only if the existing tone, click, or filter paths are insufficient
-
-If the new signal needs its own calibration behavior, update the calibration code deliberately. The current package couples calibration strategy to the stimulus class constant.
-
-### Multi-object types
-
-`multiTone` shows the current pattern for one stimulus definition that expands into many presentable objects. Use that approach only if the GUI should define a family of stimuli as one logical item. If you do, expect to touch both `StimPlay` and any code that assumes a one-to-one relationship between a `StimType` object and a presentable waveform.
-
-## Practical Notes and Caveats
-
-- `multiTone` evaluates its frequency and level expressions with `eval`. Treat those fields as MATLAB expressions, not plain text labels.
-- `ClickTrain` disables the default windowing path and uses click-specific duration checks.
-- Property listeners on `StimType` regenerate signals automatically. This is convenient, but expensive properties should still be validated carefully.
-- `StimGenInterface` and `StimGenInterface_Simple` use a timer plus a short busy-wait around trigger time. That behavior is intentional for timing, but it can make the UI feel less responsive during active playback.
-
-## Related Files
+## Related files
 
 - `obj/+stimgen/StimType.m`
 - `obj/+stimgen/StimPlay.m`
+- `obj/+stimgen/ParamSweep.m`
 - `obj/+stimgen/@StimCalibration/StimCalibration.m`
 - `obj/+stimgen/@StimGenInterface/StimGenInterface.m`
 - `obj/+stimgen/@StimGenInterface_Simple/StimGenInterface_Simple.m`
-- `obj/+stimgen/multiTone.m`
+- `obj/+stimgen/@StimPlayer/StimPlayer.m`

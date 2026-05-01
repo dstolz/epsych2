@@ -2,6 +2,9 @@ classdef ParamSweep < stimgen.StimType
     % obj = stimgen.ParamSweep(stim, Name, Value, ...)
     % Generic full-factorial parameter-sweep stimulus container.
     %
+    % Package guide: documentation/stimgen/stimgen_overview.md
+    % Class guide: documentation/stimgen/stimgen_StimType.md
+    %
     % Wraps any stimgen.StimType subclass (the Prototype) and builds a
     % full-factorial array of child stimulus objects from a SweepParams
     % struct. Replaces the tightly-coupled stimgen.multiTone class.

@@ -99,11 +99,18 @@ classdef Runtime < handle & dynamicprops
         % find_parameter - Return handle(s) to matching hw.Parameter objects by name
         function P = find_parameter(obj, name, options)
             % P = find_parameter(obj, name, options)
-            % Return hw.Parameter handles matching the given name(s).
+            % Return hw.Parameter handles matching the given name(s), with optional
+            % pre-filtering by interface class, interface type string, or module name.
             %
             % Parameters:
             %   obj                               - epsych.Runtime instance.
             %   name                              - Parameter name(s); char, string, or cellstr.
+            %   options.Interface                 - Interface class name(s) to restrict to (char, string, or
+            %                                       cellstr); e.g. 'hw.Software'. Uses isa() matching.
+            %   options.InterfaceName             - hw.Interface.Type string(s) to restrict to (char, string,
+            %                                       or cellstr); e.g. 'Software', 'TDT_Synapse'.
+            %   options.ModuleName                - hw.Module.Name string(s) to restrict to (char, string,
+            %                                       or cellstr); e.g. 'Params'.
             %   options.includeInvisible          - Include invisible parameters (default: false).
             %   options.silenceParameterNotFound  - Suppress not-found warnings (default: false).
             %
@@ -112,10 +119,26 @@ classdef Runtime < handle & dynamicprops
             arguments
                 obj
                 name
+                options.Interface = {}
+                options.InterfaceName = {}
+                options.ModuleName = {}
                 options.includeInvisible (1,1) logical = false
                 options.silenceParameterNotFound (1,1) logical = false
             end
-            P = obj.all_parameters(includeInvisible = options.includeInvisible);
+            P = obj.all_parameters( ...
+                includeInvisible = options.includeInvisible, ...
+                Interface        = options.Interface);
+
+            if ~isempty(options.InterfaceName)
+                ifNames = cellstr(options.InterfaceName);
+                P = P(arrayfun(@(p) any(strcmp(p.HW.Type, ifNames)), P));
+            end
+
+            if ~isempty(options.ModuleName)
+                modNames = cellstr(options.ModuleName);
+                P = P(arrayfun(@(p) any(strcmp(p.Module.Name, modNames)), P));
+            end
+
             name = cellstr(name);
             ind = ismember({P.Name},name);
             if any(ind)

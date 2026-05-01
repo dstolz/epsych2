@@ -42,6 +42,24 @@ function onParamEdited(obj, evt)
                     parameter.isArray = updatedAllowMultiple;
                     parameter.Values = hw.Parameter.normalizeValues(fileValue);
                     nextStep = 'Review the selected files, then compile to verify they produce the expected trials.';
+                elseif isequal(parameter.Type, 'StimType')
+                    originalStimTypeLike = ~isempty(originalValues) && ...
+                        all(cellfun(@(v) isa(v, 'stimgen.StimType'), originalValues));
+                    if ~originalStimTypeLike
+                        parameter.Values = {};
+                    end
+                    [stimValues, cancelled] = obj.editParameterStimTypeValue(parameter);
+                    if cancelled
+                        parameter.Type = originalType;
+                        parameter.Values = originalValues;
+                        obj.refreshParameterTable();
+                        obj.setStatus(sprintf('StimType selection cancelled for %s', parameter.Name), ...
+                            'Use the Value column to assign StimType levels when ready.');
+                        return
+                    end
+                    parameter.isArray = numel(stimValues) > 1;
+                    parameter.Values = hw.Parameter.normalizeValues(stimValues);
+                    nextStep = 'Review the assigned stimulus types, then compile to verify the updated trials.';
                 elseif isequal(parameter.Type, 'String')
                     originalStringLike = isempty(originalValues) || ...
                         all(cellfun(@(v) ischar(v) || isstring(v), originalValues));
@@ -123,10 +141,22 @@ function onParamEdited(obj, evt)
                     else
                         nextStep = 'Edit the Value cell again or open Edit Selected Value to switch this parameter to a string array.';
                     end
+                elseif isequal(parameter.Type, 'StimType')
+                    [stimValues, cancelled] = obj.editParameterStimTypeValue(parameter);
+                    if cancelled
+                        obj.refreshParameterTable();
+                        obj.setStatus(sprintf('StimType edit cancelled for %s', parameter.Name), ...
+                            'Double-click the Value cell again to assign StimType levels.');
+                        return
+                    end
+                    parameter.isArray = numel(stimValues) > 1;
+                    parameter.Values = hw.Parameter.normalizeValues(stimValues);
+                    statusMessage = sprintf('Updated StimType values for %s', parameter.Name);
+                    nextStep = 'Review the assigned stimulus types, then compile.';
                 else
                     obj.refreshParameterTable();
                     obj.setStatus(sprintf('Value for %s is read-only', parameter.Name), ...
-                        'Only String values support direct table edits. Use Expression or the type-specific editor instead.');
+                        'Only String and StimType values support direct table edits. Use Expression or the type-specific editor instead.');
                     return
                 end
             case 7

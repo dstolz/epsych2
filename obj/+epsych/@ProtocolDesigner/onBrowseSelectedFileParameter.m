@@ -40,7 +40,22 @@ function onBrowseSelectedFileParameter(obj)
         return
     end
 
-    obj.setStatus(sprintf('Parameter %s is not a File or String parameter', parameter.Name), ...
-        'This dialog currently supports File and String parameters only.');
+    if isequal(parameter.Type, 'StimType')
+        [stimValues, cancelled] = obj.editParameterStimTypeValue(parameter);
+        if cancelled
+            obj.setStatus(sprintf('StimType edit cancelled for %s', parameter.Name), ...
+                'Use Edit Selected Value again when you are ready to update this StimType parameter.');
+            return
+        end
+        parameter.isArray = numel(stimValues) > 1;
+        parameter.Values = hw.Parameter.normalizeValues(stimValues);
+        obj.refreshParameterTable();
+        obj.setStatus(sprintf('Updated StimType levels for %s', parameter.Name), ...
+            'Compile to verify the updated trial set.');
+        return
+    end
+
+    obj.setStatus(sprintf('Parameter %s is not a File, String, or StimType parameter', parameter.Name), ...
+        'This dialog supports File, String, and StimType parameters only.');
 end
 

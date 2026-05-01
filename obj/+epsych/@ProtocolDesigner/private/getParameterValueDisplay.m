@@ -12,6 +12,21 @@ function valueText = getParameterValueDisplay(obj, parameter)
         return
     end
 
+    if isequal(parameter.Type, 'StimType')
+        if isempty(parameter.Values)
+            valueText = '';
+        else
+            names = cellfun(@(v) char(string(v.DisplayName)), parameter.Values, 'UniformOutput', false);
+            names = names(~cellfun(@isempty, names));
+            if isempty(names)
+                valueText = '';
+            else
+                valueText = strjoin(names, ';  ');
+            end
+        end
+        return
+    end
+
     if isempty(parameter.Values)
         valueText = '';
         return

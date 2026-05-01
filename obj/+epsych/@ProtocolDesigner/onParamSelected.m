@@ -49,6 +49,15 @@ function onParamSelected(obj, evt)
             obj.setStatus(sprintf('Selected String parameter %s', parameter.Name), ...
                 'Edit the Value cell directly, using semicolons for arrays, or use Edit Selected Value for a larger editor.');
         end
+    elseif isequal(parameter.Type, 'StimType')
+        n = numel(parameter.Values);
+        if n == 0
+            obj.setStatus(sprintf('Selected StimType parameter %s (no levels assigned)', parameter.Name), ...
+                'Use Edit Selected Value to add stimulus type levels.');
+        else
+            obj.setStatus(sprintf('%s: %d StimType level(s)', parameter.Name, n), ...
+                'Use Edit Selected Value to add, edit, or remove stimulus type levels.');
+        end
     elseif obj.hasParameterExpression(parameter)
         obj.setStatus(sprintf('%s = %s', obj.getParameterExpression(parameter), obj.getParameterValueDisplay(parameter)), ...
             'Edit the Expression cell if needed, then compile to refresh the preview.');

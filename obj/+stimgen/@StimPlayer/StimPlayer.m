@@ -34,6 +34,7 @@ classdef StimPlayer < handle
     % --- External method declarations ---
     methods
         create(obj)
+        open_stim(obj, stimObj, varargin)
         add_stim(obj, src, event)
         remove_stim(obj, src, event)
         on_bank_selection_changed(obj, src, event)

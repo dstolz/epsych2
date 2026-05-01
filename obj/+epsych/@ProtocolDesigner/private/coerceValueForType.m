@@ -18,6 +18,14 @@ function [value, isArrayValue] = coerceValueForType(obj, rawValue, targetType)
         case 'String'
             value = obj.normalizeCompiledPreviewValueAsText(rawValue);
             isArrayValue = false;
+        case 'StimType'
+            % Preserve any existing StimType objects; clear non-StimType values
+            if iscell(rawValue) && ~isempty(rawValue) && isa(rawValue{1}, 'stimgen.StimType')
+                value = rawValue;
+            else
+                value = {};
+            end
+            isArrayValue = numel(value) > 1;
         case 'Undefined'
             value = 0;
             isArrayValue = false;

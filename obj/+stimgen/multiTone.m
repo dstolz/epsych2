@@ -2,6 +2,8 @@ classdef multiTone < stimgen.StimType
     % obj = stimgen.multiTone(Name,Value,...)
     % Multi-tone stimulus generator (grid of frequency x level).
     %
+    % Package guide: documentation/stimgen/stimgen_overview.md
+    %
     % This StimType builds a set of stimgen.Tone objects from the expression
     % strings Frequency_MO and SoundLevel_MO and concatenates their signals.
     properties (SetObservable)
@@ -29,6 +31,11 @@ classdef multiTone < stimgen.StimType
     
     methods
         function obj = multiTone(varargin)
+            warning('stimgen:multiTone:deprecated', ...
+                ['stimgen.multiTone is deprecated. Use stimgen.ParamSweep instead:\n' ...
+                 '  ps = stimgen.ParamSweep(''stimgen.Tone'');\n' ...
+                 '  ps.SweepParams = struct(''Frequency'', [1000 2000 4000], ''SoundLevel'', 10:10:70);']);
+
             obj = obj@stimgen.StimType(varargin{:});
 
             obj.DisplayName = 'Multi Tone';
@@ -51,99 +58,6 @@ classdef multiTone < stimgen.StimType
             obj.Signal = vertcat(sigs{:})';
             
         end
-
-        
-        function h = create_gui(obj,src,evnt)
-            g = uigridlayout(src);
-            g.ColumnWidth = {'1x','1x','1x'};
-            g.RowHeight = repmat({25},1,8);
-            
-            R = 1;
-            x = uilabel(g,'Text','Frequencies (Hz):');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'Tag','Frequency_MO');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Value = obj.Frequency_MO;
-            h.Frequency = x;
-            
-            
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Sound Levels (dB):');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'Tag','SoundLevel_MO');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Value = obj.SoundLevel_MO;
-            h.SoundLevel = x;
-
-
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Duration (s):');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','Duration');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [0.001 10];
-            x.ValueDisplayFormat = '%.3f s';
-            x.Value = obj.Duration;
-            h.Duration = x;
-                        
-                        
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Onset Phase (deg):');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','OnsetPhase');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Value = obj.OnsetPhase;
-            h.Duration = x;
-                        
-            R = R + 1;
-            
-            x = uilabel(g,'Text','Window Duration:');
-            x.Layout.Column = 1;
-            x.Layout.Row    = R;
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','WindowDuration');
-            x.Layout.Column = 2;
-            x.Layout.Row = R;
-            x.Limits = [1e-6 10];
-            x.ValueDisplayFormat = '%.4f s';
-            x.Value = obj.WindowDuration;
-            h.WindowDuration = x;
-            
-            x = uidropdown(g,'Tag','WindowMethod');
-            x.Layout.Column = 3;
-            x.Layout.Row = R;
-            x.Items = ["Duration" "Proportional" "#Periods"];
-            x.Value = "Duration";
-            h.WindowDurationMethod = x;
-            
-            
-            structfun(@(a) set(a,'ValueChangedFcn',@obj.interpret_gui),h);
-            
-            obj.GUIHandles = h;
-            
-%             obj.create_handle_listeners;
-        end
-
 
         function f = get.Frequency_(obj)
             f = eval(obj.Frequency_MO);

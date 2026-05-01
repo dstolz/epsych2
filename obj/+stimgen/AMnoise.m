@@ -66,11 +66,11 @@ classdef AMnoise < stimgen.Noise
                 obj.Signal = noise .* am;
             end
             
-            obj.apply_gate;
-            
             obj.apply_normalization;
             
             obj.apply_calibration;
+            
+            obj.apply_gate;
         end
     end
 
@@ -87,3 +87,4 @@ classdef AMnoise < stimgen.Noise
         end
     end
 
+end

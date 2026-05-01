@@ -86,9 +86,11 @@ classdef AttackModNoise < stimgen.Noise
                 obj.Signal = noise .* am;
             end
             
-            obj.apply_gate;
-            
             obj.apply_normalization;
+            
+            obj.apply_calibration;
+            
+            obj.apply_gate;
         end
     end
 

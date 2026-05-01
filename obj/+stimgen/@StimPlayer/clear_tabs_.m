@@ -1,0 +1,9 @@
+function clear_tabs_(obj)
+% clear_tabs_(obj) - Remove all children from the param panel and restore placeholder.
+pnl = obj.handles.ParamPanel;
+delete(pnl.Children);
+uilabel(pnl, 'Text', 'Select an item from the bank to edit its parameters.', ...
+    'HorizontalAlignment', 'center', ...
+    'VerticalAlignment', 'center', ...
+    'Position', [10 10 380 40]);
+end

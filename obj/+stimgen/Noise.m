@@ -63,11 +63,11 @@ classdef Noise < stimgen.StimType
             
             obj.Signal = y';
             
-            obj.apply_gate;
-            
             obj.apply_normalization;
             
             obj.apply_calibration;
+            
+            obj.apply_gate;
         end
     
         function update_digFilter(obj)

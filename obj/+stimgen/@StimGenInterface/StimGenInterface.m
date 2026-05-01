@@ -3,6 +3,8 @@ classdef StimGenInterface < handle% & gui.Helper
     % obj = stimgen.StimGenInterface(RUNTIME, parent, ffn)
     % GUI/controller for scheduling and triggering stimulus playback.
     %
+    % Package guide: documentation/stimgen/stimgen_overview.md
+    %
     % This interface manages stimgen.StimPlay objects, writes stimulus
     % buffers to the underlying hardware parameter interface, and triggers
     % playback on a timer.

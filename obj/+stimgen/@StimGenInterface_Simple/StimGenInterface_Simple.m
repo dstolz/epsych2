@@ -3,6 +3,8 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
     % obj = stimgen.StimGenInterface_Simple(RUNTIME, parent, ffn)
     % Simplified stimgen interface for a single StimPlay object.
     %
+    % Package guide: documentation/stimgen/stimgen_overview.md
+    %
     % This controller writes stimulus buffers to hardware parameters and
     % triggers playback on a timer.
     %
@@ -37,6 +39,11 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
         TrigBufferID (1,1) double = 0; % alternates between 0 and 1 to indicate which buffer to trigger
 
         currentISI (1,1) double = 1; % current inter-stimulus interval (seconds)
+
+        % log of stimuli in order they were presented
+        StimOrder (:,1) double = double.empty(0,1);      % trigger index (always 1 for Single)
+        StimOrderTime (:,1) double = double.empty(0,1);  % timeSinceStart at trigger (s)
+        StimOrderTrial (:,1) double = double.empty(0,1); % TDT trial number at trigger
 
         Fs (1,1) double {mustBePositive,mustBeFinite,mustBeNonNan} = 1
 
@@ -167,15 +174,17 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             % reset reps for StimPlay objects
             obj.StimPlayObj.reset;
 
-            obj.currentISI = obj.StimPlayObj.get_isi;
+            % clear stimulus order log
+            obj.StimOrder = [];
+            obj.StimOrderTime = [];
+            obj.StimOrderTrial = [];
 
+            obj.currentISI = obj.StimPlayObj.get_isi;
 
             obj.StimPlayObj.increment; % select the first idx
 
-            
             obj.update_buffer; % update the buffer with the first stimulus
-            
-            
+
             obj.firstTrigTime = now;
             obj.lastTrigTime = 0; % initialize time right before triggering stim playback
         end
@@ -195,8 +204,13 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             while obj.timeSinceStart - obj.lastTrigTime < isi, end
 
 
+            % log which stimulus is about to be presented
+            obj.StimOrder(end+1,1)      = 1;
+            obj.StimOrderTime(end+1,1)  = obj.timeSinceStart;
+            obj.StimOrderTrial(end+1,1) = obj.currentTrialNumber;
+
             obj.trigger_stim_playback; % trigger playback of the obj.nextSPIdx buffer
-            
+
             a = obj.StimPlayObj.StimPresented;
             b = obj.StimPlayObj.StimTotal;
             obj.handles.StimulusCounter.Text = sprintf('% 3d/%d (%.1f%% complete)', ...
@@ -336,11 +350,15 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
             v = sort(v(:)');
             try
                 assert(numel(v) <= 2 & numel(v) >= 1, 'Invalid entry for ISI. Must be a scalar value or a 1x2 range for randomization.')
-                src.Value = mat2str(v);
+                if nargin > 1
+                    src.Value = mat2str(v);
+                end
                 obj.StimPlayObj.ISI = v;
             catch me
                 uialert(obj.parent,me.message,'InvalidEntry','modal',true)
-                src.Value = event.PreviousValue;
+                if nargin > 1
+                    src.Value = event.PreviousValue;
+                end
             end
         end
 
@@ -536,8 +554,11 @@ classdef StimGenInterface_Simple < handle% & gui.Helper
                 setpref('StimGenInterface','dataPath',pn);
             end
 
-            SG = obj.StimPlayObjs.toStruct;
-
+            SG.StimObj        = obj.StimPlayObj.toStruct;
+            SG.StimOrder      = obj.StimOrder;
+            SG.StimOrderTime  = obj.StimOrderTime;
+            SG.StimOrderTrial = obj.StimOrderTrial;
+            SG.timestamp      = datetime('now');
 
             vprintf(1,'Saving stimulus order to: "%s"',ffn);
 

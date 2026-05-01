@@ -3,6 +3,8 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
     % obj = stimgen.StimType(Name,Value,...)
     % Abstract base class for stimulus generation objects.
     %
+    % Package guide: documentation/stimgen/stimgen_overview.md
+    %
     % Subclasses implement update_signal() and define calibration and
     % normalization behavior. This base class provides shared properties for
     % level, duration, gating/windowing, sampling rate, plotting, and audio
@@ -260,9 +262,30 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             structfun(@(a) set(a, 'ValueChangedFcn', @obj.interpret_gui), h);
             obj.GUIHandles = h;
         end
+
+        function m = get_prop_meta(obj)
+            % get_prop_meta(obj) - Public accessor for propMeta().
+            % Returns the display metadata struct for this stimulus type.
+            m = obj.propMeta();
+        end
     end % methods (Access = public)
 
     methods (Access = protected)
+
+        function apply_normalization(obj)
+            % Apply normalization to obj.Signal according to the Normalization constant.
+            if obj.temporarilyDisableSignalMods || isempty(obj.Signal), return; end
+            switch obj.Normalization
+                case "absmax"
+                    obj.Signal = obj.Signal ./ max(abs(obj.Signal));
+                case "max"
+                    obj.Signal = obj.Signal ./ max(obj.Signal);
+                case "min"
+                    obj.Signal = obj.Signal ./ min(obj.Signal);
+                case "rms"
+                    obj.Signal = obj.Signal ./ sqrt(mean(obj.Signal.^2));
+            end
+        end
 
         function apply_gate(obj)
             if ~obj.ApplyWindow || obj.temporarilyDisableSignalMods, return; end
@@ -468,7 +491,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             pth = fileparts(r);
             d = dir(fullfile(pth,'*.m'));
             f = {d.name};
-            f(ismember(f,{'StimType.m','StimPlay.m','donotsavedatafcn.m'})) = [];
+            f(ismember(f,{'StimType.m','StimPlay.m','donotsavedatafcn.m','multiTone.m'})) = [];
             f(contains(f,'Calib')) = [];
             c = cellfun(@(a) a(1:end-2),f,'uni',0);
         end

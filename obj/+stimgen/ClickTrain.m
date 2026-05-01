@@ -101,6 +101,8 @@ classdef ClickTrain < stimgen.StimType
             obj.apply_normalization;
             
             obj.apply_calibration;
+            
+            obj.apply_gate;
         end
     end
 

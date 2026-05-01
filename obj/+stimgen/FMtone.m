@@ -64,73 +64,13 @@ classdef FMtone < stimgen.StimType
             obj.Signal = x;
 
             
-            obj.apply_gate;
-            
             obj.apply_normalization;
             
             obj.apply_calibration;
+            
+            obj.apply_gate;
         end
 
-        function h = create_gui(obj, src, evnt)
-
-
-
-            % Use a simple grid, similar to Tone
-            g = uigridlayout(src, [4 2]);
-            g.RowHeight    = repmat({'fit'}, 1, 8);
-            g.ColumnWidth  = {'1x','1x'};
-
-            % Carrier frequency
-            uilabel(g, 'Text', 'Carrier (Hz)');
-            h.CarrierFrequency = uieditfield(g, 'numeric', ...
-                'Tag','CarrierFrequency', ...
-                'Value', obj.CarrierFrequency, ...
-                'Limits', [1 80000], ...  % Hz
-                'ValueDisplayFormat', '%.1f');
-
-            % Modulation frequency
-            uilabel(g, 'Text', 'FM rate (Hz)');
-            h.ModulationFrequency = uieditfield(g, 'numeric', ...
-                'Tag','ModulationFrequency', ...
-                'Value', obj.ModulationFrequency, ...
-                'Limits', [0 40000], ...  % Hz
-                'ValueDisplayFormat', '%.2f');
-
-            % Modulation depth
-            uilabel(g, 'Text', 'FM depth (Hz)');
-            h.ModulationDepth = uieditfield(g, 'numeric', ...
-                'Tag','ModulationDepth', ...
-                'Value', obj.ModulationDepth, ...
-                'Limits', [0 20000], ...  % Hz deviation
-                'ValueDisplayFormat', '%.1f');
-
-            % Onset phase
-            uilabel(g, 'Text', 'Onset phase (rad)');
-            h.OnsetPhase = uieditfield(g, 'numeric', ...
-                'Tag','OnsetPhase', ...
-                'Value', obj.OnsetPhase, ...
-                'Limits', [-2*pi 2*pi], ...  % radians
-                'ValueDisplayFormat', '%.3f');
-
-
-            
-            x = uilabel(g,'Text','Duration:');
-            x.HorizontalAlignment = 'right';
-            
-            x = uieditfield(g,'numeric','Tag','Duration');
-            x.Limits = [0.001 10];
-            x.ValueDisplayFormat = '%.3f s';
-            x.Value = obj.Duration;
-            h.Duration = x;
-
-
-            structfun(@(a) set(a,'ValueChangedFcn',@obj.interpret_gui),h);
-            
-            obj.GUIHandles = h;
-            
-                        
-        end
-        
     end
 
     methods (Access = protected)
@@ -143,3 +83,5 @@ classdef FMtone < stimgen.StimType
             m.OnsetPhase          = struct('label', 'Onset Phase',    'format', '%.3f rad');
             m = stimgen.StimType.merge_prop_meta(m, propMeta@stimgen.StimType(obj));
         end
+    end
+end

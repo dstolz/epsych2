@@ -46,11 +46,11 @@ classdef Tone < stimgen.StimType
             end
             
             
-            obj.apply_gate;
-            
             obj.apply_normalization;
             
             obj.apply_calibration;
+            
+            obj.apply_gate;
         end
         
     end

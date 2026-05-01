@@ -93,7 +93,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             arguments
                 parent
                 Parameter
-                options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown','checkbox','toggle','readonly','momentary'})} = 'editfield'
+                options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'editfield'
                 options.BoundProperty (1,:) char = 'Value'
                 options.autoCommit (1,1) logical = false
             end
@@ -364,6 +364,17 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     h.Layout.Column = [1 2];
                     h.Text = P.Name;
 
+                case 'stimtype'
+                    hl.ColumnWidth = {'1x'};
+                    h = uibutton(hl,'push');
+                    h.Layout.Column = [1 2];
+                    v = P.Value;
+                    if isempty(v)
+                        h.Text = sprintf('%s: [none]', P.Name);
+                    else
+                        h.Text = sprintf('%s: %s', P.Name, P.ValueStr);
+                    end
+
                 case 'readonly'
                     hl.ColumnWidth = {'1x'};
                     h = uilabel(hl);
@@ -393,6 +404,8 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     % do nothing
                 case 'momentary'
                     h.ButtonPushedFcn = @obj.value_changed;
+                case 'stimtype'
+                    h.ButtonPushedFcn = @obj.open_stimtype_gui;
                 otherwise
                     h.ValueChangedFcn = @obj.value_changed;
             end
@@ -461,10 +474,52 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                         obj.h_uiobj.BackgroundColor = obj.colorNormal;
                     end
 
+                case 'stimtype'
+                    P = obj.Parameter;
+                    if isempty(P.Value)
+                        obj.h_uiobj.Text = sprintf('%s: [none]', P.Name);
+                    else
+                        obj.h_uiobj.Text = sprintf('%s: %s', P.Name, P.ValueStr);
+                    end
+                    gui.Helper.timed_color_change(obj.h_uiobj, ...
+                        obj.colorOnUpdateExternal,postColor=obj.colorNormal);
 
-                    
             end
 
+        end
+
+        function open_stimtype_gui(obj, ~, ~)
+            % open_stimtype_gui - Open a non-modal figure to configure or pick a StimType.
+            % If Parameter.Value is empty, shows a dropdown of available StimType
+            % subclasses so the user can create one. If Value is already set,
+            % opens the StimType property editor via create_gui().
+            P = obj.Parameter;
+            fig = uifigure('Name', sprintf('StimType — %s', P.Name), ...
+                'WindowStyle', 'normal', ...
+                'AutoResizeChildren', 'off');
+
+            if isempty(P.Value)
+                classList = stimgen.StimType.list();
+                g = uigridlayout(fig, [2 2]);
+                g.ColumnWidth = {'1x', '1x'};
+                g.RowHeight   = {30, 30};
+                uilabel(g, 'Text', 'Stimulus type:', 'HorizontalAlignment', 'right');
+                dd = uidropdown(g, 'Items', classList, 'Value', classList{1});
+                uilabel(g, 'Text', '');
+                uibutton(g, 'push', 'Text', 'Create', ...
+                    'ButtonPushedFcn', @(~,~) obj.create_stimtype_from_dropdown(dd, fig));
+            else
+                P.Value.create_gui(fig);
+            end
+        end
+
+        function create_stimtype_from_dropdown(obj, dd, fig)
+            % create_stimtype_from_dropdown - Construct selected StimType and assign to Parameter.
+            className = sprintf('stimgen.%s', dd.Value);
+            stim = feval(className);
+            obj.Parameter.Value = stim;
+            close(fig);
+            obj.open_stimtype_gui([], []);
         end
     end
 end

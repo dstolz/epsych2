@@ -41,10 +41,26 @@ S.PostUpdateFcnEnabled = obj.PostUpdateFcnEnabled;
 
 
 % Design-time trial levels
-S.Values = obj.Values;
+if isequal(obj.Type, 'StimType')
+    S.Values = cellfun(@(v) v.toStruct(), obj.Values, 'UniformOutput', false);
+else
+    S.Values = obj.Values;
+end
 
 % Value and state (runtime; not restored on load)
-S.Value = obj.Value;
+if isequal(obj.Type, 'StimType')
+    v = obj.Value;
+    if isempty(v)
+        S.Value = [];
+    else
+        S.Value = arrayfun(@(x) x.toStruct(), v, 'UniformOutput', false);
+        if isscalar(v)
+            S.Value = S.Value{1};
+        end
+    end
+else
+    S.Value = obj.Value;
+end
 S.lastUpdated = obj.lastUpdated;
 S.isArray = obj.isArray;
 S.isTrigger = obj.isTrigger;

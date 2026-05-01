@@ -51,7 +51,7 @@ classdef Parameter < matlab.mixin.SetGet
         Module  (1,1) % handle to module object that this parameter belongs to
 
         Access  (1,:) char {mustBeMember(Access,{'Read','Write','Any','Read / Write'})} = 'Any'
-        Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined'})} = 'Float'
+        Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined','StimType'})} = 'Float'
         Format  (1,:) char = '%g' % default format for displaying value
 
         Visible (1,1) logical = true % optionally hide parameter
@@ -128,6 +128,12 @@ classdef Parameter < matlab.mixin.SetGet
                 values = {value};
             elseif iscell(value)
                 values = reshape(value, 1, []);
+            elseif isa(value, 'stimgen.StimType')
+                if isempty(value)
+                    values = {};
+                else
+                    values = num2cell(reshape(value, 1, []));
+                end
             else
                 values = {value};
             end
@@ -158,7 +164,7 @@ classdef Parameter < matlab.mixin.SetGet
                 options.Description (1,1) string = ""
                 options.Unit (1,:) char = ''
                 options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Any','Read / Write'})} = 'Any'
-                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined'})} = 'Float'
+                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined','StimType'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
                 options.PreUpdateFcnEnabled (1,1) logical = true
@@ -287,6 +293,11 @@ classdef Parameter < matlab.mixin.SetGet
         
         function set.Value(obj,value)
 
+            if isequal(obj.Type, 'StimType') && ~(isempty(value) || isa(value,'stimgen.StimType'))
+                error('hw:Parameter:InvalidStimTypeValue', ...
+                    'Value for StimType parameter "%s" must be a stimgen.StimType object or empty.', obj.Name);
+            end
+
             obj.execute_PreUpdateFcn(value);
 
             value = obj.randomize_value(value); % if isRandom is false, this will just return the original value
@@ -296,9 +307,11 @@ classdef Parameter < matlab.mixin.SetGet
 
             obj.Value = value;
             obj.isArray = numel(value) > 1;
-            if obj.isArray, value = {value}; end
 
-            obj.Parent.set_parameter(obj,value);
+            if ~isequal(obj.Type, 'StimType')
+                if obj.isArray, value = {value}; end
+                obj.Parent.set_parameter(obj,value);
+            end
 
             % `now` is much faster than `datetime("now")`
             % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
@@ -318,7 +331,9 @@ classdef Parameter < matlab.mixin.SetGet
             end
 
             v = obj.Value;
-            if isequal(obj.Type, 'File')
+            if isequal(obj.Type, 'StimType')
+                vstr = obj.formatStimTypeValue_(v);
+            elseif isequal(obj.Type, 'File')
                 vstr = obj.formatFileValue_(v);
             elseif isequal(obj.Type, 'String')
                 vstr = obj.formatTextValue_(v);
@@ -343,8 +358,12 @@ classdef Parameter < matlab.mixin.SetGet
         end
 
         function set.Type(obj,type)
+            if isequal(type, 'StimType') && ~(isequal(obj.Parent,0) || isa(obj.Parent,'hw.Software'))
+                error('hw:Parameter:StimTypeRequiresSoftware', ...
+                    'Type ''StimType'' is only supported with hw.Software parents.');
+            end
             obj.Type = type;
-            if ismember(obj.Type, {'String', 'File'})
+            if ismember(obj.Type, {'String', 'File', 'StimType'})
                 obj.Format = '%s';
             else
                 obj.Format = '%g';
@@ -415,6 +434,16 @@ classdef Parameter < matlab.mixin.SetGet
                 return
             end
 
+            if isequal(obj.Type, 'StimType')
+                if isempty(obj.Values)
+                    error('hw:Parameter:RandomStimTypeNeedsValues', ...
+                        'StimType parameter "%s" has isRandom=true but Values is empty.', obj.Name);
+                end
+                v = obj.Values{randi(numel(obj.Values))};
+                vprintf(3,'Randomized StimType parameter "%s" to: %s', obj.Name, v.DisplayName)
+                return
+            end
+
             try
                 v = randi([obj.Min obj.Max]);
                 vprintf(3,'Randomized parameter "%s" to value: %g',obj.Name,v)
@@ -430,7 +459,7 @@ classdef Parameter < matlab.mixin.SetGet
                 return
             end
 
-            if ~ismember(obj.Type, {'String', 'File'}) && (value < obj.Min || value > obj.Max)
+            if ~ismember(obj.Type, {'String', 'File', 'StimType'}) && (value < obj.Min || value > obj.Max)
                 vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
                 return
             end
@@ -519,6 +548,25 @@ classdef Parameter < matlab.mixin.SetGet
 
         function tf = hasFiniteRandomBounds(obj)
             tf = isfinite(obj.Min) && isfinite(obj.Max);
+        end
+
+        function vstr = formatStimTypeValue_(~, value)
+            if isempty(value)
+                vstr = '[none]';
+                return
+            end
+            names = arrayfun(@(s) char(s.DisplayName), value, 'UniformOutput', false);
+            if numel(names) == 1
+                vstr = names{1};
+            else
+                previewCount = min(3, numel(names));
+                preview = strjoin(names(1:previewCount), ', ');
+                if numel(names) > previewCount
+                    vstr = sprintf('[%s, ... (%d stims)]', preview, numel(names));
+                else
+                    vstr = sprintf('[%s]', preview);
+                end
+            end
         end
 
         function s = argsToStr_(obj, args)

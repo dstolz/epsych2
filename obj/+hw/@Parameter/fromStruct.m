@@ -57,7 +57,30 @@ if isfield(S, 'lastUpdated')
 end
 
 % Design-time trial levels
-obj.Values = S.Values;
+if isequal(obj.Type, 'StimType')
+    restored = cell(1, numel(S.Values));
+    for k = 1:numel(S.Values)
+        entry = S.Values{k};
+        if isstruct(entry) && isfield(entry, 'Class')
+            restored{k} = stimgen.StimType.fromStruct(entry);
+        else
+            restored{k} = entry;
+        end
+    end
+    obj.Values = restored;
+else
+    obj.Values = S.Values;
+end
+
+% Restore current Value for StimType parameters
+if isequal(obj.Type, 'StimType') && isfield(S, 'Value') && ~isempty(S.Value)
+    if isstruct(S.Value) && isfield(S.Value, 'Class')
+        obj.Value = stimgen.StimType.fromStruct(S.Value);
+    elseif iscell(S.Value)
+        objs = cellfun(@(e) stimgen.StimType.fromStruct(e), S.Value, 'UniformOutput', false);
+        obj.Value = [objs{:}];
+    end
+end
 
 end
 

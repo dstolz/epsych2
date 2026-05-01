@@ -89,7 +89,7 @@ classdef Module < handle
                 options.Description (1,1) string = ""
                 options.Unit (1,:) char = ''
                 options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Any','Read / Write'})} = 'Any'
-                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined'})} = 'Float'
+                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined','StimType'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
                 options.PreUpdateFcnEnabled (1,1) logical = true
@@ -108,6 +108,9 @@ classdef Module < handle
             end
             if ischar(value) && ~strcmp(options.Type, 'File')
                 options.Type = 'String';
+            end
+            if isa(value, 'stimgen.StimType')
+                options.Type = 'StimType';
             end
             nopts = namedargs2cell(options);
             P = hw.Parameter(obj.parent, nopts{:});

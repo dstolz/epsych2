@@ -487,6 +487,30 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
     end % methods (Static, Access = protected)
 
     methods (Static)
+        function obj = fromStruct(S)
+            % obj = stimgen.StimType.fromStruct(S)
+            % Reconstruct a stimgen.StimType subclass instance from a serialized struct.
+            % The struct must have been produced by stimgen.StimType.toStruct().
+            % Signal is not restored; call obj.update_signal() if needed.
+            %
+            % Parameters
+            %   S - Struct with at least a Class field and UserProperties list.
+            %
+            % Returns
+            %   obj - Reconstructed stimgen.StimType subclass instance.
+            obj = feval(char(S.Class));
+            obj.DisplayName = S.DisplayName;
+            obj.Fs               = S.Fs;
+            obj.ApplyCalibration = S.ApplyCalibration;
+            obj.ApplyWindow      = S.ApplyWindow;
+            for k = 1:numel(S.UserProperties)
+                pname = char(S.UserProperties(k));
+                if isprop(obj, pname) && isfield(S, pname)
+                    obj.(pname) = S.(pname);
+                end
+            end
+        end
+
         function c = list
             r = which('stimgen.StimType');
             pth = fileparts(r);

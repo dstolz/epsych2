@@ -37,6 +37,12 @@ function struct_out = toStruct(obj)
         if isprop(iface, 'ConnectionType') && ~isempty(iface.ConnectionType)
             ifaceStruct.ConnectionType = char(iface.ConnectionType);
         end
+        if isprop(iface, 'Host') && ~isempty(iface.Host)
+            ifaceStruct.Host = char(iface.Host);
+        end
+        if isprop(iface, 'Port') && ~isempty(iface.Port)
+            ifaceStruct.Port = double(iface.Port);
+        end
 
         rawModules = iface.Module;
         if isempty(rawModules)

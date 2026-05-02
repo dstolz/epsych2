@@ -55,6 +55,10 @@ function [spec, options] = getInterfaceEditState(obj, iface)
                 options.connectionType = 'GB';
             end
 
+        case 'Intan_RHX'
+            options.host = iface.Host;
+            options.port = iface.Port;
+
         otherwise
             error('Editing is not implemented for interface type %s.', ifaceType);
     end

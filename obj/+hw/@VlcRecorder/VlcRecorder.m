@@ -30,12 +30,19 @@ classdef VlcRecorder < hw.Interface
     % Notes
     %   VLC volume is on a 0–512 scale where 256 = 100%. Setting Volume=100
     %   sends VLC command 'volume 256'.
-    %   VLC's record command is a toggle. StartRecord and StopRecord are
-    %   idempotent — they track state internally and only send the command
-    %   when the state needs to change.
-    %   RecordingFile injects a per-item :sout MRL option when MediaFile is
-    %   set. It has no effect on the current media; set it before setting
-    %   MediaFile.
+    %
+    %   Recording is implemented via VLC's VLM (Video LAN Manager) interface.
+    %   When RecordingFile is non-empty at the time MediaFile is set, the class
+    %   creates a VLM broadcast named 'epsych_webcam' with a duplicate sout chain
+    %   that routes output to both the screen (#display) and the file (#file).
+    %   Use trigger('Play') to start the stream after setting MediaFile.
+    %
+    %   When RecordingFile is empty, a plain VLC 'add' command is used instead.
+    %
+    %   StartRecord and StopRecord are idempotent — they track state internally
+    %   and only send the record-toggle when the state needs to change. When VLM
+    %   is active (RecordingFile was set), StartRecord/StopRecord are no-ops
+    %   because recording is controlled by Play/Stop.
     %
     % Example
     %   obj = hw.VlcRecorder('127.0.0.1', 4212);
@@ -48,7 +55,8 @@ classdef VlcRecorder < hw.Interface
     %   obj.trigger('StopRecord');
     %   obj.trigger('Stop');
     %
-    % See also: documentation/hw/hw_Interface.md, hw.Module, hw.Parameter
+    % See also: documentation/hw/hw_VlcRecorder.md, documentation/hw/hw_Interface.md,
+    %           hw.Module, hw.Parameter
 
 
     properties (SetAccess = protected)
@@ -58,7 +66,7 @@ classdef VlcRecorder < hw.Interface
     end
 
     properties
-        IsConnected (1,1) logical = false
+        IsConnected = false
     end
 
     properties (Constant)
@@ -74,6 +82,7 @@ classdef VlcRecorder < hw.Interface
         port_    (1,1) double  = 4212          % RC interface TCP port
         timeout_ (1,1) double  = 5             % connection timeout in seconds
         isRecording_ (1,1) logical = false     % cached record-toggle state
+        vlmActive_   (1,1) logical = false     % true when a VLM broadcast is managing playback/recording
     end
 
 
@@ -136,19 +145,38 @@ classdef VlcRecorder < hw.Interface
             result = 1;
             switch name
                 case 'Play'
-                    obj.sendCommand_('play');
+                    if obj.vlmActive_
+                        obj.sendCommand_('control epsych_webcam play');
+                    else
+                        obj.sendCommand_('play');
+                    end
                 case 'Stop'
-                    obj.sendCommand_('stop');
+                    if obj.vlmActive_
+                        obj.sendCommand_('control epsych_webcam stop');
+                        obj.sendCommand_('del epsych_webcam');
+                        obj.vlmActive_ = false;
+                    else
+                        obj.sendCommand_('stop');
+                    end
                     obj.isRecording_ = false;
                 case 'Pause'
-                    obj.sendCommand_('pause');
+                    if obj.vlmActive_
+                        obj.sendCommand_('control epsych_webcam pause');
+                    else
+                        obj.sendCommand_('pause');
+                    end
                 case 'StartRecord'
-                    if ~obj.isRecording_
+                    if obj.vlmActive_
+                        % Recording starts with Play when VLM is active; toggle is a no-op here.
+                        vprintf(3, 'hw.VlcRecorder: StartRecord ignored — recording managed by VLM sout chain');
+                    elseif ~obj.isRecording_
                         obj.sendCommand_('record');
                         obj.isRecording_ = true;
                     end
                 case 'StopRecord'
-                    if obj.isRecording_
+                    if obj.vlmActive_
+                        vprintf(3, 'hw.VlcRecorder: StopRecord ignored — recording managed by VLM sout chain');
+                    elseif obj.isRecording_
                         obj.sendCommand_('record');
                         obj.isRecording_ = false;
                     end
@@ -188,11 +216,23 @@ classdef VlcRecorder < hw.Interface
 
                     mediaUri = char(string(value));
                     if ~isempty(recFile)
-                        cmd = sprintf('add %s :sout=#file{dst=%s}', mediaUri, recFile);
+                        % VLM approach: create a named broadcast with a duplicate sout chain
+                        % that sends output to both the VLC display and the recording file.
+                        % The plain 'add' command does not reliably pass per-item :sout options
+                        % via the RC interface.
+                        if obj.vlmActive_
+                            obj.sendCommand_('del epsych_webcam');
+                            pause(0.1);
+                            obj.vlmActive_ = false;
+                        end
+                        sout = sprintf('#duplicate{dst=#display{},dst=#file{dst=%s}}', recFile);
+                        obj.sendCommand_('new epsych_webcam broadcast enabled');
+                        obj.sendCommand_(sprintf('setup epsych_webcam input %s', mediaUri));
+                        obj.sendCommand_(sprintf('setup epsych_webcam output %s', sout));
+                        obj.vlmActive_ = true;
                     else
-                        cmd = sprintf('add %s', mediaUri);
+                        obj.sendCommand_(sprintf('add %s', mediaUri));
                     end
-                    obj.sendCommand_(cmd);
 
                 case 'RecordingFile'
                     % Value is cached in Parameter.Value; used next time MediaFile is set.
@@ -283,7 +323,7 @@ classdef VlcRecorder < hw.Interface
 
             obj.add_parameter('RecordingFile', '', ...
                 Type    = 'File', ...
-                Access  = 'Write', ...
+                Access  = 'Any', ...
                 Visible = true, ...
                 Description = 'Output file path for VLC recording. Set before applying MediaFile. Injected as :sout=#file{dst=...}.');
 
@@ -317,10 +357,16 @@ classdef VlcRecorder < hw.Interface
             % close_interface()
             % Release the RC socket and reset internal state.
             obj.isRecording_ = false;
+            if obj.vlmActive_
+                obj.sendCommand_('control epsych_webcam stop');
+                obj.sendCommand_('del epsych_webcam');
+                obj.vlmActive_ = false;
+            end
             if ~isempty(obj.HW)
                 obj.HW = [];
             end
             obj.IsConnected = false;
+                        Description = 'Output file path for VLC recording (absolute path recommended). Set before applying MediaFile. When non-empty, a VLM broadcast is used instead of plain add.');
         end
     end
 

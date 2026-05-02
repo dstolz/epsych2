@@ -2,7 +2,8 @@ function specs = getAvailableInterfaceSpecs(~)
     specs = {
         localSoftwareSpec_(), ...
         localSerializedSynapseSpec_(), ...
-        localSerializedRPcoxSpec_() ...
+        localSerializedRPcoxSpec_(), ...
+        localSerializedIntanRHXSpec_() ...
         };
     for specIdx = 1:numel(specs)
         specs{specIdx} = hw.InterfaceSpec.normalize(specs{specIdx});
@@ -29,5 +30,14 @@ end
 
 function iface = localCreateSerializedRPcox_(opts)
     iface = hw.TDT_RPcox({}, {}, {}, Interface = char(opts.connectionType), Connect = false);
+end
+
+function spec = localSerializedIntanRHXSpec_()
+    spec = hw.InterfaceSpec.normalize(hw.Intan_RHX.getCreationSpec());
+    spec.createFcn = @localCreateSerializedIntanRHX_;
+end
+
+function iface = localCreateSerializedIntanRHX_(opts)
+    iface = hw.Intan_RHX(char(opts.host), double(opts.port), Connect = false);
 end
 

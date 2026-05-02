@@ -31,8 +31,19 @@ switch ifaceType
             connectionType = char(string(ifaceStruct.Modules{1}.Info.ConnectionType));
         end
         interface = hw.TDT_RPcox({}, {}, {}, Interface = connectionType, Connect = false);
+    case 'Intan_RHX'
+        host = '127.0.0.1';
+        if isfield(ifaceStruct, 'Host') && ~isempty(ifaceStruct.Host)
+            host = char(string(ifaceStruct.Host));
+        end
+        port = 5000;
+        if isfield(ifaceStruct, 'Port') && ~isempty(ifaceStruct.Port)
+            port = double(ifaceStruct.Port);
+        end
+        interface = hw.Intan_RHX(host, port, Connect = false);
+
     otherwise
-        interface = hw.TDT_RPcox({}, {}, {}, Connect = false);
+        interface = hw.Software();
 end
 
 modules = hw.Module.empty(1, 0);

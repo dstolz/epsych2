@@ -25,16 +25,22 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
     end
 
     properties (SetObservable,AbortSet)
-        SoundLevel     (1,1) double {mustBeFinite} = 60; % dB SPL if calibrated
-        Duration       (1,1) double {mustBePositive,mustBeFinite} = 0.1;  % seconds
+        SoundLevel     (1,:) double {mustBeFinite} = 60; % dB SPL if calibrated
+        Duration       (1,:) double {mustBePositive,mustBeFinite} = 0.1;  % seconds
 
-        WindowDuration (1,1) double {mustBeNonnegative,mustBeFinite} = 0.002; % seconds
+        WindowDuration (1,:) double {mustBeNonnegative,mustBeFinite} = 0.002; % seconds
         WindowFcn      (1,1) string = "cos2";
 
         ApplyCalibration (1,1) logical = true;
         ApplyWindow      (1,1) logical = true;
 
         Fs             (1,1) double {mustBePositive,mustBeFinite} = 97656.25; % Hz
+
+        VariantSelectionMode (1,1) string {mustBeMember(VariantSelectionMode,["Serial","ShuffleUniform","ShuffleLeastUsed","CustomSelector"])} = "Serial"
+        VariantCombinationMode (1,1) string {mustBeMember(VariantCombinationMode,["Cartesian","PairwiseStrict","PairwiseScalarExpand"])} = "Cartesian"
+        VariantSelectorClass (1,1) string = ""
+        VariantSelectorConfig (1,1) struct = struct()
+        VariantReselectOnUpdate (1,1) logical = true
     end
 
 
@@ -57,6 +63,15 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         calibrationWarningIssued (1,1) logical = false;
         plotLineHandle matlab.graphics.chart.primitive.Line = matlab.graphics.chart.primitive.Line.empty
         plotAxHandle   matlab.graphics.axis.Axes = matlab.graphics.axis.Axes.empty
+
+        variantCombinationTable_ (1,:) struct = struct.empty(1,0)
+        variantCombinationPropNames_ (1,:) string = string.empty(1,0)
+        variantUseCount_ (1,:) double = zeros(1,0)
+        variantCurrentIdx_ (1,1) double = 1
+        variantActiveIdx_ (1,1) double = 1
+        variantCycleActive_ (1,1) logical = false
+        variantSignature_ (1,1) string = ""
+        variantSelectorObj_
     end
 
 
@@ -99,6 +114,11 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             S.ApplyCalibration = obj.ApplyCalibration;
             S.ApplyWindow      = obj.ApplyWindow;
             S.Fs               = obj.Fs;
+            S.VariantSelectionMode = obj.VariantSelectionMode;
+            S.VariantCombinationMode = obj.VariantCombinationMode;
+            S.VariantSelectorClass = obj.VariantSelectorClass;
+            S.VariantSelectorConfig = obj.VariantSelectorConfig;
+            S.VariantReselectOnUpdate = obj.VariantReselectOnUpdate;
 
             % Abstract/constant properties (same across instances of subclass)
             S.CalibrationType  = obj.CalibrationType;
@@ -137,25 +157,33 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         end
 
         function t = get.Time(obj)
-            t = linspace(0,obj.Duration-1./obj.Fs,obj.N);
+            durationValue = double(obj.get_selected_property_value_("Duration"));
+            fsValue = double(obj.get_selected_property_value_("Fs"));
+            nSamples = max(1, round(fsValue * durationValue));
+            t = linspace(0, durationValue - 1./fsValue, nSamples);
         end
 
         function n = get.N(obj)
-            n = round(obj.Fs*obj.Duration);
+            durationValue = double(obj.get_selected_property_value_("Duration"));
+            fsValue = double(obj.get_selected_property_value_("Fs"));
+            n = round(fsValue * durationValue);
         end
 
 
         function g = get.Window(obj)
-            n = round(obj.WindowDuration.*obj.Fs);
+            windowDurationValue = double(obj.get_selected_property_value_("WindowDuration"));
+            fsValue = double(obj.get_selected_property_value_("Fs"));
+            n = round(windowDurationValue .* fsValue);
             n = n + rem(n,2);
 
-            switch obj.WindowFcn
+            windowFcnValue = string(obj.get_selected_property_value_("WindowFcn"));
+            switch windowFcnValue
                 case ""
                     g = ones(1,n);
                 case "cos2"
                     g = hann(n);
                 otherwise
-                    g = feval(obj.WindowFcn,n);
+                    g = feval(char(windowFcnValue),n);
             end
             g = g(:)'; % conform to row vector
         end
@@ -173,7 +201,7 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             end
 
             if isempty(obj.Signal)
-                obj.update_signal; % subclass implementation
+                obj.call_update_signal_with_variant_cycle_(); % subclass implementation
             end
 
             if ~isempty(obj.plotLineHandle) && isvalid(obj.plotLineHandle) && ...
@@ -190,9 +218,150 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         end
 
         function play(obj)
-            ap = audioplayer(obj.Signal./max(abs(obj.Signal)),obj.Fs);
+            fsValue = double(obj.get_selected_property_value_("Fs"));
+            ap = audioplayer(obj.Signal./max(abs(obj.Signal)), fsValue);
             playblocking(ap);
             delete(ap);
+        end
+
+        function v = selected_value(obj, propName)
+            % selected_value(obj, propName)
+            % Return the scalar value chosen for a potentially-vectorized property.
+            arguments
+                obj (1,1) stimgen.StimType
+                propName (1,1) string
+            end
+            v = obj.get_selected_property_value_(propName);
+        end
+
+        function value = evalPropertyExpression(obj, propName, expressionText)
+            % value = evalPropertyExpression(obj, propName, expressionText)
+            % Evaluate a guarded MATLAB expression for a vectorizable numeric property.
+            % Accepts range syntax (0:10:50), vector literals ([1 2 3]), general
+            % MATLAB expressions, and cross-property references using bare property
+            % names or qualified ClassName.PropertyName notation.
+            %
+            % Parameters:
+            %   propName       - Name of the target property.
+            %   expressionText - MATLAB expression string to evaluate.
+            %
+            % Returns:
+            %   value - Resulting double scalar or vector.
+            value = obj.evaluate_property_expression_(propName, char(string(expressionText)));
+        end
+
+        function info = get_variant_info(obj)
+            % info = get_variant_info(obj)
+            % Return current variant-combination state for this stimulus.
+            %
+            % Returns:
+            %   info.NumCombinations - Number of variant combinations.
+            %   info.ActiveIndex     - Active 1-based combination index.
+            %   info.PropertyNames   - Vectorized property names.
+
+            obj.refresh_variant_cache_if_needed_();
+
+            nComb = numel(obj.variantCombinationTable_);
+            if nComb < 1
+                nComb = 1;
+            end
+
+            activeIdx = min(max(obj.variantActiveIdx_, 1), nComb);
+            info = struct(...
+                'NumCombinations', nComb, ...
+                'ActiveIndex', activeIdx, ...
+                'PropertyNames', obj.variantCombinationPropNames_);
+        end
+
+        function info = set_variant_index(obj, idx)
+            % info = set_variant_index(obj, idx)
+            % Select a specific variant combination and regenerate Signal.
+            %
+            % Parameters:
+            %   idx - 1-based variant index (wraps cyclically).
+            %
+            % Returns:
+            %   info - Variant state struct.
+            arguments
+                obj (1,1) stimgen.StimType
+                idx (1,1) double {mustBeFinite,mustBePositive}
+            end
+
+            info = obj.apply_variant_index_and_update_(round(double(idx)));
+        end
+
+        function info = step_variant(obj, step)
+            % info = step_variant(obj)
+            % info = step_variant(obj, step)
+            % Step variant combination index and regenerate Signal.
+            %
+            % Parameters:
+            %   step - Signed integer step (default +1).
+            %
+            % Returns:
+            %   info - Variant state struct.
+            arguments
+                obj (1,1) stimgen.StimType
+                step (1,1) double {mustBeFinite,mustBeInteger} = 1
+            end
+
+            state = obj.get_variant_info();
+            info = obj.apply_variant_index_and_update_(state.ActiveIndex + step);
+        end
+
+        function text = current_parameter_summary(obj)
+            % text = current_parameter_summary(obj)
+            % Return a compact summary of currently active stimulus parameters
+            % that differ from their class defaults. Only non-default values
+            % are included.
+
+            meta = obj.get_prop_meta();
+            propNames = string(obj.UserProperties);
+            propNames = propNames(~ismember(propNames, [ ...
+                "VariantSelectionMode", ...
+                "VariantCombinationMode", ...
+                "VariantSelectorClass", ...
+                "VariantSelectorConfig", ...
+                "VariantReselectOnUpdate" ...
+            ]));
+
+            % Build a map of property default values from metaclass
+            mc = metaclass(obj);
+            mcPropList = mc.PropertyList;
+            mcNames = string({mcPropList.Name});
+
+            parts = strings(1, 0);
+            for k = 1:numel(propNames)
+                propName = propNames(k);
+                if ~isprop(obj, char(propName))
+                    continue
+                end
+
+                try
+                    value = obj.selected_value(propName);
+                catch
+                    value = obj.(char(propName));
+                end
+
+                % Skip if value matches the class default
+                mcIdx = find(mcNames == propName, 1);
+                if ~isempty(mcIdx) && mcPropList(mcIdx).HasDefault
+                    defVal = mcPropList(mcIdx).DefaultValue;
+                    if isequal(value, defVal)
+                        continue
+                    end
+                end
+
+                if isfield(meta, char(propName)) && isfield(meta.(char(propName)), 'label')
+                    label = string(meta.(char(propName)).label);
+                else
+                    label = propName;
+                end
+
+                parts(end+1) = label + "=" + format_summary_value_(value); %#ok<AGROW>
+            end
+
+            text = strjoin(parts, ", ");
         end
 
         function h = create_gui(obj, src, ~)
@@ -232,13 +401,19 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
 
                 switch wt
                     case 'numeric'
-                        x = uieditfield(g, 'numeric', 'Tag', propName);
-                        x.Value = obj.(propName);
-                        if isfield(pm, 'format')
-                            x.ValueDisplayFormat = pm.format;
-                        end
-                        if isfield(pm, 'limits')
-                            x.Limits = pm.limits;
+                        if obj.is_non_vectorizable_property_(propName)
+                            x = uieditfield(g, 'numeric', 'Tag', propName);
+                            x.Value = obj.(propName);
+                            if isfield(pm, 'format')
+                                x.ValueDisplayFormat = pm.format;
+                            end
+                            if isfield(pm, 'limits')
+                                x.Limits = pm.limits;
+                            end
+                        else
+                            x = uieditfield(g, 'Tag', propName);
+                            x.Value = localFormatPropertyValue_(obj.(propName));
+                            x.UserData = struct('isNumericExpression', true, 'propMeta', pm);
                         end
                     case 'checkbox'
                         x = uicheckbox(g, 'Tag', propName, 'Text', '');
@@ -289,7 +464,8 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         end
 
         function apply_gate(obj)
-            if ~obj.ApplyWindow || obj.temporarilyDisableSignalMods, return; end
+            applyWindowValue = logical(obj.get_selected_property_value_("ApplyWindow"));
+            if ~applyWindowValue || obj.temporarilyDisableSignalMods, return; end
 
             g = obj.Window;
 
@@ -322,14 +498,14 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             end
 
             type  = obj.CalibrationType;
-            level = obj.SoundLevel;
+            level = double(obj.get_selected_property_value_("SoundLevel"));
 
             % Resolve LUT "value" where relevant
             switch type
                 case "tone"
-                    value = obj.Frequency;
+                    value = double(obj.get_selected_property_value_("Frequency"));
                 case "click"
-                    value = obj.ClickDuration;
+                    value = double(obj.get_selected_property_value_("ClickDuration"));
                 otherwise
                     value = NaN;
             end
@@ -390,9 +566,16 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             obj.els = e;
         end
 
-        function onPropertyChanged(obj,~,~)
+        function onPropertyChanged(obj,src,~)
             % Listener callback: update signal and refresh plot if it exists.
-            obj.update_signal; % subclass implementation handles args
+            if ~isempty(src) && obj.is_variant_policy_property_(string(src.Name))
+                % Policy edits should not force immediate signal recompute while
+                % users are still configuring vectorized properties.
+                obj.variantSignature_ = "";
+                obj.variantSelectorObj_ = [];
+                return
+            end
+            obj.call_update_signal_with_variant_cycle_(); % subclass implementation handles args
             obj.refresh_plot_if_valid;
         end
 
@@ -416,14 +599,464 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
         end
 
         function interpret_gui(obj, src, event)
+            isNumExpr = isstruct(src.UserData) && isfield(src.UserData, 'isNumericExpression') && src.UserData.isNumericExpression;
             try
-                obj.(src.Tag) = event.Value;
-            catch
-                obj.(src.Tag) = event.PreviousValue;
+                if isNumExpr
+                    value = obj.evaluate_property_expression_(src.Tag, char(string(event.Value)));
+                else
+                    value = event.Value;
+                end
+                obj.(src.Tag) = value;
+            catch ME
+                if isNumExpr
+                    src.Value = localFormatPropertyValue_(obj.(src.Tag));
+                else
+                    obj.(src.Tag) = event.PreviousValue;
+                end
+                fig = ancestor(src, 'matlab.ui.Figure');
+                if ~isempty(fig) && isvalid(fig)
+                    uialert(fig, ME.message, sprintf('Invalid value for %s', src.Tag));
+                end
                 return
             end
+            if isNumExpr
+                src.Value = localFormatPropertyValue_(obj.(src.Tag));
+            end
             obj.on_gui_changed(src.Tag, event.Value);
-            obj.update_signal;
+            obj.call_update_signal_with_variant_cycle_();
+        end
+
+        function call_update_signal_with_variant_cycle_(obj)
+            % Ensure one deterministic variant selection per signal update call.
+            cycleWasActive = obj.variantCycleActive_;
+            if ~cycleWasActive
+                obj.begin_variant_cycle_();
+            end
+            try
+                obj.update_signal;
+            catch ME
+                if ~cycleWasActive
+                    obj.end_variant_cycle_();
+                end
+                rethrow(ME)
+            end
+            if ~cycleWasActive
+                obj.end_variant_cycle_();
+            end
+        end
+
+        function begin_variant_cycle_(obj)
+            obj.refresh_variant_cache_if_needed_();
+            obj.variantCycleActive_ = true;
+            if isempty(obj.variantCombinationTable_)
+                obj.variantActiveIdx_ = 1;
+                return
+            end
+            obj.variantActiveIdx_ = obj.select_variant_index_();
+            if numel(obj.variantUseCount_) >= obj.variantActiveIdx_
+                obj.variantUseCount_(obj.variantActiveIdx_) = obj.variantUseCount_(obj.variantActiveIdx_) + 1;
+            end
+        end
+
+        function end_variant_cycle_(obj)
+            obj.variantCycleActive_ = false;
+        end
+
+        function value = get_selected_property_value_(obj, propName)
+            % Return scalar value for propName using the active variant combination.
+            if ~isprop(obj, char(propName))
+                error('stimgen:StimType:UnknownProperty', 'Unknown property "%s".', char(propName));
+            end
+
+            raw = obj.(char(propName));
+            if obj.is_non_vectorizable_property_(propName) && numel(raw) > 1
+                error('stimgen:StimType:NonVectorizableProperty', ...
+                    'Property "%s" is not vectorizable and must be scalar.', char(propName));
+            end
+
+            if numel(raw) <= 1
+                value = raw;
+                return
+            end
+
+            obj.refresh_variant_cache_if_needed_();
+            if isempty(obj.variantCombinationTable_)
+                value = raw(1);
+                return
+            end
+
+            idx = obj.variantActiveIdx_;
+            if ~obj.variantCycleActive_
+                if obj.VariantReselectOnUpdate
+                    idx = obj.select_variant_index_();
+                    obj.variantActiveIdx_ = idx;
+                    if numel(obj.variantUseCount_) >= idx
+                        obj.variantUseCount_(idx) = obj.variantUseCount_(idx) + 1;
+                    end
+                else
+                    if isempty(obj.variantCombinationTable_)
+                        idx = 1;
+                    else
+                        idx = min(max(obj.variantActiveIdx_, 1), numel(obj.variantCombinationTable_));
+                    end
+                end
+            end
+
+            key = char(propName);
+            combo = obj.variantCombinationTable_(idx);
+            if isfield(combo, key)
+                value = combo.(key);
+            else
+                value = raw(1);
+            end
+        end
+
+        function refresh_variant_cache_if_needed_(obj)
+            [propNames, propValues] = obj.get_variant_source_values_();
+            signature = obj.build_variant_signature_(propNames, propValues);
+            if signature == obj.variantSignature_
+                return
+            end
+
+            [comboTable, comboProps] = obj.build_variant_combinations_(propNames, propValues);
+            obj.variantCombinationTable_ = comboTable;
+            obj.variantCombinationPropNames_ = comboProps;
+            obj.variantUseCount_ = zeros(1, numel(comboTable));
+            obj.variantCurrentIdx_ = 1;
+            obj.variantActiveIdx_ = 1;
+            obj.variantSignature_ = signature;
+            obj.variantSelectorObj_ = [];
+        end
+
+        function [propNames, propValues] = get_variant_source_values_(obj)
+            propNames = string.empty(1,0);
+            propValues = {};
+            if isempty(obj.UserProperties)
+                return
+            end
+
+            for k = 1:numel(obj.UserProperties)
+                pname = string(obj.UserProperties(k));
+                if ~isprop(obj, char(pname))
+                    continue
+                end
+                raw = obj.(char(pname));
+                if obj.is_non_vectorizable_property_(pname)
+                    if numel(raw) > 1
+                        error('stimgen:StimType:NonVectorizableProperty', ...
+                            'Property "%s" is not vectorizable and must be scalar.', char(pname));
+                    end
+                    continue
+                end
+                if numel(raw) > 1
+                    propNames(end+1) = pname; %#ok<AGROW>
+                    if isrow(raw)
+                        propValues{end+1} = raw; %#ok<AGROW>
+                    else
+                        propValues{end+1} = reshape(raw, 1, []); %#ok<AGROW>
+                    end
+                end
+            end
+        end
+
+        function signature = build_variant_signature_(obj, propNames, propValues)
+            parts = strings(1, numel(propNames) + 3);
+            parts(1) = obj.VariantSelectionMode;
+            parts(2) = obj.VariantCombinationMode;
+            parts(3) = obj.VariantSelectorClass;
+            for k = 1:numel(propNames)
+                v = propValues{k};
+                if isnumeric(v) || islogical(v)
+                    vtxt = mat2str(v);
+                elseif isstring(v)
+                    vtxt = strjoin(v, '|');
+                elseif ischar(v)
+                    vtxt = string(v);
+                else
+                    vtxt = string(class(v)) + ":" + string(numel(v));
+                end
+                parts(k+3) = propNames(k) + "=" + vtxt;
+            end
+            signature = strjoin(parts, "||");
+        end
+
+        function [comboTable, comboProps] = build_variant_combinations_(obj, propNames, propValues)
+            comboProps = propNames;
+            if isempty(propNames)
+                comboTable = struct.empty(1,0);
+                return
+            end
+
+            nProps = numel(propNames);
+            mode = obj.VariantCombinationMode;
+            switch mode
+                case "Cartesian"
+                    grids = cell(1, nProps);
+                    [grids{:}] = ndgrid(propValues{:});
+                    nComb = numel(grids{1});
+                    fieldNames = cellstr(propNames);
+                    fieldValues = repmat({[]}, 1, nProps);
+                    seed = cell2struct(fieldValues, fieldNames, 2);
+                    comboTable = repmat(seed, 1, nComb);
+                    for i = 1:nComb
+                        for p = 1:nProps
+                            comboTable(i).(fieldNames{p}) = grids{p}(i);
+                        end
+                    end
+                otherwise
+                    lengths = cellfun(@numel, propValues);
+                    maxLen = max(lengths);
+                    switch mode
+                        case "PairwiseStrict"
+                            if any(lengths ~= maxLen)
+                                error('stimgen:StimType:PairwiseLengthMismatch', ...
+                                    'PairwiseStrict requires equal vector lengths for all vectorized properties.');
+                            end
+                            expanded = propValues;
+                        case "PairwiseScalarExpand"
+                            valid = (lengths == 1) | (lengths == maxLen);
+                            if ~all(valid)
+                                error('stimgen:StimType:PairwiseLengthMismatch', ...
+                                    'PairwiseScalarExpand requires each vector length to be either 1 or the shared max length.');
+                            end
+                            expanded = propValues;
+                            for p = 1:nProps
+                                if numel(expanded{p}) == 1
+                                    expanded{p} = repmat(expanded{p}, 1, maxLen);
+                                end
+                            end
+                        otherwise
+                            error('stimgen:StimType:InvalidCombinationMode', ...
+                                'Unknown VariantCombinationMode "%s".', char(mode));
+                    end
+
+                    fieldNames = cellstr(propNames);
+                    fieldValues = repmat({[]}, 1, nProps);
+                    seed = cell2struct(fieldValues, fieldNames, 2);
+                    comboTable = repmat(seed, 1, maxLen);
+                    for i = 1:maxLen
+                        for p = 1:nProps
+                            comboTable(i).(fieldNames{p}) = expanded{p}(i);
+                        end
+                    end
+            end
+        end
+
+        function idx = select_variant_index_(obj)
+            nComb = numel(obj.variantCombinationTable_);
+            if nComb <= 1
+                idx = 1;
+                return
+            end
+
+            switch obj.VariantSelectionMode
+                case "Serial"
+                    idx = obj.variantCurrentIdx_;
+                    idx = min(max(idx,1), nComb);
+                    obj.variantCurrentIdx_ = mod(idx, nComb) + 1;
+                case "ShuffleUniform"
+                    idx = randi(nComb);
+                    obj.variantCurrentIdx_ = idx;
+                case "ShuffleLeastUsed"
+                    counts = obj.variantUseCount_;
+                    if isempty(counts) || numel(counts) ~= nComb
+                        counts = zeros(1, nComb);
+                        obj.variantUseCount_ = counts;
+                    end
+                    minCount = min(counts);
+                    candidates = find(counts == minCount);
+                    idx = candidates(randi(numel(candidates)));
+                    obj.variantCurrentIdx_ = idx;
+                case "CustomSelector"
+                    selector = obj.get_or_create_variant_selector_();
+                    trialRows = num2cell((1:nComb).');
+                    trialsStruct = struct('trials', {trialRows});
+                    idx = selector.selectNext(trialsStruct);
+                    if ~isscalar(idx) || ~isfinite(idx) || idx < 1 || idx > nComb
+                        error('stimgen:StimType:InvalidSelectorIndex', ...
+                            'Custom selector returned invalid index for %d variants.', nComb);
+                    end
+                    idx = double(idx);
+                    obj.variantCurrentIdx_ = idx;
+                otherwise
+                    error('stimgen:StimType:InvalidSelectionMode', ...
+                        'Unknown VariantSelectionMode "%s".', char(obj.VariantSelectionMode));
+            end
+        end
+
+        function selector = get_or_create_variant_selector_(obj)
+            if ~isempty(obj.variantSelectorObj_) && isa(obj.variantSelectorObj_, 'handle') && isvalid(obj.variantSelectorObj_)
+                selector = obj.variantSelectorObj_;
+                return
+            end
+
+            className = strtrim(char(obj.VariantSelectorClass));
+            if isempty(className)
+                error('stimgen:StimType:MissingSelectorClass', ...
+                    'VariantSelectorClass must be provided when VariantSelectionMode is CustomSelector.');
+            end
+            if exist(className, 'class') ~= 8
+                error('stimgen:StimType:SelectorClassNotFound', ...
+                    'Variant selector class "%s" was not found.', className);
+            end
+
+            selector = feval(className);
+            if ~isa(selector, 'epsych.TrialSelector')
+                error('stimgen:StimType:SelectorClassType', ...
+                    'Variant selector class "%s" must inherit epsych.TrialSelector.', className);
+            end
+
+            if ~isempty(fieldnames(obj.VariantSelectorConfig))
+                cfgNames = fieldnames(obj.VariantSelectorConfig);
+                for k = 1:numel(cfgNames)
+                    cfgName = cfgNames{k};
+                    if isprop(selector, cfgName)
+                        selector.(cfgName) = obj.VariantSelectorConfig.(cfgName);
+                    end
+                end
+            end
+
+            trialsStruct = struct('trials', {num2cell((1:max(1,numel(obj.variantCombinationTable_))).')});
+            selector.initialize(trialsStruct);
+            obj.variantSelectorObj_ = selector;
+        end
+
+        function tf = is_non_vectorizable_property_(~, propName)
+            tf = any(strcmp(string(propName), ["Fs","ApplyCalibration","ApplyWindow"]));
+        end
+
+        function info = apply_variant_index_and_update_(obj, idx)
+            % apply_variant_index_and_update_(obj, idx)
+            % Internal helper to lock one variant index for a full update.
+
+            obj.refresh_variant_cache_if_needed_();
+
+            nComb = numel(obj.variantCombinationTable_);
+            if nComb < 1
+                nComb = 1;
+            end
+
+            targetIdx = mod(round(double(idx)) - 1, nComb) + 1;
+
+            cycleWasActive = obj.variantCycleActive_;
+            prevActiveIdx = obj.variantActiveIdx_;
+
+            obj.variantCycleActive_ = true;
+            obj.variantActiveIdx_ = targetIdx;
+            if numel(obj.variantUseCount_) >= targetIdx
+                obj.variantUseCount_(targetIdx) = obj.variantUseCount_(targetIdx) + 1;
+            end
+
+            try
+                obj.update_signal;
+            catch ME
+                obj.variantActiveIdx_ = prevActiveIdx;
+                obj.variantCycleActive_ = cycleWasActive;
+                rethrow(ME)
+            end
+
+            obj.variantCycleActive_ = cycleWasActive;
+            obj.variantCurrentIdx_ = mod(targetIdx, nComb) + 1;
+
+            info = obj.get_variant_info();
+        end
+
+        function value = evaluate_property_expression_(obj, propName, expressionText)
+            % value = evaluate_property_expression_(obj, propName, expressionText)
+            % Evaluate a guarded MATLAB expression for a numeric property.
+            % Supports vector/range literals, MATLAB expressions, and references
+            % to other properties by bare name or ClassName.PropertyName form.
+            %
+            % Parameters:
+            %   propName       - Name of the target property being set.
+            %   expressionText - MATLAB expression string entered by the user.
+            %
+            % Returns:
+            %   value - Evaluated double vector or scalar.
+            expressionText = strtrim(expressionText);
+            if isempty(expressionText)
+                error('Expression cannot be empty.');
+            end
+            if ~isempty(regexp(expressionText, '(?<![<>=~])=(?!=)', 'once'))
+                error('Assignments are not allowed in expressions.');
+            end
+            if contains(expressionText, ';')
+                error('Only a single expression is allowed.');
+            end
+            expressionText = obj.rewrite_qualified_property_refs_(expressionText);
+            expressionText = strip(expressionText, 'both', '"');
+            expressionText = strip(expressionText, 'both', '''');
+            context = obj.build_expression_context_(propName);
+            names = fieldnames(context);
+            for k_ = 1:numel(names)
+                eval(sprintf('%s = context.(names{%d});', names{k_}, k_));
+            end
+            value = eval(expressionText);
+            if ischar(value) || (isstring(value) && isscalar(value))
+                nestedExpression = strtrim(char(string(value)));
+                if strcmp(nestedExpression, expressionText)
+                    error('Expression for %s must evaluate to a numeric or logical value.', propName);
+                end
+                value = eval(nestedExpression);
+            end
+            if ~(isnumeric(value) || islogical(value)) || isempty(value)
+                error('Expression for %s must evaluate to a numeric or logical value.', propName);
+            end
+            if ~all(isfinite(value(:)))
+                error('Expression for %s must evaluate to finite numeric values.', propName);
+            end
+            value = double(value);
+        end
+
+        function context = build_expression_context_(obj, targetPropName)
+            % context = build_expression_context_(obj, targetPropName)
+            % Build a struct of current numeric property values as eval context.
+            % Excludes the target property to prevent self-reference.
+            context = struct();
+            if isempty(obj.UserProperties)
+                return
+            end
+            for k_ = 1:numel(obj.UserProperties)
+                pname = char(obj.UserProperties(k_));
+                if strcmp(pname, targetPropName)
+                    continue
+                end
+                if ~isprop(obj, pname)
+                    continue
+                end
+                raw = obj.(pname);
+                if isnumeric(raw) || islogical(raw)
+                    safeName = matlab.lang.makeValidName(pname);
+                    context.(safeName) = double(raw);
+                end
+            end
+        end
+
+        function expressionText = rewrite_qualified_property_refs_(obj, expressionText)
+            % expressionText = rewrite_qualified_property_refs_(obj, expressionText)
+            % Replace ClassName.PropertyName tokens with bare PropertyName
+            % when PropertyName is a recognized property of this StimType.
+            mc = metaclass(obj);
+            validNames = {mc.PropertyList.Name};
+            [tokens, starts, ends_] = regexp(expressionText, ...
+                '(?<!\.)\<([A-Za-z]\w*)\.([A-Za-z]\w*)\>', ...
+                'tokens', 'start', 'end');
+            for k_ = numel(starts):-1:1
+                propName = tokens{k_}{2};
+                if ismember(propName, validNames)
+                    expressionText = [expressionText(1:starts(k_)-1), propName, expressionText(ends_(k_)+1:end)];
+                end
+            end
+        end
+
+        function tf = is_variant_policy_property_(~, propName)
+            tf = any(strcmp(string(propName), [ ...
+                "VariantSelectionMode", ...
+                "VariantCombinationMode", ...
+                "VariantSelectorClass", ...
+                "VariantSelectorConfig", ...
+                "VariantReselectOnUpdate" ...
+            ]));
         end
 
         function on_gui_changed(~, ~, ~)
@@ -448,6 +1081,12 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             m.Duration       = struct('label', 'Duration',        'format', '%.3f s',  'limits', [0.001 10]);
             m.WindowDuration = struct('label', 'Window Duration', 'format', '%.4f s',  'limits', [1e-6 10]);
             m.ApplyWindow    = struct('label', 'Apply Window');
+            m.VariantSelectionMode = struct('label', 'Variant Selection', 'widget', 'dropdown', ...
+                'items', ["Serial" "ShuffleUniform" "ShuffleLeastUsed" "CustomSelector"]);
+            m.VariantCombinationMode = struct('label', 'Variant Combination', 'widget', 'dropdown', ...
+                'items', ["Cartesian" "PairwiseStrict" "PairwiseScalarExpand"]);
+            m.VariantSelectorClass = struct('label', 'Variant Selector Class');
+            m.VariantReselectOnUpdate = struct('label', 'Reselect Variant Each Update');
         end
     end % methods (Access = protected)
 
@@ -503,6 +1142,21 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             obj.Fs               = S.Fs;
             obj.ApplyCalibration = S.ApplyCalibration;
             obj.ApplyWindow      = S.ApplyWindow;
+            if isfield(S, 'VariantSelectionMode')
+                obj.VariantSelectionMode = string(S.VariantSelectionMode);
+            end
+            if isfield(S, 'VariantCombinationMode')
+                obj.VariantCombinationMode = string(S.VariantCombinationMode);
+            end
+            if isfield(S, 'VariantSelectorClass')
+                obj.VariantSelectorClass = string(S.VariantSelectorClass);
+            end
+            if isfield(S, 'VariantSelectorConfig')
+                obj.VariantSelectorConfig = S.VariantSelectorConfig;
+            end
+            if isfield(S, 'VariantReselectOnUpdate')
+                obj.VariantReselectOnUpdate = logical(S.VariantReselectOnUpdate);
+            end
             for k = 1:numel(S.UserProperties)
                 pname = char(S.UserProperties(k));
                 if isprop(obj, pname) && isfield(S, pname)
@@ -521,4 +1175,37 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             c = cellfun(@(a) a(1:end-2),f,'uni',0);
         end
     end % methods (Static)
+end
+
+function text = localFormatPropertyValue_(value)
+% Format a numeric property value as a display string for a text edit field.
+% Scalars render as a bare number; vectors render in mat2str bracket notation.
+if isscalar(value)
+    text = num2str(double(value), '%g');
+else
+    text = mat2str(double(value));
+end
+end
+
+function text = format_summary_value_(value)
+% Format a selected property value for compact display in plot titles.
+if isstring(value)
+    text = strjoin(value, ',');
+elseif ischar(value)
+    text = string(value);
+elseif islogical(value)
+    if isscalar(value)
+        text = string(matlab.lang.OnOffSwitchState(value));
+    else
+        text = string(mat2str(value));
+    end
+elseif isnumeric(value)
+    if isscalar(value)
+        text = string(num2str(double(value), '%g'));
+    else
+        text = string(mat2str(double(value)));
+    end
+else
+    text = string(value);
+end
 end

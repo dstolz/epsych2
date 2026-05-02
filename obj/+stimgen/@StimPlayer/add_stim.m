@@ -5,23 +5,30 @@ function add_stim(obj, ~, ~)
 
 h = obj.handles;
 
-typeName = h.TypeDropdown.Value;
+try
+	typeName = h.TypeDropdown.Value;
 
-% Create the StimType object
-stimObj = stimgen.(typeName)();
+	% Create the StimType object
+	stimObj = stimgen.(typeName)();
 
-% Wrap in StimPlay
-sp              = stimgen.StimPlay(stimObj);
-sp.Reps         = h.RepsField.Value;
-sp.Name         = sprintf('%s_%d', typeName, numel(obj.StimPlayObjs) + 1);
-sp.SelectionType = "Serial"; % within-stim selection (single StimObj, irrelevant)
+	% Wrap in StimPlay
+	sp              = stimgen.StimPlay(stimObj);
+	sp.Reps         = h.RepsField.Value;
+	sp.Name         = sprintf('%s_%d', typeName, numel(obj.StimPlayObjs) + 1);
+	sp.SelectionType = "Serial"; % within-stim selection (single StimObj, irrelevant)
 
-obj.StimPlayObjs(end+1, 1) = sp;
+	obj.StimPlayObjs(end+1, 1) = sp;
 
-obj.refresh_listbox_;
+	obj.refresh_listbox_;
+	obj.refresh_combo_controls_;
 
-% Select the newly added item
-h.BankList.Value = numel(obj.StimPlayObjs);
-obj.on_bank_selection_changed(h.BankList, []);
+	% Select the newly added item
+	h.BankList.Value = numel(obj.StimPlayObjs);
+	obj.on_bank_selection_changed(h.BankList, []);
 
-vprintf(2, 'StimPlayer: added %s as "%s"', typeName, sp.Name);
+	vprintf(2, 'StimPlayer: added %s as "%s"', typeName, sp.Name);
+	obj.set_status_("Added stimulus: " + string(sp.Name));
+catch ME
+	obj.report_gui_error_(ME, "Add Stimulus Error", ...
+		"StimPlayer could not create the selected stimulus type.");
+end

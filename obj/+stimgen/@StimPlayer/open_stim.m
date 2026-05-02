@@ -9,17 +9,24 @@ function open_stim(obj, stimObj, options)
 
 arguments
     obj (1,1) stimgen.StimPlayer
-    stimObj (1,1) stimgen.StimType
+    stimObj (1,:) stimgen.StimType
     options.Name (1,1) string = ""
 end
 
 sp = stimgen.StimPlay(stimObj);
 if options.Name == ""
-    name = string(stimObj.DisplayName);
-    if name == ""
-        className = string(class(stimObj));
+    if numel(stimObj) == 1
+        name = string(stimObj.DisplayName);
+        if name == ""
+            className = string(class(stimObj));
+            parts = split(className, ".");
+            name = parts(end);
+        end
+    else
+        className = string(class(stimObj(1)));
         parts = split(className, ".");
-        name = parts(end);
+        shortName = parts(end);
+        name = sprintf('%s vector (%d)', shortName, numel(stimObj));
     end
 else
     name = options.Name;
@@ -29,6 +36,7 @@ sp.SelectionType = "Serial";
 
 obj.StimPlayObjs(end + 1, 1) = sp;
 obj.refresh_listbox_();
+obj.refresh_combo_controls_;
 
 if isfield(obj.handles, 'BankList') && isvalid(obj.handles.BankList)
     obj.handles.BankList.Value = numel(obj.StimPlayObjs);

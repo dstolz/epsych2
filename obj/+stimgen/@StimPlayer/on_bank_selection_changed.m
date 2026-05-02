@@ -114,10 +114,16 @@ for s = 1:numel(sections)
             wt = resolve_wt_(propName, pm, pl);
             switch wt
                 case 'numeric'
-                    x = uieditfield(g, 'numeric', 'Tag', propName);
-                    x.Value = stimObj.(propName);
-                    if isfield(pm, 'format'), x.ValueDisplayFormat = pm.format; end
-                    if isfield(pm, 'limits'), x.Limits = pm.limits; end
+                    if is_non_vectorizable_prop_(propName)
+                        x = uieditfield(g, 'numeric', 'Tag', propName);
+                        x.Value = stimObj.(propName);
+                        if isfield(pm, 'format'), x.ValueDisplayFormat = pm.format; end
+                        if isfield(pm, 'limits'), x.Limits = pm.limits; end
+                    else
+                        x = uieditfield(g, 'Tag', propName);
+                        x.Value = localFormatPropValue_(stimObj.(propName));
+                        x.UserData = struct('isNumericExpression', true);
+                    end
                 case 'checkbox'
                     x = uicheckbox(g, 'Tag', propName, 'Text', '');
                     x.Value = stimObj.(propName);
@@ -130,7 +136,7 @@ for s = 1:numel(sections)
                     x = uieditfield(g, 'Tag', propName);
                     x.Value = char(stimObj.(propName));
             end
-            x.ValueChangedFcn = @(s, e) set_prop_(obj, stimObj, s.Tag, e.Value);
+            x.ValueChangedFcn = @(s, e) set_prop_(obj, stimObj, s, e);
         end
 
         x.Layout.Row    = row;
@@ -142,20 +148,50 @@ for s = 1:numel(sections)
 end
 
 obj.update_signal_plot;
+obj.refresh_combo_controls_;
 end
 
 
 % =========================================================================
 
-function set_prop_(obj, stimObj, propName, value)
-% set_prop_(obj, stimObj, propName, value) - Set a property on stimObj then refresh the plot.
+function set_prop_(obj, stimObj, src, event)
+% set_prop_(obj, stimObj, src, event) - Set a property on stimObj then refresh the plot.
+% For vectorizable numeric fields (UserData.isNumericExpression == true), parses
+% value as a MATLAB expression via evalPropertyExpression before assignment.
+isNumExpr = isstruct(src.UserData) && isfield(src.UserData, 'isNumericExpression') && src.UserData.isNumericExpression;
 try
-    stimObj.(propName) = value;
+    value = event.Value;
+    if isNumExpr
+        value = stimObj.evalPropertyExpression(src.Tag, char(string(value)));
+    end
+    stimObj.(src.Tag) = value;
     stimObj.update_signal();
     obj.update_signal_plot();
 catch ME
-    vprintf(0, 1, ME);
+    if isNumExpr
+        src.Value = localFormatPropValue_(stimObj.(src.Tag));
+    elseif isprop(stimObj, src.Tag)
+        currentValue = stimObj.(src.Tag);
+        if islogical(currentValue)
+            src.Value = logical(currentValue);
+        elseif isnumeric(currentValue)
+            src.Value = currentValue;
+        elseif isstring(currentValue)
+            src.Value = char(currentValue);
+        else
+            src.Value = event.PreviousValue;
+        end
+    else
+        src.Value = event.PreviousValue;
+    end
+    obj.report_gui_error_(ME, "Invalid Parameter Value", ...
+        "StimPlayer could not apply that parameter value. The previous value has been restored.");
+    return
 end
+if isNumExpr
+    src.Value = localFormatPropValue_(stimObj.(src.Tag));
+end
+obj.refresh_combo_controls_();
 end
 
 
@@ -184,5 +220,23 @@ switch pl(idx).Validation.Class.Name
         wt = 'checkbox';
     otherwise
         wt = 'text';
+end
+end
+
+
+function tf = is_non_vectorizable_prop_(propName)
+% is_non_vectorizable_prop_(propName) - True for properties that must stay scalar.
+% Mirrors stimgen.StimType.is_non_vectorizable_property_ (protected).
+tf = any(strcmp(string(propName), ["Fs","ApplyCalibration","ApplyWindow"]));
+end
+
+
+function text = localFormatPropValue_(value)
+% localFormatPropValue_(value) - Format a numeric property value for a text edit field.
+% Scalars render as a bare number; vectors render in mat2str bracket notation.
+if isscalar(value)
+    text = num2str(double(value), '%g');
+else
+    text = mat2str(double(value));
 end
 end

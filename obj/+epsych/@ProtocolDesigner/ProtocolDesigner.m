@@ -32,7 +32,7 @@ classdef ProtocolDesigner < handle
         EditInfo matlab.ui.control.EditField
         BtnSave matlab.ui.control.Button
         BtnLoad matlab.ui.control.Button
-        LabelStatus matlab.ui.control.Label
+        StatusBar gui.StatusBar  % Footer status-label component.
 
         DropDownInterfaceType matlab.ui.control.DropDown
         LabelInterfaceDescription matlab.ui.control.Label
@@ -57,7 +57,6 @@ classdef ProtocolDesigner < handle
         EditTrialFunc matlab.ui.control.EditField
         CheckCompileAtRuntime matlab.ui.control.CheckBox
         CheckIncludeWAVBuffers matlab.ui.control.CheckBox
-        CheckUseOpenEx matlab.ui.control.CheckBox
         DropDownConnectionType matlab.ui.control.DropDown
 
         BtnCompile matlab.ui.control.Button
@@ -94,6 +93,17 @@ classdef ProtocolDesigner < handle
             end
 
             obj.buildUI();
+
+            % Extend StatusBar with ProtocolDesigner-specific error terms.
+            obj.StatusBar.ErrorPatterns = [obj.StatusBar.ErrorPatterns, { ...
+                'compile failed', ...
+                'no interface selected', ...
+                'no module selected', ...
+                'no parameter selected', ...
+                'no target module selected', ...
+                'no writable parameters', ...
+                'no interfaces defined'}];
+
             obj.refreshUI();
 
             if nargout == 0

@@ -19,6 +19,12 @@ bank.SelectionType = obj.SelectionType;
 bank.NItems        = numel(obj.StimPlayObjs);
 bank.Items         = arrayfun(@(sp) sp.toStruct, obj.StimPlayObjs, 'uni', false);
 
-save(ffn, '-struct', 'bank', '-v7');
-vprintf(1, 'StimPlayer: bank saved to "%s"', ffn);
+try
+    save(ffn, '-struct', 'bank', '-v7');
+    vprintf(1, 'StimPlayer: bank saved to "%s"', ffn);
+    obj.set_status_("Saved bank: " + string(ffn));
+catch ME
+    obj.report_gui_error_(ME, "Save Bank Error", ...
+        "StimPlayer could not save the current bank.");
+end
 end

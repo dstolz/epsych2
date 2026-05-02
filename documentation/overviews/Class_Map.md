@@ -118,7 +118,7 @@ This view is not inheritance. It shows the main runtime relationships during a t
 
 ```mermaid
 flowchart TD
-    A[Protocol design<br/>ep_ExperimentDesign<br/>ep_CompileProtocol<br/>ep_struct2protocol] --> B[epsych.RunExpt<br/>session controller]
+   A[Protocol design<br/>epsych.ProtocolDesigner<br/>ep_CompileProtocol<br/>ep_struct2protocol] --> B[epsych.RunExpt<br/>session controller]
     B --> C[epsych.Runtime<br/>shared session state]
     C --> D[epsych.Helper<br/>event hub]
     C --> E[hw.Interface]
@@ -147,7 +147,7 @@ flowchart TD
 
 ```text
 Protocol authoring
-├─ ep_ExperimentDesign
+├─ epsych.ProtocolDesigner
 ├─ ep_CompileProtocol
 └─ ep_struct2protocol
    ↓

@@ -27,7 +27,6 @@ function protocol = ep_struct2protocol(T,Options,Info)
 % Options can be specified as a structure with the following fields:
 %   .ISI                ... Inter-Stimulus (trigger) Interval in ms (default = 1000 ms)
 %   .trialfunc          ... Function name or handle. Must be on Matlab's search path
-%   .UseOpenEx          ... True f using with OpenEx software (default = true)
 %   .ConnectionType     ... 'USB' or 'GB' (default)
 %   .IncludeWAVBuffers  ... Load buffers (wav or mat) at Runtime if false (default = true)
 %   .optcontrol         ... True to use an external trigger instead of the
@@ -60,8 +59,8 @@ assert(isstruct(T),'Input T must be as structure')
 
 
 Ofns = {'randomize', 'compile_at_runtime', 'ISI', 'num_reps', 'trialfunc', ...
-    'optcontrol','UseOpenEx','ConnectionType','IncludeWAVBuffers'};
-Odft = {1,0,1000,1,[],0,1,'GB','on'};
+    'optcontrol','ConnectionType','IncludeWAVBuffers'};
+Odft = {1,0,1000,1,[],0,'GB','on'};
 for i = 1:length(Ofns)
     if nargin < 2 || isempty(Options) || ~isfield(Options,Ofns{i})
         Options.(Ofns{i}) = Odft{i}; 

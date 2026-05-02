@@ -108,7 +108,7 @@ If this works, EPsych itself is available in MATLAB even if hardware is not conn
 Open one of the design tools from MATLAB, for example:
 
 ```matlab
-ep_ExperimentDesign
+epsych.ProtocolDesigner
 ```
 
 Expected result:
@@ -123,7 +123,7 @@ Expected result:
 3. Clone the EPsych repository.
 4. Run `epsych_startup`.
 5. Open `epsych.RunExpt`.
-6. Open the protocol designer.
+6. Open `epsych.ProtocolDesigner`.
 7. Only after the MATLAB-side flow is stable, connect and test TDT hardware.
 
 This order matters because it separates MATLAB path problems from hardware or driver problems.

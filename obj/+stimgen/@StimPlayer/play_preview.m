@@ -18,21 +18,38 @@ end
 
 if isempty(sp)
     vprintf(1, 'StimPlayer: no stimulus selected for preview.');
+    obj.show_gui_message_("Select a stimulus before previewing it.", ...
+        "Nothing To Preview", "warning");
     return
 end
 
 stimObj = sp.CurrentStimObj;
-if isempty(stimObj.Signal)
-    stimObj.update_signal;
+btn = obj.handles.PlayStimBtn;
+prevColor = btn.BackgroundColor;
+cleanupObj = onCleanup(@() restore_button_color_(btn, prevColor));
+
+try
+    if isempty(stimObj.Signal)
+        stimObj.update_signal;
+    end
+
+    btn.BackgroundColor = [0.2 1.0 0.2];
+    drawnow;
+
+    vprintf(1, 'StimPlayer: playing "%s" via speakers...', sp.Name);
+    obj.set_status_("Previewing: " + string(sp.Name));
+    stimObj.play;
+catch ME
+    obj.report_gui_error_(ME, "Preview Error", ...
+        "StimPlayer could not preview the selected stimulus.");
 end
 
-h = obj.handles.PlayStimBtn;
-prevColor = h.BackgroundColor;
-h.BackgroundColor = [0.2 1.0 0.2];
-drawnow;
+clear cleanupObj;
+end
 
-vprintf(1, 'StimPlayer: playing "%s" via speakers...', sp.Name);
-stimObj.play;
 
-h.BackgroundColor = prevColor;
+function restore_button_color_(btn, colorValue)
+if ~isempty(btn) && isvalid(btn)
+    btn.BackgroundColor = colorValue;
+end
 end

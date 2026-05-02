@@ -8,11 +8,11 @@ classdef ClickTrain < stimgen.StimType
     
     
     properties (AbortSet,SetObservable)
-        Rate        (1,1) double {mustBePositive,mustBeFinite} = 10; % Hz
-        Polarity    (1,1) {mustBeMember(Polarity,[-1 0 1])} = 1;
-        ClickDuration (1,1) double {mustBePositive} = 20e-6; % s
-        OnsetDelay  (1,1) double {mustBeNonnegative,mustBeFinite} = 0; % sec
-        Truncate    (1,1) logical = false;
+        Rate        (1,:) double {mustBePositive,mustBeFinite} = 10; % Hz
+        Polarity    (1,:) double {mustBeMember(Polarity,[-1 0 1])} = 1;
+        ClickDuration (1,:) double {mustBePositive,mustBeFinite} = 20e-6; % s
+        OnsetDelay  (1,:) double {mustBeNonnegative,mustBeFinite} = 0; % sec
+        Truncate    (1,:) logical = false;
     end
     
     properties (Dependent)
@@ -49,32 +49,37 @@ classdef ClickTrain < stimgen.StimType
             ci = 1/obj.Rate;
         end
         
-        function set.ClickDuration(obj,d)
-            p = 1/obj.Rate;
-            
-            assert(d <= p,'stimgen:ClickTrain:ClickDuration:InvalidValue', ...
-                'Click duration is too long for the current click Rate');
-            
-            assert(round(obj.Fs*d) > 0,'stimgen:ClickTrain:ClickDuration:InvalidValue', ...
+        function update_signal(obj)
+            if ~obj.variantCycleActive_
+                obj.call_update_signal_with_variant_cycle_();
+                return
+            end
+
+            fsValue = double(obj.selected_value("Fs"));
+            d = double(obj.selected_value("Duration"));
+            rate = double(obj.selected_value("Rate"));
+            polarity = double(obj.selected_value("Polarity"));
+            clickDuration = double(obj.selected_value("ClickDuration"));
+            onsetDelay = double(obj.selected_value("OnsetDelay"));
+            truncateValue = logical(obj.selected_value("Truncate"));
+
+            p = 1 / rate;
+
+            assert(clickDuration <= p,'stimgen:ClickTrain:ClickDuration:InvalidValue', ...
+                'Click duration is too long for the selected click Rate');
+            assert(round(fsValue*clickDuration) > 0,'stimgen:ClickTrain:ClickDuration:InvalidValue', ...
                 'Click duration is less than 1 sample at the current sampling rate');
             
-            obj.ClickDuration = d;
-        end
-        
-        function update_signal(obj)
-            d = obj.Duration;
-            p = 1 / obj.Rate;
-            
-            y = ones(1,round(obj.Fs*obj.ClickDuration));
+            y = ones(1,round(fsValue*clickDuration));
             
             
-            yoff = zeros(1,round(obj.Fs*p)-length(y));
+            yoff = zeros(1,round(fsValue*p)-length(y));
             y = [y yoff];
             
-            yd = length(y)/obj.Fs;
+            yd = length(y)/fsValue;
             n = max(floor(d / yd),1);
             
-            if obj.Polarity == 0
+            if polarity == 0
                 x = -1;
                 yx = y;
                 for i = 2:n
@@ -82,14 +87,14 @@ classdef ClickTrain < stimgen.StimType
                     x = -x;
                 end
             else
-                y = obj.Polarity .* y;
+                y = polarity .* y;
                 y = repmat(y,1,n);
             end
             
-            yon  = zeros(1,round(obj.Fs*obj.OnsetDelay-1/obj.Fs));
+            yon  = zeros(1,max(round(fsValue*onsetDelay-1/fsValue),0));
             y = [yon y];
             
-            if ~obj.Truncate && obj.N > length(y)
+            if ~truncateValue && obj.N > length(y)
                 y = [y,zeros(1,obj.N-length(y))];
             elseif obj.N < length(y)
                 y(obj.N+1:end) = [];

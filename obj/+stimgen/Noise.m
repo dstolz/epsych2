@@ -7,8 +7,8 @@ classdef Noise < stimgen.StimType
     % The waveform is optionally windowed/gated and calibrated.
     
     properties (SetObservable,AbortSet)
-        HighPass  (1,1) double {mustBeNonnegative,mustBeFinite} = 500; % Hz
-        LowPass   (1,1) double {mustBeNonnegative,mustBeFinite} = 20000; % Hz
+        HighPass  (1,:) double {mustBeNonnegative,mustBeFinite} = 500; % Hz
+        LowPass   (1,:) double {mustBeNonnegative,mustBeFinite} = 20000; % Hz
         
         FilterOrder (1,1) double {mustBePositive,mustBeInteger,mustBeFinite} = 40;
         digFilter % designfilt object
@@ -31,34 +31,28 @@ classdef Noise < stimgen.StimType
             obj.UserProperties = ["SoundLevel","Duration","WindowDuration","ApplyWindow","HighPass","LowPass"];
         end
         
-        function set.HighPass(obj,fc)
-            obj.HighPass = fc;
-            obj.update_digFilter;
-        end
-        
-        function set.LowPass(obj,fc)
-            obj.LowPass = fc;
-            obj.update_digFilter;
-        end
-        
-        function set.FilterOrder(obj,fo)
-            obj.FilterOrder = fo;
-            obj.update_digFilter;
-        end
-        
         function set.digFilter(obj,d)
             assert(isa(d,'digitalFilter'),'Must use a designfilt object')            
             obj.digFilter = d;
         end
         
         function update_signal(obj)
+            if ~obj.variantCycleActive_
+                obj.call_update_signal_with_variant_cycle_();
+                return
+            end
+
             t = obj.Time;
+            highPass = double(obj.selected_value("HighPass"));
+            lowPass = double(obj.selected_value("LowPass"));
+
+            if lowPass <= highPass
+                error('stimgen:Noise:InvalidBand', 'LowPass must be greater than HighPass.');
+            end
 
             y = randn(length(t),1);
             
-            if isempty(obj.digFilter) || ~isvalid(obj.digFilter)
-                obj.update_digFilter;
-            end
+            obj.update_digFilter(highPass, lowPass);
             y = filter(obj.digFilter,y);
             
             obj.Signal = y';
@@ -70,12 +64,17 @@ classdef Noise < stimgen.StimType
             obj.apply_gate;
         end
     
-        function update_digFilter(obj)
+        function update_digFilter(obj, highPass, lowPass)
+            if nargin < 2
+                highPass = double(obj.selected_value("HighPass"));
+                lowPass = double(obj.selected_value("LowPass"));
+            end
+            fsValue = double(obj.selected_value("Fs"));
             obj.digFilter = designfilt('bandpassfir', ...
                     'FilterOrder',obj.FilterOrder, ...
-                    'CutoffFrequency1',obj.HighPass, ...
-                    'CutoffFrequency2',obj.LowPass, ...
-                    'SampleRate',obj.Fs);
+                    'CutoffFrequency1',highPass, ...
+                    'CutoffFrequency2',lowPass, ...
+                    'SampleRate',fsValue);
         end
         
         

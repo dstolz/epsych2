@@ -12,64 +12,66 @@ if nargin < 2 || isempty(ffn)
     ffn = fullfile(pn, fn);
 end
 
-bank = load(ffn, '-mat');
+try
+    bank = load(ffn, '-mat');
 
-obj.ISI           = bank.ISI;
-obj.SelectionType = string(bank.SelectionType);
+    obj.ISI           = bank.ISI;
+    obj.SelectionType = string(bank.SelectionType);
 
-sps = stimgen.StimPlay.empty(0,1);
-for k = 1:bank.NItems
-    S = bank.Items{k};
+    sps = stimgen.StimPlay.empty(0,1);
+    for k = 1:bank.NItems
+        S = bank.Items{k};
 
-    % Reconstruct the StimType object from its serialized struct
-    stimClass = char(S.StimObj.Class);
-    stimObj   = stimgen.(stimClass)();
+        % Reconstruct the StimType object from its serialized struct
+        stimClass = char(S.StimObj.Class);
+        stimObj   = stimgen.(stimClass)();
 
-    % Restore base StimType properties
-    baseProps = {'SoundLevel','Duration','WindowDuration','WindowFcn', ...
-                 'ApplyCalibration','ApplyWindow','Fs'};
-    for j = 1:numel(baseProps)
-        p = baseProps{j};
-        if isfield(S.StimObj, p)
-            try
+        % Restore base StimType properties
+        baseProps = {'SoundLevel','Duration','WindowDuration','WindowFcn', ...
+                     'ApplyCalibration','ApplyWindow','Fs', ...
+                     'VariantSelectionMode','VariantCombinationMode', ...
+                     'VariantSelectorClass','VariantSelectorConfig', ...
+                     'VariantReselectOnUpdate'};
+        for j = 1:numel(baseProps)
+            p = baseProps{j};
+            if isfield(S.StimObj, p)
                 stimObj.(p) = S.StimObj.(p);
-            catch ME
-                vprintf(0, 1, ME);
             end
         end
-    end
 
-    % Restore subclass-specific (UserProperties)
-    if isfield(S.StimObj, 'UserProperties')
-        for j = 1:numel(S.StimObj.UserProperties)
-            p = char(S.StimObj.UserProperties(j));
-            if isfield(S.StimObj, p)
-                try
+        % Restore subclass-specific (UserProperties)
+        if isfield(S.StimObj, 'UserProperties')
+            for j = 1:numel(S.StimObj.UserProperties)
+                p = char(S.StimObj.UserProperties(j));
+                if isfield(S.StimObj, p)
                     stimObj.(p) = S.StimObj.(p);
-                catch ME
-                    vprintf(0, 1, ME);
                 end
             end
         end
+
+        sp      = stimgen.StimPlay(stimObj);
+        sp.Reps = S.Reps;
+        sp.Name = S.Name;
+        sp.ISI  = S.ISI;
+
+        sps(end+1, 1) = sp; %#ok<AGROW>
     end
 
-    sp      = stimgen.StimPlay(stimObj);
-    sp.Reps = S.Reps;
-    sp.Name = S.Name;
-    sp.ISI  = S.ISI;
+    obj.StimPlayObjs = sps;
 
-    sps(end+1, 1) = sp; %#ok<AGROW>
+    ISIField_sync_(obj);
+
+    obj.refresh_listbox_;
+    obj.clear_tabs_;
+    obj.update_counter_;
+    obj.refresh_combo_controls_;
+
+    vprintf(1, 'StimPlayer: bank loaded from "%s" (%d items).', ffn, numel(sps));
+    obj.set_status_("Loaded bank with " + string(numel(sps)) + " item(s).");
+catch ME
+    obj.report_gui_error_(ME, "Load Bank Error", ...
+        "StimPlayer could not load the selected bank file.");
 end
-
-obj.StimPlayObjs = sps;
-
-ISIField_sync_(obj);
-
-obj.refresh_listbox_;
-obj.clear_tabs_;
-obj.update_counter_;
-
-vprintf(1, 'StimPlayer: bank loaded from "%s" (%d items).', ffn, numel(sps));
 end
 
 

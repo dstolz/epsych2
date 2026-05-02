@@ -52,8 +52,8 @@ Notes:
 
 A typical session looks like this:
 
-1. (If needed) Build and save a protocol (`*.prot`) using the experiment designer.
-   - The RunExpt GUI can open the designer for an existing protocol via **Edit Protocol**.
+1. (If needed) Build and save a protocol (`*.prot`) using a protocol design tool.
+   - The RunExpt GUI can open a protocol editor for an existing protocol via **Edit Protocol**.
 2. Launch the GUI: `epsych.RunExpt`.
 3. (Recommended) Set a default data directory:
    - **Customize → Define Save path...**

@@ -7,10 +7,10 @@ classdef AMnoise < stimgen.Noise
     % amplitude modulation with adjustable depth and rate.
     
     properties (SetObservable,AbortSet)
-        AMDepth (1,1) double {mustBeGreaterThanOrEqual(AMDepth,0),mustBeLessThanOrEqual(AMDepth,1)} = 1; % [0 1] 
-        AMRate  (1,1) double {mustBePositive,mustBeFinite} = 5; % Hz
-        
-        OnsetPhase (1,1) double = 180; % degrees
+        AMDepth (1,:) double {mustBeGreaterThanOrEqual(AMDepth,0),mustBeLessThanOrEqual(AMDepth,1)} = 1; % [0 1]
+        AMRate  (1,:) double {mustBePositive,mustBeFinite} = 5; % Hz
+
+        OnsetPhase (1,:) double = 180; % degrees
         
 %         AMExponential (1,1) double
         
@@ -40,6 +40,11 @@ classdef AMnoise < stimgen.Noise
         
         
         function update_signal(obj)
+            if ~obj.variantCycleActive_
+                obj.call_update_signal_with_variant_cycle_();
+                return
+            end
+
             obj.temporarilyDisableSignalMods = true;
             
             update_signal@stimgen.Noise(obj);
@@ -52,12 +57,16 @@ classdef AMnoise < stimgen.Noise
 %             A(t) = A [1 + m sin(2 pi fm t)]
 
             
-            am = cos(2.*pi.*obj.AMRate.*obj.Time+deg2rad(obj.OnsetPhase));
+            amDepth = double(obj.selected_value("AMDepth"));
+            amRate = double(obj.selected_value("AMRate"));
+            onsetPhase = double(obj.selected_value("OnsetPhase"));
+
+            am = cos(2.*pi.*amRate.*obj.Time+deg2rad(onsetPhase));
             am = (am + 1)./2;
-            am = am .* obj.AMDepth + 1 - obj.AMDepth;
+            am = am .* amDepth + 1 - amDepth;
             
             if obj.ApplyViemeisterCorrection
-                am = am .* sqrt(1/(obj.AMDepth^2/2+1));
+                am = am .* sqrt(1/(amDepth^2/2+1));
             end
             
             if obj.EnvelopeOnly

@@ -15,7 +15,6 @@ p.setOption('ISI',               250);
 p.setOption('trialFunc',         '');
 p.setOption('compileAtRuntime',  false);
 p.setOption('IncludeWAVBuffers', true);
-p.setOption('UseOpenEx',         true);
 p.setOption('ConnectionType',    'GB');
 
 %% Software interface — use the default module created by Protocol constructor

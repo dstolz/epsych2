@@ -230,23 +230,12 @@ set(h.lbl_fileinfo,'String',ffn)
 
 P = protocol;
 
-if ~isfield(P.OPTIONS,'UseOpenEx') % probably old protocol file
-    P.OPTIONS.UseOpenEx = true;
-end
-h.UseOpenEx = P.OPTIONS.UseOpenEx;
-
 if ~isfield(P.OPTIONS,'IncludeWAVBuffers')
     P.OPTIONS.IncludeWAVBuffers = 'on';
 end
 set(h.Include_WAV_Buffers,'Checked',P.OPTIONS.IncludeWAVBuffers);
 
 guidata(h.ProtocolDesign,h);
-
-if h.UseOpenEx
-    set(h.lbl_useOpenEx,'String','Using OpenEx','ForegroundColor','b');
-else
-    set(h.lbl_useOpenEx,'String','Not using OpenEx','ForegroundColor','k');
-end
 
 if ~isfield(P.OPTIONS,'ConnectionType') % probably old protocol file
     P.OPTIONS.ConnectionType = 'GB';
@@ -262,15 +251,10 @@ end
 
 % Populate module list
 mfldn = fieldnames(P.MODULES);
-if h.UseOpenEx
-    fldn = mfldn;
-    i = 1;
-else
-    for i = 1:length(mfldn)
-        fldn{i} = sprintf('%s (%s_%d)',mfldn{i}, ...
-            P.MODULES.(mfldn{i}).ModType, ...
-            P.MODULES.(mfldn{i}).ModIDX); %#ok<AGROW>
-    end    
+for i = 1:length(mfldn)
+    fldn{i} = sprintf('%s (%s_%d)',mfldn{i}, ...
+        P.MODULES.(mfldn{i}).ModType, ...
+        P.MODULES.(mfldn{i}).ModIDX);
 end
 obj = findobj(h.ProtocolDesign,'tag','module_select');
 set(obj,'String',fldn,'Value',i);
@@ -283,11 +267,7 @@ end
 % Ensure all buddy variables are accounted for
 n = {'< ADD >','< NONE >'};
 for i = 1:length(fldn)
-    if h.UseOpenEx  
-        n = union(n,P.MODULES.(fldn{i}).data(:,3));
-    else
-        n = union(n,P.MODULES.(fldn{i}(1:find(fldn{i}==' ',1)-1)).data(:,3));
-    end
+    n = union(n,P.MODULES.(fldn{i}(1:find(fldn{i}==' ',1)-1)).data(:,3));
 end
 cf = get(h.param_table,'ColumnFormat');
 cf{3} = n(:)';
@@ -350,7 +330,6 @@ p.OPTIONS.ISI                = str2num(get(h.opt_iti,       'String')); %#ok<ST2
 p.OPTIONS.num_reps           = str2num(get(h.opt_num_reps,  'String')); %#ok<ST2NM>
 p.OPTIONS.trialfunc          = get(h.trial_selectfunc,      'String');
 p.OPTIONS.optcontrol         = get(h.opt_optcontrol,        'Value');
-p.OPTIONS.UseOpenEx          = h.UseOpenEx;
 p.OPTIONS.ConnectionType     = getconntype(h);
 p.OPTIONS.IncludeWAVBuffers  = get(h.Include_WAV_Buffers,   'Checked');
 p.INFO                       = get(h.protocol_info,         'String');
@@ -550,9 +529,7 @@ function v = getcurrentmod(h)
 v = get(h.module_select,'String');
 if isempty(v), return; end
 v = v{get(h.module_select,'Value')};
-if ~h.UseOpenEx
-    v = v(1:find(v==' ',1)-1);
-end
+v = v(1:find(v==' ',1)-1);
 
 function d = dfltrow
 % default row definition
@@ -720,10 +697,8 @@ i = get(h.module_select,'Value');
 if isempty(i) || ~isfield(h,'protocol'), return; end
 
 ov = get_string(h.module_select);
-if ~h.UseOpenEx
-    idx = find(ov==' ',1);
-    ov = ov(1:idx-1);
-end
+idx = find(ov==' ',1);
+ov = ov(1:idx-1);
 
 switch s
     case 'alias'
@@ -739,13 +714,6 @@ switch s
         
     case 'type'
         % Module Type
-        if h.UseOpenEx
-            msgbox(['This protocol is currently designed to work in conjunction with OpenEx. ', ...
-                'The module type can be changed in the OpenEx Workbench.'], ...
-                'Change Module Type','help','modal');
-            return
-        end
-        
         modlist = {'RM1','RM2','RP2','RX5','RX6','RX7','RX8','RZ2','RZ5','RZ6'};
         [sel,ok] = listdlg('ListString',modlist,'SelectionMode','single', ...
             'Name','EPsych','PromptString','Select TDT Module');
@@ -761,12 +729,6 @@ switch s
         
     case 'rpvds'
         % RPvds file
-        % if h.UseOpenEx
-        %     msgbox(['This protocol is currently designed to work in conjunction with OpenEx. ', ...
-        %         'The RPvds file can be changed in the OpenEx Workbench.'], ...
-        %         'Change Module Type','help','modal');
-        %     return
-        % end
         [rpfn,rppn] = uigetfile('*.rcx','Associate RPvds File');
         if ~rpfn, return; end
         RPfile = fullfile(rppn,rpfn);
@@ -778,11 +740,7 @@ end
 
 
 v = get(h.module_select,'String');
-if h.UseOpenEx
-    v{i} = nv;
-else
-    v{i} = sprintf('%s (%s_%d)',nv,h.protocol.MODULES.(nv).ModType,h.protocol.MODULES.(nv).ModIDX);
-end
+v{i} = sprintf('%s (%s_%d)',nv,h.protocol.MODULES.(nv).ModType,h.protocol.MODULES.(nv).ModIDX);
 set(h.module_select,'String',v,'Value',i);
 
 guidata(h.ProtocolDesign,h);
@@ -796,18 +754,6 @@ function add_module_Callback(h)
 
 % add new module to protocol
 ov = cellstr(get(h.module_select,'String'));
-
-% Prompt if OpenEx will be used
-if ~isempty(ov) && isempty(ov{1})
-    b = questdlg('Will this experiment use OpenEx?','Experiment Design','Yes','No','No');
-    if strcmp(b,'Yes')
-        set(h.lbl_useOpenEx,'String','Using OpenEx','ForegroundColor','b');
-        h.UseOpenEx = true;
-    else
-        set(h.lbl_useOpenEx,'String','Not using OpenEx','ForegroundColor','k');
-        h.UseOpenEx = false;
-    end
-end
 
 set(h.protocol_dur,'String','', ...
     'backgroundcolor',get(h.ProtocolDesign,'Color'));
@@ -823,65 +769,40 @@ ov(~ismember(1:length(ov),findincell(ov))) = [];
 
 set(h.param_table,'Enable','on');
 
-% Associate RPvds File with module if not using OpenEx
-if h.UseOpenEx
-    h.PA5flag = strfind(nv,'PA5'); % PA5 attenuation module
-    if isempty(h.PA5flag), h.PA5flag = false; end
-    if h.PA5flag
-        data = dfltrow;
-        data{1} = 'SetAtten';
-        set(h.param_table,'Data',data);
-    end
+% Associate RPvds File with module
+modlist = {'RM1','RM2','RP2','RX5','RX6','RX7','RX8','RZ2','RZ5','RZ6','PA5'};
+[sel,ok] = listdlg('ListString',modlist,'SelectionMode','single', ...
+    'Name','EPsych','PromptString','Select TDT Module');
+if ~ok, return; end
+ModType = modlist{sel};
 
-else   
-    modlist = {'RM1','RM2','RP2','RX5','RX6','RX7','RX8','RZ2','RZ5','RZ6','PA5'};
-    [sel,ok] = listdlg('ListString',modlist,'SelectionMode','single', ...
-        'Name','EPsych','PromptString','Select TDT Module');
-    if ~ok, return; end
-    ModType = modlist{sel};
-    
-    [ModIDX,ok] = listdlg('ListString',cellstr(num2str((1:10)')),'SelectionMode','single', ...
-        'Name','EPsych','PromptString','Select module index');
-    if ~ok, return; end
-    
-    h.PA5flag = strcmp(ModType,'PA5');
-    
-    if h.PA5flag
-        RPfile = '';
-    else
-        [rpfn,rppn] = uigetfile('*.rcx','Associate RPvds File');
-        if ~rpfn, return; end
-        RPfile = fullfile(rppn,rpfn);
-    end
-    
-    nv = sprintf('%s (%s_%d)',nv,ModType,ModIDX);
+[ModIDX,ok] = listdlg('ListString',cellstr(num2str((1:10)')),'SelectionMode','single', ...
+    'Name','EPsych','PromptString','Select module index');
+if ~ok, return; end
 
+h.PA5flag = strcmp(ModType,'PA5');
+
+if h.PA5flag
+    RPfile = '';
+else
+    [rpfn,rppn] = uigetfile('*.rcx','Associate RPvds File');
+    if ~rpfn, return; end
+    RPfile = fullfile(rppn,rpfn);
 end
+
+nv = sprintf('%s (%s_%d)',nv,ModType,ModIDX);
 
 if ~ismember(nv,ov), ov{end+1} = nv; end
 set(h.module_select,'String',ov,'Value',find(ismember(ov,nv)));
 
-if ~h.UseOpenEx
-    v = getcurrentmod(h);
-    if h.PA5flag
-        h.protocol.MODULES.(v).data = dfltrow;
-    else
-        h = rpvds_tags(h,RPfile);
-    end
-    h.protocol.MODULES.(v).ModType = ModType;
-    h.protocol.MODULES.(v).ModIDX  = ModIDX;
-    
-elseif ~h.PA5flag
-    b = questdlg('Read parameter tags from existing RPvds file?','EPsych','Yes','No','Yes');
-    if strcmp(b,'Yes')
-        [rpfn,rppn] = uigetfile('*.rcx','Associate RPvds File');
-        if ~rpfn, return; end
-        RPfile = fullfile(rppn,rpfn);
-    else
-        RPfile = [];
-    end
+v = getcurrentmod(h);
+if h.PA5flag
+    h.protocol.MODULES.(v).data = dfltrow;
+else
     h = rpvds_tags(h,RPfile);
 end
+h.protocol.MODULES.(v).ModType = ModType;
+h.protocol.MODULES.(v).ModIDX  = ModIDX;
 
 splash('off');
 

@@ -30,6 +30,16 @@ function text = normalizeCompiledPreviewValueAsText(obj, rawValue, columnType)
         return
     end
 
+    if isa(rawValue, 'stimgen.StimType')
+        if isscalar(rawValue)
+            text = char(string(rawValue.DisplayName));
+        else
+            names = arrayfun(@(item) char(string(item.DisplayName)), rawValue(:).', 'UniformOutput', false);
+            text = strjoin(names, '; ');
+        end
+        return
+    end
+
     if iscell(rawValue)
         text = strjoin(cellfun(@(item) obj.normalizeCompiledPreviewValueAsText(item, columnType), rawValue(:).', 'UniformOutput', false), '; ');
         return
@@ -46,6 +56,15 @@ function text = normalizeCompiledPreviewValueAsText(obj, rawValue, columnType)
             end
         else
             text = sprintf('[%dx%d struct]', size(rawValue, 1), size(rawValue, 2));
+        end
+        return
+    end
+
+    if isobject(rawValue)
+        if isscalar(rawValue)
+            text = sprintf('[%s]', class(rawValue));
+        else
+            text = sprintf('[%dx%d %s]', size(rawValue, 1), size(rawValue, 2), class(rawValue));
         end
         return
     end

@@ -7,11 +7,11 @@ classdef AttackModNoise < stimgen.Noise
     % damped modulation envelope controlled by Z and AMRate.
     
     properties (SetObservable,AbortSet)
-        AMDepth (1,1) double {mustBeGreaterThanOrEqual(AMDepth,0),mustBeLessThanOrEqual(AMDepth,1)} = 1; % [0 1] 
-        AMRate  (1,1) double {mustBePositive,mustBeFinite} = 5; % Hz
+        AMDepth (1,:) double {mustBeGreaterThanOrEqual(AMDepth,0),mustBeLessThanOrEqual(AMDepth,1)} = 1; % [0 1]
+        AMRate  (1,:) double {mustBePositive,mustBeFinite} = 5; % Hz
         OnsetPhase (1,1) double = 0; % degrees
         
-        Z     (1,1) double {mustBeGreaterThanOrEqual(Z,-1),mustBeLessThanOrEqual(Z,1)} = .4; % note that this gets converted to ramped/damped z = [1 2]
+        Z     (1,:) double {mustBeGreaterThanOrEqual(Z,-1),mustBeLessThanOrEqual(Z,1)} = .4; % note that this gets converted to ramped/damped z = [1 2]
         
         AddOnOffperiods (1,1) logical = false;
         
@@ -42,6 +42,11 @@ classdef AttackModNoise < stimgen.Noise
         
         
         function update_signal(obj)
+            if ~obj.variantCycleActive_
+                obj.call_update_signal_with_variant_cycle_();
+                return
+            end
+
             if ~obj.EnvelopeOnly
                 
                 obj.temporarilyDisableSignalMods = true;
@@ -52,9 +57,11 @@ classdef AttackModNoise < stimgen.Noise
                 
             end
 
-            z = obj.Z;
-            
-            period = 1/obj.AMRate;
+            amDepth = double(obj.selected_value("AMDepth"));
+            amRate = double(obj.selected_value("AMRate"));
+            z = double(obj.selected_value("Z"));
+
+            period = 1/amRate;
             t = linspace(0,1,round(period*obj.Fs));
             am = t.^(1-abs(z)).*(1-t);
             
@@ -77,7 +84,7 @@ classdef AttackModNoise < stimgen.Noise
             end
 
             if obj.ApplyViemeisterCorrection
-                am = am .* sqrt(1/(obj.AMDepth^2/2+1));
+                am = am .* sqrt(1/(amDepth^2/2+1));
             end
             
             if obj.EnvelopeOnly

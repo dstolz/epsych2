@@ -1,199 +1,163 @@
 function [stimValues, cancelled] = editParameterStimTypeValue(~, parameter)
 % [stimValues, cancelled] = editParameterStimTypeValue(obj, parameter)
-% Open a modal dialog to add, edit, or remove StimType levels for a parameter.
+% Edit StimType levels for a ProtocolDesigner parameter via StimPlayer.
 %
 % Parameters:
 %   parameter - hw.Parameter with Type 'StimType' being edited.
 %
 % Returns:
 %   stimValues - Cell array of stimgen.StimType objects chosen by the user.
-%   cancelled  - True when the dialog is dismissed without applying changes.
+%   cancelled  - True when the operation is dismissed without applying changes.
 
 cancelled = false;
-stimValues = parameter.Values;  % start with existing levels
+stimValues = parameter.Values;
 
-classList = stimgen.StimType.list();
+try
+    player = stimgen.StimPlayer();
+catch ME
+    vprintf(0, 1, ME);
+    cancelled = true;
+    return
+end
+
+localSeedPlayerBank_(player, stimValues);
 
 dialog = uifigure( ...
-    'Name', sprintf('Edit StimType Levels: %s', parameter.Name), ...
-    'Position', [200 160 700 460], ...
-    'WindowStyle', 'modal', ...
+    'Name', sprintf('StimType Bank Editor: %s', parameter.Name), ...
+    'Position', [220 220 600 300], ...
+    'WindowStyle', 'normal', ...
+    'CloseRequestFcn', @onCancel, ...
     'Resize', 'off');
 
 uilabel(dialog, ...
-    'Text', sprintf('Stimulus type levels for  "%s"', parameter.Name), ...
-    'Position', [20 422 460 22], ...
-    'FontSize', 14, ...
+    'Text', sprintf('Editing StimType levels for "%s"', parameter.Name), ...
+    'Position', [20 256 560 24], ...
+    'FontSize', 15, ...
     'FontWeight', 'bold');
 
 uilabel(dialog, ...
-    'Text', 'Each row is one trial level. Add a stimulus type from the dropdown, then configure its properties.', ...
-    'Position', [20 398 640 18], ...
+    'Text', ['Use the StimPlayer window to add, remove, or configure stimuli. ' ...
+             'Click Apply Current Bank when ready.'], ...
+    'Position', [20 220 560 30], ...
     'FontAngle', 'italic', ...
     'FontColor', [0.36 0.43 0.52]);
 
-% --- Level list ---
-initialItems = localDisplayNames_(stimValues);
-listBox = uilistbox(dialog, ...
-    'Position', [20 100 320 288], ...
-    'Items', initialItems, ...
-    'Multiselect', 'off');
-if ~isempty(initialItems)
-    listBox.Value = initialItems{1};
-end
-
-% --- Add controls ---
 uilabel(dialog, ...
-    'Text', 'Add type:', ...
-    'Position', [356 374 70 22], ...
-    'FontWeight', 'bold');
+    'Text', 'You can also load a saved StimPlayer bank (.spl) first, then apply it.', ...
+    'Position', [20 196 560 20], ...
+    'FontColor', [0.36 0.43 0.52]);
 
-dd = uidropdown(dialog, ...
-    'Items', classList, ...
-    'Value', classList{1}, ...
-    'Position', [356 344 200 26]);
+uilabel(dialog, ...
+    'Text', 'This window stays open while you work in StimPlayer.', ...
+    'Position', [20 174 560 18], ...
+    'FontColor', [0.36 0.43 0.52]);
 
-btnAdd = uibutton(dialog, 'push', ...
-    'Text', 'Add Level', ...
-    'Position', [564 344 116 26], ...
+uibutton(dialog, 'push', ...
+    'Text', 'Load Saved Bank...', ...
+    'Position', [20 142 170 34], ...
+    'Tooltip', 'Load a .spl StimPlayer bank into the active StimPlayer window.', ...
+    'ButtonPushedFcn', @onLoadBank);
+
+uibutton(dialog, 'push', ...
+    'Text', 'Apply Current Bank', ...
+    'Position', [352 24 140 36], ...
     'FontWeight', 'bold', ...
-    'Tooltip', 'Create a new StimType of the selected class and append it as a level.');
+    'ButtonPushedFcn', @onApply);
 
-% --- Edit / Remove ---
-btnEdit = uibutton(dialog, 'push', ...
-    'Text', 'Edit Selected', ...
-    'Position', [356 290 148 28], ...
-    'Tooltip', 'Open the property editor for the selected level.', ...
-    'Enable', 'off');
-
-btnOpenPlayer = uibutton(dialog, 'push', ...
-    'Text', 'Open In StimPlayer', ...
-    'Position', [514 290 166 28], ...
-    'Tooltip', 'Open the selected StimType level in a new StimPlayer window.', ...
-    'Enable', 'off');
-
-btnRemove = uibutton(dialog, 'push', ...
-    'Text', 'Remove Selected', ...
-    'Position', [356 252 148 28], ...
-    'Tooltip', 'Remove the selected level from the list.', ...
-    'Enable', 'off');
-
-% --- Apply / Cancel ---
-btnApply = uibutton(dialog, 'push', ...
-    'Text', 'Apply', ...
-    'Position', [478 30 100 32], ...
-    'FontWeight', 'bold');
-
-btnCancel = uibutton(dialog, 'push', ...
+uibutton(dialog, 'push', ...
     'Text', 'Cancel', ...
-    'Position', [590 30 100 32]);
+    'Position', [504 24 76 36], ...
+    'ButtonPushedFcn', @onCancel);
 
-% Keep working copy that callbacks modify
-workingLevels = stimValues;
-
-% Callbacks
-btnAdd.ButtonPushedFcn     = @onAdd;
-btnEdit.ButtonPushedFcn    = @onEdit;
-btnOpenPlayer.ButtonPushedFcn = @onOpenPlayer;
-btnRemove.ButtonPushedFcn  = @onRemove;
-listBox.ValueChangedFcn    = @onSelect;
-btnApply.ButtonPushedFcn   = @onApply;
-btnCancel.ButtonPushedFcn  = @onCancel;
-
-% Block until dialog closes
 uiwait(dialog);
 
-% -------------------------------------------------------------------------
-    function onAdd(~, ~)
-        newStim = feval(sprintf('stimgen.%s', dd.Value));
-        workingLevels{end + 1} = newStim;
-        updatedItems = localDisplayNames_(workingLevels);
-        listBox.Items = updatedItems;
-        listBox.Value = updatedItems{end};
-        localUpdateButtons_();
-    end
-
-    function onEdit(~, ~)
-        idx = localSelectedIndex_();
-        if isempty(idx), return; end
-        edFig = uifigure('Name', sprintf('Edit %s', char(string(workingLevels{idx}.DisplayName))), ...
-            'WindowStyle', 'normal');
-        workingLevels{idx}.create_gui(edFig);
-        updatedItems = localDisplayNames_(workingLevels);
-        listBox.Items = updatedItems;
-        if idx <= numel(updatedItems)
-            listBox.Value = updatedItems{idx};
+    function onLoadBank(~, ~)
+        if isempty(player) || ~isvalid(player)
+            uialert(dialog, ...
+                'StimPlayer window is no longer available. Close this dialog and retry.', ...
+                'StimPlayer Closed');
+            return
         end
-    end
 
-    function onRemove(~, ~)
-        idx = localSelectedIndex_();
-        if isempty(idx), return; end
-        workingLevels(idx) = [];
-        updatedItems = localDisplayNames_(workingLevels);
-        listBox.Items = updatedItems;
-        if ~isempty(updatedItems)
-            listBox.Value = updatedItems{1};
+        [fn, pn] = uigetfile('*.spl', 'Load StimPlayer Bank');
+        if isequal(fn, 0)
+            return
         end
-        localUpdateButtons_();
-    end
 
-    function onOpenPlayer(~, ~)
-        idx = localSelectedIndex_();
-        if isempty(idx), return; end
-        stim = workingLevels{idx};
-        player = stimgen.StimPlayer();
-        player.open_stim(stim, Name=string(stim.DisplayName));
-    end
-
-    function onSelect(~, ~)
-        localUpdateButtons_();
+        try
+            player.load_bank(fullfile(pn, fn));
+        catch ME
+            vprintf(0, 1, ME);
+            uialert(dialog, ...
+                'Unable to load the selected .spl bank. See command window/log output for details.', ...
+                'Load Failed');
+        end
     end
 
     function onApply(~, ~)
-        stimValues = workingLevels;
+        if isempty(player) || ~isvalid(player)
+            uialert(dialog, ...
+                'StimPlayer window was closed before applying. No changes were made.', ...
+                'StimPlayer Closed');
+            cancelled = true;
+            delete(dialog);
+            return
+        end
+
+        stimValues = localExtractPlayerStimTypes_(player);
+        localClosePlayer_(player);
         delete(dialog);
     end
 
     function onCancel(~, ~)
         cancelled = true;
+        localClosePlayer_(player);
         delete(dialog);
-    end
-
-    function localUpdateButtons_()
-        hasSelection = ~isempty(localSelectedIndex_());
-        btnEdit.Enable   = matlab.lang.OnOffSwitchState(hasSelection);
-        btnOpenPlayer.Enable = matlab.lang.OnOffSwitchState(hasSelection);
-        btnRemove.Enable = matlab.lang.OnOffSwitchState(hasSelection);
-    end
-
-    function idx = localSelectedIndex_()
-        selectedValue = listBox.Value;
-        if isstring(selectedValue)
-            selectedValue = char(selectedValue);
-        elseif iscell(selectedValue)
-            if isempty(selectedValue)
-                idx = [];
-                return
-            end
-            selectedValue = selectedValue{1};
-        end
-        idx = find(strcmp(listBox.Items, selectedValue), 1);
     end
 end
 
-% -------------------------------------------------------------------------
-function names = localDisplayNames_(levels)
-    if isempty(levels)
-        names = {};
-        return
+
+function localSeedPlayerBank_(player, stimValues)
+if isempty(stimValues)
+    return
+end
+
+for k = 1:numel(stimValues)
+    stim = stimValues{k};
+    if ~isa(stim, 'stimgen.StimType')
+        continue
     end
-    names = cellfun(@(v) char(string(v.DisplayName)), levels, 'UniformOutput', false);
-    % Make names unique for listbox (append index when duplicates exist)
-    for k = 1:numel(names)
-        count = sum(strcmp(names(1:k), names{k}));
-        if count > 1
-            names{k} = sprintf('%s (%d)', names{k}, k);
-        end
+
+    label = string(stim.DisplayName);
+    if strlength(label) == 0
+        className = string(class(stim));
+        parts = split(className, '.');
+        label = parts(end);
     end
+
+    player.open_stim(stim, Name=label);
+end
+end
+
+
+function stimValues = localExtractPlayerStimTypes_(player)
+if isempty(player.StimPlayObjs)
+    stimValues = {};
+    return
+end
+
+n = numel(player.StimPlayObjs);
+stimValues = cell(1, n);
+for k = 1:n
+    stimValues{k} = player.StimPlayObjs(k).StimObj;
+end
+end
+
+
+function localClosePlayer_(player)
+if isempty(player) || ~isvalid(player)
+    return
+end
+
+delete(player);
 end

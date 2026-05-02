@@ -3,12 +3,13 @@ function create(obj)
 
 f = uifigure('Name', 'StimPlayer', 'Position', [100 100 900 620]);
 f.DeleteFcn = @(~,~) delete(obj);
+f.WindowKeyPressFcn = @(~,evt) on_keypress_(obj, evt);
 obj.hFig = f;
 
 % --- Top-level grid: 3 rows x 1 col ---
 g = uigridlayout(f);
 g.ColumnWidth = {'1x'};
-g.RowHeight   = {110, '1x', 44};
+g.RowHeight   = {220, '1x', 44};
 g.Padding     = [6 6 6 6];
 g.RowSpacing  = 4;
 
@@ -39,7 +40,7 @@ bankPnl.Layout.Column = 1;
 
 bg = uigridlayout(bankPnl);
 bg.ColumnWidth = {'1x', '1x'};
-bg.RowHeight   = {26, 26, '1x', 26, 26, 26};
+bg.RowHeight   = {26, 26, '1x', 26, 26, 26, 26, 26};
 bg.Padding     = [6 6 6 6];
 bg.RowSpacing  = 4;
 
@@ -124,6 +125,29 @@ h.Value           = "Shuffle";
 h.ValueChangedFcn = @(s,e) on_order_changed_(obj,s,e);
 obj.handles.OrderDD = h;
 
+R = R + 1;
+
+% Combination stepping buttons
+h = uibutton(bg, 'Text', '<');
+h.Layout.Row          = R;
+h.Layout.Column       = 1;
+h.ButtonPushedFcn     = @(~,~) obj.step_combination(-1);
+obj.handles.ComboPrevBtn = h;
+
+h = uibutton(bg, 'Text', '>');
+h.Layout.Row          = R;
+h.Layout.Column       = 2;
+h.ButtonPushedFcn     = @(~,~) obj.step_combination(1);
+obj.handles.ComboNextBtn = h;
+
+R = R + 1;
+
+% Combination status label
+h = uilabel(bg, 'Text', 'Combo: - / -', 'HorizontalAlignment', 'center');
+h.Layout.Row    = R;
+h.Layout.Column = [1 2];
+obj.handles.ComboStatusLbl = h;
+
 % --- Right: scrollable param panel (rebuilt on listbox selection) ---
 pnl = uipanel(g2, 'BorderType', 'none');
 pnl.Layout.Row    = 1;
@@ -140,7 +164,7 @@ uilabel(pnl, 'Text', 'Select an item from the bank to edit its parameters.', ...
 ctrlG = uigridlayout(g);
 ctrlG.Layout.Row    = 3;
 ctrlG.Layout.Column = 1;
-ctrlG.ColumnWidth   = {100, 100, 120, '1x', 160};
+ctrlG.ColumnWidth   = {100, 100, 120, 280, 240, 160};
 ctrlG.RowHeight     = {'1x'};
 ctrlG.Padding       = [0 0 0 0];
 ctrlG.ColumnSpacing = 6;
@@ -169,24 +193,47 @@ h.FontSize        = 14;
 h.ButtonPushedFcn = @obj.play_preview;
 obj.handles.PlayStimBtn = h;
 
-% Spacer (column 4 = '1x')
+h = uilabel(ctrlG, 'Text', 'Protocol: none | HW: speaker preview only', ...
+    'HorizontalAlignment', 'left', 'FontColor', [0.35 0.35 0.35]);
+h.Layout.Column = 4;
+h.Layout.Row    = 1;
+obj.handles.ProtocolStatusLabel = h;
+
+h = uilabel(ctrlG, 'Text', 'Ready.', 'HorizontalAlignment', 'left', ...
+    'FontColor', [0.35 0.35 0.35]);
+h.Layout.Column = 5;
+h.Layout.Row    = 1;
+obj.handles.StatusLabel = h;
 
 h = uilabel(ctrlG, 'Text', '0 / 0', 'FontSize', 16, 'FontWeight', 'bold', ...
     'HorizontalAlignment', 'right');
-h.Layout.Column = 5;
+h.Layout.Column = 6;
 h.Layout.Row    = 1;
 obj.handles.Counter = h;
 
 % ---- Menu ----
 mFile = uimenu(f, 'Text', '&File');
-uimenu(mFile, 'Text', '&Load Bank',  'Accelerator', 'L', ...
+mLoadProtocol = uimenu(mFile, 'Text', 'Load &Protocol',  'Accelerator', 'P', ...
+    'MenuSelectedFcn', @(~,~) obj.load_protocol_);
+mLoadBank = uimenu(mFile, 'Text', '&Load Bank',  'Accelerator', 'L', ...
+    'Separator', 'on', ...
     'MenuSelectedFcn', @(~,~) obj.load_bank);
-uimenu(mFile, 'Text', '&Save Bank',  'Accelerator', 'S', ...
+mSaveBank = uimenu(mFile, 'Text', '&Save Bank',  'Accelerator', 'S', ...
     'MenuSelectedFcn', @(~,~) obj.save_bank);
-uimenu(mFile, 'Text', '&Calibration', 'Accelerator', 'C', ...
+mCalibration = uimenu(mFile, 'Text', '&Calibration', 'Accelerator', 'C', ...
     'MenuSelectedFcn', @(~,~) set_calibration_(obj));
+mExportSignal = uimenu(mFile, 'Text', '&Export Signal to Workspace', 'Separator', 'on', ...
+    'MenuSelectedFcn', @(~,~) export_signal_to_workspace_(obj));
 
 movegui(f, 'onscreen');
+
+obj.refresh_combo_controls_;
+obj.update_protocol_status_;
+obj.handles.LoadProtocolMenu = mLoadProtocol;
+obj.handles.LoadBankMenu = mLoadBank;
+obj.handles.SaveBankMenu = mSaveBank;
+obj.handles.CalibrationMenu = mCalibration;
+obj.handles.ExportSignalMenu = mExportSignal;
 
 end % create
 
@@ -199,39 +246,81 @@ function on_reps_changed_(obj, src, ~)
 % Update Reps on the currently selected StimPlay when the field changes.
 idx = selected_bank_idx_(obj);
 if isempty(idx), return; end
-obj.StimPlayObjs(idx).Reps = src.Value;
-obj.refresh_listbox_;
+try
+    obj.StimPlayObjs(idx).Reps = src.Value;
+    obj.refresh_listbox_;
+catch ME
+    src.Value = obj.StimPlayObjs(idx).Reps;
+    obj.report_gui_error_(ME, "Invalid Repetitions", ...
+        "Unable to update the repetition count for the selected stimulus.");
+end
 end
 
 function on_isi_changed_(obj, src, event)
 % Validate and store ISI on StimPlayer; parse "[min max]" or scalar.
-v = str2num(src.Value); %#ok<ST2NM>
-v = sort(v(:)');
-if numel(v) == 1
-    v = [v v];
-elseif numel(v) ~= 2 || any(v <= 0)
+try
+    v = str2num(src.Value); %#ok<ST2NM>
+    v = sort(v(:)');
+    if isempty(v)
+        error('StimPlayer:InvalidISI', 'Enter a scalar or two-element numeric range for ISI.');
+    end
+    if numel(v) == 1
+        v = [v v];
+    elseif numel(v) ~= 2 || any(v <= 0)
+        error('StimPlayer:InvalidISI', 'ISI must be a positive scalar or positive [min max] pair.');
+    end
+    obj.ISI = v;
+    src.Value = mat2str(v);
+catch ME
     src.Value = event.PreviousValue;
-    return
+    obj.report_gui_error_(ME, "Invalid ISI", ...
+        "Stimulus ISI must be a positive scalar or a two-value range.");
 end
-obj.ISI = v;
-src.Value = mat2str(v);
 end
 
 function on_order_changed_(obj, src, ~)
-obj.SelectionType = src.Value;
+try
+    obj.SelectionType = src.Value;
+catch ME
+    obj.report_gui_error_(ME, "Invalid Order", ...
+        "Unable to apply the selected playback order.");
+end
+end
+
+function on_keypress_(obj, evt)
+% Map left/right arrow keys to combo stepping for the selected bank item.
+try
+    switch lower(string(evt.Key))
+        case "leftarrow"
+            obj.step_combination(-1);
+        case "rightarrow"
+            obj.step_combination(1);
+    end
+catch ME
+    obj.report_gui_error_(ME, "Key Binding Error", ...
+        "StimPlayer could not handle the requested keyboard shortcut.");
+end
 end
 
 function set_calibration_(obj)
 % Prompt user for a calibration file and apply to all bank items.
 [fn, pn] = uigetfile('*.sgc', 'Select Calibration File');
 if isequal(fn, 0), return; end
-cal = load(fullfile(pn, fn), '-mat');
-fn = fieldnames(cal);
-calObj = cal.(fn{1});
-for i = 1:numel(obj.StimPlayObjs)
-    obj.StimPlayObjs(i).StimObj.Calibration = calObj;
+try
+    cal = load(fullfile(pn, fn), '-mat');
+    fn = fieldnames(cal);
+    if isempty(fn)
+        error('StimPlayer:InvalidCalibrationFile', 'The selected calibration file did not contain any variables.');
+    end
+    calObj = cal.(fn{1});
+    for i = 1:numel(obj.StimPlayObjs)
+        obj.StimPlayObjs(i).StimObj.Calibration = calObj;
+    end
+    vprintf(1, 'Calibration applied to %d bank items.', numel(obj.StimPlayObjs));
+catch ME
+    obj.report_gui_error_(ME, "Calibration Error", ...
+        "StimPlayer could not load or apply the selected calibration file.");
 end
-vprintf(1, 'Calibration applied to %d bank items.', numel(obj.StimPlayObjs));
 end
 
 function idx = selected_bank_idx_(obj)
@@ -241,5 +330,33 @@ if isempty(h.ItemsData) || isempty(h.Value)
     idx = [];
 else
     idx = h.Value;
+end
+end
+
+function export_signal_to_workspace_(obj)
+% Export the currently selected stim signal to the base workspace as `y`.
+idx = selected_bank_idx_(obj);
+if isempty(idx)
+    obj.show_gui_message_("Select a stimulus bank item before exporting its signal.", ...
+        "Nothing To Export", "warning");
+    return
+end
+try
+    sp = obj.StimPlayObjs(idx);
+    stimObj = sp.CurrentStimObj;
+    if isempty(stimObj.Signal)
+        stimObj.update_signal;
+    end
+    if isempty(stimObj.Signal)
+        obj.show_gui_message_("The selected stimulus does not currently have a signal to export.", ...
+            "Empty Signal", "warning");
+        return
+    end
+    assignin('base', 'y', stimObj.Signal);
+    vprintf(1, 'StimPlayer: signal exported to workspace variable ''y'' (%d samples, Fs = %g Hz).\n', ...
+        numel(stimObj.Signal), stimObj.Fs);
+catch ME
+    obj.report_gui_error_(ME, "Export Error", ...
+        "StimPlayer could not export the selected signal to the workspace.");
 end
 end

@@ -7,8 +7,8 @@ classdef Tone < stimgen.StimType
     % windowed/gated and calibrated.
     
     properties (SetObservable,AbortSet)
-        Frequency  (1,1) double {mustBePositive,mustBeFinite} = 1000; % Hz
-        OnsetPhase (1,1) double = 0;
+        Frequency  (1,:) double {mustBePositive,mustBeFinite} = 1000; % Hz
+        OnsetPhase (1,:) double = 0;
         
         WindowMethod  (1,1) string {mustBeMember(WindowMethod,["Duration" "Proportional" "#Periods"])} = "Duration"
     end
@@ -31,9 +31,16 @@ classdef Tone < stimgen.StimType
         end
         
         function update_signal(obj)
+            if ~obj.variantCycleActive_
+                obj.call_update_signal_with_variant_cycle_();
+                return
+            end
+
             t = obj.Time;
+            freq = double(obj.selected_value("Frequency"));
+            onsetPhase = double(obj.selected_value("OnsetPhase"));
             
-            obj.Signal = sin(2.*pi.*obj.Frequency.*t+obj.OnsetPhase);
+            obj.Signal = sin(2.*pi.*freq.*t+onsetPhase);
             
             
             switch obj.WindowMethod
@@ -42,7 +49,7 @@ classdef Tone < stimgen.StimType
                 case 'Proportional'
                     obj.WindowDuration = obj.WindowDuration/100*t(end);
                 case '#Periods'
-                    obj.WindowDuration = 2*obj.WindowDuration/obj.Frequency;
+                    obj.WindowDuration = 2*obj.WindowDuration/freq;
             end
             
             

@@ -21,6 +21,16 @@ function value = normalizeCompiledPreviewValue(obj, rawValue, columnType)
         return
     end
 
+    if isa(rawValue, 'stimgen.StimType')
+        if isscalar(rawValue)
+            value = char(string(rawValue.DisplayName));
+        else
+            names = arrayfun(@(item) char(string(item.DisplayName)), rawValue(:).', 'UniformOutput', false);
+            value = strjoin(names, '; ');
+        end
+        return
+    end
+
     if isstring(rawValue)
         if isscalar(rawValue)
             if isequal(columnType, 'File')

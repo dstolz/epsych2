@@ -1,7 +1,7 @@
 classdef StimPlayer < handle
 
     % obj = stimgen.StimPlayer
-    % obj = stimgen.StimPlayer(RUNTIME)
+    % obj = stimgen.StimPlayer(PROTOCOL)
     % Standalone stimulus bank and playback peripheral for EPsych.
     %
     % Developer guide: documentation/stimgen/stimgen_StimPlayer.md
@@ -11,23 +11,23 @@ classdef StimPlayer < handle
     % uploads audio buffers to hardware via epsych.Runtime, and triggers
     % playback from its own timer (independent of PsychTimer).
     %
-    % When RUNTIME is not provided or the required hardware parameters are
+    % When a Protocol is not provided or required hardware parameters are
     % not found, hardware playback is disabled and only speaker preview is
     % available via Play Stim.
     %
-    % Required hw.Parameter names (resolved from RUNTIME at Run time):
+    % Required hw.Parameter names (resolved from Runtime at Run time):
     %   BufferData_0, BufferData_1   - audio data buffers
     %   BufferSize_0, BufferSize_1   - buffer length in samples
     %   x_Trigger_0, x_Trigger_1    - playback trigger pulses
     %
     % Usage:
     %   sp = stimgen.StimPlayer;           % GUI only, speaker preview
-    %   sp = stimgen.StimPlayer(RUNTIME);  % with hardware
-    %   sp.RUNTIME = RUNTIME;              % attach later
+    %   sp = stimgen.StimPlayer(PROTOCOL); % with protocol-defined hardware
+    %   sp = stimgen.StimPlayer(FILEPATH); % load protocol from file
     %
     % Properties (selected):
     %   StimPlayObjs  - Bank of stimgen.StimPlay objects
-    %   RUNTIME       - Optional epsych.Runtime for hardware access
+    %   Protocol_     - Optional epsych.Protocol for hardware interfaces
     %   ISI           - Global ISI range [min max] in seconds
     %   SelectionType - "Serial" or "Shuffle"
 
@@ -46,6 +46,7 @@ classdef StimPlayer < handle
         update_buffer(obj)
         trigger_stim_playback(obj)
         play_preview(obj, src, event)
+        step_combination(obj, step)
         save_bank(obj, ffn)
         load_bank(obj, ffn)
     end
@@ -59,10 +60,6 @@ classdef StimPlayer < handle
         SelectionType (1,1) string {mustBeMember(SelectionType,["Serial","Shuffle"])} = "Shuffle" % Playback order
 
         DataPath (1,1) string = string(fullfile('C:\Users', getenv('USERNAME'))) % Default save path
-    end
-
-    properties (SetObservable)
-        RUNTIME % Optional epsych.Runtime; attach for hardware buffer/trigger access
     end
 
     % --- Protected runtime state ---
@@ -81,6 +78,9 @@ classdef StimPlayer < handle
 
     % --- Private ---
     properties (Access = private)
+        RUNTIME epsych.Runtime = epsych.Runtime.empty(0,1) % Private runtime used for hardware buffer/trigger access
+        Protocol_ epsych.Protocol = epsych.Protocol.empty(0,1) % Loaded protocol that defines hardware interfaces
+        ProtocolFile_ (1,1) string = "" % Source filepath for loaded protocol when available
         PARAMS struct = struct()   % Cached hw.Parameter handles keyed by validName
         els                        % Event listeners
         hFig                       % uifigure handle
@@ -103,19 +103,21 @@ classdef StimPlayer < handle
     % =====================================================================
     methods
 
-        function obj = StimPlayer(RUNTIME)
+        function obj = StimPlayer(protocolInput)
             % obj = stimgen.StimPlayer
-            % obj = stimgen.StimPlayer(RUNTIME)
-            % Construct StimPlayer, optionally attaching an epsych.Runtime.
+            % obj = stimgen.StimPlayer(protocolInput)
+            % Construct StimPlayer, optionally loading an epsych.Protocol.
             %
             % Parameters:
-            %   RUNTIME - epsych.Runtime instance (optional)
-
-            if nargin > 0 && ~isempty(RUNTIME)
-                obj.RUNTIME = RUNTIME;
-            end
+            %   protocolInput - epsych.Protocol object or protocol filepath (optional)
 
             obj.create;
+
+            if nargin > 0 && ~isempty(protocolInput)
+                obj.load_protocol_(protocolInput);
+            else
+                obj.update_protocol_status_;
+            end
 
             if nargout == 0, clear obj; end
         end
@@ -123,6 +125,7 @@ classdef StimPlayer < handle
         % -----------------------------------------------------------------
         function delete(obj)
             % Destructor: stop and clean up timer and listeners.
+            obj.disconnect_interfaces_;
             if ~isempty(obj.Timer) && isvalid(obj.Timer)
                 stop(obj.Timer);
                 delete(obj.Timer);
@@ -210,6 +213,168 @@ classdef StimPlayer < handle
         end
 
         % -----------------------------------------------------------------
+        function load_protocol_(obj, protocolInput)
+            % load_protocol_(obj, protocolInput) - Load a protocol object or file.
+
+            if ~isempty(obj.Timer) && isvalid(obj.Timer) && strcmp(obj.Timer.Running, 'on')
+                obj.show_gui_message_("Stop playback before loading a new protocol.", ...
+                    "Protocol In Use", "warning");
+                return
+            end
+
+            if nargin < 2 || isempty(protocolInput)
+                [fn, pn] = uigetfile({'*.eprot;*.prot;*.json', 'Protocol files (*.eprot,*.prot,*.json)'}, ...
+                    'Load Protocol', obj.DataPath);
+                if isequal(fn, 0)
+                    return
+                end
+                protocolInput = fullfile(pn, fn);
+            end
+
+            obj.disconnect_interfaces_;
+
+            try
+                if isa(protocolInput, 'epsych.Protocol')
+                    obj.Protocol_ = protocolInput;
+                    obj.ProtocolFile_ = "";
+                elseif ischar(protocolInput) || isstring(protocolInput)
+                    pfn = string(protocolInput);
+                    if ~isfile(pfn)
+                        error('StimPlayer:ProtocolFileNotFound', 'Protocol file was not found: %s', pfn);
+                    end
+                    obj.Protocol_ = epsych.Protocol.load(char(pfn));
+                    obj.ProtocolFile_ = pfn;
+                    obj.DataPath = string(fileparts(char(pfn)));
+                else
+                    error('StimPlayer:InvalidProtocolInput', ...
+                        'StimPlayer requires an epsych.Protocol object or protocol filepath.');
+                end
+
+                obj.set_status_("Protocol loaded.");
+            catch ME
+                obj.Protocol_ = epsych.Protocol.empty(0,1);
+                obj.ProtocolFile_ = "";
+                obj.report_gui_error_(ME, "Load Protocol Error", ...
+                    "StimPlayer could not load the selected protocol.");
+            end
+
+            obj.update_protocol_status_;
+        end
+
+        % -----------------------------------------------------------------
+        function initialize_runtime_from_protocol_(obj)
+            % initialize_runtime_from_protocol_() - Create Runtime and connect protocol interfaces.
+
+            obj.disconnect_interfaces_;
+
+            if isempty(obj.Protocol_) || ~isvalid(obj.Protocol_)
+                return
+            end
+
+            obj.RUNTIME = epsych.Runtime;
+            obj.RUNTIME.Interfaces = obj.Protocol_.Interfaces;
+
+            for k = 1:numel(obj.RUNTIME.Interfaces)
+                iface = obj.RUNTIME.Interfaces(k);
+                if ~iface.IsConnected
+                    iface.connect();
+                    assert(iface.IsConnected, ...
+                        'StimPlayer:HardwareConnectionFailed', ...
+                        'Hardware interface "%s" failed to connect.', class(iface));
+                end
+            end
+
+            if ~isempty(obj.RUNTIME.Interfaces)
+                set(obj.RUNTIME.Interfaces, 'mode', hw.DeviceState.Preview);
+            end
+        end
+
+        % -----------------------------------------------------------------
+        function disconnect_interfaces_(obj)
+            % disconnect_interfaces_() - Return hardware to Idle and clear runtime cache.
+
+            if isempty(obj.RUNTIME) || ~isvalid(obj.RUNTIME)
+                obj.PARAMS = struct();
+                return
+            end
+
+            try
+                if ~isempty(obj.RUNTIME.Interfaces)
+                    set(obj.RUNTIME.Interfaces, 'mode', hw.DeviceState.Idle);
+                end
+            catch ME
+                vprintf(0, 1, 'StimPlayer: failed to return interface mode to Idle.');
+                vprintf(0, 1, ME);
+            end
+
+            obj.RUNTIME = epsych.Runtime.empty(0,1);
+            obj.PARAMS = struct();
+        end
+
+        % -----------------------------------------------------------------
+        function lock_bank_controls_(obj, lockState)
+            % lock_bank_controls_(obj, lockState) - Enable/disable bank-editing controls.
+
+            h = obj.handles;
+            targetState = 'on';
+            if lockState
+                targetState = 'off';
+            end
+
+            fields = {'AddBtn','RemoveBtn','TypeDropdown','BankList','RepsField', ...
+                'ISIField','OrderDD','ComboPrevBtn','ComboNextBtn','LoadProtocolMenu', ...
+                'LoadBankMenu','SaveBankMenu','CalibrationMenu'};
+            for i = 1:numel(fields)
+                f = fields{i};
+                if isfield(h, f) && ~isempty(h.(f)) && isvalid(h.(f))
+                    h.(f).Enable = targetState;
+                end
+            end
+
+            if isfield(h, 'ParamPanel') && ~isempty(h.ParamPanel) && isvalid(h.ParamPanel)
+                children = findall(h.ParamPanel);
+                for i = 1:numel(children)
+                    if isprop(children(i), 'Enable')
+                        children(i).Enable = targetState;
+                    end
+                end
+            end
+        end
+
+        % -----------------------------------------------------------------
+        function update_protocol_status_(obj)
+            % update_protocol_status_() - Refresh protocol/hardware status label.
+
+            h = obj.handles;
+            if ~isfield(h, 'ProtocolStatusLabel') || isempty(h.ProtocolStatusLabel) || ~isvalid(h.ProtocolStatusLabel)
+                return
+            end
+
+            if isempty(obj.Protocol_) || ~isvalid(obj.Protocol_)
+                h.ProtocolStatusLabel.Text = 'Protocol: none | HW: speaker preview only';
+                return
+            end
+
+            if strlength(obj.ProtocolFile_) > 0
+                [~, fn, ext] = fileparts(char(obj.ProtocolFile_));
+                protocolName = string(fn + ext);
+            else
+                protocolName = string(class(obj.Protocol_));
+            end
+
+            hwState = "Not Connected";
+            if ~isempty(obj.RUNTIME) && isvalid(obj.RUNTIME) && ~isempty(obj.RUNTIME.Interfaces)
+                if all([obj.RUNTIME.Interfaces.IsConnected])
+                    hwState = "Ready";
+                else
+                    hwState = "Partial";
+                end
+            end
+
+            h.ProtocolStatusLabel.Text = sprintf('Protocol: %s | HW: %s', protocolName, hwState);
+        end
+
+        % -----------------------------------------------------------------
         function get_isi_(obj)
             % get_isi_() - Sample a scalar ISI from obj.ISI range.
             % Updates obj.currentISI.
@@ -254,6 +419,194 @@ classdef StimPlayer < handle
                 obj.StimPlayObjs, 'uni', false);
             h.BankList.Items = items;
             h.BankList.ItemsData = num2cell(1:numel(obj.StimPlayObjs));
+        end
+
+        % -----------------------------------------------------------------
+        function refresh_combo_controls_(obj)
+            % refresh_combo_controls_() - Update combo-step button state and label.
+            h = obj.handles;
+            required = {'ComboPrevBtn','ComboNextBtn','ComboStatusLbl','BankList'};
+            if ~all(isfield(h, required))
+                return
+            end
+            if ~isvalid(h.ComboPrevBtn) || ~isvalid(h.ComboNextBtn) || ...
+                    ~isvalid(h.ComboStatusLbl) || ~isvalid(h.BankList)
+                return
+            end
+
+            idx = [];
+            if ~isempty(h.BankList.Value) && h.BankList.Value >= 1 && h.BankList.Value <= numel(obj.StimPlayObjs)
+                idx = h.BankList.Value;
+            end
+
+            if isempty(idx)
+                h.ComboPrevBtn.Enable = 'off';
+                h.ComboNextBtn.Enable = 'off';
+                h.ComboStatusLbl.Text = 'Combo: - / -';
+                return
+            end
+
+            stimObj = obj.StimPlayObjs(idx).CurrentStimObj;
+            info = stimObj.get_variant_info();
+
+            h.ComboStatusLbl.Text = sprintf('Combo: %d / %d', info.ActiveIndex, info.NumCombinations);
+            if info.NumCombinations > 1
+                h.ComboPrevBtn.Enable = 'on';
+                h.ComboNextBtn.Enable = 'on';
+            else
+                h.ComboPrevBtn.Enable = 'off';
+                h.ComboNextBtn.Enable = 'off';
+            end
+        end
+
+        % -----------------------------------------------------------------
+        function initialize_variants_(obj)
+            % initialize_variants_() - Reset all bank items to combination #1.
+            for i = 1:numel(obj.StimPlayObjs)
+                stimObj = obj.StimPlayObjs(i).CurrentStimObj;
+                stimObj.set_variant_index(1);
+            end
+        end
+
+        % -----------------------------------------------------------------
+        function advance_variant_(obj, bankIdx)
+            % advance_variant_(obj, bankIdx) - Advance one bank item's variant by +1.
+            if bankIdx < 1 || bankIdx > numel(obj.StimPlayObjs)
+                return
+            end
+            stimObj = obj.StimPlayObjs(bankIdx).CurrentStimObj;
+            stimObj.step_variant(1);
+        end
+
+        % -----------------------------------------------------------------
+        function report_gui_error_(obj, ME, titleText, userMessage)
+            % report_gui_error_() - Log an exception and show a user-facing alert.
+            arguments
+                obj (1,1) stimgen.StimPlayer
+                ME (1,1) MException
+                titleText (1,1) string = "StimPlayer Error"
+                userMessage (1,1) string = "An unexpected error occurred."
+            end
+
+            vprintf(0, 1, '%s: %s', char(titleText), ME.message);
+            vprintf(0, 1, ME);
+
+            detailedMessage = obj.format_gui_error_message_(ME, userMessage);
+            obj.set_status_(titleText + ": " + detailedMessage, isError=true);
+
+            if isempty(obj.hFig) || ~isvalid(obj.hFig)
+                return
+            end
+
+            try
+                uialert(obj.hFig, char(detailedMessage), ...
+                    char(titleText), 'Icon', 'error');
+            catch
+                % Avoid cascading GUI failures while reporting an error.
+            end
+        end
+
+        % -----------------------------------------------------------------
+        function show_gui_message_(obj, messageText, titleText, iconName)
+            % show_gui_message_() - Best-effort wrapper around uialert.
+            arguments
+                obj (1,1) stimgen.StimPlayer
+                messageText (1,1) string
+                titleText (1,1) string = "StimPlayer"
+                iconName (1,1) string = "info"
+            end
+
+            if isempty(obj.hFig) || ~isvalid(obj.hFig)
+                return
+            end
+
+            obj.set_status_(titleText + ": " + messageText, isError=iconName == "error");
+
+            try
+                if any(iconName == ["error", "success"])
+                    uialert(obj.hFig, char(messageText), char(titleText), 'Icon', char(iconName));
+                end
+            catch
+                % Ignore alert failures if the figure is closing.
+            end
+        end
+
+        % -----------------------------------------------------------------
+        function set_status_(obj, messageText, options)
+            % set_status_() - Update the non-modal status label in the GUI.
+            arguments
+                obj (1,1) stimgen.StimPlayer
+                messageText (1,1) string
+                options.isError (1,1) logical = false
+            end
+
+            h = obj.handles;
+            if ~isfield(h, 'StatusLabel') || isempty(h.StatusLabel) || ~isvalid(h.StatusLabel)
+                return
+            end
+
+            h.StatusLabel.Text = char(messageText);
+            if options.isError
+                h.StatusLabel.FontColor = [0.75 0.15 0.15];
+            else
+                h.StatusLabel.FontColor = [0.35 0.35 0.35];
+            end
+        end
+
+        % -----------------------------------------------------------------
+        function messageText = format_gui_error_message_(obj, ME, fallbackText)
+            % format_gui_error_message_() - Convert common errors into user-facing guidance.
+            arguments
+                obj (1,1) stimgen.StimPlayer
+                ME (1,1) MException
+                fallbackText (1,1) string
+            end
+
+            if isempty(obj)
+                messageText = fallbackText + newline + newline + string(ME.message);
+                return
+            end
+
+            messageText = fallbackText + newline + newline + string(ME.message);
+
+            switch string(ME.identifier)
+                case "StimPlayer:InvalidISI"
+                    messageText = "Enter either one positive ISI value, such as 1, or a two-value range such as [0.5 1.5].";
+                case "StimPlayer:InvalidCalibrationFile"
+                    messageText = "The selected calibration file did not contain a usable calibration object.";
+                case "stimgen:StimType:NonVectorizableProperty"
+                    messageText = "This property must stay scalar in StimPlayer. Use a single value rather than a vector or expression that expands to multiple values.";
+                case "stimgen:StimType:PairwiseLengthMismatch"
+                    messageText = [ ...
+                        "Variant lengths do not match the selected combination mode." + newline + ...
+                        "Use equal-length vectors for PairwiseStrict, or use scalar-or-max-length vectors for PairwiseScalarExpand." ...
+                    ];
+                case "stimgen:StimType:MissingSelectorClass"
+                    messageText = "Variant Selection is set to CustomSelector, but no selector class was provided.";
+                case "stimgen:StimType:SelectorClassNotFound"
+                    messageText = "StimPlayer could not find the requested variant selector class on the MATLAB path.";
+                case "stimgen:StimType:SelectorClassType"
+                    messageText = "The selected variant selector must inherit epsych.TrialSelector.";
+                case "stimgen:StimType:InvalidSelectorIndex"
+                    messageText = "The custom selector returned an invalid variant index for the available combinations.";
+                case "stimgen:StimType:InvalidCombinationMode"
+                    messageText = "The selected variant combination mode is not recognized.";
+                case "stimgen:StimType:InvalidSelectionMode"
+                    messageText = "The selected variant selection mode is not recognized.";
+                otherwise
+                    rawMessage = string(ME.message);
+                    if contains(rawMessage, "Expression cannot be empty.")
+                        messageText = "Enter a numeric value or MATLAB expression, such as 4000 or 500*2.^(0:3).";
+                    elseif contains(rawMessage, "Assignments are not allowed in expressions.")
+                        messageText = "Use expressions only. Do not include assignments like Frequency = ....";
+                    elseif contains(rawMessage, "Only a single expression is allowed.")
+                        messageText = "Enter one expression only. Separate values with spaces or MATLAB vector syntax rather than semicolons.";
+                    elseif contains(rawMessage, "must evaluate to a numeric or logical value.")
+                        messageText = "That expression did not resolve to numeric values. Try a numeric vector such as [1000 2000 4000] or an expression like 500*2.^(0:3).";
+                    elseif contains(rawMessage, "must evaluate to finite numeric values.")
+                        messageText = "The expression must evaluate to finite numbers only. Remove NaN, Inf, or divisions by zero.";
+                    end
+            end
         end
 
     end % methods (public)

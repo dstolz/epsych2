@@ -7,6 +7,7 @@ h = obj.handles;
 if ~isfield(h, 'SignalLine') || ~isvalid(h.SignalLine)
     return
 end
+ax = obj.handles.SignalAx;
 
 % Prefer the GUI-selected item; fall back to playback cursor
 sp = [];
@@ -22,6 +23,7 @@ end
 
 if isempty(sp)
     set(h.SignalLine, 'XData', nan, 'YData', nan);
+    title(ax, '');
     return
 end
 
@@ -32,7 +34,14 @@ end
 
 if ~isempty(stimObj.Signal)
     set(h.SignalLine, 'XData', stimObj.Time, 'YData', stimObj.Signal);
+    summary = stimObj.current_parameter_summary();
+    if strlength(summary) > 0
+        title(ax, {char(sp.Name), char(summary)});
+    else
+        title(ax, char(sp.Name));
+    end
 else
     set(h.SignalLine, 'XData', nan, 'YData', nan);
+    title(ax, char(sp.Name));
 end
 end

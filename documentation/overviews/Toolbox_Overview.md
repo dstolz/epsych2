@@ -22,9 +22,9 @@ For most new users, the first three tools to learn are:
 1. `epsych_startup`
    - Adds the repository and its visible subfolders to the MATLAB path.
    - Run this once after opening MATLAB.
-2. `ep_ExperimentDesign`
+2. `epsych.ProtocolDesigner`
    - Main protocol authoring GUI.
-   - Use this to create or edit a `*.prot` experiment definition.
+   - Use this to create or edit protocol definitions.
 3. `epsych.RunExpt`
    - Main session GUI for loading subjects, selecting protocols, previewing trials, and running a session.
 
@@ -33,7 +33,7 @@ Typical first-run sequence:
 ```matlab
 addpath('C:\path\to\epsych2')
 epsych_startup
-ep_ExperimentDesign
+epsych.ProtocolDesigner
 epsych.RunExpt
 ```
 
@@ -42,7 +42,7 @@ epsych.RunExpt
 | Task | Main tool(s) | What they are for |
 | --- | --- | --- |
 | Set up MATLAB path | `epsych_startup`, `epsych_path` | Locate the toolbox and add EPsych folders to the MATLAB path. |
-| Design a protocol | `ep_ExperimentDesign`, `ep_AddTrial`, `ep_struct2protocol` | Build or edit experiment structure and save it as a protocol file. |
+| Design a protocol | `epsych.ProtocolDesigner`, `ep_AddTrial`, `ep_struct2protocol` | Build or edit experiment structure and save it as a protocol file. |
 | Compile or inspect protocols | `ep_CompileProtocol`, `ep_CompiledProtocolTrials` | Turn protocol definitions into runtime-ready trial structures and preview them. |
 | Run an experiment | `epsych.RunExpt` | Configure subjects, associate protocol files, preview sessions, and run or record experiments. |
 | Add subject/session metadata | `ep_AddSubject` | Collect subject information for a RunExpt session. Usually launched from the runtime GUI. |
@@ -59,7 +59,7 @@ This is the protocol-building side of EPsych. If you are deciding trial structur
 
 Most important files for new users:
 
-- `ep_ExperimentDesign.m`
+- `obj/+epsych/@ProtocolDesigner/ProtocolDesigner.m`
 - `ep_CompileProtocol.m`
 - `ep_CompiledProtocolTrials.m`
 
@@ -93,7 +93,7 @@ If you are trying to get productive quickly, use this order:
 
 1. Read [Installation_Guide.md](Installation_Guide.md).
 2. Run `epsych_startup` in MATLAB.
-3. Open `ep_ExperimentDesign` and inspect or create a protocol.
+3. Open `epsych.ProtocolDesigner` and inspect or create a protocol.
 4. Launch `epsych.RunExpt`.
 5. Add a subject, attach a protocol, and use trial preview before running hardware.
 6. Read [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md) once the GUI is open.
@@ -110,7 +110,7 @@ If you are trying to get productive quickly, use this order:
 If you only remember one workflow, remember this:
 
 - `epsych_startup` prepares MATLAB
-- `ep_ExperimentDesign` prepares the protocol
+- `epsych.ProtocolDesigner` prepares the protocol
 - `epsych.RunExpt` runs the session
 
 Everything else in the repository mainly supports one of those three stages.

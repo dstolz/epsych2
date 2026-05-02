@@ -12,11 +12,11 @@ classdef FMtone < stimgen.StimType
     %   Base-class properties (SoundLevel, Duration, WindowDuration,
     %   ApplyCalibration, etc.) control level, timing, and windowing.
 
-    properties
-        CarrierFrequency    (1,1) double {mustBePositive}    = 4000
-        ModulationFrequency (1,1) double {mustBeNonnegative} = 10
-        ModulationDepth     (1,1) double {mustBeNonnegative} = 1000
-        OnsetPhase          (1,1) double                     = 0
+    properties (SetObservable,AbortSet)
+        CarrierFrequency    (1,:) double {mustBePositive,mustBeFinite}    = 4000
+        ModulationFrequency (1,:) double {mustBeNonnegative,mustBeFinite} = 10
+        ModulationDepth     (1,:) double {mustBeNonnegative,mustBeFinite} = 1000
+        OnsetPhase          (1,:) double                                    = 0
     end
     
 
@@ -40,21 +40,26 @@ classdef FMtone < stimgen.StimType
 
         function update_signal(obj)
             %UPDATE_SIGNAL  Regenerate the FM tone waveform.
+            if ~obj.variantCycleActive_
+                obj.call_update_signal_with_variant_cycle_();
+                return
+            end
 
             t  = obj.Time;  % column vector from base class
-            fc = obj.CarrierFrequency;
-            fm = obj.ModulationFrequency;
-            fd = obj.ModulationDepth;
+            fc = double(obj.selected_value("CarrierFrequency"));
+            fm = double(obj.selected_value("ModulationFrequency"));
+            fd = double(obj.selected_value("ModulationDepth"));
+            onsetPhase = double(obj.selected_value("OnsetPhase"));
 
             if fm == 0 || fd == 0
                 % Reduce to pure tone if no modulation
-                phase = 2*pi*fc*t + obj.OnsetPhase;
+                phase = 2*pi*fc*t + onsetPhase;
             else
                 % Instantaneous frequency: f(t) = Fc + D*sin(2*pi*Fm*t)
                 % Phase is integral of f(t):
                 %   phi(t) = 2*pi*Fc*t - (2*pi*D/Fm)*cos(2*pi*Fm*t) + const
                 phase = 2*pi*fc*t - (2*pi*fd/fm)*cos(2*pi*fm*t) + ...
-                        (2*pi*fd/fm) + obj.OnsetPhase;
+                        (2*pi*fd/fm) + onsetPhase;
             end
 
             x = sin(phase);

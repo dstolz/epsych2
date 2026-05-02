@@ -13,5 +13,9 @@ if isfield(h, 'PauseBtn') && isvalid(h.PauseBtn)
     h.PauseBtn.Text   = 'Pause';
 end
 
+obj.lock_bank_controls_(false);
+obj.disconnect_interfaces_;
+obj.update_protocol_status_;
+
 vprintf(2, 'StimPlayer timer stopped. %d presentations logged.', numel(obj.StimOrder));
 end

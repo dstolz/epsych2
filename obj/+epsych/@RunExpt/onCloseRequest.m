@@ -31,6 +31,14 @@ end
 
 self.SetDefaultFuncs(self.FUNCS)
 
+% Stop any active webcam recording before closing.
+if ~isempty(self.vlcRecorder_) && isvalid(self.vlcRecorder_)
+    try
+        self.WebcamStop();
+    catch
+    end
+end
+
 if isfield(self.H,'figure1') && isgraphics(self.H.figure1)
     epsych.RunExpt.saveFigurePosition(self.H.figure1.Position);
 

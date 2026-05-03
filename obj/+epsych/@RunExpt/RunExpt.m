@@ -23,6 +23,10 @@ classdef RunExpt < handle
         IsClosing (1,1) logical = false                                                         % True while the close sequence is in progress; prevents re-entrant callbacks
     end
 
+    properties (Access = private)
+        vlcRecorder_  % hw.VlcRecorder instance for webcam preview/recording; [] when inactive
+    end
+
     methods
         LoadConfig(self, cfn)           % Load configuration from MAT file cfn
         SaveConfig(self)                % Persist current configuration to file
@@ -37,6 +41,9 @@ classdef RunExpt < handle
         DefineAddSubject(self, a)       % Set the add-subject callback function name
         DefineBoxFig(self, a)           % Set the behavioral box figure callback function name
         DefineTimerPeriod(self)         % Set the PsychTimer period (0.001–1 s)
+
+        WebcamRecord(self)              % Launch webcam preview and optionally begin recording
+        WebcamStop(self)                % Stop webcam recording and close VLC preview
 
         function self = RunExpt(ffnConfig)
             % self = RunExpt()

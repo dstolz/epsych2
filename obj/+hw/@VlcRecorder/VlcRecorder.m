@@ -184,6 +184,52 @@ classdef VlcRecorder < hw.Interface
             value = nan;
         end
 
+        function selected = selectDevice(obj)
+            % selected = obj.selectDevice()
+            % Show a list dialog of available DirectShow video devices and set
+            % DeviceName to the user's choice.
+            % Queries available devices via: ffmpeg -list_devices true -f dshow -i dummy
+            % Returns:
+            %   selected - chosen device name string, or "" if cancelled.
+
+            [~, raw] = system(sprintf('"%s" -list_devices true -f dshow -i dummy 2>&1', ...
+                char(obj.ffmpegExePath_)));
+
+            % ffmpeg prints video device names on lines like:
+            %   [dshow @ ...] "Device Name" (video)
+            tokens = regexp(raw, '"([^"]+)"\s*\(video\)', 'tokens');
+            devices = cellfun(@(t) t{1}, tokens, 'UniformOutput', false);
+
+            if isempty(devices)
+                uiwait(warndlg( ...
+                    sprintf('No DirectShow video devices found.\n\nffmpeg output:\n%s', raw), ...
+                    'hw.VlcRecorder', 'modal'));
+                selected = "";
+                return
+            end
+
+            % Pre-select the currently configured device if it is in the list.
+            currentIdx = find(strcmp(devices, char(obj.deviceName_)), 1);
+            if isempty(currentIdx)
+                currentIdx = 1;
+            end
+
+            [idx, ok] = listdlg( ...
+                'ListString',    devices, ...
+                'SelectionMode', 'single', ...
+                'InitialValue',  currentIdx, ...
+                'Name',          'Select Capture Device', ...
+                'PromptString',  'Available DirectShow video devices:', ...
+                'ListSize',      [320 160]);
+
+            if ok
+                selected = string(devices{idx});
+                obj.set_parameter('DeviceName', selected);
+            else
+                selected = "";
+            end
+        end
+
         function set.mode(obj, mode)
             obj.mode = mode;
         end

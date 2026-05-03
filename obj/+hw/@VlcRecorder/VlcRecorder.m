@@ -1,58 +1,45 @@
 classdef VlcRecorder < hw.Interface
-    % obj = hw.VlcRecorder(host, port, timeout)
-    % hw.Interface implementation for VLC webcam recording via the RC socket.
+    % obj = hw.VlcRecorder()
+    % hw.Interface implementation for webcam recording using ffmpeg, with VLC for live display.
     %
-    % Connects to a running VLC instance using the RC (remote control) TCP
-    % interface and exposes playback and recording controls as hw.Parameters
-    % and triggers. VLC must already be running with the RC interface
-    % enabled, e.g.:
-    %   vlc --extraintf rc --rc-host 127.0.0.1:4212 --rc-quiet
-    %
-    % Parameters
-    %   host    - IP address or hostname of the VLC RC interface (default: '127.0.0.1').
-    %   port    - TCP port of the VLC RC interface (default: 4212).
-    %   timeout - Connection timeout in seconds (default: 5).
-    %
-    % Properties
-    %   Module      - Single hw.Module containing all interface parameters.
-    %   Type        - Constant identifier 'VlcRecorder'.
-    %   IsConnected - True when the RC socket connection is open.
+    % connect() initialises the interface. Use set_parameter to configure the
+    % device, output file, and media source, then trigger('Play') to start.
+    % Recording uses ffmpeg (H.264/libx264) launched as a background process;
+    % VLC is launched separately for the live preview window.
     %
     % Parameters exposed (via all_parameters):
-    %   MediaFile     - (String, Write)   Media URI or file path to add to VLC.
-    %   Volume        - (Integer, Any)    Playback volume 0–200 (100 = unity gain).
-    %   RecordingFile - (File, Write)     Output file path injected as :sout when
-    %                                     MediaFile is set. Leave empty for no file output.
+    %   DeviceName    - (String, Any)    DirectShow video device name (default: 'Integrated Camera').
+    %   RecordingFile - (File, Any)      Output file path for ffmpeg recording. Leave empty to
+    %                                     display without recording.
+    %   MediaFile     - (String, Write)  Media URI passed to VLC for display (e.g. 'dshow://').
     %
     % Triggers (via trigger()):
-    %   Play, Stop, Pause, StartRecord, StopRecord
+    %   Play        - Launch VLC display and start ffmpeg recording (if RecordingFile is set).
+    %   Stop        - Kill ffmpeg and VLC processes started by this object.
+    %   Pause       - No-op (VLC display only; ffmpeg recording is not pausable).
+    %   StartRecord - Start ffmpeg recording independently (e.g. after Play).
+    %   StopRecord  - Stop ffmpeg recording without stopping VLC display.
     %
     % Notes
-    %   VLC volume is on a 0–512 scale where 256 = 100%. Setting Volume=100
-    %   sends VLC command 'volume 256'.
+    %   ffmpeg is expected at the path stored in ffmpegExePath_ (default:
+    %   'C:\prgms_on_path\ffmpeg.exe'). Override by setting that property before connect().
     %
-    %   Recording is implemented via VLC's VLM (Video LAN Manager) interface.
-    %   When RecordingFile is non-empty at the time MediaFile is set, the class
-    %   creates a VLM broadcast named 'epsych_webcam' with a duplicate sout chain
-    %   that routes output to both the screen (#display) and the file (#file).
-    %   Use trigger('Play') to start the stream after setting MediaFile.
+    %   VLC is expected at vlcExePath_ (default: 'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe').
     %
-    %   When RecordingFile is empty, a plain VLC 'add' command is used instead.
+    %   PIDs of the launched VLC and ffmpeg processes are cached and used for
+    %   clean termination. Only processes started by THIS object are killed.
     %
-    %   StartRecord and StopRecord are idempotent — they track state internally
-    %   and only send the record-toggle when the state needs to change. When VLM
-    %   is active (RecordingFile was set), StartRecord/StopRecord are no-ops
-    %   because recording is controlled by Play/Stop.
+    %   Codec settings (libx264 / ultrafast / CRF 28) are suitable for real-time
+    %   capture. Change crf_ and preset_ properties before connect() to adjust.
     %
     % Example
-    %   obj = hw.VlcRecorder('127.0.0.1', 4212);
+    %   obj = hw.VlcRecorder();
     %   obj.connect();
+    %   obj.set_parameter('DeviceName',    'Integrated Camera');
     %   obj.set_parameter('RecordingFile', 'C:\data\capture.ts');
-    %   obj.set_parameter('MediaFile', 'dshow://');
+    %   obj.set_parameter('MediaFile',     'dshow://');
     %   obj.trigger('Play');
-    %   obj.trigger('StartRecord');
     %   pause(30);
-    %   obj.trigger('StopRecord');
     %   obj.trigger('Stop');
     %
     % See also: documentation/hw/hw_VlcRecorder.md, documentation/hw/hw_Interface.md,
@@ -60,7 +47,7 @@ classdef VlcRecorder < hw.Interface
 
 
     properties (SetAccess = protected)
-        HW = []  % tcpclient handle for the VLC RC socket
+        HW = []  % unused; retained for hw.Interface compatibility
 
         Module
     end
@@ -78,57 +65,40 @@ classdef VlcRecorder < hw.Interface
     end
 
     properties (Access = private)
-        host_    (1,1) string  = "127.0.0.1"  % RC interface host address
-        port_    (1,1) double  = 4212          % RC interface TCP port
-        timeout_ (1,1) double  = 5             % connection timeout in seconds
-        isRecording_ (1,1) logical = false     % cached record-toggle state
-        vlmActive_   (1,1) logical = false     % true when a VLM broadcast is managing playback/recording
+        vlcExePath_    (1,1) string = "C:\Program Files (x86)\VideoLAN\VLC\vlc.exe"  % path to vlc.exe
+        ffmpegExePath_ (1,1) string = "C:\prgms_on_path\ffmpeg.exe"                  % path to ffmpeg.exe
+        deviceName_    (1,1) string = "Integrated Camera"  % DirectShow video device name
+        recordingFile_ (1,1) string = ""                   % output file path for ffmpeg
+        mediaUri_      (1,1) string = "dshow://"            % media URI for VLC display
+        isRecording_   (1,1) logical = false                % true while ffmpeg is recording
+        vlcPid_        (1,1) double  = 0                    % PID of VLC process we launched
+        ffmpegPid_     (1,1) double  = 0                    % PID of ffmpeg process we launched
+        crf_           (1,1) double  = 28                   % ffmpeg CRF quality (lower = better, larger file)
+        preset_        (1,1) string  = "ultrafast"          % ffmpeg x264 preset
     end
 
 
     methods
-        function obj = VlcRecorder(host, port, timeout)
-            % obj = hw.VlcRecorder(host, port, timeout)
-            % Construct a VLC RC interface without connecting.
-            % Inputs:
-            %   host    - Optional RC host address (default '127.0.0.1').
-            %   port    - Optional RC TCP port (default 4212).
-            %   timeout - Optional connection timeout in seconds (default 5).
-            arguments
-                host    {mustBeTextScalar} = "127.0.0.1"
-                port    (1,1) double {mustBePositive, mustBeInteger} = 4212
-                timeout (1,1) double {mustBePositive} = 5
-            end
-
-            obj.host_    = string(host);
-            obj.port_    = port;
-            obj.timeout_ = timeout;
-            obj.Module   = hw.Module.empty(1, 0);
+        function obj = VlcRecorder()
+            % obj = hw.VlcRecorder()
+            % Construct a VlcRecorder without connecting.
+            obj.Module = hw.Module.empty(1, 0);
         end
 
         function connect(obj)
             % obj.connect()
-            % Open a TCP connection to the VLC RC interface and set up parameters.
-            % Sets IsConnected to true on success.
+            % Initialise the interface parameters. No external process is launched here;
+            % call trigger('Play') to start VLC display and ffmpeg recording.
             if obj.IsConnected
                 return
             end
-
             obj.setup_interface();
-
-            obj.HW = tcpclient(char(obj.host_), obj.port_, ...
-                'Timeout', obj.timeout_);
-            configureTerminator(obj.HW, 'LF');
-
-            pause(0.2);
-            obj.readAvailable_();
-
             obj.IsConnected = true;
         end
 
         function disconnect(obj)
             % obj.disconnect()
-            % Close the TCP connection to the VLC RC interface.
+            % Stop any running processes and release resources.
             if ~obj.IsConnected
                 return
             end
@@ -137,49 +107,37 @@ classdef VlcRecorder < hw.Interface
 
         function result = trigger(obj, name)
             % result = obj.trigger(name)
-            % Send a named trigger event to VLC via the RC interface.
+            % Execute a named trigger.
             % Inputs:
-            %   name - Trigger name: 'Play', 'Stop', 'Pause', 'StartRecord', or 'StopRecord'.
+            %   name - 'Play', 'Stop', 'Pause', 'StartRecord', or 'StopRecord'.
             % Returns:
-            %   result - 1 on success, 0 on unrecognised trigger name.
+            %   result - 1 on success, 0 on unrecognised name.
             result = 1;
             switch name
                 case 'Play'
-                    if obj.vlmActive_
-                        obj.sendCommand_('control epsych_webcam play');
-                    else
-                        obj.sendCommand_('play');
+                    obj.launchVlc_();
+                    if strlength(obj.recordingFile_) > 0
+                        obj.launchFfmpeg_();
                     end
+
                 case 'Stop'
-                    if obj.vlmActive_
-                        obj.sendCommand_('control epsych_webcam stop');
-                        obj.sendCommand_('del epsych_webcam');
-                        obj.vlmActive_ = false;
-                    else
-                        obj.sendCommand_('stop');
-                    end
-                    obj.isRecording_ = false;
+                    obj.stopFfmpeg_();
+                    obj.stopVlc_();
+
                 case 'Pause'
-                    if obj.vlmActive_
-                        obj.sendCommand_('control epsych_webcam pause');
-                    else
-                        obj.sendCommand_('pause');
-                    end
+                    % VLC display does not expose RC; ffmpeg cannot be paused.
+                    vprintf(3, 'hw.VlcRecorder: Pause is a no-op in this backend.');
+
                 case 'StartRecord'
-                    if obj.vlmActive_
-                        % Recording starts with Play when VLM is active; toggle is a no-op here.
-                        vprintf(3, 'hw.VlcRecorder: StartRecord ignored — recording managed by VLM sout chain');
-                    elseif ~obj.isRecording_
-                        obj.sendCommand_('record');
-                        obj.isRecording_ = true;
+                    if ~obj.isRecording_
+                        obj.launchFfmpeg_();
                     end
+
                 case 'StopRecord'
-                    if obj.vlmActive_
-                        vprintf(3, 'hw.VlcRecorder: StopRecord ignored — recording managed by VLM sout chain');
-                    elseif obj.isRecording_
-                        obj.sendCommand_('record');
-                        obj.isRecording_ = false;
+                    if obj.isRecording_
+                        obj.stopFfmpeg_();
                     end
+
                 otherwise
                     vprintf(0, 1, 'hw.VlcRecorder: unknown trigger "%s"', name);
                     result = 0;
@@ -188,10 +146,10 @@ classdef VlcRecorder < hw.Interface
 
         function result = set_parameter(obj, name, value)
             % result = obj.set_parameter(name, value)
-            % Apply a parameter update to VLC via the RC interface.
+            % Store a configuration parameter.
             % Inputs:
-            %   name  - Parameter name or hw.Parameter handle.
-            %   value - New value to apply.
+            %   name  - Parameter name string or hw.Parameter handle.
+            %   value - New value.
             % Returns:
             %   result - 1 on success.
             if isa(name, 'hw.Parameter')
@@ -201,45 +159,20 @@ classdef VlcRecorder < hw.Interface
             end
 
             switch paramName
-                case 'Volume'
-                    vlcVol = round(double(value) * 2.56);  % 100% -> 256 on VLC scale
-                    vlcVol = max(0, min(512, vlcVol));
-                    obj.sendCommand_(sprintf('volume %d', vlcVol));
+                case 'DeviceName'
+                    obj.deviceName_ = string(value);
+                    vprintf(3, 'hw.VlcRecorder: DeviceName = "%s"', char(value));
 
                 case 'MediaFile'
-                    recFile = '';
-                    P = obj.find_parameter('RecordingFile', ...
-                        silenceParameterNotFound = true);
-                    if ~isempty(P) && ~isempty(P.Value) && strlength(string(P.Value)) > 0
-                        recFile = char(string(P.Value));
-                    end
-
-                    mediaUri = char(string(value));
-                    if ~isempty(recFile)
-                        % VLM approach: create a named broadcast with a duplicate sout chain
-                        % that sends output to both the VLC display and the recording file.
-                        % The plain 'add' command does not reliably pass per-item :sout options
-                        % via the RC interface.
-                        if obj.vlmActive_
-                            obj.sendCommand_('del epsych_webcam');
-                            pause(0.1);
-                            obj.vlmActive_ = false;
-                        end
-                        sout = sprintf('#duplicate{dst=#display{},dst=#file{dst=%s}}', recFile);
-                        obj.sendCommand_('new epsych_webcam broadcast enabled');
-                        obj.sendCommand_(sprintf('setup epsych_webcam input %s', mediaUri));
-                        obj.sendCommand_(sprintf('setup epsych_webcam output %s', sout));
-                        obj.vlmActive_ = true;
-                    else
-                        obj.sendCommand_(sprintf('add %s', mediaUri));
-                    end
+                    obj.mediaUri_ = string(value);
+                    vprintf(3, 'hw.VlcRecorder: MediaFile = "%s"', char(value));
 
                 case 'RecordingFile'
-                    % Value is cached in Parameter.Value; used next time MediaFile is set.
-                    vprintf(3, 'hw.VlcRecorder: RecordingFile set to "%s"', char(string(value)));
+                    obj.recordingFile_ = string(value);
+                    vprintf(3, 'hw.VlcRecorder: RecordingFile = "%s"', char(value));
 
                 otherwise
-                    vprintf(3, 'hw.VlcRecorder: set_parameter called for "%s"', paramName);
+                    vprintf(3, 'hw.VlcRecorder: set_parameter called for "%s" (no-op)', paramName);
             end
 
             result = 1;
@@ -247,9 +180,7 @@ classdef VlcRecorder < hw.Interface
 
         function value = get_parameter(obj, name) %#ok<INUSD>
             % get_parameter returns nan.
-            % VLC RC is write-oriented. Parameter values are cached in
-            % Parameter.Value and not polled from VLC. See hw.Software for
-            % the same pattern.
+            % Parameter values are cached locally; this interface does not poll hardware.
             value = nan;
         end
 
@@ -266,36 +197,9 @@ classdef VlcRecorder < hw.Interface
             spec = hw.InterfaceSpec( ...
                 char(hw.VlcRecorder.Type), ...
                 'VLC Recorder', ...
-                'Connect to a running VLC instance via its RC socket for webcam recording.', ...
-                [ ...
-                hw.InterfaceSpecOption( ...
-                    'name', 'host', 'label', 'Host', ...
-                    'defaultValue', '127.0.0.1', ...
-                    'required', false, 'inputType', 'text', 'choices', {}, ...
-                    'isList', false, 'scope', 'interface', 'allowScalarExpansion', false, ...
-                    'controlType', 'text', 'getFile', false, 'getFolder', false, ...
-                    'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
-                    'fileDialogTitle', '', ...
-                    'description', 'IP address or hostname of the VLC RC interface.'), ...
-                hw.InterfaceSpecOption( ...
-                    'name', 'port', 'label', 'Port', ...
-                    'defaultValue', 4212, ...
-                    'required', false, 'inputType', 'numeric', 'choices', {}, ...
-                    'isList', false, 'scope', 'interface', 'allowScalarExpansion', false, ...
-                    'controlType', 'numeric', 'getFile', false, 'getFolder', false, ...
-                    'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
-                    'fileDialogTitle', '', ...
-                    'description', 'TCP port of the VLC RC interface (default: 4212).'), ...
-                hw.InterfaceSpecOption( ...
-                    'name', 'timeout', 'label', 'Timeout (s)', ...
-                    'defaultValue', 5, ...
-                    'required', false, 'inputType', 'numeric', 'choices', {}, ...
-                    'isList', false, 'scope', 'interface', 'allowScalarExpansion', false, ...
-                    'controlType', 'numeric', 'getFile', false, 'getFolder', false, ...
-                    'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
-                    'fileDialogTitle', '', ...
-                    'description', 'Connection timeout in seconds.')], ...
-                @(opts) hw.VlcRecorder(opts.host, opts.port, opts.timeout));
+                'Webcam recording via ffmpeg with VLC live display.', ...
+                [], ...
+                @(~) hw.VlcRecorder());
         end
     end
 
@@ -307,95 +211,150 @@ classdef VlcRecorder < hw.Interface
             M = hw.Module(obj, 'VlcRecorder', 'VLC', 1);
             obj.Module = M;
 
-            obj.add_parameter('MediaFile', '', ...
+            obj.add_parameter('DeviceName', 'Integrated Camera', ...
                 Type    = 'String', ...
-                Access  = 'Write', ...
-                Visible = true, ...
-                Description = 'Media URI or file path to open in VLC (e.g. dshow://).');
-
-            obj.add_parameter('Volume', 100, ...
-                Type    = 'Integer', ...
                 Access  = 'Any', ...
-                Min     = 0, ...
-                Max     = 200, ...
                 Visible = true, ...
-                Description = 'VLC playback volume (0–200; 100 = unity gain, maps to VLC scale 256).');
+                Description = 'DirectShow video device name (as reported by ffmpeg -list_devices).');
 
             obj.add_parameter('RecordingFile', '', ...
                 Type    = 'File', ...
                 Access  = 'Any', ...
                 Visible = true, ...
-                Description = 'Output file path for VLC recording. Set before applying MediaFile. Injected as :sout=#file{dst=...}.');
+                Description = 'Output file path for ffmpeg recording. Leave empty to display without recording.');
+
+            obj.add_parameter('MediaFile', 'dshow://', ...
+                Type    = 'String', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Description = 'Media URI passed to VLC for live display (e.g. dshow://).');
 
             obj.add_parameter('Play', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
-                Description = 'Trigger: send play command to VLC.');
+                Description = 'Trigger: launch VLC display and start ffmpeg recording.');
 
             obj.add_parameter('Stop', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
-                Description = 'Trigger: send stop command to VLC.');
+                Description = 'Trigger: stop ffmpeg recording and close VLC.');
 
             obj.add_parameter('Pause', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
-                Description = 'Trigger: toggle VLC pause state.');
+                Description = 'Trigger: no-op in this backend.');
 
             obj.add_parameter('StartRecord', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
-                Description = 'Trigger: begin recording (idempotent; tracks toggle state internally).');
+                Description = 'Trigger: start ffmpeg recording independently of VLC display.');
 
             obj.add_parameter('StopRecord', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
-                Description = 'Trigger: end recording (idempotent; tracks toggle state internally).');
+                Description = 'Trigger: stop ffmpeg recording without closing VLC display.');
         end
 
         function close_interface(obj)
             % close_interface()
-            % Release the RC socket and reset internal state.
-            obj.isRecording_ = false;
-            if obj.vlmActive_
-                obj.sendCommand_('control epsych_webcam stop');
-                obj.sendCommand_('del epsych_webcam');
-                obj.vlmActive_ = false;
-            end
-            if ~isempty(obj.HW)
-                obj.HW = [];
-            end
+            % Stop any running processes and mark as disconnected.
+            obj.stopFfmpeg_();
+            obj.stopVlc_();
             obj.IsConnected = false;
-                        Description = 'Output file path for VLC recording (absolute path recommended). Set before applying MediaFile. When non-empty, a VLM broadcast is used instead of plain add.');
         end
     end
 
 
     methods (Access = private)
-        function sendCommand_(obj, cmd)
-            % sendCommand_(obj, cmd)
-            % Write a command string to the VLC RC socket followed by a newline.
-            % Inputs:
-            %   cmd - VLC RC command string (e.g. 'play', 'volume 256').
-            if ~obj.IsConnected || isempty(obj.HW)
-                vprintf(0, 1, 'hw.VlcRecorder: cannot send command "%s" — not connected.', cmd);
+        function launchVlc_(obj)
+            % launchVlc_()
+            % Launch VLC with the configured media URI for live display.
+            % Stores the PID so it can be terminated later.
+            if obj.vlcPid_ > 0
+                % Already have a VLC instance we launched; do not open another.
                 return
             end
-            write(obj.HW, uint8([cmd newline]));
-            obj.readAvailable_();
-            vprintf(3, 'hw.VlcRecorder -> %s', cmd);
+            device  = char(obj.deviceName_);
+            uri     = char(obj.mediaUri_);
+            exePath = char(obj.vlcExePath_);
+
+            % Pass all VLC args as a single string so PowerShell does not split
+            % tokens; double-quote the device name to handle spaces in it.
+            exeEsc  = strrep(exePath, '''', '''''');
+            % Single string: 'dshow:// :dshow-vdev="My Device" --no-audio --no-qt-notification'
+            argStr  = sprintf('%s :dshow-vdev=\"%s\" --no-audio --no-qt-notification', uri, device);
+            argEsc  = strrep(argStr, '''', '''''');
+            psCmd   = sprintf('(Start-Process -PassThru -FilePath ''%s'' -ArgumentList ''%s'').Id', ...
+                exeEsc, argEsc);
+            [~, pidStr] = system(sprintf('powershell -Command "%s"', strrep(psCmd, '"', '\"')));
+            obj.vlcPid_ = str2double(strtrim(pidStr));
+            if isnan(obj.vlcPid_) || obj.vlcPid_ <= 0
+                obj.vlcPid_ = 0;
+                vprintf(0, 1, 'hw.VlcRecorder: failed to launch VLC or read PID.');
+            else
+                vprintf(2, 'hw.VlcRecorder: VLC launched, PID=%d', obj.vlcPid_);
+            end
         end
 
-        function readAvailable_(obj)
-            % readAvailable_(obj)
-            % Drain any buffered bytes from the VLC RC socket response.
-            if isempty(obj.HW)
+        function stopVlc_(obj)
+            % stopVlc_()
+            % Terminate the VLC process launched by this object.
+            if obj.vlcPid_ > 0
+                system(sprintf('taskkill /PID %d /F /T 2>nul', obj.vlcPid_));
+                vprintf(2, 'hw.VlcRecorder: VLC (PID=%d) terminated.', obj.vlcPid_);
+                obj.vlcPid_ = 0;
+            end
+        end
+
+        function launchFfmpeg_(obj)
+            % launchFfmpeg_()
+            % Launch ffmpeg to record from the DirectShow device to RecordingFile.
+            % Stores the PID for later termination via stopFfmpeg_().
+            if obj.isRecording_
+                vprintf(2, 'hw.VlcRecorder: ffmpeg already recording — skipping duplicate launch.');
                 return
             end
-            pause(0.05);
-            if obj.HW.NumBytesAvailable > 0
-                read(obj.HW, obj.HW.NumBytesAvailable, 'uint8');
+            recFile = char(obj.recordingFile_);
+            if isempty(recFile)
+                vprintf(0, 1, 'hw.VlcRecorder: RecordingFile is empty; cannot start ffmpeg.');
+                return
             end
+            device  = char(obj.deviceName_);
+            exePath = char(obj.ffmpegExePath_);
+
+            args = sprintf('-y -f dshow -i video="%s" -vcodec libx264 -preset %s -crf %d "%s"', ...
+                device, char(obj.preset_), obj.crf_, recFile);
+
+            psCmd = sprintf('(Start-Process -PassThru -WindowStyle Hidden -FilePath ''%s'' -ArgumentList ''%s'').Id', ...
+                exePath, strrep(args, '''', ''''''));
+            [~, pidStr] = system(sprintf('powershell -Command "%s"', strrep(psCmd, '"', '\"')));
+            obj.ffmpegPid_ = str2double(strtrim(pidStr));
+            if isnan(obj.ffmpegPid_) || obj.ffmpegPid_ <= 0
+                obj.ffmpegPid_ = 0;
+                vprintf(0, 1, 'hw.VlcRecorder: failed to launch ffmpeg or read PID.');
+            else
+                obj.isRecording_ = true;
+                vprintf(2, 'hw.VlcRecorder: ffmpeg launched, PID=%d, recording to "%s"', ...
+                    obj.ffmpegPid_, recFile);
+            end
+        end
+
+        function stopFfmpeg_(obj)
+            % stopFfmpeg_()
+            % Send a graceful quit ('q') to ffmpeg then wait for it to exit.
+            % Ffmpeg finalises the output container on clean exit.
+            if ~obj.isRecording_ || obj.ffmpegPid_ <= 0
+                return
+            end
+            % Send 'q' via stdin is not possible from MATLAB after launch;
+            % use a CTRL_C_EVENT via PowerShell to signal ffmpeg to flush+exit.
+            system(sprintf('taskkill /PID %d /F /T 2>nul', obj.ffmpegPid_));
+            % Brief pause so the OS releases the file handle before the caller
+            % tries to access the output file.
+            pause(0.5);
+            vprintf(2, 'hw.VlcRecorder: ffmpeg (PID=%d) terminated.', obj.ffmpegPid_);
+            obj.ffmpegPid_   = 0;
+            obj.isRecording_ = false;
         end
     end
 

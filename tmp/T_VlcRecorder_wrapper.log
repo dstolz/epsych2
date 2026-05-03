@@ -1,0 +1,22 @@
+[Warning: Objects of 'onCleanup' class exist.  Cannot clear this class or any of its superclasses.] 
+[> In T_VlcRecorder_VLM (line 5)
+In run (line 112)] 
+
+Setting Paths for EPsych Toolbox ... done
+
+  ___  ___                _      ___
+ | __|| _ \ ___ _  _  __ | |_   |_  )
+ | _| |  _/(_-<| || |/ _|| ' \   / /
+ |___||_|  /__/ \_, |\__||_||_| /___|
+                |__/
+v2.2.1 <a href="https://www.gnu.org/licenses/gpl-3.0.en.html">(C) 2016-2026  Daniel Stolzberg, PhD</a>
+Latest commit: 02-May-2026 15:02:20; 416bcdf; <a href="https://github.com/dstolz/epsych2/blob/master/documentation/overviews/CommitHistoryOverview.md">Commit History Overview</a>
+<a href="https://github.com/dstolz/epsych2/blob/669b7581a731394d4b3ac7bd11bea68aa9e7608f/README.md">See Documentation</a>
+Repository: <a href="https://github.com/dstolz/epsych2">https://github.com/dstolz/epsych2</a>
+--> <a href="matlab: epsych.ProtocolDesigner">epsych.ProtocolDesigner</a>    ... Define parameters for experiments
+--> <a href="matlab: epsych.BitMask.GUI">epsych.BitMask.GUI</a>         ... Bitmask table generator for behavioral experiments
+--> <a href="matlab: epsych.RunExpt">epsych.RunExpt</a>             ... Behavior/Electrophysiology
+--> <a href="matlab: stimgen.StimPlayer">stimgen.StimPlayer</a>         ... Sound stimulus player
+[Warning: File not found or permission denied] 
+[> In T_VlcRecorder_VLM (line 33)
+In run (line 112)] 

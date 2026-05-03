@@ -12,19 +12,33 @@ capture into the standard EPsych hardware layer.
 
 ## Contents
 
-1. [Overview](#overview)
-2. [Prerequisites](#prerequisites)
-3. [Architecture](#architecture)
-4. [Constructor](#constructor)
-5. [Connection lifecycle](#connection-lifecycle)
-6. [Parameters](#parameters)
-7. [Triggers](#triggers)
-8. [Usage examples](#usage-examples)
-9. [VLC volume scale](#vlc-volume-scale)
-10. [Recording workflow](#recording-workflow)
-11. [Verbose logging](#verbose-logging)
-12. [Extending or modifying](#extending-or-modifying)
-13. [Known limitations](#known-limitations)
+- [`hw.VlcRecorder`](#hwvlcrecorder)
+  - [Contents](#contents)
+  - [Overview](#overview)
+  - [Prerequisites](#prerequisites)
+    - [VLC RC interface](#vlc-rc-interface)
+    - [MATLAB requirements](#matlab-requirements)
+  - [Architecture](#architecture)
+    - [Recording mechanism](#recording-mechanism)
+  - [Constructor](#constructor)
+  - [Connection lifecycle](#connection-lifecycle)
+    - [`obj.connect()`](#objconnect)
+    - [`obj.disconnect()`](#objdisconnect)
+  - [Parameters](#parameters)
+  - [Triggers](#triggers)
+  - [Usage examples](#usage-examples)
+    - [Basic playback](#basic-playback)
+    - [Webcam recording to a file](#webcam-recording-to-a-file)
+    - [Using the factory (getCreationSpec)](#using-the-factory-getcreationspec)
+  - [VLC volume scale](#vlc-volume-scale)
+  - [Recording workflow](#recording-workflow)
+  - [Verbose logging](#verbose-logging)
+  - [Extending or modifying](#extending-or-modifying)
+    - [Adding new RC commands](#adding-new-rc-commands)
+    - [Adding new parameters](#adding-new-parameters)
+    - [Polling VLC state](#polling-vlc-state)
+  - [Known limitations](#known-limitations)
+  - [See also](#see-also)
 
 ---
 
@@ -95,6 +109,29 @@ hw.Interface (abstract)
 
 ---
 
+### Recording mechanism
+
+VLC's RC `add` command does **not** reliably pass per-item `:sout` options
+through the socket interface. When a `RecordingFile` is set, `hw.VlcRecorder`
+uses VLC's **VLM (Video LAN Manager)** instead, which is the correct way to
+configure stream output via RC.
+
+A VLM broadcast named `epsych_webcam` is created with a `#duplicate` sout
+chain that sends the stream to both the VLC display window and the output
+file simultaneously:
+
+```
+new epsych_webcam broadcast enabled
+setup epsych_webcam input dshow://
+setup epsych_webcam output #duplicate{dst=#display{},dst=#file{dst=C:\data\capture.ts}}
+control epsych_webcam play    ← sent by trigger('Play')
+control epsych_webcam stop    ← sent by trigger('Stop') or disconnect()
+del epsych_webcam              ← sent by trigger('Stop') or disconnect()
+```
+
+When `RecordingFile` is empty, the plain `add <uri>` command is used and no
+VLM broadcast is created.
+
 ## Constructor
 
 ```matlab
@@ -146,9 +183,9 @@ runtime code that queries `obj.all_parameters()`.
 
 | Name | Type | Access | Default | Description |
 |------|------|--------|---------|-------------|
-| `MediaFile` | String | Write | `''` | Media URI or path to open in VLC (e.g., `'dshow://'` for DirectShow webcam). Sending this parameter triggers the VLC `add` command. If `RecordingFile` is non-empty, the `:sout=` option is appended automatically. |
+| `MediaFile` | String | Write | `''` | Media URI or path to open in VLC (e.g., `'dshow://'` for DirectShow webcam). If `RecordingFile` is non-empty, a VLM broadcast named `epsych_webcam` is created; otherwise a plain `add` command is sent. Call `trigger('Play')` afterwards to start the stream. |
 | `Volume` | Integer | Any | `100` | Playback volume 0–200 (100 = unity gain). See [VLC volume scale](#vlc-volume-scale). |
-| `RecordingFile` | File | Any | `''` | Output file path for VLC recording. Set this **before** setting `MediaFile`; the value is injected as `:sout=#file{dst=...}` at the time `MediaFile` is applied. |
+| `RecordingFile` | File | Any | `''` | **Absolute** output file path for the recording. Set this **before** setting `MediaFile`. When non-empty, a VLM broadcast with dual output (display + file) is used. Recording begins when `trigger('Play')` is called. |
 
 Trigger parameters (`Play`, `Stop`, `Pause`, `StartRecord`, `StopRecord`)
 are hidden from `all_parameters()` by default. Pass `includeTriggers=true`
@@ -166,19 +203,20 @@ Call `obj.trigger(name)` to send a one-shot RC command.
 
 | Trigger name | VLC RC command | Notes |
 |--------------|---------------|-------|
-| `'Play'` | `play` | Resume or start playback |
-| `'Stop'` | `stop` | Stop playback; resets internal `isRecording_` flag |
-| `'Pause'` | `pause` | Toggle pause |
-| `'StartRecord'` | `record` | Starts recording. **Idempotent** — no command sent if already recording |
-| `'StopRecord'` | `record` | Stops recording. **Idempotent** — no command sent if not recording |
+| `'Play'` | `control epsych_webcam play` / `play` | Start or resume. Routes through VLM when `RecordingFile` was set; recording begins immediately. |
+| `'Stop'` | `control epsych_webcam stop` + `del epsych_webcam` / `stop` | Stop playback and tear down VLM broadcast when active. |
+| `'Pause'` | `control epsych_webcam pause` / `pause` | Toggle pause. |
+| `'StartRecord'` | `record` | **No-op when VLM is active** (recording runs with playback). Otherwise sends the toggle — idempotent. |
+| `'StopRecord'` | `record` | **No-op when VLM is active**. Otherwise sends the toggle — idempotent. |
 
-`StartRecord` and `StopRecord` share VLC's toggle-based `record` command but
-hide that detail from callers by tracking the current state in the private
-`isRecording_` property. This prevents accidental double-toggles.
+When VLM is active, `Play` both starts playback and begins writing to the
+recording file. `Stop` ends playback, finalises the file, and destroys the
+VLM broadcast. `StartRecord`/`StopRecord` log a verbose message and are
+otherwise no-ops.
 
-Stopping playback with `'Stop'` automatically resets the recording flag so
-that a subsequent `'StartRecord'` works correctly after the next
-`'MediaFile'` assignment.
+When VLM is **not** active (no `RecordingFile` set), `StartRecord` and
+`StopRecord` use VLC's `record` toggle. The class tracks toggle state in
+`isRecording_` to keep them idempotent.
 
 ---
 
@@ -205,16 +243,13 @@ obj.disconnect();
 obj = hw.VlcRecorder();
 obj.connect();
 
-% Set output file BEFORE MediaFile — it is injected at add-time.
-obj.set_parameter('RecordingFile', 'C:\data\subject01_trial03.ts');
+% Set output file (absolute path) BEFORE MediaFile.
+% VLM broadcast is created when MediaFile is set.
+obj.set_parameter('RecordingFile', 'C:\data\subject01_trial03.ts');  % absolute path
 obj.set_parameter('MediaFile', 'dshow://');
 
-obj.trigger('Play');
-obj.trigger('StartRecord');
-
-pause(30);  % record for 30 s
-
-obj.trigger('StopRecord');
+obj.trigger('Play');   % starts playback AND recording via VLM
+pause(30);             % record for 30 s
 obj.trigger('Stop');
 obj.disconnect();
 ```
@@ -253,23 +288,35 @@ The result is clamped to [0, 512]. A `Volume` setting of `100` sends
 
 ## Recording workflow
 
-VLC records by injecting a **stream-output (`:sout`) chain** at the moment a
-media item is added to the playlist. This means:
+Recording is managed through VLC's **VLM (Video LAN Manager)** interface.
+VLC's RC `add` command does not reliably pass per-item `:sout` options, so
+VLM is used instead to attach the stream output chain.
 
-1. Set `RecordingFile` to the desired output path **first**.
-2. Then set `MediaFile` to the media URI.
+Required sequence:
 
-When both are set, `set_parameter('MediaFile', uri)` sends:
+1. Set `RecordingFile` to an **absolute** output path before calling
+  `set_parameter('MediaFile', ...)`.
+2. Set `MediaFile` to the source URI (e.g., `'dshow://'`). The class creates
+  the VLM broadcast and configures the sout chain at this point — no data
+  flows yet.
+3. Call `trigger('Play')` to start the stream. Recording begins immediately.
+4. Call `trigger('Stop')` when done. The broadcast is stopped, the VLM entry
+  is deleted, and the output file is finalised.
 
+The sout chain used is:
 ```
-add <uri> :sout=#file{dst=<RecordingFile>}
+#duplicate{dst=#display{},dst=#file{dst=<RecordingFile>}}
 ```
+This routes the stream to both the VLC display window and the output file.
 
-If `RecordingFile` is empty, the plain `add <uri>` command is sent and no
-file output is configured.
+> **Use an absolute path.** A relative `RecordingFile` is resolved against
+> VLC's working directory, not MATLAB's current folder.
 
-Changing `RecordingFile` after `MediaFile` has been sent has no effect on
-the currently playing item.
+If `RecordingFile` is empty when `MediaFile` is set, a plain `add <uri>`
+command is sent with no file output.
+
+To record a different file on the next trial, call `trigger('Stop')` first,
+update `RecordingFile`, then set `MediaFile` again.
 
 ---
 
@@ -285,9 +332,12 @@ VERBOSE_LEVEL = 3;
 With this level active, every outgoing command is printed:
 
 ```
-hw.VlcRecorder -> add dshow:// :sout=#file{dst=C:\data\capture.ts}
-hw.VlcRecorder -> play
-hw.VlcRecorder -> record
+hw.VlcRecorder -> new epsych_webcam broadcast enabled
+hw.VlcRecorder -> setup epsych_webcam input dshow://
+hw.VlcRecorder -> setup epsych_webcam output #duplicate{dst=#display{},dst=#file{dst=C:\data\capture.ts}}
+hw.VlcRecorder -> control epsych_webcam play
+hw.VlcRecorder -> control epsych_webcam stop
+hw.VlcRecorder -> del epsych_webcam
 ```
 
 See [`helpers/vprintf.m`](../../helpers/vprintf.m) for details on the
@@ -336,9 +386,10 @@ not require state polling.
 |------------|--------|
 | VLC must be pre-launched | `hw.VlcRecorder` does not start or restart VLC. If the process is not running, `connect()` throws a TCP error. |
 | Write-only RC protocol | VLC RC responses are not parsed. `get_parameter()` always returns `nan`. |
-| `:sout=` is set at add-time | You cannot change the recording file for a media item that is already loaded. Stop, update `RecordingFile`, then re-set `MediaFile`. |
-| VLC `record` is a toggle | The class tracks this internally via `isRecording_`, but restarting MATLAB or reconnecting resets the flag without querying VLC's actual state. |
-| Single module | All parameters live in one module named `"VlcRecorder"`. Multi-module setups (e.g., separate capture and playback devices) would require a second `hw.VlcRecorder` instance. |
+| VLM configured at `set_parameter('MediaFile')` | You cannot change the recording file while a VLM broadcast is active. Call `trigger('Stop')`, update `RecordingFile`, then set `MediaFile` again. |
+| VLC `record` toggle (non-VLM mode) | Only relevant when `RecordingFile` is empty. Toggle state is tracked in `isRecording_`; reconnecting resets the flag without querying VLC. |
+| Relative `RecordingFile` paths | Resolved against VLC's working directory, not MATLAB's. Always use absolute paths. |
+| Single module | All parameters live in one module named `"VlcRecorder"`. Multi-device setups require a second `hw.VlcRecorder` instance. |
 
 ---
 

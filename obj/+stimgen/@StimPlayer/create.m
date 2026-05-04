@@ -1,7 +1,7 @@
 function create(obj)
 % create(obj) - Build the StimPlayer uifigure and all UI components.
 
-f = uifigure('Name', 'StimPlayer', 'Position', [100 100 900 620]);
+f = uifigure('Name', 'StimPlayer', 'Position', [100 100 900 760]);
 f.DeleteFcn = @(~,~) delete(obj);
 f.WindowKeyPressFcn = @(~,evt) on_keypress_(obj, evt);
 obj.hFig = f;
@@ -40,7 +40,7 @@ bankPnl.Layout.Column = 1;
 
 bg = uigridlayout(bankPnl);
 bg.ColumnWidth = {'1x', '1x'};
-bg.RowHeight   = {26, 26, '1x', 26, 26, 26, 26, 26};
+bg.RowHeight   = {26, 26, '1x', 26, 26, 26, 26, 26, 30};
 bg.Padding     = [6 6 6 6];
 bg.RowSpacing  = 4;
 
@@ -148,6 +148,21 @@ h.Layout.Row    = R;
 h.Layout.Column = [1 2];
 obj.handles.ComboStatusLbl = h;
 
+R = R + 1;
+
+% Preview buttons
+h = uibutton(bg, 'Text', 'Play');
+h.Layout.Row          = R;
+h.Layout.Column       = 1;
+h.ButtonPushedFcn     = @obj.play_preview;
+obj.handles.PlayBtn   = h;
+
+h = uibutton(bg, 'Text', 'Play All');
+h.Layout.Row          = R;
+h.Layout.Column       = 2;
+h.ButtonPushedFcn     = @obj.play_all;
+obj.handles.PlayAllBtn = h;
+
 % --- Right: scrollable param panel (rebuilt on listbox selection) ---
 pnl = uipanel(g2, 'BorderType', 'none');
 pnl.Layout.Row    = 1;
@@ -164,7 +179,7 @@ uilabel(pnl, 'Text', 'Select an item from the bank to edit its parameters.', ...
 ctrlG = uigridlayout(g);
 ctrlG.Layout.Row    = 3;
 ctrlG.Layout.Column = 1;
-ctrlG.ColumnWidth   = {100, 100, 120, 280, 240, 160};
+ctrlG.ColumnWidth   = {100, 100, 280, 240, 160};
 ctrlG.RowHeight     = {'1x'};
 ctrlG.Padding       = [0 0 0 0];
 ctrlG.ColumnSpacing = 6;
@@ -186,54 +201,53 @@ h.Enable          = 'off';
 h.ButtonPushedFcn = @obj.playback_control;
 obj.handles.PauseBtn = h;
 
-h = uibutton(ctrlG, 'Text', 'Play Stim');
-h.Layout.Column   = 3;
-h.Layout.Row      = 1;
-h.FontSize        = 14;
-h.ButtonPushedFcn = @obj.play_preview;
-obj.handles.PlayStimBtn = h;
-
 h = uilabel(ctrlG, 'Text', 'Protocol: none | HW: speaker preview only', ...
     'HorizontalAlignment', 'left', 'FontColor', [0.35 0.35 0.35]);
-h.Layout.Column = 4;
+h.Layout.Column = 3;
 h.Layout.Row    = 1;
 obj.handles.ProtocolStatusLabel = h;
 
 h = uilabel(ctrlG, 'Text', 'Ready.', 'HorizontalAlignment', 'left', ...
     'FontColor', [0.35 0.35 0.35]);
-h.Layout.Column = 5;
+h.Layout.Column = 4;
 h.Layout.Row    = 1;
 obj.handles.StatusLabel = h;
 
 h = uilabel(ctrlG, 'Text', '0 / 0', 'FontSize', 16, 'FontWeight', 'bold', ...
     'HorizontalAlignment', 'right');
-h.Layout.Column = 6;
+h.Layout.Column = 5;
 h.Layout.Row    = 1;
 obj.handles.Counter = h;
 
 % ---- Menu ----
 mFile = uimenu(f, 'Text', '&File');
 mLoadProtocol = uimenu(mFile, 'Text', 'Load &Protocol',  'Accelerator', 'P', ...
-    'MenuSelectedFcn', @(~,~) obj.load_protocol_);
+    'MenuSelectedFcn', @(~,~) obj.load_protocol_());
 mLoadBank = uimenu(mFile, 'Text', '&Load Bank',  'Accelerator', 'L', ...
     'Separator', 'on', ...
-    'MenuSelectedFcn', @(~,~) obj.load_bank);
+    'MenuSelectedFcn', @(~,~) obj.load_bank());
 mSaveBank = uimenu(mFile, 'Text', '&Save Bank',  'Accelerator', 'S', ...
-    'MenuSelectedFcn', @(~,~) obj.save_bank);
+    'MenuSelectedFcn', @(~,~) obj.save_bank());
 mCalibration = uimenu(mFile, 'Text', '&Calibration', 'Accelerator', 'C', ...
     'MenuSelectedFcn', @(~,~) set_calibration_(obj));
 mExportSignal = uimenu(mFile, 'Text', '&Export Signal to Workspace', 'Separator', 'on', ...
     'MenuSelectedFcn', @(~,~) export_signal_to_workspace_(obj));
+mExportAll = uimenu(mFile, 'Text', 'Export &All Signals to Workspace', ...
+    'MenuSelectedFcn', @(~,~) export_all_signals_to_workspace_(obj));
+mExportObjs = uimenu(mFile, 'Text', 'Export Bank as &StimType Objects', ...
+    'MenuSelectedFcn', @(~,~) export_bank_as_stimtype_(obj));
 
 movegui(f, 'onscreen');
 
 obj.refresh_combo_controls_;
 obj.update_protocol_status_;
-obj.handles.LoadProtocolMenu = mLoadProtocol;
-obj.handles.LoadBankMenu = mLoadBank;
-obj.handles.SaveBankMenu = mSaveBank;
-obj.handles.CalibrationMenu = mCalibration;
-obj.handles.ExportSignalMenu = mExportSignal;
+obj.handles.LoadProtocolMenu  = mLoadProtocol;
+obj.handles.LoadBankMenu      = mLoadBank;
+obj.handles.SaveBankMenu      = mSaveBank;
+obj.handles.CalibrationMenu   = mCalibration;
+obj.handles.ExportSignalMenu  = mExportSignal;
+obj.handles.ExportAllMenu     = mExportAll;
+obj.handles.ExportObjsMenu    = mExportObjs;
 
 end % create
 
@@ -358,5 +372,170 @@ try
 catch ME
     obj.report_gui_error_(ME, "Export Error", ...
         "StimPlayer could not export the selected signal to the workspace.");
+end
+end
+
+
+function export_all_signals_to_workspace_(obj)
+% Export signals for every combination of every bank item to the workspace.
+% Creates a struct `signals` with one field per bank entry (named by bank
+% label, sanitized for use as a struct field).  Each field contains:
+%   .Fs         - sample rate (Hz)
+%   .signal     - N-combo struct array, each with fields .data and .time
+%   .parameters - N-combo struct array with one field per user property
+
+if isempty(obj.StimPlayObjs)
+    obj.show_gui_message_("The stimulus bank is empty.", "Nothing To Export", "warning");
+    return
+end
+
+try
+    signals = struct(); %#ok<NASGU>
+
+    for i = 1:numel(obj.StimPlayObjs)
+        sp      = obj.StimPlayObjs(i);
+        stimObj = sp.CurrentStimObj;
+
+        % Sanitize bank label → valid struct field name
+        rawName   = char(sp.Name);
+        fieldName = matlab.lang.makeValidName(rawName);
+        if isempty(fieldName) || ~isletter(fieldName(1))
+            fieldName = sprintf('stim%d', i);
+        end
+        if isfield(signals, fieldName)
+            fieldName = sprintf('%s_%d', fieldName, i);
+        end
+
+        info   = stimObj.get_variant_info();
+        nCombo = info.NumCombinations;
+
+        % Snapshot the currently active combination index to restore later
+        savedIdx = info.ActiveIndex;
+
+        fsVal      = stimObj.Fs;
+        signalArr  = struct('data', cell(nCombo,1), 'time', cell(nCombo,1));
+        paramArr   = struct();
+        paramArr   = repmat(paramArr, nCombo, 1);
+
+        for c = 1:nCombo
+            stimObj.set_variant_index(c);
+            if isempty(stimObj.Signal)
+                stimObj.update_signal;
+            end
+            signalArr(c).data = stimObj.Signal;
+            if ~isempty(stimObj.Signal)
+                signalArr(c).time = (0:numel(stimObj.Signal)-1).' / fsVal;
+            else
+                signalArr(c).time = [];
+            end
+
+            % Collect current values of all user-defined properties
+            props = string(stimObj.UserProperties);
+            for p = 1:numel(props)
+                pname = char(props(p));
+                fld   = matlab.lang.makeValidName(pname);
+                if isprop(stimObj, pname)
+                    paramArr(c).(fld) = stimObj.(pname);
+                end
+            end
+        end
+
+        % Restore the original combination
+        stimObj.set_variant_index(savedIdx);
+
+        entry.Fs         = fsVal;
+        entry.signal     = signalArr;
+        entry.parameters = paramArr;
+
+        signals.(fieldName) = entry; %#ok<AGROW>
+    end
+
+    assignin('base', 'signals', signals);
+    vprintf(1, 'StimPlayer: exported all signals to workspace variable ''signals'' (%d bank item(s)).\n', ...
+        numel(obj.StimPlayObjs));
+    obj.set_status_(sprintf('Exported %d bank item(s) to ''signals''.', numel(obj.StimPlayObjs)));
+catch ME
+    obj.report_gui_error_(ME, "Export All Error", ...
+        "StimPlayer could not export all signals to the workspace.");
+end
+end
+
+
+function export_bank_as_stimtype_(obj)
+% Export every bank entry as copied StimType objects to the workspace.
+% Creates a struct `stimBank` with one field per bank entry (bank label
+% sanitized for use as a struct field).  Each field contains a struct with:
+%   .name     - bank label string
+%   .type     - StimType subclass name (e.g. "ClickTrain")
+%   .objects  - (nCombinations x 1) array of independent copied StimType objects,
+%               one per variant combination, each with Signal pre-generated
+
+if isempty(obj.StimPlayObjs)
+    obj.show_gui_message_("The stimulus bank is empty.", "Nothing To Export", "warning");
+    return
+end
+
+try
+    stimBank = struct();
+
+    for i = 1:numel(obj.StimPlayObjs)
+        sp      = obj.StimPlayObjs(i);
+        stimObj = sp.CurrentStimObj;
+
+        % Sanitize bank label -> valid struct field name
+        rawName   = char(sp.Name);
+        fieldName = matlab.lang.makeValidName(rawName);
+        if isempty(fieldName) || ~isletter(fieldName(1))
+            fieldName = sprintf('stim%d', i);
+        end
+        if isfield(stimBank, fieldName)
+            fieldName = sprintf('%s_%d', fieldName, i);
+        end
+
+        info     = stimObj.get_variant_info();
+        nCombo   = info.NumCombinations;
+        savedIdx = info.ActiveIndex;
+
+        % Collect one deep copy per combination
+        objs = cell(nCombo, 1);
+        for c = 1:nCombo
+            stimObj.set_variant_index(c);
+            if isempty(stimObj.Signal)
+                stimObj.update_signal;
+            end
+            objs{c} = copy(stimObj);
+        end
+
+        % Restore original combination
+        stimObj.set_variant_index(savedIdx);
+
+        % Convert cell array to heterogeneous array when all same class,
+        % otherwise keep as cell
+        try
+            classNames = cellfun(@class, objs, 'uni', false);
+            if numel(unique(classNames)) == 1
+                objArr = vertcat(objs{:});
+            else
+                objArr = objs;
+            end
+        catch
+            objArr = objs;
+        end
+
+        typeParts = split(string(class(stimObj)), ".");
+        entry.name    = string(sp.Name);
+        entry.type    = typeParts(end);
+        entry.objects = objArr;
+
+        stimBank.(fieldName) = entry;
+    end
+
+    assignin('base', 'stimBank', stimBank);
+    vprintf(1, 'StimPlayer: exported bank as StimType objects to workspace variable ''stimBank'' (%d item(s)).\n', ...
+        numel(obj.StimPlayObjs));
+    obj.set_status_(sprintf('Exported %d bank item(s) as StimType objects to ''stimBank''.', numel(obj.StimPlayObjs)));
+catch ME
+    obj.report_gui_error_(ME, "Export Bank Error", ...
+        "StimPlayer could not export the bank as StimType objects.");
 end
 end

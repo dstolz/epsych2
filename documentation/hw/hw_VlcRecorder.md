@@ -1,401 +1,230 @@
-# `hw.VlcRecorder`
-
-`hw.VlcRecorder` is a concrete `hw.Interface` subclass that connects EPsych
-to a running VLC media player instance via VLC's built-in **RC (remote
-control) TCP socket**. The class exposes playback and recording controls as
-`hw.Parameter` objects and named triggers, integrating VLC-based webcam
-capture into the standard EPsych hardware layer.
+# `hw.VlcRecorder` — Webcam Preview and Recording
 
 > **Source file:** `obj/+hw/@VlcRecorder/VlcRecorder.m`
+> **Test script:** `tmp/VlcRecorder_example.m`
+
+`hw.VlcRecorder` lets EPsych capture video from a webcam during an experiment. It opens a live preview window using **VLC** and records the video to a file using **ffmpeg**. Both happen simultaneously — the researcher sees the feed in real time, and a complete recording is saved to disk for later review.
+
+You do not need to start VLC or ffmpeg manually. EPsych launches and closes them for you.
 
 ---
 
 ## Contents
 
-- [`hw.VlcRecorder`](#hwvlcrecorder)
+- [`hw.VlcRecorder` — Webcam Preview and Recording](#hwvlcrecorder--webcam-preview-and-recording)
   - [Contents](#contents)
-  - [Overview](#overview)
-  - [Prerequisites](#prerequisites)
-    - [VLC RC interface](#vlc-rc-interface)
-    - [MATLAB requirements](#matlab-requirements)
-  - [Architecture](#architecture)
-    - [Recording mechanism](#recording-mechanism)
-  - [Constructor](#constructor)
-  - [Connection lifecycle](#connection-lifecycle)
-    - [`obj.connect()`](#objconnect)
-    - [`obj.disconnect()`](#objdisconnect)
-  - [Parameters](#parameters)
-  - [Triggers](#triggers)
-  - [Usage examples](#usage-examples)
-    - [Basic playback](#basic-playback)
-    - [Webcam recording to a file](#webcam-recording-to-a-file)
-    - [Using the factory (getCreationSpec)](#using-the-factory-getcreationspec)
-  - [VLC volume scale](#vlc-volume-scale)
-  - [Recording workflow](#recording-workflow)
-  - [Verbose logging](#verbose-logging)
-  - [Extending or modifying](#extending-or-modifying)
-    - [Adding new RC commands](#adding-new-rc-commands)
-    - [Adding new parameters](#adding-new-parameters)
-    - [Polling VLC state](#polling-vlc-state)
-  - [Known limitations](#known-limitations)
+  - [Requirements](#requirements)
+  - [Quick start — RunExpt Video menu](#quick-start--runexpt-video-menu)
+  - [Recording files](#recording-files)
+  - [Integration: start recording on the first trial](#integration-start-recording-on-the-first-trial)
+    - [Custom trial selector function](#custom-trial-selector-function)
+  - [API reference](#api-reference)
+    - [Constructor](#constructor)
+    - [connect / disconnect](#connect--disconnect)
+    - [set\_parameter](#set_parameter)
+    - [trigger](#trigger)
+    - [selectDevice](#selectdevice)
+  - [Codec and quality settings](#codec-and-quality-settings)
+  - [Troubleshooting](#troubleshooting)
   - [See also](#see-also)
 
 ---
 
-## Overview
+## Requirements
 
-`hw.VlcRecorder` provides a thin MATLAB wrapper around the VLC RC socket
-protocol. It does not spawn or manage the VLC process itself — VLC must
-already be running with the RC interface enabled before you call
-`obj.connect()`.
+| Software | Where EPsych looks |
+|----------|--------------------|
+| [VLC media player](https://www.videolan.org/vlc/) (any recent version) | `C:\Program Files (x86)\VideoLAN\VLC\vlc.exe` |
+| [ffmpeg](https://ffmpeg.org/download.html) | `C:\prgms_on_path\ffmpeg.exe` |
+| A DirectShow webcam (built-in laptop camera, USB camera, etc.) | Listed automatically by EPsych |
 
-All communication is one-way by design: the RC protocol is write-oriented,
-so `get_parameter()` always returns `nan`. Parameter values are cached in
-`hw.Parameter.Value` on the MATLAB side and are not polled back from VLC.
+If your VLC or ffmpeg are in different locations you can change the paths in code — see [Codec and quality settings](#codec-and-quality-settings).
 
----
-
-## Prerequisites
-
-### VLC RC interface
-
-Start VLC with the following flags:
-
-```
-vlc --extraintf rc --rc-host 127.0.0.1:4212 --rc-quiet
-```
-
-| Flag | Purpose |
-|------|---------|
-| `--extraintf rc` | Enable the RC socket interface alongside any other GUI |
-| `--rc-host 127.0.0.1:4212` | Bind the socket to this host and port |
-| `--rc-quiet` | Suppress the VLC console prompt (reduces noise in MATLAB) |
-
-The `host` and `port` must match what you pass to the `hw.VlcRecorder`
-constructor (or the `getCreationSpec()` factory).
-
-### MATLAB requirements
-
-- MATLAB R2024b (or compatible release with `tcpclient` and
-  `configureTerminator`).
-- Instrument Control Toolbox (provides `tcpclient`).
+> **First-time VLC setup:** If VLC shows a "could not start" dialog after being installed or updated, run `vlc-cache-gen.exe` (found in the VLC install folder) as administrator once to rebuild its plugin cache. The dialog will no longer appear after that.
 
 ---
 
-## Architecture
+## Quick start — RunExpt Video menu
 
-`hw.VlcRecorder` follows the standard EPsych hw-layer pattern:
+The simplest way to use `hw.VlcRecorder` is through the **RunExpt** experiment control window. No code is required.
 
-```
-hw.Interface (abstract)
-    └── hw.VlcRecorder
-            ├── hw.Module  "VlcRecorder"
-            │       ├── hw.Parameter  MediaFile
-            │       ├── hw.Parameter  Volume
-            │       ├── hw.Parameter  RecordingFile
-            │       ├── hw.Parameter  Play        (trigger)
-            │       ├── hw.Parameter  Stop        (trigger)
-            │       ├── hw.Parameter  Pause       (trigger)
-            │       ├── hw.Parameter  StartRecord (trigger)
-            │       └── hw.Parameter  StopRecord  (trigger)
-            └── tcpclient (HW property)
-```
+1. Open the RunExpt window (`epsych.RunExpt()`).
+2. Click **Video → Webcam Preview / Record...** (or press **Ctrl+W**).
+3. A list of available cameras appears. Select your camera and click **OK**.
+4. VLC opens and shows the live webcam feed immediately.
+5. A file-save dialog appears. Choose where to save the recording.
+   - Click **Save** to begin recording.
+   - Click **Cancel** to keep the live preview without saving.
+6. When done, click **Video → Stop Webcam** (or close the RunExpt window — the recording is stopped automatically).
 
-- A single `hw.Module` named `"VlcRecorder"` groups all parameters.
-- Three visible parameters expose media file, volume, and recording
-  output path.
-- Five invisible trigger parameters map to VLC RC commands.
-- A private `tcpclient` handle (`obj.HW`) carries the TCP connection.
+The recording is not started until you choose a file in step 5, so the preview can be running well before you commit to a filename.
 
 ---
 
-### Recording mechanism
+## Recording files
 
-VLC's RC `add` command does **not** reliably pass per-item `:sout` options
-through the socket interface. When a `RecordingFile` is set, `hw.VlcRecorder`
-uses VLC's **VLM (Video LAN Manager)** instead, which is the correct way to
-configure stream output via RC.
+Files are saved in **MPEG-TS (`.ts`)** format by default, which is the most robust choice for interrupted recordings — the file is still readable even if the experiment crashes before a clean stop. MP4 is also available but requires a clean close to finalise the container.
 
-A VLM broadcast named `epsych_webcam` is created with a `#duplicate` sout
-chain that sends the stream to both the VLC display window and the output
-file simultaneously:
+Output file recommendations:
+- Use an **absolute path** (e.g. `C:\data\recordings\mouse042_session3.ts`).
+- Include the subject name and session date in the filename.
+- The recording directory must exist before starting — EPsych does not create it automatically when triggered from code.
 
+---
+
+## Integration: start recording on the first trial
+
+For automated experiments you may want recording to start automatically when the first trial begins, using the same output folder and naming convention as your behavioural data. There are two ways to do this.
+
+### Custom trial selector function
+
+The **trial selector function** is called before every trial. You can detect the first trial (`TrialIndex == 1`) and start recording then.
+
+```matlab
+function TRIALS = MyTrialSelectFcn(TRIALS)
+% MyTrialSelectFcn  Example trial selector with first-trial webcam start.
+
+% --- Start webcam on trial 1 ----------------------------------------
+if TRIALS.TrialIndex == 1 && ~isfield(TRIALS, 'vlcRecorder')
+    subject = TRIALS.Subject.Name;
+    ts      = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
+    recFile = sprintf('C:\\data\\%s_%s_webcam.ts', subject, ts);
+
+    rec = hw.VlcRecorder();
+    rec.connect();
+    rec.set_parameter('DeviceName',    'Integrated Camera');
+    rec.set_parameter('MediaFile',     'dshow://');
+    rec.set_parameter('RecordingFile', recFile);
+    rec.trigger('Play');
+
+    TRIALS.vlcRecorder = rec;
+end
+
+% --- Stop webcam when the session ends (last trial + 1) -------------
+% (Optional — the RunExpt close handler also stops it automatically.)
+
+% --- Your normal trial selection logic below ------------------------
+% ... choose TRIALS.NextTrialID as usual ...
 ```
-new epsych_webcam broadcast enabled
-setup epsych_webcam input dshow://
-setup epsych_webcam output #duplicate{dst=#display{},dst=#file{dst=C:\data\capture.ts}}
-control epsych_webcam play    ← sent by trigger('Play')
-control epsych_webcam stop    ← sent by trigger('Stop') or disconnect()
-del epsych_webcam              ← sent by trigger('Stop') or disconnect()
-```
 
-When `RecordingFile` is empty, the plain `add <uri>` command is used and no
-VLM broadcast is created.
+> **Note:** `TRIALS` is a struct returned by value. Any fields you add (like `TRIALS.vlcRecorder`) persist across calls because EPsych stores the returned struct in `RUNTIME.TRIALS(i)` after each call.
 
-## Constructor
+---
+
+## API reference
+
+### Constructor
 
 ```matlab
 obj = hw.VlcRecorder()
-obj = hw.VlcRecorder(host)
-obj = hw.VlcRecorder(host, port)
-obj = hw.VlcRecorder(host, port, timeout)
 ```
 
-All arguments are optional.
-
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `host` | text scalar | `'127.0.0.1'` | IP address or hostname for the VLC RC socket |
-| `port` | positive integer | `4212` | TCP port matching `--rc-host` |
-| `timeout` | positive scalar | `5` | Connection timeout in seconds passed to `tcpclient` |
-
-The constructor does **not** open a network connection. Call `connect()` to
-establish the link.
+Creates the recorder object. Does not launch VLC or ffmpeg yet — call `connect()` next.
 
 ---
 
-## Connection lifecycle
-
-### `obj.connect()`
-
-Opens the TCP connection, calls `setup_interface()` to create the module and
-parameters, then drains the VLC greeting message. Sets `obj.IsConnected =
-true` on success.
-
-Throws an error (from `tcpclient`) if VLC is not reachable at the specified
-host and port.
-
-Calling `connect()` on an already-connected object is a no-op.
-
-### `obj.disconnect()`
-
-Closes the connection, clears the `tcpclient` handle, resets the internal
-`isRecording_` flag, and sets `obj.IsConnected = false`.
-
-Calling `disconnect()` on a disconnected object is a no-op.
-
----
-
-## Parameters
-
-Parameters are created during `connect()` and are visible in any GUI or
-runtime code that queries `obj.all_parameters()`.
-
-| Name | Type | Access | Default | Description |
-|------|------|--------|---------|-------------|
-| `MediaFile` | String | Write | `''` | Media URI or path to open in VLC (e.g., `'dshow://'` for DirectShow webcam). If `RecordingFile` is non-empty, a VLM broadcast named `epsych_webcam` is created; otherwise a plain `add` command is sent. Call `trigger('Play')` afterwards to start the stream. |
-| `Volume` | Integer | Any | `100` | Playback volume 0–200 (100 = unity gain). See [VLC volume scale](#vlc-volume-scale). |
-| `RecordingFile` | File | Any | `''` | **Absolute** output file path for the recording. Set this **before** setting `MediaFile`. When non-empty, a VLM broadcast with dual output (display + file) is used. Recording begins when `trigger('Play')` is called. |
-
-Trigger parameters (`Play`, `Stop`, `Pause`, `StartRecord`, `StopRecord`)
-are hidden from `all_parameters()` by default. Pass `includeTriggers=true`
-to include them:
+### connect / disconnect
 
 ```matlab
-all = obj.all_parameters(includeTriggers=true);
+obj.connect()
+obj.disconnect()
 ```
 
----
+`connect()` registers the parameters and triggers but does not open any processes. VLC and ffmpeg only launch when you call `trigger('Play')`.
 
-## Triggers
-
-Call `obj.trigger(name)` to send a one-shot RC command.
-
-| Trigger name | VLC RC command | Notes |
-|--------------|---------------|-------|
-| `'Play'` | `control epsych_webcam play` / `play` | Start or resume. Routes through VLM when `RecordingFile` was set; recording begins immediately. |
-| `'Stop'` | `control epsych_webcam stop` + `del epsych_webcam` / `stop` | Stop playback and tear down VLM broadcast when active. |
-| `'Pause'` | `control epsych_webcam pause` / `pause` | Toggle pause. |
-| `'StartRecord'` | `record` | **No-op when VLM is active** (recording runs with playback). Otherwise sends the toggle — idempotent. |
-| `'StopRecord'` | `record` | **No-op when VLM is active**. Otherwise sends the toggle — idempotent. |
-
-When VLM is active, `Play` both starts playback and begins writing to the
-recording file. `Stop` ends playback, finalises the file, and destroys the
-VLM broadcast. `StartRecord`/`StopRecord` log a verbose message and are
-otherwise no-ops.
-
-When VLM is **not** active (no `RecordingFile` set), `StartRecord` and
-`StopRecord` use VLC's `record` toggle. The class tracks toggle state in
-`isRecording_` to keep them idempotent.
+`disconnect()` stops any running processes (same as `trigger('Stop')`) and cleans up.
 
 ---
 
-## Usage examples
-
-### Basic playback
+### set_parameter
 
 ```matlab
-obj = hw.VlcRecorder('127.0.0.1', 4212);
-obj.connect();
-
-obj.set_parameter('Volume', 80);
-obj.set_parameter('MediaFile', 'C:\videos\stimulus.mp4');
-obj.trigger('Play');
-
-pause(10);
-obj.trigger('Stop');
-obj.disconnect();
+obj.set_parameter('DeviceName',    'Integrated Camera')
+obj.set_parameter('MediaFile',     'dshow://')
+obj.set_parameter('RecordingFile', 'C:\data\session.ts')
 ```
 
-### Webcam recording to a file
+| Parameter | What it controls |
+|-----------|-----------------|
+| `DeviceName` | The webcam to capture from. Must match the DirectShow device name exactly (see `selectDevice()` to pick interactively). Default: `'Integrated Camera'`. |
+| `MediaFile` | The media source URI passed to VLC. Always use `'dshow://'` for webcam capture. |
+| `RecordingFile` | Where ffmpeg saves the recording. Leave empty for preview-only. |
+
+Set all three parameters before calling `trigger('Play')`.
+
+---
+
+### trigger
+
+```matlab
+obj.trigger('Play')        % start VLC preview and ffmpeg recording
+obj.trigger('Stop')        % stop both; finalise the recording file
+obj.trigger('StartRecord') % start recording if not already running (ffmpeg only)
+obj.trigger('StopRecord')  % stop recording but keep VLC preview open
+obj.trigger('Pause')       % no-op (not supported in this backend)
+```
+
+`trigger('Stop')` is safe to call even if nothing is running.
+
+---
+
+### selectDevice
+
+```matlab
+selected = obj.selectDevice()
+```
+
+Shows a dialog listing all available DirectShow video devices (queried live from ffmpeg). The selected device is stored automatically — the return value can be ignored. If the dialog is cancelled, the previously configured device name is unchanged.
+
+This is what the RunExpt **Video** menu calls when you choose **Webcam Preview / Record...**.
+
+---
+
+## Codec and quality settings
+
+Video is recorded using **H.264 (libx264)** at a constant-rate factor (CRF) of 28 with the `ultrafast` encoding preset. This gives small files with minimal CPU load, suitable for continuous real-time capture.
+
+To change these or the tool paths, set the private properties before calling `connect()`:
 
 ```matlab
 obj = hw.VlcRecorder();
-obj.connect();
-
-% Set output file (absolute path) BEFORE MediaFile.
-% VLM broadcast is created when MediaFile is set.
-obj.set_parameter('RecordingFile', 'C:\data\subject01_trial03.ts');  % absolute path
-obj.set_parameter('MediaFile', 'dshow://');
-
-obj.trigger('Play');   % starts playback AND recording via VLM
-pause(30);             % record for 30 s
-obj.trigger('Stop');
-obj.disconnect();
-```
-
-### Using the factory (getCreationSpec)
-
-`getCreationSpec()` integrates `hw.VlcRecorder` with EPsych's hardware
-discovery and GUI-driven setup workflow.
-
-```matlab
-spec = hw.VlcRecorder.getCreationSpec();
-
-% spec.Options lists host, port, and timeout fields.
-% spec.createFcn(opts) constructs the object once the user fills in the form.
-
-opts.host    = '127.0.0.1';
-opts.port    = 4212;
-opts.timeout = 5;
-obj = spec.createFcn(opts);
+obj.ffmpegExePath_ = 'D:\tools\ffmpeg.exe';   % custom ffmpeg path
+obj.vlcExePath_    = 'C:\Program Files\VideoLAN\VLC\vlc.exe';
+obj.crf_           = 23;        % higher quality (larger file)
+obj.preset_        = 'fast';    % slower encoding, better compression
 obj.connect();
 ```
 
----
-
-## VLC volume scale
-
-VLC uses an internal 0–512 scale where **256 = 100% (unity gain)**.
-`hw.VlcRecorder` accepts a user-friendly 0–200 scale and converts:
-
-$$\text{vlcVol} = \text{round}(\text{Volume} \times 2.56)$$
-
-The result is clamped to [0, 512]. A `Volume` setting of `100` sends
-`volume 256` to VLC.
+| Setting | Default | Effect |
+|---------|---------|--------|
+| `crf_` | `28` | Lower = better quality, larger file. Range 0–51. |
+| `preset_` | `'ultrafast'` | `fast` / `medium` improve compression at cost of CPU. |
 
 ---
 
-## Recording workflow
+## Troubleshooting
 
-Recording is managed through VLC's **VLM (Video LAN Manager)** interface.
-VLC's RC `add` command does not reliably pass per-item `:sout` options, so
-VLM is used instead to attach the stream output chain.
+**VLC shows "could not start" dialog**
+Run `vlc-cache-gen.exe` (in the VLC install folder) as administrator. This rebuilds the plugin cache after a VLC update. The dialog is cosmetic — recording still works — but rebuilding the cache eliminates it.
 
-Required sequence:
+**No devices listed in `selectDevice()`**
+Confirm that ffmpeg is installed and on the path. Run `ffmpeg -list_devices true -f dshow -i dummy` in a command prompt to see the raw device list.
 
-1. Set `RecordingFile` to an **absolute** output path before calling
-  `set_parameter('MediaFile', ...)`.
-2. Set `MediaFile` to the source URI (e.g., `'dshow://'`). The class creates
-  the VLM broadcast and configures the sout chain at this point — no data
-  flows yet.
-3. Call `trigger('Play')` to start the stream. Recording begins immediately.
-4. Call `trigger('Stop')` when done. The broadcast is stopped, the VLM entry
-  is deleted, and the output file is finalised.
+**Recording file is empty or very small**
+The device name must exactly match what DirectShow reports. Use `selectDevice()` rather than typing the name manually. Also ensure the output directory exists.
 
-The sout chain used is:
-```
-#duplicate{dst=#display{},dst=#file{dst=<RecordingFile>}}
-```
-This routes the stream to both the VLC display window and the output file.
+**VLC preview does not open**
+Check that `vlcExePath_` points to a valid `vlc.exe`. Verify VLC launches manually first.
 
-> **Use an absolute path.** A relative `RecordingFile` is resolved against
-> VLC's working directory, not MATLAB's current folder.
-
-If `RecordingFile` is empty when `MediaFile` is set, a plain `add <uri>`
-command is sent with no file output.
-
-To record a different file on the next trial, call `trigger('Stop')` first,
-update `RecordingFile`, then set `MediaFile` again.
-
----
-
-## Verbose logging
-
-Set the global verbose level to 3 to see RC commands as they are sent:
-
-```matlab
-global VERBOSE_LEVEL;
-VERBOSE_LEVEL = 3;
-```
-
-With this level active, every outgoing command is printed:
-
-```
-hw.VlcRecorder -> new epsych_webcam broadcast enabled
-hw.VlcRecorder -> setup epsych_webcam input dshow://
-hw.VlcRecorder -> setup epsych_webcam output #duplicate{dst=#display{},dst=#file{dst=C:\data\capture.ts}}
-hw.VlcRecorder -> control epsych_webcam play
-hw.VlcRecorder -> control epsych_webcam stop
-hw.VlcRecorder -> del epsych_webcam
-```
-
-See [`helpers/vprintf.m`](../../helpers/vprintf.m) for details on the
-`vprintf` verbosity system.
-
----
-
-## Extending or modifying
-
-### Adding new RC commands
-
-Add a new trigger in `setup_interface()`:
-
-```matlab
-obj.add_parameter('Mute', 0, ...
-    isTrigger   = true, ...
-    Visible     = false, ...
-    Description = 'Trigger: toggle VLC mute.');
-```
-
-Then handle it in `trigger()`:
-
-```matlab
-case 'Mute'
-    obj.sendCommand_('mute');
-```
-
-### Adding new parameters
-
-Follow the same `add_parameter` pattern in `setup_interface()` and add a
-matching `case` block in `set_parameter()`.
-
-### Polling VLC state
-
-The RC protocol does support some query commands (e.g., `is_playing`,
-`get_time`). Override `get_parameter()` and call `sendCommand_()` followed
-by a short `readAvailable_()` loop if you need live feedback. The current
-implementation returns `nan` for all parameters since webcam capture does
-not require state polling.
-
----
-
-## Known limitations
-
-| Limitation | Detail |
-|------------|--------|
-| VLC must be pre-launched | `hw.VlcRecorder` does not start or restart VLC. If the process is not running, `connect()` throws a TCP error. |
-| Write-only RC protocol | VLC RC responses are not parsed. `get_parameter()` always returns `nan`. |
-| VLM configured at `set_parameter('MediaFile')` | You cannot change the recording file while a VLM broadcast is active. Call `trigger('Stop')`, update `RecordingFile`, then set `MediaFile` again. |
-| VLC `record` toggle (non-VLM mode) | Only relevant when `RecordingFile` is empty. Toggle state is tracked in `isRecording_`; reconnecting resets the flag without querying VLC. |
-| Relative `RecordingFile` paths | Resolved against VLC's working directory, not MATLAB's. Always use absolute paths. |
-| Single module | All parameters live in one module named `"VlcRecorder"`. Multi-device setups require a second `hw.VlcRecorder` instance. |
+**Recording does not stop cleanly on experiment end**
+Ensure your stop-timer function calls `obj.trigger('Stop')` and `obj.disconnect()`, or store the recorder on `RUNTIME` so the standard close handler can reach it.
 
 ---
 
 ## See also
 
-- [hw_Interface.md](hw_Interface.md) — abstract base class contract
-- [hw_Interface_Tutorial.md](hw_Interface_Tutorial.md) — guide to writing a new `hw.Interface` subclass
-- [hw_Module.md](hw_Module.md) — module and parameter grouping
-- [hw_Parameter.md](hw_Parameter.md) — parameter types, access modes, and validation
+- `tmp/VlcRecorder_example.m` — minimal standalone usage example
+- `runtime/timerfcns/ep_TimerFcn_Start.m` — where to hook a custom start function
+- `runtime/timerfcns/ep_TimerFcn_Stop.m` — where to hook a custom stop function
+- `runtime/trial_selection/DefaultTrialSelectFcn.m` — template for custom trial selectors
+- [hw_Interface.md](hw_Interface.md) — abstract base class all hardware interfaces share

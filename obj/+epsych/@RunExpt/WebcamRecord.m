@@ -48,11 +48,14 @@ if ~isequal(fname, 0)
     rec.set_parameter('RecordingFile', outFile);
     rec.trigger('StartRecord');
     vprintf(2, 'epsych.RunExpt: webcam recording started → %s', outFile);
+    stopLabel = 'Stop Webcam (Recording)';
 else
     vprintf(2, 'epsych.RunExpt: webcam preview started (no recording file selected)');
+    stopLabel = 'Stop Webcam (Preview)';
 end
 
 % --- Store recorder and update menu state ------------------------------
 self.vlcRecorder_ = rec;
 self.H.mnu_webcam_record.Enable = 'off';
+self.H.mnu_webcam_stop.Label    = stopLabel;
 self.H.mnu_webcam_stop.Enable   = 'on';

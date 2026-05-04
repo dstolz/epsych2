@@ -75,11 +75,11 @@ classdef (Hidden) StimPlay < handle & matlab.mixin.SetGet
             S.SelectionType  = obj.SelectionType;
             S.StimOrder      = obj.StimOrder;
 
-            % Calibration (assume toStruct exists if not empty)
-            if isempty(obj.Calibration)
-                S.Calibration = [];
-            else
+            % Calibration
+            if isa(obj.Calibration, 'stimgen.StimCalibration')
                 S.Calibration = obj.Calibration.toStruct;
+            else
+                S.Calibration = [];
             end
 
             % Stimulus objects: delegate to StimType.toStruct

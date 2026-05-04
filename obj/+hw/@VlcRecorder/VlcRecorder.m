@@ -109,9 +109,13 @@ classdef VlcRecorder < hw.Interface
             % result = obj.trigger(name)
             % Execute a named trigger.
             % Inputs:
-            %   name - 'Play', 'Stop', 'Pause', 'StartRecord', or 'StopRecord'.
+            %   name - 'Play', 'Stop', 'Pause', 'StartRecord', or 'StopRecord',
+            %          or an hw.Parameter trigger object.
             % Returns:
             %   result - 1 on success, 0 on unrecognised name.
+            if isa(name, 'hw.Parameter')
+                name = name.Name;
+            end
             result = 1;
             switch name
                 case 'Play'
@@ -317,28 +321,16 @@ classdef VlcRecorder < hw.Interface
             % Launch VLC with the configured media URI for live display.
             % Stores the PID so it can be terminated later.
             if obj.vlcPid_ > 0
-                % Already have a VLC instance we launched; do not open another.
                 return
             end
             device  = char(obj.deviceName_);
-            uri     = char(obj.mediaUri_);
-            exePath = char(obj.vlcExePath_);
-
-            % Pass all VLC args as a single string so PowerShell does not split
-            % tokens; double-quote the device name to handle spaces in it.
-            exeEsc  = strrep(exePath, '''', '''''');
-            % Single string: 'dshow:// :dshow-vdev="My Device" --no-audio --no-qt-notification'
-            argStr  = sprintf('%s :dshow-vdev=\"%s\" --no-audio --no-qt-notification', uri, device);
-            argEsc  = strrep(argStr, '''', '''''');
-            psCmd   = sprintf('(Start-Process -PassThru -FilePath ''%s'' -ArgumentList ''%s'').Id', ...
-                exeEsc, argEsc);
-            [~, pidStr] = system(sprintf('powershell -Command "%s"', strrep(psCmd, '"', '\"')));
-            obj.vlcPid_ = str2double(strtrim(pidStr));
-            if isnan(obj.vlcPid_) || obj.vlcPid_ <= 0
-                obj.vlcPid_ = 0;
+            argStr  = sprintf('dshow:// :dshow-vdev="%s" --no-audio --no-qt-notification', device);
+            pid = obj.launchProcess_(obj.vlcExePath_, argStr, false);
+            obj.vlcPid_ = pid;
+            if pid <= 0
                 vprintf(0, 1, 'hw.VlcRecorder: failed to launch VLC or read PID.');
             else
-                vprintf(2, 'hw.VlcRecorder: VLC launched, PID=%d', obj.vlcPid_);
+                vprintf(2, 'hw.VlcRecorder: VLC launched, PID=%d', pid);
             end
         end
 
@@ -365,42 +357,74 @@ classdef VlcRecorder < hw.Interface
                 vprintf(0, 1, 'hw.VlcRecorder: RecordingFile is empty; cannot start ffmpeg.');
                 return
             end
-            device  = char(obj.deviceName_);
-            exePath = char(obj.ffmpegExePath_);
-
-            args = sprintf('-y -f dshow -i video="%s" -vcodec libx264 -preset %s -crf %d "%s"', ...
+            device = char(obj.deviceName_);
+            argStr = sprintf('-y -f dshow -i "video=%s" -vcodec libx264 -preset %s -crf %d "%s"', ...
                 device, char(obj.preset_), obj.crf_, recFile);
-
-            psCmd = sprintf('(Start-Process -PassThru -WindowStyle Hidden -FilePath ''%s'' -ArgumentList ''%s'').Id', ...
-                exePath, strrep(args, '''', ''''''));
-            [~, pidStr] = system(sprintf('powershell -Command "%s"', strrep(psCmd, '"', '\"')));
-            obj.ffmpegPid_ = str2double(strtrim(pidStr));
-            if isnan(obj.ffmpegPid_) || obj.ffmpegPid_ <= 0
-                obj.ffmpegPid_ = 0;
+            pid = obj.launchProcess_(obj.ffmpegExePath_, argStr, true);
+            obj.ffmpegPid_ = pid;
+            if pid <= 0
                 vprintf(0, 1, 'hw.VlcRecorder: failed to launch ffmpeg or read PID.');
             else
                 obj.isRecording_ = true;
-                vprintf(2, 'hw.VlcRecorder: ffmpeg launched, PID=%d, recording to "%s"', ...
-                    obj.ffmpegPid_, recFile);
+                vprintf(2, 'hw.VlcRecorder: ffmpeg launched, PID=%d, recording to "%s"', pid, recFile);
             end
         end
 
         function stopFfmpeg_(obj)
             % stopFfmpeg_()
-            % Send a graceful quit ('q') to ffmpeg then wait for it to exit.
-            % Ffmpeg finalises the output container on clean exit.
+            % Terminate the ffmpeg recording process.
+            % MPEG-TS output is streamable and remains valid even after a forced kill.
             if ~obj.isRecording_ || obj.ffmpegPid_ <= 0
                 return
             end
-            % Send 'q' via stdin is not possible from MATLAB after launch;
-            % use a CTRL_C_EVENT via PowerShell to signal ffmpeg to flush+exit.
             system(sprintf('taskkill /PID %d /F /T 2>nul', obj.ffmpegPid_));
-            % Brief pause so the OS releases the file handle before the caller
-            % tries to access the output file.
-            pause(0.5);
+            pause(0.5);  % allow OS to release file handle before caller checks the file
             vprintf(2, 'hw.VlcRecorder: ffmpeg (PID=%d) terminated.', obj.ffmpegPid_);
             obj.ffmpegPid_   = 0;
             obj.isRecording_ = false;
+        end
+
+        function pid = launchProcess_(~, exePath, argStr, hidden)
+            % pid = launchProcess_(exePath, argStr, hidden)
+            % Launch an external process via a temporary PS1 file and return its PID.
+            %
+            % Writing a .ps1 file and using 'powershell -File' avoids the
+            % double-escaping problem that occurs when embedding quotes inside
+            % 'powershell -Command "..."' (which goes through cmd.exe first).
+            %
+            % Inside the PS1 file, PowerShell single-quoted strings are fully
+            % literal — double quotes within them are passed as-is to the process.
+            %
+            % Inputs:
+            %   exePath - full path to the executable
+            %   argStr  - argument string; use double-quotes for values with spaces
+            %             (e.g. 'video="My Device"') — they will be literal in the PS1
+            %   hidden  - true to launch with -WindowStyle Hidden
+            % Returns:
+            %   pid - process ID, or 0 on failure
+            windowStyle = 'Normal';
+            if hidden
+                windowStyle = 'Hidden';
+            end
+
+            % Escape any single quotes in exe path or args for PS1 single-quoted strings.
+            exeEsc = strrep(char(exePath), '''', '''''');
+            argEsc = strrep(char(argStr),  '''', '''''');
+
+            psFile = [tempname() '.ps1'];
+            fid = fopen(psFile, 'w', 'n', 'UTF-8');
+            fprintf(fid, '$p = Start-Process -PassThru -WindowStyle %s -FilePath ''%s'' -ArgumentList ''%s''\r\n', ...
+                windowStyle, exeEsc, argEsc);
+            fprintf(fid, 'if ($p) { Write-Output $p.Id } else { Write-Output 0 }\r\n');
+            fclose(fid);
+
+            [~, out] = system(sprintf('powershell -ExecutionPolicy Bypass -NoProfile -File "%s"', psFile));
+            delete(psFile);
+
+            pid = str2double(strtrim(out));
+            if isnan(pid) || pid <= 0
+                pid = 0;
+            end
         end
     end
 

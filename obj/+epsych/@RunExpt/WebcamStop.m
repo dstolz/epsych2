@@ -26,6 +26,7 @@ if isfield(self.H, 'mnu_webcam_record') && isgraphics(self.H.mnu_webcam_record)
     self.H.mnu_webcam_record.Enable = 'on';
 end
 if isfield(self.H, 'mnu_webcam_stop') && isgraphics(self.H.mnu_webcam_stop)
+    self.H.mnu_webcam_stop.Label  = 'Stop Webcam';
     self.H.mnu_webcam_stop.Enable = 'off';
 end
 

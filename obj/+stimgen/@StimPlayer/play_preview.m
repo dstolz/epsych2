@@ -1,6 +1,6 @@
-function play_preview(obj, ~, ~)
+function play_preview(obj, src, ~)
 % play_preview(obj) - Play the currently selected stimulus through the computer speakers.
-% Flashes the Play Stim button green during playback.
+% Flashes the Play button green during playback.
 
 h = obj.handles;
 
@@ -24,16 +24,28 @@ if isempty(sp)
 end
 
 stimObj = sp.CurrentStimObj;
-btn = obj.handles.PlayStimBtn;
-prevColor = btn.BackgroundColor;
-cleanupObj = onCleanup(@() restore_button_color_(btn, prevColor));
+btn = [];
+if nargin >= 2 && ~isempty(src) && isvalid(src) && isprop(src, 'BackgroundColor')
+    btn = src;
+elseif isfield(obj.handles, 'PlayBtn') && ~isempty(obj.handles.PlayBtn) && isvalid(obj.handles.PlayBtn)
+    btn = obj.handles.PlayBtn;
+end
+
+if ~isempty(btn)
+    prevColor = btn.BackgroundColor;
+    cleanupObj = onCleanup(@() restore_button_color_(btn, prevColor));
+else
+    cleanupObj = onCleanup(@() []);
+end
 
 try
     if isempty(stimObj.Signal)
         stimObj.update_signal;
     end
 
-    btn.BackgroundColor = [0.2 1.0 0.2];
+    if ~isempty(btn)
+        btn.BackgroundColor = [0.2 1.0 0.2];
+    end
     drawnow;
 
     vprintf(1, 'StimPlayer: playing "%s" via speakers...', sp.Name);

@@ -13,7 +13,7 @@ classdef StimPlayer < handle
     %
     % When a Protocol is not provided or required hardware parameters are
     % not found, hardware playback is disabled and only speaker preview is
-    % available via Play Stim.
+    % available via Play and Play All.
     %
     % Required hw.Parameter names (resolved from Runtime at Run time):
     %   BufferData_0, BufferData_1   - audio data buffers
@@ -46,6 +46,7 @@ classdef StimPlayer < handle
         update_buffer(obj)
         trigger_stim_playback(obj)
         play_preview(obj, src, event)
+        play_all(obj, src, event)
         step_combination(obj, step)
         save_bank(obj, ffn)
         load_bank(obj, ffn)

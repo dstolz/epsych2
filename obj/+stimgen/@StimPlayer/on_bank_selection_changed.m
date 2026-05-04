@@ -58,13 +58,14 @@ if ~isempty(waveProps)
 end
 sections{end+1} = {'Level',   levelMeta, fieldnames(levelMeta)};
 sections{end+1} = {'Timing',  timeMeta,  fieldnames(timeMeta)};
-sections{end+1} = {'Info',    struct('Name', struct('label','Name')), {'Name'}};
 
 % --- Compute row heights ---
+ROW_TOP  = 28;   % top bank label row
+ROW_GAP  = 8;    % gap after top row
 ROW_HDR  = 28;   % section header
 ROW_PROP = 28;   % per-property row
 ROW_SEP  = 10;   % gap after each section
-rowHeights = {};
+rowHeights = {ROW_TOP, ROW_GAP};
 for s = 1:numel(sections)
     rowHeights{end+1} = ROW_HDR;
     for p = 1:numel(sections{s}{3})
@@ -84,6 +85,18 @@ mc = metaclass(stimObj);
 pl = mc.PropertyList;
 
 row = 1;
+
+% Top row: editable bank label
+lbl = uilabel(g, 'Text', 'Bank Label:', 'HorizontalAlignment', 'right');
+lbl.Layout.Row    = row;
+lbl.Layout.Column = 1;
+
+x = uieditfield(g, 'Tag', 'BankLabelField', 'Value', char(sp.Name));
+x.Layout.Row       = row;
+x.Layout.Column    = 2;
+x.ValueChangedFcn  = @(s,~) update_name_(obj, idx, s);
+row = row + 2;
+
 for s = 1:numel(sections)
     sTitle    = sections{s}{1};
     sMeta     = sections{s}{2};
@@ -107,37 +120,32 @@ for s = 1:numel(sections)
         lbl.Layout.Row    = row;
         lbl.Layout.Column = 1;
 
-        if strcmp(propName, 'Name')
-            x = uieditfield(g, 'Tag', propName, 'Value', char(sp.Name));
-            x.ValueChangedFcn = @(s,~) update_name_(obj, idx, s.Value);
-        else
-            wt = resolve_wt_(propName, pm, pl);
-            switch wt
-                case 'numeric'
-                    if is_non_vectorizable_prop_(propName)
-                        x = uieditfield(g, 'numeric', 'Tag', propName);
-                        x.Value = stimObj.(propName);
-                        if isfield(pm, 'format'), x.ValueDisplayFormat = pm.format; end
-                        if isfield(pm, 'limits'), x.Limits = pm.limits; end
-                    else
-                        x = uieditfield(g, 'Tag', propName);
-                        x.Value = localFormatPropValue_(stimObj.(propName));
-                        x.UserData = struct('isNumericExpression', true);
-                    end
-                case 'checkbox'
-                    x = uicheckbox(g, 'Tag', propName, 'Text', '');
+        wt = resolve_wt_(propName, pm, pl);
+        switch wt
+            case 'numeric'
+                if is_non_vectorizable_prop_(propName)
+                    x = uieditfield(g, 'numeric', 'Tag', propName);
                     x.Value = stimObj.(propName);
-                case 'dropdown'
-                    x = uidropdown(g, 'Tag', propName);
-                    x.Items = pm.items;
-                    if isfield(pm, 'itemsData'), x.ItemsData = pm.itemsData; end
-                    x.Value = stimObj.(propName);
-                otherwise
+                    if isfield(pm, 'format'), x.ValueDisplayFormat = pm.format; end
+                    if isfield(pm, 'limits'), x.Limits = pm.limits; end
+                else
                     x = uieditfield(g, 'Tag', propName);
-                    x.Value = char(stimObj.(propName));
-            end
-            x.ValueChangedFcn = @(s, e) set_prop_(obj, stimObj, s, e);
+                    x.Value = localFormatPropValue_(stimObj.(propName));
+                    x.UserData = struct('isNumericExpression', true);
+                end
+            case 'checkbox'
+                x = uicheckbox(g, 'Tag', propName, 'Text', '');
+                x.Value = stimObj.(propName);
+            case 'dropdown'
+                x = uidropdown(g, 'Tag', propName);
+                x.Items = pm.items;
+                if isfield(pm, 'itemsData'), x.ItemsData = pm.itemsData; end
+                x.Value = stimObj.(propName);
+            otherwise
+                x = uieditfield(g, 'Tag', propName);
+                x.Value = char(stimObj.(propName));
         end
+        x.ValueChangedFcn = @(s, e) set_prop_(obj, stimObj, s, e);
 
         x.Layout.Row    = row;
         x.Layout.Column = 2;
@@ -195,10 +203,30 @@ obj.refresh_combo_controls_();
 end
 
 
-function update_name_(obj, idx, newName)
+function update_name_(obj, idx, src)
 % update_name_(obj, idx, newName) - Update the Name of bank item idx.
-obj.StimPlayObjs(idx).Name = string(newName);
+if idx < 1 || idx > numel(obj.StimPlayObjs)
+    return
+end
+
+nameValue = strtrim(string(src.Value));
+if strlength(nameValue) == 0
+    src.Value = char(obj.StimPlayObjs(idx).Name);
+    obj.show_gui_message_("Bank label cannot be empty.", ...
+        "Invalid Label", "warning");
+    return
+end
+
+obj.StimPlayObjs(idx).Name = nameValue;
 obj.refresh_listbox_;
+
+if isfield(obj.handles, 'BankList') && isvalid(obj.handles.BankList) && ...
+        ~isempty(obj.handles.BankList.ItemsData)
+    obj.handles.BankList.Value = idx;
+end
+
+obj.update_signal_plot;
+obj.set_status_("Renamed stimulus to: " + nameValue);
 end
 
 

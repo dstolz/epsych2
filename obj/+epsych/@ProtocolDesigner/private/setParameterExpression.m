@@ -1,6 +1,6 @@
 function setParameterExpression(obj, parameter, expressionText)
     if ~obj.parameterSupportsExpression(parameter)
-        error('Expressions are only allowed for numeric scalar parameter types.');
+        error('Expressions are only allowed for Float, Integer, or Boolean parameter types.');
     end
 
     expressionText = strtrim(char(string(expressionText)));

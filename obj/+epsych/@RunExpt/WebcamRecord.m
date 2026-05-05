@@ -24,11 +24,14 @@ end
 
 % --- Create and connect recorder ---------------------------------------
 rec = hw.VlcRecorder();
+rec.set_parameter('VlcExePath', getpref('ep_RunExpt_Video','VlcExePath', 'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe'));
+rec.set_parameter('DeviceName', getpref('ep_RunExpt_Video','DeviceName', 'Integrated Camera'));
+rec.set_parameter('MediaFile', getpref('ep_RunExpt_Video','MediaFile', 'dshow://'));
 rec.connect();
 
 % --- Device selection --------------------------------------------------
 % selectDevice shows a listdlg and stores the chosen name on the object.
-% If the user cancels, the current default ("Integrated Camera") is kept.
+% If the user cancels, the current default is kept.
 rec.selectDevice();
 
 % Set MediaFile to the DirectShow URI so VLC knows the source protocol.
@@ -38,13 +41,18 @@ rec.set_parameter('MediaFile', 'dshow://');
 rec.trigger('Play');
 
 % --- Ask for recording output file (while VLC is opening) --------------
+recDir = getpref('ep_RunExpt_Video','RecordingDir', self.dfltDataPath);
+if ~isfolder(recDir)
+    recDir = self.dfltDataPath;
+end
 [fname, fdir] = uiputfile( ...
     {'*.ts','MPEG-TS (*.ts)'; '*.mp4','MP4 (*.mp4)'; '*.*','All files'}, ...
     'Save Recording As (cancel for preview-only)', ...
-    fullfile(self.dfltDataPath, 'webcam_recording.ts'));
+    fullfile(recDir, 'webcam_recording.ts'));
 
 if ~isequal(fname, 0)
     outFile = fullfile(fdir, fname);
+    setpref('ep_RunExpt_Video','RecordingDir', string(fdir));
     rec.set_parameter('RecordingFile', outFile);
     rec.trigger('StartRecord');
     vprintf(2, 'epsych.RunExpt: webcam recording started → %s', outFile);

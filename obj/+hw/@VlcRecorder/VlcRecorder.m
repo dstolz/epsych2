@@ -160,6 +160,10 @@ classdef VlcRecorder < hw.Interface
                     obj.deviceName_ = string(value);
                     vprintf(3, 'hw.VlcRecorder: DeviceName = "%s"', char(value));
 
+                case 'VlcExePath'
+                    obj.vlcExePath_ = string(value);
+                    vprintf(3, 'hw.VlcRecorder: VlcExePath = "%s"', char(value));
+
                 case 'MediaFile'
                     obj.mediaUri_ = string(value);
                     vprintf(3, 'hw.VlcRecorder: MediaFile = "%s"', char(value));
@@ -190,6 +194,9 @@ classdef VlcRecorder < hw.Interface
 
                 case 'RecordingFile'
                     value = char(obj.recordingFile_);
+
+                case 'VlcExePath'
+                    value = char(obj.vlcExePath_);
 
                 case 'MediaFile'
                     value = char(obj.mediaUri_);
@@ -279,6 +286,12 @@ classdef VlcRecorder < hw.Interface
                 Access  = 'Any', ...
                 Visible = true, ...
                 Description = 'DirectShow video device name.');
+
+            obj.add_parameter('VlcExePath', 'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe', ...
+                Type    = 'String', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Description = 'Full path to the VLC executable.');
 
             obj.add_parameter('RecordingFile', '', ...
                 Type    = 'File', ...

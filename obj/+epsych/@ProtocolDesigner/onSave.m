@@ -1,25 +1,20 @@
 function onSave(obj)
 % onSave(obj)
 % Save the current protocol and refresh recent-file state.
-    startPath = obj.getProtocolFileDialogStartPath('*.eprot');
-    [fileName, folder] = uiputfile( ...
-        {'*.eprot', 'Protocol MAT File (*.eprot)'; '*.json', 'Protocol JSON File (*.json)'}, ...
-        'Save Protocol', startPath);
-    if isequal(fileName, 0)
+    if ~isempty(obj.CurrentProtocolPath) && isfile(obj.CurrentProtocolPath)
+        obj.Protocol.save(obj.CurrentProtocolPath);
+        obj.IsModified_ = false;
+        obj.setLastProtocolFilePath(obj.CurrentProtocolPath);
+        obj.setLastBrowseDirectory(fileparts(obj.CurrentProtocolPath));
+        obj.addRecentProtocolPath(obj.CurrentProtocolPath);
+        obj.refreshRecentProtocolMenu();
+        ver = obj.Protocol.meta.protocolVersion;
+        obj.Figure.Name = sprintf('Protocol Designer  [%s]', ver);
+        obj.setStatus(sprintf('Saved protocol to %s', obj.CurrentProtocolPath), ...
+            'Ctrl+S now saves directly to the current file; Ctrl+Shift+S saves as a new file.');
         return
     end
 
-    fullPath = fullfile(folder, fileName);
-    obj.Protocol.save(fullPath);
-    obj.CurrentProtocolPath = fullPath;
-    obj.IsModified_ = false;
-    obj.setLastProtocolFilePath(fullPath);
-    obj.setLastBrowseDirectory(folder);
-    obj.addRecentProtocolPath(fullPath);
-    obj.refreshRecentProtocolMenu();
-    ver = obj.Protocol.meta.protocolVersion;
-    obj.Figure.Name = sprintf('Protocol Designer  [%s]', ver);
-    obj.setStatus(sprintf('Saved protocol to %s', fileName), ...
-        'Compile again after further edits, or close the designer if you are finished.');
+    obj.onSaveAs();
 end
 

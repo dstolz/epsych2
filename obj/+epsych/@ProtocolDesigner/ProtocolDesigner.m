@@ -111,6 +111,181 @@ classdef ProtocolDesigner < handle
             end
         end
 
+        function onFigureKeyPress(obj, evt)
+            % onFigureKeyPress — Handle ProtocolDesigner keyboard shortcuts.
+            % Ctrl+Shift+B: Add boolean parameter
+            % Ctrl+Shift+T: Add boolean parameter with trigger=true
+            % Ctrl+Shift+F: Add float parameter
+            % Ctrl+Shift+S: Add string parameter
+            % Ctrl+Shift+N: Add integer parameter
+            % Ctrl+Shift+C: Compile protocol
+            % Ctrl+Shift+V: Open compiled preview dialog
+            % Ctrl+Shift+O: Open options dialog
+            % Ctrl+Shift+A: Add interface
+            % Ctrl+Shift+M: Add module
+            % Ctrl+Shift+R: Remove parameter
+            % Ctrl+Shift+/: Show keyboard shortcuts help
+
+            if isempty(evt)
+                return
+            end
+
+            modifiers = string(evt.Modifier);
+            hasCtrl = any(modifiers == "control") || any(modifiers == "command");
+            hasShift = any(modifiers == "shift");
+            if ~hasCtrl
+                return
+            end
+
+            key = string(evt.Key);
+            switch lower(key)
+                case "1"
+                    obj.onChangeSelectedParameterType('Float');
+                case "2"
+                    obj.onChangeSelectedParameterType('Integer');
+                case "3"
+                    obj.onChangeSelectedParameterType('Boolean');
+                case "4"
+                    obj.onChangeSelectedParameterType('Buffer');
+                case "5"
+                    obj.onChangeSelectedParameterType('Coefficient Buffer');
+                case "6"
+                    obj.onChangeSelectedParameterType('String');
+                case "7"
+                    obj.onChangeSelectedParameterType('File');
+                case "8"
+                    obj.onChangeSelectedParameterType('StimType');
+                case "9"
+                    obj.onChangeSelectedParameterType('Undefined');
+                case "b"
+                    if hasShift
+                        obj.onAddParamWithDefaults('boolean', false);
+                    end
+                case "t"
+                    if hasShift
+                        obj.onAddParamWithDefaults('boolean', true);
+                    end
+                case "f"
+                    if hasShift
+                        obj.onAddParamWithDefaults('float', false);
+                    end
+                case "s"
+                    if hasShift
+                        obj.onSaveAs();
+                    else
+                        obj.onSave();
+                    end
+                case "n"
+                    if hasShift
+                        obj.onAddParamWithDefaults('integer', false);
+                    end
+                case "y"
+                    if hasShift
+                        obj.onCycleColorBy();
+                    end
+                case "c"
+                    if hasShift
+                        obj.onCompile();
+                    end
+                case "v"
+                    if hasShift
+                        obj.onOpenCompiledPreviewDialog();
+                    end
+                case "o"
+                    if hasShift
+                        obj.onOpenOptionsDialog();
+                    end
+                case "a"
+                    if hasShift
+                        obj.onAddInterface();
+                    end
+                case "m"
+                    if hasShift
+                        obj.onAddModule();
+                    end
+                case "r"
+                    if hasShift
+                        obj.onRemoveParam();
+                    end
+                case "d"
+                    if hasShift
+                        obj.onShowSelectedParameterDetails();
+                    end
+                case "l"
+                    if hasShift
+                        obj.onToggleTableView();
+                    end
+                case {"slash", "question"}
+                    if hasShift
+                        obj.showKeyboardShortcuts();
+                    end
+                otherwise
+                    return
+            end
+        end
+
+        function answer = promptForParameterName(obj, defaultName)
+            % promptForParameterName(obj, defaultName)
+            % Prompt for a new parameter name with a modal dialog owned by the designer.
+            dlgSize = [360 150];
+            figPos = obj.Figure.Position;
+            dlgPos = [figPos(1) + round((figPos(3) - dlgSize(1)) / 2), ...
+                      figPos(2) + round((figPos(4) - dlgSize(2)) / 2), ...
+                      dlgSize];
+
+            dlg = uifigure( ...
+                'Name', 'Add Parameter', ...
+                'Position', dlgPos, ...
+                'Resize', 'off', ...
+                'WindowStyle', 'modal');
+
+            uilabel(dlg, ...
+                'Text', 'Parameter Name', ...
+                'Position', [20 100 320 22]);
+
+            edt = uieditfield(dlg, 'text', ...
+                'Position', [20 70 320 22], ...
+                'Value', defaultName);
+
+            uibutton(dlg, 'push', ...
+                'Text', 'OK', ...
+                'Position', [200 20 70 30], ...
+                'ButtonPushedFcn', @(~, ~) onOk());
+
+            uibutton(dlg, 'push', ...
+                'Text', 'Cancel', ...
+                'Position', [285 20 70 30], ...
+                'ButtonPushedFcn', @(~, ~) onCancel());
+
+            dlg.UserData = [];
+            dlg.CloseRequestFcn = @(src, ~) onCancel();
+            uiwait(dlg);
+
+            if ~isvalid(dlg)
+                answer = {};
+                return
+            end
+
+            result = dlg.UserData;
+            delete(dlg);
+
+            if isempty(result)
+                answer = {};
+            else
+                answer = {char(result)};
+            end
+
+            function onOk()
+                dlg.UserData = string(strtrim(edt.Value));
+                uiresume(dlg);
+            end
+
+            function onCancel()
+                dlg.UserData = [];
+                uiresume(dlg);
+            end
+        end
+
     end
 
     methods (Static)

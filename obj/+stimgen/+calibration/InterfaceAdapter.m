@@ -24,7 +24,8 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
     %   adapter = stimgen.calibration.InterfaceAdapter(RUNTIME.HW);
     %   adapter = stimgen.calibration.InterfaceAdapter(RUNTIME.HW, Fs=97656.25);
     %
-    % See also: stimgen.calibration.HwAdapter, stimgen.calibration.Engine
+    % See also: stimgen.calibration.HwAdapter, stimgen.calibration.Engine,
+    %           documentation/stimgen/stimgen_calibration.md
 
     properties (SetAccess = private)
         HW  % hw.Interface instance

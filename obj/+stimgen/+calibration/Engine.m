@@ -33,7 +33,8 @@ classdef Engine < handle
     %   v   = eng.compute_adjusted_voltage("tone", 4000, 70);
     %
     % See also: stimgen.calibration.HwAdapter,
-    %           stimgen.calibration.InterfaceAdapter
+    %           stimgen.calibration.InterfaceAdapter,
+    %           documentation/stimgen/stimgen_calibration.md
 
     % --- Persistent calibration parameters ---
     properties (SetAccess = protected, SetObservable, AbortSet)

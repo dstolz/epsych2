@@ -1,113 +1,116 @@
 # `hw.VlcRecorder` — Webcam Preview and Recording
 
 > **Source file:** `obj/+hw/@VlcRecorder/VlcRecorder.m`
-> **Test script:** `tmp/VlcRecorder_example.m`
+> **Base class:** `hw.Interface` — see [hw_Interface.md](hw_Interface.md)
 
-`hw.VlcRecorder` lets EPsych capture video from a webcam during an experiment. It opens a live preview window using **VLC** and records the video to a file using **ffmpeg**. Both happen simultaneously — the researcher sees the feed in real time, and a complete recording is saved to disk for later review.
-
-You do not need to start VLC or ffmpeg manually. EPsych launches and closes them for you.
+`hw.VlcRecorder` lets EPsych capture video from a webcam during an experiment. It opens a **live preview window using VLC** and, when a `RecordingFile` is configured, simultaneously records the video to disk using VLC's built-in `--sout` stream duplicator. Both the preview and recording are driven by a single VLC process — no additional tools are required.
 
 ---
 
 ## Contents
 
-- [`hw.VlcRecorder` — Webcam Preview and Recording](#hwvlcrecorder--webcam-preview-and-recording)
-  - [Contents](#contents)
-  - [Requirements](#requirements)
-  - [Quick start — RunExpt Video menu](#quick-start--runexpt-video-menu)
-  - [Recording files](#recording-files)
-  - [Integration: start recording on the first trial](#integration-start-recording-on-the-first-trial)
-    - [Custom trial selector function](#custom-trial-selector-function)
-  - [API reference](#api-reference)
-    - [Constructor](#constructor)
-    - [connect / disconnect](#connect--disconnect)
-    - [set\_parameter](#set_parameter)
-    - [trigger](#trigger)
-    - [selectDevice](#selectdevice)
-  - [Codec and quality settings](#codec-and-quality-settings)
-  - [Troubleshooting](#troubleshooting)
-  - [See also](#see-also)
+- [Requirements](#requirements)
+- [Quick start — standalone usage](#quick-start--standalone-usage)
+- [Recording files and formats](#recording-files-and-formats)
+- [Integration: start recording at trial onset](#integration-start-recording-at-trial-onset)
+- [API reference](#api-reference)
+  - [Constructor](#constructor)
+  - [connect / disconnect](#connect--disconnect)
+  - [set\_parameter](#set_parameter)
+  - [get\_parameter](#get_parameter)
+  - [trigger](#trigger)
+  - [selectDevice](#selectdevice)
+  - [getCreationSpec (static)](#getcreationspec-static)
+- [How VLC is launched](#how-vlc-is-launched)
+- [Troubleshooting](#troubleshooting)
+- [See also](#see-also)
 
 ---
 
 ## Requirements
 
-| Software | Where EPsych looks |
-|----------|--------------------|
-| [VLC media player](https://www.videolan.org/vlc/) (any recent version) | `C:\Program Files (x86)\VideoLAN\VLC\vlc.exe` |
-| [ffmpeg](https://ffmpeg.org/download.html) | `C:\prgms_on_path\ffmpeg.exe` |
-| A DirectShow webcam (built-in laptop camera, USB camera, etc.) | Listed automatically by EPsych |
+| Requirement | Details |
+|-------------|---------|
+| [VLC media player](https://www.videolan.org/vlc/) | Expected at `C:\Program Files (x86)\VideoLAN\VLC\vlc.exe`. Adjust `vlcExePath_` in code if installed elsewhere. |
+| A DirectShow webcam | Any built-in or USB camera visible in Windows Device Manager works. |
+| Windows OS | Device enumeration uses PowerShell `Get-PnpDevice`. |
 
-If your VLC or ffmpeg are in different locations you can change the paths in code — see [Codec and quality settings](#codec-and-quality-settings).
+No ffmpeg or MATLAB toolboxes are required.
 
-> **First-time VLC setup:** If VLC shows a "could not start" dialog after being installed or updated, run `vlc-cache-gen.exe` (found in the VLC install folder) as administrator once to rebuild its plugin cache. The dialog will no longer appear after that.
-
----
-
-## Quick start — RunExpt Video menu
-
-The simplest way to use `hw.VlcRecorder` is through the **RunExpt** experiment control window. No code is required.
-
-1. Open the RunExpt window (`epsych.RunExpt()`).
-2. Click **Video → Webcam Preview / Record...** (or press **Ctrl+W**).
-3. A list of available cameras appears. Select your camera and click **OK**.
-4. VLC opens and shows the live webcam feed immediately.
-5. A file-save dialog appears. Choose where to save the recording.
-   - Click **Save** to begin recording.
-   - Click **Cancel** to keep the live preview without saving.
-6. When done, click **Video → Stop Webcam** (or close the RunExpt window — the recording is stopped automatically).
-
-The recording is not started until you choose a file in step 5, so the preview can be running well before you commit to a filename.
+> **First-time VLC setup:** If VLC fails to start after a fresh install or update, run `vlc-cache-gen.exe` (found in the VLC install folder) as administrator once to rebuild the plugin cache.
 
 ---
 
-## Recording files
+## Quick start — standalone usage
 
-Files are saved in **MPEG-TS (`.ts`)** format by default, which is the most robust choice for interrupted recordings — the file is still readable even if the experiment crashes before a clean stop. MP4 is also available but requires a clean close to finalise the container.
+```matlab
+rec = hw.VlcRecorder();
+rec.connect();
 
-Output file recommendations:
-- Use an **absolute path** (e.g. `C:\data\recordings\mouse042_session3.ts`).
-- Include the subject name and session date in the filename.
-- The recording directory must exist before starting — EPsych does not create it automatically when triggered from code.
+% Pick the camera interactively (or set 'DeviceName' directly)
+rec.selectDevice();
+
+% Optionally configure a recording output file
+rec.set_parameter('RecordingFile', 'C:\data\session1.ts');
+
+% Launch VLC — preview opens, recording starts if RecordingFile is set
+rec.trigger('Play');
+
+pause(30);  % run experiment...
+
+% Stop VLC and finalise the recording
+rec.trigger('Stop');
+rec.disconnect();
+```
+
+Omit `set_parameter('RecordingFile', ...)` to run in **preview-only** mode with no file written.
 
 ---
 
-## Integration: start recording on the first trial
+## Recording files and formats
 
-For automated experiments you may want recording to start automatically when the first trial begins, using the same output folder and naming convention as your behavioural data. There are two ways to do this.
+The output format is inferred from the file extension:
 
-### Custom trial selector function
+| Extension | Container | Notes |
+|-----------|-----------|-------|
+| `.ts` (default) | MPEG-TS | Most robust for live capture — readable even if VLC is killed before a clean stop. |
+| `.mp4` | MP4 | Cleaner playback in most players, but requires a clean `trigger('Stop')` to finalise the container. |
 
-The **trial selector function** is called before every trial. You can detect the first trial (`TrialIndex == 1`) and start recording then.
+Video is encoded as **H.264 at 1200 kbps, 30 fps** via VLC's `transcode` module. Audio is disabled (`--no-audio`).
+
+Output path recommendations:
+- Use an **absolute path** (e.g. `C:\data\mouse042_session3.ts`).
+- The output directory must already exist — EPsych does not create it automatically.
+- Embed the subject name and date in the filename to avoid accidental overwrites.
+
+---
+
+## Integration: start recording at trial onset
+
+For automated experiments, launch recording from a **trial selector function** that is called before every trial.
 
 ```matlab
 function TRIALS = MyTrialSelectFcn(TRIALS)
-% MyTrialSelectFcn  Example trial selector with first-trial webcam start.
+% Start webcam on trial 1, stop on last trial.
 
-% --- Start webcam on trial 1 ----------------------------------------
 if TRIALS.TrialIndex == 1 && ~isfield(TRIALS, 'vlcRecorder')
     subject = TRIALS.Subject.Name;
     ts      = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
-    recFile = sprintf('C:\\data\\%s_%s_webcam.ts', subject, ts);
+    recFile = sprintf('C:\\data\\%s_%s.ts', subject, ts);
 
     rec = hw.VlcRecorder();
     rec.connect();
     rec.set_parameter('DeviceName',    'Integrated Camera');
-    rec.set_parameter('MediaFile',     'dshow://');
     rec.set_parameter('RecordingFile', recFile);
     rec.trigger('Play');
 
     TRIALS.vlcRecorder = rec;
 end
 
-% --- Stop webcam when the session ends (last trial + 1) -------------
-% (Optional — the RunExpt close handler also stops it automatically.)
-
-% --- Your normal trial selection logic below ------------------------
-% ... choose TRIALS.NextTrialID as usual ...
+% ... your normal trial selection logic ...
 ```
 
-> **Note:** `TRIALS` is a struct returned by value. Any fields you add (like `TRIALS.vlcRecorder`) persist across calls because EPsych stores the returned struct in `RUNTIME.TRIALS(i)` after each call.
+To stop recording at session end, hook into the stop timer function or the RunExpt close handler, calling `TRIALS.vlcRecorder.trigger('Stop')`.
 
 ---
 
@@ -119,7 +122,7 @@ end
 obj = hw.VlcRecorder()
 ```
 
-Creates the recorder object. Does not launch VLC or ffmpeg yet — call `connect()` next.
+Creates the object without connecting. No processes are launched. Call `connect()` before using any parameters or triggers.
 
 ---
 
@@ -130,9 +133,9 @@ obj.connect()
 obj.disconnect()
 ```
 
-`connect()` registers the parameters and triggers but does not open any processes. VLC and ffmpeg only launch when you call `trigger('Play')`.
+`connect()` registers all parameters and triggers via `setup_interface()`. Idempotent — calling it twice is safe.
 
-`disconnect()` stops any running processes (same as `trigger('Stop')`) and cleans up.
+`disconnect()` calls `trigger('Stop')` internally to kill any running VLC process, then marks `IsConnected = false`.
 
 ---
 
@@ -144,27 +147,43 @@ obj.set_parameter('MediaFile',     'dshow://')
 obj.set_parameter('RecordingFile', 'C:\data\session.ts')
 ```
 
-| Parameter | What it controls |
-|-----------|-----------------|
-| `DeviceName` | The webcam to capture from. Must match the DirectShow device name exactly (see `selectDevice()` to pick interactively). Default: `'Integrated Camera'`. |
-| `MediaFile` | The media source URI passed to VLC. Always use `'dshow://'` for webcam capture. |
-| `RecordingFile` | Where ffmpeg saves the recording. Leave empty for preview-only. |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `DeviceName` | String | `'Integrated Camera'` | The DirectShow video device name. Must match exactly what Windows reports. Use `selectDevice()` to pick interactively. |
+| `MediaFile` | String | `'dshow://'` | Media source URI passed to VLC. Use `'dshow://'` for webcam capture; can be changed to a file path or RTSP URL for other sources. |
+| `RecordingFile` | File path | `''` | Output file. Leave empty for preview-only mode. `.ts` and `.mp4` extensions are recognized; all other extensions default to MPEG-TS mux. |
 
-Set all three parameters before calling `trigger('Play')`.
+Parameters can be changed while VLC is stopped. Changing a parameter after `trigger('Play')` takes effect on the next `trigger('Play')`.
+
+---
+
+### get_parameter
+
+```matlab
+value = obj.get_parameter('DeviceName')
+value = obj.get_parameter('RecordingFile')
+value = obj.get_parameter('MediaFile')
+```
+
+Returns the currently stored value as a `char`. Returns `nan` for trigger names or unrecognised parameter names.
 
 ---
 
 ### trigger
 
 ```matlab
-obj.trigger('Play')        % start VLC preview and ffmpeg recording
-obj.trigger('Stop')        % stop both; finalise the recording file
-obj.trigger('StartRecord') % start recording if not already running (ffmpeg only)
-obj.trigger('StopRecord')  % stop recording but keep VLC preview open
-obj.trigger('Pause')       % no-op (not supported in this backend)
+obj.trigger('Play')         % start VLC (preview + optional recording)
+obj.trigger('Stop')         % close VLC and finalise the recording file
+obj.trigger('Pause')        % no-op (not supported over command line)
+obj.trigger('StartRecord')  % restart VLC with recording if not already recording
+obj.trigger('StopRecord')   % restart VLC in preview-only mode
 ```
 
-`trigger('Stop')` is safe to call even if nothing is running.
+`trigger` also accepts an `hw.Parameter` handle in place of a name string (the `hw.Interface` convention).
+
+**`Stop` is always safe to call** — it is a no-op if VLC is not running.
+
+**`StartRecord` / `StopRecord`** briefly close and reopen VLC because VLC's `--sout` chain cannot be modified on a running instance. There is a short (~1 second) gap in the preview window during this transition.
 
 ---
 
@@ -174,57 +193,72 @@ obj.trigger('Pause')       % no-op (not supported in this backend)
 selected = obj.selectDevice()
 ```
 
-Shows a dialog listing all available DirectShow video devices (queried live from ffmpeg). The selected device is stored automatically — the return value can be ignored. If the dialog is cancelled, the previously configured device name is unchanged.
+Queries available camera devices via PowerShell `Get-PnpDevice -Class Camera -Status OK` and shows a list dialog. The chosen device is stored automatically via `set_parameter('DeviceName', ...)`. The return value (`selected`) can be ignored unless you need it programmatically.
 
-This is what the RunExpt **Video** menu calls when you choose **Webcam Preview / Record...**.
+Returns `""` if the dialog is cancelled or no devices are found.
 
 ---
 
-## Codec and quality settings
-
-Video is recorded using **H.264 (libx264)** at a constant-rate factor (CRF) of 28 with the `ultrafast` encoding preset. This gives small files with minimal CPU load, suitable for continuous real-time capture.
-
-To change these or the tool paths, set the private properties before calling `connect()`:
+### getCreationSpec (static)
 
 ```matlab
-obj = hw.VlcRecorder();
-obj.ffmpegExePath_ = 'D:\tools\ffmpeg.exe';   % custom ffmpeg path
-obj.vlcExePath_    = 'C:\Program Files\VideoLAN\VLC\vlc.exe';
-obj.crf_           = 23;        % higher quality (larger file)
-obj.preset_        = 'fast';    % slower encoding, better compression
-obj.connect();
+spec = hw.VlcRecorder.getCreationSpec()
 ```
 
-| Setting | Default | Effect |
-|---------|---------|--------|
-| `crf_` | `28` | Lower = better quality, larger file. Range 0–51. |
-| `preset_` | `'ultrafast'` | `fast` / `medium` improve compression at cost of CPU. |
+Returns an `hw.InterfaceSpec` describing this interface for the hardware configuration UI. This is called by the framework — you normally do not need to call it directly.
+
+---
+
+## How VLC is launched
+
+VLC is launched by writing a temporary `.bat` file and invoking it via `cmd /c`. This approach avoids PowerShell escaping issues with the complex `--sout` argument string that VLC requires.
+
+**Display-only mode** (`RecordingFile` is empty):
+```
+vlc.exe dshow:// --one-instance --dshow-vdev="<DeviceName>" --no-audio
+```
+
+**Record + preview mode** (`RecordingFile` is set):
+```
+vlc.exe dshow:// --one-instance --dshow-vdev="<DeviceName>" --no-audio
+    --sout "#duplicate{dst=display,
+              dst=transcode{vcodec=h264,vb=1200,fps=30,acodec=none}
+                  :standard{access=file,mux=<ts|mp4>,dst='<RecordingFile>'}}"
+    --sout-keep
+```
+
+VLC is stopped by first sending the `vlc://quit` command via the `--one-instance` bus, waiting 1 second for a clean exit, then using `taskkill /IM vlc.exe` as a fallback if the process is still running. The 1-second wait gives VLC time to flush and close the output muxer cleanly.
+
+> **One VLC instance at a time:** The `--one-instance` flag means a second `trigger('Play')` will reuse the same VLC window. Call `trigger('Stop')` before changing parameters and relaunching.
 
 ---
 
 ## Troubleshooting
 
-**VLC shows "could not start" dialog**
-Run `vlc-cache-gen.exe` (in the VLC install folder) as administrator. This rebuilds the plugin cache after a VLC update. The dialog is cosmetic — recording still works — but rebuilding the cache eliminates it.
-
-**No devices listed in `selectDevice()`**
-Confirm that ffmpeg is installed and on the path. Run `ffmpeg -list_devices true -f dshow -i dummy` in a command prompt to see the raw device list.
-
-**Recording file is empty or very small**
-The device name must exactly match what DirectShow reports. Use `selectDevice()` rather than typing the name manually. Also ensure the output directory exists.
+**No devices appear in `selectDevice()`**
+PowerShell `Get-PnpDevice -Class Camera -Status OK` found no OK-status camera devices. Open Device Manager and confirm the camera is listed without errors. On some systems the camera class is registered differently — check `Get-PnpDevice -Class Camera` (without `-Status OK`) in PowerShell to see whether the device appears with a different status.
 
 **VLC preview does not open**
-Check that `vlcExePath_` points to a valid `vlc.exe`. Verify VLC launches manually first.
+Verify that `vlcExePath_` (`C:\Program Files (x86)\VideoLAN\VLC\vlc.exe` by default) is correct for your installation. Try launching VLC manually with a `dshow://` URI to confirm your DirectShow setup is functional.
 
-**Recording does not stop cleanly on experiment end**
-Ensure your stop-timer function calls `obj.trigger('Stop')` and `obj.disconnect()`, or store the recorder on `RUNTIME` so the standard close handler can reach it.
+**Recording file is empty or very small**
+The `DeviceName` must exactly match the DirectShow device name (including capitalisation and punctuation). Use `selectDevice()` rather than typing it manually. Also confirm the output directory exists before calling `trigger('Play')`.
+
+**`StopRecord` / `StartRecord` cause a brief preview gap**
+This is expected — VLC must be fully restarted to change the `--sout` chain. The gap is typically about 1 second.
+
+**Recording is incomplete after a MATLAB crash**
+Use `.ts` (MPEG-TS) output. Unlike MP4, MPEG-TS does not require a clean finalisation step, so frames already written remain readable even if VLC is killed abruptly.
+
+**VLC shows a "could not start" dialog after an update**
+Run `vlc-cache-gen.exe` (located in the VLC install folder) as administrator once to rebuild the plugin cache.
 
 ---
 
 ## See also
 
-- `tmp/VlcRecorder_example.m` — minimal standalone usage example
-- `runtime/timerfcns/ep_TimerFcn_Start.m` — where to hook a custom start function
-- `runtime/timerfcns/ep_TimerFcn_Stop.m` — where to hook a custom stop function
-- `runtime/trial_selection/DefaultTrialSelectFcn.m` — template for custom trial selectors
-- [hw_Interface.md](hw_Interface.md) — abstract base class all hardware interfaces share
+- [hw_Interface.md](hw_Interface.md) — abstract base class that all hardware interfaces implement
+- [hw_Module.md](hw_Module.md) — `hw.Module` used internally to register parameters
+- [hw_Parameter.md](hw_Parameter.md) — `hw.Parameter` handles used by `trigger()` and `set_parameter()`
+- `runtime/timerfcns/ep_TimerFcn_Start.m` — hook for custom start logic
+- `runtime/timerfcns/ep_TimerFcn_Stop.m` — hook for custom stop logic

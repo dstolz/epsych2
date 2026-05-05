@@ -1,0 +1,134 @@
+{
+  "formatVersion": 1,
+  "epsychVersion": "",
+  "createdDate": "2026-05-05 00:00:00",
+  "lastModified": "2026-05-05 00:00:00",
+  "protocolVersion": "v0.260505",
+  "Options": {
+    "trialFunc": "",
+    "compileAtRuntime": false,
+    "IncludeWAVBuffers": true,
+    "ConnectionType": "GB"
+  },
+  "Info": "Template protocol for CalibrationGui with TDT_RPcox interface and required calibration tags.",
+  "COMPILED": {
+    "trials": [],
+    "writeparams": [],
+    "OPTIONS": {},
+    "ntrials": 0,
+    "compiledAt": null
+  },
+  "InterfaceData": [
+    {
+      "Type": "TDT_RPcox",
+      "ClassName": "hw.TDT_RPcox",
+      "ConnectionType": "GB",
+      "Modules": [
+        {
+          "Label": "RX6",
+          "Name": "RX6Cal",
+          "Index": 1,
+          "Fs": 97656.25,
+          "Info": {
+            "RPvdsFile": "C:\\TDT\\Circuits\\Calibration_RX6.rcx",
+            "Number": 1,
+            "FsOverride": 0,
+            "ConnectionType": "GB"
+          },
+          "Parameters": [
+            {
+              "Name": "BufferSize",
+              "Description": "Number of samples to play/record.",
+              "Unit": "samples",
+              "Access": "Write",
+              "Type": "Integer",
+              "Format": "%d",
+              "Visible": true,
+              "Values": [],
+              "Value": 0,
+              "lastUpdated": 0,
+              "isArray": false,
+              "isTrigger": false,
+              "isRandom": false,
+              "Min": 0,
+              "Max": 10000000,
+              "UserData": []
+            },
+            {
+              "Name": "BufferOut",
+              "Description": "Output waveform buffer.",
+              "Unit": "V",
+              "Access": "Write",
+              "Type": "Buffer",
+              "Format": "%g",
+              "Visible": true,
+              "Values": [],
+              "Value": [],
+              "lastUpdated": 0,
+              "isArray": true,
+              "isTrigger": false,
+              "isRandom": false,
+              "Min": -10,
+              "Max": 10,
+              "UserData": []
+            },
+            {
+              "Name": "x_Trigger",
+              "Description": "Start pulse for acquisition.",
+              "Unit": "",
+              "Access": "Write",
+              "Type": "Boolean",
+              "Format": "%d",
+              "Visible": true,
+              "Values": [],
+              "Value": 0,
+              "lastUpdated": 0,
+              "isArray": false,
+              "isTrigger": false,
+              "isRandom": false,
+              "Min": 0,
+              "Max": 1,
+              "UserData": []
+            },
+            {
+              "Name": "BufferIndex",
+              "Description": "Playback/acquisition progress counter.",
+              "Unit": "samples",
+              "Access": "Read",
+              "Type": "Integer",
+              "Format": "%d",
+              "Visible": true,
+              "Values": [],
+              "Value": 0,
+              "lastUpdated": 0,
+              "isArray": false,
+              "isTrigger": false,
+              "isRandom": false,
+              "Min": 0,
+              "Max": 10000000,
+              "UserData": []
+            },
+            {
+              "Name": "BufferIn",
+              "Description": "Recorded microphone response buffer.",
+              "Unit": "V",
+              "Access": "Read",
+              "Type": "Buffer",
+              "Format": "%g",
+              "Visible": true,
+              "Values": [],
+              "Value": [],
+              "lastUpdated": 0,
+              "isArray": true,
+              "isTrigger": false,
+              "isRandom": false,
+              "Min": -10,
+              "Max": 10,
+              "UserData": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

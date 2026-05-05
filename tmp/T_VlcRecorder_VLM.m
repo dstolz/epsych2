@@ -19,16 +19,16 @@ epsych_startup;
 
 %%
 
-% T_VlcRecorder  Diagnostic test for hw.VlcRecorder (ffmpeg backend).
+% T_VlcRecorder  Diagnostic test for hw.VlcRecorder (VLC-only backend).
 % Run this from the MATLAB Command Window after calling epsych_startup.
 %
 % Tests the full recording workflow:
-%   connect -> set parameters -> Play (launches VLC display + ffmpeg) ->
-%   wait -> Stop (kills ffmpeg, finalises file, closes VLC) -> check file.
+%   connect -> set parameters -> Play (launches VLC with --sout for
+%   simultaneous display + recording) -> wait -> Stop (kills VLC,
+%   finalises file) -> check file.
 %
 % Requires:
-%   ffmpeg.exe at C:\prgms_on_path\ffmpeg.exe
-%   VLC at     C:\Program Files (x86)\VideoLAN\VLC\vlc.exe
+%   VLC at C:\Program Files (x86)\VideoLAN\VLC\vlc.exe
 %   DirectShow webcam device named "Integrated Camera"
 
 clc
@@ -43,20 +43,13 @@ cleanupDiary = onCleanup(@() diary('off')); %#ok<NASGU>
 fprintf('Log file: %s\n\n', logFile);
 
 deviceName = 'Integrated Camera';
-outFile    = 'C:\Temp\capture_vlcrecorder.ts';
+outFile    = 'C:\Temp\capture_vlcrecorder.mp4';
 recordSecs = 10;
 
 %% 1. Preconditions
 fprintf('--- Precondition checks ---\n');
 
-ffmpegPath = 'C:\prgms_on_path\ffmpeg.exe';
-vlcPath    = 'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe';
-
-if isfile(ffmpegPath)
-    fprintf('PASS: ffmpeg found at %s\n', ffmpegPath);
-else
-    fprintf('FAIL: ffmpeg not found at %s\n', ffmpegPath);
-end
+vlcPath = 'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe';
 
 if isfile(vlcPath)
     fprintf('PASS: VLC found at %s\n', vlcPath);
@@ -82,23 +75,27 @@ fprintf('  IsConnected: %d\n\n', obj.IsConnected);
 
 %% 3. Configure parameters
 fprintf('--- Parameters ---\n');
-obj.set_parameter('DeviceName',    deviceName);
-obj.set_parameter('RecordingFile', outFile);
-obj.set_parameter('MediaFile',     'dshow://');
-fprintf('  DeviceName    : %s\n', deviceName);
-fprintf('  RecordingFile : %s\n', outFile);
-fprintf('  MediaFile     : dshow://\n\n');
+P = obj.all_parameters(asStruct=true,includeTriggers=true,includeInvisible=true);
+P.DeviceName.Value = deviceName;
+P.RecordingFile.Value = outFile;
+P.MediaFile.Value = 'dshow://';
+fprintf('  DeviceName    : %s\n', P.DeviceName.Value);
+fprintf('  RecordingFile : %s\n', P.RecordingFile.Value);
+fprintf('  MediaFile     : %s\n\n',P.MediaFile.Value);
 
-%% 4. Play (launches VLC display + ffmpeg recording)
+%% 4. Play (launches VLC with --sout for display + recording)
 fprintf('--- trigger(Play) ---\n');
-obj.trigger('Play');
+P.Play.Trigger;
+pause(3);
+P.StartRecord.Trigger;
 fprintf('  Launched. Recording for %d seconds...\n', recordSecs);
 pause(recordSecs);
 
 %% 5. Stop
 fprintf('--- trigger(Stop) ---\n');
-obj.trigger('Stop');
-pause(1);  % allow OS to flush file handles
+P.StopRecord.Trigger;
+P.Stop.Trigger;
+pause(1);  % allow VLC to flush file buffers
 fprintf('  Stopped.\n\n');
 
 %% 6. Disconnect

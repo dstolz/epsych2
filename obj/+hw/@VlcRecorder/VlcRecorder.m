@@ -1,43 +1,39 @@
 classdef VlcRecorder < hw.Interface
     % obj = hw.VlcRecorder()
-    % hw.Interface implementation for webcam recording using ffmpeg, with VLC for live display.
+    % hw.Interface implementation for webcam preview and recording using VLC.
     %
     % connect() initialises the interface. Use set_parameter to configure the
-    % device, output file, and media source, then trigger('Play') to start.
-    % Recording uses ffmpeg (H.264/libx264) launched as a background process;
-    % VLC is launched separately for the live preview window.
+    % device and optional output file, then trigger('Play') to start.
+    %
+    % When RecordingFile is empty, VLC opens in display-only mode.
+    % When RecordingFile is set, VLC duplicates the stream to both the
+    % display window and the output file simultaneously using --sout.
     %
     % Parameters exposed (via all_parameters):
-    %   DeviceName    - (String, Any)    DirectShow video device name (default: 'Integrated Camera').
-    %   RecordingFile - (File, Any)      Output file path for ffmpeg recording. Leave empty to
-    %                                     display without recording.
-    %   MediaFile     - (String, Write)  Media URI passed to VLC for display (e.g. 'dshow://').
+    %   DeviceName    - (String, Any)  DirectShow video device name.
+    %                                  Default: 'Integrated Camera'.
+    %   RecordingFile - (File, Any)    Output file path. Leave empty for display only.
+    %   MediaFile     - (String, Any)  Media URI passed to VLC (default: 'dshow://').
     %
     % Triggers (via trigger()):
-    %   Play        - Launch VLC display and start ffmpeg recording (if RecordingFile is set).
-    %   Stop        - Kill ffmpeg and VLC processes started by this object.
-    %   Pause       - No-op (VLC display only; ffmpeg recording is not pausable).
-    %   StartRecord - Start ffmpeg recording independently (e.g. after Play).
-    %   StopRecord  - Stop ffmpeg recording without stopping VLC display.
+    %   Play        - Launch VLC. Records to RecordingFile if one is set.
+    %   Stop        - Close VLC and finalise any recording.
+    %   Pause       - No-op (not supported over command line).
+    %   StartRecord - Restart VLC with recording enabled (if not already recording).
+    %   StopRecord  - Restart VLC in display-only mode (stops recording).
     %
     % Notes
-    %   ffmpeg is expected at the path stored in ffmpegExePath_ (default:
-    %   'C:\prgms_on_path\ffmpeg.exe'). Override by setting that property before connect().
+    %   VLC is expected at vlcExePath_ (default:
+    %   'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe').
     %
-    %   VLC is expected at vlcExePath_ (default: 'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe').
-    %
-    %   PIDs of the launched VLC and ffmpeg processes are cached and used for
-    %   clean termination. Only processes started by THIS object are killed.
-    %
-    %   Codec settings (libx264 / ultrafast / CRF 28) are suitable for real-time
-    %   capture. Change crf_ and preset_ properties before connect() to adjust.
+    %   StartRecord / StopRecord briefly restart the VLC window because the
+    %   sout chain cannot be changed on a running instance.
     %
     % Example
     %   obj = hw.VlcRecorder();
     %   obj.connect();
     %   obj.set_parameter('DeviceName',    'Integrated Camera');
     %   obj.set_parameter('RecordingFile', 'C:\data\capture.ts');
-    %   obj.set_parameter('MediaFile',     'dshow://');
     %   obj.trigger('Play');
     %   pause(30);
     %   obj.trigger('Stop');
@@ -48,7 +44,6 @@ classdef VlcRecorder < hw.Interface
 
     properties (SetAccess = protected)
         HW = []  % unused; retained for hw.Interface compatibility
-
         Module
     end
 
@@ -66,15 +61,11 @@ classdef VlcRecorder < hw.Interface
 
     properties (Access = private)
         vlcExePath_    (1,1) string = "C:\Program Files (x86)\VideoLAN\VLC\vlc.exe"  % path to vlc.exe
-        ffmpegExePath_ (1,1) string = "C:\prgms_on_path\ffmpeg.exe"                  % path to ffmpeg.exe
         deviceName_    (1,1) string = "Integrated Camera"  % DirectShow video device name
-        recordingFile_ (1,1) string = ""                   % output file path for ffmpeg
-        mediaUri_      (1,1) string = "dshow://"            % media URI for VLC display
-        isRecording_   (1,1) logical = false                % true while ffmpeg is recording
-        vlcPid_        (1,1) double  = 0                    % PID of VLC process we launched
-        ffmpegPid_     (1,1) double  = 0                    % PID of ffmpeg process we launched
-        crf_           (1,1) double  = 28                   % ffmpeg CRF quality (lower = better, larger file)
-        preset_        (1,1) string  = "ultrafast"          % ffmpeg x264 preset
+        recordingFile_ (1,1) string = ""                   % output file path; empty = display only
+        mediaUri_      (1,1) string = "dshow://"            % media URI for VLC
+        isRecording_   (1,1) logical = false                % true when VLC was launched with --sout recording
+        vlcPid_        (1,1) double  = 0                    % 0=stopped, -1=running (PID not tracked)
     end
 
 
@@ -88,7 +79,7 @@ classdef VlcRecorder < hw.Interface
         function connect(obj)
             % obj.connect()
             % Initialise the interface parameters. No external process is launched here;
-            % call trigger('Play') to start VLC display and ffmpeg recording.
+            % call trigger('Play') to start VLC.
             if obj.IsConnected
                 return
             end
@@ -119,27 +110,29 @@ classdef VlcRecorder < hw.Interface
             result = 1;
             switch name
                 case 'Play'
+                    obj.stopVlc_();
                     obj.launchVlc_();
-                    if strlength(obj.recordingFile_) > 0
-                        obj.launchFfmpeg_();
-                    end
 
                 case 'Stop'
-                    obj.stopFfmpeg_();
                     obj.stopVlc_();
 
                 case 'Pause'
-                    % VLC display does not expose RC; ffmpeg cannot be paused.
-                    vprintf(3, 'hw.VlcRecorder: Pause is a no-op in this backend.');
+                    vprintf(3, 'hw.VlcRecorder: Pause is a no-op for command-line VLC.');
 
                 case 'StartRecord'
                     if ~obj.isRecording_
-                        obj.launchFfmpeg_();
+                        obj.stopVlc_();
+                        obj.launchVlc_();
                     end
 
                 case 'StopRecord'
                     if obj.isRecording_
-                        obj.stopFfmpeg_();
+                        % Restart without recording by temporarily clearing the file path.
+                        recFile = obj.recordingFile_;
+                        obj.recordingFile_ = "";
+                        obj.stopVlc_();
+                        obj.launchVlc_();
+                        obj.recordingFile_ = recFile;
                     end
 
                 otherwise
@@ -182,37 +175,57 @@ classdef VlcRecorder < hw.Interface
             result = 1;
         end
 
-        function value = get_parameter(obj, name) %#ok<INUSD>
-            % get_parameter returns nan.
-            % Parameter values are cached locally; this interface does not poll hardware.
-            value = nan;
+        function value = get_parameter(obj, name)
+            % value = obj.get_parameter(name)
+            % Return cached parameter values for interface parameters.
+            if isa(name, 'hw.Parameter')
+                paramName = name.Name;
+            else
+                paramName = char(name);
+            end
+
+            switch paramName
+                case 'DeviceName'
+                    value = char(obj.deviceName_);
+
+                case 'RecordingFile'
+                    value = char(obj.recordingFile_);
+
+                case 'MediaFile'
+                    value = char(obj.mediaUri_);
+
+                otherwise
+                    % Triggers and unknown names do not map to readable hardware state.
+                    value = nan;
+            end
         end
 
         function selected = selectDevice(obj)
             % selected = obj.selectDevice()
-            % Show a list dialog of available DirectShow video devices and set
-            % DeviceName to the user's choice.
-            % Queries available devices via: ffmpeg -list_devices true -f dshow -i dummy
+            % Show a list dialog of available DirectShow video capture devices and
+            % set DeviceName to the user's choice.
+            % Enumerates devices via PowerShell Get-PnpDevice.
             % Returns:
             %   selected - chosen device name string, or "" if cancelled.
 
-            [~, raw] = system(sprintf('"%s" -list_devices true -f dshow -i dummy 2>&1', ...
-                char(obj.ffmpegExePath_)));
+            [st, raw] = system(['powershell -NoProfile -Command "' ...
+                'Get-PnpDevice -Class Camera -Status OK | ' ...
+                'Select-Object -ExpandProperty FriendlyName"']);
 
-            % ffmpeg prints video device names on lines like:
-            %   [dshow @ ...] "Device Name" (video)
-            tokens = regexp(raw, '"([^"]+)"\s*\(video\)', 'tokens');
-            devices = cellfun(@(t) t{1}, tokens, 'UniformOutput', false);
+            devices = {};
+            if st == 0 && ~isempty(strtrim(raw))
+                lines = strtrim(splitlines(strtrim(raw)));
+                devices = lines(~cellfun('isempty', lines));
+            end
 
             if isempty(devices)
                 uiwait(warndlg( ...
-                    sprintf('No DirectShow video devices found.\n\nffmpeg output:\n%s', raw), ...
+                    'No DirectShow video devices found via Get-PnpDevice.', ...
                     'hw.VlcRecorder', 'modal'));
                 selected = "";
                 return
             end
 
-            % Pre-select the currently configured device if it is in the list.
             currentIdx = find(strcmp(devices, char(obj.deviceName_)), 1);
             if isempty(currentIdx)
                 currentIdx = 1;
@@ -247,7 +260,7 @@ classdef VlcRecorder < hw.Interface
             spec = hw.InterfaceSpec( ...
                 char(hw.VlcRecorder.Type), ...
                 'VLC Recorder', ...
-                'Webcam recording via ffmpeg with VLC live display.', ...
+                'Webcam preview and recording via VLC command line.', ...
                 [], ...
                 @(~) hw.VlcRecorder());
         end
@@ -265,50 +278,49 @@ classdef VlcRecorder < hw.Interface
                 Type    = 'String', ...
                 Access  = 'Any', ...
                 Visible = true, ...
-                Description = 'DirectShow video device name (as reported by ffmpeg -list_devices).');
+                Description = 'DirectShow video device name.');
 
             obj.add_parameter('RecordingFile', '', ...
                 Type    = 'File', ...
                 Access  = 'Any', ...
                 Visible = true, ...
-                Description = 'Output file path for ffmpeg recording. Leave empty to display without recording.');
+                Description = 'Output file path for VLC recording. Leave empty for display only.');
 
             obj.add_parameter('MediaFile', 'dshow://', ...
                 Type    = 'String', ...
                 Access  = 'Any', ...
                 Visible = true, ...
-                Description = 'Media URI passed to VLC for live display (e.g. dshow://).');
+                Description = 'Media URI passed to VLC (e.g. dshow://).');
 
             obj.add_parameter('Play', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
-                Description = 'Trigger: launch VLC display and start ffmpeg recording.');
+                Description = 'Trigger: launch VLC preview and recording (if RecordingFile is set).');
 
             obj.add_parameter('Stop', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
-                Description = 'Trigger: stop ffmpeg recording and close VLC.');
+                Description = 'Trigger: close VLC and finalise any recording.');
 
             obj.add_parameter('Pause', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
-                Description = 'Trigger: no-op in this backend.');
+                Description = 'Trigger: no-op.');
 
             obj.add_parameter('StartRecord', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
-                Description = 'Trigger: start ffmpeg recording independently of VLC display.');
+                Description = 'Trigger: restart VLC with recording enabled.');
 
             obj.add_parameter('StopRecord', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
-                Description = 'Trigger: stop ffmpeg recording without closing VLC display.');
+                Description = 'Trigger: restart VLC in display-only mode.');
         end
 
         function close_interface(obj)
             % close_interface()
             % Stop any running processes and mark as disconnected.
-            obj.stopFfmpeg_();
             obj.stopVlc_();
             obj.IsConnected = false;
         end
@@ -318,113 +330,92 @@ classdef VlcRecorder < hw.Interface
     methods (Access = private)
         function launchVlc_(obj)
             % launchVlc_()
-            % Launch VLC with the configured media URI for live display.
-            % Stores the PID so it can be terminated later.
-            if obj.vlcPid_ > 0
+            % Launch VLC. If RecordingFile is set, uses --sout to simultaneously
+            % display and record. Otherwise opens in display-only mode.
+            if obj.vlcPid_ ~= 0
                 return
             end
             device  = char(obj.deviceName_);
-            argStr  = sprintf('dshow:// :dshow-vdev="%s" --no-audio --no-qt-notification', device);
-            pid = obj.launchProcess_(obj.vlcExePath_, argStr, false);
-            obj.vlcPid_ = pid;
-            if pid <= 0
-                vprintf(0, 1, 'hw.VlcRecorder: failed to launch VLC or read PID.');
+            uri     = char(obj.mediaUri_);
+            recFile = char(obj.recordingFile_);
+
+            if isempty(recFile)
+                % Display only.
+                argStr = sprintf('%s --one-instance --dshow-vdev="%s" --no-audio', ...
+                    uri, device);
+                obj.isRecording_ = false;
             else
-                vprintf(2, 'hw.VlcRecorder: VLC launched, PID=%d', pid);
+                % Record and preview simultaneously using duplicate stream output.
+                % The file branch transcodes to H264 for robust webcam capture.
+                recVlc = strrep(recFile, '\\', '/');
+                recVlc = strrep(recVlc, '''', '''''');
+
+                [~, ~, ext] = fileparts(recFile);
+                mux = 'ts';
+                if strcmpi(ext, '.mp4')
+                    mux = 'mp4';
+                end
+
+                sout = sprintf('#duplicate{dst=display,dst=transcode{vcodec=h264,vb=1200,fps=30,acodec=none}:standard{access=file,mux=%s,dst=''%s''}}', ...
+                    mux, recVlc);
+                argStr = sprintf('%s --one-instance --dshow-vdev="%s" --no-audio --sout "%s" --sout-keep', ...
+                    uri, device, sout);
+                obj.isRecording_ = true;
+            end
+
+            launched = obj.launchProcess_(obj.vlcExePath_, argStr);
+            if ~launched
+                obj.vlcPid_ = 0;
+                obj.isRecording_ = false;
+                vprintf(0, 1, 'hw.VlcRecorder: failed to launch VLC.');
+            else
+                obj.vlcPid_ = -1;
+                vprintf(2, 'hw.VlcRecorder: VLC launched, recording=%d', obj.isRecording_);
             end
         end
 
         function stopVlc_(obj)
             % stopVlc_()
-            % Terminate the VLC process launched by this object.
-            if obj.vlcPid_ > 0
-                system(sprintf('taskkill /PID %d /F /T 2>nul', obj.vlcPid_));
-                vprintf(2, 'hw.VlcRecorder: VLC (PID=%d) terminated.', obj.vlcPid_);
-                obj.vlcPid_ = 0;
+            % Terminate VLC processes (PID tracking intentionally not used).
+            if obj.vlcPid_ ~= 0
+                % Ask VLC to quit cleanly first so muxers can finalize output.
+                system(sprintf('"%s" --one-instance vlc://quit 1>nul 2>nul', char(obj.vlcExePath_)));
+                pause(1.0);
+
+                % Fallback in case VLC does not exit promptly.
+                [~, tl] = system('tasklist /FI "IMAGENAME eq vlc.exe" /FO CSV /NH 2>nul');
+                if contains(lower(tl), 'vlc.exe')
+                    system('taskkill /IM vlc.exe /T 2>nul');
+                end
+                pause(0.5);  % allow VLC to flush file buffers before caller checks output
+                vprintf(2, 'hw.VlcRecorder: VLC terminated.');
+                obj.vlcPid_      = 0;
+                obj.isRecording_ = false;
             end
         end
 
-        function launchFfmpeg_(obj)
-            % launchFfmpeg_()
-            % Launch ffmpeg to record from the DirectShow device to RecordingFile.
-            % Stores the PID for later termination via stopFfmpeg_().
-            if obj.isRecording_
-                vprintf(2, 'hw.VlcRecorder: ffmpeg already recording — skipping duplicate launch.');
-                return
-            end
-            recFile = char(obj.recordingFile_);
-            if isempty(recFile)
-                vprintf(0, 1, 'hw.VlcRecorder: RecordingFile is empty; cannot start ffmpeg.');
-                return
-            end
-            device = char(obj.deviceName_);
-            argStr = sprintf('-y -f dshow -i "video=%s" -vcodec libx264 -preset %s -crf %d "%s"', ...
-                device, char(obj.preset_), obj.crf_, recFile);
-            pid = obj.launchProcess_(obj.ffmpegExePath_, argStr, true);
-            obj.ffmpegPid_ = pid;
-            if pid <= 0
-                vprintf(0, 1, 'hw.VlcRecorder: failed to launch ffmpeg or read PID.');
-            else
-                obj.isRecording_ = true;
-                vprintf(2, 'hw.VlcRecorder: ffmpeg launched, PID=%d, recording to "%s"', pid, recFile);
-            end
-        end
-
-        function stopFfmpeg_(obj)
-            % stopFfmpeg_()
-            % Terminate the ffmpeg recording process.
-            % MPEG-TS output is streamable and remains valid even after a forced kill.
-            if ~obj.isRecording_ || obj.ffmpegPid_ <= 0
-                return
-            end
-            system(sprintf('taskkill /PID %d /F /T 2>nul', obj.ffmpegPid_));
-            pause(0.5);  % allow OS to release file handle before caller checks the file
-            vprintf(2, 'hw.VlcRecorder: ffmpeg (PID=%d) terminated.', obj.ffmpegPid_);
-            obj.ffmpegPid_   = 0;
-            obj.isRecording_ = false;
-        end
-
-        function pid = launchProcess_(~, exePath, argStr, hidden)
-            % pid = launchProcess_(exePath, argStr, hidden)
-            % Launch an external process via a temporary PS1 file and return its PID.
+        function launched = launchProcess_(~, exePath, argStr)
+            % launched = launchProcess_(exePath, argStr)
+            % Launch VLC via a temporary .bat file using plain cmd.exe syntax.
             %
-            % Writing a .ps1 file and using 'powershell -File' avoids the
-            % double-escaping problem that occurs when embedding quotes inside
-            % 'powershell -Command "..."' (which goes through cmd.exe first).
-            %
-            % Inside the PS1 file, PowerShell single-quoted strings are fully
-            % literal — double quotes within them are passed as-is to the process.
+            % A one-line .bat file is written containing:
+            %   start "" "exePath" argStr
+            % This avoids PowerShell and uses VLC command-line options directly.
             %
             % Inputs:
-            %   exePath - full path to the executable
-            %   argStr  - argument string; use double-quotes for values with spaces
-            %             (e.g. 'video="My Device"') — they will be literal in the PS1
-            %   hidden  - true to launch with -WindowStyle Hidden
+            %   exePath - full path to vlc.exe
+            %   argStr  - VLC argument string; embedded double-quotes are preserved
             % Returns:
-            %   pid - process ID, or 0 on failure
-            windowStyle = 'Normal';
-            if hidden
-                windowStyle = 'Hidden';
-            end
+            %   launched - true when cmd accepted the launch command
 
-            % Escape any single quotes in exe path or args for PS1 single-quoted strings.
-            exeEsc = strrep(char(exePath), '''', '''''');
-            argEsc = strrep(char(argStr),  '''', '''''');
-
-            psFile = [tempname() '.ps1'];
-            fid = fopen(psFile, 'w', 'n', 'UTF-8');
-            fprintf(fid, '$p = Start-Process -PassThru -WindowStyle %s -FilePath ''%s'' -ArgumentList ''%s''\r\n', ...
-                windowStyle, exeEsc, argEsc);
-            fprintf(fid, 'if ($p) { Write-Output $p.Id } else { Write-Output 0 }\r\n');
+            batFile = [tempname() '.bat'];
+            fid = fopen(batFile, 'w', 'n', 'UTF-8');
+            fprintf(fid, '@echo off\r\nstart "" "%s" %s\r\n', char(exePath), char(argStr));
             fclose(fid);
+            [st, ~] = system(sprintf('cmd /c "%s"', batFile));
+            delete(batFile);
 
-            [~, out] = system(sprintf('powershell -ExecutionPolicy Bypass -NoProfile -File "%s"', psFile));
-            delete(psFile);
-
-            pid = str2double(strtrim(out));
-            if isnan(pid) || pid <= 0
-                pid = 0;
-            end
+            launched = (st == 0);
         end
     end
 

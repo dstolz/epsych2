@@ -510,6 +510,9 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
                     value = NaN;
             end
 
+            % Start with the generated signal; may be replaced by filtered version.
+            y = obj.Signal;
+
             % --- Filter-based calibration: equalize spectrum + apply level gain ---
             if type == "filter" && isfield(C.CalibrationData,'filter')
 

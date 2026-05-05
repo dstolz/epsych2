@@ -1,0 +1,40 @@
+Log file: C:\src\epsych2\tmp\T_VlcRecorder_VLM_last_run.log
+
+--- Precondition checks ---
+PASS: VLC found at C:\Program Files (x86)\VideoLAN\VLC\vlc.exe
+  Deleted existing output file.
+
+--- Connect ---
+  IsConnected: 1
+
+--- Parameters ---
+10:56:01.562: hw.VlcRecorder: DeviceName = "Integrated Camera"
+10:56:01.571: hw.VlcRecorder: RecordingFile = "C:\Temp\capture_vlcrecorder.mp4"
+10:56:01.590: hw.VlcRecorder: MediaFile = "dshow://"
+  DeviceName    : Integrated Camera
+  RecordingFile : C:\Temp\capture_vlcrecorder.mp4
+  MediaFile     : dshow://
+
+--- trigger(Play) ---
+10:56:01.814: hw.VlcRecorder: VLC launched, recording=1
+10:56:01.823: Play triggered
+10:56:04.840: StartRecord triggered
+  Launched. Recording for 10 seconds...
+--- trigger(Stop) ---
+[0102bb20] main libvlc: one instance mode ENABLED 
+SUCCESS: Sent termination signal to process with PID 56500, child of PID 52744. 
+10:56:17.933: hw.VlcRecorder: VLC terminated.
+10:56:18.093: hw.VlcRecorder: VLC launched, recording=0
+10:56:18.095: StopRecord triggered
+[0140bb20] main libvlc: one instance mode ENABLED 
+SUCCESS: Sent termination signal to process with PID 28652, child of PID 44952. 
+10:56:21.713: hw.VlcRecorder: VLC terminated.
+10:56:21.715: Stop triggered
+  Stopped.
+
+  Disconnected.
+
+--- Output file check ---
+PASS: file created. Size = 405531 bytes.
+
+Run log written to: C:\src\epsych2\tmp\T_VlcRecorder_VLM_last_run.log

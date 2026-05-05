@@ -379,10 +379,11 @@ end
 function export_all_signals_to_workspace_(obj)
 % Export signals for every combination of every bank item to the workspace.
 % Creates a struct `signals` with one field per bank entry (named by bank
-% label, sanitized for use as a struct field).  Each field contains:
+% label, sanitized for use as a struct field).  Each field is an N-by-1
+% struct array over combinations. For each element c:
 %   .Fs         - sample rate (Hz)
-%   .signal     - N-combo struct array, each with fields .data and .time
-%   .parameters - N-combo struct array with one field per user property
+%   .signal     - signal vector for combination c
+%   .parameters - struct of user-property values for combination c
 
 if isempty(obj.StimPlayObjs)
     obj.show_gui_message_("The stimulus bank is empty.", "Nothing To Export", "warning");
@@ -412,22 +413,16 @@ try
         % Snapshot the currently active combination index to restore later
         savedIdx = info.ActiveIndex;
 
-        fsVal      = stimObj.Fs;
-        signalArr  = struct('data', cell(nCombo,1), 'time', cell(nCombo,1));
-        paramArr   = struct();
-        paramArr   = repmat(paramArr, nCombo, 1);
+        fsVal  = stimObj.Fs;
+        entry  = repmat(struct('Fs', fsVal, 'signal', [], 'parameters', struct()), nCombo, 1);
 
         for c = 1:nCombo
             stimObj.set_variant_index(c);
             if isempty(stimObj.Signal)
                 stimObj.update_signal;
             end
-            signalArr(c).data = stimObj.Signal;
-            if ~isempty(stimObj.Signal)
-                signalArr(c).time = (0:numel(stimObj.Signal)-1).' / fsVal;
-            else
-                signalArr(c).time = [];
-            end
+            entry(c).Fs = fsVal;
+            entry(c).signal = stimObj.Signal;
 
             % Collect current values of all user-defined properties
             props = string(stimObj.UserProperties);
@@ -435,17 +430,13 @@ try
                 pname = char(props(p));
                 fld   = matlab.lang.makeValidName(pname);
                 if isprop(stimObj, pname)
-                    paramArr(c).(fld) = stimObj.(pname);
+                    entry(c).parameters.(fld) = stimObj.(pname);
                 end
             end
         end
 
         % Restore the original combination
         stimObj.set_variant_index(savedIdx);
-
-        entry.Fs         = fsVal;
-        entry.signal     = signalArr;
-        entry.parameters = paramArr;
 
         signals.(fieldName) = entry; %#ok<AGROW>
     end

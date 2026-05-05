@@ -21,7 +21,7 @@ end
 cm = cellstr(m);
 cm{end} = sprintf('%s\n%s <a href="%s">%s</a>',cm{end},latestTag,E.LicenseURL,E.Copyright);
 cm{end+1} = sprintf('Latest commit: %s; %s; <a href="%s">Commit History Overview</a>',E.commitTimestamp,E.chksum(1:7),E.CommitHistoryURL);
-cm{end+1} = sprintf('<a href="%s">See Documentation</a>',E.DocumentationURL);
+cm{end+1} = sprintf('<a href="%s">Visit Documentation</a>',E.DocumentationURL);
 lnk = E.RepositoryURL;
 cm{end+1} = sprintf('Repository: <a href="%s">%s</a>',lnk,lnk);
 cm{end+1} = '--> <a href="matlab: epsych.ProtocolDesigner">epsych.ProtocolDesigner</a>    ... Define parameters for experiments';

@@ -208,7 +208,7 @@ classdef Engine < handle
             catch ME
                 % Abort: do not persist partial data.
                 if isstruct(obj.CalibrationData)
-                    obj.CalibrationData = rmfield_safe_(obj.CalibrationData, 'tone');
+                    obj.CalibrationData = stimgen.calibration.Engine.rmfield_safe_(obj.CalibrationData, 'tone');
                 end
                 vprintf(0, 2, 'Tone calibration aborted: %s', ME.message);
                 rethrow(ME);
@@ -286,7 +286,7 @@ classdef Engine < handle
                 end
             catch ME
                 if isstruct(obj.CalibrationData)
-                    obj.CalibrationData = rmfield_safe_(obj.CalibrationData, 'click');
+                    obj.CalibrationData = stimgen.calibration.Engine.rmfield_safe_(obj.CalibrationData, 'click');
                 end
                 vprintf(0, 2, 'Click calibration aborted: %s', ME.message);
                 rethrow(ME);
@@ -300,6 +300,119 @@ classdef Engine < handle
                 'voltage',     click_data.voltage(:));
             obj.CalibrationData = cd_out;
             obj.CalibrationTimestamp = datetime('now');
+        end
+
+        % ---------------------------------------------------------- %
+        function calibrate_swept_sine(obj, duration, freqs)
+            % calibrate_swept_sine(obj)
+            % calibrate_swept_sine(obj, duration)
+            % calibrate_swept_sine(obj, duration, freqs)
+            %
+            % Perform broadband calibration using a log-sine chirp sweep.
+            % The chirp exponentially increases frequency from ~100 Hz to
+            % Nyquist, covering the entire spectrum in one measurement. Spectral
+            % analysis at discrete frequency points yields a transfer function
+            % and frequency-dependent SPL calibration.
+            %
+            % The log-sine chirp has exceptional properties for measuring
+            % frequency response: naturally pink spectrum, low crest factor (~4 dB),
+            % and unique time-separation of harmonic distortion in the impulse
+            % response. See Chan (2010) "Swept Sine Chirps for Measuring Impulse
+            % Response" for theory and measurement validation.
+            %
+            % Parameters:
+            %   duration - (1,1) double chirp length in seconds (default: 1)
+            %   freqs    - (1,:) double frequency vector in Hz where calibration
+            %              is sampled (default: 50-point log sweep from 100 Hz
+            %              to Nyquist)
+            arguments
+                obj
+                duration (1,1) double {mustBePositive,mustBeFinite} = 1
+                freqs (1,:) double = []
+            end
+            obj.assert_adapter_();
+            fs = obj.Fs;
+            nyquist = fs / 2;
+
+            % Default frequency points: log-distributed from 100 Hz to Nyquist
+            if isempty(freqs)
+                freqs = 100 .* 2.^(linspace(0, log2(nyquist/100), 50));
+                freqs(freqs > nyquist) = [];
+            end
+
+            % Ensure all frequencies are valid
+            freqs = freqs(freqs > 20 & freqs < nyquist);
+            if isempty(freqs)
+                error('stimgen:calibration:Engine:noValidFreqs', ...
+                      'No valid frequencies in range [20 Hz, %g Hz].', nyquist);
+            end
+
+            so = stimgen.SweptSine;
+            so.Fs = fs;
+            so.Duration = duration;
+            so.StartFrequency = 100;
+            so.StopFrequency = min(nyquist * 0.95, 20000);
+            so.ChirpType = "log-sine";
+            so.update_signal();
+
+            y = obj.ExcitationVoltage .* so.Signal;
+            obj.ExcitationSignal = y;
+
+            % Capture the response once
+            raw = obj.Adapter.play_and_record(y);
+            response = obj.trim_response_(raw);
+            obj.ResponseSignal = response;
+            obj.ResponseTHD = thd(response, fs);
+
+            n = numel(freqs);
+            swept_sine_data = obj.empty_table_(n);
+
+            if obj.ShowLivePlots
+                obj.plot_reset();
+            end
+
+            try
+                vprintf(1, 'Analyzing swept sine response at %d frequencies...', n);
+                for i = 1:n
+                    vprintf(1, '[%d/%d] Analyzing %.3f kHz', i, n, freqs(i)/1000);
+
+                    % Measure spectral content at each frequency
+                    m = stimgen.calibration.Engine.spectral_rms(response, freqs(i), fs);
+                    [spl, volt] = obj.compute_spl_voltage_(m, "specfreq");
+
+                    swept_sine_data.x(i)           = freqs(i);
+                    swept_sine_data.measurement(i) = m;
+                    swept_sine_data.spl_db(i)      = spl;
+                    swept_sine_data.voltage(i)     = volt;
+
+                    if obj.ShowLivePlots
+                        obj.plot_spectrum();
+                        obj.plot_transfer('swept_sine', swept_sine_data);
+                    end
+                end
+            catch ME
+                if isstruct(obj.CalibrationData)
+                    obj.CalibrationData = stimgen.calibration.Engine.rmfield_safe_(obj.CalibrationData, 'swept_sine');
+                end
+                vprintf(0, 2, 'Swept sine calibration aborted: %s', ME.message);
+                rethrow(ME);
+            end
+
+            % Commit only on full success
+            cd_out = obj.commit_cal_data_();
+            cd_out.swept_sine = struct( ...
+                'frequency',   freqs(:), ...
+                'measurement', swept_sine_data.measurement(:), ...
+                'spl_db',      swept_sine_data.spl_db(:), ...
+                'voltage',     swept_sine_data.voltage(:), ...
+                'duration',    duration, ...
+                'chirp_type',  "log-sine", ...
+                'start_freq',  100, ...
+                'stop_freq',   min(nyquist * 0.95, 20000));
+            obj.CalibrationData = cd_out;
+            obj.CalibrationTimestamp = datetime('now');
+
+            vprintf(1, 'Swept sine calibration complete. THD: %.2f dB', obj.ResponseTHD);
         end
 
         % ---------------------------------------------------------- %
@@ -351,8 +464,10 @@ classdef Engine < handle
             % Interpolate the calibration LUT and scale to the requested level.
             %
             % Parameters:
-            %   type  - "tone" | "click"
-            %   value - frequency (Hz) for "tone"; duration (s) for "click"
+            %   type  - "tone" | "click" | "swept_sine" | "filter" | "noise"
+            %   value - frequency (Hz) for "tone", "swept_sine", "filter", "noise";
+            %           duration (s) for "click". For "filter"/"noise", if value
+            %           is NaN/non-positive, ReferenceFrequency is used.
             %   level - target sound level in dB SPL
             %
             % Returns:
@@ -362,8 +477,29 @@ classdef Engine < handle
                     'No calibration data available. Run calibration or load a .esgc file.');
             end
 
-            d = obj.CalibrationData.(type);
-            if type == "tone"
+            type = lower(string(type));
+            if type == "noise"
+                % Legacy alias used by older stimulus classes.
+                type = "filter";
+            end
+
+            if type == "filter"
+                % Filter/noise playback is anchored to the tone LUT.
+                lutType = "tone";
+                if ~isfinite(value) || value <= 0
+                    value = obj.ReferenceFrequency;
+                end
+            else
+                lutType = type;
+            end
+
+            if ~isfield(obj.CalibrationData, lutType) || isempty(obj.CalibrationData.(lutType))
+                error('stimgen:calibration:Engine:missingTypeCalibration', ...
+                    'Calibration data for type "%s" is not available.', lutType);
+            end
+
+            d = obj.CalibrationData.(lutType);
+            if lutType == "swept_sine" || lutType == "tone"
                 x = d.frequency;
             else
                 x = d.duration;
@@ -372,6 +508,7 @@ classdef Engine < handle
 
             n = makima(x, z, value);  % normative voltage at requested parameter
             v = n .* 10 .^ ((level - obj.NormativeValue) ./ 20);
+
         end
 
         % ---------------------------------------------------------- %
@@ -521,6 +658,14 @@ classdef Engine < handle
                         y = tableData.spl_db(validIdx);
                         plot(ax, x, y, 'o-b');
                         xlabel(ax, 'duration (μs)');
+                    end
+                case 'swept_sine'
+                    if ~isempty(tableData)
+                        validIdx = ~isnan(tableData.spl_db);
+                        x = tableData.x(validIdx) ./ 1000;
+                        y = tableData.spl_db(validIdx);
+                        loglog(ax, x, y, '^-g');
+                        xlabel(ax, 'frequency (kHz)');
                     end
             end
             ylabel(ax, 'dB SPL');
@@ -732,13 +877,12 @@ classdef Engine < handle
             end
             figure(f);
         end
+
+        function s = rmfield_safe_(s, fname)
+            if isstruct(s) && isfield(s, fname)
+                s = rmfield(s, fname);
+            end
+        end
     end
 
 end  % classdef
-
-% Local helper — does not throw if field is absent.
-function s = rmfield_safe_(s, fname)
-    if isfield(s, fname)
-        s = rmfield(s, fname);
-    end
-end

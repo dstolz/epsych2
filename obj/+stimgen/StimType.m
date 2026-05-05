@@ -1160,6 +1160,14 @@ classdef (Hidden) StimType < handle & matlab.mixin.Heterogeneous & matlab.mixin.
             if isfield(S, 'VariantReselectOnUpdate')
                 obj.VariantReselectOnUpdate = logical(S.VariantReselectOnUpdate);
             end
+            if isfield(S, 'Calibration')
+                calData = S.Calibration;
+                if isa(calData, 'stimgen.StimCalibration')
+                    obj.Calibration = calData;
+                elseif isstruct(calData)
+                    obj.Calibration = stimgen.StimCalibration.loadobj(calData);
+                end
+            end
             for k = 1:numel(S.UserProperties)
                 pname = char(S.UserProperties(k));
                 if isprop(obj, pname) && isfield(S, pname)

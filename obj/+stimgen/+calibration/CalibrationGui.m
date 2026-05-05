@@ -2,6 +2,7 @@ classdef CalibrationGui < handle
     % gui = stimgen.calibration.CalibrationGui()
     % gui = stimgen.calibration.CalibrationGui(Adapter=adapter)
     % gui = stimgen.calibration.CalibrationGui(Engine=eng)
+    % gui = stimgen.calibration.CalibrationGui(Runtime=runtime)
     % Interactive GUI for the stimgen.calibration package.
     %
     % Provides user parameterization of calibration settings, live inspection of
@@ -11,6 +12,8 @@ classdef CalibrationGui < handle
     % Parameters:
     %   Adapter - (optional) stimgen.calibration.HwAdapter used for live runs.
     %   Engine  - (optional) existing stimgen.calibration.Engine instance.
+    %   Runtime - (optional) epsych.Runtime; uses Runtime.HW via
+    %             stimgen.calibration.InterfaceAdapter.
     %
     % Returns:
     %   gui - GUI controller handle.
@@ -18,6 +21,7 @@ classdef CalibrationGui < handle
     % Example:
     %   adapter = stimgen.calibration.InterfaceAdapter(RUNTIME.HW);
     %   gui = stimgen.calibration.CalibrationGui(Adapter=adapter);
+    %   gui = stimgen.calibration.CalibrationGui(Runtime=RUNTIME);
     %
     % See also: stimgen.calibration.Engine, stimgen.calibration.InterfaceAdapter,
     %           documentation/stimgen/stimgen_CalibrationGui.md,
@@ -30,6 +34,9 @@ classdef CalibrationGui < handle
     properties (Access = private)
         Figure
         Grid
+        Runtime epsych.Runtime = epsych.Runtime.empty(0,1)
+        Protocol epsych.Protocol = epsych.Protocol.empty(0,1)
+        ProtocolFile (1,1) string = ""
 
         % Controls
         RefLevelField
@@ -38,17 +45,14 @@ classdef CalibrationGui < handle
         NormativeField
         ExcitationField
         ShowLivePlotsCheck
-        ToneFreqsField
-        ClickDurationsField
         StatusLabel
 
         % Buttons
         BtnReference
         BtnTones
         BtnClicks
+        BtnSweptSine
         BtnFilter
-        BtnSave
-        BtnLoad
 
         % Axes
         AxTime
@@ -63,12 +67,22 @@ classdef CalibrationGui < handle
             arguments
                 options.Adapter = []
                 options.Engine = []
+                options.Runtime = []
             end
 
             if ~isempty(options.Engine)
                 obj.Engine = options.Engine;
             elseif ~isempty(options.Adapter)
                 obj.Engine = stimgen.calibration.Engine(options.Adapter);
+            elseif ~isempty(options.Runtime)
+                runtimeObj = options.Runtime;
+                if ~isa(runtimeObj, 'epsych.Runtime')
+                    error('stimgen:calibration:CalibrationGui:badRuntime', ...
+                        'Runtime must be an epsych.Runtime object.');
+                end
+                obj.Engine = stimgen.calibration.Engine();
+                obj.Runtime = runtimeObj;
+                obj.attach_adapter_from_runtime_(runtimeObj);
             else
                 obj.Engine = stimgen.calibration.Engine();
             end
@@ -77,6 +91,7 @@ classdef CalibrationGui < handle
             obj.sync_controls_();
             obj.refresh_all_plots_();
             obj.update_runtime_state_();
+            obj.show_startup_hint_();
         end
 
         function show(obj)
@@ -110,8 +125,29 @@ classdef CalibrationGui < handle
             obj.Grid.ColumnWidth = {360, '1x'};
             obj.Grid.RowHeight = {'1x'};
 
+            obj.build_menu_();
             obj.build_controls_panel_();
             obj.build_plots_panel_();
+        end
+
+        function build_menu_(obj)
+            % Create File menu with Load and Save options.
+            fileMenu = uimenu(obj.Figure, Text='File');
+            uimenu(fileMenu, Text='Initialize Runtime From Protocol...', ...
+                MenuSelectedFcn=@(~,~) obj.on_initialize_runtime_());
+            uimenu(fileMenu, Text='Attach Adapter', ...
+                MenuSelectedFcn=@(~,~) obj.on_attach_adapter_());
+            uimenu(fileMenu, Text='Disconnect Runtime/Adapter', ...
+                MenuSelectedFcn=@(~,~) obj.on_disconnect_runtime_());
+            uimenu(fileMenu, Text='Load .esgc', ...
+                Separator='on', ...
+                MenuSelectedFcn=@(~,~) obj.on_load_());
+            uimenu(fileMenu, Text='Save .esgc', ...
+                MenuSelectedFcn=@(~,~) obj.on_save_());
+
+            helpMenu = uimenu(obj.Figure, Text='Help');
+            uimenu(helpMenu, Text='Calibration Quick Start', ...
+                MenuSelectedFcn=@(~,~) obj.on_show_quick_start_());
         end
 
         function build_controls_panel_(obj)
@@ -119,9 +155,10 @@ classdef CalibrationGui < handle
             panel.Layout.Row = 1;
             panel.Layout.Column = 1;
 
-            g = uigridlayout(panel, [15 2]);
-            g.RowHeight = {24, 24, 24, 24, 24, 24, 24, 70, 70, 30, 30, 30, 30, 30, '1x'};
+            g = uigridlayout(panel, [14 2]);
+            g.RowHeight = {24, 24, 24, 24, 24, 24, 16, 32, 32, 32, 32, 32, 24, '1x'};
             g.ColumnWidth = {'1x', '1x'};
+            g.Scrollable = 'on';
 
             refLevelLabel = uilabel(g, Text='Reference Level (dB SPL)', HorizontalAlignment='right');
             refLevelLabel.Layout.Row = 1;
@@ -175,58 +212,38 @@ classdef CalibrationGui < handle
             obj.ShowLivePlotsCheck.Layout.Row = 6;
             obj.ShowLivePlotsCheck.Layout.Column = 2;
 
-            toneFreqsLabel = uilabel(g, Text='Tone Frequencies (Hz)', HorizontalAlignment='right');
-            toneFreqsLabel.Layout.Row = 7;
-            toneFreqsLabel.Layout.Column = 1;
-            obj.ToneFreqsField = uitextarea(g);
-            obj.ToneFreqsField.Layout.Row = 8;
-            obj.ToneFreqsField.Layout.Column = [1 2];
-            obj.ToneFreqsField.Value = {'(empty = default log sweep)', 'example: 250,500,1000,2000,4000,8000'};
-
-            clickDurationsLabel = uilabel(g, Text='Click Durations (s)', HorizontalAlignment='right');
-            clickDurationsLabel.Layout.Row = 9;
-            clickDurationsLabel.Layout.Column = 1;
-            obj.ClickDurationsField = uitextarea(g);
-            obj.ClickDurationsField.Layout.Row = 9;
-            obj.ClickDurationsField.Layout.Column = 2;
-            obj.ClickDurationsField.Value = {'(empty = default 1..128 samples)', 'example: 1e-5,2e-5,4e-5,8e-5'};
-
             obj.BtnReference = uibutton(g, Text='Measure Reference', ...
                 ButtonPushedFcn=@(~,~) obj.on_measure_reference_());
-            obj.BtnReference.Layout.Row = 10;
+            obj.BtnReference.Layout.Row = 8;
             obj.BtnReference.Layout.Column = [1 2];
+            obj.BtnReference.Tooltip = 'Step 1: Measure reference tone to update microphone sensitivity.';
 
             obj.BtnTones = uibutton(g, Text='Calibrate Tones', ...
                 ButtonPushedFcn=@(~,~) obj.on_calibrate_tones_());
-            obj.BtnTones.Layout.Row = 11;
+            obj.BtnTones.Layout.Row = 9;
             obj.BtnTones.Layout.Column = [1 2];
+            obj.BtnTones.Tooltip = 'Step 2: Run tone frequency sweep to build tone calibration table.';
 
             obj.BtnClicks = uibutton(g, Text='Calibrate Clicks', ...
                 ButtonPushedFcn=@(~,~) obj.on_calibrate_clicks_());
-            obj.BtnClicks.Layout.Row = 12;
+            obj.BtnClicks.Layout.Row = 10;
             obj.BtnClicks.Layout.Column = [1 2];
+            obj.BtnClicks.Tooltip = 'Optional: Build click-duration calibration table.';
+
+            obj.BtnSweptSine = uibutton(g, Text='Calibrate Swept Sine', ...
+                ButtonPushedFcn=@(~,~) obj.on_calibrate_swept_sine_());
+            obj.BtnSweptSine.Layout.Row = 11;
+            obj.BtnSweptSine.Layout.Column = [1 2];
+            obj.BtnSweptSine.Tooltip = 'Optional: Broadband calibration with a swept-sine chirp.';
 
             obj.BtnFilter = uibutton(g, Text='Design Filter', ...
                 ButtonPushedFcn=@(~,~) obj.on_design_filter_());
-            obj.BtnFilter.Layout.Row = 13;
+            obj.BtnFilter.Layout.Row = 12;
             obj.BtnFilter.Layout.Column = [1 2];
-
-            row14 = uigridlayout(g, [1 2]);
-            row14.Layout.Row = 14;
-            row14.Layout.Column = [1 2];
-            row14.ColumnWidth = {'1x','1x'};
-
-            obj.BtnLoad = uibutton(row14, Text='Load .esgc', ...
-                ButtonPushedFcn=@(~,~) obj.on_load_());
-            obj.BtnLoad.Layout.Row = 1;
-            obj.BtnLoad.Layout.Column = 1;
-            obj.BtnSave = uibutton(row14, Text='Save .esgc', ...
-                ButtonPushedFcn=@(~,~) obj.on_save_());
-            obj.BtnSave.Layout.Row = 1;
-            obj.BtnSave.Layout.Column = 2;
+            obj.BtnFilter.Tooltip = 'Step 3 (optional): Design equalization filter after tone calibration.';
 
             obj.StatusLabel = uilabel(g, Text='Ready.', HorizontalAlignment='left');
-            obj.StatusLabel.Layout.Row = 15;
+            obj.StatusLabel.Layout.Row = 13;
             obj.StatusLabel.Layout.Column = [1 2];
         end
 
@@ -287,7 +304,15 @@ classdef CalibrationGui < handle
         end
 
         function run_calibrate_tones_(obj)
-            freqs = obj.parse_numeric_vector_(obj.ToneFreqsField.Value, 'tone frequencies');
+            [freqs, wasCancelled] = obj.prompt_vector_parameter_( ...
+                'toneFreqs', ...
+                'Tone frequencies (Hz). Leave empty to use default log sweep.', ...
+                'Tone Calibration', ...
+                '');
+            if wasCancelled
+                obj.set_status_('Tone calibration cancelled.', false);
+                return
+            end
             if isempty(freqs)
                 obj.Engine.calibrate_tones();
             else
@@ -306,7 +331,15 @@ classdef CalibrationGui < handle
         end
 
         function run_calibrate_clicks_(obj)
-            durs = obj.parse_numeric_vector_(obj.ClickDurationsField.Value, 'click durations');
+            [durs, wasCancelled] = obj.prompt_vector_parameter_( ...
+                'clickDurations', ...
+                'Click durations (s). Leave empty to use default 1..128 samples.', ...
+                'Click Calibration', ...
+                '');
+            if wasCancelled
+                obj.set_status_('Click calibration cancelled.', false);
+                return
+            end
             if isempty(durs)
                 obj.Engine.calibrate_clicks();
             else
@@ -315,6 +348,29 @@ classdef CalibrationGui < handle
             obj.refresh_all_plots_();
             obj.update_runtime_state_();
             obj.set_status_('Click calibration complete.', false);
+        end
+
+        function on_calibrate_swept_sine_(obj)
+            if ~obj.apply_controls_to_engine_()
+                return
+            end
+            obj.with_busy_state_(@() obj.run_calibrate_swept_sine_(), 'Running swept sine calibration...');
+        end
+
+        function run_calibrate_swept_sine_(obj)
+            [duration, freqs, wasCancelled] = obj.prompt_swept_sine_parameters_();
+            if wasCancelled
+                obj.set_status_('Swept sine calibration cancelled.', false);
+                return
+            end
+            if isempty(freqs)
+                obj.Engine.calibrate_swept_sine(duration);
+            else
+                obj.Engine.calibrate_swept_sine(duration, freqs);
+            end
+            obj.refresh_all_plots_();
+            obj.update_runtime_state_();
+            obj.set_status_('Swept sine calibration complete.', false);
         end
 
         function on_design_filter_(obj)
@@ -354,6 +410,140 @@ classdef CalibrationGui < handle
             obj.refresh_all_plots_();
             obj.update_runtime_state_();
             obj.set_status_('Calibration loaded.', false);
+        end
+
+        function on_attach_adapter_(obj)
+            obj.with_busy_state_(@() obj.run_attach_adapter_(), 'Attaching adapter...');
+        end
+
+        function run_attach_adapter_(obj)
+            if ~isempty(obj.Runtime) && isvalid(obj.Runtime)
+                obj.attach_adapter_from_runtime_(obj.Runtime);
+                return
+            end
+
+            % Explicit fallback for legacy workflows that keep RUNTIME in base workspace.
+            runtimeObj = evalin('base', 'RUNTIME');
+            obj.attach_adapter_from_runtime_(runtimeObj);
+        end
+
+        function on_initialize_runtime_(obj)
+            obj.with_busy_state_(@() obj.run_initialize_runtime_(), 'Initializing calibration runtime...');
+        end
+
+        function run_initialize_runtime_(obj)
+            [fn, pn] = uigetfile( ...
+                {'*.eprot;*.prot;*.json', 'Protocol files (*.eprot, *.prot, *.json)'}, ...
+                'Load Protocol For Calibration');
+            if isequal(fn, 0)
+                obj.set_status_('Runtime initialization cancelled.', false);
+                return
+            end
+
+            protocolPath = fullfile(pn, fn);
+            protocolObj = epsych.Protocol.load(protocolPath);
+
+            runtimeObj = epsych.Runtime;
+            runtimeObj.Interfaces = protocolObj.Interfaces;
+
+            for k = 1:numel(runtimeObj.Interfaces)
+                iface = runtimeObj.Interfaces(k);
+                if ~iface.IsConnected
+                    iface.connect();
+                    assert(iface.IsConnected, ...
+                        'stimgen:calibration:CalibrationGui:runtimeConnectFailed', ...
+                        'Hardware interface "%s" failed to connect.', class(iface));
+                end
+            end
+
+            if ~isempty(runtimeObj.Interfaces)
+                set(runtimeObj.Interfaces, 'mode', hw.DeviceState.Preview);
+            end
+
+            obj.Runtime = runtimeObj;
+            obj.Protocol = protocolObj;
+            obj.ProtocolFile = string(protocolPath);
+            obj.attach_adapter_from_runtime_(runtimeObj);
+            obj.set_status_(sprintf('Runtime initialized from protocol: %s', fn), false);
+        end
+
+        function on_disconnect_runtime_(obj)
+            obj.with_busy_state_(@() obj.run_disconnect_runtime_(), 'Disconnecting calibration runtime...');
+        end
+
+        function run_disconnect_runtime_(obj)
+            if ~isempty(obj.Runtime) && isvalid(obj.Runtime)
+                try
+                    if ~isempty(obj.Runtime.Interfaces)
+                        set(obj.Runtime.Interfaces, 'mode', hw.DeviceState.Idle);
+                    end
+                catch ME
+                    vprintf(0, 1, 'CalibrationGui: failed to return runtime interfaces to Idle.');
+                    vprintf(0, 1, ME);
+                end
+            end
+
+            obj.Engine.Adapter = [];
+            obj.Runtime = epsych.Runtime.empty(0,1);
+            obj.Protocol = epsych.Protocol.empty(0,1);
+            obj.ProtocolFile = "";
+            obj.update_runtime_state_();
+            obj.set_status_('Calibration runtime disconnected.', false);
+        end
+
+        function attach_adapter_from_runtime_(obj, runtimeObj)
+            if ~isa(runtimeObj, 'epsych.Runtime')
+                error('stimgen:calibration:CalibrationGui:badRuntime', ...
+                    'Runtime must be an epsych.Runtime object.');
+            end
+
+            if ~isempty(runtimeObj.Interfaces)
+                candidates = runtimeObj.Interfaces;
+            elseif ~isempty(runtimeObj.HW)
+                candidates = runtimeObj.HW;
+            else
+                error('stimgen:calibration:CalibrationGui:noRuntimeInterfaces', ...
+                    'Runtime has no interfaces. Initialize runtime from a protocol first.');
+            end
+
+            lastError = [];
+            for k = 1:numel(candidates)
+                try
+                    adapter = stimgen.calibration.InterfaceAdapter(candidates(k));
+                    obj.Engine.Adapter = adapter;
+                    if ~isempty(obj.Figure) && isvalid(obj.Figure)
+                        obj.update_runtime_state_();
+                        obj.set_status_('Adapter attached. Ready for live calibration.', false);
+                    end
+                    return
+                catch ME
+                    lastError = ME;
+                end
+            end
+
+            if isempty(lastError)
+                error('stimgen:calibration:CalibrationGui:noAdapterSource', ...
+                    'No runtime interface could be adapted for calibration.');
+            else
+                error('stimgen:calibration:CalibrationGui:attachAdapterFailed', ...
+                    ['Could not attach calibration adapter from runtime interfaces. ' ...
+                    'Verify required tags (BufferSize, BufferOut, x_Trigger, BufferIndex, BufferIn). ' ...
+                    'Original error: %s'], lastError.message);
+            end
+        end
+
+        function on_show_quick_start_(obj)
+            % Show a concise calibration workflow for first-time users.
+            msg = sprintf([ ...
+                'Calibration Quick Start\n\n', ...
+                '1) File > Initialize Runtime From Protocol..., then File > Attach Adapter (if needed).\n\n', ...
+                '2) Verify parameters (reference level/frequency, mic sensitivity, excitation).\n\n', ...
+                '3) Click "Measure Reference" to update microphone sensitivity.\n\n', ...
+                '4) Click "Calibrate Tones" (required for tone lookup and filter design).\n\n', ...
+                '5) Optional: run "Calibrate Clicks" and/or "Calibrate Swept Sine".\n\n', ...
+                '6) Optional: click "Design Filter" (enabled after tone calibration).\n\n', ...
+                '7) Save calibration with File > Save .esgc.']);
+            uialert(obj.Figure, msg, 'Calibration Quick Start', Icon='info');
         end
 
         function ok = apply_controls_to_engine_(obj)
@@ -438,10 +628,16 @@ classdef CalibrationGui < handle
                         DisplayName='Click SPL');
                     hasData = true;
                 end
+
+                if isfield(C, 'swept_sine') && ~isempty(C.swept_sine)
+                    semilogx(obj.AxTransfer, C.swept_sine.frequency, C.swept_sine.spl_db, '^-g', ...
+                        DisplayName='Swept Sine SPL');
+                    hasData = true;
+                end
             end
 
             if hasData
-                xlabel(obj.AxTransfer, 'Tone: Frequency (Hz) / Click: Duration (\mus)');
+                xlabel(obj.AxTransfer, 'Frequency (Hz) / Duration (\mus)');
                 ylabel(obj.AxTransfer, 'Measured Level (dB SPL)');
                 title(obj.AxTransfer, 'Calibration Transfer Curves');
                 legend(obj.AxTransfer, 'Location', 'best');
@@ -459,22 +655,32 @@ classdef CalibrationGui < handle
                 obj.BtnReference.Enable = 'on';
                 obj.BtnTones.Enable = 'on';
                 obj.BtnClicks.Enable = 'on';
+                obj.BtnSweptSine.Enable = 'on';
             else
                 obj.BtnReference.Enable = 'off';
                 obj.BtnTones.Enable = 'off';
                 obj.BtnClicks.Enable = 'off';
-            end
-
-            if obj.Engine.IsCalibrated
-                obj.BtnSave.Enable = 'on';
-            else
-                obj.BtnSave.Enable = 'off';
+                obj.BtnSweptSine.Enable = 'off';
             end
 
             if obj.Engine.IsCalibrated && isfield(obj.Engine.CalibrationData, 'tone')
                 obj.BtnFilter.Enable = 'on';
             else
                 obj.BtnFilter.Enable = 'off';
+            end
+        end
+
+        function show_startup_hint_(obj)
+            % Provide immediate guidance on the next actionable step.
+            if isempty(obj.Engine.Adapter)
+                obj.set_status_('No adapter attached. Initialize Runtime From Protocol, then Attach Adapter.', true);
+                return
+            end
+
+            if obj.Engine.IsCalibrated
+                obj.set_status_('Calibration loaded. Review plots or save updates.', false);
+            else
+                obj.set_status_('Ready. Start with "Measure Reference", then "Calibrate Tones".', false);
             end
         end
 
@@ -507,6 +713,69 @@ classdef CalibrationGui < handle
                 error('stimgen:calibration:CalibrationGui:badVector', ...
                     '%s must contain only positive values.', label);
             end
+        end
+
+        function [values, wasCancelled] = prompt_vector_parameter_(obj, prefName, promptText, dlgTitle, defaultValue)
+            wasCancelled = false;
+            stored = obj.get_pref_(prefName, defaultValue);
+            answer = inputdlg(promptText, dlgTitle, [1 90], {stored});
+            if isempty(answer)
+                values = [];
+                wasCancelled = true;
+                return
+            end
+
+            raw = strtrim(string(answer{1}));
+            obj.set_pref_(prefName, char(raw));
+            values = obj.parse_numeric_vector_(raw, lower(dlgTitle));
+        end
+
+        function [duration, freqs, wasCancelled] = prompt_swept_sine_parameters_(obj)
+            durationPref = obj.get_pref_('sweptSineDuration', '1.0');
+            freqsPref = obj.get_pref_('sweptSineFreqs', '');
+
+            prompts = {
+                'Swept sine duration (s, >0):', ...
+                'Swept sine frequencies (Hz). Leave empty to use default log sweep:'
+            };
+            defaults = {durationPref, freqsPref};
+            answer = inputdlg(prompts, 'Swept Sine Calibration', [1 90; 1 90], defaults);
+
+            if isempty(answer)
+                duration = 1;
+                freqs = [];
+                wasCancelled = true;
+                return
+            end
+
+            durationText = strtrim(string(answer{1}));
+            duration = str2double(durationText);
+            if isnan(duration) || ~isfinite(duration) || duration <= 0
+                error('stimgen:calibration:CalibrationGui:badDuration', ...
+                    'Swept sine duration must be a positive number.');
+            end
+
+            freqsText = strtrim(string(answer{2}));
+            freqs = obj.parse_numeric_vector_(freqsText, 'swept sine frequencies');
+
+            obj.set_pref_('sweptSineDuration', char(durationText));
+            obj.set_pref_('sweptSineFreqs', char(freqsText));
+            wasCancelled = false;
+        end
+
+        function value = get_pref_(~, prefName, defaultValue)
+            groupName = 'StimCalibrationGui';
+            if ispref(groupName, prefName)
+                value = getpref(groupName, prefName);
+            else
+                value = defaultValue;
+            end
+            value = char(string(value));
+        end
+
+        function set_pref_(~, prefName, value)
+            groupName = 'StimCalibrationGui';
+            setpref(groupName, prefName, char(string(value)));
         end
 
         function with_busy_state_(obj, fcn, busyMessage)

@@ -6,8 +6,9 @@ function v = compute_adjusted_voltage(obj, type, value, level)
 %
 % Parameters:
 %   obj   - stimgen.StimCalibration
-%   type  - "tone" or "click"
-%   value - frequency (Hz) for "tone"; duration (s) for "click"
+%   type  - "tone", "click", "swept_sine", "filter", or "noise"
+%   value - frequency (Hz) for "tone"/"swept_sine"/"filter"/"noise";
+%           duration (s) for "click"
 %   level - target sound level in dB SPL
 %
 % Returns:

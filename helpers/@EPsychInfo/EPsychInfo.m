@@ -46,7 +46,7 @@ classdef EPsychInfo < handle
         RepositoryURL = 'https://github.com/dstolz/epsych2';
         CommitHistoryURL = 'https://github.com/dstolz/epsych2/blob/master/documentation/overviews/CommitHistoryOverview.md';
         WikiURL = 'https://github.com/dstolz/epsych2/wiki';
-        DocumentationURL = 'https://github.com/dstolz/epsych2/blob/669b7581a731394d4b3ac7bd11bea68aa9e7608f/README.md';
+        DocumentationURL = 'https://github.com/dstolz/epsych2/wiki';
     end
     
     methods

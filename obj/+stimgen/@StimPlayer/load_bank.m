@@ -49,6 +49,15 @@ try
             end
         end
 
+        if isfield(S.StimObj, 'Calibration')
+            calData = S.StimObj.Calibration;
+            if isa(calData, 'stimgen.StimCalibration')
+                stimObj.Calibration = calData;
+            elseif isstruct(calData)
+                stimObj.Calibration = stimgen.StimCalibration.loadobj(calData);
+            end
+        end
+
         sp      = stimgen.StimPlay(stimObj);
         sp.Reps = S.Reps;
         sp.Name = S.Name;

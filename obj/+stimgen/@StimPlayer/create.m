@@ -230,6 +230,8 @@ mSaveBank = uimenu(mFile, 'Text', '&Save Bank',  'Accelerator', 'S', ...
     'MenuSelectedFcn', @(~,~) obj.save_bank());
 mCalibration = uimenu(mFile, 'Text', '&Calibration', 'Accelerator', 'C', ...
     'MenuSelectedFcn', @(~,~) set_calibration_(obj));
+mOpenCalibrationGui = uimenu(mFile, 'Text', 'Open Calibration &GUI', ...
+    'MenuSelectedFcn', @(~,~) obj.open_calibration_gui());
 mExportSignal = uimenu(mFile, 'Text', '&Export Signal to Workspace', 'Separator', 'on', ...
     'MenuSelectedFcn', @(~,~) export_signal_to_workspace_(obj));
 mExportAll = uimenu(mFile, 'Text', 'Export &All Signals to Workspace', ...
@@ -245,6 +247,7 @@ obj.handles.LoadProtocolMenu  = mLoadProtocol;
 obj.handles.LoadBankMenu      = mLoadBank;
 obj.handles.SaveBankMenu      = mSaveBank;
 obj.handles.CalibrationMenu   = mCalibration;
+obj.handles.CalibrationGuiMenu = mOpenCalibrationGui;
 obj.handles.ExportSignalMenu  = mExportSignal;
 obj.handles.ExportAllMenu     = mExportAll;
 obj.handles.ExportObjsMenu    = mExportObjs;
@@ -318,15 +321,39 @@ end
 
 function set_calibration_(obj)
 % Prompt user for a calibration file and apply to all bank items.
-[fn, pn] = uigetfile('*.sgc', 'Select Calibration File');
+[fn, pn] = uigetfile( ...
+    {'*.esgc;*.sgc','Calibration Files (*.esgc, *.sgc)'; ...
+     '*.esgc','EPsych Stim Calibration (*.esgc)'; ...
+     '*.sgc','Legacy Calibration (*.sgc)'}, ...
+    'Select Calibration File');
 if isequal(fn, 0), return; end
+
+ffn = fullfile(pn, fn);
 try
-    cal = load(fullfile(pn, fn), '-mat');
-    fn = fieldnames(cal);
-    if isempty(fn)
-        error('StimPlayer:InvalidCalibrationFile', 'The selected calibration file did not contain any variables.');
+    [~, ~, ext] = fileparts(ffn);
+
+    if strcmpi(ext, '.esgc')
+        calObj = stimgen.StimCalibration();
+        calObj.load_calibration(ffn);
+    else
+        cal = load(ffn, '-mat');
+        fields = fieldnames(cal);
+        if isempty(fields)
+            error('StimPlayer:InvalidCalibrationFile', ...
+                'The selected calibration file did not contain any variables.');
+        end
+
+        raw = cal.(fields{1});
+        if isa(raw, 'stimgen.StimCalibration')
+            calObj = raw;
+        elseif isstruct(raw)
+            calObj = stimgen.StimCalibration.loadobj(raw);
+        else
+            error('StimPlayer:InvalidCalibrationFile', ...
+                'The selected calibration file did not contain a usable calibration object.');
+        end
     end
-    calObj = cal.(fn{1});
+
     for i = 1:numel(obj.StimPlayObjs)
         obj.StimPlayObjs(i).StimObj.Calibration = calObj;
     end

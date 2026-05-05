@@ -80,6 +80,9 @@ obj = hw.VlcRecorder();
 obj.connect();
 fprintf('  IsConnected: %d\n\n', obj.IsConnected);
 
+P.Play.Trigger;
+
+
 %% 3. Configure parameters
 fprintf('--- Parameters ---\n');
 P = obj.all_parameters(asStruct=true,includeTriggers=true,includeInvisible=true);
@@ -92,8 +95,6 @@ fprintf('  MediaFile     : %s\n\n',P.MediaFile.Value);
 
 %% 4. Play (launches VLC with --sout for display + recording)
 fprintf('--- trigger(Play) ---\n');
-P.Play.Trigger;
-pause(3);
 P.StartRecord.Trigger;
 fprintf('  Launched. Recording for %d seconds...\n', recordSecs);
 pause(recordSecs);
@@ -101,11 +102,12 @@ pause(recordSecs);
 %% 5. Stop
 fprintf('--- trigger(Stop) ---\n');
 P.StopRecord.Trigger;
-P.Stop.Trigger;
 pause(1);  % allow VLC to flush file buffers
 fprintf('  Stopped.\n\n');
 
 %% 6. Disconnect
+P.Stop.Trigger;
+
 obj.disconnect();
 fprintf('  Disconnected.\n\n');
 

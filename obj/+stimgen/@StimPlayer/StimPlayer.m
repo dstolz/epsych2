@@ -48,6 +48,7 @@ classdef StimPlayer < handle
         play_preview(obj, src, event)
         play_all(obj, src, event)
         step_combination(obj, step)
+        open_calibration_gui(obj)
         save_bank(obj, ffn)
         load_bank(obj, ffn)
     end
@@ -324,7 +325,7 @@ classdef StimPlayer < handle
 
             fields = {'AddBtn','RemoveBtn','TypeDropdown','BankList','RepsField', ...
                 'ISIField','OrderDD','ComboPrevBtn','ComboNextBtn','LoadProtocolMenu', ...
-                'LoadBankMenu','SaveBankMenu','CalibrationMenu'};
+                'LoadBankMenu','SaveBankMenu','CalibrationMenu','CalibrationGuiMenu'};
             for i = 1:numel(fields)
                 f = fields{i};
                 if isfield(h, f) && ~isempty(h.(f)) && isvalid(h.(f))

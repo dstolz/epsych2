@@ -42,25 +42,26 @@ if writeParamCount == 0
 end
 
 if ~isempty(obj.Options.trialFunc)
-    if ischar(obj.Options.trialFunc)
-        try
-            funcHandle = str2func(obj.Options.trialFunc);
-            info = functions(funcHandle);
-            if isempty(info.file)
+    if ischar(obj.Options.trialFunc) || (isstring(obj.Options.trialFunc) && isscalar(obj.Options.trialFunc))
+        trialFuncName = strtrim(char(string(obj.Options.trialFunc)));
+        if ~isempty(trialFuncName)
+            if ~isCallableNameResolvable_(trialFuncName)
                 report(idx).field = 'Options.trialFunc';
-                report(idx).message = sprintf('Trial function "%s" not found on path', obj.Options.trialFunc);
+                report(idx).message = sprintf('Trial function "%s" not found on path', trialFuncName);
                 report(idx).severity = 2;
                 idx = idx + 1;
             end
-        catch
+        else
             report(idx).field = 'Options.trialFunc';
-            report(idx).message = sprintf('Trial function "%s" not accessible', obj.Options.trialFunc);
+            report(idx).message = 'Trial function name is empty';
             report(idx).severity = 2;
             idx = idx + 1;
         end
     elseif isa(obj.Options.trialFunc, 'function_handle')
         info = functions(obj.Options.trialFunc);
-        if isempty(info.file)
+        handleName = strtrim(func2str(obj.Options.trialFunc));
+        isAnonymous = isfield(info, 'type') && strcmp(info.type, 'anonymous');
+        if isAnonymous || (~isempty(handleName) && ~isCallableNameResolvable_(handleName) && isempty(info.file))
             report(idx).field = 'Options.trialFunc';
             report(idx).message = 'Trial function handle refers to an unresolved or anonymous function';
             report(idx).severity = 1;
@@ -167,4 +168,30 @@ end
 if idx == 1
     report = struct('field', {}, 'message', {}, 'severity', {});
 end
+end
+
+function tf = isCallableNameResolvable_(callableName)
+% tf = isCallableNameResolvable_(callableName)
+% Resolve function or class-constructor callables from name text.
+
+callableName = strtrim(char(string(callableName)));
+if isempty(callableName)
+    tf = false;
+    return
+end
+
+tf = ~isempty(which(callableName));
+if tf
+    return
+end
+
+% Class constructors in @ClassName folders can be callable even when
+% functions(str2func(name)).file is empty.
+tf = exist(callableName, 'class') == 8;
+if tf
+    return
+end
+
+metaInfo = meta.class.fromName(callableName);
+tf = ~isempty(metaInfo);
 end

@@ -18,6 +18,9 @@ addpath c:\src\epsych2
 epsych_startup;
 
 %%
+epsych.ProtocolDesigner('S:/RIG3_Backup_2025/epsych_files/Protocols/TEST.eprot')
+
+%%
 gui = stimgen.calibration.CalibrationGui();
 
 

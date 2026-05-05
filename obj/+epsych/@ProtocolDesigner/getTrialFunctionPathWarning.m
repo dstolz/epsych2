@@ -13,7 +13,11 @@ function warningText = getTrialFunctionPathWarning(~, trialFuncName)
         return
     end
 
-    if isempty(which(trialFuncName))
+    isResolvable = ~isempty(which(trialFuncName)) || ...
+        exist(trialFuncName, 'class') == 8 || ...
+        ~isempty(meta.class.fromName(trialFuncName));
+
+    if ~isResolvable
         warningText = sprintf('Warning: trial function "%s" is not currently on the MATLAB path.', trialFuncName);
     else
         warningText = '';

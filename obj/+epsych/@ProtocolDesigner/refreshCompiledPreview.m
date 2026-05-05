@@ -16,9 +16,7 @@ function refreshCompiledPreview(obj)
     end
 
     previewCount = min(size(trials, 1), 200);
-    columnTypes = {parameters.Type};
-    columnNames = {parameters.Name};
-    previewData = obj.normalizeCompiledPreviewData(trials(1:previewCount, :), columnTypes);
+    [columnNames, ~, previewData] = obj.getCompiledPreviewTableData(previewCount);
     obj.TableCompiled.ColumnName = columnNames;
     obj.TableCompiled.Data = previewData;
     obj.LabelCompileSummary.Text = sprintf('Showing %d of %d compiled trials', previewCount, obj.Protocol.COMPILED.ntrials);

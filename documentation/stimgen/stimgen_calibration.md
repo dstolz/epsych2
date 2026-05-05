@@ -383,6 +383,7 @@ end
 
 ## See also
 
+- [stimgen_CalibrationGui.md](stimgen_CalibrationGui.md) — standalone interactive GUI for the calibration package
 - [stimgen_StimCalibration.md](stimgen_StimCalibration.md) — GUI wrapper that owns the Engine
 - [stimgen_StimType.md](stimgen_StimType.md) — `apply_calibration()` uses `compute_adjusted_voltage` at stimulus generation time
 - [hw_Interface.md](../hw/hw_Interface.md) — the `hw.Interface` base class that `InterfaceAdapter` wraps

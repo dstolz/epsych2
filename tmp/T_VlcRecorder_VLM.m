@@ -18,6 +18,10 @@ addpath c:\src\epsych2
 epsych_startup;
 
 %%
+gui = stimgen.calibration.CalibrationGui();
+
+
+%%
 
 % T_VlcRecorder  Diagnostic test for hw.VlcRecorder (VLC-only backend).
 % Run this from the MATLAB Command Window after calling epsych_startup.

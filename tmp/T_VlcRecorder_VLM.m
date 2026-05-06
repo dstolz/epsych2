@@ -24,6 +24,7 @@ epsych.ProtocolDesigner('S:/RIG3_Backup_2025/epsych_files/Protocols/TEST.eprot')
 gui = stimgen.calibration.CalibrationGui();
 
 
+
 %%
 
 % T_VlcRecorder  Diagnostic test for hw.VlcRecorder (VLC-only backend).

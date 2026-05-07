@@ -190,6 +190,8 @@ classdef Protocol < handle & matlab.mixin.SetGet
             end
         end
 
+        parameters = resolveCompiledParameters_(obj)  % Rebuild COMPILED.parameters from writeparams and interfaces - resolveCompiledParameters_.m
+
         function pairName = getParameterPairName_(~, parameter)
             pairName = '';
             userData = parameter.UserData;

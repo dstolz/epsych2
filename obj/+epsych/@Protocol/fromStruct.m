@@ -73,4 +73,12 @@ function fromStruct(obj, struct_in)
     else
         obj.Interfaces = obj.SoftwareModule;
     end
+
+    % Rebuild COMPILED.parameters from restored interfaces when serialized
+    % data omitted handle objects.
+    if isfield(obj.COMPILED, 'writeparams') && ~isempty(obj.COMPILED.writeparams)
+        if ~isfield(obj.COMPILED, 'parameters') || isempty(obj.COMPILED.parameters)
+            obj.COMPILED.parameters = obj.resolveCompiledParameters_();
+        end
+    end
 end

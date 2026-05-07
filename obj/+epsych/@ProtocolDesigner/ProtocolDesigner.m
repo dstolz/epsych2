@@ -113,17 +113,22 @@ classdef ProtocolDesigner < handle
 
         function onFigureKeyPress(obj, evt)
             % onFigureKeyPress — Handle ProtocolDesigner keyboard shortcuts.
+            % Ctrl+1..Ctrl+9: Change selected parameter type
             % Ctrl+Shift+B: Add boolean parameter
             % Ctrl+Shift+T: Add boolean parameter with trigger=true
             % Ctrl+Shift+F: Add float parameter
-            % Ctrl+Shift+S: Add string parameter
+            % Ctrl+S: Save current protocol
+            % Ctrl+Shift+S: Save protocol as
             % Ctrl+Shift+N: Add integer parameter
+            % Ctrl+Shift+Y: Cycle Color By setting
             % Ctrl+Shift+C: Compile protocol
             % Ctrl+Shift+V: Open compiled preview dialog
             % Ctrl+Shift+O: Open options dialog
             % Ctrl+Shift+A: Add interface
             % Ctrl+Shift+M: Add module
             % Ctrl+Shift+R: Remove parameter
+            % Ctrl+Shift+D: Open selected parameter details
+            % Ctrl+Shift+L: Toggle simple/detailed parameter view
             % Ctrl+Shift+/: Show keyboard shortcuts help
 
             if isempty(evt)

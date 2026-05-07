@@ -9,9 +9,10 @@ function setParameterExpression(obj, parameter, expressionText)
         return
     end
 
-    if isempty(parameter.UserData) || ~isstruct(parameter.UserData)
-        parameter.UserData = struct();
+    parameter.Expression = string(expressionText);
+
+    if isstruct(parameter.UserData) && isfield(parameter.UserData, 'Expression')
+        parameter.UserData = rmfield(parameter.UserData, 'Expression');
     end
-    parameter.UserData.Expression = expressionText;
 end
 

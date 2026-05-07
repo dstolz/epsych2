@@ -54,6 +54,12 @@ end
 
 if isfield(S, 'Expression')
     obj.Expression = string(S.Expression);
+elseif isfield(S, 'UserData') && isstruct(S.UserData) && isfield(S.UserData, 'Expression')
+    obj.Expression = string(S.UserData.Expression);
+
+    if isstruct(obj.UserData) && isfield(obj.UserData, 'Expression')
+        obj.UserData = rmfield(obj.UserData, 'Expression');
+    end
 end
 
 if isfield(S, 'lastUpdated')

@@ -6,7 +6,7 @@ function result = evaluateParameterExpression(obj, targetParameter, expressionTe
     %
     % Parameters:
     % 	targetParameter	- Parameter receiving the evaluated value.
-    % 	expressionText	- MATLAB expression string stored in UserData.Expression.
+    % 	expressionText	- MATLAB expression string stored on hw.Parameter.Expression.
     %
     % Returns:
     % 	result	- Numeric or logical expression result before type normalization.

@@ -162,26 +162,138 @@ range before it is passed to the parent interface.
 
 ---
 
-## Delegation model
+## Expression-driven values
 
-When you read `p.Value`, the class:
+The `Expression` property lets you define a MATLAB expression that is evaluated
+automatically each time a value is written to the parameter. The result of the
+expression becomes the effective value, replacing whatever was passed to
+`p.Value = ...`.
 
-1. Checks whether the parameter is write-only.
-2. Reads the local value for `hw.Software` parents.
-3. Otherwise calls `Parent.get_parameter(p, includeInvisible=true)`.
+This is useful when a parameter's value should be derived from other parameters
+at runtime — for example, computing a period from a frequency, or scaling one
+channel relative to another.
 
-When you write `p.Value`, the class:
+### How it fits in the update pipeline
 
-1. Runs `PreUpdateFcn`, if present.
-2. Randomizes the value when `isRandom` is true.
-3. Runs `EvaluatorFcn`, if present.
-4. Updates array bookkeeping.
-5. Calls `Parent.set_parameter(p, value)`.
-6. Sets `lastUpdated = now`.
-7. Runs `PostUpdateFcn`, if present.
+When `Expression` is non-empty, the update sequence becomes:
 
-This keeps experiment code working with a consistent `Value` API while leaving
-the actual hardware interaction to the parent object.
+1. `PreUpdateFcn`
+2. Randomization (if `isRandom`)
+3. **Expression evaluation** ← new step
+4. `EvaluatorFcn`
+5. Parent write, `lastUpdated`, `PostUpdateFcn`
+
+The expression receives the value produced by step 2 as the variable `Value`,
+and must leave the result in `Value`. Sibling parameters in the same module are
+injected by their `Name`; cross-module parameters can be referenced as
+`ModuleName.ParamName`.
+
+### Setting an expression
+
+```matlab
+p.Expression = "Value = FrequencyHz * 2";
+```
+
+Or assign it at construction time via `UserData` convention — but `Expression`
+is a first-class property, so prefer setting it directly:
+
+```matlab
+p = hw.Parameter(parent, Name='PeriodMs');
+p.Expression = "Value = 1000 / FrequencyHz";
+```
+
+Clear an expression by setting it back to `""`:
+
+```matlab
+p.Expression = "";
+```
+
+---
+
+### Expression syntax rules
+
+| Rule | Detail |
+|---|---|
+| Single statement | Semicolons (`;`) are not allowed. |
+| Assignment target | Assign your result to `Value`. If the expression does not contain an assignment, the return value of `eval` is ignored and `Value` retains the incoming value. |
+| No recursion | An expression on parameter `P` cannot reference `P` itself. |
+| Sibling access | Other parameters in the **same module** are available by their `Name`. |
+| Cross-module access | Parameters on other modules are referenced as `ModuleName.ParamName`. These are rewritten to safe aliases before evaluation. |
+
+---
+
+### Examples
+
+#### Simple transform using a sibling parameter
+
+Both `FrequencyHz` and `PeriodMs` live in the same module.
+
+```matlab
+freqParam  = hw.Parameter(parent, Name='FrequencyHz');
+periodParam = hw.Parameter(parent, Name='PeriodMs');
+
+periodParam.Expression = "Value = 1000 / FrequencyHz";
+
+freqParam.Value  = 500;   % sets FrequencyHz to 500
+periodParam.Value = 0;    % expression fires: Value = 1000/500 → 2
+disp(periodParam.Value)   % 2
+```
+
+#### Scale by a constant
+
+```matlab
+gainParam.Expression = "Value = Value * 0.5";
+gainParam.Value = 10;   % stored as 5
+```
+
+#### Cross-module reference
+
+`SpeakerModule` is a different module on the same hardware interface.
+
+```matlab
+attParam.Expression = "Value = SpeakerModule.Gain - 6";
+attParam.Value = 0;   % expression reads SpeakerModule.Gain at write time
+```
+
+#### Combined with `EvaluatorFcn`
+
+The expression runs first, then the evaluator clamps the result.
+
+```matlab
+p.Expression  = "Value = FrequencyHz * scaleFactor";
+p.EvaluatorFcn = @(obj, v) max(min(v, obj.Max), obj.Min);
+p.Min = 0;
+p.Max = 20000;
+```
+
+#### Conditional expression
+
+```matlab
+p.Expression = "Value = FrequencyHz * (AttenuationLevel > 0)";
+```
+
+---
+
+### Context available inside an expression
+
+| Variable name | Source |
+|---|---|
+| `Value` | Incoming value after randomization. This is also the output. |
+| `<SiblingName>` | Current `.Value` of each other parameter in the same `Module`, keyed by `matlab.lang.makeValidName(Name)`. Only numeric, logical, char, and string values are included. |
+| `exprMod_<ModuleName>_<ParamName>` | Rewritten alias for any `ModuleName.ParamName` cross-module reference. You never need to use this alias directly — write `ModuleName.ParamName` in the expression string and the rewrite is automatic. |
+
+Cross-module context is read from `thisModule.parent.Module`, which is the full
+list of modules on the owning hardware interface. If the interface is not
+accessible (e.g., the parameter is unattached), cross-module references are
+silently skipped and the expression runs with only the sibling context.
+
+---
+
+### Serialization
+
+`Expression` is included in `toStruct` / `fromStruct` and round-trips through
+JSON via `toJSON`. Protocols saved with expression-enabled parameters will
+restore expressions on load.
 
 ---
 
@@ -195,6 +307,47 @@ the actual hardware interaction to the parent object.
 p.Name = 'Pulse Width (ms)';
 varName = p.validName;
 ```
+
+---
+
+## Developer notes
+
+### Delegation model
+
+When you read `p.Value`, the class:
+
+1. Checks whether the parameter is write-only.
+2. Reads the local value for `hw.Software` parents.
+3. Otherwise calls `Parent.get_parameter(p, includeInvisible=true)`.
+
+When you write `p.Value`, the class:
+
+1. Runs `PreUpdateFcn`, if present.
+2. Randomizes the value when `isRandom` is true.
+3. Evaluates `Expression`, if non-empty.
+4. Runs `EvaluatorFcn`, if present.
+5. Updates array bookkeeping.
+6. Calls `Parent.set_parameter(p, value)`.
+7. Sets `lastUpdated = now`.
+8. Runs `PostUpdateFcn`, if present.
+
+### Expression evaluation internals
+
+Expression evaluation is implemented in the private method `evaluateExpression_`
+and the file-local helper `localRewriteQualifiedRefs_`.
+
+- Qualified `ModuleName.ParamName` tokens are detected with `regexp` and
+  replaced with safe variable aliases before `eval` is called.
+- The context struct is unpacked into the local workspace one field at a time via
+  `eval([name ' = context.(...);'])`, then `eval(expressionText)` runs.
+- Cross-module parameter values are read at the moment the expression is
+  evaluated (live `param.Value`), not from design-time `Values` cell arrays.
+  This differs from `ProtocolDesigner`'s expression evaluator, which works
+  with `Values` during compile-time expansion.
+- Expression errors produce an `hw:Parameter:ExpressionError` exception with the
+  parameter name and the underlying MATLAB error message. Context-build failures
+  (e.g., module not accessible) are logged at verbosity level 0 and do not abort
+  evaluation.
 
 ---
 

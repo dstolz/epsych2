@@ -72,3 +72,6 @@ S.Max = obj.numericToSafe_(obj.Max);
 
 % General-purpose data
 S.UserData = obj.UserData;
+
+% Expression
+S.Expression = obj.Expression;

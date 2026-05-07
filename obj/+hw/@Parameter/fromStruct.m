@@ -52,6 +52,10 @@ if isfield(S, 'UserData')
     obj.UserData = S.UserData;
 end
 
+if isfield(S, 'Expression')
+    obj.Expression = string(S.Expression);
+end
+
 if isfield(S, 'lastUpdated')
     obj.lastUpdated = double(S.lastUpdated);
 end

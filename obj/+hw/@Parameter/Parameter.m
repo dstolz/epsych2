@@ -76,6 +76,13 @@ classdef Parameter < matlab.mixin.SetGet
         PostUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to PostUpdateFcn
 
         UserData % general-purpose field for storing any additional data related to the parameter
+
+        % MATLAB expression string evaluated just before EvaluatorFcn to derive Value.
+        % The expression must return to the variable `Value`. Other parameters in the
+        % same module are available by their Name; cross-module parameters can be
+        % referenced as ModuleName.ParamName (e.g., "Value = FreqHz * 2").
+        % Leave empty ("") to skip expression evaluation.
+        Expression (1,1) string = ""
     end
 
     properties (SetObservable,GetObservable)
@@ -102,42 +109,7 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     methods (Static)
-        function values = normalizeValues(value)
-            % values = hw.Parameter.normalizeValues(value)
-            % Convert any scalar, vector, cell array, or string array to a uniform
-            % 1×N cell array of individual trial levels, for storage in hw.Parameter.Values.
-            %
-            % Parameters:
-            %   value - any type: numeric scalar/vector, logical, char, string array, or cell array
-            %
-            % Returns:
-            %   values (1,:) cell - one element per trial level
-            if isnumeric(value) || islogical(value)
-                if isempty(value)
-                    values = {};
-                else
-                    values = num2cell(reshape(value, 1, []));
-                end
-            elseif isstring(value)
-                if isscalar(value)
-                    values = {char(value)};
-                else
-                    values = reshape(cellstr(value), 1, []);
-                end
-            elseif ischar(value)
-                values = {value};
-            elseif iscell(value)
-                values = reshape(value, 1, []);
-            elseif isa(value, 'stimgen.StimType')
-                if isempty(value)
-                    values = {};
-                else
-                    values = num2cell(reshape(value, 1, []));
-                end
-            else
-                values = {value};
-            end
-        end
+        values = normalizeValues(value) % convert any value type to a uniform 1xN cell array of trial levels
     end
 
     methods
@@ -301,7 +273,10 @@ classdef Parameter < matlab.mixin.SetGet
             obj.execute_PreUpdateFcn(value);
 
             value = obj.randomize_value(value); % if isRandom is false, this will just return the original value
-            
+
+            if strlength(obj.Expression) > 0
+                value = obj.evaluateExpression_(value);
+            end
 
             value = obj.execute_EvaluatorFcn(value);
 
@@ -428,146 +403,20 @@ classdef Parameter < matlab.mixin.SetGet
             end
         end
 
-        function v = randomize_value(obj,value)
-            if ~obj.isRandom
-                v = value;
-                return
-            end
-
-            if isequal(obj.Type, 'StimType')
-                if isempty(obj.Values)
-                    error('hw:Parameter:RandomStimTypeNeedsValues', ...
-                        'StimType parameter "%s" has isRandom=true but Values is empty.', obj.Name);
-                end
-                v = obj.Values{randi(numel(obj.Values))};
-                vprintf(3,'Randomized StimType parameter "%s" to: %s', obj.Name, v.DisplayName)
-                return
-            end
-
-            try
-                v = randi([obj.Min obj.Max]);
-                vprintf(3,'Randomized parameter "%s" to value: %g',obj.Name,v)
-            catch e
-                vprintf(0,1,'Error randomizing parameter "%s": %s',obj.Name,getReport(e,'basic'))
-            end
-        end
-
-        function set_value(obj,value)
-
-            if isequal(obj.Access,'Read')
-                vprintf(0,1,'"%s" is a read-only parameter',obj.Name)
-                return
-            end
-
-            if ~ismember(obj.Type, {'String', 'File', 'StimType'}) && (value < obj.Min || value > obj.Max)
-                vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
-                return
-            end
-
-            obj.Value = value;
-            if ~isequal(obj.HW,0)
-                obj.HW.set_parameter(obj,value);
-            end
-            % `now` is much faster than `datetime("now")`
-            % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
-            % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
-             obj.lastUpdated = now;
-        end
+        v = randomize_value(obj, value) % randomize value if isRandom; otherwise return value as-is
+        set_value(obj, value)           % apply value directly, checking access and bounds
     end
 
     methods (Access = private)
-        function valueText = formatFileValue_(~, value)
-            if isstring(value)
-                value = cellstr(value);
-            end
+        valueText = formatFileValue_(~, value) % format file path(s) for display as a string
 
-            if ischar(value)
-                valueText = value;
-                return
-            end
-
-            if iscell(value)
-                flatValues = value;
-                if numel(flatValues) == 1 && iscell(flatValues{1})
-                    flatValues = flatValues{1};
-                end
-                flatValues = flatValues(~cellfun(@isempty, flatValues));
-                if isempty(flatValues)
-                    valueText = '';
-                elseif numel(flatValues) == 1
-                    valueText = char(string(flatValues{1}));
-                else
-                    previewCount = min(3, numel(flatValues));
-                    preview = strjoin(cellfun(@char, flatValues(1:previewCount), UniformOutput = false), ', ');
-                    if numel(flatValues) > previewCount
-                        valueText = sprintf('[%s, ... (%d files)]', preview, numel(flatValues));
-                    else
-                        valueText = sprintf('[%s]', preview);
-                    end
-                end
-                return
-            end
-
-            valueText = char(string(value));
-        end
-
-        function valueText = formatTextValue_(~, value)
-            if isstring(value)
-                value = cellstr(value);
-            end
-
-            if ischar(value)
-                valueText = value;
-                return
-            end
-
-            if iscell(value)
-                flatValues = value;
-                if numel(flatValues) == 1 && iscell(flatValues{1})
-                    flatValues = flatValues{1};
-                end
-                flatValues = flatValues(~cellfun(@isempty, flatValues));
-                if isempty(flatValues)
-                    valueText = '';
-                elseif numel(flatValues) == 1
-                    valueText = char(string(flatValues{1}));
-                else
-                    previewCount = min(3, numel(flatValues));
-                    preview = strjoin(cellfun(@(item) char(string(item)), flatValues(1:previewCount), UniformOutput = false), ', ');
-                    if numel(flatValues) > previewCount
-                        valueText = sprintf('[%s, ... (%d values)]', preview, numel(flatValues));
-                    else
-                        valueText = sprintf('[%s]', preview);
-                    end
-                end
-                return
-            end
-
-            valueText = char(string(value));
-        end
+        valueText = formatTextValue_(~, value) % format text/string value for display
 
         function tf = hasFiniteRandomBounds(obj)
             tf = isfinite(obj.Min) && isfinite(obj.Max);
         end
 
-        function vstr = formatStimTypeValue_(~, value)
-            if isempty(value)
-                vstr = '[none]';
-                return
-            end
-            names = arrayfun(@(s) char(s.DisplayName), value, 'UniformOutput', false);
-            if numel(names) == 1
-                vstr = names{1};
-            else
-                previewCount = min(3, numel(names));
-                preview = strjoin(names(1:previewCount), ', ');
-                if numel(names) > previewCount
-                    vstr = sprintf('[%s, ... (%d stims)]', preview, numel(names));
-                else
-                    vstr = sprintf('[%s]', preview);
-                end
-            end
-        end
+        vstr = formatStimTypeValue_(~, value) % format StimType value(s) for display
 
         function s = argsToStr_(obj, args)
             s = cell(size(args));
@@ -623,23 +472,9 @@ classdef Parameter < matlab.mixin.SetGet
             end
         end
 
-        function v = safeToNumeric_(~, x)
-            if isstring(x) || ischar(x)
-                x = char(x);
-                switch x
-                    case 'Inf'
-                        v = Inf;
-                    case '-Inf'
-                        v = -Inf;
-                    case 'NaN'
-                        v = NaN;
-                    otherwise
-                        v = str2double(x);
-                end
-            else
-                v = double(x);
-            end
-        end
+        v = safeToNumeric_(~, x) % convert safe sentinel strings ('Inf', '-Inf', 'NaN') to numeric
+
+        result = evaluateExpression_(obj, currentValue) % evaluate obj.Expression to derive a new parameter value
     end
 end
 

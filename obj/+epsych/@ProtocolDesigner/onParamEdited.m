@@ -82,7 +82,15 @@ function onParamEdited(obj, evt)
                     [coercedValue, isArrayValue] = obj.coerceValueForType(originalValues, parameter.Type);
                     parameter.Values = hw.Parameter.normalizeValues(coercedValue);
                     parameter.isArray = isArrayValue;
-                    nextStep = 'Check Value, Min, and Max for the new type, then compile.';
+                    
+                    % Auto-set Boolean limits to [0, 1]
+                    if isequal(parameter.Type, 'Boolean')
+                        parameter.Min = 0;
+                        parameter.Max = 1;
+                        nextStep = 'Boolean limits are now [0, 1]. Review value and compile.';
+                    else
+                        nextStep = 'Check Value, Min, and Max for the new type, then compile.';
+                    end
                 end
                 if obj.sanitizeParameterTrigger(parameter)
                     statusMessage = sprintf('Cleared Trigger for %s because only Boolean parameters can be triggers', parameter.Name);

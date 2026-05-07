@@ -109,8 +109,7 @@ P = R.TRIALS(1).parameters;
 
 k = 1;
 % > Drop Pellet
-h = gui.Parameter_Control(buttonLayout,P.DropPellet,Type='momentary',autoCommit=true);
-h.Text = "Pellet";
+h = gui.Parameter_Control(buttonLayout,P.DropPellet,Type='momentary',autoCommit=true,Text="Pellet");
 h.colorNormal = bcmNormal(k,:);
 h.colorOnUpdate = bcmActive(k,:);
 obj.hButtons.DropPellet = h;
@@ -119,8 +118,7 @@ k = k + 1;
 % > Shape
 P.Shape.PostUpdateFcn = @cl_AppetitiveDetection_GUI_B.trigger_Shape;
 P.Shape.PostUpdateFcnArgs = {R};
-h = gui.Parameter_Control(buttonLayout,P.Shape,Type='toggle',autoCommit=true);
-h.Text = "Shape";
+h = gui.Parameter_Control(buttonLayout,P.Shape,Type='toggle',autoCommit=true,Text="Shape");
 h.colorNormal = bcmNormal(k,:);
 h.colorOnUpdate = bcmActive(k,:);
 obj.hButtons.Shape = h;
@@ -130,24 +128,21 @@ k = k + 1;
 % > Remind
 P.ReminderTrials.PostUpdateFcn = @cl_AppetitiveDetection_GUI_B.trigger_ReminderTrial;
 P.ReminderTrials.PostUpdateFcnArgs = {R};
-h = gui.Parameter_Control(buttonLayout,P.ReminderTrials,Type='toggle',autoCommit=true);
-h.Text = "Reminder";
+h = gui.Parameter_Control(buttonLayout,P.ReminderTrials,Type='toggle',autoCommit=true,Text="Reminder");
 h.colorNormal = bcmNormal(k,:);
 h.colorOnUpdate = bcmActive(k,:);
 obj.hButtons.Reminder = h;
 k = k + 1;
 
 % > Manual Trial
-h = gui.Parameter_Control(buttonLayout,P.ManualTrigger,Type='toggle',autoCommit=true);
-h.Text = "Observe";
+h = gui.Parameter_Control(buttonLayout,P.ManualTrigger,Type='toggle',autoCommit=true,Text="Observe");
 h.colorNormal = bcmNormal(k,:);
 h.colorOnUpdate = bcmActive(k,:);
 obj.hButtons.ManualTrial = h;
 k = k + 1;
 
 % > Deliver Trials
-h = gui.Parameter_Control(buttonLayout,P.TrialDelivery,Type='toggle',autoCommit=true);
-h.Text = "Deliver Trials";
+h = gui.Parameter_Control(buttonLayout,P.TrialDelivery,Type='toggle',autoCommit=true,Text="Deliver Trials");
 h.colorNormal = bcmNormal(k,:);
 h.colorOnUpdate = bcmActive(k,:);
 obj.hButtons.DeliverTrials = h;
@@ -250,40 +245,25 @@ h.FontWeight = 'bold';
 
 
 % >> Min Depth
-P.MinDepth.Min = 1e-6;
-P.MinDepth.Max = 1;
-h = gui.Parameter_Control(layoutTrialControls,P.MinDepth,Type='editfield',autoCommit=true);
-h.Text = "Minimum Depth (%):";
+gui.Parameter_Control(layoutTrialControls,P.MinDepth,Text="Minimum Depth (%):");
 
 
 % >> Max Depth
-P.MaxDepth.Min = 1e-6;
-P.MaxDepth.Max = 1;
-h = gui.Parameter_Control(layoutTrialControls,P.MaxDepth,Type='editfield',autoCommit=true);
-h.Text = "Maximum Depth (%):";
+gui.Parameter_Control(layoutTrialControls,P.MaxDepth,autoCommit=true,Text="Maximum Depth (%):");
 
 
 % >> Step on Miss
-P.StepOnMiss.Min = 1e-6;
-P.StepOnMiss.Max = 0.5;
-h = gui.Parameter_Control(layoutTrialControls,P.StepOnMiss,Type='editfield',autoCommit=true);
-h.Text = "Increment on Miss (%):";
+gui.Parameter_Control(layoutTrialControls,P.StepOnMiss,autoCommit=true,Text="Increment on Miss (%):");
 
 % >> Step on Hit
-P.StepOnHit.Min = 1e-6;
-P.StepOnHit.Max = 0.5;
-h = gui.Parameter_Control(layoutTrialControls,P.StepOnHit,Type='editfield',autoCommit=true);
-h.Text = "Decrement on Hit (%):";
+gui.Parameter_Control(layoutTrialControls,P.StepOnHit,autoCommit=true,Text="Decrement on Hit (%):");
 
 
 
 
 
 % >> Probability of Catch Trial
-P.P_Catch.Min = 0;
-P.P_Catch.Max = 1;
-h = gui.Parameter_Control(layoutTrialControls,P.P_Catch,Type='editfield',autoCommit=true);
-h.Text = "p(Catch Trial):";
+gui.Parameter_Control(layoutTrialControls,P.P_Catch,autoCommit=true,Text="p(Catch Trial):");
 
 
 
@@ -295,33 +275,12 @@ h.FontSize = 16;
 h.FontWeight = 'bold';
 
 % >> Intertrial Interval
-h = gui.Parameter_Control(layoutTrialControls,P.ITIDur,Type='editfield');
-h.Text = "Intertrial Interval (ms):";
-
-
-% >> Stimulus Delay --- this is the time from trial start to stimulus onset, and is used in the post_stimdelay_update function to adjust the response window parameters to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
-pStimDur = P.StimDur;
-pStimDur.Unit = 'ms';
-pStimDur.Min = 1;
-pStimDur.Max = 10000;
-
-% >> Response window delay --- computed relative to end of stimulus, so that it can be adjusted based on stimulus duration changes
-pRespWinDelay = P.RespWinDelay;
-pRespWinDelay.Unit = 'ms';
-
-
-% >> Response Window Duration --- this is separate from the response window delay because we want it to be independently adjustable during training with variable stimulus delay
-pRespWinDur = P.RespWinDur;
-pRespWinDur.Unit = 'ms';
+gui.Parameter_Control(layoutTrialControls,P.ITIDur,Text="Intertrial Interval (ms):");
 
 
 % note that "Pre" and "Post" stimulus refer to the Stimulus durations
 % >> Pre-stimulus portion of response window --- this is used in the post_stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
-pRespWinPreStim = P.RespWinPreStim;
-pRespWinPreStim.Unit = 'ms';
-pRespWinPreStim.Min = 200;
-pRespWinPreStim.Max = 1000;
-h = gui.Parameter_Control(layoutTrialControls,pRespWinPreStim,Type='editfield');
+h = gui.Parameter_Control(layoutTrialControls,P.RespWinPreStim);
 par = h.h_label.Parent;
 lay = h.h_label.Layout;
 delete(h.h_label);
@@ -342,65 +301,47 @@ h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,p
         
 
 % >> Post-stimulus portion of response window --- this is used in the post_stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
-    pRespWinPostStim = P.RespWinPostStim;
-    pRespWinPostStim.Unit = 'ms';
-    pRespWinPostStim.Min = 1000;
-    pRespWinPostStim.Max = 10000;
-h = gui.Parameter_Control(layoutTrialControls,pRespWinPostStim,Type='editfield');
-h.Text = "RW Post-Stimulus Duration (ms):";
+gui.Parameter_Control(layoutTrialControls,P.RespWinPostStim,Text="RW Post-Stimulus Duration (ms):");
 
 
 % >> Stimulus Delay (randomized --- value based on min/max settings below)
-    pStimDelay = P.StimDelay;
-pStimDelay.Unit = 'ms';
-pStimDelay.Min = 400; % default min/max values, can be adjusted by user. These are just set to satisfy Parameter requirements and will be updated based on the "StimDelayMin/Max" parameters below.
-pStimDelay.Max = 4000;
-pStimDelay.isRandom = false; % enable randomization for this parameter
-pStimDelay.PostUpdateFcn = @obj.post_stimdelay_update;
-pStimDelay.PostUpdateFcnArgs = {pStimDur,pRespWinDelay,pRespWinDur,pRespWinPreStim,pRespWinPostStim};
+P.StimDelay.PostUpdateFcn = @obj.post_stimdelay_update;
+P.StimDelay.PostUpdateFcnArgs = {P.StimDur,P.RespWinDelay,P.RespWinDur,P.RespWinPreStim,P.RespWinPostStim};
 
 
 
 % >> Repeat Delay Following Abort Option
-h = gui.Parameter_Control(layoutTrialControls,P.RepeatDelayOnAbort,Type='checkbox',autoCommit=true);
+h = gui.Parameter_Control(layoutTrialControls,P.RepeatDelayOnAbort,Type='checkbox',autoCommit=true,Text="Repeat Delay on Abort:");
 h.Value = P.RepeatDelayOnAbort.Value; % ensure checkbox reflects the parameter value (in case it was loaded from a previous session)
-h.Text = "Repeat Delay on Abort:";
 
 
 % >> Stimulus Delay (direct value)
-hStimDelayValue = gui.Parameter_Control(layoutTrialControls,pStimDelay,Type='editfield',autoCommit=true);
-hStimDelayValue.Text = "Stimulus Delay (ms):";
+hStimDelayValue = gui.Parameter_Control(layoutTrialControls,P.StimDelay,autoCommit=true,Text="Stimulus Delay (ms):");
 
 
 
 % >> Stimulus Delay (randomization)
-hStimDelayRand = gui.Parameter_Control(layoutTrialControls,pStimDelay,Type='checkbox',autoCommit=true, BoundProperty='isRandom');
-hStimDelayRand.Text = "Randomize Stimulus Delay:";
+hStimDelayRand = gui.Parameter_Control(layoutTrialControls,P.StimDelay,Type='checkbox',autoCommit=true,BoundProperty='isRandom',Text="Randomize Stimulus Delay:");
 
 % >> Stimulus Delay (Minimum for randomization)
-hStimDelayMin = gui.Parameter_Control(layoutTrialControls,pStimDelay,Type='editfield',autoCommit=true,BoundProperty='Min');
-hStimDelayMin.Text = "Stimulus Delay Min (ms):";
+hStimDelayMin = gui.Parameter_Control(layoutTrialControls,P.StimDelay,autoCommit=true,BoundProperty='Min',Text="Stimulus Delay Min (ms):");
 
 % > Stimulus Delay (Maximum for randomization)
-hStimDelayMax = gui.Parameter_Control(layoutTrialControls,pStimDelay,Type='editfield',autoCommit=true,BoundProperty='Max');
-hStimDelayMax.Text = "Stimulus Delay Max (ms):";
+hStimDelayMax = gui.Parameter_Control(layoutTrialControls,P.StimDelay,autoCommit=true,BoundProperty='Max',Text="Stimulus Delay Max (ms):");
 
 hStimDelayRand.PostUpdateFcn = @set_stimdelay_randomization_state;
 hStimDelayRand.PostUpdateFcnArgs = {hStimDelayValue,hStimDelayMin,hStimDelayMax};
-set_stimdelay_randomization_state(hStimDelayRand,pStimDelay.isRandom,pStimDelay,hStimDelayValue,hStimDelayMin,hStimDelayMax);
-
+set_stimdelay_randomization_state(hStimDelayRand,P.StimDelay.isRandom,P.StimDelay,hStimDelayValue,hStimDelayMin,hStimDelayMax);
 
 
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
-pup = P.StimDelayTrain_StepUp;
-pdown = P.StimDelayTrain_StepDown;
 h = uibutton(layoutTrialControls,"state");
 h.Text = "Stimulus Delay Training Mode";
-h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,pStimDelay, ...
-        MinValue = pStimDelay.Min, ...
-        MaxValue = pStimDelay.Max, ...
-        StepUp = pup.Value, ...
-        StepDown = pdown.Value, ...
+h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,P.StimDelay, ...
+        MinValue = P.StimDelay.Min, ...
+        MaxValue = P.StimDelay.Max, ...
+        StepUp = P.StimDelayTrain_StepUp.Value, ...
+        StepDown = P.StimDelayTrain_StepDown.Value, ...
         StepUpResponse = "Hit", ...
         StepDownResponse = "Abort");
 
@@ -408,15 +349,11 @@ h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,p
 
         
 % >> Number of Pellets to Deliver
-h = gui.Parameter_Control(layoutTrialControls,P.NumPellets,Type='dropdown');
-h.Values = 1:3;
-h.Value = 1;
-h.Text = "# Pellets:";
+gui.Parameter_Control(layoutTrialControls,P.NumPellets,Type='dropdown',Text="# Pellets:");
 
 
 % >> Timeout Duration
-h = gui.Parameter_Control(layoutTrialControls,P.TimeoutDur,Type='editfield');
-h.Text = "Timeout Duration (ms):";
+gui.Parameter_Control(layoutTrialControls,P.TimeoutDur,Text="Timeout Duration (ms):");
 
 
 
@@ -426,85 +363,31 @@ h.Text = "Timeout Duration (ms):";
 % SOUND CONTROLS -----------------------------------------------------
 
 % >> dB SPL
-if ~isfield(P.dBSPL)
-    P.dBSPL.Value = 60; % default value, can be adjusted by user
-    P.dBSPL.Unit = 'dB SPL';
-    P.dBSPL.Min = -20;
-    P.dBSPL.Max = 80;
-    h = gui.Parameter_Control(layoutSoundControls,P.dBSPL,Type='editfield');
-    h.Text = "Sound Level (dB SPL):";
+if isfield(P,'dBSPL')
+    gui.Parameter_Control(layoutSoundControls,P.dBSPL,Text="Sound Level (dB SPL):");
 end
 
 % >> Tone dB SPL
-if ~isfield(P.TonedBSPL)
-    P.TonedBSPL.Unit = 'dB SPL';
-    P.TonedBSPL.Min = -20;
-    P.TonedBSPL.Max = 80;
-    h = gui.Parameter_Control(layoutSoundControls,P.TonedBSPL,Type='editfield');
-    h.Text = "Tone Sound Level (dB SPL):";
+if isfield(P,'TonedBSPL')
+    gui.Parameter_Control(layoutSoundControls,P.TonedBSPL,Text="Tone Sound Level (dB SPL):");
 end
 
 % >> Noise dB SPL
-if ~isfield(P.NoisedBSPL)
-    P.NoisedBSPL.Unit = 'dB SPL';
-    P.NoisedBSPL.Min = -20;
-    P.NoisedBSPL.Max = 80;
-    h = gui.Parameter_Control(layoutSoundControls,P.NoisedBSPL,Type='editfield');
-    h.Text = "Noise Sound Level (dB SPL):";
+if isfield(P,'NoisedBSPL')
+    gui.Parameter_Control(layoutSoundControls,P.NoisedBSPL,Text="Noise Sound Level (dB SPL):");
 end
 
 % >> Duration
-if ~isempty(pStimDur)    
-    h = gui.Parameter_Control(layoutSoundControls,pStimDur,Type='editfield');
-    h.Text = "Stimulus Duration (ms):";
+if isfield(P,'StimDur')
+    gui.Parameter_Control(layoutSoundControls,P.StimDur,Text="Stimulus Duration (ms):");
 end
 
 % >> Modulation Rate
-if ~isfield(P.Rate)
-    P.Rate.Unit = 'Hz';
-    P.Rate.Min = 0.1;
-    P.Rate.Max = 1000;
-    h = gui.Parameter_Control(layoutSoundControls,P.Rate,Type='editfield');
-    h.Text = "Modulation Rate (Hz):";
+if isfield(P,'Rate')
+    gui.Parameter_Control(layoutSoundControls,P.Rate,Text="Modulation Rate (Hz):");
 end
 
 
-
-%{
-
-% Panel for "Trial Filter" ------------------------------------------
-panelTrialFilter = uipanel(layoutMain, 'Title', 'Trial Filter');
-panelTrialFilter.Layout.Row = [9 11];
-panelTrialFilter.Layout.Column = [1 3];
-panelTrialFilter.Scrollable = 'on';
-
-% > Trial Filter
-layoutTrialFilter = simple_layout(panelTrialFilter);
-
-
-% > Trial Filter Table
-tt = R.TRIALS.trials;
-loc = R.TRIALS.writeParamIdx;
-trialTypes = cell2mat(tt(:,loc.TrialType));
-reminderInd = trialTypes == 2;
-d = tt(~reminderInd,loc.Depth);
-n = size(d,1);
-d(:,2) = tt(~reminderInd,loc.TrialType);
-d(:,3) = num2cell([true(1); false(n-5-1,1); true(5,1)]);
-
-h = uitable(layoutTrialFilter);
-h.Tag = 'tblTrialFilter';
-h.ColumnName = {'Depth','TrialType','Present'};
-h.ColumnEditable = [false,false,true];
-h.FontSize = 10;
-h.Data = d;
-h.Interruptible = 'off';
-h.CellEditCallback = @obj.update_trial_filter;
-obj.tableTrialFilter = h;
-obj.update_trial_filter(h);
-
-
-%}
 
 
 
@@ -523,20 +406,12 @@ h.watchedHandles = [hp.UserData];
 
 
 
-% % create/locate online plot ------------------------------------
-% h = uibutton(layoutMain);
-% h.Layout.Row = 11;
-% h.Layout.Column = 4;
-% h.Text = "Online Plot";
-% h.ButtonPushedFcn = @obj.create_onlineplot;
-
 % Filename field -----------------------------------------------
 panelFilename = uipanel(layoutMain, 'Title', 'Filename');
 panelFilename.Layout.Row = 11;
 panelFilename.Layout.Column = [3 5];
 
 layoutFilename = simple_layout(panelFilename);
-
 
 gui.FilenameValidator(R,layoutFilename,R.TRIALS.DataFilename);
 
@@ -558,9 +433,15 @@ tableNextTrial.RowName = [];
 tableNextTrial.ColumnEditable = false;
 tableNextTrial.FontSize = 20;
 
-obj.hl_NewTrial = addlistener(R.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
-obj.hl_NewData  = addlistener(obj.Psych.Helper,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
-obj.hl_ModeChange =addlistener(R.HELPER,'ModeChange',@(src,ev) obj.onModeChange(src,ev));
+
+
+
+% Add listeners for updating the "Next Trial" table and other dynamic elements based on trial events
+obj.hl_NewTrial   = addlistener(R.HELPER,'NewTrial',@(src,evnt) obj.update_NextTrial(src,evnt));
+obj.hl_ModeChange = addlistener(R.HELPER,'ModeChange',@(src,ev) obj.onModeChange(src,ev));
+
+% Add listener for updating the Psychophysics plot based on new data
+obj.hl_NewData    = addlistener(obj.Psych.Helper,'NewData',@(src,evnt) obj.update_NewData(src,evnt));
 
 
 
@@ -632,7 +513,7 @@ panelResponseHistory.Layout.Column = [6 7];
 
 % > Response History Table
 obj.ResponseHistory = gui.History(obj.Psych,panelResponseHistory);
-obj.ResponseHistory.BitColors = ["#b4ffca", "#ffcdcd", "#76c8ff","#ffce8f","#f0fc86"]; % override default BitMask colors with black for no response, orange for miss, and black for hit
+obj.ResponseHistory.BitColors = ["#c8ffd9", "#ffcdcd", "#b3e1ff","#ffeacf","#faffcc"]; % override default BitMask colors with black for no response, orange for miss, and black for hit
 obj.ResponseHistory.ParametersOfInterest = {'Depth','TrialType','RespLatency'};
 obj.ResponseHistory.ParameterColumnFormats = {'%0.3f %%', '%d', '%.0f ms'};
 

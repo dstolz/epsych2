@@ -96,12 +96,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'editfield'
                 options.BoundProperty (1,:) char = 'Value'
                 options.autoCommit (1,1) logical = false
+                options.Text (1,:) char = Parameter.Name
             end
             obj.parent = parent;
 
             obj.Parameter = Parameter;
             obj.type = options.Type;
             obj.BoundProperty = options.BoundProperty;
+            obj.Text = options.Text;
 
             pNames = properties(Parameter);
             if ~ismember(obj.BoundProperty,pNames)
@@ -157,9 +159,13 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
 
         function v = get.Values(obj)
-            v = obj.h_uiobj.ItemsData;
+            v = obj.Parameter.Values;
         end
 
+        %{ 
+         Note: for dropdown controls, the Values property is determined by the bound Parameter.Values, so setting it directly on the control will update the Parameter.Values. For other control types, Values is not used and setting it will have no effect.
+         This is a bit of an odd design but allows for convenient management of dropdown options through the underlying Parameter.
+         If we wanted to allow setting Values directly on the control for non-dropdown types, we would need to implement additional logic to handle that, and it could potentially lead to confusion about where the source of truth is for the list of values. For now, we'll keep it simple and only allow Values to be set through the Parameter for dropdown controls.
         function set.Values(obj,values)
             switch obj.type
                 case 'dropdown'
@@ -175,7 +181,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     end
             end
         end
-
+        %}
 
         function n = get.Name(obj)
             n = obj.Parameter.Name;

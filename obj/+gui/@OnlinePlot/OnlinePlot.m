@@ -48,7 +48,7 @@ classdef OnlinePlot < handle
             obj.HW = RUNTIME.HW;
             % Select parameters to plot if not provided
             if nargin < 2 || isempty(watchedParams)
-                p = RUNTIME.HW.filter_parameters('Access','Read',testFcn=@contains);
+                p = RUNTIME.filter_parameters('Access','Read',testFcn=@contains);
                 [s,v] = listdlg('PromptString','Select parameters for plot', ...
                     'SelectionMode','multiple','ListString',p);
                 if v == 0, delete(obj); return; end

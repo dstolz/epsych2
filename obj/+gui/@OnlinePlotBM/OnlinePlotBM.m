@@ -73,7 +73,7 @@ classdef OnlinePlotBM < handle
             
             for i = 1:length(BMBank)
 
-                p0 = RUNTIME.HW.filter_parameters('Name',sprintf('~BMid-%s',BMBank{i}),...
+                p0 = RUNTIME.filter_parameters('Name',sprintf('~BMid-%s',BMBank{i}),...
                     testFcn = @isequal, ...
                     includeInvisible=true);
 
@@ -82,7 +82,7 @@ classdef OnlinePlotBM < handle
                     return
                 end
                 
-                p = RUNTIME.HW.filter_parameters('Name',sprintf('~BM-%s',BMBank{i}), ...
+                p = RUNTIME.filter_parameters('Name',sprintf('~BM-%s',BMBank{i}), ...
                     testFcn = @startsWith, ...
                     includeInvisible=true);
 
@@ -251,7 +251,7 @@ classdef OnlinePlotBM < handle
             if ~isempty(obj.trialParam)
                 try
                     obj.trialBuffer(1:end-1) = obj.trialBuffer(2:end);
-                    obj.trialBuffer(end) = obj.HW.get_parameter(obj.trialParam);
+                    obj.trialBuffer(end) = obj.get_parameter(obj.trialParam);
                 catch
                     vprintf(0,1,'Unable to read the parameter: %s\nUpdate the trialParam to an existing parameter in the RPvds circuit', ...
                         obj.trialParam)

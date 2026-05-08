@@ -104,6 +104,7 @@ switch COMMAND
         if ~isfolder(self.RUNTIME.TempDataDir), mkdir(self.RUNTIME.TempDataDir); end
 
         self.RUNTIME.HELPER = epsych.Helper;
+        self.H.modeIndicator.attachRuntime(self.RUNTIME);
 
         self.RUNTIME.TIMER = self.CreateTimer;
 

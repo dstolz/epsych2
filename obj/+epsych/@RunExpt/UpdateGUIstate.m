@@ -13,6 +13,7 @@ hSetup = findobj(self.H.figure1,'-regexp','tag','^setup')';
 
 switch self.STATE
     case PRGMSTATE.NOCONFIG
+        self.H.modeIndicator.setState(hw.DeviceState.Idle);
 
     case PRGMSTATE.CONFIGLOADED
         self.STATE = PRGMSTATE.READY;
@@ -21,6 +22,7 @@ switch self.STATE
 
     case PRGMSTATE.READY
         set([self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
+        self.H.modeIndicator.setState(hw.DeviceState.Standby);
 
     case PRGMSTATE.RUNNING
         set([self.H.ctrl_pauseall self.H.ctrl_halt],'Enable','on')
@@ -33,6 +35,7 @@ switch self.STATE
 
     case PRGMSTATE.ERROR
         set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
+        self.H.modeIndicator.setState(hw.DeviceState.Error);
 end
 
 try

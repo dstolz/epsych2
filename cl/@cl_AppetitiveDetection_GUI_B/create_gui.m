@@ -493,11 +493,20 @@ panelPerformance = uipanel(layoutMain, 'Title', 'Session Performance');
 panelPerformance.Layout.Row = [1 2];
 panelPerformance.Layout.Column = 7;
 
-layoutPerformance = simple_layout(panelPerformance);
+layoutPerformance = uigridlayout(panelPerformance,[2 1]);
+layoutPerformance.ColumnWidth = {'1x'};
+layoutPerformance.RowHeight = {'fit','1x'};
+layoutPerformance.RowSpacing = 4;
+layoutPerformance.Padding = [0 0 0 0];
+
+obj.ModeIndicator = gui.ModeIndicator(layoutPerformance, FontSize=12);
+obj.ModeIndicator.attachRuntime(R);
+obj.ModeIndicator.setState(hw.DeviceState.Standby);
 
 % > Performance
 h = uilabel(layoutPerformance);
 h.Tag = 'lblPerformance';
+h.Layout.Row = 2;
 h.Text = "0";
 h.FontColor = 'r';
 h.FontSize = 18;

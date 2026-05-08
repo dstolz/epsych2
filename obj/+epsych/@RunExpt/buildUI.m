@@ -138,3 +138,12 @@ self.H.view_trials = uibutton(gRight,'push','Text','View Trials', ...
 
 self.H.save_data = uibutton(gRight,'push','Text','Save Data', ...
     'Tag','save_data', 'ButtonPushedFcn', @(~,~) self.SaveDataCallback);
+
+% ---------- Mode indicator in bottom-right cell ----------
+gLamp = uigridlayout(g,[1 1]);
+gLamp.Layout.Row = 2; gLamp.Layout.Column = 2;
+gLamp.RowHeight = {'1x'};
+gLamp.ColumnWidth = {'1x'};
+gLamp.Padding = [0 0 0 0];
+
+self.H.modeIndicator = gui.ModeIndicator(gLamp);

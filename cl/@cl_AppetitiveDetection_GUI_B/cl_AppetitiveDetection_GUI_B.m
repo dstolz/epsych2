@@ -26,6 +26,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         PhaseSelector         % gui.PhaseSelector instance
         ResponseHistory        % gui.History instance
         Performance            % gui.Performance instance
+        ModeIndicator          % gui.ModeIndicator instance
         lblPerformance           % Label for Performance display
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons
@@ -123,6 +124,10 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                 obj.hl_NewData.Enabled = 0;
                 delete(obj.hl_NewTrial);
                 delete(obj.hl_NewData);
+            end
+
+            try
+                delete(obj.ModeIndicator);
             end
 
             try

@@ -1,27 +1,29 @@
 classdef CalibrationGui < handle
     % gui = stimgen.calibration.CalibrationGui()
-    % gui = stimgen.calibration.CalibrationGui(Adapter=adapter)
-    % gui = stimgen.calibration.CalibrationGui(Engine=eng)
-    % gui = stimgen.calibration.CalibrationGui(Runtime=runtime)
+    % gui = stimgen.calibration.CalibrationGui(eng)
     % Interactive GUI for the stimgen.calibration package.
     %
     % Provides user parameterization of calibration settings, live inspection of
     % the latest response waveform/spectrum, transfer-curve visualization for
     % tone and click calibration tables, and save/load support for .esgc files.
+    % When no engine is supplied, an offline Engine is created automatically;
+    % hardware can be attached later via File > Initialize Runtime From Protocol.
     %
     % Parameters:
-    %   Adapter - (optional) stimgen.calibration.HwAdapter used for live runs.
-    %   Engine  - (optional) existing stimgen.calibration.Engine instance.
-    %   Runtime - (optional) epsych.Runtime; uses Runtime.HW via
-    %             stimgen.calibration.InterfaceAdapter.
+    %   eng - (optional) stimgen.calibration.Engine with an adapter already
+    %         attached. Omit to start in offline mode.
     %
     % Returns:
     %   gui - GUI controller handle.
     %
     % Example:
-    %   adapter = stimgen.calibration.InterfaceAdapter(RUNTIME.HW);
-    %   gui = stimgen.calibration.CalibrationGui(Adapter=adapter);
-    %   gui = stimgen.calibration.CalibrationGui(Runtime=RUNTIME);
+    %   % Offline mode — attach hardware from the GUI menu:
+    %   gui = stimgen.calibration.CalibrationGui();
+    %
+    %   % Pre-built engine with adapter:
+    %   adapter = stimgen.calibration.InterfaceAdapter(iface);
+    %   eng = stimgen.calibration.Engine(adapter);
+    %   gui = stimgen.calibration.CalibrationGui(eng);
     %
     % See also: stimgen.calibration.Engine, stimgen.calibration.InterfaceAdapter,
     %           documentation/stimgen/stimgen_CalibrationGui.md,
@@ -61,31 +63,18 @@ classdef CalibrationGui < handle
     end
 
     methods
-        function obj = CalibrationGui(options)
-            % obj = stimgen.calibration.CalibrationGui(options)
+        function obj = CalibrationGui(eng)
+            % obj = stimgen.calibration.CalibrationGui()
+            % obj = stimgen.calibration.CalibrationGui(eng)
             % Construct and display the calibration GUI.
+            %
+            % Parameters:
+            %   eng - (optional) stimgen.calibration.Engine; omit for offline mode.
             arguments
-                options.Adapter = []
-                options.Engine = []
-                options.Runtime = []
+                eng (1,1) stimgen.calibration.Engine = stimgen.calibration.Engine()
             end
 
-            if ~isempty(options.Engine)
-                obj.Engine = options.Engine;
-            elseif ~isempty(options.Adapter)
-                obj.Engine = stimgen.calibration.Engine(options.Adapter);
-            elseif ~isempty(options.Runtime)
-                runtimeObj = options.Runtime;
-                if ~isa(runtimeObj, 'epsych.Runtime')
-                    error('stimgen:calibration:CalibrationGui:badRuntime', ...
-                        'Runtime must be an epsych.Runtime object.');
-                end
-                obj.Engine = stimgen.calibration.Engine();
-                obj.Runtime = runtimeObj;
-                obj.attach_adapter_from_runtime_(runtimeObj);
-            else
-                obj.Engine = stimgen.calibration.Engine();
-            end
+            obj.Engine = eng;
 
             obj.build_ui_();
             obj.sync_controls_();

@@ -113,7 +113,7 @@ function onParamEdited(obj, evt)
                     statusMessage = sprintf('%s = %s', expressionText, obj.getParameterValueDisplay(parameter));
                     nextStep = 'Confirm the computed value, then compile to check the updated trial set.';
                 end
-            case 5
+            case 9
                 pairSelection = char(string(evt.NewData));
                 if strcmp(pairSelection, '<Create Pair...>')
                     pairName = obj.promptForNewPairName();
@@ -138,7 +138,7 @@ function onParamEdited(obj, evt)
                     statusMessage = sprintf('Paired %s with group %s', parameter.Name, pairName);
                     nextStep = 'Assign the same pair group to the related parameter if needed.';
                 end
-            case 6
+            case 5
                 if isequal(parameter.Type, 'String')
                     [stringValue, isArrayValue] = obj.parseStringParameterValue(evt.NewData);
                     parameter.isArray = isArrayValue;
@@ -167,11 +167,11 @@ function onParamEdited(obj, evt)
                         'Only String and StimType values support direct table edits. Use Expression or the type-specific editor instead.');
                     return
                 end
-            case 7
+            case 6
                 parameter.Min = double(evt.NewData);
-            case 8
+            case 7
                 parameter.Max = double(evt.NewData);
-            case 9
+            case 8
                 parameter.isRandom = logical(evt.NewData);
             case 10
                 parameter.Access = char(evt.NewData);

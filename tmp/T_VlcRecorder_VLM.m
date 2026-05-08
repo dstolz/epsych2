@@ -23,7 +23,11 @@ epsych.ProtocolDesigner('S:/RIG3_Backup_2025/epsych_files/Protocols/TEST.eprot')
 %%
 gui = stimgen.calibration.CalibrationGui();
 
-
+%%
+adapter = stimgen.calibration.WindowsSoundCardAdapter( ...
+    SampleRate=48000, ...   % must match your device's native rate
+    Device="", ...          % empty string uses the system default device
+    InputChannel=1);        % microphone input channel index
 
 %%
 

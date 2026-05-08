@@ -3,41 +3,58 @@
 Source file: obj/+stimgen/+calibration/CalibrationGui.m  
 Related reference: [stimgen_calibration.md](stimgen_calibration.md)
 
-CalibrationGui is the standalone calibration UI for the stimgen calibration stack. It owns a stimgen.calibration.Engine, can initialize its own epsych.Runtime from a protocol file, attaches a compatible hardware interface through InterfaceAdapter, and provides interactive controls for reference, tone, click, swept-sine, and filter design workflows.
+CalibrationGui is the standalone calibration UI for the stimgen calibration stack. It owns a `stimgen.calibration.Engine`, can initialize its own `epsych.Runtime` from a protocol file, attaches a compatible hardware interface through `InterfaceAdapter`, and provides interactive controls for reference, tone, click, swept-sine, and filter design workflows.
 
 ## What This File Does
 
 CalibrationGui.m implements:
 
-1. Constructor wiring for three entry modes.
+1. Constructor wiring (offline default or pre-built Engine).
 2. GUI creation (controls, plots, menu actions).
 3. Runtime lifecycle management inside the GUI.
 4. Adapter discovery and attachment from runtime interfaces.
 5. Calibration execution and state/status updates.
 6. Load/save for .esgc calibration files.
 
-## Constructor Modes
+## Constructor
 
-Supported constructor call patterns:
+Two call patterns are supported:
 
 ```matlab
+% Offline mode — attach hardware later via File > Initialize Runtime From Protocol:
 gui = stimgen.calibration.CalibrationGui()
-gui = stimgen.calibration.CalibrationGui(Adapter=adapter)
-gui = stimgen.calibration.CalibrationGui(Engine=eng)
-gui = stimgen.calibration.CalibrationGui(Runtime=runtime)
+
+% Pre-built Engine with adapter already attached:
+eng = stimgen.calibration.Engine(adapter);
+gui = stimgen.calibration.CalibrationGui(eng)
 ```
 
-Selection precedence in code:
+In both cases, if no adapter is attached at construction time, live calibration buttons are disabled until adapter attachment succeeds.
 
-1. Engine
-2. Adapter
-3. Runtime
-4. New offline Engine
+## Creating An Engine
 
-Notes:
+An `Engine` requires an `HwAdapter` for live measurement. The most common adapter for hardware interfaces is `InterfaceAdapter`:
 
-- If Runtime is provided, CalibrationGui attempts immediate adapter attachment from runtime interfaces.
-- If no adapter is attached, live calibration buttons are disabled until adapter attachment succeeds.
+```matlab
+% From an hw.Interface object (e.g. from a loaded protocol):
+adapter = stimgen.calibration.InterfaceAdapter(iface);
+eng = stimgen.calibration.Engine(adapter);
+```
+
+For offline use only (voltage lookup from a saved .esgc file):
+
+```matlab
+eng = stimgen.calibration.Engine.load('my_cal.esgc');
+```
+
+For a Windows sound card workflow:
+
+```matlab
+adapter = stimgen.calibration.WindowsSoundCardAdapter(...);
+eng = stimgen.calibration.Engine(adapter);
+```
+
+Once an engine exists, pass it to `CalibrationGui` or let the GUI create its own via the no-argument constructor and attach hardware from the menu.
 
 ## Exact Protocol Requirements For CalibrationGui Compatibility
 
@@ -113,6 +130,21 @@ Recommended sequence:
 5. Optional: Calibrate Clicks and/or Calibrate Swept Sine
 6. Optional: Design Filter
 7. Save .esgc
+
+## Calibration Parameter Dialogs
+
+When Calibrate Tones, Calibrate Clicks, or Calibrate Swept Sine is invoked, the GUI prompts for measurement parameters via an input dialog. The previous values are remembered as MATLAB preferences between sessions.
+
+For tones and clicks, the dialog collects:
+- Frequency/duration vector (as a comma-separated or `linspace`/`logspace` expression)
+- Repeat count (number of averages per point; default 1)
+
+For swept sine, the dialog collects:
+- Chirp duration in seconds (default 1)
+- Frequency vector (optional override)
+- Repeat count (number of chirp captures to average; default 4)
+
+The repeat count is passed directly to `Engine.calibrate_tones`, `Engine.calibrate_clicks`, or `Engine.calibrate_swept_sine` as the `repeatCount` argument.
 
 ## Button Enable Rules
 

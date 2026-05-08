@@ -13,8 +13,9 @@ classdef Engine < handle
     %
     % CalibrationData is empty ([]) until a successful run completes.
     % After a successful run it is a struct with fields:
-    %   tone             - struct: frequency, measurement, spl_db, voltage (Nx1)
-    %   click            - struct: duration, measurement, spl_db, voltage (Nx1)
+    %   tone             - struct: frequency, measurement, spl_db, voltage (Nx1); metrics sub-struct
+    %   click            - struct: duration, measurement, spl_db, voltage (Nx1); metrics sub-struct
+    %   swept_sine       - struct: frequency, measurement, spl_db, voltage (Nx1); metrics sub-struct
     %   filter           - digitalFilter | [] (populated by design_filter)
     %   filterGrpDelay   - int (group delay samples; 0 until design_filter runs)
     %
@@ -23,9 +24,9 @@ classdef Engine < handle
     %   eng = stimgen.calibration.Engine(adapter);
     %   eng.ReferenceFrequency = 1000;
     %   eng.calibrate_reference();
-    %   eng.calibrate_tones();
-    %   eng.calibrate_clicks();
-    %   eng.design_filter();       % optional
+    %   eng.calibrate_tones([], 3);     % 3 averages per frequency
+    %   eng.calibrate_clicks([], 3);
+    %   eng.design_filter();            % optional
     %   eng.save('my_cal.esgc');
     %
     %   % offline use (no adapter needed):

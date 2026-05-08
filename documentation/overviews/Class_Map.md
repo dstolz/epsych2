@@ -81,20 +81,13 @@ Analysis and GUI classes
 Support and task-specific classes
 ├─ peripherals
 │  ├─ PumpCom
-│  ├─ WebcamRecorder
 │  ├─ NanoMotorControl
 │  └─ NanoMotorControlGUI
 ├─ helpers
 │  ├─ EPsychInfo
-│  ├─ VlcRecorder
-│  └─ VlcRecorderGroup
 ├─ cl
 │  ├─ cl_AppetitiveDetection_GUI_B
 │  └─ cl_AversiveDetection_GUI
-├─ TDTfun
-│  ├─ TDTRP
-│  ├─ SynapseAPI
-│  └─ BH32
 └─ runtime/guis
    └─ ep_GenericGUITimer
 ```
@@ -176,10 +169,8 @@ Analysis and visualization
 Task and support branches
 ├─ cl_AppetitiveDetection_GUI_B / cl_AversiveDetection_GUI
 ├─ peripherals.PumpCom
-├─ peripherals.WebcamRecorder
 ├─ peripherals.NanoMotorControl / peripherals.NanoMotorControlGUI
 ├─ stimgen.StimType family / StimCalibration / StimPlay
-└─ EPsychInfo / VlcRecorder family
 ```
 
 ### Main dependency patterns

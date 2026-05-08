@@ -35,7 +35,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         parent (1,1) % handle to parent container
         Parameter (1,1) %hw.Parameter % handle to parameter
 
-        type (1,:) char {mustBeMember(type,{'editfield','dropdown','checkbox','toggle','readonly','momentary'})} = 'editfield'
+        type (1,:) char {mustBeMember(type,{'editfield','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'editfield'
 
         BoundProperty (1,:) char = 'Value' % hw.Parameter property to bind
 
@@ -93,7 +93,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             arguments
                 parent
                 Parameter
-                options.Type (1,:) char {mustBeMember(options.Type,{'editfield','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'editfield'
+                options.Type (1,:) char {mustBeMember(options.Type,{'auto','editfield','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'auto'
                 options.BoundProperty (1,:) char = 'Value'
                 options.autoCommit (1,1) logical = false
                 options.Text (1,:) char = Parameter.Name
@@ -101,7 +101,11 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             obj.parent = parent;
 
             obj.Parameter = Parameter;
-            obj.type = options.Type;
+            controlType = options.Type;
+            if isequal(controlType, 'auto')
+                controlType = obj.defaultTypeFromParameter(Parameter);
+            end
+            obj.type = controlType;
             obj.BoundProperty = options.BoundProperty;
             obj.Text = options.Text;
 
@@ -526,6 +530,74 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             obj.Parameter.Value = stim;
             close(fig);
             obj.open_stimtype_gui([], []);
+        end
+    end
+
+    methods (Access = private, Static)
+        function controlType = defaultTypeFromParameter(Parameter)
+            candidates = {'readonly','momentary','stimtype','checkbox','dropdown','editfield'};
+            scores = zeros(1, numel(candidates));
+
+            % Access rules
+            if isequal(Parameter.Access, 'Read')
+                scores(strcmp(candidates,'readonly')) = scores(strcmp(candidates,'readonly')) + 100;
+                scores(strcmp(candidates,'editfield')) = scores(strcmp(candidates,'editfield')) - 50;
+                scores(strcmp(candidates,'checkbox')) = scores(strcmp(candidates,'checkbox')) - 50;
+                scores(strcmp(candidates,'dropdown')) = scores(strcmp(candidates,'dropdown')) - 50;
+                scores(strcmp(candidates,'momentary')) = scores(strcmp(candidates,'momentary')) - 50;
+            end
+
+            % Trigger behavior should dominate primitive type.
+            if Parameter.isTrigger
+                scores(strcmp(candidates,'momentary')) = scores(strcmp(candidates,'momentary')) + 120;
+                scores(strcmp(candidates,'checkbox')) = scores(strcmp(candidates,'checkbox')) - 40;
+                scores(strcmp(candidates,'dropdown')) = scores(strcmp(candidates,'dropdown')) - 40;
+                scores(strcmp(candidates,'editfield')) = scores(strcmp(candidates,'editfield')) - 40;
+            end
+
+            % Semantic type preferences
+            switch Parameter.Type
+                case 'StimType'
+                    scores(strcmp(candidates,'stimtype')) = scores(strcmp(candidates,'stimtype')) + 110;
+                    scores(strcmp(candidates,'editfield')) = scores(strcmp(candidates,'editfield')) - 40;
+                case 'Boolean'
+                    scores(strcmp(candidates,'checkbox')) = scores(strcmp(candidates,'checkbox')) + 80;
+                    scores(strcmp(candidates,'editfield')) = scores(strcmp(candidates,'editfield')) - 20;
+                case {'Buffer','Coefficient Buffer'}
+                    scores(strcmp(candidates,'readonly')) = scores(strcmp(candidates,'readonly')) + 60;
+                    scores(strcmp(candidates,'editfield')) = scores(strcmp(candidates,'editfield')) - 30;
+                case {'Float','Integer','String','File','Undefined'}
+                    scores(strcmp(candidates,'editfield')) = scores(strcmp(candidates,'editfield')) + 25;
+            end
+
+            % Discrete values are often best represented as dropdown.
+            if ~isempty(Parameter.Values)
+                nVals = numel(Parameter.Values);
+                if nVals <= 40
+                    scores(strcmp(candidates,'dropdown')) = scores(strcmp(candidates,'dropdown')) + 70;
+                else
+                    scores(strcmp(candidates,'dropdown')) = scores(strcmp(candidates,'dropdown')) + 15;
+                end
+                scores(strcmp(candidates,'editfield')) = scores(strcmp(candidates,'editfield')) - 10;
+            end
+
+            % Small finite integer ranges can work well as dropdown choices.
+            if isequal(Parameter.Type,'Integer') && isfinite(Parameter.Min) && isfinite(Parameter.Max)
+                rangeSpan = Parameter.Max - Parameter.Min;
+                if rangeSpan >= 0 && rangeSpan <= 20 && floor(rangeSpan) == rangeSpan
+                    scores(strcmp(candidates,'dropdown')) = scores(strcmp(candidates,'dropdown')) + 35;
+                end
+            end
+
+            % Array-like values are poor fits for scalar entry controls.
+            if Parameter.isArray
+                scores(strcmp(candidates,'readonly')) = scores(strcmp(candidates,'readonly')) + 40;
+                scores(strcmp(candidates,'editfield')) = scores(strcmp(candidates,'editfield')) - 20;
+                scores(strcmp(candidates,'checkbox')) = scores(strcmp(candidates,'checkbox')) - 20;
+            end
+
+            [~, bestIdx] = max(scores);
+            controlType = candidates{bestIdx};
         end
     end
 end

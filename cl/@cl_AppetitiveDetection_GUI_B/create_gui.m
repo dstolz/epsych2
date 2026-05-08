@@ -463,31 +463,6 @@ obj.Psych.Plot(axPsych);
 
 
 
-
-
-
-
-
-
-
-
-
-
-%{
-% Axes for Microphone Display -------------------------------
-axesMicrophone = uiaxes(layoutMain);
-axesMicrophone.Layout.Row = [9 10];
-axesMicrophone.Layout.Column = 5;
-axis(axesMicrophone,'image');
-box(axesMicrophone,'on')
-
-if ~isempty(P.MicPower)
-    gui.MicrophonePlot(P.MicPower,axesMicrophone);
-    axesMicrophone.YAxis.Label.String = "RMS voltage";
-end
-%}
-
-
 % Panel for "Performance" --------------------------------------------
 panelPerformance = uipanel(layoutMain, 'Title', 'Session Performance');
 panelPerformance.Layout.Row = [1 2];

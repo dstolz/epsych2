@@ -46,6 +46,8 @@ classdef Parameter < matlab.mixin.SetGet
         handle (1,1) % handle to an associated gui object
 
         Name    (1,:) char = 'Param' % name of parameter
+
+
         Description (1,1) string = ""; % short description of parameter
         Unit    (1,:) char = ''; % unit string (e.g., 'V', 'ms', etc.)
         Module  (1,1) % handle to module object that this parameter belongs to
@@ -106,6 +108,7 @@ classdef Parameter < matlab.mixin.SetGet
     properties (Dependent)
         ValueStr % string representation of Value based on Format
         validName % valid MATLAB variable name based on Name
+        FullName  % full name including parent module (e.g., "ModuleName.ParamName");
     end
 
     methods (Static)
@@ -246,6 +249,15 @@ classdef Parameter < matlab.mixin.SetGet
                 'Could not resolve owner module for parameter "%s".', obj.Name);
         end
 
+        function fn = get.FullName(obj)
+            M = obj.Module;
+            if ~isempty(M) && ~isequal(M,0)
+                fn = sprintf('%s.%s', M.Name, obj.Name);
+            else
+                fn = obj.Name;
+            end
+        end
+
         function Trigger(obj)
             % obj.Trigger()
             % Trigger the parent event associated with this parameter.
@@ -262,9 +274,12 @@ classdef Parameter < matlab.mixin.SetGet
 
         end
 
-        
         function set.Value(obj,value)
-
+            if isequal(obj.Access, 'Read')
+                error('hw:Parameter:WriteAccessViolation', ...
+                    'Cannot set value of read-only parameter "%s".', obj.Name);
+            end
+            
             if isequal(obj.Type, 'StimType') && ~(isempty(value) || isa(value,'stimgen.StimType'))
                 error('hw:Parameter:InvalidStimTypeValue', ...
                     'Value for StimType parameter "%s" must be a stimgen.StimType object or empty.', obj.Name);

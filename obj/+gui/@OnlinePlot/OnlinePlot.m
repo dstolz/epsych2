@@ -56,7 +56,7 @@ classdef OnlinePlot < handle
             end
             if nargin < 3, hax = gca; end
             if nargin < 4 || isempty(BoxID), BoxID = 1; end
-            obj.watchedParams = obj.HW.find_parameter(watchedParams,includeInvisible=true);
+            obj.watchedParams = obj.find_parameter(watchedParams,includeInvisible=true);
             if isempty(hax)
                 obj.setup_figure;
             else
@@ -64,7 +64,7 @@ classdef OnlinePlot < handle
             end
             obj.add_context_menu;
             obj.BoxID = BoxID;
-            obj.trialParam = obj.HW.find_parameter(sprintf('_TrigState~%d',BoxID),includeInvisible=true);
+            obj.trialParam = obj.find_parameter(sprintf('_TrigState~%d',BoxID),includeInvisible=true);
             obj.h_timer = gui.GenericTimer(obj.figH,sprintf('epsych_gui_OnlinePlot~%d',BoxID));
             obj.h_timer.Timer.StartFcn = @obj.setup_plot;
             obj.h_timer.Timer.TimerFcn = @obj.update;

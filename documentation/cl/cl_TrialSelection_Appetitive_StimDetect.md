@@ -82,7 +82,7 @@ The function reads or updates the following data:
 - `TRIALS.DATA.Depth`
 - `TRIALS.DATA.StimDelay`
 - `TRIALS.S.Module.Parameters`
-- `TRIALS.HW.find_parameter('~ReminderTrial', includeInvisible=true)`
+- `TRIALS.find_parameter('~ReminderTrial', includeInvisible=true)`
 
 ## Software parameters used
 

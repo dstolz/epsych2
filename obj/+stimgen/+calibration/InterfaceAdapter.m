@@ -96,7 +96,7 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
             required = obj.REQUIRED_PARAMS_;
             for k = 1:numel(required)
                 name = required{k};
-                p = obj.HW.find_parameter(name, silenceParameterNotFound=true);
+                p = obj.find_parameter(name, silenceParameterNotFound=true);
                 if isempty(p)
                     error('stimgen:calibration:InterfaceAdapter:missingParameter', ...
                         ['Required calibration parameter "%s" not found on ' ...
@@ -105,11 +105,11 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
                 end
             end
 
-            obj.pBufferSize_  = obj.HW.find_parameter('BufferSize');
-            obj.pBufferOut_   = obj.HW.find_parameter('BufferOut');
-            obj.pTrigger_     = obj.HW.find_parameter('x_Trigger');
-            obj.pBufferIndex_ = obj.HW.find_parameter('BufferIndex');
-            obj.pBufferIn_    = obj.HW.find_parameter('BufferIn');
+            obj.pBufferSize_  = obj.find_parameter('BufferSize');
+            obj.pBufferOut_   = obj.find_parameter('BufferOut');
+            obj.pTrigger_     = obj.find_parameter('x_Trigger');
+            obj.pBufferIndex_ = obj.find_parameter('BufferIndex');
+            obj.pBufferIn_    = obj.find_parameter('BufferIn');
 
             % Discover Fs from the first module that reports a non-zero rate.
             if obj.Fs_ == 0

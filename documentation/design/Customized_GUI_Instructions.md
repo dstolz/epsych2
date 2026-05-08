@@ -29,8 +29,8 @@ A typical EPsych GUI follows this workflow:
    * *Monitor* = read-only live values (e.g., trial outcome codes, latencies, counters).
 2. **Find the parameter handles by name.**
 
-   * Hardware: `p = R.HW.find_parameter('Name');`
-   * Software: `p = R.S.Module.add_parameter('Name', defaultValue);` (or `R.S.find_parameter(...)` if it already exists)
+   * Hardware: `p = R.find_parameter('Name');`
+   * Software: `p = R.S.Module.add_parameter('Name', defaultValue);` (or `R.find_parameter(...)` if it already exists)
 3. **Build the layout first (usually with `uigridlayout`).**
 
    * Make panels for logical blocks (Trial Controls, Sound Controls, Performance, etc.).
@@ -127,15 +127,15 @@ Hardware parameters tend to represent device settings and current state.
 
 Common usage pattern:
 
-* `p = R.HW.find_parameter('ITIDur');`
-* `p = R.HW.find_parameter('~TrialDelivery', includeInvisible=true);`
+* `p = R.find_parameter('ITIDur');`
+* `p = R.find_parameter('~TrialDelivery', includeInvisible=true);`
 
 Notes:
 
 * Use `includeInvisible=true` for internal/advanced parameters (often prefixed with `~` or `!`).
 * Some calls pass `silenceParameterNotFound=true` to make optional parameters safe:
 
-  * Example: `p = R.HW.find_parameter('dBSPL', silenceParameterNotFound=true);`
+  * Example: `p = R.find_parameter('dBSPL', silenceParameterNotFound=true);`
   * If `p` is empty, simply skip creating that UI control.
 
 ### 2.2 Software parameters: `S.find_parameter` or `S.Module.add_parameter`
@@ -248,7 +248,7 @@ Use `gui.Parameter_Monitor` when you want a table of parameters that update cont
 
 Pattern:
 
-* `p = R.HW.find_parameter({...}, includeInvisible=true);`
+* `p = R.find_parameter({...}, includeInvisible=true);`
 * `obj.ParameterMonitorTable = gui.Parameter_Monitor(parentPanel, p, pollPeriod=0.1);`
 
 Notes:
@@ -409,7 +409,7 @@ Below is a conceptual outline (not copied verbatim) that captures the overall st
 
     * create `uifigure` and main `uigridlayout`
     * add panels for grouped controls
-    * use `R.HW.find_parameter` and `R.S.find_parameter`/`add_parameter` to collect hardware + software parameters
+    * use `R.find_parameter` and `R.find_parameter`/`add_parameter` to collect hardware + software parameters
     * create controls with `gui.Parameter_Control`
     * create monitors with `gui.Parameter_Monitor`
     * register `addlistener` callbacks for trial events

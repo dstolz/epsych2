@@ -88,7 +88,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
 
             % create psychophysics object
-            p = RUNTIME.HW.find_parameter('Depth');
+            p = RUNTIME.find_parameter('Depth');
             obj.Psych = psychophysics.Staircase(RUNTIME,p);
 
             % generate gui layout and components
@@ -298,7 +298,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
             if value == 0, return; end
 
-            pdt = R.HW.find_parameter('~TrialDelivery',includeInvisible=true);
+            pdt = R.find_parameter('~TrialDelivery',includeInvisible=true);
             if pdt.Value == 1
                 obj.Value = 0;
                 vprintf(0,1,'"Deliver Trials" must be inactive to initiate a Reminder trial')
@@ -325,11 +325,11 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             if value == 0, return; end
 
             vprintf(3,'Initiating Shape Trial')
-            pStim = R.HW.find_parameter('Depth');
+            pStim = R.find_parameter('Depth');
             cv = pStim.Value; % current value
             pStim.Value = 1; % 100% depth
 
-            % pht = R.HW.find_parameter('~PreventTrial',includeInvisible=true);
+            % pht = R.find_parameter('~PreventTrial',includeInvisible=true);
             % while pht.Value == 1
             %     pause(0.1);
             % end

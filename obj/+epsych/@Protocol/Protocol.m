@@ -36,8 +36,8 @@ classdef Protocol < handle & matlab.mixin.SetGet
     %   P.compile();
     %   P.save('MyProtocol.eprot');
     %
-    % See also: hw.Interface, hw.Parameter, hw.Software, hw.Module, 
-    %   documentation/protocol/epsych_Protocol.md
+    % See also: hw.Interface, hw.Parameter, hw.Software, hw.Module,
+    %   documentation/epsych/epsych_Protocol.md
 
     properties (SetAccess = protected)
         Interfaces (1,:) hw.Interface = hw.Interface.empty()

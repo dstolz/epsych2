@@ -1,183 +1,99 @@
-# `stimgen.StimType` and built-in stimulus classes
+# stimgen.StimType
 
-`stimgen.StimType` is the abstract base class behind every editable stimulus
-definition in the `stimgen` package.
+`stimgen.StimType` is the abstract base class for editable stimulus objects in the `stimgen` package.
 
-Concrete subclasses such as `stimgen.Tone`, `stimgen.Noise`, and
-`stimgen.ParamSweep` inherit a shared set of timing, level, plotting,
-preview, GUI, and calibration helpers. If you are adding a new stimulus
-class, this is the class to understand first.
+Source class:
 
-## What the base class provides
+- `obj/+stimgen/@StimType/StimType.m`
 
-Every `StimType` object owns the common pieces of a stimulus definition:
+## What The Base Class Provides
 
-- level and timing properties such as `SoundLevel`, `Duration`, and `Fs`
-- optional onset and offset windowing through `ApplyWindow`,
-  `WindowDuration`, and `WindowFcn`
-- optional output calibration through `ApplyCalibration` and `Calibration`
-- a cached waveform in `Signal`
-- convenience helpers for plotting, preview playback, serialization, and
-  GUI construction
+- shared stimulus properties (`SoundLevel`, `Duration`, `Fs`, windowing controls)
+- waveform storage (`Signal`)
+- calibration integration (`ApplyCalibration`, `Calibration`)
+- plotting and preview playback helpers
+- serialization helpers (`toStruct`, `fromStruct`)
+- GUI-generation and property metadata hooks
 
-Subclasses provide the waveform-specific parameters and implement
-`update_signal(obj)`.
+Subclasses implement `update_signal` and set class constants for calibration and normalization behavior.
 
-## The signal lifecycle
+## Signal Update Lifecycle
 
-The class is built around automatic regeneration.
+The base class listens to observable property changes and recomputes waveform data.
 
-When a public `SetObservable` property changes, `StimType` listeners call
-`update_signal()` and then refresh any live plot handle.
+Typical subclass update flow:
 
-The expected subclass pipeline is:
+1. generate raw signal in `update_signal`
+2. apply gating/windowing (`apply_gate`)
+3. normalize (`apply_normalization`)
+4. apply calibration (`apply_calibration`)
 
-```matlab
-obj.Signal = ...;          % generate raw waveform
-obj.apply_gate();          % apply onset/offset window if enabled
-obj.apply_normalization(); % normalize according to class constant
-obj.apply_calibration();   % convert target level to hardware voltage
-```
+`refresh_plot_if_valid` keeps open plot handles synchronized.
 
-That shared sequence keeps different stimulus classes consistent.
+## Variant Selection (Recent Refactor)
 
-### Calibration behavior
+The class now has explicit variant-control properties and cache management:
 
-`apply_calibration()` reads the attached `stimgen.StimCalibration` object and
-uses the subclass `CalibrationType` constant to decide how to map requested
-level to output voltage.
+- `VariantSelectionMode`
+- `VariantCombinationMode`
+- `VariantSelectorClass`
+- `VariantSelectorConfig`
+- `VariantReselectOnUpdate`
 
-Current built-in calibration paths are organized around:
+Supporting methods include:
 
-- `"tone"`
-- `"click"`
-- `"filter"` for equalized noise-like signals
+- `build_variant_combinations_`
+- `refresh_variant_cache_if_needed_`
+- `select_variant_index_`
+- `begin_variant_cycle_` / `end_variant_cycle_`
+- `apply_variant_index_and_update_`
+- `set_variant_index` / `step_variant`
+- `get_variant_info`
 
-If no valid calibration data are attached, the method warns and leaves the
-signal unchanged.
+This enables deterministic, shuffled, and custom selector-driven traversal of vectorized property combinations.
 
-## GUI generation
+## Expression Evaluation
 
-`StimType` includes a generic `create_gui()` implementation.
+Stimulus property expressions are evaluated through guarded helper methods:
 
-That GUI builder reads metadata from `propMeta()` and automatically creates
-numeric fields, checkboxes, dropdowns, or text fields based on either:
+- `evalPropertyExpression`
+- `evaluate_property_expression_`
+- `build_expression_context_`
+- `rewrite_qualified_property_refs_`
 
-- an explicit `widget` setting in the metadata, or
-- the underlying property class
+These are used by editing workflows that support computed property values.
 
-Subclasses normally customize the editor by overriding `propMeta()` and, when
-needed, `on_gui_changed()`.
+## GUI Integration
 
-This same metadata also drives the parameter editor inside
-`stimgen.StimPlayer`, so keeping `propMeta()` accurate improves multiple
-tools at once.
+`create_gui` builds widget controls from metadata (`propMeta`) and property definitions.
 
-## Discovery rules
+Recent UI sync behavior includes `update_handle_value`, which keeps control state aligned after property updates and variant changes.
 
-Playback GUIs discover available stimulus classes through `StimType.list()`.
+## Common Public Methods
 
-That method scans `obj/+stimgen/*.m` and filters out support files such as:
+- `plot`, `plot_spectrogram`, `play`
+- `selected_value`
+- `current_parameter_summary`
+- `toStruct`, `fromStruct`
+- `list` (discover available stimulus classes)
 
-- `StimType.m`
-- `StimPlay.m`
-- `donotsavedatafcn.m`
-- `multiTone.m`
-- files whose names contain `Calib`
-
-Two practical consequences follow from that:
-
-- `stimgen.ParamSweep` appears in the modern GUI lists.
-- `stimgen.multiTone` is still in the repository but is deliberately hidden
-  from current auto-discovery.
-
-## Built-in stimulus classes
-
-### `stimgen.Tone`
-
-Pure sinusoid with configurable frequency, onset phase, and window method.
-
-### `stimgen.Noise`
-
-Band-limited Gaussian noise with filter parameters and filter-based
-calibration support.
-
-### `stimgen.AMnoise`
-
-`Noise` plus sinusoidal amplitude modulation controls such as depth and rate.
-
-### `stimgen.AttackModNoise`
-
-`Noise` variant with an asymmetric attack and decay envelope.
-
-### `stimgen.ClickTrain`
-
-Impulse-train stimulus with click-specific timing rules. This class does not
-use the normal onset windowing path in the same way as continuous stimuli.
-
-### `stimgen.FMtone`
-
-Carrier tone with frequency modulation parameters.
-
-### `stimgen.ParamSweep`
-
-Preferred multi-object sweep container.
-
-`ParamSweep` wraps a prototype stimulus, expands `SweepParams` into a
-full-factorial grid, and builds a `MultiObjects` array of generated child
-stimuli. Use this instead of `multiTone` for new work.
-
-### `stimgen.multiTone`
-
-Legacy tone-grid wrapper. The class is still present, but it warns that it is
-deprecated and recommends `stimgen.ParamSweep` instead.
-
-## Common usage
-
-Create and preview a simple tone:
+## Minimal Example
 
 ```matlab
-tone = stimgen.Tone('Frequency', 4000, 'Duration', 0.1, 'SoundLevel', 60);
-tone.update_signal();
-tone.plot();
-tone.play();
+t = stimgen.Tone('Frequency', 4000, 'Duration', 0.1, 'SoundLevel', 60);
+t.update_signal();
+t.plot();
 ```
 
-Create a sweep from a prototype stimulus:
+Variant stepping example:
 
 ```matlab
-ps = stimgen.ParamSweep('stimgen.Tone');
-ps.Duration = 0.2;
-ps.SweepParams = struct('Frequency', [2000 4000 8000], ...
-                        'SoundLevel', 20:20:80);
-ps.update_signal();
+info = t.set_variant_index(1);
+info = t.step_variant(1);
 ```
 
-## Adding a new stimulus class
+## Related Documentation
 
-For a new class under `obj/+stimgen`, keep the implementation focused on the
-parts that are truly stimulus-specific.
-
-At minimum, a new class should:
-
-1. Subclass `stimgen.StimType`.
-2. Define public editable properties with useful validation.
-3. Set `DisplayName` and `UserProperties` in the constructor.
-4. Define `IsMultiObj`, `CalibrationType`, and `Normalization` constants.
-5. Implement `update_signal()`.
-6. Override `propMeta()` so the GUIs show clear labels and limits.
-
-If the signal needs a new calibration strategy, you will also need matching
-changes in `stimgen.StimCalibration` and `StimType.apply_calibration()`.
-
-## Related files
-
-- `obj/+stimgen/StimType.m`
-- `obj/+stimgen/Tone.m`
-- `obj/+stimgen/Noise.m`
-- `obj/+stimgen/AMnoise.m`
-- `obj/+stimgen/AttackModNoise.m`
-- `obj/+stimgen/ClickTrain.m`
-- `obj/+stimgen/FMtone.m`
-- `obj/+stimgen/ParamSweep.m`
-- `obj/+stimgen/multiTone.m`
+- `documentation/stimgen/stimgen_overview.md`
+- `documentation/stimgen/stimgen_StimCalibration.md`
+- `documentation/stimgen/stimgen_calibration.md`

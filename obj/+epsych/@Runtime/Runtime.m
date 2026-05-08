@@ -25,6 +25,8 @@ classdef Runtime < handle & dynamicprops
     %   r = epsych.Runtime;
     %   r.NSubjects = 2;
     %   r.writeParametersJSON('params.json');
+    %
+    % See also: documentation/epsych/epsych_Runtime.md
 
 
     properties

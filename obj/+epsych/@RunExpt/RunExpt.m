@@ -150,69 +150,7 @@ classdef RunExpt < handle
         end
 
 
-        function ViewTrials(self)
-            % obj.ViewTrials
-            % Display a preview of compiled trials for the selected subject.
-            % Supports both epsych.Protocol objects and legacy struct-based protocols.
-            idx = self.H.subject_list.Selection(1);
-            if isempty(idx), return, end
-
-            pfn = char(self.CONFIG(idx).protocol_fn);
-            if isempty(pfn) || ~isfile(pfn)
-                uialert(self.H.figure1, 'Protocol file not found.', 'EPsych', 'Icon', 'warning');
-                return
-            end
-
-            warning('off', 'MATLAB:dispatcher:UnresolvedFunctionHandle');
-            try
-                protocol = epsych.Protocol.load(pfn);
-            catch ME
-                warning('on', 'MATLAB:dispatcher:UnresolvedFunctionHandle');
-                vprintf(0, 1, ME);
-                return
-            end
-            warning('on', 'MATLAB:dispatcher:UnresolvedFunctionHandle');
-
-            protocol.compile();
-            C = protocol.COMPILED;
-
-            if C.ntrials == 0
-                uialert(self.H.figure1, 'Protocol compiled no trials. Check parameter definitions.', ...
-                    'EPsych', 'Icon', 'warning');
-                return
-            end
-
-            TRUNC = 2000;
-            trials = C.trials;
-            if size(trials, 1) > TRUNC
-                trials = trials(1:TRUNC, :);
-            end
-
-            % Normalize cell values for uitable display
-            for r = 1:size(trials, 1)
-                for c = 1:size(trials, 2)
-                    v = trials{r, c};
-                    if isstring(v)
-                        trials{r, c} = char(v);
-                    elseif ~ischar(v) && ~isnumeric(v) && ~islogical(v)
-                        trials{r, c} = mat2str(v);
-                    end
-                end
-            end
-
-            columnNames = {C.parameters.Name};
-            fig = uifigure('Name', sprintf('Compiled Trials — %s', pfn), ...
-                'Position', [200 100 900 520]);
-            uilabel(fig, ...
-                'Text', sprintf('Showing %d of %d compiled trials', size(trials, 1), C.ntrials), ...
-                'Position', [20 486 860 25], ...
-                'FontWeight', 'bold');
-            uitable(fig, ...
-                'Position', [20 20 860 460], ...
-                'ColumnName', columnNames, ...
-                'Data', trials, ...
-                'ColumnEditable', false(1, length(columnNames)));
-        end
+        ViewTrials(self)  % Display a preview of compiled trials for the selected subject
 
         function EditProtocol(self)
             % obj.EditProtocol
@@ -262,136 +200,7 @@ classdef RunExpt < handle
             self.CheckReady
         end
 
-        function DefineVideoSettings(self)
-            % obj.DefineVideoSettings
-            % Allow the user to configure VLC and webcam/video defaults.
-            fig = findall(groot,'Type','figure','-and','Tag','RunExptVideoSettings');
-            if ~isempty(fig) && isgraphics(fig(1))
-                fig = fig(1);
-                fig.Visible = 'on';
-                movegui(fig,'onscreen');
-                return
-            end
-
-            cfg = struct();
-            cfg.VlcExePath   = getpref('ep_RunExpt_Video','VlcExePath', 'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe');
-            cfg.DeviceName   = getpref('ep_RunExpt_Video','DeviceName', 'Integrated Camera');
-            cfg.MediaFile    = getpref('ep_RunExpt_Video','MediaFile', 'dshow://');
-            cfg.RecordingDir = getpref('ep_RunExpt_Video','RecordingDir', self.dfltDataPath);
-
-            fig = uifigure('Name','EPsych Video Settings', ...
-                'Tag','RunExptVideoSettings', ...
-                'Position',[200 200 640 340], ...
-                'Resize','off');
-            movegui(fig,'center');
-
-            grid = uigridlayout(fig,[5 4]);
-            grid.RowHeight = repmat({'fit'},1,5);
-            grid.ColumnWidth = {150,'1x',80,80};
-            grid.Padding = [16 16 16 16];
-            grid.RowSpacing = 14;
-            grid.ColumnSpacing = 10;
-
-            uilabel(grid,'Text','VLC executable path:','HorizontalAlignment','right', ...
-                'Layout',[1 1]);
-            txtVlc = uieditfield(grid,'text', ...
-                'Value',cfg.VlcExePath, ...
-                'Layout',[1 2 1 2]);
-            btnBrowseVlc = uibutton(grid,'push', ...
-                'Text','Browse...', ...
-                'Layout',[1 4], ...
-                'ButtonPushedFcn', @(~,~) browseVlc());
-
-            uilabel(grid,'Text','Preferred capture device:','HorizontalAlignment','right', ...
-                'Layout',[2 1]);
-            txtDevice = uieditfield(grid,'text', ...
-                'Value',cfg.DeviceName, ...
-                'Layout',[2 2 1 2]);
-            btnSelectDevice = uibutton(grid,'push', ...
-                'Text','Select...', ...
-                'Layout',[2 4], ...
-                'ButtonPushedFcn', @(~,~) selectDevice());
-
-            uilabel(grid,'Text','Default recording directory:','HorizontalAlignment','right', ...
-                'Layout',[3 1]);
-            txtDir = uieditfield(grid,'text', ...
-                'Value',cfg.RecordingDir, ...
-                'Layout',[3 2 1 2]);
-            btnBrowseDir = uibutton(grid,'push', ...
-                'Text','Browse...', ...
-                'Layout',[3 4], ...
-                'ButtonPushedFcn', @(~,~) browseDir());
-
-            uilabel(grid,'Text','VLC media URI:','HorizontalAlignment','right', ...
-                'Layout',[4 1]);
-            txtMedia = uieditfield(grid,'text', ...
-                'Value',cfg.MediaFile, ...
-                'Layout',[4 2 1 3]);
-
-            btnSave = uibutton(grid,'push', ...
-                'Text','Save', ...
-                'Layout',[5 3], ...
-                'ButtonPushedFcn', @(~,~) saveAndClose());
-            uibutton(grid,'push', ...
-                'Text','Cancel', ...
-                'Layout',[5 4], ...
-                'ButtonPushedFcn', @(~,~) delete(fig));
-
-            function browseVlc()
-                [fname, fdir] = uigetfile({'vlc.exe','VLC Executable (vlc.exe)'; '*.*','All files'}, 'Locate vlc.exe', char(txtVlc.Value));
-                if isequal(fname,0), return; end
-                txtVlc.Value = string(fullfile(fdir,fname));
-            end
-
-            function selectDevice()
-                rec = hw.VlcRecorder();
-                if strlength(txtDevice.Value) > 0
-                    rec.set_parameter('DeviceName', txtDevice.Value);
-                end
-                selected = rec.selectDevice();
-                if strlength(selected) > 0
-                    txtDevice.Value = selected;
-                end
-            end
-
-            function browseDir()
-                ontop = self.AlwaysOnTop(false);
-                pth = uigetdir(char(txtDir.Value), 'Select Default Webcam Recording Directory');
-                self.AlwaysOnTop(ontop);
-                if isequal(pth,0), return; end
-                txtDir.Value = string(pth);
-            end
-
-            function saveAndClose()
-                vlcPath = string(txtVlc.Value);
-                deviceName = string(txtDevice.Value);
-                mediaFile = string(txtMedia.Value);
-                recordingDir = string(txtDir.Value);
-
-                if strlength(vlcPath) == 0 || ~isfile(vlcPath)
-                    uialert(fig, 'Please choose a valid vlc.exe path.', 'Invalid VLC path', 'Icon','warning');
-                    return
-                end
-                if strlength(deviceName) == 0
-                    uialert(fig, 'Please enter a preferred capture device name.', 'Invalid Device', 'Icon','warning');
-                    return
-                end
-                if strlength(mediaFile) == 0
-                    uialert(fig, 'Please enter a valid VLC media URI.', 'Invalid URI', 'Icon','warning');
-                    return
-                end
-                if strlength(recordingDir) == 0 || ~isfolder(recordingDir)
-                    uialert(fig, 'Please choose a valid default recording directory.', 'Invalid Directory', 'Icon','warning');
-                    return
-                end
-
-                setpref('ep_RunExpt_Video','VlcExePath', vlcPath);
-                setpref('ep_RunExpt_Video','DeviceName', deviceName);
-                setpref('ep_RunExpt_Video','MediaFile', mediaFile);
-                setpref('ep_RunExpt_Video','RecordingDir', recordingDir);
-                delete(fig);
-            end
-        end
+        DefineVideoSettings(self)  % Allow the user to configure VLC and webcam/video defaults
 
         function LaunchCommutatorGUI(self)
             % obj.LaunchCommutatorGUI
@@ -408,99 +217,7 @@ classdef RunExpt < handle
 
         originalState = AlwaysOnTop(self, ontop)  % Set always-on-top state of main figure; returns previous state
 
-        function version_info(self)
-            % obj.version_info
-            % Display toolbox version metadata in a dedicated dialog window.
-            fig = findall(groot,'Type','figure','-and','Tag','RunExptVersionInfo');
-            if ~isempty(fig) && isgraphics(fig(1))
-                fig = fig(1);
-                fig.Visible = 'on';
-                movegui(fig,'onscreen');
-                return
-            end
-
-            E = EPsychInfo;
-            checksumText = self.formatVersionChecksum(E.chksum);
-            commitText = self.formatVersionTimestamp(E.commitTimestamp);
-
-            fig = uifigure('Name','EPsych Version Info', ...
-                'Tag','RunExptVersionInfo', ...
-                'Position',[100 100 560 520], ...
-                'Resize','off', ...
-                'Color',[0.97 0.98 1.00]);
-            movegui(fig,'center');
-
-            rootGrid = uigridlayout(fig,[3 1]);
-            rootGrid.RowHeight = {92,'1x',44};
-            rootGrid.ColumnWidth = {'1x'};
-            rootGrid.RowSpacing = 12;
-            rootGrid.Padding = [18 18 18 18];
-            rootGrid.BackgroundColor = fig.Color;
-
-            headerPanel = uipanel(rootGrid,'BorderType','none', ...
-                'BackgroundColor',[0.13 0.25 0.47]);
-            headerPanel.Layout.Row = 1;
-
-            headerGrid = uigridlayout(headerPanel,[2 1]);
-            headerGrid.RowHeight = {'fit','fit'};
-            headerGrid.ColumnWidth = {'1x'};
-            headerGrid.RowSpacing = 4;
-            headerGrid.Padding = [16 14 16 14];
-            headerGrid.BackgroundColor = headerPanel.BackgroundColor;
-
-            titleLink = uihyperlink(headerGrid, ...
-                'Text','EPsych', ...
-                'URL',E.RepositoryURL);
-            titleLink.FontSize = 24;
-            titleLink.FontWeight = 'bold';
-            titleLink.FontColor = [1 1 1];
-            uilabel(headerGrid, ...
-                'Text',sprintf('Version %s   Data %s',E.Version,E.DataVersion), ...
-                'FontSize',13, ...
-                'FontColor',[0.89 0.93 1.00]);
-
-            cardPanel = uipanel(rootGrid,'BorderType','none', ...
-                'BackgroundColor',[1 1 1], ...
-                'Scrollable','on');
-            cardPanel.Layout.Row = 2;
-
-            cardGrid = uigridlayout(cardPanel,[9 2]);
-            cardGrid.ColumnWidth = {140,'1x'};
-            cardGrid.RowHeight = {'fit','fit','fit','fit','fit','fit','fit','fit','fit'};
-            cardGrid.RowSpacing = 8;
-            cardGrid.ColumnSpacing = 14;
-            cardGrid.Padding = [16 16 16 12];
-            cardGrid.BackgroundColor = cardPanel.BackgroundColor;
-
-            self.addVersionInfoRow(cardGrid,1,'Author',E.Author);
-            self.addVersionInfoLinkRow(cardGrid,2,'Email',E.AuthorEmail,['mailto:' E.AuthorEmail]);
-            self.addVersionInfoLinkRow(cardGrid,3,'License',E.License,E.LicenseURL);
-            self.addVersionInfoRow(cardGrid,4,'Copyright',E.Copyright);
-            self.addVersionInfoRow(cardGrid,5,'Latest Commit',commitText);
-            self.addVersionInfoRow(cardGrid,6,'Checksum',checksumText);
-            self.addVersionInfoLinkRow(cardGrid,7,'Repository', ...
-                'GitHub Repository',E.RepositoryURL);
-            self.addVersionInfoLinkRow(cardGrid,8,'History', ...
-                'Commit History Overview',E.CommitHistoryURL);
-            self.addVersionInfoLinkRow(cardGrid,9,'Wiki', ...
-                'Repository Wiki',E.WikiURL);
-
-            footerGrid = uigridlayout(rootGrid,[1 2]);
-            footerGrid.Layout.Row = 3;
-            footerGrid.ColumnWidth = {'1x',90};
-            footerGrid.RowHeight = {'1x'};
-            footerGrid.Padding = [0 0 0 0];
-            footerGrid.BackgroundColor = fig.Color;
-
-            uilabel(footerGrid, ...
-                'Text','Links open in your default browser.', ...
-                'FontAngle','italic', ...
-                'FontColor',[0.35 0.39 0.46]);
-
-            uibutton(footerGrid,'push', ...
-                'Text','Close', ...
-                'ButtonPushedFcn', @(~,~) delete(fig));
-        end
+        version_info(self)  % Display toolbox version metadata in a dedicated dialog window
 
         function AssignRuntimeToCommandWindow(self)
             % obj.AssignRuntimeToCommandWindow
@@ -574,61 +291,7 @@ classdef RunExpt < handle
             self.SaveDataCallback
         end
 
-        function subject_list_SelectionChanged(self, hObj, ~)
-            % Prints subject and protocol info to the command window when selection changes.
-            if isempty(hObj.Selection), return, end
-            idx = hObj.Selection(1);
-            S = self.CONFIG(idx).SUBJECT;
-            C = self.CONFIG(idx);
-
-            fprintf('\n--- Subject ---\n')
-            fprintf('  Name:     %s\n', S.Name);
-            fprintf('  Box ID:   %d\n', S.BoxID);
-            if isfield(S,'Species') && ~isempty(S.Species)
-                fprintf('  Species:  %s\n', S.Species);
-            end
-            if isfield(S,'Sex') && ~isempty(S.Sex)
-                fprintf('  Sex:      %s\n', S.Sex);
-            end
-            if isfield(S,'Weight') && ~isempty(S.Weight)
-                fprintf('  Weight:   %g g\n', S.Weight);
-            end
-            if isfield(S,'Notes') && ~isempty(strtrim(char(S.Notes)))
-                fprintf('  Notes:    %s\n', strtrim(char(S.Notes)));
-            end
-
-            [~,pfn,pext] = fileparts(C.protocol_fn);
-            fprintf('--- Protocol ---\n')
-            fprintf('  File:     %s%s\n', pfn, pext);
-
-            proto = C.PROTOCOL;
-            if isa(proto,'epsych.Protocol') && isvalid(proto)
-                if isfield(proto.meta,'createdDate') && ~isempty(proto.meta.createdDate)
-                    fprintf('  Created:  %s\n', proto.meta.createdDate);
-                end
-                if isfield(proto.meta,'lastModified') && ~isempty(proto.meta.lastModified)
-                    fprintf('  Modified: %s\n', proto.meta.lastModified);
-                end
-                opt = proto.Options;
-                if ~isempty(proto.Info)
-                    fprintf('  Info:     %s\n', proto.Info);
-                end
-                fprintf('  Reps:     %d\n', opt.numReps);
-                fprintf('  ISI:      %d ms\n', opt.ISI);
-                fprintf('  Randomize:%s\n', mat2str(opt.randomize));
-                if proto.COMPILED.ntrials > 0
-                    fprintf('  Trials:   %d\n', proto.COMPILED.ntrials);
-                end
-            elseif isstruct(proto) && isfield(proto,'OPTIONS')
-                opt = proto.OPTIONS;
-                if isfield(opt,'numReps'), fprintf('  Reps:     %d\n', opt.numReps); end
-                if isfield(opt,'ISI'),     fprintf('  ISI:      %d ms\n', opt.ISI); end
-                if isfield(opt,'randomize'), fprintf('  Randomize:%s\n', mat2str(opt.randomize)); end
-                if isfield(proto,'ntrials') && proto.ntrials > 0
-                    fprintf('  Trials:   %d\n', proto.ntrials);
-                end
-            end
-        end
+        subject_list_SelectionChanged(self, hObj, evt)  % Prints subject and protocol info to the command window when selection changes
 
         function SetDefaultFuncs(self, F)
             % SetDefaultFuncs(self, F)
@@ -720,25 +383,7 @@ classdef RunExpt < handle
             checksumText = 'Unavailable';
         end
 
-        function commitText = formatVersionTimestamp(~, commitTimestamp)
-            % commitText = formatVersionTimestamp(self, commitTimestamp)
-            % Format the latest commit timestamp for display in the version info dialog.
-            if isdatetime(commitTimestamp)
-                if isnat(commitTimestamp)
-                    commitText = 'Unavailable';
-                else
-                    commitText = datestr(commitTimestamp,'ddd, mmm dd, yyyy HH:MM PM');
-                end
-                return
-            end
-
-            if ischar(commitTimestamp) || isstring(commitTimestamp)
-                commitText = char(string(commitTimestamp));
-                return
-            end
-
-            commitText = 'Unavailable';
-        end
+        commitText = formatVersionTimestamp(self, commitTimestamp)  % Format the latest commit timestamp for display in the version info dialog
     end
 
     methods (Static)

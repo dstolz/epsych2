@@ -33,11 +33,33 @@ if ~isfile(EPROT_FILE)
 end
 
 %% ---- Build adapter and engine ------------------------------------------
-adapter = stimgen.calibration.WindowsSoundCardAdapter( ...
-    SampleRate=SAMPLE_RATE, ...
-    Device=DEVICE_NAME, ...
-    SamplesPerFrame=SAMPLES_PER_FRAME, ...
-    InputChannel=INPUT_CHANNEL);
+try
+    adapter = stimgen.calibration.WindowsSoundCardAdapter( ...
+        SampleRate=SAMPLE_RATE, ...
+        Device=DEVICE_NAME, ...
+        SamplesPerFrame=SAMPLES_PER_FRAME, ...
+        InputChannel=INPUT_CHANNEL);
+catch ME
+    fprintf(2, '\nWindowsSoundCardAdapter initialization failed:\n  %s\n\n', ME.message);
+    fprintf(2, ['No full-duplex device was available for the current settings.\n', ...
+        'Set DEVICE_NAME to a specific full-duplex endpoint (not "").\n', ...
+        'You can test device names with the list below.\n\n']);
+
+    deviceNames = list_audio_devices_();
+    if isempty(deviceNames)
+        fprintf(2, 'No device names were returned by Audio Toolbox device queries.\n');
+    else
+        fprintf('Audio device candidates:\n');
+        for k = 1:numel(deviceNames)
+            fprintf('  %2d) %s\n', k, deviceNames{k});
+        end
+    end
+
+    fprintf(['\nExample:\n', ...
+        '  DEVICE_NAME = "<exact device name from list>";\n', ...
+        'Then run run_soundcard_calibration again.\n']);
+    return
+end
 
 eng = stimgen.calibration.Engine(adapter);
 
@@ -62,3 +84,63 @@ fprintf(['\n', ...
     '  3) Click "Calibrate Tones".\n', ...
     '  4) Optionally: Calibrate Clicks, Calibrate Swept Sine, Design Filter.\n', ...
     '  5) File > Save .esgc to save the calibration.\n']);
+
+function deviceNames = list_audio_devices_()
+% deviceNames = list_audio_devices_()
+% Return a de-duplicated list of candidate audio device names.
+deviceNames = {};
+
+% Query #1: static-style call supported in some MATLAB releases.
+try
+    names = getAudioDevices('audioPlayerRecorder');
+    deviceNames = append_names_(deviceNames, names);
+catch
+end
+
+% Query #2: object-style call supported in other MATLAB releases.
+try
+    apr = audioPlayerRecorder(SampleRate=48000);
+    names = getAudioDevices(apr);
+    release(apr);
+    deviceNames = append_names_(deviceNames, names);
+catch
+end
+
+% Keep stable order and unique values.
+if ~isempty(deviceNames)
+    [~, ia] = unique(deviceNames, 'stable');
+    deviceNames = deviceNames(ia);
+end
+end
+
+function out = append_names_(in, names)
+% out = append_names_(in, names)
+% Normalize device-name containers into a cellstr row vector.
+out = in;
+if isempty(names)
+    return
+end
+
+if isstring(names)
+    names = cellstr(names(:));
+elseif ischar(names)
+    names = cellstr(names);
+elseif iscell(names)
+    names = names(:);
+else
+    return
+end
+
+for i = 1:numel(names)
+    n = names{i};
+    if isstring(n)
+        n = char(n);
+    end
+    if ischar(n)
+        n = strtrim(n);
+        if ~isempty(n)
+            out{end+1} = n;
+        end
+    end
+end
+end

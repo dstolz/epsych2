@@ -148,9 +148,10 @@ classdef Engine < handle
         end
 
         % ---------------------------------------------------------- %
-        function calibrate_tones(obj, freqs)
+        function calibrate_tones(obj, freqs, repeatCount)
             % calibrate_tones(obj)
             % calibrate_tones(obj, freqs)
+            % calibrate_tones(obj, freqs, repeatCount)
             %
             % Sweep across frequencies and build the tone calibration LUT.
             % Aborts and clears any prior tone data on error.
@@ -158,9 +159,12 @@ classdef Engine < handle
             % Parameters:
             %   freqs - (1,:) double frequency vector in Hz (default: 50-point
             %           log sweep from 100 Hz to Nyquist)
+            %   repeatCount - (1,1) double positive integer number of
+            %                 measurements to average per frequency
             arguments
                 obj
                 freqs (1,:) double = []
+                repeatCount (1,1) double {mustBeInteger,mustBePositive,mustBeFinite} = 1
             end
             obj.assert_adapter_();
             fs = obj.Fs;
@@ -176,6 +180,21 @@ classdef Engine < handle
 
             n         = numel(freqs);
             tone_data = obj.empty_table_(n);
+            toneMeasAll = nan(repeatCount, n);
+            toneSnrAll = nan(repeatCount, n);
+            toneNoiseFloorAll = nan(repeatCount, n);
+            toneThdAll = nan(repeatCount, n);
+            toneH2All = nan(repeatCount, n);
+            toneH3All = nan(repeatCount, n);
+            toneHeadroomAll = repmat(struct( ...
+                'assumedFullScaleV', nan, ...
+                'excitationPeakV', nan, ...
+                'excitationHeadroomDb', nan, ...
+                'excitationClippingLikely', false, ...
+                'responsePeakV', nan, ...
+                'responseHeadroomDb', nan, ...
+                'responseFlatTopFraction', nan, ...
+                'responseClippingLikely', false), repeatCount, n);
 
             if obj.ShowLivePlots
                 obj.plot_reset();
@@ -191,7 +210,17 @@ classdef Engine < handle
                     y = obj.ExcitationVoltage .* so.Signal;
                     obj.ExcitationSignal = y;
 
-                    m = obj.measure_(y, "specfreq", StimFrequency=freqs(i));
+                    m = 0;
+                    for rep = 1:repeatCount
+                        mRep = obj.measure_(y, "specfreq", StimFrequency=freqs(i));
+                        m = m + mRep;
+                        toneMeasAll(rep, i) = mRep;
+                        response = obj.ResponseSignal;
+                        [toneNoiseFloorAll(rep, i), toneSnrAll(rep, i)] = obj.estimate_noise_snr_(response, fs, freqs(i));
+                        [toneThdAll(rep, i), toneH2All(rep, i), toneH3All(rep, i)] = obj.estimate_harmonics_(response, fs, freqs(i));
+                        toneHeadroomAll(rep, i) = obj.estimate_headroom_(y, response);
+                    end
+                    m = m ./ repeatCount;
                     [spl, volt] = obj.compute_spl_voltage_(m, "specfreq");
 
                     tone_data.x(i)           = freqs(i);
@@ -216,19 +245,39 @@ classdef Engine < handle
 
             % Commit only on full success.
             cd_out = obj.commit_cal_data_();
+            toneSensitivity = tone_data.spl_db(:) - 20*log10(max(obj.ExcitationVoltage, eps));
+            toneRepeatability = obj.repeatability_stats_(toneMeasAll);
+            toneHeadroom = obj.aggregate_headroom_(toneHeadroomAll(:));
+            toneNoiseFloor = mean(toneNoiseFloorAll, 1, 'omitnan');
+            toneSnr = mean(toneSnrAll, 1, 'omitnan');
+            toneThd = mean(toneThdAll, 1, 'omitnan');
+            toneH2 = mean(toneH2All, 1, 'omitnan');
+            toneH3 = mean(toneH3All, 1, 'omitnan');
             cd_out.tone = struct( ...
                 'frequency',   freqs(:), ...
                 'measurement', tone_data.measurement(:), ...
                 'spl_db',      tone_data.spl_db(:), ...
-                'voltage',     tone_data.voltage(:));
+                'voltage',     tone_data.voltage(:), ...
+                'metrics', struct( ...
+                    'frequency_response_hz', freqs(:), ...
+                    'frequency_response_db_spl', tone_data.spl_db(:), ...
+                    'calibrated_level_sensitivity_db_per_v', toneSensitivity, ...
+                    'noise_floor_db', toneNoiseFloor(:), ...
+                    'snr_db', toneSnr(:), ...
+                    'thd_db', toneThd(:), ...
+                    'h2_db', toneH2(:), ...
+                    'h3_db', toneH3(:), ...
+                    'repeatability', toneRepeatability, ...
+                    'clipping_headroom', toneHeadroom));
             obj.CalibrationData = cd_out;
             obj.CalibrationTimestamp = datetime('now');
         end
 
         % ---------------------------------------------------------- %
-        function calibrate_clicks(obj, durs)
+        function calibrate_clicks(obj, durs, repeatCount)
             % calibrate_clicks(obj)
             % calibrate_clicks(obj, durs)
+            % calibrate_clicks(obj, durs, repeatCount)
             %
             % Sweep across click durations and build the click calibration LUT.
             % Aborts and clears any prior click data on error.
@@ -236,9 +285,12 @@ classdef Engine < handle
             % Parameters:
             %   durs - (1,:) double click durations in seconds
             %          (default: 8-point geometric series 1..128 samples)
+            %   repeatCount - (1,1) double positive integer number of
+            %                 measurements to average per duration
             arguments
                 obj
                 durs (1,:) double = []
+                repeatCount (1,1) double {mustBeInteger,mustBePositive,mustBeFinite} = 1
             end
             obj.assert_adapter_();
             fs = obj.Fs;
@@ -256,6 +308,19 @@ classdef Engine < handle
 
             n          = numel(durs);
             click_data = obj.empty_table_(n);
+            clickMeasAll = nan(repeatCount, n);
+            clickSnrAll = nan(repeatCount, n);
+            clickNoiseFloorAll = nan(repeatCount, n);
+            clickThdAll = nan(repeatCount, n);
+            clickHeadroomAll = repmat(struct( ...
+                'assumedFullScaleV', nan, ...
+                'excitationPeakV', nan, ...
+                'excitationHeadroomDb', nan, ...
+                'excitationClippingLikely', false, ...
+                'responsePeakV', nan, ...
+                'responseHeadroomDb', nan, ...
+                'responseFlatTopFraction', nan, ...
+                'responseClippingLikely', false), repeatCount, n);
 
             if obj.ShowLivePlots
                 obj.plot_reset();
@@ -270,7 +335,17 @@ classdef Engine < handle
                     y = obj.ExcitationVoltage .* so.Signal;
                     obj.ExcitationSignal = y;
 
-                    m = obj.measure_(y, "peak");
+                    m = 0;
+                    for rep = 1:repeatCount
+                        mRep = obj.measure_(y, "peak");
+                        m = m + mRep;
+                        clickMeasAll(rep, i) = mRep;
+                        response = obj.ResponseSignal;
+                        [clickNoiseFloorAll(rep, i), clickSnrAll(rep, i)] = obj.estimate_noise_snr_(response, fs, nan);
+                        clickThdAll(rep, i) = thd(response, fs);
+                        clickHeadroomAll(rep, i) = obj.estimate_headroom_(y, response);
+                    end
+                    m = m ./ repeatCount;
                     [spl, volt] = obj.compute_spl_voltage_(m, "peak");
 
                     click_data.x(i)           = durs(i);
@@ -293,20 +368,36 @@ classdef Engine < handle
             end
 
             cd_out = obj.commit_cal_data_();
+            clickSensitivity = click_data.spl_db(:) - 20*log10(max(obj.ExcitationVoltage, eps));
+            clickRepeatability = obj.repeatability_stats_(clickMeasAll);
+            clickHeadroom = obj.aggregate_headroom_(clickHeadroomAll(:));
+            clickNoiseFloor = mean(clickNoiseFloorAll, 1, 'omitnan');
+            clickSnr = mean(clickSnrAll, 1, 'omitnan');
+            clickThd = mean(clickThdAll, 1, 'omitnan');
             cd_out.click = struct( ...
                 'duration',    durs(:), ...
                 'measurement', click_data.measurement(:), ...
                 'spl_db',      click_data.spl_db(:), ...
-                'voltage',     click_data.voltage(:));
+                'voltage',     click_data.voltage(:), ...
+                'metrics', struct( ...
+                    'calibrated_level_sensitivity_db_per_v', clickSensitivity, ...
+                    'noise_floor_db', clickNoiseFloor(:), ...
+                    'snr_db', clickSnr(:), ...
+                    'thd_db', clickThd(:), ...
+                    'h2_db', nan(size(clickThd(:))), ...
+                    'h3_db', nan(size(clickThd(:))), ...
+                    'repeatability', clickRepeatability, ...
+                    'clipping_headroom', clickHeadroom));
             obj.CalibrationData = cd_out;
             obj.CalibrationTimestamp = datetime('now');
         end
 
         % ---------------------------------------------------------- %
-        function calibrate_swept_sine(obj, duration, freqs)
+        function calibrate_swept_sine(obj, duration, freqs, repeatCount)
             % calibrate_swept_sine(obj)
             % calibrate_swept_sine(obj, duration)
             % calibrate_swept_sine(obj, duration, freqs)
+            % calibrate_swept_sine(obj, duration, freqs, repeatCount)
             %
             % Perform broadband calibration using a log-sine chirp sweep.
             % The chirp exponentially increases frequency from ~100 Hz to
@@ -325,10 +416,13 @@ classdef Engine < handle
             %   freqs    - (1,:) double frequency vector in Hz where calibration
             %              is sampled (default: 50-point log sweep from 100 Hz
             %              to Nyquist)
+            %   repeatCount - (1,1) double positive integer number of
+            %                 chirp captures to average (default: 4)
             arguments
                 obj
                 duration (1,1) double {mustBePositive,mustBeFinite} = 1
                 freqs (1,:) double = []
+                repeatCount (1,1) double {mustBeInteger,mustBePositive,mustBeFinite} = 4
             end
             obj.assert_adapter_();
             fs = obj.Fs;
@@ -358,37 +452,59 @@ classdef Engine < handle
             y = obj.ExcitationVoltage .* so.Signal;
             obj.ExcitationSignal = y;
 
-            % Capture the response once
-            raw = obj.Adapter.play_and_record(y);
-            response = obj.trim_response_(raw);
-            obj.ResponseSignal = response;
-            obj.ResponseTHD = thd(response, fs);
-
             n = numel(freqs);
             swept_sine_data = obj.empty_table_(n);
+            measAll = nan(repeatCount, n);
+            thdAll = nan(repeatCount, 1);
+            responses = cell(repeatCount, 1);
 
             if obj.ShowLivePlots
                 obj.plot_reset();
             end
 
             try
-                vprintf(1, 'Analyzing swept sine response at %d frequencies...', n);
+                vprintf(1, 'Analyzing swept sine response at %d frequencies (%d averages)...', n, repeatCount);
+                for rep = 1:repeatCount
+                    vprintf(1, '[%d/%d] Capturing swept sine response', rep, repeatCount);
+                    raw = obj.Adapter.play_and_record(y);
+                    response = obj.trim_response_(raw);
+                    responses{rep} = response;
+                    obj.ResponseSignal = response;
+                    thdAll(rep) = thd(response, fs);
+
+                    for i = 1:n
+                        measAll(rep, i) = stimgen.calibration.Engine.spectral_rms(response, freqs(i), fs);
+                    end
+
+                    if obj.ShowLivePlots
+                        for i = 1:n
+                            mAvg = mean(measAll(1:rep, i), 'omitnan');
+                            [spl, volt] = obj.compute_spl_voltage_(mAvg, "specfreq");
+                            swept_sine_data.x(i) = freqs(i);
+                            swept_sine_data.measurement(i) = mAvg;
+                            swept_sine_data.spl_db(i) = spl;
+                            swept_sine_data.voltage(i) = volt;
+                        end
+                        obj.plot_spectrum();
+                        obj.plot_transfer('swept_sine', swept_sine_data);
+                    end
+                end
+
+                minLen = min(cellfun(@numel, responses));
+                stacked = zeros(repeatCount, minLen);
+                for rep = 1:repeatCount
+                    stacked(rep, :) = responses{rep}(1:minLen);
+                end
+                obj.ResponseSignal = mean(stacked, 1);
+                obj.ResponseTHD = mean(thdAll, 'omitnan');
+
                 for i = 1:n
-                    vprintf(1, '[%d/%d] Analyzing %.3f kHz', i, n, freqs(i)/1000);
-
-                    % Measure spectral content at each frequency
-                    m = stimgen.calibration.Engine.spectral_rms(response, freqs(i), fs);
+                    m = mean(measAll(:, i), 'omitnan');
                     [spl, volt] = obj.compute_spl_voltage_(m, "specfreq");
-
                     swept_sine_data.x(i)           = freqs(i);
                     swept_sine_data.measurement(i) = m;
                     swept_sine_data.spl_db(i)      = spl;
                     swept_sine_data.voltage(i)     = volt;
-
-                    if obj.ShowLivePlots
-                        obj.plot_spectrum();
-                        obj.plot_transfer('swept_sine', swept_sine_data);
-                    end
                 end
             catch ME
                 if isstruct(obj.CalibrationData)
@@ -400,6 +516,23 @@ classdef Engine < handle
 
             % Commit only on full success
             cd_out = obj.commit_cal_data_();
+            transferMetrics = obj.estimate_transfer_metrics_(y, obj.ResponseSignal, fs);
+            [noiseFloorDb, snrDb] = obj.estimate_noise_snr_(obj.ResponseSignal, fs, nan);
+            sweptRepeatability = obj.repeatability_stats_(measAll);
+            sweptHeadroomAll = repmat(struct( ...
+                'assumedFullScaleV', nan, ...
+                'excitationPeakV', nan, ...
+                'excitationHeadroomDb', nan, ...
+                'excitationClippingLikely', false, ...
+                'responsePeakV', nan, ...
+                'responseHeadroomDb', nan, ...
+                'responseFlatTopFraction', nan, ...
+                'responseClippingLikely', false), repeatCount, 1);
+            for rep = 1:repeatCount
+                sweptHeadroomAll(rep) = obj.estimate_headroom_(y, responses{rep});
+            end
+            sweptHeadroom = obj.aggregate_headroom_(sweptHeadroomAll);
+            sweptSensitivity = swept_sine_data.spl_db(:) - 20*log10(max(obj.ExcitationVoltage, eps));
             cd_out.swept_sine = struct( ...
                 'frequency',   freqs(:), ...
                 'measurement', swept_sine_data.measurement(:), ...
@@ -408,7 +541,22 @@ classdef Engine < handle
                 'duration',    duration, ...
                 'chirp_type',  "log-sine", ...
                 'start_freq',  100, ...
-                'stop_freq',   min(nyquist * 0.95, 20000));
+                'stop_freq',   min(nyquist * 0.95, 20000), ...
+                'metrics', struct( ...
+                    'frequency_response_hz', transferMetrics.frequency_hz, ...
+                    'frequency_response_db', transferMetrics.magnitude_db, ...
+                    'phase_deg', transferMetrics.phase_deg, ...
+                    'impulse_response', transferMetrics.impulse_response, ...
+                    'group_delay_samples', transferMetrics.group_delay_samples, ...
+                    'group_delay_seconds', transferMetrics.group_delay_seconds, ...
+                    'calibrated_level_sensitivity_db_per_v', sweptSensitivity, ...
+                    'noise_floor_db', noiseFloorDb, ...
+                    'snr_db', snrDb, ...
+                    'thd_db', obj.ResponseTHD, ...
+                    'h2_db', nan, ...
+                    'h3_db', nan, ...
+                    'repeatability', sweptRepeatability, ...
+                    'clipping_headroom', sweptHeadroom));
             obj.CalibrationData = cd_out;
             obj.CalibrationTimestamp = datetime('now');
 
@@ -740,6 +888,190 @@ classdef Engine < handle
 
             spl_db  = 20 * log10(m_rms / obj.MicSensitivity) + obj.ReferenceLevel;
             voltage = obj.ExcitationVoltage * 10 ^ ((obj.NormativeValue - spl_db) / 20);
+        end
+
+        function [noiseFloorDb, snrDb] = estimate_noise_snr_(~, y, fs, toneFreq)
+            noiseFloorDb = nan;
+            snrDb = nan;
+            if nargin < 4
+                toneFreq = nan;
+            end
+            if isempty(y) || fs <= 0
+                return
+            end
+
+            n = numel(y);
+            w = flattopwin(n);
+            [pxx, f] = periodogram(y, w, 2^nextpow2(n), fs, 'power');
+            pxx = max(pxx, eps);
+            pxxDb = 10 * log10(pxx);
+            noiseFloorDb = median(pxxDb, 'omitnan');
+
+            if isfinite(toneFreq) && toneFreq > 0 && toneFreq < fs/2
+                band = f >= toneFreq * 2^(-1/12) & f <= toneFreq * 2^(1/12);
+                if any(band)
+                    sigPow = sum(pxx(band));
+                    noisePow = sum(pxx(~band)) * (nnz(band) / max(nnz(~band), 1));
+                    snrDb = 10 * log10(sigPow / max(noisePow, eps));
+                end
+            else
+                snrDb = prctile(pxxDb, 95) - noiseFloorDb;
+            end
+        end
+
+        function [thdDb, h2Db, h3Db] = estimate_harmonics_(~, y, fs, fundamentalFreq)
+            thdDb = nan;
+            h2Db = nan;
+            h3Db = nan;
+            if isempty(y) || fs <= 0 || ~isfinite(fundamentalFreq) || fundamentalFreq <= 0 || fundamentalFreq >= fs/2
+                return
+            end
+
+            n = numel(y);
+            w = flattopwin(n);
+            [pxx, f] = periodogram(y, w, 2^nextpow2(n), fs, 'power');
+            pxx = max(pxx, eps);
+
+            p1 = local_band_power_(pxx, f, fundamentalFreq);
+            p2 = local_band_power_(pxx, f, 2 * fundamentalFreq);
+            p3 = local_band_power_(pxx, f, 3 * fundamentalFreq);
+
+            if p1 > 0
+                h2Db = 10 * log10(p2 / p1);
+                h3Db = 10 * log10(p3 / p1);
+                thdDb = 10 * log10((p2 + p3) / p1);
+            end
+
+            function p = local_band_power_(pxxIn, fIn, fc)
+                if fc <= 0 || fc >= fs/2
+                    p = eps;
+                    return
+                end
+                band = fIn >= fc * 2^(-1/16) & fIn <= fc * 2^(1/16);
+                if ~any(band)
+                    [~, idx] = min((fIn - fc).^2);
+                    p = pxxIn(idx);
+                else
+                    p = sum(pxxIn(band));
+                end
+            end
+        end
+
+        function metrics = estimate_transfer_metrics_(~, x, y, fs)
+            metrics = struct( ...
+                'frequency_hz', [], ...
+                'magnitude_db', [], ...
+                'phase_deg', [], ...
+                'impulse_response', [], ...
+                'group_delay_samples', [], ...
+                'group_delay_seconds', []);
+            if isempty(x) || isempty(y) || fs <= 0
+                return
+            end
+
+            n = min(numel(x), numel(y));
+            x = x(1:n);
+            y = y(1:n);
+            nfft = 2^nextpow2(n);
+
+            X = fft(x, nfft);
+            Y = fft(y, nfft);
+            H = Y ./ (X + eps);
+
+            halfIdx = 1:(floor(nfft/2) + 1);
+            freqHz = (halfIdx - 1)' .* (fs / nfft);
+            Hh = H(halfIdx);
+            magDb = 20 * log10(abs(Hh) + eps);
+
+            phaseRad = unwrap(angle(Hh));
+            phaseDeg = phaseRad * 180 / pi;
+            omega = 2 * pi * freqHz / fs;
+            dOmega = gradient(omega);
+            dOmega = max(dOmega, eps);
+            groupDelaySamples = -gradient(phaseRad) ./ dOmega;
+
+            h = real(ifft(H, nfft));
+
+            metrics.frequency_hz = freqHz;
+            metrics.magnitude_db = magDb;
+            metrics.phase_deg = phaseDeg;
+            metrics.impulse_response = h(:);
+            metrics.group_delay_samples = groupDelaySamples(:);
+            metrics.group_delay_seconds = (groupDelaySamples(:) ./ fs);
+        end
+
+        function stats = repeatability_stats_(~, values)
+            % values is expected to be [repeats x points].
+            mu = mean(values, 1, 'omitnan');
+            sigma = std(values, 0, 1, 'omitnan');
+            stats = struct( ...
+                'num_repeats', size(values, 1), ...
+                'mean', mu(:), ...
+                'std', sigma(:), ...
+                'cv_percent', [], ...
+                'overall_cv_percent', nan);
+            stats.cv_percent = 100 * (stats.std ./ max(abs(stats.mean), eps));
+
+            muAll = mean(stats.mean, 'omitnan');
+            sigmaAll = mean(stats.std, 'omitnan');
+            if isfinite(muAll)
+                stats.overall_cv_percent = 100 * sigmaAll / max(abs(muAll), eps);
+            end
+        end
+
+        function m = estimate_headroom_(~, excitation, response)
+            fullScaleV = 10;
+            m = struct( ...
+                'assumedFullScaleV', fullScaleV, ...
+                'excitationPeakV', nan, ...
+                'excitationHeadroomDb', nan, ...
+                'excitationClippingLikely', false, ...
+                'responsePeakV', nan, ...
+                'responseHeadroomDb', nan, ...
+                'responseFlatTopFraction', nan, ...
+                'responseClippingLikely', false);
+
+            if ~isempty(excitation)
+                exPeak = max(abs(excitation));
+                m.excitationPeakV = exPeak;
+                m.excitationHeadroomDb = 20 * log10(fullScaleV / max(exPeak, eps));
+                m.excitationClippingLikely = exPeak >= fullScaleV;
+            end
+
+            if ~isempty(response)
+                rspPeak = max(abs(response));
+                m.responsePeakV = rspPeak;
+                m.responseHeadroomDb = 20 * log10(fullScaleV / max(rspPeak, eps));
+
+                tol = max(1e-8, 1e-5 * max(rspPeak, 1));
+                flatTopFraction = mean(abs(abs(response) - rspPeak) <= tol);
+                m.responseFlatTopFraction = flatTopFraction;
+                m.responseClippingLikely = (rspPeak >= fullScaleV) || (flatTopFraction > 0.01);
+            end
+        end
+
+        function out = aggregate_headroom_(~, metricsArray)
+            out = struct( ...
+                'assumedFullScaleV', nan, ...
+                'excitationPeakV', nan, ...
+                'excitationHeadroomDb', nan, ...
+                'excitationClippingLikely', false, ...
+                'responsePeakV', nan, ...
+                'responseHeadroomDb', nan, ...
+                'responseFlatTopFraction', nan, ...
+                'responseClippingLikely', false);
+            if isempty(metricsArray)
+                return
+            end
+
+            out.assumedFullScaleV = metricsArray(1).assumedFullScaleV;
+            out.excitationPeakV = mean([metricsArray.excitationPeakV], 'omitnan');
+            out.excitationHeadroomDb = mean([metricsArray.excitationHeadroomDb], 'omitnan');
+            out.excitationClippingLikely = any([metricsArray.excitationClippingLikely]);
+            out.responsePeakV = mean([metricsArray.responsePeakV], 'omitnan');
+            out.responseHeadroomDb = mean([metricsArray.responseHeadroomDb], 'omitnan');
+            out.responseFlatTopFraction = mean([metricsArray.responseFlatTopFraction], 'omitnan');
+            out.responseClippingLikely = any([metricsArray.responseClippingLikely]);
         end
 
         function y = trim_response_(obj, y)

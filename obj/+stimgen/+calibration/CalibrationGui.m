@@ -304,19 +304,21 @@ classdef CalibrationGui < handle
         end
 
         function run_calibrate_tones_(obj)
-            [freqs, wasCancelled] = obj.prompt_vector_parameter_( ...
+            [freqs, repeatCount, wasCancelled] = obj.prompt_vector_parameter_( ...
                 'toneFreqs', ...
+                'toneRepeats', ...
                 'Tone frequencies (Hz). Leave empty to use default log sweep.', ...
                 'Tone Calibration', ...
-                '');
+                '', ...
+                1);
             if wasCancelled
                 obj.set_status_('Tone calibration cancelled.', false);
                 return
             end
             if isempty(freqs)
-                obj.Engine.calibrate_tones();
+                obj.Engine.calibrate_tones([], repeatCount);
             else
-                obj.Engine.calibrate_tones(freqs);
+                obj.Engine.calibrate_tones(freqs, repeatCount);
             end
             obj.refresh_all_plots_();
             obj.update_runtime_state_();
@@ -331,19 +333,21 @@ classdef CalibrationGui < handle
         end
 
         function run_calibrate_clicks_(obj)
-            [durs, wasCancelled] = obj.prompt_vector_parameter_( ...
+            [durs, repeatCount, wasCancelled] = obj.prompt_vector_parameter_( ...
                 'clickDurations', ...
+                'clickRepeats', ...
                 'Click durations (s). Leave empty to use default 1..128 samples.', ...
                 'Click Calibration', ...
-                '');
+                '', ...
+                1);
             if wasCancelled
                 obj.set_status_('Click calibration cancelled.', false);
                 return
             end
             if isempty(durs)
-                obj.Engine.calibrate_clicks();
+                obj.Engine.calibrate_clicks([], repeatCount);
             else
-                obj.Engine.calibrate_clicks(durs);
+                obj.Engine.calibrate_clicks(durs, repeatCount);
             end
             obj.refresh_all_plots_();
             obj.update_runtime_state_();
@@ -358,15 +362,15 @@ classdef CalibrationGui < handle
         end
 
         function run_calibrate_swept_sine_(obj)
-            [duration, freqs, wasCancelled] = obj.prompt_swept_sine_parameters_();
+            [duration, freqs, repeatCount, wasCancelled] = obj.prompt_swept_sine_parameters_();
             if wasCancelled
                 obj.set_status_('Swept sine calibration cancelled.', false);
                 return
             end
             if isempty(freqs)
-                obj.Engine.calibrate_swept_sine(duration);
+                obj.Engine.calibrate_swept_sine(duration, [], repeatCount);
             else
-                obj.Engine.calibrate_swept_sine(duration, freqs);
+                obj.Engine.calibrate_swept_sine(duration, freqs, repeatCount);
             end
             obj.refresh_all_plots_();
             obj.update_runtime_state_();
@@ -715,35 +719,49 @@ classdef CalibrationGui < handle
             end
         end
 
-        function [values, wasCancelled] = prompt_vector_parameter_(obj, prefName, promptText, dlgTitle, defaultValue)
+        function [values, repeatCount, wasCancelled] = prompt_vector_parameter_(obj, prefName, repeatPrefName, promptText, dlgTitle, defaultValue, repeatDefault)
             wasCancelled = false;
             stored = obj.get_pref_(prefName, defaultValue);
-            answer = inputdlg(promptText, dlgTitle, [1 90], {stored});
+            repeatStored = obj.get_pref_(repeatPrefName, num2str(repeatDefault));
+
+            prompts = {
+                promptText, ...
+                'Number of averages (positive integer):'
+            };
+            defaults = {stored, repeatStored};
+            answer = inputdlg(prompts, dlgTitle, [1 90; 1 90], defaults);
             if isempty(answer)
                 values = [];
+                repeatCount = repeatDefault;
                 wasCancelled = true;
                 return
             end
 
             raw = strtrim(string(answer{1}));
+            repeatRaw = strtrim(string(answer{2}));
             obj.set_pref_(prefName, char(raw));
+            obj.set_pref_(repeatPrefName, char(repeatRaw));
             values = obj.parse_numeric_vector_(raw, lower(dlgTitle));
+            repeatCount = obj.parse_positive_integer_(repeatRaw, 'number of averages');
         end
 
-        function [duration, freqs, wasCancelled] = prompt_swept_sine_parameters_(obj)
+        function [duration, freqs, repeatCount, wasCancelled] = prompt_swept_sine_parameters_(obj)
             durationPref = obj.get_pref_('sweptSineDuration', '1.0');
             freqsPref = obj.get_pref_('sweptSineFreqs', '');
+            repeatsPref = obj.get_pref_('sweptSineRepeats', '4');
 
             prompts = {
                 'Swept sine duration (s, >0):', ...
-                'Swept sine frequencies (Hz). Leave empty to use default log sweep:'
+                'Swept sine frequencies (Hz). Leave empty to use default log sweep:', ...
+                'Number of averages (positive integer):'
             };
-            defaults = {durationPref, freqsPref};
-            answer = inputdlg(prompts, 'Swept Sine Calibration', [1 90; 1 90], defaults);
+            defaults = {durationPref, freqsPref, repeatsPref};
+            answer = inputdlg(prompts, 'Swept Sine Calibration', [1 90; 1 90; 1 90], defaults);
 
             if isempty(answer)
                 duration = 1;
                 freqs = [];
+                repeatCount = 4;
                 wasCancelled = true;
                 return
             end
@@ -758,9 +776,23 @@ classdef CalibrationGui < handle
             freqsText = strtrim(string(answer{2}));
             freqs = obj.parse_numeric_vector_(freqsText, 'swept sine frequencies');
 
+            repeatsText = strtrim(string(answer{3}));
+            repeatCount = obj.parse_positive_integer_(repeatsText, 'number of averages');
+
             obj.set_pref_('sweptSineDuration', char(durationText));
             obj.set_pref_('sweptSineFreqs', char(freqsText));
+            obj.set_pref_('sweptSineRepeats', char(repeatsText));
             wasCancelled = false;
+        end
+
+        function value = parse_positive_integer_(~, textValue, label)
+            raw = strtrim(string(textValue));
+            value = str2double(raw);
+            if isnan(value) || ~isfinite(value) || value <= 0 || value ~= round(value)
+                error('stimgen:calibration:CalibrationGui:badInteger', ...
+                    '%s must be a positive integer.', label);
+            end
+            value = round(value);
         end
 
         function value = get_pref_(~, prefName, defaultValue)

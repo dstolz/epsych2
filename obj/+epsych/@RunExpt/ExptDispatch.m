@@ -73,7 +73,7 @@ switch COMMAND
             
             
             for i = 1:length(protocol_interfaces)
-                vprintf(0,'Connecting to hardware interface: %s', class(hw_interfaces(i)))
+                vprintf(0,'Connecting to hardware interface: %s', class(protocol_interfaces(i)))
                 
                 if ~protocol_interfaces(i).IsConnected
                     protocol_interfaces(i).connect();
@@ -109,7 +109,9 @@ switch COMMAND
         self.RUNTIME.TIMER = self.CreateTimer;
 
         vprintf(0,'Initialization complete. Starting experiment...')
-        set(self.RUNTIME.Interfaces,'mode',hw.DeviceState(COMMAND));
+        for i = 1:length(self.RUNTIME.Interfaces)
+            self.RUNTIME.Interfaces(i).mode = hw.DeviceState(COMMAND);
+        end
 
         start(self.RUNTIME.TIMER)
 

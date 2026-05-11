@@ -37,9 +37,6 @@ if isa(proto,'epsych.Protocol') && isvalid(proto)
     if ~isempty(proto.Info)
         fprintf('  Info:     %s\n', proto.Info);
     end
-    fprintf('  Reps:     %d\n', opt.numReps);
-    fprintf('  ISI:      %d ms\n', opt.ISI);
-    fprintf('  Randomize:%s\n', mat2str(opt.randomize));
     if proto.COMPILED.ntrials > 0
         fprintf('  Trials:   %d\n', proto.COMPILED.ntrials);
     end

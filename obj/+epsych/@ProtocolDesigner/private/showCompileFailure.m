@@ -28,11 +28,23 @@ function details = localBuildCompileFailureDetails_(obj, compileError)
         compileMessage = 'Unknown compile error.';
     end
 
+    duplicateSection = '';
+    duplicateNamePreview = '';
+    duplicateLines = localFindDuplicateCompiledParameterNames_(obj.Protocol);
+    if ~isempty(duplicateLines)
+        duplicateSection = sprintf('\n\nDuplicated compiled parameter names:\n- %s', strjoin(duplicateLines, '\n- '));
+        duplicateNamePreview = localBuildDuplicateNamePreview_(duplicateLines);
+    end
+
     validationReport = obj.Protocol.validate();
     issueLines = localFormatValidationIssues_(validationReport);
 
     details = struct();
-    details.statusMessage = sprintf('Compile failed: %s', compileMessage);
+    if isempty(duplicateNamePreview)
+        details.statusMessage = sprintf('Compile failed: %s', compileMessage);
+    else
+        details.statusMessage = sprintf('Compile failed: Duplicate parameter names (%s).', duplicateNamePreview);
+    end
     details.nextStep = 'Review the compile details, fix the reported parameters or options, then compile again.';
 
     if isempty(obj.Protocol.COMPILED.parameters)
@@ -42,13 +54,74 @@ function details = localBuildCompileFailureDetails_(obj, compileError)
     end
 
     if isempty(issueLines)
-        details.alertMessage = sprintf('Compile failed:\n%s', compileMessage);
+        details.alertMessage = sprintf('Compile failed:\n%s%s', compileMessage, duplicateSection);
         return
     end
 
     previewCount = min(4, numel(issueLines));
-    details.alertMessage = sprintf('Compile failed:\n%s\n\nLikely issues to fix:\n- %s', ...
-        compileMessage, strjoin(issueLines(1:previewCount), '\n- '));
+    details.alertMessage = sprintf('Compile failed:\n%s%s\n\nLikely issues to fix:\n- %s', ...
+        compileMessage, duplicateSection, strjoin(issueLines(1:previewCount), '\n- '));
+end
+
+function duplicateLines = localFindDuplicateCompiledParameterNames_(protocol)
+    duplicateLines = {};
+    names = {};
+    locations = {};
+
+    for ifaceIdx = 1:numel(protocol.Interfaces)
+        iface = protocol.Interfaces(ifaceIdx);
+        interfaceType = char(iface.Type);
+
+        for moduleIdx = 1:numel(iface.Module)
+            module = iface.Module(moduleIdx);
+
+            for paramIdx = 1:numel(module.Parameters)
+                parameter = module.Parameters(paramIdx);
+                if ~parameter.Visible || strcmp(parameter.Access, 'Read')
+                    continue
+                end
+
+                names{end + 1} = parameter.Name;
+                locations{end + 1} = sprintf('%s.%s (interface: %s)', module.Name, parameter.Name, interfaceType);
+            end
+        end
+    end
+
+    if isempty(names)
+        return
+    end
+
+    [uniqueNames, ~, groupIdx] = unique(names);
+    counts = accumarray(groupIdx(:), 1);
+    duplicateGroupIdx = find(counts > 1);
+    for idx = 1:numel(duplicateGroupIdx)
+        group = duplicateGroupIdx(idx);
+        name = uniqueNames{group};
+        matchIdx = find(groupIdx == group);
+        duplicateLines{end + 1} = sprintf('%s (%d): %s', ...
+            name, numel(matchIdx), strjoin(locations(matchIdx), '; '));
+    end
+end
+
+function previewText = localBuildDuplicateNamePreview_(duplicateLines)
+    names = cell(1, numel(duplicateLines));
+    for idx = 1:numel(duplicateLines)
+        line = duplicateLines{idx};
+        sep = strfind(line, ' (');
+        if isempty(sep)
+            names{idx} = line;
+        else
+            names{idx} = line(1:sep(1)-1);
+        end
+    end
+
+    maxShown = min(3, numel(names));
+    shown = names(1:maxShown);
+    if numel(names) > maxShown
+        previewText = sprintf('%s, +%d more', strjoin(shown, ', '), numel(names) - maxShown);
+    else
+        previewText = strjoin(shown, ', ');
+    end
 end
 
 function issueLines = localFormatValidationIssues_(validationReport)

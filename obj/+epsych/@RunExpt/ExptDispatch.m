@@ -88,7 +88,7 @@ switch COMMAND
 
 
         catch me
-            vprintf(0,1,me);
+            vprintf(0,1,me.message);
             error('epsych:RunExpt:HardwareInitializationFailed', ...
                 'Failed to initialize hardware interface. Check connection and configuration, then try again');
         end

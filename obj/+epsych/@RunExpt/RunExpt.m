@@ -259,7 +259,22 @@ classdef RunExpt < handle
             hCtrl = findobj(self.H.figure1, '-regexp', 'tag', '^ctrl')';
             set(hCtrl, 'Enable', 'off');
             drawnow
-            self.ExptDispatch(string(hObj.Text));
+            previousState = self.STATE;
+            try
+                self.ExptDispatch(string(hObj.Text));
+            catch ME
+                % Restore a usable UI state when command dispatch fails.
+                if isfield(self.H,'figure1') && isgraphics(self.H.figure1)
+                    set(self.H.figure1,'pointer','arrow');
+                end
+                if previousState < PRGMSTATE.RUNNING
+                    self.STATE = previousState;
+                else
+                    self.STATE = PRGMSTATE.ERROR;
+                end
+                self.UpdateGUIstate;
+                vprintf(0,1,ME);
+            end
         end
 
         function PsychTimerRunTime(self)
@@ -338,7 +353,7 @@ classdef RunExpt < handle
             % Restore the always-on-top state of the main figure after a config browser closes.
             if ~isfield(self.H,'figure1') || ~isgraphics(self.H.figure1), return, end
             if ~isfield(self.H,'always_on_top') || ~isgraphics(self.H.always_on_top), return, end
-            self.AlwaysOnTop(ontop)
+            self.AlwaysOnTop(ontop);
         end
 
         function addVersionInfoRow(~, parent, rowIdx, labelText, valueText)

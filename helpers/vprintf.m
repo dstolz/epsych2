@@ -95,10 +95,11 @@ if verbose_level == -1, return; end
 
 % Print to command window
 if isempty(moreinputs)
+    msgText = char(string(msg));
     if red
-        fprintf(2,['%s: ' msg '\n'],curTimeStr) %#ok<PRTCAL>
+        fprintf(2,'%s: %s\n',curTimeStr,msgText) %#ok<PRTCAL>
     else
-        fprintf(['%s: ' msg '\n'],curTimeStr)
+        fprintf('%s: %s\n',curTimeStr,msgText)
     end
 else
     if red
@@ -155,7 +156,8 @@ if isnumeric(logFid) && logFid > 2
         st = st(end);
     end
     if isempty(moreinputs)
-        fprintf(logFid,['%s,%s,%d: ' msg '\n'],curTimeStr,st.name,st.line);
+        msgText = char(string(msg));
+        fprintf(logFid,'%s,%s,%d: %s\n',curTimeStr,st.name,st.line,msgText);
     else
         fprintf(logFid,['%s,%s,%d: ' msg '\n'],curTimeStr,st.name,st.line,moreinputs{:});
     end

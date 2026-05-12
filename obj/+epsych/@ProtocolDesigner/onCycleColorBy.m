@@ -1,6 +1,6 @@
 function onCycleColorBy(obj)
 % onCycleColorBy(obj)
-% Cycle the parameter table color mode through Type, Interface, and Pair.
+% Cycle the parameter table color mode through Type, Interface, Pair, and Access.
     if isempty(obj.DropDownColorBy) || ~isvalid(obj.DropDownColorBy)
         return
     end

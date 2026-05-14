@@ -102,17 +102,17 @@ for i = 1:RUNTIME.NSubjects
         vprintf(3,'Selecting next trial for box %d using %s',i,class(RUNTIME.TRIALS(i).selector))
         tcf = tic;
         RUNTIME.TRIALS(i).NextTrialID = RUNTIME.TRIALS(i).selector.selectNext(RUNTIME.TRIALS(i));
-        vprintf(4,'%s ran in %.4f seconds',class(RUNTIME.TRIALS(i).selector),toc(tcf))
+        dt = toc(tcf);
+        if dt > 0.25
+            vprintf(2,1,'Warning: Trial selector "%s" is taking %.4f seconds to select the next trial for subject %d. Consider optimizing the trial selection function or pre-compiling trial sequences if possible.', class(RUNTIME.TRIALS(i).selector), dt, i)
+        else
+            vprintf(4,'%s ran in %.4f seconds',class(RUNTIME.TRIALS(i).selector),dt)
+        end
 
     catch me
         vprintf(0,1,'Error in trial selector "%s": %s', class(RUNTIME.TRIALS(i).selector), me.message);
         vprintf(0,1,me);
-        t = timerfindall;
-        if ~isempty(t)
-            stop(t);
-            delete(t);
-        end
-        rethrow(me)
+        vprintf(0,1,'Trial selection failed for subject %d. Check the trial selection function for errors.', i);
     end
     
 

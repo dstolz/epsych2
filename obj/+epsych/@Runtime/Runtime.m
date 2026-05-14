@@ -30,8 +30,6 @@ classdef Runtime < handle & dynamicprops
 
 
     properties
-        NSubjects (1,1) double {mustBePositive,mustBeInteger} = 1 % Number of subjects in the experiment (default: 1)
-
         HWinUse (1,:) string % List of hardware in use (string array)
 
         TRIALS            % Protocol-specific trial information, including trial selection function, trial parameters, and trial count
@@ -44,8 +42,7 @@ classdef Runtime < handle & dynamicprops
         DataFile string = strings(0,1)   % Filepath(s) for acquired data
 
         Interfaces        % Cell array of hardware and software interfaces (e.g., hw.TDT_RPcox, hw.Software)
-        HW                % Hardware interface object(s) (e.g., hw.TDT_RPcox)
-        S                 % Software interface object(s) (e.g., hw.Software)
+ 
         CORE              % Runtime core or struct-compatible
 
         StartTime datetime = NaT % Experiment start time (datetime)
@@ -53,8 +50,9 @@ classdef Runtime < handle & dynamicprops
         TrialComplete  % Manual trial completion flag (if in use, wait for manual completion of trial in RPvds)
     end
 
-
-    
+    properties (SetAccess = private)
+        NSubjects (1,1) double {mustBePositive, mustBeInteger} = 1 % Number of subjects in the experiment
+    end    
 
 
     methods
@@ -67,6 +65,39 @@ classdef Runtime < handle & dynamicprops
             % self = Runtime
             % Construct an empty Runtime container and initialize state.
             vprintf(2, 'Initializing Runtime object')
+        end
+
+        function delete(self)
+            % delete(self)
+            % Clean up runtime resources (e.g., stop timers, disconnect hardware).
+            vprintf(2, 'Cleaning up Runtime resources')
+            if ~isempty(self.TIMER) && isvalid(self.TIMER) && strcmp(self.TIMER.Running, 'on')
+                stop(self.TIMER);
+                delete(self.TIMER);
+            end
+            if ~isempty(self.Interfaces)
+                for i = 1:length(self.Interfaces)
+                    if isvalid(self.Interfaces{i}) && self.Interfaces{i}.IsConnected
+                        self.Interfaces{i}.disconnect();
+                    end
+                end
+            end
+        end
+
+        function set.TRIALS(self, value)
+            % set.TRIALS(self, value)
+            % Custom setter for TRIALS property to ensure it is a struct with required fields.
+            if ~isstruct(value) || ~all(isfield(value, {'trialSelectionFcn', 'trialParameters', 'nTrials'}))
+                error('TRIALS must be a struct with fields: trialSelectionFcn, trialParameters, nTrials');
+            end
+            self.TRIALS = value;
+            self.NSubjects = length(self.TRIALS);
+
+            for i = 1:self.NSubjects
+                self.resolveCoreParameters(i);
+                self.dispatchNextTrial(i);
+            end
+
         end
 
         filter_parameters(obj, propertyName, propertyValue, options, poptions) % Return hw.Parameter objects whose named property matches a target value.

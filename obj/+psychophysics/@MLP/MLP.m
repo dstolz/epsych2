@@ -50,8 +50,8 @@ classdef MLP < psychophysics.Psych
     % Reference: Shen, Y. and Richards, V.M. (2012). A maximum-likelihood
     %   procedure for estimating psychometric functions: Thresholds, slopes,
     %   and lapses of attention. J. Acoust. Soc. Am., 132(2), 957-967.
-    %
-    % See also: psychophysics.BestPEST, psychophysics.Staircase
+    %    % Documentation: documentation/psychophysics/psychophysics_MLP.md
+    %    % See also: psychophysics.BestPEST, psychophysics.Staircase
 
     properties (SetObservable)
         AlphaRange (1,2) double = [0 1]  % [min max] for the alpha (threshold) parameter grid; for Weibull this is the k scale parameter range
@@ -282,5 +282,23 @@ classdef MLP < psychophysics.Psych
 
         level = selectNextLevel_(obj, sweetPoints, responses)
         % Select the next signal strength from sweet points using the configured rule.
+
+        function rcField = resolveRespCodeField_(~, data)
+            % rcField = resolveRespCodeField_(obj, data)
+            % Return the response code field name present in the given data struct.
+            %
+            % Parameters:
+            %   data - Struct array to inspect.
+            %
+            % Returns:
+            %   rcField - 'RespCode', 'ResponseCode', or '' if neither is present.
+            if isfield(data, 'RespCode')
+                rcField = 'RespCode';
+            elseif isfield(data, 'ResponseCode')
+                rcField = 'ResponseCode';
+            else
+                rcField = '';
+            end
+        end
     end
 end

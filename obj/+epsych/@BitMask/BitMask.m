@@ -195,13 +195,10 @@ classdef BitMask < uint32
             tf = any(uint32(enumeration('epsych.BitMask')) == val);
         end
 
-        function colors = getDefaultColors(bitMasks) % Return default hex colors for BitMask values
-
-        function [bits, BM] = Mask2Bits(mask, nbits) % Convert integer masks to logical bit arrays and active BitMask values
-
-        function mask = Bits2Mask(bits, dim) % Convert bit vectors or bit positions to uint32 masks
-
-        function [M, N] = decode(responseCodes) % Decode response codes into named logical flag arrays
+        colors = getDefaultColors(bitMasks) % Return default hex colors for BitMask values
+        [bits, BM] = Mask2Bits(mask, nbits) % Convert integer masks to logical bit arrays and active BitMask values
+        mask = Bits2Mask(bits, dim) % Convert bit vectors or bit positions to uint32 masks
+        [M, N] = decode(responseCodes) % Decode response codes into named logical flag arrays
 
     end
 

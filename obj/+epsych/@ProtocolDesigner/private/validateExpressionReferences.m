@@ -1,7 +1,15 @@
 function validateExpressionReferences(obj, targetParameter, expressionText)
+    ALLOWED_PROPS = {'Min', 'Max', 'Values', 'Value'};
+    siblings = targetParameter.Module.Parameters;
+    sibNames = arrayfun(@(p) p.Name, siblings, 'UniformOutput', false);
+
     qualifiedTokens = regexp(expressionText, '(?<!\.)\<([A-Za-z]\w*)\.([A-Za-z]\w*)\>', 'tokens');
     for idx = 1:numel(qualifiedTokens)
         token = qualifiedTokens{idx};
+        % Sibling property access (Param.Prop) is not a module reference; skip validation.
+        if ismember(token{2}, ALLOWED_PROPS) && ismember(token{1}, sibNames)
+            continue
+        end
         parameter = obj.resolveQualifiedExpressionReference(targetParameter, token{1}, token{2});
         if ~obj.parameterCanParticipateInExpression(parameter)
             error('Expression references %s.%s, but parameter %s cannot be used in expressions for type %s.', ...

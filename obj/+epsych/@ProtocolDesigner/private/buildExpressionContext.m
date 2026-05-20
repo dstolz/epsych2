@@ -6,7 +6,8 @@ function context = buildExpressionContext(obj, targetParameter)
 %	targetParameter	- Parameter whose module scope defines the available references.
 %
 % Returns:
-%	context	- Struct mapping expression aliases to numeric values.
+%	context	- Struct mapping expression aliases to numeric values and property values.
+    ALLOWED_PROPS = {'Min', 'Max', 'Values', 'Value'};
     parameters = obj.getAllParameters();
     context = struct();
     targetModule = targetParameter.Module;
@@ -20,11 +21,34 @@ function context = buildExpressionContext(obj, targetParameter)
             continue
         end
 
+        baseAlias = obj.getQualifiedExpressionAlias(parameter);
+
         if isequal(parameter.Module, targetModule)
             context.(parameter.Name) = localValuesToNumeric_(parameter.Values);
+            % Sibling property aliases: Param.Prop → exprSibProp_Param_Prop
+            for pIdx = 1:numel(ALLOWED_PROPS)
+                propName = ALLOWED_PROPS{pIdx};
+                sibAlias = matlab.lang.makeValidName(sprintf('exprSibProp_%s_%s', parameter.Name, propName));
+                context.(sibAlias) = localPropertyValue_(parameter, propName);
+            end
         end
 
-        context.(obj.getQualifiedExpressionAlias(parameter)) = localValuesToNumeric_(parameter.Values);
+        context.(baseAlias) = localValuesToNumeric_(parameter.Values);
+        % Cross-module property aliases: ModuleName.Param.Prop → baseAlias_Prop
+        for pIdx = 1:numel(ALLOWED_PROPS)
+            propName = ALLOWED_PROPS{pIdx};
+            propAlias = matlab.lang.makeValidName(sprintf('%s_%s', baseAlias, propName));
+            context.(propAlias) = localPropertyValue_(parameter, propName);
+        end
+    end
+end
+
+function val = localPropertyValue_(parameter, propName)
+    % Return the value of a named property, converting Values cell to a numeric vector.
+    if strcmp(propName, 'Values')
+        val = localValuesToNumeric_(parameter.Values);
+    else
+        val = parameter.(propName);
     end
 end
 

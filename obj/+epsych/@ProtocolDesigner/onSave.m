@@ -2,7 +2,7 @@ function onSave(obj)
 % onSave(obj)
 % Save the current protocol and refresh recent-file state.
     if ~isempty(obj.CurrentProtocolPath) && isfile(obj.CurrentProtocolPath)
-        obj.Protocol.save(obj.CurrentProtocolPath);
+        obj.Protocol.save(obj.CurrentProtocolPath, IncrementVersion=obj.IsModified_);
         obj.IsModified_ = false;
         obj.setLastProtocolFilePath(obj.CurrentProtocolPath);
         obj.setLastBrowseDirectory(fileparts(obj.CurrentProtocolPath));

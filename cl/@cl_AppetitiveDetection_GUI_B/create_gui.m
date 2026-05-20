@@ -245,11 +245,11 @@ h.FontWeight = 'bold';
 
 
 % >> Min Depth
-gui.Parameter_Control(layoutTrialControls,P.MinDepth,Text="Minimum Depth (%):");
+gui.Parameter_Control(layoutTrialControls,P.Depth,BoundProperty='Min',Text="Minimum Depth (%):");
 
 
 % >> Max Depth
-gui.Parameter_Control(layoutTrialControls,P.MaxDepth,autoCommit=true,Text="Maximum Depth (%):");
+gui.Parameter_Control(layoutTrialControls,P.Depth,BoundProperty='Max',autoCommit=true,Text="Maximum Depth (%):");
 
 
 % >> Step on Miss

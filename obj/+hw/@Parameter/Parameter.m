@@ -103,6 +103,7 @@ classdef Parameter < matlab.mixin.SetGet
 
         Min (1,1) double = -inf % minimum valid value
         Max (1,1) double = inf % maximum valid value
+        BoundsInclusive (1,2) logical = [true true] % whether Min [1] and Max [2] bounds are inclusive
     end
 
     properties (Dependent)
@@ -295,6 +296,8 @@ classdef Parameter < matlab.mixin.SetGet
 
             value = obj.execute_EvaluatorFcn(value);
 
+            value = obj.clamp_value_(value);
+
             obj.Value = value;
             obj.isArray = numel(value) > 1;
 
@@ -420,6 +423,27 @@ classdef Parameter < matlab.mixin.SetGet
 
         v = randomize_value(obj, value) % randomize value if isRandom; otherwise return value as-is
         set_value(obj, value)           % apply value directly, checking access and bounds
+
+        function value = clamp_value_(obj, value)
+            % value = clamp_value_(obj, value)
+            % Clamp a numeric value within [Min, Max] for inclusive bounds.
+            % Non-numeric types and types that don't support bounds are returned unchanged.
+            %
+            % Parameters
+            %   value - Candidate value to clamp.
+            %
+            % Returns
+            %   value - Value clamped to Min (if BoundsInclusive(1)) and/or Max (if BoundsInclusive(2)).
+            if ~isnumeric(value) || ismember(obj.Type, {'StimType','String','File','Buffer','Coefficient Buffer'})
+                return
+            end
+            if obj.BoundsInclusive(1)
+                value = max(value, obj.Min);
+            end
+            if obj.BoundsInclusive(2)
+                value = min(value, obj.Max);
+            end
+        end
     end
 
     methods (Access = private)

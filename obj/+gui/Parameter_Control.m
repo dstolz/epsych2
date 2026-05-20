@@ -37,7 +37,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
         type (1,:) char {mustBeMember(type,{'editfield','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'editfield'
 
-        BoundProperty (1,:) char = 'Value' % hw.Parameter property to bind
+        BoundProperty (1,:) char {mustBeMember(BoundProperty,{'Value','Values','Min','Max','isRandom','Expression','Description','Unit','Format'})} = 'Value' % hw.Parameter property to bind
 
         autoCommit (1,1) logical = false
     end
@@ -94,7 +94,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 parent
                 Parameter
                 options.Type (1,:) char {mustBeMember(options.Type,{'auto','editfield','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'auto'
-                options.BoundProperty (1,:) char = 'Value'
+                options.BoundProperty (1,:) char {mustBeMember(options.BoundProperty,{'Value','Values','Min','Max','isRandom','Expression','Description','Unit','Format'})} = 'Value'
                 options.autoCommit (1,1) logical = false
                 options.Text (1,:) char = Parameter.Name
             end

@@ -121,9 +121,6 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             end
             % CorrectReject or FalseAlarm: nextStim unchanged (= lastStim)
 
-            % Clamp to configured staircase bounds
-            nextStim = max(nextStim, Pmap.MinDepth.Value);
-            nextStim = min(nextStim, Pmap.MaxDepth.Value);
             vprintf(4, 'nextStim = %g', nextStim)
 
 

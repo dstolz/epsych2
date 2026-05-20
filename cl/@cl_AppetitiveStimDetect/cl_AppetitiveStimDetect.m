@@ -118,8 +118,21 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
 
                     vprintf(3, 'Repeating trial due to Abort: nextStim = %g, StimDelay = %g', nextStim, sdval)
                 end
+
+            elseif RC.CorrectReject(end)
+                nextStim = lastStim; % no change
+                obj.restore_stimdelay_randomization_(Pmap.StimDelay);
+            
+            elseif RC.FalseAlarm(end)
+                if RC.Abort(end) % treat FA+Abort as an Abort for catch-trial scheduling purposes
+                    nextTrialID = find(T.TrialType == obj.TT_CATCH_, 1);
+                    return
+                end
+
+                nextStim = lastStim; % no change
+                obj.restore_stimdelay_randomization_(Pmap.StimDelay);
             end
-            % CorrectReject or FalseAlarm: nextStim unchanged (= lastStim)
+            
 
             vprintf(4, 'nextStim = %g', nextStim)
 

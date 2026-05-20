@@ -30,6 +30,7 @@
 %   RespWinDelay : Delay from stimulus reference to response window start.
 %   RespWindow : Internal response-window state monitor.
 %   RespWinDur : Response window duration in ms.
+%   Shape : Toggle control for triggering shape playback/behavior.
 %   StimDur (optional) : Stimulus duration in ms.
 %   TimeoutDur : Timeout penalty duration in ms.
 %   TonedBSPL (optional) : Tone stimulus level in dB SPL.
@@ -38,17 +39,12 @@
 %
 % Software parameters:
 %   ManualTrigger : Toggle to manually trigger/observe a trial.
-%   MinDepth : Staircase lower bound for stimulus depth.
-%   MaxDepth : Staircase upper bound for stimulus depth.
-%   preStimDelayTrain_StepDown : Training step size for pre-stimulus duration decrease.
-%   preStimDelayTrain_StepUp : Training step size for pre-stimulus duration increase.
 %   ReminderTrials : Toggle for reminder trial mode.
 %   RepeatDelayOnAbort : Repeat current delay setting after abort when enabled.
 %   RespWinPostStim : Post-stimulus response-window segment duration in ms.
 %   RespWinPreStim : Pre-stimulus response-window segment duration in ms.
-%   Shape : Toggle control for triggering shape playback/behavior.
-%   StepOnHit : Staircase depth decrement applied after hits.
-%   StepOnMiss : Staircase depth increment applied after misses.
+%   Depth_StepOnHit : Staircase depth decrement applied after hits.
+%   Depth_StepOnMiss : Staircase depth increment applied after misses.
 %   StimDelay : Delay before stimulus onset; supports fixed or randomized mode.
 %   StimDelayTrain_StepDown : Training step size for decreasing stimulus delay.
 %   StimDelayTrain_StepUp : Training step size for increasing stimulus delay.
@@ -253,10 +249,10 @@ gui.Parameter_Control(layoutTrialControls,P.Depth,BoundProperty='Max',autoCommit
 
 
 % >> Step on Miss
-gui.Parameter_Control(layoutTrialControls,P.StepOnMiss,autoCommit=true,Text="Increment on Miss (%):");
+gui.Parameter_Control(layoutTrialControls,P.Depth_StepOnMiss,autoCommit=true,Text="Increment on Miss (%):");
 
 % >> Step on Hit
-gui.Parameter_Control(layoutTrialControls,P.StepOnHit,autoCommit=true,Text="Decrement on Hit (%):");
+gui.Parameter_Control(layoutTrialControls,P.Depth_StepOnHit,autoCommit=true,Text="Decrement on Hit (%):");
 
 
 
@@ -279,31 +275,12 @@ gui.Parameter_Control(layoutTrialControls,P.ITIDur,Text="Intertrial Interval (ms
 
 
 % note that "Pre" and "Post" stimulus refer to the Stimulus durations
-% >> Pre-stimulus portion of response window --- this is used in the post_stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
-h = gui.Parameter_Control(layoutTrialControls,P.RespWinPreStim);
-par = h.h_label.Parent;
-lay = h.h_label.Layout;
-delete(h.h_label);
-
-% >> RW Pre-stimulus delay training mode --- launches a small gui to adjust parameters for training with variable pre-stimulus response window delay
-h = uibutton(par,"state");
-h.Layout = lay;
-h.Text = "RW Pre-Stimulus Duration (ms):";
-h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,P.RespWinPreStim, ...
-        StepUp = P.preStimDelayTrain_StepUp.Value, ...
-        StepDown = P.preStimDelayTrain_StepDown.Value, ...
-        StepUpResponse = "Abort", ...
-        StepDownResponse = "Hit");
+% >> Pre-stimulus portion of response window
+gui.Parameter_Control(layoutTrialControls,P.RespWinPreStim,Text="RW Pre-Stimulus Duration (ms):");
         
 
-% >> Post-stimulus portion of response window --- this is used in the post_stimdelay_update function to maintain the same temporal relationship between stimulus and response window when stimulus delay changes
+% >> Post-stimulus portion of response window
 gui.Parameter_Control(layoutTrialControls,P.RespWinPostStim,Text="RW Post-Stimulus Duration (ms):");
-
-
-% >> Stimulus Delay (randomized --- value based on min/max settings below)
-P.StimDelay.PostUpdateFcn = @obj.post_stimdelay_update;
-P.StimDelay.PostUpdateFcnArgs = {P.StimDur,P.RespWinDelay,P.RespWinDur,P.RespWinPreStim,P.RespWinPostStim};
-
 
 
 % >> Repeat Delay Following Abort Option

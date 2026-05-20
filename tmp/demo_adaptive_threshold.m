@@ -26,7 +26,7 @@
 % -------------------------------------------------------------------------
 % METHOD         = 'MLP';  % 'MLP' or 'BestPEST'
 METHOD         = 'BestPEST';  % 'MLP' or 'BestPEST'
-TRUE_THRESHOLD = -24;         % true detection threshold
+TRUE_THRESHOLD = -20;         % true detection threshold
 TRUE_SLOPE     = .5;          % psychometric slope
 TRUE_LAPSE     = 0.01;        % lapse rate (upper asymptote offset)
 GUESS_RATE     = 0;           % lower asymptote (0.5 for 2-AFC; 0 for yes-no)
@@ -149,7 +149,11 @@ for iTrial = 1:N_TRIALS
         if diff(ci) < STOP_CI_WIDTH && iTrial >= 10
             fprintf('Early stop at trial %d: CI width = %.3f < %.3f\n', ...
                 iTrial, diff(ci), STOP_CI_WIDTH);
-            break
+            % break
+            fprintf('Resetting BESTPEST\n')
+            est.reset;
+            nextLevel = max(LEVEL_RANGE);
+            % est.Results.NextLevel = nextLevel;
         end
     end
 

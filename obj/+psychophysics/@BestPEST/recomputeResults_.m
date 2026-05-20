@@ -3,7 +3,7 @@ function recomputeResults_(obj)
 % Recompute the maximum likelihood threshold estimate from the active trial
 % window. Applies the reset watermark, filters trials by StimulusTrialType,
 % extracts stimulus levels and binary responses, and runs the MLE grid search.
-% Sets Results to the empty state (NextLevel = mean(Range)) when no active
+% Sets Results to the empty state (NextLevel = max(Range)) when no active
 % trials are available after filtering.
 
 results = obj.emptyResults_();

@@ -166,10 +166,10 @@ classdef BestPEST < psychophysics.Psych
         function reset(obj)
             % reset(obj)
             % Restart MLE estimation from a clean slate without deleting DATA.
-            % Watermarks all current trials; subsequent recomputation treats the
-            % next trial as the first, returning NextLevel to mean(Range).
+            % Watermarks all current trials and updates NextLevel to max(Range)
+            % while preserving previously computed result fields.
             obj.resetCount_ = numel(obj.DATA);
-            obj.refresh();
+            obj.Results.NextLevel = max(obj.Range);
         end
 
         function n = get.ResetCount(obj)
@@ -192,12 +192,12 @@ classdef BestPEST < psychophysics.Psych
         function results = emptyResults_(obj)
             % results = emptyResults_(obj)
             % Return the Results struct with output fields cleared and NextLevel
-            % initialized to mean(Range) per the Pentland first-trial rule.
+            % initialized to max(Range) for the next recommendation.
             %
             % Returns:
             %   results - Results struct ready for population by recomputeResults_.
             results = obj.Results;
-            results.NextLevel               = mean(obj.Range);
+            results.NextLevel               = max(obj.Range);
             results.ThresholdEstimate       = [];
             results.ThresholdAtTarget       = [];
             results.SlopeEstimate           = [];

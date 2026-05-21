@@ -25,11 +25,14 @@ classdef TDT_RPcox < hw.Interface
 
     properties
         ExperimentInfo
-        IsConnected = false
+    end
+
+    properties (Dependent)
+        IsConnected
     end
 
     properties (SetAccess = protected)
-        HW = [] % handle to RPcoX device(s) (TDTRP); untyped for cross-machine MAT-file compatibility
+        HW TDTRP % handle to RPcoX device(s) (TDTRP); untyped for cross-machine MAT-file compatibility
 
         Server  (1,:) char
         ConnectionType (1,:) char = 'GB'
@@ -115,7 +118,6 @@ classdef TDT_RPcox < hw.Interface
 
             if options.Connect && moduleCount > 0
                 obj.setup_interface(RPvdsFile,moduleType,moduleAlias, options);
-                obj.IsConnected = true;
                 obj.ModeState_ = obj.mode;
             end
         end
@@ -130,7 +132,6 @@ classdef TDT_RPcox < hw.Interface
                     'No modules are configured for this offline TDT_RPcox interface.');
             end
 
-            obj.HW = TDTRP.empty(1, 0);
             obj.ConnectionType = localNormalizeConnectionType_(obj.ConnectionType);
 
             for idx = 1:length(obj.Module)
@@ -153,7 +154,6 @@ classdef TDT_RPcox < hw.Interface
             end
 
             obj.ensureUniqueParameterNames();
-            obj.IsConnected = true;
             obj.ModeState_ = obj.mode;
         end
 
@@ -249,7 +249,6 @@ classdef TDT_RPcox < hw.Interface
 
         function close_interface(obj)
             if isempty(obj.HW)
-                obj.IsConnected = false;
                 return
             end
 
@@ -262,7 +261,6 @@ classdef TDT_RPcox < hw.Interface
             end
 
             obj.HW = TDTRP.empty(1, 0);
-            obj.IsConnected = false;
         end
 
     end
@@ -281,6 +279,18 @@ classdef TDT_RPcox < hw.Interface
 
         function m = get.mode(obj)
             m = obj.queryModeState_();
+        end
+
+        function tf = get.IsConnected(obj)
+            if isempty(obj.HW)
+                tf = false;
+                return
+            end
+            try
+                tf = all(arrayfun(@(h) h.status() == 1, obj.HW));
+            catch
+                tf = false;
+            end
         end
 
 

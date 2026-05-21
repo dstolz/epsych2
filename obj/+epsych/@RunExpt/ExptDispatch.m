@@ -62,8 +62,6 @@ switch COMMAND
             end
         end
 
-        self.RUNTIME.NSubjects = length(self.CONFIG);
-
 
         % connect hardware interfaces
         try
@@ -72,15 +70,15 @@ switch COMMAND
             protocol_interfaces = self.CONFIG(1).PROTOCOL.Interfaces;
             
             
-            for i = 1:length(protocol_interfaces)
-                vprintf(0,'Connecting to hardware interface: %s', class(protocol_interfaces(i)))
+            for p = protocol_interfaces(:).'
+                vprintf(0,'Connecting to hardware interface: %s', class(p))
                 
-                if ~protocol_interfaces(i).IsConnected
-                    protocol_interfaces(i).connect();
-                    assert(protocol_interfaces(i).IsConnected, ...
+                if ~p.IsConnected
+                    p.connect();
+                    assert(p.IsConnected, ...
                         'epsych:RunExpt:HardwareConnectionFailed', ...
                         'Hardware interface "%s" failed to connect. Check hardware status before starting.', ...
-                        class(protocol_interfaces(i)));
+                        class(p));
                 end
             end
 

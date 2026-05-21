@@ -23,10 +23,6 @@ classdef RunExpt < handle
         IsClosing (1,1) logical = false                                                         % True while the close sequence is in progress; prevents re-entrant callbacks
     end
 
-    properties (Access = private)
-        vlcRecorder_  % hw.VlcRecorder instance for webcam preview/recording; [] when inactive
-    end
-
     methods
         LoadConfig(self, cfn)           % Load configuration from MAT file cfn
         SaveConfig(self)                % Persist current configuration to file
@@ -42,25 +38,35 @@ classdef RunExpt < handle
         DefineBoxFig(self, a)           % Set the behavioral box figure callback function name
         DefineTimerPeriod(self)         % Set the PsychTimer period (0.001–1 s)
 
-        WebcamRecord(self)              % Launch webcam preview and optionally begin recording
-        WebcamStop(self)                % Stop webcam recording and close VLC preview
-
-        function self = RunExpt(ffnConfig)
+        function self = RunExpt(ffnConfig, opts)
             % self = RunExpt()
             % self = RunExpt(ffnConfig)
+            % self = RunExpt(ffnConfig, Name=Value)
             % Create or reactivate the main experiment control window.
             %
             % Parameters:
             %	ffnConfig	- Configuration MAT file to load after the GUI is created.
+            %	Name-Value options:
+            %		Verbosity           - Override global verbosity level (nonnegative integer).
+            %		ReuseExisting       - Reuse an active RunExpt instance when available.
+            %		CleanupStaleFigures - Remove duplicate/stale RunExpt figures during startup.
+            %		BringToFront        - Bring reused RunExpt figure to the foreground.
             %
             % Returns:
             %	self	- Existing or newly created RunExpt instance.
             arguments
                 ffnConfig (1,1) string = ""
+                opts.Verbosity = []
+                opts.ReuseExisting (1,1) logical = true
+                opts.CleanupStaleFigures (1,1) logical = true
+                opts.BringToFront (1,1) logical = true
             end
             global GVerbosity
 
-            if isempty(GVerbosity) || ~isnumeric(GVerbosity)
+            if ~isempty(opts.Verbosity)
+                validateattributes(opts.Verbosity, {'numeric'}, {'scalar','integer','nonnegative','finite'});
+                GVerbosity = double(opts.Verbosity);
+            elseif isempty(GVerbosity) || ~isnumeric(GVerbosity)
                 GVerbosity = 1;
             end
 
@@ -77,10 +83,10 @@ classdef RunExpt < handle
                 end
 
                 if isa(candidate,'epsych.RunExpt') && isvalid(candidate) && ~candidate.IsClosing
-                    if isempty(existingInstance)
+                    if opts.ReuseExisting && isempty(existingInstance)
                         existingFigure = f(i);
                         existingInstance = candidate;
-                    else
+                    elseif opts.CleanupStaleFigures
                         try
                             epsych.RunExpt.saveFigurePosition(f(i).Position);
                             f(i).UserData = [];
@@ -90,7 +96,7 @@ classdef RunExpt < handle
                         catch
                         end
                     end
-                else
+                elseif opts.CleanupStaleFigures
                     try
                         epsych.RunExpt.saveFigurePosition(f(i).Position);
                         f(i).UserData = [];
@@ -103,17 +109,19 @@ classdef RunExpt < handle
             end
 
             if ~isempty(existingInstance)
-                try
-                    existingFigure.Visible = 'on';
-                catch
-                end
-                movegui(existingFigure,'onscreen');
-                try
-                    uifigure(existingFigure);
-                catch
+                if opts.BringToFront
                     try
-                        figure(existingFigure);
+                        existingFigure.Visible = 'on';
                     catch
+                    end
+                    movegui(existingFigure,'onscreen');
+                    try
+                        uifigure(existingFigure);
+                    catch
+                        try
+                            figure(existingFigure);
+                        catch
+                        end
                     end
                 end
                 self = existingInstance;
@@ -199,8 +207,6 @@ classdef RunExpt < handle
 
             self.CheckReady
         end
-
-        DefineVideoSettings(self)  % Allow the user to configure VLC and webcam/video defaults
 
         function LaunchCommutatorGUI(self)
             % obj.LaunchCommutatorGUI

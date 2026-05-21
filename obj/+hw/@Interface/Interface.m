@@ -33,7 +33,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         mode
     end
 
-    properties (Abstract)
+    properties (Abstract,Dependent)
         IsConnected (1,1) logical   % true when the backend is connected and ready
     end
 

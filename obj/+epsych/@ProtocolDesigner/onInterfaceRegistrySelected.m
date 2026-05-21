@@ -19,6 +19,7 @@ function onInterfaceRegistrySelected(obj, evt)
     if any(strcmp(selectedLabel, obj.DropDownTargetInterface.Items))
         obj.DropDownTargetInterface.Value = selectedLabel;
         obj.onTargetInterfaceChanged();
+        obj.setSelectedModuleRow(selectedModuleRow);
     end
     if selectedModuleRow >= 1
         moduleValue = obj.moduleDisplayLabel(obj.Protocol.Interfaces(interfaceIndex).Module(selectedModuleRow), selectedModuleRow);

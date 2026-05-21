@@ -84,6 +84,23 @@ classdef Runtime < handle & dynamicprops
             end
         end
 
+        function set.Interfaces(self, protocol_interfaces)
+            % set.Interfaces(self, value)
+            
+            
+            for p = protocol_interfaces(:).'
+                vprintf(0,'Connecting to hardware interface: %s', class(p))
+                
+                if ~p.IsConnected
+                    p.connect();
+                    assert(p.IsConnected, ...
+                        'epsych:RunExpt:HardwareConnectionFailed', ...
+                        'Hardware interface "%s" failed to connect. Check hardware status before starting.', ...
+                        class(p));
+                end
+            end
+        end
+
         function set.TRIALS(self, value)
             % set.TRIALS(self, value)
             % Custom setter for TRIALS property to ensure it is a struct with required fields.

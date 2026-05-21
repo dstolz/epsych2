@@ -68,20 +68,8 @@ switch COMMAND
             % Get hardware interfaces from loaded protocol
             % If protocol was designed with Software only, create minimal hardware
             protocol_interfaces = self.CONFIG(1).PROTOCOL.Interfaces;
-            
-            
-            for p = protocol_interfaces(:).'
-                vprintf(0,'Connecting to hardware interface: %s', class(p))
-                
-                if ~p.IsConnected
-                    p.connect();
-                    assert(p.IsConnected, ...
-                        'epsych:RunExpt:HardwareConnectionFailed', ...
-                        'Hardware interface "%s" failed to connect. Check hardware status before starting.', ...
-                        class(p));
-                end
-            end
 
+            % triggers attempt to connect interfaces
             self.RUNTIME.Interfaces = protocol_interfaces;
 
 

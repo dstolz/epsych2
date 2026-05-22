@@ -311,6 +311,16 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         end
     end
 
+    methods (Sealed)
+        function set(obj, varargin)
+            set@matlab.mixin.SetGet(obj, varargin{:});
+        end
+
+        function val = get(obj, varargin)
+            val = get@matlab.mixin.SetGet(obj, varargin{:});
+        end
+    end
+
     methods (Static)
         function name = getHardwareParameterName(parameter)
             name = parameter.Name;

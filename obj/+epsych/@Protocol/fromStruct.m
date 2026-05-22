@@ -62,7 +62,11 @@ function fromStruct(obj, struct_in)
                 obj.SoftwareModule = restoredInterface;
             end
         end
-        vprintf(3, 'Protocol loaded with %d interface(s)', length(obj.Interfaces));
+        vprintf(3, 'Protocol loaded with %d interface(s): ', length(obj.Interfaces))
+        for ifaceIdx = 1:length(obj.Interfaces)
+            vprintf(3, '\t%d. %s', ifaceIdx, class(obj.Interfaces(ifaceIdx)));
+        end
+        
     elseif isfield(obj.COMPILED, 'writeparams') && ~isempty(obj.COMPILED.writeparams)
         recoveredInterface = obj.createRecoveredInterfaceFromCompiled_();
         obj.Interfaces = recoveredInterface;

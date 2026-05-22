@@ -95,9 +95,7 @@ switch COMMAND
         self.RUNTIME.TIMER = self.CreateTimer;
 
         vprintf(0,'Initialization complete. Starting experiment...')
-        for i = 1:length(self.RUNTIME.Interfaces)
-            self.RUNTIME.Interfaces(i).mode = hw.DeviceState(COMMAND);
-        end
+        set(self.RUNTIME.Interfaces, 'mode', hw.DeviceState(COMMAND));
 
         start(self.RUNTIME.TIMER)
 

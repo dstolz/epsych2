@@ -24,30 +24,31 @@ dispatchIdx = ~strcmp({T.parameters.Access}, 'Read');
 
 
 
-% Indicate next trial parameters in command window if GVerbosity >= 4    
-for j = 1:numel(T.parameters)
-    vprintf(4,'Trial #%d: %s = %g', ...
-        T.TrialIndex, ...
-        T.parameters(j).Name, ...
-        T.trials{T.NextTrialID, j})
-end
-
 % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
 vprintf(2,'Trial #%d: New Trial Sequence for box %d',T.TrialIndex,subjectIdx)
 
 % 1. Send trigger to reset components before updating parameters
 vprintf(4,'Hardware Trigger for ResetTrig')
-obj.CORE(subjectIdx).ResetTrig.trigger();
+obj.CORE(subjectIdx).ResetTrig.Trigger();
 
 % 2. Dispatch write parameters for this trial (Access ~= 'Read')
 vprintf(4,'Update parameter tags')
 P = T.parameters(dispatchIdx);
 trialRow = T.trials(T.NextTrialID, dispatchIdx);
-[P.Value] = deal(trialRow{:});
+
+% Indicate next trial parameters in command window if GVerbosity >= 4    
+for j = 1:numel(P)
+    vprintf(4,'Trial #%d: %s = %g', ...
+        T.TrialIndex, ...
+        P(j).Name, ...
+        trialRow{j})
+
+    P(j).Value = trialRow{j};
+end
 
 % 3. Trigger new trial
 vprintf(4,'Hardware Trigger for NewTrial')
-obj.CORE(subjectIdx).NewTrial.trigger();
+obj.CORE(subjectIdx).NewTrial.Trigger();
 
 % 4. Notify whomever is listening of new trial
 vprintf(4,'Notify listeners with new trial data')

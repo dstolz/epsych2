@@ -114,11 +114,7 @@ classdef Software < hw.Interface
             end
 
 
-            for i = 1:length(P)
                 %P(i).Value = value(i); % DO NOT SET VALUE AGAIN; RESULTS IN RECURSION
-                vstr = P(i).ValueStr;
-                vprintf(3,'Updated parameter: %s = %s',P(i).Name,vstr)
-            end
             result = 1;
         end
 

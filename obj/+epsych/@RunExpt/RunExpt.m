@@ -51,6 +51,7 @@ classdef RunExpt < handle
             %		ReuseExisting       - Reuse an active RunExpt instance when available.
             %		CleanupStaleFigures - Remove duplicate/stale RunExpt figures during startup.
             %		BringToFront        - Bring reused RunExpt figure to the foreground.
+            %		Run                 - Start the experiment immediately after loading config (requires ffnConfig).
             %
             % Returns:
             %	self	- Existing or newly created RunExpt instance.
@@ -60,6 +61,7 @@ classdef RunExpt < handle
                 opts.ReuseExisting (1,1) logical = true
                 opts.CleanupStaleFigures (1,1) logical = true
                 opts.BringToFront (1,1) logical = true
+                opts.Run (1,1) logical = false
             end
             global GVerbosity
 
@@ -128,6 +130,9 @@ classdef RunExpt < handle
 
                 if ffnConfig ~= ""
                     self.LoadConfig(ffnConfig)
+                    if opts.Run && self.STATE >= PRGMSTATE.CONFIGLOADED
+                        self.ExptDispatch("Run")
+                    end
                 end
 
                 return
@@ -141,6 +146,9 @@ classdef RunExpt < handle
 
             if ffnConfig ~= ""
                 self.LoadConfig(ffnConfig)
+                if opts.Run && self.STATE >= PRGMSTATE.CONFIGLOADED
+                    self.ExptDispatch("Run")
+                end
             end
 
             if nargout == 0, clear self; end

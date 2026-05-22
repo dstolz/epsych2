@@ -35,7 +35,7 @@ function P = all_parameters(obj, options)
     copts = namedargs2cell(options);
     P = hw.Parameter.empty;
     for i = 1:numel(obj.Interfaces)
-        iface = obj.Interfaces{i};
+        iface = obj.Interfaces(i);
         if ~isempty(interfaceFilter) && ~any(cellfun(@(c) isa(iface, c), interfaceFilter))
             continue
         end

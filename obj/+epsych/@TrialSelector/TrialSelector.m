@@ -70,7 +70,7 @@ classdef TrialSelector < handle
             %   data    - struct of response parameter values from runtime
         end
 
-        function setRuntime(~, ~, ~)
+        function setRuntime(obj, runtime, subjectIdx)
             % setRuntime(obj, runtime, subjectIdx)
             % Called after initialize with the live RUNTIME handle and subject index.
             % Default implementation is a no-op.

@@ -52,7 +52,12 @@ classdef Runtime < handle & dynamicprops
 
     properties (SetAccess = private)
         NSubjects (1,1) double {mustBePositive, mustBeInteger} = 1 % Number of subjects in the experiment
-    end    
+    end
+
+    properties (Constant)
+        % Define any constant properties here (e.g., default timer settings, required trigger names)
+        REQUIRED_TRIGGERS = ["NewTrial", "ResetTrig", "TrialComplete"] % List of required trigger parameter suffixes
+    end
 
 
     methods
@@ -77,8 +82,8 @@ classdef Runtime < handle & dynamicprops
             end
             if ~isempty(self.Interfaces)
                 for i = 1:length(self.Interfaces)
-                    if isvalid(self.Interfaces{i}) && self.Interfaces{i}.IsConnected
-                        self.Interfaces{i}.disconnect();
+                    if isvalid(self.Interfaces(i)) && self.Interfaces(i).IsConnected
+                        self.Interfaces(i).disconnect();
                     end
                 end
             end
@@ -86,7 +91,6 @@ classdef Runtime < handle & dynamicprops
 
         function set.Interfaces(self, protocol_interfaces)
             % set.Interfaces(self, value)
-            
             
             for p = protocol_interfaces(:).'
                 vprintf(0,'Connecting to hardware interface: %s', class(p))
@@ -99,14 +103,13 @@ classdef Runtime < handle & dynamicprops
                         class(p));
                 end
             end
+            self.Interfaces = protocol_interfaces;
         end
 
         function set.TRIALS(self, value)
             % set.TRIALS(self, value)
             % Custom setter for TRIALS property to ensure it is a struct with required fields.
-            if ~isstruct(value) || ~all(isfield(value, {'trialSelectionFcn', 'trialParameters', 'nTrials'}))
-                error('TRIALS must be a struct with fields: trialSelectionFcn, trialParameters, nTrials');
-            end
+
             self.TRIALS = value;
             self.NSubjects = length(self.TRIALS);
 
@@ -118,8 +121,8 @@ classdef Runtime < handle & dynamicprops
         end
 
         filter_parameters(obj, propertyName, propertyValue, options, poptions) % Return hw.Parameter objects whose named property matches a target value.
-        find_parameter(obj, name, options)              % Return hw.Parameter handles matching the given name(s), with optional pre-filtering.
-        P = all_parameters(obj, options)                % Retrieve all parameters from all registered interfaces, with optional filtering.
+        p = find_parameter(obj, name, options)              % Return hw.Parameter handles matching the given name(s), with optional pre-filtering.
+        p = all_parameters(obj, options)                % Retrieve all parameters from all registered interfaces, with optional filtering.
         updateTrialsFromParameters(obj, Parameters)     % Sync writable TRIALS fields from current parameter values.
     end
 

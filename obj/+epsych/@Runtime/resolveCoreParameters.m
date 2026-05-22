@@ -20,10 +20,9 @@ arguments
     subjectIdx (1,1) double {mustBeInteger,mustBePositive}
 end
 
-bmn = ["NewTrial","ResetTrig","TrialComplete"];
-for cc = bmn
+for cc = obj.REQUIRED_TRIGGERS
     trigStr = sprintf('_%s~%d', cc, obj.TRIALS(subjectIdx).Subject.BoxID);
-    p = obj.find_parameter(trigStr, includeInvisible=true, silenceParameterNotFound=true);
+    p = obj.find_parameter(trigStr, includeInvisible=true, includeTriggers=true, silenceParameterNotFound=true);
 
     if isempty(p)
         error('epsych:RunExpt:MissingTrigger', ...

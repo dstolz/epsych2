@@ -77,6 +77,10 @@ classdef Software < hw.Interface
             obj.IsConnected = true;
         end
 
+        function disconnect(obj)
+            obj.IsConnected = false;
+        end
+
         function mode_handler(obj,src,event)
             disp(event)
         end

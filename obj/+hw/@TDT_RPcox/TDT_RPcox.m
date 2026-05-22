@@ -252,8 +252,8 @@ classdef TDT_RPcox < hw.Interface
                 return
             end
 
-            if obj.HW.Mode > hw.DeviceState.Idle
-                obj.HW.mode = hw.DeviceState.Idle;
+            if obj.mode > hw.DeviceState.Idle
+                obj.mode = hw.DeviceState.Idle;
             end
 
             try %#ok<TRYNC>

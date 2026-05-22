@@ -102,6 +102,7 @@ classdef Runtime < handle & dynamicprops
                         'Hardware interface "%s" failed to connect. Check hardware status before starting.', ...
                         class(p));
                 end
+                p.Runtime = self;
             end
             self.Interfaces = protocol_interfaces;
         end

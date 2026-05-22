@@ -40,6 +40,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
     properties
         h_listeners
+        Runtime  % Reference to the owning epsych.Runtime; set when registered via Runtime.Interfaces
     end
 
 

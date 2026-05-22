@@ -36,7 +36,7 @@ vprintf(4,'Update parameter tags')
 P = T.parameters(dispatchIdx);
 trialRow = T.trials(T.NextTrialID, dispatchIdx);
 
-% Indicate next trial parameters in command window if GVerbosity >= 4    
+% 3. Assign next trial parameter values to the parameter objects. 
 for j = 1:numel(P)
     vprintf(4,'Trial #%d: %s = %g', ...
         T.TrialIndex, ...
@@ -46,11 +46,11 @@ for j = 1:numel(P)
     P(j).Value = trialRow{j};
 end
 
-% 3. Trigger new trial
+% 4. Trigger new trial
 vprintf(4,'Hardware Trigger for NewTrial')
 obj.CORE(subjectIdx).NewTrial.Trigger();
 
-% 4. Notify whomever is listening of new trial
+% 5. Notify whomever is listening of new trial
 vprintf(4,'Notify listeners with new trial data')
 evtdata = epsych.TrialsData(T);
 obj.HELPER.notify('NewTrial',evtdata);

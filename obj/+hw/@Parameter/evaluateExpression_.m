@@ -78,15 +78,31 @@ result = Value;
 
 
 function allParams = localCollectAllParams_(thisModule)
-% Collect all hw.Parameter objects across all modules of the parent interface.
-% Returns an empty array if the interface is not accessible.
+% Collect all hw.Parameter objects accessible for expression evaluation.
+% Prefers the full runtime parameter set (all interfaces) when available;
+% falls back to modules of the same interface only.
     allParams = hw.Parameter.empty(1, 0);
     try
-        allModules = thisModule.parent.Module;
-        for mIdx = 1:numel(allModules)
-            mod = allModules(mIdx);
-            if ~isempty(mod.Parameters)
-                allParams = [allParams, mod.Parameters];
+        iface = thisModule.parent;
+        if ~isempty(iface.Runtime) && isvalid(iface.Runtime)
+            % Collect across all interfaces registered with the runtime
+            rt = iface.Runtime;
+            for mIdx = 1:numel(rt.Interfaces)
+                allModules = rt.Interfaces(mIdx).Module;
+                for modIdx = 1:numel(allModules)
+                    if ~isempty(allModules(modIdx).Parameters)
+                        allParams = [allParams, allModules(modIdx).Parameters];
+                    end
+                end
+            end
+        else
+            % No runtime available; collect from same interface only
+            allModules = iface.Module;
+            for mIdx = 1:numel(allModules)
+                mod = allModules(mIdx);
+                if ~isempty(mod.Parameters)
+                    allParams = [allParams, mod.Parameters];
+                end
             end
         end
     catch

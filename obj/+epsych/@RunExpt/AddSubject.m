@@ -2,10 +2,10 @@ function AddSubject(self, S)
 % AddSubject(self)
 % AddSubject(self, S)
 % Create a new subject entry and assign a protocol.
-%  S - (optional) pre-filled subject struct; opens dialog if omitted
+%  S - (optional) pre-filled epsych.Subject or struct; opens dialog if omitted
 arguments
     self
-    S struct = struct()
+    S = struct()
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end
 
@@ -18,14 +18,41 @@ if ~isempty(self.CONFIG(1).SUBJECT)
 end
 
 if ~isfield(self.FUNCS,'AddSubjectFcn') || isempty(self.FUNCS.AddSubjectFcn)
-    self.FUNCS.AddSubjectFcn = getpref('ep_RunExpt','CONFIG_AddSubjectFcn','ep_AddSubject');
+    self.FUNCS.AddSubjectFcn = getpref('ep_RunExpt','CONFIG_AddSubjectFcn','epsych.DefaultSubject.open');
 end
 
 ontop = self.AlwaysOnTop(false);
-S = feval(self.FUNCS.AddSubjectFcn, S, boxids);
+
+% Dispatch: prefer the new epsych.Subject-based open() path; fall back to
+% legacy function handles that return a plain struct.
+fcn = self.FUNCS.AddSubjectFcn;
+if isequal(fcn, 'epsych.DefaultSubject.open')
+    result = epsych.DefaultSubject.open(S, boxids);
+else
+    % Legacy path — seed struct converted for backward-compatible signature
+    if isa(S, 'epsych.Subject')
+        seed = S.toStruct();
+    elseif isstruct(S)
+        seed = S;
+    else
+        seed = struct();
+    end
+    result = feval(fcn, seed, boxids);
+end
+
 self.AlwaysOnTop(ontop);
 
-if isempty(S) || ~isfield(S,'Name') || strlength(string(S.Name)) == 0, return, end
+% Normalise result to epsych.Subject
+if isempty(result), return, end
+if isa(result, 'epsych.Subject')
+    S = result;
+elseif isstruct(result)
+    S = epsych.DefaultSubject(result);
+else
+    return
+end
+
+if ~S.isValid(), return, end
 
 if ~isempty(curnames) && ismember(S.Name, curnames)
     warndlg(sprintf('The subject name "%s" is already in use.', S.Name), 'Add Subject', 'modal')

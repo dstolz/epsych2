@@ -10,10 +10,10 @@ arguments
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end
 if ~isempty(a) && ischar(a) && strcmp(a,'default')
-    a = 'ep_AddSubject';
+    a = 'epsych.DefaultSubject.open';
 elseif isempty(a) || ~isfield(self.FUNCS,'AddSubjectFcn')
     if ~isfield(self.FUNCS,'AddSubjectFcn') || isempty(self.FUNCS.AddSubjectFcn)
-        self.FUNCS.AddSubjectFcn = 'ep_AddSubject';
+        self.FUNCS.AddSubjectFcn = 'epsych.DefaultSubject.open';
     end
     ontop = self.AlwaysOnTop;
     self.AlwaysOnTop(false)
@@ -25,7 +25,13 @@ elseif isempty(a) || ~isfield(self.FUNCS,'AddSubjectFcn')
 end
 
 if isa(a,'function_handle'), a = func2str(a); end
-b = which(a);
+
+% which() cannot resolve static methods; handle the built-in default explicitly
+if strcmp(a, 'epsych.DefaultSubject.open')
+    b = which('epsych.DefaultSubject');
+else
+    b = which(a);
+end
 if isempty(b)
     ontop = self.AlwaysOnTop;
     self.AlwaysOnTop(false)

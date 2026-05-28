@@ -20,11 +20,14 @@ end
 
 config = self.CONFIG;
 
-% Serialize embedded Protocol objects to portable structs so the .ecfg
-% file contains only plain MAT data (no handle class objects).
+% Serialize embedded Protocol and Subject objects to portable structs so the
+% .ecfg file contains only plain MAT data (no handle class objects).
 for i = 1:length(config)
     if isa(config(i).PROTOCOL, 'epsych.Protocol') && isvalid(config(i).PROTOCOL)
         config(i).PROTOCOL = config(i).PROTOCOL.toStruct();
+    end
+    if isa(config(i).SUBJECT, 'epsych.Subject')
+        config(i).SUBJECT = config(i).SUBJECT.toStruct();
     end
 end
 

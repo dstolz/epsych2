@@ -37,13 +37,18 @@ end
 self.ClearConfig
 self.CONFIG = S.config;
 
-% Reconstruct Protocol objects from serialized structs stored in config.
+% Reconstruct Protocol and Subject objects from serialized structs stored in config.
 for i = 1:length(self.CONFIG)
     ps = self.CONFIG(i).PROTOCOL;
     if isstruct(ps) && isfield(ps, 'formatVersion')
         P = epsych.Protocol();
         P.fromStruct(ps);
         self.CONFIG(i).PROTOCOL = P;
+    end
+    % Reconstruct Subject from plain struct (saved by SaveConfig)
+    ss = self.CONFIG(i).SUBJECT;
+    if isstruct(ss) && isfield(ss, 'Name')
+        self.CONFIG(i).SUBJECT = epsych.DefaultSubject(ss);
     end
     if isa(self.CONFIG(i).PROTOCOL, 'epsych.Protocol')
         report = self.CONFIG(i).PROTOCOL.validate();

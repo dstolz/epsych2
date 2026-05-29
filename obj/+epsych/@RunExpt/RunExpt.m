@@ -38,6 +38,8 @@ classdef RunExpt < handle
         DefineBoxFig(self, a)           % Set the behavioral box figure callback function name
         DefineTimerPeriod(self)         % Set the PsychTimer period (0.001–1 s)
 
+        OpenCustomizeDialog(self)       % Open unified Customize Settings dialog for all Define* settings
+
         function self = RunExpt(ffnConfig, opts)
             % self = RunExpt()
             % self = RunExpt(ffnConfig)
@@ -339,8 +341,22 @@ classdef RunExpt < handle
         function F = GetDefaultFuncs(self)
             % F = GetDefaultFuncs(self)
             % Load all callback function names from MATLAB preferences into struct F.
+            % Stored values that are no longer resolvable are silently reset to the
+            % current built-in defaults.
+            DFLT_ADD_SUBJECT = 'epsych.DefaultSubject.open';
+            stored = getpref('ep_RunExpt_FUNCS','AddSubjectFcn', DFLT_ADD_SUBJECT);
+            % Validate: accept the built-in static method or any function on the path
+            if strcmp(stored, DFLT_ADD_SUBJECT)
+                F.AddSubjectFcn = stored;
+            elseif ~isempty(which(stored))
+                F.AddSubjectFcn = stored;
+            else
+                vprintf(1, 'Stored AddSubjectFcn ''%s'' not found; resetting to default.\n', stored);
+                F.AddSubjectFcn = DFLT_ADD_SUBJECT;
+                setpref('ep_RunExpt_FUNCS', 'AddSubjectFcn', DFLT_ADD_SUBJECT);
+            end
+
             F.SavingFcn      = getpref('ep_RunExpt_FUNCS','SavingFcn',    'ep_SaveDataFcn');
-            F.AddSubjectFcn  = getpref('ep_RunExpt_FUNCS','AddSubjectFcn','ep_AddSubject');
             F.BoxFig         = getpref('ep_RunExpt_FUNCS','BoxFig',       'ep_GenericGUI');
 
             F.TIMERfcn.Start    = getpref('ep_RunExpt_TIMER','Start',   'ep_TimerFcn_Start');

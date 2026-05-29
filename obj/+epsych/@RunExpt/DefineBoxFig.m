@@ -36,7 +36,7 @@ b = which(a);
 if isempty(b)
     ontop = self.AlwaysOnTop(false);
     errordlg(sprintf('The figure ''%s'' was not found on the current path.',a),'Define Function','modal')
-    self.AlwaysOnTop(ontop)
+    self.AlwaysOnTop(ontop);
     return
 end
 

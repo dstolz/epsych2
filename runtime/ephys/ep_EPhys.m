@@ -573,7 +573,7 @@ AlwaysOnTop(h,false);
 r = questdlg('Are you sure you would like to end this recording session early?', ...
     'HALT','Halt','Cancel','Cancel');
 if strcmp(r,'Halt'), DAHalt(h,G_DA); end
-AlwaysOnTop(h,ontop)
+AlwaysOnTop(h,ontop);
 
 function monitor_channel_Callback(hObj) 
 global G_DA

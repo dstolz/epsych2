@@ -26,11 +26,18 @@ When parsing input parameters in a Matlab functin, always make use of the `argum
 - Suffix private class members with underscore (_)
 - Use ALL_CAPS for constants
 
+## Messaging
+- `vprintf` should be used for all formatted messages, including informational messages, warnings, and errors, unless specifically noted otherwise. This ensures consistency in how messages are formatted and displayed across the codebase and that all messages are logged to an error log file for later review and debugging.
+- `vprintf` is a wrapper around `fprintf` that adds additional functionality, such as logging messages to an error log file and providing a consistent format for all messages. By using `vprintf`, you can ensure that all messages are formatted consistently and that important information is not lost in the console output.
+- Use `vprintf` for formatted messages. 
+    Ex `vprintf(0,1, 'Processing file: %s', fileName);`
+- never add a newline character (`\n`) at the end of a `vprintf` message, as `vprintf` automatically adds a newline after each message. Adding an extra newline can result in unintended blank lines in the output, which can make the console output harder to read and may lead to confusion when reviewing logs. By omitting the newline character, you can ensure that messages are displayed cleanly and consistently without unnecessary spacing.
+    
+
 ## Error Handling
 - Use try/catch blocks sparingly, only when necessary to handle expected errors.
 - Use `vprintf` for formatted error messages. 
-    Ex 1 `vprintf(0,1, 'Error: %s\n', errorMessage);`
-    Ex 2 
+    Ex `vprintf(0,1, 'Error: %s', errorMessage);`
     ```
     try
         % Some code that may throw an error

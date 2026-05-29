@@ -2,17 +2,17 @@
 applyTo: "**/*.m"
 ---
 # Project general coding instructions
-Use syntax valid for Matlab R2024b, unless explicitly requested otherwise. Assume access to the following toobloxes:
-Audio Toolbox
-Curve Fitting Toolbox
-DSP System Toolbox
-Global Optimization Toolbox
-Image Acquisition Toolbox
-Image Processing Toolbox
-Optimization Toolbox
-Parallel Computing Toolbox
-Signal Processing Toolbox
-Statistics and Machine Learning Toolbox
+Use syntax valid for Matlab R2024b, unless explicitly requested otherwise. Assume access to the following toolboxes:
+- Audio Toolbox
+- Curve Fitting Toolbox
+- DSP System Toolbox
+- Global Optimization Toolbox
+- Image Acquisition Toolbox
+- Image Processing Toolbox
+- Optimization Toolbox
+- Parallel Computing Toolbox
+- Signal Processing Toolbox
+- Statistics and Machine Learning Toolbox
 
 Make use of built-in and toolbox functions before generating a custom function when needed.
 

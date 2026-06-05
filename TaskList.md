@@ -22,6 +22,9 @@ _note: This template is just a suggestion and can be modified as needed._
 
 ## Task List
 
+
+
+## Processed Tasks
 1. **Elapsed Time since last trial**: Generate a counter that tracks the time since the last trial was completed. This will optionally have a simple text label to be placed in a GUI. 
    - **Priority**: 1
    - **Status**: Complete
@@ -47,3 +50,5 @@ _note: This template is just a suggestion and can be modified as needed._
        t.attachRuntime(RUNTIME);
        t.start;
        ```
+
+

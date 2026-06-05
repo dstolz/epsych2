@@ -16,6 +16,10 @@ Review [TaskList.md](../../TaskList.md) and process the requested task, or the h
    - **Plan**: Think through the implementation approach, then update the task's "Steps to Complete" section in `TaskList.md` with concrete, ordered steps. Change the status to **Execute**.
    - **Execute**: Implement the task fully. Follow all conventions below. When done, mark the task status as **Complete** in `TaskList.md`.
 4. **Update `TaskList.md`**: Reflect the new status immediately after completing the work. Include any relevant details or code snippets in the task description if helpful for future reference.
+5. **Communicate**: If you encounter any blockers or need clarification, use the agent's communication tools to ask for help or additional information.
+6. **Move to Processed Tasks**: Move the task to the Processed Tasks section once complete, including a brief summary of the work done and any relevant notes for future reference.
+7. **Repeat**: After completing the task, return to step 1 to process the next task in the list.
+
 
 ## MATLAB Conventions
 

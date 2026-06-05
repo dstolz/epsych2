@@ -30,6 +30,8 @@ for cc = obj.REQUIRED_TRIGGERS
             trigStr, obj.TRIALS(subjectIdx).Subject.BoxID);
     end
 
+    vprintf(3, 'Resolved CORE trigger "%s" for subject %d: parameter "%s"; found on %s - %s', cc, subjectIdx, p.Name, p.Parent.Type, p.Parent.Module.Name);
+
     obj.CORE(subjectIdx).(cc) = p;
 end
 

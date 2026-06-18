@@ -21,7 +21,7 @@ arguments
 end
 
 for cc = obj.REQUIRED_TRIGGERS
-    trigStr = sprintf('_%s~%d', cc, obj.TRIALS(subjectIdx).Subject.BoxID);
+    trigStr = sprintf('x_%s_%d', cc, obj.TRIALS(subjectIdx).Subject.BoxID);
     p = obj.find_parameter(trigStr, includeInvisible=true, includeTriggers=true, silenceParameterNotFound=true);
 
     if isempty(p)

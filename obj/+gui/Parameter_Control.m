@@ -53,7 +53,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         colorOnUpdateAuto     = "#7ad5ff";
         colorOnUpdateExternal = "#fad85c";
         colorOnError          = "#e66367";
-        end
+    end
 
     properties (SetObservable,AbortSet,SetAccess = protected)
         ValueUpdated (1,1) logical = false % flag indicating that the gui value has been updated
@@ -66,7 +66,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
         PreUpdateFcn = [] % handle to function to call before value update
         PreUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to PreUpdate
-        
+
         EvaluatorFcn = [] % handle to custom function to handle evaluation of updated values
         EvaluatorArgs (1,:) cell = {} % optional extra arguments passed to EvaluatorFcn
 
@@ -121,7 +121,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
 
             % if ~isa(Parameter.Parent,'hw.Software')
-                obj.hl_mode = listener(Parameter.Parent,'mode','PostSet',@obj.mode_change);
+            obj.hl_mode = listener(Parameter.Parent,'mode','PostSet',@obj.mode_change);
             % end
             try
                 obj.hl_uiobj = listener(Parameter,obj.BoundProperty,'PostSet',@obj.value_change_external);
@@ -139,7 +139,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             delete(obj.hl_uiobj)
             delete(obj.hl_color)
         end
-        
+
 
         function v = get.Value(obj)
             v = obj.h_uiobj.Value;
@@ -166,7 +166,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             v = obj.Parameter.Values;
         end
 
-        %{ 
+        %{
          Note: for dropdown controls, the Values property is determined by the bound Parameter.Values, so setting it directly on the control will update the Parameter.Values. For other control types, Values is not used and setting it will have no effect.
          This is a bit of an odd design but allows for convenient management of dropdown options through the underlying Parameter.
          If we wanted to allow setting Values directly on the control for non-dropdown types, we would need to implement additional logic to handle that, and it could potentially lead to confusion about where the source of truth is for the list of values. For now, we'll keep it simple and only allow Values to be set through the Parameter for dropdown controls.
@@ -225,8 +225,10 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         function t = get.Text(obj)
             if ishandle(obj.h_label)
                 t = obj.h_label.Text;
-            else
+            elseif isehandle(obj.h_uiobj)
                 t = obj.h_uiobj.Text;
+            else
+                t = '<empty>';
             end
         end
 
@@ -235,7 +237,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
             if ishandle(obj.h_label)
                 obj.h_label.Text = t;
-            else
+            elseif ishandle(obj.h_uiobj)
                 obj.h_uiobj.Text = t;
             end
         end
@@ -247,7 +249,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             event = struct(event);
             warning('on','MATLAB:structOnObject')
             if ~isfield(event,'PreviousValue')
-                event.PreviousValue = []; 
+                event.PreviousValue = [];
             end
 
             % run pre-update function, if specified. This allows for any necessary setup before the value is changed, such as temporarily disabling randomization or other PostUpdate behavior when repeating a trial after an Abort.
@@ -268,12 +270,12 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             elseif isfield(event,'EventName') && isequal(event.EventName,'ButtonPushed')
                 obj.Parameter.Trigger;
                 return
-                
+
             elseif isnumeric(event.Value) && (event.Value < obj.Parameter.Min || event.Value > obj.Parameter.Max)
                 vprintf(0,1,'New parameter value for "%s" outside bounds [%g %g]', ...
                     obj.Name,obj.Parameter.Min,obj.Parameter.Max)
             end
-           
+
             value = event.Value;
 
             obj.h_uiobj.Value = value;
@@ -317,7 +319,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
     methods (Access = protected)
         function create(obj)
-            
+
             hl = uigridlayout(obj.parent,[1 2]);
             hl.RowHeight = {'1x'};
             hl.Padding = [0 0 0 0];
@@ -470,12 +472,12 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     obj.h_uiobj.Text = obj.boundValueText();
                     gui.Helper.timed_color_change(obj.h_uiobj, ...
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
-                    
+
 
                 case 'checkbox'
                     gui.Helper.timed_color_change(obj.h_uiobj, ...
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
-                    
+
 
                 case {'toggle','momentary'}
                     if v

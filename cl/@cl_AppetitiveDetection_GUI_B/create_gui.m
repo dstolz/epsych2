@@ -100,8 +100,8 @@ buttonLayout.ColumnSpacing = 0;
 bcmActive = min(lines(6)+0.4,1);
 bcmNormal = repmat(fig.Color,size(bcmActive,1),1);
 
-P = R.TRIALS(1).parameters;
-
+P = R.all_parameters(asStruct=true,includeTriggers=true);
+P = orderfields(P);
 
 k = 1;
 % > Drop Pellet

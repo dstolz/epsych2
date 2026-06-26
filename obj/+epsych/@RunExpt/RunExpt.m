@@ -188,6 +188,113 @@ classdef RunExpt < handle
             epsych.ProtocolDesigner.openFromFile(protocolFile);
         end
 
+        function UpdateProtocol(self)
+            % obj.UpdateProtocol
+            % Reload the selected subject's protocol from its file on disk so
+            % the session uses the latest saved version of that protocol.
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
+
+            selection = self.H.subject_list.Selection;
+            if isempty(selection)
+                uialert(self.H.figure1,'Select a subject first.','EPsych','Icon','info');
+                return
+            end
+            idx = selection(1);
+
+            protocolFile = char(self.CONFIG(idx).protocol_fn);
+            if isempty(protocolFile) || ~isfile(protocolFile)
+                uialert(self.H.figure1, ...
+                    sprintf('The protocol file "%s" could not be found.',protocolFile), ...
+                    'EPsych','Icon','error');
+                return
+            end
+
+            oldVersion = '';
+            proto = self.CONFIG(idx).PROTOCOL;
+            if isa(proto,'epsych.Protocol') && isvalid(proto)
+                oldVersion = char(proto.meta.protocolVersion);
+            end
+
+            warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
+            try
+                newProtocol = epsych.Protocol.load(protocolFile);
+            catch ME
+                warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
+                vprintf(0,1,ME);
+                uialert(self.H.figure1, ...
+                    sprintf('Failed to load protocol "%s".',protocolFile),'EPsych','Icon','error');
+                return
+            end
+            warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
+
+            self.CONFIG(idx).PROTOCOL = newProtocol;
+
+            name       = self.CONFIG(idx).SUBJECT.Name;
+            newVersion = char(newProtocol.meta.protocolVersion);
+            self.reportProtocolValidation(newProtocol, name);
+
+            if strcmp(oldVersion, newVersion)
+                vprintf(1,'Reloaded protocol for subject "%s" (version %s; already latest).',name,newVersion);
+                uialert(self.H.figure1, ...
+                    sprintf('Subject "%s" is already using the latest protocol version (%s).',name,newVersion), ...
+                    'EPsych','Icon','info');
+            else
+                vprintf(1,'Updated protocol for subject "%s": %s -> %s.',name,oldVersion,newVersion);
+                uialert(self.H.figure1, ...
+                    sprintf('Updated protocol for subject "%s" to version %s.',name,newVersion), ...
+                    'EPsych','Icon','success');
+            end
+
+            self.UpdateSubjectList
+            self.CheckReady
+        end
+
+        function ChangeProtocolFile(self)
+            % obj.ChangeProtocolFile
+            % Assign a different protocol file to the selected subject.
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
+
+            selection = self.H.subject_list.Selection;
+            if isempty(selection)
+                uialert(self.H.figure1,'Select a subject first.','EPsych','Icon','info');
+                return
+            end
+            idx = selection(1);
+
+            pn = getpref('ep_RunExpt_Setup','PDir',cd);
+            if ~exist(pn,'dir'), pn = cd; end
+
+            ontop = self.AlwaysOnTop(false);
+            [fn,pn] = uigetfile({'*.eprot;*.prot','Protocol Files (*.eprot, *.prot)'; ...
+                '*.*','All Files (*.*)'},'Locate Protocol',pn);
+            self.AlwaysOnTop(ontop);
+            if isequal(fn,0), return, end
+            setpref('ep_RunExpt_Setup','PDir',pn)
+            pfn = fullfile(pn,fn);
+
+            warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
+            try
+                newProtocol = epsych.Protocol.load(pfn);
+            catch ME
+                warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
+                vprintf(0,1,ME);
+                uialert(self.H.figure1, ...
+                    sprintf('Failed to load protocol "%s".',pfn),'EPsych','Icon','error');
+                return
+            end
+            warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
+
+            self.CONFIG(idx).protocol_fn = pfn;
+            self.CONFIG(idx).PROTOCOL    = newProtocol;
+
+            name = self.CONFIG(idx).SUBJECT.Name;
+            self.reportProtocolValidation(newProtocol, name);
+            vprintf(1,'Assigned protocol "%s" to subject "%s".',fn,name);
+
+            self.UpdateSubjectList
+            self.CheckReady
+        end
+
         function SortBoxes(self)
             % obj.SortBoxes
             % Reorder subjects in CONFIG by their assigned behavioral box ID.
@@ -376,6 +483,17 @@ classdef RunExpt < handle
                 set(self.H.subject_list,'Data',[])
             end
             self.CheckReady
+        end
+
+        function reportProtocolValidation(~, protocol, subjectName)
+            % reportProtocolValidation(self, protocol, subjectName)
+            % Log protocol validation errors so the user can review before running.
+            report = protocol.validate();
+            errs = report([report.severity] == 2);
+            if ~isempty(errs)
+                vprintf(0,1,'Protocol for subject "%s" has %d validation error(s). Review before starting.', ...
+                    subjectName, numel(errs));
+            end
         end
 
         function ConfigBrowserRestoreOnTop(self, ontop)

@@ -58,9 +58,7 @@ else
 end
 
 
-existingParameters = obj.all_parameters;
-existingInterfaces = arrayfun(@(x) string(x.Parent.Type),existingParameters);
-existingInterfaces = unique(existingInterfaces);
+interfaceTypes = arrayfun(@(x) string(x.Type), obj.Interfaces);
 
 % match parameters by Name and update in-place, create new parameters for unmatched entries
 for k = 1:nP
@@ -71,18 +69,14 @@ for k = 1:nP
 
     vprintf(4,'Processing parameter %d/%d: "%s" (Module: "%s")', k, nP, P.Name, parentType)
 
-    % Match existing HW Parameter by Name
-    i = find(existingInterfaces == parentType, 1);
-    if isempty(i)
-        vprintf(0,1, 'No matching module found for parameter "%s" with parent "%s". Skipping.', P.Name, parentType)
+    % Match the interface that owns this parameter by its Type
+    iface = obj.Interfaces(interfaceTypes == parentType);
+    if isempty(iface)
+        vprintf(0,1, 'No matching interface found for parameter "%s" with parent "%s". Skipping.', P.Name, parentType)
         continue
     end
-        
-    if parentType == "Software"
-        xp = obj.find_parameter(P.Name,includeInvisible=true);
-    else
-        xp = obj.HW(i-1).find_parameter(P.Name,includeInvisible=true);
-    end
+
+    xp = iface(1).find_parameter(P.Name,includeInvisible=true);
     xp.fromStruct(P);
 end
 

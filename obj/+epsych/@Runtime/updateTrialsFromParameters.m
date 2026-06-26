@@ -14,12 +14,22 @@ function updateTrialsFromParameters(obj, Parameters)
     ind = ismember({Parameters.Name}, obj.TRIALS.writeparams);
     Parameters(~ind) = [];
 
+    if isempty(Parameters), return, end
+
     vprintf(3, 'Updating TRIALS information from %d parameters: %s', numel(Parameters), strjoin({Parameters.Name},', '))
+
+    % Mutate a local copy and assign back once. Writing directly to
+    % obj.TRIALS.trials(:,idx) inside the loop would re-trigger the
+    % set.TRIALS setter (and its per-subject resolveCoreParameters /
+    % dispatchNextTrial) on every iteration, dispatching trials over and
+    % over. Batching the writes fires the setter a single time.
+    TRIALS = obj.TRIALS;
     for k = 1:numel(Parameters)
         pName = Parameters(k).Name;
         pVal = Parameters(k).Value;
 
-        idx = obj.TRIALS.writeParamIdx.(pName);
-        obj.TRIALS.trials(:,idx) = {pVal};
+        idx = TRIALS.writeParamIdx.(pName);
+        TRIALS.trials(:,idx) = {pVal};
     end
+    obj.TRIALS = TRIALS;
 end

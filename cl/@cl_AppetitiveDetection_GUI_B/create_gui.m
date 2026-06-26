@@ -306,7 +306,7 @@ hStimDelayMax = gui.Parameter_Control(layoutTrialControls,P.StimDelay,autoCommit
 
 hStimDelayRand.PostUpdateFcn = @set_stimdelay_randomization_state;
 hStimDelayRand.PostUpdateFcnArgs = {hStimDelayValue,hStimDelayMin,hStimDelayMax};
-set_stimdelay_randomization_state(hStimDelayRand,P.StimDelay.isRandom,hStimDelayValue,hStimDelayMin,hStimDelayMax);
+set_stimdelay_randomization_state(hStimDelayRand,P.StimDelay.isRandom,P.StimDelay,hStimDelayValue,hStimDelayMin,hStimDelayMax);
 
 
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
@@ -445,9 +445,9 @@ layoutPerformance.RowHeight = {'fit','1x'};
 layoutPerformance.RowSpacing = 4;
 layoutPerformance.Padding = [0 0 0 0];
 
-obj.ModeIndicator = gui.ModeIndicator(layoutPerformance, FontSize=12);
-obj.ModeIndicator.attachRuntime(R);
-obj.ModeIndicator.setState(hw.DeviceState.Standby);
+% obj.ModeIndicator = gui.ModeIndicator(layoutPerformance, FontSize=12);
+% obj.ModeIndicator.attachRuntime(R);
+% obj.ModeIndicator.setState(hw.DeviceState.Standby);
 
 % > Performance
 h = uilabel(layoutPerformance);
@@ -528,8 +528,8 @@ function h = simple_layout(p)
 end
 
 
-function set_stimdelay_randomization_state(src,newValue,hStimDelayValue,hStimDelayMin,hStimDelayMax)
-% set_stimdelay_randomization_state(src,newValue,hStimDelayValue,hStimDelayMin,hStimDelayMax)
+function set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,hStimDelayMin,hStimDelayMax)
+% set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,hStimDelayMin,hStimDelayMax)
 % Keep StimDelay randomization state and related controls synchronized.
 %
 % Parameters:
@@ -537,6 +537,8 @@ function set_stimdelay_randomization_state(src,newValue,hStimDelayValue,hStimDel
 %       RandomizeStimDelay software parameter that triggered the update.
 %   newValue : logical scalar
 %       New RandomizeStimDelay value.
+%   param : hw.Parameter
+%       Bound parameter passed by gui.Parameter_Control PostUpdateFcn (unused).
 %   hStimDelayValue : gui.Parameter_Control
 %       UI control for direct StimDelay value editing.
 %   hStimDelayMin, hStimDelayMax : gui.Parameter_Control
@@ -545,6 +547,7 @@ function set_stimdelay_randomization_state(src,newValue,hStimDelayValue,hStimDel
 arguments
     src %(1,1) gui.Parameter_Control
     newValue% (1,1) logical
+    param
     hStimDelayValue (1,1) gui.Parameter_Control
     hStimDelayMin (1,1) gui.Parameter_Control
     hStimDelayMax (1,1) gui.Parameter_Control

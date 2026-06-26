@@ -27,6 +27,16 @@ for i = 1:nSubjs
 
     T(i).parameters    = compiled.parameters;
     T(i).trials        = compiled.trials;
+
+    % Write-parameter mapping: writeparams is a column-ordered cell of valid
+    % parameter names; writeParamIdx maps each valid-name to its trial column.
+    % Consumers (gui.Parameter_Update, updateTrialsFromParameters,
+    % eval_*_training_mode) rely on these to locate writable columns.
+    T(i).writeparams   = compiled.writeparams;
+    T(i).writeParamIdx = struct();
+    for w = 1:numel(compiled.writeparams)
+        T(i).writeParamIdx.(compiled.writeparams{w}) = w;
+    end
     T(i).selector      = epsych.TrialSelector.create(selectorConfig);
     T(i).selector.initialize(T(i));
     T(i).selector.setRuntime(RUNTIME, i);

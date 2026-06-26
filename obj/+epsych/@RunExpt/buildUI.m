@@ -72,10 +72,18 @@ self.H.subject_list = uitable(g, ...
     'ColumnEditable',[false false false false], ...
     'ColumnWidth',{60,200,280,100}, ...
     'RowStriping','on', ...
-    'FontSize',18);
+    'FontSize',18, ...
+    'Tooltip','Right-click a subject to edit, update, or change its protocol file');
 self.H.subject_list.Layout.Row = 1;
 self.H.subject_list.Layout.Column = 1;
 self.H.subject_list.SelectionChangedFcn = @(h,ev) self.subject_list_SelectionChanged(h,ev);
+
+% Right-click context menu for per-subject protocol actions
+cmProtocol = uicontextmenu(f);
+uimenu(cmProtocol,'Text','Edit Protocol...','MenuSelectedFcn', @(~,~) self.EditProtocol);
+uimenu(cmProtocol,'Text','Update to Latest Version','MenuSelectedFcn', @(~,~) self.UpdateProtocol);
+uimenu(cmProtocol,'Text','Change Protocol File...','MenuSelectedFcn', @(~,~) self.ChangeProtocolFile);
+self.H.subject_list.ContextMenu = cmProtocol;
 
 % ---------- Bottom control bar (Run/Preview/Pause/Stop) ----------
 gBottom = uigridlayout(g,[1 4]);

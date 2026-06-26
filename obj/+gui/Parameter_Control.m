@@ -222,15 +222,6 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             s = char(s);
         end
 
-        function t = get.Text(obj)
-            if ishandle(obj.h_label)
-                t = obj.h_label.Text;
-            elseif isehandle(obj.h_uiobj)
-                t = obj.h_uiobj.Text;
-            else
-                t = '<empty>';
-            end
-        end
 
         function set.Text(obj,t)
             obj.Text = t;
@@ -334,7 +325,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     hl.ColumnWidth = {'1x',100};
 
                     h = uilabel(hl);
-                    h.Text = P.Name;
+                    h.Text = obj.Text;
                     h.Tooltip = P.Description;
                     h.HorizontalAlignment = 'right';
                     obj.h_label = h;
@@ -351,30 +342,44 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     hl.ColumnWidth = {'1x',100};
 
                     h = uilabel(hl);
-                    h.Text = P.Name;
+                    h.Text = obj.Text;
                     h.Tooltip = P.Description;
                     h.HorizontalAlignment = 'right';
                     obj.h_label = h;
 
                     h = uidropdown(hl);
+                    vals = P.Values; % 1xN cell, one trial level per element
+                    h.ItemsData = vals;
+                    % Items must be char/string labels; ItemsData keeps raw values
+                    if iscell(vals)
+                        h.Items = cellfun(@(x) char(string(x)), vals, UniformOutput=false);
+                    elseif isnumeric(vals) || islogical(vals)
+                        h.Items = string(vals);
+                    else
+                        h.Items = vals;
+                    end
+                    v = obj.getBoundValue();
+                    if ~isempty(v) && any(cellfun(@(x) isequal(x,v), vals))
+                        h.Value = v;
+                    end
 
                 case 'checkbox'
                     hl.ColumnWidth = {'1x'};
                     h = uicheckbox(hl);
-                    h.Text = P.Name;
+                    h.Text = obj.Text;
                     obj.colorNormal = '#000';
 
                 case 'toggle'
                     hl.ColumnWidth = {'1x'};
                     h = uibutton(hl,'state');
                     h.Layout.Column = [1 2];
-                    h.Text = P.Name;
+                    h.Text = obj.Text;
 
                 case 'momentary'
                     hl.ColumnWidth = {'1x'};
                     h = uibutton(hl,'push');
                     h.Layout.Column = [1 2];
-                    h.Text = P.Name;
+                    h.Text = obj.Text;
 
                 case 'stimtype'
                     hl.ColumnWidth = {'1x'};
@@ -460,10 +465,11 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
             switch obj.type
                 case 'dropdown'
-                    % need to add to Items
-                    if ~ismember(v,obj.h_uiobj.ItemsData)
-                        obj.h_uiobj.ItemsData = sort([obj.h_uiobj.ItemsData, v]);
-                        obj.h_uiobj.Items = string(obj.h_uiobj.Items.Data);
+                    % add the value to the list if it isn't already present
+                    if ~any(cellfun(@(x) isequal(x,v), obj.h_uiobj.ItemsData))
+                        newData = [obj.h_uiobj.ItemsData, {v}];
+                        obj.h_uiobj.ItemsData = newData;
+                        obj.h_uiobj.Items = cellfun(@(x) char(string(x)), newData, UniformOutput=false);
                     end
                     gui.Helper.timed_color_change(obj.h_uiobj, ...
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
@@ -573,7 +579,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             end
 
             % Discrete values are often best represented as dropdown.
-            if ~isempty(Parameter.Values)
+            if numel(Parameter.Values) > 1
                 nVals = numel(Parameter.Values);
                 if nVals <= 40
                     scores(strcmp(candidates,'dropdown')) = scores(strcmp(candidates,'dropdown')) + 70;

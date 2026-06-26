@@ -132,6 +132,15 @@ classdef TDT_RPcox < hw.Interface
                     'No modules are configured for this offline TDT_RPcox interface.');
             end
 
+            % Tear down any stale HW before rebuilding. We only reach here when
+            % IsConnected is false, so existing entries are dead links (e.g. a
+            % deserialized protocol). Deleting them now ensures a displaced
+            % TDTRP's destructor (which calls Halt on the shared device) runs
+            % before the new circuit is started, not after.
+            if ~isempty(obj.HW)
+                obj.close_interface();
+            end
+
             obj.ConnectionType = localNormalizeConnectionType_(obj.ConnectionType);
 
             for idx = 1:length(obj.Module)
@@ -282,12 +291,19 @@ classdef TDT_RPcox < hw.Interface
         end
 
         function tf = get.IsConnected(obj)
+            % Connected means the device link is live and a circuit is loaded
+            % (GetStatus bits 1 and 2). It deliberately does NOT require the
+            % circuit to be running (bit 3): a halted device (e.g. after Stop)
+            % is still connected, and TDTRP.status() throws when not running.
+            % Conflating "connected" with "running" would force a
+            % delete/recreate of the backend on every rerun, which TDT
+            % RPcoX/zBus cannot survive (see epsych.Runtime.delete).
             if isempty(obj.HW)
                 tf = false;
                 return
             end
             try
-                tf = all(arrayfun(@(h) h.status() == 1, obj.HW));
+                tf = all(arrayfun(@localIsLoaded_, obj.HW));
             catch
                 tf = false;
             end
@@ -476,6 +492,13 @@ classdef TDT_RPcox < hw.Interface
 
 
     
+end
+
+function tf = localIsLoaded_(h)
+% True when the TDTRP device link is live and a circuit is loaded.
+% Bit 1 = device connected, bit 2 = circuit loaded, bit 3 = running.
+status = double(h.RP.GetStatus);
+tf = bitget(status, 1) == 1 && bitget(status, 2) == 1;
 end
 
 function connectionType = localNormalizeConnectionType_(connectionType)

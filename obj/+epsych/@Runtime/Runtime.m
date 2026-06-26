@@ -74,18 +74,21 @@ classdef Runtime < handle & dynamicprops
 
         function delete(self)
             % delete(self)
-            % Clean up runtime resources (e.g., stop timers, disconnect hardware).
+            % Clean up runtime resources owned by this object.
+            %
+            % Only the timer is torn down here. The hardware Interfaces are
+            % owned by the epsych.Protocol and are merely borrowed by the
+            % Runtime; they are returned to Idle on stop (see
+            % ep_TimerFcn_Stop) and remain connected for reuse on the next
+            % run. Disconnecting them here would force a delete/recreate of
+            % the backend connection on every rerun, which some hardware
+            % (e.g. TDT RPcoX/zBus) cannot survive, breaking the second run.
+            % Hardware is released explicitly when the session closes
+            % (see RunExpt.onCloseRequest).
             vprintf(2, 'Cleaning up Runtime resources')
             if ~isempty(self.TIMER) && isvalid(self.TIMER) && strcmp(self.TIMER.Running, 'on')
                 stop(self.TIMER);
                 delete(self.TIMER);
-            end
-            if ~isempty(self.Interfaces)
-                for i = 1:length(self.Interfaces)
-                    if isvalid(self.Interfaces(i)) && self.Interfaces(i).IsConnected
-                        self.Interfaces(i).disconnect();
-                    end
-                end
             end
         end
 

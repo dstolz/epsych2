@@ -78,8 +78,11 @@ if isequal(obj.Type, 'StimType')
         end
     end
     obj.Values = restored;
-else
-    obj.Values = S.Values;
+elseif isfield(S,'Values')
+    % jsondecode collapses a JSON array of uniform numbers into a numeric
+    % vector rather than a cell, so coerce back to the 1xN cell that
+    % Values requires.
+    obj.Values = hw.Parameter.normalizeValues(S.Values);
 end
 
 % Restore current Value for StimType parameters

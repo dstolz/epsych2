@@ -65,16 +65,16 @@ for idx = 1:numel(names)
     eval([names{idx} ' = context.(names{idx});']); %#ok<EVLDIR>
 end
 
-% Evaluate; expression may assign to Value or just produce a result
+% Evaluate; expression is a single statement that produces a result
 Value = currentValue; %#ok<NASGU>
 try
-    exprResult__ = eval(expressionText); %#ok<EVLDIR,NASGU>
+    exprResult__ = eval(expressionText); %#ok<EVLDIR>
 catch ME
     error('hw:Parameter:ExpressionError', ...
         'Expression evaluation failed for parameter "%s": %s', obj.Name, ME.message);
 end
 
-result = Value;
+result = exprResult__;
 
 
 function allParams = localCollectAllParams_(thisModule)

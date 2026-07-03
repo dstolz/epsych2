@@ -135,46 +135,6 @@ classdef PhaseSelector < handle
             %
             % See also: documentation/overviews/Architecture_Overview.md
 
-            %{
-            %  modal dialog for description entry
-            d = dialog('Position',[300 300 440 210],'Name','Save Parameters','WindowStyle','modal','Color',[1 1 1]);
-
-            % Title
-            uicontrol('Parent',d,'Style','text','Position',[0 170 440 30], ...
-                'String','Save Parameter Set','FontSize',15,'FontWeight','bold', ...
-                'BackgroundColor',[1 1 1],'ForegroundColor',[0.1 0.2 0.4]);
-
-            % Prompt
-            uicontrol('Parent',d,'Style','text','Position',[30 120 380 30], ...
-                'String','Enter a description for this parameter set:','HorizontalAlignment','left', ...
-                'FontSize',12,'BackgroundColor',[1 1 1],'ForegroundColor',[0.1 0.1 0.1]);
-
-            % Description edit box
-            descEdit = uicontrol('Parent',d,'Style','edit','Position',[30 90 380 28], ...
-                'HorizontalAlignment','left','FontSize',12,'String','', ...
-                'BackgroundColor',[0.97 0.97 1]);
-
-            % OK and Cancel buttons
-            okBtn = uicontrol('Parent',d,'Style','pushbutton','String','Save','Position',[240 30 80 32], ...
-                'FontSize',12,'FontWeight','bold','BackgroundColor',[0.8 0.93 0.8],'Callback','uiresume(gcbf)');
-            cancelBtn = uicontrol('Parent',d,'Style','pushbutton','String','Cancel','Position',[330 30 80 32], ...
-                'FontSize',12,'BackgroundColor',[0.95 0.85 0.85],'Callback','delete(gcbf)');
-
-            % Add a border around the edit box (simulate with a frame)
-            uicontrol('Parent',d,'Style','frame','Position',[28 88 384 32],'BackgroundColor',[0.85 0.88 0.95]);
-            % Move edit box to front
-            uistack(descEdit,'top');
-
-            movegui(d,'center');
-            uiwait(d);
-            if ~isvalid(descEdit) || ~isvalid(d)
-                vprintf(3,'User canceled description entry.');
-                return
-            end
-            description = string(descEdit.String);
-            delete(d);
-            %}
-
             % Use obj.PhasePath as default save path if set, else current directory
             defaultPath = '.';
             if ~isempty(obj.PhasePath) && isfolder(obj.PhasePath)
@@ -191,6 +151,23 @@ classdef PhaseSelector < handle
             vprintf(0, 'Writing current parameters to "%s" (%s)', fn, filepath)
             obj.RUNTIME.writeParametersJSON(filepath);
             % obj.RUNTIME.writeParametersJSON(filepath, description);
+
+            % Phase files are meant to be static parameter snapshots, so strip any
+            % recorded Expression (parameter linkage) before the file is used for a phase.
+            try
+                data = jsondecode(fileread(filepath));
+                if isfield(data, 'Parameters')
+                    for k = 1:numel(data.Parameters)
+                        data.Parameters(k).Expression = "";
+                    end
+                    fid = fopen(filepath, 'w');
+                    fwrite(fid, jsonencode(data, PrettyPrint=true), 'char');
+                    fclose(fid);
+                end
+            catch ME
+                vprintf(0,1,ME);
+            end
+
             % Refresh phase file list and update dropdown if it exists
             obj.findPhaseFiles();
             if ~isempty(obj.h_PhaseSelect) && isvalid(obj.h_PhaseSelect)
@@ -225,9 +202,10 @@ classdef PhaseSelector < handle
             [~,fn] = fileparts(filepath);
 
             vprintf(0, 'Reading parameters from "%s" (%s)', fn, filepath)
-            obj.RUNTIME.readParametersJSON(filepath);
-
-            P = obj.RUNTIME.all_parameters;
+            % readParametersJSON resolves the file entries to live parameters and returns them
+            % (with restored values). Use the returned set directly; re-reading via all_parameters
+            % here would discard the loaded values.
+            P = obj.RUNTIME.readParametersJSON(filepath);
 
             % REMOVE TRIALTYPE
             P(string({P.Name}) == "TrialType") = [];

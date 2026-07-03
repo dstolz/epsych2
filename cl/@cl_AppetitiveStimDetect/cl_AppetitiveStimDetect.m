@@ -14,6 +14,9 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
         TT_STIM_  (1,1) double = 0    % TrialType code: signal-present trial
         TT_CATCH_ (1,1) double = 1    % TrialType code: catch (no-signal) trial
         TT_REMIND_(1,1) double = 2    % TrialType code: reminder trial
+
+        P % struct of named parameter handles
+        T % struct of named trial-column vectors
     end
 
     methods
@@ -22,6 +25,15 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % initialize(obj, TRIALS)
             % Called once at run start before the first selectNext call.
 
+            % Build numeric vectors from the trials table columns and a named
+            % parameter map. TRIALS.parameters is the compiled writable-parameter
+            % array; column k of TRIALS.trials corresponds to TRIALS.parameters(k).
+
+            obj.P = struct();
+            for k = 1:numel(TRIALS.parameters)
+                obj.T.(TRIALS.parameters(k).validName) = [TRIALS.trials{:, k}];
+                obj.P.(TRIALS.parameters(k).validName) = TRIALS.parameters(k);
+            end
         end
 
 
@@ -35,27 +47,19 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % Returns:
             %   nextTrialID - scalar row index into the trials table
 
-            P = TRIALS.parameters;
-
-            % Build numeric vectors from the trials table columns and a named
-            % parameter map. TRIALS.parameters is the compiled writable-parameter
-            % array; column k of TRIALS.trials corresponds to TRIALS.parameters(k).
-            Pmap = struct();
-            for k = 1:numel(P)
-                T.(P(k).validName) = [TRIALS.trials{:, k}];
-                Pmap.(P(k).validName) = P(k);
-            end
 
             % On the first trial return the first STIM row immediately
             if TRIALS.TrialIndex == 1
-                nextTrialID = find(T.TrialType == obj.TT_STIM_, 1);
+                
+                
+                nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
                 return
             end
 
 
             % Reminder override: force the REMIND row and set the HW flag
-            if Pmap.ReminderTrials.Value == 1
-                nextTrialID = find(T.TrialType == obj.TT_REMIND_, 1);
+            if obj.P.ReminderTrials.Value == 1
+                nextTrialID = find(obj.T.TrialType == obj.TT_REMIND_, 1);
                 return
             end
 
@@ -67,7 +71,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             lastStimTrialIdx = find(RC.("TrialType_" + obj.TT_STIM_), 1, 'last');
             stim = [TRIALS.DATA.Depth];
             if isempty(lastStimTrialIdx)
-                lastStim = max(T.Depth); % no prior STIM: start at max depth
+                lastStim = max(obj.T.Depth); % no prior STIM: start at max depth
             else
                 lastStim = stim(lastStimTrialIdx);
             end
@@ -77,43 +81,43 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             nextStim = lastStim; % default: no change (CR, FA, or fallback)
 
             % Repeat-delay logic: if enabled, repeat the same stimulus after an Abort by temporarily overriding nextStim
-            rda = Pmap.RepeatDelayOnAbort.Value && RC.Abort(end);
+            rda = obj.P.RepeatDelayOnAbort.Value && RC.Abort(end);
 
             if RC.Hit(end)
-                nextStim = lastStim - Pmap.StepOnHit.Value;
+                nextStim = lastStim - obj.P.StepOnHit.Value;
 
                 if rda
-                    obj.restore_stimdelay_randomization_(Pmap.StimDelay);
+                    obj.restore_stimdelay_randomization_(obj.P.StimDelay);
                 end
 
             elseif RC.Miss(end)
-                nextStim = lastStim + Pmap.StepOnMiss.Value;
+                nextStim = lastStim + obj.P.StepOnMiss.Value;
 
                 if rda
-                    obj.restore_stimdelay_randomization_(Pmap.StimDelay);
+                    obj.restore_stimdelay_randomization_(obj.P.StimDelay);
                 end
 
             elseif RC.Abort(end)
                 tooManyAborts = length(RC.Abort) >= 3 && all(RC.Abort(end-2:end));
 
-                if ~isfield(Pmap.StimDelay.UserData, 'CORRECTVAL')
-                    Pmap.StimDelay.UserData.CORRECTVAL = [];
+                if ~isfield(obj.P.StimDelay.UserData, 'CORRECTVAL')
+                    obj.P.StimDelay.UserData.CORRECTVAL = [];
                 end
 
                 if rda && tooManyAborts
                     vprintf(2, 'Too many Aborts: resetting nextStim to max depth and clearing StimDelay randomization')
-                    obj.restore_stimdelay_randomization_(Pmap.StimDelay);
+                    obj.restore_stimdelay_randomization_(obj.P.StimDelay);
 
                 elseif rda
-                    sdval = Pmap.StimDelay.Value;
+                    sdval = obj.P.StimDelay.Value;
 
-                    if ~isfield(Pmap.StimDelay.UserData, 'CORRECTVAL') || isempty(Pmap.StimDelay.UserData.CORRECTVAL)
-                        Pmap.StimDelay.UserData = Pmap.StimDelay.toStruct;
+                    if ~isfield(obj.P.StimDelay.UserData, 'CORRECTVAL') || isempty(obj.P.StimDelay.UserData.CORRECTVAL)
+                        obj.P.StimDelay.UserData = obj.P.StimDelay.toStruct;
 
-                        Pmap.StimDelay.isRandom = false;
+                        obj.P.StimDelay.isRandom = false;
 
-                        Pmap.StimDelay.Value = sdval;
-                        Pmap.StimDelay.UserData.CORRECTVAL = sdval;
+                        obj.P.StimDelay.Value = sdval;
+                        obj.P.StimDelay.UserData.CORRECTVAL = sdval;
                     end
 
                     vprintf(3, 'Repeating trial due to Abort: nextStim = %g, StimDelay = %g', nextStim, sdval)
@@ -121,16 +125,16 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
 
             elseif RC.CorrectReject(end)
                 nextStim = lastStim; % no change
-                obj.restore_stimdelay_randomization_(Pmap.StimDelay);
+                obj.restore_stimdelay_randomization_(obj.P.StimDelay);
             
             elseif RC.FalseAlarm(end)
                 if RC.Abort(end) % treat FA+Abort as an Abort for catch-trial scheduling purposes
-                    nextTrialID = find(T.TrialType == obj.TT_CATCH_, 1);
+                    nextTrialID = find(obj.T.TrialType == obj.TT_CATCH_, 1);
                     return
                 end
 
                 nextStim = lastStim; % no change
-                obj.restore_stimdelay_randomization_(Pmap.StimDelay);
+                obj.restore_stimdelay_randomization_(obj.P.StimDelay);
             end
             
 
@@ -139,12 +143,12 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
 
             % Write updated depth into all STIM rows of the live trials table
             % so the runtime dispatch loop sends the correct value to hardware.
-            ind = T.TrialType == obj.TT_STIM_;
+            ind = obj.T.TrialType == obj.TT_STIM_;
             depthCol = find(strcmp({TRIALS.parameters.validName}, 'Depth'), 1);
             [obj.runtime_.TRIALS(obj.subjectIdx_).trials{ind, depthCol}] = deal(nextStim);
 
             % Catch-trial scheduling based on p(Catch)
-            pCT = Pmap.P_Catch.Value;
+            pCT = obj.P.P_Catch.Value;
             if RC.Abort(end), pCT = 0; end
             vprintf(4, 'p(Catch) = %g', pCT)
 
@@ -155,9 +159,9 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             end
 
             if pCT > 0 && ~RC.("TrialType_" + obj.TT_CATCH_)(end) && (rand() < pCT || nLast10Stim >= 10)
-                nextTrialID = find(T.TrialType == obj.TT_CATCH_, 1);
+                nextTrialID = find(obj.T.TrialType == obj.TT_CATCH_, 1);
             else
-                nextTrialID = find(T.TrialType == obj.TT_STIM_, 1);
+                nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
             end
         end
 

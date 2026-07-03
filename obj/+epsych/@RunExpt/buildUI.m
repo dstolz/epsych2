@@ -26,7 +26,7 @@ mConfig = uimenu(f,'Label','Config');
 uimenu(mConfig,'Label','Browse &Configs...','MenuSelectedFcn', @(~,~) self.BrowseConfigs,'Accelerator','C')
 uimenu(mConfig,'Label','&Load Config...','MenuSelectedFcn', @(~,~) self.LoadConfig,'Accelerator','L')
 uimenu(mConfig,'Label','&Save Config...','MenuSelectedFcn', @(~,~) self.SaveConfig,'Accelerator','S')
-self.H.mnu_recent_configs = uimenu(mConfig,'Label','Recent configs ...','Separator','on');
+self.H.mnu_config = mConfig;
 
 mCustom = uimenu(f,'Label','Customize');
 uimenu(mCustom,'Label','Customize...','MenuSelectedFcn', @(~,~) self.OpenCustomizeDialog,'Accelerator','U')

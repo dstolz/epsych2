@@ -54,6 +54,7 @@ for i = 1:nSubjs
     info.Subject = T(i).Subject;
     info.CompStartTimestamp = datetime("now");
     info.EPsychMeta = E.meta;
+    info.isTest = RUNTIME.isTest;
     
     dfn = sprintf('RUNTIME_DATA_%s_Box_%02d_%s.mat', ...
         T(i).Subject.Name, ...

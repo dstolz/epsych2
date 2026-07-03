@@ -37,16 +37,12 @@ for i = 1:RUNTIME.NSubjects
     % Get Read parameters scoped to this subject's box.
     % Box-specific parameters carry a "~BoxID" suffix; global parameters
     % (software interface, no suffix) are included for every subject.
-    P_read = RUNTIME.all_parameters(Access = 'Read');
-
-    data = struct();
-    for k = 1:numel(P_read)
-        data.(P_read(k).validName) = P_read(k).Value;
-    end
+    data = RUNTIME.all_parameters(Access = 'Read',asStruct=true,valueOnly=true);
 
     data.TrialIndex = RUNTIME.TRIALS(i).TrialIndex;
     data.TrialID     = RUNTIME.TRIALS(i).NextTrialID;
     data.computerTimestamp = datetime('now');
+    data.isTest = RUNTIME.isTest;
 
     trialIdx = RUNTIME.TRIALS(i).TrialIndex;
 

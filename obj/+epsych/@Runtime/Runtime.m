@@ -30,6 +30,8 @@ classdef Runtime < handle & dynamicprops
 
 
     properties
+        isTest (1,1) logical = false % True if data is being generated for a test run
+
         HWinUse (1,:) string % List of hardware in use (string array)
 
         TRIALS            % Protocol-specific trial information, including trial selection function, trial parameters, and trial count
@@ -59,10 +61,14 @@ classdef Runtime < handle & dynamicprops
         REQUIRED_TRIGGERS = ["NewTrial", "ResetTrig", "TrialComplete"] % List of required trigger parameter suffixes
     end
 
+    properties (Access = private)
+        TRIALSInitialized_ (1,1) logical = false % True once TRIALS has been set for the first time on this Runtime instance
+    end
+
 
     methods
         writeParametersJSON(obj, filepath)      % Serialize runtime parameters to a JSON file.
-        readParametersJSON(obj, filepath)       % Load runtime parameters from a JSON file.
+        P = readParametersJSON(obj, filepath)   % Load runtime parameters from a JSON file; returns the resolved hw.Parameter array.
         dispatchNextTrial(obj, subjectIdx)      % Dispatch the already selected next trial for one subject.
         resolveCoreParameters(obj, subjectIdx)  % Locate and cache mandatory trigger parameters (NewTrial, ResetTrig, TrialComplete) for one subject.
 
@@ -117,9 +123,17 @@ classdef Runtime < handle & dynamicprops
             self.TRIALS = value;
             self.NSubjects = length(self.TRIALS);
 
-            for i = 1:self.NSubjects
-                self.resolveCoreParameters(i);
-                self.dispatchNextTrial(i);
+            % Resolving CORE triggers and dispatching the first trial must
+            % happen only once per Runtime instance (when TRIALS is first
+            % populated by ep_TimerFcn_Start). Later writes, such as
+            % updateTrialsFromParameters syncing parameter edits mid-run,
+            % must not re-trigger hardware or re-dispatch trials.
+            if ~self.TRIALSInitialized_
+                for i = 1:self.NSubjects
+                    self.resolveCoreParameters(i);
+                    self.dispatchNextTrial(i);
+                end
+                self.TRIALSInitialized_ = true;
             end
 
         end

@@ -47,6 +47,8 @@ switch ifaceType
 end
 
 modules = hw.Module.empty(1, 0);
+parameters = hw.Parameter.empty(1, 0);
+paramStructs = {};
 if isfield(ifaceStruct, 'Modules') && ~isempty(ifaceStruct.Modules)
     for moduleIdx = 1:length(ifaceStruct.Modules)
         moduleStruct = ifaceStruct.Modules{moduleIdx};
@@ -63,8 +65,14 @@ if isfield(ifaceStruct, 'Modules') && ~isempty(ifaceStruct.Modules)
                 paramStruct = moduleStruct.Parameters{paramIdx};
                 parameter = hw.Parameter(interface);
                 parameter.Module = module;
-                parameter.fromStruct(paramStruct);
+                % Restore metadata only; Value is restored below once every
+                % parameter exists and is wired to its module, so parameters
+                % with expressions can resolve sibling/cross-module
+                % references regardless of their declaration order.
+                parameter.fromStruct(paramStruct, false);
                 module.Parameters(end + 1) = parameter; %#ok<AGROW>
+                parameters(end + 1) = parameter;
+                paramStructs{end + 1} = paramStruct;
             end
         end
         modules(end + 1) = module; %#ok<AGROW>
@@ -75,5 +83,9 @@ if isa(interface, 'hw.Software')
     interface.set_module(modules);
 else
     interface.setModules(modules);
+end
+
+for paramIdx = 1:numel(parameters)
+    parameters(paramIdx).fromStruct(paramStructs{paramIdx});
 end
 end

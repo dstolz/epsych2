@@ -35,15 +35,28 @@ function updatedModule = applyUpdatedModuleOptions(obj, iface, moduleIndex, modu
             error('Modify Module options are not implemented for interface type %s.', char(iface.Type));
     end
 
+    parameters = hw.Parameter.empty(1, 0);
+    paramStructs = {};
     for paramIdx = 1:length(sourceModule.Parameters)
         sourceParam = sourceModule.Parameters(paramIdx);
         clonedParam = hw.Parameter(iface);
         clonedParam.Module = updatedModule;
-        clonedParam.fromStruct(sourceParam.toStruct());
+        % Restore metadata only; Value is restored below once every
+        % parameter exists and is wired to its module, so parameters
+        % with expressions can resolve sibling references regardless
+        % of their declaration order.
+        paramStruct = sourceParam.toStruct();
+        clonedParam.fromStruct(paramStruct, false);
         updatedModule.Parameters(end + 1) = clonedParam;
+        parameters(end + 1) = clonedParam;
+        paramStructs{end + 1} = paramStruct;
     end
 
     modules = iface.Module;
     modules(moduleIndex) = updatedModule;
     obj.replaceInterfaceModules(iface, modules);
+
+    for paramIdx = 1:numel(parameters)
+        parameters(paramIdx).fromStruct(paramStructs{paramIdx});
+    end
 end

@@ -118,7 +118,7 @@ classdef Parameter < matlab.mixin.SetGet
 
     methods
         S = toStruct(obj)           % serialize this parameter to a struct
-        fromStruct(obj, S)          % restore this parameter from a struct
+        fromStruct(obj, S, restoreValue) % restore this parameter from a struct; restoreValue (default true) controls whether Value is also restored
         jsonText = toJSON(obj)      % serialize this parameter to a JSON string
 
         function obj = Parameter(Parent, options)

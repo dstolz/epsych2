@@ -26,6 +26,7 @@ switch COMMAND
         vprintf(0,'%s',repmat('~',1,50))
 
         self.RUNTIME = epsych.Runtime; % reset RUNTIME
+        self.RUNTIME.isTest = COMMAND == "Preview";
 
         % Validate embedded protocols
         for i = 1:length(self.CONFIG)
@@ -122,8 +123,8 @@ switch COMMAND
         set(self.H.figure1,'pointer','arrow')
         vprintf(0,'Experiment stopped at %s',datetime("now",Format='dd-MMM-yyyy HH:mm'))
 
-        % Auto-save data on stop so users don't lose organized results.
-        self.SaveDataCallback
+        % Data is saved by PsychTimerStop (the PsychTimer's StopFcn),
+        % triggered synchronously by stop(t) above.
 
 end
 

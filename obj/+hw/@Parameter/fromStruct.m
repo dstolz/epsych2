@@ -1,16 +1,23 @@
 
-function fromStruct(obj, S)
-% fromStruct(obj, S)
+function fromStruct(obj, S, restoreValue)
+% fromStruct(obj, S, restoreValue)
 % Restore serialized metadata and design-time values onto a hw.Parameter object.
 %
 % Parameters:
-%	S	- Struct produced by toStruct().
-%
-% Does not restore the runtime Value property.
+%	S	         - Struct produced by toStruct().
+%	restoreValue - Whether to also restore the runtime Value (default: true).
+%	               Set false when the caller is reconstructing a whole set of
+%	               sibling/cross-module parameters and needs every parameter
+%	               wired into its Module before any Value is assigned; Value
+%	               assignment evaluates obj.Expression against sibling
+%	               parameters, which fails if not all siblings exist yet.
+%	               Callers that pass false are responsible for restoring
+%	               Value afterward via a second fromStruct call.
 
 arguments
     obj (1,1) hw.Parameter
     S (1,1) struct
+    restoreValue (1,1) logical = true
 end
 
 
@@ -86,12 +93,16 @@ elseif isfield(S,'Values')
 end
 
 % Restore current Value for StimType parameters
-if isequal(obj.Type, 'StimType') && isfield(S, 'Value') && ~isempty(S.Value)
-    if isstruct(S.Value) && isfield(S.Value, 'Class')
-        obj.Value = stimgen.StimType.fromStruct(S.Value);
-    elseif iscell(S.Value)
-        objs = cellfun(@(e) stimgen.StimType.fromStruct(e), S.Value, 'UniformOutput', false);
-        obj.Value = [objs{:}];
+if restoreValue
+    if isequal(obj.Type, 'StimType') && isfield(S, 'Value') && ~isempty(S.Value)
+        if isstruct(S.Value) && isfield(S.Value, 'Class')
+            obj.Value = stimgen.StimType.fromStruct(S.Value);
+        elseif iscell(S.Value)
+            objs = cellfun(@(e) stimgen.StimType.fromStruct(e), S.Value, 'UniformOutput', false);
+            obj.Value = [objs{:}];
+        end
+    elseif ~isequal(obj.Access,'Read')
+        obj.Value = S.Value;
     end
 end
 

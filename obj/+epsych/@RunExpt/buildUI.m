@@ -21,11 +21,22 @@ f.UserData = self;
 self.H.figure1 = f;
 movegui(f,'onscreen');
 
+% Register this MATLAB as a COM Automation Server so clicked epsych:// links
+% can reach the running session (see epsych.RunExpt.handleConfigLink).
+if ispc
+    try
+        enableservice('AutomationServer',true);
+    catch ME
+        vprintf(1,1,ME);
+    end
+end
+
 % Menus
 mConfig = uimenu(f,'Label','Config');
 uimenu(mConfig,'Label','Browse &Configs...','MenuSelectedFcn', @(~,~) self.BrowseConfigs,'Accelerator','C')
 uimenu(mConfig,'Label','&Load Config...','MenuSelectedFcn', @(~,~) self.LoadConfig,'Accelerator','L')
 uimenu(mConfig,'Label','&Save Config...','MenuSelectedFcn', @(~,~) self.SaveConfig,'Accelerator','S')
+uimenu(mConfig,'Label','Config Lin&k...','MenuSelectedFcn', @(~,~) self.ShowConfigLink)
 self.H.mnu_config = mConfig;
 
 mCustom = uimenu(f,'Label','Customize');

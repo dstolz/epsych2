@@ -21,6 +21,7 @@ classdef RunExpt < handle
         RUNTIME (1,1) epsych.Runtime = epsych.Runtime                                           % Shared runtime state passed to all callbacks during the session
         dfltDataPath (1,1) string = cd                                                          % Default directory for saving experiment data
         IsClosing (1,1) logical = false                                                         % True while the close sequence is in progress; prevents re-entrant callbacks
+        CurrentConfigFile (1,1) string = ""                                                     % Full path of the .ecfg currently loaded (empty when none)
     end
 
     methods
@@ -29,6 +30,9 @@ classdef RunExpt < handle
         ok = LocateProtocol(self, pfn)  % Validate and register protocol file pfn; ok is true on success
         AddSubject(self, S)             % Append subject struct S to CONFIG
         RemoveSubject(self, idx)        % Remove subject at index idx from CONFIG
+
+        loadConfigFromLink(self, configPath)  % Load config from an epsych:// link, guarding against an active run
+        ShowConfigLink(self)                  % Show/copy the epsych:// link for the current config and manage protocol registration
 
         DefineSavingFcn(self, a)        % Set the data-saving callback function name
         DefineConfigBrowserRoot(self)   % Set the root folder used by the config browser
@@ -477,6 +481,7 @@ classdef RunExpt < handle
             % ClearConfig(self)
             % Reset CONFIG to empty defaults and update program state if not running.
             self.CONFIG = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[]);
+            self.CurrentConfigFile = "";
             if self.STATE >= PRGMSTATE.RUNNING, return, end
             self.STATE = PRGMSTATE.NOCONFIG;
             if isfield(self.H,'subject_list') && isgraphics(self.H.subject_list)
@@ -553,6 +558,14 @@ classdef RunExpt < handle
         position = getSavedFigurePosition(defaultPosition)
         saveFigurePosition(position)
         ffn = defaultFilename(pth,name)
+
+        handleConfigLink(url)              % Entry point invoked by the OS epsych:// URL handler
+        url = buildConfigURL(configPath)   % Build an epsych:// link that loads configPath
+        configPath = parseConfigURL(url)   % Decode a config file path from an epsych:// link
+        ok = registerURLProtocol()         % Register the epsych:// URL protocol for the current user (Windows)
+        ok = unregisterURLProtocol()       % Remove the epsych:// URL protocol registration (Windows)
+        tf = isURLProtocolRegistered()     % True if epsych:// is registered to the current handler (Windows)
+        p = urlHandlerPath()               % Absolute path to the epsych:// OS handler script
     end
 end
 

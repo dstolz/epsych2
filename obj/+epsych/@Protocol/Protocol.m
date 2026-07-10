@@ -146,7 +146,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
 
     methods (Access = private)
         % Serialization helpers - separate method files
-        interface = createInterfaceFromStruct_(obj, ifaceStruct)        % Reconstruct interface from struct - createInterfaceFromStruct_.m
+        [interface, parameters, paramStructs] = createInterfaceFromStruct_(obj, ifaceStruct)  % Reconstruct interface (metadata only) from struct - createInterfaceFromStruct_.m
         interface = createRecoveredInterfaceFromCompiled_(obj)           % Recover interface from COMPILED - createRecoveredInterfaceFromCompiled_.m
 
         % Compilation helpers - separate method files

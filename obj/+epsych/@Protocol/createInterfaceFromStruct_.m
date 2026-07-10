@@ -1,15 +1,24 @@
-function interface = createInterfaceFromStruct_(~, ifaceStruct)
-% interface = createInterfaceFromStruct_(obj, ifaceStruct)
+function [interface, parameters, paramStructs] = createInterfaceFromStruct_(~, ifaceStruct)
+% [interface, parameters, paramStructs] = createInterfaceFromStruct_(obj, ifaceStruct)
 %
 % Reconstruct an hw.Interface from the serialized struct produced by
-% toStruct(). Restores interface type, modules, and parameters.
+% toStruct(). Restores interface type, modules, and parameter *metadata*.
+%
+% Parameter Values are deliberately NOT restored here. Value assignment
+% evaluates each parameter's Expression, which may reference parameters on
+% other interfaces (e.g. a TDT parameter referencing a Software parameter).
+% Those references can only resolve once every interface exists, so the
+% caller (epsych.Protocol.fromStruct) restores Values in a single pass after
+% all interfaces have been reconstructed.
 %
 % Parameters:
 %   ifaceStruct - Struct with fields: Type, ClassName, Server,
 %                 ConnectionType, Modules (cell array of module structs)
 %
 % Returns:
-%   interface - Reconstructed hw.Interface instance
+%   interface    - Reconstructed hw.Interface instance
+%   parameters   - hw.Parameter handles awaiting Value restoration
+%   paramStructs - Serialized structs aligned 1:1 with `parameters`
 
 ifaceType = char(string(ifaceStruct.Type));
 switch ifaceType
@@ -65,12 +74,12 @@ if isfield(ifaceStruct, 'Modules') && ~isempty(ifaceStruct.Modules)
                 paramStruct = moduleStruct.Parameters{paramIdx};
                 parameter = hw.Parameter(interface);
                 parameter.Module = module;
-                % Restore metadata only; Value is restored below once every
-                % parameter exists and is wired to its module, so parameters
-                % with expressions can resolve sibling/cross-module
-                % references regardless of their declaration order.
+                % Restore metadata only; Values are restored by the caller
+                % once every interface exists, so parameters with expressions
+                % can resolve sibling and cross-interface references
+                % regardless of their declaration order.
                 parameter.fromStruct(paramStruct, false);
-                module.Parameters(end + 1) = parameter; %#ok<AGROW>
+                module.Parameters(end + 1) = parameter;
                 parameters(end + 1) = parameter;
                 paramStructs{end + 1} = paramStruct;
             end
@@ -83,9 +92,5 @@ if isa(interface, 'hw.Software')
     interface.set_module(modules);
 else
     interface.setModules(modules);
-end
-
-for paramIdx = 1:numel(parameters)
-    parameters(paramIdx).fromStruct(paramStructs{paramIdx});
 end
 end

@@ -51,22 +51,44 @@ function fromStruct(obj, struct_in)
     obj.SoftwareModule = hw.Software();
 
     if isfield(struct_in, 'InterfaceData') && ~isempty(struct_in.InterfaceData)
+        pendingParams = hw.Parameter.empty(1, 0);
+        pendingStructs = {};
         for ifaceIdx = 1:length(struct_in.InterfaceData)
             ifaceStruct = struct_in.InterfaceData{ifaceIdx};
             if isempty(ifaceStruct)
                 continue
             end
-            restoredInterface = obj.createInterfaceFromStruct_(ifaceStruct);
+            [restoredInterface, ifaceParams, ifaceStructs] = obj.createInterfaceFromStruct_(ifaceStruct);
             obj.Interfaces(end + 1) = restoredInterface;
             if isa(restoredInterface, 'hw.Software')
                 obj.SoftwareModule = restoredInterface;
             end
+            pendingParams = [pendingParams, ifaceParams];
+            pendingStructs = [pendingStructs, ifaceStructs];
         end
+
+        % Restore parameter Values only after every interface, module, and
+        % parameter exists. Value assignment evaluates each parameter's
+        % Expression, which may reference parameters on *other* interfaces
+        % (e.g. "RespWinDelay = StimDelay + StimDur - Params.RespWinPreStim"
+        % where the parameters live on different hardware interfaces).
+        % Expression evaluation discovers those parameters via
+        % iface.Runtime.Interfaces; at load time no epsych.Runtime exists yet,
+        % so temporarily point each interface at this Protocol (which also
+        % exposes .Interfaces) for the restore pass. The link is detached
+        % afterward, even on error, so the real Runtime can claim it when the
+        % session is configured.
+        for ifaceIdx = 1:numel(obj.Interfaces)
+            obj.Interfaces(ifaceIdx).Runtime = obj;
+        end
+        detachRuntime = onCleanup(@() localDetachRuntime(obj.Interfaces));
+        localRestoreValues(pendingParams, pendingStructs);
+
         vprintf(3, 'Protocol loaded with %d interface(s): ', length(obj.Interfaces))
         for ifaceIdx = 1:length(obj.Interfaces)
             vprintf(3, '\t%d. %s', ifaceIdx, class(obj.Interfaces(ifaceIdx)));
         end
-        
+
     elseif isfield(obj.COMPILED, 'writeparams') && ~isempty(obj.COMPILED.writeparams)
         recoveredInterface = obj.createRecoveredInterfaceFromCompiled_();
         obj.Interfaces = recoveredInterface;
@@ -83,6 +105,52 @@ function fromStruct(obj, struct_in)
     if isfield(obj.COMPILED, 'writeparams') && ~isempty(obj.COMPILED.writeparams)
         if ~isfield(obj.COMPILED, 'parameters') || isempty(obj.COMPILED.parameters)
             obj.COMPILED.parameters = obj.resolveCompiledParameters_();
+        end
+    end
+end
+
+
+function localRestoreValues(params, structs)
+    % Restore parameter Values, tolerating dependency order. A parameter's
+    % Expression may reference other parameters (siblings, other modules, or
+    % other interfaces) that are restored later, so re-evaluate the
+    % expression-bearing numeric parameters until their Values stop changing.
+    % Plain and StimType parameters are restored once. The pass count is
+    % bounded by the number of parameters, so evaluation terminates even if
+    % expressions form a cycle.
+    isExprNumeric = arrayfun(@(p) strlength(p.Expression) > 0 ...
+        && ~isequal(p.Type, 'StimType'), params);
+
+    % First pass restores every parameter once, making leaf values available.
+    for k = 1:numel(params)
+        params(k).fromStruct(structs{k});
+    end
+
+    % Subsequent passes re-evaluate only expression parameters until stable.
+    exprIdx = reshape(find(isExprNumeric), 1, []);
+    for pass = 2:max(2, numel(exprIdx))
+        changed = false;
+        for k = exprIdx
+            before = params(k).Value;
+            params(k).fromStruct(structs{k});
+            if ~isequal(before, params(k).Value)
+                changed = true;
+            end
+        end
+        if ~changed
+            break
+        end
+    end
+end
+
+
+function localDetachRuntime(interfaces)
+    % Clear the temporary Protocol-as-Runtime link used during Value restore
+    % so the interfaces present as unregistered until a real epsych.Runtime
+    % claims them.
+    for k = 1:numel(interfaces)
+        if isvalid(interfaces(k))
+            interfaces(k).Runtime = [];
         end
     end
 end

@@ -69,5 +69,4 @@ end
 
 self.UpdateSubjectList
 self.CheckReady
-self.CurrentConfigFile = string(cfn);
 self.RememberRecentConfig(cfn)

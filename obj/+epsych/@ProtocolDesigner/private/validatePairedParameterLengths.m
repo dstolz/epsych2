@@ -14,7 +14,7 @@ function errorEntries = validatePairedParameterLengths(obj)
             continue
         end
 
-        valueCount = localGetParameterValueCount_(parameter.Value);
+        valueCount = localGetParameterValueCount_(parameter.Values);
         memberName = localGetParameterDisplayName_(parameter);
         groupIdx = find(strcmp({pairGroups.name}, pairName), 1);
         if isempty(groupIdx)
@@ -49,36 +49,25 @@ function errorEntries = validatePairedParameterLengths(obj)
     end
 end
 
-function valueCount = localGetParameterValueCount_(value)
-    if isnumeric(value) || islogical(value)
-        if isempty(value) || isscalar(value)
-            valueCount = 1;
-        else
-            valueCount = numel(reshape(value, 1, []));
-        end
+function valueCount = localGetParameterValueCount_(values)
+    % Count design-time trial levels the same way protocol compilation does
+    % (see Protocol.expand_cross_product / normalizeParameterValuesForTrials_):
+    % hw.Parameter.Values is a cell with one element per level, and an empty
+    % level set expands to a single trial. Counting Values here—rather than the
+    % runtime scalar Value—keeps the paired-length check consistent with compile,
+    % which otherwise falsely flags e.g. an Integer whose Value holds the array
+    % against a String whose Value holds a single level.
+    if iscell(values)
+        valueCount = max(1, numel(values));
         return
     end
 
-    if isstring(value)
-        valueCount = max(1, numel(value));
-        return
-    end
-
-    if ischar(value)
+    % Defensive fallback for non-cell Values (not expected in normal use).
+    if isnumeric(values) || islogical(values) || isstring(values)
+        valueCount = max(1, numel(values));
+    else
         valueCount = 1;
-        return
     end
-
-    if iscell(value)
-        if isempty(value)
-            valueCount = 1;
-        else
-            valueCount = numel(reshape(value, 1, []));
-        end
-        return
-    end
-
-    valueCount = 1;
 end
 
 function memberName = localGetParameterDisplayName_(parameter)

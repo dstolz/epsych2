@@ -23,6 +23,17 @@ if isempty(expressionText)
     return
 end
 
+% Multi-level parameters carry their Expression only as a design-time level
+% generator (e.g. "[0 1 2]"), which compile() has already expanded into the
+% discrete trial levels held in obj.Values. At runtime the dispatcher assigns
+% one level per trial, so re-evaluating the expression here would overwrite
+% that per-trial value with the full level set (and, for scalar hardware tags,
+% fail to write). Skip runtime evaluation when more than one level is defined.
+if numel(obj.Values) > 1
+    result = currentValue;
+    return
+end
+
 if contains(expressionText, ';')
     error('hw:Parameter:ExpressionMultiStatement', ...
         'Expression for parameter "%s" must be a single statement.', obj.Name);

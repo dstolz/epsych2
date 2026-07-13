@@ -84,6 +84,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         hl_mode
         hl_uiobj
         hl_color
+        committing_ (1,1) logical = false % true while an autoCommit write-back is in flight; suppresses the re-entrant PostUpdateFcn from value_change_external
     end
 
 
@@ -275,13 +276,21 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             obj.ValueUpdated = ~isequal(value,obj.getBoundValue());
 
             % run post-update function, if specified. This allows for any necessary updates after the value is changed, such as re-enabling randomization when repeating a trial after an Abort, or updating other controls based on the new value.
-            if isa(obj.PostUpdateFcn,'function_handle')
-                obj.PostUpdateFcn(obj,event,obj.Parameter,obj.PostUpdateFcnArgs{:});
-            end
+            obj.runPostUpdateFcn(event);
 
             if obj.autoCommit
                 if isempty(src), return; end
-                obj.setBoundValue(value);
+                % Committing the value re-triggers the bound property's PostSet
+                % listener (value_change_external). Guard the write-back so that path
+                % does not run PostUpdateFcn a second time -- it already ran just above.
+                obj.committing_ = true;
+                try
+                    obj.setBoundValue(value);
+                catch ME
+                    obj.committing_ = false;
+                    rethrow(ME)
+                end
+                obj.committing_ = false;
                 % gui.Helper.timed_color_change(obj.h_uiobj,obj.colorOnUpdateAuto,postColor=obj.colorNormal);
                 % obj.indicate_change;
 
@@ -304,6 +313,19 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         function update_color(obj,src,event)
             % s = src.Name;
             obj.h_uiobj.BackgroundColor = obj.colorNormal;
+        end
+
+
+        function runPostUpdateFcn(obj, event)
+            % runPostUpdateFcn(obj, event)
+            % Invoke the optional PostUpdateFcn with the standard argument list
+            % (control, event, bound Parameter, extra args). Shared by the
+            % user-driven path (value_changed) and the external-change path
+            % (value_change_external) so dependent controls stay in sync no
+            % matter what triggered the value change.
+            if isa(obj.PostUpdateFcn,'function_handle')
+                obj.PostUpdateFcn(obj,event,obj.Parameter,obj.PostUpdateFcnArgs{:});
+            end
         end
     end
 
@@ -359,7 +381,10 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                         h.Items = vals;
                     end
                     v = obj.getBoundValue();
-                    if ~isempty(v) && any(cellfun(@(x) isequal(x,v), vals))
+                    if ~isempty(v)
+                        % Show the current value even if it isn't among the
+                        % design-time Values; ensureDropdownItem_ adds it.
+                        obj.ensureDropdownItem_(h, v);
                         h.Value = v;
                     end
 
@@ -453,10 +478,28 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
             % obj.Value = v;
             if isprop(obj.h_uiobj,'Value')
+                % For dropdowns, the value may not be among the design-time
+                % Values (e.g. when loading a saved phase). Add it before
+                % assigning, otherwise the dropdown rejects the value.
+                obj.ensureDropdownItem_(obj.h_uiobj, v);
                 obj.h_uiobj.Value = v;
             end
 
             obj.indicate_change;
+
+            % Mirror the user-driven path: a parameter changed from outside this
+            % control (loading a phase, a linked-parameter update, etc.) should still
+            % run the PostUpdateFcn so dependent UI stays in sync -- e.g. toggling a
+            % checkbox-bound isRandom must enable/disable the related min/max fields.
+            % Skip while an autoCommit write-back is in flight, since value_changed
+            % already ran PostUpdateFcn for that same change.
+            if ~obj.committing_
+                % Assign Value after construction so a cell-valued v is not expanded
+                % into a struct array by struct().
+                e = struct('PreviousValue', [], 'EventName', 'PostSet');
+                e.Value = v;
+                obj.runPostUpdateFcn(e);
+            end
         end
 
 
@@ -465,12 +508,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
             switch obj.type
                 case 'dropdown'
-                    % add the value to the list if it isn't already present
-                    if ~any(cellfun(@(x) isequal(x,v), obj.h_uiobj.ItemsData))
-                        newData = [obj.h_uiobj.ItemsData, {v}];
-                        obj.h_uiobj.ItemsData = newData;
-                        obj.h_uiobj.Items = cellfun(@(x) char(string(x)), newData, UniformOutput=false);
-                    end
+                    obj.ensureDropdownItem_(obj.h_uiobj, v);
                     gui.Helper.timed_color_change(obj.h_uiobj, ...
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
 
@@ -538,6 +576,26 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             obj.Parameter.Value = stim;
             close(fig);
             obj.open_stimtype_gui([], []);
+        end
+    end
+
+    methods (Access = private)
+        function ensureDropdownItem_(obj, h, v)
+            % ensureDropdownItem_(obj, h, v)
+            % Guarantee v is present in dropdown handle h's ItemsData so that
+            % assigning h.Value = v passes MATLAB's validation. Values loaded
+            % from saved phases (or a Parameter's current Value) may not be
+            % among the design-time Parameter.Values used to build the
+            % dropdown. No-op for non-dropdown controls.
+            if ~isequal(obj.type,'dropdown'), return; end
+            itemsData = h.ItemsData;
+            if ~iscell(itemsData)
+                itemsData = num2cell(itemsData);
+            end
+            if any(cellfun(@(x) isequal(x,v), itemsData)), return; end
+            newData = [itemsData, {v}];
+            h.ItemsData = newData;
+            h.Items = cellfun(@(x) char(string(x)), newData, UniformOutput=false);
         end
     end
 

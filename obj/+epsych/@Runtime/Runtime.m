@@ -46,6 +46,7 @@ classdef Runtime < handle & dynamicprops
         Interfaces        % Cell array of hardware and software interfaces (e.g., hw.TDT_RPcox, hw.Software)
  
         CORE              % Runtime core or struct-compatible
+        P                % Cached hw.Parameter array for all parameters in use (struct form)
 
         StartTime datetime = NaT % Experiment start time (datetime)
 
@@ -133,6 +134,8 @@ classdef Runtime < handle & dynamicprops
                     self.resolveCoreParameters(i);
                     self.dispatchNextTrial(i);
                 end
+                self.P = self.all_parameters(asStruct=true);
+                self.StartTime = datetime('now');
                 self.TRIALSInitialized_ = true;
             end
 

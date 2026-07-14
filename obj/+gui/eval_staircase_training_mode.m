@@ -74,7 +74,7 @@ try
     if value == 1
         % enable training mode
         Parameter.UserData.STAIRCASE.isRandom = Parameter.isRandom;
-        rda = RUNTIME.find_parameter('RepeatDelayOnAbort');
+        rda = RUNTIME.P.RepeatDelayOnAbort;
         rda.UserData.STAIRCASE.Value = rda.Value;
         rda.Value = false;
         Parameter.isRandom = false;
@@ -108,7 +108,7 @@ try
 
         % Restore the parameter's prior randomization behavior.
         Parameter.isRandom = Parameter.UserData.STAIRCASE.isRandom;
-        rda = RUNTIME.find_parameter('RepeatDelayOnAbort');
+        rda = RUNTIME.P.RepeatDelayOnAbort;
         rda.Value = rda.UserData.STAIRCASE.Value;
         Parameter.UserData.CORRECTVAL = []; % NEEDED DUE TO CONFLICT WITH TRIALSELECTION
 

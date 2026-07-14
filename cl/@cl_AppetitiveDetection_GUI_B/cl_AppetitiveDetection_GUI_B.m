@@ -88,8 +88,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
 
             % create psychophysics object
-            p = RUNTIME.find_parameter('Depth');
-            obj.Psych = psychophysics.Staircase(RUNTIME,p);
+            obj.Psych = psychophysics.Staircase(RUNTIME,RUNTIME.P.Depth);
 
             % generate gui layout and components
             obj.create_gui;
@@ -325,17 +324,12 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             if value == 0, return; end
 
             vprintf(3,'Initiating Shape Trial')
-            pStim = R.find_parameter('Depth');
-            cv = pStim.Value; % current value
-            pStim.Value = 1; % 100% depth
+            cv = R.P.Depth.Value; % current value
+            R.P.Depth.Value = 1; % 100% depth
 
-            % pht = R.find_parameter('~PreventTrial',includeInvisible=true);
-            % while pht.Value == 1
-            %     pause(0.1);
-            % end
             obj.Value = 0;
 
-            pStim.Value = cv;
+            R.P.Depth.Value = cv;
         end
 
     end

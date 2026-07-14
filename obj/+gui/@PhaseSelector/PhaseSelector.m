@@ -515,9 +515,58 @@ classdef PhaseSelector < handle
             Current   = strings(0,1);
             New       = strings(0,1);
 
+            R = obj.resolvePhaseAgainstRuntime(filepath);
+            for k = 1:numel(R)
+                r = R(k);
+
+                % Read-only parameters are never written and StimType values are not simply
+                % comparable, so exclude both from the preview. Write-only parameters have no
+                % readable current value to compare against.
+                if ~r.HasCurrent || strcmp(r.Param.Access,'Read') || strcmp(r.Param.Type,'StimType')
+                    continue
+                end
+
+                if isequaln(r.Current, r.New), continue, end
+
+                Interface(end+1,1) = r.ParentType;
+                Parameter(end+1,1) = string(r.Param.Name);
+                Current(end+1,1)   = obj.formatValue(r.Current);
+                New(end+1,1)       = obj.formatValue(r.New);
+            end
+
+            T = table(Interface, Parameter, Current, New);
+        end
+
+
+        function R = resolvePhaseAgainstRuntime(obj, filepath)
+            % R = resolvePhaseAgainstRuntime(obj, filepath)
+            % Resolve each parameter entry in a phase file to the live hw.Parameter it targets
+            % and capture that parameter's current value alongside the value the phase would
+            % apply. Non-destructive: nothing is written to the runtime, so this is safe both
+            % for previewing changes (computePhaseChanges) and for deciding which parameters an
+            % actual load must update (loadPhaseParameters). Matches the resolution used by
+            % readParametersJSON (interface by ParentType, parameter by Name).
+            %
+            % Parameters:
+            %   filepath - Full path to a phase JSON file.
+            %
+            % Returns:
+            %   R - struct array (empty if nothing resolves) with fields:
+            %         Param      - live hw.Parameter handle targeted by the entry
+            %         ParentType - owning interface Type (string)
+            %         Current    - current parameter value, or [] when not readable
+            %         HasCurrent - false for write-only parameters whose value can't be read
+            %         New        - value the phase would apply (see resolveFileValue)
+            %       TrialType entries are skipped to mirror the load path.
+            arguments
+                obj
+                filepath (1,1) string
+            end
+
+            R = struct('Param', {}, 'ParentType', {}, 'Current', {}, 'HasCurrent', {}, 'New', {});
+
             data = jsondecode(fileread(filepath));
             if ~isfield(data,'Parameters') || ~isstruct(data.Parameters)
-                T = table(Interface, Parameter, Current, New);
                 return
             end
             paramData = data.Parameters;
@@ -538,22 +587,51 @@ classdef PhaseSelector < handle
                 if isempty(xp), continue, end
                 xp = xp(1);
 
-                % Read-only parameters are never written and StimType values are not simply
-                % comparable, so exclude both from the preview.
-                if strcmp(xp.Access,'Read') || strcmp(xp.Type,'StimType'), continue, end
+                % Write-only parameters cannot be read back, so record no current value.
+                hasCurrent = ~strcmp(xp.Access,'Write');
 
-                currentVal = xp.Value;
-                newVal = obj.resolveFileValue(S);
+                n = numel(R) + 1;
+                R(n).Param      = xp;
+                R(n).ParentType = parentType;
+                if hasCurrent
+                    R(n).Current = xp.Value;
+                else
+                    R(n).Current = [];
+                end
+                R(n).HasCurrent = hasCurrent;
+                R(n).New        = obj.resolveFileValue(S);
+            end
+        end
 
-                if isequaln(currentVal, newVal), continue, end
 
-                Interface(end+1,1) = parentType;
-                Parameter(end+1,1) = string(xp.Name);
-                Current(end+1,1)   = obj.formatValue(currentVal);
-                New(end+1,1)       = obj.formatValue(newVal);
+        function P = keepChangedParameters(~, P, before)
+            % P = keepChangedParameters(~, P, before)
+            % Filter a resolved parameter set down to only those whose value the phase load
+            % actually changed, comparing each parameter's (post-load) value against the
+            % pre-load snapshot captured by resolvePhaseAgainstRuntime.
+            %
+            % Parameters:
+            %   P      - hw.Parameter array returned by readParametersJSON (already loaded).
+            %   before - struct array from resolvePhaseAgainstRuntime (pre-load snapshot).
+            %
+            % Returns:
+            %   P - Subset of the input containing only parameters that changed. StimType
+            %       parameters (values not reliably comparable) and any parameter not covered
+            %       by the snapshot are kept so a genuine change is never silently dropped.
+            if isempty(P) || isempty(before)
+                return
             end
 
-            T = table(Interface, Parameter, Current, New);
+            beforeParams = [before.Param];
+            keep = true(1, numel(P));
+            for k = 1:numel(P)
+                if strcmp(P(k).Type, 'StimType'), continue, end
+                j = find(beforeParams == P(k), 1);
+                if ~isempty(j) && before(j).HasCurrent
+                    keep(k) = ~isequaln(before(j).Current, P(k).Value);
+                end
+            end
+            P = P(keep);
         end
 
 

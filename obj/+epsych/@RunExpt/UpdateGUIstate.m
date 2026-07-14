@@ -38,8 +38,16 @@ switch self.STATE
         self.H.modeIndicator.setState(hw.DeviceState.Error);
 end
 
-try
-    if all(double(self.RUNTIME.Interfaces.mode) > 0)
+% Enable "Assign RUNTIME to Command Window" whenever every connected
+% interface is in an active (non-Idle/Error) state. Interfaces is a
+% heterogeneous array, so concatenate the per-object modes before testing;
+% dot-indexing the array directly yields a comma-separated list that would
+% pass multiple arguments to double().
+if isempty(self.RUNTIME.Interfaces)
+    set(self.H.mnu_assign_runtime,'Enable','off')
+else
+    modes = double([self.RUNTIME.Interfaces.mode]);
+    if all(modes > 0)
         set(self.H.mnu_assign_runtime,'Enable','on')
     else
         set(self.H.mnu_assign_runtime,'Enable','off')

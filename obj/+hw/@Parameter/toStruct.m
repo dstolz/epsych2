@@ -18,6 +18,7 @@ S.Access = obj.Access;
 S.Type = obj.Type;
 S.Format = obj.Format;
 S.Visible = obj.Visible;
+S.UpdateEveryTrial = obj.UpdateEveryTrial;
 
 %{
 % Callbacks

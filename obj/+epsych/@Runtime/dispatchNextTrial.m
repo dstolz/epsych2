@@ -19,7 +19,12 @@ end
 
 T = obj.TRIALS(subjectIdx);
 
-dispatchIdx = ~strcmp({T.parameters.Access}, 'Read');
+% Dispatch writable parameters flagged to update every trial. Read-only
+% parameters and those with UpdateEveryTrial == false are set once elsewhere
+% and left unchanged by this per-trial dispatch.
+notReadOnly = ~strcmp({T.parameters.Access}, 'Read');
+updateEveryTrial = [T.parameters.UpdateEveryTrial];
+dispatchIdx = notReadOnly & updateEveryTrial;
 
 
 

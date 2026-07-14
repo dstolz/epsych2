@@ -17,6 +17,8 @@ classdef Parameter < matlab.mixin.SetGet
     % Properties
     %   Name, Description, Unit, Module - Display and grouping metadata.
     %   Access, Type, Format, Visible - Access rules and display behavior.
+    %   UpdateEveryTrial - When true, the runtime trial dispatcher refreshes
+    %       this parameter on every trial; when false, it is left unchanged.
     %   Value, ValueStr, lastUpdated - Current value and display state.
     %   PreUpdateFcnEnabled, EvaluatorFcnEnabled, PostUpdateFcnEnabled -
     %       Callback enable flags.
@@ -57,6 +59,8 @@ classdef Parameter < matlab.mixin.SetGet
         Format  (1,:) char = '%g' % default format for displaying value
 
         Visible (1,1) logical = true % optionally hide parameter
+
+        UpdateEveryTrial (1,1) logical = true % when true, epsych.Runtime.dispatchNextTrial updates this parameter each trial; when false, it is set once and left unchanged across trials
 
         Values (1,:) cell = {} % design-time trial levels; one cell element per level; set via add_parameter; expanded by compile()
 
@@ -143,6 +147,7 @@ classdef Parameter < matlab.mixin.SetGet
                 options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined','StimType'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
+                options.UpdateEveryTrial (1,1) logical % default: true, or false for trigger parameters; see below
                 options.PreUpdateFcnEnabled (1,1) logical = true
                 options.EvaluatorFcnEnabled (1,1) logical = true
                 options.PostUpdateFcnEnabled (1,1) logical = true
@@ -174,8 +179,13 @@ classdef Parameter < matlab.mixin.SetGet
             obj.Min = options.Min;
             obj.Max = options.Max;
             obj.isArray = options.isArray;
-            obj.isTrigger = options.isTrigger;
+            obj.isTrigger = options.isTrigger; % set.isTrigger defaults UpdateEveryTrial to false for triggers
             obj.isRandom = options.isRandom;
+
+            % An explicit UpdateEveryTrial always wins over the isTrigger-based default.
+            if isfield(options, 'UpdateEveryTrial')
+                obj.UpdateEveryTrial = options.UpdateEveryTrial;
+            end
         end
 
         % function disp(obj)
@@ -361,6 +371,14 @@ classdef Parameter < matlab.mixin.SetGet
             else
                 obj.Format = '%g';
             end
+        end
+
+        function set.isTrigger(obj, isTrigger)
+            % Trigger parameters fire once per call rather than carrying a
+            % per-trial value, so default UpdateEveryTrial to match: false
+            % while marked as a trigger, true otherwise.
+            obj.isTrigger = logical(isTrigger);
+            obj.UpdateEveryTrial = ~obj.isTrigger;
         end
 
         function set.isRandom(obj, isRandom)

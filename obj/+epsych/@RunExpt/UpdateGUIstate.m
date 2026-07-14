@@ -1,7 +1,10 @@
 function UpdateGUIstate(self)
 % UpdateGUIstate — Enable/disable controls based on STATE.
 % Behavior
-%   Centralizes UI state transitions for all major states.
+%   Centralizes UI state transitions for all major states. Also toggles a
+%   distinct figure color/title while a Preview (test) run is RUNNING, and
+%   restores the normal appearance for every other state (Stop, Error, or a
+%   real Run).
 arguments
     self
 end
@@ -21,7 +24,7 @@ switch self.STATE
         self.UpdateGUIstate
 
     case PRGMSTATE.READY
-        set([self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
+        set([self.H.ctrl_run self.H.ctrl_preview hSetup],'Enable','on')
         self.H.modeIndicator.setState(hw.DeviceState.Standby);
 
     case PRGMSTATE.RUNNING
@@ -31,11 +34,25 @@ switch self.STATE
     case PRGMSTATE.POSTRUN
 
     case PRGMSTATE.STOP
-        set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
+        set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup],'Enable','on')
 
     case PRGMSTATE.ERROR
-        set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup']','Enable','on')
+        set([self.H.save_data self.H.ctrl_run self.H.ctrl_preview hSetup],'Enable','on')
         self.H.modeIndicator.setState(hw.DeviceState.Error);
+end
+
+% Distinct figure styling while a Preview (test) run is active, so the
+% session window cannot be mistaken for a live Run. This reverts
+% automatically for every other STATE (including Stop/Error) and when a
+% real Run starts, since RUNTIME.isTest is false in that case.
+PREVIEW_COLOR = [0.78 0.87 1.00];
+isPreview = self.STATE == PRGMSTATE.RUNNING && self.RUNTIME.isTest;
+if isPreview
+    self.H.figure1.Color = PREVIEW_COLOR;
+    self.H.figure1.Name  = char(self.H.figureBaseName + " — PREVIEW MODE (test run)");
+else
+    self.H.figure1.Color = self.H.figureDefaultColor;
+    self.H.figure1.Name  = char(self.H.figureBaseName);
 end
 
 % Enable "Assign RUNTIME to Command Window" whenever every connected

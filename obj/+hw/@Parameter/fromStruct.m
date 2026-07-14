@@ -48,7 +48,10 @@ obj.PostUpdateFcnEnabled = logical(S.PostUpdateFcnEnabled);
 
 % Flags
 obj.isArray = logical(S.isArray);
-obj.isTrigger = logical(S.isTrigger);
+obj.isTrigger = logical(S.isTrigger); % set.isTrigger defaults UpdateEveryTrial; explicit value restored below wins
+if isfield(S, 'UpdateEveryTrial')
+    obj.UpdateEveryTrial = logical(S.UpdateEveryTrial);
+end
 
 % Bounds
 obj.Min = obj.safeToNumeric_(S.Min);

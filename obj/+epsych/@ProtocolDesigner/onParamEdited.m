@@ -189,6 +189,8 @@ function onParamEdited(obj, evt)
                 end
                 parameter.isTrigger = logical(evt.NewData);
             case 14
+                parameter.UpdateEveryTrial = logical(evt.NewData);
+            case 15
                 parameter.Description = string(evt.NewData);
         end
     catch ME

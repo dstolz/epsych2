@@ -70,6 +70,7 @@ addField('Access',      parameter.Access);
 addField('Unit',        localOrDash_(parameter.Unit));
 addField('Visible',     localBoolLabel_(parameter.Visible));
 addField('Trigger',     localBoolLabel_(parameter.isTrigger));
+addField('Update Every Trial', localBoolLabel_(parameter.UpdateEveryTrial));
 addField('Random',      localBoolLabel_(parameter.isRandom));
 addField('Array',       localBoolLabel_(parameter.isArray));
 addField('Min',         localNumLabel_(parameter.Min));

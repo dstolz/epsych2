@@ -6,6 +6,7 @@ function SaveConfig(self)
 arguments
     self
 end
+if self.STATE >= PRGMSTATE.RUNNING, return, end
 if self.STATE == PRGMSTATE.NOCONFIG
     warndlg('Please first add a subject.','Save Configuration','modal')
     return
@@ -38,4 +39,5 @@ meta = E.meta; %#ok<NASGU>
 
 save(fullfile(pn,fn),'config','funcs','meta','-mat')
 setpref('ep_RunExpt_Setup','CDir',pn)
+self.CurrentConfigFile = string(fullfile(pn,fn));
 vprintf(0,'Configuration saved as: ''%s''\n',fullfile(pn,fn))

@@ -19,13 +19,20 @@ f = uifigure('Name',figureName,'Tag','RunExpt', ...
 
 f.UserData = self;
 self.H.figure1 = f;
+self.H.figureBaseName    = string(figureName);  % restored when leaving Preview mode
+self.H.figureDefaultColor = f.Color;             % restored when leaving Preview mode
 movegui(f,'onscreen');
 
 % Menus
 mConfig = uimenu(f,'Label','Config');
-uimenu(mConfig,'Label','Browse &Configs...','MenuSelectedFcn', @(~,~) self.BrowseConfigs,'Accelerator','C')
-uimenu(mConfig,'Label','&Load Config...','MenuSelectedFcn', @(~,~) self.LoadConfig,'Accelerator','L')
-uimenu(mConfig,'Label','&Save Config...','MenuSelectedFcn', @(~,~) self.SaveConfig,'Accelerator','S')
+self.H.mnu_browse_config = uimenu(mConfig,'Label','Browse &Configs...', ...
+    'Tag','setup_mnu_browse_config','MenuSelectedFcn', @(~,~) self.BrowseConfigs,'Accelerator','C');
+self.H.mnu_load_config = uimenu(mConfig,'Label','&Load Config...', ...
+    'Tag','setup_mnu_load_config','MenuSelectedFcn', @(~,~) self.LoadConfig,'Accelerator','L');
+self.H.mnu_refresh_config = uimenu(mConfig,'Label','&Refresh Config', ...
+    'Tag','setup_mnu_refresh_config','MenuSelectedFcn', @(~,~) self.RefreshConfig,'Accelerator','R');
+self.H.mnu_save_config = uimenu(mConfig,'Label','&Save Config...', ...
+    'Tag','setup_mnu_save_config','MenuSelectedFcn', @(~,~) self.SaveConfig,'Accelerator','S');
 self.H.mnu_config = mConfig;
 
 mCustom = uimenu(f,'Label','Customize');

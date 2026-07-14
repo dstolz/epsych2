@@ -13,7 +13,7 @@ function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex,
         moduleFilterIndex = 0;
     end
 
-    tableData = cell(0, 14);
+    tableData = cell(0, 15);
     parameterHandles = {};
 
     for ifaceIdx = 1:length(obj.Protocol.Interfaces)
@@ -46,6 +46,7 @@ function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex,
                     parameter.Unit, ...
                     parameter.Visible, ...
                     parameter.isTrigger, ...
+                    parameter.UpdateEveryTrial, ...
                     char(parameter.Description)}; %#ok<AGROW>
                 parameterHandles{end + 1, 1} = parameter; %#ok<AGROW>
             end

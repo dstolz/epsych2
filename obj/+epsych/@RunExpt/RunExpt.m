@@ -21,10 +21,12 @@ classdef RunExpt < handle
         RUNTIME (1,1) epsych.Runtime = epsych.Runtime                                           % Shared runtime state passed to all callbacks during the session
         dfltDataPath (1,1) string = cd                                                          % Default directory for saving experiment data
         IsClosing (1,1) logical = false                                                         % True while the close sequence is in progress; prevents re-entrant callbacks
+        CurrentConfigFile (1,1) string = ""                                                     % Path of the most recently loaded/saved configuration file
     end
 
     methods
         LoadConfig(self, cfn)           % Load configuration from MAT file cfn
+        RefreshConfig(self)             % Reload the currently loaded configuration file from disk
         SaveConfig(self)                % Persist current configuration to file
         ok = LocateProtocol(self, pfn)  % Validate and register protocol file pfn; ok is true on success
         AddSubject(self, S)             % Append subject struct S to CONFIG
@@ -368,7 +370,7 @@ classdef RunExpt < handle
         UpdateRecentConfigsMenu(self)                      % Rebuild the recent-configs submenu items
         CheckReady(self)                                   % Evaluate whether all conditions to run are met and update STATE
         UpdateGUIstate(self)                               % Refresh all UI control states to match current STATE
-        UpdateSubjectList(self)                            % Repopulate the subject list with current CONFIG entries
+        UpdateSubjectList(self)                            % Repopulate the subject list and flag subjects with an outdated protocol version
         ExptDispatch(self, COMMAND)                        % Dispatch a named command (Start/Stop/Pause) to the experiment
         T = CreateTimer(self)                              % Create and configure the psychophysics trial timer object
         PsychTimerStart(self)                              % Initialize runtime state and start the trial timer

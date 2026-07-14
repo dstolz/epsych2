@@ -29,4 +29,9 @@ else
 end
 
 % Notify listeners now that BoxFig is launched and HELPER is fully initialized.
-self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Record));
+if self.RUNTIME.isTest
+    runMode = hw.DeviceState.Preview;
+else
+    runMode = hw.DeviceState.Record;
+end
+self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(runMode));

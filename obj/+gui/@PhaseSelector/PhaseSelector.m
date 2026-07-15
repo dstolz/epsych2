@@ -25,6 +25,8 @@ classdef PhaseSelector < handle
     %   Names          - List of phase file names without extension.
     %   Filenames      - List of phase file names without path.
     %   FullFilenames  - Full paths to phase files.
+    %   LastLoadedFile - File name of the most recently loaded phase.
+    %   LastLoadedTime - Time the most recently loaded phase was loaded.
     %
     % Methods:
     %   PhaseSelector          - Constructor for PhaseSelector class.
@@ -40,6 +42,7 @@ classdef PhaseSelector < handle
     %   showPhaseInfo          - Print a table of the parameter changes the selected phase would apply.
     %   set.PhasePath          - Set method for PhasePath property, loads phase files from new path.
     %   writePhaseParameters   - Save current hardware and software parameters to a new JSON file.
+    %   withLastLoaded         - Append the most-recently-loaded phase file name and load time to info text.
     %
     % See also: documentation/overviews/Architecture_Overview.md
 
@@ -58,6 +61,8 @@ classdef PhaseSelector < handle
         Names (1,:) string      % List of phase file names without extension
         Filenames (1,:) string      % List of phase file names without path
         FullFilenames (1,:) string {mustBeFile} % Full paths to phase files
+        LastLoadedFile (1,1) string = ""      % File name (with extension) of the most recently loaded phase
+        LastLoadedTime (1,1) datetime = NaT   % Time the most recently loaded phase was loaded
     end
 
 
@@ -205,9 +210,9 @@ classdef PhaseSelector < handle
 
             if ~isempty(obj.h_Description) && isvalid(obj.h_Description)
                 if idx == 0
-                    obj.h_Description.Text = "No phase selected. Select a phase, then press Load to apply its parameters.";
+                    obj.h_Description.Text = obj.withLastLoaded("No phase selected. Select a phase, then press Load to apply its parameters.");
                 else
-                    obj.h_Description.Text = sprintf('Phase "%s" selected. Press Load to apply its parameters, or Info to preview the changes.', phaseName);
+                    obj.h_Description.Text = obj.withLastLoaded(sprintf('Phase "%s" selected. Press Load to apply its parameters, or Info to preview the changes.', phaseName));
                 end
             end
         end
@@ -270,6 +275,12 @@ classdef PhaseSelector < handle
 
             % Changes are applied -- closeDlg (onCleanup) dismisses the dialog on return.
 
+            % Record this as the most recently loaded phase so the info box can report the file
+            % name and load time even after the dropdown selection later changes.
+            [~, loadedName, loadedExt] = fileparts(filepath);
+            obj.LastLoadedFile = loadedName + loadedExt;
+            obj.LastLoadedTime = datetime('now', Format='HH:mm:ss');
+
             % update description text to show loaded phase description from JSON, if available
             if ~isempty(obj.h_Description)
                 desc = "";
@@ -284,7 +295,7 @@ classdef PhaseSelector < handle
                 if isempty(P)
                     baseText = baseText + " (no parameter changes)";
                 end
-                obj.h_Description.Text = baseText;
+                obj.h_Description.Text = obj.withLastLoaded(baseText);
             end
         end
 
@@ -467,7 +478,8 @@ classdef PhaseSelector < handle
 
             descriptionText = "No phase selected. Please select a phase to load its parameters.";
             h = uilabel(parent, ...
-                'Text', descriptionText);
+                'Text', descriptionText, ...
+                'WordWrap', 'on');
 
             obj.h_Description = h;
         end
@@ -476,6 +488,27 @@ classdef PhaseSelector < handle
 
 
     methods (Access = private)
+        function txt = withLastLoaded(obj, baseText)
+            % txt = withLastLoaded(obj, baseText)
+            % Append a line noting the most recently loaded phase file and the time it was
+            % loaded to baseText, so the info box always reports the last load even after the
+            % dropdown selection changes. Returns baseText unchanged (as a scalar string) when
+            % no phase has been loaded yet.
+            %
+            % Parameters:
+            %   baseText - Text to show above the last-loaded line (string or char)
+            %
+            % Returns:
+            %   txt - Info text for h_Description.Text (2x1 string array when a load has occurred)
+            txt = string(baseText);
+            if strlength(obj.LastLoadedFile) == 0
+                return
+            end
+            lastLine = sprintf('Loaded "%s" at %s', obj.LastLoadedFile, string(obj.LastLoadedTime));
+            txt = [txt; string(lastLine)];
+        end
+
+
         function [filepath, idx, phaseName] = selectedPhaseFile(obj)
             % [filepath, idx, phaseName] = selectedPhaseFile(obj)
             % Resolve the phase currently chosen in the dropdown to its file.

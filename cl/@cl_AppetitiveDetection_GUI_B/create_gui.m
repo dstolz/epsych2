@@ -91,13 +91,13 @@ buttonLayout = uigridlayout(layoutMain,[2 3]);
 buttonLayout.Layout.Row = 1;
 buttonLayout.Layout.Column = [1 4];
 buttonLayout.Padding = [0 0 0 0];
-buttonLayout.ColumnWidth = repmat({'1x'},1,5);
+buttonLayout.ColumnWidth = repmat({'1x'},1,6);
 buttonLayout.RowHeight = {'1x'};
 buttonLayout.RowSpacing = 0;
 buttonLayout.ColumnSpacing = 0;
 
 % bcmNormal = max(lines(6)-0.1,0);
-bcmActive = min(lines(6)+0.4,1);
+bcmActive = min(lines(7)+0.4,1);
 bcmNormal = repmat(fig.Color,size(bcmActive,1),1);
 
 P = R.all_parameters(asStruct=true,includeTriggers=true);
@@ -144,6 +144,13 @@ h.colorOnUpdate = bcmActive(k,:);
 obj.hButtons.DeliverTrials = h;
 k = k + 1;
 
+
+% > Spoof Trough
+h = gui.Parameter_Control(buttonLayout,P.SpoofTrough,Type='momentary',autoCommit=true,Text="Trough");
+h.colorNormal = bcmNormal(k,:);
+h.colorOnUpdate = bcmActive(k,:);
+obj.hButtons.Trough = h;
+k = k + 1;
 
 
 bh = structfun(@(a) a.h_uiobj,obj.hButtons,'uni',0);

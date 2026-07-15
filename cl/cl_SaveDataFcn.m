@@ -82,7 +82,7 @@ try
 catch
 end
 
-Info = EPsychInfo.meta;
+Info = EPsychInfo().meta;
 
 for i = 1:RUNTIME.NSubjects
     name  = RUNTIME.TRIALS(i).Subject.Name;

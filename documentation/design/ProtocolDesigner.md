@@ -1,10 +1,10 @@
-# Protocol Designer
+# Protocol Designer (developer reference)
 
-`epsych.ProtocolDesigner` is the main developer-facing UI for editing `epsych.Protocol` objects.
+`epsych.ProtocolDesigner` is the UI for editing `epsych.Protocol` objects. This document covers its internal structure for developers maintaining or extending the designer. The end-user guide is [ProtocolDesigner_UserGuide.md](ProtocolDesigner_UserGuide.md).
 
 Source class folder:
 
-- `obj/+epsych/@ProtocolDesigner/`
+- [obj/+epsych/@ProtocolDesigner/](../../obj/+epsych/@ProtocolDesigner/)
 
 ## Purpose
 
@@ -35,10 +35,12 @@ ui = epsych.ProtocolDesigner.openFromFile('path/to/file.eprot');
 ## UI Areas
 
 - Main figure and menu system (`buildUI`)
-- Parameter editing panel (`buildParametersTab`)
+- Parameter editing panel (`buildParametersTab`) — table columns: Interface / Module, Name, Type, Expression, Value, Min, Max, Random, Pair, Access, Unit, Visible, Trigger, Update Every Trial, Description
 - Options dialog (`buildOptionsTab` / open options callback)
 - Compiled preview dialog (`buildPreviewTab` / open preview callback)
 - Footer status messaging via `gui.StatusBar`
+
+Interface creation is data-driven: the "Add Interface" panel enumerates `hw.Interface` subclasses and builds each creation dialog from the class's static `getCreationSpec()` (see [../hw/hw_Interface_Tutorial.md](../hw/hw_Interface_Tutorial.md)). Interfaces are held in an offline/serialized form while editing; live hardware communication is not started by the designer.
 
 ## Keyboard Shortcuts
 
@@ -120,6 +122,6 @@ If no compiled data exists, export is blocked with status + alert guidance.
 
 ## Related Files
 
-- `obj/+epsych/@Protocol/Protocol.m`
-- `documentation/epsych/epsych_Protocol.md`
-- `documentation/design/ProtocolDesigner_UserGuide.md`
+- [obj/+epsych/@Protocol/Protocol.m](../../obj/+epsych/@Protocol/Protocol.m) — the data model the designer edits
+- [../epsych/epsych_Protocol.md](../epsych/epsych_Protocol.md) — protocol class reference
+- [ProtocolDesigner_UserGuide.md](ProtocolDesigner_UserGuide.md) — end-user guide

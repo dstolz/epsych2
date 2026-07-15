@@ -6,12 +6,11 @@ This document describes a *general* pattern for building custom MATLAB GUIs that
 
 If you are new to MATLAB GUIs, the main idea is simple: **the experiment already has “knobs” (parameters) and “signals” (state/events)**, and your GUI is just a clean way to *edit* the knobs and *display* the signals.
 
-In EPsych-style code you will usually have a runtime object (often abbreviated **`R`**) that gives you access to:
+In EPsych code you will have a runtime object (`epsych.Runtime`, often abbreviated **`R`**) that gives you access to:
 
-* **Hardware parameters (`R.HW`)**: values that map to device settings/state (timing, triggers, amplitudes, etc.).
-* **Software parameters (`R.S` / module parameters)**: values that live in the session/module (training flags, derived settings, GUI-only config that should still be logged).
-* **Trial logic (`R.TRIALS`)**: what trial is next, what happened on the last trial, and “force” flags for training/testing.
-* **Event sources (`R.HELPER`, task helpers)**: events like *NewTrial*, *NewData*, *ModeChange* that let the GUI update without constant polling.
+* **Parameters (`R.find_parameter`, `R.all_parameters`, `R.P`)**: values that map to device settings/state (timing, triggers, amplitudes) and software-side values that live only in the session (training flags, derived settings, GUI-only config that should still be logged). Hardware-backed and software-backed parameters share the same `hw.Parameter` interface, so GUI code can treat them uniformly.
+* **Trial logic (`R.TRIALS`)**: what trial is next, what happened on the last trial, and "force" flags for training/testing.
+* **Event sources (`R.HELPER`, task helpers)**: events like *NewTrial*, *NewData*, *ModeChange* that let the GUI update without constant polling (see [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md)).
 
 
 ### A practical mental model
@@ -29,8 +28,8 @@ A typical EPsych GUI follows this workflow:
    * *Monitor* = read-only live values (e.g., trial outcome codes, latencies, counters).
 2. **Find the parameter handles by name.**
 
-   * Hardware: `p = R.find_parameter('Name');`
-   * Software: `p = R.S.Module.add_parameter('Name', defaultValue);` (or `R.find_parameter(...)` if it already exists)
+   * Existing parameters: `p = R.find_parameter('Name');` or grab everything at once with `P = R.all_parameters(asStruct=true, includeTriggers=true);`
+   * New software parameters: locate the software interface and add one, e.g. `sw = R.Interfaces(arrayfun(@(x) isa(x,'hw.Software'), R.Interfaces)); p = sw.add_parameter('Name', defaultValue);`
 3. **Build the layout first (usually with `uigridlayout`).**
 
    * Make panels for logical blocks (Trial Controls, Sound Controls, Performance, etc.).
@@ -86,7 +85,7 @@ A common, robust pattern is:
 
 In `cl_AppetitiveDetection_GUI_B`:
 
-* `RUNTIME` holds the object that exposes hardware (`R.HW`), session/module (`R.S`), trial logic (`R.TRIALS`), and helper/event sources (`R.HELPER`).
+* `RUNTIME` holds the `epsych.Runtime` that exposes the interfaces (`R.Interfaces`), parameter lookups (`R.find_parameter`, `R.all_parameters`, `R.P`), trial logic (`R.TRIALS`), and helper/event sources (`R.HELPER`).
 * `create_gui(obj)` is implemented as a method and is placed in a separate file under the class folder (`@cl_AppetitiveDetection_GUI_B/create_gui.m`). This is a good MATLAB convention for keeping large GUI code maintainable.
 
 ### 1.2 Constructor responsibilities
@@ -119,40 +118,42 @@ In `cl_AppetitiveDetection_GUI_B/delete`:
 
 ## 2) Finding parameters (hardware + software)
 
-A GUI typically binds controls and monitors to parameters. In EPsych-style code, parameters are usually discovered by name.
+A GUI typically binds controls and monitors to parameters. In EPsych code, parameters are discovered by name through the runtime, which searches every registered interface (hardware and software alike).
 
-### 2.1 Hardware parameters: `HW.find_parameter`
+### 2.1 Looking up parameters: `R.find_parameter` and `R.all_parameters`
 
-Hardware parameters tend to represent device settings and current state.
-
-Common usage pattern:
+Common usage patterns:
 
 * `p = R.find_parameter('ITIDur');`
 * `p = R.find_parameter('~TrialDelivery', includeInvisible=true);`
+* `P = R.all_parameters(asStruct=true, includeTriggers=true);` then `P.ITIDur`, `P.Depth`, ... — this is the pattern the reference GUI (`cl_AppetitiveDetection_GUI_B/create_gui.m`) uses to fetch everything in one call.
+* `RUNTIME.P` is a runtime-cached struct of all parameters (keyed by `validName`), populated at run start — prefer it over repeated lookups in hot paths.
 
 Notes:
 
-* Use `includeInvisible=true` for internal/advanced parameters (often prefixed with `~` or `!`).
-* Some calls pass `silenceParameterNotFound=true` to make optional parameters safe:
+* Names can be short (`'Param'`) or qualified (`'Module.Param'`) when the same name exists on multiple modules.
+* Use `includeInvisible=true` for internal/advanced parameters (often prefixed with `~`, `_`, or `!`).
+* Pass `silenceParameterNotFound=true` to make optional parameters safe:
 
   * Example: `p = R.find_parameter('dBSPL', silenceParameterNotFound=true);`
   * If `p` is empty, simply skip creating that UI control.
 
-### 2.2 Software parameters: `S.find_parameter` or `S.Module.add_parameter`
+### 2.2 Software parameters
 
-`S` is best thought of as **Software parameters**: parameters that do *not* exist on the hardware device, but are exposed through the same parameter-handle interface/abstraction as hardware parameters. This shared interface lets you write common GUI and runtime code that can treat hardware and software parameters uniformly.
+Software parameters do *not* exist on a hardware device, but are exposed through the same `hw.Parameter` abstraction. This shared interface lets you write common GUI and runtime code that treats hardware and software parameters uniformly.
 
-Software parameters often represent derived settings, training modes, module configuration, or GUI-only/session-level values.
+Software parameters often represent derived settings, training modes, module configuration, or GUI-only/session-level values. They live on the protocol's `hw.Software` interface. To add one at run time:
 
-You’ll commonly see:
-
-* `p = R.S.Module.add_parameter('MinDepth', 0.001);`
-* `p = R.S.Module.add_parameter('RespWinDelayMin', pRWDelay.Min);`
+```matlab
+sw = R.Interfaces(arrayfun(@(x) isa(x,'hw.Software'), R.Interfaces));
+p = sw.add_parameter('MinDepth', 0.001);
+```
 
 General guidance:
 
-* Use `add_parameter` when you want a configurable software parameter that lives with the module/session and should persist or be logged.
-* Use `S.find_parameter(...)` (if available in your runtime) when the software parameter already exists and you just need the handle.
+* Prefer defining software parameters in the protocol (Protocol Designer) so they persist, serialize, and appear in trial data automatically.
+* Use `add_parameter` at run time only for GUI-session values that do not belong in the protocol.
+* Use `R.find_parameter(...)` when the parameter already exists and you just need the handle.
 
 ### 2.3 Setting parameter metadata for UI and validation
 
@@ -282,10 +283,12 @@ The example GUI uses several helper classes that encapsulate common UI elements:
 
 * `gui.Parameter_Control`: user-editable parameter widgets
 * `gui.Parameter_Monitor`: read-only monitoring table
-* `gui.Parameter_Update`: a unified “Update Parameters”/commit mechanism
+* `gui.Parameter_Update`: a unified “Update Parameters”/commit mechanism ([../gui/Parameter_Update.md](../gui/Parameter_Update.md))
+* `gui.PhaseSelector`: dropdown for loading/saving named parameter sets (JSON phase files) between training blocks
 * `gui.FilenameValidator`: file naming / data filename UX
+* `gui.ElapsedTrialTimer`: elapsed-time display driven by trial events
 * `psychophysics.Staircase` plotting (`Plot`): online staircase visualization
-* `gui.History`: response history table
+* `gui.History`: response history table ([../gui/gui_History.md](../gui/gui_History.md))
 
 General advice:
 

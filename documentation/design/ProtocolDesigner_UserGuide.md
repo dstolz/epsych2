@@ -76,15 +76,17 @@ Use **Add To Interface** and **Module** above the parameter table to choose wher
 The parameter table includes these main fields:
 
 - `Name`: parameter name
-- `Type`: value type such as float, integer, boolean, string, or file
+- `Type`: value type such as float, integer, boolean, string, file, or stimulus (StimType)
 - `Expression`: optional formula for supported numeric or logical parameter types
-- `Pair`: links parameters so they advance together during compilation
 - `Value`: parameter value for editable types
-- `Min` and `Max`: numeric limits
-- `Random`: whether values are randomized
+- `Min` and `Max`: numeric limits; values written outside these limits are clamped
+- `Random`: whether values are randomized (requires finite Min and Max)
+- `Pair`: links parameters so they advance together during compilation
 - `Access`: read or write behavior
+- `Unit`: display unit shown next to values in GUIs
 - `Visible`: whether the parameter is intended to be visible
 - `Trigger`: trigger flag for boolean parameters
+- `Update Every Trial`: when checked (the default), the value is re-sent to hardware on every trial; uncheck it for settings that should be written once and then hold their value — for example, controls an operator adjusts during a session
 - `Description`: free-text note
 
 Important editing rules:
@@ -148,10 +150,9 @@ Click **Protocol Options** to open the protocol-level settings dialog.
 
 The current options include:
 
-- **Trial Function**
-- **ISI (ms)**
-- **Compile At Runtime**
-- **Include WAV Buffers**
+- **Trial Function**: the name of a custom trial selector class. Leave empty to use the default balanced-random selection.
+- **Compile At Runtime**: recompile the protocol automatically when the session starts.
+- **Include WAV Buffers**: expand WAV file parameters into hardware buffers during compilation.
 
 These settings apply to the full protocol rather than to one parameter.
 
@@ -206,4 +207,5 @@ Check recent edits first: file paths, paired parameter lengths, expressions, and
 
 ## Related documentation
 
-- Developer reference: `documentation/design/ProtocolDesigner.md`
+- Running your protocol: [../overviews/RunExpt_GUI_Overview.md](../overviews/RunExpt_GUI_Overview.md)
+- Developer reference: [ProtocolDesigner.md](ProtocolDesigner.md)

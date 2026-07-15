@@ -11,8 +11,8 @@ coupled to a specific device API.
 You do not instantiate `hw.Interface` directly. Instead, you work with a
 subclass such as a software-backed shim or a device-specific implementation.
 
-In this repository, the main concrete subclasses are `hw.Software`,
-`hw.TDT_Synapse`, and `hw.TDT_RPcox`.
+In this repository, the concrete subclasses are `hw.Software`,
+`hw.TDT_Synapse`, `hw.TDT_RPcox`, `hw.Intan_RHX`, and `hw.VlcRecorder`.
 
 For a step-by-step guide to authoring a new hardware backend, see
 [hw_Interface_Tutorial.md](hw_Interface_Tutorial.md).
@@ -56,11 +56,22 @@ Subclasses are expected to define these abstract members:
 - `Module`: Array of `hw.Module` objects owned by the interface.
 - `Type`: Constant string identifier for the implementation.
 - `mode`: Current `hw.DeviceState` value.
-- `setup_interface()`: Allocate or connect hardware resources.
-- `close_interface()`: Release hardware resources.
+- `IsConnected` (dependent, logical): True when the backend connection is ready.
+- `connect()`: Establish the backend connection; sets `IsConnected` on success.
+- `setup_interface()` (protected): Allocate or connect hardware resources.
+- `close_interface()` (protected): Release hardware resources.
 - `trigger(name)`: Trigger a hardware event.
 - `set_parameter(name, value)`: Write one or more parameters.
 - `get_parameter(name)`: Read one or more parameters.
+- `getCreationSpec()` (static): Return a `hw.InterfaceSpec` describing the
+  options needed to construct the interface — labels, defaults, control-type
+  hints, and a factory function. `epsych.ProtocolDesigner` uses this spec to
+  build its "Add Interface" dialogs generically, so every backend must
+  provide one.
+
+The base class also provides a `Runtime` property, set when the interface is
+registered on `epsych.Runtime.Interfaces`, which gives backend code access to
+the owning session.
 
 The abstract API is intentionally small. Discovery and filtering helpers are
 implemented once in `hw.Interface` so subclasses only need to handle device-
@@ -71,7 +82,7 @@ In practice, a concrete subclass is responsible for:
 - creating its `Module` array
 - populating each module with `hw.Parameter` objects
 - translating parameter reads and writes into backend-specific calls
-- maintaining the current device `mode`
+- maintaining the current device `mode` and `IsConnected` state
 - cleaning up device resources when the interface is closed
 
 For a worked example of how to implement those responsibilities, see
@@ -98,6 +109,18 @@ interface helpers and tracks current experiment metadata.
 `hw.TDT_RPcox` connects to RPvds-based TDT devices through the TDTRP layer.
 It loads one or more circuits, creates corresponding `hw.Module` objects, and
 routes parameter I/O through the shared interface contract.
+
+### `hw.Intan_RHX`
+
+`hw.Intan_RHX` communicates with the Intan RHX software over its TCP command
+server to control run mode and read/write named parameters. See
+[hw_Intan_RHX.md](hw_Intan_RHX.md).
+
+### `hw.VlcRecorder`
+
+`hw.VlcRecorder` drives a VLC process for webcam preview and recording,
+exposing device and output settings as parameters and Play/Stop-style
+triggers. See [hw_VlcRecorder.md](hw_VlcRecorder.md).
 
 ---
 
@@ -140,6 +163,8 @@ P = I.find_parameter(name, silenceParameterNotFound=true)
 Finds parameters by name across all modules.
 
 - Accepts a character vector, string scalar, or cell array of names.
+- Accepts both short names (`'Param'`) and fully qualified names
+  (`'Module.Param'`).
 - Preserves the order of requested names in the returned array.
 - Returns an empty array when nothing matches.
 - Logs a warning through `vprintf` unless
@@ -305,24 +330,17 @@ subclass implementation.
 
 ## Related files
 
-- [obj/+hw/@Interface/Interface.m](../obj/+hw/@Interface/Interface.m): Base
+- [obj/+hw/@Interface/Interface.m](../../obj/+hw/@Interface/Interface.m): Base
   class implementation.
-- [obj/+hw/@Module/Module.m](../obj/+hw/@Module/Module.m): Module container
+- [obj/+hw/@Module/Module.m](../../obj/+hw/@Module/Module.m): Module container
   class used by interfaces.
-- [obj/+hw/@Parameter/Parameter.m](../obj/+hw/@Parameter/Parameter.m):
+- [obj/+hw/@Parameter/Parameter.m](../../obj/+hw/@Parameter/Parameter.m):
   Parameter abstraction exposed by modules.
-- [obj/+hw/@Software/Software.m](../obj/+hw/@Software/Software.m): Minimal
+- [obj/+hw/@Software/Software.m](../../obj/+hw/@Software/Software.m): Minimal
   software-backed implementation of the interface contract.
 - [hw_Interface_Tutorial.md](hw_Interface_Tutorial.md): Step-by-step guide to
   authoring a custom `hw.Interface` subclass.
 
 These implementations are the main code references when building a new
 hardware backend.
-
----
-
-## Version history
-
-- 2026-04-03: Updated helper-method reference to document `all_parameters`
-  access filtering, `asStruct` output mode, and `add_parameter` behavior.
 

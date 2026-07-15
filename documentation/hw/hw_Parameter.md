@@ -20,11 +20,15 @@ p = hw.Parameter(parentHwInterface, Name=Value)
 The constructor accepts named options for the main metadata and behavior
 settings, including:
 
-- `Name`, `Description`, `Unit`, `Module`
+- `Name`, `Description`, `Unit`
 - `Access`, `Type`, `Format`, `Visible`
-- `PreUpdateFcn`, `EvaluatorFcn`, `PostUpdateFcn`, `PostUpdateFcnArgs`
+- `UpdateEveryTrial`
 - `PreUpdateFcnEnabled`, `EvaluatorFcnEnabled`, `PostUpdateFcnEnabled`
 - `UserData`, `isArray`, `isTrigger`, `isRandom`, `Min`, `Max`
+
+Callback function handles (`PreUpdateFcn`, `EvaluatorFcn`, `PostUpdateFcn`)
+and their argument lists (`PreUpdateFcnArgs`, `EvaluatorFcnArgs`,
+`PostUpdateFcnArgs`) are assigned as properties after construction.
 
 ### Constructor example
 
@@ -65,7 +69,10 @@ p.isTrigger = true;
 p.Trigger();
 ```
 
-`Trigger()` delegates to `Parent.trigger(p)` and updates `lastUpdated`.
+`Trigger()` delegates to `Parent.trigger(p)` and updates `lastUpdated`. It
+only acts when `isTrigger` is true. Marking a parameter as a trigger also
+defaults its `UpdateEveryTrial` flag to false, because triggers fire on
+demand rather than carrying a per-trial value.
 
 ---
 
@@ -76,11 +83,14 @@ p.Trigger();
 - `Name`: Parameter name shown in GUIs and logs.
 - `Description`: Short descriptive text.
 - `Unit`: Unit suffix appended to `ValueStr` when non-empty.
-- `Module`: Handle to the module this parameter belongs to.
+- `Module`: Handle to the module this parameter belongs to (resolved lazily
+  from the parent when not set explicitly).
+- `FullName` (dependent): `'ModuleName.ParamName'`; useful for qualified
+  lookups via `find_parameter`.
 - `Format`: Display format used by `sprintf` or `num2str`.
 
-If `Type` is set to `'String'`, the class uses `'%s'` formatting. Otherwise,
-the default display format is `'%g'`.
+If `Type` is set to `'String'`, `'File'`, or `'StimType'`, the class uses
+`'%s'` formatting. Otherwise, the default display format is `'%g'`.
 
 ### Access modes
 
@@ -90,8 +100,11 @@ the default display format is `'%g'`.
 - `'Write'`
 - `'Any'`
 
+(The legacy value `'Read / Write'` is still accepted and normalized to
+`'Any'`.)
+
 When a parameter is write-only, reading `Value` returns `NaN` and logs a
-message with `vprintf`.
+message with `vprintf`. Writing to a read-only parameter raises an error.
 
 ### Type values
 
@@ -103,7 +116,24 @@ message with `vprintf`.
 - `'Buffer'`
 - `'Coefficient Buffer'`
 - `'String'`
+- `'File'`
+- `'StimType'`
 - `'Undefined'`
+
+`'File'` parameters hold one or more file paths; the Protocol Designer
+provides a dedicated file-list editor for them. `'StimType'` parameters hold
+a `stimgen.StimType` object and are only supported on `hw.Software` parents;
+their values are not pushed to the parent interface on write.
+
+### Trial-level behavior
+
+- `Values`: Design-time trial levels, one cell element per level. Set through
+  `epsych.Protocol.addParameter` / the Protocol Designer and expanded into
+  the trials matrix by `Protocol.compile()`.
+- `UpdateEveryTrial`: When true (the default for non-trigger parameters), the
+  runtime trial dispatcher rewrites this parameter on every trial. When
+  false, the parameter is set once and left unchanged across trials — useful
+  for operator-adjusted settings that should hold their value mid-session.
 
 ### Value tracking
 
@@ -112,7 +142,9 @@ message with `vprintf`.
 - `lastUpdated`: MATLAB `datenum` timestamp of the last successful update.
 - `isArray`: True when the stored value contains more than one element.
 - `isRandom`: If true, writes randomize the value before passing it on.
-- `Min` / `Max`: Bounds used by randomization and some validation paths.
+  Requires finite `Min` and `Max`.
+- `Min` / `Max`: Bounds. Numeric writes are clamped into `[Min, Max]`
+  (per-side, controlled by `BoundsInclusive`) before being applied.
 
 Convert `lastUpdated` to `datetime` with:
 
@@ -142,8 +174,8 @@ Each callback also has a matching logical enable flag:
 This lets code temporarily disable a callback without clearing its function
 handle.
 
-`PostUpdateFcnArgs` lets you append extra arguments when calling
-`PostUpdateFcn`.
+`PreUpdateFcnArgs`, `EvaluatorFcnArgs`, and `PostUpdateFcnArgs` let you append
+extra arguments when the corresponding callback is invoked.
 
 ### Callback example
 
@@ -179,9 +211,10 @@ When `Expression` is non-empty, the update sequence becomes:
 
 1. `PreUpdateFcn`
 2. Randomization (if `isRandom`)
-3. **Expression evaluation** ← new step
+3. **Expression evaluation** ← this step
 4. `EvaluatorFcn`
-5. Parent write, `lastUpdated`, `PostUpdateFcn`
+5. Clamping to `[Min, Max]`
+6. Parent write, `lastUpdated`, `PostUpdateFcn`
 
 The expression receives the value produced by step 2 as the variable `Value`,
 and must leave the result in `Value`. Sibling parameters in the same module are
@@ -219,6 +252,8 @@ p.Expression = "";
 | No recursion | An expression on parameter `P` cannot reference `P` itself. |
 | Sibling access | Other parameters in the **same module** are available by their `Name`. |
 | Cross-module access | Parameters on other modules are referenced as `ModuleName.ParamName`. These are rewritten to safe aliases before evaluation. |
+| Property access | Parameter properties can be referenced as `Param.Prop` (sibling) or `ModuleName.Param.Prop` (cross-module), where `Prop` is one of `Min`, `Max`, `Values`, `Value`. |
+| Multi-level parameters | If the parameter defines more than one design-time level (`Values`), the expression is treated as a level generator that `compile()` has already expanded; it is **not** re-evaluated at runtime when the dispatcher assigns per-trial values. |
 
 ---
 
@@ -322,14 +357,16 @@ When you read `p.Value`, the class:
 
 When you write `p.Value`, the class:
 
-1. Runs `PreUpdateFcn`, if present.
-2. Randomizes the value when `isRandom` is true.
-3. Evaluates `Expression`, if non-empty.
-4. Runs `EvaluatorFcn`, if present.
-5. Updates array bookkeeping.
-6. Calls `Parent.set_parameter(p, value)`.
-7. Sets `lastUpdated = now`.
-8. Runs `PostUpdateFcn`, if present.
+1. Rejects the write if `Access` is `'Read'`.
+2. Runs `PreUpdateFcn`, if present.
+3. Randomizes the value when `isRandom` is true.
+4. Evaluates `Expression`, if non-empty.
+5. Runs `EvaluatorFcn`, if present.
+6. Clamps numeric values into `[Min, Max]` (per `BoundsInclusive`).
+7. Updates array bookkeeping.
+8. Calls `Parent.set_parameter(p, value)` (skipped for `'StimType'` values).
+9. Sets `lastUpdated = now`.
+10. Runs `PostUpdateFcn`, if present.
 
 ### Expression evaluation internals
 
@@ -393,20 +430,15 @@ p.toJSON();
 
 ---
 
-## Recent updates
-
-- Added `toJSON` method: returns pretty-printed JSON string and optionally
-  copies it to the clipboard when called with no output.
-- Added Serialization section documenting `toStruct`, `fromStruct`, and `toJSON`.
-- Updated to match the current named-option constructor signature.
-- Renamed documentation file to follow the subdirectory-based naming
-  convention used in the repository prompt.
-
----
-
 ## Related files
 
-- [obj/+hw/@Parameter/Parameter.m](../obj/+hw/@Parameter/Parameter.m): Class definition
-- [obj/+hw/@Parameter/toStruct.m](../obj/+hw/@Parameter/toStruct.m): Serialization to struct
-- [obj/+hw/@Parameter/toJSON.m](../obj/+hw/@Parameter/toJSON.m): Serialization to JSON string
-- [obj/+epsych/@Runtime/writeParametersJSON.m](../obj/+epsych/@Runtime/writeParametersJSON.m): Writes all runtime parameters to a JSON file
+- [obj/+hw/@Parameter/Parameter.m](../../obj/+hw/@Parameter/Parameter.m): Class definition
+- [obj/+hw/@Parameter/toStruct.m](../../obj/+hw/@Parameter/toStruct.m): Serialization to struct
+- [obj/+hw/@Parameter/toJSON.m](../../obj/+hw/@Parameter/toJSON.m): Serialization to JSON string
+- [obj/+epsych/@Runtime/writeParametersJSON.m](../../obj/+epsych/@Runtime/writeParametersJSON.m): Writes all runtime parameters to a JSON file
+
+## Related documentation
+
+- [hw_Module.md](hw_Module.md): The module container that owns parameters
+- [hw_Interface.md](hw_Interface.md): The interface layer that backs reads and writes
+- [../epsych/epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md): How parameters are dispatched and read during trials

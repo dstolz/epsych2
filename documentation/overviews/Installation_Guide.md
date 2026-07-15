@@ -15,7 +15,7 @@ An EPsych installation has four layers:
 
 - MATLAB R2014b or newer
 - Recommended MATLAB release: R2018b or later
-- Historical development has been done on MATLAB 2024b
+- Current development is done on MATLAB R2024b
 
 ## Choose your experiment mode
 
@@ -113,8 +113,8 @@ epsych.ProtocolDesigner
 
 Expected result:
 
-- the experiment design GUI opens
-- you can create or inspect a protocol file
+- the protocol designer GUI opens
+- you can create or inspect a protocol (`.eprot`) file
 
 ## Recommended setup sequence for a new lab machine
 
@@ -177,6 +177,7 @@ What to do:
 
 ## Next documents to read
 
-- Runtime walkthrough: [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
-- Architecture overview: [Architecture_Overview.md](Architecture_Overview.md)
+- Toolbox orientation: [Toolbox_Overview.md](Toolbox_Overview.md)
+- Session walkthrough: [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
+- Protocol design: [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md)
 

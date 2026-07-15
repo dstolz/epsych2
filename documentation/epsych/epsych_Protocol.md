@@ -1,10 +1,10 @@
 # epsych.Protocol
 
-`epsych.Protocol` is the model object used by EPsych to define interfaces, parameters, compile trial tables, and serialize protocol files.
+`epsych.Protocol` is the model object used by EPsych to define interfaces, parameters, compile trial tables, and serialize protocol (`.eprot`) files. This is a developer reference; experiment designers normally work with protocols through the [Protocol Designer](../design/ProtocolDesigner_UserGuide.md).
 
 Source class:
 
-- `obj/+epsych/@Protocol/Protocol.m`
+- [obj/+epsych/@Protocol/Protocol.m](../../obj/+epsych/@Protocol/Protocol.m)
 
 ## What This Class Owns
 
@@ -12,9 +12,9 @@ Source class:
 - `Options`: protocol-level options (`trialFunc`, `compileAtRuntime`, `IncludeWAVBuffers`, `ConnectionType`).
 - `Info`: user description text.
 - `COMPILED`: compiled output (`parameters`, `trials`, `writeparams`, `OPTIONS`, `ntrials`, `compiledAt`).
-- `meta`: serialization metadata and protocol versioning fields.
+- `meta`: serialization metadata, including `protocolVersion` (`vN.YYMMDD`), which is incremented on each save unless the protocol is unmodified (see `save`'s `IncrementVersion` option). `epsych.RunExpt` compares this version against the file on disk to flag out-of-date subjects.
 
-A new protocol always starts with one `hw.Software` interface as the default design-time parameter store.
+A new protocol always starts with one `hw.Software` interface as the default design-time parameter store. Design-time trial levels live on each parameter's `Values` property; `compile()` expands unpaired parameter levels as a cross-product, while parameters sharing a `Pair` name advance together.
 
 ## Core Workflows
 
@@ -79,7 +79,7 @@ P = epsych.Protocol(Name='MyProtocol', Info='Example protocol');
 P.addParameter('Software', 'ToneFreq', [1000 2000 4000], ...
     Type='Float', Unit='Hz', Access='Any');
 
-P.setOption('trialFunc', 'cl_TrialSelection_Appetitive_StimDetect');
+P.setOption('trialFunc', 'cl_AppetitiveStimDetect');  % epsych.TrialSelector subclass
 P.compile();
 P.save('MyProtocol.eprot');
 ```
@@ -87,11 +87,13 @@ P.save('MyProtocol.eprot');
 ## Integration Notes
 
 - `epsych.ProtocolDesigner` directly mutates a bound `epsych.Protocol` instance.
-- `epsych.Runtime` consumes compiled protocol output during experiment execution.
+- `epsych.Runtime` borrows `Interfaces` and consumes `COMPILED` output during experiment execution.
+- `Options.trialFunc` names an `epsych.TrialSelector` subclass; empty means `epsych.DefaultTrialSelector` (see [epsych_TrialSelector.md](epsych_TrialSelector.md)).
 - Interface classes must be `hw.Interface` subclasses and are serialized through protocol helper methods.
 
 ## Related Documentation
 
-- `documentation/design/ProtocolDesigner.md`
-- `documentation/epsych/epsych_Runtime.md`
-- `documentation/overviews/Architecture_Overview.md`
+- [../design/ProtocolDesigner.md](../design/ProtocolDesigner.md) — the designer GUI (developer reference)
+- [epsych_Runtime.md](epsych_Runtime.md) — how compiled protocols are executed
+- [epsych_TrialSelector.md](epsych_TrialSelector.md) — pluggable trial selection
+- [../overviews/Architecture_Overview.md](../overviews/Architecture_Overview.md)

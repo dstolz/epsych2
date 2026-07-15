@@ -215,7 +215,7 @@ All properties listed below are `SetObservable`. GUI components can listen for `
 | `StimulusLevels` | row vector | Stimulus levels of included trials. |
 | `Responses` | row vector | Binary responses (1 = positive) of included trials. |
 
-**Before any trials accumulate** (or after `reset()`), `NextLevel = mean(Range)` and all other fields are `[]` or `0`.
+**Before any trials accumulate** (or after `reset()`), `NextLevel = max(Range)` and all other fields are `[]` or `0`.
 
 ### Public methods
 
@@ -225,7 +225,7 @@ All properties listed below are `SetObservable`. GUI components can listen for `
 bp.reset()
 ```
 
-Sets a watermark at `numel(bp.DATA)`. All trials recorded before `reset()` are preserved in `DATA` but are excluded from subsequent estimation. `refresh()` is called automatically, so `Results.NextLevel` immediately returns to `mean(Range)`.
+Sets a watermark at `numel(bp.DATA)`. All trials recorded before `reset()` are preserved in `DATA` but are excluded from subsequent estimation. `refresh()` is called automatically, so `Results.NextLevel` immediately returns to `max(Range)` (the easiest stimulus).
 
 Use this to restart estimation mid-session without clearing hardware state — for example, when switching from a training block to a test block, or when the subject's criterion shifts.
 
@@ -316,7 +316,7 @@ DATA
 
 ### Reset / watermark mechanism
 
-`resetCount_` is a private scalar that acts as a lower-bound index into `DATA`. `recomputeResults_` slices `DATA(resetCount_+1 : end)` before processing. Calling `reset()` sets `resetCount_ = numel(DATA)` so the next call sees an empty window and returns `NextLevel = mean(Range)`. The watermark cannot be moved backward.
+`resetCount_` is a private scalar that acts as a lower-bound index into `DATA`. `recomputeResults_` slices `DATA(resetCount_+1 : end)` before processing. Calling `reset()` sets `resetCount_ = numel(DATA)` so the next call sees an empty window and returns `NextLevel = max(Range)`. The watermark cannot be moved backward.
 
 ### Stopping criterion
 
@@ -333,7 +333,7 @@ or after a fixed number of trials (`bp.Results.TrialCount`).
 
 | Situation | Behaviour |
 |---|---|
-| `DATA` is empty or all trials are before the watermark | `Results = emptyResults_()`, `NextLevel = mean(Range)` |
+| `DATA` is empty or all trials are before the watermark | `Results = emptyResults_()`, `NextLevel = max(Range)` |
 | No trials match `StimulusTrialType` | Same as above |
 | `RespCode` / `ResponseCode` field absent | `Results = emptyResults_()`, warning via `vprintf` |
 | `TargetProbability` unreachable given `GuessRate`/`LapseRate` | `ThresholdAtTarget = NaN`, warning logged via `vprintf(0,1,...)` |

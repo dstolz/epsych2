@@ -134,5 +134,5 @@ When the input message is an `MException`, `vprintf` logs:
 
 ## Related files
 
-- [helpers/vprintf.m](../helpers/vprintf.m)
-- [epsych_path.m](../epsych_path.m)
+- [helpers/vprintf.m](../../helpers/vprintf.m)
+- [epsych_path.m](../../epsych_path.m)

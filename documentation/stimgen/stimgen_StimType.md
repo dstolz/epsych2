@@ -1,10 +1,12 @@
 # stimgen.StimType
 
-`stimgen.StimType` is the abstract base class for editable stimulus objects in the `stimgen` package.
+`stimgen.StimType` is the abstract base class for editable stimulus objects in the `stimgen` package. This is a developer reference for subclassing and integration; for tool usage start at [stimgen_overview.md](stimgen_overview.md).
 
 Source class:
 
-- `obj/+stimgen/@StimType/StimType.m`
+- [obj/+stimgen/@StimType/StimType.m](../../obj/+stimgen/@StimType/StimType.m)
+
+Concrete subclasses: `Tone`, `Noise`, `AMnoise`, `AttackModNoise`, `FMtone`, `ClickTrain`, `SweptSine` (loose `.m` files in `obj/+stimgen/`). Subclasses define the constants `CalibrationType` and `Normalization`, and the `IsMultiObj` property that tells wrappers whether the object expands into multiple presentable stimuli.
 
 ## What The Base Class Provides
 
@@ -30,9 +32,9 @@ Typical subclass update flow:
 
 `refresh_plot_if_valid` keeps open plot handles synchronized.
 
-## Variant Selection (Recent Refactor)
+## Variant Selection
 
-The class now has explicit variant-control properties and cache management:
+Vectorized user properties (for example a `Tone` with `Frequency = [1000 2000 4000]`) define a set of stimulus *variants*. The class has explicit variant-control properties and cache management:
 
 - `VariantSelectionMode`
 - `VariantCombinationMode`
@@ -80,7 +82,10 @@ Recent UI sync behavior includes `update_handle_value`, which keeps control stat
 ## Minimal Example
 
 ```matlab
-t = stimgen.Tone('Frequency', 4000, 'Duration', 0.1, 'SoundLevel', 60);
+t = stimgen.Tone;
+t.Frequency = 4000;
+t.Duration = 0.1;
+t.SoundLevel = 60;
 t.update_signal();
 t.plot();
 ```
@@ -88,12 +93,13 @@ t.plot();
 Variant stepping example:
 
 ```matlab
+t.Frequency = [1000 2000 4000];   % three variants
 info = t.set_variant_index(1);
 info = t.step_variant(1);
 ```
 
 ## Related Documentation
 
-- `documentation/stimgen/stimgen_overview.md`
-- `documentation/stimgen/stimgen_StimCalibration.md`
-- `documentation/stimgen/stimgen_calibration.md`
+- [stimgen_overview.md](stimgen_overview.md) — package orientation
+- [stimgen_StimCalibration.md](stimgen_StimCalibration.md) — how stimuli consume calibration
+- [stimgen_calibration.md](stimgen_calibration.md) — calibration workflow

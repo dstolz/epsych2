@@ -23,6 +23,8 @@ EPsych major classes
 │  ├─ Helper
 │  ├─ TrialSelector
 │  │  └─ DefaultTrialSelector
+│  ├─ Subject
+│  │  └─ DefaultSubject
 │  ├─ BitMask
 │  ├─ eventModeChange
 │  └─ TrialsData
@@ -31,6 +33,7 @@ EPsych major classes
 │  │  ├─ TDT_Synapse
 │  │  ├─ TDT_RPcox
 │  │  ├─ Intan_RHX
+│  │  ├─ VlcRecorder
 │  │  └─ Software
 │  ├─ Module
 │  ├─ Parameter
@@ -77,6 +80,7 @@ Analysis and GUI classes
    ├─ Parameter_Control
    ├─ Parameter_Monitor
    ├─ Parameter_Update
+   ├─ ElapsedTrialTimer
    ├─ GenericTimer
    ├─ MicrophonePlot
    ├─ FilenameValidator
@@ -130,7 +134,7 @@ This view is not inheritance. It shows the main runtime relationships during a t
 
 ```mermaid
 flowchart TD
-   A[Protocol design<br/>epsych.ProtocolDesigner<br/>epsych.Protocol<br/>ep_CompileProtocol<br/>ep_struct2protocol] --> B[epsych.RunExpt<br/>session controller]
+   A[Protocol design<br/>epsych.ProtocolDesigner<br/>epsych.Protocol] --> B[epsych.RunExpt<br/>session controller]
     B --> C[epsych.Runtime<br/>shared session state]
     C --> D[epsych.Helper<br/>event hub]
     C --> E[hw.Interface]
@@ -166,9 +170,7 @@ flowchart TD
 ```text
 Protocol authoring
 ├─ epsych.ProtocolDesigner
-├─ epsych.Protocol
-├─ ep_CompileProtocol
-└─ ep_struct2protocol
+└─ epsych.Protocol
    ↓
 Session control
 └─ epsych.RunExpt
@@ -182,6 +184,7 @@ Hardware layer
 │  ├─ hw.TDT_Synapse → SynapseAPI
 │  ├─ hw.TDT_RPcox → TDTRP
 │  ├─ hw.Intan_RHX
+│  ├─ hw.VlcRecorder
 │  └─ hw.Software
 └─ hw.Module → hw.Parameter
    ↓

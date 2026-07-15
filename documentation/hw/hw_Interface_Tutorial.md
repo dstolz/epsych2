@@ -38,8 +38,11 @@ Every subclass must provide:
 - a protected `Module` array of `hw.Module`
 - a constant `Type` string
 - a settable `mode` property backed by `hw.DeviceState`
+- a dependent logical `IsConnected` property
+- a public `connect()` method that establishes the backend connection
 - protected `setup_interface()` and `close_interface()` methods
 - public `trigger()`, `set_parameter()`, and `get_parameter()` methods
+- a static `getCreationSpec()` method returning a `hw.InterfaceSpec`
 
 Minimal skeleton:
 
@@ -59,9 +62,21 @@ classdef YourInterfaceName < hw.Interface
     Type = "YourInterfaceName"
   end
 
+  properties (Dependent)
+    IsConnected (1,1) logical
+  end
+
   methods
     function obj = YourInterfaceName(varargin)
       obj.setup_interface(varargin{:});
+    end
+
+    function connect(obj)
+      % establish/re-establish the backend connection
+    end
+
+    function tf = get.IsConnected(obj)
+      tf = ...;  % true when the backend is ready
     end
   end
 
@@ -80,12 +95,33 @@ classdef YourInterfaceName < hw.Interface
     function value = get_parameter(obj, name)
     end
   end
+
+  methods (Static)
+    function spec = getCreationSpec()
+      % describe constructor options for the ProtocolDesigner dialogs
+    end
+  end
 end
 ```
 
 The inherited helpers `find_parameter`, `all_parameters`, and
 `filter_parameters` already solve parameter discovery. Your subclass only
 needs to solve backend-specific connection and I/O.
+
+### `getCreationSpec()` and the Protocol Designer
+
+`epsych.ProtocolDesigner` never hard-codes constructor dialogs. Instead it
+calls your static `getCreationSpec()` to learn which options the interface
+needs. The returned `hw.InterfaceSpec` carries a factory function plus one
+`hw.InterfaceSpecOption` per constructor input, each with fields such as
+`name`, `label`, `defaultValue`, `required`, `inputType`, `choices`,
+`controlType` (text, textarea, numeric, dropdown, multiselect, checkbox),
+`scope` (`'interface'` or `'module'`), and file/folder picker hints
+(`getFile`, `getFolder`, `fileFilter`, `fileDialogTitle`).
+
+Study the `getCreationSpec` implementations in the existing backends before
+writing your own — a correct spec is what makes your interface appear as an
+option in the Protocol Designer's **Add Interface** panel.
 
 ## 3. Decide how modules are discovered
 
@@ -107,8 +143,8 @@ The sequence is:
 
 Relevant implementation:
 
-- [obj/+hw/@TDT_Synapse/TDT_Synapse.m](../obj/+hw/@TDT_Synapse/TDT_Synapse.m)
-- [obj/+hw/@TDT_Synapse/setup_interface.m](../obj/+hw/@TDT_Synapse/setup_interface.m)
+- [obj/+hw/@TDT_Synapse/TDT_Synapse.m](../../obj/+hw/@TDT_Synapse/TDT_Synapse.m)
+- [obj/+hw/@TDT_Synapse/setup_interface.m](../../obj/+hw/@TDT_Synapse/setup_interface.m)
 
 Representative setup flow:
 
@@ -150,8 +186,8 @@ The sequence is:
 
 Relevant implementation:
 
-- [obj/+hw/@TDT_RPcox/TDT_RPcox.m](../obj/+hw/@TDT_RPcox/TDT_RPcox.m)
-- [obj/+hw/@TDT_RPcox/setup_interface.m](../obj/+hw/@TDT_RPcox/setup_interface.m)
+- [obj/+hw/@TDT_RPcox/TDT_RPcox.m](../../obj/+hw/@TDT_RPcox/TDT_RPcox.m)
+- [obj/+hw/@TDT_RPcox/setup_interface.m](../../obj/+hw/@TDT_RPcox/setup_interface.m)
 
 Representative setup flow:
 

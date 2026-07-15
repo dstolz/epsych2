@@ -33,14 +33,17 @@ is the presentable object. `CurrentStimObj` simply returns that same object.
 
 ### Multi-object stimulus
 
-For a wrapper such as `stimgen.ParamSweep`, `StimObj.IsMultiObj` is true and
-the real presentable objects live in `StimObj.MultiObjects`.
+For a stimulus whose `IsMultiObj` property is true, the real presentable
+objects live in `StimObj.MultiObjects`.
 
 In that case, `StimPlay` uses `StimIdx` to select one child object at a time
 and exposes the selected child through `CurrentStimObj`.
 
-That is how one sweep definition can behave like many presentable stimuli
-during playback.
+That is how one multi-object definition can behave like many presentable
+stimuli during playback. (For most sweep-style needs, prefer the variant
+selection built into `stimgen.StimType` — vectorized properties with
+`VariantSelectionMode` — described in
+[stimgen_StimType.md](stimgen_StimType.md).)
 
 ## Key properties
 
@@ -102,29 +105,16 @@ with `StimPlay` arrays, while waveform scaling happens inside the underlying
 Wrap a simple tone:
 
 ```matlab
-tone = stimgen.Tone('Frequency', 4000, 'SoundLevel', 60);
+tone = stimgen.Tone;
+tone.Frequency = 4000;
+tone.SoundLevel = 60;
+
 sp = stimgen.StimPlay(tone);
 sp.Reps = 10;
 sp.ISI = [0.8 1.2];
 sp.SelectionType = "Serial";
 sp.reset();
 ```
-
-Wrap a parameter sweep:
-
-```matlab
-ps = stimgen.ParamSweep('stimgen.Tone');
-ps.SweepParams = struct('Frequency', [2000 4000 8000], ...
-                        'SoundLevel', [40 60]);
-
-sp = stimgen.StimPlay(ps);
-sp.Reps = 5;
-sp.SelectionType = "Shuffle";
-sp.reset();
-```
-
-In the second example, one `StimPlay` object manages six presentable child
-stimuli because the sweep expands into a `MultiObjects` array.
 
 ## Serialization
 
@@ -140,14 +130,12 @@ objects rather than the original wrapper object.
 
 That flattening makes sense for presentation logs, but it also means save/load
 paths that expect a single `StimObj.Class` are easiest to use with
-single-object stimuli. If you rely on round-tripping `ParamSweep` or other
-multi-object wrappers through a saved bank or config file, test that workflow
-before depending on it.
+single-object stimuli. If you rely on round-tripping multi-object stimuli
+through a saved bank or config file, test that workflow before depending on
+it.
 
 ## Related files
 
-- `obj/+stimgen/StimPlay.m`
-- `obj/+stimgen/StimType.m`
-- `obj/+stimgen/ParamSweep.m`
-- `obj/+stimgen/@StimGenInterface/StimGenInterface.m`
-- `obj/+stimgen/@StimPlayer/StimPlayer.m`
+- [obj/+stimgen/StimPlay.m](../../obj/+stimgen/StimPlay.m)
+- [obj/+stimgen/@StimType/StimType.m](../../obj/+stimgen/@StimType/StimType.m)
+- [obj/+stimgen/@StimPlayer/StimPlayer.m](../../obj/+stimgen/@StimPlayer/StimPlayer.m)

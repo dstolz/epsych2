@@ -5,8 +5,8 @@ for the `stimgen` package.
 
 It is designed for cases where you want to assemble a reusable bank of
 stimuli, edit one item at a time, preview signals locally, and optionally
-drive the stimgen RPvds playback circuit without going through the fuller
-protocol-oriented `StimGenInterface` GUI.
+drive the stimgen RPvds playback circuit — all outside a full experiment
+session.
 
 ## What this class manages
 
@@ -19,33 +19,32 @@ At the `StimPlayer` level, the class adds:
 - a bank list for adding, removing, and renaming stimulus entries
 - a parameter editor that rebuilds itself for the selected stimulus type
 - a shared playback schedule across bank items using a global `ISI` range
-- optional hardware-backed playback through `epsych.Runtime`
+- optional hardware-backed playback through a protocol's hardware interfaces
 - save/load support for `.spl` bank files
 
 Use `StimPlayer` when you want a lightweight stimulus workstation rather than
-the larger experiment playback interfaces.
+a full experiment session.
 
 ## Basic usage
 
-Create the GUI without hardware:
+Create the GUI without hardware (speaker preview only):
 
 ```matlab
 sp = stimgen.StimPlayer;
 ```
 
-Create it with an active runtime so the `Run` button can write buffers and
-trigger hardware playback:
+Create it with a protocol that defines the hardware interfaces, so the `Run`
+button can write buffers and trigger hardware playback:
 
 ```matlab
-sp = stimgen.StimPlayer(RUNTIME);
+sp = stimgen.StimPlayer(PROTOCOL);            % epsych.Protocol object
+sp = stimgen.StimPlayer('C:\path\to\my.eprot'); % or a protocol file path
 ```
 
-Attach the runtime later if needed:
-
-```matlab
-sp = stimgen.StimPlayer;
-sp.RUNTIME = RUNTIME;
-```
+A protocol can also be loaded later from the GUI's **File** menu. Internally,
+`StimPlayer` builds its own private `epsych.Runtime` from the protocol's
+interfaces and puts them in Preview mode; it does not use the main experiment
+timer or session runtime.
 
 ## UI workflow
 
@@ -108,7 +107,7 @@ experiment timer.
 
 At run time the class:
 
-1. Resolves hardware parameters from `RUNTIME`.
+1. Resolves hardware parameters from its internal runtime.
 2. Regenerates signals for every bank item.
 3. Starts a fixed-rate timer.
 4. Chooses the next bank index using the player-level `SelectionType`.
@@ -121,8 +120,8 @@ between buffer `0` and buffer `1` on successive trials.
 
 ### Required hardware parameters
 
-Hardware playback is enabled only when `RUNTIME` can resolve these parameter
-names:
+Hardware playback is enabled only when the loaded protocol's interfaces
+expose these parameter names:
 
 - `BufferData_0`
 - `BufferData_1`
@@ -142,7 +141,7 @@ There are two scheduling layers to keep in mind.
 
 - `StimPlayer.SelectionType` chooses which bank item is played next.
 - Each bank item is a `stimgen.StimPlay`, which can also manage selection
-  inside a multi-object stimulus such as `stimgen.ParamSweep`.
+  inside a multi-object or variant-carrying stimulus.
 
 That separation lets you do things like:
 
@@ -177,25 +176,11 @@ but it does not reapply any serialized calibration object to the rebuilt bank
 items. After loading a bank, reattach calibration from the `File >
 Calibration` menu or by assigning it in code.
 
-For multi-object wrappers such as `stimgen.ParamSweep`, bank persistence
-should also be tested carefully. `StimPlay.toStruct()` serializes expanded
-child stimuli rather than the original wrapper object, so round-tripping a
-sweep through `.spl` files is less straightforward than round-tripping a
-single `Tone` or `Noise` entry.
-
-## Choosing between `StimPlayer` and `StimGenInterface`
-
-Use `StimPlayer` when:
-
-- you want a reusable bank editor outside a full experiment run
-- you want one window that edits one selected bank item at a time
-- you need local preview even when hardware is absent
-
-Use `stimgen.StimGenInterface` when:
-
-- you want the older protocol-oriented playback GUI
-- you want one tab per discovered stimulus class
-- your workflow already expects the classic stimgen interface structure
+For multi-object stimuli, bank persistence should also be tested carefully.
+`StimPlay.toStruct()` serializes expanded child stimuli rather than the
+original wrapper object, so round-tripping a multi-object entry through
+`.spl` files is less straightforward than round-tripping a single `Tone` or
+`Noise` entry.
 
 ## Extending the tool
 
@@ -214,10 +199,11 @@ before changing `StimPlayer` itself.
 
 ## Related files
 
-- `obj/+stimgen/@StimPlayer/StimPlayer.m`
-- `obj/+stimgen/@StimPlayer/create.m`
-- `obj/+stimgen/@StimPlayer/on_bank_selection_changed.m`
-- `obj/+stimgen/@StimPlayer/update_signal_plot.m`
-- `obj/+stimgen/@StimPlayer/save_bank.m`
-- `obj/+stimgen/@StimPlayer/load_bank.m`
-- `obj/+stimgen/StimPlay.m`
+- [obj/+stimgen/@StimPlayer/StimPlayer.m](../../obj/+stimgen/@StimPlayer/StimPlayer.m)
+- [obj/+stimgen/StimPlay.m](../../obj/+stimgen/StimPlay.m)
+
+## Related documentation
+
+- [stimgen_overview.md](stimgen_overview.md) — package orientation
+- [stimgen_StimPlay.md](stimgen_StimPlay.md) — the per-item scheduling wrapper
+- [stimgen_calibration.md](stimgen_calibration.md) — calibrating output levels

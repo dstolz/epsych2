@@ -51,7 +51,7 @@ where:
 ### 1. Basic calibration run
 
 ```matlab
-adapter = stimgen.calibration.InterfaceAdapter(RUNTIME.HW);
+adapter = stimgen.calibration.InterfaceAdapter(hwInterface)  % an hw.Interface, e.g. RUNTIME.Interfaces(1);
 eng = stimgen.calibration.Engine(adapter);
 
 % Measure reference (single 1 kHz tone)

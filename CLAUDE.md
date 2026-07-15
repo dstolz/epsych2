@@ -51,7 +51,7 @@ EPsych does not have a formal automated test suite. Manual validation is perform
 
 ### High-Level Flow: From Protocol to Runtime
 
-1. **Protocol Design**: User creates experiment via epsych.ProtocolDesigner GUI, defines hardware interfaces, parameters, and trial options, saves as .prot file
+1. **Protocol Design**: User creates experiment via epsych.ProtocolDesigner GUI, defines hardware interfaces, parameters, and trial options, saves as .eprot file
 2. **Configuration**: epsych.RunExpt loads protocol, adds subjects, selects hardware backend
 3. **Runtime Setup**: epsych.Runtime creates hardware connections, compiles trials, initializes event system
 4. **Execution**: MATLAB timer fires callbacks: ep_TimerFcn_Start -> ep_TimerFcn_RunTime (repeated) -> ep_TimerFcn_Stop
@@ -67,7 +67,7 @@ EPsych does not have a formal automated test suite. Manual validation is perform
 - **epsych.Helper**: Lightweight event broadcaster (NewData, NewTrial, ModeChange)
 - **epsych.TrialSelector** (abstract): Pluggable trial selection
 - **epsych.BitMask**: uint32 enumeration for trial outcomes
-- **epsych.PRGMSTATE**: Session state enumeration
+- **PRGMSTATE** (top-level class in obj/PRGMSTATE.m): Session state enumeration
 
 #### obj/+hw/ – Hardware Abstraction Layer
 - **hw.Interface** (abstract base): Uniform API for all backends (connect, disconnect, get/set parameter, trigger)
@@ -185,7 +185,7 @@ obj/+packagename/@ClassName/
 ```
 
 Procedural functions: Loose .m files in appropriate subdirectories
-Protocol and config files: .prot (protocol), .ecfg (config MAT files)
+Protocol and config files: .eprot (protocol; legacy .prot still loadable), .ecfg (config MAT files)
 
 ## Common Development Tasks
 

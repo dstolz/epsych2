@@ -1,5 +1,7 @@
 # Event Notifications
 
+This reference describes the EPsych runtime event system for developers writing GUIs, analysis tools, or paradigm-specific code that must react to a running session.
+
 ## Overview
 
 EPsych exposes its public custom event notifications through `epsych.Helper`.
@@ -9,17 +11,19 @@ The helper declares three runtime events:
 - `NewTrial`
 - `ModeChange`
 
-Source: [obj/+epsych/@Helper/Helper.m](../obj/+epsych/@Helper/Helper.m)
+Source: [obj/+epsych/@Helper/Helper.m](../../obj/+epsych/@Helper/Helper.m)
 
-Psychophysics analysis objects such as `psychophysics.Psych` also rebroadcast `NewData` on their own local `Helper` after recomputing derived results. That second layer is useful for GUIs that depend on processed behavioral metrics rather than raw runtime state.
+The live broadcaster instance is `RUNTIME.HELPER`, created by `epsych.RunExpt` at run start and deleted by `ep_TimerFcn_Stop`.
 
-Source: [obj/+psychophysics/Psych.m](../obj/+psychophysics/Psych.m)
+Psychophysics analysis objects such as `psychophysics.Psych` subclasses also rebroadcast `NewData` on their own local `Helper` after recomputing derived results. That second layer is useful for GUIs that depend on processed behavioral metrics rather than raw runtime state.
+
+Source: [obj/+psychophysics/Psych.m](../../obj/+psychophysics/Psych.m)
 
 ## Event Payloads
 
 ### `epsych.TrialsData`
 
-`NewData` and `NewTrial` usually send an `epsych.TrialsData` payload.
+`NewData` and `NewTrial` send an `epsych.TrialsData` payload.
 
 Properties:
 
@@ -27,7 +31,7 @@ Properties:
 - `Subject`: subject identifier
 - `BoxID`: box identifier
 
-Source: [obj/+epsych/TrialsData.m](../obj/+epsych/TrialsData.m)
+Source: [obj/+epsych/TrialsData.m](../../obj/+epsych/TrialsData.m)
 
 ### `epsych.eventModeChange`
 
@@ -35,9 +39,9 @@ Source: [obj/+epsych/TrialsData.m](../obj/+epsych/TrialsData.m)
 
 Properties:
 
-- `NewMode`: new runtime state, typically a `hw.DeviceState`
+- `NewMode`: new runtime state as a `hw.DeviceState`
 
-Source: [obj/+epsych/eventModeChange.m](../obj/+epsych/eventModeChange.m)
+Source: [obj/+epsych/eventModeChange.m](../../obj/+epsych/eventModeChange.m)
 
 ## Runtime Events
 
@@ -45,9 +49,9 @@ Source: [obj/+epsych/eventModeChange.m](../obj/+epsych/eventModeChange.m)
 
 #### Description
 
-`NewData` indicates that a trial has completed and the runtime data structure has been updated. This event is emitted after parameter values are read from the interfaces, written into `RUNTIME.TRIALS(i).DATA`, and saved to disk.
+`NewData` indicates that a trial has completed and the runtime data structure has been updated. This event is emitted after parameter values are read from the interfaces, written into `RUNTIME.TRIALS(i).DATA`, and appended to the crash-recovery file.
 
-Primary emit site: [runtime/timerfcns/ep_TimerFcn_RunTime.m](../runtime/timerfcns/ep_TimerFcn_RunTime.m)
+Primary emit site: [runtime/timerfcns/ep_TimerFcn_RunTime.m](../../runtime/timerfcns/ep_TimerFcn_RunTime.m)
 
 #### When to use it
 
@@ -74,9 +78,9 @@ end
 
 #### Real uses in this repository
 
-- Runtime-to-analysis subscription: [obj/+psychophysics/Psych.m](../obj/+psychophysics/Psych.m#L77)
-- Legacy detection subscription: [obj/+psychophysics/@Detect/Detect.m](../obj/+psychophysics/@Detect/Detect.m#L140)
-- Training callback: [cl/@cl_AppetitiveDetection_GUI_B/eval_rwdelay_training_mode.m](../cl/@cl_AppetitiveDetection_GUI_B/eval_rwdelay_training_mode.m#L56)
+- Runtime-to-analysis subscription: [obj/+psychophysics/Psych.m](../../obj/+psychophysics/Psych.m)
+- Legacy detection subscription: [obj/+psychophysics/@Detect/Detect.m](../../obj/+psychophysics/@Detect/Detect.m)
+- Training callback: [cl/@cl_AppetitiveDetection_GUI_B/eval_rwdelay_training_mode.m](../../cl/@cl_AppetitiveDetection_GUI_B/eval_rwdelay_training_mode.m)
 
 ### Analysis-layer `NewData`
 
@@ -84,12 +88,7 @@ end
 
 Psychophysics objects listen to runtime `NewData`, recompute derived results, and then emit their own `NewData` event from a local helper. This separates raw runtime updates from processed analysis updates.
 
-Emit site: [obj/+psychophysics/Psych.m](../obj/+psychophysics/Psych.m#L241)
-
-The same pattern is also present in older analysis classes:
-
-- [obj/+psychophysics/@Detection/Detection.m](../obj/+psychophysics/@Detection/Detection.m#L112)
-- [obj/+psychophysics/@Detect/Detect.m](../obj/+psychophysics/@Detect/Detect.m#L160)
+Emit site: `notifyDataUpdate_` in [obj/+psychophysics/Psych.m](../../obj/+psychophysics/Psych.m)
 
 #### When to use it
 
@@ -115,22 +114,17 @@ end
 
 #### Real uses in this repository
 
-- Performance table: [obj/+gui/@Performance/Performance.m](../obj/+gui/@Performance/Performance.m#L33)
-- History table: [obj/+gui/@History/History.m](../obj/+gui/@History/History.m#L78)
-- Appetitive GUI listener: [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m#L561)
-- Aversive GUI listener: [cl/@cl_AversiveDetection_GUI/create_gui.m](../cl/@cl_AversiveDetection_GUI/create_gui.m#L407)
+- Performance table: [obj/+gui/@Performance/Performance.m](../../obj/+gui/@Performance/Performance.m)
+- History table: [obj/+gui/@History/History.m](../../obj/+gui/@History/History.m)
+- Appetitive GUI listener: [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m)
 
 ### `NewTrial`
 
 #### Description
 
-`NewTrial` indicates that the next trial has been selected, its parameter values have been written to hardware, and the system is ready for the next trial.
+`NewTrial` indicates that the next trial has been dispatched: its parameter values have been written to hardware and the new-trial trigger has fired.
 
-Primary emit site: [runtime/timerfcns/ep_TimerFcn_RunTime.m](../runtime/timerfcns/ep_TimerFcn_RunTime.m#L175)
-
-It is also emitted once during startup:
-
-- [runtime/timerfcns/ep_TimerFcn_Start.m](../runtime/timerfcns/ep_TimerFcn_Start.m#L170)
+Emit site: [obj/+epsych/@Runtime/dispatchNextTrial.m](../../obj/+epsych/@Runtime/dispatchNextTrial.m). This runs once per subject when `RUNTIME.TRIALS` is first populated at session start, and again after each completed trial from `ep_TimerFcn_RunTime`.
 
 #### When to use it
 
@@ -149,10 +143,6 @@ Common uses:
 hl = addlistener(RUNTIME.HELPER, 'NewTrial', @(src, event) onNewTrial(src, event));
 
 function onNewTrial(~, event)
-    if ~isprop(event, 'Data') || isempty(event.Data)
-        return
-    end
-
     trials = event.Data;
     fprintf('NextTrialID = %d\n', trials.NextTrialID);
 end
@@ -160,29 +150,19 @@ end
 
 #### Real uses in this repository
 
-- Appetitive GUI listener: [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m#L560)
-- Aversive GUI listener: [cl/@cl_AversiveDetection_GUI/create_gui.m](../cl/@cl_AversiveDetection_GUI/create_gui.m#L406)
-
-The corresponding GUI handlers assume `event.Data` is present:
-
-- [cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m](../cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m#L205)
-- [cl/@cl_AversiveDetection_GUI/cl_AversiveDetection_GUI.m](../cl/@cl_AversiveDetection_GUI/cl_AversiveDetection_GUI.m#L178)
-
-Usage note:
-The startup path in `ep_TimerFcn_Start` currently notifies `NewTrial` without an explicit `epsych.TrialsData` payload, while the normal runtime path does include one. New listeners should therefore handle an empty or minimal event defensively.
+- Appetitive GUI listener and handler: [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m), [cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m](../../cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m)
 
 ### `ModeChange`
 
 #### Description
 
-`ModeChange` signals that the runtime has transitioned to a different operating state, such as Record, Pause, Stop, or Idle.
+`ModeChange` signals that the runtime has transitioned to a different operating state, such as Record, Preview, Pause, Stop, or Idle.
 
 Emit sites:
 
-- Record: [obj/+epsych/@RunExpt/ExptDispatch.m](../obj/+epsych/@RunExpt/ExptDispatch.m#L91)
-- Pause: [obj/+epsych/@RunExpt/ExptDispatch.m](../obj/+epsych/@RunExpt/ExptDispatch.m#L97)
-- Stop: [obj/+epsych/@RunExpt/ExptDispatch.m](../obj/+epsych/@RunExpt/ExptDispatch.m#L103)
-- Idle: [runtime/timerfcns/ep_TimerFcn_Stop.m](../runtime/timerfcns/ep_TimerFcn_Stop.m#L13)
+- Record / Preview (run start, after the behavior GUI launches): [obj/+epsych/@RunExpt/PsychTimerStart.m](../../obj/+epsych/@RunExpt/PsychTimerStart.m)
+- Pause and Stop (operator commands): [obj/+epsych/@RunExpt/ExptDispatch.m](../../obj/+epsych/@RunExpt/ExptDispatch.m)
+- Idle (hardware returned to idle at session end): [runtime/timerfcns/ep_TimerFcn_Stop.m](../../runtime/timerfcns/ep_TimerFcn_Stop.m)
 
 #### When to use it
 
@@ -192,7 +172,7 @@ Common uses:
 
 - enable or disable controls
 - clean up windows or listeners on stop
-- update status indicators
+- update status indicators (see `gui.ModeIndicator`)
 - trigger end-of-session behavior
 
 #### Example
@@ -216,18 +196,17 @@ end
 
 #### Real uses in this repository
 
-- Appetitive GUI registration: [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m#L562)
-- Appetitive GUI handler: [cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m](../cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m#L175)
-- Aversive GUI registration: [cl/@cl_AversiveDetection_GUI/create_gui.m](../cl/@cl_AversiveDetection_GUI/create_gui.m#L408)
-- Aversive GUI handler: [cl/@cl_AversiveDetection_GUI/cl_AversiveDetection_GUI.m](../cl/@cl_AversiveDetection_GUI/cl_AversiveDetection_GUI.m#L151)
+- Appetitive GUI registration: [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m)
+- Appetitive GUI handler: [cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m](../../cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m)
+- Mode indicator widget: [obj/+gui/@ModeIndicator/ModeIndicator.m](../../obj/+gui/@ModeIndicator/ModeIndicator.m)
 
 ## Summary Table
 
-| Event | Source object | Typical payload | Best used for |
+| Event | Source object | Payload | Best used for |
 | --- | --- | --- | --- |
 | `NewData` | `RUNTIME.HELPER` | `epsych.TrialsData` | completed-trial updates and raw runtime data |
 | `NewData` | `psychObj.Helper` | `epsych.TrialsData` | derived analysis refresh and analysis-driven GUIs |
-| `NewTrial` | `RUNTIME.HELPER` | usually `epsych.TrialsData` | upcoming-trial UI and scheduling state |
+| `NewTrial` | `RUNTIME.HELPER` | `epsych.TrialsData` | upcoming-trial UI and scheduling state |
 | `ModeChange` | `RUNTIME.HELPER` | `epsych.eventModeChange` | runtime state transitions |
 
 ## Notes
@@ -235,3 +214,10 @@ end
 - `epsych.Helper` is the only class in the current codebase that declares public custom EPsych events.
 - The repository also contains many MATLAB property listeners such as `PostSet`, but those are standard MATLAB property events rather than EPsych runtime notifications.
 - If a component depends on derived behavioral results, prefer subscribing to the psychophysics object's `Helper.NewData` rather than directly to `RUNTIME.HELPER.NewData`.
+- `RUNTIME.HELPER` is deleted at session stop; listeners should tolerate the source object disappearing and should be cleaned up in your GUI's destructor (see [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md)).
+
+## Related documentation
+
+- [epsych_TrialLifecycle.md](epsych_TrialLifecycle.md) — where each event fires within a trial
+- [epsych_Runtime.md](epsych_Runtime.md) — the `RUNTIME` object that owns `HELPER`
+- [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md) — building event-driven GUIs

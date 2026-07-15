@@ -8,7 +8,9 @@ The repository includes both legacy procedural code and a gradual migration towa
 
 ## Documentation
 
-For setup instructions, usage guides, and developer references, see the project wiki:
+Setup instructions, usage guides, and developer references are in this repository under [documentation/](documentation/README.md), organized for experimenters and for developers.
+
+Additional material is on the project wiki:
 
 **<https://github.com/dstolz/epsych2/wiki>**
 

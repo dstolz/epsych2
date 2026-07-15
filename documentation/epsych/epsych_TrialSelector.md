@@ -30,7 +30,7 @@ The runtime calls the selector methods in this order:
 
 | Stage | Timer function | Selector call |
 |---|---|---|
-| Run start | `ep_TimerFcn_Start` | `selector.initialize(TRIALS(i))` then `selector.selectNext(TRIALS(i))` to pre-select the first trial |
+| Run start | `ep_TimerFcn_Start` | `selector.initialize(TRIALS(i))`, then `selector.setRuntime(RUNTIME, i)`, then `selector.selectNext(TRIALS(i))` to pre-select the first trial |
 | After each trial | `ep_TimerFcn_RunTime` | `selector.onComplete(NextTrialID, data)` then `selector.selectNext(TRIALS(i))` for the following trial |
 | Operator recompile | `ep_TimerFcn_RunTime` | `selector.onRecompile(TRIALS(i))` then `selector.selectNext(TRIALS(i))` |
 
@@ -129,6 +129,12 @@ end
 
 ---
 
+### `setRuntime(obj, runtime, subjectIdx)` *(override optional)*
+
+Called once after `initialize` with the live `epsych.Runtime` handle and the subject index. The base implementation stores both in the protected properties `runtime_` and `subjectIdx_`. Override (or just use the stored handles) in selectors that need to write back to `RUNTIME.TRIALS` — for example, to update the trials table with staircase-computed values.
+
+---
+
 ## The TRIALS Struct
 
 The `TRIALS` struct passed to every selector method has (at minimum) these fields relevant to selection:
@@ -139,8 +145,8 @@ The `TRIALS` struct passed to every selector method has (at minimum) these field
 | `parameters` | Parameter definitions for the columns of `trials` |
 | `TrialIndex` | Current trial counter (1-based, incremented after each trial) |
 | `NextTrialID` | Row index set by the previous call to `selectNext` |
-| `FORCE_TRIAL` | Non-zero row index set by the operator to force a specific next trial |
-| `RECOMPILE_REQUESTED` | Flag; non-zero when operator has requested a recompile |
+| `FORCE_TRIAL` | Logical flag; when true the runtime skips waiting for hardware trial completion and advances immediately (used by manual/reminder-trial overrides) |
+| `RECOMPILE_REQUESTED` | Logical flag; true when the operator has requested a recompile at the next trial boundary |
 | `Subject` | Subject identifier |
 | `BoxID` | Hardware box index |
 
@@ -194,3 +200,11 @@ When no `trialFunc` is configured, the runtime uses `epsych.DefaultTrialSelector
 - `activeTrials (:,1) logical` — Mask of rows eligible for selection (all `true` by default).
 
 After a recompile that changes the number of trial rows, all counts are reset to zero.
+
+---
+
+## Related documentation
+
+- [epsych_TrialLifecycle.md](epsych_TrialLifecycle.md) — where selector calls happen within a session
+- [../cl/cl_AppetitiveStimDetect.md](../cl/cl_AppetitiveStimDetect.md) — a complete adaptive selector (staircase, catch trials, reminder override)
+- [epsych_Protocol.md](epsych_Protocol.md) — where `Options.trialFunc` is stored

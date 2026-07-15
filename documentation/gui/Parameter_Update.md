@@ -12,7 +12,7 @@ It solves a common GUI workflow:
 
 ## Where it fits
 
-In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](../hw/hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
+In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](../../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](../hw/hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
 
 `gui.Parameter_Update` watches one or more `gui.Parameter_Control` objects and:
 
@@ -27,9 +27,13 @@ In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](..
 Typical pattern inside a GUI that already has a `RUNTIME` struct and a parent container (`uigridlayout`, `uipanel`, etc.):
 
 ```matlab
+% Look up the hw.Parameter handles through the runtime
+pPulseWidth = RUNTIME.find_parameter('PulseWidth');
+pLevel      = RUNTIME.find_parameter('Level');
+
 % Create parameter controls (one per hw.Parameter)
-ctrl(1) = gui.Parameter_Control(parent, RUNTIME.HW.Stim.PulseWidth, Type="editfield");
-ctrl(2) = gui.Parameter_Control(parent, RUNTIME.HW.Stim.Level,      Type="editfield");
+ctrl(1) = gui.Parameter_Control(parent, pPulseWidth, Type="editfield");
+ctrl(2) = gui.Parameter_Control(parent, pLevel,      Type="editfield");
 
 % Create the update button controller
 updater = gui.Parameter_Update(RUNTIME, parent);
@@ -87,7 +91,7 @@ This is intended for situations where you need the new setting applied right awa
 - `RUNTIME.TRIALS.trials`: a table-like cell array storing per-trial write-parameter values
 - `RUNTIME.TRIALS.writeParamIdx`: struct mapping parameter valid-names to column indices
 
-This mapping is created during runtime start-up (see [`ep_TimerFcn_Start`](../runtime/timerfcns/ep_TimerFcn_Start.m)).
+This mapping is created during runtime start-up (see [`ep_TimerFcn_Start`](../../runtime/timerfcns/ep_TimerFcn_Start.m)).
 
 Current limitation: the implementation notes "CURRENTLY ONLY WORKS FOR SINGLE SUBJECT" and uses `RUNTIME.TRIALS` as a scalar struct. If your experiment runs multiple subjects simultaneously (where `RUNTIME.TRIALS(i)` is used), you'll need one updater per subject (or extend the class with a subject index).
 
@@ -102,10 +106,9 @@ If other code in your GUI also needs `WindowKeyPressFcn`/`WindowKeyReleaseFcn`, 
 
 ## Related files
 
-- [obj/+gui/Parameter_Update.m](../obj/+gui/Parameter_Update.m): Implementation
-- [obj/+gui/Parameter_Control.m](../obj/+gui/Parameter_Control.m): Typical watched editor control
+- [obj/+gui/Parameter_Update.m](../../obj/+gui/Parameter_Update.m): Implementation
+- [obj/+gui/Parameter_Control.m](../../obj/+gui/Parameter_Control.m): Typical watched editor control
 - [../hw/hw_Parameter.md](../hw/hw_Parameter.md): `hw.Parameter` overview
-- [runtime/timerfcns/ep_TimerFcn_Start.m](../runtime/timerfcns/ep_TimerFcn_Start.m): Creates `TRIALS.writeParamIdx`
-
-This documentation describes: [obj/+gui/Parameter_Update.m](../obj/+gui/Parameter_Update.m)
+- [Parameter_Control.md](Parameter_Control.md): Editor control reference
+- [runtime/timerfcns/ep_TimerFcn_Start.m](../../runtime/timerfcns/ep_TimerFcn_Start.m): Creates `TRIALS.writeParamIdx`
 

@@ -9,20 +9,20 @@ This class is intended for use inside `uifigure`/`uigridlayout`-based GUIs.
 
 ## Quick start
 
-### Numeric edit field (default)
+### Numeric edit field
 
 ```matlab
 fig = uifigure;
 layout = uigridlayout(fig,[1 1]);
 
-p = R.S.Module.add_parameter("MyParam", 0.5);
-ctrl = gui.Parameter_Control(layout, p);  % Type='editfield'
+p = RUNTIME.find_parameter('MyParam');
+ctrl = gui.Parameter_Control(layout, p, Type="editfield");
 ```
 
 ### Toggle button with immediate commit
 
 ```matlab
-p = R.S.Module.add_parameter("DeliverTrials", 0);
+p = RUNTIME.find_parameter('DeliverTrials');
 ctrl = gui.Parameter_Control(layout, p, Type="toggle", autoCommit=true);
 ctrl.Text = "Deliver Trials";          % override label text
 ctrl.colorNormal = fig.Color;          % customize appearance
@@ -33,7 +33,7 @@ ctrl.colorOnUpdate = colors(3,:);      % single 1x3 RGB value
 ### Bind checkbox to a non-value parameter field
 
 ```matlab
-p = R.S.Module.add_parameter("StimDelay", 100, isRandom=false);
+p = RUNTIME.find_parameter('StimDelay');
 h = gui.Parameter_Control(layout, p, Type="checkbox", BoundProperty="isRandom", autoCommit=true);
 h.Text = "Randomize Stim Delay";
 ```
@@ -55,7 +55,8 @@ obj = gui.Parameter_Control(parent, parameter, Type=TYPE, autoCommit=TF)
 ### Name-value options
 
 - `Type` (char)
-  - One of: `editfield`, `dropdown`, `checkbox`, `toggle`, `readonly`, `momentary`.
+  - One of: `auto` (default), `editfield`, `dropdown`, `checkbox`, `toggle`, `readonly`, `momentary`, `stimtype`.
+  - `auto` picks a sensible control from the parameter's metadata (e.g., checkbox for booleans, edit field for numerics).
 - `BoundProperty` (char)
   - Optional property name on the bound `hw.Parameter` to synchronize with the control.
   - Defaults to `Value`.
@@ -84,6 +85,8 @@ obj = gui.Parameter_Control(parent, parameter, Type=TYPE, autoCommit=TF)
   - On click, calls `parameter.Trigger` instead of writing `parameter.Value`.
 - `readonly`
   - A single `uilabel` showing `parameter.ValueStr`.
+- `stimtype`
+  - Editor for parameters whose `Type` is `'StimType'` (a `stimgen.StimType` value).
 
 ## Key properties
 
@@ -186,7 +189,7 @@ u.watchedHandles = h;
 - Polling display: obj/+gui/Parameter_Monitor.m
 - GUI utility: obj/+gui/@Helper/Helper.m
 
-This documentation describes: [obj/+gui/Parameter_Control.m](../obj/+gui/Parameter_Control.m)
+This documentation describes: [obj/+gui/Parameter_Control.m](../../obj/+gui/Parameter_Control.m)
 
 ## Notes and gotchas
 

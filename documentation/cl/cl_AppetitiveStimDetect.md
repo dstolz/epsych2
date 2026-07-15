@@ -23,9 +23,9 @@ to choose the next row of the trials table.
 
 - First trial: select the first stimulus row.
 - Reminder requested: force the reminder row.
-- Hit: make the next stimulus weaker by decreasing `Depth` by `StepOnHit`.
-- Miss: make the next stimulus stronger by increasing `Depth` by `StepOnMiss`.
-- Abort, correct rejection, or false alarm: keep the same stimulus depth.
+- Hit: make the next stimulus weaker by decreasing `Depth` by `StepOnHit` (direction configurable, see below).
+- Miss: make the next stimulus stronger by increasing `Depth` by `StepOnMiss` (direction configurable, see below).
+- Abort, correct rejection, or false alarm: keep the same stimulus depth. A pending Hit/Miss step is **not** reverted by these outcomes, so it survives any number of intervening catch trials and takes effect on the next stimulus trial.
 - Catch-trial probability: occasionally replace the next stimulus trial with a catch trial.
 
 ## How it is configured
@@ -62,7 +62,11 @@ The selector always chooses the first matching row (`find(..., 1)`).
 - `RepeatDelayOnAbort` — when true, repeats the same stimulus delay after an abort (see below)
 - `StimDelay` — stimulus-delay parameter whose randomization the abort logic manages
 
-Depth bounds are no longer clamped inside the selector: set `Min`/`Max` on the `Depth` parameter itself, and `hw.Parameter` clamps written values automatically (see [../hw/hw_Parameter.md](../hw/hw_Parameter.md)).
+Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, the selector clamps the new value to `Depth.Min`/`Depth.Max` before writing it into the trials table, matching the bounds `hw.Parameter` also enforces when the value is dispatched (see [../hw/hw_Parameter.md](../hw/hw_Parameter.md)).
+
+### Optional parameters
+
+- `StepDirectionOnHit`, `StepDirectionOnMiss` — sign of the `Depth` step applied on a Hit/Miss: `-1` = Down, `+1` = Up. When absent (or `0`), the selector defaults to `-1` on Hit (weaker) and `+1` on Miss (stronger) — the historical behavior. Define these as writable protocol parameters only if a task needs to invert the default staircase direction.
 
 ## Selection logic (`selectNext`)
 
@@ -71,12 +75,12 @@ Depth bounds are no longer clamped inside the selector: set `Min`/`Max` on the `
 3. Decode the completed-trial response history with `epsych.BitMask.decode([TRIALS.DATA.RespCode])`.
 4. Find the depth of the most recent stimulus trial; if none exists yet, start from the maximum compiled depth.
 5. Update the next stimulus depth from the latest outcome:
-   - `Hit`: decrement by `StepOnHit`
-   - `Miss`: increment by `StepOnMiss`
+   - `Hit`: step by `StepDirectionOnHit * StepOnHit` (default direction: decrement, i.e. weaker)
+   - `Miss`: step by `StepDirectionOnMiss * StepOnMiss` (default direction: increment, i.e. stronger)
    - `Abort`: keep the same depth; if `RepeatDelayOnAbort` is enabled, temporarily suspend `StimDelay` randomization so the identical delay repeats (after three consecutive aborts, randomization is restored instead)
    - `CorrectReject`: keep the same depth and restore `StimDelay` randomization
    - `FalseAlarm`: keep the same depth and restore `StimDelay` randomization; a false alarm that was also an abort schedules a catch row immediately
-6. Write the updated depth into every stimulus row of the live trials table (through the runtime handle stored by `setRuntime`), so the dispatcher sends the new value to hardware.
+6. Only on a Hit or Miss: clamp the new depth to `Depth.Min`/`Depth.Max`, then write it into every stimulus row of the live trials table (through the runtime handle stored by `setRuntime`), so the dispatcher sends the new value to hardware. Abort/CorrectReject/FalseAlarm never touch the table, so a pending step is not lost to an intervening catch trial.
 7. Schedule a catch trial with probability `P_Catch` — suppressed after an abort and after a catch trial, and forced if the last ten trials were all stimulus trials. Otherwise return the first stimulus row.
 
 ## Notes and caveats

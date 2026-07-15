@@ -316,7 +316,8 @@ classdef Staircase < psychophysics.Psych
             % Recompute reversal indices, step direction, and threshold estimates.
             % Only trials matching StimulusTrialType are used in the computation of step direction,
             % reversals, and thresholds. Filters trial data by StimulusTrialType, detects reversals by comparing
-            % consecutive step directions, and calculates threshold from the last N reversals.
+            % consecutive nonzero step directions (holds and NaN steps are ignored), and calculates
+            % threshold from the last N reversals.
             % When DATA includes a TrialType field, that explicit value is used for
             % stimulus/catch selection before falling back to decoded response-code bits.
             % using the specified ThresholdFormula. Sets properties to empty if no data available.
@@ -346,10 +347,20 @@ classdef Staircase < psychophysics.Psych
             end
             results.StepDirection = stepDirection;
 
-            if numel(sd) >= 2
-                rind = sd(1:end-1) ~= 0 & (sd(2:end) > sd(1:end-1) | sd(2:end) < sd(1:end-1));
-                results.ReversalIdx = results.StimulusTrialIdx([false rind false]);
-                results.ReversalDirection = sd([false rind]);
+            % Reversals are defined on the sequence of nonzero, non-NaN steps:
+            % holds (sd == 0) occur legitimately when the controller repeats a
+            % value after an abort or catch outcome, and NaN steps arise from
+            % ConvertToDecibels; neither may create or mask a reversal.
+            stepPos = find(~isnan(sd) & sd ~= 0);
+            nzSteps = sd(stepPos);
+            if numel(nzSteps) >= 2
+                revJ = 1 + find(nzSteps(2:end) ~= nzSteps(1:end-1));
+                if ~isempty(revJ)
+                    % Mark the first stimulus trial at the extremum; matches
+                    % the prior convention when there are no holds.
+                    results.ReversalIdx = results.StimulusTrialIdx(stepPos(revJ - 1) + 1);
+                    results.ReversalDirection = nzSteps(revJ);
+                end
             end
 
             results.ReversalCount = numel(results.ReversalIdx);

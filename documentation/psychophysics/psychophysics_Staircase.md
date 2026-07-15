@@ -181,7 +181,7 @@ If `StaircaseDirection` is `'Up'`, the sign is inverted before reversals are det
 
 ### 4. Reversal detection
 
-A reversal is detected when consecutive normalized step directions differ. The class stores the resulting locations in `Results.ReversalIdx` and the post-reversal direction in `Results.ReversalDirection`.
+Reversal detection ignores holds (zero-valued steps, which occur legitimately after an Abort/CorrectReject/FalseAlarm repeats the previous stimulus value) and `NaN` steps (which can arise from `ConvertToDecibels`). A reversal is detected when consecutive *nonzero* normalized step directions differ; the reversal is marked at the first stimulus trial that reaches the new extremum. The class stores the resulting locations in `Results.ReversalIdx` and the post-reversal direction in `Results.ReversalDirection`.
 
 ### 5. Threshold estimation
 
@@ -232,4 +232,5 @@ S.Plot();
 
 ## Changelog
 
+- 2026-07-15: Reversal detection now ignores holds (zero steps) and `NaN` steps instead of counting them as reversals.
 - 2026-03-21: Updated documentation to match the current constructor options, plotting API, step-direction behavior, and reversal-analysis flow in `psychophysics.Staircase`.

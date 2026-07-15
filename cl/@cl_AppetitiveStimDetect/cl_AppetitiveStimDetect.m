@@ -95,7 +95,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
 
             if RC.Hit(end)
                 sgn = obj.stepSign_('StepDirectionOnHit', obj.DEFAULT_STEP_SIGN_ON_HIT_);
-                nextStim = lastStim + sgn*obj.P.StepOnHit.Value;
+                nextStim = lastStim + sgn*obj.P.Depth_StepOnHit.Value;
                 stepped = true;
 
                 if rda
@@ -104,7 +104,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
 
             elseif RC.Miss(end)
                 sgn = obj.stepSign_('StepDirectionOnMiss', obj.DEFAULT_STEP_SIGN_ON_MISS_);
-                nextStim = lastStim + sgn*obj.P.StepOnMiss.Value;
+                nextStim = lastStim + sgn*obj.P.Depth_StepOnMiss.Value;
                 stepped = true;
 
                 if rda

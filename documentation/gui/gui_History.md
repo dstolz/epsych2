@@ -13,7 +13,14 @@ Source file: [obj/+gui/@History/History.m](../../obj/+gui/@History/History.m)
 
 - Creates a `uitable` in a provided figure or panel container.
 - Subscribes to `NewData` events and refreshes table contents automatically.
-- Reorders rows by descending `TrialID` so recent trials appear first.
+- Shows the newest trial at the top by default (chronological `DATA` order,
+  not `TrialID`, which is a schedule/condition identifier).
+- Supports user sorting via column header clicks (uifigure containers); the
+  selected sort is reapplied on every trial update instead of being reset.
+- Provides a right-click context menu to show/hide parameter columns and to
+  reset sorting to the default (newest first).
+- Persists column selection and sort order across MATLAB sessions with
+  `getpref`/`setpref`, keyed to the hosting GUI figure.
 - Colors rows by decoded response bit for quick visual review.
 - Supports optional color overrides via `BitColors`.
 
@@ -23,6 +30,7 @@ Source file: [obj/+gui/@History/History.m](../../obj/+gui/@History/History.m)
 H = gui.History(pObj, container)
 H = gui.History(pObj, container, BitColors=colors)
 H = gui.History(pObj, container, ColumnFormats=formats)
+H = gui.History(pObj, container, PreferenceTag=tag)
 ```
 
 ### Inputs
@@ -36,6 +44,9 @@ H = gui.History(pObj, container, ColumnFormats=formats)
 - `ColumnFormats`
   - Optional `sprintf` format string(s) applied to all displayed columns.
   - Provide either one format for every column or one format per displayed column.
+- `PreferenceTag`
+  - Optional key for saved preferences. Defaults to the hosting figure `Tag`
+    (or `Name`), so each GUI keeps its own column and sorting preferences.
 
 ### Returns
 
@@ -50,10 +61,14 @@ The table shows these columns in order:
 2. `Response` (decoded response bit text)
 3. Each field in `ParametersOfInterest`
 
-Rows are displayed in descending trial order.
+Rows are displayed newest-first by default. Clicking a column header sorts by
+that column (click again to reverse direction). Sorting uses raw trial values,
+so numeric columns order numerically rather than lexicographically, and the
+selected sort persists across trial updates.
 
 All values are converted to character data via `sprintf` before assignment to
-the table, and `ColumnFormat` is set to `char` for every column.
+the table, and `ColumnFormat` is set to `char` for every column. Columns
+without a configured format use their natural string form.
 
 Compatibility notes:
 
@@ -61,6 +76,22 @@ Compatibility notes:
   formatting.
 - When both `ColumnFormats` and `ParameterColumnFormats` are set,
   `ColumnFormats` takes precedence.
+- Formats are remembered per parameter, so columns toggled off and back on
+  via the context menu keep their configured format.
+
+## Context Menu and Preferences
+
+Right-clicking the table opens a context menu with:
+
+- `Show Columns` - check/uncheck the scalar `DATA` fields to display as
+  parameter columns.
+- `Reset Sort (Newest First)` - restore the default row ordering.
+
+Column selection and sort order are saved with `setpref` under group
+`epsych2_gui_History`, keyed by `PreferenceTag` (default: the hosting figure
+`Tag` or `Name`). Saved preferences are applied on the first data update, so
+they take precedence over programmatic defaults assigned right after
+construction (e.g., in a paradigm GUI's `create_gui`).
 
 ## Color Resolution
 
@@ -109,5 +140,9 @@ H.update();
 
 ## Version History
 
+- 2026-07-15: Newest trial now shown at top (chronological order instead of
+  `TrialID`). Added user-sortable columns that persist across trial updates,
+  a right-click menu for column selection and sort reset, and per-GUI
+  preference persistence via `getpref`/`setpref`.
 - 2026-04-03: Initial documentation for `gui.History`.
 

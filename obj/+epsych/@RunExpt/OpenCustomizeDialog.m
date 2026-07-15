@@ -18,6 +18,11 @@ if isempty(cfgRoot)
 end
 if ~exist(cfgRoot,'dir'), cfgRoot = cd; end
 
+% Assemble recents-backed item lists for the function dropdowns --------
+itemsSaving  = buildItems_('RecentSavingFcn',     savingFcn, 'ep_SaveDataFcn');
+itemsBoxFig  = buildItems_('RecentBoxFig',        boxFig,    'ep_GenericGUI');
+itemsAddSubj = buildItems_('RecentAddSubjectFcn', addSubj,   'epsych.DefaultSubject.open');
+
 % Build dialog ---------------------------------------------------------
 % Close any stale instance (e.g. left from a previous blocked attempt)
 stale = findall(groot,'Type','figure','Tag','RunExptCustomize');
@@ -51,18 +56,20 @@ gFcn.RowSpacing   = 8;
 gFcn.ColumnSpacing = 8;
 
 addLabel_(gFcn, 1, 'Saving Function:');
-ef_saving = uieditfield(gFcn,'text','Value',savingFcn, ...
+ef_saving = uidropdown(gFcn,'Editable','on','Items',itemsSaving,'Value',savingFcn, ...
     'Tooltip', ['Function called after experiment to save experiment data.' newline ...
                 'Signature: SaveFcn(RUNTIME)  — 1 input, 0 outputs.' newline ...
+                'Pick a previously-used function or type a new one.' newline ...
                 'Default: ep_SaveDataFcn']);
 ef_saving.Layout.Row = 1; ef_saving.Layout.Column = 2;
 ef_saving.ValueChangedFcn = @(h,~) validateFcnField_(h,'saving');
 addResetBtn_(gFcn, 1, ef_saving, 'ep_SaveDataFcn', 'saving');
 
 addLabel_(gFcn, 2, 'Box GUI Function:');
-ef_boxfig = uieditfield(gFcn,'text','Value',boxFig, ...
+ef_boxfig = uidropdown(gFcn,'Editable','on','Items',itemsBoxFig,'Value',boxFig, ...
     'Tooltip', ['Function that opens the behavioral GUI when the experiment starts.' newline ...
                 'Signature: BoxFig(RUNTIME)' newline ...
+                'Pick a previously-used GUI or type a new one.' newline ...
                 'Leave empty to disable.' newline ...
                 'Default: ep_GenericGUI']);
 ef_boxfig.Layout.Row = 2; ef_boxfig.Layout.Column = 2;
@@ -70,9 +77,10 @@ ef_boxfig.ValueChangedFcn = @(h,~) validateFcnField_(h,'boxfig');
 addResetBtn_(gFcn, 2, ef_boxfig, 'ep_GenericGUI', 'boxfig');
 
 addLabel_(gFcn, 3, 'Add Subject Function:');
-ef_addsubj = uieditfield(gFcn,'text','Value',addSubj, ...
+ef_addsubj = uidropdown(gFcn,'Editable','on','Items',itemsAddSubj,'Value',addSubj, ...
     'Tooltip', ['Function that collects subject information when adding a new subject.' newline ...
                 'Signature: S = AddSubjectFcn(S, boxids)' newline ...
+                'Pick a previously-used function or type a new one.' newline ...
                 'Default: epsych.DefaultSubject.open']);
 ef_addsubj.Layout.Row = 3; ef_addsubj.Layout.Column = 2;
 ef_addsubj.ValueChangedFcn = @(h,~) validateFcnField_(h,'addsubj');
@@ -152,6 +160,24 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         % Add a right-aligned label into column 1 of the given row.
         lbl = uilabel(parent,'Text',txt,'HorizontalAlignment','right');
         lbl.Layout.Row = row; lbl.Layout.Column = 1;
+    end
+
+    function items = buildItems_(prefKey, currentVal, dflt)
+        % Assemble a function dropdown's item list: persisted recents first,
+        % then the current value and built-in default, de-duplicated
+        % (case-insensitive) while preserving order. Guarantees a non-empty
+        % list so the dropdown is useful before any history accumulates.
+        items = self.GetRecentFuncs(prefKey);
+        items = [items, {char(currentVal)}, {char(dflt)}];
+        items = items(~cellfun(@isempty, items));
+        keep = true(1, numel(items));
+        for ii = 2:numel(items)
+            if any(strcmpi(items(1:ii-1), items{ii}))
+                keep(ii) = false;
+            end
+        end
+        items = items(keep);
+        if isempty(items), items = {char(dflt)}; end
     end
 
     function addResetBtn_(parent, row, ef, dflt, kind)
@@ -260,6 +286,7 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         if ~isempty(sf)
             self.FUNCS.SavingFcn = sf;
             setpref('ep_RunExpt_FUNCS','SavingFcn',sf);
+            self.RememberRecentFunc('RecentSavingFcn',sf);
             vprintf(0,'Saving Function: %s\n',sf);
         end
 
@@ -267,12 +294,14 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         self.FUNCS.BoxFig = bf;
         if ~isempty(bf)
             setpref('ep_RunExpt_FUNCS','BoxFig',bf);
+            self.RememberRecentFunc('RecentBoxFig',bf);
             vprintf(0,'Box GUI Function: %s\n',bf);
         end
 
         % Apply: Add Subject Function
         self.FUNCS.AddSubjectFcn = asf;
         setpref('ep_RunExpt_FUNCS','AddSubjectFcn',asf);
+        self.RememberRecentFunc('RecentAddSubjectFcn',asf);
         vprintf(0,'Add Subject Function: %s\n',asf);
 
         % Apply: Timer Period

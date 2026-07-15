@@ -367,6 +367,8 @@ classdef RunExpt < handle
         recent = GetRecentConfigs(self)                    % Return config paths loaded within the past seven days
         LoadRecentConfig(self, cfn)                        % Load config at path cfn and update recents list
         RememberRecentConfig(self, cfn)                    % Add cfn to the persistent recent config registry
+        recent = GetRecentFuncs(self, prefKey)             % Return the MRU function-name list for a Customize dialog field
+        RememberRecentFunc(self, prefKey, name)            % Record an accepted function name in a Customize dialog field's MRU list
         UpdateRecentConfigsMenu(self)                      % Rebuild the recent-configs submenu items
         CheckReady(self)                                   % Evaluate whether all conditions to run are met and update STATE
         UpdateGUIstate(self)                               % Refresh all UI control states to match current STATE

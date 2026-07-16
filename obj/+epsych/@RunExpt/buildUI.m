@@ -62,6 +62,10 @@ self.H.mnu_CommutatorGUI = uimenu(mView,'Label','Commutator GUI','Enable','on', 
     'Accelerator','G', ...
     'MenuSelectedFcn', @(~,~) self.LaunchCommutatorGUI);
 
+self.H.mnu_vlc_setup = uimenu(mView,'Label','Webcam Recorder Setup...','Enable','on', ...
+    'Accelerator','W', ...
+    'MenuSelectedFcn', @(~,~) self.OpenVlcRecorderSetup);
+
 self.UpdateRecentConfigsMenu
 
 % Layout

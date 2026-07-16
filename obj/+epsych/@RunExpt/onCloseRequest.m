@@ -44,6 +44,19 @@ if isa(self.RUNTIME,'epsych.Runtime') && isvalid(self.RUNTIME) && ~isempty(self.
     end
 end
 
+if ~isempty(self.VlcRecorderSetupGUI_) && isvalid(self.VlcRecorderSetupGUI_)
+    try
+        delete(self.VlcRecorderSetupGUI_)
+    catch
+    end
+end
+if ~isempty(self.VlcRecorder_) && isvalid(self.VlcRecorder_)
+    try
+        delete(self.VlcRecorder_)
+    catch
+    end
+end
+
 self.SetDefaultFuncs(self.FUNCS)
 
 if isfield(self.H,'figure1') && isgraphics(self.H.figure1)

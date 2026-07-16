@@ -56,6 +56,7 @@ GUI components (`gui`):
 - [gui.Parameter_Control](gui/Parameter_Control.md) — binding a parameter to a UI widget
 - [gui.Parameter_Update](gui/Parameter_Update.md) — commit button for staged parameter edits
 - [gui.History](gui/gui_History.md) — trial-by-trial history table
+- [gui.VlcRecorderSetup](gui/VlcRecorderSetup.md) — webcam preview UI for configuring VlcRecorder device/fps/resolution/crop
 - [eval_staircase_training_mode](gui/eval_staircase_training_mode.md) — training-mode toggle callback
 
 Analysis (`psychophysics`):

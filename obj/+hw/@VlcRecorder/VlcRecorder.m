@@ -6,40 +6,68 @@ classdef VlcRecorder < hw.Interface
     % device and optional output file, then trigger('Play') to start.
     %
     % When RecordingFile is empty, VLC opens in display-only mode.
-    % When RecordingFile is set, VLC duplicates the stream to both the
-    % display window and the output file simultaneously using --sout.
+    % When RecordingFile is set, the stream is transcoded to H.264 and
+    % duplicated to both the display window and the output file (--sout).
+    %
+    % VLC runs as a tracked child process (System.Diagnostics.Process) with
+    % its remote-control interface bound to a private localhost TCP port.
+    % Stopping sends 'quit' over that port so VLC shuts down cleanly and the
+    % muxer finalises the output file; if VLC does not exit promptly the
+    % process is closed or killed as a fallback. Only the VLC instance owned
+    % by this object is ever touched.
     %
     % Parameters exposed (via all_parameters):
     %   DeviceName    - (String, Any)  DirectShow video device name.
     %                                  Default: 'Integrated Camera'.
-    %   RecordingFile - (File, Any)    Output file path. Leave empty for display only.
+    %   VlcExePath    - (String, Any)  Path to vlc.exe. Auto-detected from the
+    %                                  standard install locations when possible.
+    %   RecordingFile - (File, Any)    Output file path. Leave empty for display
+    %                                  only. Use a .avi or .ts extension; any
+    %                                  other extension is replaced with .ts
+    %                                  (VLC's mp4 muxer writes broken timestamps
+    %                                  for camera captures).
     %   MediaFile     - (String, Any)  Media URI passed to VLC (default: 'dshow://').
+    %   FrameRate     - (Float, Any)   Capture fps forced via --dshow-fps. Default: 30
+    %                                  (a normal webcam rate; the C270 test camera's
+    %                                  own default is only 5 fps). 0 = camera default.
+    %   Resolution    - (Integer[2])   Capture size [width height] forced via
+    %                                  --dshow-size. Default: [0 0] (camera default).
+    %   CropTop/Bottom/Left/Right
+    %                 - (Integer, Any) Pixels to crop from each edge (default 0).
+    %                                  Rounded up to an even number for x264.
     %
     % Triggers (via trigger()):
     %   Play        - Launch VLC. Records to RecordingFile if one is set.
     %   Stop        - Close VLC and finalise any recording.
     %   Pause       - No-op (not supported over command line).
-    %   StartRecord - Restart VLC with recording enabled (if not already recording).
+    %   StartRecord - Restart VLC with recording enabled (requires RecordingFile).
     %   StopRecord  - Restart VLC in display-only mode (stops recording).
     %
     % Notes
-    %   VLC is expected at vlcExePath_ (default:
-    %   'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe').
-    %
     %   StartRecord / StopRecord briefly restart the VLC window because the
     %   sout chain cannot be changed on a running instance.
+    %
+    %   Prefer .ts recordings when crash robustness matters: an MPEG-TS file
+    %   remains playable even if VLC dies mid-recording, whereas .avi requires
+    %   the clean shutdown performed by trigger('Stop') to write its index.
+    %   Both containers open in VLC and in MATLAB's VideoReader.
     %
     % Example
     %   obj = hw.VlcRecorder();
     %   obj.connect();
-    %   obj.set_parameter('DeviceName',    'Integrated Camera');
+    %   obj.set_parameter('DeviceName',    'Logi C270 HD WebCam');
     %   obj.set_parameter('RecordingFile', 'C:\data\capture.ts');
     %   obj.trigger('Play');
     %   pause(30);
     %   obj.trigger('Stop');
     %
+    % Setup GUI
+    %   obj.setupGUI() opens gui.VlcRecorderSetup: a live webcam preview with
+    %   an interactive crop ROI for configuring DeviceName, FrameRate,
+    %   Resolution, and the Crop* parameters.
+    %
     % See also: documentation/hw/hw_VlcRecorder.md, documentation/hw/hw_Interface.md,
-    %           hw.Module, hw.Parameter
+    %           hw.Module, hw.Parameter, gui.VlcRecorderSetup
 
 
     properties (SetAccess = protected)
@@ -60,12 +88,19 @@ classdef VlcRecorder < hw.Interface
     end
 
     properties (Access = private)
-        vlcExePath_    (1,1) string = "C:\Program Files (x86)\VideoLAN\VLC\vlc.exe"  % path to vlc.exe
+        vlcExePath_    (1,1) string = ""                   % path to vlc.exe; auto-detected when empty
         deviceName_    (1,1) string = "Integrated Camera"  % DirectShow video device name
         recordingFile_ (1,1) string = ""                   % output file path; empty = display only
-        mediaUri_      (1,1) string = "dshow://"            % media URI for VLC
-        isRecording_   (1,1) logical = false                % true when VLC was launched with --sout recording
-        vlcPid_        (1,1) double  = 0                    % 0=stopped, -1=running (PID not tracked)
+        mediaUri_      (1,1) string = "dshow://"           % media URI for VLC
+        frameRate_     (1,1) double  = 30                  % dshow capture fps; 0 = camera default
+        resolution_    (1,2) double  = [0 0]               % [width height]; [0 0] = camera default
+        cropTop_       (1,1) double  = 0                   % crop, in pixels, from the top edge
+        cropBottom_    (1,1) double  = 0                   % crop, in pixels, from the bottom edge
+        cropLeft_      (1,1) double  = 0                   % crop, in pixels, from the left edge
+        cropRight_     (1,1) double  = 0                   % crop, in pixels, from the right edge
+        isRecording_   (1,1) logical = false               % true when VLC was launched with --sout recording
+        rcPort_        (1,1) double  = 0                   % localhost TCP port of the RC interface
+        vlcProc_                                           % System.Diagnostics.Process of the running VLC
     end
 
 
@@ -74,6 +109,16 @@ classdef VlcRecorder < hw.Interface
             % obj = hw.VlcRecorder()
             % Construct a VlcRecorder without connecting.
             obj.Module = hw.Module.empty(1, 0);
+            obj.vlcExePath_ = hw.VlcRecorder.findVlcExe();
+        end
+
+        function delete(obj)
+            % Ensure the owned VLC process does not outlive the object.
+            try
+                obj.stopVlc_();
+            catch
+                % object teardown must not throw
+            end
         end
 
         function connect(obj)
@@ -103,26 +148,32 @@ classdef VlcRecorder < hw.Interface
             %   name - 'Play', 'Stop', 'Pause', 'StartRecord', or 'StopRecord',
             %          or an hw.Parameter trigger object.
             % Returns:
-            %   result - 1 on success, 0 on unrecognised name.
+            %   result - 1 on success, 0 on failure or unrecognised name.
             if isa(name, 'hw.Parameter')
                 name = name.Name;
             end
-            result = 1;
             switch name
                 case 'Play'
                     obj.stopVlc_();
-                    obj.launchVlc_();
+                    result = double(obj.launchVlc_());
 
                 case 'Stop'
                     obj.stopVlc_();
+                    result = 1;
 
                 case 'Pause'
                     vprintf(3, 'hw.VlcRecorder: Pause is a no-op for command-line VLC.');
+                    result = 1;
 
                 case 'StartRecord'
-                    if ~obj.isRecording_
+                    if obj.isRecording_
+                        result = 1;
+                    elseif strlength(strtrim(obj.recordingFile_)) == 0
+                        vprintf(0, 1, 'hw.VlcRecorder: set RecordingFile before StartRecord.');
+                        result = 0;
+                    else
                         obj.stopVlc_();
-                        obj.launchVlc_();
+                        result = double(obj.launchVlc_());
                     end
 
                 case 'StopRecord'
@@ -131,8 +182,11 @@ classdef VlcRecorder < hw.Interface
                         recFile = obj.recordingFile_;
                         obj.recordingFile_ = "";
                         obj.stopVlc_();
-                        obj.launchVlc_();
+                        launched = obj.launchVlc_();
                         obj.recordingFile_ = recFile;
+                        result = double(launched);
+                    else
+                        result = 1;
                     end
 
                 otherwise
@@ -172,6 +226,35 @@ classdef VlcRecorder < hw.Interface
                     obj.recordingFile_ = string(value);
                     vprintf(3, 'hw.VlcRecorder: RecordingFile = "%s"', char(value));
 
+                case 'FrameRate'
+                    obj.frameRate_ = max(0, double(value));
+                    vprintf(3, 'hw.VlcRecorder: FrameRate = %g', obj.frameRate_);
+
+                case 'Resolution'
+                    v = double(value);
+                    if numel(v) == 2
+                        obj.resolution_ = max(0, round(v(:)'));
+                        vprintf(3, 'hw.VlcRecorder: Resolution = [%d %d]', obj.resolution_(1), obj.resolution_(2));
+                    else
+                        vprintf(0, 1, 'hw.VlcRecorder: Resolution must be a [width height] pair; ignoring.');
+                    end
+
+                case 'CropTop'
+                    obj.cropTop_ = max(0, round(double(value)));
+                    vprintf(3, 'hw.VlcRecorder: CropTop = %d', obj.cropTop_);
+
+                case 'CropBottom'
+                    obj.cropBottom_ = max(0, round(double(value)));
+                    vprintf(3, 'hw.VlcRecorder: CropBottom = %d', obj.cropBottom_);
+
+                case 'CropLeft'
+                    obj.cropLeft_ = max(0, round(double(value)));
+                    vprintf(3, 'hw.VlcRecorder: CropLeft = %d', obj.cropLeft_);
+
+                case 'CropRight'
+                    obj.cropRight_ = max(0, round(double(value)));
+                    vprintf(3, 'hw.VlcRecorder: CropRight = %d', obj.cropRight_);
+
                 otherwise
                     vprintf(3, 'hw.VlcRecorder: set_parameter called for "%s" (no-op)', paramName);
             end
@@ -201,6 +284,24 @@ classdef VlcRecorder < hw.Interface
                 case 'MediaFile'
                     value = char(obj.mediaUri_);
 
+                case 'FrameRate'
+                    value = obj.frameRate_;
+
+                case 'Resolution'
+                    value = obj.resolution_;
+
+                case 'CropTop'
+                    value = obj.cropTop_;
+
+                case 'CropBottom'
+                    value = obj.cropBottom_;
+
+                case 'CropLeft'
+                    value = obj.cropLeft_;
+
+                case 'CropRight'
+                    value = obj.cropRight_;
+
                 otherwise
                     % Triggers and unknown names do not map to readable hardware state.
                     value = nan;
@@ -209,25 +310,16 @@ classdef VlcRecorder < hw.Interface
 
         function selected = selectDevice(obj)
             % selected = obj.selectDevice()
-            % Show a list dialog of available DirectShow video capture devices and
-            % set DeviceName to the user's choice.
-            % Enumerates devices via PowerShell Get-PnpDevice.
+            % Show a list dialog of available video capture devices and set
+            % DeviceName to the user's choice.
             % Returns:
             %   selected - chosen device name string, or "" if cancelled.
 
-            [st, raw] = system(['powershell -NoProfile -Command "' ...
-                'Get-PnpDevice -Class Camera -Status OK | ' ...
-                'Select-Object -ExpandProperty FriendlyName"']);
-
-            devices = {};
-            if st == 0 && ~isempty(strtrim(raw))
-                lines = strtrim(splitlines(strtrim(raw)));
-                devices = lines(~cellfun('isempty', lines));
-            end
+            devices = hw.VlcRecorder.listDevices();
 
             if isempty(devices)
                 uiwait(warndlg( ...
-                    'No DirectShow video devices found via Get-PnpDevice.', ...
+                    'No video capture devices found via Get-PnpDevice.', ...
                     'hw.VlcRecorder', 'modal'));
                 selected = "";
                 return
@@ -243,7 +335,7 @@ classdef VlcRecorder < hw.Interface
                 'SelectionMode', 'single', ...
                 'InitialValue',  currentIdx, ...
                 'Name',          'Select Capture Device', ...
-                'PromptString',  'Available DirectShow video devices:', ...
+                'PromptString',  'Available video capture devices:', ...
                 'ListSize',      [320 160]);
 
             if ok
@@ -256,6 +348,16 @@ classdef VlcRecorder < hw.Interface
 
         function set.mode(obj, mode)
             obj.mode = mode;
+        end
+
+        function g = setupGUI(obj, varargin)
+            % g = obj.setupGUI()
+            % g = obj.setupGUI(Name=Value,...)
+            % Open gui.VlcRecorderSetup: a live webcam preview with an
+            % interactive crop ROI for configuring DeviceName, FrameRate,
+            % Resolution, and CropTop/Bottom/Left/Right.
+            % See also: gui.VlcRecorderSetup, documentation/gui/VlcRecorderSetup.md
+            g = gui.VlcRecorderSetup(obj, varargin{:});
         end
     end
 
@@ -271,6 +373,52 @@ classdef VlcRecorder < hw.Interface
                 [], ...
                 @(~) hw.VlcRecorder());
         end
+
+        function exePath = findVlcExe()
+            % exePath = hw.VlcRecorder.findVlcExe()
+            % Locate vlc.exe from the registry, standard install folders, or the
+            % system PATH. Returns "" when VLC cannot be found.
+            candidates = string.empty(1, 0);
+            try
+                installDir = winqueryreg('HKEY_LOCAL_MACHINE', 'SOFTWARE\VideoLAN\VLC', 'InstallDir');
+                candidates(end+1) = string(fullfile(installDir, 'vlc.exe'));
+            catch
+                % registry key absent; fall through to default locations
+            end
+            candidates(end+1) = string(fullfile(getenv('ProgramFiles'), 'VideoLAN', 'VLC', 'vlc.exe'));
+            candidates(end+1) = string(fullfile(getenv('ProgramFiles(x86)'), 'VideoLAN', 'VLC', 'vlc.exe'));
+
+            for c = candidates
+                if isfile(c)
+                    exePath = c;
+                    return
+                end
+            end
+
+            exePath = "";
+            [st, out] = system('where vlc.exe');
+            if st == 0
+                lines = strtrim(splitlines(strtrim(out)));
+                lines = lines(~cellfun('isempty', lines));
+                if ~isempty(lines)
+                    exePath = string(lines{1});
+                end
+            end
+        end
+
+        function devices = listDevices()
+            % devices = hw.VlcRecorder.listDevices()
+            % Enumerate video capture device names via PowerShell Get-PnpDevice.
+            % Returns a cell array of char vectors; empty when none are found.
+            devices = {};
+            [st, raw] = system(['powershell -NoProfile -Command "' ...
+                'Get-PnpDevice -Class Camera -Status OK | ' ...
+                'Select-Object -ExpandProperty FriendlyName"']);
+            if st == 0 && ~isempty(strtrim(raw))
+                lines = strtrim(splitlines(strtrim(raw)));
+                devices = lines(~cellfun('isempty', lines));
+            end
+        end
     end
 
 
@@ -281,29 +429,78 @@ classdef VlcRecorder < hw.Interface
             M = hw.Module(obj, 'VlcRecorder', 'VLC', 1);
             obj.Module = M;
 
-            obj.add_parameter('DeviceName', 'Integrated Camera', ...
+            obj.add_parameter('DeviceName', char(obj.deviceName_), ...
                 Type    = 'String', ...
                 Access  = 'Any', ...
                 Visible = true, ...
                 Description = 'DirectShow video device name.');
 
-            obj.add_parameter('VlcExePath', 'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe', ...
+            obj.add_parameter('VlcExePath', char(obj.vlcExePath_), ...
                 Type    = 'String', ...
                 Access  = 'Any', ...
                 Visible = true, ...
-                Description = 'Full path to the VLC executable.');
+                Description = 'Full path to the VLC executable (auto-detected when possible).');
 
-            obj.add_parameter('RecordingFile', '', ...
+            obj.add_parameter('RecordingFile', char(obj.recordingFile_), ...
                 Type    = 'File', ...
                 Access  = 'Any', ...
                 Visible = true, ...
                 Description = 'Output file path for VLC recording. Leave empty for display only.');
 
-            obj.add_parameter('MediaFile', 'dshow://', ...
+            obj.add_parameter('MediaFile', char(obj.mediaUri_), ...
                 Type    = 'String', ...
                 Access  = 'Any', ...
                 Visible = true, ...
                 Description = 'Media URI passed to VLC (e.g. dshow://).');
+
+            obj.add_parameter('FrameRate', obj.frameRate_, ...
+                Type    = 'Float', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Unit    = 'fps', ...
+                Min     = 0, ...
+                Description = 'Capture frame rate forced via --dshow-fps. 0 = camera default. Default 30 fps is typical for a webcam (this camera''s native default is only 5 fps).');
+
+            obj.add_parameter('Resolution', obj.resolution_, ...
+                Type    = 'Integer', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Unit    = 'px', ...
+                Min     = 0, ...
+                isArray = true, ...
+                Description = 'Capture resolution as [width height], forced via --dshow-size. [0 0] = camera default.');
+
+            obj.add_parameter('CropTop', obj.cropTop_, ...
+                Type    = 'Integer', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Unit    = 'px', ...
+                Min     = 0, ...
+                Description = 'Pixels to crop from the top of the frame (rounded up to an even number).');
+
+            obj.add_parameter('CropBottom', obj.cropBottom_, ...
+                Type    = 'Integer', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Unit    = 'px', ...
+                Min     = 0, ...
+                Description = 'Pixels to crop from the bottom of the frame (rounded up to an even number).');
+
+            obj.add_parameter('CropLeft', obj.cropLeft_, ...
+                Type    = 'Integer', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Unit    = 'px', ...
+                Min     = 0, ...
+                Description = 'Pixels to crop from the left of the frame (rounded up to an even number).');
+
+            obj.add_parameter('CropRight', obj.cropRight_, ...
+                Type    = 'Integer', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Unit    = 'px', ...
+                Min     = 0, ...
+                Description = 'Pixels to crop from the right of the frame (rounded up to an even number).');
 
             obj.add_parameter('Play', 0, ...
                 isTrigger = true, ...
@@ -341,94 +538,236 @@ classdef VlcRecorder < hw.Interface
 
 
     methods (Access = private)
-        function launchVlc_(obj)
-            % launchVlc_()
-            % Launch VLC. If RecordingFile is set, uses --sout to simultaneously
-            % display and record. Otherwise opens in display-only mode.
-            if obj.vlcPid_ ~= 0
+        function ok = launchVlc_(obj)
+            % ok = launchVlc_()
+            % Launch VLC as a tracked child process. If RecordingFile is set,
+            % the stream is recorded and previewed simultaneously; otherwise
+            % VLC opens in display-only mode.
+            % Returns true when VLC starts and survives its argument parsing.
+            if obj.isVlcRunning_()
+                ok = true;
                 return
             end
-            device  = char(obj.deviceName_);
-            uri     = char(obj.mediaUri_);
-            recFile = char(obj.recordingFile_);
+            ok = false;
 
-            if isempty(recFile)
-                % Display only.
-                argStr = sprintf('%s --one-instance --dshow-vdev="%s" --no-audio', ...
-                    uri, device);
-                obj.isRecording_ = false;
-            else
-                % Record and preview simultaneously using duplicate stream output.
-                % The file branch transcodes to H264 for robust webcam capture.
-                recVlc = strrep(recFile, '\\', '/');
-                recVlc = strrep(recVlc, '''', '''''');
-
-                [~, ~, ext] = fileparts(recFile);
-                mux = 'ts';
-                if strcmpi(ext, '.mp4')
-                    mux = 'mp4';
+            exe = obj.vlcExePath_;
+            if strlength(strtrim(exe)) == 0 || ~isfile(exe)
+                exe = hw.VlcRecorder.findVlcExe();
+                if strlength(exe) == 0
+                    vprintf(0, 1, 'hw.VlcRecorder: vlc.exe not found; set the VlcExePath parameter.');
+                    return
                 end
-
-                sout = sprintf('#duplicate{dst=display,dst=transcode{vcodec=h264,vb=1200,fps=30,acodec=none}:standard{access=file,mux=%s,dst=''%s''}}', ...
-                    mux, recVlc);
-                argStr = sprintf('%s --one-instance --dshow-vdev="%s" --no-audio --sout "%s" --sout-keep', ...
-                    uri, device, sout);
-                obj.isRecording_ = true;
+                obj.vlcExePath_ = exe;
             end
 
-            launched = obj.launchProcess_(obj.vlcExePath_, argStr);
-            if ~launched
-                obj.vlcPid_ = 0;
-                obj.isRecording_ = false;
-                vprintf(0, 1, 'hw.VlcRecorder: failed to launch VLC.');
+            obj.rcPort_ = obj.pickFreePort_();
+            [argStr, recording] = obj.buildVlcArgs_();
+
+            try
+                psi = System.Diagnostics.ProcessStartInfo(exe, argStr);
+                psi.UseShellExecute = true;  % keep VLC stdio out of the MATLAB console
+                proc = System.Diagnostics.Process.Start(psi);
+            catch ME
+                vprintf(0, 1, ME);
+                return
+            end
+
+            pause(1);  % give VLC a moment to reject bad arguments
+            if isempty(proc) || proc.HasExited
+                vprintf(0, 1, 'hw.VlcRecorder: VLC exited immediately after launch; args: %s', argStr);
+                return
+            end
+
+            obj.vlcProc_     = proc;
+            obj.isRecording_ = recording;
+            vprintf(2, 'hw.VlcRecorder: VLC launched (PID %d), recording=%d', double(proc.Id), recording);
+            ok = true;
+        end
+
+        function [argStr, recording] = buildVlcArgs_(obj)
+            % [argStr, recording] = buildVlcArgs_()
+            % Compose the VLC command line. The RC interface is bound to a
+            % private localhost port so stopVlc_ can request a clean shutdown.
+            uri = strtrim(char(obj.mediaUri_));
+            if isempty(uri)
+                uri = 'dshow://';
+            end
+            recFile = strtrim(char(obj.recordingFile_));
+
+            opts = { ...
+                '--no-one-instance', ...  % never forward args to a pre-existing VLC window
+                '--no-qt-privacy-ask', ...
+                '--no-video-title-show', ...
+                '--no-audio', ...
+                '--extraintf', 'rc', ...
+                '--rc-host', sprintf('127.0.0.1:%d', obj.rcPort_), ...
+                '--rc-quiet'};
+
+            if strncmpi(uri, 'dshow', 5)
+                opts{end+1} = sprintf('--dshow-vdev="%s"', char(obj.deviceName_));
+                opts{end+1} = '--dshow-adev=none';
+                if obj.frameRate_ > 0
+                    opts{end+1} = sprintf('--dshow-fps=%g', obj.frameRate_);
+                end
+                if all(obj.resolution_ > 0)
+                    opts{end+1} = sprintf('--dshow-size=%dx%d', obj.resolution_(1), obj.resolution_(2));
+                end
+            end
+
+            cropSpec = obj.cropFilterSpec_();
+
+            recording = ~isempty(recFile);
+            if recording
+                [recDir, recBase, recExt] = fileparts(recFile);
+                if ~isempty(recDir) && ~isfolder(recDir)
+                    mkdir(recDir);
+                end
+
+                switch lower(recExt)
+                    case '.avi'
+                        mux = 'avi';
+                    case '.ts'
+                        mux = 'ts';
+                    otherwise
+                        % VLC's mp4 muxer produces unplayable timestamps for
+                        % dshow captures, so only avi and ts are supported.
+                        mux = 'ts';
+                        recFile = fullfile(recDir, [recBase '.ts']);
+                        obj.recordingFile_ = string(recFile);
+                        vprintf(0, 1, 'hw.VlcRecorder: only .avi and .ts containers record reliably; recording to "%s" instead.', recFile);
+                end
+
+                % VLC config-chain syntax: forward slashes and a single-quoted dst.
+                recVlc = strrep(recFile, '\', '/');
+                recVlc = strrep(recVlc, '''', '''''');
+
+                if isempty(cropSpec)
+                    vfilterOpt = '';
+                else
+                    vfilterOpt = sprintf('vfilter=%s,', cropSpec);
+                end
+
+                % transcode must come before duplicate: a chained value inside
+                % duplicate{dst=...} is split at ':' by VLC's option parser.
+                % zerolatency stops x264 buffering frames so the file grows
+                % continuously and short recordings are not lost in the encoder.
+                sout = sprintf(['#transcode{%svcodec=h264,venc=x264{preset=ultrafast,tune=zerolatency},vb=1200,acodec=none}' ...
+                    ':duplicate{dst=display,dst=standard{access=file,mux=%s,dst=''%s''}}'], vfilterOpt, mux, recVlc);
+                opts{end+1} = sprintf('"--sout=%s"', sout);
+                opts{end+1} = '--sout-keep';
+            elseif ~isempty(cropSpec)
+                % Display-only mode: apply the crop filter directly so the
+                % preview matches what a recording would contain.
+                opts{end+1} = sprintf('--video-filter=%s', cropSpec);
+            end
+
+            argStr = sprintf('%s "%s"', strjoin(opts, ' '), uri);
+        end
+
+        function spec = cropFilterSpec_(obj)
+            % spec = cropFilterSpec_()
+            % Build a VLC croppadd{} filter spec from the CropTop/Bottom/Left/Right
+            % parameters. Returns '' when no crop is configured. x264 requires
+            % even frame dimensions, so each nonzero value is rounded up to the
+            % nearest even number.
+            raw  = [obj.cropTop_, obj.cropBottom_, obj.cropLeft_, obj.cropRight_];
+            even = ceil(raw / 2) * 2;
+            if any(even ~= raw)
+                vprintf(1, 'hw.VlcRecorder: crop values rounded up to even pixel counts (top=%d bottom=%d left=%d right=%d).', ...
+                    even(1), even(2), even(3), even(4));
+            end
+
+            names = {'croptop', 'cropbottom', 'cropleft', 'cropright'};
+            terms = cell(1, 4);
+            for i = 1:4
+                if even(i) > 0
+                    terms{i} = sprintf('%s=%d', names{i}, even(i));
+                end
+            end
+            terms = terms(~cellfun('isempty', terms));
+
+            if isempty(terms)
+                spec = '';
             else
-                obj.vlcPid_ = -1;
-                vprintf(2, 'hw.VlcRecorder: VLC launched, recording=%d', obj.isRecording_);
+                spec = sprintf('croppadd{%s}', strjoin(terms, ','));
             end
         end
 
         function stopVlc_(obj)
             % stopVlc_()
-            % Terminate VLC processes (PID tracking intentionally not used).
-            if obj.vlcPid_ ~= 0
-                % Ask VLC to quit cleanly first so muxers can finalize output.
-                system(sprintf('"%s" --one-instance vlc://quit 1>nul 2>nul', char(obj.vlcExePath_)));
-                pause(1.0);
+            % Stop the owned VLC instance: ask the RC interface to quit so the
+            % muxer finalises the output, then escalate to window close / kill.
+            proc = obj.vlcProc_;
+            obj.vlcProc_     = [];
+            obj.isRecording_ = false;
+            if isempty(proc)
+                return
+            end
 
-                % Fallback in case VLC does not exit promptly.
-                [~, tl] = system('tasklist /FI "IMAGENAME eq vlc.exe" /FO CSV /NH 2>nul');
-                if contains(lower(tl), 'vlc.exe')
-                    system('taskkill /IM vlc.exe /T 2>nul');
+            try
+                if ~proc.HasExited
+                    if ~(obj.sendRcQuit_() && proc.WaitForExit(8000))
+                        proc.CloseMainWindow();
+                        if ~proc.WaitForExit(3000)
+                            proc.Kill();
+                            proc.WaitForExit(3000);
+                        end
+                    end
                 end
-                pause(0.5);  % allow VLC to flush file buffers before caller checks output
-                vprintf(2, 'hw.VlcRecorder: VLC terminated.');
-                obj.vlcPid_      = 0;
-                obj.isRecording_ = false;
+                vprintf(2, 'hw.VlcRecorder: VLC stopped.');
+            catch ME
+                vprintf(0, 1, ME);
+            end
+            obj.rcPort_ = 0;
+        end
+
+        function ok = sendRcQuit_(obj)
+            % ok = sendRcQuit_()
+            % Send 'quit' to the running VLC over its RC TCP port.
+            % Returns true when the command was delivered.
+            ok = false;
+            if obj.rcPort_ <= 0
+                return
+            end
+            try
+                client = System.Net.Sockets.TcpClient();
+                client.Connect('127.0.0.1', int32(obj.rcPort_));
+                stream  = client.GetStream();
+                payload = uint8(sprintf('quit\n'));
+                stream.Write(payload, int32(0), int32(numel(payload)));
+                stream.Flush();
+                client.Close();
+                ok = true;
+            catch ME
+                vprintf(2, 'hw.VlcRecorder: RC quit failed (%s); closing the window instead.', ME.message);
             end
         end
 
-        function launched = launchProcess_(~, exePath, argStr)
-            % launched = launchProcess_(exePath, argStr)
-            % Launch VLC via a temporary .bat file using plain cmd.exe syntax.
-            %
-            % A one-line .bat file is written containing:
-            %   start "" "exePath" argStr
-            % This avoids PowerShell and uses VLC command-line options directly.
-            %
-            % Inputs:
-            %   exePath - full path to vlc.exe
-            %   argStr  - VLC argument string; embedded double-quotes are preserved
-            % Returns:
-            %   launched - true when cmd accepted the launch command
+        function tf = isVlcRunning_(obj)
+            % tf = isVlcRunning_()
+            % True when the owned VLC process is alive.
+            tf = false;
+            if isempty(obj.vlcProc_)
+                return
+            end
+            try
+                tf = ~obj.vlcProc_.HasExited;
+            catch
+                obj.vlcProc_ = [];
+            end
+        end
 
-            batFile = [tempname() '.bat'];
-            fid = fopen(batFile, 'w', 'n', 'UTF-8');
-            fprintf(fid, '@echo off\r\nstart "" "%s" %s\r\n', char(exePath), char(argStr));
-            fclose(fid);
-            [st, ~] = system(sprintf('cmd /c "%s"', batFile));
-            delete(batFile);
-
-            launched = (st == 0);
+        function port = pickFreePort_(~)
+            % port = pickFreePort_()
+            % Ask the OS for a free ephemeral TCP port on loopback.
+            try
+                listener = System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+                listener.Start();
+                port = double(listener.LocalEndpoint.Port);
+                listener.Stop();
+            catch
+                port = randi([20000 65000]);
+            end
         end
     end
 

@@ -24,6 +24,11 @@ classdef RunExpt < handle
         CurrentConfigFile (1,1) string = ""                                                     % Path of the most recently loaded/saved configuration file
     end
 
+    properties (Access = private)
+        VlcRecorder_ = []          % Lazily-created hw.VlcRecorder backing the webcam setup dialog
+        VlcRecorderSetupGUI_ = []  % Currently-open gui.VlcRecorderSetup instance, if any
+    end
+
     methods
         LoadConfig(self, cfn)           % Load configuration from MAT file cfn
         RefreshConfig(self)             % Reload the currently loaded configuration file from disk
@@ -337,6 +342,40 @@ classdef RunExpt < handle
                 vprintf(0,1,me)
                 a = repmat('*',1,50);
                 vprintf(0,1,'%s\nFailed to launch Commutator GUI: %s\n%s',a,comPort,a)
+            end
+        end
+
+        function OpenVlcRecorderSetup(self)
+            % obj.OpenVlcRecorderSetup
+            % Open the webcam recorder configuration dialog (gui.VlcRecorderSetup),
+            % seeded from the 'ep_RunExpt_Video' preference group so values applied
+            % in a previous session round-trip.
+            if ~isempty(self.VlcRecorderSetupGUI_) && isvalid(self.VlcRecorderSetupGUI_)
+                try
+                    figure(self.VlcRecorderSetupGUI_.Parent);
+                catch
+                end
+                return
+            end
+
+            if isempty(self.VlcRecorder_) || ~isvalid(self.VlcRecorder_)
+                rec = hw.VlcRecorder();
+                rec.set_parameter('VlcExePath', getpref('ep_RunExpt_Video','VlcExePath', char(rec.get_parameter('VlcExePath'))));
+                rec.set_parameter('DeviceName', getpref('ep_RunExpt_Video','DeviceName', char(rec.get_parameter('DeviceName'))));
+                rec.set_parameter('MediaFile',  getpref('ep_RunExpt_Video','MediaFile',  char(rec.get_parameter('MediaFile'))));
+                rec.set_parameter('FrameRate',  getpref('ep_RunExpt_Video','FrameRate',  rec.get_parameter('FrameRate')));
+                rec.set_parameter('Resolution', getpref('ep_RunExpt_Video','Resolution', rec.get_parameter('Resolution')));
+                rec.set_parameter('CropTop',    getpref('ep_RunExpt_Video','CropTop',    rec.get_parameter('CropTop')));
+                rec.set_parameter('CropBottom', getpref('ep_RunExpt_Video','CropBottom', rec.get_parameter('CropBottom')));
+                rec.set_parameter('CropLeft',   getpref('ep_RunExpt_Video','CropLeft',   rec.get_parameter('CropLeft')));
+                rec.set_parameter('CropRight',  getpref('ep_RunExpt_Video','CropRight',  rec.get_parameter('CropRight')));
+                self.VlcRecorder_ = rec;
+            end
+
+            try
+                self.VlcRecorderSetupGUI_ = self.VlcRecorder_.setupGUI();
+            catch ME
+                vprintf(0,1,ME)
             end
         end
 

@@ -95,6 +95,13 @@ switch COMMAND
 
         self.RUNTIME.TIMER = self.CreateTimer;
 
+        % Start video before hardware enters run mode: VLC launch blocks ~1 s,
+        % which must not land inside the trial loop, and the recording should
+        % cover the run from the first trial. Preview never records.
+        if COMMAND == "Record"
+            self.StartVideoRecording_
+        end
+
         vprintf(0,'Initialization complete. Starting experiment...')
         set(self.RUNTIME.Interfaces, 'mode', hw.DeviceState(COMMAND));
 
@@ -119,6 +126,11 @@ switch COMMAND
         vprintf(3,'ExptDispatch: Stopping PsychTimer')
         t = timerfindall('Name','PsychTimer');
         if ~isempty(t), stop(t); delete(t); end
+
+        % Normally a no-op: PsychTimerStop (the PsychTimer's StopFcn, triggered
+        % synchronously by stop(t) above) already stopped the recording. This
+        % covers the edge case where no PsychTimer existed to fire it.
+        self.StopVideoRecording_;
 
         set(self.H.figure1,'pointer','arrow')
         vprintf(0,'Experiment stopped at %s',datetime("now",Format='dd-MMM-yyyy HH:mm'))

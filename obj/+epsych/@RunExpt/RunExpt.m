@@ -27,6 +27,7 @@ classdef RunExpt < handle
     properties (Access = private)
         VlcRecorder_ = []          % Lazily-created hw.VlcRecorder backing the webcam setup dialog
         VlcRecorderSetupGUI_ = []  % Currently-open gui.VlcRecorderSetup instance, if any
+        VideoRecordingActive_ (1,1) logical = false  % True only while a run-owned VLC recording is in progress
     end
 
     methods
@@ -358,22 +359,10 @@ classdef RunExpt < handle
                 return
             end
 
-            if isempty(self.VlcRecorder_) || ~isvalid(self.VlcRecorder_)
-                rec = hw.VlcRecorder();
-                rec.set_parameter('VlcExePath', getpref('ep_RunExpt_Video','VlcExePath', char(rec.get_parameter('VlcExePath'))));
-                rec.set_parameter('DeviceName', getpref('ep_RunExpt_Video','DeviceName', char(rec.get_parameter('DeviceName'))));
-                rec.set_parameter('MediaFile',  getpref('ep_RunExpt_Video','MediaFile',  char(rec.get_parameter('MediaFile'))));
-                rec.set_parameter('FrameRate',  getpref('ep_RunExpt_Video','FrameRate',  rec.get_parameter('FrameRate')));
-                rec.set_parameter('Resolution', getpref('ep_RunExpt_Video','Resolution', rec.get_parameter('Resolution')));
-                rec.set_parameter('CropTop',    getpref('ep_RunExpt_Video','CropTop',    rec.get_parameter('CropTop')));
-                rec.set_parameter('CropBottom', getpref('ep_RunExpt_Video','CropBottom', rec.get_parameter('CropBottom')));
-                rec.set_parameter('CropLeft',   getpref('ep_RunExpt_Video','CropLeft',   rec.get_parameter('CropLeft')));
-                rec.set_parameter('CropRight',  getpref('ep_RunExpt_Video','CropRight',  rec.get_parameter('CropRight')));
-                self.VlcRecorder_ = rec;
-            end
+            rec = self.getVlcRecorder_();
 
             try
-                self.VlcRecorderSetupGUI_ = self.VlcRecorder_.setupGUI();
+                self.VlcRecorderSetupGUI_ = rec.setupGUI();
             catch ME
                 vprintf(0,1,ME)
             end
@@ -420,6 +409,10 @@ classdef RunExpt < handle
         ConfigBrowserLoad(self, fig, lb)                   % Load config selected in list box lb and close fig
         ConfigBrowserCancel(self, fig)                     % Close config browser figure without loading
 
+        rec = getVlcRecorder_(self)                        % Lazily create/return the shared, preference-seeded hw.VlcRecorder
+        StartVideoRecording_(self)                          % Begin the per-run webcam recording when the checkbox/preference is enabled
+        StopVideoRecording_(self)                           % Stop the active per-run webcam recording, if any
+
         function onCommand(self, hObj)
             % Adapts menu item callbacks; forwards the item's text label to ExptDispatch.
             hCtrl = findobj(self.H.figure1, '-regexp', 'tag', '^ctrl')';
@@ -430,6 +423,7 @@ classdef RunExpt < handle
                 self.ExptDispatch(string(hObj.Text));
             catch ME
                 % Restore a usable UI state when command dispatch fails.
+                self.StopVideoRecording_;
                 if isfield(self.H,'figure1') && isgraphics(self.H.figure1)
                     set(self.H.figure1,'pointer','arrow');
                 end
@@ -464,6 +458,9 @@ classdef RunExpt < handle
         function PsychTimerStop(self)
             % Timer stop callback; invokes the stop handler, updates GUI state, and saves data.
             self.STATE = PRGMSTATE.STOP;
+            % Stop video before the save handler so recordings never run through a save dialog;
+            % this is the single choke point for user Stop, auto-stop, and post-error StopFcn.
+            self.StopVideoRecording_;
             vprintf(3,'PsychTimerStop:Calling timer Stop function: %s',self.FUNCS.TIMERfcn.Stop)
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Stop, self.RUNTIME);
             vprintf(3,'PsychTimerStop:Calling UpdateGUIstate')
@@ -596,6 +593,7 @@ classdef RunExpt < handle
         position = getSavedFigurePosition(defaultPosition)
         saveFigurePosition(position)
         ffn = defaultFilename(pth,name)
+        ffn = videoRecordingFilename(rootDir, subjectName)  % Build a per-subject, timestamped .ts recording path under rootDir
     end
 end
 

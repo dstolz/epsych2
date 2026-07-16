@@ -17,6 +17,7 @@ if isempty(cfgRoot)
     cfgRoot = char(getpref('ep_RunExpt_Setup','CDir',cd));
 end
 if ~exist(cfgRoot,'dir'), cfgRoot = cd; end
+vidRoot   = char(getpref('ep_RunExpt_Video','RecordingRootDir',''));
 
 % Assemble recents-backed item lists for the function dropdowns --------
 itemsSaving  = buildItems_('RecentSavingFcn',     savingFcn, 'ep_SaveDataFcn');
@@ -93,8 +94,8 @@ validateFcnField_(ef_addsubj, 'addsubj');
 
 % ---- TAB: Paths ------------------------------------------------------
 tabPaths = uitab(tg,'Title','Paths');
-gPaths = uigridlayout(tabPaths,[2 3]);
-gPaths.RowHeight    = {28, 28};
+gPaths = uigridlayout(tabPaths,[3 3]);
+gPaths.RowHeight    = {28, 28, 28};
 gPaths.ColumnWidth  = {160, '1x', 80};
 gPaths.Padding      = [10 12 10 12];
 gPaths.RowSpacing   = 8;
@@ -117,6 +118,17 @@ ef_cfgroot.Layout.Row = 2; ef_cfgroot.Layout.Column = 2;
 btn_cr = uibutton(gPaths,'Text','Browse...', ...
     'ButtonPushedFcn', @(~,~) browseDir_(ef_cfgroot, ef_cfgroot.Value, 'Select Config Browser Root'));
 btn_cr.Layout.Row = 2; btn_cr.Layout.Column = 3;
+
+addLabel_(gPaths, 3, 'Video Recording Path:');
+ef_vidroot = uieditfield(gPaths,'text','Value',vidRoot, ...
+    'Tag','Customize_VideoRootDir', ...
+    'Tooltip', ['Root directory for webcam recordings made via the "Record video" checkbox.' newline ...
+                'Files save to <root>\<subject>\<subject>_<yyMMddTHHmmss>.ts.' newline ...
+                'Leave empty to fall back to the Data Save Path.']);
+ef_vidroot.Layout.Row = 3; ef_vidroot.Layout.Column = 2;
+btn_vr = uibutton(gPaths,'Text','Browse...', ...
+    'ButtonPushedFcn', @(~,~) browseDir_(ef_vidroot, ef_vidroot.Value, 'Select Video Recording Root'));
+btn_vr.Layout.Row = 3; btn_vr.Layout.Column = 3;
 
 % ---- TAB: Options ----------------------------------------------------
 tabOpts = uitab(tg,'Title','Options');
@@ -322,6 +334,13 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         if ~isempty(cr)
             setpref('ep_RunExpt_Setup','ConfigBrowserRootDir',cr);
             vprintf(1,'Config browser root: %s\n',cr);
+        end
+
+        % Apply: Video Recording Root (persist empty too, so the Data Save Path fallback can be restored)
+        vr = strtrim(ef_vidroot.Value);
+        setpref('ep_RunExpt_Video','RecordingRootDir',vr);
+        if ~isempty(vr)
+            vprintf(1,'Video recording root: %s\n',vr);
         end
 
         self.CheckReady;

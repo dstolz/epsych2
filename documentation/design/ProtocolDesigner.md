@@ -1,6 +1,10 @@
 # Protocol Designer (developer reference)
 
+![Protocol Designer main window, showing the Interfaces tree on the left and the Protocol Parameters table on the right](images/ProtocolDesigner.png)
+
 `epsych.ProtocolDesigner` is the UI for editing `epsych.Protocol` objects. This document covers its internal structure for developers maintaining or extending the designer. The end-user guide is [ProtocolDesigner_UserGuide.md](ProtocolDesigner_UserGuide.md).
+
+The screenshot above shows the two main areas described throughout this document: the interfaces/modules tree (`buildUI`, `refreshInterfaceControls`) on the left, and the parameter editing table (`buildParametersTab`) on the right, here populated with a Software interface and an offline `TDT_RPcox` interface with paired and expression-driven parameters.
 
 Source class folder:
 

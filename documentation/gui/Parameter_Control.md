@@ -1,6 +1,10 @@
 # `gui.Parameter_Control`
 
-`gui.Parameter_Control` binds a single `hw.Parameter` to a small App Designer-style UI control (edit field, dropdown, checkbox, toggle, label, or button). It keeps the displayed value synchronized with the underlying parameter and can either:
+![Several gui.Parameter_Control widgets stacked in a grid: an edit field, a dropdown, a checkbox, a toggle button, a momentary button, and a readonly label](images/Parameter_Control.png)
+
+`gui.Parameter_Control` binds a single `hw.Parameter` to a small App Designer-style UI control (edit field, dropdown, checkbox, toggle, label, or button).
+
+The screenshot above shows, top to bottom, the `editfield`, `dropdown`, `checkbox`, `toggle`, and `momentary` types from [UI types](#ui-types), plus a `readonly` label at the bottom. It keeps the displayed value synchronized with the underlying parameter and can either:
 
 - **Commit immediately** (`autoCommit=true`) when the user changes the control, or
 - **Stage edits** (`autoCommit=false`, default) by marking the control as “changed” until another component (commonly `gui.Parameter_Update`) commits updates.

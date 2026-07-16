@@ -1,7 +1,11 @@
 # `stimgen.StimPlayer`
 
+![StimPlayer window: waveform plot at top, stimulus bank list on the left with Tone and Noise entries, and the parameter editor panel on the right](images/StimPlayer.png)
+
 `stimgen.StimPlayer` is a standalone stimulus-bank editor and playback tool
 for the `stimgen` package.
+
+The screenshot above shows the three areas described in [UI workflow](#ui-workflow): the signal plot for the selected bank entry (top), the stimulus bank panel with two items (bottom left), and the parameter editor panel for the selected `Noise` stimulus (right).
 
 It is designed for cases where you want to assemble a reusable bank of
 stimuli, edit one item at a time, preview signals locally, and optionally

@@ -1,6 +1,10 @@
 # StaircaseTraining
 
+![gui.StaircaseTraining window: a 4x4 table of Step Up/Down and Min/Max limits and values above a value-history plot](images/StaircaseTraining.png)
+
 `gui.StaircaseTraining` is a small MATLAB App Designer–style UI for configuring staircase (“progressive training”) step rules and bounds around a single `hw.Parameter`.
+
+The window above shows the table described in [The table layout](#the-table-layout) after a few calls to `updateParameter`; the line plot below the table is the resulting `ValueHistory`.
 
 It is designed to be embedded inside another UI (panel/grid/etc.) or used standalone in its own figure.
 

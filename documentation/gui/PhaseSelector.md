@@ -1,5 +1,7 @@
 # gui.PhaseSelector
 
+![gui.PhaseSelector component: a phase dropdown with Load, Info, and Save buttons, plus a description label](images/PhaseSelector.png)
+
 `gui.PhaseSelector` is a GUI component for switching between named **experiment phases** — saved parameter sets stored as JSON files. It lets an operator move a subject between training stages (for example, shaping → detection → psychometric testing) without editing the protocol or restarting the session.
 
 The first half of this page explains the workflow for operators; the integration section at the end is for developers embedding the component in a task GUI.
@@ -14,7 +16,7 @@ Because phases are plain JSON, they can be inspected and edited in any text edit
 
 ## Using the phase selector (operators)
 
-The component appears in task GUIs (such as the appetitive detection GUI) as a dropdown with three buttons:
+The component appears in task GUIs (such as the appetitive detection GUI) as a dropdown with three buttons, shown in the screenshot above:
 
 - **Dropdown** — pick a phase by name. Selecting alone does not change anything.
 - **Info** — preview what the selected phase would change: a table of parameters with their current values and the values the phase would apply.

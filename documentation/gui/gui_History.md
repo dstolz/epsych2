@@ -2,7 +2,11 @@
 
 ## Overview
 
+![gui.History table showing the newest trial at the top, a Response column, and parameter columns, with rows colored by decoded response bit](images/History.png)
+
 `gui.History` renders a trial-by-trial summary table for behavioral sessions.
+
+The screenshot above shows the default display: newest trial first (row 6 at top), the `Time`/`Response` columns from [Display Format](#display-format), and rows colored per [Color Resolution](#color-resolution) (green Hit, red Miss, blue CorrectReject, orange FalseAlarm, gray Abort).
 It listens for new data events from a linked psychophysics object and updates
 an on-screen table with relative time, decoded response labels, and selected
 trial parameters.

@@ -1,6 +1,10 @@
 # epsych.RunExpt GUI overview
 
+![epsych.RunExpt main window with the subject table, bottom control bar (Run/Preview/Pause/Stop), and right-side action buttons](images/RunExpt.png)
+
 This document is a practical guide to using the `epsych.RunExpt` session GUI to configure subjects, load and save session configurations, and run (or preview) behavioral experiments. It is written for experiment operators. If you need to change how the session controller works internally, start with [Architecture_Overview.md](Architecture_Overview.md) and the class source in [obj/+epsych/@RunExpt/](../../obj/+epsych/@RunExpt/).
+
+The window above is shown before any subjects are added; see [Main window layout](#3-main-window-layout) for what each area does once a session is configured.
 
 ## Table of contents
 

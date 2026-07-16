@@ -1,6 +1,10 @@
 # Customized GUI Instructions (EPsych / Caras Lab style)
 
+![Small example task GUI built from the components described in this guide: Trial Controls (gui.Parameter_Control), Phase Selector (gui.PhaseSelector), and a Commit Changes button (gui.Parameter_Update) with a pending edit highlighted](images/CustomGUIDemo.png)
+
 This document describes a *general* pattern for building custom MATLAB GUIs that interface with EPsych-style experiments. It uses the class `cl_AppetitiveDetection_GUI_B` and its GUI builder `create_gui.m` as a concrete reference, but the ideas apply broadly to other tasks (appetitive/aversive, staircase, go/no-go, training modes, etc.).
+
+The screenshot above is a minimal example assembled from the same building blocks `create_gui.m` uses: a `gui.Parameter_Control` bound to a real `hw.Parameter` (with the "SoundLevel" field showing a pending edit in green), a `gui.PhaseSelector`, and a `gui.Parameter_Update` commit button. It is not `cl_AppetitiveDetection_GUI_B` itself — that production GUI is larger — but it demonstrates the same wiring pattern described in [Section 3](#3-wiring-parameters-to-ui-controls) and [Section 5](#5-common-gui-helper-classes-you-may-use).
 
 ## Overview (start here)
 

@@ -1,7 +1,11 @@
 # stimgen.calibration.CalibrationGui
 
+![CalibrationGui in offline mode: measurement controls and calibrate buttons disabled on the left, empty Temporal/Spectral/Transfer Curve plots on the right, and a "No adapter attached" status message](images/CalibrationGui.png)
+
 Source file: obj/+stimgen/+calibration/CalibrationGui.m  
 Related reference: [stimgen_calibration.md](stimgen_calibration.md)
+
+The screenshot above shows the GUI immediately after construction in [offline mode](#constructor), before `File > Initialize Runtime From Protocol...` has attached an adapter — the calibrate buttons are disabled per [Button Enable Rules](#button-enable-rules) and the status label explains the next step.
 
 CalibrationGui is the standalone calibration UI for the stimgen calibration stack. It owns a `stimgen.calibration.Engine`, can initialize its own `epsych.Runtime` from a protocol file, attaches a compatible hardware interface through `InterfaceAdapter`, and provides interactive controls for reference, tone, click, swept-sine, and filter design workflows.
 

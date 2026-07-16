@@ -1,6 +1,10 @@
 # `gui.Parameter_Update`
 
+![Two gui.Parameter_Control editors above an Update Parameters button; the first field is highlighted green to show a pending edit and the button is enabled](images/Parameter_Update.png)
+
 `gui.Parameter_Update` is a small controller class that owns an **"Update Parameters"** button and keeps it in sync with a set of parameter editor widgets.
+
+The screenshot above shows the pending-edit state described in [Basic usage](#basic-usage): the `PulseWidth` control has an uncommitted change (`colorOnUpdate` highlight) and the **Update Parameters** button has enabled itself in response.
 
 It solves a common GUI workflow:
 

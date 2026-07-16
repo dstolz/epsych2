@@ -1,6 +1,10 @@
 # Protocol Designer User Guide
 
+![Protocol Designer main window, showing the Interfaces tree on the left and the Protocol Parameters table on the right](images/ProtocolDesigner.png)
+
 `epsych.ProtocolDesigner` is the graphical editor for building and checking protocol files without editing MATLAB code directly. Use it to create interfaces, add modules and parameters, adjust protocol settings, and preview the compiled trial list before saving.
+
+The window above shows a protocol with two interfaces loaded: **Interfaces** on the left (see [What the window is for](#what-the-window-is-for)) and the **Protocol Parameters** table on the right, populated with the parameter rows described in [Adding and editing parameters](#adding-and-editing-parameters).
 
 This guide is written for experiment designers and operators. If you need to change the software itself, use `documentation/design/ProtocolDesigner.md` instead.
 

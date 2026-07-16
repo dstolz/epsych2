@@ -313,6 +313,7 @@ classdef VlcRecorderSetup < handle
             % preview can open). Preserves the current selection across
             % manual refreshes; seeds from the recorder on first call.
             pnp = hw.VlcRecorder.listDevices();
+            obj.ensureWebcamAvailable_();
             try
                 cams = webcamlist;
             catch
@@ -337,12 +338,35 @@ classdef VlcRecorderSetup < handle
             obj.DeviceDropDown.Value = wanted;
         end
 
+        function tf = ensureWebcamAvailable_(~)
+            % Make the MATLAB `webcam`/`webcamlist` functions callable, adding
+            % the USB Webcams support package folder to the path if needed.
+            % The add-on can be installed yet absent from the path (e.g. after
+            % a path reset), so `webcam` is not found even though the package
+            % is present -- self-heal instead of reporting it as missing.
+            tf = exist('webcam', 'file') == 2;
+            if tf, return; end
+            try
+                root = matlabshared.supportpkg.getSupportPackageRoot;
+            catch
+                return  % support package infrastructure unavailable
+            end
+            wcdir = fullfile(root, 'toolbox', 'matlab', 'webcam', 'supportpackages');
+            if ~isfolder(wcdir)
+                hits = dir(fullfile(root, 'toolbox', 'matlab', 'webcam', '**', 'webcam.m'));
+                if isempty(hits), return; end
+                wcdir = hits(1).folder;
+            end
+            addpath(wcdir);
+            tf = exist('webcam', 'file') == 2;
+        end
+
         function startPreview(obj)
             % Open the MATLAB webcam preview and start the refresh timer.
             % Degrades to numeric-only editing (with a status message) when
             % the support package, a camera, or a snapshot is unavailable.
-            if exist('webcam', 'file') ~= 2
-                obj.setStatus('MATLAB Webcam support package not installed; live preview disabled.', true);
+            if ~obj.ensureWebcamAvailable_()
+                obj.setStatus('MATLAB USB Webcams support package unavailable; live preview disabled.', true);
                 return
             end
             try
@@ -695,15 +719,19 @@ classdef VlcRecorderSetup < handle
             obj.Recorder.set_parameter('DeviceName', device);
             obj.Recorder.set_parameter('FrameRate', obj.FrameRateSpinner.Value);
 
-            if obj.EnablePreview_ && all(obj.PreviewSize > 0)
+            % An explicit dropdown selection always wins: the MATLAB preview
+            % may not have honored it (driver rejected the switch, or the
+            % preview camera differs from the recording device), and VLC's
+            % --dshow-size lets the driver negotiate the nearest size anyway.
+            % PreviewSize is only committed for '(camera default)' so the
+            % crop values stay pinned to a known frame size.
+            resItem = char(obj.ResolutionDropDown.Value);
+            if ~strcmp(resItem, obj.DefaultResLabel)
+                resVal = sscanf(resItem, '%dx%d')';
+            elseif obj.EnablePreview_ && all(obj.PreviewSize > 0)
                 resVal = obj.PreviewSize;
             else
-                resItem = char(obj.ResolutionDropDown.Value);
-                if strcmp(resItem, obj.DefaultResLabel)
-                    resVal = [0 0];
-                else
-                    resVal = sscanf(resItem, '%dx%d')';
-                end
+                resVal = [0 0];
             end
             obj.Recorder.set_parameter('Resolution', resVal);
 

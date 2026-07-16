@@ -49,7 +49,7 @@ The device dropdown (editable) is populated from the union of `hw.VlcRecorder.li
 
 ### Resolution and Apply
 
-When the preview is running, Apply always commits the *actual previewed frame size* as `Resolution` (even if the dropdown shows "(camera default)") — this pins the crop values to the frame size VLC will actually receive, since crops are only meaningful relative to a known frame size. When the preview is disabled or unavailable, Apply commits whatever the Resolution dropdown shows.
+An explicit resolution selected in the dropdown is always what Apply commits as `Resolution` — even if the MATLAB preview could not switch to it (the driver rejected it, or the preview camera differs from the recording device); VLC's `--dshow-size` asks the driver to negotiate the nearest supported size. When the dropdown shows "(camera default)" and the preview is running, Apply commits the *actual previewed frame size* instead, pinning the crop values to a known frame size. With the preview disabled or unavailable, "(camera default)" commits `[0 0]` (let the camera decide).
 
 ## Requirements and dependencies
 

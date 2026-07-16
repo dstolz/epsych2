@@ -64,9 +64,11 @@ try
     topField = findall(fig, 'Tag', 'VlcRecorderSetup_CropTopField');
     leftField = findall(fig, 'Tag', 'VlcRecorderSetup_CropLeftField');
     frSpinner = findall(fig, 'Tag', 'VlcRecorderSetup_FrameRateSpinner');
+    resDD = findall(fig, 'Tag', 'VlcRecorderSetup_ResolutionDropDown');
     applyBtn = findall(fig, 'Tag', 'VlcRecorderSetup_ApplyButton');
 
-    assert(~isempty(topField) && ~isempty(leftField) && ~isempty(frSpinner) && ~isempty(applyBtn), ...
+    assert(~isempty(topField) && ~isempty(leftField) && ~isempty(frSpinner) ...
+        && ~isempty(resDD) && ~isempty(applyBtn), ...
         'SmokeTest:MissingControl', 'Could not locate expected tagged UI controls.');
 
     topField.Value = 40;
@@ -76,12 +78,18 @@ try
     frSpinner.Value = 15;
     frSpinner.ValueChangedFcn(frSpinner, []);
 
+    resDD.Items = [resDD.Items, {'1024x768'}];
+    resDD.Value = '1024x768';
+    resDD.ValueChangedFcn(resDD, []);
+
     applyBtn.ButtonPushedFcn(applyBtn, []);
     drawnow;
 
     assert(isequal(rec.get_parameter('CropTop'), 40), 'SmokeTest:ApplyMismatch', 'CropTop not applied.');
     assert(isequal(rec.get_parameter('CropLeft'), 20), 'SmokeTest:ApplyMismatch', 'CropLeft not applied.');
     assert(isequal(rec.get_parameter('FrameRate'), 15), 'SmokeTest:ApplyMismatch', 'FrameRate not applied.');
+    assert(isequal(rec.get_parameter('Resolution'), [1024 768]), ...
+        'SmokeTest:ApplyMismatch', 'Explicit Resolution selection not applied.');
 
     clear c
     delete(g);
@@ -124,6 +132,7 @@ try
         fig = g.Parent;
         applyBtn = findall(fig, 'Tag', 'VlcRecorderSetup_ApplyButton');
         topField = findall(fig, 'Tag', 'VlcRecorderSetup_CropTopField');
+        resDD = findall(fig, 'Tag', 'VlcRecorderSetup_ResolutionDropDown');
 
         topField.Value = 32;
         topField.ValueChangedFcn(topField, []);
@@ -131,6 +140,23 @@ try
         drawnow;
 
         assert(isequal(rec.get_parameter('CropTop'), 32), 'SmokeTest:ApplyMismatch', 'CropTop not applied with live preview.');
+
+        % An explicit dropdown selection must win over the previewed frame
+        % size on commit, even while the live preview is running.
+        resItems = resDD.Items(~strcmp(resDD.Items, '(camera default)'));
+        if ~isempty(resItems)
+            pick = resItems{end};
+            resDD.Value = pick;
+            resDD.ValueChangedFcn(resDD, []);
+            drawnow;
+            applyBtn.ButtonPushedFcn(applyBtn, []);
+            drawnow;
+            want = sscanf(pick, '%dx%d')';
+            assert(isequal(rec.get_parameter('Resolution'), want), ...
+                'SmokeTest:ApplyMismatch', ...
+                'Live preview: committed Resolution %s does not match dropdown selection "%s".', ...
+                mat2str(rec.get_parameter('Resolution')), pick);
+        end
 
         clear c
         delete(g);

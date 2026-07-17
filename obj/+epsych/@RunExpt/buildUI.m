@@ -66,6 +66,15 @@ self.H.mnu_vlc_setup = uimenu(mView,'Label','Webcam Recorder Setup...','Enable',
     'Accelerator','W', ...
     'MenuSelectedFcn', @(~,~) self.OpenVlcRecorderSetup);
 
+% Watch the camera without writing a file. The label states the no-recording
+% behavior outright; UpdateVideoLiveViewUI_ keeps it in sync with the view.
+% The 'setup' tag prefix disables it while RUNNING: opening or closing a view
+% restarts VLC, which blocks for ~1 s (and up to 8 s on a clean quit) and must
+% not land inside the trial loop. A view opened beforehand keeps running.
+self.H.mnu_vlc_liveview = uimenu(mView,'Text','Live Webcam View (No Recording)','Enable','on', ...
+    'Tag','setup_mnu_vlc_liveview', ...
+    'MenuSelectedFcn', @(~,~) self.ToggleVideoLiveView);
+
 self.UpdateRecentConfigsMenu
 
 % Layout
@@ -97,9 +106,9 @@ uimenu(cmProtocol,'Text','Change Protocol File...','MenuSelectedFcn', @(~,~) sel
 self.H.subject_list.ContextMenu = cmProtocol;
 
 % ---------- Bottom control bar (Record/Run/Preview/Pause/Stop) ----------
-gBottom = uigridlayout(g,[1 5]);
+gBottom = uigridlayout(g,[1 6]);
 gBottom.Layout.Row = 2; gBottom.Layout.Column = 1;
-gBottom.ColumnWidth = {'fit','1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
+gBottom.ColumnWidth = {'fit','fit','1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
 gBottom.RowSpacing = 0; gBottom.ColumnSpacing = 8; gBottom.Padding = [0 0 0 0];
 
 % Webcam recording opt-in lives beside Run so it is set as part of starting
@@ -111,6 +120,16 @@ self.H.setup_record_video = uicheckbox(gBottom, ...
     'Tooltip', ['Record webcam video via VLC during the run (never during Preview).' newline ...
                 'Camera: View > Webcam Recorder Setup.  Save location: Customize > Paths.'], ...
     'ValueChangedFcn', @(h,~) setpref('ep_RunExpt_Video','EnableRecording',logical(h.Value)));
+
+% States, next to the recording opt-in, that an open VLC window is showing
+% the camera only. Deliberately amber rather than red: a red indicator beside
+% a webcam reads as "recording", which is the opposite of what this means.
+% Text is empty (not Visible='off') while idle so the 'fit' column collapses.
+self.H.video_liveview_banner = uilabel(gBottom, ...
+    'Text','', ...
+    'FontWeight','bold', ...
+    'FontColor',[0.85 0.45 0.00], ...
+    'Tooltip','VLC is displaying the webcam stream only. Nothing is being written to disk.');
 
 self.H.ctrl_run = uibutton(gBottom,'push','Text','Run', ...
     'Tag','ctrl_run','FontWeight','bold','FontSize',18, ...

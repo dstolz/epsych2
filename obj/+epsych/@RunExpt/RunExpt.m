@@ -28,6 +28,7 @@ classdef RunExpt < handle
         VlcRecorder_ = []          % Lazily-created hw.VlcRecorder backing the webcam setup dialog
         VlcRecorderSetupGUI_ = []  % Currently-open gui.VlcRecorderSetup instance, if any
         VideoRecordingActive_ (1,1) logical = false  % True only while a run-owned VLC recording is in progress
+        VideoLiveViewActive_ (1,1) logical = false   % True only while a display-only (non-recording) VLC view is open
     end
 
     methods
@@ -47,6 +48,8 @@ classdef RunExpt < handle
         DefineTimerPeriod(self)         % Set the PsychTimer period (0.001–1 s)
 
         OpenCustomizeDialog(self)       % Open unified Customize Settings dialog for all Define* settings
+
+        ToggleVideoLiveView(self)       % Show/hide the webcam stream without recording it
 
         function self = RunExpt(ffnConfig, opts)
             % self = RunExpt()
@@ -359,6 +362,10 @@ classdef RunExpt < handle
                 return
             end
 
+            % The dialog stops the recorder and opens the camera itself, which
+            % would tear down a live view behind the UI's back.
+            self.StopVideoLiveView_;
+
             rec = self.getVlcRecorder_();
 
             try
@@ -412,6 +419,8 @@ classdef RunExpt < handle
         rec = getVlcRecorder_(self)                        % Lazily create/return the shared, preference-seeded hw.VlcRecorder
         StartVideoRecording_(self)                          % Begin the per-run webcam recording when the checkbox/preference is enabled
         StopVideoRecording_(self)                           % Stop the active per-run webcam recording, if any
+        StopVideoLiveView_(self)                            % Close the display-only webcam view, if any
+        UpdateVideoLiveViewUI_(self)                        % Sync the live-view menu item and bottom-bar banner with VideoLiveViewActive_
 
         function onCommand(self, hObj)
             % Adapts menu item callbacks; forwards the item's text label to ExptDispatch.
@@ -593,7 +602,7 @@ classdef RunExpt < handle
         position = getSavedFigurePosition(defaultPosition)
         saveFigurePosition(position)
         ffn = defaultFilename(pth,name)
-        ffn = videoRecordingFilename(rootDir, subjectName)  % Build a per-subject, timestamped .ts recording path under rootDir
+        ffn = videoRecordingFilename(rootDir, dataFilename)  % Build the .ts recording path under rootDir that pairs by name with a behavioral data file
     end
 end
 

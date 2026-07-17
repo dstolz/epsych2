@@ -77,9 +77,15 @@ for i = 1:nSubjs
 
     % Initialize default data filename
     vprintf(3, 'Initializing data filename for subject "%s" on box %d', T(i).Subject.Name, T(i).Subject.BoxID)
-    sn = T(i).Subject.Name;
-    pth = fullfile(RUNTIME.dfltDataPath,sn);
-    T(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
+    % RunExpt reserves these before the run so the webcam recording carries the
+    % same name; generate one only when Start is invoked without a reservation.
+    if numel(RUNTIME.SessionDataFilename) >= i && strlength(RUNTIME.SessionDataFilename(i)) > 0
+        T(i).DataFilename = char(RUNTIME.SessionDataFilename(i));
+    else
+        sn = T(i).Subject.Name;
+        pth = fullfile(RUNTIME.dfltDataPath,sn);
+        T(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
+    end
 
 
     % Initialize first trial using selector

@@ -1,24 +1,23 @@
-function ffn = videoRecordingFilename(rootDir, subjectName)
-% ffn = videoRecordingFilename(rootDir, subjectName)
-% Build a per-subject, timestamped .ts recording path under rootDir:
-%   <rootDir>\<subjectName>\<subjectName>_<yyMMddTHHmmss>.ts
-% subjectName is sanitized against the same invalid-character set as
-% gui.FilenameValidator; colons are excluded from the timestamp itself
-% because Windows forbids them in filenames.
+function ffn = videoRecordingFilename(rootDir, dataFilename)
+% ffn = videoRecordingFilename(rootDir, dataFilename)
+% Build the recording path that pairs with a behavioral data file, mirroring
+% that file's layout under rootDir:
+%   <rootDir>\<subjectFolder>\<dataFileName>.ts
+% The name is taken verbatim from dataFilename so a recording and the .mat it
+% accompanies are matched by name; only the root and the extension differ.
+% The extension is .ts because VLC's mp4 muxer writes broken timestamps for
+% camera captures; hw.VlcRecorder handles VLC-specific path escaping.
 arguments
     rootDir (1,1) string
-    subjectName (1,1) string
+    dataFilename (1,1) string
 end
 
-name = char(subjectName);
-name(ismember(name, '<>:"/\|?*&$%@=')) = '_';   % gui.FilenameValidator invalid set
-name(name < ' ' | name > '~') = '_';            % non-printable / non-ASCII
-name = strtrim(name);
-if isempty(name)
-    name = 'UnknownSubject';
+[dataDir, name] = fileparts(dataFilename);
+[~, subjectFolder] = fileparts(dataDir);
+
+if strlength(name) == 0
+    error('epsych:RunExpt:InvalidDataFilename', ...
+        'Cannot derive a recording name from data filename "%s".', dataFilename);
 end
 
-td = datetime('now');
-td.Format = "yyMMdd'T'HHmmss";
-
-ffn = fullfile(char(rootDir), name, sprintf('%s_%s.ts', name, char(td)));
+ffn = char(fullfile(rootDir, subjectFolder, name + ".ts"));

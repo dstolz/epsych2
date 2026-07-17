@@ -27,6 +27,10 @@ classdef VlcRecorder < hw.Interface
     %                                  (VLC's mp4 muxer writes broken timestamps
     %                                  for camera captures).
     %   MediaFile     - (String, Any)  Media URI passed to VLC (default: 'dshow://').
+    %   DisplayBanner - (String, Any)  Text overlaid on the video window and used as
+    %                                  its title. Applied in display-only mode only,
+    %                                  so it can never be burned into a recording.
+    %                                  Default: '' (no banner).
     %   FrameRate     - (Float, Any)   Capture fps forced via --dshow-fps. Default: 30
     %                                  (a normal webcam rate; the C270 test camera's
     %                                  own default is only 5 fps). 0 = camera default.
@@ -92,6 +96,7 @@ classdef VlcRecorder < hw.Interface
         deviceName_    (1,1) string = "Integrated Camera"  % DirectShow video device name
         recordingFile_ (1,1) string = ""                   % output file path; empty = display only
         mediaUri_      (1,1) string = "dshow://"           % media URI for VLC
+        displayBanner_ (1,1) string = ""                   % display-only overlay/title text; "" = none
         frameRate_     (1,1) double  = 30                  % dshow capture fps; 0 = camera default
         resolution_    (1,2) double  = [0 0]               % [width height]; [0 0] = camera default
         cropTop_       (1,1) double  = 0                   % crop, in pixels, from the top edge
@@ -226,6 +231,10 @@ classdef VlcRecorder < hw.Interface
                     obj.recordingFile_ = string(value);
                     vprintf(3, 'hw.VlcRecorder: RecordingFile = "%s"', char(value));
 
+                case 'DisplayBanner'
+                    obj.displayBanner_ = string(value);
+                    vprintf(3, 'hw.VlcRecorder: DisplayBanner = "%s"', char(value));
+
                 case 'FrameRate'
                     obj.frameRate_ = max(0, double(value));
                     vprintf(3, 'hw.VlcRecorder: FrameRate = %g', obj.frameRate_);
@@ -283,6 +292,9 @@ classdef VlcRecorder < hw.Interface
 
                 case 'MediaFile'
                     value = char(obj.mediaUri_);
+
+                case 'DisplayBanner'
+                    value = char(obj.displayBanner_);
 
                 case 'FrameRate'
                     value = obj.frameRate_;
@@ -452,6 +464,12 @@ classdef VlcRecorder < hw.Interface
                 Access  = 'Any', ...
                 Visible = true, ...
                 Description = 'Media URI passed to VLC (e.g. dshow://).');
+
+            obj.add_parameter('DisplayBanner', char(obj.displayBanner_), ...
+                Type    = 'String', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Description = 'Text overlaid on the video window and used as its title. Display-only mode; never burned into a recording.');
 
             obj.add_parameter('FrameRate', obj.frameRate_, ...
                 Type    = 'Float', ...
@@ -655,13 +673,47 @@ classdef VlcRecorder < hw.Interface
                     ':duplicate{dst=display,dst=standard{access=file,mux=%s,dst=''%s''}}'], vfilterOpt, mux, recVlc);
                 opts{end+1} = sprintf('"--sout=%s"', sout);
                 opts{end+1} = '--sout-keep';
-            elseif ~isempty(cropSpec)
-                % Display-only mode: apply the crop filter directly so the
-                % preview matches what a recording would contain.
-                opts{end+1} = sprintf('--video-filter=%s', cropSpec);
+            else
+                if ~isempty(cropSpec)
+                    % Display-only mode: apply the crop filter directly so the
+                    % preview matches what a recording would contain.
+                    opts{end+1} = sprintf('--video-filter=%s', cropSpec);
+                end
+                % The banner is only ever added on this branch, so no code path
+                % can burn it into a recorded file.
+                opts = [opts, obj.displayBannerOpts_()];
             end
 
             argStr = sprintf('%s "%s"', strjoin(opts, ' '), uri);
+        end
+
+        function opts = displayBannerOpts_(obj)
+            % opts = displayBannerOpts_()
+            % VLC options that overlay DisplayBanner on the video and use it as
+            % the window title. Returns {} when no banner is configured.
+            %
+            % marq-timeout=0 keeps the overlay up for the life of the window, so
+            % the label cannot scroll away and leave an unlabelled stream. The
+            % text is deliberately not red: a red overlay reads as "recording"
+            % on camera software, which is the opposite of what this marks.
+            banner = strtrim(char(obj.displayBanner_));
+            if isempty(banner)
+                opts = {};
+                return
+            end
+
+            % Double quotes terminate the option value; swap them for single.
+            banner = strrep(banner, '"', '''');
+
+            opts = { ...
+                '--sub-source=marq', ...
+                sprintf('--marq-marquee="%s"', banner), ...
+                '--marq-position=4', ...    % top-center
+                '--marq-color=16776960', ...% yellow
+                '--marq-opacity=255', ...
+                '--marq-size=24', ...
+                '--marq-timeout=0', ...
+                sprintf('--meta-title="%s"', banner)};
         end
 
         function spec = cropFilterSpec_(obj)

@@ -83,6 +83,12 @@ switch COMMAND
         % copy default data path to RUNTIME for use in timer functions and trial selectors
         self.RUNTIME.dfltDataPath = self.dfltDataPath;
 
+        % Reserve each subject's data filename here rather than in the Start
+        % timer function: the recording is named after subject 1's data file,
+        % but it has to launch before the timer runs (see below).
+        self.RUNTIME.SessionDataFilename = arrayfun(@(c) string(epsych.RunExpt.defaultFilename( ...
+            fullfile(self.dfltDataPath, c.SUBJECT.Name), c.SUBJECT.Name)), self.CONFIG);
+
         % make temporary directory for storing data during runtime in case of a computer crash
         E_ = EPsychInfo;
         if strlength(self.RUNTIME.TempDataDir) == 0 || ~isfolder(self.RUNTIME.TempDataDir)

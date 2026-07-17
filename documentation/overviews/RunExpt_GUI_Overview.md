@@ -84,6 +84,7 @@ Selecting a row prints the selected subject's details to the MATLAB command wind
 ### 3.2 Bottom control bar
 
 - **Record video** (checkbox): when checked, clicking **Run** also starts a webcam recording via VLC for the duration of the session; unchecked by default. The setting persists across sessions. Preview never records. See [5.1](#51-what-happens-when-you-click-run--preview) and [7) Customization](#7-customization).
+- **LIVE VIEW - NOT RECORDING** (amber text): shown only while a live webcam view is open (**View → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
 - **Run**: starts the experiment in Record mode.
 - **Preview**: starts the experiment in Preview mode; data are marked as a test run.
 - **Pause**: requests a pause via the runtime ModeChange event.
@@ -188,7 +189,9 @@ The webcam device itself (camera, frame rate, resolution, crop) is configured se
 
 - **Config**: Browse Configs..., Load Config..., Refresh Config, Save Config..., recent configs list.
 - **Customize**: Customize... (all settings above).
-- **View**: Always On Top, Commutator GUI (opens the motorized commutator control; see [../peripherals/peripherals_NanoMotorControl.md](../peripherals/peripherals_NanoMotorControl.md)).
+- **View**: Always On Top, Commutator GUI (opens the motorized commutator control; see [../peripherals/peripherals_NanoMotorControl.md](../peripherals/peripherals_NanoMotorControl.md)), Webcam Recorder Setup... (camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md)), Live Webcam View (No Recording).
+  - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject between runs. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the bottom control bar shows a matching amber banner. Select it again to close the view.
+  - The item is disabled while a session is RUNNING, because opening or closing the view restarts VLC and would stall the trial loop. A view opened before **Run** stays open through a session; if that session is recording, the recording takes over the camera and the live view closes.
 - **Help**:
   - Version Info — toolbox version, git commit, and links.
   - Open Current Error Log — opens today's EPsych error log file.

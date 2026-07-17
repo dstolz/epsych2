@@ -42,6 +42,7 @@ classdef Runtime < handle & dynamicprops
 
         TempDataDir (1,1) string = "" % Directory for acquired data
         DataFile string = strings(0,1)   % Filepath(s) for acquired data
+        SessionDataFilename (1,:) string = strings(1,0) % Per-subject data file paths reserved before the run starts, so the save function and the video recorder agree on one name
 
         Interfaces        % Cell array of hardware and software interfaces (e.g., hw.TDT_RPcox, hw.Software)
  

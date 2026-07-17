@@ -104,6 +104,8 @@ Support and task-specific classes
 │  ├─ PumpCom
 │  ├─ NanoMotorControl
 │  └─ NanoMotorControlGUI
+├─ util
+│  └─ VideoConverter → gui.VideoConverterSetup
 ├─ helpers
 │  ├─ EPsychInfo
 ├─ cl

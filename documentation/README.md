@@ -51,12 +51,17 @@ Hardware layer (`hw`):
 - [hw.Intan_RHX](hw/hw_Intan_RHX.md) — Intan RHX TCP backend
 - [hw.VlcRecorder](hw/hw_VlcRecorder.md) — VLC webcam preview/recording backend
 
+Utilities (`util`):
+
+- [util.VideoConverter](util/VideoConverter.md) — batch video format conversion via tracked ffmpeg processes, with true per-file progress, parallelism, and a GUI
+
 GUI components (`gui`):
 
 - [gui.Parameter_Control](gui/Parameter_Control.md) — binding a parameter to a UI widget
 - [gui.Parameter_Update](gui/Parameter_Update.md) — commit button for staged parameter edits
 - [gui.History](gui/gui_History.md) — trial-by-trial history table
 - [gui.VlcRecorderSetup](gui/VlcRecorderSetup.md) — webcam preview UI for configuring VlcRecorder device/fps/resolution/crop
+- [gui.VideoConverterSetup](util/VideoConverter.md) — batch video conversion UI (see util.VideoConverter)
 - [eval_staircase_training_mode](gui/eval_staircase_training_mode.md) — training-mode toggle callback
 
 Analysis (`psychophysics`):

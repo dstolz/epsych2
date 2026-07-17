@@ -18,6 +18,11 @@ Configured with `set_parameter` and read with `get_parameter`.
 - `VlcExePath` (String): full path to `vlc.exe`.
 - `MediaFile` (String): VLC media URI (default `dshow://`).
 - `RecordingFile` (File): output path; empty means preview-only.
+- `DisplayBanner` (String): text drawn over the video (a VLC `marq` sub-source,
+  top-center, yellow) and used as the window title. Default `''` (no banner).
+  Applied in preview-only mode only, so it is never burned into a recording;
+  setting it has no effect while `RecordingFile` is set. Used by
+  `epsych.RunExpt`'s Live Webcam View to mark a stream as not being recorded.
 - `FrameRate` (Float): capture fps, forced via `--dshow-fps`. Default `30`, a
   reasonable rate for a normal webcam. `0` leaves the camera at its own
   default (which can be as low as 5 fps on some devices/formats).

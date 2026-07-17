@@ -44,6 +44,10 @@ if isa(self.RUNTIME,'epsych.Runtime') && isvalid(self.RUNTIME) && ~isempty(self.
     end
 end
 
+% Close the live view before the recorder is deleted so VLC gets the clean
+% RC quit rather than being killed with its owner.
+self.StopVideoLiveView_;
+
 if ~isempty(self.VlcRecorderSetupGUI_) && isvalid(self.VlcRecorderSetupGUI_)
     try
         delete(self.VlcRecorderSetupGUI_)

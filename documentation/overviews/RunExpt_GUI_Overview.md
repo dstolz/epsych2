@@ -83,6 +83,7 @@ Selecting a row prints the selected subject's details to the MATLAB command wind
 
 ### 3.2 Bottom control bar
 
+- **Record video** (checkbox): when checked, clicking **Run** also starts a webcam recording via VLC for the duration of the session; unchecked by default. The setting persists across sessions. Preview never records. See [5.1](#51-what-happens-when-you-click-run--preview) and [7) Customization](#7-customization).
 - **Run**: starts the experiment in Record mode.
 - **Preview**: starts the experiment in Preview mode; data are marked as a test run.
 - **Pause**: requests a pause via the runtime ModeChange event.
@@ -176,9 +177,12 @@ All customization lives in a single dialog: **Customize → Customize...**. Valu
 | Add Subject Function | Dialog used by **Add Subject**. | `epsych.DefaultSubject.open` |
 | Data Path | Default root folder used to suggest data filenames. | current directory |
 | Config Browser Root | Folder scanned by **Config → Browse Configs...**. | — |
+| Video Recording Path | Root folder for webcam recordings made with the **Record video** checkbox. Files are saved to `<root>\<subject>\<subject>_<yyMMddTHHmmss>.ts`. Leave empty to fall back to the Data Path. | — |
 | Timer Period (s) | PsychTimer callback period (0.001–1 s). | 0.01 |
 
 If the Box GUI function is empty or disabled, the session can still run; you just will not get a live performance GUI.
+
+The webcam device itself (camera, frame rate, resolution, crop) is configured separately in **View → Webcam Recorder Setup...**.
 
 ## 8) Menus reference
 

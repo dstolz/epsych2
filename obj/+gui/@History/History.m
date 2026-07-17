@@ -196,6 +196,25 @@ classdef History < handle
         end
     end
 
+    methods (Static, Access = private)
+        function tf = isScalarLike(value)
+            % tf = gui.History.isScalarLike(value)
+            % True when a DATA field renders as a single table cell.
+            % A char row vector is one value, not numel(value) values, so
+            % element counting alone would wrongly reject text fields.
+            %
+            % Parameters:
+            %   value - Any DATA field value.
+            %
+            % Returns:
+            %   tf - Logical scalar.
+            tf = (ischar(value) && (isrow(value) || isempty(value))) ...
+                || isStringScalar(value) ...
+                || (iscellstr(value) && isscalar(value)) ...
+                || numel(value) <= 1;
+        end
+    end
+
     methods (Access = private)
         function update_row_colors(obj)
             % update_row_colors(obj)
@@ -252,7 +271,7 @@ classdef History < handle
             obj.Info.ResponseBit = rb(:);
             Response = string(rb);
 
-            ind = structfun(@(a) numel(a)>1,DataIn(1));
+            ind = structfun(@(a) ~gui.History.isScalarLike(a),DataIn(1));
             fn = fieldnames(DataIn);
             fn = fn(ind);
             removeFields = [requiredParams(:); fn(:)];
@@ -391,7 +410,7 @@ classdef History < handle
             D = obj.psychObj.DATA;
             if isempty(D), return; end
             fn = setdiff(fieldnames(D),obj.REQUIRED_FIELDS(:),'stable');
-            ind = cellfun(@(f) numel(D(1).(f)) <= 1, fn);
+            ind = cellfun(@(f) gui.History.isScalarLike(D(1).(f)), fn);
             params = sort(fn(ind));
         end
 

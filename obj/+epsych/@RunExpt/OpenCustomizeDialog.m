@@ -18,6 +18,8 @@ if isempty(cfgRoot)
 end
 if ~exist(cfgRoot,'dir'), cfgRoot = cd; end
 vidRoot   = char(getpref('ep_RunExpt_Video','RecordingRootDir',''));
+intanRoot = char(getpref('ep_RunExpt_Intan','RecordingRootDir',''));
+intanSet  = char(getpref('ep_RunExpt_Intan','SettingsFile',''));
 
 % Assemble recents-backed item lists for the function dropdowns --------
 itemsSaving  = buildItems_('RecentSavingFcn',     savingFcn, 'ep_SaveDataFcn');
@@ -94,8 +96,8 @@ validateFcnField_(ef_addsubj, 'addsubj');
 
 % ---- TAB: Paths ------------------------------------------------------
 tabPaths = uitab(tg,'Title','Paths');
-gPaths = uigridlayout(tabPaths,[3 3]);
-gPaths.RowHeight    = {28, 28, 28};
+gPaths = uigridlayout(tabPaths,[5 3]);
+gPaths.RowHeight    = {28, 28, 28, 28, 28};
 gPaths.ColumnWidth  = {160, '1x', 80};
 gPaths.Padding      = [10 12 10 12];
 gPaths.RowSpacing   = 8;
@@ -129,6 +131,30 @@ ef_vidroot.Layout.Row = 3; ef_vidroot.Layout.Column = 2;
 btn_vr = uibutton(gPaths,'Text','Browse...', ...
     'ButtonPushedFcn', @(~,~) browseDir_(ef_vidroot, ef_vidroot.Value, 'Select Video Recording Root'));
 btn_vr.Layout.Row = 3; btn_vr.Layout.Column = 3;
+
+addLabel_(gPaths, 4, 'Intan Recording Path:');
+ef_intanroot = uieditfield(gPaths,'text','Value',intanRoot, ...
+    'Tag','Customize_IntanRootDir', ...
+    'Tooltip', ['Root directory for Intan RHX recordings.' newline ...
+                'Files save under <root>\<subject>\ named after the data file.' newline ...
+                'Must contain no spaces (RHX commands cannot express them).' newline ...
+                'Leave empty to fall back to the Data Save Path.']);
+ef_intanroot.Layout.Row = 4; ef_intanroot.Layout.Column = 2;
+btn_ir = uibutton(gPaths,'Text','Browse...', ...
+    'ButtonPushedFcn', @(~,~) browseDir_(ef_intanroot, ef_intanroot.Value, 'Select Intan Recording Root'));
+btn_ir.Layout.Row = 4; btn_ir.Layout.Column = 3;
+
+addLabel_(gPaths, 5, 'Intan Settings File:');
+ef_intanset = uieditfield(gPaths,'text','Value',intanSet, ...
+    'Tag','Customize_IntanSettingsFile', ...
+    'Tooltip', ['RHX .xml settings file loaded when the Intan interface connects.' newline ...
+                'Must contain no spaces (RHX commands cannot express them).' newline ...
+                'Leave empty to load no settings file.']);
+ef_intanset.Layout.Row = 5; ef_intanset.Layout.Column = 2;
+btn_is = uibutton(gPaths,'Text','Browse...', ...
+    'ButtonPushedFcn', @(~,~) browseFile_(ef_intanset, ef_intanset.Value, ...
+        'Select Intan Settings File', {'*.xml','RHX Settings (*.xml)'}));
+btn_is.Layout.Row = 5; btn_is.Layout.Column = 3;
 
 % ---- TAB: Options ----------------------------------------------------
 tabOpts = uitab(tg,'Title','Options');
@@ -248,6 +274,19 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         end
     end
 
+    function browseFile_(ef, startFile, ttl, filter)
+        % Open a file picker; update ef.Value with the full path if confirmed.
+        startDir = cd;
+        if ~isempty(startFile)
+            d = fileparts(startFile);
+            if ~isempty(d) && exist(d,'dir'), startDir = d; end
+        end
+        [fn, pn] = uigetfile(filter, ttl, startDir);
+        if ~isequal(fn, 0)
+            ef.Value = fullfile(pn, fn);
+        end
+    end
+
     function onClose_()
         % Restore always-on-top state and destroy the dialog.
         self.AlwaysOnTop(ontop);
@@ -287,6 +326,17 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
             if isempty(b)
                 errs{end+1} = sprintf('Add Subject Function ''%s'' was not found on the path.', asf);
             end
+        end
+
+        % Intan paths: RHX set/execute commands cannot contain spaces, so a
+        % spaced path would silently fail to configure recording at run time.
+        ir = strtrim(ef_intanroot.Value);
+        is = strtrim(ef_intanset.Value);
+        if ~isempty(ir) && any(isspace(ir))
+            errs{end+1} = 'Intan Recording Path must not contain spaces (RHX command limitation).';
+        end
+        if ~isempty(is) && any(isspace(is))
+            errs{end+1} = 'Intan Settings File path must not contain spaces (RHX command limitation).';
         end
 
         if ~isempty(errs)
@@ -341,6 +391,17 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         setpref('ep_RunExpt_Video','RecordingRootDir',vr);
         if ~isempty(vr)
             vprintf(1,'Video recording root: %s\n',vr);
+        end
+
+        % Apply: Intan Recording Path and Settings File (persist empty too, so
+        % the Data Save Path fallback / "no settings file" can be restored)
+        setpref('ep_RunExpt_Intan','RecordingRootDir',ir);
+        if ~isempty(ir)
+            vprintf(1,'Intan recording root: %s\n',ir);
+        end
+        setpref('ep_RunExpt_Intan','SettingsFile',is);
+        if ~isempty(is)
+            vprintf(1,'Intan settings file: %s\n',is);
         end
 
         self.CheckReady;

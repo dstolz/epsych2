@@ -417,6 +417,7 @@ classdef RunExpt < handle
         ConfigBrowserCancel(self, fig)                     % Close config browser figure without loading
 
         rec = getVlcRecorder_(self)                        % Lazily create/return the shared, preference-seeded hw.VlcRecorder
+        configureIntanRecorder_(self, interfaces)          % Seed hw.Intan_RHX interfaces from the ep_RunExpt_Intan pref group before they connect
         StartVideoRecording_(self)                          % Begin the per-run webcam recording when the checkbox/preference is enabled
         StopVideoRecording_(self)                           % Stop the active per-run webcam recording, if any
         StopVideoLiveView_(self)                            % Close the display-only webcam view, if any

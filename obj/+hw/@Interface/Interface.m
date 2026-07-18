@@ -143,6 +143,16 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             P = obj.Module.add_parameter(name, value, copts{:});
         end
 
+        % prepareRecording - Hook to stage backend-side recording before a run
+        function prepareRecording(~, ~)
+            % prepareRecording(obj, runtime)
+            % Lifecycle hook invoked on every interface immediately before the
+            % run enters its mode (see epsych.RunExpt.ExptDispatch), while the
+            % hardware is still stopped. Backends that must configure recording
+            % from the reserved session filename (e.g. hw.Intan_RHX) override
+            % this; the default is a no-op.
+        end
+
         % all_parameters - Return all Parameters across all Modules, optionally filtered
         function P = all_parameters(obj, options)
             % P = all_parameters(obj, options)

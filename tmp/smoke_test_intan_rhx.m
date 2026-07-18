@@ -132,4 +132,73 @@ catch ME
     fprintf('  FAIL  createFcn: %s\n', ME.message);
 end
 
+%% 9. RecordingRootDir / SettingsFile setters: normalize slashes, reject spaces
+try
+    iface9 = hw.Intan_RHX('localhost', 5000, Connect=false);
+    iface9.RecordingRootDir = 'C:\Data\Intan\';
+    assert_ok('RecordingRootDir normalizes slashes/trailing', strcmp(iface9.RecordingRootDir, 'C:/Data/Intan'));
+    iface9.SettingsFile = 'C:\cfg\rhx.xml';
+    assert_ok('SettingsFile normalizes slashes', strcmp(iface9.SettingsFile, 'C:/cfg/rhx.xml'));
+
+    threwRoot = false;
+    try
+        iface9.RecordingRootDir = 'C:\Data\Rat 1';
+    catch ME
+        threwRoot = strcmp(ME.identifier, 'hw:Intan_RHX:PathHasSpaces');
+    end
+    assert_ok('RecordingRootDir rejects spaces', threwRoot);
+
+    threwSet = false;
+    try
+        iface9.SettingsFile = 'C:\my cfg\rhx.xml';
+    catch ME
+        threwSet = strcmp(ME.identifier, 'hw:Intan_RHX:PathHasSpaces');
+    end
+    assert_ok('SettingsFile rejects spaces', threwSet);
+catch ME
+    fprintf('  FAIL  path setters: %s\n', ME.message);
+end
+
+%% 10. prepareRecording is a no-op while offline (no throw, no state change)
+try
+    iface10 = hw.Intan_RHX('localhost', 5000, Connect=false);
+    rt10 = epsych.Runtime;
+    rt10.dfltDataPath = "C:/Data";
+    rt10.isTest = false;
+    rt10.SessionDataFilename = "C:/Data/Rat1/Rat1_260716T101530.mat";
+    iface10.prepareRecording(rt10);
+    assert_ok('prepareRecording offline no-op', isempty(iface10.ActiveRecordingFile));
+catch ME
+    fprintf('  FAIL  prepareRecording offline: %s\n', ME.message);
+end
+
+%% 11. hw.Interface.prepareRecording default is a no-op (via hw.Software)
+try
+    sw11 = hw.Software();
+    rt11 = epsych.Runtime;
+    sw11.prepareRecording(rt11);   % must not throw
+    assert_ok('hw.Interface.prepareRecording no-op for Software', true);
+catch ME
+    fprintf('  FAIL  base prepareRecording: %s\n', ME.message);
+end
+
+%% 12. Machine prefs must NOT serialize into a protocol (.eprot portability)
+try
+    iface12 = hw.Intan_RHX('192.168.1.50', 5001, Connect=false);
+    m12 = hw.Module(iface12, 'RHX', 'RHX', uint8(1));
+    iface12.setModules(m12);
+    iface12.RecordingRootDir = 'C:/IntanData';
+    iface12.SettingsFile = 'C:/cfg/rhx.xml';
+
+    prot12 = epsych.Protocol();
+    prot12.addInterface(iface12);
+    s12 = prot12.toStruct();
+    ii = find(cellfun(@(d) strcmp(d.Type,'Intan_RHX'), s12.InterfaceData), 1);
+    ifS = s12.InterfaceData{ii};
+    assert_ok('toStruct omits RecordingRootDir', ~isfield(ifS, 'RecordingRootDir'));
+    assert_ok('toStruct omits SettingsFile',     ~isfield(ifS, 'SettingsFile'));
+catch ME
+    fprintf('  FAIL  pref non-serialization: %s\n', ME.message);
+end
+
 fprintf('\n=== Done ===\n\n');

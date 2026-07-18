@@ -179,11 +179,15 @@ All customization lives in a single dialog: **Customize → Customize...**. Valu
 | Data Path | Default root folder used to suggest data filenames. | current directory |
 | Config Browser Root | Folder scanned by **Config → Browse Configs...**. | — |
 | Video Recording Path | Root folder for webcam recordings made with the **Record video** checkbox. Files are saved to `<root>\<subject>\<subject>_<yyMMddTHHmmss>.ts`. Leave empty to fall back to the Data Path. | — |
+| Intan Recording Path | Root folder for Intan RHX recordings when an `hw.Intan_RHX` interface is in the protocol. Files save under `<root>\<subject>\` named after the data file (RHX appends its own `_<timestamp>`). **Must contain no spaces.** Leave empty to fall back to the Data Path. | — |
+| Intan Settings File | RHX `.xml` settings file loaded when the Intan interface connects. **Must contain no spaces.** Leave empty to load none. | — |
 | Timer Period (s) | PsychTimer callback period (0.001–1 s). | 0.01 |
 
 If the Box GUI function is empty or disabled, the session can still run; you just will not get a live performance GUI.
 
 The webcam device itself (camera, frame rate, resolution, crop) is configured separately in **View → Webcam Recorder Setup...**.
+
+The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` preference group (per machine, like the webcam settings) and are applied to every `hw.Intan_RHX` interface at run time. RHX names its files with a mandatory `_<timestamp>` suffix, so the Intan `.rhd`/`.rhs`, the behavioral `.mat`, and the webcam `.ts` are paired by shared filename prefix rather than exact equality.
 
 ## 8) Menus reference
 

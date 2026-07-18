@@ -70,6 +70,11 @@ switch COMMAND
             % If protocol was designed with Software only, create minimal hardware
             protocol_interfaces = self.CONFIG(1).PROTOCOL.Interfaces;
 
+            % Seed Intan interfaces from prefs before connecting: the settings
+            % file loads inside setup_interface, which the assignment below
+            % triggers.
+            self.configureIntanRecorder_(protocol_interfaces);
+
             % triggers attempt to connect interfaces
             self.RUNTIME.Interfaces = protocol_interfaces;
 
@@ -107,6 +112,12 @@ switch COMMAND
         if COMMAND == "Record"
             self.StartVideoRecording_
         end
+
+        % Let each interface stage backend-side recording (e.g. Intan RHX
+        % filename/settings) while the hardware is still stopped; RHX ignores
+        % filename.* once the board is running, so this must precede the mode
+        % write below.
+        arrayfun(@(p) p.prepareRecording(self.RUNTIME), self.RUNTIME.Interfaces);
 
         vprintf(0,'Initialization complete. Starting experiment...')
         set(self.RUNTIME.Interfaces, 'mode', hw.DeviceState(COMMAND));

@@ -17,9 +17,10 @@ used by every other hardware backend.
 
 Intan RHX must be running and its TCP command server must be enabled before
 constructing a connected interface. The command server listens on
-**port 5000** by default (configurable in the RHX software under
-`Network > Command Port`). No additional MATLAB toolboxes are required beyond
-the Instrument Control Toolbox (for `tcpclient`).
+**port 5000** by default (enable it in the RHX software under
+`Network > Remote TCP Control`). No additional MATLAB toolboxes are required:
+`tcpclient` ships with base MATLAB (it does **not** require the Instrument
+Control Toolbox).
 
 ---
 
@@ -59,7 +60,15 @@ iface = hw.Intan_RHX('localhost', 5000, Timeout=10);
 | `Timeout` | TCP read/write timeout in seconds |
 | `IsConnected` | `true` once the TCP connection is open |
 | `Module` | `hw.Module` array — one entry (`'RHX'`) populated on connect |
-| `mode` | Current `hw.DeviceState`; reading it queries the hardware, writing it sends a `set runmode` command |
+| `mode` | Current `hw.DeviceState`; reading it queries the hardware (throttled), writing it sends a `set runmode` command and confirms it took |
+| `RecordingRootDir` | Root directory for recordings, seeded by RunExpt from the `ep_RunExpt_Intan` pref group. Setter normalizes `\`→`/` and **rejects embedded spaces** |
+| `SettingsFile` | RHX `.xml` settings file loaded at connect. Same normalization/validation as `RecordingRootDir` |
+| `ControllerType` | RHX controller type reported by `get type` (e.g. `ControllerRecordUSB3`, `ControllerStimRecord`). Cached at connect |
+| `ActiveRecordingFile` | Best-effort full path of the active recording, reconstructed after Record confirms |
+| `ActiveFileTimestamp` | The `YYMMDD_HHMMSS` suffix RHX assigned to the active file |
+| `ModeChangeTimeout` | Seconds to wait for a `runmode` change to confirm (default 2) |
+| `ModePollInterval` | Minimum seconds between live `runmode` queries; throttles the per-tick watchdog (default 0.25) |
+| `SettingsLoadWait` | Seconds to wait after `loadsettingsfile` (default 5) |
 | `Type` | Constant `"Intan_RHX"` — identifies this backend in serialized protocols |
 | `HW` | Always `[]`; present only to satisfy the `hw.Parameter` internal contract |
 
@@ -67,18 +76,35 @@ iface = hw.Intan_RHX('localhost', 5000, Timeout=10);
 
 ## Run mode control
 
-The `mode` property maps between `hw.DeviceState` values and RHX run mode
+Writing the `mode` property maps `hw.DeviceState` values to RHX run mode
 commands:
 
-| `hw.DeviceState` | RHX command sent |
+| `hw.DeviceState` written | RHX command sent |
 |---|---|
-| `Idle` | `set runmode stop` |
-| `Standby` | `set runmode stop` |
 | `Record` | `set runmode record` |
-| Other | `set runmode run` |
+| `Preview` | `set runmode run` (acquire, do not save to disk) |
+| `Idle` / `Standby` / `Stop` / `Pause` / `Error` | `set runmode stop` |
 
-Reading `mode` sends `get runmode` to the hardware and parses the response.
-When the interface is offline, `mode` returns the last cached value.
+After sending, `mode` polls `get runmode` until the change is confirmed
+(RHX run-mode changes are not immediate), up to `ModeChangeTimeout` seconds.
+A pending USB upload aborts a `set runmode`, so on a Stim/Record controller
+the write first waits for `get uploadinprogress` to be `False`.
+
+Reading `mode` maps the RHX run mode back to a `hw.DeviceState`:
+
+| RHX `RunMode` read | `hw.DeviceState` returned |
+|---|---|
+| `Record` | `Record` |
+| `Run` | `Preview` |
+| `Trigger` | `Standby` |
+| `Stop` | `Idle` |
+| (unparseable / timeout) | last cached value — **never** `Idle` |
+
+Reads are **throttled**: the run-time watchdog reads `mode` every timer tick,
+so `get runmode` is issued at most once per `ModePollInterval` (default
+0.25 s) and cached in between. A garbled or timed-out reply returns the cached
+value rather than fabricating `Idle`, because the watchdog treats `Idle` as
+"stop the session". When offline, `mode` returns the last cached value.
 
 ```matlab
 % Start recording
@@ -90,6 +116,48 @@ iface.mode = hw.DeviceState.Idle;
 % Check current mode
 disp(iface.mode)
 ```
+
+---
+
+## Recording to disk
+
+When a session starts in Record mode, `epsych.RunExpt` calls `prepareRecording`
+on every interface just before the mode write, while the hardware is still
+stopped (RHX ignores `filename.*` once the board is running). The Intan
+interface then points RHX at the same file the behavioral data will use:
+
+- **Path**: `<RecordingRootDir>/<subjectFolder>/`, mirroring the webcam
+  recorder's layout. `RecordingRootDir` is seeded from the `ep_RunExpt_Intan`
+  preference group (see below); when empty it falls back to the session's Data
+  Save Path.
+- **Base filename**: the stem of subject 1's reserved data filename
+  (`RUNTIME.SessionDataFilename(1)`), so the `.rhd`/`.rhs`, the `.mat`, and the
+  `.ts` video all share a name.
+
+RHX **always** appends its own `_YYMMDD_HHMMSS` timestamp to the base filename
+(and, with `CreateNewDirectory` enabled — the RHX default — nests the file in a
+timestamped directory). Exact name equality with the `.mat` is therefore
+impossible; the files are paired **by prefix**. After Record confirms, the
+interface reads `filename.activefiletimestamp` and logs the reconstructed
+on-disk name in `ActiveRecordingFile`.
+
+> **No spaces.** The RHX `set`/`execute` grammar takes a fixed number of
+> space-delimited words, so a path or subject name containing a space cannot be
+> expressed. A **Record** run with a spaced target raises
+> `hw:Intan_RHX:UnrepresentableFilename` and aborts (a silently unrecorded
+> ephys session would only be discovered in analysis); a **Preview** run warns
+> and continues, since it never writes to disk. Choose a space-free recording
+> path and subject name. The Customize dialog rejects spaced paths up front.
+
+## Settings file
+
+`SettingsFile` names an RHX `.xml` settings file (also from the
+`ep_RunExpt_Intan` pref group). It is loaded via `execute loadsettingsfile`
+during `connect()` — after forcing the board to Stop, since loading has no
+effect while running. It is loaded **once per connection**: because interfaces
+stay connected across runs within a session, an unchanged path is not reloaded.
+If the preference is changed mid-session, the next run reloads it (loading takes
+several seconds; see `SettingsLoadWait`). The settings path is also space-free.
 
 ---
 
@@ -123,6 +191,11 @@ parameters) or a cell array of values matching the parameter count.
 iface.set_parameter({'filter.lowcutoff', 'filter.highcutoff'}, {300, 6000});
 ```
 
+RHX replies to a `set` only on a **syntax error**, so `set_parameter` is
+fire-and-forget: the logical it returns means "sent", not "confirmed by the
+hardware". A value containing a space cannot be expressed in the RHX grammar
+and raises `hw:Intan_RHX:MalformedSet`.
+
 ---
 
 ## Triggering
@@ -141,6 +214,11 @@ t = iface.trigger('stim1');   % returns datetime of delivery
 
 If `UserData.TriggerKey` is not set, the key defaults to `'f1'`.
 
+Manual stim triggers are a **Stim/Record controller** feature. On a plain
+Recording controller RHX ignores `manualstimtriggerpulse` silently, so
+`trigger()` suppresses the command (warning once, via the cached
+`ControllerType`) rather than leave the caller believing a pulse was delivered.
+
 ---
 
 ## Connection management
@@ -151,14 +229,16 @@ iface = hw.Intan_RHX('localhost', 5000, Connect=false);
 iface.connect();
 
 % Disconnect
-iface.close_interface();
+iface.disconnect();
 
-% The destructor calls close_interface automatically
+% The destructor releases the connection automatically
 clear iface
 ```
 
 `connect()` is idempotent — calling it on an already-connected interface does
-nothing. Calling `close_interface()` when already disconnected is also safe.
+nothing. Calling `disconnect()` when already disconnected is also safe.
+Interfaces are left connected across runs within a session and are released
+only when the session window closes.
 
 ---
 
@@ -183,8 +263,10 @@ iface.setModules(m);
 
 ## TCP command protocol
 
-Commands are sent as plain text over a TCP socket, terminated with a newline
-(`LF`). The RHX software parses commands case-insensitively.
+Commands are sent as plain text over a TCP socket with **no terminator** —
+matching Intan's reference client, which sends none and compares replies by
+exact equality. (A trailing newline risks being tokenized into the value of a
+`set`.) RHX parses commands case-insensitively.
 
 | Operation | Command format | Example |
 |---|---|---|
@@ -194,22 +276,35 @@ Commands are sent as plain text over a TCP socket, terminated with a newline
 
 ### Response format
 
-Successful responses start with `Return:`:
+RHX replies to a `get` with a line beginning `Return:`, but replies to a `set`
+or `execute` **only on a syntax error** — a successful write produces no
+response at all:
 
 ```
 Return: RunMode Record
 Return: amp.samplingrate 20000
 ```
 
-Error and warning responses are free-form text beginning with `Error` or
-`Warning:`. `set_parameter` logs a warning via `vprintf` when a non-success
-response is received but does not throw.
+Because writes are silent on success, this backend treats `set`/`execute` as
+fire-and-forget (waiting for a reply would block for the full `Timeout`). Where
+confirmation matters — e.g. a run-mode change — it is obtained by polling
+`get runmode`, not by reading a write's reply.
+
+Each command has exactly two words after `set` (or one/two after `execute`), so
+**values may not contain spaces**; the helpers raise
+`hw:Intan_RHX:MalformedSet` / `hw:Intan_RHX:MalformedExecute` rather than send a
+malformed command.
+
+### Resynchronization
+
+Since a rejected `set`/`execute` does leave an error response on the socket,
+each command first **drains** any unsolicited bytes (logging them via
+`vprintf`) so the next `get` cannot misread a stray error as its own answer.
 
 ### Timeout behavior
 
-`sendCommand_` polls `NumBytesAvailable` in a 1 ms loop up to `obj.Timeout`
-seconds. On timeout it returns an empty string, which `isSuccessResponse_`
-treats as failure.
+A `get` polls `NumBytesAvailable` in a 1 ms loop up to `Timeout` seconds; on
+timeout it returns an empty string (logged via `vprintf`).
 
 ---
 
@@ -218,6 +313,11 @@ treats as failure.
 `hw.Intan_RHX` participates fully in the Protocol save/load cycle:
 
 - **`toStruct`** serializes `Host`, `Port`, `Type`, and all module parameters.
+  `RecordingRootDir` and `SettingsFile` are **not** serialized: they are
+  per-machine preferences (`ep_RunExpt_Intan`), and a machine-specific path must
+  not travel inside a portable `.eprot`. RunExpt seeds them from the preference
+  group before connecting (see `configureIntanRecorder_`), keeping `getpref` out
+  of the hardware layer.
 - **`createInterfaceFromStruct_`** reconstructs the interface with
   `Connect=false` so that opening a saved protocol does not attempt to connect
   to hardware.
@@ -264,12 +364,14 @@ protocol struct without establishing a TCP connection.
 
 | `hw.DeviceState` | Meaning in RHX context |
 |---|---|
-| `Idle` | RHX stopped (`Stop` mode) |
-| `Standby` | RHX stopped (same as Idle for RHX; mapped to `Stop`) |
+| `Idle` | RHX stopped (`Stop` mode) — also what a read maps `Stop` to |
+| `Preview` | RHX acquiring without saving (`Run` mode) |
+| `Standby` | Read-back of RHX `Trigger` mode (waiting for a hardware trigger) |
 | `Record` | RHX recording to disk |
 
-RHX `Run` and `Trigger` modes (acquisition without saving) are mapped to
-`hw.DeviceState.Standby` when reading `mode` back from hardware.
+Writing `Standby`, `Stop`, `Pause`, or `Error` all send `set runmode stop`.
+Reading maps RHX `Run` → `Preview`, `Trigger` → `Standby`, `Stop` → `Idle`, so
+the states EPsych actually writes (`Record`, `Preview`, `Idle`) round-trip.
 
 ---
 

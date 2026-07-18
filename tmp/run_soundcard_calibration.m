@@ -12,7 +12,7 @@
 %% ---- CONFIG ---- (edit these values for your rig) ----------------------
 
 SAMPLE_RATE    = 48000;  % Hz — must match your device's native rate
-DEVICE_NAME    = "";     % "" uses the system default; or e.g. "Focusrite USB"
+DEVICE_NAME    = "Primary Sound Capture Driver (Windows DirectSound)";     % "" uses the system default; or e.g. "Focusrite USB"
 INPUT_CHANNEL  = 1;      % microphone channel index on the input device
 SAMPLES_PER_FRAME = 1024;% streaming frame size; increase if you hear glitches
 
@@ -90,14 +90,8 @@ function deviceNames = list_audio_devices_()
 % Return a de-duplicated list of candidate audio device names.
 deviceNames = {};
 
-% Query #1: static-style call supported in some MATLAB releases.
-try
-    names = getAudioDevices('audioPlayerRecorder');
-    deviceNames = append_names_(deviceNames, names);
-catch
-end
-
-% Query #2: object-style call supported in other MATLAB releases.
+% getAudioDevices is a method on the audio device objects (Audio Toolbox),
+% so it must be called on an instance rather than by name.
 try
     apr = audioPlayerRecorder(SampleRate=48000);
     names = getAudioDevices(apr);

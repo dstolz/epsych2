@@ -9,7 +9,8 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
     %
     %   BufferSize   - Integer, Write  - number of samples to play/record
     %   BufferOut    - Buffer,  Write  - output waveform data
-    %   x_Trigger    - Boolean, Write  - start pulse (1 → 0)
+    %   !Trigger     - Boolean, Write  - start pulse (1 → 0); the tag may also
+    %                                    be named x_Trigger (see the template)
     %   BufferIndex  - Integer, Read   - acquisition progress counter
     %   BufferIn     - Buffer,  Read   - recorded microphone signal
     %
@@ -42,7 +43,14 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
     end
 
     properties (Constant, Access = private)
-        REQUIRED_PARAMS_ = {'BufferSize','BufferOut','x_Trigger','BufferIndex','BufferIn'}
+        % Buffer/index tags that must be present verbatim.
+        REQUIRED_PARAMS_ = {'BufferSize','BufferOut','BufferIndex','BufferIn'}
+
+        % Accepted names for the acquisition start trigger, in priority order.
+        % '!Trigger' is the standard EPsych/RPvds SoftTrg convention (the
+        % ep_MatlabTrigger macro used by StimGenCalibration.rcx); 'x_Trigger'
+        % is the plain-tag convention in tmp/Calibration_TDT_RPcox_Template.json.
+        TRIGGER_CANDIDATES_ = {'!Trigger','x_Trigger'}
     end
 
     methods
@@ -96,7 +104,7 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
             required = obj.REQUIRED_PARAMS_;
             for k = 1:numel(required)
                 name = required{k};
-                p = obj.find_parameter(name, silenceParameterNotFound=true);
+                p = obj.HW.find_parameter(name, silenceParameterNotFound=true);
                 if isempty(p)
                     error('stimgen:calibration:InterfaceAdapter:missingParameter', ...
                         ['Required calibration parameter "%s" not found on ' ...
@@ -105,11 +113,11 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
                 end
             end
 
-            obj.pBufferSize_  = obj.find_parameter('BufferSize');
-            obj.pBufferOut_   = obj.find_parameter('BufferOut');
-            obj.pTrigger_     = obj.find_parameter('x_Trigger');
-            obj.pBufferIndex_ = obj.find_parameter('BufferIndex');
-            obj.pBufferIn_    = obj.find_parameter('BufferIn');
+            obj.pBufferSize_  = obj.HW.find_parameter('BufferSize');
+            obj.pBufferOut_   = obj.HW.find_parameter('BufferOut');
+            obj.pBufferIndex_ = obj.HW.find_parameter('BufferIndex');
+            obj.pBufferIn_    = obj.HW.find_parameter('BufferIn');
+            obj.pTrigger_     = obj.resolve_trigger_();
 
             % Discover Fs from the first module that reports a non-zero rate.
             if obj.Fs_ == 0
@@ -128,6 +136,23 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
                     'Ensure hw.Module.Fs is set during setup_interface, or ' ...
                     'supply the Fs argument explicitly.'], class(obj.HW));
             end
+        end
+
+        function p = resolve_trigger_(obj)
+            % Return the acquisition start-trigger handle, accepting any of the
+            % names in TRIGGER_CANDIDATES_ (first match wins). Errors if none
+            % is present.
+            candidates = obj.TRIGGER_CANDIDATES_;
+            for k = 1:numel(candidates)
+                p = obj.HW.find_parameter(candidates{k}, silenceParameterNotFound=true);
+                if ~isempty(p)
+                    return
+                end
+            end
+            error('stimgen:calibration:InterfaceAdapter:missingParameter', ...
+                ['No acquisition trigger found on hw.Interface "%s". Expose a ' ...
+                'writable trigger tag named one of: %s.'], ...
+                class(obj.HW), strjoin(candidates, ', '));
         end
 
         function poll_until_done_(obj, nsamps)

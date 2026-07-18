@@ -22,6 +22,7 @@ H = Y ./ (X + eps);
 halfIdx = 1:(floor(nfft/2) + 1);
 freqHz = (halfIdx - 1)' .* (fs / nfft);
 Hh = H(halfIdx);
+Hh = Hh(:);
 magDb = 20 * log10(abs(Hh) + eps);
 
 phaseRad = unwrap(angle(Hh));

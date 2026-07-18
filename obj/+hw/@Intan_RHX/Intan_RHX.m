@@ -33,10 +33,13 @@ classdef Intan_RHX < hw.Interface
     %   IsConnected         - True when TCP connection is open.
     %   Module              - Single hw.Module representing the RHX device.
     %   mode                - Current hw.DeviceState (maps to RHX runmode).
-    %   RecordingRootDir    - Root directory for recordings (seeded by RunExpt
-    %                         from the 'ep_RunExpt_Intan' pref group).
-    %   SettingsFile        - RHX .xml settings file loaded at connect.
-    %   ControllerType      - RHX controller type reported by "get type".
+    %   SettingsFile        - RHX .xml settings file loaded at connect (protocol-level).
+    %   SamplingRate        - Declared board sample rate in Hz (protocol-level; 0 = unspecified).
+    %   ControllerType      - Expected RHX controller type; hardware "get type" is
+    %                         authoritative and overrides it at connect.
+    %   RecordingRootDir    - Root directory for recordings (per-machine; seeded by
+    %                         RunExpt from the 'ep_RunExpt_Intan' pref group).
+    %   ActiveSamplingRate  - Board sample rate in Hz read back from RHX at connect.
     %   ActiveRecordingFile - Best-effort full path of the active recording.
     %
     % Methods
@@ -64,14 +67,24 @@ classdef Intan_RHX < hw.Interface
         Timeout (1,1) double = 5         % TCP read/write timeout in seconds
         HW = []                          % Reserved; unused by Intan_RHX (required by hw.Parameter)
 
-        % Machine-level recording configuration, seeded by RunExpt from the
-        % 'ep_RunExpt_Intan' preference group (see RunExpt.configureIntanRecorder_).
-        % Deliberately plain properties, NOT hw.Parameters: they are per-machine
-        % and must not serialize into a portable .eprot. The setters normalize
-        % backslashes to forward slashes and reject embedded spaces, which the
-        % RHX set/execute grammar cannot express.
-        RecordingRootDir (1,:) char = ''  % Recording root; empty => RUNTIME.dfltDataPath
+        % Protocol-level Intan configuration. These are edited in
+        % epsych.ProtocolDesigner (see hw.Intan_RHX.getCreationSpec) and DO
+        % serialize into the .eprot, so a protocol carries its intended RHX
+        % settings file, sample rate, and controller type. Deliberately plain
+        % properties, NOT hw.Parameters. At connect the hardware is the source
+        % of truth for SamplingRate/ControllerType (validated in
+        % setup_interface, which warns on a mismatch); SettingsFile is loaded
+        % into RHX. The path setters normalize backslashes to forward slashes
+        % and reject embedded spaces, which the RHX set/execute grammar cannot
+        % express.
         SettingsFile (1,:) char = ''      % RHX .xml settings file; empty => load none
+        SamplingRate (1,1) double = 0     % Declared board sample rate (Hz); 0 => unspecified
+        ControllerType (1,:) char = ''    % Expected controller type; hardware "get type" wins at connect
+
+        % Per-machine recording root, seeded by RunExpt from the
+        % 'ep_RunExpt_Intan' preference group (see RunExpt.configureIntanRecorder_).
+        % Deliberately NOT serialized into the portable .eprot.
+        RecordingRootDir (1,:) char = ''  % Recording root; empty => RUNTIME.dfltDataPath
 
         % Timing knobs (exposed so tests can shorten them).
         ModeChangeTimeout (1,1) double = 2     % seconds to confirm a runmode change
@@ -85,7 +98,7 @@ classdef Intan_RHX < hw.Interface
 
     properties (SetAccess = protected)
         Module   % hw.Module array
-        ControllerType (1,:) char = ''       % RHX controller type from "get type"
+        ActiveSamplingRate (1,1) double = 0  % Board sample rate (Hz) read from RHX at connect
         ActiveFileTimestamp (1,:) char = ''  % RHX _YYMMDD_HHMMSS suffix of the active file
         ActiveRecordingFile (1,:) char = ''  % Best-effort full path of the active recording
     end
@@ -120,18 +133,32 @@ classdef Intan_RHX < hw.Interface
             %   host    - RHX server hostname or IP. Default '127.0.0.1'
             %   port    - TCP port. Default 5000
             % Name=Value
-            %   Timeout (double) - TCP timeout (s). Default 5
-            %   Connect (logical) - Connect on construction. Default true
+            %   Timeout (double)        - TCP timeout (s). Default 5
+            %   Connect (logical)       - Connect on construction. Default true
+            %   SettingsFile (char)     - RHX .xml settings file to load at connect.
+            %   SamplingRate (double)   - Declared board sample rate (Hz); 0 = unspecified.
+            %   ControllerType (char)   - Expected controller type (validated at connect).
             arguments
                 host (1,:) char = '127.0.0.1'
                 port (1,1) double = 5000
                 options.Timeout (1,1) double = 5
                 options.Connect (1,1) logical = true
+                options.SettingsFile (1,:) char = ''
+                options.SamplingRate (1,1) double = 0
+                options.ControllerType (1,:) char = ''
             end
             obj.Host = host;
             obj.Port = port;
             obj.Timeout = options.Timeout;
             obj.Module = hw.Module.empty(1, 0);
+
+            % Seed protocol-level configuration before connect so
+            % setup_interface can load the settings file and validate the
+            % sample rate / controller type against the hardware.
+            obj.SettingsFile = options.SettingsFile;
+            obj.SamplingRate = options.SamplingRate;
+            obj.ControllerType = options.ControllerType;
+
             if options.Connect
                 obj.connect();
             end
@@ -387,14 +414,82 @@ classdef Intan_RHX < hw.Interface
                     'getFolder', false, ...
                     'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
                     'fileDialogTitle', '', ...
-                    'description', 'TCP port for the Intan RHX command server (default 5000).')], ...
-                @(opts) hw.Intan_RHX(char(opts.host), double(opts.port)));
+                    'description', 'TCP port for the Intan RHX command server (default 5000).'), ...
+                hw.InterfaceSpecOption( ...
+                    'name', 'settingsFile', ...
+                    'label', 'Settings File', ...
+                    'defaultValue', '', ...
+                    'required', false, ...
+                    'inputType', 'text', ...
+                    'choices', {}, ...
+                    'isList', false, ...
+                    'scope', 'interface', ...
+                    'allowScalarExpansion', false, ...
+                    'controlType', 'text', ...
+                    'getFile', true, ...
+                    'getFolder', false, ...
+                    'fileFilter', {{'*.xml', 'RHX Settings (*.xml)'; '*.*', 'All Files (*.*)'}}, ...
+                    'fileDialogTitle', 'Select Intan RHX Settings File', ...
+                    'description', ['RHX .xml settings file loaded into RHX when the interface ' ...
+                        'connects. The path must not contain spaces (RHX command limitation).']), ...
+                hw.InterfaceSpecOption( ...
+                    'name', 'samplingRate', ...
+                    'label', 'Sampling Rate (Hz)', ...
+                    'defaultValue', 0, ...
+                    'required', false, ...
+                    'inputType', 'numeric', ...
+                    'choices', {}, ...
+                    'isList', false, ...
+                    'scope', 'interface', ...
+                    'allowScalarExpansion', false, ...
+                    'controlType', 'numeric', ...
+                    'getFile', false, ...
+                    'getFolder', false, ...
+                    'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
+                    'fileDialogTitle', '', ...
+                    'description', ['Declared board sample rate in Hz (0 = unspecified). RHX ' ...
+                        'fixes the sample rate via the settings file; a declared value that ' ...
+                        'disagrees with the board is reported as a warning at connect.']), ...
+                hw.InterfaceSpecOption( ...
+                    'name', 'controllerType', ...
+                    'label', 'Controller Type', ...
+                    'defaultValue', '', ...
+                    'required', false, ...
+                    'inputType', 'text', ...
+                    'choices', {}, ...
+                    'isList', false, ...
+                    'scope', 'interface', ...
+                    'allowScalarExpansion', false, ...
+                    'controlType', 'text', ...
+                    'getFile', false, ...
+                    'getFolder', false, ...
+                    'fileFilter', {{'*.*', 'All Files (*.*)'}}, ...
+                    'fileDialogTitle', '', ...
+                    'description', ['Expected RHX controller type (e.g. ControllerRecordUSB2, ' ...
+                        'ControllerRecordUSB3, ControllerStimRecord). The hardware "get type" ' ...
+                        'is authoritative at connect; a mismatch is reported as a warning.'])], ...
+                @(opts) hw.Intan_RHX(char(opts.host), double(opts.port), ...
+                    SettingsFile   = char(hw.Intan_RHX.optField_(opts, 'settingsFile', '')), ...
+                    SamplingRate   = double(hw.Intan_RHX.optField_(opts, 'samplingRate', 0)), ...
+                    ControllerType = char(hw.Intan_RHX.optField_(opts, 'controllerType', ''))));
         end
 
     end  % Static methods
 
 
     methods (Static, Access = private)
+
+        function v = optField_(opts, name, default)
+            % v = optField_(opts, name, default)
+            % Read opts.(name) when present and non-empty, else return default.
+            % Lets getCreationSpec's factory tolerate an options struct that
+            % omits the newer settings-file/sample-rate/controller fields.
+            if isstruct(opts) && isfield(opts, name) && ~isempty(opts.(name))
+                v = opts.(name);
+            else
+                v = default;
+            end
+        end
 
         function p = normalizePathValue_(p, label)
             % p = normalizePathValue_(p, label)
@@ -435,13 +530,24 @@ classdef Intan_RHX < hw.Interface
             obj.IsConnected = true;
 
             % Cache controller type: gates .rhs/.rhd naming and the validity of
-            % manual stim triggers.
+            % manual stim triggers. The protocol may declare an expected type;
+            % the hardware is authoritative, so warn on a mismatch, then adopt
+            % the hardware value.
+            expectedType = strtrim(obj.ControllerType);
             obj.ControllerType = obj.parseReturnValue_(obj.sendGet_('type'));
+            if ~isempty(expectedType) && ~strcmpi(expectedType, strtrim(obj.ControllerType))
+                vprintf(0, 1, ['Intan_RHX: protocol expected controller "%s" but the ' ...
+                    'hardware reports "%s"; using the hardware type.'], ...
+                    expectedType, obj.ControllerType);
+            end
             obj.isStimRecord_ = strcmpi(strtrim(obj.ControllerType), 'ControllerStimRecord');
             vprintf(1, 'Intan_RHX: controller type "%s" (%s files)', obj.ControllerType, obj.fileExt_());
 
-            % Load the machine-configured settings file (no-op if unset).
+            % Load the configured settings file (no-op if unset).
             obj.applySettingsFile_();
+
+            % Validate the board sample rate against the protocol's declaration.
+            obj.applySamplingRate_();
 
             % Sync cached mode from hardware
             obj.modeCache_ = obj.queryMode_();
@@ -761,6 +867,33 @@ classdef Intan_RHX < hw.Interface
             pause(obj.SettingsLoadWait);
             obj.settingsFileLoaded_ = sf;
             vprintf(1, 'Intan_RHX: loaded settings file %s', sf);
+        end
+
+        function applySamplingRate_(obj)
+            % applySamplingRate_(obj)
+            % Read the board's actual sample rate (RHX "get sampleratehertz")
+            % into ActiveSamplingRate and, when the protocol declared a
+            % SamplingRate, warn if the two disagree. RHX fixes the sample rate
+            % via the settings file / GUI (sampleratehertz is read-only over
+            % TCP), so a mismatch means the loaded settings file is not the one
+            % the protocol was designed for. Skipped when SamplingRate is
+            % unspecified (0) to avoid a needless round-trip at connect.
+            if ~obj.IsConnected || obj.SamplingRate <= 0
+                return
+            end
+            actual = str2double(obj.parseReturnValue_(obj.sendGet_('sampleratehertz')));
+            if isnan(actual)
+                vprintf(1, 'Intan_RHX: could not read board sample rate; expected %g Hz.', obj.SamplingRate);
+                return
+            end
+            obj.ActiveSamplingRate = actual;
+            if abs(obj.SamplingRate - actual) > 0.5
+                vprintf(0, 1, ['Intan_RHX: protocol declares %g Hz but the board is ' ...
+                    'sampling at %g Hz (fixed by the settings file); check the settings file.'], ...
+                    obj.SamplingRate, actual);
+            else
+                vprintf(1, 'Intan_RHX: board sample rate %g Hz matches the protocol.', actual);
+            end
         end
 
         function [path, base] = deriveRecordingTarget_(~, root, dataFilename)

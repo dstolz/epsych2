@@ -213,4 +213,47 @@ catch ME
     fprintf('  FAIL  settings file: %s\n', ME.message);
 end
 
+%% 14. SamplingRate: unspecified => no query; declared => validated at connect
+try
+    % Unspecified (default 0): connect issues no sample-rate query.
+    mNone = Intan_RHX_Mock(); mNone.connect();
+    assert_ok('unspecified sample rate: no get sampleratehertz', ~any(mNone.Log == "get sampleratehertz"));
+
+    % Matching declared rate: ActiveSamplingRate populated, no mismatch warning.
+    mMatch = Intan_RHX_Mock();
+    mMatch.SamplingRate = 30000;
+    outMatch = evalc('mMatch.connect();');
+    assert_ok('matching sample rate queried',        any(mMatch.Log == "get sampleratehertz"));
+    assert_ok('matching sample rate: ActiveSamplingRate read', mMatch.ActiveSamplingRate == 30000);
+    assert_ok('matching sample rate: no warning',    isempty(regexpi(outMatch, 'sampling at', 'once')));
+
+    % Mismatched declared rate: warns; ActiveSamplingRate is the board value.
+    mBad = Intan_RHX_Mock();
+    mBad.SamplingRate = 25000;
+    outBad = evalc('mBad.connect();');
+    assert_ok('mismatched sample rate warns',        ~isempty(regexpi(outBad, 'sampling at 30000', 'once')));
+    assert_ok('mismatched sample rate: board value kept', mBad.ActiveSamplingRate == 30000);
+catch ME
+    fprintf('  FAIL  sampling rate: %s\n', ME.message);
+end
+
+%% 15. ControllerType: protocol declaration validated; hardware is authoritative
+try
+    % Declared type disagrees with the hardware: warn, then adopt the hardware type.
+    mCT = Intan_RHX_Mock();
+    mCT.ControllerType = 'ControllerRecordUSB3';
+    mCT.setReplies('get type', {'Return: Type ControllerStimRecord'});
+    outCT = evalc('mCT.connect();');
+    assert_ok('controller mismatch warns',       ~isempty(regexpi(outCT, 'expected controller', 'once')));
+    assert_ok('hardware controller type adopted', strcmp(mCT.ControllerType, 'ControllerStimRecord'));
+
+    % Declared type matches the hardware: no warning.
+    mCT2 = Intan_RHX_Mock();
+    mCT2.ControllerType = 'ControllerStimRecord';
+    outCT2 = evalc('mCT2.connect();');
+    assert_ok('controller match: no warning', isempty(regexpi(outCT2, 'expected controller', 'once')));
+catch ME
+    fprintf('  FAIL  controller type: %s\n', ME.message);
+end
+
 fprintf('\n=== Done ===\n\n');

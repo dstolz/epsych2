@@ -49,7 +49,21 @@ switch ifaceType
         if isfield(ifaceStruct, 'Port') && ~isempty(ifaceStruct.Port)
             port = double(ifaceStruct.Port);
         end
-        interface = hw.Intan_RHX(host, port, Connect = false);
+        settingsFile = '';
+        if isfield(ifaceStruct, 'SettingsFile') && ~isempty(ifaceStruct.SettingsFile)
+            settingsFile = char(string(ifaceStruct.SettingsFile));
+        end
+        samplingRate = 0;
+        if isfield(ifaceStruct, 'SamplingRate') && ~isempty(ifaceStruct.SamplingRate)
+            samplingRate = double(ifaceStruct.SamplingRate);
+        end
+        controllerType = '';
+        if isfield(ifaceStruct, 'ControllerType') && ~isempty(ifaceStruct.ControllerType)
+            controllerType = char(string(ifaceStruct.ControllerType));
+        end
+        interface = hw.Intan_RHX(host, port, Connect = false, ...
+            SettingsFile = settingsFile, SamplingRate = samplingRate, ...
+            ControllerType = controllerType);
 
     otherwise
         interface = hw.Software();

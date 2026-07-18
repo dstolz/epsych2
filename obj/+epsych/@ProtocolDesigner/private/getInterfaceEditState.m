@@ -58,6 +58,9 @@ function [spec, options] = getInterfaceEditState(obj, iface)
         case 'Intan_RHX'
             options.host = iface.Host;
             options.port = iface.Port;
+            options.settingsFile = iface.SettingsFile;
+            options.samplingRate = iface.SamplingRate;
+            options.controllerType = iface.ControllerType;
 
         otherwise
             error('Editing is not implemented for interface type %s.', ifaceType);

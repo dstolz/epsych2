@@ -32,8 +32,13 @@ try
     assert_ok('getCreationSpec returns hw.InterfaceSpec', isa(spec, 'hw.InterfaceSpec'));
     assert_ok('spec.type == Intan_RHX', strcmp(char(spec.type), 'Intan_RHX'));
     optNames = {spec.options.name};
-    assert_ok('spec has host option',   any(strcmp(optNames, 'host')));
-    assert_ok('spec has port option',   any(strcmp(optNames, 'port')));
+    assert_ok('spec has host option',           any(strcmp(optNames, 'host')));
+    assert_ok('spec has port option',           any(strcmp(optNames, 'port')));
+    assert_ok('spec has settingsFile option',   any(strcmp(optNames, 'settingsFile')));
+    assert_ok('spec has samplingRate option',   any(strcmp(optNames, 'samplingRate')));
+    assert_ok('spec has controllerType option', any(strcmp(optNames, 'controllerType')));
+    sfOpt = spec.options(strcmp(optNames, 'settingsFile'));
+    assert_ok('settingsFile is a file picker', sfOpt.getFile);
 catch ME
     fprintf('  FAIL  getCreationSpec: %s\n', ME.message);
 end
@@ -128,8 +133,41 @@ try
     assert_ok('createFcn returns hw.Intan_RHX', isa(iface8, 'hw.Intan_RHX'));
     assert_ok('createFcn Host correct', strcmp(iface8.Host, '10.0.0.1'));
     assert_ok('createFcn IsConnected=false', ~iface8.IsConnected);
+    assert_ok('createFcn tolerates missing new options', ...
+        isempty(iface8.SettingsFile) && iface8.SamplingRate == 0 && isempty(iface8.ControllerType));
+
+    % Full option set flows through the factory onto the interface
+    opts8b = struct('host', '10.0.0.2', 'port', 5000, ...
+        'settingsFile', 'C:/cfg/rhx.xml', 'samplingRate', 30000, ...
+        'controllerType', 'ControllerRecordUSB3');
+    iface8b = spec8.createFcn(opts8b);
+    assert_ok('createFcn carries settingsFile',   strcmp(iface8b.SettingsFile, 'C:/cfg/rhx.xml'));
+    assert_ok('createFcn carries samplingRate',   iface8b.SamplingRate == 30000);
+    assert_ok('createFcn carries controllerType', strcmp(iface8b.ControllerType, 'ControllerRecordUSB3'));
 catch ME
     fprintf('  FAIL  createFcn: %s\n', ME.message);
+end
+
+%% 8b. Protocol serialization round-trip of the new Intan fields
+try
+    p = epsych.Protocol();
+    ifaceRT = hw.Intan_RHX('10.0.0.9', 5000, Connect=false, ...
+        SettingsFile='C:/cfg/rhx.xml', SamplingRate=25000, ControllerType='ControllerStimRecord');
+    p.addInterface(ifaceRT);
+    s = p.toStruct();
+    ifaceData = s.InterfaceData{end};
+    assert_ok('toStruct serializes SettingsFile',   strcmp(ifaceData.SettingsFile, 'C:/cfg/rhx.xml'));
+    assert_ok('toStruct serializes SamplingRate',   ifaceData.SamplingRate == 25000);
+    assert_ok('toStruct serializes ControllerType', strcmp(ifaceData.ControllerType, 'ControllerStimRecord'));
+
+    p2 = epsych.Protocol();
+    p2.fromStruct(s);
+    ir = p2.Interfaces(end);
+    assert_ok('fromStruct restores SettingsFile',   strcmp(ir.SettingsFile, 'C:/cfg/rhx.xml'));
+    assert_ok('fromStruct restores SamplingRate',   ir.SamplingRate == 25000);
+    assert_ok('fromStruct restores ControllerType', strcmp(ir.ControllerType, 'ControllerStimRecord'));
+catch ME
+    fprintf('  FAIL  serialization round-trip: %s\n', ME.message);
 end
 
 %% 9. RecordingRootDir / SettingsFile setters: normalize slashes, reject spaces
@@ -182,7 +220,7 @@ catch ME
     fprintf('  FAIL  base prepareRecording: %s\n', ME.message);
 end
 
-%% 12. Machine prefs must NOT serialize into a protocol (.eprot portability)
+%% 12. RecordingRootDir stays per-machine; SettingsFile is now protocol-level
 try
     iface12 = hw.Intan_RHX('192.168.1.50', 5001, Connect=false);
     m12 = hw.Module(iface12, 'RHX', 'RHX', uint8(1));
@@ -195,10 +233,13 @@ try
     s12 = prot12.toStruct();
     ii = find(cellfun(@(d) strcmp(d.Type,'Intan_RHX'), s12.InterfaceData), 1);
     ifS = s12.InterfaceData{ii};
+    % RecordingRootDir is per-machine and must not travel in the .eprot.
     assert_ok('toStruct omits RecordingRootDir', ~isfield(ifS, 'RecordingRootDir'));
-    assert_ok('toStruct omits SettingsFile',     ~isfield(ifS, 'SettingsFile'));
+    % SettingsFile is now protocol-level configuration and does serialize.
+    assert_ok('toStruct serializes SettingsFile', ...
+        isfield(ifS, 'SettingsFile') && strcmp(ifS.SettingsFile, 'C:/cfg/rhx.xml'));
 catch ME
-    fprintf('  FAIL  pref non-serialization: %s\n', ME.message);
+    fprintf('  FAIL  pref/config serialization: %s\n', ME.message);
 end
 
 fprintf('\n=== Done ===\n\n');

@@ -50,6 +50,7 @@ classdef Intan_RHX_Mock < hw.Intan_RHX
 
             % Default replies so connect() and Record flows work out of the box.
             obj.setReplies('get type',                        {'Return: Type ControllerStimRecord'});
+            obj.setReplies('get sampleratehertz',             {'Return: SampleRateHertz 30000'});
             obj.setReplies('get runmode',                     {'Return: RunMode Stop'});
             obj.setReplies('get uploadinprogress',            {'Return: UploadInProgress False'});
             obj.setReplies('get filename.activefiletimestamp',{'Return: FileName.ActiveFileTimestamp 250101_120000'});

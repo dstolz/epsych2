@@ -1,15 +1,21 @@
 function configureIntanRecorder_(self, interfaces)
 % configureIntanRecorder_(self, interfaces)
-% Seed every hw.Intan_RHX in the given interface array from the
-% 'ep_RunExpt_Intan' preference group before the interfaces connect. The
-% settings file is loaded inside setup_interface (during connect), so the
-% preferences must be on the object first — this is called just before
-% RUNTIME.Interfaces is assigned in ExptDispatch, whose setter connects.
+% Seed every hw.Intan_RHX in the given interface array before the interfaces
+% connect. The settings file is loaded inside setup_interface (during
+% connect), so per-machine values must be on the object first — this is
+% called just before RUNTIME.Interfaces is assigned in ExptDispatch, whose
+% setter connects.
 %
 % This keeps getpref out of obj/+hw/ (the hardware layer is pref-free),
-% mirroring how getVlcRecorder_ seeds the webcam recorder. The Intan settings
-% are per-machine, so they live in preferences rather than the portable
-% .eprot.
+% mirroring how getVlcRecorder_ seeds the webcam recorder.
+%
+% Precedence:
+%   RecordingRootDir is per-machine and always comes from the
+%   'ep_RunExpt_Intan' preference group (or the default data path).
+%   SettingsFile is now protocol-level (see hw.Intan_RHX.getCreationSpec):
+%   the value carried by the .eprot wins, and the machine pref is used only
+%   as a fallback when the protocol left it unset. SamplingRate and
+%   ControllerType are protocol-level and are left untouched here.
 %
 % Parameters
 %   self       - epsych.RunExpt instance (for dfltDataPath).
@@ -34,5 +40,10 @@ for p = interfaces(:).'
     % Setters normalize slashes and reject embedded spaces, so a bad path
     % fails here (before connect/timer) rather than mid-run.
     p.RecordingRootDir = root;
-    p.SettingsFile = strtrim(char(getpref('ep_RunExpt_Intan', 'SettingsFile', '')));
+
+    % Honor a protocol-configured settings file; fall back to the per-machine
+    % pref only when the protocol did not specify one.
+    if isempty(strtrim(p.SettingsFile))
+        p.SettingsFile = strtrim(char(getpref('ep_RunExpt_Intan', 'SettingsFile', '')));
+    end
 end

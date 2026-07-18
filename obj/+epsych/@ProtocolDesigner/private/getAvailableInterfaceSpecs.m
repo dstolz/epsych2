@@ -38,6 +38,19 @@ function spec = localSerializedIntanRHXSpec_()
 end
 
 function iface = localCreateSerializedIntanRHX_(opts)
-    iface = hw.Intan_RHX(char(opts.host), double(opts.port), Connect = false);
+    settingsFile = '';
+    if isfield(opts, 'settingsFile') && ~isempty(opts.settingsFile)
+        settingsFile = char(opts.settingsFile);
+    end
+    samplingRate = 0;
+    if isfield(opts, 'samplingRate') && ~isempty(opts.samplingRate)
+        samplingRate = double(opts.samplingRate);
+    end
+    controllerType = '';
+    if isfield(opts, 'controllerType') && ~isempty(opts.controllerType)
+        controllerType = char(opts.controllerType);
+    end
+    iface = hw.Intan_RHX(char(opts.host), double(opts.port), Connect = false, ...
+        SettingsFile = settingsFile, SamplingRate = samplingRate, ControllerType = controllerType);
 end
 

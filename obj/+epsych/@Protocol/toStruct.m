@@ -43,6 +43,15 @@ function struct_out = toStruct(obj)
         if isprop(iface, 'Port') && ~isempty(iface.Port)
             ifaceStruct.Port = double(iface.Port);
         end
+        if isprop(iface, 'SettingsFile') && ~isempty(iface.SettingsFile)
+            ifaceStruct.SettingsFile = char(iface.SettingsFile);
+        end
+        if isprop(iface, 'SamplingRate') && ~isempty(iface.SamplingRate) && iface.SamplingRate > 0
+            ifaceStruct.SamplingRate = double(iface.SamplingRate);
+        end
+        if isprop(iface, 'ControllerType') && ~isempty(iface.ControllerType)
+            ifaceStruct.ControllerType = char(iface.ControllerType);
+        end
 
         rawModules = iface.Module;
         if isempty(rawModules)

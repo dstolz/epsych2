@@ -38,6 +38,12 @@ iface = hw.Intan_RHX('192.168.1.10', 5000, Connect=false);
 
 % Adjust TCP timeout
 iface = hw.Intan_RHX('localhost', 5000, Timeout=10);
+
+% Carry protocol-level configuration (settings file, expected sample rate and
+% controller type). Normally these are set in the Protocol Designer, not by hand.
+iface = hw.Intan_RHX('localhost', 5000, Connect=false, ...
+    SettingsFile='C:/cfg/rhx.xml', SamplingRate=30000, ...
+    ControllerType='ControllerStimRecord');
 ```
 
 ### Constructor arguments
@@ -48,6 +54,15 @@ iface = hw.Intan_RHX('localhost', 5000, Timeout=10);
 | `port` | double | `5000` | TCP port of the RHX command server |
 | `Timeout` | double | `5` | Maximum wait for TCP response (seconds) |
 | `Connect` | logical | `true` | When `false`, skips TCP connection on construction |
+| `SettingsFile` | char | `''` | RHX `.xml` settings file to load at connect (protocol-level) |
+| `SamplingRate` | double | `0` | Declared board sample rate in Hz; `0` = unspecified (protocol-level) |
+| `ControllerType` | char | `''` | Expected RHX controller type, validated at connect (protocol-level) |
+
+The `SettingsFile`, `SamplingRate`, and `ControllerType` options are the
+protocol-level configuration edited in the Protocol Designer (see below); they
+are seeded on the object before `connect()` so `setup_interface` can load the
+settings file and validate the sample rate / controller type against the
+hardware.
 
 ---
 
@@ -61,9 +76,11 @@ iface = hw.Intan_RHX('localhost', 5000, Timeout=10);
 | `IsConnected` | `true` once the TCP connection is open |
 | `Module` | `hw.Module` array — one entry (`'RHX'`) populated on connect |
 | `mode` | Current `hw.DeviceState`; reading it queries the hardware (throttled), writing it sends a `set runmode` command and confirms it took |
-| `RecordingRootDir` | Root directory for recordings, seeded by RunExpt from the `ep_RunExpt_Intan` pref group. Setter normalizes `\`→`/` and **rejects embedded spaces** |
-| `SettingsFile` | RHX `.xml` settings file loaded at connect. Same normalization/validation as `RecordingRootDir` |
-| `ControllerType` | RHX controller type reported by `get type` (e.g. `ControllerRecordUSB3`, `ControllerStimRecord`). Cached at connect |
+| `SettingsFile` | RHX `.xml` settings file loaded at connect. **Protocol-level** (serialized in the `.eprot`). Setter normalizes `\`→`/` and **rejects embedded spaces** |
+| `SamplingRate` | Declared board sample rate in Hz (`0` = unspecified). **Protocol-level**; validated against the hardware at connect (see below) |
+| `ControllerType` | Expected RHX controller type (e.g. `ControllerRecordUSB3`, `ControllerStimRecord`). **Protocol-level**, but the hardware `get type` is authoritative and overrides it at connect |
+| `RecordingRootDir` | Root directory for recordings. **Per-machine**, seeded by RunExpt from the `ep_RunExpt_Intan` pref group; **not** serialized. Setter normalizes `\`→`/` and **rejects embedded spaces** |
+| `ActiveSamplingRate` | Board sample rate in Hz read back from RHX at connect (read-only) |
 | `ActiveRecordingFile` | Best-effort full path of the active recording, reconstructed after Record confirms |
 | `ActiveFileTimestamp` | The `YYMMDD_HHMMSS` suffix RHX assigned to the active file |
 | `ModeChangeTimeout` | Seconds to wait for a `runmode` change to confirm (default 2) |
@@ -151,13 +168,42 @@ on-disk name in `ActiveRecordingFile`.
 
 ## Settings file
 
-`SettingsFile` names an RHX `.xml` settings file (also from the
-`ep_RunExpt_Intan` pref group). It is loaded via `execute loadsettingsfile`
-during `connect()` — after forcing the board to Stop, since loading has no
-effect while running. It is loaded **once per connection**: because interfaces
-stay connected across runs within a session, an unchanged path is not reloaded.
-If the preference is changed mid-session, the next run reloads it (loading takes
-several seconds; see `SettingsLoadWait`). The settings path is also space-free.
+`SettingsFile` names an RHX `.xml` settings file. It is **protocol-level
+configuration** — set per interface in the Protocol Designer and serialized in
+the `.eprot` — so a protocol carries its intended settings file. The
+`ep_RunExpt_Intan` preference group (Customize dialog) still provides a
+per-machine **fallback**: RunExpt applies the machine pref only when the
+protocol left `SettingsFile` blank (see `configureIntanRecorder_`), so the
+protocol's value always wins.
+
+It is loaded via `execute loadsettingsfile` during `connect()` — after forcing
+the board to Stop, since loading has no effect while running. It is loaded
+**once per connection**: because interfaces stay connected across runs within a
+session, an unchanged path is not reloaded. If the value changes mid-session,
+the next run reloads it (loading takes several seconds; see `SettingsLoadWait`).
+The settings path is also space-free.
+
+## Sample rate and controller type validation
+
+RHX fixes the board sample rate and reports the controller type from the loaded
+settings file / hardware; both are **read-only** over the TCP command interface
+(`sampleratehertz` and `type`). The protocol's `SamplingRate` and
+`ControllerType` are therefore treated as *declared expectations* that are
+validated against the hardware at connect rather than pushed to it:
+
+- **`SamplingRate`** — when non-zero, `setup_interface` reads
+  `get sampleratehertz` into `ActiveSamplingRate` and warns (`vprintf` level 0)
+  if the board's actual rate disagrees, which indicates the loaded settings file
+  is not the one the protocol was designed for. When `0` (unspecified) no query
+  is issued.
+- **`ControllerType`** — the hardware `get type` is authoritative and is adopted
+  as the effective `ControllerType`; if the protocol declared a different type,
+  a warning is emitted before the hardware value is used. `ControllerType` in
+  turn gates `.rhs` vs `.rhd` file naming and whether manual stim triggers are
+  honored.
+
+Only `SettingsFile` is actually written into RHX; `SamplingRate` and
+`ControllerType` are validated, not set.
 
 ---
 
@@ -312,12 +358,13 @@ timeout it returns an empty string (logged via `vprintf`).
 
 `hw.Intan_RHX` participates fully in the Protocol save/load cycle:
 
-- **`toStruct`** serializes `Host`, `Port`, `Type`, and all module parameters.
-  `RecordingRootDir` and `SettingsFile` are **not** serialized: they are
-  per-machine preferences (`ep_RunExpt_Intan`), and a machine-specific path must
-  not travel inside a portable `.eprot`. RunExpt seeds them from the preference
-  group before connecting (see `configureIntanRecorder_`), keeping `getpref` out
-  of the hardware layer.
+- **`toStruct`** serializes `Host`, `Port`, `Type`, all module parameters, and
+  the protocol-level Intan configuration: `SettingsFile`, `SamplingRate`, and
+  `ControllerType`. `RecordingRootDir` is **not** serialized — it is a
+  per-machine preference (`ep_RunExpt_Intan`) and a machine-specific path must
+  not travel inside a portable `.eprot`. RunExpt seeds `RecordingRootDir` (and,
+  as a fallback, `SettingsFile`) from the preference group before connecting
+  (see `configureIntanRecorder_`), keeping `getpref` out of the hardware layer.
 - **`createInterfaceFromStruct_`** reconstructs the interface with
   `Connect=false` so that opening a saved protocol does not attempt to connect
   to hardware.
@@ -349,14 +396,22 @@ iface2.connect();                  % connect to hardware when ready
 ## Protocol Designer
 
 When the Protocol Designer is open, `'Intan RHX'` appears in the
-**Add Interface** dropdown with two configuration fields:
+**Add Interface** dropdown with the following configuration fields:
 
 - **Host** — hostname or IP of the RHX server (text input, default `127.0.0.1`)
 - **Port** — command server port (numeric input, default `5000`)
+- **Settings File** — RHX `.xml` settings file loaded at connect (file picker,
+  `*.xml`; must be space-free)
+- **Sampling Rate (Hz)** — declared board sample rate, `0` = unspecified
+  (numeric input); validated against the hardware at connect
+- **Controller Type** — expected RHX controller type, e.g.
+  `ControllerRecordUSB3` / `ControllerStimRecord` (text input); the hardware is
+  authoritative at connect
 
-Clicking **Add** calls the `createFcn` from `getAvailableInterfaceSpecs`, which
-creates an offline `hw.Intan_RHX` instance. The interface is stored in the
-protocol struct without establishing a TCP connection.
+Clicking **Add** (or **Modify** on an existing interface) calls the `createFcn`
+from `getAvailableInterfaceSpecs`, which creates an offline `hw.Intan_RHX`
+instance carrying these values. The interface is stored in the protocol struct
+without establishing a TCP connection.
 
 ---
 

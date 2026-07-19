@@ -23,7 +23,7 @@ classdef OnlinePlot < handle
         lineH       (:,1)  matlab.graphics.primitive.Line % Handles to plot lines
         nowLine     (1,1)  matlab.graphics.primitive.Line 
         N           (1,:)  double % Number of watched parameters
-        startTime   (1,1) datetime
+        startTime   (1,1) double % Session start time (serial date number from `now`)
         BoxID       (1,1) {mustBePositive,mustBeInteger} = 1;
     end
 
@@ -34,10 +34,15 @@ classdef OnlinePlot < handle
     properties (SetAccess = private, Hidden)
         h_timer       (1,1)      % Update h_timer object
         Buffers     (:,:) single   % Plot data buffer [N, time]
-        BufferIdx
-        DrawCounter
-        trialBuffer (1,:) single   % Buffer for trial trigger parameter
-        Time        (:,1) duration % Buffer for time values
+        BufferIdx   (1,1) double = 1   % Next circular-buffer slot to write
+        Time        (:,1) double  % Buffer for time values (elapsed seconds since startTime)
+        nFilled     (1,1) double = 0   % Number of valid samples written so far (saturates at blockSize)
+        writeCount  (1,1) double = 0   % Monotonic update() tick count, never wraps
+        prevTrigValue (1,1) double = nan % Last trialParam value seen; enables O(1) edge detection
+        lastOnsetTime (1,1) double = nan % Elapsed-seconds timestamp of the last detected trial onset
+        lastOnsetWriteCount (1,1) double = nan % writeCount recorded at the last detected onset
+        lastPlotTime (1,1) double = -inf % Elapsed-seconds timestamp of the last actual redraw
+        periodNom   (1,1) double = 0.1  % Cached nominal timer period (seconds), used to size the plot window read
         hl_mode               % Listener for mode changes
     end
 
@@ -164,13 +169,14 @@ classdef OnlinePlot < handle
         end
 
         function to = last_trial_onset(obj)
-            % Get last trial onset time from trialBuffer.
-            B = obj.trialBuffer;
-            idx = find(B(2:end) > B(1:end-1),1,'last');
-            if isempty(idx)
-                to = [];
+            % Elapsed-seconds timestamp (double) of the most recent trial onset.
+            % Tracked incrementally in update() (see prevTrigValue/lastOnsetTime)
+            % rather than rescanning a buffer every call.
+            blockSize = 1000;
+            if isnan(obj.lastOnsetTime) || (obj.writeCount - obj.lastOnsetWriteCount) > blockSize
+                to = []; % no onset yet, or onset predates the retained buffer history
             else
-                to = obj.Time(idx);
+                to = obj.lastOnsetTime;
             end
         end
 
@@ -180,19 +186,29 @@ classdef OnlinePlot < handle
             blockSize = 1000; % Set or store as a property for flexibility
             if isempty(obj.Buffers)
                 obj.Buffers = nan(obj.N, blockSize, 'single');
-                obj.Time = duration(nan(blockSize, 1),0,0);
+                obj.Time = nan(blockSize, 1);
                 obj.BufferIdx = 1;
-                obj.DrawCounter = 0; % For throttling
+                obj.nFilled = 0;
+                obj.writeCount = 0;
+                obj.prevTrigValue = nan;
+                obj.lastOnsetTime = nan;
+                obj.lastOnsetWriteCount = nan;
+                obj.lastPlotTime = -inf;
+                obj.periodNom = obj.h_timer.Timer.Period;
             end
 
-            % --- 2. Update trial buffer if trialParam available ---
+            currentRawIdx = obj.BufferIdx;
+            nowT = (now - obj.startTime) * 86400; % elapsed seconds; `now` is much faster than datetime("now")
+
+            % --- 2. Trial onset detection: O(1) rising-edge check (never skipped) ---
             if ~isempty(obj.trialParam)
                 try
-                    % Grow trialBuffer if needed (use circular logic if long)
-                    if ~isfield(obj, 'trialBuffer') || isempty(obj.trialBuffer)
-                        obj.trialBuffer = zeros(1, blockSize, 'single');
+                    v = obj.trialParam.Value;
+                    if ~isnan(obj.prevTrigValue) && v > obj.prevTrigValue
+                        obj.lastOnsetTime = nowT;
+                        obj.lastOnsetWriteCount = obj.writeCount;
                     end
-                    obj.trialBuffer(obj.BufferIdx) = obj.trialParam.Value;
+                    obj.prevTrigValue = v;
                 catch
                     vprintf(0,1,'Unable to read the parameter: %s\nUpdate the trialParam to an existing parameter in the RPvds circuit', obj.trialParam)
                     c = obj.get_menu_item('uic_plotType');
@@ -202,79 +218,82 @@ classdef OnlinePlot < handle
             end
 
             % --- 3. Store watched parameter values and time ---
-            obj.Buffers(:, obj.BufferIdx) = [obj.watchedParams.Value];
-            obj.Time(obj.BufferIdx) = datetime("now") - obj.startTime;
+            obj.Buffers(:, currentRawIdx) = [obj.watchedParams.Value];
+            obj.Time(currentRawIdx) = nowT;
 
             % --- 4. Optionally set zero to nan (only for new column) ---
             if obj.setZeroToNan
-                newcol = obj.Buffers(:, obj.BufferIdx);
-                obj.Buffers(newcol == 0, obj.BufferIdx) = nan;
+                newcol = obj.Buffers(:, currentRawIdx);
+                obj.Buffers(newcol == 0, currentRawIdx) = nan;
             end
 
-            % --- 5. Plot only if not paused ---
-            if obj.paused
-                obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
-                return
-            end
+            % --- 5. Advance circular buffer pointer (single site) ---
+            obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
+            obj.nFilled = min(obj.nFilled + 1, blockSize);
+            obj.writeCount = obj.writeCount + 1;
 
-            % --- 6. Choose data to plot (latest window, in time order) ---
-            if obj.BufferIdx == 1
-                idx = 1:blockSize; % buffer has wrapped, full window
-            else
-                idx = [obj.BufferIdx:blockSize 1:obj.BufferIdx-1]; % recent data
-            end
-            plotTime = obj.Time(idx);
-            plotBuffers = obj.Buffers(:, idx);
-            plotTrialBuffer = [];
-            if isfield(obj, 'trialBuffer') && ~isempty(obj.trialBuffer)
-                plotTrialBuffer = obj.trialBuffer(idx);
-            end
+            % --- 6. Skip plotting while paused ---
+            if obj.paused, return; end
 
-            % --- 7. Plot update: only plot within visible time window ---
-            win = obj.timeWindow;
-            if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
-                t0 = obj.last_trial_onset;
-                tspan = (plotTime >= (t0 + win(1))) & (plotTime <= (t0 + win(2)));
+            % --- 7. Throttle redraws to ~10 Hz wall-clock, independent of tick rate ---
+            if (nowT - obj.lastPlotTime) < 0.1, return; end
+
+            % --- 8. Only pull the recent samples the visible window actually needs ---
+            lto = obj.last_trial_onset; % call once per tick
+            winSec = seconds(obj.timeWindow);
+            if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(lto)
+                t0 = lto;
             elseif obj.trialLocked
                 t0 = 0;
-                tspan = (plotTime >= win(1)) & (plotTime <= win(2));
             else
-                t0 = plotTime(end);
-                tspan = (plotTime >= (t0 + win(1))) & (plotTime <= (t0 + win(2)));
+                t0 = nowT;
+            end
+
+            neededSpanSec = max(0, nowT - (t0 + winSec(1)));
+            Nlook = max(1, min([obj.nFilled, blockSize, ceil(neededSpanSec/obj.periodNom) + 5]));
+
+            startRaw = currentRawIdx - Nlook + 1;
+            if startRaw >= 1
+                rawIdx = startRaw:currentRawIdx; % single contiguous piece
+            else
+                rawIdx = [(blockSize+startRaw):blockSize, 1:currentRawIdx]; % one wraparound piece
+            end
+            % rawIdx walks strictly backward from the write head, so it is
+            % always chronologically ascending -- no sort needed.
+            plotTime = obj.Time(rawIdx);
+            plotBuf  = obj.Buffers(:, rawIdx);
+
+            if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(lto)
+                tspan = (plotTime >= (t0 + winSec(1))) & (plotTime <= (t0 + winSec(2)));
+            elseif obj.trialLocked
+                tspan = (plotTime >= winSec(1)) & (plotTime <= winSec(2));
+            else
+                tspan = (plotTime >= (t0 + winSec(1))) & (plotTime <= (t0 + winSec(2)));
             end
             plotTimeWin = plotTime(tspan);
-            plotBuffersWin = plotBuffers(:, tspan);
-            [plotTimeWin,i] = sort(plotTimeWin);
-            plotBuffersWin = plotBuffersWin(:,i);
-            % 
-            % % --- 8. Throttle graphics updates (e.g., only draw every 3 updates) ---
-            % obj.DrawCounter = obj.DrawCounter + 1;
-            % throttleRate = 1; % update plot every 3 h_timer ticks
-            % if mod(obj.DrawCounter, throttleRate) ~= 0
-            %     obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
-            %     return
-            % end
+            plotBuffersWin = plotBuf(:, tspan);
 
             % --- 9. Update line data for visible window ---
+            yPos = obj.yPositions; % hoisted once per tick, not obj.N times
             for i = 1:obj.N
-                set(obj.lineH(i),'XData',plotTimeWin,'YData',obj.yPositions(i).*plotBuffersWin(i,:));
+                obj.lineH(i).XData = seconds(plotTimeWin);
+                obj.lineH(i).YData = yPos(i).*plotBuffersWin(i,:);
             end
 
             % --- 10. Adjust x-limits ---
-            if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(obj.last_trial_onset)
-                obj.hax.XLim = obj.last_trial_onset + win;
+            if obj.trialLocked && ~isempty(obj.trialParam) && ~isempty(lto)
+                obj.hax.XLim = seconds(lto + winSec);
             elseif obj.trialLocked
-                obj.hax.XLim = win;
+                obj.hax.XLim = seconds(winSec);
             else
-                obj.hax.XLim = obj.Time(obj.BufferIdx) + win;
+                obj.hax.XLim = seconds(nowT + winSec);
             end
             if ~isempty(plotTimeWin)
-                obj.nowLine.XData = plotTimeWin(end).*[1 1];
+                obj.nowLine.XData = seconds(plotTimeWin(end)).*[1 1];
             end
             drawnow limitrate
 
-            % --- 11. Advance circular buffer pointer ---
-            obj.BufferIdx = mod(obj.BufferIdx, blockSize) + 1;
+            obj.lastPlotTime = nowT;
         end
 
         function error(obj,varargin)
@@ -302,7 +321,7 @@ classdef OnlinePlot < handle
             obj.hax.YAxis.TickLabels = {obj.watchedParams.Name};
             obj.hax.XMinorGrid = 'on';
             obj.hax.Box = 'on';
-            obj.startTime = datetime("now");
+            obj.startTime = now; % `now` is much faster than datetime("now")
             obj.nowLine = line(obj.hax,seconds([0 0]),[-1e6 1e6],AffectAutoLimits="off");
 
         end

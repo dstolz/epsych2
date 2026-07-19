@@ -11,6 +11,7 @@ Every hardware parameter access in EPsych v2 is a synchronous round-trip on MATL
 2. Generalized over `hw.Interface` — works with TDT_RPcox, TDT_Synapse, Intan_RHX, and future backends unchanged.
 3. Cached reads + push updates, worker-side trial-data snapshot on TrialComplete edge, synchronous `freshRead` escape hatch.
 4. Opt-in decorator/proxy; existing sync path and `hw.Software` untouched.
+5. Optional worker-side **JSONL parameter event log** — timestamped, changed-only, one file per run — doubling as an experiment record and an externally pollable secondary channel. Queues remain the primary foreground IPC: in-memory `poll(q,0)` is µs-scale and lossless, while file+`jsondecode` polling from the 10 ms tick would cost ~ms of disk/parse per poll, need torn-line handling, and lose type fidelity (NaN/Inf, single, shapes). See "Parameter event log" section below.
 
 ## Verified design constraints (shaped the approach)
 
@@ -39,10 +40,12 @@ MAIN MATLAB (GUI + PsychTimer)                    WORKER PROCESS (parfeval)
 │  freshRead -> corrId req/resp      │            │   TrialComplete edge ->      │
 │  drains updQ in get.mode /         │            │     snapshot ALL Read params │
 │    get_parameter + 0.1s timer      │            │     push trialComplete blob  │
+│                                     │            │   tee changed vals -> log    │
 └────────────────────────────────────┘            └──────────────────────────────┘
 ```
 
 - `RUNTIME.Interfaces` holds the proxy; the Protocol keeps the twin. `twin.IODelegate` doubles as the cross-run registry so reruns reuse the same worker/device connection (TDT cannot survive delete/recreate).
+- Worker also appends changed parameter values to a per-run JSONL event log (see "Parameter event log" below); the log lands next to `Runtime.SessionDataFilename`, so no `savefcns` changes are needed.
 - **Consistency**: the `trialComplete` message carries the full Read-parameter snapshot; the drain applies the snapshot to the cache *before* setting the cached TrialComplete flag. Since the flag is the first thing `ep_TimerFcn_RunTime` reads, the subsequent `all_parameters(valueOnly=true)` reads exactly the trial snapshot. The snapshot is taken in the worker at the moment of the edge — more accurate than today's serial read burst.
 - The `pause(0.001)` trigger pulses and all transport latency move into the worker.
 
@@ -69,6 +72,9 @@ MAIN MATLAB (GUI + PsychTimer)                    WORKER PROCESS (parfeval)
 | `tmp/smoke_test_async_trial_cycle.m` | Full Runtime trial loop against the mock: DATA matches scripted values; command log shows reset→writes→newtrial per trial; no double-processed trials; mid-run recompile works |
 | `tmp/smoke_test_async_failure.m` | Worker crash / fallback paths |
 | `tmp/async_latency_harness.m` | Sync vs async tick-time comparison |
+| `obj/+hw/+async/@EventLog/EventLog.m` | Append side (open/append/close, NaN/Inf sentinel encoding, batch flush) + static offset-tailing reader; pool-free and unit-testable |
+| `obj/+hw/@AsyncInterface/readEventLog.m` | Client convenience wrapper over `EventLog.read` (diagnostics/GUI use) |
+| `tmp/smoke_test_async_eventlog.m` | Round-trip incl. NaN/Inf sentinels; torn-line tolerance (truncate mid-line, read); append-while-reading |
 
 ## Modified files (surgical)
 
@@ -81,7 +87,7 @@ MAIN MATLAB (GUI + PsychTimer)                    WORKER PROCESS (parfeval)
    end
    ```
    Route through it in three places: `get.Value` (replace `obj.Parent` in **both** the line-204 Software/disconnected short-circuit and the line-208 `get_parameter` call — pivotal, since the twin stays disconnected), `set.Value` line 316, `Trigger` line 283. Empty `IODelegate` ⇒ byte-identical behavior.
-3. **[Runtime.m](../obj/+epsych/@Runtime/Runtime.m)** — new `UseAsyncIO (1,1) logical = false`; in `set.Interfaces` (103-119), when enabled, replace each non-Software, non-proxy entry with `hw.AsyncInterface.wrap(p)` before the connect loop; set `Runtime` on both proxy and twin.
+3. **[Runtime.m](../obj/+epsych/@Runtime/Runtime.m)** — new `UseAsyncIO (1,1) logical = false`; in `set.Interfaces` (103-119), when enabled, replace each non-Software, non-proxy entry with `hw.AsyncInterface.wrap(p)` before the connect loop; set `Runtime` on both proxy and twin. Also new `EventLogEnabled (1,1) logical = true`, plumbed to the proxy alongside `UseAsyncIO`; `savefcns` are otherwise untouched since the log is named from the already-reserved `SessionDataFilename`.
 4. **[resolveCoreParameters.m](../obj/+epsych/@Runtime/resolveCoreParameters.m)** — after resolving `p` (line 35): if `p.Parent.IODelegate` is an AsyncInterface, call `registerHotParameter(p, Role=char(cc))`.
 5. **[ExptDispatch.m](../obj/+epsych/@RunExpt/ExptDispatch.m)** — after `self.RUNTIME = epsych.Runtime;`: `self.RUNTIME.UseAsyncIO = getpref('ep_RunExpt','UseAsyncIO',false);`
 6. **RunExpt `buildUI.m` + toggle callback** — checkable uimenu "Background Hardware I/O (experimental)" under Customize (pattern at buildUI.m:38-42), persisted via setpref.
@@ -90,9 +96,11 @@ MAIN MATLAB (GUI + PsychTimer)                    WORKER PROCESS (parfeval)
 
 ## Wire protocol (plain structs, constants in `hw.async.msg`)
 
-Client→worker (`CmdQueue_`, strict FIFO; worker fully drains commands before each poll pass — preserves reset→writes→newtrial ordering): `connect`, `set{id,value}`, `trigger{id}`, `setMode{mode}`, `freshRead{ids,corrId}`, `prepareRecording{rtInfo,corrId}`, `registerHot{ids,roles}`, `pollConfig{ids,periodSec}`, `ping{corrId}`, `shutdown{haltDevice}`.
+Client→worker (`CmdQueue_`, strict FIFO; worker fully drains commands before each poll pass — preserves reset→writes→newtrial ordering): `connect`, `set{id,value}`, `trigger{id}`, `setMode{mode}`, `freshRead{ids,corrId}`, `prepareRecording{rtInfo,corrId}`, `registerHot{ids,roles}`, `pollConfig{ids,periodSec}`, `logConfig{enabled,pathOverride}`, `ping{corrId}`, `shutdown{haltDevice}`.
 
 Worker→client (`UpdQueue_`): `handshake{cmdQueue}`, `connectResult{ok,errStruct,treeSync,snapshot}`, `update{ids,values}` (batched changed-only), `modeChange{mode}`, `trialComplete{hotId,snapshot}` (snapshot covers `all_parameters(Access='Read')` mirroring `ep_TimerFcn_RunTime:40` defaults), `freshReadResult`/`ack`/`pong{corrId,...}`, `warn{level,msgText}`, `error{fatal,errStruct}`, `bye`.
+
+`prepareRecording{rtInfo,corrId}` additionally (re)opens the JSONL event log from `rtInfo.SessionDataFilename` when logging is enabled (see "Parameter event log" below); every executed `set`/`trigger` and every pushed `update`/`modeChange`/`trialComplete` is teed to the log when open.
 
 Ids are positional over an identical full-tree enumeration on both sides (all params incl. invisible/triggers/arrays); `connectResult.treeSync` reconciles worker-side `setup_interface` renames/additions into the client twin.
 

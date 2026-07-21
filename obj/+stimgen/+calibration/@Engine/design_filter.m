@@ -8,7 +8,7 @@ if ~obj.IsCalibrated || ~isfield(obj.CalibrationData, 'tone')
     error('stimgen:calibration:Engine:noToneData', ...
         'Tone calibration must be completed before designing the filter.');
 end
-vprintf(1, 'Designing equalization filter...');
+stimgen.util.vprintf(1, 'Designing equalization filter...');
 
 fs   = obj.Fs;
 d    = obj.CalibrationData.tone;
@@ -35,7 +35,7 @@ gd = round(mean(grpdelay(filt)));
 obj.CalibrationData.filter       = filt;
 obj.CalibrationData.filterGrpDelay = gd;
 
-vprintf(1, 'Filter designed: order=%d, group delay=%d samples', nOrd, gd);
+stimgen.util.vprintf(1, 'Filter designed: order=%d, group delay=%d samples', nOrd, gd);
 fprintf('<a href="matlab:fvtool(ans)">View filter</a>\n');
 assignin('base', 'ans', filt);
 end

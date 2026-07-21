@@ -4,7 +4,7 @@ function selector = get_or_create_variant_selector_(obj)
 % VariantSelectorClass. Returns the cached instance on subsequent calls.
 %
 % Returns:
-%   selector - Valid epsych.TrialSelector instance.
+%   selector - Selector instance exposing initialize() and selectNext().
 
 if ~isempty(obj.variantSelectorObj_) && isa(obj.variantSelectorObj_, 'handle') && isvalid(obj.variantSelectorObj_)
     selector = obj.variantSelectorObj_;
@@ -21,10 +21,16 @@ if exist(className, 'class') ~= 8
         'Variant selector class "%s" was not found.', className);
 end
 
+% Duck-typed rather than tied to a concrete base class so selectors can be
+% supplied by any host application. Both methods are exercised: initialize
+% below, selectNext in select_variant_index_.
 selector = feval(className);
-if ~isa(selector, 'epsych.TrialSelector')
+requiredMethods = {'initialize','selectNext'};
+missing = requiredMethods(~cellfun(@(m) ismethod(selector, m), requiredMethods));
+if ~isempty(missing)
     error('stimgen:StimType:SelectorClassType', ...
-        'Variant selector class "%s" must inherit epsych.TrialSelector.', className);
+        'Variant selector class "%s" must define method(s): %s.', ...
+        className, strjoin(missing, ', '));
 end
 
 if ~isempty(fieldnames(obj.VariantSelectorConfig))

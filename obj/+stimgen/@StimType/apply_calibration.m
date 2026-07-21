@@ -12,9 +12,9 @@ C = obj.Calibration;
 
 if ~isa(C,'stimgen.StimCalibration') || isempty(C.CalibrationData)
     if obj.calibrationWarningIssued
-        vprintf(2,1,'No calibration data available for stim');
+        stimgen.util.vprintf(2,1,'No calibration data available for stim');
     else
-        vprintf(0,1,'No calibration data available for stim');
+        stimgen.util.vprintf(0,1,'No calibration data available for stim');
         obj.calibrationWarningIssued = true;
     end
     return

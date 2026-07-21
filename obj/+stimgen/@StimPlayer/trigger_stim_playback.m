@@ -19,6 +19,6 @@ obj.PARAMS.(trigName).Value = 0;
 
 obj.get_isi_;
 
-vprintf(3, 'StimPlayer:trigger_stim_playback: slot=%d  lastTrigTime=%.3f s', ...
+stimgen.util.vprintf(3, 'StimPlayer:trigger_stim_playback: slot=%d  lastTrigTime=%.3f s', ...
     obj.TrigBufferID, obj.lastTrigTime);
 end

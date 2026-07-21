@@ -17,7 +17,7 @@ if isempty(sp)
 end
 
 if isempty(sp)
-    vprintf(1, 'StimPlayer: no stimulus selected for preview.');
+    stimgen.util.vprintf(1, 'StimPlayer: no stimulus selected for preview.');
     obj.show_gui_message_("Select a stimulus before previewing it.", ...
         "Nothing To Preview", "warning");
     return
@@ -48,7 +48,7 @@ try
     end
     drawnow;
 
-    vprintf(1, 'StimPlayer: playing "%s" via speakers...', sp.Name);
+    stimgen.util.vprintf(1, 'StimPlayer: playing "%s" via speakers...', sp.Name);
     obj.set_status_("Previewing: " + string(sp.Name));
     stimObj.play;
 catch ME

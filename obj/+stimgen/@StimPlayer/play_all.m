@@ -21,7 +21,7 @@ if isempty(sp)
 end
 
 if isempty(sp)
-    vprintf(1, 'StimPlayer: no stimulus selected for play-all preview.');
+    stimgen.util.vprintf(1, 'StimPlayer: no stimulus selected for play-all preview.');
     obj.show_gui_message_("Select a stimulus before using Play All.", ...
         "Nothing To Preview", "warning");
     return
@@ -75,7 +75,7 @@ try
         end
 
         obj.set_status_(sprintf('Previewing combo %d of %d.', comboIdx, numCombos));
-        vprintf(1, 'StimPlayer: previewing "%s" combo %d/%d via speakers...', ...
+        stimgen.util.vprintf(1, 'StimPlayer: previewing "%s" combo %d/%d via speakers...', ...
             sp.Name, comboIdx, numCombos);
         stimObj.play;
 

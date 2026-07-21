@@ -17,5 +17,5 @@ obj.lock_bank_controls_(false);
 obj.disconnect_interfaces_;
 obj.update_protocol_status_;
 
-vprintf(2, 'StimPlayer timer stopped. %d presentations logged.', numel(obj.StimOrder));
+stimgen.util.vprintf(2, 'StimPlayer timer stopped. %d presentations logged.', numel(obj.StimOrder));
 end

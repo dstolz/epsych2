@@ -22,6 +22,6 @@ r = obj.measure_(y, "specfreq", StimFrequency=obj.ReferenceFrequency);
 dv = 10 ^ ((obj.ReferenceLevel - 94) / 20);
 obj.MicSensitivity = r / dv;
 
-vprintf(1, 'Mic sensitivity = %.4f V @ %.1f dB SPL = %.4f V/Pa', ...
+stimgen.util.vprintf(1, 'Mic sensitivity = %.4f V @ %.1f dB SPL = %.4f V/Pa', ...
     r, obj.ReferenceLevel, obj.MicSensitivity);
 end

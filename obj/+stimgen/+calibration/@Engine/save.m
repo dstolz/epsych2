@@ -37,5 +37,5 @@ s.ExcitationVoltage   = obj.ExcitationVoltage;
 s.CalibrationTimestamp = obj.CalibrationTimestamp;
 
 save(ffn, '-struct', 's');
-vprintf(0, 'Saved calibration: "%s"', ffn);
+stimgen.util.vprintf(0, 'Saved calibration: "%s"', ffn);
 end

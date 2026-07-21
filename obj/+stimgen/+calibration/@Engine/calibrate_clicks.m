@@ -52,7 +52,7 @@ end
 
 try
     for i = 1:n
-        vprintf(1, '[%d/%d] Calibrating click %.2f μs', i, n, durs(i)*1e6);
+        stimgen.util.vprintf(1, '[%d/%d] Calibrating click %.2f μs', i, n, durs(i)*1e6);
         so.ClickDuration = durs(i);
         so.update_signal();
 
@@ -87,7 +87,7 @@ catch ME
     if isstruct(obj.CalibrationData)
         obj.CalibrationData = stimgen.calibration.Engine.rmfield_safe_(obj.CalibrationData, 'click');
     end
-    vprintf(0, 2, 'Click calibration aborted: %s', ME.message);
+    stimgen.util.vprintf(0, 2, 'Click calibration aborted: %s', ME.message);
     rethrow(ME);
 end
 

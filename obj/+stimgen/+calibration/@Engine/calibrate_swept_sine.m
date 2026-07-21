@@ -68,9 +68,9 @@ if obj.ShowLivePlots
 end
 
 try
-    vprintf(1, 'Analyzing swept sine response at %d frequencies (%d averages)...', n, repeatCount);
+    stimgen.util.vprintf(1, 'Analyzing swept sine response at %d frequencies (%d averages)...', n, repeatCount);
     for rep = 1:repeatCount
-        vprintf(1, '[%d/%d] Capturing swept sine response', rep, repeatCount);
+        stimgen.util.vprintf(1, '[%d/%d] Capturing swept sine response', rep, repeatCount);
         raw = obj.Adapter.play_and_record(y);
         response = obj.trim_response_(raw);
         responses{rep} = response;
@@ -115,7 +115,7 @@ catch ME
     if isstruct(obj.CalibrationData)
         obj.CalibrationData = stimgen.calibration.Engine.rmfield_safe_(obj.CalibrationData, 'swept_sine');
     end
-    vprintf(0, 2, 'Swept sine calibration aborted: %s', ME.message);
+    stimgen.util.vprintf(0, 2, 'Swept sine calibration aborted: %s', ME.message);
     rethrow(ME);
 end
 
@@ -165,5 +165,5 @@ cd_out.swept_sine = struct( ...
 obj.CalibrationData = cd_out;
 obj.CalibrationTimestamp = datetime('now');
 
-vprintf(1, 'Swept sine calibration complete. THD: %.2f dB', obj.ResponseTHD);
+stimgen.util.vprintf(1, 'Swept sine calibration complete. THD: %.2f dB', obj.ResponseTHD);
 end

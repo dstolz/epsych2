@@ -10,22 +10,28 @@ classdef CalibrationGui < handle
     % hardware can be attached later via File > Initialize Runtime From Protocol.
     %
     % Parameters:
-    %   eng - (optional) stimgen.calibration.Engine with an adapter already
-    %         attached. Omit to start in offline mode.
+    %   eng  - (optional) stimgen.calibration.Engine with an adapter already
+    %          attached. Omit to start in offline mode.
+    %   host - (optional) stimgen.HardwareHost. Required only for the runtime
+    %          menu actions; omit when supplying an engine that already has an
+    %          adapter, or when working offline.
     %
     % Returns:
     %   gui - GUI controller handle.
     %
     % Example:
-    %   % Offline mode — attach hardware from the GUI menu:
+    %   % Offline mode — load a saved calibration, no hardware:
     %   gui = stimgen.calibration.CalibrationGui();
     %
     %   % Pre-built engine with adapter:
-    %   adapter = stimgen.calibration.InterfaceAdapter(iface);
     %   eng = stimgen.calibration.Engine(adapter);
     %   gui = stimgen.calibration.CalibrationGui(eng);
     %
-    % See also: stimgen.calibration.Engine, stimgen.calibration.InterfaceAdapter,
+    %   % Host-driven: attach hardware from the GUI menu.
+    %   gui = stimgen.calibration.CalibrationGui(stimgen.calibration.Engine(), host);
+    %
+    % See also: stimgen.calibration.Engine, stimgen.calibration.HwAdapter,
+    %           stimgen.HardwareHost,
     %           documentation/stimgen/stimgen_CalibrationGui.md,
     %           documentation/stimgen/stimgen_calibration.md
 
@@ -36,9 +42,7 @@ classdef CalibrationGui < handle
     properties (Access = private)
         Figure
         Grid
-        Runtime epsych.Runtime = epsych.Runtime.empty(0,1)
-        Protocol epsych.Protocol = epsych.Protocol.empty(0,1)
-        ProtocolFile (1,1) string = ""
+        Host                    % stimgen.HardwareHost | []
 
         % Controls
         RefLevelField
@@ -63,18 +67,27 @@ classdef CalibrationGui < handle
     end
 
     methods
-        function obj = CalibrationGui(eng)
+        function obj = CalibrationGui(eng, host)
             % obj = stimgen.calibration.CalibrationGui()
             % obj = stimgen.calibration.CalibrationGui(eng)
+            % obj = stimgen.calibration.CalibrationGui(eng, host)
             % Construct and display the calibration GUI.
             %
             % Parameters:
-            %   eng - (optional) stimgen.calibration.Engine; omit for offline mode.
+            %   eng  - (optional) stimgen.calibration.Engine; omit for offline mode.
+            %   host - (optional) stimgen.HardwareHost enabling the runtime menu
+            %          actions (Initialize Runtime From Protocol, Attach Adapter).
             arguments
-                eng (1,1) stimgen.calibration.Engine = stimgen.calibration.Engine()
+                eng  (1,1) stimgen.calibration.Engine = stimgen.calibration.Engine()
+                host = []
+            end
+
+            if ~isempty(host)
+                mustBeA(host, 'stimgen.HardwareHost');
             end
 
             obj.Engine = eng;
+            obj.Host   = host;
 
             obj.build_ui_();
             obj.sync_controls_();
@@ -410,14 +423,8 @@ classdef CalibrationGui < handle
         end
 
         function run_attach_adapter_(obj)
-            if ~isempty(obj.Runtime) && isvalid(obj.Runtime)
-                obj.attach_adapter_from_runtime_(obj.Runtime);
-                return
-            end
-
-            % Explicit fallback for legacy workflows that keep RUNTIME in base workspace.
-            runtimeObj = evalin('base', 'RUNTIME');
-            obj.attach_adapter_from_runtime_(runtimeObj);
+            obj.assert_host_();
+            obj.set_adapter(obj.Host.calibrationAdapter());
         end
 
         function on_initialize_runtime_(obj)
@@ -425,6 +432,7 @@ classdef CalibrationGui < handle
         end
 
         function run_initialize_runtime_(obj)
+            obj.assert_host_();
             [fn, pn] = uigetfile( ...
                 {'*.eprot;*.prot;*.json', 'Protocol files (*.eprot, *.prot, *.json)'}, ...
                 'Load Protocol For Calibration');
@@ -434,29 +442,12 @@ classdef CalibrationGui < handle
             end
 
             protocolPath = fullfile(pn, fn);
-            protocolObj = epsych.Protocol.load(protocolPath);
 
-            runtimeObj = epsych.Runtime;
-            runtimeObj.Interfaces = protocolObj.Interfaces;
+            obj.Host.loadProtocol(protocolPath);
+            obj.Host.connect();
+            obj.Host.setMode("Preview");
 
-            for k = 1:numel(runtimeObj.Interfaces)
-                iface = runtimeObj.Interfaces(k);
-                if ~iface.IsConnected
-                    iface.connect();
-                    assert(iface.IsConnected, ...
-                        'stimgen:calibration:CalibrationGui:runtimeConnectFailed', ...
-                        'Hardware interface "%s" failed to connect.', class(iface));
-                end
-            end
-
-            if ~isempty(runtimeObj.Interfaces)
-                set(runtimeObj.Interfaces, 'mode', hw.DeviceState.Preview);
-            end
-
-            obj.Runtime = runtimeObj;
-            obj.Protocol = protocolObj;
-            obj.ProtocolFile = string(protocolPath);
-            obj.attach_adapter_from_runtime_(runtimeObj);
+            obj.set_adapter(obj.Host.calibrationAdapter());
             obj.set_status_(sprintf('Runtime initialized from protocol: %s', fn), false);
         end
 
@@ -465,63 +456,27 @@ classdef CalibrationGui < handle
         end
 
         function run_disconnect_runtime_(obj)
-            if ~isempty(obj.Runtime) && isvalid(obj.Runtime)
+            if ~isempty(obj.Host) && obj.Host.connectionState() ~= "None"
                 try
-                    if ~isempty(obj.Runtime.Interfaces)
-                        set(obj.Runtime.Interfaces, 'mode', hw.DeviceState.Idle);
-                    end
+                    obj.Host.setMode("Idle");
                 catch ME
-                    vprintf(0, 1, 'CalibrationGui: failed to return runtime interfaces to Idle.');
-                    vprintf(0, 1, ME);
+                    stimgen.util.vprintf(0, 1, 'CalibrationGui: failed to return runtime interfaces to Idle.');
+                    stimgen.util.vprintf(0, 1, ME);
                 end
+                obj.Host.release();
             end
 
             obj.Engine.Adapter = [];
-            obj.Runtime = epsych.Runtime.empty(0,1);
-            obj.Protocol = epsych.Protocol.empty(0,1);
-            obj.ProtocolFile = "";
             obj.update_runtime_state_();
             obj.set_status_('Calibration runtime disconnected.', false);
         end
 
-        function attach_adapter_from_runtime_(obj, runtimeObj)
-            if ~isa(runtimeObj, 'epsych.Runtime')
-                error('stimgen:calibration:CalibrationGui:badRuntime', ...
-                    'Runtime must be an epsych.Runtime object.');
-            end
-
-            if ~isempty(runtimeObj.Interfaces)
-                candidates = runtimeObj.Interfaces;
-            elseif ~isempty(runtimeObj.HW)
-                candidates = runtimeObj.HW;
-            else
-                error('stimgen:calibration:CalibrationGui:noRuntimeInterfaces', ...
-                    'Runtime has no interfaces. Initialize runtime from a protocol first.');
-            end
-
-            lastError = [];
-            for k = 1:numel(candidates)
-                try
-                    adapter = stimgen.calibration.InterfaceAdapter(candidates(k));
-                    obj.Engine.Adapter = adapter;
-                    if ~isempty(obj.Figure) && isvalid(obj.Figure)
-                        obj.update_runtime_state_();
-                        obj.set_status_('Adapter attached. Ready for live calibration.', false);
-                    end
-                    return
-                catch ME
-                    lastError = ME;
-                end
-            end
-
-            if isempty(lastError)
-                error('stimgen:calibration:CalibrationGui:noAdapterSource', ...
-                    'No runtime interface could be adapted for calibration.');
-            else
-                error('stimgen:calibration:CalibrationGui:attachAdapterFailed', ...
-                    ['Could not attach calibration adapter from runtime interfaces. ' ...
-                    'Verify required tags (BufferSize, BufferOut, !Trigger or x_Trigger, BufferIndex, BufferIn). ' ...
-                    'Original error: %s'], lastError.message);
+        function assert_host_(obj)
+            % Guard the hardware-backed menu actions; offline mode has no host.
+            if isempty(obj.Host)
+                error('stimgen:calibration:CalibrationGui:noHost', ...
+                    ['No hardware host is attached. Construct CalibrationGui with a ' ...
+                    'stimgen.HardwareHost, or supply an Engine that already has an adapter.']);
             end
         end
 

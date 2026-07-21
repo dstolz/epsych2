@@ -1,33 +1,32 @@
 classdef StimPlayer < handle
 
     % obj = stimgen.StimPlayer
-    % obj = stimgen.StimPlayer(PROTOCOL)
-    % Standalone stimulus bank and playback peripheral for EPsych.
+    % obj = stimgen.StimPlayer(HOST)
+    % Standalone stimulus bank and playback peripheral.
     %
     % Developer guide: documentation/stimgen/stimgen_StimPlayer.md
     %
     % Manages a named bank of stimgen.StimPlay objects, schedules them
     % using a serial or shuffle strategy at a configurable global ISI,
-    % uploads audio buffers to hardware via epsych.Runtime, and triggers
-    % playback from its own timer (independent of PsychTimer).
+    % uploads audio buffers to hardware via a stimgen.HardwareHost, and
+    % triggers playback from its own timer (independent of PsychTimer).
     %
-    % When a Protocol is not provided or required hardware parameters are
-    % not found, hardware playback is disabled and only speaker preview is
+    % When a host is not provided or required hardware parameters are not
+    % found, hardware playback is disabled and only speaker preview is
     % available via Play and Play All.
     %
-    % Required hw.Parameter names (resolved from Runtime at Run time):
+    % Required parameter names (resolved from the host at Run time):
     %   BufferData_0, BufferData_1   - audio data buffers
     %   BufferSize_0, BufferSize_1   - buffer length in samples
     %   x_Trigger_0, x_Trigger_1    - playback trigger pulses
     %
     % Usage:
-    %   sp = stimgen.StimPlayer;           % GUI only, speaker preview
-    %   sp = stimgen.StimPlayer(PROTOCOL); % with protocol-defined hardware
-    %   sp = stimgen.StimPlayer(FILEPATH); % load protocol from file
+    %   sp = stimgen.StimPlayer;       % GUI only, speaker preview
+    %   sp = stimgen.StimPlayer(HOST); % with host-provided hardware
     %
     % Properties (selected):
     %   StimPlayObjs  - Bank of stimgen.StimPlay objects
-    %   Protocol_     - Optional epsych.Protocol for hardware interfaces
+    %   Host          - Optional stimgen.HardwareHost for hardware playback
     %   ISI           - Global ISI range [min max] in seconds
     %   SelectionType - "Serial" or "Shuffle"
 
@@ -80,10 +79,8 @@ classdef StimPlayer < handle
 
     % --- Private ---
     properties (Access = private)
-        RUNTIME epsych.Runtime = epsych.Runtime.empty(0,1) % Private runtime used for hardware buffer/trigger access
-        Protocol_ epsych.Protocol = epsych.Protocol.empty(0,1) % Loaded protocol that defines hardware interfaces
-        ProtocolFile_ (1,1) string = "" % Source filepath for loaded protocol when available
-        PARAMS struct = struct()   % Cached hw.Parameter handles keyed by validName
+        Host                       % stimgen.HardwareHost | [] ([] = offline preview only)
+        PARAMS struct = struct()   % Cached parameter handles keyed by validName
         els                        % Event listeners
         hFig                       % uifigure handle
         handles struct = struct()  % UI component handles
@@ -98,28 +95,29 @@ classdef StimPlayer < handle
     % --- Dependent ---
     properties (Dependent)
         CurrentSPObj          % stimgen.StimPlay currently selected for playback
-        HardwareAvailable     % true if RUNTIME has the required buffer/trigger parameters
+        HardwareAvailable     % true if the host exposes the required buffer/trigger parameters
         timeSinceStart        % Elapsed seconds since firstTrigTime
     end
 
     % =====================================================================
     methods
 
-        function obj = StimPlayer(protocolInput)
+        function obj = StimPlayer(host)
             % obj = stimgen.StimPlayer
-            % obj = stimgen.StimPlayer(protocolInput)
-            % Construct StimPlayer, optionally loading an epsych.Protocol.
+            % obj = stimgen.StimPlayer(host)
+            % Construct StimPlayer, optionally attached to a hardware host.
             %
             % Parameters:
-            %   protocolInput - epsych.Protocol object or protocol filepath (optional)
+            %   host - stimgen.HardwareHost providing protocol and hardware
+            %          access (optional; omit for offline speaker preview)
 
             obj.create;
 
-            if nargin > 0 && ~isempty(protocolInput)
-                obj.load_protocol_(protocolInput);
-            else
-                obj.update_protocol_status_;
+            if nargin > 0 && ~isempty(host)
+                mustBeA(host, 'stimgen.HardwareHost');
+                obj.Host = host;
             end
+            obj.update_protocol_status_;
 
             if nargout == 0, clear obj; end
         end
@@ -149,7 +147,7 @@ classdef StimPlayer < handle
         % -----------------------------------------------------------------
         function tf = get.HardwareAvailable(obj)
             tf = false;
-            if isempty(obj.RUNTIME) || ~isvalid(obj.RUNTIME)
+            if isempty(obj.Host) || obj.Host.connectionState() == "None"
                 return
             end
             required = {'BufferData_0','BufferData_1','BufferSize_0','BufferSize_1', ...
@@ -198,16 +196,16 @@ classdef StimPlayer < handle
 
         % -----------------------------------------------------------------
         function resolve_params_(obj)
-            % resolve_params_() - Populate PARAMS from RUNTIME.find_parameter.
+            % resolve_params_() - Populate PARAMS from the host.
             % Called at Run time. Silently skips missing parameters.
             obj.PARAMS = struct;
-            if isempty(obj.RUNTIME) || ~isvalid(obj.RUNTIME)
+            if isempty(obj.Host)
                 return
             end
             names = {'BufferData_0','BufferData_1','BufferSize_0','BufferSize_1', ...
                      'x_Trigger_0','x_Trigger_1'};
             for k = 1:numel(names)
-                P = obj.RUNTIME.find_parameter(names{k}, silenceParameterNotFound=true);
+                P = obj.Host.findParameter(names{k});
                 if ~isempty(P)
                     obj.PARAMS.(names{k}) = P;
                 end
@@ -216,11 +214,19 @@ classdef StimPlayer < handle
 
         % -----------------------------------------------------------------
         function load_protocol_(obj, protocolInput)
+            % load_protocol_(obj) - Prompt for a protocol file and load it.
             % load_protocol_(obj, protocolInput) - Load a protocol object or file.
+            % Protocol handling is delegated entirely to the attached host.
 
             if ~isempty(obj.Timer) && isvalid(obj.Timer) && strcmp(obj.Timer.Running, 'on')
                 obj.show_gui_message_("Stop playback before loading a new protocol.", ...
                     "Protocol In Use", "warning");
+                return
+            end
+
+            if isempty(obj.Host)
+                obj.show_gui_message_("No hardware host is attached; speaker preview only.", ...
+                    "No Hardware Host", "warning");
                 return
             end
 
@@ -236,26 +242,15 @@ classdef StimPlayer < handle
             obj.disconnect_interfaces_;
 
             try
-                if isa(protocolInput, 'epsych.Protocol')
-                    obj.Protocol_ = protocolInput;
-                    obj.ProtocolFile_ = "";
-                elseif ischar(protocolInput) || isstring(protocolInput)
-                    pfn = string(protocolInput);
-                    if ~isfile(pfn)
-                        error('StimPlayer:ProtocolFileNotFound', 'Protocol file was not found: %s', pfn);
-                    end
-                    obj.Protocol_ = epsych.Protocol.load(char(pfn));
-                    obj.ProtocolFile_ = pfn;
-                    obj.DataPath = string(fileparts(char(pfn)));
-                else
-                    error('StimPlayer:InvalidProtocolInput', ...
-                        'StimPlayer requires an epsych.Protocol object or protocol filepath.');
+                obj.Host.loadProtocol(protocolInput);
+
+                % Track the containing folder so later file dialogs open there.
+                if (ischar(protocolInput) || isstring(protocolInput)) && isfile(protocolInput)
+                    obj.DataPath = string(fileparts(char(protocolInput)));
                 end
 
                 obj.set_status_("Protocol loaded.");
             catch ME
-                obj.Protocol_ = epsych.Protocol.empty(0,1);
-                obj.ProtocolFile_ = "";
                 obj.report_gui_error_(ME, "Load Protocol Error", ...
                     "StimPlayer could not load the selected protocol.");
             end
@@ -265,52 +260,36 @@ classdef StimPlayer < handle
 
         % -----------------------------------------------------------------
         function initialize_runtime_from_protocol_(obj)
-            % initialize_runtime_from_protocol_() - Create Runtime and connect protocol interfaces.
+            % initialize_runtime_from_protocol_() - Connect host hardware for playback.
 
             obj.disconnect_interfaces_;
 
-            if isempty(obj.Protocol_) || ~isvalid(obj.Protocol_)
+            if isempty(obj.Host) || ~obj.Host.hasProtocol()
                 return
             end
 
-            obj.RUNTIME = epsych.Runtime;
-            obj.RUNTIME.Interfaces = obj.Protocol_.Interfaces;
-
-            for k = 1:numel(obj.RUNTIME.Interfaces)
-                iface = obj.RUNTIME.Interfaces(k);
-                if ~iface.IsConnected
-                    iface.connect();
-                    assert(iface.IsConnected, ...
-                        'StimPlayer:HardwareConnectionFailed', ...
-                        'Hardware interface "%s" failed to connect.', class(iface));
-                end
-            end
-
-            if ~isempty(obj.RUNTIME.Interfaces)
-                set(obj.RUNTIME.Interfaces, 'mode', hw.DeviceState.Preview);
-            end
+            obj.Host.connect();
+            obj.Host.setMode("Preview");
         end
 
         % -----------------------------------------------------------------
         function disconnect_interfaces_(obj)
-            % disconnect_interfaces_() - Return hardware to Idle and clear runtime cache.
+            % disconnect_interfaces_() - Return hardware to Idle and clear parameter cache.
 
-            if isempty(obj.RUNTIME) || ~isvalid(obj.RUNTIME)
-                obj.PARAMS = struct();
+            obj.PARAMS = struct();
+
+            if isempty(obj.Host) || obj.Host.connectionState() == "None"
                 return
             end
 
             try
-                if ~isempty(obj.RUNTIME.Interfaces)
-                    set(obj.RUNTIME.Interfaces, 'mode', hw.DeviceState.Idle);
-                end
+                obj.Host.setMode("Idle");
             catch ME
-                vprintf(0, 1, 'StimPlayer: failed to return interface mode to Idle.');
-                vprintf(0, 1, ME);
+                stimgen.util.vprintf(0, 1, 'StimPlayer: failed to return interface mode to Idle.');
+                stimgen.util.vprintf(0, 1, ME);
             end
 
-            obj.RUNTIME = epsych.Runtime.empty(0,1);
-            obj.PARAMS = struct();
+            obj.Host.release();
         end
 
         % -----------------------------------------------------------------
@@ -352,28 +331,19 @@ classdef StimPlayer < handle
                 return
             end
 
-            if isempty(obj.Protocol_) || ~isvalid(obj.Protocol_)
+            if isempty(obj.Host) || ~obj.Host.hasProtocol()
                 h.ProtocolStatusLabel.Text = 'Protocol: none | HW: speaker preview only';
                 return
             end
 
-            if strlength(obj.ProtocolFile_) > 0
-                [~, fn, ext] = fileparts(char(obj.ProtocolFile_));
-                protocolName = string(fn + ext);
-            else
-                protocolName = string(class(obj.Protocol_));
+            switch obj.Host.connectionState()
+                case "Ready",    hwState = "Ready";
+                case "Partial",  hwState = "Partial";
+                otherwise,       hwState = "Not Connected";
             end
 
-            hwState = "Not Connected";
-            if ~isempty(obj.RUNTIME) && isvalid(obj.RUNTIME) && ~isempty(obj.RUNTIME.Interfaces)
-                if all([obj.RUNTIME.Interfaces.IsConnected])
-                    hwState = "Ready";
-                else
-                    hwState = "Partial";
-                end
-            end
-
-            h.ProtocolStatusLabel.Text = sprintf('Protocol: %s | HW: %s', protocolName, hwState);
+            h.ProtocolStatusLabel.Text = sprintf('Protocol: %s | HW: %s', ...
+                obj.Host.protocolName(), hwState);
         end
 
         % -----------------------------------------------------------------
@@ -490,8 +460,8 @@ classdef StimPlayer < handle
                 userMessage (1,1) string = "An unexpected error occurred."
             end
 
-            vprintf(0, 1, '%s: %s', char(titleText), ME.message);
-            vprintf(0, 1, ME);
+            stimgen.util.vprintf(0, 1, '%s: %s', char(titleText), ME.message);
+            stimgen.util.vprintf(0, 1, ME);
 
             detailedMessage = obj.format_gui_error_message_(ME, userMessage);
             obj.set_status_(titleText + ": " + detailedMessage, isError=true);
@@ -588,7 +558,7 @@ classdef StimPlayer < handle
                 case "stimgen:StimType:SelectorClassNotFound"
                     messageText = "StimPlayer could not find the requested variant selector class on the MATLAB path.";
                 case "stimgen:StimType:SelectorClassType"
-                    messageText = "The selected variant selector must inherit epsych.TrialSelector.";
+                    messageText = "The selected variant selector must define both initialize() and selectNext() methods.";
                 case "stimgen:StimType:InvalidSelectorIndex"
                     messageText = "The custom selector returned an invalid variant index for the available combinations.";
                 case "stimgen:StimType:InvalidCombinationMode"

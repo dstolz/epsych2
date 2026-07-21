@@ -8,7 +8,7 @@ classdef (Abstract) HwAdapter < handle
     % capabilities at construction time and error immediately if anything is
     % absent (fail-fast).
     %
-    % See also: stimgen.calibration.InterfaceAdapter, stimgen.calibration.Engine,
+    % See also: stimgen.calibration.WindowsSoundCardAdapter, stimgen.calibration.Engine,
     %           documentation/stimgen/stimgen_calibration.md
 
     methods (Abstract)

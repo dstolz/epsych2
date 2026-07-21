@@ -20,7 +20,7 @@ classdef Engine < handle
     %   filterGrpDelay   - int (group delay samples; 0 until design_filter runs)
     %
     % Usage:
-    %   adapter = stimgen.calibration.InterfaceAdapter(RUNTIME.HW);
+    %   adapter = stimgen.calibration.WindowsSoundCardAdapter();
     %   eng = stimgen.calibration.Engine(adapter);
     %   eng.ReferenceFrequency = 1000;
     %   eng.calibrate_reference();
@@ -34,7 +34,7 @@ classdef Engine < handle
     %   v   = eng.compute_adjusted_voltage("tone", 4000, 70);
     %
     % See also: stimgen.calibration.HwAdapter,
-    %           stimgen.calibration.InterfaceAdapter,
+    %           stimgen.calibration.WindowsSoundCardAdapter,
     %           documentation/stimgen/stimgen_calibration.md
 
     % --- Persistent calibration parameters ---

@@ -26,7 +26,7 @@ try
 	h.BankList.Value = numel(obj.StimPlayObjs);
 	obj.on_bank_selection_changed(h.BankList, []);
 
-	vprintf(2, 'StimPlayer: added %s as "%s"', typeName, sp.Name);
+	stimgen.util.vprintf(2, 'StimPlayer: added %s as "%s"', typeName, sp.Name);
 	obj.set_status_("Added stimulus: " + string(sp.Name));
 catch ME
 	obj.report_gui_error_(ME, "Add Stimulus Error", ...

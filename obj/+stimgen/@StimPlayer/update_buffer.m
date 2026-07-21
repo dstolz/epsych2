@@ -23,9 +23,9 @@ try
     obj.PARAMS.("BufferSize_" + string(bid)).Value = nSamps;
     obj.PARAMS.("BufferData_" + string(bid)).Value = buffer;
 catch ME
-    vprintf(0, 1, 'StimPlayer:update_buffer: failed to write buffer %d', bid);
-    vprintf(0, 1, ME);
+    stimgen.util.vprintf(0, 1, 'StimPlayer:update_buffer: failed to write buffer %d', bid);
+    stimgen.util.vprintf(0, 1, ME);
 end
 
-vprintf(4, 'StimPlayer:update_buffer: slot=%d  nSamps=%d', bid, nSamps);
+stimgen.util.vprintf(4, 'StimPlayer:update_buffer: slot=%d  nSamps=%d', bid, nSamps);
 end

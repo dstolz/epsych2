@@ -23,7 +23,7 @@ switch lower(src.Text)
             obj.resolve_params_;
 
             if ~obj.HardwareAvailable
-                vprintf(1, 'StimPlayer: hardware parameters not found — timer will run without hardware output.');
+                stimgen.util.vprintf(1, 'StimPlayer: hardware parameters not found — timer will run without hardware output.');
             end
 
             % Update Fs on all bank items from hardware if available

@@ -21,7 +21,7 @@ bank.Items         = arrayfun(@(sp) sp.toStruct, obj.StimPlayObjs, 'uni', false)
 
 try
     save(ffn, '-struct', 'bank', '-v7');
-    vprintf(1, 'StimPlayer: bank saved to "%s"', ffn);
+    stimgen.util.vprintf(1, 'StimPlayer: bank saved to "%s"', ffn);
     obj.set_status_("Saved bank: " + string(ffn));
 catch ME
     obj.report_gui_error_(ME, "Save Bank Error", ...

@@ -21,7 +21,7 @@
 %% ---- CONFIG ---- (edit these values for your rig) ----------------------
 
 % TDT hardware / RPvds circuit
-RPVDS_FILE     = 'C:/src/epsych2/obj/+stimgen/StimGenCalibration.rcx'; % circuit exposing the tags above
+RPVDS_FILE     = fullfile(epsych_path,'examples','stimgen','StimGenCalibration.rcx'); % circuit exposing the tags above
 MODULE_TYPE    = 'RZ6';   % 'RP2','RX6','RZ6','RZ5','RM1',... (must match your device)
 MODULE_ALIAS   = 'RZ6Cal';% label for this module (used to name the output file)
 DEVICE_NUMBER  = 1;       % device number as enumerated by zBUSmon
@@ -90,7 +90,7 @@ cleanupHW = onCleanup(@() safe_disconnect_(HW));
 
 %% ---- Build adapter and engine ------------------------------------------
 try
-    adapter = stimgen.calibration.InterfaceAdapter(HW);   % Fs auto-discovered from module
+    adapter = stimbridge.InterfaceAdapter(HW);   % Fs auto-discovered from module
 catch ME
     fprintf(2, '\nInterfaceAdapter setup failed:\n  %s\n\n', ME.message);
     fprintf(2, ['The RPvds circuit must expose these tags:\n', ...

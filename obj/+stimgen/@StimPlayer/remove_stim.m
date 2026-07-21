@@ -23,5 +23,5 @@ obj.refresh_combo_controls_;
 % Clear tab group back to placeholder
 obj.clear_tabs_;
 
-vprintf(2, 'StimPlayer: removed bank item "%s"', name);
+stimgen.util.vprintf(2, 'StimPlayer: removed bank item "%s"', name);
 obj.set_status_("Removed stimulus: " + string(name));

@@ -357,7 +357,7 @@ try
     for i = 1:numel(obj.StimPlayObjs)
         obj.StimPlayObjs(i).StimObj.Calibration = calObj;
     end
-    vprintf(1, 'Calibration applied to %d bank items.', numel(obj.StimPlayObjs));
+    stimgen.util.vprintf(1, 'Calibration applied to %d bank items.', numel(obj.StimPlayObjs));
 catch ME
     obj.report_gui_error_(ME, "Calibration Error", ...
         "StimPlayer could not load or apply the selected calibration file.");
@@ -394,7 +394,7 @@ try
         return
     end
     assignin('base', 'y', stimObj.Signal);
-    vprintf(1, 'StimPlayer: signal exported to workspace variable ''y'' (%d samples, Fs = %g Hz).\n', ...
+    stimgen.util.vprintf(1, 'StimPlayer: signal exported to workspace variable ''y'' (%d samples, Fs = %g Hz).\n', ...
         numel(stimObj.Signal), stimObj.Fs);
 catch ME
     obj.report_gui_error_(ME, "Export Error", ...
@@ -469,7 +469,7 @@ try
     end
 
     assignin('base', 'signals', signals);
-    vprintf(1, 'StimPlayer: exported all signals to workspace variable ''signals'' (%d bank item(s)).\n', ...
+    stimgen.util.vprintf(1, 'StimPlayer: exported all signals to workspace variable ''signals'' (%d bank item(s)).\n', ...
         numel(obj.StimPlayObjs));
     obj.set_status_(sprintf('Exported %d bank item(s) to ''signals''.', numel(obj.StimPlayObjs)));
 catch ME
@@ -549,7 +549,7 @@ try
     end
 
     assignin('base', 'stimBank', stimBank);
-    vprintf(1, 'StimPlayer: exported bank as StimType objects to workspace variable ''stimBank'' (%d item(s)).\n', ...
+    stimgen.util.vprintf(1, 'StimPlayer: exported bank as StimType objects to workspace variable ''stimBank'' (%d item(s)).\n', ...
         numel(obj.StimPlayObjs));
     obj.set_status_(sprintf('Exported %d bank item(s) as StimType objects to ''stimBank''.', numel(obj.StimPlayObjs)));
 catch ME

@@ -37,7 +37,7 @@ try
     obj.lastTrigTime  = 0;
 
     obj.update_counter_;
-    vprintf(2, 'StimPlayer timer started.');
+    stimgen.util.vprintf(2, 'StimPlayer timer started.');
 catch ME
     if ~isempty(obj.Timer) && isvalid(obj.Timer)
         stop(obj.Timer);

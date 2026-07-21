@@ -52,7 +52,7 @@ end
 
 try
     for i = 1:n
-        vprintf(1, '[%d/%d] Calibrating tone %.3f kHz', i, n, freqs(i)/1000);
+        stimgen.util.vprintf(1, '[%d/%d] Calibrating tone %.3f kHz', i, n, freqs(i)/1000);
         so.Frequency     = freqs(i);
         so.WindowDuration = 4 / freqs(i);
         so.update_signal();
@@ -89,7 +89,7 @@ catch ME
     if isstruct(obj.CalibrationData)
         obj.CalibrationData = stimgen.calibration.Engine.rmfield_safe_(obj.CalibrationData, 'tone');
     end
-    vprintf(0, 2, 'Tone calibration aborted: %s', ME.message);
+    stimgen.util.vprintf(0, 2, 'Tone calibration aborted: %s', ME.message);
     rethrow(ME);
 end
 

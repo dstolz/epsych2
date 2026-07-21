@@ -1,8 +1,14 @@
 classdef InterfaceAdapter < stimgen.calibration.HwAdapter
-    % stimgen.calibration.InterfaceAdapter(hwInterface)
-    % stimgen.calibration.InterfaceAdapter(hwInterface, Fs=value)
+    % stimbridge.InterfaceAdapter(hwInterface)
+    % stimbridge.InterfaceAdapter(hwInterface, Fs=value)
     %
     % Concrete calibration adapter wrapping an hw.Interface instance.
+    %
+    % This is the EPsych side of the stimgen bridge: it implements the
+    % abstract stimgen.calibration.HwAdapter contract in terms of EPsych's
+    % hw.* types, which stimgen itself does not know about. It lives here
+    % rather than in stimgen so the stimgen package stays hardware-agnostic
+    % and usable standalone.
     %
     % Resolves the five required hw.Parameter handles at construction time and
     % errors immediately if any are absent. The hw.Interface must expose:
@@ -22,10 +28,11 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
     %   Fs          - (optional) double sample rate in Hz; overrides Module.Fs
     %
     % Example:
-    %   adapter = stimgen.calibration.InterfaceAdapter(RUNTIME.HW);
-    %   adapter = stimgen.calibration.InterfaceAdapter(RUNTIME.HW, Fs=97656.25);
+    %   adapter = stimbridge.InterfaceAdapter(RUNTIME.HW);
+    %   adapter = stimbridge.InterfaceAdapter(RUNTIME.HW, Fs=97656.25);
     %
-    % See also: stimgen.calibration.HwAdapter, stimgen.calibration.Engine,
+    % See also: stimbridge.RuntimeHost, stimgen.calibration.HwAdapter,
+    %           stimgen.calibration.Engine,
     %           documentation/stimgen/stimgen_calibration.md
 
     properties (SetAccess = private)
@@ -48,7 +55,8 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
 
         % Accepted names for the acquisition start trigger, in priority order.
         % '!Trigger' is the standard EPsych/RPvds SoftTrg convention (the
-        % ep_MatlabTrigger macro used by StimGenCalibration.rcx); 'x_Trigger'
+        % ep_MatlabTrigger macro used by examples/stimgen/StimGenCalibration.rcx);
+        % 'x_Trigger'
         % is the plain-tag convention in tmp/Calibration_TDT_RPcox_Template.json.
         TRIGGER_CANDIDATES_ = {'!Trigger','x_Trigger'}
     end
@@ -106,7 +114,7 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
                 name = required{k};
                 p = obj.HW.find_parameter(name, silenceParameterNotFound=true);
                 if isempty(p)
-                    error('stimgen:calibration:InterfaceAdapter:missingParameter', ...
+                    error('stimbridge:InterfaceAdapter:missingParameter', ...
                         ['Required calibration parameter "%s" not found on ' ...
                         'hw.Interface "%s". Verify the hardware circuit exposes ' ...
                         'this tag and try reconnecting.'], name, class(obj.HW));
@@ -131,7 +139,7 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
             end
 
             if obj.Fs_ == 0
-                error('stimgen:calibration:InterfaceAdapter:noSampleRate', ...
+                error('stimbridge:InterfaceAdapter:noSampleRate', ...
                     ['Cannot determine sample rate from hw.Interface "%s". ' ...
                     'Ensure hw.Module.Fs is set during setup_interface, or ' ...
                     'supply the Fs argument explicitly.'], class(obj.HW));
@@ -149,7 +157,7 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
                     return
                 end
             end
-            error('stimgen:calibration:InterfaceAdapter:missingParameter', ...
+            error('stimbridge:InterfaceAdapter:missingParameter', ...
                 ['No acquisition trigger found on hw.Interface "%s". Expose a ' ...
                 'writable trigger tag named one of: %s.'], ...
                 class(obj.HW), strjoin(candidates, ', '));

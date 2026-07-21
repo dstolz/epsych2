@@ -75,7 +75,7 @@ try
     obj.update_counter_;
     obj.refresh_combo_controls_;
 
-    vprintf(1, 'StimPlayer: bank loaded from "%s" (%d items).', ffn, numel(sps));
+    stimgen.util.vprintf(1, 'StimPlayer: bank loaded from "%s" (%d items).', ffn, numel(sps));
     obj.set_status_("Loaded bank with " + string(numel(sps)) + " item(s).");
 catch ME
     obj.report_gui_error_(ME, "Load Bank Error", ...

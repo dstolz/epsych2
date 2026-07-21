@@ -43,9 +43,9 @@ eng.restore_from_struct_(s);
 if isstruct(eng.CalibrationData)
     ts = eng.CalibrationTimestamp;
     if isequal(ts, datetime(""))
-        vprintf(0, 'Loaded calibration: "%s" (timestamp unknown)', ffn);
+        stimgen.util.vprintf(0, 'Loaded calibration: "%s" (timestamp unknown)', ffn);
     else
-        vprintf(0, 'Loaded calibration: "%s" from %s', ffn, string(ts));
+        stimgen.util.vprintf(0, 'Loaded calibration: "%s" from %s', ffn, string(ts));
     end
 end
 end

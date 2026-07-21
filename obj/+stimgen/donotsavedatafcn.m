@@ -1,2 +1,2 @@
 function donotsavedatafcn(RUNTIME)
-vprintf(4,'nothing to save')
+stimgen.util.vprintf(4,'nothing to save')

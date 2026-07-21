@@ -43,5 +43,5 @@ if isfield(obj.handles, 'BankList') && isvalid(obj.handles.BankList)
     obj.on_bank_selection_changed(obj.handles.BankList, []);
 end
 
-vprintf(2, 'StimPlayer: opened existing stimulus "%s"', char(name));
+stimgen.util.vprintf(2, 'StimPlayer: opened existing stimulus "%s"', char(name));
 end

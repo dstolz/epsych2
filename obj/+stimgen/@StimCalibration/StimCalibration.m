@@ -1,17 +1,16 @@
 classdef StimCalibration < handle & matlab.mixin.SetGet
-    % obj = stimgen.StimCalibration(RUNTIME, parent)
+    % obj = stimgen.StimCalibration(adapter, parent)
     % obj = stimgen.StimCalibration()
     %
     % GUI controller for SPL-to-voltage calibration.
     %
-    % Thin wrapper around stimgen.calibration.Engine and
-    % stimgen.calibration.InterfaceAdapter. Owns the GUI state machine and
-    % exposes proxy properties and methods so that stimgen.StimType
-    % continues to work without modification.
+    % Thin wrapper around stimgen.calibration.Engine. Owns the GUI state
+    % machine and exposes proxy properties and methods so that
+    % stimgen.StimType continues to work without modification.
     %
     % When constructed without arguments the object is in offline mode and
-    % can load a .esgc file for use by StimType. When RUNTIME is supplied
-    % an InterfaceAdapter is created and the calibration GUI is launched.
+    % can load a .esgc file for use by StimType. When an adapter is supplied
+    % the calibration GUI is launched against that hardware.
     %
     % Properties (delegated from Engine):
     %   CalibrationData, MicSensitivity, ReferenceLevel, ReferenceFrequency,
@@ -23,8 +22,7 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
     %   load_calibration         - Load .esgc file into Engine.
     %   save_calibration         - Save Engine data to .esgc file.
     %
-    % See also: stimgen.calibration.Engine,
-    %           stimgen.calibration.InterfaceAdapter,
+    % See also: stimgen.calibration.Engine, stimgen.calibration.HwAdapter,
     %           documentation/stimgen/stimgen_StimCalibration.md
 
     properties (SetAccess = protected)
@@ -57,22 +55,24 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
         v = compute_adjusted_voltage(obj, type, value, level)  % Proxy to Engine.
 
         % ---------------------------------------------------------- %
-        function obj = StimCalibration(RUNTIME, parent)
+        function obj = StimCalibration(adapter, parent)
             % obj = StimCalibration()
-            % obj = StimCalibration(RUNTIME)
-            % obj = StimCalibration(RUNTIME, parent)
+            % obj = StimCalibration(adapter)
+            % obj = StimCalibration(adapter, parent)
             %
             % Parameters:
-            %   RUNTIME - epsych.Runtime (optional; omit for offline use)
+            %   adapter - stimgen.calibration.HwAdapter connected to calibration
+            %             hardware (optional; omit for offline use). The host
+            %             application builds this, e.g. stimbridge.InterfaceAdapter.
             %   parent  - UI parent container (optional)
             obj.handles.parent = [];
             if nargin > 1
                 obj.handles.parent = parent;
             end
 
-            if nargin > 0
-                adapter     = stimgen.calibration.InterfaceAdapter(RUNTIME.HW);
-                obj.Engine  = stimgen.calibration.Engine(adapter);
+            if nargin > 0 && ~isempty(adapter)
+                mustBeA(adapter, 'stimgen.calibration.HwAdapter');
+                obj.Engine = stimgen.calibration.Engine(adapter);
                 obj.gui();
             else
                 obj.Engine = stimgen.calibration.Engine();
@@ -187,7 +187,7 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
                     catch ME
                         set(hen, 'Enable', 'on');
                         h.RefMeasure.Text = 'REFERENCING ERROR';
-                        vprintf(0, 2, ME);
+                        stimgen.util.vprintf(0, 2, ME);
                         obj.STATE = "IDLE";
                         return;
                     end
@@ -213,7 +213,7 @@ classdef StimCalibration < handle & matlab.mixin.SetGet
                         set(hen, 'Enable', 'on');
                         h.RunCalibration.Text            = {'CALIBRATION','ERROR'};
                         h.RunCalibration.BackgroundColor = 'r';
-                        vprintf(0, 2, ME);
+                        stimgen.util.vprintf(0, 2, ME);
                         obj.STATE = "IDLE";
                         return;
                     end

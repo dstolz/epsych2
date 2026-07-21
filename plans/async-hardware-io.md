@@ -111,6 +111,18 @@ Ids are positional over an identical full-tree enumeration on both sides (all pa
 3. Mode poll every 250 ms → `modeChange` on change.
 4. Warm poll: ~100 ms budget, round-robin K non-array/non-hot Read params per iteration, batched `update`.
 5. On fatal device error: stop polling, keep serving `freshRead`/`shutdown` for debugging.
+6. Tee each pushed `update`/`modeChange`/`trialComplete` batch and each executed `set`/`trigger` to the JSONL event log (when open); flush per batch.
+
+## Parameter event log (JSONL, optional — on by default)
+
+Purpose: an experiment record and crash-forensics/external-monitoring channel — **not** the foreground↔worker IPC (that stays the in-memory queues above; see decision 5). Rationale: `poll(q,0)` is µs-scale and lossless, while polling a file from the 10 ms PsychTimer tick would add ~ms of open/read/`jsondecode` per tick, torn-line handling, poll-interval latency, and JSON type lossiness (NaN/Inf → null — the repo already works around this with string sentinels in `Runtime.writeParametersJSON`).
+
+- **Writer**: `ServerCore` only (single writer, no contention).
+- **Lifecycle**: opened by the forwarded `prepareRecording` at run start, path `<SessionDataFilename minus .mat>_paramlog_<ifaceType>.jsonl` (mirrors the existing `Intan_RHX.prepareRecording` convention of deriving its recording path from `SessionDataFilename`); closed on `setMode` Stop and on `shutdown`. If `SessionDataFilename` is empty (standalone/smoke-test use), fall back to a pref-configured temp/log directory.
+- **File contents**: line 1 = header record (schema version, interface `Type`, wall-clock start, id→FullName enumeration table); line 2 = full parameter snapshot; then changed-only records `{"t":"<ISO8601 ms>","tm":<monotonic s>,"src":"poll|set|trigger|mode|trial","id":N,"v":...}`. The TrialComplete edge writes its full Read-snapshot (same blob as the `trialComplete` queue message). NaN/Inf/-Inf use string sentinels, same convention as `writeParametersJSON`.
+- **Write mechanics**: batched at the same cadence as `update` pushes; open-append-close per batch (durability + Windows read-sharing while the run is live); `jsonencode` per record. A write failure emits one `warn` and disables logging for the rest of the run — it must never abort a run.
+- **Reader**: static `hw.async.EventLog.read(path, fromByte)` parses complete lines from a byte offset, returns records plus the next offset, and silently ignores a trailing partial line (crash-safe). Proxy convenience method `readEventLog()` wraps it for diagnostics/GUI use; the same reader reconstructs a full session offline.
+- **Toggle**: `Runtime.EventLogEnabled`, defaulting from `getpref('ep_RunExpt','AsyncEventLog',true)` — opt-out rather than opt-in, since an experiment record can't be recovered retroactively and all the I/O cost lives in the worker, off the foreground thread.
 
 ## Ordering & consistency
 
@@ -128,12 +140,12 @@ Ids are positional over an identical full-tree enumeration on both sides (all pa
 ## Phases & verification
 
 - **Phase 0 — inert groundwork**: Interface.m + Parameter.m `backend_` routing. Verify byte-identical behavior: run existing `tmp/` smoke tests (`smoke_test_intan_rhx.m`, `smoke_test_stimplayer_standalone.m`) + a Software-only RunExpt preview session.
-- **Phase 1 — protocol + ServerCore** (pool-free): `hw.async.msg`, ServerCore, mock; run `tmp/smoke_test_async_servercore.m`.
+- **Phase 1 — protocol + ServerCore** (pool-free): `hw.async.msg`, ServerCore, mock, `hw.async.EventLog`; run `tmp/smoke_test_async_servercore.m` and `tmp/smoke_test_async_eventlog.m`.
 - **Phase 2 — proxy over a real pool**: complete `hw.AsyncInterface`; run `tmp/smoke_test_async_proxy.m` (incl. worker-kill and passthrough fallback).
 - **Phase 3 — runtime integration**: Runtime/RunExpt/resolveCoreParameters + UI toggle; run `tmp/smoke_test_async_trial_cycle.m` (full trial loop vs. mock, ordering + data-integrity asserts).
 - **Phase 4 — hardware validation + perf**: **spike `actxserver('RPco.X')` inside a process worker on the rig first — the single biggest unknown**; then Synapse/Intan; `tmp/async_latency_harness.m` sync-vs-async comparison; write docs.
 
-End-to-end check: run a Software+mock protocol via `epsych.RunExpt` with the toggle ON for N trials; confirm saved DATA matches, GUI stays responsive during injected 200 ms mock latency, and toggling OFF reproduces current behavior.
+End-to-end check: run a Software+mock protocol via `epsych.RunExpt` with the toggle ON for N trials; confirm saved DATA matches, GUI stays responsive during injected 200 ms mock latency, toggling OFF reproduces current behavior, and `<datafile>_paramlog_*.jsonl` appears next to the reserved data filename with `EventLog.read` replay reproducing the same parameter values recorded in saved DATA.
 
 ## Top risks
 
@@ -142,3 +154,5 @@ End-to-end check: run a Software+mock protocol via `epsych.RunExpt` with the tog
 3. Parameter.m hot-path edits — mitigated by Phase 0 isolation and tests.
 4. First `parpool` startup 10-40 s — vprintf notice; pool persists per session; optional warm-start at RunExpt launch later.
 5. Multi-interface protocols need `NumWorkers ≥ nProxies`; surplus falls back to passthrough with a warning.
+6. JSON type fidelity (NaN/Inf/single/array shape) in the event log — mitigated with string sentinels per the `writeParametersJSON` precedent; the log is a record, never the runtime source of truth, so lossiness there cannot affect experiment behavior.
+7. Disk stalls (e.g. AV scans) in the worker while writing the event log — appends are batched and off the foreground thread; a write failure degrades to `warn` + disables logging for the run rather than aborting it.

@@ -153,6 +153,40 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % this; the default is a no-op.
         end
 
+        % selfTest - Optional diagnostic hook reporting on this backend's health
+        function results = selfTest(~, options)
+            % results = selfTest(obj)
+            % results = selfTest(obj, Invasive=true)
+            % Report on this interface's own health for pre-flight diagnostics.
+            %
+            % Only the backend can distinguish "not plugged in" from "wrong
+            % circuit loaded", so each concrete interface is given the chance to
+            % check itself. The default returns an empty array, meaning "this
+            % backend provides no self-test", which lets callers fall back to
+            % their own generic probes.
+            %
+            % Overrides must never throw: a failed probe is a 'fail' result, not
+            % an exception.
+            %
+            % Parameters:
+            %   options.Invasive - When false (default) the backend must not
+            %                      change hardware state: no connect, no mode
+            %                      writes, no recording configuration. When true
+            %                      it may connect and query the live device, and
+            %                      must restore the connection state it found.
+            %
+            % Returns:
+            %   results - 1xN struct array built by hw.Interface.selfTestResult.
+            %
+            % See also: hw.Interface.selfTestResult, epsych.SelfTest,
+            %   documentation/hw/hw_Interface.md
+            arguments
+                ~
+                options.Invasive (1,1) logical = false
+            end
+            results = hw.Interface.selfTestResult();
+        end
+
         % all_parameters - Return all Parameters across all Modules, optionally filtered
         function P = all_parameters(obj, options)
             % P = all_parameters(obj, options)
@@ -333,6 +367,47 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     end
 
     methods (Static)
+        function r = selfTestResult(name, status, summary, options)
+            % r = hw.Interface.selfTestResult()
+            % r = hw.Interface.selfTestResult(name, status, summary)
+            % r = hw.Interface.selfTestResult(name, status, summary, Detail=..., Remedy=...)
+            % Build one selfTest result, or the empty prototype when called with
+            % no arguments. Backends use this instead of hand-rolling structs so
+            % every result concatenates and every consumer sees the same fields.
+            %
+            % Parameters:
+            %   name    - Short check name, e.g. "Command server reachable".
+            %   status  - 'pass' | 'fail' | 'warn' | 'info' | 'skip'.
+            %   summary - One-line result shown in the report.
+            %   options.Detail - Additional lines shown in the detail pane.
+            %   options.Remedy - Actionable fix; expected when status is fail/warn.
+            %
+            % Returns:
+            %   r - 1x1 result struct, or a 0x0 empty struct array with the same
+            %       fields when called with no arguments.
+            %
+            % See also: hw.Interface.selfTest
+            arguments
+                name (1,1) string = ""
+                status (1,1) string {mustBeMember(status,["pass","fail","warn","info","skip",""])} = ""
+                summary (1,1) string = ""
+                options.Detail (1,:) string = strings(1,0)
+                options.Remedy (1,1) string = ""
+            end
+
+            if nargin == 0
+                r = struct('name',{},'status',{},'summary',{},'detail',{},'remedy',{});
+                return
+            end
+
+            r = struct( ...
+                'name',    name, ...
+                'status',  status, ...
+                'summary', summary, ...
+                'detail',  {options.Detail}, ...
+                'remedy',  options.Remedy);
+        end
+
         function name = getHardwareParameterName(parameter)
             name = parameter.Name;
             if isstruct(parameter.UserData) && isfield(parameter.UserData, 'HardwareName') && ~isempty(parameter.UserData.HardwareName)

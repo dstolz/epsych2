@@ -199,6 +199,7 @@ The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` 
 - **Help**:
   - Version Info — toolbox version, git commit, and links.
   - Open Current Error Log — opens today's EPsych error log file.
+  - Run Self-Test... (`Ctrl+D`) — pre-flight checks against the loaded session: protocol compilation, required trigger parameters, trial selection, data paths, hardware, and GUI wiring. Each check reports pass/fail with what to do about it. See [RunExpt_SelfTest.md](RunExpt_SelfTest.md).
   - Assign RUNTIME to Command Window — exports the live `RUNTIME` object to the base workspace for inspection (enabled while hardware is active).
   - Verbosity... — sets how much detail EPsych prints to the command window.
   - GitHub Repository / Documentation / Commit History Overview — online resources.
@@ -218,9 +219,11 @@ In the RunExpt figure:
 - **Hardware comes from the protocol**: which backend is used (TDT Synapse, TDT RPvds, Intan, software-only) is defined in the protocol file, not chosen in RunExpt. If hardware fails to connect, check the protocol's interface configuration and the device, then try again.
 - **Protocol edits are not picked up automatically**: after editing a protocol in the Protocol Designer, use **Update to Latest Version** (or **Config → Refresh Config**) so the session loads the new version.
 - **Closing the GUI stops the session**: closing while running prompts first, then stops the timers, releases the hardware, and cleans up.
+- **Check before you run**: **Help → Run Self-Test...** catches most of the above — a missing protocol trigger, an unwritable data path, a stale protocol version — before a session starts rather than partway through one.
 
 ## Related documentation
 
+- [RunExpt_SelfTest.md](RunExpt_SelfTest.md) — pre-flight checks for a session
 - [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md) — building the protocols this GUI runs
 - [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md) — runtime event model (for GUI/analysis developers)
 - [Architecture_Overview.md](Architecture_Overview.md) — internals (for developers)

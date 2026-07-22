@@ -48,6 +48,11 @@ classdef RunExpt < handle
         DefineTimerPeriod(self)         % Set the PsychTimer period (0.001–1 s)
 
         OpenCustomizeDialog(self)       % Open unified Customize Settings dialog for all Define* settings
+        OpenSelfTest(self)              % Open the pre-flight self-test window
+
+        % Public because it is a pure UI refresh with no invariant to protect,
+        % and epsych.SelfTest drives it to verify the control-enable contract.
+        UpdateGUIstate(self)            % Refresh all UI control states to match current STATE
 
         ToggleVideoLiveView(self)       % Show/hide the webcam stream without recording it
 
@@ -406,7 +411,6 @@ classdef RunExpt < handle
         RememberRecentFunc(self, prefKey, name)            % Record an accepted function name in a Customize dialog field's MRU list
         UpdateRecentConfigsMenu(self)                      % Rebuild the recent-configs submenu items
         CheckReady(self)                                   % Evaluate whether all conditions to run are met and update STATE
-        UpdateGUIstate(self)                               % Refresh all UI control states to match current STATE
         UpdateSubjectList(self)                            % Repopulate the subject list and flag subjects with an outdated protocol version
         ExptDispatch(self, COMMAND)                        % Dispatch a named command (Start/Stop/Pause) to the experiment
         T = CreateTimer(self)                              % Create and configure the psychophysics trial timer object

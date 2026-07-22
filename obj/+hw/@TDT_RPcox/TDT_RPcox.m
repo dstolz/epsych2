@@ -174,6 +174,102 @@ classdef TDT_RPcox < hw.Interface
             obj.close_interface();
         end
 
+        function results = selfTest(obj, options)
+            % results = selfTest(obj)
+            % results = selfTest(obj, Invasive=true)
+            % Check that every module has a loadable RPvds circuit and that the
+            % TDT ActiveX layer is installed. The non-invasive pass touches no
+            % hardware: a missing .rcx or an absent driver is the usual cause of
+            % a failed connect, and both are visible from disk.
+            %
+            % See also: hw.Interface.selfTest
+            arguments
+                obj
+                options.Invasive (1,1) logical = false
+            end
+
+            results = hw.Interface.selfTestResult();
+
+            % TDT driver layer
+            if isempty(which('TDTRP'))
+                results(end+1) = hw.Interface.selfTestResult('TDT driver', 'fail', ...
+                    'TDTRP is not on the MATLAB path.', ...
+                    Remedy = "Run epsych_startup, and install TDT ActiveX (TDT Drivers/RPvdsEx).");
+            else
+                results(end+1) = hw.Interface.selfTestResult('TDT driver', 'pass', ...
+                    sprintf('TDTRP found: %s', which('TDTRP')));
+            end
+
+            % Circuits. connect() errors on a module with no RPvdsFile, and
+            % TDTRP errors on one that does not exist -- both are cheap to
+            % detect here instead.
+            if isempty(obj.Module)
+                results(end+1) = hw.Interface.selfTestResult('RPvds circuits', 'fail', ...
+                    'No modules are configured for this interface.', ...
+                    Remedy = "Add at least one module to the interface in ProtocolDesigner.");
+            else
+                missing = strings(1,0);
+                found   = strings(1,0);
+                for idx = 1:numel(obj.Module)
+                    module = obj.Module(idx);
+                    if ~isfield(module.Info, 'RPvdsFile') || isempty(module.Info.RPvdsFile)
+                        missing(end+1) = sprintf("%s: no RPvdsFile configured", module.Name);
+                        continue
+                    end
+                    rcx = char(string(module.Info.RPvdsFile));
+                    if isfile(rcx)
+                        found(end+1) = sprintf("%s: %s", module.Name, rcx);
+                    else
+                        missing(end+1) = sprintf("%s: %s", module.Name, rcx);
+                    end
+                end
+
+                if isempty(missing)
+                    results(end+1) = hw.Interface.selfTestResult('RPvds circuits', 'pass', ...
+                        sprintf('All %d circuit file(s) present.', numel(found)), ...
+                        Detail = found);
+                else
+                    results(end+1) = hw.Interface.selfTestResult('RPvds circuits', 'fail', ...
+                        sprintf('%d of %d module(s) have a missing or unset circuit file.', ...
+                        numel(missing), numel(obj.Module)), ...
+                        Detail = missing, ...
+                        Remedy = "Re-point the module's RPvdsFile in ProtocolDesigner, or restore the .rcx file.");
+                end
+            end
+
+            if ~options.Invasive
+                return
+            end
+
+            % Invasive: load the circuits onto the hardware, restoring the
+            % connection state we found.
+            wasConnected = obj.IsConnected;
+            try
+                if ~wasConnected
+                    obj.connect();
+                end
+
+                detail = arrayfun(@(m) sprintf("%s (%s): Fs = %g Hz, %d parameter(s)", ...
+                    m.Name, m.Label, m.Fs, numel(m.Parameters)), obj.Module);
+                results(end+1) = hw.Interface.selfTestResult('Circuit load', 'pass', ...
+                    sprintf('%d module(s) running over %s.', numel(obj.Module), obj.ConnectionType), ...
+                    Detail = detail);
+            catch ME
+                results(end+1) = hw.Interface.selfTestResult('Circuit load', 'fail', ...
+                    'Failed to load circuits onto the hardware.', ...
+                    Detail = string(ME.message), ...
+                    Remedy = "Power-cycle the TDT rack, confirm the connection type (USB/GB), and check zBus cabling.");
+            end
+
+            if ~wasConnected
+                try
+                    obj.disconnect();
+                catch ME
+                    vprintf(0, 1, ME);
+                end
+            end
+        end
+
         function setModules(obj, modules)
             if obj.IsConnected
                 error('hw:TDT_RPcox:ConnectedModuleEdit', ...

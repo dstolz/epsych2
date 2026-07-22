@@ -152,6 +152,44 @@ P = I.find_parameter("Reward");
 
 ## Helper methods
 
+### `selfTest`
+
+```matlab
+results = I.selfTest()
+results = I.selfTest(Invasive=true)
+```
+
+Optional diagnostic hook, used by [the RunExpt self-test](../overviews/RunExpt_SelfTest.md)
+to check hardware before a session starts. Like `prepareRecording`, it is a
+concrete no-op on the base class that concrete backends override — the default
+returns an empty array, meaning "this backend provides no self-test", so callers
+can fall back to a generic probe rather than assume all is well.
+
+Contract for overrides:
+
+- With `Invasive=false` (the default), do not change hardware state: no connect,
+  no mode writes, no recording configuration. This form must be safe to run
+  against a live acquisition.
+- With `Invasive=true`, the backend may connect and query the device, and must
+  restore the connection state it found.
+- Never throw. A failed probe is a `fail` result, not an exception.
+
+Build results with `hw.Interface.selfTestResult`:
+
+```matlab
+r = hw.Interface.selfTestResult(name, status, summary)
+r = hw.Interface.selfTestResult(name, status, summary, Detail=..., Remedy=...)
+r = hw.Interface.selfTestResult()   % empty prototype
+```
+
+`status` is one of `'pass'`, `'fail'`, `'warn'`, `'info'`, or `'skip'`. Supply a
+`Remedy` whenever the status is `fail` or `warn`: the operator reading the report
+needs to know what to do, not just that something is wrong.
+
+`hw.Software`, `hw.Intan_RHX`, `hw.VlcRecorder`, `hw.TDT_RPcox`, and
+`hw.TDT_Synapse` all implement the hook; see
+[RunExpt_SelfTest.md](../overviews/RunExpt_SelfTest.md) for what each one checks.
+
 ### `find_parameter`
 
 ```matlab

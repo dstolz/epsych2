@@ -73,6 +73,7 @@ EPsych does not have a formal automated test suite. Manual validation is perform
 - **epsych.ProtocolDesigner** (326 lines): GUI for building protocols (~57 UI callbacks)
 - **epsych.Helper**: Lightweight event broadcaster (NewData, NewTrial, ModeChange)
 - **epsych.TrialSelector** (abstract): Pluggable trial selection
+- **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
 - **epsych.BitMask**: uint32 enumeration for trial outcomes
 - **PRGMSTATE** (top-level class in obj/PRGMSTATE.m): Session state enumeration
 
@@ -106,6 +107,7 @@ inside `obj/stimgen/` — route them through the bridge below.
 #### obj/+gui/ – Reusable GUI Components
 - Real-time visualization: OnlinePlot, Performance, PsychPlot
 - Session control: StaircaseTraining, StatusBar, Triggers
+- Diagnostics: SelfTest (window for epsych.SelfTest; opened from RunExpt's Help menu)
 - Parameter control: Parameter_Control, Parameter_Monitor, Parameter_Update
 - Utilities: ElapsedTrialTimer
 
@@ -289,6 +291,7 @@ Reference: cl/cl_SaveDataFcn.m, design/ep_AddSubject.m
 
 - **User setup**: documentation/overviews/Installation_Guide.md
 - **Session walkthrough**: documentation/overviews/RunExpt_GUI_Overview.md
+- **Pre-flight self-test**: documentation/overviews/RunExpt_SelfTest.md
 - **Runtime events**: documentation/epsych/Event_Notifications.md
 - **Architecture**: documentation/overviews/Architecture_Overview.md
 - **Class map**: documentation/overviews/Class_Map.md

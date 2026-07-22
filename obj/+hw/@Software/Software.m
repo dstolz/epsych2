@@ -84,6 +84,35 @@ classdef Software < hw.Interface
         function mode_handler(obj,src,event)
             disp(event)
         end
+
+        function results = selfTest(obj, options)
+            % results = selfTest(obj)
+            % Report on the in-memory parameter store. Nothing can be
+            % unreachable here, so this only surfaces the parameter inventory —
+            % an empty store usually means the protocol never got compiled.
+            %
+            % See also: hw.Interface.selfTest
+            arguments
+                obj
+                options.Invasive (1,1) logical = false
+            end
+
+            nModules = numel(obj.Module);
+            nParams  = 0;
+            for m = 1:nModules
+                nParams = nParams + numel(obj.Module(m).Parameters);
+            end
+
+            if nParams == 0
+                results = hw.Interface.selfTestResult('Parameter store', 'warn', ...
+                    sprintf('In-memory store holds %d module(s) but no parameters.', nModules), ...
+                    Remedy = "Add parameters in ProtocolDesigner, or compile the protocol before running.");
+                return
+            end
+
+            results = hw.Interface.selfTestResult('Parameter store', 'pass', ...
+                sprintf('In-memory store holds %d parameter(s) across %d module(s).', nParams, nModules));
+        end
     end
 
     methods (Static)

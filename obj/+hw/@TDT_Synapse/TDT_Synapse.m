@@ -90,6 +90,95 @@ classdef TDT_Synapse < hw.Interface
             obj.close_interface();
         end
 
+        function results = selfTest(obj, options)
+            % results = selfTest(obj)
+            % results = selfTest(obj, Invasive=true)
+            % Check that the Synapse API is installed and its server is
+            % listening. Only a bare TCP socket is opened in the non-invasive
+            % pass: connecting for real drives Synapse into Standby (see
+            % setup_interface), which must never happen behind the operator's back.
+            %
+            % See also: hw.Interface.selfTest
+            arguments
+                obj
+                options.Invasive (1,1) logical = false
+            end
+
+            % SynapseAPI's HTTP port; mirrors SynapseAPI.PORT.
+            SYNAPSE_PORT = 24414;
+
+            results = hw.Interface.selfTestResult();
+
+            if isempty(which('SynapseAPI'))
+                results(end+1) = hw.Interface.selfTestResult('Synapse API', 'fail', ...
+                    'SynapseAPI is not on the MATLAB path.', ...
+                    Remedy = "Run epsych_startup so TDTfun/SynapseAPI is added to the path.");
+            else
+                results(end+1) = hw.Interface.selfTestResult('Synapse API', 'pass', ...
+                    sprintf('SynapseAPI found: %s', which('SynapseAPI')));
+            end
+
+            target = sprintf('%s:%d', obj.Server, SYNAPSE_PORT);
+            if obj.IsConnected
+                results(end+1) = hw.Interface.selfTestResult('Synapse server reachable', 'pass', ...
+                    sprintf('Already connected to %s.', target));
+            else
+                probe = [];
+                try
+                    probe = tcpclient(obj.Server, SYNAPSE_PORT, 'Timeout', 1);
+                    results(end+1) = hw.Interface.selfTestResult('Synapse server reachable', 'pass', ...
+                        sprintf('TCP connect to %s succeeded.', target));
+                catch ME
+                    results(end+1) = hw.Interface.selfTestResult('Synapse server reachable', 'fail', ...
+                        sprintf('Cannot reach the Synapse server at %s.', target), ...
+                        Detail = string(ME.message), ...
+                        Remedy = "Start Synapse on the target machine and confirm the Server name in ProtocolDesigner.");
+                end
+                if ~isempty(probe)
+                    clear probe
+                end
+            end
+
+            if ~options.Invasive
+                return
+            end
+
+            % Invasive: connecting puts Synapse in Standby, so restore whatever
+            % connection state we found.
+            wasConnected = obj.IsConnected;
+            try
+                if ~wasConnected
+                    obj.connect();
+                end
+
+                info = obj.ExperimentInfo;
+                detail = strings(1,0);
+                if isstruct(info) && ~isempty(fieldnames(info))
+                    for f = string(fieldnames(info))'
+                        detail(end+1) = sprintf("%s: %s", f, string(info.(f)));
+                    end
+                end
+                detail(end+1) = sprintf("Modules: %d", numel(obj.Module));
+
+                results(end+1) = hw.Interface.selfTestResult('Synapse session', 'pass', ...
+                    sprintf('Connected; mode: %s', string(obj.mode)), ...
+                    Detail = detail);
+            catch ME
+                results(end+1) = hw.Interface.selfTestResult('Synapse session', 'fail', ...
+                    'Reached the server but could not establish a Synapse session.', ...
+                    Detail = string(ME.message), ...
+                    Remedy = "Confirm a rig is loaded in Synapse and that it is not already controlled by another client.");
+            end
+
+            if ~wasConnected
+                try
+                    obj.disconnect();
+                catch ME
+                    vprintf(0, 1, ME);
+                end
+            end
+        end
+
         function setModules(obj, modules)
             if obj.IsConnected
                 error('hw:TDT_Synapse:ConnectedModuleEdit', ...

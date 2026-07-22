@@ -362,6 +362,80 @@ classdef VlcRecorder < hw.Interface
             obj.mode = mode;
         end
 
+        function results = selfTest(obj, options)
+            % results = selfTest(obj)
+            % results = selfTest(obj, Invasive=true)
+            % Check that VLC can be located and a camera is configured. The
+            % non-invasive pass never launches VLC; the invasive pass enumerates
+            % capture devices and confirms the configured one is present.
+            %
+            % See also: hw.Interface.selfTest, hw.VlcRecorder.findVlcExe
+            arguments
+                obj
+                options.Invasive (1,1) logical = false
+            end
+
+            results = hw.Interface.selfTestResult();
+
+            % vlc.exe: prefer the configured path, fall back to auto-detection
+            % the same way launchVlc_ does at run time.
+            exe = strtrim(obj.vlcExePath_);
+            source = "configured VlcExePath";
+            if strlength(exe) == 0
+                exe = hw.VlcRecorder.findVlcExe();
+                source = "auto-detected";
+            end
+
+            if strlength(exe) == 0
+                results(end+1) = hw.Interface.selfTestResult('VLC executable', 'fail', ...
+                    'vlc.exe could not be located.', ...
+                    Remedy = "Install VLC, or set the VlcExePath parameter via View > Webcam Recorder Setup.");
+            elseif ~isfile(exe)
+                results(end+1) = hw.Interface.selfTestResult('VLC executable', 'fail', ...
+                    sprintf('vlc.exe path (%s) does not exist: %s', source, exe), ...
+                    Remedy = "Correct VlcExePath via View > Webcam Recorder Setup.");
+            else
+                results(end+1) = hw.Interface.selfTestResult('VLC executable', 'pass', ...
+                    sprintf('Found vlc.exe (%s): %s', source, exe));
+            end
+
+            % Camera selection
+            if strlength(strtrim(obj.deviceName_)) == 0
+                results(end+1) = hw.Interface.selfTestResult('Capture device', 'warn', ...
+                    'No DeviceName configured; VLC will fall back to its default camera.', ...
+                    Remedy = "Pick a camera in View > Webcam Recorder Setup.");
+            else
+                results(end+1) = hw.Interface.selfTestResult('Capture device', 'pass', ...
+                    sprintf('Configured device: %s', obj.deviceName_));
+            end
+
+            if ~options.Invasive
+                return
+            end
+
+            % Invasive: enumerate cameras (spawns PowerShell; no VLC launch)
+            devices = hw.VlcRecorder.listDevices();
+            if isempty(devices)
+                results(end+1) = hw.Interface.selfTestResult('Device enumeration', 'fail', ...
+                    'No video capture devices reported by the operating system.', ...
+                    Remedy = "Connect a webcam and confirm it appears in Windows Camera settings.");
+                return
+            end
+
+            detail = "Available: " + string(devices(:).');
+            if strlength(strtrim(obj.deviceName_)) > 0 && ~any(strcmpi(devices, char(obj.deviceName_)))
+                results(end+1) = hw.Interface.selfTestResult('Device enumeration', 'fail', ...
+                    sprintf('Configured device "%s" is not among the %d device(s) present.', ...
+                    obj.deviceName_, numel(devices)), ...
+                    Detail = detail, ...
+                    Remedy = "Re-select the camera in View > Webcam Recorder Setup.");
+            else
+                results(end+1) = hw.Interface.selfTestResult('Device enumeration', 'pass', ...
+                    sprintf('%d capture device(s) present.', numel(devices)), ...
+                    Detail = detail);
+            end
+        end
+
         function g = setupGUI(obj, varargin)
             % g = obj.setupGUI()
             % g = obj.setupGUI(Name=Value,...)

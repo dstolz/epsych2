@@ -203,6 +203,85 @@ classdef Intan_RHX < hw.Interface
             obj.SettingsFile = hw.Intan_RHX.normalizePathValue_(val, 'Intan settings file');
         end
 
+        function results = selfTest(obj, options)
+            % results = selfTest(obj)
+            % results = selfTest(obj, Invasive=true)
+            % Check that the RHX command server is reachable and that the
+            % recording paths RHX will be handed are expressible in its command
+            % grammar. The non-invasive pass opens and immediately closes a bare
+            % TCP socket without issuing a single RHX command, so it is safe to
+            % run against a live acquisition.
+            %
+            % See also: hw.Interface.selfTest, documentation/hw/hw_Intan_RHX.md
+            arguments
+                obj
+                options.Invasive (1,1) logical = false
+            end
+
+            results = hw.Interface.selfTestResult();
+            target  = sprintf('%s:%d', obj.Host, obj.Port);
+
+            % Reachability. A plain socket open proves the RHX command server is
+            % listening; anything more would perturb a running acquisition.
+            if obj.IsConnected
+                results(end+1) = hw.Interface.selfTestResult('Command server reachable', 'pass', ...
+                    sprintf('Already connected to %s.', target));
+            else
+                probe = [];
+                try
+                    probe = tcpclient(obj.Host, obj.Port, 'Timeout', 1);
+                    results(end+1) = hw.Interface.selfTestResult('Command server reachable', 'pass', ...
+                        sprintf('TCP connect to %s succeeded.', target));
+                catch ME
+                    results(end+1) = hw.Interface.selfTestResult('Command server reachable', 'fail', ...
+                        sprintf('Cannot reach the RHX command server at %s.', target), ...
+                        Detail = string(ME.message), ...
+                        Remedy = "Start the Intan RHX software and enable its TCP command server, then confirm Host/Port in ProtocolDesigner.");
+                end
+                if ~isempty(probe)
+                    clear probe
+                end
+            end
+
+            % Path hygiene. The setters already reject spaces, but a value can
+            % arrive from a pref after construction, and a missing settings file
+            % only fails once setup_interface tries to load it.
+            results(end+1) = obj.checkPath_('Recording root', obj.RecordingRootDir, false);
+            results(end+1) = obj.checkPath_('Settings file',  obj.SettingsFile,     true);
+
+            if ~options.Invasive
+                return
+            end
+
+            % Invasive: query the live board, restoring the connection state we found.
+            wasConnected = obj.IsConnected;
+            try
+                if ~wasConnected
+                    obj.connect();
+                end
+
+                results(end+1) = hw.Interface.selfTestResult('Board query', 'pass', ...
+                    sprintf('Run mode: %s', string(obj.mode)), ...
+                    Detail = [ ...
+                        sprintf("Sample rate: %g Hz", obj.ActiveSamplingRate), ...
+                        sprintf("Controller type: %s", string(obj.ControllerType)), ...
+                        sprintf("Modules: %d", numel(obj.Module))]);
+            catch ME
+                results(end+1) = hw.Interface.selfTestResult('Board query', 'fail', ...
+                    'Connected socket but could not query the board.', ...
+                    Detail = string(ME.message), ...
+                    Remedy = "Check that RHX has a controller attached and is not mid-upload.");
+            end
+
+            if ~wasConnected
+                try
+                    obj.disconnect();
+                catch ME
+                    vprintf(0, 1, ME);
+                end
+            end
+        end
+
         function setModules(obj, modules)
             % setModules(obj, modules)
             % Replace Module array. Only permitted while offline.
@@ -957,6 +1036,56 @@ classdef Intan_RHX < hw.Interface
             else
                 ext = '.rhd';
             end
+        end
+
+        function r = checkPath_(obj, label, pathValue, mustExist)
+            % r = checkPath_(obj, label, pathValue, mustExist)
+            % Build one selfTest result for an RHX path setting. Existence is
+            % only meaningful when RHX runs on this machine, so remote hosts
+            % report the value without asserting on it.
+            p = strtrim(pathValue);
+
+            if isempty(p)
+                % An unset recording root falls back to the session data path;
+                % an unset settings file means none is loaded at all.
+                if mustExist
+                    unsetNote = 'no settings file will be loaded';
+                else
+                    unsetNote = 'the session data path will be used';
+                end
+                r = hw.Interface.selfTestResult(label, 'info', ...
+                    sprintf('%s not set; %s.', label, unsetNote));
+                return
+            end
+
+            if any(isspace(p))
+                r = hw.Interface.selfTestResult(label, 'fail', ...
+                    sprintf('%s contains spaces, which the RHX command grammar cannot express: %s', label, p), ...
+                    Remedy = "Choose a space-free path in Customize > Paths.");
+                return
+            end
+
+            if ~obj.isLocalHost_()
+                r = hw.Interface.selfTestResult(label, 'info', ...
+                    sprintf('%s is "%s"; not checked because RHX runs on %s.', label, p, obj.Host));
+                return
+            end
+
+            if mustExist && ~isfile(p)
+                r = hw.Interface.selfTestResult(label, 'fail', ...
+                    sprintf('%s does not exist: %s', label, p), ...
+                    Remedy = "Correct the settings file in Customize > Paths, or clear it to load none.");
+                return
+            end
+
+            if ~mustExist && ~isfolder(p)
+                r = hw.Interface.selfTestResult(label, 'warn', ...
+                    sprintf('%s does not exist yet: %s', label, p), ...
+                    Remedy = "It will be created at run time; verify the drive is present and writable.");
+                return
+            end
+
+            r = hw.Interface.selfTestResult(label, 'pass', sprintf('%s: %s', label, p));
         end
 
         function tf = isLocalHost_(obj)

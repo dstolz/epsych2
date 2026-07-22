@@ -16,7 +16,10 @@ classdef RunExpt < handle
     properties
         H                                                                                        % Handles to UI components and figures
         STATE (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG                                              % Current experiment program state
-        CONFIG (1,1) struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])  % Per-subject configuration array; each element holds SUBJECT, PROTOCOL, RUNTIME, and protocol_fn
+        % One element per subject. Declared (1,:) rather than (1,1) because
+        % AddSubject appends via CONFIG(numel+1); a scalar constraint here made
+        % every multi-subject session fail with "Value must be a scalar".
+        CONFIG (1,:) struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])  % Per-subject configuration array; each element holds SUBJECT, PROTOCOL, RUNTIME, and protocol_fn
         FUNCS (1,1) struct = struct()                                                            % Preference-backed callback function names for saving, timers, and GUI
         RUNTIME (1,1) epsych.Runtime = epsych.Runtime                                           % Shared runtime state passed to all callbacks during the session
         dfltDataPath (1,1) string = cd                                                          % Default directory for saving experiment data

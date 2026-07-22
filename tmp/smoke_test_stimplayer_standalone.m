@@ -4,7 +4,7 @@ function report = smoke_test_stimplayer_standalone()
 %
 % Verifies:
 %   1) Constructor and cleanup succeed.
-%   2) Constructor accepts a loaded epsych.Protocol.
+%   2) Constructor accepts a stimbridge.RuntimeHost wrapping a loaded protocol.
 %   3) Run/Stop path executes in speaker-preview mode with one Tone in bank.
 
 report = struct();
@@ -21,15 +21,15 @@ catch ME
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end
 
-% Step 2: protocol constructor path
-stepName = 'constructorWithProtocol';
+% Step 2: host constructor path
+stepName = 'constructorWithHost';
 try
     pfn = fullfile(fileparts(mfilename('fullpath')), 'test_protocol_StimType_TONE.eprot');
     assert(isfile(pfn), 'SmokeTest:MissingProtocolFixture', 'Missing protocol fixture: %s', pfn);
     P = epsych.Protocol.load(pfn);
-    sp = stimgen.StimPlayer(P);
+    sp = stimgen.StimPlayer(stimbridge.RuntimeHost(P));
     delete(sp);
-    report.steps.(stepName) = struct('passed', true, 'detail', 'StimPlayer constructor accepted epsych.Protocol input.');
+    report.steps.(stepName) = struct('passed', true, 'detail', 'StimPlayer constructor accepted stimbridge.RuntimeHost input.');
 catch ME
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end

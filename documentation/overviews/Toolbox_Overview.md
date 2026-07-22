@@ -49,7 +49,7 @@ epsych.RunExpt
 | Run an experiment | `epsych.RunExpt` | Configure subjects, associate protocol files, preview trials, and run or record experiments. |
 | Add subject/session metadata | **Add Subject** button in RunExpt | Collect subject information for a session. Uses a built-in dialog by default; labs can substitute their own. |
 | Preview or play stimuli | `stimgen.StimPlayer` | Build a bank of stimuli, preview them through the speakers, and optionally play them through hardware. |
-| Calibrate sound output | `stimgen.calibration.CalibrationGui` | Measure and save speaker calibration so requested dB SPL levels map to correct output voltages. See [../stimgen/stimgen_calibration.md](../stimgen/stimgen_calibration.md). |
+| Calibrate sound output | `stimgen.calibration.CalibrationGui` | Measure and save speaker calibration so requested dB SPL levels map to correct output voltages. See [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md). |
 | Adjust parameters between sessions | Phase files and the phase selector in task GUIs | Save and reload named parameter sets (JSON) so training phases can be switched without editing the protocol. |
 | Use common utilities | `helpers/` | Shared functions for logging, GUI support, timing, randomization, and analysis used across the toolbox. |
 
@@ -65,7 +65,9 @@ The main GUI most users interact with during an experiment. It manages subjects,
 
 ### Stimulus tools (`stimgen`)
 
-Stimulus objects (tones, noise, clicks, and more), a stimulus bank player, and speaker calibration tools. Most users will only need `stimgen.StimPlayer` and the calibration GUI. See [../stimgen/stimgen_overview.md](../stimgen/stimgen_overview.md).
+Stimulus objects (tones, noise, clicks, and more), a stimulus bank player, and speaker calibration tools. Most users will only need `stimgen.StimPlayer` and the calibration GUI. See [../../obj/stimgen/documentation/stimgen_overview.md](../../obj/stimgen/documentation/stimgen_overview.md).
+
+`stimgen` is a separate repository ([dstolz/stimgen](https://github.com/dstolz/stimgen)) attached here as a git submodule at `obj/stimgen/`. Clone with `--recurse-submodules`, or run `git submodule update --init --recursive` in an existing clone. See [../stimgen.md](../stimgen.md).
 
 ### Hardware layers (`obj/+hw/` and `TDTfun/`)
 
@@ -95,7 +97,7 @@ If you are trying to get productive quickly, use this order:
 - For setup and prerequisites: [Installation_Guide.md](Installation_Guide.md)
 - For running sessions: [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
 - For designing protocols: [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md)
-- For stimulus generation and calibration: [../stimgen/stimgen_overview.md](../stimgen/stimgen_overview.md)
+- For stimulus generation and calibration: [../../obj/stimgen/documentation/stimgen_overview.md](../../obj/stimgen/documentation/stimgen_overview.md)
 - For internals and code structure (developers): [Architecture_Overview.md](Architecture_Overview.md)
 
 ## Short version

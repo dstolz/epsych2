@@ -1,4 +1,4 @@
-﻿# CLAUDE.md
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -10,13 +10,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Language**: MATLAB R2024b (supports R2014b+)
 - **Available Toolboxes**: Audio, Curve Fitting, DSP System, Global Optimization, Image Acquisition, Image Processing, Optimization, Parallel Computing, Signal Processing, Statistics and Machine Learning
-- **Architecture**: Mixed procedural/OOP with newer APIs in obj/+epsych/, obj/+hw/, obj/+stimgen/, obj/+gui/, obj/+psychophysics/
+- **Architecture**: Mixed procedural/OOP with newer APIs in obj/+epsych/, obj/+hw/, obj/+gui/, obj/+psychophysics/, and the obj/stimgen/ submodule
 - **License**: GNU GPL v3.0
 - **Author**: Daniel Stolzberg, PhD
 
 ## Quick Start Commands
 
 ### Setup
+
+```bash
+# Clone with submodules (stimgen lives in a separate repo)
+git clone --recurse-submodules https://github.com/dstolz/epsych2.git
+# For an existing clone:
+git submodule update --init --recursive
+```
 
 ```matlab
 % Add repository to MATLAB path (run once after opening MATLAB)
@@ -80,11 +87,21 @@ EPsych does not have a formal automated test suite. Manual validation is perform
   - hw.Software: In-memory software backend
   - hw.VlcRecorder: VLC video recording control
 
-#### obj/+stimgen/ – Stimulus Generation
+#### obj/stimgen/ – Stimulus Generation (GIT SUBMODULE)
+Separate repository: [dstolz/stimgen](https://github.com/dstolz/stimgen) — package is at `obj/stimgen/+stimgen/`.
+Edits here belong to that repo, not epsych2; commit there and update the submodule pointer.
 - **stimgen.StimType** (abstract): Base for all stimuli
 - **Stimulus Subclasses**: Tone, Noise, AMnoise, FMtone, SweptSine, ClickTrain
 - **stimgen.StimPlayer**: Multi-stimulus manager
 - **stimgen.StimCalibration**: Frequency response and SPL-to-voltage lookup
+- **stimgen.HardwareHost** (abstract): Contract EPsych implements for hardware access
+
+stimgen has NO dependency on epsych2. Never add `epsych.*` or `hw.*` references
+inside `obj/stimgen/` — route them through the bridge below.
+
+#### obj/+stimbridge/ – EPsych ↔ stimgen Seam
+- **stimbridge.RuntimeHost**: Implements `stimgen.HardwareHost` over epsych.Runtime/Protocol
+- **stimbridge.InterfaceAdapter**: Implements `stimgen.calibration.HwAdapter` over hw.Interface
 
 #### obj/+gui/ – Reusable GUI Components
 - Real-time visualization: OnlinePlot, Performance, PsychPlot
@@ -202,14 +219,14 @@ Reference: obj/+hw/@TDT_Synapse/, obj/+hw/@Software/
 
 ### Adding a New Stimulus Type
 
-1. Create obj/+stimgen/YourStimulus.m inheriting from stimgen.StimType
+1. Create obj/stimgen/+stimgen/YourStimulus.m inheriting from stimgen.StimType
 2. Implement: IsMultiObj, CalibrationType, Normalization properties
 3. Implement update_signal() to generate raw waveform
 4. Define user-facing properties (e.g., Frequency, Depth)
 5. Base class handles gating, normalization, calibration automatically
 6. Test via stimgen.StimPlayer GUI
 
-Reference: obj/+stimgen/Tone.m, obj/+stimgen/Noise.m
+Reference: obj/stimgen/+stimgen/Tone.m, obj/stimgen/+stimgen/Noise.m
 
 ### Adding a New Online Analysis Tool
 
@@ -234,7 +251,7 @@ Reference: cl/cl_SaveDataFcn.m, design/ep_AddSubject.m
 - **Startup or runtime flow**: obj/+epsych/@RunExpt/, obj/+epsych/@Runtime/, runtime/timerfcns/
 - **Protocol loading or compilation**: obj/+epsych/@Protocol/, obj/+epsych/@ProtocolDesigner/, design/
 - **Hardware integration**: obj/+hw/@Interface/, concrete backends, TDTfun/
-- **Stimulus generation**: obj/+stimgen/@StimType/, obj/+stimgen/@StimPlayer/
+- **Stimulus generation**: obj/stimgen/+stimgen/@StimType/, obj/stimgen/+stimgen/@StimPlayer/ (submodule)
 - **Online analysis**: obj/+psychophysics/Psych.m, obj/+gui/@OnlinePlot/
 - **Session GUI**: obj/+epsych/@RunExpt/, obj/+gui/
 - **New paradigm**: Use cl/ as pattern
@@ -245,7 +262,9 @@ Reference: cl/cl_SaveDataFcn.m, design/ep_AddSubject.m
 |------|---------|
 | obj/+epsych/ | Experiment framework |
 | obj/+hw/ | Hardware abstraction |
-| obj/+stimgen/ | Stimulus generation |
+| obj/stimgen/ | Stimulus generation (git submodule: dstolz/stimgen) |
+| obj/+stimbridge/ | EPsych-to-stimgen adapters |
+| examples/stimgen/ | Demo protocol/config/TDT circuit assets |
 | obj/+gui/ | GUI components |
 | obj/+psychophysics/ | Analysis (Detection, Staircase, BestPEST, MLP) |
 | obj/+peripherals/ | Motor control, pump communication |

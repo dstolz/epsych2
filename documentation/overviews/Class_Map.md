@@ -128,7 +128,14 @@ Support and task-specific classes
 | hw | `Parameter` | `matlab.mixin.SetGet` | Runtime parameter wrapper |
 | psychophysics | `Psych` | `handle & matlab.mixin.SetGet` | Abstract analysis base |
 | stimgen | `StimType` | `handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable & matlab.mixin.SetGet` | Abstract stimulus base |
+| stimgen | `HardwareHost` | `handle` | Abstract contract a host implements to give stimgen GUIs hardware access |
+| stimgen | `calibration.HwAdapter` | `handle` | Abstract play/record contract for the calibration engine |
 | gui | `Helper` | `handle` | Shared GUI helper base |
+
+The `stimgen` package is a git submodule (see [../stimgen.md](../stimgen.md)) and
+has no dependency on EPsych. EPsych implements its two abstract classes in
+`obj/+stimbridge/`: `stimbridge.RuntimeHost` (a `stimgen.HardwareHost`) and
+`stimbridge.InterfaceAdapter` (a `stimgen.calibration.HwAdapter`).
 
 ## Runtime dependency map
 

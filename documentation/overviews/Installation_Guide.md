@@ -52,17 +52,37 @@ Typical use case:
 
 ## Install EPsych
 
-1. Clone or copy the repository to a stable local folder.
+1. Clone the repository **with submodules** to a stable local folder.
 2. Open MATLAB.
 3. Add the repository root to the MATLAB path.
 4. Run the EPsych startup helper.
 
-Example:
+EPsych uses a git submodule for the stimulus-generation package
+([`stimgen`](https://github.com/dstolz/stimgen)), so the clone must include it:
+
+```bash
+git clone --recurse-submodules https://github.com/dstolz/epsych2.git
+```
+
+If you already cloned without `--recurse-submodules`, or you copied the folder
+rather than cloning it, fetch the submodule before continuing:
+
+```bash
+cd epsych2
+git submodule update --init --recursive
+```
+
+Then, in MATLAB:
 
 ```matlab
 addpath('C:\path\to\epsych2')
 epsych_startup
 ```
+
+`epsych_startup` verifies the submodule is present and prints an actionable
+message if it is not. Do not skip that warning: without `stimgen`, protocols
+containing stimulus parameters load with silently degraded values instead of
+failing outright. See [stimgen.md](../stimgen.md).
 
 What `epsych_startup` does:
 
@@ -120,7 +140,7 @@ Expected result:
 
 1. Install MATLAB and confirm it launches cleanly.
 2. Install the TDT software required by your workflow.
-3. Clone the EPsych repository.
+3. Clone the EPsych repository with `--recurse-submodules`.
 4. Run `epsych_startup`.
 5. Open `epsych.RunExpt`.
 6. Open `epsych.ProtocolDesigner`.

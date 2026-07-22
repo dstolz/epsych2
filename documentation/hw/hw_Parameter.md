@@ -125,6 +125,12 @@ provides a dedicated file-list editor for them. `'StimType'` parameters hold
 a `stimgen.StimType` object and are only supported on `hw.Software` parents;
 their values are not pushed to the parent interface on write.
 
+`stimgen` ships as a git submodule (see [../stimgen.md](../stimgen.md)). If it
+has not been checked out, `'StimType'` parameters cannot resolve their class:
+MATLAB substitutes a placeholder struct when loading a saved protocol rather
+than raising an error, so the values are silently degraded. `epsych_startup`
+warns when the submodule is missing.
+
 ### Trial-level behavior
 
 - `Values`: Design-time trial levels, one cell element per level. Set through

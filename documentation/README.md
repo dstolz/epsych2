@@ -18,11 +18,11 @@ Daily workflow:
 
 Stimuli and calibration:
 
-- [Stimulus Generation Overview](stimgen/stimgen_overview.md) — stimulus objects, playback, and file types
-- [StimPlayer](stimgen/stimgen_StimPlayer.md) — stimulus bank editor and player
-- [Speaker Calibration](stimgen/stimgen_calibration.md) — concepts and step-by-step GUI walkthrough
-- [Calibration GUI Reference](stimgen/stimgen_CalibrationGui.md)
-- [Swept-Sine Calibration](stimgen/stimgen_SweptSineCalibration.md)
+- [Stimulus Generation Overview](../obj/stimgen/documentation/stimgen_overview.md) — stimulus objects, playback, and file types
+- [StimPlayer](../obj/stimgen/documentation/stimgen_StimPlayer.md) — stimulus bank editor and player
+- [Speaker Calibration](../obj/stimgen/documentation/stimgen_calibration.md) — concepts and step-by-step GUI walkthrough
+- [Calibration GUI Reference](../obj/stimgen/documentation/stimgen_CalibrationGui.md)
+- [Swept-Sine Calibration](../obj/stimgen/documentation/stimgen_SweptSineCalibration.md)
 
 ## Developer reference
 
@@ -86,9 +86,9 @@ Peripherals and utilities:
 - [peripherals.NanoMotorControl](peripherals/peripherals_NanoMotorControl.md) — commutator motor control
 - [peripherals.PumpCom](peripherals/peripherals_PumpCom.md) — syringe pump serial interface
 - [vprintf](helpers/helpers_vprintf.md) — verbosity-gated printing and logging
-- [stimgen.StimType](stimgen/stimgen_StimType.md) — stimulus base class and variant selection
-- [stimgen.StimPlay](stimgen/stimgen_StimPlay.md) — repetition/selection wrapper
-- [stimgen.StimCalibration](stimgen/stimgen_StimCalibration.md) — calibration wrapper used by stimuli
+- [stimgen.StimType](../obj/stimgen/documentation/stimgen_StimType.md) — stimulus base class and variant selection
+- [stimgen.StimPlay](../obj/stimgen/documentation/stimgen_StimPlay.md) — repetition/selection wrapper
+- [stimgen.StimCalibration](../obj/stimgen/documentation/stimgen_StimCalibration.md) — calibration wrapper used by stimuli
 
 ## Other resources
 

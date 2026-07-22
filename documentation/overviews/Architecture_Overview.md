@@ -67,9 +67,15 @@ Key components: `gui.OnlinePlot`, `gui.OnlinePlotBM`, `gui.Performance`, `gui.Ps
 
 Detailed references: [../gui/](../gui/)
 
-### `obj/+stimgen/`
+### `obj/stimgen/` (submodule)
 
-Stimulus generation, playback, and calibration classes live here.
+Stimulus generation, playback, and calibration. This is a **git submodule**
+pointing at <https://github.com/dstolz/stimgen>; the package itself is at
+`obj/stimgen/+stimgen/`. Run `git submodule update --init --recursive` after
+cloning. See [stimgen.md](../stimgen.md) for the integration contract.
+
+`stimgen` has no dependency on EPsych. EPsych implements its two abstract
+integration classes in `obj/+stimbridge/` (see below).
 
 | Class | Purpose |
 |---|---|
@@ -78,7 +84,18 @@ Stimulus generation, playback, and calibration classes live here.
 | `stimgen.StimPlay` | Wraps a `StimType` with repetition tracking and selection order |
 | `stimgen.StimPlayer` | Standalone stimulus-bank editor and playback tool |
 | `stimgen.StimCalibration` | Calibration controller/GUI wrapper used by `StimType` |
-| `stimgen.calibration.*` | Calibration package: `Engine` (core algorithm), `CalibrationGui`, and hardware adapters (`HwAdapter`, `InterfaceAdapter`, `WindowsSoundCardAdapter`) |
+| `stimgen.calibration.*` | Calibration package: `Engine` (core algorithm), `CalibrationGui`, and hardware adapters (`HwAdapter`, `WindowsSoundCardAdapter`) |
+| `stimgen.HardwareHost` | Abstract contract EPsych implements to give stimgen GUIs hardware access |
+
+### `obj/+stimbridge/`
+
+The seam between EPsych and the `stimgen` submodule. These are the only classes
+that translate between the two; nothing inside `stimgen` names an EPsych type.
+
+| Class | Purpose |
+|---|---|
+| `stimbridge.RuntimeHost` | Implements `stimgen.HardwareHost` over `epsych.Runtime`/`epsych.Protocol`: protocol loading, connect/release, device mode, parameter lookup, and calibration-adapter selection |
+| `stimbridge.InterfaceAdapter` | Implements `stimgen.calibration.HwAdapter` over an `hw.Interface` (TDT and similar), resolving the buffer/trigger tags used for play-and-record |
 
 The signal processing pipeline applied by `StimType` on every update is:
 
@@ -90,7 +107,7 @@ update_signal()   ← implemented by each subclass
   → Signal property        final waveform
 ```
 
-Detailed references: [../stimgen/stimgen_overview.md](../stimgen/stimgen_overview.md)
+Detailed references: [../../obj/stimgen/documentation/stimgen_overview.md](../../obj/stimgen/documentation/stimgen_overview.md)
 
 ### `obj/+psychophysics/`
 
@@ -163,7 +180,7 @@ Notable items:
 
 ### `calibration/`
 
-Legacy calibration GUIs (`Calibrate.m`, `ep_CalibrationUtil.m`, `ep_PostCalibrationUtil.m`) and RPvds circuits. New calibration work should use the object-oriented `stimgen.calibration` package instead; see [../stimgen/stimgen_calibration.md](../stimgen/stimgen_calibration.md).
+Legacy calibration GUIs (`Calibrate.m`, `ep_CalibrationUtil.m`, `ep_PostCalibrationUtil.m`) and RPvds circuits. New calibration work should use the object-oriented `stimgen.calibration` package instead; see [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md).
 
 ### `cl/`
 
@@ -285,9 +302,14 @@ Look first at:
 
 Look first at:
 
-- [obj/+stimgen/@StimType/StimType.m](../../obj/+stimgen/@StimType/StimType.m)
-- [obj/+stimgen/@StimPlayer/StimPlayer.m](../../obj/+stimgen/@StimPlayer/StimPlayer.m)
-- [obj/+stimgen/+calibration/](../../obj/+stimgen/+calibration/)
+Stimulus generation lives in the `stimgen` submodule, so changes there are
+committed to <https://github.com/dstolz/stimgen> and picked up here by updating
+the submodule pointer:
+
+- [obj/stimgen/+stimgen/@StimType/StimType.m](../../obj/stimgen/+stimgen/@StimType/StimType.m)
+- [obj/stimgen/+stimgen/@StimPlayer/StimPlayer.m](../../obj/stimgen/+stimgen/@StimPlayer/StimPlayer.m)
+- [obj/stimgen/+stimgen/+calibration/](../../obj/stimgen/+stimgen/+calibration/)
+- EPsych-side integration: [obj/+stimbridge/](../../obj/+stimbridge/)
 
 ### If you are changing online analysis or psychophysics
 

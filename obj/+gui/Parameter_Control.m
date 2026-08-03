@@ -555,7 +555,13 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 'AutoResizeChildren', 'off');
 
             if isempty(P.Value)
-                classList = stimgen.StimType.list();
+                classList = obj.concreteStimTypes_();
+                if isempty(classList)
+                    uilabel(uigridlayout(fig, [1 1]), ...
+                        'Text', 'No concrete stimgen.StimType subclasses were found.', ...
+                        'HorizontalAlignment', 'center');
+                    return
+                end
                 g = uigridlayout(fig, [2 2]);
                 g.ColumnWidth = {'1x', '1x'};
                 g.RowHeight   = {30, 30};
@@ -572,7 +578,16 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         function create_stimtype_from_dropdown(obj, dd, fig)
             % create_stimtype_from_dropdown - Construct selected StimType and assign to Parameter.
             className = sprintf('stimgen.%s', dd.Value);
-            stim = feval(className);
+            try
+                stim = feval(className);
+            catch ME
+                vprintf(0, 1, ME);
+                uialert(fig, sprintf(['Could not create "%s".\n\n%s\n\nIf this persists, ' ...
+                    'the stimgen submodule may be out of step with EPsych; see ' ...
+                    'documentation/stimgen.md.'], className, ME.message), ...
+                    'Stimulus Creation Failed');
+                return
+            end
             obj.Parameter.Value = stim;
             close(fig);
             obj.open_stimtype_gui([], []);
@@ -600,6 +615,20 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     end
 
     methods (Access = private, Static)
+        function names = concreteStimTypes_()
+            % names = concreteStimTypes_()
+            % Instantiable stimgen.StimType subclass names for the picker.
+            %
+            % stimgen.StimType.list globs +stimgen/*.m against a hardcoded
+            % blocklist, so any non-instantiable file added to that package
+            % reaches feval as if it were a stimulus. stimgen is a submodule
+            % that versions on its own cadence, so filter on class metadata
+            % rather than trusting what list returns.
+            names = stimgen.StimType.list();
+            keep  = cellfun(@(n) isConcreteStimType("stimgen." + n), names);
+            names = names(keep);
+        end
+
         function controlType = defaultTypeFromParameter(Parameter)
             candidates = {'readonly','momentary','stimtype','checkbox','dropdown','editfield'};
             scores = zeros(1, numel(candidates));

@@ -11,6 +11,7 @@ classdef EPsychInfo < handle
     %   Copyright, RepositoryURL, CommitHistoryURL, WikiURL
     %   iconPath - Path to the EPsych icon directory.
     %   chksum - Latest commit checksum from the local git checkout.
+    %   stimgenChksum - Latest commit checksum of the obj/stimgen submodule.
     %   commitTimestamp - Timestamp of the latest local commit log entry.
     %   latestTag - Latest reachable git tag in the local repository.
     %   meta - Struct snapshot of the current metadata.
@@ -29,6 +30,7 @@ classdef EPsychInfo < handle
     properties (SetAccess = private)
         iconPath % Path to the EPsych icon assets.
         chksum % Latest commit checksum from the local checkout.
+        stimgenChksum % Latest commit checksum of the obj/stimgen submodule.
         commitTimestamp % Timestamp of the latest local commit log entry.
         latestTag % Latest reachable git tag for the local checkout.
         meta % Struct snapshot of version and repository metadata.
@@ -64,6 +66,10 @@ classdef EPsychInfo < handle
             m.Version     = obj.Version;
             m.DataVersion = obj.DataVersion;
             m.Checksum    = obj.chksum;
+            % stimgen lives in its own repository and releases on its own
+            % cadence, so the parent checksum alone no longer identifies the
+            % code that generated a session's stimuli.
+            m.StimgenChecksum = obj.stimgenChksum;
             m.commitTimestamp = obj.commitTimestamp;
             m.LatestTag = obj.latestTag;
             m.RepositoryURL = obj.RepositoryURL;
@@ -77,21 +83,17 @@ classdef EPsychInfo < handle
         
             
         function chksum = get.chksum(obj)
-                        
-            chksum = nan;
-            
-            fid = fopen(fullfile(obj.root,'.git','logs','HEAD'),'r');
-            
-            if fid < 3, return; end
-            
-            while ~feof(fid), g = fgetl(fid); end
-            
-            fclose(fid);
-            
-            a = find(g==' ');
-            chksum = g(a(1)+1:a(2)-1);
+            chksum = EPsychInfo.commitFromGitLog_( ...
+                fullfile(obj.root,'.git','logs','HEAD'));
         end
-        
+
+        function chksum = get.stimgenChksum(obj)
+            % obj/stimgen/.git is a gitfile; the real gitdir for a submodule
+            % lives under the parent's .git/modules tree.
+            chksum = EPsychInfo.commitFromGitLog_( ...
+                fullfile(obj.root,'.git','modules','obj','stimgen','logs','HEAD'));
+        end
+
         function c = get.commitTimestamp(obj)
             try
                 fn = fullfile(obj.root,'.git','logs','HEAD');
@@ -238,8 +240,39 @@ classdef EPsychInfo < handle
             s = sprintf('File last modifed on %s at %s', ...
                 datestr(datens,'ddd, mmm dd, yyyy'),datestr(datens,'HH:MM PM'));
         end
-        
-        
+
+
+    end
+
+    methods (Static, Access = private)
+        function chksum = commitFromGitLog_(logfile)
+            % chksum = commitFromGitLog_(logfile)
+            % Last commit hash recorded in a git "logs/HEAD" file.
+            %
+            % Input:
+            %   logfile - Path to a git logs/HEAD file.
+            %
+            % Return:
+            %   chksum - Commit hash as a character vector, or NaN when the
+            %       file is missing or empty (zip download, submodule not
+            %       checked out).
+
+            chksum = nan;
+
+            fid = fopen(logfile,'r');
+
+            if fid < 3, return; end
+
+            g = '';
+            while ~feof(fid), g = fgetl(fid); end
+
+            fclose(fid);
+
+            a = find(g==' ');
+            if numel(a) < 2, return; end
+
+            chksum = g(a(1)+1:a(2)-1);
+        end
     end
     
     

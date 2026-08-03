@@ -8,8 +8,7 @@ sampleValue = trials{1, colIdx};
 if isa(sampleValue, 'stimgen.StimType')
     parameterType = 'StimType';
 elseif isstruct(sampleValue) && isfield(sampleValue, 'Class') && ...
-        ~isempty(which(char(sampleValue.Class))) && ...
-        ismember('stimgen.StimType', superclasses(char(sampleValue.Class)))
+        isConcreteStimType(string(sampleValue.Class))
     parameterType = 'StimType';
 elseif islogical(sampleValue)
     parameterType = 'Boolean';

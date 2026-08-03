@@ -80,12 +80,16 @@ integration classes in `obj/+stimbridge/` (see below).
 | Class | Purpose |
 |---|---|
 | `stimgen.StimType` | Abstract base; defines the signal processing pipeline and variant (vectorized property) selection |
-| `stimgen.Tone`, `stimgen.Noise`, `stimgen.AMnoise`, `stimgen.AttackModNoise`, `stimgen.FMtone`, `stimgen.ClickTrain`, `stimgen.SweptSine` | Concrete stimulus classes |
 | `stimgen.StimPlay` | Wraps a `StimType` with repetition tracking and selection order |
 | `stimgen.StimPlayer` | Standalone stimulus-bank editor and playback tool |
 | `stimgen.StimCalibration` | Calibration controller/GUI wrapper used by `StimType` |
 | `stimgen.calibration.*` | Calibration package: `Engine` (core algorithm), `CalibrationGui`, and hardware adapters (`HwAdapter`, `WindowsSoundCardAdapter`) |
 | `stimgen.HardwareHost` | Abstract contract EPsych implements to give stimgen GUIs hardware access |
+
+The concrete stimulus classes are deliberately not listed here — the set changes
+with the submodule, independently of this repository. `stimgen` maintains its own
+index at [../../obj/stimgen/documentation/stimgen_StimTypes.md](../../obj/stimgen/documentation/stimgen_StimTypes.md),
+and `stimgen.StimType.list` enumerates whatever the pinned commit provides.
 
 ### `obj/+stimbridge/`
 
@@ -101,11 +105,15 @@ The signal processing pipeline applied by `StimType` on every update is:
 
 ```
 update_signal()   ← implemented by each subclass
-  → apply_gate()           cosine-squared onset/offset window
   → apply_normalization()  scale to [-1, 1]
   → apply_calibration()    SPL → voltage via lookup table and EQ filter
+  → apply_gate()           cosine-squared onset/offset window
   → Signal property        final waveform
 ```
+
+Calibration precedes gating because `apply_calibration` renormalizes before
+scaling to the lookup-table voltage, which would undo an earlier ramp. This order
+is owned by `stimgen`; treat its documentation as authoritative.
 
 Detailed references: [../../obj/stimgen/documentation/stimgen_overview.md](../../obj/stimgen/documentation/stimgen_overview.md)
 

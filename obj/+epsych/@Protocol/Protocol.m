@@ -156,10 +156,6 @@ classdef Protocol < handle & matlab.mixin.SetGet
         % Validation helpers - separate method files
         report = validate_internal(obj)                                  % Core validate logic - validate_internal.m
 
-        % Calibration / WAV buffer helpers - separate method files
-        out_vals = apply_calibration(obj, in_vals, cal_struct)           % Apply calibration - apply_calibration.m
-        trials_out = apply_wav_buffers(obj, trials_in, wav_data)         % Expand WAV buffers - apply_wav_buffers.m
-
         parameterType = inferSerializedParameterType_(obj, trials, colIdx)  % Infer parameter type from compiled trial data - inferSerializedParameterType_.m
 
         function value = getRecoveredParameterValue_(~, trials, colIdx)

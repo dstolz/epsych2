@@ -33,7 +33,7 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
     %
     % See also: stimbridge.RuntimeHost, stimgen.calibration.HwAdapter,
     %           stimgen.calibration.Engine,
-    %           documentation/stimgen/stimgen_calibration.md
+    %           https://github.com/dstolz/stimgen/blob/main/documentation/stimgen_calibration.md
 
     properties (SetAccess = private)
         HW  % hw.Interface instance
@@ -175,7 +175,7 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
                 pause(obj.pollInterval_);
                 bidx = obj.pBufferIndex_.Value;
             end
-            vprintf(4, 'InterfaceAdapter.poll_until_done_: BufferIndex=%d nsamps=%d', bidx, nsamps);
+            vprintf(3, 'InterfaceAdapter.poll_until_done_: BufferIndex=%d nsamps=%d', bidx, nsamps);
         end
     end
 end

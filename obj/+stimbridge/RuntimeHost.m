@@ -184,6 +184,14 @@ classdef RuntimeHost < stimgen.HardwareHost
             % the base workspace by the legacy EPsych session workflow.
             runtimeObj = obj.Runtime;
             if isempty(runtimeObj) || ~isvalid(runtimeObj)
+                % stimgen GUIs surface ME.message verbatim, so an unguarded
+                % evalin would show a bare "Undefined variable RUNTIME".
+                if ~evalin('base', 'exist(''RUNTIME'',''var'')')
+                    error('stimbridge:RuntimeHost:noRuntimeInterfaces', ...
+                        ['No hardware runtime is available. Load a protocol and ' ...
+                        'connect before requesting a calibration adapter, or start ' ...
+                        'a session so that RUNTIME exists in the base workspace.']);
+                end
                 runtimeObj = evalin('base', 'RUNTIME');
                 if ~isa(runtimeObj, 'epsych.Runtime')
                     error('stimbridge:RuntimeHost:badRuntime', ...

@@ -6,6 +6,26 @@ The project is aimed at labs that want a practical experiment framework without 
 
 The repository includes both legacy procedural code and a gradual migration toward newer object-oriented APIs under `obj/+epsych/`. In practice, EPsych is broad and actively useful, but not yet fully unified behind a single modern API.
 
+## Installation
+
+Stimulus generation lives in a separate repository ([dstolz/stimgen](https://github.com/dstolz/stimgen)) attached here as a git submodule, so clone recursively:
+
+```bash
+git clone --recurse-submodules https://github.com/dstolz/epsych2.git
+
+# for an existing clone:
+git submodule update --init --recursive
+```
+
+Then, in MATLAB:
+
+```matlab
+addpath('C:\path\to\epsych2')
+epsych_startup
+```
+
+Skipping the submodule step does not fail loudly — protocols containing stimulus objects load with silently degraded placeholder values. `epsych_startup` warns when it detects this. Full instructions are in the [Installation Guide](documentation/overviews/Installation_Guide.md), and the submodule contract is described in [documentation/stimgen.md](documentation/stimgen.md).
+
 ## Documentation
 
 Setup instructions, usage guides, and developer references are in this repository under [documentation/](documentation/README.md), organized for experimenters and for developers.

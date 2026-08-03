@@ -16,13 +16,12 @@ Daily workflow:
 - [Phase Selector](gui/PhaseSelector.md) — switching parameter sets between training stages
 - [Staircase Training GUI](gui/StaircaseTraining.md) — step rules and bounds for progressive training
 
-Stimuli and calibration:
+Stimuli and calibration — these live in the `stimgen` submodule, which maintains
+its own documentation set. Start at its index rather than at a link list here,
+which would go stale every time the submodule is updated:
 
-- [Stimulus Generation Overview](../obj/stimgen/documentation/stimgen_overview.md) — stimulus objects, playback, and file types
-- [StimPlayer](../obj/stimgen/documentation/stimgen_StimPlayer.md) — stimulus bank editor and player
-- [Speaker Calibration](../obj/stimgen/documentation/stimgen_calibration.md) — concepts and step-by-step GUI walkthrough
-- [Calibration GUI Reference](../obj/stimgen/documentation/stimgen_CalibrationGui.md)
-- [Swept-Sine Calibration](../obj/stimgen/documentation/stimgen_SweptSineCalibration.md)
+- [Stimulus Generation Overview](../obj/stimgen/documentation/stimgen_overview.md) — entry point for stimulus objects, playback, calibration, and file types
+- [How EPsych integrates with stimgen](stimgen.md) — submodule contract and the `stimbridge` seam
 
 ## Developer reference
 
@@ -86,9 +85,7 @@ Peripherals and utilities:
 - [peripherals.NanoMotorControl](peripherals/peripherals_NanoMotorControl.md) — commutator motor control
 - [peripherals.PumpCom](peripherals/peripherals_PumpCom.md) — syringe pump serial interface
 - [vprintf](helpers/helpers_vprintf.md) — verbosity-gated printing and logging
-- [stimgen.StimType](../obj/stimgen/documentation/stimgen_StimType.md) — stimulus base class and variant selection
-- [stimgen.StimPlay](../obj/stimgen/documentation/stimgen_StimPlay.md) — repetition/selection wrapper
-- [stimgen.StimCalibration](../obj/stimgen/documentation/stimgen_StimCalibration.md) — calibration wrapper used by stimuli
+- [stimgen developer docs](../obj/stimgen/documentation/) — `StimType`, `StimPlay`, `StimCalibration`, and the calibration engine, maintained in the submodule
 
 ## Other resources
 

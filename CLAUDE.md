@@ -92,13 +92,22 @@ EPsych does not have a formal automated test suite. Manual validation is perform
 Separate repository: [dstolz/stimgen](https://github.com/dstolz/stimgen) — package is at `obj/stimgen/+stimgen/`.
 Edits here belong to that repo, not epsych2; commit there and update the submodule pointer.
 - **stimgen.StimType** (abstract): Base for all stimuli
-- **Stimulus Subclasses**: Tone, Noise, AMnoise, FMtone, SweptSine, ClickTrain
+- **Stimulus Subclasses**: not listed here — the set changes with the submodule.
+  Use `stimgen.StimType.list` or `obj/stimgen/documentation/stimgen_StimTypes.md`.
 - **stimgen.StimPlayer**: Multi-stimulus manager
 - **stimgen.StimCalibration**: Frequency response and SPL-to-voltage lookup
 - **stimgen.HardwareHost** (abstract): Contract EPsych implements for hardware access
 
 stimgen has NO dependency on epsych2. Never add `epsych.*` or `hw.*` references
 inside `obj/stimgen/` — route them through the bridge below.
+
+stimgen is pinned to an exact commit and released independently, so do not
+duplicate its class inventory, signal-pipeline details, or per-class docs in this
+repository; link to the submodule's own documentation instead. `epsych.SelfTest`
+check A3 verifies the pinned commit still satisfies the stimbridge contract, and
+`EPsychInfo.stimgenChksum` records that commit in saved session metadata.
+stimgen logs through its own `stimgen.util.vprintf` to
+`fullfile(tempdir,'stimgen_error_logs')`, not to this repository's `.error_logs/`.
 
 #### obj/+stimbridge/ – EPsych ↔ stimgen Seam
 - **stimbridge.RuntimeHost**: Implements `stimgen.HardwareHost` over epsych.Runtime/Protocol
@@ -285,7 +294,8 @@ Reference: cl/cl_SaveDataFcn.m, design/ep_AddSubject.m
 - Commit messages should reference the area changed
 - Use feature branches for significant changes
 - No force pushes to main/master without discussion
-- Git hooks enforce clean history
+- `obj/stimgen` is a submodule pinned to `main`. Changes there are committed in
+  the stimgen repo; bumping the pointer here is a separate, deliberate commit.
 
 ## Documentation Resources
 

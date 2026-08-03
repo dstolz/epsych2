@@ -55,24 +55,22 @@ Analysis and GUI classes
 │  │  └─ MLP
 │  ├─ Detect
 │  └─ Detection
-├─ stimgen
+├─ stimgen                      (submodule; concrete stimuli vary by pinned commit)
 │  ├─ StimType
-│  │  ├─ Noise
-│  │  │  ├─ AMnoise
-│  │  │  └─ AttackModNoise
-│  │  ├─ Tone
-│  │  ├─ FMtone
-│  │  ├─ SweptSine
-│  │  └─ ClickTrain
+│  │  └─ ...                    see obj/stimgen/documentation/stimgen_StimTypes.md
+│  ├─ HardwareHost              ← implemented by stimbridge.RuntimeHost
 │  ├─ StimCalibration
 │  ├─ StimPlay
 │  ├─ StimPlayer
+│  ├─ StimInspector
 │  └─ calibration
-│     ├─ HwAdapter
-│     │  ├─ InterfaceAdapter
+│     ├─ HwAdapter              ← implemented by stimbridge.InterfaceAdapter
 │     │  └─ WindowsSoundCardAdapter
 │     ├─ Engine
 │     └─ CalibrationGui
+├─ stimbridge
+│  ├─ RuntimeHost
+│  └─ InterfaceAdapter
 └─ gui
    ├─ BasicGUI
    ├─ Helper
@@ -172,6 +170,8 @@ flowchart TD
     C --> P[stimgen.StimType family<br/>StimCalibration<br/>StimPlay<br/>StimPlayer]
     C --> Q[EPsychInfo]
     P --> W[stimgen.calibration.Engine<br/>stimgen.calibration.HwAdapter family]
+    C --> X[stimbridge.RuntimeHost<br/>stimbridge.InterfaceAdapter]
+    X --> P
 ```
 
 ### Layered runtime view
@@ -213,6 +213,7 @@ Task and support branches
 ├─ cl_AppetitiveDetection_GUI_B
 ├─ peripherals.PumpCom
 ├─ peripherals.NanoMotorControl / peripherals.NanoMotorControlGUI
+├─ stimbridge.RuntimeHost / stimbridge.InterfaceAdapter  (seam into the submodule)
 ├─ stimgen.StimType family / StimCalibration / StimPlay / StimPlayer
 └─ stimgen.calibration.Engine / HwAdapter family
 ```

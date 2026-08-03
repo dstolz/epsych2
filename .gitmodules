@@ -1,3 +1,4 @@
 [submodule "obj/stimgen"]
 	path = obj/stimgen
 	url = https://github.com/dstolz/stimgen.git
+	branch = main

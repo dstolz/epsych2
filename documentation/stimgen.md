@@ -43,7 +43,22 @@ The demo protocol, config, and TDT circuit files that used to sit inside the
 package are in [`examples/stimgen/`](../examples/stimgen/). They stayed in this
 repository because the `.prot`/`.ecfg` files deserialize into `epsych.Protocol`
 objects and the `.rcx` files are TDT-specific — neither is usable from a
-standalone `stimgen`.
+standalone `stimgen`. See [`examples/stimgen/README.md`](../examples/stimgen/README.md)
+for the circuit parameter contracts.
+
+## Logging and provenance
+
+`stimgen` vendors its own logger. It shares the `GVerbosity` global with EPsych,
+so verbosity levels stay in sync, but it writes to
+`fullfile(tempdir,'stimgen_error_logs')` — **not** to this repository's
+`.error_logs/`. When diagnosing a StimPlayer or calibration failure, check both
+locations; `epsych.SelfTest` check A4 reports the stimgen path.
+
+Because `stimgen` releases independently, `EPsychInfo.stimgenChksum` records the
+pinned submodule commit and `EPsychInfo.meta.StimgenChecksum` carries it into
+saved session metadata alongside the EPsych checksum. `epsych.SelfTest` check A3
+reports the same commit and fails if the pinned `stimgen` has added an abstract
+method that `obj/+stimbridge/` does not yet implement.
 
 ## Updating the submodule
 

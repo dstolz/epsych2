@@ -190,6 +190,45 @@ needs to know what to do, not just that something is wrong.
 `hw.TDT_Synapse` all implement the hook; see
 [RunExpt_SelfTest.md](../overviews/RunExpt_SelfTest.md) for what each one checks.
 
+### `readHardwareParameters` / `canReadHardwareParameters`
+
+```matlab
+tf = I.canReadHardwareParameters(module)
+[tf, msg] = I.readHardwareParameters(module)
+[tf, msg] = I.readHardwareParameters(module, Mode='replace')
+```
+
+Optional discovery hook: read the available parameter list from the hardware
+definition (device, circuit file, or server) and populate `module.Parameters`.
+Not every backend can enumerate its parameters, so — like `selfTest` — the base
+class declines by default: `canReadHardwareParameters` returns false and
+`readHardwareParameters` returns `[false, msg]` explaining why. ProtocolDesigner
+uses this from its **Read HW Params** button to fill in a module's parameters
+without connecting the interface.
+
+Backend behavior:
+
+- `hw.TDT_RPcox` reads tags from the live `TDTRP` PARTAG scan when connected,
+  or offline directly from the module's `Info.RPvdsFile` circuit through the
+  RPco.x ActiveX control (`ReadCOF`) — no hardware required.
+- `hw.TDT_Synapse` queries the Synapse server's parameter info for the gizmo
+  named by the module's Label. Read-only HTTP queries via a temporary
+  `SynapseAPI` client when offline; the server is never driven into Standby.
+- `hw.Software`, `hw.Intan_RHX`, and `hw.VlcRecorder` do not support discovery
+  and inherit the declining default.
+
+Contract for overrides:
+
+- Never throw — failures return `tf = false` with a human-readable `msg`.
+- Do not leave hardware in a changed state (no mode writes, no replacing the
+  interface's module list).
+- Call `setHardwareParameterName` for each discovered parameter and
+  `ensureUniqueParameterNames()` before returning.
+- `Mode='merge'` (default) skips parameters whose hardware name already exists
+  on the module and appends the rest, so a repeat read is idempotent and user
+  edits survive. `Mode='replace'` rebuilds `module.Parameters` purely from the
+  hardware definition.
+
 ### `find_parameter`
 
 ```matlab

@@ -53,14 +53,28 @@ function valueText = getParameterValueDisplay(obj, parameter)
     fmt = parameter.Format;
     if isempty(fmt), fmt = '%g'; end
     if numel(parameter.Values) == 1
-        valueText = sprintf(fmt, parameter.Values{1});
+        levelValue = parameter.Values{1};
+        if isnumeric(levelValue) && ~isscalar(levelValue)
+            % Buffer-style level: summarize rather than concatenating elements
+            valueText = sprintf('[%d values]', numel(levelValue));
+        else
+            valueText = sprintf(fmt, levelValue);
+        end
     else
-        parts = cellfun(@(v) sprintf(fmt, v), parameter.Values, 'UniformOutput', false);
+        parts = cellfun(@(v) localFormatLevel_(v, fmt), parameter.Values, 'UniformOutput', false);
         valueText = strjoin(parts, '  ');
     end
 
     if ~isempty(parameter.Unit)
         valueText = [valueText ' ' parameter.Unit];
+    end
+end
+
+function levelText = localFormatLevel_(levelValue, fmt)
+    if isnumeric(levelValue) && ~isscalar(levelValue)
+        levelText = sprintf('[%d values]', numel(levelValue));
+    else
+        levelText = sprintf(fmt, levelValue);
     end
 end
 

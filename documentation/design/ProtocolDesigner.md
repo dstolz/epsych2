@@ -46,6 +46,8 @@ ui = epsych.ProtocolDesigner.openFromFile('path/to/file.eprot');
 
 Interface creation is data-driven: the "Add Interface" panel enumerates `hw.Interface` subclasses and builds each creation dialog from the class's static `getCreationSpec()` (see [../hw/hw_Interface_Tutorial.md](../hw/hw_Interface_Tutorial.md)). Interfaces are held in an offline/serialized form while editing; live hardware communication is not started by the designer.
 
+The **Read HW Params** button (`onReadHardwareParams`) fills in a module's parameter list from the hardware definition via `hw.Interface.readHardwareParameters` — for `hw.TDT_RPcox` this reads the module's RPvds circuit file directly (no hardware needed); for `hw.TDT_Synapse` it queries the Synapse server read-only. If the module already has parameters, a Merge / Replace / Cancel dialog is shown. Backends that cannot enumerate their parameters report "not supported" in the status bar.
+
 ## Keyboard Shortcuts
 
 Implemented in `onFigureKeyPress` and shown by `showKeyboardShortcuts`.
@@ -105,6 +107,7 @@ If no compiled data exists, export is blocked with status + alert guidance.
 - `onAddInterface`, `onRemoveInterface`, `onModifyInterfaceOptions`
 - `onAddModule`, `onRemoveModule`
 - `onAddParam`, `onRemoveParam`, `onParamEdited`, `onParamSelected`
+- `onReadHardwareParams` (Read HW Params button)
 
 ### Compile and preview
 

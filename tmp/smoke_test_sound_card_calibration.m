@@ -153,10 +153,8 @@ try
     assert(~isempty(mockAdapter), 'Mock adapter not available; skipping.');
 
     eng = stimgen.calibration.Engine(mockAdapter);
-    eng.ReferenceLevel = 94;
-    eng.MicSensitivity = 0.01;
-    eng.ExcitationVoltage = 1;
-    eng.NormativeValue = 80;
+    eng.set_configuration(ReferenceLevel=94, MicSensitivity=0.01, ...
+        ExcitationVoltage=1, NormativeValue=80);
     eng.calibrate_swept_sine(0.1, [1000 2000 4000 8000]);
 
     assert(eng.IsCalibrated, 'Engine not calibrated after calibrate_swept_sine.');
@@ -179,9 +177,7 @@ try
     assert(~isempty(mockAdapter), 'Mock adapter not available; skipping.');
 
     eng = stimgen.calibration.Engine(mockAdapter);
-    eng.MicSensitivity = 0.01;
-    eng.ExcitationVoltage = 1;
-    eng.NormativeValue = 80;
+    eng.set_configuration(MicSensitivity=0.01, ExcitationVoltage=1, NormativeValue=80);
     eng.calibrate_tones([1000 2000 4000]);
 
     C = eng.CalibrationData;
@@ -201,8 +197,7 @@ try
     assert(~isempty(mockAdapter), 'Mock adapter not available; skipping.');
 
     eng = stimgen.calibration.Engine(mockAdapter);
-    eng.ExcitationVoltage = 1;
-    eng.ReferenceLevel = 94;
+    eng.set_configuration(ExcitationVoltage=1, ReferenceLevel=94);
     prevSens = eng.MicSensitivity;
 
     eng.calibrate_reference();
@@ -222,9 +217,7 @@ try
     assert(~isempty(mockAdapter), 'Mock adapter not available; skipping.');
 
     eng = stimgen.calibration.Engine(mockAdapter);
-    eng.MicSensitivity = 0.01;
-    eng.ExcitationVoltage = 1;
-    eng.NormativeValue = 80;
+    eng.set_configuration(MicSensitivity=0.01, ExcitationVoltage=1, NormativeValue=80);
     eng.calibrate_tones([1000 2000 4000]);
 
     v = eng.compute_adjusted_voltage("tone", 2000, 80);
@@ -242,9 +235,7 @@ try
     assert(~isempty(mockAdapter), 'Mock adapter not available; skipping.');
 
     eng = stimgen.calibration.Engine(mockAdapter);
-    eng.MicSensitivity = 0.01;
-    eng.ExcitationVoltage = 1;
-    eng.NormativeValue = 80;
+    eng.set_configuration(MicSensitivity=0.01, ExcitationVoltage=1, NormativeValue=80);
     eng.calibrate_swept_sine(0.1, [1000 2000 4000 8000]);
 
     v = eng.compute_adjusted_voltage("swept_sine", 2000, 80);
@@ -262,9 +253,7 @@ try
     assert(~isempty(mockAdapter), 'Mock adapter not available; skipping.');
 
     eng = stimgen.calibration.Engine(mockAdapter);
-    eng.MicSensitivity = 0.01;
-    eng.ExcitationVoltage = 1;
-    eng.NormativeValue = 80;
+    eng.set_configuration(MicSensitivity=0.01, ExcitationVoltage=1, NormativeValue=80);
     eng.calibrate_swept_sine(0.1, [500 1000 2000 4000 8000]);
     eng.calibrate_tones([1000 2000 4000]);
 

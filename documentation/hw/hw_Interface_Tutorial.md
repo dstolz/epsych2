@@ -216,6 +216,15 @@ end
 Use this pattern when the hardware layout is known ahead of time, but the
 parameter list still comes from the device or circuit.
 
+Whichever pattern applies, consider also overriding
+`canReadHardwareParameters` / `readHardwareParameters` (see
+[hw_Interface.md](hw_Interface.md)) so ProtocolDesigner's **Read HW Params**
+button can populate a module's parameters on demand without connecting the
+interface. Both TDT backends route their setup-time discovery and the
+on-demand read through one shared populate helper
+(`populateModuleParametersFromTags` / `populateModuleParametersFromGizmo`),
+which is the recommended structure for new backends.
+
 ## 4. Build `hw.Module` objects first
 
 Each module needs a parent interface, a display label, a hardware-facing

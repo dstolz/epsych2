@@ -179,6 +179,17 @@ classdef TDT_Synapse < hw.Interface
             end
         end
 
+        function tf = canReadHardwareParameters(~, module)
+            % Synapse can always be asked for a gizmo's parameters; an
+            % unreachable server is a runtime failure reported by
+            % readHardwareParameters, not a capability gap.
+            arguments
+                ~
+                module (1,1) hw.Module
+            end
+            tf = true;
+        end
+
         function setModules(obj, modules)
             if obj.IsConnected
                 error('hw:TDT_Synapse:ConnectedModuleEdit', ...
@@ -236,6 +247,8 @@ classdef TDT_Synapse < hw.Interface
 
     methods (Access=protected) % INHERITED FROM ABSTRACT CLASS hw.Interface
         setup_interface(obj) % Initialize Synapse connection and parameter modules.
+
+        [nAdded, nSkipped] = populateModuleParametersFromGizmo(obj, module, api) % Create hw.Parameter objects from Synapse gizmo metadata.
 
 
 

@@ -20,7 +20,9 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
     %   BufferIndex  - Integer, Read   - acquisition progress counter
     %   BufferIn     - Buffer,  Read   - recorded microphone signal
     %
-    % The sample rate is discovered from the first hw.Module whose Fs > 0.
+    % The sample rate is discovered from the first hw.Module reporting a rate
+    % assigned from the device during setup_interface; construction fails if no
+    % module does, rather than falling back to hw.Module.Fs's 1 Hz default.
     % Supply the optional Fs argument to override discovery.
     %
     % Parameters:
@@ -59,6 +61,12 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
         % 'x_Trigger'
         % is the plain-tag convention in tmp/Calibration_TDT_RPcox_Template.json.
         TRIGGER_CANDIDATES_ = {'!Trigger','x_Trigger'}
+
+        % hw.Module.Fs cannot represent "unset": its validators forbid 0 and
+        % NaN, so it defaults to 1 Hz. A backend that never assigns it from the
+        % device therefore satisfies a naive Fs > 0 test, and calibration would
+        % run at 1 Hz instead of the rate the equipment reports.
+        UNSET_MODULE_FS_ = 1
     end
 
     methods
@@ -127,22 +135,25 @@ classdef InterfaceAdapter < stimgen.calibration.HwAdapter
             obj.pBufferIn_    = obj.HW.find_parameter('BufferIn');
             obj.pTrigger_     = obj.resolve_trigger_();
 
-            % Discover Fs from the first module that reports a non-zero rate.
+            % Discover Fs from the first module reporting a rate the device
+            % actually set (see UNSET_MODULE_FS_).
             if obj.Fs_ == 0
                 mods = obj.HW.Module;
                 for i = 1:numel(mods)
-                    if mods(i).Fs > 0
+                    if mods(i).Fs > obj.UNSET_MODULE_FS_
                         obj.Fs_ = mods(i).Fs;
                         break;
                     end
                 end
             end
 
-            if obj.Fs_ == 0
+            if obj.Fs_ <= obj.UNSET_MODULE_FS_
                 error('stimbridge:InterfaceAdapter:noSampleRate', ...
-                    ['Cannot determine sample rate from hw.Interface "%s". ' ...
-                    'Ensure hw.Module.Fs is set during setup_interface, or ' ...
-                    'supply the Fs argument explicitly.'], class(obj.HW));
+                    ['Cannot determine the hardware sample rate from ' ...
+                    'hw.Interface "%s": no module reports a rate set from the ' ...
+                    'device. Ensure hw.Module.Fs is assigned during ' ...
+                    'setup_interface, or supply the Fs argument explicitly.'], ...
+                    class(obj.HW));
             end
         end
 

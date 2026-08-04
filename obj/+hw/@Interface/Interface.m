@@ -187,6 +187,59 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             results = hw.Interface.selfTestResult();
         end
 
+        % canReadHardwareParameters - Whether parameter discovery is possible for a module
+        function tf = canReadHardwareParameters(~, module)
+            % tf = canReadHardwareParameters(obj, module)
+            % True when readHardwareParameters could discover this module's
+            % parameter list right now, without side effects. The default is
+            % false, meaning "this backend cannot discover parameters"; GUIs
+            % use this to choose messaging before attempting a read.
+            %
+            % See also: hw.Interface.readHardwareParameters
+            arguments
+                ~
+                module (1,1) hw.Module
+            end
+            tf = false;
+        end
+
+        % readHardwareParameters - Discover a module's parameters from the backend
+        function [tf, msg] = readHardwareParameters(obj, module, options)
+            % [tf, msg] = readHardwareParameters(obj, module)
+            % [tf, msg] = readHardwareParameters(obj, module, Mode='replace')
+            % Read the available parameter list from the hardware definition
+            % (device, circuit file, or server) and populate module.Parameters.
+            %
+            % Not every backend can enumerate its parameters; the default
+            % implementation declines with tf = false and an explanatory msg,
+            % following the selfTest precedent.
+            %
+            % Override contract:
+            %   - Never throw: failures return tf = false with a human-readable
+            %     msg, not an exception.
+            %   - Do not leave hardware in a changed state (no mode writes, no
+            %     replacing obj.Module).
+            %   - Call setHardwareParameterName for each discovered parameter
+            %     and ensureUniqueParameterNames() before returning.
+            %   - Mode='merge' (default): skip discovered parameters whose
+            %     hardware name already exists on the module and append the
+            %     rest, preserving user edits. Mode='replace': rebuild
+            %     module.Parameters purely from the hardware definition.
+            %
+            % Returns:
+            %   tf  - True when discovery ran (even if nothing new was found).
+            %   msg - Outcome summary, e.g. 'RZ6: added 12 parameter(s)'.
+            %
+            % See also: hw.Interface.canReadHardwareParameters
+            arguments
+                obj
+                module (1,1) hw.Module
+                options.Mode (1,:) char {mustBeMember(options.Mode,{'merge','replace'})} = 'merge'
+            end
+            tf = false;
+            msg = sprintf('%s does not support reading parameters from hardware.', char(obj.Type));
+        end
+
         % all_parameters - Return all Parameters across all Modules, optionally filtered
         function P = all_parameters(obj, options)
             % P = all_parameters(obj, options)

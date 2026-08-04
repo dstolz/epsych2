@@ -158,7 +158,8 @@ classdef TDT_RPcox < hw.Interface
                 module.Info.ConnectionType = obj.ConnectionType;
 
                 if isempty(module.Parameters)
-                    localPopulateModuleParameters_(obj, module, obj.HW(idx));
+                    pt = obj.HW(idx).PARTAG;
+                    obj.populateModuleParametersFromTags(module, [pt{:}]);
                 end
             end
 
@@ -270,6 +271,17 @@ classdef TDT_RPcox < hw.Interface
             end
         end
 
+        function tf = canReadHardwareParameters(obj, module)
+            % Discovery works from the live PARTAG scan when connected, or
+            % offline from the module's configured RPvds circuit file.
+            arguments
+                obj
+                module (1,1) hw.Module
+            end
+            tf = obj.IsConnected || ...
+                (isfield(module.Info, 'RPvdsFile') && ~isempty(module.Info.RPvdsFile));
+        end
+
         function setModules(obj, modules)
             if obj.IsConnected
                 error('hw:TDT_RPcox:ConnectedModuleEdit', ...
@@ -350,6 +362,8 @@ classdef TDT_RPcox < hw.Interface
 
     methods (Access = protected)% INHERITED FROM ABSTRACT CLASS hw.Interface
         setup_interface(obj,RPvdsFile,moduleType,moduleAlias,options) % Initialize RPvds modules and parameters.
+
+        [nAdded, nSkipped] = populateModuleParametersFromTags(obj, module, tags) % Create hw.Parameter objects from RPvds tag metadata.
 
 
         function close_interface(obj)
@@ -623,38 +637,5 @@ if isfield(module.Info, 'FsOverride') && ~isempty(module.Info.FsOverride)
     fsOverride = double(module.Info.FsOverride);
 else
     fsOverride = 0;
-end
-end
-
-function localPopulateModuleParameters_(obj, module, hwHandle)
-pt = hwHandle.PARTAG;
-pt = [pt{:}];
-ind = arrayfun(@(tag) tag.tag_name(1) == '%', pt);
-pt(ind) = [];
-for paramIdx = 1:length(pt)
-    parameter = hw.Parameter(obj);
-    parameter.Name = pt(paramIdx).tag_name;
-    obj.setHardwareParameterName(parameter, pt(paramIdx).tag_name);
-    parameter.isArray = pt(paramIdx).tag_size > 1;
-    parameter.isTrigger = parameter.Name(1) == '!';
-    parameter.Visible = ~any(parameter.Name(1) == '_~#%');
-
-    switch pt(paramIdx).tag_type
-        case 68
-            parameter.Type = 'Buffer';
-        case 73
-            parameter.Type = 'Integer';
-        case 78
-            parameter.Type = 'Logical';
-        case 83
-            parameter.Type = 'Float';
-        case 80
-            parameter.Type = 'Coefficient Buffer';
-        case 65
-            parameter.Type = 'Undefined';
-    end
-
-    parameter.Module = module;
-    module.Parameters(paramIdx) = parameter;
 end
 end

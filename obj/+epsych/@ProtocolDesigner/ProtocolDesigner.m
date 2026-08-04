@@ -53,6 +53,7 @@ classdef ProtocolDesigner < handle
         BtnAddParam matlab.ui.control.Button
         BtnRemoveParam matlab.ui.control.Button
         BtnRefreshParams matlab.ui.control.Button
+        BtnReadHWParams matlab.ui.control.Button
 
         EditTrialFunc matlab.ui.control.EditField
         CheckCompileAtRuntime matlab.ui.control.CheckBox
@@ -102,7 +103,8 @@ classdef ProtocolDesigner < handle
                 'no parameter selected', ...
                 'no target module selected', ...
                 'no writable parameters', ...
-                'no interfaces defined'}];
+                'no interfaces defined', ...
+                'read hardware parameters failed'}];
 
             obj.refreshUI();
 

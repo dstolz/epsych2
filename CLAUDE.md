@@ -43,6 +43,9 @@ epsych.ProtocolDesigner
 % Stimulus player
 stimgen.StimPlayer
 
+% Speaker calibration GUI, wired to EPsych hardware via stimbridge
+epsych.calibrate
+
 % View repository information
 E = EPsychInfo;
 disp(E.meta)

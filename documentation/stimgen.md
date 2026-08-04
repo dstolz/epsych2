@@ -37,6 +37,26 @@ Everything else in EPsych consumes `stimgen` as a plain library — `hw.Paramete
 `hw.Module`, `epsych.Protocol`, and `epsych.ProtocolDesigner` treat
 `stimgen.StimType` as a first-class parameter value type, unchanged by the split.
 
+## Launching the calibration GUI
+
+`epsych.calibrate` is the entry point; RunExpt's **View > Calibration GUI...**
+does the same thing. It builds the `stimbridge.RuntimeHost` seam and the
+calibration engine so callers never assemble them by hand:
+
+```matlab
+epsych.calibrate                        % opens with the host attached, no hardware
+epsych.calibrate('MyExperiment.eprot')  % loads, connects, and sets Preview first
+```
+
+Without a protocol, connect from the GUI's **File > Initialize Runtime From
+Protocol...**, or use **Hardware > Attach Adapter** to borrow a live session's
+base-workspace `RUNTIME`. A protocol that fails to load or connect is logged and
+the window still opens offline, so the menu can be used to retry.
+
+The underlying `stimgen.calibration.CalibrationGui` also accepts a bare host —
+`stimgen.calibration.CalibrationGui(host)` — since it creates its own engine when
+none is supplied.
+
 ## Example assets
 
 The demo protocol, config, and TDT circuit files that used to sit inside the

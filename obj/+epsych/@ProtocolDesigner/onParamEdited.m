@@ -60,6 +60,24 @@ function onParamEdited(obj, evt)
                     parameter.isArray = numel(stimValues) > 1;
                     parameter.Values = hw.Parameter.normalizeValues(stimValues);
                     nextStep = 'Review the assigned stimulus types, then compile to verify the updated trials.';
+                elseif isequal(parameter.Type, 'Coefficient Buffer')
+                    [coefValue, cancelled] = obj.editParameterCoefficientBufferValue(parameter);
+                    if cancelled
+                        parameter.Type = originalType;
+                        parameter.Values = originalValues;
+                        obj.refreshParameterTable();
+                        obj.setStatus(sprintf('Coefficient buffer edit cancelled for %s', parameter.Name), ...
+                            'Use the Value column to paste coefficients or extract them from a calibration file.');
+                        return
+                    end
+                    if isempty(coefValue)
+                        parameter.Values = {};
+                        parameter.isArray = false;
+                    else
+                        parameter.Values = {coefValue};
+                        parameter.isArray = numel(coefValue) > 1;
+                    end
+                    nextStep = 'Review the coefficient buffer, then compile to verify the updated trials.';
                 elseif isequal(parameter.Type, 'String')
                     originalStringLike = isempty(originalValues) || ...
                         all(cellfun(@(v) ischar(v) || isstring(v), originalValues));
@@ -161,10 +179,29 @@ function onParamEdited(obj, evt)
                     parameter.Values = hw.Parameter.normalizeValues(stimValues);
                     statusMessage = sprintf('Updated StimType values for %s', parameter.Name);
                     nextStep = 'Review the assigned stimulus types, then compile.';
+                elseif isequal(parameter.Type, 'Coefficient Buffer')
+                    [coefValue, cancelled] = obj.editParameterCoefficientBufferValue(parameter);
+                    if cancelled
+                        obj.refreshParameterTable();
+                        obj.setStatus(sprintf('Coefficient buffer edit cancelled for %s', parameter.Name), ...
+                            'Edit the Value cell again to paste coefficients or extract them from a calibration file.');
+                        return
+                    end
+                    if isempty(coefValue)
+                        parameter.Values = {};
+                        parameter.isArray = false;
+                        statusMessage = sprintf('Cleared coefficient buffer for %s', parameter.Name);
+                    else
+                        parameter.Values = {coefValue};
+                        parameter.isArray = numel(coefValue) > 1;
+                        statusMessage = sprintf('Updated coefficient buffer for %s (%d coefficients)', ...
+                            parameter.Name, numel(coefValue));
+                    end
+                    nextStep = 'Review the coefficient buffer, then compile.';
                 else
                     obj.refreshParameterTable();
                     obj.setStatus(sprintf('Value for %s is read-only', parameter.Name), ...
-                        'Only String and StimType values support direct table edits. Use Expression or the type-specific editor instead.');
+                        'Only String, StimType, and Coefficient Buffer values support direct table edits. Use Expression or the type-specific editor instead.');
                     return
                 end
             case 6

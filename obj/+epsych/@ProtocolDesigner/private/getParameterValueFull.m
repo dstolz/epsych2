@@ -50,10 +50,18 @@ function valueText = getParameterValueFull(obj, parameter)
     fmt = parameter.Format;
     if isempty(fmt), fmt = '%g'; end
     if numel(v) == 1
-        valueText = sprintf(fmt, v{1});
-    else
+        if isnumeric(v{1}) && ~isscalar(v{1})
+            % Buffer-style level: full untruncated vector for copy/paste
+            valueText = mat2str(reshape(v{1}, 1, []), 15);
+        else
+            valueText = sprintf(fmt, v{1});
+        end
+    elseif all(cellfun(@(x) isnumeric(x) && isscalar(x), v))
         nums = cellfun(@(x) x, v);
         valueText = mat2str(nums, 6);
+    else
+        parts = cellfun(@(x) mat2str(reshape(x, 1, []), 6), v, 'UniformOutput', false);
+        valueText = strjoin(parts, ';  ');
     end
 
     if ~isempty(parameter.Unit)

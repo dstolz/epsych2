@@ -14,8 +14,13 @@ third parameter mapped to marker color.
   marker color with a labeled colorbar (e.g., color by `RespCode` or level).
 - **Trial Number**: always offered as a parameter — the chronological DATA
   index (note this differs from `TrialID`, which is the schedule/condition ID).
+- **Populated before the first trial**: when constructed from a runtime, the
+  lists are seeded from the parameters the runtime will record, so a GUI built
+  at session start is usable immediately rather than offering only
+  `Trial Number` until a trial completes.
 - **Invisible parameters excluded**: parameters flagged `Visible=false` on
-  their `hw.Parameter` never appear in the selectable lists. Non-scalar and
+  their `hw.Parameter` never appear in the selectable lists, nor do
+  array-valued, write-only, or non-numeric parameters. Non-scalar and
   non-numeric DATA fields are also excluded.
 - **Aesthetics**: right-click the axes for marker style, size, opacity,
   marker color, colormap (color-by mode), log X/Y, and grid.
@@ -58,7 +63,7 @@ obj = gui.ParameterScatter(source, container, options)
 | `container` | Figure, panel, tab, or layout host; empty creates a `uifigure` |
 | `PreferenceTag` | Optional key for saved preferences (defaults to hosting figure Tag/Name) |
 | `BoxID` | Restrict `NewData` updates to these boxes; empty accepts all |
-| `XParameter`, `YParameter`, `ColorParameter` | Initial selections; override saved preferences |
+| `XParameter`, `YParameter`, `ColorParameter` | Initial selections; override saved preferences. Applied as soon as the named parameters appear in the data, so they survive construction before the first trial |
 
 ### Key properties
 

@@ -15,7 +15,7 @@ run(fullfile(here,'..','epsych_startup.m'));
 addpath(here); % FakeScatterRuntime lives beside this test
 
 PREF_GROUP = 'epsych2_gui_ParameterScatter';
-TAGS = {'smokePS1','smokePS2','smokePS3','smokePS4'};
+TAGS = {'smokePS1','smokePS2','smokePS3','smokePS4','smokePS5','smokePS6'};
 cleanupObj = onCleanup(@() cleanupPrefs(PREF_GROUP, TAGS));
 
 % 1. Offline DATA in a uifigure: parameter list + defaults ----------------
@@ -76,6 +76,8 @@ R.HELPER.notify('NewData', epsych.TrialsData(trials));
 assert(numel(S3.ScatterH.XData) == 5, 'NewData event should populate 5 trials');
 assert(~ismember('HiddenParam', S3.DropdownX.Items), 'invisible parameter should be excluded');
 assert(ismember('FreqHz', S3.DropdownX.Items), 'visible parameter should be offered');
+assert(~ismember('WaveBuf', S3.DropdownX.Items), 'array-valued parameter should be excluded');
+assert(~ismember('GoTrigger', S3.DropdownX.Items), 'write-only parameter should be excluded');
 
 S3.BoxID = 2; % events from other boxes must now be ignored
 trials6 = trials;
@@ -107,6 +109,51 @@ S5.XParameter = 'FreqHz';
 assert(isequal(S5.ScatterH.XData,[D.FreqHz]), 'legacy dropdown selection should redraw');
 delete(S5); close(f4);
 fprintf('PASS: legacy figure hosting and resize\n');
+
+% 8. Pre-session GUI: runtime-declared parameters and staged selections ----
+% A custom GUI is built before the session starts, so DATA has no fields to
+% learn from. The selectors must still list the parameters the runtime will
+% record, and requested selections must survive until their data arrive.
+setpref(PREF_GROUP,'smokePS5', ...
+    struct('XParameter','FreqHz','YParameter','RespCode','ColorParameter','(none)'));
+R8 = FakeScatterRuntime;
+R8.TRIALS = struct('DATA',struct('TrialID',[],'FreqHz',[]), ...
+    'Subject',struct('Name','SMOKE'),'BoxID',1);
+f5 = uifigure('Visible','off','Tag','SmokeScatter5');
+S6 = gui.ParameterScatter(R8, f5, PreferenceTag='smokePS5', ...
+    XParameter='LevelDB', YParameter='FreqHz', ColorParameter='RespCode');
+assert(isempty(S6.ScatterH.XData), 'nothing should plot before the first trial');
+assert(all(ismember({'FreqHz','LevelDB'}, S6.DropdownX.Items)), ...
+    'runtime-declared parameters should be selectable before the first trial');
+assert(~any(ismember({'HiddenParam','WaveBuf','GoTrigger'}, S6.DropdownX.Items)), ...
+    'invisible, array, and write-only parameters must stay out of the list');
+assert(strcmp(S6.XParameter,'LevelDB'), 'declared X selection should apply immediately');
+% RespCode is recorded but not declared by the runtime, so it stays staged
+assert(strcmp(S6.ColorParameter,'(none)'), 'undeclared color parameter should wait for data');
+
+R8.HELPER.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
+    'Subject',struct('Name','SMOKE'),'BoxID',1)));
+assert(strcmp(S6.XParameter,'LevelDB'), 'constructor X selection lost (got %s)', S6.XParameter);
+assert(strcmp(S6.YParameter,'FreqHz'), 'constructor Y selection lost (got %s)', S6.YParameter);
+assert(strcmp(S6.ColorParameter,'RespCode'), 'staged color selection lost (got %s)', S6.ColorParameter);
+assert(strcmp(S6.DropdownX.Value,'LevelDB'), 'dropdown should reflect the applied selection');
+delete(S6); close(f5);
+fprintf('PASS: pre-session parameter list and staged selections\n');
+
+% 9. An explicit dropdown choice is not overridden by a staged selection ---
+R9 = FakeScatterRuntime;
+R9.TRIALS = struct('DATA',struct('TrialID',[],'FreqHz',[]), ...
+    'Subject',struct('Name','SMOKE'),'BoxID',1);
+f6 = uifigure('Visible','off','Tag','SmokeScatter6');
+S7 = gui.ParameterScatter(R9, f6, PreferenceTag='smokePS6', ColorParameter='RespCode');
+S7.DropdownC.Value = '(none)';
+S7.onSelectionChanged; % user overrules the still-staged RespCode request
+R9.HELPER.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
+    'Subject',struct('Name','SMOKE'),'BoxID',1)));
+assert(strcmp(S7.ColorParameter,'(none)'), ...
+    'staged selection should not override an explicit user choice (got %s)', S7.ColorParameter);
+delete(S7); close(f6);
+fprintf('PASS: user selection outranks a staged selection\n');
 
 fprintf('smoke_test_parameter_scatter: ALL PASS\n');
 end

@@ -33,6 +33,11 @@ self.H.mnu_refresh_config = uimenu(mConfig,'Label','&Refresh Config', ...
     'Tag','setup_mnu_refresh_config','MenuSelectedFcn', @(~,~) self.RefreshConfig,'Accelerator','R');
 self.H.mnu_save_config = uimenu(mConfig,'Label','&Save Config...', ...
     'Tag','setup_mnu_save_config','MenuSelectedFcn', @(~,~) self.SaveConfig,'Accelerator','S');
+% Recents get their own submenu rather than loose items appended to Config:
+% the entry point stays visible (with a disabled placeholder) even after the
+% seven-day window in GetRecentConfigs prunes the list to nothing.
+self.H.mnu_recent_configs = uimenu(mConfig,'Label','&Recent Configs', ...
+    'Tag','setup_mnu_recent_configs','Separator','on');
 self.H.mnu_config = mConfig;
 
 mCustom = uimenu(f,'Label','Customize');

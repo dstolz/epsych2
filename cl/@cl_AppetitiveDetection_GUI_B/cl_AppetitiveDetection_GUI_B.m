@@ -25,6 +25,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         % slidingWindowPlot      % gui.SlidingWindowPerformancePlot instance
         PhaseSelector         % gui.PhaseSelector instance
         ResponseHistory        % gui.History instance
+        h_ScatterPanel         % gui.ParameterScatter instance
         Performance            % gui.Performance instance
         ModeIndicator          % gui.ModeIndicator instance
         lblPerformance           % Label for Performance display
@@ -36,7 +37,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         h_RWDelayParameterControl
         h_RWDelayTrainingGUI
 
-          ParameterMonitorTable
+        ParameterMonitor       % gui.Parameter_Monitor instance (Trial State panel)
 
         bmStimulus  = epsych.BitMask.TrialType_0;
         bmCatch     = epsych.BitMask.TrialType_1;
@@ -129,6 +130,12 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                 delete(obj.ModeIndicator);
             end
 
+            % release the scatter's NewData listener; deleting guiHandles
+            % only removes its graphics, not the handle object itself
+            try
+                delete(obj.h_ScatterPanel);
+            end
+
             try
                 close(obj.h_OnlinePlot);
             end
@@ -179,9 +186,21 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         function onModeChange(obj,src,ev)
             % fprintf('Mode changed to: %s\n', string(ev.NewMode));
 
+            % The monitor deletes itself with the figure, so a mode change
+            % arriving during teardown finds a stale handle.
+            if isempty(obj.ParameterMonitor) || ~isvalid(obj.ParameterMonitor)
+                return
+            end
+
             switch ev.NewMode
                 case hw.DeviceState.Stop
-                    delete(obj.ParameterMonitorTable);
+                    % Stop polling rather than deleting the monitor: the
+                    % final trial state stays legible on screen, and the
+                    % monitor can resume if the session restarts.
+                    obj.ParameterMonitor.stop();
+
+                case {hw.DeviceState.Preview, hw.DeviceState.Record}
+                    obj.ParameterMonitor.start();
             end
         end
 

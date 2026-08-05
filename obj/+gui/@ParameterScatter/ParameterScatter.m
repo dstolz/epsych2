@@ -7,8 +7,11 @@ classdef ParameterScatter < handle
     % dropdowns at any time and the plot updates immediately; a NewData
     % listener refreshes the plot after every completed trial. "Trial
     % Number" (chronological DATA index) is always offered as a parameter.
-    % Parameters flagged Visible=false on their hw.Parameter are excluded
-    % from the selectable lists.
+    % When constructed from a runtime the lists are seeded from the
+    % parameters it will record, so they are populated before the first
+    % trial. Parameters flagged Visible=false on their hw.Parameter are
+    % excluded from the selectable lists, as are array-valued, write-only,
+    % and non-numeric parameters.
     %
     % Display behavior:
     %   - Right-click the axes for basic aesthetics: marker style, size,
@@ -78,23 +81,26 @@ classdef ParameterScatter < handle
 
     properties (Access = private)
         DATA_ = []                   % Cached per-trial data struct array
-        Runtime_ = []                % epsych.Runtime used to resolve invisible parameters
+        Runtime_ = []                % epsych.Runtime used to resolve the parameter lists
         PanelH_ = []                 % Wrapper panel (legacy-figure hosting only)
         LabelX_ = []                 % X control label (legacy-figure hosting only)
         LabelY_ = []                 % Y control label (legacy-figure hosting only)
         LabelC_ = []                 % Color control label (legacy-figure hosting only)
         ContextMenuH_ = []           % Right-click aesthetics menu
-        PendingSelections_ = []      % Saved selections awaiting first data update
+        PendingSelections_ = []      % Requested selections awaiting their parameters
         PreferenceTag_ char = ''     % Optional explicit preference key
         isWeb_ (1,1) logical = true  % True when hosted in uifigure-family graphics
         suspend_ (1,1) logical = false % Guard against redraw recursion during batch updates
-        invisibleResolved_ (1,1) logical = false
+        runtimeResolved_ (1,1) logical = false
         InvisibleNames_ (1,:) cell = {} % validNames of invisible parameters
+        DeclaredNames_ (1,:) cell = {}  % validNames the runtime will record once trials begin
     end
 
     properties (Constant, Access = private)
         TRIAL_NUMBER_LABEL = 'Trial Number' % synthetic parameter: chronological DATA index
         NONE_LABEL = '(none)'               % ColorParameter entry meaning "flat marker color"
+        PLOTTABLE_TYPES = {'Float','Integer','Boolean'} % hw.Parameter types that yield a plottable scalar
+        SELECTION_FIELDS = {'XParameter','YParameter','ColorParameter'}
         PREF_GROUP = 'epsych2_gui_ParameterScatter'
         VALID_MARKERS = {'o','s','d','^','v','p','h'}
         VALID_COLORMAPS = {'parula','turbo','jet','hot','cool','copper','bone'}
@@ -120,6 +126,8 @@ classdef ParameterScatter < handle
             %   options.BoxID - Restrict NewData updates to these boxes.
             %   options.XParameter, options.YParameter, options.ColorParameter -
             %       Initial selections; override saved preferences when given.
+            %       Applied once the named parameters appear in the data, so
+            %       they survive construction before the first trial.
             %
             % Returns:
             %   obj - gui.ParameterScatter object.
@@ -144,18 +152,9 @@ classdef ParameterScatter < handle
             obj.loadPreferences_;
 
             % Explicit constructor selections take precedence over saved ones
-            if ~isempty(options.XParameter)
-                obj.XParameter = char(options.XParameter);
-                obj.clearPendingSelection_('XParameter');
-            end
-            if ~isempty(options.YParameter)
-                obj.YParameter = char(options.YParameter);
-                obj.clearPendingSelection_('YParameter');
-            end
-            if ~isempty(options.ColorParameter)
-                obj.ColorParameter = char(options.ColorParameter);
-                obj.clearPendingSelection_('ColorParameter');
-            end
+            obj.stageSelection_('XParameter',options.XParameter);
+            obj.stageSelection_('YParameter',options.YParameter);
+            obj.stageSelection_('ColorParameter',options.ColorParameter);
 
             obj.attachSource_(source);
             obj.update;
@@ -232,6 +231,7 @@ classdef ParameterScatter < handle
             obj.XParameter = obj.getDropdownValue_(obj.DropdownX);
             obj.YParameter = obj.getDropdownValue_(obj.DropdownY);
             obj.ColorParameter = obj.getDropdownValue_(obj.DropdownC);
+            obj.PendingSelections_ = []; % an explicit choice outranks any staged one
             obj.suspend_ = false;
             obj.savePreferences_;
             obj.redraw_(obj.currentData_);
@@ -370,45 +370,53 @@ classdef ParameterScatter < handle
         end
 
         function avail = availableParameters_(obj,D)
-            % Scalar numeric DATA fields eligible for plotting, excluding
-            % invisible parameters, plus the synthetic Trial Number entry.
-            avail = {obj.TRIAL_NUMBER_LABEL};
-            if isempty(D), return; end
-            fn = fieldnames(D);
-            keep = false(size(fn));
-            for k = 1:numel(fn)
-                v = D(1).(fn{k});
-                if isstruct(v) && isfield(v,'Value'), v = v.Value; end
-                keep(k) = (isnumeric(v) || islogical(v)) && isscalar(v);
+            % Parameters offered in the selectors: scalar numeric DATA fields
+            % plus the parameters the runtime will record once trials begin,
+            % less invisible ones, plus the synthetic Trial Number entry.
+            % The runtime-declared names keep the selectors usable before the
+            % first trial, when DATA has no fields to learn from.
+            obj.resolveRuntimeNames_;
+            fn = {};
+            if ~isempty(D)
+                f = fieldnames(D);
+                keep = false(size(f));
+                for k = 1:numel(f)
+                    v = D(1).(f{k});
+                    if isstruct(v) && isfield(v,'Value'), v = v.Value; end
+                    keep(k) = (isnumeric(v) || islogical(v)) && isscalar(v);
+                end
+                fn = f(keep);
             end
-            fn = fn(keep);
-            fn = setdiff(fn,obj.invisibleParameterNames_,'stable');
-            avail = [avail sort(fn(:))'];
+            fn = union(fn(:)',obj.DeclaredNames_);
+            fn = setdiff(fn,obj.InvisibleNames_);
+            avail = [{obj.TRIAL_NUMBER_LABEL} sort(fn(:))'];
         end
 
-        function names = invisibleParameterNames_(obj)
-            % validNames of parameters flagged Visible=false, resolved once
-            % from the runtime; empty when no runtime is available.
-            if obj.invisibleResolved_
-                names = obj.InvisibleNames_;
-                return
-            end
-            names = {};
+        function resolveRuntimeNames_(obj)
+            % Resolve, once, the runtime's invisible parameters and the
+            % parameters it will record as DATA fields. Recorded fields come
+            % from the Access='Read' set (see ep_TimerFcn_RunTime), so the
+            % declared list mirrors that filter minus array-valued and
+            % non-numeric types, which have nothing to plot.
+            if obj.runtimeResolved_, return; end
             R = obj.Runtime_;
             if isempty(R)
-                obj.invisibleResolved_ = true;
-            else
-                try
-                    P = R.all_parameters(includeInvisible=true,includeTriggers=true,Access='All');
-                    if ~isempty(P)
-                        names = {P(~[P.Visible]).validName};
-                    end
-                    obj.invisibleResolved_ = true;
-                catch ME
-                    vprintf(3,'gui.ParameterScatter: unable to resolve invisible parameters: %s',ME.message)
-                end
+                obj.runtimeResolved_ = true;
+                return
             end
-            obj.InvisibleNames_ = names;
+            try
+                P = R.all_parameters(includeInvisible=true,includeTriggers=true,Access='All');
+                if ~isempty(P)
+                    obj.InvisibleNames_ = {P(~[P.Visible]).validName};
+                    plottable = [P.Visible] & ~[P.isArray] ...
+                        & ismember({P.Type},obj.PLOTTABLE_TYPES) ...
+                        & ~strcmp({P.Access},'Write');
+                    obj.DeclaredNames_ = {P(plottable).validName};
+                end
+                obj.runtimeResolved_ = true;
+            catch ME
+                vprintf(3,'gui.ParameterScatter: unable to resolve runtime parameters: %s',ME.message)
+            end
         end
 
         function v = parameterValues_(obj,D,name)
@@ -607,8 +615,8 @@ classdef ParameterScatter < handle
 
         function loadPreferences_(obj)
             % Apply saved aesthetics immediately; stage parameter selections
-            % until the first update with data so they can be validated
-            % against the available parameter list.
+            % so each is applied once its parameter is known, rather than
+            % validated away against a list that is empty pre-session.
             try
                 pname = obj.preferenceName_;
                 if ~ispref(obj.PREF_GROUP,pname), return; end
@@ -620,7 +628,10 @@ classdef ParameterScatter < handle
                         obj.(aes{k}) = s.(aes{k});
                     end
                 end
-                obj.PendingSelections_ = s;
+                for k = 1:numel(obj.SELECTION_FIELDS)
+                    f = obj.SELECTION_FIELDS{k};
+                    if isfield(s,f), obj.stageSelection_(f,s.(f)); end
+                end
                 obj.refreshMenuChecks_;
                 vprintf(3,'gui.ParameterScatter: loaded saved preferences "%s"',pname)
             catch ME
@@ -629,28 +640,37 @@ classdef ParameterScatter < handle
         end
 
         function applyPendingSelections_(obj,avail)
-            % Apply staged parameter selections once real data are available.
+            % Apply each staged selection as its parameter becomes available.
+            % Unmatched ones stay staged: a selection naming a parameter that
+            % only shows up once trials begin must not be dropped on the way.
             if isempty(obj.PendingSelections_) || numel(avail) < 2, return; end
             s = obj.PendingSelections_;
-            obj.PendingSelections_ = [];
             obj.suspend_ = true;
-            if isfield(s,'XParameter') && ismember(s.XParameter,avail)
-                obj.XParameter = s.XParameter;
-            end
-            if isfield(s,'YParameter') && ismember(s.YParameter,avail)
-                obj.YParameter = s.YParameter;
-            end
-            if isfield(s,'ColorParameter') && ismember(s.ColorParameter,[{obj.NONE_LABEL} avail])
-                obj.ColorParameter = s.ColorParameter;
+            for k = 1:numel(obj.SELECTION_FIELDS)
+                f = obj.SELECTION_FIELDS{k};
+                if ~isfield(s,f), continue; end
+                valid = avail;
+                if strcmp(f,'ColorParameter'), valid = [{obj.NONE_LABEL} avail]; end
+                if ismember(s.(f),valid)
+                    obj.(f) = s.(f);
+                    s = rmfield(s,f);
+                end
             end
             obj.suspend_ = false;
+            if isempty(fieldnames(s)), s = []; end
+            obj.PendingSelections_ = s;
         end
 
-        function clearPendingSelection_(obj,fieldName)
-            % Drop one staged selection (constructor override wins over prefs).
-            if ~isempty(obj.PendingSelections_) && isfield(obj.PendingSelections_,fieldName)
-                obj.PendingSelections_ = rmfield(obj.PendingSelections_,fieldName);
-            end
+        function stageSelection_(obj,fieldName,value)
+            % Stage a constructor-supplied selection, replacing any saved one.
+            % Staged rather than applied directly because a GUI is typically
+            % built before the first trial, when the parameter list is still
+            % empty and any immediate assignment would be validated away.
+            if isempty(value), return; end
+            s = obj.PendingSelections_;
+            if isempty(s), s = struct; end
+            s.(fieldName) = char(value);
+            obj.PendingSelections_ = s;
         end
 
         function savePreferences_(obj)

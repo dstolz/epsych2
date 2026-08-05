@@ -413,6 +413,7 @@ classdef RunExpt < handle
         recent = GetRecentFuncs(self, prefKey)             % Return the MRU function-name list for a Customize dialog field
         RememberRecentFunc(self, prefKey, name)            % Record an accepted function name in a Customize dialog field's MRU list
         UpdateRecentConfigsMenu(self)                      % Rebuild the recent-configs submenu items
+        ClearRecentConfigs(self)                           % Empty the persistent recent config registry
         CheckReady(self)                                   % Evaluate whether all conditions to run are met and update STATE
         UpdateSubjectList(self)                            % Repopulate the subject list and flag subjects with an outdated protocol version
         ExptDispatch(self, COMMAND)                        % Dispatch a named command (Start/Stop/Pause) to the experiment

@@ -160,7 +160,7 @@ RunExpt session configurations are stored in MAT-files with the extension `*.ecf
 - **Config → Load Config...** loads a `*.ecfg` file.
 - **Config → Refresh Config** reloads the currently loaded config file from disk — useful when the config or its protocols were changed outside the GUI.
 - **Config → Save Config...** saves the current configuration.
-- Recently used configs appear in the **Config** menu for one-click reloading.
+- **Config → Recent Configs** lists configs loaded within the past seven days for one-click reloading, most recent first. Older entries and files that no longer exist drop off automatically; **Clear List** empties it. When nothing qualifies the submenu shows a disabled `(none in the past 7 days)` placeholder.
 
 ### 6.2 Browsing configs
 
@@ -191,7 +191,7 @@ The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` 
 
 ## 8) Menus reference
 
-- **Config**: Browse Configs..., Load Config..., Refresh Config, Save Config..., recent configs list.
+- **Config**: Browse Configs..., Load Config..., Refresh Config, Save Config..., Recent Configs (submenu).
 - **Customize**: Customize... (all settings above).
 - **View**: Always On Top, Commutator GUI (opens the motorized commutator control; see [../peripherals/peripherals_NanoMotorControl.md](../peripherals/peripherals_NanoMotorControl.md)), Webcam Recorder Setup... (camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md)), Live Webcam View (No Recording).
   - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject between runs. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the bottom control bar shows a matching amber banner. Select it again to close the view.

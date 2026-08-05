@@ -39,7 +39,7 @@ if nargin > 0 && ~isempty(protocolInput)
     end
 end
 
-gui = stimgen.calibration.CalibrationGui(host);
+gui = stimgen.calibration.CalibrationGui(stimgen.calibration.Engine(),host);
 
 if host.connectionState == "Ready"
     try

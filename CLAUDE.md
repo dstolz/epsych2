@@ -117,6 +117,7 @@ stimgen logs through its own `stimgen.util.vprintf` to
 - **stimbridge.InterfaceAdapter**: Implements `stimgen.calibration.HwAdapter` over hw.Interface
 
 #### obj/+gui/ – Reusable GUI Components
+- **gui.BoxGUI** (abstract): base class for custom experiment (BoxFig) GUIs — owns lifecycle, event listeners, position prefs, component-registry teardown, and Parameter_Update wiring; subclasses implement build(fig) (see documentation/gui/gui_BoxGUI.md, template in examples/customgui/)
 - Real-time visualization: OnlinePlot, Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
 - Session control: StaircaseTraining, StatusBar, Triggers
 - Diagnostics: SelfTest (window for epsych.SelfTest; opened from RunExpt's Help menu)
@@ -250,11 +251,12 @@ Reference: obj/+psychophysics/@Detection/, obj/+gui/@OnlinePlot/
 ### Adding Experiment-Specific Behavior
 
 1. Use cl/ directory as pattern for paradigm-specific code
-2. Create custom GUIs and save functions
-3. Subscribe to epsych.Helper events for trial and mode changes
-4. Example: Custom epsych.TrialSelector for closed-loop
+2. Custom GUIs: subclass gui.BoxGUI (copy examples/customgui/ExampleBoxGUI.m); the base provides lifecycle, listeners, and teardown — the subclass only writes build(fig) and event hooks
+3. Create custom save functions
+4. Subscribe to epsych.Helper events for trial and mode changes (BoxGUI subclasses get onNewTrial/onNewData/onModeChange hooks instead)
+5. Example: Custom epsych.TrialSelector for closed-loop
 
-Reference: cl/cl_SaveDataFcn.m, obj/+epsych/@DefaultSubject/
+Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, cl/cl_SaveDataFcn.m, obj/+epsych/@DefaultSubject/
 
 ## Where to Look When Making Changes
 

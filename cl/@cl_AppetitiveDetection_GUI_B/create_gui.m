@@ -189,17 +189,24 @@ end
 
 % INFO ----------------------------------------------------
 
-% >> Info table
-h = uipanel(layoutMain);
-h.Layout.Column = [3 4];
-h.Layout.Row    = [6 10];
+% >> Trial state monitor
+% Sensor and trial-state flags render as lamps for at-a-glance reading;
+% counters and latencies render as value labels that flash on change.
+% Ordering matters: the five lamps are grouped ahead of the value readouts.
+panelMonitor = uipanel(layoutMain, 'Title', 'Trial State');
+panelMonitor.Layout.Column = [3 4];
+panelMonitor.Layout.Row    = [6 10];
 
 
-p = [P.PelletTotal, P.Platform, P.Trough, P.RespWinDelay, P.InTrial, ...
-    P.StimDelay, P.DelayPeriod, P.RespWindow, P.RespLatency, P.RespCode];
+p = [P.Platform, P.Trough, P.InTrial, P.DelayPeriod, P.RespWindow, ...
+    P.PelletTotal, P.StimDelay, P.RespWinDelay, P.RespLatency, P.RespCode];
 
-obj.ParameterMonitorTable = gui.Parameter_Monitor(h,p,pollPeriod=0.1);
-obj.ParameterMonitorTable.handle.FontSize = 14;
+obj.ParameterMonitor = gui.Parameter_Monitor(panelMonitor, p, pollPeriod=0.1, ...
+    type="graphical", ...
+    FontSize=14, ...
+    Styles=struct( ...
+        Platform="lamp", Trough="lamp", InTrial="lamp", ...
+        DelayPeriod="lamp", RespWindow="lamp"));
 
 
 
@@ -466,6 +473,17 @@ h.FontSize = 18;
 h.FontWeight = 'bold';
 h.HorizontalAlignment = "left";
 obj.lblPerformance = h;
+
+
+% Panel for Scatter plot ------------------------------------------------
+panelScatter = uipanel(layoutMain, 'Title', 'Parameter Scatter');
+panelScatter.Layout.Row = [6 10];
+panelScatter.Layout.Column = 5;
+obj.h_ScatterPanel = gui.ParameterScatter(R,panelScatter, ...
+    PreferenceTag  = 'AppetitiveDetection_ScatterPlot', ...
+    XParameter     = P.Depth.validName, ...
+    YParameter     = P.RespLatency.validName, ...
+    ColorParameter = P.RespCode.validName);
 
 
 % Panel for "Response History" --------------------------------------

@@ -1,7 +1,9 @@
 classdef FakeScatterRuntime < handle
     % Minimal epsych.Runtime stand-in for gui.ParameterScatter smoke tests.
     % Provides the HELPER event broadcaster, a TRIALS struct, and an
-    % all_parameters method that reports one invisible parameter.
+    % all_parameters method reporting one invisible parameter, one
+    % array-valued parameter, and one write-only parameter — none of which
+    % may reach the scatter's selectors.
 
     properties
         HELPER
@@ -21,8 +23,11 @@ classdef FakeScatterRuntime < handle
                 options.Access (1,:) char = 'All'
             end
             P = struct( ...
-                'validName', {'FreqHz','LevelDB','HiddenParam'}, ...
-                'Visible',   {true,    true,     false});
+                'validName', {'FreqHz','LevelDB','HiddenParam','WaveBuf','GoTrigger'}, ...
+                'Visible',   {true,    true,     false,        true,     true}, ...
+                'isArray',   {false,   false,    false,        true,     false}, ...
+                'Type',      {'Float', 'Float',  'Float',      'Buffer', 'Boolean'}, ...
+                'Access',    {'Read',  'Any',    'Read',       'Read',   'Write'});
             if ~options.includeInvisible
                 P = P([P.Visible]);
             end

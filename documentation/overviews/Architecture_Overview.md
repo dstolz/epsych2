@@ -141,7 +141,7 @@ Detailed references: [../peripherals/](../peripherals/)
 
 Legacy protocol authoring utilities. Protocol design now happens in `epsych.ProtocolDesigner`; this directory retains migration and support tools:
 
-- `ep_AddSubject.m` — legacy GUIDE add-subject dialog (default is now `epsych.DefaultSubject.open`)
+- `ep_AddSubject.m` — backward-compatible wrapper that forwards to the modern `epsych.DefaultSubject.open` dialog
 
 ### `runtime/`
 

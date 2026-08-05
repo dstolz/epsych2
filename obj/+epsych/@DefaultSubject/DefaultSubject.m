@@ -15,8 +15,16 @@ classdef DefaultSubject < epsych.Subject
     %   Species - Species name (default: '')
     %
     % Properties (optional, inherited from epsych.Subject):
-    %   Weight  - Body weight in grams (default: NaN)
+    %   Weight  - Body weight in grams (default: NaN = not measured)
     %   Notes   - Freeform notes (default: '')
+    %
+    % Dialog features:
+    %   * Modal, centered window with Edit/Add mode detection
+    %   * Species dropdown is editable — type a new species to add it; the
+    %     list and the last-used species persist across sessions (prefs)
+    %   * Duplicate subject names rejected live via the ReservedNames option
+    %   * Blank weight is stored as NaN (never coerced to 0 g)
+    %   * Keyboard: Ctrl+Enter = OK, Escape = Cancel
     %
     % Usage:
     %   % Programmatic construction
@@ -29,6 +37,7 @@ classdef DefaultSubject < epsych.Subject
     %   % Interactive GUI dialog
     %   s = epsych.DefaultSubject.open();
     %   s = epsych.DefaultSubject.open(existingSubject, availableBoxIDs);
+    %   s = epsych.DefaultSubject.open([], 1:16, 'ReservedNames', {'M001','M002'});
     %
     % See also: epsych.Subject, epsych.RunExpt
 
@@ -48,10 +57,11 @@ classdef DefaultSubject < epsych.Subject
         ddBoxID_   % uidropdown  – Box ID
         efName_    % uieditfield – Name
         ddSex_     % uidropdown  – Sex
-        ddSpecies_ % uidropdown  – Species
-        efWeight_  % uieditfield – Weight (numeric)
+        ddSpecies_ % uidropdown  – Species (editable)
+        efWeight_  % uieditfield – Weight (numeric, blank = not measured)
         taNotes_   % uitextarea  – Notes
-        confirmed_ = false  % true when user clicks OK
+        reservedNames_ = {}     % names rejected by onOK_ (duplicates)
+        confirmed_     = false  % true when user clicks OK
     end
 
     % -----------------------------------------------------------------------
@@ -77,19 +87,24 @@ classdef DefaultSubject < epsych.Subject
     % -----------------------------------------------------------------------
     methods (Static)
 
-        function obj = open(S, boxids)
+        function obj = open(S, boxids, options)
             % obj = epsych.DefaultSubject.open()
             % obj = epsych.DefaultSubject.open(S)
             % obj = epsych.DefaultSubject.open(S, boxids)
+            % obj = epsych.DefaultSubject.open(S, boxids, 'ReservedNames', names)
             % Show the subject entry dialog and return a populated DefaultSubject.
             % Parameters:
             %   S      - (optional) epsych.Subject or struct used to pre-fill the dialog
             %   boxids - (optional) vector of available box IDs (default: 1:16)
+            % Options:
+            %   ReservedNames - cellstr/string of subject names already in use;
+            %                   the dialog refuses to accept any of them
             % Returns:
             %   obj - populated epsych.DefaultSubject, or [] if the dialog was cancelled
             arguments
                 S      = []
                 boxids = 1:16
+                options.ReservedNames = {}
             end
 
             if isa(S, 'epsych.Subject')
@@ -100,6 +115,7 @@ classdef DefaultSubject < epsych.Subject
                 seed = epsych.DefaultSubject();
             end
 
+            seed.reservedNames_ = cellstr(options.ReservedNames);
             seed.buildUI_(boxids);
             uiwait(seed.fig_);
 
@@ -135,14 +151,22 @@ classdef DefaultSubject < epsych.Subject
             FIG_BG   = [0.96 0.97 0.98];   % pale blue-gray body
             LBL_CLR  = [0.28 0.28 0.33];   % dark-neutral label text
             OK_BG    = [0.13 0.46 0.72];   % action-blue OK button
-            BTN_BG   = [0.91 0.92 0.94];   % button-bar floor
-            ADDSP_BG = [0.74 0.84 0.94];   % add-species "+" tint
+
+            % An existing name means the dialog is editing, not adding
+            isEdit = strlength(string(self.Name)) > 0;
+            if isEdit
+                dlgTitle = 'Edit Subject';
+            else
+                dlgTitle = 'Add Subject';
+            end
 
             self.fig_ = uifigure( ...
-                'Name',            'Add Subject', ...
+                'Name',            dlgTitle, ...
                 'Position',        [0 0 440 400], ...
                 'Resize',          'off', ...
                 'Color',           FIG_BG, ...
+                'WindowStyle',     'modal', ...
+                'KeyPressFcn',     @(~,evt) self.onKeyPress_(evt), ...
                 'CloseRequestFcn', @(~,~) self.onCancel_());
             movegui(self.fig_, 'center');
 
@@ -162,7 +186,7 @@ classdef DefaultSubject < epsych.Subject
             hdrInner = uigridlayout(hdrPanel, [1, 1]);
             hdrInner.Padding = [0 0 0 0];
             hdrLbl = uilabel(hdrInner, ...
-                'Text',               'Add Subject', ...
+                'Text',               dlgTitle, ...
                 'BackgroundColor',    HDR_BG, ...
                 'FontColor',          [1 1 1], ...
                 'FontSize',           18, ...
@@ -171,12 +195,12 @@ classdef DefaultSubject < epsych.Subject
                 'VerticalAlignment',  'center');
             hdrLbl.Layout.Row = 1; hdrLbl.Layout.Column = 1;
 
-            % --- Form grid (6 rows x 3 cols) ----------------------------------
-            formGL = uigridlayout(outerGL, [6, 3]);
+            % --- Form grid (6 rows x 2 cols) ----------------------------------
+            formGL = uigridlayout(outerGL, [6, 2]);
             formGL.Layout.Row    = 2;
             formGL.Layout.Column = 1;
             formGL.RowHeight     = {30, 30, 30, 30, 30, '1x'};
-            formGL.ColumnWidth   = {100, '1x', 38};
+            formGL.ColumnWidth   = {100, '1x'};
             formGL.Padding       = [20 14 20 14];
             formGL.RowSpacing    = 8;
             formGL.ColumnSpacing = 8;
@@ -189,8 +213,9 @@ classdef DefaultSubject < epsych.Subject
             lbl = uilabel(formGL, 'Text', 'Box ID', lblProps{:});
             lbl.Layout.Row = 1; lbl.Layout.Column = 1;
             boxItems = arrayfun(@num2str, boxids, 'uni', false);
-            self.ddBoxID_ = uidropdown(formGL, 'Items', boxItems, 'FontSize', 13);
-            self.ddBoxID_.Layout.Row = 1; self.ddBoxID_.Layout.Column = [2 3];
+            self.ddBoxID_ = uidropdown(formGL, 'Items', boxItems, 'FontSize', 13, ...
+                'Tooltip', 'Apparatus/box the subject runs in (occupied boxes are hidden)');
+            self.ddBoxID_.Layout.Row = 1; self.ddBoxID_.Layout.Column = 2;
             sel = num2str(self.BoxID);
             if ismember(sel, boxItems)
                 self.ddBoxID_.Value = sel;
@@ -203,48 +228,53 @@ classdef DefaultSubject < epsych.Subject
                 'Value',       char(self.Name), ...
                 'FontSize',    13, ...
                 'Placeholder', 'Required');
-            self.efName_.Layout.Row = 2; self.efName_.Layout.Column = [2 3];
+            self.efName_.Layout.Row = 2; self.efName_.Layout.Column = 2;
 
             % Sex
             lbl = uilabel(formGL, 'Text', 'Sex', lblProps{:});
             lbl.Layout.Row = 3; lbl.Layout.Column = 1;
             sexItems = {'Male', 'Female', 'Unknown'};
             self.ddSex_ = uidropdown(formGL, 'Items', sexItems, ...
-                'Value', sexItems{1}, 'FontSize', 13);
-            self.ddSex_.Layout.Row = 3; self.ddSex_.Layout.Column = [2 3];
-            if ismember(self.Sex, sexItems)
-                self.ddSex_.Value = self.Sex;
+                'Value', 'Unknown', 'FontSize', 13);
+            self.ddSex_.Layout.Row = 3; self.ddSex_.Layout.Column = 2;
+            sexSeed = epsych.DefaultSubject.normalizeSex_(self.Sex);
+            if ismember(sexSeed, sexItems)
+                self.ddSex_.Value = sexSeed;
             end
 
-            % Species
+            % Species — editable dropdown; typing a new value adds it to the list
             lbl = uilabel(formGL, 'Text', 'Species', lblProps{:});
             lbl.Layout.Row = 4; lbl.Layout.Column = 1;
             spItems = epsych.DefaultSubject.loadSpeciesList_();
             self.ddSpecies_ = uidropdown(formGL, 'Items', spItems, ...
-                'Value', spItems{1}, 'FontSize', 13);
+                'Editable', 'on', 'FontSize', 13, ...
+                'Tooltip', 'Pick a species or type a new one to add it to the list');
             self.ddSpecies_.Layout.Row = 4; self.ddSpecies_.Layout.Column = 2;
-            if ismember(self.Species, spItems)
-                self.ddSpecies_.Value = self.Species;
+            spSeed = strtrim(char(self.Species));
+            if isempty(spSeed)
+                spSeed = getpref('ep_AddSubject', 'user_species', '');
             end
-            btnSp = uibutton(formGL, 'Text', '+', ...
-                'Tooltip',         'Add a new species', ...
-                'FontSize',        16, ...
-                'FontWeight',      'bold', ...
-                'BackgroundColor', ADDSP_BG, ...
-                'ButtonPushedFcn', @(~,~) self.onAddSpecies_());
-            btnSp.Layout.Row = 4; btnSp.Layout.Column = 3;
+            idx = find(strcmpi(spItems, spSeed), 1);
+            if ~isempty(idx)
+                self.ddSpecies_.Value = spItems{idx};
+            elseif ~isempty(spSeed)
+                self.ddSpecies_.Value = spSeed;
+            end
 
-            % Weight
+            % Weight — blank means "not measured" and is stored as NaN
             lbl = uilabel(formGL, 'Text', 'Weight (g)', lblProps{:});
             lbl.Layout.Row = 5; lbl.Layout.Column = 1;
-            wval = self.Weight;
-            if ~isnumeric(wval) || isnan(wval), wval = 0; end
             self.efWeight_ = uieditfield(formGL, 'numeric', ...
-                'Value',              wval, ...
+                'AllowEmpty',         'on', ...
+                'Value',              [], ...
                 'Limits',             [0 Inf], ...
-                'LowerLimitInclusive','on', ...
-                'FontSize',           13);
-            self.efWeight_.Layout.Row = 5; self.efWeight_.Layout.Column = [2 3];
+                'LowerLimitInclusive','off', ...
+                'FontSize',           13, ...
+                'Tooltip',            'Leave blank if not measured');
+            if isnumeric(self.Weight) && isscalar(self.Weight) && isfinite(self.Weight) && self.Weight > 0
+                self.efWeight_.Value = self.Weight;
+            end
+            self.efWeight_.Layout.Row = 5; self.efWeight_.Layout.Column = 2;
 
             % Notes
             lbl = uilabel(formGL, 'Text', 'Notes', ...
@@ -258,11 +288,11 @@ classdef DefaultSubject < epsych.Subject
                 notesVal = {''};
             end
             self.taNotes_ = uitextarea(formGL, 'Value', notesVal, 'FontSize', 13);
-            self.taNotes_.Layout.Row = 6; self.taNotes_.Layout.Column = [2 3];
+            self.taNotes_.Layout.Row = 6; self.taNotes_.Layout.Column = 2;
 
             % --- Button bar ---------------------------------------------------
             btnPanel = uipanel(outerGL, ...
-                'BackgroundColor', BTN_BG, ...
+                'BackgroundColor', [0.91 0.92 0.94], ...
                 'BorderType',      'none');
             btnPanel.Layout.Row = 3; btnPanel.Layout.Column = 1;
             btnGL = uigridlayout(btnPanel, [1, 4]);
@@ -273,6 +303,7 @@ classdef DefaultSubject < epsych.Subject
 
             btnCancel = uibutton(btnGL, 'Text', 'Cancel', ...
                 'FontSize',        13, ...
+                'Tooltip',         'Discard (Esc)', ...
                 'BackgroundColor', [0.80 0.80 0.83], ...
                 'ButtonPushedFcn', @(~,~) self.onCancel_());
             btnCancel.Layout.Row = 1; btnCancel.Layout.Column = 3;
@@ -281,20 +312,50 @@ classdef DefaultSubject < epsych.Subject
                 'FontSize',        13, ...
                 'FontWeight',      'bold', ...
                 'FontColor',       [1 1 1], ...
+                'Tooltip',         'Accept (Ctrl+Enter)', ...
                 'BackgroundColor', OK_BG, ...
                 'ButtonPushedFcn', @(~,~) self.onOK_());
             btnOK.Layout.Row = 1; btnOK.Layout.Column = 4;
+
+            focus(self.efName_);
         end
 
         % --- Callbacks --------------------------------------------------------
 
+        function onKeyPress_(self, evt)
+            % Escape cancels; Ctrl+Enter accepts (plain Enter is left alone so
+            % it can insert newlines in the Notes area).
+            switch evt.Key
+                case 'escape'
+                    self.onCancel_();
+                case 'return'
+                    if any(strcmp(evt.Modifier, 'control'))
+                        self.onOK_();
+                    end
+            end
+        end
+
         function onOK_(self)
-            if isempty(strtrim(self.efName_.Value))
+            name = strtrim(self.efName_.Value);
+            if isempty(name)
                 uialert(self.fig_, 'A subject name is required.', 'Missing Field', ...
                     'Icon', 'warning');
                 return
             end
+            if any(strcmpi(name, self.reservedNames_))
+                uialert(self.fig_, ...
+                    sprintf('The subject name "%s" is already in use.', name), ...
+                    'Duplicate Name', 'Icon', 'warning');
+                return
+            end
+            species = strtrim(self.ddSpecies_.Value);
+            if isempty(species)
+                uialert(self.fig_, 'A species is required.', 'Missing Field', ...
+                    'Icon', 'warning');
+                return
+            end
             self.collectFromUI_();
+            epsych.DefaultSubject.rememberSpecies_(species);
             self.confirmed_ = true;
             uiresume(self.fig_);
         end
@@ -304,22 +365,6 @@ classdef DefaultSubject < epsych.Subject
             uiresume(self.fig_);
         end
 
-        function onAddSpecies_(self)
-            answer = inputdlg('Enter new species name:', 'Add Species', 1);
-            if isempty(answer) || isempty(strtrim(char(answer))), return, end
-            newSp = strtrim(char(answer));
-            current = self.ddSpecies_.Items;
-            if ismember(newSp, current)
-                uialert(self.fig_, sprintf('"%s" is already in the list.', newSp), ...
-                    'Duplicate Species');
-                return
-            end
-            updated = [newSp, current];
-            self.ddSpecies_.Items = updated;
-            self.ddSpecies_.Value = newSp;
-            epsych.DefaultSubject.saveSpeciesList_(updated);
-        end
-
         % --- Data helpers -----------------------------------------------------
 
         function collectFromUI_(self)
@@ -327,8 +372,9 @@ classdef DefaultSubject < epsych.Subject
             self.BoxID   = str2double(self.ddBoxID_.Value);
             self.Name    = strtrim(self.efName_.Value);
             self.Sex     = self.ddSex_.Value;
-            self.Species = self.ddSpecies_.Value;
+            self.Species = strtrim(self.ddSpecies_.Value);
             w = self.efWeight_.Value;
+            if isempty(w), w = NaN; end
             self.Weight  = w;
             notes = self.taNotes_.Value;
             if iscell(notes), notes = strjoin(notes, newline); end
@@ -344,24 +390,51 @@ classdef DefaultSubject < epsych.Subject
                     self.(f) = S.(f);
                 end
             end
+            self.Sex = epsych.DefaultSubject.normalizeSex_(self.Sex);
         end
 
     end
 
     % -----------------------------------------------------------------------
-    % Static private — species preference helpers (shared with ep_AddSubject)
+    % Static private — species/sex helpers (prefs shared with legacy ep_AddSubject)
     % -----------------------------------------------------------------------
     methods (Static, Access = private)
 
         function list = loadSpeciesList_()
-            % Returns the user's saved species list, falling back to a built-in default.
+            % Returns the user's saved species list (trimmed, deduplicated,
+            % sorted), falling back to a built-in default.
             default = {'Mouse','Rat','Gerbil','Guinea Pig','Ferret','Cat', ...
                        'Non-Human Primate','Other'};
             list = cellstr(getpref('ep_AddSubject', 'species', default));
+            list = strtrim(list(:)');  % legacy GUIDE dialog saved a column
+            list = list(~cellfun('isempty', list));
+            list = list(~strcmp(list, '< ADD SPECIES >'));  % legacy sentinel entry
+            [~, ia] = unique(lower(list), 'stable');
+            list = sort(list(ia));
+            if isempty(list)
+                list = default;
+            end
         end
 
-        function saveSpeciesList_(list)
-            setpref('ep_AddSubject', 'species', list);
+        function rememberSpecies_(species)
+            % Persist a species selection: add it to the saved list if new and
+            % remember it as the last-used default for the next dialog.
+            list = epsych.DefaultSubject.loadSpeciesList_();
+            if ~any(strcmpi(list, species))
+                list = sort([list, {species}]);
+                vprintf(1, 'A new species was added to the list: %s', species)
+            end
+            setpref('ep_AddSubject', {'species','user_species'}, {list, species});
+        end
+
+        function sex = normalizeSex_(sex)
+            % Map legacy single-letter codes onto the dialog's canonical labels.
+            sex = char(string(sex));
+            switch lower(strtrim(sex))
+                case {'m','male'},   sex = 'Male';
+                case {'f','female'}, sex = 'Female';
+                case {'u','unk','unknown'}, sex = 'Unknown';
+            end
         end
 
     end

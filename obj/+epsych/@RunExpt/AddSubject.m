@@ -27,7 +27,8 @@ ontop = self.AlwaysOnTop(false);
 % legacy function handles that return a plain struct.
 fcn = self.FUNCS.AddSubjectFcn;
 if isequal(fcn, 'epsych.DefaultSubject.open')
-    result = epsych.DefaultSubject.open(S, boxids);
+    % The built-in dialog validates duplicates live so entered data isn't lost
+    result = epsych.DefaultSubject.open(S, boxids, 'ReservedNames', curnames);
 else
     % Legacy path — seed struct converted for backward-compatible signature
     if isa(S, 'epsych.Subject')
@@ -54,7 +55,7 @@ end
 
 if ~S.isValid(), return, end
 
-if ~isempty(curnames) && ismember(S.Name, curnames)
+if ~isempty(curnames) && any(strcmpi(S.Name, curnames))
     warndlg(sprintf('The subject name "%s" is already in use.', S.Name), 'Add Subject', 'modal')
     return
 end

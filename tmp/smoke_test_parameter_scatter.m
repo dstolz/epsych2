@@ -15,7 +15,7 @@ run(fullfile(here,'..','epsych_startup.m'));
 addpath(here); % FakeScatterRuntime lives beside this test
 
 PREF_GROUP = 'epsych2_gui_ParameterScatter';
-TAGS = {'smokePS1','smokePS2','smokePS3','smokePS4','smokePS5','smokePS6'};
+TAGS = {'smokePS1','smokePS2','smokePS3','smokePS4','smokePS5','smokePS6','smokePS7'};
 cleanupObj = onCleanup(@() cleanupPrefs(PREF_GROUP, TAGS));
 
 % 1. Offline DATA in a uifigure: parameter list + defaults ----------------
@@ -114,6 +114,8 @@ fprintf('PASS: legacy figure hosting and resize\n');
 % A custom GUI is built before the session starts, so DATA has no fields to
 % learn from. The selectors must still list the parameters the runtime will
 % record, and requested selections must survive until their data arrive.
+% The saved preference also has to outrank the host's constructor arguments,
+% which are only first-session defaults.
 setpref(PREF_GROUP,'smokePS5', ...
     struct('XParameter','FreqHz','YParameter','RespCode','ColorParameter','(none)'));
 R8 = FakeScatterRuntime;
@@ -127,18 +129,38 @@ assert(all(ismember({'FreqHz','LevelDB'}, S6.DropdownX.Items)), ...
     'runtime-declared parameters should be selectable before the first trial');
 assert(~any(ismember({'HiddenParam','WaveBuf','GoTrigger'}, S6.DropdownX.Items)), ...
     'invisible, array, and write-only parameters must stay out of the list');
-assert(strcmp(S6.XParameter,'LevelDB'), 'declared X selection should apply immediately');
+assert(strcmp(S6.XParameter,'FreqHz'), ...
+    'saved X should outrank the constructor default (got %s)', S6.XParameter);
 % RespCode is recorded but not declared by the runtime, so it stays staged
-assert(strcmp(S6.ColorParameter,'(none)'), 'undeclared color parameter should wait for data');
+assert(strcmp(S6.ColorParameter,'(none)'), 'saved color selection should hold pre-session');
 
 R8.HELPER.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
     'Subject',struct('Name','SMOKE'),'BoxID',1)));
-assert(strcmp(S6.XParameter,'LevelDB'), 'constructor X selection lost (got %s)', S6.XParameter);
-assert(strcmp(S6.YParameter,'FreqHz'), 'constructor Y selection lost (got %s)', S6.YParameter);
-assert(strcmp(S6.ColorParameter,'RespCode'), 'staged color selection lost (got %s)', S6.ColorParameter);
-assert(strcmp(S6.DropdownX.Value,'LevelDB'), 'dropdown should reflect the applied selection');
+assert(strcmp(S6.XParameter,'FreqHz'), 'saved X selection lost (got %s)', S6.XParameter);
+assert(strcmp(S6.YParameter,'RespCode'), ...
+    'saved Y selection should apply once its data arrive (got %s)', S6.YParameter);
+assert(strcmp(S6.ColorParameter,'(none)'), ...
+    'constructor color must not override the saved one (got %s)', S6.ColorParameter);
+assert(strcmp(S6.DropdownX.Value,'FreqHz'), 'dropdown should reflect the applied selection');
 delete(S6); close(f5);
-fprintf('PASS: pre-session parameter list and staged selections\n');
+fprintf('PASS: saved selections outrank constructor defaults pre-session\n');
+
+% 8b. With nothing saved, constructor selections are the defaults ----------
+R8b = FakeScatterRuntime;
+R8b.TRIALS = struct('DATA',struct('TrialID',[],'FreqHz',[]), ...
+    'Subject',struct('Name','SMOKE'),'BoxID',1);
+f5b = uifigure('Visible','off','Tag','SmokeScatter5b');
+S6b = gui.ParameterScatter(R8b, f5b, PreferenceTag='smokePS7', ...
+    XParameter='LevelDB', YParameter='FreqHz', ColorParameter='RespCode');
+assert(strcmp(S6b.XParameter,'LevelDB'), ...
+    'declared constructor X should apply immediately (got %s)', S6b.XParameter);
+R8b.HELPER.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
+    'Subject',struct('Name','SMOKE'),'BoxID',1)));
+assert(strcmp(S6b.YParameter,'FreqHz'), 'constructor Y selection lost (got %s)', S6b.YParameter);
+assert(strcmp(S6b.ColorParameter,'RespCode'), ...
+    'staged constructor color selection lost (got %s)', S6b.ColorParameter);
+delete(S6b); close(f5b);
+fprintf('PASS: constructor selections apply when no preference is saved\n');
 
 % 9. An explicit dropdown choice is not overridden by a staged selection ---
 R9 = FakeScatterRuntime;

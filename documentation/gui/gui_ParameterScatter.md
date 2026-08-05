@@ -27,7 +27,9 @@ third parameter mapped to marker color.
 - **Persistence**: parameter selections and aesthetics are saved with
   `setpref`/`getpref` (group `epsych2_gui_ParameterScatter`), keyed to the
   hosting figure `Tag`/`Name` or an explicit `PreferenceTag`, and restored
-  the next session.
+  the next session. Selections passed to the constructor are defaults for the
+  first session only — once the user picks a parameter, that choice wins on
+  every later launch.
 - **Any container, resizable**: host it in a `uifigure`, legacy `figure`,
   panel, tab, or `uigridlayout` cell. uifigure-family containers get a
   `uigridlayout`/`uidropdown` control row; legacy figures get equivalent
@@ -63,7 +65,7 @@ obj = gui.ParameterScatter(source, container, options)
 | `container` | Figure, panel, tab, or layout host; empty creates a `uifigure` |
 | `PreferenceTag` | Optional key for saved preferences (defaults to hosting figure Tag/Name) |
 | `BoxID` | Restrict `NewData` updates to these boxes; empty accepts all |
-| `XParameter`, `YParameter`, `ColorParameter` | Initial selections; override saved preferences. Applied as soon as the named parameters appear in the data, so they survive construction before the first trial |
+| `XParameter`, `YParameter`, `ColorParameter` | Initial selections, used only when nothing is saved for this `PreferenceTag`; a selection restored from a previous session takes precedence. Applied as soon as the named parameters appear in the data, so they survive construction before the first trial |
 
 ### Key properties
 

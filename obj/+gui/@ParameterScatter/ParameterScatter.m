@@ -18,7 +18,8 @@ classdef ParameterScatter < handle
     %     opacity, color, colormap (for color-by mode), log scales, grid.
     %   - Parameter selections and aesthetics persist across sessions via
     %     getpref/setpref, keyed to the hosting GUI figure (or an explicit
-    %     PreferenceTag).
+    %     PreferenceTag). Selections passed to the constructor are the
+    %     first-session defaults only; saved ones take precedence.
     %   - The plot can be hosted in any graphics container (uifigure,
     %     legacy figure, panel, tab, or a uigridlayout cell) and adapts to
     %     resizing. uifigure-family containers get a uigridlayout/uidropdown
@@ -125,9 +126,11 @@ classdef ParameterScatter < handle
             %       keeps its own settings.
             %   options.BoxID - Restrict NewData updates to these boxes.
             %   options.XParameter, options.YParameter, options.ColorParameter -
-            %       Initial selections; override saved preferences when given.
-            %       Applied once the named parameters appear in the data, so
-            %       they survive construction before the first trial.
+            %       Initial selections used only when nothing was saved for
+            %       this PreferenceTag; a selection restored from a previous
+            %       session wins. Applied once the named parameters appear in
+            %       the data, so they survive construction before the first
+            %       trial.
             %
             % Returns:
             %   obj - gui.ParameterScatter object.
@@ -151,10 +154,11 @@ classdef ParameterScatter < handle
             obj.build_(container);
             obj.loadPreferences_;
 
-            % Explicit constructor selections take precedence over saved ones
-            obj.stageSelection_('XParameter',options.XParameter);
-            obj.stageSelection_('YParameter',options.YParameter);
-            obj.stageSelection_('ColorParameter',options.ColorParameter);
+            % Constructor selections seed the first-ever view only; a saved
+            % selection outranks them so the user's last choice sticks.
+            obj.stageSelection_('XParameter',options.XParameter,true);
+            obj.stageSelection_('YParameter',options.YParameter,true);
+            obj.stageSelection_('ColorParameter',options.ColorParameter,true);
 
             obj.attachSource_(source);
             obj.update;
@@ -661,14 +665,21 @@ classdef ParameterScatter < handle
             obj.PendingSelections_ = s;
         end
 
-        function stageSelection_(obj,fieldName,value)
-            % Stage a constructor-supplied selection, replacing any saved one.
+        function stageSelection_(obj,fieldName,value,asDefault)
+            % Stage a selection to be applied once its parameter is known.
             % Staged rather than applied directly because a GUI is typically
             % built before the first trial, when the parameter list is still
             % empty and any immediate assignment would be validated away.
+            %
+            % asDefault=true leaves an already-staged selection alone: a
+            % host's constructor arguments are a starting layout, not an
+            % override, so they must not clobber the preference restored
+            % from the previous session.
+            if nargin < 4, asDefault = false; end
             if isempty(value), return; end
             s = obj.PendingSelections_;
             if isempty(s), s = struct; end
+            if asDefault && isfield(s,fieldName), return; end
             s.(fieldName) = char(value);
             obj.PendingSelections_ = s;
         end

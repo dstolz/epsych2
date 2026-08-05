@@ -194,7 +194,7 @@ end
 % counters and latencies render as value labels that flash on change.
 % Ordering matters: the five lamps are grouped ahead of the value readouts.
 panelMonitor = uipanel(layoutMain, 'Title', 'Trial State');
-panelMonitor.Layout.Column = [3 4];
+panelMonitor.Layout.Column = 5;
 panelMonitor.Layout.Row    = [6 10];
 
 
@@ -478,7 +478,7 @@ obj.lblPerformance = h;
 % Panel for Scatter plot ------------------------------------------------
 panelScatter = uipanel(layoutMain, 'Title', 'Parameter Scatter');
 panelScatter.Layout.Row = [6 10];
-panelScatter.Layout.Column = 5;
+panelScatter.Layout.Column = [3 4];
 obj.h_ScatterPanel = gui.ParameterScatter(R,panelScatter, ...
     PreferenceTag  = 'AppetitiveDetection_ScatterPlot', ...
     XParameter     = P.Depth.validName, ...

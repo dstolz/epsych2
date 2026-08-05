@@ -2,7 +2,8 @@ classdef DefaultTrialSelector < epsych.TrialSelector
     % epsych.DefaultTrialSelector  Default balancing trial selector.
     %
     % Selects from the least-used trials, breaking ties randomly.
-    % Functionally equivalent to the legacy DefaultTrialSelectFcn behavior.
+    % Functionally equivalent to the legacy DefaultTrialSelectFcn behavior
+    % (removed).
     %
     % Usage:
     %   sel = epsych.DefaultTrialSelector();

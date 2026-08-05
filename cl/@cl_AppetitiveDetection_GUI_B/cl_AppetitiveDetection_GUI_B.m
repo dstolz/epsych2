@@ -259,8 +259,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             f.MenuBar = "none";
             f.NumberTitle = "off";
             axesBehavior = axes(f);
-            % gui.OnlinePlot(R,obj.plottedParameters,axesBehavior,1);
-            gui.OnlinePlotBM(R,'OnlinePlotBits',axesBehavior,1);
+            gui.OnlinePlot(R,'OnlinePlotBits',axesBehavior,1);
 
             obj.h_OnlinePlot = f;
 

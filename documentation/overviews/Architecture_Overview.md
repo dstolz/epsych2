@@ -82,7 +82,7 @@ integration classes in `obj/+stimbridge/` (see below).
 | `stimgen.StimType` | Abstract base; defines the signal processing pipeline and variant (vectorized property) selection |
 | `stimgen.StimPlay` | Wraps a `StimType` with repetition tracking and selection order |
 | `stimgen.StimPlayer` | Standalone stimulus-bank editor and playback tool |
-| `stimgen.StimCalibration` | Calibration controller/GUI wrapper used by `StimType` |
+| `stimgen.StimCalibration` | Headless calibration wrapper held by `StimType`; the GUI is `stimgen.calibration.CalibrationGui` |
 | `stimgen.calibration.*` | Calibration package: `Engine` (core algorithm), `CalibrationGui`, and hardware adapters (`HwAdapter`, `WindowsSoundCardAdapter`) |
 | `stimgen.HardwareHost` | Abstract contract EPsych implements to give stimgen GUIs hardware access |
 

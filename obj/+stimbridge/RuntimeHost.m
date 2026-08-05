@@ -150,6 +150,42 @@ classdef RuntimeHost < stimgen.HardwareHost
         end
 
         % -----------------------------------------------------------------
+        function Fs = sampleRate(obj)
+            % Fs = sampleRate(obj)
+            % Report the sample rate of the first connected interface whose
+            % module carries a rate read back from the device.
+            %
+            % hw.Module.Fs cannot represent "unset": its validators forbid 0
+            % and NaN, so it sits at 1 Hz until a backend assigns it during
+            % setup_interface. Rates at or below that are therefore treated as
+            % unreported rather than as a real 1 Hz converter.
+            %
+            % Returns:
+            %   Fs - (1,1) double sample rate in Hz, or NaN when no connected
+            %        interface reports one
+
+            Fs = NaN;
+            if isempty(obj.Runtime) || ~isvalid(obj.Runtime) || isempty(obj.Runtime.Interfaces)
+                return
+            end
+
+            UNSET_MODULE_FS = 1;
+            for k = 1:numel(obj.Runtime.Interfaces)
+                iface = obj.Runtime.Interfaces(k);
+                if ~iface.IsConnected
+                    continue
+                end
+                mods = iface.Module;
+                for i = 1:numel(mods)
+                    if mods(i).Fs > UNSET_MODULE_FS
+                        Fs = mods(i).Fs;
+                        return
+                    end
+                end
+            end
+        end
+
+        % -----------------------------------------------------------------
         function adapter = calibrationAdapter(obj)
             % adapter = calibrationAdapter(obj)
             % Return a calibration adapter for the first interface exposing

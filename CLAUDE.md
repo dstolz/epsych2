@@ -117,7 +117,7 @@ stimgen logs through its own `stimgen.util.vprintf` to
 - **stimbridge.InterfaceAdapter**: Implements `stimgen.calibration.HwAdapter` over hw.Interface
 
 #### obj/+gui/ – Reusable GUI Components
-- Real-time visualization: OnlinePlot, Performance, PsychPlot
+- Real-time visualization: OnlinePlot, Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
 - Session control: StaircaseTraining, StatusBar, Triggers
 - Diagnostics: SelfTest (window for epsych.SelfTest; opened from RunExpt's Help menu)
 - Parameter control: Parameter_Control, Parameter_Monitor, Parameter_Update
@@ -132,20 +132,16 @@ stimgen logs through its own `stimgen.util.vprintf` to
 #### runtime/ – Execution Callbacks & Services
 - **runtime/timerfcns/**: Timer lifecycle (Start, RunTime, Stop, Error)
 - **runtime/savefcns/**: Data persistence
-- **runtime/helpers/**: Per-trial logic
 - **runtime/guis/**: Base GUI classes
 
 #### TDTfun/ – Low-Level TDT Integration
-- OpenDeveloper and RPco.x connection
-- TDT device/tank metadata, tags, circuits
-- TDT data file import (TDT2mat, SEV2mat)
-- Synapse SDK
+- RPco.x connection (TDTRP) and RPvds tag reading (ReadRPvdsTags)
+- Synapse SDK (SynapseAPI/)
 
 #### helpers/ – Shared Utilities
 - **vprintf.m**: Verbosity-gated printing with automatic logging
 - **EPsychInfo**: Version and git metadata
-- **Trial sequence generators**: GellermannSeq, RandomTrialSequence, FellowsSeq
-- **Analysis utilities**: dprime, shapedata_spikes, shapedata_wave
+- **Trial sequence generators**: randGellerman, RandomTrialSequence, FellowsSeq
 - **GUI helpers**: findFigure, figAlwaysOnTop
 
 ### Event System & Runtime Communication
@@ -258,7 +254,7 @@ Reference: obj/+psychophysics/@Detection/, obj/+gui/@OnlinePlot/
 3. Subscribe to epsych.Helper events for trial and mode changes
 4. Example: Custom epsych.TrialSelector for closed-loop
 
-Reference: cl/cl_SaveDataFcn.m, design/ep_AddSubject.m
+Reference: cl/cl_SaveDataFcn.m, obj/+epsych/@DefaultSubject/
 
 ## Where to Look When Making Changes
 
@@ -284,10 +280,8 @@ Reference: cl/cl_SaveDataFcn.m, design/ep_AddSubject.m
 | obj/+peripherals/ | Motor control, pump communication |
 | runtime/timerfcns/ | Timer callbacks |
 | runtime/savefcns/ | Data saving |
-| runtime/helpers/ | Per-trial helpers |
 | TDTfun/ | Low-level TDT integration |
 | design/ | Protocol design utilities |
-| calibration/ | Calibration workflows |
 | cl/ | Experiment-specific implementations |
 | helpers/ | Shared utilities |
 | documentation/ | User and developer docs |

@@ -63,7 +63,7 @@ Detailed references: [../hw/](../hw/)
 
 Reusable GUI components live here. These are generally instantiated by `RunExpt`, task GUIs, or experiment-specific workflows.
 
-Key components: `gui.OnlinePlot`, `gui.OnlinePlotBM`, `gui.Performance`, `gui.PsychPlot`, `gui.SlidingWindowPerformancePlot`, `gui.History`, `gui.StaircaseTraining`, `gui.PhaseSelector` (JSON parameter phase switching), `gui.ModeIndicator`, `gui.StatusBar`, `gui.Triggers`, `gui.ElapsedTrialTimer`, `gui.FilenameValidator`, `gui.BasicGUI`, and parameter widgets `Parameter_Control`, `Parameter_Monitor`, `Parameter_Update`.
+Key components: `gui.OnlinePlot`, `gui.Performance`, `gui.PsychPlot`, `gui.SlidingWindowPerformancePlot`, `gui.History`, `gui.StaircaseTraining`, `gui.PhaseSelector` (JSON parameter phase switching), `gui.ModeIndicator`, `gui.StatusBar`, `gui.Triggers`, `gui.ElapsedTrialTimer`, `gui.FilenameValidator`, `gui.BasicGUI`, and parameter widgets `Parameter_Control`, `Parameter_Monitor`, `Parameter_Update`.
 
 Detailed references: [../gui/](../gui/)
 
@@ -125,7 +125,6 @@ Online and offline analysis classes live here.
 |---|---|
 | `psychophysics.Psych` | Abstract base; subscribes to `Runtime.HELPER.NewData` for online analysis or accepts saved DATA offline |
 | `psychophysics.Detection` | Hit rate, false alarm rate, d' (signal detection theory) |
-| `psychophysics.Detect` | Older detection-task analysis class |
 | `psychophysics.Staircase` | Reversal detection and threshold estimation |
 | `psychophysics.BestPEST` | Maximum-likelihood threshold tracking (Best PEST) |
 | `psychophysics.MLP` | Bayesian maximum-likelihood psychometric estimation with sweet-point placement |
@@ -143,9 +142,6 @@ Detailed references: [../peripherals/](../peripherals/)
 Legacy protocol authoring utilities. Protocol design now happens in `epsych.ProtocolDesigner`; this directory retains migration and support tools:
 
 - `ep_AddSubject.m` — legacy GUIDE add-subject dialog (default is now `epsych.DefaultSubject.open`)
-- `ep_AddTrial.m`, `ep_struct2protocol.m` — legacy trial/protocol struct utilities
-- `prot2Protocol.m` — migrate legacy `.prot` files to the `epsych.Protocol` (`.eprot`) format
-- `BitmaskFiles/` — bitmask definition assets
 
 ### `runtime/`
 
@@ -155,23 +151,17 @@ Runtime execution callbacks, timer lifecycle functions, save functions, and expe
 |---|---|
 | `runtime/timerfcns/` | Timer lifecycle: `ep_TimerFcn_Start`, `ep_TimerFcn_RunTime`, `ep_TimerFcn_Stop`, `ep_TimerFcn_Error` |
 | `runtime/savefcns/` | Data saving callbacks (`ep_SaveDataFcn`) invoked at session end |
-| `runtime/helpers/` | Per-trial helpers such as `SelectTrial` |
-| `runtime/guis/` | Base GUI classes (`ep_GenericGUI`, `ep_GenericGUITimer`) |
-| `runtime/ephys/` | Legacy electrophysiology GUI (`ep_EPhys`) |
-| `runtime/trial_selection/` | Legacy standalone trial selection functions |
+| `runtime/guis/` | Base GUI classes (`ep_GenericGUI`) |
 
 ### `TDTfun/`
 
 Low-level TDT integration utilities live here. This directory is a utility layer beneath the higher-level `hw` abstractions.
 
-Responsibilities include:
+Contents:
 
-- Connecting to OpenDeveloper and RPco.x interfaces
-- Reading TDT device and tank metadata
-- Working with tags, RPvds circuits, and TDT-specific file structures
-- Importing TDT data files (`TDT2mat`, `SEV2mat`)
-
-The `SynapseAPI/` subdirectory contains the Synapse SDK used by `hw.TDT_Synapse`.
+- `TDTRP.m` — RPco.x connection wrapper used by `hw.TDT_RPcox`
+- `ReadRPvdsTags.m` — RPvds circuit parameter-tag reader
+- `SynapseAPI/` — the Synapse SDK used by `hw.TDT_Synapse`
 
 ### `helpers/`
 
@@ -181,14 +171,8 @@ Notable items:
 
 - `vprintf.m` — verbosity-gated formatted printing with automatic logging; used in place of `fprintf` throughout ([../helpers/helpers_vprintf.md](../helpers/helpers_vprintf.md))
 - `EPsychInfo` class — version and git metadata ([../epsych/EPsychInfo.md](../epsych/EPsychInfo.md))
-- `dprime.m` — signal detection d′ calculation
-- `GellermannSeq.m`, `RandomTrialSequence.m`, `FellowsSeq.m` — trial sequence generators
-- `shapedata_spikes.m`, `shapedata_wave.m` — neural data processing utilities
+- `randGellerman.m`, `RandomTrialSequence.m`, `FellowsSeq.m` — trial sequence generators
 - `findFigure.m`, `figAlwaysOnTop.m`, `showGridBorders.m` — GUI helpers
-
-### `calibration/`
-
-Legacy calibration GUIs (`Calibrate.m`, `ep_CalibrationUtil.m`, `ep_PostCalibrationUtil.m`) and RPvds circuits. New calibration work should use the object-oriented `stimgen.calibration` package instead; see [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md).
 
 ### `cl/`
 

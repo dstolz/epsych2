@@ -85,7 +85,6 @@ Analysis and GUI classes
    ├─ ModeIndicator
    ├─ History
    ├─ OnlinePlot
-   ├─ OnlinePlotBM
    ├─ Performance
    ├─ PhaseSelector
    ├─ PsychPlot
@@ -110,8 +109,7 @@ Support and task-specific classes
 │  ├─ cl_AppetitiveDetection_GUI_B
 │  └─ cl_AppetitiveStimDetect
 └─ runtime/guis
-   ├─ ep_GenericGUI
-   └─ ep_GenericGUITimer
+   └─ ep_GenericGUI
 ```
 
 ### Key base classes
@@ -159,10 +157,9 @@ flowchart TD
     I --> I1[psychophysics.Staircase]
     I --> I4[psychophysics.BestPEST]
     I --> I5[psychophysics.MLP]
-    C --> I2[psychophysics.Detect]
     C --> I3[psychophysics.Detection]
     H --> J[gui.Parameter_Control<br/>gui.Parameter_Update<br/>gui.Parameter_Monitor]
-    D --> K[gui.OnlinePlot<br/>gui.OnlinePlotBM<br/>gui.PsychPlot<br/>gui.ModeIndicator]
+    D --> K[gui.OnlinePlot<br/>gui.PsychPlot<br/>gui.ModeIndicator]
     D --> L[gui.History<br/>gui.Performance<br/>gui.SlidingWindowPerformancePlot]
     C --> M[cl_AppetitiveDetection_GUI_B]
     C --> N[peripherals.PumpCom]
@@ -203,10 +200,9 @@ Trial selection
    ↓
 Analysis and visualization
 ├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.BestPEST / psychophysics.MLP
-├─ psychophysics.Detect
 ├─ psychophysics.Detection
 ├─ gui.Parameter_Control / gui.Parameter_Update / gui.Parameter_Monitor
-├─ gui.OnlinePlot / gui.OnlinePlotBM / gui.PsychPlot / gui.ModeIndicator
+├─ gui.OnlinePlot / gui.PsychPlot / gui.ModeIndicator
 └─ gui.History / gui.Performance / gui.SlidingWindowPerformancePlot
    ↓
 Task and support branches

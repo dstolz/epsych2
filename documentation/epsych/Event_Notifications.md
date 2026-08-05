@@ -79,7 +79,7 @@ end
 #### Real uses in this repository
 
 - Runtime-to-analysis subscription: [obj/+psychophysics/Psych.m](../../obj/+psychophysics/Psych.m)
-- Legacy detection subscription: [obj/+psychophysics/@Detect/Detect.m](../../obj/+psychophysics/@Detect/Detect.m)
+- Detection analysis subscription: [obj/+psychophysics/@Detection/Detection.m](../../obj/+psychophysics/@Detection/Detection.m)
 - Training callback: [cl/@cl_AppetitiveDetection_GUI_B/eval_rwdelay_training_mode.m](../../cl/@cl_AppetitiveDetection_GUI_B/eval_rwdelay_training_mode.m)
 
 ### Analysis-layer `NewData`

@@ -1,2 +1,4 @@
 Phase*.json
 *.asv
+tmp/*.log
+tmp/*.txt

@@ -480,18 +480,6 @@ obj.ResponseHistory.ParametersOfInterest = {'Depth','TrialType','RespLatency'};
 obj.ResponseHistory.ParameterColumnFormats = {'%0.3f %%', '%d', '%.0f ms'};
 
 
-%{
-% Panel for "Performance" ----------------------------------------
-panelPerformance = uipanel(layoutMain, 'Title', 'Performance');
-panelPerformance.Layout.Row = [9 11];
-panelPerformance.Layout.Column = [6 7];
-
-obj.Performance = gui.Performance(obj.psychDetect,panelPerformance);
-obj.Performance.ParametersOfInterest = {'Depth'};
-%}
-
-
-
 % update panel title aesthetics
 hp = findobj(fig,'type','uipanel');
 set(hp, ...

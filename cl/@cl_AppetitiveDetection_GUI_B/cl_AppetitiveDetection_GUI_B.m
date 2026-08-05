@@ -10,7 +10,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
     %   instance for the supplied R object. If an older GUI instance
     %   is already open, it is closed before the new instance is created.
     %
-    %   The GUI coordinates with a psychophysics.Detect object to visualize
+    %   The GUI coordinates with a psychophysics.Detection object to visualize
     %   behavior and to keep online task summaries synchronized with trial
     %   events emitted by the R helper objects.
 

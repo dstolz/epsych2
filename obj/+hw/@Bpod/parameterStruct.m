@@ -32,7 +32,12 @@ function s = parameterStruct(obj)
 
 s = struct();
 
-P = obj.all_parameters(includeInvisible = true);
+% Access='Read' here means "not write-only" (see hw.Interface.all_parameters),
+% which excludes Serial1Byte/Serial2Byte. Those are momentary: writing one
+% emits ['H' ch byte] and the device retains nothing to read back, so reading
+% them yields NaN and logs a red line once per channel per trial. A builder has
+% nothing to gain from a field that is always NaN.
+P = obj.all_parameters(includeInvisible = true, Access = 'Read');
 if isempty(P)
     return
 end

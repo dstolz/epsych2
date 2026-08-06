@@ -89,6 +89,9 @@ EPsych does not have a formal automated test suite. Manual validation is perform
   - hw.TDT_RPcox: RPvds/RPco.x backend
   - hw.Intan_RHX: Intan RHX TCP interface
   - hw.Teensy: Teensy 4.x USB-serial backend; firmware in firmware/EPsychTeensy/
+  - hw.Bpod: Bpod 0.5/0.6 state machine over USB serial. Speaks the Arduino
+    firmware's byte protocol directly and never loads c:\src\Bpod, whose
+    RunStateMatrix blocks; see documentation/hw/hw_Bpod.md
   - hw.Software: In-memory software backend
   - hw.VlcRecorder: VLC video recording control
 

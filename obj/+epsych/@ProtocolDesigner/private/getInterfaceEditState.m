@@ -68,6 +68,12 @@ function [spec, options] = getInterfaceEditState(obj, iface)
             options.autoDetect = iface.AutoDetect;
             options.deviceSerial = iface.DeviceSerial;
 
+        case 'Bpod'
+            options.port = iface.Port;
+            options.autoDetect = iface.AutoDetect;
+            options.boxID = iface.BoxID;
+            options.stateMatrixFcn = iface.StateMatrixFcn;
+
         otherwise
             error('Editing is not implemented for interface type %s.', ifaceType);
     end

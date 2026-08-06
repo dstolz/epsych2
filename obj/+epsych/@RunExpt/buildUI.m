@@ -82,6 +82,12 @@ self.H.mnu_vlc_setup = uimenu(mView,'Label','Webcam Recorder Setup...','Enable',
     'Accelerator','W', ...
     'MenuSelectedFcn', @(~,~) self.OpenVlcRecorderSetup);
 
+% Deliberately not 'setup'-tagged: bound to a live RUNTIME the designer is a
+% read-only monitor of the state the board is in, which is most useful while
+% a session is actually running. It locks its own editing controls instead.
+self.H.mnu_teensy_designer = uimenu(mView,'Label','Teensy Trial Designer...','Enable','on', ...
+    'MenuSelectedFcn', @(~,~) self.OpenTeensyDesigner);
+
 % Watch the camera without writing a file. The label states the no-recording
 % behavior outright; UpdateVideoLiveViewUI_ keeps it in sync with the view.
 % The 'setup' tag prefix disables it while RUNNING: opening or closing a view

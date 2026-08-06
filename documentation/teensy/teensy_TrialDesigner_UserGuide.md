@@ -3,17 +3,23 @@
 Build an operant conditioning paradigm as a state machine, test it against a simulated subject,
 and load it onto a Teensy that runs the contingency with sub-millisecond timing.
 
-Open it from the MATLAB command line:
+Three ways in:
+
+- **Protocol Designer** → `Interface > Teensy Trial Designer...` — opens bound to the protocol's
+  Teensy interface, which is what enables Upload and Insert Into Protocol.
+- **RunExpt** → `View > Teensy Trial Designer...` — opens bound to the running session, in live
+  monitor mode.
+- The command line:
 
 ```matlab
 teensy.TrialDesigner
-```
-
-or with a paradigm already loaded:
-
-```matlab
 teensy.TrialDesigner(teensy.Templates.get("GoNoGoDetection"))
 ```
+
+In live monitor mode the designer follows the session: it highlights the state the board is
+currently in, and locks its editing controls while the session is in Preview or Record. The
+window stays available during a run precisely because watching the state machine is what you
+want when a paradigm is behaving oddly mid-experiment.
 
 ---
 
@@ -228,8 +234,25 @@ randomizes. One mechanism covers both host-driven and device-driven randomizatio
 | Go / No-Go detection | Signal and catch trials scored hit / miss / correct reject / false alarm, with aborts |
 | Two-alternative forced choice | Center initiation, then a left or right choice |
 | Fixed ratio | N responses deliver a reward, using a counter |
+| Progressive ratio | Like fixed ratio, with the requirement raised between trials by the host |
 | Nose-poke shaping | Autoshaping: any poke pays, plus free rewards for a naive animal |
+| Appetitive detection (Caras Lab) | Platform-hold detection with pellet reward |
 | Passive exposure | No contingency; a cue and a sync pulse on a fixed interval |
+
+**Appetitive detection** is worth calling out: its channels, variables and states use the same
+names as `cl_AppetitiveDetection_BoxGUI` — `Platform`, `Trough`, `DelayPeriod`, `RespWindow`,
+`PelletTotal`, `StimDelay`, `RespWinDelay`, `ITIDur`, `TimeoutDur`, `NumPellets` — so a
+Teensy-backed protocol lights up that existing box GUI with no edits to it.
+
+`DelayPeriod` and `RespWindow` in that template are digital *outputs* held high for the duration
+of their phase. That is a useful trick generally: an output driven purely as a phase flag becomes
+a readable parameter, which `gui.Parameter_Monitor` renders as a lamp and a scope can trigger on.
+
+**Progressive ratio** deliberately does not escalate on the board. The requirement is an
+ordinary per-trial variable, so a trial table, a `psychophysics.Staircase` or a custom
+`epsych.TrialSelector` raises it after each rewarded trial. The board owns the within-trial
+contingency and the host owns the across-trial schedule, which is how the rest of EPsych already
+divides the work — putting the schedule in both places is how the two drift apart.
 
 ```matlab
 disp(teensy.Templates.list())

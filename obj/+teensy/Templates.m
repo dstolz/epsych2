@@ -39,8 +39,12 @@ classdef Templates
                     "Center initiation, then a left or right choice scored against the trial type.", "discrimination choice"
                 "FixedRatio", "Fixed ratio", ...
                     "N responses on the active operandum deliver a reward.", "operant schedule"
+                "ProgressiveRatio", "Progressive ratio", ...
+                    "The response requirement escalates after each reward, up to a breakpoint.", "operant schedule motivation"
                 "NosePokeShaping", "Nose-poke shaping", ...
                     "Autoshaping: any poke is rewarded, and free rewards keep a naive animal engaged.", "training shaping"
+                "AppetitiveDetection", "Appetitive detection (Caras Lab)", ...
+                    "Platform-hold detection with pellet reward; matches the cl_AppetitiveDetection BoxGUI.", "detection psychophysics lab"
                 "PassiveExposure", "Passive exposure", ...
                     "No contingency; a cue and a sync pulse on a fixed interval.", "control passive"
                 };
@@ -76,6 +80,10 @@ classdef Templates
                     p = teensy.Templates.twoAFC_();
                 case "FixedRatio"
                     p = teensy.Templates.fixedRatio_();
+                case "ProgressiveRatio"
+                    p = teensy.Templates.progressiveRatio_();
+                case "AppetitiveDetection"
+                    p = teensy.Templates.appetitiveDetection_();
                 case "NosePokeShaping"
                     p = teensy.Templates.nosePokeShaping_();
                 case "PassiveExposure"
@@ -335,6 +343,196 @@ classdef Templates
             p.States(3).EntryActions(end+1) = teensy.Action.pulse("Reward", "@RewardDur");
             p.States(3).EntryActions(end+1) = teensy.Action.setOutput("HouseLight", 0);
             p.States(4).EntryActions(end+1) = teensy.Action.setOutput("HouseLight", 0);
+        end
+
+        function p = progressiveRatio_()
+            % p = progressiveRatio_()
+            % Like fixed ratio, but the requirement escalates between trials.
+            %
+            % The board owns the within-trial contingency and the host owns the
+            % across-trial schedule, which is how the rest of EPsych already
+            % divides the work: Requirement is an ordinary per-trial variable, so
+            % a trial table, a psychophysics.Staircase or a custom
+            % epsych.TrialSelector raises it after each rewarded trial. There is
+            % deliberately no on-device read-modify-write of a variable -- that
+            % would put the schedule in two places at once.
+            p = teensy.Program(Name = "ProgressiveRatio", ...
+                Description = "The response requirement rises after each reward, up to a breakpoint.");
+            p.Channels = teensy.Channel.defaultSet();
+
+            teensy.Templates.addVars_(p, {
+                "Requirement",  2,   1,   999,  "",   "Responses needed for the next reward. Raised after each one."
+                "RatioStep",    2,   0,   100,  "",   "How much the requirement rises after each reward."
+                "ITIDur",     1000, 100, 60000, "ms", "Interval between reward opportunities."
+                "BreakpointDur", 300000, 1000, 3600000, "ms", "Give up if the requirement is not met within this long."
+                "RewardDur",    40,   1,  1000, "ms", "Reward valve open time."
+                });
+
+            p.addCounter("Responses", "Poke", "Rising");
+
+            p.addState(teensy.State("ITI", DurationMs = "@ITIDur", ...
+                Notes = "Between reward opportunities. The counter is cleared on the way out."));
+            p.addState(teensy.State("Responding", DurationMs = "@BreakpointDur", ...
+                Notes = "Counting responses against the current requirement."));
+            p.addState(teensy.State("Rewarded", IsTerminal = true, ...
+                RespCodeBits = [epsych.BitMask.Hit, epsych.BitMask.Reward], ...
+                Notes = "Requirement met. Reward delivered and the requirement raised."));
+            p.addState(teensy.State("Breakpoint", IsTerminal = true, ...
+                RespCodeBits = [epsych.BitMask.Miss, epsych.BitMask.Option_A], ...
+                Notes = "The animal stopped working. Option_A marks this as the breakpoint trial."));
+
+            p.StartState = "ITI";
+
+            add = @(from, transition) teensy.Templates.addTransition_(p, from, transition);
+            entry = @(state, action) teensy.Templates.addEntry_(p, state, action);
+            exit = @(state, action) teensy.Templates.addExit_(p, state, action);
+
+            exit("ITI", teensy.Action.resetCounter("Responses"));
+            add("ITI", teensy.Transition.to("Responding", teensy.Condition.timerElapsed()));
+
+            entry("Responding", teensy.Action.setOutput("HouseLight", 1));
+            add("Responding", teensy.Transition.to("Rewarded", ...
+                teensy.Condition.counterReached("Responses", "GE", "@Requirement")));
+            add("Responding", teensy.Transition.to("Breakpoint", teensy.Condition.timerElapsed()));
+
+            entry("Rewarded", teensy.Action.markLatency());
+            entry("Rewarded", teensy.Action.pulse("Reward", "@RewardDur"));
+            entry("Rewarded", teensy.Action.setOutput("HouseLight", 0));
+
+            entry("Breakpoint", teensy.Action.setOutput("HouseLight", 0));
+        end
+
+        function p = appetitiveDetection_()
+            % p = appetitiveDetection_()
+            % Platform-hold detection with pellet reward, as run in this lab.
+            %
+            % Channel, variable and state names deliberately match
+            % cl/@cl_AppetitiveDetection_BoxGUI so that a Teensy-backed protocol
+            % lights up the existing box GUI with no edits: Platform, Trough,
+            % InTrial, DelayPeriod, RespWindow, PelletTotal, RespWinDelay,
+            % RespLatency and RespCode are exactly the names its
+            % gui.Parameter_Monitor looks up.
+            %
+            % DelayPeriod and RespWindow are digital outputs held high for the
+            % duration of their phase. That is what turns a phase into a
+            % readable parameter the monitor can render as a lamp, and it also
+            % gives a scope something to trigger on.
+            p = teensy.Program(Name = "AppetitiveDetection", ...
+                Description = "Hold the platform, detect the stimulus, go to the trough for a pellet.");
+
+            p.Channels = [ ...
+                teensy.Channel.digitalIn("Platform", 2, DebounceMs = 10), ...
+                teensy.Channel.digitalIn("Trough", 3, DebounceMs = 5), ...
+                teensy.Channel.digitalOut("DropPellet", 4), ...
+                teensy.Channel.digitalOut("DelayPeriod", 5), ...
+                teensy.Channel.digitalOut("RespWindow", 6), ...
+                teensy.Channel.digitalOut("Sync", 7)];
+
+            teensy.Templates.addVars_(p, {
+                "P_Catch",      0.2,    0,      1,  "",   "Probability of a catch trial. Set to 0 or 1 from the trial table to force one kind."
+                "ITIDur",      3000,  100,  60000, "ms", "Inter-trial interval."
+                "StimDelay",   1000,    0,  30000, "ms", "How long the platform must be held before the stimulus."
+                "StimDur",      500,   10,  10000, "ms", "Stimulus duration."
+                "RespWinDelay", 100,    0,   5000, "ms", "Delay from stimulus offset to the response window opening."
+                "RespWinDur",  2000,  100,  30000, "ms", "How long a trough entry is accepted."
+                "TimeoutDur",  5000,    0,  60000, "ms", "Penalty after a false alarm."
+                "NumPellets",     1,    1,     10,  "",   "Pellets dispensed per reward."
+                "PelletDur",     50,    1,   1000, "ms", "Dispenser pulse width."
+                "PelletGap",    250,   10,   2000, "ms", "Time between pellets when more than one is dispensed."
+                });
+
+            p.addCounter("PelletTotal", "Trough", "Rising");
+
+            p.addState(teensy.State("ITI", DurationMs = "@ITIDur", ...
+                Notes = "Inter-trial interval. Nothing is scored."));
+            p.addState(teensy.State("WaitPlatform", DurationMs = Inf, ...
+                Notes = "Waiting for the animal to get on the platform. No time limit."));
+            p.addState(teensy.State("DelayPeriod", DurationMs = "@StimDelay", ...
+                RespCodeBits = epsych.BitMask.PreResponseWindow, ...
+                Notes = "Platform held, no stimulus yet. Leaving here aborts the trial."));
+            p.addState(teensy.State("Stimulus", DurationMs = "@StimDur", ...
+                Notes = "Stimulus on. Signal trials only."));
+            p.addState(teensy.State("PreResponse", DurationMs = "@RespWinDelay", ...
+                Notes = "Between stimulus offset and the response window opening."));
+            p.addState(teensy.State("RespWindow", DurationMs = "@RespWinDur", ...
+                RespCodeBits = epsych.BitMask.ResponseWindow, ...
+                Notes = "Signal trial: a trough entry now is a hit."));
+            p.addState(teensy.State("CatchWindow", DurationMs = "@RespWinDur", ...
+                RespCodeBits = epsych.BitMask.ResponseWindow, ...
+                Notes = "Catch trial: no stimulus was presented, so a trough entry is a false alarm."));
+            p.addState(teensy.State("Hit", IsTerminal = true, ...
+                RespCodeBits = [epsych.BitMask.Hit, epsych.BitMask.Reward, epsych.BitMask.TrialType_0], ...
+                Notes = "Detected the stimulus. Pellets dispensed."));
+            p.addState(teensy.State("Miss", IsTerminal = true, ...
+                RespCodeBits = [epsych.BitMask.Miss, epsych.BitMask.TrialType_0], ...
+                Notes = "Stayed on the platform through the whole response window."));
+            p.addState(teensy.State("Timeout", DurationMs = "@TimeoutDur", ...
+                RespCodeBits = epsych.BitMask.Punish, ...
+                Notes = "Penalty period after a false alarm, served before the trial ends."));
+            p.addState(teensy.State("FalseAlarm", IsTerminal = true, ...
+                RespCodeBits = [epsych.BitMask.FalseAlarm, epsych.BitMask.Punish, epsych.BitMask.TrialType_1], ...
+                Notes = "Went to the trough on a catch trial."));
+            p.addState(teensy.State("CorrectReject", IsTerminal = true, ...
+                RespCodeBits = [epsych.BitMask.CorrectReject, epsych.BitMask.TrialType_1], ...
+                Notes = "Correctly stayed put on a catch trial."));
+            p.addState(teensy.State("Abort", IsTerminal = true, ...
+                RespCodeBits = epsych.BitMask.Abort, ...
+                Notes = "Left the platform before the response window opened."));
+
+            p.StartState = "ITI";
+
+            add = @(from, transition) teensy.Templates.addTransition_(p, from, transition);
+            entry = @(state, action) teensy.Templates.addEntry_(p, state, action);
+            exit = @(state, action) teensy.Templates.addExit_(p, state, action);
+
+            add("ITI", teensy.Transition.to("WaitPlatform", teensy.Condition.timerElapsed()));
+
+            add("WaitPlatform", teensy.Transition.to("DelayPeriod", ...
+                teensy.Condition.digitalEdge("Platform", "Rising")));
+
+            % The phase flag doubles as the DelayPeriod lamp in the box GUI.
+            entry("DelayPeriod", teensy.Action.setOutput("DelayPeriod", 1));
+            exit("DelayPeriod", teensy.Action.setOutput("DelayPeriod", 0));
+            add("DelayPeriod", teensy.Transition.to("Abort", ...
+                teensy.Condition.digitalEdge("Platform", "Falling")));
+            add("DelayPeriod", teensy.Transition.to("CatchWindow", ...
+                teensy.Condition.all([teensy.Condition.timerElapsed(), ...
+                    teensy.Condition.probability("@P_Catch")])));
+            add("DelayPeriod", teensy.Transition.to("Stimulus", teensy.Condition.timerElapsed()));
+
+            entry("Stimulus", teensy.Action.sync("Sync", 5));
+            add("Stimulus", teensy.Transition.to("Abort", ...
+                teensy.Condition.digitalEdge("Platform", "Falling")));
+            add("Stimulus", teensy.Transition.to("PreResponse", teensy.Condition.timerElapsed()));
+
+            add("PreResponse", teensy.Transition.to("RespWindow", teensy.Condition.timerElapsed()));
+
+            % Trough entry is tested before the timer so a response landing on
+            % the last tick of the window still counts as a hit.
+            entry("RespWindow", teensy.Action.setOutput("RespWindow", 1));
+            exit("RespWindow", teensy.Action.setOutput("RespWindow", 0));
+            add("RespWindow", teensy.Transition.to("Hit", ...
+                teensy.Condition.digitalEdge("Trough", "Rising")));
+            add("RespWindow", teensy.Transition.to("Miss", teensy.Condition.timerElapsed()));
+
+            entry("CatchWindow", teensy.Action.setOutput("RespWindow", 1));
+            exit("CatchWindow", teensy.Action.setOutput("RespWindow", 0));
+            add("CatchWindow", teensy.Transition.to("Timeout", ...
+                teensy.Condition.digitalEdge("Trough", "Rising")));
+            add("CatchWindow", teensy.Transition.to("CorrectReject", ...
+                teensy.Condition.timerElapsed()));
+
+            entry("Hit", teensy.Action.markLatency());
+            entry("Hit", teensy.Action.pulseTrain("DropPellet", "@PelletDur", ...
+                "@PelletGap", "@NumPellets"));
+
+            % The timeout is served in its own non-terminal state. Putting it on
+            % the FalseAlarm state instead would never run: entering a terminal
+            % state ends the trial, so nothing would be left to time.
+            entry("Timeout", teensy.Action.markLatency());
+            add("Timeout", teensy.Transition.to("FalseAlarm", teensy.Condition.timerElapsed()));
+
+            entry("Abort", teensy.Action.markLatency());
         end
 
         function p = nosePokeShaping_()

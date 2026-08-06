@@ -937,8 +937,17 @@ classdef TrialDesigner < handle
         function attachRuntimeListeners_(obj)
             % attachRuntimeListeners_(obj)
             % Follow the running session so the diagram can show the live state.
-            obj.Listeners_{end+1} = addlistener(obj.RUNTIME.HELPER, 'ModeChange', ...
-                @(~, evt) obj.onSessionModeChange_(evt));
+            %
+            % A Runtime only gets its HELPER when a session starts, so opening
+            % the designer from RunExpt before pressing Run is an ordinary case,
+            % not an error: skip the listener and leave the poll running.
+            if isa(obj.RUNTIME.HELPER, 'epsych.Helper') && isvalid(obj.RUNTIME.HELPER)
+                obj.Listeners_{end+1} = addlistener(obj.RUNTIME.HELPER, 'ModeChange', ...
+                    @(~, evt) obj.onSessionModeChange_(evt));
+            else
+                vprintf(2, ['teensy.TrialDesigner: the session has no event helper yet, ' ...
+                    'so mode changes will not lock editing until it starts']);
+            end
 
             obj.LiveTimer = timer( ...
                 Name = 'TeensyDesignerLive', ...
@@ -997,14 +1006,25 @@ classdef TrialDesigner < handle
 
         function setEnableIfPresent_(~, handles, state)
             % setEnableIfPresent_(obj, handles, state)
-            % Set Enable on every button in a handle struct that has one.
+            % Set Enable on every control in a handle struct that has one.
+            %
+            % The tab handle structs are deliberately heterogeneous -- they also
+            % carry plain state such as the live-state index and the node map --
+            % so this walk has to test what each field actually is. The class
+            % test must come before isvalid: isgraphics(0) is true because 0 is
+            % the groot handle, and isvalid(0) then throws on a double.
             names = fieldnames(handles);
             for i = 1:numel(names)
                 h = handles.(names{i});
-                if ~isscalar(h) || ~isgraphics(h) || ~isvalid(h)
+                if ~isscalar(h) || ~isa(h, 'matlab.graphics.Graphics') || ~isvalid(h)
                     continue
                 end
-                if isprop(h, 'Enable') && ~isa(h, 'matlab.ui.container.Tab')
+                if isa(h, 'matlab.ui.container.Tab')
+                    continue
+                end
+                % Enable is not universal across component types, so this is a
+                % genuine capability test rather than a defensive guard.
+                if isprop(h, 'Enable')
                     h.Enable = state;
                 end
             end

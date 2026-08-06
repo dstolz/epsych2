@@ -88,6 +88,31 @@ switch ifaceType
         interface = hw.Teensy(teensyPort, Connect = false, BaudRate = baudRate, ...
             AutoDetect = autoDetect, DeviceSerial = deviceSerial);
 
+    case 'Bpod'
+        % Port is machine-specific: a protocol authored on one rig may name a
+        % port that does not exist here. It is restored as-authored, and
+        % AutoDetect (or the operator) corrects it at connect.
+        bpodPort = '';
+        if isfield(ifaceStruct, 'Port') && ~isempty(ifaceStruct.Port)
+            bpodPort = char(string(ifaceStruct.Port));
+        end
+        autoDetect = false;
+        if isfield(ifaceStruct, 'AutoDetect') && ~isempty(ifaceStruct.AutoDetect)
+            autoDetect = logical(ifaceStruct.AutoDetect);
+        end
+        % The constructor demands a positive integer box; max() ignores NaN, so
+        % a corrupt field falls back to box 1 instead of failing the load.
+        boxID = 1;
+        if isfield(ifaceStruct, 'BoxID') && ~isempty(ifaceStruct.BoxID)
+            boxID = max(1, round(double(ifaceStruct.BoxID)));
+        end
+        stateMatrixFcn = '';
+        if isfield(ifaceStruct, 'StateMatrixFcn') && ~isempty(ifaceStruct.StateMatrixFcn)
+            stateMatrixFcn = char(string(ifaceStruct.StateMatrixFcn));
+        end
+        interface = hw.Bpod(bpodPort, Connect = false, AutoDetect = autoDetect, ...
+            BoxID = boxID, StateMatrixFcn = stateMatrixFcn);
+
     otherwise
         interface = hw.Software();
 end

@@ -204,9 +204,13 @@ if strncmp(wire, 'Event_', 6)
     return
 end
 
-if any(strcmp(wire, {'TrialNum','TrialAborted','TrialDuration','NStates', ...
-        'NEvents','LastSoftCode','CurrentState','CurrentStateName', ...
-        'StateCodes','StateTimes','EventCodes','EventTimes'}))
+% The frozen result set, named exactly as populateModule_ creates it and as
+% pump_/resultDefaults_ publishes it. These three lists are one vocabulary; a
+% name that drifts between them reads as NaN forever with nothing to show for
+% it, because the DATA sweep still finds the parameter and still records a
+% value. TrialDuration is deliberately absent: it is writable trial CONFIG,
+% and the measured value is TrialDuration_Actual.
+if any(strcmp(wire, hw.Bpod.RESULT_PARAMETERS))
     kind = 'result';
 end
 end
@@ -223,57 +227,33 @@ function v = resultValue_(obj, wire)
 % assignment between dissimilar structures" the first time a trial visits a
 % different set of states.
 
+% pump_ latches the whole frozen record at trial end, so serve it from there
+% rather than recomputing per field: the parser is the single source of truth
+% for what happened, and a field recomputed here could disagree with the field
+% recorded in DATA for the same trial.
+if isfield(obj.inputCache_, wire)
+    v = obj.inputCache_.(wire);
+    return
+end
+
+% Before the first trial closes, and for the live arrays during a trial in
+% progress, fall back to the accumulating record. Classes and shapes match
+% what pump_ will publish so the DATA field set never changes underneath
+% RUNTIME.TRIALS(i).DATA(k) = data.
 switch wire
-    case 'TrialNum'
-        v = obj.trialNum_;
-
-    case 'TrialAborted'
-        v = double(obj.trialAborted_);
-
-    case 'TrialDuration'
-        % Host-side elapsed time. The authoritative device timing lives in
-        % StateTimes/EventTimes; this is a convenience for online plots.
-        if isempty(obj.trialTic_)
-            v = nan;
-        else
-            v = toc(obj.trialTic_);
-        end
-
-    case 'NStates'
-        v = numel(obj.stateCodes_);
-
-    case 'NEvents'
-        % Can legitimately exceed numel(EventTimes): the firmware stops
-        % recording timestamps past MAX_TIMESTAMPS while the state machine
-        % keeps running and keeps reporting events.
-        v = numel(obj.eventCodes_);
-
-    case 'LastSoftCode'
-        v = obj.lastSoftCode_;
-
-    case 'CurrentState'
-        v = obj.currentState_;
-
-    case 'CurrentStateName'
-        if obj.currentState_ >= 1 && obj.currentState_ <= numel(obj.StateNames)
-            v = obj.StateNames{obj.currentState_};
-        else
-            v = '';
-        end
-
-    case 'StateCodes'
-        v = obj.stateCodes_;
-
-    case 'StateTimes'
-        v = obj.stateTimes_;
-
-    case 'EventCodes'
-        v = obj.eventCodes_;
-
-    case 'EventTimes'
-        v = obj.eventTimes_;
-
+    case 'StateCodes',      v = obj.stateCodes_;
+    case 'StateTimestamps', v = obj.stateTimes_;
+    case 'EventCodes',      v = obj.eventCodes_;
+    case 'EventTimestamps', v = obj.eventTimes_;
+    case 'nStatesVisited',  v = numel(obj.stateCodes_);
+    case 'LastSoftCode',    v = obj.lastSoftCode_;
+    case 'Aborted',         v = obj.trialAborted_;
+    case 'LastStateName',   v = 'None';
+    case 'RespCode',        v = 0;
+    case 'EventCountMismatch', v = false;
     otherwise
+        % LastStateCode, RespLatency, TrialStartTimestamp,
+        % TrialDuration_Actual: undefined until a trial closes.
         v = nan;
 end
 end

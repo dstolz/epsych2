@@ -108,22 +108,24 @@ for i = 1:numel(obj.Variables)
         spec.UpdateEveryTrial, "variable", description);
 end
 
-% --- Latched input state --------------------------------------------------
-% One readable parameter per input, so the per-trial DATA record carries what
-% each sensor was doing without needing the event log.
+% --- Channel state --------------------------------------------------------
+% One readable parameter per channel, so the per-trial DATA record carries
+% what each sensor and each output was doing without needing the event log.
+%
+% Outputs are included as well as inputs. That is what lets a state drive a
+% named output purely as a phase flag -- a "RespWindow" output held high for
+% the duration of the response window shows up as a readable RespWindow
+% parameter, which is exactly what gui.Parameter_Monitor renders as a lamp.
 
 for i = 1:numel(obj.Channels)
     c = obj.Channels(i);
-    if c.Direction ~= "Input"
-        continue
-    end
 
     if c.Kind == "Digital"
         options = struct('Type', 'Boolean', 'Access', 'Read');
-        description = sprintf("Latched state of digital input '%s'.", c.Name);
+        description = sprintf("State of digital %s '%s'.", lower(c.Direction), c.Name);
     else
         options = struct('Type', 'Float', 'Access', 'Read', 'Unit', char(c.Units));
-        description = sprintf("Last sampled value of analog input '%s'.", c.Name);
+        description = sprintf("Value of analog %s '%s'.", lower(c.Direction), c.Name);
     end
 
     specs(end+1) = localSpec_(char(c.Name), 0, options, false, "channel", description);

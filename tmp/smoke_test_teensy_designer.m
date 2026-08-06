@@ -121,7 +121,7 @@ fprintf('PASS: validation catches dangling targets, pin clashes, bad refs, dead 
 % 7. Every template validates and compiles --------------------------------
 compiler = teensy.Compiler();
 names = teensy.Templates.names();
-assert(numel(names) >= 6, 'expected at least 6 templates');
+assert(numel(names) >= 8, 'expected at least 8 templates, got %d', numel(names));
 
 for i = 1:numel(names)
     t = teensy.Templates.get(names(i));
@@ -140,6 +140,19 @@ for i = 1:numel(names)
         'template %s does not round-trip', names(i));
 end
 fprintf('PASS: all %d templates validate, compile and round-trip\n', numel(names));
+
+% 7b. The lab paradigm keeps the names its existing BoxGUI binds to ------
+% cl_AppetitiveDetection_BoxGUI resolves these by name through
+% gui.Parameter_Monitor and gui.Parameter_Control, so a Teensy-backed
+% protocol only lights that GUI up if the template emits them exactly.
+appetitive = string({teensy.Templates.get("AppetitiveDetection").parameterSpecs().Name});
+for required = ["Platform", "Trough", "InTrial", "DelayPeriod", "RespWindow", ...
+        "PelletTotal", "StimDelay", "RespWinDelay", "RespLatency", "RespCode", ...
+        "ITIDur", "TimeoutDur", "NumPellets"]
+    assert(any(appetitive == required), ...
+        'AppetitiveDetection must emit %s for the existing BoxGUI', required);
+end
+fprintf('PASS: AppetitiveDetection emits the names cl_AppetitiveDetection_BoxGUI binds\n');
 
 % 8. The parameter set the runtime requires -------------------------------
 specs = teensy.Templates.get("GoNoGoDetection").parameterSpecs();
@@ -277,6 +290,44 @@ assert(~isempty(d.Simulator), 'the test bench should have a simulator');
 d.onSimulate('reset');
 assert(isempty(d.Simulator), 'reset should clear the simulator');
 fprintf('PASS: designer builds, edits, undoes, compiles and simulates headlessly\n');
+
+% 13b. Live monitor mode against a session -------------------------------
+% Opening the designer on a Runtime attaches a mode listener and a poll
+% timer. Both have to survive a Runtime whose session has not started yet,
+% which is the state RunExpt is in before Run is pressed.
+rt = epsych.Runtime;
+rt.isTest = true;
+rt.HELPER = epsych.Helper;
+sw = hw.Software;
+stateParam = sw.add_parameter('StateIndex', 0);
+stateParam.Value = 0;
+stateParam.Access = 'Read';
+rt.Interfaces = sw;
+
+live = teensy.TrialDesigner(rt, Visible = false);
+assert(~isempty(live.RUNTIME), 'the designer should hold the runtime');
+assert(~isempty(live.LiveTimer) && strcmp(live.LiveTimer.Running, 'on'), ...
+    'live monitor mode should start its poll timer');
+
+% The mode listener walks heterogeneous handle structs to lock editing.
+% isgraphics(0) is true, so a class test has to precede isvalid or this
+% throws on the plain state those structs also carry.
+lastwarn('');
+rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Record));
+pause(0.2);
+assert(isempty(lastwarn), 'a ModeChange should not raise a warning: %s', lastwarn);
+rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
+pause(0.2);
+assert(isempty(lastwarn), 'a ModeChange should not raise a warning: %s', lastwarn);
+delete(live);
+
+% A Runtime with no HELPER yet must open, not throw.
+bare = epsych.Runtime;
+bare.isTest = true;
+noHelper = teensy.TrialDesigner(bare, Visible = false);
+assert(isvalid(noHelper.Figure), 'the designer should open on a runtime with no helper');
+delete(noHelper);
+fprintf('PASS: live monitor attaches, locks on mode change, and tolerates no helper\n');
 
 % 14. Teardown leaves nothing behind -------------------------------------
 delete(d);

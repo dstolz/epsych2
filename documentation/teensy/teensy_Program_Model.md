@@ -154,6 +154,12 @@ which is what makes it previewable in the GUI and testable headlessly.
 `program.applyToModule(module)` turns those specs into real parameters, skipping names the module
 already has so applying twice is idempotent.
 
+Every channel — input *and* output — is emitted as a readable parameter, so the per-trial DATA
+record carries what each sensor and each output was doing. That is also what makes phase flags
+work: a digital output held high for the duration of a state shows up as a readable parameter of
+that name, which `gui.Parameter_Monitor` renders as a lamp. The `AppetitiveDetection` template
+uses this for `DelayPeriod` and `RespWindow`.
+
 Three details that will silently break a session if changed:
 
 - Triggers use `Access='Any'`, never `'Write'`. `hw.Interface.all_parameters` excludes `'Write'`

@@ -132,6 +132,19 @@ classdef Bpod < hw.Interface
         MAX_STATES = 128        % firmware state table depth
         MAX_TIMESTAMPS = 10000  % firmware stops recording past this, silently
 
+        % The frozen readable trial record. populateModule_ creates exactly
+        % these as Visible=true/Access='Read' parameters, pump_ publishes
+        % exactly these, and get_parameter serves exactly these. Keeping the
+        % three in one list is not tidiness: a name that drifts between them
+        % reads NaN forever and still lands in DATA, so the session records a
+        % full-looking result set of nothing. Changing this list changes the
+        % DATA field set, which must stay fixed for the life of the interface.
+        RESULT_PARAMETERS = { ...
+            'RespCode','RespLatency','nStatesVisited','LastStateCode', ...
+            'LastStateName','TrialStartTimestamp','TrialDuration_Actual', ...
+            'Aborted','LastSoftCode','EventCountMismatch', ...
+            'StateCodes','StateTimestamps','EventCodes','EventTimestamps'}
+
         % Canonical Bpod 0.5/0.6 vocabularies, mirrored verbatim from
         % BpodObject.m:84-91 so addState validates without the global.
         EVENT_NAMES = { ...
@@ -370,6 +383,12 @@ classdef Bpod < hw.Interface
         close_interface(obj)
         populateModule_(obj, module, options)
         pump_(obj)
+
+        % The single publisher of the frozen trial-result set. A method rather
+        % than a local function in pump_.m because abortMatrix ends trials too,
+        % and a second copy of the result vocabulary is what let an aborted
+        % trial record the previous trial's results.
+        finalizeTrial_(obj, timestamps, hdr)
 
         % Shared helpers. Declared here because MATLAB requires every method
         % living in its own file to be declared in the classdef; helpers used

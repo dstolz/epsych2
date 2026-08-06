@@ -68,6 +68,16 @@ function struct_out = toStruct(obj)
         if isprop(iface, 'DeviceSerial') && ~isempty(iface.DeviceSerial)
             ifaceStruct.DeviceSerial = char(iface.DeviceSerial);
         end
+        if isprop(iface, 'BoxID') && ~isempty(iface.BoxID)
+            % hw.Bpod: names the per-box x_*_N triggers, so losing it silently
+            % renames every trigger parameter on reload.
+            ifaceStruct.BoxID = double(iface.BoxID);
+        end
+        if isprop(iface, 'StateMatrixFcn') && ~isempty(iface.StateMatrixFcn)
+            % hw.Bpod: dropping this reverts the interface to immediate I/O
+            % mode on load, which runs but never uploads a state matrix.
+            ifaceStruct.StateMatrixFcn = char(iface.StateMatrixFcn);
+        end
 
         rawModules = iface.Module;
         if isempty(rawModules)

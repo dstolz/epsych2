@@ -4,7 +4,8 @@ function specs = getAvailableInterfaceSpecs(~)
         localSerializedSynapseSpec_(), ...
         localSerializedRPcoxSpec_(), ...
         localSerializedIntanRHXSpec_(), ...
-        localSerializedTeensySpec_() ...
+        localSerializedTeensySpec_(), ...
+        localSerializedBpodSpec_() ...
         };
     for specIdx = 1:numel(specs)
         specs{specIdx} = hw.InterfaceSpec.normalize(specs{specIdx});
@@ -79,5 +80,39 @@ function iface = localCreateSerializedTeensy_(opts)
     end
     iface = hw.Teensy(port, Connect = false, BaudRate = baudRate, ...
         AutoDetect = autoDetect, DeviceSerial = deviceSerial);
+end
+
+function spec = localSerializedBpodSpec_()
+    spec = hw.InterfaceSpec.normalize(hw.Bpod.getCreationSpec());
+    spec.createFcn = @localCreateSerializedBpod_;
+end
+
+function iface = localCreateSerializedBpod_(opts)
+    % Connect = false: the designer constructs an interface every time one is
+    % added or modified, and hw.Bpod's constructor default connects. That would
+    % open the serial port, pay the Arduino Due boot delay, and (with
+    % AutoDetect) probe every port on the machine just to edit a protocol.
+    port = '';
+    if isfield(opts, 'port') && ~isempty(opts.port)
+        port = char(opts.port);
+    end
+    autoDetect = false;
+    if isfield(opts, 'autoDetect') && ~isempty(opts.autoDetect)
+        autoDetect = logical(opts.autoDetect);
+    end
+    boxID = 1;
+    if isfield(opts, 'boxID') && ~isempty(opts.boxID)
+        % string() before double() so a value that arrives as text ('2' from an
+        % edit control) parses as the number 2 and not its character code; the
+        % constructor demands a positive integer, and max() ignores NaN so an
+        % unparseable entry falls back to box 1 rather than erroring the dialog.
+        boxID = max(1, round(double(string(opts.boxID))));
+    end
+    stateMatrixFcn = '';
+    if isfield(opts, 'stateMatrixFcn') && ~isempty(opts.stateMatrixFcn)
+        stateMatrixFcn = char(opts.stateMatrixFcn);
+    end
+    iface = hw.Bpod(port, Connect = false, AutoDetect = autoDetect, ...
+        BoxID = boxID, StateMatrixFcn = stateMatrixFcn);
 end
 

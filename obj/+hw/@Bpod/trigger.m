@@ -115,18 +115,13 @@ end
 
 sma = buildMatrix_(obj);
 
-% compileMatrix_ works from lastMatrix_, so stage the new matrix before
-% asking for its bytes. Re-uploading an unchanged matrix costs a full 'P'
-% transaction plus its acknowledgement; skipping it reduces trial start to
-% the single 'R' byte below.
-obj.lastMatrix_ = sma;
-payload = obj.compileMatrix_();
-
-if isempty(obj.lastPayload_) || ~isequal(payload, obj.lastPayload_)
-    obj.sendStateMatrix(sma);
-else
-    vprintf(3, 'hw.Bpod: state matrix unchanged; skipping re-upload');
-end
+% sendStateMatrix owns the whole sequence: validate, permute into manifest
+% order, set nStates, publish StateNames, encode, and skip the 'P' upload when
+% the payload is byte-identical to the last one. Do not try to pre-compile here
+% to decide whether to upload -- compileMatrix_ is pure and reads the PERMUTED
+% matrix, so calling it before sendStateMatrix has permuted anything raises
+% hw:Bpod:MatrixShapeMismatch on the first trial (nStates is still 0).
+obj.sendStateMatrix(sma);
 
 % Clear the completion latch defensively. ResetTrig normally did this, but a
 % custom paradigm may fire NewTrial on its own, and a stale true here would

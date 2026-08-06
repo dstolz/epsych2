@@ -22,13 +22,20 @@ function abortMatrix(obj)
 % trial still reports the events it did collect. On a drain failure the input
 % buffer is flushed, which is the only remaining way to protect the next run.
 %
+% Whatever the drain recovers is handed to finalizeTrial_, the one publisher of
+% the frozen result set, so an aborted trial records ITS OWN results. Latching
+% trialComplete_ here instead left the previous trial's results in
+% obj.inputCache_ for get_parameter to serve, so every aborted trial was saved
+% with Aborted = false.
+%
 % Safe to call when nothing is running, when the epilogue is already in flight
 % (the pump saw the sentinel but not the timestamps), and when offline.
 %
 % Parameters:
 %   obj - hw.Bpod instance.
 %
-% See also: hw.Bpod.pump, hw.Bpod.sendStateMatrix, documentation/hw/hw_Bpod.md
+% See also: hw.Bpod.pump, hw.Bpod.finalizeTrial_, hw.Bpod.sendStateMatrix,
+%           documentation/hw/hw_Bpod.md
 
 wasRunning  = obj.matrixRunning_;
 wasAwaiting = obj.awaitingEpilogue_;
@@ -56,20 +63,9 @@ if wasRunning
     end
 end
 
-[ts, drained] = local_drainEpilogue(obj, wasAwaiting);
+[ts, hdr, drained] = local_drainEpilogue(obj, wasAwaiting);
 
-if drained
-    if ~isempty(ts)
-        % Firmware timestamps count 100 us ticks from matrix start.
-        obj.eventTimes_ = ts(:).' / obj.TICK_HZ;
-        if numel(obj.eventCodes_) ~= numel(ts)
-            % Legitimate past MAX_TIMESTAMPS: the device stops recording
-            % timestamps at 10000 events but keeps reporting the events.
-            vprintf(2, 'Bpod: aborted trial has %d event(s) but %d timestamp(s)', ...
-                numel(obj.eventCodes_), numel(ts));
-        end
-    end
-else
+if ~drained
     vprintf(0, 1, ['Bpod: could not drain the state matrix epilogue after an abort. ' ...
         'Flushing the serial input so the leftover bytes cannot be read as opcodes ' ...
         'at the start of the next trial.']);
@@ -78,12 +74,24 @@ else
     catch ME
         vprintf(0, 1, ME);
     end
+    % Nothing recovered, so the trial closes with NaN timing rather than with
+    % timestamps that may belong to a half-parsed burst.
+    ts = [];
+    hdr = [];
 end
 
-% The trial is over either way. Marking it complete keeps the runtime from
-% waiting forever on an x_TrialComplete_ that the device will never raise.
-obj.trialAborted_  = true;
-obj.trialComplete_ = true;
+% Flag the abort BEFORE finalizing: finalizeTrial_ reads trialAborted_ into the
+% published Aborted field and folds epsych.BitMask.Abort into RespCode.
+obj.trialAborted_ = true;
+
+% The trial is over either way, and it closes through the same finalizer every
+% other end-of-trial path uses. That both latches trialComplete_ -- which keeps
+% the runtime from waiting forever on an x_TrialComplete_ the device will never
+% raise -- and publishes this trial's frozen result set, including whatever
+% timestamps the drain recovered. Must run BEFORE local_clearRunState, which
+% wipes the state-change indices in epiHdr_ that finalizeTrial_ needs to place
+% the state onsets.
+obj.finalizeTrial_(ts, hdr);
 
 local_clearRunState(obj);
 local_forgetOutputRecord(obj);
@@ -118,8 +126,8 @@ end
 end
 
 
-function [ts, ok] = local_drainEpilogue(obj, alreadyAwaiting)
-% [ts, ok] = local_drainEpilogue(obj, alreadyAwaiting)
+function [ts, hdr, ok] = local_drainEpilogue(obj, alreadyAwaiting)
+% [ts, hdr, ok] = local_drainEpilogue(obj, alreadyAwaiting)
 % Consume everything the device emits through the end of the epilogue.
 %
 % Parameters:
@@ -127,10 +135,14 @@ function [ts, ok] = local_drainEpilogue(obj, alreadyAwaiting)
 %   alreadyAwaiting - true when the pump has already consumed the sentinel.
 %
 % Returns:
-%   ts - Recovered timestamps in 100 us ticks. Empty when none were sent.
-%   ok - True when the epilogue was fully consumed.
+%   ts  - Recovered timestamps in raw device ticks. Empty when none were sent.
+%   hdr - [trialStartMs matrixStartUs nTimestamps] for finalizeTrial_, which
+%         owns the firmware-dependent scaling. Empty when nothing was
+%         recovered.
+%   ok  - True when the epilogue was fully consumed.
 
 ts = [];
+hdr = [];
 ok = false;
 
 % Start from whatever the pump left unparsed; those bytes belong to this burst.
@@ -155,6 +167,12 @@ if alreadyAwaiting && ~isempty(obj.epiHdr_)
         % flush rather than guess and leave a partial block behind.
         vprintf(0, 1, 'Bpod: epilogue header is parsed but its timestamp count is unreadable');
         return
+    end
+    % parseEpilogue_ appends the three header values behind the state-change
+    % indices, but only once it has actually read them; pendingEventCount_ is
+    % negative until then, and the tail of epiHdr_ would be state indices.
+    if obj.pendingEventCount_ >= 0 && numel(obj.epiHdr_) >= 3
+        hdr = double(obj.epiHdr_(end - 2:end));
     end
 end
 
@@ -197,8 +215,11 @@ if needHeader
         return
     end
     nTs = double(buf(9)) + 256 * double(buf(10));
+    hdr = [double(typecast(uint8(buf(1:4)), 'uint32')), ...
+           double(typecast(uint8(buf(5:8)), 'uint32')), ...
+           nTs];
     vprintf(2, 'Bpod: aborted trial started at %d ms with %d timestamp(s) to collect', ...
-        double(typecast(uint8(buf(1:4)), 'uint32')), nTs);
+        hdr(1), nTs);
     buf(1:10) = [];
 end
 
@@ -220,6 +241,15 @@ end
 
 if ~isempty(buf)
     vprintf(2, 'Bpod: discarding %d trailing byte(s) after the epilogue', numel(buf));
+end
+
+if isempty(hdr) && ~isempty(ts)
+    % The pump consumed the header before 'X' went out and left no readable
+    % copy of it, so the trial start is unrecoverable -- but the timestamps
+    % still are. Build >= 6 restarts its tick counter at 0 for every matrix, so
+    % a zero matrix start is the right assumption, and handing this on rather
+    % than scaling here keeps the firmware-dependent conversion in one place.
+    hdr = [NaN, 0, numel(ts)];
 end
 
 ok = true;

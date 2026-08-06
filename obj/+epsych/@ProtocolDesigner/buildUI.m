@@ -42,6 +42,7 @@ function buildUI(obj)
     interfaceMenu = uimenu(obj.Figure, 'Text', 'Interface');
     uimenu(interfaceMenu, 'Text', localShortcutText_('Add Interface', 'Ctrl+Shift+A'), 'MenuSelectedFcn', @(~, ~) obj.onAddInterface());
     uimenu(interfaceMenu, 'Text', localShortcutText_('Add Module', 'Ctrl+Shift+M'), 'MenuSelectedFcn', @(~, ~) obj.onAddModule());
+    uimenu(interfaceMenu, 'Text', 'Teensy Trial Designer...', 'Separator', 'on', 'MenuSelectedFcn', @(~, ~) obj.onOpenTeensyDesigner());
 
     protocolMenu = uimenu(obj.Figure, 'Text', 'Protocol');
     uimenu(protocolMenu, 'Text', localShortcutText_('Compile Protocol', 'Ctrl+Shift+C'), 'MenuSelectedFcn', @(~, ~) obj.onCompile());

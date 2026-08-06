@@ -12,7 +12,7 @@ You do not instantiate `hw.Interface` directly. Instead, you work with a
 subclass such as a software-backed shim or a device-specific implementation.
 
 In this repository, the concrete subclasses are `hw.Software`,
-`hw.TDT_Synapse`, `hw.TDT_RPcox`, `hw.Intan_RHX`, `hw.Teensy`, and
+`hw.TDT_Synapse`, `hw.TDT_RPcox`, `hw.Intan_RHX`, `hw.Teensy`, `hw.Bpod`, and
 `hw.VlcRecorder`.
 
 For a step-by-step guide to authoring a new hardware backend, see
@@ -123,6 +123,17 @@ server to control run mode and read/write named parameters. See
 ASCII line protocol. The board runs the trial state machine on-device, so
 response-to-reward latency does not inherit MATLAB timer jitter. See
 [hw_Teensy.md](hw_Teensy.md).
+
+### `hw.Bpod`
+
+`hw.Bpod` connects to a Bpod 0.5/0.6 behavioral state machine over USB serial,
+speaking the Arduino Due firmware's byte protocol directly. The Bpod MATLAB
+layer is never loaded: it needs a `global BpodSystem`, opens figures, and blocks
+in `RunStateMatrix` until the trial ends. Instead the device's unsolicited push
+stream is parsed resumably from the runtime's 10 ms timer tick, so a trial runs
+on-device while the session stays responsive. One Bpod serves exactly one
+subject box. See [hw_Bpod.md](hw_Bpod.md), including its Limitations and Safety
+section.
 
 ### `hw.VlcRecorder`
 

@@ -18,6 +18,7 @@ try
         % Clear the target so a later display-only Play cannot clobber the finished file.
         self.VlcRecorder_.set_parameter('RecordingFile','');
         vprintf(0,'Video recording stopped.')
+        self.setStatus('Video recording stopped.')
     end
 catch ME
     vprintf(0,1,ME)

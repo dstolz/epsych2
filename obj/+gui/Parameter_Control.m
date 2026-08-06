@@ -298,13 +298,37 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 obj.reset_label;
 
             elseif obj.ValueUpdated
-                obj.h_uiobj.BackgroundColor = obj.colorOnUpdate;
+                obj.set_color_(obj.colorOnUpdate);
             end
         end
 
         function reset_label(obj)
-            obj.h_uiobj.BackgroundColor = obj.colorNormal;
+            obj.set_color_(obj.colorNormal);
             obj.ValueUpdated = false;
+        end
+
+        function reset_value(obj)
+            % reset_value(obj)
+            % Discard an uncommitted edit by restoring the control to the
+            % value currently held by the bound parameter property. No-op
+            % when there is nothing pending.
+            if ~obj.ValueUpdated, return; end
+
+            v = obj.getBoundValue();
+            if isprop(obj.h_uiobj,'Value') && ~isempty(v)
+                obj.ensureDropdownItem_(obj.h_uiobj,v);
+                obj.h_uiobj.Value = v;
+            end
+
+            obj.reset_label;
+
+            % Dependent controls were resynced against the discarded edit when
+            % the user made it, so run the hook again against the restored
+            % value -- otherwise e.g. min/max fields stay enabled after
+            % reverting the isRandom checkbox that enabled them.
+            e = struct('PreviousValue', [], 'EventName', 'Reset');
+            e.Value = v;
+            obj.runPostUpdateFcn(e);
         end
 
 
@@ -312,7 +336,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
         function update_color(obj,src,event)
             % s = src.Name;
-            obj.h_uiobj.BackgroundColor = obj.colorNormal;
+            obj.set_color_(obj.colorNormal);
         end
 
 
@@ -595,6 +619,23 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function set_color_(obj, color)
+            % set_color_(obj, color)
+            % Paint the state indication onto whichever color property the
+            % widget exposes. uicheckbox has no BackgroundColor -- FontColor
+            % is its only color affordance -- so follow the same
+            % BackgroundColor/Color/FontColor precedence that
+            % gui.Helper.timed_color_change uses, keeping the two paths
+            % consistent for a given control type.
+            if isprop(obj.h_uiobj,'BackgroundColor')
+                obj.h_uiobj.BackgroundColor = color;
+            elseif isprop(obj.h_uiobj,'Color')
+                obj.h_uiobj.Color = color;
+            elseif isprop(obj.h_uiobj,'FontColor')
+                obj.h_uiobj.FontColor = color;
+            end
+        end
+
         function ensureDropdownItem_(obj, h, v)
             % ensureDropdownItem_(obj, h, v)
             % Guarantee v is present in dropdown handle h's ItemsData so that

@@ -19,6 +19,7 @@ try
         % VLC preview, which is a different feature with its own labelling.
         self.VlcRecorder_.set_parameter('DisplayBanner','');
         vprintf(0,'Live webcam view closed.')
+        self.setStatus('Live webcam view closed.')
     end
 catch ME
     vprintf(0,1,ME)

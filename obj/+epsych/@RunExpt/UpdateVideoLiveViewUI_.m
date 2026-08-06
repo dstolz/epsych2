@@ -1,6 +1,6 @@
 function UpdateVideoLiveViewUI_(self)
 % UpdateVideoLiveViewUI_(self)
-% Sync the View menu item and the bottom-bar banner with
+% Sync the View menu item and the status-row banner with
 % VideoLiveViewActive_, so the session window always states whether a
 % displayed webcam stream is also being written to disk.
 %

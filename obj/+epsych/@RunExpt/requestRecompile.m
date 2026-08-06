@@ -32,3 +32,4 @@ end
 self.RUNTIME.TRIALS(subjectIdx).RECOMPILE_REQUESTED = true;
 
 vprintf(1, 'Recompile scheduled for subject %d at next trial boundary.\n', subjectIdx)
+self.setStatus(sprintf('Recompile scheduled for subject %d at the next trial boundary.', subjectIdx))

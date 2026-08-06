@@ -16,6 +16,7 @@ pn = getpref('ep_RunExpt_Setup','CDir',cd);
 [fn,pn] = uiputfile('*.ecfg','Save Current Configuration',pn);
 if isequal(fn,0)
     vprintf(1,'Configuration not saved.\n')
+    self.setStatus('Configuration was not saved.')
     return
 end
 
@@ -41,3 +42,4 @@ save(fullfile(pn,fn),'config','funcs','meta','-mat')
 setpref('ep_RunExpt_Setup','CDir',pn)
 self.CurrentConfigFile = string(fullfile(pn,fn));
 vprintf(0,'Configuration saved as: ''%s''\n',fullfile(pn,fn))
+self.setStatus(sprintf('Saved configuration as "%s".',fn))

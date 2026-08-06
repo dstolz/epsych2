@@ -49,11 +49,14 @@ try
     if rec.trigger('Play')
         self.VideoLiveViewActive_ = true;
         vprintf(0,'Live webcam view opened. Video is NOT being recorded.')
+        self.setStatus('Live webcam view opened. Nothing is being recorded.')
     else
         uialert(self.H.figure1, ...
             'Could not open the live webcam view. Check View > Webcam Recorder Setup.', ...
             'EPsych','Icon','error');
         vprintf(0,1,'Live webcam view failed to open.')
+        self.setStatus('Live webcam view failed to open.', ...
+            'check View > Webcam Recorder Setup.')
     end
 catch ME
     vprintf(0,1,ME)

@@ -84,8 +84,7 @@ Selecting a row prints the selected subject's details to the MATLAB command wind
 ### 3.2 Bottom control bar
 
 - **Record video** (checkbox): when checked, clicking **Run** also starts a webcam recording via VLC for the duration of the session; unchecked by default. The setting persists across sessions. Preview never records. See [5.1](#51-what-happens-when-you-click-run--preview) and [7) Customization](#7-customization).
-- **Live View** (button): button form of **View → Live Webcam View (No Recording)** — opens or closes the same display-only camera view described in [8) Menus reference](#8-menus-reference). Its label changes to **Close Live View** while a view is open, and it is disabled while a session is RUNNING for the same reason as the menu item.
-- **LIVE VIEW - NOT RECORDING** (amber text): shown only while a live webcam view is open (via either the **Live View** button or **View → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
+- **Live View** (button): button form of **View → Live Webcam View (No Recording)** — opens or closes the same display-only camera view described in [8) Menus reference](#8-menus-reference). Its label changes to **Close Live View** while a view is open, and it is disabled while a session is RUNNING for the same reason as the menu item. Its column is a fixed width, so relabelling it never shifts the four transport buttons.
 - **Run**: starts the experiment in Record mode.
 - **Preview**: starts the experiment in Preview mode; data are marked as a test run.
 - **Pause**: requests a pause via the runtime ModeChange event.
@@ -98,6 +97,16 @@ Selecting a row prints the selected subject's details to the MATLAB command wind
 - **Edit Protocol**: opens the selected subject's protocol in the Protocol Designer.
 - **View Trials**: previews compiled trials for the selected subject.
 - **Save Data**: invokes the configured saving function to write data to disk (enabled after Stop or on Error).
+
+### 3.4 Status bar
+
+A single-line status bar spans the bottom of the window, below the control bar. It reports what the program is doing and what normally comes next — the loaded configuration, subjects added or removed, protocol compilation, hardware connection, session start/stop, data saving, and webcam recording or live view. Messages are green; anything that failed is red. Double-click the status bar to copy its current text to the clipboard.
+
+The state of the session itself is announced whenever it changes (Ready, Session running, Preview running, Session stopped, Session ended with an error); a message posted by a specific action stays up until the state changes again.
+
+- **LIVE VIEW - NOT RECORDING** (amber text, right end of the status bar): shown only while a live webcam view is open (via either the **Live View** button or **View → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
+
+Custom box GUIs, saving functions, and trial selectors can post their own messages with `RunExpt.setStatus(message)` or `RunExpt.setStatus(message, nextStep)`.
 
 ## 4) Working with protocols
 
@@ -195,7 +204,7 @@ The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` 
 - **Config**: Browse Configs..., Load Config..., Refresh Config, Save Config..., Recent Configs (submenu).
 - **Customize**: Customize... (all settings above).
 - **View**: Always On Top, Commutator GUI (opens the motorized commutator control; see [../peripherals/peripherals_NanoMotorControl.md](../peripherals/peripherals_NanoMotorControl.md)), Webcam Recorder Setup... (camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md)), Live Webcam View (No Recording).
-  - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject between runs. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the bottom control bar shows a matching amber banner. Select it again to close the view.
+  - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject between runs. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the status bar shows a matching amber banner at its right end. Select it again to close the view.
   - The item is disabled while a session is RUNNING, because opening or closing the view restarts VLC and would stall the trial loop. A view opened before **Run** stays open through a session; if that session is recording, the recording takes over the camera and the live view closes.
 - **Help**:
   - Version Info — toolbox version, git commit, and links.

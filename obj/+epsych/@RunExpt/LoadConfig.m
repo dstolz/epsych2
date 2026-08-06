@@ -21,16 +21,20 @@ end
 
 if ~exist(cfn,'file')
     warndlg(sprintf('The file "%s" does not exist.',cfn),'RunExpt','modal')
+    self.setStatus(sprintf('Configuration file not found: %s',cfn))
     return
 end
 
 vprintf(0,'Loading configuration file: ''%s''\n',cfn)
+[~,cfnName,cfnExt] = fileparts(cfn);
+self.setStatus(sprintf('Loading configuration "%s%s"...',cfnName,cfnExt))
 warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
 S = load(cfn,'-mat');
 warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
 
 if ~isfield(S,'config')
     errordlg('Invalid Configuration file','PsychConfig','modal')
+    self.setStatus(sprintf('"%s%s" is not a valid configuration file.',cfnName,cfnExt))
     return
 end
 
@@ -71,3 +75,13 @@ self.UpdateSubjectList
 self.CheckReady
 self.CurrentConfigFile = string(cfn);
 self.RememberRecentConfig(cfn)
+
+% Posted after CheckReady so the state message it triggers does not overwrite it.
+loadedMsg = sprintf('Loaded configuration "%s%s" (%d subject(s)).', ...
+    cfnName, cfnExt, numel(self.CONFIG));
+if self.STATE >= PRGMSTATE.READY
+    self.setStatus(loadedMsg,'press Run to record, or Preview to test without saving data.')
+else
+    self.setStatus(loadedMsg,'add a subject with a protocol to complete the configuration.')
+end
+

@@ -82,3 +82,6 @@ self.CONFIG(idx).SUBJECT     = S;
 
 self.UpdateSubjectList
 self.CheckReady
+
+self.setStatus(sprintf('Added subject "%s" (box %d) with protocol "%s".', ...
+    S.Name, S.BoxID, fn))

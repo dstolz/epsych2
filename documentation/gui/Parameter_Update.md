@@ -13,6 +13,7 @@ It solves a common GUI workflow:
 - Commit those edits either:
   - for upcoming trials (default), or
   - immediately (when a modifier key chord is held).
+- Discard those edits and restore the previous values (when **Ctrl** alone is held).
 
 ## Where it fits
 
@@ -51,6 +52,7 @@ User experience:
 - If the user changes any control, the button becomes enabled and shows **"Update Parameters"**.
 - If nothing is pending, the button disables and shows **"Nothing to Update"**.
 - Holding **Ctrl + Shift + Alt** while clicking changes behavior to **Immediate** (see below).
+- Holding **Ctrl** alone relabels the button **"Reset Parameters"**; clicking discards the pending edits (see below).
 
 ## Immediate vs. next-trial updates
 
@@ -77,6 +79,16 @@ When the modifier chord is held, `commit_changes` will additionally write the cu
 
 This is intended for situations where you need the new setting applied right away (e.g., during an ongoing run), rather than waiting for the next trial boundary.
 
+## "Reset Parameters" (Ctrl)
+
+While the button is enabled and **Ctrl** alone is held, the button repaints to `color_resetChanges` and reads **"Reset Parameters"**. Releasing Ctrl restores the normal enabled state.
+
+Clicking in that state calls `reset_changes`, which walks every watched control with a pending edit and calls its `reset_value()`. Each control's UI value is restored from the value its `hw.Parameter` currently holds, and the pending-edit highlight clears. Nothing is written to hardware and nothing is written to `RUNTIME.TRIALS.trials` — this only discards uncommitted UI state.
+
+Modifier precedence: the Ctrl+Shift+Alt chord wins, so a partially-released chord that leaves only Ctrl held falls through to the reset state.
+
+Reset is available from the moment an edit is pending until it is committed. Once committed, the pre-edit value is gone — there is no undo of a commit.
+
 ## What `watchedHandles` must provide
 
 `watchedHandles` is expected to be an array of handle objects with at least:
@@ -85,6 +97,7 @@ This is intended for situations where you need the new setting applied right awa
 - A property `Value` containing the current UI value
 - A property `Parameter` referencing an `hw.Parameter`
 - A method `reset_label()` that clears the pending-edit indication
+- A method `reset_value()` that restores the UI to the parameter's current value and clears the indication
 
 `gui.Parameter_Control` satisfies this contract.
 

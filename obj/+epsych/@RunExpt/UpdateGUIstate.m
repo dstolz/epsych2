@@ -71,3 +71,54 @@ else
     end
 end
 
+% Announce the state only when it actually changed. UpdateGUIstate is called
+% as a plain refresh from many places, and reposting the state message every
+% time would wipe out the more specific message the action just posted.
+if ~self.StatusStateReported_ || self.STATE ~= self.LastStatusState_
+    self.LastStatusState_     = self.STATE;
+    self.StatusStateReported_ = true;
+    [msg, next] = localStateMessage(self.STATE, isPreview);
+    self.setStatus(msg, next)
+end
+
+end
+
+% -----------------------------------------------------------------------
+function [msg, next] = localStateMessage(state, isPreview)
+% Plain-language description of a program state, with the action that
+% normally follows it.
+switch state
+    case PRGMSTATE.NOCONFIG
+        msg  = 'No configuration loaded.';
+        next = 'load a config or add a subject.';
+
+    case PRGMSTATE.READY
+        msg  = 'Ready to start.';
+        next = 'press Run to record, or Preview to test without saving data.';
+
+    case PRGMSTATE.RUNNING
+        if isPreview
+            msg = 'Preview running. This is a test run; no data will be saved.';
+        else
+            msg = 'Session running.';
+        end
+        next = 'press Stop to end the session.';
+
+    case PRGMSTATE.POSTRUN
+        msg  = 'Session finishing...';
+        next = '';
+
+    case PRGMSTATE.STOP
+        msg  = 'Session stopped.';
+        next = 'press Save Data, or Run to start another session.';
+
+    case PRGMSTATE.ERROR
+        msg  = 'Session ended with an error.';
+        next = 'see Help > Open Current Error Log.';
+
+    otherwise
+        msg  = char(state.asString());
+        next = '';
+end
+end
+

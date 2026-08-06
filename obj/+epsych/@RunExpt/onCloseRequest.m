@@ -63,6 +63,16 @@ end
 
 self.SetDefaultFuncs(self.FUNCS)
 
+% Deleting the status bar hands the figure's WindowButtonDownFcn back, which
+% gui.StatusBar took over for its copy-to-clipboard gesture. It has to happen
+% while the figure is still alive for that handover to mean anything.
+if isfield(self.H,'statusBar') && ~isempty(self.H.statusBar) && isvalid(self.H.statusBar)
+    try
+        delete(self.H.statusBar)
+    catch
+    end
+end
+
 if isfield(self.H,'figure1') && isgraphics(self.H.figure1)
     epsych.RunExpt.saveFigurePosition(self.H.figure1.Position);
 

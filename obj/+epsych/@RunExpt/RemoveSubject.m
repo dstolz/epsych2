@@ -16,6 +16,13 @@ if isnan(idx)
 end
 if isempty(idx) || isempty(self.CONFIG), return, end
 
+% The placeholder entry that exists before the first subject is added carries
+% an empty SUBJECT, so the name is read defensively for the status message.
+name = "";
+if isa(self.CONFIG(idx).SUBJECT,'epsych.Subject')
+    name = string(self.CONFIG(idx).SUBJECT.Name);
+end
+
 if isscalar(self.CONFIG)
     self.ClearConfig
 else
@@ -24,3 +31,7 @@ end
 
 self.UpdateSubjectList
 self.CheckReady
+
+if strlength(name) > 0
+    self.setStatus(sprintf('Removed subject "%s".',name))
+end

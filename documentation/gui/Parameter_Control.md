@@ -117,7 +117,7 @@ Label text shown next to the control (or on the control itself for checkbox/togg
 A flag indicating whether the UI currently differs from the underlying parameter:
 
 - `true` when `obj.Value` is not equal to `obj.Parameter.Value`
-- `false` after committing the value or calling `reset_label()`
+- `false` after committing the value or calling `reset_label()` / `reset_value()`
 
 This is designed to be watched by `gui.Parameter_Update`.
 
@@ -132,6 +132,8 @@ The control uses several color properties to provide feedback:
 
 You can override these after construction to match your GUI’s styling.
 
+The color is applied to the first of `BackgroundColor`, `Color`, `FontColor` that the widget actually has (the same precedence `gui.Helper.timed_color_change` uses). `Type='checkbox'` has no `BackgroundColor`, so its state shows as font color, and its `colorNormal` defaults to black rather than white.
+
 ## Editing and commit flow
 
 ### Default behavior (`autoCommit=false`)
@@ -143,6 +145,11 @@ You can override these after construction to match your GUI’s styling.
 ### Auto-commit (`autoCommit=true`)
 - User changes are immediately written to `Parameter.Value`.
 - If you also need the change reflected in trial tables or runtime configuration, pair this with the surrounding system’s update logic.
+
+### Discarding a staged edit (`reset_value`)
+`reset_value()` undoes an uncommitted edit: the UI is restored from the bound parameter property, `ValueUpdated` clears, and the highlight returns to `colorNormal`. `PostUpdateFcn` runs again against the restored value so dependent controls resync (the same hook already ran when the user made the edit now being discarded). It is a no-op when `ValueUpdated` is `false`, and it never writes to `hw.Parameter`.
+
+`gui.Parameter_Update` calls this on every watched control when its button is clicked with **Ctrl** held.
 
 ## Validation with `EvaluatorFcn`
 
@@ -171,7 +178,7 @@ A common pattern is:
 
 - Create multiple `gui.Parameter_Control` objects with `autoCommit=false`
 - Register them with a single `gui.Parameter_Update` instance
-- When the update button is pressed, it commits all staged edits
+- When the update button is pressed, it commits all staged edits (or, with **Ctrl** held, discards them via `reset_value`)
 
 Example sketch:
 

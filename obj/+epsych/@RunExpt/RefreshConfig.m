@@ -10,6 +10,7 @@ if self.STATE >= PRGMSTATE.RUNNING, return, end
 
 if strlength(self.CurrentConfigFile) == 0 || ~isfile(self.CurrentConfigFile)
     uialert(self.H.figure1,'No configuration file is currently loaded.','EPsych','Icon','info');
+    self.setStatus('There is no configuration file to refresh.')
     return
 end
 

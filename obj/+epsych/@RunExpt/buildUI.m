@@ -101,8 +101,8 @@ self.UpdateRecentConfigsMenu
 
 % Layout
 
-g = uigridlayout(f,[2 2]);
-g.RowHeight   = {'1x',40};
+g = uigridlayout(f,[3 2]);
+g.RowHeight   = {'1x',40,24};
 g.ColumnWidth = {'1x',100};
 g.RowSpacing = 8; g.ColumnSpacing = 8; g.Padding = [8 8 8 8];
 
@@ -128,9 +128,13 @@ uimenu(cmProtocol,'Text','Change Protocol File...','MenuSelectedFcn', @(~,~) sel
 self.H.subject_list.ContextMenu = cmProtocol;
 
 % ---------- Bottom control bar (Record/Run/Preview/Pause/Stop) ----------
-gBottom = uigridlayout(g,[1 7]);
+gBottom = uigridlayout(g,[1 6]);
 gBottom.Layout.Row = 2; gBottom.Layout.Column = 1;
-gBottom.ColumnWidth = {'fit','fit','fit','1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
+% The Live View column is a fixed width rather than 'fit': its button relabels
+% to the longer 'Close Live View' while a view is open, and a column that
+% resized with the label would slide the Run/Preview/Pause/Stop buttons out
+% from under the pointer mid-session. Sized for the longer of the two labels.
+gBottom.ColumnWidth = {'fit',130,'1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
 gBottom.RowSpacing = 0; gBottom.ColumnSpacing = 8; gBottom.Padding = [0 0 0 0];
 
 % Webcam recording opt-in lives beside Run so it is set as part of starting
@@ -151,16 +155,6 @@ self.H.setup_btn_liveview = uibutton(gBottom,'push','Text','Live View', ...
     'Tooltip','Open a display-only webcam view (nothing is recorded). Same as View > Live Webcam View.', ...
     'ButtonPushedFcn', @(~,~) self.ToggleVideoLiveView);
 self.H.liveviewBtnDefaultColor = self.H.setup_btn_liveview.BackgroundColor;
-
-% States, next to the recording opt-in, that an open VLC window is showing
-% the camera only. Deliberately amber rather than red: a red indicator beside
-% a webcam reads as "recording", which is the opposite of what this means.
-% Text is empty (not Visible='off') while idle so the 'fit' column collapses.
-self.H.video_liveview_banner = uilabel(gBottom, ...
-    'Text','', ...
-    'FontWeight','bold', ...
-    'FontColor',[0.85 0.45 0.00], ...
-    'Tooltip','VLC is displaying the webcam stream only. Nothing is being written to disk.');
 
 self.H.ctrl_run = uibutton(gBottom,'push','Text','Run', ...
     'Tag','ctrl_run','FontWeight','bold','FontSize',18, ...
@@ -211,3 +205,34 @@ gLamp.ColumnWidth = {'1x'};
 gLamp.Padding = [0 0 0 0];
 
 self.H.modeIndicator = gui.ModeIndicator(gLamp);
+
+% ---------- Status bar (spans the full width, below the controls) ----------
+gStatus = uigridlayout(g,[1 2]);
+gStatus.Layout.Row = 3; gStatus.Layout.Column = [1 2];
+gStatus.RowHeight = {'1x'};
+gStatus.ColumnWidth = {'1x','fit'};
+gStatus.RowSpacing = 0; gStatus.ColumnSpacing = 8; gStatus.Padding = [0 0 0 0];
+
+% gui.StatusBar must be given an explicit Position: with it empty the
+% constructor reads parent.Position(3), and a uigridlayout has no Position.
+% The value is ignored once Layout.Row is set. The first real message comes
+% from UpdateGUIstate, which the constructor calls immediately.
+self.H.statusBar = gui.StatusBar(gStatus, ...
+    Position = [1 1 400 22], ...
+    InitialText = 'Starting up...');
+self.H.statusBar.Label.Layout.Row = 1;
+self.H.statusBar.Label.Layout.Column = 1;
+
+% States that an open VLC window is showing the camera only. Deliberately
+% amber rather than red: a red indicator beside a webcam reads as
+% "recording", which is the opposite of what this means. It sits in the
+% status row rather than beside the transport buttons so that appearing and
+% disappearing only resizes the (left-aligned) status label.
+% Text is empty (not Visible='off') while idle so the 'fit' column collapses.
+self.H.video_liveview_banner = uilabel(gStatus, ...
+    'Text','', ...
+    'FontWeight','bold', ...
+    'FontColor',[0.85 0.45 0.00], ...
+    'Tooltip','VLC is displaying the webcam stream only. Nothing is being written to disk.');
+self.H.video_liveview_banner.Layout.Row = 1;
+self.H.video_liveview_banner.Layout.Column = 2;

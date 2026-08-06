@@ -25,6 +25,12 @@ switch COMMAND
 
         vprintf(0,'%s',repmat('~',1,50))
 
+        if COMMAND == "Preview"
+            self.setStatus('Preparing preview (test run; no data will be saved)...')
+        else
+            self.setStatus('Preparing session...')
+        end
+
         self.RUNTIME = epsych.Runtime; % reset RUNTIME
         self.RUNTIME.isTest = COMMAND == "Preview";
 
@@ -47,6 +53,8 @@ switch COMMAND
 
             if self.CONFIG(i).PROTOCOL.needsCompile
                 vprintf(0, 'Compiling protocol for subject "%s"...', self.CONFIG(i).SUBJECT.Name);
+                self.setStatus(sprintf('Compiling protocol for subject "%s"...', ...
+                    self.CONFIG(i).SUBJECT.Name))
                 self.CONFIG(i).PROTOCOL.compile();
             end
 
@@ -65,6 +73,7 @@ switch COMMAND
 
 
         % connect hardware interfaces
+        self.setStatus('Connecting hardware interfaces...')
         try
             % Get hardware interfaces from loaded protocol
             % If protocol was designed with Software only, create minimal hardware
@@ -81,6 +90,8 @@ switch COMMAND
 
         catch me
             vprintf(0,1,me.message);
+            self.setStatus('Hardware initialization failed.', ...
+                'check the connections and configuration, then try again.')
             error('epsych:RunExpt:HardwareInitializationFailed', ...
                 'Failed to initialize hardware interface. Check connection and configuration, then try again');
         end
@@ -120,6 +131,7 @@ switch COMMAND
         arrayfun(@(p) p.prepareRecording(self.RUNTIME), self.RUNTIME.Interfaces);
 
         vprintf(0,'Initialization complete. Starting experiment...')
+        self.setStatus('Initialization complete. Starting...')
         set(self.RUNTIME.Interfaces, 'mode', hw.DeviceState(COMMAND));
 
         start(self.RUNTIME.TIMER)
@@ -129,10 +141,14 @@ switch COMMAND
     case "Pause"
 
         self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Pause));
+        % STATE stays RUNNING through a pause, so this message is not
+        % displaced by a state message until the session stops.
+        self.setStatus('Pause broadcast to all listeners.','press Stop to end the session.')
 
     case "Stop"
         self.STATE = PRGMSTATE.STOP;
         set(self.H.figure1,'pointer','watch')
+        self.setStatus('Stopping session...')
 
         self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Stop));
 

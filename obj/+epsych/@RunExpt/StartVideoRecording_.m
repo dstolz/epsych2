@@ -36,10 +36,15 @@ try
     if rec.trigger('Play')
         self.VideoRecordingActive_ = true;
         vprintf(0,'Video recording started: %s',ffn)
+        [~,vfn,vext] = fileparts(ffn);
+        self.setStatus(sprintf('Video recording started: %s%s',vfn,vext))
     else
         vprintf(0,1,'Video recording failed to start; continuing without video. Check View > Webcam Recorder Setup.')
+        self.setStatus('Video recording failed to start; the session continues without video.', ...
+            'check View > Webcam Recorder Setup.')
     end
 catch ME
     vprintf(0,1,ME)
     vprintf(0,1,'Video recording failed to start; continuing without video.')
+    self.setStatus('Video recording failed to start; the session continues without video.')
 end

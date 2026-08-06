@@ -32,6 +32,10 @@ classdef RunExpt < handle
         VlcRecorderSetupGUI_ = []  % Currently-open gui.VlcRecorderSetup instance, if any
         VideoRecordingActive_ (1,1) logical = false  % True only while a run-owned VLC recording is in progress
         VideoLiveViewActive_ (1,1) logical = false   % True only while a display-only (non-recording) VLC view is open
+        % Last STATE announced on the status bar, so a repeated UpdateGUIstate
+        % refresh does not overwrite the more specific message an action posted.
+        LastStatusState_ (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG
+        StatusStateReported_ (1,1) logical = false   % False until the first state message is posted
     end
 
     methods
@@ -59,6 +63,10 @@ classdef RunExpt < handle
         UpdateGUIstate(self)            % Refresh all UI control states to match current STATE
 
         ToggleVideoLiveView(self)       % Show/hide the webcam stream without recording it
+
+        % Public so custom box GUIs, save functions, and trial selectors can
+        % report their own progress in the session window.
+        setStatus(self, message, nextStep)  % Post a message to the status bar
 
         function self = RunExpt(ffnConfig, opts)
             % self = RunExpt()
@@ -438,8 +446,9 @@ classdef RunExpt < handle
             set(hCtrl, 'Enable', 'off');
             drawnow
             previousState = self.STATE;
+            commandText = string(hObj.Text);
             try
-                self.ExptDispatch(string(hObj.Text));
+                self.ExptDispatch(commandText);
             catch ME
                 % Restore a usable UI state when command dispatch fails.
                 self.StopVideoRecording_;
@@ -453,6 +462,8 @@ classdef RunExpt < handle
                 end
                 self.UpdateGUIstate;
                 vprintf(0,1,ME);
+                self.setStatus(sprintf('%s failed: %s',commandText,ME.message), ...
+                    'see Help > Open Current Error Log.');
             end
         end
 

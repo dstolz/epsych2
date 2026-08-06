@@ -88,8 +88,15 @@ EPsych does not have a formal automated test suite. Manual validation is perform
   - hw.TDT_Synapse: TDT Synapse API backend
   - hw.TDT_RPcox: RPvds/RPco.x backend
   - hw.Intan_RHX: Intan RHX TCP interface
+  - hw.Teensy: Teensy 4.x USB-serial backend; firmware in firmware/EPsychTeensy/
   - hw.Software: In-memory software backend
   - hw.VlcRecorder: VLC video recording control
+
+Adding a backend requires edits in three hardcoded registries outside the class
+folder — there is no reflection. See documentation/hw/hw_Interface_Tutorial.md
+and the `hw.Teensy` commit for the full list; omitting
+`Protocol.createInterfaceFromStruct_` in particular fails silently, reloading
+saved protocols as `hw.Software` stubs.
 
 #### obj/stimgen/ – Stimulus Generation (GIT SUBMODULE)
 Separate repository: [dstolz/stimgen](https://github.com/dstolz/stimgen) — package is at `obj/stimgen/+stimgen/`.
@@ -123,6 +130,27 @@ stimgen logs through its own `stimgen.util.vprintf` to
 - Diagnostics: SelfTest (window for epsych.SelfTest; opened from RunExpt's Help menu)
 - Parameter control: Parameter_Control, Parameter_Monitor, Parameter_Update
 - Utilities: ElapsedTrialTimer
+
+#### obj/+teensy/ – Teensy Trial Programs
+Design-time tooling that turns an operant paradigm into a state table the Teensy executes, so
+the contingency lives in a file rather than in firmware. No dependency on the GUI layer, which
+is what makes the whole feature testable headlessly.
+- **teensy.Program**: the document — channels, variables, states, timers, counters. Handle class;
+  renames cascade through every reference, including nested condition operands.
+- **teensy.Channel / State / Transition / Condition / Action / Variable / BoardProfile**: value
+  classes. Value semantics make toStruct/fromStruct an exact round trip, which is what makes the
+  designer's undo exact.
+- **teensy.Compiler**: emits the wire records documented in
+  documentation/hw/hw_Teensy_Program_Protocol.md, and checks the program against the firmware's
+  fixed array sizes.
+- **teensy.Simulator**: reference implementation of the firmware's execution semantics. Powers
+  the designer's test bench, the headless tests, and tells the firmware author what to build.
+- **teensy.Templates**: ready-made paradigms (Go/No-Go, 2AFC, fixed ratio, shaping, passive).
+- **teensy.TrialDesigner**: the GUI (documentation/teensy/teensy_TrialDesigner_UserGuide.md).
+
+Any numeric field may hold a literal or an "@Name" reference to a teensy.Variable; a reference
+compiles to a constant-table index, which is how a protocol varies a duration per trial without
+re-uploading the state table.
 
 #### obj/+psychophysics/ – Online & Offline Analysis
 - **psychophysics.Psych** (abstract): Base for all analysis
@@ -278,8 +306,10 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, cl/cl_SaveDataFcn.
 | obj/+stimbridge/ | EPsych-to-stimgen adapters |
 | examples/stimgen/ | Demo protocol/config/TDT circuit assets |
 | obj/+gui/ | GUI components |
+| obj/+teensy/ | Teensy trial programs: state-machine model, compiler, simulator, TrialDesigner GUI |
 | obj/+psychophysics/ | Analysis (Detection, Staircase, BestPEST, MLP) |
 | obj/+peripherals/ | Motor control, pump communication |
+| firmware/ | Microcontroller firmware (EPsychTeensy) |
 | runtime/timerfcns/ | Timer callbacks |
 | runtime/savefcns/ | Data saving |
 | TDTfun/ | Low-level TDT integration |

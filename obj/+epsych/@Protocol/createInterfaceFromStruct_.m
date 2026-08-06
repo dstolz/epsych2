@@ -65,6 +65,29 @@ switch ifaceType
             SettingsFile = settingsFile, SamplingRate = samplingRate, ...
             ControllerType = controllerType);
 
+    case 'Teensy'
+        % Port is machine-specific: a protocol authored on one rig may name a
+        % port that does not exist here. It is restored as-authored, and
+        % AutoDetect (or the operator) corrects it at connect.
+        teensyPort = '';
+        if isfield(ifaceStruct, 'Port') && ~isempty(ifaceStruct.Port)
+            teensyPort = char(string(ifaceStruct.Port));
+        end
+        baudRate = 115200;
+        if isfield(ifaceStruct, 'BaudRate') && ~isempty(ifaceStruct.BaudRate)
+            baudRate = double(ifaceStruct.BaudRate);
+        end
+        autoDetect = false;
+        if isfield(ifaceStruct, 'AutoDetect') && ~isempty(ifaceStruct.AutoDetect)
+            autoDetect = logical(ifaceStruct.AutoDetect);
+        end
+        deviceSerial = '';
+        if isfield(ifaceStruct, 'DeviceSerial') && ~isempty(ifaceStruct.DeviceSerial)
+            deviceSerial = char(string(ifaceStruct.DeviceSerial));
+        end
+        interface = hw.Teensy(teensyPort, Connect = false, BaudRate = baudRate, ...
+            AutoDetect = autoDetect, DeviceSerial = deviceSerial);
+
     otherwise
         interface = hw.Software();
 end

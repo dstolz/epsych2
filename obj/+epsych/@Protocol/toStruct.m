@@ -41,7 +41,14 @@ function struct_out = toStruct(obj)
             ifaceStruct.Host = char(iface.Host);
         end
         if isprop(iface, 'Port') && ~isempty(iface.Port)
-            ifaceStruct.Port = double(iface.Port);
+            % 'Port' is a TCP port number on hw.Intan_RHX but a serial port
+            % name on hw.Teensy. Coercing everything to double would turn
+            % 'COM6' into its character codes, so preserve the backend's type.
+            if ischar(iface.Port) || isstring(iface.Port)
+                ifaceStruct.Port = char(iface.Port);
+            else
+                ifaceStruct.Port = double(iface.Port);
+            end
         end
         if isprop(iface, 'SettingsFile') && ~isempty(iface.SettingsFile)
             ifaceStruct.SettingsFile = char(iface.SettingsFile);
@@ -51,6 +58,15 @@ function struct_out = toStruct(obj)
         end
         if isprop(iface, 'ControllerType') && ~isempty(iface.ControllerType)
             ifaceStruct.ControllerType = char(iface.ControllerType);
+        end
+        if isprop(iface, 'BaudRate') && ~isempty(iface.BaudRate)
+            ifaceStruct.BaudRate = double(iface.BaudRate);
+        end
+        if isprop(iface, 'AutoDetect') && ~isempty(iface.AutoDetect)
+            ifaceStruct.AutoDetect = logical(iface.AutoDetect);
+        end
+        if isprop(iface, 'DeviceSerial') && ~isempty(iface.DeviceSerial)
+            ifaceStruct.DeviceSerial = char(iface.DeviceSerial);
         end
 
         rawModules = iface.Module;

@@ -12,6 +12,7 @@ Setup and orientation:
 Daily workflow:
 
 - [Protocol Designer User Guide](design/ProtocolDesigner_UserGuide.md) — building and compiling protocols (`.eprot` files)
+- [Teensy Trial Designer](teensy/teensy_TrialDesigner_UserGuide.md) — building an operant paradigm as a state machine, testing it against a simulated subject, and uploading it to the board
 - [RunExpt GUI Overview](overviews/RunExpt_GUI_Overview.md) — configuring subjects and running sessions
 - [Phase Selector](gui/PhaseSelector.md) — switching parameter sets between training stages
 - [Staircase Training GUI](gui/StaircaseTraining.md) — step rules and bounds for progressive training
@@ -49,6 +50,13 @@ Hardware layer (`hw`):
 - [hw.Parameter](hw/hw_Parameter.md) — parameter metadata, callbacks, expressions, per-trial dispatch flags
 - [hw.Intan_RHX](hw/hw_Intan_RHX.md) — Intan RHX TCP backend
 - [hw.VlcRecorder](hw/hw_VlcRecorder.md) — VLC webcam preview/recording backend
+
+Teensy trial programs (`teensy`) — building an operant paradigm as a state machine the board
+executes, rather than as firmware:
+
+- [Teensy Trial Designer user guide](teensy/teensy_TrialDesigner_UserGuide.md) — designing, simulating and uploading a paradigm
+- [teensy program model](teensy/teensy_Program_Model.md) — the classes, validation, compiler and simulator
+- [Teensy program wire protocol](hw/hw_Teensy_Program_Protocol.md) — the contract the firmware implements
 
 Utilities (`util`):
 

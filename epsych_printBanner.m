@@ -28,6 +28,7 @@ cm{end+1} = '--> <a href="matlab: epsych.calibrate">epsych.calibrate</a>        
 cm{end+1} = '--> <a href="matlab: stimgen.StimPlayer">stimgen.StimPlayer</a>         ... Sound stimulus player';
 %cm{end+1} = '--> <a href="matlab: epsych.BitMask.GUI">epsych.BitMask.GUI</a>         ... Bitmask table generator for behavioral experiments';
 cm{end+1} = '--> <a href="matlab: epsych.ProtocolDesigner">epsych.ProtocolDesigner</a>    ... Define parameters for experiments';
+cm{end+1} = '--> <a href="matlab: teensy.TrialDesigner">teensy.TrialDesigner</a>       ... Build operant paradigms that run on a Teensy';
 cm{end+1} = '--> <a href="matlab: epsych.RunExpt">epsych.RunExpt</a>             ... Behavior/Electrophysiology';
 
 fprintf('\n')

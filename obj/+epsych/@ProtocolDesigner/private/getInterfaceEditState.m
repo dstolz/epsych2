@@ -62,6 +62,12 @@ function [spec, options] = getInterfaceEditState(obj, iface)
             options.samplingRate = iface.SamplingRate;
             options.controllerType = iface.ControllerType;
 
+        case 'Teensy'
+            options.port = iface.Port;
+            options.baudRate = iface.BaudRate;
+            options.autoDetect = iface.AutoDetect;
+            options.deviceSerial = iface.DeviceSerial;
+
         otherwise
             error('Editing is not implemented for interface type %s.', ifaceType);
     end

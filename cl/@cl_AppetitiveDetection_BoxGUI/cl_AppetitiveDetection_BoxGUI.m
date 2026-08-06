@@ -170,7 +170,7 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
         function trigger_FreeReward(obj, ~, ~)
             % hw.Parameter PostUpdateFcn: deliver a free reward.
             vprintf(3,'Initiating Free Trial Delivery')
-            obj.Value = 1; % 100% depth
+            obj.Value = 1; 
         end
 
         function trigger_Shape(obj, value, RUNTIME)

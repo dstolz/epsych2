@@ -12,7 +12,8 @@ You do not instantiate `hw.Interface` directly. Instead, you work with a
 subclass such as a software-backed shim or a device-specific implementation.
 
 In this repository, the concrete subclasses are `hw.Software`,
-`hw.TDT_Synapse`, `hw.TDT_RPcox`, `hw.Intan_RHX`, and `hw.VlcRecorder`.
+`hw.TDT_Synapse`, `hw.TDT_RPcox`, `hw.Intan_RHX`, `hw.Teensy`, and
+`hw.VlcRecorder`.
 
 For a step-by-step guide to authoring a new hardware backend, see
 [hw_Interface_Tutorial.md](hw_Interface_Tutorial.md).
@@ -115,6 +116,13 @@ routes parameter I/O through the shared interface contract.
 `hw.Intan_RHX` communicates with the Intan RHX software over its TCP command
 server to control run mode and read/write named parameters. See
 [hw_Intan_RHX.md](hw_Intan_RHX.md).
+
+### `hw.Teensy`
+
+`hw.Teensy` connects to a Teensy 4.x microcontroller over USB serial using an
+ASCII line protocol. The board runs the trial state machine on-device, so
+response-to-reward latency does not inherit MATLAB timer jitter. See
+[hw_Teensy.md](hw_Teensy.md).
 
 ### `hw.VlcRecorder`
 

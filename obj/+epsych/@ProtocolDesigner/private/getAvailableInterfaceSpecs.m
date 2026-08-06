@@ -3,7 +3,8 @@ function specs = getAvailableInterfaceSpecs(~)
         localSoftwareSpec_(), ...
         localSerializedSynapseSpec_(), ...
         localSerializedRPcoxSpec_(), ...
-        localSerializedIntanRHXSpec_() ...
+        localSerializedIntanRHXSpec_(), ...
+        localSerializedTeensySpec_() ...
         };
     for specIdx = 1:numel(specs)
         specs{specIdx} = hw.InterfaceSpec.normalize(specs{specIdx});
@@ -52,5 +53,31 @@ function iface = localCreateSerializedIntanRHX_(opts)
     end
     iface = hw.Intan_RHX(char(opts.host), double(opts.port), Connect = false, ...
         SettingsFile = settingsFile, SamplingRate = samplingRate, ControllerType = controllerType);
+end
+
+function spec = localSerializedTeensySpec_()
+    spec = hw.InterfaceSpec.normalize(hw.Teensy.getCreationSpec());
+    spec.createFcn = @localCreateSerializedTeensy_;
+end
+
+function iface = localCreateSerializedTeensy_(opts)
+    port = '';
+    if isfield(opts, 'port') && ~isempty(opts.port)
+        port = char(opts.port);
+    end
+    baudRate = 115200;
+    if isfield(opts, 'baudRate') && ~isempty(opts.baudRate)
+        baudRate = double(opts.baudRate);
+    end
+    autoDetect = false;
+    if isfield(opts, 'autoDetect') && ~isempty(opts.autoDetect)
+        autoDetect = logical(opts.autoDetect);
+    end
+    deviceSerial = '';
+    if isfield(opts, 'deviceSerial') && ~isempty(opts.deviceSerial)
+        deviceSerial = char(opts.deviceSerial);
+    end
+    iface = hw.Teensy(port, Connect = false, BaudRate = baudRate, ...
+        AutoDetect = autoDetect, DeviceSerial = deviceSerial);
 end
 

@@ -17,6 +17,11 @@ iface = hw.Bpod('COM3', Connect=false);                  % offline, for Protocol
 iface = hw.Bpod('COM3', StateMatrixFcn='myTrialMatrix'); % run a state matrix per trial
 ```
 
+> **Status: under development.** `hw.Bpod` is still being validated and its
+> API may change without notice. In particular, the state-matrix encoder has
+> not yet been verified against real hardware — see
+> [Known gaps](#known-gaps) below before running it with an animal.
+
 ---
 
 ## What this backend deliberately does not do

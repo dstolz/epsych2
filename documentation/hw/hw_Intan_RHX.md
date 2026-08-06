@@ -11,6 +11,9 @@ used by every other hardware backend.
 
 **Source:** `obj/+hw/@Intan_RHX/Intan_RHX.m`
 
+> **Status: under development.** `hw.Intan_RHX` is still being validated and
+> its API may change without notice.
+
 ---
 
 ## Prerequisites

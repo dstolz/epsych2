@@ -48,8 +48,10 @@ Hardware layer (`hw`):
 - [hw.Interface Tutorial](hw/hw_Interface_Tutorial.md) — authoring a new hardware backend
 - [hw.Module](hw/hw_Module.md) — parameter grouping and JSON serialization
 - [hw.Parameter](hw/hw_Parameter.md) — parameter metadata, callbacks, expressions, per-trial dispatch flags
-- [hw.Intan_RHX](hw/hw_Intan_RHX.md) — Intan RHX TCP backend
+- [hw.Intan_RHX](hw/hw_Intan_RHX.md) — Intan RHX TCP backend (under development)
 - [hw.VlcRecorder](hw/hw_VlcRecorder.md) — VLC webcam preview/recording backend
+- [hw.Bpod](hw/hw_Bpod.md) — Bpod 0.5/0.6 state machine backend (under development)
+- [hw.Teensy](hw/hw_Teensy.md) — Teensy 4.x USB-serial backend (under development)
 
 Teensy trial programs (`teensy`) — building an operant paradigm as a state machine the board
 executes, rather than as firmware:

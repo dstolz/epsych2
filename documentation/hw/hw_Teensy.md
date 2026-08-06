@@ -16,6 +16,10 @@ iface = hw.Teensy('', AutoDetect=true);        % scan ports for the board
 iface = hw.Teensy('COM6', Connect=false);      % offline, for ProtocolDesigner
 ```
 
+> **Status: under development.** `hw.Teensy` and the
+> [EPsychTeensy firmware](../../firmware/EPsychTeensy/README.md) it pairs with
+> are still being validated and their APIs may change without notice.
+
 ---
 
 ## Construction

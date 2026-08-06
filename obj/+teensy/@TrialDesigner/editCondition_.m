@@ -30,7 +30,6 @@ working = condition;
 
 dlg = uifigure(Name = 'When should this transition fire?', ...
     Position = obj.centeredPosition_([520 470]), Resize = 'off', WindowStyle = 'modal');
-closer = onCleanup(@() localSafeDelete_(dlg));
 
 g = uigridlayout(dlg, [5 2]);
 g.RowHeight = {30, 30, '1x', 44, 34};
@@ -91,9 +90,16 @@ localRebuild_();
 dlg.CloseRequestFcn = @(~, ~) localFinish_(dlg, false);
 uiwait(dlg);
 
+% Delete the dialog here rather than from an onCleanup: the nested functions
+% below are wired as callbacks on the dialog's own children, so this workspace
+% stays alive exactly as long as the dialog does. An onCleanup would be waiting
+% on the deletion it was supposed to perform, and the dialog would never close.
 condition = [];
-if isvalid(dlg) && isequal(dlg.UserData, true)
-    condition = working;
+if isvalid(dlg)
+    if isequal(dlg.UserData, true)
+        condition = working;
+    end
+    delete(dlg);
 end
 
 
@@ -575,14 +581,5 @@ function localFinish_(dlg, accepted)
 if isvalid(dlg)
     dlg.UserData = accepted;
     uiresume(dlg);
-end
-end
-
-
-function localSafeDelete_(dlg)
-% localSafeDelete_(dlg)
-% Delete a dialog that may already be gone.
-if ~isempty(dlg) && isvalid(dlg)
-    delete(dlg);
 end
 end

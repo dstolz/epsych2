@@ -71,7 +71,7 @@ Stimulus objects (tones, noise, clicks, and more), a stimulus bank player, and s
 
 ### Hardware layers (`obj/+hw/` and `TDTfun/`)
 
-These folders handle hardware communication (TDT Synapse, TDT RPvds, Intan RHX, webcam recording, and a software-only test backend). As a user you normally do not touch this layer directly — the protocol file records which hardware your experiment uses.
+These folders handle hardware communication (TDT Synapse, TDT RPvds, Intan RHX, Teensy, Bpod, webcam recording, and a software-only test backend). As a user you normally do not touch this layer directly — the protocol file records which hardware your experiment uses. The TDT Synapse, Intan RHX, Teensy, and Bpod backends are under development.
 
 ### Task-specific code (`cl/`)
 

@@ -101,6 +101,9 @@ that should run without a physical device connection.
 
 ### `hw.TDT_Synapse`
 
+**Status: under development.** Still being validated; its API may change
+without notice.
+
 `hw.TDT_Synapse` connects EPsych to TDT Synapse through the Synapse API
 wrapper. It exposes Synapse modules and parameters through the common
 interface helpers and tracks current experiment metadata.
@@ -113,11 +116,17 @@ routes parameter I/O through the shared interface contract.
 
 ### `hw.Intan_RHX`
 
+**Status: under development.** Still being validated; its API may change
+without notice.
+
 `hw.Intan_RHX` communicates with the Intan RHX software over its TCP command
 server to control run mode and read/write named parameters. See
 [hw_Intan_RHX.md](hw_Intan_RHX.md).
 
 ### `hw.Teensy`
+
+**Status: under development.** Still being validated; its API may change
+without notice.
 
 `hw.Teensy` connects to a Teensy 4.x microcontroller over USB serial using an
 ASCII line protocol. The board runs the trial state machine on-device, so
@@ -125,6 +134,9 @@ response-to-reward latency does not inherit MATLAB timer jitter. See
 [hw_Teensy.md](hw_Teensy.md).
 
 ### `hw.Bpod`
+
+**Status: under development.** Still being validated; its API may change
+without notice.
 
 `hw.Bpod` connects to a Bpod 0.5/0.6 behavioral state machine over USB serial,
 speaking the Arduino Due firmware's byte protocol directly. The Bpod MATLAB

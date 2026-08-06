@@ -47,9 +47,9 @@ Hardware abstraction classes live here. All concrete interfaces inherit from `hw
 | `hw.Interface` | Abstract base: `connect`, `get_parameter`, `set_parameter`, `trigger`, parameter discovery helpers |
 | `hw.Module` | Parameter container associated with a named hardware module |
 | `hw.Parameter` | Single named parameter with value getter/setter, bounds, expressions, and callback chain |
-| `hw.TDT_Synapse` | TDT Synapse API backend; auto-discovers gizmo parameters on connect |
+| `hw.TDT_Synapse` | TDT Synapse API backend; auto-discovers gizmo parameters on connect (under development) |
 | `hw.TDT_RPcox` | RPvds/RPco.x backend; auto-discovers circuit tags on connect |
-| `hw.Intan_RHX` | Intan RHX TCP backend |
+| `hw.Intan_RHX` | Intan RHX TCP backend (under development) |
 | `hw.Software` | In-memory software backend for MATLAB-side parameters |
 | `hw.VlcRecorder` | Controls a VLC process for webcam preview/recording |
 | `hw.DeviceState` | Enumeration of device states (`Idle`, `Preview`, `Record`, ...) |
@@ -224,13 +224,13 @@ The callback names are configurable per session (RunExpt **Customize** dialog), 
 
 The codebase supports multiple hardware backends through a common `hw.Interface` API. Which backends are used is defined in the protocol: `epsych.Protocol.Interfaces` holds the configured `hw.Interface` objects, and `epsych.Runtime` connects them at run start. The choice of backend is transparent to most of the runtime.
 
-| Backend | Use case | Key support code |
-|---|---|---|
-| `hw.TDT_Synapse` | TDT Synapse experiments | `TDTfun/SynapseAPI/` |
-| `hw.TDT_RPcox` | Direct RPvds circuit control | `TDTRP`, `TDTfun/` |
-| `hw.Intan_RHX` | Intan RHX electrophysiology over TCP | — |
-| `hw.Software` | In-memory parameters; design-time store and hardware-free testing | — |
-| `hw.VlcRecorder` | Webcam preview/recording via VLC | — |
+| Backend | Use case | Key support code | Status |
+|---|---|---|---|
+| `hw.TDT_Synapse` | TDT Synapse experiments | `TDTfun/SynapseAPI/` | under development |
+| `hw.TDT_RPcox` | Direct RPvds circuit control | `TDTRP`, `TDTfun/` | — |
+| `hw.Intan_RHX` | Intan RHX electrophysiology over TCP | — | under development |
+| `hw.Software` | In-memory parameters; design-time store and hardware-free testing | — | — |
+| `hw.VlcRecorder` | Webcam preview/recording via VLC | — | — |
 
 Code that reads or writes parameters should always go through `hw.Interface` / `hw.Parameter` methods (or the `Runtime.find_parameter` / `Runtime.all_parameters` helpers) rather than calling backend-specific APIs directly.
 

@@ -128,9 +128,9 @@ uimenu(cmProtocol,'Text','Change Protocol File...','MenuSelectedFcn', @(~,~) sel
 self.H.subject_list.ContextMenu = cmProtocol;
 
 % ---------- Bottom control bar (Record/Run/Preview/Pause/Stop) ----------
-gBottom = uigridlayout(g,[1 6]);
+gBottom = uigridlayout(g,[1 7]);
 gBottom.Layout.Row = 2; gBottom.Layout.Column = 1;
-gBottom.ColumnWidth = {'fit','fit','1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
+gBottom.ColumnWidth = {'fit','fit','fit','1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
 gBottom.RowSpacing = 0; gBottom.ColumnSpacing = 8; gBottom.Padding = [0 0 0 0];
 
 % Webcam recording opt-in lives beside Run so it is set as part of starting
@@ -142,6 +142,15 @@ self.H.setup_record_video = uicheckbox(gBottom, ...
     'Tooltip', ['Record webcam video via VLC during the run (never during Preview).' newline ...
                 'Camera: View > Webcam Recorder Setup.  Save location: Customize > Paths.'], ...
     'ValueChangedFcn', @(h,~) setpref('ep_RunExpt_Video','EnableRecording',logical(h.Value)));
+
+% Button form of View > Live Webcam View (No Recording): same toggle, same
+% 'setup' disable-while-RUNNING behavior as the menu item (see buildUI.m
+% comment above mnu_vlc_liveview for why it must not open mid-run).
+self.H.setup_btn_liveview = uibutton(gBottom,'push','Text','Live View', ...
+    'Tag','setup_btn_liveview', ...
+    'Tooltip','Open a display-only webcam view (nothing is recorded). Same as View > Live Webcam View.', ...
+    'ButtonPushedFcn', @(~,~) self.ToggleVideoLiveView);
+self.H.liveviewBtnDefaultColor = self.H.setup_btn_liveview.BackgroundColor;
 
 % States, next to the recording opt-in, that an open VLC window is showing
 % the camera only. Deliberately amber rather than red: a red indicator beside

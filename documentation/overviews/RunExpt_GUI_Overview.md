@@ -84,7 +84,8 @@ Selecting a row prints the selected subject's details to the MATLAB command wind
 ### 3.2 Bottom control bar
 
 - **Record video** (checkbox): when checked, clicking **Run** also starts a webcam recording via VLC for the duration of the session; unchecked by default. The setting persists across sessions. Preview never records. See [5.1](#51-what-happens-when-you-click-run--preview) and [7) Customization](#7-customization).
-- **LIVE VIEW - NOT RECORDING** (amber text): shown only while a live webcam view is open (**View → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
+- **Live View** (button): button form of **View → Live Webcam View (No Recording)** — opens or closes the same display-only camera view described in [8) Menus reference](#8-menus-reference). Its label changes to **Close Live View** while a view is open, and it is disabled while a session is RUNNING for the same reason as the menu item.
+- **LIVE VIEW - NOT RECORDING** (amber text): shown only while a live webcam view is open (via either the **Live View** button or **View → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
 - **Run**: starts the experiment in Record mode.
 - **Preview**: starts the experiment in Preview mode; data are marked as a test run.
 - **Pause**: requests a pause via the runtime ModeChange event.

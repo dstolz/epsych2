@@ -60,8 +60,10 @@ for ifaceIdx = 1:numel(obj.Interfaces)
 end
 
 % Per-trial dispatch order: compiled parameters (visible, ~Read) filtered to
-% UpdateEveryTrial, in interface/module/parameter order. Mirrors
-% Protocol.compile_internal + epsych.Runtime.dispatchNextTrial.
+% UpdateEveryTrial, in interface/module/parameter order, then permuted so
+% expression parameters follow the parameters whose values they read.
+% Mirrors Protocol.compile_internal + epsych.Runtime.dispatchNextTrial,
+% which applies the same hw.Parameter.orderByDependencies permutation.
 dispatchParams = hw.Parameter.empty(1, 0);
 for ifaceIdx = 1:numel(obj.Interfaces)
     modules = obj.Interfaces(ifaceIdx).Module;
@@ -75,6 +77,7 @@ for ifaceIdx = 1:numel(obj.Interfaces)
         end
     end
 end
+dispatchParams = dispatchParams(hw.Parameter.orderByDependencies(dispatchParams, allParams));
 
 for ifaceIdx = 1:numel(obj.Interfaces)
     iface = obj.Interfaces(ifaceIdx);

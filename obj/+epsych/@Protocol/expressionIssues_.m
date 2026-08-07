@@ -56,9 +56,18 @@ for k = 1:numel(analysis)
             issues(end+1) = localIssue_(a.fullName, ...
                 sprintf('Reference "%s" matches more than one parameter; the first match is used silently', a.refs(r).token), 1);
         end
-        if a.refs(r).dispatchedAfter && a.refs(r).variesAcrossTrials
-            issues(end+1) = localIssue_(a.fullName, ...
-                sprintf('References %s, which is dispatched later each trial and varies across trials; the expression uses the previous trial''s value', a.refs(r).targetFullName), 1);
+        % The runtime dispatches in dependency order (hw.Parameter.
+        % orderByDependencies), so a reference dispatched after its reader
+        % survives only inside a reference cycle (or when resolution failed);
+        % any such ref reads the previous trial's value.
+        if a.refs(r).dispatchedAfter
+            if a.refs(r).variesAcrossTrials
+                issues(end+1) = localIssue_(a.fullName, ...
+                    sprintf('References %s, which is dispatched later each trial and varies across trials; the expression uses the previous trial''s value', a.refs(r).targetFullName), 1);
+            else
+                issues(end+1) = localIssue_(a.fullName, ...
+                    sprintf('References %s, which is dispatched later each trial; if its value changes at runtime (e.g. randomization enabled mid-session) the expression uses the previous trial''s value', a.refs(r).targetFullName), 0);
+            end
         end
     end
 

@@ -41,6 +41,34 @@ vprintf(4,'Update parameter tags')
 P = T.parameters(dispatchIdx);
 trialRow = T.trials(T.NextTrialID, dispatchIdx);
 
+% Dispatch in dependency order: a parameter whose Expression reads another
+% dispatched parameter's value (e.g. RespWinDelay referencing a randomized
+% StimDelay) must be assigned after that parameter, or the expression
+% evaluates against the previous trial's value.
+cache = obj.DispatchOrderCache_;
+cacheValid = numel(cache) >= subjectIdx ...
+    && numel(cache(subjectIdx).params) == numel(P) ...
+    && all(cache(subjectIdx).params == P);
+if ~cacheValid
+    % Resolution scope mirrors hw.Parameter.evaluateExpression_: every
+    % parameter of every module across all interfaces.
+    scope = hw.Parameter.empty(1, 0);
+    for k = 1:numel(obj.Interfaces)
+        modules = obj.Interfaces(k).Module;
+        for m = 1:numel(modules)
+            if ~isempty(modules(m).Parameters)
+                scope = [scope, modules(m).Parameters];
+            end
+        end
+    end
+    cache(subjectIdx).params = P;
+    cache(subjectIdx).order = hw.Parameter.orderByDependencies(P, scope);
+    obj.DispatchOrderCache_ = cache;
+end
+dispatchOrder = obj.DispatchOrderCache_(subjectIdx).order;
+P = P(dispatchOrder);
+trialRow = trialRow(dispatchOrder);
+
 % 3. Assign next trial parameter values to the parameter objects. 
 for j = 1:numel(P)
     vprintf(4,'Trial #%d: %s = %g', ...

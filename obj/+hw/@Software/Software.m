@@ -128,8 +128,10 @@ classdef Software < hw.Interface
 
     methods
         % trigger a hardware event
-        function result = trigger(obj,name)
-
+        function result = trigger(~,~)
+            % No hardware to fire; return the trigger timestamp so
+            % hw.Parameter.Trigger can stamp lastUpdated like other backends.
+            result = now;
         end
 
         % set new value to one or more hardware parameters

@@ -42,6 +42,8 @@ ui = epsych.ProtocolDesigner.openFromFile('path/to/file.eprot');
 - Parameter editing panel (`buildParametersTab`) — table columns: Interface / Module, Name, Type, Expression, Value, Min, Max, Random, Pair, Access, Unit, Visible, Trigger, Update Every Trial, Description
 - Options dialog (`buildOptionsTab` / open options callback)
 - Compiled preview dialog (`buildPreviewTab` / open preview callback)
+- Check Calculations dialog (`buildCheckCalculationsTab` / `refreshCheckCalculations`)
+- Parameter dependency graph figure (`onShowParameterDependencyGraph`, backed by `epsych.Protocol.dependencyGraph`)
 - Footer status messaging via `gui.StatusBar`
 
 Interface creation is data-driven: the "Add Interface" panel enumerates `hw.Interface` subclasses and builds each creation dialog from the class's static `getCreationSpec()` (see [../hw/hw_Interface_Tutorial.md](../hw/hw_Interface_Tutorial.md)). Interfaces are held in an offline/serialized form while editing; live hardware communication is not started by the designer.
@@ -71,10 +73,14 @@ Implemented in `onFigureKeyPress` and shown by `showKeyboardShortcuts`.
 - Ctrl+Shift+F add float parameter
 - Ctrl+Shift+N add integer parameter
 - Ctrl+Shift+R remove selected parameter
+- Ctrl+F focus the parameter Find box
+- Ctrl+H open Find and Replace for parameter names
 - Ctrl+S save
 - Ctrl+Shift+S save as
 - Ctrl+Shift+C compile
 - Ctrl+Shift+V open compiled preview dialog
+- Ctrl+Shift+K open check calculations dialog
+- Ctrl+Shift+G plot parameter dependency graph
 - Ctrl+Shift+O open options dialog
 - Ctrl+Shift+A add interface
 - Ctrl+Shift+M add module
@@ -82,6 +88,35 @@ Implemented in `onFigureKeyPress` and shown by `showKeyboardShortcuts`.
 - Ctrl+Shift+L toggle table view
 - Ctrl+Shift+Y cycle color mode
 - Ctrl+Shift+? show keyboard shortcuts help
+
+## Finding and Renaming Parameters
+
+The **Find** box beside the parameter table sets `ParamNameFilter`, which
+`getParameterTableData` applies while building rows, so `ParameterHandles` always matches
+what the user sees and every scope that reads it ("shown", remove, styles) stays consistent.
+`matchesParameterNameFilter` implements the match: case-insensitive substring by default,
+whole-name wildcard when the text contains `*` or `?`, and against the qualified
+`Module.Parameter` form when it contains a dot. `onFindParameterChanged` is wired to both
+`ValueChangedFcn` and `ValueChangingFcn` for live filtering.
+
+Find and Replace is split so the rename logic is testable without the dialog:
+
+- `planParameterNameReplacement(findText, replaceText, MatchCase=, WholeName=, Scope=)` returns
+  a struct array of proposed renames with `Status` set to `rename`, `conflict`, or `invalid`.
+  It never mutates the protocol. Uniqueness is tracked per module as the plan is built, so two
+  renames that would collide with each other are reported rather than applied.
+- `applyParameterNameReplacement(changes)` applies only the `rename` entries, then refreshes
+  expression values and the table.
+- `onFindReplaceParameterNames` / `refreshFindReplacePreview` are the dialog on top of those.
+
+Renaming rewrites dependent expressions through `rewriteExpressionReferences`, which must stay
+in step with `hw.Parameter.resolveExpressionContext`: bare sibling names, `Module.Parameter`,
+and either form suffixed with `.Min`/`.Max`/`.Value`/`.Values`. Qualified references are
+rewritten before bare ones so the new name — now preceded by `.` — is not rewritten twice.
+Nothing outside the protocol is updated; trial functions and custom GUIs that name parameters
+in code are the user's responsibility.
+
+Headless coverage: `tmp/smoke_test_parameter_find_replace.m`.
 
 ## Recent Export Features
 
@@ -108,6 +143,15 @@ If no compiled data exists, export is blocked with status + alert guidance.
 - `onAddModule`, `onRemoveModule`
 - `onAddParam`, `onRemoveParam`, `onParamEdited`, `onParamSelected`
 - `onReadHardwareParams` (Read HW Params button)
+
+### Find and rename
+
+- `onFindParameterChanged`, `setParameterNameFilter`, `focusParameterFind`
+- `planParameterNameReplacement`, `applyParameterNameReplacement`
+- `onFindReplaceParameterNames`, `refreshFindReplacePreview`
+- Private helpers: `matchesParameterNameFilter`, `getReplacementCandidates`,
+  `replaceInParameterName`, `renameParameterInPlace`, `rewriteExpressionReferences`,
+  `ensureParameterNameVisible`
 
 ### Compile and preview
 

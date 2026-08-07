@@ -222,15 +222,16 @@ When `Expression` is non-empty, the update sequence becomes:
 5. Clamping to `[Min, Max]`
 6. Parent write, `lastUpdated`, `PostUpdateFcn`
 
-The expression receives the value produced by step 2 as the variable `Value`,
-and must leave the result in `Value`. Sibling parameters in the same module are
+The expression must be a single expression — no assignments — whose own result
+becomes the effective value. The value produced by step 2 is available for
+reading as the variable `Value`. Sibling parameters in the same module are
 injected by their `Name`; cross-module parameters can be referenced as
 `ModuleName.ParamName`.
 
 ### Setting an expression
 
 ```matlab
-p.Expression = "Value = FrequencyHz * 2";
+p.Expression = "FrequencyHz * 2";
 ```
 
 Or assign it at construction time via `UserData` convention — but `Expression`
@@ -238,7 +239,7 @@ is a first-class property, so prefer setting it directly:
 
 ```matlab
 p = hw.Parameter(parent, Name='PeriodMs');
-p.Expression = "Value = 1000 / FrequencyHz";
+p.Expression = "1000 / FrequencyHz";
 ```
 
 Clear an expression by setting it back to `""`:
@@ -254,7 +255,7 @@ p.Expression = "";
 | Rule | Detail |
 |---|---|
 | Single statement | Semicolons (`;`) are not allowed. |
-| Assignment target | Assign your result to `Value`. If the expression does not contain an assignment, the return value of `eval` is ignored and `Value` retains the incoming value. |
+| No assignments | Assignments (`=`) are not allowed. The expression's own result becomes the new value; read the incoming value via the variable `Value` if needed (e.g., `"Value * 0.5"`). An assignment such as `"Value = X * 2"` raises an evaluation error at runtime. |
 | No recursion | An expression on parameter `P` cannot reference `P` itself. |
 | Sibling access | Other parameters in the **same module** are available by their `Name`. |
 | Cross-module access | Parameters on other modules are referenced as `ModuleName.ParamName`. These are rewritten to safe aliases before evaluation. |
@@ -273,17 +274,17 @@ Both `FrequencyHz` and `PeriodMs` live in the same module.
 freqParam  = hw.Parameter(parent, Name='FrequencyHz');
 periodParam = hw.Parameter(parent, Name='PeriodMs');
 
-periodParam.Expression = "Value = 1000 / FrequencyHz";
+periodParam.Expression = "1000 / FrequencyHz";
 
 freqParam.Value  = 500;   % sets FrequencyHz to 500
-periodParam.Value = 0;    % expression fires: Value = 1000/500 → 2
+periodParam.Value = 0;    % expression fires: 1000/500 → 2
 disp(periodParam.Value)   % 2
 ```
 
 #### Scale by a constant
 
 ```matlab
-gainParam.Expression = "Value = Value * 0.5";
+gainParam.Expression = "Value * 0.5";
 gainParam.Value = 10;   % stored as 5
 ```
 
@@ -292,7 +293,7 @@ gainParam.Value = 10;   % stored as 5
 `SpeakerModule` is a different module on the same hardware interface.
 
 ```matlab
-attParam.Expression = "Value = SpeakerModule.Gain - 6";
+attParam.Expression = "SpeakerModule.Gain - 6";
 attParam.Value = 0;   % expression reads SpeakerModule.Gain at write time
 ```
 
@@ -301,7 +302,7 @@ attParam.Value = 0;   % expression reads SpeakerModule.Gain at write time
 The expression runs first, then the evaluator clamps the result.
 
 ```matlab
-p.Expression  = "Value = FrequencyHz * scaleFactor";
+p.Expression  = "FrequencyHz * scaleFactor";
 p.EvaluatorFcn = @(obj, v) max(min(v, obj.Max), obj.Min);
 p.Min = 0;
 p.Max = 20000;
@@ -310,8 +311,46 @@ p.Max = 20000;
 #### Conditional expression
 
 ```matlab
-p.Expression = "Value = FrequencyHz * (AttenuationLevel > 0)";
+p.Expression = "FrequencyHz * (AttenuationLevel > 0)";
 ```
+
+---
+
+### Checking calculations before runtime
+
+The Protocol Designer's **Protocol → Check Calculations...** dialog
+(Ctrl+Shift+K) simulates how every Expression will evaluate at runtime — using
+the exact runtime evaluator, per-trial dispatch order, and Min/Max clamping —
+and reports errors, silent clamping, stale-reference hazards, and dormant
+expressions before an experiment runs. Programmatic equivalents:
+`epsych.Protocol.analyzeExpressions()` and `epsych.Protocol.dryRunExpressions()`.
+`epsych.Protocol.validate()` (and therefore `compile()`) also reports expression
+problems: expressions guaranteed to fail at runtime block compilation.
+
+---
+
+### Seeing which parameters depend on which
+
+The Protocol Designer's **Protocol → Plot Parameter Dependencies...** menu item
+(Ctrl+Shift+G) opens a new figure showing every parameter that references
+another parameter in its `Expression`, plus the parameters they reference.
+Arrows point from a referenced parameter to the parameter calculated from it,
+so following them left to right is the order values are derived.
+
+Node colour marks each parameter's role — calculated, plain value source,
+expression that never evaluates (multi-level or `Read` access), expression with
+a problem, or a reference that matches no parameter. Edge colour marks the
+hazards `Check Calculations` reports: a reference dispatched later in the trial
+(so the expression sees the *previous* trial's value), a reference cycle, an
+ambiguous `Module.Param` name, and a missing reference. A `*` after a label
+means that parameter's value varies across trials. Click any node for its
+expression, dispatch position, and warnings.
+
+Calculated parameters whose expressions reference nothing are not drawn; the
+dialog reports how many were left out.
+
+The programmatic equivalent is `epsych.Protocol.dependencyGraph()`, which
+returns the `digraph` plus node and edge metadata without opening a figure.
 
 ---
 
@@ -376,8 +415,13 @@ When you write `p.Value`, the class:
 
 ### Expression evaluation internals
 
-Expression evaluation is implemented in the private method `evaluateExpression_`
-and the file-local helper `localRewriteQualifiedRefs_`.
+Expression evaluation is implemented in the private method `evaluateExpression_`,
+a thin wrapper over the shared static methods
+`hw.Parameter.resolveExpressionContext` (reference rewriting and context
+construction, with a caller-supplied value lookup) and
+`hw.Parameter.evalExpressionInContext` (the `eval` step). The same core is used
+by the Protocol Designer's Check Calculations tool, so design-time previews and
+runtime evaluation cannot drift apart.
 
 - Qualified `ModuleName.ParamName` tokens are detected with `regexp` and
   replaced with safe variable aliases before `eval` is called.

@@ -1,11 +1,13 @@
 function smoke_test_parameter_scatter()
 % smoke_test_parameter_scatter()
 % Exercise gui.ParameterScatter: offline construction in a uifigure,
-% parameter list filtering (non-scalar/non-numeric fields excluded, Trial
+% parameter list filtering (non-scalar/non-text fields excluded, Trial
 % Number included), immediate updates on selection changes, color-by mode,
-% preference persistence across instances, the runtime/NewData event path
-% with invisible-parameter exclusion and BoxID filtering, the preallocated
-% empty-trial guard, and the legacy-figure hosting path with resizing.
+% categorical (text) parameters as an axis and as color-by, preference
+% persistence across instances, the runtime/NewData event path with
+% invisible-parameter exclusion and BoxID filtering, a declared categorical
+% parameter offered pre-session, the preallocated empty-trial guard, and
+% the legacy-figure hosting path with resizing.
 % Headless-safe: every GUI is closed before returning.
 %
 %   matlab -batch "run('tmp/smoke_test_parameter_scatter.m')"
@@ -15,7 +17,7 @@ run(fullfile(here,'..','epsych_startup.m'));
 addpath(here); % FakeScatterRuntime lives beside this test
 
 PREF_GROUP = 'epsych2_gui_ParameterScatter';
-TAGS = {'smokePS1','smokePS2','smokePS3','smokePS4','smokePS5','smokePS6','smokePS7'};
+TAGS = {'smokePS1','smokePS2','smokePS3','smokePS4','smokePS5','smokePS6','smokePS7','smokePS8'};
 cleanupObj = onCleanup(@() cleanupPrefs(PREF_GROUP, TAGS));
 
 % 1. Offline DATA in a uifigure: parameter list + defaults ----------------
@@ -26,7 +28,7 @@ items = S.DropdownX.Items;
 assert(ismember('Trial Number', items), 'Trial Number missing from parameter list');
 assert(all(ismember({'FreqHz','LevelDB','RespCode'}, items)), 'numeric fields missing');
 assert(~ismember('ArrParam', items), 'array-valued field should be excluded');
-assert(~ismember('NoteStr', items), 'char field should be excluded');
+assert(ismember('NoteStr', items), 'scalar char field should be offered as categorical');
 assert(~ismember('computerTimestamp', items), 'datetime field should be excluded');
 assert(strcmp(S.XParameter,'Trial Number'), 'default X should be Trial Number (got %s)', S.XParameter);
 assert(numel(S.ScatterH.XData) == 20, 'scatter should show all 20 trials');
@@ -49,6 +51,27 @@ S.ColorParameter = '(none)';
 assert(size(S.ScatterH.CData,2) == 3 && size(S.ScatterH.CData,1) == 1, ...
     'flat mode should use a single RGB marker color');
 fprintf('PASS: color-by parameter and back to flat color\n');
+
+% 3b. Categorical parameter as an axis and as color-by --------------------
+cats = {'Catch','Reminder','Stim'}; % alphabetical: matches assigned tick order
+S.XParameter = 'NoteStr';
+S.YParameter = 'FreqHz';
+assert(isequal(S.AxesH.XTick, 1:numel(cats)), 'categorical X should tick one integer per category');
+assert(isequal(cellstr(S.AxesH.XTickLabel(:)), cats(:)), ...
+    'categorical X tick labels should list the distinct values in assigned order');
+assert(all(ismember(S.ScatterH.XData, 1:numel(cats))), 'categorical X should plot as integer codes');
+assert(strcmp(S.AxesH.XLabel.String,'NoteStr'), 'x label should follow categorical selection');
+
+S.XParameter = 'Trial Number'; % back to numeric: ticks/limits must reset to auto
+assert(strcmp(S.AxesH.XTickMode,'auto'), 'X axis should return to auto ticks for a numeric parameter');
+
+S.ColorParameter = 'NoteStr';
+assert(isequal(S.ColorbarH.Ticks, 1:numel(cats)), 'categorical colorbar should tick once per category');
+assert(isequal(cellstr(S.ColorbarH.TickLabels(:)), cats(:)), ...
+    'categorical colorbar labels should list the distinct values');
+assert(strcmp(S.ColorbarH.Label.String,'NoteStr'), 'colorbar label should name the categorical parameter');
+S.ColorParameter = '(none)';
+fprintf('PASS: categorical parameter as axis and color-by\n');
 
 % 4. Preferences persist across instances --------------------------------
 S.DropdownX.Value = 'LevelDB';
@@ -177,6 +200,17 @@ assert(strcmp(S7.ColorParameter,'(none)'), ...
 delete(S7); close(f6);
 fprintf('PASS: user selection outranks a staged selection\n');
 
+% 10. Declared categorical parameter offered before the first trial -------
+R10 = FakeScatterRuntime;
+R10.TRIALS = struct('DATA',struct('TrialID',[],'FreqHz',[]), ...
+    'Subject',struct('Name','SMOKE'),'BoxID',1);
+f7 = uifigure('Visible','off','Tag','SmokeScatter7');
+S8 = gui.ParameterScatter(R10, f7, PreferenceTag='smokePS8');
+assert(ismember('TrialTypeName', S8.DropdownX.Items), ...
+    'declared Type=String parameter should be selectable before the first trial');
+delete(S8); close(f7);
+fprintf('PASS: declared categorical parameter offered pre-session\n');
+
 fprintf('smoke_test_parameter_scatter: ALL PASS\n');
 end
 
@@ -184,6 +218,7 @@ end
 function D = makeData(n)
 % Per-trial DATA struct array shaped like RUNTIME.TRIALS.DATA.
 D = struct([]);
+cats = {'Stim','Catch','Reminder'};
 for k = 1:n
     D(k).TrialID = mod(k-1,4)+1;      % schedule ID, deliberately non-chronological
     D(k).RespCode = uint32(2^mod(k,3));
@@ -191,7 +226,7 @@ for k = 1:n
     D(k).LevelDB = 30 + 5*mod(k,7);
     D(k).computerTimestamp = datetime('now') + seconds(k);
     D(k).ArrParam = 1:4;              % non-scalar: must be excluded
-    D(k).NoteStr = 'abc';             % non-numeric: must be excluded
+    D(k).NoteStr = cats{mod(k-1,numel(cats))+1}; % scalar text: categorical
     D(k).isTest = false;
 end
 end

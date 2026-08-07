@@ -1,6 +1,6 @@
 # gui.PhaseSelector
 
-![gui.PhaseSelector component: a phase dropdown with Load, Info, and Save buttons, plus a description label](images/PhaseSelector.png)
+![gui.PhaseSelector component: a phase dropdown with Load and Save buttons, plus a description label](images/PhaseSelector.png)
 
 `gui.PhaseSelector` is a GUI component for switching between named **experiment phases** — saved parameter sets stored as JSON files. It lets an operator move a subject between training stages (for example, shaping → detection → psychometric testing) without editing the protocol or restarting the session.
 
@@ -16,17 +16,16 @@ Because phases are plain JSON, they can be inspected and edited in any text edit
 
 ## Using the phase selector (operators)
 
-The component appears in task GUIs (such as the appetitive detection GUI) as a dropdown with three buttons, shown in the screenshot above:
+The component appears in task GUIs (such as the appetitive detection GUI) as a dropdown with two buttons, shown in the screenshot above:
 
-- **Dropdown** — pick a phase by name. Selecting alone does not change anything.
-- **Info** — preview what the selected phase would change: a table of parameters with their current values and the values the phase would apply.
+- **Dropdown** — pick a phase by name. Selecting a phase does not change anything, but prints a table of parameters with their current values and the values the phase would apply to the command window, so you can sanity-check the change before loading it.
 - **Load** — apply the selected phase: parameter values from the file are written to the live parameters and synchronized into the trial table.
 - **Save** — snapshot the current parameter values to a new phase JSON file (you are prompted for a name).
 
 Typical workflow:
 
 1. During setup, get each training stage's parameters right once, then **Save** a phase file per stage.
-2. During later sessions, pick the subject's stage from the dropdown, press **Info** to sanity-check the changes, then **Load**.
+2. During later sessions, pick the subject's stage from the dropdown, check the printed parameter changes in the command window, then **Load**.
 
 Loads are logged on the runtime (`RUNTIME.Phase`) with a timestamp and source path, so the session record shows which phase was active.
 
@@ -34,17 +33,17 @@ Loads are logged on the runtime (`RUNTIME.Phase`) with a timestamp and source pa
 
 ```matlab
 ps = gui.PhaseSelector(RUNTIME, phaseDir);  % phaseDir contains *.json phase files
-h  = ps.createGUI(parentContainer);          % dropdown + Load/Info/Save buttons
+h  = ps.createGUI(parentContainer);          % dropdown + Load/Save buttons
 ```
 
-Individual controls can also be placed separately (`addPhaseSelectDropdown`, `addLoadPhaseButton`, `addInfoPhaseButton`, `addSavePhaseButton`, `addDescriptionLabel`) when the host GUI needs a custom layout.
+Individual controls can also be placed separately (`addPhaseSelectDropdown`, `addLoadPhaseButton`, `addSavePhaseButton`, `addDescriptionLabel`) when the host GUI needs a custom layout.
 
 Key behavior:
 
 - `PhasePath` is observable; assigning a new directory rescans for `*.json` files and repopulates the dropdown.
+- `onPhaseSelectionChanged` calls `showPhaseInfo` automatically whenever the dropdown selection changes to a real phase, printing the current-vs-phase comparison table (built by `computePhaseChanges`) to the command window.
 - `loadPhaseParameters` delegates to `RUNTIME.readParametersJSON`, which resolves each named parameter through `RUNTIME.find_parameter` and assigns its value; `RUNTIME.updateTrialsFromParameters` then pushes writable values into the trial table.
 - `writePhaseParameters` delegates to `RUNTIME.writeParametersJSON`.
-- `computePhaseChanges` builds the current-vs-phase comparison table used by **Info**.
 
 Keep the handle returned by the constructor on your GUI object so the component is not garbage-collected, and follow the cleanup guidance in [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md).
 

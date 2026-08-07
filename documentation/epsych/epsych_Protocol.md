@@ -69,6 +69,7 @@ Compile and serialization helpers normalize parameter values and infer serialize
 - Parameters: `addParameter`, `removeParameter`
 - Options: `setOption`
 - Compile/validate: `compile`, `validate`, `needsCompile`, `estimateDuration`
+- Expressions: `analyzeExpressions`, `dryRunExpressions`, `dependencyGraph`
 - Serialization: `save`, `load`, `toStruct`, `fromStruct`, `toJSON`, `fromJSON`
 
 ## Usage Example

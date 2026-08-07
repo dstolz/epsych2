@@ -4,7 +4,7 @@ function result = evaluateExpression_(obj, currentValue)
 % Called after randomization and before EvaluatorFcn in set.Value.
 %
 % The expression runs with:
-%   - Value  - the incoming currentValue (output variable).
+%   - Value  - the incoming currentValue (after randomization).
 %   - Sibling parameter names (same module) as variables with their current Value.
 %   - Cross-module parameters available as ModuleName.ParamName syntax,
 %     which is rewritten to a valid alias before evaluation.
@@ -12,11 +12,15 @@ function result = evaluateExpression_(obj, currentValue)
 %     (cross-module), where Prop is one of: Min, Max, Values, Value.
 %     These are rewritten to flat aliases before evaluation.
 %
+% The reference resolution and evaluation are shared with design-time tools
+% via hw.Parameter.resolveExpressionContext / evalExpressionInContext; this
+% wrapper supplies the live runtime lookups (current parameter Values).
+%
 % Parameters:
 %   currentValue - The incoming value after randomization.
 %
 % Returns:
-%   result - The value of `Value` after expression evaluation.
+%   result - The expression's result.
 expressionText = strtrim(char(obj.Expression));
 if isempty(expressionText)
     result = currentValue;
@@ -34,58 +38,16 @@ if numel(obj.Values) > 1
     return
 end
 
-if contains(expressionText, ';')
-    error('hw:Parameter:ExpressionMultiStatement', ...
-        'Expression for parameter "%s" must be a single statement.', obj.Name);
-end
+% Lookups run inside the resolver's try/catch, so a failure while gathering
+% siblings or interface parameters degrades to a partial context with a
+% logged warning rather than aborting evaluation.
+[rewrittenText, context] = hw.Parameter.resolveExpressionContext( ...
+    expressionText, currentValue, obj, ...
+    @() obj.Module.Parameters, ...
+    @() localCollectAllParams_(obj.Module), ...
+    @(p) p.Value);
 
-% Build context: Value holds incoming value; siblings in same module by name
-context = struct('Value', currentValue);
-try
-    thisModule = obj.Module;
-    siblings = thisModule.Parameters;
-    for idx = 1:numel(siblings)
-        sib = siblings(idx);
-        if isequal(sib, obj)
-            continue
-        end
-        varName = matlab.lang.makeValidName(sib.Name);
-        sibVal = sib.Value;
-        if isnumeric(sibVal) || islogical(sibVal) || ischar(sibVal) || isstring(sibVal)
-            context.(varName) = sibVal;
-        end
-    end
-
-    % Collect all parameters across the interface once for both rewrite passes
-    allParams = localCollectAllParams_(thisModule);
-
-    % Rewrite property access (Param.Prop, ModuleName.Param.Prop) before module
-    % references so that 3-level chains are not consumed by the 2-level rewriter.
-    [expressionText, context] = localRewritePropertyRefs_(siblings, allParams, expressionText, context);
-
-    % Rewrite qualified value references (ModuleName.ParamName) to aliases
-    [expressionText, context] = localRewriteQualifiedRefs_(allParams, expressionText, context);
-catch ME
-    vprintf(0, 1, 'hw:Parameter:ExpressionContextWarning: could not fully build context for "%s": %s', ...
-        obj.Name, ME.message);
-end
-
-% Load context variables into local workspace
-names = fieldnames(context);
-for idx = 1:numel(names)
-    eval([names{idx} ' = context.(names{idx});']); %#ok<EVLDIR>
-end
-
-% Evaluate; expression is a single statement that produces a result
-Value = currentValue; %#ok<NASGU>
-try
-    exprResult__ = eval(expressionText); %#ok<EVLDIR>
-catch ME
-    error('hw:Parameter:ExpressionError', ...
-        'Expression evaluation failed for parameter "%s": %s', obj.Name, ME.message);
-end
-
-result = exprResult__;
+result = hw.Parameter.evalExpressionInContext(rewrittenText, context, obj.Name);
 
 
 function allParams = localCollectAllParams_(thisModule)
@@ -117,96 +79,4 @@ function allParams = localCollectAllParams_(thisModule)
             end
         end
     catch
-    end
-
-
-function [expressionText, context] = localRewritePropertyRefs_(siblings, allParams, expressionText, context)
-% Rewrite Param.Prop and ModuleName.Param.Prop tokens to flat aliases and
-% populate context with the referenced property value.
-% Recognized properties: Min, Max, Values, Value.
-% 3-level (cross-module) patterns are processed first to prevent the
-% 2-level rewriter from consuming the ModuleName.Param prefix.
-    ALLOWED_PROPS = {'Min', 'Max', 'Values', 'Value'};
-
-    % Pass 1: 3-level cross-module  ModuleName.Param.Prop
-    [tokens, starts, ends] = regexp(expressionText, ...
-        '(?<!\.)\<([A-Za-z]\w*)\.([A-Za-z]\w*)\.([A-Za-z]\w*)\>', ...
-        'tokens', 'start', 'end');
-
-    for idx = numel(starts):-1:1
-        token = tokens{idx};
-        moduleName = token{1};
-        paramName  = token{2};
-        propName   = token{3};
-
-        if ~ismember(propName, ALLOWED_PROPS)
-            continue
-        end
-
-        matchMask = arrayfun(@(p) strcmp(p.Module.Name, moduleName) && strcmp(p.Name, paramName), allParams);
-        matches = allParams(matchMask);
-        if isempty(matches)
-            continue
-        end
-
-        alias = matlab.lang.makeValidName(sprintf('exprModProp_%s_%s_%s', moduleName, paramName, propName));
-        context.(alias) = matches(1).(propName);
-        expressionText = [expressionText(1:starts(idx)-1), alias, expressionText(ends(idx)+1:end)];
-    end
-
-    % Pass 2: 2-level sibling  Param.Prop
-    sibNames = arrayfun(@(p) p.Name, siblings, 'UniformOutput', false);
-
-    [tokens, starts, ends] = regexp(expressionText, ...
-        '(?<!\.)\<([A-Za-z]\w*)\.([A-Za-z]\w*)\>', ...
-        'tokens', 'start', 'end');
-
-    for idx = numel(starts):-1:1
-        token = tokens{idx};
-        paramName = token{1};
-        propName  = token{2};
-
-        if ~ismember(propName, ALLOWED_PROPS)
-            continue
-        end
-
-        sibIdx = find(strcmp(sibNames, paramName), 1);
-        if isempty(sibIdx)
-            continue
-        end
-
-        alias = matlab.lang.makeValidName(sprintf('exprSibProp_%s_%s', paramName, propName));
-        context.(alias) = siblings(sibIdx).(propName);
-        expressionText = [expressionText(1:starts(idx)-1), alias, expressionText(ends(idx)+1:end)];
-    end
-
-
-function [expressionText, context] = localRewriteQualifiedRefs_(allParams, expressionText, context)
-% Rewrite ModuleName.ParamName tokens in expressionText to valid variable aliases
-% and populate context with the current Value of each referenced cross-module parameter.
-    [tokens, starts, ends] = regexp(expressionText, ...
-        '(?<!\.)\<([A-Za-z]\w*)\.([A-Za-z]\w*)\>', 'tokens', 'start', 'end');
-
-    if isempty(tokens)
-        return
-    end
-
-    for idx = numel(starts):-1:1
-        token = tokens{idx};
-        moduleName = token{1};
-        paramName  = token{2};
-
-        matchMask = arrayfun(@(p) strcmp(p.Module.Name, moduleName) && strcmp(p.Name, paramName), allParams);
-        matches = allParams(matchMask);
-        if isempty(matches)
-            continue
-        end
-
-        param = matches(1);
-        alias = matlab.lang.makeValidName(sprintf('exprMod_%s_%s', moduleName, paramName));
-        paramVal = param.Value;
-        if isnumeric(paramVal) || islogical(paramVal) || ischar(paramVal) || isstring(paramVal)
-            context.(alias) = paramVal;
-        end
-        expressionText = [expressionText(1:starts(idx)-1), alias, expressionText(ends(idx)+1:end)];
     end

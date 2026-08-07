@@ -1,9 +1,10 @@
 function build_graphical_(obj)
 % build_graphical_(obj)
 % Create the widget grid for type="graphical": one (label, widget) pair per
-% monitored parameter inside a scrollable uigridlayout. Called at
-% construction and again whenever the parameter list changes
-% (add_parameter/remove_parameter), replacing any previous grid.
+% visible parameter inside a scrollable uigridlayout. Called at construction
+% and again whenever the parameter list, its visibility, or its order changes
+% (add_parameter/remove_parameter/set_parameter_visible/move_parameter),
+% replacing any previous grid.
 %
 % Widget selection per parameter comes from resolve_style_ (explicit Styles
 % entry, else "auto"). Parameters fill down each column first, so a
@@ -19,7 +20,7 @@ if ~isempty(obj.handle) && isvalid(obj.handle)
     delete(obj.handle);
 end
 
-P = obj.Parameters;
+P = obj.VisibleParameters;
 n = numel(P);
 nCols = max(1, min(obj.LayoutColumns, max(n,1)));
 nRows = max(1, ceil(n / nCols));
@@ -51,7 +52,8 @@ switch obj.LabelPosition
 end
 
 W = repmat(struct('Parameter',[],'Style',"label",'ValueHandle',[], ...
-    'LabelHandle',[],'LastValue',[],'LastText',"",'HighlightOn',false), 1, n);
+    'LabelHandle',[],'CellHandle',[],'LastValue',[],'LastText',"", ...
+    'HighlightOn',false), 1, n);
 
 for i = 1:n
     p = P(i);
@@ -129,11 +131,15 @@ for i = 1:n
     W(i).Style = style;
     W(i).ValueHandle = hVal;
     W(i).LabelHandle = hLabel;
+    W(i).CellHandle = hCell;
 end
 
 obj.Widgets = W;
 obj.handle = g;
 obj.suppressHighlight_ = true;
+
+% widgets are new objects, so the shared right-click menu must be re-attached
+obj.attach_context_menu_();
 
 % re-arm self-deletion on the replacement grid
 obj.destroyListener_ = listener(g,'ObjectBeingDestroyed',@(~,~) delete(obj));

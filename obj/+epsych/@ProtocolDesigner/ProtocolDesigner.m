@@ -54,6 +54,21 @@ classdef ProtocolDesigner < handle
         BtnRemoveParam matlab.ui.control.Button
         BtnRefreshParams matlab.ui.control.Button
         BtnReadHWParams matlab.ui.control.Button
+        EditFindParam matlab.ui.control.EditField
+        ParamNameFilter (1,:) char = ''  % Find box text narrowing the parameter table
+
+        FindReplaceFigure matlab.ui.Figure
+        FindReplaceFind matlab.ui.control.EditField
+        FindReplaceWith matlab.ui.control.EditField
+        FindReplaceMatchCase matlab.ui.control.CheckBox
+        FindReplaceWholeName matlab.ui.control.CheckBox
+        FindReplaceScope matlab.ui.control.DropDown
+        FindReplaceTable matlab.ui.control.Table
+        FindReplaceSummary matlab.ui.control.Label
+        FindReplaceApply matlab.ui.control.Button
+        % Rename plan last shown in the Find and Replace dialog.
+        FindReplaceChanges struct = struct('Parameter', {}, 'Module', {}, ...
+            'Location', {}, 'OldName', {}, 'NewName', {}, 'Status', {}, 'Message', {})
 
         EditTrialFunc matlab.ui.control.EditField
         CheckCompileAtRuntime matlab.ui.control.CheckBox
@@ -63,6 +78,17 @@ classdef ProtocolDesigner < handle
         BtnCompile matlab.ui.control.Button
         LabelCompileSummary matlab.ui.control.Label
         TableCompiled matlab.ui.control.Table
+
+        CheckCalcRunButton matlab.ui.control.Button
+        CheckCalcComboLabel matlab.ui.control.Label
+        CheckCalcStatusLabel matlab.ui.control.Label
+        CheckCalcIssuesTable matlab.ui.control.Table
+        CheckCalcInputsPanel matlab.ui.container.Panel
+        CheckCalcAnalysisArea matlab.ui.control.TextArea
+        CheckCalcTrialsTable matlab.ui.control.Table
+        % One row per sweep input variable: identifier + label/edit-field handles
+        CheckCalcInputFields struct = struct('identifier', {}, 'label', {}, 'field', {})
+        CheckCalcReport struct = struct()  % last sweepExpressions report shown in the dialog
 
         SelectedInterfaceRow (1,1) double = 0
         SelectedModuleRow (1,1) double = 0
@@ -116,6 +142,8 @@ classdef ProtocolDesigner < handle
         function onFigureKeyPress(obj, evt)
             % onFigureKeyPress — Handle ProtocolDesigner keyboard shortcuts.
             % Ctrl+1..Ctrl+9: Change selected parameter type
+            % Ctrl+F: Focus the parameter Find box
+            % Ctrl+H: Open Find and Replace for parameter names
             % Ctrl+Shift+B: Add boolean parameter
             % Ctrl+Shift+T: Add boolean parameter with trigger=true
             % Ctrl+Shift+F: Add float parameter
@@ -125,6 +153,8 @@ classdef ProtocolDesigner < handle
             % Ctrl+Shift+Y: Cycle Color By setting
             % Ctrl+Shift+C: Compile protocol
             % Ctrl+Shift+V: Open compiled preview dialog
+            % Ctrl+Shift+K: Open check calculations dialog
+            % Ctrl+Shift+G: Plot parameter dependency graph
             % Ctrl+Shift+O: Open options dialog
             % Ctrl+Shift+A: Add interface
             % Ctrl+Shift+M: Add module
@@ -175,7 +205,11 @@ classdef ProtocolDesigner < handle
                 case "f"
                     if hasShift
                         obj.onAddParamWithDefaults('float', false);
+                    else
+                        obj.focusParameterFind();
                     end
+                case "h"
+                    obj.onFindReplaceParameterNames();
                 case "s"
                     if hasShift
                         obj.onSaveAs();
@@ -197,6 +231,14 @@ classdef ProtocolDesigner < handle
                 case "v"
                     if hasShift
                         obj.onOpenCompiledPreviewDialog();
+                    end
+                case "k"
+                    if hasShift
+                        obj.onOpenCheckCalculationsDialog();
+                    end
+                case "g"
+                    if hasShift
+                        obj.onShowParameterDependencyGraph();
                     end
                 case "o"
                     if hasShift

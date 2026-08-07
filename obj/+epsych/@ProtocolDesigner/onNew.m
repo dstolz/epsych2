@@ -9,6 +9,7 @@ function onNew(obj)
     obj.Protocol = epsych.Protocol();
     obj.CurrentProtocolPath = '';
     obj.IsModified_ = false;
+    obj.setParameterNameFilter('');
     obj.refreshUI();
     obj.setStatus('New protocol created', ...
         'Add interfaces and parameters to build your protocol.');

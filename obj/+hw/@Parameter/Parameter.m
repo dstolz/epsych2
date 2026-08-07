@@ -84,9 +84,12 @@ classdef Parameter < matlab.mixin.SetGet
         UserData % general-purpose field for storing any additional data related to the parameter
 
         % MATLAB expression string evaluated just before EvaluatorFcn to derive Value.
-        % The expression must return to the variable `Value`. Other parameters in the
-        % same module are available by their Name; cross-module parameters can be
-        % referenced as ModuleName.ParamName (e.g., "Value = FreqHz * 2").
+        % Must be a single expression (no assignments, no ';') whose result becomes
+        % the new value, e.g. "1000 / FreqHz". The incoming value is available as the
+        % variable `Value`; same-module parameters by their Name; cross-module
+        % parameters as ModuleName.ParamName; properties as Param.Prop or
+        % ModuleName.Param.Prop (Prop: Min, Max, Values, Value). Skipped at runtime
+        % when the parameter has more than one design-time level (numel(Values) > 1).
         % Leave empty ("") to skip expression evaluation.
         Expression (1,1) string = ""
     end
@@ -118,6 +121,12 @@ classdef Parameter < matlab.mixin.SetGet
 
     methods (Static)
         values = normalizeValues(value) % convert any value type to a uniform 1xN cell array of trial levels
+
+        % Shared expression-evaluation core used by the runtime (set.Value) and
+        % design-time tools (Protocol Designer calculation checker)
+        [rewrittenText, context, info] = resolveExpressionContext(expressionText, currentValue, targetParam, siblingsFcn, allParamsFcn, valueFcn)
+        result = evalExpressionInContext(rewrittenText, context, targetName)
+        order = orderByDependencies(dispatchParams, allParams) % permutation placing expression parameters after the dispatched parameters whose values they read
     end
 
     methods
@@ -403,6 +412,15 @@ classdef Parameter < matlab.mixin.SetGet
                     'Max must be finite when parameter "%s" is random.', obj.Name);
             end
             obj.Max = maxValue;
+        end
+
+        function [value, wasClamped] = clampValue(obj, value)
+            % [value, wasClamped] = obj.clampValue(value)
+            % Preview how a candidate value would be clamped by set.Value,
+            % without assigning it. Used by design-time calculation checks.
+            original = value;
+            value = obj.clamp_value_(value);
+            wasClamped = ~isequaln(original, value);
         end
     end
 

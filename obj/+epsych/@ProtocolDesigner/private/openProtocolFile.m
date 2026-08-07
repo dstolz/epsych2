@@ -18,5 +18,6 @@ function openProtocolFile(obj, filePath)
     obj.addRecentProtocolPath(filePath);
     obj.refreshRecentProtocolMenu();
     obj.IsModified_ = false;
+    obj.setParameterNameFilter('');
     obj.refreshUI();
 end

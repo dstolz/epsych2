@@ -600,3 +600,35 @@ if ishandle(hStimDelayMin.h_label)
     hStimDelayMin.h_label.Enable = minMaxState;
 end
 end
+
+
+
+        function create_onlineplot(obj,varargin)
+            % Create separate legacy figure for online plotting because
+            % it's much faster than uifigure
+            % Axes for Behavior Plot --------------------------------------------
+            f = findobj('type','figure','-and','name','cl_AppetitiveDetection_OnlinePlot');
+            if isempty(f)
+                f = figure(Name = 'Online Plot', ...
+                    Tag = 'cl_AppetitiveDetection_OnlinePlot');
+            else
+                figure(f);
+                return
+            end
+
+            p = obj.h_figure.Position;
+            f.Position(1) = p(1);
+            f.Position(2) = p(2) + p(4) + 100;
+            f.Position(3) = p(3);
+            f.Position(4) = 150;
+            f.ToolBar = "none";
+            f.MenuBar = "none";
+            f.NumberTitle = "off";
+            axesBehavior = axes(f);
+            gui.OnlinePlot(R,'OnlinePlotBits',axesBehavior,1);
+
+            obj.h_OnlinePlot = f;
+
+
+        end
+

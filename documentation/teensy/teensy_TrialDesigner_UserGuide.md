@@ -3,17 +3,23 @@
 Build an operant conditioning paradigm as a state machine, test it against a simulated subject,
 and load it onto a Teensy that runs the contingency with sub-millisecond timing.
 
-Three ways in:
-
-- **Protocol Designer** → `Interface > Teensy Trial Designer...` — opens bound to the protocol's
-  Teensy interface, which is what enables Upload and Insert Into Protocol.
-- **RunExpt** → `View > Teensy Trial Designer...` — opens bound to the running session, in live
-  monitor mode.
-- The command line:
+It opens from the command line, as a standalone window:
 
 ```matlab
 teensy.TrialDesigner
 teensy.TrialDesigner(teensy.Templates.get("GoNoGoDetection"))
+```
+
+Pass a `hw.Teensy` interface to enable Upload and Insert Into Protocol:
+
+```matlab
+teensy.TrialDesigner(Interface = iface)
+```
+
+Pass an `epsych.Runtime` to open in live monitor mode, bound to a running session:
+
+```matlab
+teensy.TrialDesigner(runtimeObj)
 ```
 
 In live monitor mode the designer follows the session: it highlights the state the board is

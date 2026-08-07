@@ -5,7 +5,8 @@ function smoke_test_parameter_monitor()
 % change highlight lifecycle), runtime add/remove with rebuild, layout
 % variants, table-mode render skipping when values are unchanged, unique
 % per-instance timers, self-deletion when the display is destroyed, runtime
-% poll-period changes, and legacy-figure text mode.
+% poll-period changes, legacy-figure text mode, and the right-click
+% show/hide + reorder menu with its cross-session persistence.
 % Headless-safe: every GUI is closed and every timer deleted before returning.
 %
 %   matlab -batch "run('tmp/smoke_test_parameter_monitor.m')"
@@ -153,9 +154,167 @@ assert(~isvalid(M5), 'monitor should self-delete with the hosting figure');
 assert(isempty(timerfindall('Name',tname5)), 'timer should not outlive the GUI');
 fprintf('PASS: appetitive-detection integration shape and mode lifecycle\n');
 
+% 10. Right-click visibility / ordering, and its persistence --------------
+prefTag = 'smokePM_layout';
+clear_pref(prefTag);
+restorePref = onCleanup(@() clear_pref(prefTag));
+
+f6 = uifigure('Visible','off','Tag','SmokePM_Layout2');
+M6 = gui.Parameter_Monitor(f6, [pIn pLat pLvl pPlt], pollPeriod=5, ...
+    type="graphical", PreferenceTag=prefTag);
+M6.stop();
+assert(numel(M6.VisibleParameters) == 4, 'all parameters visible by default');
+
+% context menu exists and lists every monitored parameter
+assert(~isempty(M6.ContextMenu) && isvalid(M6.ContextMenu), 'context menu should be created');
+open_menu(M6);
+items = show_menu_items(M6);
+labels = string({items.Text});
+assert(isequal(labels, ["InTrial","RespLatency","Level","Platform","Show All"]), ...
+    'show menu should list parameters in display order: %s', strjoin(labels,','));
+assert(all(arrayfun(@(h) h.Checked == "on", items(1:4))), 'all parameters should be checked');
+
+% menu targets: no target means the move items are unavailable
+assert(isequal(move_enable(M6), ["off","off"]), ...
+    'Move Up/Down should be disabled when the click lands on no parameter');
+
+% right-clicking a widget targets its parameter; edges disable one direction
+open_menu(M6, struct('ContextObject', M6.Widgets(1).ValueHandle));
+assert(isequal(move_enable(M6), ["off","on"]), 'first parameter cannot move up');
+open_menu(M6, struct('ContextObject', M6.Widgets(end).LabelHandle));
+assert(isequal(move_enable(M6), ["on","off"]), 'last parameter cannot move down');
+open_menu(M6, struct('ContextObject', M6.Widgets(2).CellHandle));
+assert(isequal(move_enable(M6), ["on","on"]), 'middle parameter can move either way');
+fprintf('PASS: right-click target resolution (graphical widgets)\n');
+
+% hide one: it leaves the display and stops being polled
+M6.set_parameter_visible("RespLatency", false);
+names = arrayfun(@(w) string(w.Parameter.Name), M6.Widgets);
+assert(numel(M6.Widgets) == 3 && ~ismember("RespLatency",names), 'hidden parameter should not render');
+assert(~ismember("RespLatency", M6.ParameterNames), 'hidden parameter should not be polled');
+assert(numel(M6.Parameters) == 4, 'hiding must not remove the parameter from the monitor');
+fprintf('PASS: hide parameter via right-click menu\n');
+
+% move a visible parameter down; hidden neighbours do not absorb the move
+M6.move_parameter("InTrial", 1);
+names = arrayfun(@(w) string(w.Parameter.Name), M6.Widgets);
+assert(isequal(names, ["Level","InTrial","Platform"]), ...
+    'move down should swap with the next *visible* parameter: %s', strjoin(names,','));
+M6.move_parameter("InTrial", -1);
+names = arrayfun(@(w) string(w.Parameter.Name), M6.Widgets);
+assert(isequal(names, ["InTrial","Level","Platform"]), 'move up should undo move down');
+
+% moving past an edge is a no-op
+M6.move_parameter("InTrial", -1);
+names = arrayfun(@(w) string(w.Parameter.Name), M6.Widgets);
+assert(isequal(names, ["InTrial","Level","Platform"]), 'move past the top edge should be ignored');
+fprintf('PASS: move parameter up/down among visible parameters\n');
+
+% reorder so the saved order is non-trivial, then reopen with the same tag
+M6.move_parameter("Platform", -1);   % InTrial, Platform, Level
+delete(f6);
+
+f7 = uifigure('Visible','off','Tag','SmokePM_Layout3');
+M7 = gui.Parameter_Monitor(f7, [pIn pLat pLvl pPlt], pollPeriod=5, ...
+    type="graphical", PreferenceTag=prefTag);
+M7.stop();
+names = arrayfun(@(w) string(w.Parameter.Name), M7.Widgets);
+assert(isequal(names, ["InTrial","Platform","Level"]), ...
+    'saved order should be restored: %s', strjoin(names,','));
+assert(numel(M7.Parameters) == 4 && numel(M7.VisibleParameters) == 3, ...
+    'saved visibility should be restored');
+fprintf('PASS: visibility and order persist across sessions\n');
+
+% a parameter added later honours the remembered layout
+pHid = hw.Parameter(sw, Name='RespLatency', Unit='ms'); pHid.Value = 1;
+M8 = gui.Parameter_Monitor(f7, [pIn pLvl], pollPeriod=5, ...
+    type="graphical", PreferenceTag=prefTag);
+M8.stop();
+M8.add_parameter(pHid);
+assert(numel(M8.Parameters) == 3, 'add_parameter should append');
+names = arrayfun(@(w) string(w.Parameter.Name), M8.Widgets);
+assert(isequal(names, ["InTrial","Level"]), ...
+    'a parameter added later should stay hidden if it was hidden before: %s', strjoin(names,','));
+
+M8.show_all_parameters();
+names = arrayfun(@(w) string(w.Parameter.Name), M8.Widgets);
+assert(ismember("RespLatency",names), 'Show All should unhide everything');
+delete(f7);
+fprintf('PASS: saved layout applies to parameters added at runtime\n');
+
+% 11. Table mode: right-click row maps back to its parameter --------------
+clear_pref('smokePM_table2');
+restorePref2 = onCleanup(@() clear_pref('smokePM_table2'));
+
+f8 = uifigure('Visible','off','Tag','SmokePM_TableMenu');
+M9 = gui.Parameter_Monitor(f8, [pIn pLat pLvl], pollPeriod=5, type="table", ...
+    PreferenceTag='smokePM_table2');
+M9.stop();
+M9.SortByColumn = "Parameter";
+M9.poll_parameters();
+assert(strcmp(M9.handle.Data{1,1},'InTrial'), 'sorted table should start with InTrial');
+
+M9.set_parameter_visible("Level", false);
+assert(size(M9.handle.Data,1) == 2, 'hidden parameter should leave the table');
+
+% a move clears the column sort, since manual order supersedes it
+M9.move_parameter("RespLatency", -1);
+assert(M9.SortByColumn == "", 'moving a row should clear the column sort');
+assert(strcmp(M9.handle.Data{1,1},'RespLatency'), 'moved row should render first');
+fprintf('PASS: table-mode hide and reorder\n');
+
+% a right-clicked row maps back to its parameter through the active sort
+M9.show_all_parameters();
+M9.SortByColumn = "Parameter";
+M9.SortDirection = "descend";
+M9.poll_parameters();
+rowName = string(M9.handle.Data{1,1});
+open_menu(M9, struct('InteractionInformation', struct('Row',1)));
+assert(isequal(move_enable(M9), ["off","on"]), ...
+    'the top row should resolve to the first displayed parameter');
+M9.move_parameter(rowName, 1);
+assert(string(M9.handle.Data{2,1}) == rowName, ...
+    'moving the top row down should place it second');
+fprintf('PASS: table row right-click resolves through the active sort\n');
+delete(f8);
+
 delete(f2); delete(f3);
 fprintf('\nAll gui.Parameter_Monitor smoke tests passed.\n');
 
+end
+
+
+function open_menu(M,evt)
+% Simulate a right-click: the opening callback is what rebuilds the
+% parameter list and enables or disables the move items. evt stands in for
+% ContextMenuOpeningData; [] mimics a click that lands on no parameter.
+if nargin < 2, evt = []; end
+cm = M.ContextMenu;
+fcn = cm.ContextMenuOpeningFcn;
+fcn(cm,evt);
+end
+
+
+function state = move_enable(M)
+% ["Move Up" "Move Down"] enable states, in menu order.
+h = findall(M.ContextMenu,'Type','uimenu','-regexp','Text','^Move ');
+h = flipud(h);
+state = string({h.Enable});
+end
+
+
+function items = show_menu_items(M)
+m = findall(M.ContextMenu,'Type','uimenu','Text','Show Parameter');
+items = flipud(m.Children); % Children are listed in reverse creation order
+end
+
+
+function clear_pref(tag)
+grp = 'epsych2_gui_Parameter_Monitor';
+name = matlab.lang.makeValidName(tag);
+if ispref(grp,name)
+    rmpref(grp,name);
+end
 end
 
 

@@ -38,15 +38,18 @@ function buildUI(obj)
     uimenu(parameterMenu, 'Text', localShortcutText_('Add Integer Parameter', 'Ctrl+Shift+N'), 'MenuSelectedFcn', @(~, ~) obj.onAddParamWithDefaults('integer', false));
     uimenu(parameterMenu, 'Text', localShortcutText_('Remove Selected Parameter', 'Ctrl+Shift+R'), 'Separator', 'on', 'MenuSelectedFcn', @(~, ~) obj.onRemoveParam());
     uimenu(parameterMenu, 'Text', localShortcutText_('Show Selected Parameter Details', 'Ctrl+Shift+D'), 'MenuSelectedFcn', @(~, ~) obj.onShowSelectedParameterDetails());
+    uimenu(parameterMenu, 'Text', localShortcutText_('Find Parameter by Name', 'Ctrl+F'), 'Separator', 'on', 'MenuSelectedFcn', @(~, ~) obj.focusParameterFind());
+    uimenu(parameterMenu, 'Text', localShortcutText_('Find and Replace in Names...', 'Ctrl+H'), 'MenuSelectedFcn', @(~, ~) obj.onFindReplaceParameterNames());
 
     interfaceMenu = uimenu(obj.Figure, 'Text', 'Interface');
     uimenu(interfaceMenu, 'Text', localShortcutText_('Add Interface', 'Ctrl+Shift+A'), 'MenuSelectedFcn', @(~, ~) obj.onAddInterface());
     uimenu(interfaceMenu, 'Text', localShortcutText_('Add Module', 'Ctrl+Shift+M'), 'MenuSelectedFcn', @(~, ~) obj.onAddModule());
-    uimenu(interfaceMenu, 'Text', 'Teensy Trial Designer...', 'Separator', 'on', 'MenuSelectedFcn', @(~, ~) obj.onOpenTeensyDesigner());
 
     protocolMenu = uimenu(obj.Figure, 'Text', 'Protocol');
     uimenu(protocolMenu, 'Text', localShortcutText_('Compile Protocol', 'Ctrl+Shift+C'), 'MenuSelectedFcn', @(~, ~) obj.onCompile());
     uimenu(protocolMenu, 'Text', localShortcutText_('Open Compiled Preview Dialog', 'Ctrl+Shift+V'), 'MenuSelectedFcn', @(~, ~) obj.onOpenCompiledPreviewDialog());
+    uimenu(protocolMenu, 'Text', localShortcutText_('Check Calculations...', 'Ctrl+Shift+K'), 'MenuSelectedFcn', @(~, ~) obj.onOpenCheckCalculationsDialog());
+    uimenu(protocolMenu, 'Text', localShortcutText_('Plot Parameter Dependencies...', 'Ctrl+Shift+G'), 'MenuSelectedFcn', @(~, ~) obj.onShowParameterDependencyGraph());
     uimenu(protocolMenu, 'Text', localShortcutText_('Open Options Dialog', 'Ctrl+Shift+O'), 'MenuSelectedFcn', @(~, ~) obj.onOpenOptionsDialog());
 
     viewMenu = uimenu(obj.Figure, 'Text', 'View');

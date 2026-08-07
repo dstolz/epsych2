@@ -165,6 +165,22 @@ for groupIdx = 1:numel(pairGroups)
     end
 end
 
+% Calculated-expression checks. Severity 2 for expressions guaranteed to
+% abort trial dispatch at runtime; severity 1 for silent-surprise hazards.
+% A failure inside the analysis itself must never break validation.
+try
+    expressionReport = obj.expressionIssues_(obj.analyzeExpressions());
+    for exprIdx = 1:numel(expressionReport)
+        report(idx) = expressionReport(exprIdx);
+        idx = idx + 1;
+    end
+catch ME
+    report(idx).field = 'Expressions';
+    report(idx).message = sprintf('Expression analysis failed: %s', ME.message);
+    report(idx).severity = 1;
+    idx = idx + 1;
+end
+
 if idx == 1
     report = struct('field', {}, 'message', {}, 'severity', {});
 end

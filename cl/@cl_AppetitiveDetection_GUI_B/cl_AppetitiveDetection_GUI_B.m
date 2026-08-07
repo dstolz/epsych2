@@ -152,36 +152,6 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             end
         end
 
-        function update_trial_filter(obj,~,event)
-            R = obj.RUNTIME;
-
-
-            src = obj.tableTrialFilter; % use this in case call is from outside the class
-            depth     = [src.Data{:,1}];
-            trialtype = [src.Data{:,2}];
-            present   = [src.Data{:,3}];
-
-
-
-            % always vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-            present(trialtype==obj.ttCatch) = true;
-            [src.Data{trialtype==obj.ttCatch,3}] = deal(true);
-            % ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-
-            R.TRIALS.activeTrials = present;
-
-            if any(~present)
-                vprintf(4,'Inactive Depths: %s',mat2str(depth(~present)));
-            end
-            vprintf(2,'Active Depths: %s',mat2str(depth(present)));
-
-            % update panel label with trial type counts
-            h = ancestor(src,'uipanel');
-            ind = present&trialtype==obj.ttStimulus;
-            h.Title = sprintf('Trial Filter: %d Go trials active [%.3f-%.3f]', ...
-                sum(ind),min(depth(ind)),max(depth(ind)));
-        end
 
         function onModeChange(obj,src,ev)
             % fprintf('Mode changed to: %s\n', string(ev.NewMode));
@@ -249,41 +219,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                     nd{2} = 'REMIND';
             end
             h.Data = nd;
-            
-            % make sure 'active trials' are indeed updated
-            % obj.update_trial_filter;
         end
 
-
-
-        function create_onlineplot(obj,varargin)
-            % Create separate legacy figure for online plotting because
-            % it's much faster than uifigure
-            % Axes for Behavior Plot --------------------------------------------
-            f = findobj('type','figure','-and','name','cl_AppetitiveDetection_OnlinePlot');
-            if isempty(f)
-                f = figure(Name = 'Online Plot', ...
-                    Tag = 'cl_AppetitiveDetection_OnlinePlot');
-            else
-                figure(f);
-                return
-            end
-
-            p = obj.h_figure.Position;
-            f.Position(1) = p(1);
-            f.Position(2) = p(2) + p(4) + 100;
-            f.Position(3) = p(3);
-            f.Position(4) = 150;
-            f.ToolBar = "none";
-            f.MenuBar = "none";
-            f.NumberTitle = "off";
-            axesBehavior = axes(f);
-            gui.OnlinePlot(R,'OnlinePlotBits',axesBehavior,1);
-
-            obj.h_OnlinePlot = f;
-
-
-        end
 
     end
 

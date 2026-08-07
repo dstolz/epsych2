@@ -26,6 +26,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
     %   setOption        - Update Options fields
     %   compile          - Generate COMPILED trials, writeparams, readparams
     %   validate         - Check protocol for errors without modifying state
+    %   dependencyGraph  - Parameter dependency graph implied by Expressions
     %   estimateDuration - Estimate trial duration in seconds
     %   save             - Serialize protocol to .eprot MAT file
     %   load             - Static factory to deserialize from .eprot file
@@ -127,6 +128,11 @@ classdef Protocol < handle & matlab.mixin.SetGet
         compile(obj)                  % Compile protocol trials - compile.m
         report = validate(obj)        % Validate protocol - validate.m
 
+        analysis = analyzeExpressions(obj)          % Static analysis of parameter Expressions - analyzeExpressions.m
+        report = dryRunExpressions(obj, options)    % Simulate runtime expression evaluation per trial - dryRunExpressions.m
+        report = sweepExpressions(obj, options)     % Exhaustive expression evaluation over input cross-products - sweepExpressions.m
+        graphData = dependencyGraph(obj, analysis)  % Parameter dependency graph implied by Expressions - dependencyGraph.m
+
         tf = needsCompile(obj)       % True if compile() must be called before use - needsCompile.m
         dur_sec = estimateDuration(obj) % Estimate total trial duration in seconds - estimateDuration.m
 
@@ -155,6 +161,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
 
         % Validation helpers - separate method files
         report = validate_internal(obj)                                  % Core validate logic - validate_internal.m
+        issues = expressionIssues_(obj, analysis)                        % Map expression analysis to validate()-style issues - expressionIssues_.m
 
         parameterType = inferSerializedParameterType_(obj, trials, colIdx)  % Infer parameter type from compiled trial data - inferSerializedParameterType_.m
 

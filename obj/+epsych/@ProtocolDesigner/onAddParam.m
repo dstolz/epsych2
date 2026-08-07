@@ -40,6 +40,7 @@ function onAddParam(obj)
         Description = "");
 
     obj.IsModified_ = true;
+    obj.ensureParameterNameVisible(parameterName, module.Name);
     obj.refreshParameterTab();
     obj.setStatus(sprintf('Added parameter %s', parameterName), ...
         'Edit the new row to set type, value, and limits before compiling.');

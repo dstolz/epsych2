@@ -10,8 +10,18 @@ classdef ParameterScatter < handle
     % When constructed from a runtime the lists are seeded from the
     % parameters it will record, so they are populated before the first
     % trial. Parameters flagged Visible=false on their hw.Parameter are
-    % excluded from the selectable lists, as are array-valued, write-only,
-    % and non-numeric parameters.
+    % excluded from the selectable lists, as are array-valued and
+    % write-only parameters.
+    %
+    % Categorical (text) parameters, e.g. a scalar char/string DATA field or
+    % a runtime parameter with Type='String', are offered alongside numeric
+    % ones. On a categorical axis, points are placed at integer positions
+    % per distinct value seen so far and the axis ticks are labeled with
+    % those values; log scale is skipped for that axis. As a color-by
+    % parameter, a categorical is mapped to one discrete color per distinct
+    % value with the colorbar ticks labeled instead of a continuous scale.
+    % The set of known categories only grows, so a value's plotted position
+    % or color stays fixed once assigned, even as new categories appear.
     %
     % Display behavior:
     %   - Right-click the axes for basic aesthetics: marker style, size,
@@ -95,12 +105,16 @@ classdef ParameterScatter < handle
         runtimeResolved_ (1,1) logical = false
         InvisibleNames_ (1,:) cell = {} % validNames of invisible parameters
         DeclaredNames_ (1,:) cell = {}  % validNames the runtime will record once trials begin
+        DeclaredCategoricalNames_ (1,:) cell = {} % validNames of runtime-declared text parameters
+        CategoricalNames_ (1,:) cell = {} % validNames currently treated as text/categorical
+        CategoryLevels_ = struct()  % validName -> cellstr of distinct values seen so far, in assigned order
     end
 
     properties (Constant, Access = private)
         TRIAL_NUMBER_LABEL = 'Trial Number' % synthetic parameter: chronological DATA index
         NONE_LABEL = '(none)'               % ColorParameter entry meaning "flat marker color"
         PLOTTABLE_TYPES = {'Float','Integer','Boolean'} % hw.Parameter types that yield a plottable scalar
+        CATEGORICAL_TYPES = {'String'}      % hw.Parameter types that yield a plottable text value
         SELECTION_FIELDS = {'XParameter','YParameter','ColorParameter'}
         PREF_GROUP = 'epsych2_gui_ParameterScatter'
         VALID_MARKERS = {'o','s','d','^','v','p','h'}
@@ -374,34 +388,43 @@ classdef ParameterScatter < handle
         end
 
         function avail = availableParameters_(obj,D)
-            % Parameters offered in the selectors: scalar numeric DATA fields
-            % plus the parameters the runtime will record once trials begin,
-            % less invisible ones, plus the synthetic Trial Number entry.
-            % The runtime-declared names keep the selectors usable before the
-            % first trial, when DATA has no fields to learn from.
+            % Parameters offered in the selectors: scalar numeric or scalar
+            % text DATA fields plus the parameters the runtime will record
+            % once trials begin, less invisible ones, plus the synthetic
+            % Trial Number entry. The runtime-declared names keep the
+            % selectors usable before the first trial, when DATA has no
+            % fields to learn from.
             obj.resolveRuntimeNames_;
-            fn = {};
+            numFn = {};
+            catFn = {};
             if ~isempty(D)
                 f = fieldnames(D);
-                keep = false(size(f));
+                isNum = false(size(f));
+                isCat = false(size(f));
                 for k = 1:numel(f)
                     v = D(1).(f{k});
                     if isstruct(v) && isfield(v,'Value'), v = v.Value; end
-                    keep(k) = (isnumeric(v) || islogical(v)) && isscalar(v);
+                    isNum(k) = (isnumeric(v) || islogical(v)) && isscalar(v);
+                    isCat(k) = ischar(v) || (isstring(v) && isscalar(v));
                 end
-                fn = f(keep);
+                numFn = f(isNum);
+                catFn = f(isCat);
             end
-            fn = union(fn(:)',obj.DeclaredNames_);
-            fn = setdiff(fn,obj.InvisibleNames_);
+            numFn = union(numFn(:)',obj.DeclaredNames_);
+            catFn = union(catFn(:)',obj.DeclaredCategoricalNames_);
+            obj.CategoricalNames_ = setdiff(catFn,obj.InvisibleNames_);
+            fn = setdiff(union(numFn,obj.CategoricalNames_),obj.InvisibleNames_);
             avail = [{obj.TRIAL_NUMBER_LABEL} sort(fn(:))'];
         end
 
         function resolveRuntimeNames_(obj)
             % Resolve, once, the runtime's invisible parameters and the
-            % parameters it will record as DATA fields. Recorded fields come
-            % from the Access='Read' set (see ep_TimerFcn_RunTime), so the
-            % declared list mirrors that filter minus array-valued and
-            % non-numeric types, which have nothing to plot.
+            % parameters it will record as DATA fields, split into numeric
+            % (DeclaredNames_) and text (DeclaredCategoricalNames_). Recorded
+            % fields come from the Access='Read' set (see
+            % ep_TimerFcn_RunTime), so the declared lists mirror that filter
+            % minus array-valued types and types that yield neither a
+            % plottable scalar nor a plottable text value.
             if obj.runtimeResolved_, return; end
             R = obj.Runtime_;
             if isempty(R)
@@ -416,6 +439,10 @@ classdef ParameterScatter < handle
                         & ismember({P.Type},obj.PLOTTABLE_TYPES) ...
                         & ~strcmp({P.Access},'Write');
                     obj.DeclaredNames_ = {P(plottable).validName};
+                    categorical = [P.Visible] & ~[P.isArray] ...
+                        & ismember({P.Type},obj.CATEGORICAL_TYPES) ...
+                        & ~strcmp({P.Access},'Write');
+                    obj.DeclaredCategoricalNames_ = {P(categorical).validName};
                 end
                 obj.runtimeResolved_ = true;
             catch ME
@@ -441,6 +468,44 @@ classdef ParameterScatter < handle
             end
         end
 
+        function [v,labels] = categoricalCodes_(obj,D,name)
+            % Per-trial integer codes for a text parameter, plus the ordered
+            % category labels those codes index into. Codes are assigned the
+            % first time a value is seen and never reassigned, so a category
+            % keeps its plotted position/color as later trials add new ones.
+            n = numel(D);
+            v = nan(1,n);
+            txt = cell(1,n);
+            if ~isempty(D) && isfield(D,name)
+                for k = 1:n
+                    val = D(k).(name);
+                    if isstruct(val) && isfield(val,'Value'), val = val.Value; end
+                    if ischar(val)
+                        txt{k} = val;
+                    elseif isstring(val) && isscalar(val)
+                        txt{k} = char(val);
+                    end
+                end
+            end
+            if isfield(obj.CategoryLevels_,name)
+                labels = obj.CategoryLevels_.(name);
+            else
+                labels = {};
+            end
+            seen = txt(~cellfun(@isempty,txt));
+            newLevels = setdiff(unique(seen,'stable'),labels,'stable');
+            if ~isempty(newLevels)
+                labels = [labels sort(newLevels)];
+                obj.CategoryLevels_.(name) = labels;
+            end
+            for k = 1:n
+                if ~isempty(txt{k})
+                    idx = find(strcmp(labels,txt{k}),1);
+                    if ~isempty(idx), v(k) = idx; end
+                end
+            end
+        end
+
         function redraw_(obj,D)
             % Redraw the scatter from the current selections and aesthetics.
             ax = obj.AxesH;
@@ -453,8 +518,23 @@ classdef ParameterScatter < handle
                 box(ax,'on');
             end
 
-            x = obj.parameterValues_(D,obj.XParameter);
-            y = obj.parameterValues_(D,obj.YParameter);
+            isCatX = ismember(obj.XParameter,obj.CategoricalNames_);
+            isCatY = ismember(obj.YParameter,obj.CategoricalNames_);
+            isCatC = ~strcmp(obj.ColorParameter,obj.NONE_LABEL) ...
+                && ismember(obj.ColorParameter,obj.CategoricalNames_);
+
+            if isCatX
+                [x,xLabels] = obj.categoricalCodes_(D,obj.XParameter);
+            else
+                x = obj.parameterValues_(D,obj.XParameter);
+                xLabels = {};
+            end
+            if isCatY
+                [y,yLabels] = obj.categoricalCodes_(D,obj.YParameter);
+            else
+                y = obj.parameterValues_(D,obj.YParameter);
+                yLabels = {};
+            end
 
             if strcmp(obj.ColorParameter,obj.NONE_LABEL)
                 set(sh,'XData',x,'YData',y,'CData',obj.MarkerColor);
@@ -462,6 +542,23 @@ classdef ParameterScatter < handle
                     colorbar(ax,'off');
                     obj.ColorbarH = [];
                 end
+            elseif isCatC
+                [c,cLabels] = obj.categoricalCodes_(D,obj.ColorParameter);
+                x(isnan(c)) = nan; % colormapped markers need a color value
+                set(sh,'XData',x,'YData',y,'CData',c(:));
+                try
+                    colormap(ax,feval(obj.ColormapName,max(numel(cLabels),1)));
+                catch
+                    vprintf(2,'gui.ParameterScatter: unknown colormap "%s"',obj.ColormapName)
+                end
+                ax.CLim = [0.5 max(numel(cLabels),1)+0.5];
+                if isempty(obj.ColorbarH) || ~isvalid(obj.ColorbarH)
+                    obj.ColorbarH = colorbar(ax);
+                end
+                obj.ColorbarH.Ticks = 1:numel(cLabels);
+                obj.ColorbarH.TickLabels = cLabels;
+                obj.ColorbarH.Label.String = obj.ColorParameter;
+                obj.ColorbarH.Label.Interpreter = 'none';
             else
                 c = obj.parameterValues_(D,obj.ColorParameter);
                 x(isnan(c)) = nan; % colormapped markers need a color value
@@ -482,6 +579,8 @@ classdef ParameterScatter < handle
                 if isempty(obj.ColorbarH) || ~isvalid(obj.ColorbarH)
                     obj.ColorbarH = colorbar(ax);
                 end
+                obj.ColorbarH.TicksMode = 'auto';
+                obj.ColorbarH.TickLabelsMode = 'auto';
                 obj.ColorbarH.Label.String = obj.ColorParameter;
                 obj.ColorbarH.Label.Interpreter = 'none';
             end
@@ -489,9 +588,30 @@ classdef ParameterScatter < handle
             set(sh,'Marker',obj.Marker,'SizeData',obj.MarkerSize, ...
                 'MarkerFaceAlpha',obj.MarkerAlpha,'MarkerEdgeAlpha',obj.MarkerAlpha);
 
-            if obj.LogX, ax.XScale = 'log'; else, ax.XScale = 'linear'; end
-            if obj.LogY, ax.YScale = 'log'; else, ax.YScale = 'linear'; end
+            if obj.LogX && ~isCatX, ax.XScale = 'log'; else, ax.XScale = 'linear'; end
+            if obj.LogY && ~isCatY, ax.YScale = 'log'; else, ax.YScale = 'linear'; end
             if obj.ShowGrid, grid(ax,'on'); else, grid(ax,'off'); end
+
+            if isCatX
+                ax.XTick = 1:numel(xLabels);
+                ax.XTickLabel = xLabels;
+                ax.XTickLabelRotation = 30;
+                if ~isempty(xLabels), ax.XLim = [0.5 numel(xLabels)+0.5]; end
+            else
+                ax.XTickMode = 'auto';
+                ax.XTickLabelMode = 'auto';
+                ax.XTickLabelRotation = 0;
+                ax.XLimMode = 'auto';
+            end
+            if isCatY
+                ax.YTick = 1:numel(yLabels);
+                ax.YTickLabel = yLabels;
+                if ~isempty(yLabels), ax.YLim = [0.5 numel(yLabels)+0.5]; end
+            else
+                ax.YTickMode = 'auto';
+                ax.YTickLabelMode = 'auto';
+                ax.YLimMode = 'auto';
+            end
 
             xlabel(ax,obj.XParameter,'Interpreter','none');
             ylabel(ax,obj.YParameter,'Interpreter','none');

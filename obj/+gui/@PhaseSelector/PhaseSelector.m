@@ -3,6 +3,7 @@ classdef PhaseSelector < handle
     % GUI component for selecting and saving experimental phase parameter sets.
     %
     % Loads JSON files from a directory, provides dropdown for phase selection, and button for saving current parameters.
+    % Selecting a phase in the dropdown prints its parameter changes to the command window.
     %
     % Parameters:
     %   RUNTIME   - Main runtime object with read/write parameter methods.
@@ -18,7 +19,6 @@ classdef PhaseSelector < handle
     %   CurrentPhase   - Index of currently loaded phase.
     %   h_PhaseSelect  - Handle to dropdown UI control.
     %   h_LoadPhase    - Handle to load button UI control.
-    %   h_InfoPhase    - Handle to info button UI control.
     %   h_WritePhase   - Handle to write button UI control.
     %   h_Description  - Handle to description label UI control.
     %   RUNTIME        - Main runtime object.
@@ -33,11 +33,10 @@ classdef PhaseSelector < handle
     %   addDescriptionLabel    - Add label UI control for description text.
     %   addPhaseSelectDropdown - Add dropdown UI control for phase selection.
     %   addLoadPhaseButton     - Add button UI control for loading the selected phase.
-    %   addInfoPhaseButton     - Add button UI control for previewing the selected phase.
     %   addSavePhaseButton     - Add button UI control for saving phase parameters.
     %   createGUI              - Create dropdown and button UI controls for phase selection, loading, and saving.
     %   findPhaseFiles         - Load JSON files from PhasePath and update Names and FullFilenames.
-    %   onPhaseSelectionChanged- Callback for dropdown value change; updates state without loading.
+    %   onPhaseSelectionChanged- Callback for dropdown value change; updates state without loading, and prints the phase's parameter changes.
     %   loadPhaseParameters    - Load parameters from the selected phase file into the runtime.
     %   showPhaseInfo          - Print a table of the parameter changes the selected phase would apply.
     %   set.PhasePath          - Set method for PhasePath property, loads phase files from new path.
@@ -51,7 +50,6 @@ classdef PhaseSelector < handle
         CurrentPhase (1,1) uint8 = 0 % Index of currently loaded phase (0 = no phase)
         h_PhaseSelect           % Handle to dropdown UI control
         h_LoadPhase             % Handle to load button UI control
-        h_InfoPhase             % Handle to info button UI control
         h_WritePhase            % Handle to write button UI control
         h_Description           % Handle to description label UI control
     end
@@ -193,8 +191,10 @@ classdef PhaseSelector < handle
         function onPhaseSelectionChanged(obj, src)
             % onPhaseSelectionChanged(obj, src)
             % Callback for dropdown value change. Updates the selection state and enables
-            % the Load/Info buttons, but does NOT apply any parameters. Loading happens only
-            % when the user presses the Load button (see loadPhaseParameters).
+            % the Load button, but does NOT apply any parameters. Loading happens only
+            % when the user presses the Load button (see loadPhaseParameters). Also prints
+            % the newly selected phase's parameter changes to the command window (see
+            % showPhaseInfo).
             %
             % Parameters:
             %   src - Source dropdown UI control
@@ -204,16 +204,17 @@ classdef PhaseSelector < handle
             if ~isempty(obj.h_LoadPhase) && isvalid(obj.h_LoadPhase)
                 obj.h_LoadPhase.Enable = enable;
             end
-            if ~isempty(obj.h_InfoPhase) && isvalid(obj.h_InfoPhase)
-                obj.h_InfoPhase.Enable = enable;
-            end
 
             if ~isempty(obj.h_Description) && isvalid(obj.h_Description)
                 if idx == 0
                     obj.h_Description.Text = obj.withLastLoaded("No phase selected. Select a phase, then press Load to apply its parameters.");
                 else
-                    obj.h_Description.Text = obj.withLastLoaded(sprintf('Phase "%s" selected. Press Load to apply its parameters, or Info to preview the changes.', phaseName));
+                    obj.h_Description.Text = obj.withLastLoaded(sprintf('Phase "%s" selected. Press Load to apply its parameters.', phaseName));
                 end
+            end
+
+            if idx > 0
+                obj.showPhaseInfo(src);
             end
         end
 
@@ -304,7 +305,8 @@ classdef PhaseSelector < handle
             % showPhaseInfo(obj)
             % Print a table to the command window listing the parameters whose values would
             % change if the currently selected phase were loaded. Non-destructive: current
-            % parameter values are read but nothing is applied to the runtime.
+            % parameter values are read but nothing is applied to the runtime. Invoked
+            % automatically by onPhaseSelectionChanged whenever a new phase is selected.
             [filepath, idx, phaseName] = obj.selectedPhaseFile();
             if idx == 0
                 vprintf(1, 'No phase selected. Select a phase to preview its parameter changes.')
@@ -336,9 +338,9 @@ classdef PhaseSelector < handle
                 parent {mustBeNonempty} = uifigure
             end
 
-            gl = uigridlayout(parent, [2 4]);
+            gl = uigridlayout(parent, [2 3]);
             gl.RowHeight = {30,'fit'};
-            gl.ColumnWidth = {'1x',55,55,55};
+            gl.ColumnWidth = {'1x',55,55};
 
             h.PhaseSelect = obj.addPhaseSelectDropdown(gl);
             h.PhaseSelect.Layout.Row = 1;
@@ -348,17 +350,13 @@ classdef PhaseSelector < handle
             h.LoadPhase.Layout.Row = 1;
             h.LoadPhase.Layout.Column = 2;
 
-            h.InfoPhase = obj.addInfoPhaseButton(gl);
-            h.InfoPhase.Layout.Row = 1;
-            h.InfoPhase.Layout.Column = 3;
-
             h.SavePhase = obj.addSavePhaseButton(gl);
             h.SavePhase.Layout.Row = 1;
-            h.SavePhase.Layout.Column = 4;
+            h.SavePhase.Layout.Column = 3;
 
             h.Description = obj.addDescriptionLabel(gl);
             h.Description.Layout.Row = 2;
-            h.Description.Layout.Column = [1 4];
+            h.Description.Layout.Column = [1 3];
 
             % Start on the null entry with Load/Info disabled until a phase is selected.
             if ~isempty(obj.h_PhaseSelect)
@@ -390,30 +388,6 @@ classdef PhaseSelector < handle
                 'ButtonPushedFcn', @(src,evt) obj.loadPhaseParameters(src));
 
             obj.h_LoadPhase = h;
-        end
-
-
-        function h = addInfoPhaseButton(obj, parent)
-            % h = addInfoPhaseButton(obj, parent)
-            % Adds a button UI control to parent for previewing the selected phase's changes.
-            %
-            % Parameters:
-            %   parent   - Handle to parent container (e.g., uifigure, uipanel)
-            %
-            % Returns:
-            %   h - Handle to created button UI control
-            arguments
-                obj
-                parent {mustBeNonempty} = gcf
-            end
-
-            h = uibutton(parent, ...
-                'Text', 'Info', ...
-                'Enable', 'off', ...
-                'Tooltip', 'Print the parameter changes the selected phase would apply to the command window', ...
-                'ButtonPushedFcn', @(src,evt) obj.showPhaseInfo(src));
-
-            obj.h_InfoPhase = h;
         end
 
 

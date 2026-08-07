@@ -11,10 +11,12 @@ classdef History < handle
     %   - The newest trial is shown at the top by default.
     %   - Column headers are user sortable (uifigure containers); the chosen
     %     sort is reapplied on every trial update rather than being reset.
+    %   - Columns are user rearrangeable by dragging a header (uifigure
+    %     containers); the chosen order is reapplied on every trial update.
     %   - Right-click the table to show/hide parameter columns or to reset
-    %     sorting to the default (newest first).
-    %   - Column selection and sort order persist across sessions via
-    %     getpref/setpref, keyed to the hosting GUI figure.
+    %     sorting or column order to their defaults.
+    %   - Column selection, order, and sort order persist across sessions
+    %     via getpref/setpref, keyed to the hosting GUI figure.
     %
     % Properties:
     %   psychObj             - Linked psychophysics object
@@ -63,6 +65,7 @@ classdef History < handle
         PendingPrefs_ = []           % Saved preferences awaiting first data update
         FormatMap_ = struct          % Parameter name -> sprintf format
         PreferenceTag_ char = ''     % Optional explicit preference key
+        ColumnOrder_ (:,1) cell = {} % User-arranged column display order (persisted)
     end
 
     properties (Constant, Access = private)
@@ -132,10 +135,11 @@ classdef History < handle
                 'Position',[0 0 1 1],'RowStriping','off');
             try
                 obj.TableH.ColumnSortable = true;
+                obj.TableH.ColumnRearrangeable = true;
                 obj.TableH.DisplayDataChangedFcn = @obj.onDisplayDataChanged;
             catch ME
-                % Header-click sorting requires a uifigure-based uitable.
-                vprintf(3,'gui.History: column sorting unavailable: %s',ME.message)
+                % Header-click sorting and drag-to-rearrange require a uifigure-based uitable.
+                vprintf(3,'gui.History: column sorting/rearranging unavailable: %s',ME.message)
             end
             obj.buildContextMenu;
         end
@@ -158,7 +162,13 @@ classdef History < handle
             order = obj.resolveDisplayOrder(RD,columnNames);
             obj.Info.DisplayOrder = order;
 
-            obj.TableH.Data = obj.formatTableData(RD(order,:),columnNames);
+            tableData = obj.formatTableData(RD(order,:),columnNames);
+
+            colOrder = obj.resolveColumnOrder(columnNames);
+            columnNames = columnNames(colOrder);
+            tableData = tableData(:,colOrder);
+
+            obj.TableH.Data = tableData;
             obj.TableH.RowName = cellstr(string(obj.Info.TrialNumber(order)));
             obj.TableH.ColumnName = columnNames;
             obj.TableH.ColumnFormat = repmat({'char'},1,numel(columnNames));
@@ -326,6 +336,23 @@ classdef History < handle
             end
         end
 
+        function order = resolveColumnOrder(obj,columnNames)
+            % order = resolveColumnOrder(obj, columnNames)
+            % Apply the user's saved drag-to-rearrange column order.
+            % Columns not present in the saved order (new parameters, or
+            % a saved order from a prior parameter set) keep their
+            % original relative position, appended after known columns.
+            n = numel(columnNames);
+            order = (1:n)';
+            stored = obj.ColumnOrder_;
+            if isempty(stored), return; end
+
+            [tf,idx] = ismember(stored,columnNames);
+            known = idx(tf);
+            remaining = setdiff((1:n)',known,'stable');
+            order = [known(:); remaining(:)];
+        end
+
         function key = columnSortKey(~,vals)
             % key = columnSortKey(vals)
             % Build a sortable key vector from raw column values.
@@ -347,7 +374,17 @@ classdef History < handle
         function onDisplayDataChanged(obj,~,event)
             % onDisplayDataChanged(obj, ~, event)
             % Record a header-click sort and reapply it with type-aware
-            % ordering so the selection persists across trial updates.
+            % ordering so the selection persists across trial updates, or
+            % record a drag-to-rearrange column order.
+            try
+                if string(event.Interaction) == "rearrange"
+                    obj.onColumnsRearranged(event);
+                    return
+                end
+            catch
+                % Interaction unavailable; fall through to legacy sort handling.
+            end
+
             try
                 col = event.InteractionColumn;
             catch
@@ -375,11 +412,34 @@ classdef History < handle
             obj.update;
         end
 
+        function onColumnsRearranged(obj,event)
+            % onColumnsRearranged(obj, event)
+            % Persist a user drag-to-rearrange column order.
+            try
+                newOrder = cellstr(string(event.DisplayColumnName));
+            catch ME
+                vprintf(2,'gui.History: unable to read rearranged column order: %s',ME.message)
+                return
+            end
+            if isempty(newOrder), return; end
+            obj.ColumnOrder_ = newOrder(:);
+            obj.savePreferences;
+        end
+
         function resetSort(obj)
             % resetSort(obj)
             % Restore the default sort: newest trial at the top.
             obj.SortByColumn = "Time";
             obj.SortDirection = "descend";
+            obj.savePreferences;
+            obj.update;
+        end
+
+        function resetColumnOrder(obj)
+            % resetColumnOrder(obj)
+            % Restore the default column order (Time, Response, then
+            % parameters in their natural order).
+            obj.ColumnOrder_ = {};
             obj.savePreferences;
             obj.update;
         end
@@ -467,6 +527,8 @@ classdef History < handle
                 obj.ColumnsMenuH = uimenu(obj.ContextMenuH,'Text','Show Columns');
                 uimenu(obj.ContextMenuH,'Text','Reset Sort (Newest First)', ...
                     'Separator','on','MenuSelectedFcn',@(~,~) obj.resetSort);
+                uimenu(obj.ContextMenuH,'Text','Reset Column Order', ...
+                    'MenuSelectedFcn',@(~,~) obj.resetColumnOrder);
                 obj.TableH.ContextMenu = obj.ContextMenuH;
             catch ME
                 vprintf(3,'gui.History: context menu unavailable: %s',ME.message)
@@ -520,6 +582,7 @@ classdef History < handle
                 s.ParameterColumnFormats = cellstr(obj.ParameterColumnFormats);
                 s.SortByColumn = char(obj.SortByColumn);
                 s.SortDirection = char(obj.SortDirection);
+                s.ColumnOrder = obj.ColumnOrder_;
                 setpref(obj.PREF_GROUP,obj.preferenceName,s);
             catch ME
                 vprintf(2,'gui.History: failed to save preferences: %s',ME.message)
@@ -545,6 +608,9 @@ classdef History < handle
                 end
                 if isfield(s,'SortDirection') && ~isempty(s.SortDirection)
                     obj.SortDirection = s.SortDirection;
+                end
+                if isfield(s,'ColumnOrder') && ~isempty(s.ColumnOrder)
+                    obj.ColumnOrder_ = cellstr(s.ColumnOrder);
                 end
                 vprintf(3,'gui.History: applied saved preferences')
             catch ME

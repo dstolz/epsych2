@@ -56,7 +56,6 @@ classdef RunExpt < handle
 
         OpenCustomizeDialog(self)       % Open unified Customize Settings dialog for all Define* settings
         OpenSelfTest(self)              % Open the pre-flight self-test window
-        OpenTeensyDesigner(self)        % Open the Teensy Trial Designer, bound to this session
 
         % Public because it is a pure UI refresh with no invariant to protect,
         % and epsych.SelfTest drives it to verify the control-enable contract.

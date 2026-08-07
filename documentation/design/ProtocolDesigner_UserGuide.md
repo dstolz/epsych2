@@ -100,6 +100,46 @@ Important editing rules:
 - Changing a parameter type may also change or reset the stored value.
 - If an edit is invalid, the row is refreshed back to the last valid state and the status line explains the problem.
 
+## Finding parameters by name
+
+The **Find** box above the parameter table narrows the table to the parameters whose
+name you are looking for. Press **Ctrl+F** to jump to it. Matching happens as you type:
+
+- Partial names are enough, and case does not matter: `tone` finds `ToneLevel` and `PureToneDur`.
+- `*` and `?` are wildcards matched against the whole name: `*Level` finds every name ending
+  in `Level`, and `Tone???` finds seven-character names starting with `Tone`.
+- Include a dot to search the qualified `Module.Parameter` name, the same form expressions use.
+
+The status bar reports how many parameters matched. The Find box works together with the
+**Filter** dropdown, so you can search within a single interface. Clear the box to show
+everything again; adding a parameter that the current search would hide clears it for you.
+
+## Renaming parameters with Find and Replace
+
+**Parameter > Find and Replace in Names...** (**Ctrl+H**) renames parameters in bulk. Enter
+the text to find and the text to replace it with, and the dialog previews every name it
+would change before anything happens.
+
+- Leave **Match whole name** unchecked to replace the text wherever it appears inside a
+  name — `Tone` to `Target` turns `ToneLevel` into `TargetLevel` and `ToneDur` into `TargetDur`.
+- Check **Match whole name** to rename only parameters whose entire name equals your search
+  text. Check **Match case** to make the search case-sensitive.
+- **Look in** restricts the replacement to all parameters, only the rows currently shown in
+  the table (so the Find box and interface filter both apply), or only the selected row.
+
+Expressions that referenced a renamed parameter are rewritten automatically, in every form
+expressions use: the bare name within its own module, `Module.Parameter` from elsewhere, and
+either of those with a `.Min`, `.Max`, `.Value`, or `.Values` suffix.
+
+Rows highlighted in red are not applied. A row says **Name in use** when the new name already
+belongs to another parameter in the same module, and **Invalid name** when the replacement
+would leave the name empty. Fix the replacement text, or apply the rest and handle those
+rows individually. **Replace All** applies every row marked **Rename**.
+
+Renaming cannot reach outside the protocol. Custom trial functions, save functions, and
+custom GUIs that refer to a parameter by name must be updated by hand, and there is no undo,
+so save the protocol before a large rename.
+
 ## Working with file parameters
 
 For parameters with `Type = File`, use **Edit Selected Value**.
@@ -134,6 +174,25 @@ baseISI + 50
 ```
 
 If an expression fails, the row is highlighted and the message area shows the error. Fix the expression and refresh or compile again.
+
+## Seeing how parameters depend on each other
+
+Choose **Protocol → Plot Parameter Dependencies...** (Ctrl+Shift+G) to open a new figure showing which parameters are calculated from which. Every parameter that references another one in its **Expression** appears, along with the parameters it references. Arrows point from a referenced parameter to the parameter calculated from it, so following them left to right is the order values are worked out.
+
+Read the plot by colour:
+
+- **Blue circle** — calculated from other parameters.
+- **Green square** — a plain value source with no expression.
+- **Grey circle** — the expression never runs at runtime, because the parameter has multiple trial levels or is read-only.
+- **Red star** — calculated, but the expression has a problem worth fixing.
+- **Red ✗** — the expression names something that is not a parameter in this protocol.
+- **Orange arrow** — the referenced parameter is set *later* in the trial and changes between trials, so the expression uses the previous trial's value.
+- **Red arrow** — the two parameters reference each other, so the result depends on evaluation order.
+- **Dotted red arrow** — the reference does not resolve.
+
+A `*` after a name means that parameter's value varies across trials. Click any node for its expression, when it is set, and any warnings.
+
+Parameters whose expressions do not reference another parameter are not drawn — there is nothing to connect them to. Use **Check Calculations...** (Ctrl+Shift+K) to see the full per-parameter report including those.
 
 ## Pairing parameters
 

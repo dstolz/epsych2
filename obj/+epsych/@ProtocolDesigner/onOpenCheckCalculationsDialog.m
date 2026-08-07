@@ -1,0 +1,9 @@
+function onOpenCheckCalculationsDialog(obj)
+    dialog = uifigure( ...
+        'Name', 'Check Calculations', ...
+        'Position', [160 90 1100 720], ...
+        'Resize', 'off');
+
+    obj.buildCheckCalculationsTab(dialog);
+    obj.refreshCheckCalculations();
+end

@@ -280,6 +280,7 @@ Graphical dashboard variant (lamps for binary state monitors):
 Notes:
 
 * Polling frequency (`pollPeriod`) trades responsiveness vs. hardware-read load; rendering itself is cheap because the display only redraws values that actually changed.
+* Hand the monitor every parameter that could be of interest: a right-click menu lets the user hide the ones they don't want and reorder the rest, and that choice is remembered between sessions. Hidden parameters are skipped by the poll, so an over-generous list costs nothing once trimmed. Pass `PreferenceTag` if a GUI hosts more than one monitor, so they don't share saved layouts.
 * For long sessions or weaker machines, consider slower polling or event-driven updates if available.
 * Monitors clean themselves up (timer included) when their display is destroyed with the hosting figure; deleting them earlier (e.g., on a Stop state, see `onModeChange`) simply freezes the display sooner.
 

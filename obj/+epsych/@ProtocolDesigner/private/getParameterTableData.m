@@ -1,6 +1,7 @@
 function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex, moduleFilterIndex)
 % [tableData, parameterHandles] = getParameterTableData(obj, filterIndex, moduleFilterIndex)
 % Build table rows and parameter handles for the current interface and module filters.
+% Rows are additionally narrowed by the Find box text held in obj.ParamNameFilter.
 %
 % Parameters:
 %	filterIndex		- Selected interface filter index.
@@ -31,6 +32,9 @@ function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex,
             end
             for paramIdx = 1:length(module.Parameters)
                 parameter = module.Parameters(paramIdx);
+                if ~obj.matchesParameterNameFilter(parameter.Name, module.Name, obj.ParamNameFilter)
+                    continue
+                end
                 obj.sanitizeParameterTrigger(parameter);
                 tableData(end + 1, :) = { ...
                     sprintf('%s > %s', ifaceLabel, obj.moduleDisplayLabel(module, moduleIdx)), ...

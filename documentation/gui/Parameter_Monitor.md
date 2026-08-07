@@ -15,6 +15,10 @@ Source: `obj/+gui/@Parameter_Monitor/`
 | `"graphical"` | Per-parameter widget dashboard: lamps, value labels, gauges in a configurable grid | At-a-glance state monitoring (trial state, sensors, counters) |
 | `"text"` | Plain text block, one `Name: Value` line per parameter | Legacy figures, minimal displays |
 
+Every display type carries a right-click menu for choosing which parameters
+are shown and in what order — see
+[Choosing and ordering parameters](#choosing-and-ordering-parameters).
+
 All display types refresh efficiently: values are compared against what is
 already on screen and graphics properties are only touched when something
 changed, so fast polling (e.g. `pollPeriod=0.1`) does not continuously redraw
@@ -71,8 +75,10 @@ Parameter `Description` text becomes each widget's tooltip automatically.
 | `HighlightColor` | soft yellow | Flash color |
 
 Individual widgets can be tweaked after construction through the read-only
-`Widgets` struct array (fields `Parameter`, `Style`, `ValueHandle`,
-`LabelHandle`):
+`Widgets` struct array — one entry per *visible* parameter, in display order,
+with fields `Parameter`, `Style`, `ValueHandle`, `LabelHandle`, and
+`CellHandle` (the component occupying the grid cell, which differs from
+`ValueHandle` only for lamps):
 
 ```matlab
 M.Widgets(3).ValueHandle.FontColor = 'b';
@@ -87,11 +93,48 @@ M.Widgets(3).ValueHandle.FontColor = 'b';
   rearrange. Both persist across sessions via `getpref`/`setpref`, keyed to
   the hosting figure's Tag/Name or an explicit `PreferenceTag`.
 
+## Choosing and ordering parameters
+
+Right-clicking anywhere on the display — a table row, a graphical widget, or
+the panel background — opens a menu that decides what the monitor shows:
+
+| Item | Effect |
+|------|--------|
+| **Show Parameter ▸** | One checkable entry per monitored parameter, in display order, plus **Show All**. Clicking one toggles it. |
+| **Move Up** / **Move Down** | Repositions the parameter that was right-clicked. Disabled when the click landed on no parameter, or when the parameter is already at an edge. |
+
+`type="text"` has no per-line hit testing, so its menu offers show/hide only;
+reorder those displays with `move_parameter` instead.
+
+Hidden parameters are skipped by the poll entirely, so hiding a parameter
+removes its per-poll hardware read as well as its row or widget — worth doing
+on a fast `pollPeriod` when only a few values matter. `Parameters` keeps the
+full monitored set; `VisibleParameters` is what is displayed and polled.
+
+Moves swap a parameter with its neighbour *among the visible parameters*, so
+hidden entries never silently absorb a move. Because a manual arrangement and
+a column sort contradict each other, moving a row clears the table's active
+sort.
+
+Both the visible set and the order persist across sessions in the same
+preference entry as the table sort/arrangement, keyed to the hosting figure's
+Tag/Name or an explicit `PreferenceTag`. Parameters are remembered by
+`FullName` (falling back to `Name`), so a saved layout also applies to a
+parameter added later with `add_parameter` — it lands in its remembered
+position, and stays hidden if the user had hidden it.
+
+The menu itself is exposed as `M.ContextMenu`, so a host GUI can append its
+own items with `uimenu(M.ContextMenu, ...)`. Append rather than replace: the
+built-in items are rebuilt each time the menu opens.
+
 ## Runtime API
 
 ```matlab
-M.add_parameter(p)       % append parameter(s); graphical displays rebuild
+M.add_parameter(p)       % append parameter(s); the saved layout is reapplied
 M.remove_parameter(p)    % remove by handle or by name
+M.set_parameter_visible("RespLatency", false)   % hide (or show) by name
+M.show_all_parameters()  % unhide everything
+M.move_parameter("InTrial", -1)                 % -1 = earlier, +1 = later
 M.stop(); M.start();     % pause/resume polling (display freezes while stopped)
 M.setPollPeriod(0.25)    % change poll rate on the fly
 M.poll_parameters()      % force an immediate refresh

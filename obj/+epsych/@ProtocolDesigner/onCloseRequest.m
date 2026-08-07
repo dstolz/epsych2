@@ -6,5 +6,10 @@ function onCloseRequest(obj)
         return
     end
 
+    % The Find and Replace dialog is a sibling figure, not a child of obj.Figure.
+    if ~isempty(obj.FindReplaceFigure) && isvalid(obj.FindReplaceFigure)
+        delete(obj.FindReplaceFigure);
+    end
+
     delete(obj.Figure);
 end

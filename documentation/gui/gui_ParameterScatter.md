@@ -20,8 +20,17 @@ third parameter mapped to marker color.
   `Trial Number` until a trial completes.
 - **Invisible parameters excluded**: parameters flagged `Visible=false` on
   their `hw.Parameter` never appear in the selectable lists, nor do
-  array-valued, write-only, or non-numeric parameters. Non-scalar and
-  non-numeric DATA fields are also excluded.
+  array-valued or write-only parameters. Non-scalar DATA fields are also
+  excluded.
+- **Categorical (text) parameters**: a scalar char/string DATA field, or a
+  runtime parameter with `Type='String'`, is offered in the same dropdowns
+  as numeric parameters. On a categorical X/Y axis, points are placed at
+  integer positions — one per distinct value seen so far — and the axis
+  ticks are labeled with those values (log scale is skipped for that axis).
+  As a color-by parameter, each distinct value gets one discrete color and
+  the colorbar ticks are labeled instead of showing a continuous scale. A
+  value keeps its assigned position/color once seen, even as later trials
+  introduce new categories.
 - **Aesthetics**: right-click the axes for marker style, size, opacity,
   marker color, colormap (color-by mode), log X/Y, and grid.
 - **Persistence**: parameter selections and aesthetics are saved with

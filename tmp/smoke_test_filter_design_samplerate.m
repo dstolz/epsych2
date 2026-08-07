@@ -147,7 +147,17 @@ stim.update_signal();
 assert(any(stim.Signal ~= 0), 'calibrated stimulus came out empty at the design rate');
 fprintf('PASS stimulus equalizes at the filter''s design rate\n');
 
-stim.Fs = 96000;                 % does not -- must refuse
+% Changing Fs runs update_signal under a property listener, and MATLAB turns an
+% error raised there into a warning. What must not survive that is a playable
+% waveform: callers regenerate only when Signal is empty, so a stale one would
+% be played uncalibrated.
+warnState = warning('off', 'all');
+stim.Fs = 96000;
+warning(warnState);
+assert(isempty(stim.Signal), ...
+    'a mismatched filter left a playable signal behind when the error was swallowed');
+fprintf('PASS mismatch under a listener leaves nothing to play\n');
+
 try
     stim.update_signal();
     error('smoke:applyGuard', 'apply_calibration filtered at the wrong rate without complaint');
@@ -159,8 +169,8 @@ catch ME
 end
 fprintf('PASS stimulus refuses a filter designed for another rate\n');
 
-% An unequalized stimulus at the same rate is unaffected: the guard is on the
-% filter, not on the calibration.
+% Scalar (LUT) calibration never touches the filter, so the guard must not
+% reach it -- a tone at a rate the filter was not designed for is still fine.
 tone = stimgen.Tone;             % CalibrationType "tone"
 tone.Fs = 96000;
 tone.Frequency = 4000;
@@ -168,8 +178,10 @@ tone.SoundLevel = 60;
 tone.Calibration = cal;
 tone.ApplyCalibration = true;
 tone.update_signal();
-assert(any(tone.Signal ~= 0), 'scalar-calibrated stimulus was blocked by the filter guard');
-fprintf('PASS scalar (non-filter) calibration is untouched by the guard\n');
+expectedV = cal.compute_adjusted_voltage("tone", 4000, 60);
+assert(abs(max(abs(tone.Signal)) - expectedV) < 1e-6 * expectedV, ...
+    'tone was not scaled to its LUT voltage (%g vs %g)', max(abs(tone.Signal)), expectedV);
+fprintf('PASS scalar (non-filter) calibration is untouched by the guard (%.3f V)\n', expectedV);
 
 fprintf('\nALL PASS\n');
 end

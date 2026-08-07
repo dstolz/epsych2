@@ -93,9 +93,54 @@ assert(numel(unique(stimDelays)) > 1, ...
     'StimDelay should randomize across trials (isRandom with Min~=Max)');
 fprintf('PASS: %d live dispatches, RespWinDelay/RespWinDur always current-trial\n', NTRIALS);
 
-% 4. analyzeExpressions reflects the runtime order -----------------------
-protFile = fullfile(EPsychInfo.root, 'tmp', 'TEST_NEW_PROTOCOL.eprot');
-if isfile(protFile)
+% 4. Phase JSON round trip must not erase live Expressions ---------------
+% Reproduces the field regression: phase snapshots saved before the
+% protocol defined its expressions store Expression = "", and loading one
+% wiped the live expression, so dispatch passed the compiled trial value
+% through unchanged (e.g. RespWinDelay stuck at its compile-time value).
+phaseFile = fullfile(tempdir, 'smoke_test_dispatch_order_phase.json');
+rt.writeParametersJSON(phaseFile);
+
+txt = fileread(phaseFile);
+assert(contains(txt, 'StimDelay + StimDur - RespWinPreStim'), ...
+    'snapshot should carry the live expression');
+txt = strrep(txt, 'StimDelay + StimDur - RespWinPreStim', '');
+txt = strrep(txt, 'RespWinPreStim + RespWinPostStim', '');
+fid = fopen(phaseFile, 'w'); fwrite(fid, txt); fclose(fid);
+
+rt.readParametersJSON(phaseFile);
+assert(pRWDelay.Expression == "StimDelay + StimDur - RespWinPreStim", ...
+    'empty Expression in a phase file must not erase the live expression');
+assert(pRWDur.Expression == "RespWinPreStim + RespWinPostStim", ...
+    'empty Expression in a phase file must not erase the live expression');
+
+rt.dispatchNextTrial(1);
+checkTrial(NTRIALS);
+fprintf('PASS: stale phase snapshot (blank Expression) leaves expressions intact\n');
+
+% 5. A non-empty expression in a phase file applies deliberately ---------
+rt.writeParametersJSON(phaseFile);
+txt = fileread(phaseFile);
+txt = strrep(txt, 'RespWinPreStim + RespWinPostStim', 'RespWinPreStim + RespWinPostStim + 7');
+fid = fopen(phaseFile, 'w'); fwrite(fid, txt); fclose(fid);
+
+rt.readParametersJSON(phaseFile);
+assert(pRWDur.Expression == "RespWinPreStim + RespWinPostStim + 7", ...
+    'non-empty Expression in a phase file should be applied');
+rt.dispatchNextTrial(1);
+assert(pRWDur.Value == pPre.Value + pPost.Value + 7, ...
+    'overridden expression should drive the dispatched value');
+
+pRWDur.Expression = "RespWinPreStim + RespWinPostStim";
+delete(phaseFile);
+fprintf('PASS: non-empty phase expression override applies\n');
+
+% 6. analyzeExpressions reflects the runtime order -----------------------
+candidates = fullfile(EPsychInfo.root, 'tmp', ...
+    {'TEST_NEW_PROTOCOL2.eprot', 'TEST_NEW_PROTOCOL.eprot'});
+protFile = candidates(cellfun(@isfile, candidates));
+if ~isempty(protFile)
+    protFile = protFile{1};
     prot = epsych.Protocol.load(protFile);
     A = prot.analyzeExpressions;
     for i = 1:numel(A)

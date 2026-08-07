@@ -101,7 +101,17 @@ for k = 1:nP
     % those rather than the saved literal, which may have drifted from the expression at save
     % time. Otherwise restore the saved literal value. The set.Value setter clamps to bounds and
     % disconnected backends ignore the hardware write.
+    % The Expression is protocol structure, not per-phase operator state: a
+    % snapshot saved before the protocol defined an expression stores "",
+    % which must not erase the live expression (dispatch would then silently
+    % pass the compiled trial value through instead of recomputing, e.g.
+    % RespWinDelay stuck at its compile-time value). A non-empty expression
+    % in the file is applied deliberately.
+    liveExpression = xp.Expression;
     xp.fromStruct(S);
+    if strlength(xp.Expression) == 0 && strlength(liveExpression) > 0
+        xp.Expression = liveExpression;
+    end
     if ~strcmp(xp.Type,'StimType') && ~strcmp(xp.Access,'Read')
         if strlength(xp.Expression) > 0 && ~isempty(xp.Values)
             xp.Value = xp.Values{1};

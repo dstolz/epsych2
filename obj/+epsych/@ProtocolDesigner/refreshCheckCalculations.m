@@ -39,7 +39,13 @@ function refreshCheckCalculations(obj)
     % ---- Sync input fields with the discovered variable set -------------
     wanted = {spec.inputs.identifier};
     existing = {obj.CheckCalcInputFields.identifier};
-    if ~isequal(wanted, existing)
+    % Field handles go stale when the dialog is closed and reopened (the
+    % identifier list survives on the designer while the uieditfields die
+    % with the old dialog figure) — rebuild whenever any handle is invalid.
+    fieldsAlive = ~isempty(obj.CheckCalcInputFields) && ...
+        all(arrayfun(@(s) isvalid(s.field) && s.field.Parent == obj.CheckCalcInputsPanel, ...
+        obj.CheckCalcInputFields));
+    if ~fieldsAlive || ~isequal(wanted, existing)
         previousText = containers.Map('KeyType', 'char', 'ValueType', 'char');
         for k = 1:numel(obj.CheckCalcInputFields)
             if isvalid(obj.CheckCalcInputFields(k).field)

@@ -1,9 +1,10 @@
 function refreshCheckCalculations(obj)
 % refreshCheckCalculations(obj)
-% Recompile, sync one input field per variable involved in any calculated
-% Expression, parse the field values (scalar or vector MATLAB expressions),
-% run the exhaustive sweep (Protocol.sweepExpressions) over every
-% combination, and populate the Check Calculations panel.
+% Recompile, sync the editable sweep-input table (one row per variable
+% involved in any calculated Expression; the Values column accepts scalar or
+% vector MATLAB expressions), run the exhaustive sweep
+% (Protocol.sweepExpressions) over every combination of the values, and
+% populate the Check Calculations panel.
     if isempty(obj.CheckCalcTrialsTable) || ~isvalid(obj.CheckCalcTrialsTable)
         return
     end
@@ -26,78 +27,62 @@ function refreshCheckCalculations(obj)
     if isempty(spec.parameters)
         obj.CheckCalcIssuesTable.Data = {};
         obj.CheckCalcTrialsTable.Data = {};
+        obj.CheckCalcInputsTable.Data = {};
+        obj.CheckCalcInputsTable.UserData = {};
         obj.CheckCalcAnalysisArea.Value = {'No calculated parameters in this protocol.'};
         obj.CheckCalcStatusLabel.Text = 'No calculated parameters';
         obj.CheckCalcComboLabel.Text = '';
-        delete(obj.CheckCalcInputsPanel.Children);
-        obj.CheckCalcInputFields = struct('identifier', {}, 'label', {}, 'field', {});
         obj.setStatus('Check Calculations: no parameters with expressions', ...
             'Enter an expression in the Expression column of the parameter table to create a calculated parameter.');
         return
     end
 
-    % ---- Sync input fields with the discovered variable set -------------
+    % ---- Sync the input table with the discovered variable set ----------
+    % UserData holds the identifier per row; user-typed Values text is
+    % preserved for identifiers that persist across refreshes.
     wanted = {spec.inputs.identifier};
-    existing = {obj.CheckCalcInputFields.identifier};
-    % Field handles go stale when the dialog is closed and reopened (the
-    % identifier list survives on the designer while the uieditfields die
-    % with the old dialog figure) — rebuild whenever any handle is invalid.
-    fieldsAlive = ~isempty(obj.CheckCalcInputFields) && ...
-        all(arrayfun(@(s) isvalid(s.field) && s.field.Parent == obj.CheckCalcInputsPanel, ...
-        obj.CheckCalcInputFields));
-    if ~fieldsAlive || ~isequal(wanted, existing)
-        previousText = containers.Map('KeyType', 'char', 'ValueType', 'char');
-        for k = 1:numel(obj.CheckCalcInputFields)
-            if isvalid(obj.CheckCalcInputFields(k).field)
-                previousText(obj.CheckCalcInputFields(k).identifier) = obj.CheckCalcInputFields(k).field.Value;
-            end
-        end
-        delete(obj.CheckCalcInputsPanel.Children);
-        obj.CheckCalcInputFields = struct('identifier', {}, 'label', {}, 'field', {});
-
-        rowH = 32;
-        nRows = numel(spec.inputs);
-        panelH = max(obj.CheckCalcInputsPanel.Position(4) - 8, nRows * rowH + 8);
-        for k = 1:nRows
-            y = panelH - k * rowH;
-            lbl = uilabel(obj.CheckCalcInputsPanel, ...
-                'Text', spec.inputs(k).label, ...
-                'Position', [8 y 178 26], ...
-                'Tooltip', localInputTooltip_(spec.inputs(k)));
-            if isKey(previousText, spec.inputs(k).identifier)
-                text = previousText(spec.inputs(k).identifier);
-            else
-                text = localFormatVector_(spec.inputs(k).defaultValues);
-            end
-            fld = uieditfield(obj.CheckCalcInputsPanel, 'text', ...
-                'Value', text, ...
-                'Position', [190 y 180 26], ...
-                'Tooltip', 'Scalar or vector MATLAB expression, e.g. 500, [0.5 1 2], 100:100:1000');
-            obj.CheckCalcInputFields(end+1) = struct( ...
-                'identifier', spec.inputs(k).identifier, 'label', lbl, 'field', fld);
+    previousIdents = obj.CheckCalcInputsTable.UserData;
+    previousData = obj.CheckCalcInputsTable.Data;
+    previousText = containers.Map('KeyType', 'char', 'ValueType', 'char');
+    if iscell(previousIdents) && iscell(previousData) && size(previousData, 2) >= 2
+        for k = 1:min(numel(previousIdents), size(previousData, 1))
+            previousText(previousIdents{k}) = char(string(previousData{k, 2}));
         end
     end
 
-    % ---- Parse fields into sweep overrides ------------------------------
+    inputData = cell(numel(spec.inputs), 3);
+    for k = 1:numel(spec.inputs)
+        inputData{k, 1} = spec.inputs(k).label;
+        if isKey(previousText, spec.inputs(k).identifier)
+            inputData{k, 2} = previousText(spec.inputs(k).identifier);
+        else
+            inputData{k, 2} = localFormatVector_(spec.inputs(k).defaultValues);
+        end
+        inputData{k, 3} = spec.inputs(k).note;
+    end
+    obj.CheckCalcInputsTable.Data = inputData;
+    obj.CheckCalcInputsTable.UserData = wanted;
+
+    % ---- Parse the Values column into sweep overrides -------------------
+    removeStyle(obj.CheckCalcInputsTable);
+    badStyle = uistyle('BackgroundColor', [1.0 0.88 0.88], 'FontColor', [0.60 0 0]);
     parseIssues = struct('field', {}, 'message', {}, 'severity', {});
     inputsCell = cell(0, 2);
-    for k = 1:numel(obj.CheckCalcInputFields)
-        fld = obj.CheckCalcInputFields(k).field;
-        fld.BackgroundColor = [1 1 1];
-        raw = strtrim(fld.Value);
+    for k = 1:numel(spec.inputs)
+        raw = strtrim(char(string(inputData{k, 2})));
         if isempty(raw)
             continue  % blank falls back to design values
         end
         vals = str2num(raw); % str2num (not str2double) so vector expressions like 100:100:1000 work
         if isempty(vals) || ~(isnumeric(vals) || islogical(vals))
-            fld.BackgroundColor = [1.0 0.88 0.88];
+            addStyle(obj.CheckCalcInputsTable, badStyle, 'cell', [k 2]);
             parseIssues(end+1) = struct( ...
-                'field', obj.CheckCalcInputFields(k).identifier, ...
+                'field', spec.inputs(k).identifier, ...
                 'message', sprintf('Could not parse "%s" as a numeric scalar/vector; using design values', raw), ...
                 'severity', 1);
             continue
         end
-        inputsCell(end+1, :) = {obj.CheckCalcInputFields(k).identifier, double(vals(:)).'};
+        inputsCell(end+1, :) = {spec.inputs(k).identifier, double(vals(:)).'};
     end
 
     % ---- Run the exhaustive sweep ---------------------------------------
@@ -115,7 +100,7 @@ function refreshCheckCalculations(obj)
 
     localPopulateIssues_(obj.CheckCalcIssuesTable, report.issues);
     obj.CheckCalcAnalysisArea.Value = localAnalysisText_(report);
-    shownRows = localPopulateResults_(obj.CheckCalcTrialsTable, report);
+    shownCombos = localPopulateResults_(obj.CheckCalcTrialsTable, report);
 
     nCombos = report.meta.nCombos;
     obj.CheckCalcComboLabel.Text = sprintf('%d combination(s)', nCombos);
@@ -131,8 +116,8 @@ function refreshCheckCalculations(obj)
     nErrors = nnz([report.issues.severity] == 2);
     nWarnings = nnz([report.issues.severity] == 1);
     statusText = sprintf('%d combination(s): %d error(s), %d warning(s)', nCombos, nErrors, nWarnings);
-    if shownRows < nCombos
-        statusText = sprintf('%s (showing first %d rows)', statusText, shownRows);
+    if shownCombos < nCombos
+        statusText = sprintf('%s (showing first %d combinations)', statusText, shownCombos);
     end
     obj.CheckCalcStatusLabel.Text = statusText;
 
@@ -144,14 +129,6 @@ function refreshCheckCalculations(obj)
         nextStep = 'All combinations evaluated cleanly with runtime semantics.';
     end
     obj.setStatus(sprintf('Check Calculations: %s', statusText), nextStep);
-end
-
-
-function tip = localInputTooltip_(inputSpec)
-    tip = inputSpec.identifier;
-    if ~isempty(inputSpec.note)
-        tip = sprintf('%s — %s', tip, inputSpec.note);
-    end
 end
 
 
@@ -277,52 +254,63 @@ function shownRows = localPopulateResults_(tbl, report)
         return
     end
 
+    % Transposed layout: one column per combination (easier to scan a single
+    % calculation across many combos), one row per variable. Row order:
+    % inputs, then calculated parameters, then a combined Notes row.
     nIn = numel(inputs);
     nCalc = numel(calcs);
-    shownRows = min(res.nCombos, MAX_ROWS);
+    nShown = min(res.nCombos, MAX_ROWS);
+    shownRows = nShown;
 
-    colNames = cell(1, nIn + nCalc + 1);
+    rowNames = cell(1, nIn + nCalc + 1);
     for i = 1:nIn
-        colNames{i} = inputs(i).identifier;
+        rowNames{i} = inputs(i).identifier;
     end
     for k = 1:nCalc
-        colNames{nIn + k} = calcs(k).fullName;
+        rowNames{nIn + k} = calcs(k).fullName;
     end
-    colNames{end} = 'Notes';
+    rowNames{end} = 'Notes';
 
-    data = cell(shownRows, nIn + nCalc + 1);
-    for c = 1:shownRows
+    colNames = arrayfun(@(c) sprintf('Combo %d', c), 1:nShown, 'UniformOutput', false);
+
+    data = cell(nIn + nCalc + 1, nShown);
+    errCombo = false(1, nShown);
+    warnCombo = false(1, nShown);
+    for c = 1:nShown
         for i = 1:nIn
-            data{c, i} = res.inputValues(c, i);
+            data{i, c} = res.inputValues(c, i);
         end
         noteParts = {};
         for k = 1:nCalc
             v = res.final(c, k);
             if isnan(res.computed(c, k))
-                data{c, nIn + k} = 'ERR';
+                data{nIn + k, c} = 'ERR';
+                errCombo(c) = true;
             elseif res.clamped(c, k)
-                data{c, nIn + k} = sprintf('%g*', v);
+                data{nIn + k, c} = sprintf('%g*', v);
+                warnCombo(c) = true;
             else
-                data{c, nIn + k} = v;
+                data{nIn + k, c} = v;
             end
             if ~isempty(res.notes{c, k})
                 noteParts{end+1} = sprintf('%s: %s', calcs(k).param.Name, res.notes{c, k});
             end
         end
-        data{c, end} = strjoin(noteParts, ' | ');
+        data{end, c} = strjoin(noteParts, ' | ');
     end
 
+    tbl.RowName = rowNames;
     tbl.ColumnName = colNames;
-    tbl.ColumnWidth = [repmat({86}, 1, nIn + nCalc), {260}];
+    tbl.ColumnWidth = repmat({100}, 1, nShown);
     tbl.Data = data;
 
     errStyle = uistyle('BackgroundColor', [1.0 0.88 0.88], 'FontColor', [0.60 0 0]);
     warnStyle = uistyle('BackgroundColor', [1.0 0.95 0.80]);
-    for c = 1:shownRows
-        if any(isnan(res.computed(c, :)))
-            addStyle(tbl, errStyle, 'row', c);
-        elseif any(res.clamped(c, :))
-            addStyle(tbl, warnStyle, 'row', c);
+    for c = 1:nShown
+        if errCombo(c)
+            addStyle(tbl, errStyle, 'column', c);
+        elseif warnCombo(c)
+            addStyle(tbl, warnStyle, 'column', c);
         end
     end
 end

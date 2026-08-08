@@ -83,11 +83,11 @@ classdef ProtocolDesigner < handle
         CheckCalcComboLabel matlab.ui.control.Label
         CheckCalcStatusLabel matlab.ui.control.Label
         CheckCalcIssuesTable matlab.ui.control.Table
-        CheckCalcInputsPanel matlab.ui.container.Panel
+        % Editable sweep-input table (Variable | Values | Note); row identifiers
+        % are kept in its UserData
+        CheckCalcInputsTable matlab.ui.control.Table
         CheckCalcAnalysisArea matlab.ui.control.TextArea
         CheckCalcTrialsTable matlab.ui.control.Table
-        % One row per sweep input variable: identifier + label/edit-field handles
-        CheckCalcInputFields struct = struct('identifier', {}, 'label', {}, 'field', {})
         CheckCalcReport struct = struct()  % last sweepExpressions report shown in the dialog
 
         SelectedInterfaceRow (1,1) double = 0

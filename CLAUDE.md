@@ -95,8 +95,10 @@ EPsych does not have a formal automated test suite. Manual validation is perform
   - hw.Software: In-memory software backend
   - hw.VlcRecorder: VLC video recording control
 
-Adding a backend requires edits in three hardcoded registries outside the class
-folder — there is no reflection. See documentation/hw/hw_Interface_Tutorial.md
+Adding a backend requires edits in four hardcoded registry sites outside the
+class folder (`getAvailableInterfaceSpecs`, `getInterfaceEditState`,
+`Protocol.toStruct`, `Protocol.createInterfaceFromStruct_`) — there is no
+reflection. See documentation/hw/hw_Interface_Tutorial.md
 and the `hw.Teensy` commit for the full list; omitting
 `Protocol.createInterfaceFromStruct_` in particular fails silently, reloading
 saved protocols as `hw.Software` stubs.

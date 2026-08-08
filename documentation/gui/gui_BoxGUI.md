@@ -15,7 +15,7 @@ function obj = MyTaskGUI(RUNTIME)
 end
 ```
 
-Set the class name in RunExpt under **Customize > Functions > Box GUI**. The GUI is created *after* the runtime timer starts, so parameters already carry live values; it must nonetheless open against a runtime with **no** interfaces (the pre-flight self-test launches it that way), which the base guarantees: `addControl`/`addButton` silently skip parameter names that do not resolve.
+Set the class name in RunExpt under **Customize > Customize...**, in the **Box GUI Function:** field on the **Functions** tab. The GUI is created *after* the runtime timer starts, so parameters already carry live values; it must nonetheless open against a runtime with **no** interfaces (the pre-flight self-test launches it that way), which the base guarantees: `addControl`/`addButton` silently skip parameter names that do not resolve.
 
 ## Minimal subclass
 

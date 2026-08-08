@@ -29,7 +29,7 @@ t = tic;
 r = localCheckCallable("B1_SavingFcn", GROUP, "Saving function", ...
     localField(F, 'SavingFcn', ''), ...
     ExpectedNargin = 1, ExpectedNargout = 0, ...
-    Remedy = "Set a valid saving function in Customize > Functions (default: ep_SaveDataFcn).");
+    Remedy = "Set a valid saving function in Customize > Customize... (Functions tab; default: ep_SaveDataFcn).");
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
 % --- B2: add-subject function -----------------------------------------
@@ -48,7 +48,7 @@ if addSubj == "epsych.DefaultSubject.open"
     end
 else
     r = localCheckCallable("B2_AddSubjectFcn", GROUP, "Add-subject function", addSubj, ...
-        Remedy = "Set a valid add-subject function in Customize > Functions.");
+        Remedy = "Set a valid add-subject function in Customize > Customize... (Functions tab).");
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
@@ -60,7 +60,7 @@ if strlength(strtrim(boxFig)) == 0
         'No box GUI configured; none will be launched.');
 else
     r = localCheckCallable("B3_BoxFig", GROUP, "Box GUI function", boxFig, ...
-        Remedy = "Set a valid box GUI in Customize > Functions (default: ep_GenericGUI), or clear it to disable.");
+        Remedy = "Set a valid box GUI in Customize > Customize... (Functions tab; default: ep_GenericGUI), or clear it to disable.");
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
@@ -75,7 +75,7 @@ timerSpecs = { ...
 if ~isfield(F, 'TIMERfcn')
     r = epsych.SelfTest.result("B4_TimerFcns", GROUP, "Timer functions", "fail", ...
         'FUNCS has no TIMERfcn struct.', ...
-        Remedy = "Reload the configuration, or reset the timer functions in Customize.");
+        Remedy = "Reload the configuration, or run rmpref('ep_RunExpt_TIMER') to restore the ep_TimerFcn_* defaults.");
 else
     rows = epsych.SelfTest.result();
     for i = 1:size(timerSpecs, 1)
@@ -83,7 +83,7 @@ else
         rows(end+1) = localCheckCallable("B4_Timer" + nm, GROUP, "Timer function: " + nm, ...
             localField(F.TIMERfcn, nm, ''), ...
             ExpectedNargin = timerSpecs{i,3}, ExpectedNargout = timerSpecs{i,4}, ...
-            Remedy = "Reset the timer functions in Customize > Functions.");
+            Remedy = "Reset the timer-function preferences: rmpref('ep_RunExpt_TIMER') restores the ep_TimerFcn_* defaults.");
     end
 
     % status is a string scalar inside a cell, which strcmp against a char
@@ -97,7 +97,7 @@ else
         r = epsych.SelfTest.result("B4_TimerFcns", GROUP, "Timer functions", "fail", ...
             sprintf('%d of 4 timer callbacks are unusable.', numel(bad)), ...
             Detail = string({bad.summary}), ...
-            Remedy = "Reset the timer functions in Customize > Functions.");
+            Remedy = "Reset the timer-function preferences: rmpref('ep_RunExpt_TIMER') restores the ep_TimerFcn_* defaults.");
     end
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];

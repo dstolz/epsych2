@@ -437,7 +437,7 @@ catch ME
     % parameters it cannot see yet -- report it, but do not call it a failure.
     if hasInterfaces
         status = "fail";
-        remedy = "The run would start without a box GUI. Fix the function or clear it in Customize > Functions.";
+        remedy = "The run would start without a box GUI. Fix the function or clear it in Customize > Customize... (Functions tab).";
     else
         status = "warn";
         remedy = "Re-run with 'Connect hardware interfaces' enabled to tell a real defect from a missing-hardware error.";

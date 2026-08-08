@@ -172,6 +172,7 @@ classdef RunExpt < handle
             self.ClearConfig
             self.UpdateGUIstate
             self.dfltDataPath = getpref('RunExpt','DataPath',cd);
+            self.promptForDataPath_
 
             if ffnConfig ~= ""
                 self.LoadConfig(ffnConfig)
@@ -438,6 +439,7 @@ classdef RunExpt < handle
         StopVideoRecording_(self)                           % Stop the active per-run webcam recording, if any
         StopVideoLiveView_(self)                            % Close the display-only webcam view, if any
         UpdateVideoLiveViewUI_(self)                        % Sync the live-view menu item and bottom-bar banner with VideoLiveViewActive_
+        promptForDataPath_(self)                            % Ask for the default data directory when the DataPath preference was never set
 
         function onCommand(self, hObj)
             % Adapts menu item callbacks; forwards the item's text label to ExptDispatch.

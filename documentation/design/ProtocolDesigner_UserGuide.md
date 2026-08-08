@@ -190,6 +190,8 @@ Read the plot by colour:
 - **Red arrow** — the two parameters reference each other, so the result depends on evaluation order.
 - **Dotted red arrow** — the reference does not resolve.
 
+Every calculated parameter's expression is written on the arrows that feed it, in a boxed `= expression` annotation placed between the parameters it uses and the parameter it produces — so the plot shows not just *which* parameters combine, but *how*. A parameter whose expression references nothing outside itself carries its formula just below its own marker. Long expressions are shortened with `...`; click the node for the full text. Clear the **Show formulas** checkbox at the bottom right to hide the annotations on a crowded graph.
+
 A `*` after a name means that parameter's value varies across trials. Click any node for its expression, when it is set, and any warnings.
 
 Parameters whose expressions do not reference another parameter are not drawn — there is nothing to connect them to. Use **Check Calculations...** (Ctrl+Shift+K) to see the full per-parameter report including those.

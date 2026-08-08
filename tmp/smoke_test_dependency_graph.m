@@ -221,12 +221,41 @@ try
     assert(~isempty(ax), 'no axes in the plot figure');
 
     % Labels are drawn as text objects, not GraphPlot NodeLabel
-    labels = get(findobj(ax, 'Type', 'text'), 'String');
+    labels = get(findobj(ax, 'Tag', 'nodeLabel'), 'String');
     assert(numel(labels) == numel(gp.XData), 'expected one text label per node, got %d of %d', ...
         numel(labels), numel(gp.XData));
     assert(any(contains(labels, 'Params.Vary *')), ...
         'multi-level parameter not marked with *: %s', strjoin(labels', ', '));
     assert(any(strcmp(labels, 'Ghost.Gone')), 'unresolved reference not labelled');
+
+    % Every parameter with an expression is annotated with its formula, placed
+    % between the parameters feeding it and itself
+    formulas = get(findobj(ax, 'Tag', 'formulaLabel'), 'String');
+    assert(numel(formulas) == 3, 'expected 3 formula annotations, got %d', numel(formulas));
+    assert(any(strcmp(formulas, '= Src * 2 + Src.Max')), ...
+        'Mid formula not annotated: %s', strjoin(formulas', ', '));
+    assert(any(strcmp(formulas, '= Mid + Vary.Max')), ...
+        'Out formula not annotated: %s', strjoin(formulas', ', '));
+
+    % Mid is calculated from Src alone, so its formula sits between the two
+    lSrc = findobj(ax, 'Tag', 'nodeLabel', 'String', 'Params.Src');
+    lMid = findobj(ax, 'Tag', 'nodeLabel', 'String', 'Params.Mid');
+    fMid = findobj(ax, 'Tag', 'formulaLabel', 'String', '= Src * 2 + Src.Max');
+    assert(isscalar(lSrc) && isscalar(lMid) && isscalar(fMid), ...
+        'expected one Src label, one Mid label, and one Mid formula');
+    xSrc = lSrc.Position(1);
+    xMid = lMid.Position(1);
+    assert(fMid.Position(1) > min(xSrc, xMid) && fMid.Position(1) < max(xSrc, xMid), ...
+        'Mid formula is not between Src and Mid');
+
+    toggle = findobj(plotFig, 'Tag', 'formulaToggle');
+    assert(isscalar(toggle), 'expected a "Show formulas" toggle');
+    toggle.Value = 0;
+    toggle.Callback(toggle, []);
+    assert(strcmp(fMid.Visible, 'off'), 'toggle did not hide the formula annotations');
+    toggle.Value = 1;
+    toggle.Callback(toggle, []);
+    assert(strcmp(fMid.Visible, 'on'), 'toggle did not restore the formula annotations');
     lgd = findobj(plotFig, 'Type', 'legend');
     assert(~isempty(lgd), 'no legend in the plot figure');
     assert(any(contains(lgd(1).String, 'Missing reference')), ...

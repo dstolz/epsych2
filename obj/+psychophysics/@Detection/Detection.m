@@ -192,11 +192,16 @@ classdef Detection < handle & matlab.mixin.SetGet
             else
                 d = obj.TRIALS.DATA;
                 if isempty(d), return; end
+                % The runtime stores plain values (ep_TimerFcn_RunTime
+                % collects valueOnly=true); legacy records stored the
+                % hw.Parameter handles themselves, so unwrap only those.
                 fn = fieldnames(d);
                 for i = 1:numel(d)
                     for j = 1:numel(fn)
                         p = d(i).(fn{j});
-                        d(i).(fn{j}) = [p.Value];
+                        if isa(p, 'hw.Parameter')
+                            d(i).(fn{j}) = [p.Value];
+                        end
                     end
                 end
             end

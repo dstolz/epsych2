@@ -2,3 +2,5 @@ Phase*.json
 *.asv
 tmp/*.log
 tmp/*.txt
+examples/detection_task/DetectionExample.eprot
+examples/detection_task/data/

@@ -9,6 +9,17 @@ Setup and orientation:
 - [Installation Guide](overviews/Installation_Guide.md) — MATLAB, TDT software, and first-run validation
 - [Toolbox Overview](overviews/Toolbox_Overview.md) — which tools matter first and how they fit together
 
+Worked example — a complete simulated detection task, from protocol design to
+data analysis, runnable with no hardware
+([examples/detection_task/](../examples/detection_task/)):
+
+- [Detection Task Walkthrough](examples/Detection_Task_Walkthrough.md) — index and quick start
+- [1 — Designing a protocol in code](examples/Detection_Task_1_Protocol.md) — conditions, pairing, expressions, triggers, compile/save
+- [2 — Writing a custom trial selector](examples/Detection_Task_2_TrialSelector.md) — the `epsych.TrialSelector` contract and a Go/No-Go policy
+- [3 — Building a behavior-box GUI](examples/Detection_Task_3_BoxGUI.md) — `gui.BoxGUI` hooks wired to live `psychophysics.Detection` analysis
+- [4 — Running a session](examples/Detection_Task_4_Running.md) — the RunExpt path and the simulation driver, side by side
+- [5 — Loading and analyzing saved data](examples/Detection_Task_5_Data.md) — session file layout, `epsych.BitMask` decoding, d', crash recovery
+
 Daily workflow:
 
 - [Protocol Designer User Guide](design/ProtocolDesigner_UserGuide.md) — building and compiling protocols (`.eprot` files)

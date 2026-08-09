@@ -75,6 +75,7 @@ addpath(subdirs);
 path(path)
 fprintf(' done\n')
 
+check_submodules(rootdir);
 
 vprintf(-1,'EPsych Toolbox version %s',EPsychInfo.Version);
 
@@ -83,3 +84,40 @@ if showsplash, epsych_printBanner; end
 
 if nargout == 0, clear subdirs; end
 
+
+
+
+function check_submodules(rootdir)
+% Warn when a required submodule has not been checked out.
+%
+% Without this, a clone made without --recurse-submodules fails in two
+% confusing ways: "Undefined variable stimgen" at unrelated call sites, and
+% -- worse -- silently degrading any saved .eprot/.ecfg that contains a
+% stimgen.StimType parameter, because MATLAB substitutes a placeholder
+% struct for a class it cannot resolve instead of raising an error.
+
+submodules = { ...
+    'obj/stimgen', 'stimgen.StimType', 'https://github.com/dstolz/stimgen'};
+
+for i = 1:size(submodules,1)
+    relpath = submodules{i,1};
+    probe   = submodules{i,2};
+    url     = submodules{i,3};
+
+    if exist(probe,'class') == 8, continue; end
+
+    d = fullfile(rootdir, strrep(relpath,'/',filesep));
+    entries = dir(d);
+    entries = entries(~ismember({entries.name}, {'.','..'}));
+    if isfolder(d) && ~isempty(entries)
+        reason = sprintf('"%s" is present but "%s" did not resolve', relpath, probe);
+    else
+        reason = sprintf('"%s" is empty or missing', relpath);
+    end
+
+    vprintf(0,1,['EPsych: required submodule not available -- %s.\n' ...
+        '    Run:  git submodule update --init --recursive\n' ...
+        '    Source: %s\n' ...
+        '    Until this is fixed, protocols containing stimulus objects ' ...
+        'will not load correctly.'], reason, url);
+end

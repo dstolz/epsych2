@@ -15,7 +15,7 @@ An EPsych installation has four layers:
 
 - MATLAB R2014b or newer
 - Recommended MATLAB release: R2018b or later
-- Historical development has been done on MATLAB 2024b
+- Current development is done on MATLAB R2024b
 
 ## Choose your experiment mode
 
@@ -52,17 +52,37 @@ Typical use case:
 
 ## Install EPsych
 
-1. Clone or copy the repository to a stable local folder.
+1. Clone the repository **with submodules** to a stable local folder.
 2. Open MATLAB.
 3. Add the repository root to the MATLAB path.
 4. Run the EPsych startup helper.
 
-Example:
+EPsych uses a git submodule for the stimulus-generation package
+([`stimgen`](https://github.com/dstolz/stimgen)), so the clone must include it:
+
+```bash
+git clone --recurse-submodules https://github.com/dstolz/epsych2.git
+```
+
+If you already cloned without `--recurse-submodules`, or you copied the folder
+rather than cloning it, fetch the submodule before continuing:
+
+```bash
+cd epsych2
+git submodule update --init --recursive
+```
+
+Then, in MATLAB:
 
 ```matlab
 addpath('C:\path\to\epsych2')
 epsych_startup
 ```
+
+`epsych_startup` verifies the submodule is present and prints an actionable
+message if it is not. Do not skip that warning: without `stimgen`, protocols
+containing stimulus parameters load with silently degraded values instead of
+failing outright. See [stimgen.md](../stimgen.md).
 
 What `epsych_startup` does:
 
@@ -108,22 +128,22 @@ If this works, EPsych itself is available in MATLAB even if hardware is not conn
 Open one of the design tools from MATLAB, for example:
 
 ```matlab
-ep_ExperimentDesign
+epsych.ProtocolDesigner
 ```
 
 Expected result:
 
-- the experiment design GUI opens
-- you can create or inspect a protocol file
+- the protocol designer GUI opens
+- you can create or inspect a protocol (`.eprot`) file
 
 ## Recommended setup sequence for a new lab machine
 
 1. Install MATLAB and confirm it launches cleanly.
 2. Install the TDT software required by your workflow.
-3. Clone the EPsych repository.
+3. Clone the EPsych repository with `--recurse-submodules`.
 4. Run `epsych_startup`.
 5. Open `epsych.RunExpt`.
-6. Open the protocol designer.
+6. Open `epsych.ProtocolDesigner`.
 7. Only after the MATLAB-side flow is stable, connect and test TDT hardware.
 
 This order matters because it separates MATLAB path problems from hardware or driver problems.
@@ -177,6 +197,7 @@ What to do:
 
 ## Next documents to read
 
-- Runtime walkthrough: [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
-- Architecture overview: [Architecture_Overview.md](Architecture_Overview.md)
+- Toolbox orientation: [Toolbox_Overview.md](Toolbox_Overview.md)
+- Session walkthrough: [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
+- Protocol design: [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md)
 

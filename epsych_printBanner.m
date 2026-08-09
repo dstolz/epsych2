@@ -21,16 +21,15 @@ end
 cm = cellstr(m);
 cm{end} = sprintf('%s\n%s <a href="%s">%s</a>',cm{end},latestTag,E.LicenseURL,E.Copyright);
 cm{end+1} = sprintf('Latest commit: %s; %s; <a href="%s">Commit History Overview</a>',E.commitTimestamp,E.chksum(1:7),E.CommitHistoryURL);
-cm{end+1} = sprintf('<a href="%s">See Documentation</a>',E.DocumentationURL);
+cm{end+1} = sprintf('<a href="%s">Visit Documentation</a>',E.DocumentationURL);
 lnk = E.RepositoryURL;
 cm{end+1} = sprintf('Repository: <a href="%s">%s</a>',lnk,lnk);
-%cm{end+1} = '-> <a href="matlab: ep_LaunchPad">ep_LaunchPad</a>  ... Launch panel for EPsych utilities';
-cm{end+1} = '--> <a href="matlab: ep_ExperimentDesign">ep_ExperimentDesign</a>  ... Define parameters for experiments';
-%cm{end+1} = '--> <a href="matlab: ep_BitmaskGen">ep_BitmaskGen</a>        ... Bitmask table generator for behavioral experiments';
-cm{end+1} = '--> <a href="matlab: ep_CalibrationUtil">ep_CalibrationUtil</a>   ... Sound calibration utility';
-%cm{end+1} = '--> <a href="matlab: ep_EPhys">ep_EPhys</a>             ... Electrophysiology experiments with OpenEx';
-%cm{end+1} = '--> <a href="matlab: ep_RunExpt">ep_RunExpt</a>           ... Behavioral/Electrophysiology with or without OpenEx';
-cm{end+1} = '--> <a href="matlab: epsych.RunExpt">epsych.RunExpt</a>           ... Behavioral/Electrophysiology';
+cm{end+1} = '--> <a href="matlab: epsych.calibrate">epsych.calibrate</a>           ... Speaker/microphone calibration';
+cm{end+1} = '--> <a href="matlab: stimgen.StimPlayer">stimgen.StimPlayer</a>         ... Sound stimulus player';
+%cm{end+1} = '--> <a href="matlab: epsych.BitMask.GUI">epsych.BitMask.GUI</a>         ... Bitmask table generator for behavioral experiments';
+cm{end+1} = '--> <a href="matlab: epsych.ProtocolDesigner">epsych.ProtocolDesigner</a>    ... Define parameters for experiments';
+%cm{end+1} = '--> <a href="matlab: teensy.TrialDesigner">teensy.TrialDesigner</a>       ... Build operant paradigms that run on a Teensy';
+cm{end+1} = '--> <a href="matlab: epsych.RunExpt">epsych.RunExpt</a>             ... Behavior/Electrophysiology';
 
 fprintf('\n')
 for i = 1:length(cm), fprintf('%s\n',cm{i}); end

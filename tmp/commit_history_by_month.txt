@@ -826,7 +826,7 @@
 ### 2025-09`tafcac6b`tupdated property comments (1 commits)
 -  
 
-### 2025-09`tac7db7b`tAdd ModeChange event handling and ModeChangeEvent class for improved state management (1 commits)
+### 2025-09`tac7db7b`tAdd ModeChange event handling and eventModeChange class for improved state management (1 commits)
 -  
 
 ### 2025-09`tac43f30`tAdd ModeChange event listener and handler for mode updates in GUI (1 commits)

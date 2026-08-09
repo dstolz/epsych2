@@ -19,21 +19,29 @@ f = uifigure('Name',figureName,'Tag','RunExpt', ...
 
 f.UserData = self;
 self.H.figure1 = f;
+self.H.figureBaseName    = string(figureName);  % restored when leaving Preview mode
+self.H.figureDefaultColor = f.Color;             % restored when leaving Preview mode
 movegui(f,'onscreen');
 
 % Menus
 mConfig = uimenu(f,'Label','Config');
-uimenu(mConfig,'Label','Browse &Configs...','MenuSelectedFcn', @(~,~) self.BrowseConfigs,'Accelerator','C')
-uimenu(mConfig,'Label','&Load Config...','MenuSelectedFcn', @(~,~) self.LoadConfig,'Accelerator','L')
-uimenu(mConfig,'Label','&Save Config...','MenuSelectedFcn', @(~,~) self.SaveConfig,'Accelerator','S')
-self.H.mnu_recent_configs = uimenu(mConfig,'Label','Recent configs ...','Separator','on');
+self.H.mnu_browse_config = uimenu(mConfig,'Label','Browse &Configs...', ...
+    'Tag','setup_mnu_browse_config','MenuSelectedFcn', @(~,~) self.BrowseConfigs,'Accelerator','C');
+self.H.mnu_load_config = uimenu(mConfig,'Label','&Load Config...', ...
+    'Tag','setup_mnu_load_config','MenuSelectedFcn', @(~,~) self.LoadConfig,'Accelerator','L');
+self.H.mnu_refresh_config = uimenu(mConfig,'Label','&Refresh Config', ...
+    'Tag','setup_mnu_refresh_config','MenuSelectedFcn', @(~,~) self.RefreshConfig,'Accelerator','R');
+self.H.mnu_save_config = uimenu(mConfig,'Label','&Save Config...', ...
+    'Tag','setup_mnu_save_config','MenuSelectedFcn', @(~,~) self.SaveConfig,'Accelerator','S');
+% Recents get their own submenu rather than loose items appended to Config:
+% the entry point stays visible (with a disabled placeholder) even after the
+% seven-day window in GetRecentConfigs prunes the list to nothing.
+self.H.mnu_recent_configs = uimenu(mConfig,'Label','&Recent Configs', ...
+    'Tag','setup_mnu_recent_configs','Separator','on');
+self.H.mnu_config = mConfig;
 
 mCustom = uimenu(f,'Label','Customize');
-uimenu(mCustom,'Label','Define Saving Function...','MenuSelectedFcn', @(~,~) self.DefineSavingFcn,'Accelerator','S')
-uimenu(mCustom,'Label','Define Save path...','MenuSelectedFcn', @(~,~) self.DefineDataPath,'Accelerator','P')
-uimenu(mCustom,'Label','Define Config Browser Root...','MenuSelectedFcn', @(~,~) self.DefineConfigBrowserRoot,'Accelerator','R')
-uimenu(mCustom,'Label','Define Box GUI Function...','MenuSelectedFcn', @(~,~) self.DefineBoxFig,'Accelerator','B')
-uimenu(mCustom,'Label','Define Add Subject Function...','MenuSelectedFcn', @(~,~) self.DefineAddSubject,'Accelerator','A')
+uimenu(mCustom,'Label','Customize...','MenuSelectedFcn', @(~,~) self.OpenCustomizeDialog,'Accelerator','U')
 
 mView = uimenu(f,'Label','View');
 self.H.always_on_top = uimenu(mView,'Label','Always On Top','Checked','off', ...
@@ -44,6 +52,11 @@ mHelp = uimenu(f,'Label','Help');
 uimenu(mHelp,'Label','Version Info','MenuSelectedFcn', @(~,~) self.version_info,'Accelerator','I')
 self.H.mnu_open_error_log = uimenu(mHelp,'Label','Open Current Error Log', ...
     'MenuSelectedFcn', @(~,~) self.OpenCurrentErrorLog);
+% Deliberately not tagged 'setup': the read-only checks stay available while a
+% session is running, which is when an operator most wants them.
+self.H.mnu_self_test = uimenu(mHelp,'Label','Run Self-&Test...', ...
+    'Tag','mnu_self_test','Accelerator','D', ...
+    'MenuSelectedFcn', @(~,~) self.OpenSelfTest);
 self.H.mnu_assign_runtime = uimenu(mHelp,'Label','Assign RUNTIME to Command Window', ...
     'Enable','off', ...
     'MenuSelectedFcn', @(~,~) self.AssignRuntimeToCommandWindow);
@@ -59,12 +72,31 @@ self.H.mnu_CommutatorGUI = uimenu(mView,'Label','Commutator GUI','Enable','on', 
     'Accelerator','G', ...
     'MenuSelectedFcn', @(~,~) self.LaunchCommutatorGUI);
 
+% Calibration drives the hardware into Preview, so the 'setup' tag prefix
+% keeps it out of reach while a session is RUNNING.
+self.H.mnu_calibration = uimenu(mView,'Label','Calibration GUI...','Enable','on', ...
+    'Tag','setup_mnu_calibration', ...
+    'MenuSelectedFcn', @(~,~) epsych.calibrate);
+
+self.H.mnu_vlc_setup = uimenu(mView,'Label','Webcam Recorder Setup...','Enable','on', ...
+    'Accelerator','W', ...
+    'MenuSelectedFcn', @(~,~) self.OpenVlcRecorderSetup);
+
+% Watch the camera without writing a file. The label states the no-recording
+% behavior outright; UpdateVideoLiveViewUI_ keeps it in sync with the view.
+% The 'setup' tag prefix disables it while RUNNING: opening or closing a view
+% restarts VLC, which blocks for ~1 s (and up to 8 s on a clean quit) and must
+% not land inside the trial loop. A view opened beforehand keeps running.
+self.H.mnu_vlc_liveview = uimenu(mView,'Text','Live Webcam View (No Recording)','Enable','on', ...
+    'Tag','setup_mnu_vlc_liveview', ...
+    'MenuSelectedFcn', @(~,~) self.ToggleVideoLiveView);
+
 self.UpdateRecentConfigsMenu
 
 % Layout
 
-g = uigridlayout(f,[2 2]);
-g.RowHeight   = {'1x',40};
+g = uigridlayout(f,[3 2]);
+g.RowHeight   = {'1x',40,24};
 g.ColumnWidth = {'1x',100};
 g.RowSpacing = 8; g.ColumnSpacing = 8; g.Padding = [8 8 8 8];
 
@@ -72,20 +104,51 @@ g.RowSpacing = 8; g.ColumnSpacing = 8; g.Padding = [8 8 8 8];
 self.H.subject_list = uitable(g, ...
     'Tag','subject_list', ...
     'Data',{}, ...
-    'ColumnName',{'BoxID','Name','Protocol'}, ...
-    'ColumnEditable',[false false false], ...
-    'ColumnWidth',{60,200,350}, ...
+    'ColumnName',{'BoxID','Name','Protocol','Version'}, ...
+    'ColumnEditable',[false false false false], ...
+    'ColumnWidth',{60,200,280,100}, ...
     'RowStriping','on', ...
-    'FontSize',18);
+    'FontSize',18, ...
+    'Tooltip','Right-click a subject to edit, update, or change its protocol file');
 self.H.subject_list.Layout.Row = 1;
 self.H.subject_list.Layout.Column = 1;
 self.H.subject_list.SelectionChangedFcn = @(h,ev) self.subject_list_SelectionChanged(h,ev);
 
-% ---------- Bottom control bar (Run/Preview/Pause/Stop) ----------
-gBottom = uigridlayout(g,[1 4]);
+% Right-click context menu for per-subject protocol actions
+cmProtocol = uicontextmenu(f);
+uimenu(cmProtocol,'Text','Edit Protocol...','MenuSelectedFcn', @(~,~) self.EditProtocol);
+uimenu(cmProtocol,'Text','Update to Latest Version','MenuSelectedFcn', @(~,~) self.UpdateProtocol);
+uimenu(cmProtocol,'Text','Change Protocol File...','MenuSelectedFcn', @(~,~) self.ChangeProtocolFile);
+self.H.subject_list.ContextMenu = cmProtocol;
+
+% ---------- Bottom control bar (Record/Run/Preview/Pause/Stop) ----------
+gBottom = uigridlayout(g,[1 6]);
 gBottom.Layout.Row = 2; gBottom.Layout.Column = 1;
-gBottom.ColumnWidth = {'1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
+% The Live View column is a fixed width rather than 'fit': its button relabels
+% to the longer 'Close Live View' while a view is open, and a column that
+% resized with the label would slide the Run/Preview/Pause/Stop buttons out
+% from under the pointer mid-session. Sized for the longer of the two labels.
+gBottom.ColumnWidth = {'fit',130,'1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
 gBottom.RowSpacing = 0; gBottom.ColumnSpacing = 8; gBottom.Padding = [0 0 0 0];
+
+% Webcam recording opt-in lives beside Run so it is set as part of starting
+% a session; the 'setup' tag prefix disables it automatically while RUNNING.
+self.H.setup_record_video = uicheckbox(gBottom, ...
+    'Text','Record video', ...
+    'Tag','setup_record_video', ...
+    'Value', logical(getpref('ep_RunExpt_Video','EnableRecording',false)), ...
+    'Tooltip', ['Record webcam video via VLC during the run (never during Preview).' newline ...
+                'Camera: View > Webcam Recorder Setup.  Save location: Customize > Paths.'], ...
+    'ValueChangedFcn', @(h,~) setpref('ep_RunExpt_Video','EnableRecording',logical(h.Value)));
+
+% Button form of View > Live Webcam View (No Recording): same toggle, same
+% 'setup' disable-while-RUNNING behavior as the menu item (see buildUI.m
+% comment above mnu_vlc_liveview for why it must not open mid-run).
+self.H.setup_btn_liveview = uibutton(gBottom,'push','Text','Live View', ...
+    'Tag','setup_btn_liveview', ...
+    'Tooltip','Open a display-only webcam view (nothing is recorded). Same as View > Live Webcam View.', ...
+    'ButtonPushedFcn', @(~,~) self.ToggleVideoLiveView);
+self.H.liveviewBtnDefaultColor = self.H.setup_btn_liveview.BackgroundColor;
 
 self.H.ctrl_run = uibutton(gBottom,'push','Text','Run', ...
     'Tag','ctrl_run','FontWeight','bold','FontSize',18, ...
@@ -127,3 +190,43 @@ self.H.view_trials = uibutton(gRight,'push','Text','View Trials', ...
 
 self.H.save_data = uibutton(gRight,'push','Text','Save Data', ...
     'Tag','save_data', 'ButtonPushedFcn', @(~,~) self.SaveDataCallback);
+
+% ---------- Mode indicator in bottom-right cell ----------
+gLamp = uigridlayout(g,[1 1]);
+gLamp.Layout.Row = 2; gLamp.Layout.Column = 2;
+gLamp.RowHeight = {'1x'};
+gLamp.ColumnWidth = {'1x'};
+gLamp.Padding = [0 0 0 0];
+
+self.H.modeIndicator = gui.ModeIndicator(gLamp);
+
+% ---------- Status bar (spans the full width, below the controls) ----------
+gStatus = uigridlayout(g,[1 2]);
+gStatus.Layout.Row = 3; gStatus.Layout.Column = [1 2];
+gStatus.RowHeight = {'1x'};
+gStatus.ColumnWidth = {'1x','fit'};
+gStatus.RowSpacing = 0; gStatus.ColumnSpacing = 8; gStatus.Padding = [0 0 0 0];
+
+% gui.StatusBar must be given an explicit Position: with it empty the
+% constructor reads parent.Position(3), and a uigridlayout has no Position.
+% The value is ignored once Layout.Row is set. The first real message comes
+% from UpdateGUIstate, which the constructor calls immediately.
+self.H.statusBar = gui.StatusBar(gStatus, ...
+    Position = [1 1 400 22], ...
+    InitialText = 'Starting up...');
+self.H.statusBar.Label.Layout.Row = 1;
+self.H.statusBar.Label.Layout.Column = 1;
+
+% States that an open VLC window is showing the camera only. Deliberately
+% amber rather than red: a red indicator beside a webcam reads as
+% "recording", which is the opposite of what this means. It sits in the
+% status row rather than beside the transport buttons so that appearing and
+% disappearing only resizes the (left-aligned) status label.
+% Text is empty (not Visible='off') while idle so the 'fit' column collapses.
+self.H.video_liveview_banner = uilabel(gStatus, ...
+    'Text','', ...
+    'FontWeight','bold', ...
+    'FontColor',[0.85 0.45 0.00], ...
+    'Tooltip','VLC is displaying the webcam stream only. Nothing is being written to disk.');
+self.H.video_liveview_banner.Layout.Row = 1;
+self.H.video_liveview_banner.Layout.Column = 2;

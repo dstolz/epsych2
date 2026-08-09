@@ -1,0 +1,74 @@
+function onModifyInterfaceOptions(obj)
+% onModifyInterfaceOptions(obj)
+% Edit interface or module creation options for the current selection.
+    interfaceIndex = obj.getSelectedInterfaceRowIndex();
+    if interfaceIndex < 1 || interfaceIndex > length(obj.Protocol.Interfaces)
+        obj.setStatus('No interface selected for modification', 'Select an interface row in Current Interfaces first.');
+        uialert(obj.Figure, 'Select an interface row in Current Interfaces first.', 'No Interface Selected');
+        return
+    end
+
+    iface = obj.Protocol.Interfaces(interfaceIndex);
+    moduleIndex = obj.getSelectedModuleRow();
+
+    if moduleIndex >= 1 && moduleIndex <= length(iface.Module)
+        try
+            [spec, moduleOptions] = obj.getModuleEditState(iface, moduleIndex);
+            updatedOptions = obj.promptForInterfaceOptions(spec, moduleOptions, 'Apply Module Options', 'module');
+            if isempty(updatedOptions)
+                obj.setStatus(sprintf('Modify module cancelled for %s', iface.Module(moduleIndex).Name), ...
+                    'Review the module options and reopen the dialog when ready.');
+                return
+            end
+
+            updatedModule = obj.applyUpdatedModuleOptions(iface, moduleIndex, updatedOptions);
+            obj.refreshParameterTab();
+            obj.SelectedInterfaceRow = interfaceIndex;
+            obj.setSelectedModuleRow(moduleIndex);
+            obj.IsModified_ = true;
+            obj.setStatus(sprintf('Updated options for module %s', updatedModule.Name), ...
+                'Review affected parameters, then compile again.');
+            return
+        catch ME
+            obj.setStatus(sprintf('Modify module failed: %s', ME.message), ...
+                'Check the module option values and required files, then try again.');
+            uialert(obj.Figure, ME.message, 'Modify Module Failed');
+            return
+        end
+    end
+
+    try
+        [spec, options] = obj.getInterfaceEditState(iface);
+        updatedOptions = obj.promptForInterfaceOptions(spec, options, 'Apply Options', 'interface');
+        if isempty(updatedOptions)
+            obj.setStatus(sprintf('Modify %s cancelled', char(iface.Type)), ...
+                'Review the interface options and reopen the dialog when ready.');
+            return
+        end
+
+        replacement = spec.createFcn(updatedOptions);
+        if ~isempty(iface.Module)
+            replacement = obj.cloneModulesToInterface(iface, replacement);
+        end
+        obj.Protocol.replaceInterface(interfaceIndex, replacement);
+        obj.refreshParameterTab();
+
+        selectedLabel = obj.interfaceLabel(replacement, interfaceIndex);
+        if any(strcmp(selectedLabel, obj.DropDownTargetInterface.Items))
+            obj.DropDownTargetInterface.Value = selectedLabel;
+            obj.onTargetInterfaceChanged();
+        end
+        if any(strcmp(selectedLabel, obj.DropDownInterfaceFilter.Items))
+            obj.DropDownInterfaceFilter.Value = selectedLabel;
+            obj.refreshParameterTable();
+        end
+        obj.SelectedInterfaceRow = interfaceIndex;
+        obj.IsModified_ = true;
+        obj.setStatus(sprintf('Updated options for %s', char(replacement.Type)), ...
+            'Review affected modules and parameters, then compile again.');
+    catch ME
+        obj.setStatus(sprintf('Modify interface failed: %s', ME.message), ...
+            'Check the option values and required files, then try again.');
+        uialert(obj.Figure, ME.message, 'Modify Interface Failed');
+    end
+end

@@ -1,7 +1,7 @@
 function BrowseConfigs(self)
-% BrowseConfigs — Select a *.config file from a recursive browser.
+% BrowseConfigs — Select a *.ecfg file from a recursive browser.
 % Behavior
-%   Displays a modal GUI that lists all "*.config" files under the
+%   Displays a modal GUI that lists all "*.ecfg" files under the
 %   configured root folder and forwards the selected file to LoadConfig().
 arguments
     self
@@ -18,7 +18,7 @@ root = string(root);
 [items, fullpaths] = self.FindConfigFiles(root);
 if isempty(fullpaths)
     ontop = self.AlwaysOnTop(false);
-    warndlg(sprintf('No "*.config" files found under:\n%s',root),'Browse Configs','modal')
+    warndlg(sprintf('No "*.ecfg" files found under:\n%s',root),'Browse Configs','modal')
     self.AlwaysOnTop(ontop);
     return
 end

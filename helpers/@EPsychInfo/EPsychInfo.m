@@ -11,9 +11,11 @@ classdef EPsychInfo < handle
     %   Copyright, RepositoryURL, CommitHistoryURL, WikiURL
     %   iconPath - Path to the EPsych icon directory.
     %   chksum - Latest commit checksum from the local git checkout.
+    %   stimgenChksum - Latest commit checksum of the obj/stimgen submodule.
     %   commitTimestamp - Timestamp of the latest local commit log entry.
     %   latestTag - Latest reachable git tag in the local repository.
     %   meta - Struct snapshot of the current metadata.
+    %   diagnostics - Struct of host computer and software environment info.
     %
     % Methods:
     %   icon_img - Load an icon image from the EPsych install.
@@ -28,9 +30,11 @@ classdef EPsychInfo < handle
     properties (SetAccess = private)
         iconPath % Path to the EPsych icon assets.
         chksum % Latest commit checksum from the local checkout.
+        stimgenChksum % Latest commit checksum of the obj/stimgen submodule.
         commitTimestamp % Timestamp of the latest local commit log entry.
         latestTag % Latest reachable git tag for the local checkout.
         meta % Struct snapshot of version and repository metadata.
+        diagnostics % Struct of host machine and software environment details.
     end
     
     properties (Constant)
@@ -44,7 +48,7 @@ classdef EPsychInfo < handle
         RepositoryURL = 'https://github.com/dstolz/epsych2';
         CommitHistoryURL = 'https://github.com/dstolz/epsych2/blob/master/documentation/overviews/CommitHistoryOverview.md';
         WikiURL = 'https://github.com/dstolz/epsych2/wiki';
-        DocumentationURL = 'https://github.com/dstolz/epsych2/blob/669b7581a731394d4b3ac7bd11bea68aa9e7608f/README.md';
+        DocumentationURL = 'https://github.com/dstolz/epsych2/wiki';
     end
     
     methods
@@ -62,6 +66,10 @@ classdef EPsychInfo < handle
             m.Version     = obj.Version;
             m.DataVersion = obj.DataVersion;
             m.Checksum    = obj.chksum;
+            % stimgen lives in its own repository and releases on its own
+            % cadence, so the parent checksum alone no longer identifies the
+            % code that generated a session's stimuli.
+            m.StimgenChecksum = obj.stimgenChksum;
             m.commitTimestamp = obj.commitTimestamp;
             m.LatestTag = obj.latestTag;
             m.RepositoryURL = obj.RepositoryURL;
@@ -75,21 +83,17 @@ classdef EPsychInfo < handle
         
             
         function chksum = get.chksum(obj)
-                        
-            chksum = nan;
-            
-            fid = fopen(fullfile(obj.root,'.git','logs','HEAD'),'r');
-            
-            if fid < 3, return; end
-            
-            while ~feof(fid), g = fgetl(fid); end
-            
-            fclose(fid);
-            
-            a = find(g==' ');
-            chksum = g(a(1)+1:a(2)-1);
+            chksum = EPsychInfo.commitFromGitLog_( ...
+                fullfile(obj.root,'.git','logs','HEAD'));
         end
-        
+
+        function chksum = get.stimgenChksum(obj)
+            % obj/stimgen/.git is a gitfile; the real gitdir for a submodule
+            % lives under the parent's .git/modules tree.
+            chksum = EPsychInfo.commitFromGitLog_( ...
+                fullfile(obj.root,'.git','modules','obj','stimgen','logs','HEAD'));
+        end
+
         function c = get.commitTimestamp(obj)
             try
                 fn = fullfile(obj.root,'.git','logs','HEAD');
@@ -103,6 +107,55 @@ classdef EPsychInfo < handle
 
         function tag = get.latestTag(obj)
             tag = obj.getLatestTag();
+        end
+
+        function d = get.diagnostics(~)
+            % d = get.diagnostics(obj)
+            % Return a struct of host computer and software environment details
+            % for diagnostic and logging purposes.
+            %
+            % Return:
+            %   d - Struct with fields:
+            %       matlabVersion    - Full MATLAB version string.
+            %       matlabRelease    - MATLAB release name (e.g. 'R2024b').
+            %       javaVersion      - Java runtime version string.
+            %       platform         - Platform/architecture identifier from `computer`.
+            %       hostname         - Network hostname of the current machine.
+            %       numLogicalCores  - Number of logical CPU cores available to MATLAB.
+            %       physicalMemoryGB - Total physical RAM in GB (NaN on non-Windows).
+            %       availableMemoryGB- Available physical RAM in GB (NaN on non-Windows).
+            %       screenSize       - Root display size in pixels [left bottom width height].
+            %       toolboxes        - Cell array of installed MathWorks toolbox names.
+            %       timestamp        - datetime when diagnostics were collected.
+
+            d.matlabVersion   = version;
+            d.matlabRelease   = version('-release');
+            d.javaVersion     = version('-java');
+            d.platform        = computer;
+
+            try
+                d.hostname = char(java.net.InetAddress.getLocalHost.getHostName);
+            catch
+                d.hostname = '';
+            end
+
+            d.numLogicalCores = double(java.lang.Runtime.getRuntime().availableProcessors());
+
+            try
+                [~, mem]            = memory;
+                d.physicalMemoryGB  = mem.PhysicalMemory.Total  / 1024^3;
+                d.availableMemoryGB = mem.PhysicalMemory.Available / 1024^3;
+            catch
+                d.physicalMemoryGB  = nan;
+                d.availableMemoryGB = nan;
+            end
+
+            d.screenSize = get(0, 'ScreenSize');
+
+            tbx = ver;
+            d.toolboxes = {tbx.Name};
+
+            d.timestamp = datetime('now');
         end
 
         function tag = getLatestTag(obj)
@@ -187,8 +240,39 @@ classdef EPsychInfo < handle
             s = sprintf('File last modifed on %s at %s', ...
                 datestr(datens,'ddd, mmm dd, yyyy'),datestr(datens,'HH:MM PM'));
         end
-        
-        
+
+
+    end
+
+    methods (Static, Access = private)
+        function chksum = commitFromGitLog_(logfile)
+            % chksum = commitFromGitLog_(logfile)
+            % Last commit hash recorded in a git "logs/HEAD" file.
+            %
+            % Input:
+            %   logfile - Path to a git logs/HEAD file.
+            %
+            % Return:
+            %   chksum - Commit hash as a character vector, or NaN when the
+            %       file is missing or empty (zip download, submodule not
+            %       checked out).
+
+            chksum = nan;
+
+            fid = fopen(logfile,'r');
+
+            if fid < 3, return; end
+
+            g = '';
+            while ~feof(fid), g = fgetl(fid); end
+
+            fclose(fid);
+
+            a = find(g==' ');
+            if numel(a) < 2, return; end
+
+            chksum = g(a(1)+1:a(2)-1);
+        end
     end
     
     

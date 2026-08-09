@@ -178,12 +178,8 @@ These return subsets of the enumeration (as `epsych.BitMask` arrays):
 - **Enum values are bit indices.** The enumeration stores positions (e.g., `Hit = 1`), not powers of two.
 - **`Undefined (0)` is not a bit position.** It is a sentinel value; `getDefined()` excludes it.
 - **Bit order in vectors:** `Mask2Bits` and `Bits2Mask` use “LSB in column 1”. A binary vector `[0 1 1 1 0]` corresponds to bits 2–4 being set.
-- **Enum name typo:** the enum includes `OPtion_H` (capital `P`). This is a real enum member name, so the decoded struct field will also be `M.OPtion_H`.
 
 ## Related files
 
-- `helpers/bitmask_gui.m` — interactive UI to build/copy masks using `epsych.BitMask`.
-
-## Changelog
-
-- 2026-03-17: Updated docs to match the current `Mask2Bits` shape behavior and the corrected group helper ranges.
+- [obj/+epsych/@BitMask/BitMask.m](../../obj/+epsych/@BitMask/BitMask.m) — enumeration class definition.
+- [helpers/bitmask_gui.m](../../helpers/bitmask_gui.m) — interactive UI to build/copy masks using `epsych.BitMask`.

@@ -1,0 +1,60 @@
+function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex, moduleFilterIndex)
+% [tableData, parameterHandles] = getParameterTableData(obj, filterIndex, moduleFilterIndex)
+% Build table rows and parameter handles for the current interface and module filters.
+% Rows are additionally narrowed by the Find box text held in obj.ParamNameFilter.
+%
+% Parameters:
+%	filterIndex		- Selected interface filter index.
+%	moduleFilterIndex	- Selected module filter index within the active interface.
+%
+% Returns:
+%	tableData		- Cell array used as the parameter table Data value.
+%	parameterHandles	- Parameter handles corresponding to each table row.
+    if nargin < 3
+        moduleFilterIndex = 0;
+    end
+
+    tableData = cell(0, 15);
+    parameterHandles = {};
+
+    for ifaceIdx = 1:length(obj.Protocol.Interfaces)
+        if filterIndex ~= 0 && ifaceIdx ~= filterIndex
+            continue
+        end
+
+        iface = obj.Protocol.Interfaces(ifaceIdx);
+        ifaceLabel = obj.interfaceLabel(iface, ifaceIdx);
+
+        for moduleIdx = 1:length(iface.Module)
+            module = iface.Module(moduleIdx);
+            if filterIndex ~= 0 && ifaceIdx == filterIndex && moduleFilterIndex ~= 0 && moduleIdx ~= moduleFilterIndex
+                continue
+            end
+            for paramIdx = 1:length(module.Parameters)
+                parameter = module.Parameters(paramIdx);
+                if ~obj.matchesParameterNameFilter(parameter.Name, module.Name, obj.ParamNameFilter)
+                    continue
+                end
+                obj.sanitizeParameterTrigger(parameter);
+                tableData(end + 1, :) = { ...
+                    sprintf('%s > %s', ifaceLabel, obj.moduleDisplayLabel(module, moduleIdx)), ...
+                    parameter.Name, ...
+                    parameter.Type, ...
+                    obj.getParameterExpression(parameter), ...
+                    obj.getParameterValueDisplay(parameter), ...
+                    parameter.Min, ...
+                    parameter.Max, ...
+                    parameter.isRandom, ...
+                    obj.getPairDisplayValue(parameter), ...
+                    parameter.Access, ...
+                    parameter.Unit, ...
+                    parameter.Visible, ...
+                    parameter.isTrigger, ...
+                    parameter.UpdateEveryTrial, ...
+                    char(parameter.Description)}; %#ok<AGROW>
+                parameterHandles{end + 1, 1} = parameter; %#ok<AGROW>
+            end
+        end
+    end
+end
+

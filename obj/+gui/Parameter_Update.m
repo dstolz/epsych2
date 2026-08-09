@@ -8,6 +8,7 @@ classdef Parameter_Update < handle
     % Methods:
     %   set.watchedHandles - Register parameter editor handles to watch.
     %   commit_changes     - Commit pending changes to runtime/trials.
+    %   reset_changes      - Discard pending changes (hold Ctrl and click).
     % Documentation: documentation/gui/Parameter_Update.md
 
     properties (SetAccess = immutable)
@@ -19,8 +20,9 @@ classdef Parameter_Update < handle
         watchedHandles (1,:) % handles we are listening to
 
         color_needToUpdate      (1,1) = "#98fa98";
-        color_nothingToUpdate   (1,1) = "#f0f0f0"; 
+        color_nothingToUpdate   (1,1) = "#f0f0f0";
         color_updateImmediately (1,1) = "#e28743";
+        color_resetChanges      (1,1) = "#f5a3a3";
     end
 
     properties (Access = private)
@@ -29,6 +31,7 @@ classdef Parameter_Update < handle
 
     properties (Access = private)
         updateImmediately (1,1) logical = false
+        resetPending (1,1) logical = false % true while Ctrl alone is held, arming the button to discard edits
 
         hl_values
     end
@@ -44,10 +47,11 @@ classdef Parameter_Update < handle
 
             obj.Button = uibutton(parent);
             obj.Button.Text = "Update Parameters";
-            obj.Button.Tooltip = "Hold Ctrl+Shift+Alt while clicking to update parameters immediately.";
+            obj.Button.Tooltip = ["Hold Ctrl+Shift+Alt while clicking to update parameters immediately."; ...
+                "Hold Ctrl while clicking to reset pending edits to their previous values."];
             obj.Button.Enable = 'off';
             obj.Button.FontWeight = 'bold';
-            obj.Button.ButtonPushedFcn = @obj.commit_changes;
+            obj.Button.ButtonPushedFcn = @obj.button_pushed;
             obj.Button.WordWrap = "on";
 
             obj.Figure = ancestor(obj.Button,'figure');
@@ -86,16 +90,62 @@ classdef Parameter_Update < handle
         end
 
         function key_press(obj,src,event)
-            obj.updateImmediately = all(ismember({'shift','control','alt'},event.Modifier));
-            if obj.updateImmediately && any([obj.watchedHandles.ValueUpdated])
-                obj.Button.BackgroundColor = obj.color_updateImmediately;
-                obj.Button.Text = "Update Parameters Immediately";
-            end
-            drawnow    
+            obj.modifiers_changed(event.Modifier);
         end
 
         function key_release(obj,src,event)
-            obj.updateImmediately = all(ismember({'shift','control','alt'},event.Modifier));
+            obj.modifiers_changed(event.Modifier);
+        end
+
+        function modifiers_changed(obj,mods)
+            % modifiers_changed(obj,mods)
+            % Repaint the button to advertise what a click will do given the
+            % modifier keys currently held: Ctrl+Shift+Alt commits
+            % immediately, Ctrl alone discards pending edits.
+            obj.updateImmediately = all(ismember({'shift','control','alt'},mods));
+            obj.resetPending = ~obj.updateImmediately && isscalar(mods) && isequal(char(mods{1}),'control');
+
+            if ~any([obj.watchedHandles.ValueUpdated])
+                obj.resetPending = false;
+                return
+            end
+
+            if obj.updateImmediately
+                obj.Button.BackgroundColor = obj.color_updateImmediately;
+                obj.Button.Text = "Update Parameters Immediately";
+                drawnow
+            elseif obj.resetPending
+                obj.Button.BackgroundColor = obj.color_resetChanges;
+                obj.Button.Text = "Reset Parameters";
+                drawnow
+            else
+                obj.value_changed;
+            end
+        end
+
+        function button_pushed(obj,src,event)
+            if obj.resetPending
+                obj.reset_changes(src,event);
+            else
+                obj.commit_changes(src,event);
+            end
+        end
+
+        function reset_changes(obj,src,event)
+            % reset_changes(obj)
+            % Discard uncommitted edits, restoring each watched control to the
+            % value its parameter currently holds. Nothing is written to
+            % hardware or to the trial table.
+            vu = [obj.watchedHandles.ValueUpdated];
+            h = obj.watchedHandles(vu);
+
+            vprintf(1,'Resetting %d pending parameter edit(s)',numel(h))
+
+            for i = 1:length(h)
+                h(i).reset_value;
+            end
+
+            obj.resetPending = false;
             obj.value_changed;
         end
 

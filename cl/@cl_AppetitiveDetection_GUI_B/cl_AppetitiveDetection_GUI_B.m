@@ -10,7 +10,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
     %   instance for the supplied R object. If an older GUI instance
     %   is already open, it is closed before the new instance is created.
     %
-    %   The GUI coordinates with a psychophysics.Detect object to visualize
+    %   The GUI coordinates with a psychophysics.Detection object to visualize
     %   behavior and to keep online task summaries synchronized with trial
     %   events emitted by the R helper objects.
 
@@ -25,7 +25,9 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         % slidingWindowPlot      % gui.SlidingWindowPerformancePlot instance
         PhaseSelector         % gui.PhaseSelector instance
         ResponseHistory        % gui.History instance
+        h_ScatterPanel         % gui.ParameterScatter instance
         Performance            % gui.Performance instance
+        ModeIndicator          % gui.ModeIndicator instance
         lblPerformance           % Label for Performance display
         tableTrialFilter       % Handle for the trial filter table
         hButtons               % Struct holding references to GUI control buttons
@@ -35,7 +37,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
         h_RWDelayParameterControl
         h_RWDelayTrainingGUI
 
-          ParameterMonitorTable
+        ParameterMonitor       % gui.Parameter_Monitor instance (Trial State panel)
 
         bmStimulus  = epsych.BitMask.TrialType_0;
         bmCatch     = epsych.BitMask.TrialType_1;
@@ -87,8 +89,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
 
             % create psychophysics object
-            p = RUNTIME.HW.find_parameter('Depth');
-            obj.Psych = psychophysics.Staircase(RUNTIME,p);
+            obj.Psych = psychophysics.Staircase(RUNTIME,RUNTIME.P.Depth);
 
             % generate gui layout and components
             obj.create_gui;
@@ -126,6 +127,16 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             end
 
             try
+                delete(obj.ModeIndicator);
+            end
+
+            % release the scatter's NewData listener; deleting guiHandles
+            % only removes its graphics, not the handle object itself
+            try
+                delete(obj.h_ScatterPanel);
+            end
+
+            try
                 close(obj.h_OnlinePlot);
             end
 
@@ -141,43 +152,25 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             end
         end
 
-        function update_trial_filter(obj,~,event)
-            R = obj.RUNTIME;
-
-
-            src = obj.tableTrialFilter; % use this in case call is from outside the class
-            depth     = [src.Data{:,1}];
-            trialtype = [src.Data{:,2}];
-            present   = [src.Data{:,3}];
-
-
-
-            % always vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-            present(trialtype==obj.ttCatch) = true;
-            [src.Data{trialtype==obj.ttCatch,3}] = deal(true);
-            % ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-
-            R.TRIALS.activeTrials = present;
-
-            if any(~present)
-                vprintf(4,'Inactive Depths: %s',mat2str(depth(~present)));
-            end
-            vprintf(2,'Active Depths: %s',mat2str(depth(present)));
-
-            % update panel label with trial type counts
-            h = ancestor(src,'uipanel');
-            ind = present&trialtype==obj.ttStimulus;
-            h.Title = sprintf('Trial Filter: %d Go trials active [%.3f-%.3f]', ...
-                sum(ind),min(depth(ind)),max(depth(ind)));
-        end
 
         function onModeChange(obj,src,ev)
             % fprintf('Mode changed to: %s\n', string(ev.NewMode));
 
+            % The monitor deletes itself with the figure, so a mode change
+            % arriving during teardown finds a stale handle.
+            if isempty(obj.ParameterMonitor) || ~isvalid(obj.ParameterMonitor)
+                return
+            end
+
             switch ev.NewMode
                 case hw.DeviceState.Stop
-                    delete(obj.ParameterMonitorTable);
+                    % Stop polling rather than deleting the monitor: the
+                    % final trial state stays legible on screen, and the
+                    % monitor can resume if the session restarts.
+                    obj.ParameterMonitor.stop();
+
+                case {hw.DeviceState.Preview, hw.DeviceState.Record}
+                    obj.ParameterMonitor.start();
             end
         end
 
@@ -226,42 +219,8 @@ classdef cl_AppetitiveDetection_GUI_B < handle
                     nd{2} = 'REMIND';
             end
             h.Data = nd;
-            
-            % make sure 'active trials' are indeed updated
-            % obj.update_trial_filter;
         end
 
-
-
-        function create_onlineplot(obj,varargin)
-            % Create separate legacy figure for online plotting because
-            % it's much faster than uifigure
-            % Axes for Behavior Plot --------------------------------------------
-            f = findobj('type','figure','-and','name','cl_AppetitiveDetection_OnlinePlot');
-            if isempty(f)
-                f = figure(Name = 'Online Plot', ...
-                    Tag = 'cl_AppetitiveDetection_OnlinePlot');
-            else
-                figure(f);
-                return
-            end
-
-            p = obj.h_figure.Position;
-            f.Position(1) = p(1);
-            f.Position(2) = p(2) + p(4) + 100;
-            f.Position(3) = p(3);
-            f.Position(4) = 150;
-            f.ToolBar = "none";
-            f.MenuBar = "none";
-            f.NumberTitle = "off";
-            axesBehavior = axes(f);
-            % gui.OnlinePlot(R,obj.plottedParameters,axesBehavior,1);
-            gui.OnlinePlotBM(R,'OnlinePlotBits',axesBehavior,1);
-
-            obj.h_OnlinePlot = f;
-
-
-        end
 
     end
 
@@ -293,7 +252,7 @@ classdef cl_AppetitiveDetection_GUI_B < handle
 
             if value == 0, return; end
 
-            pdt = R.HW.find_parameter('~TrialDelivery',includeInvisible=true);
+            pdt = R.find_parameter('~TrialDelivery',includeInvisible=true);
             if pdt.Value == 1
                 obj.Value = 0;
                 vprintf(0,1,'"Deliver Trials" must be inactive to initiate a Reminder trial')
@@ -320,17 +279,12 @@ classdef cl_AppetitiveDetection_GUI_B < handle
             if value == 0, return; end
 
             vprintf(3,'Initiating Shape Trial')
-            pStim = R.HW.find_parameter('Depth');
-            cv = pStim.Value; % current value
-            pStim.Value = 1; % 100% depth
+            cv = R.P.Depth.Value; % current value
+            R.P.Depth.Value = 1; % 100% depth
 
-            % pht = R.HW.find_parameter('~PreventTrial',includeInvisible=true);
-            % while pht.Value == 1
-            %     pause(0.1);
-            % end
             obj.Value = 0;
 
-            pStim.Value = cv;
+            R.P.Depth.Value = cv;
         end
 
     end

@@ -13,4 +13,11 @@ if ~isnumeric(position) || numel(position) ~= 4 || any(~isfinite(position))
 end
 
 position = double(reshape(position,1,[]));
+
+% Floor the height: below this the right-side button stack outgrows its row
+% and 'Save Data' is clipped. Positions stored by earlier versions were saved
+% before the status bar took a row, so a saved height is raised rather than
+% trusted.
+MIN_HEIGHT = 260;
+position(4) = max(position(4), MIN_HEIGHT);
 end

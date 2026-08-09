@@ -3,7 +3,7 @@ function RememberRecentConfig(self, cfn)
 % Persist a loaded config path and refresh its last-loaded timestamp.
 % Inputs
 %   self (epsych.RunExpt) - Scalar RunExpt instance.
-%   cfn (char|string) - Full path to a successfully loaded .config file.
+%   cfn (char|string) - Full path to a successfully loaded .ecfg file.
 % Outputs
 %   None.
 

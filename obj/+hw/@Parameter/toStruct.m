@@ -1,19 +1,10 @@
 
 function S = toStruct(obj)
 % S = toStruct(obj)
-% Convert this hw.Parameter object to a struct safe for JSON serialization.
-%
-% Serializes all relevant fields, including metadata, callbacks, value, bounds, and user data, into a struct suitable for JSON encoding. Used for saving parameter state to disk or transferring between sessions.
-%
-% Parameters:
-%   obj (1,1) hw.Parameter
-%       The parameter object to serialize.
+% Convert a hw.Parameter object to a serialization-safe struct.
 %
 % Returns:
-%   S (1,1) struct
-%       Struct with serialization-safe field values.
-%
-% See also: fromStruct, writeParametersJSON, jsonencode
+%	S	- Struct containing metadata, design-time values, runtime state, and user data.
 
 S = struct();
 
@@ -27,6 +18,7 @@ S.Access = obj.Access;
 S.Type = obj.Type;
 S.Format = obj.Format;
 S.Visible = obj.Visible;
+S.UpdateEveryTrial = obj.UpdateEveryTrial;
 
 %{
 % Callbacks
@@ -49,8 +41,27 @@ S.PostUpdateFcnEnabled = obj.PostUpdateFcnEnabled;
 %}
 
 
-% Value and state
-S.Value = obj.Value;
+% Design-time trial levels
+if isequal(obj.Type, 'StimType')
+    S.Values = cellfun(@(v) v.toStruct(), obj.Values, 'UniformOutput', false);
+else
+    S.Values = obj.Values;
+end
+
+% Value and state (runtime; not restored on load)
+if isequal(obj.Type, 'StimType')
+    v = obj.Value;
+    if isempty(v)
+        S.Value = [];
+    else
+        S.Value = arrayfun(@(x) x.toStruct(), v, 'UniformOutput', false);
+        if isscalar(v)
+            S.Value = S.Value{1};
+        end
+    end
+else
+    S.Value = obj.Value;
+end
 S.lastUpdated = obj.lastUpdated;
 S.isArray = obj.isArray;
 S.isTrigger = obj.isTrigger;
@@ -62,3 +73,6 @@ S.Max = obj.numericToSafe_(obj.Max);
 
 % General-purpose data
 S.UserData = obj.UserData;
+
+% Expression
+S.Expression = obj.Expression;

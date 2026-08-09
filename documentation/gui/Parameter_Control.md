@@ -1,6 +1,10 @@
 # `gui.Parameter_Control`
 
-`gui.Parameter_Control` binds a single `hw.Parameter` to a small App Designer-style UI control (edit field, dropdown, checkbox, toggle, label, or button). It keeps the displayed value synchronized with the underlying parameter and can either:
+![Several gui.Parameter_Control widgets stacked in a grid: an edit field, a dropdown, a checkbox, a toggle button, a momentary button, and a readonly label](images/Parameter_Control.png)
+
+`gui.Parameter_Control` binds a single `hw.Parameter` to a small App Designer-style UI control (edit field, dropdown, checkbox, toggle, label, or button).
+
+The screenshot above shows, top to bottom, the `editfield`, `dropdown`, `checkbox`, `toggle`, and `momentary` types from [UI types](#ui-types), plus a `readonly` label at the bottom. It keeps the displayed value synchronized with the underlying parameter and can either:
 
 - **Commit immediately** (`autoCommit=true`) when the user changes the control, or
 - **Stage edits** (`autoCommit=false`, default) by marking the control as “changed” until another component (commonly `gui.Parameter_Update`) commits updates.
@@ -9,20 +13,20 @@ This class is intended for use inside `uifigure`/`uigridlayout`-based GUIs.
 
 ## Quick start
 
-### Numeric edit field (default)
+### Numeric edit field
 
 ```matlab
 fig = uifigure;
 layout = uigridlayout(fig,[1 1]);
 
-p = R.S.Module.add_parameter("MyParam", 0.5);
-ctrl = gui.Parameter_Control(layout, p);  % Type='editfield'
+p = RUNTIME.find_parameter('MyParam');
+ctrl = gui.Parameter_Control(layout, p, Type="editfield");
 ```
 
 ### Toggle button with immediate commit
 
 ```matlab
-p = R.S.Module.add_parameter("DeliverTrials", 0);
+p = RUNTIME.find_parameter('DeliverTrials');
 ctrl = gui.Parameter_Control(layout, p, Type="toggle", autoCommit=true);
 ctrl.Text = "Deliver Trials";          % override label text
 ctrl.colorNormal = fig.Color;          % customize appearance
@@ -33,7 +37,7 @@ ctrl.colorOnUpdate = colors(3,:);      % single 1x3 RGB value
 ### Bind checkbox to a non-value parameter field
 
 ```matlab
-p = R.S.Module.add_parameter("StimDelay", 100, isRandom=false);
+p = RUNTIME.find_parameter('StimDelay');
 h = gui.Parameter_Control(layout, p, Type="checkbox", BoundProperty="isRandom", autoCommit=true);
 h.Text = "Randomize Stim Delay";
 ```
@@ -55,7 +59,8 @@ obj = gui.Parameter_Control(parent, parameter, Type=TYPE, autoCommit=TF)
 ### Name-value options
 
 - `Type` (char)
-  - One of: `editfield`, `dropdown`, `checkbox`, `toggle`, `readonly`, `momentary`.
+  - One of: `auto` (default), `editfield`, `dropdown`, `checkbox`, `toggle`, `readonly`, `momentary`, `stimtype`.
+  - `auto` picks a sensible control from the parameter's metadata (e.g., checkbox for booleans, edit field for numerics).
 - `BoundProperty` (char)
   - Optional property name on the bound `hw.Parameter` to synchronize with the control.
   - Defaults to `Value`.
@@ -84,6 +89,8 @@ obj = gui.Parameter_Control(parent, parameter, Type=TYPE, autoCommit=TF)
   - On click, calls `parameter.Trigger` instead of writing `parameter.Value`.
 - `readonly`
   - A single `uilabel` showing `parameter.ValueStr`.
+- `stimtype`
+  - Editor for parameters whose `Type` is `'StimType'` (a `stimgen.StimType` value).
 
 ## Key properties
 
@@ -110,7 +117,7 @@ Label text shown next to the control (or on the control itself for checkbox/togg
 A flag indicating whether the UI currently differs from the underlying parameter:
 
 - `true` when `obj.Value` is not equal to `obj.Parameter.Value`
-- `false` after committing the value or calling `reset_label()`
+- `false` after committing the value or calling `reset_label()` / `reset_value()`
 
 This is designed to be watched by `gui.Parameter_Update`.
 
@@ -125,6 +132,8 @@ The control uses several color properties to provide feedback:
 
 You can override these after construction to match your GUI’s styling.
 
+The color is applied to the first of `BackgroundColor`, `Color`, `FontColor` that the widget actually has (the same precedence `gui.Helper.timed_color_change` uses). `Type='checkbox'` has no `BackgroundColor`, so its state shows as font color, and its `colorNormal` defaults to black rather than white.
+
 ## Editing and commit flow
 
 ### Default behavior (`autoCommit=false`)
@@ -136,6 +145,11 @@ You can override these after construction to match your GUI’s styling.
 ### Auto-commit (`autoCommit=true`)
 - User changes are immediately written to `Parameter.Value`.
 - If you also need the change reflected in trial tables or runtime configuration, pair this with the surrounding system’s update logic.
+
+### Discarding a staged edit (`reset_value`)
+`reset_value()` undoes an uncommitted edit: the UI is restored from the bound parameter property, `ValueUpdated` clears, and the highlight returns to `colorNormal`. `PostUpdateFcn` runs again against the restored value so dependent controls resync (the same hook already ran when the user made the edit now being discarded). It is a no-op when `ValueUpdated` is `false`, and it never writes to `hw.Parameter`.
+
+`gui.Parameter_Update` calls this on every watched control when its button is clicked with **Ctrl** held.
 
 ## Validation with `EvaluatorFcn`
 
@@ -164,7 +178,7 @@ A common pattern is:
 
 - Create multiple `gui.Parameter_Control` objects with `autoCommit=false`
 - Register them with a single `gui.Parameter_Update` instance
-- When the update button is pressed, it commits all staged edits
+- When the update button is pressed, it commits all staged edits (or, with **Ctrl** held, discards them via `reset_value`)
 
 Example sketch:
 
@@ -186,7 +200,7 @@ u.watchedHandles = h;
 - Polling display: obj/+gui/Parameter_Monitor.m
 - GUI utility: obj/+gui/@Helper/Helper.m
 
-This documentation describes: [obj/+gui/Parameter_Control.m](../obj/+gui/Parameter_Control.m)
+This documentation describes: [obj/+gui/Parameter_Control.m](../../obj/+gui/Parameter_Control.m)
 
 ## Notes and gotchas
 

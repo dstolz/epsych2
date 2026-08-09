@@ -1,204 +1,160 @@
 # epsych.Runtime
 
-## Overview
+`epsych.Runtime` is the session-state container used during experiment execution. `epsych.RunExpt` creates a fresh instance on each Run/Preview and passes it to every timer callback, GUI, and analysis object.
 
-`epsych.Runtime` is the shared state object for a running EPsych session.
-It does not itself run the experiment loop. Instead, it gives the rest of the runtime a single place to read and update session state, interface handles, trial metadata, and parameter snapshots.
+This is a developer reference. For the operator's view of a session, see [../overviews/RunExpt_GUI_Overview.md](../overviews/RunExpt_GUI_Overview.md).
 
-Source files:
+Source class:
 
-- [obj/+epsych/@Runtime/Runtime.m](../obj/+epsych/@Runtime/Runtime.m)
-- [obj/+epsych/@Runtime/writeParametersJSON.m](../obj/+epsych/@Runtime/writeParametersJSON.m)
-- [obj/+epsych/@Runtime/readParametersJSON.m](../obj/+epsych/@Runtime/readParametersJSON.m)
+- [obj/+epsych/@Runtime/Runtime.m](../../obj/+epsych/@Runtime/Runtime.m)
 
-## What The Class Is Responsible For
+Primary method files:
 
-- Keeping session-wide scalar state such as subject count, start time, and hold flags.
-- Holding references to hardware interfaces in `HW` and the software interface in `S`.
-- Storing protocol runtime data in `TRIALS`, including the writable trial fields that mirror parameter values.
-- Tracking helper services such as `HELPER` and the runtime `TIMER`.
-- Recording data output locations through `dfltDataPath`, `TempDataDir`, and `DataFile`.
-- Saving and restoring parameter states through JSON files.
+- `all_parameters.m`, `find_parameter.m`, `filter_parameters.m` — parameter queries
+- `dispatchNextTrial.m`, `resolveCoreParameters.m` — trial dispatch
+- `updateTrialsFromParameters.m` — trial-table sync
+- `writeParametersJSON.m`, `readParametersJSON.m`, `createTemplateJSON.m` — phase/parameter persistence
 
-In practice, other parts of EPsych treat `epsych.Runtime` as the object that ties together experiment setup, active interfaces, and live trial state.
+## Responsibilities
 
-## Property Guide
+- connect and hold the hardware/software interfaces defined by the protocol
+- store and expose runtime trial state (`TRIALS`)
+- resolve and cache the required trigger parameters (`CORE`)
+- provide cross-interface parameter query/filter utilities
+- dispatch trial parameter values and triggers to hardware
+- synchronize writable trial columns from live parameter values
 
-### Session State
+## Core properties
 
-- `NSubjects`: Number of subjects in the current session.
-- `StartTime`: Session start timestamp.
-- `ON_HOLD`: Logical flag used when runtime flow is paused.
-- `TrialComplete`: Manual trial-complete flag when a protocol uses explicit completion signaling.
+| Property | Meaning |
+| --- | --- |
+| `Interfaces` | The `hw.Interface` array borrowed from the protocol. Assigning this property connects any disconnected interface and sets each interface's `Runtime` back-reference. |
+| `TRIALS` | Per-subject struct array of trial state (see below). The first assignment resolves `CORE` triggers, dispatches trial #1 for each subject, caches `P`, and records `StartTime`; later assignments (e.g., mid-run syncs) do not re-trigger hardware. |
+| `CORE` | Per-subject cached handles to the required trigger parameters `NewTrial`, `ResetTrig`, `TrialComplete`. |
+| `P` | Cached struct of all parameters (keyed by `validName`), populated when `TRIALS` is first set. GUI components use this instead of repeating lookups. |
+| `HELPER` | `epsych.Helper` event broadcaster (`NewData`, `NewTrial`, `ModeChange`). |
+| `TIMER` | The MATLAB `PsychTimer` object. |
+| `NSubjects` | Number of subjects (read-only; derived from `TRIALS`). |
+| `isTest` | True for Preview runs; recorded into every trial's data. |
+| `DataFile`, `TempDataDir`, `dfltDataPath` | Crash-recovery file paths and default data directory. |
+| `StartTime` | Session start `datetime`. |
 
-### Interface References
+Note: `epsych.Runtime` subclasses `dynamicprops`, so some workflows attach extra properties at runtime — for example `readParametersJSON` adds a `Phase` property that logs which phase files were loaded and when.
 
-- `HW`: Hardware interface objects. The code expects each object to expose methods such as `all_parameters` and `find_parameter`.
-- `S`: Software interface object, used similarly to `HW` for parameter access.
-- `HWinUse`: String array describing which hardware types are in use.
-- `usingSynapse`: Compatibility flag indicating a Synapse-backed configuration.
+### Ownership of hardware interfaces
 
-### Trial And Service State
+The Runtime *borrows* interfaces from the `epsych.Protocol`; it does not own them. On Stop the interfaces are returned to Idle but stay connected so the next run can reuse the connection (some backends, e.g. TDT RPcoX/zBus, cannot survive a delete/recreate cycle mid-session). Hardware is released when the RunExpt window closes.
 
-- `TRIALS`: Protocol-specific runtime trial structure. `updateTrialsFromParameters` assumes it contains `writeparams`, `writeParamIdx`, and `trials` fields.
-- `HELPER`: Helper or dispatcher object used by runtime services and GUIs.
-- `TIMER`: MATLAB timer object that supports runtime callbacks.
+### The TRIALS struct
 
-### Output Tracking
+Each `TRIALS(i)` element is built by `ep_TimerFcn_Start` and contains (selected fields):
 
-- `dfltDataPath`: Default output location.
-- `TempDataDir`: Temporary acquisition directory.
-- `DataFile`: One or more output file paths.
+| Field | Meaning |
+| --- | --- |
+| `parameters` | Compiled `hw.Parameter` array, one per trial-table column |
+| `trials` | Cell matrix: rows = trial conditions, columns = parameter values |
+| `writeparams` / `writeParamIdx` | Writable-parameter names and their column indices |
+| `selector` | `epsych.TrialSelector` instance for this subject |
+| `TrialIndex` / `NextTrialID` | Completed-trial counter and next trial row |
+| `DATA` | Struct array of per-trial response data |
+| `FORCE_TRIAL` / `RECOMPILE_REQUESTED` | Operator override flags |
+| `Subject`, `BoxID`, `DataFilename` | Subject metadata and output file |
 
-## Method Reference
+See [epsych_TrialLifecycle.md](epsych_TrialLifecycle.md) for how these fields are used across a session.
 
-### Constructor
+## Parameter query APIs
 
-`runtimeObj = epsych.Runtime`
-
-Creates the runtime container. The constructor currently performs minimal initialization and logs creation through `vprintf`.
-
-### Parameter Export
-
-`writeParametersJSON(obj, filepath, description)`
-
-Writes a snapshot of current parameters to JSON.
-
-Implementation: [obj/+epsych/@Runtime/writeParametersJSON.m](../obj/+epsych/@Runtime/writeParametersJSON.m)
-
-Behavior details:
-
-- If `filepath` is omitted, the user is prompted with `uiputfile`.
-- Parameters are collected through `obj.all_parameters`.
-- Each parameter is serialized with `hw.Parameter.toStruct`.
-- `UserData` is removed before writing, because it may contain content that cannot be reliably serialized.
-- A `ParentType` field is added so the reader can map each parameter back to the correct interface.
-- The file also stores a human-readable `Description` and a timestamp.
-
-### Parameter Import
-
-`readParametersJSON(obj, filepath)`
-
-Loads a previously saved parameter JSON file and applies the values back to matching runtime interfaces.
-
-Implementation: [obj/+epsych/@Runtime/readParametersJSON.m](../obj/+epsych/@Runtime/readParametersJSON.m)
-
-Behavior details:
-
-- If `filepath` is omitted or does not exist, the user is prompted with `uigetfile`.
-- The JSON file is decoded and each entry is matched by `ParentType` first, then by parameter name.
-- The software interface is treated specially when `ParentType` is `"Software"`.
-- Matching parameters are updated in place using `fromStruct`.
-- If a matching interface cannot be found, the parameter is skipped and a message is emitted through `vprintf`.
-- Load metadata is appended to a dynamic `Phase` property on the runtime object. This includes description, JSON path, loaded parameter data, timestamp, and remaining file metadata.
-
-### Template File Creation
-
-`epsych.Runtime.createTemplateJSON(filepath)`
-
-Creates a template JSON file that shows the structure expected by the import and export methods.
-
-Behavior details:
-
-- If no path is provided, the user is prompted for a save location.
-- The template mirrors the fields written for `hw.Parameter` objects.
-- The template includes `ParentType`, which is required for interface matching during load.
-
-### Parameter Query
-
-`P = all_parameters(obj, optInt, Name=Value...)`
-
-Collects parameters from the runtime's software and hardware interfaces.
-
-Supported options in the current implementation:
-
-- `HW`: Include hardware parameters. Default is `true`.
-- `S`: Include software parameters. Default is `true`.
-- `includeInvisible`: Include invisible parameters. Default is `false`.
-- `includeTriggers`: Include trigger parameters. Default is `false`.
-- `includeArray`: Include array-valued parameters. Default is `true`.
-- `Access`: Restrict to `Read`, `Write`, or `Read / Write`. Default is `Read`.
-- `asStruct`: Return a struct keyed by each parameter's `validName` instead of an array. Default is `false`.
-
-This method is the main way higher-level code gets a filtered view of runtime parameters without needing to know whether they came from hardware or software.
-
-### Trial Synchronization
-
-`updateTrialsFromParameters(obj, Parameters)`
-
-Copies parameter values into the runtime's trial table for the subset of parameters listed in `obj.TRIALS.writeparams`.
-
-Behavior details:
-
-- Parameters not listed in `TRIALS.writeparams` are ignored.
-- Each matching parameter name is resolved through `TRIALS.writeParamIdx`.
-- The parameter value is written into the corresponding trial-column for all rows in `TRIALS.trials`.
-
-Use this after parameter values have changed and the trial table needs to stay consistent with the active runtime configuration.
-
-## Typical Workflow
-
-1. Create or receive an `epsych.Runtime` object during experiment setup.
-2. Attach hardware and software interface objects to `HW` and `S`.
-3. Query parameters with `all_parameters` when building GUIs, validation logic, or save data.
-4. Save a parameter snapshot with `writeParametersJSON` when a session state should be reproducible.
-5. Reload a saved state with `readParametersJSON` when restoring a phase or repeating a known configuration.
-6. Push writable parameter values into `TRIALS` with `updateTrialsFromParameters` before trial execution logic depends on them.
-
-## Usage Examples
-
-### Create A Runtime And Save A Snapshot
+### all_parameters
 
 ```matlab
-r = epsych.Runtime;
-r.NSubjects = 2;
-
-r.writeParametersJSON("phaseA.json", "Baseline configuration");
+P = r.all_parameters(...
+    includeInvisible=false, includeTriggers=false, includeArray=true, ...
+    Access='Read', Interface={}, asStruct=false, valueOnly=false);
 ```
 
-### Restore A Saved Parameter State
+- Concatenates parameters from every interface (optionally restricted to specific interface classes via `Interface`).
+- `Access` filters by access mode; the default is `'Read'` — pass `'All'` for no filtering.
+- `asStruct=true` returns a struct keyed by each parameter's `validName`.
+- `valueOnly=true` returns values instead of `hw.Parameter` handles (used by `ep_TimerFcn_RunTime` to snapshot trial data).
+
+### find_parameter
 
 ```matlab
-r.readParametersJSON("phaseA.json");
-
-if isprop(r, "Phase")
-    disp(r.Phase(end).Description)
-end
+P = r.find_parameter(name, includeInvisible=false, includeTriggers=false, ...
+    silenceParameterNotFound=false);
 ```
 
-### Get Parameters As A Struct
+Resolves one or more names (short `'Param'` or qualified `'Module.Param'`) to `hw.Parameter` handles, preserving the requested order. Set `silenceParameterNotFound=true` to make optional parameters safe to probe.
+
+### filter_parameters
 
 ```matlab
-P = r.all_parameters(HW=true, S=true, Access='Read', asStruct=true);
-disp(fieldnames(P))
+P = r.filter_parameters(propertyName, propertyValue, testFcn=@isequal, ...
+    includeInvisible=false, includeTriggers=false);
 ```
 
-### Update Trial Values From Writable Parameters
+Returns parameters whose property values satisfy `testFcn` (e.g., `@contains`, `@startsWith`).
+
+## Trial sync API
+
+### updateTrialsFromParameters
 
 ```matlab
-params = r.all_parameters(HW=true, S=false, includeTriggers=false);
-r.updateTrialsFromParameters(params);
+r.updateTrialsFromParameters(parameters);
 ```
 
-## Assumptions And Integration Notes
+- Uses `TRIALS.writeparams` to decide which incoming parameters are writable.
+- Uses `TRIALS.writeParamIdx` to map parameter names to compiled trial columns.
+- Writes current parameter values into every row of the corresponding `TRIALS.trials` column.
 
-- `HW` and `S` must expose the parameter query APIs used by `all_parameters`.
-- `readParametersJSON` assumes interface identity can be recovered through `ParentType` strings stored in the JSON file.
-- `updateTrialsFromParameters` assumes the `TRIALS` structure has already been prepared by protocol compilation or setup code.
-- The class derives from `dynamicprops`, which is why `readParametersJSON` can create `obj.Phase` on demand.
+This is how GUI edits (e.g., `gui.Parameter_Update` commits, phase loads) propagate into the trial table mid-run without recompiling the protocol.
 
-## Related Documentation
+## Trigger resolution and trial dispatch
 
-- [../gui/Parameter_Control.md](../gui/Parameter_Control.md)
-- [../hw/hw_Interface.md](../hw/hw_Interface.md)
-- [../hw/hw_Parameter.md](../hw/hw_Parameter.md)
-- [../overviews/Architecture_Overview.md](../overviews/Architecture_Overview.md)
-- [../overviews/Class_Map.md](../overviews/Class_Map.md)
-- [EPsychInfo.md](EPsychInfo.md)
+### resolveCoreParameters
 
-## Version History
+Locates and caches the mandatory trigger parameters for one subject. The expected parameter names follow the pattern `x_<Trigger>_<BoxID>`:
 
-- 2026-04-06: Updated the runtime documentation to match the current class and split method implementations, including JSON import/export details, dynamic `Phase` behavior, and trial synchronization assumptions.
-- 2026-04-03: Updated to reflect the `Runtime.m` API and added practical usage examples.
-- March 2026: Initial documentation.
+- `x_NewTrial_<BoxID>`
+- `x_ResetTrig_<BoxID>`
+- `x_TrialComplete_<BoxID>`
 
+An error is raised immediately if any required trigger is missing from the protocol, so include these in every protocol that runs through the standard timer functions.
+
+### dispatchNextTrial
+
+Per subject, in order:
+
+1. fire `CORE.ResetTrig` so hardware returns to a known state
+2. write the selected trial row's values into the writable parameters — only parameters whose `Access` is not `'Read'` **and** whose `UpdateEveryTrial` flag is true are written; parameters with `UpdateEveryTrial = false` are set once and left unchanged across trials
+3. fire `CORE.NewTrial`
+4. broadcast the `NewTrial` event with an `epsych.TrialsData` payload
+
+## Phase / parameter persistence (JSON)
+
+```matlab
+r.writeParametersJSON('phase_A.json');   % snapshot current parameters
+P = r.readParametersJSON('phase_A.json');% restore values; returns resolved hw.Parameter array
+epsych.Runtime.createTemplateJSON('template.json'); % starter file
+```
+
+These files back the **experiment phase** workflow: parameter sets saved per training phase and reloaded between blocks without restarting the session. `gui.PhaseSelector` provides the GUI for this (see [../gui/](../gui/)). Loaded phases are logged in the dynamic `Phase` property with a timestamp and source path.
+
+## Typical usage
+
+Most code receives an already-initialized Runtime rather than building one. Interactive inspection from the base workspace (RunExpt: **Help → Assign RUNTIME to Command Window**):
+
+```matlab
+p = RUNTIME.find_parameter('Depth');
+p.Value = 0.5;
+
+readables = RUNTIME.all_parameters(Access='Read', asStruct=true);
+RUNTIME.updateTrialsFromParameters(RUNTIME.all_parameters(Access='All'));
+```
+
+## Related documentation
+
+- [epsych_TrialLifecycle.md](epsych_TrialLifecycle.md) — how the Runtime drives a session trial by trial
+- [epsych_Protocol.md](epsych_Protocol.md) — where interfaces and compiled trials come from
+- [Event_Notifications.md](Event_Notifications.md) — the `HELPER` event model
+- [../hw/hw_Parameter.md](../hw/hw_Parameter.md) — parameter behavior, including `UpdateEveryTrial`

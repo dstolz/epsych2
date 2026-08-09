@@ -11,8 +11,9 @@ coupled to a specific device API.
 You do not instantiate `hw.Interface` directly. Instead, you work with a
 subclass such as a software-backed shim or a device-specific implementation.
 
-In this repository, the main concrete subclasses are `hw.Software`,
-`hw.TDT_Synapse`, and `hw.TDT_RPcox`.
+In this repository, the concrete subclasses are `hw.Software`,
+`hw.TDT_Synapse`, `hw.TDT_RPcox`, `hw.Intan_RHX`, `hw.Teensy`, `hw.Bpod`, and
+`hw.VlcRecorder`.
 
 For a step-by-step guide to authoring a new hardware backend, see
 [hw_Interface_Tutorial.md](hw_Interface_Tutorial.md).
@@ -56,11 +57,22 @@ Subclasses are expected to define these abstract members:
 - `Module`: Array of `hw.Module` objects owned by the interface.
 - `Type`: Constant string identifier for the implementation.
 - `mode`: Current `hw.DeviceState` value.
-- `setup_interface()`: Allocate or connect hardware resources.
-- `close_interface()`: Release hardware resources.
+- `IsConnected` (dependent, logical): True when the backend connection is ready.
+- `connect()`: Establish the backend connection; sets `IsConnected` on success.
+- `setup_interface()` (protected): Allocate or connect hardware resources.
+- `close_interface()` (protected): Release hardware resources.
 - `trigger(name)`: Trigger a hardware event.
 - `set_parameter(name, value)`: Write one or more parameters.
 - `get_parameter(name)`: Read one or more parameters.
+- `getCreationSpec()` (static): Return a `hw.InterfaceSpec` describing the
+  options needed to construct the interface — labels, defaults, control-type
+  hints, and a factory function. `epsych.ProtocolDesigner` uses this spec to
+  build its "Add Interface" dialogs generically, so every backend must
+  provide one.
+
+The base class also provides a `Runtime` property, set when the interface is
+registered on `epsych.Runtime.Interfaces`, which gives backend code access to
+the owning session.
 
 The abstract API is intentionally small. Discovery and filtering helpers are
 implemented once in `hw.Interface` so subclasses only need to handle device-
@@ -71,7 +83,7 @@ In practice, a concrete subclass is responsible for:
 - creating its `Module` array
 - populating each module with `hw.Parameter` objects
 - translating parameter reads and writes into backend-specific calls
-- maintaining the current device `mode`
+- maintaining the current device `mode` and `IsConnected` state
 - cleaning up device resources when the interface is closed
 
 For a worked example of how to implement those responsibilities, see
@@ -89,6 +101,9 @@ that should run without a physical device connection.
 
 ### `hw.TDT_Synapse`
 
+**Status: under development.** Still being validated; its API may change
+without notice.
+
 `hw.TDT_Synapse` connects EPsych to TDT Synapse through the Synapse API
 wrapper. It exposes Synapse modules and parameters through the common
 interface helpers and tracks current experiment metadata.
@@ -98,6 +113,45 @@ interface helpers and tracks current experiment metadata.
 `hw.TDT_RPcox` connects to RPvds-based TDT devices through the TDTRP layer.
 It loads one or more circuits, creates corresponding `hw.Module` objects, and
 routes parameter I/O through the shared interface contract.
+
+### `hw.Intan_RHX`
+
+**Status: under development.** Still being validated; its API may change
+without notice.
+
+`hw.Intan_RHX` communicates with the Intan RHX software over its TCP command
+server to control run mode and read/write named parameters. See
+[hw_Intan_RHX.md](hw_Intan_RHX.md).
+
+### `hw.Teensy`
+
+**Status: under development.** Still being validated; its API may change
+without notice.
+
+`hw.Teensy` connects to a Teensy 4.x microcontroller over USB serial using an
+ASCII line protocol. The board runs the trial state machine on-device, so
+response-to-reward latency does not inherit MATLAB timer jitter. See
+[hw_Teensy.md](hw_Teensy.md).
+
+### `hw.Bpod`
+
+**Status: under development.** Still being validated; its API may change
+without notice.
+
+`hw.Bpod` connects to a Bpod 0.5/0.6 behavioral state machine over USB serial,
+speaking the Arduino Due firmware's byte protocol directly. The Bpod MATLAB
+layer is never loaded: it needs a `global BpodSystem`, opens figures, and blocks
+in `RunStateMatrix` until the trial ends. Instead the device's unsolicited push
+stream is parsed resumably from the runtime's 10 ms timer tick, so a trial runs
+on-device while the session stays responsive. One Bpod serves exactly one
+subject box. See [hw_Bpod.md](hw_Bpod.md), including its Limitations and Safety
+section.
+
+### `hw.VlcRecorder`
+
+`hw.VlcRecorder` drives a VLC process for webcam preview and recording,
+exposing device and output settings as parameters and Play/Stop-style
+triggers. See [hw_VlcRecorder.md](hw_VlcRecorder.md).
 
 ---
 
@@ -129,6 +183,83 @@ P = I.find_parameter("Reward");
 
 ## Helper methods
 
+### `selfTest`
+
+```matlab
+results = I.selfTest()
+results = I.selfTest(Invasive=true)
+```
+
+Optional diagnostic hook, used by [the RunExpt self-test](../overviews/RunExpt_SelfTest.md)
+to check hardware before a session starts. Like `prepareRecording`, it is a
+concrete no-op on the base class that concrete backends override — the default
+returns an empty array, meaning "this backend provides no self-test", so callers
+can fall back to a generic probe rather than assume all is well.
+
+Contract for overrides:
+
+- With `Invasive=false` (the default), do not change hardware state: no connect,
+  no mode writes, no recording configuration. This form must be safe to run
+  against a live acquisition.
+- With `Invasive=true`, the backend may connect and query the device, and must
+  restore the connection state it found.
+- Never throw. A failed probe is a `fail` result, not an exception.
+
+Build results with `hw.Interface.selfTestResult`:
+
+```matlab
+r = hw.Interface.selfTestResult(name, status, summary)
+r = hw.Interface.selfTestResult(name, status, summary, Detail=..., Remedy=...)
+r = hw.Interface.selfTestResult()   % empty prototype
+```
+
+`status` is one of `'pass'`, `'fail'`, `'warn'`, `'info'`, or `'skip'`. Supply a
+`Remedy` whenever the status is `fail` or `warn`: the operator reading the report
+needs to know what to do, not just that something is wrong.
+
+`hw.Software`, `hw.Intan_RHX`, `hw.VlcRecorder`, `hw.TDT_RPcox`, and
+`hw.TDT_Synapse` all implement the hook; see
+[RunExpt_SelfTest.md](../overviews/RunExpt_SelfTest.md) for what each one checks.
+
+### `readHardwareParameters` / `canReadHardwareParameters`
+
+```matlab
+tf = I.canReadHardwareParameters(module)
+[tf, msg] = I.readHardwareParameters(module)
+[tf, msg] = I.readHardwareParameters(module, Mode='replace')
+```
+
+Optional discovery hook: read the available parameter list from the hardware
+definition (device, circuit file, or server) and populate `module.Parameters`.
+Not every backend can enumerate its parameters, so — like `selfTest` — the base
+class declines by default: `canReadHardwareParameters` returns false and
+`readHardwareParameters` returns `[false, msg]` explaining why. ProtocolDesigner
+uses this from its **Read HW Params** button to fill in a module's parameters
+without connecting the interface.
+
+Backend behavior:
+
+- `hw.TDT_RPcox` reads tags from the live `TDTRP` PARTAG scan when connected,
+  or offline directly from the module's `Info.RPvdsFile` circuit through the
+  RPco.x ActiveX control (`ReadCOF`) — no hardware required.
+- `hw.TDT_Synapse` queries the Synapse server's parameter info for the gizmo
+  named by the module's Label. Read-only HTTP queries via a temporary
+  `SynapseAPI` client when offline; the server is never driven into Standby.
+- `hw.Software`, `hw.Intan_RHX`, and `hw.VlcRecorder` do not support discovery
+  and inherit the declining default.
+
+Contract for overrides:
+
+- Never throw — failures return `tf = false` with a human-readable `msg`.
+- Do not leave hardware in a changed state (no mode writes, no replacing the
+  interface's module list).
+- Call `setHardwareParameterName` for each discovered parameter and
+  `ensureUniqueParameterNames()` before returning.
+- `Mode='merge'` (default) skips parameters whose hardware name already exists
+  on the module and appends the rest, so a repeat read is idempotent and user
+  edits survive. `Mode='replace'` rebuilds `module.Parameters` purely from the
+  hardware definition.
+
 ### `find_parameter`
 
 ```matlab
@@ -140,6 +271,8 @@ P = I.find_parameter(name, silenceParameterNotFound=true)
 Finds parameters by name across all modules.
 
 - Accepts a character vector, string scalar, or cell array of names.
+- Accepts both short names (`'Param'`) and fully qualified names
+  (`'Module.Param'`).
 - Preserves the order of requested names in the returned array.
 - Returns an empty array when nothing matches.
 - Logs a warning through `vprintf` unless
@@ -177,7 +310,7 @@ Collects every parameter from every module and optionally filters out:
 - trigger parameters
 - invisible parameters
 - array-valued parameters
-- access mode (`'Read'`, `'Write'`, `'Read / Write'`, or `'Any'`)
+- access mode (`'Read'`, `'Write'`, `'Any'`, or `'All'` when requesting no filtering)
 
 When `asStruct=true`, the result is returned as a struct keyed by each
 parameter's `validName`.
@@ -253,7 +386,7 @@ different subclasses.
 I = hw.TDT_Synapse(...);
 
 visibleParams = I.all_parameters();
-readWriteParams = I.filter_parameters('Access', 'Read / Write');
+anyAccessParams = I.filter_parameters('Access', 'Any');
 rewardParam = I.find_parameter("Reward");
 
 if ~isempty(rewardParam)
@@ -305,24 +438,17 @@ subclass implementation.
 
 ## Related files
 
-- [obj/+hw/@Interface/Interface.m](../obj/+hw/@Interface/Interface.m): Base
+- [obj/+hw/@Interface/Interface.m](../../obj/+hw/@Interface/Interface.m): Base
   class implementation.
-- [obj/+hw/@Module/Module.m](../obj/+hw/@Module/Module.m): Module container
+- [obj/+hw/@Module/Module.m](../../obj/+hw/@Module/Module.m): Module container
   class used by interfaces.
-- [obj/+hw/@Parameter/Parameter.m](../obj/+hw/@Parameter/Parameter.m):
+- [obj/+hw/@Parameter/Parameter.m](../../obj/+hw/@Parameter/Parameter.m):
   Parameter abstraction exposed by modules.
-- [obj/+hw/@Software/Software.m](../obj/+hw/@Software/Software.m): Minimal
+- [obj/+hw/@Software/Software.m](../../obj/+hw/@Software/Software.m): Minimal
   software-backed implementation of the interface contract.
 - [hw_Interface_Tutorial.md](hw_Interface_Tutorial.md): Step-by-step guide to
   authoring a custom `hw.Interface` subclass.
 
 These implementations are the main code references when building a new
 hardware backend.
-
----
-
-## Version history
-
-- 2026-04-03: Updated helper-method reference to document `all_parameters`
-  access filtering, `asStruct` output mode, and `add_parameter` behavior.
 

@@ -1,0 +1,48 @@
+--- Webcam recording test ---
+Log file: C:\src\epsych2\tmp\T_VLC_RC_Direct_last_run.log
+Output  : C:\Temp\capture_direct.ts
+Device  : Integrated Camera
+
+--- Strategy 0: ffmpeg dshow ---
+Command: ffmpeg -y -f dshow -i video="Integrated Camera" -t 8 -vcodec libx264 -preset ultrafast -crf 28 "C:\Temp\capture_direct.ts"
+ffmpeg version 7.1-full_build-www.gyan.dev Copyright (c) 2000-2024 the FFmpeg developers
+  built with gcc 14.2.0 (Rev1, Built by MSYS2 project)
+  configuration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-fontconfig --enable-iconv --enable-gnutls --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-libsnappy --enable-zlib --enable-librist --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-libbluray --enable-libcaca --enable-sdl2 --enable-libaribb24 --enable-libaribcaption --enable-libdav1d --enable-libdavs2 --enable-libopenjpeg --enable-libquirc --enable-libuavs3d --enable-libxevd --enable-libzvbi --enable-libqrencode --enable-librav1e --enable-libsvtav1 --enable-libvvenc --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxeve --enable-libxvid --enable-libaom --enable-libjxl --enable-libvpx --enable-mediafoundation --enable-libass --enable-frei0r --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-liblensfun --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-libshaderc --enable-vulkan --enable-libplacebo --enable-opencl --enable-libcdio --enable-libgme --enable-libmodplug --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libshine --enable-libtheora --enable-libtwolame --enable-libvo-amrwbenc --enable-libcodec2 --enable-libilbc --enable-libgsm --enable-liblc3 --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-ladspa --enable-libbs2b --enable-libflite --enable-libmysofa --enable-librubberband --enable-libsoxr --enable-chromaprint
+  libavutil      59. 39.100 / 59. 39.100
+  libavcodec     61. 19.100 / 61. 19.100
+  libavformat    61.  7.100 / 61.  7.100
+  libavdevice    61.  3.100 / 61.  3.100
+  libavfilter    10.  4.100 / 10.  4.100
+  libswscale      8.  3.100 /  8.  3.100
+  libswresample   5.  3.100 /  5.  3.100
+  libpostproc    58.  3.100 / 58.  3.100
+Input #0, dshow, from 'video=Integrated Camera':
+  Duration: N/A, start: 1454364.214987, bitrate: N/A
+  Stream #0:0: Video: rawvideo (YUY2 / 0x32595559), yuyv422, 1280x720, 30 fps, 30 tbr, 10000k tbn
+Stream mapping:
+  Stream #0:0 -> #0:0 (rawvideo (native) -> h264 (libx264))
+Press [q] to stop, [?] for help
+[libx264 @ 000002713b480300] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+[libx264 @ 000002713b480300] profile High 4:2:2, level 3.1, 4:2:2, 8-bit
+Output #0, mpegts, to 'C:\Temp\capture_direct.ts':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Video: h264, yuv422p(tv, progressive), 1280x720, q=2-31, 30 fps, 90k tbn
+      Metadata:
+        encoder         : Lavc61.19.100 libx264
+      Side data:
+        cpb: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+frame=    0 fps=0.0 q=0.0 size=       0KiB time=N/A bitrate=N/A speed=N/A    frame=    8 fps=7.8 q=30.0 size=     183KiB time=00:00:00.26 bitrate=5617.5kbits/s speed=0.261x    frame=   24 fps= 16 q=30.0 size=     256KiB time=00:00:00.79 bitrate=2621.4kbits/s speed=0.521x    frame=   39 fps= 19 q=30.0 size=     512KiB time=00:00:01.29 bitrate=3226.4kbits/s speed=0.634x    frame=   55 fps= 21 q=30.0 size=     768KiB time=00:00:01.83 bitrate=3431.7kbits/s speed=0.714x    frame=   70 fps= 23 q=29.0 size=    1024KiB time=00:00:02.33 bitrate=3595.1kbits/s speed=0.757x    frame=   86 fps= 24 q=31.0 size=    1280KiB time=00:00:02.86 bitrate=3657.8kbits/s speed=0.797x    frame=  101 fps= 25 q=29.0 size=    1280KiB time=00:00:03.36 bitrate=3114.6kbits/s speed=0.818x    frame=  116 fps= 25 q=30.0 size=    1536KiB time=00:00:03.86 bitrate=3254.2kbits/s speed=0.835x    frame=  132 fps= 26 q=29.0 size=    1792KiB time=00:00:04.39 bitrate=3336.4kbits/s speed=0.855x    frame=  147 fps= 26 q=29.0 size=    2048KiB time=00:00:04.89 bitrate=3423.9kbits/s speed=0.866x    frame=  163 fps= 26 q=28.0 size=    2304KiB time=00:00:05.43 bitrate=3473.8kbits/s speed=0.88x    frame=  178 fps= 27 q=28.0 size=    2560KiB time=00:00:05.93 bitrate=3534.5kbits/s speed=0.886x    frame=  194 fps= 27 q=28.0 size=    2560KiB time=00:00:06.46 bitrate=3243.0kbits/s speed=0.897x    frame=  209 fps= 27 q=30.0 size=    2560KiB time=00:00:06.96 bitrate=3010.3kbits/s speed=0.902x    [out#0/mpegts @ 000002713b47fbc0] video:3100KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 4.088901%
+frame=  241 fps= 30 q=-1.0 Lsize=    3227KiB time=00:00:08.03 bitrate=3290.8kbits/s speed=0.995x    
+[libx264 @ 000002713b480300] frame I:1     Avg QP:25.00  size: 60442
+[libx264 @ 000002713b480300] frame P:240   Avg QP:29.42  size: 12976
+[libx264 @ 000002713b480300] mb I  I16..4: 100.0%  0.0%  0.0%
+[libx264 @ 000002713b480300] mb P  I16..4:  4.4%  0.0%  0.0%  P16..4: 35.7%  0.0%  0.0%  0.0%  0.0%    skip:59.9%
+[libx264 @ 000002713b480300] coded y,uvDC,uvAC intra: 31.8% 34.8% 8.5% inter: 17.7% 8.3% 0.2%
+[libx264 @ 000002713b480300] i16 v,h,dc,p: 56% 18% 14% 12%
+[libx264 @ 000002713b480300] i8c dc,h,v,p: 39% 13% 38% 10%
+[libx264 @ 000002713b480300] kb/s:3161.50
+Output file exists. Size = 3304476 bytes
+Strategy 0 (ffmpeg) succeeded.
+
+Run log written to: C:\src\epsych2\tmp\T_VLC_RC_Direct_last_run.log

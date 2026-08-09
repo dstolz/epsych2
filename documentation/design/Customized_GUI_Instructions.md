@@ -1,17 +1,20 @@
 # Customized GUI Instructions (EPsych / Caras Lab style)
 
+![Small example task GUI built from the components described in this guide: Trial Controls (gui.Parameter_Control), Phase Selector (gui.PhaseSelector), and a Commit Changes button (gui.Parameter_Update) with a pending edit highlighted](images/CustomGUIDemo.png)
+
 This document describes a *general* pattern for building custom MATLAB GUIs that interface with EPsych-style experiments. It uses the class `cl_AppetitiveDetection_GUI_B` and its GUI builder `create_gui.m` as a concrete reference, but the ideas apply broadly to other tasks (appetitive/aversive, staircase, go/no-go, training modes, etc.).
+
+The screenshot above is a minimal example assembled from the same building blocks `create_gui.m` uses: a `gui.Parameter_Control` bound to a real `hw.Parameter` (with the "SoundLevel" field showing a pending edit in green), a `gui.PhaseSelector`, and a `gui.Parameter_Update` commit button. It is not `cl_AppetitiveDetection_GUI_B` itself — that production GUI is larger — but it demonstrates the same wiring pattern described in [Section 3](#3-wiring-parameters-to-ui-controls) and [Section 5](#5-common-gui-helper-classes-you-may-use).
 
 ## Overview (start here)
 
 If you are new to MATLAB GUIs, the main idea is simple: **the experiment already has “knobs” (parameters) and “signals” (state/events)**, and your GUI is just a clean way to *edit* the knobs and *display* the signals.
 
-In EPsych-style code you will usually have a runtime object (often abbreviated **`R`**) that gives you access to:
+In EPsych code you will have a runtime object (`epsych.Runtime`, often abbreviated **`R`**) that gives you access to:
 
-* **Hardware parameters (`R.HW`)**: values that map to device settings/state (timing, triggers, amplitudes, etc.).
-* **Software parameters (`R.S` / module parameters)**: values that live in the session/module (training flags, derived settings, GUI-only config that should still be logged).
-* **Trial logic (`R.TRIALS`)**: what trial is next, what happened on the last trial, and “force” flags for training/testing.
-* **Event sources (`R.HELPER`, task helpers)**: events like *NewTrial*, *NewData*, *ModeChange* that let the GUI update without constant polling.
+* **Parameters (`R.find_parameter`, `R.all_parameters`, `R.P`)**: values that map to device settings/state (timing, triggers, amplitudes) and software-side values that live only in the session (training flags, derived settings, GUI-only config that should still be logged). Hardware-backed and software-backed parameters share the same `hw.Parameter` interface, so GUI code can treat them uniformly.
+* **Trial logic (`R.TRIALS`)**: what trial is next, what happened on the last trial, and "force" flags for training/testing.
+* **Event sources (`R.HELPER`, task helpers)**: events like *NewTrial*, *NewData*, *ModeChange* that let the GUI update without constant polling (see [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md)).
 
 
 ### A practical mental model
@@ -29,8 +32,8 @@ A typical EPsych GUI follows this workflow:
    * *Monitor* = read-only live values (e.g., trial outcome codes, latencies, counters).
 2. **Find the parameter handles by name.**
 
-   * Hardware: `p = R.HW.find_parameter('Name');`
-   * Software: `p = R.S.Module.add_parameter('Name', defaultValue);` (or `R.S.find_parameter(...)` if it already exists)
+   * Existing parameters: `p = R.find_parameter('Name');` or grab everything at once with `P = R.all_parameters(asStruct=true, includeTriggers=true);`
+   * New software parameters: locate the software interface and add one, e.g. `sw = R.Interfaces(arrayfun(@(x) isa(x,'hw.Software'), R.Interfaces)); p = sw.add_parameter('Name', defaultValue);`
 3. **Build the layout first (usually with `uigridlayout`).**
 
    * Make panels for logical blocks (Trial Controls, Sound Controls, Performance, etc.).
@@ -41,7 +44,7 @@ A typical EPsych GUI follows this workflow:
    * Use `gui.Parameter_Update` if you want a deliberate “Apply/Commit” step.
 5. **Update displays using either monitors or events.**
 
-   * Use `gui.Parameter_Monitor` for simple read-only tables.
+   * Use `gui.Parameter_Monitor` for read-only live tables or graphical dashboards (lamps/labels/gauges).
    * Prefer `addlistener(...)` callbacks for “once-per-trial” updates (plots, summaries, previews).
 6. **Clean up on close.**
 
@@ -56,8 +59,21 @@ A typical EPsych GUI follows this workflow:
 
 For a first pass, read Sections **1–4** in order. Sections **6–9** are the main “make it robust” material once you have something working.
 
+## 0) The fast path: subclass `gui.BoxGUI`
+
+Most of the plumbing this guide explains — single-instance enforcement, figure creation with saved window position, the three event listeners, cleanup of listeners/timers/components on close, and wiring `gui.Parameter_Update` to your controls — is provided by the base class **`gui.BoxGUI`**. A new task GUI only needs:
+
+1. A constructor that forwards the runtime: `obj@gui.BoxGUI(RUNTIME, Name='My Task')`
+2. A protected `build(fig)` method that lays out the window using one-line helpers: `addButton`, `addControl`, `controlColumn`, `addUpdateButton`, `addMonitor`, and `register` for any other component
+3. Optional hooks: `createPsych`, `onNewTrial`, `onNewData`, `onModeChange`, `onFirstTrial`
+
+Start by copying [examples/customgui/ExampleBoxGUI.m](../../examples/customgui/ExampleBoxGUI.m) (launchable without hardware via `examples/customgui/run_example.m`) and see [../gui/gui_BoxGUI.md](../gui/gui_BoxGUI.md) for the full API. `ep_GenericGUI`, the default box GUI, is itself a small `gui.BoxGUI` subclass and a good second reference.
+
+The remaining sections explain the concepts underneath (parameters, controls, monitors, events, layout). They still apply inside `build()` — and to the pre-BoxGUI hand-rolled pattern that `cl_AppetitiveDetection_GUI_B` uses, which is worth understanding but no longer the recommended starting point.
+
 ## Table of contents
 
+* [0) The fast path: subclass gui.BoxGUI](#0-the-fast-path-subclass-guiboxgui)
 * [1) Recommended architecture](#1-recommended-architecture)
 * [2) Finding parameters (hardware + software)](#2-finding-parameters-hardware--software)
 * [3) Wiring parameters to UI controls](#3-wiring-parameters-to-ui-controls)
@@ -67,7 +83,7 @@ For a first pass, read Sections **1–4** in order. Sections **6–9** are the m
 * [7) Updating plots and tables efficiently](#7-updating-plots-and-tables-efficiently)
 * [8) Safe interaction patterns (training modes, forcing trials)](#8-safe-interaction-patterns-training-modes-forcing-trials)
 * [9) Suggested development workflow](#9-suggested-development-workflow)
-* [10) Minimal skeleton (conceptual)](#10-minimal-skeleton-conceptual)
+* [10) Minimal skeleton](#10-minimal-skeleton)
 
 ## 1) Recommended architecture
 
@@ -86,7 +102,7 @@ A common, robust pattern is:
 
 In `cl_AppetitiveDetection_GUI_B`:
 
-* `RUNTIME` holds the object that exposes hardware (`R.HW`), session/module (`R.S`), trial logic (`R.TRIALS`), and helper/event sources (`R.HELPER`).
+* `RUNTIME` holds the `epsych.Runtime` that exposes the interfaces (`R.Interfaces`), parameter lookups (`R.find_parameter`, `R.all_parameters`, `R.P`), trial logic (`R.TRIALS`), and helper/event sources (`R.HELPER`).
 * `create_gui(obj)` is implemented as a method and is placed in a separate file under the class folder (`@cl_AppetitiveDetection_GUI_B/create_gui.m`). This is a good MATLAB convention for keeping large GUI code maintainable.
 
 ### 1.2 Constructor responsibilities
@@ -99,6 +115,8 @@ The constructor should typically:
 4. Call `obj.create_gui()`.
 
 Keep side-effects minimal; avoid starting timers or long-running processes inside the constructor unless you also carefully clean them up in the destructor.
+
+> With `gui.BoxGUI`, all of this is the base constructor's job: it stores the runtime, replaces an existing instance, calls your `createPsych` hook, and then your `build(fig)` method.
 
 ### 1.3 Destructor responsibilities (cleanup)
 
@@ -117,42 +135,46 @@ In `cl_AppetitiveDetection_GUI_B/delete`:
 * `obj.guiHandles` (all UI objects under the figure) are deleted.
 * A timer cleanup is performed via `timerfindall("Tag","GUIGenericTimer")`.
 
+> With `gui.BoxGUI`, no destructor is needed: everything created through the `add*` helpers or `register()` is deleted automatically when the window closes. Deleting a figure by itself only removes graphics — component handle objects and their listeners/timers survive — which is exactly the leak the registry prevents.
+
 ## 2) Finding parameters (hardware + software)
 
-A GUI typically binds controls and monitors to parameters. In EPsych-style code, parameters are usually discovered by name.
+A GUI typically binds controls and monitors to parameters. In EPsych code, parameters are discovered by name through the runtime, which searches every registered interface (hardware and software alike).
 
-### 2.1 Hardware parameters: `HW.find_parameter`
+### 2.1 Looking up parameters: `R.find_parameter` and `R.all_parameters`
 
-Hardware parameters tend to represent device settings and current state.
+Common usage patterns:
 
-Common usage pattern:
-
-* `p = R.HW.find_parameter('ITIDur');`
-* `p = R.HW.find_parameter('~TrialDelivery', includeInvisible=true);`
+* `p = R.find_parameter('ITIDur');`
+* `p = R.find_parameter('~TrialDelivery', includeInvisible=true);`
+* `P = R.all_parameters(asStruct=true, includeTriggers=true);` then `P.ITIDur`, `P.Depth`, ... — this is the pattern the reference GUI (`cl_AppetitiveDetection_GUI_B/create_gui.m`) uses to fetch everything in one call.
+* `RUNTIME.P` is a runtime-cached struct of all parameters (keyed by `validName`), populated at run start — prefer it over repeated lookups in hot paths.
 
 Notes:
 
-* Use `includeInvisible=true` for internal/advanced parameters (often prefixed with `~` or `!`).
-* Some calls pass `silenceParameterNotFound=true` to make optional parameters safe:
+* Names can be short (`'Param'`) or qualified (`'Module.Param'`) when the same name exists on multiple modules.
+* Use `includeInvisible=true` for internal/advanced parameters (often prefixed with `~`, `_`, or `!`).
+* Pass `silenceParameterNotFound=true` to make optional parameters safe:
 
-  * Example: `p = R.HW.find_parameter('dBSPL', silenceParameterNotFound=true);`
+  * Example: `p = R.find_parameter('dBSPL', silenceParameterNotFound=true);`
   * If `p` is empty, simply skip creating that UI control.
 
-### 2.2 Software parameters: `S.find_parameter` or `S.Module.add_parameter`
+### 2.2 Software parameters
 
-`S` is best thought of as **Software parameters**: parameters that do *not* exist on the hardware device, but are exposed through the same parameter-handle interface/abstraction as hardware parameters. This shared interface lets you write common GUI and runtime code that can treat hardware and software parameters uniformly.
+Software parameters do *not* exist on a hardware device, but are exposed through the same `hw.Parameter` abstraction. This shared interface lets you write common GUI and runtime code that treats hardware and software parameters uniformly.
 
-Software parameters often represent derived settings, training modes, module configuration, or GUI-only/session-level values.
+Software parameters often represent derived settings, training modes, module configuration, or GUI-only/session-level values. They live on the protocol's `hw.Software` interface. To add one at run time:
 
-You’ll commonly see:
-
-* `p = R.S.Module.add_parameter('MinDepth', 0.001);`
-* `p = R.S.Module.add_parameter('RespWinDelayMin', pRWDelay.Min);`
+```matlab
+sw = R.Interfaces(arrayfun(@(x) isa(x,'hw.Software'), R.Interfaces));
+p = sw.add_parameter('MinDepth', 0.001);
+```
 
 General guidance:
 
-* Use `add_parameter` when you want a configurable software parameter that lives with the module/session and should persist or be logged.
-* Use `S.find_parameter(...)` (if available in your runtime) when the software parameter already exists and you just need the handle.
+* Prefer defining software parameters in the protocol (Protocol Designer) so they persist, serialize, and appear in trial data automatically.
+* Use `add_parameter` at run time only for GUI-session values that do not belong in the protocol.
+* Use `R.find_parameter(...)` when the parameter already exists and you just need the handle.
 
 ### 2.3 Setting parameter metadata for UI and validation
 
@@ -216,12 +238,12 @@ Use this approach when:
 
 Sometimes a UI control should *validate* or *propagate changes* to other parameters.
 
-Pattern (as used for response-window delay randomization):
+Pattern — assign an evaluator to the GUI control wrapper. The callback is invoked as `[value,success] = EvaluatorFcn(hControl, event, Parameter, extraArgs...)`:
 
-* Assign an evaluator to the GUI control wrapper:
+* `h.EvaluatorFcn = @gui.eval_dependent_parameter_randomization;`
+* `h.EvaluatorArgs = {pMin, pMax, pTarget};`
 
-  * `h.EvaluatorFcn = @obj.eval_rwdelay_randomization;`
-  * `h.EvaluatorArgs = {[pMin pMax pRWDelay]};`
+(`gui.eval_dependent_parameter_randomization` and `gui.eval_staircase_training_mode` are ready-made evaluators used by the reference GUI; write your own with the same signature for task-specific rules.)
 
 This is useful when:
 
@@ -242,20 +264,25 @@ This avoids repeating formatting for every control.
 
 ## 4) Monitoring experiment state in the GUI
 
-### 4.1 `gui.Parameter_Monitor` for read-only live tables
+### 4.1 `gui.Parameter_Monitor` for read-only live displays
 
-Use `gui.Parameter_Monitor` when you want a table of parameters that update continuously (e.g., trial state, latencies, response codes).
+Use `gui.Parameter_Monitor` when you want parameters that update continuously (e.g., trial state, latencies, response codes). It offers a sortable live table (`type="table"`, the default), a graphical dashboard (`type="graphical"`) with lamps for boolean state, value labels, and gauges, or a plain text block (`type="text"`). See [../gui/Parameter_Monitor.md](../gui/Parameter_Monitor.md) for the full option set.
 
 Pattern:
 
-* `p = R.HW.find_parameter({...}, includeInvisible=true);`
-* `obj.ParameterMonitorTable = gui.Parameter_Monitor(parentPanel, p, pollPeriod=0.1);`
+* `p = R.find_parameter({...}, includeInvisible=true);`
+* `obj.ParameterMonitor = gui.Parameter_Monitor(parentPanel, p, pollPeriod=0.1);`
+
+Graphical dashboard variant (lamps for binary state monitors):
+
+* `gui.Parameter_Monitor(parentPanel, p, pollPeriod=0.1, type="graphical", Styles=struct(InTrial="lamp", Platform="lamp"))`
 
 Notes:
 
-* Polling frequency (`pollPeriod`) trades responsiveness vs. CPU load.
+* Polling frequency (`pollPeriod`) trades responsiveness vs. hardware-read load; rendering itself is cheap because the display only redraws values that actually changed.
+* Hand the monitor every parameter that could be of interest: a right-click menu lets the user hide the ones they don't want and reorder the rest, and that choice is remembered between sessions. Hidden parameters are skipped by the poll, so an over-generous list costs nothing once trimmed. Pass `PreferenceTag` if a GUI hosts more than one monitor, so they don't share saved layouts.
 * For long sessions or weaker machines, consider slower polling or event-driven updates if available.
-* If the experiment enters a Stop state, it can be appropriate to delete monitors (see `onModeChange`).
+* Monitors clean themselves up (timer included) when their display is destroyed with the hosting figure; deleting them earlier (e.g., on a Stop state, see `onModeChange`) simply freezes the display sooner.
 
 ### 4.2 Event listeners: `addlistener` to update UI on trial events
 
@@ -281,11 +308,13 @@ Guidance:
 The example GUI uses several helper classes that encapsulate common UI elements:
 
 * `gui.Parameter_Control`: user-editable parameter widgets
-* `gui.Parameter_Monitor`: read-only monitoring table
-* `gui.Parameter_Update`: a unified “Update Parameters”/commit mechanism
+* `gui.Parameter_Monitor`: read-only monitoring table or graphical dashboard ([../gui/Parameter_Monitor.md](../gui/Parameter_Monitor.md))
+* `gui.Parameter_Update`: a unified “Update Parameters”/commit mechanism ([../gui/Parameter_Update.md](../gui/Parameter_Update.md))
+* `gui.PhaseSelector`: dropdown for loading/saving named parameter sets (JSON phase files) between training blocks
 * `gui.FilenameValidator`: file naming / data filename UX
+* `gui.ElapsedTrialTimer`: elapsed-time display driven by trial events
 * `psychophysics.Staircase` plotting (`Plot`): online staircase visualization
-* `gui.History`: response history table
+* `gui.History`: response history table ([../gui/gui_History.md](../gui/gui_History.md))
 
 General advice:
 
@@ -393,30 +422,22 @@ Example patterns:
 1. Add plots (e.g., `S.Plot(ax)` on a `psychophysics.Staircase`) once the basics are stable.
 1. Audit cleanup (listeners/timers/figures) and verify closing the GUI leaves no background processes.
 
-## 10) Minimal skeleton (conceptual)
+## 10) Minimal skeleton
 
-Below is a conceptual outline (not copied verbatim) that captures the overall structure:
+The recommended skeleton is a `gui.BoxGUI` subclass — copy [examples/customgui/ExampleBoxGUI.m](../../examples/customgui/ExampleBoxGUI.m) and adapt:
 
-* `classdef YourGui < handle`
+* `classdef YourGui < gui.BoxGUI`
 
-  * `properties` for runtime handle, figure handles, helper objects, listeners
-  * `constructor`:
+  * `constructor`: forward the runtime — `obj@gui.BoxGUI(RUNTIME, Name='Your Task')`
+  * `createPsych` (optional): return a psychophysics object; NewData then arrives *after* it has processed each trial
+  * `build(fig)`:
 
-    * store runtime
-    * create or locate task objects
-    * call `create_gui`
-  * `create_gui`:
+    * create the main `uigridlayout` and panels for grouped controls
+    * `obj.addButton(...)` for triggers/toggles, `obj.addControl(...)` for editable parameters (names that are missing from the loaded protocol are skipped), `obj.addUpdateButton(...)` to commit them
+    * `obj.addMonitor(...)` for read-only live values
+    * `obj.register(...)` for any other component (`gui.ParameterScatter`, `gui.History`, `gui.PhaseSelector`, ...)
+  * hooks `onNewTrial` / `onNewData` / `onModeChange` / `onFirstTrial` for per-trial displays
 
-    * create `uifigure` and main `uigridlayout`
-    * add panels for grouped controls
-    * use `R.HW.find_parameter` and `R.S.find_parameter`/`add_parameter` to collect hardware + software parameters
-    * create controls with `gui.Parameter_Control`
-    * create monitors with `gui.Parameter_Monitor`
-    * register `addlistener` callbacks for trial events
-  * `delete`:
+No properties for listeners, no destructor, no `closeGUI`: the base class owns the lifecycle. See [../gui/gui_BoxGUI.md](../gui/gui_BoxGUI.md) for the full API.
 
-    * delete listeners
-    * delete helper objects
-    * close figures
-
-If you follow this pattern, your GUI stays modular, responsive, and consistent with other EPsych GUIs.
+Writing the same structure by hand as a plain `handle` class (own figure, own listeners, own destructor — the pattern `cl_AppetitiveDetection_GUI_B` predates BoxGUI with) still works and follows the concepts in Sections 1–9, but is only worth the extra ~200 lines when a GUI cannot inherit from `gui.BoxGUI` for some reason.

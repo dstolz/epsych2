@@ -16,20 +16,30 @@ This view shows inheritance only. To keep the tree readable, detailed MATLAB bas
 ```text
 EPsych major classes
 ├─ epsych
+│  ├─ Protocol
+│  ├─ ProtocolDesigner
 │  ├─ RunExpt
 │  ├─ Runtime
 │  ├─ Helper
+│  ├─ TrialSelector
+│  │  └─ DefaultTrialSelector
+│  ├─ Subject
+│  │  └─ DefaultSubject
 │  ├─ BitMask
-│  ├─ ModeChangeEvent
+│  ├─ eventModeChange
 │  └─ TrialsData
 ├─ hw
 │  ├─ Interface
 │  │  ├─ TDT_Synapse
 │  │  ├─ TDT_RPcox
+│  │  ├─ Intan_RHX
+│  │  ├─ VlcRecorder
 │  │  └─ Software
 │  ├─ Module
 │  ├─ Parameter
-│  └─ DeviceState
+│  ├─ DeviceState
+│  ├─ InterfaceSpec
+│  └─ InterfaceSpecOption
 └─ top-level
    └─ PRGMSTATE
 ```
@@ -40,39 +50,47 @@ EPsych major classes
 Analysis and GUI classes
 ├─ psychophysics
 │  ├─ Psych
-│  │  └─ Staircase
+│  │  ├─ Staircase
+│  │  ├─ BestPEST
+│  │  └─ MLP
 │  ├─ Detect
 │  └─ Detection
-├─ stimgen
+├─ stimgen                      (submodule; concrete stimuli vary by pinned commit)
 │  ├─ StimType
-│  │  ├─ Noise
-│  │  │  ├─ AMnoise
-│  │  │  └─ AttackModNoise
-│  │  ├─ Tone
-│  │  ├─ FMtone
-│  │  ├─ multiTone
-│  │  └─ ClickTrain
+│  │  └─ ...                    see obj/stimgen/documentation/stimgen_StimTypes.md
+│  ├─ HardwareHost              ← implemented by stimbridge.RuntimeHost
 │  ├─ StimCalibration
 │  ├─ StimPlay
-│  ├─ StimGenInterface
-│  └─ StimGenInterface_Simple
+│  ├─ StimPlayer
+│  ├─ StimInspector
+│  └─ calibration
+│     ├─ HwAdapter              ← implemented by stimbridge.InterfaceAdapter
+│     │  └─ WindowsSoundCardAdapter
+│     ├─ Engine
+│     └─ CalibrationGui
+├─ stimbridge
+│  ├─ RuntimeHost
+│  └─ InterfaceAdapter
 └─ gui
+   ├─ BasicGUI
    ├─ Helper
    │  └─ Triggers
    ├─ Parameter_Control
    ├─ Parameter_Monitor
    ├─ Parameter_Update
+   ├─ ElapsedTrialTimer
    ├─ GenericTimer
    ├─ MicrophonePlot
    ├─ FilenameValidator
+   ├─ ModeIndicator
    ├─ History
    ├─ OnlinePlot
-   ├─ OnlinePlotBM
    ├─ Performance
    ├─ PhaseSelector
    ├─ PsychPlot
    ├─ SlidingWindowPerformancePlot
-   └─ StaircaseTraining
+   ├─ StaircaseTraining
+   └─ StatusBar
 ```
 
 ### Support and legacy branches
@@ -81,22 +99,17 @@ Analysis and GUI classes
 Support and task-specific classes
 ├─ peripherals
 │  ├─ PumpCom
-│  ├─ WebcamRecorder
 │  ├─ NanoMotorControl
 │  └─ NanoMotorControlGUI
+├─ util
+│  └─ VideoConverter → gui.VideoConverterSetup
 ├─ helpers
 │  ├─ EPsychInfo
-│  ├─ VlcRecorder
-│  └─ VlcRecorderGroup
 ├─ cl
 │  ├─ cl_AppetitiveDetection_GUI_B
-│  └─ cl_AversiveDetection_GUI
-├─ TDTfun
-│  ├─ TDTRP
-│  ├─ SynapseAPI
-│  └─ BH32
+│  └─ cl_AppetitiveStimDetect
 └─ runtime/guis
-   └─ ep_GenericGUITimer
+   └─ ep_GenericGUI
 ```
 
 ### Key base classes
@@ -105,12 +118,20 @@ Support and task-specific classes
 | --- | --- | --- | --- |
 | epsych | `RunExpt` | `handle` | Main session controller GUI |
 | epsych | `Runtime` | `handle & dynamicprops` | Shared runtime state container |
+| epsych | `TrialSelector` | `handle` | Abstract pluggable trial-selection API |
 | hw | `Interface` | `matlab.mixin.Heterogeneous & matlab.mixin.SetGet` | Abstract hardware API |
 | hw | `Module` | `handle` | Container for grouped parameters |
 | hw | `Parameter` | `matlab.mixin.SetGet` | Runtime parameter wrapper |
 | psychophysics | `Psych` | `handle & matlab.mixin.SetGet` | Abstract analysis base |
 | stimgen | `StimType` | `handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable & matlab.mixin.SetGet` | Abstract stimulus base |
+| stimgen | `HardwareHost` | `handle` | Abstract contract a host implements to give stimgen GUIs hardware access |
+| stimgen | `calibration.HwAdapter` | `handle` | Abstract play/record contract for the calibration engine |
 | gui | `Helper` | `handle` | Shared GUI helper base |
+
+The `stimgen` package is a git submodule (see [../stimgen.md](../stimgen.md)) and
+has no dependency on EPsych. EPsych implements its two abstract classes in
+`obj/+stimbridge/`: `stimbridge.RuntimeHost` (a `stimgen.HardwareHost`) and
+`stimbridge.InterfaceAdapter` (a `stimgen.calibration.HwAdapter`).
 
 ## Runtime dependency map
 
@@ -118,38 +139,44 @@ This view is not inheritance. It shows the main runtime relationships during a t
 
 ```mermaid
 flowchart TD
-    A[Protocol design<br/>ep_ExperimentDesign<br/>ep_CompileProtocol<br/>ep_struct2protocol] --> B[epsych.RunExpt<br/>session controller]
+   A[Protocol design<br/>epsych.ProtocolDesigner<br/>epsych.Protocol] --> B[epsych.RunExpt<br/>session controller]
     B --> C[epsych.Runtime<br/>shared session state]
     C --> D[epsych.Helper<br/>event hub]
     C --> E[hw.Interface]
     E --> E1[hw.TDT_Synapse]
     E --> E2[hw.TDT_RPcox]
-    E --> E3[hw.Software]
+    E --> E3[hw.Intan_RHX]
+   E --> E4[hw.Software]
     E1 --> F1[SynapseAPI]
     E2 --> F2[TDTRP]
     E --> G[hw.Module]
     G --> H[hw.Parameter]
+    C --> R[epsych.TrialSelector]
+    R --> R1[epsych.DefaultTrialSelector<br/>cl_AppetitiveStimDetect]
     D --> I[psychophysics.Psych]
     I --> I1[psychophysics.Staircase]
-    C --> I2[psychophysics.Detect]
+    I --> I4[psychophysics.BestPEST]
+    I --> I5[psychophysics.MLP]
     C --> I3[psychophysics.Detection]
     H --> J[gui.Parameter_Control<br/>gui.Parameter_Update<br/>gui.Parameter_Monitor]
-    D --> K[gui.OnlinePlot<br/>gui.OnlinePlotBM<br/>gui.PsychPlot]
+    D --> K[gui.OnlinePlot<br/>gui.PsychPlot<br/>gui.ModeIndicator]
     D --> L[gui.History<br/>gui.Performance<br/>gui.SlidingWindowPerformancePlot]
-    C --> M[cl_AppetitiveDetection_GUI_B<br/>cl_AversiveDetection_GUI]
-   C --> N[peripherals.PumpCom]
-    C --> O[peripherals.WebcamRecorder]
-    C --> P[stimgen.StimType family<br/>StimCalibration<br/>StimPlay]
-   C --> Q[EPsychInfo<br/>peripherals.NanoMotorControl<br/>peripherals.NanoMotorControlGUI<br/>VlcRecorder family]
+    C --> M[cl_AppetitiveDetection_GUI_B]
+    C --> N[peripherals.PumpCom]
+    C --> O[peripherals.NanoMotorControl<br/>peripherals.NanoMotorControlGUI]
+    C --> P[stimgen.StimType family<br/>StimCalibration<br/>StimPlay<br/>StimPlayer]
+    C --> Q[EPsychInfo]
+    P --> W[stimgen.calibration.Engine<br/>stimgen.calibration.HwAdapter family]
+    C --> X[stimbridge.RuntimeHost<br/>stimbridge.InterfaceAdapter]
+    X --> P
 ```
 
 ### Layered runtime view
 
 ```text
 Protocol authoring
-├─ ep_ExperimentDesign
-├─ ep_CompileProtocol
-└─ ep_struct2protocol
+├─ epsych.ProtocolDesigner
+└─ epsych.Protocol
    ↓
 Session control
 └─ epsych.RunExpt
@@ -162,24 +189,29 @@ Hardware layer
 ├─ hw.Interface
 │  ├─ hw.TDT_Synapse → SynapseAPI
 │  ├─ hw.TDT_RPcox → TDTRP
+│  ├─ hw.Intan_RHX
+│  ├─ hw.VlcRecorder
 │  └─ hw.Software
 └─ hw.Module → hw.Parameter
    ↓
+Trial selection
+├─ epsych.TrialSelector
+└─ epsych.DefaultTrialSelector / cl_AppetitiveStimDetect
+   ↓
 Analysis and visualization
-├─ psychophysics.Psych → psychophysics.Staircase
-├─ psychophysics.Detect
+├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.BestPEST / psychophysics.MLP
 ├─ psychophysics.Detection
 ├─ gui.Parameter_Control / gui.Parameter_Update / gui.Parameter_Monitor
-├─ gui.OnlinePlot / gui.OnlinePlotBM / gui.PsychPlot
+├─ gui.OnlinePlot / gui.PsychPlot / gui.ModeIndicator
 └─ gui.History / gui.Performance / gui.SlidingWindowPerformancePlot
    ↓
 Task and support branches
-├─ cl_AppetitiveDetection_GUI_B / cl_AversiveDetection_GUI
+├─ cl_AppetitiveDetection_GUI_B
 ├─ peripherals.PumpCom
-├─ peripherals.WebcamRecorder
 ├─ peripherals.NanoMotorControl / peripherals.NanoMotorControlGUI
-├─ stimgen.StimType family / StimCalibration / StimPlay
-└─ EPsychInfo / VlcRecorder family
+├─ stimbridge.RuntimeHost / stimbridge.InterfaceAdapter  (seam into the submodule)
+├─ stimgen.StimType family / StimCalibration / StimPlay / StimPlayer
+└─ stimgen.calibration.Engine / HwAdapter family
 ```
 
 ### Main dependency patterns
@@ -189,7 +221,8 @@ Task and support branches
 | Session lifecycle | `epsych.RunExpt -> epsych.Runtime` |
 | Hardware control | `epsych.Runtime -> hw.Interface -> hw.Module -> hw.Parameter` |
 | Backend bridge | `hw.TDT_Synapse -> SynapseAPI`, `hw.TDT_RPcox -> TDTRP` |
-| Online analysis | `epsych.Helper events -> psychophysics.*` |
+| Trial selection | `ep_TimerFcn_Start -> epsych.TrialSelector.create(...) -> selector subclass` |
+| Online analysis | `epsych.Helper events -> psychophysics.Psych subclasses` |
 | Parameter GUIs | `gui.Parameter_* <-> hw.Parameter` |
 | Task GUIs | `cl.* -> epsych.Runtime -> psychophysics.* + gui.*` |
 

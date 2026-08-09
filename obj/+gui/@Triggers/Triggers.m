@@ -38,10 +38,6 @@ classdef Triggers < gui.Helper & handle
 
         function build(obj,RUNTIME)
         
-            % RUNTIME.TRIALS.MODULES names the modules for updates without OpenEx
-            midx  = struct2array(RUNTIME.TRIALS(obj.BoxID).MODULES);
-            fn    = fieldnames(RUNTIME.TRIALS(obj.BoxID).MODULES);
-
             state = [];
             T = {};
             tmIdx = [];
@@ -49,14 +45,8 @@ classdef Triggers < gui.Helper & handle
                 for j = 1:length(RUNTIME.TDT.triggers{i})
                     tmIdx(end+1) = RUNTIME.TDT.trigmods(i);
 
-                    if RUNTIME.UseOpenEx
-                        mname = fn{tmIdx(end) == midx};
-                        T{end+1} = [mname '.' RUNTIME.TDT.triggers{i}{j}];
-                        state(end+1) = obj.TDTActiveX.GetTargetVal(T{end});
-                    else
-                        T{end+1} = RUNTIME.TDT.triggers{i}{j};
-                        state(end+1) = obj.TDTActiveX(tmIdx(end)).GetTagVal(T{end});
-                    end
+                    T{end+1} = RUNTIME.TDT.triggers{i}{j};
+                    state(end+1) = obj.TDTActiveX(tmIdx(end)).GetTagVal(T{end});
                 end
             end
 

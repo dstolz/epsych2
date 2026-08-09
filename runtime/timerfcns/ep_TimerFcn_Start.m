@@ -1,12 +1,13 @@
 function RUNTIME = ep_TimerFcn_Start(RUNTIME,CONFIG)
 % RUNTIME = ep_TimerFcn_Start(RUNTIME,CONFIG)
-% 
-% Default Start timer function
-% 
-% Initialize parameters and take care of some other things just before
-% beginning experiment
-% 
-% Use ep_PsychConfig GUI to specify custom timer function.
+% Initialize runtime state and trial selectors before an experiment starts.
+%
+% Parameters:
+%	RUNTIME	- Runtime state struct to populate for the upcoming session.
+%	CONFIG	- Per-subject configuration array with compiled protocols.
+%
+% Returns:
+%	RUNTIME	- Updated runtime state ready for timer-driven execution.
 % 
 % Copyright (C) 2019  Daniel Stolzberg, PhD
 % updated for hardware abstraction 2024 DS
@@ -14,59 +15,50 @@ function RUNTIME = ep_TimerFcn_Start(RUNTIME,CONFIG)
 
 E = EPsychInfo;
 
-% make temporary directory in current folder for storing data during
-% runtime in case of a computer crash or Matlab error
-if ~isfield(RUNTIME,'TempDataDir') || ~isfolder(RUNTIME.TempDataDir)
-    RUNTIME.TempDataDir = fullfile(fileparts(E.root),'DATA');
-end
-if ~isfolder(RUNTIME.TempDataDir), mkdir(RUNTIME.TempDataDir); end
+nSubjs = length(CONFIG);
 
-RUNTIME.NSubjects = length(CONFIG);
+T = struct([]);
 
-RUNTIME.HELPER = epsych.Helper;
-
-for i = 1:RUNTIME.NSubjects
+for i = 1:nSubjs
     C = CONFIG(i);
 
-    RUNTIME.TRIALS(i).trials       = sortrows(C.PROTOCOL.COMPILED.trials);
-    RUNTIME.TRIALS(i).TrialCount   = zeros(size(RUNTIME.TRIALS(i).trials,1),1); 
-    RUNTIME.TRIALS(i).activeTrials = true(size(RUNTIME.TRIALS(i).TrialCount));
-    RUNTIME.TRIALS(i).UserData     = [];
-    RUNTIME.TRIALS(i).trialfunc    = C.PROTOCOL.OPTIONS.trialfunc;
-    RUNTIME.TRIALS(i).writeparams  = C.PROTOCOL.COMPILED.writeparams;
-    RUNTIME.TRIALS(i).readparams   = C.PROTOCOL.COMPILED.readparams;
+    compiled = C.PROTOCOL.COMPILED;
+    selectorConfig = struct('trialFunc', C.PROTOCOL.Options.trialFunc);
 
-    RUNTIME.TRIALS(i).writeparams = cellfun(@(a) a(find(a=='.',1)+1:end),RUNTIME.TRIALS(i).writeparams,'uni',0);
-    RUNTIME.TRIALS(i).readparams  = cellfun(@(a) a(find(a=='.',1)+1:end),RUNTIME.TRIALS(i).readparams,'uni',0);
+    T(i).parameters    = compiled.parameters;
+    T(i).trials        = compiled.trials;
 
-    RUNTIME.TRIALS(i).Subject = C.SUBJECT;
-    RUNTIME.TRIALS(i).BoxID = C.SUBJECT.BoxID; % make BoxID more easily accessible DJS 1/14/2016
-
-    RUNTIME.TRIALS(i).FORCE_TRIAL = false;
-
-    % make it a bit easier to find writeparameters
-    for k = 1:length(RUNTIME.TRIALS(i).writeparams)
-        wp = RUNTIME.TRIALS(i).writeparams{k};
-        wpn = matlab.lang.makeValidName(wp);
-        RUNTIME.TRIALS(i).writeParamIdx.(wpn) = find(ismember(RUNTIME.TRIALS(i).writeparams,wp));
+    % Write-parameter mapping: writeparams is a column-ordered cell of valid
+    % parameter names; writeParamIdx maps each valid-name to its trial column.
+    % Consumers (gui.Parameter_Update, updateTrialsFromParameters,
+    % eval_*_training_mode) rely on these to locate writable columns.
+    T(i).writeparams   = compiled.writeparams;
+    T(i).writeParamIdx = struct();
+    for w = 1:numel(compiled.writeparams)
+        T(i).writeParamIdx.(compiled.writeparams{w}) = w;
     end
+    T(i).selector      = epsych.TrialSelector.create(selectorConfig);
+    T(i).selector.initialize(T(i));
+    T(i).selector.setRuntime(RUNTIME, i);
+    T(i).Subject       = C.SUBJECT;
+    T(i).BoxID         = C.SUBJECT.BoxID;
 
+    T(i).FORCE_TRIAL = false;
+    T(i).RECOMPILE_REQUESTED = false;
 
-
-
+    
     % Create data file for saving data during runtime in case there is a problem
     % * this file is automatically overwritten
 
     % Create data file info structure
-    info.Subject = RUNTIME.TRIALS(i).Subject;
+    info.Subject = T(i).Subject;
     info.CompStartTimestamp = datetime("now");
     info.EPsychMeta = E.meta;
-    [~, computer] = system('hostname'); 
-    info.Computer = strtrim(computer);
+    info.isTest = RUNTIME.isTest;
     
     dfn = sprintf('RUNTIME_DATA_%s_Box_%02d_%s.mat', ...
-        RUNTIME.TRIALS(i).Subject.Name, ...
-        RUNTIME.TRIALS(i).Subject.BoxID, ...
+        T(i).Subject.Name, ...
+        T(i).Subject.BoxID, ...
         datetime('now',Format='yyMMddHHmmSS'));
 
     assert(isfolder(RUNTIME.TempDataDir),'Invalid Data Directory "%s"',RUNTIME.TempDataDir)
@@ -84,93 +76,25 @@ for i = 1:RUNTIME.NSubjects
 
 
     % Initialize default data filename
-    vprintf(3, 'Initializing data filename for subject "%s" on box %d', RUNTIME.TRIALS(i).Subject.Name, RUNTIME.TRIALS(i).Subject.BoxID)
-    sn = RUNTIME.TRIALS(i).Subject.Name;
-    pth = fullfile(RUNTIME.dfltDataPath,sn);
-    RUNTIME.TRIALS(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
+    vprintf(3, 'Initializing data filename for subject "%s" on box %d', T(i).Subject.Name, T(i).Subject.BoxID)
+    % RunExpt reserves these before the run so the webcam recording carries the
+    % same name; generate one only when Start is invoked without a reservation.
+    if numel(RUNTIME.SessionDataFilename) >= i && strlength(RUNTIME.SessionDataFilename(i)) > 0
+        T(i).DataFilename = char(RUNTIME.SessionDataFilename(i));
+    else
+        sn = T(i).Subject.Name;
+        pth = fullfile(RUNTIME.dfltDataPath,sn);
+        T(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
+    end
 
-    RUNTIME.ON_HOLD(i) = false;
 
-    % make HW object handles available in TRIALS structure
-    RUNTIME.TRIALS(i).HW = RUNTIME.HW; 
-
-    % SOFTWARE INTERFACE
-    RUNTIME.S = hw.Software;
-    % addlistener(RUNTIME.HW,'mode','PostSet',@RUNTIME.S.mode_handler);
-
-  
-
+    % Initialize first trial using selector
+    T(i).TrialIndex = 1;
+    T(i).NextTrialID = T(i).selector.selectNext(T(i));
 end
 
 
-
-
-
-
-for i = 1:RUNTIME.NSubjects
-    % Initialize first trial
-    RUNTIME.TRIALS(i).TrialIndex = 1;
-    try
-        n = feval(RUNTIME.TRIALS(i).trialfunc,RUNTIME.TRIALS(i));
-        if isstruct(n)
-            RUNTIME.TRIALS(i).trials       = n.trials;
-            RUNTIME.TRIALS(i).NextTrialID  = n.NextTrialID;
-            RUNTIME.TRIALS(i).activeTrials = n.activeTrials;
-            RUNTIME.TRIALS(i).UserData     = n.UserData;
-        elseif isscalar(n) 
-            RUNTIME.TRIALS(i).NextTrialID = n;
-        else
-            error('Invalid output from custom trial selection function ''%s''',RUNTIME.TRIALS(i).trialfunc)
-        end
-    catch me
-        errordlg(sprintf('Error in Custom Trial Selection Function "%s" on line %d\n\n%s\n%s', ...
-            me.stack(1).name,me.stack(1).line,me.identifier,me.message));
-        rethrow(me)
-    end
-    RUNTIME.TRIALS(i).TrialCount(RUNTIME.TRIALS(i).NextTrialID) = 1;
-    
-
-
-
-    % SIMPLIFY ACCESS TO BUILTIN TRIGGERS
-    bmn = ["RespCode","TrigState","NewTrial","ResetTrig","TrialNum", "TrialComplete"];
-    for cc = bmn
-        trigStr = sprintf('_%s~%d',cc,RUNTIME.TRIALS(i).Subject.BoxID);
-        p = RUNTIME.HW.find_parameter(trigStr,includeInvisible=true,silenceParameterNotFound=true);
-        RUNTIME.CORE(i).(cc) = p;
-    end
-
-    load(RUNTIME.TRIALS(i).protocol_fn,'-mat');
-    RUNTIME.TRIALS(i).protocol = protocol;
-
-
-    % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
-    vprintf(2,'Setting up first trial on box %d',i)
-
-    % ignore parameters with an asterisk (*) prefix
-    wp = RUNTIME.TRIALS(i).writeparams;
-    wpind = ~startsWith(wp,'*');
-
-    % 1. Send trigger to reset components before updating parameters
-    RUNTIME.HW.trigger(RUNTIME.CORE(i).ResetTrig);
-    
-    % 2. Update parameter tags
-    % TO DO: UPDATE PROTOCOL STRUCTURE AND MAKE THIS GENERALLY MORE EFFICIENT
-    trials = RUNTIME.TRIALS(i).trials(RUNTIME.TRIALS(i).NextTrialID,wpind);
-
-    
-    P = RUNTIME.HW.find_parameter(wp(wpind),includeInvisible=true);
-    [P.Value] = deal(trials{:});
-
-    % 3. Trigger first new trial
-    RUNTIME.HW.trigger(RUNTIME.CORE(i).NewTrial);
-
-    % 4. Notify whomever is listening of new trial
-    RUNTIME.HELPER.notify('NewTrial');
-
-end
-
-
+RUNTIME.TRIALS = T;
 
 
 

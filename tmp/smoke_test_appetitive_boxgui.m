@@ -1,0 +1,231 @@
+function smoke_test_appetitive_boxgui()
+% smoke_test_appetitive_boxgui()
+% Exercise cl_AppetitiveDetection_BoxGUI (the gui.BoxGUI version of
+% cl_AppetitiveDetection_GUI_B) against a software-only runtime:
+% construction, control/button creation, Parameter_Update wiring, the
+% NewTrial/NewData/ModeChange hooks, the hardware-free launch that
+% SelfTest I6 performs, and full teardown. Headless-safe: every figure is
+% closed and every preference this test writes is restored on exit.
+%
+%   matlab -batch "run('tmp/smoke_test_appetitive_boxgui.m')"
+
+here = fileparts(mfilename('fullpath'));
+run(fullfile(here,'..','epsych_startup.m'));
+
+PREF_TAG = 'cl_AppetitiveDetection_BoxGUI';
+scatterPrefs = savedScatterPrefs();
+cleanupObj = onCleanup(@() cleanupAll(PREF_TAG, scatterPrefs));
+
+% 1. Construction ---------------------------------------------------------
+rt = makeRuntime();
+g = cl_AppetitiveDetection_BoxGUI(rt);
+assert(isvalid(g) && isvalid(g.h_figure), 'GUI should be valid after construction');
+assert(strcmp(g.h_figure.Tag, PREF_TAG), 'figure Tag should be the class name');
+assert(isa(g.Psych,'psychophysics.Staircase'), 'createPsych should build a Staircase');
+fprintf('PASS: construction\n');
+
+% 2. Buttons --------------------------------------------------------------
+% '~TrialDelivery' exercises the trigger-prefix tolerance: the button is
+% keyed by validName, so the prefixed parameter lands in x_TrialDelivery.
+expectBtn = {'DropPellet','Shape','ReminderTrials','ManualTrigger','x_TrialDelivery','SpoofTrough'};
+for b = expectBtn
+    assert(isfield(g.hButtons,b{1}), 'missing button "%s"', b{1});
+end
+assert(strcmp(g.hButtons.DropPellet.type,'momentary'), 'Pellet should be momentary');
+assert(strcmp(g.hButtons.x_TrialDelivery.type,'toggle'), 'Deliver Trials should be a toggle');
+assert(isvalid(g.hReminder), 'reminder toggle should be cached for onNewData');
+assert(isequal(g.P.Shape.PostUpdateFcn, @cl_AppetitiveDetection_BoxGUI.trigger_Shape), ...
+    'Shape parameter should carry the trigger_Shape hook');
+fprintf('PASS: control buttons and parameter hooks\n');
+
+% 3. Panels and components ------------------------------------------------
+assert(isvalid(g.ParameterMonitor), 'trial state monitor should exist');
+assert(numel(g.ParameterMonitor.Parameters) == 10, ...
+    'monitor should track 10 parameters (got %d)', numel(g.ParameterMonitor.Parameters));
+assert(isvalid(g.h_ScatterPanel), 'parameter scatter should exist');
+assert(isvalid(g.ResponseHistory), 'response history should exist');
+assert(isvalid(g.tableNextTrial), 'next trial table should exist');
+assert(isvalid(g.lblPerformance), 'performance label should exist');
+assert(isvalid(g.PhaseSelector), 'phase selector should exist');
+fprintf('PASS: panels and components\n');
+
+% 4. Automatic Parameter_Update wiring ------------------------------------
+wh = g.UpdateButton.watchedHandles;
+assert(numel(wh) == 7, ...
+    'update button should watch the 7 non-autoCommit controls (got %d)', numel(wh));
+assert(all(ismember({wh.Name}, ...
+    {'Depth','ITIDur','RespWinPreStim','RespWinPostStim','NumPellets','TimeoutDur','dBSPL'})), ...
+    'watchedHandles should be exactly the deferred-commit controls');
+fprintf('PASS: watchedHandles wired from the registry\n');
+
+% 5. NewTrial hook --------------------------------------------------------
+rt.HELPER.notify('NewTrial', epsych.TrialsData(fakeTrials(1)));
+assert(isequal(g.tableNextTrial.Data, {0.5,'STIM'}), ...
+    'next trial table should show the stimulus trial');
+rt.HELPER.notify('NewTrial', epsych.TrialsData(fakeTrials(2)));
+assert(isequal(g.tableNextTrial.Data, {0,'CATCH'}), ...
+    'next trial table should show the catch trial');
+fprintf('PASS: onNewTrial updates the next-trial table\n');
+
+% 6. NewData hook ---------------------------------------------------------
+pReminder = g.hReminder.Parameter;
+% arm the toggle without running trigger_ReminderTrial, which would need a
+% compiled TRIALS struct; clearing it (value 0) returns immediately
+pReminder.PostUpdateFcnEnabled = false;
+pReminder.Value = 1;
+pReminder.PostUpdateFcnEnabled = true;
+g.Psych.Helper.notify('NewData');
+assert(pReminder.Value == 0, 'a completed trial should clear the Reminder toggle');
+fprintf('PASS: onNewData clears the Reminder toggle\n');
+
+% 7. ModeChange: monitor polling stops on Stop, resumes on Record ---------
+rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
+assert(g.ParameterMonitor.Timer.Running == "off", 'monitor should stop on Stop');
+rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Record));
+assert(g.ParameterMonitor.Timer.Running == "on", 'monitor should resume on Record');
+fprintf('PASS: onModeChange starts/stops the trial state monitor\n');
+
+% 8. Teardown through the CloseRequestFcn path ---------------------------
+% gui.Helper.timed_color_change leaves a 1 s one-shot timer that writes
+% back into the control it flashed; let those drain before tearing down so
+% the test output is not polluted by their (pre-existing) stale-handle
+% error.
+pause(1.2);
+
+fig = g.h_figure;
+mon = g.ParameterMonitor; scat = g.h_ScatterPanel; hist = g.ResponseHistory;
+psych = g.Psych;
+close(fig);
+assert(~isvalid(g) && ~isvalid(fig), 'closeGUI should delete the object and figure');
+assert(~isvalid(mon) && ~isvalid(scat) && ~isvalid(hist), ...
+    'registered components should be deleted');
+assert(~isvalid(psych), 'psych object should be deleted');
+t = timerfindall;
+if ~isempty(t)
+    assert(~any(startsWith({t.Name}, 'Parameter_Monitor_Timer')), ...
+        'no monitor timers should survive teardown');
+end
+fprintf('PASS: teardown\n');
+
+% 9. Hardware-free launch (SelfTest I6 semantics) ------------------------
+rtEmpty = epsych.Runtime;
+rtEmpty.isTest = true;
+rtEmpty.HELPER = epsych.Helper;
+g2 = cl_AppetitiveDetection_BoxGUI(rtEmpty);
+assert(isvalid(g2) && isvalid(g2.h_figure), 'GUI must open against a runtime with no interfaces');
+assert(isempty(g2.Psych), 'no Depth parameter means no staircase');
+assert(isempty(fieldnames(g2.hButtons)), 'no parameters means no buttons');
+delete(g2);
+assert(isempty(findall(groot,'Type','figure','-and','Tag',PREF_TAG)), ...
+    'delete(obj) should also remove the figure');
+fprintf('PASS: hardware-free launch\n');
+
+% 10. Single-instance enforcement ----------------------------------------
+gA = cl_AppetitiveDetection_BoxGUI(rt);
+gB = cl_AppetitiveDetection_BoxGUI(rt);
+assert(~isvalid(gA), 'first instance should be replaced by the second');
+assert(isscalar(findall(groot,'Type','figure','-and','Tag',PREF_TAG)), ...
+    'exactly one figure should remain');
+pause(1.2);
+delete(gB);
+fprintf('PASS: single-instance replacement\n');
+
+fprintf('smoke_test_appetitive_boxgui: ALL PASS\n');
+end
+
+
+function rt = makeRuntime()
+% Runtime with a software interface carrying the parameters the GUI expects.
+rt = epsych.Runtime;
+rt.isTest = true;
+rt.HELPER = epsych.Helper;
+
+sw = hw.Software;
+
+addp(sw,'DropPellet',0,isTrigger=true);
+addp(sw,'SpoofTrough',0,isTrigger=true);
+addBool(sw,'Shape',false);
+addBool(sw,'ReminderTrials',false);
+addBool(sw,'ManualTrigger',false);
+addBool(sw,'~TrialDelivery',false);
+
+p = addp(sw,'Depth',0.5,Unit='%'); p.Min = 0; p.Max = 1;
+addp(sw,'Depth_StepOnMiss',0.05);
+addp(sw,'Depth_StepOnHit',0.05);
+addp(sw,'P_Catch',0.2);
+addp(sw,'ITIDur',5000,Unit='ms');
+addp(sw,'RespWinPreStim',100,Unit='ms');
+addp(sw,'RespWinPostStim',500,Unit='ms');
+addBool(sw,'RepeatDelayOnAbort',false);
+p = addp(sw,'StimDelay',1000,Unit='ms'); p.Min = 500; p.Max = 2000;
+addp(sw,'StimDelayTrain_StepUp',350);
+addp(sw,'StimDelayTrain_StepDown',100);
+p = sw.add_parameter('NumPellets',[1 2 3]); p.Value = 1;
+addp(sw,'TimeoutDur',8000,Unit='ms');
+addp(sw,'dBSPL',60,Unit='dB SPL');
+addp(sw,'TrialType',0);
+
+% read-only monitor parameters
+addBool(sw,'Platform',false,'Read');
+addBool(sw,'Trough',false,'Read');
+addBool(sw,'InTrial',false,'Read');
+addBool(sw,'DelayPeriod',false,'Read');
+addBool(sw,'RespWindow',false,'Read');
+p = addp(sw,'PelletTotal',0);  p.Access = 'Read';
+p = addp(sw,'RespWinDelay',0); p.Access = 'Read';
+p = addp(sw,'RespLatency',0);  p.Access = 'Read';
+p = addp(sw,'RespCode',0);     p.Access = 'Read';
+
+rt.Interfaces = sw;
+end
+
+
+function p = addp(sw,name,value,varargin)
+% add_parameter stores design-time Values; a live session assigns Value
+% during trial dispatch, so set it here too.
+p = sw.add_parameter(name,value,varargin{:});
+p.Value = value;
+end
+
+
+function p = addBool(sw,name,value,access)
+p = sw.add_parameter(name,value,Type='Boolean');
+p.Value = logical(value);
+if nargin > 3, p.Access = access; end
+end
+
+
+function T = fakeTrials(trialID)
+% Minimal stand-in for RUNTIME.TRIALS as consumed by onNewTrial.
+T.Subject = 'TEST';
+T.BoxID = 1;
+T.NextTrialID = trialID;
+T.trials = {0.5, 0; 0, 1};   % Depth, TrialType
+T.writeParamIdx.Depth = 1;
+T.writeParamIdx.TrialType = 2;
+end
+
+
+function s = savedScatterPrefs()
+% The scatter panel shares its preference key with the original GUI_B;
+% snapshot it so this test leaves the user's saved selections untouched.
+s = [];
+if ispref('epsych2_gui_ParameterScatter','AppetitiveDetection_ScatterPlot')
+    s = getpref('epsych2_gui_ParameterScatter','AppetitiveDetection_ScatterPlot');
+end
+end
+
+
+function cleanupAll(prefTag, scatterPrefs)
+if ispref(prefTag)
+    rmpref(prefTag);
+end
+if isempty(scatterPrefs)
+    if ispref('epsych2_gui_ParameterScatter','AppetitiveDetection_ScatterPlot')
+        rmpref('epsych2_gui_ParameterScatter','AppetitiveDetection_ScatterPlot');
+    end
+else
+    setpref('epsych2_gui_ParameterScatter','AppetitiveDetection_ScatterPlot',scatterPrefs);
+end
+delete(findall(groot,'Type','figure','-and','Tag',prefTag));
+end

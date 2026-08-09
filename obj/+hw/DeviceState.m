@@ -28,7 +28,7 @@ classdef DeviceState < int8
 
         function tf = isIdle(obj)
             % Helper: whether state is terminal
-            tf = ismember(obj, [DeviceState.Idle, DeviceState.Stop, DeviceState.Error]);
+            tf = ismember(obj, [hw.DeviceState.Idle, hw.DeviceState.Stop, hw.DeviceState.Error]);
         end
     end
 end

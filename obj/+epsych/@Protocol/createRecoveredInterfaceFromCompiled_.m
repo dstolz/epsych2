@@ -1,0 +1,72 @@
+function interface = createRecoveredInterfaceFromCompiled_(obj)
+% interface = createRecoveredInterfaceFromCompiled_(obj)
+%
+% Reconstruct an hw.Interface from COMPILED.writeparams and COMPILED.trials
+% when InterfaceData is unavailable (legacy file recovery).
+%
+% Returns:
+%   interface - Reconstructed hw.Interface instance (Software or TDT_RPcox)
+
+writeparams = obj.COMPILED.writeparams;
+trials = obj.COMPILED.trials;
+hasModuleNames = any(contains(string(writeparams), '.'));
+
+if hasModuleNames
+    connectionType = 'GB';
+    if isfield(obj.Options, 'ConnectionType') && ~isempty(obj.Options.ConnectionType)
+        connectionType = char(string(obj.Options.ConnectionType));
+    end
+    interface = hw.TDT_RPcox({}, {}, {}, Interface = connectionType, Connect = false);
+else
+    interface = hw.Software();
+end
+
+moduleMap = containers.Map('KeyType', 'char', 'ValueType', 'any');
+modules = hw.Module.empty(1, 0);
+
+for colIdx = 1:numel(writeparams)
+    writeParamName = char(string(writeparams{colIdx}));
+    if contains(writeParamName, '.')
+        parts = split(string(writeParamName), '.');
+        moduleName = char(parts(1));
+        parameterName = char(parts(2));
+    else
+        moduleName = 'Params';
+        parameterName = writeParamName;
+    end
+
+    if ~isKey(moduleMap, moduleName)
+        module = hw.Module(interface, moduleName, moduleName, uint8(length(modules) + 1));
+        modules(end + 1) = module; %#ok<AGROW>
+        moduleMap(moduleName) = module;
+    end
+    module = moduleMap(moduleName);
+
+    % 'StimType' is only legal on an hw.Software parent, and a legacy file can
+    % mix a StimType column with module-qualified names that recover as
+    % TDT_RPcox. Degrade rather than throw part-way through recovery.
+    parameterType = obj.inferSerializedParameterType_(trials, colIdx);
+    if isequal(parameterType, 'StimType') && ~isa(interface, 'hw.Software')
+        vprintf(1, ['Protocol recovery: parameter "%s" holds a stimgen.StimType ' ...
+            'but recovered onto %s, which cannot host one. Recovering it as a ' ...
+            'String instead.'], parameterName, class(interface));
+        parameterType = 'String';
+    end
+
+    parameter = hw.Parameter(interface, Type = parameterType);
+    parameter.Name = parameterName;
+    parameter.Module = module;
+    recoveredValue = obj.getRecoveredParameterValue_(trials, colIdx);
+    parameter.Values = hw.Parameter.normalizeValues(recoveredValue);
+    parameter.Access = 'Any';
+    parameter.Visible = true;
+    parameter.isArray = numel(parameter.Values) > 1;
+    module.Parameters(end + 1) = parameter; %#ok<AGROW>
+end
+
+if isa(interface, 'hw.Software')
+    interface.set_module(modules);
+else
+    interface.setModules(modules);
+end
+end

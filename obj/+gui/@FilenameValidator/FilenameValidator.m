@@ -37,6 +37,14 @@ classdef FilenameValidator < handle
 
 
             obj.PreviousValue = defaultFilename;
+
+            % Preview (test) runs never save data; match the light-blue
+            % "PREVIEW MODE" styling used elsewhere (e.g. RunExpt's figure
+            % color) so the field can't be mistaken for a live save target.
+            if RUNTIME.isTest
+                obj.EditField.BackgroundColor = [0.78 0.87 1.00];
+                obj.EditField.Tooltip = "Preview mode: no data file will be saved.";
+            end
         end
     end
 

@@ -1,8 +1,6 @@
 # EPsych Architecture Overview
 
-This document is a high-level map of the EPsych repository for developers and advanced users who need to understand where functionality lives and how the major pieces relate to each other.
-
-_Please note that I am actively working on improving the organizational structure and readability of the code._
+This document is a high-level map of the EPsych repository for developers who need to understand where functionality lives and how the major pieces relate to each other. If you only want to run experiments, read [Toolbox_Overview.md](Toolbox_Overview.md) instead.
 
 ## Design goals reflected in the codebase
 
@@ -22,148 +20,249 @@ That mixed structure is the key architectural fact to understand before making c
 
 Newer object-oriented EPsych APIs and runtime entry points live here.
 
-Important pieces include:
+| Class | Purpose |
+|---|---|
+| `epsych.RunExpt` | Main session GUI and experiment controller |
+| `epsych.Runtime` | Central runtime state container (`Interfaces`, `TRIALS`, `CORE`, `TIMER`, `HELPER`) |
+| `epsych.Protocol` | Protocol data model — owns `hw.Interface` objects, parameters, compiled trials; serialized to `.eprot` files |
+| `epsych.ProtocolDesigner` | GUI for building and editing protocol files |
+| `epsych.Helper` | Event broadcaster (`NewData`, `NewTrial`, `ModeChange` events) |
+| `epsych.BitMask` | `uint32` enumeration for encoding trial outcomes (Hit, Miss, CR, FA, ...) |
+| `epsych.TrialSelector` | Abstract base for pluggable trial selection strategies |
+| `epsych.DefaultTrialSelector` | Built-in balancing selector (least-used trial, random tie-break) |
+| `epsych.Subject` / `epsych.DefaultSubject` | Abstract subject definition and default implementation with a built-in entry dialog |
+| `epsych.TrialsData` | Event payload for `NewData` / `NewTrial` |
+| `epsych.eventModeChange` | Event payload for `ModeChange` |
 
-- `epsych.RunExpt`: the main session GUI/controller used to configure and run experiments
-- `epsych.Runtime`: the central runtime state container used while a session is active
-- additional object-oriented utilities that are gradually replacing older procedural flows
+`PRGMSTATE` (the session state enumeration) is a top-level class in `obj/PRGMSTATE.m`, not part of the `epsych` package.
+
+Detailed references: [../epsych/](../epsych/)
 
 ### `obj/+hw/`
 
-Hardware abstraction classes live here.
+Hardware abstraction classes live here. All concrete interfaces inherit from `hw.Interface`, which defines a uniform API for connecting, reading, writing, and triggering.
 
-Two important runtime paths are visible in the current code:
+| Class | Purpose |
+|---|---|
+| `hw.Interface` | Abstract base: `connect`, `get_parameter`, `set_parameter`, `trigger`, parameter discovery helpers |
+| `hw.Module` | Parameter container associated with a named hardware module |
+| `hw.Parameter` | Single named parameter with value getter/setter, bounds, expressions, and callback chain |
+| `hw.TDT_Synapse` | TDT Synapse API backend; auto-discovers gizmo parameters on connect (under development) |
+| `hw.TDT_RPcox` | RPvds/RPco.x backend; auto-discovers circuit tags on connect |
+| `hw.Intan_RHX` | Intan RHX TCP backend (under development) |
+| `hw.Software` | In-memory software backend for MATLAB-side parameters |
+| `hw.VlcRecorder` | Controls a VLC process for webcam preview/recording |
+| `hw.DeviceState` | Enumeration of device states (`Idle`, `Preview`, `Record`, ...) |
+| `hw.InterfaceSpec` / `hw.InterfaceSpecOption` | Creation specs that let `ProtocolDesigner` build interface-creation dialogs generically |
 
-- `hw.TDT_Synapse`: interface for Synapse-backed workflows
-- `hw.TDT_RPcox`: interface for RPvds/RPco.x-backed workflows
+Each concrete backend implements `setup_interface()` to auto-discover its modules and parameters, and a static `getCreationSpec()` so the Protocol Designer can construct it from user input.
 
-This separation matters because the same high-level EPsych session flow may initialize different hardware backends depending on what is available and how the protocol is configured.
+Detailed references: [../hw/](../hw/)
+
+### `obj/+gui/`
+
+Reusable GUI components live here. These are generally instantiated by `RunExpt`, task GUIs, or experiment-specific workflows.
+
+Key components: `gui.OnlinePlot`, `gui.Performance`, `gui.PsychPlot`, `gui.SlidingWindowPerformancePlot`, `gui.History`, `gui.StaircaseTraining`, `gui.PhaseSelector` (JSON parameter phase switching), `gui.ModeIndicator`, `gui.StatusBar`, `gui.Triggers`, `gui.ElapsedTrialTimer`, `gui.FilenameValidator`, `gui.BasicGUI`, and parameter widgets `Parameter_Control`, `Parameter_Monitor`, `Parameter_Update`.
+
+Detailed references: [../gui/](../gui/)
+
+### `obj/stimgen/` (submodule)
+
+Stimulus generation, playback, and calibration. This is a **git submodule**
+pointing at <https://github.com/dstolz/stimgen>; the package itself is at
+`obj/stimgen/+stimgen/`. Run `git submodule update --init --recursive` after
+cloning. See [stimgen.md](../stimgen.md) for the integration contract.
+
+`stimgen` has no dependency on EPsych. EPsych implements its two abstract
+integration classes in `obj/+stimbridge/` (see below).
+
+| Class | Purpose |
+|---|---|
+| `stimgen.StimType` | Abstract base; defines the signal processing pipeline and variant (vectorized property) selection |
+| `stimgen.StimPlay` | Wraps a `StimType` with repetition tracking and selection order |
+| `stimgen.StimPlayer` | Standalone stimulus-bank editor and playback tool |
+| `stimgen.StimCalibration` | Headless calibration wrapper held by `StimType`; the GUI is `stimgen.calibration.CalibrationGui` |
+| `stimgen.calibration.*` | Calibration package: `Engine` (core algorithm), `CalibrationGui`, and hardware adapters (`HwAdapter`, `WindowsSoundCardAdapter`) |
+| `stimgen.HardwareHost` | Abstract contract EPsych implements to give stimgen GUIs hardware access |
+
+The concrete stimulus classes are deliberately not listed here — the set changes
+with the submodule, independently of this repository. `stimgen` maintains its own
+index at [../../obj/stimgen/documentation/stimgen_StimTypes.md](../../obj/stimgen/documentation/stimgen_StimTypes.md),
+and `stimgen.StimType.list` enumerates whatever the pinned commit provides.
+
+### `obj/+stimbridge/`
+
+The seam between EPsych and the `stimgen` submodule. These are the only classes
+that translate between the two; nothing inside `stimgen` names an EPsych type.
+
+| Class | Purpose |
+|---|---|
+| `stimbridge.RuntimeHost` | Implements `stimgen.HardwareHost` over `epsych.Runtime`/`epsych.Protocol`: protocol loading, connect/release, device mode, parameter lookup, and calibration-adapter selection |
+| `stimbridge.InterfaceAdapter` | Implements `stimgen.calibration.HwAdapter` over an `hw.Interface` (TDT and similar), resolving the buffer/trigger tags used for play-and-record |
+
+The signal processing pipeline applied by `StimType` on every update is:
+
+```
+update_signal()   ← implemented by each subclass
+  → apply_normalization()  scale to [-1, 1]
+  → apply_calibration()    SPL → voltage via lookup table and EQ filter
+  → apply_gate()           cosine-squared onset/offset window
+  → Signal property        final waveform
+```
+
+Calibration precedes gating because `apply_calibration` renormalizes before
+scaling to the lookup-table voltage, which would undo an earlier ramp. This order
+is owned by `stimgen`; treat its documentation as authoritative.
+
+Detailed references: [../../obj/stimgen/documentation/stimgen_overview.md](../../obj/stimgen/documentation/stimgen_overview.md)
+
+### `obj/+psychophysics/`
+
+Online and offline analysis classes live here.
+
+| Class | Purpose |
+|---|---|
+| `psychophysics.Psych` | Abstract base; subscribes to `Runtime.HELPER.NewData` for online analysis or accepts saved DATA offline |
+| `psychophysics.Detection` | Hit rate, false alarm rate, d' (signal detection theory) |
+| `psychophysics.Staircase` | Reversal detection and threshold estimation |
+| `psychophysics.BestPEST` | Maximum-likelihood threshold tracking (Best PEST) |
+| `psychophysics.MLP` | Bayesian maximum-likelihood psychometric estimation with sweet-point placement |
+
+Detailed references: [../psychophysics/](../psychophysics/)
+
+### `obj/+peripherals/`
+
+Peripheral hardware interfaces that do not fit the core `hw` hierarchy: `peripherals.PumpCom` (syringe pump), `peripherals.NanoMotorControl` and `peripherals.NanoMotorControlGUI` (motorized commutator).
+
+Detailed references: [../peripherals/](../peripherals/)
 
 ### `design/`
 
-Experiment and protocol authoring tools live here.
+Legacy protocol authoring utilities. Protocol design now happens in `epsych.ProtocolDesigner`; this directory retains migration and support tools:
 
-Key responsibilities:
-
-- defining protocol structure
-- configuring module aliases and hardware mappings
-- setting options such as trial selection, connection type, and OpenEx usage
-- compiling or preparing protocol definitions for runtime use
-
-Examples:
-
-- `ep_ExperimentDesign.m`
-- `ep_CompileProtocol.m`
-- `ep_struct2protocol.m`
+- `ep_AddSubject.m` — backward-compatible wrapper that forwards to the modern `epsych.DefaultSubject.open` dialog
 
 ### `runtime/`
 
-Runtime execution helpers, callbacks, timer support, save functions, and experiment services live here.
+Runtime execution callbacks, timer lifecycle functions, save functions, and experiment services live here. This area activates once a session is running.
 
-This area is responsible for work that happens once a session is running, such as:
-
-- timer-driven updates
-- data collection helpers
-- hardware initialization helpers
-- runtime save and cleanup logic
-- trial selection and per-trial bookkeeping
-
-Examples:
-
-- `runtime/helpers/SelectTrial.m`
-- `runtime/savefcns/`
-- `runtime/timerfcns/`
+| Path | Responsibility |
+|---|---|
+| `runtime/timerfcns/` | Timer lifecycle: `ep_TimerFcn_Start`, `ep_TimerFcn_RunTime`, `ep_TimerFcn_Stop`, `ep_TimerFcn_Error` |
+| `runtime/savefcns/` | Data saving callbacks (`ep_SaveDataFcn`) invoked at session end |
+| `runtime/guis/` | Base GUI classes (`ep_GenericGUI`) |
 
 ### `TDTfun/`
 
-Low-level or lower-level TDT integration utilities live here.
+Low-level TDT integration utilities live here. This directory is a utility layer beneath the higher-level `hw` abstractions.
 
-This directory contains helpers for:
+Contents:
 
-- connecting to OpenDeveloper and RPco.x interfaces
-- reading TDT device and tank metadata
-- working with tags, RPvds circuits, and TDT-specific file structures
-
-Think of this area as a utility layer beneath the higher-level runtime and hardware abstractions.
+- `TDTRP.m` — RPco.x connection wrapper used by `hw.TDT_RPcox`
+- `ReadRPvdsTags.m` — RPvds circuit parameter-tag reader
+- `SynapseAPI/` — the Synapse SDK used by `hw.TDT_Synapse`
 
 ### `helpers/`
 
-General utilities and support classes live here.
+General utilities and support classes used across the codebase live here.
 
-This includes:
+Notable items:
 
-- formatting and logging helpers such as `vprintf`
-- GUI helpers
-- utility functions used across many parts of the codebase
-- support classes such as recorder-related helpers
+- `vprintf.m` — verbosity-gated formatted printing with automatic logging; used in place of `fprintf` throughout ([../helpers/helpers_vprintf.md](../helpers/helpers_vprintf.md))
+- `EPsychInfo` class — version and git metadata ([../epsych/EPsychInfo.md](../epsych/EPsychInfo.md))
+- `randGellerman.m`, `RandomTrialSequence.m`, `FellowsSeq.m` — trial sequence generators
+- `findFigure.m`, `figAlwaysOnTop.m`, `showGridBorders.m` — GUI helpers
 
-### `calibration/`
+### `cl/`
 
-Calibration GUIs and calibration-related workflows live here.
-
-This area matters when protocols or stimulus generation depend on calibrated hardware or output levels.
+Experiment-specific implementations for the appetitive detection paradigm (`cl_AppetitiveDetection_GUI_B`, `cl_AppetitiveStimDetect`, `cl_SaveDataFcn`). This is the reference example for paradigm-specific code that extends the core runtime without modifying it. See [../cl/](../cl/).
 
 ### `documentation/`
 
-Human-facing documentation lives here.
+Human-facing documentation lives here, organized by subsystem under `documentation/<subsystem>/`. The index is [../README.md](../README.md).
 
-Use this directory for:
-
-- user walkthroughs
-- focused feature notes
-- developer-facing overviews such as this document
+---
 
 ## Core runtime flow
 
 At a high level, a typical EPsych session looks like this:
 
-1. A protocol is created or edited using `ep_ExperimentDesign()` and saved as a `.prot` file.
-2. `epsych.RunExpt` loads session configuration and selected protocols.
-3. `epsych.Runtime` is created or reset to hold session state.
-4. EPsych decides which hardware path to use.
-5. Hardware is initialized through object-oriented wrappers and TDT utilities.
-6. A MATLAB timer is started to drive runtime callbacks.
-7. Runtime helpers update parameters, collect data, and respond to state changes.
-8. The session stops, cleanup runs, and data is saved.
+1. A protocol is created or edited using `epsych.ProtocolDesigner` and saved as an `.eprot` file.
+2. `epsych.RunExpt` loads the session configuration (subjects + protocols).
+3. On Run/Preview, protocols are validated and compiled, and a fresh `epsych.Runtime` is created.
+4. The hardware interfaces owned by the protocol are connected (`Runtime.Interfaces` setter) and remain connected across reruns within the session.
+5. A MATLAB timer starts; `ep_TimerFcn_Start` fires once to build `RUNTIME.TRIALS`, resolve the required trigger parameters (`CORE`), and dispatch the first trial; then `ep_TimerFcn_RunTime` fires on each tick.
+6. Each tick polls the `TrialComplete` trigger; when a trial completes, data is collected and appended to the crash-recovery file, the trial selector picks the next trial, and `Runtime.dispatchNextTrial` writes parameters and fires hardware triggers.
+7. GUIs and analysis objects react to `NewTrial` / `NewData` / `ModeChange` events on `RUNTIME.HELPER` rather than polling.
+8. On Stop, `ep_TimerFcn_Stop` returns hardware to Idle and data is saved via the configured save function.
+
+For the full trial-level walkthrough, see [../epsych/epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md).
+
+### Program state machine
+
+Session state is tracked with the top-level `PRGMSTATE` enumeration:
+
+```
+ERROR ← NOCONFIG → CONFIGLOADED → READY → RUNNING → POSTRUN → STOP
+```
+
+### Timer callback chain
+
+```
+ep_TimerFcn_Start   → build TRIALS, create selectors, resolve CORE triggers, dispatch first trial
+ep_TimerFcn_RunTime → poll TrialComplete, save data, select next trial, dispatchNextTrial
+ep_TimerFcn_Stop    → set interfaces Idle, broadcast ModeChange, tear down HELPER
+ep_TimerFcn_Error   → handle timer errors, preserve data
+```
+
+The callback names are configurable per session (RunExpt **Customize** dialog), so paradigms can substitute their own timer functions.
+
+---
 
 ## Hardware path selection
 
-The codebase currently reflects multiple hardware execution paths.
+The codebase supports multiple hardware backends through a common `hw.Interface` API. Which backends are used is defined in the protocol: `epsych.Protocol.Interfaces` holds the configured `hw.Interface` objects, and `epsych.Runtime` connects them at run start. The choice of backend is transparent to most of the runtime.
 
-### OpenEx or Synapse-style path
+| Backend | Use case | Key support code | Status |
+|---|---|---|---|
+| `hw.TDT_Synapse` | TDT Synapse experiments | `TDTfun/SynapseAPI/` | under development |
+| `hw.TDT_RPcox` | Direct RPvds circuit control | `TDTRP`, `TDTfun/` | — |
+| `hw.Intan_RHX` | Intan RHX electrophysiology over TCP | — | under development |
+| `hw.Software` | In-memory parameters; design-time store and hardware-free testing | — | — |
+| `hw.VlcRecorder` | Webcam preview/recording via VLC | — | — |
 
-In newer object-oriented runtime code, the session checks whether Synapse is running and may choose a Synapse-backed interface.
+Code that reads or writes parameters should always go through `hw.Interface` / `hw.Parameter` methods (or the `Runtime.find_parameter` / `Runtime.all_parameters` helpers) rather than calling backend-specific APIs directly.
 
-Relevant components:
-
-- `hw.TDT_Synapse`
-- OpenDeveloper-related helpers in `TDTfun/`
-
-### Direct RPvds path
-
-If Synapse is not in use, the runtime can initialize RPvds modules directly through the RPco.x path.
-
-Relevant components:
-
-- `hw.TDT_RPcox`
-- `TDTRP`
-- `TDTfun/TDT_SetupRP.m`
-
-The practical implication is that protocol metadata and runtime assumptions must stay compatible with both higher-level experiment logic and the underlying hardware access path.
+---
 
 ## Protocol model
 
-Protocols are a central abstraction in EPsych.
+`epsych.Protocol` is the central data model for an experiment.
 
-In practice, a protocol captures:
+A protocol captures:
 
-- experiment modules and aliases
-- parameter values and trial definitions
-- runtime options such as connection type and OpenEx usage
-- references to RPvds files or buffers
-- trial selection and compile-time behavior
+- `Interfaces` — the `hw.Interface` objects (always at least one `hw.Software` design-time parameter store)
+- `Options` — trial selector class (`trialFunc`), `compileAtRuntime`, `IncludeWAVBuffers`, `ConnectionType`
+- `COMPILED` — the compiled trial table (`parameters`, `trials`, `writeparams`, `ntrials`) produced by `compile()`
+- `meta` — format version, EPsych version, and a `protocolVersion` string incremented on each save (used by RunExpt to flag out-of-date subjects)
 
-Several parts of the codebase depend on protocol structures being stable, so changes to protocol fields tend to have wide impact.
+Parameters carry design-time trial levels in `hw.Parameter.Values`; `compile()` expands the cross-product of unpaired parameter levels (paired parameters advance together) into the trials matrix. Several parts of the codebase depend on the compiled structure being stable — changes to protocol fields or the compile output format have wide impact.
+
+See [../epsych/epsych_Protocol.md](../epsych/epsych_Protocol.md).
+
+---
+
+## Psychophysics and analysis model
+
+`psychophysics.Psych` and its subclasses operate in two modes:
+
+- **Online**: construct with a `Runtime`; the object subscribes to `HELPER.NewData` and updates results trial-by-trial.
+- **Offline**: construct with a saved per-trial `DATA` struct array to compute results post-hoc.
+
+See [../psychophysics/psychophysics_Psych.md](../psychophysics/psychophysics_Psych.md).
+
+---
 
 ## Practical guidance for contributors
 
@@ -171,39 +270,66 @@ Several parts of the codebase depend on protocol structures being stable, so cha
 
 Look first at:
 
-- `obj/+epsych/@RunExpt/`
-- `obj/+epsych/Runtime.m`
-- `runtime/helpers/`
-- `runtime/timerfcns/`
+- [obj/+epsych/@RunExpt/RunExpt.m](../../obj/+epsych/@RunExpt/RunExpt.m) (especially `ExptDispatch.m`)
+- [obj/+epsych/@Runtime/Runtime.m](../../obj/+epsych/@Runtime/Runtime.m)
+- [runtime/timerfcns/](../../runtime/timerfcns/)
 
 ### If you are changing protocol loading or compilation
 
 Look first at:
 
-- `design/ep_ExperimentDesign.m`
-- `design/ep_CompileProtocol.m`
-- `design/ep_struct2protocol.m`
+- [obj/+epsych/@Protocol/Protocol.m](../../obj/+epsych/@Protocol/Protocol.m) (`compile_internal.m`, `validate_internal.m`, `toStruct.m`/`fromStruct.m`)
+- [obj/+epsych/@ProtocolDesigner/ProtocolDesigner.m](../../obj/+epsych/@ProtocolDesigner/ProtocolDesigner.m)
 
 ### If you are changing hardware integration
 
 Look first at:
 
-- `obj/+hw/`
-- `TDTfun/`
-- any runtime helper that prepares DA or RP interfaces
+- [obj/+hw/@Interface/Interface.m](../../obj/+hw/@Interface/Interface.m)
+- The concrete interface for your backend (`TDT_RPcox`, `TDT_Synapse`, `Intan_RHX`, `VlcRecorder`)
+- [TDTfun/](../../TDTfun/)
+- Tutorial: [../hw/hw_Interface_Tutorial.md](../hw/hw_Interface_Tutorial.md)
+
+### If you are changing stimulus generation
+
+Look first at:
+
+Stimulus generation lives in the `stimgen` submodule, so changes there are
+committed to <https://github.com/dstolz/stimgen> and picked up here by updating
+the submodule pointer:
+
+- [obj/stimgen/+stimgen/@StimType/StimType.m](../../obj/stimgen/+stimgen/@StimType/StimType.m)
+- [obj/stimgen/+stimgen/@StimPlayer/StimPlayer.m](../../obj/stimgen/+stimgen/@StimPlayer/StimPlayer.m)
+- [obj/stimgen/+stimgen/+calibration/](../../obj/stimgen/+stimgen/+calibration/)
+- EPsych-side integration: [obj/+stimbridge/](../../obj/+stimbridge/)
+
+### If you are changing online analysis or psychophysics
+
+Look first at:
+
+- [obj/+psychophysics/Psych.m](../../obj/+psychophysics/Psych.m)
+- [obj/+gui/@OnlinePlot/OnlinePlot.m](../../obj/+gui/@OnlinePlot/OnlinePlot.m)
+- [obj/+gui/@Performance/Performance.m](../../obj/+gui/@Performance/Performance.m)
 
 ### If you are changing session GUI behavior
 
 Look first at:
 
-- `obj/+epsych/@RunExpt/`
-- any related helper GUIs in `design/` or `helpers/`
+- [obj/+epsych/@RunExpt/RunExpt.m](../../obj/+epsych/@RunExpt/RunExpt.m) (`buildUI.m`, `UpdateGUIstate.m`)
+- [obj/+gui/](../../obj/+gui/)
+
+### If you are adding a new paradigm
+
+Use the `cl/` directory as a pattern. Create paradigm-specific GUIs, trial selectors, and save functions that hook into the runtime event system (`epsych.Helper`) and the save-function callback without modifying core runtime files. See [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md).
+
+---
 
 ## Documentation map
 
+- Documentation index: [../README.md](../README.md)
 - User setup guide: [Installation_Guide.md](Installation_Guide.md)
 - Session walkthrough: [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md)
+- Trial lifecycle: [../epsych/epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md)
 - Runtime event reference: [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md)
 - Class and dependency maps: [Class_Map.md](Class_Map.md)
-- General repository landing page: [../README.md](../README.md)
-
+- General repository landing page: [../../README.md](../../README.md)

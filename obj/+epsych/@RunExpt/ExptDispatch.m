@@ -11,96 +11,146 @@ arguments
 end
 
 COMMAND = string(COMMAND);
-if COMMAND == "Run", COMMAND = "Record"; end
-
 switch lower(COMMAND)
-    case {"run","record","preview"}
+    case {"run","record"}, COMMAND = "Record";
+    case "preview",        COMMAND = "Preview";
+end
+
+switch COMMAND
+    case {"Record","Preview"}
         drawnow
 
-        % Set process priority to high
-        [~,~] = dos('wmic process where name="MATLAB.exe" CALL setpriority "high priority"');
+        % Set process priority to high for this MATLAB instance only
+        [~,~] = dos(sprintf('wmic process where processid="%d" CALL setpriority "high priority"', feature('getpid')));
 
         vprintf(0,'%s',repmat('~',1,50))
 
+        if COMMAND == "Preview"
+            self.setStatus('Preparing preview (test run; no data will be saved)...')
+        else
+            self.setStatus('Preparing session...')
+        end
+
         self.RUNTIME = epsych.Runtime; % reset RUNTIME
+        self.RUNTIME.isTest = COMMAND == "Preview";
 
-        % Load protocols
+        % Validate embedded protocols
         for i = 1:length(self.CONFIG)
-            warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
-            S = load(self.CONFIG(i).protocol_fn,'protocol','-mat');
-            warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
+            assert(isa(self.CONFIG(i).PROTOCOL, 'epsych.Protocol') && isvalid(self.CONFIG(i).PROTOCOL), ...
+                'epsych:RunExpt:MissingProtocol', ...
+                'CONFIG(%d) does not contain a valid epsych.Protocol object. Add subjects with a protocol before starting.', i);
 
-            self.CONFIG(i).PROTOCOL = S.protocol;
-
-            [pn,fn] = fileparts(self.CONFIG(i).protocol_fn);
-            vprintf(0,['%2d. ''%s''\tProtocol: ', ...
-                '<a href="matlab: ep_ExperimentDesign(''%s'');">%s</a>' ...
-                '(<a href="matlab: !explorer %s">%s</a>)'], ...
-                self.CONFIG(i).SUBJECT.BoxID,self.CONFIG(i).SUBJECT.Name, ...
-                self.CONFIG(i).protocol_fn,fn,pn,pn)
-
-            if isempty(self.CONFIG(i).PROTOCOL.OPTIONS.trialfunc) ...
-                    || strcmp(self.CONFIG(i).PROTOCOL.OPTIONS.trialfunc,'< default >')
-                self.CONFIG(i).PROTOCOL.OPTIONS.trialfunc = @DefaultTrialSelectFcn;
+            report = self.CONFIG(i).PROTOCOL.validate();
+            if ~isempty(report)
+                errs = report([report.severity] == 2);
+                if ~isempty(errs)
+                    msgs = strjoin(arrayfun(@(r) sprintf('[%s] %s', r.field, r.message), errs, 'UniformOutput', false), newline);
+                    error('epsych:RunExpt:ProtocolValidationFailed', ...
+                        'Protocol for subject "%s" has validation errors:\n%s', ...
+                        self.CONFIG(i).SUBJECT.Name, msgs);
+                end
             end
-        end
 
-        self.RUNTIME.NSubjects = length(self.CONFIG);
+            if self.CONFIG(i).PROTOCOL.needsCompile
+                vprintf(0, 'Compiling protocol for subject "%s"...', self.CONFIG(i).SUBJECT.Name);
+                self.setStatus(sprintf('Compiling protocol for subject "%s"...', ...
+                    self.CONFIG(i).SUBJECT.Name))
+                self.CONFIG(i).PROTOCOL.compile();
+            end
 
-        % TO DO: CREATE BETTER SYSTEM FOR MANAGING MULTIPLE HARDWARE INTERFACES
-        [~,result] = system('tasklist/FI "imagename eq Synapse.exe"');
-        x = strfind(result,'No tasks are running');
-        self.RUNTIME.usingSynapse = isempty(x);
-
-        try
-            if self.RUNTIME.usingSynapse
-                vprintf(0,'Experiment will be run with Synapse')
-                self.RUNTIME.HW = hw.TDT_Synapse();
+            pfn = string(self.CONFIG(i).protocol_fn);
+            if strlength(pfn) > 0 && isfile(pfn)
+                [pn, fn] = fileparts(pfn);
+                vprintf(0, ['%2d. ''%s''\tProtocol: ', ...
+                    '<a href="matlab: epsych.ProtocolDesigner.openFromFile(''%s'');">%s</a>' ...
+                    '(<a href="matlab: !explorer %s">%s</a>)'], ...
+                    self.CONFIG(i).SUBJECT.BoxID, self.CONFIG(i).SUBJECT.Name, pfn, fn, pn, pn)
             else
-                M = self.CONFIG.PROTOCOL.MODULES;
-                moduleAlias = fieldnames(M);
-                rpvdsFile = structfun(@(a) cellstr(a.RPfile),M,'uni',1);
-                moduleType = repmat({'RZ6'},size(rpvdsFile));
-                self.RUNTIME.HW = hw.TDT_RPcox(rpvdsFile,moduleType,moduleAlias);
+                vprintf(0, '%2d. ''%s''\tProtocol: <embedded>', ...
+                    self.CONFIG(i).SUBJECT.BoxID, self.CONFIG(i).SUBJECT.Name)
             end
+        end
+
+
+        % connect hardware interfaces
+        self.setStatus('Connecting hardware interfaces...')
+        try
+            % Get hardware interfaces from loaded protocol
+            % If protocol was designed with Software only, create minimal hardware
+            protocol_interfaces = self.CONFIG(1).PROTOCOL.Interfaces;
+
+            % Seed Intan interfaces from prefs before connecting: the settings
+            % file loads inside setup_interface, which the assignment below
+            % triggers.
+            self.configureIntanRecorder_(protocol_interfaces);
+
+            % triggers attempt to connect interfaces
+            self.RUNTIME.Interfaces = protocol_interfaces;
+
+
         catch me
-            drawnow
-            rethrow(me)
+            vprintf(0,1,me.message);
+            self.setStatus('Hardware initialization failed.', ...
+                'check the connections and configuration, then try again.')
+            error('epsych:RunExpt:HardwareInitializationFailed', ...
+                'Failed to initialize hardware interface. Check connection and configuration, then try again');
         end
 
-        for i = 1:length(self.CONFIG)
-            self.RUNTIME.TRIALS(i).protocol_fn = self.CONFIG(i).protocol_fn; %#ok<AGROW>
-            modnames = fieldnames(self.CONFIG(i).PROTOCOL.MODULES);
-            for j = 1:length(modnames)
-                self.RUNTIME.TRIALS(i).MODULES.(modnames{j}) = j;
-            end
-        end
-
+        % copy default data path to RUNTIME for use in timer functions and trial selectors
         self.RUNTIME.dfltDataPath = self.dfltDataPath;
 
+        % Reserve each subject's data filename here rather than in the Start
+        % timer function: the recording is named after subject 1's data file,
+        % but it has to launch before the timer runs (see below).
+        self.RUNTIME.SessionDataFilename = arrayfun(@(c) string(epsych.RunExpt.defaultFilename( ...
+            fullfile(self.dfltDataPath, c.SUBJECT.Name), c.SUBJECT.Name)), self.CONFIG);
+
+        % make temporary directory for storing data during runtime in case of a computer crash
+        E_ = EPsychInfo;
+        if strlength(self.RUNTIME.TempDataDir) == 0 || ~isfolder(self.RUNTIME.TempDataDir)
+            self.RUNTIME.TempDataDir = fullfile(fileparts(E_.root), 'DATA');
+        end
+        if ~isfolder(self.RUNTIME.TempDataDir), mkdir(self.RUNTIME.TempDataDir); end
+
         self.RUNTIME.HELPER = epsych.Helper;
+        self.H.modeIndicator.attachRuntime(self.RUNTIME);
 
         self.RUNTIME.TIMER = self.CreateTimer;
 
-        self.RUNTIME.HW.mode = hw.DeviceState(COMMAND);
-        vprintf(0,'System set to ''%s''',COMMAND)
-        pause(1)
+        % Start video before hardware enters run mode: VLC launch blocks ~1 s,
+        % which must not land inside the trial loop, and the recording should
+        % cover the run from the first trial. Preview never records.
+        if COMMAND == "Record"
+            self.StartVideoRecording_
+        end
+
+        % Let each interface stage backend-side recording (e.g. Intan RHX
+        % filename/settings) while the hardware is still stopped; RHX ignores
+        % filename.* once the board is running, so this must precede the mode
+        % write below.
+        arrayfun(@(p) p.prepareRecording(self.RUNTIME), self.RUNTIME.Interfaces);
+
+        vprintf(0,'Initialization complete. Starting experiment...')
+        self.setStatus('Initialization complete. Starting...')
+        set(self.RUNTIME.Interfaces, 'mode', hw.DeviceState(COMMAND));
 
         start(self.RUNTIME.TIMER)
 
-        self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Record));
-
         drawnow
 
-    case "pause"
+    case "Pause"
 
-        self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Pause));
+        self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Pause));
+        % STATE stays RUNNING through a pause, so this message is not
+        % displaced by a state message until the session stops.
+        self.setStatus('Pause broadcast to all listeners.','press Stop to end the session.')
 
-    case "stop"
+    case "Stop"
         self.STATE = PRGMSTATE.STOP;
         set(self.H.figure1,'pointer','watch')
+        self.setStatus('Stopping session...')
 
-        self.RUNTIME.HELPER.notify('ModeChange',epsych.ModeChangeEvent(hw.DeviceState.Stop));
+        self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Stop));
 
         vprintf(3,'ExptDispatch: Stopping BoxTimer')
         t = timerfindall('Name','BoxTimer');
@@ -110,8 +160,16 @@ switch lower(COMMAND)
         t = timerfindall('Name','PsychTimer');
         if ~isempty(t), stop(t); delete(t); end
 
+        % Normally a no-op: PsychTimerStop (the PsychTimer's StopFcn, triggered
+        % synchronously by stop(t) above) already stopped the recording. This
+        % covers the edge case where no PsychTimer existed to fire it.
+        self.StopVideoRecording_;
+
         set(self.H.figure1,'pointer','arrow')
         vprintf(0,'Experiment stopped at %s',datetime("now",Format='dd-MMM-yyyy HH:mm'))
+
+        % Data is saved by PsychTimerStop (the PsychTimer's StopFcn),
+        % triggered synchronously by stop(t) above.
 
 end
 

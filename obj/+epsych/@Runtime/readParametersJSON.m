@@ -1,14 +1,23 @@
-function readParametersJSON(obj, filepath)
-% readParametersJSON(obj, filepath)
-% Load Parameters from a JSON file into this Module.
+function P = readParametersJSON(obj, filepath)
+% P = readParametersJSON(obj, filepath)
+% Load Parameters from a JSON file and return the resolved hw.Parameter objects.
 %
-% Reads a JSON file previously written by writeParametersJSON and restores Parameter properties.
-% Existing Parameters are matched by Name and updated in-place. Parameters present in the file
-% but not in the Module are created via add_parameter. Issues a warning if Module metadata
-% (Label, Name, Index) in the file does not match this Module.
+% Reads a JSON file previously written by writeParametersJSON, resolves each entry to the
+% live hw.Parameter that owns it (matched to an interface by ParentType and to a parameter
+% by Name), and restores the saved properties. Serialized metadata and design-time Values are
+% applied via fromStruct; the runtime Value is restored here for writable parameters (fromStruct
+% intentionally leaves Value untouched). When a parameter defines an Expression, that expression
+% is the source of truth and its evaluated result (the restored design-time Values) is used;
+% otherwise the saved literal Value is restored. Writes to disconnected hardware are no-ops, so
+% restoring Value is safe whether or not the backend is connected.
 %
-% Function handle strings are restored via str2func, callback enabled flags are restored when present,
-% and string sentinels for Inf/-Inf/NaN are converted back to numeric values. PostUpdateFcnArgs is not restored.
+% Function handle strings are restored via str2func and string sentinels for Inf/-Inf/NaN are
+% converted back to numeric values. PostUpdateFcnArgs is not restored. Entries with no matching
+% interface or parameter are skipped.
+%
+% The resolved parameters are returned so the caller can apply them as needed (e.g.
+% updateTrialsFromParameters). This avoids re-reading parameters via all_parameters, which would
+% discard the loaded values.
 %
 % Parameters:
 %   obj                  The runtime object to update.
@@ -16,15 +25,17 @@ function readParametersJSON(obj, filepath)
 %                        Path to the input JSON file. If not provided or invalid, prompts user to select file.
 %
 % Returns:
-%   None. Updates Parameters in-place.
+%   P  hw.Parameter array of the resolved parameters, in file order. Empty if the load is
+%      canceled or the file cannot be read.
 %
-% See also: writeParametersJSON, hw.Parameter, jsondecode
+% See also: writeParametersJSON, updateTrialsFromParameters, hw.Parameter, jsondecode
 
 arguments
-    obj 
+    obj
     filepath (1,:) string = ""
 end
 
+P = hw.Parameter.empty(1,0);
 
 % If filepath is not provided or invalid, prompt user to select file
 if filepath == "" || ~isfile(filepath)
@@ -58,32 +69,58 @@ else
 end
 
 
-existingParameters = obj.all_parameters;
-existingInterfaces = arrayfun(@(x) string(x.Parent.Type),existingParameters);
-existingInterfaces = unique(existingInterfaces);
+interfaceTypes = arrayfun(@(x) string(x.Type), obj.Interfaces);
 
-% match parameters by Name and update in-place, create new parameters for unmatched entries
+% Resolve each file entry to its live hw.Parameter and restore its saved properties.
 for k = 1:nP
-    P = paramData(k);
+    S = paramData(k);
 
-    parentType = P.ParentType;
-    P = rmfield(P, 'ParentType'); % remove ParentType from struct before applying to Parameter since it's not an actual field of hw.Parameter and is only used for matching to the correct interface during load
+    parentType = string(S.ParentType);
+    S = rmfield(S, 'ParentType'); % remove ParentType from struct before applying to Parameter since it's not an actual field of hw.Parameter and is only used for matching to the correct interface during load
 
-    vprintf(4,'Processing parameter %d/%d: "%s" (Module: "%s")', k, nP, P.Name, parentType)
+    vprintf(4,'Processing parameter %d/%d: "%s" (Module: "%s")', k, nP, S.Name, parentType)
 
-    % Match existing HW Parameter by Name
-    i = find(existingInterfaces == parentType, 1);
-    if isempty(i)
-        vprintf(0,1, 'No matching module found for parameter "%s" with parent "%s". Skipping.', P.Name, parentType)
+    % Match the interface that owns this parameter by its Type
+    iface = obj.Interfaces(interfaceTypes == parentType);
+    if isempty(iface)
+        vprintf(0,1, 'No matching interface found for parameter "%s" with parent "%s". Skipping.', S.Name, parentType)
         continue
     end
-        
-    if parentType == "Software"
-        xp = obj.S.find_parameter(P.Name,includeInvisible=true);
-    else
-        xp = obj.HW(i-1).find_parameter(P.Name,includeInvisible=true);
+
+    xp = iface(1).find_parameter(S.Name,includeInvisible=true);
+    if isempty(xp)
+        % find_parameter already warned; nothing to resolve against.
+        continue
     end
-    xp.fromStruct(P);
+    xp = xp(1);
+
+    % Restore metadata and design-time Values. fromStruct deliberately leaves the runtime Value
+    % alone, so set it here for writable, non-StimType parameters (StimType Value is handled by
+    % fromStruct). When the parameter defines an Expression, that expression is the source of
+    % truth: its evaluated result is the restored (design-time) Values, so derive the value from
+    % those rather than the saved literal, which may have drifted from the expression at save
+    % time. Otherwise restore the saved literal value. The set.Value setter clamps to bounds and
+    % disconnected backends ignore the hardware write.
+    % The Expression is protocol structure, not per-phase operator state: a
+    % snapshot saved before the protocol defined an expression stores "",
+    % which must not erase the live expression (dispatch would then silently
+    % pass the compiled trial value through instead of recomputing, e.g.
+    % RespWinDelay stuck at its compile-time value). A non-empty expression
+    % in the file is applied deliberately.
+    liveExpression = xp.Expression;
+    xp.fromStruct(S);
+    if strlength(xp.Expression) == 0 && strlength(liveExpression) > 0
+        xp.Expression = liveExpression;
+    end
+    if ~strcmp(xp.Type,'StimType') && ~strcmp(xp.Access,'Read')
+        if strlength(xp.Expression) > 0 && ~isempty(xp.Values)
+            xp.Value = xp.Values{1};
+        % else
+        %     xp.Value = S.Value;
+        end
+    end
+
+    P(end+1) = xp;
 end
 
 % append metadata about the loaded phase to the obj.Phase property (create if it doesn't exist). This can be used by the GUI to display information about the currently loaded phase.
@@ -96,7 +133,6 @@ obj.Phase(end).LoadTimestamp = datetime('now');
 obj.Phase(end).Source = "JSON";
 obj.Phase(end).Metadata = rmfield(data, 'Parameters');
 
-vprintf(3, 'Read %d parameters from %s', nP, filepath)
+vprintf(3, 'Read %d parameters from %s', numel(P), filepath)
 
 end
-

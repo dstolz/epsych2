@@ -159,7 +159,7 @@ classdef TDTRP < handle
             elseif bitget(status,3)==0
                 error('Error running circuit'); 
             else
-                disp('Circuit loaded and running');
+                %disp('Circuit loaded and running');
                 result = 1;
             end
         end

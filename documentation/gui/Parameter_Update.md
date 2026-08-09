@@ -1,6 +1,10 @@
 # `gui.Parameter_Update`
 
+![Two gui.Parameter_Control editors above an Update Parameters button; the first field is highlighted green to show a pending edit and the button is enabled](images/Parameter_Update.png)
+
 `gui.Parameter_Update` is a small controller class that owns an **"Update Parameters"** button and keeps it in sync with a set of parameter editor widgets.
+
+The screenshot above shows the pending-edit state described in [Basic usage](#basic-usage): the `PulseWidth` control has an uncommitted change (`colorOnUpdate` highlight) and the **Update Parameters** button has enabled itself in response.
 
 It solves a common GUI workflow:
 
@@ -9,10 +13,11 @@ It solves a common GUI workflow:
 - Commit those edits either:
   - for upcoming trials (default), or
   - immediately (when a modifier key chord is held).
+- Discard those edits and restore the previous values (when **Ctrl** alone is held).
 
 ## Where it fits
 
-In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](../hw/hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
+In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](../../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](../hw/hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
 
 `gui.Parameter_Update` watches one or more `gui.Parameter_Control` objects and:
 
@@ -27,9 +32,13 @@ In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](..
 Typical pattern inside a GUI that already has a `RUNTIME` struct and a parent container (`uigridlayout`, `uipanel`, etc.):
 
 ```matlab
+% Look up the hw.Parameter handles through the runtime
+pPulseWidth = RUNTIME.find_parameter('PulseWidth');
+pLevel      = RUNTIME.find_parameter('Level');
+
 % Create parameter controls (one per hw.Parameter)
-ctrl(1) = gui.Parameter_Control(parent, RUNTIME.HW.Stim.PulseWidth, Type="editfield");
-ctrl(2) = gui.Parameter_Control(parent, RUNTIME.HW.Stim.Level,      Type="editfield");
+ctrl(1) = gui.Parameter_Control(parent, pPulseWidth, Type="editfield");
+ctrl(2) = gui.Parameter_Control(parent, pLevel,      Type="editfield");
 
 % Create the update button controller
 updater = gui.Parameter_Update(RUNTIME, parent);
@@ -43,6 +52,7 @@ User experience:
 - If the user changes any control, the button becomes enabled and shows **"Update Parameters"**.
 - If nothing is pending, the button disables and shows **"Nothing to Update"**.
 - Holding **Ctrl + Shift + Alt** while clicking changes behavior to **Immediate** (see below).
+- Holding **Ctrl** alone relabels the button **"Reset Parameters"**; clicking discards the pending edits (see below).
 
 ## Immediate vs. next-trial updates
 
@@ -69,6 +79,16 @@ When the modifier chord is held, `commit_changes` will additionally write the cu
 
 This is intended for situations where you need the new setting applied right away (e.g., during an ongoing run), rather than waiting for the next trial boundary.
 
+## "Reset Parameters" (Ctrl)
+
+While the button is enabled and **Ctrl** alone is held, the button repaints to `color_resetChanges` and reads **"Reset Parameters"**. Releasing Ctrl restores the normal enabled state.
+
+Clicking in that state calls `reset_changes`, which walks every watched control with a pending edit and calls its `reset_value()`. Each control's UI value is restored from the value its `hw.Parameter` currently holds, and the pending-edit highlight clears. Nothing is written to hardware and nothing is written to `RUNTIME.TRIALS.trials` — this only discards uncommitted UI state.
+
+Modifier precedence: the Ctrl+Shift+Alt chord wins, so a partially-released chord that leaves only Ctrl held falls through to the reset state.
+
+Reset is available from the moment an edit is pending until it is committed. Once committed, the pre-edit value is gone — there is no undo of a commit.
+
 ## What `watchedHandles` must provide
 
 `watchedHandles` is expected to be an array of handle objects with at least:
@@ -77,6 +97,7 @@ This is intended for situations where you need the new setting applied right awa
 - A property `Value` containing the current UI value
 - A property `Parameter` referencing an `hw.Parameter`
 - A method `reset_label()` that clears the pending-edit indication
+- A method `reset_value()` that restores the UI to the parameter's current value and clears the indication
 
 `gui.Parameter_Control` satisfies this contract.
 
@@ -87,7 +108,7 @@ This is intended for situations where you need the new setting applied right awa
 - `RUNTIME.TRIALS.trials`: a table-like cell array storing per-trial write-parameter values
 - `RUNTIME.TRIALS.writeParamIdx`: struct mapping parameter valid-names to column indices
 
-This mapping is created during runtime start-up (see [`ep_TimerFcn_Start`](../runtime/timerfcns/ep_TimerFcn_Start.m)).
+This mapping is created during runtime start-up (see [`ep_TimerFcn_Start`](../../runtime/timerfcns/ep_TimerFcn_Start.m)).
 
 Current limitation: the implementation notes "CURRENTLY ONLY WORKS FOR SINGLE SUBJECT" and uses `RUNTIME.TRIALS` as a scalar struct. If your experiment runs multiple subjects simultaneously (where `RUNTIME.TRIALS(i)` is used), you'll need one updater per subject (or extend the class with a subject index).
 
@@ -102,10 +123,9 @@ If other code in your GUI also needs `WindowKeyPressFcn`/`WindowKeyReleaseFcn`, 
 
 ## Related files
 
-- [obj/+gui/Parameter_Update.m](../obj/+gui/Parameter_Update.m): Implementation
-- [obj/+gui/Parameter_Control.m](../obj/+gui/Parameter_Control.m): Typical watched editor control
+- [obj/+gui/Parameter_Update.m](../../obj/+gui/Parameter_Update.m): Implementation
+- [obj/+gui/Parameter_Control.m](../../obj/+gui/Parameter_Control.m): Typical watched editor control
 - [../hw/hw_Parameter.md](../hw/hw_Parameter.md): `hw.Parameter` overview
-- [runtime/timerfcns/ep_TimerFcn_Start.m](../runtime/timerfcns/ep_TimerFcn_Start.m): Creates `TRIALS.writeParamIdx`
-
-This documentation describes: [obj/+gui/Parameter_Update.m](../obj/+gui/Parameter_Update.m)
+- [Parameter_Control.md](Parameter_Control.md): Editor control reference
+- [runtime/timerfcns/ep_TimerFcn_Start.m](../../runtime/timerfcns/ep_TimerFcn_Start.m): Creates `TRIALS.writeParamIdx`
 

@@ -56,39 +56,11 @@ end
 
 
 % setup parameters
-mp = cellfun(@(a) obj.HW.getParameterNames(a),{obj.Module.Label},'uni',0);
-p = characterListPattern('%/|\#'); % remove reserved TDT parameters
-
 for m = 1:length(obj.Module)
-    if isempty(mp{m}), continue; end
-
-    mp{m} = mp{m}(~startsWith(mp{m},p));
-
-    tagInfo = cellfun(@(a) obj.HW.getParameterInfo(obj.Module(m).Label,a),mp{m},'uni',1);
-    for t = tagInfo(:)'
-        % P = hw.Parameter(obj.Module(m));
-        P = hw.Parameter(obj);
-
-        P.Name = t.Name;
-        P.Unit = t.Unit;
-        P.Min = t.Min;
-        P.Max = t.Max;
-        P.Access = t.Access;
-        P.Type = t.Type;
-        P.isArray = isequal(t.Array,'Yes');
-
-        P.Module = obj.Module(m);
-
-        P.isTrigger = P.Name(1) == '!'; % our convention for indicating a trigger
-
-        P.Visible = P.Name(1) ~= '_'; % our convention for a core macro parameter
-        P.Visible = P.Name(1) ~= '~'; % our convention for a hidden parameter
-
-
-        obj.Module(m).Parameters(end+1) = P;
-    end
-
+    obj.populateModuleParametersFromGizmo(obj.Module(m), obj.HW);
 end
+
+obj.ensureUniqueParameterNames();
 
 end
 

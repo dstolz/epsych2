@@ -1,49 +1,31 @@
 
-function fromStruct(obj, S, options)
-% fromStruct(obj, S)
-% Apply a decoded serialized struct to this hw.Parameter object.
-%
-% Used to restore parameter state from a struct, typically decoded from JSON. Updates all relevant fields, including metadata, callbacks, flags, bounds, value, timestamp, and user data.
+function fromStruct(obj, S, restoreValue)
+% fromStruct(obj, S, restoreValue)
+% Restore serialized metadata and design-time values onto a hw.Parameter object.
 %
 % Parameters:
-%   obj (1,1) hw.Parameter
-%       The parameter object to update.
-%   S (1,1) struct
-%       Struct decoded from JSON with serialized parameter fields.
-%
-% Returns:
-%   None. Updates the parameter object in-place.
-%
-% See also: writeParametersJSON, readParametersJSON, jsondecode
-
+%	S	         - Struct produced by toStruct().
+%	restoreValue - Whether to also restore the runtime Value (default: true).
+%	               Set false when the caller is reconstructing a whole set of
+%	               sibling/cross-module parameters and needs every parameter
+%	               wired into its Module before any Value is assigned; Value
+%	               assignment evaluates obj.Expression against sibling
+%	               parameters, which fails if not all siblings exist yet.
+%	               Callers that pass false are responsible for restoring
+%	               Value afterward via a second fromStruct call.
 
 arguments
     obj (1,1) hw.Parameter
     S (1,1) struct
-    options.UpdateValue (1,1) logical = true % Whether to update the Value field or leave it unchanged (useful for preserving current value when loading metadata changes)
-    %options.AddParameterIfMissing (1,1) logical = true % If true, will add a new parameter if the struct references a parameter name that doesn't exist in the current module. Use with caution as this may have unintended consequences.
+    restoreValue (1,1) logical = true
 end
-
-%{
-% If AddParameterIfMissing is true, check if parameter exists in parent module, and add if missing
-if options.AddParameterIfMissing
-
-    % Check if parameter exists on module
-    x = obj.Module.find_parameter(S.Name,silenceParameterNotFound=true);
-    
-    if isempty(x)
-        % Add parameter to parent module
-        obj.Module.add_parameter(S.Name, S.Value);
-    end
-end
-%}
 
 
 % Metadata
 obj.Name = char(S.Name);
 obj.Description = string(S.Description);
 obj.Unit = char(S.Unit);
-obj.Access = char(S.Access);
+obj.Access = normalizeLegacyAccess(char(S.Access));
 obj.Type = char(S.Type);
 obj.Format = char(S.Format);
 obj.Visible = logical(S.Visible);
@@ -66,15 +48,73 @@ obj.PostUpdateFcnEnabled = logical(S.PostUpdateFcnEnabled);
 
 % Flags
 obj.isArray = logical(S.isArray);
-obj.isTrigger = logical(S.isTrigger);
-obj.isRandom = logical(S.isRandom);
+obj.isTrigger = logical(S.isTrigger); % set.isTrigger defaults UpdateEveryTrial; explicit value restored below wins
+if isfield(S, 'UpdateEveryTrial')
+    obj.UpdateEveryTrial = logical(S.UpdateEveryTrial);
+end
 
 % Bounds
 obj.Min = obj.safeToNumeric_(S.Min);
 obj.Max = obj.safeToNumeric_(S.Max);
+obj.isRandom = logical(S.isRandom);
 
-% Value (set after Type/bounds so validation context is correct)
-if options.UpdateValue
-    obj.Value = obj.safeToNumeric_(S.Value);
+if isfield(S, 'UserData')
+    obj.UserData = S.UserData;
+end
+
+if isfield(S, 'Expression')
+    obj.Expression = string(S.Expression);
+elseif isfield(S, 'UserData') && isstruct(S.UserData) && isfield(S.UserData, 'Expression')
+    obj.Expression = string(S.UserData.Expression);
+
+    if isstruct(obj.UserData) && isfield(obj.UserData, 'Expression')
+        obj.UserData = rmfield(obj.UserData, 'Expression');
+    end
+end
+
+if isfield(S, 'lastUpdated')
+    obj.lastUpdated = double(S.lastUpdated);
+end
+
+% Design-time trial levels
+if isequal(obj.Type, 'StimType')
+    restored = cell(1, numel(S.Values));
+    for k = 1:numel(S.Values)
+        entry = S.Values{k};
+        if isstruct(entry) && isfield(entry, 'Class')
+            restored{k} = stimgen.StimType.fromStruct(entry);
+        else
+            restored{k} = entry;
+        end
+    end
+    obj.Values = restored;
+elseif isfield(S,'Values')
+    % jsondecode collapses a JSON array of uniform numbers into a numeric
+    % vector rather than a cell, so coerce back to the 1xN cell that
+    % Values requires.
+    obj.Values = hw.Parameter.normalizeValues(S.Values);
+end
+
+% Restore current Value for StimType parameters
+if restoreValue
+    if isequal(obj.Type, 'StimType') && isfield(S, 'Value') && ~isempty(S.Value)
+        if isstruct(S.Value) && isfield(S.Value, 'Class')
+            obj.Value = stimgen.StimType.fromStruct(S.Value);
+        elseif iscell(S.Value)
+            objs = cellfun(@(e) stimgen.StimType.fromStruct(e), S.Value, 'UniformOutput', false);
+            obj.Value = [objs{:}];
+        end
+    elseif ~isequal(obj.Access,'Read')
+        obj.Value = S.Value;
+    end
+end
+
+end
+
+
+function access = normalizeLegacyAccess(access)
+if isequal(access, 'Read / Write')
+    access = 'Any';
+end
 end
 

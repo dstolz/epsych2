@@ -158,8 +158,9 @@ heterogeneous cell arrays do not round-trip reliably through JSON.
 
 ## Related files
 
-- [obj/+hw/@Module/Module.m](../obj/+hw/@Module/Module.m): Class definition.
-- [obj/+hw/@Module/writeParametersJSON.m](../obj/+hw/@Module/writeParametersJSON.m): JSON write helper.
-- [obj/+hw/@Module/readParametersJSON.m](../obj/+hw/@Module/readParametersJSON.m): JSON read helper.
-- [obj/+hw/@Parameter/Parameter.m](../obj/+hw/@Parameter/Parameter.m): Parameter class used by modules.
+- [obj/+hw/@Module/Module.m](../../obj/+hw/@Module/Module.m): Class definition.
+- [obj/+hw/@Module/writeParametersJSON.m](../../obj/+hw/@Module/writeParametersJSON.m): JSON write helper.
+- [obj/+hw/@Module/readParametersJSON.m](../../obj/+hw/@Module/readParametersJSON.m): JSON read helper.
+- [obj/+hw/@Parameter/Parameter.m](../../obj/+hw/@Parameter/Parameter.m): Parameter class used by modules.
 - [hw_Parameter.md](hw_Parameter.md): Detailed parameter reference.
+- [hw_Interface.md](hw_Interface.md): The interface layer that owns modules.

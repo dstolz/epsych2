@@ -29,8 +29,8 @@ classdef Performance < handle
             obj.build;
             if nargin >= 1 && ~isempty(pObj)
                 obj.psychObj = pObj;
+                obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
             end
-            obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
         end
 
         function delete(obj)

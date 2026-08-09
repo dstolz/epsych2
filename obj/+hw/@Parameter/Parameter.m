@@ -17,6 +17,8 @@ classdef Parameter < matlab.mixin.SetGet
     % Properties
     %   Name, Description, Unit, Module - Display and grouping metadata.
     %   Access, Type, Format, Visible - Access rules and display behavior.
+    %   UpdateEveryTrial - When true, the runtime trial dispatcher refreshes
+    %       this parameter on every trial; when false, it is left unchanged.
     %   Value, ValueStr, lastUpdated - Current value and display state.
     %   PreUpdateFcnEnabled, EvaluatorFcnEnabled, PostUpdateFcnEnabled -
     %       Callback enable flags.
@@ -38,7 +40,7 @@ classdef Parameter < matlab.mixin.SetGet
     % See also: documentation/hw/hw_Parameter.md
 
     properties (SetAccess = immutable)
-        Parent (1,1) % handle to parent object (e.g., hw.Software)
+        Parent (1,1) % handle to parent object (hw.Module)
         HW (1,1)  % handle to hardware interface; reflects parent object's handle
     end
 
@@ -46,15 +48,21 @@ classdef Parameter < matlab.mixin.SetGet
         handle (1,1) % handle to an associated gui object
 
         Name    (1,:) char = 'Param' % name of parameter
+
+
         Description (1,1) string = ""; % short description of parameter
         Unit    (1,:) char = ''; % unit string (e.g., 'V', 'ms', etc.)
         Module  (1,1) % handle to module object that this parameter belongs to
 
-        Access  (1,:) char {mustBeMember(Access,{'Read','Write','Read / Write'})} = 'Read / Write'
-        Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+        Access  (1,:) char {mustBeMember(Access,{'Read','Write','Any','Read / Write'})} = 'Any'
+        Type    (1,:) char {mustBeMember(Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined','StimType'})} = 'Float'
         Format  (1,:) char = '%g' % default format for displaying value
 
         Visible (1,1) logical = true % optionally hide parameter
+
+        UpdateEveryTrial (1,1) logical = true % when true, epsych.Runtime.dispatchNextTrial updates this parameter each trial; when false, it is set once and left unchanged across trials
+
+        Values (1,:) cell = {} % design-time trial levels; one cell element per level; set via add_parameter; expanded by compile()
 
         PreUpdateFcn = [] % handle ot custom function called before value has been updated
                             % note that this gets called prior to the
@@ -74,6 +82,16 @@ classdef Parameter < matlab.mixin.SetGet
         PostUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to PostUpdateFcn
 
         UserData % general-purpose field for storing any additional data related to the parameter
+
+        % MATLAB expression string evaluated just before EvaluatorFcn to derive Value.
+        % Must be a single expression (no assignments, no ';') whose result becomes
+        % the new value, e.g. "1000 / FreqHz". The incoming value is available as the
+        % variable `Value`; same-module parameters by their Name; cross-module
+        % parameters as ModuleName.ParamName; properties as Param.Prop or
+        % ModuleName.Param.Prop (Prop: Min, Max, Values, Value). Skipped at runtime
+        % when the parameter has more than one design-time level (numel(Values) > 1).
+        % Leave empty ("") to skip expression evaluation.
+        Expression (1,1) string = ""
     end
 
     properties (SetObservable,GetObservable)
@@ -92,16 +110,28 @@ classdef Parameter < matlab.mixin.SetGet
 
         Min (1,1) double = -inf % minimum valid value
         Max (1,1) double = inf % maximum valid value
+        BoundsInclusive (1,2) logical = [true true] % whether Min [1] and Max [2] bounds are inclusive
     end
 
     properties (Dependent)
         ValueStr % string representation of Value based on Format
         validName % valid MATLAB variable name based on Name
+        FullName  % full name including parent module (e.g., "ModuleName.ParamName");
+    end
+
+    methods (Static)
+        values = normalizeValues(value) % convert any value type to a uniform 1xN cell array of trial levels
+
+        % Shared expression-evaluation core used by the runtime (set.Value) and
+        % design-time tools (Protocol Designer calculation checker)
+        [rewrittenText, context, info] = resolveExpressionContext(expressionText, currentValue, targetParam, siblingsFcn, allParamsFcn, valueFcn)
+        result = evalExpressionInContext(rewrittenText, context, targetName)
+        order = orderByDependencies(dispatchParams, allParams) % permutation placing expression parameters after the dispatched parameters whose values they read
     end
 
     methods
         S = toStruct(obj)           % serialize this parameter to a struct
-        fromStruct(obj, S)          % restore this parameter from a struct
+        fromStruct(obj, S, restoreValue) % restore this parameter from a struct; restoreValue (default true) controls whether Value is also restored
         jsonText = toJSON(obj)      % serialize this parameter to a JSON string
 
         function obj = Parameter(Parent, options)
@@ -122,10 +152,11 @@ classdef Parameter < matlab.mixin.SetGet
                 options.Name (1,:) char = 'Param'
                 options.Description (1,1) string = ""
                 options.Unit (1,:) char = ''
-                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Read / Write'})} = 'Read / Write'
-                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','Undefined'})} = 'Float'
+                options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Any','Read / Write'})} = 'Any'
+                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined','StimType'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
+                options.UpdateEveryTrial (1,1) logical % default: true, or false for trigger parameters; see below
                 options.PreUpdateFcnEnabled (1,1) logical = true
                 options.EvaluatorFcnEnabled (1,1) logical = true
                 options.PostUpdateFcnEnabled (1,1) logical = true
@@ -146,7 +177,7 @@ classdef Parameter < matlab.mixin.SetGet
             obj.Name = options.Name;
             obj.Description = options.Description;
             obj.Unit = options.Unit;
-            obj.Access = options.Access;
+            obj.Access = normalizeLegacyAccess(options.Access);
             obj.Type = options.Type;
             obj.Format = options.Format;
             obj.Visible = options.Visible;
@@ -154,11 +185,16 @@ classdef Parameter < matlab.mixin.SetGet
             obj.EvaluatorFcnEnabled = options.EvaluatorFcnEnabled;
             obj.PostUpdateFcnEnabled = options.PostUpdateFcnEnabled;
             obj.UserData = options.UserData;
-            obj.isArray = options.isArray;
-            obj.isTrigger = options.isTrigger;
-            obj.isRandom = options.isRandom;
             obj.Min = options.Min;
             obj.Max = options.Max;
+            obj.isArray = options.isArray;
+            obj.isTrigger = options.isTrigger; % set.isTrigger defaults UpdateEveryTrial to false for triggers
+            obj.isRandom = options.isRandom;
+
+            % An explicit UpdateEveryTrial always wins over the isTrigger-based default.
+            if isfield(options, 'UpdateEveryTrial')
+                obj.UpdateEveryTrial = options.UpdateEveryTrial;
+            end
         end
 
         % function disp(obj)
@@ -174,10 +210,19 @@ classdef Parameter < matlab.mixin.SetGet
                 return
             end
 
-            if isa(obj.Parent,'hw.Software') % special case
+            if isa(obj.Parent,'hw.Software') || (isprop(obj.Parent, 'IsConnected') && ~obj.Parent.IsConnected)
                 v = obj.Value;
             else
-                v = obj.Parent.get_parameter(obj,includeInvisible=true);
+                try
+                    v = obj.Parent.get_parameter(obj,includeInvisible=true);
+                catch ME
+                    if strcmp(ME.identifier, 'MATLAB:TooManyInputs') || contains(ME.message, 'Too many input arguments')
+                        % Backward-compatible fallback for legacy interface implementations.
+                        v = obj.Parent.get_parameter(obj);
+                    else
+                        rethrow(ME)
+                    end
+                end
             end
 
             if isnumeric(v)
@@ -186,10 +231,50 @@ classdef Parameter < matlab.mixin.SetGet
         end
 
         function M = get.Module(obj)
-            if isempty(obj.Module) || isequal(obj.Module,0)
-                M = obj.Parent.Module;
-            else
+            if ~(isempty(obj.Module) || isequal(obj.Module,0))
                 M = obj.Module;
+                return
+            end
+
+            if isa(obj.Parent, 'hw.Module')
+                M = obj.Parent;
+                obj.Module = M;
+                return
+            end
+
+            if isprop(obj.Parent, 'Module')
+                parentModules = obj.Parent.Module;
+                if isscalar(parentModules)
+                    M = parentModules;
+                    obj.Module = M;
+                    return
+                end
+
+                matchMask = false(1, numel(parentModules));
+                for moduleIdx = 1:numel(parentModules)
+                    moduleParameters = parentModules(moduleIdx).Parameters;
+                    if any(arrayfun(@(p) isequal(p, obj), moduleParameters))
+                        matchMask(moduleIdx) = true;
+                    end
+                end
+
+                if nnz(matchMask) == 1
+                    M = parentModules(find(matchMask, 1, 'first'));
+                    obj.Module = M;
+                    return
+                end
+            end
+
+            error('hw:Parameter:ModuleUnresolved', ...
+                'Could not resolve owner module for parameter "%s".', obj.Name);
+        end
+
+        function fn = get.FullName(obj)
+            M = obj.Module;
+            if ~isempty(M) && ~isequal(M,0)
+                fn = sprintf('%s.%s', M.Name, obj.Name);
+            else
+                fn = obj.Name;
             end
         end
 
@@ -209,21 +294,36 @@ classdef Parameter < matlab.mixin.SetGet
 
         end
 
-        
         function set.Value(obj,value)
+            if isequal(obj.Access, 'Read')
+                error('hw:Parameter:WriteAccessViolation', ...
+                    'Cannot set value of read-only parameter "%s".', obj.Name);
+            end
+            
+            if isequal(obj.Type, 'StimType') && ~(isempty(value) || isa(value,'stimgen.StimType'))
+                error('hw:Parameter:InvalidStimTypeValue', ...
+                    'Value for StimType parameter "%s" must be a stimgen.StimType object or empty.', obj.Name);
+            end
 
             obj.execute_PreUpdateFcn(value);
 
             value = obj.randomize_value(value); % if isRandom is false, this will just return the original value
-            
+
+            if strlength(obj.Expression) > 0
+                value = obj.evaluateExpression_(value);
+            end
 
             value = obj.execute_EvaluatorFcn(value);
 
+            value = obj.clamp_value_(value);
+
             obj.Value = value;
             obj.isArray = numel(value) > 1;
-            if obj.isArray, value = {value}; end
 
-            obj.Parent.set_parameter(obj,value);
+            if ~isequal(obj.Type, 'StimType')
+                if obj.isArray, value = {value}; end
+                obj.Parent.set_parameter(obj,value);
+            end
 
             % `now` is much faster than `datetime("now")`
             % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
@@ -235,7 +335,7 @@ classdef Parameter < matlab.mixin.SetGet
 
         function vstr = get.ValueStr(obj)
             if isempty(obj.Format)
-                if isequal(obj.Type,'String')
+                if ismember(obj.Type, {'String', 'File'})
                     obj.Format = '%s';
                 else
                     obj.Format = '%g';
@@ -243,7 +343,13 @@ classdef Parameter < matlab.mixin.SetGet
             end
 
             v = obj.Value;
-            if obj.isArray
+            if isequal(obj.Type, 'StimType')
+                vstr = obj.formatStimTypeValue_(v);
+            elseif isequal(obj.Type, 'File')
+                vstr = obj.formatFileValue_(v);
+            elseif isequal(obj.Type, 'String')
+                vstr = obj.formatTextValue_(v);
+            elseif obj.isArray
                 ov = length(v);
                 n = min(12,ov);
                 v = v(1:n);
@@ -264,12 +370,57 @@ classdef Parameter < matlab.mixin.SetGet
         end
 
         function set.Type(obj,type)
+            if isequal(type, 'StimType') && ~(isequal(obj.Parent,0) || isa(obj.Parent,'hw.Software'))
+                error('hw:Parameter:StimTypeRequiresSoftware', ...
+                    'Type ''StimType'' is only supported with hw.Software parents.');
+            end
             obj.Type = type;
-            if isequal(obj.Type,'String')
+            if ismember(obj.Type, {'String', 'File', 'StimType'})
                 obj.Format = '%s';
             else
                 obj.Format = '%g';
             end
+        end
+
+        function set.isTrigger(obj, isTrigger)
+            % Trigger parameters fire once per call rather than carrying a
+            % per-trial value, so default UpdateEveryTrial to match: false
+            % while marked as a trigger, true otherwise.
+            obj.isTrigger = logical(isTrigger);
+            obj.UpdateEveryTrial = ~obj.isTrigger;
+        end
+
+        function set.isRandom(obj, isRandom)
+            if isRandom && ~obj.hasFiniteRandomBounds()
+                error('hw:Parameter:RandomBoundsRequired', ...
+                    'Random parameter "%s" must have finite Min and Max values.', obj.Name);
+            end
+            obj.isRandom = logical(isRandom);
+        end
+
+        function set.Min(obj, minValue)
+            if obj.isRandom && ~isfinite(minValue)
+                error('hw:Parameter:RandomMinFinite', ...
+                    'Min must be finite when parameter "%s" is random.', obj.Name);
+            end
+            obj.Min = minValue;
+        end
+
+        function set.Max(obj, maxValue)
+            if obj.isRandom && ~isfinite(maxValue)
+                error('hw:Parameter:RandomMaxFinite', ...
+                    'Max must be finite when parameter "%s" is random.', obj.Name);
+            end
+            obj.Max = maxValue;
+        end
+
+        function [value, wasClamped] = clampValue(obj, value)
+            % [value, wasClamped] = obj.clampValue(value)
+            % Preview how a candidate value would be clamped by set.Value,
+            % without assigning it. Used by design-time calculation checks.
+            original = value;
+            value = obj.clamp_value_(value);
+            wasClamped = ~isequaln(original, value);
         end
     end
 
@@ -306,44 +457,42 @@ classdef Parameter < matlab.mixin.SetGet
             end
         end
 
-        function v = randomize_value(obj,value)
-            if ~obj.isRandom
-                v = value;
+        v = randomize_value(obj, value) % randomize value if isRandom; otherwise return value as-is
+        set_value(obj, value)           % apply value directly, checking access and bounds
+
+        function value = clamp_value_(obj, value)
+            % value = clamp_value_(obj, value)
+            % Clamp a numeric value within [Min, Max] for inclusive bounds.
+            % Non-numeric types and types that don't support bounds are returned unchanged.
+            %
+            % Parameters
+            %   value - Candidate value to clamp.
+            %
+            % Returns
+            %   value - Value clamped to Min (if BoundsInclusive(1)) and/or Max (if BoundsInclusive(2)).
+            if ~isnumeric(value) || ismember(obj.Type, {'StimType','String','File','Buffer','Coefficient Buffer'})
                 return
             end
-
-            try
-                v = randi([obj.Min obj.Max]);
-                vprintf(3,'Randomized parameter "%s" to value: %g',obj.Name,v)
-            catch e
-                vprintf(0,1,'Error randomizing parameter "%s": %s',obj.Name,getReport(e,'basic'))
+            if obj.BoundsInclusive(1)
+                value = max(value, obj.Min);
             end
-        end
-
-        function set_value(obj,value)
-
-            if isequal(obj.Access,'Read')
-                vprintf(0,1,'"%s" is a read-only parameter',obj.Name)
-                return
+            if obj.BoundsInclusive(2)
+                value = min(value, obj.Max);
             end
-
-            if ~isequal(obj.Type,'String') && (value < obj.Min || value > obj.Max)
-                vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
-                return
-            end
-
-            obj.Value = value;
-            if ~isequal(obj.HW,0)
-                obj.HW.set_parameter(obj,value);
-            end
-            % `now` is much faster than `datetime("now")`
-            % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
-            % convert to ms: ts = uint64((obj.lastUpdated - 719529) * 86400 * 1000);
-             obj.lastUpdated = now;
         end
     end
 
     methods (Access = private)
+        valueText = formatFileValue_(~, value) % format file path(s) for display as a string
+
+        valueText = formatTextValue_(~, value) % format text/string value for display
+
+        function tf = hasFiniteRandomBounds(obj)
+            tf = isfinite(obj.Min) && isfinite(obj.Max);
+        end
+
+        vstr = formatStimTypeValue_(~, value) % format StimType value(s) for display
+
         function s = argsToStr_(obj, args)
             s = cell(size(args));
             for i = 1:numel(args)
@@ -398,22 +547,15 @@ classdef Parameter < matlab.mixin.SetGet
             end
         end
 
-        function v = safeToNumeric_(~, x)
-            if isstring(x) || ischar(x)
-                x = char(x);
-                switch x
-                    case 'Inf'
-                        v = Inf;
-                    case '-Inf'
-                        v = -Inf;
-                    case 'NaN'
-                        v = NaN;
-                    otherwise
-                        v = str2double(x);
-                end
-            else
-                v = double(x);
-            end
-        end
+        v = safeToNumeric_(~, x) % convert safe sentinel strings ('Inf', '-Inf', 'NaN') to numeric
+
+        result = evaluateExpression_(obj, currentValue) % evaluate obj.Expression to derive a new parameter value
     end
+end
+
+
+function access = normalizeLegacyAccess(access)
+if isequal(access, 'Read / Write')
+    access = 'Any';
+end
 end

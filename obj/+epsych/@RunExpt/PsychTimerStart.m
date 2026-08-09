@@ -8,10 +8,12 @@ function PsychTimerStart(self)
 self.STATE = PRGMSTATE.RUNNING;
 self.UpdateGUIstate
 
+% Call Start timer function to initialize runtime state and selector objects for each subject.
 self.RUNTIME = feval(self.FUNCS.TIMERfcn.Start, self.RUNTIME, self.CONFIG);
 self.RUNTIME.StartTime = datetime('now');
 vprintf(0,'Experiment started at %s',self.RUNTIME.StartTime)
 
+% Attempt to launch BoxFig if configured. This is done after Start so that the live RUNTIME handle is available to the BoxFig function.
 if isempty(self.FUNCS.BoxFig)
     vprintf(0,'No Behavior GUI specified')
 else
@@ -26,8 +28,10 @@ else
     end
 end
 
-% make all parameters available in TRIALS structure for easy access by trial functions
-P = self.RUNTIME.all_parameters(asStruct = true);
-for i = 1:self.RUNTIME.NSubjects
-    self.RUNTIME.TRIALS(i).Parameters = P;
+% Notify listeners now that BoxFig is launched and HELPER is fully initialized.
+if self.RUNTIME.isTest
+    runMode = hw.DeviceState.Preview;
+else
+    runMode = hw.DeviceState.Record;
 end
+self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(runMode));

@@ -192,7 +192,16 @@ L.flush();
 txt = fileread(logPath);
 assert(contains(txt,'epsych:smoke:struct') && contains(txt,'struct failure'), ...
     'a lasterror-style struct must log rather than throw');
-fprintf('PASS: 12 lasterror-style struct logs without throwing\n');
+% A MATLAB timer's ErrorFcn event data names the field messageID instead.
+timerData = struct('message','timer callback failed', ...
+    'messageID','epsych:smoke:timer', ...
+    'stack',struct('file','t.m','name','tfcn','line',3));
+L.emit(0,true,timerData);
+L.flush();
+txt = fileread(logPath);
+assert(contains(txt,'epsych:smoke:timer'), ...
+    'timer event data must log its identifier from messageID');
+fprintf('PASS: 12 lasterror and timer-event structs log without throwing\n');
 
 % 13. Nested causes --------------------------------------------------------
 inner = MException('epsych:smoke:inner','the real reason');

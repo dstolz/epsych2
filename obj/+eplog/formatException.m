@@ -30,7 +30,13 @@ stack = struct('file',{},'name',{},'line',{});
 msgText = '';
 
 if isa(err,'MException') || isstruct(err)
-    if localHas(err,'identifier'), identifier = localChar(err.identifier); end
+    if localHas(err,'identifier')
+        identifier = localChar(err.identifier);
+    elseif localHas(err,'messageID')
+        % A MATLAB timer's ErrorFcn event data names the field messageID
+        % rather than identifier; RUNTIME.ERROR may hold either shape.
+        identifier = localChar(err.messageID);
+    end
     if localHas(err,'message'),    msgText    = localChar(err.message);    end
     if localHas(err,'stack') && ~isempty(err.stack)
         stack = localNormalizeStack(err.stack);

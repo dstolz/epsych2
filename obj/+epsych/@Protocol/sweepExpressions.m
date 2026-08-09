@@ -211,6 +211,7 @@ inputValues = zeros(nCombos, nInputs);
 computed = nan(nCombos, n);
 finalVals = nan(nCombos, n);
 clamped = false(nCombos, n);
+badIndex = false(nCombos, n);
 notes = repmat({''}, nCombos, n);
 
 simVals = designVals;
@@ -273,6 +274,21 @@ for c = 1:nCombos
             v = NaN;
         end
 
+        % Index-selecting types report the index itself; flag results the
+        % runtime would reject before they reach a session.
+        if a.selectsIndex && ~isnan(computed(c, k))
+            idxValue = computed(c, k);
+            if idxValue ~= floor(idxValue)
+                badIndex(c, k) = true;
+                noteParts{end+1} = sprintf('index %g is not a whole number; wrap the calculation in round() or fix()', idxValue);
+            elseif idxValue < 1 || idxValue > a.itemCount
+                badIndex(c, k) = true;
+                noteParts{end+1} = sprintf('index %d is outside the item range 1 to %d', idxValue, a.itemCount);
+            else
+                noteParts{end+1} = sprintf('selects item %d of %d', idxValue, a.itemCount);
+            end
+        end
+
         [vf, wasClamped] = p.clampValue(v);
         clamped(c, k) = wasClamped;
         if wasClamped
@@ -308,6 +324,12 @@ for k = 1:n
         report.issues(end+1) = struct('field', fullName, ...
             'message', sprintf('Result silently clamped to Min/Max in %d of %d combination(s)', ...
             nnz(clamped(:, k)), nCombos), 'severity', 1);
+    end
+    if any(badIndex(:, k))
+        firstBad = notes{find(badIndex(:, k), 1), k};
+        report.issues(end+1) = struct('field', fullName, ...
+            'message', sprintf(['Expression produced an item index the runtime will reject in %d of %d ' ...
+            'combination(s): %s'], nnz(badIndex(:, k)), nCombos, firstBad), 'severity', 2);
     end
 end
 end

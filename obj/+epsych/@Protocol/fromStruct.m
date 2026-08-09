@@ -114,25 +114,42 @@ function localRestoreValues(params, structs)
     % Restore parameter Values, tolerating dependency order. A parameter's
     % Expression may reference other parameters (siblings, other modules, or
     % other interfaces) that are restored later, so re-evaluate the
-    % expression-bearing numeric parameters until their Values stop changing.
-    % Plain and StimType parameters are restored once. The pass count is
-    % bounded by the number of parameters, so evaluation terminates even if
-    % expressions form a cycle.
-    isExprNumeric = arrayfun(@(p) strlength(p.Expression) > 0 ...
-        && ~isequal(p.Type, 'StimType'), params);
+    % expression-bearing parameters until their Values stop changing. Plain
+    % parameters (and StimType parameters without an expression) are restored
+    % once. The pass count is bounded by the number of parameters, so
+    % evaluation terminates even if expressions form a cycle.
+    isExprDeferred = arrayfun(@(p) strlength(p.Expression) > 0 ...
+        && (~isequal(p.Type, 'StimType') || hw.Parameter.expressionSelectsIndex(p.Type)), params);
 
     % First pass restores every parameter once, making leaf values available.
+    % An expression that reads a not-yet-restored parameter can fail outright
+    % here — an index-selecting expression rejects the empty result rather
+    % than storing it — so defer those failures to the passes below instead of
+    % aborting the load.
     for k = 1:numel(params)
-        params(k).fromStruct(structs{k});
+        if isExprDeferred(k)
+            try
+                params(k).fromStruct(structs{k});
+            catch
+            end
+        else
+            params(k).fromStruct(structs{k});
+        end
     end
 
     % Subsequent passes re-evaluate only expression parameters until stable.
-    exprIdx = reshape(find(isExprNumeric), 1, []);
+    exprIdx = reshape(find(isExprDeferred), 1, []);
+    lastError = [];
     for pass = 2:max(2, numel(exprIdx))
         changed = false;
         for k = exprIdx
             before = params(k).Value;
-            params(k).fromStruct(structs{k});
+            try
+                params(k).fromStruct(structs{k});
+            catch ME
+                lastError = ME;
+                continue
+            end
             if ~isequal(before, params(k).Value)
                 changed = true;
             end
@@ -140,6 +157,12 @@ function localRestoreValues(params, structs)
         if ~changed
             break
         end
+    end
+
+    % A still-failing expression is a protocol defect, not a load failure:
+    % report it and leave validate() / Check Calculations to explain it.
+    if ~isempty(lastError)
+        vprintf(0, 1, 'Could not evaluate every parameter expression while loading: %s', lastError.message);
     end
 end
 

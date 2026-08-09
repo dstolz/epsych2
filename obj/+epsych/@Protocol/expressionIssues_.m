@@ -81,6 +81,18 @@ for k = 1:numel(analysis)
             'Multi-level parameter: the expression acted as a design-time level generator and is skipped at runtime', 1);
     end
 
+    if a.selectsIndex
+        if a.itemCount == 0
+            issues(end+1) = localIssue_(a.fullName, ...
+                sprintf('Expression selects an item by index, but %s has no items in its Value list', a.param.Name), ...
+                localSeverity_(willRun));
+        else
+            issues(end+1) = localIssue_(a.fullName, ...
+                sprintf(['Expression selects one of %d item(s) by index; the result must be a whole number ' ...
+                'from 1 to %d (wrap fractional results in round() or fix())'], a.itemCount, a.itemCount), 0);
+        end
+    end
+
     if ~isempty(a.resolveError) && ~(a.hasSemicolon || a.hasAssignment)
         issues(end+1) = localIssue_(a.fullName, ...
             sprintf('Reference resolution failed: %s', a.resolveError), 1);

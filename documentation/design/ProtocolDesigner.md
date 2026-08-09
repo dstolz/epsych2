@@ -109,6 +109,32 @@ Find and Replace is split so the rename logic is testable without the dialog:
   expression values and the table.
 - `onFindReplaceParameterNames` / `refreshFindReplacePreview` are the dialog on top of those.
 
+## Expressions and index-selecting types
+
+`parameterSupportsExpression` gates the Expression column: `Float`, `Integer`, `Boolean`,
+`String`, and `StimType`, minus triggers. The split in meaning lives in one predicate,
+`hw.Parameter.expressionSelectsIndex`, which is true for `String` and `StimType`. Everything
+that reasons about expressions consults it rather than re-listing type names:
+
+- `normalizeExpressionResult` / `evaluateAndApplyParameterExpression` validate the result with
+  `hw.Parameter.selectValueByIndex` and **leave `Values` untouched** — for these types `Values`
+  is the item list the expression indexes, not a set of computed levels. Every other type still
+  has `Values` overwritten by the result.
+- `hw.Parameter.evaluateExpression_` skips the `numel(Values) > 1` dormancy guard for these
+  types and returns `Values{index}`; `set.Value` defers its `stimgen.StimType` type check until
+  after evaluation so a bare index can be assigned.
+- `Protocol.compile_internal` emits a single placeholder level for an index-selecting parameter
+  with an expression, so the item list does not multiply the trial cross product.
+- `Protocol.analyzeExpressions` reports `selectsIndex` and `itemCount`, and forces
+  `multiLevelDormant` false; `expressionIssues_`, `dependencyGraph`, `dryRunExpressions`, and
+  `sweepExpressions` all key off those fields.
+
+Adding a third index-selecting type means editing `expressionSelectsIndex` only.
+
+Headless coverage: `tmp/smoke_test_index_expressions.m`.
+
+## Renaming and expression references
+
 Renaming rewrites dependent expressions through `rewriteExpressionReferences`, which must stay
 in step with `hw.Parameter.resolveExpressionContext`: bare sibling names, `Module.Parameter`,
 and either form suffixed with `.Min`/`.Max`/`.Value`/`.Values`. Qualified references are

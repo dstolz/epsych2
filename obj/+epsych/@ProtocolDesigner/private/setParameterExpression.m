@@ -1,6 +1,10 @@
 function setParameterExpression(obj, parameter, expressionText)
     if ~obj.parameterSupportsExpression(parameter)
-        error('Expressions are only allowed for Float, Integer, or Boolean parameter types.');
+        if parameter.isTrigger
+            error('Trigger parameters cannot use expressions because a trigger fires rather than carrying a value.');
+        end
+        error(['Expressions are not available for %s parameters. Use Float, Integer, or Boolean to calculate ' ...
+            'a value, or String or StimType to select one of the parameter''s items by index.'], parameter.Type);
     end
 
     expressionText = strtrim(char(string(expressionText)));
@@ -15,4 +19,3 @@ function setParameterExpression(obj, parameter, expressionText)
         parameter.UserData = rmfield(parameter.UserData, 'Expression');
     end
 end
-

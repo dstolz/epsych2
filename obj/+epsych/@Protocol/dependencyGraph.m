@@ -277,6 +277,9 @@ end
 if a.onReadParam
     notes{end+1} = 'Read access: expression never evaluates';
 end
+if a.selectsIndex
+    notes{end+1} = sprintf('Result is an item index from 1 to %d, not the value itself', a.itemCount);
+end
 if a.hasAssignment
     notes{end+1} = 'Expression contains an assignment (runtime error)';
 end

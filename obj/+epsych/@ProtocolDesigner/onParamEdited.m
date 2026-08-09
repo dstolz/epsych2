@@ -118,6 +118,20 @@ function onParamEdited(obj, evt)
                     obj.clearParameterExpression(parameter);
                     statusMessage = sprintf('Cleared expression for %s because type %s does not support expressions', parameter.Name, parameter.Type);
                     nextStep = 'Edit the Value column for this type, then compile again.';
+                elseif obj.hasParameterExpression(parameter) && ...
+                        hw.Parameter.expressionSelectsIndex(parameter.Type) ~= hw.Parameter.expressionSelectsIndex(originalType)
+                    % The stored text survives the type change but its meaning flips
+                    % between "the value" and "which item to use".
+                    if hw.Parameter.expressionSelectsIndex(parameter.Type)
+                        statusMessage = sprintf('Expression for %s now chooses which item to use, because %s parameters index into their Value list', ...
+                            parameter.Name, parameter.Type);
+                        nextStep = sprintf('Make the expression return a whole number from 1 to %d, using round() or fix() if it can be fractional.', ...
+                            max(numel(parameter.Values), 1));
+                    else
+                        statusMessage = sprintf('Expression for %s now computes the value directly, because %s parameters do not index a list', ...
+                            parameter.Name, parameter.Type);
+                        nextStep = 'Confirm the computed value, then compile again.';
+                    end
                 end
             case 4
                 expressionText = strtrim(char(string(evt.NewData)));
@@ -127,9 +141,14 @@ function onParamEdited(obj, evt)
                     nextStep = 'Enter a new expression or edit the Value column directly.';
                 else
                     obj.setParameterExpression(parameter, expressionText);
-                    obj.evaluateAndApplyParameterExpression(parameter, expressionText);
-                    statusMessage = sprintf('%s = %s', expressionText, obj.getParameterValueDisplay(parameter));
-                    nextStep = 'Confirm the computed value, then compile to check the updated trial set.';
+                    appliedText = obj.evaluateAndApplyParameterExpression(parameter, expressionText);
+                    statusMessage = sprintf('%s = %s', expressionText, appliedText);
+                    if hw.Parameter.expressionSelectsIndex(parameter.Type)
+                        nextStep = sprintf('This expression chooses which item to use: it must return a whole number from 1 to %d each trial (round() or fix() if it can be fractional).', ...
+                            numel(parameter.Values));
+                    else
+                        nextStep = 'Confirm the computed value, then compile to check the updated trial set.';
+                    end
                 end
             case 9
                 pairSelection = char(string(evt.NewData));
@@ -234,6 +253,13 @@ function onParamEdited(obj, evt)
         obj.refreshParameterTable();
         obj.setStatus(ME.message, 'Fix the edited cell value and try again.');
         return
+    end
+
+    % Editing the item list of an index-selecting parameter can move the
+    % expression's target or push it out of range, so say what the range is now.
+    if col == 5 && obj.hasParameterExpression(parameter) && hw.Parameter.expressionSelectsIndex(parameter.Type)
+        nextStep = sprintf('The expression for %s picks one of these items by index, so keep its result between 1 and %d.', ...
+            parameter.Name, numel(parameter.Values));
     end
 
     obj.IsModified_ = true;

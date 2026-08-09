@@ -125,6 +125,11 @@ provides a dedicated file-list editor for them. `'StimType'` parameters hold
 a `stimgen.StimType` object and are only supported on `hw.Software` parents;
 their values are not pushed to the parent interface on write.
 
+`'String'` and `'StimType'` are the two *index-selecting* types
+(`hw.Parameter.expressionSelectsIndex`): an `Expression` on either of them
+returns the index of the item to use rather than the value itself. See
+[Selecting an item by index](#selecting-an-item-by-index-string-and-stimtype).
+
 `stimgen` ships as a git submodule (see [../stimgen.md](../stimgen.md)). If it
 has not been checked out, `'StimType'` parameters cannot resolve their class:
 MATLAB substitutes a placeholder struct when loading a saved protocol rather
@@ -211,6 +216,16 @@ This is useful when a parameter's value should be derived from other parameters
 at runtime — for example, computing a period from a frequency, or scaling one
 channel relative to another.
 
+What the result *means* depends on the parameter's `Type`:
+
+| Type | The expression result is |
+|---|---|
+| `Float`, `Integer`, `Boolean` | the value itself |
+| `String`, `StimType` | a **1-based index** choosing one of the parameter's items — see [Selecting an item by index](#selecting-an-item-by-index-string-and-stimtype) |
+
+Other types (`File`, `Buffer`, `Coefficient Buffer`, `Undefined`) do not take
+expressions; the Protocol Designer refuses to store one on them.
+
 ### How it fits in the update pipeline
 
 When `Expression` is non-empty, the update sequence becomes:
@@ -227,6 +242,10 @@ becomes the effective value. The value produced by step 2 is available for
 reading as the variable `Value`. Sibling parameters in the same module are
 injected by their `Name`; cross-module parameters can be referenced as
 `ModuleName.ParamName`.
+
+On a `String` or `StimType` parameter, step 3 has one extra half-step: the
+result is validated as an index and replaced by `Values{index}` before the
+pipeline continues.
 
 ### Setting an expression
 
@@ -260,7 +279,64 @@ p.Expression = "";
 | Sibling access | Other parameters in the **same module** are available by their `Name`. |
 | Cross-module access | Parameters on other modules are referenced as `ModuleName.ParamName`. These are rewritten to safe aliases before evaluation. |
 | Property access | Parameter properties can be referenced as `Param.Prop` (sibling) or `ModuleName.Param.Prop` (cross-module), where `Prop` is one of `Min`, `Max`, `Values`, `Value`. |
-| Multi-level parameters | If the parameter defines more than one design-time level (`Values`), the expression is treated as a level generator that `compile()` has already expanded; it is **not** re-evaluated at runtime when the dispatcher assigns per-trial values. |
+| Multi-level parameters | If the parameter defines more than one design-time level (`Values`), the expression is treated as a level generator that `compile()` has already expanded; it is **not** re-evaluated at runtime when the dispatcher assigns per-trial values. `String` and `StimType` are exempt: there `Values` is an item list, not a set of levels, so the expression stays live no matter how many items there are. |
+| Index result | On a `String` or `StimType` parameter the result must be a single whole number from 1 to the item count. Fractional, out-of-range, or non-scalar results raise an error at runtime. |
+
+---
+
+### Selecting an item by index (String and StimType)
+
+`String` and `StimType` values cannot be produced by arithmetic, so an
+expression on those types answers a different question: **which of the
+parameter's items should this trial use?** `Values` holds the items, and the
+expression returns the 1-based index of the one to select.
+
+```matlab
+cue = hw.Parameter(parent, Name='Cue', Type='String');
+cue.Values = {'left', 'right', 'center'};   % three items to choose from
+cue.Expression = "CueIndex";                % a sibling parameter holds 1, 2, or 3
+
+cueIndexParam.Value = 2;
+cue.Value = '';          % incoming value is discarded; the index decides
+disp(cue.Value)          % right
+```
+
+Rules for the result:
+
+- It must be a **single whole number** — not a vector, not a fraction.
+- It must fall **within `1:numel(Values)`**.
+- MATLAB arithmetic produces fractions easily (`Trial / 2`, `Level * 0.5`), so
+  wrap the calculation in `round()`, `fix()`, `floor()`, or `ceil()`:
+
+  ```matlab
+  cue.Expression = "round(Score / 10)";
+  ```
+
+- To keep a computed index inside the list no matter what the inputs do, clamp
+  it as well:
+
+  ```matlab
+  cue.Expression = "min(max(round(Score / 10), 1), 3)";
+  ```
+
+- `mod` is a convenient way to cycle through the items:
+
+  ```matlab
+  cue.Expression = "mod(TrialCount, 3) + 1";
+  ```
+
+Because the item list is a lookup table rather than a set of trial levels,
+`compile()` does **not** expand it into the trial cross product: a 3-item cue
+paired with a 4-level frequency yields 4 trials, not 12. Remove the expression
+and the same list reverts to being 3 ordinary trial levels (12 trials).
+
+`Min`/`Max` clamping does not apply to these types, so the index is never
+silently corrected — an out-of-range result is reported, not rounded down.
+
+For `StimType` parameters an index may be assigned directly
+(`stim.Value = 2` with `stim.Expression = "Value"`), because the expression
+replaces the incoming value before the stimulus-object type check runs. Without
+an expression, a `StimType` parameter still accepts only a `stimgen.StimType`.
 
 ---
 
@@ -405,7 +481,9 @@ When you write `p.Value`, the class:
 1. Rejects the write if `Access` is `'Read'`.
 2. Runs `PreUpdateFcn`, if present.
 3. Randomizes the value when `isRandom` is true.
-4. Evaluates `Expression`, if non-empty.
+4. Evaluates `Expression`, if non-empty. For `'String'` and `'StimType'` the
+   result is resolved through `hw.Parameter.selectValueByIndex` into one of the
+   entries of `Values`.
 5. Runs `EvaluatorFcn`, if present.
 6. Clamps numeric values into `[Min, Max]` (per `BoundsInclusive`).
 7. Updates array bookkeeping.
@@ -435,6 +513,11 @@ runtime evaluation cannot drift apart.
   parameter name and the underlying MATLAB error message. Context-build failures
   (e.g., module not accessible) are logged at verbosity level 0 and do not abort
   evaluation.
+- Index resolution for `'String'`/`'StimType'` happens after `eval`, in
+  `hw.Parameter.selectValueByIndex`. It raises
+  `hw:Parameter:IndexExpressionNoItems`, `…NotScalar`, `…NotInteger`, or
+  `…OutOfRange`; the messages name `round()`/`fix()` and the valid range so the
+  operator can fix the expression without consulting this document.
 
 ---
 

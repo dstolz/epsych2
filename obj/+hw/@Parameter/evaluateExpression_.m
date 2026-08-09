@@ -12,6 +12,10 @@ function result = evaluateExpression_(obj, currentValue)
 %     (cross-module), where Prop is one of: Min, Max, Values, Value.
 %     These are rewritten to flat aliases before evaluation.
 %
+% For 'String' and 'StimType' parameters the expression result is a 1-based
+% index into obj.Values and the selected item is returned; for every other
+% type the result is the value itself.
+%
 % The reference resolution and evaluation are shared with design-time tools
 % via hw.Parameter.resolveExpressionContext / evalExpressionInContext; this
 % wrapper supplies the live runtime lookups (current parameter Values).
@@ -27,13 +31,17 @@ if isempty(expressionText)
     return
 end
 
+selectsIndex = hw.Parameter.expressionSelectsIndex(obj.Type);
+
 % Multi-level parameters carry their Expression only as a design-time level
 % generator (e.g. "[0 1 2]"), which compile() has already expanded into the
 % discrete trial levels held in obj.Values. At runtime the dispatcher assigns
 % one level per trial, so re-evaluating the expression here would overwrite
 % that per-trial value with the full level set (and, for scalar hardware tags,
 % fail to write). Skip runtime evaluation when more than one level is defined.
-if numel(obj.Values) > 1
+% Index-selecting types are exempt: there Values is the item list the
+% expression picks from, so many items keep the expression live.
+if ~selectsIndex && numel(obj.Values) > 1
     result = currentValue;
     return
 end
@@ -48,6 +56,10 @@ end
     @(p) p.Value);
 
 result = hw.Parameter.evalExpressionInContext(rewrittenText, context, obj.Name);
+
+if selectsIndex
+    result = hw.Parameter.selectValueByIndex(result, obj.Values, obj.Name);
+end
 
 
 function allParams = localCollectAllParams_(thisModule)

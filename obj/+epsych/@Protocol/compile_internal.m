@@ -32,7 +32,17 @@ for iface_idx = 1:length(obj.Interfaces)
             end
 
             parameters(end+1) = p;
-            trials{1, colIdx} = p.Values;
+
+            if hw.Parameter.expressionSelectsIndex(p.Type) && strlength(p.Expression) > 0 && numel(p.Values) > 1
+                % The expression picks one item per trial, so Values is a lookup
+                % table rather than a set of trial levels. Emit a single
+                % placeholder level (replaced by the selected item when
+                % dispatchNextTrial writes the parameter) so the item count does
+                % not multiply the cross product.
+                trials{1, colIdx} = p.Values(1);
+            else
+                trials{1, colIdx} = p.Values;
+            end
             paramMetadata{colIdx} = struct( ...
                 'name', p.validName, ...
                 'pair', obj.getParameterPairName_(p));

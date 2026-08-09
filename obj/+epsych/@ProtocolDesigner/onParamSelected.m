@@ -32,6 +32,12 @@ function onParamSelected(obj, evt)
     expressionErrorMessage = obj.getExpressionErrorMessage(parameter);
     if ~isempty(expressionErrorMessage)
         obj.setStatus(expressionErrorMessage, 'Fix the highlighted parameter values or expressions, then compile again.');
+    elseif obj.hasParameterExpression(parameter) && hw.Parameter.expressionSelectsIndex(parameter.Type)
+        nItems = numel(parameter.Values);
+        obj.setStatus(sprintf('%s: expression "%s" chooses one of %d item(s) by index', ...
+            parameter.Name, obj.getParameterExpression(parameter), nItems), ...
+            sprintf('The expression must return a whole number from 1 to %d — wrap fractional results in round() or fix().', ...
+            max(nItems, 1)));
     elseif isequal(parameter.Type, 'File')
         fileList = obj.getParameterFileList(parameter);
         if isempty(fileList)

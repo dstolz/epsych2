@@ -105,7 +105,9 @@ for t = 1:nTrials
         inputs = '';
         computed = v;
 
-        if isExpr && numel(p.Values) > 1
+        selectsIndex = hw.Parameter.expressionSelectsIndex(p.Type);
+
+        if isExpr && numel(p.Values) > 1 && ~selectsIndex
             status = 'dormant';
             notes{end+1} = 'Expression skipped at runtime (multi-level parameter); trial-table value used';
         elseif isExpr
@@ -121,6 +123,10 @@ for t = 1:nTrials
                     notes{end+1} = sprintf('Unresolved reference(s): %s', strjoin(info.unresolvedQualified, ', '));
                 end
                 v = hw.Parameter.evalExpressionInContext(rewritten, context, p.Name);
+                if selectsIndex
+                    [v, selectedIndex] = hw.Parameter.selectValueByIndex(v, p.Values, p.Name);
+                    notes{end+1} = sprintf('Index selects item %d of %d', selectedIndex, numel(p.Values));
+                end
                 computed = v;
             catch ME
                 status = 'error';

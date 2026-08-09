@@ -90,6 +90,9 @@ classdef Parameter < matlab.mixin.SetGet
         % parameters as ModuleName.ParamName; properties as Param.Prop or
         % ModuleName.Param.Prop (Prop: Min, Max, Values, Value). Skipped at runtime
         % when the parameter has more than one design-time level (numel(Values) > 1).
+        % For 'String' and 'StimType' parameters the result is instead a 1-based
+        % index that selects one of the items in Values, so those types stay live
+        % with many items; see hw.Parameter.expressionSelectsIndex.
         % Leave empty ("") to skip expression evaluation.
         Expression (1,1) string = ""
     end
@@ -127,6 +130,8 @@ classdef Parameter < matlab.mixin.SetGet
         [rewrittenText, context, info] = resolveExpressionContext(expressionText, currentValue, targetParam, siblingsFcn, allParamsFcn, valueFcn)
         result = evalExpressionInContext(rewrittenText, context, targetName)
         order = orderByDependencies(dispatchParams, allParams) % permutation placing expression parameters after the dispatched parameters whose values they read
+        tf = expressionSelectsIndex(type) % true when an Expression on this Type indexes into Values instead of producing the value
+        [item, index] = selectValueByIndex(result, values, paramName) % validate an index-valued expression result and return the selected item
     end
 
     methods
@@ -300,9 +305,13 @@ classdef Parameter < matlab.mixin.SetGet
                     'Cannot set value of read-only parameter "%s".', obj.Name);
             end
             
-            if isequal(obj.Type, 'StimType') && ~(isempty(value) || isa(value,'stimgen.StimType'))
-                error('hw:Parameter:InvalidStimTypeValue', ...
-                    'Value for StimType parameter "%s" must be a stimgen.StimType object or empty.', obj.Name);
+            % An index-selecting expression replaces the incoming value with an
+            % item from Values, so a bare index may legitimately be assigned to a
+            % StimType parameter; check the resolved value instead of the input.
+            selectsIndex = strlength(obj.Expression) > 0 && hw.Parameter.expressionSelectsIndex(obj.Type);
+
+            if ~selectsIndex
+                obj.validateStimTypeValue_(value);
             end
 
             obj.execute_PreUpdateFcn(value);
@@ -311,6 +320,10 @@ classdef Parameter < matlab.mixin.SetGet
 
             if strlength(obj.Expression) > 0
                 value = obj.evaluateExpression_(value);
+            end
+
+            if selectsIndex
+                obj.validateStimTypeValue_(value);
             end
 
             value = obj.execute_EvaluatorFcn(value);
@@ -483,6 +496,14 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function validateStimTypeValue_(obj, value)
+            % Enforce that a 'StimType' parameter only ever holds a stimulus object.
+            if isequal(obj.Type, 'StimType') && ~(isempty(value) || isa(value,'stimgen.StimType'))
+                error('hw:Parameter:InvalidStimTypeValue', ...
+                    'Value for StimType parameter "%s" must be a stimgen.StimType object or empty.', obj.Name);
+            end
+        end
+
         valueText = formatFileValue_(~, value) % format file path(s) for display as a string
 
         valueText = formatTextValue_(~, value) % format text/string value for display

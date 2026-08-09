@@ -200,7 +200,7 @@ ERROR is reachable from any state.
 3. **Configuration Persistence**: Session configs saved as .ecfg MAT files
 4. **Auto-Discovery**: Backends auto-discover modules/parameters on connect via setup_interface()
 5. **Pluggable Trial Selection**: epsych.TrialSelector is abstract and customizable
-6. **Parameter Expressions**: Parameters can reference other parameters (e.g., Param.Prop or Module.Param.Prop)
+6. **Parameter Expressions**: Parameters can reference other parameters (e.g., Param.Prop or Module.Param.Prop). On `String`/`StimType` parameters the result is a 1-based index into `Values` instead of the value itself — `hw.Parameter.expressionSelectsIndex` is the single predicate that decides which meaning applies
 
 ## Coding Conventions & Standards
 

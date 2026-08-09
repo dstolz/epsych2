@@ -186,6 +186,11 @@ function lines = localAnalysisText_(report)
         elseif a.onReadParam
             lines{end+1} = '  Dormant    : Read access; expression never evaluates';
         end
+        if a.selectsIndex
+            lines{end+1} = sprintf(['  Selects    : %s parameter; the result is a whole-number index ' ...
+                'from 1 to %d choosing one of its items (use round() or fix() if fractional)'], ...
+                a.param.Type, a.itemCount);
+        end
         lines{end+1} = sprintf('  Clamp      : [%g, %g]', a.clampMin, a.clampMax);
         if a.usesValueVariable
             lines{end+1} = '  Uses `Value` (incoming value) in the expression';

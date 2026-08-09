@@ -81,7 +81,7 @@ The parameter table includes these main fields:
 
 - `Name`: parameter name
 - `Type`: value type such as float, integer, boolean, string, file, or stimulus (StimType)
-- `Expression`: optional formula for supported numeric or logical parameter types
+- `Expression`: optional formula. For numeric and boolean parameters it calculates the value; for string and stimulus (StimType) parameters it instead picks which item in the **Value** list to use
 - `Value`: parameter value for editable types
 - `Min` and `Max`: numeric limits; values written outside these limits are clamped
 - `Random`: whether values are randomized (requires finite Min and Max)
@@ -156,14 +156,18 @@ Use file parameters when a protocol step depends on an external stimulus or reso
 
 ## Working with expressions
 
-Expressions let one parameter value be calculated from others.
+Expressions let one parameter be worked out from others instead of being entered by hand. What the expression produces depends on the parameter's type:
 
-Use the **Expression** column when:
+| Type | The expression produces |
+|---|---|
+| Float, Integer, Boolean | the value itself |
+| String, StimType | the **index** of the item to use, counting from 1 |
 
-- the parameter type is numeric or boolean
-- the value should be derived instead of entered manually
+Other types — File, Buffer, Coefficient Buffer — do not accept expressions, and neither do trigger parameters. Typing one into those rows is rejected with an explanation in the message area.
 
-Examples:
+### Calculating a value (numeric and boolean parameters)
+
+Write the formula the way you would write it in MATLAB:
 
 ```matlab
 amplitude * 2
@@ -173,7 +177,45 @@ amplitude * 2
 baseISI + 50
 ```
 
-If an expression fails, the row is highlighted and the message area shows the error. Fix the expression and refresh or compile again.
+### Choosing an item (string and stimulus parameters)
+
+A string or stimulus parameter holds a *list of items* in its **Value** cell: semicolon-separated text for strings, or stimuli assigned through the stimulus editor. An expression on one of these parameters does not build a new string or a new stimulus — it answers **which item in that list to use this trial**, by returning that item's position in the list.
+
+So for a string parameter whose Value cell holds `left; right; center`:
+
+| Expression result | Item used |
+|---|---|
+| 1 | `left` |
+| 2 | `right` |
+| 3 | `center` |
+
+The result has to be a **whole number between 1 and the number of items**. Two things follow from that:
+
+- **Round anything that could come out fractional.** Division and scaling produce fractions readily, and a fractional index is rejected rather than quietly truncated. Wrap the calculation in `round()`, `fix()`, `floor()`, or `ceil()`:
+
+  ```matlab
+  round(score / 10)
+  ```
+
+- **Keep the result inside the list.** An index of 0, or one past the end, stops the trial with an error. Clamp it if the inputs could push it out of range:
+
+  ```matlab
+  min(max(round(score / 10), 1), 3)
+  ```
+
+`mod` is a compact way to cycle through the items in order:
+
+```matlab
+mod(trialCount, 3) + 1
+```
+
+Selecting an item this way is different from listing several items with no expression. Without an expression, three items in the Value cell are three trial conditions and get multiplied into the trial set. With an expression, they are a lookup table: the trial count does not grow, and the expression decides which entry is read each trial. The status line shows which item the current values select — for example `Sel = item 2 of 3 (right)`.
+
+Editing the item list afterwards can move the target or push the index out of range, so the status line restates the valid range whenever you change the Value cell.
+
+### When an expression fails
+
+The row is highlighted and the message area shows the error. For index expressions the message names the valid range and suggests `round()` or `fix()` where relevant. Fix the expression and refresh or compile again.
 
 ## Seeing how parameters depend on each other
 
@@ -183,7 +225,7 @@ Read the plot by colour:
 
 - **Blue circle** — calculated from other parameters.
 - **Green square** — a plain value source with no expression.
-- **Grey circle** — the expression never runs at runtime, because the parameter has multiple trial levels or is read-only.
+- **Grey circle** — the expression never runs at runtime, because the parameter has multiple trial levels or is read-only. String and stimulus parameters are not greyed out for having several items, since selecting among them is the whole point of their expression.
 - **Red star** — calculated, but the expression has a problem worth fixing.
 - **Red ✗** — the expression names something that is not a parameter in this protocol.
 - **Orange arrow** — the referenced parameter is set *later* in the trial and changes between trials, so the expression uses the previous trial's value.
@@ -265,6 +307,10 @@ The parameter likely has an expression or value error. Read the status message, 
 ### The Value cell cannot be edited
 
 That is expected for many parameter types. Use the type-specific editor, the expression field, or switch the type if appropriate.
+
+### My expression says the result must be a whole number, or is out of range
+
+The parameter is a string or stimulus parameter, so its expression picks an item from the Value list by position rather than producing a value. Wrap the calculation in `round()` or `fix()` if it can come out fractional, and clamp it — `min(max(round(x), 1), n)` — if it can fall outside `1` to the number of items.
 
 ### Compilation failed
 

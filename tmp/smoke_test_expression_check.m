@@ -170,8 +170,15 @@ if exist(protocolFile, 'file')
         refTokens = {aDelay.refs.token};
         assert(all(ismember({'StimDelay', 'StimDur', 'Params.RespWinPreStim'}, refTokens)), ...
             'RespWinDelay references not fully resolved: %s', strjoin(refTokens, ','));
-        laterRefs = aDelay.refs(ismember(refTokens, {'StimDelay', 'StimDur'}));
-        assert(all([laterRefs.dispatchedAfter]), 'StimDelay/StimDur should be flagged dispatchedAfter');
+        % StimDelay and StimDur are declared after RespWinDelay, but
+        % hw.Parameter.orderByDependencies moves the reader behind the
+        % parameters it reads, so these references are current-trial rather
+        % than stale. This is what makes the 'ok' statuses above correct.
+        readRefs = aDelay.refs(ismember(refTokens, {'StimDelay', 'StimDur'}));
+        assert(~any([readRefs.dispatchedAfter]), ...
+            'dependency ordering should dispatch StimDelay/StimDur before RespWinDelay');
+        assert(all([readRefs.dispatchIndex] < aDelay.dispatchIndex), ...
+            'StimDelay/StimDur must precede RespWinDelay in the dispatch order');
 
         assert(~any([report.issues.severity] == 2), 'unexpected severity-2 issue on example protocol');
 
@@ -202,16 +209,37 @@ try
 
     report = P3.dryRunExpressions(NumTrials = 4);
 
-    staleIssues = report.issues(endsWith({report.issues.field}, '.Calc'));
-    assert(any(contains({staleIssues.message}, 'previous trial')), ...
-        'missing stale-reference warning for Calc');
+    % Calc is declared before Vary, which it reads. Dependency ordering
+    % dispatches Vary first, so the read is current — not stale.
+    calcIssues = report.issues(endsWith({report.issues.field}, '.Calc'));
+    assert(~any(contains({calcIssues.message}, 'previous trial')), ...
+        'Calc reads a reordered parameter and must not be reported stale');
     calcRecs = report.trials(endsWith({report.trials.parameter}, '.Calc'));
-    assert(any(strcmp({calcRecs.status}, 'stale')), 'Calc records not flagged stale');
+    assert(~any(strcmp({calcRecs.status}, 'stale')), ...
+        'Calc records should not be flagged stale once dispatch is dependency-ordered');
 
     clampRecs = report.trials(endsWith({report.trials.parameter}, '.Clamped'));
     assert(any(~isnan([clampRecs.clampedTo])), 'Clamped records show no clamping');
     clampIssues = report.issues(endsWith({report.issues.field}, '.Clamped'));
     assert(any(contains({clampIssues.message}, 'clamped')), 'missing clamp warning');
+
+    % A reference cycle is the case ordering cannot fix: orderByDependencies
+    % falls back to declared order, so one member necessarily reads the other's
+    % previous-trial value. This is the remaining path to a 'stale' finding.
+    P3b = epsych.Protocol;
+    pAlpha = P3b.addParameter('Software', 'Alpha', 0);
+    pAlpha.Expression = "Beta + 1";
+    pBeta = P3b.addParameter('Software', 'Beta', 0, Min=0, Max=10);
+    pBeta.Expression = "Alpha * 2";
+    pBeta.isRandom = true;   % makes Beta vary across trials, so the lag matters
+
+    cycleReport = P3b.dryRunExpressions(NumTrials = 4);
+
+    alphaIssues = cycleReport.issues(endsWith({cycleReport.issues.field}, '.Alpha'));
+    assert(any(contains({alphaIssues.message}, 'previous trial')), ...
+        'missing stale-reference warning for the cycle member Alpha');
+    alphaRecs = cycleReport.trials(endsWith({cycleReport.trials.parameter}, '.Alpha'));
+    assert(any(strcmp({alphaRecs.status}, 'stale')), 'Alpha records not flagged stale');
 
     fprintf('PASS: C2. stale-reference and clamp detection\n');
 catch ME

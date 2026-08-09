@@ -13,7 +13,8 @@ Primary method files:
 - `all_parameters.m`, `find_parameter.m`, `filter_parameters.m` — parameter queries
 - `dispatchNextTrial.m`, `resolveCoreParameters.m` — trial dispatch
 - `updateTrialsFromParameters.m` — trial-table sync
-- `writeParametersJSON.m`, `readParametersJSON.m`, `createTemplateJSON.m` — phase/parameter persistence
+- `writeParametersProtocol.m`, `readParameters.m`, `phaseParameterData.m` — phase persistence (phases are protocol files)
+- `writeParametersJSON.m`, `readParametersJSON.m`, `createTemplateJSON.m` — legacy JSON phase format
 
 ## Responsibilities
 
@@ -29,6 +30,7 @@ Primary method files:
 | Property | Meaning |
 | --- | --- |
 | `Interfaces` | The `hw.Interface` array borrowed from the protocol. Assigning this property connects any disconnected interface and sets each interface's `Runtime` back-reference. |
+| `Protocol` | The session `epsych.Protocol` whose `Interfaces` this runtime borrows (assigned by `RunExpt.ExptDispatch`). Because the parameter handles are shared, serializing it snapshots the live session — this is how `writeParametersProtocol` saves a phase. |
 | `TRIALS` | Per-subject struct array of trial state (see below). The first assignment resolves `CORE` triggers, dispatches trial #1 for each subject, caches `P`, and records `StartTime`; later assignments (e.g., mid-run syncs) do not re-trigger hardware. |
 | `CORE` | Per-subject cached handles to the required trigger parameters `NewTrial`, `ResetTrig`, `TrialComplete`. |
 | `P` | Cached struct of all parameters (keyed by `validName`), populated when `TRIALS` is first set. GUI components use this instead of repeating lookups. |
@@ -39,7 +41,7 @@ Primary method files:
 | `DataFile`, `TempDataDir`, `dfltDataPath` | Crash-recovery file paths and default data directory. |
 | `StartTime` | Session start `datetime`. |
 
-Note: `epsych.Runtime` subclasses `dynamicprops`, so some workflows attach extra properties at runtime — for example `readParametersJSON` adds a `Phase` property that logs which phase files were loaded and when.
+Note: `epsych.Runtime` subclasses `dynamicprops`, so some workflows attach extra properties at runtime — for example `readParameters` adds a `Phase` property that logs which phase files were loaded and when.
 
 ### Ownership of hardware interfaces
 
@@ -130,15 +132,23 @@ Per subject, in order:
 3. fire `CORE.NewTrial`
 4. broadcast the `NewTrial` event with an `epsych.TrialsData` payload
 
-## Phase / parameter persistence (JSON)
+## Phase persistence (phases are protocols)
+
+Phases and protocols share one format: saving a phase serializes the session's `epsych.Protocol` to an `.eprot` file, and loading a phase reads a protocol file and applies its parameters to the live session.
 
 ```matlab
-r.writeParametersJSON('phase_A.json');   % snapshot current parameters
-P = r.readParametersJSON('phase_A.json');% restore values; returns resolved hw.Parameter array
-epsych.Runtime.createTemplateJSON('template.json'); % starter file
+r.writeParametersProtocol('phase_A.eprot', 'Shaping stage'); % snapshot the session as a protocol
+P = r.readParameters('phase_A.eprot');  % restore values; returns resolved hw.Parameter array
+[pd, md] = epsych.Runtime.phaseParameterData('phase_A.eprot'); % inspect without applying
 ```
 
-These files back the **experiment phase** workflow: parameter sets saved per training phase and reloaded between blocks without restarting the session. `gui.PhaseSelector` provides the GUI for this (see [../gui/](../gui/)). Loaded phases are logged in the dynamic `Phase` property with a timestamp and source path.
+Because `Interfaces` are the protocol's own handles, `writeParametersProtocol` captures the live parameter values exactly, without mutating the live protocol's metadata; the saved file records the source protocol's version and opens anywhere a protocol does, including `epsych.ProtocolDesigner`. `readParameters` matches each saved parameter to a live interface by `ParentType` and by `Name`, restores metadata, design-time `Values`, and `Value` (an `Expression` in the file, or preserved from the live parameter when the file has none, takes precedence over the saved literal), and skips entries with no live match.
+
+When a session is running, `readParameters` also sets `TRIALS.RECOMPILE_REQUESTED` for subjects running the session protocol, so `ep_TimerFcn_RunTime` recompiles the protocol at the next safe trial boundary and regenerates `TRIALS.trials` from the loaded phase's design-time `Values` and `Expressions` — a phase load is a full protocol swap, not just a value patch. (Current values are still synced into the existing trial table immediately via `updateTrialsFromParameters`, covering trials dispatched before the boundary.)
+
+These files back the **experiment phase** workflow: parameter sets saved per training phase and reloaded between blocks without restarting the session. `gui.PhaseSelector` provides the GUI for this (see [../gui/](../gui/)). Loaded phases are logged in the dynamic `Phase` property with a timestamp, source path, and `Source` tag (`"Protocol"` or `"JSON"`).
+
+Legacy JSON snapshots written by `writeParametersJSON` remain loadable through the same `readParameters` path (`readParametersJSON` is now a back-compat wrapper), and `epsych.Runtime.createTemplateJSON` still writes a starter file for the JSON format.
 
 ## Typical usage
 

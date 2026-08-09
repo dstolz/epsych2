@@ -43,6 +43,10 @@ for i = 1:nSubjs
     T(i).Subject       = C.SUBJECT;
     T(i).BoxID         = C.SUBJECT.BoxID;
 
+    % The safe-boundary recompile (ep_TimerFcn_RunTime) recompiles this
+    % handle when RECOMPILE_REQUESTED is set (operator request or phase load).
+    T(i).protocol      = C.PROTOCOL;
+
     T(i).FORCE_TRIAL = false;
     T(i).RECOMPILE_REQUESTED = false;
 

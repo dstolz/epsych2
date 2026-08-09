@@ -79,6 +79,11 @@ switch COMMAND
             % If protocol was designed with Software only, create minimal hardware
             protocol_interfaces = self.CONFIG(1).PROTOCOL.Interfaces;
 
+            % Phase saves serialize this protocol (writeParametersProtocol).
+            % Interfaces come from subject 1's protocol, so phases snapshot
+            % that protocol as well.
+            self.RUNTIME.Protocol = self.CONFIG(1).PROTOCOL;
+
             % Seed Intan interfaces from prefs before connecting: the settings
             % file loads inside setup_interface, which the assignment below
             % triggers.

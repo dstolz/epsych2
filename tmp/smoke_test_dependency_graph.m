@@ -105,7 +105,7 @@ end
 try
     P = epsych.Protocol;
     pCalc = P.addParameter('Software', 'Calc', 0);
-    pCalc.Expression = "Vary + 1";            % Vary is dispatched later
+    pCalc.Expression = "Vary + 1";            % declared before Vary, reordered after it
     P.addParameter('Software', 'Vary', [10 20]);
     pMiss = P.addParameter('Software', 'Missing', 0);
     pMiss.Expression = "Nope.Nada + 1";
@@ -129,9 +129,13 @@ try
     % Bad has a bare self-reference and no resolvable refs, so it is isolated
     assert(any(endsWith(gd.meta.isolated, '.Bad')), 'Bad should be isolated');
 
+    % Calc is declared before Vary but reads it, so hw.Parameter.orderByDependencies
+    % dispatches Vary first and the edge is an ordinary current-trial dependency.
+    % Staleness now survives only where reordering cannot help — inside a
+    % reference cycle, which section F covers as the 'cycle' category.
     edgeCat = @(sLbl, tLbl) gd.edges(arrayfun(@(e) e.source == byLabel(sLbl) && e.target == byLabel(tLbl), gd.edges)).category;
-    assert(strcmp(edgeCat('Params.Vary', 'Params.Calc'), 'stale'), ...
-        'Vary->Calc should be stale, got %s', edgeCat('Params.Vary', 'Params.Calc'));
+    assert(strcmp(edgeCat('Params.Vary', 'Params.Calc'), 'normal'), ...
+        'Vary->Calc should be a normal dependency, got %s', edgeCat('Params.Vary', 'Params.Calc'));
     assert(strcmp(edgeCat('Nope.Nada', 'Params.Missing'), 'missing'), 'missing edge not classified');
 
     fprintf('PASS: E. stale / missing / dormant / problem classification\n');

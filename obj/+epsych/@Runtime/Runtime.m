@@ -15,8 +15,10 @@ classdef Runtime < handle & dynamicprops
     %
     % Key methods:
     %   Runtime                    - Construct an empty runtime container
-    %   writeParametersJSON        - Serialize runtime parameters to JSON
-    %   readParametersJSON         - Load runtime parameters from JSON
+    %   writeParametersProtocol    - Save the current session as a protocol (.eprot) phase file
+    %   readParameters             - Load a phase file (.eprot/.prot or legacy .json)
+    %   writeParametersJSON        - Serialize runtime parameters to JSON (legacy phase format)
+    %   readParametersJSON         - Back-compat wrapper for readParameters
     %   all_parameters             - Retrieve all hardware/software parameters
     %   updateTrialsFromParameters - Sync writable TRIALS fields from parameters
     %   createTemplateJSON         - Create a template JSON for parameter files
@@ -24,7 +26,7 @@ classdef Runtime < handle & dynamicprops
     % Usage:
     %   r = epsych.Runtime;
     %   r.NSubjects = 2;
-    %   r.writeParametersJSON('params.json');
+    %   r.writeParametersProtocol('phase_A.eprot');
     %
     % See also: documentation/epsych/epsych_Runtime.md
 
@@ -45,6 +47,8 @@ classdef Runtime < handle & dynamicprops
         SessionDataFilename (1,:) string = strings(1,0) % Per-subject data file paths reserved before the run starts, so the save function and the video recorder agree on one name
 
         Interfaces        % Cell array of hardware and software interfaces (e.g., hw.TDT_RPcox, hw.Software)
+
+        Protocol epsych.Protocol {mustBeScalarOrEmpty} = epsych.Protocol.empty % Session protocol whose Interfaces this runtime borrows; phases are saved by serializing it (writeParametersProtocol)
  
         CORE              % Runtime core or struct-compatible
         P                % Cached hw.Parameter array for all parameters in use (struct form)
@@ -70,8 +74,10 @@ classdef Runtime < handle & dynamicprops
 
 
     methods
-        writeParametersJSON(obj, filepath)      % Serialize runtime parameters to a JSON file.
-        P = readParametersJSON(obj, filepath)   % Load runtime parameters from a JSON file; returns the resolved hw.Parameter array.
+        writeParametersJSON(obj, filepath)      % Serialize runtime parameters to a JSON file (legacy phase format).
+        writeParametersProtocol(obj, filepath, description) % Save the current session as a protocol (.eprot) phase file.
+        P = readParametersJSON(obj, filepath)   % Back-compat wrapper for readParameters.
+        P = readParameters(obj, filepath)       % Load a phase file (.eprot/.prot or legacy .json); returns the resolved hw.Parameter array.
         dispatchNextTrial(obj, subjectIdx)      % Dispatch the already selected next trial for one subject.
         resolveCoreParameters(obj, subjectIdx)  % Locate and cache mandatory trigger parameters (NewTrial, ResetTrig, TrialComplete) for one subject.
 
@@ -152,6 +158,7 @@ classdef Runtime < handle & dynamicprops
     methods (Static)
         tf = local_test(fcn, val, pat)      % Normalize any comparison result to a logical scalar.
         createTemplateJSON(filepath)        % Write a template JSON file with example hw.Parameter fields to disk.
+        [paramData, metadata] = phaseParameterData(filepath) % Parse a phase file (.eprot/.prot or legacy .json) into uniform parameter structs.
     end
 end
 

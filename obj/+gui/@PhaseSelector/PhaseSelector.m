@@ -1,13 +1,18 @@
 classdef PhaseSelector < handle
     % PhaseSelector(RUNTIME, PhasePath)
-    % GUI component for selecting and saving experimental phase parameter sets.
+    % GUI component for selecting and saving experimental phases.
     %
-    % Loads JSON files from a directory, provides dropdown for phase selection, and button for saving current parameters.
-    % Selecting a phase in the dropdown prints its parameter changes to the command window.
+    % Phases and protocols share one format: a phase file is a protocol file
+    % (.eprot/.prot; see epsych.Protocol). Saving a phase serializes the session's
+    % protocol with the current parameter values (Runtime.writeParametersProtocol);
+    % loading a phase reads a protocol and applies its parameters to the live
+    % session (Runtime.readParameters). Legacy JSON parameter snapshots remain
+    % loadable. Selecting a phase in the dropdown prints its parameter changes to
+    % the command window.
     %
     % Parameters:
     %   RUNTIME   - Main runtime object with read/write parameter methods.
-    %   PhasePath - (optional) Directory containing phase JSON files.
+    %   PhasePath - (optional) Directory containing phase files.
     %
     % Example:
     %   ps = gui.PhaseSelector(RUNTIME, 'C:\path\to\phase_files');
@@ -15,7 +20,7 @@ classdef PhaseSelector < handle
     %   ps.addPhaseSelect(parentUI, [10 10 150 30]);
     %
     % Properties:
-    %   PhasePath      - Directory containing phase JSON files.
+    %   PhasePath      - Directory containing phase files.
     %   CurrentPhase   - Index of currently loaded phase.
     %   h_PhaseSelect  - Handle to dropdown UI control.
     %   h_LoadPhase    - Handle to load button UI control.
@@ -35,18 +40,18 @@ classdef PhaseSelector < handle
     %   addLoadPhaseButton     - Add button UI control for loading the selected phase.
     %   addSavePhaseButton     - Add button UI control for saving phase parameters.
     %   createGUI              - Create dropdown and button UI controls for phase selection, loading, and saving.
-    %   findPhaseFiles         - Load JSON files from PhasePath and update Names and FullFilenames.
+    %   findPhaseFiles         - Load phase files from PhasePath and update Names and FullFilenames.
     %   onPhaseSelectionChanged- Callback for dropdown value change; updates state without loading, and prints the phase's parameter changes.
     %   loadPhaseParameters    - Load parameters from the selected phase file into the runtime.
     %   showPhaseInfo          - Print a table of the parameter changes the selected phase would apply.
     %   set.PhasePath          - Set method for PhasePath property, loads phase files from new path.
-    %   writePhaseParameters   - Save current hardware and software parameters to a new JSON file.
+    %   writePhaseParameters   - Save the current session as a protocol (.eprot) phase file.
     %   withLastLoaded         - Append the most-recently-loaded phase file name and load time to info text.
     %
     % See also: documentation/overviews/Architecture_Overview.md
 
     properties (SetObservable)
-        PhasePath (1,1) string % Directory containing phase JSON files
+        PhasePath (1,1) string % Directory containing phase files (.eprot/.prot protocols; legacy .json)
         CurrentPhase (1,1) uint8 = 0 % Index of currently loaded phase (0 = no phase)
         h_PhaseSelect           % Handle to dropdown UI control
         h_LoadPhase             % Handle to load button UI control
@@ -73,7 +78,7 @@ classdef PhaseSelector < handle
             %
             % Parameters:
             %   RUNTIME   - Main runtime object
-            %   PhasePath - (optional) Directory containing phase JSON files
+            %   PhasePath - (optional) Directory containing phase files
             arguments
                 RUNTIME
                 PhasePath (1,1) string = ""
@@ -88,7 +93,7 @@ classdef PhaseSelector < handle
             % Set method for PhasePath property. Loads phase files from new path.
             %
             % Parameters:
-            %   newPath - New directory path for phase JSON files
+            %   newPath - New directory path for phase files
             obj.PhasePath = newPath;
             obj.findPhaseFiles();
         end
@@ -96,13 +101,15 @@ classdef PhaseSelector < handle
 
         function findPhaseFiles(obj)
             % findPhaseFiles(obj)
-            % Loads JSON files from PhasePath and updates Names and FullFilenames.
+            % Loads phase files (.eprot/.prot protocols, plus legacy .json snapshots)
+            % from PhasePath and updates Names and FullFilenames.
             % Prompts user to select directory if PhasePath is not set or invalid.
             %
             % Updates:
             %   obj.Names, obj.FullFilenames
             if obj.PhasePath == ""
-                [fn,pth] = uigetfile('*.json','Select Directory Containing Phase JSON Files','MultiSelect','off');
+                [fn,pth] = uigetfile({'*.eprot;*.prot;*.json','Phase Files (*.eprot, *.prot, *.json)'}, ...
+                    'Select Directory Containing Phase Files','MultiSelect','off');
                 if isequal(fn,0) || isequal(pth,0)
                     vprintf(3,'User canceled directory selection. No phase files loaded.')
                     return
@@ -112,8 +119,14 @@ classdef PhaseSelector < handle
 
             assert(isfolder(obj.PhasePath), 'PhasePath must be a valid directory. Provided: "%s"', obj.PhasePath)
 
-            jsonFiles = dir(fullfile(obj.PhasePath, '*.json'));
-            nFiles = numel(jsonFiles);
+            phaseFiles = [dir(fullfile(obj.PhasePath, '*.eprot')); ...
+                          dir(fullfile(obj.PhasePath, '*.prot')); ...
+                          dir(fullfile(obj.PhasePath, '*.json'))];
+            % One alphabetical list regardless of extension, so a phase keeps its
+            % dropdown position when it is resaved in the protocol format.
+            [~, order] = sort(lower({phaseFiles.name}));
+            phaseFiles = phaseFiles(order);
+            nFiles = numel(phaseFiles);
 
             % Always prepend the null/default phase
             obj.Names = ["< Select Phase >"];
@@ -121,9 +134,9 @@ classdef PhaseSelector < handle
             obj.FullFilenames = strings(1, 0); % always string array
 
             if nFiles > 0
-                obj.Filenames = string({jsonFiles.name});
-                obj.FullFilenames = string(fullfile({jsonFiles.folder}, {jsonFiles.name}));
-                [~,names, ~] = fileparts(string({jsonFiles.name}));
+                obj.Filenames = string({phaseFiles.name});
+                obj.FullFilenames = string(fullfile({phaseFiles.folder}, {phaseFiles.name}));
+                [~,names, ~] = fileparts(string({phaseFiles.name}));
                 obj.Names = ["< Select Phase >", names];
                 % Do NOT prepend empty string to Filenames/FullFilenames (mustBeFile constraint)
                 vprintf(3, 'Found %d phase files from "%s".', nFiles, obj.PhasePath)
@@ -131,27 +144,30 @@ classdef PhaseSelector < handle
                 % No files: use string.empty for Filenames/FullFilenames (valid for mustBeFile)
                 obj.Filenames = string.empty;
                 obj.FullFilenames = string.empty;
-                vprintf(3, 'No JSON files found in PhasePath: "%s".', obj.PhasePath)
+                vprintf(3, 'No phase files found in PhasePath: "%s".', obj.PhasePath)
             end
         end
 
 
         function writePhaseParameters(obj, src)
             % writePhaseParameters(obj, src)
-            % Save current hardware and software parameters to a new JSON file.
-            % Prompts user for a description and file location.
+            % Save the current session as a protocol (.eprot) phase file.
+            % Prompts user for a file location. Because the runtime borrows the
+            % session protocol's parameter handles, the saved protocol is an exact
+            % snapshot of the current parameter values, and the file can also be
+            % opened and edited in epsych.ProtocolDesigner.
             %
             % Parameters:
             %   src - Source UI control (unused)
             %
-            % See also: documentation/overviews/Architecture_Overview.md
+            % See also: epsych.Runtime.writeParametersProtocol
 
             % Use obj.PhasePath as default save path if set, else current directory
             defaultPath = '.';
             if ~isempty(obj.PhasePath) && isfolder(obj.PhasePath)
                 defaultPath = obj.PhasePath;
             end
-            [fn,pth] = uiputfile('*.json','Save Current Parameters', defaultPath);
+            [fn,pth] = uiputfile({'*.eprot','Phase Protocol (*.eprot)'},'Save Current Parameters', defaultPath);
             if isequal(fn,0) || isequal(pth,0)
                 vprintf(3,'User canceled save operation.');
                 return
@@ -160,24 +176,7 @@ classdef PhaseSelector < handle
             filepath = fullfile(pth, fn);
             [~,fn] = fileparts(filepath);
             vprintf(0, 'Writing current parameters to "%s" (%s)', fn, filepath)
-            obj.RUNTIME.writeParametersJSON(filepath);
-            % obj.RUNTIME.writeParametersJSON(filepath, description);
-
-            % Phase files are meant to be static parameter snapshots, so strip any
-            % recorded Expression (parameter linkage) before the file is used for a phase.
-            try
-                data = jsondecode(fileread(filepath));
-                if isfield(data, 'Parameters')
-                    for k = 1:numel(data.Parameters)
-                        data.Parameters(k).Expression = "";
-                    end
-                    fid = fopen(filepath, 'w');
-                    fwrite(fid, jsonencode(data, PrettyPrint=true), 'char');
-                    fclose(fid);
-                end
-            catch ME
-                vprintf(0,1,ME);
-            end
+            obj.RUNTIME.writeParametersProtocol(filepath);
 
             % Refresh phase file list and update dropdown if it exists
             obj.findPhaseFiles();
@@ -223,7 +222,10 @@ classdef PhaseSelector < handle
             % loadPhaseParameters(obj)
             % Load parameters from the currently selected phase file into the runtime.
             % Invoked by the Load button. Reads the selection from the dropdown, applies the
-            % resolved parameters to TRIALS, and updates the description.
+            % resolved parameters to TRIALS, and updates the description. readParameters
+            % also schedules a protocol recompile at the next safe trial boundary, so
+            % design-time changes carried by the phase (Values lists, Expressions)
+            % regenerate the trial table rather than only patching current values.
             %
             % Updates:
             %   obj.CurrentPhase
@@ -245,14 +247,14 @@ classdef PhaseSelector < handle
             closeDlg = onCleanup(@() obj.closeLoadDialog(dlg));
 
             % Snapshot the current value of every parameter this phase targets BEFORE the
-            % load mutates them (readParametersJSON writes the live parameters in place). We
+            % load mutates them (readParameters writes the live parameters in place). We
             % use it below to keep only the parameters the phase actually changes.
             before = obj.resolvePhaseAgainstRuntime(filepath);
 
-            % readParametersJSON resolves the file entries to live parameters and returns them
+            % readParameters resolves the file entries to live parameters and returns them
             % (with restored values). Use the returned set directly; re-reading via all_parameters
             % here would discard the loaded values.
-            P = obj.RUNTIME.readParametersJSON(filepath);
+            P = obj.RUNTIME.readParameters(filepath);
 
             % REMOVE TRIALTYPE
             P(string({P.Name}) == "TrialType") = [];
@@ -510,7 +512,7 @@ classdef PhaseSelector < handle
         function T = computePhaseChanges(obj, filepath)
             % T = computePhaseChanges(obj, filepath)
             % Compute, without applying anything, which live parameters would change if the
-            % phase file were loaded. Mirrors the resolution used by readParametersJSON but
+            % phase file were loaded. Mirrors the resolution used by readParameters but
             % only reads current parameter values, so it is safe to call at any time.
             %
             % Returns:
@@ -552,10 +554,10 @@ classdef PhaseSelector < handle
             % apply. Non-destructive: nothing is written to the runtime, so this is safe both
             % for previewing changes (computePhaseChanges) and for deciding which parameters an
             % actual load must update (loadPhaseParameters). Matches the resolution used by
-            % readParametersJSON (interface by ParentType, parameter by Name).
+            % readParameters (interface by ParentType, parameter by Name).
             %
             % Parameters:
-            %   filepath - Full path to a phase JSON file.
+            %   filepath - Full path to a phase file (.eprot/.prot or legacy .json).
             %
             % Returns:
             %   R - struct array (empty if nothing resolves) with fields:
@@ -572,11 +574,10 @@ classdef PhaseSelector < handle
 
             R = struct('Param', {}, 'ParentType', {}, 'Current', {}, 'HasCurrent', {}, 'New', {});
 
-            data = jsondecode(fileread(filepath));
-            if ~isfield(data,'Parameters') || ~isstruct(data.Parameters)
+            paramData = epsych.Runtime.phaseParameterData(filepath);
+            if isempty(paramData)
                 return
             end
-            paramData = data.Parameters;
 
             interfaceTypes = arrayfun(@(x) string(x.Type), obj.RUNTIME.Interfaces);
 
@@ -618,7 +619,7 @@ classdef PhaseSelector < handle
             % pre-load snapshot captured by resolvePhaseAgainstRuntime.
             %
             % Parameters:
-            %   P      - hw.Parameter array returned by readParametersJSON (already loaded).
+            %   P      - hw.Parameter array returned by readParameters (already loaded).
             %   before - struct array from resolvePhaseAgainstRuntime (pre-load snapshot).
             %
             % Returns:
@@ -645,7 +646,7 @@ classdef PhaseSelector < handle
         function v = resolveFileValue(~, S)
             % v = resolveFileValue(~, S)
             % Determine the value a phase-file parameter entry would apply, mirroring
-            % readParametersJSON: fromStruct restores the literal Value, then an Expression
+            % readParameters: fromStruct restores the literal Value, then an Expression
             % with Values overrides it with its first evaluated level.
             hasExpr = isfield(S,'Expression') && strlength(string(S.Expression)) > 0;
             if isfield(S,'Values')

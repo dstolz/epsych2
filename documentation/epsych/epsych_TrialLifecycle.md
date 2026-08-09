@@ -221,7 +221,7 @@ Appended to .mat file
 
 ### Parameter Persistence (JSON)
 
-Parameters can be saved to and loaded from JSON files using `Runtime.writeParametersJSON` / `Runtime.readParametersJSON`. This supports **experiment phases** where parameter settings change between blocks without restarting the session. Each loaded phase is tracked in `RUNTIME.Phase` with a timestamp and source path.
+Parameters can be saved to and loaded from phase files using `Runtime.writeParametersProtocol` / `Runtime.readParameters`. Phases and protocols share one format — saving a phase serializes the session's protocol to an `.eprot` file, and loading a phase reads a protocol file (legacy JSON snapshots also load) and schedules a safe-boundary recompile so the phase's trial structure takes effect at the next trial boundary. This supports **experiment phases** where parameter settings change between blocks without restarting the session. Each loaded phase is tracked in `RUNTIME.Phase` with a timestamp and source path.
 
 The `updateTrialsFromParameters` method syncs writable `TRIALS` fields from current parameter values, keeping the trials matrix consistent with any runtime parameter adjustments.
 

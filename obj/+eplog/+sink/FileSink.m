@@ -94,6 +94,21 @@ classdef (Abstract) FileSink < eplog.sink.Sink
             end
         end
 
+        function p = expectedPath(obj)
+            % p = expectedPath(obj)
+            % Where the NEXT record will be written.
+            %
+            % Path reports the file currently open, which is empty before the
+            % first record and stale on a rig left running past midnight.
+            % Consumers that offer to open "the current log" -- RunExpt's Help
+            % menu, the SelfTest window, SelfTest check A4 -- want today's
+            % file, whether or not anything has been written to it yet.
+            %
+            % clock, not datetime: fileName_ takes the same vector the write
+            % path passes, so the two cannot disagree about the day.
+            p = fullfile(obj.Dir,obj.fileName_(clock));
+        end
+
         function flush(obj)
             % Close and reopen in append mode: MATLAB has no fflush, so this
             % is the only way to guarantee the bytes reached disk.

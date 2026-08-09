@@ -181,15 +181,13 @@ classdef Logger < handle
         end
 
         function p = get.LogFile(obj)
+            % Where the next record will land, not where the last one went:
+            % callers use this to open "the current log", which must name a
+            % file even before anything has been written today.
             p = '';
             fs = obj.sinkOfType('eplog.sink.FileSink');
             if ~isempty(fs)
-                p = fs.Path;
-                if isempty(p)
-                    % Nothing logged yet, so no file is open. Report where the
-                    % next record will land rather than an empty string.
-                    p = fullfile(fs.Dir,'');
-                end
+                p = fs.expectedPath();
             end
         end
 

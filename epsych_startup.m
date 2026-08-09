@@ -75,6 +75,13 @@ addpath(subdirs);
 path(path)
 fprintf(' done\n')
 
+% Rebuild the session logger now that the path is set. A file sink captures
+% its directory when it is constructed, so a logger created against an older
+% root -- or created before this repository was on the path at all, when
+% eplog.defaultLogDir falls back to tempdir -- would keep writing there for
+% the rest of the session.
+eplog.Logger.instance('-reset');
+
 check_submodules(rootdir);
 
 vprintf(-1,'EPsych Toolbox version %s',EPsychInfo.Version);

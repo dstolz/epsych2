@@ -75,6 +75,8 @@ The default saving function is interactive, so the self-test deliberately does n
 
 Every check writes its full detail to the daily log under `.error_logs/`, at a level that always logs regardless of the verbosity you choose. That means a self-test run is fully reconstructable after the fact even if the console was set to show nothing.
 
+The **Open Log** button flushes the logger before opening the file, so the run you just finished is on disk and not still in a buffer. The log check (A4) reports which destinations are active, and fails with a specific remedy if the file sink has disabled itself after a write failure — see [eplog](../eplog/eplog_Logging.md).
+
 The **Verbosity** dropdown sets the level forced for the duration of the run, so nested code — protocol compilation, the trial selector, hardware connection — also emits its detailed messages. The previous level is restored when the run finishes. Level 3 is the default and is the right choice when you are diagnosing something.
 
 ## 6) Running it from the command line

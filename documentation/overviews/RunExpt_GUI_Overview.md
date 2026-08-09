@@ -191,6 +191,8 @@ All customization lives in a single dialog: **Customize → Customize...**. Valu
 | Video Recording Path | Root folder for webcam recordings made with the **Record video** checkbox. Files are saved to `<root>\<subject>\<subject>_<yyMMddTHHmmss>.ts`. Leave empty to fall back to the Data Path. | — |
 | Intan Recording Path | Root folder for Intan RHX recordings when an `hw.Intan_RHX` interface is in the protocol. Files save under `<root>\<subject>\` named after the data file (RHX appends its own `_<timestamp>`). **Must contain no spaces.** Leave empty to fall back to the Data Path. | — |
 | Intan Settings File | RHX `.xml` settings file loaded when the Intan interface connects. **Must contain no spaces.** Leave empty to load none. | — |
+| Error Log Path | Directory the daily EPsych error log is written to. **Must be an absolute path.** Leave empty for the default. | `<EPsych root>\.error_logs` |
+| Error Log Viewer | Application used by **Help → Open Current Error Log (External Viewer)**. Leave empty for the platform default. | `notepad.exe` (Windows) |
 | Timer Period (s) | PsychTimer callback period (0.001–1 s). | 0.01 |
 
 If the Box GUI function is empty or disabled, the session can still run; you just will not get a live performance GUI.
@@ -208,10 +210,11 @@ The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` 
   - The item is disabled while a session is RUNNING, because opening or closing the view restarts VLC and would stall the trial loop. A view opened before **Run** stays open through a session; if that session is recording, the recording takes over the camera and the live view closes.
 - **Help**:
   - Version Info — toolbox version, git commit, and links.
-  - Open Current Error Log — opens today's EPsych error log file.
+  - Open Current Error Log — flushes the logger and opens today's EPsych error log file, creating it if nothing has been logged yet. The file opens through the operating system's `.txt` association.
+  - Open Current Error Log (External Viewer) — the same file, handed to the application named in **Customize → Paths → Error Log Viewer** (`notepad.exe` by default on Windows). Use this on machines where MATLAB owns the `.txt` association and the item above would put the log in the MATLAB editor. The log's location follows **Customize → Paths → Error Log Path**.
   - Run Self-Test... (`Ctrl+D`) — pre-flight checks against the loaded session: protocol compilation, required trigger parameters, trial selection, data paths, hardware, and GUI wiring. Each check reports pass/fail with what to do about it. See [RunExpt_SelfTest.md](RunExpt_SelfTest.md).
   - Assign RUNTIME to Command Window — exports the live `RUNTIME` object to the base workspace for inspection (enabled while hardware is active).
-  - Verbosity... — sets how much detail EPsych prints to the command window.
+  - Verbosity... — sets how much detail EPsych prints to the command window. Everything at or below the chosen level is also written to the daily log; see [../eplog/eplog_Logging.md](../eplog/eplog_Logging.md).
   - GitHub Repository / Documentation / Commit History Overview — online resources.
 
 ## 9) Keyboard shortcuts

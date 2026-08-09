@@ -103,6 +103,14 @@ Support and task-specific classes
 │  └─ NanoMotorControlGUI
 ├─ util
 │  └─ VideoConverter → gui.VideoConverterSetup
+├─ eplog
+│  ├─ Logger
+│  ├─ Level (int32 enumeration)
+│  └─ sink.Sink
+│     ├─ sink.Console
+│     └─ sink.FileSink
+│        ├─ sink.TextFile
+│        └─ sink.JsonLines
 ├─ helpers
 │  ├─ EPsychInfo
 ├─ cl
@@ -127,6 +135,7 @@ Support and task-specific classes
 | stimgen | `HardwareHost` | `handle` | Abstract contract a host implements to give stimgen GUIs hardware access |
 | stimgen | `calibration.HwAdapter` | `handle` | Abstract play/record contract for the calibration engine |
 | gui | `Helper` | `handle` | Shared GUI helper base |
+| eplog | `sink.Sink` | `handle` | Abstract log destination behind `vprintf` |
 
 The `stimgen` package is a git submodule (see [../stimgen.md](../stimgen.md)) and
 has no dependency on EPsych. EPsych implements its two abstract classes in

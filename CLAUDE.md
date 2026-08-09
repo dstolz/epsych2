@@ -172,8 +172,21 @@ re-uploading the state table.
 - RPco.x connection (TDTRP) and RPvds tag reading (ReadRPvdsTags)
 - Synapse SDK (SynapseAPI/)
 
+#### obj/+eplog/ – Logging
+The machinery behind vprintf; almost nothing should call it directly.
+- **eplog.isEnabled**: the verbosity gate, and the only interpreter of GVerbosity
+- **eplog.Logger**: session singleton; builds one record per message and dispatches
+  to its sinks. `instance()`, `emit`, `flush`, `addSink`, `LogFile`
+- **eplog.sink.Console / TextFile / JsonLines**: destinations. FileSink owns the
+  daily .error_logs file — rotation, flush, handle recovery, failure latching
+- **eplog.format / formatException**: message text policy; an exception (or a
+  lasterror/timer-event struct) becomes ONE record at the catch site
+Nothing in the package throws: EPsych logs from inside catch blocks.
+See documentation/eplog/eplog_Logging.md.
+
 #### helpers/ – Shared Utilities
-- **vprintf.m**: Verbosity-gated printing with automatic logging
+- **vprintf.m**: Verbosity-gated printing and logging; a façade over obj/+eplog/
+- **visenabled.m**: The gate alone, for guarding expensive log arguments
 - **EPsychInfo**: Version and git metadata
 - **Trial sequence generators**: randGellerman, RandomTrialSequence, FellowsSeq
 - **GUI helpers**: findFigure, figAlwaysOnTop
@@ -219,10 +232,17 @@ ERROR is reachable from any state.
 
 **Messaging & Logging**
 - Use vprintf(level, msg, ...) for all formatted messages instead of fprintf
-  - Never add \n at end; vprintf adds it automatically
+  - Never add \n at end; each record is its own line and a trailing newline is stripped
   - Examples: vprintf(0,1, 'Error: %s', msg); vprintf(2, 'Debug info')
-  - Level -1 logs only; 0 = critical; 1 = info; 2 = debug; 3 = verbose
-- vprintf automatically logs to .error_logs/ for debugging
+  - Level -1 logs only; 0 = critical; 1 = info; 2 = debug; 3 = verbose; 4 = trace
+- Format policy: **with** values the message is a printf format string; **with no**
+  values it is literal text. Pass runtime-built strings (ME.message, file paths,
+  tool output) as the whole message so '%' and backslashes survive
+- vprintf is a façade over obj/+eplog/, which logs to .error_logs/
+- Never rebuild the log path by hand. `eplog.Logger.instance().LogFile` names the
+  current file; call `flush()` first if something is about to read or open it
+- Guard only genuinely expensive log arguments with `visenabled(level)`; vprintf's
+  own gate already makes a suppressed message ~1 us
 
 **Error Handling**
 - Use try/catch sparingly, only for expected errors
@@ -312,6 +332,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, cl/cl_SaveDataFcn.
 | examples/stimgen/ | Demo protocol/config/TDT circuit assets |
 | obj/+gui/ | GUI components |
 | obj/+teensy/ | Teensy trial programs: state-machine model, compiler, simulator, TrialDesigner GUI |
+| obj/+eplog/ | Logging: verbosity gate, record dispatcher, console/file/JSON sinks |
 | obj/+psychophysics/ | Analysis (Detection, Staircase, BestPEST, MLP) |
 | obj/+peripherals/ | Motor control, pump communication |
 | firmware/ | Microcontroller firmware (EPsychTeensy) |
@@ -337,6 +358,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, cl/cl_SaveDataFcn.
 - **Session walkthrough**: documentation/overviews/RunExpt_GUI_Overview.md
 - **Pre-flight self-test**: documentation/overviews/RunExpt_SelfTest.md
 - **Runtime events**: documentation/epsych/Event_Notifications.md
+- **Logging**: documentation/eplog/eplog_Logging.md, documentation/helpers/helpers_vprintf.md
 - **Architecture**: documentation/overviews/Architecture_Overview.md
 - **Class map**: documentation/overviews/Class_Map.md
 - **Toolbox overview**: documentation/overviews/Toolbox_Overview.md

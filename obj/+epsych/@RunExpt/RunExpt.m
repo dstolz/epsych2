@@ -53,6 +53,7 @@ classdef RunExpt < handle
         DefineAddSubject(self, a)       % Set the add-subject callback function name
         DefineBoxFig(self, a)           % Set the behavioral box figure callback function name
         DefineTimerPeriod(self)         % Set the PsychTimer period (0.001–1 s)
+        DefineLogPath(self)             % Set the directory +eplog writes daily error logs to
 
         OpenCustomizeDialog(self)       % Open unified Customize Settings dialog for all Define* settings
         OpenSelfTest(self)              % Open the pre-flight self-test window
@@ -404,7 +405,7 @@ classdef RunExpt < handle
             commandwindow
         end
 
-        OpenCurrentErrorLog(self)      % Open today's EPsych error log in the OS-associated text editor
+        OpenCurrentErrorLog(self, useExternalViewer)  % Open today's EPsych error log outside the MATLAB editor
 
         verbosity(self, varargin)  % Set or query the global output verbosity level
 
@@ -625,6 +626,24 @@ classdef RunExpt < handle
         saveFigurePosition(position)
         ffn = defaultFilename(pth,name)
         ffn = videoRecordingFilename(rootDir, dataFilename)  % Build the .ts recording path under rootDir that pairs by name with a behavioral data file
+
+        function app = defaultLogViewer()
+            % app = epsych.RunExpt.defaultLogViewer()
+            % The plain-text application to hand the error log to when the
+            % operator asks for it outside MATLAB.
+            %
+            % MATLAB installs itself as the handler for .txt on many machines,
+            % which is exactly what "open this outside the editor" is trying to
+            % escape, so the fallback names a text viewer rather than relying
+            % on the file association.
+            if ispc
+                app = 'notepad.exe';
+            elseif ismac
+                app = 'TextEdit';
+            else
+                app = 'xdg-open';
+            end
+        end
     end
 end
 

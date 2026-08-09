@@ -1,2 +1,7 @@
+# Default destination for the +eplog daily logs, overridden per machine by
+# Customize > Paths > Error Log Path (see eplog.setLogDir). Only this stub is
+# tracked -- it exists so the default directory ships with the clone, while
+# every log written into it stays out of the working tree.
 error_log_*.txt
+error_log_*.jsonl
 selftest_*.txt

@@ -180,8 +180,16 @@ classdef SelfTest < handle
 
         function onOpenLog(self)
             % Open today's error log, which holds the full run-by-run detail.
-            logPath = fullfile(epsych_path, '.error_logs', ...
-                sprintf('error_log_%s.txt', datestr(now,'ddmmmyyyy')));
+            % Flush first: check results are logged at level -1 and would
+            % otherwise still be sitting in the file sink's buffer.
+            L = eplog.Logger.instance();
+            L.flush();
+
+            logPath = L.LogFile;
+            if isempty(logPath)
+                self.setStatus('File logging is disabled for this session.');
+                return
+            end
             if ~isfile(logPath)
                 self.setStatus(sprintf('No log yet at %s', logPath));
                 return

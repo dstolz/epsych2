@@ -3,8 +3,8 @@ function ffn = saveReport(self, results, ffn)
 % ffn = saveReport(self, results, ffn)
 % Write the plain-text report to disk.
 %
-% Reports default to the .error_logs directory alongside the daily vprintf
-% log, so a rig's diagnostics all live in one place.
+% Reports default to the eplog log directory alongside the daily text log,
+% so a rig's diagnostics all live in one place.
 %
 % Parameters:
 %	self	- epsych.SelfTest instance.
@@ -22,7 +22,9 @@ arguments
 end
 
 if strlength(ffn) == 0
-    logDir = fullfile(epsych_path, '.error_logs');
+    % Same directory the logger writes to, resolved the same way, so the
+    % report cannot land somewhere the daily log does not.
+    logDir = eplog.defaultLogDir();
     if ~isfolder(logDir)
         mkdir(logDir);
     end

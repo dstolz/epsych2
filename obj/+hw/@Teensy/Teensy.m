@@ -360,6 +360,18 @@ classdef Teensy < hw.Interface
                 return
             end
 
+            % The SETM grammar carries space-delimited scalars; a stimulus has
+            % no representation on that wire and the firmware has no waveform
+            % output. Named here so the skip reads as intentional rather than
+            % surfacing as formatValue_'s generic "unsupported value type" on
+            % every trial.
+            if hw.Interface.isStimulusValue(value)
+                vprintf(2,['hw.Teensy: "%s" holds a stimulus, which the firmware ' ...
+                    'command grammar cannot express; value kept host-side'], P(1).Name)
+                result = true;
+                return
+            end
+
             if ~iscell(value)
                 value = {value};
             end

@@ -382,6 +382,36 @@ function ok = set_parameter(obj, name, value)
     ok = backendWrite(P(i), value(i));
   end
 end
+```
+
+### Handle stimulus values
+
+A `'StimType'` parameter hands you a `stimgen.StimType` object rather than a
+number, so step 2 above has to recognize one before converting. Doing nothing
+about it is not an option: `double(stim)` and `string(stim)` both throw, and
+they would throw inside the trial dispatch loop.
+
+If your device can play a waveform, take what you need from
+`hw.Interface.stimulusPayload`, passing the module's `Fs` so the signal is
+generated at the device rate:
+
+```matlab
+if hw.Interface.isStimulusValue(v)
+  payload = hw.Interface.stimulusPayload(v, P(i).Module.Fs);
+  ok = backendWriteBuffer(P(i), payload.Signal);   % also: payload.N, payload.Fs
+  continue
+end
+```
+
+If it cannot, say so and move on — the stimulus stays on the `hw.Parameter`,
+where experiment code and GUIs still read it:
+
+```matlab
+if hw.Interface.isStimulusValue(value)
+  vprintf(2, 'hw.MyBackend: "%s" holds a stimulus this device cannot play', P(1).Name);
+  ok = true;
+  return
+end
 
 function value = get_parameter(obj, name)
   if isa(name, 'hw.Parameter')

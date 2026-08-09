@@ -377,6 +377,16 @@ classdef Intan_RHX < hw.Interface
                 return
             end
 
+            % The RHX "set" grammar is two words; a stimulus is neither
+            % expressible on that wire nor something RHX plays. Recognized here
+            % so the value stays host-side instead of failing the string
+            % conversion in sendSet_ mid-dispatch.
+            if hw.Interface.isStimulusValue(value)
+                vprintf(2,['hw.Intan_RHX: "%s" holds a stimulus, which RHX has no ' ...
+                    'command for; value kept host-side'], params(1).Name)
+                return
+            end
+
             % Normalize into one cell entry per parameter. A char/string value
             % is a single value, not one entry per character, so it must not be
             % passed through num2cell.

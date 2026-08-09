@@ -122,8 +122,10 @@ message with `vprintf`. Writing to a read-only parameter raises an error.
 
 `'File'` parameters hold one or more file paths; the Protocol Designer
 provides a dedicated file-list editor for them. `'StimType'` parameters hold
-a `stimgen.StimType` object and are only supported on `hw.Software` parents;
-their values are not pushed to the parent interface on write.
+a `stimgen.StimType` object and are supported on every backend; the stimulus
+object itself is passed to `Parent.set_parameter` like any other value, and
+each backend takes what it needs from it. See
+[Stimulus parameters on hardware](#stimulus-parameters-on-hardware).
 
 `'String'` and `'StimType'` are the two *index-selecting* types
 (`hw.Parameter.expressionSelectsIndex`): an `Expression` on either of them
@@ -135,6 +137,50 @@ has not been checked out, `'StimType'` parameters cannot resolve their class:
 MATLAB substitutes a placeholder struct when loading a saved protocol rather
 than raising an error, so the values are silently degraded. `epsych_startup`
 warns when the submodule is missing.
+
+### Stimulus parameters on hardware
+
+A `'StimType'` parameter is written like any other type. `set.Value` calls
+`Parent.set_parameter(p, stim)` with the `stimgen.StimType` object itself, and
+the backend decides what to make of it — there is no separate stimulus API and
+no per-parameter tag mapping to configure.
+
+Two static helpers on `hw.Interface` are what a backend uses to do that:
+
+| Helper | Purpose |
+|---|---|
+| `hw.Interface.isStimulusValue(value)` | True when the value handed to `set_parameter` is a stimulus. Call it before coercing a value to a number or a string. Array-valued parameters arrive wrapped in a scalar cell, so this unwraps one. |
+| `hw.Interface.stimulusPayload(stim, Fs)` | Reduce a stimulus to a struct of `Signal`, `Fs`, `N`, `Duration`, `SoundLevel`, `Class`, `DisplayName` — one element per stimulus. |
+
+`stimulusPayload` exists because two things are easy to get wrong and should
+not be re-derived per backend:
+
+- **Sample rate.** `stimgen` builds `Signal` against `stim.Fs`, so a stimulus
+  authored at one rate is the wrong duration and pitch on a device running at
+  another. Pass the module's `Fs` and the stimulus is regenerated at the device
+  rate. The rate is assigned on the stimulus itself, so the regeneration
+  happens once rather than on every trial. Pass nothing — or `hw.Module.Fs`
+  still sitting at its 1 Hz "unset" default — to take the stimulus as authored.
+- **Signal freshness.** `Signal` is empty on a freshly constructed or freshly
+  deserialized stimulus, and the rebuild triggered by an `Fs` assignment runs
+  inside a `PostSet` listener, where MATLAB downgrades an error to a warning
+  and leaves the previous signal in place. `stimulusPayload` therefore calls
+  `update_signal` explicitly — the same thing `stimgen.StimPlayer`,
+  `stimgen.StimInspector`, and `stimgen.calibration.Engine` do. A stimulus that
+  cannot be built at the device rate raises
+  `hw:Interface:StimulusGenerationFailed` rather than playing a stale waveform.
+
+#### What each backend does with a stimulus
+
+| Backend | Behavior |
+|---|---|
+| `hw.TDT_RPcox` | Writes the waveform to the parameter's own RPvds tag, generated at the module's `Fs` (which `connect()` reads from the device). `TDTRP.write` bounds the write against the tag's declared size, so a stimulus that overruns the circuit's buffer is reported rather than silently truncated. A parameter holding several stimuli writes the first and says so. |
+| `hw.Software` | Stores it, as with every other type. |
+| `hw.TDT_Synapse`, `hw.Teensy`, `hw.Intan_RHX` | No waveform sink exists on these transports, so the write is logged at verbosity 2 and the stimulus stays on the `hw.Parameter`, where experiment code and GUIs still read it. |
+| `hw.Bpod`, `hw.VlcRecorder` | Fall through their existing "no device write" paths; the value is kept host-side. |
+
+A backend that gains a waveform output later needs no change here — it just
+stops ignoring the value it is already being handed.
 
 ### Trial-level behavior
 
@@ -487,7 +533,8 @@ When you write `p.Value`, the class:
 5. Runs `EvaluatorFcn`, if present.
 6. Clamps numeric values into `[Min, Max]` (per `BoundsInclusive`).
 7. Updates array bookkeeping.
-8. Calls `Parent.set_parameter(p, value)` (skipped for `'StimType'` values).
+8. Calls `Parent.set_parameter(p, value)`. `'StimType'` is no exception: the
+   backend receives the `stimgen.StimType` object itself.
 9. Sets `lastUpdated = now`.
 10. Runs `PostUpdateFcn`, if present.
 

@@ -42,16 +42,7 @@ for colIdx = 1:numel(writeparams)
     end
     module = moduleMap(moduleName);
 
-    % 'StimType' is only legal on an hw.Software parent, and a legacy file can
-    % mix a StimType column with module-qualified names that recover as
-    % TDT_RPcox. Degrade rather than throw part-way through recovery.
     parameterType = obj.inferSerializedParameterType_(trials, colIdx);
-    if isequal(parameterType, 'StimType') && ~isa(interface, 'hw.Software')
-        vprintf(1, ['Protocol recovery: parameter "%s" holds a stimgen.StimType ' ...
-            'but recovered onto %s, which cannot host one. Recovering it as a ' ...
-            'String instead.'], parameterName, class(interface));
-        parameterType = 'String';
-    end
 
     parameter = hw.Parameter(interface, Type = parameterType);
     parameter.Name = parameterName;

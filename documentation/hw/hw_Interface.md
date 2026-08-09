@@ -342,6 +342,40 @@ If `value` is a MATLAB string scalar, it is converted to character data before
 construction so parameter typing stays compatible with current hardware-layer
 conventions.
 
+### `isStimulusValue` / `stimulusPayload`
+
+```matlab
+tf      = hw.Interface.isStimulusValue(value)
+payload = hw.Interface.stimulusPayload(stim)
+payload = hw.Interface.stimulusPayload(stim, Fs)
+```
+
+A `'StimType'` parameter passes the `stimgen.StimType` object itself down to
+`set_parameter`, so every backend must recognize one before coercing a value to
+a number or a string. `isStimulusValue` is that check; it unwraps the scalar
+cell that array-valued parameters arrive in.
+
+`stimulusPayload` reduces a stimulus to a struct of `Signal`, `Fs`, `N`,
+`Duration`, `SoundLevel`, `Class`, and `DisplayName` — one element per stimulus.
+Pass the owning module's `Fs` to have the waveform regenerated at the device
+rate; a stimulus that cannot be built at that rate raises
+`hw:Interface:StimulusGenerationFailed`.
+
+A backend with a waveform sink implements this in two lines:
+
+```matlab
+if hw.Interface.isStimulusValue(v)
+    payload = hw.Interface.stimulusPayload(v, p.Module.Fs);
+    e = hwHandle.write(tagName, payload.Signal);
+    continue
+end
+```
+
+A backend without one recognizes the value and keeps it host-side rather than
+failing its numeric conversion mid-trial. See
+[hw_Parameter.md](hw_Parameter.md#stimulus-parameters-on-hardware) for what each
+repository backend does.
+
 ---
 
 ## Relationship to modules and parameters

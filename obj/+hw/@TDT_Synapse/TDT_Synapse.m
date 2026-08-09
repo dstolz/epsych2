@@ -361,6 +361,16 @@ classdef TDT_Synapse < hw.Interface
                 P = obj.find_parameter(name);
             end
 
+            % setParameterValue writes scalar gizmo parameters; the Synapse API
+            % offers no path for a waveform. The stimulus stays on the
+            % hw.Parameter, where experiment code and GUIs still read it.
+            if hw.Interface.isStimulusValue(value)
+                vprintf(2,['hw.TDT_Synapse: "%s" holds a stimulus, which has no ' ...
+                    'Synapse parameter to write to; value kept host-side'], P(1).Name)
+                e = true;
+                return
+            end
+
             value = double(value); % must be double
 
             if isvector(P) && isscalar(value)

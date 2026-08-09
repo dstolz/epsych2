@@ -215,7 +215,13 @@ classdef Parameter < matlab.mixin.SetGet
                 return
             end
 
-            if isa(obj.Parent,'hw.Software') || (isprop(obj.Parent, 'IsConnected') && ~obj.Parent.IsConnected)
+            % 'StimType' reads locally on every backend. The write sends the
+            % stimulus down and the device keeps whatever it took from it —
+            % samples in a buffer, at best — so a hardware read would return
+            % that derived data, not the stimulus. The object is host-side
+            % state; this parameter is where it lives.
+            if isequal(obj.Type,'StimType') || isa(obj.Parent,'hw.Software') ...
+                    || (isprop(obj.Parent, 'IsConnected') && ~obj.Parent.IsConnected)
                 v = obj.Value;
             else
                 try
@@ -333,10 +339,12 @@ classdef Parameter < matlab.mixin.SetGet
             obj.Value = value;
             obj.isArray = numel(value) > 1;
 
-            if ~isequal(obj.Type, 'StimType')
-                if obj.isArray, value = {value}; end
-                obj.Parent.set_parameter(obj,value);
-            end
+            % 'StimType' is written like any other type: the backend receives the
+            % stimulus object and decides what to do with it (see
+            % hw.Interface.stimulusPayload). Backends with no waveform sink log
+            % and keep the value host-side.
+            if obj.isArray, value = {value}; end
+            obj.Parent.set_parameter(obj,value);
 
             % `now` is much faster than `datetime("now")`
             % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
@@ -383,10 +391,6 @@ classdef Parameter < matlab.mixin.SetGet
         end
 
         function set.Type(obj,type)
-            if isequal(type, 'StimType') && ~(isequal(obj.Parent,0) || isa(obj.Parent,'hw.Software'))
-                error('hw:Parameter:StimTypeRequiresSoftware', ...
-                    'Type ''StimType'' is only supported with hw.Software parents.');
-            end
             obj.Type = type;
             if ismember(obj.Type, {'String', 'File', 'StimType'})
                 obj.Format = '%s';

@@ -126,7 +126,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 options.Description (1,1) string = ""
                 options.Unit (1,:) char = ''
                 options.Access (1,:) char {mustBeMember(options.Access,{'Read','Write','Any','Read / Write'})} = 'Any'
-                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined'})} = 'Float'
+                options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined','StimType'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
                 options.PreUpdateFcnEnabled (1,1) logical = true
@@ -459,6 +459,107 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 'summary', summary, ...
                 'detail',  {options.Detail}, ...
                 'remedy',  options.Remedy);
+        end
+
+        function tf = isStimulusValue(value)
+            % tf = hw.Interface.isStimulusValue(value)
+            % True when a value handed to set_parameter is a stimulus object.
+            %
+            % A 'StimType' parameter passes the stimgen.StimType itself down to
+            % the backend, so every set_parameter implementation needs to
+            % recognize one before coercing the value to a number or a string.
+            % Array-valued parameters arrive wrapped in a scalar cell, matching
+            % the convention in hw.Parameter.set.Value.
+            %
+            % Parameters:
+            %   value - Value as received by set_parameter.
+            %
+            % Returns:
+            %   tf - logical scalar.
+            %
+            % See also: hw.Interface.stimulusPayload
+            if iscell(value) && isscalar(value)
+                value = value{1};
+            end
+            tf = isa(value, 'stimgen.StimType');
+        end
+
+        function payload = stimulusPayload(stim, Fs)
+            % payload = hw.Interface.stimulusPayload(stim)
+            % payload = hw.Interface.stimulusPayload(stim, Fs)
+            % Reduce a stimulus to the plain data a backend writes to hardware.
+            %
+            % Backends receive the stimgen.StimType object itself and take what
+            % they need from it. This gathers the fields they all need in one
+            % place so the sample-rate reconciliation is not repeated — and not
+            % forgotten. stimgen builds Signal against stim.Fs, so a stimulus
+            % authored at one rate is the wrong duration and pitch on a device
+            % running at another; passing Fs regenerates it at the device rate.
+            % Fs is assigned on the stimulus itself rather than on a copy, so
+            % a device-rate stimulus is reached once rather than rebuilt per
+            % trial.
+            %
+            % update_signal is then called explicitly, as every other stimgen
+            % consumer does (stimgen.StimPlayer, stimgen.StimInspector,
+            % stimgen.calibration.Engine): Signal is empty on a freshly
+            % constructed or freshly deserialized stimulus, and the rebuild the
+            % Fs assignment triggers runs inside a PostSet listener, where
+            % MATLAB downgrades an error to a warning and leaves the previous
+            % signal in place. Calling it here is what makes a stimulus that
+            % cannot be built at the device rate a reportable failure instead of
+            % a silently stale waveform.
+            %
+            % Parameters:
+            %   stim - stimgen.StimType, scalar or array.
+            %   Fs   - Device sample rate in Hz. Omit, or pass hw.Module.Fs
+            %          unchanged from its 1 Hz "unset" default, to take the
+            %          stimulus at the rate it was authored with.
+            %
+            % Returns:
+            %   payload - 1xN struct (one element per stimulus) with fields
+            %             Signal, Fs, N, Duration, SoundLevel, Class,
+            %             DisplayName. Empty when stim is empty.
+            %
+            % See also: hw.Interface.isStimulusValue, hw.TDT_RPcox.set_parameter
+            arguments
+                stim
+                Fs (1,1) double = 0
+            end
+
+            % hw.Module.Fs cannot represent "unset": its validators forbid 0 and
+            % NaN, so it sits at 1 Hz until a backend assigns it from the device.
+            % Regenerating against that default would destroy the waveform.
+            UNSET_MODULE_FS = 1;
+
+            payload = struct('Signal',{},'Fs',{},'N',{},'Duration',{}, ...
+                'SoundLevel',{},'Class',{},'DisplayName',{});
+
+            for k = 1:numel(stim)
+                s = stim(k);
+
+                if Fs > UNSET_MODULE_FS && s.Fs ~= Fs
+                    vprintf(2,'Regenerating stimulus "%s" at the device rate: %g -> %g Hz', ...
+                        s.DisplayName, s.Fs, Fs)
+                    s.Fs = Fs; % SetObservable; the listener rebuild is not catchable
+                end
+
+                try
+                    s.update_signal();
+                catch ME
+                    throw(MException('hw:Interface:StimulusGenerationFailed', ...
+                        'Could not generate stimulus "%s" (%s) at %g Hz: %s', ...
+                        s.DisplayName, class(s), s.Fs, ME.message));
+                end
+
+                payload(k) = struct( ...
+                    'Signal',      s.Signal, ...
+                    'Fs',          s.Fs, ...
+                    'N',           s.N, ...
+                    'Duration',    s.Duration, ...
+                    'SoundLevel',  s.SoundLevel, ...
+                    'Class',       class(s), ...
+                    'DisplayName', char(s.DisplayName));
+            end
         end
 
         function name = getHardwareParameterName(parameter)

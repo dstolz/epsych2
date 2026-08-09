@@ -477,6 +477,14 @@ classdef TDT_RPcox < hw.Interface
                 P = obj.find_parameter(name);
             end
 
+            % An unset parameter has nothing to write. A 'StimType' legitimately
+            % sits empty until a stimulus is chosen, and the element count
+            % asserted below would otherwise fail mid-trial dispatch.
+            if isempty(value)
+                e = true;
+                return
+            end
+
             if isvector(P) && isscalar(value)
                 value = repmat(value,size(P));
             end
@@ -489,6 +497,11 @@ classdef TDT_RPcox < hw.Interface
                 if iscell(v), v = v{1}; end % array
                 parameterName = obj.getHardwareParameterName(p);
                 hwHandle = obj.HW(p.Module.Index);
+
+                if isa(v,'stimgen.StimType')
+                    e = obj.writeStimulus_(p, v, parameterName, hwHandle);
+                    continue
+                end
 
                 e = hwHandle.write(parameterName,v);
                 if e
@@ -561,6 +574,55 @@ classdef TDT_RPcox < hw.Interface
     end
 
     methods (Access = private)
+        function e = writeStimulus_(~, p, stim, parameterName, hwHandle)
+            % e = writeStimulus_(obj, p, stim, parameterName, hwHandle)
+            % Write a 'StimType' parameter to its RPvds tag as a waveform.
+            %
+            % An RPvds buffer holds samples, not objects, so what the circuit
+            % needs out of a stimulus is the calibrated signal generated at the
+            % device's own rate — stimulusPayload handles that reconciliation
+            % against the module's Fs, which connect() reads from the hardware.
+            % The tag itself bounds the write: TDTRP.write refuses a signal
+            % longer than the tag can hold, so a stimulus that overruns the
+            % circuit's buffer is reported rather than silently truncated.
+            %
+            % Returns:
+            %   e - True when the waveform was written (or there was nothing to
+            %       write), false when the tag write failed.
+
+            if isempty(stim)
+                e = true;
+                return
+            end
+
+            payload = hw.Interface.stimulusPayload(stim, p.Module.Fs);
+
+            % Several stimuli on one tag would need a concatenation order the
+            % circuit never declares, so play the selected one and say so.
+            if numel(payload) > 1
+                vprintf(0,1,['"%s" holds %d stimuli but tag "%s" is a single ' ...
+                    'buffer; writing the first ("%s") only.'], ...
+                    p.Name, numel(payload), parameterName, payload(1).DisplayName)
+                payload = payload(1);
+            end
+
+            if isempty(payload.Signal)
+                vprintf(1,'Stimulus "%s" for "%s" has an empty signal; nothing written', ...
+                    payload.DisplayName, p.Name)
+                e = true;
+                return
+            end
+
+            e = hwHandle.write(parameterName, payload.Signal);
+            if e
+                vprintf(4,'Updated parameter: %s = %s (%d samples @ %g Hz)', ...
+                    p.Name, payload.DisplayName, payload.N, payload.Fs)
+            else
+                vprintf(0,1,'Failed to write stimulus "%s" (%d samples) to "%s"', ...
+                    payload.DisplayName, payload.N, parameterName)
+            end
+        end
+
         function applyModeState_(obj, mode)
             obj.ModeState_ = mode;
             if ~obj.IsConnected || isempty(obj.HW)

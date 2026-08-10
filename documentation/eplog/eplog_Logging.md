@@ -98,11 +98,14 @@ The default is unchanged from every previous version of EPsych:
 <epsych root>/.error_logs/error_log_ddmmmyyyy.txt
 ```
 
-`eplog.defaultLogDir` resolves the root through `epsych_path`, falling back to
+`eplog.builtinLogDir` resolves the root through `epsych_path`, falling back to
 `tempdir` when the repository is not on the MATLAB path — a relative path there
 would scatter log directories through whatever folder happened to be current.
 The directory ships with the clone as a `.gitignore` stub that excludes every
 log written into it, so the default costs the working tree nothing.
+`eplog.defaultLogDir` layers the override on top of it; the Customize dialog
+shows the built-in as placeholder text so an empty field still names where the
+log will land.
 
 ### Pointing the log somewhere else
 
@@ -194,7 +197,8 @@ the other sinks still receive the record, and the caller never sees the error.
 | [`eplog.callerFrame`](../../obj/+eplog/callerFrame.m) | attributes a record to the code that logged it |
 | [`eplog.record`](../../obj/+eplog/record.m) | the record struct |
 | [`eplog.stamp`](../../obj/+eplog/stamp.m) / [`dateTag`](../../obj/+eplog/dateTag.m) | fast timestamp and daily-filename rendering |
-| [`eplog.defaultLogDir`](../../obj/+eplog/defaultLogDir.m) | the log directory in force: `getpref('eplog','LogDir')`, else `<epsych root>/.error_logs` |
+| [`eplog.defaultLogDir`](../../obj/+eplog/defaultLogDir.m) | the log directory in force: `getpref('eplog','LogDir')`, else the built-in |
+| [`eplog.builtinLogDir`](../../obj/+eplog/builtinLogDir.m) | the built-in default alone, `<epsych root>/.error_logs`, ignoring any override |
 | [`eplog.setLogDir`](../../obj/+eplog/setLogDir.m) | change it and re-point the live sinks |
 | [`eplog.isAbsolutePath`](../../obj/+eplog/isAbsolutePath.m) | guards both against a working-directory-relative log location |
 | [`eplog.sink.Sink`](../../obj/+eplog/+sink/Sink.m) | abstract destination |

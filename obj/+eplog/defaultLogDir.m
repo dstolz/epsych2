@@ -7,21 +7,13 @@ function d = defaultLogDir()
 %      Customize > Paths > Error Log Path, or programmatically through
 %      eplog.setLogDir. Rigs whose repository lives on a read-only or synced
 %      share need the logs somewhere else.
-%   2. <epsych root>/.error_logs, the built-in default, matching where EPsych
-%      has always written. The directory ships with the clone as a .gitignore
-%      stub that excludes every log written into it, so the default costs the
-%      working tree nothing.
-%
-% epsych_path derives the root from "which", so it returns '' when the repo is
-% not on the MATLAB path. fullfile('', '.error_logs') is a RELATIVE path, which
-% would scatter log directories through whatever folder happened to be the
-% working directory. Falling back to tempdir keeps logging predictable, and is
-% also why a relative override is refused rather than resolved against cd.
+%   2. eplog.builtinLogDir, <epsych root>/.error_logs, matching where EPsych
+%      has always written.
 %
 % Returns:
 %   d - absolute path to the log directory (not created here)
 %
-% See also: eplog.setLogDir, eplog.sink.FileSink, epsych_path
+% See also: eplog.builtinLogDir, eplog.setLogDir, eplog.sink.FileSink
 
 d = '';
 try
@@ -37,21 +29,11 @@ catch
     % fall through to the built-in default rather than losing logging.
 end
 
-% A stored relative path is worse than no override at all -- see above.
+% A stored relative path is worse than no override at all: it would follow the
+% working directory, so it is discarded rather than resolved against cd.
 if ~isempty(d) && eplog.isAbsolutePath(d)
     return
 end
 
-root = '';
-try
-    root = epsych_path;
-catch
-    % epsych_path not on the path yet; fall through to tempdir.
-end
-
-if isempty(root) || ~ischar(root) || ~isfolder(root)
-    root = tempdir;
-end
-
-d = fullfile(root,'.error_logs');
+d = eplog.builtinLogDir();
 end

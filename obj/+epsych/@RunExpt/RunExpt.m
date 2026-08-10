@@ -354,6 +354,8 @@ classdef RunExpt < handle
             self.CheckReady
         end
 
+        LaunchUtility(self, target)      % Open a standalone tool from the Utilities menu
+
         function LaunchCommutatorGUI(self)
             % obj.LaunchCommutatorGUI
             % Launch the Commutator GUI

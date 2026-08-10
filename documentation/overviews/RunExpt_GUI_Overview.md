@@ -84,7 +84,7 @@ Selecting a row prints the selected subject's details to the MATLAB command wind
 ### 3.2 Bottom control bar
 
 - **Record video** (checkbox): when checked, clicking **Run** also starts a webcam recording via VLC for the duration of the session; unchecked by default. The setting persists across sessions. Preview never records. See [5.1](#51-what-happens-when-you-click-run--preview) and [7) Customization](#7-customization).
-- **Live View** (button): button form of **View → Live Webcam View (No Recording)** — opens or closes the same display-only camera view described in [8) Menus reference](#8-menus-reference). Its label changes to **Close Live View** while a view is open, and it is disabled while a session is RUNNING for the same reason as the menu item. Its column is a fixed width, so relabelling it never shifts the four transport buttons.
+- **Live View** (button): button form of **Utilities → Live Webcam View (No Recording)** — opens or closes the same display-only camera view described in [8) Menus reference](#8-menus-reference). Its label changes to **Close Live View** while a view is open, and it is disabled while a session is RUNNING for the same reason as the menu item. Its column is a fixed width, so relabelling it never shifts the four transport buttons.
 - **Run**: starts the experiment in Record mode.
 - **Preview**: starts the experiment in Preview mode; data are marked as a test run.
 - **Pause**: requests a pause via the runtime ModeChange event.
@@ -104,7 +104,7 @@ A single-line status bar spans the bottom of the window, below the control bar. 
 
 The state of the session itself is announced whenever it changes (Ready, Session running, Preview running, Session stopped, Session ended with an error); a message posted by a specific action stays up until the state changes again.
 
-- **LIVE VIEW - NOT RECORDING** (amber text, right end of the status bar): shown only while a live webcam view is open (via either the **Live View** button or **View → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
+- **LIVE VIEW - NOT RECORDING** (amber text, right end of the status bar): shown only while a live webcam view is open (via either the **Live View** button or **Utilities → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
 
 Custom box GUIs, saving functions, and trial selectors can post their own messages with `RunExpt.setStatus(message)` or `RunExpt.setStatus(message, nextStep)`.
 
@@ -197,7 +197,7 @@ All customization lives in a single dialog: **Customize → Customize...**. Valu
 
 If the Box GUI function is empty or disabled, the session can still run; you just will not get a live performance GUI.
 
-The webcam device itself (camera, frame rate, resolution, crop) is configured separately in **View → Webcam Recorder Setup...**.
+The webcam device itself (camera, frame rate, resolution, crop) is configured separately in **Utilities → Webcam Recorder Setup...**.
 
 The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` preference group (per machine, like the webcam settings) and are applied to every `hw.Intan_RHX` interface at run time. RHX names its files with a mandatory `_<timestamp>` suffix, so the Intan `.rhd`/`.rhs`, the behavioral `.mat`, and the webcam `.ts` are paired by shared filename prefix rather than exact equality.
 
@@ -205,9 +205,17 @@ The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` 
 
 - **Config**: Browse Configs..., Load Config..., Refresh Config, Save Config..., Recent Configs (submenu).
 - **Customize**: Customize... (all settings above).
-- **View**: Always On Top, Commutator GUI (opens the motorized commutator control; see [../peripherals/peripherals_NanoMotorControl.md](../peripherals/peripherals_NanoMotorControl.md)), Calibration GUI... (opens the speaker calibration GUI wired to the session's hardware via `epsych.calibrate`; disabled while a session is RUNNING because calibration drives the hardware into Preview; see [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md)), Webcam Recorder Setup... (camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md)), Live Webcam View (No Recording).
+- **Utilities**: the standalone tools that ship with the toolbox, opened from the session window instead of the command line. Each opens its own window with its own lifecycle; RunExpt keeps no handle on it, and a tool that fails to open reports on the status bar rather than interrupting the session.
+  - Protocol Designer... (`Ctrl+P`) — opens an empty designer for building a new protocol (`epsych.ProtocolDesigner`). To edit the protocol a subject is already using, right-click that subject instead (see [Working with protocols](#4-working-with-protocols)). See [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md).
+  - Teensy Trial Designer... — builds and simulates the state table a Teensy board executes (`teensy.TrialDesigner`); see [../teensy/teensy_TrialDesigner_UserGuide.md](../teensy/teensy_TrialDesigner_UserGuide.md).
+  - Stimulus Player... — builds a bank of stimuli and previews them through the sound card (`stimgen.StimPlayer`). It opens offline, unattached to the session's hardware.
+  - Stimulus Inspector... — examines a single stimulus waveform and spectrum (`stimgen.StimInspector`).
+  - Calibration GUI... — the speaker calibration GUI wired to EPsych hardware via `epsych.calibrate`; disabled while a session is RUNNING because calibration drives the hardware into Preview. See [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md).
+  - Commutator GUI (`Ctrl+G`) — motorized commutator control; see [../peripherals/peripherals_NanoMotorControl.md](../peripherals/peripherals_NanoMotorControl.md).
+  - Webcam Recorder Setup... (`Ctrl+W`) — camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md).
   - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject between runs. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the status bar shows a matching amber banner at its right end. Select it again to close the view.
   - The item is disabled while a session is RUNNING, because opening or closing the view restarts VLC and would stall the trial loop. A view opened before **Run** stays open through a session; if that session is recording, the recording takes over the camera and the live view closes.
+- **View**: Always On Top.
 - **Help**:
   - Version Info — toolbox version, git commit, and links.
   - Open Current Error Log — flushes the logger and opens today's EPsych error log file, creating it if nothing has been logged yet. The file opens through the operating system's `.txt` association.

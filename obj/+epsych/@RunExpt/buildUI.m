@@ -232,7 +232,9 @@ self.UpdateRecentConfigsMenu
 % Layout
 
 g = uigridlayout(f,[3 2]);
-g.RowHeight   = {'1x',40,24};
+% Row 3 is two text lines tall so a long status message wraps instead of
+% being clipped at the right edge.
+g.RowHeight   = {'1x',40,40};
 g.ColumnWidth = {'1x',100};
 g.RowSpacing = 8; g.ColumnSpacing = 8; g.Padding = [8 8 8 8];
 
@@ -320,6 +322,12 @@ self.H.statusBar = gui.StatusBar(gStatus, ...
     InitialText = 'Starting up...');
 self.H.statusBar.Label.Layout.Row = 1;
 self.H.statusBar.Label.Layout.Column = 1;
+% Two-line status area: messages that carry a failure reason or a "Next:"
+% hint are routinely wider than the window, so wrap rather than clip. The
+% label is top-aligned so a one-line message keeps the same baseline as a
+% wrapped one instead of jumping to the vertical centre.
+self.H.statusBar.Label.WordWrap = 'on';
+self.H.statusBar.Label.VerticalAlignment = 'top';
 
 % States that an open VLC window is showing the camera only. Deliberately
 % amber rather than red: a red indicator beside a webcam reads as
@@ -331,6 +339,7 @@ self.H.video_liveview_banner = uilabel(gStatus, ...
     'Text','', ...
     'FontWeight','bold', ...
     'FontColor',[0.85 0.45 0.00], ...
+    'VerticalAlignment','top', ...
     'Tooltip','VLC is displaying the webcam stream only. Nothing is being written to disk.');
 self.H.video_liveview_banner.Layout.Row = 1;
 self.H.video_liveview_banner.Layout.Column = 2;

@@ -1,6 +1,7 @@
 ---
 name: commit
 description: Stage and commit changes in this repo with a concise, comprehensive message in the repo's house style. Use when asked to commit, stage and commit, check in changes, save work to git, commit the submodule (obj/stimgen), or split changes into several logical commits. Handles submodule commits and pointer bumps, and multi-commit splits.
+model: haiku
 ---
 
 # /commit — stage and commit EPsych changes

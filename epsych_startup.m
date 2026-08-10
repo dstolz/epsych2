@@ -82,6 +82,11 @@ fprintf(' done\n')
 % the rest of the session.
 eplog.Logger.instance('-reset');
 
+% stimgen logs through its own front door. Give it somewhere to send the
+% messages, so a StimPlayer or calibration failure lands in .error_logs with
+% everything else instead of in a second file under tempdir.
+install_stimgen_log_bridge();
+
 check_submodules(rootdir);
 
 vprintf(-1,'EPsych Toolbox version %s',EPsychInfo.Version);
@@ -92,6 +97,38 @@ if showsplash, epsych_printBanner; end
 if nargout == 0, clear subdirs; end
 
 
+
+
+function install_stimgen_log_bridge()
+% Route stimgen's logging into the EPsych session log.
+%
+% Guarded rather than assumed: pinning a stimgen that predates the logging seam
+% is a supported configuration, and it must degrade to "stimgen keeps its own
+% log" rather than to an error during startup.
+%
+% The probe order is load-bearing. It has to ask about stimgen.LogSink, NOT
+% about stimbridge.LogBridge: LogBridge derives from stimgen.LogSink, so under
+% an older pin MATLAB cannot resolve its superclass and merely naming the class
+% raises. "which" is used rather than exist(...,'file') because it is
+% unambiguous for package members, and is what SelfTest check A2 already uses.
+try
+    if isempty(which('stimgen.LogSink')) || isempty(which('stimgen.util.logSink'))
+        return
+    end
+
+    % Idempotent: epsych_startup is routinely re-run, and re-installing would
+    % otherwise discard a bridge that is working perfectly well.
+    current = stimgen.util.logSink();
+    if ~isempty(current) && isa(current,'stimbridge.LogBridge') && isvalid(current)
+        return
+    end
+
+    stimgen.util.logSink(stimbridge.LogBridge());
+    vprintf(2,'stimgen logging routed into the EPsych session log');
+catch ME
+    % Losing the bridge costs a unified log, not a working session.
+    vprintf(0,1,'EPsych: could not install the stimgen log bridge: %s',ME.message);
+end
 
 
 function check_submodules(rootdir)

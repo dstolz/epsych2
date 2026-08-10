@@ -17,7 +17,8 @@ destination.
 ## The path a message takes
 
 ```text
-vprintf(level,[red],msg,values...)
+vprintf(level,[red],msg,values...)                      EPsych call sites
+stimgen.util.vprintf(...) → stimbridge.LogBridge.emit   stimgen call sites
   └─ eplog.isEnabled(level)        gate — a suppressed message stops here
        └─ eplog.Logger.instance()
             ├─ eplog.format / eplog.formatException   text, once
@@ -210,12 +211,18 @@ the other sinks still receive the record, and the caller never sees the error.
 Tests: [`tmp/smoke_test_eplog.m`](../../tmp/smoke_test_eplog.m) covers the
 package in isolation;
 [`tmp/smoke_test_eplog_integration.m`](../../tmp/smoke_test_eplog_integration.m)
-covers the `vprintf` seam and the consumers that name the log file.
+covers the `vprintf` seam and the consumers that name the log file;
+[`tmp/smoke_test_stimgen_logging.m`](../../tmp/smoke_test_stimgen_logging.m)
+covers the `stimgen` bridge, including caller attribution through it.
 
 ## Related
 
 - [`vprintf`](../helpers/helpers_vprintf.md) — the front door, and the only API most code needs
 - [RunExpt self-test](../overviews/RunExpt_SelfTest.md) — check A4 verifies logging reaches disk
-- `stimgen` vendors its own logger (`stimgen.util.vprintf`) and writes to
-  `fullfile(tempdir,'stimgen_error_logs')`; it has no dependency on EPsych, so
-  its messages never reach the session log. See [stimgen.md](../stimgen.md).
+- `stimgen` has its own front door (`stimgen.util.vprintf`) but delivers through
+  this package: `epsych_startup` installs `stimbridge.LogBridge`, which
+  implements `stimgen.LogSink` and forwards to `eplog.Logger.emit`. stimgen
+  messages therefore appear in the session log, attributed to the stimgen call
+  site. Without EPsych — or under a stimgen pinned before the seam — stimgen
+  falls back to `fullfile(tempdir,'stimgen_error_logs')`. See
+  [stimgen.md](../stimgen.md).

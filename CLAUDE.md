@@ -121,12 +121,21 @@ duplicate its class inventory, signal-pipeline details, or per-class docs in thi
 repository; link to the submodule's own documentation instead. `epsych.SelfTest`
 check A3 verifies the pinned commit still satisfies the stimbridge contract, and
 `EPsychInfo.stimgenChksum` records that commit in saved session metadata.
-stimgen logs through its own `stimgen.util.vprintf` to
-`fullfile(tempdir,'stimgen_error_logs')`, not to this repository's `.error_logs/`.
+Inside `obj/stimgen/` call `stimgen.util.vprintf`, never the bare `vprintf`.
+It is bridged into this repository's logger at startup (see `stimbridge.LogBridge`
+below), so those messages reach `.error_logs/` like everything else; without a
+host it falls back to `fullfile(tempdir,'stimgen_error_logs')`.
 
 #### obj/+stimbridge/ – EPsych ↔ stimgen Seam
 - **stimbridge.RuntimeHost**: Implements `stimgen.HardwareHost` over epsych.Runtime/Protocol
 - **stimbridge.InterfaceAdapter**: Implements `stimgen.calibration.HwAdapter` over hw.Interface
+- **stimbridge.LogBridge**: Implements `stimgen.LogSink` over `eplog.Logger`, so stimgen's
+  messages land in the session log attributed to their own call site. Installed by
+  `epsych_startup`, guarded so a stimgen pinned before the seam still starts
+
+All three contracts follow the same rule: a new method added to a `stimgen.*` abstract
+class must be **concrete with a safe default**, or the `stimbridge` subclass becomes
+unconstructable. `epsych.SelfTest` check A3 is the tripwire.
 
 #### obj/+gui/ – Reusable GUI Components
 - **gui.BoxGUI** (abstract): base class for custom experiment (BoxFig) GUIs — owns lifecycle, event listeners, position prefs, component-registry teardown, and Parameter_Update wiring; subclasses implement build(fig) (see documentation/gui/gui_BoxGUI.md, template in examples/customgui/)
@@ -181,7 +190,11 @@ The machinery behind vprintf; almost nothing should call it directly.
   daily .error_logs file — rotation, flush, handle recovery, failure latching
 - **eplog.format / formatException**: message text policy; an exception (or a
   lasterror/timer-event struct) becomes ONE record at the catch site
+- **eplog.callerFrame**: attributes a record to the code that logged it, by skipping
+  logger frames by filename. Any new wrapper in the call chain must be added to its
+  skip list or it silently claims every message routed through it
 Nothing in the package throws: EPsych logs from inside catch blocks.
+stimgen reaches this package through `stimbridge.LogBridge`, not by calling `vprintf`.
 See documentation/eplog/eplog_Logging.md.
 
 #### helpers/ – Shared Utilities
@@ -328,7 +341,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, cl/cl_SaveDataFcn.
 | obj/+epsych/ | Experiment framework |
 | obj/+hw/ | Hardware abstraction |
 | obj/stimgen/ | Stimulus generation (git submodule: dstolz/stimgen) |
-| obj/+stimbridge/ | EPsych-to-stimgen adapters |
+| obj/+stimbridge/ | EPsych-to-stimgen adapters (hardware host, calibration adapter, log bridge) |
 | examples/stimgen/ | Demo protocol/config/TDT circuit assets |
 | obj/+gui/ | GUI components |
 | obj/+teensy/ | Teensy trial programs: state-machine model, compiler, simulator, TrialDesigner GUI |

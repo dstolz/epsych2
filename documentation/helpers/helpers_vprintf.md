@@ -153,8 +153,10 @@ per-process log files, and the opt-in structured JSON Lines log.
 - The function always ends the line. It is not intended for partial-line output.
 - Logging performs file I/O, so very high-frequency debug logging still costs
   something (~150 µs per written message); the _suppressed_ path costs ~1 µs.
-- `stimgen` vendors its own `stimgen.util.vprintf` and logs elsewhere; its
-  messages do not appear in the session log.
+- `stimgen` keeps its own `stimgen.util.vprintf`, but `epsych_startup` bridges it
+  into this logger, so its messages do appear in the session log. Call
+  `stimgen.util.vprintf` from inside `obj/stimgen/`; call `vprintf` everywhere
+  else.
 
 ## Related files
 

@@ -49,7 +49,7 @@ All three are refused while a session is RUNNING.
 
 ## 4) What is checked
 
-**Environment & installation** — repository metadata, that every required function and class resolves on the path, that the stimgen submodule is checked out *and that `obj/+stimbridge/` still implements its abstract contract* (the check reports the pinned stimgen commit and fails if the submodule has drifted ahead of the bridge), that `vprintf` output actually reaches the log file, and that no stale RunExpt windows or orphaned timers are left over from a previous session. Note that stimgen logs separately to `fullfile(tempdir,'stimgen_error_logs')`; the log check reports that path too.
+**Environment & installation** — repository metadata, that every required function and class resolves on the path, that the stimgen submodule is checked out *and that `obj/+stimbridge/` still implements its abstract contract* (the check reports the pinned stimgen commit and fails if the submodule has drifted ahead of the bridge), that `vprintf` output actually reaches the log file, that no stale RunExpt windows or orphaned timers are left over from a previous session, and that stimgen's own messages reach that same log. The last of these round-trips a marker through `stimgen.util.vprintf`, so it proves the bridge end to end rather than merely reporting that it exists; it warns rather than fails when no bridge is installed, since stimgen then falls back to `fullfile(tempdir,'stimgen_error_logs')` and the session still runs.
 
 **Callback functions** — that every name in `FUNCS` resolves and has the signature the runtime will call it with, that the timer period is in range, and whether the session's callbacks have drifted from the stored preferences.
 

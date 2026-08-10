@@ -24,7 +24,7 @@ rather than failing outright.
 
 ## How EPsych integrates with it
 
-`stimgen` has no dependency on EPsych. It defines two abstract classes that a
+`stimgen` has no dependency on EPsych. It defines three abstract classes that a
 host application implements, and EPsych's implementations live in
 [`obj/+stimbridge/`](../obj/+stimbridge/):
 
@@ -32,6 +32,12 @@ host application implements, and EPsych's implementations live in
 |---|---|---|
 | `stimgen.HardwareHost` | `stimbridge.RuntimeHost` | Protocol loading, connect/release, device mode, parameter lookup for `stimgen.StimPlayer` and `stimgen.calibration.CalibrationGui` |
 | `stimgen.calibration.HwAdapter` | `stimbridge.InterfaceAdapter` | Play/record over an `hw.Interface` for `stimgen.calibration.Engine` |
+| `stimgen.LogSink` | `stimbridge.LogBridge` | Route `stimgen.util.vprintf` into the EPsych session log; installed by `epsych_startup` |
+
+All three follow the same versioning rule: a new contract method must be
+**concrete, with a safe default**. Adding one as `Abstract` makes the
+corresponding `stimbridge` class unconstructable, which is what check A3 exists
+to catch.
 
 Everything else in EPsych consumes `stimgen` as a plain library — `hw.Parameter`,
 `hw.Module`, `epsych.Protocol`, and `epsych.ProtocolDesigner` treat
@@ -39,7 +45,7 @@ Everything else in EPsych consumes `stimgen` as a plain library — `hw.Paramete
 
 ## Launching the calibration GUI
 
-`epsych.calibrate` is the entry point; RunExpt's **View > Calibration GUI...**
+`epsych.calibrate` is the entry point; RunExpt's **Utilities > Calibration GUI...**
 does the same thing. It builds the `stimbridge.RuntimeHost` seam and the
 calibration engine so callers never assemble them by hand:
 
@@ -68,11 +74,23 @@ for the circuit parameter contracts.
 
 ## Logging and provenance
 
-`stimgen` vendors its own logger. It shares the `GVerbosity` global with EPsych,
-so verbosity levels stay in sync, but it writes to
-`fullfile(tempdir,'stimgen_error_logs')` — **not** to this repository's
-`.error_logs/`. When diagnosing a StimPlayer or calibration failure, check both
-locations; `epsych.SelfTest` check A4 reports the stimgen path.
+`stimgen` ships its own logger so it can run standalone, but it does not have to
+use it. `stimgen.LogSink` is a third abstract seam alongside `HardwareHost` and
+`HwAdapter`: a host implements it, installs it with `stimgen.util.logSink`, and
+from then on `stimgen` forwards every message instead of writing its own file.
+
+`obj/+stimbridge/LogBridge.m` is EPsych's implementation, and `epsych_startup`
+installs it. So a StimPlayer or calibration failure lands in `.error_logs/` with
+everything else — same format policy, same sinks, same daily file, attributed to
+the `stimgen` call site rather than to the bridge. **There is one log to read,
+not two.** `epsych.SelfTest` check A6 proves it end to end by round-tripping a
+marker through `stimgen.util.vprintf`.
+
+Pinning a `stimgen` from before the seam is still supported: `epsych_startup`
+probes for `stimgen.LogSink` and silently skips the install, `stimgen` keeps
+writing to `fullfile(tempdir,'stimgen_error_logs')`, and A6 degrades to a
+warning naming that path. The `GVerbosity` global still steers both either way,
+and with the bridge installed `eplog.isEnabled` is its single reader.
 
 Because `stimgen` releases independently, `EPsychInfo.stimgenChksum` records the
 pinned submodule commit and `EPsychInfo.meta.StimgenChecksum` carries it into

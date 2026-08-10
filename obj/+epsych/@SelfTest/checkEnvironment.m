@@ -55,7 +55,7 @@ required = [ ...
     "ep_SaveDataFcn", "ep_GenericGUI", ...
     "epsych.RunExpt", "epsych.Protocol", "epsych.Runtime", "epsych.TrialSelector", ...
     "hw.Interface", "hw.DeviceState", "PRGMSTATE", ...
-    "stimbridge.RuntimeHost", "stimbridge.InterfaceAdapter"];
+    "stimbridge.RuntimeHost", "stimbridge.InterfaceAdapter", "stimbridge.LogBridge"];
 
 missing = required(arrayfun(@(n) isempty(which(n)), required));
 if isempty(missing)
@@ -89,10 +89,22 @@ else
     % stimgen versions independently, so a contract change there turns the
     % stimbridge classes abstract and every construction fails at runtime
     % with an opaque message. Catch it here instead.
-    detail = [string(stimgenDir), "Commit: " + string(EPsychInfo().stimgenChksum)];
+    hasLogSeam = ~isempty(which('stimgen.LogSink'));
+    if hasLogSeam
+        seamNote = "Log seam: available";
+    else
+        seamNote = "Log seam: absent from the pinned stimgen";
+    end
+    detail = [string(stimgenDir), "Commit: " + string(EPsychInfo().stimgenChksum), seamNote];
+
     unimplemented = [ ...
         localAbstractMethods("stimbridge.RuntimeHost"), ...
         localAbstractMethods("stimbridge.InterfaceAdapter")];
+    if hasLogSeam
+        % Only reachable when stimgen defines LogSink: naming LogBridge under an
+        % older pin would fail to resolve its superclass and raise here.
+        unimplemented = [unimplemented, localAbstractMethods("stimbridge.LogBridge")];
+    end
 
     if isempty(unimplemented)
         r = epsych.SelfTest.result("A3_Stimgen", GROUP, "stimgen submodule", "pass", ...
@@ -102,8 +114,8 @@ else
         r = epsych.SelfTest.result("A3_Stimgen", GROUP, "stimgen submodule", "fail", ...
             'stimgen''s abstract contract changed; stimbridge no longer implements it.', ...
             Detail = [detail, "Unimplemented: " + unimplemented], ...
-            Remedy = "Implement the new stimgen.HardwareHost / stimgen.calibration.HwAdapter " + ...
-                "methods in obj/+stimbridge, or pin an earlier stimgen commit.");
+            Remedy = "Implement the new stimgen.HardwareHost / stimgen.calibration.HwAdapter / " + ...
+                "stimgen.LogSink methods in obj/+stimbridge, or pin an earlier stimgen commit.");
     end
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
@@ -118,9 +130,6 @@ L = eplog.Logger.instance();
 fileSink = L.sinkOfType('eplog.sink.FileSink');
 logPath = L.LogFile;
 
-% stimgen vendors its own logger and writes elsewhere, so a StimPlayer or
-% calibration failure never reaches the session log. Report both paths.
-stimgenLogDir = fullfile(tempdir, 'stimgen_error_logs');
 sinkNames = string(cellfun(@class, L.Sinks, UniformOutput = false));
 
 if isempty(fileSink)
@@ -135,8 +144,7 @@ else
     L.flush();   % the sink buffers; without this the bytes are not on disk yet
     after = localFileBytes(logPath);
 
-    detail = ["Active sinks: " + strjoin(sinkNames, ", "), ...
-              "stimgen logs separately to: " + string(stimgenLogDir)];
+    detail = "Active sinks: " + strjoin(sinkNames, ", ");
 
     if after > before
         r = epsych.SelfTest.result("A4_Logging", GROUP, "Log file writable", "pass", ...
@@ -184,6 +192,56 @@ else
         'Leftover objects from a previous session were found.', ...
         Detail = problems, ...
         Remedy = "Close the extra windows and run: delete(timerfindall)");
+end
+results = [results epsych.SelfTest.withTime(r, toc(t))];
+
+% --- A6: stimgen logging reaches the session log ----------------------
+% A3 proves the seam exists and A4 proves the log file is writable. Neither
+% proves a message raised inside stimgen actually arrives, which is the only
+% thing that stops an operator having to open a second log after a StimPlayer
+% or calibration failure. Probe it end to end, through stimgen's own front door.
+t = tic;
+stimgenLogDir = fullfile(tempdir, 'stimgen_error_logs');
+NAME6 = "stimgen logging";
+
+if isempty(which('stimgen.util.logSink'))
+    % A supported configuration: pinning a stimgen from before the log seam.
+    % It costs a unified log, not a working session, so warn rather than fail.
+    r = epsych.SelfTest.result("A6_StimgenLogging", GROUP, NAME6, "warn", ...
+        'The pinned stimgen predates the logging seam, so it logs separately.', ...
+        Detail = "stimgen logs to: " + string(stimgenLogDir), ...
+        Remedy = "Update the submodule for unified logging: " + ...
+            "git submodule update --remote obj/stimgen");
+else
+    bridge = stimgen.util.logSink();
+    if isempty(bridge) || ~isa(bridge, 'stimbridge.LogBridge')
+        r = epsych.SelfTest.result("A6_StimgenLogging", GROUP, NAME6, "warn", ...
+            'No EPsych log bridge is installed, so stimgen logs separately.', ...
+            Detail = "stimgen logs to: " + string(stimgenLogDir), ...
+            Remedy = "Run epsych_startup, or install it directly: " + ...
+                "stimgen.util.logSink(stimbridge.LogBridge())");
+    else
+        logPath6 = eplog.Logger.instance().LogFile;
+        before6 = localFileBytes(logPath6);
+        marker6 = sprintf('selftest-stimgen-probe-%s', ...
+            char(datetime('now', Format='yyMMdd''T''HHmmss.SSS')));
+        stimgen.util.vprintf(-1, '%s', marker6);
+        eplog.Logger.instance().flush();
+        after6 = localFileBytes(logPath6);
+
+        if after6 > before6
+            r = epsych.SelfTest.result("A6_StimgenLogging", GROUP, NAME6, "pass", ...
+                sprintf('stimgen logs into the session log: %s', logPath6), ...
+                Detail = "Bridge: " + string(class(bridge)));
+        else
+            r = epsych.SelfTest.result("A6_StimgenLogging", GROUP, NAME6, "fail", ...
+                'A bridge is installed but a stimgen message did not reach the log.', ...
+                Detail = [sprintf("Bytes before: %d, after: %d", before6, after6), ...
+                          "Log file: " + string(logPath6)], ...
+                Remedy = "Reinstall the bridge: " + ...
+                    "stimgen.util.logSink(stimbridge.LogBridge())");
+        end
+    end
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 

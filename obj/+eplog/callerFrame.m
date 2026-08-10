@@ -13,7 +13,9 @@ function [name,line,file] = callerFrame()
 %   * calls typed at the command window, where the stack is shorter
 %
 % Scanning by file makes the depth irrelevant, so wrappers added later cannot
-% silently mis-attribute every line in the log.
+% silently mis-attribute every line in the log. A fourth case arrived with the
+% stimgen log bridge, which adds two frames of its own between the call site
+% and this function.
 %
 % Returns:
 %   name - calling function name, 'base' when called from the command window
@@ -49,10 +51,15 @@ end
 
 
 function tf = localIsLoggerFile(f)
-persistent pkgMark vpName
+persistent pkgMark vpName bridgeName
 if isempty(pkgMark)
-    pkgMark = [filesep '+eplog' filesep];
-    vpName  = [filesep 'vprintf.m'];
+    pkgMark    = [filesep '+eplog' filesep];
+    vpName     = [filesep 'vprintf.m'];
+    % stimbridge.LogBridge forwards stimgen's messages into this logger, so it
+    % sits between stimgen.util.vprintf and eplog.Logger.emit. Without this
+    % marker every one of stimgen's ~100 call sites would be attributed to
+    % LogBridge.emit at a fixed line -- the whole caller column, silently lost.
+    bridgeName = [filesep 'LogBridge.m'];
 end
-tf = ~isempty(f) && (contains(f,pkgMark) || endsWith(f,vpName));
+tf = ~isempty(f) && (contains(f,pkgMark) || endsWith(f,vpName) || endsWith(f,bridgeName));
 end

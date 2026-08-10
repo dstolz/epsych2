@@ -31,7 +31,10 @@ function tf = isEnabled(level)
 global GVerbosity
 
 v = GVerbosity;
-if isempty(v) || ~isnumeric(v) || ~isscalar(v) || isnan(v)
+% ~isfinite, not isnan: the Inf case above is real. "level <= Inf" is always
+% true, so a stray Inf turned every message on -- including stimgen's level-4
+% buffer traces, once its logging routed through here.
+if isempty(v) || ~isnumeric(v) || ~isscalar(v) || ~isfinite(v)
     v = 1;
     GVerbosity = v;
 end

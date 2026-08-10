@@ -1,9 +1,9 @@
 function buildUI(self)
 % buildUI — Create UIFigure, menus, layouts, and controls.
 % Behavior
-%   Assembles the main grid, subject table, bottom control bar, and
-%   right-side utilities using uigridlayout and uibutton components.
-% Documentation: documentation/layouts/RunExpt_layout.md
+%   Assembles the main grid, subject table, toolbar, and bottom control
+%   bar using uigridlayout and uibutton components.
+% Documentation: documentation/overviews/RunExpt_GUI_Overview.md
 
 fpos = epsych.RunExpt.getSavedFigurePosition([100 100 800 400]);
 info = EPsychInfo();
@@ -24,11 +24,13 @@ self.H.figureDefaultColor = f.Color;             % restored when leaving Preview
 movegui(f,'onscreen');
 
 % ---------- Toolbar ----------
-% One-click access to the Config menu actions, the Customize dialog, the
-% Protocol Designer, the two webcam controls, and the online wiki. The webcam
-% tools replace the former bottom-bar "Live View" button and "Record video"
-% checkbox. Config and webcam tools carry the same 'setup' tag prefix as
-% their menu items, so UpdateGUIstate disables them while a session is
+% One-click access to the Config menu actions, subject management and data
+% saving, the Customize dialog, the Protocol Designer, the two webcam
+% controls, Always On Top, and the online wiki. The webcam tools replace
+% the former bottom-bar "Live View" button and "Record video" checkbox;
+% Add Subject, Remove Subject, and Save Data replace the former right-side
+% button stack. Config and webcam tools carry the same 'setup' tag prefix
+% as their menu items, so UpdateGUIstate disables them while a session is
 % RUNNING; Customize, Protocol Designer, and the wiki stay available in
 % every state, as their menu items do. Icons are drawn in localToolbarIcon
 % below, so the toolbar ships no image files.
@@ -58,6 +60,30 @@ self.H.tb_save_config = uipushtool(tb, ...
     'Icon',localToolbarIcon("save"), ...
     'Tooltip','Save Config... (Ctrl+S)', ...
     'ClickedCallback', @(~,~) self.SaveConfig);
+
+% Subject management and post-run data saving, formerly the right-side
+% button stack. Handle names and tags are unchanged from the buttons they
+% replace: UpdateGUIstate, UpdateSubjectList, and SaveDataCallback drive
+% Enable through these handles, and epsych.SelfTest checks them by name.
+self.H.add_subject = uipushtool(tb, ...
+    'Tag','add_subject', ...
+    'Icon',localToolbarIcon("addsubject"), ...
+    'Separator','on', ...
+    'Tooltip','Add Subject...', ...
+    'ClickedCallback', @(~,~) self.AddSubject);
+
+self.H.setup_remove_subject = uipushtool(tb, ...
+    'Tag','setup_remove_subject', ...
+    'Icon',localToolbarIcon("removesubject"), ...
+    'Tooltip','Remove the selected subject', ...
+    'ClickedCallback', @(~,~) self.RemoveSubject);
+
+self.H.save_data = uipushtool(tb, ...
+    'Tag','save_data', ...
+    'Icon',localToolbarIcon("savedata"), ...
+    'Separator','on', ...
+    'Tooltip','Save each subject''s behavioral data (available after Stop, or on Error)', ...
+    'ClickedCallback', @(~,~) self.SaveDataCallback);
 
 self.H.tb_customize = uipushtool(tb, ...
     'Icon',localToolbarIcon("customize"), ...
@@ -93,6 +119,15 @@ self.H.setup_record_video = uitoggletool(tb, ...
     'Tooltip', ['Record webcam video via VLC during the run (never during Preview).' newline ...
                 'Camera: Utilities > Webcam Recorder Setup.  Save location: Customize > Paths.'], ...
     'ClickedCallback', @(h,~) setpref('ep_RunExpt_Video','EnableRecording',logical(h.State)));
+
+% Toggle form of View > Always On Top. AlwaysOnTop syncs the menu item's
+% Checked state and this toggle's State, so the two entry points never
+% disagree no matter which one flipped the setting.
+self.H.tb_always_on_top = uitoggletool(tb, ...
+    'Icon',localToolbarIcon("ontop"), ...
+    'Separator','on', ...
+    'Tooltip','Keep this window on top of all others (Ctrl+T). Same as View > Always On Top.', ...
+    'ClickedCallback', @(h,~) self.AlwaysOnTop(logical(h.State)));
 
 self.H.tb_wiki = uipushtool(tb, ...
     'Icon',localToolbarIcon("wiki"), ...
@@ -211,15 +246,25 @@ self.H.subject_list = uitable(g, ...
     'RowStriping','on', ...
     'FontSize',18, ...
     'Tooltip','Right-click a subject to edit, update, or change its protocol file');
+% Spans both columns: the former right-side button stack is gone (its
+% actions live on the toolbar and in the table's context menu), so the
+% table takes the full width. Column 2 remains for the mode indicator.
 self.H.subject_list.Layout.Row = 1;
-self.H.subject_list.Layout.Column = 1;
+self.H.subject_list.Layout.Column = [1 2];
 self.H.subject_list.SelectionChangedFcn = @(h,ev) self.subject_list_SelectionChanged(h,ev);
 
-% Right-click context menu for per-subject protocol actions
+% Right-click context menu for per-subject actions. Edit Protocol and View
+% Trials absorbed the former right-side buttons of the same names; their
+% handle names are unchanged because UpdateGUIstate, UpdateSubjectList, and
+% epsych.SelfTest reference them by name, and uimenu supports Enable just
+% as the buttons did.
 cmProtocol = uicontextmenu(f);
-uimenu(cmProtocol,'Text','Edit Protocol...','MenuSelectedFcn', @(~,~) self.EditProtocol);
+self.H.edit_protocol = uimenu(cmProtocol,'Text','Edit Protocol...', ...
+    'Tag','edit_protocol','MenuSelectedFcn', @(~,~) self.EditProtocol);
 uimenu(cmProtocol,'Text','Update to Latest Version','MenuSelectedFcn', @(~,~) self.UpdateProtocol);
 uimenu(cmProtocol,'Text','Change Protocol File...','MenuSelectedFcn', @(~,~) self.ChangeProtocolFile);
+self.H.view_trials = uimenu(cmProtocol,'Text','View Trials','Separator','on', ...
+    'Tag','view_trials','MenuSelectedFcn', @(~,~) self.ViewTrials);
 self.H.subject_list.ContextMenu = cmProtocol;
 
 % ---------- Bottom control bar (Run/Preview/Pause/Stop) ----------
@@ -249,27 +294,6 @@ self.H.ctrl_halt = uibutton(gBottom,'push','Text','Stop', ...
     'Tag','ctrl_halt','FontWeight','bold','FontSize',18, ...
     'BackgroundColor',[0.85 0.25 0.25], 'FontColor','w', ...
     'ButtonPushedFcn', @(h,~) self.onCommand(h));
-
-% ---------- Right-side vertical buttons (stacked) ----------
-gRight = uigridlayout(g,[5 1]);
-gRight.Layout.Row = 1; gRight.Layout.Column = 2;
-gRight.RowHeight = {'fit','fit','fit','fit','1x'};
-gRight.RowSpacing = 8; gRight.Padding = [0 0 0 0];
-
-self.H.add_subject = uibutton(gRight,'push','Text','Add Subject', ...
-    'Tag','add_subject','ButtonPushedFcn', @(~,~) self.AddSubject);
-
-self.H.setup_remove_subject = uibutton(gRight,'push','Text','Remove Subject', ...
-    'Tag','setup_remove_subject','ButtonPushedFcn', @(~,~) self.RemoveSubject);
-
-self.H.edit_protocol = uibutton(gRight,'push','Text','Edit Protocol', ...
-    'Tag','edit_protocol','ButtonPushedFcn', @(~,~) self.EditProtocol);
-
-self.H.view_trials = uibutton(gRight,'push','Text','View Trials', ...
-    'Tag','view_trials','ButtonPushedFcn', @(~,~) self.ViewTrials);
-
-self.H.save_data = uibutton(gRight,'push','Text','Save Data', ...
-    'Tag','save_data', 'ButtonPushedFcn', @(~,~) self.SaveDataCallback);
 
 % ---------- Mode indicator in bottom-right cell ----------
 gLamp = uigridlayout(g,[1 1]);
@@ -413,6 +437,82 @@ switch name
             ".kbwssssssswbk.."
             ".kbwwwwwwwwwbk.."
             ".kkkkkkkkkkkkk.."
+            "................"
+            "................"];
+
+    case "addsubject" % person with a green plus
+        rows = [ ...
+            "................"
+            "...kkkk........."
+            "..kssssk........"
+            "..kssssk........"
+            "..kssssk....gg.."
+            "...kkkk.....gg.."
+            "..kkkkkk..gggggg"
+            ".kssssssk.gggggg"
+            ".kssssssk...gg.."
+            ".kssssssk...gg.."
+            ".kssssssk......."
+            ".kkkkkkkk......."
+            "................"
+            "................"
+            "................"
+            "................"];
+
+    case "removesubject" % person with a red minus
+        rows = [ ...
+            "................"
+            "...kkkk........."
+            "..kssssk........"
+            "..kssssk........"
+            "..kssssk........"
+            "...kkkk........."
+            "..kkkkkk..rrrrrr"
+            ".kssssssk.rrrrrr"
+            ".kssssssk......."
+            ".kssssssk......."
+            ".kssssssk......."
+            ".kkkkkkkk......."
+            "................"
+            "................"
+            "................"
+            "................"];
+
+    case "savedata" % green arrow down into a tray
+        rows = [ ...
+            "................"
+            ".......gg......."
+            ".......gg......."
+            ".......gg......."
+            ".......gg......."
+            ".......gg......."
+            ".....gggggg....."
+            "......gggg......"
+            ".......gg......."
+            "................"
+            ".ss..........ss."
+            ".ss..........ss."
+            ".ssssssssssssss."
+            ".ssssssssssssss."
+            "................"
+            "................"];
+
+    case "ontop"   % pushpin
+        rows = [ ...
+            "................"
+            ".....kkkkkk....."
+            ".....kbbbbk....."
+            ".....kbbbbk....."
+            ".....kbbbbk....."
+            "....kkkkkkkk...."
+            "....kbbbbbbk...."
+            "....kkkkkkkk...."
+            ".......kk......."
+            ".......kk......."
+            ".......kk......."
+            ".......k........"
+            "................"
+            "................"
             "................"
             "................"];
 

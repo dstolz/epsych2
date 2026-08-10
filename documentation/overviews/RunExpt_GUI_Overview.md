@@ -1,6 +1,6 @@
 # epsych.RunExpt GUI overview
 
-![epsych.RunExpt main window with the subject table, bottom control bar (Run/Preview/Pause/Stop), and right-side action buttons](images/RunExpt.png)
+![epsych.RunExpt main window with the toolbar, subject table, and bottom control bar (Run/Preview/Pause/Stop)](images/RunExpt.png)
 
 This document is a practical guide to using the `epsych.RunExpt` session GUI to configure subjects, load and save session configurations, and run (or preview) behavioral experiments. It is written for experiment operators. If you need to change how the session controller works internally, start with [Architecture_Overview.md](Architecture_Overview.md) and the class source in [obj/+epsych/@RunExpt/](../../obj/+epsych/@RunExpt/).
 
@@ -53,19 +53,18 @@ A typical session looks like this:
 2. Launch the GUI: `epsych.RunExpt`.
 3. (Recommended) Set a default data directory: **Customize → Customize... → Data Path**.
 4. Add one or more subjects:
-   - Click **Add Subject**.
+   - Click the **Add Subject** toolbar button.
    - Fill in subject information (including BoxID).
    - Choose the subject's protocol file when prompted (`*.eprot`).
 5. (Optional) Sanity check the protocol/trials:
-   - Select a subject row.
-   - Click **View Trials** to preview compiled trials.
+   - Right-click the subject row and choose **View Trials** to preview compiled trials.
 6. Start the session:
    - Click **Preview** for a dry-run mode (data marked as test), or **Run** to record.
 7. During the session:
    - Use **Pause** if needed.
    - Use **Stop** to end the session.
 8. After stopping:
-   - Click **Save Data** and save each subject's data file.
+   - Click the **Save Data** toolbar button and save each subject's data file.
 9. (Optional) Save your session configuration for reuse:
    - **Config → Save Config...**
 
@@ -89,13 +88,17 @@ A toolbar under the menu bar gives one-click access to the most common menu acti
 - **Load Config** (open folder): loads a config file — same as **Config → Load Config...** (Ctrl+L).
 - **Refresh Config** (circular arrow): reloads the currently loaded config file from disk — same as **Config → Refresh Config** (Ctrl+R).
 - **Save Config** (floppy disk): saves the session configuration — same as **Config → Save Config...** (Ctrl+S).
+- **Add Subject** (person with a green plus): launches the configured add-subject dialog, then prompts you to select the subject's `*.eprot` protocol.
+- **Remove Subject** (person with a red minus): removes the selected subject (or clears the session if there is only one subject).
+- **Save Data** (arrow into a tray): invokes the configured saving function to write data to disk. Enabled only after **Stop**, or on an error.
 - **Customize** (gear): opens the Customize Settings dialog — same as **Customize → Customize...** (Ctrl+U).
 - **Protocol Designer** (document with pencil): opens the Protocol Designer — same as **Utilities → Protocol Designer...** (Ctrl+P).
 - **Live View** (eye, toggle): opens or closes the display-only camera view described in [8) Menus reference](#8-menus-reference) — same as **Utilities → Live Webcam View (No Recording)**. The tool stays pressed while a view is open, and it is disabled while a session is RUNNING for the same reason as the menu item.
 - **Record video** (red dot, toggle): when pressed, clicking **Run** also starts a webcam recording via VLC for the duration of the session; released by default. The setting persists across sessions. Preview never records. See [5.1](#51-what-happens-when-you-click-run--preview) and [7) Customization](#7-customization).
+- **Always On Top** (pushpin, toggle): keeps the session window above all other windows — same as **View → Always On Top** (Ctrl+T). The toggle and the menu item's check mark stay in sync whichever one you use.
 - **Wiki** (open book): opens the EPsych wiki in your web browser.
 
-The config tools and the two webcam toggles are disabled while a session is RUNNING, matching their menu items.
+The config tools, **Remove Subject**, and the two webcam toggles are disabled while a session is RUNNING, matching their menu items; **Save Data** is enabled only after Stop (or on Error).
 
 ### 3.3 Bottom control bar
 
@@ -104,15 +107,7 @@ The config tools and the two webcam toggles are disabled while a session is RUNN
 - **Pause**: requests a pause via the runtime ModeChange event.
 - **Stop**: stops the timers, signals Stop mode, and transitions the GUI to a post-run state.
 
-### 3.4 Right-side action buttons
-
-- **Add Subject**: launches the configured add-subject dialog, then prompts you to select the subject's `*.eprot` protocol.
-- **Remove Subject**: removes the selected subject (or clears the session if there is only one subject).
-- **Edit Protocol**: opens the selected subject's protocol in the Protocol Designer.
-- **View Trials**: previews compiled trials for the selected subject.
-- **Save Data**: invokes the configured saving function to write data to disk (enabled after Stop or on Error).
-
-### 3.5 Status bar
+### 3.4 Status bar
 
 A single-line status bar spans the bottom of the window, below the control bar. It reports what the program is doing and what normally comes next — the loaded configuration, subjects added or removed, protocol compilation, hardware connection, session start/stop, data saving, and webcam recording or live view. Messages are green; anything that failed is red. Double-click the status bar to copy its current text to the clipboard.
 
@@ -124,11 +119,12 @@ Custom box GUIs, saving functions, and trial selectors can post their own messag
 
 ## 4) Working with protocols
 
-Right-click a subject row for these protocol actions:
+Right-click a subject row for these actions:
 
 - **Edit Protocol...**: opens the protocol file in the Protocol Designer.
 - **Update to Latest Version**: reloads the subject's protocol from its file on disk. Use this after saving edits in the Protocol Designer so the session uses the latest version. The GUI tells you whether the subject was already up to date.
 - **Change Protocol File...**: assigns a different `*.eprot` file to the selected subject.
+- **View Trials**: previews the compiled trials for the selected subject.
 
 Protocols are validated when loaded and again when you press **Run**/**Preview**. Validation errors are reported before the session starts; protocols that need compilation are compiled automatically at start.
 
@@ -229,7 +225,7 @@ The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` 
   - Webcam Recorder Setup... (`Ctrl+W`) — camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md).
   - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject between runs. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the status bar shows a matching amber banner at its right end. Select it again to close the view.
   - The item is disabled while a session is RUNNING, because opening or closing the view restarts VLC and would stall the trial loop. A view opened before **Run** stays open through a session; if that session is recording, the recording takes over the camera and the live view closes.
-- **View**: Always On Top.
+- **View**: Always On Top (also available as the pushpin toolbar toggle).
 - **Help**:
   - Version Info — toolbox version, git commit, and links.
   - Open Current Error Log — flushes the logger and opens today's EPsych error log file, creating it if nothing has been logged yet. The file opens through the operating system's `.txt` association.

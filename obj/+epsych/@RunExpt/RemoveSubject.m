@@ -12,7 +12,13 @@ end
 if self.STATE >= PRGMSTATE.RUNNING, return, end
 
 if isnan(idx)
-    idx = self.H.subject_list.Selection(1);
+    selection = self.H.subject_list.Selection;
+    if isempty(selection)
+        vprintf(1,'RemoveSubject: no subject is selected in the table.');
+        uialert(self.H.figure1,'Select a subject first.','EPsych','Icon','info');
+        return
+    end
+    idx = selection(1);
 end
 if isempty(idx) || isempty(self.CONFIG), return, end
 

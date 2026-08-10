@@ -166,17 +166,16 @@ end
 
 
 % PHASE SELECTION ------------------------------------------
+% Built unconditionally: gui.PhaseSelector tolerates a missing or empty phase
+% directory (empty dropdown, Save still available), and hiding the control
+% because no phases exist yet leaves no way to create the first one.
 PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases');
-if isfolder(PhasePath)
-    obj.PhaseSelector = gui.PhaseSelector(R,PhasePath);
-    h = uipanel(layoutMain);
-    h.Layout.Row = [1 2];
-    h.Layout.Column = 5;
+obj.PhaseSelector = gui.PhaseSelector(R,PhasePath);
+h = uipanel(layoutMain);
+h.Layout.Row = [1 2];
+h.Layout.Column = 5;
 
-    obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
-else
-    vprintf(0,1,'Phase directory not found: %s', PhasePath)
-end
+obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
 
 
 

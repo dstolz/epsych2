@@ -10,9 +10,16 @@ classdef PhaseSelector < handle
     % loadable. Selecting a phase in the dropdown prints its parameter changes to
     % the command window.
     %
+    % A missing, unset, or empty phase directory is a normal state, not an error:
+    % the component builds with an empty phase list and a description explaining
+    % where it looked, and Save still works (and adopts the directory it saved
+    % into when the configured one does not exist). Host GUIs should therefore
+    % create the component unconditionally rather than gating on isfolder.
+    %
     % Parameters:
     %   RUNTIME   - Main runtime object with read/write parameter methods.
-    %   PhasePath - (optional) Directory containing phase files.
+    %   PhasePath - (optional) Directory containing phase files. May be missing or
+    %               empty; the component degrades to an empty phase list.
     %
     % Example:
     %   ps = gui.PhaseSelector(RUNTIME, 'C:\path\to\phase_files');
@@ -40,7 +47,7 @@ classdef PhaseSelector < handle
     %   addLoadPhaseButton     - Add button UI control for loading the selected phase.
     %   addSavePhaseButton     - Add button UI control for saving phase parameters.
     %   createGUI              - Create dropdown and button UI controls for phase selection, loading, and saving.
-    %   findPhaseFiles         - Load phase files from PhasePath and update Names and FullFilenames.
+    %   findPhaseFiles         - Scan PhasePath for phase files; empty list if the directory is missing or empty.
     %   onPhaseSelectionChanged- Callback for dropdown value change; updates state without loading, and prints the phase's parameter changes.
     %   loadPhaseParameters    - Load parameters from the selected phase file into the runtime.
     %   showPhaseInfo          - Print a table of the parameter changes the selected phase would apply.
@@ -103,49 +110,53 @@ classdef PhaseSelector < handle
             % findPhaseFiles(obj)
             % Loads phase files (.eprot/.prot protocols, plus legacy .json snapshots)
             % from PhasePath and updates Names and FullFilenames.
-            % Prompts user to select directory if PhasePath is not set or invalid.
+            %
+            % A missing, unset, or empty PhasePath is not an error: the phase list
+            % is simply empty. The component still builds so the operator can save
+            % the current session as the first phase file (Save creates the
+            % directory contents that were missing), rather than the host GUI
+            % losing the whole control.
             %
             % Updates:
-            %   obj.Names, obj.FullFilenames
-            if obj.PhasePath == ""
-                [fn,pth] = uigetfile({'*.eprot;*.prot;*.json','Phase Files (*.eprot, *.prot, *.json)'}, ...
-                    'Select Directory Containing Phase Files','MultiSelect','off');
-                if isequal(fn,0) || isequal(pth,0)
-                    vprintf(3,'User canceled directory selection. No phase files loaded.')
-                    return
-                end
-                obj.PhasePath = pth;
+            %   obj.Names, obj.Filenames, obj.FullFilenames
+
+            % Null/default phase is always present, so the dropdown has a valid
+            % Value even when no files were found.
+            obj.Names = "< Select Phase >";
+            obj.Filenames = string.empty(1,0);
+            obj.FullFilenames = string.empty(1,0);
+
+            if strlength(obj.PhasePath) == 0
+                vprintf(1,'gui.PhaseSelector: no phase directory set; use Save to create a phase file')
+                return
             end
 
-            assert(isfolder(obj.PhasePath), 'PhasePath must be a valid directory. Provided: "%s"', obj.PhasePath)
+            if ~isfolder(obj.PhasePath)
+                vprintf(1,'gui.PhaseSelector: phase directory not found: "%s"', obj.PhasePath)
+                return
+            end
 
             phaseFiles = [dir(fullfile(obj.PhasePath, '*.eprot')); ...
                           dir(fullfile(obj.PhasePath, '*.prot')); ...
                           dir(fullfile(obj.PhasePath, '*.json'))];
+            nFiles = numel(phaseFiles);
+
+            if nFiles == 0
+                vprintf(1, 'gui.PhaseSelector: no phase files found in "%s"', obj.PhasePath)
+                return
+            end
+
             % One alphabetical list regardless of extension, so a phase keeps its
             % dropdown position when it is resaved in the protocol format.
             [~, order] = sort(lower({phaseFiles.name}));
             phaseFiles = phaseFiles(order);
-            nFiles = numel(phaseFiles);
 
-            % Always prepend the null/default phase
-            obj.Names = ["< Select Phase >"];
-            obj.Filenames = strings(1, 0); % always string array
-            obj.FullFilenames = strings(1, 0); % always string array
-
-            if nFiles > 0
-                obj.Filenames = string({phaseFiles.name});
-                obj.FullFilenames = string(fullfile({phaseFiles.folder}, {phaseFiles.name}));
-                [~,names, ~] = fileparts(string({phaseFiles.name}));
-                obj.Names = ["< Select Phase >", names];
-                % Do NOT prepend empty string to Filenames/FullFilenames (mustBeFile constraint)
-                vprintf(3, 'Found %d phase files from "%s".', nFiles, obj.PhasePath)
-            else
-                % No files: use string.empty for Filenames/FullFilenames (valid for mustBeFile)
-                obj.Filenames = string.empty;
-                obj.FullFilenames = string.empty;
-                vprintf(3, 'No phase files found in PhasePath: "%s".', obj.PhasePath)
-            end
+            obj.Filenames = string({phaseFiles.name});
+            obj.FullFilenames = string(fullfile({phaseFiles.folder}, {phaseFiles.name}));
+            [~,names] = fileparts(string({phaseFiles.name}));
+            % Do NOT prepend the null entry to Filenames/FullFilenames (mustBeFile constraint)
+            obj.Names = ["< Select Phase >", names];
+            vprintf(3, 'Found %d phase files from "%s".', nFiles, obj.PhasePath)
         end
 
 
@@ -178,12 +189,21 @@ classdef PhaseSelector < handle
             vprintf(0, 'Writing current parameters to "%s" (%s)', fn, filepath)
             obj.RUNTIME.writeParametersProtocol(filepath);
 
-            % Refresh phase file list and update dropdown if it exists
-            obj.findPhaseFiles();
+            % Adopt the chosen directory when the configured one is unusable,
+            % otherwise a first save into a missing phase directory would write a
+            % file the dropdown can never see. An existing, valid PhasePath is
+            % left alone so saving a copy elsewhere does not move the phase list.
+            if strlength(obj.PhasePath) == 0 || ~isfolder(obj.PhasePath)
+                obj.PhasePath = string(pth); % set.PhasePath rescans
+            else
+                obj.findPhaseFiles();
+            end
+
             if ~isempty(obj.h_PhaseSelect) && isvalid(obj.h_PhaseSelect)
                 obj.h_PhaseSelect.Items = cellstr(obj.Names);
                 obj.h_PhaseSelect.Value = obj.Names(1);
             end
+            obj.onPhaseSelectionChanged(obj.h_PhaseSelect);
         end
 
 
@@ -205,7 +225,9 @@ classdef PhaseSelector < handle
             end
 
             if ~isempty(obj.h_Description) && isvalid(obj.h_Description)
-                if idx == 0
+                if isempty(obj.FullFilenames)
+                    obj.h_Description.Text = obj.withLastLoaded(obj.noPhasesText());
+                elseif idx == 0
                     obj.h_Description.Text = obj.withLastLoaded("No phase selected. Select a phase, then press Load to apply its parameters.");
                 else
                     obj.h_Description.Text = obj.withLastLoaded(sprintf('Phase "%s" selected. Press Load to apply its parameters.', phaseName));
@@ -464,6 +486,20 @@ classdef PhaseSelector < handle
 
 
     methods (Access = private)
+        function txt = noPhasesText(obj)
+            % txt = noPhasesText(obj)
+            % Description-label text for the empty state, naming the directory that
+            % was searched so a mistyped or not-yet-created phase directory is
+            % diagnosable from the GUI rather than only from the log.
+            if strlength(obj.PhasePath) == 0
+                txt = "No phase directory set. Press Save to store the current parameters as a phase file.";
+            else
+                txt = sprintf('No phase files in "%s". Press Save to store the current parameters as a phase file.', obj.PhasePath);
+            end
+            txt = string(txt);
+        end
+
+
         function txt = withLastLoaded(obj, baseText)
             % txt = withLastLoaded(obj, baseText)
             % Append a line noting the most recently loaded phase file and the time it was

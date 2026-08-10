@@ -40,6 +40,8 @@ h  = ps.createGUI(parentContainer);          % dropdown + Load/Save buttons
 
 Individual controls can also be placed separately (`addPhaseSelectDropdown`, `addLoadPhaseButton`, `addSavePhaseButton`, `addDescriptionLabel`) when the host GUI needs a custom layout.
 
+Create the component unconditionally — **do not** gate it on `isfolder(phaseDir)`. A missing, unset, or empty phase directory is a normal state: `findPhaseFiles` logs where it looked and leaves the phase list empty, the dropdown shows only its `< Select Phase >` entry with **Load** disabled, and the description names the directory it searched. **Save** stays available, which is how the first phase file gets created; if the configured directory does not exist, saving adopts the directory the file was written to so the new phase appears in the dropdown immediately. Hiding the control until phases exist leaves the operator no way to create one.
+
 Key behavior:
 
 - `PhasePath` is observable; assigning a new directory rescans for `*.eprot`, `*.prot`, and legacy `*.json` files and repopulates the dropdown.

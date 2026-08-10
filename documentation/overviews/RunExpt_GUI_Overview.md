@@ -81,16 +81,30 @@ The main table shows one row per configured subject, with columns:
 
 Selecting a row prints the selected subject's details to the MATLAB command window. Right-clicking a row opens the protocol context menu (see [Working with protocols](#4-working-with-protocols)).
 
-### 3.2 Bottom control bar
+### 3.2 Toolbar
 
-- **Record video** (checkbox): when checked, clicking **Run** also starts a webcam recording via VLC for the duration of the session; unchecked by default. The setting persists across sessions. Preview never records. See [5.1](#51-what-happens-when-you-click-run--preview) and [7) Customization](#7-customization).
-- **Live View** (button): button form of **Utilities → Live Webcam View (No Recording)** — opens or closes the same display-only camera view described in [8) Menus reference](#8-menus-reference). Its label changes to **Close Live View** while a view is open, and it is disabled while a session is RUNNING for the same reason as the menu item. Its column is a fixed width, so relabelling it never shifts the four transport buttons.
+A toolbar under the menu bar gives one-click access to the most common menu actions. Hover any tool for its tooltip. From left to right:
+
+- **Browse Configs** (folder with magnifier): opens the config browser — same as **Config → Browse Configs...** (Ctrl+C).
+- **Load Config** (open folder): loads a config file — same as **Config → Load Config...** (Ctrl+L).
+- **Refresh Config** (circular arrow): reloads the currently loaded config file from disk — same as **Config → Refresh Config** (Ctrl+R).
+- **Save Config** (floppy disk): saves the session configuration — same as **Config → Save Config...** (Ctrl+S).
+- **Customize** (gear): opens the Customize Settings dialog — same as **Customize → Customize...** (Ctrl+U).
+- **Protocol Designer** (document with pencil): opens the Protocol Designer — same as **Utilities → Protocol Designer...** (Ctrl+P).
+- **Live View** (eye, toggle): opens or closes the display-only camera view described in [8) Menus reference](#8-menus-reference) — same as **Utilities → Live Webcam View (No Recording)**. The tool stays pressed while a view is open, and it is disabled while a session is RUNNING for the same reason as the menu item.
+- **Record video** (red dot, toggle): when pressed, clicking **Run** also starts a webcam recording via VLC for the duration of the session; released by default. The setting persists across sessions. Preview never records. See [5.1](#51-what-happens-when-you-click-run--preview) and [7) Customization](#7-customization).
+- **Wiki** (open book): opens the EPsych wiki in your web browser.
+
+The config tools and the two webcam toggles are disabled while a session is RUNNING, matching their menu items.
+
+### 3.3 Bottom control bar
+
 - **Run**: starts the experiment in Record mode.
 - **Preview**: starts the experiment in Preview mode; data are marked as a test run.
 - **Pause**: requests a pause via the runtime ModeChange event.
 - **Stop**: stops the timers, signals Stop mode, and transitions the GUI to a post-run state.
 
-### 3.3 Right-side action buttons
+### 3.4 Right-side action buttons
 
 - **Add Subject**: launches the configured add-subject dialog, then prompts you to select the subject's `*.eprot` protocol.
 - **Remove Subject**: removes the selected subject (or clears the session if there is only one subject).
@@ -98,13 +112,13 @@ Selecting a row prints the selected subject's details to the MATLAB command wind
 - **View Trials**: previews compiled trials for the selected subject.
 - **Save Data**: invokes the configured saving function to write data to disk (enabled after Stop or on Error).
 
-### 3.4 Status bar
+### 3.5 Status bar
 
 A single-line status bar spans the bottom of the window, below the control bar. It reports what the program is doing and what normally comes next — the loaded configuration, subjects added or removed, protocol compilation, hardware connection, session start/stop, data saving, and webcam recording or live view. Messages are green; anything that failed is red. Double-click the status bar to copy its current text to the clipboard.
 
 The state of the session itself is announced whenever it changes (Ready, Session running, Preview running, Session stopped, Session ended with an error); a message posted by a specific action stays up until the state changes again.
 
-- **LIVE VIEW - NOT RECORDING** (amber text, right end of the status bar): shown only while a live webcam view is open (via either the **Live View** button or **Utilities → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
+- **LIVE VIEW - NOT RECORDING** (amber text, right end of the status bar): shown only while a live webcam view is open (via either the toolbar's **Live View** toggle or **Utilities → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
 
 Custom box GUIs, saving functions, and trial selectors can post their own messages with `RunExpt.setStatus(message)` or `RunExpt.setStatus(message, nextStep)`.
 
@@ -188,7 +202,7 @@ All customization lives in a single dialog: **Customize → Customize...**. Valu
 | Add Subject Function | Dialog used by **Add Subject**. | `epsych.DefaultSubject.open` |
 | Data Path | Default root folder used to suggest data filenames. | current directory |
 | Config Browser Root | Folder scanned by **Config → Browse Configs...**. | — |
-| Video Recording Path | Root folder for webcam recordings made with the **Record video** checkbox. Files are saved to `<root>\<subject>\<subject>_<yyMMddTHHmmss>.ts`. Leave empty to fall back to the Data Path. | — |
+| Video Recording Path | Root folder for webcam recordings made with the **Record video** toolbar toggle. Files are saved to `<root>\<subject>\<subject>_<yyMMddTHHmmss>.ts`. Leave empty to fall back to the Data Path. | — |
 | Intan Recording Path | Root folder for Intan RHX recordings when an `hw.Intan_RHX` interface is in the protocol. Files save under `<root>\<subject>\` named after the data file (RHX appends its own `_<timestamp>`). **Must contain no spaces.** Leave empty to fall back to the Data Path. | — |
 | Intan Settings File | RHX `.xml` settings file loaded when the Intan interface connects. **Must contain no spaces.** Leave empty to load none. | — |
 | Error Log Path | Directory the daily EPsych error log is written to. **Must be an absolute path.** Leave empty for the default. | `<EPsych root>\.error_logs` |

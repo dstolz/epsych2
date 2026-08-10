@@ -1,8 +1,8 @@
 function StartVideoRecording_(self)
 % StartVideoRecording_(self)
 % Begin the per-run webcam recording when enabled via the "Record video"
-% checkbox / 'EnableRecording' preference. Never throws: a failed recording
-% is reported via vprintf and the run proceeds without video — the
+% toolbar toggle / 'EnableRecording' preference. Never throws: a failed
+% recording is reported via vprintf and the run proceeds without video — the
 % experiment matters more than the camera.
 arguments
     self

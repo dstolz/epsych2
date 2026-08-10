@@ -23,6 +23,83 @@ self.H.figureBaseName    = string(figureName);  % restored when leaving Preview 
 self.H.figureDefaultColor = f.Color;             % restored when leaving Preview mode
 movegui(f,'onscreen');
 
+% ---------- Toolbar ----------
+% One-click access to the Config menu actions, the Customize dialog, the
+% Protocol Designer, the two webcam controls, and the online wiki. The webcam
+% tools replace the former bottom-bar "Live View" button and "Record video"
+% checkbox. Config and webcam tools carry the same 'setup' tag prefix as
+% their menu items, so UpdateGUIstate disables them while a session is
+% RUNNING; Customize, Protocol Designer, and the wiki stay available in
+% every state, as their menu items do. Icons are drawn in localToolbarIcon
+% below, so the toolbar ships no image files.
+tb = uitoolbar(f);
+self.H.toolbar = tb;
+
+self.H.tb_browse_config = uipushtool(tb, ...
+    'Tag','setup_tb_browse_config', ...
+    'Icon',localToolbarIcon("browse"), ...
+    'Tooltip','Browse Configs (Ctrl+C)', ...
+    'ClickedCallback', @(~,~) self.BrowseConfigs);
+
+self.H.tb_load_config = uipushtool(tb, ...
+    'Tag','setup_tb_load_config', ...
+    'Icon',localToolbarIcon("load"), ...
+    'Tooltip','Load Config... (Ctrl+L)', ...
+    'ClickedCallback', @(~,~) self.LoadConfig);
+
+self.H.tb_refresh_config = uipushtool(tb, ...
+    'Tag','setup_tb_refresh_config', ...
+    'Icon',localToolbarIcon("refresh"), ...
+    'Tooltip','Refresh Config: reload the current config file from disk (Ctrl+R)', ...
+    'ClickedCallback', @(~,~) self.RefreshConfig);
+
+self.H.tb_save_config = uipushtool(tb, ...
+    'Tag','setup_tb_save_config', ...
+    'Icon',localToolbarIcon("save"), ...
+    'Tooltip','Save Config... (Ctrl+S)', ...
+    'ClickedCallback', @(~,~) self.SaveConfig);
+
+self.H.tb_customize = uipushtool(tb, ...
+    'Icon',localToolbarIcon("customize"), ...
+    'Separator','on', ...
+    'Tooltip','Customize Settings... (Ctrl+U)', ...
+    'ClickedCallback', @(~,~) self.OpenCustomizeDialog);
+
+self.H.tb_protocol_designer = uipushtool(tb, ...
+    'Icon',localToolbarIcon("protocol"), ...
+    'Separator','on', ...
+    'Tooltip','Protocol Designer... (Ctrl+P)', ...
+    'ClickedCallback', @(~,~) self.LaunchUtility("ProtocolDesigner"));
+
+% Toggle form of Utilities > Live Webcam View (No Recording): same 'setup'
+% disable-while-RUNNING behavior as the menu item (see the comment above
+% mnu_vlc_liveview for why it must not open mid-run). ToggleVideoLiveView may
+% refuse or fail, so UpdateVideoLiveViewUI_ always resets State to the actual
+% view state afterwards.
+self.H.tb_liveview = uitoggletool(tb, ...
+    'Tag','setup_tb_liveview', ...
+    'Icon',localToolbarIcon("liveview"), ...
+    'Separator','on', ...
+    'Tooltip','Open a display-only webcam view (nothing is recorded). Same as Utilities > Live Webcam View.', ...
+    'ClickedCallback', @(~,~) self.ToggleVideoLiveView);
+
+% Webcam recording opt-in, formerly a bottom-bar checkbox. Pressed = record
+% this run. Keeps the 'setup_record_video' tag and handle name: the tag
+% disables it while RUNNING and epsych.SelfTest checks the handle by name.
+self.H.setup_record_video = uitoggletool(tb, ...
+    'Tag','setup_record_video', ...
+    'Icon',localToolbarIcon("record"), ...
+    'State', logical(getpref('ep_RunExpt_Video','EnableRecording',false)), ...
+    'Tooltip', ['Record webcam video via VLC during the run (never during Preview).' newline ...
+                'Camera: Utilities > Webcam Recorder Setup.  Save location: Customize > Paths.'], ...
+    'ClickedCallback', @(h,~) setpref('ep_RunExpt_Video','EnableRecording',logical(h.State)));
+
+self.H.tb_wiki = uipushtool(tb, ...
+    'Icon',localToolbarIcon("wiki"), ...
+    'Separator','on', ...
+    'Tooltip','Open the EPsych wiki in a browser', ...
+    'ClickedCallback', @(~,~) web(EPsychInfo.DocumentationURL,'-browser'));
+
 % Menus
 mConfig = uimenu(f,'Label','Config');
 self.H.mnu_browse_config = uimenu(mConfig,'Label','Browse &Configs...', ...
@@ -145,34 +222,13 @@ uimenu(cmProtocol,'Text','Update to Latest Version','MenuSelectedFcn', @(~,~) se
 uimenu(cmProtocol,'Text','Change Protocol File...','MenuSelectedFcn', @(~,~) self.ChangeProtocolFile);
 self.H.subject_list.ContextMenu = cmProtocol;
 
-% ---------- Bottom control bar (Record/Run/Preview/Pause/Stop) ----------
-gBottom = uigridlayout(g,[1 6]);
+% ---------- Bottom control bar (Run/Preview/Pause/Stop) ----------
+% The webcam controls (live view toggle, record-video toggle) live on the
+% toolbar above, so the bar holds only the four transport buttons.
+gBottom = uigridlayout(g,[1 4]);
 gBottom.Layout.Row = 2; gBottom.Layout.Column = 1;
-% The Live View column is a fixed width rather than 'fit': its button relabels
-% to the longer 'Close Live View' while a view is open, and a column that
-% resized with the label would slide the Run/Preview/Pause/Stop buttons out
-% from under the pointer mid-session. Sized for the longer of the two labels.
-gBottom.ColumnWidth = {'fit',130,'1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
+gBottom.ColumnWidth = {'1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
 gBottom.RowSpacing = 0; gBottom.ColumnSpacing = 8; gBottom.Padding = [0 0 0 0];
-
-% Webcam recording opt-in lives beside Run so it is set as part of starting
-% a session; the 'setup' tag prefix disables it automatically while RUNNING.
-self.H.setup_record_video = uicheckbox(gBottom, ...
-    'Text','Record video', ...
-    'Tag','setup_record_video', ...
-    'Value', logical(getpref('ep_RunExpt_Video','EnableRecording',false)), ...
-    'Tooltip', ['Record webcam video via VLC during the run (never during Preview).' newline ...
-                'Camera: View > Webcam Recorder Setup.  Save location: Customize > Paths.'], ...
-    'ValueChangedFcn', @(h,~) setpref('ep_RunExpt_Video','EnableRecording',logical(h.Value)));
-
-% Button form of View > Live Webcam View (No Recording): same toggle, same
-% 'setup' disable-while-RUNNING behavior as the menu item (see buildUI.m
-% comment above mnu_vlc_liveview for why it must not open mid-run).
-self.H.setup_btn_liveview = uibutton(gBottom,'push','Text','Live View', ...
-    'Tag','setup_btn_liveview', ...
-    'Tooltip','Open a display-only webcam view (nothing is recorded). Same as View > Live Webcam View.', ...
-    'ButtonPushedFcn', @(~,~) self.ToggleVideoLiveView);
-self.H.liveviewBtnDefaultColor = self.H.setup_btn_liveview.BackgroundColor;
 
 self.H.ctrl_run = uibutton(gBottom,'push','Text','Run', ...
     'Tag','ctrl_run','FontWeight','bold','FontSize',18, ...
@@ -254,3 +310,228 @@ self.H.video_liveview_banner = uilabel(gStatus, ...
     'Tooltip','VLC is displaying the webcam stream only. Nothing is being written to disk.');
 self.H.video_liveview_banner.Layout.Row = 1;
 self.H.video_liveview_banner.Layout.Column = 2;
+
+end
+
+% -----------------------------------------------------------------------
+function icon = localToolbarIcon(name)
+% 16x16 truecolor icon for one toolbar tool, drawn as pixel art so the
+% toolbar ships no image files. Each row is a 16-character string; each
+% character is a key into the palette below, and '.' is transparent (NaN).
+persistent cache
+if isempty(cache), cache = struct(); end
+key = char(name);
+if isfield(cache, key)
+    icon = cache.(key);
+    return
+end
+
+C = struct( ...
+    'k',[0.20 0.22 0.26], ...  % dark outline
+    'w',[1.00 1.00 1.00], ...  % white
+    's',[0.52 0.55 0.60], ...  % steel gray
+    'y',[0.93 0.72 0.16], ...  % folder amber
+    'Y',[0.98 0.85 0.42], ...  % folder highlight
+    'b',[0.13 0.45 0.80], ...  % blue
+    'g',[0.13 0.60 0.28], ...  % green
+    'r',[0.83 0.16 0.16], ...  % red
+    'R',[0.95 0.55 0.55], ...  % red highlight
+    'o',[0.92 0.60 0.12], ...  % pencil orange
+    't',[0.83 0.66 0.44]);     % pencil wood
+
+switch name
+    case "browse"  % closed folder with a magnifying glass
+        rows = [ ...
+            "................"
+            ".kkkkk.........."
+            ".kyyyykkkkkkkk.."
+            ".kyyyyyyyyyyyk.."
+            ".kYYYYYYYYYYYk.."
+            ".kYYYYYYYYYYYk.."
+            ".kYYYYYkkkkYYk.."
+            ".kYYYYkwwwwkYk.."
+            ".kYYYYkwwwwkYk.."
+            ".kYYYYkwwwwkYk.."
+            ".kYYYYYkkkkYYk.."
+            ".kkkkkkkkkkkkk.."
+            "...........kk..."
+            "............kk.."
+            ".............k.."
+            "................"];
+
+    case "load"    % open folder
+        rows = [ ...
+            "................"
+            "................"
+            ".kkkkk.........."
+            ".kyyyykkkkkkk..."
+            ".kyyyyyyyyyyk..."
+            ".kyyyyyyyyyyk..."
+            ".kyyyyyyyyyyk..."
+            ".kyyyyyyyyyyk..."
+            ".kkkkkkkkkkkkkk."
+            ".kYYYYYYYYYYYYk."
+            "..kYYYYYYYYYYYk."
+            "..kYYYYYYYYYYYk."
+            "...kYYYYYYYYYYk."
+            "...kkkkkkkkkkkk."
+            "................"
+            "................"];
+
+    case "refresh" % circular arrow, clockwise
+        rows = [ ...
+            "................"
+            "................"
+            "....gggggg......"
+            "...gggggggg....."
+            "...gg....ggg...."
+            "..gg....gggggg.."
+            "..gg.....gggg..."
+            "..gg......gg...."
+            "..gg.......g...."
+            "..gg............"
+            "...gg..........."
+            "...gggg........."
+            "....gggggg......"
+            "................"
+            "................"
+            "................"];
+
+    case "save"    % floppy disk
+        rows = [ ...
+            "................"
+            ".kkkkkkkkkkkkk.."
+            ".kbbbwwwwwwbbk.."
+            ".kbbbwwwwbwbbk.."
+            ".kbbbwwwwbwbbk.."
+            ".kbbbwwwwbwbbk.."
+            ".kbbbbbbbbbbbk.."
+            ".kbbbbbbbbbbbk.."
+            ".kbwwwwwwwwwbk.."
+            ".kbwssssssswbk.."
+            ".kbwwwwwwwwwbk.."
+            ".kbwssssssswbk.."
+            ".kbwwwwwwwwwbk.."
+            ".kkkkkkkkkkkkk.."
+            "................"
+            "................"];
+
+    case "customize" % gear
+        rows = [ ...
+            "................"
+            ".......ss......."
+            "...ss.ssss.ss..."
+            "...ssssssssss..."
+            "....ssssssss...."
+            "....ssssssss...."
+            "...sss....sss..."
+            ".sssss....sssss."
+            ".sssss....sssss."
+            "...sss....sss..."
+            "....ssssssss...."
+            "....ssssssss...."
+            "...ssssssssss..."
+            "...ss.ssss.ss..."
+            ".......ss......."
+            "................"];
+
+    case "protocol" % document with a pencil
+        rows = [ ...
+            "................"
+            "..kkkkkkkkk....."
+            "..kwwwwwwwk..oo."
+            "..kwssssswk.oo.."
+            "..kwwwwwwwkoo..."
+            "..kwssssswoo...."
+            "..kwwwwwwoo....."
+            "..kwssssook....."
+            "..kwwwwoowk....."
+            "..kwssoowwk....."
+            "..kwwttwwwk....."
+            "..kwkwwwwwk....."
+            "..kkkkkkkkk....."
+            "................"
+            "................"
+            "................"];
+
+    case "liveview" % eye
+        rows = [ ...
+            "................"
+            "................"
+            "................"
+            ".....kkkkkk....."
+            "...kkwwwwwwkk..."
+            "..kwwwwbbwwwwk.."
+            ".kwwwwbkkbwwwwk."
+            ".kwwwwbkkbwwwwk."
+            "..kwwwwbbwwwwk.."
+            "...kkwwwwwwkk..."
+            ".....kkkkkk....."
+            "................"
+            "................"
+            "................"
+            "................"
+            "................"];
+
+    case "record"  % record dot
+        rows = [ ...
+            "................"
+            "................"
+            "......rrrr......"
+            "....rrrrrrrr...."
+            "...rrRRRrrrrr..."
+            "...rRRrrrrrrr..."
+            "..rrrrrrrrrrrr.."
+            "..rrrrrrrrrrrr.."
+            "..rrrrrrrrrrrr.."
+            "..rrrrrrrrrrrr.."
+            "...rrrrrrrrrr..."
+            "...rrrrrrrrrr..."
+            "....rrrrrrrr...."
+            "......rrrr......"
+            "................"
+            "................"];
+
+    case "wiki"    % open book
+        rows = [ ...
+            "................"
+            "................"
+            "................"
+            ".bbbbb....bbbbb."
+            ".bwwwwb..bwwwwb."
+            ".bwwwwwbbwwwwwb."
+            ".bwsswwbbwwsswb."
+            ".bwwwwwbbwwwwwb."
+            ".bwsswwbbwwsswb."
+            ".bwwwwwbbwwwwwb."
+            ".bbwwwwbbwwwwbb."
+            "..bbbwwbbwwbbb.."
+            "....bbbbbbbb...."
+            "................"
+            "................"
+            "................"];
+
+    otherwise
+        error('epsych:RunExpt:UnknownToolbarIcon','Unknown toolbar icon "%s".',name)
+end
+
+icon = localIconFromMask(rows, C);
+cache.(key) = icon;
+end
+
+% -----------------------------------------------------------------------
+function icon = localIconFromMask(rows, C)
+% Convert a string mask into an m-by-n-by-3 truecolor array. '.' pixels stay
+% NaN, which uipushtool/uitoggletool render as transparent.
+nR = numel(rows);
+nC = strlength(rows(1));
+icon = nan(nR, nC, 3);
+for i = 1:nR
+    line = char(rows(i));
+    for j = 1:numel(line)
+        if line(j) ~= '.'
+            icon(i,j,:) = C.(line(j));
+        end
+    end
+end
+end

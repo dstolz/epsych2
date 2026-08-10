@@ -1,15 +1,16 @@
 function report = smoke_test_runexpt_video_recording()
 % report = smoke_test_runexpt_video_recording()
-% Lightweight smoke test for the RunExpt "Record video" checkbox feature.
+% Lightweight smoke test for the RunExpt "Record video" toolbar toggle.
 % No VLC install or webcam is required — recording is never triggered
 % (EnableRecording stays false throughout), so only the GUI/pref plumbing
-% is exercised: filename generation, checkbox <-> preference round-trip,
+% is exercised: filename generation, toggle <-> preference round-trip,
 % Customize dialog persistence, and teardown safety.
 %
 % Verifies:
-%   1) epsych.RunExpt.videoRecordingFilename sanitizes subject names and
-%      formats the timestamped .ts path correctly.
-%   2) The "Record video" checkbox is present, seeded from the
+%   1) epsych.RunExpt.videoRecordingFilename mirrors the data file's
+%      <subjectFolder>\<name>.ts layout under the recording root, and
+%      rejects a data filename with no name part.
+%   2) The "Record video" toolbar toggle is present, seeded from the
 %      'EnableRecording' preference, and updates that preference when toggled.
 %   3) The Customize dialog's Video Recording Path field persists to the
 %      'RecordingRootDir' preference on OK, and the pre-existing Data Save
@@ -27,48 +28,49 @@ c = onCleanup(@() restorePrefs_(PREF_GROUP, snap)); %#ok<NASGU>
 % Step 1: filename generation (pure, no GUI)
 stepName = 'videoRecordingFilename';
 try
-    ffn = epsych.RunExpt.videoRecordingFilename("C:\vid", "SUBJ<:>1 &x");
-    [pn, base, ext] = fileparts(ffn);
-    [~, folder] = fileparts(pn);
-    assert(strcmp(folder, 'SUBJ___1 _x'), 'SmokeTest:SanitizeMismatch', ...
-        'Sanitized folder name unexpected: %s', folder);
-    assert(strcmp(ext, '.ts'), 'SmokeTest:ExtMismatch', 'Expected .ts extension, got %s', ext);
-    assert(~isempty(regexp(base, '^SUBJ___1 _x_\d{6}T\d{6}$', 'once')), ...
-        'SmokeTest:TimestampMismatch', 'Base filename does not match expected pattern: %s', base);
+    ffn = epsych.RunExpt.videoRecordingFilename("C:\vid", ...
+        "C:\data\SUBJ1\SUBJ1_240101T120000.mat");
+    expected = char(fullfile('C:\vid', 'SUBJ1', 'SUBJ1_240101T120000.ts'));
+    assert(strcmp(ffn, expected), 'SmokeTest:PathMismatch', ...
+        'Recording path "%s" does not mirror the data file layout ("%s").', ffn, expected);
 
-    ffnEmpty = epsych.RunExpt.videoRecordingFilename("C:\vid", "   ");
-    [~, folderEmpty] = fileparts(fileparts(ffnEmpty));
-    assert(strcmp(folderEmpty, 'UnknownSubject'), 'SmokeTest:FallbackMismatch', ...
-        'Blank subject name did not fall back to UnknownSubject: %s', folderEmpty);
+    threw = false;
+    try
+        epsych.RunExpt.videoRecordingFilename("C:\vid", "C:\data\SUBJ1\");
+    catch inner
+        threw = strcmp(inner.identifier, 'epsych:RunExpt:InvalidDataFilename');
+    end
+    assert(threw, 'SmokeTest:MissingError', ...
+        'A data filename with no name part did not raise InvalidDataFilename.');
 
-    report.steps.(stepName) = struct('passed', true, 'detail', 'Filename sanitization and timestamp formatting matched expectations.');
+    report.steps.(stepName) = struct('passed', true, 'detail', 'Recording path mirrors the data file layout; empty name rejected.');
 catch ME
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end
 
-% Step 2: checkbox <-> EnableRecording preference round-trip
-stepName = 'checkboxPrefRoundTrip';
+% Step 2: toolbar toggle <-> EnableRecording preference round-trip
+stepName = 'togglePrefRoundTrip';
 rx = [];
 try
     setpref(PREF_GROUP, 'EnableRecording', false);
     rx = epsych.RunExpt('', ReuseExisting=false, CleanupStaleFigures=false);
     cCleanup = onCleanup(@() localDeleteRunExpt_(rx)); %#ok<NASGU>
 
-    cb = findall(rx.H.figure1, 'Tag', 'setup_record_video');
-    assert(~isempty(cb), 'SmokeTest:MissingControl', 'Could not locate the "Record video" checkbox.');
-    assert(cb.Value == false, 'SmokeTest:SeedMismatch', 'Checkbox did not seed from EnableRecording=false.');
+    tg = findall(rx.H.figure1, 'Tag', 'setup_record_video');
+    assert(~isempty(tg), 'SmokeTest:MissingControl', 'Could not locate the "Record video" toolbar toggle.');
+    assert(~logical(tg.State), 'SmokeTest:SeedMismatch', 'Toggle did not seed from EnableRecording=false.');
 
-    cb.Value = true;
-    cb.ValueChangedFcn(cb, []);
+    tg.State = 'on';
+    tg.ClickedCallback(tg, []);
     assert(getpref(PREF_GROUP, 'EnableRecording') == true, ...
-        'SmokeTest:PrefNotUpdated', 'Checking the box did not persist EnableRecording=true.');
+        'SmokeTest:PrefNotUpdated', 'Pressing the toggle did not persist EnableRecording=true.');
 
-    cb.Value = false;
-    cb.ValueChangedFcn(cb, []);
+    tg.State = 'off';
+    tg.ClickedCallback(tg, []);
     assert(getpref(PREF_GROUP, 'EnableRecording') == false, ...
-        'SmokeTest:PrefNotUpdated', 'Unchecking the box did not persist EnableRecording=false.');
+        'SmokeTest:PrefNotUpdated', 'Releasing the toggle did not persist EnableRecording=false.');
 
-    report.steps.(stepName) = struct('passed', true, 'detail', 'Checkbox seeded from and persisted to EnableRecording correctly.');
+    report.steps.(stepName) = struct('passed', true, 'detail', 'Toolbar toggle seeded from and persisted to EnableRecording correctly.');
 catch ME
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end

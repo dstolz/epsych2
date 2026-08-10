@@ -20,6 +20,20 @@ if ~exist(cfgRoot,'dir'), cfgRoot = cd; end
 vidRoot   = char(getpref('ep_RunExpt_Video','RecordingRootDir',''));
 intanRoot = char(getpref('ep_RunExpt_Intan','RecordingRootDir',''));
 intanSet  = char(getpref('ep_RunExpt_Intan','SettingsFile',''));
+% Shown empty when unset, so the field reads as "the EPsych default" rather
+% than proposing the repository path as something the operator chose.
+logDir    = '';
+if ispref('eplog','LogDir')   % three-arg getpref would create the preference
+    logDir = char(getpref('eplog','LogDir'));
+end
+logViewer = char(getpref('ep_RunExpt_Logging','ExternalViewer',''));
+% What "empty" actually resolves to, shown as placeholder text so the operator
+% can read the default instead of inferring it. Named from the same functions
+% that pick it at run time, and deliberately the built-in rather than
+% eplog.defaultLogDir -- clearing the field must preview the fallback, not echo
+% the override being cleared.
+dfltLogDir    = eplog.builtinLogDir();
+dfltLogViewer = epsych.RunExpt.defaultLogViewer();
 
 % Assemble recents-backed item lists for the function dropdowns --------
 itemsSaving  = buildItems_('RecentSavingFcn',     savingFcn, 'ep_SaveDataFcn');
@@ -32,9 +46,12 @@ stale = findall(groot,'Type','figure','Tag','RunExptCustomize');
 if ~isempty(stale), delete(stale); end
 
 ontop = self.AlwaysOnTop(false);
+% Sized for the tallest tab (Paths, seven rows). The grid there is scrollable
+% as a backstop, but a dialog that opens already scrolled hides fields the
+% operator does not know to look for.
 dlg = uifigure('Name','Customize EPsych','Tag','RunExptCustomize', ...
     'Resize','off', ...
-    'Position',[0 0 500 250]);
+    'Position',[0 0 560 340]);
 dlg.CloseRequestFcn = @(~,~) onClose_();   % set after dlg is assigned
 movegui(dlg,'center');
 drawnow;          % flush queue so the window renders
@@ -96,8 +113,9 @@ validateFcnField_(ef_addsubj, 'addsubj');
 
 % ---- TAB: Paths ------------------------------------------------------
 tabPaths = uitab(tg,'Title','Paths');
-gPaths = uigridlayout(tabPaths,[5 3]);
-gPaths.RowHeight    = {28, 28, 28, 28, 28};
+gPaths = uigridlayout(tabPaths,[7 3]);
+gPaths.RowHeight    = {28, 28, 28, 28, 28, 28, 28};
+gPaths.Scrollable   = 'on';
 gPaths.ColumnWidth  = {160, '1x', 80};
 gPaths.Padding      = [10 12 10 12];
 gPaths.RowSpacing   = 8;
@@ -155,6 +173,37 @@ btn_is = uibutton(gPaths,'Text','Browse...', ...
     'ButtonPushedFcn', @(~,~) browseFile_(ef_intanset, ef_intanset.Value, ...
         'Select Intan Settings File', {'*.xml','RHX Settings (*.xml)'}));
 btn_is.Layout.Row = 5; btn_is.Layout.Column = 3;
+
+addLabel_(gPaths, 6, 'Error Log Path:');
+ef_logdir = uieditfield(gPaths,'text','Value',logDir, ...
+    'Tag','Customize_LogDir', ...
+    'Placeholder', dfltLogDir, ...
+    'Tooltip', ['Directory for the daily EPsych error log.' newline ...
+                'Must be an absolute path; a relative one would follow the working directory.' newline ...
+                sprintf('Leave empty for the default, %s.', dfltLogDir)]);
+ef_logdir.Layout.Row = 6; ef_logdir.Layout.Column = 2;
+btn_ld = uibutton(gPaths,'Text','Browse...', ...
+    'ButtonPushedFcn', @(~,~) browseDir_(ef_logdir, ef_logdir.Value, 'Select Error Log Path'));
+btn_ld.Layout.Row = 6; btn_ld.Layout.Column = 3;
+
+addLabel_(gPaths, 7, 'Error Log Viewer:');
+ef_logviewer = uieditfield(gPaths,'text','Value',logViewer, ...
+    'Tag','Customize_LogViewer', ...
+    'Placeholder', dfltLogViewer, ...
+    'Tooltip', ['Application used by Help > Open Current Error Log (External Viewer).' newline ...
+                'Useful when MATLAB owns the .txt association and the plain menu item' newline ...
+                'would open the log in the MATLAB editor.' newline ...
+                sprintf('Leave empty for the platform default (%s).', dfltLogViewer)]);
+ef_logviewer.Layout.Row = 7; ef_logviewer.Layout.Column = 2;
+if ispc
+    viewerFilter = {'*.exe','Applications (*.exe)'; '*.*','All Files (*.*)'};
+else
+    viewerFilter = {'*','All Files'};
+end
+btn_lv = uibutton(gPaths,'Text','Browse...', ...
+    'ButtonPushedFcn', @(~,~) browseFile_(ef_logviewer, ef_logviewer.Value, ...
+        'Select Error Log Viewer', viewerFilter));
+btn_lv.Layout.Row = 7; btn_lv.Layout.Column = 3;
 
 % ---- TAB: Options ----------------------------------------------------
 tabOpts = uitab(tg,'Title','Options');
@@ -339,6 +388,15 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
             errs{end+1} = 'Intan Settings File path must not contain spaces (RHX command limitation).';
         end
 
+        % Error log path: a relative path would follow the working directory,
+        % scattering log folders and pointing the Help menu at whichever one is
+        % current. Refused here rather than in eplog so the operator sees it
+        % against the field they typed it into.
+        ld = strtrim(ef_logdir.Value);
+        if ~isempty(ld) && ~eplog.isAbsolutePath(ld)
+            errs{end+1} = sprintf('Error Log Path must be an absolute path; ''%s'' is relative.', ld);
+        end
+
         if ~isempty(errs)
             uialert(dlg, strjoin(errs, newline), 'Validation Error');
             return
@@ -402,6 +460,29 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         setpref('ep_RunExpt_Intan','SettingsFile',is);
         if ~isempty(is)
             vprintf(1,'Intan settings file: %s\n',is);
+        end
+
+        % Apply: Error Log Path (empty clears the override). setLogDir also
+        % re-points the running logger, so the next message lands in the new
+        % directory rather than at the next MATLAB session. It creates the
+        % directory, which can fail on a share; the dialog stays open in that
+        % case so the operator can correct the path. Everything applied above
+        % has already been persisted and re-applying it on the next OK is
+        % harmless.
+        try
+            eplog.setLogDir(ld);
+        catch ME
+            vprintf(0,1,ME);
+            uialert(dlg, ME.message, 'Error Log Path', 'Icon', 'error');
+            return
+        end
+
+        % Apply: Error Log Viewer (persist empty too, so the platform default
+        % can be restored)
+        lv = strtrim(ef_logviewer.Value);
+        setpref('ep_RunExpt_Logging','ExternalViewer',lv);
+        if ~isempty(lv)
+            vprintf(1,'Error log viewer: %s\n',lv);
         end
 
         self.CheckReady;

@@ -19,3 +19,8 @@ RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Idle));
 if ~isempty(RUNTIME.HELPER) && isvalid(RUNTIME.HELPER)
 	delete(RUNTIME.HELPER)
 end
+
+% Put the run's log on disk. The file sink buffers everything above its
+% FlushLevel, and the end of a run is the point at which the operator may
+% read, copy or archive the log.
+eplog.Logger.instance().flush();

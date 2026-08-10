@@ -2,30 +2,38 @@ function d = defaultLogDir()
 % d = eplog.defaultLogDir()
 % Directory the daily log files are written to.
 %
-% Resolves to <epsych root>/.error_logs, matching where EPsych has always
-% written and where RunExpt's "Open Current Error Log", the SelfTest log check
-% and SelfTest.saveReport all look.
-%
-% epsych_path derives the root from "which", so it returns '' when the repo is
-% not on the MATLAB path. fullfile('', '.error_logs') is a RELATIVE path, which
-% would scatter log directories through whatever folder happened to be the
-% working directory. Falling back to tempdir keeps logging predictable.
+% Resolves in this order:
+%   1. The configured override, getpref('eplog','LogDir') -- set from RunExpt's
+%      Customize > Paths > Error Log Path, or programmatically through
+%      eplog.setLogDir. Rigs whose repository lives on a read-only or synced
+%      share need the logs somewhere else.
+%   2. eplog.builtinLogDir, <epsych root>/.error_logs, matching where EPsych
+%      has always written.
 %
 % Returns:
 %   d - absolute path to the log directory (not created here)
 %
-% See also: eplog.sink.FileSink, epsych_path
+% See also: eplog.builtinLogDir, eplog.setLogDir, eplog.sink.FileSink
 
-root = '';
+d = '';
 try
-    root = epsych_path;
+    % ispref first: the three-argument getpref CREATES the preference when it
+    % is missing, so querying with a default would write an empty LogDir into
+    % the preferences file on every sink construction and leave "is there an
+    % override?" unanswerable.
+    if ispref('eplog','LogDir')
+        d = char(getpref('eplog','LogDir'));
+    end
 catch
-    % epsych_path not on the path yet; fall through to tempdir.
+    % Preferences unreadable (rare, but getpref touches the file system);
+    % fall through to the built-in default rather than losing logging.
 end
 
-if isempty(root) || ~ischar(root) || ~isfolder(root)
-    root = tempdir;
+% A stored relative path is worse than no override at all: it would follow the
+% working directory, so it is discarded rather than resolved against cd.
+if ~isempty(d) && eplog.isAbsolutePath(d)
+    return
 end
 
-d = fullfile(root,'.error_logs');
+d = eplog.builtinLogDir();
 end

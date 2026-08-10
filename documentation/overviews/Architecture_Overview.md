@@ -137,6 +137,12 @@ Peripheral hardware interfaces that do not fit the core `hw` hierarchy: `periphe
 
 Detailed references: [../peripherals/](../peripherals/)
 
+### `obj/+eplog/`
+
+The logger behind `vprintf`. `eplog.isEnabled` gates on the global `GVerbosity`; `eplog.Logger` builds one record per message and dispatches it to its sinks (`eplog.sink.Console`, `eplog.sink.TextFile`, and the opt-in `eplog.sink.JsonLines`). It owns the daily `.error_logs` file: rotation, flushing, handle recovery, and failure latching. Nothing in the package throws, because EPsych logs from inside `catch` blocks.
+
+Almost all code should call `vprintf` rather than this package directly. Detailed reference: [../eplog/eplog_Logging.md](../eplog/eplog_Logging.md)
+
 ### `design/`
 
 Legacy protocol authoring utilities. Protocol design now happens in `epsych.ProtocolDesigner`; this directory retains migration and support tools:
@@ -169,7 +175,8 @@ General utilities and support classes used across the codebase live here.
 
 Notable items:
 
-- `vprintf.m` — verbosity-gated formatted printing with automatic logging; used in place of `fprintf` throughout ([../helpers/helpers_vprintf.md](../helpers/helpers_vprintf.md))
+- `vprintf.m` — verbosity-gated formatted printing with automatic logging; used in place of `fprintf` throughout ([../helpers/helpers_vprintf.md](../helpers/helpers_vprintf.md)). A façade over the `eplog` package ([../eplog/eplog_Logging.md](../eplog/eplog_Logging.md)), which owns formatting, the daily log file and its destinations
+- `visenabled.m` — the verbosity gate on its own, for guarding log arguments that are expensive to build
 - `EPsychInfo` class — version and git metadata ([../epsych/EPsychInfo.md](../epsych/EPsychInfo.md))
 - `randGellerman.m`, `RandomTrialSequence.m`, `FellowsSeq.m` — trial sequence generators
 - `findFigure.m`, `figAlwaysOnTop.m`, `showGridBorders.m` — GUI helpers

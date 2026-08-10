@@ -105,7 +105,8 @@ Peripherals and utilities:
 
 - [peripherals.NanoMotorControl](peripherals/peripherals_NanoMotorControl.md) — commutator motor control
 - [peripherals.PumpCom](peripherals/peripherals_PumpCom.md) — syringe pump serial interface
-- [vprintf](helpers/helpers_vprintf.md) — verbosity-gated printing and logging
+- [vprintf](helpers/helpers_vprintf.md) — verbosity-gated printing and logging, the API all EPsych code uses
+- [eplog](eplog/eplog_Logging.md) — the logger behind `vprintf`: levels, format policy, sinks, log file lifecycle
 - [stimgen developer docs](../obj/stimgen/documentation/) — `StimType`, `StimPlay`, `StimCalibration`, and the calibration engine, maintained in the submodule
 
 ## Other resources

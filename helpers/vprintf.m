@@ -1,166 +1,85 @@
 function vprintf(verbose_level,varargin)
-% vprintf(verbose_level,[red],msg,[moreinputs])
+% vprintf(verbose_level,msg)
+% vprintf(verbose_level,red,msg)
+% vprintf(verbose_level,msg,value1,value2,...)
+% vprintf(verbose_level,red,msg,value1,value2,...)
+% vprintf(verbose_level,[red],exception)
 %
-% Prints timestamp and text to the command window based on the current
-% value of the global variable GVerbosity.  GVerbosity is a scalar
-% integer value between -1 and 3:
+% Verbosity-gated console and log printing. This is the front door to the
+% +eplog package: it parses the historical calling convention and hands the
+% result to eplog.Logger, which formats the record once and dispatches it to
+% every configured sink (console, daily text file, optional JSON Lines).
+%
+% Messages are filtered against the global GVerbosity, an integer normally
+% between -1 and 4:
 %  -1 log message, but do not print to screen
-%   0 suppresses nearly all non-critcal messages
-%   1 low, information that may be generally useful to user
+%   0 critical; suppresses nearly all other text
+%   1 low, information that may be generally useful to the user
 %   2 medium, information that can be helpful for debugging
 %   3 high, lots of information about nearly all processes (debugging)
+%   4 trace, per-trial detail
+% See eplog.Level for the named form.
 %
-% Uses fprintf to print text. Additonal values must correspond to the
-% escape characters defined as if calling fprintf directly.
+% Format policy (eplog.format):
+%   With values, msg is a printf format string, exactly as documented.
+%   With no values, msg is LITERAL text -- nothing is interpreted -- so a
+%   runtime-built message such as ME.message or 'C:\new\data.mat' survives
+%   intact instead of being mangled by '\n' and '%' conversions.
+% A trailing newline is never needed and is stripped if present; the sinks
+% add their own line ending.
 %
-% This function always prints a '\n' character at the end of the line,
-% skipping a line.
+% The msg input may also be an MException, or any struct carrying .message
+% (a lasterror-style struct or a timer ErrorFcn event). The identifier,
+% message, stack and any nested causes are written as a SINGLE log record,
+% attributed to the catch site rather than to the logger.
 %
-% This function also prints messages at verbose_level <= GVerbosity to a
-% log file for debugging purposes.  Each message in the log will also
-% contain the function and line number sending the message.  Note that
-% logging at verbose level 3 may probably screw up critical timing slightly
-% and should only be used for debugging code.  A new log will be
-% automatically generated for each day this script is called in a
-% subdirectory to the current working directory called 'logs'.  The log
-% file handle is managed internally by this function.
+% Nothing here throws. EPsych logs from inside catch blocks, and an exception
+% raised while reporting an exception destroys the report.
 %
-% ex:  
+% ex:
 %      global GVerbosity
 %      GVerbosity = 2;
 %      vprintf(2,'This is a level %d message: %s',2,'medium verbosity')
 %      18:51:35.958: This is a level 2 message: medium verbosity
-% 
-%      vprintf(3,'This message will not be printed because GVerbosity = %d',GVerbosity)
-% 
+%
+%      vprintf(3,'Not printed because GVerbosity = %d',GVerbosity)
+%
 %      vprintf(1,1,'This is a red level %d message: %s',1,'low verbosity')
 %      18:51:35.958: This is a red level 1 message: low verbosity
 %
-% The msg input can also be an MException object and the entire error
-% message and stack will be printed to the log.
+% See documentation/eplog/eplog_Logging.md for the package overview and
+% documentation/helpers/helpers_vprintf.md for a usage guide.
 %
-% See documentation/helpers/helpers_vprintf.md for a usage overview and examples.
+% See also: visenabled, eplog.Logger, eplog.isEnabled, eplog.Level, eplog.format
 %
 % Daniel.Stolzberg@gmail.com 2015
 
 % Copyright (C) 2016  Daniel Stolzberg, PhD
-global GVerbosity
 
-if isempty(GVerbosity) || ~isnumeric(GVerbosity), GVerbosity = 1; end
+% The gate comes first and is the only cost a suppressed message pays: no
+% timestamp, no dbstack, no formatting. At a 100 Hz trial timer that is the
+% difference between level-4 traces being free and being a timing hazard.
+if ~eplog.isEnabled(verbose_level), return; end
 
-if verbose_level > GVerbosity, return; end
-
-
-
- 
-curTimeStr = datestr(now,'HH:MM:SS.FFF');
-
-moreinputs = [];
-red = 0;
-
-if nargin == 2
-    msg = varargin{1};
-    
-elseif nargin > 2 && ~ischar(varargin{1})
-    red = varargin{1};
-    msg = varargin{2};
-    if nargin > 2
-        moreinputs = varargin(3:end);
-    end
-    
-elseif nargin > 2
-    msg = varargin{1};
-    moreinputs = varargin(2:end);
-    
-end
-
-% log error
-if isa(msg,'MException')
-    vprintf(verbose_level,red,msg.identifier);
-    vprintf(verbose_level,red,msg.message);
-    for i = 1:length(msg.stack)
-        vprintf(verbose_level,red,'Stack %d\n\tfile:\t%s\n\tname:\t%s\n\tline:\t%d', ...
-            i,msg.stack(i).file,msg.stack(i).name,msg.stack(i).line);
-    end
+if isempty(varargin)
+    % Nothing to say. Historically this errored on an undefined variable
+    % inside the logger, which is the worst possible place to raise.
     return
 end
 
-
-% log message
-logmessage(msg,curTimeStr,moreinputs);
-
-% don't want to display message, just log and return
-if verbose_level == -1, return; end
-
-
-% Print to command window
-if isempty(moreinputs)
-    msgText = char(string(msg));
-    if red
-        fprintf(2,'%s: %s\n',curTimeStr,msgText) %#ok<PRTCAL>
-    else
-        fprintf('%s: %s\n',curTimeStr,msgText)
-    end
+% Calling convention: an optional red flag sits between the level and the
+% message. It is only a flag when something follows it, and only when it is
+% numeric or logical -- the old test was ~ischar, which read a string scalar
+% message as the flag and then failed on it.
+if numel(varargin) >= 2 && (isnumeric(varargin{1}) || islogical(varargin{1})) ...
+        && isscalar(varargin{1})
+    red    = logical(varargin{1});
+    msg    = varargin{2};
+    values = varargin(3:end);
 else
-    if red
-        fprintf(2,['%s: ' msg '\n'],curTimeStr,moreinputs{:}) %#ok<PRTCAL>
-    else
-        fprintf(['%s: ' msg '\n'],curTimeStr,moreinputs{:})
-    end
+    red    = false;
+    msg    = varargin{1};
+    values = varargin(2:end);
 end
 
-
-
-
-
-
-
-
-
-
-
-
-function logmessage(msg,curTimeStr,moreinputs)
-% Print to log file
-persistent logFid logDate
-
-currentLogDate = datestr(now,'ddmmmyyyy');
-
-needNewLog = isempty(logFid) || ~isnumeric(logFid) || logFid <= 2;
-
-if ~needNewLog
-    try
-        ftell(logFid);
-        needNewLog = ~strcmp(logDate,currentLogDate);
-    catch %#ok<CTCH>
-        needNewLog = true;
-    end
-end
-
-if needNewLog
-    if ~isempty(logFid) && logFid > 2
-        fclose(logFid);
-    end
-    errlogs = fullfile(epsych_path,'.error_logs');
-    if ~isfolder(errlogs), mkdir(errlogs); end
-    logFid = fopen(fullfile(errlogs,['error_log_' currentLogDate '.txt']),'at');
-    logDate = currentLogDate;
-
-end
-
-if isnumeric(logFid) && logFid > 2
-    st = dbstack;
-    if length(st)>=3
-        st = st(3);
-    else
-        st = st(end);
-    end
-    if isempty(moreinputs)
-        msgText = char(string(msg));
-        fprintf(logFid,'%s,%s,%d: %s\n',curTimeStr,st.name,st.line,msgText);
-    else
-        fprintf(logFid,['%s,%s,%d: ' msg '\n'],curTimeStr,st.name,st.line,moreinputs{:});
-    end
-end
-
-
+eplog.Logger.instance().emit(verbose_level,red,msg,values);

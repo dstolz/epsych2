@@ -52,6 +52,12 @@ mHelp = uimenu(f,'Label','Help');
 uimenu(mHelp,'Label','Version Info','MenuSelectedFcn', @(~,~) self.version_info,'Accelerator','I')
 self.H.mnu_open_error_log = uimenu(mHelp,'Label','Open Current Error Log', ...
     'MenuSelectedFcn', @(~,~) self.OpenCurrentErrorLog);
+% Separate item rather than a replacement: the association route above is the
+% right one on most rigs, but where MATLAB owns .txt it lands the log back in
+% the editor -- unsearchable while the session is running and easy to edit by
+% accident. This one goes straight to the viewer named in Customize > Paths.
+self.H.mnu_open_error_log_ext = uimenu(mHelp,'Label','Open Current Error Log (External Viewer)', ...
+    'MenuSelectedFcn', @(~,~) self.OpenCurrentErrorLog(true));
 % Deliberately not tagged 'setup': the read-only checks stay available while a
 % session is running, which is when an operator most wants them.
 self.H.mnu_self_test = uimenu(mHelp,'Label','Run Self-&Test...', ...

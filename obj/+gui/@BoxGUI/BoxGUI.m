@@ -177,8 +177,44 @@ classdef (Abstract) BoxGUI < handle
         function closeGUI(obj, src, ~)
             % closeGUI(obj, src, event)
             % Figure CloseRequestFcn: persist position, then delete the
-            % object (which deletes the figure).
+            % object (which deletes the figure). While this GUI's session
+            % is still running, first ask what to do — closing silently
+            % would leave the operator with a running experiment and no
+            % controls for it.
             vprintf(3, '%s: closeGUI', class(obj))
+
+            rx = obj.runningSession_();
+            if ~isempty(rx)
+                choice = uiconfirm(obj.h_figure, ...
+                    ['An experiment is currently running. Closing this window ' ...
+                     'leaves the session running without its controls.'], ...
+                    'Experiment Running', ...
+                    'Options', {'Close GUI', 'Halt Experiment', 'Cancel'}, ...
+                    'DefaultOption', 'Cancel', ...
+                    'CancelOption', 'Cancel', ...
+                    'Icon', 'warning');
+
+                switch choice
+                    case 'Cancel'
+                        return
+
+                    case 'Halt Experiment'
+                        % Stop through RunExpt so the session takes its
+                        % normal Stop path (mode broadcast, timer stop,
+                        % data save) while this GUI and its listeners are
+                        % still alive to see it.
+                        vprintf(0, '%s: halting the session at operator request', class(obj))
+                        try
+                            rx.halt()
+                        catch ME
+                            vprintf(0,1, ME)
+                        end
+
+                    case 'Close GUI'
+                        vprintf(0, '%s: window closed; the session continues to run', class(obj))
+                end
+            end
+
             try
                 gui.BoxGUI.saveFigurePosition(obj.PreferenceTag, src.Position);
             catch
@@ -450,6 +486,28 @@ classdef (Abstract) BoxGUI < handle
                     end
                 catch
                 end
+            end
+        end
+
+        function rx = runningSession_(obj)
+            % Return the epsych.RunExpt driving this GUI while its session
+            % is running, or [] otherwise. The runtime handles must be the
+            % same object, so a window left over from an earlier run — or
+            % one opened against the synthetic runtime of SelfTest check
+            % I6 — never prompts about the session running now.
+            rx = [];
+            try
+                candidate = epsych.SelfTest.findActiveRunExpt();
+                if isempty(candidate) || candidate.STATE ~= PRGMSTATE.RUNNING
+                    return
+                end
+                if ~isa(candidate.RUNTIME,'epsych.Runtime') || ~isa(obj.RUNTIME,'epsych.Runtime') ...
+                        || candidate.RUNTIME ~= obj.RUNTIME
+                    return
+                end
+                rx = candidate;
+            catch ME
+                vprintf(2, 'gui.BoxGUI: could not determine session state (%s)', ME.message)
             end
         end
 

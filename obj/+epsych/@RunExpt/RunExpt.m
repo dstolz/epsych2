@@ -207,6 +207,16 @@ classdef RunExpt < handle
 
         ViewTrials(self)  % Display a preview of compiled trials for the selected subject
 
+        function halt(self)
+            % obj.halt
+            % Stop a running session from outside the session window — a box
+            % GUI closed mid-run does this. Routes through the same dispatch
+            % and failure recovery as the window's Stop control, so the stop
+            % is identical either way. No-op unless the session is running.
+            if self.STATE < PRGMSTATE.RUNNING, return, end
+            self.dispatchCommand_("Stop");
+        end
+
         function EditProtocol(self)
             % obj.EditProtocol
             % Open the selected subject's protocol in ProtocolDesigner.
@@ -470,12 +480,18 @@ classdef RunExpt < handle
         end
 
         function onCommand(self, hObj)
-            % Adapts menu item callbacks; forwards the item's text label to ExptDispatch.
+            % Adapts menu item callbacks; forwards the item's text label.
+            self.dispatchCommand_(string(hObj.Text));
+        end
+
+        function dispatchCommand_(self, commandText)
+            % Run one named command with the controls locked for its
+            % duration, restoring a usable UI state if it throws. Shared by
+            % the window's own controls (onCommand) and by halt.
             hCtrl = findobj(self.H.figure1, '-regexp', 'tag', '^ctrl')';
             set(hCtrl, 'Enable', 'off');
             drawnow
             previousState = self.STATE;
-            commandText = string(hObj.Text);
             try
                 self.ExptDispatch(commandText);
             catch ME

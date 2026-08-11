@@ -13,6 +13,11 @@ classdef ParameterScatter < handle
     % excluded from the selectable lists, as are array-valued and
     % write-only parameters.
     %
+    % "Response" is offered whenever the experiment records a response code
+    % (a RespCode/ResponseCode DATA field): a categorical parameter holding
+    % the decoded outcome name (Hit, Miss, CorrectReject, FalseAlarm, Abort,
+    % or Undefined) rather than the raw bitmask value.
+    %
     % Categorical (text) parameters, e.g. a scalar char/string DATA field or
     % a runtime parameter with Type='String', are offered alongside numeric
     % ones. On a categorical axis, points are placed at integer positions
@@ -36,7 +41,8 @@ classdef ParameterScatter < handle
     %     control row; legacy figures get equivalent uicontrol popupmenus.
     %
     % Properties:
-    %   XParameter, YParameter - Selected DATA field names (or 'Trial Number')
+    %   XParameter, YParameter - Selected DATA field names (or 'Trial Number'
+    %                            / 'Response')
     %   ColorParameter         - Third parameter for marker color, or '(none)'
     %   Marker, MarkerSize, MarkerColor, MarkerAlpha - Marker aesthetics
     %   ColormapName           - Colormap used when colorizing by a parameter
@@ -108,10 +114,13 @@ classdef ParameterScatter < handle
         DeclaredCategoricalNames_ (1,:) cell = {} % validNames of runtime-declared text parameters
         CategoricalNames_ (1,:) cell = {} % validNames currently treated as text/categorical
         CategoryLevels_ = struct()  % validName -> cellstr of distinct values seen so far, in assigned order
+        ResponseField_ (1,:) char = '' % DATA field holding response codes, backing the Response parameter
     end
 
     properties (Constant, Access = private)
         TRIAL_NUMBER_LABEL = 'Trial Number' % synthetic parameter: chronological DATA index
+        RESPONSE_LABEL = 'Response'         % synthetic parameter: response code decoded to its outcome name
+        RESPONSE_CODE_FIELDS = {'RespCode','ResponseCode'} % DATA fields that may back the Response parameter
         NONE_LABEL = '(none)'               % ColorParameter entry meaning "flat marker color"
         PLOTTABLE_TYPES = {'Float','Integer','Boolean'} % hw.Parameter types that yield a plottable scalar
         CATEGORICAL_TYPES = {'String'}      % hw.Parameter types that yield a plottable text value
@@ -391,9 +400,9 @@ classdef ParameterScatter < handle
             % Parameters offered in the selectors: scalar numeric or scalar
             % text DATA fields plus the parameters the runtime will record
             % once trials begin, less invisible ones, plus the synthetic
-            % Trial Number entry. The runtime-declared names keep the
-            % selectors usable before the first trial, when DATA has no
-            % fields to learn from.
+            % Trial Number and Response entries. The runtime-declared names
+            % keep the selectors usable before the first trial, when DATA has
+            % no fields to learn from.
             obj.resolveRuntimeNames_;
             numFn = {};
             catFn = {};
@@ -413,8 +422,69 @@ classdef ParameterScatter < handle
             numFn = union(numFn(:)',obj.DeclaredNames_);
             catFn = union(catFn(:)',obj.DeclaredCategoricalNames_);
             obj.CategoricalNames_ = setdiff(catFn,obj.InvisibleNames_);
+
+            % A response code is far more useful decoded than as a bitmask
+            % integer, so offer the decoded outcome name as its own
+            % categorical parameter alongside the raw code.
+            obj.ResponseField_ = obj.resolveResponseField_(D,numFn);
+            if ~isempty(obj.ResponseField_) && ~ismember(obj.RESPONSE_LABEL,union(numFn,catFn))
+                obj.CategoricalNames_ = [obj.CategoricalNames_ {obj.RESPONSE_LABEL}];
+                obj.seedResponseLevels_;
+            end
+
             fn = setdiff(union(numFn,obj.CategoricalNames_),obj.InvisibleNames_);
             avail = [{obj.TRIAL_NUMBER_LABEL} sort(fn(:))'];
+        end
+
+        function name = resolveResponseField_(obj,D,numFn)
+            % DATA field backing the synthetic Response parameter, or ''.
+            % Runtime-declared names are consulted too so Response is
+            % selectable before the first trial has written any DATA fields.
+            % Invisible names count: hiding the raw code is not a reason to
+            % withhold the decoded outcome, and leaving them out would offer
+            % Response only from the first trial on.
+            name = '';
+            candidates = union(numFn,obj.InvisibleNames_);
+            if isstruct(D), candidates = union(candidates,fieldnames(D)'); end
+            if isempty(candidates), return; end
+            for k = 1:numel(obj.RESPONSE_CODE_FIELDS)
+                idx = find(strcmpi(candidates,obj.RESPONSE_CODE_FIELDS{k}),1);
+                if ~isempty(idx)
+                    name = candidates{idx};
+                    return
+                end
+            end
+        end
+
+        function seedResponseLevels_(obj)
+            % Seed the Response categories with the full outcome set so a
+            % given outcome keeps the same position and color from the first
+            % trial on, and across sessions, regardless of what has occurred.
+            if isfield(obj.CategoryLevels_,obj.RESPONSE_LABEL), return; end
+            bm = [epsych.BitMask.getResponses epsych.BitMask.Undefined];
+            obj.CategoryLevels_.(obj.RESPONSE_LABEL) = cellstr(string(bm(:)'));
+        end
+
+        function txt = responseText_(obj,D)
+            % Decoded outcome name per trial ('' where no code is available).
+            % Mirrors psychophysics.Psych.responseBits: with more than one
+            % response bit set, the last one in enum order wins.
+            n = numel(D);
+            txt = repmat({''},1,n);
+            if isempty(obj.ResponseField_) || isempty(D) || ~isfield(D,obj.ResponseField_)
+                return
+            end
+            rc = obj.parameterValues_(D,obj.ResponseField_);
+            valid = isfinite(rc) & rc >= 0;
+            if ~any(valid), return; end
+            decoded = epsych.BitMask.decode(uint32(rc(valid)));
+            names = repmat({char(epsych.BitMask.Undefined)},1,sum(valid));
+            for bm = epsych.BitMask.getResponses
+                ind = decoded.(char(bm));
+                if ~any(ind), continue; end
+                names(ind) = {char(bm)};
+            end
+            txt(valid) = names;
         end
 
         function resolveRuntimeNames_(obj)
@@ -475,15 +545,19 @@ classdef ParameterScatter < handle
             % keeps its plotted position/color as later trials add new ones.
             n = numel(D);
             v = nan(1,n);
-            txt = cell(1,n);
-            if ~isempty(D) && isfield(D,name)
-                for k = 1:n
-                    val = D(k).(name);
-                    if isstruct(val) && isfield(val,'Value'), val = val.Value; end
-                    if ischar(val)
-                        txt{k} = val;
-                    elseif isstring(val) && isscalar(val)
-                        txt{k} = char(val);
+            if strcmp(name,obj.RESPONSE_LABEL)
+                txt = obj.responseText_(D);
+            else
+                txt = cell(1,n);
+                if ~isempty(D) && isfield(D,name)
+                    for k = 1:n
+                        val = D(k).(name);
+                        if isstruct(val) && isfield(val,'Value'), val = val.Value; end
+                        if ischar(val)
+                            txt{k} = val;
+                        elseif isstring(val) && isscalar(val)
+                            txt{k} = char(val);
+                        end
                     end
                 end
             end

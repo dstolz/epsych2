@@ -14,6 +14,15 @@ third parameter mapped to marker color.
   marker color with a labeled colorbar (e.g., color by `RespCode` or level).
 - **Trial Number**: always offered as a parameter — the chronological DATA
   index (note this differs from `TrialID`, which is the schedule/condition ID).
+- **Response**: offered whenever the experiment records a response code (a
+  `RespCode` or `ResponseCode` parameter), as a categorical parameter holding
+  the outcome name decoded from the raw bitmask via
+  `epsych.BitMask.getResponses` — `Hit`, `Miss`, `CorrectReject`,
+  `FalseAlarm`, `Abort`, or `Undefined` when no response bit is set. All six
+  categories are present from the start, so an outcome keeps the same axis
+  position and color across trials and sessions. The raw code remains
+  selectable under its own parameter name. `Response` is offered even when
+  the response-code parameter itself is `Visible=false`.
 - **Populated before the first trial**: when constructed from a runtime, the
   lists are seeded from the parameters the runtime will record, so a GUI built
   at session start is usable immediately rather than offering only
@@ -59,7 +68,7 @@ S = gui.ParameterScatter(DATA, uifigure);
 % Programmatic control (updates immediately)
 S.XParameter = 'FreqHz';
 S.YParameter = 'LevelDB';
-S.ColorParameter = 'RespCode';   % or '(none)'
+S.ColorParameter = 'Response';   % decoded outcome name; or 'RespCode', or '(none)'
 ```
 
 ### Constructor
@@ -80,7 +89,7 @@ obj = gui.ParameterScatter(source, container, options)
 
 | Property | Description |
 |----------|-------------|
-| `XParameter`, `YParameter` | Selected DATA field names, or `'Trial Number'` |
+| `XParameter`, `YParameter` | Selected DATA field names, or `'Trial Number'` / `'Response'` |
 | `ColorParameter` | Third parameter for marker color, or `'(none)'` |
 | `Marker`, `MarkerSize`, `MarkerColor`, `MarkerAlpha` | Marker aesthetics |
 | `ColormapName` | Colormap used in color-by mode |

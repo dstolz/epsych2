@@ -205,9 +205,9 @@ mView = uimenu(f,'Label','View');
 self.H.always_on_top = uimenu(mView,'Label','Always On Top','Checked','off', ...
     'Accelerator','T', ...
     'MenuSelectedFcn', @(~,~) self.AlwaysOnTop);
+uimenu(mView,'Label','Version Info','MenuSelectedFcn', @(~,~) self.version_info,'Accelerator','I')
 
 mHelp = uimenu(f,'Label','Help');
-uimenu(mHelp,'Label','Version Info','MenuSelectedFcn', @(~,~) self.version_info,'Accelerator','I')
 self.H.mnu_open_error_log = uimenu(mHelp,'Label','Open Current Error Log', ...
     'MenuSelectedFcn', @(~,~) self.OpenCurrentErrorLog);
 % Separate item rather than a replacement: the association route above is the

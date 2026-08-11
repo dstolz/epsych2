@@ -444,12 +444,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     hl.ColumnWidth = {'1x'};
                     h = uibutton(hl,'push');
                     h.Layout.Column = [1 2];
-                    v = P.Value;
-                    if isempty(v)
-                        h.Text = sprintf('%s: [none]', P.Name);
-                    else
-                        h.Text = sprintf('%s: %s', P.Name, P.ValueStr);
-                    end
+                    h.Text = obj.stimtypeText_();
 
                 case 'readonly'
                     hl.ColumnWidth = {'1x'};
@@ -510,6 +505,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             v = event.AffectedObject.(obj.BoundProperty);
             if isempty(v), return; end % ?????
 
+            % PostSet fires on every write, not only on writes that change the
+            % value -- a parameter re-applied at the start of each trial would
+            % otherwise flash a control that never moved, making the indication
+            % meaningless. Compare against what is on screen before overwriting
+            % it. An autoCommit write-back always indicates, since there the
+            % flash confirms this control's own commit reached the parameter.
+            changed = obj.displayDiffers_(v);
+
             % obj.Value = v;
             if isprop(obj.h_uiobj,'Value')
                 % For dropdowns, the value may not be among the design-time
@@ -519,7 +522,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 obj.h_uiobj.Value = v;
             end
 
-            obj.indicate_change;
+            if changed || obj.committing_
+                obj.indicate_change;
+            elseif obj.ValueUpdated
+                % The parameter arrived at the value this control was already
+                % showing, so the pending edit is satisfied -- drop the
+                % uncommitted-edit highlight instead of leaving it stuck on.
+                obj.reset_label;
+            end
 
             % Mirror the user-driven path: a parameter changed from outside this
             % control (loading a phase, a linked-parameter update, etc.) should still
@@ -578,12 +588,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     end
 
                 case 'stimtype'
-                    P = obj.Parameter;
-                    if isempty(P.Value)
-                        obj.h_uiobj.Text = sprintf('%s: [none]', P.Name);
-                    else
-                        obj.h_uiobj.Text = sprintf('%s: %s', P.Name, P.ValueStr);
-                    end
+                    obj.h_uiobj.Text = obj.stimtypeText_();
                     gui.Helper.timed_color_change(obj.h_uiobj, ...
                         obj.colorOnUpdateExternal,postColor=obj.colorNormal);
 
@@ -674,6 +679,38 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 obj.h_uiobj.Value = min(max(v,lims(1)),lims(2));
             end
             obj.h_uiobj.Limits = lims;
+        end
+
+        function tf = displayDiffers_(obj, v)
+            % tf = displayDiffers_(obj, v)
+            % True when v is not what the control is currently showing. The
+            % comparison is per control type because the "displayed value"
+            % lives in a different property for each: Value for the entry
+            % widgets, Text for the label-like ones. A control with neither
+            % (a momentary push button) has nothing to compare, so it always
+            % counts as changed.
+            switch obj.type
+                case 'readonly'
+                    tf = ~isequal(obj.h_uiobj.Text, obj.boundValueText());
+
+                case 'stimtype'
+                    tf = ~isequal(obj.h_uiobj.Text, obj.stimtypeText_());
+
+                otherwise
+                    tf = ~isprop(obj.h_uiobj,'Value') || ~isequal(obj.h_uiobj.Value, v);
+            end
+        end
+
+        function s = stimtypeText_(obj)
+            % s = stimtypeText_(obj)
+            % Button caption for a 'stimtype' control: the parameter name and
+            % the stimulus it currently holds.
+            P = obj.Parameter;
+            if isempty(P.Value)
+                s = sprintf('%s: [none]', P.Name);
+            else
+                s = sprintf('%s: %s', P.Name, P.ValueStr);
+            end
         end
 
         function set_color_(obj, color)

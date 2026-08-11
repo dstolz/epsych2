@@ -196,6 +196,8 @@ obj.ParameterMonitor = gui.Parameter_Monitor(panelMonitor, p, pollPeriod=0.1, ..
 
 
 
+
+
 % PHASE SELECTION ------------------------------------------
 % Built unconditionally: gui.PhaseSelector tolerates a missing or empty phase
 % directory (empty dropdown, Save still available), and hiding the control
@@ -203,18 +205,16 @@ obj.ParameterMonitor = gui.Parameter_Monitor(panelMonitor, p, pollPeriod=0.1, ..
 PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases');
 obj.PhaseSelector = gui.PhaseSelector(R,PhasePath);
 h = uipanel(layoutMain);
-h.Layout.Row = [9 10];
-h.Layout.Column = 5;
+h.Layout.Row = [2 3];
+h.Layout.Column = [1 2];
 
 obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
-
-
 
 
 % LAYOUTS -------------------------------------------------
 % Panel for "Trial Controls"
 panelTrialControls = uipanel(layoutMain);
-panelTrialControls.Layout.Row = [2 6];
+panelTrialControls.Layout.Row = [4 8];
 panelTrialControls.Layout.Column = [1 2];
 
 % Ppanel for Trial Controls
@@ -228,7 +228,7 @@ layoutTrialControls.Scrollable = "on";
 
 % Panel for "Sound Controls"
 panelSoundControls = uipanel(layoutMain, 'Title', 'Sound Controls');
-panelSoundControls.Layout.Row = [7 8];
+panelSoundControls.Layout.Row = 9;
 panelSoundControls.Layout.Column = [1 2];
 
 % > Sound Controls
@@ -378,7 +378,7 @@ end
 
 % Commit button ---------------------------------------------
 h = gui.Parameter_Update(R,layoutMain);
-h.Button.Layout.Row = [9 10];
+h.Button.Layout.Row = [10 11];
 h.Button.Layout.Column = [1 2];
 h.Button.Text = ["Update" "Parameters"];
 h.Button.FontSize = 24;

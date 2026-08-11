@@ -19,7 +19,8 @@ classdef Staircase < psychophysics.Psych
     %       extract stimulus values from DATA.
     %   StaircaseDirection - "Up" or "Down" reversal convention.
     %   StimulusTrialType - BitMask identifying trials included in the staircase.
-    %   ConvertToDecibels - Convert stimulus values using 20*log10(x).
+    %   ConvertToDecibels - Convert stimulus values to dB re 100% depth using
+    %       20*log10(x); also available as a right-click option on the plot.
     %   ExcludedTrials - Trial exclusions specified as a logical mask or
     %       1-based trial indices.
     %   Results - Structure containing computed staircase outputs such as
@@ -41,7 +42,7 @@ classdef Staircase < psychophysics.Psych
 
         ThresholdFromLastNReversals (1,1) double {mustBePositive, mustBeInteger} = 12  % Number of reversals to use in threshold calculation
         ThresholdFormula (1,1) string {mustBeMember(ThresholdFormula,["Mean","GeometricMean"])} = "Mean"  % Formula for computing threshold from reversals
-        ConvertToDecibels (1,1) logical = false  % If true, convert stimulus values to dB using 20*log10(x)
+        ConvertToDecibels (1,1) logical = false  % If true, convert stimulus values to dB re 100% depth using 20*log10(x); toggled from the plot's right-click menu
 
         % Optional plotting configuration (when enabled via Plot or constructor option).
         LineColor     (1,1) string = "#1a1a1a"
@@ -416,6 +417,7 @@ classdef Staircase < psychophysics.Psych
         plotData = getPlotData_(obj);
         % Update any code here that used the old outputs to use plotData fields
         updatePlotLabels_(obj)
+        lbl = yAxisLabel_(obj)
         [titleText, hasTitle] = getTitleText_(obj)
         c = directionColors_(obj, direction)
         c = responseCodeColors_(obj, responseCodes)

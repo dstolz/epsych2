@@ -5,7 +5,7 @@ function updatePlotLabels_(obj)
 % Parameters:
 %   obj — psychophysics.Staircase instance
 
-ylabel(obj.plotAxes_, char(obj.ParameterName), 'Interpreter', 'none');
+ylabel(obj.plotAxes_, obj.yAxisLabel_(), 'Interpreter', 'none');
 xlabel(obj.plotAxes_, 'Trial Index', 'Interpreter', 'none');
 
 nPlotted = numel(obj.columnize_(obj.stimulusValues));

@@ -12,7 +12,7 @@ end
 grid(obj.plotAxes_, 'on');
 box(obj.plotAxes_, 'on');
 xlabel(obj.plotAxes_, 'Trial Index', 'Interpreter', 'none');
-ylabel(obj.plotAxes_, char(obj.ParameterName), 'Interpreter', 'none');
+ylabel(obj.plotAxes_, obj.yAxisLabel_(), 'Interpreter', 'none');
 
 hold(obj.plotAxes_,'on')
 

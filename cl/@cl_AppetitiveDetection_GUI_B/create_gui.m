@@ -165,21 +165,6 @@ end
 
 
 
-% PHASE SELECTION ------------------------------------------
-% Built unconditionally: gui.PhaseSelector tolerates a missing or empty phase
-% directory (empty dropdown, Save still available), and hiding the control
-% because no phases exist yet leaves no way to create the first one.
-PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases');
-obj.PhaseSelector = gui.PhaseSelector(R,PhasePath);
-h = uipanel(layoutMain);
-h.Layout.Row = [1 2];
-h.Layout.Column = 5;
-
-obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
-
-
-
-
 
 
 
@@ -194,7 +179,7 @@ obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
 % Ordering matters: the five lamps are grouped ahead of the value readouts.
 panelMonitor = uipanel(layoutMain, 'Title', 'Trial State');
 panelMonitor.Layout.Column = 5;
-panelMonitor.Layout.Row    = [6 10];
+panelMonitor.Layout.Row    = [6 8];
 
 
 p = [P.Platform, P.Trough, P.InTrial, P.DelayPeriod, P.RespWindow, ...
@@ -207,6 +192,21 @@ obj.ParameterMonitor = gui.Parameter_Monitor(panelMonitor, p, pollPeriod=0.1, ..
         Platform="lamp", Trough="lamp", InTrial="lamp", ...
         DelayPeriod="lamp", RespWindow="lamp"));
 
+
+
+
+
+% PHASE SELECTION ------------------------------------------
+% Built unconditionally: gui.PhaseSelector tolerates a missing or empty phase
+% directory (empty dropdown, Save still available), and hiding the control
+% because no phases exist yet leaves no way to create the first one.
+PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases');
+obj.PhaseSelector = gui.PhaseSelector(R,PhasePath);
+h = uipanel(layoutMain);
+h.Layout.Row = [9 10];
+h.Layout.Column = 5;
+
+obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
 
 
 

@@ -40,6 +40,13 @@ function appliedText = evaluateAndApplyParameterExpression(obj, parameter, expre
         % Expression so the parameter's intent is an explicit fixed level list,
         % both in the designer and in the saved protocol.
         obj.clearParameterExpression(parameter);
+    elseif obj.isLiteralConstantExpression(expressionText)
+        % Same reasoning for a scalar literal: "0" is a fixed value, not a
+        % rule. Kept as a live Expression it would re-derive the constant in
+        % hw.Parameter.set.Value on every dispatch, overriding whatever the
+        % runtime wrote for the trial - a staircase updating Depth through
+        % the trial table would be silently pinned at the constant forever.
+        obj.clearParameterExpression(parameter);
     end
 
     appliedText = obj.getParameterValueDisplay(parameter);

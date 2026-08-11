@@ -138,6 +138,31 @@ Adding a third index-selecting type means editing `expressionSelectsIndex` only.
 
 Headless coverage: `tmp/smoke_test_index_expressions.m`.
 
+## Constants are values, not expressions
+
+A non-empty `hw.Parameter.Expression` is re-evaluated by `set.Value` on **every** per-trial
+dispatch, overriding whatever the runtime assigned. That is the point of an expression — and
+poison for a constant: a `Depth` carrying `Expression="0"` pins itself at 0 dB forever, so a
+staircase writing new depths into the trial table appears frozen. Three rules keep constants
+out of the Expression slot (value-computing types only; a constant index on `String`/`StimType`
+deliberately pins which item is used):
+
+- `evaluateAndApplyParameterExpression` drops the Expression after applying the result when the
+  entered text is a literal constant (`isLiteralConstantExpression`: no identifiers beyond
+  `pi`/`Inf`/`NaN`/`true`/`false`, so `-2`, `0:5:40`, and `2*pi` are values while `StimDelay+10`,
+  `Depth.Min`, and `rand()*5` stay expressions). This also covers `refreshExpressionValues`,
+  which routes every stored expression through the same apply path on each refresh.
+- The Value column accepts direct numeric edits for `Float`/`Integer`/`Boolean`
+  (`onParamEdited` case 5): the text is evaluated once, stored as fixed `Values`, and any prior
+  Expression is removed — typing a value declares the value, not a rule, as the source of truth.
+- `normalizeConstantExpressions` (public, called by `openProtocolFile` and the file-path
+  constructor) converts constants in protocols saved by older designer versions, reports the
+  converted names in the status bar, and marks the protocol modified so the healed state gets
+  saved. Files the designer cannot open (`.ecfg` embedded protocols, phase snapshots) must be
+  healed externally or re-saved from a healed session.
+
+Headless coverage: `tmp/smoke_test_designer_constant_expression.m`.
+
 ## Renaming and expression references
 
 Renaming rewrites dependent expressions through `rewriteExpressionReferences`, which must stay

@@ -20,8 +20,14 @@ function onOpenRecentProtocol(obj, filePath)
         return
     end
 
-    obj.openProtocolFile(filePath);
+    convertedNames = obj.openProtocolFile(filePath);
     [~, fileName, extension] = fileparts(filePath);
-    obj.setStatus(sprintf('Loaded protocol %s%s', fileName, extension), ...
-        'Review the loaded protocol or save it under a new name after editing.');
+    if isempty(convertedNames)
+        obj.setStatus(sprintf('Loaded protocol %s%s', fileName, extension), ...
+            'Review the loaded protocol or save it under a new name after editing.');
+    else
+        obj.setStatus(sprintf('Loaded protocol %s%s; converted %d constant expression(s) to fixed values (%s)', ...
+            fileName, extension, numel(convertedNames), strjoin(convertedNames, ', ')), ...
+            'Save the protocol to keep the converted values.');
+    end
 end

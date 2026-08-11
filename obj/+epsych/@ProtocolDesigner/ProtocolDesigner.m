@@ -139,6 +139,15 @@ classdef ProtocolDesigner < handle
             elseif ischar(protocol) || isstring(protocol)
                 obj.Protocol = epsych.Protocol.load(char(protocol));
                 obj.CurrentProtocolPath = char(protocol);
+
+                % Same healing as openProtocolFile: constants saved as live
+                % Expressions by older designer versions become fixed Values.
+                convertedNames = obj.normalizeConstantExpressions();
+                if ~isempty(convertedNames)
+                    obj.IsModified_ = true;
+                    vprintf(1, 'Converted %d constant expression(s) to fixed values on load: %s', ...
+                        numel(convertedNames), strjoin(convertedNames, ', '))
+                end
             else
                 obj.Protocol = protocol;
             end

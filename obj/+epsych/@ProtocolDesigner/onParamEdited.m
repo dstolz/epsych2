@@ -142,12 +142,21 @@ function onParamEdited(obj, evt)
                 else
                     obj.setParameterExpression(parameter, expressionText);
                     appliedText = obj.evaluateAndApplyParameterExpression(parameter, expressionText);
-                    statusMessage = sprintf('%s = %s', expressionText, appliedText);
-                    if hw.Parameter.expressionSelectsIndex(parameter.Type)
-                        nextStep = sprintf('This expression chooses which item to use: it must return a whole number from 1 to %d each trial (round() or fix() if it can be fractional).', ...
-                            numel(parameter.Values));
+                    if ~obj.hasParameterExpression(parameter)
+                        % A constant or explicit level list was stored as fixed
+                        % Values and the expression dropped: only text that must
+                        % be re-evaluated each trial stays an Expression.
+                        statusMessage = sprintf('%s = %s (stored as a fixed value, not a live expression)', ...
+                            parameter.Name, appliedText);
+                        nextStep = 'Fixed values stay editable at runtime; reference another parameter here if the value should be computed each trial instead.';
                     else
-                        nextStep = 'Confirm the computed value, then compile to check the updated trial set.';
+                        statusMessage = sprintf('%s = %s', expressionText, appliedText);
+                        if hw.Parameter.expressionSelectsIndex(parameter.Type)
+                            nextStep = sprintf('This expression chooses which item to use: it must return a whole number from 1 to %d each trial (round() or fix() if it can be fractional).', ...
+                                numel(parameter.Values));
+                        else
+                            nextStep = 'Confirm the computed value, then compile to check the updated trial set.';
+                        end
                     end
                 end
             case 9
@@ -217,10 +226,37 @@ function onParamEdited(obj, evt)
                             parameter.Name, numel(coefValue));
                     end
                     nextStep = 'Review the coefficient buffer, then compile.';
+                elseif ismember(parameter.Type, {'Float', 'Integer', 'Boolean'}) && ~parameter.isTrigger
+                    % Direct numeric entry: evaluate once, store the result as
+                    % fixed design-time Values. Any prior Expression is removed -
+                    % typing into the Value column declares the value, not a
+                    % rule, as this parameter's source of truth.
+                    valueText = strtrim(char(string(evt.NewData)));
+                    if isempty(valueText)
+                        obj.refreshParameterTable();
+                        obj.setStatus(sprintf('Value for %s was not changed', parameter.Name), ...
+                            'Enter a number, or a level list like [0 -5 -10] or 0:5:40, in the Value cell.');
+                        return
+                    end
+                    result = obj.evaluateParameterExpression(parameter, valueText);
+                    result = obj.normalizeExpressionResult(parameter, result);
+                    hadExpression = obj.hasParameterExpression(parameter);
+                    priorExpression = obj.getParameterExpression(parameter);
+                    parameter.Values = hw.Parameter.normalizeValues(result);
+                    parameter.isArray = numel(result) > 1;
+                    obj.clearParameterExpression(parameter);
+                    if hadExpression
+                        statusMessage = sprintf('Set %s to a fixed value and removed its expression "%s"', ...
+                            parameter.Name, priorExpression);
+                        nextStep = 'Re-enter the expression in the Expression column if this parameter should stay computed each trial.';
+                    else
+                        statusMessage = sprintf('Updated value for %s', parameter.Name);
+                        nextStep = 'Compile to check the updated trial set.';
+                    end
                 else
                     obj.refreshParameterTable();
                     obj.setStatus(sprintf('Value for %s is read-only', parameter.Name), ...
-                        'Only String, StimType, and Coefficient Buffer values support direct table edits. Use Expression or the type-specific editor instead.');
+                        'Use the Type column''s editor (or Edit Selected Value) for File parameters and triggers.');
                     return
                 end
             case 6

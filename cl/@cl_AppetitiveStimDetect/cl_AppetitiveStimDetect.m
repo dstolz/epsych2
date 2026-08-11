@@ -21,8 +21,6 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
         TT_CATCH_ (1,1) double = 1    % TrialType code: catch (no-signal) trial
         TT_REMIND_(1,1) double = 2    % TrialType code: reminder trial
 
-        DEFAULT_STEP_SIGN_ON_HIT_  (1,1) double = -1  % Down
-        DEFAULT_STEP_SIGN_ON_MISS_ (1,1) double = 1   % Up
 
         P % struct of named parameter handles
         T % struct of named trial-column vectors
@@ -94,8 +92,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             rda = obj.P.RepeatDelayOnAbort.Value && RC.Abort(end);
 
             if RC.Hit(end)
-                sgn = obj.stepSign_('StepDirectionOnHit', obj.DEFAULT_STEP_SIGN_ON_HIT_);
-                nextStim = lastStim + sgn*obj.P.Depth_StepOnHit.Value;
+                nextStim = lastStim + obj.P.Depth_StepOnHit.Value;
                 stepped = true;
 
                 if rda
@@ -103,8 +100,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
                 end
 
             elseif RC.Miss(end)
-                sgn = obj.stepSign_('StepDirectionOnMiss', obj.DEFAULT_STEP_SIGN_ON_MISS_);
-                nextStim = lastStim + sgn*obj.P.Depth_StepOnMiss.Value;
+                nextStim = lastStim + obj.P.Depth_StepOnMiss.Value;
                 stepped = true;
 
                 if rda
@@ -157,9 +153,6 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % survives any number of intervening catch trials instead of
             % being reverted back to lastStim by the next non-stepping outcome.
             if stepped
-                % Respect the bounds configured on the live Depth parameter
-                % (Depth.Min/Depth.Max) rather than duplicating separate bounds.
-                nextStim = min(max(nextStim, obj.P.Depth.Min), obj.P.Depth.Max);
 
                 vprintf(4, 'nextStim = %g', nextStim)
 

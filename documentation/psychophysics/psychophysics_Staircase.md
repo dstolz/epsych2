@@ -106,7 +106,8 @@ S = psychophysics.Staircase(..., Name=Value)
 - `ThresholdFormula`
   - Formula used to combine reversal values.
 - `ConvertToDecibels`
-  - Converts tracked values to decibels before analysis.
+  - Converts tracked values to decibels before analysis, referenced to full scale (100% depth): `dB = 20*log10(x/1)`.
+  - Also toggled at runtime from the plot's right-click menu (**Y Axis in dB (re 100%)**), which recomputes the staircase and relabels the y axis.
 - `Bits` and `BitColors`
   - Response-code categories and matching display colors used by plotting helpers.
 
@@ -151,6 +152,18 @@ S.disablePlot()
 - `Plot` creates or binds plotting axes and renders the current staircase state.
 - `refreshPlot` redraws the plot from the current computed state.
 - `disablePlot` deletes listeners and graphics owned by the staircase.
+
+The y axis is labeled `<Name> (<Unit>)` from the tracked `hw.Parameter`, using its raw `Unit`
+string exactly as entered in the Protocol Designer. Parameters with no unit, and offline
+staircases constructed from a DATA field name, are labeled with the name alone.
+
+Right-clicking the plot axes exposes the analysis settings that are worth changing while
+reviewing a session: **Threshold Reversals**, **Threshold Formula**, **Y Axis in dB (re 100%)**
+(`ConvertToDecibels`), **Show Steps**, and **Show Reversals**. The decibel option converts the
+tracked values with `20*log10(x)`, so the reported threshold and reversal values are in dB re
+100% depth as well — the y-axis label swaps the raw unit for `dB re 100%`. Because the mean is
+then taken in the decibel domain, the dB threshold is not simply `20*log10` of the linear
+threshold.
 
 ## How Analysis Works
 
@@ -232,5 +245,6 @@ S.Plot();
 
 ## Changelog
 
+- 2026-08-11: The y axis is labeled with the tracked parameter's raw `Unit`, and a **Y Axis in dB (re 100%)** right-click option toggles `ConvertToDecibels`.
 - 2026-07-15: Reversal detection now ignores holds (zero steps) and `NaN` steps instead of counting them as reversals.
 - 2026-03-21: Updated documentation to match the current constructor options, plotting API, step-direction behavior, and reversal-analysis flow in `psychophysics.Staircase`.

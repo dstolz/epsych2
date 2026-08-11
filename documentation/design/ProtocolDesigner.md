@@ -1,10 +1,10 @@
 # Protocol Designer (developer reference)
 
-![Protocol Designer main window, showing the Interfaces tree on the left and the Protocol Parameters table on the right](images/ProtocolDesigner.png)
+![Protocol Designer main window, showing the toolbar above the full-width Protocol Parameters table](images/ProtocolDesigner.png)
 
 `epsych.ProtocolDesigner` is the UI for editing `epsych.Protocol` objects. This document covers its internal structure for developers maintaining or extending the designer. The end-user guide is [ProtocolDesigner_UserGuide.md](ProtocolDesigner_UserGuide.md).
 
-The screenshot above shows the two main areas described throughout this document: the interfaces/modules tree (`buildUI`, `refreshInterfaceControls`) on the left, and the parameter editing table (`buildParametersTab`) on the right, here populated with a Software interface and an offline `TDT_RPcox` interface with paired and expression-driven parameters.
+The main window is a toolbar (`buildToolbar`) above the parameter editing table (`buildParametersTab`), which fills the remaining width. The interfaces/modules tree (`buildInterfaceTab`, `refreshInterfaceSummary`) moved out of the main window into a dialog opened from the toolbar, alongside the options, preview, and check-calculations dialogs.
 
 Source class folder:
 
@@ -39,12 +39,16 @@ ui = epsych.ProtocolDesigner.openFromFile('path/to/file.eprot');
 ## UI Areas
 
 - Main figure and menu system (`buildUI`)
+- Toolbar (`buildToolbar`) — New, Open, Save | Interfaces, Options | Compile, Preview, Check Calcs, Dependencies | Find/Replace, Shortcuts. Buttons are placed from a running cursor, so retitling or reordering one entry does not shift the rest by hand.
 - Parameter editing panel (`buildParametersTab`) — table columns: Interface / Module, Name, Type, Expression, Value, Min, Max, Random, Pair, Access, Unit, Visible, Trigger, Update Every Trial, Description
+- Interfaces dialog (`buildInterfaceTab` / `onOpenInterfaceDialog`) — Add Interface builder plus the interface/module tree and its Remove / Options / Add Module / Remove Module actions
 - Options dialog (`buildOptionsTab` / open options callback)
 - Compiled preview dialog (`buildPreviewTab` / open preview callback)
 - Check Calculations dialog (`buildCheckCalculationsTab` / `refreshCheckCalculations`)
 - Parameter dependency graph figure (`onShowParameterDependencyGraph`, backed by `epsych.Protocol.dependencyGraph`) — node labels and per-parameter `= expression` annotations are drawn as tagged `text` objects (`nodeLabel` / `formulaLabel`) rather than GraphPlot labels, and formula boxes are nudged vertically to clear each other and the node labels
 - Footer status messaging via `gui.StatusBar`
+
+All four tool dialogs are tracked by a figure property (`InterfaceFigure`, `OptionsFigure`, `PreviewFigure`, `CheckCalcFigure`) and opened through `openToolDialog`, which raises an already-open window instead of building a second one. Without that, a duplicate would take ownership of the shared control properties and every earlier copy would go stale, refreshing nothing. Because the interface controls only exist while their dialog is open, `refreshInterfaceSummary`, `refreshInterfaceBuilder`, and `getSelectedInterfaceSpec` all tolerate their absence, and `getSelectedInterfaceRowIndex` falls back to `SelectedInterfaceRow` and then the Add To Interface dropdown. `onAddInterface` and `onAddModule` open the dialog first so the menu and keyboard entry points act on a visible selection.
 
 Interface creation is data-driven: the "Add Interface" panel enumerates `hw.Interface` subclasses and builds each creation dialog from the class's static `getCreationSpec()` (see [../hw/hw_Interface_Tutorial.md](../hw/hw_Interface_Tutorial.md)). Interfaces are held in an offline/serialized form while editing; live hardware communication is not started by the designer.
 
@@ -82,6 +86,7 @@ Implemented in `onFigureKeyPress` and shown by `showKeyboardShortcuts`.
 - Ctrl+Shift+K open check calculations dialog
 - Ctrl+Shift+G plot parameter dependency graph
 - Ctrl+Shift+O open options dialog
+- Ctrl+Shift+I open interfaces dialog
 - Ctrl+Shift+A add interface
 - Ctrl+Shift+M add module
 - Ctrl+Shift+D show selected parameter details

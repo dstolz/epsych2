@@ -1,10 +1,10 @@
 # Protocol Designer User Guide
 
-![Protocol Designer main window, showing the Interfaces tree on the left and the Protocol Parameters table on the right](images/ProtocolDesigner.png)
+![Protocol Designer main window, showing the toolbar above the full-width Protocol Parameters table](images/ProtocolDesigner.png)
 
 `epsych.ProtocolDesigner` is the graphical editor for building and checking protocol files without editing MATLAB code directly. Use it to create interfaces, add modules and parameters, adjust protocol settings, and preview the compiled trial list before saving.
 
-The window above shows a protocol with two interfaces loaded: **Interfaces** on the left (see [What the window is for](#what-the-window-is-for)) and the **Protocol Parameters** table on the right, populated with the parameter rows described in [Adding and editing parameters](#adding-and-editing-parameters).
+The window above shows the toolbar across the top (see [What the window is for](#what-the-window-is-for)) and the **Protocol Parameters** table filling the rest of the window, populated with the parameter rows described in [Adding and editing parameters](#adding-and-editing-parameters).
 
 This guide is written for experiment designers and operators. If you need to change the software itself, use `documentation/design/ProtocolDesigner.md` instead.
 
@@ -26,33 +26,43 @@ When the window opens, the message area at the bottom shows the latest action, e
 
 ## What the window is for
 
-The main window has two working areas:
+The main window is a toolbar above the **Protocol Parameters** table, where you edit the parameter rows for the selected interface or module.
 
-- **Interfaces** on the left, where you add hardware or software interfaces and manage their modules.
-- **Protocol Parameters** on the right, where you edit the parameter table for the selected interface or module.
+The toolbar groups the actions you need most, left to right:
 
-There are also separate dialogs for:
+| Button | What it does |
+|---|---|
+| **New**, **Open...**, **Save** | Start, load, and save protocol files |
+| **Interfaces...** | Add hardware or software interfaces and manage their modules (Ctrl+Shift+I) |
+| **Options...** | Trial function, compile settings, and WAV buffers (Ctrl+Shift+O) |
+| **Compile** | Build the trial matrix (Ctrl+Shift+C) |
+| **Preview...** | Compile and inspect the resulting trial list (Ctrl+Shift+V) |
+| **Check Calcs...** | Sweep expressions across their inputs and check the values (Ctrl+Shift+K) |
+| **Dependencies...** | Plot which parameters are calculated from which (Ctrl+Shift+G) |
+| **Find/Replace...** | Rename parameters in bulk (Ctrl+H) |
+| **Shortcuts** | List every keyboard shortcut |
 
-- **Protocol Options**
-- **Compiled Preview**
+Each of these dialogs opens in its own window that you can leave open beside the main window while you work. Clicking the same button again brings the existing window back to the front rather than opening a second copy.
 
-Use the **Help** menu to open this guide or the developer documentation.
+Every toolbar action is also on the menus, which hold the less frequently used commands as well. Use the **Help** menu to open this guide or the developer documentation.
 
 ## Typical workflow
 
 Most users will follow this order:
 
-1. Add an interface.
+1. Click **Interfaces...** and add an interface.
 2. Add one or more modules if that interface supports manual module editing.
 3. Add parameters to the selected module.
 4. Set parameter values, ranges, and any pairings or expressions.
-5. Open **Protocol Options** and confirm trial function and timing settings.
-6. Open **Compiled Preview** or click **Compile Protocol** to verify the generated trials.
-7. Save the protocol to an `.eprot` file.
+5. Click **Options...** and confirm trial function and timing settings.
+6. Click **Compile** or **Preview...** to verify the generated trials.
+7. Click **Save** to write the protocol to an `.eprot` file.
 
 ## Adding an interface
 
-Use the **Add Interface** panel in the upper-left area.
+Click **Interfaces...** on the toolbar to open the Interfaces window, then use its **Add Interface** panel.
+
+![The Interfaces window, with the Add Interface panel above the Current Interfaces tree](images/ProtocolDesigner_Interfaces.png)
 
 1. Choose an interface type from **Interface Type**.
 2. Click **Add Interface**.
@@ -64,12 +74,14 @@ Some interfaces are created in an offline or serialized form inside the designer
 
 ## Managing modules
 
-After an interface is added, it appears in the **Current Interfaces** tree.
+After an interface is added, it appears in the **Current Interfaces** tree in the same Interfaces window.
 
 - Select an interface to focus the parameter table on that interface.
 - Select a module under that interface to focus editing on that module.
-- Use **Add** and **Remove** to manage modules when the selected interface allows it.
+- Use **Add Module** and **Remove Module** to manage modules when the selected interface allows it.
 - Use **Options** to reopen editable interface settings.
+
+Leave the Interfaces window open beside the main window while you work; the parameter table follows whatever you select in the tree.
 
 Not every interface allows manual module changes. For some hardware-backed interfaces, the module list is controlled by the interface implementation rather than by the designer.
 
@@ -219,7 +231,7 @@ The row is highlighted and the message area shows the error. For index expressio
 
 ## Seeing how parameters depend on each other
 
-Choose **Protocol → Plot Parameter Dependencies...** (Ctrl+Shift+G) to open a new figure showing which parameters are calculated from which. Every parameter that references another one in its **Expression** appears, along with the parameters it references. Arrows point from a referenced parameter to the parameter calculated from it, so following them left to right is the order values are worked out.
+Click **Dependencies...** on the toolbar (Ctrl+Shift+G) to open a new figure showing which parameters are calculated from which. Every parameter that references another one in its **Expression** appears, along with the parameters it references. Arrows point from a referenced parameter to the parameter calculated from it, so following them left to right is the order values are worked out.
 
 Read the plot by colour:
 
@@ -236,7 +248,7 @@ Every calculated parameter's expression is written on the arrows that feed it, i
 
 A `*` after a name means that parameter's value varies across trials. Click any node for its expression, when it is set, and any warnings.
 
-Parameters whose expressions do not reference another parameter are not drawn — there is nothing to connect them to. Use **Check Calculations...** (Ctrl+Shift+K) to see the full per-parameter report including those.
+Parameters whose expressions do not reference another parameter are not drawn — there is nothing to connect them to. Use **Check Calcs...** on the toolbar (Ctrl+Shift+K) to see the full per-parameter report including those.
 
 ## Pairing parameters
 
@@ -253,7 +265,7 @@ Paired parameters must have matching value counts.
 
 ## Protocol options
 
-Click **Protocol Options** to open the protocol-level settings dialog.
+Click **Options...** on the toolbar (Ctrl+Shift+O) to open the protocol-level settings dialog.
 
 The current options include:
 
@@ -265,7 +277,7 @@ These settings apply to the full protocol rather than to one parameter.
 
 ## Compiling and checking the protocol
 
-Use **Compiled Preview...** or **Compile Protocol** to build the current protocol and inspect the resulting trial list.
+Use **Compile** to build the current protocol, or **Preview...** to build it and open the resulting trial list.
 
 Use the compiled preview to check:
 

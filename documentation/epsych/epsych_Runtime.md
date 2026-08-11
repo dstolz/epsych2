@@ -13,7 +13,7 @@ Primary method files:
 - `all_parameters.m`, `find_parameter.m`, `filter_parameters.m` — parameter queries
 - `dispatchNextTrial.m`, `resolveCoreParameters.m` — trial dispatch
 - `updateTrialsFromParameters.m` — trial-table sync
-- `writeParametersProtocol.m`, `readParameters.m`, `phaseParameterData.m` — phase persistence (phases are protocol files)
+- `writeParametersProtocol.m`, `readParameters.m`, `phaseParameterData.m`, `phaseCache.m` — phase persistence (phases are protocol files)
 - `writeParametersJSON.m`, `readParametersJSON.m`, `createTemplateJSON.m` — legacy JSON phase format
 
 ## Responsibilities
@@ -151,6 +151,19 @@ When a session is running, `readParameters` also sets `TRIALS.RECOMPILE_REQUESTE
 These files back the **experiment phase** workflow: parameter sets saved per training phase and reloaded between blocks without restarting the session. `gui.PhaseSelector` provides the GUI for this (see [../gui/](../gui/)). Loaded phases are logged in the dynamic `Phase` property with a timestamp, source path, and `Source` tag (`"Protocol"` or `"JSON"`).
 
 Legacy JSON snapshots written by `writeParametersJSON` remain loadable through the same `readParameters` path (`readParametersJSON` is now a back-compat wrapper), and `epsych.Runtime.createTemplateJSON` still writes a starter file for the JSON format.
+
+### How a phase file is read
+
+`phaseParameterData` is the single chokepoint every phase read goes through, and it does two things to keep a phase load off the operator's critical path.
+
+**It reads the parameter structs directly.** An `.eprot` stores exactly `hw.Parameter.toStruct` output (see `epsych.Protocol.toStruct`), which is `phaseParameterData`'s own output contract — so when the file's shape is recognized in full, the structs are read straight out of the MAT file. `epsych.Protocol.load` remains the authority and the automatic fallback: it rebuilds every interface, module, parameter, and `stimgen` object, without connecting hardware, only for those objects to be serialized straight back to structs. The fast path is refused, and the fallback taken, unless the file carries `formatVersion == 1.0`, the full protocol metadata set, a non-empty `InterfaceData`, and every `toStruct` field on every parameter — so legacy files, files whose interfaces are recoverable only from `COMPILED.writeparams`, hand-built files, and any future format revision keep the old behavior. Pass `FastParse=false` to force the fallback. Where the two paths differ (an expression's `Value` is re-evaluated by the fallback, a random `Value` re-drawn, `'Read / Write'` normalized to `'Any'`, `lastUpdated` restamped) every consumer re-derives the field from the live parameter or overwrites it; `tmp/smoke_test_phase_fastparse.m` is the standing proof.
+
+**It memoizes the result.** `epsych.Runtime.phaseCache` keys parses on the file's canonical path, modification time, and size, so a phase re-saved mid-session is re-parsed automatically. One preview-plus-Load in `gui.PhaseSelector` asks for the same file three times and browsing the dropdown asks once per selection; all of those now share one parse. The cache holds value data only — an entry whose `UserData` carries a handle is deliberately not cached — so a hit is indistinguishable from a fresh parse. It keeps the eight most recently used phases. `phaseCache('clear')`, `phaseCache('disable')`, and `clear functions` are the escape hatches; `phaseCache('stats')` reports hits and parses.
+
+```matlab
+epsych.Runtime.phaseCache('clear')                 % drop every cached parse
+epsych.Runtime.phaseParameterData(f, UseCache=false, FastParse=false)  % force the original path
+```
 
 ## Typical usage
 

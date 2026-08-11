@@ -351,16 +351,23 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             allP = obj.all_parameters(includeInvisible = options.includeInvisible);
             name = cellstr(name);
 
-            % Build short and qualified name arrays for matching.
-            % Qualified names have the form 'Module.Param'.
+            % Short names are cheap to gather. Qualified names ('Module.Param')
+            % cost a Module lookup per parameter, so they are built only if a
+            % short-name match actually misses -- resolving a whole phase file
+            % one name at a time would otherwise rebuild the list per entry.
             shortNames = {allP.Name};
-            qualNames  = arrayfun(@(p) [p.Module.Name '.' p.Name], allP, 'UniformOutput', false);
+            qualNames = {};
+            haveQualNames = false;
 
             result = hw.Parameter.empty(1, 0);
             for k = 1:numel(name)
                 n = name{k};
                 idx = find(strcmp(shortNames, n), 1);
                 if isempty(idx)
+                    if ~haveQualNames
+                        qualNames = arrayfun(@(p) [p.Module.Name '.' p.Name], allP, 'UniformOutput', false);
+                        haveQualNames = true;
+                    end
                     idx = find(strcmp(qualNames, n), 1);
                 end
                 if ~isempty(idx)

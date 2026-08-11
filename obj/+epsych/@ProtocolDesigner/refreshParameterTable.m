@@ -11,11 +11,11 @@ function refreshParameterTable(obj)
 
     % Full column widths: Interface/Module, Name, Type, Expression, Value,
     %   Min, Max, Random, Pair, Access, Unit, Visible, Trigger, Update Every Trial, Description
-    fullWidths = {154, 112, 78, 148, 104, 58, 58, 66, 84, 88, 64, 58, 58, 100, 170};
+    fullWidths = {186, 138, 92, 178, 128, 58, 58, 66, 92, 96, 64, 58, 58, 100, 210};
     if strcmp(obj.DropDownTableView.Value, 'Simple')
         % Show: Interface/Module(1), Name(2), Type(3), Expression(4), Value(5)
-        % Scale widths proportionally to fill the ~860px usable table width
-        obj.TableParams.ColumnWidth = {200, 146, 101, 192, 136, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        % Scale widths proportionally to fill the ~1265px usable table width
+        obj.TableParams.ColumnWidth = {286, 210, 128, 316, 268, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     else
         obj.TableParams.ColumnWidth = fullWidths;
     end

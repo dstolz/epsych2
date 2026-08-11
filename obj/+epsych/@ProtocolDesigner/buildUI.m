@@ -42,7 +42,8 @@ function buildUI(obj)
     uimenu(parameterMenu, 'Text', localShortcutText_('Find and Replace in Names...', 'Ctrl+H'), 'MenuSelectedFcn', @(~, ~) obj.onFindReplaceParameterNames());
 
     interfaceMenu = uimenu(obj.Figure, 'Text', 'Interface');
-    uimenu(interfaceMenu, 'Text', localShortcutText_('Add Interface', 'Ctrl+Shift+A'), 'MenuSelectedFcn', @(~, ~) obj.onAddInterface());
+    uimenu(interfaceMenu, 'Text', localShortcutText_('Interfaces and Modules...', 'Ctrl+Shift+I'), 'MenuSelectedFcn', @(~, ~) obj.onOpenInterfaceDialog());
+    uimenu(interfaceMenu, 'Text', localShortcutText_('Add Interface', 'Ctrl+Shift+A'), 'Separator', 'on', 'MenuSelectedFcn', @(~, ~) obj.onAddInterface());
     uimenu(interfaceMenu, 'Text', localShortcutText_('Add Module', 'Ctrl+Shift+M'), 'MenuSelectedFcn', @(~, ~) obj.onAddModule());
 
     protocolMenu = uimenu(obj.Figure, 'Text', 'Protocol');
@@ -65,8 +66,10 @@ function buildUI(obj)
         'Position',    [20 14 1340 34], ...
         'InitialText', 'Loading Protocol Designer...');
 
+    obj.buildToolbar();
+
     obj.MainPanel = uipanel(obj.Figure, ...
-        'Position', [20 56 1340 844], ...
+        'Position', [20 56 1340 794], ...
         'BackgroundColor', [0.972 0.978 0.986], ...
         'BorderType', 'none');
 

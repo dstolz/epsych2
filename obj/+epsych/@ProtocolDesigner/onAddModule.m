@@ -1,6 +1,11 @@
 function onAddModule(obj)
 % onAddModule(obj)
 % Prompt for module settings and add a module to the selected interface.
+%
+% Opens the Interfaces dialog first so the tree shows which interface the module
+% lands under, whichever entry point invoked this.
+    obj.onOpenInterfaceDialog();
+
     interfaceIndex = obj.getSelectedInterfaceRowIndex();
     if interfaceIndex < 1 || interfaceIndex > length(obj.Protocol.Interfaces)
         obj.setStatus('No interface selected for Add Module', ...

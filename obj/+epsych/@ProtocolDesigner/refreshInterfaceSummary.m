@@ -1,4 +1,12 @@
 function refreshInterfaceSummary(obj)
+% refreshInterfaceSummary(obj)
+% Rebuild the interface/module tree from the protocol and restore its selection.
+% No-op while the Interfaces dialog is closed; onOpenInterfaceDialog rebuilds
+% the tree from SelectedInterfaceRow when it reopens.
+    if isempty(obj.InterfaceTree) || ~isvalid(obj.InterfaceTree)
+        return
+    end
+
     delete(obj.InterfaceTree.Children);
 
     interfaceCount = length(obj.Protocol.Interfaces);

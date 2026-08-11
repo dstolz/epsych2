@@ -1,6 +1,11 @@
 function onAddInterface(obj)
 % onAddInterface(obj)
 % Prompt for interface settings and add the interface to the active protocol.
+%
+% Opens the Interfaces dialog first so the menu and Ctrl+Shift+A entry points
+% act on a visible interface-type selection rather than a silent default.
+    obj.onOpenInterfaceDialog();
+
     try
         [spec, ~] = obj.getSelectedInterfaceSpec();
         existingTypes = arrayfun(@(iface) char(string(iface.Type)), obj.Protocol.Interfaces, 'UniformOutput', false);

@@ -1,4 +1,11 @@
 function refreshInterfaceBuilder(obj)
+% refreshInterfaceBuilder(obj)
+% Reload the addable interface types into the Add Interface controls.
+% No-op while the Interfaces dialog is closed.
+    if isempty(obj.DropDownInterfaceType) || ~isvalid(obj.DropDownInterfaceType)
+        return
+    end
+
     specs = obj.getAddableInterfaceSpecs();
     if isempty(specs)
         obj.DropDownInterfaceType.Items = {'<none>'};

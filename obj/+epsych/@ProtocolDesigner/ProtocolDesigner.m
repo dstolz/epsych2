@@ -3,6 +3,12 @@ classdef ProtocolDesigner < handle
     % Edit epsych.Protocol objects from a dedicated UI for interfaces,
     % parameters, protocol options, and compiled trial preview data.
     %
+    % The main window is a toolbar over the parameter table. Interfaces,
+    % protocol options, the compiled preview, and the expression sweep each open
+    % in their own dialog from the toolbar, so the parameter table keeps the full
+    % window width. Each dialog is tracked by a figure property and reused rather
+    % than duplicated, because a second copy would leave the first one stale.
+    %
     % Important properties:
     % 	Protocol		- Protocol instance currently bound to the designer.
     % 	TableParams	- Parameter table for interface and module settings.
@@ -26,13 +32,30 @@ classdef ProtocolDesigner < handle
         CurrentProtocolPath (1,:) char = ''
 
         MainPanel matlab.ui.container.Panel
+        ToolbarPanel matlab.ui.container.Panel  % Command strip above MainPanel.
         FileMenu matlab.ui.container.Menu
         RecentProtocolsMenu matlab.ui.container.Menu
 
+        % Tool dialogs, tracked so a repeat toolbar click raises the open window
+        % instead of building a duplicate that owns the control handles.
+        InterfaceFigure matlab.ui.Figure
+        OptionsFigure matlab.ui.Figure
+        PreviewFigure matlab.ui.Figure
+        CheckCalcFigure matlab.ui.Figure
+
         EditInfo matlab.ui.control.EditField
-        BtnSave matlab.ui.control.Button
-        BtnLoad matlab.ui.control.Button
         StatusBar gui.StatusBar  % Footer status-label component.
+
+        % Toolbar buttons.
+        BtnNew matlab.ui.control.Button
+        BtnLoad matlab.ui.control.Button
+        BtnSave matlab.ui.control.Button
+        BtnOpenInterfaceDialog matlab.ui.control.Button
+        BtnToolbarCompile matlab.ui.control.Button
+        BtnOpenCheckCalcDialog matlab.ui.control.Button
+        BtnShowDependencies matlab.ui.control.Button
+        BtnFindReplace matlab.ui.control.Button
+        BtnShortcuts matlab.ui.control.Button
 
         DropDownInterfaceType matlab.ui.control.DropDown
         LabelInterfaceDescription matlab.ui.control.Label
@@ -156,6 +179,7 @@ classdef ProtocolDesigner < handle
             % Ctrl+Shift+K: Open check calculations dialog
             % Ctrl+Shift+G: Plot parameter dependency graph
             % Ctrl+Shift+O: Open options dialog
+            % Ctrl+Shift+I: Open interfaces dialog
             % Ctrl+Shift+A: Add interface
             % Ctrl+Shift+M: Add module
             % Ctrl+Shift+R: Remove parameter
@@ -243,6 +267,10 @@ classdef ProtocolDesigner < handle
                 case "o"
                     if hasShift
                         obj.onOpenOptionsDialog();
+                    end
+                case "i"
+                    if hasShift
+                        obj.onOpenInterfaceDialog();
                     end
                 case "a"
                     if hasShift

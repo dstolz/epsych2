@@ -27,33 +27,36 @@ classdef PhaseSelector < handle
     %   ps.addPhaseSelect(parentUI, [10 10 150 30]);
     %
     % Properties:
-    %   PhasePath      - Directory containing phase files.
-    %   CurrentPhase   - Index of currently loaded phase.
-    %   h_PhaseSelect  - Handle to dropdown UI control.
-    %   h_LoadPhase    - Handle to load button UI control.
-    %   h_WritePhase   - Handle to write button UI control.
-    %   h_Description  - Handle to description label UI control.
-    %   RUNTIME        - Main runtime object.
-    %   Names          - List of phase file names without extension.
-    %   Filenames      - List of phase file names without path.
-    %   FullFilenames  - Full paths to phase files.
-    %   LastLoadedFile - File name of the most recently loaded phase.
-    %   LastLoadedTime - Time the most recently loaded phase was loaded.
+    %   PhasePath          - Directory containing phase files.
+    %   CurrentPhase       - Index of currently loaded phase.
+    %   h_PhaseSelect      - Handle to dropdown UI control.
+    %   h_LoadPhase        - Handle to load button UI control.
+    %   h_WritePhase       - Handle to write button UI control.
+    %   h_ChangeDirectory  - Handle to change-directory button UI control.
+    %   h_Description      - Handle to description label UI control.
+    %   RUNTIME            - Main runtime object.
+    %   Names              - List of phase file names without extension.
+    %   Filenames          - List of phase file names without path.
+    %   FullFilenames      - Full paths to phase files.
+    %   LastLoadedFile     - File name of the most recently loaded phase.
+    %   LastLoadedTime     - Time the most recently loaded phase was loaded.
     %
     % Methods:
-    %   PhaseSelector          - Constructor for PhaseSelector class.
-    %   addDescriptionLabel    - Add label UI control for description text.
-    %   addPhaseSelectDropdown - Add dropdown UI control for phase selection.
-    %   addLoadPhaseButton     - Add button UI control for loading the selected phase.
-    %   addSavePhaseButton     - Add button UI control for saving phase parameters.
-    %   createGUI              - Create dropdown and button UI controls for phase selection, loading, and saving.
-    %   findPhaseFiles         - Scan PhasePath for phase files; empty list if the directory is missing or empty.
-    %   onPhaseSelectionChanged- Callback for dropdown value change; updates state without loading, and prints the phase's parameter changes.
-    %   loadPhaseParameters    - Load parameters from the selected phase file into the runtime.
-    %   showPhaseInfo          - Print a table of the parameter changes the selected phase would apply.
-    %   set.PhasePath          - Set method for PhasePath property, loads phase files from new path.
-    %   writePhaseParameters   - Save the current session as a protocol (.eprot) phase file.
-    %   withLastLoaded         - Append the most-recently-loaded phase file name and load time to info text.
+    %   PhaseSelector           - Constructor for PhaseSelector class.
+    %   addDescriptionLabel     - Add label UI control for description text.
+    %   addPhaseSelectDropdown  - Add dropdown UI control for phase selection.
+    %   addLoadPhaseButton      - Add button UI control for loading the selected phase.
+    %   addSavePhaseButton      - Add button UI control for saving phase parameters.
+    %   addChangeDirectoryButton- Add button UI control for choosing a new phase directory.
+    %   createGUI               - Create dropdown and button UI controls for phase selection, loading, and saving.
+    %   findPhaseFiles          - Scan PhasePath for phase files; empty list if the directory is missing or empty.
+    %   onPhaseSelectionChanged - Callback for dropdown value change; updates state without loading, and prints the phase's parameter changes.
+    %   loadPhaseParameters     - Load parameters from the selected phase file into the runtime.
+    %   showPhaseInfo           - Print a table of the parameter changes the selected phase would apply.
+    %   set.PhasePath           - Set method for PhasePath property, loads phase files from new path.
+    %   writePhaseParameters    - Save the current session as a protocol (.eprot) phase file.
+    %   changePhaseDirectory    - Prompt the user for a new phase directory and rescan it.
+    %   withLastLoaded          - Append the most-recently-loaded phase file name and load time to info text.
     %
     % See also: documentation/overviews/Architecture_Overview.md
 
@@ -63,6 +66,7 @@ classdef PhaseSelector < handle
         h_PhaseSelect           % Handle to dropdown UI control
         h_LoadPhase             % Handle to load button UI control
         h_WritePhase            % Handle to write button UI control
+        h_ChangeDirectory       % Handle to change-directory button UI control
         h_Description           % Handle to description label UI control
     end
 
@@ -199,11 +203,27 @@ classdef PhaseSelector < handle
                 obj.findPhaseFiles();
             end
 
-            if ~isempty(obj.h_PhaseSelect) && isvalid(obj.h_PhaseSelect)
-                obj.h_PhaseSelect.Items = cellstr(obj.Names);
-                obj.h_PhaseSelect.Value = obj.Names(1);
+            obj.refreshPhaseDropdown();
+        end
+
+
+        function changePhaseDirectory(obj, ~)
+            % changePhaseDirectory(obj)
+            % Prompt the user to choose a new phase directory, rescan it, and refresh the
+            % dropdown to the newly found phase list. Invoked by the Dir... button.
+            defaultPath = '.';
+            if strlength(obj.PhasePath) > 0 && isfolder(obj.PhasePath)
+                defaultPath = obj.PhasePath;
             end
-            obj.onPhaseSelectionChanged(obj.h_PhaseSelect);
+
+            newPath = uigetdir(defaultPath, 'Select Phase Directory');
+            if isequal(newPath, 0)
+                vprintf(3, 'User canceled phase directory selection.');
+                return
+            end
+
+            obj.PhasePath = string(newPath); % set.PhasePath rescans
+            obj.refreshPhaseDropdown();
         end
 
 
@@ -362,25 +382,29 @@ classdef PhaseSelector < handle
                 parent {mustBeNonempty} = uifigure
             end
 
-            gl = uigridlayout(parent, [2 3]);
-            gl.RowHeight = {30,'fit'};
-            gl.ColumnWidth = {'1x',55,55};
-
-            h.PhaseSelect = obj.addPhaseSelectDropdown(gl);
-            h.PhaseSelect.Layout.Row = 1;
-            h.PhaseSelect.Layout.Column = 1;
-
-            h.LoadPhase = obj.addLoadPhaseButton(gl);
-            h.LoadPhase.Layout.Row = 1;
-            h.LoadPhase.Layout.Column = 2;
-
-            h.SavePhase = obj.addSavePhaseButton(gl);
-            h.SavePhase.Layout.Row = 1;
-            h.SavePhase.Layout.Column = 3;
+            gl = uigridlayout(parent, [3 3]);
+            gl.RowHeight = {'fit',30,30};
+            gl.ColumnWidth = {'1x','1x','1x'};
 
             h.Description = obj.addDescriptionLabel(gl);
-            h.Description.Layout.Row = 2;
+            h.Description.Layout.Row = 1;
             h.Description.Layout.Column = [1 3];
+
+            h.PhaseSelect = obj.addPhaseSelectDropdown(gl);
+            h.PhaseSelect.Layout.Row = 2;
+            h.PhaseSelect.Layout.Column = [1 3];
+
+            h.LoadPhase = obj.addLoadPhaseButton(gl);
+            h.LoadPhase.Layout.Row = 3;
+            h.LoadPhase.Layout.Column = 1;
+
+            h.SavePhase = obj.addSavePhaseButton(gl);
+            h.SavePhase.Layout.Row = 3;
+            h.SavePhase.Layout.Column = 2;
+
+            h.ChangeDirectory = obj.addChangeDirectoryButton(gl);
+            h.ChangeDirectory.Layout.Row = 3;
+            h.ChangeDirectory.Layout.Column = 3;
 
             % Start on the null entry with Load/Info disabled until a phase is selected.
             if ~isempty(obj.h_PhaseSelect)
@@ -437,6 +461,29 @@ classdef PhaseSelector < handle
         end
 
 
+        function h = addChangeDirectoryButton(obj, parent)
+            % h = addChangeDirectoryButton(obj, parent)
+            % Adds a button UI control to parent for choosing a new phase directory.
+            %
+            % Parameters:
+            %   parent   - Handle to parent container (e.g., uifigure, uipanel)
+            %
+            % Returns:
+            %   h - Handle to created button UI control
+            arguments
+                obj
+                parent {mustBeNonempty} = gcf
+            end
+
+            h = uibutton(parent, ...
+                'Text', 'Dir...', ...
+                'Tooltip', 'Choose a different phase directory', ...
+                'ButtonPushedFcn', @(src,evt) obj.changePhaseDirectory(src));
+
+            obj.h_ChangeDirectory = h;
+        end
+
+
 
         function h = addPhaseSelectDropdown(obj, parent)
             % h = addPhaseSelectDropdown(obj, parent)
@@ -486,6 +533,21 @@ classdef PhaseSelector < handle
 
 
     methods (Access = private)
+        function refreshPhaseDropdown(obj)
+            % refreshPhaseDropdown(obj)
+            % Reset the dropdown to the null entry using the current Names list and
+            % re-run the selection-changed callback, so the description label and
+            % Load button state reflect a freshly (re)scanned PhasePath. Shared by
+            % writePhaseParameters and changePhaseDirectory, both of which rescan
+            % PhasePath before calling this.
+            if ~isempty(obj.h_PhaseSelect) && isvalid(obj.h_PhaseSelect)
+                obj.h_PhaseSelect.Items = cellstr(obj.Names);
+                obj.h_PhaseSelect.Value = obj.Names(1);
+            end
+            obj.onPhaseSelectionChanged(obj.h_PhaseSelect);
+        end
+
+
         function txt = noPhasesText(obj)
             % txt = noPhasesText(obj)
             % Description-label text for the empty state, naming the directory that

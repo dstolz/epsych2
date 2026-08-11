@@ -200,6 +200,94 @@ catch ME
     fprintf('FAIL: G. %s\n', ME.message);
 end
 
+% ===== H. Phase save captures runtime edits =============================
+% Runtime edits arrive by two paths that toStruct alone does not capture:
+% a deferred commit (gui.Parameter_Update) lands only in TRIALS.trials until
+% the next dispatch, and no path refreshes design-time Values. The save must
+% reconcile both, while leaving per-trial-managed columns (staircase) alone.
+try
+    P5 = epsych.Protocol(Name='SyncTest', Info='Runtime edit sync');
+    P5.addParameter('Software', 'RespDur', 500, Type='Float');   % deferred commit target
+    P5.addParameter('Software', 'PCatch', 0.1, Type='Float');    % live-only (autoCommit-style) edit
+    P5.addParameter('Software', 'Stair', 1, Type='Float');       % per-trial managed column
+    P5.addParameter('Software', 'Lvl', [10 20 30], Type='Float');% roved: untouched
+    P5.addParameter('Software', 'TrialType', [0 1], Type='Integer');
+    pCatch = P5.Interfaces(1).find_parameter('PCatch');
+    pCatch.UpdateEveryTrial = false; % dispatch never touches it; live Value is authoritative
+    sw = P5.findInterface('Software');
+    sw.add_parameter('x_NewTrial_1',      0, isTrigger=true);
+    sw.add_parameter('x_ResetTrig_1',     0, isTrigger=true);
+    sw.add_parameter('x_TrialComplete_1', 0, isTrigger=true);
+    P5.compile();
+
+    R5 = epsych.Runtime;
+    R5.isTest = true;
+    R5.HELPER = epsych.Helper;
+    R5.Interfaces = P5.Interfaces;
+    R5.Protocol = P5;
+    R5.dfltDataPath = tmpDir;
+    R5.TempDataDir = tmpDir;
+
+    subject = epsych.DefaultSubject(struct('Name', 'SyncSubject', ...
+        'Species', 'Mouse', 'Sex', 'Unknown', 'BoxID', 1));
+    R5 = ep_TimerFcn_Start(R5, struct('PROTOCOL', P5, 'SUBJECT', subject));
+
+    % Deferred commit: table only, parameter untouched (mimics
+    % gui.Parameter_Update.commit_changes without the immediate modifier).
+    idx = R5.TRIALS(1).writeParamIdx.RespDur;
+    T5 = R5.TRIALS(1).trials;
+    [T5{:, idx}] = deal(750);
+    % Per-trial managed column: rows diverge, as a staircase selector would leave them.
+    idx = R5.TRIALS(1).writeParamIdx.Stair;
+    T5{1, idx} = 0.4;
+    R5.TRIALS(1).trials = T5;
+
+    % Live-only edit (mimics an autoCommit control on a non-dispatched parameter).
+    pCatch.Value = 0.25;
+
+    phaseH = fullfile(tmpDir, 'phaseH.eprot');
+    R5.writeParametersProtocol(phaseH, "Runtime edits");
+
+    F = load(phaseH, '-mat');
+    saved = struct;
+    for ii = 1:numel(F.protocol.InterfaceData)
+        for mm = 1:numel(F.protocol.InterfaceData{ii}.Modules)
+            pp = F.protocol.InterfaceData{ii}.Modules{mm}.Parameters;
+            for kk = 1:numel(pp)
+                saved.(matlab.lang.makeValidName(pp{kk}.Name)) = pp{kk};
+            end
+        end
+    end
+
+    assert(isequal(saved.RespDur.Value, 750) && isequal(saved.RespDur.Values, {750}), ...
+        'deferred table commit should be captured in both Value and Values');
+    assert(isequal(saved.PCatch.Value, 0.25) && isequal(saved.PCatch.Values, {0.25}), ...
+        'live-only edit should be captured in both Value and Values');
+    assert(isequal(saved.Stair.Values, {1}), ...
+        'per-trial managed parameter Values must not be overwritten by the save');
+    assert(isequal(cell2mat(saved.Lvl.Values), [10 20 30]), ...
+        'roved Values list must be preserved');
+
+    % Round trip: loading the phase and recompiling regenerates the trial
+    % table with the runtime-edited value rather than reverting it.
+    pResp = R5.find_parameter('RespDur');
+    pResp.Values = {500};
+    pResp.Value = 500;
+    R5.readParameters(phaseH);
+    assert(isequal(pResp.Value, 750), 'phase load should restore the edited value');
+    assert(isequal(pResp.Values, {750}), 'phase load should restore the edited design Values');
+    R5.TRIALS(1).FORCE_TRIAL = true;
+    R5 = ep_TimerFcn_RunTime(R5);
+    col = R5.TRIALS(1).writeParamIdx.RespDur;
+    lv = unique(cell2mat(R5.TRIALS(1).trials(:, col)));
+    assert(isequal(lv, 750), 'recompiled trials should carry the edited value, not the stale design value');
+
+    fprintf('PASS: H. phase save captures runtime edits and survives the recompile\n');
+catch ME
+    failures{end+1} = sprintf('H. runtime edit sync: %s', ME.message);
+    fprintf('FAIL: H. %s\n', ME.message);
+end
+
 % ===== Summary ==========================================================
 if isempty(failures)
     fprintf('\nsmoke_test_phase_protocol: ALL PASS\n');

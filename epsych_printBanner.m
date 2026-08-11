@@ -20,7 +20,11 @@ end
 
 cm = cellstr(m);
 cm{end} = sprintf('%s\n%s <a href="%s">%s</a>',cm{end},latestTag,E.LicenseURL,E.Copyright);
-cm{end+1} = sprintf('Latest commit: %s; %s; <a href="%s">Commit History Overview</a>',E.commitTimestamp,E.chksum(1:7),E.CommitHistoryURL);
+commitLine = sprintf('Latest commit: %s; %s; <a href="%s">Commit History Overview</a>',E.commitTimestamp,E.chksum(1:7),E.CommitHistoryURL);
+if ~isempty(E.worktree)
+     commitLine = sprintf('%s\nWorktree: %s',commitLine,E.worktree);
+end
+cm{end+1} = commitLine;
 cm{end+1} = sprintf('Wiki documentation: <a href="%s">%s</a>',E.DocumentationURL,E.DocumentationURL);
 lnk = E.RepositoryURL;
 cm{end+1} = sprintf('Repository: <a href="%s">%s</a>',lnk,lnk);

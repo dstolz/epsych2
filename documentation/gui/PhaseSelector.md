@@ -1,6 +1,6 @@
 # gui.PhaseSelector
 
-![gui.PhaseSelector component: a phase dropdown with Load and Save buttons, plus a description label](images/PhaseSelector.png)
+![gui.PhaseSelector component: a description label above a phase dropdown, with Load, Save, and Dir... buttons in a row below (screenshot predates the Dir... button)](images/PhaseSelector.png)
 
 `gui.PhaseSelector` is a GUI component for switching between named **experiment phases** — saved parameter sets stored as protocol files. It lets an operator move a subject between training stages (for example, shaping → detection → psychometric testing) without editing the protocol or restarting the session.
 
@@ -18,11 +18,13 @@ Legacy JSON snapshots (written by `epsych.Runtime.writeParametersJSON` in earlie
 
 ## Using the phase selector (operators)
 
-The component appears in task GUIs (such as the appetitive detection GUI) as a dropdown with two buttons, shown in the screenshot above:
+The component appears in task GUIs (such as the appetitive detection GUI) as a description label, a dropdown, and a row of three buttons, shown in the screenshot above:
 
+- **Description label** — reports the current selection state (or the searched directory when no phases were found) above the dropdown, plus the most recently loaded phase and load time once a load has occurred.
 - **Dropdown** — pick a phase by name. Selecting a phase does not change anything, but prints a table of parameters with their current values and the values the phase would apply to the command window, so you can sanity-check the change before loading it.
 - **Load** — apply the selected phase: parameter values from the file are written to the live parameters and synchronized into the trial table, and a protocol recompile is scheduled for the next trial boundary so the phase's trial structure (value lists, expressions) takes effect, not just its current values.
 - **Save** — snapshot the current session as a new phase protocol (`.eprot`; you are prompted for a name).
+- **Dir...** — pick a different phase directory (`uigetdir`); the dropdown rescans and repopulates from the newly chosen directory.
 
 Typical workflow:
 
@@ -35,19 +37,19 @@ Loads are logged on the runtime (`RUNTIME.Phase`) with a timestamp and source pa
 
 ```matlab
 ps = gui.PhaseSelector(RUNTIME, phaseDir);  % phaseDir contains *.eprot phase files (legacy *.json also found)
-h  = ps.createGUI(parentContainer);          % dropdown + Load/Save buttons
+h  = ps.createGUI(parentContainer);          % description label + dropdown + Load/Save/Dir... buttons
 ```
 
-Individual controls can also be placed separately (`addPhaseSelectDropdown`, `addLoadPhaseButton`, `addSavePhaseButton`, `addDescriptionLabel`) when the host GUI needs a custom layout.
+`createGUI` lays the controls out in a 3-row grid: the description label on row 1, the dropdown on row 2, and Load/Save/Dir... in a row of three buttons on row 3. Individual controls can also be placed separately (`addPhaseSelectDropdown`, `addLoadPhaseButton`, `addSavePhaseButton`, `addChangeDirectoryButton`, `addDescriptionLabel`) when the host GUI needs a custom layout.
 
 Create the component unconditionally — **do not** gate it on `isfolder(phaseDir)`. A missing, unset, or empty phase directory is a normal state: `findPhaseFiles` logs where it looked and leaves the phase list empty, the dropdown shows only its `< Select Phase >` entry with **Load** disabled, and the description names the directory it searched. **Save** stays available, which is how the first phase file gets created; if the configured directory does not exist, saving adopts the directory the file was written to so the new phase appears in the dropdown immediately. Hiding the control until phases exist leaves the operator no way to create one.
 
 Key behavior:
 
-- `PhasePath` is observable; assigning a new directory rescans for `*.eprot`, `*.prot`, and legacy `*.json` files and repopulates the dropdown.
+- `PhasePath` is observable; assigning a new directory rescans for `*.eprot`, `*.prot`, and legacy `*.json` files and repopulates the dropdown. `changePhaseDirectory` (bound to **Dir...**) is the operator-facing entry point: it prompts with `uigetdir` and assigns the result to `PhasePath`.
 - `onPhaseSelectionChanged` calls `showPhaseInfo` automatically whenever the dropdown selection changes to a real phase, printing the current-vs-phase comparison table (built by `computePhaseChanges`) to the command window.
 - `loadPhaseParameters` delegates to `RUNTIME.readParameters`, which parses the file (`epsych.Runtime.phaseParameterData`), resolves each named parameter against the live interfaces, assigns its value, and schedules a safe-boundary protocol recompile (`TRIALS.RECOMPILE_REQUESTED`, applied by `ep_TimerFcn_RunTime`); `RUNTIME.updateTrialsFromParameters` then pushes writable values into the trial table for trials dispatched before that boundary.
-- `writePhaseParameters` delegates to `RUNTIME.writeParametersProtocol`, which serializes the session's `epsych.Protocol` (`RUNTIME.Protocol`) — the runtime borrows that protocol's parameter handles, so the saved file is an exact snapshot of the live values.
+- `writePhaseParameters` delegates to `RUNTIME.writeParametersProtocol`, which serializes the session's `epsych.Protocol` (`RUNTIME.Protocol`) and then reconciles the snapshot with the session's effective values: deferred trial-table commits (`gui.Parameter_Update` without the immediate modifier) that have not yet dispatched are captured, and each single-level parameter's design-time `Values` list is refreshed to the effective value so the phase's recompile-on-load reproduces the runtime edits instead of reverting them. Roved, expression-driven, randomized, trigger, and per-trial-managed (e.g. staircase) parameters keep their design state.
 
 Keep the handle returned by the constructor on your GUI object so the component is not garbage-collected, and follow the cleanup guidance in [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md).
 

@@ -80,12 +80,20 @@ classdef PhaseSelector < handle
     end
 
 
+    properties (Constant, Access = private)
+        PREF_GROUP = 'epsych2_gui_PhaseSelector'
+        PREF_KEY = 'LastPhasePath'
+    end
+
 
     methods
         function obj = PhaseSelector(RUNTIME, PhasePath)
             % PhaseSelector(RUNTIME, PhasePath)
             % Constructor for PhaseSelector class.
-            % Loads phase files from PhasePath if provided.
+            % Loads phase files from PhasePath if provided. A directory
+            % previously chosen via the Dir... button (or adopted by Save)
+            % takes priority over the caller-supplied default, so the
+            % component reopens wherever the operator last left it.
             %
             % Parameters:
             %   RUNTIME   - Main runtime object
@@ -95,17 +103,28 @@ classdef PhaseSelector < handle
                 PhasePath (1,1) string = ""
             end
             obj.RUNTIME = RUNTIME;
+            if ispref(obj.PREF_GROUP, obj.PREF_KEY)
+                lastPath = string(getpref(obj.PREF_GROUP, obj.PREF_KEY));
+                if strlength(lastPath) > 0 && isfolder(lastPath)
+                    PhasePath = lastPath;
+                end
+            end
             obj.PhasePath = PhasePath;
         end
 
 
         function set.PhasePath(obj, newPath)
             % set.PhasePath(obj, newPath)
-            % Set method for PhasePath property. Loads phase files from new path.
+            % Set method for PhasePath property. Loads phase files from new path
+            % and, if it is a real directory, remembers it (via setpref) as the
+            % directory to reopen on the next session.
             %
             % Parameters:
             %   newPath - New directory path for phase files
             obj.PhasePath = newPath;
+            if strlength(newPath) > 0 && isfolder(newPath)
+                setpref(obj.PREF_GROUP, obj.PREF_KEY, char(newPath));
+            end
             obj.findPhaseFiles();
         end
 
@@ -301,6 +320,13 @@ classdef PhaseSelector < handle
             % REMOVE TRIALTYPE
             P(string({P.Name}) == "TrialType") = [];
 
+            % readParameters restored these parameters' metadata but deliberately
+            % left their values to the live session, so they are not part of this
+            % load's change set: writing them to TRIALS would push the operator's
+            % current toggle state into the trial table and list it in the dialog
+            % as though the phase had set it.
+            P(arrayfun(@(p) hw.Parameter.isTransientControl(p), P)) = [];
+
             % Keep only the parameters the phase actually changed. Comparing each parameter's
             % post-load value against the pre-load snapshot (matched by handle identity) means
             % unchanged parameters are not re-applied to TRIALS, avoiding a needless trial
@@ -383,28 +409,28 @@ classdef PhaseSelector < handle
             end
 
             gl = uigridlayout(parent, [3 3]);
-            gl.RowHeight = {'fit',30,30};
+            gl.RowHeight = {30,30,'fit'};
             gl.ColumnWidth = {'1x','1x','1x'};
 
-            h.Description = obj.addDescriptionLabel(gl);
-            h.Description.Layout.Row = 1;
-            h.Description.Layout.Column = [1 3];
-
             h.PhaseSelect = obj.addPhaseSelectDropdown(gl);
-            h.PhaseSelect.Layout.Row = 2;
+            h.PhaseSelect.Layout.Row = 1;
             h.PhaseSelect.Layout.Column = [1 3];
 
             h.LoadPhase = obj.addLoadPhaseButton(gl);
-            h.LoadPhase.Layout.Row = 3;
+            h.LoadPhase.Layout.Row = 2;
             h.LoadPhase.Layout.Column = 1;
 
             h.SavePhase = obj.addSavePhaseButton(gl);
-            h.SavePhase.Layout.Row = 3;
+            h.SavePhase.Layout.Row = 2;
             h.SavePhase.Layout.Column = 2;
 
             h.ChangeDirectory = obj.addChangeDirectoryButton(gl);
-            h.ChangeDirectory.Layout.Row = 3;
+            h.ChangeDirectory.Layout.Row = 2;
             h.ChangeDirectory.Layout.Column = 3;
+
+            h.Description = obj.addDescriptionLabel(gl);
+            h.Description.Layout.Row = 3;
+            h.Description.Layout.Column = [1 3];
 
             % Start on the null entry with Load/Info disabled until a phase is selected.
             if ~isempty(obj.h_PhaseSelect)
@@ -684,6 +710,13 @@ classdef PhaseSelector < handle
 
                 % Loading strips TrialType (see loadPhaseParameters), so ignore it here too.
                 if string(S.Name) == "TrialType", continue, end
+
+                % A phase load leaves transient session-control state alone
+                % (hw.Parameter.isTransientControl), so listing it here would
+                % promise a change that never happens -- and, via
+                % keepChangedParameters, would credit the phase with a change
+                % it did not make.
+                if hw.Parameter.isTransientControl(S), continue, end
 
                 parentType = string(S.ParentType);
                 iface = obj.RUNTIME.Interfaces(interfaceTypes == parentType);

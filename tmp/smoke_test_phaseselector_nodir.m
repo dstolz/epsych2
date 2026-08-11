@@ -9,6 +9,20 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', 'epsych_startup.m'));
 
 failures = {};
 
+% gui.PhaseSelector prefers its remembered directory (setpref, written by the
+% Dir... button and by Save) over the constructor argument, so an operator's
+% real phase directory would defeat every case below. Detach the test from
+% that pref and restore the operator's value afterward.
+prefGroup = 'epsych2_gui_PhaseSelector';
+prefKey = 'LastPhasePath';
+if ispref(prefGroup, prefKey)
+    savedPhasePref = getpref(prefGroup, prefKey);
+    cleanupPref = onCleanup(@() setpref(prefGroup, prefKey, savedPhasePref));
+else
+    cleanupPref = onCleanup(@() rmprefIfSet(prefGroup, prefKey));
+end
+rmprefIfSet(prefGroup, prefKey);
+
 R = struct('Interfaces',[]); % PhaseSelector only touches RUNTIME when loading/saving
 
 cases = { ...
@@ -48,7 +62,10 @@ for c = 1:size(cases,1)
     end
 end
 
-% A populated directory must still list its phases.
+% A populated directory must still list its phases. The empty-directory case
+% above stored its (real) folder in the remembered-directory pref, which would
+% override popDir here; clear it again so the constructor argument applies.
+rmprefIfSet(prefGroup, prefKey);
 popDir = fullfile(tempdir,'phaseselector_pop_dir');
 if ~isfolder(popDir), mkdir(popDir); end
 touch = fullfile(popDir,'zz_late.eprot'); fclose(fopen(touch,'w'));
@@ -69,4 +86,11 @@ if isempty(failures)
 else
     fprintf('FAILURES:\n');
     fprintf('  %s\n', failures{:});
+end
+
+function rmprefIfSet(group, key)
+% Remove a preference only if it exists; rmpref errors on a missing key.
+if ispref(group, key)
+    rmpref(group, key);
+end
 end

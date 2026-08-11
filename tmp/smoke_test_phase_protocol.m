@@ -18,6 +18,20 @@ if isfolder(tmpDir), rmdir(tmpDir, 's'); end
 mkdir(tmpDir);
 cleanupDir = onCleanup(@() rmdir(tmpDir, 's'));
 
+% gui.PhaseSelector prefers its remembered directory (setpref, written by the
+% Dir... button and by Save) over the constructor argument, so an operator's
+% real phase directory would hijack section E. Detach the test from that pref
+% and restore the operator's value afterward.
+prefGroup = 'epsych2_gui_PhaseSelector';
+prefKey = 'LastPhasePath';
+if ispref(prefGroup, prefKey)
+    savedPhasePref = getpref(prefGroup, prefKey);
+    cleanupPref = onCleanup(@() setpref(prefGroup, prefKey, savedPhasePref));
+else
+    cleanupPref = onCleanup(@() rmprefIfSet(prefGroup, prefKey));
+end
+rmprefIfSet(prefGroup, prefKey);
+
 % ===== Setup: protocol + runtime sharing its interfaces ==================
 P = epsych.Protocol(Name='PhaseTest', Info='Source protocol');
 P.addParameter('Software', 'StimLevel', [10 20 30], Unit='dB', Type='Float');
@@ -400,4 +414,12 @@ else
     error('smoke_test_phase_protocol:failed', '%d failure(s)', numel(failures));
 end
 
+end
+
+
+function rmprefIfSet(group, key)
+% Remove a preference only if it exists; rmpref errors on a missing key.
+if ispref(group, key)
+    rmpref(group, key);
+end
 end

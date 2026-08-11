@@ -2,6 +2,10 @@
 % gui.PhaseSelector must build a usable GUI when its phase directory is
 % missing, unset, or empty -- the host GUI should never lose the control just
 % because no phase files exist yet.
+%
+%   matlab -batch "run('tmp/smoke_test_phaseselector_nodir.m')"
+
+run(fullfile(fileparts(mfilename('fullpath')), '..', 'epsych_startup.m'));
 
 failures = {};
 

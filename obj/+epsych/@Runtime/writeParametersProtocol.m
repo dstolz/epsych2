@@ -128,10 +128,17 @@ for i = 1:numel(protocol.InterfaceData)
         for k = 1:numel(params)
             S = params{k};
 
-            if strcmp(S.Access, 'Read') || S.isTrigger || S.isRandom ...
+            % Transient control state (triggers, operator toggles) is captured
+            % in Value like any other live reading, but must not be promoted
+            % into the design-time Values list: a phase load never restores it
+            % (see hw.Parameter.isTransientControl), so writing a momentary
+            % button press into the protocol's design state would only mislead
+            % ProtocolDesigner about the parameter's default.
+            if strcmp(S.Access, 'Read') || S.isRandom ...
                     || strcmp(S.Type, 'StimType') ...
                     || strlength(string(S.Expression)) > 0 ...
-                    || numel(S.Values) > 1
+                    || numel(S.Values) > 1 ...
+                    || hw.Parameter.isTransientControl(S)
                 continue
             end
 

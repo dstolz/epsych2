@@ -288,6 +288,109 @@ catch ME
     fprintf('FAIL: H. %s\n', ME.message);
 end
 
+% ===== I. Phase load leaves session-control toggles alone ===============
+% Triggers and operator toggles (writable Booleans the dispatcher never
+% refreshes) are live session state: a phase saved with "Deliver Trials"
+% active must not start trial delivery when it loads. Genuine Boolean
+% settings and non-Boolean one-time values must still travel with the phase.
+try
+    % Authored design defaults are all "off"/0; the operator then turns each
+    % one on at runtime. The phase must carry the two settings forward but
+    % neither carry nor design-promote the toggle.
+    P6 = epsych.Protocol(Name='ToggleTest', Info='Transient control');
+    P6.addParameter('Software', 'DeliverTrials', false, Type='Boolean'); % operator toggle
+    P6.addParameter('Software', 'RepeatOnAbort', false, Type='Boolean'); % genuine setting
+    P6.addParameter('Software', 'FilterHz', 0, Type='Float');            % one-time numeric setup
+    P6.addParameter('Software', 'TrialType', [0 1], Type='Integer');
+    sw = P6.findInterface('Software');
+    sw.add_parameter('x_NewTrial_1',      0, isTrigger=true);
+    sw.add_parameter('x_ResetTrig_1',     0, isTrigger=true);
+    sw.add_parameter('x_TrialComplete_1', 0, isTrigger=true);
+
+    pDeliver = P6.Interfaces(1).find_parameter('DeliverTrials');
+    pRepeat  = P6.Interfaces(1).find_parameter('RepeatOnAbort');
+    pFilter  = P6.Interfaces(1).find_parameter('FilterHz');
+    % A toggle and a one-time setup value are both left out of per-trial
+    % dispatch; only the Boolean one is transient control state.
+    pDeliver.UpdateEveryTrial = false;
+    pFilter.UpdateEveryTrial  = false;
+    P6.compile();
+
+    % add_parameter seeds Values, not Value; set the live runtime state
+    % explicitly, as an operator working the GUI would.
+    pDeliver.Value = true;   % operator switched delivery ON
+    pRepeat.Value  = true;
+    pFilter.Value  = 42;
+
+    % The predicate itself, on live parameters.
+    assert(hw.Parameter.isTransientControl(pDeliver), 'toggle should be transient');
+    assert(~hw.Parameter.isTransientControl(pRepeat), 'dispatched Boolean setting should not be transient');
+    assert(~hw.Parameter.isTransientControl(pFilter), 'non-Boolean setup value should not be transient');
+    assert(hw.Parameter.isTransientControl(P6.Interfaces(1).find_parameter('x_NewTrial_1')), ...
+        'trigger should be transient');
+
+    R6 = epsych.Runtime;
+    R6.isTest = true;
+    R6.HELPER = epsych.Helper;
+    R6.Interfaces = P6.Interfaces;
+    R6.Protocol = P6;
+    R6.dfltDataPath = tmpDir;
+    R6.TempDataDir = tmpDir;
+
+    phaseI = fullfile(tmpDir, 'phaseI.eprot');
+    R6.writeParametersProtocol(phaseI, "Saved with delivery ON");
+
+    % The file still records the live reading (a phase is a faithful protocol
+    % snapshot) but must not promote a button press into design-time Values.
+    F6 = load(phaseI, '-mat');
+    saved6 = struct;
+    for ii = 1:numel(F6.protocol.InterfaceData{1}.Modules{1}.Parameters)
+        q = F6.protocol.InterfaceData{1}.Modules{1}.Parameters{ii};
+        saved6.(matlab.lang.makeValidName(q.Name)) = q;
+    end
+    assert(isequal(logical(saved6.DeliverTrials.Value), true), ...
+        'the snapshot should still record the toggle''s live reading');
+    assert(isequal(logical(saved6.DeliverTrials.Values{1}), false), ...
+        'a button press must not be promoted into design-time Values');
+    assert(isequal(logical(saved6.RepeatOnAbort.Values{1}), true), ...
+        'a genuine Boolean setting should be promoted into design-time Values');
+    assert(isequal(saved6.FilterHz.Values{1}, 42), ...
+        'a non-Boolean setup value should be promoted into design-time Values');
+
+    % Operator turns delivery off and changes the other two; loading the phase
+    % must restore the settings but leave the toggle where the operator put it.
+    pDeliver.Value = false;
+    pRepeat.Value  = false;
+    pFilter.Value  = 99;
+
+    R6.readParameters(phaseI);
+
+    assert(isequal(logical(pDeliver.Value), false), ...
+        'phase load must NOT restore the DeliverTrials toggle');
+    assert(isequal(logical(pRepeat.Value), true), ...
+        'phase load should restore a dispatched Boolean setting');
+    assert(isequal(pFilter.Value, 42), ...
+        'phase load should restore a non-Boolean one-time value');
+
+    % Symmetric case: a phase saved with the toggle off must not switch it off
+    % under an operator who has since turned it on.
+    pDeliver.Value = false;
+    phaseI2 = fullfile(tmpDir, 'phaseI2.eprot');
+    R6.writeParametersProtocol(phaseI2, "Saved with delivery OFF");
+    pDeliver.Value = true;
+    R6.readParameters(phaseI2);
+    assert(isequal(logical(pDeliver.Value), true), ...
+        'phase load must not clear a toggle the operator has enabled');
+
+    % Metadata still travels with the phase even though Value does not.
+    assert(strcmp(pDeliver.Type, 'Boolean'), 'toggle metadata should still be restored');
+
+    fprintf('PASS: I. phase load excludes session-control toggles and triggers\n');
+catch ME
+    failures{end+1} = sprintf('I. transient control: %s', ME.message);
+    fprintf('FAIL: I. %s\n', ME.message);
+end
+
 % ===== Summary ==========================================================
 if isempty(failures)
     fprintf('\nsmoke_test_phase_protocol: ALL PASS\n');

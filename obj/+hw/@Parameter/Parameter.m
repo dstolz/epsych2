@@ -131,6 +131,7 @@ classdef Parameter < matlab.mixin.SetGet
         result = evalExpressionInContext(rewrittenText, context, targetName)
         order = orderByDependencies(dispatchParams, allParams) % permutation placing expression parameters after the dispatched parameters whose values they read
         tf = expressionSelectsIndex(type) % true when an Expression on this Type indexes into Values instead of producing the value
+        tf = isTransientControl(P) % true when the value is live session-control state (trigger or operator toggle) that a phase load must not restore
         [item, index] = selectValueByIndex(result, values, paramName) % validate an index-valued expression result and return the selected item
     end
 

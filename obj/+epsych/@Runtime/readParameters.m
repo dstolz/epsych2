@@ -17,7 +17,11 @@ function P = readParameters(obj, filepath)
 % literal Value is restored. Writes to disconnected hardware are no-ops, so
 % restoring Value is safe whether or not the backend is connected.
 %
-% Entries with no matching interface or parameter are skipped.
+% Entries with no matching interface or parameter are skipped. Parameters holding
+% transient session-control state -- triggers, and the operator's live toggles and
+% momentary buttons (hw.Parameter.isTransientControl) -- keep their current value:
+% their metadata and design-time Values are restored, but their momentary value is
+% owned by the running session, not by the phase.
 %
 % When a session is running (TRIALS populated), a protocol recompile is scheduled
 % at the next safe trial boundary by setting TRIALS.RECOMPILE_REQUESTED (applied
@@ -100,15 +104,28 @@ for k = 1:nP
     % pass the compiled trial value through instead of recomputing, e.g.
     % RespWinDelay stuck at its compile-time value). A non-empty expression
     % in the file is applied deliberately.
+    % Transient session-control state (triggers, operator toggles) is excluded
+    % from the Value restore: it belongs to the live session, not the phase.
+    % Restoring it would re-assert a button press captured whenever the phase
+    % was saved -- a phase saved with "Deliver Trials" active would start
+    % delivering trials on load. Metadata and design-time Values are still
+    % restored, so the parameter's definition travels with the phase; only its
+    % momentary value is left alone.
+    restoreValue = ~hw.Parameter.isTransientControl(S);
+
     liveExpression = xp.Expression;
-    xp.fromStruct(S);
+    xp.fromStruct(S, restoreValue);
     if strlength(xp.Expression) == 0 && strlength(liveExpression) > 0
         xp.Expression = liveExpression;
     end
-    if ~strcmp(xp.Type,'StimType') && ~strcmp(xp.Access,'Read')
+    if restoreValue && ~strcmp(xp.Type,'StimType') && ~strcmp(xp.Access,'Read')
         if strlength(xp.Expression) > 0 && ~isempty(xp.Values)
             xp.Value = xp.Values{1};
         end
+    end
+
+    if ~restoreValue
+        vprintf(3, 'Phase load: kept live value of session-control parameter "%s"', xp.Name)
     end
 
     P(end+1) = xp;

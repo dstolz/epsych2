@@ -11,6 +11,13 @@ function updateTrialsFromParameters(obj, Parameters)
         Parameters (1,:) hw.Parameter
     end
 
+    % Before the session compiles TRIALS there is no trial table to sync
+    % (e.g. an autoCommit gui.Parameter_Control edit made pre-run), so this
+    % is a no-op rather than an error.
+    if ~isstruct(obj.TRIALS) || isempty(obj.TRIALS) || ~isfield(obj.TRIALS, 'writeparams')
+        return
+    end
+
     ind = ismember({Parameters.Name}, obj.TRIALS.writeparams);
     Parameters(~ind) = [];
 

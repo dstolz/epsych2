@@ -261,18 +261,21 @@ gui.Parameter_Control(layoutTrialControls,P.Depth,BoundProperty='Min',Text="Mini
 gui.Parameter_Control(layoutTrialControls,P.Depth,BoundProperty='Max',autoCommit=true,Text="Maximum Depth (%):");
 
 
+% Staircase knobs commit straight to the parameter (autoCommit), so pass
+% Runtime to also land the edit in the trial table -- otherwise the next
+% dispatch reverts it and a phase save records the stale table value.
 % >> Step on Miss
-gui.Parameter_Control(layoutTrialControls,P.Depth_StepOnMiss,autoCommit=true,Text="Increment on Miss (%):");
+gui.Parameter_Control(layoutTrialControls,P.Depth_StepOnMiss,autoCommit=true,Runtime=R,Text="Increment on Miss (%):");
 
 % >> Step on Hit
-gui.Parameter_Control(layoutTrialControls,P.Depth_StepOnHit,autoCommit=true,Text="Decrement on Hit (%):");
+gui.Parameter_Control(layoutTrialControls,P.Depth_StepOnHit,autoCommit=true,Runtime=R,Text="Decrement on Hit (%):");
 
 
 
 
 
 % >> Probability of Catch Trial
-gui.Parameter_Control(layoutTrialControls,P.P_Catch,autoCommit=true,Text="p(Catch Trial):");
+gui.Parameter_Control(layoutTrialControls,P.P_Catch,autoCommit=true,Runtime=R,Text="p(Catch Trial):");
 
 
 
@@ -297,12 +300,12 @@ gui.Parameter_Control(layoutTrialControls,P.RespWinPostStim,Text="RW Post-Stimul
 
 
 % >> Repeat Delay Following Abort Option
-h = gui.Parameter_Control(layoutTrialControls,P.RepeatDelayOnAbort,Type='checkbox',autoCommit=true,Text="Repeat Delay on Abort:");
+h = gui.Parameter_Control(layoutTrialControls,P.RepeatDelayOnAbort,Type='checkbox',autoCommit=true,Runtime=R,Text="Repeat Delay on Abort:");
 h.Value = P.RepeatDelayOnAbort.Value; % ensure checkbox reflects the parameter value (in case it was loaded from a previous session)
 
 
 % >> Stimulus Delay (direct value)
-hStimDelayValue = gui.Parameter_Control(layoutTrialControls,P.StimDelay,autoCommit=true,Text="Stimulus Delay (ms):");
+hStimDelayValue = gui.Parameter_Control(layoutTrialControls,P.StimDelay,autoCommit=true,Runtime=R,Text="Stimulus Delay (ms):");
 
 
 

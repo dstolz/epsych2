@@ -64,6 +64,15 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         h_uiobj % handle to uieditfield or uidropdown
         container % handle to container built within parent
 
+        % epsych.Runtime (optional). When set, an autoCommit Value edit is
+        % also pushed into RUNTIME.TRIALS.trials. Without this, the edit
+        % lives only on the hw.Parameter: the dispatcher re-applies the
+        % stale trial-table value at the next trial boundary and a phase
+        % save records the table value, silently reverting the edit both
+        % ways. Leave empty for session-control toggles (Reminder, Deliver
+        % Trials, ...) -- those rely on the table re-assert to self-clear.
+        Runtime = []
+
         PreUpdateFcn = [] % handle to function to call before value update
         PreUpdateFcnArgs (1,:) cell = {} % optional extra arguments passed to PreUpdate
 
@@ -99,8 +108,10 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 options.BoundProperty (1,:) char {mustBeMember(options.BoundProperty,{'Value','Values','Min','Max','isRandom','Expression','Description','Unit','Format'})} = 'Value'
                 options.autoCommit (1,1) logical = false
                 options.Text (1,:) char = Parameter.Name
+                options.Runtime = [] % epsych.Runtime; see the Runtime property
             end
             obj.parent = parent;
+            obj.Runtime = options.Runtime;
 
             obj.Parameter = Parameter;
             controlType = options.Type;
@@ -303,6 +314,8 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     rethrow(ME)
                 end
                 obj.committing_ = false;
+
+                obj.syncRuntimeTrials_();
 
             elseif ~obj.ValueUpdated && success
                 obj.reset_label;
@@ -647,6 +660,19 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function syncRuntimeTrials_(obj)
+            % syncRuntimeTrials_(obj)
+            % Push a just-committed Value into the runtime trial table.
+            % Only a Value edit has a trials-table column; a bound-property
+            % edit (Min, Max, isRandom, ...) is host-side parameter state
+            % with nothing to sync. updateTrialsFromParameters is a no-op
+            % before the session compiles TRIALS.
+            if isempty(obj.Runtime) || ~isequal(obj.BoundProperty,'Value')
+                return
+            end
+            obj.Runtime.updateTrialsFromParameters(obj.Parameter);
+        end
+
         function lims = widgetLimits_(obj)
             % lims = widgetLimits_(obj)
             % Edit-field Limits for the bound property. A Value control is

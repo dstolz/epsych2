@@ -47,6 +47,7 @@ h.Text = "Randomize Stim Delay";
 ```matlab
 obj = gui.Parameter_Control(parent, parameter)
 obj = gui.Parameter_Control(parent, parameter, Type=TYPE, autoCommit=TF)
+obj = gui.Parameter_Control(parent, parameter, autoCommit=true, Runtime=RUNTIME)
 ```
 
 ### Inputs
@@ -68,6 +69,12 @@ obj = gui.Parameter_Control(parent, parameter, Type=TYPE, autoCommit=TF)
 - `autoCommit` (logical)
   - If `true`, user changes are written to the bound parameter property immediately.
   - If `false`, user changes only update the UI and set `obj.ValueUpdated=true` until committed elsewhere.
+- `Runtime` (`epsych.Runtime`, optional)
+  - When set, an `autoCommit` **Value** edit is also written into every row of the parameter's `RUNTIME.TRIALS.trials` column (via `Runtime.updateTrialsFromParameters`; a no-op before the session compiles TRIALS).
+  - Without it, an autoCommit edit lives only on the `hw.Parameter`: for a parameter the dispatcher refreshes each trial (`UpdateEveryTrial=true`), the stale trial-table value silently reverts the edit at the next trial boundary, and a phase save records the table value instead of the edit.
+  - Wire it for **settings** controls (staircase step sizes, p(Catch), stimulus delay). Leave it empty for session-control toggles (Deliver Trials, Reminder, Shape): those rely on the trial-table re-assert to self-clear.
+  - Bound-property edits (`Min`, `Max`, `isRandom`, ...) never touch the trial table; they are host-side parameter state.
+  - `gui.BoxGUI.addControl` passes its runtime automatically; `addButton` deliberately does not.
 
 ## UI types
 

@@ -215,10 +215,14 @@ classdef (Abstract) BoxGUI < handle
             p = obj.resolveParameter_(param);
             if isempty(p), h = []; return; end
 
+            % Runtime lets an autoCommit Value edit also land in the trial
+            % table (see gui.Parameter_Control.Runtime); settings controls
+            % want that, unlike addButton's self-clearing session toggles.
             h = gui.Parameter_Control(parent, p, ...
                 Type=options.Type, ...
                 BoundProperty=options.BoundProperty, ...
-                autoCommit=options.autoCommit);
+                autoCommit=options.autoCommit, ...
+                Runtime=obj.RUNTIME);
 
             if ~isempty(options.Text)
                 h.Text = options.Text;

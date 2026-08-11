@@ -11,6 +11,11 @@ figureName = 'EPsych';
 if ~isempty(info.latestTag)
     figureName = sprintf('EPsych %s',info.latestTag);
 end
+% Name the worktree in the title bar: with two checkouts open it is otherwise
+% impossible to tell which code a running session came from.
+if ~isempty(info.worktree)
+    figureName = sprintf('%s [%s]',figureName,info.worktree);
+end
 
 f = uifigure('Name',figureName,'Tag','RunExpt', ...
     'Position',fpos, ...

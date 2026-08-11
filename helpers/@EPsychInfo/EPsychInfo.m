@@ -14,6 +14,7 @@ classdef EPsychInfo < handle
     %   stimgenChksum - Latest commit checksum of the obj/stimgen submodule.
     %   commitTimestamp - Timestamp of the latest local commit log entry.
     %   latestTag - Latest reachable git tag in the local repository.
+    %   worktree - Name of the git worktree backing this checkout, if any.
     %   meta - Struct snapshot of the current metadata.
     %   diagnostics - Struct of host computer and software environment info.
     %
@@ -33,6 +34,7 @@ classdef EPsychInfo < handle
         stimgenChksum % Latest commit checksum of the obj/stimgen submodule.
         commitTimestamp % Timestamp of the latest local commit log entry.
         latestTag % Latest reachable git tag for the local checkout.
+        worktree % Name of the git worktree backing this checkout; '' for the main one.
         meta % Struct snapshot of version and repository metadata.
         diagnostics % Struct of host machine and software environment details.
     end
@@ -72,6 +74,9 @@ classdef EPsychInfo < handle
             m.StimgenChecksum = obj.stimgenChksum;
             m.commitTimestamp = obj.commitTimestamp;
             m.LatestTag = obj.latestTag;
+            % Two checkouts of the same commit can differ in uncommitted work,
+            % so a session run from a worktree records which one it came from.
+            m.Worktree = obj.worktree;
             m.RepositoryURL = obj.RepositoryURL;
             m.WikiURL = obj.WikiURL;
             m.CurrentTimestamp = datetime("now");
@@ -83,26 +88,29 @@ classdef EPsychInfo < handle
         
             
         function chksum = get.chksum(obj)
-            chksum = EPsychInfo.commitFromGitLog_( ...
-                fullfile(obj.root,'.git','logs','HEAD'));
+            chksum = EPsychInfo.commitFromGitLog_(EPsychInfo.headLogFile_(obj.root));
         end
 
         function chksum = get.stimgenChksum(obj)
-            % obj/stimgen/.git is a gitfile; the real gitdir for a submodule
-            % lives under the parent's .git/modules tree.
+            % Resolved through the submodule's own gitfile rather than a
+            % hardcoded .git/modules path: a worktree keeps its submodule
+            % gitdirs under .git/worktrees/<name>/modules instead.
             chksum = EPsychInfo.commitFromGitLog_( ...
-                fullfile(obj.root,'.git','modules','obj','stimgen','logs','HEAD'));
+                EPsychInfo.headLogFile_(fullfile(obj.root,'obj','stimgen')));
         end
 
         function c = get.commitTimestamp(obj)
-            try
-                fn = fullfile(obj.root,'.git','logs','HEAD');
-                d  = dir(fn);
-                c  = d.date;
-            catch
+            d = dir(EPsychInfo.headLogFile_(obj.root));
+            if isempty(d)
                 warning('EPsychInfo:get:commitTimestamp','Not using the git version!')
                 c = datetime(0);
+                return
             end
+            c = d(1).date;
+        end
+
+        function w = get.worktree(obj)
+            [~,w] = EPsychInfo.gitDir_(obj.root);
         end
 
         function tag = get.latestTag(obj)
@@ -245,6 +253,84 @@ classdef EPsychInfo < handle
     end
 
     methods (Static, Access = private)
+        function [gitdir,wtname] = gitDir_(checkoutPath)
+            % [gitdir, wtname] = gitDir_(checkoutPath)
+            % Resolve the git directory backing a working tree.
+            %
+            % A plain checkout keeps its git directory in ".git". A linked
+            % worktree -- like a submodule -- keeps a one-line ".git" *file*
+            % holding "gitdir: <path>" instead, so the folder with HEAD and
+            % the reflog is elsewhere entirely. Reading ".git/logs/HEAD"
+            % directly therefore finds nothing at all in a worktree.
+            %
+            % Input:
+            %   checkoutPath - Working tree folder.
+            %
+            % Return:
+            %   gitdir - Folder holding HEAD and logs, or '' when there is
+            %       none (zip download, submodule not checked out).
+            %   wtname - Worktree name as git records it under
+            %       ".git/worktrees", or '' for a repository's main working
+            %       tree.
+
+            gitdir = '';
+            wtname = '';
+
+            p = fullfile(checkoutPath,'.git');
+
+            if isfolder(p)
+                gitdir = p;
+                return
+            end
+
+            fid = fopen(p,'r');
+            if fid < 3, return; end
+            g = fgetl(fid);
+            fclose(fid);
+
+            if ~ischar(g), return; end
+
+            g = strtrim(g);
+            if ~strncmpi(g,'gitdir:',7), return; end
+
+            g = strtrim(g(8:end));
+            if isempty(g), return; end
+
+            % The pointer is relative to the working tree holding the gitfile
+            % whenever git can write it that way, absolute otherwise.
+            if ~isfolder(g), g = fullfile(checkoutPath,g); end
+            if ~isfolder(g), return; end
+
+            gitdir = g;
+
+            % ".git/worktrees/<name>" is git's own identifier for a linked
+            % worktree; a submodule resolves under "modules" instead.
+            [parent,name] = fileparts(gitdir);
+            [~,parentName] = fileparts(parent);
+            if strcmpi(parentName,'worktrees')
+                wtname = name;
+            end
+        end
+
+        function ffn = headLogFile_(checkoutPath)
+            % ffn = headLogFile_(checkoutPath)
+            % Path to a working tree's "logs/HEAD" reflog.
+            %
+            % Input:
+            %   checkoutPath - Working tree folder.
+            %
+            % Return:
+            %   ffn - Full path to the reflog, or '' when the working tree
+            %       has no git directory.
+
+            ffn = '';
+
+            gitdir = EPsychInfo.gitDir_(checkoutPath);
+            if isempty(gitdir), return; end
+
+            ffn = fullfile(gitdir,'logs','HEAD');
+        end
+
         function chksum = commitFromGitLog_(logfile)
             % chksum = commitFromGitLog_(logfile)
             % Last commit hash recorded in a git "logs/HEAD" file.
@@ -258,6 +344,8 @@ classdef EPsychInfo < handle
             %       checked out).
 
             chksum = nan;
+
+            if isempty(logfile), return; end
 
             fid = fopen(logfile,'r');
 

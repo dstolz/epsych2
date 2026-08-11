@@ -13,6 +13,11 @@ E = EPsychInfo;
 checksumText = self.formatVersionChecksum(E.chksum);
 commitText = self.formatVersionTimestamp(E.commitTimestamp);
 
+% The worktree row is shown only when this checkout is one, so the ordinary
+% case is not cluttered by a field that is always empty.
+worktreeText = E.worktree;
+showWorktree = ~isempty(worktreeText);
+
 fig = uifigure('Name','EPsych Version Info', ...
     'Tag','RunExptVersionInfo', ...
     'Position',[100 100 560 520], ...
@@ -54,9 +59,11 @@ cardPanel = uipanel(rootGrid,'BorderType','none', ...
     'Scrollable','on');
 cardPanel.Layout.Row = 2;
 
-cardGrid = uigridlayout(cardPanel,[9 2]);
+nRows = 9 + showWorktree;
+
+cardGrid = uigridlayout(cardPanel,[nRows 2]);
 cardGrid.ColumnWidth = {140,'1x'};
-cardGrid.RowHeight = {'fit','fit','fit','fit','fit','fit','fit','fit','fit'};
+cardGrid.RowHeight = repmat({'fit'},1,nRows);
 cardGrid.RowSpacing = 8;
 cardGrid.ColumnSpacing = 14;
 cardGrid.Padding = [16 16 16 12];
@@ -68,11 +75,16 @@ self.addVersionInfoLinkRow(cardGrid,3,'License',E.License,E.LicenseURL);
 self.addVersionInfoRow(cardGrid,4,'Copyright',E.Copyright);
 self.addVersionInfoRow(cardGrid,5,'Latest Commit',commitText);
 self.addVersionInfoRow(cardGrid,6,'Checksum',checksumText);
-self.addVersionInfoLinkRow(cardGrid,7,'Repository', ...
+row = 6;
+if showWorktree
+    row = row + 1;
+    self.addVersionInfoRow(cardGrid,row,'Worktree',worktreeText);
+end
+self.addVersionInfoLinkRow(cardGrid,row+1,'Repository', ...
     'GitHub Repository',E.RepositoryURL);
-self.addVersionInfoLinkRow(cardGrid,8,'History', ...
+self.addVersionInfoLinkRow(cardGrid,row+2,'History', ...
     'Commit History Overview',E.CommitHistoryURL);
-self.addVersionInfoLinkRow(cardGrid,9,'Wiki', ...
+self.addVersionInfoLinkRow(cardGrid,row+3,'Wiki', ...
     'Repository Wiki',E.WikiURL);
 
 footerGrid = uigridlayout(rootGrid,[1 2]);

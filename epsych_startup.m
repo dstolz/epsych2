@@ -1,42 +1,54 @@
 function subdirs = epsych_startup(rootdir,showsplash)
 % epsych_startup;
 % epsych_startup(rootdir [,showsplash])
-% newp = epsych_startup(...)
+% subdirs = epsych_startup(...)
 %
-% Finds all subdirectories in a given root directory, removes any
-% directories with 'svn', and adds them to the Matlab path.
+% Put an EPsych checkout and all of its subdirectories on the Matlab path.
 %
-% Typically, it is a good idea to call this function in the startup.m file 
-% which should be located somewhere along the default Matlab path. 
+% Typically, it is a good idea to call this function in the startup.m file
+% which should be located somewhere along the default Matlab path.
 % ex: ..\My Documents\MATLAB\startup.m
-% 
+%
 % Here's an example of what to include in startup.m:
 %    addpath('C:\gits\epsych');
 %    epsych_startup;
-% 
-% Alternatively, call this function only after retrieving software updates
-% using SVN.
 %
 % Use a period '.' as the first character in a directory name to hide it
 % from being added to the Matlab path.  Ex: C:\MATLAB\work\epsych\.RPvds
-% 
-% Default rootdir is wherever this function lives.  
-% 
+% Only the portion of a folder below ROOTDIR is examined, so the checkout
+% itself may live anywhere -- including under a dotted directory.
+%
+% Exactly one EPsych checkout is left on the path.  Any other one -- a second
+% clone, or a "git worktree" of this repository -- is removed first, because
+% two trees on the path shadow each other class for class and the winner is
+% then decided by path order.  Note that Matlab keeps class definitions and
+% live objects from the evicted tree in memory: run "clear classes", or
+% restart Matlab, before starting a session from the new one.
+%
+% Default rootdir is the folder holding the copy of this file that was called.
+%
+% Inputs:
+%   rootdir    - EPsych checkout to activate.  Default: this file's folder.
+%   showsplash - Print the startup banner.  Default: true.
+%
+% Return:
+%   subdirs - Folders added to the path, as a pathsep-delimited char vector.
+%
 % Daniel.Stolzberg@gmail.com 2014
 
-%     EPsych  
+%     EPsych
 %     Copyright (C) 2026  Daniel Stolzberg, PhD
-% 
+%
 %     This program is free software: you can redistribute it and/or modify
 %     it under the terms of the GNU General Public License as published by
 %     the Free Software Foundation, either version 3 of the License, or
 %     (at your option) any later version.
-% 
+%
 %     This program is distributed in the hope that it will be useful,
 %     but WITHOUT ANY WARRANTY; without even the implied warranty of
 %     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 %     GNU General Public License for more details.
-% 
+%
 %     You should have received a copy of the GNU General Public License
 %     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -49,27 +61,31 @@ if nargin < 2 || isempty(showsplash), showsplash = true; end
 
 fprintf('\nSetting Paths for EPsych Toolbox ...')
 
-if ~nargin || isempty(rootdir)
-    [rootdir,~] = fileparts(which('epsych_startup'));
+if nargin < 1 || isempty(rootdir)
+    % Deliberately not which('epsych_startup'): in a worktree another checkout
+    % may already own that name on the path, and this function has to set up
+    % the tree it was actually invoked from, not whichever one answers first.
+    rootdir = fileparts(mfilename('fullpath'));
 end
 
 assert(isfolder(rootdir),'Default directory "%s" not found. See help epsych_startup',rootdir)
 
-oldpath = genpath(rootdir);
-c = textscan(oldpath,'%s','Delimiter',';');
-warning('off','MATLAB:rmpath:DirNotFound');
-cellfun(@rmpath,c{1});
-warning('on','MATLAB:rmpath:DirNotFound');
+rootdir = canonicalFolder(rootdir);
 
-addpath(rootdir);
+% Clear every EPsych tree off the path before adding this one: the current tree,
+% so folders that have since been renamed or deleted stop lingering, and any
+% other tree, which would otherwise shadow this checkout.
+evicted = {};
+for r = epsychRootsOnPath()
+    removePathTree(r{1});
+    if ~samePath(r{1},rootdir), evicted{end+1} = r{1}; end
+end
+removePathTree(rootdir); % subdirs of a tree whose root was not itself on the path
 
-p = genpath(rootdir);
+subdirs = visibleSubdirs(rootdir);
 
-t = textscan(p,'%s','delimiter',';');
-i = cellfun(@(x) (strfind(x,'\.')),t{1},'UniformOutput',false);
-ind = cell2mat(cellfun(@isempty,i,'UniformOutput',false));
-subdirs = cellfun(@(x) ([x ';']),t{1}(ind),'UniformOutput',false);
-subdirs = cell2mat(subdirs');
+assert(~isempty(subdirs),'epsych_startup:noFolders', ...
+    'No folders under "%s" could be added to the Matlab path.',rootdir)
 
 addpath(subdirs);
 path(path)
@@ -87,6 +103,8 @@ eplog.Logger.instance('-reset');
 % everything else instead of in a second file under tempdir.
 install_stimgen_log_bridge();
 
+report_evictions(evicted,rootdir);
+
 check_submodules(rootdir);
 
 vprintf(-1,'EPsych Toolbox version %s',EPsychInfo.Version);
@@ -97,6 +115,133 @@ if showsplash, epsych_printBanner; end
 if nargout == 0, clear subdirs; end
 
 
+
+
+function p = canonicalFolder(p)
+% Absolute, fully resolved folder path.
+%
+% Matlab has no realpath, and the path bookkeeping here compares folders as
+% strings: a relative segment, a trailing separator, or a mixed-case drive
+% letter would each defeat the comparison.  cd resolves all of them and pwd
+% reports the result.  This also dereferences a directory junction, which is
+% wanted for the incoming root -- one spelling of a tree, chosen once -- but
+% not for folders already on the path.  See epsychRootsOnPath.
+
+old = cd(p);
+p = pwd;
+cd(old);
+
+
+function p = normalisePath(p)
+% Strip the cosmetic differences that string comparison would treat as real.
+
+if ispc, p = strrep(p,'/',filesep); end
+while ~isempty(p) && p(end) == filesep, p(end) = []; end
+
+
+function tf = samePath(a,b)
+
+a = normalisePath(a);
+b = normalisePath(b);
+if ispc, tf = strcmpi(a,b); else, tf = strcmp(a,b); end
+
+
+function tf = pathIsUnder(p,root)
+% True when P is ROOT or lives inside it.
+%
+% Both sides get a trailing separator so that a sibling worktree named
+% "epsych2-async" is not mistaken for a subfolder of "epsych2".
+
+if isempty(p), tf = false; return; end
+
+p    = [normalisePath(p)    filesep];
+root = [normalisePath(root) filesep];
+
+if ispc
+    tf = strncmpi(p,root,numel(root));
+else
+    tf = strncmp(p,root,numel(root));
+end
+
+
+function entries = pathEntries()
+
+entries = strsplit(path,pathsep);
+entries = entries(~cellfun(@isempty,entries));
+
+
+function roots = epsychRootsOnPath()
+% Root folder of every EPsych checkout currently on the Matlab path.
+%
+% A tree is recognised by its copy of this file.  epsych_startup always adds
+% the root itself, so a tree it set up always exposes exactly one folder
+% carrying the marker; everything else in that tree is found by prefix.
+%
+% Entries are deliberately NOT run through canonicalFolder: pwd dereferences a
+% directory junction, so a tree reachable both directly and through a link
+% would collapse to one root and the link-spelled folders would then survive
+% the prefix match.  Removal has to work on the spellings the path actually
+% holds, whatever they point at.
+
+entries = pathEntries();
+isroot  = cellfun(@(e) isfile(fullfile(e,'epsych_startup.m')),entries);
+roots   = cellfun(@normalisePath,entries(isroot),'UniformOutput',false);
+
+if isempty(roots), roots = {}; return; end
+
+if ispc, [~,first] = unique(lower(roots),'stable');
+else,    [~,first] = unique(roots,'stable');
+end
+roots = roots(first);
+
+
+function removePathTree(root)
+% Remove ROOT and everything below it from the Matlab path.
+%
+% Prefix matching rather than rmpath(genpath(root)): genpath only reports
+% folders that still exist, so a renamed or deleted subdirectory -- a deleted
+% worktree, for instance -- would otherwise stay on the path forever.
+
+entries = pathEntries();
+under = cellfun(@(e) pathIsUnder(e,root),entries);
+
+if ~any(under), return; end
+
+ws = warning('off','MATLAB:rmpath:DirNotFound');
+rmpath(strjoin(entries(under),pathsep));
+warning(ws);
+
+
+function subdirs = visibleSubdirs(rootdir)
+% Folders below ROOTDIR that belong on the Matlab path, pathsep-delimited.
+%
+% genpath skips +package, @class and private folders but descends happily into
+% hidden ones (.git, .github, .error_logs), so those are filtered here.  The
+% test runs on the portion of each folder BELOW rootdir: testing the whole
+% absolute path drops the entire tree whenever the checkout itself sits under
+% a dotted directory, which is exactly where a git worktree tends to land.
+
+entries = strsplit(genpath(rootdir),pathsep);
+entries = entries(~cellfun(@isempty,entries));
+
+rel = cellfun(@(e) e(numel(rootdir)+1:end),entries,'UniformOutput',false);
+subdirs = strjoin(entries(~contains(rel,[filesep '.'])),pathsep);
+
+
+function report_evictions(evicted,rootdir)
+% Say so when another checkout was taken off the path.
+%
+% Silence here is dangerous: the path is now consistent, but any class already
+% loaded from the old tree stays loaded, so the session can be running a mix of
+% both until the definitions are cleared.
+
+for i = 1:numel(evicted)
+    vprintf(0,['EPsych: removed another checkout from the Matlab path: %s\n' ...
+        '    Now running from: %s\n' ...
+        '    Class definitions and objects from the other tree are still in ' ...
+        'memory -- run "clear classes" or restart Matlab before starting a session.'], ...
+        evicted{i},rootdir);
+end
 
 
 function install_stimgen_log_bridge()
@@ -139,6 +284,11 @@ function check_submodules(rootdir)
 % -- worse -- silently degrading any saved .eprot/.ecfg that contains a
 % stimgen.StimType parameter, because MATLAB substitutes a placeholder
 % struct for a class it cannot resolve instead of raising an error.
+%
+% The probe has to resolve inside ROOTDIR, not merely resolve.  "git worktree
+% add" does not populate submodules, so a fresh worktree has an empty
+% obj/stimgen while some other copy of stimgen on the path answers for the
+% class -- the session would then run against stimuli from the wrong tree.
 
 submodules = { ...
     'obj/stimgen', 'stimgen.StimType', 'https://github.com/dstolz/stimgen'};
@@ -148,12 +298,15 @@ for i = 1:size(submodules,1)
     probe   = submodules{i,2};
     url     = submodules{i,3};
 
-    if exist(probe,'class') == 8, continue; end
+    resolved = which(probe);
+    if exist(probe,'class') == 8 && pathIsUnder(resolved,rootdir), continue; end
 
     d = fullfile(rootdir, strrep(relpath,'/',filesep));
     entries = dir(d);
     entries = entries(~ismember({entries.name}, {'.','..'}));
-    if isfolder(d) && ~isempty(entries)
+    if ~isempty(resolved)
+        reason = sprintf('"%s" resolves outside this checkout, to "%s"', probe, resolved);
+    elseif isfolder(d) && ~isempty(entries)
         reason = sprintf('"%s" is present but "%s" did not resolve', relpath, probe);
     else
         reason = sprintf('"%s" is empty or missing', relpath);

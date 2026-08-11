@@ -86,10 +86,30 @@ failing outright. See [stimgen.md](../stimgen.md).
 
 What `epsych_startup` does:
 
-- finds the repository root
-- rebuilds the EPsych path entries
-- adds visible subdirectories to the MATLAB path
+- finds the repository root — the folder holding the copy of `epsych_startup.m`
+  that was actually called, not whichever one `which` happens to answer with
+- removes every EPsych checkout already on the MATLAB path, including stale
+  entries for folders that no longer exist
+- adds visible subdirectories to the MATLAB path (a folder whose name starts
+  with `.` is skipped, along with everything below it)
 - optionally prints the EPsych banner
+
+### Working from a git worktree
+
+`git worktree add` makes a second checkout of this repository, and both trees
+define the same classes. `epsych_startup` leaves exactly **one** checkout on the
+path: run it from the tree you want, and the other is removed and reported.
+
+Two things do not follow automatically:
+
+- MATLAB keeps class definitions and live objects from the evicted tree in
+  memory. Run `clear classes`, or restart MATLAB, before starting a session.
+- `git worktree add` does not populate submodules. Run
+  `git submodule update --init --recursive` inside the new worktree, or
+  `epsych_startup` will report `obj/stimgen` as unavailable.
+
+The worktree may live anywhere, including under a dotted directory — only the
+part of a folder *below* the repository root is tested for the leading period.
 
 ## First-run validation
 

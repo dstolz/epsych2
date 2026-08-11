@@ -196,6 +196,14 @@ classdef RunExpt < handle
             end
         end
 
+        function set.CurrentConfigFile(self, value)
+            % Single choke point for the config-name header: every site that
+            % loads, saves, or clears the config assigns this property, so the
+            % label cannot drift out of step with the file actually in effect.
+            self.CurrentConfigFile = value;
+            self.updateConfigLabel_
+        end
+
 
         ViewTrials(self)  % Display a preview of compiled trials for the selected subject
 
@@ -443,6 +451,23 @@ classdef RunExpt < handle
         StopVideoLiveView_(self)                            % Close the display-only webcam view, if any
         UpdateVideoLiveViewUI_(self)                        % Sync the live-view menu item and bottom-bar banner with VideoLiveViewActive_
         promptForDataPath_(self)                            % Ask for the default data directory when the DataPath preference was never set
+
+        function updateConfigLabel_(self)
+            % Show the loaded/saved config file name in the header strip.
+            % Guarded on the handle because the property is also assigned
+            % before (and after) the figure exists.
+            if ~isfield(self.H,'config_name') || ~isgraphics(self.H.config_name), return, end
+
+            if strlength(self.CurrentConfigFile) == 0
+                self.H.config_name.Text    = 'Config: (none loaded)';
+                self.H.config_name.Tooltip = 'No configuration file has been loaded or saved.';
+                return
+            end
+
+            [~,name,ext] = fileparts(self.CurrentConfigFile);
+            self.H.config_name.Text    = char("Config: " + name + ext);
+            self.H.config_name.Tooltip = char(self.CurrentConfigFile);
+        end
 
         function onCommand(self, hObj)
             % Adapts menu item callbacks; forwards the item's text label to ExptDispatch.

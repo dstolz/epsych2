@@ -100,6 +100,7 @@ classdef ProtocolDesigner < handle
 
         BtnCompile matlab.ui.control.Button
         LabelCompileSummary matlab.ui.control.Label
+        CheckTransposePreview matlab.ui.control.CheckBox
         TableCompiled matlab.ui.control.Table
 
         CheckCalcRunButton matlab.ui.control.Button

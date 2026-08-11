@@ -1,8 +1,8 @@
 function buildUI(self)
 % buildUI — Create UIFigure, menus, layouts, and controls.
 % Behavior
-%   Assembles the main grid, subject table, toolbar, and bottom control
-%   bar using uigridlayout and uibutton components.
+%   Assembles the main grid, loaded-config header, subject table, toolbar,
+%   and bottom control bar using uigridlayout and uibutton components.
 % Documentation: documentation/overviews/RunExpt_GUI_Overview.md
 
 fpos = epsych.RunExpt.getSavedFigurePosition([100 100 800 400]);
@@ -236,12 +236,28 @@ self.UpdateRecentConfigsMenu
 
 % Layout
 
-g = uigridlayout(f,[3 2]);
-% Row 3 is two text lines tall so a long status message wraps instead of
+g = uigridlayout(f,[4 2]);
+% Row 4 is two text lines tall so a long status message wraps instead of
 % being clipped at the right edge.
-g.RowHeight   = {'1x',40,40};
+g.RowHeight   = {22,'1x',40,40};
 g.ColumnWidth = {'1x',100};
 g.RowSpacing = 8; g.ColumnSpacing = 8; g.Padding = [8 8 8 8];
+
+% ---------- Loaded config name (top strip) ----------
+% Which .ecfg is in effect is otherwise only visible in the transient status
+% message that LoadConfig posts, so it is lost as soon as anything else
+% reports. updateConfigLabel_ keeps this in step with CurrentConfigFile; the
+% full path lives in the tooltip because configs of the same name routinely
+% exist under different subject folders.
+self.H.config_name = uilabel(g, ...
+    'Tag','config_name', ...
+    'Text','Config: (none loaded)', ...
+    'FontWeight','bold', ...
+    'FontColor',[0.35 0.38 0.44], ...
+    'VerticalAlignment','center');
+self.H.config_name.Layout.Row = 1;
+self.H.config_name.Layout.Column = [1 2];
+self.updateConfigLabel_
 
 % ---------- Subject table (left, top) ----------
 self.H.subject_list = uitable(g, ...
@@ -256,7 +272,7 @@ self.H.subject_list = uitable(g, ...
 % Spans both columns: the former right-side button stack is gone (its
 % actions live on the toolbar and in the table's context menu), so the
 % table takes the full width. Column 2 remains for the mode indicator.
-self.H.subject_list.Layout.Row = 1;
+self.H.subject_list.Layout.Row = 2;
 self.H.subject_list.Layout.Column = [1 2];
 self.H.subject_list.SelectionChangedFcn = @(h,ev) self.subject_list_SelectionChanged(h,ev);
 
@@ -278,7 +294,7 @@ self.H.subject_list.ContextMenu = cmProtocol;
 % The webcam controls (live view toggle, record-video toggle) live on the
 % toolbar above, so the bar holds only the four transport buttons.
 gBottom = uigridlayout(g,[1 4]);
-gBottom.Layout.Row = 2; gBottom.Layout.Column = 1;
+gBottom.Layout.Row = 3; gBottom.Layout.Column = 1;
 gBottom.ColumnWidth = {'1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
 gBottom.RowSpacing = 0; gBottom.ColumnSpacing = 8; gBottom.Padding = [0 0 0 0];
 
@@ -304,7 +320,7 @@ self.H.ctrl_halt = uibutton(gBottom,'push','Text','Stop', ...
 
 % ---------- Mode indicator in bottom-right cell ----------
 gLamp = uigridlayout(g,[1 1]);
-gLamp.Layout.Row = 2; gLamp.Layout.Column = 2;
+gLamp.Layout.Row = 3; gLamp.Layout.Column = 2;
 gLamp.RowHeight = {'1x'};
 gLamp.ColumnWidth = {'1x'};
 gLamp.Padding = [0 0 0 0];
@@ -313,7 +329,7 @@ self.H.modeIndicator = gui.ModeIndicator(gLamp);
 
 % ---------- Status bar (spans the full width, below the controls) ----------
 gStatus = uigridlayout(g,[1 2]);
-gStatus.Layout.Row = 3; gStatus.Layout.Column = [1 2];
+gStatus.Layout.Row = 4; gStatus.Layout.Column = [1 2];
 gStatus.RowHeight = {'1x'};
 gStatus.ColumnWidth = {'1x','fit'};
 gStatus.RowSpacing = 0; gStatus.ColumnSpacing = 8; gStatus.Padding = [0 0 0 0];

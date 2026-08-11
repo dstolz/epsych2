@@ -70,7 +70,11 @@ A typical session looks like this:
 
 ## 3) Main window layout
 
-### 3.1 Subject table (left)
+### 3.1 Loaded configuration
+
+A strip directly above the subject table names the configuration currently in effect, as **Config: `<filename>.ecfg`**. Hover it for the full path — configs with the same name routinely live under different subject folders, and this is the only place the session shows which one it read. It reads **Config: (none loaded)** until a config is loaded or saved, and it updates whenever one is loaded (including **Refresh Config** and **Recent Configs**) or saved under a new name.
+
+### 3.2 Subject table (left)
 
 The main table shows one row per configured subject, with columns:
 
@@ -80,7 +84,7 @@ The main table shows one row per configured subject, with columns:
 
 Selecting a row prints the selected subject's details to the MATLAB command window. Right-clicking a row opens the protocol context menu (see [Working with protocols](#4-working-with-protocols)).
 
-### 3.2 Toolbar
+### 3.3 Toolbar
 
 A toolbar under the menu bar gives one-click access to the most common menu actions. Hover any tool for its tooltip. From left to right:
 
@@ -100,14 +104,14 @@ A toolbar under the menu bar gives one-click access to the most common menu acti
 
 The config tools, **Remove Subject**, and the two webcam toggles are disabled while a session is RUNNING, matching their menu items; **Save Data** is enabled only after Stop (or on Error).
 
-### 3.3 Bottom control bar
+### 3.4 Bottom control bar
 
 - **Run**: starts the experiment in Record mode.
 - **Preview**: starts the experiment in Preview mode; data are marked as a test run.
 - **Pause**: requests a pause via the runtime ModeChange event.
 - **Stop**: stops the timers, signals Stop mode, and transitions the GUI to a post-run state.
 
-### 3.4 Status bar
+### 3.5 Status bar
 
 A single-line status bar spans the bottom of the window, below the control bar. It reports what the program is doing and what normally comes next — the loaded configuration, subjects added or removed, protocol compilation, hardware connection, session start/stop, data saving, and webcam recording or live view. Messages are green; anything that failed is red. Double-click the status bar to copy its current text to the clipboard.
 

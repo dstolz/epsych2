@@ -254,21 +254,21 @@ h.FontWeight = 'bold';
 
 
 % >> Min Depth
-gui.Parameter_Control(layoutTrialControls,P.Depth,BoundProperty='Min',Text="Minimum Depth (%):");
+gui.Parameter_Control(layoutTrialControls,P.Depth,BoundProperty='Min',Text="Minimum Depth (dB):");
 
 
 % >> Max Depth
-gui.Parameter_Control(layoutTrialControls,P.Depth,BoundProperty='Max',autoCommit=true,Text="Maximum Depth (%):");
+gui.Parameter_Control(layoutTrialControls,P.Depth,BoundProperty='Max',autoCommit=true,Text="Maximum Depth (dB):");
 
 
 % Staircase knobs commit straight to the parameter (autoCommit), so pass
 % Runtime to also land the edit in the trial table -- otherwise the next
 % dispatch reverts it and a phase save records the stale table value.
 % >> Step on Miss
-gui.Parameter_Control(layoutTrialControls,P.Depth_StepOnMiss,autoCommit=true,Runtime=R,Text="Increment on Miss (%):");
+gui.Parameter_Control(layoutTrialControls,P.Depth_StepOnMiss,autoCommit=true,Runtime=R,Text="Step on Miss (dB):");
 
 % >> Step on Hit
-gui.Parameter_Control(layoutTrialControls,P.Depth_StepOnHit,autoCommit=true,Runtime=R,Text="Decrement on Hit (%):");
+gui.Parameter_Control(layoutTrialControls,P.Depth_StepOnHit,autoCommit=true,Runtime=R,Text="Step on Hit (dB):");
 
 
 

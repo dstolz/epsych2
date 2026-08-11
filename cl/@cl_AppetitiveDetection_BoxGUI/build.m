@@ -152,16 +152,16 @@ h.FontSize = 16;
 h.FontWeight = 'bold';
 
 % >> Min Depth
-obj.addControl(layoutTrialControls,'Depth',BoundProperty='Min',Text="Minimum Depth (%):");
+obj.addControl(layoutTrialControls,'Depth',BoundProperty='Min',Text="Minimum Depth (dB):");
 
 % >> Max Depth
-obj.addControl(layoutTrialControls,'Depth',BoundProperty='Max',autoCommit=true,Text="Maximum Depth (%):");
+obj.addControl(layoutTrialControls,'Depth',BoundProperty='Max',autoCommit=true,Text="Maximum Depth (dB):");
 
 % >> Step on Miss
-obj.addControl(layoutTrialControls,'Depth_StepOnMiss',autoCommit=true,Text="Increment on Miss (%):");
+obj.addControl(layoutTrialControls,'Depth_StepOnMiss',autoCommit=true,Text="Increment on Miss (dB):");
 
 % >> Step on Hit
-obj.addControl(layoutTrialControls,'Depth_StepOnHit',autoCommit=true,Text="Decrement on Hit (%):");
+obj.addControl(layoutTrialControls,'Depth_StepOnHit',autoCommit=true,Text="Decrement on Hit (dB):");
 
 % >> Probability of Catch Trial
 obj.addControl(layoutTrialControls,'P_Catch',autoCommit=true,Text="p(Catch Trial):");

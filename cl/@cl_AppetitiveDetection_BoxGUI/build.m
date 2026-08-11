@@ -96,23 +96,6 @@ for i = 1:numel(bNames)
 end
 
 
-% PHASE SELECTION ------------------------------------------
-% Phase definitions are shared with the original GUI_B implementation.
-PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_BoxGUI','Phases');
-if ~isfolder(PhasePath)
-    PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases');
-end
-
-% Built unconditionally: gui.PhaseSelector tolerates a missing or empty phase
-% directory (empty dropdown, Save still available), and hiding the control
-% because no phases exist yet leaves no way to create the first one.
-obj.PhaseSelector = obj.register(gui.PhaseSelector(R,PhasePath));
-h = uipanel(layoutMain);
-h.Layout.Row    = [1 2];
-h.Layout.Column = 5;
-obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
-
-
 % INFO ----------------------------------------------------
 
 % >> Trial state monitor
@@ -121,7 +104,7 @@ obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
 % Ordering matters: the five lamps are grouped ahead of the value readouts.
 panelMonitor = uipanel(layoutMain, 'Title', 'Trial State');
 panelMonitor.Layout.Column = 5;
-panelMonitor.Layout.Row    = [6 10];
+panelMonitor.Layout.Row    = [6 8];
 
 monitorParams = collect_params(P, {'Platform','Trough','InTrial','DelayPeriod','RespWindow', ...
     'PelletTotal','StimDelay','RespWinDelay','RespLatency','RespCode'});
@@ -135,12 +118,29 @@ obj.ParameterMonitor = obj.register(gui.Parameter_Monitor(panelMonitor, monitorP
         DelayPeriod="lamp", RespWindow="lamp")));
 
 
+% PHASE SELECTION ------------------------------------------
+% Phase definitions are shared with the original GUI_B implementation.
+PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_BoxGUI','Phases');
+if ~isfolder(PhasePath)
+    PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases');
+end
+
+% Built unconditionally: gui.PhaseSelector tolerates a missing or empty phase
+% directory (empty dropdown, Save still available), and hiding the control
+% because no phases exist yet leaves no way to create the first one.
+obj.PhaseSelector = obj.register(gui.PhaseSelector(R,PhasePath));
+h = uipanel(layoutMain);
+h.Layout.Row    = [2 3];
+h.Layout.Column = [1 2];
+obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
+
+
 % LAYOUTS -------------------------------------------------
 layoutTrialControls = obj.controlColumn(layoutMain, ...
-    Row=[2 6], Column=[1 2], Rows=20);
+    Row=[4 8], Column=[1 2], Rows=20);
 
 layoutSoundControls = obj.controlColumn(layoutMain, Title='Sound Controls', ...
-    Row=[7 8], Column=[1 2], Rows=9);
+    Row=9, Column=[1 2], Rows=9);
 
 
 % STAIRCASE CONTROLS --------------------------------------------------
@@ -254,7 +254,7 @@ obj.addControl(layoutSoundControls,'Rate',Text="Modulation Rate (Hz):");
 % Commit button ---------------------------------------------
 % watchedHandles are wired from the component registry after build
 obj.UpdateButton = obj.addUpdateButton(layoutMain);
-obj.UpdateButton.Button.Layout.Row    = [9 10];
+obj.UpdateButton.Button.Layout.Row    = [10 11];
 obj.UpdateButton.Button.Layout.Column = [1 2];
 obj.UpdateButton.Button.Text     = ["Update" "Parameters"];
 obj.UpdateButton.Button.FontSize = 24;

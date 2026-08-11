@@ -158,7 +158,8 @@ classdef Runtime < handle & dynamicprops
     methods (Static)
         tf = local_test(fcn, val, pat)      % Normalize any comparison result to a logical scalar.
         createTemplateJSON(filepath)        % Write a template JSON file with example hw.Parameter fields to disk.
-        [paramData, metadata] = phaseParameterData(filepath) % Parse a phase file (.eprot/.prot or legacy .json) into uniform parameter structs.
+        [paramData, metadata] = phaseParameterData(filepath, options) % Parse a phase file (.eprot/.prot or legacy .json) into uniform parameter structs.
+        varargout = phaseCache(action, filepath, entry) % Session-lifetime memo backing phaseParameterData.
     end
 end
 

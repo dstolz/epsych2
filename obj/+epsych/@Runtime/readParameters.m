@@ -68,14 +68,17 @@ nP = numel(paramData);
 
 interfaceTypes = arrayfun(@(x) string(x.Type), obj.Interfaces);
 
+% Collected into a preallocated cell and concatenated once at the end: growing
+% a handle array one element at a time reallocates it on every entry, and a
+% phase file carries every parameter in the protocol.
+hits = cell(1, nP);
+
 % Resolve each file entry to its live hw.Parameter and restore its saved properties.
 for k = 1:nP
     S = paramData(k);
 
     parentType = string(S.ParentType);
     S = rmfield(S, 'ParentType'); % remove ParentType from struct before applying to Parameter since it's not an actual field of hw.Parameter and is only used for matching to the correct interface during load
-
-    vprintf(4,'Processing parameter %d/%d: "%s" (Module: "%s")', k, nP, S.Name, parentType)
 
     % Match the interface that owns this parameter by its Type
     iface = obj.Interfaces(interfaceTypes == parentType);
@@ -119,7 +122,10 @@ for k = 1:nP
         xp.Expression = liveExpression;
     end
     if restoreValue && ~strcmp(xp.Type,'StimType') && ~strcmp(xp.Access,'Read')
-        if strlength(xp.Expression) > 0 && ~isempty(xp.Values)
+        % Skip the write when the value already matches: set.Value is
+        % idempotent, but reaching it costs a hardware round trip on a
+        % connected backend, once per expression-bearing parameter.
+        if strlength(xp.Expression) > 0 && ~isempty(xp.Values) && ~isequaln(xp.Value, xp.Values{1})
             xp.Value = xp.Values{1};
         end
     end
@@ -128,7 +134,18 @@ for k = 1:nP
         vprintf(3, 'Phase load: kept live value of session-control parameter "%s"', xp.Name)
     end
 
-    P(end+1) = xp;
+    hits{k} = xp;
+end
+
+P = [hits{:}];
+if isempty(P)
+    P = hw.Parameter.empty(1,0);
+end
+
+% One line rather than one per entry: with GLogVerbosity defaulting to Inf a
+% per-parameter trace is always emitted, and every emission walks the stack.
+if visenabled(4) && ~isempty(P)
+    vprintf(4, 'Resolved %d/%d phase parameters: %s', numel(P), nP, strjoin({P.Name}, ', '))
 end
 
 % A phase can change design-time structure (Values lists, Expressions), not just

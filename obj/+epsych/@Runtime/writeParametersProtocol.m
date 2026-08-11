@@ -72,6 +72,11 @@ end
 % Same MAT layout as epsych.Protocol.save: a single 'protocol' struct variable.
 builtin('save', char(filepath), 'protocol', '-mat');
 
+% The phase cache keys on modification time and size, which already catches a
+% re-saved phase; this drops the entry outright so a rewrite landing within the
+% filesystem's timestamp resolution cannot serve the old parse.
+epsych.Runtime.phaseCache('clear', filepath);
+
 vprintf(0, 'Phase protocol saved to: %s', filepath)
 
 end

@@ -307,10 +307,19 @@ classdef PhaseSelector < handle
             dlg = obj.openLoadDialog(phaseName);
             closeDlg = onCleanup(@() obj.closeLoadDialog(dlg));
 
+            % Parse the phase once and hand the entries to the snapshot below;
+            % readParameters then gets the same parse back from the phase cache.
+            % Parsing an .eprot is the dominant cost of a phase load, and this
+            % button used to pay it twice on its own.
+            paramData = epsych.Runtime.phaseParameterData(filepath);
+
             % Snapshot the current value of every parameter this phase targets BEFORE the
             % load mutates them (readParameters writes the live parameters in place). We
-            % use it below to keep only the parameters the phase actually changes.
-            before = obj.resolvePhaseAgainstRuntime(filepath);
+            % use it below to keep only the parameters the phase actually changes. The
+            % snapshot is taken now rather than reused from the dropdown preview: live
+            % values can change while the operator decides, and a stale snapshot would
+            % credit the phase with someone else's edit.
+            before = obj.resolvePhaseAgainstRuntime(filepath, paramData);
 
             % readParameters resolves the file entries to live parameters and returns them
             % (with restored values). Use the returned set directly; re-reading via all_parameters
@@ -671,8 +680,9 @@ classdef PhaseSelector < handle
         end
 
 
-        function R = resolvePhaseAgainstRuntime(obj, filepath)
+        function R = resolvePhaseAgainstRuntime(obj, filepath, paramData)
             % R = resolvePhaseAgainstRuntime(obj, filepath)
+            % R = resolvePhaseAgainstRuntime(obj, filepath, paramData)
             % Resolve each parameter entry in a phase file to the live hw.Parameter it targets
             % and capture that parameter's current value alongside the value the phase would
             % apply. Non-destructive: nothing is written to the runtime, so this is safe both
@@ -681,7 +691,10 @@ classdef PhaseSelector < handle
             % readParameters (interface by ParentType, parameter by Name).
             %
             % Parameters:
-            %   filepath - Full path to a phase file (.eprot/.prot or legacy .json).
+            %   filepath  - Full path to a phase file (.eprot/.prot or legacy .json).
+            %   paramData - Optional pre-parsed entries from
+            %               epsych.Runtime.phaseParameterData, so a caller that has
+            %               already read the file does not pay for it twice.
             %
             % Returns:
             %   R - struct array (empty if nothing resolves) with fields:
@@ -694,11 +707,14 @@ classdef PhaseSelector < handle
             arguments
                 obj
                 filepath (1,1) string
+                paramData = []
             end
 
             R = struct('Param', {}, 'ParentType', {}, 'Current', {}, 'HasCurrent', {}, 'New', {});
 
-            paramData = epsych.Runtime.phaseParameterData(filepath);
+            if isempty(paramData)
+                paramData = epsych.Runtime.phaseParameterData(filepath);
+            end
             if isempty(paramData)
                 return
             end
@@ -722,7 +738,12 @@ classdef PhaseSelector < handle
                 iface = obj.RUNTIME.Interfaces(interfaceTypes == parentType);
                 if isempty(iface), continue, end
 
-                xp = iface(1).find_parameter(S.Name, includeInvisible=true);
+                % Silent: a phase authored on another rig legitimately names
+                % parameters this one does not have, and the load path warns
+                % about them already. Warning here too would repeat it on every
+                % dropdown change, each with a stack walk.
+                xp = iface(1).find_parameter(S.Name, includeInvisible=true, ...
+                    silenceParameterNotFound=true);
                 if isempty(xp), continue, end
                 xp = xp(1);
 

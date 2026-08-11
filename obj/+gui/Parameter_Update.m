@@ -168,19 +168,33 @@ classdef Parameter_Update < handle
 
             for i = 1:length(h)
                 P = h(i).Parameter;
-                
-                
+
+                % A control bound to a property other than Value (Min, Max,
+                % isRandom, ...) edits host-side parameter state, not a trial
+                % value: it has no trials-table column and takes effect the
+                % moment it is written (e.g. Depth.Min is read by staircase
+                % clamping on the next step). Committing it as P.Value would
+                % silently write the wrong property.
+                if ~isequal(h(i).BoundProperty,'Value')
+                    curStr = h(i).boundValueText();
+                    h(i).setBoundValue(h(i).Value);
+                    vprintf(2,'Updated parameter "%s" %s: %s -> %s', ...
+                        P.Name,h(i).BoundProperty,curStr,h(i).boundValueText())
+                    h(i).reset_label;
+                    continue
+                end
+
                 if obj.updateImmediately || P.Parent.Type == "Software"
                     curValStr = P.ValueStr;
                     P.Value = h(i).Value;
                     vprintf(2,'Updated parameter "%s": %s -> %s',P.Name,curValStr,P.ValueStr)
                 end
-                    
+
                 if isfield(loc,P.validName)
                     [T{:,loc.(P.validName)}] = deal(h(i).Value);
                 end
 
-                h(i).reset_label;                
+                h(i).reset_label;
             end
             R.TRIALS.trials = T;
 

@@ -83,6 +83,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     properties (Access=private)
         hl_mode
         hl_uiobj
+        hl_bounds
         hl_color
         committing_ (1,1) logical = false % true while an autoCommit write-back is in flight; suppresses the re-entrant PostUpdateFcn from value_change_external
     end
@@ -130,6 +131,12 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 error('gui:Parameter_Control:UnobservableBoundProperty', ...
                     'Parameter property "%s" is not observable and cannot be bound.', obj.BoundProperty);
             end
+            % Bounds can change at runtime (Min/Max sibling controls, phase
+            % loads); an edit field frozen at its creation-time Limits then
+            % silently rejects values the parameter now allows.
+            if isequal(obj.type,'editfield')
+                obj.hl_bounds = listener(Parameter,{'Min','Max'},'PostSet',@obj.bounds_changed);
+            end
             p = properties(obj);
             p = p(startsWith(p,'color'));
             obj.hl_color = listener(obj,p,'PostSet',@obj.update_color);
@@ -138,6 +145,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         function delete(obj)
             delete(obj.hl_mode)
             delete(obj.hl_uiobj)
+            delete(obj.hl_bounds)
             delete(obj.hl_color)
         end
 
@@ -263,7 +271,11 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 obj.Parameter.Trigger;
                 return
 
-            elseif isnumeric(event.Value) && (event.Value < obj.Parameter.Min || event.Value > obj.Parameter.Max)
+            elseif isequal(obj.BoundProperty,'Value') && isnumeric(event.Value) ...
+                    && (event.Value < obj.Parameter.Min || event.Value > obj.Parameter.Max)
+                % Only a Value edit is subject to the parameter's bounds. A control
+                % bound to Min/Max IS the bound: widening it (raising Max, lowering
+                % Min) is legitimate and must not be reported as out of bounds.
                 vprintf(0,1,'New parameter value for "%s" outside bounds [%g %g]', ...
                     obj.Name,obj.Parameter.Min,obj.Parameter.Max)
             end
@@ -291,8 +303,6 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     rethrow(ME)
                 end
                 obj.committing_ = false;
-                % gui.Helper.timed_color_change(obj.h_uiobj,obj.colorOnUpdateAuto,postColor=obj.colorNormal);
-                % obj.indicate_change;
 
             elseif ~obj.ValueUpdated && success
                 obj.reset_label;
@@ -379,7 +389,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     h = uieditfield(hl,"numeric");
                     h.Value = obj.getBoundValue();
                     %h.ValueDisplayFormat = [P.Format ' ' P.Unit];
-                    h.Limits = [P.Min P.Max];
+                    h.Limits = obj.widgetLimits_();
                     if isequal(P.Type,'Integer')
                         h.RoundFractionalValues = 'on';
                     end
@@ -531,6 +541,19 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             v = obj.getBoundValue();
 
             switch obj.type
+                case 'editfield'
+                    % Blue confirms this control's own autoCommit write-back;
+                    % yellow flags a change from outside (phase load, linked
+                    % parameter). Without this, edit fields gave no feedback at
+                    % all and a committed change was indistinguishable from a
+                    % rejected one.
+                    if obj.committing_
+                        c = obj.colorOnUpdateAuto;
+                    else
+                        c = obj.colorOnUpdateExternal;
+                    end
+                    gui.Helper.timed_color_change(obj.h_uiobj, c, postColor=obj.colorNormal);
+
                 case 'dropdown'
                     obj.ensureDropdownItem_(obj.h_uiobj, v);
                     gui.Helper.timed_color_change(obj.h_uiobj, ...
@@ -619,6 +642,40 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function lims = widgetLimits_(obj)
+            % lims = widgetLimits_(obj)
+            % Edit-field Limits for the bound property. A Value control is
+            % constrained to the parameter's bounds. A control bound to Min or
+            % Max must not be constrained by the very bound it edits, or that
+            % bound could never be widened from the GUI (e.g. raising Max above
+            % its current value); it is only constrained by the opposite bound.
+            P = obj.Parameter;
+            switch obj.BoundProperty
+                case 'Value'
+                    lims = [P.Min P.Max];
+                case 'Min'
+                    lims = [-Inf P.Max];
+                case 'Max'
+                    lims = [P.Min Inf];
+                otherwise
+                    lims = [-Inf Inf];
+            end
+        end
+
+        function bounds_changed(obj,~,~)
+            % bounds_changed(obj,~,~)
+            % Refresh the edit field's Limits after the parameter's Min/Max
+            % change. The displayed value is clamped first because assigning
+            % Limits that exclude the current widget value errors.
+            if ~isprop(obj.h_uiobj,'Limits'), return; end
+            lims = obj.widgetLimits_();
+            v = obj.h_uiobj.Value;
+            if v < lims(1) || v > lims(2)
+                obj.h_uiobj.Value = min(max(v,lims(1)),lims(2));
+            end
+            obj.h_uiobj.Limits = lims;
+        end
+
         function set_color_(obj, color)
             % set_color_(obj, color)
             % Paint the state indication onto whichever color property the

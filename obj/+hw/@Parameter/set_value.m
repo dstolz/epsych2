@@ -6,7 +6,7 @@ if isequal(obj.Access,'Read')
 end
 
 if ~ismember(obj.Type, {'String', 'File', 'StimType'}) && (value < obj.Min || value > obj.Max)
-    vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Min,obj.Max,value)
+    vprintf(0,1,'Value for "%s" parameter is out of range: min = %g, max = %g, supplied = %g',obj.Name,obj.Min,obj.Max,value)
     return
 end
 

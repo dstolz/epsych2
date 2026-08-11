@@ -139,7 +139,7 @@ Detailed references: [../peripherals/](../peripherals/)
 
 ### `obj/+eplog/`
 
-The logger behind `vprintf`. `eplog.isEnabled` gates on the global `GVerbosity`; `eplog.Logger` builds one record per message and dispatches it to its sinks (`eplog.sink.Console`, `eplog.sink.TextFile`, and the opt-in `eplog.sink.JsonLines`). It owns the daily `.error_logs` file: rotation, flushing, handle recovery, and failure latching. Nothing in the package throws, because EPsych logs from inside `catch` blocks.
+The logger behind `vprintf`. `eplog.isEnabled` gates on two globals — `GVerbosity` for the command window, `GLogVerbosity` (default `Inf`, everything) for the error log — and each sink applies the one for its own destination, so quieting the console never quiets the log. `eplog.Logger` builds one record per message and dispatches it to its sinks (`eplog.sink.Console`, `eplog.sink.TextFile`, and the opt-in `eplog.sink.JsonLines`). It owns the daily `.error_logs` file: rotation, flushing, handle recovery, and failure latching. Nothing in the package throws, because EPsych logs from inside `catch` blocks.
 
 Almost all code should call `vprintf` rather than this package directly. Detailed reference: [../eplog/eplog_Logging.md](../eplog/eplog_Logging.md)
 

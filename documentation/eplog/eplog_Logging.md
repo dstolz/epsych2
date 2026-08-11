@@ -19,27 +19,54 @@ destination.
 ```text
 vprintf(level,[red],msg,values...)                      EPsych call sites
 stimgen.util.vprintf(...) → stimbridge.LogBridge.emit   stimgen call sites
-  └─ eplog.isEnabled(level)        gate — a suppressed message stops here
+  └─ eplog.isEnabled(level,'any')  gate — a message no destination wants stops here
        └─ eplog.Logger.instance()
             ├─ eplog.format / eplog.formatException   text, once
             ├─ eplog.callerFrame                      who logged it
             ├─ eplog.record                           one struct
-            └─ sink.write(rec) for each sink
-                 ├─ eplog.sink.Console     command window
-                 ├─ eplog.sink.TextFile    .error_logs/error_log_ddmmmyyyy.txt
-                 └─ eplog.sink.JsonLines   .error_logs/error_log_ddmmmyyyy.jsonl (opt-in)
+            └─ sink.write(rec) for each sink, each gating on its own level
+                 ├─ eplog.sink.Console     command window          (GVerbosity)
+                 ├─ eplog.sink.TextFile    .error_logs/error_log_ddmmmyyyy.txt        (GLogVerbosity)
+                 └─ eplog.sink.JsonLines   .error_logs/error_log_ddmmmyyyy.jsonl (opt-in, GLogVerbosity)
 ```
 
-The gate comes first and is the only cost a suppressed message pays: no
-timestamp, no `dbstack`, no formatting. That is what makes a level-4 trace in
-the trial loop free rather than a timing hazard.
+The gate comes first and is the only cost a message pays when **no** destination
+wants it. With the default `GLogVerbosity` the log wants everything, so that
+short circuit no longer fires — see the performance note below.
 
 ## Verbosity
 
-Filtering is against the global `GVerbosity`, and `eplog.isEnabled` is the only
-place that global is interpreted. It repairs values that silently broke the old
-comparison — `NaN` and `Inf` (which let _every_ message through), `[]`, and
-non-scalars — resetting them to the documented default of `1`.
+The command window and the error log are filtered separately, and
+`eplog.isEnabled` is the only place either global is interpreted.
+
+| Global | Destination | Default | Repaired to the default when |
+| --- | --- | --- | --- |
+| `GVerbosity` | command window | `1` | `NaN`, `Inf`, `[]`, non-scalar |
+| `GLogVerbosity` | error log | `Inf` — everything | `NaN`, `[]`, non-scalar (`Inf` is legal here) |
+
+The split exists because the two answer different questions. `GVerbosity` keeps
+the command window readable during a session and is turned down freely;
+`GLogVerbosity` decides what is on the record afterwards. Quieting the console
+therefore hides output, it no longer discards it — the level-3 detail that
+explains a failure is in `.error_logs` whether or not the operator was watching
+for it.
+
+```matlab
+global GVerbosity GLogVerbosity
+GVerbosity    = 0;     % near-silent command window
+GLogVerbosity = Inf;   % (the default) the log still keeps every message
+```
+
+Ask about one destination with `eplog.isEnabled(level,'console')` or
+`eplog.isEnabled(level,'log')`; with no second argument, or `'any'`, it answers
+"would this reach either", which is the gate `vprintf` and `visenabled` use.
+
+**Performance.** At the default the gate never suppresses anything, so a level-4
+trace in the trial loop now costs a full record and file write (~200 µs) rather
+than ~4 µs. On a rig where that matters, set `GLogVerbosity` to a finite level
+— `3` keeps everything but per-trial traces — and the cheap suppressed path
+comes back. `eplog.sink.Sink.MaxLevel` caps one sink without touching either
+global.
 
 | Level | `eplog.Level` | Meaning |
 | --- | --- | --- |
@@ -183,15 +210,19 @@ errs  = recs([recs.level] == 0);
 ```
 
 A custom sink subclasses `eplog.sink.Sink` and implements `write(rec)`; see
-`eplog.record` for the fields. A sink that throws is contained by the logger:
-the other sinks still receive the record, and the caller never sees the error.
+`eplog.record` for the fields. Start `write` with `if ~obj.accepts(rec), return;
+end` — the logger's gate answers for the session as a whole, so each sink
+applies its own level in `accepts`. Override `accepts` to add a destination gate
+of your own; `MaxLevel` alone caps a sink without any code. A sink that throws
+is contained by the logger: the other sinks still receive the record, and the
+caller never sees the error.
 
 ## Reference
 
 | File | Role |
 | --- | --- |
 | [`eplog.Logger`](../../obj/+eplog/@Logger/Logger.m) | session-wide dispatcher; `instance()`, `emit`, `flush`, `addSink`, `LogFile` |
-| [`eplog.isEnabled`](../../obj/+eplog/isEnabled.m) | the verbosity gate; the only reader of `GVerbosity` |
+| [`eplog.isEnabled`](../../obj/+eplog/isEnabled.m) | the verbosity gate, per destination; the only reader of `GVerbosity` and `GLogVerbosity` |
 | [`eplog.Level`](../../obj/+eplog/Level.m) | named levels and `label()` |
 | [`eplog.format`](../../obj/+eplog/format.m) | message text policy |
 | [`eplog.formatException`](../../obj/+eplog/formatException.m) | exceptions, error structs, causes |
@@ -202,9 +233,9 @@ the other sinks still receive the record, and the caller never sees the error.
 | [`eplog.builtinLogDir`](../../obj/+eplog/builtinLogDir.m) | the built-in default alone, `<epsych root>/.error_logs`, ignoring any override |
 | [`eplog.setLogDir`](../../obj/+eplog/setLogDir.m) | change it and re-point the live sinks |
 | [`eplog.isAbsolutePath`](../../obj/+eplog/isAbsolutePath.m) | guards both against a working-directory-relative log location |
-| [`eplog.sink.Sink`](../../obj/+eplog/+sink/Sink.m) | abstract destination |
-| [`eplog.sink.Console`](../../obj/+eplog/+sink/Console.m) | command window |
-| [`eplog.sink.FileSink`](../../obj/+eplog/+sink/FileSink.m) | daily-file lifecycle: rotation, flush, latch, recovery |
+| [`eplog.sink.Sink`](../../obj/+eplog/+sink/Sink.m) | abstract destination; `accepts(rec)` and `MaxLevel` |
+| [`eplog.sink.Console`](../../obj/+eplog/+sink/Console.m) | command window; where `GVerbosity` is applied |
+| [`eplog.sink.FileSink`](../../obj/+eplog/+sink/FileSink.m) | daily-file lifecycle: rotation, flush, latch, recovery; where `GLogVerbosity` is applied |
 | [`eplog.sink.TextFile`](../../obj/+eplog/+sink/TextFile.m) | human-readable daily log |
 | [`eplog.sink.JsonLines`](../../obj/+eplog/+sink/JsonLines.m) | structured daily log (opt-in) |
 

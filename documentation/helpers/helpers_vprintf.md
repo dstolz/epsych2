@@ -42,16 +42,30 @@ A `string` scalar is always a message, never the red flag.
 | `3` | `Verbose` | detailed process tracing |
 | `4` | `Trace` | per-trial detail |
 
-A message is emitted when `verbose_level <= GVerbosity`. Any numeric level is
-accepted; the table is convention, not a constraint.
+Any numeric level is accepted; the table is convention, not a constraint.
+
+The two destinations have their own levels:
+
+| Global | Destination | Default | Prints/logs when |
+| --- | --- | --- | --- |
+| `GVerbosity` | command window | `1` | `verbose_level <= GVerbosity` |
+| `GLogVerbosity` | `.error_logs` file | `Inf` | `verbose_level <= GLogVerbosity` |
 
 ```matlab
-global GVerbosity
-GVerbosity = 2;
+global GVerbosity GLogVerbosity
+GVerbosity    = 2;     % what you want to watch
+GLogVerbosity = Inf;   % the default: everything is written to the log
 ```
 
-If `GVerbosity` is empty, non-numeric, non-scalar or `NaN`, it is repaired to
-`1`. In the session GUI, set it from **Customize ▸ Verbosity**.
+So **every** message reaches the log regardless of what the command window is
+showing. Turning `GVerbosity` down hides output; it does not throw it away. In
+the session GUI, set the console level from **Help ▸ Verbosity...** or
+<kbd>Ctrl</kbd>+<kbd>0</kbd>…<kbd>4</kbd>.
+
+If `GVerbosity` is empty, non-numeric, non-scalar, `NaN` or `Inf`, it is
+repaired to `1`. `GLogVerbosity` is repaired to `Inf` — `Inf` is its documented
+default, not a fault. Lower it to a finite level on a rig where writing
+per-trial level-4 traces is too expensive.
 
 ## Format policy
 
@@ -118,6 +132,13 @@ if visenabled(4)
 end
 ```
 
+`visenabled` answers for both destinations, matching `vprintf`. At the default
+`GLogVerbosity` the log wants every level, so such a block runs even with a
+quiet command window — and its message is written to the log. Guard on
+`eplog.isEnabled(4,'console')` instead only where the command window is
+genuinely the sole consumer; a guard that skips the argument also keeps it out
+of the file that has to explain the failure afterwards.
+
 For ordinary messages the guard costs more than it saves — call `vprintf`
 directly.
 
@@ -152,7 +173,10 @@ per-process log files, and the opt-in structured JSON Lines log.
   unprintable messages degrade to a logged note.
 - The function always ends the line. It is not intended for partial-line output.
 - Logging performs file I/O, so very high-frequency debug logging still costs
-  something (~150 µs per written message); the _suppressed_ path costs ~1 µs.
+  something (~200 µs per written message). Since the log takes every level by
+  default, that is now what a level-4 trace costs even with a silent command
+  window; a message no destination wants still costs only the gate (~4 µs), so
+  lower `GLogVerbosity` where per-trial traces are a timing concern.
 - `stimgen` keeps its own `stimgen.util.vprintf`, but `epsych_startup` bridges it
   into this logger, so its messages do appear in the session log. Call
   `stimgen.util.vprintf` from inside `obj/stimgen/`; call `vprintf` everywhere

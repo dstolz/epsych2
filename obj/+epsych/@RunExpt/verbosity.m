@@ -1,8 +1,11 @@
 function verbosity(self, varargin)
-% verbosity — Set the global verbosity level via dialog or shortcut.
+% verbosity — Set the command-window verbosity level via dialog or shortcut.
 % Behavior
 %   Presents a list dialog and updates GVerbosity accordingly.
 %   When called with a numeric scalar, sets that level directly.
+%   This is the console level only. The error log keeps every message at any
+%   setting (GLogVerbosity, see eplog.isEnabled), so quieting the command
+%   window never costs the record of what happened.
 
 global GVerbosity
 
@@ -28,7 +31,9 @@ else
     self.H.figure1.WindowStyle = 'normal'; % Ensure the dialog is visible
     drawnow
     [indx, tf] = listdlg('ListString', options, 'SelectionMode','single', ...
-        'PromptString','Select the level of detail:', 'Name','Detail Level Selection', ...
+        'PromptString',{'Select the level of detail shown in the', ...
+                        'command window. The error log keeps everything.'}, ...
+        'Name','Detail Level Selection', ...
         'InitialValue',min(GVerbosity+1,length(options)), 'ListSize',[300,150]);
     self.H.figure1.WindowStyle = os; % Restore original window state
     if ~tf, return, end

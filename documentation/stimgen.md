@@ -90,7 +90,10 @@ Pinning a `stimgen` from before the seam is still supported: `epsych_startup`
 probes for `stimgen.LogSink` and silently skips the install, `stimgen` keeps
 writing to `fullfile(tempdir,'stimgen_error_logs')`, and A6 degrades to a
 warning naming that path. The `GVerbosity` global still steers both either way,
-and with the bridge installed `eplog.isEnabled` is its single reader.
+and with the bridge installed `eplog.isEnabled` is its single reader — including
+the split between console and log verbosity, so a `stimgen` message above
+`GVerbosity` is still written to `.error_logs/` rather than dropped by
+`stimgen`'s own single-destination gate.
 
 Because `stimgen` releases independently, `EPsychInfo.stimgenChksum` records the
 pinned submodule commit and `EPsychInfo.meta.StimgenChecksum` carries it into

@@ -184,10 +184,15 @@ re-uploading the state table.
 #### obj/+eplog/ – Logging
 The machinery behind vprintf; almost nothing should call it directly.
 - **eplog.isEnabled**: the verbosity gate, and the only interpreter of GVerbosity
+  (console) and GLogVerbosity (error log, default Inf = log everything). It answers
+  per destination — `isEnabled(level,'console'|'log'|'any')` — because the two are
+  decoupled: a quiet command window no longer costs the record of what happened
 - **eplog.Logger**: session singleton; builds one record per message and dispatches
   to its sinks. `instance()`, `emit`, `flush`, `addSink`, `LogFile`
-- **eplog.sink.Console / TextFile / JsonLines**: destinations. FileSink owns the
-  daily .error_logs file — rotation, flush, handle recovery, failure latching
+- **eplog.sink.Console / TextFile / JsonLines**: destinations. Each applies its own
+  level in `accepts(rec)` — the logger's gate only asks whether ANY destination
+  wants the record. FileSink owns the daily .error_logs file — rotation, flush,
+  handle recovery, failure latching
 - **eplog.format / formatException**: message text policy; an exception (or a
   lasterror/timer-event struct) becomes ONE record at the catch site
 - **eplog.callerFrame**: attributes a record to the code that logged it, by skipping
@@ -252,10 +257,13 @@ ERROR is reachable from any state.
   values it is literal text. Pass runtime-built strings (ME.message, file paths,
   tool output) as the whole message so '%' and backslashes survive
 - vprintf is a façade over obj/+eplog/, which logs to .error_logs/
+- The console and the log have separate levels: GVerbosity gates the command window,
+  GLogVerbosity gates the file and defaults to Inf, so EVERY message is logged
 - Never rebuild the log path by hand. `eplog.Logger.instance().LogFile` names the
   current file; call `flush()` first if something is about to read or open it
 - Guard only genuinely expensive log arguments with `visenabled(level)`; vprintf's
-  own gate already makes a suppressed message ~1 us
+  own gate already makes a message no destination wants ~4 us. Note visenabled is
+  true whenever the LOG wants the level, which by default is always
 
 **Error Handling**
 - Use try/catch sparingly, only for expected errors

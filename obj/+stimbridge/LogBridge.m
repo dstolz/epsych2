@@ -47,10 +47,14 @@ classdef LogBridge < stimgen.LogSink
         function tf = isEnabled(~,level)
             % tf = isEnabled(obj,level)
             % Defer to EPsych's gate so eplog.isEnabled is the single reader of
-            % GVerbosity across both code bases. stimgen then inherits its
-            % repair of NaN/Inf/[]/non-scalar values for free, instead of two
-            % gates that can disagree about the same global.
-            tf = eplog.isEnabled(level);
+            % the verbosity globals across both code bases. stimgen then
+            % inherits its repair of NaN/Inf/[]/non-scalar values for free,
+            % instead of two gates that can disagree about the same global.
+            %
+            % 'any', so a stimgen message the console is too quiet for still
+            % reaches the error log. stimgen's own gate is a single-destination
+            % one and would otherwise drop it before this bridge ever sees it.
+            tf = eplog.isEnabled(level,'any');
         end
     end
 end

@@ -13,8 +13,9 @@ function smoke_test_eplog_integration
 %
 % Run headless: matlab -batch "addpath('c:\src\epsych2'); epsych_startup('c:\src\epsych2',false); run('c:\src\epsych2\tmp\smoke_test_eplog_integration.m')"
 
-global GVerbosity %#ok<GVMIS>
+global GVerbosity GLogVerbosity %#ok<GVMIS>
 priorVerbosity = GVerbosity;
+priorLogVerbosity = GLogVerbosity;
 
 % The log directory override is a real user preference. Capture and clear it so
 % the checks below run against a known state, and put it back afterwards.
@@ -27,9 +28,10 @@ end
 scratch = fullfile(tempdir,sprintf('eplog_integration_%d',feature('getpid')));
 if isfolder(scratch), rmdir(scratch,'s'); end
 
-cleanup = onCleanup(@() localCleanup(priorVerbosity,priorLogDir,scratch));
+cleanup = onCleanup(@() localCleanup(priorVerbosity,priorLogVerbosity,priorLogDir,scratch));
 
 GVerbosity = 3;
+GLogVerbosity = Inf;
 
 fprintf('\n=== smoke_test_eplog_integration ===\n');
 
@@ -90,17 +92,33 @@ L.flush();
 assert(localBytes(sink.Path) > before,'level -1 must still reach the log');
 fprintf('PASS: 4 level -1 logs without printing\n');
 
-% 5. A suppressed message costs nothing and writes nothing -------------------
+% 5. The console and the log are gated separately ---------------------------
+% A quiet command window must no longer cost the record of what happened: the
+% message is withheld from the console and still written to the file.
 GVerbosity = 1;
+GLogVerbosity = Inf;
 before = localBytes(sink.Path);
-out = evalc('vprintf(3,''suppressed'')');
-assert(isempty(strtrim(out)),'a suppressed message must not print');
+out = evalc('vprintf(3,''console-suppressed but logged'')');
+assert(isempty(strtrim(out)),'a message above GVerbosity must not print');
 L.flush();
-assert(localBytes(sink.Path) == before,'a suppressed message must not be logged');
+assert(localBytes(sink.Path) > before,'it must still be logged at the default GLogVerbosity');
+assert(contains(fileread(sink.Path),'console-suppressed but logged'), ...
+    'the log must carry the text of a console-suppressed message');
+assert(visenabled(3),'visenabled must agree with the gate vprintf uses');
+
+% Lowering the log level suppresses it everywhere, which is the escape hatch
+% for a rig where per-trial traces are too expensive to write.
+GLogVerbosity = 1;
+before = localBytes(sink.Path);
+out = evalc('vprintf(3,''suppressed everywhere'')');
+assert(isempty(strtrim(out)),'a doubly suppressed message must not print');
+L.flush();
+assert(localBytes(sink.Path) == before,'a doubly suppressed message must not be logged');
 assert(~visenabled(3) && visenabled(1) && visenabled(0), ...
     'visenabled must agree with the gate vprintf uses');
+GLogVerbosity = Inf;
 GVerbosity = 3;
-fprintf('PASS: 5 suppressed levels write nothing; visenabled agrees\n');
+fprintf('PASS: 5 console verbosity no longer decides what reaches the log\n');
 
 % 6. Exceptions log once, at the catch site ---------------------------------
 before = localBytes(sink.Path);
@@ -252,9 +270,10 @@ txt = txt(min(fromByte,numel(txt))+1:end);
 lines = strsplit(strtrim(txt),newline);
 end
 
-function localCleanup(priorVerbosity,priorLogDir,scratch)
-global GVerbosity %#ok<GVMIS>
+function localCleanup(priorVerbosity,priorLogVerbosity,priorLogDir,scratch)
+global GVerbosity GLogVerbosity %#ok<GVMIS>
 GVerbosity = priorVerbosity;
+GLogVerbosity = priorLogVerbosity;
 if isempty(priorLogDir)
     if ispref('eplog','LogDir'), rmpref('eplog','LogDir'); end
 else

@@ -5,6 +5,10 @@ classdef Console < eplog.sink.Sink
 %
 %   18:51:35.958: This is a level 2 message
 %
+% This sink is where GVerbosity is applied. The logger's own gate now asks
+% only whether a record is wanted ANYWHERE, and the error log wants everything,
+% so a record above the console level still arrives here and is dropped here.
+%
 % Records at a negative level are log-only and never reach the console; that
 % is what makes vprintf(-1,...) the "record it but do not bother the operator"
 % level the SelfTest relies on.
@@ -13,7 +17,7 @@ classdef Console < eplog.sink.Sink
 %   ShowTimestamp - prefix each line with HH:mm:ss.SSS (default true)
 %   Stream        - 1 for stdout, 2 for stderr; Red records always use 2
 %
-% See also: eplog.sink.Sink, eplog.Logger
+% See also: eplog.sink.Sink, eplog.Logger, eplog.isEnabled
 
     properties
         ShowTimestamp (1,1) logical = true
@@ -21,9 +25,14 @@ classdef Console < eplog.sink.Sink
     end
 
     methods
+        function tf = accepts(obj,rec)
+            tf = accepts@eplog.sink.Sink(obj,rec) ...
+                && rec.Level >= 0 ...
+                && eplog.isEnabled(rec.Level,'console');
+        end
+
         function write(obj,rec)
-            if ~obj.Enabled, return; end
-            if rec.Level < 0, return; end   % log-only
+            if ~obj.accepts(rec), return; end
 
             if rec.Red
                 fid = 2;

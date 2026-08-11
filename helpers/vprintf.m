@@ -10,8 +10,7 @@ function vprintf(verbose_level,varargin)
 % result to eplog.Logger, which formats the record once and dispatches it to
 % every configured sink (console, daily text file, optional JSON Lines).
 %
-% Messages are filtered against the global GVerbosity, an integer normally
-% between -1 and 4:
+% Levels are integers normally between -1 and 4:
 %  -1 log message, but do not print to screen
 %   0 critical; suppresses nearly all other text
 %   1 low, information that may be generally useful to the user
@@ -19,6 +18,14 @@ function vprintf(verbose_level,varargin)
 %   3 high, lots of information about nearly all processes (debugging)
 %   4 trace, per-trial detail
 % See eplog.Level for the named form.
+%
+% The two destinations are filtered separately:
+%   GVerbosity    - command window. Default 1, unchanged.
+%   GLogVerbosity - error log. Default Inf, so EVERY message is written to
+%                   .error_logs no matter how quiet the console is.
+% Lowering GVerbosity therefore hides output; it no longer discards it. Set
+% GLogVerbosity to a finite level on a rig where per-trial level-4 traces are
+% too expensive to write.
 %
 % Format policy (eplog.format):
 %   With values, msg is a printf format string, exactly as documented.
@@ -42,7 +49,7 @@ function vprintf(verbose_level,varargin)
 %      vprintf(2,'This is a level %d message: %s',2,'medium verbosity')
 %      18:51:35.958: This is a level 2 message: medium verbosity
 %
-%      vprintf(3,'Not printed because GVerbosity = %d',GVerbosity)
+%      vprintf(3,'Not printed because GVerbosity = %d, but still logged',GVerbosity)
 %
 %      vprintf(1,1,'This is a red level %d message: %s',1,'low verbosity')
 %      18:51:35.958: This is a red level 1 message: low verbosity
@@ -58,8 +65,11 @@ function vprintf(verbose_level,varargin)
 
 % The gate comes first and is the only cost a suppressed message pays: no
 % timestamp, no dbstack, no formatting. At a 100 Hz trial timer that is the
-% difference between level-4 traces being free and being a timing hazard.
-if ~eplog.isEnabled(verbose_level), return; end
+% difference between level-4 traces being free and being a timing hazard --
+% which is now a reason to lower GLogVerbosity there, since the default asks
+% for everything and only a message no destination wants stops here. Each sink
+% applies its own level once the record is built.
+if ~eplog.isEnabled(verbose_level,'any'), return; end
 
 if isempty(varargin)
     % Nothing to say. Historically this errored on an undefined variable

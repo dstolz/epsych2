@@ -6,8 +6,10 @@ classdef Logger < handle
 % eplog.Logger.instance().
 %
 % Verbosity filtering is NOT done here -- eplog.isEnabled gates before a
-% logger is even fetched, so a suppressed message costs a global read and a
-% comparison and nothing else.
+% logger is even fetched, so a message no destination wants costs a global read
+% and a comparison and nothing else. That gate answers for the session as a
+% whole; the console and the file have separate levels (GVerbosity and
+% GLogVerbosity), so each sink applies its own in accepts().
 %
 % Nothing in this class is allowed to throw. Logging runs inside catch blocks
 % throughout EPsych, and an exception raised while reporting an exception

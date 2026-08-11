@@ -8,11 +8,18 @@ function rec = record(c,stamp,level,red,text,caller,line,file)
 % whole logging path. epsych.SelfTest.result sets the same precedent for
 % struct-shaped result records.
 %
+% Level is normalized here, so every sink can compare it against its own level
+% with a scalar test. A malformed level -- vprintf('oops','bad level') -- is
+% recorded as 0 rather than passed through: as a char it made "rec.Level <= X"
+% return an array and took the sink's whole && chain down with it. Critical is
+% the loud end of the scale, which matches eplog.isEnabled letting a malformed
+% call site through rather than silencing it forever.
+%
 % Fields:
 %   Clock      - clock vector [y mo d h mi s] the event was raised
 %   Stamp      - 'HH:mm:ss.SSS' rendering of Clock, formatted once and shared
 %                by every sink
-%   Level      - numeric verbosity level (see eplog.Level)
+%   Level      - verbosity level, always a scalar double (see eplog.Level)
 %   Red        - true to route console output to stderr
 %   Text       - fully formatted message, no trailing newline
 %   Caller     - name of the function that called vprintf
@@ -22,6 +29,13 @@ function rec = record(c,stamp,level,red,text,caller,line,file)
 %   Stack      - exception stack, empty struct otherwise
 %
 % See also: eplog.Logger, eplog.sink.Sink, eplog.stamp
+
+% double(): an eplog.Level is an int32 enumeration, which isnumeric rejects.
+if isscalar(level) && (isnumeric(level) || isa(level,'eplog.Level'))
+    level = double(level);
+else
+    level = 0;
+end
 
 rec.Clock      = c;
 rec.Stamp      = stamp;

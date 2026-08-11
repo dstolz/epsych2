@@ -13,6 +13,13 @@ function tf = visenabled(verbose_level)
 % For an ordinary message with cheap arguments, call vprintf directly -- the
 % guard costs more than it saves.
 %
+% It answers for BOTH destinations, matching vprintf: the error log takes every
+% level by default (GLogVerbosity), so a guarded block now runs even when the
+% console is quiet, and its message is written to the log. Guard on
+% eplog.isEnabled(level,'console') instead only where the console is genuinely
+% the sole consumer -- a guard that hides the argument also hides it from the
+% log, which is the file that has to explain the failure afterwards.
+%
 % Parameters:
 %   verbose_level - numeric verbosity level (see eplog.Level)
 %
@@ -21,4 +28,4 @@ function tf = visenabled(verbose_level)
 %
 % See also: vprintf, eplog.isEnabled, eplog.Level
 
-tf = eplog.isEnabled(verbose_level);
+tf = eplog.isEnabled(verbose_level,'any');

@@ -11,10 +11,12 @@ function smoke_test_eplog
 %
 % Run headless: matlab -batch "addpath('c:\src\epsych2'); epsych_startup('c:\src\epsych2'); run('c:\src\epsych2\tmp\smoke_test_eplog.m')"
 
-global GVerbosity %#ok<GVMIS>
+global GVerbosity GLogVerbosity %#ok<GVMIS>
 priorVerbosity = GVerbosity;
-cleanupVerbosity = onCleanup(@() localRestore(priorVerbosity));
+priorLogVerbosity = GLogVerbosity;
+cleanupVerbosity = onCleanup(@() localRestore(priorVerbosity,priorLogVerbosity));
 GVerbosity = 3;
+GLogVerbosity = Inf;
 
 scratch = fullfile(tempdir,sprintf('eplog_smoke_%d',feature('getpid')));
 if isfolder(scratch), rmdir(scratch,'s'); end
@@ -83,19 +85,40 @@ assert(eplog.Level.label(NaN)=="L?",'label must never throw');
 fprintf('PASS: 6 level labels cover named, unnamed and invalid values\n');
 
 % 7. Verbosity gating, including the values that broke the old compare -----
+% The console gate is GVerbosity and answers only for the command window.
+GLogVerbosity = 1;
 GVerbosity = 1;
-assert(eplog.isEnabled(0) && eplog.isEnabled(1),'levels at or below must pass');
-assert(~eplog.isEnabled(2),'levels above must be suppressed');
+assert(eplog.isEnabled(0,'console') && eplog.isEnabled(1,'console'), ...
+    'levels at or below must pass');
+assert(~eplog.isEnabled(2,'console'),'levels above must be suppressed');
 GVerbosity = NaN;
-assert(~eplog.isEnabled(3),'NaN previously let EVERY message through');
+assert(~eplog.isEnabled(3,'console'),'NaN previously let EVERY message through');
 assert(GVerbosity==1,'NaN must be repaired to the documented default');
 GVerbosity = [0 3];
-assert(~eplog.isEnabled(3),'a non-scalar global previously suppressed nothing');
+assert(~eplog.isEnabled(3,'console'),'a non-scalar global previously suppressed nothing');
 GVerbosity = [];
-assert(eplog.isEnabled(1) && GVerbosity==1,'empty must reset to 1');
+assert(eplog.isEnabled(1,'console') && GVerbosity==1,'empty must reset to 1');
 GVerbosity = 3;
-assert(eplog.isEnabled('oops'),'a malformed level must stay loud, not vanish');
+assert(eplog.isEnabled('oops','console'),'a malformed level must stay loud, not vanish');
 fprintf('PASS: 7 gating handles NaN, non-scalar, empty and bad levels\n');
+
+% 7b. The log gate is a separate global, defaulting to everything -----------
+GVerbosity = 0;
+GLogVerbosity = [];
+assert(eplog.isEnabled(4,'log') && isinf(GLogVerbosity), ...
+    'an unset GLogVerbosity must default to logging everything');
+assert(~eplog.isEnabled(4,'console'),'the console must stay at GVerbosity');
+assert(eplog.isEnabled(4),'"any" must be true when either destination wants it');
+assert(eplog.isEnabled(4,'any'),'the explicit form must agree with the default');
+GLogVerbosity = NaN;
+assert(eplog.isEnabled(4,'log') && isinf(GLogVerbosity),'NaN must be repaired to Inf');
+GLogVerbosity = 2;
+assert(eplog.isEnabled(2,'log') && ~eplog.isEnabled(3,'log'), ...
+    'a finite GLogVerbosity must cap the log');
+assert(~eplog.isEnabled(3),'"any" must be false when neither destination wants it');
+GVerbosity = 3;
+GLogVerbosity = Inf;
+fprintf('PASS: 7b console and log verbosity are independent\n');
 
 % 8. Caller attribution ----------------------------------------------------
 % The old logger hardcoded dbstack frame 3.
@@ -246,6 +269,22 @@ assert(strcmp(r2.identifier,'epsych:smoke:json'),'identifier must reach the stru
 assert(~isempty(r2.stack),'stack must reach the structured log');
 fprintf('PASS: 15 JSON Lines sink round-trips through jsondecode\n');
 
+% 15b. A malformed level is normalized, not passed to the sinks -------------
+% vprintf('oops','bad level') reaches the logger with a char level. Left alone
+% it made every sink's "rec.Level <= X" return an array, which took down the
+% whole && chain and lost the message the caller was trying to report.
+r = eplog.record(clock,'00:00:00.000','oops',false,'malformed level','f',1,'f.m');
+assert(isa(r.Level,'double') && isscalar(r.Level) && r.Level == 0, ...
+    'a malformed level must be recorded as critical, not carried through');
+assert(eplog.record(clock,'x',eplog.Level.Debug,false,'t','f',1,'f.m').Level == 2, ...
+    'an eplog.Level must survive as its numeric level');
+LM = eplog.Logger({eplog.sink.Console(), eplog.sink.TextFile(scratch)});
+out = evalc('LM.emit(''oops'',false,''bad level survives'')');
+assert(contains(out,'bad level survives'),'a malformed level must stay loud');
+assert(~contains(out,'sink'),'no sink may fail on a malformed level');
+LM.close();
+fprintf('PASS: 15b a malformed level is normalized instead of breaking the sinks\n');
+
 % 16. Open failure latches instead of retrying forever ---------------------
 % The old code retried epsych_path + isfolder + mkdir + fopen on every call.
 badDir = fullfile(scratch,'nul','deeper');   % 'nul' is a reserved device on Windows
@@ -356,14 +395,22 @@ fprintf('\n--- fitness ---\n');
 
 N = 2000;
 
-global GVerbosity %#ok<GVMIS>
+global GVerbosity GLogVerbosity %#ok<GVMIS>
 GVerbosity = 1;
+GLogVerbosity = 1;
 
 % Suppressed path: what the 100 Hz-1 kHz trial loop pays for the level-3 and
-% level-4 traces it never prints.
+% level-4 traces it never prints. This is the path only once GLogVerbosity is
+% finite -- at the default Inf the log wants every message, so nothing is
+% suppressed and the traces cost a full emit.
 eplog.isEnabled(3);
 t0 = tic; for k = 1:N, eplog.isEnabled(3); end, tGate = toc(t0)/N;
-fprintf('suppressed gate      : %8.2f us\n',tGate*1e6);
+fprintf('suppressed gate      : %8.2f us  (GLogVerbosity finite)\n',tGate*1e6);
+
+GLogVerbosity = Inf;
+t0 = tic; for k = 1:N, eplog.isEnabled(3); end, tOpen = toc(t0)/N;
+fprintf('open gate            : %8.2f us  (GLogVerbosity Inf, the default)\n',tOpen*1e6);
+GLogVerbosity = 1;
 
 % Old fixed overhead, measured directly rather than by calling vprintf, which
 % would append benchmark noise to the repository's own .error_logs.
@@ -397,6 +444,7 @@ assert(tGate < tEmit,'the suppressed path must be cheaper than an emit');
 assert(tNew < tOld,'the rework must not be slower than what it replaces');
 assert(tEmit < 0.001,'a single log message must stay under one millisecond');
 GVerbosity = 3;
+GLogVerbosity = Inf;
 end
 
 function localOldOverhead()
@@ -429,9 +477,10 @@ function s = cellstr_last(c)
 s = c{end};
 end
 
-function localRestore(v)
-global GVerbosity %#ok<GVMIS>
+function localRestore(v,lv)
+global GVerbosity GLogVerbosity %#ok<GVMIS>
 GVerbosity = v;
+GLogVerbosity = lv;
 end
 
 function localRmdir(d)

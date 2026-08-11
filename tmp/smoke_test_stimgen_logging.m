@@ -17,16 +17,18 @@ function smoke_test_stimgen_logging
 %
 % Run headless: matlab -batch "addpath('c:\src\epsych2'); epsych_startup('c:\src\epsych2',false); run('c:\src\epsych2\tmp\smoke_test_stimgen_logging.m')"
 
-global GVerbosity %#ok<GVMIS>
+global GVerbosity GLogVerbosity %#ok<GVMIS>
 priorVerbosity = GVerbosity;
+priorLogVerbosity = GLogVerbosity;
 priorSink = stimgen.util.logSink();
 
 scratch = fullfile(tempdir,sprintf('stimgen_logging_%d',feature('getpid')));
 if isfolder(scratch), rmdir(scratch,'s'); end
 
-cleanup = onCleanup(@() localCleanup(priorVerbosity,priorSink,scratch)); %#ok<NASGU>
+cleanup = onCleanup(@() localCleanup(priorVerbosity,priorLogVerbosity,priorSink,scratch)); %#ok<NASGU>
 
 GVerbosity = 3;
+GLogVerbosity = Inf;
 
 fprintf('\n=== smoke_test_stimgen_logging ===\n');
 
@@ -171,13 +173,28 @@ stimgen.util.logSink(stimbridge.LogBridge());
 fprintf('PASS: 9 a broken sink falls back without throwing or latching\n');
 
 % 10. Gate delegation -------------------------------------------------------
-% With the bridge installed, eplog.isEnabled is the single reader of GVerbosity
-% for both code bases.
+% With the bridge installed, eplog.isEnabled is the single reader of the
+% verbosity globals for both code bases -- including the split between them, so
+% a stimgen message the console is too quiet for still reaches the session log
+% instead of being dropped by stimgen's own single-destination gate.
 GVerbosity = 1;
+GLogVerbosity = Inf;
 assert(stimgen.util.isEnabled(1),'level 1 must be enabled at GVerbosity 1');
-assert(~stimgen.util.isEnabled(3),'level 3 must be suppressed at GVerbosity 1');
+assert(stimgen.util.isEnabled(3),'the log wants level 3 even when the console does not');
 beforeSession = localBytes(sink.Path);
 beforeTemp = localStimgenBytes(STIMGEN_LOGS);
+out = evalc('stimgen.util.vprintf(3,''console-suppressed but logged'')');
+L.flush();
+assert(isempty(strtrim(out)),'a message above GVerbosity must not print');
+assert(localBytes(sink.Path) > beforeSession, ...
+    'a console-suppressed stimgen message must still reach the session log');
+assert(localStimgenBytes(STIMGEN_LOGS) == beforeTemp, ...
+    'a forwarded message must never reach the tempdir log');
+
+% Lowering the log level suppresses it in both code bases.
+GLogVerbosity = 1;
+assert(~stimgen.util.isEnabled(3),'level 3 must be suppressed once the log is capped too');
+beforeSession = localBytes(sink.Path);
 stimgen.util.vprintf(3,'suppressed');
 L.flush();
 assert(localBytes(sink.Path) == beforeSession, ...
@@ -191,7 +208,8 @@ assert(~stimgen.util.isEnabled(3),'a NaN GVerbosity must be repaired, not open t
 GVerbosity = Inf;
 assert(~stimgen.util.isEnabled(3),'an Inf GVerbosity must be repaired too');
 GVerbosity = 3;
-fprintf('PASS: 10 the gate is delegated and hardened\n');
+GLogVerbosity = Inf;
+fprintf('PASS: 10 the gate is delegated, split by destination and hardened\n');
 
 % 11. The install is idempotent ---------------------------------------------
 % epsych_startup is routinely re-run; it must not discard a working bridge.
@@ -298,9 +316,10 @@ end
 end
 
 % -----------------------------------------------------------------------
-function localCleanup(priorVerbosity,priorSink,scratch)
-global GVerbosity %#ok<GVMIS>
+function localCleanup(priorVerbosity,priorLogVerbosity,priorSink,scratch)
+global GVerbosity GLogVerbosity %#ok<GVMIS>
 GVerbosity = priorVerbosity;
+GLogVerbosity = priorLogVerbosity;
 
 % Put the stimgen registry back the way it was found, then rebuild the session
 % logger against the real log directory.

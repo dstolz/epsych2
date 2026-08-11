@@ -20,6 +20,10 @@ classdef (Abstract) FileSink < eplog.sink.Sink
 %
 % Subclasses supply formatLine() and extension().
 %
+% Verbosity for the file is GLogVerbosity, not GVerbosity: see accepts(). It
+% defaults to Inf so quieting the command window never quiets the record of
+% what happened.
+%
 % Properties:
 %   Dir        - directory holding the log files
 %   BaseName   - filename stem before the date
@@ -61,8 +65,17 @@ classdef (Abstract) FileSink < eplog.sink.Sink
             obj.Dir = char(logDir);
         end
 
+        function tf = accepts(obj,rec)
+            % GLogVerbosity decides here, independently of what the console is
+            % showing. It defaults to Inf, so by default the file keeps every
+            % message the session produced.
+            tf = accepts@eplog.sink.Sink(obj,rec) ...
+                && ~obj.Failed ...
+                && eplog.isEnabled(rec.Level,'log');
+        end
+
         function write(obj,rec)
-            if ~obj.Enabled || obj.Failed, return; end
+            if ~obj.accepts(rec), return; end
 
             if ~obj.ensureOpen_(rec.Clock), return; end
 

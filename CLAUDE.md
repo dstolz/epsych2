@@ -78,6 +78,13 @@ EPsych does not have a formal automated test suite. Manual validation is perform
 - **epsych.TrialSelector** (abstract): Pluggable trial selection
 - **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
 - **epsych.BitMask**: uint32 enumeration for trial outcomes
+- **Phase loading**: `Runtime.phaseParameterData` is the single chokepoint for reading a
+  phase (.eprot) file. It reads the saved `hw.Parameter.toStruct` entries straight out of
+  the MAT file — the file already holds exactly what it returns — and falls back to the
+  full `epsych.Protocol.load` reconstruction whenever the shape is not recognized in full.
+  Results are memoized by `Runtime.phaseCache` on path+mtime+size. Both are transparent:
+  `FastParse=false`, `UseCache=false`, and `phaseCache('clear'|'disable')` restore the
+  original behavior, and `tmp/smoke_test_phase_fastparse.m` is the standing equivalence proof
 - **PRGMSTATE** (top-level class in obj/PRGMSTATE.m): Session state enumeration
 
 #### obj/+hw/ – Hardware Abstraction Layer

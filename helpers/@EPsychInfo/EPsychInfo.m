@@ -176,20 +176,39 @@ classdef EPsychInfo < handle
             % Return:
             %   tag - Tag name as a character vector. Returns '' when git is
             %       unavailable or no reachable tag exists.
+            %
+            % Cached for the life of the MATLAB session, keyed by checkout
+            % root. A repository tag changes only when someone runs `git tag`
+            % in another process, which no consumer of this value (metadata
+            % strings, startup banner) can distinguish -- but the subprocess it
+            % replaces costs 50-300 ms on Windows and runs on EVERY
+            % epsych.Protocol construction, which then discards the result
+            % (see Protocol/fromStruct.m). `clear functions` re-queries.
 
-            tag = '';
+            persistent cachedRoot cachedTag
+
             rootPath = obj.root;
             if isempty(rootPath) || ~isfolder(rootPath)
+                tag = '';
                 return
             end
 
+            if ~isempty(cachedRoot) && strcmp(cachedRoot, rootPath)
+                tag = cachedTag;
+                return
+            end
+
+            tag = '';
             gitCommand = sprintf('git -C "%s" describe --tags --abbrev=0 2> NUL',rootPath);
             [status,cmdout] = system(gitCommand);
-            if status ~= 0
-                return
+            if status == 0
+                tag = strtrim(cmdout);
             end
 
-            tag = strtrim(cmdout);
+            % Cache the empty result too: a machine without git otherwise pays
+            % a failing process spawn on every call.
+            cachedRoot = rootPath;
+            cachedTag = tag;
         end
         
         function img = icon_img(obj,type)

@@ -66,9 +66,11 @@ lint and run code: it holds **one persistent MATLAB session**, so the engine sta
 `detect_matlab_toolboxes`, `run_matlab_test_file` (unused - there is no `matlab.unittest`
 suite here). All tool arguments must be **absolute paths**.
 
-`--initial-working-folder` is configured to the repo root but does **not** take effect on this
-machine - MATLAB still starts in `C:\Users\caraslab\Documents\MATLAB`, the same quirk that makes
-`-batch` ignore `-sd`. So never assume a relative path resolves: pass absolute `script_path`
+`--initial-working-folder` is configured to the repo root but does **not** take effect - MATLAB
+starts in whatever `userpath` is set to for the logged-in user (verified: `C:\Users\dstolz\My
+Drive\temp_analysis` on this workstation, `C:\Users\caraslab\Documents\MATLAB` on the rig), the
+same quirk that makes `-batch` ignore `-sd`. Never assume a relative path resolves or that the
+fallback folder is the same on two machines: pass absolute `script_path`
 values, and pass `project_path` to `evaluate_matlab_code` when the code needs the repo as cwd.
 Repo scripts that bootstrap themselves off `mfilename` (as `tmp/smoke_test_*.m` do) are
 unaffected.

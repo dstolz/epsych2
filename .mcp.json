@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "matlab": {
+      "type": "stdio",
+      "command": "${LOCALAPPDATA}/matlab-mcp-server/matlab-mcp-server.exe",
+      "args": [
+        "--matlab-root=C:\\Program Files\\MATLAB\\R2024b",
+        "--matlab-session-mode=auto",
+        "--matlab-display-mode=nodesktop",
+        "--initial-working-folder=c:\\src\\epsych2",
+        "--disable-telemetry=true"
+      ]
+    }
+  }
+}

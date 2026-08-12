@@ -51,13 +51,18 @@ classdef Parameter_Monitor < handle
 %       beside the ones currently displayed; clicking one toggles it. Hidden
 %       parameters are not polled, so hiding trims hardware I/O as well as
 %       clutter. "Show All" restores everything.
+%     - "Set Color" (type="graphical" only) offers "On Color..."/"Off
+%       Color..." for a lamp widget or "Font Color..." for a label widget,
+%       plus "Reset Color" to remove the override. Only enabled when the
+%       right-click landed on a lamp or label widget.
 %     - "Move Up" / "Move Down" reposition the parameter that was
 %       right-clicked. Reordering is a manual arrangement, so it clears any
 %       active table column sort.
-%     - Visibility and order persist across sessions alongside the table
-%       sort/arrangement preferences, keyed the same way (hosting figure
-%       Tag/Name or an explicit PreferenceTag). Parameters are remembered by
-%       name, so a saved layout also applies to parameters added later.
+%     - Visibility, order, and per-parameter colors persist across sessions
+%       alongside the table sort/arrangement preferences, keyed the same way
+%       (hosting figure Tag/Name or an explicit PreferenceTag). Parameters
+%       are remembered by name, so a saved layout also applies to parameters
+%       added later.
 %
 %   Construction
 %     M = gui.Parameter_Monitor(parent)
@@ -104,6 +109,16 @@ classdef Parameter_Monitor < handle
 %       Struct mapping parameter names (Name or validName) to a widget style:
 %       "auto", "lamp", "label", or "gauge". Parameters not listed use "auto".
 %       Example: Styles=struct('InTrial',"lamp",'RespLatency',"label")
+%
+%     Colors
+%       Struct mapping parameter names (Name or validName) to a per-parameter
+%       color override struct with fields OnColor/OffColor (lamp widgets) or
+%       Color (label font color). Parameters not listed use the monitor-wide
+%       LampOnColor/LampOffColor or the component's default label color.
+%       Example: Colors=struct('InTrial',struct('OnColor',"r"))
+%       Overrides can also be set at runtime via set_parameter_color() or the
+%       right-click "Set Color" menu, and persist across sessions like the
+%       parameter visibility/order preferences.
 %
 %     BooleanStyle
 %       Widget used for Type='Boolean' parameters when their style resolves
@@ -171,6 +186,12 @@ classdef Parameter_Monitor < handle
 %     show_all_parameters() - Unhide every monitored parameter.
 %     move_parameter(name,delta) - Shift a parameter up (-1) or down (+1)
 %                             in the display order.
+%     set_parameter_color(name,Name=Value) - Set a per-parameter color
+%                             override (type="graphical"): OnColor/OffColor
+%                             for a lamp widget, Color for a label widget.
+%                             Applied immediately and persisted.
+%     clear_parameter_color(name) - Remove a parameter's color override(s),
+%                             reverting to the monitor-wide defaults.
 %     poll_parameters()     - Poll parameters and refresh the display.
 %     update_parameters()   - Refresh ParameterNames/ParameterValues.
 %     update_gui()          - Render current values into the display.
@@ -217,14 +238,25 @@ classdef Parameter_Monitor < handle
 
         % type="graphical": one entry per visible parameter with fields
         % Parameter, Style, ValueHandle, LabelHandle, CellHandle, LastValue,
-        % LastText, HighlightOn. CellHandle is the component occupying the
-        % grid cell (the same as ValueHandle except for lamps, which are
-        % nested in a fixed-size wrapper).
+        % LastText, HighlightOn, OnColor, OffColor, DefaultColor. CellHandle
+        % is the component occupying the grid cell (the same as ValueHandle
+        % except for lamps, which are nested in a fixed-size wrapper).
+        % OnColor/OffColor are the resolved (override-or-default) lamp
+        % colors, cached at build time so per-poll updates need no lookup.
+        % DefaultColor is a label widget's original FontColor, captured
+        % before any override is applied, so a cleared override can restore it.
         Widgets (1,:) struct = struct('Parameter',{},'Style',{},'ValueHandle',{}, ...
-            'LabelHandle',{},'CellHandle',{},'LastValue',{},'LastText',{},'HighlightOn',{})
+            'LabelHandle',{},'CellHandle',{},'LastValue',{},'LastText',{},'HighlightOn',{}, ...
+            'OnColor',{},'OffColor',{},'DefaultColor',{})
 
         % graphical display options (set at construction)
         Styles (1,1) struct = struct()
+
+        % Per-parameter color overrides (type="graphical"); struct keyed by
+        % parameter name (Name or validName) to a struct with fields
+        % OnColor/OffColor (lamp) or Color (label). See set_parameter_color.
+        Colors (1,1) struct = struct()
+
         BooleanStyle (1,1) string = "lamp"
         LayoutColumns (1,1) double = 1
         LabelPosition (1,1) string = "left"
@@ -259,6 +291,7 @@ classdef Parameter_Monitor < handle
         lastRowOrder_ = []       % visible-parameter index for each rendered table row
 
         ShowMenuH_ = []      % "Show Parameter" submenu
+        ColorMenuH_ = []     % "Set Color" submenu (type="graphical" only)
         MoveUpMenuH_ = []
         MoveDownMenuH_ = []
         menuTargetIdx_ (1,1) double = 0 % Parameters index under the last right-click; 0 = none
@@ -299,6 +332,7 @@ classdef Parameter_Monitor < handle
                 options.PreferenceTag (1,1) string = ""
                 options.FontSize double = []
                 options.Styles (1,1) struct = struct()
+                options.Colors (1,1) struct = struct()
                 options.BooleanStyle (1,1) string {mustBeMember(options.BooleanStyle,["lamp","label"])} = "lamp"
                 options.LayoutColumns (1,1) double {mustBeInteger,mustBePositive} = 1
                 options.LabelPosition (1,1) string {mustBeMember(options.LabelPosition,["left","above","none"])} = "left"
@@ -316,6 +350,7 @@ classdef Parameter_Monitor < handle
             obj.FontSize = options.FontSize;
 
             obj.Styles = options.Styles;
+            obj.Colors = options.Colors;
             obj.BooleanStyle = options.BooleanStyle;
             obj.LayoutColumns = options.LayoutColumns;
             obj.LabelPosition = options.LabelPosition;
@@ -497,6 +532,48 @@ classdef Parameter_Monitor < handle
 
             obj.save_preferences();
             obj.rebuild_display_();
+        end
+
+        function set_parameter_color(obj, name, options)
+            % set_parameter_color(obj, name, Name=Value)
+            % Set per-parameter widget color override(s) for type="graphical"
+            % (no-op otherwise). name matches Name or FullName. Recognized
+            % options: OnColor/OffColor (lamp widgets), Color (label font
+            % color) - each an RGB triplet or color name/hex string. Applied
+            % to the widget immediately, if currently displayed, and
+            % persisted for the next session.
+            arguments
+                obj
+                name (1,1) string
+                options.OnColor = []
+                options.OffColor = []
+                options.Color = []
+            end
+
+            p = obj.find_parameter_(name);
+            if isempty(p)
+                vprintf(1,'gui.Parameter_Monitor: "%s" is not monitored',name)
+                return
+            end
+
+            if ~isempty(options.OnColor),  obj.apply_color_override_(p,'OnColor',options.OnColor);   end
+            if ~isempty(options.OffColor), obj.apply_color_override_(p,'OffColor',options.OffColor); end
+            if ~isempty(options.Color),    obj.apply_color_override_(p,'Color',options.Color);       end
+        end
+
+        function clear_parameter_color(obj, name)
+            % clear_parameter_color(obj, name)
+            % Remove a parameter's color override(s), reverting its widget to
+            % the monitor-wide default (or, for a label, its original
+            % component color). Persisted for the next session.
+            arguments
+                obj
+                name (1,1) string
+            end
+
+            p = obj.find_parameter_(name);
+            if isempty(p), return; end
+            obj.remove_color_override_(p);
         end
 
         function start(obj)
@@ -770,6 +847,126 @@ classdef Parameter_Monitor < handle
             end
         end
 
+        function p = find_parameter_(obj, name)
+            % Resolve a Name/FullName string to its hw.Parameter handle,
+            % across the full monitored set (hidden parameters included).
+            % Returns hw.Parameter.empty if not found.
+            p = hw.Parameter.empty(1,0);
+            keys = obj.parameter_keys_();
+            names = obj.parameter_names_();
+            idx = find(keys == name | names == name, 1);
+            if ~isempty(idx), p = obj.Parameters(idx); end
+        end
+
+        function c = resolve_color_(obj, p, field, default)
+            % Per-parameter color override lookup (Colors option/runtime
+            % overrides), else the supplied default.
+            c = default;
+            fn = fieldnames(obj.Colors);
+            idx = find(strcmpi(fn, p.validName) | strcmpi(fn, p.Name), 1);
+            if isempty(idx), return; end
+            entry = obj.Colors.(fn{idx});
+            if isstruct(entry) && isfield(entry,field) && ~isempty(entry.(field))
+                c = entry.(field);
+            end
+        end
+
+        function key = color_key_(~, p)
+            % Struct field name used to key the Colors override map, mirroring
+            % resolve_style_'s Name/validName matching.
+            key = matlab.lang.makeValidName(char(p.validName));
+        end
+
+        function tf = has_color_override_(obj, p)
+            key = obj.color_key_(p);
+            tf = isfield(obj.Colors,key) && ~isempty(fieldnames(obj.Colors.(key)));
+        end
+
+        function c = default_color_for_(obj, p, field)
+            % The color a widget would use with no override in place: the
+            % monitor-wide lamp colors, or a label's own original FontColor.
+            switch field
+                case 'OnColor'
+                    c = obj.LampOnColor;
+                case 'OffColor'
+                    c = obj.LampOffColor;
+                otherwise
+                    c = [0 0 0];
+                    idx = find(arrayfun(@(w) isequal(w.Parameter,p), obj.Widgets), 1);
+                    if ~isempty(idx) && ~isempty(obj.Widgets(idx).DefaultColor)
+                        c = obj.Widgets(idx).DefaultColor;
+                    end
+            end
+        end
+
+        function apply_color_override_(obj, p, field, value)
+            % Store one color override field for a parameter, persist it, and
+            % push it to the widget immediately if the parameter is displayed.
+            key = obj.color_key_(p);
+            entry = struct();
+            if isfield(obj.Colors,key), entry = obj.Colors.(key); end
+            entry.(field) = value;
+            obj.Colors.(key) = entry;
+
+            obj.save_preferences();
+            obj.apply_widget_color_(p);
+        end
+
+        function remove_color_override_(obj, p)
+            % Remove all color overrides for a parameter, persist, and revert
+            % its widget (if displayed) to the monitor-wide default.
+            key = obj.color_key_(p);
+            if ~isfield(obj.Colors,key), return; end
+            obj.Colors = rmfield(obj.Colors,key);
+
+            obj.save_preferences();
+            obj.apply_widget_color_(p);
+        end
+
+        function apply_widget_color_(obj, p)
+            % Recompute and push resolved color(s) for one parameter's
+            % widget, without rebuilding the grid. No-op if the parameter has
+            % no widget (hidden, not built yet, or type ~= "graphical").
+            if obj.type ~= "graphical" || ~obj.display_is_valid_(), return; end
+            W = obj.Widgets;
+            idx = find(arrayfun(@(w) isequal(w.Parameter,p), W), 1);
+            if isempty(idx), return; end
+            h = W(idx).ValueHandle;
+            if isempty(h) || ~isvalid(h), return; end
+
+            switch W(idx).Style
+                case "lamp"
+                    W(idx).OnColor  = obj.resolve_color_(p,'OnColor',obj.LampOnColor);
+                    W(idx).OffColor = obj.resolve_color_(p,'OffColor',obj.LampOffColor);
+                    if isequal(W(idx).LastValue, true)
+                        h.Color = W(idx).OnColor;
+                    else
+                        h.Color = W(idx).OffColor;
+                    end
+
+                case "label"
+                    default = W(idx).DefaultColor;
+                    if isempty(default), default = [0 0 0]; end
+                    h.FontColor = obj.resolve_color_(p,'Color',default);
+            end
+
+            obj.Widgets = W;
+        end
+
+        function pick_color_(obj, p, field)
+            % Open a color picker seeded with the widget's current color for
+            % `field`, applying the choice unless the user cancels.
+            current = obj.resolve_color_(p, field, obj.default_color_for_(p,field));
+            try
+                c = uisetcolor(current, sprintf('%s - %s', p.Name, field));
+            catch ME
+                vprintf(2,'gui.Parameter_Monitor: color picker unavailable: %s',ME.message)
+                return
+            end
+            if isequal(c,0), return; end % user cancelled
+            obj.apply_color_override_(p, field, c);
+        end
+
         function update_table_(obj)
             V = obj.ParameterValues;
             N = obj.ParameterNames;
@@ -993,6 +1190,9 @@ classdef Parameter_Monitor < handle
                 cm = uicontextmenu(f);
                 obj.ContextMenu = cm;
                 obj.ShowMenuH_ = uimenu(cm,'Text','Show Parameter');
+                if obj.type == "graphical"
+                    obj.ColorMenuH_ = uimenu(cm,'Text','Set Color','Separator','on');
+                end
                 obj.MoveUpMenuH_ = uimenu(cm,'Text','Move Up','Separator','on', ...
                     'MenuSelectedFcn',@(~,~) obj.move_menu_target_(-1));
                 obj.MoveDownMenuH_ = uimenu(cm,'Text','Move Down', ...
@@ -1045,6 +1245,7 @@ classdef Parameter_Monitor < handle
         function on_context_menu_opening_(obj,evt)
             obj.menuTargetIdx_ = obj.resolve_menu_target_(evt);
             obj.refresh_show_menu_();
+            obj.refresh_color_menu_();
 
             % Move is only meaningful when the click landed on a parameter
             % and that parameter has somewhere to go.
@@ -1087,6 +1288,50 @@ classdef Parameter_Monitor < handle
             uimenu(m,'Text','Show All','Separator',~isempty(keys), ...
                 'Enable',~isempty(obj.HiddenKeys_), ...
                 'MenuSelectedFcn',@(~,~) obj.show_all_parameters());
+        end
+
+        function refresh_color_menu_(obj)
+            % Rebuild the "Set Color" submenu for whichever parameter was
+            % right-clicked. Only lamp and label widgets support color
+            % customization; the submenu is disabled otherwise (no target,
+            % gauge, or a non-graphical display type).
+            m = obj.ColorMenuH_;
+            if isempty(m) || ~isvalid(m), return; end
+            delete(m.Children);
+
+            p = hw.Parameter.empty(1,0);
+            if obj.menuTargetIdx_ > 0 && obj.menuTargetIdx_ <= numel(obj.Parameters)
+                p = obj.Parameters(obj.menuTargetIdx_);
+            end
+
+            if isempty(p)
+                m.Enable = 'off';
+                return
+            end
+
+            style = obj.resolve_style_(p);
+            switch style
+                case "lamp"
+                    m.Enable = 'on';
+                    uimenu(m,'Text','On Color...', ...
+                        'MenuSelectedFcn',@(~,~) obj.pick_color_(p,'OnColor'));
+                    uimenu(m,'Text','Off Color...', ...
+                        'MenuSelectedFcn',@(~,~) obj.pick_color_(p,'OffColor'));
+                    uimenu(m,'Text','Reset Color','Separator','on', ...
+                        'Enable',obj.has_color_override_(p), ...
+                        'MenuSelectedFcn',@(~,~) obj.remove_color_override_(p));
+
+                case "label"
+                    m.Enable = 'on';
+                    uimenu(m,'Text','Font Color...', ...
+                        'MenuSelectedFcn',@(~,~) obj.pick_color_(p,'Color'));
+                    uimenu(m,'Text','Reset Color','Separator','on', ...
+                        'Enable',obj.has_color_override_(p), ...
+                        'MenuSelectedFcn',@(~,~) obj.remove_color_override_(p));
+
+                otherwise
+                    m.Enable = 'off';
+            end
         end
 
         function move_menu_target_(obj,delta)
@@ -1168,6 +1413,10 @@ classdef Parameter_Monitor < handle
                             obj.pendingColumnOrder_ = ord;
                         end
                     end
+                elseif obj.type == "graphical"
+                    if isfield(s,'Colors') && isstruct(s.Colors)
+                        obj.Colors = s.Colors;
+                    end
                 end
                 vprintf(3,'gui.Parameter_Monitor: loaded saved preferences "%s"',pname)
             catch ME
@@ -1191,6 +1440,8 @@ classdef Parameter_Monitor < handle
                     catch
                         s.DisplayColumnOrder = [];
                     end
+                elseif obj.type == "graphical"
+                    s.Colors = obj.Colors;
                 end
                 setpref(obj.PREF_GROUP,obj.preference_name_(),s);
             catch ME

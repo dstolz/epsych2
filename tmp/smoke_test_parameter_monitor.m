@@ -279,6 +279,101 @@ fprintf('PASS: table row right-click resolves through the active sort\n');
 delete(f8);
 
 delete(f2); delete(f3);
+
+% 12. Per-parameter color customization ------------------------------------
+prefTagC = 'smokePM_colors';
+clear_pref(prefTagC);
+restorePrefC = onCleanup(@() clear_pref(prefTagC));
+
+f9 = uifigure('Visible','off','Tag','SmokePM_Colors');
+pIn.Value = 1; % lamp starts "on" so OnColor is exercised at build time
+M10 = gui.Parameter_Monitor(f9, [pIn pLat pLvl pPlt], pollPeriod=5, ...
+    type="graphical", PreferenceTag=prefTagC, ...
+    Styles=struct(Level="gauge", Platform="lamp"), ...
+    Colors=struct('InTrial',struct('OnColor',[1 0 0]), 'RespLatency',struct('Color',[0 0 1])));
+M10.stop();
+
+assert(isequal(M10.Widgets(1).ValueHandle.Color,[1 0 0]), ...
+    'Colors option should override the initial lamp color at build time');
+assert(isequal(M10.Widgets(2).ValueHandle.FontColor,[0 0 1]), ...
+    'Colors option should override the initial label font color at build time');
+assert(isequal(M10.Widgets(4).ValueHandle.Color, M10.LampOnColor), ...
+    'a parameter with no Colors entry should use the monitor-wide default');
+fprintf('PASS: Colors construction option overrides initial widget colors\n');
+
+% runtime override via set_parameter_color pushes to the widget immediately
+% (DefaultColor is the label's true pre-override color, captured at build
+% time; ValueHandle.FontColor already reflects the Colors option override)
+labelDefault = M10.Widgets(2).DefaultColor;
+M10.set_parameter_color("Platform", OffColor=[0 1 0]);
+pPlt.Value = 0;
+M10.poll_parameters();
+assert(isequal(M10.Widgets(4).ValueHandle.Color,[0 1 0]), ...
+    'set_parameter_color should take effect on the next lamp state change');
+pPlt.Value = 1;
+M10.poll_parameters();
+assert(isequal(M10.Widgets(4).ValueHandle.Color, M10.LampOnColor), ...
+    'OnColor should still be the monitor default when only OffColor was overridden');
+
+M10.set_parameter_color("Platform", OnColor=[0 1 0]);
+assert(isequal(M10.Widgets(4).ValueHandle.Color,[0 1 0]), ...
+    'set_parameter_color should push an immediate update while the lamp is on');
+fprintf('PASS: set_parameter_color applies immediately (construction and live)\n');
+
+% clear_parameter_color reverts to the monitor/component default
+M10.clear_parameter_color("InTrial");
+assert(isequal(M10.Widgets(1).ValueHandle.Color, M10.LampOnColor), ...
+    'clear_parameter_color should revert a lamp to the monitor default');
+M10.clear_parameter_color("RespLatency");
+assert(isequal(M10.Widgets(2).ValueHandle.FontColor, labelDefault), ...
+    'clear_parameter_color should revert a label to its original component color');
+fprintf('PASS: clear_parameter_color reverts to defaults\n');
+
+% right-click "Set Color" menu: content depends on the target widget's style
+open_menu(M10, struct('ContextObject', M10.Widgets(4).ValueHandle)); % lamp (has an OnColor override)
+items = color_menu_items(M10);
+assert(isequal(string({items.Text}), ["On Color...","Off Color...","Reset Color"]), ...
+    'lamp target should offer On/Off Color plus Reset: %s', strjoin(string({items.Text}),','));
+assert(items(end).Enable == "on", 'Reset Color should be enabled when an override exists');
+
+open_menu(M10, struct('ContextObject', M10.Widgets(2).LabelHandle)); % label (no override; was cleared)
+items = color_menu_items(M10);
+assert(isequal(string({items.Text}), ["Font Color...","Reset Color"]), ...
+    'label target should offer Font Color plus Reset: %s', strjoin(string({items.Text}),','));
+assert(items(end).Enable == "off", 'Reset Color should be disabled with no override in place');
+
+open_menu(M10, struct('ContextObject', M10.Widgets(3).ValueHandle)); % gauge: unsupported
+assert(color_menu_enable(M10) == "off", 'Set Color should be disabled for a gauge widget');
+
+open_menu(M10); % no target
+assert(color_menu_enable(M10) == "off", 'Set Color should be disabled with no right-click target');
+fprintf('PASS: right-click Set Color menu content follows widget style\n');
+
+% the menu's own "Reset Color" item works without a color-picker dialog
+% (uses RespLatency, not Platform, so Platform's override survives intact
+% for the persistence check below)
+M10.set_parameter_color("RespLatency", Color=[0 1 1]);
+open_menu(M10, struct('ContextObject', M10.Widgets(2).LabelHandle));
+items = color_menu_items(M10);
+items(end).MenuSelectedFcn(items(end), []);
+assert(isequal(M10.Widgets(2).ValueHandle.FontColor, labelDefault), ...
+    'invoking the Reset Color menu item should clear the override');
+fprintf('PASS: Reset Color menu item clears the override\n');
+
+% colors persist across sessions alongside visibility/order
+M10.set_parameter_color("Level", Color=[1 0 1]); % gauge: Colors is set but has no widget effect
+delete(f9);
+
+f10 = uifigure('Visible','off','Tag','SmokePM_Colors2');
+M11 = gui.Parameter_Monitor(f10, [pIn pLat pLvl pPlt], pollPeriod=5, ...
+    type="graphical", PreferenceTag=prefTagC, Styles=struct(Level="gauge", Platform="lamp"));
+M11.stop();
+assert(isequal(M11.Widgets(4).ValueHandle.Color,[0 1 0]), ...
+    'Platform OnColor override should be restored from saved preferences');
+assert(isfield(M11.Colors,'Level'), 'an override for a non-color-capable style should still round-trip');
+delete(f10);
+fprintf('PASS: per-parameter colors persist across sessions\n');
+
 fprintf('\nAll gui.Parameter_Monitor smoke tests passed.\n');
 
 end
@@ -306,6 +401,18 @@ end
 function items = show_menu_items(M)
 m = findall(M.ContextMenu,'Type','uimenu','Text','Show Parameter');
 items = flipud(m.Children); % Children are listed in reverse creation order
+end
+
+
+function items = color_menu_items(M)
+m = findall(M.ContextMenu,'Type','uimenu','Text','Set Color');
+items = flipud(m.Children); % Children are listed in reverse creation order
+end
+
+
+function state = color_menu_enable(M)
+m = findall(M.ContextMenu,'Type','uimenu','Text','Set Color');
+state = string(m.Enable);
 end
 
 

@@ -53,7 +53,7 @@ end
 
 W = repmat(struct('Parameter',[],'Style',"label",'ValueHandle',[], ...
     'LabelHandle',[],'CellHandle',[],'LastValue',[],'LastText',"", ...
-    'HighlightOn',false), 1, n);
+    'HighlightOn',false,'OnColor',[],'OffColor',[],'DefaultColor',[]), 1, n);
 
 for i = 1:n
     p = P(i);
@@ -84,6 +84,8 @@ for i = 1:n
         end
     end
 
+    onColor = []; offColor = []; defaultColor = [];
+
     switch style
         case "lamp"
             % A bare uilamp stretches to fill its grid cell; nest it in a
@@ -93,7 +95,9 @@ for i = 1:n
             wrap.RowHeight = {20};
             wrap.Padding = [0 0 0 0];
             hVal = uilamp(wrap);
-            hVal.Color = obj.LampOffColor;
+            offColor = obj.resolve_color_(p,'OffColor',obj.LampOffColor);
+            onColor  = obj.resolve_color_(p,'OnColor',obj.LampOnColor);
+            hVal.Color = offColor;
             hVal.Layout.Row = 1;
             hVal.Layout.Column = 1;
             hCell = wrap;
@@ -111,6 +115,9 @@ for i = 1:n
             hVal.FontWeight = 'bold';
             hVal.HorizontalAlignment = 'left';
             hCell = hVal;
+            defaultColor = hVal.FontColor;
+            c = obj.resolve_color_(p,'Color',[]);
+            if ~isempty(c), hVal.FontColor = c; end
     end
 
     hVal.Tooltip = tooltip;
@@ -132,6 +139,9 @@ for i = 1:n
     W(i).ValueHandle = hVal;
     W(i).LabelHandle = hLabel;
     W(i).CellHandle = hCell;
+    W(i).OnColor = onColor;
+    W(i).OffColor = offColor;
+    W(i).DefaultColor = defaultColor;
 end
 
 obj.Widgets = W;

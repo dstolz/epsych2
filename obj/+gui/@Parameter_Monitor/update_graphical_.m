@@ -33,9 +33,9 @@ for i = 1:numel(W)
             vals(i) = string(double(state));
             if ~isequal(state, W(i).LastValue)
                 if state
-                    h.Color = obj.LampOnColor;
+                    h.Color = W(i).OnColor;
                 else
-                    h.Color = obj.LampOffColor;
+                    h.Color = W(i).OffColor;
                 end
                 W(i).LastValue = state;
             end

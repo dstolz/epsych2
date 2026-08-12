@@ -63,6 +63,25 @@ Styles = struct(InTrial="lamp", Depth="gauge", RespCode="label")
 
 Parameter `Description` text becomes each widget's tooltip automatically.
 
+### Per-parameter colors
+
+Lamp and label widgets normally use the monitor-wide `LampOnColor`/
+`LampOffColor` (lamps) or the component's default text color (labels). A
+parameter can override its own widget color with the `Colors` option, a
+struct keyed the same way as `Styles`, whose value is a struct with fields
+`OnColor`/`OffColor` (lamp) or `Color` (label):
+
+```matlab
+Colors = struct('Fault', struct('OnColor',"r"), 'RespCode', struct('Color',"b"))
+```
+
+Overrides can also be set at runtime — `M.set_parameter_color("Fault",
+OnColor="r")`, `M.clear_parameter_color("Fault")` — or interactively via the
+right-click **Set Color** menu (see
+[Choosing and ordering parameters](#choosing-and-ordering-parameters)). Both
+paths apply the change to the widget immediately and persist it for the next
+session, keyed alongside the parameter visibility/order preferences.
+
 ### Layout options
 
 | Option | Default | Effect |
@@ -101,6 +120,7 @@ the panel background — opens a menu that decides what the monitor shows:
 | Item | Effect |
 |------|--------|
 | **Show Parameter ▸** | One checkable entry per monitored parameter, in display order, plus **Show All**. Clicking one toggles it. |
+| **Set Color ▸** (`type="graphical"` only) | **On Color...**/**Off Color...** for a lamp widget, or **Font Color...** for a label widget, plus **Reset Color**. Disabled when the click landed on no widget, or on a gauge (colors aren't customizable there). |
 | **Move Up** / **Move Down** | Repositions the parameter that was right-clicked. Disabled when the click landed on no parameter, or when the parameter is already at an edge. |
 
 `type="text"` has no per-line hit testing, so its menu offers show/hide only;
@@ -116,12 +136,13 @@ hidden entries never silently absorb a move. Because a manual arrangement and
 a column sort contradict each other, moving a row clears the table's active
 sort.
 
-Both the visible set and the order persist across sessions in the same
-preference entry as the table sort/arrangement, keyed to the hosting figure's
-Tag/Name or an explicit `PreferenceTag`. Parameters are remembered by
-`FullName` (falling back to `Name`), so a saved layout also applies to a
-parameter added later with `add_parameter` — it lands in its remembered
-position, and stays hidden if the user had hidden it.
+The visible set, order, and (for `type="graphical"`) per-parameter colors
+persist across sessions in the same preference entry as the table
+sort/arrangement, keyed to the hosting figure's Tag/Name or an explicit
+`PreferenceTag`. Parameters are remembered by `FullName` (falling back to
+`Name`), so a saved layout also applies to a parameter added later with
+`add_parameter` — it lands in its remembered position, and stays hidden if
+the user had hidden it.
 
 The menu itself is exposed as `M.ContextMenu`, so a host GUI can append its
 own items with `uimenu(M.ContextMenu, ...)`. Append rather than replace: the
@@ -135,6 +156,8 @@ M.remove_parameter(p)    % remove by handle or by name
 M.set_parameter_visible("RespLatency", false)   % hide (or show) by name
 M.show_all_parameters()  % unhide everything
 M.move_parameter("InTrial", -1)                 % -1 = earlier, +1 = later
+M.set_parameter_color("Fault", OnColor="r")      % lamp On/OffColor, or Color for a label
+M.clear_parameter_color("Fault")                 % revert to the monitor-wide default
 M.stop(); M.start();     % pause/resume polling (display freezes while stopped)
 M.setPollPeriod(0.25)    % change poll rate on the fly
 M.poll_parameters()      % force an immediate refresh

@@ -64,8 +64,14 @@ lint and run code: it holds **one persistent MATLAB session**, so the engine sta
 (~7.5 s) instead of paying `matlab -batch`'s 20-60 s startup on every invocation. Tools:
 `check_matlab_code` (Code Analyzer, read-only), `run_matlab_file`, `evaluate_matlab_code`,
 `detect_matlab_toolboxes`, `run_matlab_test_file` (unused - there is no `matlab.unittest`
-suite here). All paths must be **absolute**; the session's working folder is the repo root,
-so `tmp/smoke_test_*.m` scripts run without the `addpath` juggling `-batch` requires.
+suite here). All tool arguments must be **absolute paths**.
+
+`--initial-working-folder` is configured to the repo root but does **not** take effect on this
+machine - MATLAB still starts in `C:\Users\caraslab\Documents\MATLAB`, the same quirk that makes
+`-batch` ignore `-sd`. So never assume a relative path resolves: pass absolute `script_path`
+values, and pass `project_path` to `evaluate_matlab_code` when the code needs the repo as cwd.
+Repo scripts that bootstrap themselves off `mfilename` (as `tmp/smoke_test_*.m` do) are
+unaffected.
 
 Rules that matter:
 

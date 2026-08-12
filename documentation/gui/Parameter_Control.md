@@ -34,6 +34,18 @@ colors = jet(5);
 ctrl.colorOnUpdate = colors(3,:);      % single 1x3 RGB value
 ```
 
+### Both bounds on a single row
+
+```matlab
+p = RUNTIME.find_parameter('StimDelay');
+h = gui.Parameter_Control(layout, p, Type="range", autoCommit=true);
+h.Text = "Stimulus Delay (ms):";     % one label, two entry fields
+h.Value                              % [Min Max]
+```
+
+This replaces the two-row `BoundProperty="Min"` + `BoundProperty="Max"` pair
+with one row of the same height.
+
 ### Bind checkbox to a non-value parameter field
 
 ```matlab
@@ -60,12 +72,13 @@ obj = gui.Parameter_Control(parent, parameter, autoCommit=true, Runtime=RUNTIME)
 ### Name-value options
 
 - `Type` (char)
-  - One of: `auto` (default), `editfield`, `dropdown`, `checkbox`, `toggle`, `readonly`, `momentary`, `stimtype`.
-  - `auto` picks a sensible control from the parameter's metadata (e.g., checkbox for booleans, edit field for numerics).
+  - One of: `auto` (default), `editfield`, `range`, `dropdown`, `checkbox`, `toggle`, `readonly`, `momentary`, `stimtype`.
+  - `auto` picks a sensible control from the parameter's metadata (e.g., checkbox for booleans, edit field for numerics). It never picks `range`, which must be requested explicitly.
 - `BoundProperty` (char)
   - Optional property name on the bound `hw.Parameter` to synchronize with the control.
-  - Defaults to `Value`.
-  - Common choices include `Value`, `isRandom`, `Min`, and `Max`.
+  - Left unset, it follows the type: `MinMax` for `Type='range'`, `Value` for everything else.
+  - Common choices include `Value`, `isRandom`, `Min`, `Max`, and `MinMax`.
+  - `MinMax` is **virtual**: it binds `Min` and `Max` together as a `[Min Max]` pair rather than naming a single `hw.Parameter` property. Only `range` (editable) and `readonly` (display) can show a pair; any other type errors, as does a `range` control asked to bind anything else.
 - `autoCommit` (logical)
   - If `true`, user changes are written to the bound parameter property immediately.
   - If `false`, user changes only update the UI and set `obj.ValueUpdated=true` until committed elsewhere.
@@ -84,6 +97,12 @@ obj = gui.Parameter_Control(parent, parameter, autoCommit=true, Runtime=RUNTIME)
   - `uilabel` + numeric `uieditfield`
   - Uses `parameter.Min`/`parameter.Max` for editfield limits.
   - If `parameter.Type` is `'Integer'`, fractional input is rounded.
+- `range`
+  - `uilabel` + **two** numeric `uieditfield`s side by side, still one grid row (the two entries share the width one `editfield` would take).
+  - Edits `parameter.Min` (left) and `parameter.Max` (right) as a unit; `obj.Value` is the `1x2` pair and the second field is `obj.h_uiobj2`.
+  - Neither field is limited by the other, because the pair is validated as a whole: an edit that leaves minimum above maximum is **rejected** — the offending field reverts, both flash `colorOnError`, the parameter is untouched, and the reason is logged. A randomized parameter (`isRandom`) additionally refuses non-finite bounds.
+  - Both entries commit, stage, highlight, enable/disable, and reset together, so `gui.Parameter_Update` treats the pair as one pending edit.
+  - `parameter.Type = 'Integer'` rounds both fields.
 - `dropdown`
   - `uilabel` + `uidropdown`
   - Use `obj.Values` to define the allowed values (stored in `ItemsData`).
@@ -105,7 +124,7 @@ obj = gui.Parameter_Control(parent, parameter, autoCommit=true, Runtime=RUNTIME)
 The bound `hw.Parameter` instance.
 
 ### `Value`
-- Reads from / writes to the UI element’s `Value`.
+- Reads from / writes to the UI element’s `Value` (a `1x2` `[lo hi]` pair for `Type='range'`).
 - Setting `obj.Value = ...` simulates a value change on the control (it routes through `value_changed`).
 
 Important behavior:
@@ -119,6 +138,9 @@ For `Type='dropdown'`, `obj.Values` maps to `uidropdown.ItemsData`.
 
 ### `Text`
 Label text shown next to the control (or on the control itself for checkbox/toggle/button types).
+
+### `widgets()`
+Every widget the control owns, as one graphics array — `h_uiobj` plus `h_uiobj2` for a `range`. GUI code that enables, disables, or styles a control **as a whole** should go through it (`set(h.widgets(),'Enable','off')`) rather than `h_uiobj`, which is only the left entry of a range row.
 
 ### `ValueUpdated` (read-only)
 A flag indicating whether the UI currently differs from the underlying parameter:
@@ -211,6 +233,7 @@ This documentation describes: [obj/+gui/Parameter_Control.m](../../obj/+gui/Para
 
 ## Notes and gotchas
 
-- `readonly` controls display `Parameter.ValueStr` and highlight when the parameter changes externally.
+- `readonly` controls display `Parameter.ValueStr` and highlight when the parameter changes externally. With `BoundProperty='MinMax'` they display the bounds as `[min max]`.
+- For `range`, `gui.Parameter_Update` commits the pair through `setBoundValue`, writing `Parameter.Min` and `Parameter.Max`; nothing is written to `Parameter.Value` or the trial table (bounds are host-side parameter state).
 - For `dropdown`, external parameter values that are not already in `ItemsData` are added automatically so the UI can display them.
 - For `momentary`, button clicks call `Parameter.Trigger` (useful for actions rather than numeric/boolean settings).

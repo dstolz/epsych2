@@ -239,7 +239,9 @@ classdef (Abstract) BoxGUI < handle
                 parent (1,1)
                 param
                 options.Type (1,:) char = 'auto'
-                options.BoundProperty (1,:) char = 'Value'
+                % '' lets Parameter_Control pick the binding from Type
+                % (Type='range' binds the [Min Max] pair, others bind Value).
+                options.BoundProperty (1,:) char = ''
                 options.autoCommit (1,1) logical = false
                 options.Text (1,:) char = ''
                 options.PostUpdateFcn = []

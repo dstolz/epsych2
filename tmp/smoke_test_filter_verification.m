@@ -1,6 +1,6 @@
 function smoke_test_filter_verification
 % Headless smoke test for Engine.test_filter and the CalibrationGui
-% Test Calibration button, against the FakeSpeakerAdapter simulated rig.
+% Test Filter button, against the FakeSpeakerAdapter simulated rig.
 % The button verifies per filter source: swept-sine designs get the sweep
 % flatness test, tone designs get the discrete-tone LUT test.
 %
@@ -83,7 +83,7 @@ fprintf('PASS StimCalibration proxy\n');
 
 %% 4. Tone-designed filter: the tone branch's engine path
 % A filter designed from the tone LUT is verified with discrete tones
-% (Engine.test_tones), which is what the GUI's Test Calibration button runs
+% (Engine.test_tones), which is what the GUI's Test Filter button runs
 % for filterSource == "tone". The GUI path itself opens the tone-test dialog,
 % so the engine call it delegates to is what can be exercised headlessly.
 engTone = stimgen.calibration.Engine(FakeSpeakerAdapter(44100));
@@ -97,17 +97,17 @@ assert(isfield(rTone, 'passed'), 'tone LUT test returned no verdict');
 fprintf('PASS tone-branch engine path\n');
 
 %% 5. CalibrationGui: enable rules and button-driven run
-% Offline: no adapter, no filter -> Test Calibration must be disabled.
+% Offline: no adapter, no filter -> Test Filter must be disabled.
 cg1 = stimgen.calibration.CalibrationGui();
-b = find_test_calibration_btn(cg1);
-assert(strcmp(b.Enable, 'off'), 'Test Calibration enabled with no filter/adapter');
+b = find_test_filter_btn(cg1);
+assert(strcmp(b.Enable, 'off'), 'Test Filter enabled with no filter/adapter');
 delete_gui_figure(b);
 
 % Swept-sine-designed filter with adapter -> enabled; clicking runs the
 % sweep flatness test (the tone branch would open the tone-test dialog).
 cg2 = stimgen.calibration.CalibrationGui(eng);
-b = find_test_calibration_btn(cg2);
-assert(strcmp(b.Enable, 'on'), 'Test Calibration not enabled despite filter+adapter');
+b = find_test_filter_btn(cg2);
+assert(strcmp(b.Enable, 'on'), 'Test Filter not enabled despite filter+adapter');
 assert(eng.CalibrationData.filterSource == "swept_sine");
 prevTested = eng.CalibrationData.filterTest.testedOn;
 b.ButtonPushedFcn(b, []);
@@ -119,10 +119,10 @@ fprintf('PASS CalibrationGui button\n');
 fprintf('ALL PASS\n');
 end
 
-function b = find_test_calibration_btn(cg)
+function b = find_test_filter_btn(cg)
 assert(isvalid(cg));
-b = findall(groot, 'Type', 'uibutton', 'Text', 'Test Calibration');
-assert(isscalar(b), 'expected exactly one Test Calibration button, found %d', numel(b));
+b = findall(groot, 'Type', 'uibutton', 'Text', 'Test Filter');
+assert(isscalar(b), 'expected exactly one Test Filter button, found %d', numel(b));
 end
 
 function delete_gui_figure(h)

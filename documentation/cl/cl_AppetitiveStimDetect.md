@@ -4,7 +4,7 @@
 
 It replaces the legacy standalone function `cl_TrialSelection_Appetitive_StimDetect.m`, which has been removed.
 
-Implementation: [cl/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m](../../cl/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m)
+Implementation: [cl/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m](../../cl/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m)
 
 Base-class reference: [../epsych/epsych_TrialSelector.md](../epsych/epsych_TrialSelector.md)
 
@@ -26,7 +26,8 @@ to choose the next row of the trials table.
 - Hit: make the next stimulus weaker by decreasing `Depth` by `StepOnHit` (direction configurable, see below).
 - Miss: make the next stimulus stronger by increasing `Depth` by `StepOnMiss` (direction configurable, see below).
 - Abort, correct rejection, or false alarm: keep the same stimulus depth. A pending Hit/Miss step is **not** reverted by these outcomes, so it survives any number of intervening catch trials and takes effect on the next stimulus trial.
-- Catch-trial probability: occasionally replace the next stimulus trial with a catch trial.
+- Catch-trial probability: rises with every delivered stimulus trial and resets once a catch trial completes — see [Catch-trial hazard function](#catch-trial-hazard-function).
+- Catch trials switched off: only stimulus rows are scheduled, and the hazard is held at its floor — see [Switching catch trials off](#switching-catch-trials-off).
 
 ## How it is configured
 
@@ -54,11 +55,11 @@ The selector always chooses the first matching row (`find(..., 1)`).
 
 `initialize` builds named lookups (`obj.P` for parameter handles, `obj.T` for trial-table columns) from `TRIALS.parameters`. The protocol must define these writable parameters:
 
-- `TrialType`, `Depth` — trial-table columns driving selection and the staircase
+- `TrialType`, `Depth` — trial-table columns driving selection and the staircase (`TrialType` needs one row per code: `0` stimulus, `1` catch, `2` reminder)
 - `ReminderTrials` — when set to `1`, the next trial is forced to the reminder row
-- `StepOnHit` — amount subtracted from `Depth` after a hit
-- `StepOnMiss` — amount added to `Depth` after a miss
-- `P_Catch` — probability of inserting a catch trial
+- `Depth_StepOnHit` — amount subtracted from `Depth` after a hit
+- `Depth_StepOnMiss` — amount added to `Depth` after a miss
+- `P_Catch` — the catch-trial hazard function. All three of its fields carry meaning: `Min` is the floor, `Value` the step per delivered stimulus trial, `Max` the ceiling. See [Catch-trial hazard function](#catch-trial-hazard-function)
 - `RepeatDelayOnAbort` — when true, repeats the same stimulus delay after an abort (see below)
 - `StimDelay` — stimulus-delay parameter whose randomization the abort logic manages
 
@@ -67,6 +68,7 @@ Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, 
 ### Optional parameters
 
 - `StepDirectionOnHit`, `StepDirectionOnMiss` — sign of the `Depth` step applied on a Hit/Miss: `-1` = Down, `+1` = Up. When absent (or `0`), the selector defaults to `-1` on Hit (weaker) and `+1` on Miss (stronger) — the historical behavior. Define these as writable protocol parameters only if a task needs to invert the default staircase direction.
+- `CatchTrialsEnabled` — Boolean switch gating catch-trial presentation. The selector creates it if the protocol does not declare it, so this parameter normally needs no attention; see [Switching catch trials off](#switching-catch-trials-off).
 
 ## Selection logic (`selectNext`)
 
@@ -81,7 +83,55 @@ Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, 
    - `CorrectReject`: keep the same depth and restore `StimDelay` randomization
    - `FalseAlarm`: keep the same depth and restore `StimDelay` randomization; a false alarm that was also an abort schedules a catch row immediately
 6. Only on a Hit or Miss: clamp the new depth to `Depth.Min`/`Depth.Max`, then write it into every stimulus row of the live trials table (through the runtime handle stored by `setRuntime`), so the dispatcher sends the new value to hardware. Abort/CorrectReject/FalseAlarm never touch the table, so a pending step is not lost to an intervening catch trial.
-7. Schedule a catch trial with probability `P_Catch` — suppressed after an abort and after a catch trial, and forced if the last ten trials were all stimulus trials. Otherwise return the first stimulus row.
+7. Unless `CatchTrialsEnabled` is off, schedule a catch trial with the hazard probability described below — suppressed after an abort and after a catch trial. Otherwise return the first stimulus row.
+
+## Catch-trial hazard function
+
+A flat catch probability produces geometric waiting times: long runs with no catch trial are common, so the false-alarm rate is estimated from an unevenly spaced sample. The selector instead raises the probability with each stimulus trial, which clusters the waiting times around the target rate.
+
+The probability is **carried forward on the selector** and advanced by the one trial that just completed:
+
+```
+delivered stimulus trial  ->  p = p + P_Catch.Value
+completed catch trial     ->  p = P_Catch.Min
+aborted or reminder trial ->  p unchanged
+then, every trial         ->  p = min(max(p, P_Catch.Min), P_Catch.Max)
+```
+
+| Field | Meaning |
+|---|---|
+| `P_Catch.Min` | floor: the probability at session start and immediately after a catch trial |
+| `P_Catch.Value` | step added per delivered stimulus trial |
+| `P_Catch.Max` | ceiling the probability is clamped to |
+
+With `Min = 0`, `Value = 0.1`, `Max = 1` the probability runs 0, 0.1, 0.2, … and reaches certainty on the tenth stimulus trial, so no run of stimulus trials can exceed ten.
+
+Because the value accumulates rather than being recomputed from history, **an operator edit applies from that point forward and is never retroactive**. Five stimulus trials at `Value = 0.1` sit at 0.5; raising the step to 0.2 takes the next trial to 0.7, not to 1.0. The `Min`/`Max` clamp is re-applied every trial, so tightening the bounds takes effect immediately rather than waiting for the next step.
+
+**Aborts are inert on both sides of the schedule.** An aborted stimulus trial never delivered a stimulus, so it does not advance `p`; an aborted catch trial never measured a false-alarm rate, so it does not reset `p`. A run of aborts therefore leaves the catch rate exactly where it was. Reminder trials (`TrialType == 2`) are likewise neither a step nor a reset.
+
+`cl_AppetitiveStimDetect.advanceHazard` is a static, runtime-free implementation of the step rule above. The selector applies it at most once per completed trial, keyed on `TRIALS.TrialIndex` — which increments exactly once per pass through the runtime's completion block, so the extra `selectNext` calls made at session start and by a forced Reminder trial cannot double-advance the hazard. `tmp/smoke_test_pcatch_hazard.m` is the standing proof of the schedule.
+
+### The live probability
+
+On its first `selectNext` the selector creates a `P_Catch_Current` parameter on the `hw.Software` interface and writes the current `p` to it every trial. `cl_AppetitiveDetection_BoxGUI` shows it in the **Trial State** monitor, and because it is a visible, readable parameter it also lands in every saved `DATA` record, so the hazard state can be reconstructed offline.
+
+Declaring `P_Catch_Current` in the protocol yourself is preferable — it then persists and serializes — and the selector will use the existing parameter rather than creating one. Either way it must be host-writable (not `Access = 'Read'`, which rejects every write) with `UpdateEveryTrial = false`, which is what keeps a mid-run recompile from giving it a trials-table column that dispatch would clobber.
+
+### Switching catch trials off
+
+Early training often wants no catch trials at all. `CatchTrialsEnabled` is a Boolean switch the selector consults before it schedules anything: while it is off, every trial is a stimulus trial and the hazard is **held at its floor** rather than left to accumulate — so switching catch trials back on resumes from the bottom of the schedule instead of firing a catch trial on the next draw.
+
+`cl_AppetitiveDetection_BoxGUI` exposes it as the **Present Catch Trials** checkbox, which also greys out the `p(Catch)` fields while it is clear (the **Min / Max** row and the **Step** field), so the visible schedule and the running one cannot disagree.
+
+Like `P_Catch_Current`, the parameter is created on the `hw.Software` interface at the selector's first `selectNext` when the protocol does not declare it — early enough for the box GUI, which `epsych.RunExpt` launches after `ep_TimerFcn_Start`. Declaring it in the protocol yourself is preferable (it then persists and serializes), and the same rules apply: host-writable, `UpdateEveryTrial = false`. A selector running without any of this — a protocol with no switch, or the runtime-free `epsych.SelfTest` pass — treats the parameter as absent, which means catch trials stay enabled.
+
+### Caveats
+
+- The hazard resets to `Min` at the start of every session; it is not carried across runs.
+- `CatchTrialsEnabled` gates presentation only. The trials table still carries its catch row, and `P_Catch`'s `Min`/`Value`/`Max` keep whatever the operator last set.
+- `hw.Parameter` clamps `Value` to `[Min Max]`. Since `Value` is the step and `Min`/`Max` the probability range, setting `Min = 0.2` silently clamps a step of 0.1 up to 0.2. Harmless at the intended `Min = 0`, but the clamp is silent.
+- `hw.Parameter` does not validate `Min <= Max`. The GUI's widget limits prevent crossing them interactively, but a phase load or programmatic write can.
 
 ## Notes and caveats
 
@@ -91,7 +141,8 @@ Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, 
 
 ## Related files
 
-- [cl/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m](../../cl/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m)
-- [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m) — the task GUI that exposes these parameters
+- [cl/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m](../../cl/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m)
+- [cl/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m](../../cl/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m) — the task GUI that exposes these parameters
+- [tmp/smoke_test_pcatch_hazard.m](../../tmp/smoke_test_pcatch_hazard.m) — hazard-schedule and end-to-end selector tests
 - [cl_SaveDataFcn.md](cl_SaveDataFcn.md) — the task's save function
 - [../epsych/epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md) — where trial selection happens in a session

@@ -83,6 +83,14 @@ classdef PhaseSelector < handle
     properties (Constant, Access = private)
         PREF_GROUP = 'epsych2_gui_PhaseSelector'
         PREF_KEY = 'LastPhasePath'
+        STAGED_COLOR = [0.93 0.69 0.13] % Load button color while a phase is selected but not yet loaded
+        STAGED_TEXT = 'Load *'
+        LOADED_TEXT = 'Load'
+    end
+
+
+    properties (Access = private)
+        LoadButtonDefaultColor % Load button's un-staged BackgroundColor, captured at creation
     end
 
 
@@ -261,6 +269,11 @@ classdef PhaseSelector < handle
             enable = matlab.lang.OnOffSwitchState(idx > 0);
             if ~isempty(obj.h_LoadPhase) && isvalid(obj.h_LoadPhase)
                 obj.h_LoadPhase.Enable = enable;
+                if idx > 0
+                    obj.markLoadButtonStaged();
+                else
+                    obj.resetLoadButtonAppearance();
+                end
             end
 
             if ~isempty(obj.h_Description) && isvalid(obj.h_Description)
@@ -360,6 +373,9 @@ classdef PhaseSelector < handle
             [~, loadedName, loadedExt] = fileparts(filepath);
             obj.LastLoadedFile = loadedName + loadedExt;
             obj.LastLoadedTime = datetime('now', Format='HH:mm:ss');
+
+            % The staged phase has now been applied; drop the staged look.
+            obj.resetLoadButtonAppearance();
 
             % update description text to show loaded phase description from JSON, if available
             if ~isempty(obj.h_Description)
@@ -465,11 +481,12 @@ classdef PhaseSelector < handle
             end
 
             h = uibutton(parent, ...
-                'Text', 'Load', ...
+                'Text', obj.LOADED_TEXT, ...
                 'Enable', 'off', ...
                 'Tooltip', 'Apply the selected phase''s parameters to the current session', ...
                 'ButtonPushedFcn', @(src,evt) obj.loadPhaseParameters(src));
 
+            obj.LoadButtonDefaultColor = h.BackgroundColor;
             obj.h_LoadPhase = h;
         end
 
@@ -580,6 +597,32 @@ classdef PhaseSelector < handle
                 obj.h_PhaseSelect.Value = obj.Names(1);
             end
             obj.onPhaseSelectionChanged(obj.h_PhaseSelect);
+        end
+
+
+        function markLoadButtonStaged(obj)
+            % markLoadButtonStaged(obj)
+            % Visually mark the Load button as staged: a phase is selected in the
+            % dropdown but its parameters have not yet been applied to the runtime.
+            if isempty(obj.h_LoadPhase) || ~isvalid(obj.h_LoadPhase)
+                return
+            end
+            obj.h_LoadPhase.Text = obj.STAGED_TEXT;
+            obj.h_LoadPhase.BackgroundColor = obj.STAGED_COLOR;
+        end
+
+
+        function resetLoadButtonAppearance(obj)
+            % resetLoadButtonAppearance(obj)
+            % Restore the Load button to its default, un-staged appearance -- used both
+            % when the selection is cleared and once a staged phase has been loaded.
+            if isempty(obj.h_LoadPhase) || ~isvalid(obj.h_LoadPhase)
+                return
+            end
+            obj.h_LoadPhase.Text = obj.LOADED_TEXT;
+            if ~isempty(obj.LoadButtonDefaultColor)
+                obj.h_LoadPhase.BackgroundColor = obj.LoadButtonDefaultColor;
+            end
         end
 
 

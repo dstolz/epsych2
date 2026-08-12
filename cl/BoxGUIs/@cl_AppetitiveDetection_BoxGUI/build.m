@@ -20,7 +20,10 @@ function build(obj, fig)
 %   InTrial : Logical indicator that a trial is currently active.
 %   NoisedBSPL (optional) : Noise stimulus level in dB SPL.
 %   NumPellets : Number of pellets delivered per reward event.
-%   P_Catch : Probability of scheduling a catch trial.
+%   P_Catch : Catch-trial hazard function. Min is the floor probability, Value
+%       the step added per delivered stimulus trial, Max the ceiling.
+%   P_Catch_Current (optional) : Live catch probability, created by
+%       cl_AppetitiveStimDetect at run start; shown in the Trial State monitor.
 %   PelletTotal : Running count of pellets delivered this session.
 %   Platform : Platform sensor/state readout for monitoring.
 %   Rate (optional) : Modulation rate in Hz.
@@ -37,6 +40,9 @@ function build(obj, fig)
 %   Trough : Trough sensor/state readout for monitoring.
 %
 % Software parameters:
+%   CatchTrialsEnabled (optional) : Checkbox gating catch-trial presentation,
+%       created by cl_AppetitiveStimDetect at run start. When absent the
+%       p(Catch) fields stay enabled and catch trials are always scheduled.
 %   Depth : Staircase-controlled modulation depth.
 %   Depth_StepOnHit : Staircase depth decrement applied after hits.
 %   Depth_StepOnMiss : Staircase depth increment applied after misses.
@@ -56,7 +62,7 @@ R = obj.RUNTIME;
 P = obj.P;
 
 layoutMain = uigridlayout(fig, [11, 7]);
-layoutMain.RowHeight   = {60, 40, 90, 110, 60, 130, 40, '1x','1x','1x',40};
+layoutMain.RowHeight   = {80, 40, 90, 110, 60, 130, 40, '1x','1x','1x',40};
 layoutMain.ColumnWidth = {150, 150, 100, '1x', '1x','1x', '1x'};
 layoutMain.Padding     = [1 1 1 1];
 
@@ -96,6 +102,16 @@ for i = 1:numel(bNames)
 end
 
 
+% SESSION CLOCK ---------------------------------------------
+% Only open cell in the top row: buttons fill columns 1-4, and the Next
+% Trial / Performance panels span columns 6-7 across rows 1-2.
+obj.SessionClock = obj.register(gui.SessionClock(layoutMain, FontSize=10));
+obj.SessionClock.PanelH.Layout.Row    = 1;
+obj.SessionClock.PanelH.Layout.Column = 5;
+obj.SessionClock.attachRuntime(R);
+obj.SessionClock.start();
+
+
 % INFO ----------------------------------------------------
 
 % >> Trial state monitor
@@ -107,7 +123,7 @@ panelMonitor.Layout.Column = 5;
 panelMonitor.Layout.Row    = [6 8];
 
 monitorParams = collect_params(P, {'Platform','Trough','InTrial','DelayPeriod','RespWindow', ...
-    'PelletTotal','StimDelay','RespWinDelay','RespLatency','RespCode'});
+    'PelletTotal','StimDelay','RespWinDelay','RespLatency','RespCode','P_Catch_Current'});
 
 obj.ParameterMonitor = obj.register(gui.Parameter_Monitor(panelMonitor, monitorParams, ...
     pollPeriod = 0.1, ...
@@ -136,6 +152,8 @@ obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
 
 
 % LAYOUTS -------------------------------------------------
+% 20 rows: 19 controls plus one spare (the p(Catch) and stimulus-delay
+% bounds each occupy a single Type='range' row).
 layoutTrialControls = obj.controlColumn(layoutMain, ...
     Row=[4 8], Column=[1 2], Rows=20);
 
@@ -163,8 +181,31 @@ obj.addControl(layoutTrialControls,'Depth_StepOnMiss',autoCommit=true,Text="Incr
 % >> Step on Hit
 obj.addControl(layoutTrialControls,'Depth_StepOnHit',autoCommit=true,Text="Decrement on Hit (dB):");
 
-% >> Probability of Catch Trial
-obj.addControl(layoutTrialControls,'P_Catch',autoCommit=true,Text="p(Catch Trial):");
+% >> Catch-trial hazard function: p starts at Min, rises by Step for every
+% delivered stimulus trial up to Max, and resets to Min after a catch trial.
+% The live value is shown in the Trial State monitor as P_Catch_Current.
+%
+% The checkbox gates the whole schedule and greys out the fields it
+% controls. cl_AppetitiveStimDetect reads the same parameter (and creates it
+% at run start when the protocol does not declare it), so the greyed fields
+% and the trial schedule cannot disagree; a protocol without the parameter
+% simply gets no checkbox and the always-on behavior.
+hCatchEnable = obj.addControl(layoutTrialControls,'CatchTrialsEnabled',Type='checkbox', ...
+    autoCommit=true,Text="Present Catch Trials");
+
+% Floor and ceiling are the two ends of one quantity, so they share a row.
+hPCatchRange = obj.addControl(layoutTrialControls,'P_Catch',Type='range',autoCommit=true, ...
+    Text="p(Catch) Min / Max:");
+hPCatchStep  = obj.addControl(layoutTrialControls,'P_Catch',autoCommit=true,Text="p(Catch) Step:");
+
+if ~isempty(hCatchEnable)
+    hCatchEnable.PostUpdateFcn     = @set_catch_trials_state;
+    hCatchEnable.PostUpdateFcnArgs = {hPCatchRange,hPCatchStep};
+    % Seed the enable state from the value carried over from a previous
+    % session or a phase load, which create() has already put in the widget.
+    set_catch_trials_state(hCatchEnable,hCatchEnable.Parameter.Value, ...
+        hCatchEnable.Parameter,hPCatchRange,hPCatchStep);
+end
 
 
 % TRIAL CONTROLS --------------------------------------------------
@@ -199,20 +240,16 @@ hStimDelayValue = obj.addControl(layoutTrialControls,'StimDelay',autoCommit=true
 hStimDelayRand = obj.addControl(layoutTrialControls,'StimDelay',Type='checkbox',autoCommit=true, ...
     BoundProperty='isRandom',Text="Randomize Stimulus Delay:");
 
-% >> Stimulus Delay (Minimum for randomization)
-hStimDelayMin = obj.addControl(layoutTrialControls,'StimDelay',autoCommit=true, ...
-    BoundProperty='Min',Text="Stimulus Delay Min (ms):");
-
-% >> Stimulus Delay (Maximum for randomization)
-hStimDelayMax = obj.addControl(layoutTrialControls,'StimDelay',autoCommit=true, ...
-    BoundProperty='Max',Text="Stimulus Delay Max (ms):");
+% >> Stimulus Delay (bounds used when randomizing)
+hStimDelayRange = obj.addControl(layoutTrialControls,'StimDelay',Type='range',autoCommit=true, ...
+    Text="Stimulus Delay Min / Max (ms):");
 
 pStimDelay = getp(P,'StimDelay');
 if ~isempty(hStimDelayRand)
     hStimDelayRand.PostUpdateFcn = @set_stimdelay_randomization_state;
-    hStimDelayRand.PostUpdateFcnArgs = {hStimDelayValue,hStimDelayMin,hStimDelayMax};
+    hStimDelayRand.PostUpdateFcnArgs = {hStimDelayValue,hStimDelayRange};
     set_stimdelay_randomization_state(hStimDelayRand,pStimDelay.isRandom,pStimDelay, ...
-        hStimDelayValue,hStimDelayMin,hStimDelayMax);
+        hStimDelayValue,hStimDelayRange);
 end
 
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
@@ -349,7 +386,7 @@ if ~isempty(obj.Psych)
     % green hit, red miss, blue correct reject, orange false alarm, yellow abort
     obj.ResponseHistory.BitColors = ["#c8ffd9", "#ffcdcd", "#b3e1ff","#ffeacf","#faffcc"];
     obj.ResponseHistory.ParametersOfInterest    = {'Depth','TrialType','RespLatency'};
-    obj.ResponseHistory.ParameterColumnFormats  = {'%0.3f %%', '%d', '%.0f ms'};
+    obj.ResponseHistory.ParameterColumnFormats  = {'%0.1f', '%d', '%.1f ms'};
 end
 
 
@@ -427,8 +464,49 @@ h.Padding     = [0 0 0 0];
 end
 
 
-function set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,hStimDelayMin,hStimDelayMax)
-% set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,hStimDelayMin,hStimDelayMax)
+function set_catch_trials_state(src,newValue,~,varargin)
+% set_catch_trials_state(src,newValue,param,hPCatch...)
+% Enable or disable the p(Catch) hazard fields to match the catch-trial
+% checkbox, so the greyed fields never suggest a schedule that
+% cl_AppetitiveStimDetect is no longer running.
+%
+% Parameters:
+%   src : gui.Parameter_Control
+%       Catch-trial checkbox that triggered the update.
+%   newValue : logical scalar | struct
+%       New CatchTrialsEnabled value, or the event struct carrying it.
+%   varargin : gui.Parameter_Control
+%       p(Catch) controls to enable or disable; [] entries (parameters the
+%       loaded protocol does not define) are skipped.
+
+if isempty(src), return; end
+
+if isstruct(newValue)
+    newValue = newValue.Value;
+end
+
+if logical(newValue)
+    state = "on";
+else
+    state = "off";
+end
+
+for i = 1:numel(varargin)
+    h = varargin{i};
+    if isempty(h) || ~isvalid(h), continue; end
+
+    % widgets() rather than h_uiobj: the Min/Max control owns two entry
+    % fields and both have to grey out together.
+    set(h.widgets(),'Enable',state);
+    if ishandle(h.h_label)
+        h.h_label.Enable = state;
+    end
+end
+end
+
+
+function set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,hStimDelayRange)
+% set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,hStimDelayRange)
 % Keep StimDelay randomization state and related controls synchronized.
 %
 % Parameters:
@@ -440,10 +518,10 @@ function set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,hS
 %       Bound parameter passed by gui.Parameter_Control PostUpdateFcn (unused).
 %   hStimDelayValue : gui.Parameter_Control
 %       UI control for direct StimDelay value editing.
-%   hStimDelayMin, hStimDelayMax : gui.Parameter_Control
-%       UI controls for StimDelay randomized min and max values.
+%   hStimDelayRange : gui.Parameter_Control
+%       Type='range' control holding the randomized [Min Max] bounds.
 
-if isempty(src) || isempty(hStimDelayValue) || isempty(hStimDelayMin) || isempty(hStimDelayMax)
+if isempty(src) || isempty(hStimDelayValue) || isempty(hStimDelayRange)
     return
 end
 
@@ -467,13 +545,10 @@ end
 hStimDelayValue.h_uiobj.Editable = editState;
 hStimDelayValue.h_uiobj.BackgroundColor = valueFieldColor;
 
-hStimDelayMin.h_uiobj.Enable = minMaxState;
-hStimDelayMax.h_uiobj.Enable = minMaxState;
-
-if ishandle(hStimDelayMax.h_label)
-    hStimDelayMax.h_label.Enable = minMaxState;
-end
-if ishandle(hStimDelayMin.h_label)
-    hStimDelayMin.h_label.Enable = minMaxState;
+% widgets() rather than h_uiobj: both entries of the Min/Max row follow the
+% randomization state together.
+set(hStimDelayRange.widgets(),'Enable',minMaxState);
+if ishandle(hStimDelayRange.h_label)
+    hStimDelayRange.h_label.Enable = minMaxState;
 end
 end

@@ -15,11 +15,20 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     %
     %   Supported TYPE values are:
     %       'editfield'  - numeric edit field with label
+    %       'range'      - label plus two numeric edit fields on ONE row,
+    %                      editing Parameter.Min and Parameter.Max together
     %       'dropdown'   - dropdown with label
     %       'checkbox'   - checkbox
     %       'toggle'     - state button
     %       'readonly'   - label showing Parameter.ValueStr
     %       'momentary'  - push button
+    %
+    %   A 'range' control binds the virtual property 'MinMax', so its Value
+    %   is the [Min Max] pair and one row replaces the two separate
+    %   BoundProperty='Min' / BoundProperty='Max' controls:
+    %
+    %       gui.Parameter_Control(layout, p, Type='range', autoCommit=true, ...
+    %           Text='Stimulus Delay (ms):');
     %
     %   Custom validation can be attached through EvaluatorFcn. The callback
     %   is invoked as:
@@ -35,15 +44,18 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         parent (1,1) % handle to parent container
         Parameter (1,1) %hw.Parameter % handle to parameter
 
-        type (1,:) char {mustBeMember(type,{'editfield','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'editfield'
+        type (1,:) char {mustBeMember(type,{'editfield','range','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'editfield'
 
-        BoundProperty (1,:) char {mustBeMember(BoundProperty,{'Value','Values','Min','Max','isRandom','Expression','Description','Unit','Format'})} = 'Value' % hw.Parameter property to bind
+        % hw.Parameter property to bind. 'MinMax' is virtual: it binds Min
+        % and Max as a single [Min Max] pair, which is what lets one row
+        % carry both bounds (Type='range').
+        BoundProperty (1,:) char {mustBeMember(BoundProperty,{'Value','Values','Min','Max','MinMax','isRandom','Expression','Description','Unit','Format'})} = 'Value'
 
         autoCommit (1,1) logical = false
     end
 
     properties (SetObservable,AbortSet)
-        Value (1,1) % current value
+        Value (1,:) % current value ([lo hi] pair for Type='range')
         Values (1,:)  % list of values
         Text (1,:) char = 'label' % label text
 
@@ -61,7 +73,8 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
     properties
         h_label % handle to uilabel
-        h_uiobj % handle to uieditfield or uidropdown
+        h_uiobj % handle to uieditfield or uidropdown (the low/left entry of a 'range')
+        h_uiobj2 = [] % handle to the high/right entry field of a 'range' control; empty otherwise
         container % handle to container built within parent
 
         % epsych.Runtime (optional). When set, an autoCommit Value edit is
@@ -104,8 +117,10 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             arguments
                 parent
                 Parameter
-                options.Type (1,:) char {mustBeMember(options.Type,{'auto','editfield','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'auto'
-                options.BoundProperty (1,:) char {mustBeMember(options.BoundProperty,{'Value','Values','Min','Max','isRandom','Expression','Description','Unit','Format'})} = 'Value'
+                options.Type (1,:) char {mustBeMember(options.Type,{'auto','editfield','range','dropdown','checkbox','toggle','readonly','momentary','stimtype'})} = 'auto'
+                % '' defers the choice to the control type: 'range' binds
+                % the [Min Max] pair, everything else binds Value.
+                options.BoundProperty (1,:) char {mustBeMember(options.BoundProperty,{'','Value','Values','Min','Max','MinMax','isRandom','Expression','Description','Unit','Format'})} = ''
                 options.autoCommit (1,1) logical = false
                 options.Text (1,:) char = Parameter.Name
                 options.Runtime = [] % epsych.Runtime; see the Runtime property
@@ -119,11 +134,12 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 controlType = obj.defaultTypeFromParameter(Parameter);
             end
             obj.type = controlType;
-            obj.BoundProperty = options.BoundProperty;
+            obj.BoundProperty = obj.resolveBoundProperty_(controlType,options.BoundProperty);
             obj.Text = options.Text;
 
             pNames = properties(Parameter);
-            if ~ismember(obj.BoundProperty,pNames)
+            missing = setdiff(obj.boundPropertyNames_(),pNames);
+            if ~isempty(missing)
                 error('gui:Parameter_Control:InvalidBoundProperty', ...
                     'Invalid bound property "%s" for hw.Parameter.', obj.BoundProperty);
             end
@@ -137,7 +153,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             obj.hl_mode = listener(Parameter.Parent,'mode','PostSet',@obj.mode_change);
             % end
             try
-                obj.hl_uiobj = listener(Parameter,obj.BoundProperty,'PostSet',@obj.value_change_external);
+                obj.hl_uiobj = listener(Parameter,obj.boundPropertyNames_(),'PostSet',@obj.value_change_external);
             catch ME
                 error('gui:Parameter_Control:UnobservableBoundProperty', ...
                     'Parameter property "%s" is not observable and cannot be bound.', obj.BoundProperty);
@@ -162,6 +178,10 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
 
         function v = get.Value(obj)
+            if isequal(obj.type,'range')
+                v = obj.rangeFromWidgets_();
+                return
+            end
             v = obj.h_uiobj.Value;
         end
 
@@ -212,10 +232,29 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         end
 
         function value = getBoundValue(obj)
+            if isequal(obj.BoundProperty,'MinMax')
+                value = [obj.Parameter.Min obj.Parameter.Max];
+                return
+            end
             value = obj.Parameter.(obj.BoundProperty);
         end
 
         function setBoundValue(obj,value)
+            if isequal(obj.BoundProperty,'MinMax')
+                % Widen before narrowing: each write fires its own PostSet, so
+                % writing Min above the current Max (or Max below the current
+                % Min) would show every other listener a momentarily inverted
+                % parameter between the two assignments.
+                P = obj.Parameter;
+                if value(1) > P.Max
+                    P.Max = value(2);
+                    P.Min = value(1);
+                else
+                    P.Min = value(1);
+                    P.Max = value(2);
+                end
+                return
+            end
             obj.Parameter.(obj.BoundProperty) = value;
         end
 
@@ -263,6 +302,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 event.PreviousValue = [];
             end
 
+            % A range control reports only the field the user touched; fold
+            % both entries into one [lo hi] event and reject an inverted pair
+            % before any hook runs, so a rejected edit is a no-op.
+            if isequal(obj.type,'range')
+                [event,ok] = obj.rangeEvent_(src,event);
+                if ~ok, return; end
+            end
+
             % run pre-update function, if specified. This allows for any necessary setup before the value is changed, such as temporarily disabling randomization or other PostUpdate behavior when repeating a trial after an Abort.
             if isa(obj.PreUpdateFcn,'function_handle')
                 obj.PreUpdateFcn(obj,event,obj.Parameter,obj.PreUpdateFcnArgs{:});
@@ -293,7 +340,11 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
             value = event.Value;
 
-            obj.h_uiobj.Value = value;
+            if isequal(obj.type,'range')
+                obj.setRangeWidgets_(value);
+            else
+                obj.h_uiobj.Value = value;
+            end
             % obj.Value = value;
 
             obj.ValueUpdated = ~isequal(value,obj.getBoundValue());
@@ -338,7 +389,9 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             if ~obj.ValueUpdated, return; end
 
             v = obj.getBoundValue();
-            if isprop(obj.h_uiobj,'Value') && ~isempty(v)
+            if isequal(obj.type,'range')
+                obj.setRangeWidgets_(v);
+            elseif isprop(obj.h_uiobj,'Value') && ~isempty(v)
                 obj.ensureDropdownItem_(obj.h_uiobj,v);
                 obj.h_uiobj.Value = v;
             end
@@ -360,6 +413,19 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         function update_color(obj,src,event)
             % s = src.Name;
             obj.set_color_(obj.colorNormal);
+        end
+
+
+        function w = widgets(obj)
+            % w = widgets(obj)
+            % Every widget this control owns, as one graphics array. A
+            % 'range' owns two entry fields, so GUI code that styles or
+            % enables a control as a whole must go through this rather than
+            % h_uiobj, which is only the left entry.
+            w = obj.h_uiobj;
+            if ~isempty(obj.h_uiobj2)
+                w = [w obj.h_uiobj2];
+            end
         end
 
 
@@ -406,6 +472,23 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     if isequal(P.Type,'Integer')
                         h.RoundFractionalValues = 'on';
                     end
+
+                case 'range'
+                    % Two entries share the 100 px an editfield would take, so
+                    % a range row lines up with the single-field rows above and
+                    % below it.
+                    hl.ColumnWidth   = {'1x',49,49};
+                    hl.ColumnSpacing = 2;
+
+                    h = uilabel(hl);
+                    h.Text = obj.Text;
+                    h.Tooltip = P.Description;
+                    h.HorizontalAlignment = 'right';
+                    obj.h_label = h;
+
+                    v = obj.getBoundValue();
+                    h            = obj.createRangeField_(hl,v(1),'minimum');
+                    obj.h_uiobj2 = obj.createRangeField_(hl,v(2),'maximum');
 
                 case 'dropdown'
                     hl.ColumnWidth = {'1x',100};
@@ -471,17 +554,15 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 obj.colorNormal = h.BackgroundColor;
             end
 
-            if isprop(h,'Value') && ~isequal(obj.type,'dropdown')
+            if isprop(h,'Value') && ~ismember(obj.type,{'dropdown','range'})
                 h.Value = obj.getBoundValue();
             end
 
             if obj.autoCommit
-                h.Tag = sprintf('ACPC_%s',P.Name);
+                tagPrefix = 'ACPC_';
             else
-                h.Tag = sprintf('PC_%s',P.Name);
+                tagPrefix = 'PC_';
             end
-
-            h.UserData = obj;
 
             switch obj.type
                 case 'readonly'
@@ -494,9 +575,36 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     h.ValueChangedFcn = @obj.value_changed;
             end
 
-
             obj.h_uiobj = h;
 
+            if isequal(obj.type,'range')
+                % Both entries route through the same callback; value_changed
+                % reads the pair back off the widgets either way.
+                obj.h_uiobj2.ValueChangedFcn = @obj.value_changed;
+                h.Tag            = sprintf('%s%s_Min',tagPrefix,P.Name);
+                obj.h_uiobj2.Tag = sprintf('%s%s_Max',tagPrefix,P.Name);
+            else
+                h.Tag = sprintf('%s%s',tagPrefix,P.Name);
+            end
+
+            set(obj.widgets(),'UserData',obj);
+
+        end
+
+
+        function h = createRangeField_(obj,parent,value,which)
+            % h = createRangeField_(obj,parent,value,which)
+            % One entry of a 'range' control. Limits stay wide open because
+            % the pair is validated as a whole in rangeEvent_: limiting each
+            % field by the other would block any edit that has to pass
+            % through an inverted intermediate state.
+            h = uieditfield(parent,'numeric');
+            h.Value   = value;
+            h.Tooltip = strtrim(sprintf('%s (%s)',obj.Parameter.Description,which));
+            h.HorizontalAlignment = 'center';
+            if isequal(obj.Parameter.Type,'Integer')
+                h.RoundFractionalValues = 'on';
+            end
         end
 
 
@@ -507,15 +615,18 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     s = 'on';
                 end
 
-                obj.h_uiobj.Enable = s;
+                set(obj.widgets(),'Enable',s);
                 if ishandle(obj.h_label)
                     obj.h_label.Enable = s;
                 end
             end
         end
 
-        function value_change_external(obj,~,event)
-            v = event.AffectedObject.(obj.BoundProperty);
+        function value_change_external(obj,~,~)
+            % Read through getBoundValue rather than the event: a 'range'
+            % control listens to Min and Max, and either one firing means the
+            % whole pair has to be re-read.
+            v = obj.getBoundValue();
             if isempty(v), return; end % ?????
 
             % PostSet fires on every write, not only on writes that change the
@@ -527,7 +638,9 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             changed = obj.displayDiffers_(v);
 
             % obj.Value = v;
-            if isprop(obj.h_uiobj,'Value')
+            if isequal(obj.type,'range')
+                obj.setRangeWidgets_(v);
+            elseif isprop(obj.h_uiobj,'Value')
                 % For dropdowns, the value may not be among the design-time
                 % Values (e.g. when loading a saved phase). Add it before
                 % assigning, otherwise the dropdown rejects the value.
@@ -564,7 +677,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             v = obj.getBoundValue();
 
             switch obj.type
-                case 'editfield'
+                case {'editfield','range'}
                     % Blue confirms this control's own autoCommit write-back;
                     % yellow flags a change from outside (phase load, linked
                     % parameter). Without this, edit fields gave no feedback at
@@ -575,7 +688,9 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     else
                         c = obj.colorOnUpdateExternal;
                     end
-                    gui.Helper.timed_color_change(obj.h_uiobj, c, postColor=obj.colorNormal);
+                    for w = obj.widgets()
+                        gui.Helper.timed_color_change(w, c, postColor=obj.colorNormal);
+                    end
 
                 case 'dropdown'
                     obj.ensureDropdownItem_(obj.h_uiobj, v);
@@ -673,6 +788,18 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             obj.Runtime.updateTrialsFromParameters(obj.Parameter);
         end
 
+        function names = boundPropertyNames_(obj)
+            % names = boundPropertyNames_(obj)
+            % Real hw.Parameter properties behind BoundProperty. Only the
+            % virtual 'MinMax' expands to more than one; used to validate the
+            % binding and to wire the PostSet listener.
+            if isequal(obj.BoundProperty,'MinMax')
+                names = {'Min','Max'};
+            else
+                names = {obj.BoundProperty};
+            end
+        end
+
         function lims = widgetLimits_(obj)
             % lims = widgetLimits_(obj)
             % Edit-field Limits for the bound property. A Value control is
@@ -716,6 +843,9 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % (a momentary push button) has nothing to compare, so it always
             % counts as changed.
             switch obj.type
+                case 'range'
+                    tf = ~isequal(obj.rangeFromWidgets_(), double(v(:))');
+
                 case 'readonly'
                     tf = ~isequal(obj.h_uiobj.Text, obj.boundValueText());
 
@@ -747,13 +877,65 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % BackgroundColor/Color/FontColor precedence that
             % gui.Helper.timed_color_change uses, keeping the two paths
             % consistent for a given control type.
-            if isprop(obj.h_uiobj,'BackgroundColor')
-                obj.h_uiobj.BackgroundColor = color;
-            elseif isprop(obj.h_uiobj,'Color')
-                obj.h_uiobj.Color = color;
-            elseif isprop(obj.h_uiobj,'FontColor')
-                obj.h_uiobj.FontColor = color;
+            for w = obj.widgets()
+                if isprop(w,'BackgroundColor')
+                    w.BackgroundColor = color;
+                elseif isprop(w,'Color')
+                    w.Color = color;
+                elseif isprop(w,'FontColor')
+                    w.FontColor = color;
+                end
             end
+        end
+
+        function v = rangeFromWidgets_(obj)
+            v = [obj.h_uiobj.Value obj.h_uiobj2.Value];
+        end
+
+        function setRangeWidgets_(obj,v)
+            obj.h_uiobj.Value  = v(1);
+            obj.h_uiobj2.Value = v(2);
+        end
+
+        function [event,ok] = rangeEvent_(obj,src,event)
+            % [event,ok] = rangeEvent_(obj,src,event)
+            % Normalize a 'range' edit into a single [lo hi] event and check
+            % it. A user edit names only the field that moved, but both
+            % widgets already hold the new text, so the pair is read back off
+            % them; a programmatic obj.Value = [lo hi] supplies the pair
+            % directly (src empty). An invalid pair is undone at the widget
+            % that caused it and reported, leaving the parameter untouched.
+            ok = false;
+            v = event.Value;
+            if ~isempty(src) && isscalar(v)
+                v = obj.rangeFromWidgets_();
+            end
+
+            P = obj.Parameter;
+            reason = '';
+            if ~isnumeric(v) || numel(v) ~= 2
+                reason = 'a range control takes exactly two values';
+            elseif v(1) > v(2)
+                reason = sprintf('minimum (%g) exceeds maximum (%g)',v(1),v(2));
+            elseif isequal(obj.BoundProperty,'MinMax') && P.isRandom && any(~isfinite(v))
+                reason = 'a randomized parameter needs finite bounds';
+            end
+
+            if ~isempty(reason)
+                vprintf(0,1,'Rejected range for "%s": %s',P.Name,reason)
+                if ~isempty(src) && isprop(src,'Value') && isscalar(event.PreviousValue)
+                    src.Value = event.PreviousValue;
+                else
+                    obj.setRangeWidgets_(obj.getBoundValue());
+                end
+                for w = obj.widgets()
+                    gui.Helper.timed_color_change(w,obj.colorOnError,postColor=obj.colorNormal);
+                end
+                return
+            end
+
+            event.Value = double(v(:))';
+            ok = true;
         end
 
         function ensureDropdownItem_(obj, h, v)
@@ -776,6 +958,34 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     end
 
     methods (Access = private, Static)
+        function prop = resolveBoundProperty_(controlType,requested)
+            % prop = resolveBoundProperty_(controlType,requested)
+            % Settle the binding for a control type. An unspecified binding
+            % follows the type ('range' edits the [Min Max] pair, everything
+            % else edits Value); a specified one is rejected when the type
+            % cannot display it, since a silent fallback would leave the
+            % control editing a property the caller never asked for.
+            if isempty(requested)
+                if isequal(controlType,'range')
+                    prop = 'MinMax';
+                else
+                    prop = 'Value';
+                end
+                return
+            end
+
+            prop = requested;
+            if isequal(controlType,'range') && ~isequal(prop,'MinMax')
+                error('gui:Parameter_Control:InvalidRangeBinding', ...
+                    ['A "range" control edits Min and Max together; BoundProperty ' ...
+                    'must be "MinMax" (or unset), not "%s".'],prop);
+            end
+            if isequal(prop,'MinMax') && ~ismember(controlType,{'range','readonly'})
+                error('gui:Parameter_Control:InvalidMinMaxType', ...
+                    'BoundProperty "MinMax" needs Type "range" or "readonly", not "%s".',controlType);
+            end
+        end
+
         function names = concreteStimTypes_()
             % names = concreteStimTypes_()
             % Instantiable stimgen.StimType subclass names for the picker.

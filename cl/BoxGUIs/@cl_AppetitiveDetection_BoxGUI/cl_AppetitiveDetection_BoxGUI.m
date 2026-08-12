@@ -4,8 +4,8 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
     % OBJ = cl_AppetitiveDetection_BoxGUI(RUNTIME) creates the Caras Lab
     % appetitive detection GUI: trigger buttons, staircase and trial
     % parameter controls, sound controls, phase selection, a trial-state
-    % monitor, the psychometric plot, a parameter scatter, and a response
-    % history table.
+    % monitor, the psychometric plot, a parameter scatter, a response
+    % history table, and a session clock.
     %
     % This is the gui.BoxGUI-based version of cl_AppetitiveDetection_GUI_B.
     % The layout is the same; single-instance enforcement, figure creation,
@@ -28,6 +28,7 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
         PhaseSelector          % gui.PhaseSelector instance
         h_PhaseSelector        % Container returned by PhaseSelector.createGUI
         ParameterMonitor       % gui.Parameter_Monitor instance (Trial State panel)
+        SessionClock           % gui.SessionClock instance (top-row status widget)
         ResponseHistory        % gui.History instance
         h_ScatterPanel         % gui.ParameterScatter instance
         FilenameField          % gui.FilenameValidator instance

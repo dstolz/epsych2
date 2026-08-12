@@ -5,9 +5,22 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     % used when this selector is configured as Protocol.Options.trialFunc.
     %
     % Required parameters:
-    %   ReminderTrials, StepOnHit, StepOnMiss, P_Catch, RepeatDelayOnAbort,
-    %   StimDelay, and Depth (Depth.Min/Depth.Max provide the staircase bounds)
-    %   in TRIALS.parameters.
+    %   ReminderTrials, Depth_StepOnHit, Depth_StepOnMiss, P_Catch,
+    %   RepeatDelayOnAbort, StimDelay, and Depth (Depth.Min/Depth.Max provide
+    %   the staircase bounds) in TRIALS.parameters.
+    %
+    % Catch trials are scheduled by a hazard function rather than a flat
+    % probability, so all three fields of P_Catch carry meaning:
+    %   P_Catch.Min   - floor: the probability at the start of a session and
+    %                   immediately after a catch trial
+    %   P_Catch.Value - step added for every delivered stimulus trial
+    %   P_Catch.Max   - ceiling the probability is clamped to
+    % See advanceHazard and documentation/cl/cl_AppetitiveStimDetect.md.
+    %
+    % Catch trials can be switched off for a session through the
+    % CatchTrialsEnabled parameter, which cl_AppetitiveDetection_BoxGUI
+    % exposes as a checkbox. The selector creates it when the protocol does
+    % not declare it, and an absent parameter means enabled.
     %
     % Optional parameters:
     %   StepDirectionOnHit, StepDirectionOnMiss - sign (-1 = Down, +1 = Up) of
@@ -24,6 +37,12 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
 
         P % struct of named parameter handles
         T % struct of named trial-column vectors
+
+        pCatchCurrent_ = [] % hw.Parameter mirroring pCatch_ for the GUI and DATA
+        catchEnabled_  = [] % hw.Parameter gating catch-trial presentation
+
+        pCatch_ (1,1) double = 0 % accumulated catch-trial probability
+        lastHazardIndex_ (1,1) double = 1 % TrialIndex the hazard last advanced on
     end
 
     methods
@@ -41,6 +60,12 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
                 obj.T.(TRIALS.parameters(k).validName) = [TRIALS.trials{:, k}];
                 obj.P.(TRIALS.parameters(k).validName) = TRIALS.parameters(k);
             end
+
+            % The catch-trial hazard starts at its floor. It accumulates from
+            % here rather than being recomputed from history, so a mid-session
+            % change to the step size only affects subsequent trials.
+            obj.pCatch_ = obj.P.P_Catch.Min;
+            obj.lastHazardIndex_ = 1;
         end
 
 
@@ -55,10 +80,29 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             %   nextTrialID - scalar row index into the trials table
 
 
+            % Selector-owned runtime parameters: the live catch probability,
+            % for the Trial State monitor and the saved DATA record, and the
+            % operator's catch-trials on/off switch. Both are resolved (or
+            % created) here rather than in initialize because ep_TimerFcn_Start
+            % makes this call before epsych.RunExpt launches the box GUI, so
+            % the GUI's parameter snapshot already contains them.
+            if isempty(obj.pCatchCurrent_)
+                obj.pCatchCurrent_ = obj.ensureSelectorParameter_('P_Catch_Current', obj.pCatch_, ...
+                    Format='%0.2f', ...
+                    Description="Current catch-trial probability (hazard function)");
+            end
+
+            if isempty(obj.catchEnabled_)
+                obj.catchEnabled_ = obj.ensureSelectorParameter_('CatchTrialsEnabled', true, ...
+                    Type='Boolean', ...
+                    Description="Present catch trials");
+            end
+
+
             % On the first trial return the first STIM row immediately
             if TRIALS.TrialIndex == 1
-                
-                
+
+
                 nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
                 return
             end
@@ -138,11 +182,6 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
                 obj.restore_stimdelay_randomization_(obj.P.StimDelay);
 
             elseif RC.FalseAlarm(end)
-                if RC.Abort(end) % treat FA+Abort as an Abort for catch-trial scheduling purposes
-                    nextTrialID = find(obj.T.TrialType == obj.TT_CATCH_, 1);
-                    return
-                end
-
                 % no change; restore StimDelay randomization
                 obj.restore_stimdelay_randomization_(obj.P.StimDelay);
             end
@@ -163,18 +202,50 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
                 [obj.runtime_.TRIALS(obj.subjectIdx_).trials{ind, depthCol}] = deal(nextStim);
             end
 
-            % Catch-trial scheduling based on p(Catch)
-            pCT = obj.P.P_Catch.Value;
+            % Catch-trial scheduling: hazard function over p(Catch)
+            pC = obj.P.P_Catch;
+
+            % Operator switch (the GUI's "Present Catch Trials" checkbox).
+            % While it is off the hazard is held at its floor rather than left
+            % to accumulate, so re-enabling resumes from the bottom of the
+            % schedule instead of firing a catch trial on the next draw. An
+            % absent parameter means enabled, which is what a protocol without
+            % the switch -- and epsych.SelfTest, which has no runtime to host
+            % it -- gets.
+            if ~isempty(obj.catchEnabled_) && ~obj.catchEnabled_.Value
+                obj.pCatch_ = pC.Min;
+                obj.lastHazardIndex_ = TRIALS.TrialIndex;
+                if ~isempty(obj.pCatchCurrent_), obj.pCatchCurrent_.Value = obj.pCatch_; end
+
+                vprintf(4, 'Catch trials disabled')
+                nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
+                return
+            end
+
+            % Advance at most once per completed trial. TrialIndex increments
+            % exactly once per pass through the runtime's completion block, so
+            % keying on it makes a repeated selectNext at the same index a
+            % no-op -- which is what a forced Reminder trial produces.
+            if obj.lastHazardIndex_ ~= TRIALS.TrialIndex
+                obj.lastHazardIndex_ = TRIALS.TrialIndex;
+                obj.pCatch_ = cl_AppetitiveStimDetect.advanceHazard(obj.pCatch_, ...
+                    RC, obj.TT_STIM_, obj.TT_CATCH_, pC.Min, pC.Value, pC.Max);
+            end
+
+            % Re-clamp every trial so an operator edit to the Min/Max bounds
+            % takes effect immediately rather than at the next step.
+            obj.pCatch_ = min(max(obj.pCatch_, pC.Min), pC.Max);
+
+            pCT = obj.pCatch_;
+            if ~isempty(obj.pCatchCurrent_), obj.pCatchCurrent_.Value = pCT; end
+
+            % An abort suppresses this draw without disturbing the hazard:
+            % advanceHazard already left the accumulator alone, so p is
+            % unchanged the next time around.
             if RC.Abort(end), pCT = 0; end
             vprintf(4, 'p(Catch) = %g', pCT)
 
-            if length(RC.("TrialType_" + obj.TT_STIM_)) >= 10
-                nLast10Stim = sum(RC.("TrialType_" + obj.TT_STIM_)(end-9:end));
-            else
-                nLast10Stim = 0;
-            end
-
-            if pCT > 0 && ~RC.("TrialType_" + obj.TT_CATCH_)(end) && (rand() < pCT || nLast10Stim >= 10)
+            if pCT > 0 && ~RC.("TrialType_" + obj.TT_CATCH_)(end) && rand() < pCT
                 nextTrialID = find(obj.T.TrialType == obj.TT_CATCH_, 1);
             else
                 nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
@@ -191,7 +262,106 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
         end
     end
 
+    methods (Static)
+
+        function p = advanceHazard(p, RC, ttStim, ttCatch, pMin, pStep, pMax)
+            % p = advanceHazard(p, RC, ttStim, ttCatch, pMin, pStep, pMax)
+            % Advance the catch-trial hazard by the one trial that just
+            % completed: a delivered stimulus trial adds pStep, a completed
+            % catch trial resets to pMin, and the result is clamped to
+            % [pMin pMax].
+            %
+            % The probability is carried in p rather than recomputed from the
+            % history, so changing pStep mid-session steps on from wherever
+            % the hazard currently sits instead of rescaling it.
+            %
+            % Aborts are inert on both sides of the schedule. An aborted
+            % stimulus trial never delivered a stimulus, so it does not
+            % advance p; an aborted catch trial never measured a false-alarm
+            % rate, so it does not reset p. A run of aborts therefore leaves
+            % the catch rate exactly where it was. Reminder trials are
+            % likewise neither a step nor a reset.
+            %
+            % Parameters:
+            %   p       - probability before the completed trial
+            %   RC      - struct from epsych.BitMask.decode over the completed
+            %             trials; only the last element is read
+            %   ttStim  - TrialType code for stimulus trials
+            %   ttCatch - TrialType code for catch trials
+            %   pMin    - floor probability (P_Catch.Min)
+            %   pStep   - step per delivered stimulus trial (P_Catch.Value)
+            %   pMax    - ceiling probability (P_Catch.Max)
+            %
+            % Returns:
+            %   p - probability after the completed trial
+            %
+            % Kept static and free of runtime state so the schedule can be
+            % exercised headlessly; see tmp/smoke_test_pcatch_hazard.m.
+            if ~RC.Abort(end)
+                if RC.("TrialType_" + ttCatch)(end)
+                    p = pMin;
+                elseif RC.("TrialType_" + ttStim)(end)
+                    p = p + pStep;
+                end
+            end
+
+            p = min(max(p, pMin), pMax);
+        end
+
+    end
+
     methods (Access = private)
+
+        function p = ensureSelectorParameter_(obj, name, value, options)
+            % p = ensureSelectorParameter_(obj, name, value, Type=..., Format=..., Description=...)
+            % Resolve a selector-owned runtime parameter by name, creating it
+            % on the hw.Software interface when the protocol does not declare
+            % one.
+            %
+            % Declaring these in the protocol is preferable -- they then
+            % persist and serialize -- but either way the selector reads and
+            % writes them outside the compiled trials table, so they must stay
+            % host-writable ('Read' access rejects every write) and carry
+            % UpdateEveryTrial = false, which is what keeps dispatchNextTrial
+            % from clobbering them with a stale trials-table value should the
+            % operator recompile mid-run.
+            %
+            % Parameters:
+            %   name  - parameter name
+            %   value - initial value, used only when the parameter is created
+            %
+            % Returns:
+            %   p - hw.Parameter handle, or [] when there is no runtime (as
+            %       under epsych.SelfTest) or no software interface to host it.
+            %       Callers must treat [] as "the parameter is absent".
+            arguments
+                obj
+                name (1,:) char
+                value
+                options.Type (1,:) char = 'Float'
+                options.Format (1,:) char = '%g'
+                options.Description (1,1) string = ""
+            end
+
+            p = [];
+            if isempty(obj.runtime_), return; end
+
+            p = obj.runtime_.find_parameter(name, silenceParameterNotFound=true);
+            if ~isempty(p), return; end
+
+            sw = obj.runtime_.Interfaces(arrayfun(@(x) isa(x,'hw.Software'), ...
+                obj.runtime_.Interfaces));
+            if isempty(sw), return; end
+
+            p = sw(1).add_parameter(name, value, ...
+                Type=options.Type, Format=options.Format, Description=options.Description);
+
+            p.UpdateEveryTrial = false;
+
+            % add_parameter seeds Values, not Value; the first write is a
+            % trial away, so seat the initial value now.
+            p.Value = value;
+        end
 
         function s = stepSign_(obj, paramName, defaultSign)
             % s = stepSign_(obj, paramName, defaultSign)

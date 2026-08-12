@@ -81,8 +81,14 @@ for i = 1:RUNTIME.NSubjects
             CONFIG_ITEM.compile();
             compiled = CONFIG_ITEM.COMPILED;
 
-            RUNTIME.TRIALS(i).parameters = compiled.parameters;
-            RUNTIME.TRIALS(i).trials     = compiled.trials;
+            % The column map goes with the table. A recompile that adds or
+            % removes a parameter -- a phase load, an operator recompile, or
+            % a selector that created its own runtime parameters -- shifts
+            % every column after the change, so keeping the old writeparams
+            % would leave every by-name column lookup off by that shift.
+            [RUNTIME.TRIALS(i).parameters, RUNTIME.TRIALS(i).trials, ...
+                RUNTIME.TRIALS(i).writeparams, RUNTIME.TRIALS(i).writeParamIdx] = ...
+                epsych.Runtime.compiledTrialColumns(compiled);
 
             RUNTIME.TRIALS(i).selector.onRecompile(RUNTIME.TRIALS(i));
 

@@ -41,6 +41,14 @@ switch self.STATE
         self.H.modeIndicator.setState(hw.DeviceState.Error);
 end
 
+% The webcam controls are exempt from the RUNNING lockout the 'setup' prefix
+% otherwise imposes: an operator has to be able to look in on a subject, or
+% decide a session is worth filming, after the run has already started.
+% Restoring them here (rather than retagging them) keeps the prefix meaning
+% "state-managed" for the tag-convention self-test. Both actions restart VLC
+% and so block the trial loop for ~1 s, which is the cost of the choice.
+set([self.H.tb_liveview self.H.mnu_vlc_liveview self.H.setup_record_video],'Enable','on')
+
 % Distinct figure styling while a Preview (test) run is active, so the
 % session window cannot be mistaken for a live Run. This reverts
 % automatically for every other STATE (including Stop/Error) and when a

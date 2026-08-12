@@ -56,6 +56,7 @@ Each `TRIALS(i)` element is built by `ep_TimerFcn_Start` and contains (selected 
 | `parameters` | Compiled `hw.Parameter` array, one per trial-table column |
 | `trials` | Cell matrix: rows = trial conditions, columns = parameter values |
 | `writeparams` / `writeParamIdx` | Writable-parameter names and their column indices |
+| | These four fields are only meaningful together and are installed together, by `epsych.Runtime.compiledTrialColumns(COMPILED)` — at session start and again after every safe-boundary recompile. Replacing `trials` without rebuilding the map leaves every by-name column lookup pointing at the wrong parameter, because a recompile that adds or removes a parameter (phase load, operator recompile, a selector that creates its own runtime parameters) shifts every column after the change. Regression test: `tmp/smoke_test_recompile_columns.m` |
 | `selector` | `epsych.TrialSelector` instance for this subject |
 | `TrialIndex` / `NextTrialID` | Completed-trial counter and next trial row |
 | `DATA` | Struct array of per-trial response data |

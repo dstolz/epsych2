@@ -122,6 +122,7 @@ the panel background — opens a menu that decides what the monitor shows:
 | **Show Parameter ▸** | One checkable entry per monitored parameter, in display order, plus **Show All**. Clicking one toggles it. |
 | **Set Color ▸** (`type="graphical"` only) | **On Color...**/**Off Color...** for a lamp widget, or **Font Color...** for a label widget, plus **Reset Color**. Disabled when the click landed on no widget, or on a gauge (colors aren't customizable there). |
 | **Move Up** / **Move Down** | Repositions the parameter that was right-clicked. Disabled when the click landed on no parameter, or when the parameter is already at an edge. |
+| **Open in Separate Window** | A second monitor over the same parameters in a window of its own, with its own timer and its own visible set and order (see [gui_PopOut.md](gui_PopOut.md)). It polls independently: a parameter shown in both places is read twice per period. |
 
 `type="text"` has no per-line hit testing, so its menu offers show/hide only;
 reorder those displays with `move_parameter` instead.

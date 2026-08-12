@@ -112,18 +112,13 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
 
     methods (Static)
 
-        function trigger_ReminderTrial(obj, value, RUNTIME)
-            % hw.Parameter PostUpdateFcn: force the next trial to be a
-            % reminder trial.
-            %  obj - the ReminderTrials hw.Parameter.
+        function trigger_ReminderTrial(~, value, RUNTIME)
+            % hw.Parameter PostUpdateFcn: bring the next trial forward so it
+            % is presented as a reminder -- a signal-present trial at 0 dB
+            % depth. cl_AppetitiveStimDetect reads ReminderTrials on the
+            % selection pass this brings forward and picks the row; onNewData
+            % clears the toggle once that trial has completed.
             if value == 0, return; end
-
-            pdt = RUNTIME.find_parameter('~TrialDelivery',includeInvisible=true);
-            if pdt.Value == 1
-                obj.Value = 0;
-                vprintf(0,1,'"Deliver Trials" must be inactive to initiate a Reminder trial')
-                return
-            end
 
             % FORCE_TRIAL tells ep_TimerFcn_RunTime to skip waiting for the
             % trial to complete and go directly to updating the next trial

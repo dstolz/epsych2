@@ -63,7 +63,10 @@ P = obj.P;
 
 layoutMain = uigridlayout(fig, [11, 7]);
 layoutMain.RowHeight   = {80, 40, 90, 110, 60, 130, 40, '1x','1x','1x',40};
-layoutMain.ColumnWidth = {150, 150, 100, '1x', '1x','1x', '1x'};
+% Column 5 (Trial State) is fixed: it holds label/value text that does not
+% benefit from extra width, so pinning it near its content width and giving
+% column 4 the heavier weight sends the surplus to the Parameter Scatter.
+layoutMain.ColumnWidth = {150, 150, 100, '1.3x', 250, '1x', '1x'};
 layoutMain.Padding     = [1 1 1 1];
 
 

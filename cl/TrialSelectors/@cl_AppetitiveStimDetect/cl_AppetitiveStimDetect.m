@@ -17,6 +17,12 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     %   P_Catch.Max   - ceiling the probability is clamped to
     % See advanceHazard and documentation/cl/cl_AppetitiveStimDetect.md.
     %
+    % The Reminder button (ReminderTrials) brings the next trial forward and
+    % presents it at 0 dB depth -- full modulation, the most salient stimulus
+    % the task produces -- on the reminder row, so the trial re-engages the
+    % subject without entering the staircase or the catch schedule. See
+    % forceReminderTrial_.
+    %
     % Catch trials can be switched off for a session through the
     % CatchTrialsEnabled parameter, which cl_AppetitiveDetection_BoxGUI
     % exposes as a checkbox. The selector creates it when the protocol does
@@ -33,6 +39,12 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
         TT_STIM_  (1,1) double = 0    % TrialType code: signal-present trial
         TT_CATCH_ (1,1) double = 1    % TrialType code: catch (no-signal) trial
         TT_REMIND_(1,1) double = 2    % TrialType code: reminder trial
+
+        % Depth a reminder trial is presented at, in dB re 100% modulation.
+        % 0 dB is full depth, the most salient stimulus the task can produce,
+        % which is the point of a reminder: re-engage the subject with a
+        % trial it cannot miss, wherever the staircase currently sits.
+        REMINDER_DEPTH_ (1,1) double = 0
 
 
         P % struct of named parameter handles
@@ -108,9 +120,9 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             end
 
 
-            % Reminder override: force the REMIND row and set the HW flag
+            % Reminder override: the operator's Reminder button
             if obj.P.ReminderTrials.Value == 1
-                nextTrialID = find(obj.T.TrialType == obj.TT_REMIND_, 1);
+                nextTrialID = obj.forceReminderTrial_(TRIALS);
                 return
             end
 
@@ -311,6 +323,57 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     end
 
     methods (Access = private)
+
+        function nextTrialID = forceReminderTrial_(obj, TRIALS)
+            % nextTrialID = forceReminderTrial_(obj, TRIALS)
+            % Row for an operator-requested reminder trial: a signal-present
+            % trial presented at REMINDER_DEPTH_ (0 dB, full modulation
+            % depth).
+            %
+            % The reminder row's Depth is overwritten in the live trials
+            % table rather than read from it, so the reminder is at full
+            % depth no matter what the protocol compiled into that row, and
+            % the stimulus rows the staircase owns are left alone.
+            %
+            % TrialType stays REMIND: the reminder's own depth is then
+            % excluded from the staircase (which reads depths from stimulus
+            % trials only) and from the catch-trial hazard, and the trial is
+            % labeled as a reminder in the Next Trial panel and the Response
+            % History. Its OUTCOME still steps the staircase, as any
+            % completed trial does.
+            %
+            % Parameters:
+            %   TRIALS - runtime TRIALS struct for this subject
+            %
+            % Returns:
+            %   nextTrialID - scalar row index into the trials table
+            nextTrialID = find(obj.T.TrialType == obj.TT_REMIND_, 1);
+
+            if isempty(nextTrialID)
+                % Borrowing a stimulus row would overwrite the depth the
+                % staircase is holding there, so a protocol that compiled no
+                % reminder row gets an ordinary stimulus trial instead.
+                vprintf(0,1,['No reminder row (TrialType %d) in the compiled trials table; ' ...
+                    'presenting an ordinary stimulus trial'], obj.TT_REMIND_)
+                nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
+                return
+            end
+
+            if isempty(obj.runtime_), return; end
+
+            depthCol = find(strcmp({TRIALS.parameters.validName}, 'Depth'), 1);
+            if isempty(depthCol), return; end
+
+            % Depth is clamped to its own bounds on dispatch, so a working
+            % maximum below full depth would quietly weaken the reminder.
+            if obj.P.Depth.Max < obj.REMINDER_DEPTH_
+                vprintf(0,1,['Reminder depth %g dB is above Maximum Depth (%g dB) ' ...
+                    'and will be clamped when dispatched'], obj.REMINDER_DEPTH_, obj.P.Depth.Max)
+            end
+
+            vprintf(3,'Reminder trial: Depth = %g dB', obj.REMINDER_DEPTH_)
+            obj.runtime_.TRIALS(obj.subjectIdx_).trials{nextTrialID, depthCol} = obj.REMINDER_DEPTH_;
+        end
 
         function p = ensureSelectorParameter_(obj, name, value, options)
             % p = ensureSelectorParameter_(obj, name, value, Type=..., Format=..., Description=...)

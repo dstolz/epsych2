@@ -102,11 +102,10 @@ self.H.tb_protocol_designer = uipushtool(tb, ...
     'Tooltip','Protocol Designer... (Ctrl+P)', ...
     'ClickedCallback', @(~,~) self.LaunchUtility("ProtocolDesigner"));
 
-% Toggle form of Utilities > Live Webcam View (No Recording): same 'setup'
-% disable-while-RUNNING behavior as the menu item (see the comment above
-% mnu_vlc_liveview for why it must not open mid-run). ToggleVideoLiveView may
-% refuse or fail, so UpdateVideoLiveViewUI_ always resets State to the actual
-% view state afterwards.
+% Toggle form of Utilities > Live Webcam View (No Recording). Usable in every
+% state, RUNNING included: UpdateGUIstate re-enables it after the 'setup'
+% lockout. ToggleVideoLiveView may refuse or fail, so UpdateVideoLiveViewUI_
+% always resets State to the actual view state afterwards.
 self.H.tb_liveview = uitoggletool(tb, ...
     'Tag','setup_tb_liveview', ...
     'Icon',localToolbarIcon("liveview"), ...
@@ -115,15 +114,17 @@ self.H.tb_liveview = uitoggletool(tb, ...
     'ClickedCallback', @(~,~) self.ToggleVideoLiveView);
 
 % Webcam recording opt-in, formerly a bottom-bar checkbox. Pressed = record
-% this run. Keeps the 'setup_record_video' tag and handle name: the tag
-% disables it while RUNNING and epsych.SelfTest checks the handle by name.
+% this run -- and, pressed or released mid-session, start or stop recording
+% right away (onRecordVideoToggled_). Keeps the 'setup_record_video' tag and
+% handle name: epsych.SelfTest checks the handle by name.
 self.H.setup_record_video = uitoggletool(tb, ...
     'Tag','setup_record_video', ...
     'Icon',localToolbarIcon("record"), ...
     'State', logical(getpref('ep_RunExpt_Video','EnableRecording',false)), ...
     'Tooltip', ['Record webcam video via VLC during the run (never during Preview).' newline ...
+                'Toggling during a session starts or stops recording immediately.' newline ...
                 'Camera: Utilities > Webcam Recorder Setup.  Save location: Customize > Paths.'], ...
-    'ClickedCallback', @(h,~) setpref('ep_RunExpt_Video','EnableRecording',logical(h.State)));
+    'ClickedCallback', @(h,~) self.onRecordVideoToggled_(logical(h.State)));
 
 % Toggle form of View > Always On Top. AlwaysOnTop syncs the menu item's
 % Checked state and this toggle's State, so the two entry points never
@@ -194,9 +195,10 @@ self.H.mnu_vlc_setup = uimenu(mUtil,'Label','Webcam Recorder Setup...','Enable',
 
 % Watch the camera without writing a file. The label states the no-recording
 % behavior outright; UpdateVideoLiveViewUI_ keeps it in sync with the view.
-% The 'setup' tag prefix disables it while RUNNING: opening or closing a view
-% restarts VLC, which blocks for ~1 s (and up to 8 s on a clean quit) and must
-% not land inside the trial loop. A view opened beforehand keeps running.
+% Available mid-run (UpdateGUIstate re-enables it after the 'setup' lockout),
+% at the cost of the VLC restart it performs: ~1 s to open, and up to 8 s for
+% a clean quit, during which the trial loop does not run. It still refuses
+% while a recording owns VLC, since Play would end that recording.
 self.H.mnu_vlc_liveview = uimenu(mUtil,'Text','Live Webcam View (No Recording)','Enable','on', ...
     'Tag','setup_mnu_vlc_liveview', ...
     'MenuSelectedFcn', @(~,~) self.ToggleVideoLiveView);

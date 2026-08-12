@@ -42,6 +42,11 @@ third parameter mapped to marker color.
   introduce new categories.
 - **Aesthetics**: right-click the axes for marker style, size, opacity,
   marker color, colormap (color-by mode), log X/Y, and grid.
+- **Pop-out**: right-click → **Open in Separate Window** (the `gui.PopOut`
+  mixin, or the `popOut` method) opens a second, independent scatter over the
+  same data — its own selections and aesthetics, so a large exploratory view
+  never disturbs the one embedded in the GUI. See
+  [gui_PopOut.md](gui_PopOut.md).
 - **Persistence**: parameter selections and aesthetics are saved with
   `setpref`/`getpref` (group `epsych2_gui_ParameterScatter`), keyed to the
   hosting figure `Tag`/`Name` or an explicit `PreferenceTag`, and restored

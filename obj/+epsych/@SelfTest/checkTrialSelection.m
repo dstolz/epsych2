@@ -259,16 +259,10 @@ if C.ntrials == 0
     return
 end
 
-snapshot.parameters    = C.parameters;
-snapshot.trials        = C.trials;
-snapshot.writeparams   = C.writeparams;
-snapshot.writeParamIdx = struct();
-for w = 1:numel(C.writeparams)
-    name = char(string(C.writeparams{w}));
-    if isvarname(name)
-        snapshot.writeParamIdx.(name) = w;
-    end
-end
+% Same four fields, built the same way as a live session's TRIALS, so the
+% snapshot a selector is tested against indexes its columns identically.
+[snapshot.parameters, snapshot.trials, snapshot.writeparams, snapshot.writeParamIdx] = ...
+    epsych.Runtime.compiledTrialColumns(C);
 
 snapshot.Subject   = cfg.SUBJECT;
 snapshot.BoxID     = 1;

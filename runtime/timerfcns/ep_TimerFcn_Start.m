@@ -25,18 +25,14 @@ for i = 1:nSubjs
     compiled = C.PROTOCOL.COMPILED;
     selectorConfig = struct('trialFunc', C.PROTOCOL.Options.trialFunc);
 
-    T(i).parameters    = compiled.parameters;
-    T(i).trials        = compiled.trials;
-
-    % Write-parameter mapping: writeparams is a column-ordered cell of valid
-    % parameter names; writeParamIdx maps each valid-name to its trial column.
+    % Trial table and the column map that names its columns, installed
+    % together: writeparams is a column-ordered cell of valid parameter
+    % names and writeParamIdx maps each valid-name to its trial column.
     % Consumers (gui.Parameter_Update, updateTrialsFromParameters,
-    % eval_*_training_mode) rely on these to locate writable columns.
-    T(i).writeparams   = compiled.writeparams;
-    T(i).writeParamIdx = struct();
-    for w = 1:numel(compiled.writeparams)
-        T(i).writeParamIdx.(compiled.writeparams{w}) = w;
-    end
+    % eval_*_training_mode, gui.NextTrial) rely on these to locate writable
+    % columns, so the safe-boundary recompile must refresh them the same way.
+    [T(i).parameters, T(i).trials, T(i).writeparams, T(i).writeParamIdx] = ...
+        epsych.Runtime.compiledTrialColumns(compiled);
     T(i).selector      = epsych.TrialSelector.create(selectorConfig);
     T(i).selector.initialize(T(i));
     T(i).selector.setRuntime(RUNTIME, i);

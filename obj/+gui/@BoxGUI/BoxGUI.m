@@ -33,6 +33,12 @@ classdef (Abstract) BoxGUI < handle
     %   connected interfaces (epsych.SelfTest check I6): addControl and
     %   addButton silently skip parameter names that do not resolve.
     %
+    %   Display components that inherit gui.PopOut (the scatter, history,
+    %   performance, next-trial, monitor, and plot components) can be opened
+    %   in a window of their own from their right-click menu, or from a
+    %   button made with addPopOutButton. A pop-out is a separate instance
+    %   over the same data, so it never disturbs the embedded one.
+    %
     %   NewData listener source: when createPsych returns a psychophysics
     %   object, NewData is taken from Psych.Helper so the psych object has
     %   already processed the trial before onNewData runs; otherwise
@@ -465,6 +471,38 @@ classdef (Abstract) BoxGUI < handle
             end
 
             h = gui.SessionPerformance(source, parent, args{:});
+            obj.register(h);
+        end
+
+        function h = addPopOutButton(obj, parent, component, options)
+            % h = addPopOutButton(obj, parent, component, Text=..., Tooltip=...)
+            % Create a button that opens a display in a window of its own,
+            % for something an operator only wants to see occasionally.
+            %  component - any gui.PopOut component (gui.ParameterScatter,
+            %              gui.History, gui.SessionPerformance, gui.NextTrial,
+            %              gui.Parameter_Monitor, gui.PsychPlot, a plotted
+            %              psychophysics.Staircase, ...). A component that is
+            %              not poppable is skipped with a message, matching
+            %              addControl's tolerance of missing parameters.
+            % The embedded component is left exactly as it is; the button
+            % opens its pop-out, or raises the window when one is already up.
+            arguments
+                obj
+                parent (1,1)
+                component
+                options.Text (1,:) char = 'Pop Out'
+                options.Tooltip (1,:) char = 'Open this display in a separate window'
+            end
+
+            h = [];
+            if isempty(component) || ~isa(component,'gui.PopOut') || ~isvalid(component)
+                vprintf(2, 'gui.BoxGUI: pop-out button skipped; component is not a gui.PopOut')
+                return
+            end
+
+            h = uibutton(parent, 'Text', options.Text, ...
+                'Tooltip', options.Tooltip, ...
+                'ButtonPushedFcn', @(~,~) component.popOut());
             obj.register(h);
         end
 

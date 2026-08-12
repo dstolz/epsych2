@@ -1,14 +1,18 @@
-classdef PsychPlot < handle
+classdef PsychPlot < gui.PopOut
     % obj = gui.PsychPlot(pObj, ax)
     % Online psychometric summary plot (d', hit rate, FA rate, bias).
     %
     % The plot listens to the psychophysics object's Helper.NewData event
     % and refreshes automatically when new trial data arrive.
     %
+    % Right-click the axes for "Open in Separate Window" (see gui.PopOut):
+    % a second, independent plot of the same psychophysics object, whose
+    % plot type and axis scaling are its own.
+    %
     % Inputs:
     %   pObj - psychophysics object (e.g., psychophysics.Detection).
     %   ax   - Target axes (default = gca).
-    
+
     properties
         ax       (1,1)
         
@@ -31,6 +35,10 @@ classdef PsychPlot < handle
         TextH
 
         hl_NewData
+    end
+
+    properties (Access = private)
+        ContextMenuH_ = [] % right-click menu on the axes
     end
     
     
@@ -63,12 +71,20 @@ classdef PsychPlot < handle
             obj.setup_yaxis_label;
 
             obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update_plot);
+
+            obj.build_context_menu_;
         end
 
         function delete(obj)
-            % Destructor: cleans up the listener.
+            % Destructor: cleans up the listener and the context menu.
             try
                 delete(obj.hl_NewData);
+            end
+            try
+                if ~isempty(obj.ContextMenuH_) && isvalid(obj.ContextMenuH_)
+                    delete(obj.ContextMenuH_);
+                end
+            catch
             end
         end
         
@@ -217,5 +233,47 @@ classdef PsychPlot < handle
             obj.update_plot;
         end
     end
-    
+
+
+    methods (Access = protected)
+
+        function c = popOutHostContainer_(obj)
+            % Axes this plot was built into (gui.PopOut).
+            c = obj.ax;
+        end
+
+        function h = createPopOut_(obj,container)
+            % A second psychometric plot on the same psychophysics object,
+            % in its own window. gui.PsychPlot needs a classic axes, which
+            % axes() inside the pop-out's panel provides.
+            popAx = axes(container);
+            h = gui.PsychPlot(obj.psychObj,popAx);
+            h.PlotType    = obj.PlotType;
+            h.LineColor   = obj.LineColor;
+            h.MarkerColor = obj.MarkerColor;
+            h.logx        = obj.logx;
+            h.update_plot;
+        end
+    end
+
+
+    methods (Access = private)
+
+        function build_context_menu_(obj)
+            % The pop-out item is the whole menu here: everything else this
+            % plot offers is on the clickable axis labels.
+            f = ancestor(obj.ax,'figure');
+            if isempty(f) || ~isvalid(f), return; end
+            try
+                cm = uicontextmenu(f);
+                obj.ContextMenuH_ = cm;
+                obj.addPopOutMenu_(cm,Separator=false);
+                obj.ax.ContextMenu = cm;
+            catch ME
+                vprintf(3,'gui.PsychPlot: context menu unavailable: %s',ME.message)
+                obj.ContextMenuH_ = [];
+            end
+        end
+    end
+
 end

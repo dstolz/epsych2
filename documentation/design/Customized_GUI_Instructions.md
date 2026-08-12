@@ -231,7 +231,7 @@ In `create_gui.m`, toggles such as “Shape” and “Reminder” attach to `cl_
 Use this approach when:
 
 * you must coordinate with other parameters
-* you must enforce state constraints (e.g., block reminder trials while “Deliver Trials” is active)
+* you must enforce state constraints (e.g., refuse an override the hardware cannot honor in its current state)
 * you need to trigger trial-level behavior (`R.TRIALS.FORCE_TRIAL = true`)
 
 ### 3.3 Evaluators: `EvaluatorFcn` for dependent parameters
@@ -398,8 +398,11 @@ Best practices:
 
 GUIs often provide “manual overrides” or training toggles. Use guarded logic:
 
-* check constraints (e.g., block Reminder trials if auto-delivery is active)
+* check constraints before acting (e.g., refuse a manual override the hardware cannot honor)
 * reset the control state if an action is rejected
+* resolve parameters by name through `obj.P` or `RUNTIME.P`, not by a hand-written
+  `find_parameter` call: names carry no `~`/`!` trigger prefix, so an exact-match lookup
+  on a prefixed name silently returns `[]` and the handler errors on the next line
 * keep trial logic and UI logic separated:
 
   * UI initiates an action (set a parameter or flag)
@@ -407,7 +410,8 @@ GUIs often provide “manual overrides” or training toggles. Use guarded logic
 
 Example patterns:
 
-* “Reminder” sets `R.TRIALS.FORCE_TRIAL = true` after validation.
+* “Reminder” sets `R.TRIALS.FORCE_TRIAL = true`; the trial selector reads the toggle and
+  chooses the row and the stimulus level.
 * “Shape” temporarily sets stimulus depth to 100% and then restores.
 
 ## 9) Suggested development workflow

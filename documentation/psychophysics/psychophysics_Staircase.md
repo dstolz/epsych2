@@ -199,6 +199,14 @@ tracked values with `20*log10(x)`, so the reported threshold and reversal values
 then taken in the decibel domain, the dB threshold is not simply `20*log10` of the linear
 threshold.
 
+The same menu offers **Open in Separate Window** (`S.popOut()`), which plots the staircase
+larger in a window of its own. That window holds a *second* `psychophysics.Staircase` over the
+same trials — the settings above are analysis settings, so a shared object would make changing
+them in the pop-out rewrite the embedded plot too. The sibling starts from the host's trials and
+settings, follows the same `NewData` events, and is deleted with its window; closing it, or
+changing anything in it, leaves the GUI's plot alone. See
+[../gui/gui_PopOut.md](../gui/gui_PopOut.md).
+
 ## How Analysis Works
 
 ### 1. Trial selection
@@ -276,6 +284,7 @@ S.Plot();
 - `epsych.BitMask`
 - `epsych.Helper`
 - `hw.Parameter`
+- [`gui.PopOut`](../gui/gui_PopOut.md) — the plot's **Open in Separate Window** option
 
 ## Changelog
 

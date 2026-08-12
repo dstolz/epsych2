@@ -12,10 +12,13 @@ function report = smoke_test_runexpt_video_recording()
 %      rejects a data filename with no name part.
 %   2) The "Record video" toolbar toggle is present, seeded from the
 %      'EnableRecording' preference, and updates that preference when toggled.
-%   3) The Customize dialog's Video Recording Path field persists to the
+%   3) Both webcam toolbar controls, and the live-view menu item, stay
+%      enabled while STATE is RUNNING, and a mid-run toggle during a Preview
+%      run updates the preference without starting a recording.
+%   4) The Customize dialog's Video Recording Path field persists to the
 %      'RecordingRootDir' preference on OK, and the pre-existing Data Save
 %      Path field still applies (regression check on the Paths tab resize).
-%   4) delete(RunExpt) completes cleanly with no stray figures.
+%   5) delete(RunExpt) completes cleanly with no stray figures.
 
 report = struct();
 report.timestamp = datetime('now');
@@ -75,7 +78,42 @@ catch ME
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end
 
-% Step 3: Customize dialog Video Recording Path persistence
+% Step 3: the webcam controls stay usable mid-session
+% STATE is set directly rather than by starting a run: this exercises the
+% enable contract and the toggle handler without hardware. isTest=true keeps
+% the handler on its Preview branch, so no VLC is ever launched.
+stepName = 'midRunControls';
+try
+    assert(~isempty(rx) && isvalid(rx), 'SmokeTest:PrereqFailed', 'RunExpt instance from Step 2 is unavailable.');
+
+    setpref(PREF_GROUP, 'EnableRecording', false);
+    rx.RUNTIME.isTest = true;
+    rx.STATE = PRGMSTATE.RUNNING;
+    rx.UpdateGUIstate;
+
+    for h = [rx.H.tb_liveview rx.H.mnu_vlc_liveview rx.H.setup_record_video]
+        assert(strcmp(h.Enable,'on'), 'SmokeTest:ControlDisabled', ...
+            'Webcam control "%s" is disabled while RUNNING.', h.Tag);
+    end
+
+    tg = rx.H.setup_record_video;
+    tg.State = 'on';
+    tg.ClickedCallback(tg, []);
+    assert(getpref(PREF_GROUP, 'EnableRecording') == true, ...
+        'SmokeTest:PrefNotUpdated', 'A mid-run press did not persist EnableRecording=true.');
+
+    tg.State = 'off';
+    tg.ClickedCallback(tg, []);
+    setpref(PREF_GROUP, 'EnableRecording', false);
+    rx.STATE = PRGMSTATE.READY;
+    rx.UpdateGUIstate;
+
+    report.steps.(stepName) = struct('passed', true, 'detail', 'Webcam controls stay enabled while RUNNING; mid-run toggle updates the preference.');
+catch ME
+    report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
+end
+
+% Step 4: Customize dialog Video Recording Path persistence
 stepName = 'customizeDialogVideoPath';
 try
     assert(~isempty(rx) && isvalid(rx), 'SmokeTest:PrereqFailed', 'RunExpt instance from Step 2 is unavailable.');
@@ -109,7 +147,7 @@ catch ME
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end
 
-% Step 4: teardown safety (EnableRecording is false, so no VLC involved)
+% Step 5: teardown safety (EnableRecording is false, so no VLC involved)
 % Note: figure1 closure via delete(RunExpt) is asynchronous in this class
 % (pre-existing, independent of this feature — confirmed present on
 % unmodified HEAD), so this only checks that delete() itself does not throw

@@ -1,7 +1,8 @@
 function StartVideoRecording_(self)
 % StartVideoRecording_(self)
 % Begin the per-run webcam recording when enabled via the "Record video"
-% toolbar toggle / 'EnableRecording' preference. Never throws: a failed
+% toolbar toggle / 'EnableRecording' preference. Called at run start, and
+% again whenever the toggle is pressed mid-session. Never throws: a failed
 % recording is reported via vprintf and the run proceeds without video — the
 % experiment matters more than the camera.
 arguments
@@ -19,6 +20,14 @@ if self.VideoLiveViewActive_
     self.StopVideoLiveView_;
 end
 
+% The name comes from the filename ExptDispatch reserved for subject 1, which
+% only exists once a run has been prepared.
+if isempty(self.RUNTIME.SessionDataFilename)
+    vprintf(0,1,'No data filename has been reserved yet; video recording starts with the run.')
+    self.setStatus('Video recording starts with the run.','press Run to begin.')
+    return
+end
+
 try
     root = strtrim(char(getpref('ep_RunExpt_Video','RecordingRootDir','')));
     if isempty(root)
@@ -29,6 +38,7 @@ try
     % Name the recording after subject 1's reserved data file so the video and
     % the .mat it accompanies can be paired by name.
     ffn = epsych.RunExpt.videoRecordingFilename(root, self.RUNTIME.SessionDataFilename(1));
+    ffn = localNextSegment(ffn);
 
     rec = self.getVlcRecorder_();
     rec.set_parameter('RecordingFile', ffn);
@@ -47,4 +57,27 @@ catch ME
     vprintf(0,1,ME)
     vprintf(0,1,'Video recording failed to start; continuing without video.')
     self.setStatus('Video recording failed to start; the session continues without video.')
+end
+
+end
+
+% -----------------------------------------------------------------------
+function ffn = localNextSegment(ffn)
+% Free path for this recording. Normally the name derived from the data file
+% is unused; it is not when the operator stops and restarts recording within
+% one session, and reusing it there would overwrite the segment already
+% finalized on disk. Later segments get a -2, -3 suffix, so the data filename
+% stays the prefix and the pairing survives.
+if ~isfile(ffn), return, end
+
+[pn,name,ext] = fileparts(ffn);
+n = 1;
+candidate = ffn;
+while isfile(candidate)
+    n = n + 1;
+    candidate = fullfile(pn, sprintf('%s-%d%s', name, n, ext));
+end
+
+vprintf(0,'Recording "%s%s" already exists; this segment is "%s-%d%s".',name,ext,name,n,ext)
+ffn = char(candidate);
 end

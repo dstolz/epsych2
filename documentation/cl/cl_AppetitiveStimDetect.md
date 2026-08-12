@@ -22,7 +22,7 @@ to choose the next row of the trials table.
 ## Quick summary
 
 - First trial: select the first stimulus row.
-- Reminder requested: force the reminder row.
+- Reminder requested: force the reminder row and present it at 0 dB depth — see [Reminder trials](#reminder-trials).
 - Hit: make the next stimulus weaker by decreasing `Depth` by `StepOnHit` (direction configurable, see below).
 - Miss: make the next stimulus stronger by increasing `Depth` by `StepOnMiss` (direction configurable, see below).
 - Abort, correct rejection, or false alarm: keep the same stimulus depth. A pending Hit/Miss step is **not** reverted by these outcomes, so it survives any number of intervening catch trials and takes effect on the next stimulus trial.
@@ -56,7 +56,7 @@ The selector always chooses the first matching row (`find(..., 1)`).
 `initialize` builds named lookups (`obj.P` for parameter handles, `obj.T` for trial-table columns) from `TRIALS.parameters`. The protocol must define these writable parameters:
 
 - `TrialType`, `Depth` — trial-table columns driving selection and the staircase (`TrialType` needs one row per code: `0` stimulus, `1` catch, `2` reminder)
-- `ReminderTrials` — when set to `1`, the next trial is forced to the reminder row
+- `ReminderTrials` — when set to `1`, the next trial is forced to the reminder row at 0 dB depth (see [Reminder trials](#reminder-trials))
 - `Depth_StepOnHit` — amount subtracted from `Depth` after a hit
 - `Depth_StepOnMiss` — amount added to `Depth` after a miss
 - `P_Catch` — the catch-trial hazard function. All three of its fields carry meaning: `Min` is the floor, `Value` the step per delivered stimulus trial, `Max` the ceiling. See [Catch-trial hazard function](#catch-trial-hazard-function)
@@ -73,7 +73,7 @@ Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, 
 ## Selection logic (`selectNext`)
 
 1. On the first trial (`TRIALS.TrialIndex == 1`), return the first stimulus row.
-2. If `ReminderTrials` is `1`, return the first reminder row.
+2. If `ReminderTrials` is `1`, return the first reminder row, with its `Depth` overwritten to 0 dB — see [Reminder trials](#reminder-trials).
 3. Decode the completed-trial response history with `epsych.BitMask.decode([TRIALS.DATA.RespCode])`.
 4. Find the depth of the most recent stimulus trial; if none exists yet, start from the maximum compiled depth.
 5. Update the next stimulus depth from the latest outcome:
@@ -84,6 +84,27 @@ Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, 
    - `FalseAlarm`: keep the same depth and restore `StimDelay` randomization; a false alarm that was also an abort schedules a catch row immediately
 6. Only on a Hit or Miss: clamp the new depth to `Depth.Min`/`Depth.Max`, then write it into every stimulus row of the live trials table (through the runtime handle stored by `setRuntime`), so the dispatcher sends the new value to hardware. Abort/CorrectReject/FalseAlarm never touch the table, so a pending step is not lost to an intervening catch trial.
 7. Unless `CatchTrialsEnabled` is off, schedule a catch trial with the hazard probability described below — suppressed after an abort and after a catch trial. Otherwise return the first stimulus row.
+
+## Reminder trials
+
+`cl_AppetitiveDetection_BoxGUI`'s **Reminder** button sets `ReminderTrials` to `1`. Its `PostUpdateFcn` does one thing — set `TRIALS.FORCE_TRIAL = true`, so `ep_TimerFcn_RunTime` stops waiting for the current trial to complete and comes round to `selectNext` immediately. Everything about *what* the reminder is lives here, in the selector.
+
+A reminder is a **signal-present trial at 0 dB depth** — full modulation, the most salient stimulus the task produces — regardless of where the staircase currently sits. `forceReminderTrial_` writes that depth into the reminder row of the live trials table rather than reading whatever the protocol compiled there, so the reminder does not depend on the protocol's `Depth` values.
+
+The trial keeps `TrialType = 2`, which is what makes the override safe:
+
+- the staircase measures from the last completed **stimulus** trial, so the reminder's 0 dB never becomes `lastStim` — the pending depth survives the interruption instead of resetting the session's threshold estimate
+- the catch-trial hazard ignores reminder trials, so the catch schedule is neither advanced nor reset
+- the Next Trial panel and the Response History label the trial from `TrialTypeNames`, so it reads as `Reminder` rather than as an anomalous stimulus trial
+
+The reminder's *outcome* still steps the staircase, as any completed trial does.
+
+Two edge cases are reported rather than papered over:
+
+- **No reminder row compiled.** Borrowing a stimulus row would overwrite the depth the staircase is holding there, so the selector logs at level 0 and presents an ordinary stimulus trial at the current depth instead.
+- **`Depth.Max` below 0 dB.** `hw.Parameter` clamps `Depth` to its own bounds on dispatch, so a working maximum below full depth would quietly weaken the reminder. The selector logs at level 0 when this is the case; raise **Maximum Depth (dB)** if reminders must reach full depth.
+
+Behavior is covered end to end by `tmp/smoke_test_reminder_trial.m`.
 
 ## Catch-trial hazard function
 

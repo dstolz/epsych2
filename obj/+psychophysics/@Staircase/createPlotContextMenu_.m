@@ -2,7 +2,7 @@ function createPlotContextMenu_(obj)
 % createPlotContextMenu_(obj)
 % Build a right-click context menu on the plot axes for adjusting
 % ThresholdFromLastNReversals, ThresholdFormula, ConvertToDecibels, ShowSteps,
-% and ShowReversals.
+% and ShowReversals, and for opening the plot in a window of its own.
 %
 % Parameters:
 %   obj — psychophysics.Staircase instance
@@ -50,6 +50,9 @@ uimenu(cm, 'Text', 'Show Steps', 'Separator', 'on', ...
 uimenu(cm, 'Text', 'Show Reversals', ...
     'Checked', matlab.lang.OnOffSwitchState(obj.ShowReversals), ...
     'MenuSelectedFcn', @(src,~) toggleShowReversals(obj, src));
+
+% --- Pop-out window (gui.PopOut) ---
+obj.addPopOutMenu_(cm);
 
 obj.plotAxes_.ContextMenu = cm;
 obj.plotContextMenu_ = cm;

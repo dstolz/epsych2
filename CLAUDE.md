@@ -183,6 +183,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
 - Real-time visualization: OnlinePlot, Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
 - **gui.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
 - **gui.NextTrial**: generic upcoming-trial display driven by NewTrial events
+- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, PsychPlot, and psychophysics.Staircase; `gui.BoxGUI.addPopOutButton` opens one from a button (documentation/gui/gui_PopOut.md)
 - Session control: StaircaseTraining, StatusBar, Triggers
 - Diagnostics: SelfTest (window for epsych.SelfTest; opened from RunExpt's Help menu)
 - Parameter control: Parameter_Control, Parameter_Monitor, Parameter_Update

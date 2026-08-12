@@ -6,6 +6,11 @@ function ToggleVideoLiveView(self)
 % RECORDING" overlay and title, and the session window shows a matching
 % banner, so a displayed stream is never mistaken for a recorded one.
 %
+% Available mid-session as well as between runs, so an operator can look in on
+% a subject without ending the run. The VLC restart it performs blocks the
+% trial loop for ~1 s (up to 8 s when closing a view), which is the price of
+% opening or closing it during a session.
+%
 % Never throws: the view is a convenience, so a failure is reported and the
 % session carries on.
 %

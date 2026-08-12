@@ -19,6 +19,10 @@ Source: `obj/+gui/@NextTrial/`
 - **User selection**: right-click the table for a **Show Field** menu — one
   checkable entry per field the current protocol declares — plus **Show
   All** and **Reset to Default**.
+- **Pop-out**: the same menu offers **Open in Separate Window** (the
+  `gui.PopOut` mixin), which repeats the display in a window of its own with
+  its own field selection — a large across-the-room readout while the
+  embedded table stays compact. See [gui_PopOut.md](gui_PopOut.md).
 - **Custom formatting**: a `Formatters` map (`validName -> function_handle
   (rawValue) -> char/string`) overrides the default `num2str`/`string`
   rendering for a field, e.g. to decode a numeric trial-type code into a

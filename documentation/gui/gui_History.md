@@ -141,6 +141,10 @@ Right-clicking the table opens a context menu with:
   parameter columns.
 - `Reset Sort (Newest First)` - restore the default row ordering.
 - `Reset Column Order` - restore the default column order.
+- `Open in Separate Window` - a second, independent history table over the
+  same trials, in a window of its own; its columns and sort are its own, so
+  changing them leaves the embedded table alone. See
+  [gui_PopOut.md](gui_PopOut.md).
 
 Column selection, column order, and sort order are saved with `setpref` under
 group `epsych2_gui_History`, keyed by `PreferenceTag` (default: the hosting

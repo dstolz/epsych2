@@ -1,4 +1,4 @@
-classdef Staircase < psychophysics.Psych
+classdef Staircase < psychophysics.Psych & gui.PopOut
     % S = psychophysics.Staircase(RUNTIME, Parameter)
     % S = psychophysics.Staircase(DATA, Parameter)
     % S = psychophysics.Staircase(..., Name=Value)
@@ -33,6 +33,12 @@ classdef Staircase < psychophysics.Psych
     %   S.ExcludedTrials = [1 4 7];
     %   S.Plot();
     %   S.Plot(ax, ShowSteps=false);
+    %   S.popOut();   % the same plot, larger, in a window of its own
+    %
+    % The plot's right-click menu offers "Open in Separate Window" (see
+    % gui.PopOut). That window holds a second Staircase over the same trials
+    % with a plot of its own, so changing its threshold settings, dB axis, or
+    % overlays -- or closing it -- leaves the embedded plot untouched.
     %
     % See documentation/psychophysics/psychophysics_Staircase.md for workflow notes, threshold details, and
     % event-system integration examples.
@@ -404,6 +410,54 @@ classdef Staircase < psychophysics.Psych
             if obj.plotEnabled_
                 obj.updatePlot_();
             end
+        end
+
+        function c = popOutHostContainer_(obj)
+            % Axes this staircase is plotted into (gui.PopOut).
+            c = obj.plotAxes_;
+        end
+
+        function h = createPopOut_(obj, container)
+            % A second staircase over the same trials, plotted in its own
+            % window. A sibling analysis object rather than a second view of
+            % this one: the plot's settings (threshold reversals, formula, dB
+            % axis) are properties of the analysis, so sharing it would make
+            % a change in the pop-out rewrite the embedded plot as well.
+            layout = uigridlayout(container, [1 1]);
+            layout.RowHeight   = {'1x'};
+            layout.ColumnWidth = {'1x'};
+            layout.Padding     = [2 2 2 2];
+            ax = uiaxes(layout);
+
+            source = obj.RUNTIME;
+            if isempty(source), source = obj.DATA; end
+
+            h = psychophysics.Staircase(source, obj.Parameter, ...
+                StimulusTrialType  = obj.StimulusTrialType, ...
+                CatchTrialType     = obj.CatchTrialType, ...
+                StaircaseDirection = obj.StaircaseDirection, ...
+                ConvertToDecibels  = obj.ConvertToDecibels, ...
+                ExcludedTrials     = obj.ExcludedTrials, ...
+                ShowSteps          = obj.ShowSteps, ...
+                ShowReversals      = obj.ShowReversals);
+
+            props = {'ThresholdFromLastNReversals','ThresholdFormula', ...
+                'LineColor','StepColor','NeutralColor','ReversalColor', ...
+                'ThresholdColor','MarkerSize','StepMarkerSize', ...
+                'ReversalMarkerSize','Bits','BitColors'};
+            for k = 1:numel(props)
+                h.(props{k}) = obj.(props{k});
+            end
+
+            % Online, a fresh analysis holds no trials until the next
+            % NewData; hand it the session so far so the window opens on the
+            % same picture instead of an empty axes.
+            if ~isempty(obj.RUNTIME)
+                h.DATA = obj.DATA;
+            end
+            h.refresh();
+
+            h.Plot(ax);
         end
 
 

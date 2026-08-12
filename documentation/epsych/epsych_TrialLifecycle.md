@@ -95,6 +95,8 @@ Before the first trial runs, `ep_TimerFcn_Start` initializes every subject's run
    - `TRIALS.trials` — cell matrix of all unique trial conditions (rows) × parameter values (columns).
    - `TRIALS.writeparams` / `TRIALS.writeParamIdx` — writable-parameter names and their column indices, used by GUI components and `Runtime.updateTrialsFromParameters` to locate writable columns.
 
+   All four come from one call to `epsych.Runtime.compiledTrialColumns(COMPILED)`, which is also how the safe-boundary recompile installs a new table (see Phase 2). The map must never outlive the table it indexes: a recompile that adds or removes a parameter shifts every later column, and a stale map then reads — and writes — the wrong one.
+
 2. **Create and initialize the trial selector.** `epsych.TrialSelector.create(selectorConfig)` returns the appropriate selector subclass (default: `epsych.DefaultTrialSelector`). `selector.initialize(TRIALS)` sets up internal counts or any adaptive state.
 
 3. **Resolve CORE triggers.** `Runtime.resolveCoreParameters(i)` searches for the three required hardware trigger parameters (`NewTrial`, `ResetTrig`, `TrialComplete`) scoped to the subject's box ID and caches them in `RUNTIME.CORE(i)`. An error is thrown immediately if any trigger is missing.
@@ -163,8 +165,9 @@ After data is saved but before the next trial is dispatched, two optional operat
 
 ### Operator Recompile
 
-If `TRIALS.RECOMPILE_REQUESTED` is `true` (set by the operator through a GUI), the protocol is recompiled at this safe boundary:
-- `protocol.compile()` regenerates `TRIALS.parameters` and `TRIALS.trials`.
+If `TRIALS.RECOMPILE_REQUESTED` is `true` (set by the operator through a GUI, or by a phase load), the protocol is recompiled at this safe boundary:
+- `protocol.compile()` regenerates the compiled protocol, and `epsych.Runtime.compiledTrialColumns` installs `parameters`, `trials`, `writeparams`, and `writeParamIdx` together.
+- The column map is part of that install, not an afterthought. A recompile can change the parameter set — a phase load, a protocol edit, or a trial selector that created its own runtime parameters at run start — and every column after the change shifts. Keeping the previous `writeParamIdx` would leave `gui.Parameter_Update`, `updateTrialsFromParameters`, `gui.eval_staircase_training_mode`, and `gui.NextTrial` reading *and writing* the wrong trial column. Regression test: `tmp/smoke_test_recompile_columns.m`.
 - `selector.onRecompile(TRIALS)` lets the selector reconcile its state (e.g., reset trial counts if the number of conditions changed).
 - If recompile fails, the previous state is preserved and an error is logged.
 

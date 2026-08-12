@@ -28,6 +28,10 @@ bitmask arithmetic in `onNewData`).
 - **Supporting counts**: each rate shows its denominator (`18/25`), so a
   rate computed from three trials never reads like a rate computed from
   three hundred.
+- **Pop-out**: right-click → **Open in Separate Window** (the `gui.PopOut`
+  mixin) repeats the summary in a window of its own, with its own analysis
+  object — so watching the last 20 trials there leaves the embedded panel
+  showing the whole session.
 - **Persistence**: window and metric selection are saved with
   `setpref`/`getpref` (group `epsych2_gui_SessionPerformance`), keyed to the
   hosting figure `Tag`/`Name` or an explicit `PreferenceTag`.
@@ -120,15 +124,16 @@ A saved selection takes precedence over the constructor's `Metrics` and
 | `setMetrics(names)` | Choose the metrics displayed; persists like a menu selection |
 | `refresh()` | Redraw from the current results |
 | `summaryText()` | Plain-text summary of what is displayed (also on **Copy Summary**) |
+| `popOut()` / `closePopOut()` / `hasPopOut()` | Open, close, and query the separate-window copy (`gui.PopOut`) |
 
 ## Cleanup
 
 Registered through `gui.BoxGUI.register` (via `addPerformance`), it is
 deleted with the rest of the GUI. `delete(obj)` releases the listeners and
 the context menu, deletes the `SessionMetrics` **it created** (an analysis
-object supplied by the caller is left alone), and deletes the grid layout it
-installed — a container accepts only one layout manager, so leaving it
-behind would block a replacement panel.
+object supplied by the caller is left alone), closes any pop-out window, and
+deletes the grid layout it installed — a container accepts only one layout
+manager, so leaving it behind would block a replacement panel.
 
 ## Example: appetitive detection
 
@@ -150,6 +155,7 @@ The GUI's `onNewData` no longer computes rates: the panel owns its own
 ## See also
 
 - [psychophysics.SessionMetrics](../psychophysics/psychophysics_SessionMetrics.md) — the metrics and the trial-window semantics
+- `gui.PopOut` (`obj/+gui/@PopOut/`) — the separate-window mixin
 - [gui.NextTrial](gui_NextTrial.md) — the same right-click + persistence pattern
 - [gui.History](gui_History.md) — trial-by-trial detail behind these totals
 - [gui.BoxGUI](gui_BoxGUI.md)

@@ -458,6 +458,7 @@ classdef RunExpt < handle
         configureIntanRecorder_(self, interfaces)          % Seed hw.Intan_RHX interfaces from the ep_RunExpt_Intan pref group before they connect
         StartVideoRecording_(self)                          % Begin the per-run webcam recording when the checkbox/preference is enabled
         StopVideoRecording_(self)                           % Stop the active per-run webcam recording, if any
+        onRecordVideoToggled_(self, enable)                 % Persist the "Record video" opt-in and start/stop recording when toggled mid-session
         StopVideoLiveView_(self)                            % Close the display-only webcam view, if any
         UpdateVideoLiveViewUI_(self)                        % Sync the live-view menu item and bottom-bar banner with VideoLiveViewActive_
         promptForDataPath_(self)                            % Ask for the default data directory when the DataPath preference was never set

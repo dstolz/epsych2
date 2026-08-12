@@ -82,7 +82,6 @@ classdef (Abstract) PopOut < handle
             % Open this component in a window of its own, or raise the
             % window if it is already open. Returns the pop-out instance, or
             % [] if one could not be created.
-            h = [];
             if obj.hasPopOut()
                 obj.raisePopOut_();
                 h = obj.PopOutComponent;
@@ -173,7 +172,7 @@ classdef (Abstract) PopOut < handle
             end
         end
 
-        function c = popOutHostContainer_(obj)
+        function c = popOutHostContainer_(~)
             % c = popOutHostContainer_(obj)
             % Container this component was built into. Override it: the
             % pop-out's preference key and window title are scoped by the

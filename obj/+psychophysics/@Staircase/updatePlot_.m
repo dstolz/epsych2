@@ -34,7 +34,8 @@ if obj.ShowSteps
     set(obj.StepH, 'Visible', 'on', 'XData', p.step.x, 'YData', p.step.y, ...
         'SizeData', obj.StepMarkerSize, 'CData', hex2rgb(p.step.c));
 else
-    set(obj.StepH, 'Visible', 'off', 'XData', nan, 'YData', nan, 'CData', "#0");
+    set(obj.StepH, 'Visible', 'off', 'XData', nan, 'YData', nan, ...
+        'CData', hex2rgb(obj.NeutralColor));
 end
 
 
@@ -49,5 +50,6 @@ else
 end
 
 obj.updateThresholdOverlay_();
-axis(obj.plotAxes_,'normal')
+obj.updatePlotLimits_(p);
 obj.updatePlotLabels_();
+obj.updateLegend_(p);

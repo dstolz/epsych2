@@ -111,6 +111,25 @@ S = psychophysics.Staircase(..., Name=Value)
 - `Bits` and `BitColors`
   - Response-code categories and matching display colors used by plotting helpers.
 
+### Appearance properties
+
+- `LineColor`
+  - Color of the staircase trace connecting successive trials.
+- `NeutralColor`
+  - Color of the step halo and of trials with no recognized response bit.
+- `ReversalColor`
+  - Outline color of the reversal triangles.
+- `ThresholdColor`
+  - Color of the threshold line and of its ±1 SD band.
+- `StepColor`
+  - Used by `directionColors_` for step-direction coloring.
+- `MarkerSize`, `StepMarkerSize`, `ReversalMarkerSize`
+  - Scatter `SizeData` for trial markers, step halos, and reversal outlines.
+
+Accent colors deliberately avoid the response-outcome hues defined by
+`epsych.BitMask` (green, red, blue, orange), so an overlay is never mistaken for
+an outcome.
+
 ### Computed properties
 
 - `Results`
@@ -152,6 +171,21 @@ S.disablePlot()
 - `Plot` creates or binds plotting axes and renders the current staircase state.
 - `refreshPlot` redraws the plot from the current computed state.
 - `disablePlot` deletes listeners and graphics owned by the staircase.
+
+### How the plot reads
+
+Marker color is the primary encoding: every trial is drawn in its response-outcome
+color from `BitColors`. Shape separates trial types — circles are stimulus trials,
+diamonds are catch trials. The overlays annotate those markers without hiding them:
+a step draws a soft neutral halo behind its trial, a reversal draws a hollow
+triangle around it, and the threshold is a horizontal line with a ±1 SD band across
+the reversals it was computed from.
+
+The legend sits inside the axes at the lower left, laid out horizontally over an
+opaque background, and lists only what is currently drawn — including one color
+swatch per outcome present in the data. The staircase trace and plain stimulus
+marker are omitted from it, and up/down reversals share a single entry, so it stays
+within two rows in an embedded axes. It is rebuilt only when its contents change.
 
 The y axis is labeled `<Name> (<Unit>)` from the tracked `hw.Parameter`, using its raw `Unit`
 string exactly as entered in the Protocol Designer. Parameters with no unit, and offline

@@ -4,8 +4,8 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
     % OBJ = cl_AppetitiveDetection_BoxGUI(RUNTIME) creates the Caras Lab
     % appetitive detection GUI: trigger buttons, staircase and trial
     % parameter controls, sound controls, phase selection, a trial-state
-    % monitor, the psychometric plot, a parameter scatter, a response
-    % history table, and a session clock.
+    % monitor, the psychometric plot, a parameter scatter, a session
+    % performance summary, a response history table, and a session clock.
     %
     % This is the gui.BoxGUI-based version of cl_AppetitiveDetection_GUI_B.
     % The layout is the same; single-instance enforcement, figure creation,
@@ -34,12 +34,8 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
         FilenameField          % gui.FilenameValidator instance
         hReminder              % Reminder toggle control (also in hButtons)
         UpdateButton           % gui.Parameter_Update commit button
-        lblPerformance         % Label showing session hit/abort/FA rates
-        tableNextTrial         % Table showing the upcoming trial
-
-        ttStimulus = 0;
-        ttCatch    = 1;
-        ttReminder = 2;
+        Performance            % gui.SessionPerformance instance (Session Performance panel)
+        NextTrialPanel         % gui.NextTrial instance showing the upcoming trial
     end
 
     properties (Hidden)
@@ -88,50 +84,17 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
             end
         end
 
-        function onNewTrial(obj, ~, event)
-            % Show the upcoming trial's depth and trial type.
-            if isempty(obj.tableNextTrial) || ~isvalid(obj.tableNextTrial), return; end
-
-            vprintf(4,'Update GUI for next trial')
-
-            D  = event.Data;
-            nt = D.trials(D.NextTrialID,:);
-            am = nt{D.writeParamIdx.Depth};
-            tt = nt{D.writeParamIdx.TrialType};
-
-            switch tt
-                case obj.ttStimulus, ttStr = 'STIM';
-                case obj.ttCatch,    ttStr = 'CATCH';
-                case obj.ttReminder, ttStr = 'REMIND';
-                otherwise,           ttStr = num2str(tt);
-            end
-
-            obj.tableNextTrial.Data = {am, ttStr};
-        end
-
         function onNewData(obj, ~, ~)
             % A Reminder trial is a one-shot: clear the toggle once the
             % trial it forced has completed.
+            %
+            % The session performance summary is not updated here: the
+            % gui.SessionPerformance panel owns its own
+            % psychophysics.SessionMetrics and follows NewData itself.
             if ~isempty(obj.hReminder) && isvalid(obj.hReminder)
                 p = obj.hReminder.Parameter;
                 if p.Value == 1, p.Value = 0; end
             end
-
-            if isempty(obj.Psych) || ~isvalid(obj.Psych), return; end
-            if isempty(obj.lblPerformance) || ~isvalid(obj.lblPerformance), return; end
-
-            % session performance summary
-            rc = obj.Psych.responseCodes;
-            if isempty(rc), return; end
-
-            rc = epsych.BitMask.decode(rc);
-            abortRate = sum(rc.Abort)      ./ sum(rc.TrialType_0);
-            hitRate   = sum(rc.Hit)        ./ sum(rc.Hit | rc.Miss);
-            faRate    = sum(rc.FalseAlarm) ./ sum(rc.TrialType_1);
-
-            obj.lblPerformance.Text = sprintf( ...
-                '  Hit Rate:\t%4.1f%%\nAbort Rate:\t%4.1f%%\nFalse Alarm Rate:\t%4.1f%%', ...
-                hitRate*100, abortRate*100, faRate*100);
         end
 
         function onModeChange(obj, ~, event)

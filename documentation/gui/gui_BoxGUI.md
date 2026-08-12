@@ -92,6 +92,8 @@ All helpers register what they create, guaranteeing teardown (see below).
 - `lay = controlColumn(parent, Title=, Row=, Column=, Rows=, RowHeight=)` — titled panel with a scrollable fixed-row grid, ready for a stack of `addControl` calls.
 - `h = addUpdateButton(parent)` — a `gui.Parameter_Update` commit button. Its `watchedHandles` are filled automatically after `build` with every registered non-trigger, non-autoCommit control, regardless of creation order.
 - `h = addMonitor(parent, params, pollPeriod=, type=, ...)` — a `gui.Parameter_Monitor` over parameters or resolvable names (missing names skipped). Registered monitors stop polling when the session stops.
+- `h = addNextTrial(parent, Fields=, Formatters=, FontSize=, PreferenceTag=)` — a `gui.NextTrial` showing the upcoming trial's parameters, bound to `obj.RUNTIME`. Which fields are shown is programmatic (`Fields`) and/or operator-driven (right-click **Show Field** menu), and persists across sessions.
+- `h = addPerformance(parent, Metrics=, TrialWindow=, FontSize=, ShowHeader=, ShowDetail=, PreferenceTag=)` — a `gui.SessionPerformance` summary (hit / false alarm / abort rates, d', counts) computed by a `psychophysics.SessionMetrics` over `obj.Psych`'s data when there is one, the runtime otherwise. Which trials it summarizes is programmatic (`TrialWindow`) and operator-driven (right-click **Trials Included**), and persists across sessions.
 - `register(comp)` — add **any** component built with its native API (`gui.ParameterScatter`, `gui.History`, `gui.PhaseSelector`, a secondary figure, ...) to the teardown registry.
 - `defer(fcn)` — queue a closure until the first `NewTrial`, when trial data and late-bound parameters exist. Runs immediately if the first trial already happened.
 
@@ -115,4 +117,4 @@ Because of the registry, a subclass normally needs **no destructor at all**. Onl
 - [examples/customgui/ExampleBoxGUI.m](../../examples/customgui/ExampleBoxGUI.m) — the copyable paradigm-GUI template.
 - Validation: `tmp/smoke_test_boxgui.m` (headless; `matlab -batch "run('tmp/smoke_test_boxgui.m')"`).
 
-See also: [Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md) for the surrounding concepts (parameters, events, layout strategy), [Parameter_Control.md](Parameter_Control.md), [Parameter_Update.md](Parameter_Update.md), [Parameter_Monitor.md](Parameter_Monitor.md), [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md).
+See also: [Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md) for the surrounding concepts (parameters, events, layout strategy), [Parameter_Control.md](Parameter_Control.md), [Parameter_Update.md](Parameter_Update.md), [Parameter_Monitor.md](Parameter_Monitor.md), [gui_NextTrial.md](gui_NextTrial.md), [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md).

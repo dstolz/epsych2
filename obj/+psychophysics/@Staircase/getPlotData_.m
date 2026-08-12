@@ -12,8 +12,10 @@ function plotData = getPlotData_(obj)
 %       .step:   x, y, c (step markers)
 %       .revUp:  x, y    (reversal up markers)
 %       .revDown:x, y    (reversal down markers)
+%       .bitsPresent: logical, one per obj.Bits, true when that outcome is plotted
 
 
+plotData.bitsPresent = false(1, numel(obj.Bits));
 plotData.main.x = nan;
 plotData.main.y = nan;
 plotData.main.c = obj.NeutralColor;
@@ -63,11 +65,22 @@ if any(catchMask)
     plotData.catch.c = obj.responseCodeColors_(responseCodes(catchMask));
 end
 
+% Outcomes actually on screen drive which color swatches the legend names.
+plottedCodes = responseCodes(stimMask | catchMask);
+if ~isempty(plottedCodes)
+    decoded = epsych.BitMask.decode(plottedCodes);
+    for idx = 1:numel(obj.Bits)
+        plotData.bitsPresent(idx) = any(decoded.(char(obj.Bits(idx))));
+    end
+end
+
+% The halo only marks that the staircase moved; the trial marker it sits
+% behind already carries the outcome color, so it stays a single neutral hue.
 stepMask = valid & ~isnan(direction) & direction ~= 0;
 if any(stepMask)
     plotData.step.x = trialIndex(stepMask);
     plotData.step.y = trialValue(stepMask);
-    plotData.step.c = obj.responseCodeColors_(responseCodes(stepMask));
+    plotData.step.c = repmat(obj.NeutralColor, sum(stepMask), 1);
 end
 
 

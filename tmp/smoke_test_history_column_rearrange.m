@@ -25,9 +25,11 @@ f1 = uifigure('Visible','off','Tag','SmokeHistCol1');
 H1 = gui.History(P1, f1, PreferenceTag='smokeHistCol1');
 assert(isequal(H1.TableH.ColumnRearrangeable, matlab.lang.OnOffSwitchState.on), ...
     'table should be configured as column-rearrangeable');
-defaultOrder = {'Time';'Response';'FreqHz';'LevelDB'};
+defaultOrder = {'Trial';'Time';'Response';'FreqHz';'LevelDB'};
 assert(isequal(cellstr(string(H1.TableH.ColumnName(:))), defaultOrder), ...
-    'default column order should be Time, Response, then DATA fields in order');
+    'default column order should be Trial, Time, Response, then DATA fields in order');
+assert(isempty(H1.TableH.RowName), ...
+    'row headers should be off; the trial number is a Trial column instead');
 fprintf('PASS: default column order\n');
 
 % 2. Simulate a drag-to-rearrange event and confirm it persists ----------
@@ -35,7 +37,9 @@ fakeEvent = struct('Interaction','rearrange', ...
     'DisplayColumnName',{{'LevelDB','Time','FreqHz','Response'}});
 feval(H1.TableH.DisplayDataChangedFcn, H1.TableH, fakeEvent);
 H1.update(); % next refresh should apply the newly-recorded order
-rearrangedOrder = {'LevelDB';'Time';'FreqHz';'Response'};
+% The fake event omits Trial, so it lands last: resolveColumnOrder appends
+% columns the saved order does not mention.
+rearrangedOrder = {'LevelDB';'Time';'FreqHz';'Response';'Trial'};
 assert(isequal(cellstr(string(H1.TableH.ColumnName(:))), rearrangedOrder), ...
     'column order should follow the simulated drag-to-rearrange event');
 delete(H1); close(f1);
@@ -46,7 +50,10 @@ P2 = psychophysics.FakeHistoryPsych('FreqHz');
 P2.setData(makeData(5));
 f2 = uifigure('Visible','off','Tag','SmokeHistCol2');
 H2 = gui.History(P2, f2, PreferenceTag='smokeHistCol1');
-assert(isequal(cellstr(string(H2.TableH.ColumnName(:))), rearrangedOrder), ...
+% A saved order predating the Trial column is migrated by leading with it,
+% rather than letting it be appended to the far right.
+recalledOrder = {'Trial';'LevelDB';'Time';'FreqHz';'Response'};
+assert(isequal(cellstr(string(H2.TableH.ColumnName(:))), recalledOrder), ...
     'saved column order should be recalled by a new instance on load');
 delete(H2); close(f2);
 fprintf('PASS: column order recalled from a prior session via preferences\n');
@@ -59,7 +66,7 @@ P3.setData(makeDataNoLevel(5)); % no LevelDB field this session
 f3 = uifigure('Visible','off','Tag','SmokeHistCol3');
 H3 = gui.History(P3, f3, PreferenceTag='smokeHistCol1');
 gotOrder = cellstr(string(H3.TableH.ColumnName(:)));
-assert(isequal(gotOrder, {'Time';'FreqHz';'Response'}), ...
+assert(isequal(gotOrder, {'Trial';'Time';'FreqHz';'Response'}), ...
     'missing saved column should be dropped, remaining known columns kept in saved order (got %s)', ...
     strjoin(gotOrder,', '));
 delete(H3); close(f3);

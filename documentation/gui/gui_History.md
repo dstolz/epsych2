@@ -64,14 +64,18 @@ H = gui.History(pObj, container, PreferenceTag=tag)
 
 The table shows these columns in order:
 
-1. `Time` (relative to first trial timestamp, formatted `mm:ss`)
-2. `Response` (decoded response bit text)
-3. Each field in `ParametersOfInterest`
+1. `Trial` (chronological trial number)
+2. `Time` (relative to first trial timestamp, formatted `mm:ss`)
+3. `Response` (decoded response bit text)
+4. Each field in `ParametersOfInterest`
 
 Rows are displayed newest-first by default. Clicking a column header sorts by
 that column (click again to reverse direction). Sorting uses raw trial values,
 so numeric columns order numerically rather than lexicographically, and the
 selected sort persists across trial updates.
+
+The trial number is a normal column rather than the `uitable` row header, so
+row headers are turned off. See [Update Cost](#update-cost) for why.
 
 Dragging a column header to a new position rearranges the columns; the chosen
 order persists across trial updates and MATLAB sessions. If a previously
@@ -85,12 +89,49 @@ without a configured format use their natural string form.
 
 Compatibility notes:
 
+- `ColumnFormats` covers every displayed column, so a per-column list must now
+  include the leading `Trial` column (one more entry than before it existed).
+  A single format, and `ParameterColumnFormats`, are unaffected.
 - `ParameterColumnFormats` remains supported for legacy parameter-only
   formatting.
 - When both `ColumnFormats` and `ParameterColumnFormats` are set,
   `ColumnFormats` takes precedence.
 - Formats are remembered per parameter, so columns toggled off and back on
   via the context menu keep their configured format.
+
+## Update Cost
+
+`update` runs once per trial from inside the runtime timer callback chain, so
+its cost is time the trial loop is blocked. Measured on R2024b, the cost is
+dominated by the `uifigure` table's view layer, not by MATLAB-side work:
+
+- Each **changed** table property (`Data`, `RowName`, `BackgroundColor`) costs
+  roughly 30-40 ms of view round-trip, and they are additive.
+- That cost is essentially **flat in the number of rows**: rendering 50 rows
+  and 2000 rows measured within noise of each other. Showing every trial is
+  therefore not what makes the table slow, and capping the rows would not help.
+- A change in the **row count** costs a further 40-70 ms, because the view
+  rebuilds its row model rather than repainting cells.
+
+Three consequences shape the current design:
+
+- The trial number is a `Trial` **column**, not a `RowName`. Row headers change
+  on every trial under newest-first ordering, so writing them cost a full
+  property round-trip per trial for information a column carries for free.
+- Rendered rows are padded to a multiple of `RowBlockSize` (default 50) with
+  blank white rows, so the row count changes once per block instead of once per
+  trial. Set `RowBlockSize = 1` to render an exact row count and take the
+  per-trial rebuild instead.
+- `ColumnName` and `ColumnFormat` are written only when they actually change.
+
+There is no per-update `vprintf`. `GLogVerbosity` defaults to `Inf`, so a
+level-4 record is never suppressed and would cost a `dbstack('-completenames')`
+plus a log write on every trial. Lowering `GLogVerbosity` to a finite level on
+a rig removes that class of cost application-wide; see
+[../eplog/eplog_Logging.md](../eplog/eplog_Logging.md).
+
+Measure with `tmp/smoke_test_history_perf.m`; behavior is covered by
+`tmp/smoke_test_history_render.m`.
 
 ## Context Menu and Preferences
 
@@ -154,6 +195,13 @@ H.update();
 
 ## Version History
 
+- 2026-08-12: Update-speed work, roughly 2.5x faster per trial (145 ms -> 57 ms
+  at 10 trials, 158 ms -> 67 ms at 1000). The trial number moved from the
+  `uitable` row header into a leading `Trial` column; rendered rows are padded
+  to `RowBlockSize` so the row count rarely changes; `ColumnName`/`ColumnFormat`
+  are written only when changed; the per-update `vprintf` was removed; and
+  `refreshColumnsMenu` is skipped unless the field set moved. Saved column
+  orders from before this change are migrated by leading with `Trial`.
 - 2026-08-07: Added drag-to-rearrange columns (uifigure containers), with
   the chosen order persisted via `getpref`/`setpref` and a `Reset Column
   Order` context menu entry.

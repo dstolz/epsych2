@@ -166,10 +166,11 @@ flowchart TD
     I --> I1[psychophysics.Staircase]
     I --> I4[psychophysics.BestPEST]
     I --> I5[psychophysics.MLP]
+    I --> I6[psychophysics.SessionMetrics]
     C --> I3[psychophysics.Detection]
     H --> J[gui.Parameter_Control<br/>gui.Parameter_Update<br/>gui.Parameter_Monitor]
     D --> K[gui.OnlinePlot<br/>gui.PsychPlot<br/>gui.ModeIndicator]
-    D --> L[gui.History<br/>gui.Performance<br/>gui.SlidingWindowPerformancePlot]
+    D --> L[gui.History<br/>gui.SessionPerformance<br/>gui.Performance<br/>gui.SlidingWindowPerformancePlot]
     C --> M[cl_AppetitiveDetection_GUI_B]
     C --> N[peripherals.PumpCom]
     C --> O[peripherals.NanoMotorControl<br/>peripherals.NanoMotorControlGUI]
@@ -208,11 +209,11 @@ Trial selection
 └─ epsych.DefaultTrialSelector / cl_AppetitiveStimDetect
    ↓
 Analysis and visualization
-├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.BestPEST / psychophysics.MLP
+├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.BestPEST / psychophysics.MLP / psychophysics.SessionMetrics
 ├─ psychophysics.Detection
 ├─ gui.Parameter_Control / gui.Parameter_Update / gui.Parameter_Monitor
 ├─ gui.OnlinePlot / gui.PsychPlot / gui.ModeIndicator
-└─ gui.History / gui.Performance / gui.SlidingWindowPerformancePlot
+└─ gui.History / gui.SessionPerformance / gui.Performance / gui.SlidingWindowPerformancePlot
    ↓
 Task and support branches
 ├─ cl_AppetitiveDetection_GUI_B

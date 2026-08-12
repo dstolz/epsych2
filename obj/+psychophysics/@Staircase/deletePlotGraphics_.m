@@ -13,6 +13,8 @@ if ~isempty(obj.h_thrline) && isvalid(obj.h_thrline), delete(obj.h_thrline); end
 if ~isempty(obj.StepH) && isvalid(obj.StepH), delete(obj.StepH); end
 if ~isempty(obj.ReversalUpH) && isvalid(obj.ReversalUpH), delete(obj.ReversalUpH); end
 if ~isempty(obj.ReversalDownH) && isvalid(obj.ReversalDownH), delete(obj.ReversalDownH); end
+if ~isempty(obj.bitSwatchH_), delete(obj.bitSwatchH_(isvalid(obj.bitSwatchH_))); end
+if ~isempty(obj.legendH_) && isvalid(obj.legendH_), delete(obj.legendH_); end
 if ~isempty(obj.plotContextMenu_) && isvalid(obj.plotContextMenu_), delete(obj.plotContextMenu_); end
 
 obj.h_line = [];
@@ -23,4 +25,7 @@ obj.h_thrline = [];
 obj.StepH = [];
 obj.ReversalUpH = [];
 obj.ReversalDownH = [];
+obj.bitSwatchH_ = [];
+obj.legendH_ = [];
+obj.legendKey_ = "";
 obj.plotContextMenu_ = [];

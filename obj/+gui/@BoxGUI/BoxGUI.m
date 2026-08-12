@@ -411,6 +411,63 @@ classdef (Abstract) BoxGUI < handle
             obj.register(h);
         end
 
+        function h = addNextTrial(obj, parent, options)
+            % h = addNextTrial(obj, parent, ...)
+            % Create a gui.NextTrial bound to this GUI's runtime and
+            % register it for teardown. See gui.NextTrial for options.
+            arguments
+                obj
+                parent (1,1)
+                options.Fields (1,:) string = string.empty(1,0)
+                options.Formatters = containers.Map('KeyType','char','ValueType','any')
+                options.FontSize (1,1) double = 16
+                options.PreferenceTag (1,:) char = ''
+            end
+
+            args = {'Fields', options.Fields, 'Formatters', options.Formatters, ...
+                'FontSize', options.FontSize};
+            if ~isempty(options.PreferenceTag)
+                args = [args {'PreferenceTag', options.PreferenceTag}];
+            end
+
+            h = gui.NextTrial(obj.RUNTIME, parent, args{:});
+            obj.register(h);
+        end
+
+        function h = addPerformance(obj, parent, options)
+            % h = addPerformance(obj, parent, ...)
+            % Create a gui.SessionPerformance summary and register it for
+            % teardown. It computes through a psychophysics.SessionMetrics
+            % built over this GUI's psychophysics object when there is one
+            % (so the trial-type conventions match), and over the runtime
+            % otherwise. See gui.SessionPerformance for options.
+            arguments
+                obj
+                parent (1,1)
+                options.Metrics (1,:) string = psychophysics.SessionMetrics.defaultMetrics()
+                options.TrialWindow = psychophysics.TrialWindow
+                options.FontSize (1,1) double = 12
+                options.ShowHeader (1,1) logical = true
+                options.ShowDetail (1,1) logical = true
+                options.PreferenceTag (1,:) char = ''
+            end
+
+            source = obj.Psych;
+            if isempty(source) || ~isvalid(source)
+                source = obj.RUNTIME;
+            end
+
+            args = {'Metrics', options.Metrics, 'TrialWindow', options.TrialWindow, ...
+                'FontSize', options.FontSize, 'ShowHeader', options.ShowHeader, ...
+                'ShowDetail', options.ShowDetail};
+            if ~isempty(options.PreferenceTag)
+                args = [args {'PreferenceTag', options.PreferenceTag}];
+            end
+
+            h = gui.SessionPerformance(source, parent, args{:});
+            obj.register(h);
+        end
+
         function comp = register(obj, comp, name)
             % comp = register(obj, comp, name)
             % Add any component (handle object or graphics) to the

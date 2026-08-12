@@ -1,4 +1,4 @@
-classdef ParameterScatter < handle
+classdef ParameterScatter < gui.PopOut
     % obj = gui.ParameterScatter(source, container)
     % Generic trial-parameter scatter plot for custom behavior GUIs.
     %
@@ -31,6 +31,9 @@ classdef ParameterScatter < handle
     % Display behavior:
     %   - Right-click the axes for basic aesthetics: marker style, size,
     %     opacity, color, colormap (for color-by mode), log scales, grid.
+    %   - Right-click > Open in Separate Window (or the popOut method) opens
+    %     a second, independent scatter over the same data in a window of
+    %     its own; see gui.PopOut.
     %   - Parameter selections and aesthetics persist across sessions via
     %     getpref/setpref, keyed to the hosting GUI figure (or an explicit
     %     PreferenceTag). Selections passed to the constructor are the
@@ -98,6 +101,7 @@ classdef ParameterScatter < handle
 
     properties (Access = private)
         DATA_ = []                   % Cached per-trial data struct array
+        Source_ = []                 % Construction source, reused to build a pop-out
         Runtime_ = []                % epsych.Runtime used to resolve the parameter lists
         PanelH_ = []                 % Wrapper panel (legacy-figure hosting only)
         LabelX_ = []                 % X control label (legacy-figure hosting only)
@@ -282,9 +286,45 @@ classdef ParameterScatter < handle
         end
     end
 
+    methods (Access = protected)
+        function c = popOutHostContainer_(obj)
+            % Container this scatter was built into (gui.PopOut).
+            c = obj.ContainerH;
+        end
+
+        function h = createPopOut_(obj,container)
+            % A second scatter over the same source, in its own window.
+            % Current selections are passed as constructor defaults, so the
+            % window opens on what the host is showing; from then on the
+            % pop-out saves and restores its own choices under its own tag,
+            % and nothing it does reaches the host.
+            tag = obj.popOutPreferenceTag_();
+            hasSaved = ispref(obj.PREF_GROUP,tag);
+
+            h = gui.ParameterScatter(obj.Source_,container, ...
+                PreferenceTag=tag, ...
+                BoxID=obj.BoxID, ...
+                XParameter=obj.XParameter, ...
+                YParameter=obj.YParameter, ...
+                ColorParameter=obj.ColorParameter);
+
+            if hasSaved, return; end % it has aesthetics of its own already
+
+            aes = {'Marker','MarkerSize','MarkerColor','MarkerAlpha', ...
+                'ColormapName','LogX','LogY','ShowGrid'};
+            for k = 1:numel(aes)
+                h.(aes{k}) = obj.(aes{k});
+            end
+            h.savePreferences_;
+            h.refreshMenuChecks_;
+            h.update;
+        end
+    end
+
     methods (Access = private)
         function attachSource_(obj,source)
             % Resolve the data source and attach the NewData listener.
+            obj.Source_ = source; % kept so a pop-out can attach to the same source
             if isstruct(source)
                 obj.DATA_ = source; % offline data; no listener
             elseif isa(source,'epsych.Runtime') || (isobject(source) && isprop(source,'HELPER'))
@@ -763,6 +803,8 @@ classdef ParameterScatter < handle
                     'MenuSelectedFcn',@(~,~) obj.toggleAesthetic_('LogY'));
                 uimenu(cm,'Text','Grid','Tag','tgl|ShowGrid', ...
                     'MenuSelectedFcn',@(~,~) obj.toggleAesthetic_('ShowGrid'));
+
+                obj.addPopOutMenu_(cm);
 
                 obj.AxesH.ContextMenu = cm;
                 obj.refreshMenuChecks_;

@@ -181,6 +181,8 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
 #### obj/+gui/ – Reusable GUI Components
 - **gui.BoxGUI** (abstract): base class for custom experiment (BoxFig) GUIs — owns lifecycle, event listeners, position prefs, component-registry teardown, and Parameter_Update wiring; subclasses implement build(fig) (see documentation/gui/gui_BoxGUI.md, template in examples/customgui/)
 - Real-time visualization: OnlinePlot, Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
+- **gui.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
+- **gui.NextTrial**: generic upcoming-trial display driven by NewTrial events
 - Session control: StaircaseTraining, StatusBar, Triggers
 - Diagnostics: SelfTest (window for epsych.SelfTest; opened from RunExpt's Help menu)
 - Parameter control: Parameter_Control, Parameter_Monitor, Parameter_Update
@@ -212,6 +214,10 @@ re-uploading the state table.
 - **psychophysics.Detection**: Hit rate, false alarm rate, d'
 - **psychophysics.Staircase**: Reversal detection and threshold estimation
 - **psychophysics.BestPEST**, **psychophysics.MLP**: Threshold-seeking algorithms
+- **psychophysics.SessionMetrics**: Session-level counts, rates, d' and criterion over a
+  `psychophysics.TrialWindow` (all trials, last N, first N, or an explicit range). The
+  computation behind `gui.SessionPerformance`; also usable headlessly and offline
+  (documentation/psychophysics/psychophysics_SessionMetrics.md)
 
 #### runtime/ – Execution Callbacks & Services
 - **runtime/timerfcns/**: Timer lifecycle (Start, RunTime, Stop, Error)

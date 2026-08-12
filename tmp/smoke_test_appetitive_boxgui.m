@@ -14,7 +14,13 @@ run(fullfile(here,'..','epsych_startup.m'));
 
 PREF_TAG = 'cl_AppetitiveDetection_BoxGUI';
 scatterPrefs = savedScatterPrefs();
-cleanupObj = onCleanup(@() cleanupAll(PREF_TAG, scatterPrefs));
+nextTrialPrefs = savedNextTrialPrefs(PREF_TAG);
+performancePrefs = savedComponentPrefs('epsych2_gui_SessionPerformance', PREF_TAG);
+cleanupObj = onCleanup(@() cleanupAll(PREF_TAG, scatterPrefs, nextTrialPrefs, performancePrefs));
+
+% The performance-panel assertions below expect the metrics build.m asks
+% for, so a selection saved by a real session must not leak into the test.
+clearComponentPrefs('epsych2_gui_SessionPerformance', PREF_TAG);
 
 % 1. Construction ---------------------------------------------------------
 rt = makeRuntime();
@@ -46,8 +52,11 @@ assert(any(strcmp({g.ParameterMonitor.Parameters.Name},'P_Catch_Current')), ...
     'monitor should include the live catch probability');
 assert(isvalid(g.h_ScatterPanel), 'parameter scatter should exist');
 assert(isvalid(g.ResponseHistory), 'response history should exist');
-assert(isvalid(g.tableNextTrial), 'next trial table should exist');
-assert(isvalid(g.lblPerformance), 'performance label should exist');
+assert(isvalid(g.NextTrialPanel) && isvalid(g.NextTrialPanel.TableH), 'next trial panel should exist');
+assert(isvalid(g.Performance) && isa(g.Performance.Analysis,'psychophysics.SessionMetrics'), ...
+    'session performance panel should exist and compute through SessionMetrics');
+assert(isequal(g.Performance.Metrics, ["HitRate","FARate","AbortRate","DPrime"]), ...
+    'performance panel should show the paradigm''s four metrics');
 assert(isvalid(g.PhaseSelector), 'phase selector should exist');
 assert(isvalid(g.SessionClock), 'session clock should exist');
 assert(isequal(g.SessionClock.PanelH.Layout.Row, 1) && isequal(g.SessionClock.PanelH.Layout.Column, 5), ...
@@ -111,12 +120,12 @@ fprintf('PASS: randomization checkbox gates both stimulus-delay bounds\n');
 
 % 6. NewTrial hook --------------------------------------------------------
 rt.HELPER.notify('NewTrial', epsych.TrialsData(fakeTrials(1)));
-assert(isequal(g.tableNextTrial.Data, {0.5,'STIM'}), ...
-    'next trial table should show the stimulus trial');
+assert(isequal(g.NextTrialPanel.TableH.Data, {'Depth','0.5';'TrialTypeNames','STIM'}), ...
+    'next trial panel should show the stimulus trial');
 rt.HELPER.notify('NewTrial', epsych.TrialsData(fakeTrials(2)));
-assert(isequal(g.tableNextTrial.Data, {0,'CATCH'}), ...
-    'next trial table should show the catch trial');
-fprintf('PASS: onNewTrial updates the next-trial table\n');
+assert(isequal(g.NextTrialPanel.TableH.Data, {'Depth','0';'TrialTypeNames','CATCH'}), ...
+    'next trial panel should show the catch trial');
+fprintf('PASS: gui.NextTrial updates from the NewTrial event\n');
 
 % 7. NewData hook ---------------------------------------------------------
 pReminder = g.hReminder.Parameter;
@@ -145,11 +154,14 @@ pause(1.2);
 
 fig = g.h_figure;
 mon = g.ParameterMonitor; scat = g.h_ScatterPanel; hist = g.ResponseHistory;
+nextTrial = g.NextTrialPanel;
+perf = g.Performance; perfAnalysis = perf.Analysis;
 psych = g.Psych;
 close(fig);
 assert(~isvalid(g) && ~isvalid(fig), 'closeGUI should delete the object and figure');
-assert(~isvalid(mon) && ~isvalid(scat) && ~isvalid(hist), ...
+assert(~isvalid(mon) && ~isvalid(scat) && ~isvalid(hist) && ~isvalid(nextTrial) && ~isvalid(perf), ...
     'registered components should be deleted');
+assert(~isvalid(perfAnalysis), 'the performance panel should delete the SessionMetrics it created');
 assert(~isvalid(psych), 'psych object should be deleted');
 t = timerfindall;
 if ~isempty(t)
@@ -261,13 +273,14 @@ end
 
 
 function T = fakeTrials(trialID)
-% Minimal stand-in for RUNTIME.TRIALS as consumed by onNewTrial.
+% Minimal stand-in for RUNTIME.TRIALS as consumed by gui.NextTrial.
 T.Subject = 'TEST';
 T.BoxID = 1;
 T.NextTrialID = trialID;
-T.trials = {0.5, 0; 0, 1};   % Depth, TrialType
+T.trials = {0.5, 'STIM'; 0, 'CATCH'};   % Depth, TrialTypeNames
+T.writeparams = {'Depth','TrialTypeNames'};
 T.writeParamIdx.Depth = 1;
-T.writeParamIdx.TrialType = 2;
+T.writeParamIdx.TrialTypeNames = 2;
 end
 
 
@@ -281,7 +294,48 @@ end
 end
 
 
-function cleanupAll(prefTag, scatterPrefs)
+function s = savedNextTrialPrefs(prefTag)
+% gui.NextTrial keys its saved selection to the hosting figure Tag, which
+% here is the same as PREF_TAG; snapshot it so this test leaves the user's
+% saved selection untouched.
+s = [];
+validName = matlab.lang.makeValidName(prefTag);
+if ispref('epsych2_gui_NextTrial',validName)
+    s = getpref('epsych2_gui_NextTrial',validName);
+end
+end
+
+
+function s = savedComponentPrefs(group, prefTag)
+% Snapshot a component preference keyed to the hosting figure Tag, so this
+% test leaves the user's saved settings untouched.
+s = [];
+validName = matlab.lang.makeValidName(prefTag);
+if ispref(group,validName)
+    s = getpref(group,validName);
+end
+end
+
+
+function clearComponentPrefs(group, prefTag)
+validName = matlab.lang.makeValidName(prefTag);
+if ispref(group,validName)
+    rmpref(group,validName);
+end
+end
+
+
+function restoreComponentPrefs(group, prefTag, saved)
+validName = matlab.lang.makeValidName(prefTag);
+if isempty(saved)
+    clearComponentPrefs(group, prefTag);
+else
+    setpref(group,validName,saved);
+end
+end
+
+
+function cleanupAll(prefTag, scatterPrefs, nextTrialPrefs, performancePrefs)
 if ispref(prefTag)
     rmpref(prefTag);
 end
@@ -292,5 +346,14 @@ if isempty(scatterPrefs)
 else
     setpref('epsych2_gui_ParameterScatter','AppetitiveDetection_ScatterPlot',scatterPrefs);
 end
+validName = matlab.lang.makeValidName(prefTag);
+if isempty(nextTrialPrefs)
+    if ispref('epsych2_gui_NextTrial',validName)
+        rmpref('epsych2_gui_NextTrial',validName);
+    end
+else
+    setpref('epsych2_gui_NextTrial',validName,nextTrialPrefs);
+end
+restoreComponentPrefs('epsych2_gui_SessionPerformance', prefTag, performancePrefs);
 delete(findall(groot,'Type','figure','-and','Tag',prefTag));
 end

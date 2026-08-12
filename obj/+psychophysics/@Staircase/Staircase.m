@@ -45,14 +45,17 @@ classdef Staircase < psychophysics.Psych
         ConvertToDecibels (1,1) logical = false  % If true, convert stimulus values to dB re 100% depth using 20*log10(x); toggled from the plot's right-click menu
 
         % Optional plotting configuration (when enabled via Plot or constructor option).
-        LineColor     (1,1) string = "#1a1a1a"
-        StepColor     (1,1) string = "#e65a1a"
-        NeutralColor  (1,1) string = "#999999"
-        ReversalColor (1,1) string = "#ff0095"
+        % Accent colors avoid the reserved response-outcome hues (green/red/blue/
+        % orange from epsych.BitMask) so overlays never read as an outcome.
+        LineColor      (1,1) string = "#6b7a8f"
+        StepColor      (1,1) string = "#e65a1a"
+        NeutralColor   (1,1) string = "#999999"
+        ReversalColor  (1,1) string = "#b5179e"
+        ThresholdColor (1,1) string = "#0f7c8a"
 
-        MarkerSize (1,1) double {mustBePositive} = 40
-        StepMarkerSize (1,1) double {mustBePositive} = 72
-        ReversalMarkerSize (1,1) double {mustBePositive} = 110
+        MarkerSize (1,1) double {mustBePositive} = 42
+        StepMarkerSize (1,1) double {mustBePositive} = 130
+        ReversalMarkerSize (1,1) double {mustBePositive} = 120
 
         ShowSteps (1,1) logical = true
         ShowReversals (1,1) logical = true
@@ -90,6 +93,9 @@ classdef Staircase < psychophysics.Psych
         StepH
         ReversalUpH
         ReversalDownH
+        bitSwatchH_ = []       % legend-only handles, one per obj.Bits
+        legendH_ = []          % legend built from the currently visible series
+        legendKey_ = ""        % identifies the last legend contents; skips rebuilds
         plotContextMenu_ = []  % uicontextmenu for plot axes
     end
 
@@ -410,9 +416,12 @@ classdef Staircase < psychophysics.Psych
         onPlotFigureClose_(obj, fig)
         deletePlotGraphics_(obj)
         setupPlotAxes_(obj)
+        applyAxesStyle_(obj)
         createPlotContextMenu_(obj)
         updatePlot_(obj)
         updateThresholdOverlay_(obj)
+        updatePlotLimits_(obj, plotData)
+        updateLegend_(obj, plotData)
 
         plotData = getPlotData_(obj);
         % Update any code here that used the old outputs to use plotData fields

@@ -319,13 +319,10 @@ panelNextTrial.Layout.Column = 6;
 
 layoutNextTrial = simple_layout(panelNextTrial);
 
-tableNextTrial = uitable(layoutNextTrial);
-tableNextTrial.Tag            = 'tblNextTrial';
-tableNextTrial.ColumnName     = {'Depth','TrialType'};
-tableNextTrial.RowName        = [];
-tableNextTrial.ColumnEditable = false;
-tableNextTrial.FontSize       = 20;
-obj.tableNextTrial = tableNextTrial;
+% TrialTypeNames is the protocol's own text label for TrialType (STIM,
+% CATCH, REMIND, ...), so it needs no Formatters decode here.
+obj.NextTrialPanel = obj.addNextTrial(layoutNextTrial, ...
+    Fields=["Depth","TrialTypeNames"], FontSize=20);
 
 
 % Axes for Main Plot ------------------------------------------------
@@ -339,25 +336,17 @@ end
 
 
 % Panel for "Performance" --------------------------------------------
+% gui.SessionPerformance computes through a psychophysics.SessionMetrics,
+% so the rates here and the psychometric plot read the same trials. The
+% header names the trial window in effect; right-click to change it (all
+% trials, the last N, or an explicit range) or to add metrics.
 panelPerformance = uipanel(layoutMain, 'Title', 'Session Performance');
 panelPerformance.Layout.Row    = [1 2];
 panelPerformance.Layout.Column = 7;
 
-layoutPerformance = uigridlayout(panelPerformance,[2 1]);
-layoutPerformance.ColumnWidth = {'1x'};
-layoutPerformance.RowHeight   = {'fit','1x'};
-layoutPerformance.RowSpacing  = 4;
-layoutPerformance.Padding     = [0 0 0 0];
-
-h = uilabel(layoutPerformance);
-h.Tag        = 'lblPerformance';
-h.Layout.Row = 2;
-h.Text       = "0";
-h.FontColor  = 'r';
-h.FontSize   = 18;
-h.FontWeight = 'bold';
-h.HorizontalAlignment = "left";
-obj.lblPerformance = h;
+obj.Performance = obj.addPerformance(panelPerformance, ...
+    Metrics=["HitRate","FARate","AbortRate","DPrime"], ...
+    FontSize=11, ShowDetail=false);
 
 
 % Panel for Scatter plot ------------------------------------------------

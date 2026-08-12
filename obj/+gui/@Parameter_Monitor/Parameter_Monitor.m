@@ -1,4 +1,4 @@
-classdef Parameter_Monitor < handle
+classdef Parameter_Monitor < gui.PopOut
 %PARAMETER_MONITOR Poll hw.Parameter objects and display their current values.
 %
 %   Parameter_Monitor attaches to a graphics parent (e.g., uifigure, uipanel,
@@ -58,6 +58,10 @@ classdef Parameter_Monitor < handle
 %     - "Move Up" / "Move Down" reposition the parameter that was
 %       right-clicked. Reordering is a manual arrangement, so it clears any
 %       active table column sort.
+%     - "Open in Separate Window" repeats the monitor in a window of its
+%       own (see gui.PopOut). It is a second monitor with its own timer and
+%       its own visibility/order, so hiding a parameter there does not hide
+%       it in the GUI, and each shown parameter is polled by both.
 %     - Visibility, order, and per-parameter colors persist across sessions
 %       alongside the table sort/arrangement preferences, keyed the same way
 %       (hosting figure Tag/Name or an explicit PreferenceTag). Parameters
@@ -655,6 +659,50 @@ classdef Parameter_Monitor < handle
         update_graphical_(obj)  % efficient per-widget refresh for type="graphical"
     end
 
+    methods (Access = protected)
+
+        function c = popOutHostContainer_(obj)
+            % Container this monitor was built into (gui.PopOut).
+            c = obj.Parent;
+        end
+
+        function h = createPopOut_(obj, container)
+            % A second monitor over the same hw.Parameter objects, in its
+            % own window, with its own timer, visibility, and order. Note it
+            % polls the hardware on its own schedule: with the window open,
+            % every parameter shown in both places is read twice a period.
+            tag = obj.popOutPreferenceTag_();
+            hasSaved = ispref(obj.PREF_GROUP,tag);
+
+            h = gui.Parameter_Monitor(container, obj.Parameters, ...
+                pollPeriod        = obj.pollPeriod, ...
+                type              = obj.type, ...
+                Columns           = obj.Columns, ...
+                PreferenceTag     = string(tag), ...
+                FontSize          = obj.FontSize, ...
+                Styles            = obj.Styles, ...
+                Colors            = obj.Colors, ...
+                BooleanStyle      = obj.BooleanStyle, ...
+                LayoutColumns     = obj.LayoutColumns, ...
+                LabelPosition     = obj.LabelPosition, ...
+                LampOnColor       = obj.LampOnColor, ...
+                LampOffColor      = obj.LampOffColor, ...
+                HighlightOnChange = obj.HighlightOnChange, ...
+                HighlightColor    = obj.HighlightColor);
+
+            if hasSaved, return; end % the constructor already restored its own layout
+
+            % First open: start from what the host is showing.
+            h.HiddenKeys_   = obj.HiddenKeys_;
+            h.OrderKeys_    = obj.OrderKeys_;
+            h.SortByColumn  = obj.SortByColumn;
+            h.SortDirection = obj.SortDirection;
+            h.apply_saved_order_();
+            h.rebuild_display_();
+            h.save_preferences();
+        end
+    end
+
     methods (Access = private)
 
         function create_gui(obj)
@@ -1197,6 +1245,7 @@ classdef Parameter_Monitor < handle
                     'MenuSelectedFcn',@(~,~) obj.move_menu_target_(-1));
                 obj.MoveDownMenuH_ = uimenu(cm,'Text','Move Down', ...
                     'MenuSelectedFcn',@(~,~) obj.move_menu_target_(1));
+                obj.addPopOutMenu_(cm);
 
                 % The parameter list and its checked state are rebuilt each
                 % time the menu opens, so runtime add/remove stays in sync.

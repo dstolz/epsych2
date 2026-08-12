@@ -51,12 +51,12 @@ if ~isempty(obj.Results.Threshold)
         if isscalar(configuredReversals) && isfinite(configuredReversals)
             if isscalar(actualReversals) && isfinite(actualReversals)
                 nUsed = min(actualReversals, configuredReversals);
-                titleParts{end+1} = sprintf('Threshold (%d/%d rev): %.3f', nUsed, configuredReversals, threshold);
+                titleParts{end+1} = sprintf('Threshold (%d/%d rev): %.2f', nUsed, configuredReversals, threshold);
             else
-                titleParts{end+1} = sprintf('Threshold (last %d rev): %.3f', configuredReversals, threshold);
+                titleParts{end+1} = sprintf('Threshold (last %d rev): %.2f', configuredReversals, threshold);
             end
         else
-            titleParts{end+1} = sprintf('Threshold: %.3f', threshold);
+            titleParts{end+1} = sprintf('Threshold: %.2f', threshold);
         end
     end
 end

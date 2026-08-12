@@ -1,4 +1,4 @@
-classdef History < handle
+classdef History < gui.PopOut
     % gui.History
     % Trial-by-trial history table for behavioral sessions.
     %
@@ -9,6 +9,15 @@ classdef History < handle
     %
     % Display behavior:
     %   - The newest trial is shown at the top by default.
+    %   - The chronological trial number is the leading "Trial" column. It is
+    %     not a uitable RowName: every changed table property costs a view
+    %     round-trip of tens of milliseconds regardless of how many rows are
+    %     shown, so rewriting the row headers once per trial was pure cost.
+    %   - Rows are rendered in blocks of RowBlockSize, padded with blank white
+    %     rows. A uitable whose row COUNT changes makes the view rebuild its
+    %     row model, which measures several times more than replacing the cell
+    %     contents at a fixed count; padding pays that once per block instead
+    %     of once per trial. Set RowBlockSize to 1 to render an exact count.
     %   - Column headers are user sortable (uifigure containers); the chosen
     %     sort is reapplied on every trial update rather than being reset.
     %   - Columns are user rearrangeable by dragging a header (uifigure
@@ -17,15 +26,20 @@ classdef History < handle
     %     sorting or column order to their defaults.
     %   - Column selection, order, and sort order persist across sessions
     %     via getpref/setpref, keyed to the hosting GUI figure.
+    %   - Right-click > Open in Separate Window (or the popOut method) opens
+    %     a second, independent table over the same trials in a window of
+    %     its own; see gui.PopOut.
     %
     % Properties:
     %   psychObj             - Linked psychophysics object
-    %   ParametersOfInterest - Data fields shown after Time and Response
+    %   ParametersOfInterest - Data fields shown after Trial, Time and Response
     %   ColumnFormats        - Optional sprintf formats for all displayed columns
     %   ParameterColumnFormats - Legacy sprintf formats for ParametersOfInterest columns
     %   BitColors            - Optional response color override
     %   SortByColumn         - Name of the column used to order rows (default "Time")
     %   SortDirection        - "ascend" or "descend" (default "descend")
+    %   RowBlockSize         - Rendered rows are padded to a multiple of this
+    %                          (default 50); 1 renders an exact row count
     %
     % Methods:
     %   History      - Construct the history table UI and optional listener
@@ -46,6 +60,7 @@ classdef History < handle
         BitColors string = string.empty(0,1)  % Optional hex color override; defaults to psychObj.BitColors
         SortByColumn (1,1) string = "Time"    % Column name used to order rows
         SortDirection (1,1) string {mustBeMember(SortDirection,["ascend","descend"])} = "descend"
+        RowBlockSize (1,1) double {mustBeInteger,mustBePositive} = 50 % Render rows in blocks of this size; 1 disables padding
     end
 
     properties (SetAccess = private)
@@ -66,12 +81,16 @@ classdef History < handle
         FormatMap_ = struct          % Parameter name -> sprintf format
         PreferenceTag_ char = ''     % Optional explicit preference key
         ColumnOrder_ (:,1) cell = {} % User-arranged column display order (persisted)
+        Updating_ = false            % Reentrancy guard for update
+        MenuFields_ = {}             % DATA field names the columns menu was last built from
+        MenuShown_ = {}              % ParametersOfInterest the menu check state was last built from
     end
 
     properties (Constant, Access = private)
         REQUIRED_FIELDS = {'RespCode','TrialID','computerTimestamp'}
         NO_PARAMS_SENTINEL = '(none)' % ParametersOfInterest entry meaning "hide all parameters"
         PREF_GROUP = 'epsych2_gui_History'
+        TRIAL_COLUMN = 'Trial'        % Leading column holding the chronological trial number
     end
 
     methods
@@ -110,9 +129,13 @@ classdef History < handle
             obj.PreferenceTag_ = char(options.PreferenceTag);
             obj.build;
             obj.loadPreferences;
+
             if nargin >= 1 && ~isempty(pObj)
-                obj.psychObj = pObj;
+                % Listener first, then psychObj: set.psychObj validates and
+                % renders, so assigning it last makes that the single initial
+                % render rather than one before the listener exists.
                 obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
+                obj.psychObj = pObj;
             end
         end
 
@@ -131,8 +154,12 @@ classdef History < handle
         function build(obj)
             % build(obj)
             % Create the history uitable in the configured container.
+            % RowName is emptied once and never written again: the trial
+            % number is a Data column instead. Every changed uitable property
+            % costs a view round-trip of tens of ms regardless of row count,
+            % so a per-trial RowName rewrite is pure overhead.
             obj.TableH = uitable(obj.ContainerH,'Unit','Normalized', ...
-                'Position',[0 0 1 1],'RowStriping','off');
+                'Position',[0 0 1 1],'RowStriping','on','RowName',{});
             try
                 obj.TableH.ColumnSortable = true;
                 obj.TableH.ColumnRearrangeable = true;
@@ -147,17 +174,24 @@ classdef History < handle
         function update(obj,~,~)
             % update(obj, ~, ~)
             % Refresh table data, row ordering, labels, formats, and row colors.
-            vprintf(4,'Updating History table')
+            %
+            % No per-update vprintf: with the default GLogVerbosity of Inf a
+            % level-4 record is never suppressed, so it would cost a
+            % dbstack('-completenames') and a log write on every trial.
+            if isempty(obj.TableH) || ~isvalid(obj.TableH), return; end
+            if obj.Updating_, return; end
             if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
             if isempty(obj.psychObj.DATA), return; end
+
+            obj.Updating_ = true;
+            guard = onCleanup(@() obj.endUpdate_);
 
             obj.applyPendingPreferences;
 
             [RD,FN] = obj.rearrange_data;
             if isempty(RD), return; end
 
-            if ~isvalid(obj.TableH), return; end % TO DO: Track down why this function is being called twice
-            columnNames = [{'Time'}; {'Response'}; FN];
+            columnNames = [{obj.TRIAL_COLUMN}; {'Time'}; {'Response'}; FN];
 
             order = obj.resolveDisplayOrder(RD,columnNames);
             obj.Info.DisplayOrder = order;
@@ -168,12 +202,10 @@ classdef History < handle
             columnNames = columnNames(colOrder);
             tableData = tableData(:,colOrder);
 
-            obj.TableH.Data = tableData;
-            obj.TableH.RowName = cellstr(string(obj.Info.TrialNumber(order)));
-            obj.TableH.ColumnName = columnNames;
-            obj.TableH.ColumnFormat = repmat({'char'},1,numel(columnNames));
+            rowColors = obj.resolveRowColors(order);
+            [tableData,rowColors] = obj.padToBlock(tableData,rowColors);
 
-            obj.update_row_colors;
+            obj.writeTable(tableData,columnNames,rowColors);
             obj.refreshColumnsMenu;
         end
 
@@ -225,32 +257,122 @@ classdef History < handle
         end
     end
 
-    methods (Access = private)
-        function update_row_colors(obj)
-            % update_row_colors(obj)
-            % Update row background colors from decoded response bits.
-            if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
+    methods (Access = protected)
+        function c = popOutHostContainer_(obj)
+            % Container this table was built into (gui.PopOut).
+            c = obj.ContainerH;
+        end
 
+        function h = createPopOut_(obj,container)
+            % A second history table over the same psychophysics object, in
+            % its own window. On first open it mirrors the host's columns
+            % and sort; from then on it saves and restores its own layout
+            % under its own tag, so hiding a column there leaves the
+            % embedded table alone.
+            tag = obj.popOutPreferenceTag_();
+            hasSaved = ispref(obj.PREF_GROUP,tag);
+
+            h = gui.History(obj.psychObj,container, ...
+                ColumnFormats=obj.ColumnFormats, ...
+                BitColors=obj.BitColors, ...
+                PreferenceTag=tag);
+            h.RowBlockSize = obj.RowBlockSize;
+
+            if hasSaved, return; end % the constructor already staged its own layout
+
+            % Formats are cleared first so the parameter count can change
+            % without tripping the correspondence check.
+            h.ParameterColumnFormats = string.empty(0,1);
+            h.ParametersOfInterest   = obj.ParametersOfInterest;
+            h.ParameterColumnFormats = obj.ParameterColumnFormats;
+            h.SortByColumn  = obj.SortByColumn;
+            h.SortDirection = obj.SortDirection;
+            h.ColumnOrder_  = obj.ColumnOrder_;
+            h.savePreferences;
+            h.update;
+        end
+    end
+
+    methods (Access = private)
+        function endUpdate_(obj)
+            % endUpdate_(obj)
+            % Release the reentrancy guard; called from update's onCleanup so
+            % an early return or an error cannot leave update wedged shut.
+            obj.Updating_ = false;
+        end
+
+        function C = resolveRowColors(obj,order)
+            % C = resolveRowColors(obj, order)
+            % RGB row colors for the given display order, from decoded
+            % response bits.
+            %
+            % Parameters:
+            %   order - Display row order into the chronological trial list.
+            %
+            % Returns:
+            %   C - numel(order)x3 RGB array.
+            C = zeros(0,3);
+            if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
             if isempty(obj.Info) || ~isfield(obj.Info,'ResponseBit'), return; end
 
             responseBits = epsych.BitMask.getResponses;
             n = numel(obj.Info.ResponseBit);
-            i = [];
-            if isfield(obj.Info,'DisplayOrder'), i = obj.Info.DisplayOrder; end
-            if isempty(i) || numel(i) ~= n
+            i = order(:);
+            if isempty(i) || max(i) > n
                 i = (n:-1:1)'; % default display order: newest trial first
             end
             R = obj.Info.ResponseBit(i);
-            C = repmat(epsych.BitMask.getDefaultColors(epsych.BitMask.Undefined),numel(R),1);
+            hexC = repmat(epsych.BitMask.getDefaultColors(epsych.BitMask.Undefined),numel(R),1);
             bitColors = obj.getBitColors(responseBits);
             for idx = 1:numel(responseBits)
                 b = responseBits(idx);
                 ind = R == b;
                 if ~any(ind), continue; end
-                C(ind) = repmat(bitColors(idx),sum(ind),1);
+                hexC(ind) = repmat(bitColors(idx),sum(ind),1);
             end
-            obj.TableH.BackgroundColor = hex2rgb(C);
-            obj.TableH.RowStriping = 'on';
+            C = hex2rgb(hexC);
+        end
+
+        function [dataOut,colorsOut] = padToBlock(obj,dataIn,colorsIn)
+            % [dataOut, colorsOut] = padToBlock(obj, dataIn, colorsIn)
+            % Pad the rendered rows out to a multiple of RowBlockSize.
+            %
+            % A uitable whose row COUNT changes makes the view rebuild its row
+            % model, which measures several times more than replacing the cell
+            % contents at a fixed count. Holding the count constant between
+            % block boundaries pays that cost once per block instead of once
+            % per trial. Padding rows are blank and white, so they read as
+            % empty space below the oldest trial.
+            dataOut = dataIn;
+            colorsOut = colorsIn;
+            n = size(dataIn,1);
+            blk = obj.RowBlockSize;
+            if blk <= 1 || n == 0, return; end
+
+            cap = max(blk,ceil(n/blk)*blk);
+            if cap == n, return; end
+
+            dataOut = repmat({''},cap,size(dataIn,2));
+            dataOut(1:n,:) = dataIn;
+            colorsOut = ones(cap,3);
+            if ~isempty(colorsIn)
+                colorsOut(1:size(colorsIn,1),:) = colorsIn;
+            end
+        end
+
+        function writeTable(obj,tableData,columnNames,rowColors)
+            % writeTable(obj, tableData, columnNames, rowColors)
+            % Push the rendered table to the uitable, skipping the column
+            % properties when they are unchanged: a changed column name or
+            % format makes the view rebuild its column model.
+            obj.TableH.Data = tableData;
+            if ~isempty(rowColors)
+                obj.TableH.BackgroundColor = rowColors;
+            end
+            if ~isequal(cellstr(string(obj.TableH.ColumnName(:))),columnNames(:))
+                obj.TableH.ColumnName = columnNames;
+                obj.TableH.ColumnFormat = repmat({'char'},1,numel(columnNames));
+            end
         end
 
         function [DataOut,FN] = rearrange_data(obj)
@@ -299,6 +421,10 @@ classdef History < handle
             DataOut = permute(struct2cell(DataIn),[3 1 2]);
             DataOut = [cellstr(Response(:)) DataOut];
             DataOut = [cellstr(obj.Info.RelativeTimestamp(:)) DataOut];
+            % Trial number leads as a normal column rather than a RowName, so
+            % the row headers never have to be rewritten. Kept numeric here so
+            % sorting on it orders numerically.
+            DataOut = [num2cell(obj.Info.TrialNumber(:)) DataOut];
 
             FN = fieldnames(DataIn);
         end
@@ -529,6 +655,7 @@ classdef History < handle
                     'Separator','on','MenuSelectedFcn',@(~,~) obj.resetSort);
                 uimenu(obj.ContextMenuH,'Text','Reset Column Order', ...
                     'MenuSelectedFcn',@(~,~) obj.resetColumnOrder);
+                obj.addPopOutMenu_(obj.ContextMenuH);
                 obj.TableH.ContextMenu = obj.ContextMenuH;
             catch ME
                 vprintf(3,'gui.History: context menu unavailable: %s',ME.message)
@@ -540,6 +667,18 @@ classdef History < handle
             % Rebuild the column submenu when available fields change and
             % refresh the checked state of each entry.
             if isempty(obj.ColumnsMenuH) || ~isvalid(obj.ColumnsMenuH), return; end
+
+            % The menu depends only on the DATA field set and the shown
+            % parameters, neither of which normally changes between trials.
+            % Every Checked write is a view round-trip, so skip the whole
+            % method when nothing it renders has moved.
+            fields = fieldnames(obj.psychObj.DATA);
+            if isequal(fields,obj.MenuFields_) && isequal(obj.ParametersOfInterest,obj.MenuShown_)
+                return
+            end
+            obj.MenuFields_ = fields;
+            obj.MenuShown_ = obj.ParametersOfInterest;
+
             avail = obj.availableParameters;
             if ~isequal(obj.MenuParams_,avail)
                 delete(obj.ColumnsMenuH.Children);
@@ -610,7 +749,14 @@ classdef History < handle
                     obj.SortDirection = s.SortDirection;
                 end
                 if isfield(s,'ColumnOrder') && ~isempty(s.ColumnOrder)
-                    obj.ColumnOrder_ = cellstr(s.ColumnOrder);
+                    stored = cellstr(s.ColumnOrder);
+                    % Orders saved before the Trial column existed would push
+                    % it to the far right, since resolveColumnOrder appends
+                    % unknown columns. Lead with it instead.
+                    if ~ismember(obj.TRIAL_COLUMN,stored)
+                        stored = [{obj.TRIAL_COLUMN}; stored(:)];
+                    end
+                    obj.ColumnOrder_ = stored;
                 end
                 vprintf(3,'gui.History: applied saved preferences')
             catch ME
@@ -720,22 +866,23 @@ classdef History < handle
                 return
             end
 
-            nParameterCols = max(nCols-2,0);
+            % Columns 1-3 are Trial, Time and Response; parameters follow.
+            nParameterCols = max(nCols-3,0);
             if nParameterCols == 0
                 return
             end
 
             if isscalar(parameterFormats)
-                formats(3:end) = repmat(parameterFormats,nParameterCols,1);
+                formats(4:end) = repmat(parameterFormats,nParameterCols,1);
             elseif ~isempty(obj.ParametersOfInterest) && numel(parameterFormats) == numel(obj.ParametersOfInterest)
-                parameterNames = string(columnNames(3:end));
+                parameterNames = string(columnNames(4:end));
                 [isMatched,formatIdx] = ismember(parameterNames,string(obj.ParametersOfInterest));
                 if ~all(isMatched)
                     error("ParameterColumnFormats must correspond to ParametersOfInterest names.");
                 end
-                formats(3:end) = parameterFormats(formatIdx);
+                formats(4:end) = parameterFormats(formatIdx);
             elseif numel(parameterFormats) == nParameterCols
-                formats(3:end) = parameterFormats;
+                formats(4:end) = parameterFormats;
             else
                 error("ParameterColumnFormats must provide one format or one format per parameter column.");
             end

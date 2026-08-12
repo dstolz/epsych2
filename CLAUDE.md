@@ -57,6 +57,32 @@ EPsych does not have a formal automated test suite. Manual validation is perform
 - Protocol validation through epsych.Protocol.validate() method
 - Trial preview via RunExpt GUI's "View Trials" button before running experiments
 
+#### Running MATLAB through the MCP server
+
+The MathWorks `matlab-mcp-server` is registered for this project and is the preferred way to
+lint and run code: it holds **one persistent MATLAB session**, so the engine starts once
+(~7.5 s) instead of paying `matlab -batch`'s 20-60 s startup on every invocation. Tools:
+`check_matlab_code` (Code Analyzer, read-only), `run_matlab_file`, `evaluate_matlab_code`,
+`detect_matlab_toolboxes`, `run_matlab_test_file` (unused - there is no `matlab.unittest`
+suite here). All paths must be **absolute**; the session's working folder is the repo root,
+so `tmp/smoke_test_*.m` scripts run without the `addpath` juggling `-batch` requires.
+
+Rules that matter:
+
+- **One session is shared by every call, and concurrent calls interleave in it.** Two
+  `run_matlab_file` calls issued together execute against the same base workspace. Run
+  dependent checks one at a time.
+- **Never `clear`, `close all`, or `delete(timerfindall)`** when the server is attached to a
+  live session (`--matlab-session-mode=existing`) - it destroys running experiment state.
+- **Restart the MATLAB session after any COM/ActiveX work.** MATLAB caches one COM wrapper
+  class per CLSID per session, so an `actxcontrol` call poisons every later `actxserver` use
+  of the same class. Each `-batch` exit used to reset that; a persistent session does not.
+  This is the one hazard the persistent model adds.
+- `actxcontrol` still hard-crashes MATLAB when there is no display, and the server runs
+  `--matlab-display-mode=nodesktop`.
+- `matlab -batch` remains the fallback when the server is unavailable, and is still required
+  for `exportapp` GUI screenshot capture.
+
 ## Architecture & Key Components
 
 ### High-Level Flow: From Protocol to Runtime

@@ -97,7 +97,7 @@ A toolbar under the menu bar gives one-click access to the most common menu acti
 - **Save Data** (arrow into a tray): invokes the configured saving function to write data to disk. Enabled only after **Stop**, or on an error.
 - **Customize** (gear): opens the Customize Settings dialog — same as **Customize → Customize...** (Ctrl+U).
 - **Protocol Designer** (document with pencil): opens the Protocol Designer — same as **Utilities → Protocol Designer...** (Ctrl+P).
-- **Live View** (eye, toggle): opens or closes the display-only camera view described in [8) Menus reference](#8-menus-reference) — same as **Utilities → Live Webcam View (No Recording)**. The tool stays pressed while a view is open. Usable during a session as well as between runs; it still refuses while a recording is in progress, because that recording's VLC window already shows the live stream.
+- **Live View** (eye, toggle): opens or closes the display-only camera view described in [8) Menus reference](#8-menus-reference) — same as **Utilities → Video → Live Webcam View (No Recording)**. The tool stays pressed while a view is open. Usable during a session as well as between runs; it still refuses while a recording is in progress, because that recording's VLC window already shows the live stream.
 - **Record video** (red dot, toggle): when pressed, clicking **Run** also starts a webcam recording via VLC for the duration of the session; released by default. The setting persists across sessions. Preview never records. **Toggling it during a running session takes effect immediately** — pressing it starts recording from that moment, releasing it stops and finalizes the file. See [5.1](#51-what-happens-when-you-click-run--preview) and [7) Customization](#7-customization).
 - **Always On Top** (pushpin, toggle): keeps the session window above all other windows — same as **View → Always On Top** (Ctrl+T). The toggle and the menu item's check mark stay in sync whichever one you use.
 - **Wiki** (open book): opens the EPsych wiki in your web browser.
@@ -117,7 +117,7 @@ A single-line status bar spans the bottom of the window, below the control bar. 
 
 The state of the session itself is announced whenever it changes (Ready, Session running, Preview running, Session stopped, Session ended with an error); a message posted by a specific action stays up until the state changes again.
 
-- **LIVE VIEW - NOT RECORDING** (amber text, right end of the status bar): shown only while a live webcam view is open (via either the toolbar's **Live View** toggle or **Utilities → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
+- **LIVE VIEW - NOT RECORDING** (amber text, right end of the status bar): shown only while a live webcam view is open (via either the toolbar's **Live View** toggle or **Utilities → Video → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
 
 Custom box GUIs, saving functions, and trial selectors can post their own messages with `RunExpt.setStatus(message)` or `RunExpt.setStatus(message, nextStep)`.
 
@@ -211,7 +211,7 @@ All customization lives in a single dialog: **Customize → Customize...**. Valu
 
 If the Box GUI function is empty or disabled, the session can still run; you just will not get a live performance GUI.
 
-The webcam device itself (camera, frame rate, resolution, crop) is configured separately in **Utilities → Webcam Recorder Setup...**.
+The webcam device itself (camera, frame rate, resolution, crop) is configured separately in **Utilities → Video → Webcam Recorder Setup...**.
 
 The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` preference group (per machine, like the webcam settings) and are applied to every `hw.Intan_RHX` interface at run time. RHX names its files with a mandatory `_<timestamp>` suffix, so the Intan `.rhd`/`.rhs`, the behavioral `.mat`, and the webcam `.ts` are paired by shared filename prefix rather than exact equality.
 
@@ -226,9 +226,11 @@ The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` 
   - Stimulus Inspector... — examines a single stimulus waveform and spectrum (`stimgen.StimInspector`).
   - Calibration GUI... — the speaker calibration GUI wired to EPsych hardware via `epsych.calibrate`; disabled while a session is RUNNING because calibration drives the hardware into Preview. See [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md).
   - Commutator GUI (`Ctrl+G`) — motorized commutator control; see [../peripherals/peripherals_NanoMotorControl.md](../peripherals/peripherals_NanoMotorControl.md).
-  - Webcam Recorder Setup... (`Ctrl+W`) — camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md).
-  - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the status bar shows a matching amber banner at its right end. Select it again to close the view.
-  - The item is available during a session as well as between runs. Opening or closing the view restarts VLC, which stalls the trial loop for about a second (up to eight when closing), so prefer to do it between trials. A view opened before **Run** stays open through a session; if that session is recording, the recording takes over the camera and the live view closes. The item refuses while a recording is in progress, since that recording's own window already shows the stream.
+  - **Video** (submenu) — everything that touches the camera or its recordings:
+    - Webcam Recorder Setup... (`Ctrl+W`) — camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md).
+    - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the status bar shows a matching amber banner at its right end. Select it again to close the view.
+      - The item is available during a session as well as between runs. Opening or closing the view restarts VLC, which stalls the trial loop for about a second (up to eight when closing), so prefer to do it between trials. A view opened before **Run** stays open through a session; if that session is recording, the recording takes over the camera and the live view closes. The item refuses while a recording is in progress, since that recording's own window already shows the stream.
+    - **Batch Video Converter...** — converts recordings already on disk to another format with ffmpeg (`util.VideoConverter` through `gui.VideoConverterSetup`). It opens on the **Video Recording Path** from **Customize → Paths** (the Data Save Path when that is unset) with the file pattern set to the `.ts` files the recorder writes; both, and every encoding option, are editable in the window. The converter only reads and writes files, so it stays available while a session is running — though an encode competes with the session for CPU. See [../util/VideoConverter.md](../util/VideoConverter.md).
 - **View**: Always On Top (also available as the pushpin toolbar toggle).
 - **Help**:
   - Version Info — toolbox version, git commit, and links. A **Worktree** row appears when the session is running from a git worktree rather than the main checkout; the worktree name is also appended to the window title, in brackets, and saved with the session metadata.

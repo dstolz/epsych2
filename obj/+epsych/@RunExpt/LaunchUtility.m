@@ -4,7 +4,8 @@ function LaunchUtility(self, target)
 %
 % Parameters:
 %	target	- Tool to open: "ProtocolDesigner", "TrialDesigner",
-%			  "StimPlayer", "StimInspector", or "Calibration".
+%			  "StimPlayer", "StimInspector", "Calibration", or
+%			  "VideoConverter".
 %
 % Each tool owns its own window and lifecycle; RunExpt only launches it and
 % keeps no handle. Always-on-top is cleared first so the new window does not
@@ -14,11 +15,12 @@ function LaunchUtility(self, target)
 % disturb a loaded or running session.
 %
 % See also: epsych.ProtocolDesigner, teensy.TrialDesigner, stimgen.StimPlayer,
-%           stimgen.StimInspector, epsych.calibrate
+%           stimgen.StimInspector, epsych.calibrate, util.VideoConverter
 arguments
     self
     target (1,1) string {mustBeMember(target, ...
-        ["ProtocolDesigner","TrialDesigner","StimPlayer","StimInspector","Calibration"])}
+        ["ProtocolDesigner","TrialDesigner","StimPlayer","StimInspector", ...
+         "Calibration","VideoConverter"])}
 end
 
 switch target
@@ -27,6 +29,7 @@ switch target
     case "StimPlayer",       label = 'Stimulus Player';
     case "StimInspector",    label = 'Stimulus Inspector';
     case "Calibration",      label = 'Calibration GUI';
+    case "VideoConverter",   label = 'Batch Video Converter';
 end
 
 self.AlwaysOnTop(false);
@@ -43,6 +46,15 @@ try
             stimgen.StimInspector;
         case "Calibration"
             epsych.calibrate;
+        case "VideoConverter"
+            % Seeded for the recorder's output -- the video root from
+            % Customize > Paths (data path when unset) and the .ts the
+            % recorder writes. Both are editable in the GUI. The setup GUI
+            % holds the converter, so RunExpt does not have to.
+            c = util.VideoConverter( ...
+                RootFolder = string(videoConverterRoot_(self)), ...
+                FilePattern = "(?i)\.ts$");
+            c.setupGUI;
     end
 catch ME
     vprintf(0,1,ME);
@@ -53,3 +65,16 @@ end
 
 vprintf(1,'Opened %s from the Utilities menu.',label);
 self.setStatus(sprintf('Opened %s.',label));
+
+end
+
+function root = videoConverterRoot_(self)
+% Where StartVideoRecording_ writes, so the converter opens on the folder
+% the recordings are actually in. Empty when neither is set, which the GUI
+% shows as an unset root rather than an error.
+root = strtrim(char(getpref('ep_RunExpt_Video','RecordingRootDir','')));
+if isempty(root)
+    root = char(self.dfltDataPath);
+end
+if ~isfolder(root), root = ''; end
+end

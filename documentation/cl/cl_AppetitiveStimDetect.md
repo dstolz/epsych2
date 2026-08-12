@@ -73,7 +73,7 @@ Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, 
 ## Selection logic (`selectNext`)
 
 1. On the first trial (`TRIALS.TrialIndex == 1`), return the first stimulus row.
-2. If `ReminderTrials` is `1`, return the first reminder row, with its `Depth` overwritten to 0 dB — see [Reminder trials](#reminder-trials).
+2. If `ReminderTrials` is `1` (or a reminder was already granted for this `TrialIndex`), return the first reminder row, with its `Depth` overwritten to 0 dB, and clear the request — see [Reminder trials](#reminder-trials).
 3. Decode the completed-trial response history with `epsych.BitMask.decode([TRIALS.DATA.RespCode])`.
 4. Find the depth of the most recent stimulus trial; if none exists yet, start from the maximum compiled depth.
 5. Update the next stimulus depth from the latest outcome:
@@ -98,6 +98,15 @@ The trial keeps `TrialType = 2`, which is what makes the override safe:
 - the Next Trial panel and the Response History label the trial from `TrialTypeNames`, so it reads as `Reminder` rather than as an anomalous stimulus trial
 
 The reminder's *outcome* still steps the staircase, as any completed trial does.
+
+### The request is consumed when it is granted
+
+`ReminderTrials` is a one-shot, and the selector clears it in the same `selectNext` pass that acts on it (`consumeReminderRequest_`). It cannot be cleared on trial completion instead, because `ep_TimerFcn_RunTime` broadcasts `NewData` for the completed trial *before* it calls `selectNext` for the next one. A listener that cleared the toggle there — as the box GUI's `onNewData` did — withdrew the request during the very pass that was about to honor it, so the **Reminder** button force-ended the trial in progress and then selected an ordinary trial: no reminder was ever presented, and all the operator saw was the session advancing a trial early.
+
+Two consequences follow:
+
+- The button clears as soon as the reminder is committed to, not when the reminder trial ends. A press made *during* a reminder trial is therefore still standing at the next selection pass and produces a second reminder.
+- `reminderIndex_` records the `TrialIndex` a reminder was granted for, so a repeated `selectNext` for the same trial — which a forced trial can produce — still returns the reminder row after the toggle is spent.
 
 Two edge cases are reported rather than papered over:
 

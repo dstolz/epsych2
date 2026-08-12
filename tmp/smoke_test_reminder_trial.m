@@ -63,6 +63,8 @@ TRIALS = selectOnly(rt, TRIALS);
 assert(TRIALS.NextTrialID == remRow, ...
     'the reminder should select the reminder row (got row %d, expected %d)', ...
     TRIALS.NextTrialID, remRow);
+assert(pReminder.Value == 0, ...
+    'granting the reminder should consume the request');
 assertNear(TRIALS.trials{TRIALS.NextTrialID, depthCol}, 0, ...
     'the reminder trial should be presented at 0 dB depth');
 assertNear(TRIALS.trials{stimRow, depthCol}, walked, ...
@@ -71,7 +73,9 @@ fprintf('PASS: reminder selects the reminder row at 0 dB, staircase row untouche
 
 
 % 3. The staircase resumes from the pre-reminder depth ---------------------
-% Score the reminder as a hit and clear the toggle, the way onNewData does.
+% Score the reminder as a hit. The toggle is already clear -- the selector
+% consumed the request when it granted it -- so the schedule returns to
+% normal on its own.
 % The staircase measures from the last completed STIM trial, so the reminder
 % must leave the pending depth exactly where it was. Had the reminder been
 % presented on a stimulus row instead, its 0 dB would have become lastStim
@@ -80,7 +84,7 @@ fprintf('PASS: reminder selects the reminder row at 0 dB, staircase row untouche
 stepOnHit = rt.find_parameter('Depth_StepOnHit').Value;
 
 TRIALS = scoreTrial(TRIALS, TT_REMIND, 'Hit');
-pReminder.Value = 0;
+assert(pReminder.Value == 0, 'ReminderTrials should still be clear');
 TRIALS = selectOnly(rt, TRIALS);
 
 assertNear(TRIALS.trials{stimRow, depthCol}, walked, ...
@@ -97,14 +101,15 @@ fprintf('PASS: staircase resumes from the last stimulus trial, not the reminder\
 
 % 4. Repeated reminders are idempotent ------------------------------------
 % FORCE_TRIAL can bring selectNext round twice at the same TrialIndex, so
-% the override has to survive being applied twice.
+% the override has to survive being applied twice -- including the second
+% pass, by which point the toggle it was requested with is already spent.
 pReminder.Value = 1;
 TRIALS = selectOnly(rt, TRIALS);
+assert(pReminder.Value == 0, 'the first pass should have consumed the request');
 TRIALS = selectOnly(rt, TRIALS);
 assert(TRIALS.NextTrialID == remRow, 'a repeated reminder should still select the reminder row');
 assertNear(TRIALS.trials{TRIALS.NextTrialID, depthCol}, 0, ...
     'a repeated reminder should still be at 0 dB');
-pReminder.Value = 0;
 fprintf('PASS: repeated reminder selections are idempotent\n');
 
 
@@ -119,7 +124,7 @@ pRem2 = rt2.find_parameter('ReminderTrials');
 pRem2.Value = 1;
 T2 = selectOnly(rt2, T2);
 T2 = scoreTrial(T2, TT_REMIND, 'Hit');
-pRem2.Value = 0;
+assert(pRem2.Value == 0, 'the reminder trial should have cleared its own toggle');
 T2 = selectOnly(rt2, T2);
 assertNear(pcc2.Value, before, 'a reminder trial should leave the catch hazard where it was');
 assert(T2.trials{T2.NextTrialID, ttCol} ~= TT_REMIND, ...
@@ -143,6 +148,53 @@ assert(T3.trials{T3.NextTrialID, ttCol} == TT_STIM, ...
 assertNear(T3.trials{stimRow3, depthCol}, held3, ...
     'the fallback must not overwrite the depth the staircase is holding');
 fprintf('PASS: protocol without a reminder row falls back without corrupting the staircase\n');
+
+
+% 7. The request survives the trial the button interrupts -----------------
+% This is the ordering the runtime actually runs. Pressing Reminder sets
+% FORCE_TRIAL, so ep_TimerFcn_RunTime ends the trial in progress -- writing
+% its DATA record, calling onComplete, and broadcasting NewData -- and only
+% then calls selectNext. Clearing the toggle from that NewData (as the box
+% GUI used to) withdrew the request in the same pass that was about to
+% honor it, so the button did nothing but advance the trial and no reminder
+% was ever presented.
+[rt4,T4] = makeRuntime(tmpDir, 0);
+T4 = runTrials(rt4, T4, repmat({'Hit'},1,2));
+remRow4 = find(cellfun(@(v) v == TT_REMIND, T4.trials(:,ttCol)), 1);
+pRem4 = rt4.find_parameter('ReminderTrials');
+
+pRem4.Value = 1;                                  % operator presses Reminder
+T4 = scoreTrial(T4, TT_STIM, 'Hit');              % the interrupted trial ends
+assert(pRem4.Value == 1, ...
+    'completing the interrupted trial must not withdraw the reminder request');
+
+T4 = selectOnly(rt4, T4);                         % ...and the reminder is next
+assert(T4.NextTrialID == remRow4, ...
+    'the reminder should be presented after the trial it interrupted (got row %d, expected %d)', ...
+    T4.NextTrialID, remRow4);
+assert(pRem4.Value == 0, 'granting the reminder should consume the request');
+
+T4 = scoreTrial(T4, TT_REMIND, 'Hit');            % the reminder itself ends
+T4 = selectOnly(rt4, T4);
+assert(T4.trials{T4.NextTrialID, ttCol} ~= TT_REMIND, ...
+    'the schedule should return to normal after one reminder');
+fprintf('PASS: the reminder request survives the interrupted trial and fires once\n');
+
+
+% 8. A press during a reminder trial produces another one -----------------
+% The request is consumed when it is granted, not when the reminder
+% completes, so a second press mid-reminder is still standing when the next
+% selection pass comes round.
+pRem4.Value = 1;
+T4 = selectOnly(rt4, T4);
+assert(T4.NextTrialID == remRow4, 'the first press should select a reminder');
+
+pRem4.Value = 1;                                  % pressed again mid-reminder
+T4 = scoreTrial(T4, TT_REMIND, 'Hit');
+T4 = selectOnly(rt4, T4);
+assert(T4.NextTrialID == remRow4, ...
+    'a press made during a reminder trial should produce another reminder');
+fprintf('PASS: a press during a reminder trial produces another reminder\n');
 
 fprintf('smoke_test_reminder_trial: ALL PASS\n');
 end
@@ -171,13 +223,18 @@ end
 function TRIALS = scoreTrial(TRIALS, tt, outcome)
 % TRIALS = scoreTrial(TRIALS, tt, outcome)
 % Append the DATA record ep_TimerFcn_RunTime would have written for the
-% pending trial and advance TrialIndex, without selecting the next row.
+% pending trial, notify the selector, and advance TrialIndex, without
+% selecting the next row. onComplete is called before the increment and
+% before the next selectNext, matching the runtime's order -- which is what
+% the reminder one-shot depends on.
 depthCol = TRIALS.writeParamIdx.Depth;
-TRIALS.DATA(TRIALS.TrialIndex) = struct( ...
+data = struct( ...
     'RespCode',   bits({sprintf('TrialType_%d',tt), outcome}), ...
     'TrialType',  tt, ...
     'Depth',      TRIALS.trials{TRIALS.NextTrialID, depthCol}, ...
     'TrialIndex', TRIALS.TrialIndex);
+TRIALS.DATA(TRIALS.TrialIndex) = data;
+TRIALS.selector.onComplete(TRIALS.NextTrialID, data);
 TRIALS.TrialIndex = TRIALS.TrialIndex + 1;
 end
 

@@ -21,7 +21,9 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     % presents it at 0 dB depth -- full modulation, the most salient stimulus
     % the task produces -- on the reminder row, so the trial re-engages the
     % subject without entering the staircase or the catch schedule. See
-    % forceReminderTrial_.
+    % forceReminderTrial_. The request is a one-shot, consumed by the
+    % selection pass that grants it -- see consumeReminderRequest_ for why it
+    % cannot be cleared on trial completion instead.
     %
     % Catch trials can be switched off for a session through the
     % CatchTrialsEnabled parameter, which cl_AppetitiveDetection_BoxGUI
@@ -55,6 +57,12 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
 
         pCatch_ (1,1) double = 0 % accumulated catch-trial probability
         lastHazardIndex_ (1,1) double = 1 % TrialIndex the hazard last advanced on
+
+        % TrialIndex whose selection has already been committed to a
+        % reminder. Holds the choice across a repeated selectNext at the same
+        % index once the request itself has been consumed; see
+        % forceReminderTrial_.
+        reminderIndex_ (1,1) double = NaN
     end
 
     methods
@@ -120,8 +128,11 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             end
 
 
-            % Reminder override: the operator's Reminder button
-            if obj.P.ReminderTrials.Value == 1
+            % Reminder override: the operator's Reminder button. The second
+            % test re-honors a request already consumed at this TrialIndex,
+            % so a repeated selectNext for the same trial -- which is what a
+            % forced trial can produce -- still yields the reminder.
+            if obj.P.ReminderTrials.Value == 1 || TRIALS.TrialIndex == obj.reminderIndex_
                 nextTrialID = obj.forceReminderTrial_(TRIALS);
                 return
             end
@@ -324,6 +335,36 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
 
     methods (Access = private)
 
+        function consumeReminderRequest_(obj, TRIALS)
+            % consumeReminderRequest_(obj, TRIALS)
+            % Clear the operator's Reminder toggle now that the request has
+            % been granted, and record the TrialIndex it was granted for.
+            %
+            % The request has to be consumed here rather than when the
+            % reminder trial later completes. The runtime broadcasts NewData
+            % for the completed trial BEFORE it calls selectNext for the next
+            % one, so anything that clears the toggle on trial completion --
+            % as the box GUI's onNewData used to -- withdraws the request in
+            % the same pass that is about to honor it, and the Reminder
+            % button does nothing but force the trial in progress to end.
+            % Consuming it at the point of selection also leaves a press made
+            % DURING a reminder trial standing, so holding the button down
+            % over successive trials keeps producing reminders.
+            %
+            % reminderIndex_ keeps the choice stable if selectNext is called
+            % again for the same trial, which the toggle can no longer do.
+            %
+            % Parameters:
+            %   TRIALS - runtime TRIALS struct for this subject
+            obj.reminderIndex_ = TRIALS.TrialIndex;
+
+            if obj.P.ReminderTrials.Value ~= 1, return; end
+
+            obj.P.ReminderTrials.Value = 0;
+            vprintf(3,'Reminder request granted for trial #%d; ReminderTrials cleared', ...
+                TRIALS.TrialIndex)
+        end
+
         function nextTrialID = forceReminderTrial_(obj, TRIALS)
             % nextTrialID = forceReminderTrial_(obj, TRIALS)
             % Row for an operator-requested reminder trial: a signal-present
@@ -342,6 +383,9 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % History. Its OUTCOME still steps the staircase, as any
             % completed trial does.
             %
+            % The request is consumed here, at the moment the reminder is
+            % committed to; see consumeReminderRequest_.
+            %
             % Parameters:
             %   TRIALS - runtime TRIALS struct for this subject
             %
@@ -356,8 +400,11 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
                 vprintf(0,1,['No reminder row (TrialType %d) in the compiled trials table; ' ...
                     'presenting an ordinary stimulus trial'], obj.TT_REMIND_)
                 nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
+                obj.consumeReminderRequest_(TRIALS);
                 return
             end
+
+            obj.consumeReminderRequest_(TRIALS);
 
             if isempty(obj.runtime_), return; end
 

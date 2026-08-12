@@ -27,5 +27,5 @@ else
     self.H.mnu_vlc_liveview.Checked = 'off';
     self.H.video_liveview_banner.Text = '';
     self.H.tb_liveview.State   = 'off';
-    self.H.tb_liveview.Tooltip = 'Open a display-only webcam view (nothing is recorded). Same as Utilities > Live Webcam View.';
+    self.H.tb_liveview.Tooltip = 'Open a display-only webcam view (nothing is recorded). Same as Utilities > Video > Live Webcam View.';
 end

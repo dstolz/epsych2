@@ -84,17 +84,20 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
             end
         end
 
-        function onNewData(obj, ~, ~)
-            % A Reminder trial is a one-shot: clear the toggle once the
-            % trial it forced has completed.
+        function onNewData(~, ~, ~)
+            % Nothing to do per trial.
             %
-            % The session performance summary is not updated here: the
+            % The Reminder toggle is NOT cleared here. NewData is broadcast
+            % for the completed trial before the runtime calls selectNext for
+            % the next one, so clearing it here withdrew the request in the
+            % same pass that was about to honor it and the Reminder button
+            % only ever force-ended the current trial. The one-shot is
+            % consumed instead by cl_AppetitiveStimDetect, in the selection
+            % pass that grants it.
+            %
+            % The session performance summary is not updated here either: the
             % gui.SessionPerformance panel owns its own
             % psychophysics.SessionMetrics and follows NewData itself.
-            if ~isempty(obj.hReminder) && isvalid(obj.hReminder)
-                p = obj.hReminder.Parameter;
-                if p.Value == 1, p.Value = 0; end
-            end
         end
 
         function onModeChange(obj, ~, event)
@@ -116,8 +119,8 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
             % hw.Parameter PostUpdateFcn: bring the next trial forward so it
             % is presented as a reminder -- a signal-present trial at 0 dB
             % depth. cl_AppetitiveStimDetect reads ReminderTrials on the
-            % selection pass this brings forward and picks the row; onNewData
-            % clears the toggle once that trial has completed.
+            % selection pass this brings forward, picks the row, and clears
+            % the toggle in that same pass.
             if value == 0, return; end
 
             % FORCE_TRIAL tells ep_TimerFcn_RunTime to skip waiting for the

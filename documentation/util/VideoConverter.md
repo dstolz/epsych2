@@ -123,6 +123,10 @@ Name–value options: `Parent` (embed instead of owning a figure), `WindowStyle`
 
 A file table (Source / Output / Duration / Size / Status / %) sits beside Source, Encoding (with five presets plus Custom), Output, and Run panels, and Scan / Convert / Cancel buttons with an overall-progress label. The GUI edits the passed-in `Converter`'s properties directly and listens to its `Progress` event — it never polls, and it does not own the `Converter`'s lifetime (closing the GUI never cancels or deletes it).
 
+### From the session window
+
+`epsych.RunExpt` opens the same GUI from **Utilities → Video → Batch Video Converter...**, on a converter seeded for the recorder's output: `RootFolder` is the **Video Recording Path** from **Customize → Paths** (falling back to the Data Save Path, and left unset when neither folder exists) and `FilePattern` is `(?i)\.ts$`, the extension `hw.VlcRecorder` writes. Both are editable in the window, and the item stays enabled while a session runs — the converter only reads and writes files, though an encode does compete with the session for CPU.
+
 ## Verification
 
 `tmp/smoke_test_videoconverter.m` — generates its own synthetic fixtures via ffmpeg's `lavfi testsrc`/`sine` sources (no external test files needed) and covers dependency bootstrap, the `buildArgs` argument mapping, recursive scanning, `DryRun`, genuine mid-file progress (the core premise of this class), parallel execution, cancellation, the overwrite/rescan policy, `DeleteSource` gating, an optional cross-check against `ffmpegtranscode`, and the GUI. Run headlessly:

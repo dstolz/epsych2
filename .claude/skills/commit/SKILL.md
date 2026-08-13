@@ -19,7 +19,8 @@ work; run them with `bash` (Git Bash is present, Node is not).
 | User types | Means |
 |---|---|
 | `/commit` | Commit everything in the parent repo, one commit. |
-| `/commit obj/stimgen` (or `stimgen`) | Commit inside that submodule, then **ask** before bumping the pointer. |
+| `/commit obj/stimgen` (or `stimgen`) | Commit inside that submodule, then bump the pointer in the parent — no confirmation needed. |
+| `/commit all` | Same as `/commit`, but if `obj/stimgen` is dirty, commit it first and bump the pointer, then commit the parent. |
 | `/commit --split` / "split into logical commits" | Several commits grouped by intent. |
 | `/commit on <branch>` | Check out that existing branch first, then commit. |
 
@@ -145,20 +146,33 @@ file and destroy the partial staging. Commit the rest normally afterwards.
 ## Submodules (`obj/stimgen`)
 
 `obj/stimgen` is a separate repo pinned to an exact commit. Per CLAUDE.md, moving
-the pointer is its own deliberate commit.
+the pointer is its own deliberate commit — but it is not a question for the user.
+**Always bump the pointer immediately after committing inside the submodule.**
+Leaving the pointer behind is the bug; a submodule commit the parent does not
+reference is invisible to everyone else and is lost on the next
+`git submodule update`.
 
 ```bash
 # 1. commit inside the submodule
 bash .claude/skills/commit/docommit.sh obj/stimgen "$SCRATCH/msg_sub.txt"
 ```
 
-`docommit.sh` then prints the new SHA and a `POINTER:` line. **Ask the user
-before bumping.** If they agree:
+`docommit.sh` then prints the new SHA and a `POINTER:` line. Take the SHA from
+that line and bump straight away, without asking:
 
 ```bash
 # 2. bump the pointer in the parent, as its own commit
 bash .claude/skills/commit/docommit.sh . "$SCRATCH/msg_bump.txt" obj/stimgen
 ```
+
+Bump-commit subjects follow the existing log — `Bump obj/stimgen to <sha> for
+<what the submodule commit did>`, a subject line alone, no bullets.
+
+When the target is the parent repo (`/commit`, `/commit all`, `/commit --split`)
+and the survey reports `obj/stimgen` as `[DIRTY: uncommitted changes inside]`,
+do the submodule first: commit inside it, bump the pointer, then commit the
+parent's own changes. That ordering keeps the pointer bump a separate commit
+without a round trip to the user.
 
 Verified output of that second commit:
 
@@ -207,7 +221,7 @@ Staged for this commit:
 | `FATAL: detached HEAD in .../obj/stimgen` | `git -C obj/stimgen checkout main`, re-run. |
 | `FATAL: nothing staged -- pathspecs matched no changes` | Pathspec typo, or the file is gitignored. Re-run `survey.sh`. |
 | `FATAL: line 2 must be blank` | Message needs a blank line after the subject. |
-| `HELD BACK: submodule pointer ...` | Working as intended. Ask, then name `obj/stimgen` explicitly. |
+| `HELD BACK: submodule pointer ...` | Working as intended. Re-run naming `obj/stimgen` explicitly, as its own bump commit. |
 | `FATAL: '<x>' is not a submodule` | It lists the valid ones. Only `obj/stimgen` exists. |
 | `FATAL: --staged-only but the index is empty` | The `git apply --cached` failed. Check the patch. |
 | `fatal: transport 'file' not allowed` | Only when cloning this repo locally to test. Add `-c protocol.file.allow=always`. |

@@ -177,7 +177,7 @@ if [[ "$d" != "$root" ]]; then
     if [[ "$pinned" != "$cur" ]]; then
         echo
         echo "POINTER: $p is pinned at $pinned in the parent but now at $cur."
-        echo "         ASK THE USER before bumping it. If they say yes, that is its own commit:"
+        echo "         Bump it now -- do not ask. It is its own commit:"
         echo "           bash .claude/skills/commit/docommit.sh . <msgfile> $p"
     fi
 fi

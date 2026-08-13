@@ -138,7 +138,7 @@ survey_one() {
             done <<< "$subs"
             echo
             echo "  Reminder: a moved pointer is committed in THIS repo as its own deliberate commit."
-            echo "  Commit inside the submodule first, then ask the user before bumping the pointer."
+            echo "  Commit inside the submodule first, then bump the pointer -- do not ask."
             echo
         fi
     fi

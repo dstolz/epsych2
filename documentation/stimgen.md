@@ -45,7 +45,7 @@ Everything else in EPsych consumes `stimgen` as a plain library — `hw.Paramete
 
 ## Launching the calibration GUI
 
-`epsych.calibrate` is the entry point; RunExpt's **Utilities > Calibration GUI...**
+`epsych.calibrate` is the entry point; RunExpt's **Utilities > StimGen > Calibration GUI...**
 does the same thing. It builds the `stimbridge.RuntimeHost` seam and the
 calibration engine so callers never assemble them by hand:
 

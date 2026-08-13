@@ -49,7 +49,7 @@ epsych.RunExpt
 | Run an experiment | `epsych.RunExpt` | Configure subjects, associate protocol files, preview trials, and run or record experiments. |
 | Add subject/session metadata | **Add Subject** button in RunExpt | Collect subject information for a session. Uses a built-in dialog by default; labs can substitute their own. |
 | Preview or play stimuli | `stimgen.StimPlayer` | Build a bank of stimuli, preview them through the speakers, and optionally play them through hardware. |
-| Calibrate sound output | `epsych.calibrate` (or RunExpt's **Utilities > Calibration GUI...**) | Open the stimgen calibration GUI already wired to EPsych hardware; measure and save speaker calibration so requested dB SPL levels map to correct output voltages. See [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md). |
+| Calibrate sound output | `epsych.calibrate` (or RunExpt's **Utilities > StimGen > Calibration GUI...**) | Open the stimgen calibration GUI already wired to EPsych hardware; measure and save speaker calibration so requested dB SPL levels map to correct output voltages. See [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md). |
 | Adjust parameters between sessions | Phase files and the phase selector in task GUIs | Save and reload named parameter sets (JSON) so training phases can be switched without editing the protocol. |
 | Use common utilities | `helpers/` | Shared functions for logging, GUI support, timing, randomization, and analysis used across the toolbox. |
 

@@ -41,7 +41,11 @@ try
         case "TrialDesigner"
             teensy.TrialDesigner;
         case "StimPlayer"
-            stimgen.StimPlayer;
+            % Seeded with a bare host, like epsych.calibrate does for the
+            % calibration GUI: the player's File > Load Protocol menu and
+            % calibrated-hardware output only work through an attached
+            % stimgen.HardwareHost; without one it is speaker-preview only.
+            stimgen.StimPlayer(stimbridge.RuntimeHost);
         case "StimInspector"
             stimgen.StimInspector;
         case "Calibration"

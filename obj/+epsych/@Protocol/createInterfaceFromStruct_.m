@@ -113,6 +113,40 @@ switch ifaceType
         interface = hw.Bpod(bpodPort, Connect = false, AutoDetect = autoDetect, ...
             BoxID = boxID, StateMatrixFcn = stateMatrixFcn);
 
+    case 'NE1000'
+        % Port is machine-specific: a protocol authored on one rig may name a
+        % port that does not exist here. It is restored as-authored, and
+        % AutoDetect (or the operator) corrects it at connect.
+        pumpPort = '';
+        if isfield(ifaceStruct, 'Port') && ~isempty(ifaceStruct.Port)
+            pumpPort = char(string(ifaceStruct.Port));
+        end
+        pumpBaud = 19200;
+        if isfield(ifaceStruct, 'BaudRate') && ~isempty(ifaceStruct.BaudRate)
+            pumpBaud = double(ifaceStruct.BaudRate);
+        end
+        % max() ignores NaN, so a corrupt field falls back to the default
+        % instead of failing the load.
+        address = 0;
+        if isfield(ifaceStruct, 'Address') && ~isempty(ifaceStruct.Address)
+            address = max(0, round(double(ifaceStruct.Address)));
+        end
+        syringeDiameter = 0;
+        if isfield(ifaceStruct, 'SyringeDiameter') && ~isempty(ifaceStruct.SyringeDiameter)
+            syringeDiameter = max(0, double(ifaceStruct.SyringeDiameter));
+        end
+        rateUnits = 'MH';
+        if isfield(ifaceStruct, 'RateUnits') && ~isempty(ifaceStruct.RateUnits)
+            rateUnits = char(string(ifaceStruct.RateUnits));
+        end
+        autoDetect = false;
+        if isfield(ifaceStruct, 'AutoDetect') && ~isempty(ifaceStruct.AutoDetect)
+            autoDetect = logical(ifaceStruct.AutoDetect);
+        end
+        interface = hw.NE1000(pumpPort, Connect = false, BaudRate = pumpBaud, ...
+            Address = address, SyringeDiameter = syringeDiameter, ...
+            RateUnits = rateUnits, AutoDetect = autoDetect);
+
     otherwise
         interface = hw.Software();
 end

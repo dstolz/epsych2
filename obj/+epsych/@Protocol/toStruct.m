@@ -78,6 +78,21 @@ function struct_out = toStruct(obj)
             % mode on load, which runs but never uploads a state matrix.
             ifaceStruct.StateMatrixFcn = char(iface.StateMatrixFcn);
         end
+        if isprop(iface, 'Address') && ~isempty(iface.Address)
+            % hw.NE1000: pump network address. 0 is valid (single pump) and
+            % must be persisted, so no non-zero guard here.
+            ifaceStruct.Address = double(iface.Address);
+        end
+        if isprop(iface, 'SyringeDiameter') && ~isempty(iface.SyringeDiameter)
+            % hw.NE1000: pushed to the pump at connect; scales every rate and
+            % volume the pump computes.
+            ifaceStruct.SyringeDiameter = double(iface.SyringeDiameter);
+        end
+        if isprop(iface, 'RateUnits') && ~isempty(iface.RateUnits)
+            % hw.NE1000: units attached to Rate writes; dropping this would
+            % silently reinterpret a saved rate in different units on reload.
+            ifaceStruct.RateUnits = char(iface.RateUnits);
+        end
 
         rawModules = iface.Module;
         if isempty(rawModules)

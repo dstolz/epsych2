@@ -74,6 +74,14 @@ function [spec, options] = getInterfaceEditState(obj, iface)
             options.boxID = iface.BoxID;
             options.stateMatrixFcn = iface.StateMatrixFcn;
 
+        case 'NE1000'
+            options.port = iface.Port;
+            options.baudRate = iface.BaudRate;
+            options.address = iface.Address;
+            options.syringeDiameter = iface.SyringeDiameter;
+            options.rateUnits = iface.RateUnits;
+            options.autoDetect = iface.AutoDetect;
+
         otherwise
             error('Editing is not implemented for interface type %s.', ifaceType);
     end

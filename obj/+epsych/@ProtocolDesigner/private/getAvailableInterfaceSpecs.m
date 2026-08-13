@@ -5,7 +5,8 @@ function specs = getAvailableInterfaceSpecs(~)
         localSerializedRPcoxSpec_(), ...
         localSerializedIntanRHXSpec_(), ...
         localSerializedTeensySpec_(), ...
-        localSerializedBpodSpec_() ...
+        localSerializedBpodSpec_(), ...
+        localSerializedNE1000Spec_() ...
         };
     for specIdx = 1:numel(specs)
         specs{specIdx} = hw.InterfaceSpec.normalize(specs{specIdx});
@@ -114,5 +115,47 @@ function iface = localCreateSerializedBpod_(opts)
     end
     iface = hw.Bpod(port, Connect = false, AutoDetect = autoDetect, ...
         BoxID = boxID, StateMatrixFcn = stateMatrixFcn);
+end
+
+function spec = localSerializedNE1000Spec_()
+    spec = hw.InterfaceSpec.normalize(hw.NE1000.getCreationSpec());
+    spec.createFcn = @localCreateSerializedNE1000_;
+end
+
+function iface = localCreateSerializedNE1000_(opts)
+    % Connect = false: the designer constructs an interface every time one is
+    % added or modified, and connecting would open the serial port (and with
+    % AutoDetect probe every port) just to edit a protocol.
+    port = '';
+    if isfield(opts, 'port') && ~isempty(opts.port)
+        port = char(opts.port);
+    end
+    % string() before double() so dropdown/edit values that arrive as text
+    % ('19200') parse as numbers and not their character codes.
+    baudRate = 19200;
+    if isfield(opts, 'baudRate') && ~isempty(opts.baudRate)
+        baudRate = double(string(opts.baudRate));
+    end
+    address = 0;
+    if isfield(opts, 'address') && ~isempty(opts.address)
+        % max() ignores NaN, so an unparseable entry falls back to address 0
+        % rather than erroring the dialog.
+        address = max(0, round(double(string(opts.address))));
+    end
+    syringeDiameter = 0;
+    if isfield(opts, 'syringeDiameter') && ~isempty(opts.syringeDiameter)
+        syringeDiameter = max(0, double(string(opts.syringeDiameter)));
+    end
+    rateUnits = 'MH';
+    if isfield(opts, 'rateUnits') && ~isempty(opts.rateUnits)
+        rateUnits = char(opts.rateUnits);
+    end
+    autoDetect = false;
+    if isfield(opts, 'autoDetect') && ~isempty(opts.autoDetect)
+        autoDetect = logical(opts.autoDetect);
+    end
+    iface = hw.NE1000(port, Connect = false, BaudRate = baudRate, ...
+        Address = address, SyringeDiameter = syringeDiameter, ...
+        RateUnits = rateUnits, AutoDetect = autoDetect);
 end
 

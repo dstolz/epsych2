@@ -140,6 +140,9 @@ Rules that matter:
   - hw.Bpod: Bpod 0.5/0.6 state machine over USB serial. Speaks the Arduino
     firmware's byte protocol directly and never loads c:\src\Bpod, whose
     RunStateMatrix blocks; see documentation/hw/hw_Bpod.md (under development)
+  - hw.NE1000: New Era NE-1000 syringe pump over RS-232 Basic-mode ASCII;
+    drives the pump as a single-rate reward dispenser, not its Phase program
+    (see documentation/hw/hw_NE1000.md) (under development)
   - hw.Software: In-memory software backend
   - hw.VlcRecorder: VLC video recording control
 

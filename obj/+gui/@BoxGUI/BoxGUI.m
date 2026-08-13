@@ -474,6 +474,34 @@ classdef (Abstract) BoxGUI < handle
             obj.register(h);
         end
 
+        function h = addSyringePump(obj, parent, options)
+            % h = addSyringePump(obj, parent, ...)
+            % Create a gui.SyringePump panel over this session's hw.NE1000
+            % and register it for teardown. With no pump in the protocol the
+            % panel constructs a standalone interface and offers a port to
+            % connect on, so the GUI still opens. See gui.SyringePump.
+            arguments
+                obj
+                parent (1,1)
+                options.Diameter (1,1) double = 21.59
+                options.Rate (1,1) double = 0.7
+                options.Direction (1,:) char = 'Infuse'
+                options.RateUnits (1,2) char = 'UM'
+                options.VolumeUnits (1,:) char = 'uL'
+                options.UpdatePeriod (1,1) double = 0.25
+                options.Port (1,:) char = ''
+                options.ApplyOnStart (1,1) logical = true
+                options.ShowConnection (1,1) logical = true
+                options.ShowTriggers (1,1) logical = true
+                options.FontSize (1,1) double = 12
+                options.PreferenceTag (1,:) char = ''
+            end
+
+            args = namedargs2cell(options);
+            h = gui.SyringePump(obj.RUNTIME, parent, args{:});
+            obj.register(h);
+        end
+
         function h = addPopOutButton(obj, parent, component, options)
             % h = addPopOutButton(obj, parent, component, Text=..., Tooltip=...)
             % Create a button that opens a display in a window of its own,

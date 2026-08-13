@@ -59,6 +59,7 @@ classdef NE1000 < hw.Interface
     %                              stops the pump).
     %   FirmwareVersion          - e.g. 'NE1000V3.923', reported at connect.
     %   LastAlarm                - Most recent alarm character (R/S/T/E/O), '' when none.
+    %   DispensedUnits           - Units of the last DIS reply, 'UL' or 'ML'.
     %
     % Methods
     %   connect, disconnect       - Connection management.
@@ -121,6 +122,13 @@ classdef NE1000 < hw.Interface
         Module                            % hw.Module array
         FirmwareVersion (1,:) char = ''   % VER reply, e.g. 'NE1000V3.923'
         LastAlarm (1,:) char = ''         % most recent alarm code (R/S/T/E/O)
+
+        % Units the pump reported with the most recent DIS reply, 'UL' or
+        % 'ML', '' before the first read. The pump picks them from the
+        % syringe diameter rather than from anything the host sets, so a
+        % display that labels VolumeInfused/VolumeWithdrawn must read them
+        % here rather than assume RateUnits applies.
+        DispensedUnits (1,:) char = ''
     end
 
     properties (Constant)
@@ -875,6 +883,7 @@ classdef NE1000 < hw.Interface
             d = struct('inf', str2double(tok{1}), 'wdr', str2double(tok{2}), 'units', tok{3});
             obj.dispCache_ = d;
             obj.dispCacheTic_ = tic;
+            obj.DispensedUnits = d.units;
         end
 
         % --- Writes ---------------------------------------------------------

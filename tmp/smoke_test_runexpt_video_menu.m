@@ -22,6 +22,12 @@ PREF_GROUP = 'ep_RunExpt_Video';
 snap = snapshotPrefs_(PREF_GROUP, {'RecordingRootDir'});
 c = onCleanup(@() restorePrefs_(PREF_GROUP, snap));
 
+% The converter GUI persists its window position by default, and this test
+% force-deletes its figure rather than closing it; restore whatever the user
+% had so a test run never resizes their real window.
+guiSnap = snapshotPrefs_('ep_VideoConverter', {'Position'});
+cGui = onCleanup(@() restorePrefs_('ep_VideoConverter', guiSnap));
+
 rootDir = fullfile(tempdir, 'ep_video_menu_smoke');
 if ~isfolder(rootDir), mkdir(rootDir); end
 setpref(PREF_GROUP, 'RecordingRootDir', rootDir);

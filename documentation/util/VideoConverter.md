@@ -123,6 +123,8 @@ Name–value options: `Parent` (embed instead of owning a figure), `WindowStyle`
 
 A file table (Source / Output / Duration / Size / Status / %) sits beside Source, Encoding (with five presets plus Custom), Output, and Run panels, and Scan / Convert / Cancel buttons with an overall-progress label. The GUI edits the passed-in `Converter`'s properties directly and listens to its `Progress` event — it never polls, and it does not own the `Converter`'s lifetime (closing the GUI never cancels or deletes it).
 
+Each side panel's height is computed from the rows it declares, and an owned window grows on open until the whole panel stack fits (up to the screen height), so a `Position` saved under an earlier layout cannot leave controls out of view. Only a screen too short for the stack falls back to scrolling the side column. In the file table the two path columns share the leftover width and the four short columns are fixed, so nothing needs a horizontal scroll.
+
 ### From the session window
 
 `epsych.RunExpt` opens the same GUI from **Utilities → Video → Batch Video Converter...**, on a converter seeded for the recorder's output: `RootFolder` is the **Video Recording Path** from **Customize → Paths** (falling back to the Data Save Path, and left unset when neither folder exists) and `FilePattern` is `(?i)\.ts$`, the extension `hw.VlcRecorder` writes. Both are editable in the window, and the item stays enabled while a session runs — the converter only reads and writes files, though an encode does compete with the session for CPU.

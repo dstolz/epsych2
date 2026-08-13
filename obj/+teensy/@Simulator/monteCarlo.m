@@ -25,15 +25,18 @@ function [results, summary] = monteCarlo(program, responder, nTrials, options)
 %   Seed (double)          - Base seed. Default 0
 %   Progress (function_handle) - Called as f(i, nTrials) after each trial, for
 %       a progress dialog. Default [] (no callback).
+%   ShouldStop (function_handle) - Queried as tf = f() after each trial;
+%       returning true ends the run early. Default [] (never stops early).
 %
 % Returns:
 %   results - Table with one row per trial: TrialNum, RespCode, RespLatency,
 %       FinalState, DurationMs, Completed, plus one logical column per
 %       response-outcome bit (Hit, Miss, CorrectReject, FalseAlarm, Abort,
-%       Reward, Punish).
+%       Reward, Punish). A run stopped early returns only the trials that ran.
 %   summary - Struct of rates: NTrials, CompleteRate, HitRate, FARate,
 %       MissRate, CRRate, AbortRate, MedianLatencyMs and DPrime where it can
-%       be computed.
+%       be computed. NTrials is the number actually simulated, so a caller can
+%       tell a stopped run from a complete one.
 %
 % Example
 %   r = teensy.Simulator.Responder("guessing");
@@ -50,6 +53,7 @@ arguments
     options.MaxDurationMs (1,1) double {mustBePositive} = 60000
     options.Seed (1,1) double {mustBeNonnegative, mustBeInteger} = 0
     options.Progress = []
+    options.ShouldStop = []
 end
 
 trialNum = (1:nTrials)';
@@ -58,6 +62,8 @@ respLatency = nan(nTrials, 1);
 finalState = strings(nTrials, 1);
 durationMs = nan(nTrials, 1);
 completed = false(nTrials, 1);
+
+nRun = nTrials;
 
 for i = 1:nTrials
     % A distinct seed per trial keeps probability branches varying while the
@@ -79,6 +85,23 @@ for i = 1:nTrials
     if ~isempty(options.Progress)
         options.Progress(i, nTrials);
     end
+
+    % Checked after the trial rather than before, so a stopped run always
+    % returns whole trials and never an empty table.
+    if ~isempty(options.ShouldStop) && options.ShouldStop()
+        nRun = i;
+        break
+    end
+end
+
+if nRun < nTrials
+    keep = 1:nRun;
+    trialNum = trialNum(keep);
+    respCode = respCode(keep);
+    respLatency = respLatency(keep);
+    finalState = finalState(keep);
+    durationMs = durationMs(keep);
+    completed = completed(keep);
 end
 
 results = table(trialNum, respCode, respLatency, finalState, durationMs, completed, ...
@@ -93,7 +116,7 @@ for bit = [epsych.BitMask.getResponses(), epsych.BitMask.getContingencies()]
     results.(name) = decoded.(name)(:);
 end
 
-summary = localSummarize_(results, decoded, nTrials);
+summary = localSummarize_(results, decoded, nRun);
 end
 
 

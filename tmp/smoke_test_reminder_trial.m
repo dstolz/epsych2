@@ -1,10 +1,11 @@
 function smoke_test_reminder_trial()
 % smoke_test_reminder_trial()
 % Exercise the Reminder button path of the appetitive detection task end to
-% end against a software-only runtime: cl_AppetitiveDetection_BoxGUI's
-% PostUpdateFcn brings the next trial forward, and cl_AppetitiveStimDetect
-% presents it as a signal-present trial at 0 dB depth without disturbing the
-% staircase, the catch hazard, or the stimulus rows.
+% end against a software-only runtime: the button queues a request without
+% disturbing the trial in progress, and cl_AppetitiveStimDetect presents the
+% next trial as a signal-present trial at 0 dB depth without disturbing the
+% staircase, the catch hazard, or the stimulus rows. The session continues
+% as though the reminder had never been presented.
 %
 % Headless-safe: no figures, no hardware.
 %
@@ -24,31 +25,30 @@ oldRng = rng(0);
 restoreRng = onCleanup(@() rng(oldRng));
 
 
-% 1. The button's PostUpdateFcn only sets FORCE_TRIAL ---------------------
-% The old implementation resolved '~TrialDelivery' through find_parameter,
-% which never matches a parameter named TrialDelivery, so the handler threw
-% before it ever reached FORCE_TRIAL. Guard against that regression by
-% calling the handler exactly as hw.Parameter does.
-[rt,TRIALS] = makeRuntime(tmpDir, 0);
+% 1. The button queues the request; the trial in progress is left alone ---
+% The handler must NOT set FORCE_TRIAL: that ended the trial in progress
+% early and wrote a DATA record from a response the subject had not
+% finished making. It is called here exactly as hw.Parameter calls it --
+% an earlier implementation resolved a name through find_parameter and threw
+% before doing anything at all.
+rt = makeRuntime(tmpDir, 0);
 pReminder = rt.find_parameter('ReminderTrials');
 
 assert(~rt.TRIALS(1).FORCE_TRIAL, 'FORCE_TRIAL should start clear');
 cl_AppetitiveDetection_BoxGUI.trigger_ReminderTrial(pReminder, 0, rt);
-assert(~rt.TRIALS(1).FORCE_TRIAL, 'clearing the toggle must not force a trial');
-
 cl_AppetitiveDetection_BoxGUI.trigger_ReminderTrial(pReminder, 1, rt);
-assert(rt.TRIALS(1).FORCE_TRIAL, 'pressing Reminder should set FORCE_TRIAL');
-rt.TRIALS(1).FORCE_TRIAL = false;
-fprintf('PASS: Reminder button sets FORCE_TRIAL without erroring\n');
+assert(~rt.TRIALS(1).FORCE_TRIAL, ...
+    'pressing Reminder must not cut the trial in progress short');
+fprintf('PASS: Reminder button queues the request without forcing a trial\n');
 
 
 % 2. The reminder is a signal-present trial at 0 dB ------------------------
 % Walk the staircase down first, so a reminder at 0 dB is unmistakably an
 % override rather than the value the staircase happens to be sitting on.
+[rt,TRIALS] = makeRuntime(tmpDir, 0);
 ttCol    = TRIALS.writeParamIdx.TrialType;
 depthCol = TRIALS.writeParamIdx.Depth;
 
-[rt,TRIALS] = makeRuntime(tmpDir, 0);
 TRIALS = runTrials(rt, TRIALS, repmat({'Hit'},1,4));   % -2 dB per hit
 
 stimRow  = find(cellfun(@(v) v == TT_STIM,   TRIALS.trials(:,ttCol)), 1);
@@ -100,9 +100,10 @@ fprintf('PASS: staircase resumes from the last stimulus trial, not the reminder\
 
 
 % 4. Repeated reminders are idempotent ------------------------------------
-% FORCE_TRIAL can bring selectNext round twice at the same TrialIndex, so
-% the override has to survive being applied twice -- including the second
-% pass, by which point the toggle it was requested with is already spent.
+% selectNext can be called more than once for the same trial (any control
+% that sets FORCE_TRIAL brings it round again), so the override has to
+% survive being applied twice -- including the second pass, by which point
+% the toggle it was requested with is already spent.
 pReminder.Value = 1;
 TRIALS = selectOnly(rt, TRIALS);
 assert(pReminder.Value == 0, 'the first pass should have consumed the request');
@@ -150,23 +151,22 @@ assertNear(T3.trials{stimRow3, depthCol}, held3, ...
 fprintf('PASS: protocol without a reminder row falls back without corrupting the staircase\n');
 
 
-% 7. The request survives the trial the button interrupts -----------------
-% This is the ordering the runtime actually runs. Pressing Reminder sets
-% FORCE_TRIAL, so ep_TimerFcn_RunTime ends the trial in progress -- writing
-% its DATA record, calling onComplete, and broadcasting NewData -- and only
-% then calls selectNext. Clearing the toggle from that NewData (as the box
-% GUI used to) withdrew the request in the same pass that was about to
-% honor it, so the button did nothing but advance the trial and no reminder
-% was ever presented.
+% 7. The request survives the trial it is queued behind --------------------
+% This is the ordering the runtime actually runs. The press lands mid-trial;
+% that trial then ends normally -- ep_TimerFcn_RunTime writes its DATA
+% record, calls onComplete, and broadcasts NewData -- and only then calls
+% selectNext. Clearing the toggle from that NewData (as the box GUI used to)
+% withdrew the request in the same pass that was about to honor it, so no
+% reminder was ever presented.
 [rt4,T4] = makeRuntime(tmpDir, 0);
 T4 = runTrials(rt4, T4, repmat({'Hit'},1,2));
 remRow4 = find(cellfun(@(v) v == TT_REMIND, T4.trials(:,ttCol)), 1);
 pRem4 = rt4.find_parameter('ReminderTrials');
 
 pRem4.Value = 1;                                  % operator presses Reminder
-T4 = scoreTrial(T4, TT_STIM, 'Hit');              % the interrupted trial ends
+T4 = scoreTrial(T4, TT_STIM, 'Hit');              % the trial in progress ends
 assert(pRem4.Value == 1, ...
-    'completing the interrupted trial must not withdraw the reminder request');
+    'completing that trial must not withdraw the reminder request');
 
 T4 = selectOnly(rt4, T4);                         % ...and the reminder is next
 assert(T4.NextTrialID == remRow4, ...
@@ -195,6 +195,34 @@ T4 = selectOnly(rt4, T4);
 assert(T4.NextTrialID == remRow4, ...
     'a press made during a reminder trial should produce another reminder');
 fprintf('PASS: a press during a reminder trial produces another reminder\n');
+
+
+% 9. The reminder is invisible to the schedule ----------------------------
+% The strongest statement of the requirement: run the same outcomes twice,
+% once with a reminder spliced in and once without, and the depth the
+% staircase hands to every subsequent trial must be identical. The
+% reminder's own outcome is a Miss -- which would step the depth the wrong
+% way by 6 dB if it were counted -- so anything that lets it into the
+% staircase shows up here.
+outcomes = {'Hit','Hit','Miss','Hit'};
+
+[rtA,TA] = makeRuntime(tmpDir, 0);
+TA = runTrials(rtA, TA, outcomes);
+stimRowA = find(cellfun(@(v) v == TT_STIM, TA.trials(:,ttCol)), 1);
+plain = TA.trials{stimRowA, depthCol};
+
+[rtB,TB] = makeRuntime(tmpDir, 0);
+TB = runTrials(rtB, TB, outcomes(1:2));
+rtB.find_parameter('ReminderTrials').Value = 1;         % ...reminder here...
+TB = selectOnly(rtB, TB);
+TB = scoreTrial(TB, TT_REMIND, 'Miss');
+TB = selectOnly(rtB, TB);
+TB = runTrials(rtB, TB, outcomes(3:4));                 % ...rest unchanged
+stimRowB = find(cellfun(@(v) v == TT_STIM, TB.trials(:,ttCol)), 1);
+
+assertNear(TB.trials{stimRowB, depthCol}, plain, ...
+    'a reminder must leave the staircase exactly where it would have been');
+fprintf('PASS: the staircase lands identically with and without a reminder\n');
 
 fprintf('smoke_test_reminder_trial: ALL PASS\n');
 end

@@ -330,7 +330,8 @@ responder = teensy.Simulator.Responder(kind);
 try
     [~, summary] = teensy.Simulator.monteCarlo(obj.Program, responder, n, ...
         TimeStepMs = 1, ...
-        Progress = @(i, total) localProgress_(dlg, i, total));
+        Progress = @(i, total) localProgress_(dlg, i, total), ...
+        ShouldStop = @() localStopRequested_(dlg));
 catch ME
     vprintf(0, 1, ME);
     obj.setStatus(sprintf('Monte Carlo failed: %s', ME.message));
@@ -356,31 +357,59 @@ for i = 1:numel(fields)
 end
 
 obj.HSim.MCTable.Data = data;
-obj.setStatus(sprintf('Simulated %d trials with a "%s" subject.', n, kind), ...
-    'Check that every outcome the paradigm defines actually occurs.');
+
+% The summary counts only the trials that ran, so a short count means Stop was
+% pressed; the partial result is still worth showing.
+if summary.NTrials < n
+    obj.setStatus(sprintf('Stopped after %d of %d trials with a "%s" subject.', ...
+        summary.NTrials, n, kind), ...
+        'The rates below cover only the trials that ran.');
+else
+    obj.setStatus(sprintf('Simulated %d trials with a "%s" subject.', n, kind), ...
+        'Check that every outcome the paradigm defines actually occurs.');
+end
 end
 
 
 function dlg = localProgressDialog_(fig, title, message)
 % dlg = localProgressDialog_(fig, title, message)
-% A progress dialog, or [] when the window is hidden.
+% A progress dialog with a Stop button, or [] when the window is hidden.
 %
 % uiprogressdlg refuses to attach to an invisible figure, which would
 % otherwise make the whole Monte Carlo path unrunnable in a headless test.
+% The dialog is modal, so its own Stop button is the only control the user can
+% reach while the run holds the thread -- hence Cancelable rather than a button
+% on the Test Bench panel.
 dlg = [];
 if isempty(fig) || ~isvalid(fig) || fig.Visible ~= "on"
     return
 end
-dlg = uiprogressdlg(fig, Title = title, Message = message, Value = 0);
+dlg = uiprogressdlg(fig, Title = title, Message = message, Value = 0, ...
+    Cancelable = 'on', CancelText = 'Stop');
 end
 
 
 function localProgress_(dlg, i, total)
 % localProgress_(dlg, i, total)
 % Update the Monte Carlo progress dialog, if there is one.
-if ~isempty(dlg) && isvalid(dlg)
-    dlg.Value = i / total;
+%
+% The Stop click only reaches CancelRequested when the callback queue is
+% flushed, and a Monte Carlo run never returns to idle until it finishes --
+% so the flush has to happen here. limitrate keeps it from costing a redraw
+% per trial.
+if isempty(dlg) || ~isvalid(dlg)
+    return
 end
+dlg.Value = i / total;
+dlg.Message = sprintf('Simulating trial %d of %d...', i, total);
+drawnow limitrate
+end
+
+
+function tf = localStopRequested_(dlg)
+% tf = localStopRequested_(dlg)
+% True once the user has pressed Stop on the progress dialog.
+tf = ~isempty(dlg) && isvalid(dlg) && dlg.CancelRequested;
 end
 
 

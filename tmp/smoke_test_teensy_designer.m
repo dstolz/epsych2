@@ -249,6 +249,25 @@ assert(sum(results.Hit) + sum(results.Miss) + sum(results.FalseAlarm) + ...
     sum(results.CorrectReject) > 0, 'a guessing subject should produce outcomes');
 fprintf('PASS: Monte Carlo returns a decoded table and summary rates\n');
 
+% 12b. Monte Carlo early stop --------------------------------------------
+% The designer's Stop button works by way of ShouldStop, so what matters is
+% that a stopped run returns whole trials and a summary counting only those.
+stopAfter = 7;
+tally = containers.Map({'n'}, {0});   % a handle, so the closure can count
+[partial, pSummary] = teensy.Simulator.monteCarlo(gonogo, responder, 60, ...
+    TimeStepMs = 1, ShouldStop = @() localStopAfter_(tally, stopAfter));
+assert(height(partial) == stopAfter, ...
+    'a stopped run should return only the trials that ran, got %d', height(partial));
+assert(pSummary.NTrials == stopAfter, ...
+    'the summary should count only the trials that ran');
+assert(all(partial.TrialNum == (1:stopAfter)'), 'the kept trials should be the first ones');
+
+[full, fSummary] = teensy.Simulator.monteCarlo(gonogo, responder, 12, ...
+    TimeStepMs = 1, ShouldStop = @() false);
+assert(height(full) == 12 && fSummary.NTrials == 12, ...
+    'a ShouldStop that never fires must not change the run');
+fprintf('PASS: Monte Carlo stops early on request and returns partial results\n');
+
 % 13. The GUI, built headlessly ------------------------------------------
 d = teensy.TrialDesigner(teensy.Templates.get("GoNoGoDetection"), Visible = false);
 assert(isvalid(d.Figure), 'the designer figure should exist');
@@ -289,6 +308,14 @@ d.onSimulate('pause');
 assert(~isempty(d.Simulator), 'the test bench should have a simulator');
 d.onSimulate('reset');
 assert(isempty(d.Simulator), 'reset should clear the simulator');
+
+% The Monte Carlo path builds a Stop-capable progress dialog, which is [] on an
+% invisible figure -- so this also proves the run survives having no dialog.
+d.HSim.NTrials.Value = 8;
+d.onSimulate('montecarlo');
+assert(size(d.HSim.MCTable.Data, 1) > 0, 'the Monte Carlo summary table should be filled');
+assert(any(strcmp(d.HSim.MCTable.Data(:, 1), 'NTrials')), ...
+    'the summary table should report the trial count');
 fprintf('PASS: designer builds, edits, undoes, compiles and simulates headlessly\n');
 
 % 13b. Live monitor mode against a session -------------------------------
@@ -340,6 +367,14 @@ assert(isempty(timerfindall('Name', 'TeensyDesignerLive')), ...
 fprintf('PASS: teardown deletes the figure and every timer\n');
 
 fprintf('\nsmoke_test_teensy_designer: all checks passed\n');
+end
+
+
+function tf = localStopAfter_(tally, limit)
+% tf = localStopAfter_(tally, limit)
+% Stand in for the designer's Stop button: true once `limit` trials have run.
+tally('n') = tally('n') + 1;
+tf = tally('n') >= limit;
 end
 
 

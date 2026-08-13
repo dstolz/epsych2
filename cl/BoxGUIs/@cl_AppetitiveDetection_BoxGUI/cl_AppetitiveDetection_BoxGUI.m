@@ -115,18 +115,22 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
 
     methods (Static)
 
-        function trigger_ReminderTrial(~, value, RUNTIME)
-            % hw.Parameter PostUpdateFcn: bring the next trial forward so it
-            % is presented as a reminder -- a signal-present trial at 0 dB
-            % depth. cl_AppetitiveStimDetect reads ReminderTrials on the
-            % selection pass this brings forward, picks the row, and clears
-            % the toggle in that same pass.
+        function trigger_ReminderTrial(~, value, ~)
+            % hw.Parameter PostUpdateFcn: log the operator's request.
+            %
+            % The request is queued, not immediate: the trial in progress
+            % runs to its natural end, and cl_AppetitiveStimDetect presents
+            % the reminder as the next trial, clearing the toggle in the same
+            % selection pass. This handler deliberately does NOT set
+            % TRIALS.FORCE_TRIAL -- that ended the trial in progress early
+            % and wrote a DATA record from a response the subject had not
+            % finished making.
+            %
+            % It logs at level 1 because a queued request gives the operator
+            % no immediate feedback beyond the button staying lit.
             if value == 0, return; end
 
-            % FORCE_TRIAL tells ep_TimerFcn_RunTime to skip waiting for the
-            % trial to complete and go directly to updating the next trial
-            vprintf(3,'Forcing a Reminder Trial')
-            RUNTIME.TRIALS.FORCE_TRIAL = true;
+            vprintf(1,'Reminder trial requested; queued for the next trial')
         end
 
         function trigger_FreeReward(obj, ~, ~)

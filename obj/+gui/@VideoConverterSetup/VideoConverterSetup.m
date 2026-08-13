@@ -80,6 +80,15 @@ classdef VideoConverterSetup < handle
         PresetNames = ["H.264 archive (CRF 18, medium)", "H.264 compact (CRF 23, faster)", ...
             "H.264 preview (CRF 28, veryfast, 0.5x)", "Remux (stream copy)", ...
             "Strip audio (H.264)", "Custom"]
+
+        % Side-column geometry. The panels are a fixed-height stack inside a
+        % scrollable column, so each one's height is derived from its own row
+        % count (panelHeight_) rather than hand-tuned: adding a row to a panel
+        % can then never clip its last control.
+        PanelRowHeight  = 24
+        PanelRowSpacing = 6
+        PanelPadding    = 8
+        PanelTitleHeight = 24
     end
 
     methods
@@ -126,6 +135,9 @@ classdef VideoConverterSetup < handle
     methods (Access = private)
         function createUI(obj, windowStyle)
             if isempty(obj.Parent)
+                % The saved Position is the user's own sizing, but a height
+                % from an earlier layout can be too short for the panels;
+                % ensureContentFits_ grows it once the panels are built.
                 fpos = getpref('ep_VideoConverter', 'Position', [300 200 1040 640]);
                 fig = uifigure('Name', 'Video Converter', 'Position', fpos);
                 movegui(fig, 'onscreen');
@@ -152,8 +164,12 @@ classdef VideoConverterSetup < handle
             obj.FileTable.Layout.Row = 1;
             obj.FileTable.Layout.Column = 1;
             obj.FileTable.ColumnName = {'Source','Output','Dur','Size','Status','%'};
+            % The five right-hand columns hold short, bounded strings, so give
+            % them exactly what they need and let the two path columns share
+            % the rest: everything stays visible without a horizontal scroll.
+            obj.FileTable.ColumnWidth = {'1x','1x',60,80,90,50};
             obj.FileTable.ColumnEditable = [false false false false false false];
-            obj.FileTable.Data = table(strings(0,1), strings(0,1), strings(0,1), strings(0,1), strings(0,1), zeros(0,1), ...
+            obj.FileTable.Data = table(strings(0,1), strings(0,1), strings(0,1), strings(0,1), strings(0,1), strings(0,1), ...
                 'VariableNames', {'Source','Output','Dur','Size','Status','Percent'});
 
             % --- Side column (scrollable) ---
@@ -161,14 +177,23 @@ classdef VideoConverterSetup < handle
             obj.SideGrid.Layout.Row = 1;
             obj.SideGrid.Layout.Column = 2;
             obj.SideGrid.Padding = [0 0 0 0];
-            obj.SideGrid.RowSpacing = 6;
-            obj.SideGrid.RowHeight = {150, 250, 130, 130};
+            obj.SideGrid.RowSpacing = obj.PanelRowSpacing;
+            % Each panel sets its own row height from its content; the column
+            % stays scrollable for windows too short to show the whole stack.
+            obj.SideGrid.RowHeight = repmat({0}, 1, 4);
             obj.SideGrid.Scrollable = 'on';
 
             obj.buildSourcePanel_();
             obj.buildEncodingPanel_();
             obj.buildOutputPanel_();
             obj.buildRunPanel_();
+
+            % Now that the panels have declared their heights, size the window
+            % to them. Done here rather than from a table of row counts so the
+            % two can never fall out of step.
+            if obj.OwnsParentFigure
+                obj.ensureContentFits_();
+            end
 
             % --- Bottom row: actions + overall progress ---
             bottomGrid = uigridlayout(obj.RootGrid, [1 4]);
@@ -193,12 +218,58 @@ classdef VideoConverterSetup < handle
             obj.CancelButton.ButtonPushedFcn = @(s,e) obj.onCancel(s,e);
         end
 
+        function g = panelGrid_(obj, p, nRows)
+            % Build a side panel's nRows-by-2 grid and size the panel's row in
+            % SideGrid to hold it. One place computes the height, so a panel
+            % and its container can never disagree about how tall it is.
+            g = uigridlayout(p, [nRows 2]);
+            g.RowHeight = repmat({obj.PanelRowHeight}, 1, nRows);
+            g.RowSpacing = obj.PanelRowSpacing;
+            g.Padding = repmat(obj.PanelPadding, 1, 4);
+            obj.SideGrid.RowHeight{p.Layout.Row} = obj.panelHeight_(nRows);
+        end
+
+        function ensureContentFits_(obj)
+            % Grow the window until the whole panel stack is visible. Only
+            % ever grows: the user's own sizing is kept, and a Position saved
+            % under an earlier layout cannot strand controls out of view. The
+            % side column stays scrollable for screens too short for even
+            % this, which is the only case that still needs it.
+            need = obj.sideColumnHeight_() + obj.rootChromeHeight_();
+            screen = get(groot, 'ScreenSize');
+            need = min(need, screen(4) - 100);   % leave room for title bar and taskbar
+            if obj.Parent.Position(4) < need
+                obj.Parent.Position(4) = need;
+                movegui(obj.Parent, 'onscreen');
+            end
+        end
+
+        function h = sideColumnHeight_(obj)
+            % Height the panel stack needs to show every control at once.
+            h = sum([obj.SideGrid.RowHeight{:}]) ...
+                + (numel(obj.SideGrid.RowHeight) - 1)*obj.SideGrid.RowSpacing;
+        end
+
+        function h = rootChromeHeight_(obj)
+            % Everything RootGrid spends outside the table/side row: its own
+            % padding, the two row gaps, and the action and status rows.
+            h = obj.RootGrid.Padding(2) + obj.RootGrid.Padding(4) ...
+                + 2*obj.RootGrid.RowSpacing ...
+                + obj.RootGrid.RowHeight{2} + obj.RootGrid.RowHeight{3};
+        end
+
+        function h = panelHeight_(obj, nRows)
+            % Height of a panel whose grid holds nRows content rows, including
+            % the grid's padding and the panel's own title bar.
+            h = nRows*obj.PanelRowHeight + (nRows-1)*obj.PanelRowSpacing ...
+                + 2*obj.PanelPadding + obj.PanelTitleHeight;
+        end
+
         function buildSourcePanel_(obj)
             p = uipanel(obj.SideGrid, 'Title', 'Source');
             p.Layout.Row = 1;
-            g = uigridlayout(p, [4 2]);
+            g = obj.panelGrid_(p, 4);
             g.ColumnWidth = {80, '1x'};
-            g.RowHeight = {24, 24, 24, 24};
 
             uilabel(g, 'Text', 'Root folder');
             rootRow = uigridlayout(g, [1 2]);
@@ -226,9 +297,8 @@ classdef VideoConverterSetup < handle
         function buildEncodingPanel_(obj)
             p = uipanel(obj.SideGrid, 'Title', 'Encoding');
             p.Layout.Row = 2;
-            g = uigridlayout(p, [8 2]);
+            g = obj.panelGrid_(p, 8);
             g.ColumnWidth = {100, '1x'};
-            g.RowHeight = repmat({24}, 1, 8);
 
             uilabel(g, 'Text', 'Preset');
             obj.PresetDropDown = uidropdown(g, 'Items', cellstr(obj.PresetNames), 'Tag', 'VideoConverterSetup_PresetDropDown');
@@ -275,9 +345,8 @@ classdef VideoConverterSetup < handle
         function buildOutputPanel_(obj)
             p = uipanel(obj.SideGrid, 'Title', 'Output');
             p.Layout.Row = 3;
-            g = uigridlayout(p, [4 2]);
+            g = obj.panelGrid_(p, 4);
             g.ColumnWidth = {80, '1x'};
-            g.RowHeight = repmat({24}, 1, 4);
 
             uilabel(g, 'Text', '');
             obj.AlongsideCheckBox = uicheckbox(g, 'Text', 'Alongside source', 'Tag', 'VideoConverterSetup_AlongsideCheckBox');
@@ -310,9 +379,8 @@ classdef VideoConverterSetup < handle
         function buildRunPanel_(obj)
             p = uipanel(obj.SideGrid, 'Title', 'Run');
             p.Layout.Row = 4;
-            g = uigridlayout(p, [4 2]);
+            g = obj.panelGrid_(p, 4);
             g.ColumnWidth = {100, '1x'};
-            g.RowHeight = repmat({24}, 1, 4);
 
             uilabel(g, 'Text', 'On conflict');
             obj.OverwriteDropDown = uidropdown(g, 'Items', {'skip','overwrite','error'}, 'Tag', 'VideoConverterSetup_OverwriteDropDown');
@@ -625,10 +693,13 @@ classdef VideoConverterSetup < handle
                 sizeS(k) = obj.humanBytes_(T.BytesIn(k));
             end
             statusS = string(T.Status);
+            % Whole percent as text: a double column renders as "42.5000" in
+            % a uitable, which needs a wide column to say very little.
             pct = double(T.Percent);
-            pct(isnan(pct)) = 0;
+            pctS = compose("%.0f", pct);
+            pctS(isnan(pct)) = "-";
 
-            data = table(src, out, durS, sizeS, statusS, pct, ...
+            data = table(src, out, durS, sizeS, statusS, pctS, ...
                 'VariableNames', {'Source','Output','Dur','Size','Status','Percent'});
             obj.FileTable.Data = data;
         end

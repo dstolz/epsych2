@@ -28,6 +28,10 @@ function report = smoke_test_videoconverter()
 %       when installed, for semantic (not byte-for-byte) agreement.
 %   12) gui.VideoConverterSetup: tagged controls exist, Scan/Convert wire
 %       through correctly headlessly, and delete() leaves no leaks.
+%   13) gui.VideoConverterSetup layout: every side panel is tall enough for
+%       the rows it declares, and an owned window opens tall enough for the
+%       whole panel stack even when a saved Position is too short. Needs no
+%       ffmpeg.
 %
 % Requires ffmpeg.exe with the lavfi testsrc/sine input demuxer (any
 % standard full/shared ffmpeg build). Steps that need it are skipped
@@ -494,6 +498,56 @@ try
 
         report.steps.(stepName) = struct('passed', true, 'detail', 'Tagged controls present; Scan/Convert wired correctly; clean teardown.');
     end
+catch ME
+    report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
+end
+
+% Step 13: GUI layout -- no fixture needed, so this runs even without ffmpeg.
+% Opened with a deliberately too-short saved Position: the window must grow
+% rather than leave the lower panels unreachable.
+stepName = 'guiLayout';
+try
+    hadPos = ispref('ep_VideoConverter', 'Position');
+    if hadPos, oldPos = getpref('ep_VideoConverter', 'Position'); end
+    setpref('ep_VideoConverter', 'Position', [200 200 1000 420]);
+
+    c = util.VideoConverter();
+    g = gui.VideoConverterSetup(c);
+    fig = g.Parent;
+    drawnow;
+
+    % Each panel must be able to show every row its grid declares.
+    panels = findobj(fig, 'Type', 'uipanel');
+    tight = strings(numel(panels), 1);
+    for k = 1:numel(panels)
+        grid = panels(k).Children(1);
+        rows = [grid.RowHeight{:}];
+        need = sum(rows) + (numel(rows)-1)*grid.RowSpacing ...
+            + grid.Padding(2) + grid.Padding(4);
+        if panels(k).InnerPosition(4) + 0.5 < need
+            tight(k) = sprintf('%s: %g available, %g needed', ...
+                panels(k).Title, panels(k).InnerPosition(4), need);
+        end
+    end
+    tight(tight == "") = [];
+    assert(isempty(tight), 'SmokeTest:PanelClipped', ...
+        'panel too short for its rows -- %s', strjoin(tight, '; '));
+
+    % ...and the window must be tall enough for the stack of panels.
+    assert(fig.Position(4) > 420, 'SmokeTest:WindowNotGrown', ...
+        'window kept the too-short saved height (%g).', fig.Position(4));
+
+    delete(g);
+    drawnow;
+    delete(c);
+    if hadPos
+        setpref('ep_VideoConverter', 'Position', oldPos);
+    elseif ispref('ep_VideoConverter', 'Position')
+        rmpref('ep_VideoConverter', 'Position');
+    end
+
+    report.steps.(stepName) = struct('passed', true, ...
+        'detail', 'All side panels fit their rows; short saved Position was grown to fit.');
 catch ME
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end

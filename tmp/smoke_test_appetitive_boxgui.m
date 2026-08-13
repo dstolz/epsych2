@@ -128,15 +128,17 @@ assert(isequal(g.NextTrialPanel.TableH.Data, {'Depth','0';'TrialTypeNames','CATC
 fprintf('PASS: gui.NextTrial updates from the NewTrial event\n');
 
 % 7. NewData hook ---------------------------------------------------------
+% The Reminder request must SURVIVE a completed trial. NewData is broadcast
+% before the runtime asks the selector for the next trial, so a GUI that
+% cleared the toggle here withdrew the request in the very pass that was
+% about to honor it and no reminder was ever presented. The selector
+% consumes the request itself, in the pass that grants it.
 pReminder = g.hReminder.Parameter;
-% arm the toggle without running trigger_ReminderTrial, which would need a
-% compiled TRIALS struct; clearing it (value 0) returns immediately
-pReminder.PostUpdateFcnEnabled = false;
-pReminder.Value = 1;
-pReminder.PostUpdateFcnEnabled = true;
+pReminder.Value = 1;   % safe to run trigger_ReminderTrial: it only logs
 g.Psych.Helper.notify('NewData');
-assert(pReminder.Value == 0, 'a completed trial should clear the Reminder toggle');
-fprintf('PASS: onNewData clears the Reminder toggle\n');
+assert(pReminder.Value == 1, 'a completed trial must not clear the Reminder toggle');
+pReminder.Value = 0;
+fprintf('PASS: onNewData leaves the Reminder request standing\n');
 
 % 8. ModeChange: monitor polling stops on Stop, resumes on Record ---------
 rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));

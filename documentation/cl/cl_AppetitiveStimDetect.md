@@ -87,26 +87,38 @@ Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, 
 
 ## Reminder trials
 
-`cl_AppetitiveDetection_BoxGUI`'s **Reminder** button sets `ReminderTrials` to `1`. Its `PostUpdateFcn` does one thing — set `TRIALS.FORCE_TRIAL = true`, so `ep_TimerFcn_RunTime` stops waiting for the current trial to complete and comes round to `selectNext` immediately. Everything about *what* the reminder is lives here, in the selector.
+`cl_AppetitiveDetection_BoxGUI`'s **Reminder** button sets `ReminderTrials` to `1`. That is all it does: the request is **queued, not immediate**. The trial in progress runs to its natural end and the reminder is presented as the next trial. The button's `PostUpdateFcn` only logs the press — it deliberately does *not* set `TRIALS.FORCE_TRIAL`, which ended the trial in progress early and wrote a `DATA` record from a response the subject had not finished making. Everything about *what* the reminder is lives here, in the selector.
 
 A reminder is a **signal-present trial at 0 dB depth** — full modulation, the most salient stimulus the task produces — regardless of where the staircase currently sits. `forceReminderTrial_` writes that depth into the reminder row of the live trials table rather than reading whatever the protocol compiled there, so the reminder does not depend on the protocol's `Depth` values.
 
 The trial keeps `TrialType = 2`, which is what makes the override safe:
 
-- the staircase measures from the last completed **stimulus** trial, so the reminder's 0 dB never becomes `lastStim` — the pending depth survives the interruption instead of resetting the session's threshold estimate
+- the staircase measures from the last completed **stimulus** trial, so the reminder's 0 dB never becomes `lastStim`
 - the catch-trial hazard ignores reminder trials, so the catch schedule is neither advanced nor reset
 - the Next Trial panel and the Response History label the trial from `TrialTypeNames`, so it reads as `Reminder` rather than as an anomalous stimulus trial
 
-The reminder's *outcome* still steps the staircase, as any completed trial does.
+### The reminder is invisible to the schedule
+
+A reminder takes the next trial's slot and changes nothing else: **subsequent trials continue exactly as they would have had no reminder been presented.** A reminder is an operator interruption, not a measurement of the subject, so its own outcome is not a datum — scoring it as a hit must not walk the staircase down, and scoring it as a miss must not walk it up.
+
+`selectNext` gets this by construction rather than by special cases:
+
+1. Reminder trials are removed from the decoded history (`RC`, and the matching `Depth` vector) before anything reads it, so every `(end)` in the staircase and catch logic refers to the last *real* trial.
+2. The reminder override is applied **last**, after the staircase step, the hazard advance, and the catch draw have all run. The trial the reminder displaces is therefore scored on the pass that grants the reminder, not a trial later.
+3. The hazard's advance-once guard is keyed on the **count of completed non-reminder trials** (`lastHazardOutcome_`), not on `TrialIndex`. A reminder adds a `TrialIndex` but no outcome, so it can neither advance the hazard nor let the trial before it advance the hazard twice.
+
+The one thing a reminder does consume is the catch **draw** made on the pass that grants it: that draw's result is discarded and re-made for the following trial, at the same (unchanged) probability.
+
+`tmp/smoke_test_reminder_trial.m` proves the invariant directly — it runs the same outcome sequence twice, once with a reminder spliced in and once without, and requires the staircase to land on the same depth.
 
 ### The request is consumed when it is granted
 
-`ReminderTrials` is a one-shot, and the selector clears it in the same `selectNext` pass that acts on it (`consumeReminderRequest_`). It cannot be cleared on trial completion instead, because `ep_TimerFcn_RunTime` broadcasts `NewData` for the completed trial *before* it calls `selectNext` for the next one. A listener that cleared the toggle there — as the box GUI's `onNewData` did — withdrew the request during the very pass that was about to honor it, so the **Reminder** button force-ended the trial in progress and then selected an ordinary trial: no reminder was ever presented, and all the operator saw was the session advancing a trial early.
+`ReminderTrials` is a one-shot, and the selector clears it in the same `selectNext` pass that acts on it (`consumeReminderRequest_`). It cannot be cleared on trial completion instead, because `ep_TimerFcn_RunTime` broadcasts `NewData` for the completed trial *before* it calls `selectNext` for the next one. A listener that cleared the toggle there — as the box GUI's `onNewData` did — withdrew the request during the very pass that was about to honor it, so no reminder was ever presented.
 
 Two consequences follow:
 
-- The button clears as soon as the reminder is committed to, not when the reminder trial ends. A press made *during* a reminder trial is therefore still standing at the next selection pass and produces a second reminder.
-- `reminderIndex_` records the `TrialIndex` a reminder was granted for, so a repeated `selectNext` for the same trial — which a forced trial can produce — still returns the reminder row after the toggle is spent.
+- The button clears as soon as the reminder is committed to, not when the reminder trial ends. It therefore stays lit exactly while the request is queued, which is the operator's only feedback that a press registered. A press made *during* a reminder trial is still standing at the next selection pass and produces a second reminder.
+- `reminderIndex_` records the `TrialIndex` a reminder was granted for, so a repeated `selectNext` for the same trial — which any control that sets `FORCE_TRIAL` can produce — still returns the reminder row after the toggle is spent.
 
 Two edge cases are reported rather than papered over:
 
@@ -138,9 +150,9 @@ With `Min = 0`, `Value = 0.1`, `Max = 1` the probability runs 0, 0.1, 0.2, … a
 
 Because the value accumulates rather than being recomputed from history, **an operator edit applies from that point forward and is never retroactive**. Five stimulus trials at `Value = 0.1` sit at 0.5; raising the step to 0.2 takes the next trial to 0.7, not to 1.0. The `Min`/`Max` clamp is re-applied every trial, so tightening the bounds takes effect immediately rather than waiting for the next step.
 
-**Aborts are inert on both sides of the schedule.** An aborted stimulus trial never delivered a stimulus, so it does not advance `p`; an aborted catch trial never measured a false-alarm rate, so it does not reset `p`. A run of aborts therefore leaves the catch rate exactly where it was. Reminder trials (`TrialType == 2`) are likewise neither a step nor a reset.
+**Aborts are inert on both sides of the schedule.** An aborted stimulus trial never delivered a stimulus, so it does not advance `p`; an aborted catch trial never measured a false-alarm rate, so it does not reset `p`. A run of aborts therefore leaves the catch rate exactly where it was. Reminder trials (`TrialType == 2`) never reach the rule at all — they are dropped from the history before it is read.
 
-`cl_AppetitiveStimDetect.advanceHazard` is a static, runtime-free implementation of the step rule above. The selector applies it at most once per completed trial, keyed on `TRIALS.TrialIndex` — which increments exactly once per pass through the runtime's completion block, so the extra `selectNext` calls made at session start and by a forced Reminder trial cannot double-advance the hazard. `tmp/smoke_test_pcatch_hazard.m` is the standing proof of the schedule.
+`cl_AppetitiveStimDetect.advanceHazard` is a static, runtime-free implementation of the step rule above. The selector applies it at most once per completed trial, keyed on the count of completed **non-reminder** trials, so neither a repeated `selectNext` for the same trial nor an intervening reminder can double-advance the hazard. `tmp/smoke_test_pcatch_hazard.m` is the standing proof of the schedule.
 
 ### The live probability
 

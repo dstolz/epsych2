@@ -56,7 +56,12 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
         catchEnabled_  = [] % hw.Parameter gating catch-trial presentation
 
         pCatch_ (1,1) double = 0 % accumulated catch-trial probability
-        lastHazardIndex_ (1,1) double = 1 % TrialIndex the hazard last advanced on
+
+        % Number of completed non-reminder trials the hazard has already
+        % advanced on. Keyed on that count rather than on TrialIndex so the
+        % hazard advances exactly once per real trial and a reminder -- which
+        % adds a TrialIndex but no outcome -- cannot advance it at all.
+        lastHazardOutcome_ (1,1) double = 0
 
         % TrialIndex whose selection has already been committed to a
         % reminder. Holds the choice across a repeated selectNext at the same
@@ -85,7 +90,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % here rather than being recomputed from history, so a mid-session
             % change to the step size only affects subsequent trials.
             obj.pCatch_ = obj.P.P_Catch.Min;
-            obj.lastHazardIndex_ = 1;
+            obj.lastHazardOutcome_ = 0;
         end
 
 
@@ -128,22 +133,43 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             end
 
 
-            % Reminder override: the operator's Reminder button. The second
-            % test re-honors a request already consumed at this TrialIndex,
-            % so a repeated selectNext for the same trial -- which is what a
-            % forced trial can produce -- still yields the reminder.
-            if obj.P.ReminderTrials.Value == 1 || TRIALS.TrialIndex == obj.reminderIndex_
-                nextTrialID = obj.forceReminderTrial_(TRIALS);
-                return
-            end
+            % Is a reminder pending? Read now but acted on at the very end:
+            % the reminder changes which row is presented and nothing else,
+            % so the schedule below advances exactly as it would have without
+            % it. The second test re-honors a request already consumed at
+            % this TrialIndex, so a repeated selectNext for the same trial
+            % still yields the reminder.
+            reminderRequested = obj.P.ReminderTrials.Value == 1 ...
+                || TRIALS.TrialIndex == obj.reminderIndex_;
 
 
             % Decode completed-trial response codes (see epsych.BitMask.list)
             RC = epsych.BitMask.decode([TRIALS.DATA.RespCode]);
+            stim = [TRIALS.DATA.Depth];
+
+            % Drop reminder trials from the history the schedule reads. A
+            % reminder is an operator interruption, not a measurement: its
+            % outcome is not a datum about the subject's threshold, and the
+            % trial it displaced still has to be accounted for. Removing it
+            % here is what makes the session continue as though the reminder
+            % had never been presented -- the staircase steps on the outcome
+            % of the last real trial, once, whether or not a reminder came
+            % between them.
+            isReminder = RC.("TrialType_" + obj.TT_REMIND_);
+            stim = stim(~isReminder);
+            RC = structfun(@(v) v(~isReminder), RC, UniformOutput=false);
+
+            % Nothing but reminders completed so far -- there is no outcome to
+            % schedule from, so present the reminder or start the staircase.
+            nOutcomes = nnz(~isReminder);
+            if nOutcomes == 0
+                nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
+                if reminderRequested, nextTrialID = obj.forceReminderTrial_(TRIALS); end
+                return
+            end
 
             % Last STIM depth: use stored value; fall back to compiled max on first STIM
             lastStimTrialIdx = find(RC.("TrialType_" + obj.TT_STIM_), 1, 'last');
-            stim = [TRIALS.DATA.Depth];
             if isempty(lastStimTrialIdx)
                 lastStim = max(obj.T.Depth); % no prior STIM: start at max depth
             else
@@ -237,41 +263,50 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % it -- gets.
             if ~isempty(obj.catchEnabled_) && ~obj.catchEnabled_.Value
                 obj.pCatch_ = pC.Min;
-                obj.lastHazardIndex_ = TRIALS.TrialIndex;
+                obj.lastHazardOutcome_ = nOutcomes;
                 if ~isempty(obj.pCatchCurrent_), obj.pCatchCurrent_.Value = obj.pCatch_; end
 
                 vprintf(4, 'Catch trials disabled')
                 nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
-                return
-            end
 
-            % Advance at most once per completed trial. TrialIndex increments
-            % exactly once per pass through the runtime's completion block, so
-            % keying on it makes a repeated selectNext at the same index a
-            % no-op -- which is what a forced Reminder trial produces.
-            if obj.lastHazardIndex_ ~= TRIALS.TrialIndex
-                obj.lastHazardIndex_ = TRIALS.TrialIndex;
-                obj.pCatch_ = cl_AppetitiveStimDetect.advanceHazard(obj.pCatch_, ...
-                    RC, obj.TT_STIM_, obj.TT_CATCH_, pC.Min, pC.Value, pC.Max);
-            end
-
-            % Re-clamp every trial so an operator edit to the Min/Max bounds
-            % takes effect immediately rather than at the next step.
-            obj.pCatch_ = min(max(obj.pCatch_, pC.Min), pC.Max);
-
-            pCT = obj.pCatch_;
-            if ~isempty(obj.pCatchCurrent_), obj.pCatchCurrent_.Value = pCT; end
-
-            % An abort suppresses this draw without disturbing the hazard:
-            % advanceHazard already left the accumulator alone, so p is
-            % unchanged the next time around.
-            if RC.Abort(end), pCT = 0; end
-            vprintf(4, 'p(Catch) = %g', pCT)
-
-            if pCT > 0 && ~RC.("TrialType_" + obj.TT_CATCH_)(end) && rand() < pCT
-                nextTrialID = find(obj.T.TrialType == obj.TT_CATCH_, 1);
             else
-                nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
+                % Advance at most once per completed trial. nOutcomes counts
+                % non-reminder trials, so a repeated selectNext for the same
+                % trial is a no-op and an intervening reminder neither
+                % advances the hazard nor lets the trial before it advance the
+                % hazard twice.
+                if obj.lastHazardOutcome_ ~= nOutcomes
+                    obj.lastHazardOutcome_ = nOutcomes;
+                    obj.pCatch_ = cl_AppetitiveStimDetect.advanceHazard(obj.pCatch_, ...
+                        RC, obj.TT_STIM_, obj.TT_CATCH_, pC.Min, pC.Value, pC.Max);
+                end
+
+                % Re-clamp every trial so an operator edit to the Min/Max bounds
+                % takes effect immediately rather than at the next step.
+                obj.pCatch_ = min(max(obj.pCatch_, pC.Min), pC.Max);
+
+                pCT = obj.pCatch_;
+                if ~isempty(obj.pCatchCurrent_), obj.pCatchCurrent_.Value = pCT; end
+
+                % An abort suppresses this draw without disturbing the hazard:
+                % advanceHazard already left the accumulator alone, so p is
+                % unchanged the next time around.
+                if RC.Abort(end), pCT = 0; end
+                vprintf(4, 'p(Catch) = %g', pCT)
+
+                if pCT > 0 && ~RC.("TrialType_" + obj.TT_CATCH_)(end) && rand() < pCT
+                    nextTrialID = find(obj.T.TrialType == obj.TT_CATCH_, 1);
+                else
+                    nextTrialID = find(obj.T.TrialType == obj.TT_STIM_, 1);
+                end
+            end
+
+            % Reminder override, applied last so it takes the scheduled
+            % trial's slot without altering the schedule: the staircase step,
+            % the hazard, and the draw above have all already run exactly as
+            % they would have if the button had never been pressed.
+            if reminderRequested
+                nextTrialID = obj.forceReminderTrial_(TRIALS);
             end
         end
 
@@ -302,8 +337,9 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % stimulus trial never delivered a stimulus, so it does not
             % advance p; an aborted catch trial never measured a false-alarm
             % rate, so it does not reset p. A run of aborts therefore leaves
-            % the catch rate exactly where it was. Reminder trials are
-            % likewise neither a step nor a reset.
+            % the catch rate exactly where it was. Reminder trials never
+            % reach here at all -- selectNext drops them from the history
+            % before reading it.
             %
             % Parameters:
             %   p       - probability before the completed trial

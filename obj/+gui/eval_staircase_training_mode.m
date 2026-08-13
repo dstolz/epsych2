@@ -3,11 +3,20 @@ function [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,
 % [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,Name=Value)
 % Enable or disable staircase-training mode for a single hw.Parameter.
 %
-% This callback is intended for a state-button ValueChangedFcn. When
-% enabled, it suspends Parameter.isRandom, opens or focuses a
-% gui.StaircaseTraining window, and attaches a NewData listener that steps
-% the parameter after selected trial outcomes. When disabled, it restores
-% the previous randomisation state and removes the training GUI/listener.
+% This callback is intended for a state-button ValueChangedFcn, or for the
+% PostUpdateFcn of a gui.Parameter_Control checkbox bound to a Boolean
+% parameter (which is what lets a saved phase carry the training state --
+% see hw.Parameter.PersistWithPhase). When enabled, it suspends
+% Parameter.isRandom, opens or focuses a gui.StaircaseTraining window, and
+% attaches a NewData listener that steps the parameter after selected trial
+% outcomes. When disabled, it restores the previous randomisation state and
+% removes the training GUI/listener.
+%
+% It is idempotent in both directions. Bound to a parameter, either state can
+% arrive without the matching transition -- a phase load writes the value and
+% gui.Parameter_Control runs this for the external change -- so a repeated
+% enable must not re-snapshot over the suspended values, and a disable with no
+% preceding enable must not try to restore a snapshot that was never taken.
 %
 % Inputs
 %   obj - GUI controller exposing RUNTIME, StaircaseTrainingGUIs, and
@@ -71,16 +80,33 @@ end
 try
     value = event.Value;
 
+    % The map entry IS the record that training was switched on and a
+    % STAIRCASE snapshot therefore exists; the window may since have been
+    % closed on its own. Both matter now that the toggle can be bound to an
+    % hw.Parameter: a phase load writes the parameter and
+    % gui.Parameter_Control runs this for the external change, so either state
+    % can arrive without the matching transition.
+    hasEntry  = obj.StaircaseTrainingGUIs.isKey(pName);
+    hasWindow = hasEntry && isvalid(obj.StaircaseTrainingGUIs(pName));
+
     if value == 1
         % enable training mode
-        Parameter.UserData.STAIRCASE.isRandom = Parameter.isRandom;
-        rda = RUNTIME.P.RepeatDelayOnAbort;
-        rda.UserData.STAIRCASE.Value = rda.Value;
-        rda.Value = false;
-        Parameter.isRandom = false;
+        %
+        % Snapshot only on the way in. A second enable while training is
+        % already on would otherwise overwrite the snapshot with the
+        % suspended values, losing what has to be restored on the way out.
+        if ~hasEntry
+            Parameter.UserData.STAIRCASE.isRandom = Parameter.isRandom;
+            rda = repeatDelayParameter(RUNTIME);
+            if ~isempty(rda)
+                rda.UserData.STAIRCASE.Value = rda.Value;
+                rda.Value = false;
+            end
+            Parameter.isRandom = false;
+        end
 
         % launch or focus the training mode GUI
-        if obj.StaircaseTrainingGUIs.isKey(pName) && isvalid(obj.StaircaseTrainingGUIs(pName))
+        if hasWindow
             vprintf(2,'Locating %s Training GUI',pName)
             h = obj.StaircaseTrainingGUIs(pName);
             if isvalid(h.Parent) && isa(h.Parent,'matlab.ui.Figure')
@@ -104,12 +130,22 @@ try
         success = true;
 
     else
+        % Nothing to tear down, and -- crucially -- nothing to restore from:
+        % the STAIRCASE snapshot below only exists once an enable has run.
+        if ~hasEntry
+            vprintf(3,'%s Training Mode already off; nothing to restore',pName)
+            success = true;
+            return
+        end
+
         vprintf(2,'Closing %s Training GUI',pName)
 
         % Restore the parameter's prior randomization behavior.
         Parameter.isRandom = Parameter.UserData.STAIRCASE.isRandom;
-        rda = RUNTIME.P.RepeatDelayOnAbort;
-        rda.Value = rda.UserData.STAIRCASE.Value;
+        rda = repeatDelayParameter(RUNTIME);
+        if ~isempty(rda)
+            rda.Value = rda.UserData.STAIRCASE.Value;
+        end
         Parameter.UserData.CORRECTVAL = []; % NEEDED DUE TO CONFLICT WITH TRIALSELECTION
 
         if obj.StaircaseTrainingGUIs.isKey(pName)
@@ -144,6 +180,22 @@ catch e
     end
 end
 
+end
+
+
+function p = repeatDelayParameter(RUNTIME)
+% p = repeatDelayParameter(RUNTIME)
+% Resolve RepeatDelayOnAbort, which training mode suspends for its duration.
+%
+% Resolved through find_parameter rather than RUNTIME.P: that cache is only
+% populated once TRIALS is initialized (see epsych.Runtime.set.TRIALS), and
+% training mode can now be switched from a checkbox or a phase load before a
+% session has dispatched its first trial. Returns empty when the protocol does
+% not define the parameter, which callers treat as "nothing to suspend".
+p = RUNTIME.find_parameter('RepeatDelayOnAbort', silenceParameterNotFound=true);
+if ~isempty(p)
+    p = p(1);
+end
 end
 
 

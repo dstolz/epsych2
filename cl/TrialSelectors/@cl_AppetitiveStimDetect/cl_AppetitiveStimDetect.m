@@ -28,7 +28,9 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     % Catch trials can be switched off for a session through the
     % CatchTrialsEnabled parameter, which cl_AppetitiveDetection_BoxGUI
     % exposes as a checkbox. The selector creates it when the protocol does
-    % not declare it, and an absent parameter means enabled.
+    % not declare it, and an absent parameter means enabled. It is marked
+    % PersistWithPhase, so the setting is saved into and restored from a phase
+    % file like the rest of the stage's configuration.
     %
     % Optional parameters:
     %   StepDirectionOnHit, StepDirectionOnMiss - sign (-1 = Down, +1 = Up) of
@@ -118,9 +120,15 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             end
 
             if isempty(obj.catchEnabled_)
+                % PersistWithPhase: the operator sets this once for a
+                % subject's stage and leaves it set, so it is a phase setting,
+                % not a button press. Without it the Boolean/UpdateEveryTrial
+                % heuristic in hw.Parameter.isTransientControl reads it as a
+                % momentary control and a phase neither saves nor restores it.
                 obj.catchEnabled_ = obj.ensureSelectorParameter_('CatchTrialsEnabled', true, ...
                     Type='Boolean', ...
-                    Description="Present catch trials");
+                    Description="Present catch trials", ...
+                    PersistWithPhase=true);
             end
 
 
@@ -459,7 +467,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
         end
 
         function p = ensureSelectorParameter_(obj, name, value, options)
-            % p = ensureSelectorParameter_(obj, name, value, Type=..., Format=..., Description=...)
+            % p = ensureSelectorParameter_(obj, name, value, Type=..., Format=..., Description=..., PersistWithPhase=...)
             % Resolve a selector-owned runtime parameter by name, creating it
             % on the hw.Software interface when the protocol does not declare
             % one.
@@ -472,9 +480,20 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % from clobbering them with a stale trials-table value should the
             % operator recompile mid-run.
             %
+            % PersistWithPhase is applied whether the parameter was found or
+            % created: whether a phase should carry the value follows from what
+            % the parameter is for, which the selector knows and the protocol
+            % author may not have marked.
+            %
             % Parameters:
             %   name  - parameter name
             %   value - initial value, used only when the parameter is created
+            %   PersistWithPhase - mark the parameter as a persistent operator
+            %       setting rather than transient session control, so a phase
+            %       save records it and a phase load restores it (see
+            %       hw.Parameter.isTransientControl). Only meaningful for
+            %       Boolean parameters, which are otherwise assumed to be
+            %       momentary buttons.
             %
             % Returns:
             %   p - hw.Parameter handle, or [] when there is no runtime (as
@@ -487,13 +506,18 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
                 options.Type (1,:) char = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Description (1,1) string = ""
+                options.PersistWithPhase (1,1) logical = false
             end
 
             p = [];
             if isempty(obj.runtime_), return; end
 
             p = obj.runtime_.find_parameter(name, silenceParameterNotFound=true);
-            if ~isempty(p), return; end
+            if ~isempty(p)
+                p = p(1);
+                p.PersistWithPhase = options.PersistWithPhase;
+                return
+            end
 
             sw = obj.runtime_.Interfaces(arrayfun(@(x) isa(x,'hw.Software'), ...
                 obj.runtime_.Interfaces));
@@ -503,6 +527,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
                 Type=options.Type, Format=options.Format, Description=options.Description);
 
             p.UpdateEveryTrial = false;
+            p.PersistWithPhase = options.PersistWithPhase;
 
             % add_parameter seeds Values, not Value; the first write is a
             % trial away, so seat the initial value now.

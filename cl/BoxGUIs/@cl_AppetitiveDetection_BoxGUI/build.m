@@ -41,8 +41,13 @@ function build(obj, fig)
 %
 % Software parameters:
 %   CatchTrialsEnabled (optional) : Checkbox gating catch-trial presentation,
-%       created by cl_AppetitiveStimDetect at run start. When absent the
-%       p(Catch) fields stay enabled and catch trials are always scheduled.
+%       created by cl_AppetitiveStimDetect at run start (with
+%       PersistWithPhase, so its state is saved to and restored from a phase).
+%       When absent the p(Catch) fields stay enabled and catch trials are
+%       always scheduled.
+%   StimDelayTrainingEnabled (optional) : Checkbox enabling stimulus-delay
+%       training mode; created here when the protocol does not declare it.
+%       Marked PersistWithPhase, so a phase carries the training state.
 %   Depth : Staircase-controlled modulation depth.
 %   Depth_StepOnHit : Staircase depth decrement applied after hits.
 %   Depth_StepOnMiss : Staircase depth increment applied after misses.
@@ -202,6 +207,14 @@ hPCatchRange = obj.addControl(layoutTrialControls,'P_Catch',Type='range',autoCom
 hPCatchStep  = obj.addControl(layoutTrialControls,'P_Catch',autoCommit=true,Text="p(Catch) Step:");
 
 if ~isempty(hCatchEnable)
+    % This is a stage setting, not a momentary button, so a phase must carry
+    % it (see hw.Parameter.isTransientControl). cl_AppetitiveStimDetect marks
+    % the parameter when it resolves it, but that happens once at run start:
+    % asserting it here as well means the flag is right whenever the checkbox
+    % exists -- including a protocol that declares the parameter itself, and a
+    % session whose selector was constructed before the flag existed.
+    hCatchEnable.Parameter.PersistWithPhase = true;
+
     hCatchEnable.PostUpdateFcn     = @set_catch_trials_state;
     hCatchEnable.PostUpdateFcnArgs = {hPCatchRange,hPCatchStep};
     % Seed the enable state from the value carried over from a previous
@@ -255,14 +268,36 @@ if ~isempty(hStimDelayRand)
 end
 
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
+%
+% A checkbox over a real parameter rather than a bare state button: the
+% button's state lived only in the widget, so nothing recorded whether a
+% subject trains on a variable delay and a phase could not restore it.
 pStepUp   = getp(P,'StimDelayTrain_StepUp');
 pStepDown = getp(P,'StimDelayTrain_StepDown');
-if ~isempty(pStimDelay) && ~isempty(pStepUp) && ~isempty(pStepDown)
-    h = uibutton(layoutTrialControls,"state");
-    h.Text = "Stimulus Delay Training Mode";
-    h.ValueChangedFcn = @(src,event) gui.eval_staircase_training_mode(obj,[],event,pStimDelay, ...
-        StepUp   = pStepUp.Value, ...
-        StepDown = pStepDown.Value);
+pTrainMode = ensure_session_setting(R,P,'StimDelayTrainingEnabled',false, ...
+    "Step the stimulus delay after selected trial outcomes (training mode)");
+if ~isempty(pStimDelay) && ~isempty(pStepUp) && ~isempty(pStepDown) && ~isempty(pTrainMode)
+    hStimDelayTrain = obj.addControl(layoutTrialControls,pTrainMode,Type='checkbox', ...
+        autoCommit=true,Text="Stimulus Delay Training Mode");
+
+    % PostUpdateFcn rather than the widget's own ValueChangedFcn:
+    % gui.Parameter_Control runs it for external writes too, which is what
+    % lets a phase load open or close the training window. The src argument
+    % is [] deliberately -- passing the checkbox would disable it and leave
+    % the operator no way to switch training back off.
+    hStimDelayTrain.PostUpdateFcn = @(~,event,~) ...
+        gui.eval_staircase_training_mode(obj,[],event,pStimDelay, ...
+            StepUp   = step_value(pStepUp), ...
+            StepDown = step_value(pStepDown));
+
+    % Reopen the training window when the value carried into this session
+    % already says training is on (a protocol default, or a phase loaded
+    % before this window existed). create() seats the widget, but only a
+    % write fires the PostUpdateFcn.
+    if logical(pTrainMode.Value)
+        hStimDelayTrain.runPostUpdateFcn(struct('PreviousValue',[], ...
+            'EventName','Build','Value',true));
+    end
 end
 
 % >> Number of Pellets to Deliver
@@ -417,6 +452,55 @@ for c = candidates
     end
 end
 vprintf(2,'cl_AppetitiveDetection_BoxGUI: parameter "%s" not available',name)
+end
+
+
+function v = step_value(p)
+% v = step_value(p)
+% Current training step magnitude, falling back to the design-time level.
+%
+% add_parameter seeds Values, not Value, so a parameter the trial dispatcher
+% has not written yet has an empty Value -- and gui.eval_staircase_training_mode
+% requires a scalar. That gap is reachable now that training mode can be
+% switched by a phase load or a protocol default rather than only by an
+% operator clicking mid-session.
+v = p.Value;
+if isempty(v) && ~isempty(p.Values)
+    v = p.Values{1};
+end
+end
+
+
+function p = ensure_session_setting(RUNTIME,P,name,defaultValue,description)
+% p = ensure_session_setting(RUNTIME,P,name,defaultValue,description)
+% Resolve a Boolean operator setting by name, creating it on the session's
+% hw.Software interface when the loaded protocol does not declare one.
+%
+% These are the checkboxes an operator sets for a subject's training stage and
+% then leaves alone. They carry UpdateEveryTrial = false because nothing writes
+% them from the trial table -- the operator owns the value for the whole
+% session -- and PersistWithPhase = true so a saved phase still carries the
+% choice. Without the flag, hw.Parameter.isTransientControl reads any writable
+% Boolean the dispatcher never refreshes as a momentary button and a phase
+% neither saves nor restores it.
+%
+% Returns [] when there is no runtime or no software interface to host the
+% parameter; callers must treat that as "skip the control".
+p = [];
+vn = matlab.lang.makeValidName(name);
+if isfield(P,vn)
+    p = P.(vn);
+else
+    if isempty(RUNTIME) || isempty(RUNTIME.Interfaces), return; end
+    sw = RUNTIME.Interfaces(arrayfun(@(x) isa(x,'hw.Software'),RUNTIME.Interfaces));
+    if isempty(sw), return; end
+
+    p = sw(1).add_parameter(name,defaultValue,Type='Boolean',Description=description);
+    p.UpdateEveryTrial = false;
+    % add_parameter seeds Values, not Value.
+    p.Value = defaultValue;
+end
+p.PersistWithPhase = true;
 end
 
 

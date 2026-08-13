@@ -1,8 +1,18 @@
 # eval_staircase_training_mode
 
-`gui.eval_staircase_training_mode` enables or disables per-parameter staircase training from a GUI state-button callback.
+`gui.eval_staircase_training_mode` enables or disables per-parameter staircase training from a GUI toggle callback.
 
 It is typically used by parameter-control widgets that need to temporarily suspend randomisation and let trial outcomes drive a single `hw.Parameter` through a `gui.StaircaseTraining` window.
+
+## Wiring it to a state button or to a parameter
+
+Either a state `uibutton`'s `ValueChangedFcn` or the `PostUpdateFcn` of a `gui.Parameter_Control` checkbox works — both receive an `event` carrying `.Value`.
+
+Prefer the checkbox. A state button's state lives only in the widget, so nothing records it and a saved phase cannot restore it; a checkbox bound to a Boolean `hw.Parameter` marked `PersistWithPhase` makes the training state part of the stage's configuration (see `documentation/hw/hw_Parameter.md`). `cl_AppetitiveDetection_BoxGUI` does this with `StimDelayTrainingEnabled`.
+
+Pass `[]` as `src` when the toggle itself is the control: a non-empty `src` is *disabled* while training runs, which for the toggle would leave the operator no way to switch training back off.
+
+Bound to a parameter, the callback also runs for **external** writes — `gui.Parameter_Control` invokes `PostUpdateFcn` on the parameter's `PostSet`, which is what lets a phase load open or close the training window. It is therefore idempotent in both directions: a repeated enable does not re-snapshot over the suspended values, and a disable with no preceding enable returns without trying to restore a snapshot that was never taken. The map entry in `StaircaseTrainingGUIs` is the record of which state is in effect.
 
 ## Call signatures
 
@@ -15,17 +25,20 @@ It is typically used by parameter-control widgets that need to temporarily suspe
 
 When `event.Value` is true, the callback:
 
-- Stores the current `Parameter.isRandom` state in `Parameter.UserData.isRandom`.
+- Stores the current `Parameter.isRandom` state in `Parameter.UserData.STAIRCASE.isRandom`, and suspends `RepeatDelayOnAbort` the same way — **only** when training was not already on.
 - Forces `Parameter.isRandom = false`.
 - Opens or focuses a `gui.StaircaseTraining` window for the parameter.
 - Registers a `NewData` listener on `obj.RUNTIME.HELPER`.
 
 When `event.Value` is false, the callback:
 
-- Restores the saved `Parameter.isRandom` state.
+- Returns immediately when training was never switched on, since there is no snapshot to restore.
+- Restores the saved `Parameter.isRandom` and `RepeatDelayOnAbort` states.
 - Deletes the training GUI for that parameter.
 - Deletes the corresponding `NewData` listener.
 - Re-enables the source UI control when one was provided.
+
+`RepeatDelayOnAbort` is resolved through `RUNTIME.find_parameter`, not the `RUNTIME.P` cache: that cache is only populated once `TRIALS` is initialized, and the toggle can now be written before a session has dispatched its first trial. A protocol that does not define the parameter simply has nothing to suspend.
 
 ## Response mapping
 

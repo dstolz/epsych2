@@ -118,6 +118,49 @@ assert(all(pcatchEnableStates([hDelayLo hDelayHi]) == "off"), ...
     'returning to a fixed delay should disable both bound entries');
 fprintf('PASS: randomization checkbox gates both stimulus-delay bounds\n');
 
+% 5c. Stimulus-delay training mode ----------------------------------------
+% Training mode used to be a bare uibutton('state'), so its state lived only
+% in the widget and no phase could record it. It is now a checkbox over a
+% parameter build() creates when the protocol does not declare one. Driving
+% the PARAMETER (not the widget) is the phase-load path, which must open and
+% close the training window and suspend/restore StimDelay randomization.
+pTrain = rt.find_parameter('StimDelayTrainingEnabled', silenceParameterNotFound=true);
+assert(isscalar(pTrain), 'build should create StimDelayTrainingEnabled');
+assert(pTrain.PersistWithPhase, 'training mode must travel with a saved phase');
+assert(~pTrain.UpdateEveryTrial, 'training mode is operator state, not dispatched');
+assert(~hw.Parameter.isTransientControl(pTrain), ...
+    'a PersistWithPhase toggle must not read as a momentary control');
+
+hTrain = findobj(g.h_figure,'Type','uicheckbox','-and','Tag','ACPC_StimDelayTrainingEnabled');
+assert(isscalar(hTrain), 'training-mode checkbox should exist');
+assert(~hTrain.Value, 'training mode should start off');
+
+% A disable with no preceding enable (a phase writing false into a fresh
+% session) must be a no-op, not an attempt to restore a snapshot that was
+% never taken.
+pTrain.Value = false;
+assert(isempty(g.StaircaseTrainingGUIs) || ~g.StaircaseTrainingGUIs.isKey('StimDelay'), ...
+    'switching training off while already off must not open anything');
+
+g.P.StimDelay.isRandom = true;   % the state training must suspend and restore
+pTrain.Value = true;
+assert(hTrain.Value, 'setting the parameter should tick the checkbox');
+assert(g.StaircaseTrainingGUIs.isKey('StimDelay'), 'training mode should open its window');
+assert(~g.P.StimDelay.isRandom, 'training mode suspends stimulus-delay randomization');
+
+% Re-asserting an already-on toggle must not re-snapshot: doing so would
+% capture the suspended isRandom=false and lose the value to restore.
+pTrain.Value = true;
+assert(g.P.StimDelay.UserData.STAIRCASE.isRandom, ...
+    'a repeated enable must not overwrite the staircase snapshot');
+
+pTrain.Value = false;
+assert(~hTrain.Value, 'clearing the parameter should clear the checkbox');
+assert(~g.StaircaseTrainingGUIs.isKey('StimDelay'), 'training mode should close its window');
+assert(g.P.StimDelay.isRandom, 'switching training off restores randomization');
+g.P.StimDelay.isRandom = false;
+fprintf('PASS: training-mode checkbox is a phase-persistent parameter\n');
+
 % 6. NewTrial hook --------------------------------------------------------
 rt.HELPER.notify('NewTrial', epsych.TrialsData(fakeTrials(1)));
 assert(isequal(g.NextTrialPanel.TableH.Data, {'Depth','0.5';'TrialTypeNames','STIM'}), ...

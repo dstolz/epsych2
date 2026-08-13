@@ -63,6 +63,13 @@ for k = 1:length(tags)
 
         case 80
             P.Type = 'Coefficient Buffer';
+            % Coefficient buffers hold session-static data (e.g. calibration
+            % filter coefficients): write them on the first trial dispatch
+            % only. The Type is assigned after construction here, so the
+            % hw.Parameter constructor's Coefficient Buffer default cannot
+            % apply; mirror it explicitly.
+            P.SetOnce = true;
+            P.UpdateEveryTrial = false;
 
         case 65
             P.Type = 'Undefined';

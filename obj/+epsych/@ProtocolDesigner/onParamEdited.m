@@ -77,7 +77,15 @@ function onParamEdited(obj, evt)
                         parameter.Values = {coefValue};
                         parameter.isArray = numel(coefValue) > 1;
                     end
-                    nextStep = 'Review the coefficient buffer, then compile to verify the updated trials.';
+                    % Coefficient buffers hold session-static data: default a
+                    % newly retyped one to a single first-dispatch write. The
+                    % Set Once checkbox stays under the user's control.
+                    if ~isequal(originalType, 'Coefficient Buffer')
+                        parameter.SetOnce = true;
+                        parameter.UpdateEveryTrial = false;
+                        statusMessage = sprintf('%s is now a coefficient buffer set once at session start', parameter.Name);
+                    end
+                    nextStep = 'Review the coefficient buffer, then compile to verify the updated trials. Uncheck Set Once if it should be rewritten every trial.';
                 elseif isequal(parameter.Type, 'String')
                     originalStringLike = isempty(originalValues) || ...
                         all(cellfun(@(v) ischar(v) || isstring(v), originalValues));
@@ -282,7 +290,28 @@ function onParamEdited(obj, evt)
                 parameter.isTrigger = logical(evt.NewData);
             case 14
                 parameter.UpdateEveryTrial = logical(evt.NewData);
+                % Update Every Trial supersedes a one-time write; keep the
+                % two checkboxes mutually exclusive so the row reads as one
+                % dispatch mode.
+                if parameter.UpdateEveryTrial && parameter.SetOnce
+                    parameter.SetOnce = false;
+                    statusMessage = sprintf('%s now updates every trial (Set Once cleared)', parameter.Name);
+                end
             case 15
+                parameter.SetOnce = logical(evt.NewData);
+                if parameter.SetOnce
+                    if parameter.UpdateEveryTrial
+                        parameter.UpdateEveryTrial = false;
+                        statusMessage = sprintf('%s is now set once at session start (Update Every Trial cleared)', parameter.Name);
+                    else
+                        statusMessage = sprintf('%s is now set once at session start', parameter.Name);
+                    end
+                    nextStep = 'The runtime writes this parameter on the first trial dispatch only, then leaves it alone.';
+                else
+                    statusMessage = sprintf('%s is no longer set at session start', parameter.Name);
+                    nextStep = 'The runtime will not write this parameter unless Update Every Trial is checked or it is set manually.';
+                end
+            case 16
                 parameter.Description = string(evt.NewData);
         end
     catch ME

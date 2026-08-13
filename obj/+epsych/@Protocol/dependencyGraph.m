@@ -253,6 +253,8 @@ if a.isDispatched
     entry.dispatch = sprintf('#%d in per-trial dispatch order', a.dispatchIndex);
 elseif a.onReadParam
     entry.dispatch = 'never (Read access)';
+elseif a.param.SetOnce
+    entry.dispatch = 'once at session start (Set Once)';
 else
     entry.dispatch = 'only when set manually (UpdateEveryTrial off)';
 end

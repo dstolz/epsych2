@@ -19,12 +19,16 @@ end
 
 T = obj.TRIALS(subjectIdx);
 
-% Dispatch writable parameters flagged to update every trial. Read-only
-% parameters and those with UpdateEveryTrial == false are set once elsewhere
-% and left unchanged by this per-trial dispatch.
+% Dispatch writable parameters flagged to update every trial. SetOnce
+% parameters (e.g. coefficient buffers) ride along on the first dispatch only
+% -- the one triggered by set.TRIALS before the session timer starts, when
+% TrialIndex is still 1 -- so their value reaches the hardware once and is
+% then left alone. Read-only parameters and those with UpdateEveryTrial ==
+% false (and SetOnce == false) are never written by this per-trial dispatch.
 notReadOnly = ~strcmp({T.parameters.Access}, 'Read');
 updateEveryTrial = [T.parameters.UpdateEveryTrial];
-dispatchIdx = notReadOnly & updateEveryTrial;
+setOnce = [T.parameters.SetOnce];
+dispatchIdx = notReadOnly & (updateEveryTrial | (setOnce & T.TrialIndex == 1));
 
 
 

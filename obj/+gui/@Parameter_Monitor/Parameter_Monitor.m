@@ -105,7 +105,7 @@ classdef Parameter_Monitor < gui.PopOut
 %   Name-Value options (type="table")
 %     Columns
 %       Additional hw.Parameter properties to show as extra table columns.
-%       Any subset of ["Type","Description","UpdateEveryTrial","Expression",
+%       Any subset of ["Type","Description","UpdateEveryTrial","SetOnce","Expression",
 %       "isRandom","Min","Max"]. Default: none.
 %
 %   Name-Value options (type="graphical")
@@ -314,7 +314,7 @@ classdef Parameter_Monitor < gui.PopOut
         % Allowed values for the Columns option. Keep in sync with the
         % mustBeMember list in the constructor's arguments block (MATLAB
         % argument validators may not reference class properties).
-        SUPPORTED_COLUMNS = ["Type","Description","UpdateEveryTrial","Expression","isRandom","Min","Max"]
+        SUPPORTED_COLUMNS = ["Type","Description","UpdateEveryTrial","SetOnce","Expression","isRandom","Min","Max"]
 
         % Recognized per-widget styles for type="graphical"
         SUPPORTED_STYLES = ["auto","lamp","label","gauge"]
@@ -332,7 +332,7 @@ classdef Parameter_Monitor < gui.PopOut
                 Parameters (1,:) hw.Parameter = hw.Parameter.empty(1,0)
                 options.pollPeriod (1,1) double {mustBePositive} = 1
                 options.type (1,1) string {mustBeMember(options.type,["text","table","graphical"])} = "table"
-                options.Columns (1,:) string {mustBeMember(options.Columns,["Type","Description","UpdateEveryTrial","Expression","isRandom","Min","Max"])} = string.empty(1,0)
+                options.Columns (1,:) string {mustBeMember(options.Columns,["Type","Description","UpdateEveryTrial","SetOnce","Expression","isRandom","Min","Max"])} = string.empty(1,0)
                 options.PreferenceTag (1,1) string = ""
                 options.FontSize double = []
                 options.Styles (1,1) struct = struct()
@@ -1064,7 +1064,7 @@ classdef Parameter_Monitor < gui.PopOut
 
         function fmt = column_format_(~,name)
             switch name
-                case {"UpdateEveryTrial","isRandom"}
+                case {"UpdateEveryTrial","SetOnce","isRandom"}
                     fmt = "logical";
                 case {"Min","Max"}
                     fmt = "numeric";
@@ -1085,6 +1085,8 @@ classdef Parameter_Monitor < gui.PopOut
                     vals = string({P.Description});
                 case "UpdateEveryTrial"
                     vals = [P.UpdateEveryTrial];
+                case "SetOnce"
+                    vals = [P.SetOnce];
                 case "Expression"
                     vals = string({P.Expression});
                 case "isRandom"

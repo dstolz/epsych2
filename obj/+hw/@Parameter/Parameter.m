@@ -19,6 +19,9 @@ classdef Parameter < matlab.mixin.SetGet
     %   Access, Type, Format, Visible - Access rules and display behavior.
     %   UpdateEveryTrial - When true, the runtime trial dispatcher refreshes
     %       this parameter on every trial; when false, it is left unchanged.
+    %   SetOnce - When true (and UpdateEveryTrial is false), the dispatcher
+    %       writes this parameter on the first trial dispatch only, then
+    %       leaves it alone. Default for 'Coefficient Buffer' parameters.
     %   Value, ValueStr, lastUpdated - Current value and display state.
     %   PreUpdateFcnEnabled, EvaluatorFcnEnabled, PostUpdateFcnEnabled -
     %       Callback enable flags.
@@ -60,7 +63,9 @@ classdef Parameter < matlab.mixin.SetGet
 
         Visible (1,1) logical = true % optionally hide parameter
 
-        UpdateEveryTrial (1,1) logical = true % when true, epsych.Runtime.dispatchNextTrial updates this parameter each trial; when false, it is set once and left unchanged across trials
+        UpdateEveryTrial (1,1) logical = true % when true, epsych.Runtime.dispatchNextTrial updates this parameter each trial; when false, the per-trial dispatch leaves it alone (see SetOnce)
+
+        SetOnce (1,1) logical = false % when true, epsych.Runtime.dispatchNextTrial writes this parameter on the first trial dispatch only, then never again; only meaningful when UpdateEveryTrial is false. Defaults to true for 'Coefficient Buffer' parameters, whose (large) value rarely changes within a session
 
         Values (1,:) cell = {} % design-time trial levels; one cell element per level; set via add_parameter; expanded by compile()
 
@@ -162,7 +167,8 @@ classdef Parameter < matlab.mixin.SetGet
                 options.Type (1,:) char {mustBeMember(options.Type,{'Float','Integer','Boolean','Buffer','Coefficient Buffer','String','File','Undefined','StimType'})} = 'Float'
                 options.Format (1,:) char = '%g'
                 options.Visible (1,1) logical = true
-                options.UpdateEveryTrial (1,1) logical % default: true, or false for trigger parameters; see below
+                options.UpdateEveryTrial (1,1) logical % default: true, or false for trigger and set-once parameters; see below
+                options.SetOnce (1,1) logical % default: false, or true for 'Coefficient Buffer' parameters; see below
                 options.PreUpdateFcnEnabled (1,1) logical = true
                 options.EvaluatorFcnEnabled (1,1) logical = true
                 options.PostUpdateFcnEnabled (1,1) logical = true
@@ -197,9 +203,21 @@ classdef Parameter < matlab.mixin.SetGet
             obj.isTrigger = options.isTrigger; % set.isTrigger defaults UpdateEveryTrial to false for triggers
             obj.isRandom = options.isRandom;
 
-            % An explicit UpdateEveryTrial always wins over the isTrigger-based default.
+            % Coefficient buffers hold session-static data (e.g. calibration
+            % filter coefficients) too large to rewrite every trial, so they
+            % default to a single first-dispatch write.
+            if isfield(options, 'SetOnce')
+                obj.SetOnce = options.SetOnce;
+            elseif strcmp(obj.Type, 'Coefficient Buffer')
+                obj.SetOnce = true;
+            end
+
+            % An explicit UpdateEveryTrial always wins over the isTrigger- and
+            % SetOnce-based defaults.
             if isfield(options, 'UpdateEveryTrial')
                 obj.UpdateEveryTrial = options.UpdateEveryTrial;
+            elseif obj.SetOnce
+                obj.UpdateEveryTrial = false;
             end
         end
 

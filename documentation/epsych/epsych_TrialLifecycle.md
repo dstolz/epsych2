@@ -119,7 +119,7 @@ Before the first trial runs, `ep_TimerFcn_Start` initializes every subject's run
    ```
    Setting `Value` on a hardware-backed parameter immediately pushes the value to the hardware. For software parameters, the value is stored locally.
 
-   Parameters with `UpdateEveryTrial = false` (configurable per parameter in the Protocol Designer) are written once and then left alone by the per-trial dispatch — useful for settings that should hold their value across trials, such as operator-adjusted training controls.
+   Parameters with `UpdateEveryTrial = false` (configurable per parameter in the Protocol Designer) are left alone by the per-trial dispatch — useful for settings that should hold their value across trials, such as operator-adjusted training controls. Among these, parameters flagged `SetOnce` (the Protocol Designer's **Set Once** checkbox; the default for `Coefficient Buffer` types) join the session's very first dispatch, so their value — e.g. calibration filter coefficients — is written to the hardware once at session start and never rewritten.
 
 3. **Start the trial** — `CORE.NewTrial.trigger()` fires a start pulse that tells the hardware to begin the trial (e.g., play a stimulus).
 
@@ -240,9 +240,10 @@ The `updateTrialsFromParameters` method syncs writable `TRIALS` fields from curr
 | `'Read'` | Not dispatched | Read at trial end |
 | `'Any'` | Dispatched each trial | Read at trial end |
 
-Two flags further modify dispatch:
+Three flags further modify dispatch:
 
-- `UpdateEveryTrial = false` removes a writable parameter from the per-trial dispatch after its initial write.
+- `UpdateEveryTrial = false` removes a writable parameter from the per-trial dispatch.
+- `SetOnce = true` (meaningful with `UpdateEveryTrial = false`; the default for `Coefficient Buffer` parameters) includes the parameter in the session's first dispatch only — one write at session start, then hands off.
 - Trigger parameters (`isTrigger = true`) are excluded from normal dispatch and are only activated via `.Trigger()`. Marking a parameter as a trigger defaults its `UpdateEveryTrial` to false.
 
 ---

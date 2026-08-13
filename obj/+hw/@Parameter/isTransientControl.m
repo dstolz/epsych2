@@ -7,7 +7,8 @@ function tf = isTransientControl(P)
 %   - Triggers (isTrigger). A trigger fires; its value is an artifact of the
 %     last firing, not a setting.
 %   - Writable Boolean parameters the trial dispatcher never refreshes
-%     (UpdateEveryTrial == false). These are the operator's live toggles and
+%     (UpdateEveryTrial == false and SetOnce == false). These are the
+%     operator's live toggles and
 %     momentary buttons -- Deliver Trials, Reminder, Shape, Observe, Pellet.
 %     Restoring one re-asserts a button press from whenever the phase was
 %     saved: a phase saved mid-session with "Deliver Trials" active would
@@ -17,7 +18,10 @@ function tf = isTransientControl(P)
 % Boolean setting. A parameter the dispatcher DOES refresh (e.g.
 % RepeatDelayOnAbort) is overwritten from the trial table on the next trial
 % regardless, so its saved value is design state and restoring it is both
-% meaningful and safe. A parameter the dispatcher never touches keeps whatever
+% meaningful and safe. The same reasoning covers SetOnce parameters: the
+% dispatcher writes them from the trial table at session start, so their saved
+% value is a deliberate setting, not a button press. A parameter the
+% dispatcher never touches keeps whatever
 % it is given, which is precisely why restoring it is not safe. Non-Boolean
 % types are never treated as transient, so a one-time numeric setup value
 % (a filter cutoff, a gain) still travels with the phase.
@@ -36,17 +40,23 @@ if P.isTrigger
     return
 end
 
-% Legacy structs predate UpdateEveryTrial; assume the dispatcher refreshes the
-% parameter, which restores the pre-existing behavior for those files.
+% Legacy structs predate UpdateEveryTrial (and SetOnce); assume the dispatcher
+% refreshes the parameter, which restores the pre-existing behavior for those
+% files.
 updateEveryTrial = true;
+setOnce = false;
 if isstruct(P)
     if isfield(P, 'UpdateEveryTrial')
         updateEveryTrial = logical(P.UpdateEveryTrial);
     end
+    if isfield(P, 'SetOnce')
+        setOnce = logical(P.SetOnce);
+    end
 else
     updateEveryTrial = P.UpdateEveryTrial;
+    setOnce = P.SetOnce;
 end
 
-tf = isequal(char(string(P.Type)), 'Boolean') && ~updateEveryTrial;
+tf = isequal(char(string(P.Type)), 'Boolean') && ~updateEveryTrial && ~setOnce;
 
 end

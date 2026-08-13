@@ -52,6 +52,14 @@ obj.isTrigger = logical(S.isTrigger); % set.isTrigger defaults UpdateEveryTrial;
 if isfield(S, 'UpdateEveryTrial')
     obj.UpdateEveryTrial = logical(S.UpdateEveryTrial);
 end
+% Legacy structs predate SetOnce; default false so a loaded protocol keeps its
+% original dispatch behavior (the Coefficient Buffer default applies only to
+% newly created parameters).
+if isfield(S, 'SetOnce')
+    obj.SetOnce = logical(S.SetOnce);
+else
+    obj.SetOnce = false;
+end
 
 % Bounds
 obj.Min = obj.safeToNumeric_(S.Min);

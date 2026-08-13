@@ -104,6 +104,18 @@ try
             if strlength(string(b.Expression)) > 0 || b.isRandom
                 a.Value = []; b.Value = [];
             end
+            % One-way parameters cannot round-trip Value through live
+            % objects: fromStruct never restores a Read parameter's Value
+            % (it stays empty until hardware provides one), and a Write
+            % parameter's get.Value returns NaN, whose restore re-derives
+            % isArray from that scalar. The fast path keeps what the file
+            % recorded in both cases. Consumers never use the entry's Value
+            % for either access mode, so the divergence is harmless (and
+            % the fast path is the more faithful of the two).
+            if ismember(char(string(b.Access)), {'Read', 'Write'})
+                a.Value = []; b.Value = [];
+                a.isArray = false; b.isArray = false;
+            end
 
             assert(isequaln(a, b), '%s: entry "%s" differs between parses', f, a.Name);
         end

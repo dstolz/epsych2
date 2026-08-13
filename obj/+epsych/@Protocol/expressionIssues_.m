@@ -99,8 +99,13 @@ for k = 1:numel(analysis)
     end
 
     if ~a.isDispatched && ~a.onReadParam && ~a.multiLevelDormant
-        issues(end+1) = localIssue_(a.fullName, ...
-            'Not dispatched every trial (UpdateEveryTrial is off); the expression evaluates only when the parameter is set manually', 0);
+        if a.param.SetOnce
+            issues(end+1) = localIssue_(a.fullName, ...
+                'Set once at session start (Set Once is on); the expression evaluates at the first trial dispatch and when the parameter is set manually', 0);
+        else
+            issues(end+1) = localIssue_(a.fullName, ...
+                'Not dispatched every trial (UpdateEveryTrial is off); the expression evaluates only when the parameter is set manually', 0);
+        end
     end
 end
 end

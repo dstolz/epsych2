@@ -113,7 +113,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % Parameters
             %   name    - Display name for the new parameter (char).
             %   value   - Initial parameter value. String scalars are converted to char and force Type to 'String'.
-            %   options - Name=Value pairs for hw.Parameter metadata (Description, Unit, Access, Type, Format, Visible, callback flags, UserData, isArray, isTrigger, isRandom, Min, Max).
+            %   options - Name=Value pairs for hw.Parameter metadata (Description, Unit, Access, Type, Format, Visible, callback flags, UserData, isArray, isTrigger, isRandom, Min, Max, UpdateEveryTrial, SetOnce).
             %
             % Returns
             %   P       - Created hw.Parameter handle.
@@ -138,6 +138,11 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 options.isRandom (1,1) logical = false
                 options.Min (1,1) double = -inf
                 options.Max (1,1) double = inf
+                % No defaults: forwarded only when the caller passes them, so
+                % the hw.Parameter constructor's isTrigger/Coefficient Buffer
+                % defaulting still applies otherwise.
+                options.UpdateEveryTrial (1,1) logical
+                options.SetOnce (1,1) logical
             end
             copts = namedargs2cell(options);
             P = obj.Module.add_parameter(name, value, copts{:});

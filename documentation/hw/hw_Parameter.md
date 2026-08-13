@@ -22,7 +22,7 @@ settings, including:
 
 - `Name`, `Description`, `Unit`
 - `Access`, `Type`, `Format`, `Visible`
-- `UpdateEveryTrial`
+- `UpdateEveryTrial`, `SetOnce`
 - `PreUpdateFcnEnabled`, `EvaluatorFcnEnabled`, `PostUpdateFcnEnabled`
 - `UserData`, `isArray`, `isTrigger`, `isRandom`, `Min`, `Max`
 
@@ -189,8 +189,16 @@ stops ignoring the value it is already being handed.
   the trials matrix by `Protocol.compile()`.
 - `UpdateEveryTrial`: When true (the default for non-trigger parameters), the
   runtime trial dispatcher rewrites this parameter on every trial. When
-  false, the parameter is set once and left unchanged across trials — useful
+  false, the per-trial dispatch leaves the parameter alone — useful
   for operator-adjusted settings that should hold their value mid-session.
+- `SetOnce`: When true (and `UpdateEveryTrial` is false), the dispatcher
+  writes the parameter on the **first** trial dispatch only — its value
+  reaches the hardware once at session start and is then left alone.
+  Defaults to true for `'Coefficient Buffer'` parameters, whose large,
+  session-static value (e.g. calibration filter coefficients) is wasteful to
+  rewrite every trial. Both flags are exposed as checkboxes in the Protocol
+  Designer parameter table (`Update Every Trial`, `Set Once`), which keeps
+  them mutually exclusive.
 
 ### Value tracking
 

@@ -14,7 +14,7 @@ function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex,
         moduleFilterIndex = 0;
     end
 
-    tableData = cell(0, 15);
+    tableData = cell(0, 16);
     parameterHandles = {};
 
     for ifaceIdx = 1:length(obj.Protocol.Interfaces)
@@ -51,6 +51,7 @@ function [tableData, parameterHandles] = getParameterTableData(obj, filterIndex,
                     parameter.Visible, ...
                     parameter.isTrigger, ...
                     parameter.UpdateEveryTrial, ...
+                    parameter.SetOnce, ...
                     char(parameter.Description)}; %#ok<AGROW>
                 parameterHandles{end + 1, 1} = parameter; %#ok<AGROW>
             end

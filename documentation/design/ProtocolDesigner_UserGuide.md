@@ -102,7 +102,8 @@ The parameter table includes these main fields:
 - `Unit`: display unit shown next to values in GUIs
 - `Visible`: whether the parameter is intended to be visible
 - `Trigger`: trigger flag for boolean parameters
-- `Update Every Trial`: when checked (the default), the value is re-sent to hardware on every trial; uncheck it for settings that should be written once and then hold their value — for example, controls an operator adjusts during a session
+- `Update Every Trial`: when checked (the default), the value is re-sent to hardware on every trial; uncheck it for settings the runtime should leave alone — for example, controls an operator adjusts during a session
+- `Set Once`: when checked, the value is written to hardware once, at the first trial dispatch of the session, and never rewritten. This is the default for `Coefficient Buffer` parameters, whose large, session-static value (e.g. calibration filter coefficients) would be wasteful to re-send every trial. Checking `Set Once` clears `Update Every Trial` and vice versa — the two are one dispatch-mode choice
 - `Description`: free-text note
 
 Important editing rules:

@@ -155,11 +155,16 @@ function [paramData, metadata, ok] = localFastParse(filepath)
 % files, the COMPILED.writeparams recovery branch, hand-built files, and any
 % future format revision, none of which are worth second-guessing here.
 
-% hw.Parameter.toStruct's complete field set. Requiring all of it IS the shape
-% gate: a file missing even one field is not something to guess about.
+% hw.Parameter.toStruct's complete field set, in toStruct's order. Requiring
+% all of REQUIREDFIELDS IS the shape gate: a file missing even one is not
+% something to guess about. SetOnce (added 2026-08) is the exception: phases
+% saved before it lack the field, so it is defaulted below exactly as
+% hw.Parameter.fromStruct defaults it, keeping this parse equivalent to the
+% fallback's load-then-toStruct round trip for both old and new files.
 PARAMFIELDS = {'Name','Description','Unit','Access','Type','Format','Visible', ...
-    'UpdateEveryTrial','Values','Value','lastUpdated','isArray','isTrigger', ...
+    'UpdateEveryTrial','SetOnce','Values','Value','lastUpdated','isArray','isTrigger', ...
     'isRandom','Min','Max','UserData','Expression'};
+REQUIREDFIELDS = setdiff(PARAMFIELDS, {'SetOnce'}, 'stable');
 
 % epsych.Protocol's meta property, in declaration order, which is the order
 % metadata.Extra carries on the fallback path.
@@ -203,12 +208,21 @@ for ifaceIdx = 1:numel(P.InterfaceData)
         end
         for paramIdx = 1:numel(M.Parameters)
             s = M.Parameters{paramIdx};
-            if ~isstruct(s) || ~isscalar(s) || ~all(isfield(s, PARAMFIELDS))
+            if ~isstruct(s) || ~isscalar(s) || ~all(isfield(s, REQUIREDFIELDS))
                 return
+            end
+            if ~isfield(s, 'SetOnce')
+                s.SetOnce = false;   % pre-2026-08 file; hw.Parameter.fromStruct default
             end
             s.ParentType = parentType;
             % [entries{:}] requires identical field order across entries.
             % toStruct is deterministic, but a hand-edited file need not be.
+            % Note orderfields with a name list errors on any field outside
+            % the list, so an extra/unknown field falls back to Protocol.load
+            % via the caller's shape guard rather than parsing here.
+            if ~isempty(setdiff(fieldnames(s), [PARAMFIELDS {'ParentType'}]))
+                return
+            end
             entries{end+1} = orderfields(s, [PARAMFIELDS {'ParentType'}]); %#ok<AGROW>
         end
     end

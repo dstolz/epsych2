@@ -29,6 +29,11 @@ arguments
     options.Min (1,1) double = -inf
     options.Max (1,1) double = inf
     options.UserData = []
+    % No defaults: forwarded only when the caller passes them, so the
+    % hw.Parameter constructor's isTrigger/Coefficient Buffer defaulting
+    % still applies otherwise.
+    options.UpdateEveryTrial (1,1) logical
+    options.SetOnce (1,1) logical
 end
 
 if isempty(name)

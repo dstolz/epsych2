@@ -106,6 +106,13 @@ If `Type` is set to `'String'`, `'File'`, or `'StimType'`, the class uses
 When a parameter is write-only, reading `Value` returns `NaN` and logs a
 message with `vprintf`. Writing to a read-only parameter raises an error.
 
+That read-back message means a caller asked for something that does not exist,
+so the framework itself never triggers it: expression evaluation, `toStruct`,
+protocol loading, and the Protocol Designer all substitute the parameter's
+first design-time level (`Values{1}`, or `NaN` when `Values` is empty) rather
+than reading a write-only `Value`. Seeing the message in the log is therefore a
+signal about the code that logged it, not routine noise.
+
 ### Type values
 
 `Type` must be one of:
@@ -564,6 +571,13 @@ runtime evaluation cannot drift apart.
   evaluated (live `param.Value`), not from design-time `Values` cell arrays.
   This differs from `ProtocolDesigner`'s expression evaluator, which works
   with `Values` during compile-time expansion.
+- `resolveExpressionContext` reads *every* sibling, referenced or not, so the
+  value lookup runs against parameters the expression never mentions. The
+  runtime lookup therefore falls back to `Values{1}` for write-only
+  parameters, matching `analyzeExpressions` and `orderByDependencies`;
+  otherwise one unreadable sibling would log on every dispatch and put `NaN`
+  into the context. Headless coverage:
+  `tmp/smoke_test_writeonly_parameter_reads.m`.
 - Expression errors produce an `hw:Parameter:ExpressionError` exception with the
   parameter name and the underlying MATLAB error message. Context-build failures
   (e.g., module not accessible) are logged at verbosity level 0 and do not abort

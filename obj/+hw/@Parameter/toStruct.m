@@ -60,6 +60,18 @@ if isequal(obj.Type, 'StimType')
             S.Value = S.Value{1};
         end
     end
+elseif isequal(obj.Access, 'Write')
+    % Nothing to read back: get.Value logs a critical record and returns NaN,
+    % which fromStruct would then assign as the restored value. Save the first
+    % design-time level instead so a round trip keeps a usable value. Only a
+    % scalar is worth carrying — S.Values already holds the levels, and a
+    % write-only buffer would otherwise be serialized twice.
+    if ~isempty(obj.Values) && (isnumeric(obj.Values{1}) || islogical(obj.Values{1})) ...
+            && isscalar(obj.Values{1})
+        S.Value = obj.Values{1};
+    else
+        S.Value = [];
+    end
 else
     S.Value = obj.Value;
 end

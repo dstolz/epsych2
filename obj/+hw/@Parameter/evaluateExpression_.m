@@ -53,13 +53,32 @@ end
     expressionText, currentValue, obj, ...
     @() obj.Module.Parameters, ...
     @() localCollectAllParams_(obj.Module), ...
-    @(p) p.Value);
+    @localContextValue_);
 
 result = hw.Parameter.evalExpressionInContext(rewrittenText, context, obj.Name);
 
 if selectsIndex
     result = hw.Parameter.selectValueByIndex(result, obj.Values, obj.Name);
 end
+
+
+function v = localContextValue_(p)
+% Value of one parameter as seen by an expression. resolveExpressionContext
+% reads EVERY sibling, referenced or not, so this runs against parameters the
+% expression never mentions. A write-only parameter has nothing to read back:
+% get.Value logs a critical record and returns NaN, which would both flood the
+% log on every dispatch and poison the expression. Fall back to its first
+% design-time level, the same stand-in analyzeExpressions/orderByDependencies
+% and the Check Calculations tools use, so runtime and preview agree.
+    if isequal(p.Access, 'Write')
+        if isempty(p.Values)
+            v = NaN;
+        else
+            v = p.Values{1};
+        end
+        return
+    end
+    v = p.Value;
 
 
 function allParams = localCollectAllParams_(thisModule)

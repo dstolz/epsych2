@@ -143,14 +143,22 @@ function localRestoreValues(params, structs)
     for pass = 2:max(2, numel(exprIdx))
         changed = false;
         for k = exprIdx
-            before = params(k).Value;
+            % A write-only parameter cannot be probed for convergence:
+            % get.Value logs a critical record and returns NaN, which is
+            % never isequal to itself, so it would both spam the log and
+            % defeat the early exit. Its inputs are the other expression
+            % parameters, so it has settled whenever they all have.
+            isProbeable = ~isequal(params(k).Access, 'Write');
+            if isProbeable
+                before = params(k).Value;
+            end
             try
                 params(k).fromStruct(structs{k});
             catch ME
                 lastError = ME;
                 continue
             end
-            if ~isequal(before, params(k).Value)
+            if isProbeable && ~isequal(before, params(k).Value)
                 changed = true;
             end
         end

@@ -47,6 +47,15 @@ function val = localPropertyValue_(parameter, propName)
     % Return the value of a named property, converting Values cell to a numeric vector.
     if strcmp(propName, 'Values')
         val = localValuesToNumeric_(parameter.Values);
+    elseif strcmp(propName, 'Value') && isequal(parameter.Access, 'Write')
+        % A write-only parameter has no readable Value: get.Value logs a
+        % critical message and returns NaN. Use the same design-time stand-in
+        % as Protocol.dryRunExpressions/sweepExpressions — the first level.
+        if isempty(parameter.Values)
+            val = NaN;
+        else
+            val = parameter.Values{1};
+        end
     else
         val = parameter.(propName);
     end

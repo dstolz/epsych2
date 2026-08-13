@@ -1,6 +1,6 @@
 # `gui.Parameter_Control`
 
-![Several gui.Parameter_Control widgets stacked in a grid: an edit field, a dropdown, a checkbox, a toggle button, a momentary button, and a readonly label](images/Parameter_Control.png)
+![Several gui.Parameter_Control widgets stacked in a grid: two edit fields, a range pair binding Min and Max on one row, a checkbox bound to isRandom, and a momentary trigger button; the first field is green because it has been edited but not committed](images/Parameter_Control.png)
 
 `gui.Parameter_Control` binds a single `hw.Parameter` to a small App Designer-style UI control (edit field, dropdown, checkbox, toggle, label, or button).
 

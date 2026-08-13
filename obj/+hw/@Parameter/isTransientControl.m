@@ -26,6 +26,14 @@ function tf = isTransientControl(P)
 % types are never treated as transient, so a one-time numeric setup value
 % (a filter cutoff, a gain) still travels with the phase.
 %
+% That inference is a default, not a law: a session toggle the operator sets
+% once and leaves set (CatchTrialsEnabled, the "Present Catch Trials"
+% checkbox) is a setting the dispatcher happens not to own, and it looks
+% identical to a momentary button from here. PersistWithPhase is how such a
+% parameter declares itself, and it overrides the inference. Triggers are
+% still transient regardless -- a trigger's value is the residue of the last
+% firing, so there is nothing there worth saving.
+%
 % Parameters:
 %   P - hw.Parameter handle, or a struct produced by hw.Parameter.toStruct
 %       (as parsed from a phase file by epsych.Runtime.phaseParameterData).
@@ -40,11 +48,12 @@ if P.isTrigger
     return
 end
 
-% Legacy structs predate UpdateEveryTrial (and SetOnce); assume the dispatcher
-% refreshes the parameter, which restores the pre-existing behavior for those
-% files.
+% Legacy structs predate UpdateEveryTrial (and SetOnce, and PersistWithPhase);
+% assume the dispatcher refreshes the parameter, which restores the
+% pre-existing behavior for those files.
 updateEveryTrial = true;
 setOnce = false;
+persistWithPhase = false;
 if isstruct(P)
     if isfield(P, 'UpdateEveryTrial')
         updateEveryTrial = logical(P.UpdateEveryTrial);
@@ -52,11 +61,16 @@ if isstruct(P)
     if isfield(P, 'SetOnce')
         setOnce = logical(P.SetOnce);
     end
+    if isfield(P, 'PersistWithPhase')
+        persistWithPhase = logical(P.PersistWithPhase);
+    end
 else
     updateEveryTrial = P.UpdateEveryTrial;
     setOnce = P.SetOnce;
+    persistWithPhase = P.PersistWithPhase;
 end
 
-tf = isequal(char(string(P.Type)), 'Boolean') && ~updateEveryTrial && ~setOnce;
+tf = isequal(char(string(P.Type)), 'Boolean') && ~updateEveryTrial && ~setOnce ...
+    && ~persistWithPhase;
 
 end

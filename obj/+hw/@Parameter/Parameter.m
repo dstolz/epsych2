@@ -22,6 +22,9 @@ classdef Parameter < matlab.mixin.SetGet
     %   SetOnce - When true (and UpdateEveryTrial is false), the dispatcher
     %       writes this parameter on the first trial dispatch only, then
     %       leaves it alone. Default for 'Coefficient Buffer' parameters.
+    %   PersistWithPhase - When true, the parameter's value is saved to and
+    %       restored from a phase file even though the dispatcher never
+    %       refreshes it (see isTransientControl).
     %   Value, ValueStr, lastUpdated - Current value and display state.
     %   PreUpdateFcnEnabled, EvaluatorFcnEnabled, PostUpdateFcnEnabled -
     %       Callback enable flags.
@@ -66,6 +69,8 @@ classdef Parameter < matlab.mixin.SetGet
         UpdateEveryTrial (1,1) logical = true % when true, epsych.Runtime.dispatchNextTrial updates this parameter each trial; when false, the per-trial dispatch leaves it alone (see SetOnce)
 
         SetOnce (1,1) logical = false % when true, epsych.Runtime.dispatchNextTrial writes this parameter on the first trial dispatch only, then never again; only meaningful when UpdateEveryTrial is false. Defaults to true for 'Coefficient Buffer' parameters, whose (large) value rarely changes within a session
+
+        PersistWithPhase (1,1) logical = false % when true, this parameter's value travels with a saved phase even though the trial dispatcher never refreshes it. Marks a Boolean the operator sets and leaves set -- a session setting such as "Present Catch Trials" -- as opposed to a momentary button, which hw.Parameter.isTransientControl otherwise assumes any such Boolean to be
 
         Values (1,:) cell = {} % design-time trial levels; one cell element per level; set via add_parameter; expanded by compile()
 
@@ -169,6 +174,7 @@ classdef Parameter < matlab.mixin.SetGet
                 options.Visible (1,1) logical = true
                 options.UpdateEveryTrial (1,1) logical % default: true, or false for trigger and set-once parameters; see below
                 options.SetOnce (1,1) logical % default: false, or true for 'Coefficient Buffer' parameters; see below
+                options.PersistWithPhase (1,1) logical = false
                 options.PreUpdateFcnEnabled (1,1) logical = true
                 options.EvaluatorFcnEnabled (1,1) logical = true
                 options.PostUpdateFcnEnabled (1,1) logical = true
@@ -193,6 +199,7 @@ classdef Parameter < matlab.mixin.SetGet
             obj.Type = options.Type;
             obj.Format = options.Format;
             obj.Visible = options.Visible;
+            obj.PersistWithPhase = options.PersistWithPhase;
             obj.PreUpdateFcnEnabled = options.PreUpdateFcnEnabled;
             obj.EvaluatorFcnEnabled = options.EvaluatorFcnEnabled;
             obj.PostUpdateFcnEnabled = options.PostUpdateFcnEnabled;

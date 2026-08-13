@@ -157,14 +157,17 @@ function [paramData, metadata, ok] = localFastParse(filepath)
 
 % hw.Parameter.toStruct's complete field set, in toStruct's order. Requiring
 % all of REQUIREDFIELDS IS the shape gate: a file missing even one is not
-% something to guess about. SetOnce (added 2026-08) is the exception: phases
-% saved before it lack the field, so it is defaulted below exactly as
-% hw.Parameter.fromStruct defaults it, keeping this parse equivalent to the
-% fallback's load-then-toStruct round trip for both old and new files.
+% something to guess about. SetOnce and PersistWithPhase (both added 2026-08)
+% are the exceptions: phases saved before each lack the field, so they are
+% defaulted below to what the fallback's load-then-toStruct round trip
+% produces for such a file, keeping this parse equivalent for old and new
+% files alike. Any field added to toStruct must be added here too -- an
+% unlisted field is an unrecognized shape and drops every newly saved phase
+% back to the slow path.
 PARAMFIELDS = {'Name','Description','Unit','Access','Type','Format','Visible', ...
-    'UpdateEveryTrial','SetOnce','Values','Value','lastUpdated','isArray','isTrigger', ...
-    'isRandom','Min','Max','UserData','Expression'};
-REQUIREDFIELDS = setdiff(PARAMFIELDS, {'SetOnce'}, 'stable');
+    'UpdateEveryTrial','SetOnce','PersistWithPhase','Values','Value','lastUpdated', ...
+    'isArray','isTrigger','isRandom','Min','Max','UserData','Expression'};
+REQUIREDFIELDS = setdiff(PARAMFIELDS, {'SetOnce','PersistWithPhase'}, 'stable');
 
 % epsych.Protocol's meta property, in declaration order, which is the order
 % metadata.Extra carries on the fallback path.
@@ -213,6 +216,12 @@ for ifaceIdx = 1:numel(P.InterfaceData)
             end
             if ~isfield(s, 'SetOnce')
                 s.SetOnce = false;   % pre-2026-08 file; hw.Parameter.fromStruct default
+            end
+            if ~isfield(s, 'PersistWithPhase')
+                % A file predating the flag says nothing about it, and the
+                % fallback path reconstructs such a parameter fresh, where the
+                % property default is false.
+                s.PersistWithPhase = false;
             end
             s.ParentType = parentType;
             % [entries{:}] requires identical field order across entries.

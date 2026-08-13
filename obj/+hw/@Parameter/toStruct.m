@@ -20,6 +20,7 @@ S.Format = obj.Format;
 S.Visible = obj.Visible;
 S.UpdateEveryTrial = obj.UpdateEveryTrial;
 S.SetOnce = obj.SetOnce;
+S.PersistWithPhase = obj.PersistWithPhase;
 
 %{
 % Callbacks

@@ -72,6 +72,7 @@ addField('Visible',     localBoolLabel_(parameter.Visible));
 addField('Trigger',     localBoolLabel_(parameter.isTrigger));
 addField('Update Every Trial', localBoolLabel_(parameter.UpdateEveryTrial));
 addField('Set Once', localBoolLabel_(parameter.SetOnce));
+addField('Persist With Phase', localBoolLabel_(parameter.PersistWithPhase));
 addField('Random',      localBoolLabel_(parameter.isRandom));
 addField('Array',       localBoolLabel_(parameter.isArray));
 addField('Min',         localNumLabel_(parameter.Min));

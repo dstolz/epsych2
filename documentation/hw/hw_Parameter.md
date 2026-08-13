@@ -22,7 +22,7 @@ settings, including:
 
 - `Name`, `Description`, `Unit`
 - `Access`, `Type`, `Format`, `Visible`
-- `UpdateEveryTrial`, `SetOnce`
+- `UpdateEveryTrial`, `SetOnce`, `PersistWithPhase`
 - `PreUpdateFcnEnabled`, `EvaluatorFcnEnabled`, `PostUpdateFcnEnabled`
 - `UserData`, `isArray`, `isTrigger`, `isRandom`, `Min`, `Max`
 
@@ -213,6 +213,27 @@ stops ignoring the value it is already being handed.
   rewrite every trial. Both flags are exposed as checkboxes in the Protocol
   Designer parameter table (`Update Every Trial`, `Set Once`), which keeps
   them mutually exclusive.
+- `PersistWithPhase`: When true, the parameter's value is saved to and
+  restored from a phase file even though the dispatcher never refreshes it.
+  It exists because `hw.Parameter.isTransientControl` cannot otherwise tell a
+  persistent session setting from a momentary button: both are writable
+  Booleans with `UpdateEveryTrial` and `SetOnce` off, and by default it
+  assumes the button, leaving the value to the live session. Set this on a
+  toggle the operator sets once and leaves set — `CatchTrialsEnabled`, the
+  "Present Catch Trials" checkbox created by `cl_AppetitiveStimDetect`, is
+  the reference case. It has no effect on triggers, which stay transient, or
+  on non-Boolean parameters, which were never transient to begin with.
+  The flag is **code-owned**: it is set by whoever declares the parameter (a
+  constructor option or a direct property write), never authored in a file.
+  `toStruct` records it, but `fromStruct` deliberately does **not** restore
+  it, and the phase load path (`epsych.Runtime.readParameters`,
+  `gui.PhaseSelector`) takes it from the live parameter and ignores what the
+  file says. That asymmetry is the point: a phase saved from a session that
+  predated the declaration records `false`, and if the file were authoritative
+  that one file would demote the setting back to a momentary button —
+  permanently, since every later save would record the demotion too. With the
+  live parameter as the authority, such a file loads its recorded value as
+  soon as the owner is updated, with no need to re-save it.
 
 ### Value tracking
 

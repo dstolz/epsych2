@@ -114,6 +114,12 @@ for k = 1:nP
     % delivering trials on load. Metadata and design-time Values are still
     % restored, so the parameter's definition travels with the phase; only its
     % momentary value is left alone.
+    % PersistWithPhase is code-owned (see hw.Parameter.fromStruct): the live
+    % parameter's owner decides whether this is a setting or a button, so its
+    % flag overrides whatever the file recorded. Without this, a phase saved
+    % from a session that predated the owner's declaration would keep the
+    % setting unrestorable forever.
+    S.PersistWithPhase = xp.PersistWithPhase;
     restoreValue = ~hw.Parameter.isTransientControl(S);
 
     liveExpression = xp.Expression;

@@ -60,6 +60,14 @@ if isfield(S, 'SetOnce')
 else
     obj.SetOnce = false;
 end
+% PersistWithPhase is deliberately NOT restored. It is set in code by whoever
+% owns the parameter (a trial selector declaring its own session toggle), not
+% authored in the file, so the live parameter is the authority and a file only
+% ever echoes what some past session happened to know. Restoring it would let
+% one phase saved before the owner was updated demote a persistent setting
+% back to a momentary button -- permanently, since every later save would then
+% record the demotion too. Readers that need it (readParameters,
+% gui.PhaseSelector) take it from the live parameter instead.
 
 % Bounds
 obj.Min = obj.safeToNumeric_(S.Min);

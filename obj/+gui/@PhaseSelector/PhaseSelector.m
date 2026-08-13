@@ -576,7 +576,8 @@ classdef PhaseSelector < handle
             descriptionText = "No phase selected. Please select a phase to load its parameters.";
             h = uilabel(parent, ...
                 'Text', descriptionText, ...
-                'WordWrap', 'on');
+                'WordWrap', 'on', ...
+                'FontSize', 10);
 
             obj.h_Description = h;
         end
@@ -770,13 +771,6 @@ classdef PhaseSelector < handle
                 % Loading strips TrialType (see loadPhaseParameters), so ignore it here too.
                 if string(S.Name) == "TrialType", continue, end
 
-                % A phase load leaves transient session-control state alone
-                % (hw.Parameter.isTransientControl), so listing it here would
-                % promise a change that never happens -- and, via
-                % keepChangedParameters, would credit the phase with a change
-                % it did not make.
-                if hw.Parameter.isTransientControl(S), continue, end
-
                 parentType = string(S.ParentType);
                 iface = obj.RUNTIME.Interfaces(interfaceTypes == parentType);
                 if isempty(iface), continue, end
@@ -789,6 +783,17 @@ classdef PhaseSelector < handle
                     silenceParameterNotFound=true);
                 if isempty(xp), continue, end
                 xp = xp(1);
+
+                % A phase load leaves transient session-control state alone
+                % (hw.Parameter.isTransientControl), so listing it here would
+                % promise a change that never happens -- and, via
+                % keepChangedParameters, would credit the phase with a change
+                % it did not make. Checked after resolution because
+                % PersistWithPhase belongs to the live parameter, not the file
+                % (see hw.Parameter.fromStruct); the load path applies the same
+                % override.
+                S.PersistWithPhase = xp.PersistWithPhase;
+                if hw.Parameter.isTransientControl(S), continue, end
 
                 % Write-only parameters cannot be read back, so record no current value.
                 hasCurrent = ~strcmp(xp.Access,'Write');

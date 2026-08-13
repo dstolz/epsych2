@@ -126,6 +126,30 @@ delete(gg);
 assert(~isvalid(figG) && ~isvalid(monG), 'ep_GenericGUI teardown should be complete');
 fprintf('PASS: ep_GenericGUI on gui.BoxGUI\n');
 
+% 9. Controls over parameters no trial has seeded yet ---------------------
+% add_parameter fills Values, not Value, so a parameter stays empty until the
+% first trial dispatch writes it. A box GUI built before that -- SelfTest I6,
+% or a protocol whose parameter is absent from the trials table -- must still
+% come up: the widget absorbs the empty, it does not abort the build.
+swU = hw.Software;
+swU.connect();
+pBool  = swU.add_parameter('SmokeUnseededBool', false, Type='Boolean');
+pFloat = swU.add_parameter('SmokeUnseededFloat', 10);
+pFloat.Min = 5;
+assert(isempty(pBool.Value) && isempty(pFloat.Value), ...
+    'add_parameter should leave Value unseeded for this check');
+
+figU = uifigure('Visible','off');
+gl = uigridlayout(figU,[2 1]);
+cBool  = gui.Parameter_Control(gl, pBool,  Type='checkbox');
+cFloat = gui.Parameter_Control(gl, pFloat, Type='editfield');
+assert(cBool.h_uiobj.Value == false, 'unseeded Boolean should render unchecked');
+assert(cFloat.h_uiobj.Value == pFloat.Min, ...
+    'unseeded numeric should land inside Limits (got %g, Min %g)', ...
+    cFloat.h_uiobj.Value, pFloat.Min);
+delete(cBool); delete(cFloat); delete(figU); delete(swU);
+fprintf('PASS: controls over unseeded parameters\n');
+
 fprintf('smoke_test_boxgui: ALL PASS\n');
 end
 

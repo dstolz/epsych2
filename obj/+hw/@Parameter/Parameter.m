@@ -374,6 +374,28 @@ classdef Parameter < matlab.mixin.SetGet
         end
 
         function vstr = get.ValueStr(obj)
+            % A write-only parameter has nothing to read back: get.Value logs
+            % a critical record and returns NaN. ValueStr is display text
+            % asked for by GUIs and trace messages, so it must never provoke
+            % that; show the design-time level instead.
+            if isequal(obj.Access, 'Write')
+                if isempty(obj.Values)
+                    v = nan;
+                else
+                    v = obj.Values{1};
+                end
+            else
+                v = obj.Value;
+            end
+            vstr = obj.formatValue(v);
+        end
+
+        function vstr = formatValue(obj, v)
+            % vstr = formatValue(obj, v)
+            % Format an arbitrary value with this parameter's Format and Unit.
+            % Callers that already hold the value (a backend logging what it
+            % just wrote) use this instead of ValueStr, which would re-read
+            % the parameter -- a hardware round trip on a live interface.
             if isempty(obj.Format)
                 if ismember(obj.Type, {'String', 'File'})
                     obj.Format = '%s';
@@ -382,7 +404,6 @@ classdef Parameter < matlab.mixin.SetGet
                 end
             end
 
-            v = obj.Value;
             if isequal(obj.Type, 'StimType')
                 vstr = obj.formatStimTypeValue_(v);
             elseif isequal(obj.Type, 'File')

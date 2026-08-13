@@ -228,12 +228,11 @@ obj.addControl(layoutTrialControls,'RespWinPreStim',Text="RW Pre-Stimulus Durati
 obj.addControl(layoutTrialControls,'RespWinPostStim',Text="RW Post-Stimulus Duration (ms):");
 
 % >> Repeat Delay Following Abort Option
-h = obj.addControl(layoutTrialControls,'RepeatDelayOnAbort',Type='checkbox',autoCommit=true, ...
+% The control seats itself from the parameter, so a value carried over from a
+% previous session is already reflected; re-assigning it here only pushed an
+% unseeded (empty) value back through the autoCommit write-back.
+obj.addControl(layoutTrialControls,'RepeatDelayOnAbort',Type='checkbox',autoCommit=true, ...
     Text="Repeat Delay on Abort:");
-if ~isempty(h)
-    % reflect a value carried over from a previous session
-    h.Value = h.Parameter.Value;
-end
 
 % >> Stimulus Delay (direct value)
 hStimDelayValue = obj.addControl(layoutTrialControls,'StimDelay',autoCommit=true, ...

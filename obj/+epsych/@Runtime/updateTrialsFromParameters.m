@@ -33,7 +33,18 @@ function updateTrialsFromParameters(obj, Parameters)
     TRIALS = obj.TRIALS;
     for k = 1:numel(Parameters)
         pName = Parameters(k).Name;
-        pVal = Parameters(k).Value;
+        % A write-only parameter cannot be read back: get.Value logs a
+        % critical record and returns NaN, which would then be written into
+        % every trial row and dispatched to hardware. Its design-time level
+        % is what a phase load just restored, so use that.
+        if isequal(Parameters(k).Access, 'Write')
+            if isempty(Parameters(k).Values)
+                continue
+            end
+            pVal = Parameters(k).Values{1};
+        else
+            pVal = Parameters(k).Value;
+        end
 
         idx = TRIALS.writeParamIdx.(pName);
         TRIALS.trials(:,idx) = {pVal};

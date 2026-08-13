@@ -466,7 +466,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     obj.h_label = h;
 
                     h = uieditfield(hl,"numeric");
-                    h.Value = obj.getBoundValue();
+                    h.Value = obj.initialWidgetValue_();
                     %h.ValueDisplayFormat = [P.Format ' ' P.Unit];
                     h.Limits = obj.widgetLimits_();
                     if isequal(P.Type,'Integer')
@@ -555,7 +555,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             end
 
             if isprop(h,'Value') && ~ismember(obj.type,{'dropdown','range'})
-                h.Value = obj.getBoundValue();
+                h.Value = obj.initialWidgetValue_();
             end
 
             if obj.autoCommit
@@ -797,6 +797,35 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 names = {'Min','Max'};
             else
                 names = {obj.BoundProperty};
+            end
+        end
+
+        function v = initialWidgetValue_(obj)
+            % v = initialWidgetValue_(obj)
+            % Bound value coerced into something the widget accepts at
+            % construction. A parameter's Value stays empty until the first
+            % trial dispatch writes it, so a GUI built before any trial runs --
+            % epsych.SelfTest's box-GUI launch, or a protocol whose parameter is
+            % absent from the trials table -- would otherwise abort the entire
+            % build on one empty assignment. Booleans also read back from a
+            % backend as doubles, which uicheckbox rejects outright.
+            v = obj.getBoundValue();
+
+            switch obj.type
+                case {'checkbox','toggle'}
+                    if isempty(v)
+                        v = false;
+                    elseif isnumeric(v) || islogical(v)
+                        v = logical(v(1) ~= 0);
+                    end
+
+                case 'editfield'
+                    % Land inside the field's own Limits: an unseeded parameter
+                    % with a positive Min cannot show 0.
+                    if isempty(v)
+                        lims = obj.widgetLimits_();
+                        v = min(max(0,lims(1)),lims(2));
+                    end
             end
         end
 

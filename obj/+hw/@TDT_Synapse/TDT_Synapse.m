@@ -385,8 +385,11 @@ classdef TDT_Synapse < hw.Interface
                 parameterName = obj.getHardwareParameterName(p);
                 e = obj.HW.setParameterValue(p.Module.Label, parameterName, value(i));
                 if e
-                    vstr = p.ValueStr;
-                    vprintf(3,'Updated parameter: %s = %s',p.Name,vstr)
+                    % Format the value just written rather than reading
+                    % p.ValueStr back: the read-back is a hardware round trip
+                    % per parameter per trial, and on a write-only tag it has
+                    % nothing to return.
+                    vprintf(3,'Updated parameter: %s = %s',p.Name,p.formatValue(value(i)))
                 else
                     vprintf(0,1,'Failed to write value to "%s"',p.Name)
                 end

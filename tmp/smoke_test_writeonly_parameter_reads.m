@@ -160,6 +160,76 @@ catch ME
     fprintf('FAIL: F. %s\n', ME.message);
 end
 
+% ===== G. ValueStr never reads back ========================================
+% ValueStr is display text: GUIs poll it and the TDT backends logged it after
+% every write, so reading Value inside it put one record per write-only
+% parameter per trial into the log (stack seen on a live rig:
+% get.Value <- get.ValueStr <- TDT_RPcox.set_parameter <- set.Value <-
+% dispatchNextTrial). formatValue is the read-free path for callers that
+% already hold the value.
+try
+    before = localCountWriteOnlyRecords_();
+    str = pGain.ValueStr;
+    assert(strcmp(strtrim(str), '3'), ...
+        'ValueStr should show the design level 3, got "%s"', str);
+    assert(strcmp(strtrim(pGain.formatValue(42)), '42'), ...
+        'formatValue should format the value it is handed');
+    assert(localCountWriteOnlyRecords_() == before, ...
+        'ValueStr logged %d write-only message(s)', localCountWriteOnlyRecords_() - before);
+    fprintf('PASS: G. ValueStr shows the design level without reading back\n');
+catch ME
+    failures{end+1} = sprintf('G. ValueStr: %s', ME.message);
+    fprintf('FAIL: G. %s\n', ME.message);
+end
+
+% ===== H. Phase-load trial sync never reads back ===========================
+% gui.PhaseSelector deliberately keeps write-only parameters in the change set
+% and hands them to updateTrialsFromParameters, which read Value and wrote the
+% resulting NaN into every trial row for that parameter.
+try
+    P4 = epsych.Protocol;
+    P4.addParameter('Software', 'ToneLevel', [10 20 30], Type='Float');
+    P4.addParameter('Software', 'Gain', 7, Access='Write');
+    sw4 = P4.findInterface('Software');
+    sw4.add_parameter('x_NewTrial_1',      0, isTrigger=true);
+    sw4.add_parameter('x_ResetTrig_1',     0, isTrigger=true);
+    sw4.add_parameter('x_TrialComplete_1', 0, isTrigger=true);
+    P4.compile();
+
+    R4 = epsych.Runtime;
+    R4.isTest = true;
+    R4.HELPER = epsych.Helper;
+    R4.Interfaces = P4.Interfaces;
+    R4.Protocol = P4;
+    dataDir = tempname; mkdir(dataDir);
+    cleanupDataDir = onCleanup(@() rmdir(dataDir, 's'));
+    R4.dfltDataPath = dataDir;
+    R4.TempDataDir = dataDir;
+
+    subject = epsych.DefaultSubject(struct('Name', 'WOSubject', ...
+        'Species', 'Mouse', 'Sex', 'Unknown', 'BoxID', 1));
+    R4 = ep_TimerFcn_Start(R4, struct('PROTOCOL', P4, 'SUBJECT', subject));
+
+    % find_parameter's default filter drops write-only entries, so take the
+    % handle straight off the live module.
+    liveParams = [R4.Interfaces(1).Module(:).Parameters];
+    pG = liveParams(strcmp({liveParams.Name}, 'Gain'));
+    assert(isscalar(pG), 'fixture: Gain not found on the live interface');
+    before = localCountWriteOnlyRecords_();
+    R4.updateTrialsFromParameters(pG);
+    assert(localCountWriteOnlyRecords_() == before, ...
+        'trial sync logged %d write-only message(s)', localCountWriteOnlyRecords_() - before);
+
+    col = R4.TRIALS(1).writeParamIdx.Gain;
+    written = unique(cell2mat(R4.TRIALS(1).trials(:,col)));
+    assert(isequal(written, 7), ...
+        'trial table should carry the design level 7, not NaN; got %s', mat2str(written));
+    fprintf('PASS: H. phase-load trial sync writes the design level, not NaN\n');
+catch ME
+    failures{end+1} = sprintf('H. trial sync: %s', ME.message);
+    fprintf('FAIL: H. %s\n', ME.message);
+end
+
 % ===== Summary ============================================================
 if isempty(failures)
     fprintf('\nALL PASS: nothing reads write-only parameter values\n');

@@ -107,11 +107,18 @@ When a parameter is write-only, reading `Value` returns `NaN` and logs a
 message with `vprintf`. Writing to a read-only parameter raises an error.
 
 That read-back message means a caller asked for something that does not exist,
-so the framework itself never triggers it: expression evaluation, `toStruct`,
-protocol loading, and the Protocol Designer all substitute the parameter's
-first design-time level (`Values{1}`, or `NaN` when `Values` is empty) rather
-than reading a write-only `Value`. Seeing the message in the log is therefore a
-signal about the code that logged it, not routine noise.
+so the framework itself never triggers it. `ValueStr`, expression evaluation,
+`toStruct`, protocol loading, `Runtime.updateTrialsFromParameters`, and the
+Protocol Designer all substitute the parameter's first design-time level
+(`Values{1}`, or `NaN` when `Values` is empty) rather than reading a write-only
+`Value`. Seeing the message in the log is therefore a signal about the code
+that logged it, not routine noise.
+
+`ValueStr` matters most here because it is display text: GUIs poll it and the
+TDT backends used to log it after every write, so a read inside it produced one
+record per write-only parameter per trial. Backends that already hold the value
+they wrote call `p.formatValue(v)` instead — same `Format`/`Unit` handling, no
+read-back, and no hardware round trip on a live interface.
 
 ### Type values
 
@@ -210,7 +217,9 @@ stops ignoring the value it is already being handed.
 ### Value tracking
 
 - `Value`: Current parameter value.
-- `ValueStr`: Human-readable representation of the current value.
+- `ValueStr`: Human-readable representation of the current value. On a
+  write-only parameter it shows the first design-time level instead of reading
+  back. Use `formatValue(v)` when you already hold the value.
 - `lastUpdated`: MATLAB `datenum` timestamp of the last successful update.
 - `isArray`: True when the stored value contains more than one element.
 - `isRandom`: If true, writes randomize the value before passing it on.

@@ -505,8 +505,11 @@ classdef TDT_RPcox < hw.Interface
 
                 e = hwHandle.write(parameterName,v);
                 if e
-                    vstr = p.ValueStr;
-                    vprintf(4,'Updated parameter: %s = %s',p.Name,vstr)
+                    % Format the value just written rather than reading
+                    % p.ValueStr back: the read-back is a hardware round trip
+                    % per parameter per trial, and on a write-only tag it has
+                    % nothing to return.
+                    vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
                 else
                     vprintf(0,1,'Failed to write value to "%s"',p.Name)
                 end

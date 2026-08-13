@@ -26,6 +26,7 @@ EPsych major classes
 │  ├─ Subject
 │  │  └─ DefaultSubject
 │  ├─ BitMask
+│  ├─ TrialJournal
 │  ├─ eventModeChange
 │  └─ TrialsData
 ├─ hw

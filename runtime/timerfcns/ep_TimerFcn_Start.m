@@ -73,6 +73,20 @@ for i = 1:nSubjs
     vprintf(3, 'Creating temporary data file for runtime: %s', RUNTIME.DataFile(i))
     save(RUNTIME.DataFile(i),'info','-v6');
 
+    % Per-trial records go to an append-only journal beside the seed .mat:
+    % flat-cost, crash-safe appends instead of save('-append'), whose cost
+    % grows with file size. ep_TimerFcn_Stop merges the journal into the
+    % .mat at session end; after a crash, epsych.TrialJournal.recover does
+    % the same. The seed .mat keeps its role as the recovery artifact.
+    jfn = regexprep(RUNTIME.DataFile(i), '\.mat$', '.epj');
+    J = epsych.TrialJournal(jfn, FallbackMatFile=RUNTIME.DataFile(i));
+    if isempty(RUNTIME.Journal)
+        RUNTIME.Journal = J; % first assignment types the untyped property
+    else
+        RUNTIME.Journal(i) = J;
+    end
+    RUNTIME.Journal(i).append('info', info);
+
 
 
     % Initialize default data filename

@@ -124,14 +124,26 @@ Three consequences shape the current design:
   per-trial rebuild instead.
 - `ColumnName` and `ColumnFormat` are written only when they actually change.
 
+The MATLAB-side work is not flat in the number of rows, and it is the part that
+grows with a long session: a trial's row, its formatted text, and its color are
+all built once and appended, rather than converting, formatting, and coloring
+the whole session again on every trial. Rendering a thousand trials measured
+30 ms of MATLAB-side work per trial before that and 8 ms after. The rows are
+rebuilt from scratch only when the parameter set, the formats, or the trials
+themselves change -- including an outcome written back into an earlier trial,
+which the response bits are compared to detect.
+
 There is no per-update `vprintf`. `GLogVerbosity` defaults to `Inf`, so a
 level-4 record is never suppressed and would cost a `dbstack('-completenames')`
 plus a log write on every trial. Lowering `GLogVerbosity` to a finite level on
 a rig removes that class of cost application-wide; see
 [../eplog/eplog_Logging.md](../eplog/eplog_Logging.md).
 
-Measure with `tmp/smoke_test_history_perf.m`; behavior is covered by
-`tmp/smoke_test_history_render.m`.
+Measure with `tmp/smoke_test_history_perf.m` and
+`tmp/smoke_test_incremental_perf.m`; behavior is covered by
+`tmp/smoke_test_history_render.m`, and `tmp/smoke_test_incremental_render.m`
+proves an incrementally built table matches one rendered from the same trials
+all at once.
 
 ## Context Menu and Preferences
 
@@ -199,6 +211,10 @@ H.update();
 
 ## Version History
 
+- 2026-08-13: Rows, their formatted text, and their colors are built once per
+  trial and appended instead of being rebuilt over the whole session on every
+  trial: 30 ms -> 8 ms of MATLAB-side work per trial at 1000 trials, 9 ms ->
+  4 ms at 200.
 - 2026-08-12: Update-speed work, roughly 2.5x faster per trial (145 ms -> 57 ms
   at 10 trials, 158 ms -> 67 ms at 1000). The trial number moved from the
   `uitable` row header into a leading `Trial` column; rendered rows are padded

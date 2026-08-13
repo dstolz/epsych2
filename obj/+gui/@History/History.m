@@ -84,6 +84,17 @@ classdef History < gui.PopOut
         Updating_ = false            % Reentrancy guard for update
         MenuFields_ = {}             % DATA field names the columns menu was last built from
         MenuShown_ = {}              % ParametersOfInterest the menu check state was last built from
+
+        % Per-trial render caches, all in chronological order. A trial's row,
+        % its formatted text, and its color are fixed once the trial is
+        % written, so each update builds only the rows that arrived since the
+        % last one and reorders the rest. CacheGen_ is bumped whenever the row
+        % cache is rebuilt from scratch, which retires the caches derived from
+        % it (a new session, or a changed parameter set).
+        RowCache_ = []               % raw rows, field names, and per-trial metadata
+        TextCache_ = []              % formatted (char) rows
+        ColorCache_ = []             % per-trial RGB row colors
+        CacheGen_ = 0                % generation of the current row cache
     end
 
     properties (Constant, Access = private)
@@ -196,7 +207,11 @@ classdef History < gui.PopOut
             order = obj.resolveDisplayOrder(RD,columnNames);
             obj.Info.DisplayOrder = order;
 
-            tableData = obj.formatTableData(RD(order,:),columnNames);
+            % Formatting is per cell and independent of row order, so the
+            % rows are formatted once in chronological order and the display
+            % order is applied to the result.
+            tableData = obj.formattedRows(RD,columnNames);
+            tableData = tableData(order,:);
 
             colOrder = obj.resolveColumnOrder(columnNames);
             columnNames = columnNames(colOrder);
@@ -315,22 +330,49 @@ classdef History < gui.PopOut
             if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
             if isempty(obj.Info) || ~isfield(obj.Info,'ResponseBit'), return; end
 
-            responseBits = epsych.BitMask.getResponses;
-            n = numel(obj.Info.ResponseBit);
+            rgb = obj.chronologicalRowColors;
+            n = size(rgb,1);
             i = order(:);
             if isempty(i) || max(i) > n
                 i = (n:-1:1)'; % default display order: newest trial first
             end
-            R = obj.Info.ResponseBit(i);
-            hexC = repmat(epsych.BitMask.getDefaultColors(epsych.BitMask.Undefined),numel(R),1);
+            C = rgb(i,:);
+        end
+
+        function rgb = chronologicalRowColors(obj)
+            % rgb = chronologicalRowColors(obj)
+            % One RGB row color per trial, in chronological order.
+            %
+            % A trial's outcome is fixed once recorded, so its color is
+            % resolved once: the hex lookup and hex2rgb conversion used to run
+            % over the whole session on every trial.
+            responseBits = epsych.BitMask.getResponses;
             bitColors = obj.getBitColors(responseBits);
-            for idx = 1:numel(responseBits)
-                b = responseBits(idx);
-                ind = R == b;
-                if ~any(ind), continue; end
-                hexC(ind) = repmat(bitColors(idx),sum(ind),1);
+            R = obj.Info.ResponseBit(:);
+            n = numel(R);
+
+            c = obj.ColorCache_;
+            if isempty(c) || c.gen ~= obj.CacheGen_ ...
+                    || ~isequaln(c.bitColors,bitColors) || size(c.rgb,1) > n
+                c = struct;
+                c.gen = obj.CacheGen_;
+                c.bitColors = bitColors;
+                c.rgb = zeros(0,3);
             end
-            C = hex2rgb(hexC);
+
+            first = size(c.rgb,1) + 1;
+            if first <= n
+                Rnew = R(first:n);
+                hexC = repmat(epsych.BitMask.getDefaultColors(epsych.BitMask.Undefined),numel(Rnew),1);
+                for idx = 1:numel(responseBits)
+                    ind = Rnew == responseBits(idx);
+                    if ~any(ind), continue; end
+                    hexC(ind) = repmat(bitColors(idx),sum(ind),1);
+                end
+                c.rgb = [c.rgb; hex2rgb(hexC)];
+            end
+            obj.ColorCache_ = c;
+            rgb = c.rgb;
         end
 
         function [dataOut,colorsOut] = padToBlock(obj,dataIn,colorsIn)
@@ -375,33 +417,122 @@ classdef History < gui.PopOut
             end
         end
 
+        function c = emptyRowCache(obj,key)
+            % c = emptyRowCache(obj, key)
+            % A row cache covering no trials, and a new generation so the
+            % text and color caches built from the previous one are retired.
+            c = struct;
+            c.key = key;
+            c.n = 0;
+            c.FN = {};
+            c.raw = cell(0,0);
+            c.trialID = [];
+            c.time = strings(0,1);
+            c.respBit = epsych.BitMask.empty(0,1);
+            obj.CacheGen_ = obj.CacheGen_ + 1;
+        end
+
         function [DataOut,FN] = rearrange_data(obj)
             % [DataOut, FN] = rearrange_data(obj)
-            % Rearrange DATA into table rows with relative time and response text.
+            % Table rows in chronological order, with relative time and
+            % response text.
+            %
+            % A completed trial's row never changes, so rows already built are
+            % kept and only the trials that arrived since the last update are
+            % converted. The whole-session struct2cell and datetime-to-string
+            % conversions this used to repeat per trial now run once per trial
+            % over one row.
             DataOut = {};
             FN = {};
-            requiredParams = obj.REQUIRED_FIELDS;
             DataIn = obj.psychObj.DATA;
-
-            if ~isempty(obj.ParametersOfInterest)
-                ftr = setdiff(fieldnames(DataIn), [obj.ParametersOfInterest; requiredParams'], 'stable');
-                DataIn = rmfield(DataIn,ftr);
-            end
 
             if isempty(DataIn(1).TrialID)
                 obj.Data = [];
                 return
             end
 
-            obj.Info.TrialID = [DataIn.TrialID]';
-            obj.Info.TrialNumber = (1:numel(DataIn))'; % chronological order of DATA entries
-            td = [DataIn.computerTimestamp] - DataIn(1).computerTimestamp;
-            td.Format = "mm:ss";
-            obj.Info.RelativeTimestamp = string(td);
+            n = numel(DataIn);
+            baseline = DataIn(1).computerTimestamp;
+            key = {obj.ParametersOfInterest, fieldnames(DataIn), baseline};
 
+            c = obj.RowCache_;
+            if isempty(c) || ~isequaln(c.key,key) || c.n > n
+                c = obj.emptyRowCache(key);
+            end
+
+            % Response bits come from the psychophysics object, which decodes
+            % the session; only the new trials' labels are converted to text.
             rb = obj.psychObj.responseBits;
-            obj.Info.ResponseBit = rb(:);
-            Response = string(rb);
+            rb = rb(:);
+            obj.Info.ResponseBit = rb;
+
+            % Appending rows assumes a recorded trial is never revised, which
+            % is what the runtime does. The response bits are recomputed here
+            % anyway, so they are compared as a free check on that: an outcome
+            % written back into an earlier trial retires the cached rows.
+            if c.n > 0 && ~isequaln(rb(1:min(c.n,numel(rb))),c.respBit)
+                c = obj.emptyRowCache(key);
+            end
+
+            if c.n < n
+                idx = (c.n+1:n)';
+                [newRows,FN,meta] = obj.buildRows(DataIn(idx),idx,baseline,rb(idx));
+                if c.n > 0 && ~isequal(FN,c.FN)
+                    % The arriving trials render a different column set than
+                    % the rows already built -- a field left empty on the
+                    % first trial and populated later, say. Those rows cannot
+                    % be extended, so rebuild the session.
+                    c = obj.emptyRowCache(key);
+                    idx = (1:n)';
+                    [newRows,FN,meta] = obj.buildRows(DataIn,idx,baseline,rb);
+                end
+                if c.n == 0
+                    c.raw = newRows;
+                else
+                    c.raw = [c.raw; newRows];
+                end
+                c.trialID = [c.trialID; meta.trialID];
+                c.time = [c.time; meta.time];
+                c.FN = FN;
+                c.n = n;
+            end
+            c.respBit = rb(1:min(c.n,numel(rb)));
+            obj.RowCache_ = c;
+
+            FN = c.FN;
+            DataOut = c.raw;
+            obj.Info.TrialID = c.trialID;
+            obj.Info.TrialNumber = (1:n)'; % chronological order of DATA entries
+            obj.Info.RelativeTimestamp = c.time;
+        end
+
+        function [DataOut,FN,meta] = buildRows(obj,DataIn,trialNumbers,baseline,responseBits)
+            % [DataOut, FN, meta] = buildRows(obj, DataIn, trialNumbers, baseline, responseBits)
+            % Convert a slice of DATA into table rows.
+            %
+            % Parameters:
+            %   DataIn - DATA entries to convert.
+            %   trialNumbers - Chronological trial numbers of those entries.
+            %   baseline - First trial timestamp, for the relative time column.
+            %   responseBits - Decoded response bit per entry.
+            %
+            % Returns:
+            %   DataOut - numel(DataIn) x nColumns cell of raw values.
+            %   FN - Parameter column names, in display order.
+            %   meta - Struct of per-trial TrialID and relative time text.
+            requiredParams = obj.REQUIRED_FIELDS;
+
+            if ~isempty(obj.ParametersOfInterest)
+                ftr = setdiff(fieldnames(DataIn), [obj.ParametersOfInterest; requiredParams'], 'stable');
+                DataIn = rmfield(DataIn,ftr);
+            end
+
+            meta.trialID = [DataIn.TrialID]';
+            td = [DataIn.computerTimestamp] - baseline;
+            td.Format = "mm:ss";
+            meta.time = string(td(:));
+
+            Response = string(responseBits(:));
 
             ind = structfun(@(a) ~gui.History.isScalarLike(a),DataIn(1));
             fn = fieldnames(DataIn);
@@ -419,12 +550,12 @@ classdef History < gui.PopOut
             % permute (not squeeze) keeps rows-by-fields orientation when a
             % single parameter field is displayed
             DataOut = permute(struct2cell(DataIn),[3 1 2]);
-            DataOut = [cellstr(Response(:)) DataOut];
-            DataOut = [cellstr(obj.Info.RelativeTimestamp(:)) DataOut];
+            DataOut = [cellstr(Response) DataOut];
+            DataOut = [cellstr(meta.time) DataOut];
             % Trial number leads as a normal column rather than a RowName, so
             % the row headers never have to be rewritten. Kept numeric here so
             % sorting on it orders numerically.
-            DataOut = [num2cell(obj.Info.TrialNumber(:)) DataOut];
+            DataOut = [num2cell(trialNumbers(:)) DataOut];
 
             FN = fieldnames(DataIn);
         end
@@ -827,10 +958,44 @@ classdef History < gui.PopOut
             end
         end
 
-        function dataOut = formatTableData(obj,dataIn,columnNames)
-            % dataOut = formatTableData(obj, dataIn, columnNames)
-            % Convert all table values to char using resolved sprintf formats.
+        function dataOut = formattedRows(obj,dataIn,columnNames)
+            % dataOut = formattedRows(obj, dataIn, columnNames)
+            % Formatted table text for every trial, in chronological order.
+            %
+            % Formatting is per cell, so a row's text is fixed once its trial
+            % is written: only the rows added since the last update are
+            % formatted. Rendering a thousand trials used to mean a
+            % formatCellValue call per cell per trial.
             formats = obj.resolveColumnFormats(columnNames);
+            n = size(dataIn,1);
+
+            c = obj.TextCache_;
+            if isempty(c) || c.gen ~= obj.CacheGen_ ...
+                    || ~isequal(c.columnNames,columnNames) || ~isequaln(c.formats,formats) ...
+                    || size(c.text,1) > n
+                c = struct;
+                c.gen = obj.CacheGen_;
+                c.columnNames = columnNames;
+                c.formats = formats;
+                c.text = cell(0,numel(columnNames));
+            end
+
+            first = size(c.text,1) + 1;
+            if first <= n
+                newText = obj.formatTableData(dataIn(first:n,:),formats);
+                if first == 1
+                    c.text = newText;
+                else
+                    c.text = [c.text; newText];
+                end
+            end
+            obj.TextCache_ = c;
+            dataOut = c.text;
+        end
+
+        function dataOut = formatTableData(obj,dataIn,formats)
+            % dataOut = formatTableData(obj, dataIn, formats)
+            % Convert table values to char using one sprintf format per column.
             nRows = size(dataIn,1);
             nCols = size(dataIn,2);
             dataOut = cell(nRows,nCols);

@@ -1,0 +1,147 @@
+Ready for review
+Select text to add comments on the plan
+EPsych2 Codebase Review — Findings & Remediation Plan
+Context
+Roughly two months of heavy development (148 commits, ~619 files, ~57k insertions since 2026-06-01) added whole subsystems — obj/+teensy/, obj/+util/@VideoConverter/, obj/+eplog/, gui.PopOut, psychophysics.TrialWindow/SessionMetrics, phase-file fast-parse + caching, safe-boundary recompile, reminder trials — while cl/ was reorganized and legacy code (runtime/ephys/, old BoxGUIs, the duplicated obj/+stimgen/) was removed.
+
+The request was a thorough review for bugs, inconsistencies, and substantive performance/usability improvements. This plan is the review plus a proposed order of work.
+
+Coverage: the runtime core, the GUI/online-analysis layer, and the newer standalone subsystems were each reviewed in depth, and the highest-severity claims were then re-verified directly against the code or by running MATLAB. Everything below that is marked verified was confirmed first-hand; one review claim was found to be wrong and is corrected in §1.1.
+
+Working-tree note: the tree was clean at session start but has since gained uncommitted edits to cl/TrialSelectors/@cl_AppetitiveStimDetect/, cl/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/, obj/+epsych/@RunExpt/{buildUI,LaunchUtility}.m and tmp/smoke_test_reminder_trial.m — a concurrent session is replacing the reminder one-shot's onComplete consume with a consumeReminderRequest_ approach. Coordinate before touching those files.
+
+Related in-flight work: plans/async-hardware-io.md already targets blocking device I/O (there is an async-streaming-poller branch in a separate worktree, stages A–D tested). Findings §3.3 belongs to that effort rather than to this one. That plan's % FIX PERFORMANCE citation points at cl/@cl_AppetitiveDetection_GUI_B, which no longer exists — it needs a refresh.
+
+1. Tier 1 — silently wrong data or dead safety mechanisms
+1.1 The hardware auto-stop check is permanently dead on every real rig — verified
+RunExpt.m:518
+
+if any(get(self.RUNTIME.Interfaces,'mode') == hw.DeviceState.Idle)
+hw.Interface inherits matlab.mixin.SetGet, so for a non-scalar interface array get returns an m×1 cell. Measured in MATLAB:
+
+expression	result	correct
+{Idle; Error} == hw.DeviceState.Idle	[false false]	[true false]
+{Idle; Idle} == hw.DeviceState.Idle	[false false]	[true true]
+MATLAB compares the cell containers, not their contents — no error, just always false. Every protocol starts with a hw.Software interface and addInterface appends hardware, so RUNTIME.Interfaces has ≥2 elements on any real rig. When the hardware actually goes Idle — a halted RPvdS circuit, Synapse switched to Idle, Intan stopped, a Teensy unplugged — the session does not stop. It keeps ticking, polling TrialComplete on a dead device, and collecting nothing. The check works only in the single-interface (software-only) case, i.e. exactly where it doesn't matter.
+
+Correction: the subagent review reported this line as throwing on every tick. It does not — I ran it. The failure is silent, which is worse: a crash would have been noticed months ago.
+
+Fix: arrayfun(@(h) h.mode, RUNTIME.Interfaces), with care — hw.Software.mode returns 0x0 double, so a bare [Interfaces.mode] concatenation would silently drop entries. Secondary design question in the same line: any(...) lets one interface unilaterally stop the session, including backends that never advance mode.
+
+1.2 Operator edits and phase loads silently fail to reach the trial table — verified
+updateTrialsFromParameters.m:21,35,38 looks columns up by Parameters(k).Name, but compile_internal.m:47 builds writeparams from p.validName. The other three consumers of that map get it right (Parameter_Update.m:193, eval_staircase_training_mode.m:194, writeParametersProtocol.m:150).
+
+Whenever the two differ — hw.Interface.ensureUniqueParameterNames renames duplicate tags to RZ6[1].Freq (validName RZ6_1__Freq), or any name with a space, %, (, -, or a leading digit — ismember misses, the parameter is dropped at line 22, and the autoCommit Parameter_Control edit and the whole phase-load apply pass do nothing, with no warning. The hw.Parameter changes, the trial table keeps the old value, and the next dispatch overwrites the parameter back.
+
+1.3 StepDirectionOnHit / StepDirectionOnMiss is documented but unimplemented — verified
+cl_AppetitiveStimDetect documents these in its class header (lines 32-35) and in documentation/cl/cl_AppetitiveStimDetect.md:70,80-81. The helper stepSign_ exists at line 469 and is never called — selectNext does nextStim = lastStim + obj.P.Depth_StepOnHit.Value (lines 157, 165). The feature is inert, and the documented default is wrong: the doc says Hit steps down by default, but the code steps down only if the operator entered a negative Depth_StepOnHit. A protocol written from the documentation runs an inverted staircase.
+
+1.4 Detection hit/FA rates are computed with an unfiltered denominator — verified
+Detection.m:297 — countUniqueValues counts all trials at each stimulus value, while get.Count (:317-325) filters the numerator by targetTrialType. get.Rate then divides one by the other.
+
+This is live as of 1b3e496: reminder trials keep TrialType = 2 and are presented at 0 dB. get.Hit_Rate targets TrialType_0, so reminder trials are excluded from the numerator and included in the denominator — the hit rate at the most salient level, the one used to judge re-engagement, is systematically deflated by the reminder fraction. Related, same file: NaN rates are clamped by min/max (which pass NaN through as the bound) into a plausible finite d′; SessionMetrics.m:292-298 guards against this explicitly, Detection does not. And get.DPrime/get.Bias mutate obj.targetTrialType from inside a getter without restoring it, so merely displaying the object changes what a later obj.Rate returns.
+
+1.5 A failing trial selector silently repeats the previous trial — verified
+ep_TimerFcn_RunTime.m:103-123 — NextTrialID is assigned only on success, but the catch logs and falls through to dispatchNextTrial(i) anyway. If selectNext throws, the previous trial's row is dispatched again, and again at every boundary. The session keeps collecting data that looks valid. After a shrinking recompile the stale ID can also exceed size(T.trials,1), and dispatchNextTrial indexes it with no bounds check (:42).
+
+1.6 hw.VlcRecorder is registered at zero of the four required sites — verified
+hw.VlcRecorder is a complete backend (Type='VlcRecorder', its own getCreationSpec), but grep -c VlcRecorder returns 0 for all four registry files. The decisive one is createInterfaceFromStruct_.m:116-118, whose otherwise branch replaces it with hw.Software(). A protocol containing a VlcRecorder saves fine and then, on reload, silently loses video recording while reporting success — exactly the failure mode CLAUDE.md warns about for this registry.
+
+1.7 util.VideoConverter.delete() orphans every running ffmpeg process — verified
+cancel.m:12-18 kills processes only when the scheduler timer is not running; the comment has the logic backwards. VideoConverter.m:156-159 calls cancel() then stopTimer_(). During an active batch the timer is running, so cancel sets a flag and returns, then the timer is deleted and no tick ever reads the flag. clear c mid-batch leaves N ffmpeg.exe processes running unowned at full CPU, writing .part<token> sidecars that nothing will commit or clean up (and that cleanupTempFiles_ cannot delete, because the live ffmpeg holds the handles). Closing MATLAB does not reap them.
+
+1.8 SortBoxes indexes CONFIG by BoxID instead of by sort order — verified
+RunExpt.m:350-355 — CS(i) = C(ids(i)). Two subjects on boxes 1 and 3 → C(3) on a 2-element array → index error. Boxes 2 and 1 happen to work by coincidence. Correct form: [~,ord] = sort(ids); CS = C(ord);.
+
+1.9 ep_TimerFcn_Error stops and deletes every timer in the MATLAB session — verified
+ep_TimerFcn_Error.m:19-27 — a bare timerfindall, then stop/delete. ExptDispatch("Stop") correctly narrows to 'PsychTimer'/'BoxTimer'; SelfTest.checkTimer deliberately avoids the name for this very reason. So an error in the trial loop also destroys the hw.VlcRecorder poll timer (the video for the run that just crashed is never finalized), Intan keep-alives, and any unrelated user timer.
+
+2. Tier 2 — masked failures and state corruption
+A validation-blocked recompile reports success. Protocol.compile returns without throwing on a severity-2 issue, so ep_TimerFcn_RunTime's try/catch (which catches only exceptions) installs the old COMPILED and logs "Recompile complete: N trials now active". The operator is told the phase took effect; it did not.
+compile_internal's "no trials" early return leaves writeparams stale (:66-74) while its sibling return at :55-63 clears it. compiledTrialColumns' mismatch guard is skipped precisely because trials is empty, so nothing reports it.
+needsCompile() cannot see structural edits. meta.lastModified is advanced only by save/toStruct; addParameter/removeParameter touch neither it nor COMPILED. The constructor also stores a datetime where the ischar guard expects a char, so a freshly-built protocol reports false unconditionally.
+DispatchOrderCache_ is keyed on handle identity and count only (dispatchNextTrial.m:48-51), but orderByDependencies derives the order from Expression text. Editing an Expression mid-session leaves the cached permutation valid, so expressions again evaluate against the previous trial's value — the exact failure the ordering code exists to prevent.
+Per-trial DATA assignment assumes a frozen parameter set. ep_TimerFcn_RunTime.m:40-50 — a mid-session recompile that adds or removes a readable parameter changes the field set, and DATA(trialIdx) = data throws "Subscripted assignment between dissimilar structures" from inside the timer callback. The adjacent comment also claims per-box scoping that all_parameters does not implement.
+selector.initialize() gets a half-built TRIALS struct (Subject, BoxID, protocol, TrialIndex are assigned after the call in ep_TimerFcn_Start), while SelfTest.checkTrialSelection hands it a complete one. A custom selector using the documented contract passes pre-flight and then throws at run start.
+ep_TimerFcn_Stop dereferences HELPER one statement before checking it exists.
+isTransientControl guards UpdateEveryTrial but not isTrigger, so a legacy struct phase aborts a phase load half-applied.
+Phase-cache invalidation is wired into writeParametersProtocol but not Protocol.save — the path the designer's Save uses.
+hw.Interface.add_parameter cannot address a multi-module interface (obj.Module array → comma-separated obj.parent into a name-value slot).
+Multi-subject sessions dispatch into unconnected interface clones. ExptDispatch connects CONFIG(1)'s interfaces only, while ep_TimerFcn_Start takes each subject's own protocol — so box 2's writes land on disconnected handles while its triggers fire on box 1's hardware. Not currently reachable — multi-subject is planned, not in use — so this is a prerequisite for plans/multi-subject-support.md rather than a live defect. Two siblings belong with it: updateTrialsFromParameters dereferences obj.TRIALS.writeparams on a struct array, which expands to a comma-separated list and makes ismember error outright; and ep_TimerFcn_RunTime's data record has no per-box filtering despite the comment claiming it, so every subject's DATA would carry every other subject's Read parameters.
+gui.Helper.timed_color_change leaks timers — isvarname('SF') is always true (dead guard), there is no isvalid(obj) check, and stop(t); delete(t) sit after the line that throws when the widget died during the flash. StatusBar.m:196-205 already does this correctly; unify on that.
+gui.History / gui.ParameterScatter never self-delete — every sibling installs an ObjectBeingDestroyed listener; these two don't, and gui.BoxGUI has no addHistory/ addScatter helper to register them. Result: leaked NewData listeners and orphaned pop-out windows, contradicting PopOut's documented no-orphan guarantee.
+teensy simulator diverges from the documented firmware contract in five places — the one that matters most: Probability is drawn every tick rather than once per state entry (Simulator.m:758-761 vs Condition.m:799), so a 5 % branch on a 500 ms state fires on essentially every trial and monteCarlo reports ~100 %. Also: SetVariable permanently mutates the caller's Program (breaking undo and Monte-Carlo reproducibility); DurationMs = 0 fires immediately instead of meaning "no timer"; IncrementCounter clamps the step to ≥1 so decrements increment; LogEvent never transmits its event name. Since Simulator.m:9 declares itself the reference for the firmware author, these ship as spec.
+teensy.Compiler never counts transition actions against MAX_ACTIONS_PER_STATE, so a program that overruns the firmware's per-state array compiles green.
+3. Tier 3 — measured performance
+3.1 Default logging costs 332 µs per vprintf call — 46× the suppressed path
+Measured live (GVerbosity=1, GLogVerbosity=Inf):
+
+configuration	per call
+default (GLogVerbosity=Inf)	331.7 µs
+fully suppressed	7.2 µs
+eplog.isEnabled is candid about this in its own header, but the consequence is under-priced. Because GLogVerbosity defaults to Inf, nothing is ever suppressed — so the "~4 µs for a message no destination wants" figure in CLAUDE.md never applies in a default session. dispatchNextTrial emits one level-4 trace per dispatched parameter per trial; at 30 parameters × 1000 trials that is ~10 s of formatting inside timer callbacks versus 0.2 s. About 20 % is dbstack('-completenames') in eplog.callerFrame (62 µs standalone).
+
+3.2 Per-trial save -append grows linearly with trial count
+ep_TimerFcn_RunTime.m:52-56, measured against a realistic record:
+
+trial	mean save -append
+1–50	6.9 ms
+251–300	16.6 ms
+551–600	22.7 ms
+O(n) per trial, O(n²) per session, executed synchronously in the timer callback at the trial boundary. The same two lines use eval to name the variable.
+
+FIXED 2026-08-13. epsych.TrialJournal was ported to master from the async-streaming-poller branch, where it was built and hard-kill tested. Per-trial writes now go to an append-only .epj journal (length-prefixed getByteStreamFromArray records, file closed after every append, so the record is durable when append returns); ep_TimerFcn_Stop merges it into the seed .mat once per session, keeping the legacy info + data_NNNN layout for every downstream consumer. Re-measured on this machine over 600 trials with a realistic record:
+
+trial	save -append (before)	journal append (after)
+1–50	7.9 ms	2.1 ms
+251–300	20.6 ms	1.9 ms
+551–600	39.5 ms	1.9 ms
+session total	13.80 s	1.17 s + 0.28 s merge at Stop
+The eval is gone. Cost is now flat rather than growing, and because earlier bytes are never rewritten a crash can tear at most the in-flight record — save -append rewrote its index in place and could lose the whole file. Verified by tmp/smoke_test_trialjournal.m, tmp/smoke_test_runtime_journal.m (real Start → RunTime → Stop chain), and tmp/crash_test_trialjournal.m (9,986/9,986 completed records survived a hard kill). epsych.SelfTest check H3 was updated to exercise the journal path it claims to mirror.
+
+Note for §3.3 and Phase 3: the same branch also carries epsych.TickStats, EventCoalescer and the async I/O seam. Those were deliberately NOT ported — they belong to plans/async-hardware-io.md.
+
+3.3 Every 10 ms tick does a blocking device round-trip per interface
+RunExpt.m:518 runs before the trial loop, and each backend implements get.mode as a live COM/TCP/serial query. This is the motivating case for plans/async-hardware-io.md; fixing §1.1 should be coordinated with it.
+
+3.4 GUI components rebuild whole-session state on every trial
+gui.History — datetime→string over all trials, a full struct2cell of the session, a nested scalar loop over every rendered cell, and an n×3 color rebuild with hex2rgb, per trial. At 1000 trials × 5 columns that is 5000 formatCellValue calls per trial. The existing optimization targeted the uitable write, which is not where the time goes.
+gui.ParameterScatter — rewrites all three dropdown Items every trial (which can dismiss an open popup mid-selection) and recomputes every trial value 2–3× per redraw, with a find(strcmp(...)) inside the per-trial loop.
+psychophysics.Staircase — ~8 full-session passes per plot update, including three separate BitMask.decode calls over the whole vector and a fourth full extraction just to count trials when obj.trialCount is already O(1).
+All three want the same fix: cache per-trial derived vectors and append one element, rather than recomputing the session.
+
+4. Tier 4 — consistency, hygiene, developer experience
+68 smoke tests, no runner. tmp/ holds ~68 smoke_test_*.m: parameterless functions, uniform PASS: / ALL PASS convention, self-cleaning, documented as headless-safe. There is no way to run them as a suite, so a regression in one subsystem is only caught when someone remembers that test exists. Highest-leverage single improvement available.
+Three different teardown contracts among sibling display components (delete-my-graphics / leave-them / disable-only), and five different context-menu strategies across PopOut adopters. Any host writing generic teardown must special-case each.
+Pop-out preference keys collide for two instances of the same class in one figure, and closePopOut re-derives the tag at close time — so a Staircase pop-out can save its window position under a different key than the next open reads.
+12 empty catch blocks (%#ok<TRYNC>) contrary to the project's own vprintf(0,1,ME) rule; stale %#ok suppressions in describeInterfaceField.m (8), SaveConfig.m and others, two naming check IDs that no longer exist — while CLAUDE.md forbids compiler directives outright.
+helpers/figAlwaysOnTop.m is dead — an unconditional return at line 14 disables the body, which also inverts state and reaches for the removed JavaFrame. No callers remain, but CLAUDE.md and Architecture_Overview.md still advertise it.
+hw.Parameter.set_value is dead code with contradictory semantics — it rejects out-of-range values while the set.Value setter clamps them, and it bypasses PreUpdateFcn, randomization, expression evaluation and PostUpdateFcn. It is public, documented in the class method list, and called from nowhere: a trap for the custom-paradigm code in cl/ that the toolbox invites people to write.
+Recovery-file timestamps drop the seconds. ep_TimerFcn_Start.m:62 uses yyMMddHHmmSS; in MATLAB ss is seconds and SS is fractional seconds, so 14:37:52.4 renders as ...143740. It is the only site in the repo that gets this wrong.
+Deprecated API: lasterror (RunExpt.m:528), plus now/datestr/datenum/clock at ~20 sites. 317 AGROW warnings outside the submodule, concentrated in design-time paths (refreshCheckCalculations.m 24, dryRunExpressions.m 15, SelfTest/check*.m ~50).
+hw.Teensy.flushInput_ is defined and never called, so a single timeout or malformed block reply desynchronizes the serial stream permanently — every later transact_ reads the previous reply, get.mode silently freezes on a stale cache, and only a reconnect recovers.
+VideoConverter accepts VideoCodec="gif", which buildArgs then rejects; the batch aborts but reports stage 'finished', so waitUntilDone() returns true having converted nothing.
+Suggested triage (no code changes made)
+This review is the deliverable — nothing in the repository was modified. What follows is a recommended order if and when you pick these up. Each phase is independently shippable and pairs with the smoke test that would prove it.
+
+Phase 0 — the test runner (do first; everything else leans on it). Add tmp/run_smoke_tests.m: discover smoke_test_*.m, run each in its own try/catch, capture PASS/ALL PASS, close stray figures and restore prefs between tests, print a summary table and exit non-zero on failure. Then record the current baseline — some tests may already fail, and that set is itself a finding.
+
+Phase 1 — Tier 1 correctness. §1.1–1.9. Small, surgical, high value. Each gets a regression test: the auto-stop check and the Name/validName mismatch in particular are both trivially testable headlessly with hw.Software interfaces.
+
+Phase 2 — Tier 2 masked failures. Make compile() failure observable to the recompile path; fix the writeparams early return, needsCompile, the dispatch-order cache key, the DATA field-set assumption, and selector initialize ordering. Unify gui.Helper's flash timer onto the StatusBar implementation and give History/ParameterScatter the standard self-delete listener plus BoxGUI.addHistory/addScatter.
+
+Phase 3 — measured performance. Make callerFrame lazy (resolve the caller only for records a sink will actually keep, or cache by call site); guard the per-parameter level-4 traces in dispatchNextTrial with visenabled; replace the eval + save -append journal with an append-only per-trial write; add the append-path caches in History, ParameterScatter and Staircase. Re-measure with the same benchmarks used above.
+
+Phase 4 — teensy simulator fidelity. The five simulator/firmware divergences and the missing transition-action capacity check. Worth doing as a block, since Simulator.m is the firmware author's spec.
+
+Phase 5 — hygiene. Register hw.VlcRecorder at all four sites (or delete it if it is superseded by the RunExpt video toolbar); delete figAlwaysOnTop and hw.Parameter.set_value and update the docs that reference them; replace empty catches with vprintf(0,1,ME); strip stale %#ok; retire lasterror/now/datestr.
+
+Deferred to plans/multi-subject-support.md — the three multi-subject findings in Tier 2. They are unreachable today and should be treated as prerequisites for that plan, not as separate fixes.
+
+How to verify these when they are fixed
+tmp/run_smoke_tests.m green, with the Phase-0 baseline as the comparison point.
+New regression tests, in the existing tmp/smoke_test_*.m style, for: the multi-interface auto-stop check (assert it detects an Idle interface in a 2-element array); the Name/validName column sync (a parameter named RZ6[1].Freq must reach the trial table); SortBoxes with boxes [1 3]; a selector that throws in selectNext (assert the session stops rather than repeating the trial); Detection hit rate with reminder trials present; VideoConverter delete during an active batch (assert no surviving ffmpeg process).
+Re-run the two measurements in §3.1 and §3.2 and record the before/after in the commit.
+epsych.SelfTest should stay green; extend checkTrialSelection so it builds the same TRIALS struct ep_TimerFcn_Start does, closing the gap in §2.
+Run the MATLAB MCP server's codeIssues sweep over obj/, runtime/, helpers/ and confirm the TRYNC/MSNU/MSNE/LERR counts drop to zero after Phase 5.
+Add Comment

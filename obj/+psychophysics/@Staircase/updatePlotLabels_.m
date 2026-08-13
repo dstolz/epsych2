@@ -8,8 +8,10 @@ function updatePlotLabels_(obj)
 ylabel(obj.plotAxes_, obj.yAxisLabel_(), 'Interpreter', 'none');
 xlabel(obj.plotAxes_, 'Trial Index', 'Interpreter', 'none');
 
-nPlotted = numel(obj.columnize_(obj.stimulusValues));
-subtitle(obj.plotAxes_, sprintf('%d trials', nPlotted));
+% trialCount is already the number of trials; extracting the stimulus values
+% just to measure them walked the whole session a fourth time (and counted a
+% session with no trials as one, since columnize_ returns NaN for empty).
+subtitle(obj.plotAxes_, sprintf('%d trials', obj.trialCount));
 
 [titleText, hasTitle] = obj.getTitleText_();
 if hasTitle

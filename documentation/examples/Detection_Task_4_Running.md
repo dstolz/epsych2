@@ -33,7 +33,9 @@ During the run, the timer fires `ep_TimerFcn_RunTime` continuously; data
 accumulate per completed trial. Two files result:
 
 - A **crash-recovery file** (`RUNTIME_DATA_<subject>_Box_XX_<timestamp>.mat` in
-  `RUNTIME.TempDataDir`) appended one variable per trial while the session runs.
+  `RUNTIME.TempDataDir`). While the session runs, trials accumulate in the
+  `.epj` journal beside it; the `.mat` is filled in when the session stops.
+  See [epsych.TrialJournal](../epsych/epsych_TrialJournal.md).
 - The **session file** written by the saving function at stop — this is what
   [Detection_Task_5_Data.md](Detection_Task_5_Data.md) analyzes.
 

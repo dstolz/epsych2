@@ -2,6 +2,9 @@ function plotData = getPlotData_(obj)
 % plotData = getPlotData_(obj)
 % Compute plotted data vectors and colors for staircase history plot.
 %
+% Every per-trial vector comes from obj.sessionVectors_, which extracts and
+% decodes the session once; this function only masks and indexes it.
+%
 % Parameters:
 %   obj — psychophysics.Staircase instance
 %
@@ -31,17 +34,15 @@ plotData.revDown.x = nan;
 plotData.revDown.y = nan;
 
 
-trialValue = obj.columnize_(obj.stimulusValues);
+s = obj.sessionVectors_();
+
+trialValue = obj.columnize_(s.stimValues);
 if isempty(trialValue)
     return
 end
 
 trialIndex  = obj.columnize_(1:obj.trialCount);
 direction   = obj.columnize_(obj.Results.StepDirection);
-responseCodes = obj.columnize_(obj.responseCodes);
-if isempty(responseCodes)
-    responseCodes = zeros(size(trialIndex), 'uint32');
-end
 
 valid = ~isnan(trialIndex) & ~isnan(trialValue);
 
@@ -50,27 +51,28 @@ if ~any(valid)
 end
 
 
-catchMask = valid & obj.columnize_(obj.trialTypeMask_(obj.CatchTrialType));
-stimMask = valid & obj.columnize_(obj.trialTypeMask_(obj.StimulusTrialType));
+catchMask = valid & obj.columnize_(s.catchMask);
+stimMask = valid & obj.columnize_(s.stimMask);
 
 if any(stimMask)
     plotData.main.x = trialIndex(stimMask);
     plotData.main.y = trialValue(stimMask);
-    plotData.main.c = obj.responseCodeColors_(responseCodes(stimMask));
+    plotData.main.c = obj.responseCodeColors_(s.decoded, stimMask);
 end
 
 if any(catchMask)
     plotData.catch.x = trialIndex(catchMask);
     plotData.catch.y = trialValue(catchMask);
-    plotData.catch.c = obj.responseCodeColors_(responseCodes(catchMask));
+    plotData.catch.c = obj.responseCodeColors_(s.decoded, catchMask);
 end
 
 % Outcomes actually on screen drive which color swatches the legend names.
-plottedCodes = responseCodes(stimMask | catchMask);
-if ~isempty(plottedCodes)
-    decoded = epsych.BitMask.decode(plottedCodes);
+plottedMask = stimMask | catchMask;
+if any(plottedMask) && ~isempty(s.decoded)
     for idx = 1:numel(obj.Bits)
-        plotData.bitsPresent(idx) = any(decoded.(char(obj.Bits(idx))));
+        bitMask = s.decoded.(char(obj.Bits(idx)));
+        if numel(bitMask) ~= numel(plottedMask), continue; end
+        plotData.bitsPresent(idx) = any(bitMask(plottedMask));
     end
 end
 

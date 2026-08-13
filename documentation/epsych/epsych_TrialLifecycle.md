@@ -101,7 +101,7 @@ Before the first trial runs, `ep_TimerFcn_Start` initializes every subject's run
 
 3. **Resolve CORE triggers.** `Runtime.resolveCoreParameters(i)` searches for the three required hardware trigger parameters (`NewTrial`, `ResetTrig`, `TrialComplete`) scoped to the subject's box ID and caches them in `RUNTIME.CORE(i)`. An error is thrown immediately if any trigger is missing.
 
-4. **Create temporary data file.** A `.mat` file is created in `RUNTIME.TempDataDir` to accumulate per-trial data. Trials are appended incrementally so a crash loses only the current in-progress trial.
+4. **Create temporary data file.** A seed `.mat` (holding `info`) and an append-only `.epj` journal are created in `RUNTIME.TempDataDir`. Trials are appended to the journal one record at a time, so a crash loses only the current in-progress trial; `ep_TimerFcn_Stop` merges the journal back into the `.mat`. See [epsych.TrialJournal](epsych_TrialJournal.md).
 
 5. **Select and dispatch trial #1.** `selector.selectNext` returns the first `NextTrialID`, then `dispatchNextTrial` sends it to hardware.
 

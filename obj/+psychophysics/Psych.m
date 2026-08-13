@@ -268,27 +268,58 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
         function mask = trialTypeMask_(obj, trialTypeBit)
             % Resolve a logical mask for the requested trial type.
+            mask = obj.trialTypeMasks_(trialTypeBit);
+        end
+
+        function masks = trialTypeMasks_(obj, trialTypeBits, decodedResponses)
+            % One row of trialTypeMasks_ per requested trial type, sharing a
+            % single TrialType extraction (or a single response-code decode)
+            % across all of them: asking for the stimulus and the catch mask
+            % separately paid for that whole-session work twice.
+            %
+            % Parameters:
+            %   trialTypeBits     - BitMask array of trial types to resolve.
+            %   decodedResponses  - Optional epsych.BitMask.decode output for
+            %       the session's response codes, used only when DATA carries
+            %       no TrialType field. Supply it to reuse a decode the caller
+            %       has already paid for; empty means "no codes to decode".
+            %
+            % Returns:
+            %   masks - numel(trialTypeBits) x trialCount logical array.
+            n = obj.trialCount;
+            nBits = numel(trialTypeBits);
+            masks = false(nBits, n);
+
             tt = obj.trialTypeValues_();
-            if ~isempty(tt)
-                mask = tt == obj.bitMaskToTrialTypeValue_(trialTypeBit);
-            else
+            if isempty(tt) && nargin < 3
                 rc = obj.responseCodes;
                 if isempty(rc)
-                    mask = false(1, obj.trialCount);
+                    decodedResponses = [];
                 else
                     decodedResponses = epsych.BitMask.decode(rc);
-                    mask = decodedResponses.(char(trialTypeBit));
                 end
             end
 
-            mask = reshape(logical(mask), 1, []);
-            if numel(mask) < obj.trialCount
-                mask(end+1:obj.trialCount) = false;
-            elseif numel(mask) > obj.trialCount
-                mask = mask(1:obj.trialCount);
-            end
+            excluded = obj.excludedTrialMask_();
+            for k = 1:nBits
+                if ~isempty(tt)
+                    mask = tt == obj.bitMaskToTrialTypeValue_(trialTypeBits(k));
+                elseif ~isempty(decodedResponses)
+                    mask = decodedResponses.(char(trialTypeBits(k)));
+                else
+                    mask = false(1, n);
+                end
 
-            mask(obj.excludedTrialMask_()) = false;
+                mask = reshape(logical(mask), 1, []);
+                if numel(mask) < n
+                    mask(end+1:n) = false;
+                elseif numel(mask) > n
+                    mask = mask(1:n);
+                end
+
+                mask(excluded) = false;
+                masks(k,:) = mask;
+            end
         end
 
         function ttValue = bitMaskToTrialTypeValue_(~, trialTypeBit)

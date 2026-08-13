@@ -112,6 +112,13 @@ Rules that matter:
 - **epsych.TrialSelector** (abstract): Pluggable trial selection
 - **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
 - **epsych.BitMask**: uint32 enumeration for trial outcomes
+- **epsych.TrialJournal**: append-only, crash-safe `.epj` journal that per-trial data
+  is written to during a run (flat ~2 ms, versus a `save('-append')` that grew to
+  40 ms by trial 600). `ep_TimerFcn_Stop` merges it back into the seed `.mat`, so the
+  recovery artifact keeps its `info + data_NNNN` layout; `TrialJournal.recover`
+  rebuilds it after a crash. Durability is guarded by a hard-kill harness, not a
+  throughput benchmark — run `tmp/crash_test_trialjournal.m` after any change to it
+  (see documentation/epsych/epsych_TrialJournal.md)
 - **Phase loading**: `Runtime.phaseParameterData` is the single chokepoint for reading a
   phase (.eprot) file. It reads the saved `hw.Parameter.toStruct` entries straight out of
   the MAT file — the file already holds exactly what it returns — and falls back to the

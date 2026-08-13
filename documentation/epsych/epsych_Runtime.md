@@ -39,6 +39,7 @@ Primary method files:
 | `NSubjects` | Number of subjects (read-only; derived from `TRIALS`). |
 | `isTest` | True for Preview runs; recorded into every trial's data. |
 | `DataFile`, `TempDataDir`, `dfltDataPath` | Crash-recovery file paths and default data directory. |
+| `Journal` | Per-subject [`epsych.TrialJournal`](epsych_TrialJournal.md); the append-only file each completed trial is written to. |
 | `StartTime` | Session start `datetime`. |
 
 Note: `epsych.Runtime` subclasses `dynamicprops`, so some workflows attach extra properties at runtime — for example `readParameters` adds a `Phase` property that logs which phase files were loaded and when.

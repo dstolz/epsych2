@@ -45,8 +45,10 @@ r = localCheckWritable("H2_TempDataDir", GROUP, "Crash-recovery path", tempDataD
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
 % --- H3: per-trial append round trip -----------------------------------
-% Mirrors exactly what ep_TimerFcn_RunTime does after every trial. A slow or
-% flaky drive here shows up as dropped trials at run time.
+% Mirrors exactly what ep_TimerFcn_RunTime does after every trial: seed the
+% .mat, then append each trial to the epsych.TrialJournal beside it, then
+% merge at session end. A slow or flaky drive here shows up as dropped
+% trials at run time.
 t = tic;
 probeDir = tempDataDir;
 if ~isfolder(probeDir)
@@ -54,7 +56,9 @@ if ~isfolder(probeDir)
 end
 probeFile = fullfile(probeDir, sprintf('epsych_selftest_%s.mat', ...
     char(datetime('now', Format='yyMMddHHmmssSSS'))));
+probeJournal = regexprep(probeFile, '\.mat$', '.epj');
 cleanupProbe = onCleanup(@() localDeleteFile(probeFile));
+cleanupJournal = onCleanup(@() localDeleteFile(probeJournal));
 
 nTrials = 3;
 appendTimes = nan(1, nTrials);
@@ -62,18 +66,25 @@ try
     info = struct('Subject', 'SelfTest', 'CompStartTimestamp', datetime('now'), 'isTest', true);
     save(probeFile, 'info', '-v6');
 
+    J = epsych.TrialJournal(probeJournal, FallbackMatFile=probeFile);
+    J.append('info', info);
+
     for k = 1:nTrials
         data = struct('TrialIndex', k, 'TrialID', k, ...
             'computerTimestamp', datetime('now'), 'isTest', true);
-        varName = sprintf('data_%04d', k);
-        eval([varName ' = data;']);
         tk = tic;
-        save(probeFile, varName, '-append', '-v6');
+        J.append(sprintf('data_%04d', k), data);
         appendTimes(k) = toc(tk);
     end
 
+    % Read back through the merge path the session actually uses, so this
+    % check covers the journal write AND the end-of-session merge.
+    epsych.TrialJournal.mergeToMat(probeJournal, probeFile);
     S = load(probeFile);
     missing = strings(1,0);
+    if J.Faulted
+        missing(end+1) = "journal write failed; the run would fall back to save('-append')";
+    end
     for k = 1:nTrials
         varName = sprintf('data_%04d', k);
         if ~isfield(S, varName)
@@ -85,6 +96,7 @@ try
 
     detail = [ ...
         sprintf("Probe file: %s", probeFile), ...
+        sprintf("Journal:    %s", probeJournal), ...
         sprintf("Mean append: %.1f ms", 1000*mean(appendTimes, 'omitnan')), ...
         sprintf("Max append:  %.1f ms", 1000*max(appendTimes, [], 'omitnan'))];
 

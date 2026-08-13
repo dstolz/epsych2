@@ -105,6 +105,19 @@ changing aesthetics programmatically, call `update` to redraw. All of these
 are also reachable from the axes' right-click menu, which persists choices
 automatically.
 
+## Update cost
+
+A redraw asks for three parameters (x, y, and color-by), and each trial's value
+is read once and kept rather than re-read for every parameter on every trial.
+A category also keeps the code it was first assigned, so codes are appended the
+same way. The dropdown item lists are written only when they actually change:
+rewriting `Items` on every trial closed the list under a user who had it open
+mid-selection.
+
+Behavior is covered by `tmp/smoke_test_parameter_scatter.m`, and
+`tmp/smoke_test_incremental_render.m` proves that a scatter fed trial by trial
+plots exactly what one handed the same trials at once plots.
+
 ## Cleanup
 
 Store the object on your GUI class and `delete` it in the GUI destructor —

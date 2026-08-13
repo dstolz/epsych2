@@ -119,6 +119,15 @@ classdef ParameterScatter < gui.PopOut
         CategoricalNames_ (1,:) cell = {} % validNames currently treated as text/categorical
         CategoryLevels_ = struct()  % validName -> cellstr of distinct values seen so far, in assigned order
         ResponseField_ (1,:) char = '' % DATA field holding response codes, backing the Response parameter
+
+        % Per-trial value caches, one entry per parameter. A trial's value is
+        % fixed once recorded and a category keeps the code it was first
+        % assigned, so each redraw reads only the trials added since the last
+        % one -- a redraw asks for the x, y and color parameters and used to
+        % re-read the whole session for each.
+        ValueCache_ = struct()      % validName -> 1xN numeric values
+        CodeCache_ = struct()       % validName -> 1xN categorical codes
+        CacheFingerprint_ = {}      % identifies the trials the caches were built from
     end
 
     properties (Constant, Access = private)
@@ -505,16 +514,18 @@ classdef ParameterScatter < gui.PopOut
             obj.CategoryLevels_.(obj.RESPONSE_LABEL) = cellstr(string(bm(:)'));
         end
 
-        function txt = responseText_(obj,D)
-            % Decoded outcome name per trial ('' where no code is available).
-            % Mirrors psychophysics.Psych.responseBits: with more than one
-            % response bit set, the last one in enum order wins.
+        function txt = responseText_(obj,D,first)
+            % Decoded outcome name for trials first:end ('' where no code is
+            % available). Mirrors psychophysics.Psych.responseBits: with more
+            % than one response bit set, the last one in enum order wins.
+            if nargin < 3, first = 1; end
             n = numel(D);
-            txt = repmat({''},1,n);
+            txt = repmat({''},1,max(n-first+1,0));
             if isempty(obj.ResponseField_) || isempty(D) || ~isfield(D,obj.ResponseField_)
                 return
             end
             rc = obj.parameterValues_(D,obj.ResponseField_);
+            rc = rc(first:end);
             valid = isfinite(rc) & rc >= 0;
             if ~any(valid), return; end
             decoded = epsych.BitMask.decode(uint32(rc(valid)));
@@ -560,21 +571,54 @@ classdef ParameterScatter < gui.PopOut
             end
         end
 
+        function syncCaches_(obj,D)
+            % Drop the per-trial caches when the trials were replaced rather
+            % than extended. Within a session DATA only grows, so a value
+            % already read for a trial stays valid.
+            fp = {};
+            if ~isempty(D)
+                fp = {numel(fieldnames(D))};
+                if isfield(D,'TrialID'), fp{end+1} = D(1).TrialID; end
+                if isfield(D,'computerTimestamp'), fp{end+1} = D(1).computerTimestamp; end
+            end
+            if isequaln(fp,obj.CacheFingerprint_), return; end
+            obj.ValueCache_ = struct();
+            obj.CodeCache_ = struct();
+            obj.CacheFingerprint_ = fp;
+        end
+
         function v = parameterValues_(obj,D,name)
             % Per-trial numeric values for a parameter; NaN where unavailable.
+            % Trials already read are reused; only the new ones are extracted.
             n = numel(D);
             if strcmp(name,obj.TRIAL_NUMBER_LABEL)
                 v = 1:n;
                 return
             end
-            v = nan(1,n);
-            if isempty(D) || ~isfield(D,name), return; end
-            for k = 1:n
-                val = D(k).(name);
-                if isstruct(val) && isfield(val,'Value'), val = val.Value; end
-                if (isnumeric(val) || islogical(val)) && isscalar(val)
-                    v(k) = double(val);
+            if isempty(D) || ~isfield(D,name)
+                v = nan(1,n); % nothing to cache: the field is not recorded
+                return
+            end
+
+            key = matlab.lang.makeValidName(name);
+            v = zeros(1,0);
+            if isfield(obj.ValueCache_,key)
+                v = obj.ValueCache_.(key);
+                if numel(v) > n, v = zeros(1,0); end
+            end
+
+            first = numel(v) + 1;
+            if first <= n
+                vNew = nan(1,n-first+1);
+                for k = first:n
+                    val = D(k).(name);
+                    if isstruct(val) && isfield(val,'Value'), val = val.Value; end
+                    if (isnumeric(val) || islogical(val)) && isscalar(val)
+                        vNew(k-first+1) = double(val);
+                    end
                 end
+                v = [v vNew];
+                obj.ValueCache_.(key) = v;
             end
         end
 
@@ -582,40 +626,65 @@ classdef ParameterScatter < gui.PopOut
             % Per-trial integer codes for a text parameter, plus the ordered
             % category labels those codes index into. Codes are assigned the
             % first time a value is seen and never reassigned, so a category
-            % keeps its plotted position/color as later trials add new ones.
+            % keeps its plotted position/color as later trials add new ones --
+            % which also makes an assigned code final, so only the trials
+            % added since the last redraw are coded.
             n = numel(D);
-            v = nan(1,n);
-            if strcmp(name,obj.RESPONSE_LABEL)
-                txt = obj.responseText_(D);
-            else
-                txt = cell(1,n);
-                if ~isempty(D) && isfield(D,name)
-                    for k = 1:n
-                        val = D(k).(name);
-                        if isstruct(val) && isfield(val,'Value'), val = val.Value; end
-                        if ischar(val)
-                            txt{k} = val;
-                        elseif isstring(val) && isscalar(val)
-                            txt{k} = char(val);
-                        end
-                    end
-                end
+            key = matlab.lang.makeValidName(name);
+
+            v = zeros(1,0);
+            if isfield(obj.CodeCache_,key)
+                v = obj.CodeCache_.(key);
+                if numel(v) > n, v = zeros(1,0); end
             end
+
             if isfield(obj.CategoryLevels_,name)
                 labels = obj.CategoryLevels_.(name);
             else
                 labels = {};
             end
+
+            first = numel(v) + 1;
+            if first > n, return; end
+
+            txt = obj.categoricalText_(D,name,first);
+
             seen = txt(~cellfun(@isempty,txt));
             newLevels = setdiff(unique(seen,'stable'),labels,'stable');
             if ~isempty(newLevels)
                 labels = [labels sort(newLevels)];
                 obj.CategoryLevels_.(name) = labels;
             end
-            for k = 1:n
-                if ~isempty(txt{k})
-                    idx = find(strcmp(labels,txt{k}),1);
-                    if ~isempty(idx), v(k) = idx; end
+
+            vNew = nan(1,numel(txt));
+            filled = ~cellfun(@isempty,txt);
+            if any(filled)
+                [tf,idx] = ismember(txt(filled),labels);
+                coded = nan(1,numel(idx));
+                coded(tf) = idx(tf);
+                vNew(filled) = coded;
+            end
+
+            v = [v vNew];
+            obj.CodeCache_.(key) = v;
+        end
+
+        function txt = categoricalText_(obj,D,name,first)
+            % Text value of a categorical parameter for trials first:end.
+            n = numel(D);
+            if strcmp(name,obj.RESPONSE_LABEL)
+                txt = obj.responseText_(D,first);
+                return
+            end
+            txt = cell(1,n-first+1);
+            if isempty(D) || ~isfield(D,name), return; end
+            for k = first:n
+                val = D(k).(name);
+                if isstruct(val) && isfield(val,'Value'), val = val.Value; end
+                if ischar(val)
+                    txt{k-first+1} = val;
+                elseif isstring(val) && isscalar(val)
+                    txt{k-first+1} = char(val);
                 end
             end
         end
@@ -624,6 +693,8 @@ classdef ParameterScatter < gui.PopOut
             % Redraw the scatter from the current selections and aesthetics.
             ax = obj.AxesH;
             if isempty(ax) || ~isvalid(ax), return; end
+
+            obj.syncCaches_(D);
 
             sh = obj.ScatterH;
             if isempty(sh) || ~isvalid(sh)
@@ -736,22 +807,32 @@ classdef ParameterScatter < gui.PopOut
 
         function setDropdownItems_(obj,h,items,value)
             % Replace a dropdown's item list, preserving the selection.
+            %
+            % The list is written only when it actually changes: the
+            % parameters on offer are the same from one trial to the next, and
+            % rewriting Items closes the list under a user who has it open
+            % mid-selection.
             items = cellstr(items);
             items = items(:)';
             if isempty(items), items = {''}; end
             if obj.isWeb_
-                h.Items = items;
-                if ismember(value,items)
+                if ~isequal(cellstr(h.Items(:))',items)
+                    h.Items = items;
+                end
+                if ~ismember(value,items), value = items{1}; end
+                if ~strcmp(char(h.Value),value)
                     h.Value = value;
-                else
-                    h.Value = items{1};
                 end
             else
                 idx = find(strcmp(items,value),1);
                 if isempty(idx), idx = 1; end
-                h.Value = 1; % keep Value in range while the list changes
-                h.String = items;
-                h.Value = idx;
+                if ~isequal(cellstr(h.String(:))',items)
+                    h.Value = 1; % keep Value in range while the list changes
+                    h.String = items;
+                end
+                if h.Value ~= idx
+                    h.Value = idx;
+                end
             end
         end
 

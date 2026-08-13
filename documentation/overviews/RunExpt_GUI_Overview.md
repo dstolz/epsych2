@@ -169,7 +169,7 @@ After **Stop** (or if a timer error occurs), click **Save Data**.
 
 By default, `ep_SaveDataFcn(RUNTIME)` prompts once per subject for an output `.mat` file and saves that subject's trial data.
 
-During the session, each trial is also appended to a per-subject crash-recovery file (`RUNTIME_DATA_<name>_Box_<nn>_<timestamp>.mat`) in the temporary data directory, so at most the in-progress trial is lost if the computer fails mid-session.
+During the session, each trial is also appended to a per-subject crash-recovery journal (`RUNTIME_DATA_<name>_Box_<nn>_<timestamp>.epj`) in the temporary data directory, so at most the in-progress trial is lost if the computer fails mid-session. The journal is merged into the matching `.mat` when the session stops; after a crash, `epsych.TrialJournal.recover` does the same. See [epsych.TrialJournal](../epsych/epsych_TrialJournal.md).
 
 ## 6) Config files (`*.ecfg`)
 

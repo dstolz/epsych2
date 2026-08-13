@@ -288,6 +288,7 @@ S.Plot();
 
 ## Changelog
 
+- 2026-08-13: A plot update extracts the session's stimulus values and decodes its response codes once and shares them, instead of walking the trials up to eight times (three separate `epsych.BitMask.decode` calls, plus a full extraction just to count trials for the subtitle). 52 ms -> 30 ms per trial at 1000 trials. `Psych.trialTypeMasks_` resolves several trial-type masks from one extraction; the shared vectors are held until the trials, the trial-type selection, the exclusions, or `ConvertToDecibels` change. The subtitle of an empty staircase now reads `0 trials` rather than `1 trials`.
 - 2026-08-11: The y axis is labeled with the tracked parameter's raw `Unit`, and a **Y Axis in dB (re 100%)** right-click option toggles `ConvertToDecibels`.
 - 2026-07-15: Reversal detection now ignores holds (zero steps) and `NaN` steps instead of counting them as reversals.
 - 2026-03-21: Updated documentation to match the current constructor options, plotting API, step-direction behavior, and reversal-analysis flow in `psychophysics.Staircase`.

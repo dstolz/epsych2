@@ -49,11 +49,21 @@ for i = 1:RUNTIME.NSubjects
     % Store data in runtime struct for this trial
     RUNTIME.TRIALS(i).DATA(trialIdx) = data;
 
-    % Append only the new trial entry to the data file (avoids rewriting all accumulated trials)
-    % Each trial is saved as a uniquely named variable so prior trials are never overwritten.
-    trialVarName = sprintf('data_%04d', trialIdx);
-    eval([trialVarName ' = data;']);
-    save(RUNTIME.DataFile(i), trialVarName, '-append', '-v6');
+    % Append only the new trial entry to the on-disk journal. Synchronous and
+    % append-only: the record is durable when append() returns, at a flat cost
+    % that does not grow with session length, unlike save('-append'), which
+    % rewrites the MAT index on every call (measured 4.9 -> 19.7 ms over 300
+    % trials). ep_TimerFcn_Stop merges the journal into the seed .mat named by
+    % RUNTIME.DataFile; epsych.TrialJournal.recover rebuilds it after a crash.
+    if numel(RUNTIME.Journal) >= i && strlength(RUNTIME.Journal(i).FilePath) > 0
+        RUNTIME.Journal(i).append(sprintf('data_%04d', trialIdx), data);
+    else
+        % Compatibility: a custom Start function that predates the journal
+        % seeded only the .mat; keep the legacy append path for it.
+        S_ = struct();
+        S_.(sprintf('data_%04d', trialIdx)) = data;
+        save(RUNTIME.DataFile(i), '-struct', 'S_', '-append', '-v6');
+    end
 
     % Notify selector that this trial completed
     RUNTIME.TRIALS(i).selector.onComplete(RUNTIME.TRIALS(i).NextTrialID, data);

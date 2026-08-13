@@ -84,6 +84,8 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
     end
 
     properties (Access = private)
+        sessionCache_ = []     % memoized per-trial vectors; see sessionVectors_
+
         % Plot state (optional).
         plotEnabled_ (1,1) logical = false
         plotAxes_ = []
@@ -337,15 +339,20 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             results = obj.emptyResults_();
             results.ReversalCount = 0;
 
+            % The trials behind the memo, or their content, may have changed
+            % since it was built; every refresh path arrives here.
+            obj.sessionCache_ = [];
+
             if isempty(obj.DATA)
                 obj.Results = results;
                 return
             end
 
-            stimMask = obj.trialTypeMask_(obj.StimulusTrialType);
+            s = obj.sessionVectors_();
+            stimMask = s.stimMask;
             results.StimulusTrialIdx = find(stimMask);
 
-            stimValues = obj.stimulusValues(stimMask);
+            stimValues = s.stimValues(stimMask);
 
 
 
@@ -380,7 +387,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
 
             if results.ReversalCount > 0
                 lastN = max(1, results.ReversalCount - obj.ThresholdFromLastNReversals + 1):results.ReversalCount;
-                thresholdValues = obj.stimulusValues(results.ReversalIdx(lastN));
+                thresholdValues = s.stimValues(results.ReversalIdx(lastN));
 
                 if obj.ThresholdFormula == "Mean"
                     results.Threshold = mean(thresholdValues);
@@ -483,8 +490,9 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         lbl = yAxisLabel_(obj)
         [titleText, hasTitle] = getTitleText_(obj)
         c = directionColors_(obj, direction)
-        c = responseCodeColors_(obj, responseCodes)
+        c = responseCodeColors_(obj, decodedResponses, mask)
         values = columnize_(obj, values)
+        s = sessionVectors_(obj)
     end
 
 

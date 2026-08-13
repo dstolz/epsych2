@@ -142,6 +142,11 @@ Then use **Monte Carlo**. Pick a simulated subject — `guessing` responds half 
 regardless of the stimulus, `impulsive` responds far too early, `sluggish` responds late — set a
 few hundred trials, and run it.
 
+A progress dialog tracks the run and carries a **Stop** button. Pressing it ends the run after
+the trial in flight, and the summary table still fills in — computed over the trials that
+actually ran, with the status bar reporting how many those were. Useful when a long run is
+obviously going nowhere, or when a paradigm bug makes every trial burn its full safety timeout.
+
 This is the check that finds paradigms which are valid but behaviorally broken: a response
 window that closes before the animal could physically reach the port, an outcome state nothing
 can ever reach, a contingency where every trial aborts. Validation cannot see any of that. A few

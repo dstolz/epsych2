@@ -140,7 +140,9 @@ decoded = epsych.BitMask.decode(sim.RespCode);
 
 `runTrial` also accepts a struct array, or a function handle for closed-loop responding.
 `teensy.Simulator.Responder` builds stochastic subjects; `teensy.Simulator.monteCarlo` runs many
-trials and returns a decoded table plus summary rates including d′.
+trials and returns a decoded table plus summary rates including d′. Pass `ShouldStop` — a handle
+queried after each trial — to end a long run early; the table and `summary.NTrials` then cover
+only the trials that ran.
 
 Probability branches draw from a `RandStream` seeded by the `Seed` property, never from `rand`,
 so a run replays identically.

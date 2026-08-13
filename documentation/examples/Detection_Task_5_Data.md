@@ -88,10 +88,17 @@ Several runtime components accept saved data directly:
 ## Recovering an interrupted session
 
 If a session dies before the saving function runs, the data survive in the
-crash-recovery file (`RUNTIME_DATA_<subject>_Box_XX_<timestamp>.mat` in
-`RUNTIME.TempDataDir`). Its layout differs: an `info` struct plus one variable
-per trial (`data_0001`, `data_0002`, ...). Reassemble the familiar struct
-array:
+`.epj` trial journal beside the crash-recovery file, in
+`RUNTIME.TempDataDir`. Rebuild the `.mat` from it first:
+
+```matlab
+epsych.TrialJournal.recover('RUNTIME_DATA_ExampleSubject_Box_01_260808170257.epj')
+```
+
+That reports how many trials were recovered (and whether the crash tore the
+final record) and writes the `.mat`. Its layout differs from a normally saved
+session: an `info` struct plus one variable per trial (`data_0001`,
+`data_0002`, ...). Reassemble the familiar struct array:
 
 ```matlab
 S  = load('RUNTIME_DATA_ExampleSubject_Box_01_260808170257.mat');

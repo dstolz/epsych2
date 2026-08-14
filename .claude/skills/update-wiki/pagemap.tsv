@@ -1,4 +1,4 @@
-# Repo path prefix -> wiki pages -> authoritative repo docs.
+﻿# Repo path prefix -> wiki pages -> authoritative repo docs.
 # One source of truth: survey.sh reads this, references/page-map.md explains it.
 # Columns are TAB separated. Longest matching prefix wins; a file may match several rows.
 # Prefixes are matched against forward-slash repo-relative paths.
@@ -6,6 +6,8 @@ obj/+gui/@BoxGUI	Building-a-Box-GUI, Box-GUI-Components, GUI-Framework-Internals
 obj/+gui/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/RunExpt_SelfTest.md
 obj/+gui/@PopOut	Box-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_PopOut.md
 obj/+gui/@SyringePump	Box-GUI-Components, Video-and-Peripherals	documentation/gui/gui_SyringePump.md
+obj/+gui/@ParameterDebugger	Box-GUI-Components, GUI-Framework-Internals, Troubleshooting	documentation/gui/gui_ParameterDebugger.md
+obj/+gui/@SubjectManager	Subjects-and-Projects, Subject-Roster-Internals	documentation/gui/gui_SubjectManager.md
 obj/+gui/@VlcRecorderSetup	Video-and-Peripherals	documentation/gui/VlcRecorderSetup.md
 obj/+gui/	Box-GUI-Components, GUI-Framework-Internals, Training-and-Online-Analysis	documentation/gui/
 obj/+hw/@NE1000	Video-and-Peripherals, Hardware-Abstraction-Layer	documentation/hw/hw_NE1000.md
@@ -17,6 +19,7 @@ obj/+epsych/@ProtocolDesigner	Designing-Protocols	documentation/design/ProtocolD
 obj/+epsych/@Protocol	Protocol-Internals, Designing-Protocols	documentation/epsych/epsych_Protocol.md
 obj/+epsych/@Runtime	Runtime-and-Events, Trial-Lifecycle, Parameter-Files-and-Phases	documentation/epsych/epsych_Runtime.md
 obj/+epsych/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/RunExpt_SelfTest.md
+obj/+epsych/@SubjectRoster	Subject-Roster-Internals, Subjects-and-Projects	documentation/epsych/epsych_SubjectRoster.md
 obj/+epsych/@TrialJournal	Data-and-Save-Functions, Trial-Lifecycle	documentation/epsych/epsych_TrialJournal.md
 obj/+epsych/@TrialSelector	Trial-Selectors	documentation/epsych/epsych_TrialSelector.md
 obj/+epsych/@Helper	Runtime-and-Events	documentation/epsych/Event_Notifications.md

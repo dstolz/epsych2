@@ -186,6 +186,7 @@ The one genuinely lossy case is two rigs editing the **same record** between rel
 |---|---|
 | No file chosen | Empty roster, `IsBound` false, **not** writable, and `LoadError` stays empty — nothing failed, the question has simply not been answered. Mutations throw `epsych:SubjectRoster:NoFile`. |
 | File does not exist | Empty roster, writable. It is created on the first mutation, so merely opening the manager leaves nothing on disk. |
+| File's **folder** does not exist | The same at this level — but the manager marks it `(folder not found)` and refuses to write, because `saveAtomic_` creates a missing folder and would otherwise resurrect a dead path and save into it. See [`gui.SubjectManager`](../gui/gui_SubjectManager.md#layout). |
 | File unparseable | Empty roster, **not** writable, `LoadError` set. A corrupt file is never overwritten with whatever little was recovered. |
 | Path names a folder | Rejected on read and on write. `movefile` onto a directory *succeeds* by moving the file inside it, so this would otherwise look like a working save that stored nothing. |
 | `formatVersion` too new | Loaded read-only with an explanation in `LoadError`. |

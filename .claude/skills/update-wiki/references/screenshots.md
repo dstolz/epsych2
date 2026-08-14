@@ -85,7 +85,8 @@ page, one image per `###` entry: `Parameter_Control`, `Parameter_Update`,
 `SessionClock`, `ElapsedTrialTimer`, `ModeIndicator`, `StatusBar`, `History`,
 `SessionPerformance`, `ParameterScatter`, `PsychPlot`, `Performance`,
 `SlidingWindowPerformancePlot`, `Staircase_Plot`, `PhaseSelector`,
-`StaircaseTraining`, `SyringePump`, `FilenameValidator`, `BoxGUI_Helpers`.
+`StaircaseTraining`, `SyringePump`, `ParameterDebugger`, `FilenameValidator`,
+`BoxGUI_Helpers`.
 
 **Not generated:** `NanoMotorControlGUI.png` and `VlcRecorderSetup.png` were
 captured by hand (they need real hardware). Leave them alone unless the user can

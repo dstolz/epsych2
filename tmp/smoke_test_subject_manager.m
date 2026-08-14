@@ -16,6 +16,12 @@ epsych_startup
 
 savedSubjectPrefs = localSavePrefs('ep_RunExpt_Subjects');
 savedGuiPrefs     = localSavePrefs('epsych2_gui_SubjectManager');
+
+% Self-healing: a run killed before its cleanup leaves RosterFile pointing into
+% tempdir, and every later run would faithfully restore that -- which is how a
+% rig ends up silently aimed at a folder the OS has since deleted. A roster
+% under tempdir is by definition a test artifact, so it is never put back.
+savedSubjectPrefs = localDropTempRoster(savedSubjectPrefs);
 cleanupPrefs = onCleanup(@() localRestoreAll(savedSubjectPrefs, savedGuiPrefs));
 cleanupFigs  = onCleanup(@localCloseWindows);
 
@@ -481,10 +487,41 @@ localCloseWindows();
 epsych.SubjectRoster.setConfiguredFile(rosterFile);
 gui.SubjectManager(rx);
 mgr = localManager();
-assert(mgr.Roster.IsBound && strcmp(mgr.H.rosterLabel.Text, 'Roster: subjects.esub'), ...
-    'Pointing the rig back at a file should restore the normal header (got "%s")', ...
+% The whole path, not the file name: an operator checking where the records
+% live must not have to hover a tooltip to find out.
+assert(mgr.Roster.IsBound && strcmp(mgr.H.rosterLabel.Text, ['Roster: ' rosterFile]), ...
+    'Pointing the rig back at a file should show the full path (got "%s")', ...
     mgr.H.rosterLabel.Text);
-fprintf('PASS: naming a file puts the window straight back to work\n');
+assert(strcmp(mgr.H.btnRosterFile.Enable,'on'), ...
+    'Change... must always be available: it is the way out of every roster problem');
+fprintf('PASS: naming a file puts the window straight back to work, path in view\n');
+
+% 7f. A configured path whose folder has gone -------------------------------
+% The failure this rig actually hit: a roster pointer left behind by a killed
+% test, aimed at a temp folder that was later cleaned up. It looked exactly
+% like a fresh empty roster, and saveAtomic_ would have re-created the folder
+% and saved into it. Both halves are now marked and refused.
+localCloseWindows();
+goneDir = fullfile(root, 'was_a_share');
+mkdir(goneDir);
+goneFile = fullfile(goneDir, 'subjects.esub');
+epsych.SubjectRoster.setConfiguredFile(goneFile);
+rmdir(goneDir, 's');
+
+gui.SubjectManager([]);
+mgr = localManager();
+assert(contains(mgr.H.rosterLabel.Text, 'folder not found'), ...
+    'A stale roster path must be marked, not shown as a normal empty roster (got "%s")', ...
+    mgr.H.rosterLabel.Text);
+assert(contains(mgr.H.emptyState.Text, 'no longer exists'), ...
+    'The empty state should explain a stale path rather than say "no subjects yet"');
+assert(~isfolder(goneDir), 'Merely opening the window must not re-create the folder');
+fprintf('PASS: a roster path whose folder has gone is marked rather than mistaken for an empty roster\n');
+
+localCloseWindows();
+epsych.SubjectRoster.setConfiguredFile(rosterFile);
+gui.SubjectManager(rx);
+mgr = localManager();
 
 % 8. Teardown --------------------------------------------------------------
 delete(mgr);
@@ -637,6 +674,18 @@ end
 function localRestoreAll(savedSubjectPrefs, savedGuiPrefs)
 localRestorePrefs('ep_RunExpt_Subjects', savedSubjectPrefs);
 localRestorePrefs('epsych2_gui_SubjectManager', savedGuiPrefs);
+end
+
+% -----------------------------------------------------------------------
+function saved = localDropTempRoster(saved)
+% Drop a RosterFile that points into tempdir from a preference snapshot.
+if ~saved.existed || ~isfield(saved.values, 'RosterFile'), return, end
+
+p = char(string(saved.values.RosterFile));
+if startsWith(lower(p), lower(tempdir))
+    fprintf('NOTE: dropping a stale test roster path from the preferences: %s\n', p);
+    saved.values = rmfield(saved.values, 'RosterFile');
+end
 end
 
 % -----------------------------------------------------------------------

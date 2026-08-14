@@ -42,7 +42,8 @@ if ~isfolder(C.scratch), mkdir(C.scratch); end
 alsoIn = struct( ...
     'ProtocolDesigner',            fullfile(repoRoot, 'documentation', 'design', 'images'), ...
     'ProtocolDesigner_Interfaces', fullfile(repoRoot, 'documentation', 'design', 'images'), ...
-    'RunExpt',                     fullfile(repoRoot, 'documentation', 'overviews', 'images'));
+    'RunExpt',                     fullfile(repoRoot, 'documentation', 'overviews', 'images'), ...
+    'SubjectManager',              fullfile(repoRoot, 'documentation', 'gui', 'images'));
 
 shots = { ...
     'ProtocolDesigner',  @shotProtocolDesigner; ...
@@ -55,6 +56,7 @@ shots = { ...
     'ExampleBoxGUI',     @shotExampleBoxGUI; ...
     'DetectionBoxGUI',   @shotDetectionBoxGUI; ...
     'RunExpt',           @shotRunExpt; ...
+    'SubjectManager',    @shotSubjectManager; ...
     'SelfTest',          @shotSelfTest; ...
     'StimPlayer',        @shotStimPlayer; ...
     'CalibrationGui',    @shotCalibrationGui; ...
@@ -314,6 +316,93 @@ cleanupFcn = @() closeRunExpt(RE);
 end
 
 
+function [fig, cleanupFcn] = shotSubjectManager(C)
+% Caption: a project selected on the left with its members checked, one of them
+% behind on its protocol so the stale-version banner and the orange Version
+% cell are both in the shot.
+%
+% The roster lives in C.scratch and the RosterFile preference is pointed at it
+% for the duration. That preference is a real rig setting -- snapshotPrefs
+% covers ep_RunExpt_Subjects, and the cleanup clears it rather than leaving a
+% tempdir path behind for a later run to faithfully restore.
+rosterFile = fullfile(C.scratch, 'wiki_shot_subjects.esub');
+if isfile(rosterFile), delete(rosterFile); end
+epsych.SubjectRoster.setConfiguredFile(rosterFile);
+
+% The project's protocol is a scratch copy, because making a row read as
+% "behind" means saving the .eprot again after the version was recorded --
+% exactly what an operator editing a protocol between sessions does. Doing
+% that to the example protocol in the repository would dirty the working tree.
+protoFile = fullfile(C.scratch, 'ToneDetection.eprot');
+copyfile(C.protocol, protoFile);
+P = epsych.Protocol.load(protoFile);
+P.save(protoFile);
+
+R = epsych.SubjectRoster(rosterFile);
+pid = R.addProject('Tone Detection', ...
+    Investigator = 'D. Stolzberg', ...
+    IACUCProtocol = 'R-2026-14', ...
+    DefaultProtocol = protoFile, ...
+    DefaultDataPath = 'D:\data\tone_detection');
+R.addProject('Gap Detection', DefaultProtocol = protoFile);
+
+names = {'M001','M002','M003','M004'};
+ids = cell(1, numel(names));
+for k = 1:numel(names)
+    ids{k} = R.addSubject(struct('Name', names{k}, 'Sex', 'Male', ...
+        'Species', 'Gerbil', 'Weight', 58 + 2*k));
+    R.assign(ids{k}, pid);
+end
+
+% Three record the version now in the file; the fourth records nothing, which
+% is the other state the Version column has ("not recorded", greyed).
+for k = 1:3
+    R.rememberProtocol(ids{k}, pid, protoFile);
+end
+
+% Now the protocol is saved again behind the roster's back. Those three are
+% suddenly a version behind, which opens the banner over the table -- the part
+% of this window most worth showing, and the thing nobody thinks to look for.
+P.save(protoFile);
+
+cfgFile = writeConfig(C, 1);
+RE = epsych.RunExpt(cfgFile);
+drawnow
+mgr = gui.SubjectManager(RE);
+drawnow
+
+% Open on the project rather than <All Subjects>: the summary, the banner, and
+% the version check are all per project, so the default view shows none of them.
+mgr.H.projectList.Value = pid;
+mgr.refresh();
+tickRow(mgr, 1);
+tickRow(mgr, 2);
+drawnow
+
+fig = mgr.H.figure;
+fig.Position(3:4) = [1180 640];
+cleanupFcn = @() closeSubjectManager(RE, fig);
+end
+
+
+function tickRow(mgr, row)
+% Tick a checkbox the way the table's own callback would -- setting Data alone
+% updates the cell but not the count label or the enable states.
+if size(mgr.H.table.Data,1) < row, return, end
+mgr.H.table.Data{row,1} = true;
+mgr.H.table.CellEditCallback([], struct( ...
+    'Indices', [row 1], 'NewData', true, 'PreviousData', false));
+end
+
+
+function closeSubjectManager(RE, fig)
+if isvalid(fig), delete(fig); end
+% Never leave the rig pointed at a roster under tempdir.
+epsych.SubjectRoster.setConfiguredFile('');
+closeRunExpt(RE);
+end
+
+
 function [fig, cleanupFcn] = shotSelfTest(C)
 % Caption: a real pre-flight result whose red rows come from a subject sitting
 % in box 2 while the protocol only defines the box-1 trigger parameters.
@@ -361,7 +450,7 @@ funcs.TIMERfcn = struct('Start', 'ep_TimerFcn_Start', 'RunTime', 'ep_TimerFcn_Ru
     'Stop', 'ep_TimerFcn_Stop', 'Error', 'ep_TimerFcn_Error');
 funcs.SavingFcn    = 'ep_SaveDataFcn';
 funcs.BoxFig       = 'ep_GenericGUI';
-funcs.AddSubjectFcn = 'epsych.DefaultSubject';
+funcs.AddSubjectFcn = 'epsych.DefaultSubject.open';
 funcs.TimerPeriod  = 0.05;
 
 meta = EPsychInfo().meta;   %#ok<NASGU> saved for provenance, like a real config
@@ -524,7 +613,8 @@ end
 function P = snapshotPrefs()
 groups = {'ProtocolDesigner', 'epsych2_gui_History', 'epsych2_gui_ParameterScatter', ...
     'epsych2_gui_Parameter_Monitor', 'epsych2_gui_PhaseSelector', 'StaircaseTraining', ...
-    'ExampleBoxGUI', 'DetectionBoxGUI'};
+    'ExampleBoxGUI', 'DetectionBoxGUI', ...
+    'ep_RunExpt_Subjects', 'epsych2_gui_SubjectManager'};
 P = struct('group', groups, 'value', []);
 for k = 1:numel(groups)
     if ispref(groups{k}), P(k).value = getpref(groups{k}); end

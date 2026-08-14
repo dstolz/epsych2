@@ -11,9 +11,14 @@ function tf = ensureRoster_(self, action)
 % mean silently discarding the project the operator is in the middle of
 % creating.
 %
-% Every read-only path is left alone -- browsing an unbound roster shows an
-% empty window and an explanation, no dialog -- so this is called only from the
-% actions that create something.
+% Two states fail the check: no file chosen at all, and a file whose folder has
+% gone (a share that moved, a drive not mounted, a temp path that was cleaned
+% up). Both are demanded here rather than at window-open, because both are
+% harmless until something needs saving.
+%
+% Every read-only path is left alone -- browsing shows an empty window and an
+% explanation, no dialog -- so this is called only from the actions that create
+% something.
 %
 % Parameters:
 %   action - what the operator was trying to do, named in the prompt, e.g.
@@ -29,15 +34,32 @@ arguments
     action (1,:) char = 'saving anything'
 end
 
-tf = ~isempty(self.Roster) && isvalid(self.Roster) && self.Roster.IsBound;
+bound = ~isempty(self.Roster) && isvalid(self.Roster) && self.Roster.IsBound;
+
+% A pointer at a folder that no longer exists has to be caught here too, and
+% for a sharper reason than tidiness: saveAtomic_ creates a missing folder, so
+% a rig whose share moved -- or whose path came from somewhere temporary --
+% would silently RE-CREATE that folder and save the operator's new project
+% into it, where nothing will ever look for it again.
+stale = bound && self.rosterFolderMissing_();
+
+tf = bound && ~stale;
 if tf, return, end
 
-msg = sprintf(['EPsych has no default place to keep subjects and projects, so ' ...
-    'choose where this roster file lives before %s.' newline newline ...
-    'Put it on a shared drive and point every rig at the same file to share ' ...
-    'one roster across the lab, or keep it beside your own data to make it ' ...
-    'private to this workstation. The file is created when you save the ' ...
-    'first record.'], action);
+if stale
+    msg = sprintf(['This rig is pointed at a roster whose folder no longer exists:' ...
+        newline '%s' newline newline ...
+        'Choose the right file before %s -- otherwise that folder would be ' ...
+        'created again and the record saved somewhere nothing will look for it.'], ...
+        self.Roster.FilePath, action);
+else
+    msg = sprintf(['EPsych has no default place to keep subjects and projects, so ' ...
+        'choose where this roster file lives before %s.' newline newline ...
+        'Put it on a shared drive and point every rig at the same file to share ' ...
+        'one roster across the lab, or keep it beside your own data to make it ' ...
+        'private to this workstation. The file is created when you save the ' ...
+        'first record.'], action);
+end
 
 while true
     answer = uiconfirm(self.H.figure, msg, 'Choose a Subject Roster', ...

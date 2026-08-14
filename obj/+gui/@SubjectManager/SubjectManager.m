@@ -439,7 +439,20 @@ classdef SubjectManager < handle
                     'so choose where this rig''s roster lives:\nput it on a shared ' ...
                     'drive to share one roster across the lab, or keep it beside ' ...
                     'your own data to make it private to this workstation.\n\n' ...
-                    'Use File > Roster File..., or just create a project.']);
+                    'Press Change... above to choose one, or just create a project ' ...
+                    'and you will be asked.']);
+                return
+            end
+
+            % Before the filter as well: a stale pointer explains the empty
+            % table far better than "no subjects match" does.
+            if self.rosterFolderMissing_()
+                txt = sprintf(['This rig is pointed at a roster whose folder no longer ' ...
+                    'exists:\n%s\n\nNothing has been lost from the roster itself -- ' ...
+                    'the path is stale. A share that moved, a drive that is not ' ...
+                    'mounted, or a folder that was deleted all look like this.\n\n' ...
+                    'Use Change... above to point this rig at the right file.'], ...
+                    self.Roster.FilePath);
                 return
             end
 
@@ -466,6 +479,20 @@ classdef SubjectManager < handle
             if ~isempty(p), name = p.Name; end
             txt = sprintf(['No subjects in "%s". Choose %s and use ' ...
                 'Add to Project to enrol one.'], name, self.ALL_SUBJECTS);
+        end
+
+        function tf = rosterFolderMissing_(self)
+            % True when the configured roster lives in a folder that is not
+            % there. Distinct from "the file does not exist yet", which is the
+            % normal way to start a roster and must stay silent; a missing
+            % FOLDER means the path itself has gone stale.
+            tf = false;
+            if isempty(self.Roster) || ~isvalid(self.Roster) || ~self.Roster.IsBound
+                return
+            end
+
+            folder = fileparts(self.Roster.FilePath);
+            tf = ~isempty(folder) && ~isfolder(folder);
         end
 
         function showEmptyState_(self, message)

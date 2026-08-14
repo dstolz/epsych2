@@ -28,6 +28,7 @@ Daily workflow:
 - [Subjects & Projects](gui/gui_SubjectManager.md) — organizing subjects by project and adding several to a session at once
 - [Phase Selector](gui/PhaseSelector.md) — switching parameter sets between training stages
 - [Staircase Training GUI](gui/StaircaseTraining.md) — step rules and bounds for progressive training
+- [Parameter Debugger](gui/gui_ParameterDebugger.md) — reading and writing hardware parameters by hand when a paradigm misbehaves
 
 Stimuli and calibration — these live in the `stimgen` submodule, which maintains
 its own documentation set. Start at its index rather than at a link list here,
@@ -81,6 +82,7 @@ GUI components (`gui`):
 
 - [gui.Parameter_Control](gui/Parameter_Control.md) — binding a parameter to a UI widget
 - [gui.Parameter_Update](gui/Parameter_Update.md) — commit button for staged parameter edits
+- [gui.ParameterDebugger](gui/gui_ParameterDebugger.md) — read and write every parameter a protocol defines, on demand
 - [gui.History](gui/gui_History.md) — trial-by-trial history table
 - [gui.SubjectManager](gui/gui_SubjectManager.md) — subjects by project, and the batch commit into a session
 - [gui.VlcRecorderSetup](gui/VlcRecorderSetup.md) — webcam preview UI for configuring VlcRecorder device/fps/resolution/crop

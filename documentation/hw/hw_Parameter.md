@@ -674,3 +674,4 @@ p.toJSON();
 - [hw_Module.md](hw_Module.md): The module container that owns parameters
 - [hw_Interface.md](hw_Interface.md): The interface layer that backs reads and writes
 - [../epsych/epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md): How parameters are dispatched and read during trials
+- [../gui/gui_ParameterDebugger.md](../gui/gui_ParameterDebugger.md): The window that reads and writes these by hand, one protocol at a time

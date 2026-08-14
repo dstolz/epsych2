@@ -58,12 +58,21 @@ if opts.Reload
     self.Roster.reload();
 end
 
-% Named rather than bare: with the action strip gone this label stands alone
-% at the top of the window, where an unlabelled file name reads as a title.
-[~, rosterName, rosterExt] = fileparts(self.Roster.FilePath);
-label = ['Roster: ' rosterName rosterExt];
-if ~self.Roster.IsWritable || self.Roster.IsReadOnly
-    label = [label '  (read-only)'];
+% The whole path, not the file name: which of two rosters this is, and whether
+% it is somewhere sensible, is exactly what an operator comes here to check.
+label = ['Roster: ' self.Roster.FilePath];
+
+% A configured path whose FOLDER is gone is a stale pointer, not a roster
+% waiting to be created -- a share that moved, a drive that is not mounted, a
+% temp folder that was cleaned up. Left unmarked it looks identical to a fresh
+% empty roster, which is how a rig can quietly appear to have lost every
+% animal. Naming a file inside a folder that DOES exist stays silent: that is
+% the normal way to start one.
+if self.rosterFolderMissing_()
+    label = [label '   (folder not found)'];
+    self.H.rosterLabel.FontColor = [0.80 0.45 0.05];
+elseif ~self.Roster.IsWritable || self.Roster.IsReadOnly
+    label = [label '   (read-only)'];
     self.H.rosterLabel.FontColor = [0.80 0.45 0.05];
 else
     self.H.rosterLabel.FontColor = [0.35 0.38 0.42];

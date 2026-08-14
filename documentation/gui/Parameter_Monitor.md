@@ -206,4 +206,6 @@ case {hw.DeviceState.Preview, hw.DeviceState.Record}
 
 See also: [Parameter_Control.md](Parameter_Control.md),
 [Parameter_Update.md](Parameter_Update.md),
+[gui_ParameterDebugger.md](gui_ParameterDebugger.md) — the same values without
+the polling, for every parameter at once, in a window of its own,
 [Customized GUI instructions](../design/Customized_GUI_Instructions.md)

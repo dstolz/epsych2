@@ -29,7 +29,16 @@ A lab that points `FUNCS.AddSubjectFcn` at its own dialog keeps working: **New S
 | Projects (left) | `uilistbox` | Projects are a flat, single-selection set; a listbox gives arrow-key and type-ahead navigation for free. A tree would show a two-project subject twice with ambiguous checkbox state. |
 | Subjects (right) | `uitable` | Each row needs its own box assignment *before* it is committed. A checkbox tree has no columns; a listbox would force a second modal — exactly the step this collapses. |
 
-Under the toolbar, a single line names the roster file in effect (`Roster: subjects.esub`, turning amber and adding `(read-only)` when it cannot be written); its tooltip is the full path. Two rigs can be pointed at different rosters, and everything below acts on this one.
+Under the toolbar, a single line shows the **full path** of the roster file in effect, with a **Change...** button beside it. Two rigs can be pointed at different rosters and everything below acts on this one, so where the records live is a question the window answers without being asked — a bare `subjects.esub` answers none of it, and a path hidden in a tooltip is not an answer either. The button is deliberately redundant with the toolbar tool and `File > Roster File...`: those are where the action belongs, this is where someone looks when the path on the left is not the one they expected.
+
+The line turns amber and appends a reason when something is wrong:
+
+| Marker | Meaning |
+|---|---|
+| `(read-only)` | The file cannot be written — unparseable, or written by a newer build. |
+| `(folder not found)` | The **path is stale**: the folder it names is gone. A share that moved, a drive not mounted, a folder deleted. |
+
+That second one matters more than it looks. A stale path is otherwise indistinguishable from a fresh empty roster — same empty table, same silence — which is how a rig can appear to have lost every animal when nothing has been lost at all. Worse, `saveAtomic_` *creates* a missing folder, so without this the next project would re-create that dead folder and save into it. The empty state explains the situation, and `ensureRoster_` refuses to write until the path is fixed. Naming a file inside a folder that **does** exist stays silent: that is the normal way to start a roster.
 
 ### The first time: choosing where the roster lives
 
@@ -38,6 +47,8 @@ EPsych keeps **no default location** for subjects and projects — see [`epsych.
 So on a rig that has never been pointed at one, this window opens *unbound*: the header reads `Roster: (no file chosen)`, the table is replaced by an explanation of the choice, and every action is switched off **except New Project, New Subject, and Import** — clicking one of those is how the operator is asked, and their tooltips say so before the click.
 
 The prompt (`ensureRoster_`) has exactly two exits: name a file, or close the window. Cancelling the file browser asks again. Nothing offers to proceed without a roster, because that would mean filling in an animal or a project with nowhere to save it — and the first file chosen here adopts the roster an older build accumulated under `prefdir`, by copy, so an existing rig does not appear to have lost its animals.
+
+The same prompt fires for a **stale** path (folder gone), for the reason given under [Layout](#layout): otherwise the record is saved into a resurrected dead folder.
 
 Browsing never prompts. A roster is only demanded by an action that writes.
 

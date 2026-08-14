@@ -19,6 +19,12 @@ epsych_startup
 % nested function over variables assigned after it was created.
 savedSubjectPrefs = localSavePrefs('ep_RunExpt_Subjects');
 savedRunExptPrefs = localSavePrefs('RunExpt');
+
+% Self-healing: a run killed before its cleanup leaves RosterFile pointing into
+% tempdir, and every later run would faithfully restore that -- which is how a
+% rig ends up silently aimed at a folder the OS has since deleted. A roster
+% under tempdir is by definition a test artifact, so it is never put back.
+savedSubjectPrefs = localDropTempRoster(savedSubjectPrefs);
 cleanupPrefs = onCleanup(@() localRestoreAll(savedSubjectPrefs, savedRunExptPrefs));
 
 root = fullfile(tempdir, 'epsych_roster_smoke');
@@ -626,6 +632,18 @@ function saved = localSavePrefs(group)
 saved = struct('existed', ispref(group), 'values', struct());
 if saved.existed
     saved.values = getpref(group);
+end
+end
+
+% -----------------------------------------------------------------------
+function saved = localDropTempRoster(saved)
+% Drop a RosterFile that points into tempdir from a preference snapshot.
+if ~saved.existed || ~isfield(saved.values, 'RosterFile'), return, end
+
+p = char(string(saved.values.RosterFile));
+if startsWith(lower(p), lower(tempdir))
+    fprintf('NOTE: dropping a stale test roster path from the preferences: %s\n', p);
+    saved.values = rmfield(saved.values, 'RosterFile');
 end
 end
 

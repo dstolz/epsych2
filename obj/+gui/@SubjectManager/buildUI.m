@@ -204,12 +204,27 @@ g.Padding = [10 8 10 8];
 g.RowSpacing = 8;
 
 % ---------- Row 1: the open roster --------------------------------------
-% Which roster file this window is showing, and whether it is read-only. The
-% four buttons that used to share this row are the toolbar's first group now;
-% the file name is the part that has to stay on screen, since two rigs can be
-% pointed at different rosters and everything below acts on this one.
-self.H.rosterLabel = uilabel(g, 'Text','', 'FontColor',[0.35 0.38 0.42]);
-self.H.rosterLabel.Layout.Row = 1;
+% Which roster file this window is showing, and whether it is read-only. Two
+% rigs can be pointed at different rosters and everything below acts on this
+% one, so the WHOLE PATH is on screen rather than the file name -- where the
+% records live is the question an operator actually has, and a bare
+% "subjects.esub" answers none of it.
+%
+% The Change... button beside it is deliberately redundant with the toolbar
+% tool and the File menu. Those are where the action belongs; this is where
+% someone looks when the path on the left is not the one they expected, and
+% an icon-only toolbar is no help to them.
+gRoster = uigridlayout(g, [1 2]);
+gRoster.Layout.Row = 1;
+gRoster.ColumnWidth = {'1x', 100};
+gRoster.Padding = [0 0 0 0];
+gRoster.ColumnSpacing = 6;
+
+self.H.rosterLabel = uilabel(gRoster, 'Text','', 'FontColor',[0.35 0.38 0.42]);
+
+self.H.btnRosterFile = uibutton(gRoster, 'Text','Change...', ...
+    'Tooltip','Choose which roster file this window reads and writes', ...
+    'ButtonPushedFcn', @(~,~) self.chooseRosterFile_());
 
 % ---------- Row 2: projects | subjects ----------------------------------
 gMain = uigridlayout(g, [1 2]);

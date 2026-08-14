@@ -32,16 +32,23 @@ end
 S = [];
 
 if ~isfield(self.FUNCS, 'AddSubjectFcn') || isempty(self.FUNCS.AddSubjectFcn)
-    self.FUNCS.AddSubjectFcn = getpref('ep_RunExpt', 'CONFIG_AddSubjectFcn', ...
+    self.FUNCS.AddSubjectFcn = getpref('ep_RunExpt_FUNCS', 'AddSubjectFcn', ...
         'epsych.DefaultSubject.open');
 end
 
 fcn = self.FUNCS.AddSubjectFcn;
+if isa(fcn, 'function_handle'), fcn = func2str(fcn); end
+fcn = char(fcn);
+if startsWith(fcn, '@'), fcn = fcn(2:end); end
 
 ontop = self.AlwaysOnTop(false);
 cleanupOnTop = onCleanup(@() self.AlwaysOnTop(ontop));
 
-if isequal(fcn, 'epsych.DefaultSubject.open')
+% 'epsych.DefaultSubject' names the class, not the dialog. A config or a
+% Customize entry that drops the '.open' still passes the `which` check in
+% GetDefaultFuncs, so without this it reaches feval as the one-argument
+% constructor and errors on boxids.
+if any(strcmp(fcn, {'epsych.DefaultSubject.open', 'epsych.DefaultSubject'}))
     % The built-in dialog validates duplicates live so entered data isn't lost
     result = epsych.DefaultSubject.open(seed, boxids, 'ReservedNames', reservedNames);
 else

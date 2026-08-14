@@ -64,6 +64,7 @@ classdef RunExpt < handle
 
         OpenCustomizeDialog(self)       % Open the Customize Settings dialog for this machine's settings (a project owns the rest)
         OpenSelfTest(self)              % Open the pre-flight self-test window
+        OpenParameterDebugger(self)     % Open the parameter debugger window
         OpenSubjectManager(self)        % Open the Subjects & Projects manager window
         ShowSubjectInManager(self, idx) % Open the manager with the selected session subject revealed
         DefineRosterFile(self)          % Set the shared subject roster (.esub) this rig uses

@@ -1,0 +1,476 @@
+% smoke_test_parameter_debugger.m
+% Offline smoke tests for gui.ParameterDebugger -- no hardware required.
+%
+% Drives the window against tmp/ParameterDebuggerMock, a real hw.Interface
+% with a value store of its own, so every read and write the GUI makes travels
+% the ordinary hw.Parameter path and is asserted on the backend's state. That
+% is what makes the interesting cases reachable: a read that throws, a write
+% that reads back changed, and the difference between a connected and a
+% disconnected interface.
+%
+% Run headless, from the repository root:
+%   matlab -batch "run('tmp/smoke_test_parameter_debugger.m')"
+%
+% See also: gui.ParameterDebugger, documentation/gui/gui_ParameterDebugger.md
+
+% Bootstrap: `matlab -batch` starts with whatever path the user profile leaves
+% behind, and this file lives in tmp/, which is only on the path once
+% epsych_startup has run.
+if exist('gui.ParameterDebugger', 'class') ~= 8
+    run(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'epsych_startup.m'));
+end
+addpath(fileparts(mfilename('fullpath')));   % ParameterDebuggerMock lives beside this test
+
+fprintf('\n=== gui.ParameterDebugger Smoke Test ===\n\n');
+results = {};
+
+figs = matlab.ui.Figure.empty;
+dbg = [];
+rig = [];
+
+%% 1. Build a rig and open the window against a bare interface array
+try
+    rig = ParameterDebuggerMock();
+
+    % add_parameter fills Values (the design-time levels), not Value, so each
+    % parameter is given a starting value explicitly -- as a protocol does on
+    % its first dispatch.
+    p = rig.add_parameter('Freq', 1000, Unit='Hz', Min=100, Max=20000);   p.Value = 1000;
+    p = rig.add_parameter('Level', 60, Unit='dB');                        p.Value = 60;
+    p = rig.add_parameter('Coarse', 5, Unit='ms');                        p.Value = 5;
+    p = rig.add_parameter('Broken', 0);                                   p.Value = 0;
+    p = rig.add_parameter('Enabled', true, Type='Boolean');               p.Value = true;
+    p = rig.add_parameter('Waveform', [1 2 3], isArray=true);             p.Value = [1 2 3];
+    rig.add_parameter('Coeffs', zeros(1,64), Type='Coefficient Buffer');
+    rig.add_parameter('Label', 'tone');
+    p = rig.add_parameter('Monitor', 0, Access='Read');                   % read-only
+    rig.add_parameter('Command', 0, Access='Write');                      % write-only
+    rig.add_parameter('Secret', 42, Visible=false);
+    rig.add_parameter('Fire', 0, isTrigger=true);
+
+    % Access='Read' has to be set after the value, or the assignment above
+    % would be a write-access violation.
+    rig.find_parameter('Monitor').Access = 'Any';
+    rig.find_parameter('Monitor').Value = 7;
+    rig.find_parameter('Monitor').Access = 'Read';
+
+    % Pad past the progress-dialog threshold (20 rows) so the sweep exercises
+    % the dialog and the control-disable path too.
+    for i = 1:12
+        q = rig.add_parameter(sprintf('Spare%02d', i), i);
+        q.Value = i;
+    end
+
+    rig.connect();
+
+    dbg = gui.ParameterDebugger(rig, Visible = false);
+    figs(end+1) = dbg.H.figure;
+
+    results(end+1,:) = check('Window opened', isvalid(dbg) && isgraphics(dbg.H.figure));
+    results(end+1,:) = check('Figure carries the singleton tag', ...
+        strcmp(dbg.H.figure.Tag, 'EPsychParameterDebugger'));
+    results(end+1,:) = check('Every visible parameter is listed', numel(dbg.Rows) == 23);
+    results(end+1,:) = check('Table matches the row model', ...
+        size(dbg.H.table.Data, 1) == numel(dbg.Rows));
+catch ME
+    results(end+1,:) = check(['Open: ' ME.message], false);
+end
+
+%% 2. Hidden parameters are opt-in
+try
+    before = numel(dbg.Rows);
+    dbg.H.chkHidden.Value = true;
+    dbg.refresh();
+    withHidden = numel(dbg.Rows);
+
+    hiddenRow = find(strcmp({dbg.Rows.Name}, 'Secret'), 1);
+    results(end+1,:) = check('Hidden parameter excluded by default', before == 23);
+    results(end+1,:) = check('Show hidden adds it', withHidden == before + 1);
+    results(end+1,:) = check('Hidden row is flagged as such', ...
+        ~isempty(hiddenRow) && contains(dbg.Rows(hiddenRow).Flags, 'hidden'));
+
+    dbg.H.chkHidden.Value = false;
+    dbg.refresh();
+    results(end+1,:) = check('Unticking it removes the row again', numel(dbg.Rows) == before);
+catch ME
+    results(end+1,:) = check(['Hidden toggle: ' ME.message], false);
+end
+
+%% 3. Read All: what it reads, and what it deliberately does not
+try
+    rig.Store('Freq') = 1234;   % the "device" moved on without the host
+    dbg.readAll();
+
+    freq = rowNamed(dbg, 'Freq');
+    coeffs = rowNamed(dbg, 'Coeffs');
+    broken = rowNamed(dbg, 'Broken');
+    command = rowNamed(dbg, 'Command');
+
+    results(end+1,:) = check('Read All picked up the device value', ...
+        freq.State == gui.ParameterDebugger.STATE_OK && strcmp(freq.ValueText, '1234'));
+    results(end+1,:) = check('A successful read is stamped with a time', ...
+        ~isempty(regexp(freq.Note, '^\d\d:\d\d:\d\d$', 'once')));
+    results(end+1,:) = check('Read All skips coefficient buffers', ...
+        coeffs.State == gui.ParameterDebugger.STATE_SKIP);
+    results(end+1,:) = check('Read All skips write-only parameters', ...
+        command.State == gui.ParameterDebugger.STATE_SKIP);
+    results(end+1,:) = check('A failing read is reported, not thrown', ...
+        broken.State == gui.ParameterDebugger.STATE_FAIL && ...
+        contains(broken.Note, 'did not answer'));
+    results(end+1,:) = check('The status line names the first failure', ...
+        contains(dbg.H.status.Text, 'Broken'));
+catch ME
+    results(end+1,:) = check(['Read All: ' ME.message], false);
+end
+
+%% 4. Colour follows state
+try
+    styles = dbg.H.table.StyleConfigurations;
+    vcol = find(strcmp(dbg.H.table.ColumnName, 'Value'), 1);
+    okRow = rowIndex(dbg, 'Freq');
+    failRow = rowIndex(dbg, 'Broken');
+
+    results(end+1,:) = check('A read row is tinted green', ...
+        isequal(styleColorAt(styles, okRow, vcol), [0.90 0.97 0.90]));
+    results(end+1,:) = check('A failed row is tinted red', ...
+        isequal(styleColorAt(styles, failRow, vcol), [1.00 0.88 0.88]));
+catch ME
+    results(end+1,:) = check(['Colour: ' ME.message], false);
+end
+
+%% 5. Double-clicking a name reads that one parameter
+try
+    row = rowIndex(dbg, 'Level');
+    rig.Store('Level') = 77;
+
+    dbg.H.table.DoubleClickedFcn(dbg.H.table, ...
+        struct('InteractionInformation', struct('Row', row, 'Column', 2)));
+
+    results(end+1,:) = check('Double-click on the name read the parameter', ...
+        strcmp(dbg.Rows(row).ValueText, '77'));
+
+    % ...and a double-click in the Value column must not, or it would replace
+    % what the operator is in the middle of typing.
+    rig.Store('Level') = 88;
+    dbg.H.table.DoubleClickedFcn(dbg.H.table, ...
+        struct('InteractionInformation', struct('Row', row, 'Column', vcol)));
+    results(end+1,:) = check('Double-click in the Value cell does not read', ...
+        strcmp(dbg.Rows(row).ValueText, '77'));
+catch ME
+    results(end+1,:) = check(['Double-click: ' ME.message], false);
+end
+
+%% 6. A buffer is read when it is asked for by name
+try
+    row = rowIndex(dbg, 'Coeffs');
+    rig.Store('Coeffs') = ones(1,64);
+
+    dbg.H.table.DoubleClickedFcn(dbg.H.table, ...
+        struct('InteractionInformation', struct('Row', row, 'Column', 2)));
+
+    results(end+1,:) = check('Double-click reads a buffer Read All skipped', ...
+        dbg.Rows(row).State == gui.ParameterDebugger.STATE_OK);
+    results(end+1,:) = check('A large array is summarised, not spelled out', ...
+        contains(dbg.Rows(row).ValueText, '1x64') && ~dbg.Rows(row).Editable);
+catch ME
+    results(end+1,:) = check(['Buffer read: ' ME.message], false);
+end
+
+%% 7. Writing through the Value cell
+try
+    row = rowIndex(dbg, 'Freq');
+    editCell(dbg, row, '2500');
+
+    results(end+1,:) = check('The write reached the backend', ...
+        isequal(rig.Store('Freq'), 2500));
+    results(end+1,:) = check('The parameter holds the new value', ...
+        isequal(rig.find_parameter('Freq').Value, 2500));
+    results(end+1,:) = check('A confirmed write is marked as written', ...
+        dbg.Rows(row).State == gui.ParameterDebugger.STATE_WROTE);
+    results(end+1,:) = check('The written cell is tinted blue', ...
+        isequal(styleColorAt(dbg.H.table.StyleConfigurations, row, vcol), [0.92 0.95 1.00]));
+catch ME
+    results(end+1,:) = check(['Write: ' ME.message], false);
+end
+
+%% 8. A write that does not read back as written is reported, not hidden
+try
+    row = rowIndex(dbg, 'Coarse');
+    editCell(dbg, row, '5.4');
+
+    results(end+1,:) = check('The device quantised the write', ...
+        isequal(rig.Store('Coarse'), 5));
+    results(end+1,:) = check('The difference is flagged amber, not green', ...
+        dbg.Rows(row).State == gui.ParameterDebugger.STATE_STALE);
+    results(end+1,:) = check('Both values are shown', ...
+        contains(dbg.Rows(row).Note, '5.4') && contains(dbg.Rows(row).Note, '5'));
+catch ME
+    results(end+1,:) = check(['Quantised write: ' ME.message], false);
+end
+
+%% 9. Types the grid understands
+try
+    boolRow = rowIndex(dbg, 'Enabled');
+    editCell(dbg, boolRow, 'false');
+    results(end+1,:) = check('Boolean text is parsed', ...
+        islogical(rig.Store('Enabled')) && ~rig.Store('Enabled'));
+
+    strRow = rowIndex(dbg, 'Label');
+    editCell(dbg, strRow, 'noise burst');
+    results(end+1,:) = check('String text is written verbatim', ...
+        strcmp(rig.Store('Label'), 'noise burst'));
+
+    arrRow = rowIndex(dbg, 'Waveform');
+    editCell(dbg, arrRow, '[4 5 6]');
+    results(end+1,:) = check('An array literal is parsed', ...
+        isequal(rig.Store('Waveform'), [4 5 6]));
+
+    rangeRow = rowIndex(dbg, 'Spare01');
+    editCell(dbg, rangeRow, '1:4');
+    results(end+1,:) = check('A range expression is parsed', ...
+        isequal(rig.Store('Spare01'), [1 2 3 4]));
+catch ME
+    results(end+1,:) = check(['Value types: ' ME.message], false);
+end
+
+%% 10. What the grid refuses
+try
+    roRow = rowIndex(dbg, 'Monitor');
+    before = rig.find_parameter('Monitor').Value;
+    editCell(dbg, roRow, '999');
+    results(end+1,:) = check('A read-only parameter is not written', ...
+        isequal(rig.find_parameter('Monitor').Value, before));
+    results(end+1,:) = check('...and the window says why', ...
+        contains(dbg.H.status.Text, 'read-only'));
+
+    badRow = rowIndex(dbg, 'Level');
+    editCell(dbg, badRow, 'not a number');
+    results(end+1,:) = check('Nonsense text is rejected', ...
+        dbg.Rows(badRow).State == gui.ParameterDebugger.STATE_FAIL);
+
+    % str2num is eval. A cell that ran arbitrary code while pointed at live
+    % hardware would be a trap, so anything that is not a numeric literal is
+    % refused before it gets there.
+    evilRow = rowIndex(dbg, 'Spare02');
+    before = rig.Store('Spare02');
+    editCell(dbg, evilRow, 'system(''echo pwned'')');
+    results(end+1,:) = check('Code in a value cell is refused', ...
+        isequal(rig.Store('Spare02'), before) && ...
+        dbg.Rows(evilRow).State == gui.ParameterDebugger.STATE_FAIL);
+
+    trigRow = rowIndex(dbg, 'Fire');
+    editCell(dbg, trigRow, '1');
+    results(end+1,:) = check('A trigger is not written by typing', isempty(rig.Fired));
+catch ME
+    results(end+1,:) = check(['Refusals: ' ME.message], false);
+end
+
+%% 11. Firing a trigger
+try
+    dbg.H.table.Selection = rowIndex(dbg, 'Fire');
+    dbg.fireTrigger();
+    results(end+1,:) = check('Fire Trigger reached the backend', ...
+        ~isempty(rig.Fired) && strcmp(rig.Fired{end}, 'Fire'));
+
+    dbg.H.table.Selection = rowIndex(dbg, 'Level');
+    dbg.fireTrigger();
+    results(end+1,:) = check('Firing a non-trigger row is refused', ...
+        isscalar(rig.Fired) && contains(dbg.H.status.Text, 'No trigger'));
+catch ME
+    results(end+1,:) = check(['Trigger: ' ME.message], false);
+end
+
+%% 12. Filtering
+try
+    dbg.H.filter.Value = 'spare';
+    dbg.refresh();
+    results(end+1,:) = check('The filter narrows the list', numel(dbg.Rows) == 12);
+
+    dbg.H.filter.Value = 'no such parameter';
+    dbg.refresh();
+    results(end+1,:) = check('An empty result explains itself', ...
+        isempty(dbg.Rows) && dbg.H.emptyState.Visible == "on" && ...
+        contains(dbg.H.emptyState.Text, 'Clear the Find box'));
+
+    dbg.H.filter.Value = '';
+    dbg.refresh();
+    results(end+1,:) = check('Clearing it restores every row', numel(dbg.Rows) == 23);
+catch ME
+    results(end+1,:) = check(['Filter: ' ME.message], false);
+end
+
+%% 13. A disconnected backend is reported as such
+try
+    rig.disconnect();
+    dbg.readAll();
+    freq = rowNamed(dbg, 'Freq');
+
+    results(end+1,:) = check('A read from a disconnected rig is marked offline', ...
+        contains(freq.Note, 'offline'));
+    results(end+1,:) = check('...and reports the value the host holds', ...
+        strcmp(freq.ValueText, '2500'));
+    results(end+1,:) = check('The count line says how many are live', ...
+        contains(dbg.H.countLabel.Text, '0 of 1'));
+    rig.connect();
+catch ME
+    results(end+1,:) = check(['Offline: ' ME.message], false);
+end
+
+%% 14. Any source with an Interfaces property works
+try
+    rt = epsych.Runtime;
+    rt.Interfaces = rig;          % the setter connects; the mock is already up
+
+    dbg2 = gui.ParameterDebugger(rt, Visible = false);
+    figs(end+1) = dbg2.H.figure;
+
+    results(end+1,:) = check('A Runtime is accepted as a source', numel(dbg2.Rows) == 23);
+    results(end+1,:) = check('Opening again replaced the first window', ~isvalid(dbg));
+    dbg = dbg2;
+catch ME
+    results(end+1,:) = check(['Runtime source: ' ME.message], false);
+end
+
+%% 15. Assign to the command window
+try
+    dbg.H.table.Selection = rowIndex(dbg, 'Level');
+    dbg.assignToBase();
+    assigned = evalin('base', 'P');
+    results(end+1,:) = check('The selected parameter reached the base workspace', ...
+        isa(assigned, 'hw.Parameter') && strcmp(assigned.Name, 'Level'));
+    evalin('base', 'clear P');
+catch ME
+    results(end+1,:) = check(['Assign: ' ME.message], false);
+end
+
+%% 16. The launch path: Help menu of a live RunExpt session
+rx = [];
+try
+    rx = epsych.RunExpt;
+
+    mnu = findall(rx.H.figure1, 'Type','uimenu', 'Tag','mnu_param_debugger');
+    results(end+1,:) = check('The session window has the menu item', isscalar(mnu));
+    results(end+1,:) = check('...and it is available with no config loaded', mnu.Enable == "on");
+
+    % With nothing loaded the window must still open and say why it is empty,
+    % rather than refusing or throwing.
+    feval(mnu.MenuSelectedFcn, mnu, []);
+    dbg = findall(groot, 'Type','figure', 'Tag','EPsychParameterDebugger');
+    results(end+1,:) = check('The menu opened the debugger', isscalar(dbg));
+
+    dbg = dbg.UserData;
+    figs(end+1) = dbg.H.figure;
+    dbg.H.figure.Visible = 'off';
+    results(end+1,:) = check('It bound itself to the session', isequal(dbg.RunExpt, rx));
+    results(end+1,:) = check('An empty session explains itself', ...
+        isempty(dbg.Rows) && contains(dbg.H.emptyState.Text, 'No protocol is loaded'));
+
+    % A subject's protocol is reachable as soon as it is in CONFIG -- before a
+    % run, and whether or not the interfaces are connected.
+    proto = epsych.Protocol;
+    proto.addInterface(rig);
+    rx.CONFIG(1).PROTOCOL = proto;
+    rx.CONFIG(1).SUBJECT = epsych.Subject.fromStruct( ...
+        struct('BoxID',3, 'Name','M001', 'Sex','M', 'Species','Mouse'));
+
+    dbg.refresh();
+    results(end+1,:) = check('A loaded protocol is offered as a source', ...
+        strcmp(dbg.H.source.Value, '1: M001 (box 3)'));
+    results(end+1,:) = check('...and its parameters are listed', numel(dbg.Rows) == 23);
+catch ME
+    results(end+1,:) = check(['RunExpt launch: ' ME.message], false);
+end
+
+%% 17. Teardown
+try
+    if ispref('epsych2_gui_ParameterDebugger','FigurePosition')
+        rmpref('epsych2_gui_ParameterDebugger','FigurePosition');
+    end
+
+    fig = dbg.H.figure;
+    close(fig);                       % the way an operator closes it
+    figs = matlab.ui.Figure.empty;
+
+    results(end+1,:) = check('Closing the window deletes the object', ~isvalid(dbg));
+    results(end+1,:) = check('...and the figure with it', ~isgraphics(fig));
+    results(end+1,:) = check('The window position was remembered', ...
+        ispref('epsych2_gui_ParameterDebugger','FigurePosition'));
+    results(end+1,:) = check('The interface it was pointed at survives', isvalid(rig));
+    results(end+1,:) = check('No timers were left behind', ...
+        isempty(timerfindall('Name','ParameterDebugger*')));
+catch ME
+    results(end+1,:) = check(['Teardown: ' ME.message], false);
+end
+
+%% Cleanup
+delete(figs(isvalid(figs)));
+delete(findall(groot, 'Type','figure', 'Tag','RunExpt'));
+delete(findall(groot, 'Type','figure', 'Tag','EPsychParameterDebugger'));
+if ~isempty(rx) && isvalid(rx), delete(rx); end
+try
+    if ispref('epsych2_gui_ParameterDebugger','FigurePosition')
+        rmpref('epsych2_gui_ParameterDebugger','FigurePosition');
+    end
+catch ME
+    vprintf(2, ME);
+end
+
+%% Summary
+labels = results(:,1);
+passed = cell2mat(results(:,2));
+for i = 1:numel(labels)
+    if passed(i)
+        fprintf('  PASS  %s\n', labels{i});
+    else
+        fprintf('  FAIL  %s\n', labels{i});
+    end
+end
+fprintf('\n%d passed, %d failed, %d total\n\n', ...
+    sum(passed), sum(~passed), numel(passed));
+
+if any(~passed)
+    error('smoke_test_parameter_debugger:Failed', '%d smoke test(s) failed.', sum(~passed));
+end
+
+
+function row = check(label, tf)
+% row = check(label, tf)
+% Record one assertion as a {label, logical} row.
+row = {label, logical(tf)};
+end
+
+
+function idx = rowIndex(dbg, name)
+% Table row showing the named parameter.
+idx = find(strcmp({dbg.Rows.Name}, name), 1);
+assert(~isempty(idx), 'no row named "%s"', name);
+end
+
+
+function R = rowNamed(dbg, name)
+R = dbg.Rows(rowIndex(dbg, name));
+end
+
+
+function editCell(dbg, row, text)
+% Type text into a row's Value cell, exactly as the table callback receives it.
+col = find(strcmp(dbg.H.table.ColumnName, 'Value'), 1);
+previous = dbg.H.table.Data{row, col};
+dbg.H.table.Data{row, col} = text;
+dbg.H.table.CellEditCallback(dbg.H.table, ...
+    struct('Indices', [row col], 'NewData', text, 'PreviousData', previous));
+end
+
+
+function c = styleColorAt(styles, row, col)
+% BackgroundColor of the last style whose target covers this cell, or [].
+c = [];
+if isempty(styles), return, end
+for i = 1:height(styles)
+    if string(styles.Target(i)) ~= "cell", continue, end
+    t = styles.TargetIndex{i};
+    if any(t(:,1) == row & t(:,2) == col)
+        c = styles.Style(i).BackgroundColor;
+    end
+end
+end

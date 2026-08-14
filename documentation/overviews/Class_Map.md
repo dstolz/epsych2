@@ -79,6 +79,7 @@ Analysis and GUI classes
    ├─ Parameter_Control
    ├─ Parameter_Monitor
    ├─ Parameter_Update
+   ├─ ParameterDebugger
    ├─ ElapsedTrialTimer
    ├─ GenericTimer
    ├─ MicrophonePlot
@@ -169,7 +170,7 @@ flowchart TD
     I --> I5[psychophysics.MLP]
     I --> I6[psychophysics.SessionMetrics]
     C --> I3[psychophysics.Detection]
-    H --> J[gui.Parameter_Control<br/>gui.Parameter_Update<br/>gui.Parameter_Monitor]
+    H --> J[gui.Parameter_Control<br/>gui.Parameter_Update<br/>gui.Parameter_Monitor<br/>gui.ParameterDebugger]
     D --> K[gui.OnlinePlot<br/>gui.PsychPlot<br/>gui.ModeIndicator]
     D --> L[gui.History<br/>gui.SessionPerformance<br/>gui.Performance<br/>gui.SlidingWindowPerformancePlot]
     C --> M[cl_AppetitiveDetection_GUI_B]
@@ -212,7 +213,7 @@ Trial selection
 Analysis and visualization
 ├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.BestPEST / psychophysics.MLP / psychophysics.SessionMetrics
 ├─ psychophysics.Detection
-├─ gui.Parameter_Control / gui.Parameter_Update / gui.Parameter_Monitor
+├─ gui.Parameter_Control / gui.Parameter_Update / gui.Parameter_Monitor / gui.ParameterDebugger
 ├─ gui.OnlinePlot / gui.PsychPlot / gui.ModeIndicator
 └─ gui.History / gui.SessionPerformance / gui.Performance / gui.SlidingWindowPerformancePlot
    ↓

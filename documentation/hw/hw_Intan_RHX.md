@@ -167,17 +167,19 @@ on-disk name in `ActiveRecordingFile`.
 > `hw:Intan_RHX:UnrepresentableFilename` and aborts (a silently unrecorded
 > ephys session would only be discovered in analysis); a **Preview** run warns
 > and continues, since it never writes to disk. Choose a space-free recording
-> path and subject name. The Customize dialog rejects spaced paths up front.
+> path and subject name. The project dialog (Subjects & Projects → Edit Project →
+Session Defaults) rejects spaced paths up front.
 
 ## Settings file
 
 `SettingsFile` names an RHX `.xml` settings file. It is **protocol-level
 configuration** — set per interface in the Protocol Designer and serialized in
-the `.eprot` — so a protocol carries its intended settings file. The
-`ep_RunExpt_Intan` preference group (Customize dialog) still provides a
-per-machine **fallback**: RunExpt applies the machine pref only when the
-protocol left `SettingsFile` blank (see `configureIntanRecorder_`), so the
-protocol's value always wins.
+the `.eprot` — so a protocol carries its intended settings file. The session's
+`RunExpt.PATHS.IntanSettingsFile` still provides a **fallback**, seeded from the
+per-machine `ep_RunExpt_Intan` preference group and overridden by the project
+whose subjects are in the session: RunExpt applies it only when the protocol
+left `SettingsFile` blank (see `configureIntanRecorder_`), so the protocol's
+value always wins.
 
 It is loaded via `execute loadsettingsfile` during `connect()` — after forcing
 the board to Stop, since loading has no effect while running. It is loaded

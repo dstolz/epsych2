@@ -73,12 +73,14 @@ else
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
-% --- G4: Intan preference hygiene --------------------------------------
-% RunExpt pushes these prefs onto the interface at run time, so a bad value
-% is invisible to the backend's own check until it is too late.
+% --- G4: Intan path hygiene --------------------------------------------
+% RunExpt pushes these onto the interface at run time, so a bad value is
+% invisible to the backend's own check until it is too late. Read from the
+% session rather than the preferences: a project applies its own paths when its
+% subjects are added, and those are what the run will use.
 t = tic;
-intanRoot = strtrim(char(getpref('ep_RunExpt_Intan','RecordingRootDir','')));
-intanSet  = strtrim(char(getpref('ep_RunExpt_Intan','SettingsFile','')));
+intanRoot = strtrim(char(self.RunExpt.PATHS.IntanRootDir));
+intanSet  = strtrim(char(self.RunExpt.PATHS.IntanSettingsFile));
 problems  = strings(1,0);
 detail    = strings(1,0);
 
@@ -103,14 +105,14 @@ else
 end
 
 if isempty(problems)
-    r = epsych.SelfTest.result("G4_IntanPrefs", GROUP, "Intan path preferences", "pass", ...
-        'Intan recording preferences are usable.', ...
+    r = epsych.SelfTest.result("G4_IntanPrefs", GROUP, "Intan recording paths", "pass", ...
+        'The Intan recording paths in force for this session are usable.', ...
         Detail = detail);
 else
-    r = epsych.SelfTest.result("G4_IntanPrefs", GROUP, "Intan path preferences", "fail", ...
-        sprintf('%d problem(s) with the Intan path preferences.', numel(problems)), ...
+    r = epsych.SelfTest.result("G4_IntanPrefs", GROUP, "Intan recording paths", "fail", ...
+        sprintf('%d problem(s) with the Intan recording paths.', numel(problems)), ...
         Detail = [problems detail], ...
-        Remedy = "Fix the values in Customize > Paths; RHX rejects paths containing spaces.");
+        Remedy = "Fix them on the project (Subjects & Projects > Edit Project > Session Defaults); RHX rejects paths containing spaces.");
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 

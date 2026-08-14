@@ -12,6 +12,10 @@ arguments
     self
 end
 
+% Import writes, so it needs somewhere to write; ask before the browser rather
+% than after the preview the operator has just worked through.
+if ~self.ensureRoster_('importing subjects'), return, end
+
 start = getpref('ep_RunExpt_Setup','CDir',cd);
 if ~isfolder(start), start = cd; end
 

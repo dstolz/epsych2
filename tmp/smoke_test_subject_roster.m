@@ -329,7 +329,8 @@ subjects      = S.subjects;
 memberships   = S.memberships;
 meta          = S.meta;
 projects      = rmfield(S.projects, ...
-    {'Investigator','IACUCProtocol','Links','Archived'});
+    {'Investigator','IACUCProtocol','Links','Archived', ...
+     'SavingFcn','TimerPeriod','VideoRootDir','IntanRootDir','IntanSettingsFile'});
 save(legacyFile, 'formatVersion', 'subjects', 'projects', 'memberships', 'meta', '-mat');
 
 Rold = epsych.SubjectRoster(legacyFile);
@@ -339,6 +340,11 @@ assert(numel(Rold.Projects) == numel(S.projects), 'An older roster lost projects
 assert(~any([Rold.Projects.Archived]), 'A project from an older file must not read as archived');
 assert(all(cellfun(@isempty, {Rold.Projects.Investigator})), 'Investigator should default to empty');
 assert(all(cellfun(@isempty, {Rold.Projects.Links})), 'Links should default to none');
+% The session defaults have to default to "inherit", or opening an old roster
+% would start rewriting the rig's saving function and timer period.
+assert(all(isnan([Rold.Projects.TimerPeriod])), 'TimerPeriod should default to NaN (inherit)');
+assert(all(cellfun(@isempty, {Rold.Projects.SavingFcn})), 'SavingFcn should default to empty');
+assert(all(cellfun(@isempty, {Rold.Projects.VideoRootDir})), 'VideoRootDir should default to empty');
 oldId = Rold.Projects(1).ProjectID;
 Rold.updateProject(oldId, struct('Notes','still writable'));
 assert(strcmp(epsych.SubjectRoster(legacyFile).findProject(oldId).Notes, 'still writable'), ...
@@ -433,6 +439,176 @@ assert(~nothing.ok, 'A subject with no history has nothing to revert to');
 noProject = R.updateProtocol({sv}, '');
 assert(~noProject.ok, 'updateProtocol must refuse without a project');
 fprintf('PASS: protocol versions are recorded, checked, updated, and reverted\n');
+
+% 16. A project owns the session settings ----------------------------------
+% These moved off the rig (RunExpt's Customize dialog) and onto the study, so
+% the assertions that matter are that a project's values reach the session, and
+% that a project which names none leaves the session exactly as it found it.
+delete(findall(groot,'Type','figure','Tag','RunExpt'));
+rx4 = epsych.RunExpt;
+
+studyRoot = fullfile(root, 'studydata');
+videoRoot = fullfile(root, 'video');
+intanRoot = fullfile(root, 'intan');
+mkdir(studyRoot); mkdir(videoRoot); mkdir(intanRoot);
+
+% A distinguishable starting point on the session side.
+rx4.dfltDataPath = string(root);
+rx4.FUNCS.SavingFcn = 'ep_TimerFcn_Start';   % any resolvable name that is not the project's
+rx4.FUNCS.TimerPeriod = 0.01;
+rx4.PATHS = struct('VideoRootDir','','IntanRootDir','','IntanSettingsFile','');
+
+pd = R.addProject('DefaultsStudy', DefaultProtocol = proto, ...
+    DefaultDataPath = studyRoot, SavingFcn = 'ep_SaveDataFcn', ...
+    TimerPeriod = 0.05, VideoRootDir = videoRoot, IntanRootDir = intanRoot, ...
+    IntanSettingsFile = fullfile(root, 'rhx.xml'));
+
+pdReloaded = epsych.SubjectRoster(rosterFile).findProject(pd);
+assert(strcmp(pdReloaded.SavingFcn,'ep_SaveDataFcn') && pdReloaded.TimerPeriod == 0.05 && ...
+    strcmp(pdReloaded.VideoRootDir, videoRoot), ...
+    'The session defaults did not survive a reload');
+
+sd = R.addSubject(struct('Name','SD01','Sex','Male','Species','Mouse'));
+R.assign(sd, pd);
+rep = R.assignToSession(rx4, {sd}, ProjectID = pd);
+assert(rep.ok, 'The commit should have succeeded: %s', rep.message);
+assert(strcmp(char(rx4.dfltDataPath), studyRoot), 'The project data path should reach the session');
+assert(strcmp(rx4.FUNCS.SavingFcn, 'ep_SaveDataFcn'), 'The project saving function should reach the session');
+assert(rx4.FUNCS.TimerPeriod == 0.05, 'The project timer period should reach the session');
+assert(strcmp(rx4.PATHS.VideoRootDir, videoRoot), 'The project video path should reach the session');
+assert(strcmp(rx4.PATHS.IntanRootDir, intanRoot), 'The project Intan path should reach the session');
+assert(strcmp(rx4.PATHS.IntanSettingsFile, fullfile(root,'rhx.xml')), ...
+    'The project Intan settings file should reach the session');
+% The machine's own preferences must be untouched: one study's paths are not
+% the rig's, and the next session without a project has to get them back.
+assert(~ispref('ep_RunExpt_Video','RecordingRootDir') || ...
+    ~strcmp(char(getpref('ep_RunExpt_Video','RecordingRootDir')), videoRoot), ...
+    'Applying a project must not rewrite the machine preferences');
+
+% A project that names nothing inherits, rather than blanking the session.
+pn = R.addProject('InheritStudy', DefaultProtocol = proto);
+sn = R.addSubject(struct('Name','SD02','Sex','Male','Species','Mouse'));
+R.assign(sn, pn);
+before = {char(rx4.dfltDataPath), rx4.FUNCS.SavingFcn, rx4.FUNCS.TimerPeriod, rx4.PATHS};
+rep = R.assignToSession(rx4, {sn}, ProjectID = pn);
+assert(rep.ok, 'The inherit commit should have succeeded: %s', rep.message);
+assert(isequal(before, {char(rx4.dfltDataPath), rx4.FUNCS.SavingFcn, rx4.FUNCS.TimerPeriod, rx4.PATHS}), ...
+    'A project with no session defaults must leave the session alone');
+
+% A period the timer cannot run is refused on the way in, not at run start.
+for badPeriod = [0, 5]
+    threw = false;
+    try
+        R.addProject(sprintf('BadPeriod%g', badPeriod), TimerPeriod = badPeriod);
+    catch ME
+        threw = strcmp(ME.identifier, 'epsych:SubjectRoster:InvalidTimerPeriod');
+    end
+    assert(threw, 'A timer period of %g must be refused', badPeriod);
+end
+threw = false;
+try
+    R.updateProject(pd, struct('TimerPeriod', 42));
+catch ME
+    threw = strcmp(ME.identifier, 'epsych:SubjectRoster:InvalidTimerPeriod');
+end
+assert(threw, 'updateProject must refuse an unusable timer period');
+assert(R.findProject(pd).TimerPeriod == 0.05, 'A refused period must leave the record alone');
+
+R.updateProject(pd, struct('SavingFcn','ep_TimerFcn_Stop', 'TimerPeriod', 0.02));
+q = epsych.SubjectRoster(rosterFile).findProject(pd);
+assert(strcmp(q.SavingFcn,'ep_TimerFcn_Stop') && q.TimerPeriod == 0.02, ...
+    'updateProject should write both the text and numeric session defaults');
+fprintf('PASS: a project applies, or inherits, the session settings\n');
+
+delete(findall(groot,'Type','figure','Tag','RunExpt'));
+
+% N. No default location ---------------------------------------------------
+% The roster used to fall back to <prefdir>/epsych/subjects.esub, which meant a
+% lab's only copy of its animal records lived somewhere nobody chose and a
+% MATLAB upgrade lost. There is no fallback now: unconfigured is a real state,
+% it reads as empty, and it refuses to be written rather than inventing a path.
+epsych.SubjectRoster.setConfiguredFile('');
+assert(isempty(epsych.SubjectRoster.configuredFile()), ...
+    'Clearing the preference must leave no path at all, not a fallback');
+assert(~epsych.SubjectRoster.isConfigured(), 'isConfigured must be false with no preference');
+
+U = epsych.SubjectRoster();
+assert(~U.IsBound, 'A roster built with no configured file must be unbound');
+assert(isempty(U.Subjects) && isempty(U.Projects), 'An unbound roster must read as empty');
+assert(~U.IsWritable, 'An unbound roster must not claim to be writable');
+% Not a LoadError: nothing failed, the question has simply not been answered.
+assert(isempty(U.LoadError), 'Unconfigured is not a read failure');
+
+% Throws rather than failing quietly: addProject mints an ID and reports
+% success without checking mutate_'s return, so a silent refusal would look
+% exactly like a project that was saved.
+threw = false;
+try
+    U.addProject('Nowhere');
+catch ME
+    threw = strcmp(ME.identifier, 'epsych:SubjectRoster:NoFile');
+end
+assert(threw, 'An unbound roster must refuse to add a project, loudly');
+assert(isempty(U.Projects), 'The refused project must not linger in memory');
+fprintf('PASS: with no file chosen the roster is empty, read-only, and refuses to write\n');
+
+% N+1. setConfiguredFile validates at the point of choosing ----------------
+threw = false;
+try
+    epsych.SubjectRoster.setConfiguredFile(root);
+catch ME
+    threw = strcmp(ME.identifier, 'epsych:SubjectRoster:PathIsFolder');
+end
+assert(threw, 'A folder must be refused: movefile onto one saves nothing and reports success');
+
+deepFile = fullfile(root, 'made', 'up', 'lab_roster');
+rep = epsych.SubjectRoster.setConfiguredFile(deepFile);
+assert(strcmp(rep.FilePath, [deepFile '.esub']), ...
+    'A path with no extension should gain %s, got %s', ...
+    epsych.SubjectRoster.FILE_EXTENSION, rep.FilePath);
+assert(isfolder(fullfile(root, 'made', 'up')), ...
+    'The folder should be created when the roster is chosen, not at the first save');
+assert(~rep.Existed && ~rep.Migrated, 'A fresh path should report neither existing nor migrated');
+assert(strcmp(epsych.SubjectRoster().FilePath, rep.FilePath), ...
+    'The default constructor should open the file just configured');
+fprintf('PASS: choosing a roster validates the path and makes its folder\n');
+
+% N+2. The legacy per-user roster is adopted once ---------------------------
+% Read-only with respect to the operator's own data: the old file is copied,
+% never moved, and this only ever reads it. Skipped on a machine that never
+% had one.
+legacy = epsych.SubjectRoster.legacyFile();
+if isempty(legacy)
+    fprintf('SKIP: no legacy per-user roster on this machine to adopt\n');
+else
+    before = epsych.SubjectRoster(legacy);
+
+    epsych.SubjectRoster.setConfiguredFile('');
+    adopted = fullfile(root, 'adopted.esub');
+    rep = epsych.SubjectRoster.setConfiguredFile(adopted, AdoptLegacy = true);
+    assert(rep.Migrated && strcmp(rep.MigratedFrom, legacy), ...
+        'The first file chosen should adopt the legacy roster');
+    assert(isfile(legacy), 'Adoption must copy, never move: the original stays put');
+    assert(numel(epsych.SubjectRoster(adopted).Subjects) == numel(before.Subjects), ...
+        'The adopted roster should hold what the legacy one held');
+
+    % Only ever on the FIRST choice. Re-pointing a configured rig at a new
+    % empty file is a deliberate fresh start, and filling it with records from
+    % a file the operator has stopped using would be the opposite of that.
+    again = fullfile(root, 'second_choice.esub');
+    rep2 = epsych.SubjectRoster.setConfiguredFile(again, AdoptLegacy = true);
+    assert(~rep2.Migrated, 'A rig that already has a roster must not adopt the legacy one');
+    assert(~isfile(again), 'A second choice should stay empty until something is saved');
+    fprintf('PASS: the legacy per-user roster is adopted once, by copy, on the first choice\n');
+end
+
+% Off by default, so a script or a test that names a fresh roster gets one.
+epsych.SubjectRoster.setConfiguredFile('');
+plain = fullfile(root, 'plain.esub');
+rep = epsych.SubjectRoster.setConfiguredFile(plain);
+assert(~rep.Migrated && ~isfile(plain), ...
+    'Adoption must be opt-in; a scripted choice should gain nothing it did not ask for');
+fprintf('PASS: adoption is opt-in\n');
 
 fprintf('\nALL SUBJECT ROSTER SMOKE TESTS PASSED\n');
 

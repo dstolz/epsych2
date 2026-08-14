@@ -402,6 +402,90 @@ assert(isempty(findall(groot,'Type','figure','Name','Edit Project')), ...
     'Cancel should have closed the dialog');
 fprintf('PASS: the project dialog builds, seeds its links, and cancels cleanly\n');
 
+% 7d. Session defaults: the settings that moved off the Customize dialog ----
+% The point of moving them is that they arrive already filled in. A blank field
+% would silently inherit whatever the previous study left on the rig, which is
+% the ambiguity the move was meant to remove.
+assert(any(built.tabs == "Session Defaults"), ...
+    'The project dialog should have a Session Defaults tab (got %s)', strjoin(built.tabs, ', '));
+for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "VideoRootDir" "IntanRootDir" "BoxGUI"]
+    assert(isfield(built.fields, f), 'The dialog is missing the %s field', f);
+    v = built.fields.(f);
+    assert(~isempty(v) && (~ischar(v) || ~isempty(strtrim(v))), ...
+        'The %s field opened empty; it should be seeded from recents or the machine setting', f);
+end
+assert(built.fields.TimerPeriod >= 0.001 && built.fields.TimerPeriod <= 1, ...
+    'The timer period should open on a usable value (got %g)', built.fields.TimerPeriod);
+
+% Recently-used values seed the next project. Written the way the dialog writes
+% them, then read back through a fresh New Project dialog.
+setpref('ep_RunExpt_Subjects', 'RecentDataPath',  {fullfile(root,'recent_data')});
+setpref('ep_RunExpt_Subjects', 'RecentSavingFcn', {'ep_TimerFcn_Stop'});
+setpref('ep_RunExpt_Subjects', 'RecentTimerPeriod', 0.025);
+
+fresh = localDriveProjectDialog(mgr.H.btnNewProject, 'New Project');
+assert(fresh.found, 'The New Project dialog did not open');
+assert(strcmp(fresh.fields.DefaultDataPath, fullfile(root,'recent_data')), ...
+    'A new project should open on the most recently used data path (got "%s")', ...
+    fresh.fields.DefaultDataPath);
+assert(strcmp(fresh.fields.SavingFcn, 'ep_TimerFcn_Stop'), ...
+    'A new project should open on the most recently used saving function (got "%s")', ...
+    fresh.fields.SavingFcn);
+assert(fresh.fields.TimerPeriod == 0.025, ...
+    'A new project should open on the most recently used timer period (got %g)', ...
+    fresh.fields.TimerPeriod);
+fprintf('PASS: session defaults are seeded, and a new project opens on the last values used\n');
+
+% 7e. No roster file chosen -------------------------------------------------
+% What a fresh install looks like. There is no default location any more, so
+% the window has to open, explain itself, and leave exactly the three actions
+% that would ask for a file switched on -- browsing must never pop a dialog,
+% and everything that writes must be unreachable until a file exists.
+%
+% The prompt itself (gui.SubjectManager.ensureRoster_) is modal and is not
+% driven here: uiconfirm would block this test with nothing to click it.
+localCloseWindows();
+epsych.SubjectRoster.setConfiguredFile('');
+
+gui.SubjectManager([]);
+mgr = localManager();
+assert(~isempty(mgr), 'The manager must still open with no roster file chosen');
+assert(~mgr.Roster.IsBound, 'The roster should be unbound');
+assert(contains(mgr.H.rosterLabel.Text, 'no file chosen'), ...
+    'The header should say no file is chosen (got "%s")', mgr.H.rosterLabel.Text);
+assert(strcmp(mgr.H.emptyState.Visible,'on') && ...
+    contains(mgr.H.emptyState.Text, 'No subject roster file has been chosen'), ...
+    'The empty state should explain that there is no roster yet');
+
+for on = {'btnNewProject','btnNewSubject','tb_new_project','tb_new_subject','tb_import'}
+    assert(strcmp(mgr.H.(on{1}).Enable, 'on'), ...
+        '%s must stay enabled: clicking it is how the operator is asked for a file', on{1});
+end
+for off = {'btnAddToProject','btnRemoveFromProject','btnRetire','btnEditProject', ...
+           'btnDeleteProject','btnAddToSession','btnEditSubject'}
+    assert(strcmp(mgr.H.(off{1}).Enable, 'off'), ...
+        '%s must be disabled until a roster file exists', off{1});
+end
+fprintf('PASS: with no roster file the window explains itself and offers only the actions that ask for one\n');
+
+% And the roster itself refuses to be written behind the window's back.
+threw = false;
+try
+    mgr.Roster.addProject('ShouldNotSave');
+catch ME
+    threw = strcmp(ME.identifier, 'epsych:SubjectRoster:NoFile');
+end
+assert(threw, 'An unbound roster must refuse a project outright');
+
+localCloseWindows();
+epsych.SubjectRoster.setConfiguredFile(rosterFile);
+gui.SubjectManager(rx);
+mgr = localManager();
+assert(mgr.Roster.IsBound && strcmp(mgr.H.rosterLabel.Text, 'Roster: subjects.esub'), ...
+    'Pointing the rig back at a file should restore the normal header (got "%s")', ...
+    mgr.H.rosterLabel.Text);
+fprintf('PASS: naming a file puts the window straight back to work\n');
+
 % 8. Teardown --------------------------------------------------------------
 delete(mgr);
 assert(isempty(findall(groot,'Type','figure','Tag','EPsychSubjectManager')), ...
@@ -472,7 +556,8 @@ function built = localDriveProjectDialog(control, name)
 % firing once, and its StopFcn deletes whatever is still standing: a probe that
 % merely missed the window would otherwise hang this test forever rather than
 % fail it.
-built = struct('found', false, 'links', 0, 'hasArchived', false);
+built = struct('found', false, 'links', 0, 'hasArchived', false, ...
+    'tabs', strings(1,0), 'fields', struct());
 
 t = timer('Name','projectDialogProbe', ...
     'ExecutionMode','fixedSpacing', 'Period', 0.5, 'TasksToExecute', 20, ...
@@ -502,6 +587,15 @@ control.ButtonPushedFcn(control, []);
             built.links = size(tbl(1).Data, 1);
         end
         built.hasArchived = ~isempty(findall(dlg, 'Type','uicheckbox'));
+
+        tabs = findall(dlg, 'Type','uitab');
+        built.tabs = string({tabs.Title});
+
+        % Session defaults by Tag rather than by label, so rewording a label
+        % does not silently stop this from checking anything.
+        for h = findall(dlg, '-regexp', 'Tag', '^ProjectDlg_')'
+            built.fields.(erase(h.Tag, 'ProjectDlg_')) = h.Value;
+        end
 
         cancelBtn(1).ButtonPushedFcn(cancelBtn(1), []);
 

@@ -24,12 +24,12 @@ end
 F = self.RunExpt.FUNCS;
 
 % --- B1: saving function ----------------------------------------------
-% Same contract the Customize dialog enforces: SaveFcn(RUNTIME), no outputs.
+% Same contract the project dialog enforces: SaveFcn(RUNTIME), no outputs.
 t = tic;
 r = localCheckCallable("B1_SavingFcn", GROUP, "Saving function", ...
     localField(F, 'SavingFcn', ''), ...
     ExpectedNargin = 1, ExpectedNargout = 0, ...
-    Remedy = "Set a valid saving function in Customize > Customize... (Functions tab; default: ep_SaveDataFcn).");
+    Remedy = "Set a valid saving function on the project (Subjects & Projects > Edit Project > Session Defaults; default: ep_SaveDataFcn), then add its subjects again.");
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
 % --- B2: add-subject function -----------------------------------------
@@ -60,7 +60,7 @@ if strlength(strtrim(boxFig)) == 0
         'No box GUI configured; none will be launched.');
 else
     r = localCheckCallable("B3_BoxFig", GROUP, "Box GUI function", boxFig, ...
-        Remedy = "Set a valid box GUI in Customize > Customize... (Functions tab; default: ep_GenericGUI), or clear it to disable.");
+        Remedy = "Set a valid box GUI on the project (Subjects & Projects > Edit Project > Session Defaults; default: ep_GenericGUI), or choose (none) to disable.");
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
@@ -108,11 +108,11 @@ period = localField(F, 'TimerPeriod', []);
 if isempty(period) || ~isnumeric(period) || ~isscalar(period)
     r = epsych.SelfTest.result("B5_TimerPeriod", GROUP, "Timer period", "fail", ...
         'TimerPeriod is unset or not a numeric scalar.', ...
-        Remedy = "Set a period between 0.001 and 1 s in Customize > Options.");
+        Remedy = "Set a period between 0.001 and 1 s on the project (Subjects & Projects > Edit Project > Session Defaults).");
 elseif period < 0.001 || period > 1
     r = epsych.SelfTest.result("B5_TimerPeriod", GROUP, "Timer period", "fail", ...
         sprintf('TimerPeriod %.4g s is outside the supported range [0.001, 1].', period), ...
-        Remedy = "Set a period between 0.001 and 1 s in Customize > Options.");
+        Remedy = "Set a period between 0.001 and 1 s on the project (Subjects & Projects > Edit Project > Session Defaults).");
 elseif period < 0.005
     r = epsych.SelfTest.result("B5_TimerPeriod", GROUP, "Timer period", "warn", ...
         sprintf('TimerPeriod %.4g s is very short and will load the CPU heavily.', period), ...
@@ -124,9 +124,10 @@ end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
 % --- B6: in-memory vs persisted preferences ---------------------------
-% Loading a .ecfg overwrites the stored prefs, so drift is informational —
-% but it explains why a rig behaves differently after loading a colleague's
-% configuration.
+% Drift is informational and now usually expected: a project applies its own
+% saving function and box GUI to the session without touching the machine's
+% preferences. It still explains why a rig behaves differently after loading a
+% colleague's configuration.
 t = tic;
 drift = strings(1,0);
 prefSpecs = { ...
@@ -150,7 +151,7 @@ else
     r = epsych.SelfTest.result("B6_PrefDrift", GROUP, "Preference consistency", "info", ...
         sprintf('%d callback(s) differ from the stored preferences.', numel(drift)), ...
         Detail = drift, ...
-        Remedy = "Expected after loading a configuration that carries its own functions.");
+        Remedy = "Expected when a project applied its session defaults, or after loading a configuration that carries its own functions.");
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 

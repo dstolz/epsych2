@@ -28,7 +28,7 @@ dataPath = char(self.RunExpt.dfltDataPath);
 % --- H1: data directory writable ---------------------------------------
 t = tic;
 r = localCheckWritable("H1_DataPath", GROUP, "Data save path", dataPath, ...
-    "Set a writable directory in Customize > Paths.");
+    "Set a writable directory: Customize > Paths for the rig default, or the project's own Data Save Path.");
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
 % --- H2: crash-recovery directory --------------------------------------
@@ -174,7 +174,7 @@ if isempty(which(savingFcn))
     r = epsych.SelfTest.result("H5_SavingFcn", GROUP, "Saving function reachable", "fail", ...
         sprintf('Saving function "%s" does not resolve; data could not be saved.', savingFcn), ...
         Detail = detail, ...
-        Remedy = "Set a valid saving function in Customize > Customize... (Functions tab).");
+        Remedy = "Set a valid saving function on the project (Subjects & Projects > Edit Project > Session Defaults).");
 else
     hasData = isstruct(self.RunExpt.RUNTIME.TRIALS) && isfield(self.RunExpt.RUNTIME.TRIALS, 'DATA');
     r = epsych.SelfTest.result("H5_SavingFcn", GROUP, "Saving function reachable", "pass", ...
@@ -193,7 +193,9 @@ elseif isempty(CONFIG) || ~isfield(CONFIG,'SUBJECT') || ~isa(CONFIG(1).SUBJECT,'
     r = epsych.SelfTest.result("H6_Video", GROUP, "Video recording paths", "skip", ...
         'Video recording is enabled but no subject is configured.');
 else
-    root = strtrim(char(getpref('ep_RunExpt_Video','RecordingRootDir','')));
+    % The session's value, not the preference: a project applies its own when
+    % its subjects are added, and that is what the run will use.
+    root = strtrim(char(self.RunExpt.PATHS.VideoRootDir));
     usedFallback = isempty(root);
     if usedFallback
         root = dataPath;
@@ -218,12 +220,12 @@ else
             r = epsych.SelfTest.result("H6_Video", GROUP, "Video recording paths", "fail", ...
                 sprintf('The recording directory cannot be created: %s', videoDir), ...
                 Detail = detail, ...
-                Remedy = "Set a writable Video Recording Path in Customize > Paths.");
+                Remedy = "Set a writable Video Recording Path for the project (Subjects & Projects > Edit Project > Session Defaults).");
         end
     catch ME
         r = epsych.SelfTest.result("H6_Video", GROUP, "Video recording paths", "fail", ...
             sprintf('Could not resolve the recording path: %s', ME.message), ...
-            Remedy = "Set a valid Video Recording Path in Customize > Paths.");
+            Remedy = "Set a valid Video Recording Path for the project (Subjects & Projects > Edit Project > Session Defaults).");
     end
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];

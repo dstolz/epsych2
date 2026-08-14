@@ -63,7 +63,7 @@ Compilation always happens on an isolated copy of the protocol, so the self-test
 
 **Trial selection** — resolves the configured selector, then drives it for up to 500 selections against the compiled trial table. Verifies every returned ID is an in-range integer and reports coverage, balance, and selection time — flagging anything slower than the 0.25 s the trial loop warns at. Then calls `onComplete`, `setRuntime`, and `onRecompile` to confirm none of them throw.
 
-**Hardware & connections** — inventories the interfaces, then asks each one to check itself (see [section 7](#7-the-hwinterfaceselftest-hook)). Also checks the Intan path preferences for the spaces that RHX commands cannot express.
+**Hardware & connections** — inventories the interfaces, then asks each one to check itself (see [section 7](#7-the-hwinterfaceselftest-hook)). Also checks the Intan recording paths in force for the session — the project's, else the machine's — for the spaces that RHX commands cannot express.
 
 **Data saving** — proves the data directory and the crash-recovery directory are writable by actually writing, reading, and deleting a probe file; replicates the exact per-trial append pattern the trial loop uses and reads the trials back, reporting the per-trial write time; reserves the session filenames and checks they are unique; and, when video recording is enabled, checks that the recording path resolves and pairs with the data filename.
 

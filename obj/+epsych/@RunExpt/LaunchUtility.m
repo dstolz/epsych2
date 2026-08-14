@@ -51,8 +51,8 @@ try
         case "Calibration"
             epsych.calibrate;
         case "VideoConverter"
-            % Seeded for the recorder's output -- the video root from
-            % Customize > Paths (data path when unset) and the .ts the
+            % Seeded for the recorder's output -- the session's video root
+            % (project, else the rig preference, else the data path) and the .ts the
             % recorder writes. Both are editable in the GUI. The setup GUI
             % holds the converter, so RunExpt does not have to.
             c = util.VideoConverter( ...
@@ -76,7 +76,7 @@ function root = videoConverterRoot_(self)
 % Where StartVideoRecording_ writes, so the converter opens on the folder
 % the recordings are actually in. Empty when neither is set, which the GUI
 % shows as an unset root rather than an error.
-root = strtrim(char(getpref('ep_RunExpt_Video','RecordingRootDir','')));
+root = strtrim(char(self.PATHS.VideoRootDir));
 if isempty(root)
     root = char(self.dfltDataPath);
 end

@@ -18,7 +18,10 @@ function report = assignToSession(self, runExpt, subjectIds, options)
 %
 % Options:
 %   ProjectID - project context used to resolve and remember protocols, and
-%               whose BoxGUI is applied to the session's FUNCS.BoxFig.
+%               whose session defaults (box GUI, data path, saving function,
+%               timer period, video and Intan recording paths) are applied to
+%               the session. A field the project leaves empty is inherited from
+%               the session rather than blanked.
 %   BoxIDs    - per-subject box, NaN to auto-assign the lowest free one.
 %   Protocols - per-subject .eprot path, '' to resolve from protocol memory.
 %
@@ -183,11 +186,12 @@ for i = 1:numel(planned)
     end
 end
 
-% The project owns the behavior GUI, so committing its subjects is what puts
-% that GUI on the session. Done after the commit, and only for a project that
-% names one: a project that leaves the field empty must leave the session's own
-% FUNCS.BoxFig alone rather than silently disabling the GUI.
-boxGUI = localApplyBoxGUI(self, runExpt, options.ProjectID);
+% The project owns the settings a paradigm decides -- behavior GUI, where data
+% and recordings are written, which function saves them, how fast the timer
+% runs -- so committing its subjects is what puts them on the session. Done
+% after the commit, and only for the fields the project actually names: an
+% empty one must leave the session's own value alone rather than blanking it.
+notes = localApplySessionDefaults(self, runExpt, options.ProjectID);
 
 runExpt.UpdateSubjectList
 runExpt.CheckReady
@@ -197,8 +201,8 @@ report.message = sprintf('Added %d subject(s) to the session.', numel(report.add
 if ~isempty(report.skipped)
     report.message = sprintf('%s %d skipped.', report.message, numel(report.skipped));
 end
-if ~isempty(boxGUI)
-    report.message = sprintf('%s %s', report.message, boxGUI);
+if ~isempty(notes)
+    report.message = sprintf('%s %s', report.message, strjoin(notes, ' '));
 end
 runExpt.setStatus(report.message);
 
@@ -215,7 +219,89 @@ end
 end
 
 % -----------------------------------------------------------------------
-function note = localApplyBoxGUI(self, runExpt, projectId)
+function notes = localApplySessionDefaults(self, runExpt, projectId)
+% Put the project's session settings on the session, returning short clauses
+% for the report describing what changed.
+%
+% Everything here is applied only when the project names it: an empty field is
+% "inherit", which is also what a roster written before these fields existed
+% says, so a project that only cares about its protocol changes nothing. Values
+% land on the session (FUNCS, dfltDataPath, PATHS) and never in the machine
+% preferences -- running one study must not redefine the rig's own defaults.
+%
+% Nothing here refuses a value. A path that does not exist or a function that
+% is not on the path is the operator's stated intent; it is logged now, at the
+% moment it is applied, rather than surfacing as a puzzle at run start.
+notes = {};
+if isempty(projectId), return, end
+
+p = self.findProject(projectId);
+if isempty(p), return, end
+
+boxNote = localApplyBoxGUI(runExpt, p);
+if ~isempty(boxNote), notes{end+1} = boxNote; end
+
+applied = {};
+
+% Data save path: the root every subject's folder is created under.
+if ~isempty(p.DefaultDataPath) && ~strcmp(char(runExpt.dfltDataPath), p.DefaultDataPath)
+    runExpt.dfltDataPath = string(p.DefaultDataPath);
+    applied{end+1} = 'data path';
+    if ~isfolder(p.DefaultDataPath)
+        vprintf(0, ['Project "%s" saves to "%s", which does not exist yet; ' ...
+            'it is created at run start.'], p.Name, p.DefaultDataPath);
+    end
+end
+
+% Saving function: SaveFcn(RUNTIME), called after the run.
+if ~isempty(p.SavingFcn) && ~strcmp(char(runExpt.FUNCS.SavingFcn), p.SavingFcn)
+    runExpt.FUNCS.SavingFcn = p.SavingFcn;
+    applied{end+1} = 'saving function';
+    if isempty(which(p.SavingFcn))
+        vprintf(0, 1, ['Project "%s" names saving function "%s", which is not on ' ...
+            'the path. The session would end without saving.'], p.Name, p.SavingFcn);
+    end
+end
+
+% Timer period: read by CreateTimer at run start, so applying it here is enough.
+if ~isnan(p.TimerPeriod) && ~isequal(runExpt.FUNCS.TimerPeriod, p.TimerPeriod)
+    runExpt.FUNCS.TimerPeriod = p.TimerPeriod;
+    applied{end+1} = 'timer period';
+end
+
+% Recording roots. Empty on the session means "fall back to the data path", so
+% these are session state rather than preferences: the next session without a
+% project must get the rig's own values back.
+if ~isempty(p.VideoRootDir) && ~strcmp(runExpt.PATHS.VideoRootDir, p.VideoRootDir)
+    runExpt.PATHS.VideoRootDir = p.VideoRootDir;
+    applied{end+1} = 'video path';
+end
+
+if ~isempty(p.IntanRootDir) && ~strcmp(runExpt.PATHS.IntanRootDir, p.IntanRootDir)
+    runExpt.PATHS.IntanRootDir = p.IntanRootDir;
+    applied{end+1} = 'Intan path';
+    if any(isspace(p.IntanRootDir))
+        vprintf(0, 1, ['Project "%s" names Intan recording path "%s", which contains ' ...
+            'spaces. RHX commands cannot express them and recording will fail.'], ...
+            p.Name, p.IntanRootDir);
+    end
+end
+
+% The protocol's own settings file still wins over this one; see
+% epsych.RunExpt.configureIntanRecorder_.
+if ~isempty(p.IntanSettingsFile) && ~strcmp(runExpt.PATHS.IntanSettingsFile, p.IntanSettingsFile)
+    runExpt.PATHS.IntanSettingsFile = p.IntanSettingsFile;
+    applied{end+1} = 'Intan settings file';
+end
+
+if ~isempty(applied)
+    vprintf(1, 'Project "%s" set the session %s.', p.Name, strjoin(applied, ', '));
+    notes{end+1} = sprintf('Project %s applied.', strjoin(applied, ', '));
+end
+end
+
+% -----------------------------------------------------------------------
+function note = localApplyBoxGUI(runExpt, p)
 % Put the project's behavior GUI on the session, returning a one-clause note
 % for the report when it changed anything.
 %
@@ -226,10 +312,7 @@ function note = localApplyBoxGUI(self, runExpt, projectId)
 % GUI to the path later would be badly served by having it silently dropped --
 % but it is logged now rather than at run start.
 note = '';
-if isempty(projectId), return, end
-
-p = self.findProject(projectId);
-if isempty(p) || isempty(p.BoxGUI), return, end
+if isempty(p.BoxGUI), return, end
 
 if strcmpi(p.BoxGUI, epsych.SubjectRoster.BOXGUI_NONE)
     wanted = '';

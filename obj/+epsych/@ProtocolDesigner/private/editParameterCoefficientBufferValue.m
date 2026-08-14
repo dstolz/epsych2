@@ -92,7 +92,7 @@ function [coefValue, cancelled] = editParameterCoefficientBufferValue(obj, param
     end
 
     function onExtractFromCalibration(~, ~)
-        startPath = obj.getLastBrowseDirectory();
+        startPath = obj.getGuiPreference('RecentCalibrationDirectory', '');
         if isempty(startPath) || ~isfolder(startPath)
             startPath = pwd;
         end
@@ -104,7 +104,7 @@ function [coefValue, cancelled] = editParameterCoefficientBufferValue(obj, param
         if isequal(fileName, 0)
             return
         end
-        obj.setLastBrowseDirectory(pathName);
+        obj.saveGuiPreference('RecentCalibrationDirectory', pathName);
         calibrationFile = fullfile(pathName, fileName);
 
         try

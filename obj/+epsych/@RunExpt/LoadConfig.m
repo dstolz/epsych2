@@ -107,7 +107,9 @@ hint = '';
 if isempty(CONFIG) || ~isa(CONFIG(1).SUBJECT, 'epsych.Subject'), return, end
 
 R = epsych.SubjectRoster();
-if ~isempty(R.LoadError), return, end
+% Nothing to be missing from a roster this rig has not chosen yet, and this
+% hint is not the place to ask for one.
+if ~R.IsBound || ~isempty(R.LoadError), return, end
 
 missing = 0;
 for i = 1:numel(CONFIG)

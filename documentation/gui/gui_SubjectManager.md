@@ -31,6 +31,16 @@ A lab that points `FUNCS.AddSubjectFcn` at its own dialog keeps working: **New S
 
 Under the toolbar, a single line names the roster file in effect (`Roster: subjects.esub`, turning amber and adding `(read-only)` when it cannot be written); its tooltip is the full path. Two rigs can be pointed at different rosters, and everything below acts on this one.
 
+### The first time: choosing where the roster lives
+
+EPsych keeps **no default location** for subjects and projects — see [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#where-the-file-lives--there-is-no-default) for why the old `prefdir` fallback was a bad place for a lab's only copy.
+
+So on a rig that has never been pointed at one, this window opens *unbound*: the header reads `Roster: (no file chosen)`, the table is replaced by an explanation of the choice, and every action is switched off **except New Project, New Subject, and Import** — clicking one of those is how the operator is asked, and their tooltips say so before the click.
+
+The prompt (`ensureRoster_`) has exactly two exits: name a file, or close the window. Cancelling the file browser asks again. Nothing offers to proceed without a roster, because that would mean filling in an animal or a project with nowhere to save it — and the first file chosen here adopts the roster an older build accumulated under `prefdir`, by copy, so an existing rig does not appear to have lost its animals.
+
+Browsing never prompts. A roster is only demanded by an action that writes.
+
 ### Toolbar
 
 Fifteen tools in five groups, left to right, in the order the work happens:
@@ -72,7 +82,19 @@ The project **currently selected is never hidden**, even with the toggle off. Ar
 
 ### The project dialog
 
-**New Project...** / **Edit Project...** hold the project's name, notes, its bookkeeping (**Investigator**, **IACUC Protocol**), its **Links**, an **Archived** checkbox, and the three things it applies to a session: **Default Protocol**, **Default Data Path**, and **Box GUI**.
+**New Project...** / **Edit Project...** has two tabs.
+
+**Project** holds the identity: name, notes, its bookkeeping (**Investigator**, **IACUC Protocol**), its **Links**, and an **Archived** checkbox.
+
+**Session Defaults** holds what the project applies to a session when its subjects are added: **Default Protocol**, **Data Save Path**, **Saving Function**, **Box GUI**, **Timer Period**, **Video Recording Path**, **Intan Recording Path**, and **Intan Settings File**. Most of these were RunExpt's **Customize** dialog until they moved here — see [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#a-project-owns-the-session-settings) for how each one reaches the session, and [the RunExpt overview](../overviews/RunExpt_GUI_Overview.md#7-customization) for what stayed behind as a machine setting.
+
+#### Nothing on that tab opens blank
+
+Every session default arrives already filled in: from **the value last used in this dialog**, else from this machine's own preference (`ep_RunExpt_FUNCS`, `ep_RunExpt_Video`, `ep_RunExpt_Intan`, `RunExpt/DataPath`). The recents are stored per field under `ep_RunExpt_Subjects` as `Recent<Field>`, capped at 12, most-recent-first, and written only when OK is accepted — a cancelled or refused dialog must not seed the next project with a typo. They are *user* preferences, not roster contents, so two rigs sharing one roster still propose their own drives.
+
+OK refuses a blank Data Save Path, Saving Function, Video Recording Path, or Intan Recording Path. A blank one would silently inherit whatever the previous study left on the rig, which is the ambiguity moving these here was meant to remove. Two fields may stay empty on purpose: **Default Protocol**, because a study is usually created before its protocol exists, and **Intan Settings File**, because there is no default file to propose and the `.eprot` usually carries its own.
+
+The Intan paths are refused if they contain spaces, which RHX commands cannot express; the saving function is tinted pale red if it does not resolve or does not take `(RUNTIME)` and return nothing.
 
 Links are an editable two-column table — a table rather than a growing stack of edit fields, because the count is unbounded and both columns are free text — with **Add**, **Remove**, and **Open** beside it. *Open* is there so an address can be checked before it is saved rather than after.
 
@@ -84,9 +106,11 @@ Addresses are validated **in the dialog**, not only on commit, so a refusal arri
 | `(none)` | Run this project with no behavior GUI |
 | a function or class name | Launch it at run start, `feval(name, RUNTIME)` |
 
-The dropdown is editable, and its list is drawn from **the box GUIs other projects in this roster already use** plus `ep_GenericGUI` — not from the session's `RecentBoxFig` preference. The roster is the shared thing, so a rig that has never run a paradigm still proposes its GUI, and the dialog works with no session open. A typed name that does not resolve on the path is tinted the same pale red the Customize dialog uses, but is still accepted: a lab may add its GUI to the path later.
+The dropdown is editable, and its list is drawn from **the box GUIs other projects in this roster already use**, the recently-used ones, and `ep_GenericGUI` — not from the session's `RecentBoxFig` preference. The roster is the shared thing, so a rig that has never run a paradigm still proposes its GUI, and the dialog works with no session open. A typed name that does not resolve on the path is tinted pale red but still accepted: a lab may add its GUI to the path later.
 
-**This is where the box GUI is configured.** It was **Customize → Box GUI Function**; the GUI belongs to a paradigm rather than to a rig, and a rig alternating between two studies had to be re-pointed by hand between sessions. Customize now leaves a grey line in that field's place saying where it went. See [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#a-project-owns-the-box-gui) for how the three states reach `FUNCS.BoxFig`.
+`(session default)` is reachable but is not what a new project opens on — like every other session default, the field is seeded with a real value.
+
+**This is where the box GUI is configured.** It was **Customize → Box GUI Function**; the GUI belongs to a paradigm rather than to a rig, and a rig alternating between two studies had to be re-pointed by hand between sessions. Customize now leaves a grey line in that field's place saying where it went. See [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#the-box-gui-in-three-states) for how the three states reach `FUNCS.BoxFig`.
 
 ### Columns
 

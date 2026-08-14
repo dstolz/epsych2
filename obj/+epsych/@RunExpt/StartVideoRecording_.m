@@ -29,10 +29,12 @@ if isempty(self.RUNTIME.SessionDataFilename)
 end
 
 try
-    root = strtrim(char(getpref('ep_RunExpt_Video','RecordingRootDir','')));
+    % PATHS is the session's value: the rig preference unless the project whose
+    % subjects are in this session named its own.
+    root = strtrim(char(self.PATHS.VideoRootDir));
     if isempty(root)
         root = char(self.dfltDataPath);
-        vprintf(0,'No Video Recording Path set (Customize > Paths); recording under Data Save Path "%s"',root)
+        vprintf(0,'No Video Recording Path set (project > Session Defaults); recording under Data Save Path "%s"',root)
     end
 
     % Name the recording after subject 1's reserved data file so the video and

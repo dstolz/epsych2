@@ -15,6 +15,8 @@ R.assignToSession(runExpt, ids, ProjectID=p);   % boxes, protocols, box GUI appl
 
 > **Status: under development.** Run `tmp/smoke_test_subject_roster.m` after any change.
 
+> **There is no default file location.** `epsych.SubjectRoster` with no argument opens whatever this workstation has been pointed at, and opens **unbound** — empty and refusing to write — until an operator names one. See [Where the file lives](#where-the-file-lives--there-is-no-default).
+
 ---
 
 ## Why a join table
@@ -24,7 +26,7 @@ Membership is many-to-many — one animal can be in several studies — **and** 
 | Array | Holds |
 |---|---|
 | `Subjects` | `SubjectID`, `Name`, `Sex`, `Species`, `Weight`, `Notes`, `NameHistory`, `Retired`, `ImportedFrom`, `Created`, `Modified` |
-| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `BoxGUI`, `Links`, `Archived`, `Created`, `Modified` |
+| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `SavingFcn`, `TimerPeriod`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `BoxGUI`, `Links`, `Archived`, `Created`, `Modified` |
 | `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastProtocolVersion`, `LastBoxID`, `ProtocolHistory`, `Added`, `Modified` |
 
 `Active` is the per-project archive flag. `setActive(s, p, false)` retires a subject from **that project only**; it stays active everywhere else and keeps its protocol memory, which is what makes retiring reversible in one click and `deleteSubject` a last resort.
@@ -39,11 +41,29 @@ S = R.toSubject(subjectId, BoxID=4);   % an epsych.DefaultSubject
 
 This is why `epsych.Subject` needs no subclassing and its `isValid()` contract (`BoxID >= 1`) is never violated by a roster record. `fromSubject` is the reverse, and drops the box.
 
-### A project owns the box GUI
+### A project owns the session settings
 
-The behavior GUI belongs to a paradigm, and a paradigm is what a project is — so `BoxGUI` is a project field, not a per-rig preference. It used to be **Customize → Box GUI Function**, which meant every rig running two paradigms had to be re-pointed by hand between sessions, and a rig set up for one study silently launched the wrong GUI for the other.
+What a paradigm decides is a project field, not a per-rig preference. These used to be RunExpt's **Customize** dialog, which meant every rig running two paradigms had to be re-pointed by hand between sessions, and a rig set up for one study silently ran the other with the wrong saving function, timer period, or recording root. What is left in Customize is what genuinely describes the machine: the config browser root, the log path and viewer, the roster file, the add-subject dialog, and the rig's default data path.
 
-`assignToSession` applies it: committing a project's subjects is what puts that project's GUI on the session's `FUNCS.BoxFig`. Three states, because "inherit" and "launch nothing" are different answers:
+`assignToSession` applies them, after the subjects are committed:
+
+| Project field | Applied to | Notes |
+|---|---|---|
+| `DefaultDataPath` | `RunExpt.dfltDataPath` | The root every subject folder is created under. |
+| `SavingFcn` | `RunExpt.FUNCS.SavingFcn` | `SaveFcn(RUNTIME)`; logged at level 0 if it is not on the path. |
+| `TimerPeriod` | `RunExpt.FUNCS.TimerPeriod` | `NaN` inherits. Read by `CreateTimer` at run start, so applying it here is enough. |
+| `VideoRootDir` | `RunExpt.PATHS.VideoRootDir` | Empty still falls back to the data path. |
+| `IntanRootDir` | `RunExpt.PATHS.IntanRootDir` | Logged at level 0 if it contains spaces, which RHX cannot express. |
+| `IntanSettingsFile` | `RunExpt.PATHS.IntanSettingsFile` | A protocol that names its own settings file still wins over this. |
+| `BoxGUI` | `RunExpt.FUNCS.BoxFig` | Three states; see below. |
+
+Two rules hold across all of them. **Empty is "inherit"** — a project that does not name a field leaves the session's value alone, which is the only meaning a roster written before these fields existed can have. And **nothing is written back to the machine's preferences**: a session follows the study it is running, and the next session without a project gets the rig's own values back. `RunExpt.PATHS` exists for exactly that reason — the recording roots used to be read from `getpref` at the moment of use, which left a project no way to override them for one session only.
+
+[`gui.SubjectManager`](../gui/gui_SubjectManager.md#the-project-dialog)'s project dialog fills every one of these in before the operator sees it, so a project created there is never partly empty.
+
+#### The box GUI, in three states
+
+Committing a project's subjects is what puts that project's GUI on the session's `FUNCS.BoxFig`. Three states, because "inherit" and "launch nothing" are different answers:
 
 | `BoxGUI` | Effect on `FUNCS.BoxFig` |
 |---|---|
@@ -111,6 +131,40 @@ A typo discovered after the first session is therefore not correctable here. Tha
 
 ---
 
+## Where the file lives — there is no default
+
+**EPsych does not choose a roster location, and there is no fallback.** `configuredFile` returns `''` until an operator answers, `isConfigured` reports whether they have, and a roster constructed with no path is **unbound**: it reads as empty, `IsBound` is false, `IsWritable` is false, and `mutate_` throws `epsych:SubjectRoster:NoFile` rather than inventing somewhere to write.
+
+Older builds fell back to `<prefdir>/epsych/subjects.esub`. That was the wrong place for the only copy of a lab's animal records on two counts: `prefdir` is **release-specific**, so upgrading MATLAB silently produced an empty roster, and nothing about it is anywhere an operator would think to look, back up, or point a second rig at. The choice between *one shared file on a network drive* and *a private file per workstation* is a decision only the lab can make, so it is asked rather than guessed.
+
+### Who asks, and when
+
+[`gui.SubjectManager`](../gui/gui_SubjectManager.md) opens fine with no file chosen — browsing is harmless, so it explains itself and waits. The demand comes from `ensureRoster_` at the **first action that would write something**: New Project, New Subject, or Import. That prompt is a loop with two exits, choosing a file or closing the window; "carry on without one" is not offered, because it would mean filling in a record with nowhere to save it.
+
+A file can also be named ahead of time, from `Subjects > Roster File...` or the Paths tab of Customize. The file itself need not exist: naming a new shared roster before there is anything to put in it is the normal way to start one.
+
+### Adopting the old per-user file
+
+The **first** file ever chosen through an operator-facing chooser adopts whatever an older build left under `prefdir`, so upgrading a rig does not look like losing its animals. `legacyFile` searches the current `prefdir` **and its sibling release folders**, newest first — the roster built under R2024a is exactly the one worth keeping when the rig moves to R2024b.
+
+It is a **copy**: the original is left in place as a backup, and nothing is ever moved or deleted. It happens once, guarded on *no roster having been configured before* — re-pointing a working rig at a new empty file is a deliberate fresh start, and filling it from a file the operator has stopped using would be the opposite of what they asked for.
+
+Adoption is opt-in at the call site (`setConfiguredFile(path, AdoptLegacy=true)`), so a script or a test that names a fresh roster gets a fresh roster. The choosers pass it; typing a path into Customize does not.
+
+### What `setConfiguredFile` checks
+
+Validation happens when the file is chosen, not at the first save, so an unusable path is reported while the file dialog is still in mind:
+
+| Check | Behaviour |
+|---|---|
+| Relative path | Resolved against the current folder and stored absolute — the preference outlives whatever folder MATLAB was in. |
+| Path names a folder | `epsych:SubjectRoster:PathIsFolder`. `movefile` onto a directory *succeeds* by moving the file inside it. |
+| No extension | `.esub` is appended. |
+| Parent folder missing | Created now, or `epsych:SubjectRoster:FolderNotWritable`. |
+| `''` | Clears the preference. The rig then has **no** roster, not a private one. |
+
+---
+
 ## Sharing one file between rigs
 
 Point every rig at the same file (`Subjects > Roster File...`, or the Paths tab of Customize) and they share one roster.
@@ -130,6 +184,7 @@ The one genuinely lossy case is two rigs editing the **same record** between rel
 
 | Situation | Behaviour |
 |---|---|
+| No file chosen | Empty roster, `IsBound` false, **not** writable, and `LoadError` stays empty — nothing failed, the question has simply not been answered. Mutations throw `epsych:SubjectRoster:NoFile`. |
 | File does not exist | Empty roster, writable. It is created on the first mutation, so merely opening the manager leaves nothing on disk. |
 | File unparseable | Empty roster, **not** writable, `LoadError` set. A corrupt file is never overwritten with whatever little was recovered. |
 | Path names a folder | Rejected on read and on write. `movefile` onto a directory *succeeds* by moving the file inside it, so this would otherwise look like a working save that stored nothing. |
@@ -204,7 +259,7 @@ The same reasoning covers `Investigator`, `IACUCProtocol`, `Links`, and `Archive
 
 ## Committing to a session
 
-`assignToSession(runExpt, subjectIds, ...)` resolves a free box and a protocol for each subject, validates **everything** up front, then writes into `CONFIG` through `epsych.RunExpt.appendSubjectToConfig_` (which owns the slot-1-reuse rule shared with `AddSubject`), and finally applies the project's [`BoxGUI`](#a-project-owns-the-box-gui).
+`assignToSession(runExpt, subjectIds, ...)` resolves a free box and a protocol for each subject, validates **everything** up front, then writes into `CONFIG` through `epsych.RunExpt.appendSubjectToConfig_` (which owns the slot-1-reuse rule shared with `AddSubject`), and finally applies the project's [session settings](#a-project-owns-the-session-settings).
 
 It is all-or-nothing where partial success would be worse than none:
 
@@ -237,7 +292,7 @@ Group **`ep_RunExpt_Subjects`**:
 
 | Key | Meaning |
 |---|---|
-| `RosterFile` | Full path. Unset ⇒ `<prefdir>/epsych/subjects.esub`, this user only. |
+| `RosterFile` | Full path, always absolute. **Unset means no roster**, not a default one — Subjects & Projects asks before it saves anything. |
 | `LastProject` | Struct **keyed by roster path** → project ID, so re-pointing the file cannot restore a project belonging to a different roster. |
 | `ShowRetired` | The manager's retired toggle. |
 | `ShowArchived` | The manager's archived-projects toggle. |

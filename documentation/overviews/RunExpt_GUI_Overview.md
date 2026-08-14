@@ -51,7 +51,7 @@ A typical session looks like this:
 
 1. (If needed) Build and save a protocol (`*.eprot`) using the [Protocol Designer](../design/ProtocolDesigner_UserGuide.md).
 2. Launch the GUI: `epsych.RunExpt`.
-3. (Recommended) Set a default data directory: **Customize → Customize... → Data Path**.
+3. (Recommended) Set a default data directory: **Customize → Customize... → Data Save Path** for the rig, or per study in **Edit Project → Session Defaults**.
 4. Add one or more subjects:
    - Click the **Subjects** toolbar button (or **Subjects → Subjects & Projects...**, Ctrl+B).
    - Pick a project on the left, tick the animals running today, and press **Add Checked to Session**. Each one gets a free box and the protocol it last ran.
@@ -146,7 +146,7 @@ When you click **Run** or **Preview**, RunExpt:
 - Validates each subject's protocol and compiles it if needed.
 - Connects the hardware interfaces defined in the protocol (TDT, Intan, software, etc.). Hardware connections persist between runs within the same session, so a rerun does not reconnect from scratch.
 - Creates a temporary data directory (a `DATA` folder next to the repository) with one crash-recovery `.mat` file per subject.
-- Creates the trial timer (`PsychTimer`, default period 0.01 s; configurable via **Customize**).
+- Creates the trial timer (`PsychTimer`, default period 0.01 s; set per project in **Edit Project → Session Defaults**).
 - Sets the hardware mode to Record or Preview and starts the timer.
 - Launches the behavior GUI if one is configured — the box GUI of the project whose subjects were added (see **Subjects & Projects**), or the session default when no project named one.
 
@@ -194,27 +194,43 @@ RunExpt session configurations are stored in MAT-files with the extension `*.ecf
 
 ## 7) Customization
 
-All customization lives in a single dialog: **Customize → Customize...**. Values are stored in MATLAB preferences and are also saved/restored with `*.ecfg` files.
+Settings are split by **what owns them**. This dialog — **Customize → Customize...** — holds what describes *this machine*; everything a *paradigm* decides lives on the project instead, in **Subjects → Subjects & Projects → Project → Edit Project... → Session Defaults**, and is applied to the session when that project's subjects are added. A rig alternating between two studies used to be re-pointed by hand between sessions; now it follows the animals it is running.
+
+### 7.1 Machine settings — Customize → Customize...
+
+Values are stored in MATLAB preferences and are also saved/restored with `*.ecfg` files.
 
 | Setting | Purpose | Default |
 | --- | --- | --- |
-| Saving Function | Called to save data after Stop/Error. Signature: `SavingFcn(RUNTIME)` (1 input, 0 outputs). | `ep_SaveDataFcn` |
 | Add Subject Function | Dialog used by **New Subject...** and **Edit Subject Details...**. | `epsych.DefaultSubject.open` |
-| Subject Roster File | The `.esub` roster behind **Subjects & Projects**. Put it on a shared drive and point every rig at it to share one roster. Leave empty for a per-user file under `prefdir`. | — |
-| Data Path | Default root folder used to suggest data filenames. | current directory |
+| Data Save Path | The rig's default data root: used when no project overrides it, and the value a new project starts from. | current directory |
 | Config Browser Root | Folder scanned by **Config → Browse Configs...**. | — |
-| Video Recording Path | Root folder for webcam recordings made with the **Record video** toolbar toggle. Files are saved to `<root>\<subject>\<subject>_<yyMMddTHHmmss>.ts`, named after the behavioral data file whether the recording starts with the run or is switched on mid-session. Stopping and restarting recording within one session appends `-2`, `-3`, … to the later segments so nothing is overwritten. Leave empty to fall back to the Data Path. | — |
-| Intan Recording Path | Root folder for Intan RHX recordings when an `hw.Intan_RHX` interface is in the protocol. Files save under `<root>\<subject>\` named after the data file (RHX appends its own `_<timestamp>`). **Must contain no spaces.** Leave empty to fall back to the Data Path. | — |
-| Intan Settings File | RHX `.xml` settings file loaded when the Intan interface connects. **Must contain no spaces.** Leave empty to load none. | — |
 | Error Log Path | Directory the daily EPsych error log is written to. **Must be an absolute path.** Leave empty for the default. | `<EPsych root>\.error_logs` |
 | Error Log Viewer | Application used by **Help → Open Current Error Log (External Viewer)**. Leave empty for the platform default. | `notepad.exe` (Windows) |
-| Timer Period (s) | PsychTimer callback period (0.001–1 s). | 0.01 |
+| Subject Roster File | The `.esub` roster behind **Subjects & Projects**. Put it on a shared drive and point every rig at it to share one roster. **There is no default:** left empty, Subjects & Projects asks for a location before it saves anything. | — |
 
-**The Box GUI is not here.** It is a property of a project, set in **Subjects → Subjects & Projects → Project → Edit Project...**, and applied to the session when that project's subjects are added — see [`gui.SubjectManager`](../gui/gui_SubjectManager.md#the-project-dialog). The Functions tab keeps a grey line where the old field was, pointing there. A project can set no box GUI at all; the session still runs, you just will not get a live performance GUI.
+The Functions and Paths tabs each keep a grey line where the moved fields were, naming where they went.
+
+### 7.2 Project settings — Edit Project → Session Defaults
+
+Each of these is applied to the live session by `epsych.SubjectRoster.assignToSession`, and only when the project names it: an empty field leaves the session's own value alone. Projects made through the dialog are never empty — every field arrives pre-filled from the value last used there, else from this machine's own setting — so "empty" in practice means an older roster or a project built by a script. Nothing here is written back to the machine's preferences.
+
+| Setting | Purpose | Default |
+| --- | --- | --- |
+| Default Protocol | `.eprot` applied to a member with no protocol of its own. The one field that may stay empty: a study often exists before its protocol does. | — |
+| Data Save Path | Root this project's data is written under, `<path>\<subject>\`. | the rig's Data Save Path |
+| Saving Function | Called to save data after Stop/Error. Signature: `SavingFcn(RUNTIME)` (1 input, 0 outputs). | `ep_SaveDataFcn` |
+| Box GUI | Behavior GUI launched at run start, `feval(BoxFig, RUNTIME)`. `(none)` runs none; `(session default)` leaves whatever the session has. | `ep_GenericGUI` |
+| Timer Period (s) | PsychTimer callback period (0.001–1 s). | 0.01 |
+| Video Recording Path | Root for webcam recordings made with the **Record video** toolbar toggle. Files are saved to `<root>\<subject>\<subject>_<yyMMddTHHmmss>.ts`, named after the behavioral data file whether the recording starts with the run or is switched on mid-session. Stopping and restarting recording within one session appends `-2`, `-3`, … to the later segments so nothing is overwritten. Falls back to the Data Save Path when unset. | — |
+| Intan Recording Path | Root for Intan RHX recordings when an `hw.Intan_RHX` interface is in the protocol. Files save under `<root>\<subject>\` named after the data file (RHX appends its own `_<timestamp>`). **Must contain no spaces.** Falls back to the Data Save Path when unset. | — |
+| Intan Settings File | RHX `.xml` settings file loaded when the Intan interface connects. **Must contain no spaces.** A protocol that names its own wins over this; leave empty to load none. | — |
+
+A project can set no box GUI at all; the session still runs, you just will not get a live performance GUI.
 
 The webcam device itself (camera, frame rate, resolution, crop) is configured separately in **Utilities → Video → Webcam Recorder Setup...**.
 
-The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` preference group (per machine, like the webcam settings) and are applied to every `hw.Intan_RHX` interface at run time. RHX names its files with a mandatory `_<timestamp>` suffix, so the Intan `.rhd`/`.rhs`, the behavioral `.mat`, and the webcam `.ts` are paired by shared filename prefix rather than exact equality.
+The recording paths in force for a session live on `RunExpt.PATHS`, seeded from the per-machine `ep_RunExpt_Video` / `ep_RunExpt_Intan` preference groups and overwritten by a project. They are applied to every `hw.Intan_RHX` interface at run time. RHX names its files with a mandatory `_<timestamp>` suffix, so the Intan `.rhd`/`.rhs`, the behavioral `.mat`, and the webcam `.ts` are paired by shared filename prefix rather than exact equality.
 
 ## 8) Menus reference
 
@@ -222,8 +238,8 @@ The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` 
 - **Subjects**: everything about who is in the session and who exists in the lab.
   - Subjects & Projects... (`Ctrl+B`) — the [subject manager](../gui/gui_SubjectManager.md). Available in every state, including during a run, so an animal's notes stay readable mid-session.
   - Remove Selected Subject — takes the selected row out of the session; the roster is untouched.
-  - Roster File... — chooses the `.esub` roster this rig uses. Point several rigs at one file on a shared drive to share a roster; leave it unset for a per-user file.
-- **Customize**: Customize... (all settings above).
+  - Roster File... — chooses the `.esub` roster this rig uses. Point several rigs at one file on a shared drive to share a roster. There is no default location and no fallback: until this is answered once — here, or when Subjects & Projects asks at the first project — the rig has no roster. The first file named adopts the roster older builds kept under `prefdir`, by copy.
+- **Customize**: Customize... (the machine settings in [7.1](#71-machine-settings--customize--customize)).
 - **Utilities**: the standalone tools that ship with the toolbox, opened from the session window instead of the command line. Each opens its own window with its own lifecycle; RunExpt keeps no handle on it, and a tool that fails to open reports on the status bar rather than interrupting the session.
   - Protocol Designer... (`Ctrl+P`) — opens an empty designer for building a new protocol (`epsych.ProtocolDesigner`). To edit the protocol a subject is already using, right-click that subject instead (see [Working with protocols](#4-working-with-protocols)). See [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md).
   - Teensy Trial Designer... — builds and simulates the state table a Teensy board executes (`teensy.TrialDesigner`); see [../teensy/teensy_TrialDesigner_UserGuide.md](../teensy/teensy_TrialDesigner_UserGuide.md).
@@ -235,7 +251,7 @@ The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` 
     - Webcam Recorder Setup... (`Ctrl+W`) — camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md).
     - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the status bar shows a matching amber banner at its right end. Select it again to close the view.
       - The item is available during a session as well as between runs. Opening or closing the view restarts VLC, which stalls the trial loop for about a second (up to eight when closing), so prefer to do it between trials. A view opened before **Run** stays open through a session; if that session is recording, the recording takes over the camera and the live view closes. The item refuses while a recording is in progress, since that recording's own window already shows the stream.
-    - **Batch Video Converter...** — converts recordings already on disk to another format with ffmpeg (`util.VideoConverter` through `gui.VideoConverterSetup`). It opens on the **Video Recording Path** from **Customize → Paths** (the Data Save Path when that is unset) with the file pattern set to the `.ts` files the recorder writes; both, and every encoding option, are editable in the window. The converter only reads and writes files, so it stays available while a session is running — though an encode competes with the session for CPU. See [../util/VideoConverter.md](../util/VideoConverter.md).
+    - **Batch Video Converter...** — converts recordings already on disk to another format with ffmpeg (`util.VideoConverter` through `gui.VideoConverterSetup`). It opens on the session's **Video Recording Path** — the project's, else this machine's (the Data Save Path when neither is set) with the file pattern set to the `.ts` files the recorder writes; both, and every encoding option, are editable in the window. The converter only reads and writes files, so it stays available while a session is running — though an encode competes with the session for CPU. See [../util/VideoConverter.md](../util/VideoConverter.md).
 - **View**:
   - Always On Top (also available as the pushpin toolbar toggle).
   - Version Info (`Ctrl+I`) — toolbox version, git commit, and links. A **Worktree** row appears when the session is running from a git worktree rather than the main checkout; the worktree name is also appended to the window title, in brackets, and saved with the session metadata.

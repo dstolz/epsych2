@@ -127,7 +127,7 @@ Each side panel's height is computed from the rows it declares, and an owned win
 
 ### From the session window
 
-`epsych.RunExpt` opens the same GUI from **Utilities → Video → Batch Video Converter...**, on a converter seeded for the recorder's output: `RootFolder` is the **Video Recording Path** from **Customize → Paths** (falling back to the Data Save Path, and left unset when neither folder exists) and `FilePattern` is `(?i)\.ts$`, the extension `hw.VlcRecorder` writes. Both are editable in the window, and the item stays enabled while a session runs — the converter only reads and writes files, though an encode does compete with the session for CPU.
+`epsych.RunExpt` opens the same GUI from **Utilities → Video → Batch Video Converter...**, on a converter seeded for the recorder's output: `RootFolder` is the session's **Video Recording Path** — the project's, else this machine's (falling back to the Data Save Path, and left unset when neither folder exists) and `FilePattern` is `(?i)\.ts$`, the extension `hw.VlcRecorder` writes. Both are editable in the window, and the item stays enabled while a session runs — the converter only reads and writes files, though an encode does compete with the session for CPU.
 
 ## Verification
 

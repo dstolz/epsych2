@@ -6,9 +6,9 @@ function updateProject(self, id, P)
 % engine-owned and ignored if supplied. A project has no data folder of its
 % own, so unlike a subject it can always be renamed.
 %
-% Links and Archived are handled apart from the text fields because they are
-% not text: char(string(...)) would turn a link array into a character matrix
-% and false into the empty string.
+% Links, Archived, and TimerPeriod are handled apart from the text fields
+% because they are not text: char(string(...)) would turn a link array into a
+% character matrix, false into the empty string, and 0.01 into '0.01'.
 %
 % Parameters:
 %   id - ProjectID or current Name.
@@ -21,6 +21,7 @@ function updateProject(self, id, P)
 %   epsych:SubjectRoster:InvalidName
 %   epsych:SubjectRoster:DuplicateName
 %   epsych:SubjectRoster:UnsafeLink
+%   epsych:SubjectRoster:InvalidTimerPeriod
 %
 % See also: epsych.SubjectRoster.addProject, epsych.SubjectRoster.deleteProject,
 %   epsych.SubjectRoster.makeLink
@@ -56,6 +57,15 @@ if isfield(P, 'Links')
     newLinks = epsych.SubjectRoster.normalizeLinks_(P.Links, Validate = true);
 end
 
+newPeriod = [];
+if isfield(P, 'TimerPeriod')
+    newPeriod = localToPeriod(P.TimerPeriod);
+    if ~isnan(newPeriod) && (newPeriod < 0.001 || newPeriod > 1)
+        error('epsych:SubjectRoster:InvalidTimerPeriod', ...
+            'TimerPeriod must be between 0.001 and 1 s, or NaN to inherit the session period.');
+    end
+end
+
 projectId = rec.ProjectID;
 self.mutate_(@applyUpdate);
 
@@ -69,7 +79,8 @@ vprintf(2, 'Updated project "%s".', rec.Name);
         end
 
         for f = ["Name" "Notes" "Investigator" "IACUCProtocol" ...
-                 "DefaultProtocol" "DefaultDataPath" "BoxGUI"]
+                 "DefaultProtocol" "DefaultDataPath" "SavingFcn" ...
+                 "VideoRootDir" "IntanRootDir" "IntanSettingsFile" "BoxGUI"]
             if isfield(P, f)
                 cur.(f) = char(string(P.(f)));
             end
@@ -77,6 +88,10 @@ vprintf(2, 'Updated project "%s".', rec.Name);
 
         if isfield(P, 'Links')
             cur.Links = newLinks;
+        end
+
+        if isfield(P, 'TimerPeriod')
+            cur.TimerPeriod = newPeriod;
         end
 
         if isfield(P, 'Archived')
@@ -88,6 +103,21 @@ vprintf(2, 'Updated project "%s".', rec.Name);
         r.Projects(k) = cur;
     end
 
+end
+
+% -----------------------------------------------------------------------
+function p = localToPeriod(v)
+% Accept what an edit field, a script, or a hand-edited struct is likely to
+% hold. An empty value means "inherit", the same as NaN, so a caller clearing
+% the field does not have to know which empty the record uses.
+if ischar(v) || isstring(v)
+    v = str2double(v);
+end
+if isempty(v)
+    p = NaN;
+else
+    p = double(v(1));
+end
 end
 
 % -----------------------------------------------------------------------

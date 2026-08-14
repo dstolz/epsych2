@@ -77,6 +77,11 @@ function localUpdateRoster(S, oldName)
 % unreachable share must not undo an edit the operator already confirmed.
 try
     R = epsych.SubjectRoster();
+    if ~R.IsBound
+        vprintf(2, 'No subject roster is configured; the session edit was not mirrored.');
+        return
+    end
+
     rec = R.findSubject(oldName);
     if isempty(rec)
         vprintf(2, 'No roster record matches "%s"; the session edit was not mirrored.', ...

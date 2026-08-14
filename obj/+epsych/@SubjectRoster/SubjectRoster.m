@@ -34,8 +34,15 @@ classdef SubjectRoster < handle
     % animal. A subject is materialized into an epsych.DefaultSubject at the
     % moment it is assigned to a session; see toSubject.
     %
+    % There is no default file. A roster constructed before an operator has
+    % chosen one is UNBOUND: it reads as empty, reports IsBound false, and
+    % refuses every mutation, so the choice can be demanded at the moment it
+    % first matters instead of being guessed at install time. See
+    % configuredFile for why guessing is the wrong answer.
+    %
     % Properties (read-only):
-    %   FilePath    - Full path to the .esub file backing this roster
+    %   FilePath    - Full path to the .esub file backing this roster, or ''
+    %   IsBound     - False until a roster file has been chosen
     %   Subjects    - (1,:) struct array of subject records
     %   Projects    - (1,:) struct array of project records
     %   Memberships - (1,:) struct array joining subjects to projects
@@ -58,7 +65,7 @@ classdef SubjectRoster < handle
     %   importFromConfig, exportTable       - migration
     %
     % Static methods:
-    %   defaultFile, configuredFile, setConfiguredFile
+    %   configuredFile, setConfiguredFile, isConfigured, legacyFile
     %   newId, isNameSafe
     %   emptySubject, emptyProject, emptyMembership, emptyLink
     %   makeLink, isSafeUrl, openLink       - project links
@@ -79,8 +86,12 @@ classdef SubjectRoster < handle
     % See also: documentation/epsych/epsych_SubjectRoster.md, gui.SubjectManager,
     %   epsych.Subject, epsych.DefaultSubject, epsych.RunExpt
 
+    properties (Dependent, SetAccess = private)
+        IsBound     % False until a roster file has been chosen; mutations throw
+    end
+
     properties (SetAccess = private)
-        FilePath    (1,:) char = ''     % Full path to the backing .esub file
+        FilePath    (1,:) char = ''     % Full path to the backing .esub file, or ''
         Subjects            struct      % (1,:) subject records
         Projects            struct      % (1,:) project records
         Memberships         struct      % (1,:) subject-to-project join records
@@ -130,6 +141,12 @@ classdef SubjectRoster < handle
             % Open the roster at filePath, or the configured one when omitted.
             % A missing file is not an error: the roster starts empty and the
             % file is created on the first mutation.
+            %
+            % An empty filePath -- which is what configuredFile returns until
+            % an operator has chosen one -- constructs an unbound roster that
+            % reads as empty and refuses to be written. Constructing one never
+            % throws, so a background reader can ask the roster a question on a
+            % workstation that has none.
             arguments
                 filePath (1,:) char = epsych.SubjectRoster.configuredFile()
             end
@@ -140,6 +157,13 @@ classdef SubjectRoster < handle
             self.Memberships = epsych.SubjectRoster.emptyMembership();
 
             self.reload();
+        end
+
+        function tf = get.IsBound(self)
+            % Whether this roster is backed by a file at all. Everything that
+            % writes checks this rather than testing FilePath itself, so the
+            % unbound state has one definition.
+            tf = ~isempty(strtrim(self.FilePath));
         end
 
         % Lifecycle
@@ -199,9 +223,10 @@ classdef SubjectRoster < handle
 
     % -----------------------------------------------------------------------
     methods (Static)
-        f  = defaultFile()
         f  = configuredFile()
-        setConfiguredFile(filePath)
+        tf = isConfigured()
+        f  = legacyFile()
+        report = setConfiguredFile(filePath, options)
         id = newId(prefix)
         [tf, why] = isNameSafe(name)
         s  = emptySubject()

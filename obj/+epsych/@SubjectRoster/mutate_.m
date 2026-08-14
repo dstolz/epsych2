@@ -15,6 +15,9 @@ function tf = mutate_(self, fcn)
 % Returns:
 %   tf - true when the change was applied AND written.
 %
+% Throws:
+%   epsych:SubjectRoster:NoFile - no roster file is configured
+%
 % See also: epsych.SubjectRoster.reloadIfStale_, epsych.SubjectRoster.saveAtomic_
 arguments
     self
@@ -22,6 +25,18 @@ arguments
 end
 
 tf = false;
+
+% Throws rather than returning false, unlike the states below: the CRUD methods
+% mint an ID and report success without consulting this return value, so a
+% roster with nowhere to write has to stop the mutation dead. The operator-
+% facing surfaces ask for a file before it gets this far; this is the backstop
+% for a script, and its message is what their catch block shows.
+if ~self.IsBound
+    error('epsych:SubjectRoster:NoFile', ...
+        ['No subject roster file has been chosen on this workstation. ' ...
+         'Open Subjects & Projects and use File > Roster File..., or call ' ...
+         'epsych.SubjectRoster.setConfiguredFile.']);
+end
 
 if self.IsReadOnly
     vprintf(0, 1, 'The subject roster is open read-only and was not changed: %s', ...

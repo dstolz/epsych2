@@ -5,6 +5,8 @@ function reload(self)
 % Never throws. A roster that cannot be read must not stop a session from
 % running, so every failure mode degrades to a readable state and a message in
 % LoadError:
+%   * no file chosen   -> empty roster, NOT writable, no LoadError: nothing is
+%                         wrong, the operator simply has not said where it goes
 %   * missing file     -> empty roster, writable (it appears on first mutation)
 %   * unparseable file -> empty roster, NOT writable, so a corrupt file is
 %                         never overwritten with the empty state we invented
@@ -21,6 +23,18 @@ self.Projects    = epsych.SubjectRoster.emptyProject();
 self.Memberships = epsych.SubjectRoster.emptyMembership();
 self.LoadError   = '';
 self.IsReadOnly  = false;
+
+% Unbound: no file has been chosen on this workstation. Not an error and not a
+% failed read -- LoadError stays empty, because there is nothing wrong to
+% report -- but not writable either, so the whole window greys out until the
+% operator names a roster. See epsych.SubjectRoster.configuredFile.
+if ~self.IsBound
+    self.IsWritable = false;
+    self.FileStamp_ = [];
+    self.LastRead   = datetime('now');
+    vprintf(2, 'No subject roster file is configured; the roster is empty and read-only.');
+    return
+end
 
 % A path that names an existing folder has to be caught here: movefile onto a
 % directory moves the temp file INTO it and reports success, so the write would

@@ -21,7 +21,16 @@ p = struct( ...
     'Investigator',    '', ...  % who is responsible for the study
     'IACUCProtocol',   '', ...  % animal-use protocol number, for the record
     'DefaultProtocol', '', ...  % .eprot applied to members that have none
+    ...                         % Session defaults, applied by assignToSession.
+    ...                         % Empty (NaN for TimerPeriod) inherits whatever
+    ...                         % the session already has -- the only reading a
+    ...                         % roster written before these fields can have.
     'DefaultDataPath', '', ...
+    'SavingFcn',       '', ...  % data-saving callback, e.g. ep_SaveDataFcn
+    'TimerPeriod',     NaN, ... % PsychTimer period in seconds
+    'VideoRootDir',    '', ...  % webcam recording root
+    'IntanRootDir',    '', ...  % Intan RHX recording root
+    'IntanSettingsFile', '', ...% RHX .xml; the protocol's own value still wins
     'BoxGUI',          '', ...  % '' inherits the session default; see BOXGUI_NONE
     ...                         % Cell-wrapped: struct() replicates a struct-array
     ...                         % value, which would build one project per link.

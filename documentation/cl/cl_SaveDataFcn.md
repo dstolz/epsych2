@@ -39,7 +39,7 @@ cl_SaveDataFcn(RUNTIME);
 
 ## Related Files
 - [cl/cl_SaveDataFcn.m](../../cl/cl_SaveDataFcn.m) — implementation
-- [../overviews/RunExpt_GUI_Overview.md](../overviews/RunExpt_GUI_Overview.md) — where custom save functions are configured (Customize dialog)
+- [../overviews/RunExpt_GUI_Overview.md](../overviews/RunExpt_GUI_Overview.md) — where custom save functions are configured (a project's Session Defaults)
 - [cl_AppetitiveStimDetect.md](cl_AppetitiveStimDetect.md) — the task's trial selector
 - [../helpers/helpers_vprintf.md](../helpers/helpers_vprintf.md) — formatted printing helper
 

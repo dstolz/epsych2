@@ -23,6 +23,13 @@ classdef RunExpt < handle
         FUNCS (1,1) struct = struct()                                                            % Preference-backed callback function names for saving, timers, and GUI
         RUNTIME (1,1) epsych.Runtime = epsych.Runtime                                           % Shared runtime state passed to all callbacks during the session
         dfltDataPath (1,1) string = cd                                                          % Default directory for saving experiment data
+        % Recording locations in force for THIS session. Seeded from the
+        % per-machine preferences at construction and overwritten by a project
+        % when its subjects are added (epsych.SubjectRoster.assignToSession), so
+        % a study's paths travel with the study while the rig's own defaults
+        % survive in the preferences for the next session. An empty field still
+        % means "fall back to dfltDataPath", exactly as the preference did.
+        PATHS (1,1) struct = struct('VideoRootDir','','IntanRootDir','','IntanSettingsFile','') % Session-level video and Intan recording paths
         IsClosing (1,1) logical = false                                                         % True while the close sequence is in progress; prevents re-entrant callbacks
         CurrentConfigFile (1,1) string = ""                                                     % Path of the most recently loaded/saved configuration file
     end
@@ -55,7 +62,7 @@ classdef RunExpt < handle
         DefineTimerPeriod(self)         % Set the PsychTimer period (0.001–1 s)
         DefineLogPath(self)             % Set the directory +eplog writes daily error logs to
 
-        OpenCustomizeDialog(self)       % Open unified Customize Settings dialog for all Define* settings
+        OpenCustomizeDialog(self)       % Open the Customize Settings dialog for this machine's settings (a project owns the rest)
         OpenSelfTest(self)              % Open the pre-flight self-test window
         OpenSubjectManager(self)        % Open the Subjects & Projects manager window
         ShowSubjectInManager(self, idx) % Open the manager with the selected session subject revealed
@@ -177,6 +184,7 @@ classdef RunExpt < handle
             self.ClearConfig
             self.UpdateGUIstate
             self.dfltDataPath = getpref('RunExpt','DataPath',cd);
+            self.PATHS = self.GetDefaultPaths;
             self.promptForDataPath_
 
             if ffnConfig ~= ""
@@ -474,7 +482,7 @@ classdef RunExpt < handle
         ConfigBrowserCancel(self, fig)                     % Close config browser figure without loading
 
         rec = getVlcRecorder_(self)                        % Lazily create/return the shared, preference-seeded hw.VlcRecorder
-        configureIntanRecorder_(self, interfaces)          % Seed hw.Intan_RHX interfaces from the ep_RunExpt_Intan pref group before they connect
+        configureIntanRecorder_(self, interfaces)          % Seed hw.Intan_RHX interfaces from the session's PATHS before they connect
         StartVideoRecording_(self)                          % Begin the per-run webcam recording when the checkbox/preference is enabled
         StopVideoRecording_(self)                           % Stop the active per-run webcam recording, if any
         onRecordVideoToggled_(self, enable)                 % Persist the "Record video" opt-in and start/stop recording when toggled mid-session
@@ -606,6 +614,19 @@ classdef RunExpt < handle
             F.TIMERfcn.Stop     = getpref('ep_RunExpt_TIMER','Stop',    'ep_TimerFcn_Stop');
             F.TIMERfcn.Error    = getpref('ep_RunExpt_TIMER','Error',   'ep_TimerFcn_Error');
             F.TimerPeriod       = getpref('ep_RunExpt_TIMER','Period',   0.01);
+        end
+
+        function P = GetDefaultPaths(self)
+            % P = GetDefaultPaths(self)
+            % Load the per-machine recording paths into the PATHS struct.
+            %
+            % These are the rig's own values. A project overwrites them on the
+            % live session when its subjects are added, which is why they are
+            % read once here rather than at every use: the preference must not
+            % win back over the project mid-session.
+            P.VideoRootDir      = strtrim(char(getpref('ep_RunExpt_Video','RecordingRootDir','')));
+            P.IntanRootDir      = strtrim(char(getpref('ep_RunExpt_Intan','RecordingRootDir','')));
+            P.IntanSettingsFile = strtrim(char(getpref('ep_RunExpt_Intan','SettingsFile','')));
         end
 
         function ClearConfig(self)

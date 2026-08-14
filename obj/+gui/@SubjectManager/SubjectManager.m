@@ -18,6 +18,14 @@ classdef SubjectManager < handle
     % supported: the roster is fully browsable, and only "Add Checked to
     % Session" needs a session.
     %
+    % Opening it before a roster file has been chosen is supported too, and is
+    % what a fresh install looks like: the window explains that EPsych keeps no
+    % default location and leaves everything but New Project, New Subject, and
+    % Import switched off. Clicking one of those three is what asks for the
+    % file, through ensureRoster_ -- the operator is never made to answer a
+    % question before they have done anything, and never allowed to fill in a
+    % record with nowhere to save it.
+    %
     % Properties:
     %   Roster  - the epsych.SubjectRoster being displayed
     %   RunExpt - the session subjects are committed into, or [] when standalone
@@ -157,6 +165,7 @@ classdef SubjectManager < handle
     % -----------------------------------------------------------------------
     methods (Access = private)
         buildUI(self)
+        tf = ensureRoster_(self, action)
         P = projectDialog_(self, seed)
         onImportFromConfig_(self)
         onUpdateProtocol_(self, scope, options)
@@ -359,6 +368,10 @@ classdef SubjectManager < handle
             else
                 lines{end+1} = sprintf('Box GUI: %s', p.BoxGUI);
             end
+            % The rest of the session defaults on one line: they matter when
+            % they differ from the rig's, and six more lines would push the
+            % links out of view for the common case where they do not.
+            lines = [lines, localSessionDefaultsLine(p)];
 
             self.H.projectSummary.Text = lines;
             self.H.projectSummary.Tooltip = p.DefaultProtocol;
@@ -417,6 +430,19 @@ classdef SubjectManager < handle
 
         function txt = emptyStateText_(self)
             % The right "nothing to show" sentence for the current situation.
+
+            % Checked before the filter: with no file chosen there is nothing
+            % to filter, and this is the one the operator has to act on.
+            if isempty(self.Roster) || ~isvalid(self.Roster) || ~self.Roster.IsBound
+                txt = sprintf(['No subject roster file has been chosen.\n\n' ...
+                    'EPsych keeps no default location for subjects and projects, ' ...
+                    'so choose where this rig''s roster lives:\nput it on a shared ' ...
+                    'drive to share one roster across the lab, or keep it beside ' ...
+                    'your own data to make it private to this workstation.\n\n' ...
+                    'Use File > Roster File..., or just create a project.']);
+                return
+            end
+
             needle = self.filterText_();
             if ~isempty(needle)
                 txt = sprintf('No subjects match "%s".', needle);
@@ -454,6 +480,11 @@ classdef SubjectManager < handle
             % Enable only what makes sense for the current selection.
             hasRoster   = ~isempty(self.Roster) && isvalid(self.Roster);
             writable    = hasRoster && self.Roster.IsWritable && ~self.Roster.IsReadOnly;
+            unbound     = hasRoster && ~self.Roster.IsBound;
+            % The three actions that create something stay live with no file
+            % chosen, because clicking one is how the operator is asked for a
+            % roster in the first place; a read-only roster still disables them.
+            canCreate   = writable || unbound;
             inProject   = ~isempty(self.selectedProject_());
             hasRows     = ~isempty(self.Rows_);
             hasChecked  = hasRows && ~isempty(self.checkedIds_());
@@ -466,9 +497,9 @@ classdef SubjectManager < handle
             % Each action is switched once and copied to its other surfaces --
             % button, menu item, toolbar tool -- so the three can never
             % disagree about whether the action is available.
-            self.H.btnNewSubject.Enable  = onoff(writable);
-            self.H.mnu_new_subject.Enable = onoff(writable);
-            self.H.tb_new_subject.Enable = onoff(writable);
+            self.H.btnNewSubject.Enable  = onoff(canCreate);
+            self.H.mnu_new_subject.Enable = onoff(canCreate);
+            self.H.tb_new_subject.Enable = onoff(canCreate);
             self.H.btnEditSubject.Enable = onoff(writable && hasSelection);
             self.H.mnu_edit_subject.Enable = onoff(writable && hasSelection);
             self.H.tb_edit_subject.Enable = onoff(writable && hasSelection);
@@ -492,8 +523,9 @@ classdef SubjectManager < handle
             self.H.btnDeleteProject.Enable = onoff(writable && inProject);
             self.H.mnu_delete_project.Enable = self.H.btnDeleteProject.Enable;
             self.H.tb_delete_project.Enable  = self.H.btnDeleteProject.Enable;
-            self.H.tb_new_project.Enable = onoff(writable);
-            self.H.tb_import.Enable = onoff(writable);
+            self.H.btnNewProject.Enable = onoff(canCreate);
+            self.H.tb_new_project.Enable = onoff(canCreate);
+            self.H.tb_import.Enable = onoff(canCreate);
 
             self.H.btnAddToSession.Enable = onoff(hasSession && hasChecked);
             self.H.mnu_add_to_session.Enable = self.H.btnAddToSession.Enable;
@@ -531,6 +563,17 @@ classdef SubjectManager < handle
                     'No session window is open. Start epsych.RunExpt first.';
             else
                 self.H.btnAddToSession.Tooltip = '';
+            end
+
+            % Says what the click will actually do first, so the file dialog
+            % that appears is expected rather than a surprise.
+            if unbound
+                pending = 'You will be asked where to keep the roster file first.';
+                self.H.btnNewProject.Tooltip = pending;
+                self.H.btnNewSubject.Tooltip = pending;
+            else
+                self.H.btnNewProject.Tooltip = '';
+                self.H.btnNewSubject.Tooltip = '';
             end
 
             % Retire and Restore are the same button; the label follows what
@@ -865,6 +908,11 @@ classdef SubjectManager < handle
         function onNewSubject_(self)
             % Create a subject through whichever dialog the session is
             % configured to use, so a lab's custom AddSubjectFcn still applies.
+            %
+            % Asked before the dialog rather than after it: filling in an animal
+            % only to be told there is nowhere to save it would waste the work.
+            if ~self.ensureRoster_('adding a subject'), return, end
+
             reserved = {};
             if ~isempty(self.Roster.Subjects)
                 reserved = {self.Roster.Subjects.Name};
@@ -1104,8 +1152,17 @@ classdef SubjectManager < handle
         % ---- project actions -------------------------------------------
 
         function onNewProject_(self)
+            % Creating the first project is where a roster stops being
+            % hypothetical, so it is the natural moment to demand a file.
+            if ~self.ensureRoster_('creating a project'), return, end
+
+            % Every session default is seeded empty here and filled in by the
+            % dialog, which knows both the recently-used values and this
+            % machine's own settings; NaN is the record's "no period yet".
             seed = struct('Name','', 'Notes','', 'Investigator','', ...
                 'IACUCProtocol','', 'DefaultProtocol','', 'DefaultDataPath','', ...
+                'SavingFcn','', 'TimerPeriod',NaN, 'VideoRootDir','', ...
+                'IntanRootDir','', 'IntanSettingsFile','', ...
                 'BoxGUI','', 'Archived',false);
             % Assigned rather than passed to struct() above: an empty
             % struct-array value would make struct() return a 0x0 seed.
@@ -1120,6 +1177,11 @@ classdef SubjectManager < handle
                     IACUCProtocol = P.IACUCProtocol, ...
                     DefaultProtocol = P.DefaultProtocol, ...
                     DefaultDataPath = P.DefaultDataPath, ...
+                    SavingFcn = P.SavingFcn, ...
+                    TimerPeriod = P.TimerPeriod, ...
+                    VideoRootDir = P.VideoRootDir, ...
+                    IntanRootDir = P.IntanRootDir, ...
+                    IntanSettingsFile = P.IntanSettingsFile, ...
                     BoxGUI = P.BoxGUI, ...
                     Links = P.Links, ...
                     Archived = P.Archived);
@@ -1192,20 +1254,43 @@ classdef SubjectManager < handle
 
         % ---- file actions ----------------------------------------------
 
-        function onChooseRosterFile_(self)
-            current = epsych.SubjectRoster.configuredFile();
+        function tf = chooseRosterFile_(self)
+            % Ask for the roster file and open it. Shared by the File menu, the
+            % toolbar, and ensureRoster_, which needs the answer rather than
+            % just the side effect.
+            %
+            % uiputfile rather than uigetfile: naming a roster that does not
+            % exist yet is how a lab starts one, and the file appears on the
+            % first record saved.
+            tf = false;
             ext = epsych.SubjectRoster.FILE_EXTENSION;
+
+            % Nothing configured yet means nowhere obvious to open. The
+            % session's data path is the best guess available -- it is already
+            % somewhere this operator writes -- but only as a starting folder;
+            % the choice itself stays theirs.
+            current = epsych.SubjectRoster.configuredFile();
+            if isempty(current)
+                startDir = '';
+                if ~isempty(self.RunExpt) && isvalid(self.RunExpt)
+                    startDir = char(self.RunExpt.dfltDataPath);
+                end
+                if isempty(startDir) || ~isfolder(startDir), startDir = pwd; end
+                current = fullfile(startDir, ['subjects' ext]);
+            end
 
             [fn, pn] = uiputfile( ...
                 {['*' ext], ['Subject Roster (*' ext ')']; '*.*','All Files (*.*)'}, ...
                 'Select or Name a Subject Roster', current);
             if isequal(fn, 0), return, end
 
-            ffn = fullfile(pn, fn);
-
             try
-                epsych.SubjectRoster.setConfiguredFile(ffn);
-                self.Roster = epsych.SubjectRoster(ffn);
+                % AdoptLegacy: on the very first choice this carries forward
+                % the roster older builds accumulated under prefdir, so an
+                % existing rig does not appear to have lost its animals.
+                report = epsych.SubjectRoster.setConfiguredFile(fullfile(pn, fn), ...
+                    AdoptLegacy = true);
+                self.Roster = epsych.SubjectRoster(report.FilePath);
             catch ME
                 vprintf(0, 1, ME);
                 uialert(self.H.figure, ME.message, 'Roster File', 'Icon','error');
@@ -1219,7 +1304,16 @@ classdef SubjectManager < handle
 
             self.restoreProject_();
             self.refresh();
-            self.setStatus_(sprintf('Roster: %s', ffn));
+
+            if report.Migrated
+                self.setStatus_(sprintf(['Roster: %s \x00B7 %d subject(s) carried over from ' ...
+                    'the previous per-user roster at %s, which was left in place.'], ...
+                    report.FilePath, numel(self.Roster.Subjects), report.MigratedFrom));
+            else
+                self.setStatus_(sprintf('Roster: %s', report.FilePath));
+            end
+
+            tf = true;
         end
 
         function onExportCsv_(self)
@@ -1280,4 +1374,26 @@ classdef SubjectManager < handle
 
     end
 
+end
+
+% -----------------------------------------------------------------------
+function line = localSessionDefaultsLine(p)
+% One summary line naming the session settings this project applies, or
+% nothing when it applies none of them.
+%
+% Only the fields that are set: an older project, or one made by a script,
+% inherits the session's own values, and listing those as blanks would read as
+% "this project clears them".
+line = {};
+
+parts = {};
+if ~isempty(p.SavingFcn),   parts{end+1} = sprintf('save %s', p.SavingFcn); end
+if ~isnan(p.TimerPeriod),   parts{end+1} = sprintf('timer %.4g s', p.TimerPeriod); end
+if ~isempty(p.VideoRootDir),      parts{end+1} = 'video path'; end
+if ~isempty(p.IntanRootDir),      parts{end+1} = 'Intan path'; end
+if ~isempty(p.IntanSettingsFile), parts{end+1} = 'Intan settings'; end
+
+if ~isempty(parts)
+    line = {sprintf('Session: %s', strjoin(parts, ', '))};
+end
 end

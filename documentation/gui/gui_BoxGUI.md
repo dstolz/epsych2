@@ -15,7 +15,7 @@ function obj = MyTaskGUI(RUNTIME)
 end
 ```
 
-Name the class on the **project** that runs it: **Subjects > Subjects & Projects**, then **Project > Edit Project...** and the **Box GUI** field. `epsych.SubjectRoster.assignToSession` puts it on `FUNCS.BoxFig` when that project's subjects are added to the session, so a rig alternating between two paradigms picks up the right GUI from the animals it is running rather than from a per-rig setting. (It used to be Customize's **Box GUI Function** field; see [`gui.SubjectManager`](gui_SubjectManager.md#the-project-dialog).) The GUI is created *after* the runtime timer starts, so parameters already carry live values; it must nonetheless open against a runtime with **no** interfaces (the pre-flight self-test launches it that way), which the base guarantees: `addControl`/`addButton` silently skip parameter names that do not resolve.
+Name the class on the **project** that runs it: **Subjects > Subjects & Projects**, then **Project > Edit Project... > Session Defaults** and the **Box GUI** field. `epsych.SubjectRoster.assignToSession` puts it on `FUNCS.BoxFig` when that project's subjects are added to the session, so a rig alternating between two paradigms picks up the right GUI from the animals it is running rather than from a per-rig setting. (It used to be Customize's **Box GUI Function** field; see [`gui.SubjectManager`](gui_SubjectManager.md#the-project-dialog).) The GUI is created *after* the runtime timer starts, so parameters already carry live values; it must nonetheless open against a runtime with **no** interfaces (the pre-flight self-test launches it that way), which the base guarantees: `addControl`/`addButton` silently skip parameter names that do not resolve.
 
 ## Minimal subclass
 

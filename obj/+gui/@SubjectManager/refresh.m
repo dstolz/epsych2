@@ -34,6 +34,26 @@ if isempty(self.Roster) || ~isvalid(self.Roster)
     return
 end
 
+% No roster file has been chosen on this workstation. Not an error state and
+% not a dialog: browsing is harmless, so the window explains itself and waits.
+% The demand comes from ensureRoster_, at the first action that would write.
+if ~self.Roster.IsBound
+    self.H.rosterLabel.Text = 'Roster: (no file chosen)';
+    self.H.rosterLabel.FontColor = [0.80 0.45 0.05];
+    self.H.rosterLabel.Tooltip = '';
+    self.H.projectList.Items = {self.ALL_SUBJECTS};
+    self.H.projectList.ItemsData = {''};
+    self.H.projectList.Value = '';
+    self.updateProjectSummary_();
+    self.Rows_ = [];
+    self.Statuses_ = [];
+    self.showVersionBanner_('');
+    self.showEmptyState_(self.emptyStateText_());
+    self.H.countLabel.Text = '';
+    self.updateEnableStates_();
+    return
+end
+
 if opts.Reload
     self.Roster.reload();
 end

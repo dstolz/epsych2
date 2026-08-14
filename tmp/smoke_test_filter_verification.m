@@ -1,8 +1,8 @@
 function smoke_test_filter_verification
 % Headless smoke test for Engine.test_filter and the CalibrationGui
 % Test Filter button, against the FakeSpeakerAdapter simulated rig.
-% The button verifies per filter source: swept-sine designs get the sweep
-% flatness test, tone designs get the discrete-tone LUT test.
+% The button always runs the sweep flatness test (Engine.test_filter),
+% regardless of whether the filter was designed from tones or the swept sine.
 %
 %   matlab -batch "run('tmp/smoke_test_filter_verification.m')"
 
@@ -81,20 +81,16 @@ assert(~ismethod(sc, 'gui'), 'StimCalibration still exposes a gui method');
 delete(sc);
 fprintf('PASS StimCalibration proxy\n');
 
-%% 4. Tone-designed filter: the tone branch's engine path
-% A filter designed from the tone LUT is verified with discrete tones
-% (Engine.test_tones), which is what the GUI's Test Filter button runs
-% for filterSource == "tone". The GUI path itself opens the tone-test dialog,
-% so the engine call it delegates to is what can be exercised headlessly.
+%% 4. Tone-designed filter also gets the sweep flatness test
 engTone = stimgen.calibration.Engine(FakeSpeakerAdapter(44100));
 engTone.set_configuration(MicSensitivity=0.01, ExcitationVoltage=1);
 engTone.calibrate_tones([1000 2000 4000 8000], 1);
 engTone.design_filter("tone", ShowResponse=false);
 assert(engTone.CalibrationData.filterSource == "tone");
-rTone = engTone.test_tones(RepeatCount=1);
-assert(isfield(engTone.CalibrationData, 'toneTest'), 'toneTest not stored');
-assert(isfield(rTone, 'passed'), 'tone LUT test returned no verdict');
-fprintf('PASS tone-branch engine path\n');
+rTone = engTone.test_filter(Duration=0.5, RepeatCount=1);
+assert(isfield(engTone.CalibrationData, 'filterTest'), 'filterTest not stored for a tone-designed filter');
+assert(isfield(rTone, 'passed'), 'filter test returned no verdict for a tone-designed filter');
+fprintf('PASS tone-designed filter via test_filter\n');
 
 %% 5. CalibrationGui: enable rules and button-driven run
 % Offline: no adapter, no filter -> Test Filter must be disabled.
@@ -104,7 +100,7 @@ assert(strcmp(b.Enable, 'off'), 'Test Filter enabled with no filter/adapter');
 delete_gui_figure(b);
 
 % Swept-sine-designed filter with adapter -> enabled; clicking runs the
-% sweep flatness test (the tone branch would open the tone-test dialog).
+% sweep flatness test.
 cg2 = stimgen.calibration.CalibrationGui(eng);
 b = find_test_filter_btn(cg2);
 assert(strcmp(b.Enable, 'on'), 'Test Filter not enabled despite filter+adapter');
@@ -114,7 +110,19 @@ b.ButtonPushedFcn(b, []);
 assert(eng.CalibrationData.filterTest.testedOn > prevTested, ...
     'CalibrationGui button did not run a new filter test');
 delete_gui_figure(b);
-fprintf('PASS CalibrationGui button\n');
+fprintf('PASS CalibrationGui button (swept-sine filter)\n');
+
+% Tone-designed filter with adapter -> clicking must NOT open the tone-test
+% dialog; it runs the sweep flatness test directly, same as the swept-sine case.
+cg3 = stimgen.calibration.CalibrationGui(engTone);
+b = find_test_filter_btn(cg3);
+assert(strcmp(b.Enable, 'on'), 'Test Filter not enabled for a tone-designed filter');
+prevTested = engTone.CalibrationData.filterTest.testedOn;
+b.ButtonPushedFcn(b, []);
+assert(engTone.CalibrationData.filterTest.testedOn > prevTested, ...
+    'CalibrationGui button did not run a new filter test for a tone-designed filter');
+delete_gui_figure(b);
+fprintf('PASS CalibrationGui button (tone-designed filter)\n');
 
 fprintf('ALL PASS\n');
 end

@@ -19,11 +19,16 @@ epsych_startup();
 fprintf('--- Coefficient Buffer smoke test ---\n');
 
 % 1. Syntax check touched files -------------------------------------------
+onBrowseSelectedFile = fullfile(repoRoot, 'obj', '+epsych', '@ProtocolDesigner', 'onBrowseSelectedFileParameter.m');
+onParamSelectedFile = fullfile(repoRoot, 'obj', '+epsych', '@ProtocolDesigner', 'onParamSelected.m');
+coefEditorFile = fullfile(repoRoot, 'obj', '+epsych', '@ProtocolDesigner', 'private', 'editParameterCoefficientBufferValue.m');
 touchedFiles = { ...
-    fullfile(repoRoot, 'obj', '+epsych', '@ProtocolDesigner', 'private', 'editParameterCoefficientBufferValue.m'), ...
+    coefEditorFile, ...
     fullfile(repoRoot, 'obj', '+epsych', '@ProtocolDesigner', 'onParamEdited.m'), ...
     fullfile(repoRoot, 'obj', '+epsych', '@ProtocolDesigner', 'private', 'getParameterValueDisplay.m'), ...
-    fullfile(repoRoot, 'obj', '+epsych', '@ProtocolDesigner', 'private', 'getParameterValueFull.m')};
+    fullfile(repoRoot, 'obj', '+epsych', '@ProtocolDesigner', 'private', 'getParameterValueFull.m'), ...
+    onBrowseSelectedFile, ...
+    onParamSelectedFile};
 
 for k = 1:numel(touchedFiles)
     f = touchedFiles{k};
@@ -32,6 +37,28 @@ for k = 1:numel(touchedFiles)
     assert(~strcmp(t.root.kind, 'ERR'), 'Syntax error in %s', f);
 end
 fprintf('PASS: syntax check (%d files)\n', numel(touchedFiles));
+
+% 1b. Regression tripwire: "Edit Selected Value" must handle Coefficient
+% Buffer parameters (it silently no-op'd after first type-assignment; only
+% the Value-column CellEditCallback path re-opened the editor).
+browseSource = fileread(onBrowseSelectedFile);
+assert(contains(browseSource, 'Coefficient Buffer') && ...
+    contains(browseSource, 'editParameterCoefficientBufferValue'), ...
+    'onBrowseSelectedFileParameter no longer routes Coefficient Buffer to the coefficient editor');
+fprintf('PASS: "Edit Selected Value" routes Coefficient Buffer parameters to the editor\n');
+
+selectedSource = fileread(onParamSelectedFile);
+assert(contains(selectedSource, 'Coefficient Buffer'), ...
+    'onParamSelected no longer reports status for Coefficient Buffer parameters');
+fprintf('PASS: selecting a Coefficient Buffer cell reports its own status message\n');
+
+% 1c. Regression tripwire: the calibration-file browser must remember its
+% own MRU directory (a persisted GUI preference) rather than the shared,
+% in-memory-only LastBrowseDirectory used by every other browse dialog.
+coefEditorSource = fileread(coefEditorFile);
+assert(contains(coefEditorSource, 'RecentCalibrationDirectory'), ...
+    'Calibration file browser no longer remembers its own MRU directory');
+fprintf('PASS: calibration file browser remembers its own MRU directory\n');
 
 % 2. Table display of a buffer-valued level -------------------------------
 nTaps = 257;

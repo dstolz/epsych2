@@ -64,6 +64,14 @@ function onParamSelected(obj, evt)
             obj.setStatus(sprintf('%s: %d StimType level(s)', parameter.Name, n), ...
                 'Use Edit Selected Value to add, edit, or remove stimulus type levels.');
         end
+    elseif isequal(parameter.Type, 'Coefficient Buffer')
+        if isempty(parameter.Values)
+            obj.setStatus(sprintf('Selected coefficient buffer %s (empty)', parameter.Name), ...
+                'Use Edit Selected Value to paste coefficients or extract them from a calibration file.');
+        else
+            obj.setStatus(sprintf('%s: %d coefficient(s)', parameter.Name, numel(parameter.Values{1})), ...
+                'Use Edit Selected Value to replace the coefficients or extract them from a calibration file.');
+        end
     elseif obj.hasParameterExpression(parameter)
         obj.setStatus(sprintf('%s = %s', obj.getParameterExpression(parameter), obj.getParameterValueDisplay(parameter)), ...
             'Edit the Expression cell if needed, then compile to refresh the preview.');

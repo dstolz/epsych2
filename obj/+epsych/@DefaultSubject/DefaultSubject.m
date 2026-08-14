@@ -20,6 +20,8 @@ classdef DefaultSubject < epsych.Subject
     %
     % Dialog features:
     %   * Modal, centered window with Edit/Add mode detection
+    %   * All 16 boxes are always selectable and box 1 is the default; boxes the
+    %     session already holds are only marked "(in use)", never removed
     %   * Species dropdown is editable — type a new species to add it; the
     %     list and the last-used species persist across sessions (prefs)
     %   * Duplicate subject names rejected live via the ReservedNames option
@@ -95,7 +97,9 @@ classdef DefaultSubject < epsych.Subject
             % Show the subject entry dialog and return a populated DefaultSubject.
             % Parameters:
             %   S      - (optional) epsych.Subject or struct used to pre-fill the dialog
-            %   boxids - (optional) vector of available box IDs (default: 1:16)
+            %   boxids - (optional) box IDs not already in use (default: 1:16).
+            %            Every box 1-16 stays selectable; the rest are labelled
+            %            "(in use)" so the operator can still override.
             % Options:
             %   ReservedNames - cellstr/string of subject names already in use;
             %                   the dialog refuses to accept any of them
@@ -212,13 +216,21 @@ classdef DefaultSubject < epsych.Subject
             % Box ID
             lbl = uilabel(formGL, 'Text', 'Box ID', lblProps{:});
             lbl.Layout.Row = 1; lbl.Layout.Column = 1;
-            boxItems = arrayfun(@num2str, boxids, 'uni', false);
-            self.ddBoxID_ = uidropdown(formGL, 'Items', boxItems, 'FontSize', 13, ...
-                'Tooltip', 'Apparatus/box the subject runs in (occupied boxes are hidden)');
+            % Every box stays selectable, including ones the session already
+            % holds: hiding them made box 1 vanish for the second subject, and
+            % the operator -- not the dialog -- decides what a box is used for.
+            allBoxes = unique([1:16, reshape(boxids, 1, [])]);
+            boxItems = arrayfun(@(b) sprintf('%d', b), allBoxes, 'uni', false);
+            inUse = ~ismember(allBoxes, boxids);
+            boxItems(inUse) = cellfun(@(s) [s ' (in use)'], boxItems(inUse), 'uni', false);
+            self.ddBoxID_ = uidropdown(formGL, 'Items', boxItems, 'ItemsData', allBoxes, ...
+                'FontSize', 13, ...
+                'Tooltip', 'Apparatus/box the subject runs in ("in use" = already in this session)');
             self.ddBoxID_.Layout.Row = 1; self.ddBoxID_.Layout.Column = 2;
-            sel = num2str(self.BoxID);
-            if ismember(sel, boxItems)
-                self.ddBoxID_.Value = sel;
+            if ismember(self.BoxID, allBoxes)
+                self.ddBoxID_.Value = self.BoxID;
+            else
+                self.ddBoxID_.Value = allBoxes(1);
             end
 
             % Name (required)
@@ -369,7 +381,7 @@ classdef DefaultSubject < epsych.Subject
 
         function collectFromUI_(self)
             % Copy current UI control values into subject properties.
-            self.BoxID   = str2double(self.ddBoxID_.Value);
+            self.BoxID   = self.ddBoxID_.Value;  % numeric, via ItemsData
             self.Name    = strtrim(self.efName_.Value);
             self.Sex     = self.ddSex_.Value;
             self.Species = strtrim(self.ddSpecies_.Value);

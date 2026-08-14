@@ -264,6 +264,58 @@ catch ME
     results(end+1,:) = check(['Serialization: ' ME.message], false);
 end
 
+%% 8b. Degraded link: dropped replies and re-entrancy
+% The failure this guards against was seen on a real pump: gui.SyringePump's
+% 4 Hz poll fired inside the runtime's trial-end sweep, the two consumed each
+% other's replies, and the reads that came back empty crashed the consumers a
+% layer up.
+try
+    link = NE1000_Mock(RateUnits = 'MM');
+    link.set_parameter('Rate', 2.5);
+
+    % A query is idempotent, so one dropped reply is resent and the value
+    % still arrives.
+    link.DropReplies = 1;
+    results(end+1,:) = check('A query survives one dropped reply', ...
+        isequal(link.get_parameter('Rate'), 2.5));
+
+    % Two drops exhaust the resend. The read must still be a number: the
+    % trial-end sweep lands it straight in DATA.
+    link.DropReplies = 2;
+    results(end+1,:) = check('An unanswered read serves the last value, not []', ...
+        isequal(link.get_parameter('Rate'), 2.5));
+
+    % Status is the one volatile reading, so it says so instead.
+    link.DropReplies = 2;
+    results(end+1,:) = check('An unanswered Status reads Unknown', ...
+        strcmp(link.get_parameter('Status', includeInvisible = true), 'Unknown'));
+
+    % A command re-entered from inside a blocking read is dropped rather than
+    % allowed to interleave: the outer read still gets its own reply, and the
+    % nested one never reaches the wire.
+    link.SimRate = 3.75;
+    nBefore = numel(link.Log);
+    link.ReentrantProbe = @() link.get_parameter('Status', includeInvisible = true);
+    outer = link.get_parameter('Rate');
+    results(end+1,:) = check('An interrupted read still gets its own reply', ...
+        isequal(outer, 3.75));
+    results(end+1,:) = check('The re-entrant command never reached the wire', ...
+        numel(link.Log) - nBefore == 1);
+
+    % A dropped read keeps the previous value even for Status: nobody asked
+    % the pump anything, so nothing licenses reporting Unknown.
+    link.SimStatus = 'I';
+    link.get_parameter('Status', includeInvisible = true);
+    link.ReentrantProbe = @() link.get_parameter('Status', includeInvisible = true);
+    link.get_parameter('Rate');
+    results(end+1,:) = check('A dropped read leaves the link usable', ...
+        strcmp(link.get_parameter('Status', includeInvisible = true), 'Infusing'));
+
+    link.disconnect();
+catch ME
+    results(end+1,:) = check(['Degraded link: ' ME.message], false);
+end
+
 %% 9. Disconnect
 try
     nBefore = numel(mock.Log);

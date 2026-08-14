@@ -57,6 +57,10 @@ classdef RunExpt < handle
 
         OpenCustomizeDialog(self)       % Open unified Customize Settings dialog for all Define* settings
         OpenSelfTest(self)              % Open the pre-flight self-test window
+        OpenSubjectManager(self)        % Open the Subjects & Projects manager window
+        ShowSubjectInManager(self, idx) % Open the manager with the selected session subject revealed
+        DefineRosterFile(self)          % Set the shared subject roster (.esub) this rig uses
+        EditSubjectDetails(self, idx)   % Edit a session subject's details, writing back to the roster
 
         % Public because it is a pure UI refresh with no invariant to protect,
         % and epsych.SelfTest drives it to verify the control-enable contract.
@@ -432,6 +436,23 @@ classdef RunExpt < handle
         requestRecompile(self, subjectIdx)  % Request a safe-boundary Protocol recompile for subject subjectIdx
     end
 
+    % The subject roster resolves boxes and protocols, then writes the result
+    % here. Scoped to epsych.SubjectRoster rather than made public: the CONFIG
+    % slot-reuse rule and the two refreshes are internals, but they are exactly
+    % the internals a batch commit has to drive.
+    methods (Access = {?epsych.RunExpt, ?epsych.SubjectRoster})
+        appendSubjectToConfig_(self, S, pfn, protocol)     % Write one subject and its protocol into the next CONFIG slot
+        CheckReady(self)                                   % Evaluate whether all conditions to run are met and update STATE
+        UpdateSubjectList(self)                            % Repopulate the subject list and flag subjects with an outdated protocol version
+    end
+
+    % The manager's "New Subject..." must open whatever dialog this session is
+    % configured to use, so the FUNCS.AddSubjectFcn dispatch is shared rather
+    % than reimplemented there.
+    methods (Access = {?epsych.RunExpt, ?gui.SubjectManager})
+        S = dispatchAddSubjectFcn_(self, seed, boxids, reservedNames)  % Open the configured subject dialog; [] when cancelled
+    end
+
     methods (Access=private)
         buildUI(self)                                      % Build main figure and all UI components
         onFigureKeyPress(self, evt)                        % Handle key-press events on the main figure
@@ -444,8 +465,6 @@ classdef RunExpt < handle
         RememberRecentFunc(self, prefKey, name)            % Record an accepted function name in a Customize dialog field's MRU list
         UpdateRecentConfigsMenu(self)                      % Rebuild the recent-configs submenu items
         ClearRecentConfigs(self)                           % Empty the persistent recent config registry
-        CheckReady(self)                                   % Evaluate whether all conditions to run are met and update STATE
-        UpdateSubjectList(self)                            % Repopulate the subject list and flag subjects with an outdated protocol version
         ExptDispatch(self, COMMAND)                        % Dispatch a named command (Start/Stop/Pause) to the experiment
         T = CreateTimer(self)                              % Create and configure the psychophysics trial timer object
         PsychTimerStart(self)                              % Initialize runtime state and start the trial timer

@@ -173,7 +173,9 @@ end
 deadline = tic;
 timeout = 3 * expected + 2;
 while toc(deadline) < timeout
-    if ~ismember(pump.get_parameter('Status'), {'Infusing', 'Withdrawing'})
+    % strcmp, not ismember: a pump that misses a query answers 'Unknown', and
+    % ismember would reject a value it could not compare against the cell.
+    if ~any(strcmp(pump.get_parameter('Status'), {'Infusing', 'Withdrawing'}))
         return
     end
     pauseWithGraphics_(0.05);

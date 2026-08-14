@@ -112,6 +112,18 @@ Rules that matter:
 - **epsych.TrialSelector** (abstract): Pluggable trial selection
 - **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
 - **epsych.BitMask**: uint32 enumeration for trial outcomes
+- **epsych.SubjectRoster**: shared, file-backed roster of subjects organized by
+  project (many-to-many, with a per-project active/retired flag and per-membership
+  protocol memory). Three flat arrays plus a join table in a `-mat` `.esub` file —
+  MAT not JSON because `jsonencode(NaN)` would destroy the "not measured" `Weight`.
+  Roster records carry **no BoxID**: a box belongs to a session, so `toSubject`
+  materializes an `epsych.Subject` at assignment time, which is why `epsych.Subject`
+  needs no subclassing. Every mutation goes through `mutate_` (reload-if-stale →
+  apply → atomic temp+`movefile` write), which is what lets two rigs share one file
+  on a network drive. `assignToSession` is the batch commit into `RunExpt.CONFIG`,
+  all-or-nothing on a bad protocol or box exhaustion. Renaming a subject is refused
+  once `<DataPath>/<Name>/` exists, because nothing downstream knows about
+  `NameHistory` (see documentation/epsych/epsych_SubjectRoster.md)
 - **epsych.TrialJournal**: append-only, crash-safe `.epj` journal that per-trial data
   is written to during a run (flat ~2 ms, versus a `save('-append')` that grew to
   40 ms by trial 600). `ep_TimerFcn_Stop` merges it back into the seed `.mat`, so the
@@ -193,6 +205,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
 - Real-time visualization: OnlinePlot, Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
 - **gui.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
 - **gui.NextTrial**: generic upcoming-trial display driven by NewTrial events
+- **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies (documentation/gui/gui_SubjectManager.md)
 - **gui.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state (`gui.BoxGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
 - **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, PsychPlot, and psychophysics.Staircase; `gui.BoxGUI.addPopOutButton` opens one from a button (documentation/gui/gui_PopOut.md)
 - Session control: StaircaseTraining, StatusBar, Triggers

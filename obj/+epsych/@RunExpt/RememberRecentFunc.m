@@ -5,12 +5,12 @@ function RememberRecentFunc(self, prefKey, name)
 % Inputs
 %   self (epsych.RunExpt) - Scalar RunExpt instance.
 %   prefKey (char|string) - Preference key under ep_RunExpt_FUNCS, one of
-%       'RecentSavingFcn', 'RecentBoxFig', 'RecentAddSubjectFcn'.
+%       'RecentSavingFcn' or 'RecentAddSubjectFcn'.
 % Outputs
 %   None.
 % Notes
 %   Mirrors RememberRecentConfig: prepend, case-insensitive dedupe, cap.
-%   Empty names are ignored (e.g. Box GUI cleared to disable the GUI).
+%   Empty names are ignored.
 
 MAX_RECENT = 12;
 

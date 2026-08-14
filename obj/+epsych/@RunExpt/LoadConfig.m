@@ -79,9 +79,47 @@ self.RememberRecentConfig(cfn)
 % Posted after CheckReady so the state message it triggers does not overwrite it.
 loadedMsg = sprintf('Loaded configuration "%s%s" (%d subject(s)).', ...
     cfnName, cfnExt, numel(self.CONFIG));
-if self.STATE >= PRGMSTATE.READY
+% A modal import prompt on every load would be intolerable on a rig that loads
+% the same config each morning, so an unrostered subject is only mentioned in
+% the status line's next-step half. Guarded because an unreachable shared
+% roster must never be able to break loading a configuration.
+nextStep = '';
+try
+    nextStep = localUnrosteredHint(self.CONFIG);
+catch ME
+    vprintf(2, ME);
+end
+
+if ~isempty(nextStep)
+    self.setStatus(loadedMsg, nextStep)
+elseif self.STATE >= PRGMSTATE.READY
     self.setStatus(loadedMsg,'press Run to record, or Preview to test without saving data.')
 else
     self.setStatus(loadedMsg,'add a subject with a protocol to complete the configuration.')
+end
+end
+
+% -----------------------------------------------------------------------
+function hint = localUnrosteredHint(CONFIG)
+% Next-step text naming how many of this config's subjects are missing from
+% the roster, or '' when they are all present (or there are none).
+hint = '';
+if isempty(CONFIG) || ~isa(CONFIG(1).SUBJECT, 'epsych.Subject'), return, end
+
+R = epsych.SubjectRoster();
+if ~isempty(R.LoadError), return, end
+
+missing = 0;
+for i = 1:numel(CONFIG)
+    if ~isa(CONFIG(i).SUBJECT, 'epsych.Subject'), continue, end
+    if isempty(R.findSubject(CONFIG(i).SUBJECT.Name))
+        missing = missing + 1;
+    end
+end
+
+if missing == 0, return, end
+
+hint = sprintf(['%d subject(s) are not in the roster; import them from ' ...
+    'Subjects > Subjects & Projects.'], missing);
 end
 

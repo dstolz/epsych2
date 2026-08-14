@@ -39,12 +39,14 @@ assert(isempty(findDialog()), 'Dialog figure should be deleted after cancel');
 fprintf('PASS: cancel returns [] and closes figure\n');
 
 % 3. Dialog confirm path with blank weight --------------------------------
-t = driveTimer(@(f) confirmWithName(f, 'SMOKE1'));
+%    Only 3:5 are free, but all 16 boxes must still be offered and box 1 must
+%    still be the default: an occupied box is marked, never removed.
+t = driveTimer(@(f) checkBoxesThenConfirm(f, 'SMOKE1'));
 out = epsych.DefaultSubject.open([], 3:5);
 stop(t); delete(t);
 assert(isa(out,'epsych.DefaultSubject'), 'Confirmed dialog should return a DefaultSubject');
 assert(strcmp(out.Name,'SMOKE1'), 'Name not captured (got %s)', out.Name);
-assert(out.BoxID==3, 'BoxID should default to first available (got %d)', out.BoxID);
+assert(out.BoxID==1, 'Box 1 must always be the default (got %d)', out.BoxID);
 assert(isnan(out.Weight), 'Blank weight must be NaN, not %g', out.Weight);
 assert(strcmp(out.Species,'Gerbil'), ...
     'Last-used species should be preselected (got %s)', out.Species);
@@ -122,6 +124,25 @@ function confirmWithName(f, name)
 ef = nameField(f);
 ef.Value = name;
 clickButton(f, 'OK');
+end
+
+function checkBoxesThenConfirm(f, name)
+dd = boxDropdown(f);
+assert(isequal(dd.ItemsData, 1:16), 'All 16 boxes must be selectable');
+assert(isequal(dd.Value, 1), 'Box 1 must be the preselected default (got %d)', dd.Value);
+assert(strcmp(dd.Items{1}, '1 (in use)'), ...
+    'An occupied box must be marked, not hidden (got "%s")', dd.Items{1});
+assert(strcmp(dd.Items{3}, '3'), ...
+    'A free box must be listed unmarked (got "%s")', dd.Items{3});
+confirmWithName(f, name);
+end
+
+function dd = boxDropdown(f)
+% The box dropdown is the only one carrying numeric ItemsData.
+dds = findall(f, 'Type','uidropdown');
+isBox = arrayfun(@(d) isnumeric(d.ItemsData) && ~isempty(d.ItemsData), dds);
+dd = dds(find(isBox, 1));
+assert(~isempty(dd), 'Box dropdown not found');
 end
 
 function duplicateThenRename(f, dupName, newName)

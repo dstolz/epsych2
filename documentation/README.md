@@ -25,6 +25,7 @@ Daily workflow:
 - [Protocol Designer User Guide](design/ProtocolDesigner_UserGuide.md) — building and compiling protocols (`.eprot` files)
 - [Teensy Trial Designer](teensy/teensy_TrialDesigner_UserGuide.md) — building an operant paradigm as a state machine, testing it against a simulated subject, and uploading it to the board
 - [RunExpt GUI Overview](overviews/RunExpt_GUI_Overview.md) — configuring subjects and running sessions
+- [Subjects & Projects](gui/gui_SubjectManager.md) — organizing subjects by project and adding several to a session at once
 - [Phase Selector](gui/PhaseSelector.md) — switching parameter sets between training stages
 - [Staircase Training GUI](gui/StaircaseTraining.md) — step rules and bounds for progressive training
 
@@ -49,6 +50,7 @@ Experiment framework (`epsych`):
 - [epsych.Runtime](epsych/epsych_Runtime.md) — session state, parameter queries, trial dispatch
 - [Trial Lifecycle](epsych/epsych_TrialLifecycle.md) — a trial from dispatch to data save
 - [epsych.TrialSelector](epsych/epsych_TrialSelector.md) — pluggable trial selection base class
+- [epsych.SubjectRoster](epsych/epsych_SubjectRoster.md) — the shared subject/project roster, its file format, and the shared-file concurrency contract
 - [Event Notifications](epsych/Event_Notifications.md) — `NewData` / `NewTrial` / `ModeChange` events
 - [epsych.BitMask](epsych/epsych_BitMask.md) — response-code encoding and decoding
 - [EPsychInfo](epsych/EPsychInfo.md) — version and repository metadata
@@ -80,6 +82,7 @@ GUI components (`gui`):
 - [gui.Parameter_Control](gui/Parameter_Control.md) — binding a parameter to a UI widget
 - [gui.Parameter_Update](gui/Parameter_Update.md) — commit button for staged parameter edits
 - [gui.History](gui/gui_History.md) — trial-by-trial history table
+- [gui.SubjectManager](gui/gui_SubjectManager.md) — subjects by project, and the batch commit into a session
 - [gui.VlcRecorderSetup](gui/VlcRecorderSetup.md) — webcam preview UI for configuring VlcRecorder device/fps/resolution/crop
 - [gui.VideoConverterSetup](util/VideoConverter.md) — batch video conversion UI (see util.VideoConverter)
 - [eval_staircase_training_mode](gui/eval_staircase_training_mode.md) — training-mode toggle callback

@@ -30,6 +30,10 @@ classdef NE1000_Mock < hw.NE1000
 
         Log = {}                        % every command line writeLine_ saw
         RawLog = {}                     % every raw byte packet writeRaw_ saw
+
+        % Fault injection for the degraded-link paths.
+        DropReplies (1,1) double = 0    % swallow this many replies, then resume
+        ReentrantProbe = []             % called once from INSIDE readPacket_
     end
 
     properties (Access = private)
@@ -83,6 +87,26 @@ classdef NE1000_Mock < hw.NE1000
         function s = readPacket_(obj)
             % Serve the oldest queued reply, already STX-stripped the way the
             % real readPacket_ returns it.
+            %
+            % ReentrantProbe stands in for a timer callback firing while the
+            % real readline blocks — MATLAB dispatches timers during serial
+            % reads, which is exactly the hazard hw.NE1000's transaction guard
+            % exists to stop. It runs once, from inside the read.
+            if ~isempty(obj.ReentrantProbe)
+                f = obj.ReentrantProbe;
+                obj.ReentrantProbe = [];
+                f();
+            end
+
+            % A dropped reply. The queue is cleared with it: a pump that never
+            % answered has nothing waiting behind it either.
+            if obj.DropReplies > 0
+                obj.DropReplies = obj.DropReplies - 1;
+                obj.rxQueue_ = {};
+                s = '';
+                return
+            end
+
             if isempty(obj.rxQueue_)
                 s = '';
                 return

@@ -5,7 +5,7 @@ function recent = GetRecentFuncs(self, prefKey)
 % Inputs
 %   self (epsych.RunExpt) - Scalar RunExpt instance.
 %   prefKey (char|string) - Preference key under ep_RunExpt_FUNCS, one of
-%       'RecentSavingFcn', 'RecentBoxFig', 'RecentAddSubjectFcn'.
+%       'RecentSavingFcn' or 'RecentAddSubjectFcn'.
 % Outputs
 %   recent (1,:) cell - Row cell array of resolvable function names,
 %       most-recent-first.

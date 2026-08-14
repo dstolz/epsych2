@@ -53,9 +53,10 @@ A typical session looks like this:
 2. Launch the GUI: `epsych.RunExpt`.
 3. (Recommended) Set a default data directory: **Customize → Customize... → Data Path**.
 4. Add one or more subjects:
-   - Click the **Add Subject** toolbar button.
-   - Fill in subject information (including BoxID).
-   - Choose the subject's protocol file when prompted (`*.eprot`).
+   - Click the **Subjects** toolbar button (or **Subjects → Subjects & Projects...**, Ctrl+B).
+   - Pick a project on the left, tick the animals running today, and press **Add Checked to Session**. Each one gets a free box and the protocol it last ran.
+   - For an animal that is not in the roster yet, use **New Subject...** in the same window; it opens the usual subject dialog and files the animal into the selected project.
+   - See [Subjects & Projects](../gui/gui_SubjectManager.md) for the full window.
 5. (Optional) Sanity check the protocol/trials:
    - Right-click the subject row and choose **View Trials** to preview compiled trials.
 6. Start the session:
@@ -92,7 +93,7 @@ A toolbar under the menu bar gives one-click access to the most common menu acti
 - **Load Config** (open folder): loads a config file — same as **Config → Load Config...** (Ctrl+L).
 - **Refresh Config** (circular arrow): reloads the currently loaded config file from disk — same as **Config → Refresh Config** (Ctrl+R).
 - **Save Config** (floppy disk): saves the session configuration — same as **Config → Save Config...** (Ctrl+S).
-- **Add Subject** (person with a green plus): launches the configured add-subject dialog, then prompts you to select the subject's `*.eprot` protocol.
+- **Subjects** (person beside a list): opens the [Subjects & Projects](../gui/gui_SubjectManager.md) window, where you pick several animals at once and commit them to the session — same as **Subjects → Subjects & Projects...** (Ctrl+B). Available in every state, including during a run; it is the commit action inside it that refuses while a session is running.
 - **Remove Subject** (person with a red minus): removes the selected subject (or clears the session if there is only one subject).
 - **Save Data** (arrow into a tray): invokes the configured saving function to write data to disk. Enabled only after **Stop**, or on an error.
 - **Customize** (gear): opens the Customize Settings dialog — same as **Customize → Customize...** (Ctrl+U).
@@ -199,7 +200,8 @@ All customization lives in a single dialog: **Customize → Customize...**. Valu
 | --- | --- | --- |
 | Saving Function | Called to save data after Stop/Error. Signature: `SavingFcn(RUNTIME)` (1 input, 0 outputs). | `ep_SaveDataFcn` |
 | Box GUI Function | Launches a per-session behavior/performance GUI when the run starts. Signature: `BoxFig(RUNTIME)`. | `ep_GenericGUI` |
-| Add Subject Function | Dialog used by **Add Subject**. | `epsych.DefaultSubject.open` |
+| Add Subject Function | Dialog used by **New Subject...** and **Edit Subject Details...**. | `epsych.DefaultSubject.open` |
+| Subject Roster File | The `.esub` roster behind **Subjects & Projects**. Put it on a shared drive and point every rig at it to share one roster. Leave empty for a per-user file under `prefdir`. | — |
 | Data Path | Default root folder used to suggest data filenames. | current directory |
 | Config Browser Root | Folder scanned by **Config → Browse Configs...**. | — |
 | Video Recording Path | Root folder for webcam recordings made with the **Record video** toolbar toggle. Files are saved to `<root>\<subject>\<subject>_<yyMMddTHHmmss>.ts`, named after the behavioral data file whether the recording starts with the run or is switched on mid-session. Stopping and restarting recording within one session appends `-2`, `-3`, … to the later segments so nothing is overwritten. Leave empty to fall back to the Data Path. | — |
@@ -218,6 +220,10 @@ The Intan Recording Path and Settings File are stored in the `ep_RunExpt_Intan` 
 ## 8) Menus reference
 
 - **Config**: Browse Configs..., Load Config..., Refresh Config, Save Config..., Recent Configs (submenu).
+- **Subjects**: everything about who is in the session and who exists in the lab.
+  - Subjects & Projects... (`Ctrl+B`) — the [subject manager](../gui/gui_SubjectManager.md). Available in every state, including during a run, so an animal's notes stay readable mid-session.
+  - Remove Selected Subject — takes the selected row out of the session; the roster is untouched.
+  - Roster File... — chooses the `.esub` roster this rig uses. Point several rigs at one file on a shared drive to share a roster; leave it unset for a per-user file.
 - **Customize**: Customize... (all settings above).
 - **Utilities**: the standalone tools that ship with the toolbox, opened from the session window instead of the command line. Each opens its own window with its own lifecycle; RunExpt keeps no handle on it, and a tool that fails to open reports on the status bar rather than interrupting the session.
   - Protocol Designer... (`Ctrl+P`) — opens an empty designer for building a new protocol (`epsych.ProtocolDesigner`). To edit the protocol a subject is already using, right-click that subject instead (see [Working with protocols](#4-working-with-protocols)). See [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md).

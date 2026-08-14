@@ -8,7 +8,6 @@ if self.STATE >= PRGMSTATE.RUNNING, return, end
 % Gather current values ------------------------------------------------
 F         = self.FUNCS;
 savingFcn = char(fieldOr_(F, 'SavingFcn',    'ep_SaveDataFcn'));
-boxFig    = char(fieldOr_(F, 'BoxFig',        'ep_GenericGUI'));
 addSubj   = char(fieldOr_(F, 'AddSubjectFcn', 'epsych.DefaultSubject.open'));
 timerPer  = fieldOr_(F, 'TimerPeriod', 0.01);
 dataPath  = char(self.dfltDataPath);
@@ -35,9 +34,16 @@ logViewer = char(getpref('ep_RunExpt_Logging','ExternalViewer',''));
 dfltLogDir    = eplog.builtinLogDir();
 dfltLogViewer = epsych.RunExpt.defaultLogViewer();
 
+% Same treatment for the roster: empty means "this user only", and the
+% placeholder previews where that lands.
+rosterFile = '';
+if ispref('ep_RunExpt_Subjects','RosterFile')
+    rosterFile = char(getpref('ep_RunExpt_Subjects','RosterFile'));
+end
+dfltRosterFile = epsych.SubjectRoster.defaultFile();
+
 % Assemble recents-backed item lists for the function dropdowns --------
 itemsSaving  = buildItems_('RecentSavingFcn',     savingFcn, 'ep_SaveDataFcn');
-itemsBoxFig  = buildItems_('RecentBoxFig',        boxFig,    'ep_GenericGUI');
 itemsAddSubj = buildItems_('RecentAddSubjectFcn', addSubj,   'epsych.DefaultSubject.open');
 
 % Build dialog ---------------------------------------------------------
@@ -46,7 +52,7 @@ stale = findall(groot,'Type','figure','Tag','RunExptCustomize');
 if ~isempty(stale), delete(stale); end
 
 ontop = self.AlwaysOnTop(false);
-% Sized for the tallest tab (Paths, seven rows). The grid there is scrollable
+% Sized for the tallest tab (Paths, eight rows). The grid there is scrollable
 % as a backstop, but a dialog that opens already scrolled hides fields the
 % operator does not know to look for.
 dlg = uifigure('Name','Customize EPsych','Tag','RunExptCustomize', ...
@@ -69,7 +75,7 @@ tg.Layout.Row = 1; tg.Layout.Column = 1;
 % ---- TAB: Functions --------------------------------------------------
 tabFcn = uitab(tg,'Title','Functions');
 gFcn = uigridlayout(tabFcn,[3 3]);
-gFcn.RowHeight    = {28, 28, 28};
+gFcn.RowHeight    = {28, 28, 'fit'};   % row 3 wraps, so it sizes to its text
 gFcn.ColumnWidth  = {160, '1x', 80};
 gFcn.Padding      = [10 12 10 12];
 gFcn.RowSpacing   = 8;
@@ -85,36 +91,37 @@ ef_saving.Layout.Row = 1; ef_saving.Layout.Column = 2;
 ef_saving.ValueChangedFcn = @(h,~) validateFcnField_(h,'saving');
 addResetBtn_(gFcn, 1, ef_saving, 'ep_SaveDataFcn', 'saving');
 
-addLabel_(gFcn, 2, 'Box GUI Function:');
-ef_boxfig = uidropdown(gFcn,'Editable','on','Items',itemsBoxFig,'Value',boxFig, ...
-    'Tooltip', ['Function that opens the behavioral GUI when the experiment starts.' newline ...
-                'Signature: BoxFig(RUNTIME)' newline ...
-                'Pick a previously-used GUI or type a new one.' newline ...
-                'Leave empty to disable.' newline ...
-                'Default: ep_GenericGUI']);
-ef_boxfig.Layout.Row = 2; ef_boxfig.Layout.Column = 2;
-ef_boxfig.ValueChangedFcn = @(h,~) validateFcnField_(h,'boxfig');
-addResetBtn_(gFcn, 2, ef_boxfig, 'ep_GenericGUI', 'boxfig');
-
-addLabel_(gFcn, 3, 'Add Subject Function:');
+addLabel_(gFcn, 2, 'Add Subject Function:');
 ef_addsubj = uidropdown(gFcn,'Editable','on','Items',itemsAddSubj,'Value',addSubj, ...
     'Tooltip', ['Function that collects subject information when adding a new subject.' newline ...
                 'Signature: S = AddSubjectFcn(S, boxids)' newline ...
                 'Pick a previously-used function or type a new one.' newline ...
                 'Default: epsych.DefaultSubject.open']);
-ef_addsubj.Layout.Row = 3; ef_addsubj.Layout.Column = 2;
+ef_addsubj.Layout.Row = 2; ef_addsubj.Layout.Column = 2;
 ef_addsubj.ValueChangedFcn = @(h,~) validateFcnField_(h,'addsubj');
-addResetBtn_(gFcn, 3, ef_addsubj, 'epsych.DefaultSubject.open', 'addsubj');
+addResetBtn_(gFcn, 2, ef_addsubj, 'epsych.DefaultSubject.open', 'addsubj');
+
+% The box GUI used to be the second field here. It belongs to a paradigm rather
+% than to a rig, so it is now a project's property; this line is left in its
+% place so an operator looking for the old field is told where it went instead
+% of concluding the feature was removed.
+lblMoved = uilabel(gFcn, 'Text', ...
+    ['Box GUI: set per project in Subjects > Subjects & Projects ' ...
+     '(Project > Edit Project...).'], ...
+    'FontColor',[0.35 0.38 0.42], 'WordWrap','on', ...
+    'Tooltip', ['The behavioral GUI launched at run start, feval(BoxFig, RUNTIME).' newline ...
+                'A project applies its own when its subjects are added to the session.' newline ...
+                'Default when no project names one: ep_GenericGUI']);
+lblMoved.Layout.Row = 3; lblMoved.Layout.Column = [1 3];
 
 % Initial validation pass
 validateFcnField_(ef_saving,  'saving');
-validateFcnField_(ef_boxfig,  'boxfig');
 validateFcnField_(ef_addsubj, 'addsubj');
 
 % ---- TAB: Paths ------------------------------------------------------
 tabPaths = uitab(tg,'Title','Paths');
-gPaths = uigridlayout(tabPaths,[7 3]);
-gPaths.RowHeight    = {28, 28, 28, 28, 28, 28, 28};
+gPaths = uigridlayout(tabPaths,[8 3]);
+gPaths.RowHeight    = {28, 28, 28, 28, 28, 28, 28, 28};
 gPaths.Scrollable   = 'on';
 gPaths.ColumnWidth  = {160, '1x', 80};
 gPaths.Padding      = [10 12 10 12];
@@ -204,6 +211,23 @@ btn_lv = uibutton(gPaths,'Text','Browse...', ...
     'ButtonPushedFcn', @(~,~) browseFile_(ef_logviewer, ef_logviewer.Value, ...
         'Select Error Log Viewer', viewerFilter));
 btn_lv.Layout.Row = 7; btn_lv.Layout.Column = 3;
+
+addLabel_(gPaths, 8, 'Subject Roster File:');
+ef_roster = uieditfield(gPaths,'text','Value',rosterFile, ...
+    'Tag','Customize_RosterFile', ...
+    'Placeholder', dfltRosterFile, ...
+    'Tooltip', ['Subject and project roster used by Subjects > Subjects & Projects.' newline ...
+                'Put this on a shared drive and point every rig at it to share one roster.' newline ...
+                'The file is created when the first subject is added.' newline ...
+                sprintf('Leave empty for this user only, %s.', dfltRosterFile)]);
+ef_roster.Layout.Row = 8; ef_roster.Layout.Column = 2;
+btn_rf = uibutton(gPaths,'Text','Browse...', ...
+    'ButtonPushedFcn', @(~,~) browseFile_(ef_roster, ef_roster.Value, ...
+        'Select Subject Roster', ...
+        {['*' epsych.SubjectRoster.FILE_EXTENSION], ...
+         ['Subject Roster (*' epsych.SubjectRoster.FILE_EXTENSION ')']; ...
+         '*.*','All Files (*.*)'}));
+btn_rf.Layout.Row = 8; btn_rf.Layout.Column = 3;
 
 % ---- TAB: Options ----------------------------------------------------
 tabOpts = uitab(tg,'Title','Options');
@@ -298,8 +322,6 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
                 else
                     ok = nargin(v) == 1 && nargout(v) == 0;
                 end
-            case 'boxfig'
-                ok = ~isempty(which(v));
             case 'addsubj'
                 if strcmp(v,'epsych.DefaultSubject.open')
                     ok = ~isempty(which('epsych.DefaultSubject'));
@@ -347,7 +369,6 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         errs = {};
 
         sf  = strtrim(ef_saving.Value);
-        bf  = strtrim(ef_boxfig.Value);
         asf = strtrim(ef_addsubj.Value);
 
         % Saving Function
@@ -358,11 +379,6 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
             elseif nargin(sf) ~= 1 || nargout(sf) ~= 0
                 errs{end+1} = 'Saving Function must accept 1 input and return 0 outputs.';
             end
-        end
-
-        % Box GUI Function
-        if ~isempty(bf) && isempty(which(bf))
-            errs{end+1} = sprintf('Box GUI Function ''%s'' was not found on the path.', bf);
         end
 
         % Add Subject Function
@@ -410,13 +426,9 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
             vprintf(0,'Saving Function: %s\n',sf);
         end
 
-        % Apply: Box GUI Function
-        self.FUNCS.BoxFig = bf;
-        if ~isempty(bf)
-            setpref('ep_RunExpt_FUNCS','BoxFig',bf);
-            self.RememberRecentFunc('RecentBoxFig',bf);
-            vprintf(0,'Box GUI Function: %s\n',bf);
-        end
+        % FUNCS.BoxFig is deliberately not touched here: a project applied it
+        % when its subjects were added, and re-asserting a stale dialog value on
+        % every OK would undo that.
 
         % Apply: Add Subject Function
         self.FUNCS.AddSubjectFcn = asf;
@@ -484,6 +496,11 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         if ~isempty(lv)
             vprintf(1,'Error log viewer: %s\n',lv);
         end
+
+        % Apply: Subject Roster File (empty clears the override and falls back
+        % to the per-user file). The file itself is not created here -- it
+        % appears when the first subject is added.
+        epsych.SubjectRoster.setConfiguredFile(strtrim(ef_roster.Value));
 
         self.CheckReady;
         onClose_();

@@ -94,6 +94,10 @@ classdef PumpBoxGUI < gui.BoxGUI
             if isempty(D) || ~isfield(D, 'VolumeInfused'), return; end
 
             infused = D(end).VolumeInfused;
+            if ~(isnumeric(infused) && isscalar(infused))
+                return  % no volume came back for this trial; leave the label alone
+            end
+
             if isnan(obj.PrevInfused_) || infused < obj.PrevInfused_
                 delta = NaN;    % first trial, or the accumulators were zeroed
             else

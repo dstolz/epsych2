@@ -14,7 +14,13 @@ classdef NE1000 < hw.Interface
     %   - The pump is a strict master-slave device in Basic mode: it never
     %     transmits except in answer to a command, and it will not accept a new
     %     command until it has begun answering the previous one. All I/O here
-    %     is therefore synchronous single transactions.
+    %     is therefore synchronous single transactions, and a transaction
+    %     re-entered from a timer callback (gui.SyringePump polls at 4 Hz,
+    %     and MATLAB runs timers while a serialport read blocks) is DROPPED
+    %     rather than allowed to interleave and desync the link.
+    %   - A read whose reply goes missing serves the last value the pump
+    %     reported, never []: the trial-end sweep writes whatever comes back
+    %     straight into DATA. Queries are resent once; commands never are.
     %   - A pump left in Safe mode (CRC-framed packets) ignores bare ASCII
     %     commands, so connect() first sends the documented Safe-mode escape
     %     packet (manual sec. 10.2.2) to force Basic mode. In Basic mode the
@@ -160,6 +166,18 @@ classdef NE1000 < hw.Interface
         % Cached DIS reply: struct('inf',double,'wdr',double,'units',char).
         dispCache_ = []
         dispCacheTic_ = []
+
+        % True while a command is on the wire. The pump answers exactly one
+        % command at a time, and MATLAB dispatches timer callbacks while a
+        % serialport read blocks, so without this guard gui.SyringePump's
+        % 4 Hz poll lands inside another transaction and the two consume
+        % each other's replies (see transact_).
+        busy_ (1,1) logical = false
+
+        % Last value each wire query actually returned, keyed by wire name.
+        % Serves a read whose reply went missing, so a dropped packet
+        % degrades to a stale value instead of to [] (see readOne_).
+        lastGood_ = struct()
     end
 
 
@@ -776,13 +794,60 @@ classdef NE1000 < hw.Interface
                 return
             end
 
-            try
-                obj.flushInput_();
-                obj.writeLine_(sprintf('%d%s', obj.Address, cmd));
-                raw = obj.readPacket_();
-            catch ME
-                vprintf(0, 1, 'NE1000: transport error on "%s": %s', cmd, ME.message);
+            % One command, one reply, no overlap. The pump will not accept a
+            % new command until it has begun answering the previous one, and
+            % MATLAB runs timer callbacks while a serialport read blocks — so
+            % gui.SyringePump's 4 Hz poll can fire in the middle of the
+            % runtime's trial-end sweep. Each would then flush and consume the
+            % other's reply, and the link stays a packet out of step for the
+            % rest of the session. The nested command is dropped instead; its
+            % caller falls back to the last value the pump reported.
+            if obj.busy_
+                vprintf(3, 'NE1000: "%s" skipped; another transaction is in flight', cmd);
                 return
+            end
+
+            obj.busy_ = true;
+            try
+                R = obj.runTransaction_(cmd);
+            catch ME
+                vprintf(0, 1, ME);
+            end
+            obj.busy_ = false;
+        end
+
+        function R = runTransaction_(obj, cmd)
+            % R = runTransaction_(obj, cmd)
+            % Body of one transaction, with the link already claimed by
+            % transact_. Same return struct.
+            R = struct('ok', false, 'status', '', 'alarm', '', 'data', '', 'err', '');
+
+            % A query only reports state, so a missing reply is worth one
+            % resend. RUN, STP, CLD and every setter are NOT resent: the pump
+            % may well have performed the first copy before its reply went
+            % astray, and a second RUN is a second dose of reward.
+            if hw.NE1000.isQuery_(cmd)
+                attempts = 2;
+            else
+                attempts = 1;
+            end
+
+            raw = '';
+            for a = 1:attempts
+                try
+                    obj.flushInput_();
+                    obj.writeLine_(sprintf('%d%s', obj.Address, cmd));
+                    raw = obj.readPacket_();
+                catch ME
+                    vprintf(0, 1, 'NE1000: transport error on "%s": %s', cmd, ME.message);
+                    return
+                end
+                if ~isempty(raw)
+                    break
+                end
+                if a < attempts
+                    vprintf(2, 'NE1000: no reply to "%s"; retrying once', cmd);
+                end
             end
 
             if isempty(raw)
@@ -797,7 +862,12 @@ classdef NE1000 < hw.Interface
                 obj.LastAlarm = R.alarm;
                 vprintf(0, 1, 'NE1000: alarm - %s', obj.alarmLabel_(R.alarm));
             end
-            if ~isempty(R.err)
+
+            % '?NA' to STP means the pump was already stopped, which is what
+            % every STP issued here is asking for — connect, teardown, leaving
+            % Record, and the operator's Stop button alike. Reporting it as an
+            % error puts a red line in the log for a pump behaving correctly.
+            if ~isempty(R.err) && ~(strcmp(cmd, 'STP') && strcmp(R.err, 'NA'))
                 vprintf(0, 1, 'NE1000: "%s" -> error %s', cmd, R.err);
             end
         end
@@ -806,8 +876,45 @@ classdef NE1000 < hw.Interface
 
         function v = readOne_(obj, wire, P)
             % v = readOne_(obj, wire, P)
-            % Query the pump for one parameter's live value. Returns [] when a
-            % live query fails to parse.
+            % Query the pump for one parameter's live value, standing in the
+            % last value it reported when a reply goes missing.
+            %
+            % The fallback is what keeps a dropped packet from becoming an
+            % empty value. The runtime's trial-end sweep lands whatever comes
+            % back straight into DATA, and everything downstream — a scatter,
+            % a custom BoxGUI, an offline analysis — expects the parameter's
+            % own type; [] there fails later and somewhere else. A stale
+            % setting is still true, since nothing but a write moves it.
+            % Status is the one genuinely volatile reading, so a missing
+            % Status reports 'Unknown' rather than a state the pump has left.
+            v = obj.queryOne_(wire, P);
+
+            if ~isempty(v)
+                if isvarname(wire)
+                    obj.lastGood_.(wire) = v;
+                end
+                return
+            end
+
+            % busy_ still set means this read was never put on the wire: it
+            % nested inside another transaction and transact_ dropped it. That
+            % is a scheduling collision, not a pump that failed to answer, so
+            % even Status keeps its previous value rather than reporting
+            % 'Unknown' — otherwise a poll landing inside the trial-end sweep
+            % would blink the operator panel's status line every trial.
+            if strcmp(wire, 'Status') && ~obj.busy_
+                v = 'Unknown';
+            elseif isvarname(wire) && isfield(obj.lastGood_, wire)
+                v = obj.lastGood_.(wire);
+            elseif ~isempty(P.Values)
+                v = P.Values{1};
+            end
+        end
+
+        function v = queryOne_(obj, wire, P)
+            % v = queryOne_(obj, wire, P)
+            % One live query. Returns [] when the pump did not answer or the
+            % reply did not parse; readOne_ decides what to serve instead.
             %
             % Never touch P.Value here: while connected, hw.Parameter's Value
             % getter dispatches right back into get_parameter, so using it as
@@ -1181,6 +1288,16 @@ classdef NE1000 < hw.Interface
             end
         end
 
+        function tf = isQuery_(cmd)
+            % tf = hw.NE1000.isQuery_(cmd)
+            % True for the commands that only report state, and so may be
+            % safely resent after a dropped reply. Everything else — RUN, STP,
+            % CLD, and every setter — changes the pump, and a command whose
+            % reply went missing may still have been performed.
+            cmd = char(cmd);
+            tf = isempty(cmd) || ismember(cmd, {'VER', 'RAT', 'VOL', 'DIA', 'DIR', 'DIS'});
+        end
+
         function s = formatFloat_(v)
             % s = hw.NE1000.formatFloat_(v)
             % Render a number within the pump's "maximum of 4 digits plus 1
@@ -1292,7 +1409,7 @@ specs(end + 1) = local_spec_('VolumeWithdrawn', 0, ...
 
 specs(end + 1) = local_spec_('Status', 'Stopped', ...
     struct('Type', 'String', 'Access', 'Read', 'Visible', false, ...
-           'Description', "Live pump state from the reply prompt character: Infusing, Withdrawing, Stopped, Paused, TimedPause, TriggerWait, Purging, or Alarm:<code>."));
+           'Description', "Live pump state from the reply prompt character: Infusing, Withdrawing, Stopped, Paused, TimedPause, TriggerWait, Purging, or Alarm:<code>. 'Unknown' when the pump did not answer the query."));
 
 specs(end + 1) = local_spec_('Start', false, ...
     struct('Type', 'Boolean', 'Access', 'Any', 'Visible', false, 'isTrigger', true, ...

@@ -70,12 +70,19 @@ self.H.tb_save_config = uipushtool(tb, ...
 % button stack. Handle names and tags are unchanged from the buttons they
 % replace: UpdateGUIstate, UpdateSubjectList, and SaveDataCallback drive
 % Enable through these handles, and epsych.SelfTest checks them by name.
+%
+% This button now opens the Subjects & Projects manager rather than the
+% one-at-a-time Add Subject dialog, which is reached from inside it. The
+% handle name and tag are deliberately unchanged: epsych.SelfTest check I1
+% requires 'add_subject' to exist and be live, and it carries no 'setup'
+% prefix so UpdateGUIstate leaves it enabled in every state -- the manager is
+% readable mid-run, and it is the commit action inside it that refuses.
 self.H.add_subject = uipushtool(tb, ...
     'Tag','add_subject', ...
-    'Icon',localToolbarIcon("addsubject"), ...
+    'Icon',localToolbarIcon("subjects"), ...
     'Separator','on', ...
-    'Tooltip','Add Subject...', ...
-    'ClickedCallback', @(~,~) self.AddSubject);
+    'Tooltip','Subjects & Projects... (Ctrl+B)', ...
+    'ClickedCallback', @(~,~) self.OpenSubjectManager);
 
 self.H.setup_remove_subject = uipushtool(tb, ...
     'Tag','setup_remove_subject', ...
@@ -157,6 +164,24 @@ self.H.mnu_save_config = uimenu(mConfig,'Label','&Save Config...', ...
 self.H.mnu_recent_configs = uimenu(mConfig,'Label','&Recent Configs', ...
     'Tag','setup_mnu_recent_configs','Separator','on');
 self.H.mnu_config = mConfig;
+
+% Subjects gets its own top-level menu rather than an item under Config: the
+% roster is a different noun from the session configuration, and it is the
+% second-most-used action after Run. It does not belong under Utilities
+% either, which is documented as standalone tools -- this one writes CONFIG.
+% Note the doubled ampersand: a single '&' would make P the mnemonic and eat
+% the character.
+mSubjects = uimenu(f,'Label','Subjects');
+self.H.mnu_subjects = mSubjects;
+self.H.mnu_subject_manager = uimenu(mSubjects,'Label','&Subjects && Projects...', ...
+    'Tag','mnu_subject_manager','Accelerator','B', ...
+    'MenuSelectedFcn', @(~,~) self.OpenSubjectManager);
+self.H.mnu_remove_subject = uimenu(mSubjects,'Label','Remove Selected Subject', ...
+    'Tag','setup_mnu_remove_subject', ...
+    'MenuSelectedFcn', @(~,~) self.RemoveSubject);
+self.H.mnu_roster_file = uimenu(mSubjects,'Label','Roster File...', ...
+    'Tag','setup_mnu_roster_file','Separator','on', ...
+    'MenuSelectedFcn', @(~,~) self.DefineRosterFile);
 
 mCustom = uimenu(f,'Label','Customize');
 uimenu(mCustom,'Label','Customize...','MenuSelectedFcn', @(~,~) self.OpenCustomizeDialog,'Accelerator','U')
@@ -310,6 +335,17 @@ uimenu(cmProtocol,'Text','Update to Latest Version','MenuSelectedFcn', @(~,~) se
 uimenu(cmProtocol,'Text','Change Protocol File...','MenuSelectedFcn', @(~,~) self.ChangeProtocolFile);
 self.H.view_trials = uimenu(cmProtocol,'Text','View Trials','Separator','on', ...
     'Tag','view_trials','MenuSelectedFcn', @(~,~) self.ViewTrials);
+
+% Subject-level actions, as opposed to the protocol-level ones above. Editing
+% details in place is what an operator actually wants mid-setup -- correcting a
+% weight or a typo previously meant removing and re-adding the subject.
+self.H.edit_subject_details = uimenu(cmProtocol,'Text','Edit Subject Details...', ...
+    'Tag','setup_edit_subject_details','Separator','on', ...
+    'MenuSelectedFcn', @(~,~) self.EditSubjectDetails);
+self.H.show_in_manager = uimenu(cmProtocol,'Text','Show in Subject Manager', ...
+    'Tag','show_in_manager', ...
+    'MenuSelectedFcn', @(~,~) self.ShowSubjectInManager);
+
 self.H.subject_list.ContextMenu = cmProtocol;
 
 % ---------- Bottom control bar (Run/Preview/Pause/Stop) ----------
@@ -504,6 +540,25 @@ switch name
             ".kssssssk.gggggg"
             ".kssssssk...gg.."
             ".kssssssk...gg.."
+            ".kssssssk......."
+            ".kkkkkkkk......."
+            "................"
+            "................"
+            "................"
+            "................"];
+
+    case "subjects" % person beside a roster list
+        rows = [ ...
+            "................"
+            "...kkkk........."
+            "..kssssk........"
+            "..kssssk...bbbbb"
+            "..kssssk........"
+            "...kkkk....bbbbb"
+            "..kkkkkk........"
+            ".kssssssk..bbbbb"
+            ".kssssssk......."
+            ".kssssssk..bbbbb"
             ".kssssssk......."
             ".kkkkkkkk......."
             "................"

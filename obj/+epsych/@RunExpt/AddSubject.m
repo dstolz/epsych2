@@ -3,60 +3,43 @@ function AddSubject(self, S)
 % AddSubject(self, S)
 % Create a new subject entry and assign a protocol.
 %  S - (optional) pre-filled epsych.Subject or struct; opens dialog if omitted
+%
+% No toolbar button or menu routes here any more — the Subjects & Projects
+% manager replaced that path. This remains the programmatic API and the one
+% place that knows how to dispatch FUNCS.AddSubjectFcn, which the manager's
+% "New Subject..." reuses so a lab's custom dialog keeps working.
+%
+% See also: epsych.RunExpt.OpenSubjectManager, epsych.SubjectRoster.assignToSession
 arguments
     self
     S = struct()
 end
 if self.STATE >= PRGMSTATE.RUNNING, return, end
 
-% Collect existing names and occupied box IDs to prevent conflicts
+% Collect existing names and free box IDs. The dialog marks the occupied boxes
+% rather than hiding them, so the answer is checked here instead of being
+% prevented there.
 boxids   = 1:16;
+curboxes = [];
 curnames = {};
 if ~isempty(self.CONFIG(1).SUBJECT)
-    boxids   = setdiff(boxids, arrayfun(@(c) c.SUBJECT.BoxID, self.CONFIG));
+    curboxes = arrayfun(@(c) c.SUBJECT.BoxID, self.CONFIG);
+    boxids   = setdiff(boxids, curboxes);
     curnames = arrayfun(@(c) c.SUBJECT.Name, self.CONFIG, 'uni', 0);
 end
 
-if ~isfield(self.FUNCS,'AddSubjectFcn') || isempty(self.FUNCS.AddSubjectFcn)
-    self.FUNCS.AddSubjectFcn = getpref('ep_RunExpt','CONFIG_AddSubjectFcn','epsych.DefaultSubject.open');
-end
+S = self.dispatchAddSubjectFcn_(S, boxids, curnames);
 
-ontop = self.AlwaysOnTop(false);
-
-% Dispatch: prefer the new epsych.Subject-based open() path; fall back to
-% legacy function handles that return a plain struct.
-fcn = self.FUNCS.AddSubjectFcn;
-if isequal(fcn, 'epsych.DefaultSubject.open')
-    % The built-in dialog validates duplicates live so entered data isn't lost
-    result = epsych.DefaultSubject.open(S, boxids, 'ReservedNames', curnames);
-else
-    % Legacy path — seed struct converted for backward-compatible signature
-    if isa(S, 'epsych.Subject')
-        seed = S.toStruct();
-    elseif isstruct(S)
-        seed = S;
-    else
-        seed = struct();
-    end
-    result = feval(fcn, seed, boxids);
-end
-
-self.AlwaysOnTop(ontop);
-
-% Normalise result to epsych.Subject
-if isempty(result), return, end
-if isa(result, 'epsych.Subject')
-    S = result;
-elseif isstruct(result)
-    S = epsych.DefaultSubject(result);
-else
-    return
-end
-
-if ~S.isValid(), return, end
+if isempty(S) || ~S.isValid(), return, end
 
 if ~isempty(curnames) && any(strcmpi(S.Name, curnames))
     warndlg(sprintf('The subject name "%s" is already in use.', S.Name), 'Add Subject', 'modal')
+    return
+end
+
+if any(S.BoxID == curboxes)
+    warndlg(sprintf('Box %d is already in use by another subject.', S.BoxID), ...
+        'Add Subject', 'modal')
     return
 end
 
@@ -70,15 +53,7 @@ pfn = fullfile(pn, fn);
 
 protocol = epsych.Protocol.load(pfn);
 
-% Populate the first slot when empty, otherwise append a new entry
-if isempty(self.CONFIG(1).protocol_fn)
-    idx = 1;
-else
-    idx = numel(self.CONFIG) + 1;
-end
-self.CONFIG(idx).protocol_fn = pfn;
-self.CONFIG(idx).PROTOCOL    = protocol;
-self.CONFIG(idx).SUBJECT     = S;
+self.appendSubjectToConfig_(S, pfn, protocol);
 
 self.UpdateSubjectList
 self.CheckReady

@@ -20,6 +20,16 @@ function smoke_test_conduction_delay()
 %      own embedded-click delay
 %   8) test_tones on the jittering rig passes and records the delay stats
 %   9) CalibrationGui reports the delay in its Conduction Delay label
+%  10) the Measure Conduction Delay button is offered exactly when the probe
+%      can run (hardware attached), and disabled when it cannot
+%  11) a pending Stop does not abort the next standalone probe
+%  12) ambient temperature sets the speed of sound the delay is read as a
+%      distance at, and changes no measured delay
+%  13) that temperature survives a .esgc round trip
+%  14) the probe's second output carries the correlation the lag was chosen
+%      from, peaking at the lag it chose
+%  15) the GUI offers the temperature, and draws the probe's correlation on
+%      the transfer panel whether or not live plots are on
 
 epsych_startup
 
@@ -76,7 +86,7 @@ fprintf('PASS: out-of-bound delay rejected (corr %.3f, at_bound %d)\n', ...
 % --- 6) calibrate_tones window placement, fixed delay ---------------------- %
 freqs = 500 .* 2 .^ (0:7);
 freqs(freqs >= FS / 2) = [];
-rampN = round(0.005 / 2 * FS);   % the sweep's fixed 5 ms cos^2 gate
+rampN = round(0.010 / 2 * FS);   % the sweep's fixed 10 ms cos^2 gate: 5 ms per edge
 
 eng = stimgen.calibration.Engine(flat_rig_(FS, DELAY));
 eng.set_configuration(ShowLivePlots=true);
@@ -126,7 +136,7 @@ fprintf('PASS: test_tones worst error %.3f dB under latency jitter (delay %.2f +
     r.max_abs_error_db, r.conduction_delay_s * 1e3, r.conduction_delay_sd_s * 1e3);
 
 % --- 9) GUI label ---------------------------------------------------------- %
-gui = stimgen.calibration.CalibrationGui(eng); %#ok<NASGU>
+gui = stimgen.calibration.CalibrationGui(eng);
 drawnow;
 lbl = find_delay_label_();
 assert(~isempty(lbl), 'Conduction Delay label not found or empty after a run');
@@ -139,6 +149,117 @@ eng.measure_conduction_delay();
 drawnow;
 assert(contains(find_delay_label_(), 'ms'), 'Label did not follow a new probe');
 fprintf('PASS: label follows the ConductionDelay listener\n');
+
+% --- 10) Measure Conduction Delay button ------------------------------------ %
+% The button's own dialogs are modal, so what is checked headlessly is the
+% wiring around them: that it exists next to the readout it writes, and that
+% it offers itself exactly when the probe can run -- there is hardware
+% attached, and nothing else is using it.
+BTN_TEXT = 'Measure Conduction Delay';
+
+btn = find_button_(BTN_TEXT);
+assert(~isempty(btn), '"%s" button not found in the GUI', BTN_TEXT);
+assert(strcmp(btn.Enable, 'on'), 'Button must be enabled with an adapter attached');
+fprintf('PASS: "%s" enabled with hardware attached\n', BTN_TEXT);
+
+% One window at a time, so the button found next is unambiguously the
+% offline one's.
+delete(gui);
+delete(findall(groot, 'Type', 'figure'));
+offlineGui = stimgen.calibration.CalibrationGui(stimgen.calibration.Engine()); %#ok<NASGU>
+drawnow;
+offBtn = find_button_(BTN_TEXT);
+assert(~isempty(offBtn) && strcmp(offBtn.Enable, 'off'), ...
+    'Button must be disabled with no adapter: nothing can be played');
+fprintf('PASS: "%s" disabled with no adapter\n', BTN_TEXT);
+
+% --- 11) A pending Stop must not abort the next standalone probe ------------- %
+% Every other run entry point clears the cancel flag; before this button
+% existed the standalone probe was called only from the command line, where a
+% left-over Stop from a cancelled sweep could not reach it.
+eng.cancel();
+info = eng.measure_conduction_delay();
+assert(info.valid, 'Probe must run after a cancelled sweep left the flag set');
+fprintf('PASS: standalone probe clears a pending cancellation\n');
+
+% --- 12) Ambient temperature -> speed of sound -> distance ------------------- %
+% The delay is the measurement; the distance is only the room's reading of it,
+% and the room is about 0.6 m/s per degree.
+tempEng = stimgen.calibration.Engine(flat_rig_(FS, DELAY));
+
+tempEng.set_configuration(AmbientTemperature=0);
+cold = tempEng.measure_conduction_delay();
+tempEng.set_configuration(AmbientTemperature=30);
+warm = tempEng.measure_conduction_delay();
+
+assert(abs(cold.speed_of_sound_ms - 331.3) < 0.05, ...
+    'Speed of sound at 0 C should be 331.3 m/s, got %.3f', cold.speed_of_sound_ms);
+assert(warm.speed_of_sound_ms - cold.speed_of_sound_ms > 15, ...
+    'Warm air must carry sound faster (%.1f vs %.1f m/s)', ...
+    warm.speed_of_sound_ms, cold.speed_of_sound_ms);
+assert(cold.delay_samples == warm.delay_samples, ...
+    'Temperature must not change the measured delay itself');
+assert(warm.path_m > cold.path_m, 'The same delay is a longer path in warm air');
+for info = [cold warm]
+    assert(abs(info.path_m - info.delay_s * info.speed_of_sound_ms) < 1e-12, ...
+        'path_m must be the delay at its own speed of sound');
+end
+assert(abs(stimgen.calibration.Engine.speed_of_sound(20) - 343.2) < 0.1, ...
+    'The static helper must agree with the 343 m/s the fixed constant stood for');
+fprintf('PASS: %.1f m/s at 0 C, %.1f m/s at 30 C; path %.3f -> %.3f m for one delay\n', ...
+    cold.speed_of_sound_ms, warm.speed_of_sound_ms, cold.path_m, warm.path_m);
+
+% --- 13) Temperature survives a .esgc round trip ----------------------------- %
+% The reflection distances in a saved swept-sine analysis were computed at
+% this temperature, so loading the file without it would restate them at
+% whatever the loading rig happens to be set to.
+tempEng.set_configuration(AmbientTemperature=17.5);
+tempEng.calibrate_clicks(1e-4 .* [1 2], 1);
+ffn = fullfile(tempdir, 'smoke_test_conduction_delay.esgc');
+tempEng.save(ffn);
+reloaded = stimgen.calibration.Engine.load(ffn);
+delete(ffn);
+assert(abs(reloaded.AmbientTemperature - 17.5) < eps, ...
+    'AmbientTemperature did not survive save/load (%.3f)', reloaded.AmbientTemperature);
+fprintf('PASS: ambient temperature round-trips through a .esgc\n');
+
+% --- 14) The probe's diagnostics --------------------------------------------- %
+[info, diag] = eng.measure_conduction_delay();
+assert(numel(diag.lag_ms) == numel(diag.corr) && ~isempty(diag.corr), ...
+    'Diagnostics must carry a correlation curve over the searched lags');
+assert(abs(max(diag.corr) - 1) < 1e-12, 'The curve is normalized to its own peak');
+[~, k] = max(diag.corr);
+assert(abs(diag.lag_ms(k) - info.delay_s * 1e3) <= 2 / FS * 1e3, ...
+    'The curve must peak at the lag the probe chose (%.4f vs %.4f ms)', ...
+    diag.lag_ms(k), info.delay_s * 1e3);
+assert(~isempty(diag.probe_v) && diag.bound_ms > diag.delay_ms, ...
+    'Diagnostics must carry the probe region and the bound it was searched to');
+fprintf('PASS: correlation curve of %d lags peaks at the chosen %.3f ms\n', ...
+    numel(diag.lag_ms), diag.delay_ms);
+
+% --- 15) GUI: temperature field and the correlation panel -------------------- %
+delete(findall(groot, 'Type', 'figure'));
+eng.set_configuration(AmbientTemperature=25, ShowLivePlots=false);
+gui = stimgen.calibration.CalibrationGui(eng);
+drawnow;
+
+tempField = find_field_after_label_('Ambient Temperature (°C)');
+assert(~isempty(tempField), 'Ambient Temperature field not found in the GUI');
+assert(abs(tempField.Value - 25) < eps, ...
+    'Temperature field shows %.2f, engine holds %.2f', tempField.Value, 25);
+fprintf('PASS: GUI shows the engine''s ambient temperature (%.1f C)\n', tempField.Value);
+
+% Live plots are off: the panel must still be drawn, from the diagnostics the
+% probe returned rather than from the event stream.
+[~, diag] = eng.measure_conduction_delay();
+gui.Monitor.show_latency(diag);
+drawnow;
+corrLine = findall(gui.Monitor.AxTransfer, 'Type', 'line', ...
+    'DisplayName', 'click correlation');
+assert(~isempty(corrLine), 'Correlation curve not drawn on the transfer panel');
+assert(numel(corrLine.XData) == numel(diag.lag_ms), ...
+    'The drawn curve is not the one the probe returned');
+fprintf('PASS: probe correlation drawn with live plots off\n');
 
 fprintf('\nAll conduction delay smoke tests passed\n');
 end
@@ -198,6 +319,40 @@ function fake = flat_rig_(fs, delaySamples)
 fake = FakeSpeakerAdapter(fs);
 fake.Coloration = 1;
 fake.DelaySamples = delaySamples;
+end
+
+% ------------------------------------------------------------------------ %
+function btn = find_button_(text)
+% The one button carrying this caption, across every open figure.
+btn = [];
+buttons = findall(groot, 'Type', 'uibutton');
+for k = 1:numel(buttons)
+    if strcmp(buttons(k).Text, text)
+        btn = buttons(k);
+        return
+    end
+end
+end
+
+% ------------------------------------------------------------------------ %
+function fld = find_field_after_label_(labelText)
+% The numeric field sharing a grid row with this caption, in column 2 -- the
+% layout every settings row in the controls column is built on.
+fld = [];
+labels = findall(groot, 'Type', 'uilabel');
+for k = 1:numel(labels)
+    if ~strcmp(labels(k).Text, labelText)
+        continue
+    end
+    fields = findall(labels(k).Parent, 'Type', 'uinumericeditfield');
+    for j = 1:numel(fields)
+        if fields(j).Layout.Row == labels(k).Layout.Row && ...
+                fields(j).Layout.Column == 2
+            fld = fields(j);
+            return
+        end
+    end
+end
 end
 
 % ------------------------------------------------------------------------ %

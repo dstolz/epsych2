@@ -12,9 +12,9 @@ classdef DetectionBoxGUI < gui.BoxGUI
     %   - onNewData refreshes a per-level performance table and session tally.
     %   - onModeChange tracks Preview/Record/Pause/Stop in the header.
     %
-    % Launch in a real session by setting Customize > Customize..., Functions
-    % tab, "Box GUI Function:" to DetectionBoxGUI (the class must be on the
-    % path). Try it without hardware: run_detection_session (same folder).
+    % Launch in a real session by setting a project's Box GUI to DetectionBoxGUI
+    % (Subjects > Subjects & Projects, Project > Edit Project...); the class must
+    % be on the path. Try it without hardware: run_detection_session (same folder).
     %
     % Walkthrough: documentation/examples/Detection_Task_3_BoxGUI.md
     %

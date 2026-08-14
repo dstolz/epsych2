@@ -28,7 +28,7 @@ restoreFlag = onCleanup(@() localClearFlag(self));
 
 % --- roster health -------------------------------------------------------
 if isempty(self.Roster) || ~isvalid(self.Roster)
-    self.H.rosterLabel.Text = 'No roster';
+    self.H.rosterLabel.Text = 'Roster: (none)';
     self.showEmptyState_('The subject roster could not be opened. Use Roster File... to choose one.');
     self.updateEnableStates_();
     return
@@ -38,8 +38,10 @@ if opts.Reload
     self.Roster.reload();
 end
 
+% Named rather than bare: with the action strip gone this label stands alone
+% at the top of the window, where an unlabelled file name reads as a title.
 [~, rosterName, rosterExt] = fileparts(self.Roster.FilePath);
-label = [rosterName rosterExt];
+label = ['Roster: ' rosterName rosterExt];
 if ~self.Roster.IsWritable || self.Roster.IsReadOnly
     label = [label '  (read-only)'];
     self.H.rosterLabel.FontColor = [0.80 0.45 0.05];
@@ -60,12 +62,26 @@ end
 
 projects = self.Roster.Projects;
 
+% An archived project is hidden, never dropped -- except the one currently
+% selected, which stays listed so it cannot vanish out from under an operator
+% who is looking at it, or who has just archived it from the edit dialog.
+if ~isempty(projects) && ~self.H.showArchived.Value
+    keep = ~[projects.Archived] | strcmp({projects.ProjectID}, wanted);
+    projects = projects(keep);
+end
+
 items = {self.ALL_SUBJECTS};
 data  = {''};
 if ~isempty(projects)
     [~, order] = sort(lower(string({projects.Name})));
     projects = projects(order);
-    items = [items, {projects.Name}];
+
+    % Marked in the item text because a uilistbox has no per-item styling.
+    names = {projects.Name};
+    archived = [projects.Archived];
+    names(archived) = strcat(names(archived), '  (archived)');
+
+    items = [items, names];
     data  = [data,  {projects.ProjectID}];
 end
 
@@ -85,6 +101,8 @@ recs = self.visibleSubjects_();
 self.Rows_ = recs;
 
 if isempty(recs)
+    self.Statuses_ = [];
+    self.showVersionBanner_('');
     self.showEmptyState_(self.emptyStateText_());
     self.H.countLabel.Text = '0 shown';
     self.updateEnableStates_();
@@ -95,9 +113,15 @@ self.H.emptyState.Visible = 'off';
 self.H.table.Visible = 'on';
 
 nRows = numel(recs);
-data = cell(nRows, 9);
+data = cell(nRows, 10);
 retired = false(nRows, 1);
 projectId = self.selectedProject_();
+
+% One engine call for the whole table rather than one per row: the roster
+% caches its file reads across the batch, so a project on a single protocol
+% peeks at that .eprot once per repaint.
+self.Statuses_ = self.Roster.protocolStatus({recs.SubjectID}, projectId);
+versionFlag = zeros(nRows, 1);   % 0 neutral, 1 needs attention, 2 muted
 
 for i = 1:nRows
     r = recs(i);
@@ -113,25 +137,19 @@ for i = 1:nRows
     end
     data{i,3} = box;
 
-    pfn = self.resolveProtocol_(r.SubjectID);
-    if isempty(pfn)
-        data{i,4} = '(none)';
-    else
-        [~, pn, pe] = fileparts(pfn);
-        data{i,4} = [pn pe];
-    end
+    [data{i,4}, data{i,5}, versionFlag(i)] = self.protocolCells_(r.SubjectID, self.Statuses_(i));
 
-    data{i,5} = r.Species;
-    data{i,6} = r.Sex;
-    data{i,7} = r.Weight;
+    data{i,6} = r.Species;
+    data{i,7} = r.Sex;
+    data{i,8} = r.Weight;
 
     [lastRun, isRetired] = localMembershipInfo(self.Roster, r.SubjectID, projectId);
-    data{i,8} = lastRun;
+    data{i,9} = lastRun;
     retired(i) = isRetired;
     if isRetired
-        data{i,9} = 'Retired';
+        data{i,10} = 'Retired';
     else
-        data{i,9} = 'Active';
+        data{i,10} = 'Active';
     end
 end
 
@@ -146,6 +164,12 @@ end
 if any(retired)
     addStyle(self.H.table, uistyle('FontColor',[0.55 0.58 0.62]), 'row', find(retired));
 end
+
+% Version styling goes on after the retired sweep so a retired subject on a
+% stale protocol still shows the warning; the last style added wins per cell.
+localStyleVersions(self.H.table, versionFlag);
+self.showVersionBanner_(localBannerText(self.Statuses_));
+self.H.table.Tooltip = localTableTooltip(self.Statuses_);
 
 nChecked = numel(self.checkedIds_());
 total = numel(self.Roster.Subjects);
@@ -164,6 +188,69 @@ end
 % -----------------------------------------------------------------------
 function localClearFlag(self)
 self.Refreshing_ = false;
+end
+
+% -----------------------------------------------------------------------
+function localStyleVersions(tbl, flag)
+% Colour the Version cell by how much attention it wants.
+%
+% Only "the file moved on without you" is a warning. A subject that has simply
+% never run has no version to be behind, and colouring that would make a fresh
+% project of sixteen animals light up entirely orange.
+warn = find(flag == 1);
+if ~isempty(warn)
+    addStyle(tbl, uistyle('FontColor',[0.80 0.36 0.02], 'FontWeight','bold'), ...
+        'cell', [warn, repmat(5, numel(warn), 1)]);
+end
+
+muted = find(flag == 2);
+if ~isempty(muted)
+    addStyle(tbl, uistyle('FontColor',[0.55 0.58 0.62]), ...
+        'cell', [muted, repmat(5, numel(muted), 1)]);
+end
+end
+
+% -----------------------------------------------------------------------
+function txt = localBannerText(st)
+% The one-line summary above the table, or '' to collapse it.
+txt = '';
+if isempty(st), return, end
+
+nBehind  = nnz(strcmp({st.Status}, 'outdated'));
+nMissing = nnz(strcmp({st.Status}, 'missing'));
+nDiffers = nnz(strcmp({st.Status}, 'differs'));
+
+parts = {};
+if nBehind > 0
+    parts{end+1} = sprintf('%d subject(s) are behind the protocol saved on disk', nBehind);
+end
+if nMissing > 0
+    parts{end+1} = sprintf('%d protocol file(s) are missing', nMissing);
+end
+if nDiffers > 0
+    parts{end+1} = sprintf('%d are not on the project default', nDiffers);
+end
+if isempty(parts), return, end
+
+txt = [upper(parts{1}(1)) parts{1}(2:end)];
+if numel(parts) > 1
+    txt = sprintf('%s; %s', txt, strjoin(parts(2:end), '; '));
+end
+txt = [txt '.'];
+end
+
+% -----------------------------------------------------------------------
+function tip = localTableTooltip(st)
+% Name the subjects behind the file, rather than only counting them.
+base = 'Right-click a subject to set, update, revert, or open its protocol.';
+tip = base;
+if isempty(st), return, end
+
+behind = st(strcmp({st.Status}, 'outdated') | strcmp({st.Status}, 'missing'));
+if isempty(behind), return, end
+
+lines = arrayfun(@(s) sprintf('%s: %s', s.Name, s.Message), behind, 'uni', 0);
+tip = [{base, ''}, lines(:)'];
 end
 
 % -----------------------------------------------------------------------

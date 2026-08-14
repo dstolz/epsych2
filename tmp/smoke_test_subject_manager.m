@@ -1,9 +1,9 @@
 function smoke_test_subject_manager()
 % smoke_test_subject_manager()
 % Exercise gui.SubjectManager without a human: window lifecycle, the
-% single-instance rule, filtering, the retired toggle, the remembered project,
-% the commit into a session, and — the path most likely to break — opening
-% against a completely empty roster.
+% single-instance rule, filtering, the retired toggle, the toolbar, the
+% remembered project, the commit into a session, and — the path most likely to
+% break — opening against a completely empty roster.
 %
 % Headless-safe: every window is closed before returning, and the user's
 % preferences are restored whether it passes or fails.
@@ -87,7 +87,23 @@ mgr.refresh();
 assert(size(mgr.H.table.Data,1) == 4, 'Show retired should reveal the fourth');
 mgr.H.showRetired.Value = false;
 mgr.refresh();
-fprintf('PASS: project selection and the retired toggle drive the table\n');
+
+% The summary is where an operator reads what a project will apply, and the box
+% GUI is now one of those things -- named even when the project inherits it, so
+% the field cannot look absent.
+assert(any(contains(string(mgr.H.projectSummary.Text), 'Box GUI: (session default)')), ...
+    'A project with no box GUI should say it inherits the session default');
+R.updateProject(p1, struct('BoxGUI','ep_GenericGUI'));
+mgr.refresh();
+assert(any(contains(string(mgr.H.projectSummary.Text), 'Box GUI: ep_GenericGUI')), ...
+    'The summary should name the project''s box GUI');
+R.updateProject(p1, struct('BoxGUI', epsych.SubjectRoster.BOXGUI_NONE));
+mgr.refresh();
+assert(any(contains(string(mgr.H.projectSummary.Text), 'Box GUI: (none)')), ...
+    'A project set to launch no box GUI should say so');
+R.updateProject(p1, struct('BoxGUI',''));
+mgr.refresh();
+fprintf('PASS: project selection, the retired toggle, and the box GUI summary\n');
 
 % 4. Filtering -------------------------------------------------------------
 mgr.H.filter.Value = 'S002';
@@ -157,6 +173,52 @@ end
 mgr.refresh();
 assert(size(mgr.H.table.Data,1) == 3, 'The roster should be back to three visible rows');
 
+% 4c. Toolbar --------------------------------------------------------------
+% Every tool must carry a real icon and a tooltip -- a toolbar is icon-only, so
+% a tool with neither is unusable -- and its Enable has to track the button and
+% menu item for the same action. The three surfaces are switched together in
+% updateEnableStates_, so a tool left behind would offer an action the rest of
+% the window has already refused.
+tools = findall(mgr.H.toolbar, 'Type','uipushtool');
+assert(numel(tools) == 15, 'Expected 15 toolbar tools (found %d)', numel(tools));
+for tool = tools(:)'
+    assert(isequal(size(tool.Icon), [16 16 3]), '%s has no 16x16 icon', tool.Tag);
+    assert(~isempty(tool.Tooltip), '%s has no tooltip', tool.Tag);
+end
+
+assert(strcmp(mgr.H.tb_add_to_session.Enable,'off'), ...
+    'Add to Session should be off with nothing checked');
+localTick(mgr, 1, true);
+assert(strcmp(mgr.H.tb_add_to_session.Enable,'on'), ...
+    'Ticking a row should enable the session tool');
+assert(strcmp(mgr.H.tb_add_to_project.Enable,'on'), ...
+    'and the project tool with it');
+localTick(mgr, 1, false);
+assert(strcmp(mgr.H.tb_add_to_session.Enable,'off'), 'Unticking should disable it again');
+fprintf('PASS: every tool has an icon and a tooltip, and enabling follows the ticks\n');
+
+% Retire and Restore are one tool wearing two faces. The icon has to follow the
+% tooltip: a retired selection offering to retire it again is the one thing an
+% icon-only control cannot explain away.
+retireIcon = mgr.H.tb_retire.Icon;
+mgr.H.showRetired.Value = true;
+mgr.refresh();
+retiredRow = find(strcmp(mgr.H.table.Data(:,2), 'S004'));
+assert(isscalar(retiredRow), 'The retired subject should be showing');
+
+localTick(mgr, retiredRow, true);
+assert(contains(mgr.H.tb_retire.Tooltip, 'Restore'), ...
+    'A retired selection should offer Restore (got "%s")', mgr.H.tb_retire.Tooltip);
+assert(~isequaln(mgr.H.tb_retire.Icon, retireIcon), 'The Restore face needs its own icon');
+
+localTick(mgr, retiredRow, false);
+assert(contains(mgr.H.tb_retire.Tooltip, 'Retire'), 'Unticking should put Retire back');
+assert(isequaln(mgr.H.tb_retire.Icon, retireIcon), 'and the Retire icon with it');
+
+mgr.H.showRetired.Value = false;
+mgr.refresh();
+fprintf('PASS: the Retire tool swaps icon and tooltip for Restore\n');
+
 % 5. Tick rows and commit --------------------------------------------------
 localTick(mgr, 1, true);
 localTick(mgr, 2, true);
@@ -206,6 +268,139 @@ mgr.revealSubject('NOT_IN_ROSTER');
 assert(contains(mgr.H.status.Text, 'not in the roster'), ...
     'An unknown subject should be reported, not thrown');
 fprintf('PASS: revealSubject finds a retired subject and reports an unknown one\n');
+
+% 7b. Protocol versions ----------------------------------------------------
+% The column, the banner, and the fact that both follow the roster. The update
+% and revert commands themselves are engine-tested (smoke_test_subject_roster);
+% what matters here is that the window notices and stops saying so once fixed.
+pvA = fullfile(root, 'phase_a.eprot');
+copyfile(proto, pvA);
+PA = epsych.Protocol.load(pvA);
+PA.save(pvA);
+vA1 = epsych.Protocol.versionOnDisk(pvA);
+
+R.updateProject(p1, struct('DefaultProtocol', pvA));
+for k = 1:numel(ids)
+    R.rememberProtocol(ids{k}, p1, pvA);
+end
+
+% Put the view back where this section needs it: revealSubject above leaves
+% All Subjects selected with retired rows showing.
+localClickClear(mgr);
+mgr.H.projectList.Value = p1;
+mgr.H.showRetired.Value = false;
+mgr.refresh();
+
+col = find(strcmp(mgr.H.table.ColumnName, 'Version'));
+assert(isscalar(col), 'The table should carry exactly one Version column');
+assert(size(mgr.H.table.Data,1) == 3, ...
+    'Expected the three active members of the project, got %d row(s): %s', ...
+    size(mgr.H.table.Data,1), mgr.H.emptyState.Text);
+assert(all(strcmp(mgr.H.table.Data(:,col), vA1)), ...
+    'Every row should show the version recorded for it');
+assert(mgr.H.rightGrid.RowHeight{2} == 0, ...
+    'The banner must stay collapsed while everyone is on the current version');
+
+% The operator edits and saves the protocol behind the manager's back.
+PA.save(pvA);
+vA2 = epsych.Protocol.versionOnDisk(pvA);
+mgr.refresh();
+
+assert(mgr.H.rightGrid.RowHeight{2} > 0, 'A stale protocol should open the banner');
+assert(contains(mgr.H.bannerLabel.Text, 'behind'), ...
+    'The banner should say what is wrong (got "%s")', mgr.H.bannerLabel.Text);
+assert(all(strcmp(mgr.H.table.Data(:,col), vA1)), ...
+    'The column shows the version each subject is on, not the one in the file');
+
+rep = R.updateProtocol(ids(1:3), p1);
+assert(rep.ok && numel(rep.updated) == 3, 'All three should have been updated');
+mgr.refresh();
+assert(mgr.H.rightGrid.RowHeight{2} == 0, 'The banner should close once nothing is behind');
+assert(all(strcmp(mgr.H.table.Data(:,col), vA2)), 'The column should show the new version');
+fprintf('PASS: the Version column and the stale-protocol banner track the roster\n');
+
+% The designer command is wired and refuses politely with nothing selected.
+mgr.H.table.Selection = [];
+mgr.H.cmnu_open_designer.MenuSelectedFcn([], []);
+assert(contains(mgr.H.status.Text, 'Select a subject first'), ...
+    'Open in Designer with no selection should ask for one (got "%s")', mgr.H.status.Text);
+assert(isempty(findall(groot,'Type','figure','Name','Protocol Designer')), ...
+    'Nothing should have been opened');
+fprintf('PASS: Open Protocol in Designer is wired and needs a row\n');
+
+% 7c. Project options: links and the archived flag --------------------------
+% The summary is the operator's read-only view of what a project carries, the
+% link panel is the only clickable thing in this window, and an archived project
+% has to be hideable without ever being lost.
+L = [epsych.SubjectRoster.makeLink('Notebook','elog.lab.edu/tone'), ...
+     epsych.SubjectRoster.makeLink('docs.google.com/spreadsheets/d/1')];
+Pu = struct('Investigator','D. Stolzberg', 'IACUCProtocol','R-2026-11');
+Pu.Links = L;   % assigned: struct('Links',L) would build one struct per link
+R.updateProject(p1, Pu);
+
+mgr.H.projectList.Value = p1;
+mgr.refresh();
+
+summary = string(mgr.H.projectSummary.Text);
+assert(any(contains(summary, 'Investigator: D. Stolzberg')), ...
+    'The summary should name the investigator');
+assert(any(contains(summary, 'IACUC: R-2026-11')), ...
+    'The summary should carry the IACUC protocol number');
+
+links = mgr.H.projectLinks.Children;
+assert(numel(links) == 2, 'Both links should be shown (got %d)', numel(links));
+assert(all(arrayfun(@(h) isa(h,'matlab.ui.control.Hyperlink'), links)), ...
+    'Links should be clickable hyperlinks, not labels');
+% The address lives in the tooltip, not in URL: the click is routed through
+% openLink so a stored address is re-checked before anything navigates.
+assert(all(arrayfun(@(h) isempty(h.URL), links)), ...
+    'A link must not carry a URL that would navigate before it is checked');
+assert(any(arrayfun(@(h) strcmp(h.Tooltip,'https://elog.lab.edu/tone'), links)), ...
+    'The normalized address should be the tooltip');
+
+% A linkless project must collapse the panel rather than leave a gap.
+mgr.H.projectList.Value = p2;
+mgr.refresh();
+assert(isempty(mgr.H.projectLinks.Children) && mgr.H.projectLinks.RowHeight{1} == 0, ...
+    'A project with no links should collapse the link panel');
+fprintf('PASS: project links render as checked hyperlinks and collapse when absent\n');
+
+R.updateProject(p2, struct('Archived', true));
+mgr.H.showArchived.Value = false;
+mgr.H.projectList.Value = p1;
+mgr.refresh();
+assert(~any(contains(string(mgr.H.projectList.Items), 'Gap')), ...
+    'An archived project should be hidden while another is selected');
+
+mgr.H.showArchived.Value = true;
+mgr.refresh();
+assert(any(contains(string(mgr.H.projectList.Items), 'Gap  (archived)')), ...
+    'Show archived should reveal it, marked');
+assert(any(strcmp(mgr.H.projectList.ItemsData, p2)), ...
+    'The archived project must still be selectable by its ID');
+
+% Selected and then hidden: it has to stay, or the operator loses their place.
+mgr.H.projectList.Value = p2;
+mgr.H.showArchived.Value = false;
+mgr.refresh();
+assert(strcmp(mgr.H.projectList.Value, p2), ...
+    'The selected archived project must survive turning the toggle off');
+assert(any(contains(string(mgr.H.projectSummary.Text), 'Archived')), ...
+    'The summary should say a project is archived');
+R.updateProject(p2, struct('Archived', false));
+mgr.H.projectList.Value = p1;
+mgr.refresh();
+fprintf('PASS: archived projects hide, stay reachable, and keep the selection\n');
+
+% The dialog itself: modal and blocking, so it is inspected from a timer that
+% fires on the queue uiwait is pumping, then cancelled the way the operator would.
+built = localDriveProjectDialog(mgr.H.btnEditProject, 'Edit Project');
+assert(built.found, 'The Edit Project dialog did not open');
+assert(built.links == 2, 'The dialog should seed its link table with both links (got %d)', built.links);
+assert(built.hasArchived, 'The dialog should carry the Archived checkbox');
+assert(isempty(findall(groot,'Type','figure','Name','Edit Project')), ...
+    'Cancel should have closed the dialog');
+fprintf('PASS: the project dialog builds, seeds its links, and cancels cleanly\n');
 
 % 8. Teardown --------------------------------------------------------------
 delete(mgr);
@@ -264,6 +459,70 @@ previous = mgr.H.table.Data{row,3};
 mgr.H.table.Data{row,3} = value;
 mgr.H.table.CellEditCallback([], struct( ...
     'Indices', [row 3], 'NewData', value, 'PreviousData', previous));
+end
+
+% -----------------------------------------------------------------------
+function built = localDriveProjectDialog(control, name)
+% Press a control that opens a modal project dialog, record what it built, and
+% cancel it.
+%
+% projectDialog_ blocks in uiwait, so nothing written after the click runs until
+% the dialog closes; the inspection has to happen in a timer callback, which
+% fires on the same event queue uiwait is pumping. The timer repeats instead of
+% firing once, and its StopFcn deletes whatever is still standing: a probe that
+% merely missed the window would otherwise hang this test forever rather than
+% fail it.
+built = struct('found', false, 'links', 0, 'hasArchived', false);
+
+t = timer('Name','projectDialogProbe', ...
+    'ExecutionMode','fixedSpacing', 'Period', 0.5, 'TasksToExecute', 20, ...
+    'TimerFcn', @(~,~) localInspect(), ...
+    'StopFcn', @(~,~) localForceClose());
+cleanupTimer = onCleanup(@() localKillTimer(t));
+start(t);
+
+control.ButtonPushedFcn(control, []);
+
+    function localInspect()
+        dlg = findall(groot, 'Type','figure', 'Name', name);
+        if isempty(dlg), return, end
+        dlg = dlg(1);
+
+        % The figure carries its Name from the moment it is created, so it is
+        % findable while its controls are still being laid out. Cancel is the
+        % last thing projectDialog_ builds: until it exists, this tick is too
+        % early, and acting on it would tear the window down mid-construction.
+        cancelBtn = findall(dlg, 'Type','uibutton', 'Text','Cancel');
+        if isempty(cancelBtn), return, end
+
+        built.found = true;
+
+        tbl = findall(dlg, 'Type','uitable');
+        if ~isempty(tbl)
+            built.links = size(tbl(1).Data, 1);
+        end
+        built.hasArchived = ~isempty(findall(dlg, 'Type','uicheckbox'));
+
+        cancelBtn(1).ButtonPushedFcn(cancelBtn(1), []);
+
+        stop(t);
+    end
+
+    function localForceClose()
+        % Deleting the figure is what releases uiwait when Cancel could not be
+        % found or pressed.
+        for dlg = findall(groot, 'Type','figure', 'Name', name)'
+            dlg.CloseRequestFcn = '';
+            delete(dlg);
+        end
+    end
+end
+
+% -----------------------------------------------------------------------
+function localKillTimer(t)
+if ~isvalid(t), return, end
+if strcmp(t.Running, 'on'), stop(t); end
+delete(t);
 end
 
 % -----------------------------------------------------------------------

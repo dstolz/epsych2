@@ -37,32 +37,32 @@ movegui(f,'onscreen');
 % button stack. Config and webcam tools carry the same 'setup' tag prefix
 % as their menu items, so UpdateGUIstate disables them while a session is
 % RUNNING; Customize, Protocol Designer, and the wiki stay available in
-% every state, as their menu items do. Icons are drawn in localToolbarIcon
-% below, so the toolbar ships no image files.
+% every state, as their menu items do. Icons come from gui.toolbarIcon, which
+% draws them as pixel art so the toolbar ships no image files.
 tb = uitoolbar(f);
 self.H.toolbar = tb;
 
 self.H.tb_browse_config = uipushtool(tb, ...
     'Tag','setup_tb_browse_config', ...
-    'Icon',localToolbarIcon("browse"), ...
+    'Icon',gui.toolbarIcon("browse"), ...
     'Tooltip','Browse Configs (Ctrl+C)', ...
     'ClickedCallback', @(~,~) self.BrowseConfigs);
 
 self.H.tb_load_config = uipushtool(tb, ...
     'Tag','setup_tb_load_config', ...
-    'Icon',localToolbarIcon("load"), ...
+    'Icon',gui.toolbarIcon("load"), ...
     'Tooltip','Load Config... (Ctrl+L)', ...
     'ClickedCallback', @(~,~) self.LoadConfig);
 
 self.H.tb_refresh_config = uipushtool(tb, ...
     'Tag','setup_tb_refresh_config', ...
-    'Icon',localToolbarIcon("refresh"), ...
+    'Icon',gui.toolbarIcon("refresh"), ...
     'Tooltip','Refresh Config: reload the current config file from disk (Ctrl+R)', ...
     'ClickedCallback', @(~,~) self.RefreshConfig);
 
 self.H.tb_save_config = uipushtool(tb, ...
     'Tag','setup_tb_save_config', ...
-    'Icon',localToolbarIcon("save"), ...
+    'Icon',gui.toolbarIcon("save"), ...
     'Tooltip','Save Config... (Ctrl+S)', ...
     'ClickedCallback', @(~,~) self.SaveConfig);
 
@@ -79,32 +79,32 @@ self.H.tb_save_config = uipushtool(tb, ...
 % readable mid-run, and it is the commit action inside it that refuses.
 self.H.add_subject = uipushtool(tb, ...
     'Tag','add_subject', ...
-    'Icon',localToolbarIcon("subjects"), ...
+    'Icon',gui.toolbarIcon("subjects"), ...
     'Separator','on', ...
     'Tooltip','Subjects & Projects... (Ctrl+B)', ...
     'ClickedCallback', @(~,~) self.OpenSubjectManager);
 
 self.H.setup_remove_subject = uipushtool(tb, ...
     'Tag','setup_remove_subject', ...
-    'Icon',localToolbarIcon("removesubject"), ...
+    'Icon',gui.toolbarIcon("removesubject"), ...
     'Tooltip','Remove the selected subject', ...
     'ClickedCallback', @(~,~) self.RemoveSubject);
 
 self.H.save_data = uipushtool(tb, ...
     'Tag','save_data', ...
-    'Icon',localToolbarIcon("savedata"), ...
+    'Icon',gui.toolbarIcon("savedata"), ...
     'Separator','on', ...
     'Tooltip','Save each subject''s behavioral data (available after Stop, or on Error)', ...
     'ClickedCallback', @(~,~) self.SaveDataCallback);
 
 self.H.tb_customize = uipushtool(tb, ...
-    'Icon',localToolbarIcon("customize"), ...
+    'Icon',gui.toolbarIcon("customize"), ...
     'Separator','on', ...
     'Tooltip','Customize Settings... (Ctrl+U)', ...
     'ClickedCallback', @(~,~) self.OpenCustomizeDialog);
 
 self.H.tb_protocol_designer = uipushtool(tb, ...
-    'Icon',localToolbarIcon("protocol"), ...
+    'Icon',gui.toolbarIcon("protocol"), ...
     'Separator','on', ...
     'Tooltip','Protocol Designer... (Ctrl+P)', ...
     'ClickedCallback', @(~,~) self.LaunchUtility("ProtocolDesigner"));
@@ -115,7 +115,7 @@ self.H.tb_protocol_designer = uipushtool(tb, ...
 % always resets State to the actual view state afterwards.
 self.H.tb_liveview = uitoggletool(tb, ...
     'Tag','setup_tb_liveview', ...
-    'Icon',localToolbarIcon("liveview"), ...
+    'Icon',gui.toolbarIcon("liveview"), ...
     'Separator','on', ...
     'Tooltip','Open a display-only webcam view (nothing is recorded). Same as Utilities > Video > Live Webcam View.', ...
     'ClickedCallback', @(~,~) self.ToggleVideoLiveView);
@@ -126,7 +126,7 @@ self.H.tb_liveview = uitoggletool(tb, ...
 % handle name: epsych.SelfTest checks the handle by name.
 self.H.setup_record_video = uitoggletool(tb, ...
     'Tag','setup_record_video', ...
-    'Icon',localToolbarIcon("record"), ...
+    'Icon',gui.toolbarIcon("record"), ...
     'State', logical(getpref('ep_RunExpt_Video','EnableRecording',false)), ...
     'Tooltip', ['Record webcam video via VLC during the run (never during Preview).' newline ...
                 'Toggling during a session starts or stops recording immediately.' newline ...
@@ -137,13 +137,13 @@ self.H.setup_record_video = uitoggletool(tb, ...
 % Checked state and this toggle's State, so the two entry points never
 % disagree no matter which one flipped the setting.
 self.H.tb_always_on_top = uitoggletool(tb, ...
-    'Icon',localToolbarIcon("ontop"), ...
+    'Icon',gui.toolbarIcon("ontop"), ...
     'Separator','on', ...
     'Tooltip','Keep this window on top of all others (Ctrl+T). Same as View > Always On Top.', ...
     'ClickedCallback', @(h,~) self.AlwaysOnTop(logical(h.State)));
 
 self.H.tb_wiki = uipushtool(tb, ...
-    'Icon',localToolbarIcon("wiki"), ...
+    'Icon',gui.toolbarIcon("wiki"), ...
     'Separator','on', ...
     'Tooltip','Open the EPsych wiki in a browser', ...
     'ClickedCallback', @(~,~) web(EPsychInfo.DocumentationURL,'-browser'));
@@ -423,322 +423,4 @@ self.H.video_liveview_banner = uilabel(gStatus, ...
 self.H.video_liveview_banner.Layout.Row = 1;
 self.H.video_liveview_banner.Layout.Column = 2;
 
-end
-
-% -----------------------------------------------------------------------
-function icon = localToolbarIcon(name)
-% 16x16 truecolor icon for one toolbar tool, drawn as pixel art so the
-% toolbar ships no image files. Each row is a 16-character string; each
-% character is a key into the palette below, and '.' is transparent (NaN).
-persistent cache
-if isempty(cache), cache = struct(); end
-key = char(name);
-if isfield(cache, key)
-    icon = cache.(key);
-    return
-end
-
-C = struct( ...
-    'k',[0.20 0.22 0.26], ...  % dark outline
-    'w',[1.00 1.00 1.00], ...  % white
-    's',[0.52 0.55 0.60], ...  % steel gray
-    'y',[0.93 0.72 0.16], ...  % folder amber
-    'Y',[0.98 0.85 0.42], ...  % folder highlight
-    'b',[0.13 0.45 0.80], ...  % blue
-    'g',[0.13 0.60 0.28], ...  % green
-    'r',[0.83 0.16 0.16], ...  % red
-    'R',[0.95 0.55 0.55], ...  % red highlight
-    'o',[0.92 0.60 0.12], ...  % pencil orange
-    't',[0.83 0.66 0.44]);     % pencil wood
-
-switch name
-    case "browse"  % closed folder with a magnifying glass
-        rows = [ ...
-            "................"
-            ".kkkkk.........."
-            ".kyyyykkkkkkkk.."
-            ".kyyyyyyyyyyyk.."
-            ".kYYYYYYYYYYYk.."
-            ".kYYYYYYYYYYYk.."
-            ".kYYYYYkkkkYYk.."
-            ".kYYYYkwwwwkYk.."
-            ".kYYYYkwwwwkYk.."
-            ".kYYYYkwwwwkYk.."
-            ".kYYYYYkkkkYYk.."
-            ".kkkkkkkkkkkkk.."
-            "...........kk..."
-            "............kk.."
-            ".............k.."
-            "................"];
-
-    case "load"    % open folder
-        rows = [ ...
-            "................"
-            "................"
-            ".kkkkk.........."
-            ".kyyyykkkkkkk..."
-            ".kyyyyyyyyyyk..."
-            ".kyyyyyyyyyyk..."
-            ".kyyyyyyyyyyk..."
-            ".kyyyyyyyyyyk..."
-            ".kkkkkkkkkkkkkk."
-            ".kYYYYYYYYYYYYk."
-            "..kYYYYYYYYYYYk."
-            "..kYYYYYYYYYYYk."
-            "...kYYYYYYYYYYk."
-            "...kkkkkkkkkkkk."
-            "................"
-            "................"];
-
-    case "refresh" % circular arrow, clockwise
-        rows = [ ...
-            "................"
-            "................"
-            "....gggggg......"
-            "...gggggggg....."
-            "...gg....ggg...."
-            "..gg....gggggg.."
-            "..gg.....gggg..."
-            "..gg......gg...."
-            "..gg.......g...."
-            "..gg............"
-            "...gg..........."
-            "...gggg........."
-            "....gggggg......"
-            "................"
-            "................"
-            "................"];
-
-    case "save"    % floppy disk
-        rows = [ ...
-            "................"
-            ".kkkkkkkkkkkkk.."
-            ".kbbbwwwwwwbbk.."
-            ".kbbbwwwwbwbbk.."
-            ".kbbbwwwwbwbbk.."
-            ".kbbbwwwwbwbbk.."
-            ".kbbbbbbbbbbbk.."
-            ".kbbbbbbbbbbbk.."
-            ".kbwwwwwwwwwbk.."
-            ".kbwssssssswbk.."
-            ".kbwwwwwwwwwbk.."
-            ".kbwssssssswbk.."
-            ".kbwwwwwwwwwbk.."
-            ".kkkkkkkkkkkkk.."
-            "................"
-            "................"];
-
-    case "addsubject" % person with a green plus
-        rows = [ ...
-            "................"
-            "...kkkk........."
-            "..kssssk........"
-            "..kssssk........"
-            "..kssssk....gg.."
-            "...kkkk.....gg.."
-            "..kkkkkk..gggggg"
-            ".kssssssk.gggggg"
-            ".kssssssk...gg.."
-            ".kssssssk...gg.."
-            ".kssssssk......."
-            ".kkkkkkkk......."
-            "................"
-            "................"
-            "................"
-            "................"];
-
-    case "subjects" % person beside a roster list
-        rows = [ ...
-            "................"
-            "...kkkk........."
-            "..kssssk........"
-            "..kssssk...bbbbb"
-            "..kssssk........"
-            "...kkkk....bbbbb"
-            "..kkkkkk........"
-            ".kssssssk..bbbbb"
-            ".kssssssk......."
-            ".kssssssk..bbbbb"
-            ".kssssssk......."
-            ".kkkkkkkk......."
-            "................"
-            "................"
-            "................"
-            "................"];
-
-    case "removesubject" % person with a red minus
-        rows = [ ...
-            "................"
-            "...kkkk........."
-            "..kssssk........"
-            "..kssssk........"
-            "..kssssk........"
-            "...kkkk........."
-            "..kkkkkk..rrrrrr"
-            ".kssssssk.rrrrrr"
-            ".kssssssk......."
-            ".kssssssk......."
-            ".kssssssk......."
-            ".kkkkkkkk......."
-            "................"
-            "................"
-            "................"
-            "................"];
-
-    case "savedata" % green arrow down into a tray
-        rows = [ ...
-            "................"
-            ".......gg......."
-            ".......gg......."
-            ".......gg......."
-            ".......gg......."
-            ".......gg......."
-            ".....gggggg....."
-            "......gggg......"
-            ".......gg......."
-            "................"
-            ".ss..........ss."
-            ".ss..........ss."
-            ".ssssssssssssss."
-            ".ssssssssssssss."
-            "................"
-            "................"];
-
-    case "ontop"   % pushpin
-        rows = [ ...
-            "................"
-            ".....kkkkkk....."
-            ".....kbbbbk....."
-            ".....kbbbbk....."
-            ".....kbbbbk....."
-            "....kkkkkkkk...."
-            "....kbbbbbbk...."
-            "....kkkkkkkk...."
-            ".......kk......."
-            ".......kk......."
-            ".......kk......."
-            ".......k........"
-            "................"
-            "................"
-            "................"
-            "................"];
-
-    case "customize" % gear
-        rows = [ ...
-            "................"
-            ".......ss......."
-            "...ss.ssss.ss..."
-            "...ssssssssss..."
-            "....ssssssss...."
-            "....ssssssss...."
-            "...sss....sss..."
-            ".sssss....sssss."
-            ".sssss....sssss."
-            "...sss....sss..."
-            "....ssssssss...."
-            "....ssssssss...."
-            "...ssssssssss..."
-            "...ss.ssss.ss..."
-            ".......ss......."
-            "................"];
-
-    case "protocol" % document with a pencil
-        rows = [ ...
-            "................"
-            "..kkkkkkkkk....."
-            "..kwwwwwwwk..oo."
-            "..kwssssswk.oo.."
-            "..kwwwwwwwkoo..."
-            "..kwssssswoo...."
-            "..kwwwwwwoo....."
-            "..kwssssook....."
-            "..kwwwwoowk....."
-            "..kwssoowwk....."
-            "..kwwttwwwk....."
-            "..kwkwwwwwk....."
-            "..kkkkkkkkk....."
-            "................"
-            "................"
-            "................"];
-
-    case "liveview" % eye
-        rows = [ ...
-            "................"
-            "................"
-            "................"
-            ".....kkkkkk....."
-            "...kkwwwwwwkk..."
-            "..kwwwwbbwwwwk.."
-            ".kwwwwbkkbwwwwk."
-            ".kwwwwbkkbwwwwk."
-            "..kwwwwbbwwwwk.."
-            "...kkwwwwwwkk..."
-            ".....kkkkkk....."
-            "................"
-            "................"
-            "................"
-            "................"
-            "................"];
-
-    case "record"  % record dot
-        rows = [ ...
-            "................"
-            "................"
-            "......rrrr......"
-            "....rrrrrrrr...."
-            "...rrRRRrrrrr..."
-            "...rRRrrrrrrr..."
-            "..rrrrrrrrrrrr.."
-            "..rrrrrrrrrrrr.."
-            "..rrrrrrrrrrrr.."
-            "..rrrrrrrrrrrr.."
-            "...rrrrrrrrrr..."
-            "...rrrrrrrrrr..."
-            "....rrrrrrrr...."
-            "......rrrr......"
-            "................"
-            "................"];
-
-    case "wiki"    % open book
-        rows = [ ...
-            "................"
-            "................"
-            "................"
-            ".bbbbb....bbbbb."
-            ".bwwwwb..bwwwwb."
-            ".bwwwwwbbwwwwwb."
-            ".bwsswwbbwwsswb."
-            ".bwwwwwbbwwwwwb."
-            ".bwsswwbbwwsswb."
-            ".bwwwwwbbwwwwwb."
-            ".bbwwwwbbwwwwbb."
-            "..bbbwwbbwwbbb.."
-            "....bbbbbbbb...."
-            "................"
-            "................"
-            "................"];
-
-    otherwise
-        error('epsych:RunExpt:UnknownToolbarIcon','Unknown toolbar icon "%s".',name)
-end
-
-icon = localIconFromMask(rows, C);
-cache.(key) = icon;
-end
-
-% -----------------------------------------------------------------------
-function icon = localIconFromMask(rows, C)
-% Convert a string mask into an m-by-n-by-3 truecolor array. '.' pixels stay
-% NaN, which uipushtool/uitoggletool render as transparent.
-nR = numel(rows);
-nC = strlength(rows(1));
-icon = nan(nR, nC, 3);
-for i = 1:nR
-    line = char(rows(i));
-    for j = 1:numel(line)
-        if line(j) ~= '.'
-            icon(i,j,:) = C.(line(j));
-        end
-    end
-end
 end

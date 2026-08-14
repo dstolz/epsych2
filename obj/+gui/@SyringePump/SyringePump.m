@@ -13,16 +13,21 @@ classdef SyringePump < gui.PopOut
     % panel programmatically: obj.Rate = 1.2 both writes the pump and moves
     % the control, exactly as a keystroke would.
     %
-    %   Rate is expressed in the component's RateUnits (uL/min by default),
+    %   Rate is expressed in the component's RateUnits (mL/min by default),
     %   and the interface is switched to those units on attach so the value
     %   goes on the wire unrounded -- the pump's command grammar allows only
-    %   4 digits, so 0.7 uL/min expressed in mL/hr would quantize badly.
+    %   4 digits, so 0.7 mL/min expressed in uL/hr would overflow it.
     %   The change is logged; give RateUnits='MH' (etc.) to keep a protocol's
     %   own units instead.
     %
-    %   Volume is displayed in VolumeUnits ("uL" by default), converted from
+    %   Volume is displayed in VolumeUnits ("mL" by default), converted from
     %   whatever units the pump reports (it picks uL below a 14 mm syringe
     %   diameter and mL at or above, so its resolution at 21.59 mm is 1 uL).
+    %
+    %   Both are operator-facing: the right-click Units menu offers uL or mL
+    %   per minute or per hour for the rate, and uL, mL, or the pump's own
+    %   units for the readout. Changing the rate units converts Rate with
+    %   them, so the pump never changes speed underneath the operator.
     %
     % The panel works with or without a pump attached. Given an
     % epsych.Runtime it drives that session's hw.NE1000; given nothing (or a
@@ -40,16 +45,30 @@ classdef SyringePump < gui.PopOut
     %   p.show("Direction")
     %
     % Section names are Volume, Status, Port, Detect, Diameter, Rate,
-    % Direction, Start, Stop, Zero, plus the group aliases Connection
-    % (=Port+Detect), Settings (=Diameter+Rate+Direction), Triggers
+    % Direction, TTL, Start, Stop, Zero, plus the group aliases Connection
+    % (=Port+Detect), Settings (=Diameter+Rate+Direction+TTL), Triggers
     % (=Start+Stop+Zero), All, and None. With neither Volume nor Status shown
     % there is nothing to read out, so the poll timer stops and the panel
     % costs the pump no serial traffic at all.
     %
+    % The TTL section is the one control that changes what starts the pump
+    % rather than how it runs: with it enabled, the pump's own trigger input
+    % (DB-9 pin 2) starts and stops it, so a rig can gate reward from a
+    % digital line with no host round trip. WHICH trigger mode that is
+    % (level, foot switch, start-only, ...) is programmatic only -- it
+    % follows how the rig is wired, so it is a construction option and the
+    % TriggerMode property, never a control:
+    %
+    %   obj.addSyringePump(panel, TriggerMode='ST', TTLTrigger=true);
+    %
     % Properties:
     %   Diameter        - Syringe inside diameter, mm (default 21.59)
-    %   Rate            - Pumping rate in RateUnits (default 0.7 uL/min)
+    %   Rate            - Pumping rate in RateUnits (default 0.7 mL/min)
+    %   RateUnits       - 'UM'|'MM'|'UH'|'MH' (default 'MM', i.e. mL/min)
+    %   VolumeUnits     - Readout units: 'uL', 'mL' (default), or 'auto'
     %   Direction       - 'Infuse' (push) or 'Withdraw' (pull)
+    %   TTLTrigger      - Whether the pump's TTL trigger input may start it
+    %   TriggerMode     - Which trigger mode that is (programmatic only)
     %   Sections        - Parts of the panel currently shown
     %   Interface       - The hw.NE1000 being driven
     %   IsConnected     - True while the pump link is up (Dependent)
@@ -90,12 +109,41 @@ classdef SyringePump < gui.PopOut
         % pump computes; the pump rejects a change while it is pumping.
         Diameter (1,1) double {mustBeInRange(Diameter, 0.1, 50)} = 21.59
 
-        % Pumping rate in RateUnits (uL/min by default).
+        % Pumping rate in RateUnits (mL/min by default).
         Rate (1,1) double {mustBeNonnegative} = 0.7
+
+        % Units the rate is written in: 'UM' uL/min, 'MM' mL/min (default),
+        % 'UH' uL/hr, 'MH' mL/hr. Assigning it converts Rate with it -- the
+        % pump keeps running at the same speed, it is only written down
+        % differently -- switches the interface to match, and relabels the
+        % control. The operator does the same from the right-click Units menu.
+        RateUnits (1,2) char {mustBeMember(RateUnits, {'UM','MM','UH','MH'})} = 'MM'
+
+        % Units the dispensed-volume readout is displayed in: 'mL' (default),
+        % 'uL', or 'auto' to follow whatever the pump reports (uL below a
+        % 14 mm syringe diameter, mL at or above). Display only: it changes
+        % no value the pump is given.
+        VolumeUnits (1,:) char {mustBeMember(VolumeUnits, {'uL','mL','auto'})} = 'mL'
 
         % 'Infuse' pushes the syringe (reward delivery), 'Withdraw' pulls it
         % (refilling). The pump rejects a change while pumping to a target.
         Direction (1,:) char {mustBeMember(Direction, {'Infuse','Withdraw'})} = 'Infuse'
+
+        % Whether the pump's TTL trigger input (DB-9 pin 2) may start and stop
+        % it, which is how a rig delivers hardware-timed reward with no host
+        % round trip. The pump keeps this setting through a power cycle, so
+        % the panel asserts it rather than assuming it.
+        TTLTrigger (1,1) logical = false
+
+        % Which TTL trigger mode is used when TTLTrigger is on; see
+        % hw.NE1000.TRIGGER_MODES. Programmatic only -- no control, no menu
+        % entry, and not remembered between sessions: the mode follows how
+        % pin 2 is wired, which is the paradigm's business and not the
+        % operator's. Left alone it is whatever the interface is set to.
+        % (the list is hw.NE1000.TRIGGER_MODES, spelled out because property
+        % validation functions may only reference literals)
+        TriggerMode (1,2) char {mustBeMember(TriggerMode, ...
+            {'FT','FH','F2','LE','ST','T2','SP','P2','RL','RH','SL','SH'})} = 'LE'
 
         % Parts of the panel that are shown, as a string array of section
         % names (see SECTIONS). Assign it -- or call show/hide -- at any time;
@@ -108,8 +156,6 @@ classdef SyringePump < gui.PopOut
     properties (SetAccess = private)
         Parent                          % Hosting container supplied at construction
         Interface = []                  % hw.NE1000 this panel drives
-        RateUnits (1,2) char = 'UM'     % pump rate units: UM/MM/UH/MH
-        VolumeUnits (1,:) char = 'uL'   % readout units: 'uL', 'mL', or 'auto'
         UpdatePeriod (1,1) double = 0.25 % volume readout period, seconds
 
         VolumeInfused (1,1) double = NaN   % last poll, in the displayed units
@@ -139,6 +185,7 @@ classdef SyringePump < gui.PopOut
         UserPrefs_ (1,1) struct = struct()   % the operator's remembered configuration
         ShowMenuH_ = []                      % "Show" submenu
         ValueMenuH_ = []                     % "Set Value" submenu
+        UnitsMenuH_ = []                     % "Units" submenu
         DestroyListener_ = event.listener.empty
         LastReadout_ (1,:) char = ''         % change detection for the big label
     end
@@ -146,7 +193,7 @@ classdef SyringePump < gui.PopOut
     properties (Constant)
         % Individually hideable parts of the panel, in layout order.
         SECTIONS = ["Volume", "Status", "Port", "Detect", "Diameter", ...
-                    "Rate", "Direction", "Start", "Stop", "Zero"]
+                    "Rate", "Direction", "TTL", "Start", "Stop", "Zero"]
     end
 
     properties (Constant, Access = private)
@@ -155,21 +202,26 @@ classdef SyringePump < gui.PopOut
         % Group names accepted wherever a section name is, and what each
         % expands to. 'All' and 'None' are handled in normalizeSections_.
         ALIAS_NAMES = {'Connection', 'Settings', 'Triggers'}
-        ALIAS_MEMBERS = {["Port","Detect"], ["Diameter","Rate","Direction"], ...
+        ALIAS_MEMBERS = {["Port","Detect"], ["Diameter","Rate","Direction","TTL"], ...
                          ["Start","Stop","Zero"]}
 
         % The panel's rows, in order, with their heights in pixels and the
         % sections that keep each one on screen. A row whose sections are all
         % hidden collapses to zero height rather than being destroyed, so
         % showing it again costs nothing and no control loses its state.
-        ROW_NAMES   = {'Volume', 'Status', 'Port', 'Diameter', 'Rate', 'Direction', 'Triggers'}
-        ROW_HEIGHTS = [58, 20, 26, 26, 26, 34, 30]
+        ROW_NAMES   = {'Volume', 'Status', 'Port', 'Diameter', 'Rate', 'Direction', 'TTL', 'Triggers'}
+        ROW_HEIGHTS = [58, 20, 26, 26, 26, 34, 26, 30]
         ROW_SECTIONS = {"Volume", "Status", ["Port","Detect"], "Diameter", ...
-                        "Rate", "Direction", ["Start","Stop","Zero"]}
+                        "Rate", "Direction", "TTL", ["Start","Stop","Zero"]}
 
         % Rate unit codes and their operator-facing labels, index-aligned.
         RATE_CODES  = {'UM', 'MM', 'UH', 'MH'}
         RATE_LABELS = {'uL/min', 'mL/min', 'uL/hr', 'mL/hr'}
+
+        % Volume readout units and their menu labels, index-aligned. 'auto'
+        % is not a unit but a policy: display whatever the pump reported.
+        VOLUME_CODES  = {'uL', 'mL', 'auto'}
+        VOLUME_LABELS = {'uL', 'mL', 'Follow the pump'}
 
         % Status prompts that mean the motor is turning, and the colors the
         % status line takes when running / alarmed / idle.
@@ -192,9 +244,15 @@ classdef SyringePump < gui.PopOut
             %  Diameter      - Syringe inside diameter, mm. Default 21.59.
             %  Rate          - Pumping rate in RateUnits. Default 0.7.
             %  Direction     - 'Infuse' (default) or 'Withdraw'.
-            %  RateUnits     - 'UM' (default), 'MM', 'UH', or 'MH'. The
-            %                  interface is switched to these units on attach.
-            %  VolumeUnits   - Readout units: 'uL' (default), 'mL', or 'auto'
+            %  TTLTrigger    - Let the pump's TTL trigger input start and stop
+            %                  it. Default false.
+            %  TriggerMode   - Trigger mode used when TTLTrigger is on; see
+            %                  hw.NE1000.TRIGGER_MODES. Programmatic only.
+            %                  Default: whatever the interface is set to.
+            %  RateUnits     - 'MM' (default, mL/min), 'UM', 'UH', or 'MH'.
+            %                  The interface is switched to these units on
+            %                  attach; the operator may change them here.
+            %  VolumeUnits   - Readout units: 'mL' (default), 'uL', or 'auto'
             %                  to follow whatever the pump reports.
             %  UpdatePeriod  - Readout period in seconds. Default 0.25 (4 Hz).
             %  Port          - Serial port to preselect. Default: the
@@ -212,19 +270,22 @@ classdef SyringePump < gui.PopOut
             %  PreferenceTag - Key for the remembered configuration (defaults
             %                  to the hosting figure Tag/Name).
             %
-            % Diameter, Rate, Direction, Sections, and Port have no built-in
-            % default in the arguments block on purpose: the absence of an
-            % option is what distinguishes "the caller did not say" from "the
-            % caller asked for the default value", which is what lets the
-            % operator's remembered configuration fill the gap.
+            % Diameter, Rate, Direction, RateUnits, VolumeUnits, Sections,
+            % and Port have no built-in default in the arguments block on
+            % purpose: the absence of an option is what distinguishes "the
+            % caller did not say" from "the caller asked for the default
+            % value", which is what lets the operator's remembered
+            % configuration fill the gap.
             arguments
                 source = []
                 container (1,1) = uifigure(Name = 'Syringe Pump')
                 options.Diameter (1,1) double {mustBeInRange(options.Diameter, 0.1, 50)}
                 options.Rate (1,1) double {mustBeNonnegative}
                 options.Direction (1,:) char {mustBeMember(options.Direction, {'Infuse','Withdraw'})}
-                options.RateUnits (1,2) char {mustBeMember(options.RateUnits, {'UM','MM','UH','MH'})} = 'UM'
-                options.VolumeUnits (1,:) char {mustBeMember(options.VolumeUnits, {'uL','mL','auto'})} = 'uL'
+                options.TTLTrigger (1,1) logical
+                options.TriggerMode (1,2) char
+                options.RateUnits (1,2) char {mustBeMember(options.RateUnits, {'UM','MM','UH','MH'})}
+                options.VolumeUnits (1,:) char {mustBeMember(options.VolumeUnits, {'uL','mL','auto'})}
                 options.UpdatePeriod (1,1) double {mustBePositive} = 0.25
                 options.Port (1,:) char
                 options.ApplyOnStart (1,1) logical = true
@@ -235,8 +296,6 @@ classdef SyringePump < gui.PopOut
 
             obj.Parent          = container;
             obj.Source_         = source;
-            obj.RateUnits       = options.RateUnits;
-            obj.VolumeUnits     = options.VolumeUnits;
             obj.UpdatePeriod    = options.UpdatePeriod;
             obj.PreferenceTag_  = options.PreferenceTag;
             obj.FontSize_       = options.FontSize;
@@ -252,6 +311,16 @@ classdef SyringePump < gui.PopOut
             saved = obj.loadPreferences_();
             obj.UserPrefs_ = saved;
 
+            % Units first: every value below is a number in them. Assigning
+            % them here must not convert anything -- there is nothing yet to
+            % convert -- so it goes through the same guard the settings use.
+            obj.Applying_ = true;
+            obj.seedSetting_('RateUnits', ...
+                char(gui.SyringePump.pick_(options, saved, 'RateUnits', 'MM', true)), 'MM');
+            obj.seedSetting_('VolumeUnits', ...
+                char(gui.SyringePump.pick_(options, saved, 'VolumeUnits', 'mL', true)), 'mL');
+            obj.Applying_ = false;
+
             % Layout: the caller's Sections is the default the menu resets
             % to, and a saved selection overrides it (as gui.NextTrial's
             % saved field selection overrides its Fields option).
@@ -265,12 +334,28 @@ classdef SyringePump < gui.PopOut
             % these values or the pump's own are authoritative.
             obj.Applying_ = true;
             obj.seedSetting_('Diameter', gui.SyringePump.pick_(options, saved, 'Diameter', 21.59, true), 21.59);
-            obj.seedSetting_('Rate',     gui.SyringePump.pick_(options, saved, 'Rate',     0.7,   true), 0.7);
+            obj.seedSetting_('Rate',     obj.initialRate_(options, saved), 0.7);
             obj.seedSetting_('Direction', ...
                 char(gui.SyringePump.pick_(options, saved, 'Direction', 'Infuse', true)), 'Infuse');
+            obj.seedSetting_('TTLTrigger', ...
+                logical(gui.SyringePump.pick_(options, saved, 'TTLTrigger', false, true)), false);
             obj.Applying_ = false;
 
             obj.resolveInterface_(source);
+
+            % The trigger mode is the one setting the operator has no say in,
+            % so it is never taken from the remembered configuration: what the
+            % caller asked for, else whatever the interface is already
+            % configured for -- which is how a protocol's choice of mode
+            % survives a panel opening over its pump.
+            obj.Applying_ = true;
+            obj.seedSetting_('TriggerMode', ...
+                char(gui.SyringePump.pick_(options, saved, 'TriggerMode', ...
+                    obj.Interface.TriggerMode, false)), 'LE');
+            obj.Applying_ = false;
+            if isfield(options, 'TriggerMode')
+                obj.pushTriggerMode_();
+            end
             obj.StagedPort_ = obj.initialPort_(options, saved);
 
             obj.buildUI_(container);
@@ -343,6 +428,27 @@ classdef SyringePump < gui.PopOut
         function set.Direction(obj, value)
             obj.Direction = value;
             obj.onSettingChanged_('Direction');
+        end
+
+        function set.RateUnits(obj, value)
+            was = obj.RateUnits;
+            obj.RateUnits = upper(value);
+            obj.onRateUnitsChanged_(was);
+        end
+
+        function set.VolumeUnits(obj, value)
+            obj.VolumeUnits = value;
+            obj.onVolumeUnitsChanged_();
+        end
+
+        function set.TTLTrigger(obj, value)
+            obj.TTLTrigger = value;
+            obj.onSettingChanged_('TTLTrigger');
+        end
+
+        function set.TriggerMode(obj, value)
+            obj.TriggerMode = upper(value);
+            obj.onSettingChanged_('TriggerMode');
         end
 
         % --- Visibility ------------------------------------------------------
@@ -559,6 +665,8 @@ classdef SyringePump < gui.PopOut
                 Diameter       = obj.Diameter, ...
                 Rate           = obj.Rate, ...
                 Direction      = obj.Direction, ...
+                TTLTrigger     = obj.TTLTrigger, ...
+                TriggerMode    = obj.TriggerMode, ...
                 RateUnits      = obj.RateUnits, ...
                 VolumeUnits    = obj.VolumeUnits, ...
                 UpdatePeriod   = obj.UpdatePeriod, ...
@@ -658,7 +766,8 @@ classdef SyringePump < gui.PopOut
             end
 
             vprintf(1, ['gui.SyringePump: switching %s rate units from %s to %s ' ...
-                '(the panel displays %s)'], class(iface), iface.RateUnits, ...
+                '(the panel displays %s); a protocol column that writes Rate ' ...
+                'is now in those units too'], class(iface), iface.RateUnits, ...
                 obj.RateUnits, obj.rateLabel_());
             iface.RateUnits = obj.RateUnits;
 
@@ -694,6 +803,16 @@ classdef SyringePump < gui.PopOut
             cur = obj.Interface.get_parameter('Direction', includeInvisible = true);
             if isempty(cur) || ~strcmpi(char(cur), obj.Direction)
                 obj.pushSetting_('Direction', obj.Direction, 'direction');
+            end
+
+            % Read first: the read is what syncs the interface to the mode the
+            % pump is actually in, so pushing the panel's mode afterwards is
+            % what makes it win. Reversed, a pump already triggerable in
+            % another mode would keep it, since the enable then needs no write.
+            cur = obj.Interface.get_parameter('TTLTrigger', includeInvisible = true);
+            obj.pushTriggerMode_();
+            if isempty(cur) || logical(cur) ~= obj.TTLTrigger
+                obj.pushSetting_('TTLTrigger', obj.TTLTrigger, 'ttl');
             end
         end
 
@@ -732,6 +851,100 @@ classdef SyringePump < gui.PopOut
                 case 'Direction'
                     obj.pushSetting_('Direction', obj.Direction, 'direction');
                     obj.updateReadoutLabels_();
+                case 'TTLTrigger'
+                    obj.pushSetting_('TTLTrigger', obj.TTLTrigger, 'ttl');
+                case 'TriggerMode'
+                    % Not a parameter: the mode belongs to the interface, and
+                    % the pump only hears about it while the trigger is on.
+                    obj.pushTriggerMode_();
+            end
+        end
+
+        function onRateUnitsChanged_(obj, wasUnits)
+            % Tail of the RateUnits setter. Units are how the rate is written
+            % down, not how fast the pump runs, so the rate is converted with
+            % them: an operator switching from uL/min to mL/min watches 500
+            % become 0.5 and the syringe keeps moving at the same speed. The
+            % interface follows, since the panel and the pump must agree on
+            % what the number the trial table re-asserts means.
+            if obj.Applying_ || strcmp(wasUnits, obj.RateUnits), return; end
+
+            % The pump accepts a change of units only while it is stopped
+            % (manual 10.4.1). Mid-run, hw.NE1000's RAT-with-units write is
+            % rejected and falls back to the bare value -- which the pump
+            % would take in its OLD units, changing how fast it is actually
+            % running. So the change is refused outright rather than half
+            % applied behind the operator.
+            if obj.IsConnected && ismember(obj.Status, obj.RUNNING_STATES)
+                vprintf(0, 1, ['gui.SyringePump: the pump is %s; stop it before ' ...
+                    'changing the rate units'], lower(obj.Status))
+                obj.setStatus_('Stop the pump to change units', obj.COLOR_ALARM);
+                obj.Applying_ = true;
+                obj.RateUnits = wasUnits;
+                obj.Applying_ = false;
+                return
+            end
+
+            obj.Applying_ = true;
+            obj.Rate = gui.SyringePump.convertRate_(obj.Rate, wasUnits, obj.RateUnits);
+            obj.Applying_ = false;
+
+            obj.applyRateUnits_();      % the interface, and the Rate label
+            obj.updateRateCaption_();
+            obj.warnRateResolution_();
+            obj.pushSetting_('Rate', obj.Rate, 'rate');
+
+            if obj.FromUI_
+                % The rate goes with them: a bare number remembered in one
+                % unit and restored in another would change the pump's speed
+                % a session later.
+                obj.UserPrefs_.RateUnits = obj.RateUnits;
+                obj.rememberSetting_('Rate', obj.Rate);
+            end
+        end
+
+        function onVolumeUnitsChanged_(obj)
+            % Tail of the VolumeUnits setter. Nothing is written to the pump:
+            % the readout is scaled from whatever units the pump reports in,
+            % so a fresh poll is all it takes.
+            if obj.Applying_, return; end
+            obj.poll_();
+            obj.updateReadoutLabels_();
+            if obj.FromUI_
+                obj.rememberSetting_('VolumeUnits', obj.VolumeUnits);
+            end
+        end
+
+        function warnRateResolution_(obj)
+            % The pump's command grammar carries 4 digits and one decimal
+            % point (hw.NE1000.formatFloat_), so the same rate is not
+            % expressible in every unit: 0.7 uL/min asked for in mL/min goes
+            % on the wire as 0.001 (a 43 % error), and 500 uL/min asked for
+            % in uL/hr does not fit at all. Which units to use is the
+            % operator's call, but not a silent one.
+            if obj.Rate <= 0, return; end
+            if obj.Rate >= 10000
+                vprintf(0, 1, ['gui.SyringePump: %.6g %s is more than the pump can be ' ...
+                    'told (its commands carry 4 digits); choose a coarser unit'], ...
+                    obj.Rate, obj.rateLabel_())
+            elseif obj.Rate < 0.01
+                vprintf(0, 1, ['gui.SyringePump: %.4g %s is finer than the pump can be ' ...
+                    'told (its commands carry 4 digits, so it resolves 0.001 %s); ' ...
+                    'choose a finer unit to keep the rate exact'], ...
+                    obj.Rate, obj.rateLabel_(), obj.rateLabel_())
+            end
+        end
+
+        function pushTriggerMode_(obj)
+            % Hand the mode to the interface, which writes it to a connected
+            % pump. A mode the pump does not have is a programming error and
+            % throws there; it reaches the panel through a property assignment
+            % rather than a control, so it is logged rather than flagged.
+            if isempty(obj.Interface) || ~isvalid(obj.Interface), return; end
+            try
+                obj.Interface.TriggerMode = obj.TriggerMode;
+            catch ME
+                vprintf(0, 1, ME)
             end
         end
 
@@ -756,6 +969,14 @@ classdef SyringePump < gui.PopOut
                 if ~isempty(dir) && ismember(char(dir), {'Infuse','Withdraw'})
                     obj.Direction = char(dir);
                 end
+
+                % Reading the trigger also syncs the interface's TriggerMode
+                % to what the pump reports, so the mode comes from there.
+                ttl = obj.Interface.get_parameter('TTLTrigger', includeInvisible = true);
+                if ~isempty(ttl) && (islogical(ttl) || isnumeric(ttl))
+                    obj.TTLTrigger = logical(ttl);
+                end
+                obj.TriggerMode = obj.Interface.TriggerMode;
             catch ME
                 vprintf(2, 'gui.SyringePump: reading the pump settings failed: %s', ME.message)
             end
@@ -926,7 +1147,9 @@ classdef SyringePump < gui.PopOut
                 'Diameter (mm)', obj.Diameter, ...
                 '%.2f', [0.1 50], @(v) obj.onEditChanged_('Diameter', v), ...
                 'Inside diameter of the loaded syringe; the pump scales every rate and volume by it');
-            [obj.H_.rate, obj.Rows_.Rate] = obj.addNumericRow_(g, ...
+            % The rate label is kept: it carries the units, which the operator
+            % can change from the menu at any time.
+            [obj.H_.rate, obj.Rows_.Rate, obj.H_.rateCaption] = obj.addNumericRow_(g, ...
                 sprintf('Rate (%s)', obj.rateLabel_()), ...
                 obj.Rate, '%.4g', [0 Inf], @(v) obj.onEditChanged_('Rate', v), ...
                 'Pumping rate; the usable range depends on the syringe diameter');
@@ -942,6 +1165,17 @@ classdef SyringePump < gui.PopOut
                 Value = obj.Direction, FontSize = fs - 1, ...
                 Tooltip = 'Infuse pushes the syringe; Withdraw pulls it back', ...
                 ValueChangedFcn = @(src,~) obj.onEditChanged_('Direction', src.Value));
+
+            % --- TTL trigger --------------------------------------------------
+            tg = uigridlayout(g, [1 2]);
+            tg.ColumnWidth = {110, '1x'};
+            tg.RowHeight   = {'1x'};
+            tg.Padding     = [0 0 0 0];
+            obj.Rows_.TTL = tg;
+            uilabel(tg, Text = 'TTL Trigger', FontSize = fs);
+            obj.H_.ttl = uicheckbox(tg, Text = 'Enabled', Value = obj.TTLTrigger, ...
+                FontSize = fs - 1, ...
+                ValueChangedFcn = @(src,~) obj.onEditChanged_('TTLTrigger', src.Value));
 
             % --- Triggers ---------------------------------------------------
             bg = uigridlayout(g, [1 3]);
@@ -959,6 +1193,7 @@ classdef SyringePump < gui.PopOut
                 Tooltip = 'Clear the dispensed-volume accumulators', ...
                 ButtonPushedFcn = @(~,~) obj.zeroVolume());
 
+            obj.updateControl_('TTLTrigger');   % also builds its tooltip
             obj.updateReadoutLabels_();
             obj.createContextMenu_();
             obj.applySectionVisibility_();
@@ -966,14 +1201,15 @@ classdef SyringePump < gui.PopOut
             obj.DestroyListener_ = listener(g, 'ObjectBeingDestroyed', @(~,~) delete(obj));
         end
 
-        function [h, row] = addNumericRow_(obj, parent, label, value, format, limits, fcn, tip)
+        function [h, row, lbl] = addNumericRow_(obj, parent, label, value, format, limits, fcn, tip)
             % One labeled numeric edit field; also returns the row container
-            % so the section machinery can collapse it.
+            % so the section machinery can collapse it, and the label so a
+            % caller whose units can change can relabel it.
             row = uigridlayout(parent, [1 2]);
             row.ColumnWidth = {110, '1x'};
             row.RowHeight   = {'1x'};
             row.Padding     = [0 0 0 0];
-            uilabel(row, Text = label, FontSize = obj.FontSize_);
+            lbl = uilabel(row, Text = label, FontSize = obj.FontSize_);
             h = uieditfield(row, 'numeric', Value = value, ...
                 Limits = limits, LowerLimitInclusive = 'on', ...
                 ValueDisplayFormat = format, FontSize = obj.FontSize_, ...
@@ -1103,7 +1339,34 @@ classdef SyringePump < gui.PopOut
                     if obj.hasControl_('rate'), obj.H_.rate.Value = obj.Rate; end
                 case 'Direction'
                     if obj.hasControl_('direction'), obj.H_.direction.Value = obj.Direction; end
+                case {'TTLTrigger', 'TriggerMode'}
+                    % The mode has no control of its own, so the checkbox's
+                    % tooltip is where an operator finds out what the pump
+                    % will do with pin 2.
+                    if obj.hasControl_('ttl')
+                        obj.H_.ttl.Value = obj.TTLTrigger;
+                        obj.H_.ttl.Tooltip = sprintf( ...
+                            'Let the pump''s TTL trigger input (pin 2) start and stop it -- %s', ...
+                            obj.triggerModeLabel_());
+                    end
             end
+        end
+
+        function s = triggerModeLabel_(obj)
+            % What the interface's mode code means, for the tooltip and menu.
+            i = find(strcmp(hw.NE1000.TRIGGER_MODES, obj.TriggerMode), 1);
+            if isempty(i)
+                s = obj.TriggerMode;
+            else
+                s = sprintf('%s (%s)', hw.NE1000.TRIGGER_LABELS{i}, obj.TriggerMode);
+            end
+        end
+
+        function updateRateCaption_(obj)
+            % The rate row's label carries the units, so it is rewritten
+            % whenever they change.
+            if ~obj.hasControl_('rateCaption'), return; end
+            obj.H_.rateCaption.Text = sprintf('Rate (%s)', obj.rateLabel_());
         end
 
         function updateReadoutLabels_(obj)
@@ -1259,6 +1522,26 @@ classdef SyringePump < gui.PopOut
             end
         end
 
+        function r = initialRate_(obj, options, saved)
+            % Rate to open with, expressed in this panel's units. A caller
+            % states its rate in them already; a remembered one is a bare
+            % number, so it is converted from the units that panel was
+            % displaying -- what it saved alongside, else the ones this
+            % caller states, else uL/min, which is what the panel displayed
+            % before the units could be changed. Without this, an operator
+            % who set 500 uL/min last session would get 500 mL/min today.
+            r = gui.SyringePump.pick_(options, saved, 'Rate', 0.7, true);
+            if isfield(options, 'Rate') || ~isfield(saved, 'Rate'), return; end
+
+            was = 'UM';
+            if isfield(saved, 'RateUnits')
+                was = char(saved.RateUnits);
+            elseif isfield(options, 'RateUnits')
+                was = char(options.RateUnits);
+            end
+            r = gui.SyringePump.convertRate_(r, was, obj.RateUnits);
+        end
+
         function port = initialPort_(obj, options, saved)
             % Port preselected at construction: the caller's, else the one
             % the interface is already configured for (a protocol saved it
@@ -1296,6 +1579,7 @@ classdef SyringePump < gui.PopOut
                 obj.ContextMenu = cm;
                 obj.ShowMenuH_  = uimenu(cm, Text = 'Show');
                 obj.ValueMenuH_ = uimenu(cm, Text = 'Set Value');
+                obj.UnitsMenuH_ = uimenu(cm, Text = 'Units');
                 uimenu(cm, Text = 'Refresh From Pump', Separator = 'on', ...
                     MenuSelectedFcn = @(~,~) obj.refresh());
                 uimenu(cm, Text = 'Refresh Port List', ...
@@ -1332,6 +1616,7 @@ classdef SyringePump < gui.PopOut
         function refreshMenus_(obj)
             obj.refreshShowMenu_();
             obj.refreshValueMenu_();
+            obj.refreshUnitsMenu_();
         end
 
         function refreshShowMenu_(obj)
@@ -1373,6 +1658,16 @@ classdef SyringePump < gui.PopOut
                 item.Checked = strcmp(obj.Direction, d{1});
             end
 
+            % The mode is not offered here -- only whether the trigger is
+            % listened to at all, which is the operator's call.
+            tm = uimenu(m, Text = sprintf('TTL Trigger (%s, %s)', ...
+                gui.SyringePump.ttlLabel_(obj.TTLTrigger), obj.TriggerMode));
+            for tf = [true false]
+                item = uimenu(tm, Text = gui.SyringePump.ttlLabel_(tf), ...
+                    MenuSelectedFcn = @(~,~) obj.onEditChanged_('TTLTrigger', tf));
+                item.Checked = obj.TTLTrigger == tf;
+            end
+
             label = obj.StagedPort_;
             if isempty(label), label = 'none'; end
             pm = uimenu(m, Text = sprintf('Port (%s)', label), Separator = 'on');
@@ -1392,6 +1687,55 @@ classdef SyringePump < gui.PopOut
                     Enable = matlab.lang.OnOffSwitchState(~isempty(obj.StagedPort_)), ...
                     MenuSelectedFcn = @(~,~) obj.connect());
             end
+        end
+
+        function refreshUnitsMenu_(obj)
+            % Which units the rate is written in and the volume is read in.
+            % Both are one operator decision each -- microliters or
+            % milliliters, per minute or per hour -- so they are offered as
+            % the four combinations rather than as two coupled choices.
+            m = obj.UnitsMenuH_;
+            if isempty(m) || ~isvalid(m), return; end
+            delete(m.Children);
+
+            rm = uimenu(m, Text = sprintf('Rate (%s)', obj.rateLabel_()));
+            for i = 1:numel(obj.RATE_CODES)
+                code = obj.RATE_CODES{i};
+                item = uimenu(rm, Text = obj.RATE_LABELS{i}, ...
+                    MenuSelectedFcn = @(~,~) obj.setUnitsFromUI_('RateUnits', code));
+                item.Checked = strcmp(obj.RateUnits, code);
+            end
+
+            vm = uimenu(m, Text = sprintf('Volume (%s)', obj.volumeUnitsLabel_()));
+            for i = 1:numel(obj.VOLUME_CODES)
+                code = obj.VOLUME_CODES{i};
+                item = uimenu(vm, Text = obj.VOLUME_LABELS{i}, ...
+                    MenuSelectedFcn = @(~,~) obj.setUnitsFromUI_('VolumeUnits', code));
+                item.Checked = strcmp(obj.VolumeUnits, code);
+            end
+        end
+
+        function s = volumeUnitsLabel_(obj)
+            % What the readout is labeled with, saying so when that is the
+            % pump's choice rather than the operator's.
+            s = obj.VolumeUnits;
+            if strcmpi(s, 'auto')
+                s = sprintf('pump: %s', obj.displayVolumeUnits_(obj.reportedUnits_()));
+            end
+        end
+
+        function setUnitsFromUI_(obj, name, value)
+            % A units choice made in the menu, which is the kind that
+            % persists. Assigning through the property keeps the operator's
+            % path and a paradigm's identical, as onEditChanged_ does for
+            % the values.
+            obj.FromUI_ = true;
+            try
+                obj.(name) = value;
+            catch ME
+                vprintf(0, 1, ME)
+            end
+            obj.FromUI_ = false;
         end
 
         function toggleSection_(obj, name)
@@ -1546,6 +1890,31 @@ classdef SyringePump < gui.PopOut
             end
         end
 
+        function v = convertRate_(v, from, to)
+            % The same physical rate, written in different units.
+            if strcmpi(from, to), return; end
+            v = double(v) * gui.SyringePump.rateFactor_(from) ...
+                          / gui.SyringePump.rateFactor_(to);
+        end
+
+        function k = rateFactor_(code)
+            % uL/min in one unit of a rate code. The code is <volume><time>:
+            % U or M microliters or milliliters, M or H per minute or hour.
+            code = upper(char(code));
+            k = 1;
+            if code(1) == 'M', k = k * 1000; end
+            if code(2) == 'H', k = k / 60; end
+        end
+
+        function s = ttlLabel_(tf)
+            % Operator-facing name for the two trigger states.
+            if tf
+                s = 'Enabled';
+            else
+                s = 'Disabled';
+            end
+        end
+
         function n = nextInstanceId_()
             persistent counter
             if isempty(counter), counter = 0; end
@@ -1555,15 +1924,19 @@ classdef SyringePump < gui.PopOut
 
         function s = formatVolume_(v)
             % Readout text, with enough decimals to see a single reward
-            % arrive but not so many that the number jitters in width.
+            % arrive but not so many that the number jitters in width. The
+            % pump reports three decimals, and in mL that is exactly what a
+            % 1 uL step needs, so small values keep all three.
             if ~isfinite(v)
                 s = '--';
             elseif abs(v) >= 1000
                 s = sprintf('%.0f', v);
             elseif abs(v) >= 10
                 s = sprintf('%.1f', v);
-            else
+            elseif abs(v) >= 1
                 s = sprintf('%.2f', v);
+            else
+                s = sprintf('%.3f', v);
             end
         end
     end

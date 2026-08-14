@@ -25,12 +25,68 @@ A lab that points `FUNCS.AddSubjectFcn` at its own dialog keeps working: **New S
 
 | Region | Widget | Why |
 |---|---|---|
+| Toolbar (top) | `uitoolbar` | The same actions as the menus, one click away. See [Toolbar](#toolbar) below. |
 | Projects (left) | `uilistbox` | Projects are a flat, single-selection set; a listbox gives arrow-key and type-ahead navigation for free. A tree would show a two-project subject twice with ambiguous checkbox state. |
 | Subjects (right) | `uitable` | Each row needs its own box assignment *before* it is committed. A checkbox tree has no columns; a listbox would force a second modal — exactly the step this collapses. |
 
+Under the toolbar, a single line names the roster file in effect (`Roster: subjects.esub`, turning amber and adding `(read-only)` when it cannot be written); its tooltip is the full path. Two rigs can be pointed at different rosters, and everything below acts on this one.
+
+### Toolbar
+
+Fifteen tools in five groups, left to right, in the order the work happens:
+
+| Group | Tools |
+|---|---|
+| Roster | Refresh · Roster File... · Import from Config... · Export CSV... |
+| Project | New · Edit · Delete |
+| Subject | New · Edit · Delete from Roster |
+| Membership | Add to Project · Remove from Project · Retire/Restore |
+| Session | Set Protocol for Checked... · **Add Checked to Session** |
+
+This replaced the row of text buttons that used to run across the top. Every tool is also a menu item and, for the common ones, a button beside the widget it acts on — all three surfaces are switched together in `updateEnableStates_`, so they can never disagree about whether an action is available.
+
+Two icons carry meaning worth spelling out, since a toolbar has no labels to lean on. *Remove from Project* is a red arrow leaving a folder while *Delete from Roster* is a red cross on a subject — the reversible action and the irreversible one must not look alike. And *Retire* wears two faces: it shows an arrow going down into a box, and swaps to a green arrow coming back out (with the tooltip to match) the moment every checked row is already retired, because an icon-only control cannot talk its way out of offering to retire a retired animal.
+
+Icons are drawn as 16×16 pixel art by [`gui.toolbarIcon`](../../obj/+gui/toolbarIcon.m) rather than shipped as image files, so the toolbox carries no binary assets and a glyph is edited where it is named. `epsych.RunExpt` draws its toolbar from the same function. Note that `uibutton`/`uiimage` `Icon` accepts only four built-in names (`success`, `error`, `warning`, `info`), so any other glyph has to be drawn or supplied as a file.
+
 `‹All Subjects›` is pinned at the top of the project list. It is not a project: it shows every subject regardless of membership, and it is both the empty state for a fresh roster and the way to find a subject whose project you have forgotten.
 
-Below the project list, a read-only summary shows the selected project's notes, default protocol, and data path — so you can see what will be applied without opening the edit dialog.
+Below the project list, a read-only summary shows the selected project's notes, investigator, IACUC protocol, default protocol, data path, and box GUI — so you can see what will be applied without opening the edit dialog. The box GUI is named even when the project inherits it (`Box GUI: (session default)`), since a field that goes silent when unset reads as a field that does not exist. The other fields appear only when set: they carry no default worth announcing.
+
+### Links
+
+Under the summary, the project's [links](../epsych/epsych_SubjectRoster.md#links-and-why-the-scheme-is-checked) are listed as clickable `uihyperlink`s — the lab notebook, the shared sheet, the analysis folder — with the full address as each one's tooltip. When a project has none, the rows collapse to nothing rather than leaving a gap.
+
+They are the only clickable-through thing in this window, so two details matter:
+
+- The hyperlink's own `URL` is deliberately **left empty**, and the click is routed through `epsych.SubjectRoster.openLink`. A `uihyperlink` with a `URL` navigates by itself, before anything has re-checked an address that came out of a file someone else can write.
+- A `file:` address naming a folder opens in the platform's file manager, not a browser, which would show an unhelpful directory listing or nothing at all.
+
+A refused address is reported in a `uialert` and logged; it never throws out of the callback.
+
+### Archived projects
+
+**Show archived projects**, under the project list, is the project-level counterpart of *Show retired* for subjects. An archived project keeps its subjects, its memberships, and their protocol memory — only this list hides it, and it is still marked `(archived)` in the item text when shown, because a `uilistbox` has no per-item styling.
+
+The project **currently selected is never hidden**, even with the toggle off. Archiving from the edit dialog would otherwise make the project you were just looking at disappear, which reads as having deleted it.
+
+### The project dialog
+
+**New Project...** / **Edit Project...** hold the project's name, notes, its bookkeeping (**Investigator**, **IACUC Protocol**), its **Links**, an **Archived** checkbox, and the three things it applies to a session: **Default Protocol**, **Default Data Path**, and **Box GUI**.
+
+Links are an editable two-column table — a table rather than a growing stack of edit fields, because the count is unbounded and both columns are free text — with **Add**, **Remove**, and **Open** beside it. *Open* is there so an address can be checked before it is saved rather than after.
+
+Addresses are validated **in the dialog**, not only on commit, so a refusal arrives while the operator can still see and fix what they typed; the normalized form (an added `https://`, a path turned into a `file:///` URL) is written back into the table on OK, so what is saved is what is shown. A blank label is filled in from the host. A row with an address and no label is fine; a row with a label and no address is an error, while a wholly blank row is just the one **Add** created and is dropped.
+
+| Box GUI choice | Meaning |
+|---|---|
+| `(session default)` | Leave the session's `FUNCS.BoxFig` alone — the default for a new project |
+| `(none)` | Run this project with no behavior GUI |
+| a function or class name | Launch it at run start, `feval(name, RUNTIME)` |
+
+The dropdown is editable, and its list is drawn from **the box GUIs other projects in this roster already use** plus `ep_GenericGUI` — not from the session's `RecentBoxFig` preference. The roster is the shared thing, so a rig that has never run a paradigm still proposes its GUI, and the dialog works with no session open. A typed name that does not resolve on the path is tinted the same pale red the Customize dialog uses, but is still accepted: a lab may add its GUI to the path later.
+
+**This is where the box GUI is configured.** It was **Customize → Box GUI Function**; the GUI belongs to a paradigm rather than to a rig, and a rig alternating between two studies had to be re-pointed by hand between sessions. Customize now leaves a grey line in that field's place saying where it went. See [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#a-project-owns-the-box-gui) for how the three states reach `FUNCS.BoxFig`.
 
 ### Columns
 
@@ -40,6 +96,7 @@ Below the project list, a read-only summary shows the selected project's notes, 
 | Subject | no | |
 | Box | **yes** | Blank means "assign the lowest free one". Values outside 1–16 are rejected and the old value restored. |
 | Protocol | no | See below |
+| Version | no | The protocol version this subject is on — see [Protocol versions](#protocol-versions) |
 | Species, Sex, Weight, Last Run | no | So two similarly-named animals are distinguishable |
 | Status | no | Active / Retired |
 
@@ -47,9 +104,51 @@ Below the project list, a read-only summary shows the selected project's notes, 
 
 ---
 
+## Protocol versions
+
+A protocol gets edited between sessions and nobody notices — the `.eprot` is overwritten in place, and the animals that were on last week's version go on running without anything saying so. The **Version** column and the **Protocol** menu are the answer.
+
+### Reading the column
+
+It shows the version the subject is **on**, not the newest one available, so a row reads as a statement about that animal rather than about the file:
+
+| Cell | Meaning |
+|---|---|
+| `v7.260814` | The recorded version. Plain when it matches the file. |
+| `v7.260814` in **bold orange** | The file has been saved since — this subject is behind |
+| `not recorded`, greyed | Never committed to a session, so there is nothing to compare |
+| `(missing)`, bold orange | The `.eprot` is gone |
+
+When anything is behind, a banner opens above the table naming the count, with **Update All to Latest** beside it; the table's tooltip names the subjects and both versions. The banner collapses to nothing the moment there is nothing to say — a stale-protocol warning is exactly what an operator will not think to go looking for, so it announces itself rather than waiting to be checked.
+
+### The Protocol menu
+
+| Item | Scope |
+|---|---|
+| **Check Protocol Versions** | Everything shown: counts by state, then the subjects that are behind, with both versions |
+| **Open in Protocol Designer** | The selected row's protocol — including an uncommitted **Set Protocol...** override, so the two columns and the designer always agree on which file |
+| **Update Checked to Latest Version** | The ticked rows |
+| **Update All in Project to Latest Version** | Every member, **including retired ones and any hidden by the filter** — "all" that quietly meant "all visible" would leave stragglers behind exactly when you believed otherwise |
+| **Switch Checked to Project Default Protocol** | Moves them onto the project's file as well as its version |
+| **Revert Protocol Version...** | The selected row |
+
+The same actions for a single row are on the right-click menu. Updating confirms first, and names versions rather than counting rows: *"tone.eprot: v4 → v7 (6 subjects)"* is a question an operator can answer; *"update 6 subjects?"* is not. Identical moves collapse to one line, so a project on one protocol is one sentence.
+
+Updating changes no protocol *content*, and none is needed — a session loads the `.eprot` at commit time, so the newest saved version runs either way. What it records is the version each subject is now expected to be on, which is what clears the warning and makes the *next* unexpected edit visible.
+
+### Reverting, and what it cannot do
+
+**Revert Protocol Version...** lists what the roster recorded for that subject and marks each entry with whether going back is exact. It is exact when the entry names a different `.eprot` that still holds its recorded version. It is **not** exact when the file has since been saved over: `epsych.Protocol.save` overwrites in place and keeps no archive, so a v4 that became v5 exists nowhere on disk. Those entries are marked `[file now holds v5]`, and reverting to one restores the pointer and the recorded version while saying plainly that the content did not come back.
+
+Revert is itself undoable — the protocol being left goes onto the history in place of the one restored. To make going back exact, revise protocols as **separate files** (`Save As` per revision) rather than saving over one.
+
+All of the above is [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#protocol-versions); this window only renders it.
+
+---
+
 ## Add Checked to Session
 
-The button collects what you ticked and typed; every decision belongs to [`epsych.SubjectRoster.assignToSession`](../epsych/epsych_SubjectRoster.md). Boxes and protocols are resolved, then **everything is validated before `CONFIG` is touched** — a protocol that fails to load halfway through must never leave a half-populated session.
+The button collects what you ticked and typed; every decision belongs to [`epsych.SubjectRoster.assignToSession`](../epsych/epsych_SubjectRoster.md). Boxes and protocols are resolved and the project's box GUI is applied to the session, but **everything is validated before `CONFIG` is touched** — a protocol that fails to load halfway through must never leave a half-populated session.
 
 - Refused outright while a session is running, or with no session window open (the button is disabled and says why).
 - A missing protocol, or needing more than 16 boxes, **aborts the whole batch** and changes nothing.
@@ -97,7 +196,7 @@ Two things make the live path work. The in-flight keystrokes are held in `LiveFi
 Stored under `ep_RunExpt_Subjects` and `epsych2_gui_SubjectManager`:
 
 - the selected project, **keyed by roster path** so re-pointing the roster file cannot restore a project belonging to a different one;
-- the *Show retired* toggle;
+- the *Show retired* and *Show archived projects* toggles;
 - the window position.
 
 Only *operator* selections are remembered. Setting the project programmatically — including `revealSubject` — deliberately does not persist, so a script driving this window cannot clobber what the operator chose.
@@ -141,6 +240,12 @@ The session window's subject list gains **Show in Subject Manager**, which opens
 matlab -batch "cd('tmp'); smoke_test_subject_manager"
 ```
 
-Asserts the window lifecycle and single-instance rule, the empty-roster-and-no-session path, filtering (a regex-looking string, and live search driven one keystroke at a time through the real `ValueChangingFcn`), the retired toggle, ticking plus a typed box reaching `CONFIG`, the session window being raised by a clean commit, the remembered project surviving a close, and `revealSubject` handling both a retired subject and an unknown name.
+Asserts the window lifecycle and single-instance rule, the empty-roster-and-no-session path, filtering (a regex-looking string, and live search driven one keystroke at a time through the real `ValueChangingFcn`), the retired toggle, all three box-GUI states in the project summary, ticking plus a typed box reaching `CONFIG`, the session window being raised by a clean commit, the remembered project surviving a close, and `revealSubject` handling both a retired subject and an unknown name.
+
+The toolbar is asserted as a whole rather than tool by tool: every tool must carry a 16×16 icon and a tooltip — a toolbar has no labels, so a tool with neither is unusable — its Enable must follow the ticks alongside the button and menu item, and the Retire tool must swap both icon *and* tooltip when the checked rows are already retired.
+
+Protocol versions are asserted end to end against a real `epsych.Protocol.save`: the Version column carries the recorded version, the banner opens when the file is saved behind the window's back and closes once `updateProtocol` has run, and the column then shows the new version. The update and revert *commands* are engine-tested in `smoke_test_subject_roster` instead — both open a confirmation the operator has to answer, so what is checked here is that the window notices and stops saying so.
+
+Project options are asserted the same way: the summary names the investigator and IACUC number, both links render as `uihyperlink`s carrying no `URL`, a linkless project collapses the panel to zero height, and an archived project hides, stays reachable by ID, and survives the toggle going off while it is selected. The dialog itself is driven for real — the Edit button is pressed and the modal window inspected and cancelled from a timer, since `projectDialog_` blocks in `uiwait`. That timer repeats rather than firing once (the figure is findable by name while its controls are still being laid out, so the probe waits for Cancel to exist), and its `StopFcn` deletes whatever is left standing, so a probe that simply missed the window fails the test instead of hanging it.
 
 See also: [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md), [`gui.BoxGUI`](gui_BoxGUI.md), [RunExpt GUI Overview](../overviews/RunExpt_GUI_Overview.md)

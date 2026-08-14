@@ -52,6 +52,10 @@ classdef NE1000 < hw.Interface
     %                              0 keeps the pump's stored value. Default 0
     %   RateUnits (char)         - 'UM'|'MM'|'UH'|'MH' (µL/mL per min/hr)
     %                              used when writing Rate. Default 'MH'
+    %   TTLTrigger (logical)     - Hand start/stop control to the pump's TTL
+    %                              Operational Trigger input. Default false
+    %   TriggerMode (char)       - Trigger mode written when TTLTrigger is on.
+    %                              Default 'LE' (see TRIGGER_MODES)
     %   Connect (logical)        - Connect on construction. Default true
     %   AutoDetect (logical)     - Probe ports for a pump at connect. Default false
     %   Timeout (double)         - Transaction timeout in seconds. Default 1
@@ -63,6 +67,8 @@ classdef NE1000 < hw.Interface
     %   mode                     - Current hw.DeviceState (host-side; the pump
     %                              has no session mode. Leaving Record/Preview
     %                              stops the pump).
+    %   TTLTrigger, TriggerMode  - Whether the pump's TTL Operational Trigger
+    %                              input may start/stop it, and in which mode.
     %   FirmwareVersion          - e.g. 'NE1000V3.923', reported at connect.
     %   LastAlarm                - Most recent alarm character (R/S/T/E/O), '' when none.
     %   DispensedUnits           - Units of the last DIS reply, 'UL' or 'ML'.
@@ -85,6 +91,10 @@ classdef NE1000 < hw.Interface
     %   iface.trigger('Start');
     %   iface.trigger('Stop');
     %
+    %   % Hand start/stop to a rig digital line wired to pin 2
+    %   iface.TriggerMode = 'ST';      % falling edge starts, and only starts
+    %   iface.TTLTrigger  = true;
+    %
     % See also: documentation/hw/hw_NE1000.md, documentation/hw/hw_Interface.md,
     %           hw.Module, hw.Parameter, hw.Teensy, peripherals.PumpCom
 
@@ -106,6 +116,21 @@ classdef NE1000 < hw.Interface
         % Units attached when writing Rate: UM=µL/min, MM=mL/min, UH=µL/hr,
         % MH=mL/hr. Changing units is only possible while the pump is stopped.
         RateUnits (1,2) char {mustBeMember(RateUnits,{'UM','MM','UH','MH'})} = 'MH'
+
+        % Whether the pump's TTL Operational Trigger input (DB-9 pin 2) may
+        % start and stop it. False writes 'TRG OF'; true writes TriggerMode.
+        % The configuration is asserted at connect and on every assignment,
+        % so a pump left triggerable by the keypad is disabled unless the
+        % host asks for it -- a floating trigger line must not dispense.
+        TTLTrigger (1,1) logical = false
+
+        % Trigger mode written when TTLTrigger is on; see TRIGGER_MODES for
+        % the codes and TRIGGER_LABELS for what each does. 'LE' (level:
+        % rising edge starts, falling edge stops) is the default because it
+        % maps a reward gate straight onto a rig's digital output line.
+        % Deliberately not exposed in any GUI: the rig's wiring decides it,
+        % so it belongs to the paradigm's code, not to the operator.
+        TriggerMode (1,2) char = 'LE'
 
         % TTL on the cached DIS (volume dispensed) read. One DIS answers both
         % VolumeInfused and VolumeWithdrawn, so the runtime's trial-end sweep
@@ -149,6 +174,23 @@ classdef NE1000 < hw.Interface
         STATUS_LABELS = {'Infusing','Withdrawing','Stopped','Paused', ...
                          'TimedPause','TriggerWait','Purging'}
 
+        % TTL Operational Trigger modes (manual 6.5) and what each does,
+        % index-aligned. 'OF' is deliberately absent: disabling the trigger
+        % is TTLTrigger's job, so there is only one way to say it.
+        TRIGGER_MODES = {'FT','FH','F2','LE','ST','T2','SP','P2','RL','RH','SL','SH'}
+        TRIGGER_LABELS = {'Foot switch: falling edge starts or stops', ...
+                          'Foot switch hold: falling edge starts, rising edge stops', ...
+                          'Foot switch reversed: rising edge starts or stops', ...
+                          'Level: rising edge starts, falling edge stops', ...
+                          'Start only: falling edge starts', ...
+                          'Start only reversed: rising edge starts', ...
+                          'Stop only: falling edge stops', ...
+                          'Stop only reversed: rising edge stops', ...
+                          'Start on a low level', ...
+                          'Start on a high level', ...
+                          'Stop on a low level', ...
+                          'Stop on a high level'}
+
         % Alarm codes (manual 10.2.4) and labels, index-aligned.
         ALARM_CHARS  = 'RSTEO'
         ALARM_LABELS = {'Pump was reset (power interrupted)', ...
@@ -174,6 +216,11 @@ classdef NE1000 < hw.Interface
         % each other's replies (see transact_).
         busy_ (1,1) logical = false
 
+        % True while the trigger configuration the pump reported is being
+        % copied into TTLTrigger/TriggerMode, so the setters do not turn a
+        % read straight back into a write.
+        applyingTrigger_ (1,1) logical = false
+
         % Last value each wire query actually returned, keyed by wire name.
         % Serves a read whose reply went missing, so a dropped packet
         % degrades to a stale value instead of to [] (see readOne_).
@@ -195,6 +242,10 @@ classdef NE1000 < hw.Interface
             %   SyringeDiameter (double) - Diameter (mm) pushed at connect; 0 keeps
             %                              the pump's stored value. Default 0
             %   RateUnits (char)         - Units for Rate writes. Default 'MH'
+            %   TTLTrigger (logical)     - Let the pump's TTL trigger input start
+            %                              and stop it. Default false
+            %   TriggerMode (char)       - Mode used when TTLTrigger is on.
+            %                              Default 'LE'
             %   Connect (logical)        - Connect on construction. Default true
             %   AutoDetect (logical)     - Probe ports for a pump. Default false
             %   Timeout (double)         - Transaction timeout (s). Default 1
@@ -204,6 +255,8 @@ classdef NE1000 < hw.Interface
                 options.Address (1,1) double = 0
                 options.SyringeDiameter (1,1) double = 0
                 options.RateUnits (1,2) char = 'MH'
+                options.TTLTrigger (1,1) logical = false
+                options.TriggerMode (1,2) char = 'LE'
                 options.Connect (1,1) logical = true
                 options.AutoDetect (1,1) logical = false
                 options.Timeout (1,1) double = 1
@@ -214,6 +267,8 @@ classdef NE1000 < hw.Interface
             obj.Address = options.Address;
             obj.SyringeDiameter = options.SyringeDiameter;
             obj.RateUnits = options.RateUnits;
+            obj.TriggerMode = options.TriggerMode;
+            obj.TTLTrigger = options.TTLTrigger;
             obj.AutoDetect = options.AutoDetect;
             obj.Timeout = options.Timeout;
             obj.Module = hw.Module.empty(1, 0);
@@ -285,6 +340,35 @@ classdef NE1000 < hw.Interface
                 obj.transact_('STP');
             end
             obj.modeCache_ = m;
+        end
+
+        function set.TTLTrigger(obj, tf)
+            % set.TTLTrigger(obj, tf)
+            % Hand start/stop control to the pump's TTL trigger input, or
+            % take it back. A connected pump is reconfigured immediately;
+            % otherwise the state is asserted at connect.
+            obj.TTLTrigger = tf;
+            if ~obj.applyingTrigger_
+                obj.pushTrigger_();
+            end
+        end
+
+        function set.TriggerMode(obj, code)
+            % set.TriggerMode(obj, code)
+            % Choose which TTL trigger mode is written when TTLTrigger is on.
+            % Rejected rather than logged: an unknown mode is a programming
+            % error, and silently keeping the old one would leave the rig
+            % wired for a contingency the pump is not running.
+            code = upper(strtrim(char(code)));
+            if ~ismember(code, hw.NE1000.TRIGGER_MODES)
+                error('hw:NE1000:BadTriggerMode', ...
+                    '"%s" is not a trigger mode. Use one of: %s.', ...
+                    code, strjoin(hw.NE1000.TRIGGER_MODES, ', '));
+            end
+            obj.TriggerMode = code;
+            if ~obj.applyingTrigger_ && obj.TTLTrigger
+                obj.pushTrigger_();
+            end
         end
 
         function setModules(obj, modules)
@@ -627,6 +711,12 @@ classdef NE1000 < hw.Interface
                 end
             end
 
+            % The TTL trigger configuration is asserted on every connect, not
+            % read: the pump keeps it in non-volatile memory, so a trigger
+            % someone enabled from the keypad would otherwise still be able
+            % to start this session's pump behind the host's back.
+            obj.pushTrigger_();
+
             % --- Module and parameters ---------------------------------------
             if isempty(obj.Module)
                 module = hw.Module(obj, 'NE1000', 'Pump', uint8(1));
@@ -744,10 +834,20 @@ classdef NE1000 < hw.Interface
             % s = readPacket_(obj)
             % Read one ETX-terminated reply, trimmed of the STX marker.
             % Returns '' on timeout rather than throwing.
+            %
+            % MATLAB raises a warning of its own whenever readline times out.
+            % A dropped reply is an expected event on this link — transact_
+            % reports it through vprintf and resends queries — so its
+            % four-line duplicate is suppressed for the span of this one read.
+            ws = warning('off', 'all');
             try
                 s = char(readline(obj.HW));
             catch
                 s = '';
+            end
+            warning(ws);
+
+            if isempty(s)
                 return
             end
             if isempty(s)
@@ -775,9 +875,14 @@ classdef NE1000 < hw.Interface
 
         % --- Transactions --------------------------------------------------
 
-        function R = transact_(obj, cmd)
-            % R = transact_(obj, cmd)
+        function R = transact_(obj, cmd, options)
+            % R = transact_(obj, cmd, Quiet=false)
             % Send one command and parse its single reply packet.
+            %
+            % Name=Value
+            %   Quiet - Do not log a command error. For a command sent as a
+            %           probe, where a rejection is one of the anticipated
+            %           answers and the caller has somewhere else to go.
             %
             % Returns a struct with fields:
             %   ok     - True when a well-formed reply arrived.
@@ -789,6 +894,12 @@ classdef NE1000 < hw.Interface
             % Following house style, failures warn through vprintf and degrade
             % rather than throwing, so a flaky RS-232 link does not abort a
             % session mid-trial.
+            arguments
+                obj
+                cmd (1,:) char
+                options.Quiet (1,1) logical = false
+            end
+
             R = struct('ok', false, 'status', '', 'alarm', '', 'data', '', 'err', '');
             if ~obj.IsConnected
                 return
@@ -809,15 +920,15 @@ classdef NE1000 < hw.Interface
 
             obj.busy_ = true;
             try
-                R = obj.runTransaction_(cmd);
+                R = obj.runTransaction_(cmd, options.Quiet);
             catch ME
                 vprintf(0, 1, ME);
             end
             obj.busy_ = false;
         end
 
-        function R = runTransaction_(obj, cmd)
-            % R = runTransaction_(obj, cmd)
+        function R = runTransaction_(obj, cmd, quiet)
+            % R = runTransaction_(obj, cmd, quiet)
             % Body of one transaction, with the link already claimed by
             % transact_. Same return struct.
             R = struct('ok', false, 'status', '', 'alarm', '', 'data', '', 'err', '');
@@ -867,7 +978,8 @@ classdef NE1000 < hw.Interface
             % every STP issued here is asking for — connect, teardown, leaving
             % Record, and the operator's Stop button alike. Reporting it as an
             % error puts a red line in the log for a pump behaving correctly.
-            if ~isempty(R.err) && ~(strcmp(cmd, 'STP') && strcmp(R.err, 'NA'))
+            expected = quiet || (strcmp(cmd, 'STP') && strcmp(R.err, 'NA'));
+            if ~isempty(R.err) && ~expected
                 vprintf(0, 1, 'NE1000: "%s" -> error %s', cmd, R.err);
             end
         end
@@ -954,6 +1066,12 @@ classdef NE1000 < hw.Interface
                     d = obj.readDispensed_();
                     if ~isempty(d), v = d.wdr; end
 
+                case 'TTLTrigger'
+                    code = obj.readTriggerSetup_();
+                    if ~isempty(code)
+                        v = ~strcmp(code, 'OF');
+                    end
+
                 case 'Status'
                     % A packet without a command is a status query.
                     R = obj.transact_('');
@@ -993,7 +1111,60 @@ classdef NE1000 < hw.Interface
             obj.DispensedUnits = d.units;
         end
 
+        function code = readTriggerSetup_(obj)
+            % code = readTriggerSetup_(obj)
+            % Query the pump's TTL Operational Trigger configuration and bring
+            % TTLTrigger/TriggerMode into step with what it reports, so a mode
+            % changed at the keypad is reflected rather than assumed. Returns
+            % 'OF', a mode code, or '' when the pump did not answer.
+            R = obj.transact_('TRG');
+            code = upper(strtrim(R.data));
+            if isempty(code)
+                return
+            end
+            if ~strcmp(code, 'OF') && ~ismember(code, hw.NE1000.TRIGGER_MODES)
+                vprintf(2, 'NE1000: pump reported an unrecognized trigger setup "%s"', code);
+                code = '';
+                return
+            end
+
+            obj.applyingTrigger_ = true;
+            if strcmp(code, 'OF')
+                obj.TTLTrigger = false;
+            else
+                obj.TriggerMode = code;
+                obj.TTLTrigger = true;
+            end
+            obj.applyingTrigger_ = false;
+        end
+
         % --- Writes ---------------------------------------------------------
+
+        function ok = pushTrigger_(obj)
+            % ok = pushTrigger_(obj)
+            % Write the TTL Operational Trigger configuration: TriggerMode
+            % when TTLTrigger is on, 'OF' when it is off. A no-op offline —
+            % connect asserts it once the link is up.
+            ok = true;
+            if ~obj.linkReady_
+                return
+            end
+
+            if obj.TTLTrigger
+                code = obj.TriggerMode;
+            else
+                code = 'OF';
+            end
+
+            R = obj.transact_(sprintf('TRG%s', code));
+            ok = isempty(R.err);
+            if ok
+                vprintf(2, 'NE1000: TTL trigger set to %s', code);
+            else
+                vprintf(0, 1, 'NE1000: setting the TTL trigger to %s was rejected: %s', ...
+                    code, R.err);
+            end
+        end
 
         function ok = writeOne_(obj, wire, value)
             % ok = writeOne_(obj, wire, value)
@@ -1010,8 +1181,13 @@ classdef NE1000 < hw.Interface
                     % Units can only be set while stopped; when the first form
                     % is rejected mid-run, retry with the bare value, which the
                     % pump accepts while pumping (manual 10.4.1, RAT).
+                    %
+                    % The units form is a probe, not a promise: its '?NA' is
+                    % just the pump saying "mid-run", which happens every time
+                    % an operator turns the rate knob during a dispense. Only
+                    % the fallback failing is worth putting in the log.
                     vs = hw.NE1000.formatFloat_(value);
-                    R = obj.transact_(sprintf('RAT%s%s', vs, obj.RateUnits));
+                    R = obj.transact_(sprintf('RAT%s%s', vs, obj.RateUnits), Quiet = true);
                     if ~isempty(R.err)
                         R = obj.transact_(sprintf('RAT%s', vs));
                     end
@@ -1040,6 +1216,15 @@ classdef NE1000 < hw.Interface
                     end
                     R = obj.transact_(sprintf('DIR%s', code));
                     ok = isempty(R.err);
+
+                case 'TTLTrigger'
+                    % Through the property, so a write from the trial table,
+                    % the operator panel, and a paradigm's own assignment all
+                    % configure the pump by the same path.
+                    obj.applyingTrigger_ = true;
+                    obj.TTLTrigger = logical(value);
+                    obj.applyingTrigger_ = false;
+                    ok = obj.pushTrigger_();
 
                 case {'VolumeInfused', 'VolumeWithdrawn', 'Status'}
                     % Read-only on the wire; the local hw.Parameter cache has
@@ -1165,12 +1350,27 @@ classdef NE1000 < hw.Interface
                     'controlType', 'dropdown', ...
                     'choices', {{'MH', 'MM', 'UH', 'UM'}}, ...
                     'description', ['Units attached when writing the Rate parameter: MH=mL/hr, ' ...
-                        'MM=mL/min, UH=µL/hr, UM=µL/min.'])], ...
+                        'MM=mL/min, UH=µL/hr, UM=µL/min.']), ...
+                hw.InterfaceSpecOption( ...
+                    'name', 'ttlTrigger', ...
+                    'label', 'TTL Trigger Control', ...
+                    'defaultValue', false, ...
+                    'required', false, ...
+                    'inputType', 'logical', ...
+                    'scope', 'interface', ...
+                    'controlType', 'checkbox', ...
+                    'description', ['Let the pump''s TTL Operational Trigger input (DB-9 pin 2) ' ...
+                        'start and stop it, for hardware-timed reward with no host round trip. ' ...
+                        'Asserted at connect either way, so an unchecked box disables a trigger ' ...
+                        'left enabled at the keypad. The trigger mode (level, foot switch, ' ...
+                        'start-only, ...) is set in code through the interface''s TriggerMode ' ...
+                        'property and defaults to LE (rising edge starts, falling edge stops).'])], ...
                 @(opts) hw.NE1000(char(hw.NE1000.optField_(opts, 'port', '')), ...
                     BaudRate        = double(string(hw.NE1000.optField_(opts, 'baudRate', 19200))), ...
                     Address         = double(string(hw.NE1000.optField_(opts, 'address', 0))), ...
                     SyringeDiameter = double(string(hw.NE1000.optField_(opts, 'syringeDiameter', 0))), ...
                     RateUnits       = char(hw.NE1000.optField_(opts, 'rateUnits', 'MH')), ...
+                    TTLTrigger      = logical(hw.NE1000.optField_(opts, 'ttlTrigger', false)), ...
                     AutoDetect      = logical(hw.NE1000.optField_(opts, 'autoDetect', false))));
         end
 
@@ -1295,7 +1495,7 @@ classdef NE1000 < hw.Interface
             % CLD, and every setter — changes the pump, and a command whose
             % reply went missing may still have been performed.
             cmd = char(cmd);
-            tf = isempty(cmd) || ismember(cmd, {'VER', 'RAT', 'VOL', 'DIA', 'DIR', 'DIS'});
+            tf = isempty(cmd) || ismember(cmd, {'VER', 'RAT', 'VOL', 'DIA', 'DIR', 'DIS', 'TRG'});
         end
 
         function s = formatFloat_(v)
@@ -1406,6 +1606,10 @@ specs(end + 1) = local_spec_('VolumeWithdrawn', 0, ...
     struct('Type', 'Float', 'Access', 'Read', 'Visible', true, ...
            'Unit', volLabel, ...
            'Description', "Accumulated withdrawn volume reported by the pump (DIS query)."));
+
+specs(end + 1) = local_spec_('TTLTrigger', false, ...
+    struct('Type', 'Boolean', 'Access', 'Any', 'Visible', false, ...
+           'Description', "Whether the pump's TTL Operational Trigger input (DB-9 pin 2) may start and stop it. Enabling writes the interface's TriggerMode ('LE' by default), disabling writes 'TRG OF'. The mode itself is a property of the interface, not a parameter: it follows the rig's wiring rather than the trial."));
 
 specs(end + 1) = local_spec_('Status', 'Stopped', ...
     struct('Type', 'String', 'Access', 'Read', 'Visible', false, ...

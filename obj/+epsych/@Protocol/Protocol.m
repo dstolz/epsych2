@@ -148,6 +148,9 @@ classdef Protocol < handle & matlab.mixin.SetGet
     methods (Static)
         obj = load(filename)       % Deserialize from .eprot or .json - load.m
         obj = fromJSON(filename)   % Deserialize from JSON - fromJSON.m
+
+        v = versionOnDisk(filename)      % Peek at a file's protocolVersion without loading it - versionOnDisk.m
+        n = versionNumber(versionString) % Comparable integer N from 'vN.YYMMDD' - versionNumber.m
     end
 
     methods (Access = private)

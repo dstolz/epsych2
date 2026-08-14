@@ -93,6 +93,12 @@ function struct_out = toStruct(obj)
             % silently reinterpret a saved rate in different units on reload.
             ifaceStruct.RateUnits = char(iface.RateUnits);
         end
+        if isprop(iface, 'TTLTrigger')
+            % hw.NE1000: whether the pump's TTL trigger input may start it.
+            % false is the meaningful default and is asserted at connect, so
+            % it is persisted unguarded like Address.
+            ifaceStruct.TTLTrigger = logical(iface.TTLTrigger);
+        end
 
         rawModules = iface.Module;
         if isempty(rawModules)

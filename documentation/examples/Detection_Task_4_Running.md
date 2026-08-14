@@ -17,12 +17,15 @@ write silently).
 1. `addpath('examples/detection_task')` — the selector and GUI classes must be
    resolvable by name.
 2. Launch `epsych.RunExpt`.
-3. **Customize > Customize...**, tab **Functions**: set **Box GUI Function:** to
-   `DetectionBoxGUI`. Leave **Saving Function:** at `ep_SaveDataFcn` (prompts
-   for a filename at session end) or point it at your lab's function — it must
-   take exactly one input (`RUNTIME`) and return nothing.
-4. **Add Subject**, fill in the dialog, and when prompted locate
-   `DetectionExample.eprot`.
+3. **Customize > Customize...**, tab **Functions**: leave **Saving Function:**
+   at `ep_SaveDataFcn` (prompts for a filename at session end) or point it at
+   your lab's function — it must take exactly one input (`RUNTIME`) and return
+   nothing.
+4. **Subjects > Subjects & Projects** (Ctrl+B): make a project, set its
+   **Box GUI** to `DetectionBoxGUI` and its **Default Protocol** to
+   `DetectionExample.eprot`, add a subject to it, then tick the subject and
+   press **Add Checked to Session**. The box GUI is a property of the project,
+   so it reaches the session with the animals.
 5. **View Trials** previews the compiled condition list before anything runs.
 6. **Preview** runs the session without marking it as real data
    (`RUNTIME.isTest = true`); **Run** records. Watch the state line walk

@@ -29,8 +29,8 @@ for i = 1:nSubjects
     loadedVersion = char(self.CONFIG(i).PROTOCOL.meta.protocolVersion);
     data{i,4} = loadedVersion;
 
-    diskVersion = readProtocolVersionOnDisk_(self.CONFIG(i).protocol_fn);
-    if protocolVersionNumber_(diskVersion) > protocolVersionNumber_(loadedVersion)
+    diskVersion = epsych.Protocol.versionOnDisk(char(self.CONFIG(i).protocol_fn));
+    if epsych.Protocol.versionNumber(diskVersion) > epsych.Protocol.versionNumber(loadedVersion)
         isOutdated(i) = true;
         nOutdated = nOutdated + 1;
         outdatedInfo{nOutdated} = sprintf('%s: loaded %s, latest %s', ...
@@ -59,42 +59,5 @@ if size(data,1) == 0
     set([self.H.setup_remove_subject self.H.view_trials],'Enable','off')
 else
     set([self.H.setup_remove_subject self.H.edit_protocol self.H.view_trials],'Enable','on')
-end
-end
-
-function n = protocolVersionNumber_(verStr)
-% Parse the leading integer from a 'vN.YYMMDD' protocol version string.
-tok = regexp(char(verStr), '^v(\d+)\.', 'tokens', 'once');
-if isempty(tok)
-    n = NaN;
-else
-    n = str2double(tok{1});
-end
-end
-
-function v = readProtocolVersionOnDisk_(pfn)
-% Lightweight peek at a protocol file's stored version, without
-% reconstructing the full Protocol object graph (see epsych.Protocol.load).
-v = '';
-pfn = char(pfn);
-if isempty(pfn) || ~isfile(pfn), return, end
-
-try
-    [~,~,ext] = fileparts(pfn);
-    if strcmpi(ext,'.json')
-        S = jsondecode(fileread(pfn));
-        if isfield(S,'protocolVersion')
-            v = char(S.protocolVersion);
-        end
-    else
-        S = load(pfn,'-mat');
-        if isfield(S,'protocol') && isstruct(S.protocol) && isfield(S.protocol,'protocolVersion')
-            v = char(S.protocol.protocolVersion);
-        elseif isfield(S,'protocol_struct') && isfield(S.protocol_struct,'protocolVersion')
-            v = char(S.protocol_struct.protocolVersion);
-        end
-    end
-catch
-    v = '';
 end
 end

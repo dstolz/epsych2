@@ -80,6 +80,7 @@ function [spec, options] = getInterfaceEditState(obj, iface)
             options.address = iface.Address;
             options.syringeDiameter = iface.SyringeDiameter;
             options.rateUnits = iface.RateUnits;
+            options.ttlTrigger = iface.TTLTrigger;
             options.autoDetect = iface.AutoDetect;
 
         otherwise

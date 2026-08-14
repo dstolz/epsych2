@@ -5,8 +5,9 @@
 % travels the real hw.NE1000 protocol path and is asserted on the simulated
 % pump's state. Covers the three sources a panel can be built over (an
 % interface, an epsych.Runtime, nothing at all), the settings round trip,
-% the volume readout and its unit conversion, the rejection path, pop-out,
-% and teardown ownership.
+% the volume readout and its unit conversion, the units menu (which converts
+% the rate rather than reinterpreting it), the rejection path, pop-out, and
+% teardown ownership.
 %
 % Run headless, from the repository root:
 %   matlab -batch "run('tmp/smoke_test_syringepump_gui.m')"
@@ -36,17 +37,19 @@ try
 
     results(end+1,:) = check('Panel reports the link is up',  panel.IsConnected);
     results(end+1,:) = check('Panel adopted the interface',   panel.Interface == mock);
-    results(end+1,:) = check('Rate units switched to uL/min', strcmp(mock.RateUnits, 'UM') ...
-        && strcmp(mock.SimRateUnits, 'UM'));
-    results(end+1,:) = check('Default rate pushed (0.7 uL/min)', abs(mock.SimRate - 0.7) < 1e-9);
+    results(end+1,:) = check('Rate units switched to mL/min', strcmp(mock.RateUnits, 'MM') ...
+        && strcmp(mock.SimRateUnits, 'MM'));
+    results(end+1,:) = check('Default rate pushed (0.7 mL/min)', abs(mock.SimRate - 0.7) < 1e-9);
     results(end+1,:) = check('Default diameter in place (21.59 mm)', ...
         abs(mock.SimDiameter - 21.59) < 0.01);
     results(end+1,:) = check('Default direction is Infuse', strcmp(mock.SimDir, 'INF'));
+    results(end+1,:) = check('TTL trigger starts disabled', ...
+        ~panel.TTLTrigger && strcmp(mock.SimTrigger, 'OF'));
 
     % The Rate parameter's unit label must follow the units it is now in,
     % since it is a trial-table column and shows up in monitors.
     P = mock.find_parameter('Rate');
-    results(end+1,:) = check('Rate parameter relabeled', strcmp(P(1).Unit, 'uL/min'));
+    results(end+1,:) = check('Rate parameter relabeled', strcmp(P(1).Unit, 'mL/min'));
 catch ME
     results(end+1,:) = check(['Attach: ' ME.message], false);
 end
@@ -55,7 +58,7 @@ end
 try
     panel.Rate = 2.5;
     results(end+1,:) = check('Rate property writes the pump', ...
-        abs(mock.SimRate - 2.5) < 1e-9 && strcmp(mock.SimRateUnits, 'UM'));
+        abs(mock.SimRate - 2.5) < 1e-9 && strcmp(mock.SimRateUnits, 'MM'));
 
     panel.Diameter = 14.43;
     results(end+1,:) = check('Diameter property writes the pump', ...
@@ -80,10 +83,10 @@ try
     panel.refresh();
 
     results(end+1,:) = check('Pump reported its volume units', strcmp(mock.DispensedUnits, 'ML'));
-    results(end+1,:) = check('Infused volume shown in uL', ...
-        abs(panel.VolumeInfused - 1234) < 1e-6);
-    results(end+1,:) = check('Withdrawn volume shown in uL', ...
-        abs(panel.VolumeWithdrawn - 50) < 1e-6);
+    results(end+1,:) = check('Infused volume shown in mL', ...
+        abs(panel.VolumeInfused - 1.234) < 1e-9);
+    results(end+1,:) = check('Withdrawn volume shown in mL', ...
+        abs(panel.VolumeWithdrawn - 0.05) < 1e-9);
     results(end+1,:) = check('Status polled from the pump', ...
         ismember(panel.Status, {'Stopped', 'Paused', 'Infusing', 'Withdrawing'}));
 catch ME
@@ -132,6 +135,158 @@ try
     mock.set_parameter('Direction', 'Infuse');
 catch ME
     results(end+1,:) = check(['Read-only attach: ' ME.message], false);
+end
+
+%% 5b. TTL trigger control: an operator switch, a programmatic mode
+try
+    panel.TTLTrigger = true;
+    results(end+1,:) = check('Enabling hands the pump its trigger', ...
+        strcmp(mock.SimTrigger, 'LE') && mock.TTLTrigger);
+    results(end+1,:) = check('The checkbox follows the property', ...
+        panel.isSectionVisible("TTL"));
+
+    panel.TriggerMode = 'ST';
+    results(end+1,:) = check('The mode reaches the pump through the interface', ...
+        strcmp(mock.SimTrigger, 'ST') && strcmp(mock.TriggerMode, 'ST'));
+
+    % The mode is programmatic only: it is nobody's section and nothing in
+    % the panel can change it.
+    results(end+1,:) = check('No section offers the trigger mode', ...
+        ~any(contains(lower(gui.SyringePump.SECTIONS), "mode")));
+
+    panel.TTLTrigger = false;
+    results(end+1,:) = check('Disabling takes it back (TRG OF)', strcmp(mock.SimTrigger, 'OF'));
+
+    % Hidden is only hidden, as with every other setting.
+    panel.hide("TTL");
+    panel.TTLTrigger = true;
+    results(end+1,:) = check('A hidden TTL setting still writes the pump', ...
+        strcmp(mock.SimTrigger, 'ST'));
+    panel.show("TTL");
+    panel.TTLTrigger = false;
+
+    % A panel told which mode to use asserts it; one that was not adopts
+    % whatever the interface (i.e. the protocol) is set to.
+    mock.TriggerMode = 'RL';
+    figTTL = uifigure(Visible = 'off', Name = 'Pump TTL', Tag = [PREF '_ttl']);
+    figs(end+1) = figTTL;
+    moded = gui.SyringePump(mock, figTTL, ApplyOnStart = false, ...
+        TriggerMode = 'FH', PreferenceTag = [PREF '_ttl']);
+    results(end+1,:) = check('The TriggerMode option reaches the interface', ...
+        strcmp(moded.TriggerMode, 'FH') && strcmp(mock.TriggerMode, 'FH'));
+    delete(moded)
+
+    mock.TriggerMode = 'SL';
+    plain = gui.SyringePump(mock, figTTL, ApplyOnStart = false, ...
+        PreferenceTag = [PREF '_ttl2']);
+    results(end+1,:) = check('Without it, the interface keeps its mode', ...
+        strcmp(plain.TriggerMode, 'SL') && strcmp(mock.TriggerMode, 'SL'));
+    delete(plain)
+    delete(figTTL)
+    figs(end) = [];
+
+    mock.TriggerMode = 'LE';
+    panel.TriggerMode = 'LE';
+catch ME
+    results(end+1,:) = check(['TTL trigger: ' ME.message], false);
+end
+
+%% 5c. Units are the operator's, and the rate is converted with them
+try
+    cmU = panel.ContextMenu;
+    panel.Rate = 0.5;                       % mL/min, the panel's default units
+
+    openMenu(cmU);
+    clickMenu(unitsItem(cmU, 'Rate', 'uL/min'));
+    results(end+1,:) = check('Menu switches the rate units', strcmp(panel.RateUnits, 'UM'));
+    results(end+1,:) = check('The rate is converted, not reinterpreted', ...
+        abs(panel.Rate - 500) < 1e-9);
+    results(end+1,:) = check('The pump takes the same speed in the new units', ...
+        strcmp(mock.RateUnits, 'UM') && strcmp(mock.SimRateUnits, 'UM') ...
+        && abs(mock.SimRate - 500) < 1e-6);
+
+    P = mock.find_parameter('Rate');
+    results(end+1,:) = check('Rate parameter relabeled with them', strcmp(P(1).Unit, 'uL/min'));
+
+    % findall cannot regexp a uilabel Text, so the row label is matched here.
+    texts = string({findall(panel.Parent, 'Type', 'uilabel').Text});
+    results(end+1,:) = check('The rate row carries the units', ...
+        any(texts == "Rate (uL/min)"));
+
+    % Per hour is the other half of the choice.
+    openMenu(cmU);
+    clickMenu(unitsItem(cmU, 'Rate', 'mL/hr'));
+    results(end+1,:) = check('Per-hour units convert too', ...
+        strcmp(panel.RateUnits, 'MH') && abs(panel.Rate - 30) < 1e-9 ...
+        && abs(mock.SimRate - 30) < 1e-6);
+
+    openMenu(cmU);
+    clickMenu(unitsItem(cmU, 'Rate', 'mL/min'));
+    results(end+1,:) = check('Switching back lands on the original number', ...
+        abs(panel.Rate - 0.5) < 1e-9);
+
+    % Volume units are display only: the pump is told nothing.
+    mock.SimInfused = 1.234;                % the mock reports volumes in mL
+    pause(0.06)                             % outlast the interface's DIS cache
+    panel.refresh();
+    wrote = mock.SimRate;
+
+    openMenu(cmU);
+    clickMenu(unitsItem(cmU, 'Volume', 'uL'));
+    results(end+1,:) = check('Volume units rescale the readout', ...
+        strcmp(panel.VolumeUnits, 'uL') && abs(panel.VolumeInfused - 1234) < 1e-6);
+
+    openMenu(cmU);
+    clickMenu(unitsItem(cmU, 'Volume', 'Follow the pump'));
+    results(end+1,:) = check('Following the pump uses what it reported', ...
+        strcmp(panel.VolumeUnits, 'auto') && abs(panel.VolumeInfused - 1.234) < 1e-9);
+    results(end+1,:) = check('Changing the readout units writes nothing', ...
+        abs(mock.SimRate - wrote) < 1e-9);
+
+    % An operator's units persist, and the remembered rate comes back in
+    % them -- a bare number restored into different units would change the
+    % speed of the pump a session later.
+    openMenu(cmU);
+    clickMenu(unitsItem(cmU, 'Rate', 'uL/min'));
+    figU = uifigure(Visible = 'off', Name = 'Pump Units', Tag = PREF);
+    figs(end+1) = figU;
+    remembered = gui.SyringePump(mock, figU, ApplyOnStart = false, PreferenceTag = PREF);
+    results(end+1,:) = check('A new panel restores the operator units', ...
+        strcmp(remembered.RateUnits, 'UM') && strcmp(remembered.VolumeUnits, 'auto'));
+    results(end+1,:) = check('The remembered rate comes back in them', ...
+        abs(remembered.Rate - 500) < 1e-9);
+    delete(remembered)
+
+    % A caller that states its own units outranks the memory, and the
+    % remembered rate is converted into what it asked for. (ApplyOnStart
+    % stays true: hw.NE1000 reads RAT as a bare number, so asking the panel
+    % to read the pump would make the pump's number, not the memory, the
+    % thing being outranked.)
+    figU2 = uifigure(Visible = 'off', Name = 'Pump Units 2', Tag = PREF);
+    figs(end+1) = figU2;
+    stated = gui.SyringePump(mock, figU2, RateUnits = 'MM', PreferenceTag = PREF);
+    results(end+1,:) = check('An explicit RateUnits beats the remembered one', ...
+        strcmp(stated.RateUnits, 'MM') && abs(stated.Rate - 0.5) < 1e-9 ...
+        && abs(mock.SimRate - 0.5) < 1e-9 && strcmp(mock.SimRateUnits, 'MM'));
+    delete(stated)
+
+    openMenu(cmU);
+    clickMenu(unitsItem(cmU, 'Rate', 'mL/min'));
+    openMenu(cmU);
+    clickMenu(unitsItem(cmU, 'Volume', 'mL'));
+
+    % Units cannot change under a running pump: mid-run the pump refuses a
+    % RAT carrying units and hw.NE1000 falls back to the bare value, which
+    % the pump would take in its OLD units. The panel refuses instead.
+    panel.startPump();
+    openMenu(cmU);
+    clickMenu(unitsItem(cmU, 'Rate', 'uL/min'));
+    results(end+1,:) = check('A running pump refuses a units change', ...
+        strcmp(panel.RateUnits, 'MM') && strcmp(mock.SimRateUnits, 'MM') ...
+        && abs(panel.Rate - 0.5) < 1e-9 && abs(mock.SimRate - 0.5) < 1e-9);
+    panel.stopPump();
+catch ME
+    results(end+1,:) = check(['Units: ' ME.message], false);
 end
 
 %% 6. Pop-out is a second panel over the same pump
@@ -262,6 +417,19 @@ try
     results(end+1,:) = check('Menu sets a value while its row is hidden', ...
         strcmp(panel.Direction, 'Withdraw') && strcmp(mock.SimDir, 'WDR'));
     panel.show("Direction");
+
+    % The trigger is on the menu as a state, never as a mode.
+    panel.hide("TTL");
+    openMenu(cm);
+    valueMenu = findall(cm, 'Type', 'uimenu', 'Text', 'Set Value');
+    ttlMenu = findall(valueMenu, 'Type', 'uimenu', '-regexp', 'Text', '^TTL Trigger');
+    clickMenu(findall(ttlMenu, 'Type', 'uimenu', 'Text', 'Enabled'));
+    results(end+1,:) = check('Menu enables the trigger while its row is hidden', ...
+        panel.TTLTrigger && strcmp(mock.SimTrigger, 'LE'));
+    clickMenu(findall(ttlMenu, 'Type', 'uimenu', 'Text', 'Disabled'));
+    results(end+1,:) = check('Menu disables it again', ...
+        ~panel.TTLTrigger && strcmp(mock.SimTrigger, 'OF'));
+    panel.show("TTL");
 catch ME
     results(end+1,:) = check(['Context menu: ' ME.message], false);
 end
@@ -368,6 +536,16 @@ function openMenu(cm)
 % Fire the context menu's opening callback, which is what rebuilds its
 % submenus — the state under test lives in that rebuild.
 feval(cm.ContextMenuOpeningFcn, cm, []);
+end
+
+
+function item = unitsItem(cm, group, text)
+% item = unitsItem(cm, group, text)
+% One entry of the Units menu, e.g. unitsItem(cm, 'Rate', 'mL/min'). The
+% group labels carry their current value, so they are matched by prefix.
+m = findall(cm, 'Type', 'uimenu', 'Text', 'Units');
+g = findall(m, 'Type', 'uimenu', '-regexp', 'Text', ['^' group]);
+item = findall(g, 'Type', 'uimenu', 'Text', text);
 end
 
 

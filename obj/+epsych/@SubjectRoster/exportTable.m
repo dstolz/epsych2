@@ -19,7 +19,7 @@ arguments
 end
 
 vars = {'Subject','Species','Sex','Weight','Project','Active','LastProtocol', ...
-    'LastBoxID','Notes','SubjectID','Created'};
+    'LastProtocolVersion','LastBoxID','Notes','SubjectID','Created'};
 
 if isempty(self.Subjects)
     T = cell2table(cell(0, numel(vars)), VariableNames = vars);
@@ -38,7 +38,7 @@ for i = 1:numel(self.Subjects)
 
     if isempty(mine)
         rows(end+1, :) = {s.Name, s.Species, s.Sex, s.Weight, '', ...
-            ~s.Retired, '', NaN, s.Notes, s.SubjectID, s.Created};
+            ~s.Retired, '', '', NaN, s.Notes, s.SubjectID, s.Created};
         continue
     end
 
@@ -48,8 +48,8 @@ for i = 1:numel(self.Subjects)
         if ~isempty(p), pName = p.Name; end
 
         rows(end+1, :) = {s.Name, s.Species, s.Sex, s.Weight, pName, ...
-            mine(k).Active, mine(k).LastProtocol, mine(k).LastBoxID, ...
-            s.Notes, s.SubjectID, s.Created};
+            mine(k).Active, mine(k).LastProtocol, mine(k).LastProtocolVersion, ...
+            mine(k).LastBoxID, s.Notes, s.SubjectID, s.Created};
     end
 end
 

@@ -82,10 +82,11 @@ obj.SummaryTable.Data = flipud(S);
 run_detection_session          % builds a software runtime and drives the GUI
 ```
 
-**In a real session** — the GUI is a session-wide setting, not part of the
-protocol. In [RunExpt](../overviews/RunExpt_GUI_Overview.md), open
-**Customize > Customize...**, tab **Functions**, and set **Box GUI Function:**
-to `DetectionBoxGUI`. At session start RunExpt calls
+**In a real session** — the GUI belongs to the project, not to the protocol and
+not to the rig. In [RunExpt](../overviews/RunExpt_GUI_Overview.md), open
+**Subjects > Subjects & Projects**, then **Project > Edit Project...**, and set
+**Box GUI** to `DetectionBoxGUI`; it lands on the session when that project's
+subjects are added. At session start RunExpt calls
 `feval('DetectionBoxGUI', RUNTIME)` — which is why the constructor takes
 exactly one argument — and the runtime's timer drives the same three events the
 simulation does. The class must be on the MATLAB path.

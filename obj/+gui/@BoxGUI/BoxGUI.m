@@ -492,6 +492,8 @@ classdef (Abstract) BoxGUI < handle
                 options.Diameter (1,1) double
                 options.Rate (1,1) double
                 options.Direction (1,:) char
+                options.TTLTrigger (1,1) logical
+                options.TriggerMode (1,2) char
                 options.RateUnits (1,2) char
                 options.VolumeUnits (1,:) char
                 options.UpdatePeriod (1,1) double

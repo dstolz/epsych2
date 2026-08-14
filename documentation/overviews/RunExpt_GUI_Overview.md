@@ -148,7 +148,7 @@ When you click **Run** or **Preview**, RunExpt:
 - Creates a temporary data directory (a `DATA` folder next to the repository) with one crash-recovery `.mat` file per subject.
 - Creates the trial timer (`PsychTimer`, default period 0.01 s; configurable via **Customize**).
 - Sets the hardware mode to Record or Preview and starts the timer.
-- Launches the behavior GUI (Box GUI function) if one is configured.
+- Launches the behavior GUI if one is configured — the box GUI of the project whose subjects were added (see **Subjects & Projects**), or the session default when no project named one.
 
 ### 5.2 Pause
 
@@ -199,7 +199,6 @@ All customization lives in a single dialog: **Customize → Customize...**. Valu
 | Setting | Purpose | Default |
 | --- | --- | --- |
 | Saving Function | Called to save data after Stop/Error. Signature: `SavingFcn(RUNTIME)` (1 input, 0 outputs). | `ep_SaveDataFcn` |
-| Box GUI Function | Launches a per-session behavior/performance GUI when the run starts. Signature: `BoxFig(RUNTIME)`. | `ep_GenericGUI` |
 | Add Subject Function | Dialog used by **New Subject...** and **Edit Subject Details...**. | `epsych.DefaultSubject.open` |
 | Subject Roster File | The `.esub` roster behind **Subjects & Projects**. Put it on a shared drive and point every rig at it to share one roster. Leave empty for a per-user file under `prefdir`. | — |
 | Data Path | Default root folder used to suggest data filenames. | current directory |
@@ -211,7 +210,7 @@ All customization lives in a single dialog: **Customize → Customize...**. Valu
 | Error Log Viewer | Application used by **Help → Open Current Error Log (External Viewer)**. Leave empty for the platform default. | `notepad.exe` (Windows) |
 | Timer Period (s) | PsychTimer callback period (0.001–1 s). | 0.01 |
 
-If the Box GUI function is empty or disabled, the session can still run; you just will not get a live performance GUI.
+**The Box GUI is not here.** It is a property of a project, set in **Subjects → Subjects & Projects → Project → Edit Project...**, and applied to the session when that project's subjects are added — see [`gui.SubjectManager`](../gui/gui_SubjectManager.md#the-project-dialog). The Functions tab keeps a grey line where the old field was, pointing there. A project can set no box GUI at all; the session still runs, you just will not get a live performance GUI.
 
 The webcam device itself (camera, frame rate, resolution, crop) is configured separately in **Utilities → Video → Webcam Recorder Setup...**.
 

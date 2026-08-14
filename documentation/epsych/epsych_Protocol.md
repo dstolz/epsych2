@@ -12,7 +12,7 @@ Source class:
 - `Options`: protocol-level options (`trialFunc`, `compileAtRuntime`, `IncludeWAVBuffers`, `ConnectionType`).
 - `Info`: user description text.
 - `COMPILED`: compiled output (`parameters`, `trials`, `writeparams`, `OPTIONS`, `ntrials`, `compiledAt`).
-- `meta`: serialization metadata, including `protocolVersion` (`vN.YYMMDD`), which is incremented on each save unless the protocol is unmodified (see `save`'s `IncrementVersion` option). `epsych.RunExpt` compares this version against the file on disk to flag out-of-date subjects.
+- `meta`: serialization metadata, including `protocolVersion` (`vN.YYMMDD`), which is incremented on each save unless the protocol is unmodified (see `save`'s `IncrementVersion` option). `epsych.RunExpt` compares this version against the file on disk to flag out-of-date subjects, and [`epsych.SubjectRoster`](epsych_SubjectRoster.md#protocol-versions) records it per subject so it can notice a protocol edited between sessions. Both go through the statics `epsych.Protocol.versionOnDisk(file)` — a peek at the one metadata field, not a `load` of the whole object graph — and `epsych.Protocol.versionNumber(str)`, which returns the comparable integer `N` or `NaN`, so an unknown version is never reported as outdated.
 
 A new protocol always starts with one `hw.Software` interface as the default design-time parameter store. Design-time trial levels live on each parameter's `Values` property; `compile()` expands unpaired parameter levels as a cross-product, while parameters sharing a `Pair` name advance together.
 
@@ -71,6 +71,7 @@ Compile and serialization helpers normalize parameter values and infer serialize
 - Compile/validate: `compile`, `validate`, `needsCompile`, `estimateDuration`
 - Expressions: `analyzeExpressions`, `dryRunExpressions`, `dependencyGraph`
 - Serialization: `save`, `load`, `toStruct`, `fromStruct`, `toJSON`, `fromJSON`
+- Versions (static): `versionOnDisk(file)`, `versionNumber('vN.YYMMDD')`
 
 ## Usage Example
 

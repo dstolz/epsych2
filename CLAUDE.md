@@ -116,6 +116,25 @@ Rules that matter:
   project (many-to-many, with a per-project active/retired flag and per-membership
   protocol memory). Three flat arrays plus a join table in a `-mat` `.esub` file —
   MAT not JSON because `jsonencode(NaN)` would destroy the "not measured" `Weight`.
+  A project also owns the **box GUI** its sessions launch (`BoxGUI`, applied to
+  `RunExpt.FUNCS.BoxFig` by `assignToSession`): `''` inherits the session
+  default, `BOXGUI_NONE` runs none, anything else is fevaled at run start. That
+  field used to be Customize's "Box GUI Function" — a GUI belongs to a paradigm,
+  not to a rig.
+  A project also carries its own bookkeeping: `Investigator` and `IACUCProtocol`
+  (recorded, never enforced), an `Archived` flag that hides the project from the
+  manager's list without touching its subjects or their protocol memory, and
+  `Links` — a `Label`/`URL` array for the study's notebook, sheet, or NAS folder.
+  Link addresses go through `isSafeUrl`, which allows only `http`/`https`/
+  `mailto`/`file` (plus local and UNC paths, normalized to `file:///`) and
+  refuses everything else: a roster is a **shared** file, so `matlab:` in one
+  would make an `.esub` executable on every rig that clicks it. Validation is on
+  the way in only — `reload` deliberately does not validate, or one typo would
+  make the roster unreadable for the lab — with `openLink` re-checking at the
+  click. Adding a project field means `blankProject_` + `addProject` +
+  `updateProject`'s field list (which coerces with `char(string(...))`, so a
+  non-char field needs its own branch); `normalize_` handles old files, so
+  **every default must mean what a file written before the field meant**.
   Roster records carry **no BoxID**: a box belongs to a session, so `toSubject`
   materializes an `epsych.Subject` at assignment time, which is why `epsych.Subject`
   needs no subclassing. Every mutation goes through `mutate_` (reload-if-stale →
@@ -123,7 +142,19 @@ Rules that matter:
   on a network drive. `assignToSession` is the batch commit into `RunExpt.CONFIG`,
   all-or-nothing on a bad protocol or box exhaustion. Renaming a subject is refused
   once `<DataPath>/<Name>/` exists, because nothing downstream knows about
-  `NameHistory` (see documentation/epsych/epsych_SubjectRoster.md)
+  `NameHistory`.
+  **Protocol versions**: a membership records `LastProtocolVersion` alongside the
+  path, because `Protocol.save` overwrites an `.eprot` in place — the roster is the
+  only thing that can notice a protocol edited between sessions. `protocolStatus`
+  reports `current|outdated|differs|unknown|missing|none` (`outdated` = the file
+  moved on; `differs` = not the project default), `updateProtocol` records the
+  version now in the file, and `revertProtocol` restores an entry from
+  `ProtocolHistory`. Revert restores the **pointer and version, never the bytes**
+  of an overwritten file — `Recoverable` says which case it is, and revisions kept
+  as separate files revert exactly. Version reads go through
+  `epsych.Protocol.versionOnDisk`/`versionNumber`, shared with
+  `RunExpt.UpdateSubjectList`; the two new fields are additive, so `FORMAT_VERSION`
+  stays 1 (see documentation/epsych/epsych_SubjectRoster.md)
 - **epsych.TrialJournal**: append-only, crash-safe `.epj` journal that per-trial data
   is written to during a run (flat ~2 ms, versus a `save('-append')` that grew to
   40 ms by trial 600). `ep_TimerFcn_Stop` merges it back into the seed `.mat`, so the
@@ -153,8 +184,13 @@ Rules that matter:
     firmware's byte protocol directly and never loads c:\src\Bpod, whose
     RunStateMatrix blocks; see documentation/hw/hw_Bpod.md (under development)
   - hw.NE1000: New Era NE-1000 syringe pump over RS-232 Basic-mode ASCII;
-    drives the pump as a single-rate reward dispenser, not its Phase program
-    (see documentation/hw/hw_NE1000.md) (under development)
+    drives the pump as a single-rate reward dispenser, not its Phase program.
+    Its TTL Operational Trigger (pin 2) splits in two: the `TTLTrigger`
+    enable is a parameter, a designer option, and an operator checkbox,
+    while `TriggerMode` (default `LE`) is programmatic only — the mode
+    follows the rig's wiring, not the operator. The configuration is
+    asserted on every connect, since the pump remembers it through a power
+    cycle (see documentation/hw/hw_NE1000.md) (under development)
   - hw.Software: In-memory software backend
   - hw.VlcRecorder: VLC video recording control
 
@@ -205,9 +241,15 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
 - Real-time visualization: OnlinePlot, Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
 - **gui.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
 - **gui.NextTrial**: generic upcoming-trial display driven by NewTrial events
-- **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies (documentation/gui/gui_SubjectManager.md)
-- **gui.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state (`gui.BoxGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
+- **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. The project dialog is also where the **box GUI** is set (it moved here from Customize); its dropdown is fed by the box GUIs other projects in the roster use, not by the `RecentBoxFig` pref, so it works with no session open. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies. A **Version** column and a **Protocol** menu surface `SubjectRoster`'s version checking: the column shows the version each subject is *on* (bold orange when the file has been saved since), a collapsible banner over the table announces how many are behind and offers Update All, and right-click opens that row's protocol in `epsych.ProtocolDesigner`. "Update All in Project" deliberately covers retired and filtered-out members too. A project's **links** render under the summary as `uihyperlink`s whose `URL` is left EMPTY on purpose — the click routes through `SubjectRoster.openLink` so a stored address is re-checked before anything navigates, and a `file:` folder goes to the file manager rather than a browser. "Show archived projects" is the project-level counterpart of "Show retired", and the selected project is never hidden by it (documentation/gui/gui_SubjectManager.md)
+- **gui.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, a TTL-trigger enable, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, units, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state. Rate and readout **units** are the operator's too, from the right-click Units menu (µL/mL per min/hr, mL/min by default): changing them converts `Rate` rather than reinterpreting it, puts the interface into the same units — so a protocol column that writes `Rate` means them as well — and is refused while the pump runs, because the pump rejects a units-bearing `RAT` mid-dispense and `hw.NE1000`'s bare-value fallback would land in the OLD units (`gui.BoxGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
 - **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, PsychPlot, and psychophysics.Staircase; `gui.BoxGUI.addPopOutButton` opens one from a button (documentation/gui/gui_PopOut.md)
+- **gui.toolbarIcon**: the 16x16 glyphs for `uitoolbar` tools, drawn as pixel art
+  (a string mask per row over a shared palette) so the toolbox ships no image
+  files. `uitoolbar` does render in a `uifigure`, but `uibutton`/`uiimage` `Icon`
+  accepts only four built-in names — `success`, `error`, `warning`, `info` — so
+  every other glyph has to be drawn here or supplied as a file. Shared by
+  `epsych.RunExpt` and `gui.SubjectManager`; a new tool adds a `case` to it
 - Session control: StaircaseTraining, StatusBar, Triggers
 - Diagnostics: SelfTest (window for epsych.SelfTest; opened from RunExpt's Help menu)
 - Parameter control: Parameter_Control, Parameter_Monitor, Parameter_Update

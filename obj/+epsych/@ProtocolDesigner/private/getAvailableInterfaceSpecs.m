@@ -154,8 +154,12 @@ function iface = localCreateSerializedNE1000_(opts)
     if isfield(opts, 'autoDetect') && ~isempty(opts.autoDetect)
         autoDetect = logical(opts.autoDetect);
     end
+    ttlTrigger = false;
+    if isfield(opts, 'ttlTrigger') && ~isempty(opts.ttlTrigger)
+        ttlTrigger = logical(opts.ttlTrigger);
+    end
     iface = hw.NE1000(port, Connect = false, BaudRate = baudRate, ...
         Address = address, SyringeDiameter = syringeDiameter, ...
-        RateUnits = rateUnits, AutoDetect = autoDetect);
+        RateUnits = rateUnits, TTLTrigger = ttlTrigger, AutoDetect = autoDetect);
 end
 

@@ -79,6 +79,13 @@ self.Projects    = epsych.SubjectRoster.normalize_(localField(S, 'projects'), ..
 self.Memberships = epsych.SubjectRoster.normalize_(localField(S, 'memberships'), ...
     epsych.SubjectRoster.blankMembership_());
 
+% normalize_ shapes the outer record only, so a project's nested Links array
+% gets its own pass. Not validated here: a link one operator typo'd must not
+% make the shared roster unreadable for the lab. openLink is the backstop.
+for i = 1:numel(self.Projects)
+    self.Projects(i).Links = epsych.SubjectRoster.normalizeLinks_(self.Projects(i).Links);
+end
+
 self.IsWritable = ~self.IsReadOnly;
 self.FileStamp_ = epsych.SubjectRoster.stamp_(self.FilePath);
 self.LastRead   = datetime('now');

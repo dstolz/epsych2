@@ -66,9 +66,14 @@ try
     % outright when the lookup fails, so this must match char(hw.NE1000.Type).
     results(end+1,:) = check('spec.type == char(hw.NE1000.Type)', ...
         strcmp(char(spec.type), char(hw.NE1000.Type)));
-    wanted = {'port', 'autoDetect', 'address', 'baudRate', 'syringeDiameter', 'rateUnits'};
-    results(end+1,:) = check('spec has exactly the six options', ...
-        numel(spec.options) == 6 && all(ismember(wanted, optNames)));
+    wanted = {'port', 'autoDetect', 'address', 'baudRate', 'syringeDiameter', ...
+        'rateUnits', 'ttlTrigger'};
+    results(end+1,:) = check('spec has exactly the seven options', ...
+        numel(spec.options) == 7 && all(ismember(wanted, optNames)));
+    % The trigger MODE is programmatic only: offering it here would put it in
+    % the designer's interface dialog.
+    results(end+1,:) = check('spec does not offer the trigger mode', ...
+        ~any(contains(lower(optNames), 'mode')));
     results(end+1,:) = check('spec.createFcn is callable', isa(spec.createFcn, 'function_handle'));
 catch ME
     results(end+1,:) = check(['getCreationSpec: ' ME.message], false);
@@ -140,8 +145,8 @@ try
     P = mock.all_parameters(includeInvisible = true, includeTriggers = true);
     names = {P.Name};
     wanted = {'Rate', 'Volume', 'Direction', 'Diameter', 'VolumeInfused', ...
-        'VolumeWithdrawn', 'Status', 'Start', 'Stop', 'ClearVolume'};
-    results(end+1,:) = check('All ten parameters exist', all(ismember(wanted, names)));
+        'VolumeWithdrawn', 'Status', 'TTLTrigger', 'Start', 'Stop', 'ClearVolume'};
+    results(end+1,:) = check('All eleven parameters exist', all(ismember(wanted, names)));
 
     % The DATA sweep (Visible && ~isTrigger && Access ~= 'Write').
     D = mock.all_parameters(Access = 'Read');
@@ -236,11 +241,77 @@ catch ME
     results(end+1,:) = check(['Triggers: ' ME.message], false);
 end
 
+%% 7b. TTL Operational Trigger
+try
+    % The pump keeps its trigger setup in non-volatile memory (the mock powers
+    % up as a keypad-configured foot switch), so connect must assert the host's
+    % setting either way.
+    off = NE1000_Mock();
+    results(end+1,:) = check('Connect disables a keypad-enabled trigger', ...
+        strcmp(off.SimTrigger, 'OF') && ~off.TTLTrigger);
+
+    on = NE1000_Mock(TTLTrigger = true);
+    results(end+1,:) = check('Connect asserts the requested trigger mode', ...
+        strcmp(on.SimTrigger, 'LE'));
+    results(end+1,:) = check('LE is the default mode', strcmp(on.TriggerMode, 'LE'));
+
+    on.TriggerMode = 'ST';
+    results(end+1,:) = check('Changing the mode while enabled rewrites TRG', ...
+        strcmp(on.SimTrigger, 'ST'));
+
+    on.TTLTrigger = false;
+    results(end+1,:) = check('Disabling writes TRG OF', strcmp(on.SimTrigger, 'OF'));
+
+    on.TriggerMode = 'T2';
+    results(end+1,:) = check('Changing the mode while disabled writes nothing', ...
+        strcmp(on.SimTrigger, 'OF'));
+
+    % A mode the pump does not have is a programming error, not a log line.
+    threw = false;
+    try
+        on.TriggerMode = 'ZZ';
+    catch ME
+        threw = strcmp(ME.identifier, 'hw:NE1000:BadTriggerMode');
+    end
+    results(end+1,:) = check('An unknown trigger mode is rejected', threw);
+    results(end+1,:) = check('A rejected mode leaves the old one in place', ...
+        strcmp(on.TriggerMode, 'T2'));
+
+    % The parameter path: what a trial table, gui.Triggers, or the operator
+    % panel writes.
+    results(end+1,:) = check('set_parameter enables the trigger', ...
+        on.set_parameter('TTLTrigger', true) && strcmp(on.SimTrigger, 'T2'));
+
+    % A mode changed at the keypad is reported, not assumed.
+    on.SimTrigger = 'FH';
+    results(end+1,:) = check('get_parameter reads the trigger as enabled', ...
+        isequal(on.get_parameter('TTLTrigger', includeInvisible = true), true));
+    results(end+1,:) = check('A keypad mode change is read back', ...
+        strcmp(on.TriggerMode, 'FH'));
+
+    on.SimTrigger = 'OF';
+    results(end+1,:) = check('get_parameter reads the trigger as disabled', ...
+        isequal(on.get_parameter('TTLTrigger', includeInvisible = true), false) && ...
+        ~on.TTLTrigger);
+
+    % Offline the configuration is held, not written.
+    cold = hw.NE1000('COM9', Connect = false, TTLTrigger = true, TriggerMode = 'RL');
+    results(end+1,:) = check('Offline construction holds the trigger settings', ...
+        cold.TTLTrigger && strcmp(cold.TriggerMode, 'RL'));
+
+    off.disconnect();
+    on.disconnect();
+    delete(off);
+    delete(on);
+catch ME
+    results(end+1,:) = check(['TTL trigger: ' ME.message], false);
+end
+
 %% 8. Protocol serialization round trip
 try
     prot = epsych.Protocol();
     src = hw.NE1000('COM7', Connect = false, Address = 3, BaudRate = 9600, ...
-        SyringeDiameter = 14.43, RateUnits = 'UM');
+        SyringeDiameter = 14.43, RateUnits = 'UM', TTLTrigger = true);
     m = hw.Module(src, 'NE1000', 'Pump', uint8(1));
     m.add_parameter('Rate', 1, Type = 'Float', Access = 'Any');
     src.setModules(m);
@@ -258,6 +329,7 @@ try
     results(end+1,:) = check('Round trip keeps BaudRate',    restored.BaudRate == 9600);
     results(end+1,:) = check('Round trip keeps Diameter',    abs(restored.SyringeDiameter - 14.43) < 1e-9);
     results(end+1,:) = check('Round trip keeps RateUnits',   strcmp(restored.RateUnits, 'UM'));
+    results(end+1,:) = check('Round trip keeps TTLTrigger',  restored.TTLTrigger);
     results(end+1,:) = check('Round trip keeps the module',  isscalar(restored.Module) ...
         && isscalar(restored.Module(1).Parameters));
 catch ME

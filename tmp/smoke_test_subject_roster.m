@@ -267,6 +267,173 @@ fprintf('PASS: a project applies, disables, or inherits the session box GUI\n');
 
 delete(findall(groot,'Type','figure','Tag','RunExpt'));
 
+% 14. Project links --------------------------------------------------------
+% The address is the part that matters: a roster is a shared file, so a link in
+% it is untrusted input, and 'matlab:' would make an .esub executable.
+[ok, ~, u] = epsych.SubjectRoster.isSafeUrl('docs.google.com/spreadsheets/d/1');
+assert(ok && strcmp(u, 'https://docs.google.com/spreadsheets/d/1'), ...
+    'A bare host should gain https://');
+[ok, ~, u] = epsych.SubjectRoster.isSafeUrl('C:\lab\My Logs\notes.html');
+assert(ok && strcmp(u, 'file:///C:/lab/My%20Logs/notes.html'), ...
+    'A drive path should become a file URL with its spaces escaped (got %s)', u);
+assert(epsych.SubjectRoster.isSafeUrl('\\nas\gap\logs'), 'A UNC path should be accepted');
+for bad = {'matlab:!del /q c:\', 'javascript:alert(1)', 'data:text/html,x', 'not a url', ''}
+    assert(~epsych.SubjectRoster.isSafeUrl(bad{1}), ...
+        '"%s" must be refused as a link address', bad{1});
+end
+fprintf('PASS: only navigable addresses are accepted, and they are normalized\n');
+
+L = [epsych.SubjectRoster.makeLink('Notebook','elog.lab.edu/gap'), ...
+     epsych.SubjectRoster.makeLink('docs.google.com/spreadsheets/d/1')];
+assert(strcmp(L(2).Label, 'docs.google.com'), ...
+    'An unlabelled link should be named after its host (got "%s")', L(2).Label);
+
+pl = R.addProject('LinkedStudy', Investigator = 'D. Stolzberg', ...
+    IACUCProtocol = 'R-2026-11', Links = L, Archived = true);
+
+q = epsych.SubjectRoster(rosterFile).findProject(pl);
+assert(numel(q.Links) == 2 && strcmp(q.Links(1).URL, 'https://elog.lab.edu/gap'), ...
+    'A project''s links did not survive a reload');
+assert(strcmp(q.Investigator,'D. Stolzberg') && strcmp(q.IACUCProtocol,'R-2026-11'), ...
+    'Investigator and IACUC protocol did not survive a reload');
+assert(q.Archived, 'The archived flag did not survive a reload');
+
+% Assigned, never passed to struct(): struct('Links', L) would build one
+% project struct per link instead of one struct holding them all.
+P = struct();
+P.Links = struct('Label','Evil','URL','matlab:rmdir(''.'',''s'')');
+try
+    R.updateProject(pl, P);
+    error('An unsafe link should have been refused');
+catch ME
+    assert(strcmp(ME.identifier, 'epsych:SubjectRoster:UnsafeLink'), ...
+        'Wrong error for an unsafe link: %s', ME.identifier);
+end
+assert(numel(R.findProject(pl).Links) == 2, ...
+    'A refused link must leave the stored links untouched');
+
+P.Links = epsych.SubjectRoster.emptyLink();
+R.updateProject(pl, P);
+assert(isempty(epsych.SubjectRoster(rosterFile).findProject(pl).Links), ...
+    'Clearing the links should persist as no links');
+fprintf('PASS: project links, investigator, IACUC, and archived round trip\n');
+
+% 15. A roster written before these fields existed --------------------------
+% normalize_ fills a missing field from blankProject_ rather than migrating, so
+% every new default has to mean what an older file implicitly meant. This is the
+% assertion that fails if one of them does not.
+legacyFile = fullfile(root, 'legacy.esub');
+S = load(rosterFile, '-mat');
+formatVersion = S.formatVersion;
+subjects      = S.subjects;
+memberships   = S.memberships;
+meta          = S.meta;
+projects      = rmfield(S.projects, ...
+    {'Investigator','IACUCProtocol','Links','Archived'});
+save(legacyFile, 'formatVersion', 'subjects', 'projects', 'memberships', 'meta', '-mat');
+
+Rold = epsych.SubjectRoster(legacyFile);
+assert(isempty(Rold.LoadError) && Rold.IsWritable, ...
+    'An older roster must open normally: %s', Rold.LoadError);
+assert(numel(Rold.Projects) == numel(S.projects), 'An older roster lost projects');
+assert(~any([Rold.Projects.Archived]), 'A project from an older file must not read as archived');
+assert(all(cellfun(@isempty, {Rold.Projects.Investigator})), 'Investigator should default to empty');
+assert(all(cellfun(@isempty, {Rold.Projects.Links})), 'Links should default to none');
+oldId = Rold.Projects(1).ProjectID;
+Rold.updateProject(oldId, struct('Notes','still writable'));
+assert(strcmp(epsych.SubjectRoster(legacyFile).findProject(oldId).Notes, 'still writable'), ...
+    'An older roster must stay writable once the new fields are filled in');
+fprintf('PASS: a roster written before these options loads, defaults, and still writes\n');
+
+% 14. Protocol versions: check, update, revert -----------------------------
+% The whole point of recording a version is to notice an .eprot that was saved
+% over since a subject last ran it, so the fixture is copied and re-saved
+% rather than edited: epsych.Protocol.save is what bumps vN.
+protoA = fullfile(root, 'phase_a.eprot');
+protoB = fullfile(root, 'phase_b.eprot');
+copyfile(proto, protoA);
+PA = epsych.Protocol.load(protoA);
+PA.save(protoA);
+vA1 = epsych.Protocol.versionOnDisk(protoA);
+PA.save(protoB);
+vB = epsych.Protocol.versionOnDisk(protoB);
+assert(~isempty(vA1) && ~isempty(vB), 'The fixtures should carry protocol versions');
+assert(epsych.Protocol.versionNumber(vB) > epsych.Protocol.versionNumber(vA1), ...
+    'Each save must increment the comparable part of the version');
+
+pv = R.addProject('VersionStudy', DefaultProtocol = protoA);
+sv = R.addSubject(struct('Name','V001','Sex','Male','Species','Mouse'));
+R.assign(sv, pv);
+
+st = R.protocolStatus(sv, pv);
+assert(strcmp(st.Status,'unknown') && strcmp(st.Protocol, protoA), ...
+    'A subject that has never run resolves to the default with no version recorded');
+
+R.rememberProtocol(sv, pv, protoA);
+st = R.protocolStatus(sv, pv);
+assert(strcmp(st.Status,'current') && strcmp(st.Version, vA1), ...
+    'A freshly recorded protocol should read as current');
+
+% The operator edits and saves the protocol the subject is on.
+PA.save(protoA);
+vA2 = epsych.Protocol.versionOnDisk(protoA);
+st = R.protocolStatus(sv, pv);
+assert(st.IsOutdated && strcmp(st.Status,'outdated') && strcmp(st.LatestVersion, vA2), ...
+    'Saving the protocol must leave the subject behind the file');
+
+rep = R.updateProtocol({sv}, pv);
+assert(rep.ok && numel(rep.updated) == 1 && strcmp(rep.updated(1).ToVersion, vA2), ...
+    'updateProtocol should bring the subject onto the version in the file');
+st = R.protocolStatus(sv, pv);
+assert(strcmp(st.Status,'current'), 'The subject should read as current after an update');
+
+reloaded = epsych.SubjectRoster(rosterFile);
+stR = reloaded.protocolStatus(sv, pv);
+assert(strcmp(stR.Version, vA2), 'The recorded version must survive a reload');
+
+again = R.updateProtocol({sv}, pv);
+assert(~again.ok && numel(again.skipped) == 1, ...
+    'Updating an already-current subject should change nothing');
+
+% Same file, earlier version: the entry is on record but the file has moved on,
+% so a revert to it can restore the pointer and not the content.
+h = R.protocolHistory(sv, pv);
+assert(~isempty(h) && strcmp(h(1).File, protoA) && strcmp(h(1).Version, vA1), ...
+    'The superseded version should be on the history');
+assert(~h(1).Recoverable, ...
+    'An .eprot saved over cannot be recovered, and must not claim otherwise');
+
+% Different file: reverting between revisions kept as separate files IS exact.
+R.updateProtocol({sv}, pv, Protocol = protoB);
+st = R.protocolStatus(sv, pv);
+assert(strcmp(st.Status,'differs') && strcmp(st.Protocol, protoB), ...
+    'A subject off the project default should be reported as differing');
+
+h = R.protocolHistory(sv, pv);
+assert(strcmp(h(1).File, protoA) && strcmp(h(1).Version, vA2) && h(1).Recoverable, ...
+    'The protocol just left should head the history, and be exactly recoverable');
+
+rev = R.revertProtocol(sv, pv);
+assert(rev.ok && rev.Recoverable, 'Reverting to an unchanged file should be exact');
+st = R.protocolStatus(sv, pv);
+assert(strcmp(st.Protocol, protoA) && strcmp(st.Version, vA2) && strcmp(st.Status,'current'), ...
+    'Revert should put the subject back on the earlier protocol');
+
+h = R.protocolHistory(sv, pv);
+assert(strcmp(h(1).File, protoB), 'Reverting must itself be undoable');
+assert(~any(strcmp({h.File}, protoA) & strcmp({h.Version}, vA2)), ...
+    'The restored entry must leave the history, not sit in it twice');
+
+noHistory = R.addSubject(struct('Name','V002','Sex','Male','Species','Mouse'));
+R.assign(noHistory, pv);
+nothing = R.revertProtocol(noHistory, pv);
+assert(~nothing.ok, 'A subject with no history has nothing to revert to');
+
+% All Subjects has no project context, so there is no membership to write.
+noProject = R.updateProtocol({sv}, '');
+assert(~noProject.ok, 'updateProtocol must refuse without a project');
+fprintf('PASS: protocol versions are recorded, checked, updated, and reverted\n');
+
 fprintf('\nALL SUBJECT ROSTER SMOKE TESTS PASSED\n');
 
 end

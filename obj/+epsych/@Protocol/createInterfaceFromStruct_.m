@@ -143,9 +143,15 @@ switch ifaceType
         if isfield(ifaceStruct, 'AutoDetect') && ~isempty(ifaceStruct.AutoDetect)
             autoDetect = logical(ifaceStruct.AutoDetect);
         end
+        % A protocol saved before the TTL trigger existed leaves it off, which
+        % is what the pump did for those sessions.
+        ttlTrigger = false;
+        if isfield(ifaceStruct, 'TTLTrigger') && ~isempty(ifaceStruct.TTLTrigger)
+            ttlTrigger = logical(ifaceStruct.TTLTrigger);
+        end
         interface = hw.NE1000(pumpPort, Connect = false, BaudRate = pumpBaud, ...
             Address = address, SyringeDiameter = syringeDiameter, ...
-            RateUnits = rateUnits, AutoDetect = autoDetect);
+            RateUnits = rateUnits, TTLTrigger = ttlTrigger, AutoDetect = autoDetect);
 
     otherwise
         interface = hw.Software();

@@ -3,8 +3,9 @@
 An operator panel for a New Era NE-1000 syringe pump. It answers the four
 questions a rig operator has about a reward pump — *how much has it
 dispensed, which port is it on, what syringe is loaded, and how fast is it
-running* — and adds a direction switch and Start / Stop / Zero buttons so the
-syringe can be driven by hand between trials.
+running* — and adds a direction switch, a TTL trigger switch, and
+Start / Stop / Zero buttons so the syringe can be driven by hand between
+trials.
 
 ```matlab
 % Inside a gui.BoxGUI build method
@@ -58,11 +59,14 @@ cache, and the status line under it carries the pump's prompt (`Stopped`,
 `Infusing`, …) or its alarm, colored green while the motor turns and red on
 an alarm.
 
-Volume is displayed in `VolumeUnits` (`'uL'` by default; `'mL'`, or `'auto'`
-to follow the pump). The pump picks its own units from the syringe diameter —
-µL below 14 mm, mL at or above — and reports three decimals either way, so at
-21.59 mm the readout moves in 1 µL steps. `hw.NE1000.DispensedUnits` records
-what the pump last said, and the panel converts from that.
+Volume is displayed in `VolumeUnits` (`'mL'` by default; `'uL'`, or `'auto'`
+to follow the pump), which the operator picks from the right-click **Units**
+menu. The pump chooses its own units from the syringe diameter — µL below
+14 mm, mL at or above — and reports three decimals either way, so at 21.59 mm
+the readout moves in 1 µL steps. `hw.NE1000.DispensedUnits` records what the
+pump last said, and the panel converts from that. Changing the readout units
+writes nothing to the pump: it is a display choice, and only a display
+choice.
 
 The accumulators reset on pump power-up, on a diameter change, and at 9999,
 so read *differences* as the trustworthy quantity — the same caveat that
@@ -78,28 +82,81 @@ keystroke does — `obj.Rate = 1.2` moves the control *and* writes the pump:
 | Property | Default | Notes |
 |---|---|---|
 | `Diameter` | `21.59` mm | Inside diameter of the loaded syringe (0.1–50). Scales every rate and volume the pump computes. Rejected while the pump is running. |
-| `Rate` | `0.7` | In `RateUnits` (µL/min by default). The usable range depends on the diameter; an out-of-range value is rejected by the pump. |
+| `Rate` | `0.7` | In `RateUnits` (mL/min by default). The usable range depends on the diameter; an out-of-range value is rejected by the pump. |
+| `RateUnits` | `'MM'` | `UM` µL/min, `MM` mL/min, `UH` µL/hr, `MH` mL/hr. Assigning it converts `Rate` with it and switches the interface to match. |
+| `VolumeUnits` | `'mL'` | `'uL'`, `'mL'`, or `'auto'` (whatever the pump reports). Display only. |
 | `Direction` | `'Infuse'` | `'Infuse'` pushes (reward), `'Withdraw'` pulls (refill). Rejected while pumping toward a volume target. |
+| `TTLTrigger` | `false` | Whether the pump's own TTL trigger input (DB-9 pin 2) may start and stop it. |
 
 A write the pump refuses is not an error: the panel keeps the operator's
 value, tints the control, says so on the status line, and logs the pump's
 reason. Nothing throws out of a button callback.
 
-### Rate units are changed, not converted
+### The TTL trigger: a switch here, a mode in code
 
-The pump's command grammar allows **4 digits plus one decimal point**, so
-0.7 µL/min written in the interface's default mL/hr becomes `0.042` — and the
-next value up quantizes to a 2 % error. Rather than convert, the panel puts
-the interface into the units it displays (`RateUnits`, `'UM'` by default) on
-attach, logs the change at verbosity 1, and relabels the `Rate` parameter so
-the trial table and any monitor showing it stay honest. Pass
-`RateUnits='MH'` (etc.) to keep a protocol's own units instead; the panel then
-displays and writes in those.
+`TTLTrigger` is the one control that changes *what starts the pump* rather
+than how it runs. With it enabled, the pump's trigger input starts and stops
+it directly, so a rig can gate reward from a digital line with no host round
+trip. The pump keeps the setting through a power cycle, so it is asserted on
+every connect in both directions — a session that does not ask for TTL control
+turns off a trigger someone left enabled at the keypad.
+
+Which trigger mode that is — level, foot switch, start-only, and the rest of
+[`hw.NE1000.TRIGGER_MODES`](../hw/hw_NE1000.md#the-ttl-operational-trigger) —
+is **programmatic only**: a construction option and the `TriggerMode` property,
+with no control, no menu entry, and nothing remembered between sessions. The
+mode follows how pin 2 is wired, which belongs to the paradigm rather than to
+the operator; the checkbox's tooltip and the menu entry name the current one
+so nobody has to guess what the switch will do.
+
+```matlab
+obj.addSyringePump(panelReward, TriggerMode = 'ST', TTLTrigger = true);
+```
+
+Left unset, `TriggerMode` adopts whatever the interface is configured for, so a
+protocol's choice survives a panel opening over its pump. Its default is `'LE'`
+(rising edge starts, falling edge stops).
+
+### Units: the operator's, and the interface follows
+
+Rate is written in `RateUnits` — µL or mL, per minute or per hour, `'MM'`
+(mL/min) by default — and the volume readout in `VolumeUnits`. Both are
+public properties and both are on the right-click **Units** menu, so the
+operator picks the units their protocol is written in rather than converting
+in their head at the rig.
+
+**The panel does not convert values on the wire — it changes the pump's
+units.** The command grammar allows **4 digits plus one decimal point**, so
+0.7 mL/min written in the interface's default mL/hr survives (`42`) but
+0.7 µL/min written in mL/min does not (`0.001`, a 43 % error). Rather than
+convert every write, the panel puts the interface into the units it displays
+on attach, logs the change at verbosity 1, and relabels the `Rate` parameter
+so the trial table and any monitor showing it stay honest. Pass
+`RateUnits='MH'` (etc.) to open in a protocol's own units instead.
+
+**Changing the units does convert `Rate` — once.** Units are how the rate is
+written down, not how fast the pump runs, so switching from µL/min to mL/min
+turns 500 into 0.5 and the syringe never changes speed. A rate the new units
+cannot express — under 0.01, or 10000 and over — is logged as such, since the
+pump can only be told four digits of it.
+
+Two consequences worth knowing at the rig:
+
+- **A protocol column that writes `Rate` is in the panel's units too.** The
+  interface belongs to the session, so a trial table authored in µL/min and a
+  panel displaying mL/min would re-assert the same number meaning different
+  things. State `RateUnits` in the build method when the protocol owns the
+  rate (see [examples/syringepump](../../examples/syringepump/README.md)).
+- **The units cannot change while the pump is running.** The pump refuses a
+  rate carrying units mid-dispense, and `hw.NE1000` falls back to the bare
+  value — which the pump would take in its *old* units. The panel refuses the
+  change instead and says so on the status line.
 
 ### Applying versus reading
 
-`ApplyOnStart` (default `true`) pushes `Diameter`, `Rate`, and `Direction` to
-a connected pump at construction, skipping any the pump already agrees with —
+`ApplyOnStart` (default `true`) pushes `Diameter`, `Rate`, `Direction`, and
+`TTLTrigger` to a connected pump at construction, skipping any the pump
+already agrees with —
 which matters most for the diameter, since **writing a diameter resets the
 dispensed-volume accumulators**. `ApplyOnStart=false` reads the pump's current
 values into the panel instead, which is what a second view of an already
@@ -123,10 +180,11 @@ time, and the operator can do the same from the right-click **Show** menu.
 | `Port` | the port dropdown, its refresh, and the connect button |
 | `Detect` | the port-probing button |
 | `Diameter`, `Rate`, `Direction` | the three settings rows |
+| `TTL` | the TTL trigger checkbox |
 | `Start`, `Stop`, `Zero` | the buttons, individually |
 
 Group aliases are accepted anywhere a name is: `Connection` (Port + Detect),
-`Settings` (Diameter + Rate + Direction), `Triggers` (Start + Stop + Zero),
+`Settings` (Diameter + Rate + Direction + TTL), `Triggers` (Start + Stop + Zero),
 plus `All` and `None`. `Sections` always reads back as the individual names
 it resolved to, in layout order. An unrecognized name is logged and skipped —
 a typo in a build method must not stop the GUI opening.
@@ -151,9 +209,14 @@ poll timer stops and the panel costs the pump no serial traffic at all.
 - **Show ▸** — one checkable entry per section, plus **Show All** and
   **Reset to Default** (back to the layout the hosting GUI asked for).
 - **Set Value ▸** — Diameter…, Rate… (each labeled with its current value and
-  prompting through `inputdlg`), Direction ▸, Port ▸ with **Detect…**, and
+  prompting through `inputdlg`), Direction ▸, TTL Trigger ▸ (labeled with its
+  state and the mode in force), Port ▸ with **Detect…**, and
   Connect / Disconnect. Everything the panel can change is reachable here
   whether or not its row is showing, which is what makes hiding a row safe.
+- **Units ▸** — **Rate ▸** µL/min, mL/min, µL/hr, mL/hr, and **Volume ▸** µL,
+  mL, or *Follow the pump*, each labeled with what is in force. Choosing rate
+  units converts `Rate` with them; choosing volume units only relabels the
+  readout.
 - **Refresh From Pump**, **Refresh Port List**, **Zero Dispensed Volume**.
 - **Open in Separate Window** ([gui.PopOut](gui_PopOut.md)).
 
@@ -163,7 +226,11 @@ Changes the *operator* makes in the panel — through a control, the value
 menu, or the show menu — are saved with `getpref`/`setpref`, keyed to the
 hosting figure's `Tag`/`Name` or an explicit `PreferenceTag`, and restored the
 next time a panel opens with that key: the section layout, the selected port,
-and the diameter, rate, and direction they set.
+the units, and the diameter, rate, direction, and TTL trigger state they set.
+A remembered rate is stored with the units it was typed in and converted into
+whatever units the next panel opens in, so restoring it never changes how fast
+the pump runs. `TriggerMode` is the exception among the settings — it has no
+control, so there is no operator change to remember.
 
 Changes a *paradigm* makes (`p.Rate = ...` from code) are not saved — they are
 the paradigm's to reassert, not something to resurrect a session later.
@@ -172,9 +239,11 @@ Each setting resolves in this order:
 
 1. what the caller passed to the constructor,
 2. what the operator left behind,
-3. the built-in default (21.59 mm, 0.7 µL/min, Infuse, all sections).
+3. the built-in default (21.59 mm, 0.7 mL/min, Infuse, TTL off, mL readout,
+   all sections).
 
-That first step is why `Diameter`, `Rate`, `Direction`, `Sections`, and `Port`
+That first step is why `Diameter`, `Rate`, `Direction`, `TTLTrigger`,
+`TriggerMode`, `RateUnits`, `VolumeUnits`, `Sections`, and `Port`
 have no defaults in the `arguments` block: an option that was never supplied
 is simply absent, which is what distinguishes *the caller did not say* from
 *the caller asked for the default*.
@@ -229,7 +298,7 @@ period.
 
 ## Options
 
-The five marked *remembered* fall back to the operator's saved configuration
+The eight marked *remembered* fall back to the operator's saved configuration
 when the caller says nothing; the rest take their default outright.
 
 | Option | Default | Meaning |
@@ -237,10 +306,12 @@ when the caller says nothing; the rest take their default outright.
 | `Diameter` | `21.59` (remembered) | Syringe inside diameter, mm. |
 | `Rate` | `0.7` (remembered) | Pumping rate in `RateUnits`. |
 | `Direction` | `'Infuse'` (remembered) | `'Infuse'` or `'Withdraw'`. |
+| `TTLTrigger` | `false` (remembered) | Whether the pump's TTL trigger input may start it. |
+| `TriggerMode` | the interface's, else `'LE'` | Which trigger mode that is. Programmatic only; never remembered. |
 | `Sections` | `"All"` (remembered, and the reset target) | Which parts of the panel are shown. |
 | `Port` | the interface's, else remembered | Port to preselect. |
-| `RateUnits` | `'UM'` | `UM` µL/min, `MM` mL/min, `UH` µL/hr, `MH` mL/hr. Applied to the interface. |
-| `VolumeUnits` | `'uL'` | `'uL'`, `'mL'`, or `'auto'` (follow the pump). |
+| `RateUnits` | `'MM'` (remembered) | `UM` µL/min, `MM` mL/min, `UH` µL/hr, `MH` mL/hr. Applied to the interface; a remembered `Rate` is converted into these. |
+| `VolumeUnits` | `'mL'` (remembered) | `'uL'`, `'mL'`, or `'auto'` (follow the pump). |
 | `UpdatePeriod` | `0.25` | Readout period, seconds. |
 | `ApplyOnStart` | `true` | Push the settings at construction, or read the pump's. |
 | `FontSize` | `12` | Base font size. |
@@ -265,8 +336,11 @@ The test builds panels over a connected mock pump, an `epsych.Runtime`, and
 nothing at all, and asserts the writes on the simulated pump's state, so the
 whole `hw.NE1000` protocol path runs underneath it. It also drives the
 right-click menu through its own callbacks — hiding a section, setting a value
-from a hidden row, resetting to default — and reopens panels against the same
-`PreferenceTag` to check what is and is not remembered.
+from a hidden row, switching units, resetting to default — and reopens panels
+against the same `PreferenceTag` to check what is and is not remembered. The
+units cases pin down what the conversion must preserve: the pump's speed
+across a switch, the original number across a round trip, and a remembered
+rate across a session.
 
 See also: [hw_NE1000.md](../hw/hw_NE1000.md), [gui_BoxGUI.md](gui_BoxGUI.md),
 [gui_PopOut.md](gui_PopOut.md), [Parameter_Monitor.md](Parameter_Monitor.md).

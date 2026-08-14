@@ -4,12 +4,13 @@ The persistent, shareable record of which animals exist, which study each one be
 
 ```matlab
 R = epsych.SubjectRoster;                       % the configured roster
-p = R.addProject('Tone Detection', DefaultProtocol='D:\protocols\tone.eprot');
+p = R.addProject('Tone Detection', DefaultProtocol='D:\protocols\tone.eprot', ...
+                                   BoxGUI='cl_ToneDetect_BoxGUI');
 s = R.addSubject(struct('Name','M001','Sex','Male','Species','Gerbil'));
 R.assign(s, p);
 
 ids = {R.subjectsInProject(p).SubjectID};
-R.assignToSession(runExpt, ids, ProjectID=p);   % boxes and protocols resolved
+R.assignToSession(runExpt, ids, ProjectID=p);   % boxes, protocols, box GUI applied
 ```
 
 > **Status: under development.** Run `tmp/smoke_test_subject_roster.m` after any change.
@@ -23,8 +24,8 @@ Membership is many-to-many — one animal can be in several studies — **and** 
 | Array | Holds |
 |---|---|
 | `Subjects` | `SubjectID`, `Name`, `Sex`, `Species`, `Weight`, `Notes`, `NameHistory`, `Retired`, `ImportedFrom`, `Created`, `Modified` |
-| `Projects` | `ProjectID`, `Name`, `Notes`, `DefaultProtocol`, `DefaultDataPath`, `Created`, `Modified` |
-| `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastBoxID`, `Added`, `Modified` |
+| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `BoxGUI`, `Links`, `Archived`, `Created`, `Modified` |
+| `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastProtocolVersion`, `LastBoxID`, `ProtocolHistory`, `Added`, `Modified` |
 
 `Active` is the per-project archive flag. `setActive(s, p, false)` retires a subject from **that project only**; it stays active everywhere else and keeps its protocol memory, which is what makes retiring reversible in one click and `deleteSubject` a last resort.
 
@@ -37,6 +38,56 @@ S = R.toSubject(subjectId, BoxID=4);   % an epsych.DefaultSubject
 ```
 
 This is why `epsych.Subject` needs no subclassing and its `isValid()` contract (`BoxID >= 1`) is never violated by a roster record. `fromSubject` is the reverse, and drops the box.
+
+### A project owns the box GUI
+
+The behavior GUI belongs to a paradigm, and a paradigm is what a project is — so `BoxGUI` is a project field, not a per-rig preference. It used to be **Customize → Box GUI Function**, which meant every rig running two paradigms had to be re-pointed by hand between sessions, and a rig set up for one study silently launched the wrong GUI for the other.
+
+`assignToSession` applies it: committing a project's subjects is what puts that project's GUI on the session's `FUNCS.BoxFig`. Three states, because "inherit" and "launch nothing" are different answers:
+
+| `BoxGUI` | Effect on `FUNCS.BoxFig` |
+|---|---|
+| `''` | Untouched — the session keeps whatever it has (`ep_GenericGUI` unless a `.ecfg` or a script says otherwise). The only meaning an existing roster could have, so old files behave exactly as before. |
+| `epsych.SubjectRoster.BOXGUI_NONE` (`'none'`) | Cleared: the session runs with no box GUI. |
+| anything else | Set to that name; `epsych.RunExpt.PsychTimerStart` will `feval` it with `RUNTIME`. |
+
+A name that is not on the path is still applied — it is the operator's stated intent, and a lab that adds its GUI to the path later would be badly served by having it silently dropped — but it is logged at level 0 when committed, rather than surfacing as a failure at run start.
+
+Nothing here is per-subject: `epsych.RunExpt` launches exactly one box GUI per session (see `plans/multi-subject-support.md`), so committing two projects into one session leaves the last one's GUI in place.
+
+### The study's own bookkeeping
+
+`Investigator` and `IACUCProtocol` are free text the roster only records — nothing validates or enforces them. They are here because they are the two facts a lab is asked for about a study and has nowhere else to keep next to the animals themselves.
+
+`Archived` retires a **project** the way `Active` retires a membership: the record, its subjects, and their protocol memory all stay: only [`gui.SubjectManager`](../gui/gui_SubjectManager.md)'s project list hides it, and the project currently selected is never hidden. Every roster method still resolves an archived project by ID or name, so a script and `assignToSession` are unaffected.
+
+### Links, and why the scheme is checked
+
+`Links` is a `(1,:)` struct array of `Label` and `URL`, for the addresses a study is actually logged at — the electronic notebook, the shared sheet, the issue tracker, the analysis folder on the NAS.
+
+```matlab
+L = [epsych.SubjectRoster.makeLink('Lab notebook','https://elog.lab.edu/gap'), ...
+     epsych.SubjectRoster.makeLink('\\nas\gapdetect\logs')];
+
+P = struct();      % assign the field; struct('Links', L) would build one
+P.Links = L;       % project struct per link instead of one holding them all
+R.updateProject(p, P);
+```
+
+`epsych.SubjectRoster.isSafeUrl` is the gate, and it exists because **a roster is a shared file**: an address stored in it is untrusted input that some other person typed, and `matlab:` or `javascript:` would make an `.esub` file executable by every rig that clicks it. Only `http`, `https`, `mailto`, and `file` are accepted; everything else is refused with the reason.
+
+It also normalizes, because it is checking what an operator pastes rather than what a program builds:
+
+| Typed | Stored |
+|---|---|
+| `docs.google.com/spreadsheets/d/1` | `https://docs.google.com/spreadsheets/d/1` |
+| `C:\lab\My Logs\notes.html` | `file:///C:/lab/My%20Logs/notes.html` |
+| `\\nas\gap\logs` | `file://nas/gap/logs` |
+| `matlab:!del /q c:\` | refused |
+
+A blank label is filled from the host (`docs.google.com`), the mail address, or the file name — a link with no visible text would be unclickable.
+
+Validation is **on the way in only**: `addProject` and `updateProject` refuse an unsafe address before the file is touched, but `reload` does not, because one operator's typo must not make the shared roster unreadable for the lab. `epsych.SubjectRoster.openLink` re-checks at the moment of the click, which is the backstop for a file written by an older build or edited by hand, and is also what routes a `file:` URL naming a folder to the platform's file manager rather than to a browser.
 
 ---
 
@@ -101,9 +152,59 @@ Pass an empty `projectId` to search across every project the subject belongs to,
 
 ---
 
+## Protocol versions
+
+`epsych.Protocol.save` overwrites an `.eprot` in place and bumps `meta.protocolVersion` (`vN.YYMMDD`). Nothing in the file records what it used to be — so **the roster is the only thing that can notice a protocol was edited since a subject last ran it**. `rememberProtocol` therefore records the version alongside the path, in `LastProtocolVersion`.
+
+### Checking
+
+`protocolStatus(subjectIds, projectId)` answers it for one subject or a whole project, from a script or from the manager's table. Two different things can make an answer *no*, and they are reported separately because they call for different fixes:
+
+| `Status` | Meaning |
+|---|---|
+| `current` | Recorded version matches the file, and the file is the project's default |
+| `outdated` | The file has been saved since — `LatestVersion` is ahead of `Version` |
+| `differs` | The subject is on a **different file** from the project's default |
+| `unknown` | Nothing recorded yet; the subject has never been committed to a session |
+| `missing` | The recorded `.eprot` is no longer on disk |
+| `none` | Nothing remembered and the project has no default |
+
+Reading the version is a cheap peek (`epsych.Protocol.versionOnDisk`) at one metadata field, not an `epsych.Protocol.load` — the full object graph would be far too expensive for a question asked per subject on every repaint. Results are cached per distinct file within one call, so sixteen animals on one protocol read that file once. `epsych.Protocol.versionNumber` supplies the comparable integer `N`; an unparseable version is `NaN`, which compares false against everything, so **an unknown version is never reported as outdated**.
+
+### Updating
+
+`updateProtocol(subjectIds, projectId)` records the version each subject's file holds right now. `UseProjectDefault = true` also moves them onto the project's default file, and `Protocol = pfn` onto a named one.
+
+Nothing about a protocol's *content* changes, and nothing needs to: a session loads the `.eprot` at commit time, so the newest saved version runs regardless. What updating changes is which version each subject is *expected* to be on — which is what turns the check green, and what makes the next unexpected edit visible.
+
+### Reverting, and its honest limit
+
+Each change pushes the outgoing file and version onto the membership's `ProtocolHistory` (most recent first, de-duplicated, capped at `PROTOCOL_HISTORY_LIMIT`). `revertProtocol(subject, project, Index = k)` restores one, pushing the protocol being left in its place — so reverting is itself undoable, and the same call run twice returns where it started.
+
+**What it restores is the pointer and the recorded version, not the bytes of an overwritten file.** Two cases, and the report tells them apart in `Recoverable`:
+
+| Situation | `Recoverable` | Result |
+|---|---|---|
+| The entry names a **different** `.eprot` that still holds its recorded version | `true` | Exact — the subject runs that protocol again |
+| The entry names a file that has since been **saved over** (v4 → v5) | `false` | Pointer and version restored; the v4 content does not exist anywhere on disk |
+
+There is no archive to fall back on, and inventing one would mean copying every `.eprot` on every commit. A lab that needs true version rollback should revise protocols as **separate files** (`Save As` per revision), which this then reverts between exactly.
+
+`protocolHistory(subject, project)` returns the list with `OnDiskVersion` and `Recoverable` already resolved, which is what the manager's revert dialog shows.
+
+### Format compatibility
+
+`LastProtocolVersion` and `ProtocolHistory` are **additive**, so `FORMAT_VERSION` stays at 1. `normalize_` fills them in from the template when an older file is read, and a rig on an older build that writes the file back drops them — losing a version memory that the next commit re-records, rather than losing data. Bumping the format instead would open every new file **read-only** on every rig that had not been updated, which for a shared network roster is much the worse failure.
+
+The same reasoning covers `Investigator`, `IACUCProtocol`, `Links`, and `Archived`. This is why every default in `blankProject_` has to mean *what an older file implicitly meant*: no investigator, no links, and not archived are all correct readings of a roster written before those fields existed — exactly as `BoxGUI = ''` means "inherit". A default that changed behaviour would silently rewrite the past on first read.
+
+`normalize_` shapes the outer record only, so `reload` gives a project's nested `Links` array its own pass. It runs **without** validation there, deliberately: see [Links](#links-and-why-the-scheme-is-checked).
+
+---
+
 ## Committing to a session
 
-`assignToSession(runExpt, subjectIds, ...)` resolves a free box and a protocol for each subject, validates **everything** up front, then writes into `CONFIG` through `epsych.RunExpt.appendSubjectToConfig_` (which owns the slot-1-reuse rule shared with `AddSubject`).
+`assignToSession(runExpt, subjectIds, ...)` resolves a free box and a protocol for each subject, validates **everything** up front, then writes into `CONFIG` through `epsych.RunExpt.appendSubjectToConfig_` (which owns the slot-1-reuse rule shared with `AddSubject`), and finally applies the project's [`BoxGUI`](#a-project-owns-the-box-gui).
 
 It is all-or-nothing where partial success would be worse than none:
 
@@ -139,6 +240,7 @@ Group **`ep_RunExpt_Subjects`**:
 | `RosterFile` | Full path. Unset ⇒ `<prefdir>/epsych/subjects.esub`, this user only. |
 | `LastProject` | Struct **keyed by roster path** → project ID, so re-pointing the file cannot restore a project belonging to a different roster. |
 | `ShowRetired` | The manager's retired toggle. |
+| `ShowArchived` | The manager's archived-projects toggle. |
 
 ---
 
@@ -148,6 +250,10 @@ Group **`ep_RunExpt_Subjects`**:
 matlab -batch "cd('tmp'); smoke_test_subject_roster"
 ```
 
-Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, and a repeated import linking rather than duplicating.
+Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, a repeated import linking rather than duplicating, and all three `BoxGUI` states reaching `FUNCS.BoxFig` (applied, cleared, inherited).
+
+Protocol versions get their own section, driven by real `epsych.Protocol.save` calls rather than hand-written version strings: a fresh subject reads `unknown`, a recorded one `current`, one whose file was saved again `outdated`; `updateProtocol` clears it and the record survives a reload; a superseded same-file entry reports `Recoverable = false` while a revert between two distinct files is exact and leaves the restored entry out of the history rather than in it twice.
+
+Project options get two more: every `isSafeUrl` verdict and normalization, links surviving a reload, a `matlab:` address refused by `updateProject` leaving the stored links untouched — and, separately, a roster **written without the new fields at all**, synthesized by stripping them from a real `.esub`. That one asserts the file still opens writable, still reports every project, and defaults each new field to what the older file meant. It is the assertion that fails if a default is ever chosen for convenience rather than for backward compatibility.
 
 See also: [`gui.SubjectManager`](../gui/gui_SubjectManager.md), [`epsych.Subject`](../overviews/Class_Map.md), `plans/multi-subject-support.md`

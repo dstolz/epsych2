@@ -52,10 +52,15 @@ the `.eprot` reloads with an *offline* interface carrying that same table, so
 every interface connects.
 
 **Rate units are the panel's, not the protocol's.** `gui.SyringePump` puts the
-interface into the units it displays (µL/min by default) when it attaches, so
-the protocol is authored in those same units (`RateUnits = 'UM'`). Otherwise
-the number the trial table re-asserts every trial and the number the operator
-reads in the panel would be the same value in different units.
+interface into the units it displays when it attaches, so a protocol has to be
+authored in the same ones. This one is in µL/min (`RateUnits = 'UM'` in
+`create_pump_protocol`), so `PumpBoxGUI` states `RateUnits = 'UM'` on the panel
+too rather than leaving it at the panel's mL/min default — otherwise the number
+the trial table re-asserts every trial and the number the operator reads in the
+panel would be the same value in different units. The operator can still switch
+units from the panel's **Units** menu, which converts the rate rather than
+reinterpreting it; the trial table's own numbers do not convert, which is the
+reason for stating the units here.
 
 **Volume units follow the syringe, not the rate.** The pump reports volumes in
 µL below a 14 mm diameter and mL at or above — independent of `RateUnits`.
@@ -63,7 +68,9 @@ reads in the panel would be the same value in different units.
 `RateUnits`, so with µL/min and a 21.59 mm syringe every display fed by those
 parameters reads `0.04 uL` for a 40 µL reward. `create_pump_protocol` corrects
 the labels from the diameter. The panel's own readout is unaffected: it reads
-`hw.NE1000.DispensedUnits`, which records what the pump actually said.
+`hw.NE1000.DispensedUnits`, which records what the pump actually said, and
+displays it in whatever `VolumeUnits` the operator chose (`'uL'` here, to match
+the rewards this protocol dispenses).
 
 ## Known issue this turned up
 

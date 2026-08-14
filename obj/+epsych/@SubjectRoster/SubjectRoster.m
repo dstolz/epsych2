@@ -22,7 +22,12 @@ classdef SubjectRoster < handle
     %
     % A project also owns the behavior GUI its sessions run (BoxGUI): the GUI
     % belongs to a paradigm, and a paradigm is what a project is, so it is
-    % applied by assignToSession rather than configured per rig.
+    % applied by assignToSession rather than configured per rig. Alongside it
+    % sit the study's own bookkeeping — Investigator, IACUCProtocol, an
+    % Archived flag, and Links, a list of addresses for the lab notebook,
+    % shared sheet, or issue tracker the study is logged in. Links are checked
+    % by isSafeUrl on the way in and again in openLink, because a roster is a
+    % shared file and an address that could run code would run it on every rig.
     %
     % The roster never holds an epsych.Subject object — only plain structs with
     % no BoxID field, because a box is a property of a session, not of an
@@ -46,6 +51,8 @@ classdef SubjectRoster < handle
     %   assign, unassign, setActive         - membership
     %   subjectsInProject, projectsForSubject
     %   rememberProtocol, lastProtocol      - per-membership protocol memory
+    %   protocolStatus                      - is each subject on the current protocol?
+    %   updateProtocol, revertProtocol, protocolHistory
     %   toSubject, fromSubject              - the epsych.Subject seam
     %   assignToSession                     - batch commit into RunExpt.CONFIG
     %   importFromConfig, exportTable       - migration
@@ -53,7 +60,8 @@ classdef SubjectRoster < handle
     % Static methods:
     %   defaultFile, configuredFile, setConfiguredFile
     %   newId, isNameSafe
-    %   emptySubject, emptyProject, emptyMembership
+    %   emptySubject, emptyProject, emptyMembership, emptyLink
+    %   makeLink, isSafeUrl, openLink       - project links
     %
     % Examples:
     %   R = epsych.SubjectRoster;
@@ -100,6 +108,12 @@ classdef SubjectRoster < handle
         % existing roster could have -- so "launch nothing" needs a word of its
         % own rather than a second empty.
         BOXGUI_NONE (1,:) char = 'none'
+
+        % How many earlier protocols a membership remembers. Enough to undo a
+        % run of mistaken updates, small enough that the join table stays a
+        % table rather than an audit log — this is a "put it back" affordance,
+        % not a provenance record.
+        PROTOCOL_HISTORY_LIMIT (1,1) double = 10
     end
 
     properties (Constant, Access = private)
@@ -154,9 +168,13 @@ classdef SubjectRoster < handle
         recs = projectsForSubject(self, subjectId)
         [rec, idx] = findMembership(self, subjectId, projectId)
 
-        % Protocol memory
-        rememberProtocol(self, subjectId, projectId, protocolFile, boxID)
+        % Protocol memory and versions
+        rememberProtocol(self, subjectId, projectId, protocolFile, boxID, options)
         pfn = lastProtocol(self, subjectId, projectId)
+        report = protocolStatus(self, subjectIds, projectId)
+        report = updateProtocol(self, subjectIds, projectId, options)
+        report = revertProtocol(self, subjectId, projectId, options)
+        h = protocolHistory(self, subjectId, projectId)
 
         % The epsych.Subject seam
         S  = toSubject(self, subjectId, options)
@@ -189,6 +207,12 @@ classdef SubjectRoster < handle
         s  = emptySubject()
         p  = emptyProject()
         m  = emptyMembership()
+        L  = emptyLink()
+
+        % Project links
+        L = makeLink(label, url)
+        [tf, why, url] = isSafeUrl(candidate)
+        openLink(url)
     end
 
     % -----------------------------------------------------------------------
@@ -198,6 +222,11 @@ classdef SubjectRoster < handle
         s = blankSubject_()
         p = blankProject_()
         m = blankMembership_()
+        L = blankLink_()
+        L = normalizeLinks_(links, options)
+        h = blankHistory_()
+        h = emptyHistory_()
+        h = pushHistory_(history, file, version)
         found = readConfigSubjects_(configFile)
     end
 

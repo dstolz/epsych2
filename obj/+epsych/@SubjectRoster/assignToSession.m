@@ -174,8 +174,12 @@ for i = 1:numel(planned)
         'BoxID', planned(i).BoxID, 'Protocol', planned(i).Protocol);
 
     if ~isempty(options.ProjectID)
+        % The version comes from the object just loaded rather than a second
+        % read of the file, and it is what protocolStatus later compares
+        % against to notice that the protocol has been edited since.
         self.rememberProtocol(planned(i).SubjectID, options.ProjectID, ...
-            planned(i).Protocol, planned(i).BoxID);
+            planned(i).Protocol, planned(i).BoxID, ...
+            Version = char(protocols{i}.meta.protocolVersion));
     end
 end
 
@@ -233,7 +237,11 @@ else
     wanted = p.BoxGUI;
 end
 
-if isequal(char(string(runExpt.FUNCS.BoxFig)), wanted), return, end
+% A session may carry its box GUI as a handle rather than a name (DefineBoxFig
+% accepts one), and [] rather than '' when disabled.
+current = runExpt.FUNCS.BoxFig;
+if isa(current, 'function_handle'), current = func2str(current); end
+if strcmp(char(current), wanted), return, end
 
 runExpt.FUNCS.BoxFig = wanted;
 

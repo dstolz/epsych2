@@ -26,6 +26,11 @@ classdef NE1000_Mock < hw.NE1000
         SimInfused (1,1) double = 0
         SimWithdrawn (1,1) double = 0
         SimStatus (1,1) char = 'S'      % I/W/S/P/T/U/X
+
+        % TTL Operational Trigger configuration held in the pump's own
+        % non-volatile memory. Powers up as a keypad-configured foot switch,
+        % so the connect-time assertion of the host's setting is observable.
+        SimTrigger (1,:) char = 'FT'
         PendingAlarm (1,:) char = 'R'   % answered (and cleared) on the next command
 
         Log = {}                        % every command line writeLine_ saw
@@ -45,11 +50,15 @@ classdef NE1000_Mock < hw.NE1000
             arguments
                 options.SyringeDiameter (1,1) double = 21.59
                 options.RateUnits (1,2) char = 'MH'
+                options.TTLTrigger (1,1) logical = false
+                options.TriggerMode (1,2) char = 'LE'
                 options.Connect (1,1) logical = true
             end
             obj@hw.NE1000('MOCK', Connect = false, ...
                 SyringeDiameter = options.SyringeDiameter, ...
-                RateUnits = options.RateUnits, Timeout = 0.1);
+                RateUnits = options.RateUnits, ...
+                TTLTrigger = options.TTLTrigger, ...
+                TriggerMode = options.TriggerMode, Timeout = 0.1);
             if options.Connect
                 obj.connect();
             end
@@ -199,6 +208,15 @@ classdef NE1000_Mock < hw.NE1000
                     obj.SimStatus = 'P';
                 else
                     obj.SimStatus = 'S';
+                end
+            elseif strcmp(cmd, 'TRG')
+                data = obj.SimTrigger;
+            elseif startsWith(cmd, 'TRG')
+                code = cmd(4:end);
+                if ismember(code, [hw.NE1000.TRIGGER_MODES, {'OF'}])
+                    obj.SimTrigger = code;
+                else
+                    data = '?';
                 end
             elseif strcmp(cmd, 'CLDINF')
                 obj.SimInfused = 0;

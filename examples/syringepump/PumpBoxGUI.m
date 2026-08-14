@@ -5,8 +5,8 @@ classdef PumpBoxGUI < gui.BoxGUI
     %   the same pump, and a readout of the reward volume the pump reported
     %   back on every completed trial.
     %
-    %   Launch it from a session by naming this class in RunExpt under
-    %   Customize > Customize..., Functions tab, Box GUI Function; or run it
+    %   Launch it from a session by naming this class as a project's Box GUI
+    %   (Subjects > Subjects & Projects, Project > Edit Project...); or run it
     %   without hardware with run_pump_session.
     %
     % See also gui.SyringePump, run_pump_session, create_pump_protocol,
@@ -38,14 +38,23 @@ classdef PumpBoxGUI < gui.BoxGUI
 
             % --- The component under test --------------------------------
             % Options the build method does not state fall back to whatever
-            % the operator left behind last session, so only the two things
-            % this paradigm actually cares about are passed. With no pump in
-            % the protocol the panel makes an offline interface of its own
-            % and offers a port to connect on, so this GUI still opens.
+            % the operator left behind last session, so only what this
+            % paradigm actually cares about is passed. With no pump in the
+            % protocol the panel makes an offline interface of its own and
+            % offers a port to connect on, so this GUI still opens.
+            %
+            % The units are stated because this protocol is authored in
+            % uL/min (create_pump_protocol) rather than the panel's default
+            % mL/min: the panel puts the interface into the units it
+            % displays, so leaving it to the default would have the trial
+            % table's Rate column and the panel mean different things. The
+            % operator can still switch units from the panel's right-click
+            % menu, which converts the rate rather than reinterpreting it.
             pnl = uipanel(g, 'Title', 'Reward Pump');
             pnl.Layout.Row = [1 2];
             pnl.Layout.Column = 1;
-            obj.Pump = obj.addSyringePump(pnl, Rate = 1000, Diameter = 21.59);
+            obj.Pump = obj.addSyringePump(pnl, Rate = 1000, Diameter = 21.59, ...
+                RateUnits = 'UM', VolumeUnits = 'uL');
 
             % --- Trial controls ------------------------------------------
             % Rate is a trial-table column, so it is re-asserted on every

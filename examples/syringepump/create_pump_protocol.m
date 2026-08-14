@@ -50,9 +50,10 @@ end
 % --- The pump ------------------------------------------------------------
 % RateUnits is fixed at uL/min here rather than left at the interface default
 % of mL/hr, because gui.SyringePump puts the interface into the units it
-% displays (uL/min by default) when it attaches. Authoring the protocol in
-% those same units keeps the Rate the trial table re-asserts every trial and
-% the Rate the operator sees in the panel the same number.
+% displays when it attaches. Authoring the protocol in those same units keeps
+% the Rate the trial table re-asserts every trial and the Rate the operator
+% sees in the panel the same number -- which is why PumpBoxGUI states
+% RateUnits='UM' on the panel too, rather than taking its mL/min default.
 if isempty(options.Port)
     assert(exist('NE1000_Mock', 'class') == 8, ...
         ['No Port given and tmp/NE1000_Mock is not on the path. ' ...

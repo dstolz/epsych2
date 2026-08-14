@@ -46,11 +46,16 @@ classdef SubjectManager < handle
 
     properties (Access = private)
         Rows_ = []          % subject records currently shown, one per table row
+        Statuses_ = []      % protocolStatus for Rows_, in the same order
         Checked_ = {}       % SubjectIDs ticked, preserved across a refresh
         BoxOverrides_       % containers.Map SubjectID -> box, cleared on commit
         ProtocolOverrides_  % containers.Map SubjectID -> .eprot, cleared on commit
         Refreshing_ (1,1) logical = false  % guards callbacks fired by repopulation
         PendingProject_ (1,:) char = ''    % project to select once refresh builds the list
+
+        % Which face the Retire tool is currently wearing, so its icon is
+        % repainted on the transition rather than on every refresh.
+        RetireShowsRestore_ (1,1) logical = false
 
         % In-flight filter text while the operator is typing. A 0x0 string means
         % "not typing", so the committed H.filter.Value applies; "" means the
@@ -154,6 +159,8 @@ classdef SubjectManager < handle
         buildUI(self)
         P = projectDialog_(self, seed)
         onImportFromConfig_(self)
+        onUpdateProtocol_(self, scope, options)
+        onRevertProtocol_(self)
     end
 
     % -----------------------------------------------------------------------
@@ -324,7 +331,16 @@ classdef SubjectManager < handle
             end
 
             lines = {};
+            if p.Archived
+                lines{end+1} = 'Archived.';
+            end
             if ~isempty(p.Notes), lines{end+1} = p.Notes; end
+            if ~isempty(p.Investigator)
+                lines{end+1} = sprintf('Investigator: %s', p.Investigator);
+            end
+            if ~isempty(p.IACUCProtocol)
+                lines{end+1} = sprintf('IACUC: %s', p.IACUCProtocol);
+            end
             if isempty(p.DefaultProtocol)
                 lines{end+1} = 'Default protocol: (none)';
             else
@@ -346,6 +362,57 @@ classdef SubjectManager < handle
 
             self.H.projectSummary.Text = lines;
             self.H.projectSummary.Tooltip = p.DefaultProtocol;
+
+            self.updateProjectLinks_();
+        end
+
+        function updateProjectLinks_(self)
+            % Rebuild the clickable link list under the project summary.
+            %
+            % Rebuilt rather than patched: the set changes with every selection,
+            % and a handful of hyperlinks is cheaper to recreate than to diff.
+            panel = self.H.projectLinks;
+            delete(panel.Children);
+
+            links = epsych.SubjectRoster.emptyLink();
+            id = self.selectedProject_();
+            if ~isempty(id)
+                p = self.Roster.findProject(id);
+                if ~isempty(p), links = p.Links; end
+            end
+
+            if isempty(links)
+                % A zero-height row rather than a hidden panel: an invisible
+                % child still claims its cell, and this collapses the gap.
+                panel.RowHeight = {0};
+                return
+            end
+
+            panel.RowHeight = repmat({18}, 1, numel(links));
+            for i = 1:numel(links)
+                % URL is deliberately left unset and the click routed through
+                % openProjectLink_. A uihyperlink with a URL navigates on its
+                % own, before anything has re-checked an address that came out
+                % of a shared file.
+                h = uihyperlink(panel, ...
+                    'Text', links(i).Label, ...
+                    'Tooltip', links(i).URL, ...
+                    'FontColor', [0.00 0.35 0.72], ...
+                    'HyperlinkClickedFcn', @(~,~) self.openProjectLink_(links(i).URL));
+                h.Layout.Row = i;
+            end
+        end
+
+        function openProjectLink_(self, url)
+            % Open one project link, reporting a refusal rather than throwing
+            % out of a hyperlink callback.
+            try
+                epsych.SubjectRoster.openLink(url);
+                self.setStatus_(sprintf('Opened %s', url));
+            catch ME
+                vprintf(0, 1, ME);
+                uialert(self.H.figure, ME.message, 'Open Link', 'Icon','warning');
+            end
         end
 
         function txt = emptyStateText_(self)
@@ -396,28 +463,58 @@ classdef SubjectManager < handle
 
             onoff = @(tf) matlab.lang.OnOffSwitchState(tf);
 
+            % Each action is switched once and copied to its other surfaces --
+            % button, menu item, toolbar tool -- so the three can never
+            % disagree about whether the action is available.
             self.H.btnNewSubject.Enable  = onoff(writable);
             self.H.mnu_new_subject.Enable = onoff(writable);
+            self.H.tb_new_subject.Enable = onoff(writable);
             self.H.btnEditSubject.Enable = onoff(writable && hasSelection);
             self.H.mnu_edit_subject.Enable = onoff(writable && hasSelection);
+            self.H.tb_edit_subject.Enable = onoff(writable && hasSelection);
             self.H.mnu_delete_subject.Enable = onoff(writable && hasSelection);
+            self.H.tb_delete_subject.Enable = onoff(writable && hasSelection);
 
             self.H.btnAddToProject.Enable = onoff(writable && inProject && hasChecked);
             self.H.mnu_add_to_project.Enable = self.H.btnAddToProject.Enable;
+            self.H.tb_add_to_project.Enable = self.H.btnAddToProject.Enable;
             self.H.btnRemoveFromProject.Enable = onoff(writable && inProject && hasChecked);
             self.H.mnu_remove_from_project.Enable = self.H.btnRemoveFromProject.Enable;
+            self.H.tb_remove_from_project.Enable = self.H.btnRemoveFromProject.Enable;
 
             self.H.btnRetire.Enable = onoff(writable && inProject && hasChecked);
             self.H.mnu_retire.Enable = self.H.btnRetire.Enable;
+            self.H.tb_retire.Enable = self.H.btnRetire.Enable;
 
             self.H.btnEditProject.Enable   = onoff(writable && inProject);
             self.H.mnu_edit_project.Enable = self.H.btnEditProject.Enable;
+            self.H.tb_edit_project.Enable  = self.H.btnEditProject.Enable;
             self.H.btnDeleteProject.Enable = onoff(writable && inProject);
             self.H.mnu_delete_project.Enable = self.H.btnDeleteProject.Enable;
+            self.H.tb_delete_project.Enable  = self.H.btnDeleteProject.Enable;
+            self.H.tb_new_project.Enable = onoff(writable);
+            self.H.tb_import.Enable = onoff(writable);
 
             self.H.btnAddToSession.Enable = onoff(hasSession && hasChecked);
             self.H.mnu_add_to_session.Enable = self.H.btnAddToSession.Enable;
+            self.H.tb_add_to_session.Enable = self.H.btnAddToSession.Enable;
             self.H.mnu_set_protocol.Enable = onoff(hasChecked);
+            self.H.tb_set_protocol.Enable = self.H.mnu_set_protocol.Enable;
+
+            % Protocol versions. Every write here goes into a membership, so
+            % everything but the read-only check and the designer needs a
+            % project selected. The context-menu twins are deliberately left
+            % enabled and validate in their handlers, as Edit Subject... does:
+            % a right-click acts on the row under the pointer, and gating them
+            % on a selection this method last saw would grey out the very
+            % action the click was for.
+            self.H.mnu_check_versions.Enable = onoff(hasRows);
+            self.H.mnu_open_designer.Enable  = onoff(hasSelection);
+
+            self.H.mnu_update_checked.Enable = onoff(writable && inProject && hasChecked);
+            self.H.mnu_update_project.Enable = onoff(writable && inProject);
+            self.H.mnu_use_default.Enable    = onoff(writable && inProject && hasChecked);
+            self.H.mnu_revert.Enable         = onoff(writable && inProject && hasSelection);
 
             if ~inProject
                 self.H.btnAddToProject.Tooltip = ...
@@ -438,12 +535,29 @@ classdef SubjectManager < handle
 
             % Retire and Restore are the same button; the label follows what
             % ticking those rows would actually do.
-            if hasChecked && inProject && self.checkedAreRetired_()
+            showRestore = hasChecked && inProject && self.checkedAreRetired_();
+            if showRestore
                 self.H.btnRetire.Text = 'Restore';
                 self.H.mnu_retire.Text = 'Res&tore';
             else
                 self.H.btnRetire.Text = 'Retire';
                 self.H.mnu_retire.Text = 'Re&tire';
+            end
+
+            % The tool wears the same two faces, but only repaint it when the
+            % face actually changes: assigning Icon redraws the toolbar, and
+            % this method runs on every keystroke typed into the filter.
+            if showRestore ~= self.RetireShowsRestore_
+                self.RetireShowsRestore_ = showRestore;
+                if showRestore
+                    self.H.tb_retire.Icon = gui.toolbarIcon("restore");
+                    self.H.tb_retire.Tooltip = ...
+                        'Restore the checked subjects to the selected project';
+                else
+                    self.H.tb_retire.Icon = gui.toolbarIcon("retire");
+                    self.H.tb_retire.Tooltip = ...
+                        'Retire the checked subjects from the selected project';
+                end
             end
         end
 
@@ -470,6 +584,161 @@ classdef SubjectManager < handle
                 return
             end
             pfn = self.Roster.lastProtocol(subjectId, self.selectedProject_());
+        end
+
+        % ---- protocol versions -------------------------------------------
+
+        function [protoText, verText, flag] = protocolCells_(self, subjectId, st)
+            % Text for one row's Protocol and Version cells, and how loudly the
+            % version should be drawn: 0 plain, 1 needs attention, 2 muted.
+            %
+            % An uncommitted override describes a file the roster has never
+            % seen, so its version is read from that file rather than from the
+            % membership: the two columns must always describe the same thing.
+            flag = 0;
+
+            if self.ProtocolOverrides_.isKey(subjectId)
+                pfn = self.ProtocolOverrides_(subjectId);
+                [~, pn, pe] = fileparts(pfn);
+                protoText = [pn pe];
+                verText = epsych.Protocol.versionOnDisk(pfn);
+                if isempty(verText)
+                    verText = 'not recorded';
+                    flag = 2;
+                end
+                return
+            end
+
+            if isempty(st.Protocol)
+                protoText = '(none)';
+                verText = '';
+                return
+            end
+
+            [~, pn, pe] = fileparts(st.Protocol);
+            protoText = [pn pe];
+
+            switch st.Status
+                case 'missing'
+                    verText = '(missing)';
+                    flag = 1;
+                case 'outdated'
+                    % The recorded version, not the newer one: this column says
+                    % what the subject is on. The banner and the tooltip say
+                    % what it could be on.
+                    verText = st.Version;
+                    if isempty(verText), verText = 'not recorded'; end
+                    flag = 1;
+                case 'unknown'
+                    verText = 'not recorded';
+                    flag = 2;
+                otherwise
+                    verText = st.Version;
+            end
+        end
+
+        function showVersionBanner_(self, message)
+            % Show or collapse the protocol-version banner above the table.
+            %
+            % The row height is what toggles, not the children's Visible: an
+            % invisible child in a 'fit' row still reserves space, which would
+            % leave a permanent gap over every healthy project.
+            if ~isfield(self.H,'bannerGrid') || ~isgraphics(self.H.bannerGrid), return, end
+
+            if isempty(message)
+                self.H.rightGrid.RowHeight{2} = 0;
+                self.H.bannerGrid.Visible = 'off';
+                return
+            end
+
+            self.H.bannerLabel.Text = message;
+            % Nothing to press without a project: protocol memory is per
+            % membership, so the All Subjects view can report but not fix.
+            self.H.bannerButton.Visible = ...
+                matlab.lang.OnOffSwitchState(~isempty(self.selectedProject_()));
+            self.H.bannerGrid.Visible = 'on';
+            self.H.rightGrid.RowHeight{2} = 30;
+        end
+
+        function onCheckVersions_(self)
+            % Report protocol-version state for everything on screen.
+            if isempty(self.Statuses_)
+                self.setStatus_('There are no subjects to check.');
+                return
+            end
+
+            st = self.Statuses_;
+            counts = struct( ...
+                'current',  nnz(strcmp({st.Status},'current')), ...
+                'outdated', nnz(strcmp({st.Status},'outdated')), ...
+                'differs',  nnz(strcmp({st.Status},'differs')), ...
+                'unknown',  nnz(strcmp({st.Status},'unknown')), ...
+                'missing',  nnz(strcmp({st.Status},'missing')), ...
+                'none',     nnz(strcmp({st.Status},'none')));
+
+            lines = {sprintf('%d subject(s) shown:', numel(st)), ''};
+            lines = localCount(lines, counts.current,  'on the current version');
+            lines = localCount(lines, counts.outdated, 'behind the protocol saved on disk');
+            lines = localCount(lines, counts.differs,  'on a protocol other than the project default');
+            lines = localCount(lines, counts.unknown,  'with no version recorded yet');
+            lines = localCount(lines, counts.missing,  'whose protocol file is missing');
+            lines = localCount(lines, counts.none,     'with no protocol at all');
+
+            behind = st(strcmp({st.Status},'outdated'));
+            if ~isempty(behind)
+                lines{end+1} = '';
+                for i = 1:numel(behind)
+                    lines{end+1} = sprintf('%s: %s on record, %s in the file', ...
+                        behind(i).Name, behind(i).Version, behind(i).LatestVersion);
+                end
+                lines{end+1} = '';
+                lines{end+1} = 'Protocol > Update All in Project to Latest Version brings them forward.';
+            end
+
+            uialert(self.H.figure, lines, 'Protocol Versions', 'Icon','info');
+
+            function out = localCount(out, n, what)
+                if n > 0, out{end+1} = sprintf('  %d %s', n, what); end
+            end
+        end
+
+        function onOpenInDesigner_(self)
+            % Open the selected subject's protocol in epsych.ProtocolDesigner.
+            %
+            % The shortest path from "this animal's protocol is wrong" to
+            % fixing it. It opens the file the subject would actually run --
+            % including an uncommitted override -- rather than the project
+            % default, which may be a different file entirely.
+            rec = self.selectedRow_();
+            if isempty(rec), return, end
+
+            pfn = self.resolveProtocol_(rec.SubjectID);
+            if isempty(pfn)
+                uialert(self.H.figure, sprintf( ...
+                    ['"%s" has no protocol yet. Use Set Protocol for This Row... ' ...
+                     'to point it at one first.'], rec.Name), ...
+                    'Open in Protocol Designer', 'Icon','info');
+                return
+            end
+
+            if ~isfile(pfn)
+                uialert(self.H.figure, sprintf('The protocol file is missing:\n%s', pfn), ...
+                    'Open in Protocol Designer', 'Icon','error');
+                return
+            end
+
+            try
+                epsych.ProtocolDesigner.openFromFile(pfn);
+            catch ME
+                vprintf(0, 1, ME);
+                uialert(self.H.figure, sprintf('Could not open "%s".\n\n%s', pfn, ME.message), ...
+                    'Open in Protocol Designer', 'Icon','error');
+                return
+            end
+
+            [~, pn, pe] = fileparts(pfn);
+            self.setStatus_(sprintf(['Opened %s%s in the Protocol Designer. Refresh (F5) ' ...
+                'after saving to see the new version.'], pn, pe));
         end
 
         % ---- table and filter plumbing ---------------------------------
@@ -511,6 +780,25 @@ classdef SubjectManager < handle
             nChecked = numel(self.checkedIds_());
             self.H.countLabel.Text = sprintf('%d of %d shown \x00B7 %d checked', ...
                 numel(self.Rows_), numel(self.Roster.Subjects), nChecked);
+        end
+
+        function onSelectionChanged_(self)
+            % Row selection changed: re-evaluate what acts on "the selected
+            % subject". Without this the row-scoped actions stay as they were
+            % at the last refresh, so the first row clicked appears unusable.
+            if self.Refreshing_, return, end
+            self.updateEnableStates_();
+        end
+
+        function onShowArchivedChanged_(self)
+            % Persist the toggle, then repopulate the project list.
+            if self.Refreshing_, return, end
+            try
+                setpref(self.PREF_GROUP, 'ShowArchived', self.H.showArchived.Value);
+            catch ME
+                vprintf(2, ME);
+            end
+            self.refresh();
         end
 
         function onProjectChanged_(self)
@@ -816,15 +1104,25 @@ classdef SubjectManager < handle
         % ---- project actions -------------------------------------------
 
         function onNewProject_(self)
-            P = self.projectDialog_(struct('Name','', 'Notes','', ...
-                'DefaultProtocol','', 'DefaultDataPath','', 'BoxGUI',''));
+            seed = struct('Name','', 'Notes','', 'Investigator','', ...
+                'IACUCProtocol','', 'DefaultProtocol','', 'DefaultDataPath','', ...
+                'BoxGUI','', 'Archived',false);
+            % Assigned rather than passed to struct() above: an empty
+            % struct-array value would make struct() return a 0x0 seed.
+            seed.Links = epsych.SubjectRoster.emptyLink();
+
+            P = self.projectDialog_(seed);
             if isempty(P), return, end
 
             try
                 id = self.Roster.addProject(P.Name, Notes = P.Notes, ...
+                    Investigator = P.Investigator, ...
+                    IACUCProtocol = P.IACUCProtocol, ...
                     DefaultProtocol = P.DefaultProtocol, ...
                     DefaultDataPath = P.DefaultDataPath, ...
-                    BoxGUI = P.BoxGUI);
+                    BoxGUI = P.BoxGUI, ...
+                    Links = P.Links, ...
+                    Archived = P.Archived);
             catch ME
                 vprintf(0, 1, ME);
                 uialert(self.H.figure, ME.message, 'New Project', 'Icon','error');

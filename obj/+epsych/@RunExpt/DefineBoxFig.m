@@ -1,9 +1,13 @@
 function DefineBoxFig(self, a)
-% DefineBoxFig — Configure the per-box behavior GUI function.
+% DefineBoxFig — Configure the session's behavior GUI function.
 % Inputs
 %   a — Function name/handle or 'default'; prompts if empty; empty to disable.
 % Expected Signature
 %   BoxFig(RUNTIME)
+% Notes
+%   The operator's path is a project's BoxGUI field (Subjects & Projects), which
+%   assignToSession applies here on commit. This method remains for scripts and
+%   for a session assembled without the roster.
 arguments
     self
     a = []

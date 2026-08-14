@@ -13,10 +13,16 @@ function m = blankMembership_()
 % See also: epsych.SubjectRoster.emptyMembership, epsych.SubjectRoster.normalize_
 
 m = struct( ...
-    'SubjectID',    '', ...
-    'ProjectID',    '', ...
-    'Active',       true, ... % the per-project archive flag
-    'LastProtocol', '', ...   % .eprot this subject last ran in this project
-    'LastBoxID',    NaN, ...  % NaN when never run
-    'Added',        NaT, ...
-    'Modified',     NaT);
+    'SubjectID',           '', ...
+    'ProjectID',           '', ...
+    'Active',              true, ... % the per-project archive flag
+    'LastProtocol',        '', ...   % .eprot this subject last ran in this project
+    'LastProtocolVersion', '', ...   % protocolVersion of that file when it was recorded
+    'LastBoxID',           NaN, ...  % NaN when never run
+    'Added',               NaT, ...
+    'Modified',            NaT);
+
+% Assigned rather than passed to struct(): struct('ProtocolHistory', <0x0 struct>)
+% would build a 0x0 array of the OUTER struct instead of a scalar with an empty
+% field, and this record would come back empty.
+m.ProtocolHistory = epsych.SubjectRoster.emptyHistory_();

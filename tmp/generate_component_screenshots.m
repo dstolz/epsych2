@@ -59,6 +59,7 @@ shots = { ...
     'Staircase_Plot',               @shotStaircasePlot; ...
     'PhaseSelector',                @shotPhaseSelector; ...
     'StaircaseTraining',            @shotStaircaseTraining; ...
+    'SyringePump',                  @shotSyringePump; ...
     'FilenameValidator',            @shotFilenameValidator; ...
     'BoxGUI_Helpers',               @shotBoxGUIHelpers; ...
     };
@@ -351,6 +352,19 @@ gui.StaircaseTraining(S.RUNTIME.find_parameter('ToneLevel'), Parent=fig, ...
 end
 
 
+function fig = shotSyringePump(~)
+% Over the in-process pump mock, so the panel shows a connected link and a
+% real dispensed volume rather than the disconnected state.
+mock = NE1000_Mock(SyringeDiameter=21.59);
+mock.SimInfused = 0.836;              % mL on the wire; the panel displays uL
+
+fig = shotFigure([360 260]);
+p = gui.SyringePump(mock, fig, PreferenceTag='wikiShotSyringePump');
+p.refresh();
+fig.UserData = {p, mock};             % closeFigure tears both down
+end
+
+
 function fig = shotFilenameValidator(S)
 fig = shotFigure([540 72]);
 g = uigridlayout(fig, [1 1]);
@@ -377,12 +391,16 @@ end
 
 
 function closeFigure(fig)
-% A gui.BoxGUI parks itself in the figure's UserData; deleting the figure
-% alone would leave the object, its listeners, and its monitor timer behind.
+% A gui.BoxGUI parks itself in the figure's UserData, and a shot may park a
+% cell of objects it owns (panel, mock interface) there; deleting the figure
+% alone would leave those objects, their listeners, and their timers behind.
 if ~isempty(fig) && isgraphics(fig)
     owner = fig.UserData;
     delete(fig);
-    if isa(owner, 'gui.BoxGUI') && isvalid(owner), delete(owner); end
+    if ~iscell(owner), owner = {owner}; end
+    for k = numel(owner):-1:1
+        if isa(owner{k}, 'handle') && isvalid(owner{k}), delete(owner{k}); end
+    end
 end
 drawnow
 end
@@ -413,6 +431,7 @@ function P = snapshotPrefs()
 groups = {'epsych2_gui_History', 'epsych2_gui_NextTrial', ...
     'epsych2_gui_ParameterScatter', 'epsych2_gui_Parameter_Monitor', ...
     'epsych2_gui_SessionPerformance', 'epsych2_gui_PhaseSelector', ...
+    'epsych2_gui_SyringePump', ...
     'StaircaseTraining', 'wikiShotSessionClock'};
 P = struct('group', groups, 'value', []);
 for k = 1:numel(groups)

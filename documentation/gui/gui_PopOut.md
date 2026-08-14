@@ -23,6 +23,7 @@ runtime.
 | `gui.SessionPerformance` | a second summary with **its own `psychophysics.SessionMetrics`** | trial window, metric selection |
 | `gui.NextTrial` | a second upcoming-trial display on the same event source | field selection |
 | `gui.Parameter_Monitor` | a second monitor with **its own polling timer** | which parameters are shown, their order, colors, sort |
+| `gui.SyringePump` | a second panel over the same pump, with **its own readout timer**, built with `ApplyOnStart=false` so it never re-asserts settings | selected port, displayed settings |
 | `gui.PsychPlot` | a second psychometric plot on the same psych object | plot type, log-x, colors |
 | `psychophysics.Staircase` | a second `Staircase` over the same trials, plotted in the new window | threshold reversals/formula, dB axis, step and reversal overlays |
 
@@ -168,4 +169,5 @@ See also: [gui_BoxGUI.md](gui_BoxGUI.md),
 [gui_SessionPerformance.md](gui_SessionPerformance.md),
 [gui_NextTrial.md](gui_NextTrial.md),
 [Parameter_Monitor.md](Parameter_Monitor.md),
+[gui_SyringePump.md](gui_SyringePump.md),
 [../psychophysics/psychophysics_Staircase.md](../psychophysics/psychophysics_Staircase.md).

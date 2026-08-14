@@ -194,7 +194,127 @@ catch ME
     results(end+1,:) = check(['Standalone: ' ME.message], false);
 end
 
-%% 9. Teardown
+%% 9. Section visibility
+try
+    results(end+1,:) = check('Everything is shown by default', ...
+        isequal(sort(panel.Sections), sort(gui.SyringePump.SECTIONS)));
+
+    panel.hide(["Diameter", "Connection"]);   % Connection = Port + Detect
+    results(end+1,:) = check('hide removes the named sections', ...
+        ~panel.isSectionVisible("Diameter") && ~panel.isSectionVisible("Port") ...
+        && ~panel.isSectionVisible("Detect"));
+    results(end+1,:) = check('hide leaves the rest alone', ...
+        panel.isSectionVisible("Rate") && panel.isSectionVisible("Triggers"));
+
+    heights = cell2mat(findall(panel.Parent, 'Type', 'uigridlayout', ...
+        '-depth', 1).RowHeight);
+    results(end+1,:) = check('Hidden rows collapse to zero height', ...
+        nnz(heights == 0) == 2);   % the diameter row and the port row
+
+    panel.show("Diameter");
+    results(end+1,:) = check('show restores a section', panel.isSectionVisible("Diameter"));
+
+    % A hidden control is only hidden: the panel still drives the pump.
+    panel.hide("Rate");
+    panel.Rate = 3;
+    results(end+1,:) = check('A hidden setting still writes the pump', ...
+        abs(mock.SimRate - 3) < 1e-9);
+    panel.show("Rate");
+
+    % Nothing to read out means no reason to talk to the pump.
+    panel.Sections = "Settings";
+    results(end+1,:) = check('No readout stops the poll timer', ...
+        strcmp(panel.Timer.Running, 'off'));
+    panel.Sections = "All";
+    results(end+1,:) = check('Restoring the readout restarts it', ...
+        strcmp(panel.Timer.Running, 'on'));
+
+    panel.Sections = ["Volume", "Nonsense"];
+    results(end+1,:) = check('An unknown section name is skipped, not fatal', ...
+        isequal(panel.Sections, "Volume"));
+    panel.Sections = "All";
+catch ME
+    results(end+1,:) = check(['Sections: ' ME.message], false);
+end
+
+%% 10. The right-click menu shows, hides, and sets values
+try
+    cm = panel.ContextMenu;
+    openMenu(cm);
+
+    item = submenuItem(cm, 'Show', 'Diameter');
+    clickMenu(item);
+    results(end+1,:) = check('Menu hides a section',     ~panel.isSectionVisible("Diameter"));
+
+    openMenu(cm);
+    item = submenuItem(cm, 'Show', 'Diameter');
+    results(end+1,:) = check('Menu check mark follows Sections', strcmp(item.Checked, 'off'));
+    clickMenu(item);
+    results(end+1,:) = check('Menu shows it again',      panel.isSectionVisible("Diameter"));
+
+    % Values are reachable from the menu whether or not their row is shown.
+    panel.hide("Direction");
+    openMenu(cm);
+    valueMenu = findall(cm, 'Type', 'uimenu', 'Text', 'Set Value');
+    dirMenu = findall(valueMenu, 'Type', 'uimenu', '-regexp', 'Text', '^Direction');
+    item = findall(dirMenu, 'Type', 'uimenu', 'Text', 'Withdraw');
+    clickMenu(item);
+    results(end+1,:) = check('Menu sets a value while its row is hidden', ...
+        strcmp(panel.Direction, 'Withdraw') && strcmp(mock.SimDir, 'WDR'));
+    panel.show("Direction");
+catch ME
+    results(end+1,:) = check(['Context menu: ' ME.message], false);
+end
+
+%% 11. The operator's configuration is remembered
+try
+    % Hiding through the menu is an operator choice, so it persists...
+    openMenu(panel.ContextMenu);
+    clickMenu(submenuItem(panel.ContextMenu, 'Show', 'Detect'));
+
+    fig5 = uifigure(Visible = 'off', Name = 'Pump Again', Tag = PREF);
+    figs(end+1) = fig5;
+    again = gui.SyringePump(mock, fig5, ApplyOnStart = false, PreferenceTag = PREF);
+    results(end+1,:) = check('A new panel restores the operator layout', ...
+        ~again.isSectionVisible("Detect"));
+    results(end+1,:) = check('A new panel restores an operator value', ...
+        strcmp(again.Direction, 'Withdraw'));
+    delete(again)
+
+    % ...while a caller that states its wishes still outranks the memory.
+    % (ApplyOnStart stays true here: asking the panel to read the pump
+    % instead would make the pump, not the memory, the thing being outranked.)
+    fig6 = uifigure(Visible = 'off', Name = 'Pump Stated', Tag = PREF);
+    figs(end+1) = fig6;
+    stated = gui.SyringePump(mock, fig6, Direction = 'Infuse', PreferenceTag = PREF);
+    results(end+1,:) = check('An explicit option beats the remembered value', ...
+        strcmp(stated.Direction, 'Infuse') && strcmp(mock.SimDir, 'INF'));
+    delete(stated)
+
+    % A programmatic layout change is the paradigm's, not the operator's,
+    % so it must not be written into the operator's saved configuration.
+    panel.Sections = ["Volume", "Status"];
+    fig7 = uifigure(Visible = 'off', Name = 'Pump Prog', Tag = PREF);
+    figs(end+1) = fig7;
+    prog = gui.SyringePump(mock, fig7, ApplyOnStart = false, PreferenceTag = PREF);
+    results(end+1,:) = check('A programmatic layout is not remembered', ...
+        prog.isSectionVisible("Rate"));
+    delete(prog)
+    panel.Sections = "All";
+
+    % Reset to Default forgets the operator's layout for good.
+    openMenu(panel.ContextMenu);
+    clickMenu(submenuItem(panel.ContextMenu, 'Show', 'Reset to Default'));
+    saved = getpref('epsych2_gui_SyringePump', matlab.lang.makeValidName(PREF));
+    results(end+1,:) = check('Reset to Default forgets the saved layout', ...
+        ~isfield(saved, 'Sections'));
+    results(end+1,:) = check('Reset to Default restores everything', ...
+        isequal(sort(panel.Sections), sort(gui.SyringePump.SECTIONS)));
+catch ME
+    results(end+1,:) = check(['Remembered configuration: ' ME.message], false);
+end
+
+%% 12. Teardown
 try
     delete(figs(isvalid(figs)))
     figs = matlab.ui.Figure.empty;
@@ -240,4 +360,27 @@ function row = check(label, tf)
 % row = check(label, tf)
 % Record one assertion as a {label, logical} row.
 row = {label, logical(tf)};
+end
+
+
+function openMenu(cm)
+% openMenu(cm)
+% Fire the context menu's opening callback, which is what rebuilds its
+% submenus — the state under test lives in that rebuild.
+feval(cm.ContextMenuOpeningFcn, cm, []);
+end
+
+
+function item = submenuItem(cm, submenu, text)
+% item = submenuItem(cm, submenu, text)
+% One entry of a named submenu, by its exact label.
+m = findall(cm, 'Type', 'uimenu', 'Text', submenu);
+item = findall(m, 'Type', 'uimenu', 'Text', text);
+end
+
+
+function clickMenu(item)
+% clickMenu(item)
+% Select a menu entry the way a right-click would.
+feval(item.MenuSelectedFcn, item, []);
 end

@@ -30,10 +30,27 @@ classdef SyringePump < gui.PopOut
     % so the operator can pick a port and connect from the panel itself.
     % Settings made while disconnected are held and pushed on connect.
     %
+    % Which controls appear is programmatic: Sections lists the parts that
+    % are shown, and assigning it (or calling show/hide) reflows the panel at
+    % any time. A rig whose protocol owns the rate and whose syringe never
+    % changes can be left with nothing but the readout:
+    %
+    %   p.Sections = ["Volume" "Status"];   % readout only
+    %   p.hide(["Diameter" "Port" "Detect"])
+    %   p.show("Direction")
+    %
+    % Section names are Volume, Status, Port, Detect, Diameter, Rate,
+    % Direction, Start, Stop, Zero, plus the group aliases Connection
+    % (=Port+Detect), Settings (=Diameter+Rate+Direction), Triggers
+    % (=Start+Stop+Zero), All, and None. With neither Volume nor Status shown
+    % there is nothing to read out, so the poll timer stops and the panel
+    % costs the pump no serial traffic at all.
+    %
     % Properties:
     %   Diameter        - Syringe inside diameter, mm (default 21.59)
     %   Rate            - Pumping rate in RateUnits (default 0.7 uL/min)
     %   Direction       - 'Infuse' (push) or 'Withdraw' (pull)
+    %   Sections        - Parts of the panel currently shown
     %   Interface       - The hw.NE1000 being driven
     %   IsConnected     - True while the pump link is up (Dependent)
     %   Port            - Port currently selected in the panel (Dependent)
@@ -43,6 +60,8 @@ classdef SyringePump < gui.PopOut
     %   ContextMenu     - The right-click menu; host GUIs may append items
     %
     % Methods:
+    %   show / hide           - Show or hide parts of the panel by name
+    %   isSectionVisible      - True when a named part is shown
     %   connect / disconnect  - Open or close the pump link on the selected port
     %   detectPort            - Probe the serial ports for a pump
     %   refreshPorts          - Re-read the serial port list into the dropdown
@@ -55,6 +74,9 @@ classdef SyringePump < gui.PopOut
     %   % Inside a gui.BoxGUI build method
     %   obj.addSyringePump(panelReward);
     %   obj.addSyringePump(panelReward, Rate=1.5, Diameter=14.43);
+    %
+    %   % Only the readout and the manual buttons; the protocol owns the rest
+    %   obj.addSyringePump(panelReward, Sections=["Volume" "Status" "Triggers"]);
     %
     %   % Standalone, no protocol: pick a port in the panel and connect
     %   f = uifigure('Name','Pump');
@@ -74,6 +96,13 @@ classdef SyringePump < gui.PopOut
         % 'Infuse' pushes the syringe (reward delivery), 'Withdraw' pulls it
         % (refilling). The pump rejects a change while pumping to a target.
         Direction (1,:) char {mustBeMember(Direction, {'Infuse','Withdraw'})} = 'Infuse'
+
+        % Parts of the panel that are shown, as a string array of section
+        % names (see SECTIONS). Assign it -- or call show/hide -- at any time;
+        % the panel reflows, keeping every control's state. Group aliases are
+        % expanded on assignment, so this always reads back as the individual
+        % names it resolved to.
+        Sections (1,:) string = gui.SyringePump.SECTIONS
     end
 
     properties (SetAccess = private)
@@ -102,16 +131,41 @@ classdef SyringePump < gui.PopOut
         Source_ = []                         % construction source, reused by the pop-out
         StagedPort_ (1,:) char = ''          % port chosen in the dropdown
         PreferenceTag_ (1,:) char = ''
-        ShowConnection_ (1,1) logical = true
-        ShowTriggers_ (1,1) logical = true
         FontSize_ (1,1) double = 12
         H_ (1,1) struct = struct()           % graphics handles
+        Rows_ (1,1) struct = struct()        % one container handle per ROW_NAMES entry
+        DefaultSections_ (1,:) string = string.empty(1,0) % what "Reset to Default" restores
+        FromUI_ (1,1) logical = false        % the change came from the panel, so remember it
+        UserPrefs_ (1,1) struct = struct()   % the operator's remembered configuration
+        ShowMenuH_ = []                      % "Show" submenu
+        ValueMenuH_ = []                     % "Set Value" submenu
         DestroyListener_ = event.listener.empty
         LastReadout_ (1,:) char = ''         % change detection for the big label
     end
 
+    properties (Constant)
+        % Individually hideable parts of the panel, in layout order.
+        SECTIONS = ["Volume", "Status", "Port", "Detect", "Diameter", ...
+                    "Rate", "Direction", "Start", "Stop", "Zero"]
+    end
+
     properties (Constant, Access = private)
         PREF_GROUP = 'epsych2_gui_SyringePump'
+
+        % Group names accepted wherever a section name is, and what each
+        % expands to. 'All' and 'None' are handled in normalizeSections_.
+        ALIAS_NAMES = {'Connection', 'Settings', 'Triggers'}
+        ALIAS_MEMBERS = {["Port","Detect"], ["Diameter","Rate","Direction"], ...
+                         ["Start","Stop","Zero"]}
+
+        % The panel's rows, in order, with their heights in pixels and the
+        % sections that keep each one on screen. A row whose sections are all
+        % hidden collapses to zero height rather than being destroyed, so
+        % showing it again costs nothing and no control loses its state.
+        ROW_NAMES   = {'Volume', 'Status', 'Port', 'Diameter', 'Rate', 'Direction', 'Triggers'}
+        ROW_HEIGHTS = [58, 20, 26, 26, 26, 34, 30]
+        ROW_SECTIONS = {"Volume", "Status", ["Port","Detect"], "Diameter", ...
+                        "Rate", "Direction", ["Start","Stop","Zero"]}
 
         % Rate unit codes and their operator-facing labels, index-aligned.
         RATE_CODES  = {'UM', 'MM', 'UH', 'MH'}
@@ -148,24 +202,33 @@ classdef SyringePump < gui.PopOut
             %  ApplyOnStart  - Push Diameter/Rate/Direction to a connected
             %                  pump at construction (default true). False
             %                  reads the pump's current values instead.
-            %  ShowConnection- Show the port row. Default true.
-            %  ShowTriggers  - Show the Start/Stop/Zero buttons. Default true.
+            %  Sections      - Parts of the panel to show; see SECTIONS and
+            %                  the group aliases. Default "All". This is the
+            %                  DEFAULT layout: a selection the operator made
+            %                  from the right-click menu in an earlier
+            %                  session takes precedence, and "Reset to
+            %                  Default" in that menu comes back to this.
             %  FontSize      - Base font size for the controls. Default 12.
-            %  PreferenceTag - Key for the saved port (defaults to the
-            %                  hosting figure Tag/Name).
+            %  PreferenceTag - Key for the remembered configuration (defaults
+            %                  to the hosting figure Tag/Name).
+            %
+            % Diameter, Rate, Direction, Sections, and Port have no built-in
+            % default in the arguments block on purpose: the absence of an
+            % option is what distinguishes "the caller did not say" from "the
+            % caller asked for the default value", which is what lets the
+            % operator's remembered configuration fill the gap.
             arguments
                 source = []
                 container (1,1) = uifigure(Name = 'Syringe Pump')
-                options.Diameter (1,1) double {mustBeInRange(options.Diameter, 0.1, 50)} = 21.59
-                options.Rate (1,1) double {mustBeNonnegative} = 0.7
-                options.Direction (1,:) char {mustBeMember(options.Direction, {'Infuse','Withdraw'})} = 'Infuse'
+                options.Diameter (1,1) double {mustBeInRange(options.Diameter, 0.1, 50)}
+                options.Rate (1,1) double {mustBeNonnegative}
+                options.Direction (1,:) char {mustBeMember(options.Direction, {'Infuse','Withdraw'})}
                 options.RateUnits (1,2) char {mustBeMember(options.RateUnits, {'UM','MM','UH','MH'})} = 'UM'
                 options.VolumeUnits (1,:) char {mustBeMember(options.VolumeUnits, {'uL','mL','auto'})} = 'uL'
                 options.UpdatePeriod (1,1) double {mustBePositive} = 0.25
-                options.Port (1,:) char = ''
+                options.Port (1,:) char
                 options.ApplyOnStart (1,1) logical = true
-                options.ShowConnection (1,1) logical = true
-                options.ShowTriggers (1,1) logical = true
+                options.Sections (1,:) string
                 options.FontSize (1,1) double {mustBePositive} = 12
                 options.PreferenceTag (1,:) char = ''
             end
@@ -176,21 +239,39 @@ classdef SyringePump < gui.PopOut
             obj.VolumeUnits     = options.VolumeUnits;
             obj.UpdatePeriod    = options.UpdatePeriod;
             obj.PreferenceTag_  = options.PreferenceTag;
-            obj.ShowConnection_ = options.ShowConnection;
-            obj.ShowTriggers_   = options.ShowTriggers;
             obj.FontSize_       = options.FontSize;
+
+            % The panel is a fixed stack of short rows, so the pop-out wants
+            % a window barely bigger than the panel, not the mixin default.
+            obj.PopOutSize  = [340 300];
+            obj.PopOutLabel = 'Syringe Pump';
+
+            % What the operator configured here last time. Everything below
+            % resolves as: what the caller asked for, else what the operator
+            % left behind, else the built-in default.
+            saved = obj.loadPreferences_();
+            obj.UserPrefs_ = saved;
+
+            % Layout: the caller's Sections is the default the menu resets
+            % to, and a saved selection overrides it (as gui.NextTrial's
+            % saved field selection overrides its Fields option).
+            obj.DefaultSections_ = obj.normalizeSections_( ...
+                gui.SyringePump.pick_(options, saved, 'Sections', "All", false));
+            obj.Sections = gui.SyringePump.pick_(options, saved, 'Sections', ...
+                obj.DefaultSections_, true);
 
             % Seed the settings without touching hardware: the interface is
             % not resolved yet, and applyToHardware_ below decides whether
             % these values or the pump's own are authoritative.
             obj.Applying_ = true;
-            obj.Diameter  = options.Diameter;
-            obj.Rate      = options.Rate;
-            obj.Direction = options.Direction;
+            obj.seedSetting_('Diameter', gui.SyringePump.pick_(options, saved, 'Diameter', 21.59, true), 21.59);
+            obj.seedSetting_('Rate',     gui.SyringePump.pick_(options, saved, 'Rate',     0.7,   true), 0.7);
+            obj.seedSetting_('Direction', ...
+                char(gui.SyringePump.pick_(options, saved, 'Direction', 'Infuse', true)), 'Infuse');
             obj.Applying_ = false;
 
             obj.resolveInterface_(source);
-            obj.StagedPort_ = obj.initialPort_(options.Port);
+            obj.StagedPort_ = obj.initialPort_(options, saved);
 
             obj.buildUI_(container);
 
@@ -262,6 +343,48 @@ classdef SyringePump < gui.PopOut
         function set.Direction(obj, value)
             obj.Direction = value;
             obj.onSettingChanged_('Direction');
+        end
+
+        % --- Visibility ------------------------------------------------------
+
+        function set.Sections(obj, value)
+            obj.Sections = obj.normalizeSections_(value);
+            obj.onSectionsChanged_();
+        end
+
+        function show(obj, names)
+            % show(obj, names)
+            % Show one or more parts of the panel, leaving the rest as they
+            % are. Accepts section names and the group aliases.
+            arguments
+                obj
+                names (1,:) string
+            end
+            obj.Sections = union(obj.Sections, obj.normalizeSections_(names), 'stable');
+        end
+
+        function hide(obj, names)
+            % hide(obj, names)
+            % Hide one or more parts of the panel. Hidden controls keep their
+            % state and their hardware bindings -- hiding the rate field does
+            % not stop the panel writing obj.Rate to the pump.
+            arguments
+                obj
+                names (1,:) string
+            end
+            obj.Sections = setdiff(obj.Sections, obj.normalizeSections_(names), 'stable');
+        end
+
+        function tf = isSectionVisible(obj, name)
+            % tf = isSectionVisible(obj, name)
+            % True when the named part of the panel is currently shown. A
+            % group alias is true only when every member of it is.
+            arguments
+                obj
+                name (1,1) string
+            end
+            wanted = obj.normalizeSections_(name);
+            tf = ~isempty(wanted) && all(ismember(wanted, obj.Sections));
         end
 
         % --- Connection -----------------------------------------------------
@@ -441,8 +564,7 @@ classdef SyringePump < gui.PopOut
                 UpdatePeriod   = obj.UpdatePeriod, ...
                 Port           = obj.StagedPort_, ...
                 ApplyOnStart   = false, ...
-                ShowConnection = obj.ShowConnection_, ...
-                ShowTriggers   = obj.ShowTriggers_, ...
+                Sections       = obj.Sections, ...
                 FontSize       = obj.FontSize_, ...
                 PreferenceTag  = obj.popOutPreferenceTag_());
         end
@@ -497,6 +619,20 @@ classdef SyringePump < gui.PopOut
             obj.Interface = iface;
             obj.OwnsInterface_ = true;
             vprintf(2, 'gui.SyringePump: no pump interface supplied; created a standalone one')
+        end
+
+        function seedSetting_(obj, name, value, default)
+            % Assign one setting at construction, falling back to the
+            % built-in default when the remembered value no longer validates
+            % (a syringe diameter saved before the property's range changed,
+            % a hand-edited preference).
+            try
+                obj.(name) = value;
+            catch ME
+                vprintf(1, ['gui.SyringePump: remembered %s is not usable (%s); ' ...
+                    'falling back to the default'], name, ME.message)
+                obj.(name) = default;
+            end
         end
 
         function tf = requireLink_(obj)
@@ -585,6 +721,9 @@ classdef SyringePump < gui.PopOut
             % then write the pump unless we are the ones reading it.
             obj.updateControl_(name);
             if obj.Applying_, return; end
+            if obj.FromUI_
+                obj.rememberSetting_(name, obj.(name));
+            end
             switch name
                 case 'Diameter'
                     obj.pushSetting_('Diameter', obj.Diameter, 'diameter');
@@ -633,8 +772,13 @@ classdef SyringePump < gui.PopOut
             obj.Timer = timer(Name = tname, ExecutionMode = 'fixedRate', ...
                 Period = obj.UpdatePeriod, BusyMode = 'drop', ...
                 TimerFcn = @(~,~) obj.timerTick_());
-            obj.poll_();
-            start(obj.Timer);
+
+            % A panel showing neither the volume nor the status has nothing
+            % to poll for, so it never starts asking the pump.
+            if any(ismember(["Volume","Status"], obj.Sections))
+                obj.poll_();
+                start(obj.Timer);
+            end
         end
 
         function timerTick_(obj)
@@ -726,15 +870,14 @@ classdef SyringePump < gui.PopOut
         % --- UI ---------------------------------------------------------------
 
         function buildUI_(obj, container)
+            % Every row is built whatever Sections says; applySectionVisibility_
+            % collapses the ones that are off. Building the whole panel once
+            % keeps toggling a section free of teardown, and keeps a hidden
+            % control's value live for the code that still writes it.
             fs = obj.FontSize_;
 
-            rows = {58, 20};
-            if obj.ShowConnection_, rows{end+1} = 26; end
-            rows = [rows, {26, 26, 34}];
-            if obj.ShowTriggers_, rows{end+1} = 30; end
-
-            g = uigridlayout(container, [numel(rows) 1]);
-            g.RowHeight   = rows;
+            g = uigridlayout(container, [numel(obj.ROW_NAMES) 1]);
+            g.RowHeight   = num2cell(obj.ROW_HEIGHTS);
             g.ColumnWidth = {'1x'};
             g.RowSpacing  = 4;
             g.Padding     = [6 6 6 6];
@@ -743,6 +886,7 @@ classdef SyringePump < gui.PopOut
 
             % --- Volume readout ------------------------------------------
             rg = uigridlayout(g, [2 1]);
+            obj.Rows_.Volume = rg;
             rg.RowHeight   = {'1x', 16};
             rg.ColumnWidth = {'1x'};
             rg.RowSpacing  = 0;
@@ -754,34 +898,36 @@ classdef SyringePump < gui.PopOut
 
             obj.H_.status = uilabel(g, Text = '', FontSize = fs - 1, ...
                 FontColor = obj.COLOR_IDLE, HorizontalAlignment = 'center');
+            obj.Rows_.Status = obj.H_.status;
 
             % --- Port ------------------------------------------------------
-            if obj.ShowConnection_
-                pg = uigridlayout(g, [1 4]);
-                pg.ColumnWidth = {'1x', 34, 60, 90};
-                pg.RowHeight   = {'1x'};
-                pg.ColumnSpacing = 4;
-                pg.Padding     = [0 0 0 0];
+            pg = uigridlayout(g, [1 4]);
+            pg.ColumnWidth = {'1x', 34, 60, 90};
+            pg.RowHeight   = {'1x'};
+            pg.ColumnSpacing = 4;
+            pg.Padding     = [0 0 0 0];
+            obj.Rows_.Port = pg;
 
-                [items, value] = obj.portItems_();
-                obj.H_.port = uidropdown(pg, Items = items, Value = value, ...
-                    FontSize = fs, Tooltip = 'Serial port the pump is attached to', ...
-                    ValueChangedFcn = @(src,~) obj.onPortPicked_(src.Value));
-                uibutton(pg, Text = 'Ports', FontSize = fs - 2, ...
-                    Tooltip = 'Re-read the list of serial ports', ...
-                    ButtonPushedFcn = @(~,~) obj.refreshPorts());
-                uibutton(pg, Text = 'Detect', FontSize = fs - 1, ...
-                    Tooltip = 'Probe every serial port for a pump', ...
-                    ButtonPushedFcn = @(~,~) obj.detectPort());
-                obj.H_.connect = uibutton(pg, Text = 'Connect', FontSize = fs, ...
-                    ButtonPushedFcn = @(~,~) obj.onConnectPressed_());
-            end
+            [items, value] = obj.portItems_();
+            obj.H_.port = uidropdown(pg, Items = items, Value = value, ...
+                FontSize = fs, Tooltip = 'Serial port the pump is attached to', ...
+                ValueChangedFcn = @(src,~) obj.onPortPicked_(src.Value));
+            obj.H_.ports = uibutton(pg, Text = 'Ports', FontSize = fs - 2, ...
+                Tooltip = 'Re-read the list of serial ports', ...
+                ButtonPushedFcn = @(~,~) obj.refreshPorts());
+            obj.H_.detect = uibutton(pg, Text = 'Detect', FontSize = fs - 1, ...
+                Tooltip = 'Probe every serial port for a pump', ...
+                ButtonPushedFcn = @(~,~) obj.detectPort());
+            obj.H_.connect = uibutton(pg, Text = 'Connect', FontSize = fs, ...
+                ButtonPushedFcn = @(~,~) obj.onConnectPressed_());
 
             % --- Diameter / rate ------------------------------------------
-            obj.H_.diameter = obj.addNumericRow_(g, 'Diameter (mm)', obj.Diameter, ...
+            [obj.H_.diameter, obj.Rows_.Diameter] = obj.addNumericRow_(g, ...
+                'Diameter (mm)', obj.Diameter, ...
                 '%.2f', [0.1 50], @(v) obj.onEditChanged_('Diameter', v), ...
                 'Inside diameter of the loaded syringe; the pump scales every rate and volume by it');
-            obj.H_.rate = obj.addNumericRow_(g, sprintf('Rate (%s)', obj.rateLabel_()), ...
+            [obj.H_.rate, obj.Rows_.Rate] = obj.addNumericRow_(g, ...
+                sprintf('Rate (%s)', obj.rateLabel_()), ...
                 obj.Rate, '%.4g', [0 Inf], @(v) obj.onEditChanged_('Rate', v), ...
                 'Pumping rate; the usable range depends on the syringe diameter');
 
@@ -790,6 +936,7 @@ classdef SyringePump < gui.PopOut
             dg.ColumnWidth = {110, '1x'};
             dg.RowHeight   = {'1x'};
             dg.Padding     = [0 0 0 0];
+            obj.Rows_.Direction = dg;
             uilabel(dg, Text = 'Direction', FontSize = fs);
             obj.H_.direction = uiswitch(dg, 'slider', Items = {'Infuse','Withdraw'}, ...
                 Value = obj.Direction, FontSize = fs - 1, ...
@@ -797,39 +944,149 @@ classdef SyringePump < gui.PopOut
                 ValueChangedFcn = @(src,~) obj.onEditChanged_('Direction', src.Value));
 
             % --- Triggers ---------------------------------------------------
-            if obj.ShowTriggers_
-                bg = uigridlayout(g, [1 3]);
-                bg.ColumnWidth = {'1x','1x','1x'};
-                bg.RowHeight   = {'1x'};
-                bg.ColumnSpacing = 4;
-                bg.Padding     = [0 0 0 0];
-                uibutton(bg, Text = 'Start', FontSize = fs, FontWeight = 'bold', ...
-                    Tooltip = 'Run the pump (stops itself once the pump''s volume target is met)', ...
-                    ButtonPushedFcn = @(~,~) obj.startPump());
-                uibutton(bg, Text = 'Stop', FontSize = fs, FontWeight = 'bold', ...
-                    ButtonPushedFcn = @(~,~) obj.stopPump());
-                uibutton(bg, Text = 'Zero', FontSize = fs, ...
-                    Tooltip = 'Clear the dispensed-volume accumulators', ...
-                    ButtonPushedFcn = @(~,~) obj.zeroVolume());
-            end
+            bg = uigridlayout(g, [1 3]);
+            bg.ColumnWidth = {'1x','1x','1x'};
+            bg.RowHeight   = {'1x'};
+            bg.ColumnSpacing = 4;
+            bg.Padding     = [0 0 0 0];
+            obj.Rows_.Triggers = bg;
+            obj.H_.start = uibutton(bg, Text = 'Start', FontSize = fs, FontWeight = 'bold', ...
+                Tooltip = 'Run the pump (stops itself once the pump''s volume target is met)', ...
+                ButtonPushedFcn = @(~,~) obj.startPump());
+            obj.H_.stop = uibutton(bg, Text = 'Stop', FontSize = fs, FontWeight = 'bold', ...
+                ButtonPushedFcn = @(~,~) obj.stopPump());
+            obj.H_.zero = uibutton(bg, Text = 'Zero', FontSize = fs, ...
+                Tooltip = 'Clear the dispensed-volume accumulators', ...
+                ButtonPushedFcn = @(~,~) obj.zeroVolume());
 
             obj.updateReadoutLabels_();
             obj.createContextMenu_();
+            obj.applySectionVisibility_();
 
             obj.DestroyListener_ = listener(g, 'ObjectBeingDestroyed', @(~,~) delete(obj));
         end
 
-        function h = addNumericRow_(obj, parent, label, value, format, limits, fcn, tip)
-            % One labeled numeric edit field, returned for later updates.
-            rg = uigridlayout(parent, [1 2]);
-            rg.ColumnWidth = {110, '1x'};
-            rg.RowHeight   = {'1x'};
-            rg.Padding     = [0 0 0 0];
-            uilabel(rg, Text = label, FontSize = obj.FontSize_);
-            h = uieditfield(rg, 'numeric', Value = value, ...
+        function [h, row] = addNumericRow_(obj, parent, label, value, format, limits, fcn, tip)
+            % One labeled numeric edit field; also returns the row container
+            % so the section machinery can collapse it.
+            row = uigridlayout(parent, [1 2]);
+            row.ColumnWidth = {110, '1x'};
+            row.RowHeight   = {'1x'};
+            row.Padding     = [0 0 0 0];
+            uilabel(row, Text = label, FontSize = obj.FontSize_);
+            h = uieditfield(row, 'numeric', Value = value, ...
                 Limits = limits, LowerLimitInclusive = 'on', ...
                 ValueDisplayFormat = format, FontSize = obj.FontSize_, ...
                 Tooltip = tip, ValueChangedFcn = @(src,~) fcn(src.Value));
+        end
+
+        % --- Section visibility ------------------------------------------------
+
+        function names = normalizeSections_(obj, value)
+            % Expand aliases, drop duplicates, and keep the canonical layout
+            % order so Sections always reads back the same way it is compared.
+            % An unrecognized name is reported and skipped rather than thrown:
+            % a typo in a build method must not stop the GUI from opening.
+            value = reshape(string(value), 1, []);
+            names = string.empty(1, 0);
+
+            for v = value
+                if strcmpi(v, "All")
+                    names = [names, obj.SECTIONS];
+                    continue
+                end
+                if strcmpi(v, "None")
+                    continue
+                end
+
+                k = find(strcmpi(obj.ALIAS_NAMES, v), 1);
+                if ~isempty(k)
+                    names = [names, obj.ALIAS_MEMBERS{k}];
+                    continue
+                end
+
+                k = find(strcmpi(obj.SECTIONS, v), 1);
+                if isempty(k)
+                    vprintf(1, ['gui.SyringePump: "%s" is not a section of this panel; ' ...
+                        'valid names are %s (or All/None)'], v, ...
+                        strjoin([obj.SECTIONS, string(obj.ALIAS_NAMES)], ', '))
+                    continue
+                end
+                names(end+1) = obj.SECTIONS(k);
+            end
+
+            names = obj.SECTIONS(ismember(obj.SECTIONS, names));
+        end
+
+        function onSectionsChanged_(obj)
+            % Tail of the Sections setter: reflow, and remember the layout
+            % when the operator was the one who changed it.
+            obj.applySectionVisibility_();
+            if obj.FromUI_
+                obj.rememberSetting_('Sections', obj.Sections);
+            end
+        end
+
+        function applySectionVisibility_(obj)
+            % Collapse each row whose sections are all hidden, and blank the
+            % individual controls inside the two rows that hold several.
+            if ~obj.hasControl_('root'), return; end
+
+            heights = obj.ROW_HEIGHTS;
+            for i = 1:numel(obj.ROW_NAMES)
+                name = obj.ROW_NAMES{i};
+                on = any(ismember(obj.ROW_SECTIONS{i}, obj.Sections));
+                if ~on
+                    heights(i) = 0;
+                end
+                if isfield(obj.Rows_, name) && ~isempty(obj.Rows_.(name)) && isvalid(obj.Rows_.(name))
+                    obj.Rows_.(name).Visible = matlab.lang.OnOffSwitchState(on);
+                end
+            end
+            obj.H_.root.RowHeight = num2cell(heights);
+
+            % Port row: the dropdown, its refresh, and the connect button move
+            % together as "Port"; probing is its own section.
+            port   = ismember("Port", obj.Sections);
+            detect = ismember("Detect", obj.Sections);
+            obj.setItemVisible_('port',    port);
+            obj.setItemVisible_('ports',   port);
+            obj.setItemVisible_('connect', port);
+            obj.setItemVisible_('detect',  detect);
+            if obj.hasControl_('port')
+                widths = {'1x', 34, 60, 90};
+                if ~port
+                    widths([1 2 4]) = {0};
+                end
+                if ~detect
+                    widths{3} = 0;
+                end
+                obj.Rows_.Port.ColumnWidth = widths;
+            end
+
+            % Trigger row: one column per button, so a hidden one gives its
+            % width to the others rather than leaving a gap.
+            trig = ismember(["Start","Stop","Zero"], obj.Sections);
+            obj.setItemVisible_('start', trig(1));
+            obj.setItemVisible_('stop',  trig(2));
+            obj.setItemVisible_('zero',  trig(3));
+            if obj.hasControl_('start')
+                widths = {'1x', '1x', '1x'};
+                widths(~trig) = {0};
+                obj.Rows_.Triggers.ColumnWidth = widths;
+            end
+
+            % Nothing to read out means nothing worth asking the pump for.
+            if any(ismember(["Volume","Status"], obj.Sections))
+                obj.startPolling();
+            else
+                obj.stopPolling();
+            end
+        end
+
+        function setItemVisible_(obj, name, tf)
+            if ~obj.hasControl_(name), return; end
+            obj.H_.(name).Visible = matlab.lang.OnOffSwitchState(tf);
         end
 
         function tf = hasControl_(obj, name)
@@ -947,20 +1204,23 @@ classdef SyringePump < gui.PopOut
                 port = '';
             end
             obj.StagedPort_ = port;
-            obj.savePreferences_();
+            obj.rememberSetting_('Port', port);
             obj.refreshPorts();
             obj.updateLinkUI_();
         end
 
         function onEditChanged_(obj, name, value)
             % A control moved: assign through the property so programmatic
-            % and manual changes take exactly the same path.
+            % and manual changes take exactly the same path, flagged as the
+            % operator's so it is remembered for the next session.
+            obj.FromUI_ = true;
             try
                 obj.(name) = value;
             catch ME
                 vprintf(0, 1, ME)
                 obj.updateControl_(name);
             end
+            obj.FromUI_ = false;
         end
 
         function [items, value] = portItems_(obj)
@@ -999,10 +1259,15 @@ classdef SyringePump < gui.PopOut
             end
         end
 
-        function port = initialPort_(obj, requested)
-            % Port preselected at construction: the caller's, else the
-            % interface's own, else the one last used in this GUI.
-            port = char(requested);
+        function port = initialPort_(obj, options, saved)
+            % Port preselected at construction: the caller's, else the one
+            % the interface is already configured for (a protocol saved it
+            % with the pump, and it outranks this panel's memory), else the
+            % one the operator last picked here.
+            port = '';
+            if isfield(options, 'Port')
+                port = char(options.Port);
+            end
             if ~isempty(port), return; end
             try
                 if ~isempty(obj.Interface) && isvalid(obj.Interface)
@@ -1010,34 +1275,49 @@ classdef SyringePump < gui.PopOut
                 end
             catch
             end
-            if isempty(port)
-                port = obj.loadPreferences_();
+            if isempty(port) && isfield(saved, 'Port')
+                port = char(saved.Port);
             end
         end
 
         % --- Context menu ------------------------------------------------------
 
         function createContextMenu_(obj)
+            % Right-click menu. The two submenus are rebuilt every time the
+            % menu opens: check marks track Sections, and the value entries
+            % show what they would change, so every setting stays reachable
+            % from here even when its row is hidden -- which is the point of
+            % being able to hide it.
             f = ancestor(obj.Parent, 'figure');
             if isempty(f) || ~isvalid(f), return; end
 
             try
                 cm = uicontextmenu(f);
                 obj.ContextMenu = cm;
-                uimenu(cm, Text = 'Refresh From Pump', ...
+                obj.ShowMenuH_  = uimenu(cm, Text = 'Show');
+                obj.ValueMenuH_ = uimenu(cm, Text = 'Set Value');
+                uimenu(cm, Text = 'Refresh From Pump', Separator = 'on', ...
                     MenuSelectedFcn = @(~,~) obj.refresh());
                 uimenu(cm, Text = 'Refresh Port List', ...
                     MenuSelectedFcn = @(~,~) obj.refreshPorts());
-                uimenu(cm, Text = 'Zero Dispensed Volume', Separator = 'on', ...
+                uimenu(cm, Text = 'Zero Dispensed Volume', ...
                     MenuSelectedFcn = @(~,~) obj.zeroVolume());
                 obj.addPopOutMenu_(cm);
+
+                try
+                    cm.ContextMenuOpeningFcn = @(~,~) obj.refreshMenus_();
+                catch
+                    cm.Callback = @(~,~) obj.refreshMenus_();
+                end
             catch ME
                 vprintf(3, 'gui.SyringePump: context menu unavailable: %s', ME.message)
                 obj.ContextMenu = [];
                 return
             end
 
-            targets = {obj.H_.root, obj.H_.value, obj.H_.caption, obj.H_.status};
+            % Attached to everything clickable: with most sections hidden,
+            % the readout or the bare panel may be all there is to aim at.
+            targets = [{obj.H_.root}, struct2cell(obj.Rows_)', struct2cell(obj.H_)'];
             for k = 1:numel(targets)
                 h = targets{k};
                 if isempty(h) || ~isgraphics(h) || ~isvalid(h), continue; end
@@ -1049,31 +1329,165 @@ classdef SyringePump < gui.PopOut
             end
         end
 
-        % --- Preferences (the port only) ---------------------------------------
+        function refreshMenus_(obj)
+            obj.refreshShowMenu_();
+            obj.refreshValueMenu_();
+        end
 
-        function port = loadPreferences_(obj)
-            % The port is the one setting worth remembering: it is
-            % machine-specific and identical from session to session, while
-            % diameter and rate belong to the protocol or the caller.
-            port = '';
+        function refreshShowMenu_(obj)
+            % One checkable entry per section, plus Show All and a reset to
+            % whatever layout the hosting GUI asked for.
+            m = obj.ShowMenuH_;
+            if isempty(m) || ~isvalid(m), return; end
+            delete(m.Children);
+
+            for name = obj.SECTIONS
+                item = uimenu(m, Text = char(name), ...
+                    MenuSelectedFcn = @(~,~) obj.toggleSection_(name));
+                item.Checked = ismember(name, obj.Sections);
+            end
+
+            uimenu(m, Text = 'Show All', Separator = 'on', ...
+                Enable = matlab.lang.OnOffSwitchState(numel(obj.Sections) < numel(obj.SECTIONS)), ...
+                MenuSelectedFcn = @(~,~) obj.setSectionsFromUI_(obj.SECTIONS));
+            uimenu(m, Text = 'Reset to Default', ...
+                MenuSelectedFcn = @(~,~) obj.resetSections_());
+        end
+
+        function refreshValueMenu_(obj)
+            % Every setting, labeled with its current value, so a hidden row
+            % is still adjustable without unhiding it.
+            m = obj.ValueMenuH_;
+            if isempty(m) || ~isvalid(m), return; end
+            delete(m.Children);
+
+            uimenu(m, Text = sprintf('Diameter (%.2f mm)...', obj.Diameter), ...
+                MenuSelectedFcn = @(~,~) obj.promptValue_('Diameter'));
+            uimenu(m, Text = sprintf('Rate (%.4g %s)...', obj.Rate, obj.rateLabel_()), ...
+                MenuSelectedFcn = @(~,~) obj.promptValue_('Rate'));
+
+            dm = uimenu(m, Text = sprintf('Direction (%s)', obj.Direction));
+            for d = {'Infuse', 'Withdraw'}
+                item = uimenu(dm, Text = d{1}, ...
+                    MenuSelectedFcn = @(~,~) obj.onEditChanged_('Direction', d{1}));
+                item.Checked = strcmp(obj.Direction, d{1});
+            end
+
+            label = obj.StagedPort_;
+            if isempty(label), label = 'none'; end
+            pm = uimenu(m, Text = sprintf('Port (%s)', label), Separator = 'on');
+            items = obj.portItems_();
+            for i = 1:numel(items)
+                item = uimenu(pm, Text = items{i}, ...
+                    MenuSelectedFcn = @(~,~) obj.selectPort_(items{i}));
+                item.Checked = strcmp(items{i}, obj.StagedPort_);
+            end
+            uimenu(pm, Text = 'Detect...', Separator = 'on', ...
+                MenuSelectedFcn = @(~,~) obj.detectPort());
+
+            if obj.IsConnected
+                uimenu(m, Text = 'Disconnect', MenuSelectedFcn = @(~,~) obj.disconnect());
+            else
+                uimenu(m, Text = 'Connect', ...
+                    Enable = matlab.lang.OnOffSwitchState(~isempty(obj.StagedPort_)), ...
+                    MenuSelectedFcn = @(~,~) obj.connect());
+            end
+        end
+
+        function toggleSection_(obj, name)
+            if ismember(name, obj.Sections)
+                sel = setdiff(obj.Sections, name, 'stable');
+            else
+                sel = [obj.Sections, name];
+            end
+            obj.setSectionsFromUI_(sel);
+        end
+
+        function setSectionsFromUI_(obj, sel)
+            % An operator's layout choice, which is the kind that persists.
+            obj.FromUI_ = true;
+            obj.Sections = sel;
+            obj.FromUI_ = false;
+        end
+
+        function resetSections_(obj)
+            % Back to the layout the hosting GUI asked for, and forget the
+            % operator's -- otherwise the saved one would win again next time.
+            obj.Sections = obj.DefaultSections_;
+            obj.forgetPreferences_();
+        end
+
+        function promptValue_(obj, name)
+            % Prompt for one numeric setting. inputdlg opens its own dialog,
+            % so it works from a uifigure; a cancelled or unparseable entry
+            % is ignored.
+            switch name
+                case 'Diameter'
+                    prompt = 'Syringe inside diameter (mm), 0.1-50:';
+                    dflt = sprintf('%.2f', obj.Diameter);
+                otherwise
+                    prompt = sprintf('Pumping rate (%s):', obj.rateLabel_());
+                    dflt = sprintf('%.4g', obj.Rate);
+            end
+
+            try
+                a = inputdlg({prompt}, sprintf('Set %s', name), [1 40], {dflt});
+            catch ME
+                vprintf(0, 1, 'gui.SyringePump: cannot prompt for %s: %s', name, ME.message)
+                return
+            end
+            if isempty(a), return; end
+
+            v = str2double(strtrim(a{1}));
+            if ~isfinite(v)
+                vprintf(0, 1, 'gui.SyringePump: "%s" is not a number', strtrim(a{1}))
+                return
+            end
+            obj.onEditChanged_(name, v);
+        end
+
+        % --- Remembered configuration --------------------------------------------
+
+        function s = loadPreferences_(obj)
+            % What the operator configured in this panel last time: which
+            % sections were shown, the port, and any value they set here.
+            % Only ever holds what the operator changed through the panel --
+            % a value a paradigm assigned is the paradigm's to reassert, not
+            % something to resurrect a session later.
+            s = struct();
             try
                 pname = obj.preferenceName_();
                 if ~ispref(obj.PREF_GROUP, pname), return; end
                 s = getpref(obj.PREF_GROUP, pname);
-                if isfield(s, 'Port')
-                    port = char(s.Port);
-                end
+                if ~isstruct(s), s = struct(); return; end
+                vprintf(3, 'gui.SyringePump: loaded saved configuration "%s"', pname)
             catch ME
                 vprintf(2, 'gui.SyringePump: failed to load preferences: %s', ME.message)
+                s = struct();
             end
+        end
+
+        function rememberSetting_(obj, name, value)
+            % Record one operator-made change and persist the lot.
+            obj.UserPrefs_.(name) = value;
+            obj.savePreferences_();
         end
 
         function savePreferences_(obj)
             try
-                setpref(obj.PREF_GROUP, obj.preferenceName_(), struct('Port', obj.StagedPort_));
+                setpref(obj.PREF_GROUP, obj.preferenceName_(), obj.UserPrefs_);
             catch ME
                 vprintf(2, 'gui.SyringePump: failed to save preferences: %s', ME.message)
             end
+        end
+
+        function forgetPreferences_(obj)
+            % Drop the remembered layout, so the next session opens with the
+            % layout its build method asked for.
+            if isfield(obj.UserPrefs_, 'Sections')
+                obj.UserPrefs_ = rmfield(obj.UserPrefs_, 'Sections');
+            end
+            obj.savePreferences_();
         end
 
         function n = preferenceName_(obj)
@@ -1116,6 +1530,21 @@ classdef SyringePump < gui.PopOut
 
 
     methods (Static, Access = private)
+
+        function v = pick_(options, saved, name, default, useSaved)
+            % Resolve one setting: what the caller asked for, else what the
+            % operator left behind, else the built-in default. An option
+            % declared with no default in the arguments block is simply
+            % absent when it was not supplied, which is what makes the first
+            % of those three distinguishable from the others.
+            if isfield(options, name)
+                v = options.(name);
+            elseif useSaved && isfield(saved, name) && ~isempty(saved.(name))
+                v = saved.(name);
+            else
+                v = default;
+            end
+        end
 
         function n = nextInstanceId_()
             persistent counter

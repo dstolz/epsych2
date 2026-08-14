@@ -479,22 +479,27 @@ classdef (Abstract) BoxGUI < handle
             % Create a gui.SyringePump panel over this session's hw.NE1000
             % and register it for teardown. With no pump in the protocol the
             % panel constructs a standalone interface and offers a port to
-            % connect on, so the GUI still opens. See gui.SyringePump.
+            % connect on, so the GUI still opens. Use Sections to show only
+            % part of the panel. See gui.SyringePump.
+            %
+            % Options are deliberately declared without defaults: only what
+            % the build method actually passes is forwarded, which is what
+            % lets the panel fall back to the operator's own remembered
+            % configuration for everything else.
             arguments
                 obj
                 parent (1,1)
-                options.Diameter (1,1) double = 21.59
-                options.Rate (1,1) double = 0.7
-                options.Direction (1,:) char = 'Infuse'
-                options.RateUnits (1,2) char = 'UM'
-                options.VolumeUnits (1,:) char = 'uL'
-                options.UpdatePeriod (1,1) double = 0.25
-                options.Port (1,:) char = ''
-                options.ApplyOnStart (1,1) logical = true
-                options.ShowConnection (1,1) logical = true
-                options.ShowTriggers (1,1) logical = true
-                options.FontSize (1,1) double = 12
-                options.PreferenceTag (1,:) char = ''
+                options.Diameter (1,1) double
+                options.Rate (1,1) double
+                options.Direction (1,:) char
+                options.RateUnits (1,2) char
+                options.VolumeUnits (1,:) char
+                options.UpdatePeriod (1,1) double
+                options.Port (1,:) char
+                options.ApplyOnStart (1,1) logical
+                options.Sections (1,:) string
+                options.FontSize (1,1) double
+                options.PreferenceTag (1,:) char
             end
 
             args = namedargs2cell(options);

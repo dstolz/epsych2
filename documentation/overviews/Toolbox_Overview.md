@@ -47,10 +47,10 @@ epsych.RunExpt
 | Design a protocol | `epsych.ProtocolDesigner` | Build or edit experiment structure, parameters, and options, then save it as an `.eprot` protocol file. |
 | Compile or inspect protocols | ProtocolDesigner's **Compile Protocol** / **Compiled Preview** | Turn protocol definitions into runtime-ready trial lists and preview them before running. |
 | Run an experiment | `epsych.RunExpt` | Configure subjects, associate protocol files, preview trials, and run or record experiments. |
-| Add subject/session metadata | **Add Subject** button in RunExpt | Collect subject information for a session. Uses a built-in dialog by default; labs can substitute their own. |
+| Manage subjects and put them in a session | **Subjects** button in RunExpt (`Ctrl+B`) | Pick a project, tick today's animals, and commit them with a free box and the protocol each last ran. New animals are created through the same window, with a built-in dialog by default that labs can substitute. See [../gui/gui_SubjectManager.md](../gui/gui_SubjectManager.md). |
 | Preview or play stimuli | `stimgen.StimPlayer` | Build a bank of stimuli, preview them through the speakers, and optionally play them through hardware. |
 | Calibrate sound output | `epsych.calibrate` (or RunExpt's **Utilities > StimGen > Calibration GUI...**) | Open the stimgen calibration GUI already wired to EPsych hardware; measure and save speaker calibration so requested dB SPL levels map to correct output voltages. See [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md). |
-| Adjust parameters between sessions | Phase files and the phase selector in task GUIs | Save and reload named parameter sets (JSON) so training phases can be switched without editing the protocol. |
+| Adjust parameters between sessions | Phase files and the phase selector in task GUIs | Save and reload named parameter sets — a phase is an `.eprot` file; legacy JSON snapshots still load but are no longer written — so training phases can be switched without editing the protocol. |
 | Use common utilities | `helpers/` | Shared functions for logging, GUI support, timing, randomization, and analysis used across the toolbox. |
 
 ## What each major area means

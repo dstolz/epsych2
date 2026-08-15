@@ -40,9 +40,9 @@ classdef (Abstract) BoxGUI < handle
     %   over the same data, so it never disturbs the embedded one.
     %
     %   NewData listener source: when createPsych returns a psychophysics
-    %   object, NewData is taken from Psych.Helper so the psych object has
+    %   object, NewData is taken from Psych.Events so the psych object has
     %   already processed the trial before onNewData runs; otherwise
-    %   NewData comes from RUNTIME.HELPER directly.
+    %   NewData comes from RUNTIME.EVENTS directly.
     %
     % Documentation: documentation/gui/gui_BoxGUI.md
     % See also gui.Parameter_Control, gui.Parameter_Update,
@@ -125,14 +125,14 @@ classdef (Abstract) BoxGUI < handle
 
             obj.wireUpdateButtons_();
 
-            H = RUNTIME.HELPER;
+            H = RUNTIME.EVENTS;
             if ~isempty(H) && isvalid(H)
                 obj.hl_NewTrial   = listener(H, 'NewTrial',   @obj.dispatchNewTrial_);
                 obj.hl_ModeChange = listener(H, 'ModeChange', @obj.dispatchModeChange_);
 
                 newDataSrc = H;
                 if ~isempty(obj.Psych) && isvalid(obj.Psych)
-                    newDataSrc = obj.Psych.Helper;
+                    newDataSrc = obj.Psych.Events;
                 end
                 obj.hl_NewData = listener(newDataSrc, 'NewData', @obj.dispatchNewData_);
             end
@@ -580,7 +580,7 @@ classdef (Abstract) BoxGUI < handle
     methods (Access = protected)
 
         function p = createPsych(obj, RUNTIME)
-            % Override to create a psychophysics object; its Helper then
+            % Override to create a psychophysics object; its Events broadcaster then
             % becomes the NewData listener source.
             p = [];
         end

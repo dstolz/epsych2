@@ -102,13 +102,13 @@ switch COMMAND
         end
 
         % copy default data path to RUNTIME for use in timer functions and trial selectors
-        self.RUNTIME.dfltDataPath = self.dfltDataPath;
+        self.RUNTIME.DefaultDataPath = self.DefaultDataPath;
 
         % Reserve each subject's data filename here rather than in the Start
         % timer function: the recording is named after subject 1's data file,
         % but it has to launch before the timer runs (see below).
         self.RUNTIME.SessionDataFilename = arrayfun(@(c) string(epsych.RunExpt.defaultFilename( ...
-            fullfile(self.dfltDataPath, c.SUBJECT.Name), c.SUBJECT.Name)), self.CONFIG);
+            fullfile(self.DefaultDataPath, c.SUBJECT.Name), c.SUBJECT.Name)), self.CONFIG);
 
         % make temporary directory for storing data during runtime in case of a computer crash
         E_ = EPsychInfo;
@@ -117,7 +117,7 @@ switch COMMAND
         end
         if ~isfolder(self.RUNTIME.TempDataDir), mkdir(self.RUNTIME.TempDataDir); end
 
-        self.RUNTIME.HELPER = epsych.Helper;
+        self.RUNTIME.EVENTS = epsych.EventHub;
         self.H.modeIndicator.attachRuntime(self.RUNTIME);
 
         self.RUNTIME.TIMER = self.CreateTimer;
@@ -145,7 +145,7 @@ switch COMMAND
 
     case "Pause"
 
-        self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Pause));
+        self.RUNTIME.EVENTS.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Pause));
         % STATE stays RUNNING through a pause, so this message is not
         % displaced by a state message until the session stops.
         self.setStatus('Pause broadcast to all listeners.','press Stop to end the session.')
@@ -155,7 +155,7 @@ switch COMMAND
         set(self.H.figure1,'pointer','watch')
         self.setStatus('Stopping session...')
 
-        self.RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Stop));
+        self.RUNTIME.EVENTS.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Stop));
 
         vprintf(3,'ExptDispatch: Stopping BoxTimer')
         t = timerfindall('Name','BoxTimer');

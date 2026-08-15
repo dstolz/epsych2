@@ -4,7 +4,7 @@
 
 It replaces the legacy standalone function `cl_TrialSelection_Appetitive_StimDetect.m`, which has been removed.
 
-Implementation: [cl/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m](../../cl/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m)
+Implementation: [paradigms/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m](../../paradigms/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m)
 
 Base-class reference: [../epsych/epsych_TrialSelector.md](../epsych/epsych_TrialSelector.md)
 
@@ -183,8 +183,8 @@ Like `P_Catch_Current`, the parameter is created on the `hw.Software` interface 
 
 ## Related files
 
-- [cl/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m](../../cl/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m)
-- [cl/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m](../../cl/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m) — the task GUI that exposes these parameters
+- [paradigms/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m](../../paradigms/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m)
+- [paradigms/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m](../../paradigms/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m) — the task GUI that exposes these parameters
 - [tmp/smoke_test_pcatch_hazard.m](../../tmp/smoke_test_pcatch_hazard.m) — hazard-schedule and end-to-end selector tests
 - [cl_SaveDataFcn.md](cl_SaveDataFcn.md) — the task's save function
 - [../epsych/epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md) — where trial selection happens in a session

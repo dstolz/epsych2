@@ -198,12 +198,12 @@ try
 
     R4 = epsych.Runtime;
     R4.isTest = true;
-    R4.HELPER = epsych.Helper;
+    R4.EVENTS = epsych.EventHub;
     R4.Interfaces = P4.Interfaces;
     R4.Protocol = P4;
     dataDir = tempname; mkdir(dataDir);
     cleanupDataDir = onCleanup(@() rmdir(dataDir, 's'));
-    R4.dfltDataPath = dataDir;
+    R4.DefaultDataPath = dataDir;
     R4.TempDataDir = dataDir;
 
     subject = epsych.DefaultSubject(struct('Name', 'WOSubject', ...

@@ -20,7 +20,7 @@ EPsych major classes
 │  ├─ ProtocolDesigner
 │  ├─ RunExpt
 │  ├─ Runtime
-│  ├─ Helper
+│  ├─ EventHub
 │  ├─ TrialSelector
 │  │  └─ DefaultTrialSelector
 │  ├─ Subject
@@ -156,7 +156,7 @@ This view is not inheritance. It shows the main runtime relationships during a t
 flowchart TD
    A[Protocol design<br/>epsych.ProtocolDesigner<br/>epsych.Protocol] --> B[epsych.RunExpt<br/>session controller]
     B --> C[epsych.Runtime<br/>shared session state]
-    C --> D[epsych.Helper<br/>event hub]
+    C --> D[epsych.EventHub<br/>event hub]
     C --> E[hw.Interface]
     E --> E1[hw.TDT_Synapse]
     E --> E2[hw.TDT_RPcox]
@@ -199,7 +199,7 @@ Session control
    ↓
 Runtime state and events
 ├─ epsych.Runtime
-└─ epsych.Helper
+└─ epsych.EventHub
    ↓
 Hardware layer
 ├─ hw.Interface
@@ -238,7 +238,7 @@ Task and support branches
 | Hardware control | `epsych.Runtime -> hw.Interface -> hw.Module -> hw.Parameter` |
 | Backend bridge | `hw.TDT_Synapse -> SynapseAPI`, `hw.TDT_RPcox -> TDTRP` |
 | Trial selection | `ep_TimerFcn_Start -> epsych.TrialSelector.create(...) -> selector subclass` |
-| Online analysis | `epsych.Helper events -> psychophysics.Psych subclasses` |
+| Online analysis | `epsych.EventHub events -> psychophysics.Psych subclasses` |
 | Parameter GUIs | `gui.Parameter_* <-> hw.Parameter` |
 | Task GUIs | `cl.* -> epsych.Runtime -> psychophysics.* + gui.*` |
 
@@ -252,7 +252,7 @@ If you are tracing a live experiment session, the fastest route through the code
 4. `hw.Module` and `hw.Parameter`
 5. task GUI classes and psychophysics analysis classes attached to the runtime
 
-If you are tracing online plots or task summaries, start with the task GUI class and then follow its references into `psychophysics.*`, `gui.*`, and the `Runtime.Helper` event path.
+If you are tracing online plots or task summaries, start with the task GUI class and then follow its references into `psychophysics.*`, `gui.*`, and the `Runtime.EVENTS` event path.
 
 ## Related documentation
 

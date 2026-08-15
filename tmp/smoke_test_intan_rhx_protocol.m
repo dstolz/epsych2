@@ -20,7 +20,7 @@ end
 
 function rt = makeRuntime(dataFilename, isTest)
     rt = epsych.Runtime;
-    rt.dfltDataPath = "C:/IntanData";
+    rt.DefaultDataPath = "C:/IntanData";
     rt.isTest = isTest;
     rt.SessionDataFilename = string(dataFilename);
 end

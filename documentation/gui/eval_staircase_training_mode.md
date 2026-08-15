@@ -28,7 +28,7 @@ When `event.Value` is true, the callback:
 - Stores the current `Parameter.isRandom` state in `Parameter.UserData.STAIRCASE.isRandom`, and suspends `RepeatDelayOnAbort` the same way — **only** when training was not already on.
 - Forces `Parameter.isRandom = false`.
 - Opens or focuses a `gui.StaircaseTraining` window for the parameter.
-- Registers a `NewData` listener on `obj.RUNTIME.HELPER`.
+- Registers a `NewData` listener on `obj.RUNTIME.EVENTS`.
 
 When `event.Value` is false, the callback:
 

@@ -21,8 +21,8 @@ classdef ExampleBoxGUI < gui.BoxGUI
     methods (Access = protected)
         function p = createPsych(obj, R)
             % Optional: track behavior with a psychophysics object; its
-            % Helper becomes the GUI's NewData source. Return [] to listen
-            % to RUNTIME.HELPER directly.
+            % Events broadcaster becomes the GUI's NewData source. Return [] to listen
+            % to RUNTIME.EVENTS directly.
             p = [];
             if isfield(obj.P, 'Depth')
                 p = psychophysics.Staircase(R, obj.P.Depth);

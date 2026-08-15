@@ -139,10 +139,10 @@ try
 
     R = epsych.Runtime;
     R.isTest = true;
-    R.HELPER = epsych.Helper;
+    R.EVENTS = epsych.EventHub;
     R.Interfaces = P.Interfaces;
     R.Protocol = P;
-    R.dfltDataPath = tmpDir;
+    R.DefaultDataPath = tmpDir;
     R.TempDataDir = tmpDir;
 
     subject = epsych.DefaultSubject(struct('Name', 'PersistSubject', ...
@@ -220,7 +220,7 @@ end
 
 % ===== E. The selector marks its own toggle =============================
 try
-    src = fileread(fullfile(here, '..', 'cl', 'TrialSelectors', ...
+    src = fileread(fullfile(here, '..', 'paradigms', 'TrialSelectors', ...
         '@cl_AppetitiveStimDetect', 'cl_AppetitiveStimDetect.m'));
     tok = regexp(src, "ensureSelectorParameter_\('CatchTrialsEnabled'.*?\);", ...
         'match', 'once');

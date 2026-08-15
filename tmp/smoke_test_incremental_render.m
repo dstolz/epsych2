@@ -194,7 +194,7 @@ axA = uiaxes(figA);
 Sinc.Plot(axA);
 
 for k = 1:N
-    R.HELPER.notify('NewData',epsych.TrialsData( ...
+    R.EVENTS.notify('NewData',epsych.TrialsData( ...
         struct('DATA',{D(1:k)},'Subject','FakeSubject','BoxID',1)));
 end
 

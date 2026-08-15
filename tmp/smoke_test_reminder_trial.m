@@ -328,10 +328,10 @@ P.compile();
 
 rt = epsych.Runtime;
 rt.isTest       = true;
-rt.HELPER       = epsych.Helper;
+rt.EVENTS       = epsych.EventHub;
 rt.Interfaces   = P.Interfaces;
 rt.Protocol     = P;
-rt.dfltDataPath = tmpDir;
+rt.DefaultDataPath = tmpDir;
 rt.TempDataDir  = tmpDir;
 
 subject = epsych.DefaultSubject(struct('Name','ReminderSubject', ...

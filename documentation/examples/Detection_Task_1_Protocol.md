@@ -76,7 +76,7 @@ p.Access = 'Read';
 
 Every protocol must define the three core triggers for each box —
 `x_NewTrial_<BoxID>`, `x_ResetTrig_<BoxID>`, `x_TrialComplete_<BoxID>` — or the
-runtime refuses to start (`epsych.Runtime.resolveCoreParameters`). On TDT
+runtime refuses to start (`epsych.Runtime.resolveTriggerParameters`). On TDT
 hardware these are RPvds tags discovered from the circuit; on a software rig
 they are declared directly:
 

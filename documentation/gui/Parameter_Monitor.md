@@ -177,7 +177,7 @@ M.poll_parameters()      % force an immediate refresh
 
 ## Example: appetitive detection info panel
 
-`cl/@cl_AppetitiveDetection_GUI_B/create_gui.m` monitors ten runtime
+`paradigms/@cl_AppetitiveDetection_GUI_B/create_gui.m` monitors ten runtime
 parameters at 10 Hz in its "Trial State" panel — lamps for the binary state
 monitors, labels for the numeric readouts. The five lamp parameters are listed
 first so they group together at the top of the panel:

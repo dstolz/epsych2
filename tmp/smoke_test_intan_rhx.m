@@ -201,7 +201,7 @@ end
 try
     iface10 = hw.Intan_RHX('localhost', 5000, Connect=false);
     rt10 = epsych.Runtime;
-    rt10.dfltDataPath = "C:/Data";
+    rt10.DefaultDataPath = "C:/Data";
     rt10.isTest = false;
     rt10.SessionDataFilename = "C:/Data/Rat1/Rat1_260716T101530.mat";
     iface10.prepareRecording(rt10);

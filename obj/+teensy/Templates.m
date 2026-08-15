@@ -407,7 +407,7 @@ classdef Templates
             % Platform-hold detection with pellet reward, as run in this lab.
             %
             % Channel, variable and state names deliberately match
-            % cl/@cl_AppetitiveDetection_BoxGUI so that a Teensy-backed protocol
+            % paradigms/@cl_AppetitiveDetection_BoxGUI so that a Teensy-backed protocol
             % lights up the existing box GUI with no edits: Platform, Trough,
             % InTrial, DelayPeriod, RespWindow, PelletTotal, RespWinDelay,
             % RespLatency and RespCode are exactly the names its

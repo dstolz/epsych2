@@ -61,7 +61,7 @@ obj = gui.NextTrial(source, container, options)
 
 | Input | Description |
 |-------|-------------|
-| `source` | `epsych.Runtime` (listens on `RUNTIME.HELPER`) or an `epsych.Helper` directly |
+| `source` | `epsych.Runtime` (listens on `RUNTIME.EVENTS`) or an `epsych.EventHub` directly |
 | `container` | Figure, panel, tab, or layout host for the table |
 | `Fields` | Programmatic default field names (`validName`); used only when nothing is saved for this `PreferenceTag` |
 | `Formatters` | `containers.Map`, `validName -> function_handle(rawValue) -> char/string` |
@@ -99,7 +99,7 @@ left for the hosting figure to tear down.
 
 ## Example: appetitive detection Next Trial panel
 
-`cl/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m` shows Depth and the
+`paradigms/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m` shows Depth and the
 protocol's own text label for TrialType:
 
 ```matlab

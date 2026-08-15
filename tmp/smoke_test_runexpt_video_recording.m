@@ -118,7 +118,7 @@ stepName = 'customizeDialogVideoPath';
 try
     assert(~isempty(rx) && isvalid(rx), 'SmokeTest:PrereqFailed', 'RunExpt instance from Step 2 is unavailable.');
 
-    savedDataPath = char(rx.dfltDataPath);
+    savedDataPath = char(rx.DefaultDataPath);
     testRoot = fullfile(tempdir, 'epsych_video_smoke_test');
 
     rx.OpenCustomizeDialog;
@@ -138,7 +138,7 @@ try
 
     assert(strcmp(getpref(PREF_GROUP, 'RecordingRootDir'), testRoot), ...
         'SmokeTest:PrefNotUpdated', 'RecordingRootDir preference was not updated by OK.');
-    assert(strcmp(char(rx.dfltDataPath), savedDataPath), ...
+    assert(strcmp(char(rx.DefaultDataPath), savedDataPath), ...
         'SmokeTest:DataPathRegression', 'Data Save Path unexpectedly changed by the Paths tab resize.');
     assert(~isgraphics(dlg), 'SmokeTest:DialogNotClosed', 'Customize dialog did not close after OK.');
 

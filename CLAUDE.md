@@ -105,10 +105,10 @@ Rules that matter:
 
 #### obj/+epsych/ – Experiment Framework
 - **epsych.RunExpt** (440 lines): Main session GUI; manages CONFIG (subject/protocol), RUNTIME state, and program transitions
-- **epsych.Runtime** (120+ lines): Central state container; holds HW interfaces, TRIALS, HELPER (event broadcaster), and TIMER
+- **epsych.Runtime** (120+ lines): Central state container; holds HW interfaces, TRIALS, EVENTS (event broadcaster), and TIMER
 - **epsych.Protocol** (212 lines): Data model for experiment; owns hw.Interface objects, parameters, compiled trials
 - **epsych.ProtocolDesigner** (326 lines): GUI for building protocols (~57 UI callbacks)
-- **epsych.Helper**: Lightweight event broadcaster (NewData, NewTrial, ModeChange)
+- **epsych.EventHub**: Lightweight event broadcaster (NewData, NewTrial, ModeChange)
 - **epsych.TrialSelector** (abstract): Pluggable trial selection
 - **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
 - **epsych.BitMask**: uint32 enumeration for trial outcomes
@@ -132,7 +132,8 @@ Rules that matter:
   A project also owns the **session settings a paradigm decides**, applied by
   `assignToSession` after the commit: `BoxGUI` → `FUNCS.BoxFig`, `SavingFcn` →
   `FUNCS.SavingFcn`, `TimerPeriod` → `FUNCS.TimerPeriod`, `DefaultDataPath` →
-  `dfltDataPath`, and `VideoRootDir`/`IntanRootDir`/`IntanSettingsFile` →
+  `RunExpt.DefaultDataPath` (same name on both sides since 2026-08; it was
+  `dfltDataPath` on the session), and `VideoRootDir`/`IntanRootDir`/`IntanSettingsFile` →
   `RunExpt.PATHS` (a session-level struct seeded from the `ep_RunExpt_Video`/
   `ep_RunExpt_Intan` prefs, which exists so a project can override a recording
   root for ONE session — the readers used to `getpref` at the point of use).
@@ -366,7 +367,7 @@ See documentation/eplog/eplog_Logging.md.
 
 ### Event System & Runtime Communication
 
-The epsych.Helper event broadcaster is the primary communication channel:
+The epsych.EventHub event broadcaster is the primary communication channel:
 - **NewData**: Fired when a trial completes; listeners update results
 - **NewTrial**: Fired when a new trial begins
 - **ModeChange**: Fired when session mode changes
@@ -382,7 +383,7 @@ ERROR is reachable from any state.
 ### Key Design Patterns
 
 1. **Heterogeneous Hardware Abstraction**: All backends inherit from hw.Interface with common API
-2. **Event-Driven Analysis**: GUIs subscribe to epsych.Helper events rather than polling
+2. **Event-Driven Analysis**: GUIs subscribe to epsych.EventHub events rather than polling
 3. **Configuration Persistence**: Session configs saved as .ecfg MAT files
 4. **Auto-Discovery**: Backends auto-discover modules/parameters on connect via setup_interface()
 5. **Pluggable Trial Selection**: epsych.TrialSelector is abstract and customizable
@@ -472,20 +473,20 @@ Reference: obj/stimgen/+stimgen/Tone.m, obj/stimgen/+stimgen/Noise.m
 
 1. Create obj/+psychophysics/YourAnalyzer.m inheriting from psychophysics.Psych
 2. Implement update(varargin) to process trial data
-3. In epsych.RunExpt, wire listener via Runtime.HELPER.NewData event
+3. In epsych.RunExpt, wire listener via Runtime.EVENTS.NewData event
 4. Optional: Create GUI in obj/+gui/ to visualize results
 
 Reference: obj/+psychophysics/@Detection/, obj/+gui/@OnlinePlot/
 
 ### Adding Experiment-Specific Behavior
 
-1. Use cl/ directory as pattern for paradigm-specific code
+1. Use paradigms/ directory as pattern for paradigm-specific code
 2. Custom GUIs: subclass gui.BoxGUI (copy examples/customgui/ExampleBoxGUI.m); the base provides lifecycle, listeners, and teardown — the subclass only writes build(fig) and event hooks
 3. Create custom save functions
-4. Subscribe to epsych.Helper events for trial and mode changes (BoxGUI subclasses get onNewTrial/onNewData/onModeChange hooks instead)
+4. Subscribe to epsych.EventHub events for trial and mode changes (BoxGUI subclasses get onNewTrial/onNewData/onModeChange hooks instead)
 5. Example: Custom epsych.TrialSelector for closed-loop
 
-Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, cl/cl_SaveDataFcn.m, obj/+epsych/@DefaultSubject/
+Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveDataFcn.m, obj/+epsych/@DefaultSubject/
 
 ## Where to Look When Making Changes
 
@@ -495,7 +496,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, cl/cl_SaveDataFcn.
 - **Stimulus generation**: obj/stimgen/+stimgen/@StimType/, obj/stimgen/+stimgen/@StimPlayer/ (submodule)
 - **Online analysis**: obj/+psychophysics/Psych.m, obj/+gui/@OnlinePlot/
 - **Session GUI**: obj/+epsych/@RunExpt/, obj/+gui/
-- **New paradigm**: Use cl/ as pattern
+- **New paradigm**: Use paradigms/ as pattern
 
 ## File & Folder Highlights
 
@@ -516,7 +517,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, cl/cl_SaveDataFcn.
 | runtime/savefcns/ | Data saving |
 | TDTfun/ | Low-level TDT integration |
 | design/ | Protocol design utilities |
-| cl/ | Experiment-specific implementations |
+| paradigms/ | Experiment-specific implementations (one lab's paradigms; `cl_*` function names unchanged) |
 | helpers/ | Shared utilities |
 | documentation/ | User and developer docs |
 

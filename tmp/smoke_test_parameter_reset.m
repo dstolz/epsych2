@@ -24,7 +24,7 @@ pRand = sw.add_parameter('SmokeRandom', false, Type='Boolean'); pRand.Value = fa
 
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 rt.Interfaces = sw;
 
 g = uigridlayout(fig,[5 1]);

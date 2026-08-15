@@ -29,8 +29,12 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
     properties (SetAccess = protected)
         RUNTIME = []  % Runtime object containing trial data and event infrastructure
-        Helper = epsych.Helper  % Helper object for event broadcasting
+        Events = epsych.EventHub  % Event broadcaster this analysis re-broadcasts NewData on
         DATA = []  % Trial data array extracted from runtime events or offline input
+    end
+
+    properties (Dependent, Hidden)
+        Helper  % Deprecated alias for Events
     end
 
     properties (Dependent)
@@ -67,7 +71,7 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
             obj.excludedTrials_ = obj.normalizeExcludedTrialsValue_(options.ExcludedTrials);
 
             if ~isempty(obj.RUNTIME)
-                obj.hl_NewData = addlistener(obj.RUNTIME.HELPER, 'NewData', @obj.update_data);
+                obj.hl_NewData = addlistener(obj.RUNTIME.EVENTS, 'NewData', @obj.update_data);
             end
         end
 
@@ -105,6 +109,10 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
             obj.afterRefresh_();
             obj.notifyDataUpdate_(event.Data);
         end
+
+        % Deprecated alias for Events, kept so paradigm GUIs written against
+        % the old property name keep working. Remove once migrated.
+        function value = get.Helper(obj), value = obj.Events; end
 
         function rc = get.responseCodes(obj)
             % rc = obj.responseCodes
@@ -240,7 +248,7 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
         end
 
         function notifyDataUpdate_(obj, trialsStruct)
-            % Broadcast NewData through obj.Helper when runtime trial state is available.
+            % Broadcast NewData through obj.Events when runtime trial state is available.
             if nargin < 2 || isempty(trialsStruct)
                 if isempty(obj.RUNTIME) || ~isprop(obj.RUNTIME, 'TRIALS') || isempty(obj.RUNTIME.TRIALS)
                     return
@@ -249,7 +257,7 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
             end
 
             evtdata = epsych.TrialsData(trialsStruct);
-            obj.Helper.notify('NewData', evtdata);
+            obj.Events.notify('NewData', evtdata);
         end
 
         function afterRefresh_(~)

@@ -10,7 +10,7 @@ classdef Runtime < handle & dynamicprops
     %   TRIALS      - Protocol trial data and selection state
     %   HW          - Hardware interface object(s)
     %   S           - Software interface object(s)
-    %   HELPER      - Event dispatcher object
+    %   EVENTS      - Event broadcaster (epsych.EventHub)
     %   TIMER       - Timer object for runtime services
     %
     % Key methods:
@@ -37,8 +37,8 @@ classdef Runtime < handle & dynamicprops
         HWinUse (1,:) string % List of hardware in use (string array)
 
         TRIALS            % Protocol-specific trial information, including trial selection function, trial parameters, and trial count
-        dfltDataPath (1,1) string = "" % Default data path for output
-        HELPER            % Helper/event dispatcher object (e.g., epsych.Helper)
+        DefaultDataPath (1,1) string = "" % Default data path for output
+        EVENTS            % Event broadcaster shared by the session (epsych.EventHub)
         TIMER (1,1) timer % MATLAB timer object for runtime services
 
 
@@ -51,7 +51,7 @@ classdef Runtime < handle & dynamicprops
 
         Protocol epsych.Protocol {mustBeScalarOrEmpty} = epsych.Protocol.empty % Session protocol whose Interfaces this runtime borrows; phases are saved by serializing it (writeParametersProtocol)
  
-        CORE              % Runtime core or struct-compatible
+        TRIGGERS          % Per-subject cached handles to the REQUIRED_TRIGGERS parameters (NewTrial, ResetTrig, TrialComplete)
         P                % Cached hw.Parameter array for all parameters in use (struct form)
 
         StartTime datetime = NaT % Experiment start time (datetime)
@@ -61,6 +61,17 @@ classdef Runtime < handle & dynamicprops
 
     properties (SetAccess = private)
         NSubjects (1,1) double {mustBePositive, mustBeInteger} = 1 % Number of subjects in the experiment
+    end
+
+    % Deprecated names kept so paradigm code written against the old property
+    % names -- custom save functions, timer functions, and box GUIs that live
+    % outside this repository -- keeps working. They forward silently rather
+    % than warning because a timer function reads them on every tick. Remove
+    % once the labs' paradigm folders have been migrated.
+    properties (Dependent, Hidden)
+        HELPER        % Deprecated alias for EVENTS
+        CORE          % Deprecated alias for TRIGGERS
+        dfltDataPath  % Deprecated alias for DefaultDataPath
     end
 
     properties (Constant)
@@ -80,7 +91,7 @@ classdef Runtime < handle & dynamicprops
         P = readParametersJSON(obj, filepath)   % Back-compat wrapper for readParameters.
         P = readParameters(obj, filepath)       % Load a phase file (.eprot/.prot or legacy .json); returns the resolved hw.Parameter array.
         dispatchNextTrial(obj, subjectIdx)      % Dispatch the already selected next trial for one subject.
-        resolveCoreParameters(obj, subjectIdx)  % Locate and cache mandatory trigger parameters (NewTrial, ResetTrig, TrialComplete) for one subject.
+        resolveTriggerParameters(obj, subjectIdx) % Locate and cache the required trigger parameters (NewTrial, ResetTrig, TrialComplete) for one subject.
 
         function self = Runtime
             % self = Runtime
@@ -133,14 +144,14 @@ classdef Runtime < handle & dynamicprops
             self.TRIALS = value;
             self.NSubjects = length(self.TRIALS);
 
-            % Resolving CORE triggers and dispatching the first trial must
-            % happen only once per Runtime instance (when TRIALS is first
+            % Resolving the required triggers and dispatching the first trial
+            % must happen only once per Runtime instance (when TRIALS is first
             % populated by ep_TimerFcn_Start). Later writes, such as
             % updateTrialsFromParameters syncing parameter edits mid-run,
             % must not re-trigger hardware or re-dispatch trials.
             if ~self.TRIALSInitialized_
                 for i = 1:self.NSubjects
-                    self.resolveCoreParameters(i);
+                    self.resolveTriggerParameters(i);
                     self.dispatchNextTrial(i);
                 end
                 self.P = self.all_parameters(asStruct=true);
@@ -149,6 +160,13 @@ classdef Runtime < handle & dynamicprops
             end
 
         end
+
+        function value = get.HELPER(self),       value = self.EVENTS;          end
+        function set.HELPER(self, value),        self.EVENTS = value;          end
+        function value = get.CORE(self),         value = self.TRIGGERS;        end
+        function set.CORE(self, value),          self.TRIGGERS = value;        end
+        function value = get.dfltDataPath(self), value = self.DefaultDataPath; end
+        function set.dfltDataPath(self, value),  self.DefaultDataPath = value; end
 
         filter_parameters(obj, propertyName, propertyValue, options, poptions) % Return hw.Parameter objects whose named property matches a target value.
         p = find_parameter(obj, name, options)              % Return hw.Parameter handles matching the given name(s), with optional pre-filtering.

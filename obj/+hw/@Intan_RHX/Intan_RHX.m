@@ -84,7 +84,7 @@ classdef Intan_RHX < hw.Interface
         % Per-machine recording root, seeded by RunExpt from the
         % 'ep_RunExpt_Intan' preference group (see RunExpt.configureIntanRecorder_).
         % Deliberately NOT serialized into the portable .eprot.
-        RecordingRootDir (1,:) char = ''  % Recording root; empty => RUNTIME.dfltDataPath
+        RecordingRootDir (1,:) char = ''  % Recording root; empty => RUNTIME.DefaultDataPath
 
         % Timing knobs (exposed so tests can shorten them).
         ModeChangeTimeout (1,1) double = 2     % seconds to confirm a runmode change

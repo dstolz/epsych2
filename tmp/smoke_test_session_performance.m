@@ -145,7 +145,7 @@ assert(contains(P.HeaderH.Text,'All trials'), 'the header should name the active
 assert(numel(P.GridH.RowHeight) == 1 + 4 + 1, 'header, four metric rows, and the filler');
 
 % NewData drives both the analysis and the display
-rt.HELPER.notify('NewData', trialsEvent(DATA));
+rt.EVENTS.notify('NewData', trialsEvent(DATA));
 assert(P.Analysis.trialCount == 20, 'the analysis should follow the NewData event');
 assert(valueText(P,"HitRate") == "72.7%", 'the panel should show the computed hit rate');
 assert(contains(P.HeaderH.Text,'1-20'), 'the header should show the resolved span');
@@ -345,7 +345,7 @@ end
 function rt = fakeRuntime()
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 end
 
 

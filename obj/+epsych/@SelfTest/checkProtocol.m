@@ -1,7 +1,7 @@
 function results = checkProtocol(self)
 % results = checkProtocol(self)
 % Validate and compile each subject's protocol, then check the things the
-% runtime will demand of it: the CORE trigger parameters, and a write-
+% runtime will demand of it: the required trigger parameters, and a write-
 % parameter map that can be turned into struct fields.
 %
 % Compilation is always performed on an isolated copy so a self-test never
@@ -11,7 +11,7 @@ function results = checkProtocol(self)
 %	results	- Result struct array; see epsych.SelfTest.result.
 %
 % See also: epsych.SelfTest.run, epsych.Protocol.validate,
-%   epsych.Runtime.resolveCoreParameters
+%   epsych.Runtime.resolveTriggerParameters
 arguments
     self
 end
@@ -160,7 +160,7 @@ else
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
-% --- E4: CORE trigger pre-flight ---------------------------------------
+% --- E4: required trigger pre-flight ---------------------------------------
 % The runtime resolves x_<Trigger>_<BoxID> for every subject against the
 % interfaces of CONFIG(1)'s protocol, and errors inside the timer StartFcn if
 % one is missing. Checking here turns a mid-session crash into a pre-flight
@@ -171,7 +171,7 @@ paramNames = localAllParameterNames(interfaces);
 anyConnected = ~isempty(interfaces) && any(arrayfun(@(p) p.IsConnected, interfaces));
 
 if isempty(paramNames) && ~anyConnected
-    r = epsych.SelfTest.result("E4_CoreTriggers", GROUP, "CORE trigger parameters", "skip", ...
+    r = epsych.SelfTest.result("E4_CoreTriggers", GROUP, "required trigger parameters", "skip", ...
         'No parameters are available offline; this hardware discovers them at connect.', ...
         Detail = "Interfaces: " + strjoin(arrayfun(@(p) string(p.Type), interfaces), ", "), ...
         Remedy = "Enable 'Connect hardware interfaces' and re-run to verify the triggers.");
@@ -192,11 +192,11 @@ else
     end
 
     if isempty(missing)
-        r = epsych.SelfTest.result("E4_CoreTriggers", GROUP, "CORE trigger parameters", "pass", ...
+        r = epsych.SelfTest.result("E4_CoreTriggers", GROUP, "required trigger parameters", "pass", ...
             sprintf('All %d required trigger(s) are present.', numel(found)), ...
             Detail = found);
     else
-        r = epsych.SelfTest.result("E4_CoreTriggers", GROUP, "CORE trigger parameters", "fail", ...
+        r = epsych.SelfTest.result("E4_CoreTriggers", GROUP, "required trigger parameters", "fail", ...
             sprintf('%d required trigger parameter(s) are missing; the run will abort at start.', numel(missing)), ...
             Detail = missing, ...
             Remedy = "Add the missing x_<Trigger>_<BoxID> parameters to the protocol's interface. " + ...

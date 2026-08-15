@@ -80,7 +80,7 @@ fprintf('PASS: PreferenceTag infers the hosting figure''s Tag\n');
 % 7. Runtime timing sources: StartTime, NewTrial ---------------------------
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 assert(isnat(rt.StartTime), 'fresh Runtime should have no StartTime yet');
 
 c1.attachRuntime(rt);
@@ -91,7 +91,7 @@ assert(contains(c1.LabelH.SessionDuration.Text, '00:00:0'), ...
     'session duration should read close to zero right after attach (got "%s")', c1.LabelH.SessionDuration.Text);
 fprintf('PASS: attachRuntime falls back to now() for an unset StartTime\n');
 
-rt.HELPER.notify('NewTrial'); % first trial
+rt.EVENTS.notify('NewTrial'); % first trial
 c1.refresh();
 assert(contains(c1.LabelH.LastTrial.Text, '00:00:0'), ...
     'time since last trial should read close to zero (got "%s")', c1.LabelH.LastTrial.Text);
@@ -99,7 +99,7 @@ assert(contains(c1.LabelH.FirstTrial.Text, '00:00:0'), ...
     'time since first trial should read close to zero (got "%s")', c1.LabelH.FirstTrial.Text);
 
 pause(1.5);
-rt.HELPER.notify('NewTrial'); % second trial, ~1.5s later
+rt.EVENTS.notify('NewTrial'); % second trial, ~1.5s later
 c1.refresh();
 assert(contains(c1.LabelH.LastTrial.Text, '00:00:0'), ...
     'time since last trial should reset to ~0 on every NewTrial (got "%s")', c1.LabelH.LastTrial.Text);

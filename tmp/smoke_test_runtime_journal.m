@@ -35,9 +35,9 @@ CONFIG.SUBJECT = struct('Name', 'SmokeSubj', 'BoxID', 1);
 RUNTIME = epsych.Runtime;
 RUNTIME.isTest = true;
 RUNTIME.TempDataDir = scratch;
-RUNTIME.dfltDataPath = scratch;
+RUNTIME.DefaultDataPath = scratch;
 RUNTIME.SessionDataFilename = string(fullfile(scratch, 'smoke_session.mat'));
-RUNTIME.HELPER = epsych.Helper;
+RUNTIME.EVENTS = epsych.EventHub;
 RUNTIME.Interfaces = P.Interfaces; % connects hw.Software
 
 % --- Start: seeds .mat, creates journal, dispatches trial 1 ---------------

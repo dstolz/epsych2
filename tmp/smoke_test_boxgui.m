@@ -1,6 +1,6 @@
 function smoke_test_boxgui()
 % smoke_test_boxgui()
-% Exercise gui.BoxGUI through the SmokeBoxGUI subclass: construction
+% Exercise gui.BehaviorGUI through the SmokeBoxGUI subclass: construction
 % against a software runtime (controls, buttons, missing-name skipping,
 % automatic Parameter_Update wiring), event dispatch (NewTrial/NewData/
 % ModeChange hooks, once-only onFirstTrial, deferred closures, monitor
@@ -102,7 +102,7 @@ assert(isscalar(f), 'exactly one figure should remain (got %d)', numel(f));
 delete(g4);
 fprintf('PASS: single-instance replacement\n');
 
-% 8. ep_GenericGUI (refactored onto gui.BoxGUI) ---------------------------
+% 8. ep_GenericGUI (refactored onto gui.BehaviorGUI) ---------------------------
 % delete(obj) is used for teardown (not closeGUI) so the user's real
 % 'ep_GenericGUI' position preference is never written by this test.
 gg = ep_GenericGUI(rt);
@@ -124,7 +124,7 @@ assert(endsWith(gg.h_logArea.Value{1}, 'Mode: Preview'), ...
 figG = gg.h_figure; monG = gg.ParameterMonitor;
 delete(gg);
 assert(~isvalid(figG) && ~isvalid(monG), 'ep_GenericGUI teardown should be complete');
-fprintf('PASS: ep_GenericGUI on gui.BoxGUI\n');
+fprintf('PASS: ep_GenericGUI on gui.BehaviorGUI\n');
 
 % 9. Controls over parameters no trial has seeded yet ---------------------
 % add_parameter fills Values, not Value, so a parameter stays empty until the
@@ -149,6 +149,18 @@ assert(cFloat.h_uiobj.Value == pFloat.Min, ...
     cFloat.h_uiobj.Value, pFloat.Min);
 delete(cBool); delete(cFloat); delete(figU); delete(swU);
 fprintf('PASS: controls over unseeded parameters\n');
+
+% 10. The deprecated gui.BoxGUI shim --------------------------------------
+% A lab's own GUI outside this repository still says "< gui.BoxGUI". It has
+% to construct, inherit the base behavior, and reach the statics, since
+% those are called as gui.BoxGUI.saveFigurePosition in code we do not own.
+gL = LegacyShimGUI(rt);
+assert(isa(gL,'gui.BehaviorGUI'), 'the shim must be a gui.BehaviorGUI');
+assert(isvalid(gL.h_figure), 'a gui.BoxGUI subclass should still open');
+assert(isequal(gui.BoxGUI.getSavedFigurePosition('noSuchTag',[1 2 3 4]), [1 2 3 4]), ...
+    'statics should resolve through the deprecated name');
+delete(gL);
+fprintf('PASS: deprecated gui.BoxGUI subclass still constructs\n');
 
 fprintf('smoke_test_boxgui: ALL PASS\n');
 end

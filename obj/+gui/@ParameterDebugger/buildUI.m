@@ -15,7 +15,7 @@ arguments
     visible (1,1) logical = true
 end
 
-pos = gui.BoxGUI.getSavedFigurePosition(self.PREF_TAG, self.DEFAULT_POSITION);
+pos = gui.BehaviorGUI.getSavedFigurePosition(self.PREF_TAG, self.DEFAULT_POSITION);
 
 f = uifigure('Name','EPsych Parameter Debugger', 'Tag', self.FIGURE_TAG, ...
     'Position', pos, ...

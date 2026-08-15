@@ -1,5 +1,5 @@
-classdef SmokeBoxGUI < gui.BoxGUI
-    % Minimal gui.BoxGUI subclass exercised by tmp/smoke_test_boxgui.m.
+classdef SmokeBoxGUI < gui.BehaviorGUI
+    % Minimal gui.BehaviorGUI subclass exercised by tmp/smoke_test_boxgui.m.
     % Exposes the components it creates and counts hook invocations so the
     % test can assert on construction, event dispatch, and teardown.
 
@@ -21,7 +21,7 @@ classdef SmokeBoxGUI < gui.BoxGUI
 
     methods
         function obj = SmokeBoxGUI(RUNTIME)
-            obj@gui.BoxGUI(RUNTIME, Name='Smoke BoxGUI', ...
+            obj@gui.BehaviorGUI(RUNTIME, Name='Smoke BoxGUI', ...
                 PreferenceTag='smokeBoxGUITest', ...
                 DefaultPosition=[100 100 700 450], Visible=false);
             if nargout == 0, clear obj; end

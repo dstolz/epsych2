@@ -387,7 +387,7 @@ end
 
 
 function fig = shotBoxGUIHelpers(S)
-% The helpers gui.BoxGUI itself provides: a row of trigger buttons, a titled
+% The helpers gui.BehaviorGUI itself provides: a row of trigger buttons, a titled
 % control column ending in an update button, and a polled monitor.
 G = WikiHelperBoxGUI(S.RUNTIME);
 fig = G.h_figure;
@@ -404,7 +404,7 @@ end
 
 
 function closeFigure(fig)
-% A gui.BoxGUI parks itself in the figure's UserData, and a shot may park a
+% A gui.BehaviorGUI parks itself in the figure's UserData, and a shot may park a
 % cell of objects it owns (panel, mock interface) there; deleting the figure
 % alone would leave those objects, their listeners, and their timers behind.
 if ~isempty(fig) && isgraphics(fig)

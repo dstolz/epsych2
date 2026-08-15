@@ -143,7 +143,7 @@ classdef SubjectManager < handle
             % Tear down the window, saving its position.
             try
                 if isfield(self.H,'figure') && isgraphics(self.H.figure)
-                    gui.BoxGUI.saveFigurePosition(self.PREF_TAG, self.H.figure.Position);
+                    gui.BehaviorGUI.saveFigurePosition(self.PREF_TAG, self.H.figure.Position);
                     self.H.figure.UserData = [];
                     self.H.figure.CloseRequestFcn = '';
                     delete(self.H.figure);

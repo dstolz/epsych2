@@ -130,7 +130,7 @@ classdef ParameterDebugger < handle
             %   options.Visible - Show the window (default true). False builds it
             %                     without putting it on screen, which is how the
             %                     smoke test and the screenshot generator drive
-            %                     it; same option, same reason, as gui.BoxGUI.
+            %                     it; same option, same reason, as gui.BehaviorGUI.
             %
             % Returns:
             %   self   - gui.ParameterDebugger instance.
@@ -172,7 +172,7 @@ classdef ParameterDebugger < handle
             % Tear down the window, saving its position.
             try
                 if isfield(self.H,'figure') && isgraphics(self.H.figure)
-                    gui.BoxGUI.saveFigurePosition(self.PREF_TAG, self.H.figure.Position);
+                    gui.BehaviorGUI.saveFigurePosition(self.PREF_TAG, self.H.figure.Position);
                     self.H.figure.UserData = [];
                     self.H.figure.CloseRequestFcn = '';
                     delete(self.H.figure);

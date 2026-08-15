@@ -1,6 +1,6 @@
-classdef ExampleBoxGUI < gui.BoxGUI
+classdef ExampleBoxGUI < gui.BehaviorGUI
     %EXAMPLEBOXGUI Copyable template for a custom experiment (BoxFig) GUI.
-    %   Subclass gui.BoxGUI, lay out your controls in build(), and the base
+    %   Subclass gui.BehaviorGUI, lay out your controls in build(), and the base
     %   class provides lifecycle, listeners, position persistence, and
     %   teardown. Point a project at this class via Subjects > Subjects &
     %   Projects, Project > Edit Project..., Box GUI field ("ExampleBoxGUI");
@@ -8,11 +8,11 @@ classdef ExampleBoxGUI < gui.BoxGUI
     %
     %   Try it without hardware: examples/customgui/run_example.m
     %
-    % See also gui.BoxGUI, documentation/gui/gui_BoxGUI.md
+    % See also gui.BehaviorGUI, documentation/gui/gui_BoxGUI.md
 
     methods
         function obj = ExampleBoxGUI(RUNTIME)
-            obj@gui.BoxGUI(RUNTIME, Name='Example Task', ...
+            obj@gui.BehaviorGUI(RUNTIME, Name='Example Task', ...
                 DefaultPosition=[100 100 1100 650]);
             if nargout == 0, clear obj; end
         end

@@ -3,7 +3,7 @@ function smoke_test_popout()
 % Exercise the gui.PopOut mixin across every component that adopts it:
 % gui.ParameterScatter, gui.History, gui.SessionPerformance, gui.NextTrial,
 % gui.Parameter_Monitor, gui.PsychPlot, and psychophysics.Staircase, plus
-% gui.BoxGUI.addPopOutButton.
+% gui.BehaviorGUI.addPopOutButton.
 %
 % The claims under test, for each component:
 %   - popOut builds a SECOND instance in a window of its own, leaving the
@@ -222,7 +222,7 @@ assert(isvalid(PP.ax), 'PsychPlot host should survive its pop-out');
 delete(f7);
 fprintf('PASS: psychometric plot pop-out keeps its own plot type\n');
 
-% 8. gui.BoxGUI.addPopOutButton ------------------------------------------
+% 8. gui.BehaviorGUI.addPopOutButton ------------------------------------------
 g = PopOutBoxGUI(makeRuntime());
 assert(isvalid(g.PopButton), 'addPopOutButton should create a button');
 assert(~g.Scatter.hasPopOut(), 'no pop-out before the button is pressed');

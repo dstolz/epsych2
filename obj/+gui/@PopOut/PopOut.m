@@ -44,7 +44,7 @@ classdef (Abstract) PopOut < handle
     %     PopOutLabel               - window title; defaults to the class name
     %
     % Documentation: documentation/gui/gui_PopOut.md
-    % See also gui.BoxGUI, gui.ParameterScatter, gui.History,
+    % See also gui.BehaviorGUI, gui.ParameterScatter, gui.History,
     % gui.SessionPerformance, gui.NextTrial, gui.Parameter_Monitor
 
     properties (SetAccess = private, Transient)
@@ -91,7 +91,7 @@ classdef (Abstract) PopOut < handle
 
             tag = obj.popOutPreferenceTag_();
             fig = uifigure('Name', obj.popOutWindowName_(), 'Tag', tag, 'Visible', 'off');
-            fig.Position = gui.BoxGUI.getSavedFigurePosition(tag, obj.defaultPopOutPosition_());
+            fig.Position = gui.BehaviorGUI.getSavedFigurePosition(tag, obj.defaultPopOutPosition_());
             movegui(fig, 'onscreen');
 
             % A borderless panel, not a uigridlayout: components that place
@@ -278,7 +278,7 @@ classdef (Abstract) PopOut < handle
             try
                 if ~isempty(fig) && isvalid(fig)
                     fig.CloseRequestFcn = '';
-                    gui.BoxGUI.saveFigurePosition(tag, fig.Position);
+                    gui.BehaviorGUI.saveFigurePosition(tag, fig.Position);
                 end
             catch
             end

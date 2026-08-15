@@ -1,7 +1,7 @@
 function build(obj, fig)
 % build(obj, fig)
 % Build the generic runtime GUI from the current RUNTIME parameter set.
-% Called by the gui.BoxGUI constructor after the figure exists.
+% Called by the gui.BehaviorGUI constructor after the figure exists.
 %
 % Parameters:
 %	obj	- ep_GenericGUI instance whose UI handles are populated by this method.
@@ -11,7 +11,7 @@ R = obj.RUNTIME;
 
 % ---- Collect and classify parameters ------------------------------------
 allParams = R.all_parameters(Access='All', includeTriggers=true);
-[trigParams, ctrlParams, monitorParams] = gui.BoxGUI.classifyParameters(allParams);
+[trigParams, ctrlParams, monitorParams] = gui.BehaviorGUI.classifyParameters(allParams);
 
 nTrig    = numel(trigParams);
 nCtrl    = numel(ctrlParams);

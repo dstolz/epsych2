@@ -1,4 +1,4 @@
-classdef DetectionBoxGUI < gui.BoxGUI
+classdef DetectionBoxGUI < gui.BehaviorGUI
     % DetectionBoxGUI  Behavior-box GUI for the worked-example detection task.
     %
     % Goes beyond examples/customgui/ExampleBoxGUI.m by wiring an online
@@ -18,7 +18,7 @@ classdef DetectionBoxGUI < gui.BoxGUI
     %
     % Walkthrough: documentation/examples/Detection_Task_3_BoxGUI.md
     %
-    % See also gui.BoxGUI, psychophysics.Detection, gui.PsychPlot
+    % See also gui.BehaviorGUI, psychophysics.Detection, gui.PsychPlot
 
     properties (SetAccess = private)
         ModeLabel    matlab.ui.control.Label
@@ -29,7 +29,7 @@ classdef DetectionBoxGUI < gui.BoxGUI
 
     methods
         function obj = DetectionBoxGUI(RUNTIME)
-            obj@gui.BoxGUI(RUNTIME, Name = 'Tone Detection Box', ...
+            obj@gui.BehaviorGUI(RUNTIME, Name = 'Tone Detection Box', ...
                 DefaultPosition = [100 100 1150 700]);
             if nargout == 0, clear obj; end
         end

@@ -1,6 +1,6 @@
 function smoke_test_appetitive_boxgui()
 % smoke_test_appetitive_boxgui()
-% Exercise cl_AppetitiveDetection_BoxGUI (the gui.BoxGUI version of
+% Exercise cl_AppetitiveDetection_BoxGUI (the gui.BehaviorGUI version of
 % cl_AppetitiveDetection_GUI_B) against a software-only runtime:
 % construction, control/button creation, Parameter_Update wiring, the
 % NewTrial/NewData/ModeChange hooks, the hardware-free launch that

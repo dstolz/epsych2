@@ -72,7 +72,7 @@ for k = 1:numel(descriptorLines)
     P.isArray = contains(flags, 'A');
 
     % Hidden if the firmware says so, or by the repository's name-prefix
-    % convention. '~' additionally makes gui.BoxGUI render a toggle rather
+    % convention. '~' additionally makes gui.BehaviorGUI render a toggle rather
     % than a momentary button.
     P.Visible = ~contains(flags, 'H') && ~any(name(1) == '_~#');
 

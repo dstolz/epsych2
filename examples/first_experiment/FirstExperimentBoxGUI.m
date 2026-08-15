@@ -1,4 +1,4 @@
-classdef FirstExperimentBoxGUI < gui.BoxGUI
+classdef FirstExperimentBoxGUI < gui.BehaviorGUI
     % FirstExperimentBoxGUI  Box GUI for the first-experiment tutorial, in
     % which YOU are the subject.
     %
@@ -25,7 +25,7 @@ classdef FirstExperimentBoxGUI < gui.BoxGUI
     %
     % Walkthrough: https://github.com/dstolz/epsych2/wiki/Your-First-Experiment
     %
-    % See also gui.BoxGUI, create_first_protocol, run_first_experiment
+    % See also gui.BehaviorGUI, create_first_protocol, run_first_experiment
 
     properties (SetAccess = private)
         % Subject-facing
@@ -56,7 +56,7 @@ classdef FirstExperimentBoxGUI < gui.BoxGUI
 
     methods
         function obj = FirstExperimentBoxGUI(RUNTIME)
-            obj@gui.BoxGUI(RUNTIME, Name = 'First Experiment — Flash Detection', ...
+            obj@gui.BehaviorGUI(RUNTIME, Name = 'First Experiment — Flash Detection', ...
                 DefaultPosition = [100 100 950 560]);
             if nargout == 0, clear obj; end
         end

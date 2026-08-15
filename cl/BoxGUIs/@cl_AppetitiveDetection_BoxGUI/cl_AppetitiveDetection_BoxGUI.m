@@ -1,4 +1,4 @@
-classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
+classdef cl_AppetitiveDetection_BoxGUI < gui.BehaviorGUI
     % cl_AppetitiveDetection_BoxGUI Appetitive detection task control GUI.
     %
     % OBJ = cl_AppetitiveDetection_BoxGUI(RUNTIME) creates the Caras Lab
@@ -7,10 +7,10 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
     % monitor, the psychometric plot, a parameter scatter, a session
     % performance summary, a response history table, and a session clock.
     %
-    % This is the gui.BoxGUI-based version of cl_AppetitiveDetection_GUI_B.
+    % This is the gui.BehaviorGUI-based version of cl_AppetitiveDetection_GUI_B.
     % The layout is the same; single-instance enforcement, figure creation,
     % position persistence, event listeners, Parameter_Update wiring, and
-    % component teardown are inherited from gui.BoxGUI, so only build() and
+    % component teardown are inherited from gui.BehaviorGUI, so only build() and
     % the event hooks live here.
     %
     % Behavior is driven by a psychophysics.Staircase over the Depth
@@ -20,7 +20,7 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
     % Example:
     %   cl_AppetitiveDetection_BoxGUI(RUNTIME)   % called by epsych.RunExpt
     %
-    % See also: gui.BoxGUI, cl_AppetitiveDetection_GUI_B, epsych.RunExpt,
+    % See also: gui.BehaviorGUI, cl_AppetitiveDetection_GUI_B, epsych.RunExpt,
     % documentation/gui/gui_BoxGUI.md,
     % documentation/layouts/cl_AppetitiveDetection_GUI_B_layout.md
 
@@ -48,7 +48,7 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
             % obj = cl_AppetitiveDetection_BoxGUI(RUNTIME)
             % Create the GUI. An existing instance is replaced.
             %  RUNTIME - epsych.Runtime object.
-            obj@gui.BoxGUI(RUNTIME, ...
+            obj@gui.BehaviorGUI(RUNTIME, ...
                 Name='Caras Lab Appetitive Detection GUI', ...
                 DefaultPosition=[1940 20 1400 1000]);
 
@@ -68,7 +68,7 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BoxGUI
                 end
             end
 
-            delete@gui.BoxGUI(obj);
+            delete@gui.BehaviorGUI(obj);
         end
     end
 

@@ -9,7 +9,7 @@ function pump(obj)
 % get_parameter both call it and the runtime touches both on every 10 ms tick.
 %
 % This wrapper exists so that pumping is not *only* an implicit side effect of
-% those two reads. A custom gui.BoxGUI that wants to plot events as they arrive,
+% those two reads. A custom gui.BehaviorGUI that wants to plot events as they arrive,
 % a smoke test with no epsych.Runtime, or a future runtime that stops polling
 % mode every tick can all drive the trial engine explicitly by calling this.
 % Calling it more often than necessary is harmless: the pump is resumable, and

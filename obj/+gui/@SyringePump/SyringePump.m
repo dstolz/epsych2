@@ -90,7 +90,7 @@ classdef SyringePump < gui.PopOut
     %   startPolling / stopPolling - Resume / pause the volume readout timer
     %
     % Examples:
-    %   % Inside a gui.BoxGUI build method
+    %   % Inside a gui.BehaviorGUI build method
     %   obj.addSyringePump(panelReward);
     %   obj.addSyringePump(panelReward, Rate=1.5, Diameter=14.43);
     %
@@ -102,7 +102,7 @@ classdef SyringePump < gui.PopOut
     %   p = gui.SyringePump([], f);
     %
     % See also: documentation/gui/gui_SyringePump.md, hw.NE1000,
-    % gui.BoxGUI.addSyringePump, gui.Parameter_Monitor, gui.PopOut
+    % gui.BehaviorGUI.addSyringePump, gui.Parameter_Monitor, gui.PopOut
 
     properties
         % Syringe inside diameter in mm. Scales every rate and volume the

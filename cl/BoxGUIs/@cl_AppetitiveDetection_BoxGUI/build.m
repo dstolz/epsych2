@@ -1,11 +1,11 @@
 function build(obj, fig)
 % build(obj, fig)
 % Assemble the layout, controls, panels, and plots for the Appetitive
-% Detection task. Called once by the gui.BoxGUI constructor.
+% Detection task. Called once by the gui.BehaviorGUI constructor.
 %
 % Parameters:
 %   obj : cl_AppetitiveDetection_BoxGUI instance
-%   fig : uifigure created by gui.BoxGUI
+%   fig : uifigure created by gui.BehaviorGUI
 %
 % Controls resolve parameters by name through obj.P; names absent from the
 % loaded protocol are skipped so the same layout serves every variant of
@@ -439,7 +439,7 @@ end
 function p = getp(P,name)
 % p = getp(P,name)
 % Resolve a parameter by name against the cached parameter struct, matching
-% gui.BoxGUI: a leading '~' or '!' is optional, so one name serves
+% gui.BehaviorGUI: a leading '~' or '!' is optional, so one name serves
 % protocols that mark the parameter as a trigger and those that do not.
 % Returns [] when the loaded protocol has no such parameter.
 p = [];

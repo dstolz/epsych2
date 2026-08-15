@@ -1,5 +1,5 @@
-classdef PopOutBoxGUI < gui.BoxGUI
-    % Minimal gui.BoxGUI subclass exercised by tmp/smoke_test_popout.m.
+classdef PopOutBoxGUI < gui.BehaviorGUI
+    % Minimal gui.BehaviorGUI subclass exercised by tmp/smoke_test_popout.m.
     % Hosts one poppable component and the addPopOutButton that opens it,
     % so the test can assert that a button press opens a pop-out window and
     % that closing the GUI takes that window with it.
@@ -11,7 +11,7 @@ classdef PopOutBoxGUI < gui.BoxGUI
 
     methods
         function obj = PopOutBoxGUI(RUNTIME)
-            obj@gui.BoxGUI(RUNTIME, Name='Pop Out BoxGUI', ...
+            obj@gui.BehaviorGUI(RUNTIME, Name='Pop Out BoxGUI', ...
                 PreferenceTag='smokePopOutBoxGUI', ...
                 DefaultPosition=[100 100 700 450], Visible=false);
             if nargout == 0, clear obj; end

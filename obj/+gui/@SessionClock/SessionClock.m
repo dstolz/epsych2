@@ -9,12 +9,12 @@ classdef SessionClock < handle
     % Right-click the widget for a context menu that toggles which lines
     % are shown. The choice persists across sessions via getpref/setpref,
     % keyed by PreferenceTag (by default the hosting figure's Tag, which
-    % for a gui.BoxGUI subclass is that GUI's own PreferenceTag — so the
+    % for a gui.BehaviorGUI subclass is that GUI's own PreferenceTag — so the
     % remembered lines are scoped per BoxGUI automatically). Each line can
     % also be toggled programmatically via the Show* properties; a change
     % takes effect on the next timer tick, or immediately via refresh().
     %
-    % Usage (inside a gui.BoxGUI build(fig)):
+    % Usage (inside a gui.BehaviorGUI build(fig)):
     %   c = gui.SessionClock(parent);
     %   c.attachRuntime(obj.RUNTIME);
     %   c.start();
@@ -23,7 +23,7 @@ classdef SessionClock < handle
     %   c.ShowClockTime = false;   % programmatic control
     %   c.refresh();               % apply immediately
     %
-    % See also: gui.BoxGUI, gui.ElapsedTrialTimer, epsych.Runtime
+    % See also: gui.BehaviorGUI, gui.ElapsedTrialTimer, epsych.Runtime
 
     properties
         ShowTimeSinceLastTrial  (1,1) logical = true  % Time since the most recent trial began
@@ -360,7 +360,7 @@ classdef SessionClock < handle
 
         function tag = inferPreferenceTag_(parent)
             % Default PreferenceTag: the ancestor figure's Tag (which, for
-            % a gui.BoxGUI subclass, is that GUI's own PreferenceTag), so
+            % a gui.BehaviorGUI subclass, is that GUI's own PreferenceTag), so
             % line visibility is remembered per BoxGUI without the host
             % needing to pass anything. Falls back to a fixed tag when no
             % ancestor figure exists yet (e.g. standalone construction).

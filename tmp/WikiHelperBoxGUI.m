@@ -1,5 +1,5 @@
-classdef WikiHelperBoxGUI < gui.BoxGUI
-    % Minimal gui.BoxGUI subclass whose only job is to show the helpers the
+classdef WikiHelperBoxGUI < gui.BehaviorGUI
+    % Minimal gui.BehaviorGUI subclass whose only job is to show the helpers the
     % base class provides — addButton, controlColumn, addControl,
     % addUpdateButton, addMonitor — in one screenshot for the wiki's Box GUI
     % Components page. Not an example to copy: see
@@ -7,7 +7,7 @@ classdef WikiHelperBoxGUI < gui.BoxGUI
 
     methods
         function obj = WikiHelperBoxGUI(RUNTIME)
-            obj@gui.BoxGUI(RUNTIME, Name='', Visible=false, ...
+            obj@gui.BehaviorGUI(RUNTIME, Name='', Visible=false, ...
                 PreferenceTag='wikiShotBoxGUIHelpers', ...
                 DefaultPosition=[200 200 620 225]);
         end

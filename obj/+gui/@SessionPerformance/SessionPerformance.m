@@ -43,7 +43,7 @@ classdef SessionPerformance < gui.PopOut
     %   summaryText    - Plain-text summary of what is displayed
     %
     % Example:
-    %   % In a gui.BoxGUI subclass's build(fig)
+    %   % In a gui.BehaviorGUI subclass's build(fig)
     %   obj.Performance = obj.addPerformance(panelPerformance, ...
     %       Metrics=["HitRate","FARate","AbortRate","DPrime"], FontSize=12);
     %   obj.Performance.TrialWindow = 20;   % summarize the last 20 trials
@@ -51,7 +51,7 @@ classdef SessionPerformance < gui.PopOut
     % Requires a uifigure-based container (uipanel, uigridlayout, or uifigure).
     %
     % See also: psychophysics.SessionMetrics, psychophysics.TrialWindow,
-    % gui.BoxGUI.addPerformance, documentation/gui/gui_SessionPerformance.md
+    % gui.BehaviorGUI.addPerformance, documentation/gui/gui_SessionPerformance.md
 
     properties (Dependent)
         TrialWindow  % Trials included in the summary (psychophysics.TrialWindow)

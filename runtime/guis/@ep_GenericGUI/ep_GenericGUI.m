@@ -1,4 +1,4 @@
-classdef ep_GenericGUI < gui.BoxGUI
+classdef ep_GenericGUI < gui.BehaviorGUI
     % ep_GenericGUI Generic Behavior Box GUI for EPsych experiments.
     %
     % OBJ = ep_GenericGUI(RUNTIME) creates a single GUI instance that
@@ -12,12 +12,12 @@ classdef ep_GenericGUI < gui.BoxGUI
     % This class satisfies the BoxFig convention used by epsych.RunExpt:
     % the constructor signature is ep_GenericGUI(RUNTIME). Lifecycle
     % concerns (single instance, position persistence, event listeners,
-    % teardown) are inherited from gui.BoxGUI.
+    % teardown) are inherited from gui.BehaviorGUI.
     %
     % Example:
     %   ep_GenericGUI(RUNTIME)   % called automatically by RunExpt
     %
-    % See also: gui.BoxGUI, epsych.RunExpt, gui.Parameter_Monitor,
+    % See also: gui.BehaviorGUI, epsych.RunExpt, gui.Parameter_Monitor,
     % gui.Parameter_Control
 
     properties (SetAccess = protected)
@@ -35,7 +35,7 @@ classdef ep_GenericGUI < gui.BoxGUI
             % Create the generic behavior box GUI.
             % Only one instance is allowed; an existing window is replaced.
             %  RUNTIME - epsych.Runtime object with interfaces configured.
-            obj@gui.BoxGUI(RUNTIME, ...
+            obj@gui.BehaviorGUI(RUNTIME, ...
                 Name='Behavior Box', ...
                 PreferenceTag='ep_GenericGUI', ...
                 DefaultPosition=[100 100 1100 680]);
@@ -80,14 +80,14 @@ classdef ep_GenericGUI < gui.BoxGUI
 
         function position = getSavedFigurePosition(defaultPosition)
             % Back-compatible shim: position prefs are managed by
-            % gui.BoxGUI, keyed by PreferenceTag (same pref group as
+            % gui.BehaviorGUI, keyed by PreferenceTag (same pref group as
             % before, so saved positions carry over).
-            position = gui.BoxGUI.getSavedFigurePosition('ep_GenericGUI', defaultPosition);
+            position = gui.BehaviorGUI.getSavedFigurePosition('ep_GenericGUI', defaultPosition);
         end
 
         function saveFigurePosition(position)
             % Back-compatible shim; see getSavedFigurePosition.
-            gui.BoxGUI.saveFigurePosition('ep_GenericGUI', position);
+            gui.BehaviorGUI.saveFigurePosition('ep_GenericGUI', position);
         end
     end
 

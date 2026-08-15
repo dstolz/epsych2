@@ -14,7 +14,7 @@ arguments
     self
 end
 
-pos = gui.BoxGUI.getSavedFigurePosition(self.PREF_TAG, self.DEFAULT_POSITION);
+pos = gui.BehaviorGUI.getSavedFigurePosition(self.PREF_TAG, self.DEFAULT_POSITION);
 
 f = uifigure('Name','Subjects & Projects', 'Tag', self.FIGURE_TAG, ...
     'Position', pos, ...

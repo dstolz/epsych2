@@ -1,4 +1,4 @@
-classdef TwoAFCBoxGUI < gui.BoxGUI
+classdef TwoAFCBoxGUI < gui.BehaviorGUI
     % TwoAFCBoxGUI  Box GUI for the 2AFC tutorial, in which YOU are the
     % subject.
     %
@@ -39,7 +39,7 @@ classdef TwoAFCBoxGUI < gui.BoxGUI
     %
     % Walkthrough: https://github.com/dstolz/epsych2/wiki/Two-AFC-Task
     %
-    % See also gui.BoxGUI, create_2afc_protocol, run_2afc_experiment
+    % See also gui.BehaviorGUI, create_2afc_protocol, run_2afc_experiment
 
     properties (SetAccess = private)
         % Subject-facing. The stimulus patches are plain uipanels rather
@@ -75,7 +75,7 @@ classdef TwoAFCBoxGUI < gui.BoxGUI
 
     methods
         function obj = TwoAFCBoxGUI(RUNTIME)
-            obj@gui.BoxGUI(RUNTIME, Name = '2AFC — Which Side Was Brighter?', ...
+            obj@gui.BehaviorGUI(RUNTIME, Name = '2AFC — Which Side Was Brighter?', ...
                 DefaultPosition = [100 100 980 600]);
             if nargout == 0, clear obj; end
         end

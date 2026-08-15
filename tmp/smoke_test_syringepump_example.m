@@ -96,7 +96,7 @@ try
     fig = findall(0, 'Type', 'figure', 'Tag', 'PumpBoxGUI');
     results(end+1,:) = check('PumpBoxGUI opened', ~isempty(fig));
 
-    boxGUI = fig(1).UserData;   % gui.BoxGUI parks itself there
+    boxGUI = fig(1).UserData;   % gui.BehaviorGUI parks itself there
     results(end+1,:) = check('Figure carries the PumpBoxGUI', isa(boxGUI, 'PumpBoxGUI'));
     results(end+1,:) = check('It built a gui.SyringePump panel', ...
         isa(boxGUI.Pump, 'gui.SyringePump'));

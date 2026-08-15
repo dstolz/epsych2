@@ -1,5 +1,5 @@
-classdef TwoAFCBoxGUI < gui.BehaviorGUI
-    % TwoAFCBoxGUI  Behavior GUI for the 2AFC tutorial, in which YOU are the
+classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
+    % TwoAFCBehaviorGUI  Behavior GUI for the 2AFC tutorial, in which YOU are the
     % subject.
     %
     % Two lamps flash together, one brighter than the other; report which
@@ -9,7 +9,7 @@ classdef TwoAFCBoxGUI < gui.BehaviorGUI
     % the response window aborts the trial (epsych.BitMask.Abort) rather
     % than scoring it.
     %
-    % Like FirstExperimentBoxGUI (examples/first_experiment), this GUI also
+    % Like FirstExperimentBehaviorGUI (examples/first_experiment), this GUI also
     % plays the role the rig hardware plays in a real experiment: it runs
     % the trial timeline, scores the choice, writes the read-back
     % parameters, and raises x_TrialComplete_1 — the flag
@@ -33,7 +33,7 @@ classdef TwoAFCBoxGUI < gui.BehaviorGUI
     % negative when they favour LEFT. See psychophysics.SessionMetrics.
     %
     % Launch in a real session by setting a project's Behavior GUI to
-    % TwoAFCBoxGUI (Subjects > Subjects & Projects, Project > Edit
+    % TwoAFCBehaviorGUI (Subjects > Subjects & Projects, Project > Edit
     % Project..., Session Defaults tab); the class must be on the path. Or
     % run a session without RunExpt: run_2afc_experiment (same folder).
     %
@@ -74,7 +74,7 @@ classdef TwoAFCBoxGUI < gui.BehaviorGUI
     end
 
     methods
-        function obj = TwoAFCBoxGUI(RUNTIME)
+        function obj = TwoAFCBehaviorGUI(RUNTIME)
             obj@gui.BehaviorGUI(RUNTIME, Name = '2AFC — Which Side Was Brighter?', ...
                 DefaultPosition = [100 100 980 600]);
             if nargout == 0, clear obj; end

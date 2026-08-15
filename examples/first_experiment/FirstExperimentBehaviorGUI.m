@@ -1,5 +1,5 @@
-classdef FirstExperimentBoxGUI < gui.BehaviorGUI
-    % FirstExperimentBoxGUI  Behavior GUI for the first-experiment tutorial, in
+classdef FirstExperimentBehaviorGUI < gui.BehaviorGUI
+    % FirstExperimentBehaviorGUI  Behavior GUI for the first-experiment tutorial, in
     % which YOU are the subject.
     %
     % The left panel faces the subject: a stimulus lamp that flashes on go
@@ -18,7 +18,7 @@ classdef FirstExperimentBoxGUI < gui.BehaviorGUI
     % device; the parameter names are the contract, not where they are set.
     %
     % Launch in a real session by setting a project's Behavior GUI to
-    % FirstExperimentBoxGUI (Subjects > Subjects & Projects, Project >
+    % FirstExperimentBehaviorGUI (Subjects > Subjects & Projects, Project >
     % Edit Project..., Session Defaults tab); the class must be on the
     % path. Or run a session without RunExpt: run_first_experiment
     % (same folder).
@@ -55,7 +55,7 @@ classdef FirstExperimentBoxGUI < gui.BehaviorGUI
     end
 
     methods
-        function obj = FirstExperimentBoxGUI(RUNTIME)
+        function obj = FirstExperimentBehaviorGUI(RUNTIME)
             obj@gui.BehaviorGUI(RUNTIME, Name = 'First Experiment — Flash Detection', ...
                 DefaultPosition = [100 100 950 560]);
             if nargout == 0, clear obj; end

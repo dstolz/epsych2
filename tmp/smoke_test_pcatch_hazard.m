@@ -223,7 +223,7 @@ fprintf('PASS: mid-session step change increments forward, never rescales\n');
 
 % 11. The catch-trial switch suppresses the schedule -----------------------
 % The selector creates CatchTrialsEnabled when the protocol does not declare
-% it, which is what gives cl_AppetitiveDetection_BoxGUI's checkbox something
+% it, which is what gives cl_AppetitiveDetection_BehaviorGUI's checkbox something
 % to bind to. Clearing it must stop catch trials outright and hold the hazard
 % at its floor, so re-enabling cannot fire a catch trial on the next draw.
 [rt4,T4] = makeRuntime(tmpDir, 0.1);

@@ -78,7 +78,7 @@ catch false-alarm rate, and d' per level.
 Several runtime components accept saved data directly:
 
 - `gui.ParameterScatter(DATA, container)` — pass the `Data` struct array as the
-  source for the same scatter view the box GUI shows live
+  source for the same scatter view the behavior GUI shows live
   ([gui_ParameterScatter.md](../gui/gui_ParameterScatter.md)).
 - `psychophysics.Staircase(DATA, 'ToneLevel', ...)` and the other
   [psychophysics.Psych](../psychophysics/psychophysics_Psych.md) subclasses run

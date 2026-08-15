@@ -1,7 +1,7 @@
 # Your First Experiment: Be the Subject
 
 A complete EPsych experiment in which **the human at the keyboard is the
-subject**. On go trials the box GUI's stimulus lamp flashes for a few tens of
+subject**. On go trials the behavior GUI's stimulus lamp flashes for a few tens of
 milliseconds; on silent catch trials nothing happens. Press **RESPOND** during
 the response window if you saw the flash, withhold if you did not. Every trial
 is scored as an [epsych.BitMask](../epsych/epsych_BitMask.md) response code
@@ -17,7 +17,7 @@ the wiki's dedicated tutorial section, starting at
 | Stage | Example file |
 |---|---|
 | 1. Build the protocol in code | [create_first_protocol.m](../../examples/first_experiment/create_first_protocol.m) |
-| 2. The box GUI you respond in | [FirstExperimentBoxGUI.m](../../examples/first_experiment/FirstExperimentBoxGUI.m) |
+| 2. The behavior GUI you respond in | [FirstExperimentBehaviorGUI.m](../../examples/first_experiment/FirstExperimentBehaviorGUI.m) |
 | 3. Run a session | [run_first_experiment.m](../../examples/first_experiment/run_first_experiment.m) (scripted) or the [RunExpt GUI](../overviews/RunExpt_GUI_Overview.md) |
 | 4. Decode and plot your data | [explore_first_data.m](../../examples/first_experiment/explore_first_data.m) |
 
@@ -46,7 +46,7 @@ That works because of how minimal the runtime's hardware contract is.
 `epsych.Runtime.resolveCoreParameters`). Everything else about a trial — the
 stimulus timeline, the response window, the scoring — is the rig's business.
 On a TDT rig it lives in the RPvds circuit; on a Teensy it lives in the
-compiled trial program; here it lives in `FirstExperimentBoxGUI`, which:
+compiled trial program; here it lives in `FirstExperimentBehaviorGUI`, which:
 
 1. on `NewTrial`, clears `x_TrialComplete_1` and starts the trial timeline
    (ITI → flash → response window) on its own 20 ms rig timer;
@@ -72,8 +72,8 @@ Two details that bite anyone reimplementing this:
   runtime tick misread the trial as complete. `create_first_protocol` seeds
   all three core triggers to 0.
 - **The GUI misses trial 1's `NewTrial`.** The first dispatch happens inside
-  `ep_TimerFcn_Start` (the `TRIALS` setter), before the box GUI exists.
-  `FirstExperimentBoxGUI` therefore starts the current trial's timeline from
+  `ep_TimerFcn_Start` (the `TRIALS` setter), before the behavior GUI exists.
+  `FirstExperimentBehaviorGUI` therefore starts the current trial's timeline from
   `onModeChange` when the session mode goes to Record/Preview and its rig is
   still idle.
 
@@ -95,8 +95,8 @@ The scripted driver is the fastest path, but the identical session runs
 through the real session GUI — that path is the point of the wiki tutorial:
 
 1. `addpath('examples/first_experiment')` — the GUI class must be resolvable.
-2. `epsych.RunExpt` → **Subjects** (Ctrl+B) → new project with **Box GUI** =
-   `FirstExperimentBoxGUI` and **Default Protocol** = `FirstExperiment.eprot`
+2. `epsych.RunExpt` → **Subjects** (Ctrl+B) → new project with **Behavior GUI** =
+   `FirstExperimentBehaviorGUI` and **Default Protocol** = `FirstExperiment.eprot`
    (Session Defaults tab), add a subject, **Add Checked to Session**.
 3. **View Trials** to preview the five compiled conditions, then **Run**
    (or **Preview** for data marked as a test).
@@ -128,6 +128,6 @@ and RT assertions, journal-merge check, and offline analysis.
 - [Detection_Task_Walkthrough.md](Detection_Task_Walkthrough.md) — a custom
   trial selector, online psychometrics, and a simulated observer replacing
   the human
-- [gui_BoxGUI.md](../gui/gui_BoxGUI.md) — the base class behind the GUI
+- [gui_BehaviorGUI.md](../gui/gui_BehaviorGUI.md) — the base class behind the GUI
 - [epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md) — the full
   trial lifecycle reference

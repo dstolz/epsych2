@@ -1,18 +1,18 @@
-function smoke_test_appetitive_boxgui()
-% smoke_test_appetitive_boxgui()
-% Exercise cl_AppetitiveDetection_BoxGUI (the gui.BehaviorGUI version of
+function smoke_test_appetitive_behaviorgui()
+% smoke_test_appetitive_behaviorgui()
+% Exercise cl_AppetitiveDetection_BehaviorGUI (the gui.BehaviorGUI version of
 % cl_AppetitiveDetection_GUI_B) against a software-only runtime:
 % construction, control/button creation, Parameter_Update wiring, the
 % NewTrial/NewData/ModeChange hooks, the hardware-free launch that
 % SelfTest I6 performs, and full teardown. Headless-safe: every figure is
 % closed and every preference this test writes is restored on exit.
 %
-%   matlab -batch "run('tmp/smoke_test_appetitive_boxgui.m')"
+%   matlab -batch "run('tmp/smoke_test_appetitive_behaviorgui.m')"
 
 here = fileparts(mfilename('fullpath'));
 run(fullfile(here,'..','epsych_startup.m'));
 
-PREF_TAG = 'cl_AppetitiveDetection_BoxGUI';
+PREF_TAG = 'cl_AppetitiveDetection_BehaviorGUI';
 scatterPrefs = savedScatterPrefs();
 nextTrialPrefs = savedNextTrialPrefs(PREF_TAG);
 performancePrefs = savedComponentPrefs('epsych2_gui_SessionPerformance', PREF_TAG);
@@ -24,7 +24,7 @@ clearComponentPrefs('epsych2_gui_SessionPerformance', PREF_TAG);
 
 % 1. Construction ---------------------------------------------------------
 rt = makeRuntime();
-g = cl_AppetitiveDetection_BoxGUI(rt);
+g = cl_AppetitiveDetection_BehaviorGUI(rt);
 assert(isvalid(g) && isvalid(g.h_figure), 'GUI should be valid after construction');
 assert(strcmp(g.h_figure.Tag, PREF_TAG), 'figure Tag should be the class name');
 assert(isa(g.Psych,'psychophysics.Staircase'), 'createPsych should build a Staircase');
@@ -40,7 +40,7 @@ end
 assert(strcmp(g.hButtons.DropPellet.type,'momentary'), 'Pellet should be momentary');
 assert(strcmp(g.hButtons.x_TrialDelivery.type,'toggle'), 'Deliver Trials should be a toggle');
 assert(isvalid(g.hReminder), 'reminder toggle should be cached for onNewData');
-assert(isequal(g.P.Shape.PostUpdateFcn, @cl_AppetitiveDetection_BoxGUI.trigger_Shape), ...
+assert(isequal(g.P.Shape.PostUpdateFcn, @cl_AppetitiveDetection_BehaviorGUI.trigger_Shape), ...
     'Shape parameter should carry the trigger_Shape hook');
 fprintf('PASS: control buttons and parameter hooks\n');
 
@@ -219,7 +219,7 @@ fprintf('PASS: teardown\n');
 rtEmpty = epsych.Runtime;
 rtEmpty.isTest = true;
 rtEmpty.HELPER = epsych.Helper;
-g2 = cl_AppetitiveDetection_BoxGUI(rtEmpty);
+g2 = cl_AppetitiveDetection_BehaviorGUI(rtEmpty);
 assert(isvalid(g2) && isvalid(g2.h_figure), 'GUI must open against a runtime with no interfaces');
 assert(isempty(g2.Psych), 'no Depth parameter means no staircase');
 assert(isempty(fieldnames(g2.hButtons)), 'no parameters means no buttons');
@@ -229,8 +229,8 @@ assert(isempty(findall(groot,'Type','figure','-and','Tag',PREF_TAG)), ...
 fprintf('PASS: hardware-free launch\n');
 
 % 11. Single-instance enforcement ----------------------------------------
-gA = cl_AppetitiveDetection_BoxGUI(rt);
-gB = cl_AppetitiveDetection_BoxGUI(rt);
+gA = cl_AppetitiveDetection_BehaviorGUI(rt);
+gB = cl_AppetitiveDetection_BehaviorGUI(rt);
 assert(~isvalid(gA), 'first instance should be replaced by the second');
 assert(isscalar(findall(groot,'Type','figure','-and','Tag',PREF_TAG)), ...
     'exactly one figure should remain');
@@ -238,7 +238,7 @@ pause(1.2);
 delete(gB);
 fprintf('PASS: single-instance replacement\n');
 
-fprintf('smoke_test_appetitive_boxgui: ALL PASS\n');
+fprintf('smoke_test_appetitive_behaviorgui: ALL PASS\n');
 end
 
 

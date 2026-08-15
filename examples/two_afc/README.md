@@ -25,7 +25,7 @@ explore_2afc_data              % decode + plot the session you just ran
 | File | Purpose |
 |---|---|
 | `create_2afc_protocol.m` | Builds `TwoAFC.eprot`: side **crossed** with difficulty (8 conditions), randomized ITI, read-back parameters, the three core triggers |
-| `TwoAFCBoxGUI.m` | `gui.BoxGUI` subclass: two stimulus lamps, LEFT/RIGHT buttons plus arrow-key input, a live choice table, and the rig role — trial timeline, 2AFC scoring, and `x_TrialComplete_1` |
+| `TwoAFCBehaviorGUI.m` | `gui.BehaviorGUI` subclass: two stimulus lamps, LEFT/RIGHT buttons plus arrow-key input, a live choice table, and the rig role — trial timeline, 2AFC scoring, and `x_TrialComplete_1` |
 | `run_2afc_experiment.m` | One-command session on the **real** timer loop (`ep_TimerFcn_Start`/`RunTime`/`Stop`); auto-saves at the trial quota or when the GUI closes |
 | `explore_2afc_data.m` | Decodes `RespCode`, fits the choice curve, reports PSE / JND / accuracy / d′ / criterion, and cross-checks against `psychophysics.SessionMetrics` |
 

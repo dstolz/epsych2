@@ -30,7 +30,7 @@ function [P, pump] = create_pump_protocol(filename, options)
 %   create_pump_protocol                     % simulated pump
 %   create_pump_protocol(Port = 'COM4')      % a real NE-1000
 %
-% See also run_pump_session, PumpBoxGUI, gui.SyringePump, hw.NE1000
+% See also run_pump_session, PumpBehaviorGUI, gui.SyringePump, hw.NE1000
 
 arguments
     filename (1,:) char = ''
@@ -41,7 +41,7 @@ arguments
 end
 
 here = fileparts(mfilename('fullpath'));
-addpath(here); % PumpBoxGUI must be resolvable when a session launches it
+addpath(here); % PumpBehaviorGUI must be resolvable when a session launches it
 
 if isempty(filename)
     filename = fullfile(here, 'PumpExample.eprot');
@@ -52,7 +52,7 @@ end
 % of mL/hr, because gui.SyringePump puts the interface into the units it
 % displays when it attaches. Authoring the protocol in those same units keeps
 % the Rate the trial table re-asserts every trial and the Rate the operator
-% sees in the panel the same number -- which is why PumpBoxGUI states
+% sees in the panel the same number -- which is why PumpBehaviorGUI states
 % RateUnits='UM' on the panel too, rather than taking its mL/min default.
 if isempty(options.Port)
     assert(exist('NE1000_Mock', 'class') == 8, ...

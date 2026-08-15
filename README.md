@@ -30,7 +30,7 @@ Skipping the submodule step does not fail loudly — protocols containing stimul
 
 Setup instructions, usage guides, and developer references are in this repository under [documentation/](documentation/README.md), organized for experimenters and for developers.
 
-The project wiki is the guided companion to those references. It is organized as two paths: a workflow guide for experimenters (installation, protocol design, running sessions, calibration, training tools, custom box GUIs) and a developer guide (architecture, runtime and events, hardware backends, stimgen integration, analysis and GUI frameworks):
+The project wiki is the guided companion to those references. It is organized as two paths: a workflow guide for experimenters (installation, protocol design, running sessions, calibration, training tools, custom behavior GUIs) and a developer guide (architecture, runtime and events, hardware backends, stimgen integration, analysis and GUI frameworks):
 
 **<https://github.com/dstolz/epsych2/wiki>**
 

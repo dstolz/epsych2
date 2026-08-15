@@ -45,7 +45,7 @@ sw.add_parameter('ToneLevel', [20 30 40 50 60 0], Unit = 'dB SPL', ...
 Paired lists must be the same length; `validate()` flags a mismatch as an error.
 
 **Control parameters** have a single value: dispatched every trial, editable
-live from the box GUI, but they do not expand the condition list (`ToneFreq`,
+live from the behavior GUI, but they do not expand the condition list (`ToneFreq`,
 `ToneDur`, `RewardVol`). Two variations show per-trial dynamics:
 
 ```matlab
@@ -88,7 +88,7 @@ sw.add_parameter('x_TrialComplete_1', 0, isTrigger = true);
 
 `isTrigger = true` also sets `UpdateEveryTrial = false`, so triggers are left
 out of the per-trial parameter writes. The extra `Reward` trigger exists only
-to give the box GUI a manual-reward button.
+to give the behavior GUI a manual-reward button.
 
 ## Trial selection policy
 

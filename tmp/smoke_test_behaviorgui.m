@@ -1,6 +1,6 @@
-function smoke_test_boxgui()
-% smoke_test_boxgui()
-% Exercise gui.BehaviorGUI through the SmokeBoxGUI subclass: construction
+function smoke_test_behaviorgui()
+% smoke_test_behaviorgui()
+% Exercise gui.BehaviorGUI through the SmokeBehaviorGUI subclass: construction
 % against a software runtime (controls, buttons, missing-name skipping,
 % automatic Parameter_Update wiring), event dispatch (NewTrial/NewData/
 % ModeChange hooks, once-only onFirstTrial, deferred closures, monitor
@@ -9,18 +9,18 @@ function smoke_test_boxgui()
 % single-instance replacement. Headless-safe: every GUI is closed before
 % returning.
 %
-%   matlab -batch "run('tmp/smoke_test_boxgui.m')"
+%   matlab -batch "run('tmp/smoke_test_behaviorgui.m')"
 
 here = fileparts(mfilename('fullpath'));
 run(fullfile(here,'..','epsych_startup.m'));
-addpath(here); % SmokeBoxGUI lives beside this test
+addpath(here); % SmokeBehaviorGUI lives beside this test
 
-PREF_TAG = 'smokeBoxGUITest';
+PREF_TAG = 'smokeBehaviorGUITest';
 cleanupObj = onCleanup(@() cleanupAll(PREF_TAG));
 
 % 1. Construction against a software runtime ------------------------------
 rt = makeRuntime();
-g = SmokeBoxGUI(rt);
+g = SmokeBehaviorGUI(rt);
 assert(isvalid(g), 'GUI object should be valid after construction');
 assert(~isempty(g.h_figure) && isvalid(g.h_figure), 'main figure should exist');
 assert(strcmp(g.h_figure.Tag, PREF_TAG), 'figure Tag should be the PreferenceTag');
@@ -83,7 +83,7 @@ fprintf('PASS: full teardown via CloseRequestFcn, position saved\n');
 rtEmpty = epsych.Runtime;
 rtEmpty.isTest = true;
 rtEmpty.HELPER = epsych.Helper;
-g2 = SmokeBoxGUI(rtEmpty);
+g2 = SmokeBehaviorGUI(rtEmpty);
 assert(isvalid(g2) && isvalid(g2.h_figure), 'GUI must open against a runtime with no interfaces');
 assert(isempty(g2.hFreq) && isempty(g2.hPelletBtn), ...
     'controls should be skipped when no parameters exist');
@@ -93,8 +93,8 @@ assert(isempty(findall(groot,'Type','figure','-and','Tag',PREF_TAG)), ...
 fprintf('PASS: empty-runtime launch and programmatic delete\n');
 
 % 7. Single-instance enforcement ------------------------------------------
-g3 = SmokeBoxGUI(rt);
-g4 = SmokeBoxGUI(rt);
+g3 = SmokeBehaviorGUI(rt);
+g4 = SmokeBehaviorGUI(rt);
 assert(~isvalid(g3), 'first instance should be torn down by the second');
 assert(isvalid(g4) && isvalid(g4.h_figure), 'second instance should be the survivor');
 f = findall(groot,'Type','figure','-and','Tag',PREF_TAG);
@@ -162,7 +162,7 @@ assert(isequal(gui.BoxGUI.getSavedFigurePosition('noSuchTag',[1 2 3 4]), [1 2 3 
 delete(gL);
 fprintf('PASS: deprecated gui.BoxGUI subclass still constructs\n');
 
-fprintf('smoke_test_boxgui: ALL PASS\n');
+fprintf('smoke_test_behaviorgui: ALL PASS\n');
 end
 
 

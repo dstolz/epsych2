@@ -62,7 +62,7 @@ shots = { ...
     'SyringePump',                  @shotSyringePump; ...
     'ParameterDebugger',            @shotParameterDebugger; ...
     'FilenameValidator',            @shotFilenameValidator; ...
-    'BoxGUI_Helpers',               @shotBoxGUIHelpers; ...
+    'BehaviorGUI_Helpers',          @shotBehaviorGUIHelpers; ...
     };
 
 names = string(shots(:,1));
@@ -386,10 +386,10 @@ gui.FilenameValidator(S.RUNTIME, g, 'ExampleSubject_260813_detection');
 end
 
 
-function fig = shotBoxGUIHelpers(S)
+function fig = shotBehaviorGUIHelpers(S)
 % The helpers gui.BehaviorGUI itself provides: a row of trigger buttons, a titled
 % control column ending in an update button, and a polled monitor.
-G = WikiHelperBoxGUI(S.RUNTIME);
+G = WikiHelperBehaviorGUI(S.RUNTIME);
 fig = G.h_figure;
 end
 

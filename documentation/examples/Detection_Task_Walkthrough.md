@@ -13,7 +13,7 @@ This guide is the index; each stage has its own walkthrough:
 |---|---|---|
 | 1. Design a protocol in code | [Detection_Task_1_Protocol.md](Detection_Task_1_Protocol.md) | [create_detection_protocol.m](../../examples/detection_task/create_detection_protocol.m) |
 | 2. Write a custom trial selector | [Detection_Task_2_TrialSelector.md](Detection_Task_2_TrialSelector.md) | [ExampleDetectionSelector.m](../../examples/detection_task/ExampleDetectionSelector.m) |
-| 3. Build a behavior-box GUI | [Detection_Task_3_BoxGUI.md](Detection_Task_3_BoxGUI.md) | [DetectionBoxGUI.m](../../examples/detection_task/DetectionBoxGUI.m) |
+| 3. Build a behavior GUI | [Detection_Task_3_BehaviorGUI.md](Detection_Task_3_BehaviorGUI.md) | [DetectionBehaviorGUI.m](../../examples/detection_task/DetectionBehaviorGUI.m) |
 | 4. Run a session | [Detection_Task_4_Running.md](Detection_Task_4_Running.md) | [run_detection_session.m](../../examples/detection_task/run_detection_session.m) |
 | 5. Load and analyze the data | [Detection_Task_5_Data.md](Detection_Task_5_Data.md) | [explore_saved_data.m](../../examples/detection_task/explore_saved_data.m) |
 
@@ -32,7 +32,7 @@ both decode.
 addpath('examples/detection_task')
 
 create_detection_protocol      % writes DetectionExample.eprot
-run_detection_session          % simulated session; watch DetectionBoxGUI fill in
+run_detection_session          % simulated session; watch DetectionBehaviorGUI fill in
 explore_saved_data             % decode + plot the session that was just saved
 ```
 
@@ -49,7 +49,7 @@ run_detection_session.m  ──▶ epsych.Runtime ──▶ dispatch / NewTrial 
         │                         │                        │
         │ simulated observer      │ ExampleDetectionSelector picks each trial
         │ sets RespCode           ▼                        ▼
-        │                  DetectionBoxGUI          psychophysics.Detection
+        │                  DetectionBehaviorGUI          psychophysics.Detection
         ▼
 ExampleSubject_<timestamp>.mat ──▶ explore_saved_data.m
 ```

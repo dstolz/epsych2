@@ -6,7 +6,7 @@ function P = create_2afc_protocol(filename, options)
 % The task is a spatial brightness discrimination in which YOU are the
 % subject: two lamps flash together, one brighter than the other, and you
 % report which side was brighter — LEFT or RIGHT — with a button or an
-% arrow key (TwoAFCBoxGUI, same folder). There is no "withhold" response;
+% arrow key (TwoAFCBehaviorGUI, same folder). There is no "withhold" response;
 % every trial demands a choice, which is what makes it forced choice.
 %
 % Parameters:
@@ -28,7 +28,7 @@ function P = create_2afc_protocol(filename, options)
 %
 % Walkthrough: https://github.com/dstolz/epsych2/wiki/Two-AFC-Task
 %
-% See also epsych.Protocol, TwoAFCBoxGUI, run_2afc_experiment
+% See also epsych.Protocol, TwoAFCBehaviorGUI, run_2afc_experiment
 
 arguments
     filename (1,:) char = ''

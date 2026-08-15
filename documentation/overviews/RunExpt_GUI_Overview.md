@@ -120,7 +120,7 @@ The state of the session itself is announced whenever it changes (Ready, Session
 
 - **LIVE VIEW - NOT RECORDING** (amber text, right end of the status bar): shown only while a live webcam view is open (via either the toolbar's **Live View** toggle or **Utilities → Video → Live Webcam View (No Recording)**). It is a reminder that the VLC window on screen is *not* being saved to disk.
 
-Custom box GUIs, saving functions, and trial selectors can post their own messages with `RunExpt.setStatus(message)` or `RunExpt.setStatus(message, nextStep)`.
+Custom behavior GUIs, saving functions, and trial selectors can post their own messages with `RunExpt.setStatus(message)` or `RunExpt.setStatus(message, nextStep)`.
 
 ## 4) Working with protocols
 
@@ -150,7 +150,7 @@ When you click **Run** or **Preview**, RunExpt:
 - Creates a temporary data directory (a `DATA` folder next to the repository) with one crash-recovery `.mat` file per subject.
 - Creates the trial timer (`PsychTimer`, default period 0.01 s; set per project in **Edit Project → Session Defaults**).
 - Sets the hardware mode to Record or Preview and starts the timer.
-- Launches the behavior GUI if one is configured — the box GUI of the project whose subjects were added (see **Subjects & Projects**), or the session default when no project named one.
+- Launches the behavior GUI if one is configured — the behavior GUI of the project whose subjects were added (see **Subjects & Projects**), or the session default when no project named one.
 
 ### 5.2 Pause
 
@@ -226,13 +226,13 @@ Each of these is applied to the live session by `epsych.SubjectRoster.assignToSe
 | Default Protocol | `.eprot` applied to a member with no protocol of its own. The one field that may stay empty: a study often exists before its protocol does. | — |
 | Data Save Path | Root this project's data is written under, `<path>\<subject>\`. | the rig's Data Save Path |
 | Saving Function | Called to save data after Stop/Error. Signature: `SavingFcn(RUNTIME)` (1 input, 0 outputs). | `ep_SaveDataFcn` |
-| Box GUI | Behavior GUI launched at run start, `feval(BoxFig, RUNTIME)`. `(none)` runs none; `(session default)` leaves whatever the session has. | `ep_GenericGUI` |
+| Behavior GUI | Behavior GUI launched at run start, `feval(BehaviorGUI, RUNTIME)`. `(none)` runs none; `(session default)` leaves whatever the session has. | `ep_GenericGUI` |
 | Timer Period (s) | PsychTimer callback period (0.001–1 s). | 0.01 |
 | Video Recording Path | Root for webcam recordings made with the **Record video** toolbar toggle. Files are saved to `<root>\<subject>\<subject>_<yyMMddTHHmmss>.ts`, named after the behavioral data file whether the recording starts with the run or is switched on mid-session. Stopping and restarting recording within one session appends `-2`, `-3`, … to the later segments so nothing is overwritten. Falls back to the Data Save Path when unset. | — |
 | Intan Recording Path | Root for Intan RHX recordings when an `hw.Intan_RHX` interface is in the protocol. Files save under `<root>\<subject>\` named after the data file (RHX appends its own `_<timestamp>`). **Must contain no spaces.** Falls back to the Data Save Path when unset. | — |
 | Intan Settings File | RHX `.xml` settings file loaded when the Intan interface connects. **Must contain no spaces.** A protocol that names its own wins over this; leave empty to load none. | — |
 
-A project can set no box GUI at all; the session still runs, you just will not get a live performance GUI.
+A project can set no behavior GUI at all; the session still runs, you just will not get a live performance GUI.
 
 The webcam device itself (camera, frame rate, resolution, crop) is configured separately in **Utilities → Video → Webcam Recorder Setup...**.
 

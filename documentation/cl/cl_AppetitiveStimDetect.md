@@ -87,7 +87,7 @@ Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, 
 
 ## Reminder trials
 
-`cl_AppetitiveDetection_BoxGUI`'s **Reminder** button sets `ReminderTrials` to `1`. That is all it does: the request is **queued, not immediate**. The trial in progress runs to its natural end and the reminder is presented as the next trial. The button's `PostUpdateFcn` only logs the press — it deliberately does *not* set `TRIALS.FORCE_TRIAL`, which ended the trial in progress early and wrote a `DATA` record from a response the subject had not finished making. Everything about *what* the reminder is lives here, in the selector.
+`cl_AppetitiveDetection_BehaviorGUI`'s **Reminder** button sets `ReminderTrials` to `1`. That is all it does: the request is **queued, not immediate**. The trial in progress runs to its natural end and the reminder is presented as the next trial. The button's `PostUpdateFcn` only logs the press — it deliberately does *not* set `TRIALS.FORCE_TRIAL`, which ended the trial in progress early and wrote a `DATA` record from a response the subject had not finished making. Everything about *what* the reminder is lives here, in the selector.
 
 A reminder is a **signal-present trial at 0 dB depth** — full modulation, the most salient stimulus the task produces — regardless of where the staircase currently sits. `forceReminderTrial_` writes that depth into the reminder row of the live trials table rather than reading whatever the protocol compiled there, so the reminder does not depend on the protocol's `Depth` values.
 
@@ -113,7 +113,7 @@ The one thing a reminder does consume is the catch **draw** made on the pass tha
 
 ### The request is consumed when it is granted
 
-`ReminderTrials` is a one-shot, and the selector clears it in the same `selectNext` pass that acts on it (`consumeReminderRequest_`). It cannot be cleared on trial completion instead, because `ep_TimerFcn_RunTime` broadcasts `NewData` for the completed trial *before* it calls `selectNext` for the next one. A listener that cleared the toggle there — as the box GUI's `onNewData` did — withdrew the request during the very pass that was about to honor it, so no reminder was ever presented.
+`ReminderTrials` is a one-shot, and the selector clears it in the same `selectNext` pass that acts on it (`consumeReminderRequest_`). It cannot be cleared on trial completion instead, because `ep_TimerFcn_RunTime` broadcasts `NewData` for the completed trial *before* it calls `selectNext` for the next one. A listener that cleared the toggle there — as the behavior GUI's `onNewData` did — withdrew the request during the very pass that was about to honor it, so no reminder was ever presented.
 
 Two consequences follow:
 
@@ -156,7 +156,7 @@ Because the value accumulates rather than being recomputed from history, **an op
 
 ### The live probability
 
-On its first `selectNext` the selector creates a `P_Catch_Current` parameter on the `hw.Software` interface and writes the current `p` to it every trial. `cl_AppetitiveDetection_BoxGUI` shows it in the **Trial State** monitor, and because it is a visible, readable parameter it also lands in every saved `DATA` record, so the hazard state can be reconstructed offline.
+On its first `selectNext` the selector creates a `P_Catch_Current` parameter on the `hw.Software` interface and writes the current `p` to it every trial. `cl_AppetitiveDetection_BehaviorGUI` shows it in the **Trial State** monitor, and because it is a visible, readable parameter it also lands in every saved `DATA` record, so the hazard state can be reconstructed offline.
 
 Declaring `P_Catch_Current` in the protocol yourself is preferable — it then persists and serializes — and the selector will use the existing parameter rather than creating one. Either way it must be host-writable (not `Access = 'Read'`, which rejects every write) with `UpdateEveryTrial = false`, which is what keeps a mid-run recompile from giving it a trials-table column that dispatch would clobber.
 
@@ -164,9 +164,9 @@ Declaring `P_Catch_Current` in the protocol yourself is preferable — it then p
 
 Early training often wants no catch trials at all. `CatchTrialsEnabled` is a Boolean switch the selector consults before it schedules anything: while it is off, every trial is a stimulus trial and the hazard is **held at its floor** rather than left to accumulate — so switching catch trials back on resumes from the bottom of the schedule instead of firing a catch trial on the next draw.
 
-`cl_AppetitiveDetection_BoxGUI` exposes it as the **Present Catch Trials** checkbox, which also greys out the `p(Catch)` fields while it is clear (the **Min / Max** row and the **Step** field), so the visible schedule and the running one cannot disagree.
+`cl_AppetitiveDetection_BehaviorGUI` exposes it as the **Present Catch Trials** checkbox, which also greys out the `p(Catch)` fields while it is clear (the **Min / Max** row and the **Step** field), so the visible schedule and the running one cannot disagree.
 
-Like `P_Catch_Current`, the parameter is created on the `hw.Software` interface at the selector's first `selectNext` when the protocol does not declare it — early enough for the box GUI, which `epsych.RunExpt` launches after `ep_TimerFcn_Start`. Declaring it in the protocol yourself is preferable (it then persists and serializes), and the same rules apply: host-writable, `UpdateEveryTrial = false`. A selector running without any of this — a protocol with no switch, or the runtime-free `epsych.SelfTest` pass — treats the parameter as absent, which means catch trials stay enabled.
+Like `P_Catch_Current`, the parameter is created on the `hw.Software` interface at the selector's first `selectNext` when the protocol does not declare it — early enough for the behavior GUI, which `epsych.RunExpt` launches after `ep_TimerFcn_Start`. Declaring it in the protocol yourself is preferable (it then persists and serializes), and the same rules apply: host-writable, `UpdateEveryTrial = false`. A selector running without any of this — a protocol with no switch, or the runtime-free `epsych.SelfTest` pass — treats the parameter as absent, which means catch trials stay enabled.
 
 ### Caveats
 
@@ -184,7 +184,7 @@ Like `P_Catch_Current`, the parameter is created on the `hw.Software` interface 
 ## Related files
 
 - [cl/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m](../../cl/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m)
-- [cl/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m](../../cl/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m) — the task GUI that exposes these parameters
+- [cl/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m](../../cl/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m) — the task GUI that exposes these parameters
 - [tmp/smoke_test_pcatch_hazard.m](../../tmp/smoke_test_pcatch_hazard.m) — hazard-schedule and end-to-end selector tests
 - [cl_SaveDataFcn.md](cl_SaveDataFcn.md) — the task's save function
 - [../epsych/epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md) — where trial selection happens in a session

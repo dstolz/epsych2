@@ -8,7 +8,7 @@ function P = create_first_protocol(filename, options)
 % The task is a Go/No-Go flash detection in which YOU are the subject:
 % on go trials the behavior GUI's stimulus lamp flashes for FlashDur ms; on
 % catch trials nothing happens. Press RESPOND when you saw a flash,
-% withhold when you did not (FirstExperimentBoxGUI, same folder).
+% withhold when you did not (FirstExperimentBehaviorGUI, same folder).
 %
 % Parameters:
 %   filename - Output path. Default: FirstExperiment.eprot in this folder.
@@ -27,7 +27,7 @@ function P = create_first_protocol(filename, options)
 %
 % Walkthrough: https://github.com/dstolz/epsych2/wiki/Your-First-Experiment
 %
-% See also epsych.Protocol, FirstExperimentBoxGUI, run_first_experiment
+% See also epsych.Protocol, FirstExperimentBehaviorGUI, run_first_experiment
 
 arguments
     filename (1,:) char = ''

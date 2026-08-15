@@ -45,7 +45,7 @@ Requires a uifigure-based container (`uipanel`, `uigridlayout`, or
 ## Usage
 
 ```matlab
-% From a gui.BoxGUI subclass's build(fig) — preferred: registers for teardown
+% From a gui.BehaviorGUI subclass's build(fig) — preferred: registers for teardown
 panelPerf = uipanel(layoutMain,'Title','Session Performance');
 obj.Performance = obj.addPerformance(panelPerf, ...
     Metrics=["HitRate","FARate","AbortRate","DPrime"], FontSize=11);
@@ -128,7 +128,7 @@ A saved selection takes precedence over the constructor's `Metrics` and
 
 ## Cleanup
 
-Registered through `gui.BoxGUI.register` (via `addPerformance`), it is
+Registered through `gui.BehaviorGUI.register` (via `addPerformance`), it is
 deleted with the rest of the GUI. `delete(obj)` releases the listeners and
 the context menu, deletes the `SessionMetrics` **it created** (an analysis
 object supplied by the caller is left alone), closes any pop-out window, and
@@ -137,7 +137,7 @@ manager, so leaving it behind would block a replacement panel.
 
 ## Example: appetitive detection
 
-`cl/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m`:
+`cl/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m`:
 
 ```matlab
 panelPerformance = uipanel(layoutMain, 'Title', 'Session Performance');
@@ -158,4 +158,4 @@ The GUI's `onNewData` no longer computes rates: the panel owns its own
 - `gui.PopOut` (`obj/+gui/@PopOut/`) — the separate-window mixin
 - [gui.NextTrial](gui_NextTrial.md) — the same right-click + persistence pattern
 - [gui.History](gui_History.md) — trial-by-trial detail behind these totals
-- [gui.BoxGUI](gui_BoxGUI.md)
+- [gui.BehaviorGUI](gui_BehaviorGUI.md)

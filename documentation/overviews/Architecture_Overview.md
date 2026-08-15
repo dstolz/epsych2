@@ -13,7 +13,7 @@ EPsych is not a greenfield framework with a single centralized abstraction. It i
 
 That mixed structure is the key architectural fact to understand before making changes.
 
-> 🔑 **The OOP layer is the extension surface; the procedural layer is load-bearing.** `hw.Interface`, `epsych.TrialSelector`, `psychophysics.Psych`, and `gui.BoxGUI` are where new work belongs. A new paradigm should reach the runtime through events rather than by editing `runtime/timerfcns/`.
+> 🔑 **The OOP layer is the extension surface; the procedural layer is load-bearing.** `hw.Interface`, `epsych.TrialSelector`, `psychophysics.Psych`, and `gui.BehaviorGUI` are where new work belongs. A new paradigm should reach the runtime through events rather than by editing `runtime/timerfcns/`.
 
 ## Top-level layout
 

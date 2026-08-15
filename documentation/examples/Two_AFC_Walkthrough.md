@@ -15,7 +15,7 @@ wiki's [Two-AFC Task](https://github.com/dstolz/epsych2/wiki/Two-AFC-Task).
 | Stage | Example file |
 |---|---|
 | 1. Build the protocol in code | [create_2afc_protocol.m](../../examples/two_afc/create_2afc_protocol.m) |
-| 2. The box GUI you respond in | [TwoAFCBoxGUI.m](../../examples/two_afc/TwoAFCBoxGUI.m) |
+| 2. The behavior GUI you respond in | [TwoAFCBehaviorGUI.m](../../examples/two_afc/TwoAFCBehaviorGUI.m) |
 | 3. Run a session | [run_2afc_experiment.m](../../examples/two_afc/run_2afc_experiment.m) or the [RunExpt GUI](../overviews/RunExpt_GUI_Overview.md) |
 | 4. Decode and plot your data | [explore_2afc_data.m](../../examples/two_afc/explore_2afc_data.m) |
 

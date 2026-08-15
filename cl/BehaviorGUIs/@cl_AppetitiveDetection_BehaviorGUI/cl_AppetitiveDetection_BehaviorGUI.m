@@ -1,7 +1,7 @@
-classdef cl_AppetitiveDetection_BoxGUI < gui.BehaviorGUI
-    % cl_AppetitiveDetection_BoxGUI Appetitive detection task control GUI.
+classdef cl_AppetitiveDetection_BehaviorGUI < gui.BehaviorGUI
+    % cl_AppetitiveDetection_BehaviorGUI Appetitive detection task control GUI.
     %
-    % OBJ = cl_AppetitiveDetection_BoxGUI(RUNTIME) creates the Caras Lab
+    % OBJ = cl_AppetitiveDetection_BehaviorGUI(RUNTIME) creates the Caras Lab
     % appetitive detection GUI: trigger buttons, staircase and trial
     % parameter controls, sound controls, phase selection, a trial-state
     % monitor, the psychometric plot, a parameter scatter, a session
@@ -18,10 +18,10 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BehaviorGUI
     % the NewData event source for onNewData.
     %
     % Example:
-    %   cl_AppetitiveDetection_BoxGUI(RUNTIME)   % called by epsych.RunExpt
+    %   cl_AppetitiveDetection_BehaviorGUI(RUNTIME)   % called by epsych.RunExpt
     %
     % See also: gui.BehaviorGUI, cl_AppetitiveDetection_GUI_B, epsych.RunExpt,
-    % documentation/gui/gui_BoxGUI.md,
+    % documentation/gui/gui_BehaviorGUI.md,
     % documentation/layouts/cl_AppetitiveDetection_GUI_B_layout.md
 
     properties (SetAccess = protected)
@@ -44,8 +44,8 @@ classdef cl_AppetitiveDetection_BoxGUI < gui.BehaviorGUI
     end
 
     methods
-        function obj = cl_AppetitiveDetection_BoxGUI(RUNTIME)
-            % obj = cl_AppetitiveDetection_BoxGUI(RUNTIME)
+        function obj = cl_AppetitiveDetection_BehaviorGUI(RUNTIME)
+            % obj = cl_AppetitiveDetection_BehaviorGUI(RUNTIME)
             % Create the GUI. An existing instance is replaced.
             %  RUNTIME - epsych.Runtime object.
             obj@gui.BehaviorGUI(RUNTIME, ...

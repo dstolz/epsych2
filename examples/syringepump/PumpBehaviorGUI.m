@@ -1,5 +1,5 @@
-classdef PumpBoxGUI < gui.BehaviorGUI
-    %PUMPBOXGUI Minimal behavior GUI for exercising the gui.SyringePump panel.
+classdef PumpBehaviorGUI < gui.BehaviorGUI
+    %PUMPBEHAVIORGUI Minimal behavior GUI for exercising the gui.SyringePump panel.
     %   A gui.SyringePump operator panel beside the two things needed to see
     %   whether it behaves during a session: the trial controls that write
     %   the same pump, and a readout of the reward volume the pump reported
@@ -22,7 +22,7 @@ classdef PumpBoxGUI < gui.BehaviorGUI
     end
 
     methods
-        function obj = PumpBoxGUI(RUNTIME)
+        function obj = PumpBehaviorGUI(RUNTIME)
             obj@gui.BehaviorGUI(RUNTIME, Name = 'Syringe Pump Test Box', ...
                 DefaultPosition = [100 100 1120 560]);
             if nargout == 0, clear obj; end

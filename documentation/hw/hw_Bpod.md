@@ -88,7 +88,7 @@ bytes arriving at once.
 The loop itself is replaced by the runtime's timer tick. `pump()` is called from
 `get.mode` and from `get_parameter`, both of which `ep_TimerFcn_RunTime` touches
 on every tick, so the trial advances without anything scheduling it.
-[`pump.m`](../../obj/+hw/@Bpod/pump.m) is also public, so a custom `gui.BoxGUI`
+[`pump.m`](../../obj/+hw/@Bpod/pump.m) is also public, so a custom `gui.BehaviorGUI`
 or a hardware-free smoke test can drive the engine explicitly.
 
 ### What this costs, honestly

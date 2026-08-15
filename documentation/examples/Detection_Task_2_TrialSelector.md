@@ -120,4 +120,4 @@ then refuses to produce trials.
 Validation: `tmp/smoke_test_detection_example.m` (headless;
 `matlab -batch "run('tmp/smoke_test_detection_example.m')"`).
 
-Next: [Detection_Task_3_BoxGUI.md](Detection_Task_3_BoxGUI.md)
+Next: [Detection_Task_3_BehaviorGUI.md](Detection_Task_3_BehaviorGUI.md)

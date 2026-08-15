@@ -26,7 +26,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     % cannot be cleared on trial completion instead.
     %
     % Catch trials can be switched off for a session through the
-    % CatchTrialsEnabled parameter, which cl_AppetitiveDetection_BoxGUI
+    % CatchTrialsEnabled parameter, which cl_AppetitiveDetection_BehaviorGUI
     % exposes as a checkbox. The selector creates it when the protocol does
     % not declare it, and an absent parameter means enabled. It is marked
     % PersistWithPhase, so the setting is saved into and restored from a phase

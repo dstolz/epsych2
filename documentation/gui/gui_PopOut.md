@@ -1,7 +1,7 @@
 # gui.PopOut — open a display in a window of its own
 
 `gui.PopOut` is the mixin behind the **Open in Separate Window** item that
-appears in the right-click menu of every graphical component a `gui.BoxGUI`
+appears in the right-click menu of every graphical component a `gui.BehaviorGUI`
 hosts. Choosing it builds a **second instance** of that component over the
 same data source, in a window of its own.
 
@@ -55,7 +55,7 @@ component.closePopOut();    % close it; the embedded component is untouched
 
 ### A button that opens a display on demand
 
-For a display an operator only wants occasionally, `gui.BoxGUI` provides a
+For a display an operator only wants occasionally, `gui.BehaviorGUI` provides a
 button that opens the pop-out, so the GUI does not have to give the display
 permanent screen space:
 
@@ -82,11 +82,11 @@ tolerance of parameter names a protocol does not define.
 A pop-out saves its layout under its own key, so its choices never overwrite
 the embedded component's. The key is the hosting figure's `Tag` (else its
 `Name`), the component's class, and a `_PopOut` suffix — e.g. a
-`gui.History` inside a BoxGUI tagged `cl_AppetitiveDetection_BoxGUI` pops out
-under `cl_AppetitiveDetection_BoxGUI_History_PopOut`, in the same
+`gui.History` inside a BehaviorGUI tagged `cl_AppetitiveDetection_BehaviorGUI` pops out
+under `cl_AppetitiveDetection_BehaviorGUI_History_PopOut`, in the same
 `epsych2_gui_History` preference group. The pop-out **window position** is
 remembered under a preference group of that same name, the way
-`gui.BoxGUI` remembers its own.
+`gui.BehaviorGUI` remembers its own.
 
 The consequence worth knowing: a pop-out mirrors its host's current settings
 only the *first* time it is opened. After that it restores what it was last
@@ -157,13 +157,13 @@ can set in its constructor to change the window's first-open size and title.
 pop-out is a separate instance, its edits do not reach the host, `popOut`
 raises an open window instead of duplicating it, `closePopOut` removes only
 the pop-out, destroying the host closes the window, and
-`gui.BoxGUI.addPopOutButton` opens and closes with the GUI.
+`gui.BehaviorGUI.addPopOutButton` opens and closes with the GUI.
 
 ```
 matlab -batch "run('tmp/smoke_test_popout.m')"
 ```
 
-See also: [gui_BoxGUI.md](gui_BoxGUI.md),
+See also: [gui_BehaviorGUI.md](gui_BehaviorGUI.md),
 [gui_ParameterScatter.md](gui_ParameterScatter.md),
 [gui_History.md](gui_History.md),
 [gui_SessionPerformance.md](gui_SessionPerformance.md),

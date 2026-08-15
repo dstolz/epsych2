@@ -2,7 +2,7 @@
 # One source of truth: survey.sh reads this, references/page-map.md explains it.
 # Columns are TAB separated. Longest matching prefix wins; a file may match several rows.
 # Prefixes are matched against forward-slash repo-relative paths.
-obj/+gui/@BoxGUI	Building-a-Box-GUI, Box-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_BoxGUI.md
+obj/+gui/@BehaviorGUI	Building-a-Box-GUI, Box-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_BehaviorGUI.md
 obj/+gui/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/RunExpt_SelfTest.md
 obj/+gui/@PopOut	Box-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_PopOut.md
 obj/+gui/@SyringePump	Box-GUI-Components, Video-and-Peripherals	documentation/gui/gui_SyringePump.md

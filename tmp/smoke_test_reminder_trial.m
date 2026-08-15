@@ -35,8 +35,8 @@ rt = makeRuntime(tmpDir, 0);
 pReminder = rt.find_parameter('ReminderTrials');
 
 assert(~rt.TRIALS(1).FORCE_TRIAL, 'FORCE_TRIAL should start clear');
-cl_AppetitiveDetection_BoxGUI.trigger_ReminderTrial(pReminder, 0, rt);
-cl_AppetitiveDetection_BoxGUI.trigger_ReminderTrial(pReminder, 1, rt);
+cl_AppetitiveDetection_BehaviorGUI.trigger_ReminderTrial(pReminder, 0, rt);
+cl_AppetitiveDetection_BehaviorGUI.trigger_ReminderTrial(pReminder, 1, rt);
 assert(~rt.TRIALS(1).FORCE_TRIAL, ...
     'pressing Reminder must not cut the trial in progress short');
 fprintf('PASS: Reminder button queues the request without forcing a trial\n');

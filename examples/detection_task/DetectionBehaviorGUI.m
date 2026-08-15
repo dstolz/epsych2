@@ -1,7 +1,7 @@
-classdef DetectionBoxGUI < gui.BehaviorGUI
-    % DetectionBoxGUI  Behavior-behavior GUI for the worked-example detection task.
+classdef DetectionBehaviorGUI < gui.BehaviorGUI
+    % DetectionBehaviorGUI  Behavior-behavior GUI for the worked-example detection task.
     %
-    % Goes beyond examples/customgui/ExampleBoxGUI.m by wiring an online
+    % Goes beyond examples/customgui/ExampleBehaviorGUI.m by wiring an online
     % analysis pipeline and using every event hook:
     %   - createPsych returns a psychophysics.Detection, which ingests each
     %     trial and re-broadcasts NewData on its own Helper; the base class
@@ -12,11 +12,11 @@ classdef DetectionBoxGUI < gui.BehaviorGUI
     %   - onNewData refreshes a per-level performance table and session tally.
     %   - onModeChange tracks Preview/Record/Pause/Stop in the header.
     %
-    % Launch in a real session by setting a project's Behavior GUI to DetectionBoxGUI
+    % Launch in a real session by setting a project's Behavior GUI to DetectionBehaviorGUI
     % (Subjects > Subjects & Projects, Project > Edit Project...); the class must
     % be on the path. Try it without hardware: run_detection_session (same folder).
     %
-    % Walkthrough: documentation/examples/Detection_Task_3_BoxGUI.md
+    % Walkthrough: documentation/examples/Detection_Task_3_BehaviorGUI.md
     %
     % See also gui.BehaviorGUI, psychophysics.Detection, gui.PsychPlot
 
@@ -28,7 +28,7 @@ classdef DetectionBoxGUI < gui.BehaviorGUI
     end
 
     methods
-        function obj = DetectionBoxGUI(RUNTIME)
+        function obj = DetectionBehaviorGUI(RUNTIME)
             obj@gui.BehaviorGUI(RUNTIME, Name = 'Tone Detection Box', ...
                 DefaultPosition = [100 100 1150 700]);
             if nargout == 0, clear obj; end

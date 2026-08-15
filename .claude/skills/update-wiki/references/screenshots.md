@@ -9,7 +9,7 @@ shot must never depend on the operator's own preferences, data, or hardware.
 
 | Script | Captures | Writes to |
 |---|---|---|
-| `tmp/generate_wiki_screenshots.m` | Whole windows: Protocol Designer, RunExpt, Self-Test, box GUIs, StimPlayer, calibration, Teensy designer | `<wiki>/images/`, and a second copy into `documentation/*/images/` for the three shots the repo also publishes |
+| `tmp/generate_wiki_screenshots.m` | Whole windows: Protocol Designer, RunExpt, Self-Test, behavior GUIs, StimPlayer, calibration, Teensy designer | `<wiki>/images/`, and a second copy into `documentation/*/images/` for the three shots the repo also publishes |
 | `tmp/generate_component_screenshots.m` | One `obj/+gui/` component per image, in a bare figure sized to it | `<wiki>/images/components/` |
 | `tmp/generate_protocol_designer_screenshots.m` | Protocol Designer main window + Interfaces dialog, from the expression/pairs fixture | `documentation/design/images/` only |
 
@@ -63,8 +63,8 @@ Whole-window shots (`<wiki>/images/`), and the pages that embed them:
 | `ParameterScatter.png` | `ParameterScatter` | Training-and-Online-Analysis |
 | `OnlineAnalysis.png` | `OnlineAnalysis` | Training-and-Online-Analysis |
 | `StaircaseTraining.png` | `StaircaseTraining` | Training-and-Online-Analysis |
-| `ExampleBoxGUI.png` | `ExampleBoxGUI` | Building-a-Box-GUI |
-| `DetectionBoxGUI.png` | `DetectionBoxGUI` | Building-a-Box-GUI, GUI-Framework-Internals |
+| `ExampleBehaviorGUI.png` | `ExampleBehaviorGUI` | Building-a-Box-GUI |
+| `DetectionBehaviorGUI.png` | `DetectionBehaviorGUI` | Building-a-Box-GUI, GUI-Framework-Internals |
 | `RunExpt.png` | `RunExpt` | Home, Quick-Start, Running-a-Session, RunExpt-GUI-Overview |
 | `SelfTest.png` | `SelfTest` | Running-a-Session, Troubleshooting |
 | `StimPlayer.png` | `StimPlayer` | Stimuli-and-Calibration |
@@ -86,7 +86,7 @@ page, one image per `###` entry: `Parameter_Control`, `Parameter_Update`,
 `SessionPerformance`, `ParameterScatter`, `PsychPlot`, `Performance`,
 `SlidingWindowPerformancePlot`, `Staircase_Plot`, `PhaseSelector`,
 `StaircaseTraining`, `SyringePump`, `ParameterDebugger`, `FilenameValidator`,
-`BoxGUI_Helpers`.
+`BehaviorGUI_Helpers`.
 
 **Not generated:** `NanoMotorControlGUI.png` and `VlcRecorderSetup.png` were
 captured by hand (they need real hardware). Leave them alone unless the user can
@@ -121,7 +121,7 @@ In `tmp/generate_component_screenshots.m`:
      select a phase, set a mode lamp, run the timer a couple of seconds. The
      caption on the page will describe exactly this.
    - If the shot owns objects the figure does not (an interface mock, a panel
-     object, a `gui.BoxGUI`), park them in `fig.UserData` — `closeFigure` deletes
+     object, a `gui.BehaviorGUI`), park them in `fig.UserData` — `closeFigure` deletes
      what it finds there, and otherwise their listeners and timers leak.
 3. If the component writes preferences, add its group to `snapshotPrefs` and pass
    an explicit `PreferenceTag='wikiShot<Name>'`. A shot that reads the developer's

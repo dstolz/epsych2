@@ -1,7 +1,7 @@
 # Your First Experiment: Be the Subject
 
 A complete EPsych experiment in which **you play the subject**: on go trials
-the box GUI's lamp flashes briefly; press **RESPOND** if you saw it, withhold
+the behavior GUI's lamp flashes briefly; press **RESPOND** if you saw it, withhold
 if you did not. The GUI scores each trial (Hit / Miss / False Alarm / Correct
 Reject), and your data are journaled and saved through the same runtime
 machinery a real rig uses — the only thing missing is the hardware.
@@ -27,7 +27,7 @@ experiment through `epsych.RunExpt` (subjects, projects, Run/Stop/Save Data).
 | File | Purpose |
 |---|---|
 | `create_first_protocol.m` | Builds and saves `FirstExperiment.eprot` in code: paired go/catch conditions, randomized ITI, read-back parameters, the three core triggers |
-| `FirstExperimentBoxGUI.m` | `gui.BoxGUI` subclass with a subject panel (stimulus lamp + RESPOND button), manual-scoring buttons, and the trial timeline. It plays the rig: scores the outcome, writes `RespCode`/`RT_ms`, and raises `x_TrialComplete_1` — the flag the runtime polls |
+| `FirstExperimentBehaviorGUI.m` | `gui.BehaviorGUI` subclass with a subject panel (stimulus lamp + RESPOND button), manual-scoring buttons, and the trial timeline. It plays the rig: scores the outcome, writes `RespCode`/`RT_ms`, and raises `x_TrialComplete_1` — the flag the runtime polls |
 | `run_first_experiment.m` | One-command session on the **real** timer loop (`ep_TimerFcn_Start`/`RunTime`/`Stop`) without RunExpt; auto-saves at the trial quota or when the GUI closes |
 | `explore_first_data.m` | Loads the saved file, decodes `RespCode` via `epsych.BitMask`, reports hit rate / FA / d' / reaction time, plots the session |
 
@@ -41,7 +41,7 @@ here the GUI does, after you respond or the response window lapses. The
 runtime then collects every readable parameter into a DATA record, journals
 it, broadcasts `NewData`, selects the next condition, and dispatches it —
 which fires `NewTrial`, and the GUI starts the next trial's timeline. Swap the
-software interface for real hardware and the box GUI's rig role moves into the
+software interface for real hardware and the behavior GUI's rig role moves into the
 device; nothing else changes.
 
 ## Related
@@ -52,7 +52,7 @@ device; nothing else changes.
 - [examples/detection_task/](../detection_task/) — a worked example with a
   custom trial selector, online psychometrics, and a simulated observer
   instead of a human
-- [examples/customgui/](../customgui/) — minimal `gui.BoxGUI` starter template
-- [documentation/gui/gui_BoxGUI.md](../../documentation/gui/gui_BoxGUI.md)
+- [examples/customgui/](../customgui/) — minimal `gui.BehaviorGUI` starter template
+- [documentation/gui/gui_BehaviorGUI.md](../../documentation/gui/gui_BehaviorGUI.md)
 - Validation: `tmp/smoke_test_first_experiment.m` (headless;
   `matlab -batch "run('tmp/smoke_test_first_experiment.m')"`)

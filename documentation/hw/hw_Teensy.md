@@ -78,7 +78,7 @@ emits a real `epsych.BitMask` value, `psychophysics.Detection` and
 
 The repository's conventions are honored, so GUI behavior matches the TDT
 backends: `!` marks a trigger, `~` is hidden and renders as a *toggle* in
-`gui.BoxGUI`, `_` and `#` are hidden, and `%` is dropped entirely.
+`gui.BehaviorGUI`, `_` and `#` are hidden, and `%` is dropped entirely.
 
 ---
 

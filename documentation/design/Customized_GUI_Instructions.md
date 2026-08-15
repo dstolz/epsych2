@@ -59,21 +59,21 @@ A typical EPsych GUI follows this workflow:
 
 For a first pass, read Sections **1–4** in order. Sections **6–9** are the main “make it robust” material once you have something working.
 
-## 0) The fast path: subclass `gui.BoxGUI`
+## 0) The fast path: subclass `gui.BehaviorGUI`
 
-Most of the plumbing this guide explains — single-instance enforcement, figure creation with saved window position, the three event listeners, cleanup of listeners/timers/components on close, and wiring `gui.Parameter_Update` to your controls — is provided by the base class **`gui.BoxGUI`**. A new task GUI only needs:
+Most of the plumbing this guide explains — single-instance enforcement, figure creation with saved window position, the three event listeners, cleanup of listeners/timers/components on close, and wiring `gui.Parameter_Update` to your controls — is provided by the base class **`gui.BehaviorGUI`**. A new task GUI only needs:
 
-1. A constructor that forwards the runtime: `obj@gui.BoxGUI(RUNTIME, Name='My Task')`
+1. A constructor that forwards the runtime: `obj@gui.BehaviorGUI(RUNTIME, Name='My Task')`
 2. A protected `build(fig)` method that lays out the window using one-line helpers: `addButton`, `addControl`, `controlColumn`, `addUpdateButton`, `addMonitor`, and `register` for any other component
 3. Optional hooks: `createPsych`, `onNewTrial`, `onNewData`, `onModeChange`, `onFirstTrial`
 
-Start by copying [examples/customgui/ExampleBoxGUI.m](../../examples/customgui/ExampleBoxGUI.m) (launchable without hardware via `examples/customgui/run_example.m`) and see [../gui/gui_BoxGUI.md](../gui/gui_BoxGUI.md) for the full API. `ep_GenericGUI`, the default box GUI, is itself a small `gui.BoxGUI` subclass and a good second reference.
+Start by copying [examples/customgui/ExampleBehaviorGUI.m](../../examples/customgui/ExampleBehaviorGUI.m) (launchable without hardware via `examples/customgui/run_example.m`) and see [../gui/gui_BehaviorGUI.md](../gui/gui_BehaviorGUI.md) for the full API. `ep_GenericGUI`, the default behavior GUI, is itself a small `gui.BehaviorGUI` subclass and a good second reference.
 
-The remaining sections explain the concepts underneath (parameters, controls, monitors, events, layout). They still apply inside `build()` — and to the pre-BoxGUI hand-rolled pattern that `cl_AppetitiveDetection_GUI_B` uses, which is worth understanding but no longer the recommended starting point.
+The remaining sections explain the concepts underneath (parameters, controls, monitors, events, layout). They still apply inside `build()` — and to the pre-BehaviorGUI hand-rolled pattern that `cl_AppetitiveDetection_GUI_B` uses, which is worth understanding but no longer the recommended starting point.
 
 ## Table of contents
 
-* [0) The fast path: subclass gui.BoxGUI](#0-the-fast-path-subclass-guiboxgui)
+* [0) The fast path: subclass gui.BehaviorGUI](#0-the-fast-path-subclass-guibehaviorgui)
 * [1) Recommended architecture](#1-recommended-architecture)
 * [2) Finding parameters (hardware + software)](#2-finding-parameters-hardware--software)
 * [3) Wiring parameters to UI controls](#3-wiring-parameters-to-ui-controls)
@@ -116,7 +116,7 @@ The constructor should typically:
 
 Keep side-effects minimal; avoid starting timers or long-running processes inside the constructor unless you also carefully clean them up in the destructor.
 
-> With `gui.BoxGUI`, all of this is the base constructor's job: it stores the runtime, replaces an existing instance, calls your `createPsych` hook, and then your `build(fig)` method.
+> With `gui.BehaviorGUI`, all of this is the base constructor's job: it stores the runtime, replaces an existing instance, calls your `createPsych` hook, and then your `build(fig)` method.
 
 ### 1.3 Destructor responsibilities (cleanup)
 
@@ -135,7 +135,7 @@ In `cl_AppetitiveDetection_GUI_B/delete`:
 * `obj.guiHandles` (all UI objects under the figure) are deleted.
 * A timer cleanup is performed via `timerfindall("Tag","GUIGenericTimer")`.
 
-> With `gui.BoxGUI`, no destructor is needed: everything created through the `add*` helpers or `register()` is deleted automatically when the window closes. Deleting a figure by itself only removes graphics — component handle objects and their listeners/timers survive — which is exactly the leak the registry prevents.
+> With `gui.BehaviorGUI`, no destructor is needed: everything created through the `add*` helpers or `register()` is deleted automatically when the window closes. Deleting a figure by itself only removes graphics — component handle objects and their listeners/timers survive — which is exactly the leak the registry prevents.
 
 ## 2) Finding parameters (hardware + software)
 
@@ -428,11 +428,11 @@ Example patterns:
 
 ## 10) Minimal skeleton
 
-The recommended skeleton is a `gui.BoxGUI` subclass — copy [examples/customgui/ExampleBoxGUI.m](../../examples/customgui/ExampleBoxGUI.m) and adapt:
+The recommended skeleton is a `gui.BehaviorGUI` subclass — copy [examples/customgui/ExampleBehaviorGUI.m](../../examples/customgui/ExampleBehaviorGUI.m) and adapt:
 
-* `classdef YourGui < gui.BoxGUI`
+* `classdef YourGui < gui.BehaviorGUI`
 
-  * `constructor`: forward the runtime — `obj@gui.BoxGUI(RUNTIME, Name='Your Task')`
+  * `constructor`: forward the runtime — `obj@gui.BehaviorGUI(RUNTIME, Name='Your Task')`
   * `createPsych` (optional): return a psychophysics object; NewData then arrives *after* it has processed each trial
   * `build(fig)`:
 
@@ -442,6 +442,6 @@ The recommended skeleton is a `gui.BoxGUI` subclass — copy [examples/customgui
     * `obj.register(...)` for any other component (`gui.ParameterScatter`, `gui.History`, `gui.PhaseSelector`, ...)
   * hooks `onNewTrial` / `onNewData` / `onModeChange` / `onFirstTrial` for per-trial displays
 
-No properties for listeners, no destructor, no `closeGUI`: the base class owns the lifecycle. See [../gui/gui_BoxGUI.md](../gui/gui_BoxGUI.md) for the full API.
+No properties for listeners, no destructor, no `closeGUI`: the base class owns the lifecycle. See [../gui/gui_BehaviorGUI.md](../gui/gui_BehaviorGUI.md) for the full API.
 
-Writing the same structure by hand as a plain `handle` class (own figure, own listeners, own destructor — the pattern `cl_AppetitiveDetection_GUI_B` predates BoxGUI with) still works and follows the concepts in Sections 1–9, but is only worth the extra ~200 lines when a GUI cannot inherit from `gui.BoxGUI` for some reason.
+Writing the same structure by hand as a plain `handle` class (own figure, own listeners, own destructor — the pattern `cl_AppetitiveDetection_GUI_B` predates BehaviorGUI with) still works and follows the concepts in Sections 1–9, but is only worth the extra ~200 lines when a GUI cannot inherit from `gui.BehaviorGUI` for some reason.

@@ -8,7 +8,7 @@ Start / Stop / Zero buttons so the syringe can be driven by hand between
 trials.
 
 ```matlab
-% Inside a gui.BoxGUI build method
+% Inside a gui.BehaviorGUI build method
 obj.addSyringePump(panelReward);
 obj.addSyringePump(panelReward, Rate = 1.5, Diameter = 14.43);
 
@@ -36,10 +36,10 @@ p = gui.SyringePump([], f);
 | `source` | The panel drives |
 |---|---|
 | an `hw.NE1000` | that interface |
-| an `epsych.Runtime` (what `gui.BoxGUI` passes) | the first `hw.NE1000` among its `Interfaces` |
+| an `epsych.Runtime` (what `gui.BehaviorGUI` passes) | the first `hw.NE1000` among its `Interfaces` |
 | `[]`, or a runtime with no pump | an offline `hw.NE1000` it constructs itself |
 
-The third case is what makes the panel usable on its own and keeps a BoxGUI
+The third case is what makes the panel usable on its own and keeps a BehaviorGUI
 opening against a runtime with no hardware attached (`epsych.SelfTest` check
 I6). A panel only deletes the interface on teardown when it created it; one
 borrowed from a running session outlives the window.
@@ -342,5 +342,5 @@ units cases pin down what the conversion must preserve: the pump's speed
 across a switch, the original number across a round trip, and a remembered
 rate across a session.
 
-See also: [hw_NE1000.md](../hw/hw_NE1000.md), [gui_BoxGUI.md](gui_BoxGUI.md),
+See also: [hw_NE1000.md](../hw/hw_NE1000.md), [gui_BehaviorGUI.md](gui_BehaviorGUI.md),
 [gui_PopOut.md](gui_PopOut.md), [Parameter_Monitor.md](Parameter_Monitor.md).

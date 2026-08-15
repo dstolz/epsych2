@@ -5,7 +5,7 @@ function smoke_test_two_afc
 % respondSide method, and every fourth trial is deliberately left
 % unanswered so the abort path is covered too. Drives the REAL runtime
 % loop (ep_TimerFcn_Start / RunTime / Stop on a live timer) with
-% TwoAFCBoxGUI acting as the rig. Headless-safe; runs in real time,
+% TwoAFCBehaviorGUI acting as the rig. Headless-safe; runs in real time,
 % expect roughly 30-60 s.
 %
 % Verifies:
@@ -166,13 +166,13 @@ fprintf('PASS: SessionMetrics with defaults (%.0f%% correct, d''=%.2f, c=%.2f)\n
     100 * SM.Results.Rate.Correct, SM.Results.DPrime, SM.Results.Criterion);
 
 % 5. GUI teardown and offline analysis -----------------------------------
-fig = findall(groot, 'Type', 'figure', 'Tag', 'TwoAFCBoxGUI');
-assert(isscalar(fig), 'TwoAFCBoxGUI figure not found');
+fig = findall(groot, 'Type', 'figure', 'Tag', 'TwoAFCBehaviorGUI');
+assert(isscalar(fig), 'TwoAFCBehaviorGUI figure not found');
 assert(strcmp(GUI.ModeLabel.Text, 'Mode: Idle'), ...
     'mode label should end at Idle, got "%s"', GUI.ModeLabel.Text);
 assert(~isempty(GUI.ChoiceTable.Data), 'choice table never populated');
 close(fig) % exercises closeGUI/teardown, including the rig timer
-assert(isempty(timerfindall('Name', 'TwoAFCBoxGUI_rig')), ...
+assert(isempty(timerfindall('Name', 'TwoAFCBehaviorGUI_rig')), ...
     'rig timer must not survive GUI teardown');
 
 R = explore_2afc_data(datafile);
@@ -202,7 +202,7 @@ end
 
 function cleanupAll(tmpdir)
 close(findall(groot, 'Type', 'figure'));
-for nm = {'TwoAFCTimer', 'TwoAFCBoxGUI_rig'}
+for nm = {'TwoAFCTimer', 'TwoAFCBehaviorGUI_rig'}
     t = timerfindall('Name', nm{1});
     if ~isempty(t), stop(t); delete(t); end
 end

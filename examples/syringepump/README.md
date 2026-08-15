@@ -3,7 +3,7 @@
 The smallest complete session that exercises
 [`gui.SyringePump`](../../documentation/gui/gui_SyringePump.md) the way a real
 paradigm would: a protocol whose reward `Volume` steps through three levels,
-a box GUI that embeds the pump panel beside the controls that write the same
+a behavior GUI that embeds the pump panel beside the controls that write the same
 pump, and a trial loop that dispenses on every trial.
 
 Runs with **no hardware** — with no port given it builds against
@@ -20,7 +20,7 @@ run_pump_session(Port = 'COM4')        % a real NE-1000 on COM4
 create_pump_protocol                   % writes PumpExample.eprot for RunExpt
 ```
 
-![The box GUI](../../documentation/gui/images/SyringePumpBox.png)
+![The behavior GUI](../../documentation/gui/images/SyringePumpBox.png)
 
 What to watch while it runs:
 
@@ -36,7 +36,7 @@ What to watch while it runs:
 | File | Purpose |
 |---|---|
 | `create_pump_protocol.m` | Builds and compiles the protocol: three reward volumes on the pump's own `Volume` parameter, a randomized ITI, the three core triggers |
-| `PumpBoxGUI.m` | `gui.BoxGUI` subclass: the pump panel, trial controls, next-trial display, a `VolumeInfused` scatter and monitor |
+| `PumpBehaviorGUI.m` | `gui.BehaviorGUI` subclass: the pump panel, trial controls, next-trial display, a `VolumeInfused` scatter and monitor |
 | `run_pump_session.m` | Hardware-free session; mirrors the real runtime loop and pulses `Start` each trial |
 
 Generated at runtime (not checked in): `PumpExample.eprot`.
@@ -54,7 +54,7 @@ every interface connects.
 **Rate units are the panel's, not the protocol's.** `gui.SyringePump` puts the
 interface into the units it displays when it attaches, so a protocol has to be
 authored in the same ones. This one is in µL/min (`RateUnits = 'UM'` in
-`create_pump_protocol`), so `PumpBoxGUI` states `RateUnits = 'UM'` on the panel
+`create_pump_protocol`), so `PumpBehaviorGUI` states `RateUnits = 'UM'` on the panel
 too rather than leaving it at the panel's mL/min default — otherwise the number
 the trial table re-asserts every trial and the number the operator reads in the
 panel would be the same value in different units. The operator can still switch
@@ -94,7 +94,7 @@ because `readline` blocks on I/O.
 
 - [documentation/gui/gui_SyringePump.md](../../documentation/gui/gui_SyringePump.md) — the panel
 - [documentation/hw/hw_NE1000.md](../../documentation/hw/hw_NE1000.md) — the backend
-- [examples/customgui/](../customgui/) — minimal `gui.BoxGUI` starter template
+- [examples/customgui/](../customgui/) — minimal `gui.BehaviorGUI` starter template
 - [examples/detection_task/](../detection_task/) — the full worked experiment
 - Validation: `tmp/smoke_test_syringepump_example.m` (headless;
   `matlab -batch "run('tmp/smoke_test_syringepump_example.m')"`), and

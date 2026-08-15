@@ -2,7 +2,7 @@ function RUNTIME = run_detection_session(options)
 % RUNTIME = run_detection_session(Name=Value, ...)
 % Run the worked-example detection task end-to-end without hardware: load
 % (or create) the example protocol, stand up an epsych.Runtime around its
-% hw.Software interface, launch DetectionBoxGUI, run a simulated observer
+% hw.Software interface, launch DetectionBehaviorGUI, run a simulated observer
 % for NumTrials trials, and save a session data file that
 % explore_saved_data.m can analyze.
 %
@@ -14,7 +14,7 @@ function RUNTIME = run_detection_session(options)
 %
 % Options:
 %   NumTrials    - Trials to run (default 120)
-%   ShowGUI      - Launch DetectionBoxGUI (default true)
+%   ShowGUI      - Launch DetectionBehaviorGUI (default true)
 %   ProtocolFile - .eprot to run; created if missing (default: DetectionExample.eprot here)
 %   DataPath     - Folder for the saved session file (default: data/ here)
 %   Threshold    - Observer threshold, dB SPL (default 35)
@@ -29,7 +29,7 @@ function RUNTIME = run_detection_session(options)
 %
 % Walkthrough: documentation/examples/Detection_Task_4_Running.md
 %
-% See also create_detection_protocol, DetectionBoxGUI, explore_saved_data
+% See also create_detection_protocol, DetectionBehaviorGUI, explore_saved_data
 
 arguments
     options.NumTrials (1,1) double {mustBeInteger, mustBePositive} = 120
@@ -45,7 +45,7 @@ arguments
 end
 
 here = fileparts(mfilename('fullpath'));
-addpath(here); % DetectionBoxGUI + ExampleDetectionSelector must be reachable
+addpath(here); % DetectionBehaviorGUI + ExampleDetectionSelector must be reachable
 
 if ~isempty(options.Seed), rng(options.Seed); end
 
@@ -109,7 +109,7 @@ RUNTIME.TRIALS = T; % the setter resolves CORE triggers and dispatches trial 1
 % RunExpt launches the behavior GUI right after ep_TimerFcn_Start, then
 % broadcasts the session mode; mirror that order here.
 if options.ShowGUI
-    DetectionBoxGUI(RUNTIME);
+    DetectionBehaviorGUI(RUNTIME);
 end
 RUNTIME.HELPER.notify('ModeChange', ...
     epsych.eventModeChange(hw.DeviceState.Record));

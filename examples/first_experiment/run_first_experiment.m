@@ -2,7 +2,7 @@ function [RUNTIME, GUI] = run_first_experiment(options)
 % [RUNTIME, GUI] = run_first_experiment(Name=Value, ...)
 % Run the first-experiment tutorial end-to-end with one command: load (or
 % create) the tutorial protocol, stand up an epsych.Runtime around its
-% hw.Software interface, launch FirstExperimentBoxGUI, and start the same
+% hw.Software interface, launch FirstExperimentBehaviorGUI, and start the same
 % timer loop a real session runs (ep_TimerFcn_RunTime on every tick). YOU
 % then perform the task — press RESPOND when the lamp flashes — and every
 % completed trial is journaled and collected exactly as in a real session.
@@ -26,7 +26,7 @@ function [RUNTIME, GUI] = run_first_experiment(options)
 % Returns:
 %   RUNTIME - The live epsych.Runtime; the session keeps running in its
 %             timer after this function returns, just as with RunExpt.
-%   GUI     - The FirstExperimentBoxGUI instance.
+%   GUI     - The FirstExperimentBehaviorGUI instance.
 %
 % Try it:
 %   run_first_experiment                 % 40 trials, then auto-save
@@ -34,7 +34,7 @@ function [RUNTIME, GUI] = run_first_experiment(options)
 %
 % Walkthrough: https://github.com/dstolz/epsych2/wiki/Your-First-Experiment
 %
-% See also create_first_protocol, FirstExperimentBoxGUI, explore_first_data
+% See also create_first_protocol, FirstExperimentBehaviorGUI, explore_first_data
 
 arguments
     options.NumTrials (1,1) double {mustBeInteger, mustBePositive} = 40
@@ -45,7 +45,7 @@ arguments
 end
 
 here = fileparts(mfilename('fullpath'));
-addpath(here); % FirstExperimentBoxGUI must be resolvable by name
+addpath(here); % FirstExperimentBehaviorGUI must be resolvable by name
 
 if isempty(options.ProtocolFile)
     options.ProtocolFile = fullfile(here, 'FirstExperiment.eprot');
@@ -84,7 +84,7 @@ RUNTIME = ep_TimerFcn_Start(RUNTIME, CONFIG);
 
 % RunExpt launches the behavior GUI right after Start, then broadcasts the
 % session mode; mirror that order here.
-GUI = FirstExperimentBoxGUI(RUNTIME);
+GUI = FirstExperimentBehaviorGUI(RUNTIME);
 
 % The real runtime loop: ep_TimerFcn_RunTime on every tick, wrapped so the
 % session can end itself (trial quota reached, or the GUI was closed).

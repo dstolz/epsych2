@@ -3,7 +3,7 @@
 %
 % Builds the protocol against tmp/NE1000_Mock, runs a short session through
 % run_pump_session, and asserts what the example claims: the pump's Volume
-% becomes a per-trial trial-table column, PumpBoxGUI opens with a
+% becomes a per-trial trial-table column, PumpBehaviorGUI opens with a
 % gui.SyringePump panel bound to the session's pump, and the volume the pump
 % reports back lands in DATA.
 %
@@ -93,11 +93,11 @@ end
 
 %% 3. The behavior GUI is bound to the session's pump
 try
-    fig = findall(0, 'Type', 'figure', 'Tag', 'PumpBoxGUI');
-    results(end+1,:) = check('PumpBoxGUI opened', ~isempty(fig));
+    fig = findall(0, 'Type', 'figure', 'Tag', 'PumpBehaviorGUI');
+    results(end+1,:) = check('PumpBehaviorGUI opened', ~isempty(fig));
 
     behaviorGUI = fig(1).UserData;   % gui.BehaviorGUI parks itself there
-    results(end+1,:) = check('Figure carries the PumpBoxGUI', isa(behaviorGUI, 'PumpBoxGUI'));
+    results(end+1,:) = check('Figure carries the PumpBehaviorGUI', isa(behaviorGUI, 'PumpBehaviorGUI'));
     results(end+1,:) = check('It built a gui.SyringePump panel', ...
         isa(behaviorGUI.Pump, 'gui.SyringePump'));
 
@@ -116,7 +116,7 @@ end
 
 %% 4. Teardown leaves nothing behind
 try
-    fig = findall(0, 'Type', 'figure', 'Tag', 'PumpBoxGUI');
+    fig = findall(0, 'Type', 'figure', 'Tag', 'PumpBehaviorGUI');
     sessionPump = RUNTIME.Interfaces(arrayfun(@(i) isa(i, 'hw.NE1000'), RUNTIME.Interfaces));
     delete(fig)
     drawnow
@@ -132,7 +132,7 @@ catch ME
 end
 
 %% Cleanup
-delete(findall(0, 'Type', 'figure', 'Tag', 'PumpBoxGUI'))
+delete(findall(0, 'Type', 'figure', 'Tag', 'PumpBehaviorGUI'))
 
 %% Summary
 labels = results(:,1);

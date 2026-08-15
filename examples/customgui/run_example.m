@@ -1,14 +1,14 @@
 function run_example()
 % run_example()
-% Launch ExampleBoxGUI against a software-only runtime so the GUI can be
+% Launch ExampleBehaviorGUI against a software-only runtime so the GUI can be
 % developed and iterated without hardware or a full RunExpt session.
 % During a real session RunExpt launches the GUI the same way
-% (feval('ExampleBoxGUI', RUNTIME)) and its timer drives the NewTrial/
+% (feval('ExampleBehaviorGUI', RUNTIME)) and its timer drives the NewTrial/
 % NewData/ModeChange events the GUI listens to.
 %
 % Requires the EPsych toolbox on the path (run epsych_startup once).
 
-addpath(fileparts(mfilename('fullpath'))); % make ExampleBoxGUI reachable
+addpath(fileparts(mfilename('fullpath'))); % make ExampleBehaviorGUI reachable
 
 rt = epsych.Runtime;
 rt.isTest = true;
@@ -29,6 +29,6 @@ p = sw.add_parameter('RespCode', 0);                      p.Value = 0;     p.Acc
 p = sw.add_parameter('TrialCount', 0);                    p.Value = 0;     p.Access = 'Read';
 rt.Interfaces = sw;
 
-ExampleBoxGUI(rt);
+ExampleBehaviorGUI(rt);
 
-vprintf(0, 'ExampleBoxGUI launched. Edit a control and press "Update Parameters" to commit.')
+vprintf(0, 'ExampleBehaviorGUI launched. Edit a control and press "Update Parameters" to commit.')

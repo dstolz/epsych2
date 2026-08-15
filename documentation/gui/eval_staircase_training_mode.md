@@ -8,7 +8,7 @@ It is typically used by parameter-control widgets that need to temporarily suspe
 
 Either a state `uibutton`'s `ValueChangedFcn` or the `PostUpdateFcn` of a `gui.Parameter_Control` checkbox works — both receive an `event` carrying `.Value`.
 
-Prefer the checkbox. A state button's state lives only in the widget, so nothing records it and a saved phase cannot restore it; a checkbox bound to a Boolean `hw.Parameter` marked `PersistWithPhase` makes the training state part of the stage's configuration (see `documentation/hw/hw_Parameter.md`). `cl_AppetitiveDetection_BoxGUI` does this with `StimDelayTrainingEnabled`.
+Prefer the checkbox. A state button's state lives only in the widget, so nothing records it and a saved phase cannot restore it; a checkbox bound to a Boolean `hw.Parameter` marked `PersistWithPhase` makes the training state part of the stage's configuration (see `documentation/hw/hw_Parameter.md`). `cl_AppetitiveDetection_BehaviorGUI` does this with `StimDelayTrainingEnabled`.
 
 Pass `[]` as `src` when the toggle itself is the control: a non-empty `src` is *disabled* while training runs, which for the toggle would leave the operator no way to switch training back off.
 

@@ -9,7 +9,7 @@ function smoke_test_detection_example
 %   2) ExampleDetectionSelector policy: catch probability, run cap,
 %      balanced go levels, onComplete tally, onRecompile count preservation
 %   3) run_detection_session drives a full simulated session with
-%      DetectionBoxGUI attached and writes a Data+Info session file whose
+%      DetectionBehaviorGUI attached and writes a Data+Info session file whose
 %      records show the ITI randomization and RespWinDelay expression
 %   4) explore_saved_data decodes the file and returns sane performance
 %
@@ -112,17 +112,17 @@ assert(numel(unique(itis)) > 1 && all(itis >= 2000 & itis <= 4000), ...
 assert(all([S.Data.RespWinDelay] == [S.Data.ToneDur] + 250), ...
     'RespWinDelay expression did not evaluate on dispatch');
 
-fig = findall(groot, 'Type', 'figure', 'Tag', 'DetectionBoxGUI');
-assert(isscalar(fig), 'DetectionBoxGUI figure not found');
+fig = findall(groot, 'Type', 'figure', 'Tag', 'DetectionBehaviorGUI');
+assert(isscalar(fig), 'DetectionBehaviorGUI figure not found');
 box = fig.UserData;
-assert(isa(box, 'DetectionBoxGUI'), 'figure UserData should be the GUI object');
+assert(isa(box, 'DetectionBehaviorGUI'), 'figure UserData should be the GUI object');
 assert(~isempty(box.SummaryTable.Data), 'performance table never populated');
 assert(contains(box.TrialLabel.Text, 'Trial'), ...
     'trial label never updated: "%s"', box.TrialLabel.Text);
 assert(strcmp(box.ModeLabel.Text, 'Mode: Stop'), ...
     'mode label should end at Stop, got "%s"', box.ModeLabel.Text);
 close(fig) % exercises closeGUI/teardown
-fprintf('PASS: simulated session + DetectionBoxGUI (%d trials)\n', NTRIALS);
+fprintf('PASS: simulated session + DetectionBehaviorGUI (%d trials)\n', NTRIALS);
 
 % 4. Offline analysis -----------------------------------------------------
 R = explore_saved_data(datafile);

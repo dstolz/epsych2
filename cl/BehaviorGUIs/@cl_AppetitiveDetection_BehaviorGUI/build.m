@@ -4,7 +4,7 @@ function build(obj, fig)
 % Detection task. Called once by the gui.BehaviorGUI constructor.
 %
 % Parameters:
-%   obj : cl_AppetitiveDetection_BoxGUI instance
+%   obj : cl_AppetitiveDetection_BehaviorGUI instance
 %   fig : uifigure created by gui.BehaviorGUI
 %
 % Controls resolve parameters by name through obj.P; names absent from the
@@ -60,7 +60,7 @@ function build(obj, fig)
 %   StimDelayTrain_StepDown : Training step size for decreasing stimulus delay.
 %   StimDelayTrain_StepUp : Training step size for increasing stimulus delay.
 %
-% Documentation: documentation/gui/gui_BoxGUI.md
+% Documentation: documentation/gui/gui_BehaviorGUI.md
 % Documentation: documentation/layouts/cl_AppetitiveDetection_GUI_B_layout.md
 
 R = obj.RUNTIME;
@@ -88,8 +88,8 @@ buttonLayout.ColumnSpacing = 0;
 % Shape and Reminder hooks hang off the hw.Parameter rather than the
 % control so they also fire when the value is written from elsewhere
 % (phase load, remote set).
-attach_trigger(P,'~Shape',          @cl_AppetitiveDetection_BoxGUI.trigger_Shape, R);
-attach_trigger(P,'~ReminderTrials', @cl_AppetitiveDetection_BoxGUI.trigger_ReminderTrial, R);
+attach_trigger(P,'~Shape',          @cl_AppetitiveDetection_BehaviorGUI.trigger_Shape, R);
+attach_trigger(P,'~ReminderTrials', @cl_AppetitiveDetection_BehaviorGUI.trigger_ReminderTrial, R);
 
 % '~'-prefixed names also resolve the unprefixed parameter, so these calls
 % work whether or not the protocol marks the toggles with the prefix.
@@ -144,7 +144,7 @@ obj.ParameterMonitor = obj.register(gui.Parameter_Monitor(panelMonitor, monitorP
 
 % PHASE SELECTION ------------------------------------------
 % Phase definitions are shared with the original GUI_B implementation.
-PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_BoxGUI','Phases');
+PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_BehaviorGUI','Phases');
 if ~isfolder(PhasePath)
     PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases');
 end
@@ -345,7 +345,7 @@ try
     obj.FilenameField = obj.register(gui.FilenameValidator(R,layoutFilename,R.TRIALS.DataFilename));
 catch ME
     % a runtime without compiled trials (self-test) has no filename yet
-    vprintf(2,'cl_AppetitiveDetection_BoxGUI: filename field skipped (%s)',ME.message)
+    vprintf(2,'cl_AppetitiveDetection_BehaviorGUI: filename field skipped (%s)',ME.message)
 end
 
 
@@ -451,7 +451,7 @@ for c = candidates
         return
     end
 end
-vprintf(2,'cl_AppetitiveDetection_BoxGUI: parameter "%s" not available',name)
+vprintf(2,'cl_AppetitiveDetection_BehaviorGUI: parameter "%s" not available',name)
 end
 
 

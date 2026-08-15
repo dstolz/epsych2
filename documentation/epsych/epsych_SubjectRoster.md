@@ -5,12 +5,12 @@ The persistent, shareable record of which animals exist, which study each one be
 ```matlab
 R = epsych.SubjectRoster;                       % the configured roster
 p = R.addProject('Tone Detection', DefaultProtocol='D:\protocols\tone.eprot', ...
-                                   BoxGUI='cl_ToneDetect_BoxGUI');
+                                   BehaviorGUI='cl_ToneDetect_BehaviorGUI');
 s = R.addSubject(struct('Name','M001','Sex','Male','Species','Gerbil'));
 R.assign(s, p);
 
 ids = {R.subjectsInProject(p).SubjectID};
-R.assignToSession(runExpt, ids, ProjectID=p);   % boxes, protocols, box GUI applied
+R.assignToSession(runExpt, ids, ProjectID=p);   % boxes, protocols, behavior GUI applied
 ```
 
 > **Status: under development.** Run `tmp/smoke_test_subject_roster.m` after any change.
@@ -26,7 +26,7 @@ Membership is many-to-many — one animal can be in several studies — **and** 
 | Array | Holds |
 |---|---|
 | `Subjects` | `SubjectID`, `Name`, `Sex`, `Species`, `Weight`, `Notes`, `NameHistory`, `Retired`, `ImportedFrom`, `Created`, `Modified` |
-| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `SavingFcn`, `TimerPeriod`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `BoxGUI`, `Links`, `Archived`, `Created`, `Modified` |
+| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `SavingFcn`, `TimerPeriod`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `BehaviorGUI`, `Links`, `Archived`, `Created`, `Modified` |
 | `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastProtocolVersion`, `LastBoxID`, `ProtocolHistory`, `Added`, `Modified` |
 
 `Active` is the per-project archive flag. `setActive(s, p, false)` retires a subject from **that project only**; it stays active everywhere else and keeps its protocol memory, which is what makes retiring reversible in one click and `deleteSubject` a last resort.
@@ -55,25 +55,25 @@ What a paradigm decides is a project field, not a per-rig preference. These used
 | `VideoRootDir` | `RunExpt.PATHS.VideoRootDir` | Empty still falls back to the data path. |
 | `IntanRootDir` | `RunExpt.PATHS.IntanRootDir` | Logged at level 0 if it contains spaces, which RHX cannot express. |
 | `IntanSettingsFile` | `RunExpt.PATHS.IntanSettingsFile` | A protocol that names its own settings file still wins over this. |
-| `BoxGUI` | `RunExpt.FUNCS.BoxFig` | Three states; see below. |
+| `BehaviorGUI` | `RunExpt.FUNCS.BehaviorGUI` | Three states; see below. |
 
 Two rules hold across all of them. **Empty is "inherit"** — a project that does not name a field leaves the session's value alone, which is the only meaning a roster written before these fields existed can have. And **nothing is written back to the machine's preferences**: a session follows the study it is running, and the next session without a project gets the rig's own values back. `RunExpt.PATHS` exists for exactly that reason — the recording roots used to be read from `getpref` at the moment of use, which left a project no way to override them for one session only.
 
 [`gui.SubjectManager`](../gui/gui_SubjectManager.md#the-project-dialog)'s project dialog fills every one of these in before the operator sees it, so a project created there is never partly empty.
 
-#### The box GUI, in three states
+#### The behavior GUI, in three states
 
-Committing a project's subjects is what puts that project's GUI on the session's `FUNCS.BoxFig`. Three states, because "inherit" and "launch nothing" are different answers:
+Committing a project's subjects is what puts that project's GUI on the session's `FUNCS.BehaviorGUI`. Three states, because "inherit" and "launch nothing" are different answers:
 
-| `BoxGUI` | Effect on `FUNCS.BoxFig` |
+| `BehaviorGUI` | Effect on `FUNCS.BehaviorGUI` |
 |---|---|
 | `''` | Untouched — the session keeps whatever it has (`ep_GenericGUI` unless a `.ecfg` or a script says otherwise). The only meaning an existing roster could have, so old files behave exactly as before. |
-| `epsych.SubjectRoster.BOXGUI_NONE` (`'none'`) | Cleared: the session runs with no box GUI. |
+| `epsych.SubjectRoster.BEHAVIORGUI_NONE` (`'none'`) | Cleared: the session runs with no behavior GUI. |
 | anything else | Set to that name; `epsych.RunExpt.PsychTimerStart` will `feval` it with `RUNTIME`. |
 
 A name that is not on the path is still applied — it is the operator's stated intent, and a lab that adds its GUI to the path later would be badly served by having it silently dropped — but it is logged at level 0 when committed, rather than surfacing as a failure at run start.
 
-Nothing here is per-subject: `epsych.RunExpt` launches exactly one box GUI per session (see `plans/multi-subject-support.md`), so committing two projects into one session leaves the last one's GUI in place.
+Nothing here is per-subject: `epsych.RunExpt` launches exactly one behavior GUI per session (see `plans/multi-subject-support.md`), so committing two projects into one session leaves the last one's GUI in place.
 
 ### The study's own bookkeeping
 
@@ -252,7 +252,7 @@ There is no archive to fall back on, and inventing one would mean copying every 
 
 `LastProtocolVersion` and `ProtocolHistory` are **additive**, so `FORMAT_VERSION` stays at 1. `normalize_` fills them in from the template when an older file is read, and a rig on an older build that writes the file back drops them — losing a version memory that the next commit re-records, rather than losing data. Bumping the format instead would open every new file **read-only** on every rig that had not been updated, which for a shared network roster is much the worse failure.
 
-The same reasoning covers `Investigator`, `IACUCProtocol`, `Links`, and `Archived`. This is why every default in `blankProject_` has to mean *what an older file implicitly meant*: no investigator, no links, and not archived are all correct readings of a roster written before those fields existed — exactly as `BoxGUI = ''` means "inherit". A default that changed behaviour would silently rewrite the past on first read.
+The same reasoning covers `Investigator`, `IACUCProtocol`, `Links`, and `Archived`. This is why every default in `blankProject_` has to mean *what an older file implicitly meant*: no investigator, no links, and not archived are all correct readings of a roster written before those fields existed — exactly as `BehaviorGUI = ''` means "inherit". A default that changed behaviour would silently rewrite the past on first read.
 
 `normalize_` shapes the outer record only, so `reload` gives a project's nested `Links` array its own pass. It runs **without** validation there, deliberately: see [Links](#links-and-why-the-scheme-is-checked).
 
@@ -306,7 +306,7 @@ Group **`ep_RunExpt_Subjects`**:
 matlab -batch "cd('tmp'); smoke_test_subject_roster"
 ```
 
-Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, a repeated import linking rather than duplicating, and all three `BoxGUI` states reaching `FUNCS.BoxFig` (applied, cleared, inherited).
+Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, a repeated import linking rather than duplicating, and all three `BehaviorGUI` states reaching `FUNCS.BehaviorGUI` (applied, cleared, inherited).
 
 Protocol versions get their own section, driven by real `epsych.Protocol.save` calls rather than hand-written version strings: a fresh subject reads `unknown`, a recorded one `current`, one whose file was saved again `outdated`; `updateProtocol` clears it and the record survives a reload; a superseded same-file entry reports `Recoverable = false` while a revert between two distinct files is exact and leaves the restored entry out of the history rather than in it twice.
 

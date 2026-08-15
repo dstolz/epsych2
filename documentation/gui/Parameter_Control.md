@@ -87,7 +87,7 @@ obj = gui.Parameter_Control(parent, parameter, autoCommit=true, Runtime=RUNTIME)
   - Without it, an autoCommit edit lives only on the `hw.Parameter`: for a parameter the dispatcher refreshes each trial (`UpdateEveryTrial=true`), the stale trial-table value silently reverts the edit at the next trial boundary, and a phase save records the table value instead of the edit.
   - Wire it for **settings** controls (staircase step sizes, p(Catch), stimulus delay). Leave it empty for session-control toggles (Deliver Trials, Reminder, Shape): those rely on the trial-table re-assert to self-clear.
   - Bound-property edits (`Min`, `Max`, `isRandom`, ...) never touch the trial table; they are host-side parameter state.
-  - `gui.BoxGUI.addControl` passes its runtime automatically; `addButton` deliberately does not.
+  - `gui.BehaviorGUI.addControl` passes its runtime automatically; `addButton` deliberately does not.
 
 ## UI types
 

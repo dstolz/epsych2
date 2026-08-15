@@ -251,9 +251,9 @@ randomizes. One mechanism covers both host-driven and device-driven randomizatio
 | Passive exposure | No contingency; a cue and a sync pulse on a fixed interval |
 
 **Appetitive detection** is worth calling out: its channels, variables and states use the same
-names as `cl_AppetitiveDetection_BoxGUI` — `Platform`, `Trough`, `DelayPeriod`, `RespWindow`,
+names as `cl_AppetitiveDetection_BehaviorGUI` — `Platform`, `Trough`, `DelayPeriod`, `RespWindow`,
 `PelletTotal`, `StimDelay`, `RespWinDelay`, `ITIDur`, `TimeoutDur`, `NumPellets` — so a
-Teensy-backed protocol lights up that existing box GUI with no edits to it.
+Teensy-backed protocol lights up that existing behavior GUI with no edits to it.
 
 `DelayPeriod` and `RespWindow` in that template are digital *outputs* held high for the duration
 of their phase. That is a useful trick generally: an output driven purely as a phase flag becomes

@@ -22,9 +22,9 @@ write silently).
    (prompts for a filename at session end) or point it at your lab's function —
    it must take exactly one input (`RUNTIME`) and return nothing.
 4. In the same tab, set its
-   **Box GUI** to `DetectionBoxGUI` and its **Default Protocol** to
+   **Behavior GUI** to `DetectionBehaviorGUI` and its **Default Protocol** to
    `DetectionExample.eprot`, add a subject to it, then tick the subject and
-   press **Add Checked to Session**. The box GUI is a property of the project,
+   press **Add Checked to Session**. The behavior GUI is a property of the project,
    so it reaches the session with the animals.
 5. **View Trials** previews the compiled condition list before anything runs.
 6. **Preview** runs the session without marking it as real data
@@ -51,15 +51,15 @@ without the timer, the GUI dialogs, or hardware. The mapping is one-to-one:
 |---|---|
 | `ExptDispatch` connects interfaces, creates `HELPER` | `RUNTIME.Interfaces = P.Interfaces`, `RUNTIME.HELPER = epsych.Helper` |
 | `ep_TimerFcn_Start` builds TRIALS, creates the selector, dispatches trial 1 | Hand-built TRIALS struct; `RUNTIME.TRIALS = T` (the setter resolves the core triggers and dispatches trial 1) |
-| RunExpt launches `FUNCS.BoxFig`, broadcasts the session mode | `DetectionBoxGUI(RUNTIME)`, then a `ModeChange(Record)` notify |
+| RunExpt launches `FUNCS.BehaviorGUI`, broadcasts the session mode | `DetectionBehaviorGUI(RUNTIME)`, then a `ModeChange(Record)` notify |
 | Rig sets `RespCode` when the animal responds | A simulated observer answers from a psychometric function |
 | `ep_TimerFcn_RunTime` per completed trial: collect Read parameters into a DATA record, `selector.onComplete`, broadcast `NewData`, `selector.selectNext`, `dispatchNextTrial` | The same five calls, verbatim, once per loop iteration |
 | Saving function at stop | `save(dataFile, 'Data', 'Info')` in the layout of `cl_SaveDataFcn` |
 
-Because the event traffic is identical, everything downstream — the box GUI,
+Because the event traffic is identical, everything downstream — the behavior GUI,
 `psychophysics.Detection`, the trial selector — cannot tell it is not a real
 session. That makes the driver a workbench: set a breakpoint in
-`ExampleDetectionSelector.selectNext` or `DetectionBoxGUI.onNewData` and run it
+`ExampleDetectionSelector.selectNext` or `DetectionBehaviorGUI.onNewData` and run it
 to see the machinery move.
 
 ### The simulated observer

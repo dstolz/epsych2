@@ -1,10 +1,10 @@
-# Detection Task 3 — Building a Behavior-Box GUI
+# Detection Task 3 — Building a Behavior GUI
 
 Part of the [detection task worked example](Detection_Task_Walkthrough.md).
-Example file: [DetectionBoxGUI.m](../../examples/detection_task/DetectionBoxGUI.m).
-Base-class reference: [gui.BoxGUI](../gui/gui_BoxGUI.md).
+Example file: [DetectionBehaviorGUI.m](../../examples/detection_task/DetectionBehaviorGUI.m).
+Base-class reference: [gui.BehaviorGUI](../gui/gui_BehaviorGUI.md).
 
-The starter template [examples/customgui/ExampleBoxGUI.m](../../examples/customgui/ExampleBoxGUI.m)
+The starter template [examples/customgui/ExampleBehaviorGUI.m](../../examples/customgui/ExampleBehaviorGUI.m)
 shows the layout helpers (`addButton`, `addControl`, `controlColumn`,
 `addMonitor`, `addUpdateButton`). This example builds on it with the parts a
 real task GUI needs: a live analysis pipeline and the event hooks.
@@ -32,7 +32,7 @@ RUNTIME.HELPER ── NewData ──▶ psychophysics.Detection (ingests the tri
 
 `psychophysics.Detection` listens to `RUNTIME.HELPER`, decodes each trial's
 `RespCode`, and re-broadcasts `NewData` on its own `Helper`. Because
-`gui.BoxGUI` subscribes to `Psych.Helper` when `createPsych` returns an object,
+`gui.BehaviorGUI` subscribes to `Psych.Helper` when `createPsych` returns an object,
 `onNewData` is guaranteed to run *after* the Detection object has processed the
 trial — its dependent properties (`NumTrials`, `Hit_Rate`, `DPrime`, `Count`)
 are always current inside the hook. `gui.PsychPlot` hangs off the same Helper
@@ -44,7 +44,7 @@ keyed by `validName`.
 
 One layout note: `gui.PsychPlot` requires a classic `axes` (its argument
 validation rejects `uiaxes`); `axes(panel)` inside a uifigure panel provides
-one. Non-BoxGUI components are wrapped with `obj.register(...)` so the base
+one. Non-BehaviorGUI components are wrapped with `obj.register(...)` so the base
 class tears them down (listeners included) when the figure closes.
 
 ## The hooks
@@ -85,9 +85,9 @@ run_detection_session          % builds a software runtime and drives the GUI
 **In a real session** — the GUI belongs to the project, not to the protocol and
 not to the rig. In [RunExpt](../overviews/RunExpt_GUI_Overview.md), open
 **Subjects > Subjects & Projects**, then **Project > Edit Project...**, and set
-**Box GUI** to `DetectionBoxGUI`; it lands on the session when that project's
+**Behavior GUI** to `DetectionBehaviorGUI`; it lands on the session when that project's
 subjects are added. At session start RunExpt calls
-`feval('DetectionBoxGUI', RUNTIME)` — which is why the constructor takes
+`feval('DetectionBehaviorGUI', RUNTIME)` — which is why the constructor takes
 exactly one argument — and the runtime's timer drives the same three events the
 simulation does. The class must be on the MATLAB path.
 

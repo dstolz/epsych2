@@ -1,17 +1,17 @@
-classdef ExampleBoxGUI < gui.BehaviorGUI
-    %EXAMPLEBOXGUI Copyable template for a custom experiment (BehaviorGUI) GUI.
+classdef ExampleBehaviorGUI < gui.BehaviorGUI
+    %EXAMPLEBEHAVIORGUI Copyable template for a custom experiment GUI.
     %   Subclass gui.BehaviorGUI, lay out your controls in build(), and the base
     %   class provides lifecycle, listeners, position persistence, and
     %   teardown. Point a project at this class via Subjects > Subjects &
-    %   Projects, Project > Edit Project..., Behavior GUI field ("ExampleBoxGUI");
+    %   Projects, Project > Edit Project..., Behavior GUI field ("ExampleBehaviorGUI");
     %   it launches at session start for that project's subjects.
     %
     %   Try it without hardware: examples/customgui/run_example.m
     %
-    % See also gui.BehaviorGUI, documentation/gui/gui_BoxGUI.md
+    % See also gui.BehaviorGUI, documentation/gui/gui_BehaviorGUI.md
 
     methods
-        function obj = ExampleBoxGUI(RUNTIME)
+        function obj = ExampleBehaviorGUI(RUNTIME)
             obj@gui.BehaviorGUI(RUNTIME, Name='Example Task', ...
                 DefaultPosition=[100 100 1100 650]);
             if nargout == 0, clear obj; end

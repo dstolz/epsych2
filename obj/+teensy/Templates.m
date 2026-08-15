@@ -125,7 +125,7 @@ classdef Templates
             % The classic detection task: respond on signal, withhold on catch.
             %
             % TrialType_0 is a signal trial and TrialType_1 a catch trial,
-            % matching how cl_AppetitiveDetection_BoxGUI decodes them, so the
+            % matching how cl_AppetitiveDetection_BehaviorGUI decodes them, so the
             % shipped psychophysics.Detection analysis works unmodified.
             p = teensy.Program(Name = "GoNoGoDetection", ...
                 Description = "Signal and catch trials scored as hit, miss, correct reject or false alarm.");
@@ -407,7 +407,7 @@ classdef Templates
             % Platform-hold detection with pellet reward, as run in this lab.
             %
             % Channel, variable and state names deliberately match
-            % cl/@cl_AppetitiveDetection_BoxGUI so that a Teensy-backed protocol
+            % cl/@cl_AppetitiveDetection_BehaviorGUI so that a Teensy-backed protocol
             % lights up the existing behavior GUI with no edits: Platform, Trough,
             % InTrial, DelayPeriod, RespWindow, PelletTotal, RespWinDelay,
             % RespLatency and RespCode are exactly the names its

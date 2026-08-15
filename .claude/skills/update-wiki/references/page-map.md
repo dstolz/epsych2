@@ -19,9 +19,9 @@ write MATLAB against the framework.
 | `Stimuli-and-Calibration` | StimPlayer, speaker calibration, dB SPL → volts (links out to stimgen) |
 | `Parameter-Files-and-Phases` | Phase `.eprot` files, PhaseSelector, what a phase load does and does not restore |
 | `Training-and-Online-Analysis` | Staircase training, history, performance plots, session metrics |
-| `Building-a-Box-GUI` | Subclassing `gui.BoxGUI`: lifecycle, `build(fig)`, event hooks, teardown |
+| `Building-a-Box-GUI` | Subclassing `gui.BehaviorGUI`: lifecycle, `build(fig)`, event hooks, teardown |
 | `Box-GUI-Components` | The parts list — one `###` section per `obj/+gui/` component, each with its own screenshot |
-| `Generating-a-Box-GUI-with-AI` | Prompting a model to draft a box GUI, and verifying what it produced |
+| `Generating-a-Box-GUI-with-AI` | Prompting a model to draft a behavior GUI, and verifying what it produced |
 | `Teensy-Trial-Designer` 🚧 | The designer GUI, templates, test bench |
 | `Video-and-Peripherals` | VLC recording, syringe-pump reward (`hw.NE1000` + `gui.SyringePump`), motorized commutators |
 | `Data-and-Save-Functions` | What is saved, the trial journal, decoding `epsych.BitMask` outcomes, custom save functions |
@@ -42,7 +42,7 @@ The reader writes MATLAB against the framework.
 | `Stimgen-Integration` | The `stimbridge` seam and the submodule contract — *never* the stimgen class list |
 | `Trial-Selectors` | `epsych.TrialSelector` subclassing, closed-loop selection |
 | `Psychophysics-Framework` | `psychophysics.Psych` and friends, `SessionMetrics`, writing an analyzer |
-| `GUI-Framework-Internals` | How `gui.BoxGUI`, the registry, `gui.PopOut`, and preferences work under the components |
+| `GUI-Framework-Internals` | How `gui.BehaviorGUI`, the registry, `gui.PopOut`, and preferences work under the components |
 | `Teensy-Program-Model` 🚧 | `teensy.Program`/`Compiler`/`Simulator`, the wire protocol |
 | `Contributing-and-Conventions` | Coding conventions, logging policy, commit practice, submodule rules |
 
@@ -88,4 +88,4 @@ repeating them:
 - Registering a backend touches **four** sites, not the three CLAUDE.md lists.
 - `psychophysics.Detection` is a standalone handle class, **not** a
   `psychophysics.Psych` subclass.
-- The box GUI is set from **Customize → Customize…** in RunExpt.
+- The behavior GUI is set from **Customize → Customize…** in RunExpt.

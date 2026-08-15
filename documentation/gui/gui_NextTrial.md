@@ -45,7 +45,7 @@ fmt = containers.Map({'TrialType'}, {@myTrialTypeLabel});
 obj.NextTrialPanel = gui.NextTrial(RUNTIME, panelNextTrial, ...
     Fields=["Depth","TrialType"], Formatters=fmt, FontSize=20);
 
-% From a gui.BoxGUI subclass's build(fig) (preferred: registers for teardown)
+% From a gui.BehaviorGUI subclass's build(fig) (preferred: registers for teardown)
 obj.NextTrialPanel = obj.addNextTrial(panelNextTrial, ...
     Fields=["Depth","TrialType"], Formatters=fmt, FontSize=20);
 
@@ -77,9 +77,9 @@ obj = gui.NextTrial(source, container, options)
 | `ContextMenu` | The right-click menu; a host GUI can append its own items with `uimenu(obj.ContextMenu, ...)` |
 | `setFields(fields)` | Programmatically choose which fields are displayed; persists like a menu selection |
 
-## gui.BoxGUI integration
+## gui.BehaviorGUI integration
 
-`gui.BoxGUI.addNextTrial(parent, ...)` constructs a `gui.NextTrial` bound to
+`gui.BehaviorGUI.addNextTrial(parent, ...)` constructs a `gui.NextTrial` bound to
 `obj.RUNTIME` and registers it for teardown, matching `addMonitor`:
 
 ```matlab
@@ -92,14 +92,14 @@ end
 
 ## Cleanup
 
-Registered through `gui.BoxGUI.register` (via `addNextTrial`), it is deleted
+Registered through `gui.BehaviorGUI.register` (via `addNextTrial`), it is deleted
 automatically with the rest of the GUI. Constructed standalone, `delete(obj)`
 releases the `NewTrial` listener and context menu; the table graphics are
 left for the hosting figure to tear down.
 
 ## Example: appetitive detection Next Trial panel
 
-`cl/BoxGUIs/@cl_AppetitiveDetection_BoxGUI/build.m` shows Depth and the
+`cl/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m` shows Depth and the
 protocol's own text label for TrialType:
 
 ```matlab
@@ -119,4 +119,4 @@ need one to render as anything other than its raw number.
   parameter name
 - [gui.ParameterScatter](gui_ParameterScatter.md) — the same persistence
   pattern applied to plot axis selections
-- [gui.BoxGUI](gui_BoxGUI.md), [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md)
+- [gui.BehaviorGUI](gui_BehaviorGUI.md), [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md)

@@ -4,7 +4,7 @@ function smoke_test_first_experiment
 % hardware and no human: an auto-clicker presses the RESPOND button
 % whenever it arms. Unlike the detection-example smoke test, this drives
 % the REAL runtime loop — ep_TimerFcn_Start / ep_TimerFcn_RunTime /
-% ep_TimerFcn_Stop on a live timer — with FirstExperimentBoxGUI acting as
+% ep_TimerFcn_Stop on a live timer — with FirstExperimentBehaviorGUI acting as
 % the rig. Headless-safe (uifigure and timers work under -batch); runs in
 % real time, expect roughly 15-30 s.
 %
@@ -114,12 +114,12 @@ assert(isfield(V, 'info') && isfield(V, sprintf('data_%04d', NTRIALS)), ...
 fprintf('PASS: scoring, RTs, session file, journal merge\n');
 
 % 4. GUI teardown and offline analysis -----------------------------------
-fig = findall(groot, 'Type', 'figure', 'Tag', 'FirstExperimentBoxGUI');
-assert(isscalar(fig), 'FirstExperimentBoxGUI figure not found');
+fig = findall(groot, 'Type', 'figure', 'Tag', 'FirstExperimentBehaviorGUI');
+assert(isscalar(fig), 'FirstExperimentBehaviorGUI figure not found');
 assert(strcmp(GUI.ModeLabel.Text, 'Mode: Idle'), ...
     'mode label should end at Idle, got "%s"', GUI.ModeLabel.Text);
 close(fig) % exercises closeGUI/teardown, including the rig timer
-rig = timerfindall('Name', 'FirstExperimentBoxGUI_rig');
+rig = timerfindall('Name', 'FirstExperimentBehaviorGUI_rig');
 assert(isempty(rig), 'rig timer must not survive GUI teardown');
 
 R = explore_first_data(datafile);
@@ -138,7 +138,7 @@ function cleanupAll(tmpdir)
 close(findall(groot, 'Type', 'figure'));
 t = timerfindall('Name', 'FirstExperimentTimer');
 if ~isempty(t), stop(t); delete(t); end
-t = timerfindall('Name', 'FirstExperimentBoxGUI_rig');
+t = timerfindall('Name', 'FirstExperimentBehaviorGUI_rig');
 if ~isempty(t), stop(t); delete(t); end
 if isfolder(tmpdir)
     try

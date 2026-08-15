@@ -1,7 +1,7 @@
 # `gui.ParameterDebugger`
 
 A window that lists every parameter a protocol defines and lets you read or
-write any of them. It answers the question a box GUI cannot — *is the
+write any of them. It answers the question a behavior GUI cannot — *is the
 hardware actually holding what I think it is* — because it shows everything,
 including the parameters no GUI exposes, and it works the same against any
 protocol on any backend.
@@ -212,7 +212,7 @@ which kind it is.
 
 See also: [gui_Parameter_Monitor](Parameter_Monitor.md) — the polling display,
 [Parameter_Control.md](Parameter_Control.md) — one parameter bound to one
-widget, [gui_BoxGUI.md](gui_BoxGUI.md),
+widget, [gui_BehaviorGUI.md](gui_BehaviorGUI.md),
 [../hw/hw_Parameter.md](../hw/hw_Parameter.md),
 [../overviews/RunExpt_SelfTest.md](../overviews/RunExpt_SelfTest.md) — the
 other window on the Help menu.

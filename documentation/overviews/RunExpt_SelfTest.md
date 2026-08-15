@@ -46,7 +46,7 @@ The self-test is available while a session is running. The read-only checks are 
 Three groups of checks can only be real if they cause side effects, so they are off by default and marked `[!]` in the tree.
 
 - **Connect hardware interfaces** — connects every interface in the protocol, asserts it reports connected (the same assertion the runtime makes), runs each backend's invasive self-test, then restores the connection state it found. This is the only way to verify parameters on hardware that discovers them at connect, such as TDT RPvds.
-- **Launch the Box GUI** — launches the configured box GUI against a synthetic runtime and closes it again. Note that `ep_GenericGUI` allows only one instance, so an already-open box GUI will be replaced.
+- **Launch the Behavior GUI** — launches the configured behavior GUI against a synthetic runtime and closes it again. Note that `ep_GenericGUI` allows only one instance, so an already-open behavior GUI will be replaced.
 - **Cycle the live GUI state** — drives the session window through each program state, asserts which controls are enabled in each, and restores the original state. The window flickers briefly.
 
 All three are refused while a session is RUNNING.

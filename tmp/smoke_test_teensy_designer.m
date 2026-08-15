@@ -142,7 +142,7 @@ end
 fprintf('PASS: all %d templates validate, compile and round-trip\n', numel(names));
 
 % 7b. The lab paradigm keeps the names its existing BehaviorGUI binds to ------
-% cl_AppetitiveDetection_BoxGUI resolves these by name through
+% cl_AppetitiveDetection_BehaviorGUI resolves these by name through
 % gui.Parameter_Monitor and gui.Parameter_Control, so a Teensy-backed
 % protocol only lights that GUI up if the template emits them exactly.
 appetitive = string({teensy.Templates.get("AppetitiveDetection").parameterSpecs().Name});
@@ -152,7 +152,7 @@ for required = ["Platform", "Trough", "InTrial", "DelayPeriod", "RespWindow", ..
     assert(any(appetitive == required), ...
         'AppetitiveDetection must emit %s for the existing BehaviorGUI', required);
 end
-fprintf('PASS: AppetitiveDetection emits the names cl_AppetitiveDetection_BoxGUI binds\n');
+fprintf('PASS: AppetitiveDetection emits the names cl_AppetitiveDetection_BehaviorGUI binds\n');
 
 % 8. The parameter set the runtime requires -------------------------------
 specs = teensy.Templates.get("GoNoGoDetection").parameterSpecs();

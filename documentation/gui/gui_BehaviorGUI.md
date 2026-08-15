@@ -1,29 +1,29 @@
-# gui.BoxGUI — Base class for custom experiment GUIs
+# gui.BehaviorGUI — Base class for custom experiment GUIs
 
-`gui.BoxGUI` is the recommended starting point for a custom experiment (BoxFig) GUI. It owns everything a paradigm GUI needs besides its layout: single-instance enforcement, figure creation with position persistence, runtime event listeners, a teardown-guaranteed component registry, and automatic `gui.Parameter_Update` wiring. A subclass implements one required method — `build(fig)` — and optionally overrides a handful of protected hooks.
+`gui.BehaviorGUI` is the recommended starting point for a custom experiment GUI. It owns everything a paradigm GUI needs besides its layout: single-instance enforcement, figure creation with position persistence, runtime event listeners, a teardown-guaranteed component registry, and automatic `gui.Parameter_Update` wiring. A subclass implements one required method — `build(fig)` — and optionally overrides a handful of protected hooks.
 
-A complete, runnable template lives at [examples/customgui/ExampleBoxGUI.m](../../examples/customgui/ExampleBoxGUI.m); launch it without hardware via [examples/customgui/run_example.m](../../examples/customgui/run_example.m).
+A complete, runnable template lives at [examples/customgui/ExampleBehaviorGUI.m](../../examples/customgui/ExampleBehaviorGUI.m); launch it without hardware via [examples/customgui/run_example.m](../../examples/customgui/run_example.m).
 
-## The BoxFig contract
+## The BehaviorGUI contract
 
-`epsych.RunExpt` launches the configured box GUI at session start as `feval(FUNCS.BoxFig, RUNTIME)` — one input, no outputs, opens a window. A `gui.BoxGUI` subclass satisfies this automatically as long as its constructor accepts the runtime and forwards it to the base:
+`epsych.RunExpt` launches the configured behavior GUI at session start as `feval(FUNCS.BehaviorGUI, RUNTIME)` — one input, no outputs, opens a window. A `gui.BehaviorGUI` subclass satisfies this automatically as long as its constructor accepts the runtime and forwards it to the base:
 
 ```matlab
 function obj = MyTaskGUI(RUNTIME)
-    obj@gui.BoxGUI(RUNTIME, Name='My Task');
+    obj@gui.BehaviorGUI(RUNTIME, Name='My Task');
     if nargout == 0, clear obj; end
 end
 ```
 
-Name the class on the **project** that runs it: **Subjects > Subjects & Projects**, then **Project > Edit Project... > Session Defaults** and the **Box GUI** field. `epsych.SubjectRoster.assignToSession` puts it on `FUNCS.BoxFig` when that project's subjects are added to the session, so a rig alternating between two paradigms picks up the right GUI from the animals it is running rather than from a per-rig setting. (It used to be Customize's **Box GUI Function** field; see [`gui.SubjectManager`](gui_SubjectManager.md#the-project-dialog).) The GUI is created *after* the runtime timer starts, so parameters already carry live values; it must nonetheless open against a runtime with **no** interfaces (the pre-flight self-test launches it that way), which the base guarantees: `addControl`/`addButton` silently skip parameter names that do not resolve.
+Name the class on the **project** that runs it: **Subjects > Subjects & Projects**, then **Project > Edit Project... > Session Defaults** and the **Behavior GUI** field. `epsych.SubjectRoster.assignToSession` puts it on `FUNCS.BehaviorGUI` when that project's subjects are added to the session, so a rig alternating between two paradigms picks up the right GUI from the animals it is running rather than from a per-rig setting. (It used to be Customize's **Behavior GUI Function** field; see [`gui.SubjectManager`](gui_SubjectManager.md#the-project-dialog).) The GUI is created *after* the runtime timer starts, so parameters already carry live values; it must nonetheless open against a runtime with **no** interfaces (the pre-flight self-test launches it that way), which the base guarantees: `addControl`/`addButton` silently skip parameter names that do not resolve.
 
 ## Minimal subclass
 
 ```matlab
-classdef MyTaskGUI < gui.BoxGUI
+classdef MyTaskGUI < gui.BehaviorGUI
     methods
         function obj = MyTaskGUI(RUNTIME)
-            obj@gui.BoxGUI(RUNTIME, Name='My Task', DefaultPosition=[100 100 1100 650]);
+            obj@gui.BehaviorGUI(RUNTIME, Name='My Task', DefaultPosition=[100 100 1100 650]);
             if nargout == 0, clear obj; end
         end
     end
@@ -59,7 +59,7 @@ No destructor, no closeGUI, no single-instance code, no position prefs, no liste
 
 ## Constructor options
 
-`obj@gui.BoxGUI(RUNTIME, ...)` accepts:
+`obj@gui.BehaviorGUI(RUNTIME, ...)` accepts:
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -106,17 +106,17 @@ All helpers register what they create, guaranteeing teardown (see below).
 - **Close while running**: if the session driving this GUI is still `PRGMSTATE.RUNNING`, `closeGUI` first raises a modal dialog offering **Close GUI** (leave the session running without its controls), **Halt Experiment** (`RunExpt.halt`, which routes through the same dispatch as the session window's own Stop control, so the mode broadcast, timer stop, and data save all happen while this GUI's listeners are still alive — then close), and **Cancel** (default; the window stays open). The prompt only appears for the session that actually owns this GUI: the open `RunExpt` window's `RUNTIME` must be the same handle as `obj.RUNTIME`, so a window left over from an earlier run, or one opened against the synthetic runtime of SelfTest check I6, closes silently as before.
 - **Destructor**: disables and deletes the three event listeners, deletes every registered component in reverse order (this is what prevents leaked listeners and timers — deleting a figure alone only removes graphics, not the component handle objects), deletes the psych object, then the figure.
 
-Because of the registry, a subclass normally needs **no destructor at all**. Only add one if you own resources the registry cannot know about, and call `delete@gui.BoxGUI(obj)` at the end.
+Because of the registry, a subclass normally needs **no destructor at all**. Only add one if you own resources the registry cannot know about, and call `delete@gui.BehaviorGUI(obj)` at the end.
 
 ## Utilities
 
-- `gui.BoxGUI.classifyParameters(params)` — static; splits an `hw.Parameter` array into trigger-style, writable, and read-only visible groups using the standard rules (`isTrigger` or `~`/`!` name prefix marks a trigger). This is what `ep_GenericGUI` uses to auto-build itself.
-- `gui.BoxGUI.getSavedFigurePosition(prefTag, default)` / `saveFigurePosition(prefTag, pos)` — static position-preference helpers, keyed by `PreferenceTag`.
+- `gui.BehaviorGUI.classifyParameters(params)` — static; splits an `hw.Parameter` array into trigger-style, writable, and read-only visible groups using the standard rules (`isTrigger` or `~`/`!` name prefix marks a trigger). This is what `ep_GenericGUI` uses to auto-build itself.
+- `gui.BehaviorGUI.getSavedFigurePosition(prefTag, default)` / `saveFigurePosition(prefTag, pos)` — static position-preference helpers, keyed by `PreferenceTag`.
 
 ## Reference implementations
 
-- [runtime/guis/@ep_GenericGUI](../../runtime/guis/@ep_GenericGUI/ep_GenericGUI.m) — the default BoxFig, a ~95-line subclass that auto-discovers all parameters.
-- [examples/customgui/ExampleBoxGUI.m](../../examples/customgui/ExampleBoxGUI.m) — the copyable paradigm-GUI template.
-- Validation: `tmp/smoke_test_boxgui.m` (headless; `matlab -batch "run('tmp/smoke_test_boxgui.m')"`).
+- [runtime/guis/@ep_GenericGUI](../../runtime/guis/@ep_GenericGUI/ep_GenericGUI.m) — the default BehaviorGUI, a ~95-line subclass that auto-discovers all parameters.
+- [examples/customgui/ExampleBehaviorGUI.m](../../examples/customgui/ExampleBehaviorGUI.m) — the copyable paradigm-GUI template.
+- Validation: `tmp/smoke_test_behaviorgui.m` (headless; `matlab -batch "run('tmp/smoke_test_behaviorgui.m')"`).
 
-See also: [Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md) for the surrounding concepts (parameters, events, layout strategy), [Parameter_Control.md](Parameter_Control.md), [Parameter_Update.md](Parameter_Update.md), [Parameter_Monitor.md](Parameter_Monitor.md), [gui_NextTrial.md](gui_NextTrial.md), [gui_PopOut.md](gui_PopOut.md), [gui_ParameterDebugger.md](gui_ParameterDebugger.md) — for the parameters a box GUI does not expose, [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md).
+See also: [Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md) for the surrounding concepts (parameters, events, layout strategy), [Parameter_Control.md](Parameter_Control.md), [Parameter_Update.md](Parameter_Update.md), [Parameter_Monitor.md](Parameter_Monitor.md), [gui_NextTrial.md](gui_NextTrial.md), [gui_PopOut.md](gui_PopOut.md), [gui_ParameterDebugger.md](gui_ParameterDebugger.md) — for the parameters a behavior GUI does not expose, [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md).

@@ -21,7 +21,7 @@ function smoke_test_popout()
 
 here = fileparts(mfilename('fullpath'));
 run(fullfile(here,'..','epsych_startup.m'));
-addpath(here); % FakeScatterRuntime, PopOutBoxGUI, +psychophysics/FakeHistoryPsych
+addpath(here); % FakeScatterRuntime, PopOutBehaviorGUI, +psychophysics/FakeHistoryPsych
 
 TAGS = {'smokePO_scatter','smokePO_hist','smokePO_perf','smokePO_next', ...
     'smokePO_mon','smokePO_stair','smokePopOutScatter'};
@@ -223,7 +223,7 @@ delete(f7);
 fprintf('PASS: psychometric plot pop-out keeps its own plot type\n');
 
 % 8. gui.BehaviorGUI.addPopOutButton ------------------------------------------
-g = PopOutBoxGUI(makeRuntime());
+g = PopOutBehaviorGUI(makeRuntime());
 assert(isvalid(g.PopButton), 'addPopOutButton should create a button');
 assert(~g.Scatter.hasPopOut(), 'no pop-out before the button is pressed');
 

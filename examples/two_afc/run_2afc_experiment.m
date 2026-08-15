@@ -2,7 +2,7 @@ function [RUNTIME, GUI] = run_2afc_experiment(options)
 % [RUNTIME, GUI] = run_2afc_experiment(Name=Value, ...)
 % Run the 2AFC tutorial end-to-end with one command: load (or create) the
 % tutorial protocol, stand up an epsych.Runtime around its hw.Software
-% interface, launch TwoAFCBoxGUI, and start the same timer loop a real
+% interface, launch TwoAFCBehaviorGUI, and start the same timer loop a real
 % session runs (ep_TimerFcn_RunTime on every tick). YOU then perform the
 % task — decide which lamp was brighter and answer LEFT or RIGHT, by
 % button or arrow key — and every completed trial is journaled and
@@ -27,7 +27,7 @@ function [RUNTIME, GUI] = run_2afc_experiment(options)
 % Returns:
 %   RUNTIME - The live epsych.Runtime; the session keeps running in its
 %             timer after this function returns, just as with RunExpt.
-%   GUI     - The TwoAFCBoxGUI instance.
+%   GUI     - The TwoAFCBehaviorGUI instance.
 %
 % Try it:
 %   run_2afc_experiment                 % 64 trials, then auto-save
@@ -35,7 +35,7 @@ function [RUNTIME, GUI] = run_2afc_experiment(options)
 %
 % Walkthrough: https://github.com/dstolz/epsych2/wiki/Two-AFC-Task
 %
-% See also create_2afc_protocol, TwoAFCBoxGUI, explore_2afc_data
+% See also create_2afc_protocol, TwoAFCBehaviorGUI, explore_2afc_data
 
 arguments
     options.NumTrials (1,1) double {mustBeInteger, mustBePositive} = 64
@@ -46,7 +46,7 @@ arguments
 end
 
 here = fileparts(mfilename('fullpath'));
-addpath(here); % TwoAFCBoxGUI must be resolvable by name
+addpath(here); % TwoAFCBehaviorGUI must be resolvable by name
 
 if isempty(options.ProtocolFile)
     options.ProtocolFile = fullfile(here, 'TwoAFC.eprot');
@@ -85,7 +85,7 @@ RUNTIME = ep_TimerFcn_Start(RUNTIME, CONFIG);
 
 % RunExpt launches the behavior GUI right after Start, then broadcasts the
 % session mode; mirror that order here.
-GUI = TwoAFCBoxGUI(RUNTIME);
+GUI = TwoAFCBehaviorGUI(RUNTIME);
 
 % The real runtime loop: ep_TimerFcn_RunTime on every tick, wrapped so the
 % session can end itself (trial quota reached, or the GUI was closed).

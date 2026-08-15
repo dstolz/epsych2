@@ -33,10 +33,14 @@ for i = 1:length(config)
     end
 end
 
-funcs  = self.FUNCS;  %#ok<NASGU>
+% The behavior-GUI callback is written under its former name too, so a rig one
+% release behind still finds it. Mirrored onto the copy being saved rather than
+% onto self.FUNCS, which keeps exactly one canonical field.
+funcs  = self.FUNCS;
+funcs.BehaviorGUI = funcs.BoxFig;
 
 E = EPsychInfo;
-meta = E.meta; %#ok<NASGU>
+meta = E.meta;
 
 save(fullfile(pn,fn),'config','funcs','meta','-mat')
 setpref('ep_RunExpt_Setup','CDir',pn)

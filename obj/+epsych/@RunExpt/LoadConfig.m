@@ -65,6 +65,16 @@ for i = 1:length(self.CONFIG)
 end
 
 if isfield(S,'funcs')
+    % A config saved after "box GUI" became "behavior GUI" names the callback
+    % FUNCS.BehaviorGUI. Carried onto the field this build uses and then dropped,
+    % so FUNCS holds one canonical name and SaveConfig alone decides what the
+    % file gets -- SetDefaultFuncs below reads the field unguarded.
+    if isfield(S.funcs,'BehaviorGUI')
+        if ~isfield(S.funcs,'BoxFig') || isempty(S.funcs.BoxFig)
+            S.funcs.BoxFig = S.funcs.BehaviorGUI;
+        end
+        S.funcs = rmfield(S.funcs,'BehaviorGUI');
+    end
     self.FUNCS = S.funcs;
     self.SetDefaultFuncs(self.FUNCS)
 else

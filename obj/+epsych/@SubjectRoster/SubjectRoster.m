@@ -249,6 +249,7 @@ classdef SubjectRoster < handle
         m = blankMembership_()
         L = blankLink_()
         L = normalizeLinks_(links, options)
+        p = aliasBehaviorGUI_(p)
         h = blankHistory_()
         h = emptyHistory_()
         h = pushHistory_(history, file, version)

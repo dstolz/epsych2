@@ -28,7 +28,10 @@ end
 
 formatVersion = epsych.SubjectRoster.FORMAT_VERSION;
 subjects      = self.Subjects;
-projects      = self.Projects;
+% Written under both the old and new name of the behavior-GUI field so a rig one
+% release behind still finds it. The mirror is on the copy being written, never
+% on self.Projects, so the in-memory record keeps exactly one canonical field.
+projects      = epsych.SubjectRoster.aliasBehaviorGUI_(self.Projects);
 memberships   = self.Memberships;
 
 meta = localMeta();

@@ -580,6 +580,10 @@ classdef RunExpt < handle
             % Persist all callback function names from struct F to MATLAB preferences.
             setpref('ep_RunExpt_FUNCS','SavingFcn',    F.SavingFcn)
             setpref('ep_RunExpt_FUNCS','AddSubjectFcn',F.AddSubjectFcn)
+            % Both names: this pref is the rig's default behavior GUI, and a rig
+            % one release behind reads the old key. GetDefaultFuncs prefers the
+            % new one, so the pair converges on the first save either way.
+            setpref('ep_RunExpt_FUNCS','BehaviorGUI', F.BoxFig)
             setpref('ep_RunExpt_FUNCS','BoxFig',       F.BoxFig)
 
             setpref('ep_RunExpt_TIMER','Start',     F.TIMERfcn.Start)
@@ -608,7 +612,8 @@ classdef RunExpt < handle
             end
 
             F.SavingFcn      = getpref('ep_RunExpt_FUNCS','SavingFcn',    'ep_SaveDataFcn');
-            F.BoxFig         = getpref('ep_RunExpt_FUNCS','BoxFig',       'ep_GenericGUI');
+            F.BoxFig         = getpref('ep_RunExpt_FUNCS','BehaviorGUI', ...
+                getpref('ep_RunExpt_FUNCS','BoxFig',       'ep_GenericGUI'));
 
             F.TIMERfcn.Start    = getpref('ep_RunExpt_TIMER','Start',   'ep_TimerFcn_Start');
             F.TIMERfcn.RunTime  = getpref('ep_RunExpt_TIMER','RunTime', 'ep_TimerFcn_RunTime');

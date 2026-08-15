@@ -89,9 +89,13 @@ p = sw.add_parameter('RespCode', 0, Type = 'Integer', ...
 p.Value = 0;
 p.Access = 'Read';
 
+% -1, not NaN, marks "no response". A parameter cannot hold NaN: every
+% numeric write is clamped with max(value, Min) (hw.Parameter.clamp_value_)
+% and MATLAB's max ignores NaN, so a NaN silently arrives as Min — -Inf by
+% default. Any missing-data marker has to be a real number you choose.
 p = sw.add_parameter('RT_ms', 0, Unit = 'ms', ...
-    Description = "Reaction time from response-window open; NaN when no response");
-p.Value = NaN;
+    Description = "Reaction time from response-window open; -1 when no response");
+p.Value = -1;
 p.Access = 'Read';
 
 p = sw.add_parameter('InTrial', false, Type = 'Boolean', ...

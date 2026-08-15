@@ -301,7 +301,11 @@ classdef FirstExperimentBoxGUI < gui.BoxGUI
             %   withheld    Miss          CorrectReject
             % forcedBit (from a manual-scoring button) overrides the
             % response half of that; NaN means score naturally.
-            rt = NaN;
+            %
+            % -1 is the no-response reaction time, because a parameter
+            % cannot store NaN: the write is clamped with max(value, Min),
+            % which ignores NaN and yields Min (see create_first_protocol).
+            rt = -1;
             if responded && strcmp(obj.RigState, 'respwin')
                 rt = round(toc(obj.RespClock) * 1000);
             end

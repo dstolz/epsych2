@@ -85,7 +85,7 @@ for k = 1:numel(durations)
     ind        = goIdx & dur == durations(k);
     nGo(k)     = sum(ind);
     hitRate(k) = sum(M.Hit & ind) / nGo(k);
-    hitsHere   = M.Hit & ind & isfinite(rt);
+    hitsHere   = M.Hit & ind & rt >= 0; % -1 marks a trial with no response
     if any(hitsHere), medianRT(k) = median(rt(hitsHere)); end
 end
 
@@ -153,7 +153,7 @@ grid(ax, 'on'); ax.GridAlpha = 0.12; ax.Box = 'off';
 % 3. Reaction time on hits
 ax = nexttile(tl);
 hold(ax, 'on')
-hitInd = M.Hit & isfinite(rt);
+hitInd = M.Hit & rt >= 0;
 scatter(ax, dur(hitInd), rt(hitInd), 30, ...
     MarkerEdgeColor = lineColor, MarkerFaceColor = lineColor, ...
     MarkerFaceAlpha = 0.3, HandleVisibility = 'off')

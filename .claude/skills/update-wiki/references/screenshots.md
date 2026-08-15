@@ -92,10 +92,11 @@ page, one image per `###` entry: `Parameter_Control`, `Parameter_Update`,
 captured by hand (they need real hardware). Leave them alone unless the user can
 supply a new capture; do not delete them as "stale".
 
-Branded assets — `banner.png`, `workflow-diagram.png`, `architecture-diagram.png`,
-`logo-64.png`, `images/icons/*.svg` — are **copies** of `graphics/` in the code
-repo. Edit the code repo, then copy into the wiki; the wiki cannot reference the
-code repo by relative path.
+Branded assets — `banner.svg`, `workflow-diagram.svg`, `architecture-diagram.svg`,
+`logo.svg`, `logo-outline.svg`, `favicon.svg`, `favicon-16.svg`,
+`images/icons/*.svg` — are **copies** of `graphics/` in the code repo. Edit the
+code repo, then copy into the wiki; the wiki cannot reference the code repo by
+relative path. They are all SVG; there are no PNG branded assets.
 
 ## Adding a shot for a new component
 

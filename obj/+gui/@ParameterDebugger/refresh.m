@@ -124,9 +124,11 @@ end
 if ~isempty(strtrim(self.H.filter.Value))
     txt = sprintf('No parameter matches "%s". Clear the Find box to see them all.', ...
         strtrim(self.H.filter.Value));
-elseif ~self.H.chkHidden.Value
-    txt = ['No visible parameters. Tick "Show hidden" if this protocol keeps ' ...
-           'its parameters out of the GUI.'];
+elseif self.HiddenSkipped_ > 0
+    % Only offered when it would actually reveal something: an empty table
+    % plus advice that changes nothing is worse than an empty table.
+    txt = sprintf(['No visible parameters. Tick "Show hidden" to list the %d ' ...
+                   'this protocol keeps out of the GUI.'], self.HiddenSkipped_);
 else
     txt = 'This protocol defines no parameters.';
 end

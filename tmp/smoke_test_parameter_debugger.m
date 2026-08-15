@@ -343,7 +343,83 @@ catch ME
     results(end+1,:) = check(['Assign: ' ME.message], false);
 end
 
-%% 16. The launch path: Help menu of a live RunExpt session
+%% 16. Edges: things that go missing or empty under the window
+% Each case builds its own rig, because deleting parameters out of the main one
+% would change the row counts every section above asserts on.
+try
+    edgeRig = ParameterDebuggerMock();
+    e = edgeRig.add_parameter('Freq', 1000);   e.Value = 1000;
+    e = edgeRig.add_parameter('Label', 'tone'); e.Value = 'tone';
+    doomed = edgeRig.add_parameter('Doomed', 5); doomed.Value = 5;
+    edgeRig.connect();
+
+    dbg = gui.ParameterDebugger(edgeRig, Visible = false);
+    figs(end+1) = dbg.H.figure;
+
+    % Read first, so the cells hold text to clear: an edit whose text did not
+    % change is dropped before it reaches the write path.
+    edgeRig.Store('Freq') = 1000;
+    edgeRig.Store('Label') = 'tone';
+    dbg.readAll();
+
+    % Clearing a numeric cell is not a write of nothing; clearing a String
+    % cell is a legitimate write of an empty string.
+    editCell(dbg, rowIndex(dbg,'Freq'), '');
+    results(end+1,:) = check('Clearing a numeric cell writes nothing', ...
+        isequal(edgeRig.Store('Freq'), 1000));
+    editCell(dbg, rowIndex(dbg,'Label'), '');
+    results(end+1,:) = check('Clearing a String cell writes an empty string', ...
+        isempty(edgeRig.Store('Label')));
+
+    % A parameter deleted under the window -- what a config reload leaves.
+    delete(doomed);
+    dbg.readAll();
+    results(end+1,:) = check('A deleted parameter is reported, not thrown', ...
+        dbg.Rows(rowIndex(dbg,'Doomed')).State == gui.ParameterDebugger.STATE_FAIL);
+    editCell(dbg, rowIndex(dbg,'Doomed'), '9');
+    results(end+1,:) = check('...and writing to it is refused', ...
+        contains(dbg.H.status.Text, 'no longer exists'));
+
+    % A row index that no longer exists after the list shrank.
+    dbg.H.filter.Value = 'Freq';
+    dbg.refresh();
+    editCell(dbg, numel(dbg.Rows) + 3, '123');
+    results(end+1,:) = check('A stale row index is ignored', isvalid(dbg));
+
+    % An interface deleted out of the source array must not take the rest with it.
+    deadRig = ParameterDebuggerMock();
+    both = [edgeRig deadRig];
+    delete(deadRig);
+    dbg = gui.ParameterDebugger(both, Visible = false);
+    figs(end+1) = dbg.H.figure;
+    dbg.readAll();
+    results(end+1,:) = check('A deleted interface is skipped, the rest still listed', ...
+        numel(dbg.Rows) == 2);
+catch ME
+    results(end+1,:) = check(['Edges: ' ME.message], false);
+end
+
+%% 17. An empty table says which kind of empty it is
+try
+    bareRig = ParameterDebuggerMock();
+    dbg = gui.ParameterDebugger(bareRig, Visible = false);
+    figs(end+1) = dbg.H.figure;
+
+    results(end+1,:) = check('No parameters at all says exactly that', ...
+        contains(dbg.H.emptyState.Text, 'no parameters'));
+    % Advice that would reveal nothing is worse than no advice.
+    results(end+1,:) = check('...without offering Show hidden', ...
+        ~contains(dbg.H.emptyState.Text, 'Show hidden'));
+
+    bareRig.add_parameter('Secret', 1, Visible = false);
+    dbg.refresh();
+    results(end+1,:) = check('A hidden parameter is offered once there is one', ...
+        contains(dbg.H.emptyState.Text, 'Show hidden'));
+catch ME
+    results(end+1,:) = check(['Empty states: ' ME.message], false);
+end
+
+%% 18. The launch path: Help menu of a live RunExpt session
 rx = [];
 try
     rx = epsych.RunExpt;
@@ -381,7 +457,7 @@ catch ME
     results(end+1,:) = check(['RunExpt launch: ' ME.message], false);
 end
 
-%% 17. Teardown
+%% 19. Teardown
 try
     if ispref('epsych2_gui_ParameterDebugger','FigurePosition')
         rmpref('epsych2_gui_ParameterDebugger','FigurePosition');

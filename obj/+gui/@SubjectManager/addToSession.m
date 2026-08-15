@@ -8,8 +8,10 @@ function addToSession(self)
 % refusal -- belong to the engine, so this method has no rules of its own and
 % the whole path stays testable without a window.
 %
-% The window is left open with the committed rows unticked: adding six animals
-% across two projects should not mean reopening it.
+% On success the window closes and the session window is raised: the
+% operator's next stop is the session, not this table. It stays open on
+% failure, or when nothing was checked, so the operator can fix the problem
+% without reopening it.
 %
 % See also: epsych.SubjectRoster.assignToSession, gui.SubjectManager.refresh
 arguments
@@ -70,20 +72,30 @@ for i = 1:numel(self.Rows_)
 end
 
 self.refresh();
+self.setStatus_(report.message);
 
 summary = localAddedList(report.added);
 if ~isempty(report.skipped)
     % Raised only once the report is dismissed: the alert belongs to this
-    % window, so bringing the session forward first would bury it.
+    % window, so closing it out from under the operator would bury the list
+    % of what didn't make it in.
     uialert(self.H.figure, sprintf('%s\n\n%s\n\n%s', report.message, summary, ...
         localSkipList(report.skipped)), 'Add to Session', 'Icon','info', ...
-        'CloseFcn', @(~,~) localRaiseSession(self.RunExpt));
+        'CloseFcn', @(~,~) localFinish(self));
 else
-    localRaiseSession(self.RunExpt);
+    localFinish(self);
 end
 
-self.setStatus_(report.message);
+end
 
+% -----------------------------------------------------------------------
+function localFinish(self)
+% Raise the session window, then close this one: a full commit means the
+% operator's next stop is the session, not this table.
+localRaiseSession(self.RunExpt);
+if isvalid(self)
+    delete(self);
+end
 end
 
 % -----------------------------------------------------------------------

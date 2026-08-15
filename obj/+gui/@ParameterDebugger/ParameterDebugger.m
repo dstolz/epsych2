@@ -62,6 +62,11 @@ classdef ParameterDebugger < handle
     properties (Access = private)
         Sources_ = []       % struct array of Label/Interfaces the dropdown offers
         Interfaces_ = []    % interfaces behind the rows now listed
+
+        % How many parameters the last rebuild dropped for being invisible, so
+        % an empty table only suggests "Show hidden" when that would actually
+        % reveal something.
+        HiddenSkipped_ (1,1) double = 0
         Seed_ = []          % what the constructor was handed, when not a RunExpt
         Refreshing_ (1,1) logical = false  % guards callbacks fired by repopulation
 
@@ -786,6 +791,7 @@ classdef ParameterDebugger < handle
 
             keep = repmat(struct('Parameter', [], 'Interface', [], 'Where', ''), 1, max(nMax,1));
             n = 0;
+            self.HiddenSkipped_ = 0;
 
             for k = 1:numel(interfaces)
                 I = interfaces(k);
@@ -800,7 +806,10 @@ classdef ParameterDebugger < handle
                     P = M(m).Parameters;
                     for p = 1:numel(P)
                         if ~isvalid(P(p)), continue, end
-                        if ~P(p).Visible && ~showHidden, continue, end
+                        if ~P(p).Visible && ~showHidden
+                            self.HiddenSkipped_ = self.HiddenSkipped_ + 1;
+                            continue
+                        end
                         if ~isempty(filterText) && ...
                                 ~contains(lower([where ' ' P(p).Name]), filterText)
                             continue

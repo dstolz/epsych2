@@ -1,6 +1,6 @@
 ---
 name: update-wiki
-description: Bring the GitHub wiki (epsych2.wiki) up to date with recent repository changes — rewrite affected pages, regenerate GUI screenshots, check links, and commit. Use when asked to update/sync/refresh the wiki, document a new feature or GUI component in the wiki, regenerate wiki or component screenshots, or check the wiki for stale content.
+description: Bring the GitHub wiki (epsych2.wiki) up to date with recent repository changes — rewrite affected pages, regenerate GUI screenshots, check links, then commit and push. Use when asked to update/sync/refresh the wiki, document a new feature or GUI component in the wiki, regenerate wiki or component screenshots, or check the wiki for stale content.
 ---
 
 # /update-wiki — sync the wiki to the repository
@@ -132,10 +132,11 @@ fixing unrelated pages.
 Then re-read the pages you changed end to end. Section anchors in a page's own
 table of contents break when you retitle a heading, and nothing checks those.
 
-## Step 6 — commit the wiki, then ask before publishing
+## Step 6 — commit and push the wiki
 
 The wiki repo is not this repo — commit **in the wiki clone**, and the `/commit`
-skill does not apply to it.
+skill does not apply to it. Every run that changes a page ends committed **and
+pushed**: the user has standing authorization for this, so do not ask.
 
 ```bash
 REPO=/c/src/epsych2
@@ -145,7 +146,14 @@ SCRATCH="<your session scratchpad dir>"
 git -C "$REPO" rev-parse HEAD > "$WIKI/.synced-commit"    # move the marker
 git -C "$WIKI" add -A
 git -C "$WIKI" commit -F "$SCRATCH/wikimsg.txt"           # -F, never a multi-line -m
+git -C "$WIKI" pull --rebase                              # a browser edit lands here too
+git -C "$WIKI" push
 ```
+
+Pushing publishes the pages to the public wiki immediately. Report what was
+committed and pushed. If the push fails (rebase conflict, no network, denied
+credentials), say so plainly with the error and leave the commit in place — the
+work is not lost, only unpublished.
 
 Message style matches the wiki's log — imperative subject, blank line, `- `
 bullets naming the pages touched:
@@ -158,9 +166,6 @@ Document the NE1000 pump and the SyringePump panel
 - Box-GUI-Components: gui.SyringePump entry with a captured shot.
 - Regenerated images/components/SyringePump.png.
 ```
-
-**Pushing publishes the page to the public wiki.** Do not push without asking;
-`git -C "$WIKI" push` is the user's call. Say what is committed and offer it.
 
 If code-repo files also changed (a `documentation/*.md` you fixed, a generator you
 edited, an image under `documentation/*/images/`), those are a **separate commit

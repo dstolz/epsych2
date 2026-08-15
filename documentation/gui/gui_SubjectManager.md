@@ -188,7 +188,7 @@ The button collects what you ticked and typed; every decision belongs to [`epsyc
 - Refused outright while a session is running, or with no session window open (the button is disabled and says why).
 - A missing protocol, or needing more than 16 boxes, **aborts the whole batch** and changes nothing.
 - A subject already in the session, or with no protocol resolvable at all, is skipped and reported; the rest still go in.
-- The window stays open and the committed rows untick, so adding six animals across two projects does not mean reopening it.
+- On success the window closes and the session window is raised — the next stop is the session, not this table. It stays open on a partial commit (so the skipped-subject report is visible) or when the batch is refused or aborted, so the operator can fix the problem without reopening it.
 
 ---
 

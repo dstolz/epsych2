@@ -197,7 +197,7 @@ for i = 1:4
 end
 
 % --- Trial control -------------------------------------------------------
-% epsych.Runtime.resolveCoreParameters looks these three names up literally as
+% epsych.Runtime.resolveTriggerParameters looks these three names up literally as
 % x_<NewTrial|ResetTrig|TrialComplete>_<BoxID> and aborts the run if any is
 % missing. Access is 'Any', never 'Write': find_parameter filters with
 % Access='Read', which drops write-only parameters, so a 'Write' trigger is

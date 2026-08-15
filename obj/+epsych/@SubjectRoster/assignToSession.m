@@ -226,7 +226,7 @@ function notes = localApplySessionDefaults(self, runExpt, projectId)
 % Everything here is applied only when the project names it: an empty field is
 % "inherit", which is also what a roster written before these fields existed
 % says, so a project that only cares about its protocol changes nothing. Values
-% land on the session (FUNCS, dfltDataPath, PATHS) and never in the machine
+% land on the session (FUNCS, DefaultDataPath, PATHS) and never in the machine
 % preferences -- running one study must not redefine the rig's own defaults.
 %
 % Nothing here refuses a value. A path that does not exist or a function that
@@ -244,8 +244,8 @@ if ~isempty(boxNote), notes{end+1} = boxNote; end
 applied = {};
 
 % Data save path: the root every subject's folder is created under.
-if ~isempty(p.DefaultDataPath) && ~strcmp(char(runExpt.dfltDataPath), p.DefaultDataPath)
-    runExpt.dfltDataPath = string(p.DefaultDataPath);
+if ~isempty(p.DefaultDataPath) && ~strcmp(char(runExpt.DefaultDataPath), p.DefaultDataPath)
+    runExpt.DefaultDataPath = string(p.DefaultDataPath);
     applied{end+1} = 'data path';
     if ~isfolder(p.DefaultDataPath)
         vprintf(0, ['Project "%s" saves to "%s", which does not exist yet; ' ...

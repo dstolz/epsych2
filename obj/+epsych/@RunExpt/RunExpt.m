@@ -22,13 +22,13 @@ classdef RunExpt < handle
         CONFIG (1,:) struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])  % Per-subject configuration array; each element holds SUBJECT, PROTOCOL, RUNTIME, and protocol_fn
         FUNCS (1,1) struct = struct()                                                            % Preference-backed callback function names for saving, timers, and GUI
         RUNTIME (1,1) epsych.Runtime = epsych.Runtime                                           % Shared runtime state passed to all callbacks during the session
-        dfltDataPath (1,1) string = cd                                                          % Default directory for saving experiment data
+        DefaultDataPath (1,1) string = cd                                                          % Default directory for saving experiment data
         % Recording locations in force for THIS session. Seeded from the
         % per-machine preferences at construction and overwritten by a project
         % when its subjects are added (epsych.SubjectRoster.assignToSession), so
         % a study's paths travel with the study while the rig's own defaults
         % survive in the preferences for the next session. An empty field still
-        % means "fall back to dfltDataPath", exactly as the preference did.
+        % means "fall back to DefaultDataPath", exactly as the preference did.
         PATHS (1,1) struct = struct('VideoRootDir','','IntanRootDir','','IntanSettingsFile','') % Session-level video and Intan recording paths
         IsClosing (1,1) logical = false                                                         % True while the close sequence is in progress; prevents re-entrant callbacks
         CurrentConfigFile (1,1) string = ""                                                     % Path of the most recently loaded/saved configuration file
@@ -184,7 +184,7 @@ classdef RunExpt < handle
             self.FUNCS = self.GetDefaultFuncs;
             self.ClearConfig
             self.UpdateGUIstate
-            self.dfltDataPath = getpref('RunExpt','DataPath',cd);
+            self.DefaultDataPath = getpref('RunExpt','DataPath',cd);
             self.PATHS = self.GetDefaultPaths;
             self.promptForDataPath_
 
@@ -373,13 +373,13 @@ classdef RunExpt < handle
             % obj.DefineDataPath
             % Prompt for and persist the default data-saving directory.
             ontop = self.AlwaysOnTop(false);
-            pth = uigetdir(self.dfltDataPath,'Select Default Data Directory');
+            pth = uigetdir(self.DefaultDataPath,'Select Default Data Directory');
             self.AlwaysOnTop(ontop);
 
             if isequal(pth,0) || strlength(string(pth))==0, return, end
             pth = string(pth);
 
-            self.dfltDataPath = pth;
+            self.DefaultDataPath = pth;
             setpref('RunExpt','DataPath',pth);
 
             self.CheckReady

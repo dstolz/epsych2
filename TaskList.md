@@ -38,7 +38,7 @@ _note: This template is just a suggestion and can be modified as needed._
      5. User options should include the ability to reset the counter and customize the display format of the elapsed time. Control over font and color attributes should also be provided for better integration with various GUI themes.
    - **Notes**:
      - Implemented as `gui.ElapsedTrialTimer` in `obj/+gui/@ElapsedTrialTimer/`.
-     - Listens to `epsych.Helper` `NewData` event to reset its clock on each trial completion.
+     - Listens to `epsych.EventHub` `NewData` event to reset its clock on each trial completion.
      - A MATLAB timer fires at `UpdatePeriod` (default 0.5 s) to refresh the `uilabel` text.
      - `Format` accepts `'hms'` (HH:MM:SS), `'ms'` (MM:SS), `'s'` (SS.f), or any custom `sprintf` pattern (receives total seconds).
      - Font/color properties (`FontSize`, `FontColor`, `FontWeight`) are set at construction or updated post-hoc via `applyStyle(Name=Value)`.

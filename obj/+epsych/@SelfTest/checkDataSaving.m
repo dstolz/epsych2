@@ -23,7 +23,7 @@ if isempty(self.RunExpt) || ~isvalid(self.RunExpt)
     return
 end
 
-dataPath = char(self.RunExpt.dfltDataPath);
+dataPath = char(self.RunExpt.DefaultDataPath);
 
 % --- H1: data directory writable ---------------------------------------
 t = tic;

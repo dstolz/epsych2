@@ -459,7 +459,7 @@ intanRoot = fullfile(root, 'intan');
 mkdir(studyRoot); mkdir(videoRoot); mkdir(intanRoot);
 
 % A distinguishable starting point on the session side.
-rx4.dfltDataPath = string(root);
+rx4.DefaultDataPath = string(root);
 rx4.FUNCS.SavingFcn = 'ep_TimerFcn_Start';   % any resolvable name that is not the project's
 rx4.FUNCS.TimerPeriod = 0.01;
 rx4.PATHS = struct('VideoRootDir','','IntanRootDir','','IntanSettingsFile','');
@@ -478,7 +478,7 @@ sd = R.addSubject(struct('Name','SD01','Sex','Male','Species','Mouse'));
 R.assign(sd, pd);
 rep = R.assignToSession(rx4, {sd}, ProjectID = pd);
 assert(rep.ok, 'The commit should have succeeded: %s', rep.message);
-assert(strcmp(char(rx4.dfltDataPath), studyRoot), 'The project data path should reach the session');
+assert(strcmp(char(rx4.DefaultDataPath), studyRoot), 'The project data path should reach the session');
 assert(strcmp(rx4.FUNCS.SavingFcn, 'ep_SaveDataFcn'), 'The project saving function should reach the session');
 assert(rx4.FUNCS.TimerPeriod == 0.05, 'The project timer period should reach the session');
 assert(strcmp(rx4.PATHS.VideoRootDir, videoRoot), 'The project video path should reach the session');
@@ -495,10 +495,10 @@ assert(~ispref('ep_RunExpt_Video','RecordingRootDir') || ...
 pn = R.addProject('InheritStudy', DefaultProtocol = proto);
 sn = R.addSubject(struct('Name','SD02','Sex','Male','Species','Mouse'));
 R.assign(sn, pn);
-before = {char(rx4.dfltDataPath), rx4.FUNCS.SavingFcn, rx4.FUNCS.TimerPeriod, rx4.PATHS};
+before = {char(rx4.DefaultDataPath), rx4.FUNCS.SavingFcn, rx4.FUNCS.TimerPeriod, rx4.PATHS};
 rep = R.assignToSession(rx4, {sn}, ProjectID = pn);
 assert(rep.ok, 'The inherit commit should have succeeded: %s', rep.message);
-assert(isequal(before, {char(rx4.dfltDataPath), rx4.FUNCS.SavingFcn, rx4.FUNCS.TimerPeriod, rx4.PATHS}), ...
+assert(isequal(before, {char(rx4.DefaultDataPath), rx4.FUNCS.SavingFcn, rx4.FUNCS.TimerPeriod, rx4.PATHS}), ...
     'A project with no session defaults must leave the session alone');
 
 % A period the timer cannot run is refused on the way in, not at run start.

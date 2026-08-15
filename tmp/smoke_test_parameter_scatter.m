@@ -95,7 +95,7 @@ trials = struct('DATA',D5,'Subject',struct('Name','SMOKE'),'BoxID',1);
 R.TRIALS = trials;
 f2 = uifigure('Visible','off','Tag','SmokeScatter2');
 S3 = gui.ParameterScatter(R, f2, PreferenceTag='smokePS2');
-R.HELPER.notify('NewData', epsych.TrialsData(trials));
+R.EVENTS.notify('NewData', epsych.TrialsData(trials));
 assert(numel(S3.ScatterH.XData) == 5, 'NewData event should populate 5 trials');
 assert(~ismember('HiddenParam', S3.DropdownX.Items), 'invisible parameter should be excluded');
 assert(ismember('FreqHz', S3.DropdownX.Items), 'visible parameter should be offered');
@@ -105,10 +105,10 @@ assert(~ismember('GoTrigger', S3.DropdownX.Items), 'write-only parameter should 
 S3.BoxID = 2; % events from other boxes must now be ignored
 trials6 = trials;
 trials6.DATA = makeData(6);
-R.HELPER.notify('NewData', epsych.TrialsData(trials6));
+R.EVENTS.notify('NewData', epsych.TrialsData(trials6));
 assert(numel(S3.ScatterH.XData) == 5, 'event from non-matching box should be ignored');
 S3.BoxID = [];
-R.HELPER.notify('NewData', epsych.TrialsData(trials6));
+R.EVENTS.notify('NewData', epsych.TrialsData(trials6));
 assert(numel(S3.ScatterH.XData) == 6, 'event should apply once BoxID filter cleared');
 delete(S3); close(f2);
 fprintf('PASS: runtime NewData path, invisible exclusion, BoxID filter\n');
@@ -157,7 +157,7 @@ assert(strcmp(S6.XParameter,'FreqHz'), ...
 % RespCode is recorded but not declared by the runtime, so it stays staged
 assert(strcmp(S6.ColorParameter,'(none)'), 'saved color selection should hold pre-session');
 
-R8.HELPER.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
+R8.EVENTS.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
     'Subject',struct('Name','SMOKE'),'BoxID',1)));
 assert(strcmp(S6.XParameter,'FreqHz'), 'saved X selection lost (got %s)', S6.XParameter);
 assert(strcmp(S6.YParameter,'RespCode'), ...
@@ -177,7 +177,7 @@ S6b = gui.ParameterScatter(R8b, f5b, PreferenceTag='smokePS7', ...
     XParameter='LevelDB', YParameter='FreqHz', ColorParameter='RespCode');
 assert(strcmp(S6b.XParameter,'LevelDB'), ...
     'declared constructor X should apply immediately (got %s)', S6b.XParameter);
-R8b.HELPER.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
+R8b.EVENTS.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
     'Subject',struct('Name','SMOKE'),'BoxID',1)));
 assert(strcmp(S6b.YParameter,'FreqHz'), 'constructor Y selection lost (got %s)', S6b.YParameter);
 assert(strcmp(S6b.ColorParameter,'RespCode'), ...
@@ -193,7 +193,7 @@ f6 = uifigure('Visible','off','Tag','SmokeScatter6');
 S7 = gui.ParameterScatter(R9, f6, PreferenceTag='smokePS6', ColorParameter='RespCode');
 S7.DropdownC.Value = '(none)';
 S7.onSelectionChanged; % user overrules the still-staged RespCode request
-R9.HELPER.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
+R9.EVENTS.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
     'Subject',struct('Name','SMOKE'),'BoxID',1)));
 assert(strcmp(S7.ColorParameter,'(none)'), ...
     'staged selection should not override an explicit user choice (got %s)', S7.ColorParameter);

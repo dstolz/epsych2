@@ -43,7 +43,7 @@ H = gui.History(pObj, container, PreferenceTag=tag)
 ### Inputs
 
 - `pObj`
-  - Psychophysics object with `DATA`, `responseCodes`, `BitColors`, and `Helper`.
+  - Psychophysics object with `DATA`, `responseCodes`, `BitColors`, and `Events`.
 - `container`
   - Figure or panel that hosts the table. If empty, a new figure is created.
 - `BitColors`
@@ -181,7 +181,7 @@ Validation behavior:
 
 ## Event and Lifecycle Behavior
 
-- On construction, the class may register a listener on `pObj.Helper` event
+- On construction, the class may register a listener on `pObj.Events` event
   `NewData`.
 - On each event, `update` recomputes table data and row colors.
 - On object deletion, listener resources are cleaned up in `delete`.
@@ -199,7 +199,7 @@ H.update();
 ## Notes
 
 - The class expects a valid psychophysics object as checked by
-  `epsych.Helper.valid_psych_obj`.
+  `epsych.EventHub.valid_psych_obj`.
 - `ParametersOfInterest` fields must exist in each trial struct in `pObj.DATA`.
 - If no trial data are available, update calls exit early without changing UI.
 

@@ -3,7 +3,7 @@ classdef ModeIndicator < handle
     % Lamp-and-label component that reflects the current hw.DeviceState.
     %
     % Embeds a uilamp and uilabel into any ui container, responds to
-    % epsych.Helper 'ModeChange' events, and can be driven directly via
+    % epsych.EventHub 'ModeChange' events, and can be driven directly via
     % setState().
     %
     % Properties:
@@ -24,7 +24,7 @@ classdef ModeIndicator < handle
     end
 
     properties (Access = private)
-        Listener_ event.listener  % Listener for RUNTIME.HELPER ModeChange events
+        Listener_ event.listener  % Listener for RUNTIME.EVENTS ModeChange events
     end
 
     % Color/label lookup — one row per hw.DeviceState value (indexed by int8+2)
@@ -74,14 +74,14 @@ classdef ModeIndicator < handle
 
         function attachRuntime(obj, RUNTIME)
             % obj.attachRuntime(RUNTIME)
-            % Wire a listener on RUNTIME.HELPER so the indicator updates
+            % Wire a listener on RUNTIME.EVENTS so the indicator updates
             % automatically on every ModeChange event. Replaces any
             % previously attached listener.
             %
             % Parameters:
-            %   RUNTIME - epsych.Runtime instance whose HELPER fires ModeChange
+            %   RUNTIME - epsych.Runtime instance whose EVENTS broadcaster fires ModeChange
             delete(obj.Listener_);
-            obj.Listener_ = addlistener(RUNTIME.HELPER, 'ModeChange', ...
+            obj.Listener_ = addlistener(RUNTIME.EVENTS, 'ModeChange', ...
                 @(~, ev) obj.setState(ev.NewMode));
         end
 

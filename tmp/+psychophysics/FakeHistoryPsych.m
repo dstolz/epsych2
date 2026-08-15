@@ -16,7 +16,7 @@ classdef FakeHistoryPsych < psychophysics.Psych
 
         function setData(obj, D)
             % setData(obj, D)
-            % Inject fake trial DATA; caller notifies Helper NewData separately.
+            % Inject fake trial DATA; caller notifies Events NewData separately.
             obj.DATA = D;
         end
 
@@ -49,7 +49,7 @@ classdef FakeHistoryPsych < psychophysics.Psych
             % build a struct ARRAY, not one struct holding the array.
             % Subject and BoxID are required by the epsych.TrialsData ctor.
             trials = struct('DATA', {obj.DATA}, 'Subject', 'FakeSubject', 'BoxID', 1);
-            obj.Helper.notify('NewData', epsych.TrialsData(trials));
+            obj.Events.notify('NewData', epsych.TrialsData(trials));
         end
     end
 

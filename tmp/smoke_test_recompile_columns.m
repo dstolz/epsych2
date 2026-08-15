@@ -104,9 +104,9 @@ fprintf('PASS: parameter commits land in the named column\n');
 % gui.NextTrial resolves a field through writeParamIdx, which is how the
 % wrong value reached the Next Trial panel.
 fig = uifigure('Visible','off','Tag',PREF_TAG);
-NT = gui.NextTrial(R.HELPER, fig, Fields=["Depth","Lowpass"], PreferenceTag=PREF_TAG);
+NT = gui.NextTrial(R.EVENTS, fig, Fields=["Depth","Lowpass"], PreferenceTag=PREF_TAG);
 
-R.HELPER.notify('NewTrial', epsych.TrialsData(R.TRIALS(1)));
+R.EVENTS.notify('NewTrial', epsych.TrialsData(R.TRIALS(1)));
 shown = string(NT.TableH.Data);
 
 depthRow = find(shown(:,1) == "Depth", 1);
@@ -151,10 +151,10 @@ function R = makeRuntime(P, tmpDir)
 % real path rather than by hand.
 R = epsych.Runtime;
 R.isTest = true;
-R.HELPER = epsych.Helper;
+R.EVENTS = epsych.EventHub;
 R.Interfaces = P.Interfaces;
 R.Protocol = P;
-R.dfltDataPath = tmpDir;
+R.DefaultDataPath = tmpDir;
 R.TempDataDir = tmpDir;
 
 subject = epsych.DefaultSubject(struct('Name','ColumnSubject', ...

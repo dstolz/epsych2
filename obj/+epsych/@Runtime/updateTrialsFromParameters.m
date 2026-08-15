@@ -27,7 +27,7 @@ function updateTrialsFromParameters(obj, Parameters)
 
     % Mutate a local copy and assign back once. Writing directly to
     % obj.TRIALS.trials(:,idx) inside the loop would re-trigger the
-    % set.TRIALS setter (and its per-subject resolveCoreParameters /
+    % set.TRIALS setter (and its per-subject resolveTriggerParameters /
     % dispatchNextTrial) on every iteration, dispatching trials over and
     % over. Batching the writes fires the setter a single time.
     TRIALS = obj.TRIALS;

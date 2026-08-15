@@ -19,7 +19,7 @@ for i = 1:RUNTIME.NSubjects
     if ~RUNTIME.TRIALS(i).FORCE_TRIAL
 
         % Check for trial completion by polling the TrialComplete trigger parameter for this subject's box.
-        TrialComplete = RUNTIME.CORE(i).TrialComplete.Value;
+        TrialComplete = RUNTIME.TRIGGERS(i).TrialComplete.Value;
 
         % If the trial is not complete, skip to the next subject without updating or advancing the trial index.
         if ~TrialComplete, continue; end
@@ -70,7 +70,7 @@ for i = 1:RUNTIME.NSubjects
 
     % Broadcast event data has been updated
     evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
-    RUNTIME.HELPER.notify('NewData',evtdata);
+    RUNTIME.EVENTS.notify('NewData',evtdata);
 
     vprintf(3,'Trial #%d: Trial Over for box %d',RUNTIME.TRIALS(i).TrialIndex,i)
 

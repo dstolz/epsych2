@@ -19,7 +19,7 @@ function configureIntanRecorder_(self, interfaces)
 %   SamplingRate and ControllerType are protocol-level and are left untouched.
 %
 % Parameters
-%   self       - epsych.RunExpt instance (for dfltDataPath).
+%   self       - epsych.RunExpt instance (for DefaultDataPath).
 %   interfaces - hw.Interface array from the loaded protocol.
 arguments
     self
@@ -33,7 +33,7 @@ for p = interfaces(:).'
 
     root = strtrim(char(self.PATHS.IntanRootDir));
     if isempty(root)
-        root = char(self.dfltDataPath);
+        root = char(self.DefaultDataPath);
         vprintf(0, ['No Intan Recording Path set (project > Session Defaults); ' ...
             'recording under Data Save Path "%s"'], root)
     end

@@ -938,11 +938,11 @@ classdef TrialDesigner < handle
             % attachRuntimeListeners_(obj)
             % Follow the running session so the diagram can show the live state.
             %
-            % A Runtime only gets its HELPER when a session starts, so opening
+            % A Runtime only gets its EVENTS when a session starts, so opening
             % the designer from RunExpt before pressing Run is an ordinary case,
             % not an error: skip the listener and leave the poll running.
-            if isa(obj.RUNTIME.HELPER, 'epsych.Helper') && isvalid(obj.RUNTIME.HELPER)
-                obj.Listeners_{end+1} = addlistener(obj.RUNTIME.HELPER, 'ModeChange', ...
+            if isa(obj.RUNTIME.EVENTS, 'epsych.EventHub') && isvalid(obj.RUNTIME.EVENTS)
+                obj.Listeners_{end+1} = addlistener(obj.RUNTIME.EVENTS, 'ModeChange', ...
                     @(~, evt) obj.onSessionModeChange_(evt));
             else
                 vprintf(2, ['teensy.TrialDesigner: the session has no event helper yet, ' ...

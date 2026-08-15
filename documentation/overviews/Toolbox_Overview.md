@@ -80,7 +80,7 @@ These folders handle hardware communication (TDT Synapse, TDT RPvds, Intan RHX, 
 
 > 🔑 **The protocol file records which hardware your experiment uses.** You do not pick a backend in the session GUI, so a connection problem is diagnosed in the protocol and the device — not in RunExpt.
 
-### Task-specific code (`cl/`)
+### Task-specific code (`paradigms/`)
 
 Contains specialized experiment implementations, such as the appetitive detection task, with their own GUIs and trial selection logic. New users can ignore it unless they are running one of these paradigms.
 

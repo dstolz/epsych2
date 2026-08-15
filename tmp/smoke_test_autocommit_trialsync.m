@@ -41,10 +41,10 @@ P.compile();
 
 R = epsych.Runtime;
 R.isTest = true;
-R.HELPER = epsych.Helper;
+R.EVENTS = epsych.EventHub;
 R.Interfaces = P.Interfaces;
 R.Protocol = P;
-R.dfltDataPath = tmpDir;
+R.DefaultDataPath = tmpDir;
 R.TempDataDir = tmpDir;
 
 subject = epsych.DefaultSubject(struct('Name', 'SyncSubject', ...

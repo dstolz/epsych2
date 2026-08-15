@@ -84,8 +84,8 @@ classdef NextTrial < gui.PopOut
     methods
         function obj = NextTrial(source, container, options)
             % obj = gui.NextTrial(source, container, ...)
-            %  source    - epsych.Runtime (listens on RUNTIME.HELPER) or an
-            %              epsych.Helper directly.
+            %  source    - epsych.Runtime (listens on RUNTIME.EVENTS) or an
+            %              epsych.EventHub directly.
             %  container - Figure, panel, tab, or layout host for the table.
             %  Fields         - Programmatic default field names (validName);
             %                   used only when nothing was saved for this
@@ -222,13 +222,13 @@ classdef NextTrial < gui.PopOut
         end
 
         function attachListener_(obj, source)
-            if isa(source,'epsych.Helper')
+            if isa(source,'epsych.EventHub')
                 H = source;
-            elseif isobject(source) && isprop(source,'HELPER') && isa(source.HELPER,'epsych.Helper')
-                H = source.HELPER;
+            elseif isobject(source) && isprop(source,'EVENTS') && isa(source.EVENTS,'epsych.EventHub')
+                H = source.EVENTS;
             else
                 error('gui:NextTrial:InvalidSource', ...
-                    'source must be an epsych.Runtime or an epsych.Helper.')
+                    'source must be an epsych.Runtime or an epsych.EventHub.')
             end
             obj.hl_NewTrial = listener(H, 'NewTrial', @(src,evt) obj.onNewTrial_(src,evt));
         end

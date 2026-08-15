@@ -11,7 +11,7 @@ Source class:
 Primary method files:
 
 - `all_parameters.m`, `find_parameter.m`, `filter_parameters.m` — parameter queries
-- `dispatchNextTrial.m`, `resolveCoreParameters.m` — trial dispatch
+- `dispatchNextTrial.m`, `resolveTriggerParameters.m` — trial dispatch
 - `updateTrialsFromParameters.m` — trial-table sync
 - `writeParametersProtocol.m`, `readParameters.m`, `phaseParameterData.m`, `phaseCache.m` — phase persistence (phases are protocol files)
 - `writeParametersJSON.m`, `readParametersJSON.m`, `createTemplateJSON.m` — legacy JSON phase format
@@ -20,7 +20,7 @@ Primary method files:
 
 - connect and hold the hardware/software interfaces defined by the protocol
 - store and expose runtime trial state (`TRIALS`)
-- resolve and cache the required trigger parameters (`CORE`)
+- resolve and cache the required trigger parameters (`TRIGGERS`)
 - provide cross-interface parameter query/filter utilities
 - dispatch trial parameter values and triggers to hardware
 - synchronize writable trial columns from live parameter values
@@ -31,18 +31,30 @@ Primary method files:
 | --- | --- |
 | `Interfaces` | The `hw.Interface` array borrowed from the protocol. Assigning this property connects any disconnected interface and sets each interface's `Runtime` back-reference. |
 | `Protocol` | The session `epsych.Protocol` whose `Interfaces` this runtime borrows (assigned by `RunExpt.ExptDispatch`). Because the parameter handles are shared, serializing it snapshots the live session — this is how `writeParametersProtocol` saves a phase. |
-| `TRIALS` | Per-subject struct array of trial state (see below). The first assignment resolves `CORE` triggers, dispatches trial #1 for each subject, caches `P`, and records `StartTime`; later assignments (e.g., mid-run syncs) do not re-trigger hardware. |
-| `CORE` | Per-subject cached handles to the required trigger parameters `NewTrial`, `ResetTrig`, `TrialComplete`. |
+| `TRIALS` | Per-subject struct array of trial state (see below). The first assignment resolves the required triggers, dispatches trial #1 for each subject, caches `P`, and records `StartTime`; later assignments (e.g., mid-run syncs) do not re-trigger hardware. |
+| `TRIGGERS` | Per-subject cached handles to the required trigger parameters `NewTrial`, `ResetTrig`, `TrialComplete`. |
 | `P` | Cached struct of all parameters (keyed by `validName`), populated when `TRIALS` is first set. GUI components use this instead of repeating lookups. |
-| `HELPER` | `epsych.Helper` event broadcaster (`NewData`, `NewTrial`, `ModeChange`). |
+| `EVENTS` | `epsych.EventHub` event broadcaster (`NewData`, `NewTrial`, `ModeChange`). |
 | `TIMER` | The MATLAB `PsychTimer` object. |
 | `NSubjects` | Number of subjects (read-only; derived from `TRIALS`). |
 | `isTest` | True for Preview runs; recorded into every trial's data. |
-| `DataFile`, `TempDataDir`, `dfltDataPath` | Crash-recovery file paths and default data directory. |
+| `DataFile`, `TempDataDir`, `DefaultDataPath` | Crash-recovery file paths and default data directory. |
 | `Journal` | Per-subject [`epsych.TrialJournal`](epsych_TrialJournal.md); the append-only file each completed trial is written to. |
 | `StartTime` | Session start `datetime`. |
 
 Note: `epsych.Runtime` subclasses `dynamicprops`, so some workflows attach extra properties at runtime — for example `readParameters` adds a `Phase` property that logs which phase files were loaded and when.
+
+### Renamed properties (2026-08)
+
+Three properties were renamed to say what they hold. The old names remain as hidden, silently forwarding aliases so paradigm code outside this repository — custom save functions, timer functions, box GUIs — keeps working; they will be removed once those folders have been migrated.
+
+| Old name | New name | Why |
+| --- | --- | --- |
+| `HELPER` | `EVENTS` | The class it holds is now `epsych.EventHub` (was `epsych.Helper`, a name that said nothing and collided with the unrelated `gui.Helper`). |
+| `CORE` | `TRIGGERS` | It holds the `REQUIRED_TRIGGERS` parameters; `CORE` in caps read like a constant. Its resolver is now `resolveTriggerParameters`. |
+| `dfltDataPath` | `DefaultDataPath` | Same concept, same spelling as the `DefaultDataPath` project field that feeds it and the `RunExpt.DefaultDataPath` it is copied from. |
+
+`psychophysics.Psych` and `psychophysics.Detection` renamed their `Helper` property to `Events` on the same terms — the psych object still exposes a read-only `Helper` alias, so `listener(pObj.Helper,'NewData',…)` in an existing GUI keeps working.
 
 ### Ownership of hardware interfaces
 
@@ -115,7 +127,7 @@ This is how GUI edits (e.g., `gui.Parameter_Update` commits, phase loads) propag
 
 ## Trigger resolution and trial dispatch
 
-### resolveCoreParameters
+### resolveTriggerParameters
 
 Locates and caches the mandatory trigger parameters for one subject. The expected parameter names follow the pattern `x_<Trigger>_<BoxID>`:
 
@@ -129,9 +141,9 @@ An error is raised immediately if any required trigger is missing from the proto
 
 Per subject, in order:
 
-1. fire `CORE.ResetTrig` so hardware returns to a known state
+1. fire `TRIGGERS.ResetTrig` so hardware returns to a known state
 2. write the selected trial row's values into the writable parameters — only parameters whose `Access` is not `'Read'` **and** whose `UpdateEveryTrial` flag is true are written. Parameters flagged `SetOnce` (the default for `Coefficient Buffer` types) join the very first dispatch of the session only, so their value reaches the hardware once and is then left alone; parameters with both flags false are never written by the per-trial dispatch
-3. fire `CORE.NewTrial`
+3. fire `TRIGGERS.NewTrial`
 4. broadcast the `NewTrial` event with an `epsych.TrialsData` payload
 
 ## Phase persistence (phases are protocols)
@@ -183,5 +195,5 @@ RUNTIME.updateTrialsFromParameters(RUNTIME.all_parameters(Access='All'));
 
 - [epsych_TrialLifecycle.md](epsych_TrialLifecycle.md) — how the Runtime drives a session trial by trial
 - [epsych_Protocol.md](epsych_Protocol.md) — where interfaces and compiled trials come from
-- [Event_Notifications.md](Event_Notifications.md) — the `HELPER` event model
+- [Event_Notifications.md](Event_Notifications.md) — the `EVENTS` event model
 - [../hw/hw_Parameter.md](../hw/hw_Parameter.md) — parameter behavior, including `UpdateEveryTrial`

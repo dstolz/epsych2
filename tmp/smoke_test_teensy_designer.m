@@ -165,7 +165,7 @@ end
 
 % Triggers must be Access='Any'. hw.Interface.all_parameters excludes 'Write'
 % from a 'Read' filter, so a 'Write' trigger would never be found by
-% epsych.Runtime.resolveCoreParameters and the run would abort.
+% epsych.Runtime.resolveTriggerParameters and the run would abort.
 trigger = specs(specNames == "x_NewTrial_1");
 assert(strcmp(trigger.Options.Access, 'Any'), 'triggers must use Access=Any, not Write');
 assert(trigger.Options.isTrigger, 'triggers must set isTrigger');
@@ -324,7 +324,7 @@ fprintf('PASS: designer builds, edits, undoes, compiles and simulates headlessly
 % which is the state RunExpt is in before Run is pressed.
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 sw = hw.Software;
 stateParam = sw.add_parameter('StateIndex', 0);
 stateParam.Value = 0;
@@ -340,20 +340,20 @@ assert(~isempty(live.LiveTimer) && strcmp(live.LiveTimer.Running, 'on'), ...
 % isgraphics(0) is true, so a class test has to precede isvalid or this
 % throws on the plain state those structs also carry.
 lastwarn('');
-rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Record));
+rt.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Record));
 pause(0.2);
 assert(isempty(lastwarn), 'a ModeChange should not raise a warning: %s', lastwarn);
-rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
+rt.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
 pause(0.2);
 assert(isempty(lastwarn), 'a ModeChange should not raise a warning: %s', lastwarn);
 delete(live);
 
-% A Runtime with no HELPER yet must open, not throw.
+% A Runtime with no EVENTS yet must open, not throw.
 bare = epsych.Runtime;
 bare.isTest = true;
-noHelper = teensy.TrialDesigner(bare, Visible = false);
-assert(isvalid(noHelper.Figure), 'the designer should open on a runtime with no helper');
-delete(noHelper);
+noEvents = teensy.TrialDesigner(bare, Visible = false);
+assert(isvalid(noEvents.Figure), 'the designer should open on a runtime with no event hub');
+delete(noEvents);
 fprintf('PASS: live monitor attaches, locks on mode change, and tolerates no helper\n');
 
 % 14. Teardown leaves nothing behind -------------------------------------

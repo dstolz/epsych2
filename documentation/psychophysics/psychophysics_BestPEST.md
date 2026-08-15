@@ -137,7 +137,7 @@ bp = psychophysics.BestPEST(source, Parameter, Range=[min max], Name=Value)
 
 All other inputs are name-value pairs matching the [Properties](#properties) table below.
 
-**Online mode** — pass a Runtime object. A listener is attached to `RUNTIME.HELPER` `'NewData'` and `refresh()` is called automatically after each trial.
+**Online mode** — pass a Runtime object. A listener is attached to `RUNTIME.EVENTS` `'NewData'` and `refresh()` is called automatically after each trial.
 
 **Offline mode** — pass a DATA struct array. `refresh()` is called immediately in the constructor; no listener is created.
 

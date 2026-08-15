@@ -206,5 +206,5 @@ After a recompile that changes the number of trial rows, all counts are reset to
 ## Related documentation
 
 - [epsych_TrialLifecycle.md](epsych_TrialLifecycle.md) — where selector calls happen within a session
-- [../cl/cl_AppetitiveStimDetect.md](../cl/cl_AppetitiveStimDetect.md) — a complete adaptive selector (staircase, catch trials, reminder override)
+- [../paradigms/cl_AppetitiveStimDetect.md](../paradigms/cl_AppetitiveStimDetect.md) — a complete adaptive selector (staircase, catch trials, reminder override)
 - [epsych_Protocol.md](epsych_Protocol.md) — where `Options.trialFunc` is stored

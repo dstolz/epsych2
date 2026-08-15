@@ -75,7 +75,7 @@ Constructor sequence: single-instance replacement → cache `obj.P = RUNTIME.all
 | Hook | When it runs |
 |---|---|
 | `build(obj, fig)` | **Required.** Once, after the figure exists. Create layout and components here. |
-| `createPsych(obj, RUNTIME)` | Before the figure. Return a psychophysics object or `[]`. When non-empty, **NewData is listened on `Psych.Helper`**, so the psych object has already processed the trial when `onNewData` runs. Errors are logged, never fatal. |
+| `createPsych(obj, RUNTIME)` | Before the figure. Return a psychophysics object or `[]`. When non-empty, **NewData is listened on `Psych.Events`**, so the psych object has already processed the trial when `onNewData` runs. Errors are logged, never fatal. |
 | `onNewTrial(obj, src, event)` | Every `NewTrial` event. |
 | `onNewData(obj, src, event)` | Every `NewData` event. |
 | `onModeChange(obj, src, event)` | Every `ModeChange`; `event.NewMode` is an `hw.DeviceState`. The base stops registered `Parameter_Monitor` polling on `Stop` before calling this hook. |

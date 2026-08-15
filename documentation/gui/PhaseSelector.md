@@ -10,7 +10,7 @@ Source class: [obj/+gui/@PhaseSelector/PhaseSelector.m](../../obj/+gui/@PhaseSel
 
 ## What a phase file is
 
-Phases and protocols share one format: a phase file **is** a protocol file (`.eprot`; see [../epsych/epsych_Protocol.md](../epsych/epsych_Protocol.md)). Saving a phase serializes the session's protocol with the current parameter values (`epsych.Runtime.writeParametersProtocol`); loading a phase reads a protocol file and applies its parameters to the live session (`epsych.Runtime.readParameters`). Files live together in a phase directory (for example `cl/@cl_AppetitiveDetection_GUI_B/Phases/`), and each file's name (without extension) becomes the phase name shown in the dropdown.
+Phases and protocols share one format: a phase file **is** a protocol file (`.eprot`; see [../epsych/epsych_Protocol.md](../epsych/epsych_Protocol.md)). Saving a phase serializes the session's protocol with the current parameter values (`epsych.Runtime.writeParametersProtocol`); loading a phase reads a protocol file and applies its parameters to the live session (`epsych.Runtime.readParameters`). Files live together in a phase directory (for example `paradigms/@cl_AppetitiveDetection_GUI_B/Phases/`), and each file's name (without extension) becomes the phase name shown in the dropdown.
 
 Because a phase is a full protocol, it can be opened, inspected, and edited in `epsych.ProtocolDesigner`, and it carries everything the protocol format does — parameter values, design-time `Values` lists, parameter Expressions, and trial options — not just a flat value snapshot.
 

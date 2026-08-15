@@ -7,7 +7,7 @@ function specs = parameterSpecs(obj)
 % mapping can be tested headlessly. applyToModule turns these into real
 % parameters.
 %
-% The names here are not arbitrary. epsych.Runtime.resolveCoreParameters looks
+% The names here are not arbitrary. epsych.Runtime.resolveTriggerParameters looks
 % up x_NewTrial_<BoxID>, x_ResetTrig_<BoxID> and x_TrialComplete_<BoxID>
 % literally and aborts the run if any is missing; gui.OnlinePlot looks up
 % _TrigState~<BoxID> and _TrialNum~<BoxID> literally; gui.History requires
@@ -16,7 +16,7 @@ function specs = parameterSpecs(obj)
 % shipped GUIs with no extra wiring.
 %
 % Triggers use Access='Any', never 'Write'. hw.Interface.all_parameters treats
-% 'Write' as excluded from a 'Read' filter, so resolveCoreParameters would not
+% 'Write' as excluded from a 'Read' filter, so resolveTriggerParameters would not
 % find a 'Write' trigger and the run would abort with MissingTrigger.
 %
 % Returns:

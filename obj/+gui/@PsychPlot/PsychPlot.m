@@ -2,7 +2,7 @@ classdef PsychPlot < gui.PopOut
     % obj = gui.PsychPlot(pObj, ax)
     % Online psychometric summary plot (d', hit rate, FA rate, bias).
     %
-    % The plot listens to the psychophysics object's Helper.NewData event
+    % The plot listens to the psychophysics object's Events.NewData event
     % and refreshes automatically when new trial data arrive.
     %
     % Right-click the axes for "Open in Separate Window" (see gui.PopOut):
@@ -70,7 +70,7 @@ classdef PsychPlot < gui.PopOut
             obj.setup_xaxis_label;
             obj.setup_yaxis_label;
 
-            obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update_plot);
+            obj.hl_NewData = listener(pObj.Events,'NewData',@obj.update_plot);
 
             obj.build_context_menu_;
         end
@@ -226,7 +226,7 @@ classdef PsychPlot < gui.PopOut
         end
         
         function set.psychObj(obj,pobj)
-            assert(epsych.Helper.valid_psych_obj(pobj), ...
+            assert(epsych.EventHub.valid_psych_obj(pobj), ...
                 'gui.History:set.PsychophysiccsObj', ...
                 'psychObj must be from the toolbox "psychophysics"');
             obj.psychObj = pobj;

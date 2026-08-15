@@ -9,7 +9,7 @@ shows the layout helpers (`addButton`, `addControl`, `controlColumn`,
 `addMonitor`, `addUpdateButton`). This example builds on it with the parts a
 real task GUI needs: a live analysis pipeline and the event hooks.
 
-## The analysis pipeline: createPsych and the Helper chain
+## The analysis pipeline: createPsych and the event chain
 
 ```matlab
 function p = createPsych(obj, R)
@@ -24,18 +24,18 @@ end
 changes where the GUI's `NewData` events come from:
 
 ```
-RUNTIME.HELPER ── NewData ──▶ psychophysics.Detection (ingests the trial)
+RUNTIME.EVENTS ── NewData ──▶ psychophysics.Detection (ingests the trial)
                                      │
-                              Psych.Helper ── NewData ──▶ this GUI's onNewData
+                              Psych.Events ── NewData ──▶ this GUI's onNewData
                                                      └──▶ gui.PsychPlot
 ```
 
-`psychophysics.Detection` listens to `RUNTIME.HELPER`, decodes each trial's
-`RespCode`, and re-broadcasts `NewData` on its own `Helper`. Because
-`gui.BoxGUI` subscribes to `Psych.Helper` when `createPsych` returns an object,
+`psychophysics.Detection` listens to `RUNTIME.EVENTS`, decodes each trial's
+`RespCode`, and re-broadcasts `NewData` on its own `Events`. Because
+`gui.BoxGUI` subscribes to `Psych.Events` when `createPsych` returns an object,
 `onNewData` is guaranteed to run *after* the Detection object has processed the
 trial — its dependent properties (`NumTrials`, `Hit_Rate`, `DPrime`, `Count`)
-are always current inside the hook. `gui.PsychPlot` hangs off the same Helper
+are always current inside the hook. `gui.PsychPlot` hangs off the same broadcaster
 and redraws itself; the GUI never touches it after construction.
 
 Guarding on `isfield(obj.P, 'ToneLevel')` keeps the class loadable against

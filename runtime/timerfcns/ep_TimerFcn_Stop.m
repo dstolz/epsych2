@@ -3,7 +3,7 @@ function RUNTIME = ep_TimerFcn_Stop(RUNTIME)
 % Stop the runtime timer and return the hardware to the idle state.
 %
 % Parameters:
-%	RUNTIME	- Runtime state struct with initialized Interfaces and HELPER objects.
+%	RUNTIME	- Runtime state struct with initialized Interfaces and an EVENTS broadcaster.
 %
 % Returns:
 %	RUNTIME	- Updated runtime state after issuing the idle mode transition.
@@ -14,10 +14,10 @@ function RUNTIME = ep_TimerFcn_Stop(RUNTIME)
 vprintf(2,'Setting mode to Idle')
 set(RUNTIME.Interfaces,'mode',hw.DeviceState.Idle);
 
-RUNTIME.HELPER.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Idle));
+RUNTIME.EVENTS.notify('ModeChange',epsych.eventModeChange(hw.DeviceState.Idle));
 
-if ~isempty(RUNTIME.HELPER) && isvalid(RUNTIME.HELPER)
-	delete(RUNTIME.HELPER)
+if ~isempty(RUNTIME.EVENTS) && isvalid(RUNTIME.EVENTS)
+	delete(RUNTIME.EVENTS)
 end
 
 % Merge each subject's trial journal into its seed .mat so the on-disk

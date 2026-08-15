@@ -4,12 +4,11 @@ This document is a high-level map of the EPsych repository for developers who ne
 
 ## Design goals reflected in the codebase
 
-EPsych is not a greenfield framework with a single centralized abstraction. It is an evolved toolbox that combines:
+EPsych is not a greenfield framework with a single centralized abstraction. It is a working laboratory toolbox that combines:
 
-- legacy procedural MATLAB code
-- GUIDE-era GUIs
+- object-oriented runtime, hardware, and GUI components
+- procedural MATLAB code and figure-based GUIs
 - TDT ActiveX integration utilities
-- newer object-oriented runtime components
 - experiment-specific helper functions and utilities
 
 That mixed structure is the key architectural fact to understand before making changes.
@@ -145,9 +144,9 @@ Almost all code should call `vprintf` rather than this package directly. Detaile
 
 ### `design/`
 
-Legacy protocol authoring utilities. Protocol design now happens in `epsych.ProtocolDesigner`; this directory retains migration and support tools:
+Protocol-authoring support. Protocol design itself happens in `epsych.ProtocolDesigner`; this directory holds migration and support tools:
 
-- `ep_AddSubject.m` — backward-compatible wrapper that forwards to the modern `epsych.DefaultSubject.open` dialog
+- `ep_AddSubject.m` — wrapper that forwards to the `epsych.DefaultSubject.open` dialog
 
 ### `runtime/`
 

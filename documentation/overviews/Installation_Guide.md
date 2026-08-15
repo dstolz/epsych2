@@ -168,12 +168,6 @@ Expected result:
 
 This order matters because it separates MATLAB path problems from hardware or driver problems.
 
-## Legacy installation notes
-
-Legacy setup notes previously included with older distributions covered rebuilding MEX components, configuring Microsoft SDK 7.1, and other older Windows MATLAB environment setup steps. Those notes are no longer included in the current repository.
-
-If you are maintaining an older Windows MATLAB environment and encounter problems with missing MEX components or legacy dependencies, configure `mex -setup` and build only the specific missing component.
-
 ## Common setup issues
 
 ### MATLAB cannot find EPsych functions
@@ -204,11 +198,11 @@ What to do:
 2. Confirm the required TDT software is installed
 3. Test the TDT side independently before debugging EPsych runtime behavior
 
-### Older MATLAB setup requires extra build tools
+### A MEX component is missing
 
 Likely cause:
 
-- a legacy MEX dependency was never built for the local machine
+- a MEX dependency was never built for the local machine
 
 What to do:
 

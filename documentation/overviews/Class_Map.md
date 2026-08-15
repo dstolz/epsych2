@@ -95,7 +95,7 @@ Analysis and GUI classes
    └─ StatusBar
 ```
 
-### Support and legacy branches
+### Support branches
 
 ```text
 Support and task-specific classes

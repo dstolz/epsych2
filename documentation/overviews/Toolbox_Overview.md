@@ -51,7 +51,7 @@ epsych.RunExpt
 | Preview or play stimuli | `stimgen.StimPlayer` | Build a bank of stimuli, preview them through the speakers, and optionally play them through hardware. |
 | Calibrate sound output | `epsych.calibrate` (or RunExpt's **Utilities > StimGen > Calibration GUI...**) | Open the stimgen calibration GUI already wired to EPsych hardware; measure and save speaker calibration so requested dB SPL levels map to correct output voltages. See [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md). |
 | Check what the hardware is actually holding | **Help > Parameter Debugger...** in RunExpt (`Ctrl+E`) | Every parameter the protocol defines, in one table: read them all, read one by double-clicking its name, and type into the writable ones. It reads only when asked, so it can stay open beside a running session. See [../gui/gui_ParameterDebugger.md](../gui/gui_ParameterDebugger.md). |
-| Adjust parameters between sessions | Phase files and the phase selector in task GUIs | Save and reload named parameter sets — a phase is an `.eprot` file; legacy JSON snapshots still load but are no longer written — so training phases can be switched without editing the protocol. |
+| Adjust parameters between sessions | Phase files and the phase selector in task GUIs | Save and reload named parameter sets — a phase is an `.eprot` file — so training phases can be switched without editing the protocol. |
 | Use common utilities | `helpers/` | Shared functions for logging, GUI support, timing, randomization, and analysis used across the toolbox. |
 
 ## What each major area means

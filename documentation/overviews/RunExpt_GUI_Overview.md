@@ -194,7 +194,7 @@ RunExpt session configurations are stored in MAT-files with the extension `*.ecf
 
 ## 7) Customization
 
-Settings are split by **what owns them**. This dialog — **Customize → Customize...** — holds what describes *this machine*; everything a *paradigm* decides lives on the project instead, in **Subjects → Subjects & Projects → Project → Edit Project... → Session Defaults**, and is applied to the session when that project's subjects are added. A rig alternating between two studies used to be re-pointed by hand between sessions; now it follows the animals it is running.
+Settings are split by **what owns them**. This dialog — **Customize → Customize...** — holds what describes *this machine*; everything a *paradigm* decides lives on the project instead, in **Subjects → Subjects & Projects → Project → Edit Project... → Session Defaults**, and is applied to the session when that project's subjects are added, so a rig alternating between two studies follows the animals it is running rather than needing to be re-pointed by hand between sessions.
 
 ### 7.1 Machine settings — Customize → Customize...
 
@@ -213,7 +213,7 @@ The Functions and Paths tabs each keep a grey line where the moved fields were, 
 
 ### 7.2 Project settings — Edit Project → Session Defaults
 
-Each of these is applied to the live session by `epsych.SubjectRoster.assignToSession`, and only when the project names it: an empty field leaves the session's own value alone. Projects made through the dialog are never empty — every field arrives pre-filled from the value last used there, else from this machine's own setting — so "empty" in practice means an older roster or a project built by a script. Nothing here is written back to the machine's preferences.
+Each of these is applied to the live session by `epsych.SubjectRoster.assignToSession`, and only when the project names it: an empty field leaves the session's own value alone. Projects made through the dialog are never empty — every field arrives pre-filled from the value last used there, else from this machine's own setting — so an empty field in practice means a project built by a script. Nothing here is written back to the machine's preferences.
 
 | Setting | Purpose | Default |
 | --- | --- | --- |
@@ -238,7 +238,7 @@ The recording paths in force for a session live on `RunExpt.PATHS`, seeded from 
 - **Subjects**: everything about who is in the session and who exists in the lab.
   - Subjects & Projects... (`Ctrl+B`) — the [subject manager](../gui/gui_SubjectManager.md). Available in every state, including during a run, so an animal's notes stay readable mid-session.
   - Remove Selected Subject — takes the selected row out of the session; the roster is untouched.
-  - Roster File... — chooses the `.esub` roster this rig uses. Point several rigs at one file on a shared drive to share a roster. There is no default location and no fallback: until this is answered once — here, or when Subjects & Projects asks at the first project — the rig has no roster. The first file named adopts the roster older builds kept under `prefdir`, by copy.
+  - Roster File... — chooses the `.esub` roster this rig uses. Point several rigs at one file on a shared drive to share a roster. There is no default location and no fallback: until this is answered once — here, or when Subjects & Projects asks at the first project — the rig has no roster.
 - **Customize**: Customize... (the machine settings in [7.1](#71-machine-settings--customize--customize)).
 - **Utilities**: the standalone tools that ship with the toolbox, opened from the session window instead of the command line. Each opens its own window with its own lifecycle; RunExpt keeps no handle on it, and a tool that fails to open reports on the status bar rather than interrupting the session.
   - Protocol Designer... (`Ctrl+P`) — opens an empty designer for building a new protocol (`epsych.ProtocolDesigner`). To edit the protocol a subject is already using, right-click that subject instead (see [Working with protocols](#4-working-with-protocols)). See [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md).

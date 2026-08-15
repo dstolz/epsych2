@@ -111,7 +111,9 @@ classdef ParameterDebuggerMock < hw.Interface
                 name = name.Name;
             end
             obj.Fired{end+1} = char(name);
-            result = now;
+            % datenum, not datetime: hw.Parameter.Trigger assigns this straight
+            % to lastUpdated, which every backend fills with `now`.
+            result = now; %#ok<TNOW1> matches the hw.Interface.trigger contract
         end
     end
 

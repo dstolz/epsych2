@@ -197,13 +197,18 @@ debugging session and would be misleading restored into the next.
 matlab -batch "run('tmp/smoke_test_parameter_debugger.m')"
 ```
 
-59 assertions over a mock backend and a live `epsych.RunExpt`: that hidden
+68 assertions over a mock backend and a live `epsych.RunExpt`: that hidden
 parameters are opt-in, that a sweep skips what it should and reports what
 fails, that each colour follows its state, that a double-click on a name reads
 and a double-click in the Value cell does not, that each value type parses,
 that read-only parameters, triggers, and code in a value cell are all refused,
 that a disconnected rig is marked offline, and that the window opens from the
 session window's Help menu and closes cleanly.
+
+It also covers what goes missing underneath it — a parameter deleted out of a
+protocol, an interface deleted out of the source array, an edit event carrying
+a row index the list no longer has — and that each kind of empty table says
+which kind it is.
 
 See also: [gui_Parameter_Monitor](Parameter_Monitor.md) — the polling display,
 [Parameter_Control.md](Parameter_Control.md) — one parameter bound to one

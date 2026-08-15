@@ -380,10 +380,15 @@ try
     results(end+1,:) = check('...and writing to it is refused', ...
         contains(dbg.H.status.Text, 'no longer exists'));
 
-    % A row index that no longer exists after the list shrank.
+    % An edit event carrying a row that no longer exists, which is what a
+    % refresh landing between the click and the callback would produce. The
+    % event is fired directly: writing into Data at that index first would
+    % throw in the test rather than in the code under test.
     dbg.H.filter.Value = 'Freq';
     dbg.refresh();
-    editCell(dbg, numel(dbg.Rows) + 3, '123');
+    stale = numel(dbg.Rows) + 3;
+    dbg.H.table.CellEditCallback(dbg.H.table, ...
+        struct('Indices', [stale, 5], 'NewData', '123', 'PreviousData', ''));
     results(end+1,:) = check('A stale row index is ignored', isvalid(dbg));
 
     % An interface deleted out of the source array must not take the rest with it.

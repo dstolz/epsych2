@@ -46,9 +46,12 @@ device; nothing else changes.
 
 ## Related
 
-- [examples/detection_task/](../detection_task/) — the next step: a worked
-  example with a custom trial selector, online psychometrics, and a simulated
-  observer instead of a human
+- [examples/two_afc/](../two_afc/) — the companion tutorial: a two-alternative
+  forced choice, where a choice is compulsory, chance is 50%, and the analysis
+  measures bias as well as threshold
+- [examples/detection_task/](../detection_task/) — a worked example with a
+  custom trial selector, online psychometrics, and a simulated observer
+  instead of a human
 - [examples/customgui/](../customgui/) — minimal `gui.BoxGUI` starter template
 - [documentation/gui/gui_BoxGUI.md](../../documentation/gui/gui_BoxGUI.md)
 - Validation: `tmp/smoke_test_first_experiment.m` (headless;

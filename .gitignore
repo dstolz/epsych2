@@ -6,4 +6,6 @@ examples/detection_task/DetectionExample.eprot
 examples/detection_task/data/
 examples/first_experiment/FirstExperiment.eprot
 examples/first_experiment/data/
+examples/two_afc/TwoAFC.eprot
+examples/two_afc/data/
 examples/syringepump/PumpExample.eprot

@@ -1,0 +1,266 @@
+function R = explore_2afc_data(datafile)
+% R = explore_2afc_data(datafile)
+% Load a session saved by the 2AFC tutorial, decode the response codes,
+% and summarize YOUR behavior: accuracy per difficulty, the choice curve
+% P(chose right) against signed contrast with a fitted cumulative
+% Gaussian, the point of subjective equality (your side bias), the
+% just-noticeable difference, and reaction times.
+%
+% Two analyses of the same file run side by side: one hand-rolled from the
+% decoded bits, and one from psychophysics.SessionMetrics, which produces
+% percent correct, d' and criterion for a two-choice task once each
+% alternative is nominated as stimulus/catch. They should agree.
+%
+% Works on any session whose DATA records carry RespCode (epsych.BitMask
+% codes with TrialType_0 = left correct, TrialType_1 = right correct),
+% TrialType, Contrast, ChoiceSide, and RT_ms.
+%
+% Parameters:
+%   datafile - Path to a session .mat (variables Data and, optionally,
+%              Info). Default: the newest .mat under data/ in this folder.
+%
+% Returns:
+%   R - Results struct: datafile, nTrials, nAborted, signedLevels,
+%       pRight, contrasts, accuracy, pse, jnd, dprime, criterion,
+%       medianRT, and the decoded flag struct M.
+%
+% Walkthrough: https://github.com/dstolz/epsych2/wiki/Two-AFC-Task
+%
+% See also run_2afc_experiment, epsych.BitMask, psychophysics.SessionMetrics
+
+arguments
+    datafile (1,:) char = ''
+end
+
+here = fileparts(mfilename('fullpath'));
+if isempty(datafile)
+    d = dir(fullfile(here, 'data', '**', '*.mat'));
+    d = d(~startsWith({d.name}, 'RUNTIME_DATA_')); % skip crash-recovery seeds
+    assert(~isempty(d), ...
+        'No session files under %s - run run_2afc_experiment first.', ...
+        fullfile(here, 'data'))
+    [~, newest] = max([d.datenum]);
+    datafile = fullfile(d(newest).folder, d(newest).name);
+end
+
+S = load(datafile);
+assert(isfield(S, 'Data'), 'Expected a "Data" variable in %s', datafile)
+DATA = S.Data;
+assert(all(isfield(DATA, {'RespCode', 'TrialType', 'Contrast', 'ChoiceSide', 'RT_ms'})), ...
+    'This session lacks the fields this example analyzes.')
+
+% --- Session facts -------------------------------------------------------
+% The DATA array index is chronological order. DATA.TrialID is the row of
+% the compiled condition list that was presented - a condition label, NOT
+% the presentation order.
+fprintf('\nSession file : %s\n', datafile)
+fprintf('Trials       : %d\n', numel(DATA))
+t = [DATA.computerTimestamp];
+fprintf('Time span    : %s to %s\n', string(t(1)), string(t(end)))
+if isfield(S, 'Info')
+    fprintf('EPsych       : %s (commit %.7s)\n', S.Info.Version, S.Info.Checksum)
+end
+if any([DATA.isTest])
+    fprintf('NOTE         : flagged as test data (preview session)\n')
+end
+
+% --- Decode outcomes -----------------------------------------------------
+% RespCode packs the whole trial outcome into one uint32; decode() expands
+% it to one logical-array field per epsych.BitMask member. Choice_1 marks
+% a rightward choice whether or not it was correct - that separation of
+% "what was chosen" (Choice_*) from "was it right" (Hit/Miss/CR/FA) is
+% what a 2AFC analysis needs, and the reason both are recorded.
+rc = uint32([DATA.RespCode]);
+M  = epsych.BitMask.decode(rc);
+
+side     = [DATA.TrialType];           % 0 = left correct, 1 = right correct
+contrast = [DATA.Contrast];
+choice   = [DATA.ChoiceSide];          % 0 = left, 1 = right, -1 = no answer
+rt       = [DATA.RT_ms];               % -1 on an aborted trial
+signed   = contrast .* (2 * side - 1); % negative = left lamp brighter
+
+answered = choice >= 0;
+correct  = M.Hit | M.CorrectReject;    % left-when-left, or right-when-right
+
+fprintf('\nOutcome counts\n')
+fprintf('  Answered     : %3d  (%d correct, %d incorrect)\n', ...
+    sum(answered), sum(correct), sum(answered) - sum(correct))
+fprintf('  Aborted      : %3d  (no answer inside the response window)\n', sum(M.Abort))
+fprintf('  Chose right  : %3d of %d answered (%.0f%%)\n', ...
+    sum(M.Choice_1), sum(answered), 100 * sum(M.Choice_1) / max(1, sum(answered)))
+
+% --- Accuracy per difficulty ---------------------------------------------
+contrasts = unique(contrast);
+accuracy  = nan(size(contrasts));
+nPerLevel = zeros(size(contrasts));
+for k = 1:numel(contrasts)
+    ind = answered & contrast == contrasts(k);
+    nPerLevel(k) = sum(ind);
+    if nPerLevel(k) > 0
+        accuracy(k) = mean(correct(ind));
+    end
+end
+
+fprintf('\n  Contrast     n   %% correct   median RT (ms)\n')
+for k = 1:numel(contrasts)
+    ind = answered & contrast == contrasts(k) & rt >= 0;
+    fprintf('  %8.2f  %4d      %5.0f   %8g\n', contrasts(k), nPerLevel(k), ...
+        100 * accuracy(k), median(rt(ind)))
+end
+
+% --- The choice curve ----------------------------------------------------
+% P(chose right) against SIGNED contrast is the 2AFC psychometric
+% function. Where it crosses 50% is the point of subjective equality: the
+% stimulus the subject finds ambiguous, and therefore their side bias.
+signedLevels = unique(signed);
+pRight = nan(size(signedLevels));
+nRight = zeros(size(signedLevels));
+for k = 1:numel(signedLevels)
+    ind = answered & signed == signedLevels(k);
+    nRight(k) = sum(ind);
+    if nRight(k) > 0
+        pRight(k) = mean(choice(ind) == 1);
+    end
+end
+
+[pse, jnd, fitFcn] = fitChoiceCurve(signedLevels, pRight, nRight);
+if isfinite(pse)
+    fprintf('\n  Point of subjective equality : %+.3f contrast units', pse)
+    if abs(pse) < 0.01
+        fprintf('   (no meaningful side bias)\n')
+    elseif pse > 0
+        fprintf('   (bias toward answering LEFT)\n')
+    else
+        fprintf('   (bias toward answering RIGHT)\n')
+    end
+    fprintf('  Just-noticeable difference   :  %.3f contrast units (84%% correct)\n', jnd)
+else
+    fprintf('\n  Choice-curve fit did not converge (too few trials or levels).\n')
+end
+
+% --- The same session through the toolbox --------------------------------
+% No trial-type arguments are needed: the box GUI scored left-correct
+% trials as Hit/Miss and right-correct trials as CorrectReject/FalseAlarm,
+% which is exactly what the defaults expect. PercentCorrect is then 2AFC
+% accuracy, and Criterion is the side bias — negative toward LEFT.
+SM = psychophysics.SessionMetrics(DATA);
+fprintf('\npsychophysics.SessionMetrics over the whole session\n')
+disp(SM.summary())
+
+% --- Session figure ------------------------------------------------------
+fig = figure(Name = 'Your 2AFC session', Color = 'w', ...
+    Position = [100 100 950 700]);
+tl = tiledlayout(fig, 2, 2, TileSpacing = 'compact', Padding = 'compact');
+[~, fn] = fileparts(datafile);
+title(tl, fn, Interpreter = 'none')
+
+lineColor = [0.13 0.35 0.70];
+refColor  = [0.45 0.45 0.45];
+
+% 1. Trial timeline: signed contrast, marker shape by outcome
+ax = nexttile(tl, [1 2]);
+hold(ax, 'on')
+trialNum = 1:numel(DATA);
+groups = {correct & answered, ~correct & answered, M.Abort};
+labels = {'Correct', 'Incorrect', 'Aborted'};
+clr = epsych.BitMask.getDefaultColors( ...
+    [epsych.BitMask.Hit, epsych.BitMask.FalseAlarm, epsych.BitMask.Abort]);
+markers = {'o', 'x', 's'};
+for k = 1:numel(groups)
+    ind = groups{k};
+    if ~any(ind), continue; end
+    h = scatter(ax, trialNum(ind), signed(ind), 36, ...
+        Marker = markers{k}, MarkerEdgeColor = clr(k), ...
+        LineWidth = 1.25, DisplayName = labels{k});
+    if ~strcmp(markers{k}, 'x')
+        h.MarkerFaceColor = clr(k);
+        h.MarkerFaceAlpha = 0.35;
+    end
+end
+yline(ax, 0, '-', Color = refColor)
+hold(ax, 'off')
+xlabel(ax, 'Trial (presentation order)')
+ylabel(ax, 'Signed contrast')
+title(ax, 'Trial timeline (negative = left lamp brighter)')
+legend(ax, Location = 'northoutside', Orientation = 'horizontal', Box = 'off')
+grid(ax, 'on'); ax.GridAlpha = 0.12; ax.Box = 'off';
+
+% 2. Choice curve with the fit and the PSE
+ax = nexttile(tl);
+hold(ax, 'on')
+if ~isempty(fitFcn)
+    xx = linspace(min(signedLevels), max(signedLevels), 200);
+    plot(ax, xx, fitFcn(xx), '-', Color = lineColor, LineWidth = 2, ...
+        DisplayName = 'cumulative Gaussian')
+end
+scatter(ax, signedLevels, pRight, 40, MarkerEdgeColor = lineColor, ...
+    MarkerFaceColor = lineColor, MarkerFaceAlpha = 0.45, DisplayName = 'data')
+yline(ax, 0.5, '--', Color = refColor, HandleVisibility = 'off')
+if isfinite(pse)
+    xline(ax, pse, ':', sprintf('PSE %+.3f', pse), Color = [0.75 0.2 0.15], ...
+        LineWidth = 1.5, LabelVerticalAlignment = 'bottom', HandleVisibility = 'off')
+end
+hold(ax, 'off')
+ylim(ax, [0 1])
+xlabel(ax, 'Signed contrast (negative = left brighter)')
+ylabel(ax, 'P(chose right)')
+title(ax, 'Choice curve')
+legend(ax, Location = 'southeast', Box = 'off')
+grid(ax, 'on'); ax.GridAlpha = 0.12; ax.Box = 'off';
+
+% 3. Accuracy against difficulty, with the chance line a 2AFC has and a
+%    yes/no task does not: guessing scores 50%, not 0%.
+ax = nexttile(tl);
+plot(ax, contrasts, accuracy, '-o', Color = lineColor, LineWidth = 2, ...
+    MarkerFaceColor = lineColor, MarkerSize = 7)
+yline(ax, 0.5, '--', 'chance', Color = refColor, LabelHorizontalAlignment = 'left')
+ylim(ax, [0 1]); xticks(ax, contrasts)
+xlabel(ax, 'Contrast (unsigned difficulty)')
+ylabel(ax, 'Proportion correct')
+title(ax, 'Accuracy by difficulty')
+grid(ax, 'on'); ax.GridAlpha = 0.12; ax.Box = 'off';
+
+R = struct('datafile', datafile, 'nTrials', numel(DATA), ...
+    'nAborted', sum(M.Abort), 'signedLevels', signedLevels, 'pRight', pRight, ...
+    'contrasts', contrasts, 'accuracy', accuracy, 'pse', pse, 'jnd', jnd, ...
+    'dprime', SM.Results.DPrime, 'criterion', SM.Results.Criterion, ...
+    'medianRT', median(rt(answered & rt >= 0)), 'M', M);
+
+if nargout == 0, clear R; end
+end
+
+
+function [pse, jnd, fitFcn] = fitChoiceCurve(x, p, n)
+% Fit P(chose right) = normcdf((x - mu)/sigma) by maximum likelihood.
+% mu is the point of subjective equality (the 50% point, i.e. the side
+% bias) and sigma the just-noticeable difference. Returns NaN and an empty
+% function handle when there is not enough data to constrain a fit.
+pse = NaN; jnd = NaN; fitFcn = [];
+
+ok = n > 0 & isfinite(p);
+x = x(ok); p = p(ok); n = n(ok);
+if numel(x) < 3 || numel(unique(p)) < 2, return; end
+
+k = round(p .* n); % rightward choices per level
+nll = @(q) -sum(k .* log(max(pr(x, q), eps)) + ...
+    (n - k) .* log(max(1 - pr(x, q), eps)));
+
+q0 = [0, max(std(x), eps)];
+opts = optimset('Display', 'off');
+try
+    q = fminsearch(nll, q0, opts);
+catch
+    return
+end
+
+if ~all(isfinite(q)) || q(2) <= 0, return; end
+pse = q(1);
+jnd = abs(q(2));
+fitFcn = @(xx) pr(xx, q);
+end
+
+
+function y = pr(x, q)
+% Cumulative-Gaussian choice probability with mean q(1) and sd q(2).
+y = normcdf((x - q(1)) ./ max(abs(q(2)), eps));
+end

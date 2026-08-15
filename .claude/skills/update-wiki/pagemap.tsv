@@ -39,6 +39,7 @@ epsych_startup.m	Installation-and-Setup, Installation-Guide, Quick-Start	documen
 examples/customgui/	Building-a-Box-GUI, Generating-a-Box-GUI-with-AI	documentation/design/Customized_GUI_Instructions.md
 examples/detection_task/	Quick-Start, Training-and-Online-Analysis	documentation/examples/
 examples/first_experiment/	Your-First-Experiment, First-Experiment-Protocol, First-Experiment-Box-GUI, First-Experiment-Running, First-Experiment-Data	documentation/examples/First_Experiment_Walkthrough.md
+examples/two_afc/	Two-AFC-Task	documentation/examples/Two_AFC_Walkthrough.md
 examples/	Quick-Start	documentation/examples/
 cl/	Data-and-Save-Functions	documentation/cl/
 firmware/	Teensy-Program-Model	documentation/hw/hw_Teensy_Program_Protocol.md

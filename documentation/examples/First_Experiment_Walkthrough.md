@@ -122,9 +122,12 @@ and RT assertions, journal-merge check, and offline analysis.
 
 ## Next steps
 
-- [Detection_Task_Walkthrough.md](Detection_Task_Walkthrough.md) — the next
-  tutorial: a custom trial selector, online psychometrics, and a simulated
-  observer replacing the human
+- [Two_AFC_Walkthrough.md](Two_AFC_Walkthrough.md) — the companion tutorial:
+  a two-alternative forced choice with crossed conditions, a real Abort
+  outcome, choice bits, and bias as a measurable quantity
+- [Detection_Task_Walkthrough.md](Detection_Task_Walkthrough.md) — a custom
+  trial selector, online psychometrics, and a simulated observer replacing
+  the human
 - [gui_BoxGUI.md](../gui/gui_BoxGUI.md) — the base class behind the GUI
 - [epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md) — the full
   trial lifecycle reference

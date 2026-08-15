@@ -15,6 +15,8 @@ EPsych is a MATLAB toolbox for designing and running behavioral experiments, esp
 
 The toolbox is broad, so the most useful way to approach it is by workflow rather than by folder.
 
+> 🔑 **Three commands are the whole workflow.** `epsych_startup` prepares MATLAB, `epsych.ProtocolDesigner` prepares the protocol, `epsych.RunExpt` runs the session. Everything else in the repository supports one of those three stages.
+
 ## Start here
 
 For most new users, the first three tools to learn are:
@@ -70,9 +72,13 @@ Stimulus objects (tones, noise, clicks, and more), a stimulus bank player, and s
 
 `stimgen` is a separate repository ([dstolz/stimgen](https://github.com/dstolz/stimgen)) attached here as a git submodule at `obj/stimgen/`. Clone with `--recurse-submodules`, or run `git submodule update --init --recursive` in an existing clone. See [../stimgen.md](../stimgen.md).
 
+> ⚠️ **A missing stimgen submodule degrades silently.** Protocols with stimulus parameters load with placeholder values instead of failing, so the numbers are simply wrong. Clone with `--recurse-submodules`, or run `git submodule update --init --recursive` in an existing clone.
+
 ### Hardware layers (`obj/+hw/` and `TDTfun/`)
 
 These folders handle hardware communication (TDT Synapse, TDT RPvds, Intan RHX, Teensy, Bpod, webcam recording, and a software-only test backend). As a user you normally do not touch this layer directly — the protocol file records which hardware your experiment uses. The TDT Synapse, Intan RHX, Teensy, and Bpod backends are under development.
+
+> 🔑 **The protocol file records which hardware your experiment uses.** You do not pick a backend in the session GUI, so a connection problem is diagnosed in the protocol and the device — not in RunExpt.
 
 ### Task-specific code (`cl/`)
 
@@ -92,6 +98,8 @@ If you are trying to get productive quickly, use this order:
 4. Launch `epsych.RunExpt`.
 5. Add a subject, attach a protocol, and use **View Trials** to preview trials before running hardware.
 6. Read [RunExpt_GUI_Overview.md](RunExpt_GUI_Overview.md) once the GUI is open.
+
+> 🔑 **Preview the compiled trials before every first run of a new or edited protocol.** **View Trials** shows exactly what the runtime will present; a protocol that compiles is not the same as a protocol that is correct.
 
 ## Which document to read next
 

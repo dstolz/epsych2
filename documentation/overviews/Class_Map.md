@@ -139,12 +139,16 @@ Support and task-specific classes
 | gui | `Helper` | `handle` | Shared GUI helper base |
 | eplog | `sink.Sink` | `handle` | Abstract log destination behind `vprintf` |
 
+> 🔑 **Four abstract classes are the toolbox's extension points.** `hw.Interface` (a backend), `epsych.TrialSelector` (trial selection), `psychophysics.Psych` (analysis), and `stimgen.StimType` (a stimulus, in the submodule). Almost every extension is a subclass of one of them.
+
 The `stimgen` package is a git submodule (see [../stimgen.md](../stimgen.md)) and
 has no dependency on EPsych. EPsych implements its two abstract classes in
 `obj/+stimbridge/`: `stimbridge.RuntimeHost` (a `stimgen.HardwareHost`) and
 `stimbridge.InterfaceAdapter` (a `stimgen.calibration.HwAdapter`).
 
 ## Runtime dependency map
+
+> ⚠️ **This second map is not inheritance.** It shows which objects *hold and call* which during a session. Reading a dependency arrow as a subclass relationship is the usual way to misread it.
 
 This view is not inheritance. It shows the main runtime relationships during a typical session. The Mermaid diagram gives the fast overview, and the short tree below keeps the same information in plain text.
 

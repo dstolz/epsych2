@@ -133,6 +133,8 @@ Right-click a subject row for these actions:
 
 Protocols are validated when loaded and again when you press **Run**/**Preview**. Validation errors are reported before the session starts; protocols that need compilation are compiled automatically at start.
 
+> ⚠️ **Protocol edits are not picked up automatically.** The session holds the copy it loaded. After saving in the Protocol Designer, use **Update to Latest Version** on the row, or **Config → Refresh Config** — the **Version** column flags stale rows but will not reload them for you.
+
 ## 5) Running, pausing, stopping, and saving data
 
 If you need the underlying event model for GUI updates or runtime hooks, see [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md).
@@ -170,6 +172,8 @@ After **Stop** (or if a timer error occurs), click **Save Data**.
 
 By default, `ep_SaveDataFcn(RUNTIME)` prompts once per subject for an output `.mat` file and saves that subject's trial data.
 
+> 🔑 **Trials are journalled as they complete — a crash costs at most the trial in progress.** The `.epj` is merged into the `.mat` at **Stop**; after a crash, `epsych.TrialJournal.recover` does the merge. **Save Data** is still what produces the final file, and it only enables after **Stop**.
+
 During the session, each trial is also appended to a per-subject crash-recovery journal (`RUNTIME_DATA_<name>_Box_<nn>_<timestamp>.epj`) in the temporary data directory, so at most the in-progress trial is lost if the computer fails mid-session. The journal is merged into the matching `.mat` when the session stops; after a crash, `epsych.TrialJournal.recover` does the same. See [epsych.TrialJournal](../epsych/epsych_TrialJournal.md).
 
 ## 6) Config files (`*.ecfg`)
@@ -195,6 +199,8 @@ RunExpt session configurations are stored in MAT-files with the extension `*.ecf
 ## 7) Customization
 
 Settings are split by **what owns them**. This dialog — **Customize → Customize...** — holds what describes *this machine*; everything a *paradigm* decides lives on the project instead, in **Subjects → Subjects & Projects → Project → Edit Project... → Session Defaults**, and is applied to the session when that project's subjects are added, so a rig alternating between two studies follows the animals it is running rather than needing to be re-pointed by hand between sessions.
+
+> 🔑 **Settings are split by who owns them: the rig or the paradigm.** **Customize** describes *this machine*. The **project** carries what the paradigm decides and applies it when that project's subjects are added — so a rig alternating between studies follows the animals it is running. Two invariants hold on the project side: an empty field inherits, and nothing is written back to the machine's preferences.
 
 ### 7.1 Machine settings — Customize → Customize...
 
@@ -272,6 +278,8 @@ In the RunExpt figure:
 - Menu accelerators are shown next to each menu item (for example `Ctrl+U` opens the Customize dialog).
 
 ## 10) Notes and common gotchas
+
+> ⚠️ **The four that bite most often:** protocol edits are not reloaded automatically; **Save Data** enables only after **Stop**; the hardware backend comes from the protocol, not from this window; and closing the GUI mid-run stops the session. **Help → Run Self-Test...** catches most of them before a session starts.
 
 - **Button enabling/disabling is state-driven**: Add/Remove/Edit actions are disabled while the experiment is running.
 - **Subject names must be unique** within a session; adding a duplicate name will be rejected.

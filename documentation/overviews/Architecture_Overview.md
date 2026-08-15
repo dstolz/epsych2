@@ -13,6 +13,8 @@ EPsych is not a greenfield framework with a single centralized abstraction. It i
 
 That mixed structure is the key architectural fact to understand before making changes.
 
+> 🔑 **The OOP layer is the extension surface; the procedural layer is load-bearing.** `hw.Interface`, `epsych.TrialSelector`, `psychophysics.Psych`, and `gui.BoxGUI` are where new work belongs. A new paradigm should reach the runtime through events rather than by editing `runtime/timerfcns/`.
+
 ## Top-level layout
 
 ### `obj/+epsych/`
@@ -75,6 +77,8 @@ cloning. See [stimgen.md](../stimgen.md) for the integration contract.
 
 `stimgen` has no dependency on EPsych. EPsych implements its two abstract
 integration classes in `obj/+stimbridge/` (see below).
+
+> ⚠️ **Nothing inside `obj/stimgen/` may name an EPsych type.** The package must stay usable standalone, so every `epsych.*` / `hw.*` reference belongs in `obj/+stimbridge/`. Edits under `obj/stimgen/` are commits in the *stimgen* repository; bumping the pointer here is separate and deliberate.
 
 | Class | Purpose |
 |---|---|
@@ -203,6 +207,8 @@ At a high level, a typical EPsych session looks like this:
 7. GUIs and analysis objects react to `NewTrial` / `NewData` / `ModeChange` events on `RUNTIME.HELPER` rather than polling.
 8. On Stop, `ep_TimerFcn_Stop` returns hardware to Idle and data is saved via the configured save function.
 
+> 🔑 **Everything downstream of the runtime is event-driven, not polled.** GUIs and analysis objects subscribe to `NewTrial` / `NewData` / `ModeChange` on `RUNTIME.HELPER`. The only real polling loop is the timer callback itself.
+
 For the full trial-level walkthrough, see [../epsych/epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md).
 
 ### Program state machine
@@ -240,6 +246,8 @@ The codebase supports multiple hardware backends through a common `hw.Interface`
 
 Code that reads or writes parameters should always go through `hw.Interface` / `hw.Parameter` methods (or the `Runtime.find_parameter` / `Runtime.all_parameters` helpers) rather than calling backend-specific APIs directly.
 
+> ⚠️ **Never call a backend-specific API directly.** Every read and write goes through `hw.Interface` / `hw.Parameter` (or the `Runtime.find_parameter` / `Runtime.all_parameters` helpers) — that indirection is exactly what makes the backend choice transparent to the rest of the runtime.
+
 ---
 
 ## Protocol model
@@ -254,6 +262,8 @@ A protocol captures:
 - `meta` — format version, EPsych version, and a `protocolVersion` string incremented on each save (used by RunExpt to flag out-of-date subjects)
 
 Parameters carry design-time trial levels in `hw.Parameter.Values`; `compile()` expands the cross-product of unpaired parameter levels (paired parameters advance together) into the trials matrix. Several parts of the codebase depend on the compiled structure being stable — changes to protocol fields or the compile output format have wide impact.
+
+> ⚠️ **`COMPILED`'s field set and column order are a repository-wide contract.** The timer functions, the parameter widgets, the mid-session recompile path, and paradigm code all map names to columns through it. Changing its shape is a breaking change, not a refactor.
 
 See [../epsych/epsych_Protocol.md](../epsych/epsych_Protocol.md).
 

@@ -6,6 +6,8 @@ The problem it solves: almost every way a session can fail is only discovered on
 
 Open it from **Help → Run Self-Test...** (`Ctrl+D`).
 
+> 🔑 **These are real checks against what is actually loaded, not a static lint.** The self-test compiles protocols, drives the trial selector, and writes and reads back probe files — which is what lets it move failure discovery to *before* you press **Run** rather than partway through a session with an animal in the box.
+
 ## Table of contents
 
 - [1) Using the window](#1-using-the-window)
@@ -27,6 +29,8 @@ Open it from **Help → Run Self-Test...** (`Ctrl+D`).
 
 The self-test is available while a session is running. The read-only checks are exactly what you want when something is behaving oddly mid-experiment; the checks that would disturb a run refuse to execute and report themselves as skipped.
 
+> 🔑 **Safe to run mid-session.** Read-only checks stay available while an experiment is running; anything that would disturb the run refuses and reports itself as skipped.
+
 ## 2) Statuses
 
 | Status | Meaning |
@@ -46,6 +50,8 @@ Three groups of checks can only be real if they cause side effects, so they are 
 - **Cycle the live GUI state** — drives the session window through each program state, asserts which controls are enabled in each, and restores the original state. The window flickers briefly.
 
 All three are refused while a session is RUNNING.
+
+> ⚠️ **A `SKIP` is not a `PASS`.** The three `[!]` groups are off by default because they cause side effects — and **Connect hardware interfaces** is the only way to verify parameters on hardware that discovers them at connect, such as TDT RPvds. A clean run with those groups unticked has not tested the hardware at all.
 
 ## 4) What is checked
 
@@ -110,6 +116,8 @@ results = interface.selfTest(Invasive = true);  % may connect and query
 ```
 
 The non-invasive form must not change hardware state — no connect, no mode writes, no recording configuration. The invasive form may connect and query the live device, and must restore the connection state it found. Neither form may throw: a failed probe is a `fail` result.
+
+> ⚠️ **Neither form of `selfTest` may throw, and the non-invasive form may not touch hardware state.** A failed probe is a `fail` *result*, not an exception. The invasive form may connect and query, but must restore the connection state it found.
 
 Build results with the static helper rather than hand-rolling structs:
 

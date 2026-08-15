@@ -21,6 +21,8 @@ An EPsych installation has four layers:
 
 Before installing TDT components, decide which path you actually need.
 
+> 🔑 **Choose the experiment mode before installing anything from TDT.** Behavioral-only rigs need TDT ActiveX Controls; OpenEx workflows need TDT OpenEx *plus* OpenDeveloper Controls. Installing the wrong set is the usual cause of "the GUI opens but hardware control does not work". With no TDT hardware, skip this section entirely.
+
 ### Behavioral experiments without electrophysiology
 
 Install:
@@ -84,6 +86,8 @@ message if it is not. Do not skip that warning: without `stimgen`, protocols
 containing stimulus parameters load with silently degraded values instead of
 failing outright. See [stimgen.md](../stimgen.md).
 
+> ⚠️ **The submodule failure is silent, not loud.** Without `stimgen`, nothing errors when a protocol loads — the stimulus values are simply wrong. Heed `epsych_startup`'s warning and run `git submodule update --init --recursive`.
+
 What `epsych_startup` does:
 
 - finds the repository root — the folder holding the copy of `epsych_startup.m`
@@ -100,6 +104,8 @@ What `epsych_startup` does:
 define the same classes. `epsych_startup` leaves exactly **one** checkout on the
 path: run it from the tree you want, and the other is removed and reported.
 
+> ⚠️ **`epsych_startup` leaves exactly one checkout on the path.** Two worktrees define the same classes, so running it from one evicts the other and reports it. MATLAB still holds the evicted tree's class definitions and live objects in memory — `clear classes` or restart before starting a session — and `git worktree add` does not populate submodules.
+
 Two things do not follow automatically:
 
 - MATLAB keeps class definitions and live objects from the evicted tree in
@@ -114,6 +120,8 @@ part of a folder *below* the repository root is tested for the leading period.
 ## First-run validation
 
 After installation, validate the MATLAB-side setup in this order.
+
+> 🔑 **Validate MATLAB-side before connecting hardware.** Every GUI opens and every protocol compiles with no hardware attached. Working in this order means a failure in the steps below is a path problem and a failure afterwards is a hardware problem — never both at once.
 
 ### Step 1: confirm startup runs
 

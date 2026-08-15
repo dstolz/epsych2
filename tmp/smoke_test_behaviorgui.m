@@ -43,21 +43,21 @@ fprintf('PASS: watchedHandles wired from the registry\n');
 
 % 3. Event dispatch: hooks, once-only first trial, deferred closures ------
 assert(~g.DeferredRan, 'deferred closure must not run before the first trial');
-rt.HELPER.notify('NewTrial');
-rt.HELPER.notify('NewTrial');
+rt.EVENTS.notify('NewTrial');
+rt.EVENTS.notify('NewTrial');
 assert(g.NewTrialCount == 2, 'onNewTrial should run per NewTrial (got %d)', g.NewTrialCount);
 assert(g.FirstTrialCount == 1, 'onFirstTrial should run exactly once (got %d)', g.FirstTrialCount);
 assert(g.DeferredRan, 'deferred closure should run at the first NewTrial');
-rt.HELPER.notify('NewData');
+rt.EVENTS.notify('NewData');
 assert(g.NewDataCount == 1, 'onNewData should have run once (got %d)', g.NewDataCount);
-rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Preview));
+rt.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Preview));
 assert(g.ModeChangeCount == 1, 'onModeChange should have run once (got %d)', g.ModeChangeCount);
 g.defer(@() g.markDeferred); % post-first-trial defer runs immediately
 fprintf('PASS: event hooks, once-only onFirstTrial, deferred closures\n');
 
 % 4. Monitor polling stops on DeviceState.Stop ----------------------------
 assert(g.hMon.Timer.Running == "on", 'monitor timer should poll while running');
-rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
+rt.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
 assert(g.hMon.Timer.Running == "off", 'monitor timer should stop on Stop mode');
 assert(g.ModeChangeCount == 2, 'user hook should still run on Stop');
 fprintf('PASS: monitor stops polling on Stop\n');
@@ -82,7 +82,7 @@ fprintf('PASS: full teardown via CloseRequestFcn, position saved\n');
 % 6. Empty-runtime launch (SelfTest I6 semantics) -------------------------
 rtEmpty = epsych.Runtime;
 rtEmpty.isTest = true;
-rtEmpty.HELPER = epsych.Helper;
+rtEmpty.EVENTS = epsych.EventHub;
 g2 = SmokeBehaviorGUI(rtEmpty);
 assert(isvalid(g2) && isvalid(g2.h_figure), 'GUI must open against a runtime with no interfaces');
 assert(isempty(g2.hFreq) && isempty(g2.hPelletBtn), ...
@@ -115,9 +115,9 @@ assert(numel(gg.ParamControls) == 2 && all(cellfun(@isvalid, gg.ParamControls)),
     'writable parameters should become controls (got %d)', numel(gg.ParamControls));
 assert(isvalid(gg.ParameterMonitor), 'read-only parameters should be monitored');
 nLog = numel(gg.h_logArea.Value);
-rt.HELPER.notify('NewTrial');
-rt.HELPER.notify('NewData');
-rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Preview));
+rt.EVENTS.notify('NewTrial');
+rt.EVENTS.notify('NewData');
+rt.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Preview));
 assert(numel(gg.h_logArea.Value) == nLog + 3, 'events should append to the log');
 assert(endsWith(gg.h_logArea.Value{1}, 'Mode: Preview'), ...
     'ModeChange should log the new mode (got "%s")', gg.h_logArea.Value{1});
@@ -170,7 +170,7 @@ function rt = makeRuntime()
 % Runtime with a connected software interface carrying test parameters.
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 
 % add_parameter stores design-time Values; a live session populates Value
 % during trial dispatch before the behavior GUI launches, so set Value here too.

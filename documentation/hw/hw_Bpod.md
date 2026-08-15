@@ -286,7 +286,7 @@ mask via `writeOutputs_`.
 interlock.
 
 **Trial control** — `Visible=false`, named for the configured `BoxID`.
-`epsych.Runtime.resolveCoreParameters` looks these three names up literally and
+`epsych.Runtime.resolveTriggerParameters` looks these three names up literally and
 aborts the run if any is missing:
 
 | Name | Kind | Role |

@@ -106,7 +106,7 @@ p.Access = 'Read';
 % --- Triggers ------------------------------------------------------------
 % Every protocol needs the three core triggers x_NewTrial_<BoxID>,
 % x_ResetTrig_<BoxID>, x_TrialComplete_<BoxID>; the runtime refuses to
-% start without them (epsych.Runtime.resolveCoreParameters). On TDT
+% start without them (epsych.Runtime.resolveTriggerParameters). On TDT
 % hardware these are RPvds tags; on a software rig they are plain trigger
 % parameters. The runtime polls x_TrialComplete_1.Value on every timer
 % tick, so seed it (and its siblings) to 0 — an unset Value would make the

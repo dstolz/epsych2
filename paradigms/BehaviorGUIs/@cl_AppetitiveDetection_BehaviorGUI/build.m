@@ -144,9 +144,9 @@ obj.ParameterMonitor = obj.register(gui.Parameter_Monitor(panelMonitor, monitorP
 
 % PHASE SELECTION ------------------------------------------
 % Phase definitions are shared with the original GUI_B implementation.
-PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_BehaviorGUI','Phases');
+PhasePath = fullfile(EPsychInfo.root,'paradigms','BehaviorGUIs','@cl_AppetitiveDetection_BehaviorGUI','Phases');
 if ~isfolder(PhasePath)
-    PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases');
+    PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases'); % pre-rename layout
 end
 
 % Built unconditionally: gui.PhaseSelector tolerates a missing or empty phase

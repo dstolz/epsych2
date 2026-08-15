@@ -145,7 +145,7 @@ classdef History < gui.PopOut
                 % Listener first, then psychObj: set.psychObj validates and
                 % renders, so assigning it last makes that the single initial
                 % render rather than one before the listener exists.
-                obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
+                obj.hl_NewData = listener(pObj.Events,'NewData',@obj.update);
                 obj.psychObj = pObj;
             end
         end
@@ -191,7 +191,7 @@ classdef History < gui.PopOut
             % dbstack('-completenames') and a log write on every trial.
             if isempty(obj.TableH) || ~isvalid(obj.TableH), return; end
             if obj.Updating_, return; end
-            if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
+            if ~epsych.EventHub.valid_psych_obj(obj.psychObj), return; end
             if isempty(obj.psychObj.DATA), return; end
 
             obj.Updating_ = true;
@@ -246,7 +246,7 @@ classdef History < gui.PopOut
         function set.psychObj(obj,pobj)
             % set.psychObj(obj, pobj)
             % Validate and assign psychObj, then refresh table display.
-            assert(epsych.Helper.valid_psych_obj(pobj),'gui.History:set.psychObj', ...
+            assert(epsych.EventHub.valid_psych_obj(pobj),'gui.History:set.psychObj', ...
                 'psychObj must be from the toolbox "psychophysics"');
             obj.psychObj = pobj;
             obj.update;
@@ -327,7 +327,7 @@ classdef History < gui.PopOut
             % Returns:
             %   C - numel(order)x3 RGB array.
             C = zeros(0,3);
-            if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
+            if ~epsych.EventHub.valid_psych_obj(obj.psychObj), return; end
             if isempty(obj.Info) || ~isfield(obj.Info,'ResponseBit'), return; end
 
             rgb = obj.chronologicalRowColors;
@@ -723,7 +723,7 @@ classdef History < gui.PopOut
             % params = availableParameters(obj)
             % Scalar-valued DATA fields eligible for display as columns.
             params = cell(0,1);
-            if ~epsych.Helper.valid_psych_obj(obj.psychObj), return; end
+            if ~epsych.EventHub.valid_psych_obj(obj.psychObj), return; end
             D = obj.psychObj.DATA;
             if isempty(D), return; end
             fn = setdiff(fieldnames(D),obj.REQUIRED_FIELDS(:),'stable');

@@ -153,8 +153,8 @@ classdef ParameterScatter < gui.PopOut
             %
             % Parameters:
             %   source - Data source: a psychophysics object (updates via its
-            %       Helper NewData event), an epsych.Runtime (updates via
-            %       RUNTIME.HELPER), or a DATA struct array for offline use.
+            %       Events NewData event), an epsych.Runtime (updates via
+            %       RUNTIME.EVENTS), or a DATA struct array for offline use.
             %   container - Figure, panel, tab, or layout host. If empty,
             %       creates a uifigure.
             %   options.PreferenceTag - Optional key for saved preferences;
@@ -336,17 +336,17 @@ classdef ParameterScatter < gui.PopOut
             obj.Source_ = source; % kept so a pop-out can attach to the same source
             if isstruct(source)
                 obj.DATA_ = source; % offline data; no listener
-            elseif isa(source,'epsych.Runtime') || (isobject(source) && isprop(source,'HELPER'))
+            elseif isa(source,'epsych.Runtime') || (isobject(source) && isprop(source,'EVENTS'))
                 obj.Runtime_ = source;
-                obj.hl_NewData = listener(source.HELPER,'NewData',@obj.onNewData);
+                obj.hl_NewData = listener(source.EVENTS,'NewData',@obj.onNewData);
                 try
                     obj.DATA_ = source.TRIALS(1).DATA;
                 catch
                     % No trial data yet; first NewData event populates it.
                 end
-            elseif epsych.Helper.valid_psych_obj(source)
+            elseif epsych.EventHub.valid_psych_obj(source)
                 obj.Runtime_ = source.RUNTIME;
-                obj.hl_NewData = listener(source.Helper,'NewData',@obj.onNewData);
+                obj.hl_NewData = listener(source.Events,'NewData',@obj.onNewData);
                 obj.DATA_ = source.DATA;
             else
                 error('gui:ParameterScatter:InvalidSource', ...

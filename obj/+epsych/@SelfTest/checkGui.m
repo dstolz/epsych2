@@ -354,11 +354,11 @@ end
 % -----------------------------------------------------------------------
 function r = localEventTest(group)
 % Verify the event broadcaster GUIs and analysis objects subscribe to. A
-% throwaway Helper is used so no live listener is disturbed.
+% throwaway EventHub is used so no live listener is disturbed.
 fired = struct('NewData', false, 'NewTrial', false, 'ModeChange', false);
 
 try
-    H = epsych.Helper;
+    H = epsych.EventHub;
     listeners = [ ...
         addlistener(H, 'NewData',    @(~,~) localSetFired('NewData')), ...
         addlistener(H, 'NewTrial',   @(~,~) localSetFired('NewTrial')), ...
@@ -422,8 +422,8 @@ end
 try
     rt = epsych.Runtime;
     rt.isTest = true;
-    rt.HELPER = epsych.Helper;
-    rt.dfltDataPath = rx.dfltDataPath;
+    rt.EVENTS = epsych.EventHub;
+    rt.DefaultDataPath = rx.DefaultDataPath;
     if hasInterfaces
         rt.Interfaces = attached;
     end

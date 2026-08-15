@@ -4,18 +4,18 @@ This reference describes the EPsych runtime event system for developers writing 
 
 ## Overview
 
-EPsych exposes its public custom event notifications through `epsych.Helper`.
+EPsych exposes its public custom event notifications through `epsych.EventHub`.
 The helper declares three runtime events:
 
 - `NewData`
 - `NewTrial`
 - `ModeChange`
 
-Source: [obj/+epsych/@Helper/Helper.m](../../obj/+epsych/@Helper/Helper.m)
+Source: [obj/+epsych/@EventHub/EventHub.m](../../obj/+epsych/@EventHub/EventHub.m)
 
-The live broadcaster instance is `RUNTIME.HELPER`, created by `epsych.RunExpt` at run start and deleted by `ep_TimerFcn_Stop`.
+The live broadcaster instance is `RUNTIME.EVENTS`, created by `epsych.RunExpt` at run start and deleted by `ep_TimerFcn_Stop`.
 
-Psychophysics analysis objects such as `psychophysics.Psych` subclasses also rebroadcast `NewData` on their own local `Helper` after recomputing derived results. That second layer is useful for GUIs that depend on processed behavioral metrics rather than raw runtime state.
+Psychophysics analysis objects such as `psychophysics.Psych` subclasses also rebroadcast `NewData` on their own local `Events` after recomputing derived results. That second layer is useful for GUIs that depend on processed behavioral metrics rather than raw runtime state.
 
 Source: [obj/+psychophysics/Psych.m](../../obj/+psychophysics/Psych.m)
 
@@ -67,7 +67,7 @@ Common uses:
 #### Example
 
 ```matlab
-hl = addlistener(RUNTIME.HELPER, 'NewData', @(src, event) onNewData(src, event));
+hl = addlistener(RUNTIME.EVENTS, 'NewData', @(src, event) onNewData(src, event));
 
 function onNewData(~, event)
     trials = event.Data;
@@ -80,7 +80,7 @@ end
 
 - Runtime-to-analysis subscription: [obj/+psychophysics/Psych.m](../../obj/+psychophysics/Psych.m)
 - Detection analysis subscription: [obj/+psychophysics/@Detection/Detection.m](../../obj/+psychophysics/@Detection/Detection.m)
-- Training callback: [cl/@cl_AppetitiveDetection_GUI_B/eval_rwdelay_training_mode.m](../../cl/@cl_AppetitiveDetection_GUI_B/eval_rwdelay_training_mode.m)
+- Training callback: [obj/+gui/eval_staircase_training_mode.m](../../obj/+gui/eval_staircase_training_mode.m)
 
 ### Analysis-layer `NewData`
 
@@ -104,7 +104,7 @@ Common uses:
 #### Example
 
 ```matlab
-hl = addlistener(psychObj.Helper, 'NewData', @(src, event) onPsychUpdate(src, event));
+hl = addlistener(psychObj.Events, 'NewData', @(src, event) onPsychUpdate(src, event));
 
 function onPsychUpdate(~, event)
     trials = event.Data;
@@ -116,7 +116,7 @@ end
 
 - Performance table: [obj/+gui/@Performance/Performance.m](../../obj/+gui/@Performance/Performance.m)
 - History table: [obj/+gui/@History/History.m](../../obj/+gui/@History/History.m)
-- Appetitive GUI listener: [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m)
+- Appetitive GUI listener: [paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m](../../paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m)
 
 ### `NewTrial`
 
@@ -140,7 +140,7 @@ Common uses:
 #### Example
 
 ```matlab
-hl = addlistener(RUNTIME.HELPER, 'NewTrial', @(src, event) onNewTrial(src, event));
+hl = addlistener(RUNTIME.EVENTS, 'NewTrial', @(src, event) onNewTrial(src, event));
 
 function onNewTrial(~, event)
     trials = event.Data;
@@ -150,7 +150,7 @@ end
 
 #### Real uses in this repository
 
-- Appetitive GUI listener and handler: [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m), [cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m](../../cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m)
+- Appetitive GUI listener and handler: [paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m](../../paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m), [paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/cl_AppetitiveDetection_BehaviorGUI.m](../../paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/cl_AppetitiveDetection_BehaviorGUI.m)
 
 ### `ModeChange`
 
@@ -178,7 +178,7 @@ Common uses:
 #### Example
 
 ```matlab
-hl = addlistener(RUNTIME.HELPER, 'ModeChange', @(src, event) onModeChange(src, event));
+hl = addlistener(RUNTIME.EVENTS, 'ModeChange', @(src, event) onModeChange(src, event));
 
 function onModeChange(~, event)
     switch event.NewMode
@@ -196,28 +196,28 @@ end
 
 #### Real uses in this repository
 
-- Appetitive GUI registration: [cl/@cl_AppetitiveDetection_GUI_B/create_gui.m](../../cl/@cl_AppetitiveDetection_GUI_B/create_gui.m)
-- Appetitive GUI handler: [cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m](../../cl/@cl_AppetitiveDetection_GUI_B/cl_AppetitiveDetection_GUI_B.m)
+- Appetitive GUI registration: [paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m](../../paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m)
+- Appetitive GUI handler: [paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/cl_AppetitiveDetection_BehaviorGUI.m](../../paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/cl_AppetitiveDetection_BehaviorGUI.m)
 - Mode indicator widget: [obj/+gui/@ModeIndicator/ModeIndicator.m](../../obj/+gui/@ModeIndicator/ModeIndicator.m)
 
 ## Summary Table
 
 | Event | Source object | Payload | Best used for |
 | --- | --- | --- | --- |
-| `NewData` | `RUNTIME.HELPER` | `epsych.TrialsData` | completed-trial updates and raw runtime data |
-| `NewData` | `psychObj.Helper` | `epsych.TrialsData` | derived analysis refresh and analysis-driven GUIs |
-| `NewTrial` | `RUNTIME.HELPER` | `epsych.TrialsData` | upcoming-trial UI and scheduling state |
-| `ModeChange` | `RUNTIME.HELPER` | `epsych.eventModeChange` | runtime state transitions |
+| `NewData` | `RUNTIME.EVENTS` | `epsych.TrialsData` | completed-trial updates and raw runtime data |
+| `NewData` | `psychObj.Events` | `epsych.TrialsData` | derived analysis refresh and analysis-driven GUIs |
+| `NewTrial` | `RUNTIME.EVENTS` | `epsych.TrialsData` | upcoming-trial UI and scheduling state |
+| `ModeChange` | `RUNTIME.EVENTS` | `epsych.eventModeChange` | runtime state transitions |
 
 ## Notes
 
-- `epsych.Helper` is the only class in the current codebase that declares public custom EPsych events.
+- `epsych.EventHub` is the only class in the current codebase that declares public custom EPsych events.
 - The repository also contains many MATLAB property listeners such as `PostSet`, but those are standard MATLAB property events rather than EPsych runtime notifications.
-- If a component depends on derived behavioral results, prefer subscribing to the psychophysics object's `Helper.NewData` rather than directly to `RUNTIME.HELPER.NewData`.
-- `RUNTIME.HELPER` is deleted at session stop; listeners should tolerate the source object disappearing and should be cleaned up in your GUI's destructor (see [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md)).
+- If a component depends on derived behavioral results, prefer subscribing to the psychophysics object's `Events.NewData` rather than directly to `RUNTIME.EVENTS.NewData`.
+- `RUNTIME.EVENTS` is deleted at session stop; listeners should tolerate the source object disappearing and should be cleaned up in your GUI's destructor (see [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md)).
 
 ## Related documentation
 
 - [epsych_TrialLifecycle.md](epsych_TrialLifecycle.md) — where each event fires within a trial
-- [epsych_Runtime.md](epsych_Runtime.md) — the `RUNTIME` object that owns `HELPER`
+- [epsych_Runtime.md](epsych_Runtime.md) — the `RUNTIME` object that owns `EVENTS`
 - [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md) — building event-driven GUIs

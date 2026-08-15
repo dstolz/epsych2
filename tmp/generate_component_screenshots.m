@@ -126,12 +126,12 @@ end
 
 function pushData(S)
 % Re-broadcast the finished session so components built after the run fill in.
-S.RUNTIME.HELPER.notify('NewData', S.TrialsEvent);
+S.RUNTIME.EVENTS.notify('NewData', S.TrialsEvent);
 end
 
 
 function pushTrial(S)
-S.RUNTIME.HELPER.notify('NewTrial', S.TrialsEvent);
+S.RUNTIME.EVENTS.notify('NewTrial', S.TrialsEvent);
 end
 
 
@@ -143,7 +143,7 @@ for k = 1:numel(T.DATA)
     Tk = T;
     Tk.DATA = T.DATA(1:k);
     Tk.TrialIndex = k;
-    S.RUNTIME.HELPER.notify('NewData', epsych.TrialsData(Tk));
+    S.RUNTIME.EVENTS.notify('NewData', epsych.TrialsData(Tk));
 end
 drawnow
 end

@@ -106,7 +106,7 @@ clear c
 end
 
 function notifyTrials(R,D)
-R.HELPER.notify('NewData',epsych.TrialsData( ...
+R.EVENTS.notify('NewData',epsych.TrialsData( ...
     struct('DATA',{D},'Subject','FakeSubject','BoxID',1)));
 end
 

@@ -103,8 +103,8 @@ Protocol design internals:
 
 Task-specific reference (`cl`):
 
-- [cl_AppetitiveStimDetect](cl/cl_AppetitiveStimDetect.md) — appetitive detection trial selector
-- [cl_SaveDataFcn](cl/cl_SaveDataFcn.md) — appetitive task save function
+- [cl_AppetitiveStimDetect](paradigms/cl_AppetitiveStimDetect.md) — appetitive detection trial selector
+- [cl_SaveDataFcn](paradigms/cl_SaveDataFcn.md) — appetitive task save function
 
 Peripherals and utilities:
 

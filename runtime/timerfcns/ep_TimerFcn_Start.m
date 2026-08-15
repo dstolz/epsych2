@@ -97,7 +97,7 @@ for i = 1:nSubjs
         T(i).DataFilename = char(RUNTIME.SessionDataFilename(i));
     else
         sn = T(i).Subject.Name;
-        pth = fullfile(RUNTIME.dfltDataPath,sn);
+        pth = fullfile(RUNTIME.DefaultDataPath,sn);
         T(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
     end
 

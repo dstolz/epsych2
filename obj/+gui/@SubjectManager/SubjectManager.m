@@ -1300,7 +1300,7 @@ classdef SubjectManager < handle
             if isempty(current)
                 startDir = '';
                 if ~isempty(self.RunExpt) && isvalid(self.RunExpt)
-                    startDir = char(self.RunExpt.dfltDataPath);
+                    startDir = char(self.RunExpt.DefaultDataPath);
                 end
                 if isempty(startDir) || ~isfolder(startDir), startDir = pwd; end
                 current = fullfile(startDir, ['subjects' ext]);

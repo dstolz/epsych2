@@ -29,7 +29,7 @@ classdef Performance < handle
             obj.build;
             if nargin >= 1 && ~isempty(pObj)
                 obj.psychObj = pObj;
-                obj.hl_NewData = listener(pObj.Helper,'NewData',@obj.update);
+                obj.hl_NewData = listener(pObj.Events,'NewData',@obj.update);
             end
         end
 
@@ -79,7 +79,7 @@ classdef Performance < handle
 
         function set.psychObj(obj,pobj)
             % Setter for psychObj property with validation and trigger for update.
-            assert(epsych.Helper.valid_psych_obj(pobj),'gui.Performance:set.psychObj', ...
+            assert(epsych.EventHub.valid_psych_obj(pobj),'gui.Performance:set.psychObj', ...
                 'psychObj must be from the toolbox "psychophysics"');
             obj.psychObj = pobj;
             obj.update;

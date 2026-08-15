@@ -120,7 +120,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             % Construct a Staircase object for online or offline analysis.
             %
             % Pass a Runtime object as the first input to attach a listener to
-            % RUNTIME.HELPER and update automatically on each NewData event.
+            % RUNTIME.EVENTS and update automatically on each NewData event.
             %
             % Pass a DATA struct array as the first input to compute staircase history
             % immediately without attaching listeners.
@@ -137,7 +137,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             % Staircase creates and owns a new figure/axes for online updates.
             %
             % Parameters:
-            %   RUNTIME              - Runtime object with HELPER and trial data for online mode.
+            %   RUNTIME              - Runtime object with EVENTS and trial data for online mode.
             %   DATA                 - Per-trial struct array for offline mode, typically the loaded `Data` struct.
             %   Parameter            - hw.Parameter object, or in offline mode a field name from DATA.
             %   StimulusTrialType    - BitMask for stimulus trials (default: TrialType_0).

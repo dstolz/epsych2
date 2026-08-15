@@ -1,16 +1,20 @@
-classdef Helper < handle
-    % h = epsych.Helper()
-    % Lightweight event broadcaster used by EPsych components.
+classdef EventHub < handle
+    % h = epsych.EventHub()
+    % Event broadcaster shared by the components of one session.
     %
-    % This helper defines common runtime events that can be listened to by
-    % GUIs and protocol controllers.
+    % The runtime owns one of these (epsych.Runtime.EVENTS) and every GUI,
+    % psychophysics object, and trial selector that needs to know about a
+    % trial listens to it rather than polling.
+    %
+    % Was named epsych.Helper until 2026-08; the old name said nothing about
+    % what the class does and collided with the unrelated gui.Helper.
     %
     % Events:
     %   NewData, NewTrial, ModeChange
     %
     % Methods:
     %   valid_psych_obj - Validate that an object is in the psychophysics package.
-    
+
 
     properties
 
@@ -24,10 +28,10 @@ classdef Helper < handle
     end
 
     methods
-        
-        
+
+
     end
-    
+
     methods (Static)
         function tf = valid_psych_obj(obj)
             tf = isobject(obj);

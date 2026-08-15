@@ -12,7 +12,7 @@ addpath(fileparts(mfilename('fullpath'))); % make ExampleBehaviorGUI reachable
 
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 
 % Software stand-ins for the parameters a real protocol would provide.
 % add_parameter stores design-time Values; trial dispatch assigns the live

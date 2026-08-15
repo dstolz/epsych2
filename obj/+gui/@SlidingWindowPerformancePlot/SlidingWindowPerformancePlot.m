@@ -98,7 +98,7 @@ classdef SlidingWindowPerformancePlot < handle
             obj.setup_plot;
 
             % Listen for new trial data
-            obj.hl_NewData = listener(pObj.Helper, 'NewData', @obj.update);
+            obj.hl_NewData = listener(pObj.Events, 'NewData', @obj.update);
         end
 
         function delete(obj)

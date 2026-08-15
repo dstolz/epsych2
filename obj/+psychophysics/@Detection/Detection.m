@@ -54,8 +54,8 @@ classdef Detection < handle & matlab.mixin.SetGet
     end
 
     properties (SetAccess = private)
-        % Helper - Global helper object for event handling
-        Helper = epsych.Helper
+        % Events - Event broadcaster this analysis re-broadcasts NewData on
+        Events = epsych.EventHub
 
         % M - Logical arrays for each decoded bitmask flag
         M
@@ -63,6 +63,11 @@ classdef Detection < handle & matlab.mixin.SetGet
         N
 
         RUNTIME
+    end
+
+    properties (Dependent, Hidden)
+        % Helper - Deprecated alias for Events; remove once paradigm GUIs migrate
+        Helper
     end
 
     properties (Dependent)
@@ -160,7 +165,7 @@ classdef Detection < handle & matlab.mixin.SetGet
             obj.Parameter = Parameter;
             obj.targetTrialType = targetTrialType;
 
-            obj.hl_NewData = addlistener(RUNTIME.HELPER,'NewData',@obj.update_data);
+            obj.hl_NewData = addlistener(RUNTIME.EVENTS,'NewData',@obj.update_data);
         end
 
         function delete(obj)
@@ -180,10 +185,12 @@ classdef Detection < handle & matlab.mixin.SetGet
             % N contains counts of each bitmask flag
             [obj.M,obj.N] = epsych.BitMask.decode(obj.responseCodes);
             evtdata = epsych.TrialsData(obj.TRIALS);
-            obj.Helper.notify('NewData',evtdata);
+            obj.Events.notify('NewData',evtdata);
         end
 
 
+
+        function value = get.Helper(obj), value = obj.Events; end
 
         function d = get.DATA(obj)
             % get.DATA Extracts trial data from TRIALS

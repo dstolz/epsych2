@@ -24,10 +24,10 @@ Newer object-oriented EPsych APIs and runtime entry points live here.
 | Class | Purpose |
 |---|---|
 | `epsych.RunExpt` | Main session GUI and experiment controller |
-| `epsych.Runtime` | Central runtime state container (`Interfaces`, `TRIALS`, `CORE`, `TIMER`, `HELPER`) |
+| `epsych.Runtime` | Central runtime state container (`Interfaces`, `TRIALS`, `TRIGGERS`, `TIMER`, `EVENTS`) |
 | `epsych.Protocol` | Protocol data model — owns `hw.Interface` objects, parameters, compiled trials; serialized to `.eprot` files |
 | `epsych.ProtocolDesigner` | GUI for building and editing protocol files |
-| `epsych.Helper` | Event broadcaster (`NewData`, `NewTrial`, `ModeChange` events) |
+| `epsych.EventHub` | Event broadcaster (`NewData`, `NewTrial`, `ModeChange` events) |
 | `epsych.BitMask` | `uint32` enumeration for encoding trial outcomes (Hit, Miss, CR, FA, ...) |
 | `epsych.TrialSelector` | Abstract base for pluggable trial selection strategies |
 | `epsych.DefaultTrialSelector` | Built-in balancing selector (least-used trial, random tie-break) |
@@ -126,7 +126,7 @@ Online and offline analysis classes live here.
 
 | Class | Purpose |
 |---|---|
-| `psychophysics.Psych` | Abstract base; subscribes to `Runtime.HELPER.NewData` for online analysis or accepts saved DATA offline |
+| `psychophysics.Psych` | Abstract base; subscribes to `Runtime.EVENTS.NewData` for online analysis or accepts saved DATA offline |
 | `psychophysics.Detection` | Hit rate, false alarm rate, d' (signal detection theory) |
 | `psychophysics.Staircase` | Reversal detection and threshold estimation |
 | `psychophysics.BestPEST` | Maximum-likelihood threshold tracking (Best PEST) |
@@ -184,9 +184,9 @@ Notable items:
 - `randGellerman.m`, `RandomTrialSequence.m`, `FellowsSeq.m` — trial sequence generators
 - `findFigure.m`, `figAlwaysOnTop.m`, `showGridBorders.m` — GUI helpers
 
-### `cl/`
+### `paradigms/`
 
-Experiment-specific implementations for the appetitive detection paradigm (`cl_AppetitiveDetection_GUI_B`, `cl_AppetitiveStimDetect`, `cl_SaveDataFcn`). This is the reference example for paradigm-specific code that extends the core runtime without modifying it. See [../cl/](../cl/).
+Experiment-specific implementations for the appetitive detection paradigm (`cl_AppetitiveDetection_GUI_B`, `cl_AppetitiveStimDetect`, `cl_SaveDataFcn`). This is the reference example for paradigm-specific code that extends the core runtime without modifying it. See [../paradigms/](../paradigms/).
 
 ### `documentation/`
 
@@ -202,12 +202,12 @@ At a high level, a typical EPsych session looks like this:
 2. `epsych.RunExpt` loads the session configuration (subjects + protocols).
 3. On Run/Preview, protocols are validated and compiled, and a fresh `epsych.Runtime` is created.
 4. The hardware interfaces owned by the protocol are connected (`Runtime.Interfaces` setter) and remain connected across reruns within the session.
-5. A MATLAB timer starts; `ep_TimerFcn_Start` fires once to build `RUNTIME.TRIALS`, resolve the required trigger parameters (`CORE`), and dispatch the first trial; then `ep_TimerFcn_RunTime` fires on each tick.
+5. A MATLAB timer starts; `ep_TimerFcn_Start` fires once to build `RUNTIME.TRIALS`, resolve the required trigger parameters (`TRIGGERS`), and dispatch the first trial; then `ep_TimerFcn_RunTime` fires on each tick.
 6. Each tick polls the `TrialComplete` trigger; when a trial completes, data is collected and appended to the crash-recovery file, the trial selector picks the next trial, and `Runtime.dispatchNextTrial` writes parameters and fires hardware triggers.
-7. GUIs and analysis objects react to `NewTrial` / `NewData` / `ModeChange` events on `RUNTIME.HELPER` rather than polling.
+7. GUIs and analysis objects react to `NewTrial` / `NewData` / `ModeChange` events on `RUNTIME.EVENTS` rather than polling.
 8. On Stop, `ep_TimerFcn_Stop` returns hardware to Idle and data is saved via the configured save function.
 
-> 🔑 **Everything downstream of the runtime is event-driven, not polled.** GUIs and analysis objects subscribe to `NewTrial` / `NewData` / `ModeChange` on `RUNTIME.HELPER`. The only real polling loop is the timer callback itself.
+> 🔑 **Everything downstream of the runtime is event-driven, not polled.** GUIs and analysis objects subscribe to `NewTrial` / `NewData` / `ModeChange` on `RUNTIME.EVENTS`. The only real polling loop is the timer callback itself.
 
 For the full trial-level walkthrough, see [../epsych/epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md).
 
@@ -222,9 +222,9 @@ ERROR ← NOCONFIG → CONFIGLOADED → READY → RUNNING → POSTRUN → STOP
 ### Timer callback chain
 
 ```
-ep_TimerFcn_Start   → build TRIALS, create selectors, resolve CORE triggers, dispatch first trial
+ep_TimerFcn_Start   → build TRIALS, create selectors, resolve required triggers, dispatch first trial
 ep_TimerFcn_RunTime → poll TrialComplete, save data, select next trial, dispatchNextTrial
-ep_TimerFcn_Stop    → set interfaces Idle, broadcast ModeChange, tear down HELPER
+ep_TimerFcn_Stop    → set interfaces Idle, broadcast ModeChange, tear down EVENTS
 ep_TimerFcn_Error   → handle timer errors, preserve data
 ```
 
@@ -273,7 +273,7 @@ See [../epsych/epsych_Protocol.md](../epsych/epsych_Protocol.md).
 
 `psychophysics.Psych` and its subclasses operate in two modes:
 
-- **Online**: construct with a `Runtime`; the object subscribes to `HELPER.NewData` and updates results trial-by-trial.
+- **Online**: construct with a `Runtime`; the object subscribes to `EVENTS.NewData` and updates results trial-by-trial.
 - **Offline**: construct with a saved per-trial `DATA` struct array to compute results post-hoc.
 
 See [../psychophysics/psychophysics_Psych.md](../psychophysics/psychophysics_Psych.md).
@@ -336,7 +336,7 @@ Look first at:
 
 ### If you are adding a new paradigm
 
-Use the `cl/` directory as a pattern. Create paradigm-specific GUIs, trial selectors, and save functions that hook into the runtime event system (`epsych.Helper`) and the save-function callback without modifying core runtime files. See [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md).
+Use the `paradigms/` directory as a pattern. Create paradigm-specific GUIs, trial selectors, and save functions that hook into the runtime event system (`epsych.EventHub`) and the save-function callback without modifying core runtime files. See [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md).
 
 ---
 

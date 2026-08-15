@@ -121,7 +121,7 @@ classdef SessionClock < handle
             if isnat(obj.SessionStartTime_)
                 obj.SessionStartTime_ = datetime('now');
             end
-            obj.NewTrialListener_ = addlistener(RUNTIME.HELPER, 'NewTrial', @(~,~) obj.onNewTrial_());
+            obj.NewTrialListener_ = addlistener(RUNTIME.EVENTS, 'NewTrial', @(~,~) obj.onNewTrial_());
             obj.updateDisplay_();
             vprintf(2, 'SessionClock attached to runtime')
         end

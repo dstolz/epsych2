@@ -39,7 +39,7 @@ The central per-subject state struct. Important fields:
 | `Subject` | Subject metadata struct |
 | `BoxID` | Hardware box identifier for this subject |
 
-### `RUNTIME.CORE(i)`
+### `RUNTIME.TRIGGERS(i)`
 
 Cached handles to the three mandatory hardware trigger parameters for subject `i`:
 
@@ -49,7 +49,7 @@ Cached handles to the three mandatory hardware trigger parameters for subject `i
 | `ResetTrig` | Pulse sent before writing parameters to reset hardware state |
 | `TrialComplete` | Polled each timer tick; goes high when the hardware finishes a trial |
 
-These are resolved once at startup by `resolveCoreParameters` and reused every trial to avoid repeated parameter lookups.
+These are resolved once at startup by `resolveTriggerParameters` and reused every trial to avoid repeated parameter lookups.
 
 ---
 
@@ -99,7 +99,7 @@ Before the first trial runs, `ep_TimerFcn_Start` initializes every subject's run
 
 2. **Create and initialize the trial selector.** `epsych.TrialSelector.create(selectorConfig)` returns the appropriate selector subclass (default: `epsych.DefaultTrialSelector`). `selector.initialize(TRIALS)` sets up internal counts or any adaptive state.
 
-3. **Resolve CORE triggers.** `Runtime.resolveCoreParameters(i)` searches for the three required hardware trigger parameters (`NewTrial`, `ResetTrig`, `TrialComplete`) scoped to the subject's box ID and caches them in `RUNTIME.CORE(i)`. An error is thrown immediately if any trigger is missing.
+3. **Resolve required triggers.** `Runtime.resolveTriggerParameters(i)` searches for the three required hardware trigger parameters (`NewTrial`, `ResetTrig`, `TrialComplete`) scoped to the subject's box ID and caches them in `RUNTIME.TRIGGERS(i)`. An error is thrown immediately if any trigger is missing.
 
 4. **Create temporary data file.** A seed `.mat` (holding `info`) and an append-only `.epj` journal are created in `RUNTIME.TempDataDir`. Trials are appended to the journal one record at a time, so a crash loses only the current in-progress trial; `ep_TimerFcn_Stop` merges the journal back into the `.mat`. See [epsych.TrialJournal](epsych_TrialJournal.md).
 
@@ -111,7 +111,7 @@ Before the first trial runs, `ep_TimerFcn_Start` initializes every subject's run
 
 `dispatchNextTrial` is called at session start and immediately after each trial completes. It programs hardware with the parameters for the *upcoming* trial (identified by `TRIALS.NextTrialID`):
 
-1. **Reset hardware state** — `CORE.ResetTrig.trigger()` fires a reset pulse so hardware components return to a known idle state before new values are written.
+1. **Reset hardware state** — `TRIGGERS.ResetTrig.trigger()` fires a reset pulse so hardware components return to a known idle state before new values are written.
 
 2. **Write writable parameters** — Every `hw.Parameter` whose `Access` is not `'Read'` **and** whose `UpdateEveryTrial` flag is true receives the value from the selected trial row:
    ```matlab
@@ -121,9 +121,9 @@ Before the first trial runs, `ep_TimerFcn_Start` initializes every subject's run
 
    Parameters with `UpdateEveryTrial = false` (configurable per parameter in the Protocol Designer) are left alone by the per-trial dispatch — useful for settings that should hold their value across trials, such as operator-adjusted training controls. Among these, parameters flagged `SetOnce` (the Protocol Designer's **Set Once** checkbox; the default for `Coefficient Buffer` types) join the session's very first dispatch, so their value — e.g. calibration filter coefficients — is written to the hardware once at session start and never rewritten.
 
-3. **Start the trial** — `CORE.NewTrial.trigger()` fires a start pulse that tells the hardware to begin the trial (e.g., play a stimulus).
+3. **Start the trial** — `TRIGGERS.NewTrial.trigger()` fires a start pulse that tells the hardware to begin the trial (e.g., play a stimulus).
 
-4. **Broadcast `NewTrial` event** — An `epsych.TrialsData` event is posted through `RUNTIME.HELPER`, notifying any registered listeners (e.g., GUIs, loggers) that a new trial has begun.
+4. **Broadcast `NewTrial` event** — An `epsych.TrialsData` event is posted through `RUNTIME.EVENTS`, notifying any registered listeners (e.g., GUIs, loggers) that a new trial has begun.
 
 ---
 
@@ -131,7 +131,7 @@ Before the first trial runs, `ep_TimerFcn_Start` initializes every subject's run
 
 The MATLAB timer fires on every tick. For each subject, the runtime checks whether the current trial has completed:
 
-- **`TrialComplete` polling** — The `CORE.TrialComplete` parameter is read from hardware. If it is low (`false`), the timer exits immediately and waits for the next tick. No subject processing is skipped independently; each subject is checked in order.
+- **`TrialComplete` polling** — The `TRIGGERS.TrialComplete` parameter is read from hardware. If it is low (`false`), the timer exits immediately and waits for the next tick. No subject processing is skipped independently; each subject is checked in order.
 - **`FORCE_TRIAL` override** — If `TRIALS.FORCE_TRIAL` is `true`, the completion check is bypassed and trial advancement proceeds unconditionally. This is useful for manual override or testing.
 
 ---
@@ -253,7 +253,7 @@ Three flags further modify dispatch:
 When the experiment ends, `ep_TimerFcn_Stop`:
 1. Sets all interfaces to `hw.DeviceState.Idle`.
 2. Broadcasts a `ModeChange` event.
-3. Deletes the `RUNTIME.HELPER` event dispatcher.
+3. Deletes the `RUNTIME.EVENTS` event dispatcher.
 
 Data accumulated in the temporary `.mat` file remains on disk. The GUI or save functions are responsible for consolidating and moving the final data file.
 
@@ -290,7 +290,7 @@ classdef MyAdaptiveSelector < epsych.TrialSelector
 end
 ```
 
-Register the selector in the Protocol Designer's **Protocol Options** dialog by entering the class name in the **Trial Function** field, or set `protocol.Options.trialFunc` programmatically. See [epsych_TrialSelector.md](epsych_TrialSelector.md) for the full base-class reference and [../cl/cl_AppetitiveStimDetect.md](../cl/cl_AppetitiveStimDetect.md) for a complete working example.
+Register the selector in the Protocol Designer's **Protocol Options** dialog by entering the class name in the **Trial Function** field, or set `protocol.Options.trialFunc` programmatically. See [epsych_TrialSelector.md](epsych_TrialSelector.md) for the full base-class reference and [../paradigms/cl_AppetitiveStimDetect.md](../paradigms/cl_AppetitiveStimDetect.md) for a complete working example.
 
 ---
 

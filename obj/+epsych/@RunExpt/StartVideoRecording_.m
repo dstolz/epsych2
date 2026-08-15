@@ -33,7 +33,7 @@ try
     % subjects are in this session named its own.
     root = strtrim(char(self.PATHS.VideoRootDir));
     if isempty(root)
-        root = char(self.dfltDataPath);
+        root = char(self.DefaultDataPath);
         vprintf(0,'No Video Recording Path set (project > Session Defaults); recording under Data Save Path "%s"',root)
     end
 

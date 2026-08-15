@@ -291,7 +291,7 @@ function rt = makeRuntime()
 % Runtime with a connected software interface, enough for a BehaviorGUI to open.
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 
 sw = hw.Software;
 p = sw.add_parameter('SmokeFreq', 1000, Unit='Hz'); p.Value = 1000;

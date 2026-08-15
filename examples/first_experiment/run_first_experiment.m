@@ -67,10 +67,10 @@ assert(P.COMPILED.ntrials > 0, ...
 % --- Runtime scaffold: what RunExpt does before pressing Run -------------
 RUNTIME = epsych.Runtime;
 RUNTIME.isTest = options.Test;
-RUNTIME.HELPER = epsych.Helper;
+RUNTIME.EVENTS = epsych.EventHub;
 RUNTIME.Interfaces = P.Interfaces;   % connects the hw.Software backend
 RUNTIME.TempDataDir = options.DataPath; % crash-recovery seed .mat + .epj journal
-RUNTIME.dfltDataPath = options.DataPath;
+RUNTIME.DefaultDataPath = options.DataPath;
 
 CONFIG = struct( ...
     'PROTOCOL', P, ...
@@ -103,7 +103,7 @@ if options.Test
 else
     runMode = hw.DeviceState.Record;
 end
-RUNTIME.HELPER.notify('ModeChange', epsych.eventModeChange(runMode));
+RUNTIME.EVENTS.notify('ModeChange', epsych.eventModeChange(runMode));
 
 vprintf(0, 'Session running: %d trials. Watch the lamp; press RESPOND when it flashes.', ...
     options.NumTrials)

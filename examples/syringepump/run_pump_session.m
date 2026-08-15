@@ -49,7 +49,7 @@ cleanup = onCleanup(@() stopPump_(pump));
 % --- Runtime scaffold: what RunExpt + ep_TimerFcn_Start normally do ------
 RUNTIME = epsych.Runtime;
 RUNTIME.isTest = true;
-RUNTIME.HELPER = epsych.Helper;
+RUNTIME.EVENTS = epsych.EventHub;
 RUNTIME.Interfaces = P.Interfaces;
 
 subject = epsych.DefaultSubject(struct('Name', 'PumpTest', ...
@@ -77,14 +77,14 @@ T.TrialIndex          = 1;
 T.NextTrialID         = T.selector.selectNext(T);
 
 T.selector.setRuntime(RUNTIME, 1);
-RUNTIME.TRIALS = T; % the setter resolves CORE triggers and dispatches trial 1
+RUNTIME.TRIALS = T; % the setter resolves required triggers and dispatches trial 1
 
 % RunExpt launches the behavior GUI right after ep_TimerFcn_Start, then
 % broadcasts the session mode; mirror that order here.
 if options.ShowGUI
     PumpBehaviorGUI(RUNTIME);
 end
-RUNTIME.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Record));
+RUNTIME.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Record));
 
 % --- Trial loop ----------------------------------------------------------
 pVol  = pump.find_parameter('Volume');
@@ -122,7 +122,7 @@ for k = 1:options.NumTrials
     end
 
     RUNTIME.TRIALS(1).selector.onComplete(RUNTIME.TRIALS(1).NextTrialID, data);
-    RUNTIME.HELPER.notify('NewData', epsych.TrialsData(RUNTIME.TRIALS(1)));
+    RUNTIME.EVENTS.notify('NewData', epsych.TrialsData(RUNTIME.TRIALS(1)));
 
     RUNTIME.TRIALS(1).TrialIndex = ti + 1;
     if k < options.NumTrials
@@ -137,7 +137,7 @@ for k = 1:options.NumTrials
     drawnow limitrate
 end
 
-RUNTIME.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
+RUNTIME.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
 
 D = RUNTIME.TRIALS(1).DATA;
 vprintf(0, 'Session complete: %d trials, %.3f mL infused in total', ...

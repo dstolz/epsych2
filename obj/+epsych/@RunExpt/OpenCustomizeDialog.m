@@ -20,7 +20,7 @@ addSubj   = char(fieldOr_(F, 'AddSubjectFcn', 'epsych.DefaultSubject.open'));
 % The rig's stored value, not the session's: a project may have overridden the
 % live session, and showing that here would invite OK to write one study's path
 % back into the machine preference.
-dataPath  = char(getpref('RunExpt','DataPath', char(self.dfltDataPath)));
+dataPath  = char(getpref('RunExpt','DataPath', char(self.DefaultDataPath)));
 cfgRoot   = char(getpref('ep_RunExpt_Setup','ConfigBrowserRootDir',''));
 if isempty(cfgRoot)
     cfgRoot = char(getpref('ep_RunExpt_Setup','CDir',cd));
@@ -358,11 +358,11 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         % subjects are committed again, which is the whole point of the override.
         dp = strtrim(ef_datapath.Value);
         if ~isempty(dp)
-            if strcmp(char(self.dfltDataPath), dataPath)
-                self.dfltDataPath = string(dp);
+            if strcmp(char(self.DefaultDataPath), dataPath)
+                self.DefaultDataPath = string(dp);
             else
                 vprintf(1,['This session keeps the project data path "%s"; ' ...
-                    'the rig default is now "%s".'], char(self.dfltDataPath), dp);
+                    'the rig default is now "%s".'], char(self.DefaultDataPath), dp);
             end
             setpref('RunExpt','DataPath',string(dp));
         end

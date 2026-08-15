@@ -242,7 +242,7 @@ P.ParametersOfInterest = {'ToneLevel'};
 pPsych = uipanel(g, 'Title', 'gui.PsychPlot');
 gui.PsychPlot(S.Psych, axes(pPsych));
 
-S.RUNTIME.HELPER.notify('NewData', S.TrialsEvent);
+S.RUNTIME.EVENTS.notify('NewData', S.TrialsEvent);
 cleanupFcn = @() cleanupAnalysis(S, sc);
 end
 
@@ -271,7 +271,7 @@ function [fig, cleanupFcn] = shotExampleBehaviorGUI(C)
 % trials.
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 sw = hw.Software;
 p = sw.add_parameter('DropPellet', 0, isTrigger=true);          p.Value = 0;
 p = sw.add_parameter('~TrialDelivery', false, Type='Boolean');  p.Value = false;
@@ -558,7 +558,7 @@ function rt = softwareRuntime(C)
 P = epsych.Protocol.load(C.protocol);
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 rt.Interfaces = P.Interfaces;
 
 % add_parameter fills the design-time Values list, not the live Value; trial

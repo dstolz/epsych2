@@ -49,7 +49,7 @@ without the timer, the GUI dialogs, or hardware. The mapping is one-to-one:
 
 | Real session | Driver |
 |---|---|
-| `ExptDispatch` connects interfaces, creates `HELPER` | `RUNTIME.Interfaces = P.Interfaces`, `RUNTIME.HELPER = epsych.Helper` |
+| `ExptDispatch` connects interfaces, creates `EVENTS` | `RUNTIME.Interfaces = P.Interfaces`, `RUNTIME.EVENTS = epsych.EventHub` |
 | `ep_TimerFcn_Start` builds TRIALS, creates the selector, dispatches trial 1 | Hand-built TRIALS struct; `RUNTIME.TRIALS = T` (the setter resolves the core triggers and dispatches trial 1) |
 | RunExpt launches `FUNCS.BehaviorGUI`, broadcasts the session mode | `DetectionBehaviorGUI(RUNTIME)`, then a `ModeChange(Record)` notify |
 | Rig sets `RespCode` when the animal responds | A simulated observer answers from a psychometric function |

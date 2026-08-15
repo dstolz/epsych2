@@ -10,7 +10,7 @@ function DefineLogPath(self)
 % See also: eplog.setLogDir, eplog.defaultLogDir, epsych.RunExpt.OpenCustomizeDialog
 
 startDir = eplog.defaultLogDir();
-if ~isfolder(startDir), startDir = char(self.dfltDataPath); end
+if ~isfolder(startDir), startDir = char(self.DefaultDataPath); end
 
 ontop = self.AlwaysOnTop(false);
 pth = uigetdir(startDir,'Select Error Log Directory');

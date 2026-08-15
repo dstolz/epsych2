@@ -4,8 +4,8 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
     % Goes beyond examples/customgui/ExampleBehaviorGUI.m by wiring an online
     % analysis pipeline and using every event hook:
     %   - createPsych returns a psychophysics.Detection, which ingests each
-    %     trial and re-broadcasts NewData on its own Helper; the base class
-    %     automatically makes that Helper this GUI's NewData source, so
+    %     trial and re-broadcasts NewData on its own Events broadcaster; the base class
+    %     automatically makes that broadcaster this GUI's NewData source, so
     %     onNewData always sees an up-to-date Psych object.
     %   - gui.PsychPlot draws the live d' curve from the same Detection.
     %   - onNewTrial announces the upcoming trial from the event payload.
@@ -38,7 +38,7 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
     methods (Access = protected)
         function p = createPsych(obj, R)
             % Track go-trial performance against ToneLevel. Runs before the
-            % figure exists; return [] to fall back to RUNTIME.HELPER events.
+            % figure exists; return [] to fall back to the RUNTIME.EVENTS broadcaster.
             p = [];
             if isfield(obj.P, 'ToneLevel')
                 p = psychophysics.Detection(R, obj.P.ToneLevel, ...
@@ -113,7 +113,7 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
 
         function onNewData(obj, ~, ~)
             % obj.Psych ingested the completed trial before this hook ran
-            % (its Helper is this GUI's NewData source), so its dependent
+            % (its Events broadcaster is this GUI's NewData source), so its dependent
             % properties already reflect the new trial.
             P = obj.Psych;
             if isempty(P) || isempty(P.DATA), return; end

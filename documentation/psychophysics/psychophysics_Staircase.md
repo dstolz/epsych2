@@ -6,7 +6,7 @@
 
 The class supports two workflows:
 
-- Online analysis, where the object listens to `RUNTIME.HELPER.NewData` and updates automatically.
+- Online analysis, where the object listens to `RUNTIME.EVENTS.NewData` and updates automatically.
 - Offline analysis, where the object is constructed from a saved `DATA` struct array and recomputed on demand.
 
 The main implementation is in `obj/+psychophysics/@Staircase/Staircase.m`. Plotting support is implemented by helper methods in the same class folder.
@@ -19,7 +19,7 @@ The main implementation is in `obj/+psychophysics/@Staircase/Staircase.m`. Plott
 S = psychophysics.Staircase(RUNTIME, Parameter);
 ```
 
-In online mode, the constructor attaches a listener to `RUNTIME.HELPER` and updates whenever new trial data is published.
+In online mode, the constructor attaches a listener to `RUNTIME.EVENTS` and updates whenever new trial data is published.
 
 ### Offline mode
 
@@ -155,7 +155,7 @@ an outcome.
 S.refresh_history()
 ```
 
-Recomputes staircase history from the current `DATA`, refreshes the plot when plotting is enabled, and notifies listeners through `S.Helper`.
+Recomputes staircase history from the current `DATA`, refreshes the plot when plotting is enabled, and notifies listeners through `S.Events`.
 
 Use this after changing analysis settings such as `StaircaseDirection`, `StimulusTrialType`, `ThresholdFormula`, or `ThresholdFromLastNReversals` in offline workflows.
 
@@ -261,7 +261,7 @@ fprintf('Threshold std: %.3f\n', S.Results.ThresholdStd);
 
 ```matlab
 S = psychophysics.Staircase(RUNTIME, Parameter);
-addlistener(S.Helper, 'NewData', @(src, evt) disp(S.Results.Threshold));
+addlistener(S.Events, 'NewData', @(src, evt) disp(S.Results.Threshold));
 ```
 
 ### Plotting an existing staircase
@@ -282,7 +282,7 @@ S.Plot();
 ## See Also
 
 - `epsych.BitMask`
-- `epsych.Helper`
+- `epsych.EventHub`
 - `hw.Parameter`
 - [`gui.PopOut`](../gui/gui_PopOut.md) — the plot's **Open in Separate Window** option
 

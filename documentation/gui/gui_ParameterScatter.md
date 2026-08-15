@@ -61,10 +61,10 @@ third parameter mapped to marker color.
 ## Usage
 
 ```matlab
-% Online, from a psychophysics object (updates via its Helper NewData event)
+% Online, from a psychophysics object (updates via its Events NewData event)
 obj.hScatter = gui.ParameterScatter(pObj, parentPanel);
 
-% Online, directly from the runtime (updates via RUNTIME.HELPER)
+% Online, directly from the runtime (updates via RUNTIME.EVENTS)
 obj.hScatter = gui.ParameterScatter(RUNTIME, parentPanel, PreferenceTag='MyTaskGUI');
 
 % Offline, from saved trial data (no listener)

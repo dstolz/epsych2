@@ -38,7 +38,7 @@ vprintf(2,'Trial #%d: New Trial Sequence for box %d',T.TrialIndex,subjectIdx)
 
 % 1. Send trigger to reset components before updating parameters
 vprintf(4,'Hardware Trigger for ResetTrig')
-obj.CORE(subjectIdx).ResetTrig.Trigger();
+obj.TRIGGERS(subjectIdx).ResetTrig.Trigger();
 
 % 2. Dispatch write parameters for this trial (Access ~= 'Read')
 vprintf(4,'Update parameter tags')
@@ -85,11 +85,11 @@ end
 
 % 4. Trigger new trial
 vprintf(4,'Hardware Trigger for NewTrial')
-obj.CORE(subjectIdx).NewTrial.Trigger();
+obj.TRIGGERS(subjectIdx).NewTrial.Trigger();
 
 % 5. Notify whomever is listening of new trial
 vprintf(4,'Notify listeners with new trial data')
 evtdata = epsych.TrialsData(T);
-obj.HELPER.notify('NewTrial',evtdata);
+obj.EVENTS.notify('NewTrial',evtdata);
 
 end

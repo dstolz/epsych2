@@ -137,7 +137,7 @@ manager, so leaving it behind would block a replacement panel.
 
 ## Example: appetitive detection
 
-`cl/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m`:
+`paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m`:
 
 ```matlab
 panelPerformance = uipanel(layoutMain, 'Title', 'Session Performance');

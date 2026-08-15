@@ -14,7 +14,7 @@ function prepareRecording(obj, runtime)
 % Parameters
 %   obj     - hw.Intan_RHX instance.
 %   runtime - epsych.Runtime for the run (provides SessionDataFilename,
-%             dfltDataPath, isTest).
+%             DefaultDataPath, isTest).
 arguments
     obj
     runtime (1,1) epsych.Runtime
@@ -29,7 +29,7 @@ obj.applySettingsFile_();
 
 root = obj.RecordingRootDir;
 if isempty(root)
-    root = char(runtime.dfltDataPath);
+    root = char(runtime.DefaultDataPath);
 end
 
 fn = runtime.SessionDataFilename;

@@ -22,7 +22,7 @@ obj/+epsych/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/
 obj/+epsych/@SubjectRoster	Subject-Roster-Internals, Subjects-and-Projects	documentation/epsych/epsych_SubjectRoster.md
 obj/+epsych/@TrialJournal	Data-and-Save-Functions, Trial-Lifecycle	documentation/epsych/epsych_TrialJournal.md
 obj/+epsych/@TrialSelector	Trial-Selectors	documentation/epsych/epsych_TrialSelector.md
-obj/+epsych/@Helper	Runtime-and-Events	documentation/epsych/Event_Notifications.md
+obj/+epsych/@EventHub	Runtime-and-Events	documentation/epsych/Event_Notifications.md
 obj/+epsych/	Runtime-and-Events, Protocol-Internals	documentation/epsych/
 obj/+psychophysics/	Psychophysics-Framework, Training-and-Online-Analysis	documentation/psychophysics/
 obj/+stimbridge/	Stimgen-Integration, Stimuli-and-Calibration	documentation/stimgen.md
@@ -31,7 +31,7 @@ obj/+teensy/	Teensy-Trial-Designer, Teensy-Program-Model	documentation/teensy/, 
 obj/+eplog/	Troubleshooting, Contributing-and-Conventions	documentation/eplog/eplog_Logging.md
 obj/+peripherals/	Video-and-Peripherals	documentation/peripherals/
 runtime/timerfcns/	Trial-Lifecycle, Runtime-and-Events	documentation/epsych/epsych_TrialLifecycle.md
-runtime/savefcns/	Data-and-Save-Functions	documentation/cl/cl_SaveDataFcn.md
+runtime/savefcns/	Data-and-Save-Functions	documentation/paradigms/cl_SaveDataFcn.md
 runtime/guis/	Building-a-Box-GUI, GUI-Framework-Internals	documentation/design/Customized_GUI_Instructions.md
 helpers/vprintf.m	Troubleshooting, Contributing-and-Conventions	documentation/helpers/helpers_vprintf.md
 helpers/EPsychInfo	Installation-and-Setup, Installation-Guide	documentation/epsych/EPsychInfo.md
@@ -41,7 +41,7 @@ examples/detection_task/	Quick-Start, Training-and-Online-Analysis	documentation
 examples/first_experiment/	Your-First-Experiment, First-Experiment-Protocol, First-Experiment-Box-GUI, First-Experiment-Running, First-Experiment-Data	documentation/examples/First_Experiment_Walkthrough.md
 examples/two_afc/	Two-AFC-Task	documentation/examples/Two_AFC_Walkthrough.md
 examples/	Quick-Start	documentation/examples/
-cl/	Data-and-Save-Functions	documentation/cl/
+paradigms/	Data-and-Save-Functions	documentation/paradigms/
 firmware/	Teensy-Program-Model	documentation/hw/hw_Teensy_Program_Protocol.md
 TDTfun/	Hardware-Abstraction-Layer	documentation/hw/hw_Interface.md
 design/	Designing-Protocols, Protocol-Internals	documentation/design/

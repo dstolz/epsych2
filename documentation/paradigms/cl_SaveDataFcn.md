@@ -38,7 +38,7 @@ cl_SaveDataFcn(RUNTIME);
 - The default save directory is set to `D:\epsych_files\Data`, but this can be changed in the code if needed.
 
 ## Related Files
-- [cl/cl_SaveDataFcn.m](../../cl/cl_SaveDataFcn.m) — implementation
+- [paradigms/SaveDataFcns/cl_SaveDataFcn.m](../../paradigms/SaveDataFcns/cl_SaveDataFcn.m) — implementation
 - [../overviews/RunExpt_GUI_Overview.md](../overviews/RunExpt_GUI_Overview.md) — where custom save functions are configured (a project's Session Defaults)
 - [cl_AppetitiveStimDetect.md](cl_AppetitiveStimDetect.md) — the task's trial selector
 - [../helpers/helpers_vprintf.md](../helpers/helpers_vprintf.md) — formatted printing helper

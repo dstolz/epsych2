@@ -49,7 +49,7 @@ What a paradigm decides is a project field, not a per-rig preference. These used
 
 | Project field | Applied to | Notes |
 |---|---|---|
-| `DefaultDataPath` | `RunExpt.dfltDataPath` | The root every subject folder is created under. |
+| `DefaultDataPath` | `RunExpt.DefaultDataPath` | The root every subject folder is created under. |
 | `SavingFcn` | `RunExpt.FUNCS.SavingFcn` | `SaveFcn(RUNTIME)`; logged at level 0 if it is not on the path. |
 | `TimerPeriod` | `RunExpt.FUNCS.TimerPeriod` | `NaN` inherits. Read by `CreateTimer` at run start, so applying it here is enough. |
 | `VideoRootDir` | `RunExpt.PATHS.VideoRootDir` | Empty still falls back to the data path. |

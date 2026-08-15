@@ -165,7 +165,7 @@ uses this for `DelayPeriod` and `RespWindow`.
 Three details that will silently break a session if changed:
 
 - Triggers use `Access='Any'`, never `'Write'`. `hw.Interface.all_parameters` excludes `'Write'`
-  from a `'Read'` filter, so `epsych.Runtime.resolveCoreParameters` would not find a `'Write'`
+  from a `'Read'` filter, so `epsych.Runtime.resolveTriggerParameters` would not find a `'Write'`
   trigger and the run would abort with `epsych:RunExpt:MissingTrigger`.
 - `UpdateEveryTrial` is assigned **after** `add_parameter` returns, because `add_parameter` has
   no such option and setting `isTrigger` rewrites the flag.

@@ -43,7 +43,7 @@ backend, with a human completing the trials.
 That works because of how minimal the runtime's hardware contract is.
 `ep_TimerFcn_RunTime` polls exactly one thing per tick:
 `x_TrialComplete_<BoxID>.Value` (cached at startup by
-`epsych.Runtime.resolveCoreParameters`). Everything else about a trial — the
+`epsych.Runtime.resolveTriggerParameters`). Everything else about a trial — the
 stimulus timeline, the response window, the scoring — is the rig's business.
 On a TDT rig it lives in the RPvds circuit; on a Teensy it lives in the
 compiled trial program; here it lives in `FirstExperimentBehaviorGUI`, which:

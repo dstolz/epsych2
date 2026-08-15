@@ -30,7 +30,7 @@ pStimDur = addp(sw,'StimDur',1000,Unit='ms');
 pPre     = addp(sw,'RespWinPreStim',300,Unit='ms');
 pPost    = addp(sw,'RespWinPostStim',500,Unit='ms');
 
-% CORE triggers required by Runtime dispatch
+% required triggers required by Runtime dispatch
 addp(sw,'x_NewTrial_1',0,isTrigger=true);
 addp(sw,'x_ResetTrig_1',0,isTrigger=true);
 addp(sw,'x_TrialComplete_1',0,isTrigger=true);
@@ -69,7 +69,7 @@ fprintf('PASS: reference cycle fallback\n');
 % 3. Live Runtime dispatch: expressions see this trial''s values ----------
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 rt.Interfaces = sw;
 
 T = struct;

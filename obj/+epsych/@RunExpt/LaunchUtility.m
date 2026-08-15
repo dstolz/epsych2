@@ -78,7 +78,7 @@ function root = videoConverterRoot_(self)
 % shows as an unset root rather than an error.
 root = strtrim(char(self.PATHS.VideoRootDir));
 if isempty(root)
-    root = char(self.dfltDataPath);
+    root = char(self.DefaultDataPath);
 end
 if ~isfolder(root), root = ''; end
 end

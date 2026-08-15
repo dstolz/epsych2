@@ -338,7 +338,7 @@ classdef SessionPerformance < gui.PopOut
             elseif isstruct(source) || isempty(source)
                 dataSource = source;
             else
-                dataSource = source;   % epsych.Runtime, or anything with HELPER
+                dataSource = source;   % epsych.Runtime, or anything with EVENTS
             end
 
             obj.Analysis = psychophysics.SessionMetrics(dataSource, ...
@@ -380,7 +380,7 @@ classdef SessionPerformance < gui.PopOut
             % has recomputed, so the panel never has to assume anything about
             % the order in which two listeners on the runtime would fire.
             A = obj.Analysis;
-            obj.hl_NewData_ = listener(A.Helper, 'NewData', @(~,~) obj.refresh());
+            obj.hl_NewData_ = listener(A.Events, 'NewData', @(~,~) obj.refresh());
 
             % Covers programmatic window changes made on the analysis object
             % directly, not just through this component.

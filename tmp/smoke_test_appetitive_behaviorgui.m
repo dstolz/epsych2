@@ -162,10 +162,10 @@ g.P.StimDelay.isRandom = false;
 fprintf('PASS: training-mode checkbox is a phase-persistent parameter\n');
 
 % 6. NewTrial hook --------------------------------------------------------
-rt.HELPER.notify('NewTrial', epsych.TrialsData(fakeTrials(1)));
+rt.EVENTS.notify('NewTrial', epsych.TrialsData(fakeTrials(1)));
 assert(isequal(g.NextTrialPanel.TableH.Data, {'Depth','0.5';'TrialTypeNames','STIM'}), ...
     'next trial panel should show the stimulus trial');
-rt.HELPER.notify('NewTrial', epsych.TrialsData(fakeTrials(2)));
+rt.EVENTS.notify('NewTrial', epsych.TrialsData(fakeTrials(2)));
 assert(isequal(g.NextTrialPanel.TableH.Data, {'Depth','0';'TrialTypeNames','CATCH'}), ...
     'next trial panel should show the catch trial');
 fprintf('PASS: gui.NextTrial updates from the NewTrial event\n');
@@ -178,15 +178,15 @@ fprintf('PASS: gui.NextTrial updates from the NewTrial event\n');
 % consumes the request itself, in the pass that grants it.
 pReminder = g.hReminder.Parameter;
 pReminder.Value = 1;   % safe to run trigger_ReminderTrial: it only logs
-g.Psych.Helper.notify('NewData');
+g.Psych.Events.notify('NewData');
 assert(pReminder.Value == 1, 'a completed trial must not clear the Reminder toggle');
 pReminder.Value = 0;
 fprintf('PASS: onNewData leaves the Reminder request standing\n');
 
 % 8. ModeChange: monitor polling stops on Stop, resumes on Record ---------
-rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
+rt.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
 assert(g.ParameterMonitor.Timer.Running == "off", 'monitor should stop on Stop');
-rt.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Record));
+rt.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Record));
 assert(g.ParameterMonitor.Timer.Running == "on", 'monitor should resume on Record');
 fprintf('PASS: onModeChange starts/stops the trial state monitor\n');
 
@@ -218,7 +218,7 @@ fprintf('PASS: teardown\n');
 % 10. Hardware-free launch (SelfTest I6 semantics) ------------------------
 rtEmpty = epsych.Runtime;
 rtEmpty.isTest = true;
-rtEmpty.HELPER = epsych.Helper;
+rtEmpty.EVENTS = epsych.EventHub;
 g2 = cl_AppetitiveDetection_BehaviorGUI(rtEmpty);
 assert(isvalid(g2) && isvalid(g2.h_figure), 'GUI must open against a runtime with no interfaces');
 assert(isempty(g2.Psych), 'no Depth parameter means no staircase');
@@ -246,7 +246,7 @@ function rt = makeRuntime()
 % Runtime with a software interface carrying the parameters the GUI expects.
 rt = epsych.Runtime;
 rt.isTest = true;
-rt.HELPER = epsych.Helper;
+rt.EVENTS = epsych.EventHub;
 
 sw = hw.Software;
 

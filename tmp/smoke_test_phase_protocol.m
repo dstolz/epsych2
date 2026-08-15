@@ -171,10 +171,10 @@ try
 
     R3 = epsych.Runtime;
     R3.isTest = true;
-    R3.HELPER = epsych.Helper;
+    R3.EVENTS = epsych.EventHub;
     R3.Interfaces = P3.Interfaces;
     R3.Protocol = P3;
-    R3.dfltDataPath = tmpDir;
+    R3.DefaultDataPath = tmpDir;
     R3.TempDataDir = tmpDir;
 
     subject = epsych.DefaultSubject(struct('Name', 'SmokeSubject', ...
@@ -236,10 +236,10 @@ try
 
     R5 = epsych.Runtime;
     R5.isTest = true;
-    R5.HELPER = epsych.Helper;
+    R5.EVENTS = epsych.EventHub;
     R5.Interfaces = P5.Interfaces;
     R5.Protocol = P5;
-    R5.dfltDataPath = tmpDir;
+    R5.DefaultDataPath = tmpDir;
     R5.TempDataDir = tmpDir;
 
     subject = epsych.DefaultSubject(struct('Name', 'SyncSubject', ...
@@ -345,10 +345,10 @@ try
 
     R6 = epsych.Runtime;
     R6.isTest = true;
-    R6.HELPER = epsych.Helper;
+    R6.EVENTS = epsych.EventHub;
     R6.Interfaces = P6.Interfaces;
     R6.Protocol = P6;
-    R6.dfltDataPath = tmpDir;
+    R6.DefaultDataPath = tmpDir;
     R6.TempDataDir = tmpDir;
 
     phaseI = fullfile(tmpDir, 'phaseI.eprot');

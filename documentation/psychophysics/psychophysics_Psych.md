@@ -9,7 +9,7 @@
 - attaching to runtime `NewData` events in online mode
 - normalizing excluded-trial settings
 - extracting response-code and trial-type information
-- publishing refreshed analysis state through a local `Helper` object
+- publishing refreshed analysis state through a local `Events` object
 
 Subclasses provide the actual paradigm-specific computation by implementing `recomputeResults_`.
 
@@ -20,7 +20,7 @@ The main implementation is in `obj/+psychophysics/Psych.m`.
 Use `psychophysics.Psych` when you are building a new analysis object that should work in either of these modes:
 
 - Online mode:
-  Construct from a Runtime-like object and update automatically whenever `RUNTIME.HELPER` publishes `NewData`.
+  Construct from a Runtime-like object and update automatically whenever `RUNTIME.EVENTS` publishes `NewData`.
 - Offline mode:
   Construct from a saved `DATA` struct array and compute results from stored trial data without attaching listeners.
 
@@ -38,7 +38,7 @@ The constructor is defined in `obj/+psychophysics/Psych.m`.
 ### Inputs
 
 - `source`
-  - In online mode, this is a runtime object that exposes `RUNTIME.HELPER` and usually `RUNTIME.TRIALS`.
+  - In online mode, this is a runtime object that exposes `RUNTIME.EVENTS` and usually `RUNTIME.TRIALS`.
   - In offline mode, this is a `DATA` struct array.
 - `Parameter`
   - In online mode, this must be a parameter object.
@@ -54,7 +54,7 @@ The constructor is defined in `obj/+psychophysics/Psych.m`.
 
 The constructor first decides whether `source` is runtime-backed or DATA-backed in `configureSource_`.
 
-If a runtime object is present, the class attaches a listener to `RUNTIME.HELPER.NewData`. In offline mode, no listener is attached.
+If a runtime object is present, the class attaches a listener to `RUNTIME.EVENTS.NewData`. In offline mode, no listener is attached.
 
 Parameter validation is handled in `normalizeParameter_`:
 
@@ -91,13 +91,13 @@ Both call:
 
 ### 3. Re-broadcast analysis updates
 
-The class owns its own `Helper` object and publishes `NewData` after a refresh through `notifyDataUpdate_`.
+The class owns its own `Events` object and publishes `NewData` after a refresh through `notifyDataUpdate_`.
 
-That helper is an instance of `epsych.Helper`, whose event definitions include `NewData`, `NewTrial`, and `ModeChange`.
+That helper is an instance of `epsych.EventHub`, whose event definitions include `NewData`, `NewTrial`, and `ModeChange`.
 
 The event payload is wrapped in `epsych.TrialsData`.
 
-This makes the analysis object behave like a secondary event source: listeners can subscribe to `obj.Helper.NewData` instead of subscribing directly to the runtime.
+This makes the analysis object behave like a secondary event source: listeners can subscribe to `obj.Events.NewData` instead of subscribing directly to the runtime.
 
 ## Public API
 
@@ -107,7 +107,7 @@ This makes the analysis object behave like a secondary event source: listeners c
 obj.refresh()
 ```
 
-`refresh` recomputes the subclass results from the current `DATA`, runs any subclass post-refresh hook, and emits a `NewData` event through `obj.Helper` when runtime trial state is available.
+`refresh` recomputes the subclass results from the current `DATA`, runs any subclass post-refresh hook, and emits a `NewData` event through `obj.Events` when runtime trial state is available.
 
 This is the main method to call in offline workflows after changing DATA-dependent configuration.
 
@@ -121,7 +121,7 @@ This is the runtime callback used by the `NewData` listener. It:
 
 - copies `event.Data.DATA` into `obj.DATA`
 - recomputes subclass results
-- forwards the updated event data to listeners on `obj.Helper`
+- forwards the updated event data to listeners on `obj.Events`
 
 In normal use, subclasses do not call this directly. It is invoked by the runtime event system.
 
@@ -143,7 +143,7 @@ The destructor removes any valid listener handles stored in `hl_NewData` so onli
   - Runtime object used in online mode.
 - `DATA`
   - Cached per-trial data array.
-- `Helper`
+- `Events`
   - Local event broadcaster used to publish analysis updates.
 
 ### Dependent properties
@@ -296,7 +296,7 @@ In offline mode, you can pass a string field name for `Parameter` as long as `DA
 P = MyAnalysis(RUNTIME, ParameterObject);
 ```
 
-In online mode, the object subscribes to `RUNTIME.HELPER.NewData` automatically and updates whenever new trials arrive.
+In online mode, the object subscribes to `RUNTIME.EVENTS.NewData` automatically and updates whenever new trials arrive.
 
 ### Excluding trials
 
@@ -315,7 +315,7 @@ Changing `ExcludedTrials` triggers a full refresh so subclass results stay consi
 ### Listening for analysis updates
 
 ```matlab
-addlistener(P.Helper, 'NewData', @(src, evt) disp(P.Results));
+addlistener(P.Events, 'NewData', @(src, evt) disp(P.Results));
 ```
 
 This allows GUIs or downstream analyses to respond when the psychophysics object recomputes.
@@ -323,7 +323,7 @@ This allows GUIs or downstream analyses to respond when the psychophysics object
 ## Notes And Limitations
 
 1. `psychophysics.Psych` is abstract and cannot be used directly because `Results` and `recomputeResults_` must be supplied by a subclass.
-2. Online mode requires a runtime object with a compatible `HELPER` event source and, for some refresh paths, access to `TRIALS`.
+2. Online mode requires a runtime object with a compatible `EVENTS` event source and, for some refresh paths, access to `TRIALS`.
 3. If neither `TrialType` nor response-code fields exist in `DATA`, `trialTypeMask_` cannot infer trial membership and will return all false for decoded paths with no response codes.
 4. `ExcludedTrials` values outside the current trial count are ignored when building the effective logical mask.
 5. `responseCodes` are normalized to `uint32`, which matches `epsych.BitMask.decode` expectations.
@@ -332,7 +332,7 @@ This allows GUIs or downstream analyses to respond when the psychophysics object
 
 - `obj/+psychophysics/@Staircase/Staircase.m`
 - `obj/+epsych/BitMask.m`
-- `obj/+epsych/@Helper/Helper.m`
+- `obj/+epsych/@EventHub/EventHub.m`
 - `obj/+epsych/TrialsData.m`
 - `documentation/psychophysics/psychophysics_Staircase.md`
 - `documentation/overviews/Architecture_Overview.md`

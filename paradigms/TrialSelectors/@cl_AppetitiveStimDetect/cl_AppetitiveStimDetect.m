@@ -15,7 +15,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     %                   immediately after a catch trial
     %   P_Catch.Value - step added for every delivered stimulus trial
     %   P_Catch.Max   - ceiling the probability is clamped to
-    % See advanceHazard and documentation/cl/cl_AppetitiveStimDetect.md.
+    % See advanceHazard and documentation/paradigms/cl_AppetitiveStimDetect.md.
     %
     % The Reminder button (ReminderTrials) brings the next trial forward and
     % presents it at 0 dB depth -- full modulation, the most salient stimulus

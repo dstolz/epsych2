@@ -69,7 +69,7 @@ assert(P.COMPILED.ntrials > 0, ...
 % --- Runtime scaffold: what RunExpt + ep_TimerFcn_Start normally do ------
 RUNTIME = epsych.Runtime;
 RUNTIME.isTest = true; % simulated observer: mark every DATA record as test data
-RUNTIME.HELPER = epsych.Helper;
+RUNTIME.EVENTS = epsych.EventHub;
 RUNTIME.Interfaces = P.Interfaces; % connects the hw.Software backend
 
 % Dispatch assigns Values per trial, but read-back parameters need a live
@@ -104,14 +104,14 @@ T.TrialIndex           = 1;
 T.NextTrialID          = T.selector.selectNext(T);
 
 T.selector.setRuntime(RUNTIME, 1);
-RUNTIME.TRIALS = T; % the setter resolves CORE triggers and dispatches trial 1
+RUNTIME.TRIALS = T; % the setter resolves required triggers and dispatches trial 1
 
 % RunExpt launches the behavior GUI right after ep_TimerFcn_Start, then
 % broadcasts the session mode; mirror that order here.
 if options.ShowGUI
     DetectionBehaviorGUI(RUNTIME);
 end
-RUNTIME.HELPER.notify('ModeChange', ...
+RUNTIME.EVENTS.notify('ModeChange', ...
     epsych.eventModeChange(hw.DeviceState.Record));
 
 % --- Trial loop ----------------------------------------------------------
@@ -167,7 +167,7 @@ for k = 1:options.NumTrials
     end
 
     RUNTIME.TRIALS(1).selector.onComplete(RUNTIME.TRIALS(1).NextTrialID, data);
-    RUNTIME.HELPER.notify('NewData', epsych.TrialsData(RUNTIME.TRIALS(1)));
+    RUNTIME.EVENTS.notify('NewData', epsych.TrialsData(RUNTIME.TRIALS(1)));
 
     RUNTIME.TRIALS(1).TrialIndex = ti + 1;
     if k < options.NumTrials
@@ -179,7 +179,7 @@ for k = 1:options.NumTrials
 end
 
 % --- Stop and save -------------------------------------------------------
-RUNTIME.HELPER.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
+RUNTIME.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
 
 % Same file layout as cl_SaveDataFcn: per-subject DATA plus repo metadata.
 Data = RUNTIME.TRIALS(1).DATA;

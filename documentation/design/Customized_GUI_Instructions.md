@@ -14,7 +14,7 @@ In EPsych code you will have a runtime object (`epsych.Runtime`, often abbreviat
 
 * **Parameters (`R.find_parameter`, `R.all_parameters`, `R.P`)**: values that map to device settings/state (timing, triggers, amplitudes) and software-side values that live only in the session (training flags, derived settings, GUI-only config that should still be logged). Hardware-backed and software-backed parameters share the same `hw.Parameter` interface, so GUI code can treat them uniformly.
 * **Trial logic (`R.TRIALS`)**: what trial is next, what happened on the last trial, and "force" flags for training/testing.
-* **Event sources (`R.HELPER`, task helpers)**: events like *NewTrial*, *NewData*, *ModeChange* that let the GUI update without constant polling (see [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md)).
+* **Event sources (`R.EVENTS`, task helpers)**: events like *NewTrial*, *NewData*, *ModeChange* that let the GUI update without constant polling (see [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md)).
 
 
 ### A practical mental model
@@ -102,7 +102,7 @@ A common, robust pattern is:
 
 In `cl_AppetitiveDetection_GUI_B`:
 
-* `RUNTIME` holds the `epsych.Runtime` that exposes the interfaces (`R.Interfaces`), parameter lookups (`R.find_parameter`, `R.all_parameters`, `R.P`), trial logic (`R.TRIALS`), and helper/event sources (`R.HELPER`).
+* `RUNTIME` holds the `epsych.Runtime` that exposes the interfaces (`R.Interfaces`), parameter lookups (`R.find_parameter`, `R.all_parameters`, `R.P`), trial logic (`R.TRIALS`), and helper/event sources (`R.EVENTS`).
 * `create_gui(obj)` is implemented as a method and is placed in a separate file under the class folder (`@cl_AppetitiveDetection_GUI_B/create_gui.m`). This is a good MATLAB convention for keeping large GUI code maintainable.
 
 ### 1.2 Constructor responsibilities
@@ -290,9 +290,9 @@ Polling isn’t always necessary. EPsych runtimes often emit events.
 
 Pattern from `create_gui.m`:
 
-* `obj.hl_NewTrial = addlistener(R.HELPER, 'NewTrial', @(src,ev) obj.update_NextTrial(src,ev));`
-* `obj.hl_NewData  = addlistener(obj.Psych.Helper,'NewData', @(src,ev) obj.update_NewData(src,ev));`
-* `obj.hl_ModeChange = addlistener(R.HELPER,'ModeChange', @(src,ev) obj.onModeChange(src,ev));`
+* `obj.hl_NewTrial = addlistener(R.EVENTS, 'NewTrial', @(src,ev) obj.update_NextTrial(src,ev));`
+* `obj.hl_NewData  = addlistener(obj.Psych.Events,'NewData', @(src,ev) obj.update_NewData(src,ev));`
+* `obj.hl_ModeChange = addlistener(R.EVENTS,'ModeChange', @(src,ev) obj.onModeChange(src,ev));`
 
 Guidance:
 

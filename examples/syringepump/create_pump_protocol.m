@@ -105,7 +105,7 @@ p.Max = 4;
 p.isRandom = true;
 
 % Every protocol needs the three core triggers; the runtime refuses to start
-% without them (epsych.Runtime.resolveCoreParameters).
+% without them (epsych.Runtime.resolveTriggerParameters).
 sw.add_parameter('x_NewTrial_1',      0, isTrigger = true);
 sw.add_parameter('x_ResetTrig_1',     0, isTrigger = true);
 sw.add_parameter('x_TrialComplete_1', 0, isTrigger = true);

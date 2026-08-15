@@ -90,7 +90,7 @@ p.Access = 'Read';
 % --- Triggers ------------------------------------------------------------
 % Every protocol needs the three core triggers x_NewTrial_<BoxID>,
 % x_ResetTrig_<BoxID>, x_TrialComplete_<BoxID>; the runtime refuses to start
-% without them (epsych.Runtime.resolveCoreParameters). On TDT hardware these
+% without them (epsych.Runtime.resolveTriggerParameters). On TDT hardware these
 % are RPvds tags; on a software rig they are plain trigger parameters.
 sw.add_parameter('x_NewTrial_1',      0, isTrigger = true);
 sw.add_parameter('x_ResetTrig_1',     0, isTrigger = true);

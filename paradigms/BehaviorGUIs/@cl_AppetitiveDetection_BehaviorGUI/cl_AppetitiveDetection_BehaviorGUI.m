@@ -77,7 +77,7 @@ classdef cl_AppetitiveDetection_BehaviorGUI < gui.BehaviorGUI
         build(obj, fig)  % Build the GUI layout and wire all controls.
 
         function p = createPsych(obj, RUNTIME)
-            % Staircase over Depth; its Helper becomes the NewData source.
+            % Staircase over Depth; its Events broadcaster becomes the NewData source.
             p = [];
             if isfield(obj.P,'Depth')
                 p = psychophysics.Staircase(RUNTIME, obj.P.Depth);

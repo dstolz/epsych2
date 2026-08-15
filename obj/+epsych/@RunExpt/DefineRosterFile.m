@@ -25,7 +25,7 @@ end
 % path but keep the file name.
 [startDir, base, baseExt] = fileparts(current);
 if isempty(startDir) || ~isfolder(startDir)
-    startDir = char(self.dfltDataPath);
+    startDir = char(self.DefaultDataPath);
 end
 suggested = fullfile(startDir, [base baseExt]);
 

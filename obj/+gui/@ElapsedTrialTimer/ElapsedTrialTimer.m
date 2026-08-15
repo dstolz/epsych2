@@ -3,7 +3,7 @@ classdef ElapsedTrialTimer < handle
     % gui.ElapsedTrialTimer(parent, options)
     % Counter tracking elapsed time since the last completed trial, with optional GUI label.
     %
-    % Listens to epsych.Helper 'NewData' events and resets its clock on each
+    % Listens to epsych.EventHub 'NewData' events and resets its clock on each
     % trial completion. A MATLAB timer periodically refreshes the display label.
     % Can be used standalone (reading ElapsedTime) or embedded in any uifigure container.
     %
@@ -19,7 +19,7 @@ classdef ElapsedTrialTimer < handle
     %   ElapsedTime  - Current elapsed time as a duration scalar.
     %
     % Methods:
-    %   attachRuntime  - Wire listener to RUNTIME.HELPER NewData events.
+    %   attachRuntime  - Wire listener to RUNTIME.EVENTS NewData events.
     %   reset          - Reset the elapsed-time clock to the current instant.
     %   applyStyle     - Push FontSize/FontColor/FontWeight to the label after construction.
     %   start          - Start the periodic display-refresh timer.
@@ -34,7 +34,7 @@ classdef ElapsedTrialTimer < handle
     %   t.start;
     %   elapsed = t.ElapsedTime;                          % query programmatically
     %
-    % See also: epsych.Helper, gui.ModeIndicator, gui.GenericTimer
+    % See also: epsych.EventHub, gui.ModeIndicator, gui.GenericTimer
 
     % ---------------------------------------------------------------------------
     % Public settable properties
@@ -59,7 +59,7 @@ classdef ElapsedTrialTimer < handle
     properties (Access = private)
         LastTrialTime_ datetime = NaT   % Datetime of most recent trial completion (NaT = never)
         Timer_         timer            % Internal MATLAB timer for display refresh
-        Listener_      event.listener   % Listener for epsych.Helper NewData events
+        Listener_      event.listener   % Listener for epsych.EventHub NewData events
         HasLabel_      (1,1) logical = false  % True when a uilabel was created
     end
 
@@ -112,17 +112,17 @@ classdef ElapsedTrialTimer < handle
 
         function attachRuntime(obj, RUNTIME)
             % obj.attachRuntime(RUNTIME)
-            % Wire a listener to RUNTIME.HELPER so the clock resets on each
+            % Wire a listener to RUNTIME.EVENTS so the clock resets on each
             % NewData event (trial completion). Replaces any existing listener.
             %
             % Parameters:
-            %   RUNTIME - epsych.Runtime instance whose HELPER fires NewData
+            %   RUNTIME - epsych.Runtime instance whose EVENTS broadcaster fires NewData
             arguments
                 obj
                 RUNTIME  % epsych.Runtime
             end
             delete(obj.Listener_);
-            obj.Listener_ = addlistener(RUNTIME.HELPER, 'NewData', ...
+            obj.Listener_ = addlistener(RUNTIME.EVENTS, 'NewData', ...
                 @(~,~) obj.onNewData_());
             vprintf(2, 'ElapsedTrialTimer attached to runtime')
         end
@@ -220,7 +220,7 @@ classdef ElapsedTrialTimer < handle
         % -----------------------------------------------------------------------
 
         function onNewData_(obj)
-            % Called when epsych.Helper fires a NewData event (trial completed).
+            % Called when epsych.EventHub fires a NewData event (trial completed).
             obj.LastTrialTime_ = datetime('now');
             obj.updateDisplay_();
         end

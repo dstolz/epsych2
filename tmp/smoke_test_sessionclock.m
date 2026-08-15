@@ -3,7 +3,7 @@ function smoke_test_sessionclock()
 % Exercise gui.SessionClock: UI construction (4 labels, no-clip row
 % layout), context menu creation and checked-state sync, programmatic
 % visibility control, right-click toggle simulation, per-PreferenceTag
-% persistence across instances (remembers user choices "per BoxGUI"),
+% persistence across instances (remembers user choices "per BehaviorGUI"),
 % NewTrial/StartTime timing sources, and teardown. Headless-safe: every
 % figure is closed and every test preference removed before returning.
 %
@@ -74,7 +74,7 @@ fprintf('PASS: line visibility remembered across instances per PreferenceTag\n')
 figB = uifigure('Tag', PREF_TAG_B, 'Visible', 'off');
 c2 = gui.SessionClock(figB);
 assert(strcmp(c2.PreferenceTag, PREF_TAG_B), ...
-    'PreferenceTag should default to the ancestor figure Tag (BoxGUI scoping)');
+    'PreferenceTag should default to the ancestor figure Tag (BehaviorGUI scoping)');
 fprintf('PASS: PreferenceTag infers the hosting figure''s Tag\n');
 
 % 7. Runtime timing sources: StartTime, NewTrial ---------------------------

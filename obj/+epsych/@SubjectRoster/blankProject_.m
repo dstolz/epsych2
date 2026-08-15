@@ -31,7 +31,7 @@ p = struct( ...
     'VideoRootDir',    '', ...  % webcam recording root
     'IntanRootDir',    '', ...  % Intan RHX recording root
     'IntanSettingsFile', '', ...% RHX .xml; the protocol's own value still wins
-    'BoxGUI',          '', ...  % '' inherits the session default; see BOXGUI_NONE
+    'BehaviorGUI',     '', ...  % '' inherits the session default; see BEHAVIORGUI_NONE
     ...                         % Cell-wrapped: struct() replicates a struct-array
     ...                         % value, which would build one project per link.
     'Links',           {epsych.SubjectRoster.emptyLink()}, ...

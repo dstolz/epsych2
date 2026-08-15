@@ -39,8 +39,8 @@ GVerbosity = self.Verbosity;
 banner = repmat('=', 1, 60);
 vprintf(0, '%s', banner)
 vprintf(0, 'EPsych self-test starting (%d group(s), verbosity %d)', numel(groupIds), self.Verbosity)
-vprintf(-1, 'Self-test options: HardwareConnect=%d BoxFig=%d GuiStateCycle=%d', ...
-    self.IncludeHardwareConnect, self.IncludeBoxFig, self.IncludeGuiStateCycle)
+vprintf(-1, 'Self-test options: HardwareConnect=%d BehaviorGUI=%d GuiStateCycle=%d', ...
+    self.IncludeHardwareConnect, self.IncludeBehaviorGUI, self.IncludeGuiStateCycle)
 
 if isempty(self.RunExpt) || ~isvalid(self.RunExpt)
     vprintf(0, 1, 'No RunExpt session available; session-dependent checks will be skipped.')

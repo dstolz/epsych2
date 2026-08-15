@@ -82,7 +82,7 @@ CONFIG = struct( ...
 % trial 1 (the TRIALS setter resolves the core triggers on the way in).
 RUNTIME = ep_TimerFcn_Start(RUNTIME, CONFIG);
 
-% RunExpt launches the box GUI right after Start, then broadcasts the
+% RunExpt launches the behavior GUI right after Start, then broadcasts the
 % session mode; mirror that order here.
 GUI = FirstExperimentBoxGUI(RUNTIME);
 

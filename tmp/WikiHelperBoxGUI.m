@@ -1,7 +1,7 @@
 classdef WikiHelperBoxGUI < gui.BehaviorGUI
     % Minimal gui.BehaviorGUI subclass whose only job is to show the helpers the
     % base class provides — addButton, controlColumn, addControl,
-    % addUpdateButton, addMonitor — in one screenshot for the wiki's Box GUI
+    % addUpdateButton, addMonitor — in one screenshot for the wiki's Behavior GUI
     % Components page. Not an example to copy: see
     % examples/customgui/ExampleBoxGUI.m for that.
 

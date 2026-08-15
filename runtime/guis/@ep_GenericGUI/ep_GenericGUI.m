@@ -1,5 +1,5 @@
 classdef ep_GenericGUI < gui.BehaviorGUI
-    % ep_GenericGUI Generic Behavior Box GUI for EPsych experiments.
+    % ep_GenericGUI Generic Behavior Behavior GUI for EPsych experiments.
     %
     % OBJ = ep_GenericGUI(RUNTIME) creates a single GUI instance that
     % auto-discovers all visible parameters from the RUNTIME hardware and
@@ -9,7 +9,7 @@ classdef ep_GenericGUI < gui.BehaviorGUI
     %   - A polling parameter-monitor table for read-only parameters.
     %   - An event log that records trial, data, and mode-change events.
     %
-    % This class satisfies the BoxFig convention used by epsych.RunExpt:
+    % This class satisfies the BehaviorGUI convention used by epsych.RunExpt:
     % the constructor signature is ep_GenericGUI(RUNTIME). Lifecycle
     % concerns (single instance, position persistence, event listeners,
     % teardown) are inherited from gui.BehaviorGUI.
@@ -32,7 +32,7 @@ classdef ep_GenericGUI < gui.BehaviorGUI
     methods
         function obj = ep_GenericGUI(RUNTIME)
             % obj = ep_GenericGUI(RUNTIME)
-            % Create the generic behavior box GUI.
+            % Create the generic behavior GUI.
             % Only one instance is allowed; an existing window is replaced.
             %  RUNTIME - epsych.Runtime object with interfaces configured.
             obj@gui.BehaviorGUI(RUNTIME, ...

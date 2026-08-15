@@ -994,7 +994,7 @@ classdef NE1000 < hw.Interface
             % The fallback is what keeps a dropped packet from becoming an
             % empty value. The runtime's trial-end sweep lands whatever comes
             % back straight into DATA, and everything downstream — a scatter,
-            % a custom BoxGUI, an offline analysis — expects the parameter's
+            % a custom BehaviorGUI, an offline analysis — expects the parameter's
             % own type; [] there fails later and somewhere else. A stale
             % setting is still true, since nothing but a write moves it.
             % Status is the one genuinely volatile reading, so a missing
@@ -1567,7 +1567,7 @@ function specs = local_parameterSpecs_(rateUnits)
 %   Direction, Diameter, Status     - invisible: operator-facing via
 %                                     set_parameter/get_parameter only.
 %   Start, Stop, ClearVolume        - invisible triggers for gui.Triggers and
-%                                     custom BoxGUIs.
+%                                     custom behavior GUIs.
 
 switch rateUnits
     case 'UM', rateLabel = 'uL/min'; volLabel = 'uL';

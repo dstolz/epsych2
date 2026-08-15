@@ -1,5 +1,5 @@
 classdef TwoAFCBoxGUI < gui.BehaviorGUI
-    % TwoAFCBoxGUI  Box GUI for the 2AFC tutorial, in which YOU are the
+    % TwoAFCBoxGUI  Behavior GUI for the 2AFC tutorial, in which YOU are the
     % subject.
     %
     % Two lamps flash together, one brighter than the other; report which
@@ -32,7 +32,7 @@ classdef TwoAFCBoxGUI < gui.BehaviorGUI
     % discriminability, and the criterion is the subject's side bias —
     % negative when they favour LEFT. See psychophysics.SessionMetrics.
     %
-    % Launch in a real session by setting a project's Box GUI to
+    % Launch in a real session by setting a project's Behavior GUI to
     % TwoAFCBoxGUI (Subjects > Subjects & Projects, Project > Edit
     % Project..., Session Defaults tab); the class must be on the path. Or
     % run a session without RunExpt: run_2afc_experiment (same folder).

@@ -9,7 +9,7 @@ function P = projectDialog_(self, seed)
 % Parameters:
 %   seed - struct with Name, Notes, Investigator, IACUCProtocol,
 %          DefaultProtocol, DefaultDataPath, SavingFcn, TimerPeriod,
-%          VideoRootDir, IntanRootDir, IntanSettingsFile, BoxGUI, Links,
+%          VideoRootDir, IntanRootDir, IntanSettingsFile, BehaviorGUI, Links,
 %          Archived.
 %
 % Returns:
@@ -31,7 +31,7 @@ function P = projectDialog_(self, seed)
 % because there is no default file to propose and the protocol usually carries
 % its own.
 %
-% The Box GUI dropdown also offers what other projects in this roster already
+% The Behavior GUI dropdown also offers what other projects in this roster already
 % use, rather than only the session's preference: the roster is the shared
 % thing, so a rig that has never run a paradigm still proposes its GUI, and this
 % window works with no session open.
@@ -70,8 +70,8 @@ vDataPath  = localSeed(seed.DefaultDataPath,  PREFS, 'DataPath', ...
     char(getpref('RunExpt','DataPath', cd)));
 vSaving    = localSeed(seed.SavingFcn,        PREFS, 'SavingFcn', ...
     char(getpref('ep_RunExpt_FUNCS','SavingFcn','ep_SaveDataFcn')));
-vBoxGUI    = localSeed(seed.BoxGUI,           PREFS, 'BoxGUI', ...
-    char(getpref('ep_RunExpt_FUNCS','BoxFig','ep_GenericGUI')));
+vBehaviorGUI = localSeed(seed.BehaviorGUI,       PREFS, 'BehaviorGUI', ...
+    char(getpref('ep_RunExpt_FUNCS','BehaviorGUI','ep_GenericGUI')));
 vVideo     = localSeed(seed.VideoRootDir,     PREFS, 'VideoRootDir', ...
     localOr(char(getpref('ep_RunExpt_Video','RecordingRootDir','')), vDataPath));
 vIntan     = localSeed(seed.IntanRootDir,     PREFS, 'IntanRootDir', ...
@@ -221,21 +221,21 @@ btnSaving = uibutton(gs, 'Text','Reset', ...
     'ButtonPushedFcn', @(~,~) localReset(ddSaving, 'ep_SaveDataFcn', @onSavingChanged));
 btnSaving.Layout.Row = 3; btnSaving.Layout.Column = 3;
 
-localLabel(gs, 4, 'Box GUI:');
-ddBoxGUI = uidropdown(gs, 'Editable','on', ...
-    'Tag','ProjectDlg_BoxGUI', ...
-    'Items', localBoxGuiItems(self.Roster, PREFS, vBoxGUI), ...
-    'Value', localBoxGuiDisplay(vBoxGUI), ...
+localLabel(gs, 4, 'Behavior GUI:');
+ddBehaviorGUI = uidropdown(gs, 'Editable','on', ...
+    'Tag','ProjectDlg_BehaviorGUI', ...
+    'Items', localBehaviorGUIItems(self.Roster, PREFS, vBehaviorGUI), ...
+    'Value', localBehaviorGUIDisplay(vBehaviorGUI), ...
     'Tooltip', ['Behavior GUI launched when a session with this project''s subjects starts.' newline ...
-                'Signature: BoxGUI(RUNTIME) -- typically a gui.BehaviorGUI subclass.' newline ...
+                'Signature: BehaviorGUI(RUNTIME) -- typically a gui.BehaviorGUI subclass.' newline ...
                 'Pick one another project uses, or type a class or function name.' newline ...
                 '"(none)" runs no GUI; "(session default)" leaves the session''s own.']);
-ddBoxGUI.Layout.Row = 4; ddBoxGUI.Layout.Column = 2;
-ddBoxGUI.ValueChangedFcn = @(h,~) onBoxGuiChanged(h);
-onBoxGuiChanged(ddBoxGUI);
-btnBoxGUI = uibutton(gs, 'Text','Reset', ...
-    'ButtonPushedFcn', @(~,~) localReset(ddBoxGUI, 'ep_GenericGUI', @onBoxGuiChanged));
-btnBoxGUI.Layout.Row = 4; btnBoxGUI.Layout.Column = 3;
+ddBehaviorGUI.Layout.Row = 4; ddBehaviorGUI.Layout.Column = 2;
+ddBehaviorGUI.ValueChangedFcn = @(h,~) onBehaviorGUIChanged(h);
+onBehaviorGUIChanged(ddBehaviorGUI);
+btnBehaviorGUI = uibutton(gs, 'Text','Reset', ...
+    'ButtonPushedFcn', @(~,~) localReset(ddBehaviorGUI, 'ep_GenericGUI', @onBehaviorGUIChanged));
+btnBehaviorGUI.Layout.Row = 4; btnBehaviorGUI.Layout.Column = 3;
 
 localLabel(gs, 5, 'Timer Period (s):');
 efPeriod = uieditfield(gs, 'numeric', 'Value', vPeriod, ...
@@ -331,7 +331,7 @@ end
 
         dataPath = strtrim(ddDataPath.Value);
         saving   = strtrim(ddSaving.Value);
-        boxGUI   = localBoxGuiValue(ddBoxGUI.Value);
+        behGUI   = localBehaviorGUIValue(ddBehaviorGUI.Value);
         video    = strtrim(ddVideo.Value);
         intan    = strtrim(ddIntan.Value);
         intanSet = strtrim(efIntanSet.Value);
@@ -379,7 +379,7 @@ end
             'VideoRootDir', video, ...
             'IntanRootDir', intan, ...
             'IntanSettingsFile', intanSet, ...
-            'BoxGUI', boxGUI, ...
+            'BehaviorGUI', behGUI, ...
             'Archived', cbArchived.Value);
 
         % Assigned, never passed to struct() above: a struct-array value makes
@@ -391,7 +391,7 @@ end
         localRemember(PREFS, 'Protocol',      result.DefaultProtocol);
         localRemember(PREFS, 'DataPath',      dataPath);
         localRemember(PREFS, 'SavingFcn',     saving);
-        localRemember(PREFS, 'BoxGUI',        boxGUI);
+        localRemember(PREFS, 'BehaviorGUI',   behGUI);
         localRemember(PREFS, 'VideoRootDir',  video);
         localRemember(PREFS, 'IntanRootDir',  intan);
         localRemember(PREFS, 'IntanSettingsFile', intanSet);
@@ -487,12 +487,12 @@ end
     end
 
 % -------------------------------------------------------------------
-    function onBoxGuiChanged(h)
+    function onBehaviorGUIChanged(h)
         % Flag a name that will not resolve at run start, without refusing it:
         % a lab may add its GUI to the path later, and the same tint is what the
         % Customize dialog's function fields use.
-        v = localBoxGuiValue(h.Value);
-        localTint(h, isempty(v) || strcmpi(v, epsych.SubjectRoster.BOXGUI_NONE) ...
+        v = localBehaviorGUIValue(h.Value);
+        localTint(h, isempty(v) || strcmpi(v, epsych.SubjectRoster.BEHAVIORGUI_NONE) ...
             || ~isempty(which(v)));
     end
 
@@ -711,26 +711,26 @@ end
 end
 
 % -----------------------------------------------------------------------
-% The Box GUI dropdown stores a function name but shows a sentence for the two
-% states that are not one: '' (inherit) and BOXGUI_NONE (launch nothing). An
+% The Behavior GUI dropdown stores a function name but shows a sentence for the two
+% states that are not one: '' (inherit) and BEHAVIORGUI_NONE (launch nothing). An
 % empty dropdown item would render as a blank line the operator cannot tell from
 % a rendering glitch, so the mapping lives in these three functions and nowhere
 % else.
 % -----------------------------------------------------------------------
-function items = localBoxGuiItems(roster, group, current)
-% Both sentinels, every box GUI already used in this roster, the recently-used
+function items = localBehaviorGUIItems(roster, group, current)
+% Both sentinels, every behavior GUI already used in this roster, the recently-used
 % ones, the built-in default, and whatever this project holds -- de-duplicated,
 % order preserved.
-items = {localBoxGuiDisplay(''), localBoxGuiDisplay(epsych.SubjectRoster.BOXGUI_NONE)};
+items = {localBehaviorGUIDisplay(''), localBehaviorGUIDisplay(epsych.SubjectRoster.BEHAVIORGUI_NONE)};
 
 used = {};
 if ~isempty(roster) && isvalid(roster) && ~isempty(roster.Projects)
-    used = {roster.Projects.BoxGUI};
+    used = {roster.Projects.BehaviorGUI};
     used = used(~cellfun(@isempty, used));
 end
 
-items = [items, used, localRecent(group, 'BoxGUI'), {'ep_GenericGUI'}, ...
-    {localBoxGuiDisplay(current)}];
+items = [items, used, localRecent(group, 'BehaviorGUI'), {'ep_GenericGUI'}, ...
+    {localBehaviorGUIDisplay(current)}];
 items = items(~cellfun(@isempty, items));
 
 keep = true(1, numel(items));
@@ -743,12 +743,12 @@ items = items(keep);
 end
 
 % -----------------------------------------------------------------------
-function txt = localBoxGuiDisplay(value)
+function txt = localBehaviorGUIDisplay(value)
 % Stored value -> what the dropdown shows.
 value = char(string(value));
 if isempty(value)
     txt = '(session default)';
-elseif strcmpi(value, epsych.SubjectRoster.BOXGUI_NONE)
+elseif strcmpi(value, epsych.SubjectRoster.BEHAVIORGUI_NONE)
     txt = '(none)';
 else
     txt = value;
@@ -756,14 +756,14 @@ end
 end
 
 % -----------------------------------------------------------------------
-function value = localBoxGuiValue(txt)
+function value = localBehaviorGUIValue(txt)
 % What the dropdown shows -> the stored value.
 txt = strtrim(char(string(txt)));
 switch lower(txt)
     case {'', '(session default)'}
         value = '';
     case {'(none)', 'none'}
-        value = epsych.SubjectRoster.BOXGUI_NONE;
+        value = epsych.SubjectRoster.BEHAVIORGUI_NONE;
     otherwise
         value = txt;
 end

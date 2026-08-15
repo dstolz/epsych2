@@ -6,7 +6,7 @@ function P = create_first_protocol(filename, options)
 % explicit and reproducible.
 %
 % The task is a Go/No-Go flash detection in which YOU are the subject:
-% on go trials the box GUI's stimulus lamp flashes for FlashDur ms; on
+% on go trials the behavior GUI's stimulus lamp flashes for FlashDur ms; on
 % catch trials nothing happens. Press RESPOND when you saw a flash,
 % withhold when you did not (FirstExperimentBoxGUI, same folder).
 %
@@ -82,10 +82,10 @@ sw.add_parameter('RespWinDur', options.RespWinDur, Unit = 'ms', ...
 % instead its Value is collected into DATA at every trial end. RespCode is
 % the conventional field name the analysis tools (psychophysics.Detection)
 % look for: an epsych.BitMask-encoded outcome set by the rig — here, by
-% the box GUI acting as the rig — at trial end.
+% the behavior GUI acting as the rig — at trial end.
 % set.Value refuses writes once Access='Read', so seed the Value first.
 p = sw.add_parameter('RespCode', 0, Type = 'Integer', ...
-    Description = "epsych.BitMask response code, set by the box GUI at trial end");
+    Description = "epsych.BitMask response code, set by the behavior GUI at trial end");
 p.Value = 0;
 p.Access = 'Read';
 

@@ -1,11 +1,11 @@
 classdef PumpBoxGUI < gui.BehaviorGUI
-    %PUMPBOXGUI Minimal box GUI for exercising the gui.SyringePump panel.
+    %PUMPBOXGUI Minimal behavior GUI for exercising the gui.SyringePump panel.
     %   A gui.SyringePump operator panel beside the two things needed to see
     %   whether it behaves during a session: the trial controls that write
     %   the same pump, and a readout of the reward volume the pump reported
     %   back on every completed trial.
     %
-    %   Launch it from a session by naming this class as a project's Box GUI
+    %   Launch it from a session by naming this class as a project's Behavior GUI
     %   (Subjects > Subjects & Projects, Project > Edit Project...); or run it
     %   without hardware with run_pump_session.
     %

@@ -128,7 +128,7 @@ fprintf('PASS: ep_GenericGUI on gui.BehaviorGUI\n');
 
 % 9. Controls over parameters no trial has seeded yet ---------------------
 % add_parameter fills Values, not Value, so a parameter stays empty until the
-% first trial dispatch writes it. A box GUI built before that -- SelfTest I6,
+% first trial dispatch writes it. A behavior GUI built before that -- SelfTest I6,
 % or a protocol whose parameter is absent from the trials table -- must still
 % come up: the widget absorbs the empty, it does not abort the build.
 swU = hw.Software;
@@ -173,7 +173,7 @@ rt.isTest = true;
 rt.HELPER = epsych.Helper;
 
 % add_parameter stores design-time Values; a live session populates Value
-% during trial dispatch before the BoxFig launches, so set Value here too.
+% during trial dispatch before the behavior GUI launches, so set Value here too.
 sw = hw.Software;
 p = sw.add_parameter('SmokePellet', 0, isTrigger=true);
 p.Value = 0;

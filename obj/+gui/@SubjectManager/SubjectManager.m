@@ -359,14 +359,14 @@ classdef SubjectManager < handle
             if ~isempty(p.DefaultDataPath)
                 lines{end+1} = sprintf('Data path: %s', p.DefaultDataPath);
             end
-            % Named even when unset: this is where the box GUI is configured
+            % Named even when unset: this is where the behavior GUI is configured
             % now, so the summary has to say so rather than stay silent.
-            if isempty(p.BoxGUI)
-                lines{end+1} = 'Box GUI: (session default)';
-            elseif strcmpi(p.BoxGUI, epsych.SubjectRoster.BOXGUI_NONE)
-                lines{end+1} = 'Box GUI: (none)';
+            if isempty(p.BehaviorGUI)
+                lines{end+1} = 'Behavior GUI: (session default)';
+            elseif strcmpi(p.BehaviorGUI, epsych.SubjectRoster.BEHAVIORGUI_NONE)
+                lines{end+1} = 'Behavior GUI: (none)';
             else
-                lines{end+1} = sprintf('Box GUI: %s', p.BoxGUI);
+                lines{end+1} = sprintf('Behavior GUI: %s', p.BehaviorGUI);
             end
             % The rest of the session defaults on one line: they matter when
             % they differ from the rig's, and six more lines would push the
@@ -1190,7 +1190,7 @@ classdef SubjectManager < handle
                 'IACUCProtocol','', 'DefaultProtocol','', 'DefaultDataPath','', ...
                 'SavingFcn','', 'TimerPeriod',NaN, 'VideoRootDir','', ...
                 'IntanRootDir','', 'IntanSettingsFile','', ...
-                'BoxGUI','', 'Archived',false);
+                'BehaviorGUI','', 'Archived',false);
             % Assigned rather than passed to struct() above: an empty
             % struct-array value would make struct() return a 0x0 seed.
             seed.Links = epsych.SubjectRoster.emptyLink();
@@ -1209,7 +1209,7 @@ classdef SubjectManager < handle
                     VideoRootDir = P.VideoRootDir, ...
                     IntanRootDir = P.IntanRootDir, ...
                     IntanSettingsFile = P.IntanSettingsFile, ...
-                    BoxGUI = P.BoxGUI, ...
+                    BehaviorGUI = P.BehaviorGUI, ...
                     Links = P.Links, ...
                     Archived = P.Archived);
             catch ME

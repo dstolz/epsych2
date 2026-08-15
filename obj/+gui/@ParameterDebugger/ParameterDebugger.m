@@ -12,8 +12,8 @@ classdef ParameterDebugger < handle
     % read happens because the operator asked for it, so opening this window
     % cannot perturb the timing of the session it is being used to debug.
     %
-    % It is deliberately a window of its own rather than part of a box GUI. A
-    % box GUI shows the handful of controls a paradigm needs and is written per
+    % It is deliberately a window of its own rather than part of a behavior GUI. A
+    % behavior GUI shows the handful of controls a paradigm needs and is written per
     % experiment; this shows everything, including the parameters no GUI
     % exposes, and works the same against any protocol on any backend.
     %

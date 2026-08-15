@@ -1,5 +1,5 @@
 classdef DetectionBoxGUI < gui.BehaviorGUI
-    % DetectionBoxGUI  Behavior-box GUI for the worked-example detection task.
+    % DetectionBoxGUI  Behavior-behavior GUI for the worked-example detection task.
     %
     % Goes beyond examples/customgui/ExampleBoxGUI.m by wiring an online
     % analysis pipeline and using every event hook:
@@ -12,7 +12,7 @@ classdef DetectionBoxGUI < gui.BehaviorGUI
     %   - onNewData refreshes a per-level performance table and session tally.
     %   - onModeChange tracks Preview/Record/Pause/Stop in the header.
     %
-    % Launch in a real session by setting a project's Box GUI to DetectionBoxGUI
+    % Launch in a real session by setting a project's Behavior GUI to DetectionBoxGUI
     % (Subjects > Subjects & Projects, Project > Edit Project...); the class must
     % be on the path. Try it without hardware: run_detection_session (same folder).
     %

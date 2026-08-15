@@ -1,9 +1,9 @@
 classdef ExampleBoxGUI < gui.BehaviorGUI
-    %EXAMPLEBOXGUI Copyable template for a custom experiment (BoxFig) GUI.
+    %EXAMPLEBOXGUI Copyable template for a custom experiment (BehaviorGUI) GUI.
     %   Subclass gui.BehaviorGUI, lay out your controls in build(), and the base
     %   class provides lifecycle, listeners, position persistence, and
     %   teardown. Point a project at this class via Subjects > Subjects &
-    %   Projects, Project > Edit Project..., Box GUI field ("ExampleBoxGUI");
+    %   Projects, Project > Edit Project..., Behavior GUI field ("ExampleBoxGUI");
     %   it launches at session start for that project's subjects.
     %
     %   Try it without hardware: examples/customgui/run_example.m

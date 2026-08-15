@@ -53,7 +53,7 @@ sw.add_parameter('ToneLevel', [20 30 40 50 60 0], Unit = 'dB SPL', ...
 
 % --- Fixed stimulus and timing controls ----------------------------------
 % Single-value writable parameters are dispatched every trial but do not
-% expand the condition list. The operator can edit them live from the box GUI.
+% expand the condition list. The operator can edit them live from the behavior GUI.
 sw.add_parameter('ToneFreq',  4000, Unit = 'Hz');
 sw.add_parameter('ToneDur',    500, Unit = 'ms');
 sw.add_parameter('RewardVol',   25, Unit = 'uL');
@@ -96,7 +96,7 @@ sw.add_parameter('x_NewTrial_1',      0, isTrigger = true);
 sw.add_parameter('x_ResetTrig_1',     0, isTrigger = true);
 sw.add_parameter('x_TrialComplete_1', 0, isTrigger = true);
 
-% Extra trigger for the box GUI's manual reward button.
+% Extra trigger for the behavior GUI's manual reward button.
 sw.add_parameter('Reward', 0, isTrigger = true, ...
     Description = "Manually deliver one reward");
 

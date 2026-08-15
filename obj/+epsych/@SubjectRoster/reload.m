@@ -89,7 +89,7 @@ end
 self.Subjects    = epsych.SubjectRoster.normalize_(S.subjects, ...
     epsych.SubjectRoster.blankSubject_());
 % Before normalize_, not after: it trims a record to this build's field set, so
-% a BoxGUI arriving from an older rig (or a BehaviorGUI from a newer one) has to
+% a BehaviorGUI arriving from an older rig (or a BehaviorGUI from a newer one) has to
 % be carried onto the name this build keeps or it is silently dropped -- and an
 % empty behavior GUI reads as "inherit the session default", so the loss would
 % look like a deliberate setting rather than a failure.

@@ -3,7 +3,7 @@ function results = checkGui(self)
 % Check the wiring the session window depends on: the handle struct, the tag
 % conventions UpdateGUIstate drives control state from, the .ecfg
 % serialization round trip, the event broadcaster, and optionally the state
-% machine and the box GUI.
+% machine and the behavior GUI.
 %
 % Returns:
 %	results	- Result struct array; see epsych.SelfTest.result.
@@ -113,21 +113,21 @@ t = tic;
 r = localEventTest(GROUP);
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
-% --- I6: box GUI launch -------------------------------------------------
+% --- I6: behavior GUI launch -------------------------------------------------
 t = tic;
-boxFig = string(rx.FUNCS.BoxFig);
-if ~self.IncludeBoxFig
-    r = epsych.SelfTest.result("I6_BoxFig", GROUP, "Box GUI launch", "skip", ...
-        'Not enabled; launching the box GUI replaces any open instance.', ...
-        Remedy = "Tick 'Launch the Box GUI' to run this check.");
+behaviorGUI = string(rx.FUNCS.BehaviorGUI);
+if ~self.IncludeBehaviorGUI
+    r = epsych.SelfTest.result("I6_BehaviorGUI", GROUP, "Behavior GUI launch", "skip", ...
+        'Not enabled; launching the behavior GUI replaces any open instance.', ...
+        Remedy = "Tick 'Launch the Behavior GUI' to run this check.");
 elseif isRunning
-    r = epsych.SelfTest.result("I6_BoxFig", GROUP, "Box GUI launch", "skip", ...
-        'A session is running; launching a second box GUI would close the live one.');
-elseif strlength(strtrim(boxFig)) == 0
-    r = epsych.SelfTest.result("I6_BoxFig", GROUP, "Box GUI launch", "skip", ...
-        'No box GUI is configured.');
+    r = epsych.SelfTest.result("I6_BehaviorGUI", GROUP, "Behavior GUI launch", "skip", ...
+        'A session is running; launching a second behavior GUI would close the live one.');
+elseif strlength(strtrim(behaviorGUI)) == 0
+    r = epsych.SelfTest.result("I6_BehaviorGUI", GROUP, "Behavior GUI launch", "skip", ...
+        'No behavior GUI is configured.');
 else
-    r = localBoxFigTest(rx, boxFig, GROUP);
+    r = localBehaviorGUITest(rx, behaviorGUI, GROUP);
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
@@ -394,14 +394,14 @@ end
 end
 
 % -----------------------------------------------------------------------
-function r = localBoxFigTest(rx, boxFig, group)
-% Launch the configured box GUI against a synthetic Runtime and close it.
+function r = localBehaviorGUITest(rx, behaviorGUI, group)
+% Launch the configured behavior GUI against a synthetic Runtime and close it.
 % This is what PsychTimerStart does once the real runtime exists.
 before = findall(groot, 'Type', 'figure');
 created = [];
 cleanupFigures = onCleanup(@() localDeleteFigures(created));
 
-% The box GUI discovers its controls from RUNTIME.Interfaces. Only already-
+% The behavior GUI discovers its controls from RUNTIME.Interfaces. Only already-
 % connected interfaces are attached: the Runtime setter connects whatever it
 % is given, and this check must not bring hardware up as a side effect.
 attached = hw.Interface.empty(1,0);
@@ -428,7 +428,7 @@ try
         rt.Interfaces = attached;
     end
 
-    feval(char(boxFig), rt);
+    feval(char(behaviorGUI), rt);
     drawnow;
 catch ME
     created = setdiff(findall(groot, 'Type', 'figure'), before);
@@ -437,14 +437,14 @@ catch ME
     % parameters it cannot see yet -- report it, but do not call it a failure.
     if hasInterfaces
         status = "fail";
-        remedy = "The run would start without a box GUI. Fix the function on the project (Subjects & Projects > Edit Project > Session Defaults), or choose (none) there.";
+        remedy = "The run would start without a behavior GUI. Fix the function on the project (Subjects & Projects > Edit Project > Session Defaults), or choose (none) there.";
     else
         status = "warn";
         remedy = "Re-run with 'Connect hardware interfaces' enabled to tell a real defect from a missing-hardware error.";
     end
 
-    r = epsych.SelfTest.result("I6_BoxFig", group, "Box GUI launch", status, ...
-        sprintf('"%s" raised an error: %s', boxFig, ME.message), ...
+    r = epsych.SelfTest.result("I6_BehaviorGUI", group, "Behavior GUI launch", status, ...
+        sprintf('"%s" raised an error: %s', behaviorGUI, ME.message), ...
         Detail = [context, string(ME.identifier)], ...
         Remedy = remedy, ...
         Mutating = true);
@@ -454,13 +454,13 @@ end
 created = setdiff(findall(groot, 'Type', 'figure'), before);
 
 if isempty(created)
-    r = epsych.SelfTest.result("I6_BoxFig", group, "Box GUI launch", "warn", ...
-        sprintf('"%s" ran without error but opened no window.', boxFig), ...
-        Remedy = "Confirm this is intended; the operator will see no box GUI during a run.", ...
+    r = epsych.SelfTest.result("I6_BehaviorGUI", group, "Behavior GUI launch", "warn", ...
+        sprintf('"%s" ran without error but opened no window.', behaviorGUI), ...
+        Remedy = "Confirm this is intended; the operator will see no behavior GUI during a run.", ...
         Mutating = true);
 else
-    r = epsych.SelfTest.result("I6_BoxFig", group, "Box GUI launch", "pass", ...
-        sprintf('"%s" opened %d window(s), which were closed again.', boxFig, numel(created)), ...
+    r = epsych.SelfTest.result("I6_BehaviorGUI", group, "Behavior GUI launch", "pass", ...
+        sprintf('"%s" opened %d window(s), which were closed again.', behaviorGUI, numel(created)), ...
         Detail = arrayfun(@(f) string(f.Name), created), ...
         Mutating = true);
 end

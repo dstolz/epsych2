@@ -37,7 +37,7 @@ end
 % release behind still finds it. Mirrored onto the copy being saved rather than
 % onto self.FUNCS, which keeps exactly one canonical field.
 funcs  = self.FUNCS;
-funcs.BehaviorGUI = funcs.BoxFig;
+funcs.BoxFig = funcs.BehaviorGUI;
 
 E = EPsychInfo;
 meta = E.meta;

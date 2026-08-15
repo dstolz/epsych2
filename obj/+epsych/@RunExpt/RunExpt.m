@@ -58,7 +58,7 @@ classdef RunExpt < handle
         BrowseConfigs(self)             % Open the config browser dialog
 
         DefineAddSubject(self, a)       % Set the add-subject callback function name
-        DefineBoxFig(self, a)           % Set the behavioral box figure callback function name
+        DefineBehaviorGUI(self, a)      % Set the session's behavior GUI callback function name
         DefineTimerPeriod(self)         % Set the PsychTimer period (0.001–1 s)
         DefineLogPath(self)             % Set the directory +eplog writes daily error logs to
 
@@ -76,7 +76,7 @@ classdef RunExpt < handle
 
         ToggleVideoLiveView(self)       % Show/hide the webcam stream without recording it
 
-        % Public so custom box GUIs, save functions, and trial selectors can
+        % Public so custom behavior GUIs, save functions, and trial selectors can
         % report their own progress in the session window.
         setStatus(self, message, nextStep)  % Post a message to the status bar
 
@@ -583,8 +583,8 @@ classdef RunExpt < handle
             % Both names: this pref is the rig's default behavior GUI, and a rig
             % one release behind reads the old key. GetDefaultFuncs prefers the
             % new one, so the pair converges on the first save either way.
-            setpref('ep_RunExpt_FUNCS','BehaviorGUI', F.BoxFig)
-            setpref('ep_RunExpt_FUNCS','BoxFig',       F.BoxFig)
+            setpref('ep_RunExpt_FUNCS','BehaviorGUI',  F.BehaviorGUI)
+            setpref('ep_RunExpt_FUNCS','BoxFig',       F.BehaviorGUI)
 
             setpref('ep_RunExpt_TIMER','Start',     F.TIMERfcn.Start)
             setpref('ep_RunExpt_TIMER','RunTime',   F.TIMERfcn.RunTime)
@@ -612,8 +612,8 @@ classdef RunExpt < handle
             end
 
             F.SavingFcn      = getpref('ep_RunExpt_FUNCS','SavingFcn',    'ep_SaveDataFcn');
-            F.BoxFig         = getpref('ep_RunExpt_FUNCS','BehaviorGUI', ...
-                getpref('ep_RunExpt_FUNCS','BoxFig',       'ep_GenericGUI'));
+            F.BehaviorGUI    = getpref('ep_RunExpt_FUNCS','BehaviorGUI', ...
+                getpref('ep_RunExpt_FUNCS','BoxFig',      'ep_GenericGUI'));
 
             F.TIMERfcn.Start    = getpref('ep_RunExpt_TIMER','Start',   'ep_TimerFcn_Start');
             F.TIMERfcn.RunTime  = getpref('ep_RunExpt_TIMER','RunTime', 'ep_TimerFcn_RunTime');

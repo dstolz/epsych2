@@ -5,7 +5,7 @@ function generate_wiki_screenshots(options)
 % caption describes; read the caption before changing a shot.
 %
 % Companion to generate_component_screenshots, which captures the individual
-% obj/+gui components for the Box GUI Components page.
+% obj/+gui components for the Behavior GUI Components page.
 %
 % Options:
 %   OutputDir - Wiki images folder (default: ../epsych2.wiki/images)
@@ -264,7 +264,7 @@ end
 
 
 %% ------------------------------------------------------------------------
-%  Box GUIs
+%  Behavior GUIs
 % -------------------------------------------------------------------------
 function [fig, cleanupFcn] = shotExampleBoxGUI(C)
 % Caption: the template running against a software-only runtime, before any
@@ -449,7 +449,7 @@ funcs = struct();
 funcs.TIMERfcn = struct('Start', 'ep_TimerFcn_Start', 'RunTime', 'ep_TimerFcn_RunTime', ...
     'Stop', 'ep_TimerFcn_Stop', 'Error', 'ep_TimerFcn_Error');
 funcs.SavingFcn    = 'ep_SaveDataFcn';
-funcs.BoxFig       = 'ep_GenericGUI';
+funcs.BehaviorGUI       = 'ep_GenericGUI';
 funcs.AddSubjectFcn = 'epsych.DefaultSubject.open';
 funcs.TimerPeriod  = 0.05;
 

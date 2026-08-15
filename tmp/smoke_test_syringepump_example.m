@@ -22,7 +22,7 @@ fprintf('\n=== SyringePump Example Smoke Test ===\n\n');
 results = {};
 
 RUNTIME = [];
-boxGUI = [];
+behaviorGUI = [];
 
 %% 1. The protocol compiles with the pump as a trial-table column
 try
@@ -91,27 +91,27 @@ catch ME
     results(end+1,:) = check(['Session: ' ME.message], false);
 end
 
-%% 3. The box GUI is bound to the session's pump
+%% 3. The behavior GUI is bound to the session's pump
 try
     fig = findall(0, 'Type', 'figure', 'Tag', 'PumpBoxGUI');
     results(end+1,:) = check('PumpBoxGUI opened', ~isempty(fig));
 
-    boxGUI = fig(1).UserData;   % gui.BehaviorGUI parks itself there
-    results(end+1,:) = check('Figure carries the PumpBoxGUI', isa(boxGUI, 'PumpBoxGUI'));
+    behaviorGUI = fig(1).UserData;   % gui.BehaviorGUI parks itself there
+    results(end+1,:) = check('Figure carries the PumpBoxGUI', isa(behaviorGUI, 'PumpBoxGUI'));
     results(end+1,:) = check('It built a gui.SyringePump panel', ...
-        isa(boxGUI.Pump, 'gui.SyringePump'));
+        isa(behaviorGUI.Pump, 'gui.SyringePump'));
 
     sessionPump = RUNTIME.Interfaces(arrayfun(@(i) isa(i, 'hw.NE1000'), RUNTIME.Interfaces));
     results(end+1,:) = check('The panel adopted the session pump', ...
-        boxGUI.Pump.Interface == sessionPump);
-    results(end+1,:) = check('The panel reports the link is up', boxGUI.Pump.IsConnected);
+        behaviorGUI.Pump.Interface == sessionPump);
+    results(end+1,:) = check('The panel reports the link is up', behaviorGUI.Pump.IsConnected);
     results(end+1,:) = check('The panel read a volume back', ...
-        ~isnan(boxGUI.Pump.VolumeInfused));
+        ~isnan(behaviorGUI.Pump.VolumeInfused));
     results(end+1,:) = check('Session pump is still connected', sessionPump.IsConnected);
     results(end+1,:) = check('Session pump was left stopped', ...
         ~ismember(sessionPump.get_parameter('Status'), {'Infusing', 'Withdrawing'}));
 catch ME
-    results(end+1,:) = check(['Box GUI: ' ME.message], false);
+    results(end+1,:) = check(['Behavior GUI: ' ME.message], false);
 end
 
 %% 4. Teardown leaves nothing behind

@@ -111,7 +111,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % for the Trial State monitor and the saved DATA record, and the
             % operator's catch-trials on/off switch. Both are resolved (or
             % created) here rather than in initialize because ep_TimerFcn_Start
-            % makes this call before epsych.RunExpt launches the box GUI, so
+            % makes this call before epsych.RunExpt launches the behavior GUI, so
             % the GUI's parameter snapshot already contains them.
             if isempty(obj.pCatchCurrent_)
                 obj.pCatchCurrent_ = obj.ensureSelectorParameter_('P_Catch_Current', obj.pCatch_, ...
@@ -388,7 +388,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % reminder trial later completes. The runtime broadcasts NewData
             % for the completed trial BEFORE it calls selectNext for the next
             % one, so anything that clears the toggle on trial completion --
-            % as the box GUI's onNewData used to -- withdraws the request in
+            % as the behavior GUI's onNewData used to -- withdraws the request in
             % the same pass that is about to honor it, and the Reminder
             % button does nothing but force the trial in progress to end.
             % Consuming it at the point of selection also leaves a press made

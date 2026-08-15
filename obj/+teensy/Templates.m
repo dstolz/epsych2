@@ -44,7 +44,7 @@ classdef Templates
                 "NosePokeShaping", "Nose-poke shaping", ...
                     "Autoshaping: any poke is rewarded, and free rewards keep a naive animal engaged.", "training shaping"
                 "AppetitiveDetection", "Appetitive detection (Caras Lab)", ...
-                    "Platform-hold detection with pellet reward; matches the cl_AppetitiveDetection BoxGUI.", "detection psychophysics lab"
+                    "Platform-hold detection with pellet reward; matches the cl_AppetitiveDetection behavior GUI.", "detection psychophysics lab"
                 "PassiveExposure", "Passive exposure", ...
                     "No contingency; a cue and a sync pulse on a fixed interval.", "control passive"
                 };
@@ -408,7 +408,7 @@ classdef Templates
             %
             % Channel, variable and state names deliberately match
             % cl/@cl_AppetitiveDetection_BoxGUI so that a Teensy-backed protocol
-            % lights up the existing box GUI with no edits: Platform, Trough,
+            % lights up the existing behavior GUI with no edits: Platform, Trough,
             % InTrial, DelayPeriod, RespWindow, PelletTotal, RespWinDelay,
             % RespLatency and RespCode are exactly the names its
             % gui.Parameter_Monitor looks up.
@@ -490,7 +490,7 @@ classdef Templates
             add("WaitPlatform", teensy.Transition.to("DelayPeriod", ...
                 teensy.Condition.digitalEdge("Platform", "Rising")));
 
-            % The phase flag doubles as the DelayPeriod lamp in the box GUI.
+            % The phase flag doubles as the DelayPeriod lamp in the behavior GUI.
             entry("DelayPeriod", teensy.Action.setOutput("DelayPeriod", 1));
             exit("DelayPeriod", teensy.Action.setOutput("DelayPeriod", 0));
             add("DelayPeriod", teensy.Transition.to("Abort", ...

@@ -97,19 +97,19 @@ mgr.refresh();
 % The summary is where an operator reads what a project will apply, and the box
 % GUI is now one of those things -- named even when the project inherits it, so
 % the field cannot look absent.
-assert(any(contains(string(mgr.H.projectSummary.Text), 'Box GUI: (session default)')), ...
-    'A project with no box GUI should say it inherits the session default');
-R.updateProject(p1, struct('BoxGUI','ep_GenericGUI'));
+assert(any(contains(string(mgr.H.projectSummary.Text), 'Behavior GUI: (session default)')), ...
+    'A project with no behavior GUI should say it inherits the session default');
+R.updateProject(p1, struct('BehaviorGUI','ep_GenericGUI'));
 mgr.refresh();
-assert(any(contains(string(mgr.H.projectSummary.Text), 'Box GUI: ep_GenericGUI')), ...
-    'The summary should name the project''s box GUI');
-R.updateProject(p1, struct('BoxGUI', epsych.SubjectRoster.BOXGUI_NONE));
+assert(any(contains(string(mgr.H.projectSummary.Text), 'Behavior GUI: ep_GenericGUI')), ...
+    'The summary should name the project''s behavior GUI');
+R.updateProject(p1, struct('BehaviorGUI', epsych.SubjectRoster.BEHAVIORGUI_NONE));
 mgr.refresh();
-assert(any(contains(string(mgr.H.projectSummary.Text), 'Box GUI: (none)')), ...
-    'A project set to launch no box GUI should say so');
-R.updateProject(p1, struct('BoxGUI',''));
+assert(any(contains(string(mgr.H.projectSummary.Text), 'Behavior GUI: (none)')), ...
+    'A project set to launch no behavior GUI should say so');
+R.updateProject(p1, struct('BehaviorGUI',''));
 mgr.refresh();
-fprintf('PASS: project selection, the retired toggle, and the box GUI summary\n');
+fprintf('PASS: project selection, the retired toggle, and the behavior GUI summary\n');
 
 % 4. Filtering -------------------------------------------------------------
 mgr.H.filter.Value = 'S002';
@@ -414,7 +414,7 @@ fprintf('PASS: the project dialog builds, seeds its links, and cancels cleanly\n
 % the ambiguity the move was meant to remove.
 assert(any(built.tabs == "Session Defaults"), ...
     'The project dialog should have a Session Defaults tab (got %s)', strjoin(built.tabs, ', '));
-for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "VideoRootDir" "IntanRootDir" "BoxGUI"]
+for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "VideoRootDir" "IntanRootDir" "BehaviorGUI"]
     assert(isfield(built.fields, f), 'The dialog is missing the %s field', f);
     v = built.fields.(f);
     assert(~isempty(v) && (~ischar(v) || ~isempty(strtrim(v))), ...

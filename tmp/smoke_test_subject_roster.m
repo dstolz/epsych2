@@ -238,16 +238,16 @@ assert(all(ismember({'Subject','Project','LastProtocol'}, T.Properties.VariableN
     'exportTable is missing expected columns');
 fprintf('PASS: exportTable flattens the roster for writetable\n');
 
-% 13. A project owns the box GUI ------------------------------------------
+% 13. A project owns the behavior GUI ------------------------------------------
 % All three states, because each has a different failure mode: a named GUI must
-% reach FUNCS.BoxFig, 'none' must clear it, and empty must leave the session's
+% reach FUNCS.BehaviorGUI, 'none' must clear it, and empty must leave the session's
 % own value alone rather than silently disabling the GUI.
 delete(findall(groot,'Type','figure','Tag','RunExpt'));
 rx3 = epsych.RunExpt;
 
-pg = R.addProject('BoxGuiStudy', DefaultProtocol = proto, BoxGUI = 'ep_GenericGUI');
-assert(strcmp(epsych.SubjectRoster(rosterFile).findProject(pg).BoxGUI, 'ep_GenericGUI'), ...
-    'A project''s BoxGUI did not survive a reload');
+pg = R.addProject('BehaviorGUIStudy', DefaultProtocol = proto, BehaviorGUI = 'ep_GenericGUI');
+assert(strcmp(epsych.SubjectRoster(rosterFile).findProject(pg).BehaviorGUI, 'ep_GenericGUI'), ...
+    'A project''s BehaviorGUI did not survive a reload');
 
 bg = cell(1,3);
 for i = 1:3
@@ -256,20 +256,20 @@ for i = 1:3
 end
 
 rep = R.assignToSession(rx3, bg(1), ProjectID = pg);
-assert(rep.ok && strcmp(rx3.FUNCS.BoxFig, 'ep_GenericGUI'), ...
-    'A commit should apply the project''s box GUI to the session');
+assert(rep.ok && strcmp(rx3.FUNCS.BehaviorGUI, 'ep_GenericGUI'), ...
+    'A commit should apply the project''s behavior GUI to the session');
 
-R.updateProject(pg, struct('BoxGUI', epsych.SubjectRoster.BOXGUI_NONE));
+R.updateProject(pg, struct('BehaviorGUI', epsych.SubjectRoster.BEHAVIORGUI_NONE));
 rep = R.assignToSession(rx3, bg(2), ProjectID = pg);
-assert(rep.ok && isempty(rx3.FUNCS.BoxFig), ...
-    'A project set to BOXGUI_NONE should leave the session with no box GUI');
+assert(rep.ok && isempty(rx3.FUNCS.BehaviorGUI), ...
+    'A project set to BEHAVIORGUI_NONE should leave the session with no behavior GUI');
 
-rx3.FUNCS.BoxFig = 'ep_GenericGUI';
-R.updateProject(pg, struct('BoxGUI',''));
+rx3.FUNCS.BehaviorGUI = 'ep_GenericGUI';
+R.updateProject(pg, struct('BehaviorGUI',''));
 rep = R.assignToSession(rx3, bg(3), ProjectID = pg);
-assert(rep.ok && strcmp(rx3.FUNCS.BoxFig, 'ep_GenericGUI'), ...
-    'An empty BoxGUI must inherit the session default, not clear it');
-fprintf('PASS: a project applies, disables, or inherits the session box GUI\n');
+assert(rep.ok && strcmp(rx3.FUNCS.BehaviorGUI, 'ep_GenericGUI'), ...
+    'An empty BehaviorGUI must inherit the session default, not clear it');
+fprintf('PASS: a project applies, disables, or inherits the session behavior GUI\n');
 
 delete(findall(groot,'Type','figure','Tag','RunExpt'));
 

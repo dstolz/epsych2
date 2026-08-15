@@ -421,7 +421,7 @@ function immediateModeTick_(obj)
 % immediateModeTick_(obj)
 % Host-timed trial completion for immediate I/O mode.
 %
-% With no StateMatrixFcn there is no device-side trial at all: the box GUI or
+% With no StateMatrixFcn there is no device-side trial at all: the behavior GUI or
 % custom code drives the hardware directly and the host decides when the trial
 % is over, from the TrialDuration parameter.
 if obj.trialComplete_ || isempty(obj.trialTic_)

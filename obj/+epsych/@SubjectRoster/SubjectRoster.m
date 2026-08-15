@@ -20,7 +20,7 @@ classdef SubjectRoster < handle
     % filesystem path component (see ExptDispatch) and two projects may
     % legitimately reuse a short animal code.
     %
-    % A project also owns the behavior GUI its sessions run (BoxGUI): the GUI
+    % A project also owns the behavior GUI its sessions run (BehaviorGUI): the GUI
     % belongs to a paradigm, and a paradigm is what a project is, so it is
     % applied by assignToSession rather than configured per rig. Alongside it
     % sit the study's own bookkeeping — Investigator, IACUCProtocol, an
@@ -114,11 +114,11 @@ classdef SubjectRoster < handle
 
         FILE_EXTENSION (1,:) char = '.esub'
 
-        % A project's BoxGUI field names the behavior GUI its sessions launch.
+        % A project's BehaviorGUI field names the behavior GUI its sessions launch.
         % Empty means "inherit the session default" -- the only meaning an
         % existing roster could have -- so "launch nothing" needs a word of its
         % own rather than a second empty.
-        BOXGUI_NONE (1,:) char = 'none'
+        BEHAVIORGUI_NONE (1,:) char = 'none'
 
         % How many earlier protocols a membership remembers. Enough to undo a
         % run of mistaken updates, small enough that the join table stays a

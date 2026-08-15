@@ -4,7 +4,7 @@ function report = smoke_test_runexpt_selftest()
 % and the hw.Interface.selfTest hook).
 %
 % No hardware is required: every opt-in group stays disabled, so nothing
-% connects, no box GUI is launched, and the session window's state is never
+% connects, no behavior GUI is launched, and the session window's state is never
 % driven. Only temporary files are written.
 %
 % Verifies:
@@ -183,7 +183,7 @@ try
         'The tree shows %d groups but the catalog has %d.', numel(g.H.groupNodes), numel(C));
 
     % Opt-ins must default off so the window never touches hardware unasked.
-    assert(~g.H.optConnect.Value && ~g.H.optBoxFig.Value && ~g.H.optStateCycle.Value, ...
+    assert(~g.H.optConnect.Value && ~g.H.optBehaviorGUI.Value && ~g.H.optStateCycle.Value, ...
         'SmokeTest:OptInDefault', 'A side-effecting option defaulted to enabled.');
 
     g.H.verbosity.Value = 0;

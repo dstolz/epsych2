@@ -10,14 +10,14 @@ classdef SelfTest < handle
     %
     % Checks are grouped; a group is a method returning a struct array of
     % results. Groups tagged mutating touch live state (hardware connections,
-    % the box GUI, the main window's control states) and are opt-in.
+    % the behavior GUI, the main window's control states) and are opt-in.
     %
     % Important properties:
     %   RunExpt              - The epsych.RunExpt instance under test.
-    %   Verbosity            - GVerbosity level forced while checks run (default 3).
+    %   Verbosity              - GVerbosity level forced while checks run (default 3).
     %   IncludeHardwareConnect - Opt in to connecting hardware interfaces.
-    %   IncludeBoxFig        - Opt in to launching the configured box GUI.
-    %   IncludeGuiStateCycle - Opt in to cycling the main window's STATE.
+    %   IncludeBehaviorGUI     - Opt in to launching the configured behavior GUI.
+    %   IncludeGuiStateCycle   - Opt in to cycling the main window's STATE.
     %
     % Key methods:
     %   run          - Execute selected groups and return results.
@@ -36,7 +36,7 @@ classdef SelfTest < handle
     properties
         Verbosity (1,1) double {mustBeInteger,mustBeNonnegative} = 3  % GVerbosity level forced for the duration of a run
         IncludeHardwareConnect (1,1) logical = false  % Connect each hw.Interface and run its invasive selfTest
-        IncludeBoxFig (1,1) logical = false           % Launch FUNCS.BoxFig against a synthetic Runtime
+        IncludeBehaviorGUI (1,1) logical = false      % Launch FUNCS.BehaviorGUI against a synthetic Runtime
         IncludeGuiStateCycle (1,1) logical = false    % Drive STATE through each PRGMSTATE and assert control states
     end
 
@@ -66,7 +66,7 @@ classdef SelfTest < handle
             %	Name-Value options:
             %		Verbosity              - GVerbosity level forced while running (default 3).
             %		IncludeHardwareConnect - Connect hardware interfaces (default false).
-            %		IncludeBoxFig          - Launch the box GUI (default false).
+            %		IncludeBehaviorGUI     - Launch the behavior GUI (default false).
             %		IncludeGuiStateCycle   - Cycle the main window STATE (default false).
             %
             % Returns:
@@ -75,7 +75,7 @@ classdef SelfTest < handle
                 runExpt = epsych.SelfTest.findActiveRunExpt()
                 opts.Verbosity (1,1) double {mustBeInteger,mustBeNonnegative} = 3
                 opts.IncludeHardwareConnect (1,1) logical = false
-                opts.IncludeBoxFig (1,1) logical = false
+                opts.IncludeBehaviorGUI (1,1) logical = false
                 opts.IncludeGuiStateCycle (1,1) logical = false
             end
 
@@ -87,7 +87,7 @@ classdef SelfTest < handle
             self.RunExpt = runExpt;
             self.Verbosity = opts.Verbosity;
             self.IncludeHardwareConnect = opts.IncludeHardwareConnect;
-            self.IncludeBoxFig = opts.IncludeBoxFig;
+            self.IncludeBehaviorGUI = opts.IncludeBehaviorGUI;
             self.IncludeGuiStateCycle = opts.IncludeGuiStateCycle;
         end
     end

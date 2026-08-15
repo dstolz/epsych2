@@ -141,7 +141,7 @@ for i = 1:numel(names)
 end
 fprintf('PASS: all %d templates validate, compile and round-trip\n', numel(names));
 
-% 7b. The lab paradigm keeps the names its existing BoxGUI binds to ------
+% 7b. The lab paradigm keeps the names its existing BehaviorGUI binds to ------
 % cl_AppetitiveDetection_BoxGUI resolves these by name through
 % gui.Parameter_Monitor and gui.Parameter_Control, so a Teensy-backed
 % protocol only lights that GUI up if the template emits them exactly.
@@ -150,7 +150,7 @@ for required = ["Platform", "Trough", "InTrial", "DelayPeriod", "RespWindow", ..
         "PelletTotal", "StimDelay", "RespWinDelay", "RespLatency", "RespCode", ...
         "ITIDur", "TimeoutDur", "NumPellets"]
     assert(any(appetitive == required), ...
-        'AppetitiveDetection must emit %s for the existing BoxGUI', required);
+        'AppetitiveDetection must emit %s for the existing BehaviorGUI', required);
 end
 fprintf('PASS: AppetitiveDetection emits the names cl_AppetitiveDetection_BoxGUI binds\n');
 

@@ -1,11 +1,11 @@
-function DefineBoxFig(self, a)
-% DefineBoxFig — Configure the session's behavior GUI function.
+function DefineBehaviorGUI(self, a)
+% DefineBehaviorGUI — Configure the session's behavior GUI function.
 % Inputs
 %   a — Function name/handle or 'default'; prompts if empty; empty to disable.
 % Expected Signature
-%   BoxFig(RUNTIME)
+%   BehaviorGUI(RUNTIME)
 % Notes
-%   The operator's path is a project's BoxGUI field (Subjects & Projects), which
+%   The operator's path is a project's BehaviorGUI field (Subjects & Projects), which
 %   assignToSession applies here on commit. This method remains for scripts and
 %   for a session assembled without the roster.
 arguments
@@ -16,13 +16,13 @@ if self.STATE >= PRGMSTATE.RUNNING, return, end
 
 if ~isempty(a) && ischar(a) && strcmp(a,'default')
     a = 'ep_GenericGUI';
-elseif isempty(a) || ~isfield(self.FUNCS,'BoxFig')
-    if ~isfield(self.FUNCS,'BoxFig') || isempty(self.FUNCS.BoxFig)
-        self.FUNCS.BoxFig = 'ep_GenericGUI';
+elseif isempty(a) || ~isfield(self.FUNCS,'BehaviorGUI')
+    if ~isfield(self.FUNCS,'BehaviorGUI') || isempty(self.FUNCS.BehaviorGUI)
+        self.FUNCS.BehaviorGUI = 'ep_GenericGUI';
     end
     ontop = self.AlwaysOnTop(false);
-    if isa(self.FUNCS.BoxFig,'function_handle'), self.FUNCS.BoxFig = func2str(self.FUNCS.BoxFig); end
-    a = inputdlg('GUI Figure','Specify Custom GUI Figure:',1,{self.FUNCS.BoxFig});
+    if isa(self.FUNCS.BehaviorGUI,'function_handle'), self.FUNCS.BehaviorGUI = func2str(self.FUNCS.BehaviorGUI); end
+    a = inputdlg('GUI Figure','Specify Custom GUI Figure:',1,{self.FUNCS.BehaviorGUI});
     self.AlwaysOnTop(ontop);
     if isempty(a), return, end
     a = char(a);
@@ -30,7 +30,7 @@ end
 
 if isempty(a)
     vprintf(0,'No GUI Figure specified. This is OK, but no figure will be called on start.')
-    self.FUNCS.BoxFig = [];
+    self.FUNCS.BehaviorGUI = [];
     self.CheckReady
     return
 end
@@ -45,5 +45,5 @@ if isempty(b)
 end
 
 vprintf(0,'GUI Figure:\t%s\t(%s)\n',a,b)
-self.FUNCS.BoxFig = a;
+self.FUNCS.BehaviorGUI = a;
 self.CheckReady

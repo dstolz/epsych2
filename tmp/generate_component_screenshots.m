@@ -1,7 +1,7 @@
 function generate_component_screenshots(options)
 % generate_component_screenshots(Name=Value, ...)
 % Capture each reusable obj/+gui component on its own, for the wiki's
-% "Box GUI Components" gallery. Every shot is one component in a bare
+% "Behavior GUI Components" gallery. Every shot is one component in a bare
 % uifigure sized to it, so the image shows the component and nothing else.
 %
 % Headless: figures are built Visible='off' and exportapp captures them
@@ -264,7 +264,7 @@ end
 function fig = shotHistory(S)
 % gui.History reads responseBits, so it wants a psychophysics.Psych
 % subclass; psychophysics.Detection is not one. A Staircase in offline mode
-% is the same object a real box GUI hands it.
+% is the same object a real behavior GUI hands it.
 fig = shotFigure([540 300]);
 sc = psychophysics.Staircase(S.DATA, S.Level);
 H = gui.History(sc, fig, PreferenceTag='wikiShotHistory');

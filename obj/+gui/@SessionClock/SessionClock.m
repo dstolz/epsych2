@@ -10,7 +10,7 @@ classdef SessionClock < handle
     % are shown. The choice persists across sessions via getpref/setpref,
     % keyed by PreferenceTag (by default the hosting figure's Tag, which
     % for a gui.BehaviorGUI subclass is that GUI's own PreferenceTag — so the
-    % remembered lines are scoped per BoxGUI automatically). Each line can
+    % remembered lines are scoped per BehaviorGUI automatically). Each line can
     % also be toggled programmatically via the Show* properties; a change
     % takes effect on the next timer tick, or immediately via refresh().
     %
@@ -361,7 +361,7 @@ classdef SessionClock < handle
         function tag = inferPreferenceTag_(parent)
             % Default PreferenceTag: the ancestor figure's Tag (which, for
             % a gui.BehaviorGUI subclass, is that GUI's own PreferenceTag), so
-            % line visibility is remembered per BoxGUI without the host
+            % line visibility is remembered per BehaviorGUI without the host
             % needing to pass anything. Falls back to a fixed tag when no
             % ancestor figure exists yet (e.g. standalone construction).
             tag = '';

@@ -2,7 +2,7 @@ function PsychTimerStart(self)
 % PsychTimerStart — Initialize runtime and optional performance GUI.
 % Behavior
 %   Updates state, calls TIMERfcn.Start, records StartTime, and
-%   attempts to launch BoxFig if configured.
+%   attempts to launch BehaviorGUI if configured.
 
 
 self.STATE = PRGMSTATE.RUNNING;
@@ -13,14 +13,14 @@ self.RUNTIME = feval(self.FUNCS.TIMERfcn.Start, self.RUNTIME, self.CONFIG);
 self.RUNTIME.StartTime = datetime('now');
 vprintf(0,'Experiment started at %s',self.RUNTIME.StartTime)
 
-% Attempt to launch BoxFig if configured. This is done after Start so that the live RUNTIME handle is available to the BoxFig function.
-if isempty(self.FUNCS.BoxFig)
+% Attempt to launch BehaviorGUI if configured. This is done after Start so that the live RUNTIME handle is available to the BehaviorGUI function.
+if isempty(self.FUNCS.BehaviorGUI)
     vprintf(0,'No Behavior GUI specified')
 else
     try
-        feval(self.FUNCS.BoxFig, self.RUNTIME);
+        feval(self.FUNCS.BehaviorGUI, self.RUNTIME);
     catch me
-        s = self.FUNCS.BoxFig;
+        s = self.FUNCS.BehaviorGUI;
         if ~ischar(s), s = func2str(s); end
         vprintf(0,1,me)
         a = repmat('*',1,50);
@@ -28,7 +28,7 @@ else
     end
 end
 
-% Notify listeners now that BoxFig is launched and HELPER is fully initialized.
+% Notify listeners now that BehaviorGUI is launched and HELPER is fully initialized.
 if self.RUNTIME.isTest
     runMode = hw.DeviceState.Preview;
 else

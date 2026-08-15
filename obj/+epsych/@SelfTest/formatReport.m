@@ -26,8 +26,8 @@ L(end+1) = sprintf('EPsych    : %s', string(E.latestTag));
 L(end+1) = sprintf('MATLAB    : %s', string(version));
 L(end+1) = sprintf('Host      : %s', string(getenv('COMPUTERNAME')));
 L(end+1) = sprintf('Verbosity : %d', self.Verbosity);
-L(end+1) = sprintf('Opt-ins   : HardwareConnect=%d  BoxFig=%d  GuiStateCycle=%d', ...
-    self.IncludeHardwareConnect, self.IncludeBoxFig, self.IncludeGuiStateCycle);
+L(end+1) = sprintf('Opt-ins   : HardwareConnect=%d  BehaviorGUI=%d  GuiStateCycle=%d', ...
+    self.IncludeHardwareConnect, self.IncludeBehaviorGUI, self.IncludeGuiStateCycle);
 
 if isempty(self.RunExpt) || ~isvalid(self.RunExpt)
     L(end+1) = "Session   : none";

@@ -119,7 +119,7 @@ classdef (Abstract) PopOut < handle
 
             fig.CloseRequestFcn = @(~,~) obj.closePopOut();
 
-            % The host owns the window. Its own destruction (the BoxGUI
+            % The host owns the window. Its own destruction (the BehaviorGUI
             % closing, say) must take the pop-out with it, and the handles
             % are captured rather than read back off a half-deleted object.
             obj.PopOutDestroyListener_ = listener(obj, 'ObjectBeingDestroyed', ...
@@ -218,7 +218,7 @@ classdef (Abstract) PopOut < handle
         function name = popOutWindowName_(obj)
             % name = popOutWindowName_(obj)
             % Window title: the component's label, qualified by the hosting
-            % figure's name so several BoxGUIs' pop-outs stay tellable apart.
+            % figure's name so several behavior GUIs' pop-outs stay tellable apart.
             name = obj.PopOutLabel;
             if isempty(name)
                 name = regexprep(gui.PopOut.classLabel_(obj), '([a-z0-9])([A-Z])', '$1 $2');

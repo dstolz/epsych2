@@ -85,7 +85,7 @@ p.isRandom = true;
 % per-trial dispatch, collected into DATA at every trial end instead.
 % Seed the Value first — set.Value refuses writes once Access='Read'.
 p = sw.add_parameter('RespCode', 0, Type = 'Integer', ...
-    Description = "epsych.BitMask response code, set by the box GUI at trial end");
+    Description = "epsych.BitMask response code, set by the behavior GUI at trial end");
 p.Value = 0;
 p.Access = 'Read';
 

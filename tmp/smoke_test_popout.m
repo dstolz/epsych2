@@ -233,8 +233,8 @@ popFig = g.Scatter.PopOutFigure;
 assert(isvalid(g.Scatter.AxesH), 'the embedded scatter must be left in place');
 
 g.closeGUI(g.h_figure, []); % the normal close path
-assert(~isvalid(popFig), 'closing the BoxGUI should close its components pop-outs');
-fprintf('PASS: BoxGUI pop-out button opens and closes with the GUI\n');
+assert(~isvalid(popFig), 'closing the BehaviorGUI should close its components pop-outs');
+fprintf('PASS: BehaviorGUI pop-out button opens and closes with the GUI\n');
 
 fprintf('\nsmoke_test_popout: all checks passed\n');
 end
@@ -288,7 +288,7 @@ end
 
 
 function rt = makeRuntime()
-% Runtime with a connected software interface, enough for a BoxGUI to open.
+% Runtime with a connected software interface, enough for a BehaviorGUI to open.
 rt = epsych.Runtime;
 rt.isTest = true;
 rt.HELPER = epsych.Helper;

@@ -155,7 +155,7 @@ fprintf('PASS: protocol without a reminder row falls back without corrupting the
 % This is the ordering the runtime actually runs. The press lands mid-trial;
 % that trial then ends normally -- ep_TimerFcn_RunTime writes its DATA
 % record, calls onComplete, and broadcasts NewData -- and only then calls
-% selectNext. Clearing the toggle from that NewData (as the box GUI used to)
+% selectNext. Clearing the toggle from that NewData (as the behavior GUI used to)
 % withdrew the request in the same pass that was about to honor it, so no
 % reminder was ever presented.
 [rt4,T4] = makeRuntime(tmpDir, 0);

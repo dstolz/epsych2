@@ -18,7 +18,7 @@ function report = assignToSession(self, runExpt, subjectIds, options)
 %
 % Options:
 %   ProjectID - project context used to resolve and remember protocols, and
-%               whose session defaults (box GUI, data path, saving function,
+%               whose session defaults (behavior GUI, data path, saving function,
 %               timer period, video and Intan recording paths) are applied to
 %               the session. A field the project leaves empty is inherited from
 %               the session rather than blanked.
@@ -238,7 +238,7 @@ if isempty(projectId), return, end
 p = self.findProject(projectId);
 if isempty(p), return, end
 
-boxNote = localApplyBoxGUI(runExpt, p);
+boxNote = localApplyBehaviorGUI(runExpt, p);
 if ~isempty(boxNote), notes{end+1} = boxNote; end
 
 applied = {};
@@ -301,41 +301,41 @@ end
 end
 
 % -----------------------------------------------------------------------
-function note = localApplyBoxGUI(runExpt, p)
+function note = localApplyBehaviorGUI(runExpt, p)
 % Put the project's behavior GUI on the session, returning a one-clause note
 % for the report when it changed anything.
 %
-% The three states of a project's BoxGUI field: empty inherits whatever the
-% session already has, BOXGUI_NONE disables the GUI, anything else names the
+% The three states of a project's BehaviorGUI field: empty inherits whatever the
+% session already has, BEHAVIORGUI_NONE disables the GUI, anything else names the
 % function epsych.RunExpt.PsychTimerStart will feval. An unresolvable name is
 % still applied -- it is the operator's stated intent, and a lab that adds its
 % GUI to the path later would be badly served by having it silently dropped --
 % but it is logged now rather than at run start.
 note = '';
-if isempty(p.BoxGUI), return, end
+if isempty(p.BehaviorGUI), return, end
 
-if strcmpi(p.BoxGUI, epsych.SubjectRoster.BOXGUI_NONE)
+if strcmpi(p.BehaviorGUI, epsych.SubjectRoster.BEHAVIORGUI_NONE)
     wanted = '';
 else
-    wanted = p.BoxGUI;
+    wanted = p.BehaviorGUI;
 end
 
-% A session may carry its box GUI as a handle rather than a name (DefineBoxFig
+% A session may carry its behavior GUI as a handle rather than a name (DefineBehaviorGUI
 % accepts one), and [] rather than '' when disabled.
-current = runExpt.FUNCS.BoxFig;
+current = runExpt.FUNCS.BehaviorGUI;
 if isa(current, 'function_handle'), current = func2str(current); end
 if strcmp(char(current), wanted), return, end
 
-runExpt.FUNCS.BoxFig = wanted;
+runExpt.FUNCS.BehaviorGUI = wanted;
 
 if isempty(wanted)
-    note = sprintf('Project "%s" runs no box GUI.', p.Name);
+    note = sprintf('Project "%s" runs no behavior GUI.', p.Name);
 else
-    note = sprintf('Box GUI: %s', wanted);
+    note = sprintf('Behavior GUI: %s', wanted);
     if isempty(which(wanted))
-        vprintf(0, 1, ['Project "%s" names box GUI "%s", which is not on the path. ' ...
+        vprintf(0, 1, ['Project "%s" names behavior GUI "%s", which is not on the path. ' ...
             'The session will start without it.'], p.Name, wanted);
     end
 end
-vprintf(1, 'Box GUI for project "%s": %s', p.Name, note);
+vprintf(1, 'Behavior GUI for project "%s": %s', p.Name, note);
 end

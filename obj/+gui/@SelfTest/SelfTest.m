@@ -212,7 +212,7 @@ classdef SelfTest < handle
         function onOptionChanged(self)
             % Mirror the opt-in checkboxes onto the engine.
             self.Engine.IncludeHardwareConnect = self.H.optConnect.Value;
-            self.Engine.IncludeBoxFig          = self.H.optBoxFig.Value;
+            self.Engine.IncludeBehaviorGUI     = self.H.optBehaviorGUI.Value;
             self.Engine.IncludeGuiStateCycle   = self.H.optStateCycle.Value;
         end
 

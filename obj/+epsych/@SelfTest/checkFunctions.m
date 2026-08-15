@@ -52,15 +52,15 @@ else
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
-% --- B3: box GUI function ---------------------------------------------
+% --- B3: behavior GUI function ---------------------------------------------
 t = tic;
-boxFig = string(localField(F, 'BoxFig', ''));
-if strlength(strtrim(boxFig)) == 0
-    r = epsych.SelfTest.result("B3_BoxFig", GROUP, "Box GUI function", "info", ...
-        'No box GUI configured; none will be launched.');
+behaviorGUI = string(localField(F, 'BehaviorGUI', ''));
+if strlength(strtrim(behaviorGUI)) == 0
+    r = epsych.SelfTest.result("B3_BehaviorGUI", GROUP, "Behavior GUI function", "info", ...
+        'No behavior GUI configured; none will be launched.');
 else
-    r = localCheckCallable("B3_BoxFig", GROUP, "Box GUI function", boxFig, ...
-        Remedy = "Set a valid box GUI on the project (Subjects & Projects > Edit Project > Session Defaults; default: ep_GenericGUI), or choose (none) to disable.");
+    r = localCheckCallable("B3_BehaviorGUI", GROUP, "Behavior GUI function", behaviorGUI, ...
+        Remedy = "Set a valid behavior GUI on the project (Subjects & Projects > Edit Project > Session Defaults; default: ep_GenericGUI), or choose (none) to disable.");
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
@@ -125,7 +125,7 @@ results = [results epsych.SelfTest.withTime(r, toc(t))];
 
 % --- B6: in-memory vs persisted preferences ---------------------------
 % Drift is informational and now usually expected: a project applies its own
-% saving function and box GUI to the session without touching the machine's
+% saving function and behavior GUI to the session without touching the machine's
 % preferences. It still explains why a rig behaves differently after loading a
 % colleague's configuration.
 t = tic;
@@ -133,7 +133,7 @@ drift = strings(1,0);
 prefSpecs = { ...
     'SavingFcn',     getpref('ep_RunExpt_FUNCS','SavingFcn','ep_SaveDataFcn'); ...
     'AddSubjectFcn', getpref('ep_RunExpt_FUNCS','AddSubjectFcn','epsych.DefaultSubject.open'); ...
-    'BoxFig',        getpref('ep_RunExpt_FUNCS','BoxFig','ep_GenericGUI')};
+    'BehaviorGUI',        getpref('ep_RunExpt_FUNCS','BehaviorGUI','ep_GenericGUI')};
 
 for i = 1:size(prefSpecs, 1)
     inMemory = string(localField(F, prefSpecs{i,1}, ''));

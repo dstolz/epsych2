@@ -7,7 +7,7 @@ function OpenCustomizeDialog(self)
 % programmatic use.
 %
 % What a paradigm decides rather than a rig — saving function, timer period,
-% box GUI, and the video and Intan recording roots — lives on the project
+% behavior GUI, and the video and Intan recording roots — lives on the project
 % instead (gui.SubjectManager > Edit Project > Session Defaults), and is applied
 % to the session when that project's subjects are added. The two notes in this
 % dialog say so where the fields used to be, so an operator who looks for one
@@ -94,17 +94,17 @@ ef_addsubj.Layout.Row = 1; ef_addsubj.Layout.Column = 2;
 ef_addsubj.ValueChangedFcn = @(h,~) validateFcnField_(h,'addsubj');
 addResetBtn_(gFcn, 1, ef_addsubj, 'epsych.DefaultSubject.open', 'addsubj');
 
-% The saving function, box GUI, and timer period used to be fields here. They
+% The saving function, behavior GUI, and timer period used to be fields here. They
 % belong to a paradigm rather than to a rig, so they are now project properties;
 % this line is left in their place so an operator looking for one is told where
 % it went instead of concluding the feature was removed.
 lblMoved = uilabel(gFcn, 'Text', ...
-    ['Saving function, box GUI, and timer period: set per project in ' ...
+    ['Saving function, behavior GUI, and timer period: set per project in ' ...
      'Subjects > Subjects & Projects (Project > Edit Project... > Session Defaults).'], ...
     'FontColor',[0.35 0.38 0.42], 'WordWrap','on', ...
     'Tooltip', ['A project applies these to the session when its subjects are added.' newline ...
                 'Saving function — SaveFcn(RUNTIME), default ep_SaveDataFcn.' newline ...
-                'Box GUI — feval(BoxFig, RUNTIME) at run start, default ep_GenericGUI.' newline ...
+                'Behavior GUI — feval(BehaviorGUI, RUNTIME) at run start, default ep_GenericGUI.' newline ...
                 'Timer period — PsychTimer period in seconds, default 0.01.']);
 lblMoved.Layout.Row = 2; lblMoved.Layout.Column = [1 3];
 
@@ -342,7 +342,7 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
             return
         end
 
-        % FUNCS.SavingFcn, FUNCS.BoxFig, and FUNCS.TimerPeriod are deliberately
+        % FUNCS.SavingFcn, FUNCS.BehaviorGUI, and FUNCS.TimerPeriod are deliberately
         % not touched here: a project may have applied them when its subjects
         % were added, and re-asserting a stale dialog value on every OK would
         % undo that. They are edited on the project instead.

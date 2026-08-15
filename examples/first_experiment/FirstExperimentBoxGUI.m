@@ -1,5 +1,5 @@
 classdef FirstExperimentBoxGUI < gui.BehaviorGUI
-    % FirstExperimentBoxGUI  Box GUI for the first-experiment tutorial, in
+    % FirstExperimentBoxGUI  Behavior GUI for the first-experiment tutorial, in
     % which YOU are the subject.
     %
     % The left panel faces the subject: a stimulus lamp that flashes on go
@@ -17,7 +17,7 @@ classdef FirstExperimentBoxGUI < gui.BehaviorGUI
     % On a TDT or Teensy rig, everything in this paragraph happens in the
     % device; the parameter names are the contract, not where they are set.
     %
-    % Launch in a real session by setting a project's Box GUI to
+    % Launch in a real session by setting a project's Behavior GUI to
     % FirstExperimentBoxGUI (Subjects > Subjects & Projects, Project >
     % Edit Project..., Session Defaults tab); the class must be on the
     % path. Or run a session without RunExpt: run_first_experiment

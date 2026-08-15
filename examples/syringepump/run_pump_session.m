@@ -79,7 +79,7 @@ T.NextTrialID         = T.selector.selectNext(T);
 T.selector.setRuntime(RUNTIME, 1);
 RUNTIME.TRIALS = T; % the setter resolves CORE triggers and dispatches trial 1
 
-% RunExpt launches the box GUI right after ep_TimerFcn_Start, then
+% RunExpt launches the behavior GUI right after ep_TimerFcn_Start, then
 % broadcasts the session mode; mirror that order here.
 if options.ShowGUI
     PumpBoxGUI(RUNTIME);

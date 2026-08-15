@@ -1,7 +1,7 @@
 function id = addProject(self, name, options)
 % id = addProject(self, name)
 % id = addProject(self, name, DefaultProtocol=..., DefaultDataPath=..., Notes=...)
-% id = addProject(self, name, BoxGUI=..., Links=..., Archived=...)
+% id = addProject(self, name, BehaviorGUI=..., Links=..., Archived=...)
 % id = addProject(self, name, Investigator=..., IACUCProtocol=...)
 % id = addProject(self, name, SavingFcn=..., TimerPeriod=..., VideoRootDir=...)
 % Create a project and persist it.
@@ -27,8 +27,8 @@ function id = addProject(self, name, options)
 %   IntanRootDir    - Intan RHX recording root (no spaces)
 %   IntanSettingsFile - RHX .xml settings file (no spaces); a protocol that
 %                     names its own still wins over this
-%   BoxGUI          - behavior GUI its sessions launch; '' inherits the session
-%                     default, BOXGUI_NONE launches none
+%   BehaviorGUI     - behavior GUI its sessions launch; '' inherits the session
+%                     default, BEHAVIORGUI_NONE launches none
 %
 % Every session-default option is optional and empty means "inherit whatever the
 % session already has", so an older roster and a script that names only a
@@ -62,7 +62,7 @@ arguments
     options.VideoRootDir (1,:) char = ''
     options.IntanRootDir (1,:) char = ''
     options.IntanSettingsFile (1,:) char = ''
-    options.BoxGUI (1,:) char = ''
+    options.BehaviorGUI (1,:) char = ''
     options.Links = epsych.SubjectRoster.emptyLink()
     options.Archived (1,1) logical = false
 end
@@ -97,7 +97,7 @@ rec.TimerPeriod     = options.TimerPeriod;
 rec.VideoRootDir    = options.VideoRootDir;
 rec.IntanRootDir    = options.IntanRootDir;
 rec.IntanSettingsFile = options.IntanSettingsFile;
-rec.BoxGUI          = options.BoxGUI;
+rec.BehaviorGUI     = options.BehaviorGUI;
 rec.Links           = epsych.SubjectRoster.normalizeLinks_(options.Links, Validate = true);
 rec.Archived        = options.Archived;
 rec.Created         = datetime('now');

@@ -4,7 +4,7 @@
 %
 % Two figures are captured: a large standalone window and a small embedded
 % axes, because legend/label crowding only shows up at the smaller size used
-% by the BoxGUIs.
+% by the behavior GUIs.
 %
 % Set SHOT_TAG in the base workspace to label the exported files:
 %   SHOT_TAG = 'before'; run('tmp/smoke_test_staircase_plot.m')
@@ -70,7 +70,7 @@ axLarge = uiaxes(gl);
 S1.Plot(axLarge);
 drawnow
 
-% --- Small embedded axes, as used inside a BoxGUI ---------------------------
+% --- Small embedded axes, as used inside a BehaviorGUI ---------------------------
 S2 = psychophysics.Staircase(DATA, 'Depth', StaircaseDirection="Down");
 figSmall = uifigure('Name','Staircase (embedded)','Position',[80 80 620 340]);
 gl2 = uigridlayout(figSmall,[1 1]);

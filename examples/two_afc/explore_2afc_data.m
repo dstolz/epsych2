@@ -139,7 +139,7 @@ else
 end
 
 % --- The same session through the toolbox --------------------------------
-% No trial-type arguments are needed: the box GUI scored left-correct
+% No trial-type arguments are needed: the behavior GUI scored left-correct
 % trials as Hit/Miss and right-correct trials as CorrectReject/FalseAlarm,
 % which is exactly what the defaults expect. PercentCorrect is then 2AFC
 % accuracy, and Criterion is the side bias — negative toward LEFT.

@@ -121,7 +121,7 @@ The dropdown is editable, and its list is drawn from **the behavior GUIs other p
 
 `(session default)` is reachable but is not what a new project opens on — like every other session default, the field is seeded with a real value.
 
-**This is where the behavior GUI is configured.** It was **Customize → Behavior GUI Function**; the GUI belongs to a paradigm rather than to a rig, and a rig alternating between two studies had to be re-pointed by hand between sessions. Customize now leaves a grey line in that field's place saying where it went. See [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#the-box-gui-in-three-states) for how the three states reach `FUNCS.BehaviorGUI`.
+**This is where the behavior GUI is configured.** It was **Customize → Behavior GUI Function**; the GUI belongs to a paradigm rather than to a rig, and a rig alternating between two studies had to be re-pointed by hand between sessions. Customize now leaves a grey line in that field's place saying where it went. See [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#the-behavior-gui-in-three-states) for how the three states reach `FUNCS.BehaviorGUI`.
 
 ### Columns
 

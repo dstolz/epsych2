@@ -19,9 +19,9 @@ write MATLAB against the framework.
 | `Stimuli-and-Calibration` | StimPlayer, speaker calibration, dB SPL → volts (links out to stimgen) |
 | `Parameter-Files-and-Phases` | Phase `.eprot` files, PhaseSelector, what a phase load does and does not restore |
 | `Training-and-Online-Analysis` | Staircase training, history, performance plots, session metrics |
-| `Building-a-Box-GUI` | Subclassing `gui.BehaviorGUI`: lifecycle, `build(fig)`, event hooks, teardown |
-| `Box-GUI-Components` | The parts list — one `###` section per `obj/+gui/` component, each with its own screenshot |
-| `Generating-a-Box-GUI-with-AI` | Prompting a model to draft a behavior GUI, and verifying what it produced |
+| `Building-a-Behavior-GUI` | Subclassing `gui.BehaviorGUI`: lifecycle, `build(fig)`, event hooks, teardown |
+| `Behavior-GUI-Components` | The parts list — one `###` section per `obj/+gui/` component, each with its own screenshot |
+| `Generating-a-Behavior-GUI-with-AI` | Prompting a model to draft a behavior GUI, and verifying what it produced |
 | `Teensy-Trial-Designer` 🚧 | The designer GUI, templates, test bench |
 | `Video-and-Peripherals` | VLC recording, syringe-pump reward (`hw.NE1000` + `gui.SyringePump`), motorized commutators |
 | `Data-and-Save-Functions` | What is saved, the trial journal, decoding `epsych.BitMask` outcomes, custom save functions |

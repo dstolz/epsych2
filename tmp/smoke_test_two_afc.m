@@ -108,8 +108,8 @@ S = load(datafile);
 assert(isfield(S, 'Data') && isfield(S, 'Info'), ...
     'session file must carry Data and Info variables');
 
-req = {'RespCode', 'ChoiceSide', 'RT_ms', 'InTrial', 'TrialType', 'Contrast', ...
-    'BaseLevel', 'ITI', 'TrialIndex', 'TrialID', 'computerTimestamp', 'isTest'};
+req = {'RespCode', 'ChoiceSide', 'RT_ms', 'SignedContrast', 'InTrial', 'TrialType', ...
+    'Contrast', 'BaseLevel', 'ITI', 'TrialIndex', 'TrialID', 'computerTimestamp', 'isTest'};
 have = isfield(S.Data, req);
 assert(all(have), 'missing DATA fields: %s', strjoin(req(~have), ', '));
 
@@ -117,6 +117,12 @@ M = epsych.BitMask.decode(uint32([S.Data.RespCode]));
 choice   = [S.Data.ChoiceSide];
 side     = [S.Data.TrialType];
 answered = choice >= 0;
+
+% SignedContrast is a stimulus fact, recorded on every trial regardless of
+% whether it was answered: negative = left brighter (left correct).
+signedContrast = [S.Data.SignedContrast];
+assert(isequal(signedContrast, [S.Data.Contrast] .* (2 * side - 1)), ...
+    'SignedContrast must equal Contrast signed by which side was correct');
 
 % Aborts: no answer, no Choice bit, no outcome bit, sentinel RT. The
 % sentinel is -1 and not NaN because hw.Parameter.clamp_value_ applies

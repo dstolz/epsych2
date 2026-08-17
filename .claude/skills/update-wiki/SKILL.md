@@ -163,7 +163,7 @@ Document the NE1000 pump and the SyringePump panel
 
 - Video-and-Peripherals: new "Reward delivery" section covering the pump
   backend, the operator panel, and the no-hardware fallback.
-- Box-GUI-Components: gui.SyringePump entry with a captured shot.
+- Behavior-GUI-Components: gui.SyringePump entry with a captured shot.
 - Regenerated images/components/SyringePump.png.
 ```
 

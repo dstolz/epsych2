@@ -278,6 +278,19 @@ self.H.mnu_assign_runtime = uimenu(mHelp,'Label','Assign RUNTIME to Command Wind
     'Enable','off', ...
     'MenuSelectedFcn', @(~,~) self.AssignRuntimeToCommandWindow);
 uimenu(mHelp,'Label','Verbosity...','MenuSelectedFcn', @(~,~) self.verbosity,'Accelerator','V')
+
+% One wiki page per examples/ walkthrough, opened the same way Documentation
+% opens a doc page (web() on the wiki URL). Each page's Quick Start section
+% has the MATLAB commands to actually run it -- this menu is a link to that,
+% not a launcher, since running one starts an interactive session (be the
+% subject, click through trials) rather than opening a self-contained window.
+mExamples = uimenu(mHelp,'Label','Example Experiments','Separator','on');
+self.H.mnu_examples = mExamples;
+uimenu(mExamples,'Label','Your First Experiment...', ...
+    'MenuSelectedFcn', @(~,~) self.OpenExampleExperiment("first_experiment"));
+uimenu(mExamples,'Label','Two-AFC Task...', ...
+    'MenuSelectedFcn', @(~,~) self.OpenExampleExperiment("two_afc"));
+
 uimenu(mHelp,'Label','GitHub Repository','Separator','on', ...
     'MenuSelectedFcn', @(~,~) web(EPsychInfo.RepositoryURL,'-browser'))
 uimenu(mHelp,'Label','Documentation','MenuSelectedFcn', ...

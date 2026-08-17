@@ -4,7 +4,7 @@ function revealSubject(self, name)
 %
 % Called by the session window's "Show in Subject Manager" action, so the two
 % windows are navigable in both directions. A subject that is not in the roster
-% is not an error: the window lands on All Subjects and the status line says so,
+% is not an error: the window lands on All Projects and the status line says so,
 % which is the answer the operator was looking for anyway.
 %
 % Parameters:
@@ -32,7 +32,7 @@ end
 self.setFilterText_('');
 
 % Prefer a project the subject is actually in, so the row is visible without
-% falling back to All Subjects.
+% falling back to All Projects.
 projects = self.Roster.projectsForSubject(rec.SubjectID);
 if isempty(projects)
     self.PendingProject_ = '';

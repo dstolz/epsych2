@@ -63,8 +63,8 @@ Whole-window shots (`<wiki>/images/`), and the pages that embed them:
 | `ParameterScatter.png` | `ParameterScatter` | Training-and-Online-Analysis |
 | `OnlineAnalysis.png` | `OnlineAnalysis` | Training-and-Online-Analysis |
 | `StaircaseTraining.png` | `StaircaseTraining` | Training-and-Online-Analysis |
-| `ExampleBehaviorGUI.png` | `ExampleBehaviorGUI` | Building-a-Box-GUI |
-| `DetectionBehaviorGUI.png` | `DetectionBehaviorGUI` | Building-a-Box-GUI, GUI-Framework-Internals |
+| `ExampleBehaviorGUI.png` | `ExampleBehaviorGUI` | Building-a-Behavior-GUI |
+| `DetectionBehaviorGUI.png` | `DetectionBehaviorGUI` | Building-a-Behavior-GUI, GUI-Framework-Internals |
 | `RunExpt.png` | `RunExpt` | Home, Quick-Start, Running-a-Session, RunExpt-GUI-Overview |
 | `SelfTest.png` | `SelfTest` | Running-a-Session, Troubleshooting |
 | `StimPlayer.png` | `StimPlayer` | Stimuli-and-Calibration |
@@ -79,7 +79,7 @@ generator's `alsoIn` struct copies them automatically:
 | `ProtocolDesigner`, `ProtocolDesigner_Interfaces` | `documentation/design/images/` |
 | `RunExpt` | `documentation/overviews/images/` |
 
-Component shots (`<wiki>/images/components/`) back the **Box-GUI-Components**
+Component shots (`<wiki>/images/components/`) back the **Behavior-GUI-Components**
 page, one image per `###` entry: `Parameter_Control`, `Parameter_Update`,
 `Parameter_Monitor_Table`, `Parameter_Monitor_Graphical`, `NextTrial`,
 `SessionClock`, `ElapsedTrialTimer`, `ModeIndicator`, `StatusBar`, `History`,
@@ -128,7 +128,7 @@ In `tmp/generate_component_screenshots.m`:
    saved column layout is not reproducible, and one that writes theirs is rude.
 4. Hardware-backed components run against a mock (`NE1000_Mock`), never a real
    device — the shot must work on a machine with nothing plugged in.
-5. Add the matching `### gui.YourComponent` section to `Box-GUI-Components.md`:
+5. Add the matching `### gui.YourComponent` section to `Behavior-GUI-Components.md`:
    image, italic caption, **Purpose**, **Implementation**, a code snippet, and a
    `Reference:` link to the `documentation/gui/` doc.
 
@@ -151,7 +151,7 @@ momentary trigger button. The green field has been edited but not committed.*
 
 This is the part that goes stale invisibly. When a shot changes, re-read its
 caption and the sentence around it — the RunExpt caption names the two subjects
-and the boxes they sit in, and the Box-GUI-Components intro asserts the shots
+and the boxes they sit in, and the Behavior-GUI-Components intro asserts the shots
 came from a simulated 150-trial session.
 
 ## After regenerating

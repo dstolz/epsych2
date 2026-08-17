@@ -386,6 +386,7 @@ classdef RunExpt < handle
         end
 
         LaunchUtility(self, target)      % Open a standalone tool from the Utilities menu
+        OpenExampleExperiment(self, exampleName)  % Open an examples/ walkthrough README in the default browser
 
         function LaunchCommutatorGUI(self)
             % obj.LaunchCommutatorGUI

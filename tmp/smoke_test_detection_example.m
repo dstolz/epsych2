@@ -101,7 +101,7 @@ assert(isfield(S, 'Data') && isfield(S, 'Info'), ...
     'session file must carry Data and Info variables');
 assert(numel(S.Data) == NTRIALS, 'saved Data has %d records', numel(S.Data));
 
-req = {'RespCode', 'ToneLevel', 'TrialType', 'ToneDur', 'ITI', 'RespWinDelay', ...
+req = {'RespCode', 'RT_ms', 'ToneLevel', 'TrialType', 'ToneDur', 'ITI', 'RespWinDelay', ...
     'InTrial', 'TrialIndex', 'TrialID', 'computerTimestamp', 'isTest'};
 have = isfield(S.Data, req);
 assert(all(have), 'missing DATA fields: %s', strjoin(req(~have), ', '));
@@ -111,6 +111,16 @@ assert(numel(unique(itis)) > 1 && all(itis >= 2000 & itis <= 4000), ...
     'ITI should randomize within [2000 4000] every trial');
 assert(all([S.Data.RespWinDelay] == [S.Data.ToneDur] + 250), ...
     'RespWinDelay expression did not evaluate on dispatch');
+
+% RT_ms is a real number even on a Miss/CorrectReject (-1 sentinel, never
+% NaN); a Hit or FalseAlarm carries a genuine simulated latency.
+Mresp = epsych.BitMask.decode(uint32([S.Data.RespCode]));
+rt = [S.Data.RT_ms];
+responded = Mresp.Hit | Mresp.FalseAlarm;
+assert(all(rt(responded) >= 150) && ~any(isnan(rt(responded))), ...
+    'a response must carry a real, positive simulated RT');
+assert(all(rt(~responded) == -1), ...
+    'Miss/CorrectReject trials must carry the -1 no-response sentinel');
 
 fig = findall(groot, 'Type', 'figure', 'Tag', 'DetectionBehaviorGUI');
 assert(isscalar(fig), 'DetectionBehaviorGUI figure not found');

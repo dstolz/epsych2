@@ -298,7 +298,7 @@ if ~isempty(projectId)
     if isempty(mine), return, end
     isRetired = ~mine(1).Active;
 else
-    % In the All Subjects view a subject counts as retired only when it is
+    % In the All Projects view a subject counts as retired only when it is
     % retired everywhere; still active in one study is still active.
     isRetired = ~any([mine.Active]);
 end

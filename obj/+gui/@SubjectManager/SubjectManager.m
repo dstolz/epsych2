@@ -82,7 +82,7 @@ classdef SubjectManager < handle
         % Pinned first in the project list. Not a project: it shows every
         % subject regardless of membership, which is both the empty state for a
         % fresh roster and the way to find a subject whose project you forgot.
-        ALL_SUBJECTS (1,:) char = '<All Subjects>'
+        ALL_SUBJECTS (1,:) char = '<All Projects>'
 
         DEFAULT_POSITION (1,4) double = [100 100 1120 640]
     end
@@ -176,7 +176,7 @@ classdef SubjectManager < handle
     methods (Access = private)
 
         function id = selectedProject_(self)
-            % ProjectID of the current selection, or '' for All Subjects.
+            % ProjectID of the current selection, or '' for All Projects.
             id = '';
             if isfield(self.H,'projectList') && isgraphics(self.H.projectList)
                 id = self.H.projectList.Value;
@@ -723,7 +723,7 @@ classdef SubjectManager < handle
 
             self.H.bannerLabel.Text = message;
             % Nothing to press without a project: protocol memory is per
-            % membership, so the All Subjects view can report but not fix.
+            % membership, so the All Projects view can report but not fix.
             self.H.bannerButton.Visible = ...
                 matlab.lang.OnOffSwitchState(~isempty(self.selectedProject_()));
             self.H.bannerGrid.Visible = 'on';

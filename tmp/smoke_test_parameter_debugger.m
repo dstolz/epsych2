@@ -424,7 +424,103 @@ catch ME
     results(end+1,:) = check(['Empty states: ' ME.message], false);
 end
 
-%% 18. The launch path: Help menu of a live RunExpt session
+%% 18. Regressions found by review, each of which shipped once
+try
+    regRig = ParameterDebuggerMock();
+    r = regRig.add_parameter('Level', 10);   r.Value = 10;
+    r = regRig.add_parameter('Gain', 20);    r.Value = 20;
+    regRig.add_parameter('Fire', 0, isTrigger = true);
+    regRig.add_parameter('Blind', 0, Access = 'Write', Max = 5);
+    regRig.connect();
+
+    dbg = gui.ParameterDebugger(regRig, Visible = false);
+    figs(end+1) = dbg.H.figure;
+
+    % A uitable with SelectionType='row' returns Selection as a 1-by-N ROW
+    % vector, so reading sel(:,1) kept only the first selected row and silently
+    % dropped the rest.
+    dbg.H.table.Selection = [rowIndex(dbg,'Level'), rowIndex(dbg,'Gain'), rowIndex(dbg,'Fire')];
+    dbg.readSelected();
+    results(end+1,:) = check('Read Selected reads every selected row, not just the first', ...
+        contains(dbg.H.status.Text, '3 read') || contains(dbg.H.status.Text, '2 read'));
+
+    dbg.fireTrigger();
+    results(end+1,:) = check('Fire Trigger finds a trigger below the first selected row', ...
+        ~isempty(regRig.Fired) && strcmp(regRig.Fired{end}, 'Fire'));
+
+    dbg.copyToClipboard();
+    results(end+1,:) = check('Copy takes the whole selection', ...
+        contains(dbg.H.status.Text, 'Copied 3 row(s)'));
+
+    % str2double ran before the safety pattern, so text it alone understands
+    % reached the write path. "1e999" overflows to Inf; "(-1)^0.5" is complex
+    % and passes the pattern outright.
+    before = regRig.Store('Level');
+    editCell(dbg, rowIndex(dbg,'Level'), '3i');
+    results(end+1,:) = check('A complex literal is refused', ...
+        isequal(regRig.Store('Level'), before));
+    editCell(dbg, rowIndex(dbg,'Level'), '1e999');
+    results(end+1,:) = check('An overflowing literal is refused', ...
+        isequal(regRig.Store('Level'), before));
+    editCell(dbg, rowIndex(dbg,'Level'), '(-1)^0.5');
+    results(end+1,:) = check('Arithmetic that evaluates complex is refused', ...
+        isequal(regRig.Store('Level'), before));
+    editCell(dbg, rowIndex(dbg,'Level'), '42');
+    results(end+1,:) = check('...while an ordinary number still writes', ...
+        isequal(regRig.Store('Level'), 42));
+
+    % A write whose read-back is too large to be a literal must also flip the
+    % row to uneditable, or the summary text is handed back to the parser and
+    % reported as malformed rather than as too large to edit.
+    editCell(dbg, rowIndex(dbg,'Gain'), '1:100');
+    results(end+1,:) = check('A write that returns a big array marks the row uneditable', ...
+        ~dbg.Rows(rowIndex(dbg,'Gain')).Editable);
+
+    % A write-only parameter cannot be read back, so what is shown must at
+    % least be what set.Value stored -- clamped, not the raw typed number.
+    editCell(dbg, rowIndex(dbg,'Blind'), '99');
+    blind = dbg.Rows(rowIndex(dbg,'Blind'));
+    results(end+1,:) = check('A clamped write-only value is shown clamped', ...
+        strcmp(blind.ValueText, '5') && contains(blind.Note, 'clamped'));
+
+    % The sweep holds the re-entrancy guard for its whole duration, so a
+    % refresh or a second read landing mid-sweep is dropped rather than
+    % rebuilding Rows underneath the loop.
+    dbg.H.table.Selection = [];
+    dbg.readAll();
+    results(end+1,:) = check('The guard is down again once the sweep ends', ~dbg.IsBusy);
+    results(end+1,:) = check('Read Selected is left disabled with nothing selected', ...
+        dbg.H.btnReadSel.Enable == "off" && ...
+        dbg.H.btnReadSel.Enable == dbg.H.mnu_read_selected.Enable);
+
+    % Closing the window mid-sweep must stop the sweep, not throw out of it.
+    % The mock's read hook is the only way to make it happen synchronously.
+    victim = dbg;
+    regRig.ReadCount = 0;
+    regRig.OnRead = @(m, ~) closeAfter(m, 2, victim);
+    threw = '';
+    try
+        dbg.readAll();
+    catch ME
+        threw = ME.message;
+    end
+    regRig.OnRead = [];
+    results(end+1,:) = check('Closing the window mid-sweep does not throw', isempty(threw));
+    results(end+1,:) = check('...and the sweep stops there', ~isvalid(victim));
+
+    % Reopening must not throw away where the operator put the window.
+    dbg = gui.ParameterDebugger(regRig, Visible = false);
+    figs(end+1) = dbg.H.figure;
+    dbg.H.figure.Position = [220 180 900 500];
+    dbg = gui.ParameterDebugger(regRig, Visible = false);
+    figs(end+1) = dbg.H.figure;
+    results(end+1,:) = check('Reopening keeps the previous window position', ...
+        isequal(dbg.H.figure.Position(3:4), [900 500]));
+catch ME
+    results(end+1,:) = check(['Regressions: ' ME.message], false);
+end
+
+%% 19. The launch path: Help menu of a live RunExpt session
 rx = [];
 try
     rx = epsych.RunExpt;
@@ -462,7 +558,7 @@ catch ME
     results(end+1,:) = check(['RunExpt launch: ' ME.message], false);
 end
 
-%% 19. Teardown
+%% 20. Teardown
 try
     if ispref('epsych2_gui_ParameterDebugger','FigurePosition')
         rmpref('epsych2_gui_ParameterDebugger','FigurePosition');
@@ -540,6 +636,15 @@ previous = dbg.H.table.Data{row, col};
 dbg.H.table.Data{row, col} = text;
 dbg.H.table.CellEditCallback(dbg.H.table, ...
     struct('Indices', [row col], 'NewData', text, 'PreviousData', previous));
+end
+
+
+function closeAfter(mock, n, dbg)
+% Delete the debugger part-way through a read sweep, as an operator pressing
+% Escape on an unresponsive rig would.
+if mock.ReadCount == n && isvalid(dbg)
+    delete(dbg);
+end
 end
 
 

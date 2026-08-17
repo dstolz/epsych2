@@ -76,7 +76,7 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
     methods
         function obj = TwoAFCBehaviorGUI(RUNTIME)
             obj@gui.BehaviorGUI(RUNTIME, Name = '2AFC — Which Side Was Brighter?', ...
-                DefaultPosition = [100 100 980 600]);
+                DefaultPosition = [100 100 1100 780]);
             if nargout == 0, clear obj; end
         end
 
@@ -168,9 +168,9 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             fig.WindowKeyPressFcn = @(~,evt) obj.keyPressed_(evt);
 
             % --- Operator panel ------------------------------------------
-            og = uigridlayout(g, [3 1]);
+            og = uigridlayout(g, [4 1]);
             og.Layout.Row = 2; og.Layout.Column = 2;
-            og.RowHeight = {124, 168, '1x'};
+            og.RowHeight = {124, 168, 190, '1x'};
             og.Padding = [0 0 0 0];
 
             col = obj.controlColumn(og, Title = 'Session Controls', Row = 1, Rows = 3);
@@ -186,11 +186,20 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             obj.addPerformance(pnl, ShowDetail = false, ...
                 Metrics = ["Trials", "PercentCorrect", "AbortRate", "DPrime", "Criterion"]);
 
+            % Per-trial complement to the binned table below: every trial's
+            % signed contrast plotted at the side actually chosen, colored by
+            % outcome. Refreshes itself on every completed trial.
+            pnl = uipanel(og, 'Title', 'Signed Contrast by Chosen Side');
+            pnl.Layout.Row = 3;
+            obj.register(gui.ParameterScatter(obj.RUNTIME, pnl, ...
+                XParameter = 'ChoiceSide', YParameter = 'SignedContrast', ...
+                ColorParameter = 'Response'));
+
             % The live psychometric function: P(chose right) against signed
             % contrast (negative = left brighter). A subject with no bias
             % produces a curve through 50% at zero.
             pnl = uipanel(og, 'Title', 'Choices by Signed Contrast');
-            pnl.Layout.Row = 3;
+            pnl.Layout.Row = 4;
             inner = uigridlayout(pnl, [1 1]);
             inner.Padding = [0 0 0 0];
             obj.ChoiceTable = uitable(inner);
@@ -268,7 +277,7 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             % GUI against a synthetic runtime with no parameters at all.
             tf = all(isfield(obj.P, {'TrialType', 'Contrast', 'BaseLevel', ...
                 'FlashDur', 'ITI', 'RespWinDur', 'RespCode', 'ChoiceSide', ...
-                'RT_ms', 'InTrial', 'x_TrialComplete_1'})) ...
+                'RT_ms', 'SignedContrast', 'InTrial', 'x_TrialComplete_1'})) ...
                 && ~isempty(obj.RUNTIME.TRIALS) && isstruct(obj.RUNTIME.TRIALS);
         end
 
@@ -393,6 +402,10 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             obj.setReadParameter_(obj.P.ChoiceSide, choiceSide);
             obj.setReadParameter_(obj.P.RT_ms, rt);
             obj.setReadParameter_(obj.P.RespCode, double(rc));
+            % Negative = left brighter (left correct), matching the sign
+            % convention every plot and analysis in this tutorial uses.
+            obj.setReadParameter_(obj.P.SignedContrast, ...
+                obj.TrialContrast * (2 * obj.TrialCorrectSide - 1));
             obj.setReadParameter_(obj.P.InTrial, false);
 
             % Raising the completion flag hands the trial to the runtime:

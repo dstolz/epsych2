@@ -20,6 +20,12 @@ end
 
 if ~isfield(self.H,'table') || ~isgraphics(self.H.table), return, end
 
+% A read sweep holds the same flag for its whole duration. Rebuilding Rows
+% underneath it would leave the indices that sweep is iterating pointing at
+% different parameters, so the rebuild is dropped rather than interleaved --
+% Ctrl+R during a long sweep does nothing, and works the moment it ends.
+if self.Refreshing_, return, end
+
 self.Refreshing_ = true;
 restore = onCleanup(@() self.clearRefreshing_());
 

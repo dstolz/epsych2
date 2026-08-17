@@ -18,7 +18,7 @@ Type: Barlow Condensed (headings) / Barlow (body). Icons on a 24px grid, stroke 
 - `favicon.svg` — simplified mark for 32px
 - `favicon-16.svg` — single-channel fallback for 16px
 - `icons/*.svg` — ten doc-section icons: install, protocol-design, run-session, calibration,
-  stimulus-generation, hardware, trial-selection, analysis, box-gui, data-saving
+  stimulus-generation, hardware, trial-selection, analysis, behavior-gui, data-saving
 
 ## Notes
 

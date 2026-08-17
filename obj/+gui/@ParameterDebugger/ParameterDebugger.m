@@ -59,6 +59,13 @@ classdef ParameterDebugger < handle
         H = struct()        % graphics handles
     end
 
+    properties (Dependent)
+        % True while a read sweep or a rebuild owns the row list. Callbacks
+        % that would rewrite Rows drop their request while this is set; it is
+        % public so a test can assert the guard is lowered again afterwards.
+        IsBusy
+    end
+
     properties (Access = private)
         Sources_ = []       % struct array of Label/Interfaces the dropdown offers
         Interfaces_ = []    % interfaces behind the rows now listed
@@ -141,10 +148,18 @@ classdef ParameterDebugger < handle
 
             % One window at a time. Detach UserData and CloseRequestFcn first
             % so deleting it cannot re-enter this object's own teardown.
+            %
+            % The position is saved here rather than left to the prior object's
+            % destructor: that destructor only saves while its figure is still
+            % a graphics object, so deleting the figure first would silently
+            % throw away wherever the operator had dragged the window. Reopening
+            % from the Help menu is the ordinary way to get a second window, so
+            % that loss would happen constantly.
             existing = findall(groot, 'Type','figure', 'Tag', self.FIGURE_TAG);
             for i = 1:numel(existing)
                 if ~isgraphics(existing(i)), continue, end
                 prior = existing(i).UserData;
+                gui.BehaviorGUI.saveFigurePosition(self.PREF_TAG, existing(i).Position);
                 existing(i).UserData = [];
                 existing(i).CloseRequestFcn = '';
                 delete(existing(i));
@@ -180,6 +195,10 @@ classdef ParameterDebugger < handle
             catch ME
                 vprintf(2, ME);
             end
+        end
+
+        function tf = get.IsBusy(self)
+            tf = self.Refreshing_;
         end
 
         function readAll(self)
@@ -258,10 +277,21 @@ classdef ParameterDebugger < handle
             vprintf(1, 'Parameter Debugger wrote "%s" = %s', R.Name, text);
 
             % Read-back. A parameter that cannot be read leaves the written
-            % text standing, marked as written rather than as confirmed.
+            % value standing, marked as written rather than as confirmed.
+            %
+            % What is shown is the value after clamping, not the text typed:
+            % set.Value clamps to [Min Max] on the way in, so displaying the
+            % typed number would claim the device holds something it does not.
+            % clampValue previews the same arithmetic without writing again.
+            % An Expression or isRandom can still transform the value beyond
+            % this, which is exactly why the note says the value is unverified.
             if strcmp(P.Access, 'Write')
-                self.markRow_(row, self.STATE_WROTE, self.valueText_(P, value), ...
-                    'written (write-only, cannot be read back)');
+                [shown, wasClamped] = P.clampValue(value);
+                note = 'written (write-only, cannot be read back)';
+                if wasClamped
+                    note = 'written, clamped to bounds (cannot be read back)';
+                end
+                self.markValue_(row, self.STATE_WROTE, P, shown, note);
                 self.setStatus_(sprintf('Wrote "%s". It is write-only, so it cannot be read back.', R.Name));
                 return
             end
@@ -269,18 +299,18 @@ classdef ParameterDebugger < handle
             try
                 readBack = P.Value;
             catch ME
-                self.markRow_(row, self.STATE_WROTE, self.valueText_(P, value), ME.message);
+                self.markValue_(row, self.STATE_WROTE, P, value, ME.message);
                 self.setStatus_(sprintf('Wrote "%s", but reading it back failed: %s', R.Name, ME.message));
                 return
             end
 
             backText = self.valueText_(P, readBack);
             if isequaln(readBack, value)
-                self.markRow_(row, self.STATE_WROTE, backText, ...
+                self.markValue_(row, self.STATE_WROTE, P, readBack, ...
                     ['written ' self.timestamp_(R.Interface)]);
                 self.setStatus_(sprintf('Wrote "%s" = %s.', R.Name, backText));
             else
-                self.markRow_(row, self.STATE_STALE, backText, ...
+                self.markValue_(row, self.STATE_STALE, P, readBack, ...
                     sprintf('wrote %s, read %s', text, backText));
                 self.setStatus_(sprintf('"%s" was written as %s but reads back as %s.', ...
                     R.Name, text, backText));
@@ -370,10 +400,16 @@ classdef ParameterDebugger < handle
     methods (Access = private)
         function rows = selectedRows_(self)
             % Table selection as row indices into Rows, clipped to what exists.
+            %
+            % sel(:) rather than sel(:,1): with SelectionType='row' a uitable
+            % returns Selection as a 1-by-N ROW vector of row indices, so
+            % taking column 1 would keep only the first selected row and
+            % silently drop the rest -- which every multi-row action here
+            % (Read Selected, Fire Trigger, Copy) depends on.
             rows = [];
             sel = self.H.table.Selection;
             if isempty(sel) || isempty(self.Rows), return, end
-            rows = unique(sel(:,1))';
+            rows = unique(sel(:))';
             rows = rows(rows >= 1 & rows <= numel(self.Rows));
         end
 
@@ -558,8 +594,24 @@ classdef ParameterDebugger < handle
                 numel(self.Rows), live, numel(I));
         end
 
+        function markValue_(self, row, state, P, value, note)
+            % Record an outcome that carries a new VALUE, formatting it here.
+            %
+            % Every path that changes what a cell shows goes through this
+            % rather than through markRow_ with pre-formatted text, because
+            % valueText_ returns the display text and the "can this be edited
+            % in the grid" flag together, and the two must never drift apart:
+            % a cell showing a "<1x100 double> ..." summary that is still
+            % marked editable hands that summary back to the parser and
+            % reports it as malformed text instead of as too large to edit.
+            [txt, editable] = self.valueText_(P, value);
+            self.Rows(row).Editable = editable;
+            self.markRow_(row, state, txt, note);
+        end
+
         function markRow_(self, row, state, valueText, note)
-            % Record one row's outcome and push it to the table.
+            % Record one row's outcome and push it to the table. Callers that
+            % have a new value should use markValue_ instead.
             self.Rows(row).State = state;
             self.Rows(row).ValueText = valueText;
             self.Rows(row).Note = note;
@@ -574,7 +626,18 @@ classdef ParameterDebugger < handle
         end
 
         function clearRefreshing_(self)
+            if ~isvalid(self), return, end
             self.Refreshing_ = false;
+        end
+
+        function restoreReadControls_(self)
+            % Put the read controls back the way the window's own rules want
+            % them after a sweep, rather than switching them all on. Guarded
+            % because a sweep can outlive the window that started it.
+            if ~isvalid(self) || ~isfield(self.H,'table') || ~isgraphics(self.H.table)
+                return
+            end
+            self.updateEnableStates_();
         end
 
         function applyStyles_(self)
@@ -938,27 +1001,54 @@ classdef ParameterDebugger < handle
                         why = 'no value given';
                         return
                     end
-                    scalar = str2double(text);
-                    if ~isnan(scalar) || strcmpi(text, 'nan')
-                        value = scalar;
-                        ok = true;
-                        return
-                    end
+                    % The whitelist is applied FIRST, to every numeric path.
+                    % str2double is not a safety net of its own: it happily
+                    % returns a complex number for "3i" and +/-Inf for "inf",
+                    % neither of which any backend here can send, so letting it
+                    % answer before the pattern check would put values on the
+                    % wire that the pattern exists to keep off.
                     if isempty(regexp(text, '^[\[\]\(\)\s0-9eE\.\,\;\+\-\:\*\/]+$', 'once'))
                         why = 'not a number, an array literal, or an arithmetic expression';
                         return
                     end
-                    try
-                        value = str2num(text); %#ok<ST2NM> accepting "0:0.1:1" is the point
-                    catch ME
-                        why = ME.message;
-                        return
+                    scalar = str2double(text);
+                    if ~isnan(scalar)
+                        value = scalar;
+                    else
+                        try
+                            value = str2num(text); %#ok<ST2NM> accepting "0:0.1:1" is the point
+                        catch ME
+                            why = ME.message;
+                            return
+                        end
+                        if isempty(value)
+                            why = 'could not be read as a number';
+                            return
+                        end
                     end
-                    if isempty(value)
-                        why = 'could not be read as a number';
-                        return
-                    end
-                    ok = true;
+
+                    % The pattern keeps identifiers out; it cannot keep out
+                    % what arithmetic on digits alone can still produce.
+                    % "1e999" overflows to Inf and "(-1)^0.5" is complex, and
+                    % no backend here can send either -- a complex value would
+                    % be silently truncated somewhere downstream rather than
+                    % refused. Checking the result, not the text, catches both.
+                    [value, ok, why] = self.checkNumericResult_(value);
+            end
+        end
+
+        function [value, ok, why] = checkNumericResult_(~, value)
+            % Accept only a real, finite numeric value to send to hardware.
+            ok = false;
+            why = '';
+            if ~isnumeric(value)
+                why = 'did not evaluate to a number';
+            elseif ~isreal(value)
+                why = 'is complex; hardware parameters take real values';
+            elseif ~all(isfinite(value(:)))
+                why = 'is not finite';
+            else
+                ok = true;
             end
         end
 

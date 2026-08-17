@@ -30,7 +30,7 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
     methods
         function obj = DetectionBehaviorGUI(RUNTIME)
             obj@gui.BehaviorGUI(RUNTIME, Name = 'Tone Detection Box', ...
-                DefaultPosition = [100 100 1150 700]);
+                DefaultPosition = [100 100 1450 700]);
             if nargout == 0, clear obj; end
         end
     end
@@ -47,21 +47,21 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
         end
 
         function build(obj, fig)
-            g = uigridlayout(fig, [4 3]);
+            g = uigridlayout(fig, [4 4]);
             g.RowHeight   = {26, 55, '1x', '1x'};
-            g.ColumnWidth = {300, '1x', '1x'};
+            g.ColumnWidth = {300, '1x', '1x', '1x'};
 
             % Header: session mode, upcoming trial, running tally
             obj.ModeLabel = uilabel(g, Text = 'Mode: -', FontWeight = 'bold');
             obj.ModeLabel.Layout.Row = 1; obj.ModeLabel.Layout.Column = 1;
             obj.TrialLabel = uilabel(g, Text = 'Waiting for first trial...');
-            obj.TrialLabel.Layout.Row = 1; obj.TrialLabel.Layout.Column = 2;
+            obj.TrialLabel.Layout.Row = 1; obj.TrialLabel.Layout.Column = [2 3];
             obj.TallyLabel = uilabel(g, Text = '', HorizontalAlignment = 'right');
-            obj.TallyLabel.Layout.Row = 1; obj.TallyLabel.Layout.Column = 3;
+            obj.TallyLabel.Layout.Row = 1; obj.TallyLabel.Layout.Column = 4;
 
             % Trigger buttons across the top
             row = uigridlayout(g, [1 4]);
-            row.Layout.Row = 2; row.Layout.Column = [1 3];
+            row.Layout.Row = 2; row.Layout.Column = [1 4];
             obj.addButton(row, 'Reward', Text = 'Manual Reward');
 
             % Editable parameters, committed together by the update button
@@ -93,6 +93,14 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
                 ax = axes(pnl);
                 obj.register(gui.PsychPlot(obj.Psych, ax));
             end
+
+            % Response latency, refreshed automatically on every trial via
+            % its own NewData listener (no wiring needed in onNewData).
+            pnl = uipanel(g, 'Title', 'Response Latency by Trial');
+            pnl.Layout.Row = [3 4]; pnl.Layout.Column = 4;
+            obj.register(gui.ParameterScatter(obj.RUNTIME, pnl, ...
+                XParameter = 'Trial Number', YParameter = 'RT_ms', ...
+                ColorParameter = 'Response'));
         end
 
         function onNewTrial(obj, ~, event)

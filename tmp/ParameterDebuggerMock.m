@@ -33,6 +33,13 @@ classdef ParameterDebuggerMock < hw.Interface
 
         FailOn (1,:) string = "Broken"
         QuantizeOn (1,:) string = "Coarse"
+
+        % Called on every read, after the value is resolved. The hook exists so
+        % a test can make something happen DURING a sweep -- closing the window
+        % mid-read is otherwise unreachable synchronously, and it is exactly
+        % what an operator does when a backend stops answering.
+        OnRead = []
+        ReadCount (1,1) double = 0
     end
 
     properties (Constant)
@@ -80,6 +87,11 @@ classdef ParameterDebuggerMock < hw.Interface
                 value = obj.Store(P.Name);
             else
                 value = nan;
+            end
+
+            obj.ReadCount = obj.ReadCount + 1;
+            if isa(obj.OnRead, 'function_handle')
+                obj.OnRead(obj, P);
             end
         end
 

@@ -398,6 +398,10 @@ self.H.btnAddToSession = uibutton(gActions, 'Text','Add Checked to Session', ...
 self.H.status = uilabel(g, 'Text','', 'FontColor',[0.35 0.38 0.42]);
 self.H.status.Layout.Row = 3;
 
+% Land the cursor in the filter box so an operator can start typing a
+% subject name the moment the window opens, with no click required.
+focus(self.H.filter);
+
 end
 
 % -----------------------------------------------------------------------

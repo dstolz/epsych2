@@ -27,6 +27,7 @@ run(fullfile(repoRoot, 'epsych_startup.m'));
 addpath(here);
 addpath(fullfile(repoRoot, 'examples', 'detection_task'));
 addpath(fullfile(repoRoot, 'examples', 'customgui'));
+addpath(fullfile(repoRoot, 'examples', 'two_afc'));
 
 if isempty(options.OutputDir)
     options.OutputDir = fullfile(fileparts(repoRoot), 'epsych2.wiki', 'images');
@@ -55,6 +56,9 @@ shots = { ...
     'StaircaseTraining', @shotStaircaseTraining; ...
     'ExampleBehaviorGUI',     @shotExampleBehaviorGUI; ...
     'DetectionBehaviorGUI',   @shotDetectionBehaviorGUI; ...
+    'TwoAFCBehaviorGUI',          @shotTwoAFCBehaviorGUI; ...
+    'TwoAFCBehaviorGUI_feedback', @shotTwoAFCBehaviorGUIFeedback; ...
+    'TwoAFCBehaviorGUI_scatter',  @shotTwoAFCBehaviorGUIScatter; ...
     'RunExpt',           @shotRunExpt; ...
     'SubjectManager',    @shotSubjectManager; ...
     'SelfTest',          @shotSelfTest; ...
@@ -299,6 +303,123 @@ fig = findall(groot, 'Type', 'figure', '-and', 'Tag', 'DetectionBehaviorGUI');
 fig = fig(1);
 G = fig.UserData;
 cleanupFcn = @() delete(G);
+end
+
+
+function [fig, cleanupFcn] = shotTwoAFCBehaviorGUI(C)
+% Caption: mid-stimulus on an early trial, both fields lit and one
+% brighter. FlashDur is stretched to 2500 ms so the flash is visible in a
+% still image -- the default is 150 ms, brief enough that you have to be
+% watching.
+[RUNTIME, GUI] = twoAFCShotSession(C, 'wikiShotAFCStim', ...
+    FlashDur = 2500, RespWinDur = 4000, NumTrials = 3);
+ok = waitForCond(@() ~isPatchDark(GUI.LeftPatch) || ~isPatchDark(GUI.RightPatch), 5);
+assert(ok, 'stimulus never lit for the mid-stimulus shot');
+fig = GUI.h_figure;
+cleanupFcn = @() stopTwoAFCShot(RUNTIME, GUI);
+end
+
+
+function [fig, cleanupFcn] = shotTwoAFCBehaviorGUIFeedback(C)
+% Caption: just after answering correctly -- both buttons disarmed, the
+% fields dark again, and the choice table updated.
+[RUNTIME, GUI] = twoAFCShotSession(C, 'wikiShotAFCFeedback', ...
+    FlashDur = 2500, RespWinDur = 4000, NumTrials = 3);
+ok = waitForCond(@() logical(GUI.LeftButton.Enable), 5);
+assert(ok, 'response window never armed for the feedback shot');
+T = RUNTIME.TRIALS(1);
+correctSide = T.trials{T.NextTrialID, T.writeParamIdx.TrialType};
+GUI.respondSide(double(correctSide));
+ok = waitForCond(@() strcmp(GUI.FeedbackLabel.Text, 'CORRECT'), 3);
+assert(ok, 'feedback label never showed CORRECT');
+fig = GUI.h_figure;
+cleanupFcn = @() stopTwoAFCShot(RUNTIME, GUI);
+end
+
+
+function [fig, cleanupFcn] = shotTwoAFCBehaviorGUIScatter(C)
+% Caption: after 40 trials, the new per-trial "Signed Contrast by Chosen
+% Side" scatter and the binned choice table both populated -- the
+% operator's mid-session view of the new gui.ParameterScatter panel.
+NTRIALS = 40;
+[RUNTIME, GUI] = twoAFCShotSession(C, 'wikiShotAFCScatter', ...
+    FlashDur = 80, RespWinDur = 600, ITIRange = [100 200], NumTrials = NTRIALS);
+rng(11);
+watchdog = tic;
+while strcmp(RUNTIME.TIMER.Running, 'on') && toc(watchdog) < 90
+    pause(0.02) % timers fire during pause; this is the session's event pump
+    if ~isvalid(GUI) || ~logical(GUI.LeftButton.Enable), continue; end
+    T = RUNTIME.TRIALS(1);
+    correctSide = T.trials{T.NextTrialID, T.writeParamIdx.TrialType};
+    if rand < 0.82
+        side = correctSide;
+    else
+        side = 1 - correctSide;
+    end
+    GUI.respondSide(double(side));
+end
+assert(strcmp(RUNTIME.TIMER.Running, 'off'), ...
+    'scatter-shot session did not auto-stop within the watchdog window');
+fig = GUI.h_figure;
+cleanupFcn = @() stopTwoAFCShot(RUNTIME, GUI);
+end
+
+
+function [RUNTIME, GUI] = twoAFCShotSession(C, tag, options)
+% Build a fresh TwoAFC protocol with shot-specific timing and start a real
+% timer-loop session against it, exactly as run_2afc_experiment does. A
+% distinct tag per shot keeps scratch protocol/data files from colliding
+% when shots run back to back.
+arguments
+    C
+    tag (1,:) char
+    options.FlashDur (1,1) double = 150
+    options.RespWinDur (1,1) double = 3000
+    options.ITIRange (1,2) double = [800 1800]
+    options.NumTrials (1,1) double = 8
+end
+closeByTag('TwoAFCBehaviorGUI');
+protFile = fullfile(C.scratch, [tag '.eprot']);
+create_2afc_protocol(protFile, FlashDur = options.FlashDur, ...
+    RespWinDur = options.RespWinDur, ITIRange = options.ITIRange);
+[RUNTIME, GUI] = run_2afc_experiment(NumTrials = options.NumTrials, ...
+    ProtocolFile = protFile, DataPath = fullfile(C.scratch, tag), ...
+    SubjectName = 'WikiShot', Test = true);
+drawnow
+end
+
+
+function tf = isPatchDark(p)
+tf = isequal(round(p.BackgroundColor, 3), [0.06 0.06 0.06]);
+end
+
+
+function tf = waitForCond(cond, timeoutSec)
+% Poll a condition function during pause() -- timers fire while paused --
+% until it returns true or timeoutSec elapses.
+t0 = tic;
+tf = false;
+while toc(t0) < timeoutSec
+    pause(0.02)
+    if cond(), tf = true; return; end
+end
+end
+
+
+function stopTwoAFCShot(RUNTIME, GUI)
+% Stop the session timer (if still running) and close the GUI, mirroring
+% smoke_test_two_afc's teardown.
+try
+    if isvalid(RUNTIME) && ~isempty(RUNTIME.TIMER) && isvalid(RUNTIME.TIMER) ...
+            && strcmp(RUNTIME.TIMER.Running, 'on')
+        stop(RUNTIME.TIMER);
+    end
+catch
+end
+try
+    if isvalid(GUI), delete(GUI); end
+catch
+end
 end
 
 
@@ -613,7 +734,7 @@ end
 function P = snapshotPrefs()
 groups = {'ProtocolDesigner', 'epsych2_gui_History', 'epsych2_gui_ParameterScatter', ...
     'epsych2_gui_Parameter_Monitor', 'epsych2_gui_PhaseSelector', 'StaircaseTraining', ...
-    'ExampleBehaviorGUI', 'DetectionBehaviorGUI', ...
+    'ExampleBehaviorGUI', 'DetectionBehaviorGUI', 'TwoAFCBehaviorGUI', ...
     'ep_RunExpt_Subjects', 'epsych2_gui_SubjectManager'};
 P = struct('group', groups, 'value', []);
 for k = 1:numel(groups)

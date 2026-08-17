@@ -2,14 +2,14 @@
 # One source of truth: survey.sh reads this, references/page-map.md explains it.
 # Columns are TAB separated. Longest matching prefix wins; a file may match several rows.
 # Prefixes are matched against forward-slash repo-relative paths.
-obj/+gui/@BehaviorGUI	Building-a-Box-GUI, Box-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_BehaviorGUI.md
+obj/+gui/@BehaviorGUI	Building-a-Behavior-GUI, Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_BehaviorGUI.md
 obj/+gui/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/RunExpt_SelfTest.md
-obj/+gui/@PopOut	Box-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_PopOut.md
-obj/+gui/@SyringePump	Box-GUI-Components, Video-and-Peripherals	documentation/gui/gui_SyringePump.md
-obj/+gui/@ParameterDebugger	Box-GUI-Components, GUI-Framework-Internals, Troubleshooting	documentation/gui/gui_ParameterDebugger.md
+obj/+gui/@PopOut	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_PopOut.md
+obj/+gui/@SyringePump	Behavior-GUI-Components, Video-and-Peripherals	documentation/gui/gui_SyringePump.md
+obj/+gui/@ParameterDebugger	Behavior-GUI-Components, GUI-Framework-Internals, Troubleshooting	documentation/gui/gui_ParameterDebugger.md
 obj/+gui/@SubjectManager	Subjects-and-Projects, Subject-Roster-Internals	documentation/gui/gui_SubjectManager.md
 obj/+gui/@VlcRecorderSetup	Video-and-Peripherals	documentation/gui/VlcRecorderSetup.md
-obj/+gui/	Box-GUI-Components, GUI-Framework-Internals, Training-and-Online-Analysis	documentation/gui/
+obj/+gui/	Behavior-GUI-Components, GUI-Framework-Internals, Training-and-Online-Analysis	documentation/gui/
 obj/+hw/@NE1000	Video-and-Peripherals, Hardware-Abstraction-Layer	documentation/hw/hw_NE1000.md
 obj/+hw/@Interface	Hardware-Abstraction-Layer, Writing-a-Hardware-Backend	documentation/hw/hw_Interface.md, documentation/hw/hw_Interface_Tutorial.md
 obj/+hw/@Parameter	Hardware-Abstraction-Layer, Designing-Protocols	documentation/hw/hw_Parameter.md
@@ -32,13 +32,13 @@ obj/+eplog/	Troubleshooting, Contributing-and-Conventions	documentation/eplog/ep
 obj/+peripherals/	Video-and-Peripherals	documentation/peripherals/
 runtime/timerfcns/	Trial-Lifecycle, Runtime-and-Events	documentation/epsych/epsych_TrialLifecycle.md
 runtime/savefcns/	Data-and-Save-Functions	documentation/paradigms/cl_SaveDataFcn.md
-runtime/guis/	Building-a-Box-GUI, GUI-Framework-Internals	documentation/design/Customized_GUI_Instructions.md
+runtime/guis/	Building-a-Behavior-GUI, GUI-Framework-Internals	documentation/design/Customized_GUI_Instructions.md
 helpers/vprintf.m	Troubleshooting, Contributing-and-Conventions	documentation/helpers/helpers_vprintf.md
 helpers/EPsychInfo	Installation-and-Setup, Installation-Guide	documentation/epsych/EPsychInfo.md
 epsych_startup.m	Installation-and-Setup, Installation-Guide, Quick-Start	documentation/overviews/Installation_Guide.md
-examples/customgui/	Building-a-Box-GUI, Generating-a-Box-GUI-with-AI	documentation/design/Customized_GUI_Instructions.md
+examples/customgui/	Building-a-Behavior-GUI, Generating-a-Behavior-GUI-with-AI	documentation/design/Customized_GUI_Instructions.md
 examples/detection_task/	Quick-Start, Training-and-Online-Analysis	documentation/examples/
-examples/first_experiment/	Your-First-Experiment, First-Experiment-Protocol, First-Experiment-Box-GUI, First-Experiment-Running, First-Experiment-Data	documentation/examples/First_Experiment_Walkthrough.md
+examples/first_experiment/	Your-First-Experiment, First-Experiment-Protocol, First-Experiment-Behavior-GUI, First-Experiment-Running, First-Experiment-Data	documentation/examples/First_Experiment_Walkthrough.md
 examples/two_afc/	Two-AFC-Task	documentation/examples/Two_AFC_Walkthrough.md
 examples/	Quick-Start	documentation/examples/
 paradigms/	Data-and-Save-Functions	documentation/paradigms/

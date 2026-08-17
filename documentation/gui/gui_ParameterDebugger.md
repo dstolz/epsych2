@@ -44,6 +44,13 @@ trust not to.
 The corollary is that a value in the table is a value *as of* the time in its
 **Last Read** column — never live.
 
+A sweep owns the window while it runs: a rebuild, an edit, or a second read
+arriving mid-sweep is dropped rather than interleaved, because rebuilding the
+row list underneath a running loop would attribute values to the wrong
+parameters. `IsBusy` reports that state. Closing the window mid-sweep stops
+it rather than erroring — which is what an operator does when a backend has
+stopped answering.
+
 ## Reading
 
 | Action | Reads |
@@ -110,10 +117,17 @@ checked against a numeric-literal pattern. Anything containing an identifier
 is refused before it gets there: a cell that could run arbitrary code while
 pointed at live hardware would be a trap, not a convenience.
 
+The *result* is then checked as well, because arithmetic on digits alone can
+still produce something no backend can send: `1e999` overflows to `Inf` and
+`(-1)^0.5` is complex. Only a real, finite number is written.
+
 Every write is followed immediately by a read-back, because on a live backend
-the only proof a write landed is what the device returns afterwards. Rows the
-window refuses to write — read-only parameters, triggers, values too large to
-be a literal — say so in the status line rather than failing quietly.
+the only proof a write landed is what the device returns afterwards. A
+write-only parameter has no read-back, so what the cell shows is the value
+after `Min`/`Max` clamping — what `set.Value` actually stored — and the note
+says it could not be confirmed. Rows the window refuses to write — read-only
+parameters, triggers, values too large to be a literal — say so in the status
+line rather than failing quietly.
 
 Two flags explain most writes that appear not to stick:
 
@@ -197,7 +211,7 @@ debugging session and would be misleading restored into the next.
 matlab -batch "run('tmp/smoke_test_parameter_debugger.m')"
 ```
 
-68 assertions over a mock backend and a live `epsych.RunExpt`: that hidden
+82 assertions over a mock backend and a live `epsych.RunExpt`: that hidden
 parameters are opt-in, that a sweep skips what it should and reports what
 fails, that each colour follows its state, that a double-click on a name reads
 and a double-click in the Value cell does not, that each value type parses,
@@ -207,8 +221,15 @@ session window's Help menu and closes cleanly.
 
 It also covers what goes missing underneath it — a parameter deleted out of a
 protocol, an interface deleted out of the source array, an edit event carrying
-a row index the list no longer has — and that each kind of empty table says
-which kind it is.
+a row index the list no longer has, the window itself closed mid-sweep — and
+that each kind of empty table says which kind it is.
+
+A block of it exists because a review found the bugs after the first version
+was written, and each one is now pinned: a multi-row selection acting on only
+its first row, `str2double` accepting a complex or overflowing literal ahead of
+the safety pattern, a write leaving the row's editable flag stale, a sweep
+running with the re-entrancy guard down, and reopening the window discarding
+where the operator had put it.
 
 See also: [gui_Parameter_Monitor](Parameter_Monitor.md) — the polling display,
 [Parameter_Control.md](Parameter_Control.md) — one parameter bound to one

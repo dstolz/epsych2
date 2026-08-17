@@ -82,6 +82,14 @@ p = sw.add_parameter('RespCode', 0, Type = 'Integer', ...
 p.Value = 0;
 p.Access = 'Read';
 
+% -1, not NaN, marks "no response" (Miss or CorrectReject): a parameter
+% cannot hold NaN, since every numeric write is clamped with
+% max(value, Min) and MATLAB's max ignores NaN (hw.Parameter.clamp_value_).
+p = sw.add_parameter('RT_ms', 0, Unit = 'ms', ...
+    Description = "Reaction time from tone onset; -1 when no response was made");
+p.Value = -1;
+p.Access = 'Read';
+
 p = sw.add_parameter('InTrial', false, Type = 'Boolean', ...
     Description = "High while a trial is in progress");
 p.Value = false;

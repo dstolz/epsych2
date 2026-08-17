@@ -75,6 +75,7 @@ RUNTIME.Interfaces = P.Interfaces; % connects the hw.Software backend
 % Dispatch assigns Values per trial, but read-back parameters need a live
 % starting Value before the first DATA collection.
 pResp = RUNTIME.find_parameter('RespCode');
+pRT   = RUNTIME.find_parameter('RT_ms');
 pIn   = RUNTIME.find_parameter('InTrial');
 
 subject = epsych.DefaultSubject(struct('Name', 'ExampleSubject', ...
@@ -131,14 +132,16 @@ for k = 1:options.NumTrials
     if isGo
         pHit = options.GuessRate + (1 - options.GuessRate - options.LapseRate) ...
             * normcdf((lvl - options.Threshold) / options.Slope);
-        if rand < pHit
+        responded = rand < pHit;
+        if responded
             bits = [epsych.BitMask.Hit, epsych.BitMask.Reward];
         else
             bits = epsych.BitMask.Miss;
         end
         bits(end+1) = epsych.BitMask.TrialType_0;
     else
-        if rand < options.GuessRate
+        responded = rand < options.GuessRate;
+        if responded
             bits = [epsych.BitMask.FalseAlarm, epsych.BitMask.Punish];
         else
             bits = epsych.BitMask.CorrectReject;
@@ -149,7 +152,17 @@ for k = 1:options.NumTrials
     for b = bits(:).'
         rc = bitset(rc, uint32(b));
     end
+
+    % Simulated reaction time: a real number is required even here, since a
+    % parameter cannot hold NaN (see RT_ms in create_detection_protocol).
+    if responded
+        rt = max(round(250 + 300*rand + 80*randn), 150);
+    else
+        rt = -1;
+    end
+
     setReadParameter(pResp, double(rc));
+    setReadParameter(pRT, rt);
     setReadParameter(pIn, false);
 
     % --- Trial completion, exactly as ep_TimerFcn_RunTime does it --------

@@ -338,15 +338,17 @@ end
 
 
 function [fig, cleanupFcn] = shotTwoAFCBehaviorGUIScatter(C)
-% Caption: after 40 trials, the new per-trial "Signed Contrast by Chosen
+% Caption: after 24 trials, the new per-trial "Signed Contrast by Chosen
 % Side" scatter and the binned choice table both populated -- the
-% operator's mid-session view of the new gui.ParameterScatter panel.
-NTRIALS = 40;
+% operator's mid-session view of the new gui.ParameterScatter panel. Kept
+% fast (short flash/response/ITI) so the whole shot finishes in well under
+% a minute even on a busy shared MATLAB session.
+NTRIALS = 24;
 [RUNTIME, GUI] = twoAFCShotSession(C, 'wikiShotAFCScatter', ...
-    FlashDur = 80, RespWinDur = 600, ITIRange = [100 200], NumTrials = NTRIALS);
+    FlashDur = 60, RespWinDur = 400, ITIRange = [60 120], NumTrials = NTRIALS);
 rng(11);
 watchdog = tic;
-while strcmp(RUNTIME.TIMER.Running, 'on') && toc(watchdog) < 90
+while strcmp(RUNTIME.TIMER.Running, 'on') && toc(watchdog) < 45
     pause(0.02) % timers fire during pause; this is the session's event pump
     if ~isvalid(GUI) || ~logical(GUI.LeftButton.Enable), continue; end
     T = RUNTIME.TRIALS(1);

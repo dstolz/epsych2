@@ -204,7 +204,7 @@ There is no polling timer and no file watcher. The roster is re-read when the wi
 membership.LastProtocol  →  project.DefaultProtocol  →  ''  (the caller browses)
 ```
 
-Pass an empty `projectId` to search across every project the subject belongs to, most recently modified first — that is what the All Subjects view uses, where there is no project context. `rememberProtocol` is called by `assignToSession` after a successful commit, so next session proposes what actually ran.
+Pass an empty `projectId` to search across every project the subject belongs to, most recently modified first — that is what the All Projects view uses, where there is no project context. `rememberProtocol` is called by `assignToSession` after a successful commit, so next session proposes what actually ran.
 
 ---
 

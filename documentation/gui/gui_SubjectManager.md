@@ -70,7 +70,7 @@ Two icons carry meaning worth spelling out, since a toolbar has no labels to lea
 
 Icons are drawn as 16×16 pixel art by [`gui.toolbarIcon`](../../obj/+gui/toolbarIcon.m) rather than shipped as image files, so the toolbox carries no binary assets and a glyph is edited where it is named. `epsych.RunExpt` draws its toolbar from the same function. Note that `uibutton`/`uiimage` `Icon` accepts only four built-in names (`success`, `error`, `warning`, `info`), so any other glyph has to be drawn or supplied as a file.
 
-`‹All Subjects›` is pinned at the top of the project list. It is not a project: it shows every subject regardless of membership, and it is both the empty state for a fresh roster and the way to find a subject whose project you have forgotten.
+`‹All Projects›` is pinned at the top of the project list. It is not a project: it shows every subject regardless of membership, and it is both the empty state for a fresh roster and the way to find a subject whose project you have forgotten.
 
 Below the project list, a read-only summary shows the selected project's notes, investigator, IACUC protocol, default protocol, data path, and behavior GUI — so you can see what will be applied without opening the edit dialog. The behavior GUI is named even when the project inherits it (`Behavior GUI: (session default)`), since a field that goes silent when unset reads as a field that does not exist. The other fields appear only when set: they carry no default worth announcing.
 

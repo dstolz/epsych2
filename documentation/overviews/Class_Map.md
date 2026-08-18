@@ -23,6 +23,7 @@ EPsych major classes
 │  ├─ EventHub
 │  ├─ TrialSelector
 │  │  └─ DefaultTrialSelector
+│  ├─ BlockSequence
 │  ├─ Subject
 │  │  └─ DefaultSubject
 │  ├─ BitMask
@@ -74,6 +75,8 @@ Analysis and GUI classes
 │  └─ InterfaceAdapter
 └─ gui
    ├─ BasicGUI
+   ├─ BehaviorBuilder
+   ├─ ComponentToolbar
    ├─ Helper
    │  └─ Triggers
    ├─ Parameter_Control
@@ -90,6 +93,7 @@ Analysis and GUI classes
    ├─ Performance
    ├─ PhaseSelector
    ├─ PsychPlot
+   ├─ ScreenCapture
    ├─ SlidingWindowPerformancePlot
    ├─ StaircaseTraining
    └─ StatusBar

@@ -12,11 +12,16 @@ function h = protocolHistory(self, subjectId, projectId)
 %
 % Returns:
 %   h - (1,:) struct array with fields File, Version, Stamp. Each entry also
-%       carries OnDiskVersion (what the file holds now) and Recoverable (true
-%       when those agree), because an .eprot saved over since is not the
-%       protocol that entry names — see revertProtocol.
+%       carries OnDiskVersion (what the file holds now), Source, and
+%       Recoverable. Source says where the recorded version can come from:
+%       'disk' when the file still holds it, 'archive' when it sits in the
+%       file's embedded version archive (epsych.Protocol saves keep every
+%       superseded version in the .eprot, and restoreVersion can bring one
+%       back), 'none' when neither — a file last saved by an older EPsych, or
+%       missing. Recoverable is true for 'disk' and 'archive'.
 %
-% See also: epsych.SubjectRoster.revertProtocol, epsych.SubjectRoster.rememberProtocol
+% See also: epsych.SubjectRoster.revertProtocol, epsych.Protocol.hasVersion,
+%   epsych.SubjectRoster.rememberProtocol
 arguments
     self
     subjectId (1,:) char
@@ -24,7 +29,7 @@ arguments
 end
 
 h = struct('File', {}, 'Version', {}, 'Stamp', {}, ...
-    'OnDiskVersion', {}, 'Recoverable', {});
+    'OnDiskVersion', {}, 'Source', {}, 'Recoverable', {});
 
 rec = self.findMembership(subjectId, projectId);
 if isempty(rec), return, end
@@ -35,7 +40,14 @@ if isempty(entries), return, end
 
 for i = 1:numel(entries)
     onDisk = epsych.Protocol.versionOnDisk(entries(i).File);
+    if ~isempty(onDisk) && strcmp(onDisk, entries(i).Version)
+        source = 'disk';
+    elseif epsych.Protocol.hasVersion(entries(i).File, entries(i).Version)
+        source = 'archive';
+    else
+        source = 'none';
+    end
     h(end+1) = struct('File', entries(i).File, 'Version', entries(i).Version, ...
         'Stamp', entries(i).Stamp, 'OnDiskVersion', onDisk, ...
-        'Recoverable', ~isempty(onDisk) && strcmp(onDisk, entries(i).Version));
+        'Source', source, 'Recoverable', ~strcmp(source, 'none'));
 end

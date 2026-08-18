@@ -24,8 +24,23 @@ function obj = load(filename)
         return
     end
 
-    % Load MAT file using builtin load function
-    S = builtin('load', filename, '-mat');
+    % Load only the protocol variable: a file written with embedded version
+    % history (see writeProtocolFile) also carries the archive of every
+    % earlier version, which nothing here needs. The whole-file load remains
+    % as the fallback for foreign layouts so the error path below still
+    % decides what an unrecognized file is.
+    try
+        vars = {whos('-file', filename).name};
+    catch
+        vars = {};
+    end
+    if ismember('protocol', vars)
+        S = builtin('load', filename, '-mat', 'protocol');
+    elseif ismember('protocol_struct', vars)
+        S = builtin('load', filename, '-mat', 'protocol_struct');
+    else
+        S = builtin('load', filename, '-mat');
+    end
 
     % Struct-based format
     if isfield(S, 'protocol') && isstruct(S.protocol)

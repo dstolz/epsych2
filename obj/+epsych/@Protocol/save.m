@@ -10,7 +10,11 @@ function save(obj, filename, options)
     %       before saving. Default true.
     %
     % For .json files, delegates to toJSON(). For all other extensions,
-    % saves a MAT file containing a single 'protocol' variable.
+    % writes a MAT file through epsych.Protocol.writeProtocolFile, which
+    % archives the superseded version inside the file (so earlier versions
+    % can be listed, loaded, and restored — see listVersions, loadVersion,
+    % restoreVersion), writes atomically, and clears the phase cache. JSON
+    % files keep no version history.
 
     arguments
         obj
@@ -27,20 +31,21 @@ function save(obj, filename, options)
     % Update modification time
     obj.meta.lastModified = datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss');
 
-    % Increment protocol version: vN.YYMMDD
+    % Increment protocol version: vN.YYMMDD. Mint past the file on disk as
+    % well as this object: a stale in-memory protocol saved over a file that
+    % has moved on must not re-mint a version the file already holds, or the
+    % version string would stop identifying content.
     if options.IncrementVersion
         dateTag = char(datetime('now', 'Format', 'yyMMdd'));
-        tok = regexp(obj.meta.protocolVersion, '^v(\d+)\.', 'tokens', 'once');
-        if isempty(tok)
-            n = 0;
-        else
-            n = str2double(tok{1});
-        end
+        nMem  = epsych.Protocol.versionNumber(obj.meta.protocolVersion);
+        nDisk = epsych.Protocol.versionNumber(epsych.Protocol.versionOnDisk(filename));
+        n = max([nMem, nDisk, 0], [], 'omitnan');
         obj.meta.protocolVersion = sprintf('v%d.%s', n + 1, dateTag);
     end
 
-    % Serialize to a version-stable struct and save
+    % Serialize to a version-stable struct and save; the writer archives the
+    % file's superseded version and makes the write atomic.
     protocol = obj.toStruct();
-    builtin('save', filename, 'protocol', '-mat');
-    fprintf('[INFO] Protocol saved to: %s\n', filename);
+    epsych.Protocol.writeProtocolFile(filename, protocol, Origin='save');
+    vprintf(1, 'Protocol saved to: %s (%s)', filename, obj.meta.protocolVersion);
 end

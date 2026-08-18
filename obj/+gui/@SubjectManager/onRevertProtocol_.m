@@ -4,16 +4,20 @@ function onRevertProtocol_(self)
 %
 % The dialog lists what the roster recorded, and says for each entry whether
 % going back is exact. It is exact when the named file still holds the version
-% it was recorded at — which is the case when protocols are revised as separate
-% files, and not the case when one file is saved over. Saving an .eprot
-% overwrites it in place and keeps no archive, so an entry whose file has moved
-% on cannot be restored as content; reverting to it restores the pointer and
-% the recorded version, and says so.
+% it was recorded at (protocols revised as separate files), and also when the
+% version sits in the file's embedded archive — every epsych.Protocol save
+% keeps the version it replaces inside the .eprot. For an archived entry the
+% operator chooses: restore the file's content back to that version (which
+% changes the file for every subject on it, so the confirmation says who),
+% or revert the pointer only. Only a file last saved by an older EPsych can
+% defeat the revert entirely; the entry says so, and reverting to it restores
+% the pointer and the recorded version.
 %
 % Retired members are refused, as they are everywhere else in this window's
 % protocol handling.
 %
-% See also: epsych.SubjectRoster.revertProtocol, epsych.SubjectRoster.protocolHistory
+% See also: epsych.SubjectRoster.revertProtocol, epsych.SubjectRoster.protocolHistory,
+%   epsych.Protocol.restoreVersion
 arguments
     self
 end
@@ -58,11 +62,43 @@ items = arrayfun(@(h) localItemText(h), history, 'uni', 0);
 [choice, ok] = localChoose(self.H.figure, rec.Name, current, items);
 if ~ok, return, end
 
-report = self.Roster.revertProtocol(rec.SubjectID, projectId, Index = choice);
+% An entry in the file's version archive can come back as content, not just
+% as a pointer — but rewriting the file changes it for every subject on it,
+% so the operator decides with that spelled out.
+restoreContent = false;
+if strcmp(history(choice).Source, 'archive')
+    [~, hn, he] = fileparts(history(choice).File);
+    answer = uiconfirm(self.H.figure, sprintf(['%s is in the version archive of ' ...
+        '%s%s.\n\n"Restore File + Revert" rewrites the file back to that version ' ...
+        '— for every subject that uses it — and puts %s on it. The content being ' ...
+        'replaced is archived first, so this is itself undoable.\n\n"Revert Pointer ' ...
+        'Only" records the protocol and version without touching the file.'], ...
+        history(choice).Version, hn, he, rec.Name), ...
+        'Revert Protocol', ...
+        'Options', {'Restore File + Revert', 'Revert Pointer Only', 'Cancel'}, ...
+        'DefaultOption', 'Restore File + Revert', 'CancelOption', 'Cancel', ...
+        'Icon', 'warning');
+    switch answer
+        case 'Restore File + Revert'
+            restoreContent = true;
+        case 'Revert Pointer Only'
+            restoreContent = false;
+        otherwise
+            return
+    end
+end
+
+report = self.Roster.revertProtocol(rec.SubjectID, projectId, Index = choice, ...
+    RestoreContent = restoreContent);
 
 if ~report.ok
     uialert(self.H.figure, report.message, 'Revert Protocol', 'Icon','error');
     return
+end
+
+if report.ContentRestored && ~isempty(report.OthersOnFile)
+    vprintf(1, 'Protocol content restore also affects %d other subject(s) on the file: %s', ...
+        numel(report.OthersOnFile), strjoin(report.OthersOnFile, ', '));
 end
 
 % A pending override would keep the table showing the file the operator was
@@ -94,12 +130,14 @@ end
 version = h.Version;
 if isempty(version), version = '(not recorded)'; end
 
-if h.Recoverable
+if strcmp(h.Source, 'disk')
     note = '';
+elseif strcmp(h.Source, 'archive')
+    note = '  [in file''s version archive]';
 elseif isempty(h.OnDiskVersion)
     note = '  [file missing]';
 else
-    note = sprintf('  [file now holds %s]', h.OnDiskVersion);
+    note = sprintf('  [file now holds %s \x2014 not archived]', h.OnDiskVersion);
 end
 
 txt = sprintf('%s%s  %s%s%s', fn, fe, version, when, note);
@@ -139,9 +177,10 @@ lst = uilistbox(g, 'Items', items, 'ItemsData', 1:numel(items), ...
 lst.Layout.Row = 2; lst.Layout.Column = [1 2];
 
 note = uilabel(g, 'WordWrap','on', 'FontColor',[0.45 0.48 0.52], 'Text', ...
-    ['An entry marked [file now holds ...] cannot be restored as content: saving a ' ...
-     'protocol overwrites the file, so only the pointer and the recorded version ' ...
-     'come back. Revise protocols as separate files to make going back exact.']);
+    ['Protocols saved by this EPsych keep every superseded version inside the ' ...
+     '.eprot, so an entry marked [in file''s version archive] can be brought back ' ...
+     'exactly. Only an entry marked [... not archived] — a file last saved by an ' ...
+     'older EPsych — reverts as pointer and recorded version alone.']);
 note.Layout.Row = 3; note.Layout.Column = [1 2];
 
 gBtn = uigridlayout(g, [1 3]);

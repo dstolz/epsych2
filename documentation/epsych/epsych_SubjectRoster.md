@@ -230,7 +230,7 @@ Pass an empty `projectId` to search across every project the subject belongs to,
 
 ## Protocol versions
 
-`epsych.Protocol.save` overwrites an `.eprot` in place and bumps `meta.protocolVersion` (`vN.YYMMDD`). Nothing in the file records what it used to be — so **the roster is the only thing that can notice a protocol was edited since a subject last ran it**. `rememberProtocol` therefore records the version alongside the path, in `LastProtocolVersion`.
+`epsych.Protocol.save` overwrites an `.eprot` in place and bumps `meta.protocolVersion` (`vN.YYMMDD`). The file now archives the version it replaces inside itself (see [version history](epsych_Protocol.md#4-version-history)) — but a *subject* carries no version at all, so **the roster is still the only thing that can notice a protocol was edited since a subject last ran it**. `rememberProtocol` therefore records the version alongside the path, in `LastProtocolVersion`.
 
 ### Checking
 
@@ -253,20 +253,21 @@ Reading the version is a cheap peek (`epsych.Protocol.versionOnDisk`) at one met
 
 Nothing about a protocol's *content* changes, and nothing needs to: a session loads the `.eprot` at commit time, so the newest saved version runs regardless. What updating changes is which version each subject is *expected* to be on — which is what turns the check green, and what makes the next unexpected edit visible.
 
-### Reverting, and its honest limit
+### Reverting
 
 Each change pushes the outgoing file and version onto the membership's `ProtocolHistory` (most recent first, de-duplicated, capped at `PROTOCOL_HISTORY_LIMIT`). `revertProtocol(subject, project, Index = k)` restores one, pushing the protocol being left in its place — so reverting is itself undoable, and the same call run twice returns where it started.
 
-**What it restores is the pointer and the recorded version, not the bytes of an overwritten file.** Two cases, and the report tells them apart in `Recoverable`:
+Whether the *content* comes back too depends on where the recorded version can still be found, which the report names in `Source`:
 
-| Situation | `Recoverable` | Result |
-|---|---|---|
-| The entry names a **different** `.eprot` that still holds its recorded version | `true` | Exact — the subject runs that protocol again |
-| The entry names a file that has since been **saved over** (v4 → v5) | `false` | Pointer and version restored; the v4 content does not exist anywhere on disk |
+| `Source` | Situation | `Recoverable` | Result |
+|---|---|---|---|
+| `disk` | The entry names an `.eprot` that still holds its recorded version | `true` | Exact — re-pointing is enough |
+| `archive` | The file was saved over, but the version sits in the file's [embedded archive](epsych_Protocol.md#4-version-history) | `true` | Exact **when asked**: `RestoreContent = true` rewrites the file back via `epsych.Protocol.restoreVersion(..., Mode='exact')` before touching the roster |
+| `none` | The file was last saved by an EPsych release without version archiving, or is missing | `false` | Pointer and version restored; the report says the content is not recoverable |
 
-There is no archive to fall back on, and inventing one would mean copying every `.eprot` on every commit. A lab that needs true version rollback should revise protocols as **separate files** (`Save As` per revision), which this then reverts between exactly.
+`RestoreContent` defaults to **false** because rewriting a protocol file is more than roster bookkeeping: the file may be shared, and every subject on it gets the restored content. The report's `OthersOnFile` lists the other memberships recorded on the same file at a different version so a caller — the manager's dialog does exactly this — can warn before opting in. A content restore archives what it replaces, so it is itself undoable, and `ContentRestored` in the report says whether it happened. `Mode='exact'` is what the roster uses because `LastProtocolVersion` must match the file again afterward; the counter rewinding is the accepted cost, visible to other subjects as `Status = 'current'`-vs-file drift the check reports honestly.
 
-`protocolHistory(subject, project)` returns the list with `OnDiskVersion` and `Recoverable` already resolved, which is what the manager's revert dialog shows.
+`protocolHistory(subject, project)` returns the list with `OnDiskVersion`, `Source`, and `Recoverable` already resolved, which is what the manager's revert dialog shows.
 
 ### Format compatibility
 
@@ -330,7 +331,7 @@ matlab -batch "cd('tmp'); smoke_test_subject_roster"
 
 Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, and all three `BehaviorGUI` states reaching `FUNCS.BehaviorGUI` (applied via the membership, cleared, inherited).
 
-Protocol versions get their own section, driven by real `epsych.Protocol.save` calls rather than hand-written version strings: a fresh subject reads `unknown`, a recorded one `current`, one whose file was saved again `outdated`; `updateProtocol` clears it and the record survives a reload; a superseded same-file entry reports `Recoverable = false` while a revert between two distinct files is exact and leaves the restored entry out of the history rather than in it twice.
+Protocol versions get their own section, driven by real `epsych.Protocol.save` calls rather than hand-written version strings: a fresh subject reads `unknown`, a recorded one `current`, one whose file was saved again `outdated`; `updateProtocol` clears it and the record survives a reload; a superseded same-file entry reports `Recoverable` with `Source = 'archive'` (the save archived it inside the file), a revert between two distinct files is exact from `disk` and leaves the restored entry out of the history rather than in it twice, a default revert never rewrites the protocol file, and `RestoreContent = true` rewrites it back to the recorded version — undoably, with the replaced content archived in turn. The file-side mechanics have their own standing proof in `tmp/smoke_test_protocol_versioning.m`.
 
 Copying gets its own section: a settings-only copy is compared field by field against its source off disk (and asserted **not** archived), a copy with subjects takes the active members while leaving the retired one and the source's own membership alone, an override beats the inherited value, `IncludeRetired` and `CopyProtocolMemory = false` each do exactly one thing, and a copy is refused both an existing name and a source that does not exist.
 

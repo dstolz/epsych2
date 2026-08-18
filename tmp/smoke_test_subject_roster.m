@@ -411,13 +411,15 @@ again = R.updateProtocol({sv}, pv);
 assert(~again.ok && numel(again.skipped) == 1, ...
     'Updating an already-current subject should change nothing');
 
-% Same file, earlier version: the entry is on record but the file has moved on,
-% so a revert to it can restore the pointer and not the content.
+% Same file, earlier version: the file has moved on, but the save archived the
+% superseded version inside the .eprot, so the entry is recoverable as content.
 h = R.protocolHistory(sv, pv);
 assert(~isempty(h) && strcmp(h(1).File, protoA) && strcmp(h(1).Version, vA1), ...
     'The superseded version should be on the history');
-assert(~h(1).Recoverable, ...
-    'An .eprot saved over cannot be recovered, and must not claim otherwise');
+assert(h(1).Recoverable && strcmp(h(1).Source, 'archive'), ...
+    'A version saved over lives on in the file''s archive, and must say so');
+assert(epsych.Protocol.hasVersion(protoA, vA1), ...
+    'The file''s archive should hold the superseded version');
 
 % Different file: reverting between revisions kept as separate files IS exact.
 R.updateProtocol({sv}, pv, Protocol = protoB);
@@ -426,8 +428,9 @@ assert(strcmp(st.Status,'differs') && strcmp(st.Protocol, protoB), ...
     'A subject off the project default should be reported as differing');
 
 h = R.protocolHistory(sv, pv);
-assert(strcmp(h(1).File, protoA) && strcmp(h(1).Version, vA2) && h(1).Recoverable, ...
-    'The protocol just left should head the history, and be exactly recoverable');
+assert(strcmp(h(1).File, protoA) && strcmp(h(1).Version, vA2) && h(1).Recoverable ...
+    && strcmp(h(1).Source, 'disk'), ...
+    'The protocol just left should head the history, and be exactly recoverable from disk');
 
 rev = R.revertProtocol(sv, pv);
 assert(rev.ok && rev.Recoverable, 'Reverting to an unchanged file should be exact');
@@ -439,6 +442,34 @@ h = R.protocolHistory(sv, pv);
 assert(strcmp(h(1).File, protoB), 'Reverting must itself be undoable');
 assert(~any(strcmp({h.File}, protoA) & strcmp({h.Version}, vA2)), ...
     'The restored entry must leave the history, not sit in it twice');
+
+% Content restore: the file moves on again, and the archived version comes
+% back as file content, not just as a pointer.
+PA.save(protoA);
+vA3 = epsych.Protocol.versionOnDisk(protoA);
+R.updateProtocol({sv}, pv);
+h = R.protocolHistory(sv, pv);
+assert(strcmp(h(1).Version, vA2) && strcmp(h(1).Source, 'archive'), ...
+    'The version just left should sit in the file''s archive');
+
+% A default revert leaves the file alone...
+rev = R.revertProtocol(sv, pv);
+assert(rev.ok && rev.Recoverable && strcmp(rev.Source, 'archive') && ~rev.ContentRestored, ...
+    'A default revert must never rewrite the protocol file');
+assert(strcmp(epsych.Protocol.versionOnDisk(protoA), vA3), ...
+    'The file must still hold the newer version after a pointer-only revert');
+
+% ...and reverting WITH content restore rewrites it back, undoably.
+R.updateProtocol({sv}, pv);
+rev = R.revertProtocol(sv, pv, RestoreContent = true);
+assert(rev.ok && rev.ContentRestored, 'A content restore should be reported as one');
+assert(strcmp(epsych.Protocol.versionOnDisk(protoA), vA2), ...
+    'A content restore must rewrite the file back to the recorded version');
+st = R.protocolStatus(sv, pv);
+assert(strcmp(st.Status,'current') && strcmp(st.Version, vA2), ...
+    'After a content restore the subject and the file agree again');
+assert(epsych.Protocol.hasVersion(protoA, vA3), ...
+    'The replaced content must be archived, so the restore is itself undoable');
 
 noHistory = R.addSubject(struct('Name','V002','Sex','Male','Species','Mouse'));
 R.assign(noHistory, pv);

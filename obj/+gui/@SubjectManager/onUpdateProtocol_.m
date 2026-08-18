@@ -109,8 +109,9 @@ if isempty(preview.changes)
     return
 end
 
-tail = {'', ['Each subject''s previous protocol is kept, so this can be ' ...
-    'undone with Revert Protocol Version...']};
+tail = {'', ['Each subject''s previous protocol is kept — the version itself ' ...
+    'stays in the file''s archive — so this can be undone with Revert ' ...
+    'Protocol Version...']};
 if ~isempty(note)
     tail = [{'', note}, tail];
 end

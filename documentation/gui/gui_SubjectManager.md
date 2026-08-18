@@ -198,11 +198,20 @@ The same actions for a single row are on the right-click menu. Updating confirms
 
 Updating changes no protocol *content*, and none is needed — a session loads the `.eprot` at commit time, so the newest saved version runs either way. What it records is the version each subject is now expected to be on, which is what clears the warning and makes the *next* unexpected edit visible.
 
-### Reverting, and what it cannot do
+### Reverting
 
-**Revert Protocol Version...** lists what the roster recorded for that subject and marks each entry with whether going back is exact. It is exact when the entry names a different `.eprot` that still holds its recorded version. It is **not** exact when the file has since been saved over: `epsych.Protocol.save` overwrites in place and keeps no archive, so a v4 that became v5 exists nowhere on disk. Those entries are marked `[file now holds v5]`, and reverting to one restores the pointer and the recorded version while saying plainly that the content did not come back.
+**Revert Protocol Version...** lists what the roster recorded for that subject and marks each entry with where its version can still be found:
 
-Revert is itself undoable — the protocol being left goes onto the history in place of the one restored. To make going back exact, revise protocols as **separate files** (`Save As` per revision) rather than saving over one.
+| Marker | Meaning |
+|---|---|
+| *(none)* | The named file still holds that version — re-pointing is enough |
+| `[in file's version archive]` | The file was saved over, but every save archives the version it replaces inside the `.eprot` — the content can come back |
+| `[file now holds v5 — not archived]` | The file was last saved by an EPsych release without version archiving; only the pointer and recorded version come back |
+| `[file missing]` | The `.eprot` is gone |
+
+Choosing an archived entry asks one more question: **Restore File + Revert** rewrites the `.eprot` back to that version through [`epsych.Protocol.restoreVersion`](../epsych/epsych_Protocol.md#4-version-history) — the confirmation says plainly that this changes the file for *every* subject on it — while **Revert Pointer Only** records the protocol and version without touching the file. The content a restore replaces is archived in turn, so it is itself undoable.
+
+Revert is itself undoable too — the protocol being left goes onto the history in place of the one restored.
 
 All of the above is [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#protocol-versions); this window only renders it.
 

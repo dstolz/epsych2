@@ -228,17 +228,29 @@ Rules that matter:
   once `<DataPath>/<Name>/` exists, because nothing downstream knows about
   `NameHistory`.
   **Protocol versions**: a membership records `LastProtocolVersion` alongside the
-  path, because `Protocol.save` overwrites an `.eprot` in place — the roster is the
-  only thing that can notice a protocol edited between sessions. `protocolStatus`
+  path, because a subject carries no version of its own — the roster is the only
+  thing that can notice a protocol edited between sessions. `protocolStatus`
   reports `current|outdated|differs|unknown|missing|none` (`outdated` = the file
   moved on; `differs` = not the project default), `updateProtocol` records the
   version now in the file, and `revertProtocol` restores an entry from
-  `ProtocolHistory`. Revert restores the **pointer and version, never the bytes**
-  of an overwritten file — `Recoverable` says which case it is, and revisions kept
-  as separate files revert exactly. Version reads go through
-  `epsych.Protocol.versionOnDisk`/`versionNumber`, shared with
-  `RunExpt.UpdateSubjectList`; the two new fields are additive, so `FORMAT_VERSION`
-  stays 1 (see documentation/epsych/epsych_SubjectRoster.md)
+  `ProtocolHistory`. Every `Protocol.save` archives the version it replaces
+  INSIDE the `.eprot` (four MAT variables: `protocol` unchanged, `history`,
+  `historyIndex`, `historyFormat`; `epsych.Protocol.writeProtocolFile` is the
+  one writer, atomic, shared with phase saves so they cannot drop the archive;
+  `listVersions`/`hasVersion`/`loadVersion`/`restoreVersion` read it), so revert
+  reports `Source = disk|archive|none`: `disk` re-points exactly, `archive`
+  restores bytes too when asked (`RestoreContent=true`, exact mode, default OFF
+  because the file is shared — `OthersOnFile` says who else it changes), `none`
+  = a file last saved pre-archiving, pointer-and-version only. Version reads go
+  through `epsych.Protocol.versionOnDisk`/`versionNumber`, shared with
+  `RunExpt.UpdateSubjectList` — both selectively load the one MAT variable, as
+  does the phase fast parse, so the archive costs readers nothing; minting
+  reconciles with the disk (`max(memory, disk) + 1`) so two stale objects
+  cannot coin one version for different content. Roster fields stay additive,
+  so `FORMAT_VERSION` stays 1; standing proof
+  `tmp/smoke_test_protocol_versioning.m`
+  (see documentation/epsych/epsych_SubjectRoster.md,
+  documentation/epsych/epsych_Protocol.md)
 - **epsych.TrialJournal**: append-only, crash-safe `.epj` journal that per-trial data
   is written to during a run (flat ~2 ms, versus a `save('-append')` that grew to
   40 ms by trial 600). `ep_TimerFcn_Stop` merges it back into the seed `.mat`, so the

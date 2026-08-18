@@ -30,6 +30,9 @@ classdef Protocol < handle & matlab.mixin.SetGet
     %   estimateDuration - Estimate trial duration in seconds
     %   save             - Serialize protocol to .eprot MAT file
     %   load             - Static factory to deserialize from .eprot file
+    %   listVersions     - Static: every version an .eprot holds (current + embedded archive)
+    %   loadVersion      - Static: load one archived version as a Protocol
+    %   restoreVersion   - Static: rewrite an .eprot back to an archived version
     %
     % Example:
     %   P = epsych.Protocol('MyProtocol');
@@ -153,6 +156,26 @@ classdef Protocol < handle & matlab.mixin.SetGet
 
         v = versionOnDisk(filename)      % Peek at a file's protocolVersion without loading it - versionOnDisk.m
         n = versionNumber(versionString) % Comparable integer N from 'vN.YYMMDD' - versionNumber.m
+
+        % ===== VERSION HISTORY =====
+        % Every save archives the superseded content inside the .eprot itself
+        % (see writeProtocolFile), so a user can go back to an earlier version.
+        index = listVersions(filename)             % Current version + embedded archive, payloads untouched - listVersions.m
+        tf = hasVersion(filename, version)         % True when the file's content or archive holds this version - hasVersion.m
+        [obj, S] = loadVersion(filename, version)  % Load one version (current or archived) as a Protocol - loadVersion.m
+        report = restoreVersion(filename, version, options)  % Rewrite the file back to an archived version - restoreVersion.m
+    end
+
+    methods (Static, Hidden)
+        % Low-level chokepoint every .eprot write routes through: archives the
+        % superseded version, writes atomically, clears the phase cache.
+        % Hidden rather than private because Runtime.writeParametersProtocol
+        % uses it for phase saves.
+        writeProtocolFile(filename, protocolStruct, options)  % writeProtocolFile.m
+    end
+
+    methods (Static, Access = private)
+        [P, H, info] = readRaw_(filename)  % Selectively read the protocol struct + embedded history - readRaw_.m
     end
 
     methods (Access = private)

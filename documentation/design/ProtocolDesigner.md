@@ -219,6 +219,13 @@ If no compiled data exists, export is blocked with status + alert guidance.
 ### Persistence and file operations
 
 - `onNew`, `onLoad`, `onSave`, `onSaveAs`, `onCloseRequest`
+- `onVersionHistory` — File > Version History...: lists the versions the current
+  `.eprot` holds (every save archives the version it replaces inside the file —
+  see [version history](../epsych/epsych_Protocol.md#4-version-history)), opens
+  one as an unsaved working copy (current path kept, so Ctrl+S saves it back as
+  a new version), or restores one via `epsych.Protocol.restoreVersion` — as a
+  new version (default) or exactly, behind a confirmation that explains the
+  difference. Both actions route through `confirmDiscardChanges` first.
 - Recent file helpers in `private/` (`addRecentProtocolPath`, `refreshRecentProtocolMenu`, etc.)
 
 ## Extension Notes

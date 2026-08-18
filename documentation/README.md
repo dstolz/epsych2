@@ -43,6 +43,7 @@ Architecture:
 
 - [Architecture Overview](overviews/Architecture_Overview.md) — repository map and core runtime flow
 - [Class Map](overviews/Class_Map.md) — inheritance and runtime dependency views
+- [Programmer's Toolkit](overviews/Programmers_Toolkit.md) — catalog of the classes and functions worth knowing before writing your own, organized by task
 - [Commit History Overview](overviews/CommitHistoryOverview.md) — how the codebase evolved
 
 Experiment framework (`epsych`):

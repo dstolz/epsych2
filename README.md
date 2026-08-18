@@ -6,6 +6,19 @@ The project is aimed at labs that want a practical experiment framework without 
 
 The repository includes both legacy procedural code and a gradual migration toward newer object-oriented APIs under `obj/+epsych/`. In practice, EPsych is broad and actively useful, but not yet fully unified behind a single modern API.
 
+## Features
+
+- **Protocol design** — `epsych.ProtocolDesigner` builds `.eprot` protocol files: hardware interfaces, parameters, trial options, and a compiled-trial preview, with validation before anything runs.
+- **Session control** — `epsych.RunExpt` runs the session: subjects, protocol loading, run/pause/stop transport, and pre-flight diagnostics via `epsych.SelfTest`.
+- **Subjects & projects** — `gui.SubjectManager` over a shared, file-backed `epsych.SubjectRoster`: subjects organized by project, per-project session defaults, and tracking of which protocol version each subject last ran.
+- **Hardware abstraction** — one `hw.Interface` contract covers TDT RPvds (`hw.TDT_RPcox`) and Synapse, a software-only backend for hardware-free development, and in-development Teensy, Bpod, Intan RHX, and NE-1000 syringe pump backends.
+- **Stimulus generation & calibration** — the [stimgen](https://github.com/dstolz/stimgen) submodule supplies stimulus classes and `stimgen.StimPlayer`; `epsych.calibrate` measures speaker frequency response and maps dB SPL to voltage.
+- **Behavior GUIs** — subclass `gui.BehaviorGUI`, or assemble one by drag-and-drop in `gui.BehaviorBuilder`; a library of reusable components covers performance summaries, psychometric plots, trial history, parameter controls, and syringe pump operation.
+- **Online & offline analysis** — the `psychophysics` package: hit/false-alarm rates and d′, staircases, BestPEST and MLP threshold tracking, and windowed session metrics.
+- **Trial selection** — pluggable `epsych.TrialSelector` classes for custom and closed-loop paradigms; `epsych.BlockSequence` for balanced block-randomized value sequences.
+- **Teensy trial programs** — design operant state machines in `teensy.TrialDesigner`, then simulate and compile them so the contingency runs on the microcontroller (under development).
+- **Data & logging** — crash-safe per-trial journaling (`epsych.TrialJournal`), configurable save functions, and session logging to `.error_logs/`.
+
 ## Installation
 
 Stimulus generation lives in a separate repository ([dstolz/stimgen](https://github.com/dstolz/stimgen)) attached here as a git submodule, so clone recursively:

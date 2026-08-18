@@ -548,6 +548,68 @@ classdef NE1000 < hw.Interface
             obj.dispCacheTic_ = [];
         end
 
+        % --- Recovery from a failed connect --------------------------------
+
+        function label = connectionRecoveryLabel(~)
+            % label = connectionRecoveryLabel(obj)
+            % See hw.Interface.connectionRecoveryLabel.
+            label = 'Select Serial Port...';
+        end
+
+        function tf = recoverConnection(obj, fig)
+            % tf = recoverConnection(obj, fig)
+            % Let the operator pick the pump's port and retry the connection.
+            %
+            % The port is the failure this backend can actually recover from:
+            % it is machine-specific, a USB-RS232 adapter renumbers whenever it
+            % moves sockets, and a pump that was switched on after MATLAB
+            % started does not appear in the list the session began with.
+            tf = false;
+            if isempty(obj.Port)
+                prompt = sprintf(['No pump answered on any serial port at %d baud, address %d. ' ...
+                    'Switch the pump on, check the cable, then Refresh.'], obj.BaudRate, obj.Address);
+            else
+                prompt = sprintf(['The pump did not answer on %s at %d baud, address %d. ' ...
+                    'Pick the port it is on, or switch it on and press Refresh.'], ...
+                    obj.Port, obj.BaudRate, obj.Address);
+            end
+
+            try
+                newPort = gui.selectSerialPort( ...
+                    Title       = 'NE-1000 Syringe Pump', ...
+                    Prompt      = prompt, ...
+                    CurrentPort = obj.Port, ...
+                    Parent      = fig, ...
+                    ProbeLabel  = 'Find Pump', ...
+                    Probe       = @() hw.NE1000.findPumpPort( ...
+                        BaudRate = obj.BaudRate, Address = obj.Address, Timeout = obj.Timeout));
+            catch ME
+                vprintf(0, 1, ME);
+                return
+            end
+
+            if isempty(newPort)
+                return
+            end
+
+            obj.Port = newPort;
+            % A port the operator named by hand outranks the probe: with
+            % AutoDetect left on, setup_interface would rescan and could land
+            % on a different pump in a daisy chain than the one they chose.
+            obj.AutoDetect = false;
+            vprintf(1, 'NE1000: operator selected port %s after a failed connect', newPort);
+            tf = true;
+        end
+
+        function tf = canRunOffline(~)
+            % tf = canRunOffline(obj)
+            % True: the pump meters reward, so a session can still be run
+            % without it (hand-shaping, a rig where reward is delivered by a
+            % second device). Every transaction no-ops while disconnected and
+            % reads serve the last known value, so trial dispatch is unaffected.
+            tf = true;
+        end
+
         % --- Diagnostics ---------------------------------------------------
 
         function results = selfTest(obj, options)

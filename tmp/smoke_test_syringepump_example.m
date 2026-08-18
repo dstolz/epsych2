@@ -75,7 +75,10 @@ if isfile(eprot), delete(eprot); end
 
 %% 2. A session runs, the GUI opens, and the pump reports back
 try
-    RUNTIME = run_pump_session(NumTrials = 4, TrialPause = 0);
+    % WaitForBegin=false: with no operator to press Begin Experiment, the
+    % session would hold at the button forever. The gate itself is
+    % exercised in section 3b.
+    RUNTIME = run_pump_session(NumTrials = 4, TrialPause = 0, WaitForBegin = false);
 
     D = RUNTIME.TRIALS(1).DATA;
     results(end+1,:) = check('Every trial produced a DATA record', numel(D) == 4);
@@ -110,8 +113,98 @@ try
     results(end+1,:) = check('Session pump is still connected', sessionPump.IsConnected);
     results(end+1,:) = check('Session pump was left stopped', ...
         ~ismember(sessionPump.get_parameter('Status'), {'Infusing', 'Withdrawing'}));
+
+    % The run started without the button, so the GUI has to have picked it
+    % up from the mode changes rather than leaving the gate closed.
+    btn = findall(fig(1), 'Type', 'uibutton', '-and', 'Enable', 'off');
+    results(end+1,:) = check('A session elsewhere opens the gate', behaviorGUI.BeginRequested);
+    results(end+1,:) = check('Its button retired to a status line', ...
+        any(strcmp({btn.Text}, 'Session Complete')));
 catch ME
     results(end+1,:) = check(['Behavior GUI: ' ME.message], false);
+end
+
+%% 3b. Trials wait for Begin Experiment
+% A fresh instance over the same runtime: this one has seen no Record, so
+% its gate is still shut — the state an operator meets when the window
+% opens. (Constructing it replaces the window found above; the checks in
+% section 4 hold for either instance.) WaitForBegin=false so the
+% constructor returns; that it does NOT return when the gate is on is what
+% section 3c measures. DriveTrials=false throughout these gate sections:
+% the trial cycle is tmp/smoke_test_pump_trial_cycle.m's subject, and an
+% instance driving it here would dispense into an already-finished session.
+tFree = NaN;
+try
+    c = tic;
+    gated = PumpBehaviorGUI(RUNTIME, WaitForBegin = false, DriveTrials = false);
+    tFree = toc(c);
+    beginBtn = findall(gated.h_figure, 'Type', 'uibutton', ...
+        '-and', 'Text', 'Begin Experiment');
+
+    results(end+1,:) = check('The GUI opens with a Begin Experiment button', isscalar(beginBtn));
+    results(end+1,:) = check('It is enabled and waiting', strcmp(beginBtn.Enable, 'on'));
+    results(end+1,:) = check('The gate starts shut', ~gated.BeginRequested);
+    results(end+1,:) = check('waitForBegin holds while it is shut', ~gated.waitForBegin(0.3));
+
+    beginBtn.ButtonPushedFcn(beginBtn, []);   % press it exactly as the operator does
+
+    results(end+1,:) = check('Pressing it releases the session', gated.BeginRequested);
+    results(end+1,:) = check('waitForBegin returns once released', gated.waitForBegin(1));
+    results(end+1,:) = check('The button retires after the press', ...
+        strcmp(beginBtn.Enable, 'off') && strcmp(beginBtn.Text, 'Experiment Running'));
+catch ME
+    results(end+1,:) = check(['Begin gate: ' ME.message], false);
+end
+
+%% 3c. The gate is the CONSTRUCTOR's, which is what holds a RunExpt session
+% RunExpt builds the behavior GUI from the PsychTimer's StartFcn and start()
+% does not return until that callback does, so a constructor that blocks
+% blocks the trial loop. Nothing in run_pump_session is in that path, which
+% is why the hold cannot live there. Measured against an ungated build so
+% the assertion is about the wait, not about how long uifigure takes.
+try
+    assert(~isnan(tFree), 'the ungated build did not complete')
+    hold_ = round(tFree + 0.6, 3);   % StartDelay is millisecond-precision
+
+    % Repeating, because the button only exists once build() has run: a
+    % single-shot press timed to land mid-wait would be a race.
+    presser = timer('Name', 'PumpGateProbe', 'StartDelay', hold_, ...
+        'Period', 0.1, 'ExecutionMode', 'fixedSpacing', 'TasksToExecute', 50, ...
+        'TimerFcn', @(~,~) pressBegin());
+    start(presser)
+
+    c = tic;
+    held = PumpBehaviorGUI(RUNTIME, DriveTrials = false);   % must not return until pressBegin fires
+    tHeld = toc(c);
+
+    results(end+1,:) = check('The constructor blocks until Begin is pressed', tHeld > hold_);
+    results(end+1,:) = check('It returns once the button is pressed', ...
+        isvalid(held) && held.BeginRequested);
+catch ME
+    results(end+1,:) = check(['Constructor gate: ' ME.message], false);
+end
+t = timerfindall('Name', 'PumpGateProbe');
+if ~isempty(t), stop(t); delete(t); end
+
+%% 3d. Preview retires the button, exactly as Record does
+% hw.DeviceState.Preview is a distinct state that is not isIdle, and
+% RunExpt.PsychTimerStart broadcasts it for every Preview run. Matching only
+% Record left the button green, enabled, and inert for the whole run.
+try
+    previewed = PumpBehaviorGUI(RUNTIME, WaitForBegin = false, DriveTrials = false);
+    previewBtn = findall(previewed.h_figure, 'Type', 'uibutton', ...
+        '-and', 'Text', 'Begin Experiment');
+    results(end+1,:) = check('A fresh instance starts shut', ...
+        ~previewed.BeginRequested && strcmp(previewBtn.Enable, 'on'));
+
+    RUNTIME.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Preview));
+    drawnow
+
+    results(end+1,:) = check('Preview opens the gate', previewed.BeginRequested);
+    results(end+1,:) = check('Preview retires the button', ...
+        strcmp(previewBtn.Enable, 'off') && strcmp(previewBtn.Text, 'Preview Running'));
+catch ME
+    results(end+1,:) = check(['Preview gate: ' ME.message], false);
 end
 
 %% 4. Teardown leaves nothing behind
@@ -156,4 +249,16 @@ function row = check(label, tf)
 % row = check(label, tf)
 % Record one assertion as a {label, logical} row.
 row = {label, logical(tf)};
+end
+
+
+function pressBegin()
+% Stand in for the operator, from a timer callback — the same place a real
+% click arrives from while the constructor pauses. Quiet when the button is
+% not there yet (build has not run) or is already retired (text changed).
+f = findall(0, 'Type', 'figure', 'Tag', 'PumpBehaviorGUI');
+if isempty(f), return; end
+b = findall(f(1), 'Type', 'uibutton', '-and', 'Text', 'Begin Experiment');
+if isempty(b), return; end
+b(1).ButtonPushedFcn(b(1), []);
 end

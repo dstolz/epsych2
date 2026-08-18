@@ -123,8 +123,18 @@ classdef Runtime < handle & dynamicprops
             % set.Interfaces(self, value)
             
             for p = protocol_interfaces(:).'
+                if p.RunOffline
+                    % The operator answered RunExpt's connect-failure prompt by
+                    % choosing to run without this backend. It stays in the
+                    % array so its parameters remain visible to dispatchNextTrial
+                    % and readParameters; its own I/O no-ops while disconnected.
+                    vprintf(0,'Hardware interface %s is OFFLINE by operator choice', class(p))
+                    p.Runtime = self;
+                    continue
+                end
+
                 vprintf(0,'Connecting to hardware interface: %s', class(p))
-                
+
                 if ~p.IsConnected
                     p.connect();
                     assert(p.IsConnected, ...

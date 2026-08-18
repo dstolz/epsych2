@@ -106,25 +106,55 @@ classdef TDTRP < handle
                 error([CIRCUITPATH ' doesn''t exist'])
             end
 
+            % Every RPcoX call below returns 1 on success and 0 on failure.
+            % They must be checked one at a time: driving the next step of the
+            % sequence after a failed one (Run on a device whose circuit did not
+            % load, above all) faults inside the TDT driver and takes the whole
+            % MATLAB process down with a heap corruption, leaving nothing to
+            % catch and no error to report.
+
             % connect to device
-            eval(['obj.RP.Connect' obj.DEVICETYPE '(''' obj.INTERFACE ''', ' num2str(obj.NUMBER) ');']);
+            connected = eval(['obj.RP.Connect' obj.DEVICETYPE '(''' obj.INTERFACE ''', ' num2str(obj.NUMBER) ')']);
+            if ~connected
+                error('TDTRP:ConnectFailed', ...
+                    'Could not connect to %s #%d over %s. Check that the device is powered on and enumerated in zBusMon.', ...
+                    obj.DEVICETYPE, obj.NUMBER, obj.INTERFACE);
+            end
 
             % stop any processing chains running on device
-            obj.RP.Halt; 
+            obj.RP.Halt;
 
             % clears all the buffers and circuits on the device
-            obj.RP.ClearCOF;
+            if ~obj.RP.ClearCOF
+                error('TDTRP:ClearCOFFailed', ...
+                    'Could not clear the circuit already on %s #%d. Power-cycle the device and try again.', ...
+                    obj.DEVICETYPE, obj.NUMBER);
+            end
 
             % load circuit
             disp(['Loading ' CIRCUITPATH]);
             if obj.FS > 0
-                obj.RP.LoadCOFsf(CIRCUITPATH, obj.FS);
+                loaded = obj.RP.LoadCOFsf(CIRCUITPATH, obj.FS);
             else
-                obj.RP.LoadCOF(CIRCUITPATH);
+                loaded = obj.RP.LoadCOF(CIRCUITPATH);
+            end
+            if ~loaded
+                error('TDTRP:LoadCOFFailed', ...
+                    ['Device %s #%d rejected the circuit "%s"%s. Open it in RPvdsEx and compile it ' ...
+                    'against %s: the usual causes are a circuit that exceeds the device''s cycle or ' ...
+                    'memory budget at its sample rate, and a file saved by a newer RPvdsEx than the ' ...
+                    'installed TDT drivers.'], ...
+                    obj.DEVICETYPE, obj.NUMBER, CIRCUITPATH, ...
+                    localFsNote_(obj.FS), obj.DEVICETYPE);
             end
 
             % start circuit
-            obj.RP.Run;
+            if ~obj.RP.Run
+                error('TDTRP:RunFailed', ...
+                    'Circuit "%s" loaded onto %s #%d but would not start.', ...
+                    CIRCUITPATH, obj.DEVICETYPE, obj.NUMBER);
+            end
+
             obj.status();
             obj.setup();
         end
@@ -268,4 +298,16 @@ classdef TDTRP < handle
             obj.RP.Halt();
         end
     end
+end
+
+
+function s = localFsNote_(FS)
+% A sample rate override is applied by LoadCOFsf and is itself a common
+% reason a circuit that loads at its own rate will not load at another, so
+% name it in the failure when one is in force.
+if FS > 0
+    s = sprintf(' at the requested sample rate of %g Hz', FS);
+else
+    s = '';
+end
 end

@@ -485,6 +485,8 @@ classdef RunExpt < handle
 
         rec = getVlcRecorder_(self)                        % Lazily create/return the shared, preference-seeded hw.VlcRecorder
         configureIntanRecorder_(self, interfaces)          % Seed hw.Intan_RHX interfaces from the session's PATHS before they connect
+        connectInterfaces_(self, interfaces)               % Connect every interface, offering the operator a fix when one fails
+        action = promptConnectFailure_(self, iface, ME)    % Ask what to do about an interface that would not connect
         StartVideoRecording_(self)                          % Begin the per-run webcam recording when the checkbox/preference is enabled
         StopVideoRecording_(self)                           % Stop the active per-run webcam recording, if any
         onRecordVideoToggled_(self, enable)                 % Persist the "Record video" opt-in and start/stop recording when toggled mid-session

@@ -22,6 +22,14 @@ create_pump_protocol                   % writes PumpExample.eprot for RunExpt
 
 ![The behavior GUI](../../documentation/gui/images/SyringePumpBox.png)
 
+The window opens with the session held at **Begin Experiment** — nothing is
+dispensed until it is pressed, so the syringe can be seated and the line purged
+first. The pump panel is fully live while it waits: connect a port, prime with
+**Start**, **Zero** the accumulators, then begin. Closing the window instead
+calls the run off before any liquid moves. `run_pump_session(WaitForBegin = false)`
+skips the gate for unattended runs, and a session driven from RunExpt's own Run
+button retires the button as soon as it sees the Record mode change.
+
 What to watch while it runs:
 
 - the panel's readout climbing after each reward, and its status line turning
@@ -36,10 +44,46 @@ What to watch while it runs:
 | File | Purpose |
 |---|---|
 | `create_pump_protocol.m` | Builds and compiles the protocol: three reward volumes on the pump's own `Volume` parameter, a randomized ITI, the three core triggers |
-| `PumpBehaviorGUI.m` | `gui.BehaviorGUI` subclass: the pump panel, trial controls, next-trial display, a `VolumeInfused` scatter and monitor |
-| `run_pump_session.m` | Hardware-free session; mirrors the real runtime loop and pulses `Start` each trial |
+| `PumpBehaviorGUI.m` | `gui.BehaviorGUI` subclass: the Begin Experiment gate, the trial cycle, the pump panel, trial controls, next-trial display, a `VolumeInfused` scatter and monitor |
+| `run_pump_session.m` | Hardware-free session; waits on the Begin button, then mirrors the real runtime loop and pulses `Start` each trial |
 
 Generated at runtime (not checked in): `PumpExample.eprot`.
+
+## Who runs the trial cycle
+
+The runtime does **not** dispense anything. `ep_TimerFcn_RunTime` writes the
+dispatched `Volume` and `Rate` to the pump, then polls `x_TrialComplete_1` and
+waits. Something has to pulse `Start` and decide when the trial is over, and on
+a software rig that something is the behavior GUI — the same arrangement
+`examples/first_experiment` and `examples/two_afc` use, where the GUI plays the
+part rig hardware plays in a real experiment.
+
+`PumpBehaviorGUI` does it on its own timer, one pass per dispatched trial:
+
+1. `onNewTrial` clears `x_TrialComplete_1` (the runtime never clears it) and
+   pulses the pump's `Start`;
+2. it waits out the dispense — the computed duration first, then the pump's own
+   `Status`, polled no faster than 4 Hz, since a pump given a non-zero `Volume`
+   stops itself and a `Stop` here would truncate the reward;
+3. it waits out the interval the dispatch drew into `ITI`;
+4. it raises `x_TrialComplete_1`, which is what makes the runtime collect the
+   pump's read-back into `DATA` and dispatch the next reward.
+
+Ending the session mid-dispense stops the pump. `run_pump_session` passes
+`DriveTrials = false` because its own loop is the trial loop; leaving the
+default on would pulse the pump twice per trial.
+
+Two failures this replaced, both of which look like "the experiment does
+nothing useful" from the operator's chair:
+
+- **Trials ran ballistically.** `add_parameter` fills `Values`, not `Value`, so
+  `x_TrialComplete_1` was never assigned and read back **empty** — and `if ~[]`
+  is false, so every timer tick completed a trial. The protocol now seeds all
+  three triggers to 0, and the runtime refuses to read anything that is not a
+  definite number as "complete" (see
+  [epsych_Runtime.md](../../documentation/epsych/epsych_Runtime.md)).
+- **The pump never activated.** Nothing pulsed `Start`: `run_pump_session` does
+  that in its own loop, and a RunExpt session has no such loop.
 
 ## Three things this example exists to pin down
 

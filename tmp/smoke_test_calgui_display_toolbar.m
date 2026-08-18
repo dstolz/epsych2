@@ -4,6 +4,10 @@
 % agree with the monitor that owns it after a change made through any of them,
 % and every toggle must redraw without a render error.
 %
+% The toolbar carries overlays only. Which measurement is on screen is the
+% plots panel's tab strip, which owns no mirrored state -- it is checked here
+% only for being the selector it claims to be.
+%
 % Run:  run('C:\src\epsych2\tmp\smoke_test_calgui_display_toolbar.m')
 
 here = fileparts(mfilename('fullpath'));
@@ -16,9 +20,10 @@ h = @(name) private_(gui, name);
 
 % --- Initial state ---------------------------------------------------------
 fails = fails + sync_(gui, 'initial');
-fails = fails + expect_(on_(h('ToolCalibrationView')), 'calibration view is up');
-fails = fails + expect_(~on_(h('ToolBackgroundView').Enable), ...
-    'background view disabled with nothing captured');
+fails = fails + expect_(private_(gui, 'TransferView_') == "calibration", ...
+    'transfer curves are the tab up first');
+fails = fails + expect_(numel(findall(private_(gui, 'Figure'), ...
+    'Type', 'uitoggletool')) == 3, 'toolbar carries three overlay toggles');
 
 % --- Log X, toolbar -> monitor -> checkbox ---------------------------------
 fails = fails + click_(h('ToolLogX'), false);
@@ -53,28 +58,38 @@ feval(m.MenuSelectedFcn, m, []);
 fails = fails + expect_(gui.Monitor.ShowGhost, 'menu toggled ghost back on');
 fails = fails + sync_(gui, 'after menu round trip');
 
-% --- Clicking the view already up re-asserts it rather than clearing it ----
-t = h('ToolCalibrationView');
-t.State = 'off';
-feval(t.ClickedCallback, t, []);
-fails = fails + expect_(on_(h('ToolCalibrationView')), ...
-    'clicking the active view re-asserts it');
+% --- Full-resolution waveforms, menu -> monitor -----------------------------
+m = h('WaveformResMenu');
+fails = fails + expect_(gui.Monitor.DecimateWaveforms == ~on_(m.Checked), ...
+    'waveform menu agrees with the monitor');
+was = gui.Monitor.DecimateWaveforms;
+feval(m.MenuSelectedFcn, m, []);
+fails = fails + expect_(gui.Monitor.DecimateWaveforms == ~was, ...
+    'menu toggled waveform resolution');
+fails = fails + sync_(gui, 'waveform resolution toggled');
+feval(m.MenuSelectedFcn, m, []);
+fails = fails + expect_(gui.Monitor.DecimateWaveforms == was, ...
+    'menu toggled waveform resolution back');
 
-% --- A view left on background falls back once the data is not there -------
-% The tool is disabled, but its callback is the same one the enabled tool
-% fires; this is the only offline way to reach the background view.
-t = h('ToolBackgroundView');
-feval(t.ClickedCallback, t, []);
+% --- The tab strip selects the view, and nothing else claims to -------------
+tabs = private_(gui, 'PlotTabs');
+fails = fails + expect_(numel(tabs.Children) == 3, 'three measurement tabs');
+tabs.SelectedTab = private_(gui, 'BackgroundTab');
+feval(tabs.SelectionChangedFcn, tabs, ...
+    struct('NewValue', private_(gui, 'BackgroundTab')));
 fails = fails + expect_(private_(gui, 'TransferView_') == "background", ...
-    'view switched to background');
-fails = fails + expect_(on_(h('ToolBackgroundView')), 'background tool pressed');
+    'selecting a tab set the view');
+fails = fails + sync_(gui, 'on the background tab');
 
-% Reset re-runs update_runtime_state_, which is where the fallback lives.
+% A reset redraws every panel and leaves the operator on the tab they chose:
+% it changes what the panels hold, not which one is being read.
 reset = h('BtnReset');
 feval(reset.ButtonPushedFcn, reset, []);
-fails = fails + expect_(private_(gui, 'TransferView_') == "calibration", ...
-    'view fell back with no background data');
-fails = fails + sync_(gui, 'after fallback');
+fails = fails + expect_(private_(gui, 'TransferView_') == "background", ...
+    'reset did not steal the selected tab');
+fails = fails + expect_(tabs.SelectedTab == private_(gui, 'BackgroundTab'), ...
+    'tab strip still on the background tab');
+fails = fails + sync_(gui, 'after reset');
 
 delete(private_(gui, 'Figure'));
 fprintf('\n%s: %d failure(s)\n', mfilename, fails);
@@ -115,13 +130,12 @@ end
 % ------------------------------------------------------------------------- %
 function n = sync_(gui, when)
 % Every mirror of the display state must agree with the monitor that owns it.
+% The view is not among them: the tab strip is its own and only readout.
 mon  = gui.Monitor;
-isBg = private_(gui, 'TransferView_') == "background";
 tools = {'ToolLogX', mon.LogX; 'ToolGhost', mon.ShowGhost
-         'ToolVoltage', mon.ShowVoltage
-         'ToolCalibrationView', ~isBg; 'ToolBackgroundView', isBg};
+         'ToolVoltage', mon.ShowVoltage};
 menus = {'GhostMenu', mon.ShowGhost; 'VoltageMenu', mon.ShowVoltage
-         'CalibrationViewMenu', ~isBg; 'BackgroundViewMenu', isBg};
+         'WaveformResMenu', ~mon.DecimateWaveforms};
 n = 0;
 for k = 1:size(tools, 1)
     n = n + expect_(on_(private_(gui, tools{k,1}).State) == tools{k,2}, ...

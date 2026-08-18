@@ -21,6 +21,17 @@ for i = 1:RUNTIME.NSubjects
         % Check for trial completion by polling the TrialComplete trigger parameter for this subject's box.
         TrialComplete = RUNTIME.TRIGGERS(i).TrialComplete.Value;
 
+        % Anything that is not a definite number means "not yet", never
+        % "done". A trigger nothing has ever written reads back EMPTY
+        % (hw.Module.add_parameter fills Values, not Value) and a failed
+        % hardware read returns NaN -- and `if ~[]` is FALSE, so testing the
+        % value alone falls straight through and completes a trial on every
+        % tick, running the whole session ballistically at the timer period.
+        if ~((isnumeric(TrialComplete) || islogical(TrialComplete)) ...
+                && isscalar(TrialComplete) && ~isnan(TrialComplete))
+            continue
+        end
+
         % If the trial is not complete, skip to the next subject without updating or advancing the trial index.
         if ~TrialComplete, continue; end
 

@@ -193,10 +193,17 @@ uimenu(mCustom,'Label','Customize...','MenuSelectedFcn', @(~,~) self.OpenCustomi
 mUtil = uimenu(f,'Label','Utilities');
 self.H.mnu_utilities = mUtil;
 
-self.H.mnu_protocol_designer = uimenu(mUtil,'Label','Protocol &Designer...', ...
+% The designer GUIs (protocol authoring, Teensy trial-program authoring)
+% share one submenu, distinct from the launch-and-use tools below. Nesting is
+% invisible to UpdateGUIstate, which reaches the 'setup' tags with a
+% recursive findobj.
+mDesigners = uimenu(mUtil,'Label','Designers...');
+self.H.mnu_designers = mDesigners;
+
+self.H.mnu_protocol_designer = uimenu(mDesigners,'Label','Protocol &Designer...', ...
     'Accelerator','P', ...
     'MenuSelectedFcn', @(~,~) self.LaunchUtility("ProtocolDesigner"));
-self.H.mnu_trial_designer = uimenu(mUtil,'Label','Teensy Trial Designer...', ...
+self.H.mnu_trial_designer = uimenu(mDesigners,'Label','Teensy Trial Designer...', ...
     'MenuSelectedFcn', @(~,~) self.LaunchUtility("TrialDesigner"));
 
 % The three tools that come from the stimgen submodule share one submenu, so
@@ -217,8 +224,14 @@ self.H.mnu_calibration = uimenu(mStimGen,'Label','Calibration GUI...','Enable','
     'Separator','on','Tag','setup_mnu_calibration', ...
     'MenuSelectedFcn', @(~,~) self.LaunchUtility("Calibration"));
 
-self.H.mnu_CommutatorGUI = uimenu(mUtil,'Label','Commutator GUI','Enable','on', ...
-    'Separator','on','Accelerator','G', ...
+% Peripheral hardware GUIs that aren't video get their own submenu; currently
+% just the commutator, but it gives future peripherals (e.g. the syringe
+% pump panel) a place to land without crowding Utilities.
+mPeripherals = uimenu(mUtil,'Label','Peripherals...','Separator','on');
+self.H.mnu_peripherals = mPeripherals;
+
+self.H.mnu_CommutatorGUI = uimenu(mPeripherals,'Label','Commutator GUI','Enable','on', ...
+    'Accelerator','G', ...
     'MenuSelectedFcn', @(~,~) self.LaunchCommutatorGUI);
 
 % Everything that touches video -- the recorder, the live view, and the

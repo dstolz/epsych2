@@ -33,6 +33,13 @@ classdef NE1000_Mock < hw.NE1000
         SimTrigger (1,:) char = 'FT'
         PendingAlarm (1,:) char = 'R'   % answered (and cleared) on the next command
 
+        % Model the motor: with a Volume set, RUN finishes on its own after
+        % the time that volume takes at the current rate, banking it and
+        % returning to Stopped — which is what a real pump does and what a
+        % caller polling Status waits for. Off by default so the tests that
+        % drive SimStatus/SimInfused by hand keep their exact control of it.
+        SimAutoStop (1,1) logical = false
+
         Log = {}                        % every command line writeLine_ saw
         RawLog = {}                     % every raw byte packet writeRaw_ saw
 
@@ -43,6 +50,7 @@ classdef NE1000_Mock < hw.NE1000
 
     properties (Access = private)
         rxQueue_ = {}                   % replies waiting for readPacket_
+        runTic_ = []                    % tic at the RUN that is still dispensing
     end
 
     methods
@@ -149,6 +157,11 @@ classdef NE1000_Mock < hw.NE1000
                 return
             end
 
+            % Before anything is reported: a dispense that has run its course
+            % has already finished, whether or not a command arrived to
+            % notice it. Polling is the only clock a pump gives you.
+            obj.settleDispense_();
+
             st = obj.SimStatus;
             data = '';
             pumping = any(st == 'IWX');
@@ -197,7 +210,9 @@ classdef NE1000_Mock < hw.NE1000
                 else
                     obj.SimStatus = 'I';
                 end
+                obj.runTic_ = tic;
             elseif strcmp(cmd, 'STP')
+                obj.runTic_ = [];
                 if pumping
                     % Stopping mid-dispense: bank the dispensed volume and pause.
                     if obj.SimStatus == 'W'
@@ -229,6 +244,45 @@ classdef NE1000_Mock < hw.NE1000
             % Status in the reply reflects the state AFTER the command, the way
             % the real pump prompts.
             reply = ['0' obj.SimStatus data];
+        end
+
+        function settleDispense_(obj)
+            % settleDispense_(obj)
+            % Finish a RUN that has had time to deliver its Volume: bank the
+            % volume and stop, exactly as a pump given a non-zero Volume does
+            % on its own. Only with SimAutoStop; a Volume of 0 means "run
+            % until told to stop", which never settles.
+            if ~obj.SimAutoStop || isempty(obj.runTic_), return; end
+            if ~any(obj.SimStatus == 'IW'), return; end
+            if obj.SimVolume <= 0, return; end
+
+            if toc(obj.runTic_) < obj.dispenseSeconds_(), return; end
+
+            if obj.SimStatus == 'W'
+                obj.SimWithdrawn = obj.SimWithdrawn + obj.SimVolume;
+            else
+                obj.SimInfused = obj.SimInfused + obj.SimVolume;
+            end
+            obj.SimStatus = 'S';
+            obj.runTic_ = [];
+        end
+
+        function s = dispenseSeconds_(obj)
+            % How long SimVolume takes at SimRate. The two are in different
+            % units and neither is fixed: volumes follow the syringe (uL
+            % below a 14 mm diameter, mL at or above), the rate follows
+            % whatever SimRateUnits the host last wrote.
+            volUL = obj.SimVolume * 1000;
+            if obj.SimDiameter < 14, volUL = obj.SimVolume; end
+
+            switch obj.SimRateUnits
+                case 'UM', rateULperMin = obj.SimRate;
+                case 'MM', rateULperMin = obj.SimRate * 1000;
+                case 'UH', rateULperMin = obj.SimRate / 60;
+                otherwise, rateULperMin = obj.SimRate * 1000 / 60;
+            end
+
+            s = 60 * volUL / max(rateULperMin, eps);
         end
 
     end

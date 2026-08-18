@@ -115,7 +115,20 @@ function refreshCheckCalculations(obj)
 
     nErrors = nnz([report.issues.severity] == 2);
     nWarnings = nnz([report.issues.severity] == 1);
-    statusText = sprintf('%d combination(s): %d error(s), %d warning(s)', nCombos, nErrors, nWarnings);
+    % StatusBar colors by substring match on "error" with no count awareness
+    % (see gui.StatusBar.applyColors_), so a clean run must not spell out
+    % "0 error(s)" or it paints red despite success.
+    countParts = {};
+    if nErrors > 0
+        countParts{end+1} = sprintf('%d error(s)', nErrors);
+    end
+    if nWarnings > 0
+        countParts{end+1} = sprintf('%d warning(s)', nWarnings);
+    end
+    if isempty(countParts)
+        countParts{end+1} = 'no issues';
+    end
+    statusText = sprintf('%d combination(s): %s', nCombos, strjoin(countParts, ', '));
     if shownCombos < nCombos
         statusText = sprintf('%s (showing first %d combinations)', statusText, shownCombos);
     end

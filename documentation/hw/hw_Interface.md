@@ -221,6 +221,53 @@ needs to know what to do, not just that something is wrong.
 `hw.TDT_Synapse` all implement the hook; see
 [RunExpt_SelfTest.md](../overviews/RunExpt_SelfTest.md) for what each one checks.
 
+### `connectionRecoveryLabel` / `recoverConnection` / `canRunOffline`
+
+```matlab
+label = I.connectionRecoveryLabel()   % '' when nothing can be offered
+tf    = I.recoverConnection(fig)      % true when something changed; retry
+tf    = I.canRunOffline()             % may the session run without this device?
+```
+
+Three concrete hooks, all with safe defaults, that decide what
+`epsych.RunExpt.connectInterfaces_` can offer an operator when `connect()`
+throws during session startup. A backend that overrides none of them behaves
+exactly as before: the failure aborts the command.
+
+- **`connectionRecoveryLabel`** returns the button label for this backend's own
+  fix (`hw.NE1000`: `'Select Serial Port...'`). Returning `''` means "no
+  recovery offered", so it doubles as the capability query — there is no
+  separate `canRecover`.
+- **`recoverConnection(fig)`** runs that fix with `fig` as the modal parent,
+  changes whatever the operator chose, and returns whether to retry. Overrides
+  must never throw: a dialog that fails is a `false`.
+- **`canRunOffline`** says whether a session with this backend disconnected is
+  coherent. Reserve it for peripherals a paradigm can survive without — a
+  reward pump on a rig being hand-shaped — never for the interface generating
+  the stimulus or acquiring the data, where continuing would silently produce
+  worthless sessions.
+
+When the operator accepts running without a device, `RunOffline` is set on it.
+`epsych.Runtime.Interfaces` then neither connects nor asserts on that
+interface, but **keeps it in the array**: removing it would take its parameters
+out of `dispatchNextTrial` and out of `readParameters`' type lookup. The flag is
+cleared at the start of every connect pass, so the choice lasts one run.
+
+A backend that sets `canRunOffline` true owes it to the session that its own
+I/O degrades rather than throws while disconnected — `hw.NE1000`'s `transact_`
+returns a not-ok result without touching the port, and reads serve the last
+value the device reported.
+
+### `displayLabel`
+
+```matlab
+name = I.displayLabel()
+```
+
+The human-readable name from `getCreationSpec` (`'NE-1000 Syringe Pump'`),
+falling back to the class name. For dialogs and status text, where
+`hw.NE1000` means nothing to the person reading it.
+
 ### `readHardwareParameters` / `canReadHardwareParameters`
 
 ```matlab

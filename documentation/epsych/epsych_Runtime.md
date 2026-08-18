@@ -137,6 +137,13 @@ Locates and caches the mandatory trigger parameters for one subject. The expecte
 
 An error is raised immediately if any required trigger is missing from the protocol, so include these in every protocol that runs through the standard timer functions.
 
+`TrialComplete` is **polled**, so it has to hold a number the poll can test. `hw.Module.add_parameter` fills `Values`, not `Value`, so a trigger declared in code and never assigned reads back **empty** — and `if ~[]` is false, which used to complete a trial on every tick and run a whole session ballistically at the timer period. Two things now prevent that:
+
+- `resolveTriggerParameters` seeds an empty **software** trigger to 0 as it caches it, logging that it did. Hardware-backed triggers are left alone: assigning `Value` there would write to the device.
+- `ep_TimerFcn_RunTime` treats anything that is not a definite scalar number as "not yet" — empty, `NaN` (what a failed or write-only read returns), or a non-numeric reply never advances the trial.
+
+Protocols should still seed their own triggers (`p = sw.add_parameter('x_TrialComplete_1', 0, isTrigger = true); p.Value = 0;`), as the shipped examples do; the runtime's seeding is a backstop for protocols already saved without it.
+
 ### dispatchNextTrial
 
 Per subject, in order:

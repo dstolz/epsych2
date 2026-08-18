@@ -47,3 +47,4 @@ TDTfun/	Hardware-Abstraction-Layer	documentation/hw/hw_Interface.md
 design/	Designing-Protocols, Protocol-Internals	documentation/design/
 documentation/overviews/	MIRROR: the same-named wiki page	(this file IS the authority)
 CLAUDE.md	Developer-Orientation, Contributing-and-Conventions	CLAUDE.md
+obj/stimgen/documentation/calibration_notes	Application-Notes	obj/stimgen/documentation/calibration_notes/ (the notes themselves are the authority)

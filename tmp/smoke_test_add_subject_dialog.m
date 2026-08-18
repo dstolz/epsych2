@@ -130,8 +130,8 @@ function checkBoxesThenConfirm(f, name)
 dd = boxDropdown(f);
 assert(isequal(dd.ItemsData, 1:16), 'All 16 boxes must be selectable');
 assert(isequal(dd.Value, 1), 'Box 1 must be the preselected default (got %d)', dd.Value);
-assert(strcmp(dd.Items{1}, '1 (in use)'), ...
-    'An occupied box must be marked, not hidden (got "%s")', dd.Items{1});
+assert(strcmp(dd.Items{1}, '1'), ...
+    'An occupied box must be listed unmarked, not hidden (got "%s")', dd.Items{1});
 assert(strcmp(dd.Items{3}, '3'), ...
     'A free box must be listed unmarked (got "%s")', dd.Items{3});
 confirmWithName(f, name);

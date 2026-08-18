@@ -152,6 +152,32 @@ When you click **Run** or **Preview**, RunExpt:
 - Sets the hardware mode to Record or Preview and starts the timer.
 - Launches the behavior GUI if one is configured — the behavior GUI of the project whose subjects were added (see **Subjects & Projects**), or the session default when no project named one.
 
+#### When an interface will not connect
+
+A device that is switched off, unplugged, or on a COM port that renumbered no
+longer ends the command outright. RunExpt reports the failure and asks what to
+do, offering only what that backend actually supports:
+
+- **Select Serial Port...** — for serial devices (currently the NE-1000 pump).
+  Opens a picker listing every port with its availability, plus:
+  - **Refresh**, which re-scans, so a device you power on or plug in *while the
+    dialog is open* appears without restarting anything;
+  - **Find Pump**, which queries each available port and selects the one the
+    device answers on — this is what tells "wrong port" apart from "device is
+    off". Choosing a port by hand also turns **Auto Detect** off for the
+    session, so your choice is not overridden at connect.
+- **Retry** — for anything you fixed at the rig itself (cable, power, a program
+  holding the port open).
+- **Continue Without It** — only for peripherals a session can run without
+  (the reward pump). The run proceeds normally, but that device accepts no
+  commands for its duration and reports its last known values. The choice
+  lasts one run: the next Run/Preview tries to connect it again.
+- **Cancel** — abandons the command, disconnecting anything it had already
+  connected so the rig is not left half-live.
+
+The port you choose here applies to the session, not to the protocol file. Fix
+the port in **ProtocolDesigner** to make it stick.
+
 ### 5.2 Pause
 
 **Pause** signals a pause via the runtime's ModeChange event. The exact behavior depends on your hardware and runtime listeners.
@@ -247,12 +273,14 @@ The recording paths in force for a session live on `RunExpt.PATHS`, seeded from 
   - Roster File... — chooses the `.esub` roster this rig uses. Point several rigs at one file on a shared drive to share a roster. There is no default location and no fallback: until this is answered once — here, or when Subjects & Projects asks at the first project — the rig has no roster.
 - **Customize**: Customize... (the machine settings in [7.1](#71-machine-settings--customize--customize)).
 - **Utilities**: the standalone tools that ship with the toolbox, opened from the session window instead of the command line. Each opens its own window with its own lifecycle; RunExpt keeps no handle on it, and a tool that fails to open reports on the status bar rather than interrupting the session.
-  - Protocol Designer... (`Ctrl+P`) — opens an empty designer for building a new protocol (`epsych.ProtocolDesigner`). To edit the protocol a subject is already using, right-click that subject instead (see [Working with protocols](#4-working-with-protocols)). See [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md).
-  - Teensy Trial Designer... — builds and simulates the state table a Teensy board executes (`teensy.TrialDesigner`); see [../teensy/teensy_TrialDesigner_UserGuide.md](../teensy/teensy_TrialDesigner_UserGuide.md).
+  - **Designers...** (submenu) — the two tools for authoring, rather than just running, an experiment:
+    - Protocol Designer... (`Ctrl+P`) — opens an empty designer for building a new protocol (`epsych.ProtocolDesigner`). To edit the protocol a subject is already using, right-click that subject instead (see [Working with protocols](#4-working-with-protocols)). See [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md).
+    - Teensy Trial Designer... — builds and simulates the state table a Teensy board executes (`teensy.TrialDesigner`); see [../teensy/teensy_TrialDesigner_UserGuide.md](../teensy/teensy_TrialDesigner_UserGuide.md).
   - Stimulus Player... — builds a bank of stimuli and previews them through the sound card (`stimgen.StimPlayer`). It opens offline, unattached to the session's hardware.
   - Stimulus Inspector... — examines a single stimulus waveform and spectrum (`stimgen.StimInspector`).
   - Calibration GUI... — the speaker calibration GUI wired to EPsych hardware via `epsych.calibrate`; disabled while a session is RUNNING because calibration drives the hardware into Preview. See [../../obj/stimgen/documentation/stimgen_calibration.md](../../obj/stimgen/documentation/stimgen_calibration.md).
-  - Commutator GUI (`Ctrl+G`) — motorized commutator control; see [../peripherals/peripherals_NanoMotorControl.md](../peripherals/peripherals_NanoMotorControl.md).
+  - **Peripherals...** (submenu) — peripheral hardware GUIs that aren't video:
+    - Commutator GUI (`Ctrl+G`) — motorized commutator control; see [../peripherals/peripherals_NanoMotorControl.md](../peripherals/peripherals_NanoMotorControl.md).
   - **Video** (submenu) — everything that touches the camera or its recordings:
     - Webcam Recorder Setup... (`Ctrl+W`) — camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md).
     - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the status bar shows a matching amber banner at its right end. Select it again to close the view.

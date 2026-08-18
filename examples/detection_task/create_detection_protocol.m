@@ -99,10 +99,13 @@ p.Access = 'Read';
 % Every protocol needs the three core triggers x_NewTrial_<BoxID>,
 % x_ResetTrig_<BoxID>, x_TrialComplete_<BoxID>; the runtime refuses to start
 % without them (epsych.Runtime.resolveTriggerParameters). On TDT hardware these
-% are RPvds tags; on a software rig they are plain trigger parameters.
-sw.add_parameter('x_NewTrial_1',      0, isTrigger = true);
-sw.add_parameter('x_ResetTrig_1',     0, isTrigger = true);
-sw.add_parameter('x_TrialComplete_1', 0, isTrigger = true);
+% are RPvds tags; on a software rig they are plain trigger parameters. The
+% runtime polls x_TrialComplete_1.Value on every timer tick, so seed all
+% three to 0: add_parameter fills Values, not Value, and an unset Value would
+% leave the poll with nothing to test.
+p = sw.add_parameter('x_NewTrial_1',      0, isTrigger = true); p.Value = 0;
+p = sw.add_parameter('x_ResetTrig_1',     0, isTrigger = true); p.Value = 0;
+p = sw.add_parameter('x_TrialComplete_1', 0, isTrigger = true); p.Value = 0;
 
 % Extra trigger for the behavior GUI's manual reward button.
 sw.add_parameter('Reward', 0, isTrigger = true, ...

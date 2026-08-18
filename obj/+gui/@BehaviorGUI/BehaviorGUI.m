@@ -509,6 +509,31 @@ classdef (Abstract) BehaviorGUI < handle
             obj.register(h);
         end
 
+        function h = addScreenCapture(obj, parent, options)
+            % h = addScreenCapture(obj, parent, Target=..., Text=..., Tooltip=...)
+            % Create a gui.ScreenCapture camera button and register it for
+            % teardown. One click copies a picture of the whole window —
+            % controls, plots and all — to the system clipboard, for pasting
+            % into a notebook entry. See gui.ScreenCapture.
+            arguments
+                obj
+                parent (1,1)
+                options.Target = []
+                options.Text          (1,:) char = ''
+                options.Tooltip       (1,:) char = 'Copy this window to the clipboard'
+                options.FontSize      (1,1) double = 12
+                options.FlashDuration (1,1) double = 1.5
+            end
+
+            if isempty(options.Target)
+                options.Target = obj.h_figure;
+            end
+
+            args = namedargs2cell(options);
+            h = gui.ScreenCapture(parent, args{:});
+            obj.register(h);
+        end
+
         function h = addPopOutButton(obj, parent, component, options)
             % h = addPopOutButton(obj, parent, component, Text=..., Tooltip=...)
             % Create a button that opens a display in a window of its own,

@@ -21,7 +21,7 @@ classdef DefaultSubject < epsych.Subject
     % Dialog features:
     %   * Modal, centered window with Edit/Add mode detection
     %   * All 16 boxes are always selectable and box 1 is the default; boxes the
-    %     session already holds are only marked "(in use)", never removed
+    %     session already holds are never removed from the list
     %   * Species dropdown is editable — type a new species to add it; the
     %     list and the last-used species persist across sessions (prefs)
     %   * Duplicate subject names rejected live via the ReservedNames option
@@ -98,8 +98,7 @@ classdef DefaultSubject < epsych.Subject
             % Parameters:
             %   S      - (optional) epsych.Subject or struct used to pre-fill the dialog
             %   boxids - (optional) box IDs not already in use (default: 1:16).
-            %            Every box 1-16 stays selectable; the rest are labelled
-            %            "(in use)" so the operator can still override.
+            %            Every box 1-16 stays selectable regardless of this list.
             % Options:
             %   ReservedNames - cellstr/string of subject names already in use;
             %                   the dialog refuses to accept any of them
@@ -221,11 +220,9 @@ classdef DefaultSubject < epsych.Subject
             % the operator -- not the dialog -- decides what a box is used for.
             allBoxes = unique([1:16, reshape(boxids, 1, [])]);
             boxItems = arrayfun(@(b) sprintf('%d', b), allBoxes, 'uni', false);
-            inUse = ~ismember(allBoxes, boxids);
-            boxItems(inUse) = cellfun(@(s) [s ' (in use)'], boxItems(inUse), 'uni', false);
             self.ddBoxID_ = uidropdown(formGL, 'Items', boxItems, 'ItemsData', allBoxes, ...
                 'FontSize', 13, ...
-                'Tooltip', 'Apparatus/box the subject runs in ("in use" = already in this session)');
+                'Tooltip', 'Apparatus/box the subject runs in');
             self.ddBoxID_.Layout.Row = 1; self.ddBoxID_.Layout.Column = 2;
             if ismember(self.BoxID, allBoxes)
                 self.ddBoxID_.Value = self.BoxID;

@@ -17,13 +17,15 @@ function icon = toolbarIcon(name)
 %
 % Returns:
 %   icon - 16-by-16-by-3 double in [0,1], NaN where transparent. Assignable
-%          straight to the Icon property of uipushtool/uitoggletool.
+%          straight to the Icon property of uipushtool/uitoggletool, and to
+%          uibutton's, which is the only way to put a glyph other than the
+%          four built-in names (success, error, warning, info) on a button.
 %
 % Example:
 %   tb = uitoolbar(uifigure);
 %   uipushtool(tb,'Icon',gui.toolbarIcon("refresh"),'Tooltip','Refresh');
 %
-% See also: epsych.RunExpt.buildUI, gui.SubjectManager.buildUI
+% See also: epsych.RunExpt.buildUI, gui.SubjectManager.buildUI, gui.ScreenCapture
 
 arguments
     name (1,1) string
@@ -568,6 +570,27 @@ switch name
             "..g....kwwwwwwwk"
             ".......kkkkkkkkk"
             "................"
+            "................"
+            "................"];
+
+    % ---- behavior windows (gui.ScreenCapture) --------------------------
+
+    case "camera"  % camera body with a lens and a flash
+        rows = [ ...
+            "................"
+            "................"
+            "....kkkkk......."
+            "....kkkkk......."
+            ".kkkkkkkkkkkkkk."
+            ".kssssssssswwsk."
+            ".kssssssssssssk."
+            ".ksssskkkkssssk."
+            ".kssskwbbbksssk."
+            ".kssskbbbbksssk."
+            ".kssskbbbbksssk."
+            ".kssskbbbbksssk."
+            ".ksssskkkkssssk."
+            ".kkkkkkkkkkkkkk."
             "................"
             "................"];
 

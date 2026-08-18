@@ -17,7 +17,7 @@ The old **Add Subject** toolbar button opened a modal dialog for one animal, the
 
 A lab that points `FUNCS.AddSubjectFcn` at its own dialog keeps working: **New Subject...** and **Edit Subject...** both route through the same dispatch (`epsych.RunExpt.dispatchAddSubjectFcn_`), so there is still exactly one place that knows how to open a subject dialog.
 
-**Box IDs in that dialog:** all 16 boxes are always listed and box 1 is always the default. Boxes the open session already holds are labelled `(in use)` rather than removed — the dialog used to hide them, which made box 1 disappear the moment a second subject was added. Picking one anyway is the operator's call; the row is then reported as skipped at commit ("box 1 is already taken") instead of being silently prevented.
+**Box IDs in that dialog:** all 16 boxes are always listed and box 1 is always the default, unmarked either way — the dialog used to hide occupied boxes, which made box 1 disappear the moment a second subject was added. Picking an occupied box anyway is the operator's call; the row is then reported as skipped at commit ("box 1 is already taken") instead of being silently prevented.
 
 ---
 

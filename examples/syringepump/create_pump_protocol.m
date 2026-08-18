@@ -105,10 +105,13 @@ p.Max = 4;
 p.isRandom = true;
 
 % Every protocol needs the three core triggers; the runtime refuses to start
-% without them (epsych.Runtime.resolveTriggerParameters).
-sw.add_parameter('x_NewTrial_1',      0, isTrigger = true);
-sw.add_parameter('x_ResetTrig_1',     0, isTrigger = true);
-sw.add_parameter('x_TrialComplete_1', 0, isTrigger = true);
+% without them (epsych.Runtime.resolveTriggerParameters). The runtime polls
+% x_TrialComplete_1.Value on every timer tick, so seed all three to 0:
+% add_parameter fills Values, not Value, and an unset Value would leave the
+% poll with nothing to test.
+p = sw.add_parameter('x_NewTrial_1',      0, isTrigger = true); p.Value = 0;
+p = sw.add_parameter('x_ResetTrig_1',     0, isTrigger = true); p.Value = 0;
+p = sw.add_parameter('x_TrialComplete_1', 0, isTrigger = true); p.Value = 0;
 
 % --- Validate, compile, save ---------------------------------------------
 issues = P.validate();

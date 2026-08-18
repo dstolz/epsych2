@@ -41,6 +41,14 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
     properties
         h_listeners
         Runtime  % Reference to the owning epsych.Runtime; set when registered via Runtime.Interfaces
+
+        % Run the session with this backend deliberately disconnected. Set only
+        % by the operator, from RunExpt's connect-failure prompt, and only for
+        % backends whose canRunOffline says a session without them is coherent.
+        % epsych.Runtime.Interfaces then neither connects nor asserts on it, so
+        % the interface stays in the array — removing it would take its
+        % parameters out of trial dispatch and out of readParameters' lookup.
+        RunOffline (1,1) logical = false
     end
 
 
@@ -157,6 +165,60 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % hardware is still stopped. Backends that must configure recording
             % from the reserved session filename (e.g. hw.Intan_RHX) override
             % this; the default is a no-op.
+        end
+
+        % displayLabel - Human-readable name for this backend, for operator messages
+        function label = displayLabel(obj)
+            % label = displayLabel(obj)
+            % The name the designer shows for this backend ('NE-1000 Syringe
+            % Pump'), falling back to the class when the spec cannot be built.
+            % For dialogs and status text, where 'hw.NE1000' means nothing to
+            % the person reading it.
+            try
+                spec = obj.getCreationSpec();
+                label = spec.label;
+            catch
+                label = '';
+            end
+            if isempty(label)
+                label = class(obj);
+            end
+        end
+
+        % connectionRecoveryLabel - Menu label for operator recovery from a failed connect
+        function label = connectionRecoveryLabel(~)
+            % label = connectionRecoveryLabel(obj)
+            % Label for the button RunExpt offers when connect() fails, or ''
+            % when this backend has nothing an operator could fix from a
+            % dialog. Doubles as the capability query for recoverConnection.
+            %
+            % The default is '': a backend that does not override this aborts
+            % the session on a failed connect, exactly as before.
+            label = '';
+        end
+
+        % recoverConnection - Let the operator fix whatever made connect() fail
+        function tf = recoverConnection(~, ~)
+            % tf = recoverConnection(obj, fig)
+            % Invoked when connect() threw during session startup, with fig as
+            % the modal parent. Change whatever the operator chooses (a serial
+            % port, a host address) and return true to have the connection
+            % retried; return false when they cancelled.
+            %
+            % Overrides must never throw: a dialog that fails is a false.
+            tf = false;
+        end
+
+        % canRunOffline - Whether a session is coherent with this backend disconnected
+        function tf = canRunOffline(~)
+            % tf = canRunOffline(obj)
+            % True when the operator may run the session with this backend
+            % disconnected (see RunOffline). Reserved for peripherals a
+            % paradigm can survive without — a reward pump on a rig being
+            % shaped by hand, not the interface generating the stimulus or
+            % acquiring the data, where continuing would silently produce
+            % worthless sessions.
+            tf = false;
         end
 
         % selfTest - Optional diagnostic hook reporting on this backend's health

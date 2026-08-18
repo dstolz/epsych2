@@ -40,6 +40,9 @@ classdef ExampleBehaviorGUI < gui.BehaviorGUI
             obj.addButton(row, 'DropPellet', Text='Pellet');
             obj.addButton(row, '~TrialDelivery', Text='Deliver Trials');
 
+            % Copies this whole window to the clipboard for a notebook entry
+            obj.addScreenCapture(row);
+
             % Editable parameters: one line each. Names that do not exist
             % in the loaded protocol are skipped silently.
             col = obj.controlColumn(g, Title='Trial Controls', Row=[2 3], Column=1);

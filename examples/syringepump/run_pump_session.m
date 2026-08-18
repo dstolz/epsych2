@@ -11,13 +11,21 @@ function RUNTIME = run_pump_session(options)
 % scatter following DATA, and manual Start / Stop / Zero still working
 % between trials.
 %
+% The session holds at the GUI's Begin Experiment button until the operator
+% presses it, so the syringe can be seated and the line purged first — the
+% pump panel is fully live while it waits. Closing the window instead calls
+% the run off before any liquid moves.
+%
 % Name=Value:
-%   NumTrials  - Trials to run. Default 12.
-%   Port       - Serial port of a real pump. Default '' (simulated pump).
-%   ShowGUI    - Launch PumpBehaviorGUI. Default true.
-%   TrialPause - Seconds between trials, overriding the protocol's ITI.
-%                Default [] (use the dispatched ITI, 2-4 s).
-%   Diameter   - Syringe inside diameter, mm. Default 21.59.
+%   NumTrials     - Trials to run. Default 12.
+%   Port          - Serial port of a real pump. Default '' (simulated pump).
+%   ShowGUI       - Launch PumpBehaviorGUI. Default true.
+%   WaitForBegin  - Hold for the GUI's Begin Experiment button. Default
+%                   true; ignored with ShowGUI=false, where there is no
+%                   button to press (headless tests run that way).
+%   TrialPause    - Seconds between trials, overriding the protocol's ITI.
+%                   Default [] (use the dispatched ITI, 2-4 s).
+%   Diameter      - Syringe inside diameter, mm. Default 21.59.
 %
 % Returns:
 %   RUNTIME - The epsych.Runtime, with the session's DATA in TRIALS(1).DATA.
@@ -32,6 +40,7 @@ arguments
     options.NumTrials (1,1) double {mustBeInteger, mustBePositive} = 12
     options.Port (1,:) char = ''
     options.ShowGUI (1,1) logical = true
+    options.WaitForBegin (1,1) logical = true
     options.TrialPause double {mustBeScalarOrEmpty, mustBeNonnegative} = []
     options.Diameter (1,1) double {mustBeInRange(options.Diameter, 0.1, 50)} = 21.59
 end
@@ -80,9 +89,24 @@ T.selector.setRuntime(RUNTIME, 1);
 RUNTIME.TRIALS = T; % the setter resolves required triggers and dispatches trial 1
 
 % RunExpt launches the behavior GUI right after ep_TimerFcn_Start, then
-% broadcasts the session mode; mirror that order here.
+% broadcasts the session mode; mirror that order here, with the operator's
+% go-ahead in between. Record is broadcast only once the run is committed,
+% so nothing downstream sees a session that never started.
 if options.ShowGUI
-    PumpBehaviorGUI(RUNTIME);
+    % The gate is the constructor's, not this script's: it has to hold a
+    % RunExpt session too, where nothing here is in the call path.
+    %
+    % DriveTrials=false because the loop below is the trial loop here. In a
+    % RunExpt session there is no such loop — the runtime writes the reward
+    % and waits on x_TrialComplete_1 — so the GUI runs the cycle itself, and
+    % leaving its default on would pulse the pump twice per trial.
+    behaviorGUI = PumpBehaviorGUI(RUNTIME, WaitForBegin = options.WaitForBegin, ...
+        DriveTrials = false);
+    if options.WaitForBegin && ~(isvalid(behaviorGUI) && behaviorGUI.BeginRequested)
+        vprintf(0, 'Session cancelled: the window was closed before the experiment began.')
+        if nargout == 0, clear RUNTIME; end
+        return
+    end
 end
 RUNTIME.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Record));
 

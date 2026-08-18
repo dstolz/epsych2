@@ -131,7 +131,7 @@ Before the first trial runs, `ep_TimerFcn_Start` initializes every subject's run
 
 The MATLAB timer fires on every tick. For each subject, the runtime checks whether the current trial has completed:
 
-- **`TrialComplete` polling** — The `TRIGGERS.TrialComplete` parameter is read from hardware. If it is low (`false`), the timer exits immediately and waits for the next tick. No subject processing is skipped independently; each subject is checked in order.
+- **`TrialComplete` polling** — The `TRIGGERS.TrialComplete` parameter is read from hardware. If it is low (`false`), the timer exits immediately and waits for the next tick. No subject processing is skipped independently; each subject is checked in order. A read that is not a definite scalar number — empty (a trigger nothing ever wrote) or `NaN` (a failed or write-only read) — counts as low, never as complete; see `resolveTriggerParameters` in [epsych_Runtime.md](epsych_Runtime.md).
 - **`FORCE_TRIAL` override** — If `TRIALS.FORCE_TRIAL` is `true`, the completion check is bypassed and trial advancement proceeds unconditionally. This is useful for manual override or testing.
 
 ---

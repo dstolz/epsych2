@@ -89,11 +89,21 @@ switch COMMAND
             % triggers.
             self.configureIntanRecorder_(protocol_interfaces);
 
-            % triggers attempt to connect interfaces
+            % Connect here, not through the setter below, so a failure the
+            % operator can fix (a pump switched off, a COM port that moved)
+            % can be put to them in a dialog instead of ending the command.
+            % The setter then passes over what is already connected.
+            self.connectInterfaces_(protocol_interfaces);
+
             self.RUNTIME.Interfaces = protocol_interfaces;
 
 
         catch me
+            % Cancelling at that dialog is an answer, not a fault: the generic
+            % "check the connections" advice below would only be noise.
+            if string(me.identifier) == "epsych:RunExpt:HardwareConnectionCancelled"
+                rethrow(me)
+            end
             vprintf(0,1,me.message);
             self.setStatus('Hardware initialization failed.', ...
                 'check the connections and configuration, then try again.')

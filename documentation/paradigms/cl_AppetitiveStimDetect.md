@@ -69,6 +69,10 @@ Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, 
 
 - `StepDirectionOnHit`, `StepDirectionOnMiss` — sign of the `Depth` step applied on a Hit/Miss: `-1` = Down, `+1` = Up. When absent (or `0`), the selector defaults to `-1` on Hit (weaker) and `+1` on Miss (stronger) — the historical behavior. Define these as writable protocol parameters only if a task needs to invert the default staircase direction.
 - `CatchTrialsEnabled` — Boolean switch gating catch-trial presentation. The selector creates it if the protocol does not declare it, so this parameter normally needs no attention; see [Switching catch trials off](#switching-catch-trials-off).
+- `StimDelayList` — the ends of a block-randomized stimulus-delay list. Declaring it is what switches the delay from `StimDelay.isRandom` to a balanced [`epsych.BlockSequence`](../epsych/epsych_BlockSequence.md); see [Block-randomized stimulus delay](#block-randomized-stimulus-delay).
+- `StimDelayStep` — spacing between list values, in ms. The selector creates it if the protocol does not declare it.
+- `StimDelayJitter` — ±ms added to each delivered delay. Absent means no jitter.
+- `StimDelayBlockEnabled` — Boolean switch turning block randomization on and off. The selector creates it, defaulting to on whenever the list describes more than one value.
 
 ## Selection logic (`selectNext`)
 
@@ -79,11 +83,44 @@ Depth bounds are read from the `Depth` parameter itself: after a Hit/Miss step, 
 5. Update the next stimulus depth from the latest outcome:
    - `Hit`: step by `StepDirectionOnHit * StepOnHit` (default direction: decrement, i.e. weaker)
    - `Miss`: step by `StepDirectionOnMiss * StepOnMiss` (default direction: increment, i.e. stronger)
-   - `Abort`: keep the same depth; if `RepeatDelayOnAbort` is enabled, temporarily suspend `StimDelay` randomization so the identical delay repeats (after three consecutive aborts, randomization is restored instead)
-   - `CorrectReject`: keep the same depth and restore `StimDelay` randomization
-   - `FalseAlarm`: keep the same depth and restore `StimDelay` randomization; a false alarm that was also an abort schedules a catch row immediately
+   - `Abort`: keep the same depth; if `RepeatDelayOnAbort` is enabled, repeat the identical stimulus delay (after three consecutive aborts, the delay moves on instead)
+   - `CorrectReject`: keep the same depth and resume the normal delay schedule
+   - `FalseAlarm`: keep the same depth and resume the normal delay schedule; a false alarm that was also an abort schedules a catch row immediately
 6. Only on a Hit or Miss: clamp the new depth to `Depth.Min`/`Depth.Max`, then write it into every stimulus row of the live trials table (through the runtime handle stored by `setRuntime`), so the dispatcher sends the new value to hardware. Abort/CorrectReject/FalseAlarm never touch the table, so a pending step is not lost to an intervening catch trial.
 7. Unless `CatchTrialsEnabled` is off, schedule a catch trial with the hazard probability described below — suppressed after an abort and after a catch trial. Otherwise return the first stimulus row.
+8. Whatever row step 7 chose, write its stimulus delay — see [Block-randomized stimulus delay](#block-randomized-stimulus-delay).
+
+Steps 1–7 live in the private `selectNextRow_`; the public `selectNext` is that call followed by step 8. The split exists so the delay is applied on **every** path out of the selection logic — the first trial, the reminder override, and the ordinary schedule all leave through the same tail — rather than being repeated at each of `selectNextRow_`'s early returns.
+
+## Block-randomized stimulus delay
+
+When the protocol declares `StimDelayList`, the stimulus delay is drawn from an [`epsych.BlockSequence`](../epsych/epsych_BlockSequence.md) the selector owns, indexed by the selector itself. Every delay in the list then appears **exactly its share within each block** rather than merely on average, which is what `StimDelay.isRandom`'s `randi([Min Max])` could not do over a session of a few hundred trials.
+
+Three parameters describe the list:
+
+| Parameter | Meaning |
+|---|---|
+| `StimDelayList.Min`, `.Max` | The ends of the list |
+| `StimDelayStep.Value` | The spacing between values |
+| `StimDelayJitter.Value` | ±ms added to each delivered value |
+
+So `1000` / `4000` with a step of `250` is `1000:250:4000` — thirteen delays, one block. Colon semantics throughout: a span that is not a whole number of steps stops short of `Max` rather than adding an unevenly spaced final value. `Min == Max`, or a step of zero, is a single fixed delay rather than an error — that is what an operator narrowing the list passes through on the way down.
+
+**Why the step is not `StimDelayList.Value`.** It reads like the obvious place for it, and it cannot work: `hw.Parameter` clamps `Value` into `[Min Max]` on every assignment, and `gui.Parameter_Control` limits the edit field to the same range. A 250 ms step in a 1000–4000 ms list would silently become 1000, both when written and when typed. `StimDelayStep` is a parameter of its own whose `Min`/`Max` really are bounds on its value. The selector creates it, seeded from `StimDelayList`'s own value, so a protocol that only defines the list still works — and `stimDelayValues` falls back to `StimDelayList.Value` when no step parameter exists at all.
+
+**`StimDelay.isRandom` is held false** for the whole session while block randomization is on, re-asserted on every selection pass so a phase load cannot turn it back on underneath the sequence. `randomize_value` runs inside `set.Value`, so an `isRandom` left true would overwrite the balanced value at dispatch. The two mechanisms are alternatives, not layers — which is why the GUI's "Randomize Stimulus Delay" checkbox is bound to `StimDelayBlockEnabled` here rather than to `isRandom`.
+
+**Repeat on abort is a held index.** Because the caller owns the index, repeating a delay after an abort means simply not advancing it: the next trial reads the same position and gets the identical value, jitter included. Nothing is stashed and no randomization is suspended. The third consecutive abort releases the hold, as it always did.
+
+**Training mode wins.** While `StimDelayTrainingEnabled` is on, `gui.StaircaseTraining` steps `StimDelay` itself and writes it into the trials table; the sequence stands down for the duration without clearing the operator's checkbox, so switching training off resumes where the sequence stood.
+
+**Editing the list mid-session** is safe: `epsych.BlockSequence` freezes the values already delivered and regenerates only from the next whole block, so retuning the list does not rewrite the subject's history. The abandoned partial block is logged at operator level.
+
+**Trial 1 keeps its compiled delay.** `ep_TimerFcn_Start` does not install the trials table on the runtime until after the session-start `selectNext` returns, so there is nowhere for the selector to write on the first trial; the sequence starts at trial 2, consuming no index for trial 1. This is what the depth staircase already does — step 1 above returns the first stimulus row without touching `Depth` either.
+
+The generated sequence's seed is logged at level 1 when it is built, so a run can be reconstructed; `BlockSequence.toStruct` is available if a save function wants the sequence itself.
+
+A protocol **without** `StimDelayList` gets none of this. `StimDelay` is left entirely to `isRandom` and the `UserData.CORRECTVAL` machinery, exactly as before.
 
 ## Reminder trials
 
@@ -178,13 +215,15 @@ Like `P_Catch_Current`, the parameter is created on the `hw.Software` interface 
 ## Notes and caveats
 
 - The selector assumes `epsych.BitMask.decode` returns logical fields `Hit`, `Miss`, `Abort`, `CorrectReject`, `FalseAlarm`, and `TrialType_<code>`.
-- `onRecompile` is currently a no-op; the selector rebuilds nothing after an operator recompile.
-- The abort/StimDelay logic stores a snapshot in `StimDelay.UserData` while randomization is suspended; the private helper `restore_stimdelay_randomization_` restores the flag.
+- `onRecompile` re-reads the cached `StimDelay` column from `TRIALS.writeParamIdx`; a recompile that adds or removes a parameter shifts every column after it. Nothing else is rebuilt.
+- Without `StimDelayList`, the abort/StimDelay logic stores a snapshot in `StimDelay.UserData` while randomization is suspended; the private helper `restore_stimdelay_randomization_` restores the flag. Under the block sequence that helper is a no-op — `isRandom` is never suspended, so restoring it would switch `randi` back on underneath the sequence.
 
 ## Related files
 
 - [paradigms/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m](../../paradigms/TrialSelectors/@cl_AppetitiveStimDetect/cl_AppetitiveStimDetect.m)
 - [paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m](../../paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m) — the task GUI that exposes these parameters
 - [tmp/smoke_test_pcatch_hazard.m](../../tmp/smoke_test_pcatch_hazard.m) — hazard-schedule and end-to-end selector tests
+- [tmp/smoke_test_stimdelay_blocksequence.m](../../tmp/smoke_test_stimdelay_blocksequence.m) — block-randomized stimulus delay, end to end
+- [../epsych/epsych_BlockSequence.md](../epsych/epsych_BlockSequence.md) — the sequence class the delay is drawn from
 - [cl_SaveDataFcn.md](cl_SaveDataFcn.md) — the task's save function
 - [../epsych/epsych_TrialLifecycle.md](../epsych/epsych_TrialLifecycle.md) — where trial selection happens in a session

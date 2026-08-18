@@ -27,15 +27,22 @@ classdef NextTrial < gui.PopOut
     % map (validName -> function_handle(rawValue) -> char/string) overrides
     % that, e.g. to decode a numeric trial-type code into a label.
     %
+    % Font size is settable the same two ways -- obj.FontSize = 22, or the
+    % right-click "Font Size" menu -- and is saved with the field selection,
+    % so an operator who sized the table to be read from across the room
+    % gets it back next session.
+    %
     % Properties:
     %   SelectedFields  - validNames currently displayed (Dependent)
     %   AvailableFields - validNames declared by the most recent NewTrial (Dependent)
+    %   FontSize        - Table font size in points (Dependent)
     %   ContextMenu     - the right-click menu; host GUIs may append items
     %
     % Methods:
-    %   NextTrial - Construct the display and attach the NewTrial listener
-    %   setFields - Programmatically choose which fields are displayed
-    %   delete    - Release the listener and context menu
+    %   NextTrial   - Construct the display and attach the NewTrial listener
+    %   setFields   - Programmatically choose which fields are displayed
+    %   setFontSize - Programmatically set the table font size
+    %   delete      - Release the listener and context menu
     %
     % Examples:
     %   % Minimal: show every declared field once trials are compiled
@@ -52,6 +59,12 @@ classdef NextTrial < gui.PopOut
     properties (Dependent)
         SelectedFields  % validNames currently displayed, in declared order
         AvailableFields % validNames declared by the most recent NewTrial event
+        FontSize        % Table font size in points
+    end
+
+    properties
+        % FontPresets - Sizes offered as one-click entries on the Font Size menu
+        FontPresets (1,:) double {mustBePositive} = [10 12 14 16 20 24 28 36]
     end
 
     properties (SetAccess = private)
@@ -74,6 +87,7 @@ classdef NextTrial < gui.PopOut
         FontSize_ (1,1) double = 16
         PreferenceTag_ (1,:) char = ''
         ShowMenuH_ = []
+        FontMenuH_ = []
         selfDeleteListener_ = event.listener.empty
     end
 
@@ -94,7 +108,9 @@ classdef NextTrial < gui.PopOut
             %  Formatters     - containers.Map, validName -> function_handle
             %                   (rawValue) -> char/string, for fields whose
             %                   raw trial-table value needs decoding.
-            %  FontSize       - Table font size. Default 16.
+            %  FontSize       - Table font size. Default 16. Like the field
+            %                   selection, a size saved for this
+            %                   PreferenceTag takes precedence.
             %  PreferenceTag  - Optional key for saved preferences (defaults
             %                   to the hosting figure Tag/Name).
             arguments
@@ -156,6 +172,29 @@ classdef NextTrial < gui.PopOut
 
         function fields = get.AvailableFields(obj)
             fields = obj.AvailableFields_;
+        end
+
+        function sz = get.FontSize(obj)
+            sz = obj.FontSize_;
+        end
+
+        function set.FontSize(obj, points)
+            obj.setFontSize(points);
+        end
+
+        function setFontSize(obj, points)
+            % setFontSize(obj, points)
+            % Set the table font size, in points. Sizes outside 6-72 are
+            % clamped rather than refused, so a scripted value cannot leave
+            % the display unreadable. Persists like a menu selection.
+            arguments
+                obj
+                points (1,1) double {mustBePositive, mustBeFinite}
+            end
+            points = min(max(round(points), 6), 72);
+            obj.FontSize_ = points;
+            obj.applyFontSize_();
+            obj.savePreferences_();
         end
 
         function setFields(obj, fields)
@@ -333,6 +372,7 @@ classdef NextTrial < gui.PopOut
                 cm = uicontextmenu(f);
                 obj.ContextMenu = cm;
                 obj.ShowMenuH_  = uimenu(cm,'Text','Show Field');
+                obj.FontMenuH_  = uimenu(cm,'Text','Font Size');
                 uimenu(cm,'Text','Show All','Separator','on', ...
                     'MenuSelectedFcn',@(~,~) obj.showAll_());
                 uimenu(cm,'Text','Reset to Default', ...
@@ -340,9 +380,9 @@ classdef NextTrial < gui.PopOut
                 obj.addPopOutMenu_(cm);
 
                 try
-                    cm.ContextMenuOpeningFcn = @(~,~) obj.refreshShowMenu_();
+                    cm.ContextMenuOpeningFcn = @(~,~) obj.refreshMenus_();
                 catch
-                    cm.Callback = @(~,~) obj.refreshShowMenu_();
+                    cm.Callback = @(~,~) obj.refreshMenus_();
                 end
             catch ME
                 vprintf(3,'gui.NextTrial: context menu unavailable: %s', ME.message)
@@ -358,6 +398,65 @@ classdef NextTrial < gui.PopOut
                 catch ME
                     vprintf(3,'gui.NextTrial: cannot attach context menu: %s', ME.message)
                 end
+            end
+        end
+
+        function refreshMenus_(obj)
+            obj.refreshShowMenu_();
+            obj.refreshFontMenu_();
+        end
+
+        function refreshFontMenu_(obj)
+            % Presets plus a prompt, rebuilt on open so the check mark and
+            % the custom entry follow a size set programmatically.
+            m = obj.FontMenuH_;
+            if isempty(m) || ~isvalid(m), return; end
+            delete(m.Children);
+
+            sz = obj.FontSize_;
+            for k = 1:numel(obj.FontPresets)
+                n = obj.FontPresets(k);
+                item = uimenu(m,'Text',sprintf('%g pt',n), ...
+                    'MenuSelectedFcn',@(~,~) obj.setFontSize(n));
+                item.Checked = sz == n;
+            end
+
+            uimenu(m,'Text','Larger','Separator','on', ...
+                'MenuSelectedFcn',@(~,~) obj.setFontSize(sz + 2));
+            uimenu(m,'Text','Smaller', ...
+                'MenuSelectedFcn',@(~,~) obj.setFontSize(sz - 2));
+
+            item = uimenu(m,'Text','Custom...','Separator','on', ...
+                'MenuSelectedFcn',@(~,~) obj.promptFontSize_());
+            item.Checked = ~ismember(sz, obj.FontPresets);
+        end
+
+        function promptFontSize_(obj)
+            % inputdlg opens its own dialog, so it works from a uifigure; a
+            % cancelled or unparseable entry is ignored.
+            try
+                a = inputdlg({'Font size (points):'}, 'Font Size', [1 30], ...
+                    {num2str(obj.FontSize_)});
+            catch ME
+                vprintf(0,1,'gui.NextTrial: cannot prompt for a font size: %s', ME.message)
+                return
+            end
+            if isempty(a), return; end
+
+            n = str2double(strtrim(a{1}));
+            if ~isfinite(n) || n <= 0
+                vprintf(1,'gui.NextTrial: "%s" is not a font size', strtrim(a{1}))
+                return
+            end
+            obj.setFontSize(n);
+        end
+
+        function applyFontSize_(obj)
+            if isempty(obj.TableH) || ~isvalid(obj.TableH), return; end
+            try
+                obj.TableH.FontSize = obj.FontSize_;
+            catch ME
+                vprintf(3,'gui.NextTrial: unable to set font size: %s', ME.message)
             end
         end
 
@@ -423,6 +522,11 @@ classdef NextTrial < gui.PopOut
                     obj.SelectedFields_       = reshape(string(s.SelectedFields),1,[]);
                     obj.HasExplicitSelection_ = true;
                 end
+                if isfield(s,'FontSize') && isscalar(s.FontSize) && isfinite(s.FontSize) ...
+                        && s.FontSize > 0
+                    obj.FontSize_ = min(max(round(s.FontSize), 6), 72);
+                    obj.applyFontSize_();
+                end
                 vprintf(3,'gui.NextTrial: loaded saved preferences "%s"', pname)
             catch ME
                 vprintf(2,'gui.NextTrial: failed to load preferences: %s', ME.message)
@@ -431,7 +535,8 @@ classdef NextTrial < gui.PopOut
 
         function savePreferences_(obj)
             try
-                s = struct('SelectedFields', {cellstr(obj.SelectedFields_)});
+                s = struct('SelectedFields', {cellstr(obj.SelectedFields_)}, ...
+                    'FontSize', obj.FontSize_);
                 setpref(obj.PREF_GROUP, obj.preferenceName_(), s);
             catch ME
                 vprintf(2,'gui.NextTrial: failed to save preferences: %s', ME.message)

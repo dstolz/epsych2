@@ -101,7 +101,8 @@ end
 % -----------------------------------------------------------------------
 function localRaiseSession(runExpt)
 % Bring the session window forward so the operator sees the rows land in it.
-% This window stays open behind it -- adding is not the end of the visit.
+% This window is closed by the caller straight after: a full commit is the end
+% of the visit, and the operator's next stop is the session.
 try
     if isempty(runExpt) || ~isvalid(runExpt), return, end
     if ~isfield(runExpt.H,'figure1') || ~isgraphics(runExpt.H.figure1), return, end

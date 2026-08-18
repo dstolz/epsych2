@@ -208,15 +208,54 @@ assert(ismember("HitRate", P.Metrics), 'toggling again should restore it');
 assert(isequal(P.Metrics, orderedMetrics(P.Metrics)), 'metrics stay in catalogue order');
 fprintf('PASS: context menu drives the window and the metric selection\n');
 
+% 9b. Font size ------------------------------------------------------------
+assert(P.FontSize == 12, 'the default caption size is 12pt');
+assert(P.HeaderH.FontSize == 11, 'the header renders 1pt smaller than the captions');
+assert(any(fontSizes(P) == 14), 'values render 2pt larger than the captions');
+
+P.FontSize = 18;
+assert(P.FontSize == 18, 'the font size should be settable as a property');
+assert(P.HeaderH.FontSize == 17, 'the header should follow the caption size');
+sizes = fontSizes(P);
+assert(any(sizes == 18) && any(sizes == 20) && any(sizes == 16), ...
+    'captions, values, and details should all scale');
+
+P.setFontSize(200);
+assert(P.FontSize == 72, 'an oversized value should clamp rather than throw');
+P.setFontSize(1);
+assert(P.FontSize == 6, 'an undersized value should clamp too');
+P.setFontSize(14);
+
+% the size survives a rebuild of the rows
+P.setMetrics(["Trials","HitRate","FARate","DPrime"]);
+assert(P.HeaderH.FontSize == 13, 'rebuilt rows should keep the chosen size');
+
+P.ContextMenu.ContextMenuOpeningFcn([],[]);
+fontMenu = findobj(P.ContextMenu,'Text','Font Size');
+entries = string({fontMenu.Children.Text});
+assert(any(entries == "14 pt") && any(entries == "Larger") && any(entries == "Custom..."), ...
+    'the font menu should offer presets, steps, and a prompt');
+assert(findobj(fontMenu,'Text','14 pt').Checked == "on", 'the active size should be checked');
+
+findobj(fontMenu,'Text','20 pt').MenuSelectedFcn([],[]);
+assert(P.FontSize == 20, 'choosing a preset should resize the panel');
+P.ContextMenu.ContextMenuOpeningFcn([],[]);
+findobj(findobj(P.ContextMenu,'Text','Font Size'),'Text','Smaller').MenuSelectedFcn([],[]);
+assert(P.FontSize == 18, 'Smaller should step down 2pt');
+fprintf('PASS: font size, programmatically and from the menu\n');
+
 % 10. Persistence ----------------------------------------------------------
 P.setMetrics(["Trials","DPrime"]);
 P.setTrialWindow([5 15]);
+P.setFontSize(15);
 delete(P);
 
 P2 = gui.SessionPerformance(rt, panel, Metrics="HitRate");
 assert(isequal(P2.Metrics, ["Trials","DPrime"]), 'a saved selection should outrank the constructor default');
 assert(P2.TrialWindow.Mode == "Range" && isequal(P2.TrialWindow.Range,[5 15]), ...
     'the saved trial window should be restored');
+assert(P2.FontSize == 15 && P2.HeaderH.FontSize == 14, ...
+    'the saved font size should be restored and applied to the rows');
 fprintf('PASS: preferences persist across construction\n');
 
 % 11. Pop-out window (gui.PopOut mixin) -----------------------------------
@@ -270,6 +309,13 @@ h = findobj(P.GridH,'Type','uilabel');
 [~, text] = P.Analysis.metric(name);
 s = string(text);
 assert(any(strcmp({h.Text}, char(text))), 'metric "%s" should be displayed', name);
+end
+
+
+function sz = fontSizes(P)
+% Font sizes in use across the panel's labels.
+h = findobj(P.GridH,'Type','uilabel');
+sz = [h.FontSize];
 end
 
 

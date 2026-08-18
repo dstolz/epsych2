@@ -48,6 +48,20 @@ function build(obj, fig)
 %   StimDelayTrainingEnabled (optional) : Checkbox enabling stimulus-delay
 %       training mode; created here when the protocol does not declare it.
 %       Marked PersistWithPhase, so a phase carries the training state.
+%   StimDelayList (optional) : Ends of the block-randomized stimulus-delay
+%       list -- its Min and Max, with StimDelayStep as the spacing, so
+%       1000 / 4000 / 250 means 1000:250:4000 ms. Its presence is what selects
+%       the block-randomization controls below over the original
+%       StimDelay.isRandom pair; see cl_AppetitiveStimDetect.
+%   StimDelayStep (optional) : Spacing between list values, in ms. Created by
+%       cl_AppetitiveStimDetect (or here) when the protocol has none -- it
+%       cannot live on StimDelayList.Value, which hw.Parameter clamps into
+%       [Min Max].
+%   StimDelayJitter (optional) : +/- ms added to each delivered delay.
+%   StimDelayBlockEnabled (optional) : The "Randomize Stimulus Delay" checkbox
+%       when StimDelayList is defined, created by cl_AppetitiveStimDetect at
+%       run start (or here for the hardware-free launch). PersistWithPhase, so
+%       a phase carries whether the subject trains on a varying delay.
 %   Depth : Staircase-controlled modulation depth.
 %   Depth_StepOnHit : Staircase depth decrement applied after hits.
 %   Depth_StepOnMiss : Staircase depth increment applied after misses.
@@ -160,10 +174,11 @@ obj.h_PhaseSelector = obj.PhaseSelector.createGUI(h);
 
 
 % LAYOUTS -------------------------------------------------
-% 20 rows: 19 controls plus one spare (the p(Catch) and stimulus-delay
-% bounds each occupy a single Type='range' row).
+% 22 rows: 21 controls plus one spare (the p(Catch) and stimulus-delay
+% bounds each occupy a single Type='range' row). The column scrolls, so a
+% protocol that defines fewer parameters simply leaves rows empty.
 layoutTrialControls = obj.controlColumn(layoutMain, ...
-    Row=[4 8], Column=[1 2], Rows=20);
+    Row=[4 8], Column=[1 2], Rows=22);
 
 layoutSoundControls = obj.controlColumn(layoutMain, Title='Sound Controls', ...
     Row=9, Column=[1 2], Rows=9);
@@ -178,7 +193,7 @@ h.FontSize = 16;
 h.FontWeight = 'bold';
 
 % >> Min Depth
-obj.addControl(layoutTrialControls,'Depth',BoundProperty='Min',Text="Minimum Depth (dB):");
+obj.addControl(layoutTrialControls,'Depth',BoundProperty='Min',autoCommit=true,Text="Minimum Depth (dB):");
 
 % >> Max Depth
 obj.addControl(layoutTrialControls,'Depth',BoundProperty='Max',autoCommit=true,Text="Maximum Depth (dB):");
@@ -251,20 +266,79 @@ obj.addControl(layoutTrialControls,'RepeatDelayOnAbort',Type='checkbox',autoComm
 hStimDelayValue = obj.addControl(layoutTrialControls,'StimDelay',autoCommit=true, ...
     Text="Stimulus Delay (ms):");
 
-% >> Stimulus Delay (toggle randomization)
-hStimDelayRand = obj.addControl(layoutTrialControls,'StimDelay',Type='checkbox',autoCommit=true, ...
-    BoundProperty='isRandom',Text="Randomize Stimulus Delay:");
-
-% >> Stimulus Delay (bounds used when randomizing)
-hStimDelayRange = obj.addControl(layoutTrialControls,'StimDelay',Type='range',autoCommit=true, ...
-    Text="Stimulus Delay Min / Max (ms):");
-
 pStimDelay = getp(P,'StimDelay');
-if ~isempty(hStimDelayRand)
-    hStimDelayRand.PostUpdateFcn = @set_stimdelay_randomization_state;
-    hStimDelayRand.PostUpdateFcnArgs = {hStimDelayValue,hStimDelayRange};
-    set_stimdelay_randomization_state(hStimDelayRand,pStimDelay.isRandom,pStimDelay, ...
-        hStimDelayValue,hStimDelayRange);
+pDelayList = getp(P,'StimDelayList');
+
+% Two ways to vary the stimulus delay, chosen by whether the protocol
+% declares StimDelayList. The block sequence is the better one -- every
+% delay in the list appears its exact share within each block, where
+% StimDelay.isRandom draws randi([Min Max]) afresh every trial -- but the
+% two cannot both be live: isRandom redraws inside set.Value on dispatch
+% and would overwrite the sequence's value. So the checkbox is bound to
+% isRandom only for a protocol with no list; with a list it is bound to
+% StimDelayBlockEnabled and cl_AppetitiveStimDetect holds isRandom false.
+if isempty(pDelayList)
+    % >> Stimulus Delay (toggle randomization)
+    hStimDelayRand = obj.addControl(layoutTrialControls,'StimDelay',Type='checkbox',autoCommit=true, ...
+        BoundProperty='isRandom',Text="Randomize Stimulus Delay:");
+
+    % >> Stimulus Delay (bounds used when randomizing)
+    hStimDelayRange = obj.addControl(layoutTrialControls,'StimDelay',Type='range',autoCommit=true, ...
+        Text="Stimulus Delay Min / Max (ms):");
+
+    hDelayVarying = {hStimDelayRange};
+
+    if ~isempty(hStimDelayRand)
+        hStimDelayRand.PostUpdateFcn = @set_stimdelay_randomization_state;
+        hStimDelayRand.PostUpdateFcnArgs = {hStimDelayValue,hStimDelayRange};
+        set_stimdelay_randomization_state(hStimDelayRand,pStimDelay.isRandom,pStimDelay, ...
+            hStimDelayValue,hStimDelayRange);
+    end
+else
+    % The switch is a real parameter, not widget state, so a phase carries
+    % whether a subject trains on a varying delay. cl_AppetitiveStimDetect
+    % creates it at run start; ensure_session_setting covers the hardware-free
+    % launch (SelfTest I6), where no selector has run. Its default matches the
+    % selector's: a list of more than one value is worth randomizing.
+    % The step is its own parameter because hw.Parameter clamps Value into
+    % [Min Max] and gui.Parameter_Control limits the edit field to the same
+    % range: a 250 ms step could be neither stored on nor typed into the
+    % 1000-4000 ms list parameter. cl_AppetitiveStimDetect creates it at run
+    % start; this call covers the hardware-free launch (SelfTest I6).
+    pDelayStep = cl_AppetitiveStimDetect.ensureStimDelayStep(R,pDelayList);
+
+    dfltBlock = numel(cl_AppetitiveStimDetect.stimDelayValues(pDelayList,pDelayStep)) > 1;
+    pBlock = ensure_session_setting(R,P,'StimDelayBlockEnabled',dfltBlock, ...
+        "Block-randomize the stimulus delay over StimDelayList");
+
+    % >> Stimulus Delay (toggle block randomization)
+    hStimDelayRand = obj.addControl(layoutTrialControls,pBlock,Type='checkbox',autoCommit=true, ...
+        Text="Randomize Stimulus Delay:");
+
+    % >> Stimulus Delay list: the ends on one row, the spacing on the next.
+    % 1000 / 4000 with a step of 250 is 1000:250:4000 ms.
+    hDelayListRange = obj.addControl(layoutTrialControls,pDelayList,Type='range',autoCommit=true, ...
+        Text="Delay List Min / Max (ms):");
+    hDelayListStep  = obj.addControl(layoutTrialControls,pDelayStep,autoCommit=true, ...
+        Text="Delay List Step (ms):");
+
+    % >> Jitter added to each delivered delay
+    hDelayJitter = obj.addControl(layoutTrialControls,'StimDelayJitter',autoCommit=true, ...
+        Text="Delay Jitter (+/- ms):");
+
+    hDelayVarying = {hDelayListRange,hDelayListStep,hDelayJitter};
+
+    if ~isempty(hStimDelayRand)
+        % Asserted here as well as in the selector, so the flag is right
+        % whenever the checkbox exists -- including a protocol that declares
+        % the parameter itself, and a session whose selector predates it.
+        hStimDelayRand.Parameter.PersistWithPhase = true;
+
+        hStimDelayRand.PostUpdateFcn = @set_stimdelay_randomization_state;
+        hStimDelayRand.PostUpdateFcnArgs = [{hStimDelayValue},hDelayVarying];
+        set_stimdelay_randomization_state(hStimDelayRand,hStimDelayRand.Parameter.Value, ...
+            hStimDelayRand.Parameter,hStimDelayValue,hDelayVarying{:});
+    end
 end
 
 % >> Stimulus Delay Training Mode --- launches a small gui to adjust parameters for training with variable stimulus delay
@@ -286,9 +360,8 @@ if ~isempty(pStimDelay) && ~isempty(pStepUp) && ~isempty(pStepDown) && ~isempty(
     % is [] deliberately -- passing the checkbox would disable it and leave
     % the operator no way to switch training back off.
     hStimDelayTrain.PostUpdateFcn = @(~,event,~) ...
-        gui.eval_staircase_training_mode(obj,[],event,pStimDelay, ...
-            StepUp   = step_value(pStepUp), ...
-            StepDown = step_value(pStepDown));
+        set_stimdelay_training_state(obj,event,pStimDelay,pStepUp,pStepDown, ...
+            [{hStimDelayRand,hStimDelayValue},hDelayVarying]);
 
     % Reopen the training window when the value carried into this session
     % already says training is on (a protocol default, or a phase loaded
@@ -580,23 +653,90 @@ end
 end
 
 
-function set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,hStimDelayRange)
-% set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,hStimDelayRange)
-% Keep StimDelay randomization state and related controls synchronized.
+function set_stimdelay_training_state(obj,event,pStimDelay,pStepUp,pStepDown,hControls)
+% set_stimdelay_training_state(obj,event,pStimDelay,pStepUp,pStepDown,hControls)
+% Open or close stimulus-delay training mode, and grey the delay
+% randomization controls for its duration.
+%
+% Training mode steps StimDelay itself, from its own window and its own
+% NewData listener, and writes the result into the trials table. Nothing
+% else may drive the parameter while it runs: gui.eval_staircase_training_mode
+% suspends isRandom, and cl_AppetitiveStimDetect stands its block sequence
+% down. The controls are greyed rather than hidden so the operator can still
+% see the configuration that resumes when training is switched off.
+%
+% Parameters:
+%   obj : cl_AppetitiveDetection_BehaviorGUI
+%   event : struct
+%       PostUpdateFcn event whose Value is the training on/off state.
+%   pStimDelay : hw.Parameter
+%       Parameter the training staircase steps.
+%   pStepUp, pStepDown : hw.Parameter
+%       Training step magnitudes.
+%   hControls : cell of gui.Parameter_Control
+%       Delay controls to grey while training runs. The first entry is the
+%       randomization checkbox, which is also what restores the others when
+%       training ends; [] entries are skipped.
+
+gui.eval_staircase_training_mode(obj,[],event,pStimDelay, ...
+    StepUp   = step_value(pStepUp), ...
+    StepDown = step_value(pStepDown));
+
+training = logical(event.Value);
+if training
+    state = "off";
+else
+    state = "on";
+end
+
+for i = 1:numel(hControls)
+    h = hControls{i};
+    if isempty(h) || ~isvalid(h), continue; end
+    set(h.widgets(),'Enable',state);
+    if ishandle(h.h_label)
+        h.h_label.Enable = state;
+    end
+end
+
+if training, return; end
+
+% Enabling everything is only half a restore: which delay controls are
+% usable depends on the randomization checkbox, not on training. Re-running
+% its PostUpdateFcn re-applies that, rather than duplicating the rule here.
+hRand = hControls{1};
+if isempty(hRand) || ~isvalid(hRand) || ~isa(hRand.PostUpdateFcn,'function_handle')
+    return
+end
+hRand.runPostUpdateFcn(struct('PreviousValue',[], ...
+    'EventName','TrainingModeOff','Value',hRand.h_uiobj.Value));
+end
+
+
+function set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,varargin)
+% set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,hVarying...)
+% Keep the stimulus-delay randomization state and its controls synchronized:
+% a varying delay is described by the controls in hVarying and the fixed
+% Stimulus Delay field is read-only, or the reverse.
+%
+% Serves both randomization schemes. The controls that describe HOW the delay
+% varies differ -- StimDelay's own Min/Max for the isRandom path, the list
+% bounds, step and jitter for the block sequence -- so they arrive as a
+% variable-length list rather than as one named argument.
 %
 % Parameters:
 %   src : gui.Parameter_Control
 %       Randomization checkbox that triggered the update.
-%   newValue : logical scalar
-%       New isRandom value.
+%   newValue : logical scalar | struct
+%       New checkbox value, or the event struct carrying it.
 %   param : hw.Parameter
 %       Bound parameter passed by gui.Parameter_Control PostUpdateFcn (unused).
 %   hStimDelayValue : gui.Parameter_Control
 %       UI control for direct StimDelay value editing.
-%   hStimDelayRange : gui.Parameter_Control
-%       Type='range' control holding the randomized [Min Max] bounds.
+%   varargin : gui.Parameter_Control
+%       Controls describing the varying delay; [] entries (parameters the
+%       loaded protocol does not define) are skipped.
 
-if isempty(src) || isempty(hStimDelayValue) || isempty(hStimDelayRange)
+if isempty(src) || isempty(hStimDelayValue)
     return
 end
 
@@ -608,22 +748,27 @@ isRandom = logical(newValue);
 
 if isRandom
     editState = "off";
-    minMaxState = "on";
+    varyingState = "on";
     valueFieldColor = [0.94 0.94 0.94];
 else
     % Allow direct fixed-value editing when randomization is disabled.
     editState = "on";
-    minMaxState = "off";
+    varyingState = "off";
     valueFieldColor = hStimDelayValue.colorNormal;
 end
 
 hStimDelayValue.h_uiobj.Editable = editState;
 hStimDelayValue.h_uiobj.BackgroundColor = valueFieldColor;
 
-% widgets() rather than h_uiobj: both entries of the Min/Max row follow the
-% randomization state together.
-set(hStimDelayRange.widgets(),'Enable',minMaxState);
-if ishandle(hStimDelayRange.h_label)
-    hStimDelayRange.h_label.Enable = minMaxState;
+for i = 1:numel(varargin)
+    h = varargin{i};
+    if isempty(h) || ~isvalid(h), continue; end
+
+    % widgets() rather than h_uiobj: both entries of a Min/Max row follow the
+    % randomization state together.
+    set(h.widgets(),'Enable',varyingState);
+    if ishandle(h.h_label)
+        h.h_label.Enable = varyingState;
+    end
 end
 end

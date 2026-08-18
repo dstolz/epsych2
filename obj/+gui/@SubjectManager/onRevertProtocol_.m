@@ -10,6 +10,9 @@ function onRevertProtocol_(self)
 % on cannot be restored as content; reverting to it restores the pointer and
 % the recorded version, and says so.
 %
+% Retired members are refused, as they are everywhere else in this window's
+% protocol handling.
+%
 % See also: epsych.SubjectRoster.revertProtocol, epsych.SubjectRoster.protocolHistory
 arguments
     self
@@ -26,6 +29,17 @@ end
 
 rec = self.selectedRow_();
 if isempty(rec), return, end
+
+% Retired members are out of the protocol workflow in both directions: what a
+% finished animal is recorded as having run is the record, and rewriting it
+% backwards is as wrong as rewriting it forwards.
+if self.isRetiredIn_(rec.SubjectID, projectId)
+    uialert(self.H.figure, sprintf( ...
+        ['"%s" is retired from this project, so its protocol record is left ' ...
+         'alone.\n\nRestore it to the project first if it is going to run again.'], ...
+        rec.Name), 'Revert Protocol', 'Icon','info');
+    return
+end
 
 history = self.Roster.protocolHistory(rec.SubjectID, projectId);
 if isempty(history)

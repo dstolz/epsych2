@@ -153,17 +153,26 @@ It shows the version the subject is **on**, not the newest one available, so a r
 | `v7.260814` in **bold orange** | The file has been saved since — this subject is behind |
 | `not recorded`, greyed | Never committed to a session, so there is nothing to compare |
 | `(missing)`, bold orange | The `.eprot` is gone |
+| greyed, whatever it says | A retired member — outside the version workflow entirely |
 
 When anything is behind, a banner opens above the table naming the count, with **Update All to Latest** beside it; the table's tooltip names the subjects and both versions. The banner collapses to nothing the moment there is nothing to say — a stale-protocol warning is exactly what an operator will not think to go looking for, so it announces itself rather than waiting to be checked.
+
+### Retired members are outside all of this
+
+A retired subject is **never** counted, coloured, or updated by anything on this page. Its recorded protocol is the record of what it actually ran; moving it onto a version saved afterwards would rewrite that, for a session that is never going to happen. So a retired member behind the file does not open the banner, does not appear in the tooltip or in **Check Protocol Versions**, and is skipped by every update — including *Update All in Project*. Its Version cell is greyed like the rest of its row rather than drawn in orange, because a warning with no action behind it is just noise.
+
+The menu items follow: with only retired rows ticked, **Update Checked** and **Switch to Project Default** are unavailable, and **Revert Protocol Version...** is unavailable on a retired row. Asking anyway — through the right-click menu, which stays live because it acts on the row under the pointer — says why and changes nothing. Where an update did go ahead with retired rows ticked alongside active ones, the confirmation and the status line both say how many were skipped, so a count that does not match the ticks is explained before it is noticed.
+
+Restore the subject to the project (tick *Show retired*, press **Restore**) and it rejoins every one of these surfaces immediately.
 
 ### The Protocol menu
 
 | Item | Scope |
 |---|---|
-| **Check Protocol Versions** | Everything shown: counts by state, then the subjects that are behind, with both versions |
+| **Check Protocol Versions** | Every active subject shown: counts by state, then the subjects that are behind, with both versions. Retired rows are counted out, and the report says how many |
 | **Open in Protocol Designer** | The selected row's protocol — including an uncommitted **Set Protocol...** override, so the two columns and the designer always agree on which file |
-| **Update Checked to Latest Version** | The ticked rows |
-| **Update All in Project to Latest Version** | Every member, **including retired ones and any hidden by the filter** — "all" that quietly meant "all visible" would leave stragglers behind exactly when you believed otherwise |
+| **Update Checked to Latest Version** | The ticked rows, retired ones skipped |
+| **Update All in Project to Latest Version** | Every **active** member, **including any hidden by the filter** — "all" that quietly meant "all visible" would leave stragglers behind exactly when you believed otherwise. Retired members are not stragglers; they are done |
 | **Switch Checked to Project Default Protocol** | Moves them onto the project's file as well as its version |
 | **Revert Protocol Version...** | The selected row |
 
@@ -253,7 +262,7 @@ Never a modal; always a centred explanation where the table would be — no rost
 
 ## Two-way navigation
 
-The session window's subject list gains **Show in Subject Manager**, which opens this window with that animal selected (switching project and revealing it even if retired). The reverse direction is the Add Checked to Session button, which raises the session window once the rows land in it — after the skip report is dismissed, when there was one — and leaves this window open behind it, since adding is rarely the end of the visit. **Edit Subject Details...** in the same context menu edits a session subject in place and mirrors the change into the roster.
+The session window's subject list gains **Show in Subject Manager**, which opens this window with that animal selected (switching project and revealing it even if retired). The reverse direction is the Add Checked to Session button, which raises the session window once the rows land in it — after the skip report is dismissed, when there was one — and then closes this one, since a full commit is the end of the visit. **Edit Subject Details...** in the same context menu edits a session subject in place and mirrors the change into the roster.
 
 ---
 
@@ -275,7 +284,7 @@ The session window's subject list gains **Show in Subject Manager**, which opens
 matlab -batch "cd('tmp'); smoke_test_subject_manager"
 ```
 
-Asserts the window lifecycle and single-instance rule, the empty-roster-and-no-session path, filtering (a regex-looking string, and live search driven one keystroke at a time through the real `ValueChangingFcn`), the retired toggle, all three box-GUI states in the project summary, ticking plus a typed box reaching `CONFIG`, the session window being raised by a clean commit, the remembered project surviving a close, and `revealSubject` handling both a retired subject and an unknown name.
+Asserts the window lifecycle and single-instance rule, the empty-roster-and-no-session path, filtering (a regex-looking string, and live search driven one keystroke at a time through the real `ValueChangingFcn`), the retired toggle, all three box-GUI states in the project summary, ticking plus a typed box reaching `CONFIG`, the session window being raised and this one closed by a clean commit, the remembered project surviving a close, `revealSubject` handling both a retired subject and an unknown name, and a retired member being left out of the banner, of every update, and of revert.
 
 The toolbar is asserted as a whole rather than tool by tool: every tool must carry a 16×16 icon and a tooltip — a toolbar has no labels, so a tool with neither is unusable — its Enable must follow the ticks alongside the button and menu item, and the Retire tool must swap both icon *and* tooltip when the checked rows are already retired.
 

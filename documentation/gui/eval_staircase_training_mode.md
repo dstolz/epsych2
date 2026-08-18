@@ -40,6 +40,8 @@ When `event.Value` is false, the callback:
 
 `RepeatDelayOnAbort` is resolved through `RUNTIME.find_parameter`, not the `RUNTIME.P` cache: that cache is only populated once `TRIALS` is initialized, and the toggle can now be written before a session has dispatched its first trial. A protocol that does not define the parameter simply has nothing to suspend.
 
+Suspending `isRandom` is not enough on its own when something *other* than `hw.Parameter` drives the value. A trial selector writing the parameter into the trials table every trial — as `cl_AppetitiveStimDetect` does for a block-randomized stimulus delay — has to stand down for the duration too, or the two overwrite each other; see [../paradigms/cl_AppetitiveStimDetect.md](../paradigms/cl_AppetitiveStimDetect.md#block-randomized-stimulus-delay).
+
 ## Response mapping
 
 The listener decodes the most recent trial response code with `epsych.BitMask.decode` and applies one step when the decoded response matches either configured outcome:

@@ -32,12 +32,42 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     % PersistWithPhase, so the setting is saved into and restored from a phase
     % file like the rest of the stage's configuration.
     %
+    % The stimulus delay is block-randomized when the protocol declares
+    % StimDelayList. Its Min and Max are the ends of the delay list and
+    % StimDelayStep.Value is the spacing, so 1000 / 4000 / 250 means
+    % 1000:250:4000 ms; StimDelayJitter.Value adds +/-j ms to each delivered
+    % value. Those feed an epsych.BlockSequence indexed by the selector, so
+    % every delay appears exactly its share within each block instead of
+    % merely on average -- which is what StimDelay.isRandom's randi([Min Max])
+    % could not do. isRandom is consequently held FALSE for the whole session:
+    % it redraws inside set.Value on dispatch and would throw the balanced
+    % value away. cl_AppetitiveDetection_BehaviorGUI exposes the switch as the
+    % "Randomize Stimulus Delay" checkbox over StimDelayBlockEnabled, which
+    % the selector creates when the protocol does not declare it.
+    %
+    % The step needs a parameter of its own rather than living on
+    % StimDelayList.Value, because hw.Parameter clamps Value into [Min Max]
+    % -- a 250 ms step in a 1000-4000 ms list would silently become 1000. The
+    % selector creates StimDelayStep, seeded from StimDelayList's own value,
+    % so a protocol that only defines the list still works. See
+    % ensureStimDelayStep and stimDelayValues.
+    %
+    % A protocol WITHOUT StimDelayList gets none of that: StimDelay is left
+    % entirely to isRandom and the abort/CORRECTVAL machinery below, exactly
+    % as before. See setupStimDelay_ and applyStimDelay_.
+    %
     % Optional parameters:
     %   StepDirectionOnHit, StepDirectionOnMiss - sign (-1 = Down, +1 = Up) of
     %       the Depth step applied on a Hit/Miss. Default: -1 on Hit, +1 on
     %       Miss. Omit to keep the default down-on-hit/up-on-miss behavior.
+    %   StimDelayList - Min and Max are the ends of the block-randomized delay
+    %       list, as above. Absent means no block randomization.
+    %   StimDelayStep - spacing between list values, in ms. Created by the
+    %       selector when absent.
+    %   StimDelayJitter - +/- jitter in ms applied to each delivered delay.
     %
-    % See also: epsych.TrialSelector, cl_TrialSelection_Appetitive_StimDetect
+    % See also: epsych.TrialSelector, epsych.BlockSequence,
+    % cl_TrialSelection_Appetitive_StimDetect
 
     properties (Access = private)
         TT_STIM_  (1,1) double = 0    % TrialType code: signal-present trial
@@ -70,6 +100,27 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
         % index once the request itself has been consumed; see
         % forceReminderTrial_.
         reminderIndex_ (1,1) double = NaN
+
+        % --- Block-randomized stimulus delay ---------------------------
+        % Engaged only when the protocol declares StimDelayList. Without it
+        % every field here stays empty, stimDelayBlockActive_ is false, and
+        % the isRandom/CORRECTVAL path in selectNext behaves exactly as it
+        % always has. See setupStimDelay_.
+        stimDelaySetup_ (1,1) logical = false % lazy setup has run
+        stimDelaySeq_       = []  % epsych.BlockSequence over the delay list
+        stimDelayList_      = []  % hw.Parameter: Min and Max are the list ends
+        stimDelayStep_      = []  % hw.Parameter: spacing between list values
+        stimDelayJitter_    = []  % hw.Parameter: +/- jitter in ms
+        stimDelayEnabled_   = []  % hw.Parameter: the operator's Randomize checkbox
+        stimDelayTraining_  = []  % hw.Parameter: StimDelayTrainingEnabled, when the GUI made it
+        stimDelayCol_ (1,1) double = 0  % StimDelay's column in the trials table
+        stimDelaySpec_ (1,:) double = []  % [values jitter limits], to detect an operator edit
+
+        % Index into the sequence. The caller owns it (see
+        % epsych.BlockSequence), which is what lets a repeat-on-abort hold
+        % the same delay simply by not advancing.
+        stimDelayIdx_ (1,1) double = 0
+        repeatStimDelay_ (1,1) logical = false % hold the delay for the next trial
     end
 
     methods
@@ -98,6 +149,42 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
 
         function nextTrialID = selectNext(obj, TRIALS)
             % nextTrialID = selectNext(obj, TRIALS)
+            % Select the next trial row, then set the stimulus delay for it.
+            %
+            % Split in two so the stimulus delay is applied on every path out
+            % of the selection logic -- the first trial, the reminder
+            % override, and the ordinary staircase/catch schedule all leave
+            % through here -- rather than being repeated at each of
+            % selectNextRow_'s several early returns.
+            %
+            % Parameters:
+            %   TRIALS - runtime TRIALS struct for this subject
+            %
+            % Returns:
+            %   nextTrialID - scalar row index into the trials table
+            if ~obj.stimDelaySetup_, obj.setupStimDelay_(TRIALS); end
+            nextTrialID = obj.selectNextRow_(TRIALS);
+            obj.applyStimDelay_(TRIALS, nextTrialID);
+        end
+
+        function onRecompile(obj, TRIALS)
+            % onRecompile(obj, TRIALS)
+            % Called when an operator triggers a recompile during an active run.
+            % Reconcile internal state with the updated TRIALS struct.
+            %
+            % A recompile that adds or removes a parameter shifts every column
+            % after it, so the cached StimDelay column has to be re-read.
+            %
+            % Parameters:
+            %   TRIALS - runtime TRIALS struct for this subject after recompile
+            obj.stimDelayCol_ = obj.stimDelayColumn_(TRIALS);
+        end
+    end
+
+    methods (Access = private)
+
+        function nextTrialID = selectNextRow_(obj, TRIALS)
+            % nextTrialID = selectNextRow_(obj, TRIALS)
             % Select the next trial row using the staircase and catch-trial logic.
             %
             % Parameters:
@@ -192,6 +279,13 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % Repeat-delay logic: if enabled, repeat the same stimulus after an Abort by temporarily overriding nextStim
             rda = obj.P.RepeatDelayOnAbort.Value && RC.Abort(end);
 
+            % Cleared here and set only by the abort branch below, so an
+            % outcome that does not ask for a repeat always advances the
+            % block sequence. Under the block sequence "repeat the delay"
+            % means "do not advance the index" -- there is no randomization
+            % to suspend and no value to stash.
+            obj.repeatStimDelay_ = false;
+
             if RC.Hit(end)
                 nextStim = lastStim + obj.P.Depth_StepOnHit.Value;
                 stepped = true;
@@ -218,6 +312,14 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
                 if rda && tooManyAborts
                     vprintf(2, 'Too many Aborts: resetting nextStim to max depth and clearing StimDelay randomization')
                     obj.restore_stimdelay_randomization_(obj.P.StimDelay);
+
+                elseif rda && obj.stimDelayBlockActive_()
+                    % Holding the sequence index is the whole repeat: the
+                    % delay for this trial is looked up at the same index and
+                    % is therefore the identical value, jitter included.
+                    obj.repeatStimDelay_ = true;
+                    vprintf(3, 'Repeating trial due to Abort: nextStim = %g, holding stimulus delay index %d', ...
+                        nextStim, obj.stimDelayIdx_)
 
                 elseif rda
                     sdval = obj.P.StimDelay.Value;
@@ -318,14 +420,6 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             end
         end
 
-        function onRecompile(obj, TRIALS)
-            % onRecompile(obj, TRIALS)
-            % Called when an operator triggers a recompile during an active run.
-            % Reconcile internal state with the updated TRIALS struct (e.g., resize trial counts).
-            %
-            % Parameters:
-            %   TRIALS - runtime TRIALS struct for this subject after recompile
-        end
     end
 
     methods (Static)
@@ -373,6 +467,158 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             end
 
             p = min(max(p, pMin), pMax);
+        end
+
+
+        function v = stimDelayValues(pList, pStep)
+            % v = cl_AppetitiveStimDetect.stimDelayValues(pList)
+            % v = cl_AppetitiveStimDetect.stimDelayValues(pList, pStep)
+            % The stimulus-delay pool the list parameters describe.
+            %
+            % StimDelayList.Min and .Max are the ends of the list and
+            % StimDelayStep.Value is the spacing, so 1000 / 4000 / 250 means
+            % 1000:250:4000. Colon semantics throughout -- a span that is not
+            % a whole number of steps stops short of Max rather than adding a
+            % short final step, which would put an unevenly spaced value into
+            % a list whose whole point is even spacing.
+            %
+            % The step needs a parameter of its own because hw.Parameter
+            % clamps Value into [Min Max] (and gui.Parameter_Control limits
+            % the edit field to the same range), so a 250 ms step could not be
+            % stored on -- or typed into -- a parameter whose Min is 1000.
+            % StimDelayList.Value survives only as the seed StimDelayStep is
+            % created with; see ensureStimDelayStep.
+            %
+            % A non-positive step, or Min == Max, is a single fixed delay
+            % rather than an error: it is what an operator narrowing the list
+            % passes through on the way down.
+            %
+            % Kept static and free of runtime state so the list can be
+            % exercised headlessly, and so the GUI can compute it too.
+            %
+            % Parameters:
+            %   pList - hw.Parameter for StimDelayList, or empty
+            %   pStep - hw.Parameter for StimDelayStep; omit or pass empty to
+            %           fall back to StimDelayList's own value
+            %
+            % Returns:
+            %   v - row vector of delays in ms; empty when unusable
+            arguments
+                pList = []
+                pStep = []
+            end
+
+            v = [];
+            if isempty(pList), return; end
+
+            lo   = pList.Min;
+            hi   = pList.Max;
+            step = cl_AppetitiveStimDetect.parameterLevel(pStep);
+            if isempty(step)
+                step = cl_AppetitiveStimDetect.parameterLevel(pList);
+            end
+
+            if isempty(step) || ~isfinite(lo) || ~isfinite(hi) || hi < lo, return; end
+            if step <= 0 || hi == lo
+                v = lo;
+                return
+            end
+            v = lo:step:hi;
+        end
+
+        function p = ensureStimDelayStep(RUNTIME, pList)
+            % p = cl_AppetitiveStimDetect.ensureStimDelayStep(RUNTIME, pList)
+            % Resolve the stimulus-delay list step, creating it on the
+            % session's hw.Software interface when the protocol has none.
+            %
+            % Shared by the selector and by the behavior GUI's build, so a
+            % session started either way gets the same parameter with the same
+            % default -- StimDelayList's own value, which is what an operator
+            % who tried to put the step there will have set.
+            %
+            % Min = 0 and Max = Inf deliberately: these ARE bounds on the
+            % step, unlike StimDelayList's, whose Min and Max are the ends of
+            % the list rather than limits on anything it holds.
+            %
+            % Parameters:
+            %   RUNTIME - epsych.Runtime, or empty
+            %   pList   - hw.Parameter for StimDelayList, used for the default
+            %
+            % Returns:
+            %   p - hw.Parameter handle, or [] when there is no runtime or no
+            %       software interface to host it
+            p = [];
+            if isempty(RUNTIME) || isempty(RUNTIME.Interfaces), return; end
+
+            p = RUNTIME.find_parameter('StimDelayStep', silenceParameterNotFound=true);
+            if ~isempty(p)
+                p = p(1);
+            else
+                sw = RUNTIME.Interfaces(arrayfun(@(x) isa(x,'hw.Software'), RUNTIME.Interfaces));
+                if isempty(sw), return; end
+
+                seed = cl_AppetitiveStimDetect.parameterLevel(pList);
+                if isempty(seed) || seed <= 0
+                    seed = max(1, pList.Max - pList.Min);   % two values: the ends
+                end
+                p = sw(1).add_parameter('StimDelayStep', seed, Type='Float', ...
+                    Description="Spacing between stimulus-delay list values (ms)");
+                p.Min = 0;
+                p.Max = Inf;
+                p.Value = seed;   % add_parameter seeds Values, not Value
+            end
+
+            % Asserted whether the parameter was found or created: the
+            % operator owns this value for the session, so the dispatcher must
+            % not re-apply a stale trial-table copy over an edit, and a phase
+            % has to carry it.
+            p.UpdateEveryTrial = false;
+            p.PersistWithPhase = true;
+            if isempty(p.Value) && ~isempty(p.Values)
+                p.Value = p.Values{1};
+            end
+        end
+
+        function j = stimDelayJitter(pJitter)
+            % j = cl_AppetitiveStimDetect.stimDelayJitter(pJitter)
+            % The +/- jitter a StimDelayJitter parameter asks for, in ms.
+            %
+            % A scalar, so epsych.BlockSequence reads it as symmetric
+            % +/-j around each list value. Absent or unset means no jitter.
+            %
+            % Parameters:
+            %   pJitter - hw.Parameter for StimDelayJitter, or empty
+            %
+            % Returns:
+            %   j - non-negative scalar
+            j = 0;
+            if isempty(pJitter), return; end
+            v = cl_AppetitiveStimDetect.parameterLevel(pJitter);
+            if isempty(v) || ~isfinite(v), return; end
+            j = abs(v);
+        end
+
+        function v = parameterLevel(p)
+            % v = cl_AppetitiveStimDetect.parameterLevel(p)
+            % A parameter's current value, falling back to its design-time level.
+            %
+            % add_parameter seeds Values, not Value, and the dispatcher has
+            % not run when the selector first reads these -- selectNext is
+            % called before the first dispatch. The compiled level is what the
+            % dispatcher would have written anyway.
+            %
+            % Parameters:
+            %   p - hw.Parameter handle, or empty
+            %
+            % Returns:
+            %   v - scalar value, or empty
+            v = [];
+            if isempty(p), return; end
+            v = p.Value;
+            if isempty(v) && ~isempty(p.Values)
+                v = p.Values{1};
+            end
+            if ~isempty(v), v = v(1); end
         end
 
     end
@@ -555,17 +801,272 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             end
         end
 
-        function restore_stimdelay_randomization_(~, pStimDelay)
+        function restore_stimdelay_randomization_(obj, pStimDelay)
             % restore_stimdelay_randomization_(obj, pStimDelay)
             % Restore the isRandom flag on pStimDelay from its saved UserData
             % and clear the CORRECTVAL sentinel so normal randomization resumes.
             %
+            % A no-op under the block sequence, which never suspends anything
+            % to restore: isRandom is held false for the whole session (it
+            % would overwrite the drawn value on dispatch -- see
+            % applyStimDelay_) and a repeat is a held index, not a stashed
+            % value. Restoring a saved isRandom here would switch randi back
+            % on underneath the sequence.
+            %
             % Parameters:
             %   pStimDelay - hw.Parameter handle for StimDelay
+            if obj.stimDelayBlockActive_(), return; end
+
             if isfield(pStimDelay.UserData, 'isRandom') && ~isempty(pStimDelay.UserData.isRandom)
                 pStimDelay.isRandom = pStimDelay.UserData.isRandom;
             end
             pStimDelay.UserData.CORRECTVAL = [];
+        end
+
+
+        % ---------------------------------------------------------------- %
+        % Block-randomized stimulus delay
+        % ---------------------------------------------------------------- %
+
+        function setupStimDelay_(obj, TRIALS)
+            % setupStimDelay_(obj, TRIALS)
+            % Resolve the block-randomized stimulus-delay machinery, once.
+            %
+            % Deferred to the first selection pass for the same reason as the
+            % selector's other runtime parameters: initialize runs before
+            % setRuntime, so there is no runtime to create a parameter on and
+            % no live trials table to write into.
+            %
+            % A protocol that declares no StimDelayList gets none of this --
+            % stimDelayList_ stays empty, stimDelayBlockActive_ is false, and
+            % the isRandom/CORRECTVAL path in selectNextRow_ behaves exactly
+            % as it always has.
+            %
+            % Parameters:
+            %   TRIALS - runtime TRIALS struct for this subject
+            obj.stimDelaySetup_ = true;
+
+            if ~isfield(obj.P, 'StimDelayList')
+                vprintf(3, 'No StimDelayList parameter; stimulus delay left to StimDelay.isRandom')
+                return
+            end
+            if ~isfield(obj.P, 'StimDelay')
+                vprintf(0, 1, 'StimDelayList is defined but StimDelay is not; the delay list cannot be delivered')
+                return
+            end
+
+            obj.stimDelayList_ = obj.P.StimDelayList;
+            if isfield(obj.P, 'StimDelayJitter')
+                obj.stimDelayJitter_ = obj.P.StimDelayJitter;
+            end
+            obj.stimDelayStep_ = cl_AppetitiveStimDetect.ensureStimDelayStep( ...
+                obj.runtime_, obj.stimDelayList_);
+
+            obj.stimDelayCol_ = obj.stimDelayColumn_(TRIALS);
+            if obj.stimDelayCol_ == 0
+                vprintf(0, 1, ['StimDelay has no column in the compiled trials table; ' ...
+                    'the delay list cannot be delivered'])
+                obj.stimDelayList_ = [];
+                return
+            end
+
+            % Default the operator's switch to whether the protocol actually
+            % describes a list worth randomizing. A single-value list is a
+            % fixed delay, which the operator asks for through the plain
+            % Stimulus Delay field instead.
+            dflt = numel(cl_AppetitiveStimDetect.stimDelayValues(obj.stimDelayList_, obj.stimDelayStep_)) > 1;
+            obj.stimDelayEnabled_ = obj.ensureSelectorParameter_('StimDelayBlockEnabled', dflt, ...
+                Type='Boolean', ...
+                Description="Block-randomize the stimulus delay over StimDelayList", ...
+                PersistWithPhase=true);
+
+            obj.rebuildStimDelaySequence_();
+        end
+
+        function tf = stimDelayBlockActive_(obj)
+            % tf = stimDelayBlockActive_(obj)
+            % Whether the block sequence owns StimDelay right now.
+            %
+            % False while stimulus-delay training mode is on: gui.StaircaseTraining
+            % steps StimDelay itself and writes it into the trials table, so
+            % the two would overwrite each other every trial. The operator's
+            % checkbox is deliberately left alone, so switching training back
+            % off resumes the sequence where it stood.
+            tf = false;
+            if isempty(obj.stimDelayList_) || isempty(obj.stimDelaySeq_), return; end
+            if ~isempty(obj.stimDelayEnabled_) && ~obj.stimDelayEnabled_.Value, return; end
+
+            if isempty(obj.stimDelayTraining_) && ~isempty(obj.runtime_)
+                p = obj.runtime_.find_parameter('StimDelayTrainingEnabled', silenceParameterNotFound=true);
+                if ~isempty(p), obj.stimDelayTraining_ = p(1); end
+            end
+            if ~isempty(obj.stimDelayTraining_) && logical(obj.stimDelayTraining_.Value), return; end
+
+            tf = true;
+        end
+
+        function applyStimDelay_(obj, TRIALS, nextTrialID)
+            % applyStimDelay_(obj, TRIALS, nextTrialID)
+            % Write the next block-randomized stimulus delay into the live
+            % trials table, for whichever row was just selected.
+            %
+            % The value goes into the table rather than straight onto the
+            % parameter because dispatchNextTrial assigns every
+            % UpdateEveryTrial parameter from the table a moment later, and
+            % would otherwise overwrite it. Writing only the selected row is
+            % enough: this runs on every selection pass, whatever row it
+            % chose, so catch and reminder trials carry a delay from the same
+            % sequence as stimulus trials.
+            %
+            % Parameters:
+            %   TRIALS      - runtime TRIALS struct for this subject
+            %   nextTrialID - row index the selection just settled on
+            if isempty(obj.stimDelayList_), return; end
+
+            obj.rebuildStimDelaySequence_();   % no-op unless the operator edited the list
+            if ~obj.stimDelayBlockActive_(), return; end
+
+            % isRandom would redraw randi([Min Max]) inside set.Value on
+            % dispatch and throw the balanced value away. Held false here
+            % rather than once at setup because a phase load can turn it back
+            % on halfway through a session.
+            if obj.P.StimDelay.isRandom
+                vprintf(2, 'StimDelay.isRandom cleared: the delay is driven by StimDelayList')
+                obj.P.StimDelay.isRandom = false;
+            end
+
+            % The trials table the dispatcher reads is the runtime's, and
+            % ep_TimerFcn_Start does not install it until after the
+            % session-start selectNext returns -- so there is nowhere to write
+            % on trial 1. That trial keeps its compiled delay and the sequence
+            % starts at trial 2, which is exactly what the depth staircase
+            % does: selectNextRow_ returns the first stimulus row on trial 1
+            % without touching Depth either. Checked before the index
+            % advances, so no value is silently skipped.
+            if ~obj.trialsTableLive_()
+                vprintf(2, 'Trial #%d: trials table not live yet; keeping the compiled stimulus delay', ...
+                    TRIALS.TrialIndex)
+                return
+            end
+
+            if ~obj.repeatStimDelay_ || obj.stimDelayIdx_ < 1
+                obj.stimDelayIdx_ = obj.stimDelayIdx_ + 1;
+            end
+
+            try
+                [v, info] = obj.stimDelaySeq_.valueAt(obj.stimDelayIdx_);
+            catch ME
+                vprintf(0, 1, 'Stimulus-delay sequence failed at index %d: %s', obj.stimDelayIdx_, ME.message)
+                return
+            end
+
+            obj.runtime_.TRIALS(obj.subjectIdx_).trials{nextTrialID, obj.stimDelayCol_} = v;
+
+            vprintf(3, 'Trial #%d: StimDelay %g ms (base %g, jitter %+0.1f, block %d pos %d)', ...
+                TRIALS.TrialIndex, v, info.Base, info.Jitter, info.Block, info.PositionInBlock)
+        end
+
+        function rebuildStimDelaySequence_(obj)
+            % rebuildStimDelaySequence_(obj)
+            % Build the sequence, or reconcile it with an operator edit to the
+            % list bounds, the step, or the jitter.
+            %
+            % Compared against a cached spec rather than rebuilt every trial:
+            % assigning Values or Jitter freezes the delivered prefix and
+            % abandons the partial block in progress (see
+            % epsych.BlockSequence), so an unconditional assignment would
+            % throw the balance away once per trial.
+            if isempty(obj.stimDelayList_), return; end
+
+            v = cl_AppetitiveStimDetect.stimDelayValues(obj.stimDelayList_, obj.stimDelayStep_);
+            j = cl_AppetitiveStimDetect.stimDelayJitter(obj.stimDelayJitter_);
+            lim = [obj.P.StimDelay.Min obj.P.StimDelay.Max];
+            spec = [v NaN j NaN lim];   % NaN separates the three parts
+
+            if isempty(v)
+                if ~isempty(obj.stimDelaySeq_)
+                    vprintf(0, 1, 'StimDelayList describes no values; the previous delay sequence is kept')
+                end
+                return
+            end
+            if isequaln(spec, obj.stimDelaySpec_), return; end
+
+            if isempty(obj.stimDelaySeq_)
+                % ValueLimits mirrors the clamp hw.Parameter applies on
+                % dispatch, so the sequence's own record matches what the
+                % hardware is actually given. JitterQuantum keeps delays on
+                % whole milliseconds, as the randi path produced.
+                obj.stimDelaySeq_ = epsych.BlockSequence(v, ...
+                    Jitter        = j, ...
+                    JitterQuantum = 1, ...
+                    ValueLimits   = lim, ...
+                    Label         = "StimDelay");
+                obj.stimDelaySpec_ = spec;
+
+                if ~obj.stimDelaySeq_.IsValid
+                    vprintf(0, 1, 'Stimulus-delay sequence is unusable; the delay list will not be delivered')
+                    obj.stimDelaySeq_ = [];
+                    obj.stimDelayList_ = [];
+                    return
+                end
+
+                if isscalar(v)
+                    vprintf(1, 'Stimulus delay: fixed at %g ms, jitter +/-%g ms', v, j)
+                else
+                    vprintf(1, 'Stimulus delay: %d values, %g:%g:%g ms, jitter +/-%g ms, seed %d', ...
+                        numel(v), v(1), v(2) - v(1), v(end), j, obj.stimDelaySeq_.Seed)
+                end
+                obj.warnStimDelayBounds_(v, j);
+                return
+            end
+
+            % A mid-session edit. Every assignment is lazy, so the set is
+            % validated together on the next read; trials already delivered
+            % are frozen either way. A same-length replacement is a pure
+            % lookup-table swap, so retuning the values keeps the ordering.
+            obj.stimDelaySeq_.ValueLimits = lim;
+            obj.stimDelaySeq_.Jitter = j;
+            obj.stimDelaySeq_.Values = v;
+            obj.stimDelaySpec_ = spec;
+
+            vprintf(1, 'Stimulus delay list updated at trial %d: %d values, jitter +/-%g ms', ...
+                obj.stimDelayIdx_ + 1, numel(v), j)
+            obj.warnStimDelayBounds_(v, j);
+        end
+
+        function warnStimDelayBounds_(obj, v, j)
+            % warnStimDelayBounds_(obj, v, j)
+            % Report a list the StimDelay parameter's own bounds would clip.
+            %
+            % Clipping is silent otherwise -- hw.Parameter clamps on dispatch
+            % -- and it biases the ends of the list, which is exactly the
+            % thing a balanced sequence is for.
+            lo = obj.P.StimDelay.Min;
+            hi = obj.P.StimDelay.Max;
+            if min(v) - j < lo || max(v) + j > hi
+                vprintf(0, 1, ['Stimulus delay list %g-%g ms (jitter +/-%g) falls outside ' ...
+                    'StimDelay bounds %g-%g ms; the ends will be clamped'], ...
+                    min(v), max(v), j, lo, hi)
+            end
+        end
+
+        function tf = trialsTableLive_(obj)
+            % tf = trialsTableLive_(obj)
+            % Whether RUNTIME.TRIALS holds a trials table this selector can
+            % write into. False during the session-start selectNext, which
+            % ep_TimerFcn_Start makes before it installs TRIALS on the runtime.
+            tf = ~isempty(obj.runtime_) ...
+                && numel(obj.runtime_.TRIALS) >= obj.subjectIdx_ ...
+                && ~isempty(obj.runtime_.TRIALS(obj.subjectIdx_).trials);
+        end
+
+        function c = stimDelayColumn_(~, TRIALS)
+            % c = stimDelayColumn_(obj, TRIALS)
+            % StimDelay's column in the compiled trials table, or 0.
+            c = 0;
+            if ~isfield(TRIALS, 'writeParamIdx') || ~isstruct(TRIALS.writeParamIdx), return; end
+            if ~isfield(TRIALS.writeParamIdx, 'StimDelay'), return; end
+            c = TRIALS.writeParamIdx.StimDelay;
         end
 
     end

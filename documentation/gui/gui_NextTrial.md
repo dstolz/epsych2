@@ -27,10 +27,16 @@ Source: `obj/+gui/@NextTrial/`
   (rawValue) -> char/string`) overrides the default `num2str`/`string`
   rendering for a field, e.g. to decode a numeric trial-type code into a
   label.
-- **Persistence**: the selected field set is saved with `setpref`/`getpref`
-  (group `epsych2_gui_NextTrial`), keyed to the hosting figure `Tag`/`Name`
-  or an explicit `PreferenceTag`, and restored the next session. A saved
-  selection takes precedence over the constructor's `Fields` default.
+- **Font size**: set it programmatically (`obj.FontSize = 24`, or
+  `setFontSize(24)`), or from the right-click **Font Size** menu — the
+  `FontPresets` sizes, **Larger**/**Smaller** in 2 pt steps, and
+  **Custom...**. Sizes outside 6–72 pt are clamped rather than refused, so a
+  scripted value cannot leave the table unreadable.
+- **Persistence**: the selected field set and the font size are saved with
+  `setpref`/`getpref` (group `epsych2_gui_NextTrial`), keyed to the hosting
+  figure `Tag`/`Name` or an explicit `PreferenceTag`, and restored the next
+  session. A saved value takes precedence over the constructor's `Fields`
+  and `FontSize` defaults.
 - **Zero-config default**: with no `Fields` and nothing saved, every field
   the protocol declares is shown once the first trial is compiled.
 
@@ -51,6 +57,7 @@ obj.NextTrialPanel = obj.addNextTrial(panelNextTrial, ...
 
 % Programmatic control at any time
 obj.NextTrialPanel.setFields(["Depth","TrialType","ITIDur"]);
+obj.NextTrialPanel.FontSize = 28;   % readable from across the room
 ```
 
 ### Constructor
@@ -65,7 +72,7 @@ obj = gui.NextTrial(source, container, options)
 | `container` | Figure, panel, tab, or layout host for the table |
 | `Fields` | Programmatic default field names (`validName`); used only when nothing is saved for this `PreferenceTag` |
 | `Formatters` | `containers.Map`, `validName -> function_handle(rawValue) -> char/string` |
-| `FontSize` | Table font size. Default `16` |
+| `FontSize` | Table font size. Default `16`; a size saved for this `PreferenceTag` takes precedence |
 | `PreferenceTag` | Optional key for saved preferences (defaults to the hosting figure `Tag`/`Name`) |
 
 ### Key properties and methods
@@ -76,6 +83,9 @@ obj = gui.NextTrial(source, container, options)
 | `AvailableFields` | `validName`s declared by the most recent `NewTrial` event |
 | `ContextMenu` | The right-click menu; a host GUI can append its own items with `uimenu(obj.ContextMenu, ...)` |
 | `setFields(fields)` | Programmatically choose which fields are displayed; persists like a menu selection |
+| `FontSize` | Table font size in points; assigning routes through `setFontSize` |
+| `setFontSize(points)` | Set the font size (clamped to 6–72 pt); persists like a menu selection |
+| `FontPresets` | Sizes offered as one-click entries on the **Font Size** menu. Default `[10 12 14 16 20 24 28 36]` |
 
 ## gui.BehaviorGUI integration
 

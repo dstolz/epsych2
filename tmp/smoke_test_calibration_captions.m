@@ -12,9 +12,9 @@ function smoke_test_calibration_captions()
 %      delay probe each keep their own panel: drawing one must leave the
 %      other two standing, which is what CalibrationGui's tabs rest on.
 %      Given three, they still share one panel and clear each other.
-%   3. The GUI has the three plot tabs, no longer has the two view-selecting
-%      toolbar buttons or the three View-menu view items, and can capture
-%      its window to a file and to the clipboard.
+%   3. The GUI has a plot tab per stimulus and per diagnostic, no longer has
+%      the two view-selecting toolbar buttons or the three View-menu view
+%      items, and can capture its window to a file and to the clipboard.
 %
 % Must run under matlab -batch, where exportapp works headless.
 %
@@ -229,12 +229,15 @@ fprintf('PASS: capture menu items and toolbar button present\n');
 tg = findall(fig, 'Type', 'uitabgroup');
 assert(isscalar(tg), 'Expected exactly one plots tab group');
 titles = arrayfun(@(t) string(t.Title), tg.Children);
-assert(isequal(titles(:).', ["Transfer Curves", "Background Noise", "Conduction Delay"]), ...
+assert(isequal(titles(:).', ["Tones", "Clicks", "Swept Sine", "Filter Test", ...
+    "Background Noise", "Conduction Delay"]), ...
     'Unexpected tab set: %s', strjoin(titles, ', '));
 
-% Each tab owns an axes, and the monitor was handed all five.
-assert(numel(unique([gui.Monitor.AxTransfer, gui.Monitor.AxBackground, ...
-    gui.Monitor.AxLatency])) == 3, 'Tabs are not on separate axes');
+% Every tab owns its own axes, and the monitor was handed all of them.
+assert(numel(unique([gui.Monitor.AxTone, gui.Monitor.AxClick, ...
+    gui.Monitor.AxSweptSine, gui.Monitor.AxFilterTest, ...
+    gui.Monitor.AxBackground, gui.Monitor.AxLatency])) == 6, ...
+    'Tabs are not on separate axes');
 
 % The two view-selecting toolbar buttons are gone; the three overlay
 % toggles remain.
@@ -252,21 +255,21 @@ for txt = ["Calibration Transfer Curves", "Background Noise Analysis", ...
     assert(isempty(findall(fig, 'Type', 'uimenu', 'Text', char(txt))), ...
         'Obsolete View menu item still present: %s', txt);
 end
-fprintf('PASS: three plot tabs; obsolete view buttons and menu items removed\n');
+fprintf('PASS: plot tabs; obsolete view buttons and menu items removed\n');
 
-%% 7c. Three measurements coexist in the GUI, and the tabs switch between them.
+%% 7c. Every measurement coexists in the GUI, and the tabs switch between them.
 gui.Monitor.show_calibration(eng);
 gui.Monitor.show_background(eng);
 gui.Monitor.show_latency(fake_latency_(true));
-assert(nlines(gui.Monitor.AxTransfer) > 0 && nlines(gui.Monitor.AxBackground) > 0 ...
+assert(nlines(gui.Monitor.AxTone) > 0 && nlines(gui.Monitor.AxBackground) > 0 ...
     && nlines(gui.Monitor.AxLatency) > 0, ...
     'A GUI panel was cleared by another panel being drawn');
 
-tg.SelectedTab = tg.Children(2);
+tg.SelectedTab = tg.Children(5);
 assert(isequal(tg.SelectedTab.Title, 'Background Noise'), 'Tab selection failed');
-assert(nlines(gui.Monitor.AxTransfer) > 0, 'Switching tabs disturbed another panel');
+assert(nlines(gui.Monitor.AxTone) > 0, 'Switching tabs disturbed another panel');
 tg.SelectedTab = tg.Children(1);
-fprintf('PASS: GUI keeps all three measurements across tab switches\n');
+fprintf('PASS: GUI keeps every measurement across tab switches\n');
 
 %% 8. The screenshot capture itself (exportapp path, minus the dialog).
 shot = fullfile(tempdir, 'smoke_calibration_captions.png');

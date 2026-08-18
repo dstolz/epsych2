@@ -20,6 +20,11 @@ classdef SessionPerformance < gui.PopOut
     %                     offers All Trials, a set of Last-N presets, and
     %                     prompts for a custom last-N, first-N, or range.
     %
+    % Font size works the same two ways -- obj.FontSize = 16, or the
+    % right-click Font Size menu. It is the caption size: values render 2pt
+    % larger, the supporting counts 2pt smaller, and the header 1pt smaller,
+    % so one setting scales the whole panel.
+    %
     % The same right-click menu chooses which metrics are displayed, and
     % offers Open in Separate Window (see gui.PopOut), which repeats the
     % summary in a window of its own -- with its own trial window and its own
@@ -27,18 +32,20 @@ classdef SessionPerformance < gui.PopOut
     % embedded panel showing the whole session. Both the window and the
     % metric selection persist across sessions with getpref/setpref, keyed to
     % the hosting figure (or an explicit PreferenceTag), matching
-    % gui.NextTrial and gui.ParameterScatter.
+    % gui.NextTrial and gui.ParameterScatter. So does the font size.
     %
     % Properties:
     %   Analysis      - psychophysics.SessionMetrics doing the computation
     %   TrialWindow   - Trials included; accepts any TrialWindow.parse form
     %   Metrics       - Metric names displayed, in display order
+    %   FontSize      - Caption font size in points; values render 2pt larger
     %   ValueColors   - Struct mapping metric Kind -> hex color
     %   ContextMenu   - The right-click menu; host GUIs may append items
     %
     % Methods:
     %   setTrialWindow - Choose the trials the metrics are computed from
     %   setMetrics     - Choose which metrics are displayed
+    %   setFontSize    - Choose the caption font size
     %   refresh        - Redraw values from the current results
     %   summaryText    - Plain-text summary of what is displayed
     %
@@ -56,6 +63,7 @@ classdef SessionPerformance < gui.PopOut
     properties (Dependent)
         TrialWindow  % Trials included in the summary (psychophysics.TrialWindow)
         Metrics      % Metric names displayed, in display order
+        FontSize     % Caption font size in points; values render 2pt larger
     end
 
     properties
@@ -78,6 +86,9 @@ classdef SessionPerformance < gui.PopOut
 
         % WindowPresets - Trial counts offered as one-click "Last N" entries
         WindowPresets (1,:) double = [10 20 50 100]
+
+        % FontPresets - Caption sizes offered as one-click entries
+        FontPresets (1,:) double {mustBePositive} = [10 12 14 16 20 24]
     end
 
     properties (SetAccess = private)
@@ -100,6 +111,7 @@ classdef SessionPerformance < gui.PopOut
         PreferenceTag_ (1,:) char = ''
         WindowMenuH_ = []
         MetricMenuH_ = []
+        FontMenuH_ = []
         hl_NewData_ = event.listener.empty
         hl_Window_ = event.listener.empty
         selfDeleteListener_ = event.listener.empty
@@ -123,7 +135,9 @@ classdef SessionPerformance < gui.PopOut
             %                   psychophysics.SessionMetrics.defaultMetrics.
             %   TrialWindow   - Trials to summarize; any form accepted by
             %                   psychophysics.TrialWindow.parse. Default: all.
-            %   FontSize      - Caption font size; values render 2pt larger. Default 12.
+            %   FontSize      - Caption font size; values render 2pt larger.
+            %                   Default 12. Like the metric selection, a size
+            %                   saved for this PreferenceTag takes precedence.
             %   ShowHeader    - Show the trial-window header. Default true.
             %   ShowDetail    - Show the supporting counts column. Default true.
             %   PreferenceTag - Key for saved preferences (defaults to the
@@ -238,6 +252,31 @@ classdef SessionPerformance < gui.PopOut
             end
             obj.Metrics_ = obj.validateMetrics_(names);
             obj.rebuildRows_();
+            obj.savePreferences_();
+        end
+
+        % -- Font size ---------------------------------------------------
+
+        function sz = get.FontSize(obj)
+            sz = obj.FontSize_;
+        end
+
+        function set.FontSize(obj, points)
+            obj.setFontSize(points);
+        end
+
+        function setFontSize(obj, points)
+            % setFontSize(obj, points)
+            % Set the caption font size, in points; values, counts, and the
+            % header scale with it. Sizes outside 6-72 are clamped rather
+            % than refused, so a scripted value cannot leave the panel
+            % unreadable. Persists like a menu selection.
+            arguments
+                obj
+                points (1,1) double {mustBePositive, mustBeFinite}
+            end
+            obj.FontSize_ = min(max(round(points), 6), 72);
+            obj.applyFontSize_();
             obj.savePreferences_();
         end
 
@@ -471,6 +510,28 @@ classdef SessionPerformance < gui.PopOut
             obj.refresh();
         end
 
+        function applyFontSize_(obj)
+            % Resize the labels in place rather than rebuilding the rows:
+            % the same proportions rebuildRows_ establishes, without the
+            % flicker of deleting and recreating every label mid-session.
+            if isempty(obj.GridH) || ~isvalid(obj.GridH), return; end
+            try
+                if ~isempty(obj.HeaderH) && isvalid(obj.HeaderH)
+                    obj.HeaderH.FontSize = max(obj.FontSize_ - 1, 8);
+                end
+                for i = 1:numel(obj.Rows_)
+                    r = obj.Rows_(i);
+                    if isvalid(r.LabelH), r.LabelH.FontSize = obj.FontSize_;     end
+                    if isvalid(r.ValueH), r.ValueH.FontSize = obj.FontSize_ + 2; end
+                    if ~isempty(r.DetailH) && isvalid(r.DetailH)
+                        r.DetailH.FontSize = max(obj.FontSize_ - 2, 7);
+                    end
+                end
+            catch ME
+                vprintf(3,'gui.SessionPerformance: unable to set font size: %s', ME.message)
+            end
+        end
+
         function c = colorFor_(obj, kind)
             % Value color for a metric kind, falling back to neutral.
             k = char(kind);
@@ -502,6 +563,7 @@ classdef SessionPerformance < gui.PopOut
                 obj.ContextMenu  = cm;
                 obj.WindowMenuH_ = uimenu(cm,'Text','Trials Included');
                 obj.MetricMenuH_ = uimenu(cm,'Text','Show Metric');
+                obj.FontMenuH_   = uimenu(cm,'Text','Font Size');
                 uimenu(cm,'Text','Copy Summary','Separator','on', ...
                     'MenuSelectedFcn',@(~,~) obj.copySummary_());
                 uimenu(cm,'Text','Reset to Defaults', ...
@@ -539,6 +601,45 @@ classdef SessionPerformance < gui.PopOut
         function refreshMenus_(obj)
             obj.refreshWindowMenu_();
             obj.refreshMetricMenu_();
+            obj.refreshFontMenu_();
+        end
+
+        function refreshFontMenu_(obj)
+            % Presets plus a prompt, rebuilt on open so the check mark and
+            % the custom entry follow a size set programmatically.
+            m = obj.FontMenuH_;
+            if isempty(m) || ~isvalid(m), return; end
+            delete(m.Children);
+
+            sz = obj.FontSize_;
+            for k = 1:numel(obj.FontPresets)
+                n = obj.FontPresets(k);
+                item = uimenu(m,'Text',sprintf('%g pt',n), ...
+                    'MenuSelectedFcn',@(~,~) obj.setFontSize(n));
+                item.Checked = sz == n;
+            end
+
+            uimenu(m,'Text','Larger','Separator','on', ...
+                'MenuSelectedFcn',@(~,~) obj.setFontSize(sz + 2));
+            uimenu(m,'Text','Smaller', ...
+                'MenuSelectedFcn',@(~,~) obj.setFontSize(sz - 2));
+
+            item = uimenu(m,'Text','Custom...','Separator','on', ...
+                'MenuSelectedFcn',@(~,~) obj.promptFontSize_());
+            item.Checked = ~ismember(sz, obj.FontPresets);
+        end
+
+        function promptFontSize_(obj)
+            answer = obj.askUser_('Font Size', 'Caption font size (points):', ...
+                num2str(obj.FontSize_));
+            if isempty(answer), return; end
+
+            n = str2double(answer);
+            if ~isfinite(n) || n <= 0
+                vprintf(1,'gui.SessionPerformance: "%s" is not a font size', answer)
+                return
+            end
+            obj.setFontSize(n);
         end
 
         function refreshWindowMenu_(obj)
@@ -706,6 +807,11 @@ classdef SessionPerformance < gui.PopOut
                 if isfield(s,'TrialWindow')
                     obj.Analysis.TrialWindow = psychophysics.TrialWindow.fromStruct(s.TrialWindow);
                 end
+                if isfield(s,'FontSize') && isscalar(s.FontSize) && isfinite(s.FontSize) ...
+                        && s.FontSize > 0
+                    % Applied by the rows built after this returns.
+                    obj.FontSize_ = min(max(round(s.FontSize), 6), 72);
+                end
                 vprintf(3,'gui.SessionPerformance: loaded saved preferences "%s"', pname)
             catch ME
                 vprintf(2,'gui.SessionPerformance: failed to load preferences: %s', ME.message)
@@ -715,7 +821,8 @@ classdef SessionPerformance < gui.PopOut
         function savePreferences_(obj)
             try
                 s = struct('Metrics', {cellstr(obj.Metrics_)}, ...
-                    'TrialWindow', obj.TrialWindow.toStruct());
+                    'TrialWindow', obj.TrialWindow.toStruct(), ...
+                    'FontSize', obj.FontSize_);
                 setpref(obj.PREF_GROUP, obj.preferenceName_(), s);
             catch ME
                 vprintf(2,'gui.SessionPerformance: failed to save preferences: %s', ME.message)

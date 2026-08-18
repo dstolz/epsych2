@@ -239,18 +239,20 @@ mgr.addToSession();
 assert(numel(rx.CONFIG) == 2, 'Two subjects should be in CONFIG (got %d)', numel(rx.CONFIG));
 boxes = arrayfun(@(c) c.SUBJECT.BoxID, rx.CONFIG);
 assert(ismember(9, boxes), 'The typed box should have been honoured (got %s)', mat2str(boxes));
-assert(~any(cell2mat(mgr.H.table.Data(:,1))), 'Committed rows should be unticked');
 fprintf('PASS: ticking, a typed box, and the commit reach CONFIG\n');
 
-% A clean commit puts the session window in front -- groot's children are in
-% stacking order -- while leaving this window open behind it.
+% A clean commit is the end of the visit: the session window comes forward --
+% groot's children are in stacking order -- and this window closes itself.
 stack = findall(groot, 'Type','figure');
 assert(strcmp(stack(1).Tag, 'RunExpt'), ...
     'The session window should be raised after a clean commit (front was "%s")', stack(1).Tag);
-assert(isgraphics(mgr.H.figure), 'The manager should stay open after committing');
-fprintf('PASS: the commit raises the session window and keeps this one open\n');
+assert(~isvalid(mgr), 'The manager should close itself once everything went in');
+assert(isempty(localManager()), 'and leave no manager window behind');
+fprintf('PASS: the commit raises the session window and closes this one\n');
 
 % 6. Remembered project ----------------------------------------------------
+gui.SubjectManager(rx);
+mgr = localManager();
 mgr.H.projectList.Value = p2;
 % Fire the listbox's own callback: only an operator selection is remembered,
 % so setting Value alone deliberately does not persist anything.
@@ -324,6 +326,58 @@ mgr.refresh();
 assert(mgr.H.rightGrid.RowHeight{2} == 0, 'The banner should close once nothing is behind');
 assert(all(strcmp(mgr.H.table.Data(:,col), vA2)), 'The column should show the new version');
 fprintf('PASS: the Version column and the stale-protocol banner track the roster\n');
+
+% 7b2. Retired members sit outside the protocol workflow --------------------
+% S004 is retired from this project and still recorded on the older version, so
+% every version surface has to leave it alone: no banner, no update, no revert.
+% What a finished animal is recorded as having run IS the record.
+mgr.H.showRetired.Value = true;
+mgr.refresh();
+
+rowRetired = find(strcmp(mgr.H.table.Data(:,2), 'S004'));
+assert(isscalar(rowRetired), 'The retired subject should be showing');
+assert(strcmp(mgr.H.table.Data{rowRetired,col}, vA1), ...
+    'The retired member should still be recorded on the version it ran');
+assert(mgr.H.rightGrid.RowHeight{2} == 0, ...
+    'A retired member behind the file must not open the banner (got "%s")', ...
+    mgr.H.bannerLabel.Text);
+
+% Ticking only that row leaves every version action unavailable...
+localTick(mgr, rowRetired, true);
+assert(strcmp(mgr.H.mnu_update_checked.Enable, 'off'), ...
+    'Update Checked should be off when every ticked subject is retired');
+assert(strcmp(mgr.H.mnu_use_default.Enable, 'off'), ...
+    'Switch to Project Default should be off for the same reason');
+
+% ...and asking for it anyway changes nothing and says why. Checked first on
+% purpose: the assertions above fail before this reaches a confirmation dialog,
+% so a regression cannot leave a modal waiting on a headless run.
+mgr.H.mnu_update_checked.MenuSelectedFcn([], []);
+st4 = R.protocolStatus(ids{4}, p1);
+assert(strcmp(st4.Version, vA1), 'A retired subject must not be moved onto a newer version');
+assert(contains(mgr.H.status.Text, 'retired'), ...
+    'The status line should say why nothing happened (got "%s")', mgr.H.status.Text);
+localTick(mgr, rowRetired, false);
+
+% Revert is refused by the same rule.
+mgr.H.table.Selection = rowRetired;
+mgr.H.table.SelectionChangedFcn([], []);
+assert(strcmp(mgr.H.mnu_revert.Enable, 'off'), 'Revert should be off on a retired row');
+
+% An active row puts both back, so this is the retired flag and not a stuck menu.
+rowActive = find(strcmp(mgr.H.table.Data(:,2), 'S001'));
+mgr.H.table.Selection = rowActive;
+mgr.H.table.SelectionChangedFcn([], []);
+assert(strcmp(mgr.H.mnu_revert.Enable, 'on'), 'Revert should be available on an active row');
+localTick(mgr, rowActive, true);
+assert(strcmp(mgr.H.mnu_update_checked.Enable, 'on'), ...
+    'Update Checked should be available once an active subject is ticked');
+localTick(mgr, rowActive, false);
+
+mgr.H.table.Selection = [];
+mgr.H.showRetired.Value = false;
+mgr.refresh();
+fprintf('PASS: retired members are left out of the banner, updates, and revert\n');
 
 % The designer command is wired and refuses politely with nothing selected.
 mgr.H.table.Selection = [];

@@ -238,7 +238,89 @@ pause(1.2);
 delete(gB);
 fprintf('PASS: single-instance replacement\n');
 
+% 12. Block-randomized stimulus delay ------------------------------------
+% A protocol that declares StimDelayList gets a different set of delay
+% controls: the checkbox drives StimDelayBlockEnabled instead of
+% StimDelay.isRandom (which randi would use to overwrite the sequence's
+% value), and the Min/Max row describes the list rather than StimDelay's own
+% bounds.
+rtBlock = makeBlockRuntime();
+gC = cl_AppetitiveDetection_BehaviorGUI(rtBlock);
+
+pStep = rtBlock.find_parameter('StimDelayStep', silenceParameterNotFound=true);
+assert(isscalar(pStep), 'build should create StimDelayStep when the protocol has none');
+assertNear(pStep.Value, 250, 'the step should seed from StimDelayList''s own value');
+assert(~pStep.UpdateEveryTrial && pStep.PersistWithPhase, ...
+    'the step is operator state: not dispatched, but carried by a phase');
+% The whole reason it is a separate parameter: 250 is below StimDelayList.Min,
+% so neither hw.Parameter nor the edit field could hold it there.
+hStep = findobj(gC.h_figure,'Tag','ACPC_StimDelayStep');
+assert(isscalar(hStep) && hStep.Limits(1) <= 250, ...
+    'the step field must accept a step finer than the list Min');
+
+pBlock = rtBlock.find_parameter('StimDelayBlockEnabled', silenceParameterNotFound=true);
+assert(isscalar(pBlock), 'build should create StimDelayBlockEnabled');
+assert(pBlock.PersistWithPhase, 'the randomization switch must travel with a phase');
+assert(pBlock.Value, 'a 13-value list should default the switch on');
+
+hBlock = findobj(gC.h_figure,'Type','uicheckbox','-and','Tag','ACPC_StimDelayBlockEnabled');
+assert(isscalar(hBlock) && hBlock.Value, 'the checkbox should exist and start ticked');
+assert(isempty(findobj(gC.h_figure,'Type','uicheckbox','-and','Tag','ACPC_StimDelay')), ...
+    'with a list present the checkbox must not be bound to StimDelay.isRandom');
+
+hLo  = findobj(gC.h_figure,'Tag','ACPC_StimDelayList_Min');
+hHi  = findobj(gC.h_figure,'Tag','ACPC_StimDelayList_Max');
+hJit = findobj(gC.h_figure,'Tag','ACPC_StimDelayJitter');
+assert(isscalar(hLo) && isscalar(hHi) && isscalar(hJit), ...
+    'the list bounds and the jitter should each have a control');
+assert(all(pcatchEnableStates([hLo hHi hStep hJit]) == "on"), ...
+    'the list controls should be enabled while randomization is on');
+
+pBlock.Value = false;
+assert(all(pcatchEnableStates([hLo hHi hStep hJit]) == "off"), ...
+    'switching randomization off should grey the whole list description');
+pBlock.Value = true;
+
+% Training mode owns StimDelay outright, so it greys the randomization
+% controls too -- and hands them back in the state the checkbox says.
+pTrainB = rtBlock.find_parameter('StimDelayTrainingEnabled', silenceParameterNotFound=true);
+pTrainB.Value = true;
+assert(all(pcatchEnableStates([hBlock hLo hHi hStep hJit]) == "off"), ...
+    'training mode should grey the randomization controls');
+pTrainB.Value = false;
+assert(all(pcatchEnableStates([hBlock hLo hHi hStep hJit]) == "on"), ...
+    'leaving training mode should restore them');
+fprintf('PASS: block-randomized delay controls replace the isRandom pair\n');
+
+pause(1.2);
+delete(gC);
+
 fprintf('smoke_test_appetitive_behaviorgui: ALL PASS\n');
+end
+
+
+function assertNear(actual, expected, varargin)
+msg = sprintf(varargin{:});
+assert(numel(actual) == numel(expected) && all(abs(actual(:)-expected(:)) < 1e-9), ...
+    '%s (expected %s, got %s)', msg, mat2str(expected,6), mat2str(actual,6));
+end
+
+
+function rt = makeBlockRuntime()
+% Runtime whose protocol describes a block-randomized stimulus delay:
+% StimDelayList carries the ends of the list, and the step is left for build
+% to create -- which is the case an existing protocol is in.
+rt = makeRuntime();
+sw = rt.Interfaces(1);
+
+p = sw.add_parameter('StimDelayList', 250, Type='Float');
+p.Min = 1000;
+p.Max = 4000;
+
+p = sw.add_parameter('StimDelayJitter', 10, Type='Float');
+p.Min = 0;
+p.Max = 250;
+p.Value = 10;
 end
 
 

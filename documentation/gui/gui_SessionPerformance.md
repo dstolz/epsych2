@@ -32,7 +32,13 @@ bitmask arithmetic in `onNewData`).
   mixin) repeats the summary in a window of its own, with its own analysis
   object — so watching the last 20 trials there leaves the embedded panel
   showing the whole session.
-- **Persistence**: window and metric selection are saved with
+- **Font size**: one setting scales the panel — captions at `FontSize`,
+  values 2 pt larger, supporting counts 2 pt smaller, the header 1 pt
+  smaller. Set it programmatically (`P.FontSize = 16`, or `setFontSize(16)`)
+  or from the right-click **Font Size** menu: the `FontPresets` sizes,
+  **Larger**/**Smaller** in 2 pt steps, and **Custom...**. Sizes outside
+  6–72 pt are clamped rather than refused.
+- **Persistence**: window, metric selection, and font size are saved with
   `setpref`/`getpref` (group `epsych2_gui_SessionPerformance`), keyed to the
   hosting figure `Tag`/`Name` or an explicit `PreferenceTag`.
 - **Live updates**: refreshes from the analysis object's `NewData`
@@ -101,13 +107,13 @@ obj = gui.SessionPerformance(source, container, options)
 | `container` | `uipanel`, `uigridlayout`, or `uifigure` host |
 | `Metrics` | Metric names to display. Default `psychophysics.SessionMetrics.defaultMetrics` |
 | `TrialWindow` | Trials to summarize; any form `psychophysics.TrialWindow.parse` accepts. Default: all |
-| `FontSize` | Caption font size; values render 2 pt larger. Default `12` |
+| `FontSize` | Caption font size; values render 2 pt larger. Default `12`; a size saved for this `PreferenceTag` takes precedence |
 | `ShowHeader` | Show the trial-window header. Default `true` |
 | `ShowDetail` | Show the supporting-counts column. Default `true` |
 | `PreferenceTag` | Key for saved preferences (defaults to the hosting figure `Tag`/`Name`) |
 
-A saved selection takes precedence over the constructor's `Metrics` and
-`TrialWindow` defaults, matching `gui.NextTrial`.
+A saved selection takes precedence over the constructor's `Metrics`,
+`TrialWindow`, and `FontSize` defaults, matching `gui.NextTrial`.
 
 ### Key properties and methods
 
@@ -118,10 +124,13 @@ A saved selection takes precedence over the constructor's `Metrics` and
 | `Metrics` | Metric names displayed, in display order |
 | `ValueColors` | Struct mapping metric `Kind` → hex color; assign to restyle |
 | `LabelColor`, `HeaderColor` | Caption and header colors |
+| `FontSize` | Caption font size in points; assigning routes through `setFontSize` |
 | `WindowPresets` | Trial counts offered as one-click **Last N** menu entries. Default `[10 20 50 100]` |
+| `FontPresets` | Sizes offered as one-click **Font Size** menu entries. Default `[10 12 14 16 20 24]` |
 | `ContextMenu` | The right-click menu; host GUIs may append with `uimenu(obj.ContextMenu, ...)` |
 | `setTrialWindow(w)` | Choose the trials summarized; persists like a menu selection |
 | `setMetrics(names)` | Choose the metrics displayed; persists like a menu selection |
+| `setFontSize(points)` | Set the caption size (clamped to 6–72 pt); persists like a menu selection |
 | `refresh()` | Redraw from the current results |
 | `summaryText()` | Plain-text summary of what is displayed (also on **Copy Summary**) |
 | `popOut()` / `closePopOut()` / `hasPopOut()` | Open, close, and query the separate-window copy (`gui.PopOut`) |

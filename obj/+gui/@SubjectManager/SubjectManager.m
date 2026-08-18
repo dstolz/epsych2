@@ -55,6 +55,7 @@ classdef SubjectManager < handle
     properties (Access = private)
         Rows_ = []          % subject records currently shown, one per table row
         Statuses_ = []      % protocolStatus for Rows_, in the same order
+        Retired_ = []       % logical per row of Rows_: retired in the current view
         Checked_ = {}       % SubjectIDs ticked, preserved across a refresh
         BoxOverrides_       % containers.Map SubjectID -> box, cleared on commit
         ProtocolOverrides_  % containers.Map SubjectID -> .eprot, cleared on commit
@@ -256,6 +257,77 @@ classdef SubjectManager < handle
                 if isempty(mine), continue, end
                 tf(i) = ~any([mine.Active]);
             end
+        end
+
+        function tf = isRetiredIn_(self, subjectId, projectId)
+            % True when a subject counts as retired for the view on screen.
+            %
+            % Retirement is per membership, so the answer depends on which
+            % project is selected; in the All Projects view a subject is
+            % retired only when it is retired everywhere it is filed. A
+            % subject in no project at all has not been retired, only unfiled.
+            arguments
+                self
+                subjectId (1,:) char
+                projectId (1,:) char = self.selectedProject_()
+            end
+
+            tf = false;
+            if isempty(self.Roster) || isempty(self.Roster.Memberships), return, end
+
+            mine = self.Roster.Memberships( ...
+                strcmp({self.Roster.Memberships.SubjectID}, subjectId));
+            if isempty(mine), return, end
+
+            if isempty(projectId)
+                tf = ~any([mine.Active]);
+                return
+            end
+
+            mine = mine(strcmp({mine.ProjectID}, projectId));
+            if isempty(mine), return, end
+            tf = ~mine(1).Active;
+        end
+
+        function tf = retiredRows_(self)
+            % Retired flag per table row, aligned with Rows_ and Statuses_.
+            %
+            % refresh works this out once per repaint while building the Status
+            % column; this only fills in when something asks before a repaint
+            % has happened, so the two can never disagree.
+            n = numel(self.Rows_);
+            tf = false(n, 1);
+            if n == 0, return, end
+
+            if numel(self.Retired_) == n
+                tf = logical(self.Retired_(:));
+                return
+            end
+
+            projectId = self.selectedProject_();
+            for i = 1:n
+                tf(i) = self.isRetiredIn_(self.Rows_(i).SubjectID, projectId);
+            end
+        end
+
+        function [ids, nSkipped] = activeOnly_(self, ids, projectId)
+            % Drop retired subjects from a list of IDs, and say how many went.
+            %
+            % Every protocol-version action funnels through here: a retired
+            % animal is finished, so moving it onto a newer protocol would
+            % rewrite the record of what it actually ran, for no session that
+            % is ever going to happen.
+            arguments
+                self
+                ids cell
+                projectId (1,:) char = self.selectedProject_()
+            end
+
+            if isempty(ids), nSkipped = 0; return, end
+
+            keep = ~cellfun(@(id) self.isRetiredIn_(id, projectId), ids);
+            nSkipped = nnz(~keep);
+            ids = ids(keep);
         end
 
         function ids = checkedIds_(self)
@@ -570,10 +642,17 @@ classdef SubjectManager < handle
             self.H.mnu_check_versions.Enable = onoff(hasRows);
             self.H.mnu_open_designer.Enable  = onoff(hasSelection);
 
-            self.H.mnu_update_checked.Enable = onoff(writable && inProject && hasChecked);
+            % Every version action skips retired members, so these are
+            % switched on what would actually be acted on rather than on the
+            % raw tick count: a menu that stays live and then reports there
+            % was nothing to do is worse than one plainly unavailable.
+            activeChecked   = hasChecked && ~isempty(self.activeOnly_(self.checkedIds_()));
+            activeSelection = hasSelection && ~self.selectionIsRetired_();
+
+            self.H.mnu_update_checked.Enable = onoff(writable && inProject && activeChecked);
             self.H.mnu_update_project.Enable = onoff(writable && inProject);
-            self.H.mnu_use_default.Enable    = onoff(writable && inProject && hasChecked);
-            self.H.mnu_revert.Enable         = onoff(writable && inProject && hasSelection);
+            self.H.mnu_use_default.Enable    = onoff(writable && inProject && activeChecked);
+            self.H.mnu_revert.Enable         = onoff(writable && inProject && activeSelection);
 
             if ~inProject
                 self.H.btnAddToProject.Tooltip = ...
@@ -629,6 +708,23 @@ classdef SubjectManager < handle
                         'Retire the checked subjects from the selected project';
                 end
             end
+        end
+
+        function tf = selectionIsRetired_(self)
+            % True when the row under the table selection is a retired member.
+            %
+            % Reads the table directly rather than through selectedRow_, which
+            % posts to the status line when nothing is selected -- this runs on
+            % every keystroke typed into the filter.
+            tf = false;
+            sel = self.H.table.Selection;
+            if isempty(sel) || isempty(self.Rows_), return, end
+
+            row = sel(1);
+            if row > numel(self.Rows_), return, end
+
+            flags = self.retiredRows_();
+            tf = flags(row);
         end
 
         function tf = checkedAreRetired_(self)
@@ -731,13 +827,25 @@ classdef SubjectManager < handle
         end
 
         function onCheckVersions_(self)
-            % Report protocol-version state for everything on screen.
+            % Report protocol-version state for the active subjects on screen.
+            %
+            % Retired members are counted out rather than reported as behind:
+            % their protocol is the record of what they ran, and nothing here
+            % will move them onto a newer one.
             if isempty(self.Statuses_)
                 self.setStatus_('There are no subjects to check.');
                 return
             end
 
-            st = self.Statuses_;
+            active = ~self.retiredRows_();
+            st = self.Statuses_(active);
+            nRetired = nnz(~active);
+            if isempty(st)
+                self.setStatus_(sprintf( ...
+                    'Nothing to check: all %d subject(s) shown are retired.', nRetired));
+                return
+            end
+
             counts = struct( ...
                 'current',  nnz(strcmp({st.Status},'current')), ...
                 'outdated', nnz(strcmp({st.Status},'outdated')), ...
@@ -746,7 +854,7 @@ classdef SubjectManager < handle
                 'missing',  nnz(strcmp({st.Status},'missing')), ...
                 'none',     nnz(strcmp({st.Status},'none')));
 
-            lines = {sprintf('%d subject(s) shown:', numel(st)), ''};
+            lines = {sprintf('%d active subject(s) shown:', numel(st)), ''};
             lines = localCount(lines, counts.current,  'on the current version');
             lines = localCount(lines, counts.outdated, 'behind the protocol saved on disk');
             lines = localCount(lines, counts.differs,  'on a protocol other than the project default');
@@ -763,6 +871,16 @@ classdef SubjectManager < handle
                 end
                 lines{end+1} = '';
                 lines{end+1} = 'Protocol > Update All in Project to Latest Version brings them forward.';
+            end
+
+            % Said plainly rather than left as a discrepancy between this
+            % count and the row count: a retired animal missing from the
+            % tally would otherwise read as a bug.
+            if nRetired > 0
+                lines{end+1} = '';
+                lines{end+1} = sprintf( ...
+                    '%d retired subject(s) were not checked. Restore one to bring it back in.', ...
+                    nRetired);
             end
 
             uialert(self.H.figure, lines, 'Protocol Versions', 'Icon','info');

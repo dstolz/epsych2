@@ -47,6 +47,7 @@ if ~self.Roster.IsBound
     self.updateProjectSummary_();
     self.Rows_ = [];
     self.Statuses_ = [];
+    self.Retired_ = [];
     self.showVersionBanner_('');
     self.showEmptyState_(self.emptyStateText_());
     self.H.countLabel.Text = '';
@@ -131,6 +132,7 @@ self.Rows_ = recs;
 
 if isempty(recs)
     self.Statuses_ = [];
+    self.Retired_ = [];
     self.showVersionBanner_('');
     self.showEmptyState_(self.emptyStateText_());
     self.H.countLabel.Text = '0 shown';
@@ -183,6 +185,7 @@ for i = 1:nRows
 end
 
 self.H.table.Data = data;
+self.Retired_ = retired;
 
 % Retired rows are greyed rather than hidden when Show retired is on, so the
 % distinction is visible without reading the last column.
@@ -194,11 +197,15 @@ if any(retired)
     addStyle(self.H.table, uistyle('FontColor',[0.55 0.58 0.62]), 'row', find(retired));
 end
 
-% Version styling goes on after the retired sweep so a retired subject on a
-% stale protocol still shows the warning; the last style added wins per cell.
+% A retired member is out of the version workflow entirely: nothing here will
+% update it, so drawing it as needing attention would be an alarm with no
+% action behind it. Its version is muted instead, and it is counted out of the
+% banner and the tooltip -- which speak for the Update All button, and so must
+% describe exactly the subjects that button would move.
+versionFlag(retired & versionFlag == 1) = 2;
 localStyleVersions(self.H.table, versionFlag);
-self.showVersionBanner_(localBannerText(self.Statuses_));
-self.H.table.Tooltip = localTableTooltip(self.Statuses_);
+self.showVersionBanner_(localBannerText(self.Statuses_(~retired)));
+self.H.table.Tooltip = localTableTooltip(self.Statuses_(~retired));
 
 nChecked = numel(self.checkedIds_());
 total = numel(self.Roster.Subjects);

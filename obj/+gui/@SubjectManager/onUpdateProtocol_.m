@@ -8,9 +8,14 @@ function onUpdateProtocol_(self, scope, options)
 % subjects?" is a question an operator cannot answer; "v4 -> v7 for 6 subjects"
 % is one they can.
 %
+% Retired members are never touched, whichever scope asked. A finished animal's
+% recorded protocol IS the record of what it ran; moving it onto a version
+% saved after the fact would rewrite that for a session that will never happen.
+% 'row' says so and stops, the other two skip quietly and say how many.
+%
 % Parameters:
-%   scope - 'row' (the selected row), 'checked', or 'project' (every subject
-%           shown for the selected project, retired ones included).
+%   scope - 'row' (the selected row), 'checked', or 'project' (every active
+%           subject in the selected project, including any the filter hides).
 %
 % Options:
 %   UseProjectDefault - also move each subject onto the project's default file.
@@ -35,10 +40,20 @@ p = self.Roster.findProject(projectId);
 if isempty(p), return, end
 
 % --- who ----------------------------------------------------------------
+skipped = 0;
+
 switch scope
     case 'row'
         rec = self.selectedRow_();
         if isempty(rec), return, end
+        if self.isRetiredIn_(rec.SubjectID, projectId)
+            uialert(self.H.figure, sprintf( ...
+                ['"%s" is retired from this project, so its protocol is left as ' ...
+                 'the record of what it ran.\n\nRestore it to the project first ' ...
+                 'if it is going to run again.'], rec.Name), ...
+                'Update Protocol', 'Icon','info');
+            return
+        end
         ids = {rec.SubjectID};
 
     case 'checked'
@@ -47,14 +62,21 @@ switch scope
             self.setStatus_('Tick the subjects to update first.');
             return
         end
+        [ids, skipped] = self.activeOnly_(ids, projectId);
+        if isempty(ids)
+            self.setStatus_(sprintf( ...
+                'Nothing to update: all %d checked subject(s) are retired.', skipped));
+            return
+        end
 
     case 'project'
-        % Every member, including retired ones and any hidden by the filter:
-        % "all in project" that quietly meant "all currently visible" would
-        % leave stragglers behind exactly when the operator believed otherwise.
-        recs = self.Roster.subjectsInProject(projectId, IncludeRetired = true);
+        % Every ACTIVE member, including any the filter hides: "all in project"
+        % that quietly meant "all currently visible" would leave stragglers
+        % behind exactly when the operator believed otherwise. Retired members
+        % are not stragglers -- they are done.
+        recs = self.Roster.subjectsInProject(projectId);
         if isempty(recs)
-            self.setStatus_('That project has no subjects.');
+            self.setStatus_('That project has no active subjects.');
             return
         end
         ids = {recs.SubjectID};
@@ -72,16 +94,28 @@ if options.UseProjectDefault
     end
 end
 
+% What was left out is said in the same breath as what will change, so a count
+% that does not match the ticks is explained before it is noticed.
+note = '';
+if skipped > 0
+    note = sprintf('%d retired subject(s) skipped.', skipped);
+end
+
 preview = localPreview(self.Roster, ids, projectId, target);
 if isempty(preview.changes)
-    uialert(self.H.figure, preview.message, 'Update Protocol', 'Icon','info');
+    uialert(self.H.figure, strtrim([preview.message ' ' note]), ...
+        'Update Protocol', 'Icon','info');
     self.refresh();
     return
 end
 
-answer = uiconfirm(self.H.figure, ...
-    [preview.lines, {'', ['Each subject''s previous protocol is kept, so this can be ' ...
-     'undone with Revert Protocol Version...']}], ...
+tail = {'', ['Each subject''s previous protocol is kept, so this can be ' ...
+    'undone with Revert Protocol Version...']};
+if ~isempty(note)
+    tail = [{'', note}, tail];
+end
+
+answer = uiconfirm(self.H.figure, [preview.lines, tail], ...
     'Update Protocol', ...
     'Options', {'Update','Cancel'}, ...
     'DefaultOption','Update', 'CancelOption','Cancel', 'Icon','question');
@@ -101,7 +135,7 @@ for i = 1:numel(report.updated)
 end
 
 self.refresh();
-self.setStatus_(report.message);
+self.setStatus_(strtrim([report.message ' ' note]));
 
 if ~report.ok
     uialert(self.H.figure, report.message, 'Update Protocol', 'Icon','info');

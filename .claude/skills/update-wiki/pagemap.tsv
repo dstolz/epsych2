@@ -7,6 +7,9 @@ obj/+gui/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/Run
 obj/+gui/@PopOut	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_PopOut.md
 obj/+gui/@SyringePump	Behavior-GUI-Components, Video-and-Peripherals	documentation/gui/gui_SyringePump.md
 obj/+gui/@ParameterDebugger	Behavior-GUI-Components, GUI-Framework-Internals, Troubleshooting	documentation/gui/gui_ParameterDebugger.md
+obj/+gui/@BehaviorBuilder	Behavior-GUI-Builder, Building-a-Behavior-GUI	documentation/gui/gui_BehaviorBuilder.md
+obj/+gui/@ComponentToolbar	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_ComponentToolbar.md
+obj/+gui/@ScreenCapture	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_ScreenCapture.md
 obj/+gui/@SubjectManager	Subjects-and-Projects, Subject-Roster-Internals	documentation/gui/gui_SubjectManager.md
 obj/+gui/@VlcRecorderSetup	Video-and-Peripherals	documentation/gui/VlcRecorderSetup.md
 obj/+gui/	Behavior-GUI-Components, GUI-Framework-Internals, Training-and-Online-Analysis	documentation/gui/
@@ -17,6 +20,7 @@ obj/+hw/	Hardware-Abstraction-Layer, Writing-a-Hardware-Backend	documentation/hw
 obj/+epsych/@RunExpt	Running-a-Session, RunExpt-GUI-Overview	documentation/overviews/RunExpt_GUI_Overview.md
 obj/+epsych/@ProtocolDesigner	Designing-Protocols	documentation/design/ProtocolDesigner.md, documentation/design/ProtocolDesigner_UserGuide.md
 obj/+epsych/@Protocol	Protocol-Internals, Designing-Protocols	documentation/epsych/epsych_Protocol.md
+obj/+epsych/@BlockSequence	Trial-Selectors	documentation/epsych/epsych_BlockSequence.md
 obj/+epsych/@Runtime	Runtime-and-Events, Trial-Lifecycle, Parameter-Files-and-Phases	documentation/epsych/epsych_Runtime.md
 obj/+epsych/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/RunExpt_SelfTest.md
 obj/+epsych/@SubjectRoster	Subject-Roster-Internals, Subjects-and-Projects	documentation/epsych/epsych_SubjectRoster.md

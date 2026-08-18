@@ -56,7 +56,13 @@ function updatedModule = applyUpdatedModuleOptions(obj, iface, moduleIndex, modu
     modules(moduleIndex) = updatedModule;
     obj.replaceInterfaceModules(iface, modules);
 
+    % Restoring Value evaluates each parameter's Expression, which may name a
+    % parameter on another interface (e.g. "... - Params.RespWinPreStim"). The
+    % resolver finds those through iface.Runtime, and the designer has no
+    % epsych.Runtime, so stand the Protocol in for the restore pass.
+    restoreLink = obj.Protocol.linkInterfacesForValueRestore();
     for paramIdx = 1:numel(parameters)
         parameters(paramIdx).fromStruct(paramStructs{paramIdx});
     end
+    delete(restoreLink)
 end

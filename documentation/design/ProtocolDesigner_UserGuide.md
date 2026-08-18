@@ -230,6 +230,19 @@ Editing the item list afterwards can move the target or push the index out of ra
 
 The row is highlighted and the message area shows the error. For index expressions the message names the valid range and suggests `round()` or `fix()` where relevant. Fix the expression and refresh or compile again.
 
+## Checking calculations before you run
+
+Click **Check Calcs...** on the toolbar (Ctrl+Shift+K) to see what every expression in the protocol works out to, using the same evaluator the experiment uses. The window has three parts: the **Issues** list at the top, the **Inputs** table at the lower left, and the **Exhaustive Results** table on the right, one column per combination of inputs.
+
+Every parameter an expression reads gets a row in the Inputs table. Type into its **Values** cell to say what to test it with — a single number, a list like `[0.5 1 2]`, or a range like `100:100:1000`. Every combination of every row is worked out, so three values in one row and four in another gives twelve combinations. Leave a cell empty to use the parameter's design values.
+
+Tick **Random** on a row whose Values cell holds two numbers — `[0 100]` — to draw one value from that range instead of testing both ends of it. That is what you want for a parameter whose exact value does not matter but whose range does: the number of combinations stays down, and the value tried is somewhere in the middle of the range rather than only at its edges. A fresh value is drawn every time you click **Run Check**, so clicking a few times explores the range. The **Note** cell shows what was drawn. Parameters of type Integer or Boolean are always drawn as whole numbers.
+
+If a ticked row does not hold exactly two numbers, or the second is smaller than the first, the row is highlighted and a warning appears in the Issues list; the values you typed are swept as usual, so the check still runs.
+
+Click **Run Check** after changing anything in the main window — the protocol is recompiled each time, so unsaved edits are included.
+
+
 ## Seeing how parameters depend on each other
 
 Click **Dependencies...** on the toolbar (Ctrl+Shift+G) to open a new figure showing which parameters are calculated from which. Every parameter that references another one in its **Expression** appears, along with the parameters it references. Arrows point from a referenced parameter to the parameter calculated from it, so following them left to right is the order values are worked out.

@@ -1,0 +1,53 @@
+function cat = componentCatalog()
+% cat = gui.BehaviorBuilder.componentCatalog
+% The one table of placeable component types (teensy.Templates pattern).
+% Drives the palette, tooltips, placeholder labels, psych gating, the
+% pop-out checkbox, and codegen dispatch — new components are added HERE
+% plus one emitter branch in generateCode.m.
+%
+% Fields per entry:
+%   Type        spec/codegen identifier
+%   Display     palette + placeholder name
+%   Category    'Controls' | 'Displays' | 'Add-ons'
+%   Description palette tooltip
+%   NeedsPsych  requires spec.Psych.Type ~= 'none'
+%   PsychTypes  restrict to these analyses ({} = any)
+%   Poppable    supports a generated pop-out button (gui.PopOut adopters)
+%   HasOptions  has a configureRegion dialog beyond Label/span
+%   EmitClass   component class whose PreferenceTag must be uniqued when
+%               the type is placed more than once ('' = stateless)
+
+rows = {
+ 'ControlColumn' 'Control Column'      'Controls' 'Titled, scrollable column of editable parameter controls with an automatic Update button' false {}            false true  ''
+ 'ButtonRow'     'Button Row'          'Controls' 'Row of trigger/toggle buttons (optionally with a Screen Capture button)'                  false {}            false true  ''
+ 'Monitor'       'Parameter Monitor'   'Displays' 'Polled read-only display of chosen parameters (table or text)'                            false {}            true  true  'gui.Parameter_Monitor'
+ 'NextTrial'     'Next Trial'          'Displays' 'Upcoming-trial display driven by NewTrial events'                                         false {}            true  false 'gui.NextTrial'
+ 'Performance'   'Session Performance' 'Displays' 'Session summary panel: rates, counts, d'''                                                false {}            true  false 'gui.SessionPerformance'
+ 'Scatter'       'Parameter Scatter'   'Displays' 'Generic X/Y/color scatter over trial parameters'                                          false {}            true  true  'gui.ParameterScatter'
+ 'History'       'Trial History'       'Displays' 'Per-trial outcome table (requires a psych analysis)'                                      true  {}            true  false 'gui.History'
+ 'PsychPlot'     'Psych Plot'          'Displays' 'Psychometric plot (requires a psych analysis)'                                            true  {}            true  false ''
+ 'StaircasePlot' 'Staircase Plot'      'Displays' 'Staircase track with reversals (requires a Staircase analysis)'                           true  {'Staircase'} true  false ''
+ 'SessionClock'  'Session Clock'       'Displays' 'Clock, session duration, and time-since-trial readouts'                                   false {}            false false 'gui.SessionClock'
+ 'TrialTimer'    'Trial Timer'         'Displays' 'Elapsed time since the last completed trial'                                              false {}            false false ''
+ 'ModeIndicator' 'Mode Indicator'      'Displays' 'Lamp showing the current run mode'                                                        false {}            false false ''
+ 'SyringePump'   'Syringe Pump'        'Add-ons'  'Operator panel for an NE-1000 reward pump (uses saved pump preferences)'                  false {}            true  true  'gui.SyringePump'
+ 'ScreenCapture' 'Screen Capture'      'Add-ons'  'Button that copies the whole window to the clipboard'                                     false {}            false false ''
+ };
+
+n = size(rows,1);
+proto = struct('Type','','Display','','Category','','Description','', ...
+    'NeedsPsych',false,'Poppable',false,'HasOptions',false,'EmitClass','');
+proto.PsychTypes = {}; % assigned separately: struct('f',{{}}) makes an empty ARRAY
+cat = repmat(proto, 1, n);
+for i = 1:n
+    cat(i).Type        = rows{i,1};
+    cat(i).Display     = rows{i,2};
+    cat(i).Category    = rows{i,3};
+    cat(i).Description = rows{i,4};
+    cat(i).NeedsPsych  = rows{i,5};
+    cat(i).PsychTypes  = rows{i,6};
+    cat(i).Poppable    = rows{i,7};
+    cat(i).HasOptions  = rows{i,8};
+    cat(i).EmitClass   = rows{i,9};
+end
+end

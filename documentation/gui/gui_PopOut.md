@@ -77,6 +77,14 @@ end
 are not poppable with a debug-level message, matching `addControl`'s
 tolerance of parameter names a protocol does not define.
 
+### A toolbar of them
+
+For more than one or two, `gui.BehaviorGUI.addComponentToolbar` puts every
+poppable component the GUI registered onto one icon toolbar, without naming
+them: it collects them after `build` returns. It can also open displays the
+GUI does not host at all, building them on first click. See
+[gui_ComponentToolbar.md](gui_ComponentToolbar.md).
+
 ## Preferences
 
 A pop-out saves its layout under its own key, so its choices never overwrite

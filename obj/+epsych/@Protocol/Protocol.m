@@ -143,6 +143,8 @@ classdef Protocol < handle & matlab.mixin.SetGet
         struct_out = toStruct(obj)      % Convert to serializable struct - toStruct.m
         fromStruct(obj, struct_in)      % Restore state from struct - fromStruct.m
 
+        restoreLink = linkInterfacesForValueRestore(obj, extraInterfaces)  % Temporarily expose this Protocol as the interfaces' Runtime so Value restore resolves cross-interface Expressions - linkInterfacesForValueRestore.m
+
     end
 
     methods (Static)

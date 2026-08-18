@@ -594,6 +594,187 @@ switch name
             "................"
             "................"];
 
+    % ---- behavior GUI component toolbar (gui.ComponentToolbar) ---------
+    %
+    % One glyph per display component the toolbar can open in its own window.
+    % The name is the component's class name without its package, lowercased,
+    % with underscores removed: gui.Parameter_Monitor -> "parametermonitor".
+    % gui.ComponentToolbar builds that name itself and falls back to
+    % "component" when there is no case for it, so a new gui.PopOut adopter
+    % works on the toolbar before anyone draws its icon -- adding a case here
+    % is what replaces the generic two-window glyph with its own.
+
+    case "parameterscatter" % axes with scattered points
+        rows = [ ...
+            "................"
+            "..k............."
+            "..k............."
+            "..k........rr..."
+            "..k..bb....rr..."
+            "..k..bb........."
+            "..k......gg....."
+            "..k......gg....."
+            "..k.........bb.."
+            "..k...rr....bb.."
+            "..k...rr........"
+            "..k............."
+            "..k............."
+            "..kkkkkkkkkkkkk."
+            "................"
+            "................"];
+
+    case "history"  % trial table, each row flagged by its outcome
+        rows = [ ...
+            "................"
+            ".kkkkkkkkkkkkkk."
+            ".kssssssssssssk."
+            ".kssssssssssssk."
+            ".kkkkkkkkkkkkkk."
+            ".kggkwwwwwwwwwk."
+            ".kggkwwwwwwwwwk."
+            ".kkkkkkkkkkkkkk."
+            ".krrkwwwwwwwwwk."
+            ".krrkwwwwwwwwwk."
+            ".kkkkkkkkkkkkkk."
+            ".kbbkwwwwwwwwwk."
+            ".kbbkwwwwwwwwwk."
+            ".kkkkkkkkkkkkkk."
+            "................"
+            "................"];
+
+    case "sessionperformance" % rising bars under a check mark
+        rows = [ ...
+            "...............g"
+            "..............gg"
+            ".........g...gg."
+            ".........gg.gg.."
+            "..........ggg..."
+            "................"
+            "..........bbb..."
+            "......bbb.bbb..."
+            "......bbb.bbb..."
+            "......bbb.bbb..."
+            "..bbb.bbb.bbb..."
+            "..bbb.bbb.bbb..."
+            "..bbb.bbb.bbb..."
+            "..kkkkkkkkkkkk.."
+            "................"
+            "................"];
+
+    case "nexttrial" % skip-forward mark: what comes next
+        rows = [ ...
+            "................"
+            "................"
+            "................"
+            "..b......kk....."
+            "..bb.....kk....."
+            "..bbbb...kk....."
+            "..bbbbb..kk....."
+            "..bbbbbb.kk....."
+            "..bbbbbb.kk....."
+            "..bbbbb..kk....."
+            "..bbbb...kk....."
+            "..bb.....kk....."
+            "..b......kk....."
+            "................"
+            "................"
+            "................"];
+
+    case "parametermonitor" % panel showing a live trace, with a lamp
+        rows = [ ...
+            "................"
+            ".kkkkkkkkkkkkkk."
+            ".kwwwwwwwwwggwk."
+            ".kwwwwwwwwwggwk."
+            ".kwwwwwwwwwwwwk."
+            ".kwwwwwwwwwwwwk."
+            ".kwwwgggggwwwwk."
+            ".kwwwgwwwgwwwwk."
+            ".kwwwgwwwgwwwwk."
+            ".kwwwgwwwgwwwwk."
+            ".kwgggwwwggggwk."
+            ".kwwwwwwwwwwwwk."
+            ".kkkkkkkkkkkkkk."
+            "................"
+            "................"
+            "................"];
+
+    case "psychplot" % psychometric function rising to a plateau
+        rows = [ ...
+            "................"
+            "..k............."
+            "..k............."
+            "..k......bbbbbb."
+            "..k.....b......."
+            "..k.....b......."
+            "..k....b........"
+            "..k....b........"
+            "..k...b........."
+            "..k...b........."
+            "..k..b.........."
+            "..kbbb.........."
+            "..k............."
+            "..kkkkkkkkkkkkk."
+            "................"
+            "................"];
+
+    case "syringepump" % syringe: plunger, filled barrel, needle
+        rows = [ ...
+            "................"
+            "................"
+            "................"
+            "................"
+            ".s..kkkkkkkkk..."
+            ".s..kbbbbwwwk..."
+            ".s..kbbbbwwwk..."
+            ".ssskbbbbwwwksss"
+            ".ssskbbbbwwwksss"
+            ".s..kbbbbwwwk..."
+            ".s..kbbbbwwwk..."
+            ".s..kkkkkkkkk..."
+            "................"
+            "................"
+            "................"
+            "................"];
+
+    case "staircase" % steps descending to a reversal, over a threshold
+        rows = [ ...
+            "................"
+            "................"
+            "................"
+            ".ooo............"
+            "...o............"
+            "...ooo.....ooo.."
+            ".....o.....o...."
+            ".....ooo.ooo...."
+            ".......o.o......"
+            ".......ooo......"
+            "................"
+            "ss.ss.ss.ss.ss.."
+            "................"
+            "................"
+            "................"
+            "................"];
+
+    case "component" % generic: a window lifted out of another window
+        rows = [ ...
+            "................"
+            ".....kkkkkkkkkkk"
+            ".....kbbbbbbbbbk"
+            ".....kbbbbbbbbbk"
+            ".....kkkkkkkkkkk"
+            "kkkkkkwwwwwwwwwk"
+            "ksssskwwwwwwwwwk"
+            "ksssskwwwwwwwwwk"
+            "kkkkkkwwwwwwwwwk"
+            "kwwwwkwwwwwwwwwk"
+            "kwwwwkkkkkkkkkkk"
+            "kwwwwwwwwk......"
+            "kwwwwwwwwk......"
+            "kwwwwwwwwk......"
+            "kkkkkkkkkk......"
+            "................"];
+
     otherwise
         error('epsych:gui:UnknownToolbarIcon','Unknown toolbar icon "%s".',name)
 end

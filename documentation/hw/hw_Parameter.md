@@ -245,6 +245,12 @@ stops ignoring the value it is already being handed.
 - `isArray`: True when the stored value contains more than one element.
 - `isRandom`: If true, writes randomize the value before passing it on.
   Requires finite `Min` and `Max`.
+  The draw is `randi([Min Max])` on every dispatch: memoryless, integer-only,
+  and unbalanced over a finite session. For a value drawn from a list with
+  exact per-block balance -- and re-readable by trial index -- drive the
+  parameter from an [epsych.BlockSequence](../epsych/epsych_BlockSequence.md)
+  in a trial selector instead, and leave `isRandom` false so the selector's
+  value survives dispatch.
 - `Min` / `Max`: Bounds. Numeric writes are clamped into `[Min, Max]`
   (per-side, controlled by `BoundsInclusive`) before being applied.
 
@@ -494,6 +500,17 @@ expressions before an experiment runs. Programmatic equivalents:
 `epsych.Protocol.validate()` (and therefore `compile()`) also reports expression
 problems: expressions guaranteed to fail at runtime block compilation.
 
+Every variable an expression reads gets a row in the dialog's **Inputs** table,
+and its **Values** cell takes a scalar or a vector: every combination of every
+row is evaluated. Tick **Random** on a row whose Values cell holds a `[min max]`
+pair to draw one value from that range instead of testing both endpoints —
+useful for a variable whose exact value does not matter but whose range does,
+since it keeps the combination count down while still exercising the middle of
+the range. A new value is drawn on each Run Check (the Note cell and the
+Assumptions list report what was drawn), Integer and Boolean parameters draw
+whole numbers, and a ticked row that does not hold a usable `[min max]` pair
+warns and sweeps what was typed instead.
+
 ---
 
 ### Seeing which parameters depend on which
@@ -601,6 +618,20 @@ runtime evaluation cannot drift apart.
   evaluated (live `param.Value`), not from design-time `Values` cell arrays.
   This differs from `ProtocolDesigner`'s expression evaluator, which works
   with `Values` during compile-time expansion.
+- A `ModuleName.ParamName` reference that names a module on *another*
+  interface — most commonly the software `Params` module, as in
+  `"StimDelay + StimDur - Params.RespWinPreStim"` — is found through
+  `iface.Runtime.Interfaces`. With no runtime registered the search falls back
+  to the owning interface alone and the reference is left unresolved, so the
+  assignment throws. Design-time code that writes `Value` therefore borrows
+  the protocol as a stand-in runtime for the duration:
+  `epsych.Protocol.linkInterfacesForValueRestore` links every interface that
+  has no runtime of its own and detaches again when its `onCleanup` is
+  released. `epsych.Protocol.fromStruct` uses it while restoring a loaded
+  protocol, and `ProtocolDesigner` uses it when a module or interface edit
+  (e.g. pointing a module at a different RPvds file) rebuilds a module and
+  replays every parameter's `Value`. Headless coverage:
+  `tmp/smoke_test_crossinterface_expression_restore.m`.
 - `resolveExpressionContext` reads *every* sibling, referenced or not, so the
   value lookup runs against parameters the expression never mentions. The
   runtime lookup therefore falls back to `Values{1}` for write-only

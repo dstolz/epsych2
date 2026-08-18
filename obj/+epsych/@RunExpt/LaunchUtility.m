@@ -4,8 +4,8 @@ function LaunchUtility(self, target)
 %
 % Parameters:
 %	target	- Tool to open: "ProtocolDesigner", "TrialDesigner",
-%			  "StimPlayer", "StimInspector", "Calibration", or
-%			  "VideoConverter".
+%			  "BehaviorBuilder", "StimPlayer", "StimInspector",
+%			  "Calibration", or "VideoConverter".
 %
 % Each tool owns its own window and lifecycle; RunExpt only launches it and
 % keeps no handle. Always-on-top is cleared first so the new window does not
@@ -14,18 +14,20 @@ function LaunchUtility(self, target)
 % unpopulated stimgen submodule, an absent peripheral package) must not
 % disturb a loaded or running session.
 %
-% See also: epsych.ProtocolDesigner, teensy.TrialDesigner, stimgen.StimPlayer,
-%           stimgen.StimInspector, epsych.calibrate, util.VideoConverter
+% See also: epsych.ProtocolDesigner, teensy.TrialDesigner, gui.BehaviorBuilder,
+%           stimgen.StimPlayer, stimgen.StimInspector, epsych.calibrate,
+%           util.VideoConverter
 arguments
     self
     target (1,1) string {mustBeMember(target, ...
-        ["ProtocolDesigner","TrialDesigner","StimPlayer","StimInspector", ...
-         "Calibration","VideoConverter"])}
+        ["ProtocolDesigner","TrialDesigner","BehaviorBuilder","StimPlayer", ...
+         "StimInspector","Calibration","VideoConverter"])}
 end
 
 switch target
     case "ProtocolDesigner", label = 'Protocol Designer';
     case "TrialDesigner",    label = 'Teensy Trial Designer';
+    case "BehaviorBuilder",  label = 'Behavior GUI Builder';
     case "StimPlayer",       label = 'Stimulus Player';
     case "StimInspector",    label = 'Stimulus Inspector';
     case "Calibration",      label = 'Calibration GUI';
@@ -40,6 +42,8 @@ try
             epsych.ProtocolDesigner;
         case "TrialDesigner"
             teensy.TrialDesigner;
+        case "BehaviorBuilder"
+            gui.BehaviorBuilder;
         case "StimPlayer"
             % Seeded with a bare host, like epsych.calibrate does for the
             % calibration GUI: the player's File > Load Protocol menu and

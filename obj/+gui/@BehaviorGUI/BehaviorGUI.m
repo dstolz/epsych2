@@ -39,6 +39,10 @@ classdef (Abstract) BehaviorGUI < handle
     %   button made with addPopOutButton. A pop-out is a separate instance
     %   over the same data, so it never disturbs the embedded one.
     %
+    %   addComponentToolbar collects those windows onto one icon toolbar, and
+    %   can additionally open components the GUI does not display at all. It
+    %   is optional: a GUI that never calls it gets no toolbar.
+    %
     %   NewData listener source: when createPsych returns a psychophysics
     %   object, NewData is taken from Psych.Events so the psych object has
     %   already processed the trial before onNewData runs; otherwise
@@ -59,6 +63,8 @@ classdef (Abstract) BehaviorGUI < handle
 
     properties (Access = private)
         Components_ (1,:) cell = {} % registered components, deleted in reverse on teardown
+        ComponentNames_ (1,:) cell = {} % register names, one per Components_ entry
+        ComponentToolbar_ = []      % gui.ComponentToolbar from addComponentToolbar, or []
         Deferred_ (1,:) cell = {}   % closures queued until the first NewTrial
         FirstTrialSeen_ (1,1) logical = false
         ButtonCount_ (1,1) double = 0 % rotation index for addButton colors
@@ -125,6 +131,14 @@ classdef (Abstract) BehaviorGUI < handle
 
             obj.wireUpdateButtons_();
 
+            % Auto discovery runs here rather than inside addComponentToolbar
+            % because build is normally where the toolbar is asked for, before
+            % the components it should list have been registered.
+            if ~isempty(obj.ComponentToolbar_) && isvalid(obj.ComponentToolbar_)
+                [comps, labels] = obj.popOutComponents_();
+                obj.ComponentToolbar_.populateAuto_(comps, labels);
+            end
+
             H = RUNTIME.EVENTS;
             if ~isempty(H) && isvalid(H)
                 obj.hl_NewTrial   = listener(H, 'NewTrial',   @obj.dispatchNewTrial_);
@@ -162,7 +176,8 @@ classdef (Abstract) BehaviorGUI < handle
                 catch
                 end
             end
-            obj.Components_ = {};
+            obj.Components_     = {};
+            obj.ComponentNames_ = {};
 
             try
                 if ~isempty(obj.Psych) && isvalid(obj.Psych)
@@ -566,6 +581,50 @@ classdef (Abstract) BehaviorGUI < handle
             obj.register(h);
         end
 
+        function tb = addComponentToolbar(obj, fig, options)
+            % tb = addComponentToolbar(obj, fig, Style=..., Exclude=..., AutoDiscover=...)
+            % Add an icon toolbar that opens display components in windows of
+            % their own. Optional: a GUI that never calls this has no toolbar.
+            %
+            % Call it at the TOP of build. Every gui.PopOut component
+            % registered anywhere in build gets a tool automatically, because
+            % the list is collected after build returns rather than now.
+            % Components the GUI does not display are declared on the returned
+            % toolbar with addLazyComponent and built on first click:
+            %
+            %   function build(obj, fig)
+            %       tb = obj.addComponentToolbar(fig);
+            %       tb.addLazyComponent('Performance', ...
+            %           @(c) gui.SessionPerformance(obj.RUNTIME, c), ...
+            %           Icon='sessionperformance');
+            %       ... the rest of the layout ...
+            %   end
+            %
+            %  Style        - 'push' (default) opens or raises on click;
+            %                 'toggle' also shows which windows are open and
+            %                 closes one when its pressed tool is clicked.
+            %  Exclude      - class or register names to leave off the toolbar.
+            %  AutoDiscover - false lists only what addLazyComponent declares.
+            arguments
+                obj
+                fig (1,1) matlab.ui.Figure
+                options.Style (1,1) string {mustBeMember(options.Style,["push","toggle"])} = "push"
+                options.Exclude (1,:) string = string.empty(1,0)
+                options.AutoDiscover (1,1) logical = true
+            end
+
+            if ~isempty(obj.ComponentToolbar_) && isvalid(obj.ComponentToolbar_)
+                vprintf(2, '%s: component toolbar already added; returning it', class(obj))
+                tb = obj.ComponentToolbar_;
+                return
+            end
+
+            tb = gui.ComponentToolbar(obj, fig, Style=options.Style, ...
+                Exclude=options.Exclude, AutoDiscover=options.AutoDiscover);
+            obj.ComponentToolbar_ = tb;
+            obj.register(tb, 'ComponentToolbar');
+        end
+
         function comp = register(obj, comp, name)
             % comp = register(obj, comp, name)
             % Add any component (handle object or graphics) to the
@@ -573,12 +632,17 @@ classdef (Abstract) BehaviorGUI < handle
             % the destructor even though deleting the figure alone would
             % only remove their graphics, leaving listeners and timers
             % alive.
+            %  name - what to call this component on a component toolbar.
+            %         Left empty, the toolbar spaces out the class name, which
+            %         is only ambiguous when one GUI holds two components of
+            %         the same class.
             arguments
                 obj
                 comp
-                name (1,:) char = '' % reserved for future lookup by name
+                name (1,:) char = ''
             end
-            obj.Components_{end+1} = comp;
+            obj.Components_{end+1}     = comp;
+            obj.ComponentNames_{end+1} = name;
         end
 
         function defer(obj, fcn)
@@ -708,6 +772,31 @@ classdef (Abstract) BehaviorGUI < handle
             for i = 1:numel(updaters)
                 updaters{i}.watchedHandles = controls;
             end
+        end
+
+        function [comps, labels] = popOutComponents_(obj)
+            % Components that can open a window of their own, in registration
+            % order, with the name each should be called on a toolbar.
+            % Returned as a cell array: gui.PopOut is a mixin, so two adopters
+            % share no concrete class that could hold them in one array.
+            comps  = {};
+            labels = strings(1,0);
+            for i = 1:numel(obj.Components_)
+                c = obj.Components_{i};
+                if ~isobject(c) || ~isvalid(c) || ~isa(c, 'gui.PopOut'), continue; end
+                comps{end+1}  = c;
+                labels(end+1) = gui.ComponentToolbar.entryLabel(class(c), obj.ComponentNames_{i});
+            end
+
+            % The psych object last: a plotted psychophysics.Staircase is a
+            % display like any other, but it is createPsych's return value
+            % rather than something build registered, so nothing above finds
+            % it. Skipped when a subclass registered it as well.
+            p = obj.Psych;
+            if isempty(p) || ~isvalid(p) || ~isa(p, 'gui.PopOut'), return; end
+            if any(cellfun(@(c) c == p, comps)), return; end
+            comps{end+1}  = p;
+            labels(end+1) = gui.ComponentToolbar.entryLabel(class(p));
         end
 
         function dispatchNewTrial_(obj, src, event)

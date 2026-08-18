@@ -107,8 +107,8 @@ classdef ProtocolDesigner < handle
         CheckCalcComboLabel matlab.ui.control.Label
         CheckCalcStatusLabel matlab.ui.control.Label
         CheckCalcIssuesTable matlab.ui.control.Table
-        % Editable sweep-input table (Variable | Values | Note); row identifiers
-        % are kept in its UserData
+        % Editable sweep-input table (Variable | Values | Random | Note); row
+        % identifiers are kept in its UserData
         CheckCalcInputsTable matlab.ui.control.Table
         CheckCalcAnalysisArea matlab.ui.control.TextArea
         CheckCalcTrialsTable matlab.ui.control.Table

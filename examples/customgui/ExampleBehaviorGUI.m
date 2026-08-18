@@ -30,6 +30,17 @@ classdef ExampleBehaviorGUI < gui.BehaviorGUI
         end
 
         function build(obj, fig)
+            % Optional toolbar: one tool per display, opening it in a window
+            % of its own. Asked for FIRST, yet it still lists the components
+            % registered below -- those are collected after build returns.
+            tb = obj.addComponentToolbar(fig);
+
+            % A display this GUI does not show at all. Nothing is built until
+            % the tool is clicked, so it costs no listeners or timers up front.
+            tb.addLazyComponent('Performance', ...
+                @(c) gui.SessionPerformance(obj.RUNTIME, c), ...
+                Icon='sessionperformance', WindowSize=[420 260]);
+
             g = uigridlayout(fig, [3 3]);
             g.RowHeight   = {60, '1x', '1x'};
             g.ColumnWidth = {300, '1x', '1x'};

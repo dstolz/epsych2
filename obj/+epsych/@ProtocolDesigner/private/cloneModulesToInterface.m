@@ -1,4 +1,4 @@
-function targetIface = cloneModulesToInterface(~, sourceIface, targetIface)
+function targetIface = cloneModulesToInterface(obj, sourceIface, targetIface)
     modules = hw.Module.empty(1, 0);
     parameters = hw.Parameter.empty(1, 0);
     paramStructs = {};
@@ -38,7 +38,15 @@ function targetIface = cloneModulesToInterface(~, sourceIface, targetIface)
         error('Interface type %s does not support editing its module list in ProtocolDesigner.', char(targetIface.Type));
     end
 
+    % Restoring Value evaluates each parameter's Expression, which may name a
+    % parameter on another interface (e.g. "... - Params.RespWinPreStim"). The
+    % resolver finds those through iface.Runtime, and the designer has no
+    % epsych.Runtime, so stand the Protocol in for the restore pass. targetIface
+    % is linked explicitly: the caller swaps it into the protocol only after
+    % this returns.
+    restoreLink = obj.Protocol.linkInterfacesForValueRestore(targetIface);
     for paramIdx = 1:numel(parameters)
         parameters(paramIdx).fromStruct(paramStructs{paramIdx});
     end
+    delete(restoreLink)
 end

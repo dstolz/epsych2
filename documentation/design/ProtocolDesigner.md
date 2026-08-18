@@ -44,7 +44,7 @@ ui = epsych.ProtocolDesigner.openFromFile('path/to/file.eprot');
 - Interfaces dialog (`buildInterfaceTab` / `onOpenInterfaceDialog`) — Add Interface builder plus the interface/module tree and its Remove / Options / Add Module / Remove Module actions
 - Options dialog (`buildOptionsTab` / open options callback)
 - Compiled preview dialog (`buildPreviewTab` / open preview callback)
-- Check Calculations dialog (`buildCheckCalculationsTab` / `refreshCheckCalculations`)
+- Check Calculations dialog (`buildCheckCalculationsTab` / `refreshCheckCalculations`) — the inputs table is Variable | Values | Random | Note, and both the typed Values text and the Random tick are carried across a refresh by the row identifiers kept in the table's `UserData`. A ticked row is not passed to `sweepExpressions` as a two-element vector: it is collapsed to one value drawn from that [min max] pair before the call, so the cross-product does not grow and each Run Check probes a different point. Integer and Boolean parameters draw with `randi`, everything else uniformly. Any row that is ticked without a usable pair warns and falls back to sweeping what was typed, so a mis-typed range never silently narrows the check
 - Parameter dependency graph figure (`onShowParameterDependencyGraph`, backed by `epsych.Protocol.dependencyGraph`) — node labels and per-parameter `= expression` annotations are drawn as tagged `text` objects (`nodeLabel` / `formulaLabel`) rather than GraphPlot labels, and formula boxes are nudged vertically to clear each other and the node labels
 - Footer status messaging via `gui.StatusBar`
 

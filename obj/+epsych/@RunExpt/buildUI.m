@@ -205,6 +205,8 @@ self.H.mnu_protocol_designer = uimenu(mDesigners,'Label','Protocol &Designer...'
     'MenuSelectedFcn', @(~,~) self.LaunchUtility("ProtocolDesigner"));
 self.H.mnu_trial_designer = uimenu(mDesigners,'Label','Teensy Trial Designer...', ...
     'MenuSelectedFcn', @(~,~) self.LaunchUtility("TrialDesigner"));
+self.H.mnu_behavior_builder = uimenu(mDesigners,'Label','Behavior GUI Builder...', ...
+    'MenuSelectedFcn', @(~,~) self.LaunchUtility("BehaviorBuilder"));
 
 % The three tools that come from the stimgen submodule share one submenu, so
 % the Utilities list stays readable and an unpopulated submodule fails in one

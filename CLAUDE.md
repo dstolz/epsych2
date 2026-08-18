@@ -110,6 +110,20 @@ Rules that matter:
 - **epsych.ProtocolDesigner** (326 lines): GUI for building protocols (~57 UI callbacks)
 - **epsych.EventHub**: Lightweight event broadcaster (NewData, NewTrial, ModeChange)
 - **epsych.TrialSelector** (abstract): Pluggable trial selection
+- **epsych.BlockSequence**: block-randomized value sequence a trial selector indexes by
+  trial number — an ITI, a hold duration, a level — where `hw.Parameter.isRandom` would
+  redraw `randi([Min Max])` per dispatch, unbalanced and unrecoverable. A block is a
+  shuffled permutation of `Values` with optional integer `Repeats`; `MaxConsecutive`,
+  `NoRepeatAcrossBlocks`, and `Jitter` are all off by default because each distorts the
+  sampling distribution and must be asked for. The **caller owns the index**, so the class
+  holds no cursor and a rewind is exact: extension only ever appends, and jitter is baked
+  at generation rather than drawn at read. Two things a reader would otherwise re-derive:
+  a mid-session edit to `Values` **freezes what was already delivered** and regenerates
+  only from the next whole block (a partial block is abandoned rather than spliced, since
+  half-old/half-new would break balance silently), and a parameter driven from a
+  BlockSequence **must have `isRandom = false`** or `set.Value` overwrites the drawn value
+  on dispatch. `Seed` resolves eagerly and never touches the global stream, so it can be
+  recorded and replayed (see documentation/epsych/epsych_BlockSequence.md)
 - **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
 - **epsych.BitMask**: uint32 enumeration for trial outcomes
 - **epsych.SubjectRoster**: shared, file-backed roster of subjects organized by
@@ -280,6 +294,19 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
 
 #### obj/+gui/ – Reusable GUI Components
 - **gui.BehaviorGUI** (abstract): base class for a paradigm's own experiment GUI, launched once per session as `feval(FUNCS.BehaviorGUI, RUNTIME)` — owns lifecycle, event listeners, position prefs, component-registry teardown, and Parameter_Update wiring; subclasses implement build(fig) (see documentation/gui/gui_BehaviorGUI.md, template in examples/customgui/)
+- **gui.BehaviorBuilder**: design-time builder that generates BehaviorGUI subclasses
+  for naive users — load a protocol, pick components from a palette, drag snap-to-grid
+  regions on an `images.roi.Rectangle` canvas, and export. The design round-trips
+  through an `.eblt` JSON spec (NaN forbidden so `jsonencode` is exact; protocol
+  reduced to a `ParameterSnapshot`, never serialized objects, which is what makes a
+  moved protocol a degraded mode instead of a dead spec). Generated `build()` calls
+  only the documented `add*` helper DSL plus guarded `obj.register(...)` natives, and
+  never emits lifecycle code, so output survives SelfTest I6 like a hand-written
+  subclass; duplicate component classes get explicit PreferenceTags. The spec model
+  and codegen are headless statics (`specNew`/`specValidate`/`saveSpecFile`/
+  `writeCode`); `tmp/smoke_test_behaviorbuilder.m` is the standing check. Adding a
+  palette component = one `componentCatalog.m` row + one emitter branch in
+  `generateCode.m` (documentation/gui/gui_BehaviorBuilder.md)
 - Real-time visualization: OnlinePlot, Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
 - **gui.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
 - **gui.NextTrial**: generic upcoming-trial display driven by NewTrial events
@@ -296,7 +323,26 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   `gui.toolbarIcon("camera")`, since `uibutton`'s `Icon` accepts only four
   built-in names — the confirmation flash after a copy is the one place those
   are used (documentation/gui/gui_ScreenCapture.md)
-- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, PsychPlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button (documentation/gui/gui_PopOut.md)
+- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, SyringePump, PsychPlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button, `gui.ComponentToolbar` puts them all on one toolbar (documentation/gui/gui_PopOut.md)
+- **gui.ComponentToolbar**: the optional icon toolbar a behavior GUI adds with
+  `addComponentToolbar` — one tool per display, opening it in a window of its
+  own. Two kinds of entry, differing in who owns the window: **automatic**
+  entries are the registered `gui.PopOut` components, whose windows stay
+  theirs, and are collected AFTER `build` returns (not when the toolbar is
+  made) so a GUI can ask for the toolbar on its first line and still list
+  everything built after; **lazy** entries are declared with
+  `addLazyComponent(name, factory, ...)` for displays the GUI does not show at
+  all, and the toolbar owns those windows — the factory runs on first click,
+  which is the whole point, since constructing a Parameter_Monitor starts a
+  polling timer and a ParameterScatter attaches listeners. Closing a lazy
+  window deletes the component; clicking again builds a fresh one, so a
+  component that remembers itself by `PreferenceTag` reopens as it was.
+  `Style="toggle"` shows which windows are open and decides from
+  `hasPopOut`/window validity rather than from the button state the click just
+  set, so a window opened from a right-click menu — which the toolbar is never
+  told about — still closes on ONE click. Tool labels come from `register`'s
+  long-unused `name` argument, else the class name split at camelCase
+  (documentation/gui/gui_ComponentToolbar.md)
 - **gui.selectSerialPort**: the modal port picker RunExpt offers when a serial
   backend will not connect. **Refresh** re-enumerates rather than reusing the
   list the session started with — a device powered on while the dialog is open
@@ -313,7 +359,12 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   files. `uitoolbar` does render in a `uifigure`, but `uibutton`/`uiimage` `Icon`
   accepts only four built-in names — `success`, `error`, `warning`, `info` — so
   every other glyph has to be drawn here or supplied as a file. Shared by
-  `epsych.RunExpt` and `gui.SubjectManager`; a new tool adds a `case` to it
+  `epsych.RunExpt`, `gui.SubjectManager`, and `gui.ComponentToolbar`; a new tool
+  adds a `case` to it. The component-toolbar section is the one place a MISSING
+  case is not an error: those names are computed from a class name
+  (`gui.Parameter_Monitor` → `parametermonitor`) and `gui.ComponentToolbar`
+  falls back to the generic `component` glyph, so a new `gui.PopOut` adopter
+  works before anyone draws for it
 - Session control: StaircaseTraining, StatusBar, Triggers
 - **gui.ParameterDebugger**: the other window on RunExpt's Help menu (Ctrl+E) — every
   hw.Parameter a protocol defines, in one table, readable and writable by hand. It
@@ -519,7 +570,7 @@ Reference: obj/+psychophysics/@Detection/, obj/+gui/@OnlinePlot/
 ### Adding Experiment-Specific Behavior
 
 1. Use paradigms/ directory as pattern for paradigm-specific code
-2. Custom GUIs: subclass gui.BehaviorGUI (copy examples/customgui/ExampleBehaviorGUI.m); the base provides lifecycle, listeners, and teardown — the subclass only writes build(fig) and event hooks
+2. Custom GUIs: subclass gui.BehaviorGUI (copy examples/customgui/ExampleBehaviorGUI.m); the base provides lifecycle, listeners, and teardown — the subclass only writes build(fig) and event hooks. For a starting point without hand-writing code, `gui.BehaviorBuilder` generates one from a protocol + drag-and-drop layout
 3. Create custom save functions
 4. Subscribe to epsych.EventHub events for trial and mode changes (BehaviorGUI subclasses get onNewTrial/onNewData/onModeChange hooks instead)
 5. Example: Custom epsych.TrialSelector for closed-loop

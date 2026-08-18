@@ -203,8 +203,29 @@ After a recompile that changes the number of trial rows, all counts are reset to
 
 ---
 
+## Randomizing a per-trial value
+
+A selector often needs a value from a list on each trial — an inter-trial interval, a hold
+duration, a stimulus level. `hw.Parameter.isRandom` redraws `randi([Min Max])` on every
+dispatch, which is memoryless and unbalanced over a real session.
+[`epsych.BlockSequence`](epsych_BlockSequence.md) is the alternative: it pregenerates a
+block-randomized sequence and the selector indexes it with `TRIALS.TrialIndex`, so the value
+for a trial is exact, balanced per block, and the same on a re-read or a rewind.
+
+```matlab
+obj.iti_ = epsych.BlockSequence([500 1000 1500 2000], Repeats = [2 2 2 1], Label = "ITI");
+obj.iti_.validate();                                   % in initialize
+...
+iti = obj.iti_.valueAt(TRIALS.TrialIndex);             % in selectNext
+obj.runtime_.TRIALS(obj.subjectIdx_).trials{nextTrialID, obj.itiCol_} = iti;
+```
+
+The driven parameter must have `isRandom = false`, or `set.Value` overwrites the selector's
+value on dispatch.
+
 ## Related documentation
 
 - [epsych_TrialLifecycle.md](epsych_TrialLifecycle.md) — where selector calls happen within a session
 - [../paradigms/cl_AppetitiveStimDetect.md](../paradigms/cl_AppetitiveStimDetect.md) — a complete adaptive selector (staircase, catch trials, reminder override)
 - [epsych_Protocol.md](epsych_Protocol.md) — where `Options.trialFunc` is stored
+

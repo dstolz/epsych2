@@ -2,7 +2,8 @@ function refreshCheckCalculations(obj)
 % refreshCheckCalculations(obj)
 % Recompile, sync the editable sweep-input table (one row per variable
 % involved in any calculated Expression; the Values column accepts scalar or
-% vector MATLAB expressions), run the exhaustive sweep
+% vector MATLAB expressions, and a ticked Random column draws one value from a
+% [min max] pair instead of sweeping it), run the exhaustive sweep
 % (Protocol.sweepExpressions) over every combination of the values, and
 % populate the Check Calculations panel.
     if isempty(obj.CheckCalcTrialsTable) || ~isvalid(obj.CheckCalcTrialsTable)
@@ -38,51 +39,85 @@ function refreshCheckCalculations(obj)
     end
 
     % ---- Sync the input table with the discovered variable set ----------
-    % UserData holds the identifier per row; user-typed Values text is
-    % preserved for identifiers that persist across refreshes.
+    % UserData holds the identifier per row; user-typed Values text and the
+    % Random flag are preserved for identifiers that persist across refreshes.
     wanted = {spec.inputs.identifier};
     previousIdents = obj.CheckCalcInputsTable.UserData;
     previousData = obj.CheckCalcInputsTable.Data;
     previousText = containers.Map('KeyType', 'char', 'ValueType', 'char');
-    if iscell(previousIdents) && iscell(previousData) && size(previousData, 2) >= 2
+    previousRandom = containers.Map('KeyType', 'char', 'ValueType', 'logical');
+    if iscell(previousIdents) && iscell(previousData) && size(previousData, 2) >= 3
         for k = 1:min(numel(previousIdents), size(previousData, 1))
             previousText(previousIdents{k}) = char(string(previousData{k, 2}));
+            previousRandom(previousIdents{k}) = isequal(previousData{k, 3}, true);
         end
     end
 
-    inputData = cell(numel(spec.inputs), 3);
+    inputData = cell(numel(spec.inputs), 4);
     for k = 1:numel(spec.inputs)
+        ident = spec.inputs(k).identifier;
         inputData{k, 1} = spec.inputs(k).label;
-        if isKey(previousText, spec.inputs(k).identifier)
-            inputData{k, 2} = previousText(spec.inputs(k).identifier);
+        if isKey(previousText, ident)
+            inputData{k, 2} = previousText(ident);
         else
             inputData{k, 2} = localFormatVector_(spec.inputs(k).defaultValues);
         end
-        inputData{k, 3} = spec.inputs(k).note;
+        inputData{k, 3} = isKey(previousRandom, ident) && previousRandom(ident);
+        inputData{k, 4} = spec.inputs(k).note;
     end
-    obj.CheckCalcInputsTable.Data = inputData;
     obj.CheckCalcInputsTable.UserData = wanted;
 
     % ---- Parse the Values column into sweep overrides -------------------
-    removeStyle(obj.CheckCalcInputsTable);
-    badStyle = uistyle('BackgroundColor', [1.0 0.88 0.88], 'FontColor', [0.60 0 0]);
+    % A ticked Random row collapses its [min max] pair to one value drawn now,
+    % so each Run Check probes a different point in the range instead of
+    % sweeping the two endpoints.
     parseIssues = struct('field', {}, 'message', {}, 'severity', {});
     inputsCell = cell(0, 2);
+    badRows = [];
+    randomNotes = {};
     for k = 1:numel(spec.inputs)
         raw = strtrim(char(string(inputData{k, 2})));
+        randomize = isequal(inputData{k, 3}, true);
         if isempty(raw)
+            if randomize
+                badRows(end+1) = k;
+                parseIssues(end+1) = struct( ...
+                    'field', spec.inputs(k).identifier, ...
+                    'message', 'Random needs a [min max] pair in the Values column; using design values', ...
+                    'severity', 1);
+            end
             continue  % blank falls back to design values
         end
         vals = str2num(raw); % str2num (not str2double) so vector expressions like 100:100:1000 work
         if isempty(vals) || ~(isnumeric(vals) || islogical(vals))
-            addStyle(obj.CheckCalcInputsTable, badStyle, 'cell', [k 2]);
+            badRows(end+1) = k;
             parseIssues(end+1) = struct( ...
                 'field', spec.inputs(k).identifier, ...
                 'message', sprintf('Could not parse "%s" as a numeric scalar/vector; using design values', raw), ...
                 'severity', 1);
             continue
         end
-        inputsCell(end+1, :) = {spec.inputs(k).identifier, double(vals(:)).'};
+        vals = double(vals(:)).';
+        if randomize
+            [drawn, why] = localDrawRandom_(vals, spec.inputs(k));
+            if isempty(why)
+                inputData{k, 4} = localNoteWithDraw_(drawn, spec.inputs(k).note);
+                randomNotes{end+1} = sprintf('%s = %g', spec.inputs(k).identifier, drawn);
+                vals = drawn;
+            else
+                badRows(end+1) = k;
+                parseIssues(end+1) = struct( ...
+                    'field', spec.inputs(k).identifier, 'message', why, 'severity', 1);
+            end
+        end
+        inputsCell(end+1, :) = {spec.inputs(k).identifier, vals};
+    end
+
+    obj.CheckCalcInputsTable.Data = inputData;
+    removeStyle(obj.CheckCalcInputsTable);
+    badStyle = uistyle('BackgroundColor', [1.0 0.88 0.88], 'FontColor', [0.60 0 0]);
+    for k = badRows
+        addStyle(obj.CheckCalcInputsTable, badStyle, 'cell', [k 2]);
     end
 
     % ---- Run the exhaustive sweep ---------------------------------------
@@ -96,6 +131,11 @@ function refreshCheckCalculations(obj)
         return
     end
     report.issues = [parseIssues, report.issues];
+    if ~isempty(randomNotes)
+        report.meta.assumptions = [report.meta.assumptions; ...
+            {sprintf('Random inputs were drawn once for this check: %s (Run Check again to redraw)', ...
+            strjoin(randomNotes, ', '))}];
+    end
     obj.CheckCalcReport = report;
 
     localPopulateIssues_(obj.CheckCalcIssuesTable, report.issues);
@@ -330,5 +370,63 @@ function shownRows = localPopulateResults_(tbl, report)
         elseif warnCombo(c)
             addStyle(tbl, warnStyle, 'column', c);
         end
+    end
+end
+
+
+function [drawn, why] = localDrawRandom_(vals, inputSpec)
+% Draw one value uniformly from a [min max] pair. `why` is non-empty when the
+% pair is unusable, so the caller can warn and sweep what was typed instead.
+    drawn = vals;
+    why = '';
+    if numel(vals) ~= 2
+        why = sprintf(['Random needs exactly two values [min max]; %d given, so every value is ' ...
+            'swept instead'], numel(vals));
+        return
+    end
+    lo = vals(1);
+    hi = vals(2);
+    if ~all(isfinite([lo hi])) || lo > hi
+        why = sprintf('Random needs a finite [min max] pair with min <= max; got [%g %g]', lo, hi);
+        return
+    end
+    if localTakesWholeNumbers_(inputSpec)
+        % randi, not a rounded uniform draw: rounding would halve the odds of
+        % hitting either endpoint.
+        loI = ceil(lo);
+        hiI = floor(hi);
+        if loI > hiI
+            why = sprintf('No whole number lies between %g and %g for this %s parameter', ...
+                lo, hi, localInputParam_(inputSpec).Type);
+            return
+        end
+        drawn = randi([loI hiI]);
+    else
+        drawn = lo + (hi - lo) * rand;
+    end
+end
+
+
+function tf = localTakesWholeNumbers_(inputSpec)
+    p = localInputParam_(inputSpec);
+    tf = ~isempty(p) && ismember(p.Type, {'Integer', 'Boolean'});
+end
+
+
+function p = localInputParam_(inputSpec)
+% The parameter behind a sweep input: the referenced one, or the calculated
+% parameter itself for a ':Value' pseudo-input.
+    p = inputSpec.param;
+    if isempty(p)
+        p = inputSpec.calcParam;
+    end
+end
+
+
+function note = localNoteWithDraw_(drawn, specNote)
+    % The range itself is already on show in the Values cell next to it.
+    note = sprintf('random %g', drawn);
+    if ~isempty(specNote)
+        note = sprintf('%s; %s', note, specNote);
     end
 end

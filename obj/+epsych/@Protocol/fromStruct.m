@@ -71,18 +71,12 @@ function fromStruct(obj, struct_in)
         % parameter exists. Value assignment evaluates each parameter's
         % Expression, which may reference parameters on *other* interfaces
         % (e.g. "RespWinDelay = StimDelay + StimDur - Params.RespWinPreStim"
-        % where the parameters live on different hardware interfaces).
-        % Expression evaluation discovers those parameters via
-        % iface.Runtime.Interfaces; at load time no epsych.Runtime exists yet,
-        % so temporarily point each interface at this Protocol (which also
-        % exposes .Interfaces) for the restore pass. The link is detached
-        % afterward, even on error, so the real Runtime can claim it when the
-        % session is configured.
-        for ifaceIdx = 1:numel(obj.Interfaces)
-            obj.Interfaces(ifaceIdx).Runtime = obj;
-        end
-        detachRuntime = onCleanup(@() localDetachRuntime(obj.Interfaces));
+        % where the parameters live on different hardware interfaces), so the
+        % restore pass runs with this Protocol standing in as the interfaces'
+        % Runtime.
+        restoreLink = obj.linkInterfacesForValueRestore();
         localRestoreValues(pendingParams, pendingStructs);
+        delete(restoreLink)
 
         vprintf(3, 'Protocol loaded with %d interface(s): ', length(obj.Interfaces))
         for ifaceIdx = 1:length(obj.Interfaces)
@@ -171,17 +165,5 @@ function localRestoreValues(params, structs)
     % report it and leave validate() / Check Calculations to explain it.
     if ~isempty(lastError)
         vprintf(0, 1, 'Could not evaluate every parameter expression while loading: %s', lastError.message);
-    end
-end
-
-
-function localDetachRuntime(interfaces)
-    % Clear the temporary Protocol-as-Runtime link used during Value restore
-    % so the interfaces present as unregistered until a real epsych.Runtime
-    % claims them.
-    for k = 1:numel(interfaces)
-        if isvalid(interfaces(k))
-            interfaces(k).Runtime = [];
-        end
     end
 end

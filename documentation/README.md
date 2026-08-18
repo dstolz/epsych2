@@ -51,6 +51,7 @@ Experiment framework (`epsych`):
 - [epsych.Runtime](epsych/epsych_Runtime.md) — session state, parameter queries, trial dispatch
 - [Trial Lifecycle](epsych/epsych_TrialLifecycle.md) — a trial from dispatch to data save
 - [epsych.TrialSelector](epsych/epsych_TrialSelector.md) — pluggable trial selection base class
+- [epsych.BlockSequence](epsych/epsych_BlockSequence.md) — block-randomized per-trial values, indexed by the caller
 - [epsych.SubjectRoster](epsych/epsych_SubjectRoster.md) — the shared subject/project roster, its file format, and the shared-file concurrency contract
 - [Event Notifications](epsych/Event_Notifications.md) — `NewData` / `NewTrial` / `ModeChange` events
 - [epsych.BitMask](epsych/epsych_BitMask.md) — response-code encoding and decoding

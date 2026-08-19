@@ -130,6 +130,8 @@ Right-click a subject row for these actions:
 - **Update to Latest Version**: reloads the subject's protocol from its file on disk. Use this after saving edits in the Protocol Designer so the session uses the latest version. The GUI tells you whether the subject was already up to date.
 - **Change Protocol File...**: assigns a different `*.eprot` file to the selected subject.
 - **View Trials**: previews the compiled trials for the selected subject.
+- **Edit Subject Details...**: edits the selected subject in place, mirroring changes back to the roster.
+- **Show in Subject Manager**: opens the roster window with that subject selected.
 
 Protocols are validated when loaded and again when you press **Run**/**Preview**. Validation errors are reported before the session starts; protocols that need compilation are compiled automatically at start.
 

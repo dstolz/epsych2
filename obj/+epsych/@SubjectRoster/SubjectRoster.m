@@ -5,10 +5,11 @@ classdef SubjectRoster < handle
     % Persistent, shareable roster of subjects organized by project.
     %
     % A roster answers "which animals exist, which study is each one in, and
-    % what did it last run" — none of which a .ecfg file records. It is the
-    % headless engine behind gui.SubjectManager: every query, mutation, and the
-    % batch commit into epsych.RunExpt.CONFIG live here, so all of it is
-    % testable with no figure open.
+    % what did it last run" — and, on each membership, the session settings
+    % that subject runs under. It is the headless engine behind
+    % gui.SubjectManager: every query, mutation, and the batch commit into
+    % epsych.RunExpt.CONFIG live here, so all of it is testable with no
+    % figure open.
     %
     % Membership is many-to-many and carries its own attributes (a per-project
     % active/retired flag and the protocol that subject last ran in that
@@ -69,7 +70,7 @@ classdef SubjectRoster < handle
     %   updateProtocol, revertProtocol, protocolHistory
     %   toSubject, fromSubject              - the epsych.Subject seam
     %   assignToSession                     - batch commit into RunExpt.CONFIG
-    %   importFromConfig, exportTable       - migration
+    %   exportTable                         - flatten for writetable
     %
     % Static methods:
     %   configuredFile, setConfiguredFile, isConfigured, legacyFile
@@ -224,9 +225,8 @@ classdef SubjectRoster < handle
         S  = toSubject(self, subjectId, options)
         id = fromSubject(self, S, options)
 
-        % Session commit and migration
+        % Session commit and export
         report = assignToSession(self, runExpt, subjectIds, options)
-        report = importFromConfig(self, configFile, options)
         T = exportTable(self)
 
     end
@@ -273,7 +273,6 @@ classdef SubjectRoster < handle
         h = blankHistory_()
         h = emptyHistory_()
         h = pushHistory_(history, file, version)
-        found = readConfigSubjects_(configFile)
     end
 
 end

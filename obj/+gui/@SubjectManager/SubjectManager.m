@@ -11,8 +11,8 @@ classdef SubjectManager < handle
     %
     % It is also where the roster is maintained -- creating projects, copying
     % one whose settings already work into the study that follows it, moving
-    % subjects between them, retiring finished animals, and importing subjects
-    % out of existing .ecfg files.
+    % subjects between them, editing the session settings a membership carries,
+    % and retiring finished animals.
     %
     % All state lives in epsych.SubjectRoster; this class only lays out controls
     % and renders what the engine returns. Opening it with no session window is
@@ -21,8 +21,8 @@ classdef SubjectManager < handle
     %
     % Opening it before a roster file has been chosen is supported too, and is
     % what a fresh install looks like: the window explains that EPsych keeps no
-    % default location and leaves everything but New Project, New Subject, and
-    % Import switched off. Clicking one of those three is what asks for the
+    % default location and leaves everything but New Project and New Subject
+    % switched off. Clicking one of those is what asks for the
     % file, through ensureRoster_ -- the operator is never made to answer a
     % question before they have done anything, and never allowed to fill in a
     % record with nowhere to save it.
@@ -171,7 +171,6 @@ classdef SubjectManager < handle
         P = projectDialog_(self, seed, options)
         M = membershipDialog_(self, seed, options)
         S = sessionDefaultsGrid_(self, parent, seed, tagPrefix, options)
-        onImportFromConfig_(self)
         onUpdateProtocol_(self, scope, options)
         onRevertProtocol_(self)
     end
@@ -639,7 +638,6 @@ classdef SubjectManager < handle
             self.H.mnu_edit_membership.Enable = onoff(writable && inProject && hasSelection);
             self.H.btnNewProject.Enable = onoff(canCreate);
             self.H.tb_new_project.Enable = onoff(canCreate);
-            self.H.tb_import.Enable = onoff(canCreate);
 
             self.H.btnAddToSession.Enable = onoff(hasSession && hasChecked);
             self.H.mnu_add_to_session.Enable = self.H.btnAddToSession.Enable;

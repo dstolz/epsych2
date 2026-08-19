@@ -44,7 +44,7 @@ That second one matters more than it looks. A stale path is otherwise indistingu
 
 EPsych keeps **no default location** for subjects and projects — see [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#where-the-file-lives--there-is-no-default) for why the old `prefdir` fallback was a bad place for a lab's only copy.
 
-So on a rig that has never been pointed at one, this window opens *unbound*: the header reads `Roster: (no file chosen)`, the table is replaced by an explanation of the choice, and every action is switched off **except New Project, New Subject, and Import** — clicking one of those is how the operator is asked, and their tooltips say so before the click.
+So on a rig that has never been pointed at one, this window opens *unbound*: the header reads `Roster: (no file chosen)`, the table is replaced by an explanation of the choice, and every action is switched off **except New Project and New Subject** — clicking one of those is how the operator is asked, and their tooltips say so before the click.
 
 The prompt (`ensureRoster_`) has exactly two exits: name a file, or close the window. Cancelling the file browser asks again. Nothing offers to proceed without a roster, because that would mean filling in an animal or a project with nowhere to save it — and the first file chosen here adopts the roster an older build accumulated under `prefdir`, by copy, so an existing rig does not appear to have lost its animals.
 
@@ -58,7 +58,7 @@ Sixteen tools in five groups, left to right, in the order the work happens:
 
 | Group | Tools |
 |---|---|
-| Roster | Refresh · Roster File... · Import from Config... · Export CSV... |
+| Roster | Refresh · Roster File... · Export CSV... |
 | Project | New · Copy · Edit · Delete |
 | Subject | New · Edit · Delete from Roster |
 | Membership | Add to Project · Remove from Project · Retire/Restore |

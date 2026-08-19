@@ -24,7 +24,7 @@ if isa(S, 'epsych.Subject')
 end
 
 rec = epsych.SubjectRoster.blankSubject_();
-for f = ["Name" "Sex" "Species" "Weight" "Notes" "ImportedFrom"]
+for f = ["Name" "Sex" "Species" "Weight" "Notes"]
     if isfield(S, f)
         rec.(f) = S.(f);
     end

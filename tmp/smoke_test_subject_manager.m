@@ -221,7 +221,7 @@ assert(size(mgr.H.table.Data,1) == 3, 'The roster should be back to three visibl
 % updateEnableStates_, so a tool left behind would offer an action the rest of
 % the window has already refused.
 tools = findall(mgr.H.toolbar, 'Type','uipushtool');
-assert(numel(tools) == 16, 'Expected 16 toolbar tools (found %d)', numel(tools));
+assert(numel(tools) == 15, 'Expected 15 toolbar tools (found %d)', numel(tools));
 for tool = tools(:)'
     assert(isequal(size(tool.Icon), [16 16 3]), '%s has no 16x16 icon', tool.Tag);
     assert(~isempty(tool.Tooltip), '%s has no tooltip', tool.Tag);
@@ -619,7 +619,7 @@ assert(strcmp(mgr.H.emptyState.Visible,'on') && ...
     contains(mgr.H.emptyState.Text, 'No subject roster file has been chosen'), ...
     'The empty state should explain that there is no roster yet');
 
-for on = {'btnNewProject','btnNewSubject','tb_new_project','tb_new_subject','tb_import'}
+for on = {'btnNewProject','btnNewSubject','tb_new_project','tb_new_subject'}
     assert(strcmp(mgr.H.(on{1}).Enable, 'on'), ...
         '%s must stay enabled: clicking it is how the operator is asked for a file', on{1});
 end

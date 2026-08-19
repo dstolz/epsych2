@@ -211,26 +211,6 @@ assert(full.aborted && isempty(full.added), 'Box exhaustion must abort the batch
 assert(isempty(rx2.CONFIG(1).protocol_fn), 'An aborted batch must leave CONFIG untouched');
 fprintf('PASS: a bad protocol and box exhaustion each refuse the whole batch\n');
 
-% 11. Import from a config, twice -----------------------------------------
-cfg = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'tmp', 'AversiveDetectionConfig.ecfg');
-if isfile(cfg)
-    fresh = fullfile(root, 'imported.esub');
-    RI = epsych.SubjectRoster(fresh);
-    pi_ = RI.addProject('Imported');
-    r1 = RI.importFromConfig(cfg, ProjectID = pi_);
-    assert(numel(r1.imported) >= 1, 'Import should have created at least one subject');
-    n1 = numel(RI.Subjects);
-
-    r2 = RI.importFromConfig(cfg, ProjectID = pi_);
-    assert(isempty(r2.imported) && ~isempty(r2.linked), ...
-        'A second import must link, not duplicate');
-    assert(numel(RI.Subjects) == n1, 'A second import must not add records');
-    assert(~isempty(RI.Subjects(1).ImportedFrom), 'Provenance should be recorded');
-    fprintf('PASS: import links rather than duplicating on a second run\n');
-else
-    fprintf('SKIP: %s is missing; import not exercised\n', cfg);
-end
-
 % 12. Export ---------------------------------------------------------------
 T = R.exportTable();
 assert(istable(T) && height(T) > 0, 'exportTable should return a populated table');

@@ -25,7 +25,7 @@ Membership is many-to-many — one animal can be in several studies — **and** 
 
 | Array | Holds |
 |---|---|
-| `Subjects` | `SubjectID`, `Name`, `Sex`, `Species`, `Weight`, `Notes`, `NameHistory`, `Retired`, `ImportedFrom`, `Created`, `Modified` |
+| `Subjects` | `SubjectID`, `Name`, `Sex`, `Species`, `Weight`, `Notes`, `NameHistory`, `Retired`, `Created`, `Modified` |
 | `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `SavingFcn`, `TimerStartFcn`, `TimerRunTimeFcn`, `TimerStopFcn`, `TimerErrorFcn`, `TimerPeriod`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `BehaviorGUI`, `Links`, `Archived`, `Created`, `Modified` |
 | `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastProtocolVersion`, `LastBoxID`, `ProtocolHistory`, the session settings stamped from the project's template (`DefaultDataPath`, `SavingFcn`, `BehaviorGUI`, `TimerPeriod`, `TimerStartFcn`, `TimerRunTimeFcn`, `TimerStopFcn`, `TimerErrorFcn`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile` — see `SESSION_FIELDS`), `Added`, `Modified` |
 
@@ -164,7 +164,7 @@ Older builds fell back to `<prefdir>/epsych/subjects.esub`. That was the wrong p
 
 ### Who asks, and when
 
-[`gui.SubjectManager`](../gui/gui_SubjectManager.md) opens fine with no file chosen — browsing is harmless, so it explains itself and waits. The demand comes from `ensureRoster_` at the **first action that would write something**: New Project, New Subject, or Import. That prompt is a loop with two exits, choosing a file or closing the window; "carry on without one" is not offered, because it would mean filling in a record with nowhere to save it.
+[`gui.SubjectManager`](../gui/gui_SubjectManager.md) opens fine with no file chosen — browsing is harmless, so it explains itself and waits. The demand comes from `ensureRoster_` at the **first action that would write something**: New Project or New Subject. That prompt is a loop with two exits, choosing a file or closing the window; "carry on without one" is not offered, because it would mean filling in a record with nowhere to save it.
 
 A file can also be named ahead of time, from `Subjects > Roster File...` or the Paths tab of Customize. The file itself need not exist: naming a new shared roster before there is anything to put in it is the normal way to start one.
 
@@ -302,16 +302,6 @@ The returned report has `ok`, `aborted`, `added` (Name/BoxID/Protocol), `skipped
 
 ---
 
-## Importing from existing configs
-
-`importFromConfig(configFile, ProjectID=..., Actions=...)` reads a `.ecfg` for subject structs and `protocol_fn` only — no `epsych.Protocol` is reconstructed, so it opens a colleague's config whose hardware backend this rig does not have.
-
-Import is **offered, never automatic**, and never overwrites: an existing name defaults to `Link`, and the alternatives are `Import` and `Skip`, never merge-and-clobber. Provenance goes in `ImportedFrom`, never in operator `Notes`. `.ecfg` files are never rewritten.
-
-`epsych.RunExpt.LoadConfig` only *mentions* unrostered subjects, in the status line's next-step half — a modal on every load would be intolerable on a rig that loads the same config every morning.
-
----
-
 ## Preferences
 
 Group **`ep_RunExpt_Subjects`**:
@@ -331,7 +321,7 @@ Group **`ep_RunExpt_Subjects`**:
 matlab -batch "cd('tmp'); smoke_test_subject_roster"
 ```
 
-Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, a repeated import linking rather than duplicating, and all three `BehaviorGUI` states reaching `FUNCS.BehaviorGUI` (applied, cleared, inherited).
+Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, and all three `BehaviorGUI` states reaching `FUNCS.BehaviorGUI` (applied via the membership, cleared, inherited).
 
 Protocol versions get their own section, driven by real `epsych.Protocol.save` calls rather than hand-written version strings: a fresh subject reads `unknown`, a recorded one `current`, one whose file was saved again `outdated`; `updateProtocol` clears it and the record survives a reload; a superseded same-file entry reports `Recoverable = false` while a revert between two distinct files is exact and leaves the restored entry out of the history rather than in it twice.
 

@@ -2,9 +2,9 @@
 
 ![epsych.RunExpt main window with the toolbar, subject table, and bottom control bar (Run/Preview/Pause/Stop)](images/RunExpt.png)
 
-This document is a practical guide to using the `epsych.RunExpt` session GUI to configure subjects, load and save session configurations, and run (or preview) behavioral experiments. It is written for experiment operators. If you need to change how the session controller works internally, start with [Architecture_Overview.md](Architecture_Overview.md) and the class source in [obj/+epsych/@RunExpt/](../../obj/+epsych/@RunExpt/).
+This document is a practical guide to using the `epsych.RunExpt` session GUI to assemble a session from the subject roster and run (or preview) behavioral experiments. It is written for experiment operators. If you need to change how the session controller works internally, start with [Architecture_Overview.md](Architecture_Overview.md) and the class source in [obj/+epsych/@RunExpt/](../../obj/+epsych/@RunExpt/).
 
-The window above shows a loaded configuration with two subjects assigned to boxes 1 and 2; see [Main window layout](#3-main-window-layout) for what each area does.
+The window above shows a session with two subjects assigned to boxes 1 and 2; see [Main window layout](#3-main-window-layout) for what each area does.
 
 ## Table of contents
 
@@ -13,11 +13,10 @@ The window above shows a loaded configuration with two subjects assigned to boxe
 - [3) Main window layout](#3-main-window-layout)
 - [4) Working with protocols](#4-working-with-protocols)
 - [5) Running, pausing, stopping, and saving data](#5-running-pausing-stopping-and-saving-data)
-- [6) Config files (`*.ecfg`)](#6-config-files-ecfg)
-- [7) Customization](#7-customization)
-- [8) Menus reference](#8-menus-reference)
-- [9) Keyboard shortcuts](#9-keyboard-shortcuts)
-- [10) Notes and common gotchas](#10-notes-and-common-gotchas)
+- [6) Customization](#6-customization)
+- [7) Menus reference](#7-menus-reference)
+- [8) Keyboard shortcuts](#8-keyboard-shortcuts)
+- [9) Notes and common gotchas](#9-notes-and-common-gotchas)
 - [Related documentation](#related-documentation)
 
 ## 1) Launching the GUI
@@ -28,16 +27,16 @@ In MATLAB, run:
 epsych.RunExpt
 ```
 
-Optional: load a saved configuration immediately:
+Optional: assemble the whole session from a roster project — its subjects, each one's protocol and box, and the session settings each membership carries:
 
 ```matlab
-epsych.RunExpt("C:\path\to\mySession.ecfg")
+epsych.RunExpt("Aversive Detection")
 ```
 
-Optional: load a configuration and start the run in one step:
+Optional: name the subjects and start the run in one step:
 
 ```matlab
-epsych.RunExpt("C:\path\to\mySession.ecfg", Run=true)
+epsych.RunExpt("Aversive Detection", Subjects=["M1","M2"], Run=true)
 ```
 
 Notes:
@@ -66,16 +65,12 @@ A typical session looks like this:
    - Use **Stop** to end the session.
 8. After stopping:
    - Click the **Save Data** toolbar button and save each subject's data file.
-9. (Optional) Save your session configuration for reuse:
-   - **Config → Save Config...**
+
+There is nothing to save at the end: the roster already holds everything a session needs, so tomorrow's session is the same ticks in **Subjects & Projects** — or one `epsych.RunExpt("<project>")` call.
 
 ## 3) Main window layout
 
-### 3.1 Loaded configuration
-
-A strip directly above the subject table names the configuration currently in effect, as **Config: `<filename>.ecfg`**. Hover it for the full path — configs with the same name routinely live under different subject folders, and this is the only place the session shows which one it read. It reads **Config: (none loaded)** until a config is loaded or saved, and it updates whenever one is loaded (including **Refresh Config** and **Recent Configs**) or saved under a new name.
-
-### 3.2 Subject table (left)
+### 3.1 Subject table (left)
 
 The main table shows one row per configured subject, with columns:
 
@@ -85,36 +80,33 @@ The main table shows one row per configured subject, with columns:
 
 Selecting a row prints the selected subject's details to the MATLAB command window. Right-clicking a row opens the protocol context menu (see [Working with protocols](#4-working-with-protocols)).
 
-### 3.3 Toolbar
+### 3.2 Toolbar
 
 A toolbar under the menu bar gives one-click access to the most common menu actions. Hover any tool for its tooltip. From left to right:
 
-- **Browse Configs** (folder with magnifier): opens the config browser — same as **Config → Browse Configs...** (Ctrl+C).
-- **Load Config** (open folder): loads a config file — same as **Config → Load Config...** (Ctrl+L).
-- **Refresh Config** (circular arrow): reloads the currently loaded config file from disk — same as **Config → Refresh Config** (Ctrl+R).
-- **Save Config** (floppy disk): saves the session configuration — same as **Config → Save Config...** (Ctrl+S).
 - **Subjects** (person beside a list): opens the [Subjects & Projects](../gui/gui_SubjectManager.md) window, where you pick several animals at once and commit them to the session — same as **Subjects → Subjects & Projects...** (Ctrl+B). Available in every state, including during a run; it is the commit action inside it that refuses while a session is running.
 - **Remove Subject** (person with a red minus): removes the selected subject (or clears the session if there is only one subject).
+- **Reload Protocols** (circular arrow): reloads every subject's protocol from its `.eprot` on disk — same as **Subjects → Reload All Protocols from Disk** (Ctrl+R). The one-click "everyone onto the freshly saved file" after editing in the Protocol Designer.
 - **Save Data** (arrow into a tray): invokes the configured saving function to write data to disk. Enabled only after **Stop**, or on an error.
 - **Customize** (gear): opens the Customize Settings dialog — same as **Customize → Customize...** (Ctrl+U).
 - **Protocol Designer** (document with pencil): opens the Protocol Designer — same as **Utilities → Protocol Designer...** (Ctrl+P).
-- **Live View** (eye, toggle): opens or closes the display-only camera view described in [8) Menus reference](#8-menus-reference) — same as **Utilities → Video → Live Webcam View (No Recording)**. The tool stays pressed while a view is open. Usable during a session as well as between runs; it still refuses while a recording is in progress, because that recording's VLC window already shows the live stream.
-- **Record video** (red dot, toggle): when pressed, clicking **Run** also starts a webcam recording via VLC for the duration of the session; released by default. The setting persists across sessions. Preview never records. **Toggling it during a running session takes effect immediately** — pressing it starts recording from that moment, releasing it stops and finalizes the file. See [5.1](#51-what-happens-when-you-click-run--preview) and [7) Customization](#7-customization).
+- **Live View** (eye, toggle): opens or closes the display-only camera view described in [7) Menus reference](#7-menus-reference) — same as **Utilities → Video → Live Webcam View (No Recording)**. The tool stays pressed while a view is open. Usable during a session as well as between runs; it still refuses while a recording is in progress, because that recording's VLC window already shows the live stream.
+- **Record video** (red dot, toggle): when pressed, clicking **Run** also starts a webcam recording via VLC for the duration of the session; released by default. The setting persists across sessions. Preview never records. **Toggling it during a running session takes effect immediately** — pressing it starts recording from that moment, releasing it stops and finalizes the file. See [5.1](#51-what-happens-when-you-click-run--preview) and [6) Customization](#6-customization).
 - **Always On Top** (pushpin, toggle): keeps the session window above all other windows — same as **View → Always On Top** (Ctrl+T). The toggle and the menu item's check mark stay in sync whichever one you use.
 - **Wiki** (open book): opens the EPsych wiki in your web browser.
 
-The config tools and **Remove Subject** are disabled while a session is RUNNING, matching their menu items; **Save Data** is enabled only after Stop (or on Error). The two webcam toggles stay available in every state, including RUNNING — each one restarts VLC, which stalls the trial loop for about a second, so use them between trials where the timing matters.
+The subject tools are disabled while a session is RUNNING, matching their menu items; **Save Data** is enabled only after Stop (or on Error). The two webcam toggles stay available in every state, including RUNNING — each one restarts VLC, which stalls the trial loop for about a second, so use them between trials where the timing matters.
 
-### 3.4 Bottom control bar
+### 3.3 Bottom control bar
 
 - **Run**: starts the experiment in Record mode.
 - **Preview**: starts the experiment in Preview mode; data are marked as a test run.
 - **Pause**: requests a pause via the runtime ModeChange event.
 - **Stop**: stops the timers, signals Stop mode, and transitions the GUI to a post-run state.
 
-### 3.5 Status bar
+### 3.4 Status bar
 
-A single-line status bar spans the bottom of the window, below the control bar. It reports what the program is doing and what normally comes next — the loaded configuration, subjects added or removed, protocol compilation, hardware connection, session start/stop, data saving, and webcam recording or live view. Messages are green; anything that failed is red. Double-click the status bar to copy its current text to the clipboard.
+A single-line status bar spans the bottom of the window, below the control bar. It reports what the program is doing and what normally comes next — subjects added or removed, protocol compilation, hardware connection, session start/stop, data saving, and webcam recording or live view. Messages are green; anything that failed is red. Double-click the status bar to copy its current text to the clipboard.
 
 The state of the session itself is announced whenever it changes (Ready, Session running, Preview running, Session stopped, Session ended with an error); a message posted by a specific action stays up until the state changes again.
 
@@ -135,7 +127,7 @@ Right-click a subject row for these actions:
 
 Protocols are validated when loaded and again when you press **Run**/**Preview**. Validation errors are reported before the session starts; protocols that need compilation are compiled automatically at start.
 
-> ⚠️ **Protocol edits are not picked up automatically.** The session holds the copy it loaded. After saving in the Protocol Designer, use **Update to Latest Version** on the row, or **Config → Refresh Config** — the **Version** column flags stale rows but will not reload them for you.
+> ⚠️ **Protocol edits are not picked up automatically.** The session holds the copy it loaded. After saving in the Protocol Designer, use **Update to Latest Version** on the row, or **Subjects → Reload All Protocols from Disk** (Ctrl+R) — the **Version** column flags stale rows but will not reload them for you.
 
 ## 5) Running, pausing, stopping, and saving data
 
@@ -150,9 +142,9 @@ When you click **Run** or **Preview**, RunExpt:
 - Validates each subject's protocol and compiles it if needed.
 - Connects the hardware interfaces defined in the protocol (TDT, Intan, software, etc.). Hardware connections persist between runs within the same session, so a rerun does not reconnect from scratch.
 - Creates a temporary data directory (a `DATA` folder next to the repository) with one crash-recovery `.mat` file per subject.
-- Creates the trial timer (`PsychTimer`, default period 0.01 s; set per project in **Edit Project → Session Defaults**).
+- Creates the trial timer (`PsychTimer`, default period 0.01 s; set per subject in **Session Settings...** (template: **Edit Project → Session Defaults**)).
 - Sets the hardware mode to Record or Preview and starts the timer.
-- Launches the behavior GUI if one is configured — the behavior GUI of the project whose subjects were added (see **Subjects & Projects**), or the session default when no project named one.
+- Launches the behavior GUI if one is configured — the behavior GUI the committed subjects' memberships name (see **Subjects & Projects**), or the built-in `ep_GenericGUI` when none named one.
 
 #### When an interface will not connect
 
@@ -207,76 +199,56 @@ Each save is reported in the command window with the full path as a hyperlink; c
 
 During the session, each trial is also appended to a per-subject crash-recovery journal (`RUNTIME_DATA_<name>_Box_<nn>_<timestamp>.epj`) in the temporary data directory, so at most the in-progress trial is lost if the computer fails mid-session. The journal is merged into the matching `.mat` when the session stops; after a crash, `epsych.TrialJournal.recover` does the same. See [epsych.TrialJournal](../epsych/epsych_TrialJournal.md).
 
-## 6) Config files (`*.ecfg`)
+## 6) Customization
 
-RunExpt session configurations are stored in MAT-files with the extension `*.ecfg`. A saved config includes:
+Settings are split by **what owns them**. This dialog — **Customize → Customize...** — holds what describes *this machine*; everything a *paradigm* decides rides each subject's roster **membership**, stamped from the project's **Session Defaults (template)** when the subject joins, and is applied to the session when subjects are added — so a rig alternating between two studies follows the animals it is running rather than needing to be re-pointed by hand between sessions.
 
-- the subject list and protocol associations
-- the configured callback function names (saving function, add-subject function, timer callbacks)
-- EPsych version metadata for reproducibility
+> 🔑 **Settings are split by who owns them: the rig or the paradigm.** **Customize** describes *this machine*. The **membership** carries what the paradigm decides — stamped from the project template, edited per subject with **Session Settings...** — and applies it when its subject is added. Two invariants hold on the membership side: an empty field inherits the built-in default, and nothing is written back to the machine's preferences.
 
-### 6.1 Loading, refreshing, and saving
+### 6.1 Machine settings — Customize → Customize...
 
-- **Config → Load Config...** loads a `*.ecfg` file.
-- **Config → Refresh Config** reloads the currently loaded config file from disk — useful when the config or its protocols were changed outside the GUI.
-- **Config → Save Config...** saves the current configuration.
-- **Config → Recent Configs** lists configs loaded within the past seven days for one-click reloading, most recent first. Older entries and files that no longer exist drop off automatically; **Clear List** empties it. When nothing qualifies the submenu shows a disabled `(none in the past 7 days)` placeholder.
-
-### 6.2 Browsing configs
-
-- **Config → Browse Configs...** opens a browser that recursively lists `*.ecfg` files under a chosen root folder.
-- The root folder is set in **Customize → Customize... → Config Browser Root**.
-
-## 7) Customization
-
-Settings are split by **what owns them**. This dialog — **Customize → Customize...** — holds what describes *this machine*; everything a *paradigm* decides lives on the project instead, in **Subjects → Subjects & Projects → Project → Edit Project... → Session Defaults**, and is applied to the session when that project's subjects are added, so a rig alternating between two studies follows the animals it is running rather than needing to be re-pointed by hand between sessions.
-
-> 🔑 **Settings are split by who owns them: the rig or the paradigm.** **Customize** describes *this machine*. The **project** carries what the paradigm decides and applies it when that project's subjects are added — so a rig alternating between studies follows the animals it is running. Two invariants hold on the project side: an empty field inherits, and nothing is written back to the machine's preferences.
-
-### 7.1 Machine settings — Customize → Customize...
-
-Values are stored in MATLAB preferences and are also saved/restored with `*.ecfg` files.
+Values are stored in MATLAB preferences.
 
 | Setting | Purpose | Default |
 | --- | --- | --- |
 | Add Subject Function | Dialog used by **New Subject...** and **Edit Subject Details...**. | `epsych.DefaultSubject.open` |
-| Data Save Path | The rig's default data root: used when no project overrides it, and the value a new project starts from. | current directory |
-| Config Browser Root | Folder scanned by **Config → Browse Configs...**. | — |
+| Data Save Path | The rig's default data root: used when no membership overrides it, and the value a new project starts from. | current directory |
 | Error Log Path | Directory the daily EPsych error log is written to. **Must be an absolute path.** Leave empty for the default. | `<EPsych root>\.error_logs` |
 | Error Log Viewer | Application used by **Help → Open Current Error Log (External Viewer)**. Leave empty for the platform default. | `notepad.exe` (Windows) |
 | Subject Roster File | The `.esub` roster behind **Subjects & Projects**. Put it on a shared drive and point every rig at it to share one roster. **There is no default:** left empty, Subjects & Projects asks for a location before it saves anything. | — |
 
 The Functions and Paths tabs each keep a grey line where the moved fields were, naming where they went.
 
-### 7.2 Project settings — Edit Project → Session Defaults
+### 6.2 Session settings — the membership, and its project template
 
-Each of these is applied to the live session by `epsych.SubjectRoster.assignToSession`, and only when the project names it: an empty field leaves the session's own value alone. Projects made through the dialog are never empty — every field arrives pre-filled from the value last used there, else from this machine's own setting — so an empty field in practice means a project built by a script. Nothing here is written back to the machine's preferences.
+Each of these is applied to the live session by `epsych.SubjectRoster.assignToSession`, from the committed subjects' memberships, and only when the membership names it: an empty field means "inherit the built-in default". Templates and memberships written through the manager's dialogs are never partly empty — every field arrives pre-filled and OK refuses blanks — so an empty field in practice means a roster written by a script or before these fields existed. Nothing here is written back to the machine's preferences, and a multi-subject commit is refused when the checked memberships disagree (see [Subjects & Projects](../gui/gui_SubjectManager.md#add-checked-to-session)).
 
-| Setting | Purpose | Default |
+| Setting | Purpose | Built-in default |
 | --- | --- | --- |
-| Default Protocol | `.eprot` applied to a member with no protocol of its own. The one field that may stay empty: a study often exists before its protocol does. | — |
-| Data Save Path | Root this project's data is written under, `<path>\<subject>\`. | the rig's Data Save Path |
+| Default Protocol | (Template only.) `.eprot` applied to a member with no protocol of its own. The one field that may stay empty: a study often exists before its protocol does. | — |
+| Data Save Path | Root this subject's data is written under, `<path>\<subject>\`. | the rig's Data Save Path |
 | Saving Function | Called to save data after Stop/Error. Signature: `SavingFcn(RUNTIME)` (1 input, 0 outputs). | `ep_SaveDataFcn` |
-| Behavior GUI | Behavior GUI launched at run start, `feval(BehaviorGUI, RUNTIME)`. `(none)` runs none; `(session default)` leaves whatever the session has. | `ep_GenericGUI` |
+| Behavior GUI | Behavior GUI launched at run start, `feval(BehaviorGUI, RUNTIME)`. `(none)` runs none; `(built-in default)` inherits. | `ep_GenericGUI` |
 | Timer Period (s) | PsychTimer callback period (0.001–1 s). | 0.01 |
+| Timer Start/RunTime/Stop/Error Fcn | The PsychTimer lifecycle callbacks — the trial loop itself. A lab's custom loop names them on the template so the paradigm travels with the study. | `ep_TimerFcn_*` |
 | Video Recording Path | Root for webcam recordings made with the **Record video** toolbar toggle. Files are saved to `<root>\<subject>\<subject>_<yyMMddTHHmmss>.ts`, named after the behavioral data file whether the recording starts with the run or is switched on mid-session. Stopping and restarting recording within one session appends `-2`, `-3`, … to the later segments so nothing is overwritten. Falls back to the Data Save Path when unset. | — |
 | Intan Recording Path | Root for Intan RHX recordings when an `hw.Intan_RHX` interface is in the protocol. Files save under `<root>\<subject>\` named after the data file (RHX appends its own `_<timestamp>`). **Must contain no spaces.** Falls back to the Data Save Path when unset. | — |
 | Intan Settings File | RHX `.xml` settings file loaded when the Intan interface connects. **Must contain no spaces.** A protocol that names its own wins over this; leave empty to load none. | — |
 
-A project can set no behavior GUI at all; the session still runs, you just will not get a live performance GUI.
+A membership can set no behavior GUI at all (`(none)`); the session still runs, you just will not get a live performance GUI.
 
 The webcam device itself (camera, frame rate, resolution, crop) is configured separately in **Utilities → Video → Webcam Recorder Setup...**.
 
-The recording paths in force for a session live on `RunExpt.PATHS`, seeded from the per-machine `ep_RunExpt_Video` / `ep_RunExpt_Intan` preference groups and overwritten by a project. They are applied to every `hw.Intan_RHX` interface at run time. RHX names its files with a mandatory `_<timestamp>` suffix, so the Intan `.rhd`/`.rhs`, the behavioral `.mat`, and the webcam `.ts` are paired by shared filename prefix rather than exact equality.
+The recording paths in force for a session live on `RunExpt.PATHS`, seeded from the per-machine `ep_RunExpt_Video` / `ep_RunExpt_Intan` preference groups and overwritten by the committed memberships. They are applied to every `hw.Intan_RHX` interface at run time. RHX names its files with a mandatory `_<timestamp>` suffix, so the Intan `.rhd`/`.rhs`, the behavioral `.mat`, and the webcam `.ts` are paired by shared filename prefix rather than exact equality.
 
-## 8) Menus reference
+## 7) Menus reference
 
-- **Config**: Browse Configs..., Load Config..., Refresh Config, Save Config..., Recent Configs (submenu).
 - **Subjects**: everything about who is in the session and who exists in the lab.
   - Subjects & Projects... (`Ctrl+B`) — the [subject manager](../gui/gui_SubjectManager.md). Available in every state, including during a run, so an animal's notes stay readable mid-session.
   - Remove Selected Subject — takes the selected row out of the session; the roster is untouched.
+  - Reload All Protocols from Disk (`Ctrl+R`) — reloads every subject's protocol object from its `.eprot`, reporting how many were updated, already latest, or failed.
   - Roster File... — chooses the `.esub` roster this rig uses. Point several rigs at one file on a shared drive to share a roster. There is no default location and no fallback: until this is answered once — here, or when Subjects & Projects asks at the first project — the rig has no roster.
-- **Customize**: Customize... (the machine settings in [7.1](#71-machine-settings--customize--customize)).
+- **Customize**: Customize... (the machine settings in [6.1](#61-machine-settings--customize--customize)).
 - **Utilities**: the standalone tools that ship with the toolbox, opened from the session window instead of the command line. Each opens its own window with its own lifecycle; RunExpt keeps no handle on it, and a tool that fails to open reports on the status bar rather than interrupting the session.
   - **Designers...** (submenu) — the tools for authoring, rather than just running, an experiment:
     - Protocol Designer... (`Ctrl+P`) — opens an empty designer for building a new protocol (`epsych.ProtocolDesigner`). To edit the protocol a subject is already using, right-click that subject instead (see [Working with protocols](#4-working-with-protocols)). See [../design/ProtocolDesigner_UserGuide.md](../design/ProtocolDesigner_UserGuide.md).
@@ -291,7 +263,7 @@ The recording paths in force for a session live on `RunExpt.PATHS`, seeded from 
     - Webcam Recorder Setup... (`Ctrl+W`) — camera, frame rate, resolution, crop; see [../gui/VlcRecorderSetup.md](../gui/VlcRecorderSetup.md).
     - **Live Webcam View (No Recording)** opens a VLC window showing the camera with the same device, frame rate, resolution, and crop a recording would use, but writes nothing to disk — useful for aiming the camera or checking on a subject. The VLC window carries a yellow **LIVE VIEW - NOT RECORDING** overlay and window title, and the status bar shows a matching amber banner at its right end. Select it again to close the view.
       - The item is available during a session as well as between runs. Opening or closing the view restarts VLC, which stalls the trial loop for about a second (up to eight when closing), so prefer to do it between trials. A view opened before **Run** stays open through a session; if that session is recording, the recording takes over the camera and the live view closes. The item refuses while a recording is in progress, since that recording's own window already shows the stream.
-    - **Batch Video Converter...** — converts recordings already on disk to another format with ffmpeg (`util.VideoConverter` through `gui.VideoConverterSetup`). It opens on the session's **Video Recording Path** — the project's, else this machine's (the Data Save Path when neither is set) with the file pattern set to the `.ts` files the recorder writes; both, and every encoding option, are editable in the window. The converter only reads and writes files, so it stays available while a session is running — though an encode competes with the session for CPU. See [../util/VideoConverter.md](../util/VideoConverter.md).
+    - **Batch Video Converter...** — converts recordings already on disk to another format with ffmpeg (`util.VideoConverter` through `gui.VideoConverterSetup`). It opens on the session's **Video Recording Path** — the membership's, else this machine's (the Data Save Path when neither is set) with the file pattern set to the `.ts` files the recorder writes; both, and every encoding option, are editable in the window. The converter only reads and writes files, so it stays available while a session is running — though an encode competes with the session for CPU. See [../util/VideoConverter.md](../util/VideoConverter.md).
 - **View**:
   - Always On Top (also available as the pushpin toolbar toggle).
   - Version Info (`Ctrl+I`) — toolbox version, git commit, and links. A **Worktree** row appears when the session is running from a git worktree rather than the main checkout; the worktree name is also appended to the window title, in brackets, and saved with the session metadata.
@@ -304,17 +276,17 @@ The recording paths in force for a session live on `RunExpt.PATHS`, seeded from 
   - Verbosity... — sets how much detail EPsych prints to the command window. Everything at or below the chosen level is also written to the daily log; see [../eplog/eplog_Logging.md](../eplog/eplog_Logging.md).
   - **Example Experiments** (submenu) — one item per walkthrough under [../../examples/](../../examples/): **Your First Experiment...** and **Two-AFC Task...**. Each opens that walkthrough's wiki page in the default browser, the same way **Documentation** does; the page's Quick Start section holds the MATLAB commands that actually run it. The menu deliberately links rather than launches, because running an example starts an interactive session — you are the subject, clicking through trials — rather than opening a self-contained window.
   - GitHub Repository / Documentation / Commit History Overview — online resources.
-  - Report an Issue on GitHub... — composes a bug report for the repository's issue tracker and shows it for review before anything opens. The version, commit, MATLAB release, host, and this session's state, config, interfaces, and callbacks are filled in for you, along with the tail of the day's error log; both sections are editable and the log excerpt can be dropped entirely, because the tracker is public and a log line can name a subject or a data path. Pressing **Open Issue** opens GitHub's bug-report form with those sections already filled in, puts the full log on the clipboard, and shows the log file in the file browser so it can be dragged onto the issue as an attachment. See [../epsych/RunExpt_ReportIssue.md](../epsych/RunExpt_ReportIssue.md).
+  - Report an Issue on GitHub... — composes a bug report for the repository's issue tracker and shows it for review before anything opens. The version, commit, MATLAB release, host, and this session's state, subjects, interfaces, and callbacks are filled in for you, along with the tail of the day's error log; both sections are editable and the log excerpt can be dropped entirely, because the tracker is public and a log line can name a subject or a data path. Pressing **Open Issue** opens GitHub's bug-report form with those sections already filled in, puts the full log on the clipboard, and shows the log file in the file browser so it can be dragged onto the issue as an attachment. See [../epsych/RunExpt_ReportIssue.md](../epsych/RunExpt_ReportIssue.md).
   - Request a Feature on GitHub... — opens the repository's feature-request form in the default browser. No preview, because the only thing prefilled is a version line: the version, commit, and MATLAB release, with none of the session's paths, subject names, or log lines. Requests about stimulus generation belong in [dstolz/stimgen](https://github.com/dstolz/stimgen/issues) instead, whose code is a pinned submodule here.
 
-## 9) Keyboard shortcuts
+## 8) Keyboard shortcuts
 
 In the RunExpt figure:
 
 - `Ctrl+0` … `Ctrl+4` set the global message verbosity level.
 - Menu accelerators are shown next to each menu item (for example `Ctrl+U` opens the Customize dialog).
 
-## 10) Notes and common gotchas
+## 9) Notes and common gotchas
 
 > ⚠️ **The four that bite most often:** protocol edits are not reloaded automatically; **Save Data** enables only after **Stop**; the hardware backend comes from the protocol, not from this window; and closing the GUI mid-run stops the session. **Help → Run Self-Test...** catches most of them before a session starts.
 
@@ -322,7 +294,7 @@ In the RunExpt figure:
 - **Subject names must be unique** within a session; adding a duplicate name will be rejected.
 - **Data saving is intentionally post-run** by default: the Save Data button is enabled after Stop (and on Error).
 - **Hardware comes from the protocol**: which backend is used (TDT Synapse, TDT RPvds, Intan, software-only) is defined in the protocol file, not chosen in RunExpt. If hardware fails to connect, check the protocol's interface configuration and the device, then try again.
-- **Protocol edits are not picked up automatically**: after editing a protocol in the Protocol Designer, use **Update to Latest Version** (or **Config → Refresh Config**) so the session loads the new version.
+- **Protocol edits are not picked up automatically**: after editing a protocol in the Protocol Designer, use **Update to Latest Version** on the row (or **Subjects → Reload All Protocols from Disk**, Ctrl+R) so the session loads the new version.
 - **Closing the GUI stops the session**: closing while running prompts first, then stops the timers, releases the hardware, and cleans up.
 - **Check before you run**: **Help → Run Self-Test...** catches most of the above — a missing protocol trigger, an unwritable data path, a stale protocol version — before a session starts rather than partway through one.
 

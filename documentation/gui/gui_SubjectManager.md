@@ -72,7 +72,7 @@ Icons are drawn as 16×16 pixel art by [`gui.toolbarIcon`](../../obj/+gui/toolba
 
 `‹All Projects›` is pinned at the top of the project list. It is not a project: it shows every subject regardless of membership, and it is both the empty state for a fresh roster and the way to find a subject whose project you have forgotten.
 
-Below the project list, a read-only summary shows the selected project's notes, investigator, IACUC protocol, default protocol, data path, and behavior GUI — so you can see what will be applied without opening the edit dialog. The behavior GUI is named even when the project inherits it (`Behavior GUI: (session default)`), since a field that goes silent when unset reads as a field that does not exist. The other fields appear only when set: they carry no default worth announcing.
+Below the project list, a read-only summary shows the selected project's notes, investigator, IACUC protocol, default protocol, data path, and behavior GUI — so you can see what the template stamps without opening the edit dialog (the `Template:` line collects the rest). The behavior GUI is named even when the project inherits it (`Behavior GUI: (built-in default)`), since a field that goes silent when unset reads as a field that does not exist. The other fields appear only when set: they carry no default worth announcing.
 
 ### Links
 
@@ -93,7 +93,7 @@ The project **currently selected is never hidden**, even with the toggle off. Ar
 
 ### Copying a project
 
-**Copy...**, beside New and Edit (also `Project > Copy Project...` and the two-folders tool), starts a new project from one that already works. It is the answer to a study's second phase, a replication, or a sister experiment: eleven fields set exactly right on one project, and no reason to retype any of them.
+**Copy...**, beside New and Edit (also `Project > Copy Project...` and the two-folders tool), starts a new project from one that already works. It is the answer to a study's second phase, a replication, or a sister experiment: a whole template set exactly right on one project, and no reason to retype any of it. Copied members are stamped from the **new** project's template, never from their source memberships, so the next phase starts on agreed settings rather than inheriting per-subject divergence.
 
 Two questions, asked in this order:
 
@@ -110,15 +110,19 @@ The copy does **not** inherit `Archived`: it is made to start work, and one that
 
 **Project** holds the identity: name, notes, its bookkeeping (**Investigator**, **IACUC Protocol**), its **Links**, and an **Archived** checkbox.
 
-**Session Defaults** holds what the project applies to a session when its subjects are added: **Default Protocol**, **Data Save Path**, **Saving Function**, **Behavior GUI**, **Timer Period**, **Video Recording Path**, **Intan Recording Path**, and **Intan Settings File**. Most of these were RunExpt's **Customize** dialog until they moved here — see [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#a-project-owns-the-session-settings) for how each one reaches the session, and [the RunExpt overview](../overviews/RunExpt_GUI_Overview.md#7-customization) for what stayed behind as a machine setting.
+**Session Defaults (template)** holds what is stamped onto a subject's **membership** when it joins the project: **Default Protocol**, **Data Save Path**, **Saving Function**, **Behavior GUI**, **Timer Period**, the four **Timer ... Fcn** callbacks (the trial loop itself — a custom loop travels with the study), **Video Recording Path**, **Intan Recording Path**, and **Intan Settings File**. Editing the template does **not** change existing members — that is what *Re-apply Project Template to Checked* on the Project menu is for. Most of these were RunExpt's **Customize** dialog until they moved here — see [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#the-membership-carries-the-session-settings-the-project-is-its-template) for how each one reaches the session, and [the RunExpt overview](../overviews/RunExpt_GUI_Overview.md#6-customization) for what stayed behind as a machine setting.
 
-#### Nothing on that tab opens blank
+### The membership dialog
 
-Every session default arrives already filled in: from **the value last used in this dialog**, else from this machine's own preference (`ep_RunExpt_FUNCS`, `ep_RunExpt_Video`, `ep_RunExpt_Intan`, `RunExpt/DataPath`). The recents are stored per field under `ep_RunExpt_Subjects` as `Recent<Field>`, capped at 12, most-recent-first, and written only when OK is accepted — a cancelled or refused dialog must not seed the next project with a typo. They are *user* preferences, not roster contents, so two rigs sharing one roster still propose their own drives.
+**Session Settings...** (Subject menu, and the row context menu's *Session Settings for This Row...*) opens the same field grid — minus the Default Protocol row, since a membership's protocol goes through the protocol-memory workflow — on **one subject's membership** in the selected project. This is how one animal deliberately diverges from the template: a longer timer period for a slow subject, a different saving function for a pilot. It refuses blanks exactly as the template dialog does, so the all-inherit state can never be created here.
 
-OK refuses a blank Data Save Path, Saving Function, Video Recording Path, or Intan Recording Path. A blank one would silently inherit whatever the previous study left on the rig, which is the ambiguity moving these here was meant to remove. Two fields may stay empty on purpose: **Default Protocol**, because a study is usually created before its protocol exists, and **Intan Settings File**, because there is no default file to propose and the `.eprot` usually carries its own.
+#### Nothing in those dialogs opens blank
 
-The Intan paths are refused if they contain spaces, which RHX commands cannot express; the saving function is tinted pale red if it does not resolve or does not take `(RUNTIME)` and return nothing.
+Every session default arrives already filled in: from **the value last used in these dialogs**, else the built-in default (`ep_SaveDataFcn`, `ep_GenericGUI`, the `ep_TimerFcn_*` callbacks, 0.01 s; the paths from `RunExpt/DataPath`, `ep_RunExpt_Video`, `ep_RunExpt_Intan`). The recents are stored per field under `ep_RunExpt_Subjects` as `Recent<Field>`, capped at 12, most-recent-first, and written only when OK is accepted — a cancelled or refused dialog must not seed the next project with a typo. They are *user* preferences, not roster contents, so two rigs sharing one roster still propose their own drives.
+
+OK refuses a blank Data Save Path, Saving Function, any of the four Timer Fcns, Video Recording Path, or Intan Recording Path. A blank one would silently inherit whatever the previous study left on the rig, which is the ambiguity moving these here was meant to remove. Two fields may stay empty on purpose: **Default Protocol**, because a study is usually created before its protocol exists, and **Intan Settings File**, because there is no default file to propose and the `.eprot` usually carries its own.
+
+The Intan paths are refused if they contain spaces, which RHX commands cannot express; the saving function and the four timer callbacks are tinted pale red if they do not resolve or do not carry the expected signature (`SaveFcn(RUNTIME)`; `Start` takes `(RUNTIME, CONFIG)` and returns `RUNTIME`, the other three take and return `RUNTIME`).
 
 Links are an editable two-column table — a table rather than a growing stack of edit fields, because the count is unbounded and both columns are free text — with **Add**, **Remove**, and **Open** beside it. *Open* is there so an address can be checked before it is saved rather than after.
 
@@ -126,13 +130,13 @@ Addresses are validated **in the dialog**, not only on commit, so a refusal arri
 
 | Behavior GUI choice | Meaning |
 |---|---|
-| `(session default)` | Leave the session's `FUNCS.BehaviorGUI` alone — the default for a new project |
-| `(none)` | Run this project with no behavior GUI |
+| `(built-in default)` | Leave the session's `FUNCS.BehaviorGUI` alone (`ep_GenericGUI`) — the inherit state |
+| `(none)` | Run with no behavior GUI |
 | a function or class name | Launch it at run start, `feval(name, RUNTIME)` |
 
 The dropdown is editable, and its list is drawn from **the behavior GUIs other projects in this roster already use**, the recently-used ones, and `ep_GenericGUI` — not from the session's `RecentBehaviorGUI` preference. The roster is the shared thing, so a rig that has never run a paradigm still proposes its GUI, and the dialog works with no session open. A typed name that does not resolve on the path is tinted pale red but still accepted: a lab may add its GUI to the path later.
 
-`(session default)` is reachable but is not what a new project opens on — like every other session default, the field is seeded with a real value.
+`(built-in default)` is reachable but is not what a new project opens on — like every other session default, the field is seeded with a real value.
 
 **This is where the behavior GUI is configured.** It was **Customize → Behavior GUI Function**; the GUI belongs to a paradigm rather than to a rig, and a rig alternating between two studies had to be re-pointed by hand between sessions. Customize now leaves a grey line in that field's place saying where it went. See [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#the-behavior-gui-in-three-states) for how the three states reach `FUNCS.BehaviorGUI`.
 
@@ -145,6 +149,7 @@ The dropdown is editable, and its list is drawn from **the behavior GUIs other p
 | Box | **yes** | Blank means "assign the lowest free one". Values outside 1–16 are rejected and the old value restored. |
 | Protocol | no | See below |
 | Version | no | The protocol version this subject is on — see [Protocol versions](#protocol-versions) |
+| Settings | no | `template` when the membership still matches the project's Session Defaults, `edited` when it has diverged (via *Session Settings...*), blank in the All Projects view. What makes the commit-time mismatch refusal predictable before the click. |
 | Species, Sex, Weight, Last Run | no | So two similarly-named animals are distinguishable |
 | Status | no | Active / Retired |
 
@@ -205,10 +210,11 @@ All of the above is [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#p
 
 ## Add Checked to Session
 
-The button collects what you ticked and typed; every decision belongs to [`epsych.SubjectRoster.assignToSession`](../epsych/epsych_SubjectRoster.md). Boxes and protocols are resolved and the project's behavior GUI is applied to the session, but **everything is validated before `CONFIG` is touched** — a protocol that fails to load halfway through must never leave a half-populated session.
+The button collects what you ticked and typed; every decision belongs to [`epsych.SubjectRoster.assignToSession`](../epsych/epsych_SubjectRoster.md). Boxes and protocols are resolved and each membership's session settings are applied to the session, but **everything is validated before `CONFIG` is touched** — a protocol that fails to load halfway through must never leave a half-populated session.
 
 - Refused outright while a session is running, or with no session window open (the button is disabled and says why).
 - A missing protocol, or needing more than 16 boxes, **aborts the whole batch** and changes nothing.
+- Checked subjects whose memberships **disagree on a session-level setting** abort the whole batch too — one session cannot run two saving functions. The refusal names the field and who carries what; the fixes it names are *Session Settings...* and *Re-apply Project Template*, and the **Settings** column shows the divergence before the click.
 - A subject already in the session, or with no protocol resolvable at all, is skipped and reported; the rest still go in.
 - On success the window closes and the session window is raised — the next stop is the session, not this table. It stays open on a partial commit (so the skipped-subject report is visible) or when the batch is refused or aborted, so the operator can fix the problem without reopening it.
 

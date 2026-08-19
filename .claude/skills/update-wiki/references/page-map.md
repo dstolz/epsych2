@@ -15,7 +15,7 @@ write MATLAB against the framework.
 | `Installation-and-Setup` | MATLAB version, cloning with submodules, `epsych_startup`, TDT software, first-run checks |
 | `Quick-Start` | One end-to-end session with no hardware, using `examples/detection_task/` |
 | `Designing-Protocols` | Protocol Designer: parameters, interfaces dialog, options, expressions, compiled preview, `.eprot` |
-| `Running-a-Session` | RunExpt: subjects, `.ecfg` configs, trial preview, run/pause/stop, Self-Test entry point |
+| `Running-a-Session` | RunExpt: subjects from the roster, trial preview, run/pause/stop, Self-Test entry point |
 | `Stimuli-and-Calibration` | StimPlayer, speaker calibration, dB SPL → volts (links out to stimgen) |
 | `Parameter-Files-and-Phases` | Phase `.eprot` files, PhaseSelector, what a phase load does and does not restore |
 | `Training-and-Online-Analysis` | Staircase training, history, performance plots, session metrics |

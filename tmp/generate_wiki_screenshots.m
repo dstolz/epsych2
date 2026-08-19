@@ -548,13 +548,11 @@ end
 %  Session window and diagnostics
 % -------------------------------------------------------------------------
 function [fig, cleanupFcn] = shotRunExpt(C)
-% Caption: two subjects loaded from a saved .ecfg, Run and Preview enabled.
-cfgFile = writeConfig(C, [1 2]);
-RE = epsych.RunExpt(cfgFile);
+% Caption: two subjects committed from the roster, Run and Preview enabled.
+[RE, cleanupFcn] = buildSessionFromRoster(C, [1 2]);
 drawnow
 fig = RE.H.figure1;
 fig.Position(3:4) = [790 316];
-cleanupFcn = @() closeRunExpt(RE);
 end
 
 
@@ -607,8 +605,7 @@ end
 % of this window most worth showing, and the thing nobody thinks to look for.
 P.save(protoFile);
 
-cfgFile = writeConfig(C, 1);
-RE = epsych.RunExpt(cfgFile);
+RE = epsych.RunExpt;
 drawnow
 mgr = gui.SubjectManager(RE);
 drawnow
@@ -648,8 +645,7 @@ end
 function [fig, cleanupFcn] = shotSelfTest(C)
 % Caption: a real pre-flight result whose red rows come from a subject sitting
 % in box 2 while the protocol only defines the box-1 trigger parameters.
-cfgFile = writeConfig(C, [1 2]);
-RE = epsych.RunExpt(cfgFile);
+[RE, cleanupSession] = buildSessionFromRoster(C, [1 2]);
 drawnow
 ST = gui.SelfTest(RE);
 drawnow
@@ -659,45 +655,63 @@ ST.runSelected([epsych.SelfTest.catalog().id]);
 drawnow
 fig = ST.H.figure;
 fig.Position(3:4) = [1040 620];
-cleanupFcn = @() closeSelfTest(RE, fig);
+cleanupFcn = @() closeSelfTest(cleanupSession, fig);
 end
 
 
-function closeSelfTest(RE, fig)
+function closeSelfTest(cleanupSession, fig)
 if isvalid(fig), delete(fig); end
-closeRunExpt(RE);
+cleanupSession();
 end
 
 
-function cfgFile = writeConfig(C, boxIDs)
-% A .ecfg is save(fn,'config','funcs','meta'): config is a struct array of
-% SUBJECT/PROTOCOL/RUNTIME/protocol_fn, and funcs nests the timer callbacks
-% under TIMERfcn. Both shapes fail inside LoadConfig rather than at save time.
-P = epsych.Protocol.load(C.protocol);
-if P.needsCompile, P.compile(); end
+function [RE, cleanupFcn] = buildSessionFromRoster(C, boxIDs)
+% Assemble a real session the way an operator would: a scratch roster, a
+% project whose template carries the full session defaults (the four timer
+% callbacks included), subjects stamped at assign, and one assignToSession
+% commit. The RosterFile preference is pointed at the scratch roster for the
+% duration and cleared in the cleanup -- never leave the rig aimed at a
+% tempdir roster.
+rosterFile = fullfile(C.scratch, 'wiki_shot_session.esub');
+if isfile(rosterFile), delete(rosterFile); end
+epsych.SubjectRoster.setConfiguredFile(rosterFile);
+
+dataRoot = fullfile(C.scratch, 'data');
+
+R = epsych.SubjectRoster(rosterFile);
+pid = R.addProject('Detection Example', ...
+    DefaultProtocol = C.protocol, ...
+    DefaultDataPath = dataRoot, ...
+    SavingFcn = 'ep_SaveDataFcn', ...
+    BehaviorGUI = 'ep_GenericGUI', ...
+    TimerPeriod = 0.05, ...
+    TimerStartFcn = 'ep_TimerFcn_Start', ...
+    TimerRunTimeFcn = 'ep_TimerFcn_RunTime', ...
+    TimerStopFcn = 'ep_TimerFcn_Stop', ...
+    TimerErrorFcn = 'ep_TimerFcn_Error', ...
+    VideoRootDir = dataRoot, ...
+    IntanRootDir = dataRoot);
 
 names = {'M001','M002','M003'};
-config = struct('SUBJECT', {}, 'PROTOCOL', {}, 'RUNTIME', {}, 'protocol_fn', {});
+ids = cell(1, numel(boxIDs));
 for k = 1:numel(boxIDs)
-    S = epsych.DefaultSubject(struct('Name', names{k}, 'Species', 'Mouse', ...
-        'Sex', 'Unknown', 'BoxID', boxIDs(k)));
-    config(k).SUBJECT     = S.toStruct();
-    config(k).PROTOCOL    = P.toStruct();
-    config(k).RUNTIME     = [];
-    config(k).protocol_fn = C.protocol;
+    ids{k} = R.addSubject(struct('Name', names{k}, 'Sex', 'Male', ...
+        'Species', 'Mouse', 'Weight', 58 + 2*k));
+    R.assign(ids{k}, pid);
 end
 
-funcs = struct();
-funcs.TIMERfcn = struct('Start', 'ep_TimerFcn_Start', 'RunTime', 'ep_TimerFcn_RunTime', ...
-    'Stop', 'ep_TimerFcn_Stop', 'Error', 'ep_TimerFcn_Error');
-funcs.SavingFcn    = 'ep_SaveDataFcn';
-funcs.BehaviorGUI       = 'ep_GenericGUI';
-funcs.AddSubjectFcn = 'epsych.DefaultSubject.open';
-funcs.TimerPeriod  = 0.05;
+RE = epsych.RunExpt;
+rep = R.assignToSession(RE, ids, ProjectID = pid, BoxIDs = boxIDs);
+assert(rep.ok, 'The wiki-shot session commit failed: %s', rep.message);
 
-meta = EPsychInfo().meta;   %#ok<NASGU> saved for provenance, like a real config
-cfgFile = fullfile(C.scratch, 'DetectionExample.ecfg');  % the name lands in the status bar
-save(cfgFile, 'config', 'funcs', 'meta', '-mat');
+cleanupFcn = @() closeRosterSession(RE);
+end
+
+
+function closeRosterSession(RE)
+% Never leave the rig pointed at a roster under tempdir.
+epsych.SubjectRoster.setConfiguredFile('');
+closeRunExpt(RE);
 end
 
 

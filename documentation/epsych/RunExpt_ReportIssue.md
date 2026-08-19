@@ -46,7 +46,7 @@ From `EPsychInfo`: EPsych version and data format, commit and its timestamp, lat
 `EPsychInfo.diagnostics`: MATLAB version and release, platform, hostname, memory, and installed
 toolboxes.
 
-From the session: `STATE`, the loaded config file, how many subjects are configured, subject 1's
+From the session: `STATE`, how many subjects are configured, subject 1's
 protocol **file name** (not its path, whose folders are usually a subject name), each interface's
 class and whether it is currently connected, and every `FUNCS` field. Each value is fetched
 inside its own `try` — several backends' `IsConnected` getters talk to the device, and a rig

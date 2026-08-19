@@ -322,7 +322,7 @@ end
 
 function [fig, cleanupFcn] = shotTwoAFCBehaviorGUIFeedback(C)
 % Caption: just after answering correctly -- both buttons disarmed, the
-% fields dark again, and the choice table updated.
+% fields dark again, and the NAFC choice plot updated.
 [RUNTIME, GUI] = twoAFCShotSession(C, 'wikiShotAFCFeedback', ...
     FlashDur = 2500, RespWinDur = 4000, NumTrials = 3);
 ok = waitForCond(@() logical(GUI.LeftButton.Enable), 5);
@@ -338,22 +338,34 @@ end
 
 
 function [fig, cleanupFcn] = shotTwoAFCBehaviorGUIScatter(C)
-% Caption: after 24 trials, the new per-trial "Signed Contrast by Chosen
-% Side" scatter and the binned choice table both populated -- the
-% operator's mid-session view of the new gui.ParameterScatter panel. Kept
-% fast (short flash/response/ITI) so the whole shot finishes in well under
-% a minute even on a busy shared MATLAB session.
-NTRIALS = 24;
+% Caption: the operator's mid-session view -- the per-trial "Signed
+% Contrast by Chosen Side" scatter and the psychophysics.NAFC choice plot
+% below it, both populated. Kept fast (short flash/response/ITI) so the
+% whole shot finishes in well under a minute even on a busy shared MATLAB
+% session.
+%
+% 72 trials, not 24: the choice plot draws P(chose k) per unique
+% SignedContrast, and the protocol crosses 2 sides x 4 contrasts, so 24
+% trials leave 3 per point and every proportion is 0, 1/3, 2/3 or 1 -- a
+% zigzag between the rails that says nothing about the subject. Nine
+% trials per point is the least that reads as a curve.
+NTRIALS = 72;
 [RUNTIME, GUI] = twoAFCShotSession(C, 'wikiShotAFCScatter', ...
     FlashDur = 60, RespWinDur = 400, ITIRange = [60 120], NumTrials = NTRIALS);
 rng(11);
 watchdog = tic;
-while strcmp(RUNTIME.TIMER.Running, 'on') && toc(watchdog) < 45
+while strcmp(RUNTIME.TIMER.Running, 'on') && toc(watchdog) < 120
     pause(0.02) % timers fire during pause; this is the session's event pump
     if ~isvalid(GUI) || ~logical(GUI.LeftButton.Enable), continue; end
     T = RUNTIME.TRIALS(1);
     correctSide = T.trials{T.NextTrialID, T.writeParamIdx.TrialType};
-    if rand < 0.82
+    % Accuracy rises with contrast, so the choice plot shows the sigmoid it
+    % exists to show rather than one flat rate at every difficulty. A fixed
+    % 82% would make the panel look broken to anyone who knows what a
+    % psychometric function does.
+    contrast = T.trials{T.NextTrialID, T.writeParamIdx.Contrast};
+    pCorrect = 0.5 + 0.48 * (abs(contrast) / 0.32) ^ 0.8;
+    if rand < pCorrect
         side = correctSide;
     else
         side = 1 - correctSide;

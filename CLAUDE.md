@@ -147,10 +147,7 @@ Rules that matter:
   the CRUD methods mint an ID and report success without consulting that return.
   Until 2026-08-14 it fell back to `<prefdir>/epsych/subjects.esub`, which put a
   lab's only copy somewhere release-specific (silently empty after a MATLAB
-  upgrade) that nobody chose; `legacyFile` now exists solely so that file can be
-  adopted, by copy, on the first choice — `setConfiguredFile(..., AdoptLegacy=true)`,
-  opt-in so a script naming a fresh roster gets a fresh one, and guarded on
-  nothing having been configured before. `setConfiguredFile` validates at the
+  upgrade) that nobody chose. `setConfiguredFile` validates at the
   moment of choosing (absolute-izes, refuses a folder, appends `.esub`, makes
   the parent) rather than at the first save.
   A project also owns the **session settings a paradigm decides**, applied by
@@ -648,7 +645,7 @@ obj/+packagename/@ClassName/
 ```
 
 Procedural functions: Loose .m files in appropriate subdirectories
-Protocol and config files: .eprot (protocol; legacy .prot still loadable), .ecfg (config MAT files)
+Protocol files: .eprot (a MAT file holding a `protocol` struct)
 
 ## Common Development Tasks
 

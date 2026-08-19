@@ -657,47 +657,18 @@ assert(strcmp(rep.FilePath, [deepFile '.esub']), ...
     epsych.SubjectRoster.FILE_EXTENSION, rep.FilePath);
 assert(isfolder(fullfile(root, 'made', 'up')), ...
     'The folder should be created when the roster is chosen, not at the first save');
-assert(~rep.Existed && ~rep.Migrated, 'A fresh path should report neither existing nor migrated');
+assert(~rep.Existed, 'A fresh path should not report an existing file');
 assert(strcmp(epsych.SubjectRoster().FilePath, rep.FilePath), ...
     'The default constructor should open the file just configured');
 fprintf('PASS: choosing a roster validates the path and makes its folder\n');
 
-% N+2. The legacy per-user roster is adopted once ---------------------------
-% Read-only with respect to the operator's own data: the old file is copied,
-% never moved, and this only ever reads it. Skipped on a machine that never
-% had one.
-legacy = epsych.SubjectRoster.legacyFile();
-if isempty(legacy)
-    fprintf('SKIP: no legacy per-user roster on this machine to adopt\n');
-else
-    before = epsych.SubjectRoster(legacy);
-
-    epsych.SubjectRoster.setConfiguredFile('');
-    adopted = fullfile(root, 'adopted.esub');
-    rep = epsych.SubjectRoster.setConfiguredFile(adopted, AdoptLegacy = true);
-    assert(rep.Migrated && strcmp(rep.MigratedFrom, legacy), ...
-        'The first file chosen should adopt the legacy roster');
-    assert(isfile(legacy), 'Adoption must copy, never move: the original stays put');
-    assert(numel(epsych.SubjectRoster(adopted).Subjects) == numel(before.Subjects), ...
-        'The adopted roster should hold what the legacy one held');
-
-    % Only ever on the FIRST choice. Re-pointing a configured rig at a new
-    % empty file is a deliberate fresh start, and filling it with records from
-    % a file the operator has stopped using would be the opposite of that.
-    again = fullfile(root, 'second_choice.esub');
-    rep2 = epsych.SubjectRoster.setConfiguredFile(again, AdoptLegacy = true);
-    assert(~rep2.Migrated, 'A rig that already has a roster must not adopt the legacy one');
-    assert(~isfile(again), 'A second choice should stay empty until something is saved');
-    fprintf('PASS: the legacy per-user roster is adopted once, by copy, on the first choice\n');
-end
-
-% Off by default, so a script or a test that names a fresh roster gets one.
+% Naming a fresh roster gets a fresh roster: nothing is copied into it.
 epsych.SubjectRoster.setConfiguredFile('');
 plain = fullfile(root, 'plain.esub');
 rep = epsych.SubjectRoster.setConfiguredFile(plain);
-assert(~rep.Migrated && ~isfile(plain), ...
-    'Adoption must be opt-in; a scripted choice should gain nothing it did not ask for');
-fprintf('PASS: adoption is opt-in\n');
+assert(~rep.Existed && ~isfile(plain), ...
+    'A newly named roster should stay empty until something is saved');
+fprintf('PASS: a fresh roster starts empty\n');
 
 fprintf('\nALL SUBJECT ROSTER SMOKE TESTS PASSED\n');
 

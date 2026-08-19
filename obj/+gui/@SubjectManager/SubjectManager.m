@@ -1292,7 +1292,7 @@ classdef SubjectManager < handle
             if ~isfolder(start), start = cd; end
 
             [fn, pn] = uigetfile( ...
-                {'*.eprot;*.prot','Protocol Files (*.eprot, *.prot)'; '*.*','All Files (*.*)'}, ...
+                {'*.eprot','Protocol Files (*.eprot)'; '*.*','All Files (*.*)'}, ...
                 'Select Protocol', start);
             if isequal(fn, 0), return, end
 
@@ -1626,11 +1626,7 @@ classdef SubjectManager < handle
             if isequal(fn, 0), return, end
 
             try
-                % AdoptLegacy: on the very first choice this carries forward
-                % the roster older builds accumulated under prefdir, so an
-                % existing rig does not appear to have lost its animals.
-                report = epsych.SubjectRoster.setConfiguredFile(fullfile(pn, fn), ...
-                    AdoptLegacy = true);
+                report = epsych.SubjectRoster.setConfiguredFile(fullfile(pn, fn));
                 self.Roster = epsych.SubjectRoster(report.FilePath);
             catch ME
                 vprintf(0, 1, ME);
@@ -1646,13 +1642,7 @@ classdef SubjectManager < handle
             self.restoreProject_();
             self.refresh();
 
-            if report.Migrated
-                self.setStatus_(sprintf(['Roster: %s \x00B7 %d subject(s) carried over from ' ...
-                    'the previous per-user roster at %s, which was left in place.'], ...
-                    report.FilePath, numel(self.Roster.Subjects), report.MigratedFrom));
-            else
-                self.setStatus_(sprintf('Roster: %s', report.FilePath));
-            end
+            self.setStatus_(sprintf('Roster: %s', report.FilePath));
 
             tf = true;
         end

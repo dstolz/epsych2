@@ -281,7 +281,7 @@ function check_submodules(rootdir)
 %
 % Without this, a clone made without --recurse-submodules fails in two
 % confusing ways: "Undefined variable stimgen" at unrelated call sites, and
-% -- worse -- silently degrading any saved .eprot/.ecfg that contains a
+% -- worse -- silently degrading any saved .eprot that contains a
 % stimgen.StimType parameter, because MATLAB substitutes a placeholder
 % struct for a class it cannot resolve instead of raising an error.
 %

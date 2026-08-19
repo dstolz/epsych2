@@ -146,12 +146,6 @@ The logger behind `vprintf`. `eplog.isEnabled` gates on two globals — `GVerbos
 
 Almost all code should call `vprintf` rather than this package directly. Detailed reference: [../eplog/eplog_Logging.md](../eplog/eplog_Logging.md)
 
-### `design/`
-
-Protocol-authoring support. Protocol design itself happens in `epsych.ProtocolDesigner`; this directory holds migration and support tools:
-
-- `ep_AddSubject.m` — wrapper that forwards to the `epsych.DefaultSubject.open` dialog
-
 ### `runtime/`
 
 Runtime execution callbacks, timer lifecycle functions, save functions, and experiment services live here. This area activates once a session is running.

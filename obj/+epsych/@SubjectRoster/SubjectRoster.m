@@ -73,7 +73,7 @@ classdef SubjectRoster < handle
     %   exportTable                         - flatten for writetable
     %
     % Static methods:
-    %   configuredFile, setConfiguredFile, isConfigured, legacyFile
+    %   configuredFile, setConfiguredFile, isConfigured
     %   newId, isNameSafe
     %   emptySubject, emptyProject, emptyMembership, emptyLink
     %   makeLink, isSafeUrl, openLink       - project links
@@ -245,7 +245,6 @@ classdef SubjectRoster < handle
     methods (Static)
         f  = configuredFile()
         tf = isConfigured()
-        f  = legacyFile()
         report = setConfiguredFile(filePath, options)
         id = newId(prefix)
         [tf, why] = isNameSafe(name)
@@ -269,7 +268,6 @@ classdef SubjectRoster < handle
         m = blankMembership_()
         L = blankLink_()
         L = normalizeLinks_(links, options)
-        p = aliasBehaviorGUI_(p)
         h = blankHistory_()
         h = emptyHistory_()
         h = pushHistory_(history, file, version)

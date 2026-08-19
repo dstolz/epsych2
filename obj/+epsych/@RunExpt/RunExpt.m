@@ -340,7 +340,7 @@ classdef RunExpt < handle
             if ~exist(pn,'dir'), pn = cd; end
 
             ontop = self.AlwaysOnTop(false);
-            [fn,pn] = uigetfile({'*.eprot;*.prot','Protocol Files (*.eprot, *.prot)'; ...
+            [fn,pn] = uigetfile({'*.eprot','Protocol Files (*.eprot)'; ...
                 '*.*','All Files (*.*)'},'Locate Protocol',pn);
             self.AlwaysOnTop(ontop);
             if isequal(fn,0), return, end

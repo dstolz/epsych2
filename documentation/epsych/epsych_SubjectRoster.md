@@ -168,14 +168,6 @@ Older builds fell back to `<prefdir>/epsych/subjects.esub`. That was the wrong p
 
 A file can also be named ahead of time, from `Subjects > Roster File...` or the Paths tab of Customize. The file itself need not exist: naming a new shared roster before there is anything to put in it is the normal way to start one.
 
-### Adopting the old per-user file
-
-The **first** file ever chosen through an operator-facing chooser adopts whatever an older build left under `prefdir`, so upgrading a rig does not look like losing its animals. `legacyFile` searches the current `prefdir` **and its sibling release folders**, newest first — the roster built under R2024a is exactly the one worth keeping when the rig moves to R2024b.
-
-It is a **copy**: the original is left in place as a backup, and nothing is ever moved or deleted. It happens once, guarded on *no roster having been configured before* — re-pointing a working rig at a new empty file is a deliberate fresh start, and filling it from a file the operator has stopped using would be the opposite of what they asked for.
-
-Adoption is opt-in at the call site (`setConfiguredFile(path, AdoptLegacy=true)`), so a script or a test that names a fresh roster gets a fresh roster. The choosers pass it; typing a path into Customize does not.
-
 ### What `setConfiguredFile` checks
 
 Validation happens when the file is chosen, not at the first save, so an unusable path is reported while the file dialog is still in mind:

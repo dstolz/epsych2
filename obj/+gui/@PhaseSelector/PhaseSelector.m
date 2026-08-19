@@ -168,7 +168,6 @@ classdef PhaseSelector < handle
             end
 
             phaseFiles = [dir(fullfile(obj.PhasePath, '*.eprot')); ...
-                          dir(fullfile(obj.PhasePath, '*.prot')); ...
                           dir(fullfile(obj.PhasePath, '*.json'))];
             nFiles = numel(phaseFiles);
 

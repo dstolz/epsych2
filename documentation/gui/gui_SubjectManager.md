@@ -46,7 +46,7 @@ EPsych keeps **no default location** for subjects and projects — see [`epsych.
 
 So on a rig that has never been pointed at one, this window opens *unbound*: the header reads `Roster: (no file chosen)`, the table is replaced by an explanation of the choice, and every action is switched off **except New Project and New Subject** — clicking one of those is how the operator is asked, and their tooltips say so before the click.
 
-The prompt (`ensureRoster_`) has exactly two exits: name a file, or close the window. Cancelling the file browser asks again. Nothing offers to proceed without a roster, because that would mean filling in an animal or a project with nowhere to save it — and the first file chosen here adopts the roster an older build accumulated under `prefdir`, by copy, so an existing rig does not appear to have lost its animals.
+The prompt (`ensureRoster_`) has exactly two exits: name a file, or close the window. Cancelling the file browser asks again. Nothing offers to proceed without a roster, because that would mean filling in an animal or a project with nowhere to save it.
 
 The same prompt fires for a **stale** path (folder gone), for the reason given under [Layout](#layout): otherwise the record is saved into a resurrected dead folder.
 

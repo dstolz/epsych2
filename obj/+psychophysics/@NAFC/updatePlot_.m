@@ -15,6 +15,11 @@ ax = obj.plotAxes_;
 R = obj.Results;
 
 cla(ax);                 % keeps the axes ContextMenu and style
+% cla spares HandleVisibility='off' graphics, and the connecting curves and
+% the chance line are deliberately hidden so they cost no legend row. Without
+% this every refresh would leave its curves behind: an online session ends up
+% drawing the whole history of the plot on top of itself.
+delete(allchild(ax));
 legend(ax, 'off');
 colorbar(ax, 'off');
 

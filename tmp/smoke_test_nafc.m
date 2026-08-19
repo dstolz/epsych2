@@ -163,6 +163,18 @@ assert(any(arrayfun(@(h) isa(h, 'matlab.graphics.primitive.Image'), ax.Children)
     'confusion plot must draw a heatmap image');
 A.PlotType = "choice";
 
+% Repeated refreshes must not accumulate graphics. The connecting curves and
+% the chance line are HandleVisibility='off' so they cost no legend row,
+% which also makes them invisible to ax.Children AND to cla -- this check
+% uses allchild for that reason. Without it a leak here is unseeable: the
+% markers update correctly while every refresh leaves its own curves behind,
+% so an online session ends up drawing its whole history on top of itself.
+nAll = numel(allchild(ax));
+for k = 1:5, A.refreshPlot(); end
+assert(numel(allchild(ax)) == nAll, ...
+    'refreshPlot leaked graphics: %d objects after 5 more refreshes, %d after the first', ...
+    numel(allchild(ax)), nAll);
+
 p = A.popOut();
 assert(isa(p, 'psychophysics.NAFC') && A.hasPopOut(), 'popOut must open a sibling NAFC');
 assert(p.PlotType == "choice" && p.Results.NumAnswered == R.NumAnswered, ...

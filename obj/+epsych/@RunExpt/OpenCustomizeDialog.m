@@ -1,17 +1,16 @@
 function OpenCustomizeDialog(self)
 % OpenCustomizeDialog — Open the unified Customize Settings dialog.
-% Presents the settings that describe THIS MACHINE — where it browses for
-% configs, where it writes its log, which roster it shares, and the data root
-% new projects start from — in a single modal window. Changes are validated and
-% applied on OK. The individual Define* methods remain available for
-% programmatic use.
+% Presents the settings that describe THIS MACHINE — where it writes its log,
+% which roster it shares, and the data root new projects start from — in a
+% single modal window. Changes are validated and applied on OK.
 %
-% What a paradigm decides rather than a rig — saving function, timer period,
-% behavior GUI, and the video and Intan recording roots — lives on the project
-% instead (gui.SubjectManager > Edit Project > Session Defaults), and is applied
-% to the session when that project's subjects are added. The two notes in this
-% dialog say so where the fields used to be, so an operator who looks for one
-% is told where it went rather than concluding it was removed.
+% What a paradigm decides rather than a rig — saving function, timer callbacks
+% and period, behavior GUI, and the video and Intan recording roots — lives on
+% the subject's membership instead (gui.SubjectManager > Session Settings, with
+% the project's Session Defaults as the template), and is applied to the
+% session when subjects are added. The two notes in this dialog say so where
+% the fields used to be, so an operator who looks for one is told where it
+% went rather than concluding it was removed.
 if self.STATE >= PRGMSTATE.RUNNING, return, end
 
 % Gather current values ------------------------------------------------
@@ -21,11 +20,6 @@ addSubj   = char(fieldOr_(F, 'AddSubjectFcn', 'epsych.DefaultSubject.open'));
 % live session, and showing that here would invite OK to write one study's path
 % back into the machine preference.
 dataPath  = char(getpref('RunExpt','DataPath', char(self.DefaultDataPath)));
-cfgRoot   = char(getpref('ep_RunExpt_Setup','ConfigBrowserRootDir',''));
-if isempty(cfgRoot)
-    cfgRoot = char(getpref('ep_RunExpt_Setup','CDir',cd));
-end
-if ~exist(cfgRoot,'dir'), cfgRoot = cd; end
 % Shown empty when unset, so the field reads as "the EPsych default" rather
 % than proposing the repository path as something the operator chose.
 logDir    = '';
@@ -94,17 +88,20 @@ ef_addsubj.Layout.Row = 1; ef_addsubj.Layout.Column = 2;
 ef_addsubj.ValueChangedFcn = @(h,~) validateFcnField_(h,'addsubj');
 addResetBtn_(gFcn, 1, ef_addsubj, 'epsych.DefaultSubject.open', 'addsubj');
 
-% The saving function, behavior GUI, and timer period used to be fields here. They
-% belong to a paradigm rather than to a rig, so they are now project properties;
-% this line is left in their place so an operator looking for one is told where
-% it went instead of concluding the feature was removed.
+% The saving function, behavior GUI, and timer settings used to be fields here.
+% They belong to a paradigm rather than to a rig, so they now ride each
+% subject's membership (stamped from the project's template); this line is left
+% in their place so an operator looking for one is told where it went instead
+% of concluding the feature was removed.
 lblMoved = uilabel(gFcn, 'Text', ...
-    ['Saving function, behavior GUI, and timer period: set per project in ' ...
-     'Subjects > Subjects & Projects (Project > Edit Project... > Session Defaults).'], ...
+    ['Saving function, behavior GUI, and timer settings: set per subject in ' ...
+     'Subjects > Subjects & Projects (Session Settings...; the project''s ' ...
+     'Session Defaults are the template).'], ...
     'FontColor',[0.35 0.38 0.42], 'WordWrap','on', ...
-    'Tooltip', ['A project applies these to the session when its subjects are added.' newline ...
+    'Tooltip', ['The membership applies these to the session when its subject is added.' newline ...
                 'Saving function — SaveFcn(RUNTIME), default ep_SaveDataFcn.' newline ...
                 'Behavior GUI — feval(BehaviorGUI, RUNTIME) at run start, default ep_GenericGUI.' newline ...
+                'Timer callbacks — the ep_TimerFcn_* built-ins by default.' newline ...
                 'Timer period — PsychTimer period in seconds, default 0.01.']);
 lblMoved.Layout.Row = 2; lblMoved.Layout.Column = [1 3];
 
@@ -113,8 +110,8 @@ validateFcnField_(ef_addsubj, 'addsubj');
 
 % ---- TAB: Paths ------------------------------------------------------
 tabPaths = uitab(tg,'Title','Paths');
-gPaths = uigridlayout(tabPaths,[6 3]);
-gPaths.RowHeight    = {28, 28, 28, 28, 28, 'fit'};
+gPaths = uigridlayout(tabPaths,[5 3]);
+gPaths.RowHeight    = {28, 28, 28, 28, 'fit'};
 gPaths.Scrollable   = 'on';
 gPaths.ColumnWidth  = {160, '1x', 80};
 gPaths.Padding      = [10 12 10 12];
@@ -132,28 +129,19 @@ btn_dp = uibutton(gPaths,'Text','Browse...', ...
     'ButtonPushedFcn', @(~,~) browseDir_(ef_datapath, ef_datapath.Value, 'Select Data Save Path'));
 btn_dp.Layout.Row = 1; btn_dp.Layout.Column = 3;
 
-addLabel_(gPaths, 2, 'Config Browser Root:');
-ef_cfgroot = uieditfield(gPaths,'text','Value',cfgRoot, ...
-    'Tooltip', ['Root folder scanned recursively for *.ecfg configuration files' newline ...
-                'shown in the Config Browser dialog.']);
-ef_cfgroot.Layout.Row = 2; ef_cfgroot.Layout.Column = 2;
-btn_cr = uibutton(gPaths,'Text','Browse...', ...
-    'ButtonPushedFcn', @(~,~) browseDir_(ef_cfgroot, ef_cfgroot.Value, 'Select Config Browser Root'));
-btn_cr.Layout.Row = 2; btn_cr.Layout.Column = 3;
-
-addLabel_(gPaths, 3, 'Error Log Path:');
+addLabel_(gPaths, 2, 'Error Log Path:');
 ef_logdir = uieditfield(gPaths,'text','Value',logDir, ...
     'Tag','Customize_LogDir', ...
     'Placeholder', dfltLogDir, ...
     'Tooltip', ['Directory for the daily EPsych error log.' newline ...
                 'Must be an absolute path; a relative one would follow the working directory.' newline ...
                 sprintf('Leave empty for the default, %s.', dfltLogDir)]);
-ef_logdir.Layout.Row = 3; ef_logdir.Layout.Column = 2;
+ef_logdir.Layout.Row = 2; ef_logdir.Layout.Column = 2;
 btn_ld = uibutton(gPaths,'Text','Browse...', ...
     'ButtonPushedFcn', @(~,~) browseDir_(ef_logdir, ef_logdir.Value, 'Select Error Log Path'));
-btn_ld.Layout.Row = 3; btn_ld.Layout.Column = 3;
+btn_ld.Layout.Row = 2; btn_ld.Layout.Column = 3;
 
-addLabel_(gPaths, 4, 'Error Log Viewer:');
+addLabel_(gPaths, 3, 'Error Log Viewer:');
 ef_logviewer = uieditfield(gPaths,'text','Value',logViewer, ...
     'Tag','Customize_LogViewer', ...
     'Placeholder', dfltLogViewer, ...
@@ -161,7 +149,7 @@ ef_logviewer = uieditfield(gPaths,'text','Value',logViewer, ...
                 'Useful when MATLAB owns the .txt association and the plain menu item' newline ...
                 'would open the log in the MATLAB editor.' newline ...
                 sprintf('Leave empty for the platform default (%s).', dfltLogViewer)]);
-ef_logviewer.Layout.Row = 4; ef_logviewer.Layout.Column = 2;
+ef_logviewer.Layout.Row = 3; ef_logviewer.Layout.Column = 2;
 if ispc
     viewerFilter = {'*.exe','Applications (*.exe)'; '*.*','All Files (*.*)'};
 else
@@ -170,9 +158,9 @@ end
 btn_lv = uibutton(gPaths,'Text','Browse...', ...
     'ButtonPushedFcn', @(~,~) browseFile_(ef_logviewer, ef_logviewer.Value, ...
         'Select Error Log Viewer', viewerFilter));
-btn_lv.Layout.Row = 4; btn_lv.Layout.Column = 3;
+btn_lv.Layout.Row = 3; btn_lv.Layout.Column = 3;
 
-addLabel_(gPaths, 5, 'Subject Roster File:');
+addLabel_(gPaths, 4, 'Subject Roster File:');
 ef_roster = uieditfield(gPaths,'text','Value',rosterFile, ...
     'Tag','Customize_RosterFile', ...
     'Placeholder', '(none chosen yet)', ...
@@ -181,26 +169,27 @@ ef_roster = uieditfield(gPaths,'text','Value',rosterFile, ...
                 'The file is created when the first subject is added.' newline ...
                 'There is no default: left empty, Subjects & Projects asks for one' newline ...
                 'before it saves anything.']);
-ef_roster.Layout.Row = 5; ef_roster.Layout.Column = 2;
+ef_roster.Layout.Row = 4; ef_roster.Layout.Column = 2;
 btn_rf = uibutton(gPaths,'Text','Browse...', ...
     'ButtonPushedFcn', @(~,~) browseFile_(ef_roster, ef_roster.Value, ...
         'Select Subject Roster', ...
         {['*' epsych.SubjectRoster.FILE_EXTENSION], ...
          ['Subject Roster (*' epsych.SubjectRoster.FILE_EXTENSION ')']; ...
          '*.*','All Files (*.*)'}));
-btn_rf.Layout.Row = 5; btn_rf.Layout.Column = 3;
+btn_rf.Layout.Row = 4; btn_rf.Layout.Column = 3;
 
 % The recording roots used to be rows 3-5 here. Same reason as the Functions
 % tab: where a study's video and ephys go is the study's business, and a rig
 % that runs two paradigms had to re-enter them by hand between sessions.
 lblMovedPaths = uilabel(gPaths, 'Text', ...
-    ['Video and Intan recording paths: set per project in ' ...
-     'Subjects > Subjects & Projects (Project > Edit Project... > Session Defaults).'], ...
+    ['Video and Intan recording paths: set per subject in ' ...
+     'Subjects > Subjects & Projects (Session Settings...; the project''s ' ...
+     'Session Defaults are the template).'], ...
     'FontColor',[0.35 0.38 0.42], 'WordWrap','on', ...
-    'Tooltip', ['A project applies these to the session when its subjects are added.' newline ...
-                'Both fall back to the Data Save Path when no project names one.' newline ...
+    'Tooltip', ['The membership applies these to the session when its subject is added.' newline ...
+                'Both fall back to the Data Save Path when no membership names one.' newline ...
                 'The Intan paths must contain no spaces (RHX cannot express them).']);
-lblMovedPaths.Layout.Row = 6; lblMovedPaths.Layout.Column = [1 3];
+lblMovedPaths.Layout.Row = 5; lblMovedPaths.Layout.Column = [1 3];
 
 % ---- Button row ------------------------------------------------------
 gBtns = uigridlayout(g,[1 3]);
@@ -365,13 +354,6 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
                     'the rig default is now "%s".'], char(self.DefaultDataPath), dp);
             end
             setpref('RunExpt','DataPath',string(dp));
-        end
-
-        % Apply: Config Browser Root
-        cr = strtrim(ef_cfgroot.Value);
-        if ~isempty(cr)
-            setpref('ep_RunExpt_Setup','ConfigBrowserRootDir',cr);
-            vprintf(1,'Config browser root: %s\n',cr);
         end
 
         % Apply: Error Log Path (empty clears the override). setLogDir also

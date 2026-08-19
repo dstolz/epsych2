@@ -37,7 +37,7 @@ rx = [];
 % Step 1: submenu structure
 stepName = 'videoSubmenuGrouping';
 try
-    rx = epsych.RunExpt('', ReuseExisting=false, CleanupStaleFigures=false);
+    rx = epsych.RunExpt(ReuseExisting=false, CleanupStaleFigures=false);
 
     mVideo = rx.H.mnu_video;
     assert(isgraphics(mVideo) && strcmp(mVideo.Text,'Video'), ...

@@ -1,9 +1,9 @@
 classdef RunExpt < handle
     % Run and manage experiment sessions from the main RunExpt GUI.
     %
-    % Constructing epsych.RunExpt creates or reuses the session window, loads
-    % configuration files when requested, and coordinates CONFIG, FUNCS, and
-    % RUNTIME state for the active run.
+    % Constructing epsych.RunExpt creates or reuses the session window,
+    % assembles the session from a roster project when one is named, and
+    % coordinates CONFIG, FUNCS, and RUNTIME state for the active run.
     %
     % Important properties:
     %   CONFIG   - Per-subject protocol and runtime configuration entries.
@@ -31,7 +31,6 @@ classdef RunExpt < handle
         % means "fall back to DefaultDataPath", exactly as the preference did.
         PATHS (1,1) struct = struct('VideoRootDir','','IntanRootDir','','IntanSettingsFile','') % Session-level video and Intan recording paths
         IsClosing (1,1) logical = false                                                         % True while the close sequence is in progress; prevents re-entrant callbacks
-        CurrentConfigFile (1,1) string = ""                                                     % Path of the most recently loaded/saved configuration file
     end
 
     properties (Access = private)
@@ -46,15 +45,9 @@ classdef RunExpt < handle
     end
 
     methods
-        LoadConfig(self, cfn)           % Load configuration from MAT file cfn
-        RefreshConfig(self)             % Reload the currently loaded configuration file from disk
-        SaveConfig(self)                % Persist current configuration to file
         ok = LocateProtocol(self, pfn)  % Validate and register protocol file pfn; ok is true on success
         AddSubject(self, S)             % Append subject struct S to CONFIG
         RemoveSubject(self, idx)        % Remove subject at index idx from CONFIG
-
-        DefineConfigBrowserRoot(self)   % Set the root folder used by the config browser
-        BrowseConfigs(self)             % Open the config browser dialog
 
         DefineAddSubject(self, a)       % Set the add-subject callback function name
         DefineLogPath(self)             % Set the directory +eplog writes daily error logs to
@@ -77,25 +70,45 @@ classdef RunExpt < handle
         % report their own progress in the session window.
         setStatus(self, message, nextStep)  % Post a message to the status bar
 
-        function self = RunExpt(ffnConfig, opts)
+        function self = RunExpt(project, opts)
             % self = RunExpt()
-            % self = RunExpt(ffnConfig)
-            % self = RunExpt(ffnConfig, Name=Value)
+            % self = RunExpt(project)
+            % self = RunExpt(project, Name=Value)
             % Create or reactivate the main experiment control window.
             %
+            % Naming a project assembles the whole session from the roster:
+            % its subjects, each one's protocol and box, and the session
+            % settings each membership carries. There are no config options
+            % at launch time by design -- the project names the grouping, and
+            % config rides each subject's membership.
+            %
+            %   epsych.RunExpt("Aversive Detection", Subjects=["M1","M2"], Run=true)
+            %
             % Parameters:
-            %	ffnConfig	- Configuration MAT file to load after the GUI is created.
+            %	project	- Roster project Name or ProjectID; "" opens an empty session.
             %	Name-Value options:
+            %		Subjects            - Subject Names/IDs to commit (default: the
+            %		                      project's non-retired members).
+            %		Boxes               - Per-subject BoxID, NaN auto-assigns.
+            %		Protocols           - Per-subject .eprot path, '' resolves from
+            %		                      protocol memory.
+            %		RosterFile          - .esub to read (default: the configured one).
             %		Verbosity           - Override global verbosity level (nonnegative integer).
             %		ReuseExisting       - Reuse an active RunExpt instance when available.
             %		CleanupStaleFigures - Remove duplicate/stale RunExpt figures during startup.
             %		BringToFront        - Bring reused RunExpt figure to the foreground.
-            %		Run                 - Start the experiment immediately after loading config (requires ffnConfig).
+            %		Run                 - Start the experiment immediately (requires project).
             %
             % Returns:
             %	self	- Existing or newly created RunExpt instance.
+            %
+            % See also: epsych.SubjectRoster.assignToSession, gui.SubjectManager
             arguments
-                ffnConfig (1,1) string = ""
+                project (1,1) string = ""
+                opts.Subjects = []
+                opts.Boxes double = []
+                opts.Protocols cell = {}
+                opts.RosterFile (1,1) string = ""
                 opts.Verbosity = []
                 opts.ReuseExisting (1,1) logical = true
                 opts.CleanupStaleFigures (1,1) logical = true
@@ -167,11 +180,8 @@ classdef RunExpt < handle
                 end
                 self = existingInstance;
 
-                if ffnConfig ~= ""
-                    self.LoadConfig(ffnConfig)
-                    if opts.Run && self.STATE >= PRGMSTATE.CONFIGLOADED
-                        self.ExptDispatch("Run")
-                    end
+                if project ~= ""
+                    self.assignFromRoster_(project, opts)
                 end
 
                 return
@@ -183,13 +193,13 @@ classdef RunExpt < handle
             self.UpdateGUIstate
             self.DefaultDataPath = getpref('RunExpt','DataPath',cd);
             self.PATHS = self.GetDefaultPaths;
-            self.promptForDataPath_
-
-            if ffnConfig ~= ""
-                self.LoadConfig(ffnConfig)
-                if opts.Run && self.STATE >= PRGMSTATE.CONFIGLOADED
-                    self.ExptDispatch("Run")
-                end
+            % The data-path prompt is skipped on a project launch: a stamped
+            % membership names its data path, and a modal here would block a
+            % headless script on a fresh machine.
+            if project == ""
+                self.promptForDataPath_
+            else
+                self.assignFromRoster_(project, opts)
             end
 
             if nargout == 0, clear self; end
@@ -205,15 +215,6 @@ classdef RunExpt < handle
             catch
             end
         end
-
-        function set.CurrentConfigFile(self, value)
-            % Single choke point for the config-name header: every site that
-            % loads, saves, or clears the config assigns this property, so the
-            % label cannot drift out of step with the file actually in effect.
-            self.CurrentConfigFile = value;
-            self.updateConfigLabel_
-        end
-
 
         ViewTrials(self)  % Display a preview of compiled trials for the selected subject
 
@@ -469,20 +470,13 @@ classdef RunExpt < handle
         onFigureKeyPress(self, evt)                        % Handle key-press events on the main figure
         onCloseRequest(self)                               % Stop experiment if running and destroy the figure
         SaveDataCallback(self)                             % Invoke the configured data-saving callback
-        recent = GetRecentConfigs(self)                    % Return config paths loaded within the past seven days
-        LoadRecentConfig(self, cfn)                        % Load config at path cfn and update recents list
-        RememberRecentConfig(self, cfn)                    % Add cfn to the persistent recent config registry
         recent = GetRecentFuncs(self, prefKey)             % Return the MRU function-name list for a Customize dialog field
         RememberRecentFunc(self, prefKey, name)            % Record an accepted function name in a Customize dialog field's MRU list
-        UpdateRecentConfigsMenu(self)                      % Rebuild the recent-configs submenu items
-        ClearRecentConfigs(self)                           % Empty the persistent recent config registry
         ExptDispatch(self, COMMAND)                        % Dispatch a named command (Start/Stop/Pause) to the experiment
         T = CreateTimer(self)                              % Create and configure the psychophysics trial timer object
         PsychTimerStart(self)                              % Initialize runtime state and start the trial timer
 
-        [items, fullpaths] = FindConfigFiles(self, root)   % Recursively find config MAT files under root directory
-        ConfigBrowserLoad(self, fig, lb)                   % Load config selected in list box lb and close fig
-        ConfigBrowserCancel(self, fig)                     % Close config browser figure without loading
+        assignFromRoster_(self, project, opts)             % Assemble the session from a roster project (scripted launch)
 
         rec = getVlcRecorder_(self)                        % Lazily create/return the shared, preference-seeded hw.VlcRecorder
         configureIntanRecorder_(self, interfaces)          % Seed hw.Intan_RHX interfaces from the session's PATHS before they connect
@@ -495,23 +489,6 @@ classdef RunExpt < handle
         UpdateVideoLiveViewUI_(self)                        % Sync the live-view menu item and bottom-bar banner with VideoLiveViewActive_
         promptForDataPath_(self)                            % Ask for the default data directory when the DataPath preference was never set
         txt = issueEnvironmentText_(self)                   % Build the Environment block of a GitHub bug report
-
-        function updateConfigLabel_(self)
-            % Show the loaded/saved config file name in the header strip.
-            % Guarded on the handle because the property is also assigned
-            % before (and after) the figure exists.
-            if ~isfield(self.H,'config_name') || ~isgraphics(self.H.config_name), return, end
-
-            if strlength(self.CurrentConfigFile) == 0
-                self.H.config_name.Text    = 'Config: (none loaded)';
-                self.H.config_name.Tooltip = 'No configuration file has been loaded or saved.';
-                return
-            end
-
-            [~,name,ext] = fileparts(self.CurrentConfigFile);
-            self.H.config_name.Text    = char("Config: " + name + ext);
-            self.H.config_name.Tooltip = char(self.CurrentConfigFile);
-        end
 
         function onCommand(self, hObj)
             % Adapts menu item callbacks; forwards the item's text label.
@@ -649,14 +626,6 @@ classdef RunExpt < handle
                 vprintf(0,1,'Protocol for subject "%s" has %d validation error(s). Review before starting.', ...
                     subjectName, numel(errs));
             end
-        end
-
-        function ConfigBrowserRestoreOnTop(self, ontop)
-            % ConfigBrowserRestoreOnTop(self, ontop)
-            % Restore the always-on-top state of the main figure after a config browser closes.
-            if ~isfield(self.H,'figure1') || ~isgraphics(self.H.figure1), return, end
-            if ~isfield(self.H,'always_on_top') || ~isgraphics(self.H.always_on_top), return, end
-            self.AlwaysOnTop(ontop);
         end
 
         function addVersionInfoRow(~, parent, rowIdx, labelText, valueText)

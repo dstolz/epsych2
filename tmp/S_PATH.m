@@ -6,4 +6,5 @@ epsych_startup;
 global GVerbosity
 GVerbosity = 4;
 
-epsych.RunExpt('D:\epsych_files\Configs\TEST_NEWPROT.ecfg')
+% The .ecfg config path is gone; name a roster project instead, or open bare.
+epsych.RunExpt

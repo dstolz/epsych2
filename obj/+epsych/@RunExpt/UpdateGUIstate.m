@@ -97,8 +97,8 @@ function [msg, next] = localStateMessage(state, isPreview)
 % normally follows it.
 switch state
     case PRGMSTATE.NOCONFIG
-        msg  = 'No configuration loaded.';
-        next = 'load a config or add a subject.';
+        msg  = 'No subjects in the session.';
+        next = 'open Subjects & Projects and add checked subjects.';
 
     case PRGMSTATE.READY
         msg  = 'Ready to start.';

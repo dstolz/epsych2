@@ -21,7 +21,8 @@ epsych_startup;
 epsych.ProtocolDesigner('S:/RIG3_Backup_2025/epsych_files/Protocols/TEST.eprot')
 
 %%
-epsych.RunExpt('S:\RIG3_Backup_2025\epsych_files\Configs\TEST.ecfg')
+% The .ecfg config path is gone; name a roster project instead, or open bare.
+epsych.RunExpt
 
 %%
 gui = stimgen.calibration.CalibrationGui();

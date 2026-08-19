@@ -137,7 +137,7 @@ end
 stepName = 'detectsBrokenCallback';
 rx = [];
 try
-    rx = epsych.RunExpt('', ReuseExisting=false, CleanupStaleFigures=false);
+    rx = epsych.RunExpt(ReuseExisting=false, CleanupStaleFigures=false);
     cleanupRunExpt = onCleanup(@() localDeleteRunExpt(rx));
 
     rx.FUNCS.SavingFcn = 'this_function_does_not_exist_selftest';

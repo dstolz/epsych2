@@ -43,7 +43,6 @@ else
 end
 
 rows = localRow(rows, 'Session state', localTry(@() char(string(self.STATE))));
-rows = localRow(rows, 'Config file', localTry(@() char(self.CurrentConfigFile)));
 rows = localRow(rows, 'Subjects', localTry(@() localSubjects(self)));
 rows = localRow(rows, 'Protocol', localTry(@() localProtocol(self)));
 rows = localRow(rows, 'Interfaces', localTry(@() localInterfaces(self)));

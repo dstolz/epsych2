@@ -56,7 +56,7 @@ stepName = 'togglePrefRoundTrip';
 rx = [];
 try
     setpref(PREF_GROUP, 'EnableRecording', false);
-    rx = epsych.RunExpt('', ReuseExisting=false, CleanupStaleFigures=false);
+    rx = epsych.RunExpt(ReuseExisting=false, CleanupStaleFigures=false);
     cCleanup = onCleanup(@() localDeleteRunExpt_(rx)); %#ok<NASGU>
 
     tg = findall(rx.H.figure1, 'Tag', 'setup_record_video');

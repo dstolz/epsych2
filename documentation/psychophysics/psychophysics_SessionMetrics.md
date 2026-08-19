@@ -11,6 +11,14 @@ metric comes from the decoded response bitmask and the trial-type masks
 `psychophysics.Psych` already provides, so it works for any paradigm that
 writes `RespCode`, with no paradigm-specific configuration.
 
+> **This is a detection summary.** Hit rate over stimulus trials, false-alarm
+> rate over catch trials, and the d′ and criterion built on the pair all
+> assume a stimulus/catch split. An N-alternative forced choice has neither a
+> catch trial nor a yes-response, and never sets `CorrectReject` or
+> `FalseAlarm` — score it with
+> [psychophysics.NAFC](psychophysics_NAFC.md) instead, which gives proportion
+> correct against 1/N and the per-alternative choice bias.
+
 It is a `psychophysics.Psych` subclass, so it works both ways:
 
 ```matlab

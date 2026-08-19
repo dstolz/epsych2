@@ -305,6 +305,13 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             P = obj.Psych;
             if isempty(P) || ~isvalid(P) || isempty(P.DATA), return; end
 
+            % createPsych runs BEFORE build, and constructing the NAFC
+            % refreshes it — which fires NewData straight back into here
+            % with no widgets yet. Session data left over in the runtime
+            % makes that first call real rather than empty, so the labels
+            % have to be checked, not assumed.
+            if isempty(obj.TallyLabel) || ~isvalid(obj.TallyLabel), return; end
+
             R = P.Results;
             pct = round(100 * R.PercentCorrect);
             if isnan(pct), pct = 0; end

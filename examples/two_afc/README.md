@@ -27,7 +27,7 @@ explore_2afc_data              % decode + plot the session you just ran
 | `create_2afc_protocol.m` | Builds `TwoAFC.eprot`: side **crossed** with difficulty (8 conditions), randomized ITI, read-back parameters, the three core triggers |
 | `TwoAFCBehaviorGUI.m` | `gui.BehaviorGUI` subclass: two stimulus lamps, LEFT/RIGHT buttons plus arrow-key input, a live `psychophysics.NAFC` choice plot (right-click for proportion correct, the confusion matrix, or a pop-out window), and the rig role — trial timeline, 2AFC scoring, and `x_TrialComplete_1` |
 | `run_2afc_experiment.m` | One-command session on the **real** timer loop (`ep_TimerFcn_Start`/`RunTime`/`Stop`); auto-saves at the trial quota or when the GUI closes |
-| `explore_2afc_data.m` | Decodes `RespCode`, fits the choice curve, reports PSE / JND / accuracy / d′ / criterion, and cross-checks against `psychophysics.SessionMetrics` |
+| `explore_2afc_data.m` | Decodes `RespCode`, fits the choice curve, reports PSE / JND / accuracy, and cross-checks against `psychophysics.NAFC` |
 
 Generated at runtime (not checked in): `TwoAFC.eprot`, `data/*`.
 
@@ -37,37 +37,41 @@ Generated at runtime (not checked in): `TwoAFC.eprot`, `data/*`.
 |---|---|---|
 | Response | One button, press or withhold | Two buttons (or arrow keys); a choice is compulsory |
 | Conditions | Paired parameters (5 conditions) | **Crossed** parameters: side × difficulty (8 conditions) |
-| No response | Scored as Miss / Correct Reject | Scored as **Abort** — excluded from accuracy |
+| No response | Scored as Miss / Correct Reject | **Undefined** — no outcome bit; excluded from accuracy |
 | Chance level | 0% | 50% |
 | Key measures | Hit rate, d′ | Accuracy, choice curve, **PSE** (bias), JND |
 
 ## The bit encoding (the part worth copying)
 
-A 2AFC has no "signal absent" trial, so the detection outcome names are recast
-by treating **one alternative — left — as the yes-response**:
+A 2AFC has no "signal absent" trial and no yes-response, so the **side is
+carried by the `Choice` bit** and the outcome bit says only whether that
+choice was right:
 
 | Trial | Response | `RespCode` bits |
 |---|---|---|
-| `TrialType` 0 (left correct) | chose left | `Hit, Reward, Choice_0, TrialType_0` |
-| `TrialType` 0 | chose right | `Miss, Punish, Choice_1, TrialType_0` |
-| `TrialType` 1 (right correct) | chose right | `CorrectReject, Reward, Choice_1, TrialType_1` |
-| `TrialType` 1 | chose left | `FalseAlarm, Punish, Choice_0, TrialType_1` |
-| either | no answer | `Abort, TrialType_n` — no `Choice_*` bit |
+| `TrialType` 0 (left correct) | chose left | `Choice_0, Hit, Reward, TrialType_0` |
+| `TrialType` 0 | chose right | `Choice_1, Miss, Punish, TrialType_0` |
+| `TrialType` 1 (right correct) | chose right | `Choice_1, Hit, Reward, TrialType_1` |
+| `TrialType` 1 | chose left | `Choice_0, Miss, Punish, TrialType_1` |
+| either | no answer | `TrialType_n` only — **Undefined**: no outcome bit, no `Choice_*` bit |
+| either | answered before the window | `Abort, TrialType_n` |
 
 `Choice_0` = left and `Choice_1` = right record **what was chosen**
 independently of whether it was right, which is what the choice curve needs.
-Keeping `Hit` on `TrialType_0` trials is deliberate: it matches the default
-stimulus/catch settings of `psychophysics.Detection` and
-`psychophysics.SessionMetrics`, so the shipped analysis works with **no
-arguments** — `PercentCorrect` becomes 2AFC accuracy and `Criterion` becomes
-the side bias (negative toward left).
+Correct is `Hit` and only `Hit` — the same reading for a 2AFC and a 4AFC.
+`CorrectReject` and `FalseAlarm` name what a subject does when there is
+nothing to respond to: they belong to detection and are never set here.
+`Reward` / `Punish` are the paradigm's contingency, not part of the scoring.
 
-> Do **not** score both correct outcomes as `Hit`. `SessionMetrics` counts hits
-> only over stimulus trials, so the catch denominator collapses and false-alarm
-> rate, d′, and percent correct all break. Note that
-> `teensy.Templates.twoAFC_` currently does exactly that — its `@TrialType`
-> variable is declared but never wired into scoring, so it is a skeleton, not a
-> working contingency.
+> **`psychophysics.SessionMetrics` does not apply to a forced choice** — its
+> hit rate, false-alarm rate, d′ and criterion are built on a stimulus/catch
+> split a 2AFC does not have. `psychophysics.NAFC` is the analysis for this
+> task, and it derives correctness from the choice and the correct alternative
+> rather than from the outcome bits. That is also why
+> `teensy.Templates.twoAFC_` records only `Choice_0` / `Choice_1` and claims no
+> `Hit`: the board's condition language has no variable comparison, so it
+> cannot check the choice against `@TrialType` and must leave the scoring to
+> the host.
 
 ## A parameter cannot hold NaN
 

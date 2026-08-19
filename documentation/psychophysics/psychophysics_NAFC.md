@@ -22,6 +22,34 @@ The 2AFC tutorial (`examples/two_afc`) embeds one in its behavior GUI: see
 `TwoAFCBehaviorGUI.createPsych` for the online wiring and the "Choices by
 Signed Contrast" panel for the plot.
 
+## Scoring an N-AFC trial
+
+Every alternative is a response, so no outcome name may carry the side.
+`CorrectReject` and `FalseAlarm` name what a subject does when there is
+nothing to respond to — they belong to detection and are **never used in an
+N-AFC**. What was chosen and whether it was right are separate bits:
+
+| Bit | Meaning |
+|-----|---------|
+| `Choice_k` | which alternative was chosen (`k = 0..5`). Set on every trial the subject answered, and only those — it is the **only** bit that carries which one |
+| `Hit` | that choice was the correct alternative |
+| `Miss` | the subject chose, and chose wrong |
+| `Abort` | a response arrived **before** the response window opened |
+| *(no outcome bit)* | no response at all: **Undefined**. The absence is the encoding — it is what separates "never chose" from `Miss` |
+| `TrialType_k` | the trial's category — stimulus, catch, remind, whatever the paradigm defines. A property of the trial, independent of the response |
+| `Reward` / `Punish` | the contingency the paradigm delivered. Experimental design, not scoring: include them when a reward or a penalty was given, omit them otherwise |
+
+So a rightward choice is `Choice_1 + Hit` when right was correct and
+`Choice_1 + Miss` when it was not. Correct is `Hit` and only `Hit`, which is
+what makes proportion correct read the same for a 2AFC and a 4AFC.
+`epsych.BitMask.getResponses()` is the list of outcome bits — use it rather
+than hardcoding names, and read "none of them set" as Undefined.
+
+> `psychophysics.SessionMetrics` does **not** apply to an N-AFC. Its hit rate,
+> false-alarm rate, d′ and criterion are all built on a stimulus/catch split
+> that a forced choice does not have. Use this class instead: proportion
+> correct against 1/N, and the per-alternative choice bias.
+
 ## Where the per-trial facts come from
 
 Each trial needs three things; all have a default route and an override:
@@ -29,12 +57,14 @@ Each trial needs three things; all have a default route and an override:
 | Fact | Default route | Override |
 |------|---------------|----------|
 | Chosen alternative | `Choice_0`..`Choice_5` bits decoded from `RespCode` | `ChoiceField` names a DATA field holding the 0-based choice; negative = no answer |
-| Correct alternative | the `TrialType` DATA field (the `examples/two_afc` convention) | `CorrectField` names another field; with no such field, `TrialType_*` bits from `RespCode` |
+| Correct alternative | the `TrialType` DATA field | `CorrectField` names another field; with no such field, `TrialType_*` bits from `RespCode` — valid only where the trial's category **is** the correct alternative (as in `examples/two_afc`, whose trials are left-target or right-target). A paradigm whose types are stimulus/catch/remind must name a field |
 | Stimulus value | the tracked `Parameter`, as in every `psychophysics.Psych` | may be empty — session totals and the confusion matrix need no value, only the by-value curves do |
 
 The `Choice_*` bits stop at 6 alternatives; a `ChoiceField` supports any N.
-A trial with no choice recorded is an abort; correctness is
-`choice == correct`, never re-derived from outcome bits.
+Correctness is `choice == correct`, **never re-derived from the outcome
+bits** — which is also what lets this class score a session whose rig wrote
+only the `Choice_*` bits, as an on-board state machine that cannot see which
+alternative was correct must (see `teensy.Templates.twoAFC`).
 
 ## NumAlternatives
 
@@ -52,7 +82,9 @@ asked for.
 | Field | Meaning |
 |-------|---------|
 | `NumAlternatives`, `ChanceLevel` | N and 1/N |
-| `NumTrials`, `NumAnswered`, `NumAborted`, `NumInvalid`, `AbortRate` | session counts over included trials |
+| `NumTrials`, `NumAnswered`, `NumUnanswered`, `NumInvalid` | session counts over included trials |
+| `NumAborted`, `AbortRate` | trials carrying the `Abort` bit — answered before the response window. Zero when the rig recorded no response codes |
+| `NumNoResponse`, `NoResponseRate` | the rest of the unanswered trials: no outcome bit at all (Undefined) |
 | `PercentCorrect` | fraction correct over answered trials with a known correct alternative |
 | `Choice`, `CorrectAlternative`, `IsCorrect`, `Included` | per-trial vectors (`NaN` = no answer / unscored) |
 | `ChoiceTotals`, `ChoiceProportion`, `ChoiceBias` | per-alternative totals; bias is proportion − 1/N |

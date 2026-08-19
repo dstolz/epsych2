@@ -501,7 +501,30 @@ re-uploading the state table.
   correct vs a 1/N chance level, confusion matrix, choice bias — with customizable,
   self-refreshing plotting (three PlotTypes, right-click switchable, gui.PopOut).
   Choices come from Choice_* bits or a named DATA field, the correct alternative from
-  TrialType (field or bits); embedded live in examples/two_afc
+  TrialType (field or bits); embedded live in examples/two_afc.
+  It also **defines the forced-choice bit encoding**, which is not the detection
+  one: every alternative is a response, so no outcome name may carry the side.
+  `Choice_k` is the only bit saying which alternative was chosen and is set on
+  exactly the answered trials; `Hit` means that choice was correct and `Miss`
+  means the subject chose and chose wrong; `Abort` is a response that arrived
+  BEFORE the response window; and a trial with no response carries no outcome
+  bit at all — **Undefined**, whose absence is what distinguishes it from Miss.
+  `CorrectReject`/`FalseAlarm` name what a subject does when there is nothing to
+  respond to and are never set in an N-AFC; `Reward`/`Punish` are the paradigm's
+  contingency rather than scoring, and may be omitted. `TrialType_k` is the
+  trial's CATEGORY (stimulus, catch, remind, ...) — the bit fallback for the
+  correct alternative works only where the category IS the correct alternative
+  (examples/two_afc's left-target/right-target trials), which is why anything
+  else must name a `CorrectField`. Three consequences a reader would otherwise
+  re-derive: correctness is computed from choice vs correct alternative and
+  **never** from the outcome bits, which is what lets NAFC score a rig that
+  wrote only `Choice_*` (`teensy.Templates.twoAFC_`, whose condition language
+  has no variable comparison, so the board cannot know); `NumAborted` counts the
+  Abort bit while `NumNoResponse` counts the rest of the unanswered trials, so
+  the two failure modes stay separable; and **psychophysics.SessionMetrics does
+  not apply** — its hit/false-alarm/d'/criterion model assumes a stimulus/catch
+  split a forced choice does not have, which is why TwoAFCBehaviorGUI has no
+  gui.SessionPerformance panel
   (documentation/psychophysics/psychophysics_NAFC.md)
 - **psychophysics.Staircase**: Reversal detection and threshold estimation
 - **psychophysics.BestPEST**, **psychophysics.MLP**: Threshold-seeking algorithms

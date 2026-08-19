@@ -135,11 +135,49 @@ Example:
 responseColors = epsych.BitMask.getDefaultColors(epsych.BitMask.getResponses);
 ```
 
+### What the outcome bits mean
+
+The outcome names come from two task families, and they do not mix.
+`getResponses()` is the canonical list — use it instead of hardcoding names
+when code has to ask "how was this trial scored".
+
+**Detection** (go / no-go: a stimulus trial or a catch trial)
+
+| Bit | Meaning |
+|-----|---------|
+| `Hit` | responded on a stimulus trial |
+| `Miss` | withheld on a stimulus trial |
+| `FalseAlarm` | responded on a catch trial |
+| `CorrectReject` | withheld on a catch trial |
+
+**Forced choice** (N alternatives; every trial demands a response)
+
+| Bit | Meaning |
+|-----|---------|
+| `Choice_k` | which alternative was chosen — the **only** bit carrying which one. Set on every answered trial, and only those |
+| `Hit` | that choice was the correct alternative |
+| `Miss` | the subject chose, and chose wrong |
+| *(no outcome bit)* | no response at all: **Undefined** |
+
+`CorrectReject` and `FalseAlarm` are **never** used in a forced choice: there
+is no trial with nothing to respond to. See
+[psychophysics_NAFC.md](../psychophysics/psychophysics_NAFC.md).
+
+Either way, `Abort` marks a response that arrived **before** the response
+window opened, `TrialType_k` names the trial's category (stimulus, catch,
+remind, …), and `Reward` / `Punish` record the contingency the paradigm
+delivered rather than how the trial was scored.
+
+Because `Undefined` is bit 0, it is not a bit at all: a trial with no outcome
+is a response code with none of the outcome bits set, and `decode` therefore
+returns no `Undefined` field. Test for it by checking that every name in
+`getResponses()` is false.
+
 ### Group helpers
 
 These return subsets of the enumeration (as `epsych.BitMask` arrays):
 
-- `getResponses()`
+- `getResponses()` — the valid response types: `Hit`, `Miss`, `CorrectReject`, `FalseAlarm`, `Abort`
 - `getContingencies()`
 - `getResponsePeriod()`
 - `getTrialTypes()`

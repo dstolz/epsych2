@@ -1,5 +1,25 @@
 # Remove the `.ecfg` Config subsystem; the subject's membership carries the session config
 
+> **Revision 2026-08-19** (against the working tree at `6d02855`): three substantive deltas since
+> the plan was written, plus line drift.
+>
+> 1. **`SubjectRoster.copyProject` now exists** and is a *second* membership-creation site
+>    (`applyCopyMembers` builds records directly, not via `assign`). Phase 1(a) gains its field
+>    carry list; Phase 1(c) gains a stamping rule for copies — see both.
+> 2. **The bug-report feature** (`ReportIssue`, landed 2026-08-19) reads `CurrentConfigFile` at
+>    `issueEnvironmentText_.m:46` — a new Phase 3 edit.
+> 3. **`paradigms/BehaviorGUIs/cl_AppetitiveDetection_BoxGUI.m` is already deleted** (landed with
+>    the BlockSequence work); its Phase 7 row is done, the changelog line stays.
+>
+> Line drift: `RunExpt.m` back half **+5** (SetDefaultFuncs :586-602, GetDefaultFuncs :604-632,
+> ClearConfig :648-658, ConfigBrowserRestoreOnTop :669, updateConfigLabel_ :502-518,
+> set.CurrentConfigFile :212-218) and declaration blocks now :475-477/:480-481/:486-488;
+> RunExpt `buildUI.m`: mConfig :152-166 unchanged, `UpdateRecentConfigsMenu` :326, config label
+> :336-351, layout `[4 2]` :330-333; SubjectManager `buildUI.m`: import tool :53-57 unchanged,
+> import menu item :153, mProject block :175-183, subject table :347-352, context menu ~:364-376,
+> File→Refresh :148; `smoke_test_subject_roster.m` adoption section now ~:671-691 (copyProject
+> sections pushed everything after ~:270 down). Work from anchors, as the plan already says.
+
 ## Context
 
 `epsych.SubjectRoster` + `gui.SubjectManager` (landed 2026-08-13…15) took ownership of session
@@ -111,6 +131,9 @@ nothing).
   assignments after ~:95, four docstring lines.
 - **`updateProject.m`** — append the four names to the text-field loop at :81-83; do **not** add
   them to the `Links`/`TimerPeriod`/`Archived` special cases.
+- **`copyProject.m`** (new since the plan was written) — four `(1,:) char` entries in the
+  `arguments` block (no defaults, like every override there), four names in the carry-loop
+  string array (~:99-101), and the docstring's override-field list (~:31) grows by four.
 
 ### (b) Config fields on the membership
 
@@ -142,9 +165,10 @@ version-1 roster (the lab's animals and protocol history) unreadable.
 
 ### (c) Stamping semantics
 
-`assign.m:49-56` (`applyAssign`, the new-record branch) is the **only** membership-creation site
-in the class (verified; `importFromConfig.m:89` routes through `assign` and dies in Phase 6).
-Stamp there:
+There are now **two** membership-creation sites (the "only site" claim predates `copyProject`):
+`assign.m:41-57` (`applyAssign`, the new-record branch; `importFromConfig.m:89` routes through
+`assign` and dies in Phase 6) and `copyProject.m`'s `applyCopyMembers` (~:127-176), which builds
+records directly under the mutation lock. Stamp in `applyAssign`:
 
 ```matlab
 rec = epsych.SubjectRoster.blankMembership_();
@@ -152,6 +176,13 @@ for f = epsych.SubjectRoster.SESSION_FIELDS
     rec.(f{1}) = p.(f{1});          % p resolved at assign.m:29-32; capture into applyAssign
 end
 ```
+
+And in `applyCopyMembers`, stamp each copied membership from the **new project's template** (the
+record `r.Projects(k)` just created — which already equals the source's template unless the call
+overrode a field), **never from the source memberships**: a copy starts a study's next phase on
+agreed settings, and carrying per-subject divergence forward would seed the mismatch refusal into
+a project that has never run. This is the membership-level analogue of "ProtocolHistory is never
+copied". `CopyProtocolMemory` keeps its current meaning (protocol/version/box only).
 
 Rules, chosen for least special-casing:
 - **Reactivating an existing membership does not re-stamp** (`applyAssign`'s early-return branch
@@ -396,6 +427,10 @@ that branch is now reachable only via a hand-built CONFIG. `formatReport.m:36`: 
 **`obj/+util/@VideoConverter/scan.m:15`** cites "the `epsych.RunExpt.FindConfigFiles` contract" —
 reword the dangling reference.
 
+**`issueEnvironmentText_.m:46`** (bug-report feature, new since the plan): delete the
+`'Config file'` row — the neighbouring rows already name the subjects and protocol, which is
+what identifies a session now.
+
 **Fixtures** — `git rm examples/stimgen/StimGen.ecfg examples/stimgen/StimGenCal.ecfg` and drop
 those rows from `examples/stimgen/README.md` (:14-15) plus the :4 sentence, **in the same commit**.
 `tmp/AversiveDetectionConfig.ecfg` dies in Phase 6 with the importer.
@@ -493,7 +528,7 @@ Blast-radius items (each verified against the tree):
 | `ep_RunExpt_FUNCS/BoxFig` pref alias | write dies with `SetDefaultFuncs` (Phase 2); read dies in the `GetDefaultFuncs` collapse (:618-619, Phase 2); `LoadConfig.m:69-77`'s un-aliasing dies with Phase 3. Nothing left to do here — listed so the sweep is complete |
 | `SubjectRoster.aliasBehaviorGUI_` | delete the file + declaration `SubjectRoster.m:252`; `saveAtomic_.m:31-34` → `projects = self.Projects;`; `reload.m:91-98` → plain `normalize_` call. **Data-losing for a pre-rename `.esub`** (carries only `BoxGUI`) — changelog line |
 | Prefdir adoption (`legacyFile`/`AdoptLegacy`) | delete `legacyFile.m` + declaration `SubjectRoster.m:228` + docstring mention :68; strip `AdoptLegacy` from `setConfiguredFile.m` (:3, :21-27, :30-31, :37, :41, :56, :95-111; report struct at :44 shrinks to `FilePath`/`Existed`); `DefineRosterFile.m:43-46, :53-56`; `SubjectManager.m:1315-1319, :1335-1341`; `OpenCustomizeDialog.m:400-404` comment; `tmp/smoke_test_subject_roster.m:577-615` adoption section; docs `epsych_SubjectRoster.md:148`, `gui_SubjectManager.md:49`, `CLAUDE.md:126-127` |
-| `paradigms/BehaviorGUIs/cl_AppetitiveDetection_BoxGUI.m` | delete the file (26 lines; nothing references it statically — resolved only via `feval` at `PsychTimerStart.m:21`). Failure mode for a project still naming it: the clear run-start report, see Changelog obligations |
+| `paradigms/BehaviorGUIs/cl_AppetitiveDetection_BoxGUI.m` | **already deleted** (landed 2026-08-19 with the BlockSequence work; no remaining reference anywhere). Nothing to do; the changelog line for a project still naming it stays |
 | `gui.BoxGUI` + `tmp/LegacyShimGUI.m` | delete both + the `tmp/smoke_test_behaviorgui.m:153-163` section. Breaks only out-of-repo subclasses, which is the point |
 | `design/ep_AddSubject.m` + GUIDE calling convention | delete the forwarder + `tmp/smoke_test_add_subject_dialog.m:66-68`; delete the legacy `feval(fcn, seed, boxids)` branch in `dispatchAddSubjectFcn_.m:54-61` (**keep** the :47-51 `.open`-tolerance and the `AddSubjectFcn` seam itself); update `Architecture_Overview.md:153` |
 | Legacy `.prot` | not a load branch — `epsych.Protocol.load` treats it as a plain MAT file. Drop `*.prot` from the 8 dialog filters: `AddSubject.m:48`, `LocateProtocol.m:17`, `RunExpt.m:328`, `SubjectManager.m:1164`, `projectDialog_.m:523`, `Runtime/readParameters.m:57`, `ProtocolDesigner/onLoad.m:10-11`, `PhaseSelector.m:171`. Also delete the two 3-line format shims in `Protocol.load.m:33-39` (`protocol_struct` field name; files saved as live handle objects). Update `CLAUDE.md:473` ("legacy .prot still loadable") and decide `examples/stimgen/*.prot`: re-save as `.eprot` or delete with their README rows — record the choice in the commit message |
@@ -575,7 +610,9 @@ change:
    `addSubject` ×2 + `assign` ×2; `rememberProtocol` against an examples `.eprot`.
    **Assert stamping**: both memberships' `SESSION_FIELDS` equal the template.
 3. **No propagation**: `updateProject` the template's `SavingFcn` to a sentinel; assert both
-   memberships unchanged.
+   memberships unchanged. **Copy stamping**: `copyProject(..., IncludeSubjects=true)` after a
+   per-subject `updateMembership` edit; assert the copied memberships carry the new project's
+   template, not the edited source values.
 4. **Mismatch refusal**: `updateMembership` subject 2's `TimerPeriod`; `assignToSession` both →
    assert `report.aborted`, `report.mismatch` names `TimerPeriod`, and `numel(rx.CONFIG)`
    unchanged — nothing half-committed.

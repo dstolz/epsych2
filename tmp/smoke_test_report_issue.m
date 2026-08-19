@@ -81,6 +81,15 @@ assert(isscalar(findall(groot,'Type','figure','-and','Tag','RunExptReportIssue')
     'a second invocation must reuse the open dialog');
 fprintf('PASS: a second invocation reuses the open dialog\n');
 
+% 5. Query encoding and the two Help menu items --------------------------
+% RequestFeature itself is not called: it opens a browser on the tracker.
+assert(strcmp(epsych.RunExpt.encodeQueryValue('a b+c'),'a%20b%2Bc'), ...
+    'a space must encode as %%20 and a literal + as %%2B');
+menuLabels = string(get(findall(rx.H.figure1,'Type','uimenu'),'Text'));
+assert(any(menuLabels == "Report an Issue on GitHub..."), 'Help must offer the bug report');
+assert(any(menuLabels == "Request a Feature on GitHub..."), 'Help must offer the feature request');
+fprintf('PASS: query encoding is exact and both Help menu items are wired\n');
+
 shot = fullfile(tempdir,'report_issue_dialog.png');
 try
     exportapp(dlg, shot);

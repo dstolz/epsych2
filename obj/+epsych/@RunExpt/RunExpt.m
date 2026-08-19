@@ -442,6 +442,7 @@ classdef RunExpt < handle
         OpenCurrentErrorLog(self, useExternalViewer)  % Open today's EPsych error log outside the MATLAB editor
 
         ReportIssue(self)                       % Review and open a GitHub bug report prefilled with the environment and error log
+        RequestFeature(self)                    % Open the GitHub feature-request form, prefilled with the version line only
         fields = issueReportFields(self, opts)  % Gather the prefilled sections of that report; public so a script can compose one headlessly
 
         verbosity(self, varargin)  % Set or query the global output verbosity level
@@ -724,6 +725,18 @@ classdef RunExpt < handle
         ffn = defaultFilename(pth,name)
         ffn = videoRecordingFilename(rootDir, dataFilename)  % Build the .ts recording path under rootDir that pairs by name with a behavioral data file
         [url, trimmedLines] = issueURL(fields, opts)         % Build the prefilled bug-report URL, trimming the log excerpt to fit
+
+        function s = encodeQueryValue(text)
+            % s = epsych.RunExpt.encodeQueryValue(text)
+            % Percent-encode one value for an issue-form query string.
+            %
+            % Spaces become %20 rather than urlencode's '+'. Both are legal in
+            % a query string, but only %20 survives a reader that decodes with
+            % decodeURIComponent, and a prefilled section turned into plus
+            % signs is unreadable. Every '+' urlencode leaves is a space: a
+            % literal one comes back as %2B.
+            s = strrep(urlencode(char(string(text))), '+', '%20');
+        end
 
         function app = defaultLogViewer()
             % app = epsych.RunExpt.defaultLogViewer()

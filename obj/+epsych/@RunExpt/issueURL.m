@@ -72,21 +72,11 @@ function url = localAssemble(base, envText, fencedLog)
 % shows its own placeholder instead of an empty code fence.
 url = base;
 if ~isempty(strtrim(envText))
-    url = [url '&environment=' localEncode(localFence(envText))];
+    url = [url '&environment=' epsych.RunExpt.encodeQueryValue(localFence(envText))];
 end
 if ~isempty(fencedLog)
-    url = [url '&logs=' localEncode(fencedLog)];
+    url = [url '&logs=' epsych.RunExpt.encodeQueryValue(fencedLog)];
 end
-end
-
-% -----------------------------------------------------------------------
-function s = localEncode(text)
-% Percent-encode for a query string, with spaces as %20 rather than urlencode's
-% '+'. Both are legal, but only %20 survives a reader that decodes with
-% decodeURIComponent, and a log excerpt turned into plus signs would be
-% unreadable. Any '+' urlencode leaves is a space: a literal one comes back
-% as %2B.
-s = strrep(urlencode(text), '+', '%20');
 end
 
 % -----------------------------------------------------------------------

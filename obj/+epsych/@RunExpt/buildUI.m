@@ -318,6 +318,10 @@ uimenu(mHelp,'Label','Commit History Overview','MenuSelectedFcn', ...
 % be published.
 uimenu(mHelp,'Label','Report an Issue on GitHub...','MenuSelectedFcn', ...
     @(~,~) self.ReportIssue)
+% The feature form needs no preview and so no dialog: a version line is all it
+% carries, and the operator edits it in the browser like the rest of the form.
+uimenu(mHelp,'Label','Request a Feature on GitHub...','MenuSelectedFcn', ...
+    @(~,~) self.RequestFeature)
 
 self.UpdateRecentConfigsMenu
 

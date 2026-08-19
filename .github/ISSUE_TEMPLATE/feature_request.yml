@@ -1,0 +1,60 @@
+name: Feature request
+description: Suggest a capability EPsych does not have yet.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion.
+
+        **Stimulus generation lives in its own repository.** A request about a
+        stimulus type, calibration, or `stimgen.StimPlayer` belongs in
+        [dstolz/stimgen](https://github.com/dstolz/stimgen/issues) instead --
+        `obj/stimgen/` here is a submodule pinned to it.
+
+        Describing the experiment you are trying to run is more useful than
+        describing the control you imagine: the same need often has a shorter
+        answer than the one it looks like it needs.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The experiment, the rig, and where EPsych gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like EPsych to do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do instead today?
+      description: >-
+        A workaround, a paradigm-specific script, or another toolbox. Say if
+        there is none.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Where this would live. Pick the closest one; a guess is fine.
+      options:
+        - Session window / running experiments
+        - Protocol design
+        - Hardware backend (TDT, Intan, Teensy, Bpod, pump, video)
+        - Trial selection or closed-loop control
+        - Online analysis and plots
+        - Behavior GUI components
+        - Data saving and file formats
+        - Documentation
+        - Other / not sure
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: >-
+        Autofilled by the session window's Help menu. Filling it by hand?
+        Help > View Version Info has the version and commit.

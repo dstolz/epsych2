@@ -84,11 +84,30 @@ fprintf('%d characters, %d excerpt line(s) dropped\n', numel(url), dropped);
 `issueURL` takes a `MaxLength` option for a different budget, and reads only the `environment`
 and `logs` fields, so edited text can be passed straight back in.
 
+## Requesting a feature
+
+**Help → Request a Feature on GitHub...** opens
+[`feature_request.yml`](../../.github/ISSUE_TEMPLATE/feature_request.yml) in the browser
+straight away. There is no preview because there is nothing to review: the only thing prefilled
+is a **Version** line — EPsych version, commit, and MATLAB release — and none of the session's
+config paths, subject names, or log lines travel with it. The commit is worth carrying anyway,
+since a request is sometimes already answered further along `master`.
+
+The form asks for the experiment behind the request before the control the requester has in
+mind, and points stimulus-generation requests at
+[dstolz/stimgen](https://github.com/dstolz/stimgen/issues), whose code is a pinned submodule
+here rather than part of this repository.
+
+Implemented by [`RequestFeature`](../../obj/+epsych/@RunExpt/RequestFeature.m); both forms share
+`epsych.RunExpt.encodeQueryValue`, which encodes a space as `%20` rather than `urlencode`'s `+`
+— only `%20` survives a reader that decodes with `decodeURIComponent`.
+
 ## Checks
 
 `tmp/smoke_test_report_issue.m` covers the URL shape and encoding, the trim-to-fit rule
-(including a budget nothing fits in), the gathered report, and the dialog's structure. It never
-presses **Open Issue** — that would open a browser on a public tracker.
+(including a budget nothing fits in), the gathered report, the dialog's structure, and that both
+Help menu items are wired. It never presses **Open Issue** and never calls `RequestFeature` —
+both open a browser on a public tracker.
 
 ## See also
 

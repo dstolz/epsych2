@@ -54,4 +54,3 @@ body:
       options:
         - label: I have read the log excerpt above and removed anything I do not want published.
           required: true
-        - label: I am running the latest commit on `master`, or have said which commit above.

@@ -8,9 +8,11 @@ function id = addProject(self, name, options)
 %
 % The defaults are what make a project worth having: a new member inherits the
 % project's protocol rather than making the operator browse for one, and the
-% session settings a paradigm owns -- saving function, timer period, data and
-% recording roots, behavior GUI -- travel with the study instead of being
-% re-entered on every rig it runs on. assignToSession applies them.
+% session settings a paradigm owns -- saving function, timer callbacks and
+% period, data and recording roots, behavior GUI -- travel with the study
+% instead of being re-entered on every rig it runs on. They are a template:
+% assign stamps them onto the membership when a subject joins, and later
+% project edits do not reach existing members (see reapplyTemplate).
 %
 % Parameters:
 %   name - project name; must be filename-safe and not already in use.
@@ -22,6 +24,10 @@ function id = addProject(self, name, options)
 %   DefaultProtocol - .eprot applied to members that have no protocol memory
 %   DefaultDataPath - where this project's data is saved
 %   SavingFcn       - data-saving callback, SaveFcn(RUNTIME)
+%   TimerStartFcn   - PsychTimer lifecycle callbacks; '' inherits the
+%   TimerRunTimeFcn   ep_TimerFcn_* built-ins. Custom trial loops name
+%   TimerStopFcn      theirs here so the paradigm travels with the study
+%   TimerErrorFcn
 %   TimerPeriod     - PsychTimer period in seconds (0.001-1); NaN inherits
 %   VideoRootDir    - webcam recording root
 %   IntanRootDir    - Intan RHX recording root (no spaces)
@@ -30,8 +36,8 @@ function id = addProject(self, name, options)
 %   BehaviorGUI     - behavior GUI its sessions launch; '' inherits the session
 %                     default, BEHAVIORGUI_NONE launches none
 %
-% Every session-default option is optional and empty means "inherit whatever the
-% session already has", so an older roster and a script that names only a
+% Every session-default option is optional and empty stamps "inherit the
+% built-in default", so an older roster and a script that names only a
 % protocol both keep working. gui.SubjectManager fills them in for a project
 % made through the GUI.
 %   Links           - (1,:) struct array of Label/URL records pointing at the
@@ -58,6 +64,10 @@ arguments
     options.DefaultProtocol (1,:) char = ''
     options.DefaultDataPath (1,:) char = ''
     options.SavingFcn (1,:) char = ''
+    options.TimerStartFcn (1,:) char = ''
+    options.TimerRunTimeFcn (1,:) char = ''
+    options.TimerStopFcn (1,:) char = ''
+    options.TimerErrorFcn (1,:) char = ''
     options.TimerPeriod (1,1) double = NaN
     options.VideoRootDir (1,:) char = ''
     options.IntanRootDir (1,:) char = ''
@@ -93,6 +103,10 @@ rec.IACUCProtocol   = options.IACUCProtocol;
 rec.DefaultProtocol = options.DefaultProtocol;
 rec.DefaultDataPath = options.DefaultDataPath;
 rec.SavingFcn       = options.SavingFcn;
+rec.TimerStartFcn   = options.TimerStartFcn;
+rec.TimerRunTimeFcn = options.TimerRunTimeFcn;
+rec.TimerStopFcn    = options.TimerStopFcn;
+rec.TimerErrorFcn   = options.TimerErrorFcn;
 rec.TimerPeriod     = options.TimerPeriod;
 rec.VideoRootDir    = options.VideoRootDir;
 rec.IntanRootDir    = options.IntanRootDir;

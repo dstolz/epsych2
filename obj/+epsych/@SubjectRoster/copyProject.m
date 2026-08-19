@@ -28,7 +28,8 @@ function newId = copyProject(self, id, newName, options)
 %   CopyProtocolMemory - copied members keep the protocol, version, and box
 %                        they last used in the source (default true)
 %   Notes, Investigator, IACUCProtocol, DefaultProtocol, DefaultDataPath,
-%   SavingFcn, TimerPeriod, VideoRootDir, IntanRootDir, IntanSettingsFile,
+%   SavingFcn, TimerStartFcn, TimerRunTimeFcn, TimerStopFcn, TimerErrorFcn,
+%   TimerPeriod, VideoRootDir, IntanRootDir, IntanSettingsFile,
 %   BehaviorGUI, Links, Archived
 %                      - override the source's value for that field. Each has
 %                        no default, so "not stated" and "stated as empty" stay
@@ -77,6 +78,10 @@ arguments
     options.DefaultProtocol (1,:) char
     options.DefaultDataPath (1,:) char
     options.SavingFcn (1,:) char
+    options.TimerStartFcn (1,:) char
+    options.TimerRunTimeFcn (1,:) char
+    options.TimerStopFcn (1,:) char
+    options.TimerErrorFcn (1,:) char
     options.TimerPeriod (1,1) double
     options.VideoRootDir (1,:) char
     options.IntanRootDir (1,:) char
@@ -97,7 +102,9 @@ end
 % would be the copy that drifts.
 A = struct();
 for f = ["Notes" "Investigator" "IACUCProtocol" "DefaultProtocol" ...
-         "DefaultDataPath" "SavingFcn" "TimerPeriod" "VideoRootDir" ...
+         "DefaultDataPath" "SavingFcn" ...
+         "TimerStartFcn" "TimerRunTimeFcn" "TimerStopFcn" "TimerErrorFcn" ...
+         "TimerPeriod" "VideoRootDir" ...
          "IntanRootDir" "IntanSettingsFile" "BehaviorGUI" "Links"]
     if isfield(options, f)
         A.(f) = options.(f);
@@ -160,6 +167,15 @@ vprintf(1, 'Copied project "%s" to "%s" with %d subject(s).', ...
             m.SubjectID = source(i).SubjectID;
             m.ProjectID = newId;
             m.Active    = source(i).Active;
+
+            % Stamp from the NEW project's template, never from the source
+            % memberships: a copy starts a study's next phase on agreed
+            % settings, and carrying per-subject divergence forward would
+            % seed the commit-time mismatch refusal into a project that has
+            % never run.
+            for sf = epsych.SubjectRoster.SESSION_FIELDS
+                m.(sf{1}) = r.Projects(k).(sf{1});
+            end
 
             if options.CopyProtocolMemory
                 m.LastProtocol        = source(i).LastProtocol;

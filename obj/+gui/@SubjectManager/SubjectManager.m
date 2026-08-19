@@ -169,6 +169,8 @@ classdef SubjectManager < handle
         buildUI(self)
         tf = ensureRoster_(self, action)
         P = projectDialog_(self, seed, options)
+        M = membershipDialog_(self, seed, options)
+        S = sessionDefaultsGrid_(self, parent, seed, tagPrefix, options)
         onImportFromConfig_(self)
         onUpdateProtocol_(self, scope, options)
         onRevertProtocol_(self)
@@ -435,7 +437,7 @@ classdef SubjectManager < handle
             % Named even when unset: this is where the behavior GUI is configured
             % now, so the summary has to say so rather than stay silent.
             if isempty(p.BehaviorGUI)
-                lines{end+1} = 'Behavior GUI: (session default)';
+                lines{end+1} = 'Behavior GUI: (built-in default)';
             elseif strcmpi(p.BehaviorGUI, epsych.SubjectRoster.BEHAVIORGUI_NONE)
                 lines{end+1} = 'Behavior GUI: (none)';
             else
@@ -628,6 +630,13 @@ classdef SubjectManager < handle
             self.H.btnDeleteProject.Enable = onoff(writable && inProject);
             self.H.mnu_delete_project.Enable = self.H.btnDeleteProject.Enable;
             self.H.tb_delete_project.Enable  = self.H.btnDeleteProject.Enable;
+            % Re-apply writes into the checked memberships, so it is gated
+            % like the other membership writes. The Subject-menu Session
+            % Settings item follows Edit Subject plus the project context it
+            % needs; its context-menu twin stays enabled and validates in the
+            % handler, like every other right-click action here.
+            self.H.mnu_reapply_template.Enable = onoff(writable && inProject && hasChecked);
+            self.H.mnu_edit_membership.Enable = onoff(writable && inProject && hasSelection);
             self.H.btnNewProject.Enable = onoff(canCreate);
             self.H.tb_new_project.Enable = onoff(canCreate);
             self.H.tb_import.Enable = onoff(canCreate);
@@ -1300,6 +1309,82 @@ classdef SubjectManager < handle
             self.setStatus_(sprintf('Protocol set for %d subject(s): %s', numel(ids), fn));
         end
 
+        function onEditMembership_(self)
+            % Open the session settings of the selected row's membership in
+            % the current project. The context-menu twin of the Subject-menu
+            % item; both need a project context, because session settings are
+            % per-membership.
+            projectId = self.selectedProject_();
+            if isempty(projectId)
+                self.setStatus_('Select a project first: session settings live on the membership.');
+                return
+            end
+
+            rec = self.selectedRow_();
+            if isempty(rec), return, end
+
+            m = self.Roster.findMembership(rec.SubjectID, projectId);
+            if isempty(m)
+                uialert(self.H.figure, sprintf( ...
+                    '"%s" is not a member of this project.', rec.Name), ...
+                    'Session Settings', 'Icon','warning');
+                return
+            end
+
+            p = self.Roster.findProject(projectId);
+            pName = projectId;
+            if ~isempty(p), pName = p.Name; end
+
+            M = self.membershipDialog_(m, Title = sprintf( ...
+                'Session Settings - %s in %s', rec.Name, pName));
+            if isempty(M), return, end
+
+            try
+                self.Roster.updateMembership(rec.SubjectID, projectId, M);
+            catch ME
+                vprintf(0, 1, ME);
+                uialert(self.H.figure, ME.message, 'Session Settings', 'Icon','error');
+                return
+            end
+
+            self.refresh();
+            self.setStatus_(sprintf('Updated session settings for "%s".', rec.Name));
+        end
+
+        function onReapplyTemplate_(self)
+            % Stamp the project's current template onto the checked
+            % memberships: the named fix for the commit-time mismatch refusal,
+            % and the migration story for memberships written before they
+            % carried session settings.
+            projectId = self.selectedProject_();
+            ids = self.checkedIds_();
+            if isempty(projectId) || isempty(ids), return, end
+
+            p = self.Roster.findProject(projectId);
+            pName = projectId;
+            if ~isempty(p), pName = p.Name; end
+
+            answer = uiconfirm(self.H.figure, sprintf( ...
+                ['Copy the current "%s" session-defaults template onto %d checked ' ...
+                 'subject(s)?\n\nAny per-subject session settings they carry are ' ...
+                 'replaced.'], pName, numel(ids)), ...
+                'Re-apply Project Template', ...
+                'Options', {'Re-apply','Cancel'}, ...
+                'DefaultOption','Re-apply', 'CancelOption','Cancel', 'Icon','question');
+            if ~strcmp(answer,'Re-apply'), return, end
+
+            try
+                rep = self.Roster.reapplyTemplate(ids, projectId);
+            catch ME
+                vprintf(0, 1, ME);
+                uialert(self.H.figure, ME.message, 'Re-apply Project Template', 'Icon','error');
+                return
+            end
+
+            self.refresh();
+            self.setStatus_(rep.message);
+        end
+
         % ---- project actions -------------------------------------------
 
         function onNewProject_(self)
@@ -1312,7 +1397,9 @@ classdef SubjectManager < handle
             % machine's own settings; NaN is the record's "no period yet".
             seed = struct('Name','', 'Notes','', 'Investigator','', ...
                 'IACUCProtocol','', 'DefaultProtocol','', 'DefaultDataPath','', ...
-                'SavingFcn','', 'TimerPeriod',NaN, 'VideoRootDir','', ...
+                'SavingFcn','', 'TimerStartFcn','', 'TimerRunTimeFcn','', ...
+                'TimerStopFcn','', 'TimerErrorFcn','', ...
+                'TimerPeriod',NaN, 'VideoRootDir','', ...
                 'IntanRootDir','', 'IntanSettingsFile','', ...
                 'BehaviorGUI','', 'Archived',false);
             % Assigned rather than passed to struct() above: an empty
@@ -1329,6 +1416,10 @@ classdef SubjectManager < handle
                     DefaultProtocol = P.DefaultProtocol, ...
                     DefaultDataPath = P.DefaultDataPath, ...
                     SavingFcn = P.SavingFcn, ...
+                    TimerStartFcn = P.TimerStartFcn, ...
+                    TimerRunTimeFcn = P.TimerRunTimeFcn, ...
+                    TimerStopFcn = P.TimerStopFcn, ...
+                    TimerErrorFcn = P.TimerErrorFcn, ...
                     TimerPeriod = P.TimerPeriod, ...
                     VideoRootDir = P.VideoRootDir, ...
                     IntanRootDir = P.IntanRootDir, ...
@@ -1428,6 +1519,10 @@ classdef SubjectManager < handle
                     DefaultProtocol = P.DefaultProtocol, ...
                     DefaultDataPath = P.DefaultDataPath, ...
                     SavingFcn = P.SavingFcn, ...
+                    TimerStartFcn = P.TimerStartFcn, ...
+                    TimerRunTimeFcn = P.TimerRunTimeFcn, ...
+                    TimerStopFcn = P.TimerStopFcn, ...
+                    TimerErrorFcn = P.TimerErrorFcn, ...
                     TimerPeriod = P.TimerPeriod, ...
                     VideoRootDir = P.VideoRootDir, ...
                     IntanRootDir = P.IntanRootDir, ...
@@ -1626,22 +1721,26 @@ end
 
 % -----------------------------------------------------------------------
 function line = localSessionDefaultsLine(p)
-% One summary line naming the session settings this project applies, or
-% nothing when it applies none of them.
+% One summary line naming the session settings this project's template stamps
+% onto new members, or nothing when it names none of them.
 %
 % Only the fields that are set: an older project, or one made by a script,
-% inherits the session's own values, and listing those as blanks would read as
-% "this project clears them".
+% stamps "inherit the built-in default", and listing those as blanks would
+% read as "this project clears them".
 line = {};
 
 parts = {};
 if ~isempty(p.SavingFcn),   parts{end+1} = sprintf('save %s', p.SavingFcn); end
 if ~isnan(p.TimerPeriod),   parts{end+1} = sprintf('timer %.4g s', p.TimerPeriod); end
+if ~isempty(p.TimerStartFcn) || ~isempty(p.TimerRunTimeFcn) ...
+        || ~isempty(p.TimerStopFcn) || ~isempty(p.TimerErrorFcn)
+    parts{end+1} = 'timer functions';
+end
 if ~isempty(p.VideoRootDir),      parts{end+1} = 'video path'; end
 if ~isempty(p.IntanRootDir),      parts{end+1} = 'Intan path'; end
 if ~isempty(p.IntanSettingsFile), parts{end+1} = 'Intan settings'; end
 
 if ~isempty(parts)
-    line = {sprintf('Session: %s', strjoin(parts, ', '))};
+    line = {sprintf('Template: %s', strjoin(parts, ', '))};
 end
 end

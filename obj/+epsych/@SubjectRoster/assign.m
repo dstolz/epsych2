@@ -50,6 +50,22 @@ vprintf(1, 'Assigned subject "%s" to project "%s".', s.Name, p.Name);
         rec.SubjectID = sid;
         rec.ProjectID = pid;
         rec.Active    = true;
+
+        % Stamp the project's session-defaults template onto the new
+        % membership -- a verbatim copy at join time; later template edits
+        % do not reach existing members (reapplyTemplate is the deliberate
+        % way to push them). Read from r rather than the pre-lock p: the
+        % lock is held and the file has just been re-read, so this is the
+        % template as another rig last left it.
+        tpl = r.findProject(pid);
+        if isempty(tpl)
+            error('epsych:SubjectRoster:NoSuchProject', ...
+                'Project "%s" was removed by another session.', pid);
+        end
+        for f = epsych.SubjectRoster.SESSION_FIELDS
+            rec.(f{1}) = tpl.(f{1});
+        end
+
         rec.Added     = datetime('now');
         rec.Modified  = rec.Added;
 

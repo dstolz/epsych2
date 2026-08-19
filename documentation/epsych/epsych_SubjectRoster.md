@@ -26,8 +26,8 @@ Membership is many-to-many — one animal can be in several studies — **and** 
 | Array | Holds |
 |---|---|
 | `Subjects` | `SubjectID`, `Name`, `Sex`, `Species`, `Weight`, `Notes`, `NameHistory`, `Retired`, `ImportedFrom`, `Created`, `Modified` |
-| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `SavingFcn`, `TimerPeriod`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `BehaviorGUI`, `Links`, `Archived`, `Created`, `Modified` |
-| `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastProtocolVersion`, `LastBoxID`, `ProtocolHistory`, `Added`, `Modified` |
+| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `SavingFcn`, `TimerStartFcn`, `TimerRunTimeFcn`, `TimerStopFcn`, `TimerErrorFcn`, `TimerPeriod`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `BehaviorGUI`, `Links`, `Archived`, `Created`, `Modified` |
+| `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastProtocolVersion`, `LastBoxID`, `ProtocolHistory`, the session settings stamped from the project's template (`DefaultDataPath`, `SavingFcn`, `BehaviorGUI`, `TimerPeriod`, `TimerStartFcn`, `TimerRunTimeFcn`, `TimerStopFcn`, `TimerErrorFcn`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile` — see `SESSION_FIELDS`), `Added`, `Modified` |
 
 `Active` is the per-project archive flag. `setActive(s, p, false)` retires a subject from **that project only**; it stays active everywhere else and keeps its protocol memory, which is what makes retiring reversible in one click and `deleteSubject` a last resort.
 

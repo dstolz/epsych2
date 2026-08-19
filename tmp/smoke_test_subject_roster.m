@@ -238,10 +238,13 @@ assert(all(ismember({'Subject','Project','LastProtocol'}, T.Properties.VariableN
     'exportTable is missing expected columns');
 fprintf('PASS: exportTable flattens the roster for writetable\n');
 
-% 13. A project owns the behavior GUI ------------------------------------------
+% 13. The membership carries the behavior GUI --------------------------------
 % All three states, because each has a different failure mode: a named GUI must
 % reach FUNCS.BehaviorGUI, 'none' must clear it, and empty must leave the session's
-% own value alone rather than silently disabling the GUI.
+% own value alone rather than silently disabling the GUI. The value travels on
+% the MEMBERSHIP: stamped from the project's template at assign, so a template
+% edit alone must NOT change what an existing member commits -- pushing it takes
+% updateMembership or reapplyTemplate, and that re-stamp is asserted here too.
 delete(findall(groot,'Type','figure','Tag','RunExpt'));
 rx3 = epsych.RunExpt;
 
@@ -254,22 +257,29 @@ for i = 1:3
     bg{i} = R.addSubject(struct('Name',sprintf('BG%02d',i),'Sex','Male','Species','Mouse'));
     R.assign(bg{i}, pg);
 end
+assert(strcmp(R.findMembership(bg{1}, pg).BehaviorGUI, 'ep_GenericGUI'), ...
+    'Assign should stamp the template''s BehaviorGUI onto the membership');
 
 rep = R.assignToSession(rx3, bg(1), ProjectID = pg);
 assert(rep.ok && strcmp(rx3.FUNCS.BehaviorGUI, 'ep_GenericGUI'), ...
-    'A commit should apply the project''s behavior GUI to the session');
+    'A commit should apply the membership''s behavior GUI to the session');
 
+% A template edit does not reach an existing member until it is re-stamped.
 R.updateProject(pg, struct('BehaviorGUI', epsych.SubjectRoster.BEHAVIORGUI_NONE));
+assert(strcmp(R.findMembership(bg{2}, pg).BehaviorGUI, 'ep_GenericGUI'), ...
+    'A template edit must not propagate to an existing membership');
+R.reapplyTemplate(bg(2), pg);
 rep = R.assignToSession(rx3, bg(2), ProjectID = pg);
 assert(rep.ok && isempty(rx3.FUNCS.BehaviorGUI), ...
-    'A project set to BEHAVIORGUI_NONE should leave the session with no behavior GUI');
+    'A membership re-stamped to BEHAVIORGUI_NONE should leave the session with no behavior GUI');
 
+% updateMembership is the per-subject path to the same three states.
 rx3.FUNCS.BehaviorGUI = 'ep_GenericGUI';
-R.updateProject(pg, struct('BehaviorGUI',''));
+R.updateMembership(bg{3}, pg, struct('BehaviorGUI',''));
 rep = R.assignToSession(rx3, bg(3), ProjectID = pg);
 assert(rep.ok && strcmp(rx3.FUNCS.BehaviorGUI, 'ep_GenericGUI'), ...
-    'An empty BehaviorGUI must inherit the session default, not clear it');
-fprintf('PASS: a project applies, disables, or inherits the session behavior GUI\n');
+    'An empty BehaviorGUI must inherit the session''s value, not clear it');
+fprintf('PASS: the membership applies, disables, or inherits the session behavior GUI\n');
 
 delete(findall(groot,'Type','figure','Tag','RunExpt'));
 
@@ -336,7 +346,11 @@ memberships   = S.memberships;
 meta          = S.meta;
 projects      = rmfield(S.projects, ...
     {'Investigator','IACUCProtocol','Links','Archived', ...
-     'SavingFcn','TimerPeriod','VideoRootDir','IntanRootDir','IntanSettingsFile'});
+     'SavingFcn','TimerStartFcn','TimerRunTimeFcn','TimerStopFcn','TimerErrorFcn', ...
+     'TimerPeriod','VideoRootDir','IntanRootDir','IntanSettingsFile'});
+% A membership written before it carried session settings: strip them all.
+memberships   = rmfield(memberships, ...
+    intersect(fieldnames(memberships), epsych.SubjectRoster.SESSION_FIELDS));
 save(legacyFile, 'formatVersion', 'subjects', 'projects', 'memberships', 'meta', '-mat');
 
 Rold = epsych.SubjectRoster(legacyFile);
@@ -351,6 +365,16 @@ assert(all(cellfun(@isempty, {Rold.Projects.Links})), 'Links should default to n
 assert(all(isnan([Rold.Projects.TimerPeriod])), 'TimerPeriod should default to NaN (inherit)');
 assert(all(cellfun(@isempty, {Rold.Projects.SavingFcn})), 'SavingFcn should default to empty');
 assert(all(cellfun(@isempty, {Rold.Projects.VideoRootDir})), 'VideoRootDir should default to empty');
+assert(all(cellfun(@isempty, {Rold.Projects.TimerStartFcn})) && ...
+       all(cellfun(@isempty, {Rold.Projects.TimerRunTimeFcn})) && ...
+       all(cellfun(@isempty, {Rold.Projects.TimerStopFcn})) && ...
+       all(cellfun(@isempty, {Rold.Projects.TimerErrorFcn})), ...
+       'The timer callbacks should default to empty (inherit the built-ins)');
+% Old-shape memberships read back as all-inherit, never as an error.
+assert(all(cellfun(@isempty, {Rold.Memberships.SavingFcn})) && ...
+       all(isnan([Rold.Memberships.TimerPeriod])) && ...
+       all(cellfun(@isempty, {Rold.Memberships.BehaviorGUI})), ...
+       'An old-shape membership should normalize to all-inherit session settings');
 oldId = Rold.Projects(1).ProjectID;
 Rold.updateProject(oldId, struct('Notes','still writable'));
 assert(strcmp(epsych.SubjectRoster(legacyFile).findProject(oldId).Notes, 'still writable'), ...

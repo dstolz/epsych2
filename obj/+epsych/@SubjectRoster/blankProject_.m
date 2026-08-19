@@ -21,12 +21,17 @@ p = struct( ...
     'Investigator',    '', ...  % who is responsible for the study
     'IACUCProtocol',   '', ...  % animal-use protocol number, for the record
     'DefaultProtocol', '', ...  % .eprot applied to members that have none
-    ...                         % Session defaults, applied by assignToSession.
-    ...                         % Empty (NaN for TimerPeriod) inherits whatever
-    ...                         % the session already has -- the only reading a
+    ...                         % Session-defaults template, stamped onto a
+    ...                         % membership when a subject joins the project.
+    ...                         % Empty (NaN for TimerPeriod) stamps "inherit
+    ...                         % the built-in default" -- the only reading a
     ...                         % roster written before these fields can have.
     'DefaultDataPath', '', ...
     'SavingFcn',       '', ...  % data-saving callback, e.g. ep_SaveDataFcn
+    'TimerStartFcn',   '', ...  % PsychTimer lifecycle callbacks; '' inherits
+    'TimerRunTimeFcn', '', ...  % the ep_TimerFcn_* built-ins
+    'TimerStopFcn',    '', ...
+    'TimerErrorFcn',   '', ...
     'TimerPeriod',     NaN, ... % PsychTimer period in seconds
     'VideoRootDir',    '', ...  % webcam recording root
     'IntanRootDir',    '', ...  % Intan RHX recording root

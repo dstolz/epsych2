@@ -97,8 +97,8 @@ mgr.refresh();
 % The summary is where an operator reads what a project will apply, and the box
 % GUI is now one of those things -- named even when the project inherits it, so
 % the field cannot look absent.
-assert(any(contains(string(mgr.H.projectSummary.Text), 'Behavior GUI: (session default)')), ...
-    'A project with no behavior GUI should say it inherits the session default');
+assert(any(contains(string(mgr.H.projectSummary.Text), 'Behavior GUI: (built-in default)')), ...
+    'A project with no behavior GUI should say it inherits the built-in default');
 R.updateProject(p1, struct('BehaviorGUI','ep_GenericGUI'));
 mgr.refresh();
 assert(any(contains(string(mgr.H.projectSummary.Text), 'Behavior GUI: ep_GenericGUI')), ...
@@ -520,9 +520,10 @@ fprintf('PASS: Copy opens the dialog under its own title, on a free name\n');
 % The point of moving them is that they arrive already filled in. A blank field
 % would silently inherit whatever the previous study left on the rig, which is
 % the ambiguity the move was meant to remove.
-assert(any(built.tabs == "Session Defaults"), ...
-    'The project dialog should have a Session Defaults tab (got %s)', strjoin(built.tabs, ', '));
-for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "VideoRootDir" "IntanRootDir" "BehaviorGUI"]
+assert(any(built.tabs == "Session Defaults (template)"), ...
+    'The project dialog should have a Session Defaults (template) tab (got %s)', strjoin(built.tabs, ', '));
+for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "VideoRootDir" "IntanRootDir" "BehaviorGUI" ...
+         "TimerStartFcn" "TimerRunTimeFcn" "TimerStopFcn" "TimerErrorFcn"]
     assert(isfield(built.fields, f), 'The dialog is missing the %s field', f);
     v = built.fields.(f);
     assert(~isempty(v) && (~ischar(v) || ~isempty(strtrim(v))), ...
@@ -549,6 +550,53 @@ assert(fresh.fields.TimerPeriod == 0.025, ...
     'A new project should open on the most recently used timer period (got %g)', ...
     fresh.fields.TimerPeriod);
 fprintf('PASS: session defaults are seeded, and a new project opens on the last values used\n');
+
+% 7f. The membership dialog and the Settings column -------------------------
+% Session settings live on the membership; the Subject menu opens the same
+% field grid tagged MembershipDlg_, with no Default Protocol row (a
+% membership's protocol goes through the protocol-memory workflow).
+mgr.H.projectList.Value = p1;
+mgr.refresh();
+mgr.H.table.Selection = 1;
+mgr.H.table.SelectionChangedFcn([], []);
+assert(strcmp(mgr.H.mnu_edit_membership.Enable, 'on'), ...
+    'Session Settings... should be enabled with a project and a selected row');
+
+mdlg = localDriveProjectDialog( ...
+    @() mgr.H.mnu_edit_membership.MenuSelectedFcn([], []), ...
+    sprintf('Session Settings - %s in Tone', mgr.H.table.Data{1,2}), ...
+    'MembershipDlg_');
+assert(mdlg.found, 'The membership dialog did not open');
+assert(~isfield(mdlg.fields, 'DefaultProtocol'), ...
+    'The membership dialog must not offer a Default Protocol row');
+for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "BehaviorGUI" ...
+         "TimerStartFcn" "TimerRunTimeFcn" "TimerStopFcn" "TimerErrorFcn" ...
+         "VideoRootDir" "IntanRootDir"]
+    assert(isfield(mdlg.fields, f), 'The membership dialog is missing the %s field', f);
+end
+
+% The Settings column says whether a membership still matches its project's
+% template -- what makes the commit-time mismatch refusal predictable.
+scol = find(strcmp(mgr.H.table.ColumnName, 'Settings'));
+assert(~isempty(scol), 'The table should have a Settings column');
+assert(strcmp(mgr.H.table.Data{1,scol}, 'template'), ...
+    'A stamped membership should read "template" (got "%s")', mgr.H.table.Data{1,scol});
+firstRec = R.findSubject(mgr.H.table.Data{1,2});
+firstId = firstRec.SubjectID;
+R.updateMembership(firstId, p1, struct('TimerPeriod', 0.5));
+mgr.refresh();
+assert(strcmp(mgr.H.table.Data{1,scol}, 'edited'), ...
+    'A diverged membership should read "edited" (got "%s")', mgr.H.table.Data{1,scol});
+
+% Re-apply Project Template is the named fix: gated on checked rows, and the
+% roster method it calls puts the row back on "template".
+assert(strcmp(mgr.H.mnu_reapply_template.Enable, 'off'), ...
+    'Re-apply should be disabled with nothing checked');
+R.reapplyTemplate({firstId}, p1);
+mgr.refresh();
+assert(strcmp(mgr.H.table.Data{1,scol}, 'template'), ...
+    'Re-applying the template should put the row back on "template"');
+fprintf('PASS: membership dialog, Settings column, and Re-apply Template\n');
 
 % 7e. No roster file chosen -------------------------------------------------
 % What a fresh install looks like. There is no default location any more, so
@@ -691,9 +739,11 @@ mgr.H.table.CellEditCallback([], struct( ...
 end
 
 % -----------------------------------------------------------------------
-function built = localDriveProjectDialog(control, name)
+function built = localDriveProjectDialog(control, name, tagPrefix)
 % Press a control that opens a modal project dialog, record what it built, and
-% cancel it.
+% cancel it. control is a button, or a function handle that launches the
+% dialog (the membership dialog opens from a menu item, which has no
+% ButtonPushedFcn); tagPrefix defaults to the project dialog's.
 %
 % projectDialog_ blocks in uiwait, so nothing written after the click runs until
 % the dialog closes; the inspection has to happen in a timer callback, which
@@ -704,6 +754,8 @@ function built = localDriveProjectDialog(control, name)
 built = struct('found', false, 'links', 0, 'hasArchived', false, ...
     'tabs', strings(1,0), 'fields', struct());
 
+if nargin < 3, tagPrefix = 'ProjectDlg_'; end
+
 t = timer('Name','projectDialogProbe', ...
     'ExecutionMode','fixedSpacing', 'Period', 0.5, 'TasksToExecute', 20, ...
     'TimerFcn', @(~,~) localInspect(), ...
@@ -711,7 +763,11 @@ t = timer('Name','projectDialogProbe', ...
 cleanupTimer = onCleanup(@() localKillTimer(t));
 start(t);
 
-control.ButtonPushedFcn(control, []);
+if isa(control, 'function_handle')
+    control();
+else
+    control.ButtonPushedFcn(control, []);
+end
 
     function localInspect()
         dlg = findall(groot, 'Type','figure', 'Name', name);
@@ -733,13 +789,17 @@ control.ButtonPushedFcn(control, []);
         end
         built.hasArchived = ~isempty(findall(dlg, 'Type','uicheckbox'));
 
+        % The membership dialog has no tabs; an empty findall result is a
+        % GraphicsPlaceholder whose .Title would throw.
         tabs = findall(dlg, 'Type','uitab');
-        built.tabs = string({tabs.Title});
+        if ~isempty(tabs)
+            built.tabs = string({tabs.Title});
+        end
 
         % Session defaults by Tag rather than by label, so rewording a label
         % does not silently stop this from checking anything.
-        for h = findall(dlg, '-regexp', 'Tag', '^ProjectDlg_')'
-            built.fields.(erase(h.Tag, 'ProjectDlg_')) = h.Value;
+        for h = findall(dlg, '-regexp', 'Tag', ['^' tagPrefix])'
+            built.fields.(erase(h.Tag, tagPrefix)) = h.Value;
         end
 
         cancelBtn(1).ButtonPushedFcn(cancelBtn(1), []);

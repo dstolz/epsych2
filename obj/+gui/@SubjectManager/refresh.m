@@ -144,9 +144,15 @@ self.H.emptyState.Visible = 'off';
 self.H.table.Visible = 'on';
 
 nRows = numel(recs);
-data = cell(nRows, 10);
+data = cell(nRows, 11);
 retired = false(nRows, 1);
 projectId = self.selectedProject_();
+
+% The template the Settings column compares against, fetched once per repaint.
+project = [];
+if ~isempty(projectId)
+    project = self.Roster.findProject(projectId);
+end
 
 % One engine call for the whole table rather than one per row: the roster
 % caches its file reads across the batch, so a project on a single protocol
@@ -170,17 +176,19 @@ for i = 1:nRows
 
     [data{i,4}, data{i,5}, versionFlag(i)] = self.protocolCells_(r.SubjectID, self.Statuses_(i));
 
-    data{i,6} = r.Species;
-    data{i,7} = r.Sex;
-    data{i,8} = r.Weight;
+    [lastRun, isRetired, mrec] = localMembershipInfo(self.Roster, r.SubjectID, projectId);
+    data{i,6} = localSettingsCell(project, mrec);
 
-    [lastRun, isRetired] = localMembershipInfo(self.Roster, r.SubjectID, projectId);
-    data{i,9} = lastRun;
+    data{i,7} = r.Species;
+    data{i,8} = r.Sex;
+    data{i,9} = r.Weight;
+
+    data{i,10} = lastRun;
     retired(i) = isRetired;
     if isRetired
-        data{i,10} = 'Retired';
+        data{i,11} = 'Retired';
     else
-        data{i,10} = 'Active';
+        data{i,11} = 'Active';
     end
 end
 
@@ -290,10 +298,36 @@ tip = [{base, ''}, lines(:)'];
 end
 
 % -----------------------------------------------------------------------
-function [lastRun, isRetired] = localMembershipInfo(roster, subjectId, projectId)
-% Last-run text and retired state for one subject, in a project or anywhere.
+function txt = localSettingsCell(project, mrec)
+% The Settings cell: does this membership still match the project's template?
+% '' outside a project view or with no membership -- there is nothing to
+% compare. isequaln so two "inherit" TimerPeriods (NaN) agree, matching the
+% commit-time mismatch check this column exists to make predictable.
+txt = '';
+if isempty(project) || isempty(mrec), return, end
+
+txt = 'template';
+for f = epsych.SubjectRoster.SESSION_FIELDS
+    pv = project.(f{1});
+    mv = mrec.(f{1});
+    % Both-empty agrees whatever the shapes: a stamped '' comes back from a
+    % MAT round trip as 1x0 while a fresh record holds 0x0, and isequaln
+    % alone would flag every untouched membership as edited.
+    if isempty(pv) && isempty(mv), continue, end
+    if ~isequaln(pv, mv)
+        txt = 'edited';
+        return
+    end
+end
+end
+
+% -----------------------------------------------------------------------
+function [lastRun, isRetired, mrec] = localMembershipInfo(roster, subjectId, projectId)
+% Last-run text, retired state, and (in a project view) the membership record
+% itself for one subject.
 lastRun = '';
 isRetired = false;
+mrec = [];
 
 if isempty(roster.Memberships), return, end
 
@@ -304,6 +338,7 @@ if ~isempty(projectId)
     mine = mine(strcmp({mine.ProjectID}, projectId));
     if isempty(mine), return, end
     isRetired = ~mine(1).Active;
+    mrec = mine(1);
 else
     % In the All Projects view a subject counts as retired only when it is
     % retired everywhere; still active in one study is still active.

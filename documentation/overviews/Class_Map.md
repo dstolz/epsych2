@@ -23,6 +23,7 @@ EPsych major classes
 │  ├─ EventHub
 │  ├─ TrialSelector
 │  │  └─ DefaultTrialSelector
+│  ├─ BlockSequence
 │  ├─ Subject
 │  │  └─ DefaultSubject
 │  ├─ BitMask
@@ -52,6 +53,7 @@ Analysis and GUI classes
 ├─ psychophysics
 │  ├─ Psych
 │  │  ├─ Staircase
+│  │  ├─ NAFC
 │  │  ├─ BestPEST
 │  │  └─ MLP
 │  ├─ Detect
@@ -74,6 +76,8 @@ Analysis and GUI classes
 │  └─ InterfaceAdapter
 └─ gui
    ├─ BasicGUI
+   ├─ BehaviorBuilder
+   ├─ ComponentToolbar
    ├─ Helper
    │  └─ Triggers
    ├─ Parameter_Control
@@ -90,6 +94,7 @@ Analysis and GUI classes
    ├─ Performance
    ├─ PhaseSelector
    ├─ PsychPlot
+   ├─ ScreenCapture
    ├─ SlidingWindowPerformancePlot
    ├─ StaircaseTraining
    └─ StatusBar
@@ -170,6 +175,7 @@ flowchart TD
     R --> R1[epsych.DefaultTrialSelector<br/>cl_AppetitiveStimDetect]
     D --> I[psychophysics.Psych]
     I --> I1[psychophysics.Staircase]
+    I --> I2[psychophysics.NAFC]
     I --> I4[psychophysics.BestPEST]
     I --> I5[psychophysics.MLP]
     I --> I6[psychophysics.SessionMetrics]
@@ -215,7 +221,7 @@ Trial selection
 └─ epsych.DefaultTrialSelector / cl_AppetitiveStimDetect
    ↓
 Analysis and visualization
-├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.BestPEST / psychophysics.MLP / psychophysics.SessionMetrics
+├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.NAFC / psychophysics.BestPEST / psychophysics.MLP / psychophysics.SessionMetrics
 ├─ psychophysics.Detection
 ├─ gui.Parameter_Control / gui.Parameter_Update / gui.Parameter_Monitor / gui.ParameterDebugger
 ├─ gui.OnlinePlot / gui.PsychPlot / gui.ModeIndicator

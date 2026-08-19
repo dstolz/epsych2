@@ -21,6 +21,7 @@ write MATLAB against the framework.
 | `Training-and-Online-Analysis` | Staircase training, history, performance plots, session metrics |
 | `Building-a-Behavior-GUI` | Subclassing `gui.BehaviorGUI`: lifecycle, `build(fig)`, event hooks, teardown |
 | `Behavior-GUI-Components` | The parts list — one `###` section per `obj/+gui/` component, each with its own screenshot |
+| `Behavior-GUI-Builder` | `gui.BehaviorBuilder`: the drag-and-drop route to a behavior GUI, the `.eblt` spec, and what it generates |
 | `Generating-a-Behavior-GUI-with-AI` | Prompting a model to draft a behavior GUI, and verifying what it produced |
 | `Teensy-Trial-Designer` 🚧 | The designer GUI, templates, test bench |
 | `Video-and-Peripherals` | VLC recording, syringe-pump reward (`hw.NE1000` + `gui.SyringePump`), motorized commutators |

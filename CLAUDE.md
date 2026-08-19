@@ -420,6 +420,12 @@ re-uploading the state table.
 #### obj/+psychophysics/ – Online & Offline Analysis
 - **psychophysics.Psych** (abstract): Base for all analysis
 - **psychophysics.Detection**: Hit rate, false alarm rate, d'
+- **psychophysics.NAFC**: N-alternative forced choice — choice functions, proportion
+  correct vs a 1/N chance level, confusion matrix, choice bias — with customizable,
+  self-refreshing plotting (three PlotTypes, right-click switchable, gui.PopOut).
+  Choices come from Choice_* bits or a named DATA field, the correct alternative from
+  TrialType (field or bits); embedded live in examples/two_afc
+  (documentation/psychophysics/psychophysics_NAFC.md)
 - **psychophysics.Staircase**: Reversal detection and threshold estimation
 - **psychophysics.BestPEST**, **psychophysics.MLP**: Threshold-seeking algorithms
 - **psychophysics.SessionMetrics**: Session-level counts, rates, d' and criterion over a

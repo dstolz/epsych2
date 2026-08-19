@@ -7,32 +7,37 @@ obj/+gui/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/Run
 obj/+gui/@PopOut	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_PopOut.md
 obj/+gui/@SyringePump	Behavior-GUI-Components, Video-and-Peripherals	documentation/gui/gui_SyringePump.md
 obj/+gui/@ParameterDebugger	Behavior-GUI-Components, GUI-Framework-Internals, Troubleshooting	documentation/gui/gui_ParameterDebugger.md
+obj/+gui/@BehaviorBuilder	Behavior-GUI-Builder, Building-a-Behavior-GUI	documentation/gui/gui_BehaviorBuilder.md
+obj/+gui/@ComponentToolbar	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_ComponentToolbar.md
+obj/+gui/@ScreenCapture	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_ScreenCapture.md
 obj/+gui/@SubjectManager	Subjects-and-Projects, Subject-Roster-Internals	documentation/gui/gui_SubjectManager.md
 obj/+gui/@VlcRecorderSetup	Video-and-Peripherals	documentation/gui/VlcRecorderSetup.md
-obj/+gui/	Behavior-GUI-Components, GUI-Framework-Internals, Training-and-Online-Analysis	documentation/gui/
+obj/+gui/	Behavior-GUI-Components, GUI-Framework-Internals, Training-and-Online-Analysis, Programmers-Toolkit	documentation/gui/
 obj/+hw/@NE1000	Video-and-Peripherals, Hardware-Abstraction-Layer	documentation/hw/hw_NE1000.md
 obj/+hw/@Interface	Hardware-Abstraction-Layer, Writing-a-Hardware-Backend	documentation/hw/hw_Interface.md, documentation/hw/hw_Interface_Tutorial.md
 obj/+hw/@Parameter	Hardware-Abstraction-Layer, Designing-Protocols	documentation/hw/hw_Parameter.md
-obj/+hw/	Hardware-Abstraction-Layer, Writing-a-Hardware-Backend	documentation/hw/
+obj/+hw/	Hardware-Abstraction-Layer, Writing-a-Hardware-Backend, Programmers-Toolkit	documentation/hw/
 obj/+epsych/@RunExpt	Running-a-Session, RunExpt-GUI-Overview	documentation/overviews/RunExpt_GUI_Overview.md
 obj/+epsych/@ProtocolDesigner	Designing-Protocols	documentation/design/ProtocolDesigner.md, documentation/design/ProtocolDesigner_UserGuide.md
 obj/+epsych/@Protocol	Protocol-Internals, Designing-Protocols	documentation/epsych/epsych_Protocol.md
+obj/+epsych/@BlockSequence	Trial-Selectors	documentation/epsych/epsych_BlockSequence.md
 obj/+epsych/@Runtime	Runtime-and-Events, Trial-Lifecycle, Parameter-Files-and-Phases	documentation/epsych/epsych_Runtime.md
 obj/+epsych/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/RunExpt_SelfTest.md
 obj/+epsych/@SubjectRoster	Subject-Roster-Internals, Subjects-and-Projects	documentation/epsych/epsych_SubjectRoster.md
 obj/+epsych/@TrialJournal	Data-and-Save-Functions, Trial-Lifecycle	documentation/epsych/epsych_TrialJournal.md
 obj/+epsych/@TrialSelector	Trial-Selectors	documentation/epsych/epsych_TrialSelector.md
 obj/+epsych/@EventHub	Runtime-and-Events	documentation/epsych/Event_Notifications.md
-obj/+epsych/	Runtime-and-Events, Protocol-Internals	documentation/epsych/
-obj/+psychophysics/	Psychophysics-Framework, Training-and-Online-Analysis	documentation/psychophysics/
+obj/+epsych/	Runtime-and-Events, Protocol-Internals, Programmers-Toolkit	documentation/epsych/
+obj/+psychophysics/	Psychophysics-Framework, Training-and-Online-Analysis, Programmers-Toolkit	documentation/psychophysics/
 obj/+stimbridge/	Stimgen-Integration, Stimuli-and-Calibration	documentation/stimgen.md
 obj/stimgen	Stimgen-Integration, Stimuli-and-Calibration	documentation/stimgen.md (submodule docs are authoritative)
-obj/+teensy/	Teensy-Trial-Designer, Teensy-Program-Model	documentation/teensy/, documentation/hw/hw_Teensy_Program_Protocol.md
-obj/+eplog/	Troubleshooting, Contributing-and-Conventions	documentation/eplog/eplog_Logging.md
+obj/+teensy/	Teensy-Trial-Designer, Teensy-Program-Model, Programmers-Toolkit	documentation/teensy/, documentation/hw/hw_Teensy_Program_Protocol.md
+obj/+eplog/	Troubleshooting, Contributing-and-Conventions, Programmers-Toolkit	documentation/eplog/eplog_Logging.md
 obj/+peripherals/	Video-and-Peripherals	documentation/peripherals/
 runtime/timerfcns/	Trial-Lifecycle, Runtime-and-Events	documentation/epsych/epsych_TrialLifecycle.md
 runtime/savefcns/	Data-and-Save-Functions	documentation/paradigms/cl_SaveDataFcn.md
 runtime/guis/	Building-a-Behavior-GUI, GUI-Framework-Internals	documentation/design/Customized_GUI_Instructions.md
+helpers/	Programmers-Toolkit	documentation/overviews/Programmers_Toolkit.md
 helpers/vprintf.m	Troubleshooting, Contributing-and-Conventions	documentation/helpers/helpers_vprintf.md
 helpers/EPsychInfo	Installation-and-Setup, Installation-Guide	documentation/epsych/EPsychInfo.md
 epsych_startup.m	Installation-and-Setup, Installation-Guide, Quick-Start	documentation/overviews/Installation_Guide.md

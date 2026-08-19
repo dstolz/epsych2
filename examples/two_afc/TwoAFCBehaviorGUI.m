@@ -32,6 +32,15 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
     % discriminability, and the criterion is the subject's side bias —
     % negative when they favour LEFT. See psychophysics.SessionMetrics.
     %
+    % The choice data itself is scored by a psychophysics.NAFC built in
+    % createPsych over SignedContrast (choices from the ChoiceSide read
+    % parameter, correct side from TrialType), whose live plot fills the
+    % "Choices by Signed Contrast" panel: P(chose left) and P(chose right)
+    % against signed contrast — the psychometric choice functions — with
+    % the right-click menu switching to proportion correct or the
+    % confusion matrix, and "Open in Separate Window" giving it a window
+    % of its own (gui.PopOut).
+    %
     % Launch in a real session by setting a project's Behavior GUI to
     % TwoAFCBehaviorGUI (Subjects > Subjects & Projects, Project > Edit
     % Project..., Session Defaults tab); the class must be on the path. Or
@@ -56,7 +65,7 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
         ModeLabel     matlab.ui.control.Label
         TrialLabel    matlab.ui.control.Label
         TallyLabel    matlab.ui.control.Label
-        ChoiceTable   matlab.ui.control.Table
+        ChoiceAxes    matlab.ui.control.UIAxes
     end
 
     properties (Access = private)
@@ -109,14 +118,20 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
 
     methods (Access = protected)
         function p = createPsych(obj, R)
-            % Track choices against Contrast. No trial-type overrides are
-            % needed: scoring left-correct trials as Hit/Miss and
-            % right-correct trials as CorrectReject/FalseAlarm already
-            % matches the defaults (stimulus = TrialType_0, catch =
-            % TrialType_1), which is the reason for that mapping.
+            % Track choices against SignedContrast with the N-AFC analysis:
+            % ChoiceSide is the chosen alternative (-1 sentinel = no
+            % answer), TrialType the correct one. No trial-type overrides
+            % are needed for the session summary either: scoring
+            % left-correct trials as Hit/Miss and right-correct trials as
+            % CorrectReject/FalseAlarm already matches the defaults
+            % (stimulus = TrialType_0, catch = TrialType_1), which is the
+            % reason for that mapping.
             p = [];
-            if isfield(obj.P, 'Contrast')
-                p = psychophysics.Detection(R, obj.P.Contrast);
+            if isfield(obj.P, 'SignedContrast')
+                p = psychophysics.NAFC(R, obj.P.SignedContrast, ...
+                    NumAlternatives = 2, ...
+                    ChoiceField = "ChoiceSide", ...
+                    ChoiceLabels = ["Left", "Right"]);
             end
         end
 
@@ -195,16 +210,19 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
                 XParameter = 'SignedContrast', YParameter = 'ChoiceSide', ...
                 ColorParameter = 'Response'));
 
-            % The live psychometric function: P(chose right) against signed
-            % contrast (negative = left brighter). A subject with no bias
-            % produces a curve through 50% at zero.
+            % The live psychometric choice functions, drawn and refreshed by
+            % the psychophysics.NAFC from createPsych: P(chose left) and
+            % P(chose right) against signed contrast (negative = left
+            % brighter). A subject with no bias produces curves crossing 50%
+            % at zero. Right-click switches the picture or pops it out.
             pnl = uipanel(og, 'Title', 'Choices by Signed Contrast');
             pnl.Layout.Row = 4;
             inner = uigridlayout(pnl, [1 1]);
             inner.Padding = [0 0 0 0];
-            obj.ChoiceTable = uitable(inner);
-            obj.ChoiceTable.ColumnName = {'Signed contrast', 'n', '% chose right'};
-            obj.ChoiceTable.ColumnWidth = {'1x', 'fit', '1x'};
+            obj.ChoiceAxes = uiaxes(inner);
+            if ~isempty(obj.Psych) && isvalid(obj.Psych)
+                obj.Psych.Plot(obj.ChoiceAxes, PlotType = "choice");
+            end
 
             % The rig timer runs for the life of the window; its tick does
             % nothing until a session mode change arms the first trial.
@@ -244,28 +262,17 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
         end
 
         function onNewData(obj, ~, ~)
-            % obj.Psych ingested the completed trial before this hook ran.
+            % obj.Psych (the psychophysics.NAFC) ingested the completed
+            % trial and redrew its choice plot before this hook ran; the
+            % header tally is all that is left to update.
             P = obj.Psych;
             if isempty(P) || ~isvalid(P) || isempty(P.DATA), return; end
 
-            D = P.DATA;
-            choice = [D.ChoiceSide];
-            answered = choice >= 0;
-            nCorrect = sum(bitget(uint32([D.RespCode]), uint32(epsych.BitMask.Hit)) | ...
-                bitget(uint32([D.RespCode]), uint32(epsych.BitMask.CorrectReject)));
+            R = P.Results;
+            pct = round(100 * R.PercentCorrect);
+            if isnan(pct), pct = 0; end
             obj.TallyLabel.Text = sprintf('%d trials | %d%% correct | %d aborted', ...
-                numel(D), round(100 * nCorrect / max(1, sum(answered))), sum(~answered));
-
-            % Signed contrast: negative = left lamp brighter (left correct).
-            signed = [D.Contrast] .* (2 * [D.TrialType] - 1);
-            lvls = unique(signed);
-            S = strings(numel(lvls), 3);
-            for k = 1:numel(lvls)
-                ind = signed == lvls(k) & answered;
-                S(k,:) = [compose("%+.2f", lvls(k)), compose("%d", sum(ind)), ...
-                    compose("%.0f", 100 * mean(choice(ind) == 1))];
-            end
-            obj.ChoiceTable.Data = S;
+                R.NumTrials, pct, R.NumAborted);
         end
     end
 

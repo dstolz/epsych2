@@ -20,7 +20,10 @@ function smoke_test_two_afc
 %   4) psychophysics.SessionMetrics scores the session with its DEFAULT
 %      trial types — the whole point of that mapping — and its percent
 %      correct matches a hand count
-%   5) explore_2afc_data decodes the file, fits the choice curve, and
+%   5) the psychophysics.NAFC embedded by createPsych scored the same
+%      session live: counts, percent correct, per-value choice rates, and
+%      the choice plot it drew into the GUI's axes
+%   6) explore_2afc_data decodes the file, fits the choice curve, and
 %      recovers the injected side bias
 %
 % Run headless: matlab -batch "run('tmp/smoke_test_two_afc.m')"
@@ -171,12 +174,39 @@ assert(isfinite(SM.Results.DPrime) && isfinite(SM.Results.Criterion), ...
 fprintf('PASS: SessionMetrics with defaults (%.0f%% correct, d''=%.2f, c=%.2f)\n', ...
     100 * SM.Results.Rate.Correct, SM.Results.DPrime, SM.Results.Criterion);
 
-% 5. GUI teardown and offline analysis -----------------------------------
+% 5. The embedded psychophysics.NAFC scored the same session -------------
 fig = findall(groot, 'Type', 'figure', 'Tag', 'TwoAFCBehaviorGUI');
 assert(isscalar(fig), 'TwoAFCBehaviorGUI figure not found');
 assert(strcmp(GUI.ModeLabel.Text, 'Mode: Idle'), ...
     'mode label should end at Idle, got "%s"', GUI.ModeLabel.Text);
-assert(~isempty(GUI.ChoiceTable.Data), 'choice table never populated');
+
+assert(isa(GUI.Psych, 'psychophysics.NAFC'), ...
+    'createPsych should build a psychophysics.NAFC, got %s', class(GUI.Psych));
+NR = GUI.Psych.Results;
+assert(NR.NumAlternatives == 2 && NR.ChanceLevel == 0.5, '2AFC must score as N=2');
+assert(NR.NumTrials == NTRIALS, 'NAFC saw %d trials, expected %d', NR.NumTrials, NTRIALS);
+assert(NR.NumAborted == sum(~answered), 'NAFC abort count disagrees');
+assert(abs(NR.PercentCorrect - handCount) < 1e-9, ...
+    'NAFC percent correct (%.4f) disagrees with the hand count (%.4f)', ...
+    NR.PercentCorrect, handCount);
+nafcChoice = NR.Choice;
+expChoice = choice; expChoice(expChoice < 0) = NaN;
+assert(isequaln(nafcChoice, expChoice), ...
+    'NAFC.Results.Choice must mirror ChoiceSide with the -1 sentinel as NaN');
+% Curves cover exactly the signed levels that received an answer (all 8,
+% unless the scripted aborts happened to consume one level entirely).
+answeredLevels = unique(signedContrast(answered));
+assert(isequal(NR.Values, answeredLevels(:)') ...
+    && isequal(size(NR.ChoiceRate), [2 numel(answeredLevels)]), ...
+    'choice curves should cover the %d answered signed contrasts, got %d values', ...
+    numel(answeredLevels), numel(NR.Values));
+answeredByValue = sum(NR.ChoiceRate, 1);
+assert(all(abs(answeredByValue - 1) < 1e-9), ...
+    'per-value choice rates must sum to 1 over the two alternatives');
+assert(~isempty(GUI.ChoiceAxes.Children), 'NAFC choice plot never drew');
+fprintf('PASS: embedded psychophysics.NAFC agrees with the hand counts\n');
+
+% 6. GUI teardown and offline analysis -----------------------------------
 close(fig) % exercises closeGUI/teardown, including the rig timer
 assert(isempty(timerfindall('Name', 'TwoAFCBehaviorGUI_rig')), ...
     'rig timer must not survive GUI teardown');

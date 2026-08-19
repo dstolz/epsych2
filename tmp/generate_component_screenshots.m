@@ -62,6 +62,8 @@ shots = { ...
     'SyringePump',                  @shotSyringePump; ...
     'ParameterDebugger',            @shotParameterDebugger; ...
     'FilenameValidator',            @shotFilenameValidator; ...
+    'ComponentToolbar',             @shotComponentToolbar; ...
+    'ScreenCapture',                @shotScreenCapture; ...
     'BehaviorGUI_Helpers',          @shotBehaviorGUIHelpers; ...
     };
 
@@ -357,9 +359,9 @@ function fig = shotSyringePump(~)
 % Over the in-process pump mock, so the panel shows a connected link and a
 % real dispensed volume rather than the disconnected state.
 mock = NE1000_Mock(SyringeDiameter=21.59);
-mock.SimInfused = 0.836;              % mL on the wire; the panel displays uL
+mock.SimInfused = 0.836;              % mL, the units the panel displays by default
 
-fig = shotFigure([360 260]);
+fig = shotFigure([380 330]);
 p = gui.SyringePump(mock, fig, PreferenceTag='wikiShotSyringePump');
 p.refresh();
 fig.UserData = {p, mock};             % closeFigure tears both down
@@ -383,6 +385,31 @@ fig = shotFigure([540 72]);
 g = uigridlayout(fig, [1 1]);
 g.Padding = [8 8 8 8];
 gui.FilenameValidator(S.RUNTIME, g, 'ExampleSubject_260813_detection');
+end
+
+
+function fig = shotComponentToolbar(S)
+% The toolbar is figure chrome, so this is a whole (small) behavior GUI
+% rather than a component in a bare figure. Four tools: the two lazy entries
+% declared in build, then a separator, then the two registered gui.PopOut
+% components — discovered only after build returned.
+G = WikiToolbarBehaviorGUI(S.RUNTIME);
+fig = G.h_figure;
+pushData(S);      % the scatter is empty until the session is re-broadcast
+pushTrial(S);     % and the upcoming-trial panel reads "--"
+end
+
+
+function fig = shotScreenCapture(~)
+% Both button forms side by side. copyToClipboard is deliberately NOT called:
+% it would put the shot on the developer's own clipboard.
+fig = shotFigure([300 66]);
+g = uigridlayout(fig, [1 2]);
+g.ColumnWidth = {36, '1x'};
+g.Padding = [10 10 10 10];
+icon = gui.ScreenCapture(g);
+labeled = gui.ScreenCapture(g, Text='Screenshot');
+fig.UserData = {icon, labeled};   % closeFigure deletes both, stopping their timers
 end
 
 
@@ -445,7 +472,8 @@ groups = {'epsych2_gui_History', 'epsych2_gui_NextTrial', ...
     'epsych2_gui_ParameterScatter', 'epsych2_gui_Parameter_Monitor', ...
     'epsych2_gui_SessionPerformance', 'epsych2_gui_PhaseSelector', ...
     'epsych2_gui_SyringePump', 'epsych2_gui_ParameterDebugger', ...
-    'StaircaseTraining', 'wikiShotSessionClock'};
+    'StaircaseTraining', 'wikiShotSessionClock', ...
+    'wikiShotBehaviorGUIHelpers', 'wikiShotComponentToolbar'};
 P = struct('group', groups, 'value', []);
 for k = 1:numel(groups)
     if ispref(groups{k})

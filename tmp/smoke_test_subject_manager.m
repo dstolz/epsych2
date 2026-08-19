@@ -111,6 +111,41 @@ R.updateProject(p1, struct('BehaviorGUI',''));
 mgr.refresh();
 fprintf('PASS: project selection, the retired toggle, and the behavior GUI summary\n');
 
+% 3b. Copy Project needs a project ----------------------------------------
+% All three surfaces are switched together in updateEnableStates_, and Copy is
+% the one project action that creates something yet is still gated on a
+% selection: there is nothing to copy in the All Projects view.
+assert(strcmp(mgr.H.btnCopyProject.Enable,'on') && ...
+       strcmp(mgr.H.mnu_copy_project.Enable,'on') && ...
+       strcmp(mgr.H.tb_copy_project.Enable,'on'), ...
+    'Copy Project should be available with a project selected');
+mgr.H.projectList.Value = '';   % <All Projects>
+mgr.refresh();
+assert(strcmp(mgr.H.btnCopyProject.Enable,'off') && ...
+       strcmp(mgr.H.mnu_copy_project.Enable,'off') && ...
+       strcmp(mgr.H.tb_copy_project.Enable,'off'), ...
+    'Copy Project should be off in the All Projects view, like Edit and Delete');
+mgr.H.projectList.Value = p1;
+mgr.refresh();
+
+% The engine behind the action, exercised where the dialogs cannot be: the copy
+% lands in the list, keeps the source intact, and leaves the source's members
+% in both projects.
+pCopy = R.copyProject(p1, 'Tone (copy)', IncludeSubjects = true);
+mgr.refresh();
+assert(ismember(pCopy, mgr.H.projectList.ItemsData), ...
+    'A copied project should appear in the list after a refresh');
+mgr.H.projectList.Value = pCopy;
+mgr.refresh();
+assert(size(mgr.H.table.Data,1) == 3, ...
+    'The copy should hold the three active members (got %d)', size(mgr.H.table.Data,1));
+mgr.H.projectList.Value = p1;
+mgr.refresh();
+assert(size(mgr.H.table.Data,1) == 3, 'The source project must be untouched');
+R.deleteProject(pCopy);
+mgr.refresh();
+fprintf('PASS: Copy Project follows the selection, and a copy shows up in the list\n');
+
 % 4. Filtering -------------------------------------------------------------
 mgr.H.filter.Value = 'S002';
 mgr.refresh();
@@ -186,7 +221,7 @@ assert(size(mgr.H.table.Data,1) == 3, 'The roster should be back to three visibl
 % updateEnableStates_, so a tool left behind would offer an action the rest of
 % the window has already refused.
 tools = findall(mgr.H.toolbar, 'Type','uipushtool');
-assert(numel(tools) == 15, 'Expected 15 toolbar tools (found %d)', numel(tools));
+assert(numel(tools) == 16, 'Expected 16 toolbar tools (found %d)', numel(tools));
 for tool = tools(:)'
     assert(isequal(size(tool.Icon), [16 16 3]), '%s has no 16x16 icon', tool.Tag);
     assert(~isempty(tool.Tooltip), '%s has no tooltip', tool.Tag);
@@ -461,6 +496,25 @@ assert(built.hasArchived, 'The dialog should carry the Archived checkbox');
 assert(isempty(findall(groot,'Type','figure','Name','Edit Project')), ...
     'Cancel should have closed the dialog');
 fprintf('PASS: the project dialog builds, seeds its links, and cancels cleanly\n');
+
+% The same dialog reached through Copy, which is the one caller whose title the
+% seed cannot imply: a copy arrives with a name filled in, exactly like an edit.
+% Driven from a project with no members, so the "what about the subjects?"
+% confirmation -- an in-figure modal the probe cannot reach -- is not raised.
+pEmptyProj = R.addProject('LonelyStudy');
+mgr.refresh();
+mgr.H.projectList.Value = pEmptyProj;
+mgr.refresh();
+built = localDriveProjectDialog(mgr.H.btnCopyProject, 'Copy Project');
+assert(built.found, 'The Copy Project dialog did not open under its own title');
+assert(strcmp(built.fields.Name, 'LonelyStudy (copy)'), ...
+    'The copy should open on a name that does not collide (got "%s")', built.fields.Name);
+assert(isempty(R.findProject('LonelyStudy (copy)')), ...
+    'Cancelling the dialog must not have created anything');
+R.deleteProject(pEmptyProj);
+mgr.H.projectList.Value = p1;
+mgr.refresh();
+fprintf('PASS: Copy opens the dialog under its own title, on a free name\n');
 
 % 7d. Session defaults: the settings that moved off the Customize dialog ----
 % The point of moving them is that they arrive already filled in. A blank field

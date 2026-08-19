@@ -54,12 +54,12 @@ Browsing never prompts. A roster is only demanded by an action that writes.
 
 ### Toolbar
 
-Fifteen tools in five groups, left to right, in the order the work happens:
+Sixteen tools in five groups, left to right, in the order the work happens:
 
 | Group | Tools |
 |---|---|
 | Roster | Refresh · Roster File... · Import from Config... · Export CSV... |
-| Project | New · Edit · Delete |
+| Project | New · Copy · Edit · Delete |
 | Subject | New · Edit · Delete from Roster |
 | Membership | Add to Project · Remove from Project · Retire/Restore |
 | Session | Set Protocol for Checked... · **Add Checked to Session** |
@@ -91,9 +91,22 @@ A refused address is reported in a `uialert` and logged; it never throws out of 
 
 The project **currently selected is never hidden**, even with the toggle off. Archiving from the edit dialog would otherwise make the project you were just looking at disappear, which reads as having deleted it.
 
+### Copying a project
+
+**Copy...**, beside New and Edit (also `Project > Copy Project...` and the two-folders tool), starts a new project from one that already works. It is the answer to a study's second phase, a replication, or a sister experiment: eleven fields set exactly right on one project, and no reason to retype any of them.
+
+Two questions, asked in this order:
+
+1. **What about the subjects?** — `Copy with Subjects` or `Settings Only`. Asked first because it is the one thing the edit dialog cannot show, and skipped entirely for a project with no active members. Copied subjects **stay in the source as well** — membership is many-to-many, so a subject is simply in both — and each keeps the protocol it is on. Retired members are left behind; the prompt says how many when there are any.
+2. **The copy itself**, in the ordinary project dialog under the title **Copy Project**, seeded with every inherited value and a name that does not collide (`Tone Detection (copy)`, then `(copy 2)`). Nothing is written until OK, so this is where the copy is renamed and pointed at the next phase's protocol.
+
+The copy does **not** inherit `Archived`: it is made to start work, and one that opened hidden would look like nothing had happened. Tick Archived in the dialog to clone an archived project as archived.
+
+`epsych.SubjectRoster.copyProject` is the engine, and it takes two more options the window does not offer — `IncludeRetired` and `CopyProtocolMemory` — for scripted copies. See [Copying a project](../epsych/epsych_SubjectRoster.md#copying-a-project).
+
 ### The project dialog
 
-**New Project...** / **Edit Project...** has two tabs.
+**New Project...** / **Copy...** / **Edit Project...** share one dialog, with two tabs.
 
 **Project** holds the identity: name, notes, its bookkeeping (**Investigator**, **IACUC Protocol**), its **Links**, and an **Archived** checkbox.
 
@@ -291,5 +304,7 @@ The toolbar is asserted as a whole rather than tool by tool: every tool must car
 Protocol versions are asserted end to end against a real `epsych.Protocol.save`: the Version column carries the recorded version, the banner opens when the file is saved behind the window's back and closes once `updateProtocol` has run, and the column then shows the new version. The update and revert *commands* are engine-tested in `smoke_test_subject_roster` instead — both open a confirmation the operator has to answer, so what is checked here is that the window notices and stops saying so.
 
 Project options are asserted the same way: the summary names the investigator and IACUC number, both links render as `uihyperlink`s carrying no `URL`, a linkless project collapses the panel to zero height, and an archived project hides, stays reachable by ID, and survives the toggle going off while it is selected. The dialog itself is driven for real — the Edit button is pressed and the modal window inspected and cancelled from a timer, since `projectDialog_` blocks in `uiwait`. That timer repeats rather than firing once (the figure is findable by name while its controls are still being laid out, so the probe waits for Cancel to exist), and its `StopFcn` deletes whatever is left standing, so a probe that simply missed the window fails the test instead of hanging it.
+
+Copy is asserted on both halves. Its three surfaces switch off in the All Projects view like Edit and Delete, since there is nothing to copy there; the copy appears in the project list with the source's members and leaves the source untouched. The dialog half is driven through the same probe, from a project with **no** members so the subjects question — an in-figure `uiconfirm` the probe cannot reach — is not raised: it must open titled `Copy Project` rather than `Edit Project`, on a name that does not collide, and cancelling must leave nothing behind.
 
 See also: [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md), [`gui.BehaviorGUI`](gui_BehaviorGUI.md), [RunExpt GUI Overview](../overviews/RunExpt_GUI_Overview.md)

@@ -34,7 +34,9 @@ uimenu(mEdit, 'Text','&Clear All Regions', ...
     'MenuSelectedFcn',@(~,~) localClearAll(obj));
 
 mHelp = uimenu(obj.Fig, 'Text','&Help');
-uimenu(mHelp, 'Text','Builder Documentation', ...
+uimenu(mHelp, 'Text','&Builder Guide (Wiki)', ...
+    'MenuSelectedFcn',@(~,~) web(gui.BehaviorBuilder.WIKI_URL, '-browser'));
+uimenu(mHelp, 'Text','&Reference Documentation', ...
     'MenuSelectedFcn',@(~,~) localOpenDoc());
 
 % --- root layout ---------------------------------------------------------
@@ -280,11 +282,13 @@ names = [{'(any)'}, cellstr(string(enumeration('epsych.BitMask')))'];
 end
 
 function localOpenDoc()
+% The in-repository reference, for a rig with no network. The wiki page is
+% the guide and is what Help opens first; this is the exhaustive companion.
 root = fileparts(which('epsych_startup'));
 docFile = fullfile(root, 'documentation', 'gui', 'gui_BehaviorBuilder.md');
 if isfile(docFile)
     open(docFile);
 else
-    web('https://github.com/dstolz/epsych2/wiki', '-browser');
+    web(gui.BehaviorBuilder.WIKI_URL, '-browser');
 end
 end

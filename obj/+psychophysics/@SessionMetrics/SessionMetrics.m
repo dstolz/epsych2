@@ -6,7 +6,7 @@ classdef SessionMetrics < psychophysics.Psych
     %
     % SessionMetrics collapses the trial record to the handful of numbers an
     % experimenter watches during a session -- trial counts, outcome rates,
-    % d' and criterion -- computed over whichever trials a TrialWindow
+    % d', A' and criterion -- computed over whichever trials a TrialWindow
     % selects. Every metric comes from the decoded response bitmask and the
     % trial-type masks the psychophysics.Psych base class already provides,
     % so the same object serves any paradigm that writes RespCode.
@@ -22,7 +22,8 @@ classdef SessionMetrics < psychophysics.Psych
     %   ExcludedTrials - Trials dropped from the summary regardless of the
     %       window (inherited); the two are intersected.
     %   infCorrection  - Rate bounds applied before the z-transform in d'
-    %       and criterion, matching psychophysics.Detection.
+    %       and criterion, matching psychophysics.Detection. A' ignores it:
+    %       the nonparametric index is defined at rates of 0 and 1.
     %   Results        - Computed counts, rates, and sensitivity measures.
     %
     % Key methods:
@@ -195,6 +196,7 @@ classdef SessionMetrics < psychophysics.Psych
                     detail = obj.fraction_(N.Hit + N.CorrectReject, N.Scored + N.CatchScored);
 
                 case "DPrime",    value = R.DPrime;
+                case "APrime",    value = R.APrime;
                 case "Criterion", value = R.Criterion;
             end
 
@@ -295,6 +297,9 @@ classdef SessionMetrics < psychophysics.Psych
             if ~isnan(R.Rate.Hit) && ~isnan(R.Rate.FalseAlarm)
                 R.DPrime    = psychophysics.Detection.d_prime(R.Rate.Hit, R.Rate.FalseAlarm, obj.infCorrection);
                 R.Criterion = psychophysics.Detection.bias(R.Rate.Hit, R.Rate.FalseAlarm, obj.infCorrection);
+                % A' takes the rates uncorrected: it is defined at 0 and 1,
+                % so clamping them would only bias it toward chance.
+                R.APrime    = psychophysics.Detection.a_prime(R.Rate.Hit, R.Rate.FalseAlarm);
             end
 
             obj.Results = R;
@@ -358,6 +363,7 @@ classdef SessionMetrics < psychophysics.Psych
               "AbortRate",      "Abort Rate",            "Rates",       "abort",       "%.1f%%"
               "PercentCorrect", "Percent Correct",       "Rates",       "neutral",     "%.1f%%"
               "DPrime",         "d'",                    "Sensitivity", "sensitivity", "%.2f"
+              "APrime",         "A'",                    "Sensitivity", "sensitivity", "%.3f"
               "Criterion",      "Criterion (c)",         "Sensitivity", "sensitivity", "%.2f"
               };
 
@@ -397,6 +403,7 @@ classdef SessionMetrics < psychophysics.Psych
                 'N',          zeroCounts, ...
                 'Rate',       nanRates, ...
                 'DPrime',     NaN, ...
+                'APrime',     NaN, ...
                 'Criterion',  NaN);
         end
 

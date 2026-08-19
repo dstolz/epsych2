@@ -11,6 +11,13 @@ Source: `obj/+gui/@NextTrial/`
   trial dispatch (`epsych.Runtime.dispatchNextTrial`), reading directly from
   the `epsych.TrialsData` payload — `writeparams`, `parameters`,
   `writeParamIdx`, `trials`, and `NextTrialID`.
+- **The session's first trial**: trial 1 is dispatched by
+  `ep_TimerFcn_Start` (through `epsych.Runtime.set.TRIALS`) *before*
+  `RunExpt` fevals `FUNCS.BehaviorGUI`, so its `NewTrial` event predates
+  this listener. The constructor therefore seeds itself from
+  `RUNTIME.TRIALS` rather than leaving the first trial of the session
+  unshown; a display built before a run (no compiled trials, or a bare
+  `epsych.EventHub` source) is blank until the first event, as before.
 - **Parameter | Value table**: one row per shown field, so any number of
   fields can be selected without redesigning the layout.
 - **Programmatic selection**: pass `Fields=["Depth","TrialType"]` at

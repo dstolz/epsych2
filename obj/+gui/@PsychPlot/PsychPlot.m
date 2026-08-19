@@ -1,6 +1,6 @@
 classdef PsychPlot < gui.PopOut
     % obj = gui.PsychPlot(pObj, ax)
-    % Online psychometric summary plot (d', hit rate, FA rate, bias).
+    % Online psychometric summary plot (d', A', hit rate, FA rate, bias).
     %
     % The plot listens to the psychophysics object's Events.NewData event
     % and refreshes automatically when new trial data arrive.
@@ -20,7 +20,7 @@ classdef PsychPlot < gui.PopOut
         psychObj % psychophysics...
         
         % must jive with obj.ValidPlotTypes
-        PlotType    (1,:) char {mustBeMember(PlotType,{'DPrime','Hit_Rate','FA_Rate','Bias'})} = 'DPrime';
+        PlotType    (1,:) char {mustBeMember(PlotType,{'DPrime','APrime','Hit_Rate','FA_Rate','Bias'})} = 'DPrime';
         
         LineColor   (:,:) double {mustBeNonnegative,mustBeLessThanOrEqual(LineColor,1)}   = [.2 .6 1; 1 .6 .2];
         MarkerColor (:,:) double {mustBeNonnegative,mustBeLessThanOrEqual(MarkerColor,1)} = [0 .4 .8; .8 .4 0];
@@ -46,7 +46,7 @@ classdef PsychPlot < gui.PopOut
         ParameterName
     end
     properties (Constant)
-        ValidPlotTypes = {'DPrime','Hit_Rate','FA_Rate','Bias'};
+        ValidPlotTypes = {'DPrime','APrime','Hit_Rate','FA_Rate','Bias'};
     end
     
     
@@ -122,7 +122,8 @@ classdef PsychPlot < gui.PopOut
 
                 line(obj.ax,[-1 1]*1e6,[1 1],Color = 'k', ...
                     AffectAutoLimits = 'off', ...
-                    HandleVisibility = 'off')
+                    HandleVisibility = 'off', ...
+                    Tag = 'reference')
 
                 grid(obj.ax,'on');
                 box(obj.ax,'on');
@@ -139,8 +140,14 @@ classdef PsychPlot < gui.PopOut
                 return
             end
 
-            set(lh,'XData',X,'YData',Y);            
+            set(lh,'XData',X,'YData',Y);
             set(sh,'XData',X,'YData',Y);
+
+            % The reference line means d' = 1 for every plot type except A',
+            % whose landmark is chance at 0.5
+            refY = 1;
+            if strcmp(obj.PlotType,'APrime'), refY = 0.5; end
+            set(findobj(obj.ax,'Tag','reference'),'YData',[refY refY]);
 
             ya = min(0,Y);
             ylim_ = [min(ya) 0.5+max(Y,[],'omitnan')];

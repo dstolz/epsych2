@@ -280,23 +280,106 @@ catch ME
     results(end+1,:) = check(['Trigger: ' ME.message], false);
 end
 
-%% 12. Filtering
+%% 12. Filtering, live
 try
-    dbg.H.filter.Value = 'spare';
-    dbg.refresh();
+    setFilter(dbg, 'spare');
     results(end+1,:) = check('The filter narrows the list', numel(dbg.Rows) == 12);
 
-    dbg.H.filter.Value = 'no such parameter';
-    dbg.refresh();
+    setFilter(dbg, 'no such parameter');
     results(end+1,:) = check('An empty result explains itself', ...
         isempty(dbg.Rows) && dbg.H.emptyState.Visible == "on" && ...
         contains(dbg.H.emptyState.Text, 'Clear the Find box'));
 
-    dbg.H.filter.Value = '';
-    dbg.refresh();
+    setFilter(dbg, '');
     results(end+1,:) = check('Clearing it restores every row', numel(dbg.Rows) == 23);
+
+    % Typing, character by character, is the ValueChanging path: the widget's
+    % own Value is still the old text at that point, so the list can only be
+    % right if the window is filtering on what it was handed.
+    typeFilter(dbg, 'Fre');
+    results(end+1,:) = check('The list narrows while typing, before Enter', ...
+        numel(dbg.Rows) == 1 && strcmp(dbg.Rows(1).Name, 'Freq'));
+    results(end+1,:) = check('...and says so in the status line', ...
+        contains(dbg.H.status.Text, 'match'));
+
+    % A rebuild is not a reason to widen the list back out again.
+    dbg.refresh();
+    results(end+1,:) = check('A refresh keeps the filter', numel(dbg.Rows) == 1);
+
+    setFilter(dbg, '');
 catch ME
     results(end+1,:) = check(['Filter: ' ME.message], false);
+end
+
+%% 12b. Regular expressions
+try
+    dbg.H.chkRegex.Value = true;
+    setFilter(dbg, '(Freq|Level)$');
+    results(end+1,:) = check('A regex matches alternatives', numel(dbg.Rows) == 2);
+
+    setFilter(dbg, 'Spare0[12]$');
+    results(end+1,:) = check('A regex narrows to what it matches', numel(dbg.Rows) == 2);
+
+    setFilter(dbg, 'freq');
+    results(end+1,:) = check('Matching ignores case', ...
+        numel(dbg.Rows) == 1 && strcmp(dbg.Rows(1).Name, 'Freq'));
+
+    % Half a pattern is a pattern still being typed, not an error to throw.
+    before = numel(dbg.Rows);
+    setFilter(dbg, 'freq[');
+    results(end+1,:) = check('An incomplete pattern leaves the list alone', ...
+        numel(dbg.Rows) == before);
+    results(end+1,:) = check('...and says why', ...
+        contains(dbg.H.status.Text, 'Incomplete'));
+    results(end+1,:) = check('...and marks the box', ...
+        ~isequal(dbg.H.filter.BackgroundColor, [1 1 1]));
+
+    setFilter(dbg, 'freq');
+    results(end+1,:) = check('A pattern that parses again clears the mark', ...
+        isequal(dbg.H.filter.BackgroundColor, [1 1 1]));
+
+    dbg.H.chkRegex.Value = false;
+    dbg.H.chkRegex.ValueChangedFcn(dbg.H.chkRegex, []);
+    setFilter(dbg, '');
+catch ME
+    results(end+1,:) = check(['Regex filter: ' ME.message], false);
+end
+
+%% 12c. Clearing the Find box, and what a filter does to a read
+try
+    dbg.readAll();
+    freqBefore = rowNamed(dbg, 'Freq');
+
+    setFilter(dbg, 'Freq');
+    results(end+1,:) = check('A filter change keeps what was read', ...
+        rowNamed(dbg,'Freq').State == gui.ParameterDebugger.STATE_OK && ...
+        strcmp(rowNamed(dbg,'Freq').ValueText, freqBefore.ValueText));
+
+    dbg.H.btnClear.ButtonPushedFcn([], []);
+    results(end+1,:) = check('The Clear button empties the box', ...
+        isempty(dbg.H.filter.Value) && numel(dbg.Rows) == 23);
+
+    setFilter(dbg, 'Level');
+    dbg.H.figure.WindowKeyPressFcn(dbg.H.figure, struct('Key','escape', 'Modifier',{{}}));
+    results(end+1,:) = check('Escape clears the filter before it closes anything', ...
+        isvalid(dbg) && numel(dbg.Rows) == 23);
+
+    dbg.H.figure.WindowKeyPressFcn(dbg.H.figure, struct('Key','escape', 'Modifier',{{}}));
+    results(end+1,:) = check('...and closes the window once it is empty', ~isvalid(dbg));
+
+    dbg = gui.ParameterDebugger(rig, Visible = false);
+    figs(end+1) = dbg.H.figure;
+catch ME
+    results(end+1,:) = check(['Clear: ' ME.message], false);
+end
+
+%% 12d. The table is the operator's to sort and rearrange
+try
+    results(end+1,:) = check('Columns sort', isequal(dbg.H.table.ColumnSortable, true));
+    results(end+1,:) = check('Columns rearrange', ...
+        dbg.H.table.ColumnRearrangeable == "on");
+catch ME
+    results(end+1,:) = check(['Sortable: ' ME.message], false);
 end
 
 %% 13. A disconnected backend is reported as such
@@ -558,6 +641,64 @@ catch ME
     results(end+1,:) = check(['RunExpt launch: ' ME.message], false);
 end
 
+%% 19b. Tracking parameters in a live plot
+try
+    dbg.H.table.Selection = [rowIndex(dbg,'Freq'), rowIndex(dbg,'Coeffs')];
+    T = dbg.trackSelected();
+
+    results(end+1,:) = check('A tracker opened', isa(T,'gui.ParameterTracker') && isvalid(T));
+    results(end+1,:) = check('Only the scalar parameter is plotted', ...
+        numel(T.Parameters) == 1 && strcmp(T.Parameters(1).Name, 'Freq'));
+    results(end+1,:) = check('...and the buffer is reported, not drawn', ...
+        contains(dbg.H.status.Text, 'could not be plotted'));
+    results(end+1,:) = check('It polls as soon as it opens', T.IsRunning);
+
+    pause(0.8);                       % a few periods at the default 5 Hz
+    results(end+1,:) = check('Samples arrive on the timer', ~isempty(T.Time));
+    results(end+1,:) = check('...carrying the value the parameter holds', ...
+        all(T.Values(1,:) == rig.find_parameter('Freq').Value));
+    results(end+1,:) = check('Time is measured from the start of tracking', ...
+        T.Time(1) >= 0 && issorted(T.Time));
+
+    % A second line, added after sampling started, has no history invented for
+    % it: the samples before it was added are NaN.
+    before = numel(T.Time);
+    T.addParameters(rowNamed(dbg,'Level').Parameter);
+    results(end+1,:) = check('A parameter can be added to a running plot', ...
+        numel(T.Parameters) == 2 && numel(T.H.list.Items) == 2);
+    results(end+1,:) = check('...with no history invented for it', ...
+        all(isnan(T.Values(2, 1:before))));
+
+    T.stop();
+    results(end+1,:) = check('It pauses', ~T.IsRunning);
+
+    S = T.data();
+    results(end+1,:) = check('The recording can be taken away whole', ...
+        isequal(size(S.Values), [2 numel(S.Time)]) && numel(S.Names) == 2);
+
+    T.removeParameters(1);
+    results(end+1,:) = check('A parameter can be dropped again', ...
+        numel(T.Parameters) == 1 && size(T.Values,1) == 1);
+
+    T.clearData();
+    results(end+1,:) = check('Clearing empties the plot', isempty(T.Time));
+
+    % A write-only parameter has nothing to read, so it is refused rather than
+    % plotted as an unbroken line of NaN.
+    T.addParameters(rig.find_parameter('Command'));
+    results(end+1,:) = check('A write-only parameter is refused', ...
+        numel(T.Parameters) == 1 && contains(T.H.status.Text, 'write-only'));
+
+    trackerFig = T.H.figure;
+    delete(T);
+    results(end+1,:) = check('Closing it stops its timer', ...
+        isempty(timerfindall('Name','EPsychParameterTracker')));
+    results(end+1,:) = check('...and takes its window', ~isgraphics(trackerFig));
+catch ME
+    results(end+1,:) = check(['Tracker: ' ME.message], false);
+    delete(findall(groot, 'Type','figure', 'Tag','EPsychParameterTracker'));
+end
+
 %% 20. Teardown
 try
     if ispref('epsych2_gui_ParameterDebugger','FigurePosition')
@@ -583,6 +724,16 @@ end
 delete(figs(isvalid(figs)));
 delete(findall(groot, 'Type','figure', 'Tag','RunExpt'));
 delete(findall(groot, 'Type','figure', 'Tag','EPsychParameterDebugger'));
+delete(findall(groot, 'Type','figure', 'Tag','EPsychParameterTracker'));
+stray = timerfindall('Name','EPsychParameterTracker');
+if ~isempty(stray), stop(stray); delete(stray); end
+try
+    if ispref('epsych2_gui_ParameterTracker','FigurePosition')
+        rmpref('epsych2_gui_ParameterTracker','FigurePosition');
+    end
+catch ME
+    vprintf(2, ME);
+end
 if ~isempty(rx) && isvalid(rx), delete(rx); end
 try
     if ispref('epsych2_gui_ParameterDebugger','FigurePosition')
@@ -607,6 +758,22 @@ fprintf('\n%d passed, %d failed, %d total\n\n', ...
 
 if any(~passed)
     error('smoke_test_parameter_debugger:Failed', '%d smoke test(s) failed.', sum(~passed));
+end
+
+
+function setFilter(dbg, text)
+% Type into the Find box and commit it, as pressing Enter does.
+dbg.H.filter.Value = text;
+dbg.H.filter.ValueChangedFcn(dbg.H.filter, []);
+end
+
+
+function typeFilter(dbg, text)
+% One keystroke at a time: ValueChanging carries the text the field WILL have,
+% while the field's own Value is still the previous one.
+for k = 1:numel(text)
+    dbg.H.filter.ValueChangingFcn(dbg.H.filter, struct('Value', text(1:k)));
+end
 end
 
 

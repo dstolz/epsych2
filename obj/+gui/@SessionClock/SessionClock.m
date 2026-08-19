@@ -7,12 +7,17 @@ classdef SessionClock < handle
     %   - The current computer (wall-clock) time
     %
     % Right-click the widget for a context menu that toggles which lines
-    % are shown. The choice persists across sessions via getpref/setpref,
-    % keyed by PreferenceTag (by default the hosting figure's Tag, which
-    % for a gui.BehaviorGUI subclass is that GUI's own PreferenceTag — so the
-    % remembered lines are scoped per BehaviorGUI automatically). Each line can
-    % also be toggled programmatically via the Show* properties; a change
-    % takes effect on the next timer tick, or immediately via refresh().
+    % are shown and sizes the text. Both choices persist across sessions via
+    % getpref/setpref, keyed by PreferenceTag (by default the hosting figure's
+    % Tag, which for a gui.BehaviorGUI subclass is that GUI's own PreferenceTag
+    % — so the remembered display is scoped per BehaviorGUI automatically). Each
+    % line can also be toggled programmatically via the Show* properties; a
+    % change takes effect on the next timer tick, or immediately via refresh().
+    %
+    % Font size is settable the same two ways — obj.FontSize = 22, or the
+    % right-click "Font Size" menu — so an operator who sized the clock to be
+    % read from across the room gets it back next session. Unlike the Show*
+    % properties, a font change applies immediately.
     %
     % Usage (inside a gui.BehaviorGUI build(fig)):
     %   c = gui.SessionClock(parent);
@@ -22,8 +27,9 @@ classdef SessionClock < handle
     %
     %   c.ShowClockTime = false;   % programmatic control
     %   c.refresh();               % apply immediately
+    %   c.FontSize = 24;           % applies (and persists) at once
     %
-    % See also: gui.BehaviorGUI, gui.ElapsedTrialTimer, epsych.Runtime
+    % See also: gui.BehaviorGUI, gui.ElapsedTrialTimer, gui.NextTrial, epsych.Runtime
 
     properties
         ShowTimeSinceLastTrial  (1,1) logical = true  % Time since the most recent trial began
@@ -32,10 +38,15 @@ classdef SessionClock < handle
         ShowClockTime           (1,1) logical = true  % Current wall-clock time
         UpdatePeriod (1,1) double {mustBePositive, mustBeFinite} = 1 % Display refresh interval (s)
         Format       (1,:) char = 'hms' % 'hms', 'ms', 's', or a custom sprintf pattern receiving total seconds
+        FontPresets  (1,:) double {mustBePositive} = [10 12 14 16 20 24 28 36] % Sizes offered as one-click entries on the Font Size menu
+    end
+
+    properties (Dependent)
+        FontSize % Label font size in points; applies and persists on set
     end
 
     properties (SetAccess = private)
-        PreferenceTag (1,:) char = '' % getpref/setpref group for remembered line visibility
+        PreferenceTag (1,:) char = '' % getpref/setpref group for remembered line visibility and font size
         LabelH        (1,1) struct = struct() % uilabel handles keyed by line name
         ContextMenuH                 % Right-click menu handle
         PanelH                       % Outer uipanel handle
@@ -48,10 +59,14 @@ classdef SessionClock < handle
         SessionStartTime_ datetime = NaT
         FirstTrialTime_   datetime = NaT
         LastTrialTime_    datetime = NaT
+        FontSize_ (1,1) double = 12
+        FontMenuH_                   % "Font Size" submenu handle
     end
 
     properties (Constant, Access = private)
-        PREF_KEY = 'SessionClockVisibleLines'
+        PREF_KEY      = 'SessionClockVisibleLines'
+        PREF_KEY_FONT = 'SessionClockFontSize'
+        FONT_LIMITS   = [6 72] % Clamp, so no scripted or typed size can leave the clock unreadable
         LINES_ = struct( ...
             'Key',    {'LastTrial',              'FirstTrial',               'SessionDuration',     'ClockTime'}, ...
             'Prop',   {'ShowTimeSinceLastTrial',  'ShowTimeSinceFirstTrial',  'ShowSessionDuration',  'ShowClockTime'}, ...
@@ -69,7 +84,8 @@ classdef SessionClock < handle
             %   parent        - Any UI container (uifigure, uigridlayout cell, uipanel, etc.).
             %   PreferenceTag - getpref/setpref group; default is the ancestor figure's Tag.
             %   UpdatePeriod  - Timer refresh interval in seconds (default: 1).
-            %   FontSize      - Label font size in points (default: 12).
+            %   FontSize      - Label font size in points (default: 12), overridden
+            %                   by a saved preference if one exists.
             %   FontColor     - Label font color [R G B] (default: [0 0 0]).
             %   ShowTimeSinceLastTrial, ShowTimeSinceFirstTrial, ShowSessionDuration,
             %   ShowClockTime - Initial visibility, overridden by a saved preference if one exists.
@@ -90,13 +106,14 @@ classdef SessionClock < handle
             obj.ShowSessionDuration     = options.ShowSessionDuration;
             obj.ShowClockTime           = options.ShowClockTime;
             obj.UpdatePeriod            = options.UpdatePeriod;
+            obj.FontSize_               = gui.SessionClock.clampFontSize_(options.FontSize);
 
             obj.PreferenceTag = options.PreferenceTag;
             if isempty(obj.PreferenceTag)
                 obj.PreferenceTag = gui.SessionClock.inferPreferenceTag_(parent);
             end
 
-            obj.buildUI_(parent, options.FontSize, options.FontColor);
+            obj.buildUI_(parent, obj.FontSize_, options.FontColor);
             obj.loadPreferences_();
             obj.buildTimer_();
             obj.updateDisplay_();
@@ -131,6 +148,29 @@ classdef SessionClock < handle
             % Apply the current Show* properties and redraw immediately,
             % instead of waiting for the next timer tick.
             obj.updateDisplay_();
+        end
+
+        function sz = get.FontSize(obj)
+            sz = obj.FontSize_;
+        end
+
+        function set.FontSize(obj, points)
+            obj.setFontSize(points);
+        end
+
+        function setFontSize(obj, points)
+            % obj.setFontSize(points)
+            % Set the label font size, in points. Sizes outside 6-72 are
+            % clamped rather than refused, so a scripted value cannot leave
+            % the display unreadable. Applies at once and persists like a
+            % menu choice.
+            arguments
+                obj
+                points (1,1) double {mustBePositive, mustBeFinite}
+            end
+            obj.FontSize_ = gui.SessionClock.clampFontSize_(points);
+            obj.applyFontSize_();
+            obj.saveFontPreference_();
         end
 
         function start(obj)
@@ -205,7 +245,9 @@ classdef SessionClock < handle
         end
 
         function buildContextMenu_(obj, hostFig)
-            % Right-click menu with one checked toggle per line.
+            % Right-click menu with one checked toggle per line, plus a
+            % Font Size submenu. The submenu's entries are rebuilt on open
+            % (see refreshFontMenu_) rather than on every timer tick.
             if isempty(hostFig), return; end
             try
                 cm = uicontextmenu(hostFig);
@@ -213,6 +255,14 @@ classdef SessionClock < handle
                     key = obj.LINES_(i).Key;
                     uimenu(cm, 'Text', obj.LINES_(i).Text, 'Tag', ['line|' key], ...
                         'MenuSelectedFcn', @(~,~) obj.toggleLine_(key));
+                end
+                obj.FontMenuH_ = uimenu(cm, 'Text', 'Font Size', 'Tag', 'fontmenu', ...
+                    'Separator', 'on');
+                obj.refreshFontMenu_();
+                try
+                    cm.ContextMenuOpeningFcn = @(~,~) obj.refreshMenus_();
+                catch
+                    cm.Callback = @(~,~) obj.refreshMenus_(); % legacy figure
                 end
                 obj.ContextMenuH = cm;
                 obj.PanelH.ContextMenu = cm;
@@ -295,6 +345,74 @@ classdef SessionClock < handle
             obj.refreshMenuChecks_();
         end
 
+        function refreshMenus_(obj)
+            % Context-menu opening handler: bring both the line checkmarks
+            % and the font entries up to date with the current state.
+            obj.refreshMenuChecks_();
+            obj.refreshFontMenu_();
+        end
+
+        function refreshFontMenu_(obj)
+            % Presets plus relative steps and a prompt, rebuilt on open so
+            % the check mark and the custom entry follow a size that was set
+            % programmatically.
+            m = obj.FontMenuH_;
+            if isempty(m) || ~isvalid(m), return; end
+            delete(m.Children);
+
+            sz = obj.FontSize_;
+            for k = 1:numel(obj.FontPresets)
+                n = obj.FontPresets(k);
+                item = uimenu(m, 'Text', sprintf('%g pt', n), ...
+                    'MenuSelectedFcn', @(~,~) obj.setFontSize(n));
+                item.Checked = sz == n;
+            end
+
+            uimenu(m, 'Text', 'Larger', 'Separator', 'on', ...
+                'MenuSelectedFcn', @(~,~) obj.setFontSize(sz + 2));
+            uimenu(m, 'Text', 'Smaller', ...
+                'MenuSelectedFcn', @(~,~) obj.setFontSize(max(sz - 2, obj.FONT_LIMITS(1))));
+
+            item = uimenu(m, 'Text', 'Custom...', 'Separator', 'on', ...
+                'MenuSelectedFcn', @(~,~) obj.promptFontSize_());
+            item.Checked = ~ismember(sz, obj.FontPresets);
+        end
+
+        function promptFontSize_(obj)
+            % inputdlg opens its own dialog, so it works from a uifigure; a
+            % cancelled or unparseable entry is ignored.
+            try
+                a = inputdlg({'Font size (points):'}, 'Font Size', [1 30], ...
+                    {num2str(obj.FontSize_)});
+            catch ME
+                vprintf(0, 1, 'gui.SessionClock: cannot prompt for a font size: %s', ME.message)
+                return
+            end
+            if isempty(a), return; end
+
+            n = str2double(strtrim(a{1}));
+            if ~isfinite(n) || n <= 0
+                vprintf(1, 'gui.SessionClock: "%s" is not a font size', strtrim(a{1}))
+                return
+            end
+            obj.setFontSize(n);
+        end
+
+        function applyFontSize_(obj)
+            % Push the current size onto every label. Rows are 'fit'-height,
+            % so the widget grows or shrinks with the text.
+            fns = fieldnames(obj.LabelH);
+            for k = 1:numel(fns)
+                lbl = obj.LabelH.(fns{k});
+                if isempty(lbl) || ~isvalid(lbl), continue; end
+                try
+                    lbl.FontSize = obj.FontSize_;
+                catch ME
+                    vprintf(3, 'gui.SessionClock: unable to set font size: %s', ME.message)
+                end
+            end
+        end
+
         function refreshMenuChecks_(obj)
             % Sync menu checkmarks with the current Show* property values.
             cm = obj.ContextMenuH;
@@ -324,6 +442,7 @@ classdef SessionClock < handle
         function loadPreferences_(obj)
             % Apply a saved visibility choice, if one exists, on top of
             % the constructor-supplied defaults.
+            obj.loadFontPreference_();
             try
                 if ispref(obj.PreferenceTag, obj.PREF_KEY)
                     s = getpref(obj.PreferenceTag, obj.PREF_KEY);
@@ -354,6 +473,31 @@ classdef SessionClock < handle
             end
         end
 
+        function loadFontPreference_(obj)
+            % Apply a saved font size on top of the constructor's, under a
+            % key of its own so an older visibility-only preference — and a
+            % clock built before this control existed — still loads.
+            try
+                if ~ispref(obj.PreferenceTag, obj.PREF_KEY_FONT), return; end
+                n = getpref(obj.PreferenceTag, obj.PREF_KEY_FONT);
+                if ~isnumeric(n) || ~isscalar(n) || ~isfinite(n) || n <= 0, return; end
+                obj.FontSize_ = gui.SessionClock.clampFontSize_(n);
+                obj.applyFontSize_();
+                vprintf(3, 'gui.SessionClock: loaded saved font size')
+            catch ME
+                vprintf(2, 'gui.SessionClock: failed to load saved font size: %s', ME.message)
+            end
+        end
+
+        function saveFontPreference_(obj)
+            % Persist the current font size for this PreferenceTag.
+            try
+                setpref(obj.PreferenceTag, obj.PREF_KEY_FONT, obj.FontSize_);
+            catch ME
+                vprintf(2, 'gui.SessionClock: failed to save font size: %s', ME.message)
+            end
+        end
+
     end % private methods
 
     methods (Static, Access = private)
@@ -375,6 +519,13 @@ classdef SessionClock < handle
             if isempty(tag)
                 tag = 'gui_SessionClock';
             end
+        end
+
+        function points = clampFontSize_(points)
+            % points = clampFontSize_(points)
+            % Round to whole points and hold inside FONT_LIMITS.
+            lims = gui.SessionClock.FONT_LIMITS;
+            points = min(max(round(points), lims(1)), lims(2));
         end
 
         function str = formatDuration_(totalSecs, fmt)

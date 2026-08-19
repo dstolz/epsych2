@@ -9,7 +9,8 @@ classdef SubjectManager < handle
     % a free box and the protocol it last ran, so the common case takes two
     % clicks instead of one dialog and one file browser per animal.
     %
-    % It is also where the roster is maintained -- creating projects, moving
+    % It is also where the roster is maintained -- creating projects, copying
+    % one whose settings already work into the study that follows it, moving
     % subjects between them, retiring finished animals, and importing subjects
     % out of existing .ecfg files.
     %
@@ -167,7 +168,7 @@ classdef SubjectManager < handle
     methods (Access = private)
         buildUI(self)
         tf = ensureRoster_(self, action)
-        P = projectDialog_(self, seed)
+        P = projectDialog_(self, seed, options)
         onImportFromConfig_(self)
         onUpdateProtocol_(self, scope, options)
         onRevertProtocol_(self)
@@ -619,6 +620,11 @@ classdef SubjectManager < handle
             self.H.btnEditProject.Enable   = onoff(writable && inProject);
             self.H.mnu_edit_project.Enable = self.H.btnEditProject.Enable;
             self.H.tb_edit_project.Enable  = self.H.btnEditProject.Enable;
+            % Copy needs a project to copy, so it is gated like Edit rather
+            % than like New: an unbound roster has nothing selected anyway.
+            self.H.btnCopyProject.Enable   = onoff(writable && inProject);
+            self.H.mnu_copy_project.Enable = self.H.btnCopyProject.Enable;
+            self.H.tb_copy_project.Enable  = self.H.btnCopyProject.Enable;
             self.H.btnDeleteProject.Enable = onoff(writable && inProject);
             self.H.mnu_delete_project.Enable = self.H.btnDeleteProject.Enable;
             self.H.tb_delete_project.Enable  = self.H.btnDeleteProject.Enable;
@@ -1365,6 +1371,103 @@ classdef SubjectManager < handle
 
             self.refresh();
             self.setStatus_(sprintf('Updated project "%s".', P.Name));
+        end
+
+        function onCopyProject_(self)
+            % Start a project from one that already works.
+            %
+            % Two dialogs, in this order on purpose: what to do about the
+            % subjects is asked first, because it is the only question the edit
+            % dialog cannot show, and then the copy itself is put up for editing
+            % before a single record is written -- the operator names it, points
+            % it at next phase's protocol, and sees every inherited setting.
+            id = self.selectedProject_();
+            if isempty(id), return, end
+
+            src = self.Roster.findProject(id);
+            if isempty(src), return, end
+
+            nActive  = numel(self.Roster.subjectsInProject(id));
+            nRetired = numel(self.Roster.subjectsInProject(id, IncludeRetired = true)) - nActive;
+
+            % Nothing to decide when the project is empty, so it is not asked.
+            withSubjects = false;
+            if nActive > 0
+                msg = sprintf(['Copy "%s" into a new project: its notes, default ' ...
+                    'protocol, and every session default come along.\n\nIts %d ' ...
+                    'active subject(s) can come too. They stay in "%s" as well -- ' ...
+                    'a subject can be in both -- and each keeps the protocol it ' ...
+                    'is on.'], src.Name, nActive, src.Name);
+                if nRetired > 0
+                    msg = sprintf(['%s\n\n%d retired member(s) are left behind ' ...
+                        'either way.'], msg, nRetired);
+                end
+
+                answer = uiconfirm(self.H.figure, msg, 'Copy Project', ...
+                    'Options', {'Copy with Subjects','Settings Only','Cancel'}, ...
+                    'DefaultOption','Copy with Subjects', 'CancelOption','Cancel', ...
+                    'Icon','question');
+                if strcmp(answer,'Cancel'), return, end
+                withSubjects = strcmp(answer,'Copy with Subjects');
+            end
+
+            seed = src;
+            seed.Name = self.uniqueProjectName_(src.Name);
+            % A copy is made to start work; inheriting Archived would hide it.
+            seed.Archived = false;
+
+            P = self.projectDialog_(seed, Title = 'Copy Project');
+            if isempty(P), return, end
+
+            try
+                newId = self.Roster.copyProject(id, P.Name, ...
+                    IncludeSubjects = withSubjects, ...
+                    Notes = P.Notes, ...
+                    Investigator = P.Investigator, ...
+                    IACUCProtocol = P.IACUCProtocol, ...
+                    DefaultProtocol = P.DefaultProtocol, ...
+                    DefaultDataPath = P.DefaultDataPath, ...
+                    SavingFcn = P.SavingFcn, ...
+                    TimerPeriod = P.TimerPeriod, ...
+                    VideoRootDir = P.VideoRootDir, ...
+                    IntanRootDir = P.IntanRootDir, ...
+                    IntanSettingsFile = P.IntanSettingsFile, ...
+                    BehaviorGUI = P.BehaviorGUI, ...
+                    Links = P.Links, ...
+                    Archived = P.Archived);
+            catch ME
+                vprintf(0, 1, ME);
+                uialert(self.H.figure, ME.message, 'Copy Project', 'Icon','error');
+                return
+            end
+
+            self.refresh();
+            % Programmatic selection, so rememberProject_ is called explicitly
+            % rather than through the listbox callback.
+            self.H.projectList.Value = newId;
+            self.rememberProject_();
+            self.refresh();
+
+            if withSubjects
+                self.setStatus_(sprintf('Copied "%s" to "%s" with %d subject(s).', ...
+                    src.Name, P.Name, numel(self.Roster.subjectsInProject(newId))));
+            else
+                self.setStatus_(sprintf('Copied the settings of "%s" to "%s".', ...
+                    src.Name, P.Name));
+            end
+        end
+
+        function name = uniqueProjectName_(self, base)
+            % A name the copy dialog can open on: "Study" -> "Study (copy)",
+            % then "Study (copy 2)". Proposed rather than imposed -- the
+            % operator renames it in the dialog -- but it must not collide, or
+            % the first thing they see is a duplicate-name warning.
+            name = sprintf('%s (copy)', base);
+            n = 2;
+            while ~isempty(self.Roster.findProject(name))
+                name = sprintf('%s (copy %d)', base, n);
+                n = n + 1;
+            end
         end
 
         function onDeleteProject_(self)

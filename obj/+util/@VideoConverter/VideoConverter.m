@@ -14,7 +14,8 @@ classdef VideoConverter < handle
     %
     % WORKFLOW
     %   c = util.VideoConverter(RootFolder="D:\data", MaxParallel=2);
-    %   files = c.scan();             % populates c.Results
+    %   files = c.scan();             % populates c.Results (all rows selected)
+    %   c.select(3, false);           % optional: leave file 3 out of the batch
     %   c.convert();                  % asynchronous; returns immediately
     %   c.waitUntilDone();            % or: listen to the Progress event
     %
@@ -39,6 +40,7 @@ classdef VideoConverter < handle
 
     properties (SetAccess = private)
         Results table              % one row per scanned file; see util.VideoConverter.emptyResults
+                                   % (the Selected column is written through select())
         IsRunning (1,1) logical = false
     end
 
@@ -151,6 +153,39 @@ classdef VideoConverter < handle
             obj.ffprobe_ = probe;
         end
 
+        function select(obj, rows, tf)
+            % obj.select(mask)          -- logical mask, one element per Results row
+            % obj.select(rows, tf)      -- set the given row indices to tf
+            % Choose which scanned files convert() will run. A deselected row
+            % is not part of the batch at all: it is never queued, and it is
+            % left out of the progress accounting rather than sitting at 0%
+            % and holding the overall percentage down forever.
+            %
+            % Selection is per scan -- scan() rebuilds Results with every row
+            % selected -- and cannot be changed while a batch is running,
+            % since the queue is built once at convert().
+            arguments
+                obj (1,1) util.VideoConverter
+                rows
+                tf (1,1) logical = true
+            end
+            if obj.IsRunning
+                vprintf(0, 1, 'util.VideoConverter: cannot change the selection while converting.');
+                return
+            end
+            n = height(obj.Results);
+            if islogical(rows) && numel(rows) == n && nargin < 3
+                obj.Results.Selected = rows(:);
+                return
+            end
+            rows = rows(:);
+            if any(rows < 1 | rows > n | mod(rows,1) ~= 0)
+                error('util:VideoConverter:BadRow', ...
+                    'select: row indices must be integers in 1..%d.', n);
+            end
+            obj.Results.Selected(rows) = tf;
+        end
+
         function delete(obj)
             % Ensure owned ffmpeg processes and temp files do not outlive the object.
             try
@@ -177,7 +212,7 @@ classdef VideoConverter < handle
                 jobs = jobs([]);
             end
             obj.jobs_ = jobs;
-            obj.queue_ = find(T.Status == 'pending')';
+            obj.queue_ = find(T.Status == 'pending' & T.Selected)';
         end
 
         function job = initJob_(~, src, dst)
@@ -580,18 +615,22 @@ classdef VideoConverter < handle
 
         function emitProgress_(obj, stage, jobIndex)
             T = obj.Results;
-            numJobs = height(T);
+            % A deselected row is not a job: counting it would keep the
+            % overall percentage below 100 for a batch that has finished
+            % everything it was ever going to do.
+            B = T(T.Selected, :);
+            numJobs = height(B);
             if numJobs == 0
                 numDone = 0; numFailed = 0; numRunning = 0; overallPct = NaN;
             else
-                numDone = nnz(ismember(T.Status, {'done','skipped','dryrun'}));
-                numFailed = nnz(T.Status == 'failed');
-                numRunning = nnz(T.Status == 'running');
-                pcts = double(T.Percent);
-                finishedMask = ismember(T.Status, {'done','skipped','dryrun','cancelled'});
+                numDone = nnz(ismember(B.Status, {'done','skipped','dryrun'}));
+                numFailed = nnz(B.Status == 'failed');
+                numRunning = nnz(B.Status == 'running');
+                pcts = double(B.Percent);
+                finishedMask = ismember(B.Status, {'done','skipped','dryrun','cancelled'});
                 pcts(finishedMask) = 100;
                 pcts(isnan(pcts)) = 0;
-                w = double(T.DurationSec);
+                w = double(B.DurationSec);
                 w(~isfinite(w) | w <= 0) = 1;
                 overallPct = sum(w .* min(max(pcts,0),100)) / sum(w);
             end
@@ -611,7 +650,8 @@ classdef VideoConverter < handle
                 'Fps', NaN, 'Speed', NaN, 'ElapsedSeconds', elapsed, 'EtaSeconds', etaSec, ...
                 'Status', "", 'Message', "");
 
-            if isfinite(jobIndex) && jobIndex >= 1 && jobIndex <= numJobs
+            % JobIndex is a row of Results, not of the selected subset above.
+            if isfinite(jobIndex) && jobIndex >= 1 && jobIndex <= height(T)
                 k = jobIndex;
                 s.JobIndex = k;
                 s.SourceFile = T.SourceFile(k);

@@ -14,12 +14,18 @@ classdef VideoConverterSetup < handle
     %   Parent        handle  (default = [])  Embed in an existing container;
     %                                         otherwise a new uifigure is owned.
     %   WindowStyle   string  "normal"|"alwaysontop"|"modal" (Parent=[] only)
-    %   PersistPrefs  logical (default = true) Persist window position (and
-    %                                          nothing else) to getpref/setpref
-    %                                          group 'ep_VideoConverter'.
+    %   PersistPrefs  logical (default = true) Remember the window position
+    %                                          and the settings (see
+    %                                          PrefFields) between sessions,
+    %                                          in getpref/setpref group
+    %                                          'ep_VideoConverter'.
     %
     % Note: the GUI configures and drives the Converter you pass in, but does
     % not own its lifetime -- closing the GUI never cancels or deletes it.
+    %
+    % A remembered setting is applied only where the caller left the property
+    % at its class default, so util.VideoConverter(MaxParallel=4) still gets 4.
+    % Reset puts every setting back to util.VideoConverter's own defaults.
     %
     % Documentation: documentation/util/VideoConverter.md
     % See also util.VideoConverter, uifigure
@@ -65,6 +71,7 @@ classdef VideoConverterSetup < handle
         ScanButton
         ConvertButton
         CancelButton
+        ResetButton
         OverallLabel
         StatusLabel
 
@@ -80,6 +87,28 @@ classdef VideoConverterSetup < handle
         PresetNames = ["H.264 archive (CRF 18, medium)", "H.264 compact (CRF 23, faster)", ...
             "H.264 preview (CRF 28, veryfast, 0.5x)", "Remux (stream copy)", ...
             "Strip audio (H.264)", "Custom"]
+
+        X264Presets = ["ultrafast","superfast","veryfast","faster","fast", ...
+            "medium","slow","slower","veryslow"]
+
+        % Converter properties remembered between sessions, under the
+        % 'ep_VideoConverter' preference group. DeleteSource and DryRun are
+        % deliberately absent: a destructive option and a preview mode are
+        % decisions for the batch in front of the operator, never inherited
+        % from whatever they happened to be doing last week.
+        PrefFields = ["RootFolder","FilePattern","ExcludePattern","Recursive", ...
+            "OutputFolder","MirrorTree","NameSuffix","OutputExtension", ...
+            "VideoCodec","x264Crf","x264Preset","AudioCodec", ...
+            "OutputFrameRate","VideoScale","Range","Overwrite","MaxParallel"]
+
+        % Restored by Reset. The two folders are deliberately absent: they
+        % are where this batch reads and writes, not a setting with a
+        % recommended value, and losing a typed path to a Reset would be
+        % worse than anything the button fixes.
+        ResetFields = ["FilePattern","ExcludePattern","Recursive","MirrorTree", ...
+            "NameSuffix","OutputExtension","VideoCodec","x264Crf","x264Preset", ...
+            "AudioCodec","OutputFrameRate","VideoScale","Range","Overwrite", ...
+            "MaxParallel","DeleteSource","DryRun"]
 
         % Side-column geometry. The panels are a fixed-height stack inside a
         % scrollable column, so each one's height is derived from its own row
@@ -103,6 +132,11 @@ classdef VideoConverterSetup < handle
             obj.Converter = Converter;
             obj.Parent = options.Parent;
             obj.PersistPrefs_ = options.PersistPrefs;
+
+            % Restore remembered settings into the Converter BEFORE the
+            % widgets read it, so there is still exactly one path from
+            % converter state to what is on screen.
+            obj.applySavedPrefs_();
 
             obj.createUI(options.WindowStyle);
             obj.initFromConverter();
@@ -163,14 +197,22 @@ classdef VideoConverterSetup < handle
             obj.FileTable = uitable(obj.RootGrid, 'Tag', 'VideoConverterSetup_FileTable');
             obj.FileTable.Layout.Row = 1;
             obj.FileTable.Layout.Column = 1;
-            obj.FileTable.ColumnName = {'Source','Output','Dur','Size','Status','%'};
-            % The five right-hand columns hold short, bounded strings, so give
-            % them exactly what they need and let the two path columns share
-            % the rest: everything stays visible without a horizontal scroll.
-            obj.FileTable.ColumnWidth = {'1x','1x',60,80,90,50};
-            obj.FileTable.ColumnEditable = [false false false false false false];
-            obj.FileTable.Data = table(strings(0,1), strings(0,1), strings(0,1), strings(0,1), strings(0,1), strings(0,1), ...
-                'VariableNames', {'Source','Output','Dur','Size','Status','Percent'});
+            % 'Convert' over the tick column, 'Do' as its variable name: the
+            % header has to say what ticking means, the way '%' already sits
+            % over the variable named Percent.
+            obj.FileTable.ColumnName = {'Convert','Source','Output','Dur','Size','Status','%'};
+            % The right-hand columns hold short, bounded strings, so give them
+            % exactly what they need and let the two path columns share the
+            % rest: everything stays visible without a horizontal scroll.
+            obj.FileTable.ColumnWidth = {60,'1x','1x',60,80,90,50};
+            % Only the tick is editable -- a logical column renders as a
+            % checkbox, which is the whole point of keeping it a table.
+            obj.FileTable.ColumnEditable = [true false false false false false false];
+            obj.FileTable.Data = table(true(0,1), strings(0,1), strings(0,1), strings(0,1), strings(0,1), strings(0,1), strings(0,1), ...
+                'VariableNames', {'Do','Source','Output','Dur','Size','Status','Percent'});
+            obj.FileTable.SelectionType = 'row';
+            obj.FileTable.CellEditCallback = @(s,e) obj.onFileTableEdit(s,e);
+            obj.buildFileTableMenu_();
 
             % --- Side column (scrollable) ---
             obj.SideGrid = uigridlayout(obj.RootGrid, [4 1]);
@@ -196,17 +238,23 @@ classdef VideoConverterSetup < handle
             end
 
             % --- Bottom row: actions + overall progress ---
-            bottomGrid = uigridlayout(obj.RootGrid, [1 4]);
+            bottomGrid = uigridlayout(obj.RootGrid, [1 5]);
             bottomGrid.Layout.Row = 2;
             bottomGrid.Layout.Column = [1 2];
-            bottomGrid.ColumnWidth = {90, 90, 90, '1x'};
+            bottomGrid.ColumnWidth = {90, 90, 90, 90, '1x'};
             bottomGrid.Padding = [0 0 0 0];
             bottomGrid.ColumnSpacing = 8;
 
             obj.ScanButton = uibutton(bottomGrid, 'Text', 'Scan', 'Tag', 'VideoConverterSetup_ScanButton');
             obj.ConvertButton = uibutton(bottomGrid, 'Text', 'Convert', 'Tag', 'VideoConverterSetup_ConvertButton');
             obj.CancelButton = uibutton(bottomGrid, 'Text', 'Cancel', 'Tag', 'VideoConverterSetup_CancelButton', 'Enable', 'off');
+            obj.ResetButton = uibutton(bottomGrid, 'Text', 'Reset', 'Tag', 'VideoConverterSetup_ResetButton');
             obj.OverallLabel = uilabel(bottomGrid, 'Text', '', 'HorizontalAlignment', 'right', 'Tag', 'VideoConverterSetup_OverallLabel');
+
+            obj.ScanButton.Tooltip = 'Search the root folder for matching videos and plan an output path for each one. Re-scanning discards the current list.';
+            obj.ConvertButton.Tooltip = 'Convert every file still listed as pending. Runs in the background -- the window stays usable.';
+            obj.CancelButton.Tooltip = 'Stop the batch: running ffmpeg processes are killed and their partial files discarded. Files already finished are kept.';
+            obj.ResetButton.Tooltip = 'Restore every setting to its recommended default. The root and output folders are left alone.';
 
             % --- Status line ---
             obj.StatusLabel = uilabel(obj.RootGrid, 'Text', '', 'FontColor', [0.20 0.20 0.20]);
@@ -216,6 +264,7 @@ classdef VideoConverterSetup < handle
             obj.ScanButton.ButtonPushedFcn = @(s,e) obj.onScan(s,e);
             obj.ConvertButton.ButtonPushedFcn = @(s,e) obj.onConvert(s,e);
             obj.CancelButton.ButtonPushedFcn = @(s,e) obj.onCancel(s,e);
+            obj.ResetButton.ButtonPushedFcn = @(s,e) obj.onReset(s,e);
         end
 
         function g = panelGrid_(obj, p, nRows)
@@ -271,21 +320,33 @@ classdef VideoConverterSetup < handle
             g = obj.panelGrid_(p, 4);
             g.ColumnWidth = {80, '1x'};
 
-            uilabel(g, 'Text', 'Root folder');
+            rootLabel = uilabel(g, 'Text', 'Root folder');
             rootRow = uigridlayout(g, [1 2]);
             rootRow.ColumnWidth = {'1x', 70};
             rootRow.Padding = [0 0 0 0];
             obj.RootFolderField = uieditfield(rootRow, 'text', 'Tag', 'VideoConverterSetup_RootFolderField');
             obj.BrowseRootButton = uibutton(rootRow, 'Text', 'Browse', 'Tag', 'VideoConverterSetup_BrowseRootButton');
 
-            uilabel(g, 'Text', 'Pattern');
+            patternLabel = uilabel(g, 'Text', 'Pattern');
             obj.PatternField = uieditfield(g, 'text', 'Tag', 'VideoConverterSetup_PatternField');
 
-            uilabel(g, 'Text', 'Exclude');
+            excludeLabel = uilabel(g, 'Text', 'Exclude');
             obj.ExcludeField = uieditfield(g, 'text', 'Tag', 'VideoConverterSetup_ExcludeField');
 
             uilabel(g, 'Text', '');
             obj.RecursiveCheckBox = uicheckbox(g, 'Text', 'Recursive', 'Tag', 'VideoConverterSetup_RecursiveCheckBox');
+
+            obj.tip_('Top of the folder tree to search for source videos.', ...
+                rootLabel, obj.RootFolderField);
+            obj.BrowseRootButton.Tooltip = 'Choose the folder to search.';
+            obj.tip_(['Regular expression a file NAME must match to be included. ' ...
+                'The default matches the common video extensions, case-insensitively.'], ...
+                patternLabel, obj.PatternField);
+            obj.tip_(['Regular expression that drops a file even when it matches Pattern. ' ...
+                'The default keeps already-converted "_conv" outputs and leftover ".part" ' ...
+                'sidecars out of a re-scan.'], ...
+                excludeLabel, obj.ExcludeField);
+            obj.RecursiveCheckBox.Tooltip = 'Search subfolders of the root folder as well.';
 
             obj.RootFolderField.ValueChangedFcn = @(s,e) obj.onSourceOptionChanged(s,e);
             obj.BrowseRootButton.ButtonPushedFcn = @(s,e) obj.onBrowseRoot(s,e);
@@ -300,36 +361,64 @@ classdef VideoConverterSetup < handle
             g = obj.panelGrid_(p, 8);
             g.ColumnWidth = {100, '1x'};
 
-            uilabel(g, 'Text', 'Preset');
+            presetLabel = uilabel(g, 'Text', 'Preset');
             obj.PresetDropDown = uidropdown(g, 'Items', cellstr(obj.PresetNames), 'Tag', 'VideoConverterSetup_PresetDropDown');
 
-            uilabel(g, 'Text', 'Video codec');
+            codecLabel = uilabel(g, 'Text', 'Video codec');
             obj.VideoCodecDropDown = uidropdown(g, 'Items', {'x264','mpeg4','copy','none'}, 'Tag', 'VideoConverterSetup_VideoCodecDropDown');
 
-            uilabel(g, 'Text', 'CRF');
+            crfLabel = uilabel(g, 'Text', 'CRF');
             obj.CrfSpinner = uispinner(g, 'Limits', [1 51], 'RoundFractionalValues', 'on', 'Tag', 'VideoConverterSetup_CrfSpinner');
 
-            uilabel(g, 'Text', 'x264 preset');
+            x264Label = uilabel(g, 'Text', 'x264 preset');
             obj.X264PresetDropDown = uidropdown(g, ...
-                'Items', {'ultrafast','superfast','veryfast','faster','fast','medium','slow','slower','veryslow'}, ...
+                'Items', cellstr(obj.X264Presets), ...
                 'Tag', 'VideoConverterSetup_X264PresetDropDown');
 
-            uilabel(g, 'Text', 'Audio codec');
+            audioLabel = uilabel(g, 'Text', 'Audio codec');
             obj.AudioCodecDropDown = uidropdown(g, 'Items', {'aac','mp3','wav','copy','none'}, 'Tag', 'VideoConverterSetup_AudioCodecDropDown');
 
-            uilabel(g, 'Text', 'Frame rate');
+            fpsLabel = uilabel(g, 'Text', 'Frame rate');
             obj.FrameRateSpinner = uispinner(g, 'Limits', [0 240], 'RoundFractionalValues', 'on', ...
                 'ValueDisplayFormat', '%d fps (0=source)', 'Tag', 'VideoConverterSetup_FrameRateSpinner');
 
-            uilabel(g, 'Text', 'Scale');
+            scaleLabel = uilabel(g, 'Text', 'Scale');
             obj.ScaleSpinner = uispinner(g, 'Limits', [0.05 4], 'Step', 0.05, ...
                 'ValueDisplayFormat', '%.2fx', 'Tag', 'VideoConverterSetup_ScaleSpinner');
 
-            uilabel(g, 'Text', 'Range (s)');
+            rangeLabel = uilabel(g, 'Text', 'Range (s)');
             rangeRow = uigridlayout(g, [1 2]);
             rangeRow.Padding = [0 0 0 0];
             obj.RangeStartField = uieditfield(rangeRow, 'numeric', 'Limits', [0 Inf], 'Tag', 'VideoConverterSetup_RangeStartField');
             obj.RangeStopField = uieditfield(rangeRow, 'numeric', 'Limits', [0 Inf], 'Tag', 'VideoConverterSetup_RangeStopField');
+
+            obj.tip_(['A named starting point for the settings below. Changing any one ' ...
+                'of them switches this to "Custom"; the preset is not re-applied.'], ...
+                presetLabel, obj.PresetDropDown);
+            obj.tip_(['x264 = H.264 re-encode. mpeg4 = older MPEG-4 Part 2. ' ...
+                'copy = keep the existing video stream untouched (fast and lossless, ' ...
+                'but nothing can be scaled or re-encoded). none = drop the video.'], ...
+                codecLabel, obj.VideoCodecDropDown);
+            obj.tip_(['x264 constant rate factor: lower means better quality and a bigger ' ...
+                'file. 18 is visually lossless, 23 is ffmpeg''s default, 28 is preview ' ...
+                'quality. Applies to the x264 codec only.'], ...
+                crfLabel, obj.CrfSpinner);
+            obj.tip_(['Encoder speed against compression. A slower preset takes longer to ' ...
+                'produce a smaller file at the same CRF -- it does not change quality. ' ...
+                'Applies to the x264 codec only.'], ...
+                x264Label, obj.X264PresetDropDown);
+            obj.tip_(['aac / mp3 / wav re-encode the audio track. copy passes it through ' ...
+                'untouched. none drops it.'], ...
+                audioLabel, obj.AudioCodecDropDown);
+            obj.tip_('Output frames per second. 0 keeps each source''s own rate.', ...
+                fpsLabel, obj.FrameRateSpinner);
+            obj.tip_(['Resize factor for both dimensions, so 0.50x is a quarter of the area. ' ...
+                '1.00x leaves the size alone. Resizing needs a re-encode, so this is forced ' ...
+                'back to 1.00x when the video codec is "copy".'], ...
+                scaleLabel, obj.ScaleSpinner);
+            obj.tip_(['Start and stop time in seconds, cut from every source video. ' ...
+                'Leave both at 0 (or stop at or before start) to convert whole files.'], ...
+                rangeLabel, obj.RangeStartField, obj.RangeStopField);
 
             obj.PresetDropDown.ValueChangedFcn = @(s,e) obj.onPresetChanged(s,e);
             obj.VideoCodecDropDown.ValueChangedFcn = @(s,e) obj.onVideoCodecChanged(s,e);
@@ -351,7 +440,7 @@ classdef VideoConverterSetup < handle
             uilabel(g, 'Text', '');
             obj.AlongsideCheckBox = uicheckbox(g, 'Text', 'Alongside source', 'Tag', 'VideoConverterSetup_AlongsideCheckBox');
 
-            uilabel(g, 'Text', 'Folder');
+            folderLabel = uilabel(g, 'Text', 'Folder');
             outRow = uigridlayout(g, [1 2]);
             outRow.ColumnWidth = {'1x', 70};
             outRow.Padding = [0 0 0 0];
@@ -361,12 +450,24 @@ classdef VideoConverterSetup < handle
             uilabel(g, 'Text', '');
             obj.MirrorTreeCheckBox = uicheckbox(g, 'Text', 'Mirror folder tree', 'Tag', 'VideoConverterSetup_MirrorTreeCheckBox');
 
-            uilabel(g, 'Text', 'Suffix / Ext');
+            suffixLabel = uilabel(g, 'Text', 'Suffix / Ext');
             sufRow = uigridlayout(g, [1 2]);
             sufRow.ColumnWidth = {'1x', 80};
             sufRow.Padding = [0 0 0 0];
             obj.NameSuffixField = uieditfield(sufRow, 'text', 'Tag', 'VideoConverterSetup_NameSuffixField');
             obj.OutputExtensionDropDown = uidropdown(sufRow, 'Items', {'.mp4','.avi','.mkv','.ts'}, 'Tag', 'VideoConverterSetup_OutputExtensionDropDown');
+
+            obj.AlongsideCheckBox.Tooltip = ['Write each converted file next to its source ' ...
+                'instead of into an output folder.'];
+            obj.tip_('Destination root for the converted files.', folderLabel, obj.OutputFolderField);
+            obj.BrowseOutputButton.Tooltip = 'Choose the output folder.';
+            obj.MirrorTreeCheckBox.Tooltip = ['Recreate the source subfolder structure under ' ...
+                'the output folder. Without it every output lands in that one folder, where ' ...
+                'same-named files from different subfolders would collide.'];
+            obj.tip_(['Text appended to each output file name, and the container the output ' ...
+                'is written in. A non-empty suffix is what stops an output overwriting its ' ...
+                'own source when the two share a folder and an extension.'], ...
+                suffixLabel, obj.NameSuffixField, obj.OutputExtensionDropDown);
 
             obj.AlongsideCheckBox.ValueChangedFcn = @(s,e) obj.onAlongsideToggled(s,e);
             obj.OutputFolderField.ValueChangedFcn = @(s,e) obj.onOutputOptionChanged(s,e);
@@ -382,10 +483,10 @@ classdef VideoConverterSetup < handle
             g = obj.panelGrid_(p, 4);
             g.ColumnWidth = {100, '1x'};
 
-            uilabel(g, 'Text', 'On conflict');
+            conflictLabel = uilabel(g, 'Text', 'On conflict');
             obj.OverwriteDropDown = uidropdown(g, 'Items', {'skip','overwrite','error'}, 'Tag', 'VideoConverterSetup_OverwriteDropDown');
 
-            uilabel(g, 'Text', 'Parallel jobs');
+            parallelLabel = uilabel(g, 'Text', 'Parallel jobs');
             obj.MaxParallelSpinner = uispinner(g, 'Limits', [1 8], 'RoundFractionalValues', 'on', 'Tag', 'VideoConverterSetup_MaxParallelSpinner');
 
             uilabel(g, 'Text', '');
@@ -394,6 +495,18 @@ classdef VideoConverterSetup < handle
 
             uilabel(g, 'Text', '');
             obj.DryRunCheckBox = uicheckbox(g, 'Text', 'Dry run (preview only)', 'Tag', 'VideoConverterSetup_DryRunCheckBox');
+
+            obj.tip_(['What to do when the planned output file already exists: leave it and ' ...
+                'skip that source, overwrite it, or stop with an error.'], ...
+                conflictLabel, obj.OverwriteDropDown);
+            obj.tip_(['How many files are converted at once. More is faster only until the ' ...
+                'CPU saturates -- each x264 encode is already multithreaded.'], ...
+                parallelLabel, obj.MaxParallelSpinner);
+            obj.DeleteSourceCheckBox.Tooltip = ['Delete each source file once its output has ' ...
+                'been written and verified. There is no undo, and this is never remembered ' ...
+                'between sessions.'];
+            obj.DryRunCheckBox.Tooltip = ['List every conversion and its output path without ' ...
+                'running ffmpeg. Use it to check the file list before committing to a batch.'];
 
             obj.OverwriteDropDown.ValueChangedFcn = @(s,e) obj.onRunOptionChanged(s,e);
             obj.MaxParallelSpinner.ValueChangedFcn = @(s,e) obj.onRunOptionChanged(s,e);
@@ -411,7 +524,7 @@ classdef VideoConverterSetup < handle
 
             obj.VideoCodecDropDown.Value = char(c.VideoCodec);
             obj.CrfSpinner.Value = c.x264Crf;
-            obj.X264PresetDropDown.Value = char(c.x264Preset);
+            obj.setDropDownValue_(obj.X264PresetDropDown, c.x264Preset);
             obj.AudioCodecDropDown.Value = char(c.AudioCodec);
             obj.FrameRateSpinner.Value = obj.scalarOrZero_(c.OutputFrameRate);
             obj.ScaleSpinner.Value = obj.scalarOrDefault_(c.VideoScale, 1);
@@ -429,11 +542,7 @@ classdef VideoConverterSetup < handle
             obj.OutputFolderField.Value = char(c.OutputFolder);
             obj.MirrorTreeCheckBox.Value = c.MirrorTree;
             obj.NameSuffixField.Value = char(c.NameSuffix);
-            ext = char(c.OutputExtension);
-            if ~any(strcmp(obj.OutputExtensionDropDown.Items, ext))
-                obj.OutputExtensionDropDown.Items = [obj.OutputExtensionDropDown.Items, {ext}];
-            end
-            obj.OutputExtensionDropDown.Value = ext;
+            obj.setDropDownValue_(obj.OutputExtensionDropDown, c.OutputExtension);
             obj.updateOutputEnable_();
 
             obj.OverwriteDropDown.Value = char(c.Overwrite);
@@ -456,6 +565,85 @@ classdef VideoConverterSetup < handle
             else
                 v = v(1);
             end
+        end
+
+        function tip_(~, txt, varargin)
+            % Put one explanation on a form row's label AND on the controls it
+            % names. A 80-100 px label is a poor hover target, and the control
+            % is what an operator actually points at, so neither alone is
+            % enough -- but they must never say two different things.
+            for k = 1:numel(varargin)
+                varargin{k}.Tooltip = txt;
+            end
+        end
+
+        function setDropDownValue_(~, dd, v)
+            % Show a value the Items list does not offer rather than erroring
+            % on it: a remembered or scripted setting (an unusual container, a
+            % newer x264 preset) is legitimate even though this GUI only lists
+            % the common ones.
+            v = char(v);
+            if ~any(strcmp(dd.Items, v))
+                dd.Items = [dd.Items, {v}];
+            end
+            dd.Value = v;
+        end
+
+        function d = classDefault_(~, name)
+            % The recommended value for a converter property IS the default
+            % util.VideoConverter declares for it. Read it from the class so
+            % this GUI cannot drift from the class it configures.
+            persistent props
+            if isempty(props)
+                mc = ?util.VideoConverter;
+                props = mc.PropertyList;
+            end
+            p = props(strcmp({props.Name}, name));
+            if isempty(p) || ~p.HasDefault
+                error('gui:VideoConverterSetup:NoDefault', ...
+                    'util.VideoConverter.%s declares no default value.', name);
+            end
+            d = p.DefaultValue;
+        end
+
+        function applySavedPrefs_(obj)
+            % Restore the settings this operator last used -- but only where
+            % the caller left the property at its class default. A converter
+            % constructed with MaxParallel=4 meant 4, and a value remembered
+            % from last week must not quietly override code that asked for
+            % something.
+            if ~obj.PersistPrefs_
+                return
+            end
+            s = getpref('ep_VideoConverter', 'Settings', struct());
+            for f = obj.PrefFields
+                if ~isfield(s, f)
+                    continue
+                end
+                try
+                    if isequal(obj.Converter.(f), obj.classDefault_(f))
+                        obj.Converter.(f) = s.(f);
+                    end
+                catch ME
+                    % A stale or hand-edited preference must cost one setting,
+                    % not the window.
+                    vprintf(1, 'VideoConverterSetup: ignoring remembered %s -- %s', f, ME.message);
+                end
+            end
+        end
+
+        function savePrefs_(obj)
+            % Remember the current settings for the next session. Called from
+            % every path that writes to the Converter, so what is remembered
+            % is always what the operator last saw.
+            if ~obj.PersistPrefs_
+                return
+            end
+            s = struct();
+            for f = obj.PrefFields
+                s.(f) = obj.Converter.(f);
+            end
+            setpref('ep_VideoConverter', 'Settings', s);
         end
 
         % ---------------- callbacks ----------------
@@ -491,6 +679,7 @@ classdef VideoConverterSetup < handle
             obj.Converter.FilePattern = string(obj.PatternField.Value);
             obj.Converter.ExcludePattern = string(obj.ExcludeField.Value);
             obj.Converter.Recursive = obj.RecursiveCheckBox.Value;
+            obj.savePrefs_();
         end
 
         function onPresetChanged(obj, ~, ~)
@@ -562,6 +751,7 @@ classdef VideoConverterSetup < handle
             else
                 c.Range = [];
             end
+            obj.savePrefs_();
         end
 
         function updateEncodingEnable_(obj)
@@ -584,6 +774,7 @@ classdef VideoConverterSetup < handle
                 obj.Converter.OutputFolder = string(obj.OutputFolderField.Value);
             end
             obj.updateOutputEnable_();
+            obj.savePrefs_();
         end
 
         function onOutputOptionChanged(obj, ~, ~)
@@ -593,6 +784,7 @@ classdef VideoConverterSetup < handle
             obj.Converter.MirrorTree = obj.MirrorTreeCheckBox.Value;
             obj.Converter.NameSuffix = string(obj.NameSuffixField.Value);
             obj.Converter.OutputExtension = string(obj.OutputExtensionDropDown.Value);
+            obj.savePrefs_();
         end
 
         function updateOutputEnable_(obj)
@@ -607,6 +799,20 @@ classdef VideoConverterSetup < handle
             obj.Converter.MaxParallel = obj.MaxParallelSpinner.Value;
             obj.Converter.DeleteSource = obj.DeleteSourceCheckBox.Value;
             obj.Converter.DryRun = obj.DryRunCheckBox.Value;
+            obj.savePrefs_();
+        end
+
+        function onReset(obj, ~, ~)
+            % Put every setting back to util.VideoConverter's own defaults.
+            % The folders are left alone: they are this batch's addresses, not
+            % settings, and losing a typed path here would be worse than
+            % anything the button fixes.
+            for f = obj.ResetFields
+                obj.Converter.(f) = obj.classDefault_(f);
+            end
+            obj.initFromConverter();   % widgets follow the converter, one path only
+            obj.savePrefs_();
+            obj.setStatus('Settings restored to their recommended defaults; folders kept.');
         end
 
         function onScan(obj, ~, ~)
@@ -629,6 +835,13 @@ classdef VideoConverterSetup < handle
                     obj.setStatus('No files matched; nothing to convert.', true);
                     return
                 end
+            end
+            % Checked before the controls are disabled: convert() returns
+            % without starting a batch, so no 'finished' event would ever
+            % arrive to enable them again.
+            if ~any(obj.Converter.Results.Selected)
+                obj.setStatus('No files are ticked for conversion.', true);
+                return
             end
             obj.setControlsEnabled_(false);
             obj.Converter.convert();
@@ -699,9 +912,101 @@ classdef VideoConverterSetup < handle
             pctS = compose("%.0f", pct);
             pctS(isnan(pct)) = "-";
 
-            data = table(src, out, durS, sizeS, statusS, pctS, ...
-                'VariableNames', {'Source','Output','Dur','Size','Status','Percent'});
+            data = table(logical(T.Selected), src, out, durS, sizeS, statusS, pctS, ...
+                'VariableNames', {'Do','Source','Output','Dur','Size','Status','Percent'});
             obj.FileTable.Data = data;
+        end
+
+        function buildFileTableMenu_(obj)
+            % Right-click menu on the file list: what to convert, and a way to
+            % look at a file before deciding.
+            m = uicontextmenu(ancestor(obj.Parent, 'figure'));
+            uimenu(m, 'Text', 'Open Video', 'MenuSelectedFcn', @(s,e) obj.onOpenFile('source'));
+            uimenu(m, 'Text', 'Open Converted Video', 'MenuSelectedFcn', @(s,e) obj.onOpenFile('output'));
+            uimenu(m, 'Text', 'Open Containing Folder', 'MenuSelectedFcn', @(s,e) obj.onOpenFile('folder'));
+            uimenu(m, 'Text', 'Include Highlighted Rows', 'Separator', 'on', ...
+                'MenuSelectedFcn', @(s,e) obj.onSelectRows('rows', true));
+            uimenu(m, 'Text', 'Exclude Highlighted Rows', 'MenuSelectedFcn', @(s,e) obj.onSelectRows('rows', false));
+            uimenu(m, 'Text', 'Include All Files', 'Separator', 'on', ...
+                'MenuSelectedFcn', @(s,e) obj.onSelectRows('all', true));
+            uimenu(m, 'Text', 'Exclude All Files', 'MenuSelectedFcn', @(s,e) obj.onSelectRows('all', false));
+            obj.FileTable.ContextMenu = m;
+            obj.FileTable.Tooltip = ['Tick a file to include it in the next Convert. ' ...
+                'Right-click to open a file, or to tick and untick whole blocks.'];
+        end
+
+        function onFileTableEdit(obj, ~, evt)
+            % The tick column is the only editable one, so any edit is a
+            % selection change. The Converter owns the state; the table is
+            % refreshed from it so a refused edit visibly snaps back.
+            row = evt.Indices(1);
+            obj.Converter.select(row, logical(evt.NewData));
+            obj.refreshFileTable_();
+        end
+
+        function onSelectRows(obj, scope, tf)
+            n = height(obj.Converter.Results);
+            if n == 0
+                return
+            end
+            if strcmp(scope, 'all')
+                rows = (1:n)';
+            else
+                rows = obj.FileTable.Selection;
+                if isempty(rows)
+                    obj.setStatus('Highlight one or more rows first.', true);
+                    return
+                end
+            end
+            obj.Converter.select(rows, tf);
+            obj.refreshFileTable_();
+            obj.setStatus(sprintf('%d of %d file(s) will be converted.', ...
+                nnz(obj.Converter.Results.Selected), n));
+        end
+
+        function onOpenFile(obj, what)
+            % Hand one file (or its folder) to the operating system. Limited
+            % to a single highlighted row on purpose: "open" means a player
+            % window or an Explorer window, and a careless right-click on 200
+            % highlighted rows should not open 200 of them.
+            rows = obj.FileTable.Selection;
+            if numel(rows) ~= 1
+                obj.setStatus('Highlight exactly one row to open it.', true);
+                return
+            end
+            T = obj.Converter.Results;
+            switch what
+                case 'source'
+                    target = T.SourceFile(rows);
+                case 'output'
+                    target = T.OutputFile(rows);
+                case 'folder'
+                    target = fileparts(T.SourceFile(rows));
+            end
+            if target == "" || ~(isfile(target) || isfolder(target))
+                obj.setStatus(sprintf('Not on disk yet: %s', target), true);
+                return
+            end
+            obj.openInShell_(target);
+        end
+
+        function openInShell_(obj, target)
+            % winopen hands a file to whatever the operator has associated
+            % with it, and a folder to Explorer -- the same thing a
+            % double-click would do, which is what "open" has to mean here.
+            try
+                if ispc
+                    winopen(char(target));
+                elseif ismac
+                    system(sprintf('open "%s" &', target));
+                else
+                    system(sprintf('xdg-open "%s" &', target));
+                end
+                obj.setStatus(sprintf('Opened %s', target));
+            catch ME
+                vprintf(0, 1, ME);
+                obj.setStatus(sprintf('Could not open %s', target), true);
+            end
         end
 
         function setControlsEnabled_(obj, tf)
@@ -727,6 +1032,11 @@ classdef VideoConverterSetup < handle
             obj.MaxParallelSpinner.Enable = state;
             obj.DeleteSourceCheckBox.Enable = state;
             obj.DryRunCheckBox.Enable = state;
+            obj.ResetButton.Enable = state;
+            % The queue is built once at convert(), so a tick changed mid-run
+            % would be a lie: the Converter refuses it and the table would
+            % snap back. Better not to offer it.
+            obj.FileTable.ColumnEditable = [tf false false false false false false];
             if tf
                 obj.updateEncodingEnable_();
                 obj.updateOutputEnable_();

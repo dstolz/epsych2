@@ -32,6 +32,11 @@ function report = smoke_test_videoconverter()
 %       the rows it declares, and an owned window opens tall enough for the
 %       whole panel stack even when a saved Position is too short. Needs no
 %       ffmpeg.
+%   14) gui.VideoConverterSetup settings: every form label carries a tooltip,
+%       Reset restores the class defaults without clearing the folders,
+%       settings are remembered between sessions but never override a value
+%       the caller asked for, and unticking a file keeps it out of the batch
+%       (and out of the progress accounting). Only the last part needs ffmpeg.
 %
 % Requires ffmpeg.exe with the lavfi testsrc/sine input demuxer (any
 % standard full/shared ffmpeg build). Steps that need it are skipped
@@ -515,21 +520,34 @@ try
     g = gui.VideoConverterSetup(c);
     fig = g.Parent;
     drawnow;
+    % A uifigure applies a Position written during construction on its own
+    % schedule, and the panels reflow a beat after that, so measure in a
+    % retry loop -- otherwise this step races the window it is measuring.
+    panels = findobj(fig, 'Type', 'uipanel');
+    tSettle = tic;
+    while true
+        tight = strings(numel(panels), 1);
+        for k = 1:numel(panels)
+            grid = panels(k).Children(1);
+            rows = [grid.RowHeight{:}];
+            need = sum(rows) + (numel(rows)-1)*grid.RowSpacing ...
+                + grid.Padding(2) + grid.Padding(4);
+            if panels(k).InnerPosition(4) + 0.5 < need
+                tight(k) = sprintf('%s: %g available, %g needed', ...
+                    panels(k).Title, panels(k).InnerPosition(4), need);
+            end
+        end
+        tight(tight == "") = [];
+        if isempty(tight) && fig.Position(4) > 420
+            break
+        end
+        if toc(tSettle) > 10
+            break
+        end
+        pause(0.2); drawnow;
+    end
 
     % Each panel must be able to show every row its grid declares.
-    panels = findobj(fig, 'Type', 'uipanel');
-    tight = strings(numel(panels), 1);
-    for k = 1:numel(panels)
-        grid = panels(k).Children(1);
-        rows = [grid.RowHeight{:}];
-        need = sum(rows) + (numel(rows)-1)*grid.RowSpacing ...
-            + grid.Padding(2) + grid.Padding(4);
-        if panels(k).InnerPosition(4) + 0.5 < need
-            tight(k) = sprintf('%s: %g available, %g needed', ...
-                panels(k).Title, panels(k).InnerPosition(4), need);
-        end
-    end
-    tight(tight == "") = [];
     assert(isempty(tight), 'SmokeTest:PanelClipped', ...
         'panel too short for its rows -- %s', strjoin(tight, '; '));
 
@@ -549,6 +567,157 @@ try
     report.steps.(stepName) = struct('passed', true, ...
         'detail', 'All side panels fit their rows; short saved Position was grown to fit.');
 catch ME
+    report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
+end
+
+% Step 14: per-file selection, Reset, remembered settings, and tooltips.
+% Only the selection half needs real files.
+stepName = 'guiSelectionResetPrefs';
+try
+    hadSettings = ispref('ep_VideoConverter', 'Settings');
+    oldSettings = getpref('ep_VideoConverter', 'Settings', struct());
+
+    % --- tooltips: every label that names a control must explain it ---
+    c = util.VideoConverter();
+    g = gui.VideoConverterSetup(c, PersistPrefs=false);
+    fig = g.Parent;
+    % Only the labels inside the setting panels: the status line and the
+    % overall-progress readout are output, and explain nothing.
+    labels = findobj(findobj(fig, 'Type', 'uipanel'), 'Type', 'uilabel');
+    assert(numel(labels) > 10, 'SmokeTest:NoLabels', 'found only %d panel labels.', numel(labels));
+    nakedMask = false(numel(labels), 1);
+    labelText = strings(numel(labels), 1);
+    for k = 1:numel(labels)
+        % Blank labels are spacers for a self-labelling checkbox; the status
+        % and overall-progress labels are output, not settings.
+        labelText(k) = string(labels(k).Text);
+        if strlength(strtrim(labelText(k))) == 0, continue; end
+        nakedMask(k) = isempty(labels(k).Tooltip) || strlength(string(labels(k).Tooltip)) == 0;
+    end
+    naked = labelText(nakedMask);
+    assert(isempty(naked), 'SmokeTest:MissingTooltip', ...
+        'form label(s) with no tooltip: %s', strjoin(naked, ', '));
+    for cb = [findall(fig,'Tag','VideoConverterSetup_RecursiveCheckBox'), ...
+              findall(fig,'Tag','VideoConverterSetup_DeleteSourceCheckBox'), ...
+              findall(fig,'Tag','VideoConverterSetup_DryRunCheckBox'), ...
+              findall(fig,'Tag','VideoConverterSetup_AlongsideCheckBox'), ...
+              findall(fig,'Tag','VideoConverterSetup_MirrorTreeCheckBox')]
+        assert(~isempty(cb.Tooltip), 'SmokeTest:MissingTooltip', ...
+            'self-labelling control with no tooltip: %s', cb.Text);
+    end
+
+    % --- Reset restores class defaults but keeps the folders ---
+    resetBtn = findall(fig, 'Tag', 'VideoConverterSetup_ResetButton');
+    assert(~isempty(resetBtn), 'SmokeTest:MissingControl', 'missing Reset button.');
+    crfSpinner = findall(fig, 'Tag', 'VideoConverterSetup_CrfSpinner');
+    rootField = findall(fig, 'Tag', 'VideoConverterSetup_RootFolderField');
+    rootField.Value = char(testDir);
+    rootField.ValueChangedFcn(rootField, []);
+    crfSpinner.Value = 31;
+    crfSpinner.ValueChangedFcn(crfSpinner, []);
+    dfltCrf = util.VideoConverter().x264Crf;
+    assert(c.x264Crf == 31, 'SmokeTest:GuiNotApplied', 'CRF edit did not reach the converter.');
+    resetBtn.ButtonPushedFcn(resetBtn, []);
+    assert(c.x264Crf == dfltCrf, 'SmokeTest:ResetIncomplete', ...
+        'Reset left x264Crf at %d (expected the class default %d).', c.x264Crf, dfltCrf);
+    assert(c.RootFolder == string(testDir), 'SmokeTest:ResetClearedFolder', ...
+        'Reset must not clear the root folder.');
+    assert(crfSpinner.Value == dfltCrf, ...
+        'SmokeTest:ResetWidgetStale', 'Reset did not refresh the CRF widget.');
+    delete(g); delete(c); drawnow;
+
+    % --- remembered settings, and the caller's own values winning ---
+    setpref('ep_VideoConverter', 'Settings', struct());
+    c = util.VideoConverter();
+    g = gui.VideoConverterSetup(c, PersistPrefs=true);
+    fig = g.Parent;
+    crfSpinner = findall(fig, 'Tag', 'VideoConverterSetup_CrfSpinner');
+    crfSpinner.Value = 29;
+    crfSpinner.ValueChangedFcn(crfSpinner, []);
+    delete(g); delete(c); drawnow;
+
+    c = util.VideoConverter();
+    g = gui.VideoConverterSetup(c, PersistPrefs=true);
+    assert(c.x264Crf == 29, 'SmokeTest:PrefsNotRestored', ...
+        'remembered CRF was not applied (got %d).', c.x264Crf);
+    delete(g); delete(c); drawnow;
+
+    c = util.VideoConverter(x264Crf=21);
+    g = gui.VideoConverterSetup(c, PersistPrefs=true);
+    assert(c.x264Crf == 21, 'SmokeTest:PrefsOverrodeCaller', ...
+        'a remembered setting overrode a value the caller asked for (got %d).', c.x264Crf);
+    delete(g); delete(c); drawnow;
+
+    % Opening with PersistPrefs=false must not touch what is remembered.
+    c = util.VideoConverter();
+    g = gui.VideoConverterSetup(c, PersistPrefs=false);
+    fig = g.Parent;
+    crfSpinner = findall(fig, 'Tag', 'VideoConverterSetup_CrfSpinner');
+    crfSpinner.Value = 44;
+    crfSpinner.ValueChangedFcn(crfSpinner, []);
+    delete(g); delete(c); drawnow;
+    keptCrf = getpref('ep_VideoConverter', 'Settings').x264Crf;
+    assert(keptCrf == 29, 'SmokeTest:PrefsWrittenWhenOff', ...
+        'PersistPrefs=false wrote to the saved settings (now %d).', keptCrf);
+
+    % --- per-file selection decides what a batch converts ---
+    if ~haveFixture
+        selDetail = 'selection half skipped: no fixture';
+    else
+        selDir = fullfile(testDir, 'sel');
+        mkdir(selDir);
+        mkClip_(exe1, fullfile(selDir, 's1.avi'), 2);
+        mkClip_(exe1, fullfile(selDir, 's2.avi'), 2);
+
+        c = util.VideoConverter(RootFolder=selDir, DryRun=true, x264Preset="ultrafast");
+        g = gui.VideoConverterSetup(c, PersistPrefs=false);
+        fig = g.Parent;
+        fileTable = findall(fig, 'Tag', 'VideoConverterSetup_FileTable');
+        scanBtn = findall(fig, 'Tag', 'VideoConverterSetup_ScanButton');
+        convertBtn = findall(fig, 'Tag', 'VideoConverterSetup_ConvertButton');
+        scanBtn.ButtonPushedFcn(scanBtn, []);
+        drawnow;
+        assert(height(fileTable.Data) == 2, 'SmokeTest:SelScanMismatch', 'expected 2 rows.');
+        assert(all(fileTable.Data.Do), 'SmokeTest:SelDefault', 'a fresh scan must tick every row.');
+
+        % Untick row 1 exactly as a click on the checkbox would.
+        fileTable.CellEditCallback(fileTable, struct('Indices',[1 1],'NewData',false,'PreviousData',true));
+        assert(~c.Results.Selected(1) && c.Results.Selected(2), ...
+            'SmokeTest:SelNotApplied', 'unticking row 1 did not reach the Converter.');
+        assert(~fileTable.Data.Do(1), 'SmokeTest:SelNotShown', 'table did not show the untick.');
+
+        convertBtn.ButtonPushedFcn(convertBtn, []);
+        t0 = tic;
+        while c.IsRunning && toc(t0) < 15
+            pause(0.1); drawnow;
+        end
+        assert(~c.IsRunning, 'SmokeTest:SelConvertTimeout', 'batch did not finish.');
+        assert(c.Results.Status(1) == 'pending', 'SmokeTest:SelConverted', ...
+            'a deselected file was processed (status %s).', string(c.Results.Status(1)));
+        assert(c.Results.Status(2) == 'dryrun', 'SmokeTest:SelSkipped', ...
+            'the selected file was not processed (status %s).', string(c.Results.Status(2)));
+
+        % ...and it must count as a finished batch, not a stuck 50%.
+        c2 = util.VideoConverter(RootFolder=selDir, DryRun=true);
+        c2.scan();
+        c2.select(1, false);
+        evts = runWithProgressCapture_(c2, 20);
+        lastEvt = evts{end};
+        assert(lastEvt.NumJobs == 1, 'SmokeTest:SelJobCount', ...
+            'deselected rows must not be counted as jobs (NumJobs=%d).', lastEvt.NumJobs);
+        assert(abs(lastEvt.OverallPercent - 100) < 1e-6, 'SmokeTest:SelOverall', ...
+            'a finished batch with a deselected row reported %.1f%%.', lastEvt.OverallPercent);
+        delete(c2);
+
+        delete(g); delete(c); drawnow;
+        selDetail = 'deselected file left pending; selected file converted; progress counted only the batch';
+    end
+
+    localRestoreSettings_(hadSettings, oldSettings);
+    report.steps.(stepName) = struct('passed', true, 'detail', ...
+        sprintf('Tooltips on every form label; Reset restores defaults and keeps folders; settings remembered without overriding caller values; %s.', selDetail));
+catch ME
+    localRestoreSettings_(hadSettings, oldSettings);
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end
 
@@ -608,6 +777,16 @@ elseif ispref('ffmpeg', 'exepath')
     rmpref('ffmpeg', 'exepath');
 end
 path(oldPath);
+end
+
+function localRestoreSettings_(hadSettings, oldSettings)
+% Put the operator's own remembered VideoConverter settings back: this test
+% opens GUIs with PersistPrefs=true, which writes them.
+if hadSettings
+    setpref('ep_VideoConverter', 'Settings', oldSettings);
+elseif ispref('ep_VideoConverter', 'Settings')
+    rmpref('ep_VideoConverter', 'Settings');
+end
 end
 
 function localRmdir_(d)

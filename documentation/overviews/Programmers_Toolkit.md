@@ -277,11 +277,8 @@ Reference: [teensy_TrialDesigner_UserGuide.md](../teensy/teensy_TrialDesigner_Us
 
 | Tool | Use it for |
 |---|---|
-| [`ParseVarargin`](../../helpers/ParseVarargin.m) | One-line `varargin` unpacking into named variables, with a struct form. Predates `arguments` blocks — use `arguments` in new code, but you will read this in older functions. |
 | [`findincell`](../../helpers/findincell.m) | Indices of non-empty cells, where `cell2mat` cannot help. |
 | [`timeout`](../../helpers/timeout.m) | A stateful guard for a loop that might not terminate: `timeout(10)` to arm, `while ~timeout` to spin, `if timeout` to report. |
-| [`gatestim`](../../helpers/gatestim.m) | Apply a rise/fall gate to an arbitrary signal — or generate one and gate it — including a cosine-squared ramp. |
-| [`figAlwaysOnTop`](../../helpers/figAlwaysOnTop.m) | Keep a figure above other windows, `uifigure` or legacy, failing silently rather than erroring. |
 | [`PhotodiodeMarker`](../../helpers/PhotodiodeMarker.m) | Prime the corner of a Psychtoolbox window for a photodiode sync marker, immediately before flipping. |
 | [`gexf`](../../helpers/gexf.m) | Write an adjacency matrix as a GEXF graph for Gephi. |
 | [`util.VideoConverter`](../../obj/+util/@VideoConverter/VideoConverter.m) | Batch ffmpeg transcoding as *tracked child processes* — true per-file progress, instant cancellation, optional N-way parallelism, and a MATLAB that does not freeze for the whole encode. Progress arrives as [`util.ProgressEventData`](../../obj/+util/ProgressEventData.m); [`gui.VideoConverterSetup`](../../obj/+gui/@VideoConverterSetup/VideoConverterSetup.m) is the front end. |

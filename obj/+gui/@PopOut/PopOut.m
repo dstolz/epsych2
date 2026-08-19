@@ -30,15 +30,30 @@ classdef (Abstract) PopOut < handle
     %     PopOutComponent - the sibling instance while its window is open
     %     PopOutFigure    - the window hosting it
     %
+    %   In its own window a component also offers "Keep Window on Top",
+    %   which pins that window above everything else (WindowStyle
+    %   'alwaysontop') so a plot stays readable while the operator works in
+    %   another application. The item appears ONLY in a window holding a
+    %   single component -- a pop-out, or one gui.ComponentToolbar opened --
+    %   never on the embedded copy, whose window belongs to the behavior GUI.
+    %   The choice is remembered per window alongside its position, so a
+    %   pinned pop-out reopens pinned.
+    %
     %   Methods:
     %     popOut      - open the pop-out window, or raise it if already open
     %     closePopOut - close it (the host component is unaffected)
     %     hasPopOut   - true while a pop-out window is open
     %
+    %   Static, for windows built outside this mixin:
+    %     markStandaloneWindow(fig, prefTag) - declare a one-component window
+    %     isAlwaysOnTop(fig) / setAlwaysOnTop(fig, tf)
+    %
     %   Protected interface for adopting classes:
     %     createPopOut_(container)  - REQUIRED; return a sibling instance
     %     popOutHostContainer_()    - container this component was built into
     %     addPopOutMenu_(cm)        - append the menu item to a uicontextmenu
+    %                                 (and the always-on-top item, in a
+    %                                 window the component has to itself)
     %     popOutPreferenceTag_()    - preference key given to the sibling
     %     PopOutSize                - default window size, [width height]
     %     PopOutLabel               - window title; defaults to the class name
@@ -63,6 +78,8 @@ classdef (Abstract) PopOut < handle
 
     properties (Constant, Hidden)
         POPOUT_MENU_TAG = 'gui_PopOut_menu' % Tag on the menu item this mixin creates
+        ALWAYSONTOP_MENU_TAG = 'gui_PopOut_alwaysOnTop_menu' % Tag on the always-on-top item
+        STANDALONE_APPDATA = 'gui_PopOut_StandaloneTag' % Appdata marking a one-component window
     end
 
     methods (Abstract, Access = protected)
@@ -94,10 +111,12 @@ classdef (Abstract) PopOut < handle
             fig.Position = gui.BehaviorGUI.getSavedFigurePosition(tag, obj.defaultPopOutPosition_());
             movegui(fig, 'onscreen');
 
-            % A borderless panel, not a uigridlayout: components that place
-            % themselves with normalized Units warn inside a layout cell.
-            container = uipanel(fig, 'Units', 'normalized', 'Position', [0 0 1 1], ...
-                'BorderType', 'none');
+            % Marked -- and put back on top if that is how it was last left --
+            % BEFORE the component is built, so the context menu it builds in
+            % its constructor can find the window and show the right tick.
+            gui.PopOut.markStandaloneWindow(fig, tag);
+
+            container = gui.PopOut.makeContentPanel(fig);
 
             try
                 h = obj.createPopOut_(container);
@@ -169,6 +188,40 @@ classdef (Abstract) PopOut < handle
                     'MenuSelectedFcn', @(~,~) obj.popOut());
             catch ME
                 vprintf(3, '%s: pop-out menu unavailable: %s', class(obj), ME.message)
+            end
+
+            % An adopter gets the always-on-top item for free: it appears only
+            % in a window this component has to itself, so no adopter has to
+            % know whether it is the embedded copy or the popped-out one.
+            obj.addAlwaysOnTopMenu_(cm);
+        end
+
+        function m = addAlwaysOnTopMenu_(obj, cm, options)
+            % m = addAlwaysOnTopMenu_(obj, cm, Text=..., Separator=...)
+            % Append the "Keep Window on Top" toggle to a uicontextmenu, but
+            % ONLY when this component sits in a window of its own -- a
+            % pop-out, or a window gui.ComponentToolbar opened for it. In an
+            % embedded component the item is omitted rather than disabled:
+            % pinning the behavior GUI itself is not what the operator asked
+            % for, and there is no per-component window to pin. Returns [].
+            arguments
+                obj
+                cm
+                options.Text (1,:) char = 'Keep Window on Top'
+                options.Separator (1,1) logical = false
+            end
+
+            m = [];
+            if isempty(cm) || ~isvalid(cm), return; end
+            try
+                fig = gui.PopOut.standaloneWindowOf_(cm);
+                if isempty(fig), return; end
+                m = uimenu(cm, 'Text', options.Text, 'Tag', obj.ALWAYSONTOP_MENU_TAG, ...
+                    'Separator', matlab.lang.OnOffSwitchState(options.Separator), ...
+                    'Checked', matlab.lang.OnOffSwitchState(gui.PopOut.isAlwaysOnTop(fig)), ...
+                    'MenuSelectedFcn', @(src,~) gui.PopOut.toggleAlwaysOnTop_(src, fig));
+            catch ME
+                vprintf(3, '%s: always-on-top menu unavailable: %s', class(obj), ME.message)
             end
         end
 
@@ -269,7 +322,121 @@ classdef (Abstract) PopOut < handle
         end
     end
 
+    methods (Static, Hidden)
+
+        function p = makeContentPanel(fig)
+            % p = gui.PopOut.makeContentPanel(fig)
+            % Borderless panel filling fig, for a window built to hold ONE
+            % component. gui.ComponentToolbar builds the windows it owns the
+            % same way.
+            %
+            % A panel rather than a bare uigridlayout, because a component
+            % that places its own children with normalized Units warns inside
+            % a layout cell -- but the panel is PARENTED to a 1x1 layout
+            % rather than given Position [0 0 1 1] in normalized units. A
+            % uipanel positioned that way in a uifigure keeps the pixel size
+            % it was created at: shrink the window and the panel stays as
+            % tall as the window used to be, anchored at the bottom, so the
+            % component inside it is laid out for a window that is no longer
+            % there -- rows clipped off the top with empty space below.
+            g = uigridlayout(fig, [1 1], 'Padding', [0 0 0 0], ...
+                'RowHeight', {'1x'}, 'ColumnWidth', {'1x'});
+            p = uipanel(g, 'BorderType', 'none');
+        end
+
+        function markStandaloneWindow(fig, prefTag)
+            % markStandaloneWindow(fig, prefTag)
+            % Declare fig a window built to hold ONE component, so that
+            % component's context menu offers "Keep Window on Top", and
+            % restore the pinned state the operator last left it in. Call it
+            % after the figure is made and BEFORE the component is built into
+            % it. gui.ComponentToolbar calls this for the windows it owns.
+            if isempty(fig) || ~isvalid(fig), return; end
+            try
+                setappdata(fig, gui.PopOut.STANDALONE_APPDATA, char(prefTag));
+            catch
+                return
+            end
+            gui.PopOut.setAlwaysOnTop(fig, gui.PopOut.savedAlwaysOnTop_(prefTag));
+        end
+
+        function tf = isAlwaysOnTop(fig)
+            % tf = gui.PopOut.isAlwaysOnTop(fig)
+            % True while fig is pinned above other windows.
+            tf = false;
+            try
+                tf = strcmpi(char(fig.WindowStyle), 'alwaysontop');
+            catch
+            end
+        end
+
+        function setAlwaysOnTop(fig, tf)
+            % gui.PopOut.setAlwaysOnTop(fig, tf)
+            % Pin or unpin fig, and remember the choice under the preference
+            % tag the window was marked with. Failure is never fatal: a
+            % release or platform that will not honour WindowStyle leaves the
+            % window where it is rather than taking the click down with it.
+            if isempty(fig) || ~isvalid(fig), return; end
+            tf = logical(tf);
+            try
+                if tf
+                    fig.WindowStyle = 'alwaysontop';
+                else
+                    fig.WindowStyle = 'normal';
+                end
+            catch ME
+                vprintf(1, 'gui.PopOut: cannot pin "%s" on top: %s', fig.Name, ME.message)
+                return
+            end
+            gui.PopOut.saveAlwaysOnTop_(getappdata(fig, gui.PopOut.STANDALONE_APPDATA), tf);
+        end
+    end
+
     methods (Static, Access = private)
+
+        function fig = standaloneWindowOf_(h)
+            % Figure h lives in, but only if it was marked as belonging to
+            % one component; [] otherwise.
+            fig = [];
+            try
+                f = ancestor(h, 'figure');
+                if ~isempty(f) && isvalid(f) && isappdata(f, gui.PopOut.STANDALONE_APPDATA)
+                    fig = f;
+                end
+            catch
+            end
+        end
+
+        function toggleAlwaysOnTop_(src, fig)
+            % Flip from the WINDOW's current state, not the menu's tick: the
+            % tick is only refreshed when this item is used, so reading the
+            % figure is what keeps the first click after an outside change
+            % doing the obvious thing.
+            if isempty(fig) || ~isvalid(fig), return; end
+            gui.PopOut.setAlwaysOnTop(fig, ~gui.PopOut.isAlwaysOnTop(fig));
+            try
+                src.Checked = matlab.lang.OnOffSwitchState(gui.PopOut.isAlwaysOnTop(fig));
+            catch
+            end
+        end
+
+        function tf = savedAlwaysOnTop_(prefTag)
+            tf = false;
+            try
+                if isempty(prefTag), return; end
+                tf = logical(getpref(char(prefTag), 'AlwaysOnTop', false));
+            catch
+                tf = false;
+            end
+        end
+
+        function saveAlwaysOnTop_(prefTag, tf)
+            try
+                if isempty(prefTag), return; end
+                setpref(char(prefTag), 'AlwaysOnTop', logical(tf));
+            catch
+            end
+        end
 
         function teardownPopOut_(h, fig, tag)
             % Save the window position, delete the component, then the

@@ -58,35 +58,16 @@ if ~isempty(self.Sources_)
 end
 
 self.Interfaces_ = interfaces;
-self.buildRows_(interfaces, self.H.filter.Value);
 
-% ---------- Table -------------------------------------------------------
-n = numel(self.Rows);
-data = cell(n, 8);
-for i = 1:n
-    R = self.Rows(i);
-    data(i,:) = {R.Where, R.Name, R.Type, R.Access, R.ValueText, R.Unit, R.Flags, R.Note};
-end
-
-self.H.table.Data = data;
-self.applyStyles_();
-
-hasRows = n > 0;
-self.H.table.Visible = matlab.lang.OnOffSwitchState(hasRows);
-self.H.emptyState.Visible = matlab.lang.OnOffSwitchState(~hasRows);
-if ~hasRows
-    self.H.emptyState.Text = localEmptyText(self, interfaces);
-end
-
-self.updateCountLabel_();
+% The Find box narrows what is listed, and it is the operator's, not the
+% session's: a rebuild keeps it, so a refresh in the middle of a search does
+% not put two hundred rows back in front of them.
+self.markFilterValid_(true);
+self.buildRows_(interfaces);
+self.renderTable_();
 
 clear restore
 self.updateEnableStates_();
-
-if hasRows
-    self.setStatus_(sprintf(['%d parameter(s) listed. Double-click a name to read one, ' ...
-        'or Read All (F5).'], n));
-end
 
 end
 
@@ -112,30 +93,3 @@ if ~isempty(hit)
 end
 end
 
-
-function txt = localEmptyText(self, interfaces)
-% Why the table is empty, in the operator's terms. The three cases are worth
-% distinguishing: no protocol at all, a protocol whose parameters are all
-% hidden or filtered out, and a protocol that genuinely defines none.
-if isempty(interfaces)
-    if isempty(self.Sources_)
-        txt = ['No protocol is loaded. Load a configuration in the session window, ' ...
-               'or open this window against a protocol directly.'];
-    else
-        txt = 'The selected protocol has no hardware interfaces.';
-    end
-    return
-end
-
-if ~isempty(strtrim(self.H.filter.Value))
-    txt = sprintf('No parameter matches "%s". Clear the Find box to see them all.', ...
-        strtrim(self.H.filter.Value));
-elseif self.HiddenSkipped_ > 0
-    % Only offered when it would actually reveal something: an empty table
-    % plus advice that changes nothing is worse than an empty table.
-    txt = sprintf(['No visible parameters. Tick "Show hidden" to list the %d ' ...
-                   'this protocol keeps out of the GUI.'], self.HiddenSkipped_);
-else
-    txt = 'This protocol defines no parameters.';
-end
-end

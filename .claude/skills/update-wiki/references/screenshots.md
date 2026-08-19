@@ -65,19 +65,22 @@ Whole-window shots (`<wiki>/images/`), and the pages that embed them:
 | `StaircaseTraining.png` | `StaircaseTraining` | Training-and-Online-Analysis |
 | `ExampleBehaviorGUI.png` | `ExampleBehaviorGUI` | Building-a-Behavior-GUI |
 | `DetectionBehaviorGUI.png` | `DetectionBehaviorGUI` | Building-a-Behavior-GUI, GUI-Framework-Internals |
+| `BehaviorBuilder.png` | `BehaviorBuilder` | Behavior-GUI-Builder |
+| `BehaviorBuilder_Generated.png` | `BehaviorBuilder_Generated` | Behavior-GUI-Builder |
 | `RunExpt.png` | `RunExpt` | Home, Quick-Start, Running-a-Session, RunExpt-GUI-Overview |
 | `SelfTest.png` | `SelfTest` | Running-a-Session, Troubleshooting |
 | `StimPlayer.png` | `StimPlayer` | Stimuli-and-Calibration |
 | `CalibrationGui.png` | `CalibrationGui` | Stimuli-and-Calibration |
 | `TeensyTrialDesigner.png` `TeensyTrialDesigner_States.png` `TeensyTestBench.png` | `TeensyTrialDesigner`, `…_States`, `TeensyTestBench` | Teensy-Trial-Designer |
 
-Three of these are **published twice** and drift apart if you touch only one; the
-generator's `alsoIn` struct copies them automatically:
+Several of these are **published twice** and drift apart if you touch only one;
+the generator's `alsoIn` struct copies them automatically:
 
 | Shot | Second home |
 |---|---|
 | `ProtocolDesigner`, `ProtocolDesigner_Interfaces` | `documentation/design/images/` |
 | `RunExpt` | `documentation/overviews/images/` |
+| `SubjectManager`, `BehaviorBuilder` | `documentation/gui/images/` |
 
 Component shots (`<wiki>/images/components/`) back the **Behavior-GUI-Components**
 page, one image per `###` entry: `Parameter_Control`, `Parameter_Update`,

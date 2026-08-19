@@ -32,17 +32,28 @@ classdef ParameterDebugger < handle
     % return the design-time values held in the objects, marked "offline"
     % because no backend was asked.
     %
+    % The Find box narrows the list as it is typed, matching the interface,
+    % module, and parameter name together; tick Regex to give it a pattern
+    % instead of a substring, and Esc (or the button beside it) clears it. A
+    % filter change keeps the read report, because narrowing a list is not new
+    % evidence about the parameters left in it -- only a rebuild starts over.
+    %
+    % Columns sort on a header click and drag into whatever order suits the
+    % question. Both are display-only: every action here works from the DATA
+    % index uitable reports, never the position a row happens to be drawn at.
+    %
     % Properties:
     %   RunExpt   - epsych.RunExpt this window was opened from, or []
     %   Rows      - One record per listed parameter, in table order
     %   H         - Graphics handles
     %
     % Methods:
-    %   refresh      - Rebuild the parameter list from the selected source
-    %   readAll      - Read every listed parameter
-    %   readRows     - Read the given rows
-    %   writeRow     - Parse text and write it to one row's parameter
-    %   fireTrigger  - Fire the selected trigger parameter
+    %   refresh       - Rebuild the parameter list from the selected source
+    %   readAll       - Read every listed parameter
+    %   readRows      - Read the given rows
+    %   writeRow      - Parse text and write it to one row's parameter
+    %   fireTrigger   - Fire the selected trigger parameter
+    %   trackSelected - Plot the selected parameters against time (Ctrl+T)
     %
     % Examples:
     %   gui.ParameterDebugger                    % bind to the open session
@@ -81,6 +92,16 @@ classdef ParameterDebugger < handle
         % (which replaces RunExpt.RUNTIME) does not drop the operator back to
         % the first subject.
         LastSource_ (1,:) char = ''
+
+        % What the Find box holds. Kept here rather than read back off the
+        % widget because filtering happens on every keystroke, and until the
+        % operator presses Enter the widget's own Value is still the old text.
+        FilterText_ (1,:) char = ''
+
+        % Live plot windows this one opened. They are not owned: a tracker has
+        % its own window and its own timer and outlives this one, so this is
+        % only how "Track Selected" finds the plot to add the next line to.
+        Trackers_ = gui.ParameterTracker.empty(1,0)
     end
 
     properties (Constant)
@@ -348,6 +369,62 @@ classdef ParameterDebugger < handle
             end
         end
 
+        function T = trackSelected(self, options)
+            % T = trackSelected(self)
+            % T = trackSelected(self, NewPlot=true)
+            % Plot the selected parameters against time in a gui.ParameterTracker.
+            %
+            % The table answers "what is it now"; a tracker answers "is it
+            % moving". Only scalar parameters can be plotted, so a selection
+            % that also contains a buffer or a string tracks what it can and
+            % says what it left out.
+            %
+            % By default the parameters join the tracker this window opened
+            % last, because comparing two values on one time axis is the usual
+            % reason to track a second one. NewPlot=true always opens another.
+            arguments
+                self
+                options.NewPlot (1,1) logical = false
+            end
+
+            T = gui.ParameterTracker.empty(1,0);
+            rows = self.selectedRows_();
+            if isempty(rows)
+                self.setStatus_('Select the parameters to track first.');
+                return
+            end
+
+            P = [self.Rows(rows).Parameter];
+            ok = arrayfun(@(p) isvalid(p) && gui.ParameterTracker.isTrackable(p), P);
+            if ~any(ok)
+                self.setStatus_(['Nothing selected can be plotted: only scalar ' ...
+                    'numeric and boolean parameters can be tracked.']);
+                return
+            end
+
+            self.Trackers_ = self.Trackers_(isvalid(self.Trackers_));
+
+            if ~options.NewPlot && ~isempty(self.Trackers_)
+                T = self.Trackers_(end);
+                T.addParameters(P(ok));
+                figure(T.H.figure);
+            else
+                T = gui.ParameterTracker(P(ok), Available = self.trackableParameters_());
+                self.Trackers_(end+1) = T;
+            end
+
+            if all(ok)
+                self.setStatus_(sprintf('Tracking %d parameter(s).', sum(ok)));
+            else
+                self.setStatus_(sprintf(['Tracking %d parameter(s); %d could not be ' ...
+                    'plotted (not a scalar value).'], sum(ok), sum(~ok)));
+            end
+
+            if nargout == 0
+                clear T
+            end
+        end
+
         function assignToBase(self)
             % assignToBase(self)
             % Put the selected hw.Parameter into the base workspace as P, so
@@ -464,9 +541,207 @@ classdef ParameterDebugger < handle
             self.refresh();
         end
 
-        function onFilterChanged_(self)
+        function onFilterTyped_(self, text)
+            % Every keystroke in the Find box, and every commit of it.
+            %
+            % Filtering per character is affordable because it touches nothing
+            % but objects already in memory: the walk is over the interface's
+            % parameter handles, and no backend is asked for anything. That is
+            % what lets it be live -- a window that polled hardware could not
+            % narrow a list while a person types.
             if self.Refreshing_, return, end
-            self.refresh();
+            text = char(string(text));
+            if isequal(text, self.FilterText_), return, end
+            self.FilterText_ = text;
+            self.applyFilter_();
+        end
+
+        function clearFilter_(self)
+            % Empty the Find box and leave the focus in it, which is what the
+            % operator wants next whether they reached for the button or Esc.
+            if isfield(self.H,'filter') && isgraphics(self.H.filter)
+                self.H.filter.Value = '';
+                try
+                    focus(self.H.filter);
+                catch ME
+                    % An invisible or already-closing window has nothing to
+                    % focus, which is not a reason to leave the box uncleared.
+                    vprintf(3, 'gui.ParameterDebugger: focus: %s', ME.message);
+                end
+            end
+            if isempty(self.FilterText_), return, end
+            self.FilterText_ = '';
+            self.applyFilter_();
+        end
+
+        function applyFilter_(self)
+            % Relist with the current filter, keeping what has already been read.
+            %
+            % A filter change cannot invalidate a read the way a rebuild can:
+            % the parameter objects are the same objects. So the read report is
+            % carried across, and narrowing the list does not throw away the
+            % sweep that is usually the reason the window is open.
+            if self.Refreshing_, return, end
+            if ~isfield(self.H,'table') || ~isgraphics(self.H.table), return, end
+
+            [~, ok] = self.filterPredicate_();
+            self.markFilterValid_(ok);
+            if ~ok
+                % A half-typed pattern ("Freq[") is not an error to report,
+                % only a list not worth rebuilding yet: what is shown stays
+                % shown until the pattern parses again.
+                self.setStatus_('Incomplete regular expression -- the list is unchanged.');
+                return
+            end
+
+            self.Refreshing_ = true;
+            restore = onCleanup(@() self.clearRefreshing_());
+
+            prior = self.Rows;
+            self.buildRows_(self.Interfaces_);
+            self.carryOverState_(prior);
+            self.renderTable_();
+
+            clear restore
+            self.updateEnableStates_();
+        end
+
+        function [fn, ok] = filterPredicate_(self)
+            % The test a row's "interface / module  name" text has to pass.
+            % Empty text keeps everything; a malformed pattern reports itself
+            % rather than throwing, since it is almost always one still being
+            % typed.
+            fn = [];
+            ok = true;
+
+            txt = strtrim(self.FilterText_);
+            if isempty(txt), return, end
+
+            if self.regexOn_()
+                % MATLAB's regexp does not object to a half-written pattern --
+                % "Freq[" simply matches nothing -- so an unbalanced one is
+                % recognised here instead. Without this, every group and class
+                % typed would empty the table on its opening bracket and fill
+                % it again on the closing one.
+                if gui.ParameterDebugger.patternIncomplete_(txt)
+                    ok = false;
+                    return
+                end
+                try
+                    regexp('', txt, 'once');
+                catch
+                    ok = false;
+                    return
+                end
+                fn = @(s) ~isempty(regexpi(s, txt, 'once'));
+            else
+                needle = lower(txt);
+                fn = @(s) contains(lower(s), needle);
+            end
+        end
+
+        function tf = regexOn_(self)
+            tf = isfield(self.H,'chkRegex') && isgraphics(self.H.chkRegex) && ...
+                logical(self.H.chkRegex.Value);
+        end
+
+        function markFilterValid_(self, ok)
+            % The Find box carries whether its own pattern parses: an amber
+            % field while typing "Freq[" says more than a message would.
+            if ~isfield(self.H,'filter') || ~isgraphics(self.H.filter), return, end
+            if ok
+                self.H.filter.BackgroundColor = [1 1 1];
+            else
+                self.H.filter.BackgroundColor = self.COLOR_STALE;
+            end
+        end
+
+        function carryOverState_(self, prior)
+            % Move the read report from the previous row list onto the new one,
+            % matched on the parameter HANDLE -- the same object is the same
+            % evidence. A rebuild after a config load matches nothing, because
+            % those handles are gone, which is exactly what refresh promises.
+            if isempty(prior) || isempty(self.Rows), return, end
+
+            was = [prior.Parameter];
+            for i = 1:numel(self.Rows)
+                hit = find(was == self.Rows(i).Parameter, 1);
+                if isempty(hit) || prior(hit).State == self.STATE_UNREAD, continue, end
+                self.Rows(i).State     = prior(hit).State;
+                self.Rows(i).ValueText = prior(hit).ValueText;
+                self.Rows(i).Editable  = prior(hit).Editable;
+                self.Rows(i).Note      = prior(hit).Note;
+            end
+        end
+
+        function renderTable_(self)
+            % Push Rows into the table, with the styles, the count, and the
+            % empty-state text that belong to them. Shared by the full rebuild
+            % and by a filter change so the two cannot drift apart.
+            n = numel(self.Rows);
+            data = cell(n, 8);
+            for i = 1:n
+                R = self.Rows(i);
+                data(i,:) = {R.Where, R.Name, R.Type, R.Access, R.ValueText, R.Unit, R.Flags, R.Note};
+            end
+
+            self.H.table.Data = data;
+            self.applyStyles_();
+
+            hasRows = n > 0;
+            self.H.table.Visible = matlab.lang.OnOffSwitchState(hasRows);
+            self.H.emptyState.Visible = matlab.lang.OnOffSwitchState(~hasRows);
+            if ~hasRows
+                self.H.emptyState.Text = self.emptyText_();
+            end
+
+            self.updateCountLabel_();
+
+            if hasRows
+                self.setStatus_(self.listedStatus_(n));
+            end
+        end
+
+        function txt = listedStatus_(self, n)
+            % What the status line says after a rebuild: how much is listed,
+            % and -- when a filter is responsible for the number -- how to get
+            % the rest back.
+            if isempty(strtrim(self.FilterText_))
+                txt = sprintf(['%d parameter(s) listed. Double-click a name to read one, ' ...
+                    'or Read All (F5).'], n);
+            else
+                txt = sprintf('%d parameter(s) match "%s". Esc clears the Find box.', ...
+                    n, strtrim(self.FilterText_));
+            end
+        end
+
+        function txt = emptyText_(self)
+            % Why the table is empty, in the operator's terms. The cases are
+            % worth distinguishing: no protocol at all, a protocol whose
+            % parameters are all hidden or filtered out, and a protocol that
+            % genuinely defines none.
+            if isempty(self.Interfaces_)
+                if isempty(self.Sources_)
+                    txt = ['No protocol is loaded. Load a configuration in the session window, ' ...
+                           'or open this window against a protocol directly.'];
+                else
+                    txt = 'The selected protocol has no hardware interfaces.';
+                end
+                return
+            end
+
+            if ~isempty(strtrim(self.FilterText_))
+                txt = sprintf('No parameter matches "%s". Clear the Find box to see them all.', ...
+                    strtrim(self.FilterText_));
+            elseif self.HiddenSkipped_ > 0
+                % Only offered when it would actually reveal something: an empty
+                % table plus advice that changes nothing is worse than an empty
+                % table.
+                txt = sprintf(['No visible parameters. Tick "Show hidden" to list the %d ' ...
+                               'this protocol keeps out of the GUI.'], self.HiddenSkipped_);
+            else
+                txt = 'This protocol defines no parameters.';
+            end
         end
 
         function onKeyPress_(self, evt)
@@ -480,10 +755,20 @@ classdef ParameterDebugger < handle
                     if hasCtrl, self.refresh(); end
                 case 'f'
                     if hasCtrl, focus(self.H.filter); end
+                case 't'
+                    if hasCtrl, self.trackSelected(); end
                 case 'return'
                     if hasCtrl, self.readSelected(); end
                 case 'escape'
-                    delete(self);
+                    % Esc is the way out of a search before it is the way out
+                    % of the window: with the list narrowed, closing on the
+                    % same key that ought to widen it again is the wrong
+                    % surprise. An empty Find box still closes.
+                    if ~isempty(strtrim(self.FilterText_))
+                        self.clearFilter_();
+                    else
+                        delete(self);
+                    end
             end
         end
 
@@ -557,6 +842,38 @@ classdef ParameterDebugger < handle
 
             self.H.cmnu_fire.Enable = onoff(hasTrig);
             self.H.mnu_fire.Enable = self.H.cmnu_fire.Enable;
+
+            hasPlot = false;
+            if hasSel
+                hasPlot = any(arrayfun(@(r) gui.ParameterTracker.isTrackable(r.Parameter), ...
+                    self.Rows(rows)));
+            end
+            self.H.mnu_track.Enable = onoff(hasPlot);
+            self.H.mnu_track_new.Enable = self.H.mnu_track.Enable;
+            self.H.cmnu_track.Enable = self.H.mnu_track.Enable;
+
+            self.H.btnClear.Enable = onoff(~isempty(self.FilterText_));
+        end
+
+        function P = trackableParameters_(self)
+            % Every scalar parameter in the selected source, filter or no
+            % filter: the tracker's own Add list should offer what the protocol
+            % has, not what the Find box happens to be showing.
+            P = hw.Parameter.empty(1,0);
+            for k = 1:numel(self.Interfaces_)
+                I = self.Interfaces_(k);
+                if ~isvalid(I), continue, end
+                M = I.Module;
+                for m = 1:numel(M)
+                    if ~isvalid(M(m)), continue, end
+                    Q = M(m).Parameters;
+                    for q = 1:numel(Q)
+                        if ~isvalid(Q(q)), continue, end
+                        if ~gui.ParameterTracker.isTrackable(Q(q)), continue, end
+                        P(end+1) = Q(q);
+                    end
+                end
+            end
         end
 
         function setStatus_(self, msg)
@@ -816,15 +1133,15 @@ classdef ParameterDebugger < handle
 
     % ---- Rows --------------------------------------------------------------
     methods (Access = private)
-        function buildRows_(self, interfaces, filterText)
+        function buildRows_(self, interfaces)
             % One record per parameter the table will show, in interface then
             % module then declaration order -- the order the protocol defines
             % them in, which is the order the designer shows and the order a
             % person reading a circuit expects.
             showHidden = logical(self.H.chkHidden.Value);
-            filterText = lower(strtrim(filterText));
+            match = self.filterPredicate_();
 
-            keep = self.collectParameters_(interfaces, showHidden, filterText);
+            keep = self.collectParameters_(interfaces, showHidden, match);
             if isempty(keep)
                 self.Rows = [];
                 return
@@ -838,7 +1155,7 @@ classdef ParameterDebugger < handle
             self.Rows = R;
         end
 
-        function keep = collectParameters_(self, interfaces, showHidden, filterText)
+        function keep = collectParameters_(self, interfaces, showHidden, match)
             % Walk interface -> module -> parameter once, collecting what
             % passes the visibility and filter tests. Counted first so the row
             % array is built at its final size.
@@ -873,8 +1190,7 @@ classdef ParameterDebugger < handle
                             self.HiddenSkipped_ = self.HiddenSkipped_ + 1;
                             continue
                         end
-                        if ~isempty(filterText) && ...
-                                ~contains(lower([where ' ' P(p).Name]), filterText)
+                        if ~isempty(match) && ~match([where ' ' P(p).Name])
                             continue
                         end
 
@@ -1131,6 +1447,46 @@ classdef ParameterDebugger < handle
 
         function tf = isBulk_(self, P)
             tf = ismember(P.Type, self.BULK_TYPES);
+        end
+    end
+
+    methods (Static, Access = private)
+        function tf = patternIncomplete_(txt)
+            % Whether a regular expression is one still being typed: an open
+            % group, an open character class, an open quantifier, or a
+            % trailing backslash. Not a validator -- MATLAB's own regexp
+            % accepts far more than this rejects -- only the four states a
+            % pattern passes THROUGH on the way to being written, which are
+            % the ones a live filter must not act on.
+            esc = false;
+            inClass = false;
+            depth = 0;
+            brace = false;
+
+            for k = 1:numel(txt)
+                if esc
+                    esc = false;
+                    continue
+                end
+                switch txt(k)
+                    case '\'
+                        esc = true;
+                    case '['
+                        inClass = true;
+                    case ']'
+                        inClass = false;
+                    case '('
+                        if ~inClass, depth = depth + 1; end
+                    case ')'
+                        if ~inClass, depth = max(0, depth - 1); end
+                    case '{'
+                        if ~inClass, brace = true; end
+                    case '}'
+                        brace = false;
+                end
+            end
+
+            tf = esc || inClass || depth > 0 || brace;
         end
     end
 end

@@ -17,11 +17,15 @@ classdef NextTrial < gui.PopOut
     %
     % Fields are named by validName, matching
     % epsych.TrialsData.Data.writeParamIdx (the NewTrial event payload).
-    % Before the first NewTrial only the constructor's Fields (or a saved
-    % selection) are known; the table stays blank until the first event
-    % supplies the compiled trial table and the field names it declares.
-    % When no Fields are given and nothing was saved, every declared field
-    % is shown once the first trial is compiled.
+    % Trial 1 is dispatched before the behavior GUI is launched, so its
+    % NewTrial event predates the listener; the constructor seeds the
+    % display from RUNTIME.TRIALS rather than leaving the first trial of
+    % the session unshown. With no runtime trials yet (a GUI built before
+    % a run) only the constructor's Fields (or a saved selection) are
+    % known and the table stays blank until the first event supplies the
+    % compiled trial table and the field names it declares. When no
+    % Fields are given and nothing was saved, every declared field is
+    % shown once the first trial is compiled.
     %
     % Values render with str/num2str by default. A per-field Formatters
     % map (validName -> function_handle(rawValue) -> char/string) overrides
@@ -142,6 +146,7 @@ classdef NextTrial < gui.PopOut
             obj.buildUI_(container, options.FontSize);
             obj.loadPreferences_();
             obj.attachListener_(source);
+            obj.seedFromRuntime_(source);
         end
 
         function delete(obj)
@@ -270,6 +275,23 @@ classdef NextTrial < gui.PopOut
                     'source must be an epsych.Runtime or an epsych.EventHub.')
             end
             obj.hl_NewTrial = listener(H, 'NewTrial', @(src,evt) obj.onNewTrial_(src,evt));
+        end
+
+        function seedFromRuntime_(obj, source)
+            % Trial 1 is dispatched by ep_TimerFcn_Start, through
+            % epsych.Runtime.set.TRIALS, BEFORE RunExpt fevals
+            % FUNCS.BehaviorGUI -- so this listener is attached one trial
+            % too late and the table would stay blank until trial 2.
+            % Replay the pending trial out of the runtime state instead.
+            % (gui.ParameterScatter backfills DATA the same way.)
+            try
+                T = source.TRIALS;
+                if isempty(T), return; end
+                obj.onNewTrial_([], struct('Data', T(1)));
+            catch
+                % Not a runtime, or no trials compiled yet; the first
+                % NewTrial event populates the table.
+            end
         end
 
         function onNewTrial_(obj, ~, event)

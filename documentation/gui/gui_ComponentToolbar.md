@@ -180,7 +180,10 @@ binary assets, and are cached per name after the first call.
 
 A lazy window remembers its position under a preference group named
 `<GUIPreferenceTag>_<EntryName>_Tool`, alongside the way `gui.BehaviorGUI`
-remembers its own and `gui.PopOut` remembers a pop-out's. The component inside
+remembers its own and `gui.PopOut` remembers a pop-out's — including whether
+the operator left the window pinned on top, since a toolbar-owned window holds
+one component and so carries the same **Keep Window on Top** right-click item a
+pop-out does (see [gui_PopOut.md](gui_PopOut.md)). The component inside
 it keeps its own settings under whatever `PreferenceTag` the factory gives it —
 give it one, or it will fall back to the window's `Tag` and read as a different
 component each session.

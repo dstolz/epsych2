@@ -81,6 +81,31 @@ Nothing here is per-subject: `epsych.RunExpt` launches exactly one behavior GUI 
 
 `Archived` retires a **project** the way `Active` retires a membership: the record, its subjects, and their protocol memory all stay: only [`gui.SubjectManager`](../gui/gui_SubjectManager.md)'s project list hides it, and the project currently selected is never hidden. Every roster method still resolves an archived project by ID or name, so a script and `assignToSession` are unaffected.
 
+### Copying a project
+
+A study's second phase, a replication, a sister experiment on the next rig: each wants the eleven fields above set exactly as they are on a project that already runs. `copyProject` mints a new project carrying all of them, and takes overrides in the same call so nothing has to be written twice.
+
+```matlab
+p2 = R.copyProject('Tone Detection', 'Tone Detection Phase 2', ...
+        IncludeSubjects = true, DefaultProtocol = phase2File);
+```
+
+Every override option deliberately has **no default**, so "not stated" and "stated as empty" stay distinguishable: only the former follows the source. That is what lets [`gui.SubjectManager`](../gui/gui_SubjectManager.md) put the whole copy in front of the operator for editing and then commit their answer, blank fields and all.
+
+`Archived` is the one field a copy does **not** inherit. A project is copied to start work; a copy that opened hidden would look like nothing happened. Pass `Archived = true` to clone an archived project as archived.
+
+**Subjects are a separate question, and neither answer is assumed.** The two reasons to copy pull opposite ways — a new cohort wants the settings and none of the animals, a second phase wants both — so `IncludeSubjects` is off by default.
+
+| Option | Default | Effect |
+|---|---|---|
+| `IncludeSubjects` | `false` | Enroll the source's members in the copy. They stay in the source too: membership is many-to-many, so a subject is simply in both. |
+| `IncludeRetired` | `false` | Bring retired members as well, still retired. Off because a finished animal has no place in a study that has not started. |
+| `CopyProtocolMemory` | `true` | Copied memberships keep the protocol, version, and box they last used in the source. `false` gives the same cohort with no memory, so each member falls back to the copy's `DefaultProtocol`. |
+
+`ProtocolHistory` is never copied, even with `CopyProtocolMemory` on. The history answers "put this membership back the way it was", and a membership created a moment ago has no way it was — the pointer it starts on is a starting point, not a change to undo.
+
+The project is created first and its members enrolled second, so a copy interrupted between the two leaves an **empty project** rather than rolling back. That is the recoverable half: the settings are the part that cannot be reconstructed by clicking, and "Add to Project" finishes the job.
+
 ### Links, and why the scheme is checked
 
 `Links` is a `(1,:)` struct array of `Label` and `URL`, for the addresses a study is actually logged at — the electronic notebook, the shared sheet, the issue tracker, the analysis folder on the NAS.
@@ -309,6 +334,8 @@ matlab -batch "cd('tmp'); smoke_test_subject_roster"
 Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, a repeated import linking rather than duplicating, and all three `BehaviorGUI` states reaching `FUNCS.BehaviorGUI` (applied, cleared, inherited).
 
 Protocol versions get their own section, driven by real `epsych.Protocol.save` calls rather than hand-written version strings: a fresh subject reads `unknown`, a recorded one `current`, one whose file was saved again `outdated`; `updateProtocol` clears it and the record survives a reload; a superseded same-file entry reports `Recoverable = false` while a revert between two distinct files is exact and leaves the restored entry out of the history rather than in it twice.
+
+Copying gets its own section: a settings-only copy is compared field by field against its source off disk (and asserted **not** archived), a copy with subjects takes the active members while leaving the retired one and the source's own membership alone, an override beats the inherited value, `IncludeRetired` and `CopyProtocolMemory = false` each do exactly one thing, and a copy is refused both an existing name and a source that does not exist.
 
 Project options get two more: every `isSafeUrl` verdict and normalization, links surviving a reload, a `matlab:` address refused by `updateProject` leaving the stored links untouched — and, separately, a roster **written without the new fields at all**, synthesized by stripping them from a real `.esub`. That one asserts the file still opens writable, still reports every project, and defaults each new field to what the older file meant. It is the assertion that fails if a default is ever chosen for convenience rather than for backward compatibility.
 

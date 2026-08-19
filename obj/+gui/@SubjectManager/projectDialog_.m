@@ -1,5 +1,6 @@
-function P = projectDialog_(self, seed)
+function P = projectDialog_(self, seed, options)
 % P = projectDialog_(self, seed)
+% P = projectDialog_(self, seed, Title = 'Copy Project')
 % Modal dialog for a project's identity, its session defaults, links, and
 % archived flag.
 %
@@ -11,6 +12,10 @@ function P = projectDialog_(self, seed)
 %          DefaultProtocol, DefaultDataPath, SavingFcn, TimerPeriod,
 %          VideoRootDir, IntanRootDir, IntanSettingsFile, BehaviorGUI, Links,
 %          Archived.
+%
+% Options:
+%   Title - window title. The dialog otherwise infers it from the seed, which
+%           cannot tell an edit from a copy: both arrive with a name filled in.
 %
 % Returns:
 %   P - struct with the same fields, or [] when cancelled.
@@ -46,6 +51,7 @@ function P = projectDialog_(self, seed)
 arguments
     self
     seed (1,1) struct
+    options.Title (1,:) char = ''
 end
 
 P = [];
@@ -54,8 +60,9 @@ result = struct();   % filled by onOK; shared with the nested callbacks
 
 PREFS = self.PREF_GROUP;   % local functions are not methods, so it is passed in
 
-isEdit = ~isempty(seed.Name);
-if isEdit
+if ~isempty(options.Title)
+    title = options.Title;
+elseif ~isempty(seed.Name)
     title = 'Edit Project';
 else
     title = 'New Project';
@@ -111,7 +118,7 @@ g.RowSpacing = 8;
 g.ColumnSpacing = 8;
 
 localLabel(g, 1, 'Project Name:');
-efName = uieditfield(g, 'text', 'Value', seed.Name);
+efName = uieditfield(g, 'text', 'Value', seed.Name, 'Tag','ProjectDlg_Name');
 efName.Layout.Row = 1; efName.Layout.Column = [2 3];
 
 localLabel(g, 2, 'Investigator:');

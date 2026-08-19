@@ -53,6 +53,41 @@ tf = component.hasPopOut(); % true while the window is open
 component.closePopOut();    % close it; the embedded component is untouched
 ```
 
+## Keeping a window on top
+
+A pop-out's right-click menu carries a second item, **Keep Window on Top**,
+which pins that window above every other window on the desktop
+(`WindowStyle = 'alwaysontop'`). It is for watching a display while working
+somewhere else — a notebook, the Synapse window, another rig's session —
+without the plot disappearing behind whatever was clicked last. Choosing it
+again unpins.
+
+The item appears **only in a window holding a single component**: a pop-out,
+or one `gui.ComponentToolbar` opened for a lazy component. The embedded copy
+does not offer it, because the window it would pin is the behavior GUI's,
+shared with everything else the paradigm shows — pinning that is a decision
+about the GUI, not about one display.
+
+The tick is refreshed when the item is used, but the *action* always reads
+the window rather than the tick, so the first click after something else
+changed the window style still does the obvious thing.
+
+For a window built outside the mixin, the two statics that make this work
+are public:
+
+```matlab
+gui.PopOut.markStandaloneWindow(fig, prefTag);  % before the component is built
+tf = gui.PopOut.isAlwaysOnTop(fig);
+gui.PopOut.setAlwaysOnTop(fig, true);           % pin, and remember it
+```
+
+`markStandaloneWindow` both declares the window a one-component window — which
+is what makes the menu item appear — and restores the pinned state it was last
+left in, so it must run before the component's constructor builds its context
+menu. `gui.ComponentToolbar` calls it for the windows it owns; a release or
+platform that will not honour `WindowStyle` leaves the window as it is and logs,
+rather than taking the click down with it.
+
 ### A button that opens a display on demand
 
 For a display an operator only wants occasionally, `gui.BehaviorGUI` provides a
@@ -94,7 +129,8 @@ the embedded component's. The key is the hosting figure's `Tag` (else its
 under `cl_AppetitiveDetection_BehaviorGUI_History_PopOut`, in the same
 `epsych2_gui_History` preference group. The pop-out **window position** is
 remembered under a preference group of that same name, the way
-`gui.BehaviorGUI` remembers its own.
+`gui.BehaviorGUI` remembers its own. **Keep Window on Top** is saved in that
+same group, as `AlwaysOnTop`, so a pop-out left pinned reopens pinned.
 
 The consequence worth knowing: a pop-out mirrors its host's current settings
 only the *first* time it is opened. After that it restores what it was last
@@ -124,13 +160,21 @@ end
 and one line where the context menu is built:
 
 ```matlab
-obj.addPopOutMenu_(cm);   % appends "Open in Separate Window"
+obj.addPopOutMenu_(cm);   % appends "Open in Separate Window", and
+                          % "Keep Window on Top" in a window of its own
 ```
 
 `createPopOut_` receives a borderless `uipanel` filling the new window — not
 a `uigridlayout`, because components that place themselves with normalized
-`Units` warn inside a layout cell. Return `[]` to cancel; an error is logged
-and the window is discarded rather than left blank.
+`Units` warn inside a layout cell. That panel is *parented* to a 1×1 layout
+all the same (`gui.PopOut.makeContentPanel`), because a `uipanel` given
+`Position [0 0 1 1]` in normalized units inside a `uifigure` is sized by what
+it contains rather than by the window: shrink the window past what a
+scrollable layout inside asks for and the panel keeps the taller size, with
+the window showing its bottom — the top rows clipped away and empty space
+below. In a layout cell the panel is sized by the window, and a component
+that outgrows it scrolls from the top instead. Return `[]` to cancel; an
+error is logged and the window is discarded rather than left blank.
 
 Two details to get right in `createPopOut_`:
 
@@ -169,6 +213,15 @@ the pop-out, destroying the host closes the window, and
 
 ```
 matlab -batch "run('tmp/smoke_test_popout.m')"
+```
+
+`tmp/smoke_test_popout_alwaysontop.m` covers the pinning: the embedded
+component gets no such item, the pop-out's toggles the window both ways, the
+choice is saved under the pop-out's own key and reopens with it, and a
+toolbar-owned window offers the item too.
+
+```
+matlab -batch "run('tmp/smoke_test_popout_alwaysontop.m')"
 ```
 
 See also: [gui_BehaviorGUI.md](gui_BehaviorGUI.md),

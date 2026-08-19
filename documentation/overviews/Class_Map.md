@@ -84,6 +84,7 @@ Analysis and GUI classes
    ├─ Parameter_Monitor
    ├─ Parameter_Update
    ├─ ParameterDebugger
+   ├─ ParameterTracker
    ├─ ElapsedTrialTimer
    ├─ GenericTimer
    ├─ MicrophonePlot

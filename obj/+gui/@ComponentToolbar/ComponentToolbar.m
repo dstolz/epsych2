@@ -264,10 +264,14 @@ classdef ComponentToolbar < handle
             fig.Position = gui.BehaviorGUI.getSavedFigurePosition(tag, obj.defaultPosition_(e.windowSize));
             movegui(fig, 'onscreen');
 
-            % A borderless panel, not a uigridlayout: components that place
-            % themselves with normalized Units warn inside a layout cell.
-            container = uipanel(fig, 'Units', 'normalized', 'Position', [0 0 1 1], ...
-                'BorderType', 'none');
+            % This window holds one component, so it gets the same "Keep
+            % Window on Top" item a pop-out has -- marked before the factory
+            % runs, since the component builds its menu in its constructor.
+            gui.PopOut.markStandaloneWindow(fig, tag);
+
+            % Same borderless, window-filling panel a pop-out is built into,
+            % so a lazily-made component resizes with its window too.
+            container = gui.PopOut.makeContentPanel(fig);
 
             try
                 h = e.factory(container);

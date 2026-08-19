@@ -89,6 +89,10 @@ The **Value** cell carries the state of the last thing that happened to it:
 | grey | cannot be read: write-only, or a buffer the sweep skipped |
 | uncoloured | never read |
 
+The same table is in the window: the legend under the grid names each colour,
+and hovering one gives the fuller description — what the tint means and, for
+the two that need it, what to do about it.
+
 The last one matters: a row that has never been read stays uncoloured, so *I
 have not asked yet* never looks like *it came back empty*.
 
@@ -159,16 +163,70 @@ asked, because it is not connected. The count on the right — `13 parameter(s)
 | 1 of 1 interface(s) live` — says the same thing for the whole source, and is
 recomputed after every sweep as well as after every rebuild.
 
-**Show hidden** lists parameters whose `Visible` flag is false. **Find**
-filters on interface, module, and parameter name together.
+**Show hidden** lists parameters whose `Visible` flag is false.
 
-The table is deliberately **not sortable**. Header-click sorting decouples the
-display order from the underlying data order, and every callback here turns a
-row index back into an `hw.Parameter` — a translation that has to be exactly
-right, because getting it wrong means writing to the wrong parameter on live
-hardware. Find covers what sorting would be for, and the natural order
-(interface, then module, then declaration order) is the one the Protocol
-Designer and the circuit already use.
+## Find
+
+**Find** filters on interface, module, and parameter name together, and it
+filters **as you type** — the list narrows on every keystroke, before you press
+Enter. That is affordable because filtering touches nothing but objects already
+in memory: it walks the interface's parameter handles and asks no backend for
+anything. A window that polled could not do it.
+
+- **Regex** reads what you typed as a case-insensitive regular expression
+  matched against `interface / module  name`, instead of as a substring. It is
+  off by default because the characters a regex reads specially — `.`, `(`,
+  `[` — are ordinary characters in parameter names.
+- A pattern that is only half typed — `Freq[`, `(Freq|` — leaves the list
+  alone and turns the box amber, rather than emptying the table on the opening
+  bracket and filling it again on the closing one. MATLAB's own `regexp` does
+  not object to those, so the window recognises the four states a pattern
+  passes through on its way to being written: an open group, an open class, an
+  open quantifier, and a trailing backslash.
+- **Esc**, or the **X** beside the box, clears it. Escape only closes the
+  window once the box is already empty.
+- A filter change **keeps the read report**. Narrowing a list is not new
+  evidence about the parameters left in it, so the colours and values carry
+  across, matched on the parameter handle. Only a rebuild (`Ctrl+R`, a source
+  change, a config load) starts from a clean slate — those replace the
+  parameter objects, and a value read from an object nothing refers to any more
+  is not evidence about the one now in front of you.
+- A rebuild keeps the filter, too: refreshing in the middle of a search does
+  not put two hundred rows back in front of you.
+
+## Sorting and column order
+
+Click a header to sort; drag one to move a column. Both are display-only, and
+neither changes what an action does: every callback here works from the **data**
+index `uitable` reports (`Selection`, `evt.Indices`,
+`InteractionInformation.Row`), never the `Display*` counterpart a header click
+reorders. That distinction is the whole reason this was safe to turn on —
+getting a row index wrong here means writing to the wrong parameter on live
+hardware.
+
+Sorting is lexicographic on the displayed text, because every column is char
+(the **Value** column has to hold a number, an array literal, a file path, and
+`<stimgen.Tone>` in different rows, and `ColumnFormat` is per column, not per
+row). The natural order — interface, then module, then declaration order — is
+what the list is built in, and it is the order the Protocol Designer and the
+circuit already use.
+
+## Tracking a value over time
+
+The table answers *what is it now*; **Track Selected** (`Ctrl+T`, or the
+right-click item) answers *is it moving*. It opens a
+[`gui.ParameterTracker`](gui_ParameterTracker.md): a live plot of the selected
+parameters against seconds since tracking started, one colour per parameter.
+
+Only scalar numeric and boolean parameters can be plotted, so a selection that
+also holds a buffer or a string tracks what it can and says what it left out.
+By default the parameters join the tracker this window opened last — comparing
+two values on one time axis is the usual reason to track a second one — and
+**Track Selected in New Plot** always opens another.
+
+That window **polls**, which is exactly what this one refuses to do. It is a
+separate window with its own timer and its own rate control for that reason:
+polling is something you turn on deliberately and can see running.
 
 ## The Flags column
 
@@ -190,10 +248,11 @@ Designer and the circuit already use.
 | `Ctrl+Enter` | Read Selected |
 | `Ctrl+R` | rebuild the list |
 | `Ctrl+F` | jump to the Find box |
+| `Ctrl+T` | Track Selected in a live plot |
 | `Ctrl+C` | copy the table (selection, else all) as TSV |
-| `Esc` | close |
+| `Esc` | clear the Find box; close the window when it is already empty |
 
-Right-click adds **Assign to Command Window (P)**, which puts the selected
+Right-click adds **Track Selected**, and **Assign to Command Window (P)**, which puts the selected
 `hw.Parameter` in the base workspace as `P` — the handoff point where the
 window stops and the command line takes over, in the spirit of the session
 window's *Assign RUNTIME to Command Window*.
@@ -202,8 +261,9 @@ window's *Assign RUNTIME to Command Window*.
 
 Only the window position, under the `epsych2_gui_ParameterDebugger`
 preference group, written when the window is closed. Nothing else persists:
-which source, what is filtered, and everything read are all properties of one
-debugging session and would be misleading restored into the next.
+which source, what is filtered, how the columns are sorted and ordered, and
+everything read are all properties of one debugging session and would be
+misleading restored into the next.
 
 ## Testing
 
@@ -211,7 +271,7 @@ debugging session and would be misleading restored into the next.
 matlab -batch "run('tmp/smoke_test_parameter_debugger.m')"
 ```
 
-82 assertions over a mock backend and a live `epsych.RunExpt`: that hidden
+114 assertions over a mock backend and a live `epsych.RunExpt`: that hidden
 parameters are opt-in, that a sweep skips what it should and reports what
 fails, that each colour follows its state, that a double-click on a name reads
 and a double-click in the Value cell does not, that each value type parses,
@@ -231,7 +291,15 @@ the safety pattern, a write leaving the row's editable flag stale, a sweep
 running with the re-entrancy guard down, and reopening the window discarding
 where the operator had put it.
 
-See also: [gui_Parameter_Monitor](Parameter_Monitor.md) — the polling display,
+It also covers the Find box as a live control — that the list narrows while
+typing rather than on Enter, that a regex matches and a half-typed one does
+not disturb the list, that clearing restores every row and that Escape clears
+before it closes — and the tracker: that a selection containing a buffer plots
+only what it can, that samples arrive on the timer, that a line added later has
+no history invented for it, and that closing the plot stops its timer.
+
+See also: [gui_ParameterTracker.md](gui_ParameterTracker.md) — the live plot
+this window opens, [gui_Parameter_Monitor](Parameter_Monitor.md) — the polling display,
 [Parameter_Control.md](Parameter_Control.md) — one parameter bound to one
 widget, [gui_BehaviorGUI.md](gui_BehaviorGUI.md),
 [../hw/hw_Parameter.md](../hw/hw_Parameter.md),

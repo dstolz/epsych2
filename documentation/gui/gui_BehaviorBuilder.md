@@ -12,6 +12,19 @@ gui.BehaviorBuilder              % empty builder
 gui.BehaviorBuilder('MyTask.eblt')  % re-open an existing design
 ```
 
+![The builder mid-design](images/BehaviorBuilder.png)
+
+*Mid-design over `examples/detection_task/DetectionExample.eprot`: the
+protocol panel's parameter census on the left over the palette (Staircase
+Plot greyed because the chosen analysis is Detection), nine regions on the
+4x4 canvas, the just-placed Next Trial region selected so the inspector is
+populated, and the generated-GUI identity along the bottom.*
+
+Help > Builder Guide (Wiki) opens the operator-facing walkthrough at
+`gui.BehaviorBuilder.WIKI_URL`
+(https://github.com/dstolz/epsych2/wiki/Behavior-GUI-Builder); Help >
+Reference Documentation opens this file, for a rig with no network.
+
 ## Workflow
 
 1. **Load a protocol** (`.eprot`; File > Load Protocol...). The builder
@@ -118,3 +131,6 @@ matlab -batch "run('tmp/smoke_test_behaviorbuilder.m')"
   hardware-free `run_example.m` harness
 - `documentation/design/Customized_GUI_Instructions.md` — growing a
   generated GUI by hand
+- [Behavior GUI Builder](https://github.com/dstolz/epsych2/wiki/Behavior-GUI-Builder)
+  — the wiki guide the Help menu opens: the same workflow written for an
+  operator, with the shot of the exported GUI beside the canvas

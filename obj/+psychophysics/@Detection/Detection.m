@@ -3,7 +3,8 @@ classdef Detection < handle & matlab.mixin.SetGet
     %
     %   Processes trial data from a running session (RUNTIME.TRIALS), decoding
     %   trial outcome bitmasks and computing signal detection metrics (hit and
-    %   false alarm rates, d-prime, bias) grouped by unique stimulus values.
+    %   false alarm rates, d-prime, A-prime, bias) grouped by unique stimulus
+    %   values.
     %
     %   Detection Properties:
     %       TRIALS          - Structure containing trial data (RUNTIME.TRIALS)
@@ -20,6 +21,7 @@ classdef Detection < handle & matlab.mixin.SetGet
     %       Count           - Struct with counts of trial outcomes per unique value
     %       Rate            - Struct with rates of trial outcomes per unique value
     %       DPrime          - d-prime per unique stimulus value (catch-trial FAR)
+    %       APrime          - Nonparametric A' per unique stimulus value
     %       Bias            - Response bias per unique stimulus value
     %       Hit_Rate        - Hit rate per unique stimulus value
     %       FA_Rate         - Catch-trial false alarm rate (replicated per value)
@@ -27,6 +29,7 @@ classdef Detection < handle & matlab.mixin.SetGet
     %   Detection Methods:
     %       Detection       - Constructor to initialize the class
     %       d_prime         - Static method to compute d-prime
+    %       a_prime         - Static method to compute nonparametric A'
     %       bias            - Static method to compute bias
     %       norminv         - Static method for bounded inverse normal transformation
     %
@@ -103,6 +106,9 @@ classdef Detection < handle & matlab.mixin.SetGet
 
         % DPrime - d-prime per unique stimulus value
         DPrime      (1,:) double
+
+        % APrime - Nonparametric sensitivity A' per unique stimulus value
+        APrime      (1,:) double
 
         % Bias - Response bias per unique stimulus value
         Bias        (1,:) double
@@ -427,6 +433,26 @@ classdef Detection < handle & matlab.mixin.SetGet
             end
         end
 
+        function a = get.APrime(obj)
+            % get.APrime Nonparametric sensitivity A' per unique stimulus value
+            %
+            %   Computed from the Hit rate at each unique stimulus value and
+            %   the overall catch-trial FalseAlarm rate. Unlike DPrime this
+            %   needs no infCorrection: A' is defined at rates of 0 and 1.
+
+            obj.targetTrialType = obj.ttCatch;
+            CT = obj.Rate;
+            FAR = CT(1).FalseAlarm;
+
+            obj.targetTrialType = obj.ttStimulus;
+            r = obj.Rate;
+            a = nan(1,numel(r));
+            if isempty(r) || isempty(r(1).Hit), return; end
+            for i = 1:numel(r)
+                a(i) = psychophysics.Detection.a_prime(r(i).Hit, FAR);
+            end
+        end
+
         function c = get.Bias(obj)
             % get.Bias Response bias per unique stimulus value
             obj.targetTrialType = obj.ttCatch;
@@ -501,6 +527,44 @@ classdef Detection < handle & matlab.mixin.SetGet
                 bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
             end
             d = psychophysics.Detection.norminv(hitRate, bounds) - psychophysics.Detection.norminv(faRate, bounds);
+        end
+
+        function a = a_prime(hitRate, faRate)
+            % a_prime Computes the nonparametric sensitivity index A'
+            %
+            %   a = a_prime(hitRate, faRate) returns Grier's (1971) A' from
+            %   the hit and false alarm rates:
+            %
+            %       A' = 0.5 + sign(H-FA) * ((H-FA)^2 + |H-FA|)
+            %                               / (4*max(H,FA) - 4*H*FA)
+            %
+            %   A' runs from 0 to 1: 0.5 is chance, 1.0 perfect
+            %   discrimination, and below 0.5 a reversed response mapping.
+            %   It reads as the area under the ROC curve through the single
+            %   observed (FA,H) point, i.e. the probability of a correct
+            %   answer in an equivalent 2AFC task.
+            %
+            %   Unlike d_prime this assumes no distribution and takes no
+            %   infCorrection bounds: rates of exactly 0 or 1 are defined,
+            %   which is what makes A' the safer summary for the small trial
+            %   counts and extreme rates a single session produces.
+            %
+            %   Inputs broadcast, so a vector of hit rates may be paired with
+            %   a scalar false alarm rate. NaN rates yield NaN.
+            %
+            %   Grier JB (1971) Nonparametric indexes for sensitivity and
+            %   bias: computing formulas. Psychol Bull 75(6):424-429.
+
+            arguments
+                hitRate double
+                faRate  double
+            end
+            d = hitRate - faRate;
+            a = 0.5 + sign(d) .* (d.^2 + abs(d)) ./ (4.*max(hitRate,faRate) - 4.*hitRate.*faRate);
+
+            % H == FA is chance whatever the rates are; taken separately
+            % because the denominator also vanishes at H == FA == 0 or 1.
+            a(d == 0) = 0.5;
         end
 
         function c = bias(hitRate, faRate, bounds)

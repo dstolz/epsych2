@@ -5,8 +5,8 @@ Session-level behavioral summary over a configurable window of trials.
 Source: `obj/+psychophysics/@SessionMetrics/`, `obj/+psychophysics/TrialWindow.m`
 
 `SessionMetrics` collapses the trial record to the handful of numbers an
-experimenter watches during a session — trial counts, outcome rates, d' and
-criterion — computed over whichever trials a `TrialWindow` selects. Every
+experimenter watches during a session — trial counts, outcome rates, d', A'
+and criterion — computed over whichever trials a `TrialWindow` selects. Every
 metric comes from the decoded response bitmask and the trial-type masks
 `psychophysics.Psych` already provides, so it works for any paradigm that
 writes `RespCode`, with no paradigm-specific configuration.
@@ -68,6 +68,7 @@ exclusions are *trials that should never count*.
 | `N` | `Total`, `Stimulus`, `Catch`, `Hit`, `Miss`, `CorrectReject`, `FalseAlarm`, `Abort`, `Scored`, `CatchScored` |
 | `Rate` | `Hit`, `Miss`, `FalseAlarm`, `CorrectReject`, `Abort`, `Correct` |
 | `DPrime`, `Criterion` | Signal-detection measures, `NaN` when either rate is undefined |
+| `APrime` | Nonparametric sensitivity A' (chance 0.5), `NaN` when either rate is undefined |
 
 Denominators follow the paradigm:
 
@@ -80,6 +81,10 @@ Denominators follow the paradigm:
   `.bias` from the hit and false alarm rates, with `infCorrection` (default
   `[0.05 0.95]`) clamping the rates before the z-transform. Both are `NaN`
   when either rate is undefined, rather than silently using a clamp bound.
+- **A'** — computed by `psychophysics.Detection.a_prime` from the *uncorrected*
+  rates. `infCorrection` does not apply: A' is defined at rates of 0 and 1, and
+  clamping them would only pull it toward chance. See
+  [A' (nonparametric sensitivity)](psychophysics_APrime.md).
 
 A paradigm that never labels trial types — no `TrialType` field and no
 `TrialType_*` bits in `RespCode` — scores every outcome over the whole
@@ -112,7 +117,8 @@ psychophysics.SessionMetrics.catalogue()       % Name/Label/Group/Kind/Format de
 
 Available metrics: `Trials`, `StimulusTrials`, `CatchTrials`, `Hits`,
 `Misses`, `CorrectRejects`, `FalseAlarms`, `Aborts`, `HitRate`, `MissRate`,
-`FARate`, `CRRate`, `AbortRate`, `PercentCorrect`, `DPrime`, `Criterion`.
+`FARate`, `CRRate`, `AbortRate`, `PercentCorrect`, `DPrime`, `APrime`,
+`Criterion`.
 
 ## Example
 
@@ -145,10 +151,12 @@ end
 `tmp/smoke_test_session_performance.m` is the standing check: window parsing
 and resolution, the metric arithmetic over every window mode, exclusions,
 the untyped-paradigm fallback, and the GUI paths on top of them.
+`tmp/smoke_test_aprime.m` covers the `APrime` metric specifically.
 
 ## See also
 
 - [gui.SessionPerformance](../gui/gui_SessionPerformance.md) — the display component
 - [psychophysics.Psych](psychophysics_Psych.md) — the base class (`DATA`, `ExcludedTrials`, `NewData`)
+- [A' (nonparametric sensitivity)](psychophysics_APrime.md) — the `APrime` metric, and when to prefer it to d'
 - `psychophysics.Detection` (`obj/+psychophysics/@Detection/`) — per-stimulus-value psychometric analysis, and the source of the `d_prime`/`bias` arithmetic reused here
 - [epsych.BitMask](../epsych/epsych_BitMask.md) — response codes

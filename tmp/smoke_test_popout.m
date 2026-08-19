@@ -24,7 +24,7 @@ run(fullfile(here,'..','epsych_startup.m'));
 addpath(here); % FakeScatterRuntime, PopOutBehaviorGUI, +psychophysics/FakeHistoryPsych
 
 TAGS = {'smokePO_scatter','smokePO_hist','smokePO_perf','smokePO_next', ...
-    'smokePO_mon','smokePO_stair','smokePopOutScatter'};
+    'smokePO_mon','smokePO_stair','smokePO_resize','smokePopOutScatter'};
 cleanupObj = onCleanup(@() cleanupAll(TAGS));
 cleanupPrefs();
 
@@ -236,6 +236,32 @@ g.closeGUI(g.h_figure, []); % the normal close path
 assert(~isvalid(popFig), 'closing the BehaviorGUI should close its components pop-outs');
 fprintf('PASS: BehaviorGUI pop-out button opens and closes with the GUI\n');
 
+% 9. The window's contents follow it through a resize ---------------------
+% A uipanel given normalized Position [0 0 1 1] in a uifigure is sized by
+% what it CONTAINS, not by the window: put a scrollable layout in one and
+% shrink the window past what that layout asks for, and the panel keeps the
+% taller size with the window showing its bottom -- the top rows clipped
+% away, empty space below. gui.PopOut therefore builds that panel into a
+% 1x1 layout, which is sized by the window. Enough metrics to overflow a
+% small window is the whole point of the sizes below.
+f9 = uifigure('Visible','off','Tag','SmokePO_Resize');
+R  = gui.SessionPerformance(makeData(12), f9, PreferenceTag='smokePO_resize', ...
+    Metrics=[psychophysics.SessionMetrics.catalogue().Name], FontSize=16);
+RPop = R.popOut();
+rfig = R.PopOutFigure;
+for wh = {[420 480],[340 220],[520 430]}
+    rfig.Position(3:4) = wh{1};
+    [got, hdrTop] = settledLayout(RPop, wh{1});
+    assert(isequal(got, wh{1}), ...
+        'pop-out contents are %s in a %s window', mat2str(got), mat2str(wh{1}));
+    assert(hdrTop <= wh{1}(2) + 1, ...
+        'the top row is %d px above the top of a %s window', ...
+        round(hdrTop - wh{1}(2)), mat2str(wh{1}));
+end
+R.closePopOut();
+delete(f9);
+fprintf('PASS: pop-out contents track the window through a resize\n');
+
 fprintf('\nsmoke_test_popout: all checks passed\n');
 end
 
@@ -249,6 +275,28 @@ m = findall(fig, 'Type', 'uimenu', 'Tag', gui.PopOut.POPOUT_MENU_TAG);
 assert(~isempty(m), '%s should add a pop-out item to its context menu', componentName);
 assert(contains(m(1).Text, 'Separate Window'), ...
     '%s pop-out menu item reads "%s"', componentName, m(1).Text);
+end
+
+
+function [sz, hdrTop] = settledLayout(comp, want)
+% Pixel [width height] of the component's container and the top edge of its
+% first row, once the window has finished re-laying itself out. A resize is
+% not complete when drawnow returns -- the container reaches its new size
+% before the layout inside it does -- so this waits for both rather than
+% reading them once. What never arrives times out and fails the assertion
+% at the call site.
+sz = [0 0];
+hdrTop = Inf;
+t0 = tic;
+while toc(t0) < 5
+    drawnow
+    p = round(getpixelposition(comp.Parent));
+    h = getpixelposition(comp.HeaderH);
+    sz = p(3:4);
+    hdrTop = h(2) + h(4);
+    if isequal(sz, want) && hdrTop <= want(2) + 1, return; end
+    pause(0.05)
+end
 end
 
 

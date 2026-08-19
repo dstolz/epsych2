@@ -528,6 +528,85 @@ fprintf('PASS: a project applies, or inherits, the session settings\n');
 
 delete(findall(groot,'Type','figure','Tag','RunExpt'));
 
+% 17. Copying a project ----------------------------------------------------
+% The settings are the reason to copy; the subjects are a separate question,
+% and the answer must not be assumed either way.
+srcName = 'CopySource';
+srcLinks = epsych.SubjectRoster.makeLink('Notebook','elog.lab.edu/copy');
+pc = R.addProject(srcName, Notes = 'phase one', Investigator = 'D. Stolzberg', ...
+    IACUCProtocol = 'R-2026-12', DefaultProtocol = proto, ...
+    DefaultDataPath = root, SavingFcn = 'ep_SaveDataFcn', TimerPeriod = 0.02, ...
+    VideoRootDir = root, IntanRootDir = root, BehaviorGUI = 'ep_GenericGUI', ...
+    Links = srcLinks, Archived = true);
+
+cs = cell(1,3);
+for i = 1:3
+    cs{i} = R.addSubject(struct('Name',sprintf('CP%02d',i),'Sex','Female','Species','Mouse'));
+    R.assign(cs{i}, pc);
+end
+R.rememberProtocol(cs{1}, pc, proto, 4);
+R.setActive(cs{3}, pc, false);   % retired, and so left behind by default
+
+% Settings only -- and every one of them, read back off disk.
+pEmpty = R.copyProject(pc, 'CopyEmpty');
+q = epsych.SubjectRoster(rosterFile).findProject(pEmpty);
+for f = {'Notes','Investigator','IACUCProtocol','DefaultProtocol', ...
+         'DefaultDataPath','SavingFcn','VideoRootDir','IntanRootDir','BehaviorGUI'}
+    assert(strcmp(q.(f{1}), R.findProject(pc).(f{1})), ...
+        'A copy did not inherit %s', f{1});
+end
+assert(q.TimerPeriod == 0.02, 'A copy did not inherit the timer period');
+assert(isscalar(q.Links) && strcmp(q.Links.URL, 'https://elog.lab.edu/copy'), ...
+    'A copy did not inherit the project links');
+assert(~q.Archived, 'A copy must not inherit Archived; it would open hidden');
+assert(isempty(R.subjectsInProject(pEmpty, IncludeRetired = true)), ...
+    'A settings-only copy must enroll nobody');
+assert(numel(R.subjectsInProject(pc, IncludeRetired = true)) == 3, ...
+    'Copying must not disturb the source''s members');
+
+% With subjects: the active two, still in the source, carrying what they ran.
+pFull = R.copyProject(pc, 'CopyFull', IncludeSubjects = true, ...
+    DefaultProtocol = '', Archived = true);
+moved = R.subjectsInProject(pFull);
+assert(numel(moved) == 2, 'Only the two active members should have come along (got %d)', numel(moved));
+assert(~ismember('CP03', {moved.Name}), 'A retired member must be left behind by default');
+assert(strcmp(R.lastProtocol(cs{1}, pFull), proto), ...
+    'A copied membership should keep the protocol it was on');
+assert(isempty(R.protocolHistory(cs{1}, pFull)), ...
+    'A membership created by a copy has no change to undo, so no history');
+assert(isempty(R.findProject(pFull).DefaultProtocol), 'An override must beat the source');
+assert(R.findProject(pFull).Archived, 'Archived must be honoured when stated');
+assert(numel(R.projectsForSubject(cs{1})) >= 2, ...
+    'A copied subject must be in both projects, not moved out of the source');
+
+% Retired members and a cohort with no protocol memory, each on request.
+pAll = R.copyProject(pc, 'CopyAll', IncludeSubjects = true, ...
+    IncludeRetired = true, CopyProtocolMemory = false);
+assert(numel(R.subjectsInProject(pAll, IncludeRetired = true)) == 3, ...
+    'IncludeRetired should bring all three');
+assert(numel(R.subjectsInProject(pAll)) == 2, 'A retired member must arrive retired');
+assert(isempty(R.findMembership(cs{1}, pAll).LastProtocol), ...
+    'CopyProtocolMemory=false should leave the membership with no protocol');
+assert(strcmp(R.lastProtocol(cs{1}, pAll), proto), ...
+    'and the project default should then be what it falls back to');
+
+threw = false;
+try
+    R.copyProject(pc, srcName);
+catch ME
+    threw = strcmp(ME.identifier, 'epsych:SubjectRoster:DuplicateName');
+end
+assert(threw, 'A copy must be refused the name of an existing project');
+
+threw = false;
+try
+    R.copyProject('NoSuchProjectAtAll', 'Whatever');
+catch ME
+    threw = strcmp(ME.identifier, 'epsych:SubjectRoster:NoSuchProject');
+end
+assert(threw, 'Copying a project that does not exist must say so');
+fprintf('PASS: a project copies its settings, and its subjects only when asked\n');
+
 % N. No default location ---------------------------------------------------
 % The roster used to fall back to <prefdir>/epsych/subjects.esub, which meant a
 % lab's only copy of its animal records lived somewhere nobody chose and a

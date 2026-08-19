@@ -54,6 +54,7 @@ classdef BehaviorBuilder < handle
         ROI_INSET      = 0.05  % cells; gap between region ROIs so adjacent
                                % borders stay visibly separate on the canvas
         PALETTE_HINT   = 'Select a component to see its description, then drag a rectangle on the canvas to place it.'
+        WIKI_URL       = 'https://github.com/dstolz/epsych2/wiki/Behavior-GUI-Builder'
     end
 
     methods

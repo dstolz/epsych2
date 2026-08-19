@@ -182,7 +182,7 @@ Notable items:
 - `visenabled.m` — the verbosity gate on its own, for guarding log arguments that are expensive to build
 - `EPsychInfo` class — version and git metadata ([../epsych/EPsychInfo.md](../epsych/EPsychInfo.md))
 - `randGellerman.m`, `RandomTrialSequence.m`, `FellowsSeq.m` — trial sequence generators
-- `findFigure.m`, `figAlwaysOnTop.m`, `showGridBorders.m` — GUI helpers
+- `findFigure.m`, `showGridBorders.m` — GUI helpers
 
 ### `paradigms/`
 

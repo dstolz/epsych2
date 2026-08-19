@@ -54,7 +54,7 @@ classdef SubjectRoster < handle
     % Methods:
     %   reload, save                        - lifecycle
     %   addSubject, updateSubject, deleteSubject, findSubject
-    %   addProject, updateProject, deleteProject, findProject
+    %   addProject, copyProject, updateProject, deleteProject, findProject
     %   assign, unassign, setActive         - membership
     %   subjectsInProject, projectsForSubject
     %   rememberProtocol, lastProtocol      - per-membership protocol memory
@@ -178,6 +178,7 @@ classdef SubjectRoster < handle
 
         % Projects
         id  = addProject(self, name, options)
+        newId = copyProject(self, id, newName, options)
         updateProject(self, id, P)
         deleteProject(self, id)
         [rec, idx] = findProject(self, key)

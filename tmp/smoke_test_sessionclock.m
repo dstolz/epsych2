@@ -2,7 +2,8 @@ function smoke_test_sessionclock()
 % smoke_test_sessionclock()
 % Exercise gui.SessionClock: UI construction (4 labels, no-clip row
 % layout), context menu creation and checked-state sync, programmatic
-% visibility control, right-click toggle simulation, per-PreferenceTag
+% visibility control, right-click toggle simulation, font-size control
+% (programmatic, menu presets, clamping), per-PreferenceTag
 % persistence across instances (remembers user choices "per BehaviorGUI"),
 % NewTrial/StartTime timing sources, and teardown. Headless-safe: every
 % figure is closed and every test preference removed before returning.
@@ -32,9 +33,11 @@ fprintf('PASS: construction, 4 word-wrapped labels, fit-height rows\n');
 
 % 2. Context menu: one checked item per line -------------------------------
 assert(~isempty(c1.ContextMenuH) && isvalid(c1.ContextMenuH), 'context menu should be created');
-items = findall(c1.ContextMenuH, 'Type', 'uimenu');
-assert(numel(items) == 4, 'context menu should have 4 toggle items (got %d)', numel(items));
+allItems = findall(c1.ContextMenuH, 'Type', 'uimenu');
+items = allItems(startsWith(string({allItems.Tag}), 'line|'));
+assert(numel(items) == 4, 'context menu should have 4 line toggle items (got %d)', numel(items));
 assert(all([items.Checked]), 'all lines should start checked');
+assert(any(strcmp({allItems.Tag}, 'fontmenu')), 'context menu should offer a Font Size submenu');
 assert(isequal(c1.PanelH.ContextMenu, c1.ContextMenuH), 'panel should carry the context menu');
 assert(isequal(c1.LabelH.ClockTime.ContextMenu, c1.ContextMenuH), 'labels should carry the context menu too');
 fprintf('PASS: context menu built with 4 checked toggle items\n');
@@ -69,6 +72,40 @@ assert(c1b.ShowClockTime, 'lines never toggled should keep their default');
 delete(c1b);
 close(figA2);
 fprintf('PASS: line visibility remembered across instances per PreferenceTag\n');
+
+% 5b. Font size: programmatic, menu, clamping, persistence ----------------
+assert(c1.FontSize == 12, 'default font size should be 12 pt (got %g)', c1.FontSize);
+c1.FontSize = 22;
+assert(c1.FontSize == 22, 'FontSize should take a programmatic set');
+for i = 1:numel(lineKeys)
+    assert(c1.LabelH.(lineKeys{i}).FontSize == 22, ...
+        'label "%s" should follow FontSize immediately, without a refresh', lineKeys{i});
+end
+c1.FontSize = 1000;
+assert(c1.FontSize == 72, 'oversized fonts should clamp to 72 pt (got %g)', c1.FontSize);
+c1.setFontSize(14.4);
+assert(c1.FontSize == 14, 'a fractional size should round to whole points (got %g)', c1.FontSize);
+
+fontMenu = findall(c1.ContextMenuH, 'Type', 'uimenu', 'Tag', 'fontmenu');
+c1.ContextMenuH.ContextMenuOpeningFcn([], []); % simulate the operator right-clicking
+presetItems = fontMenu.Children;
+checked = presetItems(logical([presetItems.Checked]));
+assert(isscalar(checked) && strcmp(checked.Text, '14 pt'), ...
+    'the font menu should check the size in effect');
+larger = presetItems(strcmp({presetItems.Text}, 'Larger'));
+larger.MenuSelectedFcn([], []);
+assert(c1.FontSize == 16, 'the Larger entry should step up 2 pt (got %g)', c1.FontSize);
+
+assert(ispref(PREF_TAG_A, 'SessionClockFontSize'), 'a font change should persist a preference');
+figA3 = uifigure('Tag', [PREF_TAG_A '_3'], 'Visible', 'off');
+c1c = gui.SessionClock(figA3, 'PreferenceTag', PREF_TAG_A, 'FontSize', 9);
+assert(c1c.FontSize == 16, ...
+    'a saved font size should override the constructor default (got %g)', c1c.FontSize);
+assert(c1c.LabelH.ClockTime.FontSize == 16, 'restored size should reach the labels');
+delete(c1c);
+close(figA3);
+c1.setFontSize(12); % back to the default for the remaining sections
+fprintf('PASS: font size settable programmatically and from the menu, clamped and remembered\n');
 
 % 6. PreferenceTag defaults to the ancestor figure's Tag -------------------
 figB = uifigure('Tag', PREF_TAG_B, 'Visible', 'off');
@@ -142,4 +179,5 @@ for i = 1:numel(prefTags)
     delete(findall(groot,'Type','figure','-and','Tag',tag));
 end
 delete(findall(groot,'Type','figure','-and','Tag',[prefTags{1} '_2']));
+delete(findall(groot,'Type','figure','-and','Tag',[prefTags{1} '_3']));
 end

@@ -44,7 +44,8 @@ alsoIn = struct( ...
     'ProtocolDesigner',            fullfile(repoRoot, 'documentation', 'design', 'images'), ...
     'ProtocolDesigner_Interfaces', fullfile(repoRoot, 'documentation', 'design', 'images'), ...
     'RunExpt',                     fullfile(repoRoot, 'documentation', 'overviews', 'images'), ...
-    'SubjectManager',              fullfile(repoRoot, 'documentation', 'gui', 'images'));
+    'SubjectManager',              fullfile(repoRoot, 'documentation', 'gui', 'images'), ...
+    'BehaviorBuilder',             fullfile(repoRoot, 'documentation', 'gui', 'images'));
 
 shots = { ...
     'ProtocolDesigner',  @shotProtocolDesigner; ...
@@ -59,6 +60,8 @@ shots = { ...
     'TwoAFCBehaviorGUI',          @shotTwoAFCBehaviorGUI; ...
     'TwoAFCBehaviorGUI_feedback', @shotTwoAFCBehaviorGUIFeedback; ...
     'TwoAFCBehaviorGUI_scatter',  @shotTwoAFCBehaviorGUIScatter; ...
+    'BehaviorBuilder',            @shotBehaviorBuilder; ...
+    'BehaviorBuilder_Generated',  @shotBehaviorBuilderGenerated; ...
     'RunExpt',           @shotRunExpt; ...
     'SubjectManager',    @shotSubjectManager; ...
     'SelfTest',          @shotSelfTest; ...
@@ -438,6 +441,110 @@ end
 
 
 %% ------------------------------------------------------------------------
+%  Behavior GUI Builder
+% -------------------------------------------------------------------------
+function [fig, cleanupFcn] = shotBehaviorBuilder(C)
+% Caption: mid-design over the detection example protocol, eight regions
+% placed and the ninth just dropped into the free cell.
+%
+% The last region goes in through addRegion -- the same path a canvas drag
+% takes -- because that is what leaves a region SELECTED, and an unselected
+% canvas shows an empty inspector. Next Trial is the choice because its
+% catalog entry has no options dialog: a type with one would block the run
+% on a modal window nobody is there to dismiss.
+specFile = builderShotSpec(C);
+b = gui.BehaviorBuilder(specFile);
+fig = findall(groot, 'Type','figure', '-and', 'Tag', gui.BehaviorBuilder.PREF_TAG);
+fig = fig(1);   % the window handle is private to the class; find it by tag
+fig.Position(3:4) = [1250 760];
+drawnow
+b.addRegion('NextTrial', [4 4], [4 4]);
+drawnow
+cleanupFcn = @() delete(b);
+end
+
+
+function [fig, cleanupFcn] = shotBehaviorBuilderGenerated(C)
+% Caption: the class that design exports, running against a software-only
+% runtime before any trials. Its whole job is to be compared with the
+% canvas above it -- same panels, same cells.
+specFile = builderShotSpec(C);
+spec = gui.BehaviorBuilder.loadSpecFile(specFile);
+spec.Regions(end+1) = struct('Id','R9', 'Type','NextTrial', 'Label','Next Trial', ...
+    'Row',[4 4], 'Col',[4 4], 'PopOut',false, ...
+    'Options',gui.BehaviorBuilder.defaultOptions('NextTrial'));
+gui.BehaviorBuilder.writeCode(spec, specFile);
+addpath(C.scratch);
+rehash
+clear(spec.ClassName)
+G = feval(spec.ClassName, softwareRuntime(C));
+fig = G.h_figure;
+cleanupFcn = @() delete(G);
+end
+
+
+function specFile = builderShotSpec(C)
+% The design both builder shots use: the detection example protocol laid
+% out the way DetectionBehaviorGUI is, minus the one cell the shot fills in
+% live. Written to scratch, never to the repository -- an .eblt in the tree
+% would be a fixture nobody maintains.
+spec = gui.BehaviorBuilder.specNew;
+spec.ClassName  = 'ToneDetectionGUI';
+spec.WindowName = 'Tone Detection';
+spec.DefaultSize = [1180 700];
+spec.Psych = struct('Type','Detection', 'Parameter','ToneLevel', ...
+    'TargetTrialType','TrialType_0');
+spec.ProtocolPath = C.protocol;
+rt = softwareRuntime(C);
+spec.ParameterSnapshot = gui.BehaviorBuilder.snapshotFromParameters( ...
+    rt.all_parameters(includeTriggers=true));
+
+btn = gui.BehaviorBuilder.defaultOptions('ButtonRow');
+btn.Buttons = struct('Param', {'Reward'}, 'Text', {'Give Reward'});
+btn.IncludeScreenCapture = true;
+spec = builderShotRegion(spec, 'R1', 'ButtonRow', '', [1 1], [1 3], false, btn);
+
+ctrl = gui.BehaviorBuilder.defaultOptions('ControlColumn');
+ctrl.Controls = struct( ...
+    'Param',      {'ToneFreq','ToneDur','ITI','RewardVol'}, ...
+    'Type',       {'auto','auto','auto','auto'}, ...
+    'autoCommit', {false, false, false, false}, ...
+    'Text',       {'Tone Frequency (Hz)','Tone Duration (ms)','Intertrial Interval (ms)',''});
+spec = builderShotRegion(spec, 'R2', 'ControlColumn', 'Trial Controls', ...
+    [2 4], [1 1], false, ctrl);
+
+mon = gui.BehaviorBuilder.defaultOptions('Monitor');
+mon.Params = {'InTrial','RespCode','RT_ms'};
+mon.PollPeriod = 0.5;
+spec = builderShotRegion(spec, 'R3', 'Monitor', 'Monitor', [2 2], [2 2], true, mon);
+
+sca = gui.BehaviorBuilder.defaultOptions('Scatter');
+sca.YParameter = 'RT_ms';
+sca.ColorParameter = 'RespCode';
+spec = builderShotRegion(spec, 'R4', 'Scatter', 'Response Latency', ...
+    [3 4], [2 2], false, sca);
+
+spec = builderShotRegion(spec, 'R5', 'PsychPlot', 'Psychometric', [2 3], [3 3], false, ...
+    gui.BehaviorBuilder.defaultOptions('PsychPlot'));
+spec = builderShotRegion(spec, 'R6', 'History', 'Trials', [4 4], [3 3], false, ...
+    gui.BehaviorBuilder.defaultOptions('History'));
+spec = builderShotRegion(spec, 'R7', 'SessionClock', 'Clock', [1 1], [4 4], false, ...
+    gui.BehaviorBuilder.defaultOptions('SessionClock'));
+spec = builderShotRegion(spec, 'R8', 'Performance', 'Performance', [2 3], [4 4], false, ...
+    gui.BehaviorBuilder.defaultOptions('Performance'));
+
+specFile = fullfile(C.scratch, 'ToneDetection.eblt');
+gui.BehaviorBuilder.saveSpecFile(spec, specFile);
+end
+
+
+function spec = builderShotRegion(spec, id, type, label, rowSpan, colSpan, popOut, options)
+spec.Regions(end+1) = struct('Id',id, 'Type',type, 'Label',label, ...
+    'Row',rowSpan, 'Col',colSpan, 'PopOut',popOut, 'Options',options);
+end
+
+
+%% ------------------------------------------------------------------------
 %  Session window and diagnostics
 % -------------------------------------------------------------------------
 function [fig, cleanupFcn] = shotRunExpt(C)
@@ -749,7 +856,8 @@ function P = snapshotPrefs()
 groups = {'ProtocolDesigner', 'epsych2_gui_History', 'epsych2_gui_ParameterScatter', ...
     'epsych2_gui_Parameter_Monitor', 'epsych2_gui_PhaseSelector', 'StaircaseTraining', ...
     'ExampleBehaviorGUI', 'DetectionBehaviorGUI', 'TwoAFCBehaviorGUI', ...
-    'ep_RunExpt_Subjects', 'epsych2_gui_SubjectManager'};
+    'ep_RunExpt_Subjects', 'epsych2_gui_SubjectManager', ...
+    'gui_BehaviorBuilder', 'ToneDetectionGUI'};
 P = struct('group', groups, 'value', []);
 for k = 1:numel(groups)
     if ispref(groups{k}), P(k).value = getpref(groups{k}); end

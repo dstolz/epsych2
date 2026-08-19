@@ -40,6 +40,10 @@ lvl = [DATA.ToneLevel];          % per-trial vectors line up by array index
 rc  = uint32([DATA.RespCode]);
 ```
 
+`ep_SaveDataFcn` prints the path of every file it writes as a command-window
+hyperlink; clicking it does the load and the `S.Data` for you, leaving the trial
+array in a base workspace variable named after the subject (`Data_ExampleSubject`).
+
 ## Decoding outcomes
 
 `RespCode` packs the entire trial outcome into one `uint32` whose bits are

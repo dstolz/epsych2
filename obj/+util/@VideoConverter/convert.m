@@ -1,6 +1,6 @@
 function convert(obj)
 % obj.convert()
-% Start converting every 'pending' row in Results. ASYNCHRONOUS: this
+% Start converting every selected 'pending' row in Results. ASYNCHRONOUS: this
 % returns immediately; a timer drives the scheduler in the background,
 % launching up to MaxParallel ffmpeg processes at once. A busy MATLAB
 % main thread only stalls *reporting*, never the encodes themselves.
@@ -17,6 +17,10 @@ if obj.IsRunning
 end
 if isempty(obj.Results) || height(obj.Results) == 0
     vprintf(1, 'util.VideoConverter: no files to convert; call scan() first.');
+    return
+end
+if ~any(obj.Results.Selected)
+    vprintf(0, 1, 'util.VideoConverter: every scanned file is deselected; nothing to convert.');
     return
 end
 

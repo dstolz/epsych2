@@ -402,6 +402,25 @@ switch name
             "................"
             "................"];
 
+    case "projectcopy" % a folder duplicated behind itself
+        rows = [ ...
+            "................"
+            "kkkkk..........."
+            "kyyyykkkkkk....."
+            "kyyyyyyyyyk....."
+            "kYYYYYYYYYk....."
+            "kYYYkkkkkkkkkkk."
+            "kYYYkyyyykkkkkk."
+            "kYYYkyyyyyyyyyk."
+            "kYYYkYYYYYYYYYk."
+            "kkkkkYYYYYYYYYk."
+            "....kYYYYYYYYYk."
+            "....kYYYYYYYYYk."
+            "....kYYYYYYYYYk."
+            "....kkkkkkkkkkk."
+            "................"
+            "................"];
+
     case "projectedit" % folder with a pencil
         rows = [ ...
             "................"

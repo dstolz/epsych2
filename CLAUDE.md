@@ -183,8 +183,21 @@ Rules that matter:
   make the roster unreadable for the lab — with `openLink` re-checking at the
   click. Adding a project field means `blankProject_` + `addProject` +
   `updateProject`'s field list (which coerces with `char(string(...))`, so a
-  non-char field needs its own branch); `normalize_` handles old files, so
+  non-char field needs its own branch) + `copyProject`'s carry list;
+  `normalize_` handles old files, so
   **every default must mean what a file written before the field meant**.
+  `copyProject` clones a project's whole configuration for the study that
+  follows it, delegating every validation to `addProject` rather than
+  re-implementing it. Its override options carry **no `arguments` defaults**,
+  so "not stated" (follow the source) stays distinguishable from "stated as
+  empty" — that is what lets the GUI show the copy in the edit dialog first.
+  Three deliberate exclusions: `Archived` (a copy is made to start work),
+  subjects unless `IncludeSubjects` (a new cohort and a second phase want
+  opposite things), and `ProtocolHistory` even when `CopyProtocolMemory` is on
+  (a membership created a moment ago has no way it was). Retired members stay
+  behind unless `IncludeRetired`. The project is written first and the
+  memberships second, so an interrupted copy leaves an empty project — the
+  recoverable half, since "Add to Project" can finish it.
   Roster records carry **no BoxID**: a box belongs to a session, so `toSubject`
   materializes an `epsych.Subject` at assignment time, which is why `epsych.Subject`
   needs no subclassing. Every mutation goes through `mutate_` (reload-if-stale →
@@ -320,7 +333,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
 - Real-time visualization: OnlinePlot, Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
 - **gui.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
 - **gui.NextTrial**: generic upcoming-trial display driven by NewTrial events
-- **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. The project dialog has two tabs: **Project** (identity, links, archived) and **Session Defaults**, which is where the settings that moved off Customize are set — protocol, data path, saving function, behavior GUI, timer period, video and Intan paths. Nothing there opens blank: each field is seeded from its MRU (`ep_RunExpt_Subjects/Recent<Field>`, written only on OK) and then the machine pref, and OK refuses a blank one; `DefaultProtocol` and `IntanSettingsFile` are the two deliberate exceptions. The behavior GUI dropdown is fed by the behavior GUIs other projects in the roster use, not by the `RecentBehaviorGUI` pref, so it works with no session open. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. On a rig with no roster file chosen the window opens *unbound* — header `Roster: (no file chosen)`, an explanation where the table goes, and everything off EXCEPT New Project / New Subject / Import, because clicking one of those three is how `ensureRoster_` asks for the file. That prompt loops with two exits (name a file, or close the window): "carry on without one" is never offered, since it would mean filling in a record with nowhere to save it. Browsing never prompts. A configured path whose FOLDER is gone (share moved, drive unmounted, temp dir cleaned up) is treated the same way and marked `(folder not found)` — otherwise it is indistinguishable from a fresh empty roster, and `saveAtomic_` would re-create that dead folder and save into it. The header shows the FULL path plus a Change... button, redundantly with the toolbar tool and File menu, because an icon-only toolbar is no help to someone whose roster is not where they expected. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies. A **Version** column and a **Protocol** menu surface `SubjectRoster`'s version checking: the column shows the version each subject is *on* (bold orange when the file has been saved since), a collapsible banner over the table announces how many are behind and offers Update All, and right-click opens that row's protocol in `epsych.ProtocolDesigner`. "Update All in Project" deliberately covers filtered-out members, but RETIRED members are outside the version workflow entirely: they are skipped by every update, left out of the banner, the tooltip, and Check Protocol Versions, and their Version cell is greyed rather than flagged. A finished animal's recorded protocol is the record of what it ran, and no session will follow to make a newer version true. A project's **links** render under the summary as `uihyperlink`s whose `URL` is left EMPTY on purpose — the click routes through `SubjectRoster.openLink` so a stored address is re-checked before anything navigates, and a `file:` folder goes to the file manager rather than a browser. "Show archived projects" is the project-level counterpart of "Show retired", and the selected project is never hidden by it (documentation/gui/gui_SubjectManager.md)
+- **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. **Copy...** (also `Project > Copy Project...` and a two-folders tool) starts a study's next phase from one that already works: it asks the subjects question FIRST in a `uiconfirm` — with subjects, or settings only, skipped entirely for a project with no active members — because that is the one thing the edit dialog cannot show, then opens the ordinary dialog titled `Copy Project` on a non-colliding `(copy)` name, so nothing is written until OK. Copied subjects stay in the source too (membership is many-to-many); the roster's `IncludeRetired`/`CopyProtocolMemory` are script-only. The project dialog has two tabs: **Project** (identity, links, archived) and **Session Defaults**, which is where the settings that moved off Customize are set — protocol, data path, saving function, behavior GUI, timer period, video and Intan paths. Nothing there opens blank: each field is seeded from its MRU (`ep_RunExpt_Subjects/Recent<Field>`, written only on OK) and then the machine pref, and OK refuses a blank one; `DefaultProtocol` and `IntanSettingsFile` are the two deliberate exceptions. The behavior GUI dropdown is fed by the behavior GUIs other projects in the roster use, not by the `RecentBehaviorGUI` pref, so it works with no session open. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. On a rig with no roster file chosen the window opens *unbound* — header `Roster: (no file chosen)`, an explanation where the table goes, and everything off EXCEPT New Project / New Subject / Import, because clicking one of those three is how `ensureRoster_` asks for the file. That prompt loops with two exits (name a file, or close the window): "carry on without one" is never offered, since it would mean filling in a record with nowhere to save it. Browsing never prompts. A configured path whose FOLDER is gone (share moved, drive unmounted, temp dir cleaned up) is treated the same way and marked `(folder not found)` — otherwise it is indistinguishable from a fresh empty roster, and `saveAtomic_` would re-create that dead folder and save into it. The header shows the FULL path plus a Change... button, redundantly with the toolbar tool and File menu, because an icon-only toolbar is no help to someone whose roster is not where they expected. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies. A **Version** column and a **Protocol** menu surface `SubjectRoster`'s version checking: the column shows the version each subject is *on* (bold orange when the file has been saved since), a collapsible banner over the table announces how many are behind and offers Update All, and right-click opens that row's protocol in `epsych.ProtocolDesigner`. "Update All in Project" deliberately covers filtered-out members, but RETIRED members are outside the version workflow entirely: they are skipped by every update, left out of the banner, the tooltip, and Check Protocol Versions, and their Version cell is greyed rather than flagged. A finished animal's recorded protocol is the record of what it ran, and no session will follow to make a newer version true. A project's **links** render under the summary as `uihyperlink`s whose `URL` is left EMPTY on purpose — the click routes through `SubjectRoster.openLink` so a stored address is re-checked before anything navigates, and a `file:` folder goes to the file manager rather than a browser. "Show archived projects" is the project-level counterpart of "Show retired", and the selected project is never hidden by it (documentation/gui/gui_SubjectManager.md)
 - **gui.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, a TTL-trigger enable, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, units, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state. Rate and readout **units** are the operator's too, from the right-click Units menu (µL/mL per min/hr, mL/min by default): changing them converts `Rate` rather than reinterpreting it, puts the interface into the same units — so a protocol column that writes `Rate` means them as well — and is refused while the pump runs, because the pump rejects a units-bearing `RAT` mid-dispense and `hw.NE1000`'s bare-value fallback would land in the OLD units (`gui.BehaviorGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
 - **gui.ScreenCapture**: camera button that copies a picture of the whole window
   — controls and plots alike — to the system clipboard, for pasting into a
@@ -333,7 +346,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   `gui.toolbarIcon("camera")`, since `uibutton`'s `Icon` accepts only four
   built-in names — the confirmation flash after a copy is the one place those
   are used (documentation/gui/gui_ScreenCapture.md)
-- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, SyringePump, PsychPlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button, `gui.ComponentToolbar` puts them all on one toolbar (documentation/gui/gui_PopOut.md)
+- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, SyringePump, PsychPlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button, `gui.ComponentToolbar` puts them all on one toolbar. A second item, **Keep Window on Top**, pins the window (`WindowStyle='alwaysontop'`) so a display stays readable while the operator works in another application, and is remembered with the window position. It appears only in a window holding ONE component — a pop-out, or one `ComponentToolbar` opened for a lazy entry, marked as such by `gui.PopOut.markStandaloneWindow` before the component is built — never on the embedded copy, whose window belongs to the behavior GUI and everything else on it (documentation/gui/gui_PopOut.md)
 - **gui.ComponentToolbar**: the optional icon toolbar a behavior GUI adds with
   `addComponentToolbar` — one tool per display, opening it in a window of its
   own. Two kinds of entry, differing in who owns the window: **automatic**
@@ -391,7 +404,27 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   trap. Every write is followed by a read-back, since on a real backend that is the
   only proof it landed. Sources come from `CONFIG(i).PROTOCOL.Interfaces`, not
   RUNTIME, so it works before a run; `(offline)` on a timestamp means the backend was
-  never asked (documentation/gui/gui_ParameterDebugger.md)
+  never asked. The Find box filters **as you type** (`ValueChanging`, not on Enter),
+  which is affordable precisely because filtering touches only handles already in
+  memory; a Regex tick makes it a pattern, and a half-typed one (`Freq[`) leaves the
+  list alone rather than emptying it, since MATLAB's `regexp` accepts those silently
+  and only `patternIncomplete_` notices. A filter change CARRIES the read report over
+  (matched on the parameter handle — same object, same evidence) while a rebuild still
+  starts clean, and Esc clears the box before it closes the window. Sorting and column
+  rearranging are on: safe only because every callback uses the DATA index uitable
+  reports (`Selection`, `evt.Indices`, `InteractionInformation.Row`), never the
+  `Display*` one a header click reorders (documentation/gui/gui_ParameterDebugger.md)
+- **gui.ParameterTracker**: the live plot the debugger opens with Track Selected
+  (Ctrl+T) — scalar parameters against seconds since tracking started, one colour
+  each. It is where the polling the debugger refuses to do actually lives: its own
+  window, its own timer, an operator-set rate (0.1-20 Hz, default 5), and a Pause
+  button, so bus traffic is something visibly turned on. Samples are stamped with
+  the clock rather than the sample index, so a period the timer misses widens a gap
+  instead of drifting the time axis; a failed or non-scalar read is NaN and is logged
+  once per parameter (again only if the message changes), or a disconnected rig writes
+  five records a second. A parameter added mid-run gets NaN for what it missed rather
+  than invented history, and removing one takes its samples with it
+  (documentation/gui/gui_ParameterTracker.md)
 - Diagnostics: SelfTest (window for epsych.SelfTest; opened from RunExpt's Help menu)
 - Parameter control: Parameter_Control, Parameter_Monitor, Parameter_Update
 - Utilities: ElapsedTrialTimer
@@ -419,7 +452,17 @@ re-uploading the state table.
 
 #### obj/+psychophysics/ – Online & Offline Analysis
 - **psychophysics.Psych** (abstract): Base for all analysis
-- **psychophysics.Detection**: Hit rate, false alarm rate, d'
+- **psychophysics.Detection**: Hit rate, false alarm rate, d', A'. It owns the
+  signal-detection arithmetic every other component reuses (`d_prime`, `bias`,
+  `a_prime`). **A'** is the nonparametric sensitivity index (Grier 1971): chance
+  0.5, defined at rates of 0 and 1, so unlike d' it takes NO `infCorrection` —
+  clamping the rates would only bias it toward chance, which is why the clamp is
+  passed to `d_prime`/`bias` and withheld from `a_prime` at every call site.
+  Exposed as `Detection.APrime` (per stimulus value),
+  `SessionMetrics.Results.APrime`, and a plot type on `gui.PsychPlot` (`APrime`)
+  and `gui.SlidingWindowPerformancePlot` (`aPrime`); shown by default nowhere,
+  since `defaultMetrics` and the default plot types are unchanged
+  (documentation/psychophysics/psychophysics_APrime.md)
 - **psychophysics.NAFC**: N-alternative forced choice — choice functions, proportion
   correct vs a 1/N chance level, confusion matrix, choice bias — with customizable,
   self-refreshing plotting (three PlotTypes, right-click switchable, gui.PopOut).
@@ -428,7 +471,7 @@ re-uploading the state table.
   (documentation/psychophysics/psychophysics_NAFC.md)
 - **psychophysics.Staircase**: Reversal detection and threshold estimation
 - **psychophysics.BestPEST**, **psychophysics.MLP**: Threshold-seeking algorithms
-- **psychophysics.SessionMetrics**: Session-level counts, rates, d' and criterion over a
+- **psychophysics.SessionMetrics**: Session-level counts, rates, d', A' and criterion over a
   `psychophysics.TrialWindow` (all trials, last N, first N, or an explicit range). The
   computation behind `gui.SessionPerformance`; also usable headlessly and offline
   (documentation/psychophysics/psychophysics_SessionMetrics.md)
@@ -468,7 +511,7 @@ See documentation/eplog/eplog_Logging.md.
 - **visenabled.m**: The gate alone, for guarding expensive log arguments
 - **EPsychInfo**: Version and git metadata
 - **Trial sequence generators**: randGellerman, RandomTrialSequence, FellowsSeq
-- **GUI helpers**: findFigure, figAlwaysOnTop
+- **GUI helpers**: findFigure
 
 ### Event System & Runtime Communication
 

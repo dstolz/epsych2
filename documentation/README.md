@@ -85,6 +85,7 @@ GUI components (`gui`):
 - [gui.Parameter_Control](gui/Parameter_Control.md) — binding a parameter to a UI widget
 - [gui.Parameter_Update](gui/Parameter_Update.md) — commit button for staged parameter edits
 - [gui.ParameterDebugger](gui/gui_ParameterDebugger.md) — read and write every parameter a protocol defines, on demand
+- [gui.ParameterTracker](gui/gui_ParameterTracker.md) — plot scalar parameters against time, live
 - [gui.History](gui/gui_History.md) — trial-by-trial history table
 - [gui.SubjectManager](gui/gui_SubjectManager.md) — subjects by project, and the batch commit into a session
 - [gui.BehaviorGUI](gui/gui_BehaviorGUI.md) — the base class a paradigm's own experiment GUI subclasses, and its component helpers
@@ -105,6 +106,7 @@ Analysis (`psychophysics`):
 - [psychophysics.Staircase](psychophysics/psychophysics_Staircase.md) — reversals and threshold estimation
 - [psychophysics.BestPEST](psychophysics/psychophysics_BestPEST.md) — maximum-likelihood threshold tracking
 - [psychophysics.MLP](psychophysics/psychophysics_MLP.md) — Bayesian psychometric estimation
+- [A' (nonparametric sensitivity)](psychophysics/psychophysics_APrime.md) — distribution-free companion to d'
 
 Protocol design internals:
 

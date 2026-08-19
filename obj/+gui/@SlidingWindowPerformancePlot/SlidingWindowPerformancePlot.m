@@ -6,6 +6,7 @@ classdef SlidingWindowPerformancePlot < handle
     %
     %   Metrics computed and plotted:
     %       - dPrime      : Sensitivity (signal detection theory)
+    %       - aPrime      : Nonparametric sensitivity A' (chance = 0.5)
     %       - HitRate     : Proportion of correct detections on stimulus trials
     %       - FARate      : False alarm rate on catch trials
     %       - Bias        : Response bias (criterion) estimate
@@ -31,8 +32,8 @@ classdef SlidingWindowPerformancePlot < handle
     properties (SetObservable)
         psychObj  % Reference to the main psychophysics object providing data
 
-        plotType (1,1) string {mustBeMember(plotType,["dPrime","HitRate","FARate","Bias"])} = "dPrime";
-        % Type of metric to plot. Options: 'dPrime', 'HitRate', 'FARate', 'Bias'
+        plotType (1,1) string {mustBeMember(plotType,["dPrime","aPrime","HitRate","FARate","Bias"])} = "dPrime";
+        % Type of metric to plot. Options: 'dPrime', 'aPrime', 'HitRate', 'FARate', 'Bias'
 
         palettename (1,1) string = "lines";  % Color palette for the lines
 
@@ -76,6 +77,7 @@ classdef SlidingWindowPerformancePlot < handle
         );
 
         dPrime = [];  % Matrix of d-prime values by trial
+        aPrime = [];  % Matrix of nonparametric A' values by trial
         Bias = [];    % Matrix of bias values by trial
 
         cm % colormap
@@ -181,6 +183,9 @@ classdef SlidingWindowPerformancePlot < handle
             % Add reference line for d' = 1
             if obj.plotType == "dPrime"
                 yline(obj.hAxes, 1, '--k', HandleVisibility = "off");
+            elseif obj.plotType == "aPrime"
+                % A' chance level, the counterpart of d' = 0
+                yline(obj.hAxes, 0.5, '--k', HandleVisibility = "off");
             end
 
             ylabel(obj.hAxes, obj.plotType);
@@ -275,6 +280,10 @@ classdef SlidingWindowPerformancePlot < handle
             d = P.d_prime(HR, FAR, P.infCorrection);
             d(isnan(HR)) = nan;
             obj.dPrime(tidx, ind) = d;
+
+            % A' needs no infCorrection: it is defined at rates of 0 and 1,
+            % which is what keeps it usable in the first few trials of a window
+            obj.aPrime(tidx, ind) = P.a_prime(HR, FAR);
 
             % Optional: Bias computation (currently disabled)
             b = P.bias(obj.Rate.Hit, FAR, obj.psychObj.infCorrection);

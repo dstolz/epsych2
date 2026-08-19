@@ -17,7 +17,7 @@ obj/+hw/@NE1000	Video-and-Peripherals, Hardware-Abstraction-Layer	documentation/
 obj/+hw/@Interface	Hardware-Abstraction-Layer, Writing-a-Hardware-Backend	documentation/hw/hw_Interface.md, documentation/hw/hw_Interface_Tutorial.md
 obj/+hw/@Parameter	Hardware-Abstraction-Layer, Designing-Protocols	documentation/hw/hw_Parameter.md
 obj/+hw/	Hardware-Abstraction-Layer, Writing-a-Hardware-Backend, Programmers-Toolkit	documentation/hw/
-obj/+epsych/@RunExpt	Running-a-Session, RunExpt-GUI-Overview	documentation/overviews/RunExpt_GUI_Overview.md
+obj/+epsych/@RunExpt	Running-a-Session, RunExpt-GUI-Overview, Utilities	documentation/overviews/RunExpt_GUI_Overview.md
 obj/+epsych/@ProtocolDesigner	Designing-Protocols	documentation/design/ProtocolDesigner.md, documentation/design/ProtocolDesigner_UserGuide.md
 obj/+epsych/@Protocol	Protocol-Internals, Designing-Protocols	documentation/epsych/epsych_Protocol.md
 obj/+epsych/@BlockSequence	Trial-Selectors	documentation/epsych/epsych_BlockSequence.md
@@ -33,12 +33,14 @@ obj/+stimbridge/	Stimgen-Integration, Stimuli-and-Calibration	documentation/stim
 obj/stimgen	Stimgen-Integration, Stimuli-and-Calibration	documentation/stimgen.md (submodule docs are authoritative)
 obj/+teensy/	Teensy-Trial-Designer, Teensy-Program-Model, Programmers-Toolkit	documentation/teensy/, documentation/hw/hw_Teensy_Program_Protocol.md
 obj/+eplog/	Troubleshooting, Contributing-and-Conventions, Programmers-Toolkit	documentation/eplog/eplog_Logging.md
-obj/+peripherals/	Video-and-Peripherals	documentation/peripherals/
+obj/+peripherals/	Video-and-Peripherals, Utilities	documentation/peripherals/
+obj/+util/	Video-and-Peripherals, Utilities	documentation/util/VideoConverter.md
 runtime/timerfcns/	Trial-Lifecycle, Runtime-and-Events	documentation/epsych/epsych_TrialLifecycle.md
 runtime/savefcns/	Data-and-Save-Functions	documentation/paradigms/cl_SaveDataFcn.md
 runtime/guis/	Building-a-Behavior-GUI, GUI-Framework-Internals	documentation/design/Customized_GUI_Instructions.md
 helpers/	Programmers-Toolkit	documentation/overviews/Programmers_Toolkit.md
 helpers/vprintf.m	Troubleshooting, Contributing-and-Conventions	documentation/helpers/helpers_vprintf.md
+helpers/bitmask_gui.m	Data-and-Save-Functions, Utilities	documentation/overviews/Programmers_Toolkit.md
 helpers/EPsychInfo	Installation-and-Setup, Installation-Guide	documentation/epsych/EPsychInfo.md
 epsych_startup.m	Installation-and-Setup, Installation-Guide, Quick-Start	documentation/overviews/Installation_Guide.md
 examples/customgui/	Building-a-Behavior-GUI, Generating-a-Behavior-GUI-with-AI	documentation/design/Customized_GUI_Instructions.md

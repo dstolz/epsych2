@@ -259,49 +259,66 @@ classdef RunExpt < handle
             end
             idx = selection(1);
 
-            protocolFile = char(self.CONFIG(idx).protocol_fn);
-            if isempty(protocolFile) || ~isfile(protocolFile)
-                uialert(self.H.figure1, ...
-                    sprintf('The protocol file "%s" could not be found.',protocolFile), ...
-                    'EPsych','Icon','error');
+            [ok, oldV, newV, msg] = self.reloadProtocolForSubject_(idx);
+            name = self.CONFIG(idx).SUBJECT.Name;
+
+            if ~ok
+                uialert(self.H.figure1, msg, 'EPsych','Icon','error');
                 return
             end
 
-            oldVersion = '';
-            proto = self.CONFIG(idx).PROTOCOL;
-            if isa(proto,'epsych.Protocol') && isvalid(proto)
-                oldVersion = char(proto.meta.protocolVersion);
-            end
-
-            warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
-            try
-                newProtocol = epsych.Protocol.load(protocolFile);
-            catch ME
-                warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
-                vprintf(0,1,ME);
+            if strcmp(oldV, newV)
                 uialert(self.H.figure1, ...
-                    sprintf('Failed to load protocol "%s".',protocolFile),'EPsych','Icon','error');
-                return
-            end
-            warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
-
-            self.CONFIG(idx).PROTOCOL = newProtocol;
-
-            name       = self.CONFIG(idx).SUBJECT.Name;
-            newVersion = char(newProtocol.meta.protocolVersion);
-            self.reportProtocolValidation(newProtocol, name);
-
-            if strcmp(oldVersion, newVersion)
-                vprintf(1,'Reloaded protocol for subject "%s" (version %s; already latest).',name,newVersion);
-                uialert(self.H.figure1, ...
-                    sprintf('Subject "%s" is already using the latest protocol version (%s).',name,newVersion), ...
+                    sprintf('Subject "%s" is already using the latest protocol version (%s).',name,newV), ...
                     'EPsych','Icon','info');
             else
-                vprintf(1,'Updated protocol for subject "%s": %s -> %s.',name,oldVersion,newVersion);
                 uialert(self.H.figure1, ...
-                    sprintf('Updated protocol for subject "%s" to version %s.',name,newVersion), ...
+                    sprintf('Updated protocol for subject "%s" to version %s.',name,newV), ...
                     'EPsych','Icon','success');
             end
+
+            self.UpdateSubjectList
+            self.CheckReady
+        end
+
+        function ReloadProtocols(self)
+            % obj.ReloadProtocols
+            % Reload every subject's protocol object from its .eprot on disk.
+            %
+            % The one-click "everyone onto the freshly saved file" for a
+            % multi-subject session: UpdateProtocol covers only the selected
+            % row, and the roster's Update to Latest Version re-records the
+            % expected version without touching the loaded objects.
+            if self.STATE >= PRGMSTATE.RUNNING, return, end
+            if isempty(self.CONFIG) || isempty(self.CONFIG(1).SUBJECT)
+                uialert(self.H.figure1,'The session has no subjects.','EPsych','Icon','info');
+                return
+            end
+
+            nUpdated = 0; nLatest = 0;
+            failures = {};
+            for idx = 1:numel(self.CONFIG)
+                [ok, oldV, newV, msg] = self.reloadProtocolForSubject_(idx);
+                if ~ok
+                    failures{end+1} = sprintf('%s: %s', ...
+                        char(string(self.CONFIG(idx).SUBJECT.Name)), msg);
+                elseif strcmp(oldV, newV)
+                    nLatest = nLatest + 1;
+                else
+                    nUpdated = nUpdated + 1;
+                end
+            end
+
+            summary = sprintf('%d updated, %d already latest, %d failed.', ...
+                nUpdated, nLatest, numel(failures));
+            if isempty(failures)
+                uialert(self.H.figure1, summary, 'Reload Protocols','Icon','success');
+            else
+                uialert(self.H.figure1, ...
+                    sprintf('%s\n\n%s', summary, strjoin(failures, newline)), ...
+                    'Reload Protocols','Icon','warning');
+            end
+            self.setStatus(sprintf('Reloaded protocols: %s', summary));
 
             self.UpdateSubjectList
             self.CheckReady
@@ -615,6 +632,50 @@ classdef RunExpt < handle
                 set(self.H.subject_list,'Data',[])
             end
             self.CheckReady
+        end
+
+        function [ok, oldV, newV, msg] = reloadProtocolForSubject_(self, idx)
+            % Reload one CONFIG entry's protocol from its .eprot on disk.
+            % The engine shared by UpdateProtocol (one row) and
+            % ReloadProtocols (all rows); raises no dialogs and leaves
+            % UpdateSubjectList/CheckReady to the caller, so a batch pays
+            % for them once.
+            ok = false; oldV = ''; newV = ''; msg = '';
+
+            protocolFile = char(self.CONFIG(idx).protocol_fn);
+            if isempty(protocolFile) || ~isfile(protocolFile)
+                msg = sprintf('The protocol file "%s" could not be found.', protocolFile);
+                return
+            end
+
+            proto = self.CONFIG(idx).PROTOCOL;
+            if isa(proto,'epsych.Protocol') && isvalid(proto)
+                oldV = char(proto.meta.protocolVersion);
+            end
+
+            warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
+            try
+                newProtocol = epsych.Protocol.load(protocolFile);
+            catch ME
+                warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
+                vprintf(0,1,ME);
+                msg = sprintf('Failed to load protocol "%s".', protocolFile);
+                return
+            end
+            warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
+
+            self.CONFIG(idx).PROTOCOL = newProtocol;
+
+            name = self.CONFIG(idx).SUBJECT.Name;
+            newV = char(newProtocol.meta.protocolVersion);
+            self.reportProtocolValidation(newProtocol, name);
+
+            if strcmp(oldV, newV)
+                vprintf(1,'Reloaded protocol for subject "%s" (version %s; already latest).',name,newV);
+            else
+                vprintf(1,'Updated protocol for subject "%s": %s -> %s.',name,oldV,newV);
+            end
+            ok = true;
         end
 
         function reportProtocolValidation(~, protocol, subjectName)

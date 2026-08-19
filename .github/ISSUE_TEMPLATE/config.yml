@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: EPsych wiki
+    url: https://github.com/dstolz/epsych2/wiki
+    about: Setup, session walkthroughs, and per-component reference documentation.
+  - name: Ask the author
+    url: mailto:daniel.stolzberg@gmail.com
+    about: For questions that are not a bug report or a feature request.

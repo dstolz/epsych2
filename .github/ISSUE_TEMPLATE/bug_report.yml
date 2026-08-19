@@ -1,0 +1,57 @@
+name: Bug report
+description: Report something in EPsych that does not work as documented.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem.
+
+        The quickest way to file this is from the session window:
+        **RunExpt → Help → Report an Issue on GitHub...**, which fills in the
+        Environment and Error log sections below for you and offers the full log
+        on the clipboard so you can paste or attach it here.
+
+        Please read the log excerpt before you submit: an EPsych log can contain
+        subject names and data paths, and this tracker is public.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What were you doing, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Load config ...
+        2. Press Start
+        3. ...
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >-
+        Autofilled by RunExpt's Report an Issue command. Filling it by hand?
+        Help → View Version Info has the version and commit.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error log excerpt
+      description: >-
+        The tail of the day's file from `.error_logs/`. Only as much of it as
+        fits in a URL arrives automatically -- paste or attach the rest below if
+        the relevant error is not in it.
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have read the log excerpt above and removed anything I do not want published.
+          required: true
+        - label: I am running the latest commit on `master`, or have said which commit above.

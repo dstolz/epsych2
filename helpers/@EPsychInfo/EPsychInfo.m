@@ -8,7 +8,7 @@ classdef EPsychInfo < handle
     %
     % Properties:
     %   Version, DataVersion, Author, AuthorEmail, License, LicenseURL
-    %   Copyright, RepositoryURL, IssuesURL, CommitHistoryURL, WikiURL
+    %   Copyright, RepositoryURL, IssuesURL, NewIssueURL, CommitHistoryURL, WikiURL
     %   iconPath - Path to the EPsych icon directory.
     %   chksum - Latest commit checksum from the local git checkout.
     %   stimgenChksum - Latest commit checksum of the obj/stimgen submodule.
@@ -49,6 +49,9 @@ classdef EPsychInfo < handle
         Copyright = '(C) 2016-2026  Daniel Stolzberg, PhD';
         RepositoryURL = 'https://github.com/dstolz/epsych2';
         IssuesURL = 'https://github.com/dstolz/epsych2/issues';
+        % Issue-form entry point. The form epsych.RunExpt.ReportIssue prefills
+        % is .github/ISSUE_TEMPLATE/bug_report.yml in this repository.
+        NewIssueURL = 'https://github.com/dstolz/epsych2/issues/new';
         CommitHistoryURL = 'https://github.com/dstolz/epsych2/blob/master/documentation/overviews/CommitHistoryOverview.md';
         WikiURL = 'https://github.com/dstolz/epsych2/wiki';
         DocumentationURL = 'https://github.com/dstolz/epsych2/wiki';

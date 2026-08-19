@@ -441,6 +441,9 @@ classdef RunExpt < handle
 
         OpenCurrentErrorLog(self, useExternalViewer)  % Open today's EPsych error log outside the MATLAB editor
 
+        ReportIssue(self)                       % Review and open a GitHub bug report prefilled with the environment and error log
+        fields = issueReportFields(self, opts)  % Gather the prefilled sections of that report; public so a script can compose one headlessly
+
         verbosity(self, varargin)  % Set or query the global output verbosity level
 
         requestRecompile(self, subjectIdx)  % Request a safe-boundary Protocol recompile for subject subjectIdx
@@ -493,6 +496,7 @@ classdef RunExpt < handle
         StopVideoLiveView_(self)                            % Close the display-only webcam view, if any
         UpdateVideoLiveViewUI_(self)                        % Sync the live-view menu item and bottom-bar banner with VideoLiveViewActive_
         promptForDataPath_(self)                            % Ask for the default data directory when the DataPath preference was never set
+        txt = issueEnvironmentText_(self)                   % Build the Environment block of a GitHub bug report
 
         function updateConfigLabel_(self)
             % Show the loaded/saved config file name in the header strip.
@@ -719,6 +723,7 @@ classdef RunExpt < handle
         saveFigurePosition(position)
         ffn = defaultFilename(pth,name)
         ffn = videoRecordingFilename(rootDir, dataFilename)  % Build the .ts recording path under rootDir that pairs by name with a behavioral data file
+        [url, trimmedLines] = issueURL(fields, opts)         % Build the prefilled bug-report URL, trimming the log excerpt to fit
 
         function app = defaultLogViewer()
             % app = epsych.RunExpt.defaultLogViewer()

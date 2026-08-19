@@ -312,8 +312,12 @@ uimenu(mHelp,'Label','Documentation','MenuSelectedFcn', ...
     @(~,~) web(EPsychInfo.DocumentationURL,'-browser'))
 uimenu(mHelp,'Label','Commit History Overview','MenuSelectedFcn', ...
     @(~,~) web(EPsychInfo.CommitHistoryURL,'-browser'))
-uimenu(mHelp,'Label','Report an Issue on GitHub','MenuSelectedFcn', ...
-    @(~,~) web(EPsychInfo.IssuesURL,'-browser'))
+% Not a bare web() on the issues page like the three links above it: this one
+% composes the report first (environment, session, log excerpt) and shows it for
+% review, because the operator is the only one who can say which log lines may
+% be published.
+uimenu(mHelp,'Label','Report an Issue on GitHub...','MenuSelectedFcn', ...
+    @(~,~) self.ReportIssue)
 
 self.UpdateRecentConfigsMenu
 

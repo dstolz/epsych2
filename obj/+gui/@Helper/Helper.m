@@ -64,19 +64,24 @@ classdef (Sealed) Helper < handle
 
 
 
+        % The three below forward to psychophysics.Metrics, which owns the
+        % signal-detection arithmetic. They stay because gui.Helper is a
+        % mixin that lab BehaviorGUIs outside this repository inherit, and
+        % removing a superclass method breaks those silently; the hard-coded
+        % [0.01 0.99] bounds are preserved for the same reason. New code
+        % should call psychophysics.Metrics directly, where the correction is
+        % named rather than implied.
+
         function d = dprime2AFC(HR)
-            HR = max(min(HR,.99),.01);
-            d = sqrt(2)*norminv(HR);
+            d = psychophysics.Metrics.dprime2AFC(HR, Correction="clamp", Bounds=[0.01 0.99]);
         end
 
         function c = criterion(HR,FR)
-            HR = max(min(HR,.99),.01);
-            FR = max(min(FR,.99),.01);
-            c = -1*(norminv(HR)+norminv(FR))./2;
+            c = psychophysics.Metrics.criterion(HR, FR, Correction="clamp", Bounds=[0.01 0.99]);
         end
 
         function pc = percent_correct(HR,FR)
-            pc = 0.5+(HR-FR)./2;
+            pc = psychophysics.Metrics.percentCorrect(HR, FR);
         end
 
 

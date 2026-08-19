@@ -8,7 +8,7 @@ classdef EPsychInfo < handle
     %
     % Properties:
     %   Version, DataVersion, Author, AuthorEmail, License, LicenseURL
-    %   Copyright, RepositoryURL, CommitHistoryURL, WikiURL
+    %   Copyright, RepositoryURL, IssuesURL, CommitHistoryURL, WikiURL
     %   iconPath - Path to the EPsych icon directory.
     %   chksum - Latest commit checksum from the local git checkout.
     %   stimgenChksum - Latest commit checksum of the obj/stimgen submodule.
@@ -48,6 +48,7 @@ classdef EPsychInfo < handle
         LicenseURL = 'https://www.gnu.org/licenses/gpl-3.0.en.html';
         Copyright = '(C) 2016-2026  Daniel Stolzberg, PhD';
         RepositoryURL = 'https://github.com/dstolz/epsych2';
+        IssuesURL = 'https://github.com/dstolz/epsych2/issues';
         CommitHistoryURL = 'https://github.com/dstolz/epsych2/blob/master/documentation/overviews/CommitHistoryOverview.md';
         WikiURL = 'https://github.com/dstolz/epsych2/wiki';
         DocumentationURL = 'https://github.com/dstolz/epsych2/wiki';

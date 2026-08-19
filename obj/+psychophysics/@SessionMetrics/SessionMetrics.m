@@ -55,8 +55,23 @@ classdef SessionMetrics < psychophysics.Psych
         TrialWindow = psychophysics.TrialWindow
 
         % infCorrection - Rate bounds applied before the z-transform, so a
-        % perfect or empty rate cannot send d' to infinity
+        % perfect or empty rate cannot send d' to infinity. Used only by the
+        % "clamp" CorrectionMode; the trial-count dependent modes derive
+        % their own bounds from the counts.
         infCorrection (1,2) double {mustBeInRange(infCorrection,0,1,"exclusive")} = [0.05 0.95]
+
+        % CorrectionMode - How rates of exactly 0 or 1 are handled before the
+        % z-transform; see psychophysics.Metrics. "clamp" is the historic
+        % behavior. The N-dependent modes are available here, unlike on the
+        % rate-only entry points, because a session knows its trial counts.
+        CorrectionMode (1,1) string {mustBeMember(CorrectionMode, ...
+            ["none","clamp","halfcell","loglinear"])} = "clamp"
+
+        % IncludeAborts - Count aborted trials against the hit and false
+        % alarm rates, as failures to respond. False by default, so the rates
+        % describe the trials the subject answered; see
+        % psychophysics.Metrics.rateDenominator.
+        IncludeAborts (1,1) logical = false
     end
 
     properties (SetAccess = protected)
@@ -74,7 +89,9 @@ classdef SessionMetrics < psychophysics.Psych
             %   StimulusTrialType - BitMask identifying stimulus trials (default TrialType_0).
             %   CatchTrialType    - BitMask identifying catch trials (default TrialType_1).
             %   ExcludedTrials    - Logical mask or 1-based indices to drop.
-            %   infCorrection     - Rate bounds for d' and criterion.
+            %   infCorrection     - Rate bounds for d' and criterion under "clamp".
+            %   CorrectionMode    - See psychophysics.Metrics. Default "clamp".
+            %   IncludeAborts     - Count aborts against the rates. Default false.
             arguments
                 source = []
                 options.TrialWindow = psychophysics.TrialWindow
@@ -82,12 +99,16 @@ classdef SessionMetrics < psychophysics.Psych
                 options.CatchTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
                 options.ExcludedTrials = []
                 options.infCorrection (1,2) double = [0.05 0.95]
+                options.CorrectionMode (1,1) string = "clamp"
+                options.IncludeAborts (1,1) logical = false
             end
 
             obj@psychophysics.Psych(source, [], ExcludedTrials=options.ExcludedTrials);
 
             obj.StimulusTrialType = options.StimulusTrialType;
             obj.CatchTrialType    = options.CatchTrialType;
+            obj.CorrectionMode    = options.CorrectionMode;
+            obj.IncludeAborts     = options.IncludeAborts;
             obj.infCorrection     = options.infCorrection;
             obj.TrialWindow       = options.TrialWindow;
 
@@ -105,6 +126,16 @@ classdef SessionMetrics < psychophysics.Psych
 
         function set.infCorrection(obj, value)
             obj.infCorrection = value;
+            obj.recomputeResults_();
+        end
+
+        function set.CorrectionMode(obj, value)
+            obj.CorrectionMode = value;
+            obj.recomputeResults_();
+        end
+
+        function set.IncludeAborts(obj, value)
+            obj.IncludeAborts = value;
             obj.recomputeResults_();
         end
 
@@ -195,9 +226,10 @@ classdef SessionMetrics < psychophysics.Psych
                     value = R.Rate.Correct;
                     detail = obj.fraction_(N.Hit + N.CorrectReject, N.Scored + N.CatchScored);
 
-                case "DPrime",    value = R.DPrime;
-                case "APrime",    value = R.APrime;
-                case "Criterion", value = R.Criterion;
+                case "DPrime",      value = R.DPrime;
+                case "APrime",      value = R.APrime;
+                case "Criterion",   value = R.Criterion;
+                case "BPrimePrime", value = R.BPrimePrime;
             end
 
             text = psychophysics.SessionMetrics.formatValue_(value, C(idx).Format);
@@ -280,27 +312,38 @@ classdef SessionMetrics < psychophysics.Psych
             R.N.CorrectReject = sum(M.CorrectReject & catchM);
             R.N.Abort         = sum(M.Abort & included);
 
-            R.N.Scored      = R.N.Hit + R.N.Miss;
-            R.N.CatchScored = R.N.FalseAlarm + R.N.CorrectReject;
+            % Aborts are split by trial type so IncludeAborts can charge each
+            % to the rate it belongs to. An abort on neither a stimulus nor a
+            % catch trial still counts toward the session abort rate.
+            R.N.AbortStimulus = sum(M.Abort & stim);
+            R.N.AbortCatch    = sum(M.Abort & catchM);
 
-            R.Rate.Hit           = psychophysics.SessionMetrics.ratio_(R.N.Hit, R.N.Scored);
-            R.Rate.Miss          = psychophysics.SessionMetrics.ratio_(R.N.Miss, R.N.Scored);
-            R.Rate.FalseAlarm    = psychophysics.SessionMetrics.ratio_(R.N.FalseAlarm, R.N.CatchScored);
-            R.Rate.CorrectReject = psychophysics.SessionMetrics.ratio_(R.N.CorrectReject, R.N.CatchScored);
-            R.Rate.Abort         = psychophysics.SessionMetrics.ratio_(R.N.Abort, R.N.Total);
-            R.Rate.Correct       = psychophysics.SessionMetrics.ratio_( ...
-                R.N.Hit + R.N.CorrectReject, R.N.Scored + R.N.CatchScored);
+            R.N.Scored      = psychophysics.Metrics.rateDenominator( ...
+                R.N.Hit + R.N.Miss, R.N.AbortStimulus, obj.IncludeAborts);
+            R.N.CatchScored = psychophysics.Metrics.rateDenominator( ...
+                R.N.FalseAlarm + R.N.CorrectReject, R.N.AbortCatch, obj.IncludeAborts);
 
-            % psychophysics.Detection owns the signal-detection arithmetic;
-            % its clamp uses min/max, which pass NaN through as a bound, so
-            % undefined rates are rejected here rather than there.
-            if ~isnan(R.Rate.Hit) && ~isnan(R.Rate.FalseAlarm)
-                R.DPrime    = psychophysics.Detection.d_prime(R.Rate.Hit, R.Rate.FalseAlarm, obj.infCorrection);
-                R.Criterion = psychophysics.Detection.bias(R.Rate.Hit, R.Rate.FalseAlarm, obj.infCorrection);
-                % A' takes the rates uncorrected: it is defined at 0 and 1,
-                % so clamping them would only bias it toward chance.
-                R.APrime    = psychophysics.Detection.a_prime(R.Rate.Hit, R.Rate.FalseAlarm);
-            end
+            % psychophysics.Metrics owns every formula below. It takes the
+            % counts rather than the rates so the trial-count dependent
+            % corrections have what they need, and it propagates NaN, so an
+            % undefined rate needs no guard here.
+            M = psychophysics.Metrics.fromCounts( ...
+                R.N.Hit, R.N.Miss, R.N.FalseAlarm, R.N.CorrectReject, ...
+                AbortSignal=R.N.AbortStimulus, AbortNoise=R.N.AbortCatch, ...
+                IncludeAborts=obj.IncludeAborts, ...
+                Correction=obj.CorrectionMode, Bounds=obj.infCorrection);
+
+            R.Rate.Hit           = M.Rate.Hit;
+            R.Rate.Miss          = M.Rate.Miss;
+            R.Rate.FalseAlarm    = M.Rate.FalseAlarm;
+            R.Rate.CorrectReject = M.Rate.CorrectReject;
+            R.Rate.Abort         = psychophysics.Metrics.rate(R.N.Abort, R.N.Total);
+            R.Rate.Correct       = M.Rate.Correct;
+
+            R.DPrime      = M.DPrime;
+            R.Criterion   = M.Criterion;
+            R.APrime      = M.APrime;
+            R.BPrimePrime = M.BPrimePrime;
 
             obj.Results = R;
         end
@@ -365,6 +408,7 @@ classdef SessionMetrics < psychophysics.Psych
               "DPrime",         "d'",                    "Sensitivity", "sensitivity", "%.2f"
               "APrime",         "A'",                    "Sensitivity", "sensitivity", "%.3f"
               "Criterion",      "Criterion (c)",         "Sensitivity", "sensitivity", "%.2f"
+              "BPrimePrime",    "B''",                   "Sensitivity", "sensitivity", "%.3f"
               };
 
             C = struct('Name', defs(:,1), 'Label', defs(:,2), 'Group', defs(:,3), ...
@@ -391,7 +435,7 @@ classdef SessionMetrics < psychophysics.Psych
             % Result skeleton, so every field exists before the first trial.
             zeroCounts = struct('Total',0,'Stimulus',0,'Catch',0, ...
                 'Hit',0,'Miss',0,'CorrectReject',0,'FalseAlarm',0,'Abort',0, ...
-                'Scored',0,'CatchScored',0);
+                'AbortStimulus',0,'AbortCatch',0,'Scored',0,'CatchScored',0);
             nanRates = struct('Hit',NaN,'Miss',NaN,'FalseAlarm',NaN, ...
                 'CorrectReject',NaN,'Abort',NaN,'Correct',NaN);
 
@@ -400,19 +444,12 @@ classdef SessionMetrics < psychophysics.Psych
                 'TrialIndex', zeros(1,0), ...
                 'FirstTrial', NaN, ...
                 'LastTrial',  NaN, ...
-                'N',          zeroCounts, ...
-                'Rate',       nanRates, ...
-                'DPrime',     NaN, ...
-                'APrime',     NaN, ...
-                'Criterion',  NaN);
-        end
-
-        function r = ratio_(num, den)
-            if den == 0
-                r = NaN;
-            else
-                r = double(num) ./ double(den);
-            end
+                'N',           zeroCounts, ...
+                'Rate',        nanRates, ...
+                'DPrime',      NaN, ...
+                'APrime',      NaN, ...
+                'Criterion',   NaN, ...
+                'BPrimePrime', NaN);
         end
 
         function s = formatValue_(value, fmt)

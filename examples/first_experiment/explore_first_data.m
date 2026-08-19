@@ -14,8 +14,10 @@ function R = explore_first_data(datafile)
 %              Info). Default: the newest .mat under data/ in this folder.
 %
 % Returns:
-%   R - Results struct: datafile, nTrials, durations, nGo, hitRate,
-%       faRate, dprime, medianRT, and the decoded flag struct M.
+%   R - Results struct: datafile, nTrials, durations, nGo, nScored,
+%       hitRate, faRate, dprime, medianRT, and the decoded flag struct M.
+%       nGo counts every go trial at a duration; nScored counts the ones
+%       the subject answered, and is the denominator behind hitRate.
 %
 % Walkthrough: https://github.com/dstolz/epsych2/wiki/Your-First-Experiment
 %
@@ -75,30 +77,45 @@ fprintf('  Catch trials : %3d  (%d false alarms, %d correct rejects)\n', ...
     sum(ctIdx), sum(M.FalseAlarm), sum(M.CorrectReject))
 
 % --- Performance per flash duration --------------------------------------
-faRate = sum(M.FalseAlarm & ctIdx) / max(1, sum(ctIdx));
+% Rates count the trials the subject answered. An abort is a lapse of
+% engagement rather than a wrong answer, so it is left out of the denominator
+% by default; pass true below to score aborts as failures to respond instead.
+includeAborts = false;
+
+nCatchScored = psychophysics.Metrics.rateDenominator( ...
+    sum(M.FalseAlarm & ctIdx) + sum(M.CorrectReject & ctIdx), ...
+    sum(M.Abort & ctIdx), includeAborts);
+faRate = psychophysics.Metrics.rate(sum(M.FalseAlarm & ctIdx), nCatchScored);
 
 durations = unique(dur(goIdx));
-nGo      = zeros(size(durations));
+nGo      = zeros(size(durations));   % every go trial at that duration
+nScored  = zeros(size(durations));   % ...of which the subject answered
 hitRate  = zeros(size(durations));
 medianRT = nan(size(durations));
 for k = 1:numel(durations)
     ind        = goIdx & dur == durations(k);
     nGo(k)     = sum(ind);
-    hitRate(k) = sum(M.Hit & ind) / nGo(k);
+    nScored(k) = psychophysics.Metrics.rateDenominator( ...
+        sum(M.Hit & ind) + sum(M.Miss & ind), sum(M.Abort & ind), includeAborts);
+    hitRate(k) = psychophysics.Metrics.rate(sum(M.Hit & ind), nScored(k));
     hitsHere   = M.Hit & ind & rt >= 0; % -1 marks a trial with no response
     if any(hitsHere), medianRT(k) = median(rt(hitsHere)); end
 end
 
-% d' from hit rate per duration against the session-wide catch
-% false-alarm rate, with the same finite corrections the online tools use.
-dprime = arrayfun(@(h) psychophysics.Detection.d_prime(h, faRate), hitRate);
+% d' from hit rate per duration against the session-wide catch false-alarm
+% rate. A duration where every trial was a hit would send the z-transform to
+% infinity, so the log-linear correction pulls the rates in by half a trial --
+% which is why the trial counts travel alongside the rates.
+dprime = psychophysics.Metrics.dprime(hitRate, faRate, ...
+    Correction="loglinear", NSignal=nScored, NNoise=nCatchScored);
 
-fprintf('\n  Flash (ms)   # Go   Hit rate     d''   median RT (ms)\n')
+fprintf('\n  Flash (ms)   # Go   # Answered   Hit rate     d''   median RT (ms)\n')
 for k = 1:numel(durations)
-    fprintf('  %8g     %4d      %5.2f   %6.2f   %8g\n', ...
-        durations(k), nGo(k), hitRate(k), dprime(k), medianRT(k))
+    fprintf('  %8g     %4d         %4d      %5.2f   %6.2f   %8g\n', ...
+        durations(k), nGo(k), nScored(k), hitRate(k), dprime(k), medianRT(k))
 end
-fprintf('  Catch FA rate: %.2f\n\n', faRate)
+fprintf('  Catch FA rate: %.2f  (%d of %d catch trials answered)\n\n', ...
+    faRate, nCatchScored, sum(ctIdx))
 
 % --- Session figure ------------------------------------------------------
 fig = figure(Name = 'Your first EPsych session', Color = 'w', ...
@@ -168,7 +185,8 @@ legend(ax, Location = 'northeast', Box = 'off')
 grid(ax, 'on'); ax.GridAlpha = 0.12; ax.Box = 'off';
 
 R = struct('datafile', datafile, 'nTrials', numel(DATA), ...
-    'durations', durations, 'nGo', nGo, 'hitRate', hitRate, ...
-    'faRate', faRate, 'dprime', dprime, 'medianRT', medianRT, 'M', M);
+    'durations', durations, 'nGo', nGo, 'nScored', nScored, ...
+    'hitRate', hitRate, 'faRate', faRate, 'dprime', dprime, ...
+    'medianRT', medianRT, 'M', M);
 
 if nargout == 0, clear R; end

@@ -55,9 +55,12 @@ Analysis and GUI classes
 │  │  ├─ Staircase
 │  │  ├─ NAFC
 │  │  ├─ BestPEST
-│  │  └─ MLP
+│  │  ├─ MLP
+│  │  └─ SessionMetrics
 │  ├─ Detect
-│  └─ Detection
+│  ├─ Detection
+│  ├─ Metrics                   (static only; stateless SDT arithmetic)
+│  └─ TrialWindow               (value class)
 ├─ stimgen                      (submodule; concrete stimuli vary by pinned commit)
 │  ├─ StimType
 │  │  └─ ...                    see obj/stimgen/documentation/stimgen_StimTypes.md
@@ -139,6 +142,7 @@ Support and task-specific classes
 | hw | `Module` | `handle` | Container for grouped parameters |
 | hw | `Parameter` | `matlab.mixin.SetGet` | Runtime parameter wrapper |
 | psychophysics | `Psych` | `handle & matlab.mixin.SetGet` | Abstract analysis base |
+| psychophysics | `Metrics` | *(static only)* | Stateless signal-detection arithmetic every analysis calls |
 | stimgen | `StimType` | `handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable & matlab.mixin.SetGet` | Abstract stimulus base |
 | stimgen | `HardwareHost` | `handle` | Abstract contract a host implements to give stimgen GUIs hardware access |
 | stimgen | `calibration.HwAdapter` | `handle` | Abstract play/record contract for the calibration engine |
@@ -146,6 +150,8 @@ Support and task-specific classes
 | eplog | `sink.Sink` | `handle` | Abstract log destination behind `vprintf` |
 
 > 🔑 **Four abstract classes are the toolbox's extension points.** `hw.Interface` (a backend), `epsych.TrialSelector` (trial selection), `psychophysics.Psych` (analysis), and `stimgen.StimType` (a stimulus, in the submodule). Almost every extension is a subclass of one of them.
+
+`psychophysics.Metrics` is the one row above that is not a base class. It is listed here because it is shared infrastructure rather than a component: it holds the signal-detection formulas — d', criterion, A', B'', the corrections for rates of 0 and 1 — that `SessionMetrics`, `Detection`, the performance plots and `teensy.Simulator` all call rather than reimplement. See [psychophysics_Metrics.md](../psychophysics/psychophysics_Metrics.md).
 
 The `stimgen` package is a git submodule (see [../stimgen.md](../stimgen.md)) and
 has no dependency on EPsych. EPsych implements its two abstract classes in
@@ -181,9 +187,13 @@ flowchart TD
     I --> I5[psychophysics.MLP]
     I --> I6[psychophysics.SessionMetrics]
     C --> I3[psychophysics.Detection]
+    I7[psychophysics.Metrics<br/>stateless SDT arithmetic]
+    I3 --> I7
+    I6 --> I7
     H --> J[gui.Parameter_Control<br/>gui.Parameter_Update<br/>gui.Parameter_Monitor<br/>gui.ParameterDebugger<br/>gui.ParameterTracker]
     D --> K[gui.OnlinePlot<br/>gui.PsychPlot<br/>gui.ModeIndicator]
     D --> L[gui.History<br/>gui.SessionPerformance<br/>gui.Performance<br/>gui.SlidingWindowPerformancePlot]
+    L --> I7
     C --> M[cl_AppetitiveDetection_GUI_B]
     C --> N[peripherals.PumpCom]
     C --> O[peripherals.NanoMotorControl<br/>peripherals.NanoMotorControlGUI]
@@ -224,6 +234,7 @@ Trial selection
 Analysis and visualization
 ├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.NAFC / psychophysics.BestPEST / psychophysics.MLP / psychophysics.SessionMetrics
 ├─ psychophysics.Detection
+├─ psychophysics.Metrics  (stateless SDT arithmetic; called by all of the above)
 ├─ gui.Parameter_Control / gui.Parameter_Update / gui.Parameter_Monitor / gui.ParameterDebugger / gui.ParameterTracker
 ├─ gui.OnlinePlot / gui.PsychPlot / gui.ModeIndicator
 └─ gui.History / gui.SessionPerformance / gui.Performance / gui.SlidingWindowPerformancePlot

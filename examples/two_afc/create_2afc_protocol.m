@@ -54,10 +54,16 @@ sw = P.SoftwareModule;
 % is the design: it counterbalances side against difficulty, so a subject
 % who favours one hand cannot inflate performance at any one contrast.
 %
-% The name TrialType is not decorative: psychophysics.Detection reads a
-% numeric TrialType field out of each DATA record to label trials, and
+% The name TrialType is not decorative: it is the field psychophysics.NAFC
+% reads by default for the correct alternative (CorrectField), and
 % teensy.Templates uses the same 0/1 convention for its 2AFC board
-% program. Call it anything else and the analysis classes cannot see it.
+% program. Call it anything else and name it in CorrectField instead.
+%
+% Here the trial's category and the correct alternative are the same thing
+% — a left-target trial or a right-target trial — which is why the
+% TrialType_0 / TrialType_1 bits can carry it too. A paradigm whose
+% categories are stimulus / catch / remind would keep those for the
+% category and record the correct alternative in a field of its own.
 sw.add_parameter('TrialType', [0 1], Type = 'Integer', ...
     Description = "Which lamp is brighter, i.e. which choice is correct: 0 = left, 1 = right");
 
@@ -72,7 +78,7 @@ sw.add_parameter('FlashDur', options.FlashDur, Unit = 'ms', ...
     Description = "How long both lamps are lit");
 
 sw.add_parameter('RespWinDur', options.RespWinDur, Unit = 'ms', ...
-    Description = "How long the choice remains available before the trial aborts");
+    Description = "How long the choice remains available before the trial lapses");
 
 p = sw.add_parameter('ITI', mean(options.ITIRange), Unit = 'ms', ...
     Description = "Intertrial interval, redrawn each trial");
@@ -104,7 +110,7 @@ p.Value = -1;
 p.Access = 'Read';
 
 p = sw.add_parameter('RT_ms', 0, Unit = 'ms', ...
-    Description = "Reaction time from response-window open; -1 when the trial aborted");
+    Description = "Reaction time from response-window open; -1 when the trial went unanswered");
 p.Value = -1;
 p.Access = 'Read';
 

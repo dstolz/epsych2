@@ -227,7 +227,10 @@ classdef SlidingWindowPerformancePlot < handle
             iStim  = uint32(P.ttStimulus);
             iCatch = uint32(P.ttCatch);
             iHit   = uint32(epsych.BitMask.Hit);
+            iMiss  = uint32(epsych.BitMask.Miss);
             iFA    = uint32(epsych.BitMask.FalseAlarm);
+            iCR    = uint32(epsych.BitMask.CorrectReject);
+            iAbort = uint32(epsych.BitMask.Abort);
 
             tidx = P.trialIndex;
 
@@ -243,15 +246,29 @@ classdef SlidingWindowPerformancePlot < handle
 
                 if isempty(iv), continue; end
 
-                sn = sum(obj.trialBits(iv, iStim), 1);
+                % Every count is a conjunction between two decoded columns.
+                % Both operands are bit POSITIONS, so "iStim & iHit" would be
+                % a logical AND of 11 and 1 -- it indexes column 1 and
+                % quietly drops the trial-type term.
+                onStim = obj.trialBits(iv, iStim);
+
+                % Answered stimulus trials, not every stimulus trial, so an
+                % abort does not depress the hit rate; P.IncludeAborts puts
+                % them back.
+                sn = sum(psychophysics.Metrics.rateDenominator( ...
+                    (onStim & obj.trialBits(iv, iHit)) + (onStim & obj.trialBits(iv, iMiss)), ...
+                    onStim & obj.trialBits(iv, iAbort), P.IncludeAborts), 1);
                 if ~isempty(sn), nStim(i) = sn; end
 
-                sh = sum(obj.trialBits(iv, iStim & iHit), 1);
+                sh = sum(onStim & obj.trialBits(iv, iHit), 1);
                 if ~isempty(sh), nHit(i) = sh; end
             end
 
-            nCatch = sum(obj.trialBits(idx, iCatch), 1);
-            nFA = sum(obj.trialBits(idx, iFA), 1);
+            onCatch = obj.trialBits(idx, iCatch);
+            nCatch = sum(psychophysics.Metrics.rateDenominator( ...
+                (onCatch & obj.trialBits(idx, iFA)) + (onCatch & obj.trialBits(idx, iCR)), ...
+                onCatch & obj.trialBits(idx, iAbort), P.IncludeAborts), 1);
+            nFA = sum(onCatch & obj.trialBits(idx, iFA), 1);
 
             obj.N(tidx).Stimulus   = nStim;
             obj.N(tidx).Hit        = nHit;
@@ -271,24 +288,22 @@ classdef SlidingWindowPerformancePlot < handle
 
             ind = ismember(nuv, uv);
 
-            HR = nHit ./ nStim;
-            FAR = nFA ./ nCatch;
+            % psychophysics.Metrics.rate leaves a window with no trials of a
+            % kind undefined rather than Inf, and its d' propagates that NaN
+            % on its own -- the d(isnan(HR)) = nan this replaces was a
+            % workaround for a clamp that dropped NaN.
+            HR  = psychophysics.Metrics.rate(nHit, nStim);
+            FAR = psychophysics.Metrics.rate(nFA, nCatch);
 
             obj.Rate.Hit(tidx, ind) = HR;
             obj.Rate.FalseAlarm(tidx) = FAR;
 
-            d = P.d_prime(HR, FAR, P.infCorrection);
-            d(isnan(HR)) = nan;
-            obj.dPrime(tidx, ind) = d;
+            obj.dPrime(tidx, ind) = psychophysics.Metrics.dprime(HR, FAR, ...
+                Correction="clamp", Bounds=P.infCorrection);
 
             % A' needs no infCorrection: it is defined at rates of 0 and 1,
             % which is what keeps it usable in the first few trials of a window
-            obj.aPrime(tidx, ind) = P.a_prime(HR, FAR);
-
-            % Optional: Bias computation (currently disabled)
-            b = P.bias(obj.Rate.Hit, FAR, obj.psychObj.infCorrection);
-            b(isnan([obj.N.Hit])) = nan;
-            % obj.Bias(tidx, ind) = b;
+            obj.aPrime(tidx, ind) = psychophysics.Metrics.aprime(HR, FAR);
         end
     end
 end

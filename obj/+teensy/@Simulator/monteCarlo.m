@@ -129,51 +129,21 @@ fa = decoded.FalseAlarm(:);
 cr = decoded.CorrectReject(:);
 abort = decoded.Abort(:);
 
+% psychophysics.Metrics owns the arithmetic. "halfcell" is the correction
+% this function used to implement by hand: a rate of exactly 0 or 1 sends the
+% z-transform to infinity, so both are pulled in by half a trial, which is why
+% the counts rather than the rates are what get passed.
+M = psychophysics.Metrics.fromCounts(sum(hit), sum(miss), sum(fa), sum(cr), ...
+    Correction="halfcell");
+
 s = struct();
 s.NTrials = nTrials;
 s.CompleteRate = mean(results.Completed);
-s.HitRate = localRate_(sum(hit), sum(hit | miss));
-s.MissRate = localRate_(sum(miss), sum(hit | miss));
-s.FARate = localRate_(sum(fa), sum(fa | cr));
-s.CRRate = localRate_(sum(cr), sum(fa | cr));
-s.AbortRate = localRate_(sum(abort), nTrials);
+s.HitRate = M.Rate.Hit;
+s.MissRate = M.Rate.Miss;
+s.FARate = M.Rate.FalseAlarm;
+s.CRRate = M.Rate.CorrectReject;
+s.AbortRate = psychophysics.Metrics.rate(sum(abort), nTrials);
 s.MedianLatencyMs = median(results.RespLatency, 'omitnan');
-s.DPrime = localDPrime_(s.HitRate, s.FARate, sum(hit | miss), sum(fa | cr));
-end
-
-
-function r = localRate_(numerator, denominator)
-% r = localRate_(numerator, denominator)
-% Proportion, or NaN when the denominator is zero.
-if denominator == 0
-    r = NaN;
-else
-    r = numerator / denominator;
-end
-end
-
-
-function d = localDPrime_(hitRate, faRate, nSignal, nCatch)
-% d = localDPrime_(hitRate, faRate, nSignal, nCatch)
-% Sensitivity index, with the standard log-linear correction.
-%
-% A rate of exactly 0 or 1 sends norminv to infinity, so both are pulled in by
-% half a trial -- the usual correction, and the reason nSignal and nCatch are
-% needed here at all.
-d = NaN;
-if isnan(hitRate) || isnan(faRate) || nSignal == 0 || nCatch == 0
-    return
-end
-
-hitRate = min(max(hitRate, 0.5 / nSignal), 1 - 0.5 / nSignal);
-faRate = min(max(faRate, 0.5 / nCatch), 1 - 0.5 / nCatch);
-
-d = localNormInv_(hitRate) - localNormInv_(faRate);
-end
-
-
-function z = localNormInv_(p)
-% z = localNormInv_(p)
-% Inverse standard normal CDF, without requiring the Statistics toolbox.
-z = -sqrt(2) * erfcinv(2 * p);
+s.DPrime = M.DPrime;
 end

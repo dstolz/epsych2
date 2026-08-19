@@ -3,7 +3,8 @@
 A distribution-free companion to d', available anywhere EPsych reports
 sensitivity.
 
-Source: `psychophysics.Detection.a_prime` (`obj/+psychophysics/@Detection/`)
+Source: `psychophysics.Metrics.aprime` (`obj/+psychophysics/Metrics.m`);
+`psychophysics.Detection.a_prime` forwards to it and is kept for compatibility
 
 A' summarizes how well a subject separates signal from noise using nothing but
 the hit and false alarm rates, and without assuming the equal-variance Gaussian
@@ -98,11 +99,26 @@ Grier JB (1971). Nonparametric indexes for sensitivity and bias: computing
 formulas. *Psychological Bulletin* 75(6):424–429.
 
 Grier's paper also gives B'', the nonparametric response bias index usually
-reported beside A'. EPsych does not compute B'' yet; `Criterion` (c) remains
-the bias measure, and it is parametric.
+reported beside A':
+
+```text
+B'' = sign(H-F) * ( H(1-H) - F(1-F) ) / ( H(1-H) + F(1-F) )
+```
+
+It runs from −1 (extremely liberal) through 0 (no bias) to +1 (extremely
+conservative), and is to `Criterion` (c) what A' is to d': distribution-free,
+and defined at rates of exactly 0 and 1, so it needs no correction. It is
+available as `psychophysics.Metrics.bprimeprime` and as the `BPrimePrime`
+metric on `psychophysics.SessionMetrics` — in the catalogue, so
+`gui.SessionPerformance` offers it, but not in the default display.
+
+Unlike A', B'' is *unchanged* when the two rates are swapped. The `sign` factor
+exists precisely for that: a subject who says "yes" rarely reads as
+conservative whichever distribution the rates came from.
 
 ## See also
 
-- [psychophysics.SessionMetrics](psychophysics_SessionMetrics.md) — the `APrime` session metric
-- [gui.SessionPerformance](../gui/gui_SessionPerformance.md) — the panel that displays it
-- `psychophysics.Detection` (`obj/+psychophysics/@Detection/`) — `d_prime`, `a_prime`, `bias`
+- [psychophysics.Metrics](psychophysics_Metrics.md) — `aprime` and `bprimeprime`, and the rest of the arithmetic
+- [psychophysics.SessionMetrics](psychophysics_SessionMetrics.md) — the `APrime` and `BPrimePrime` session metrics
+- [gui.SessionPerformance](../gui/gui_SessionPerformance.md) — the panel that displays them
+- `psychophysics.Detection` (`obj/+psychophysics/@Detection/`) — `d_prime`, `a_prime`, `bias` (forwarders to `Metrics`)

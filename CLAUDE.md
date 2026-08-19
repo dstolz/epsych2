@@ -451,8 +451,42 @@ compiles to a constant-table index, which is how a protocol varies a duration pe
 re-uploading the state table.
 
 #### obj/+psychophysics/ – Online & Offline Analysis
+- **psychophysics.Metrics**: the signal-detection formulas, with no state — d',
+  criterion, relative criterion, ln β, A', B'', proportion correct, and the
+  z-transform under them. Static only and not constructible; it never touches
+  `epsych.BitMask`, `DATA`, or `RUNTIME`, so it is testable with four integers,
+  and **classification deliberately stays with `Psych`** — turning response codes
+  into counts needs the trial window, the exclusion mask, and an aborts policy,
+  which are properties of a session rather than arithmetic. `fromCounts` is the
+  seam. Three things a reader would otherwise re-derive: `z` is built on
+  `erfcinv`, so d' no longer needs the Statistics Toolbox (and the smoke test
+  scans the source to keep it that way); the correction for rates of 0 and 1 is
+  **named at every call** — `"none"`, `"clamp"` (default `[0.01 0.99]`),
+  `"halfcell"`, `"loglinear"` — and the two trial-count dependent modes **error**
+  rather than falling back to a clamp, since a silent fallback is exactly how the
+  toolbox came to have three correction defaults nobody chose; and NaN propagates
+  instead of becoming a bound, because MATLAB's `min`/`max` drop NaN, so the
+  obvious `max(min(p,hi),lo)` turned "no catch trials" into "99% false alarms"
+  (three call sites carried a workaround for that and a fourth did not). The
+  method is `z`, never `norminv`: an unqualified `norminv(p)` inside a classdef
+  resolves to the toolbox function rather than to the static, which is the only
+  reason the `Detection.norminv` it replaced ever worked. Aborts are the one
+  judgement call in the denominators, and `rateDenominator` is the single place
+  it lives: **excluded by default** (an abort is a lapse of engagement, not a
+  wrong answer), with an `IncludeAborts` option on `fromCounts`,
+  `SessionMetrics`, and `Detection` — `gui.SlidingWindowPerformancePlot`
+  follows its analysis object. Before 2026-08-19 the toolbox disagreed with
+  itself here: `SessionMetrics` excluded aborts while `Detection.Hit_Rate`, the
+  sliding-window plot, and the offline examples divided by EVERY trial at a
+  stimulus value, so one session gave two different d'. `Detection.Hit_Rate` is
+  therefore no longer `[obj.Rate.Hit]` — `Rate` stays the proportion of all
+  trials at a value. `Detection.d_prime`/
+  `bias`/`a_prime`/`norminv` and `gui.Helper.dprime2AFC`/`criterion`/
+  `percent_correct` are forwarders kept because they are public API and an
+  inherited mixin (see documentation/psychophysics/psychophysics_Metrics.md)
 - **psychophysics.Psych** (abstract): Base for all analysis
-- **psychophysics.Detection**: Hit rate, false alarm rate, d', A'. It owns the
+- **psychophysics.Detection**: Hit rate, false alarm rate, d', grouped by unique
+  stimulus value; its four statics forward to `psychophysics.Metrics`, A'. It owns the
   signal-detection arithmetic every other component reuses (`d_prime`, `bias`,
   `a_prime`). **A'** is the nonparametric sensitivity index (Grier 1971): chance
   0.5, defined at rates of 0 and 1, so unlike d' it takes NO `infCorrection` —

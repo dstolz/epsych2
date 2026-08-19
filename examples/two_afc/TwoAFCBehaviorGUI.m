@@ -5,32 +5,34 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
     % Two lamps flash together, one brighter than the other; report which
     % side was brighter by clicking LEFT / RIGHT or pressing the arrow
     % keys. Every trial demands a choice — there is no "withhold" option,
-    % which is what makes the task forced choice. Failing to answer inside
-    % the response window aborts the trial (epsych.BitMask.Abort) rather
-    % than scoring it.
+    % which is what makes the task forced choice.
     %
     % Like FirstExperimentBehaviorGUI (examples/first_experiment), this GUI also
     % plays the role the rig hardware plays in a real experiment: it runs
     % the trial timeline, scores the choice, writes the read-back
     % parameters, and raises x_TrialComplete_1 — the flag
     % ep_TimerFcn_RunTime polls on every tick. What is new here is the
-    % two-alternative scoring. A 2AFC has no "signal absent" trial, so the
-    % detection outcome names are recast by treating ONE alternative —
-    % left, here — as the yes-response:
+    % two-alternative scoring. A 2AFC has no "signal absent" trial and no
+    % yes-response, so the SIDE is carried by the Choice bit and the
+    % outcome bit says only whether that choice was right:
     %
-    %   left correct  + chose left  = Hit           (+ Reward)
-    %   left correct  + chose right = Miss          (+ Punish)
-    %   right correct + chose right = CorrectReject (+ Reward)
-    %   right correct + chose left  = FalseAlarm    (+ Punish)
-    %   no answer in the window     = Abort
+    %   chose the correct side       = Choice_k + Hit   (+ Reward)
+    %   chose the other side         = Choice_k + Miss  (+ Punish)
+    %   answered before the window   = Abort, no Choice bit
+    %   no answer at all             = Undefined: no outcome bit, no Choice
     %
-    % plus a Choice_0 (left) or Choice_1 (right) bit recording WHAT was
-    % chosen alongside whether it was correct. That recasting is what lets
-    % the shipped analysis apply unchanged and with its DEFAULT trial-type
-    % settings (stimulus = TrialType_0, catch = TrialType_1): percent
-    % correct is (Hit + CorrectReject) over scored trials, d' is
-    % discriminability, and the criterion is the subject's side bias —
-    % negative when they favour LEFT. See psychophysics.SessionMetrics.
+    % with Choice_0 = left and Choice_1 = right, and TrialType_0 /
+    % TrialType_1 naming the trial's category (here, which side carried
+    % the target). CorrectReject and FalseAlarm are detection outcomes —
+    % what a subject does when there is nothing to respond to — and are
+    % never used in a forced choice. See psychophysics.NAFC, which defines
+    % this encoding, and note that it is the same for a 4AFC.
+    %
+    % Percent correct is therefore Hit over answered trials, against a 50%
+    % chance level, and the side bias is P(chose right) re 0.5.
+    % psychophysics.SessionMetrics — hit rate, false-alarm rate, d',
+    % criterion — is a DETECTION summary and does not apply here, which is
+    % why this GUI has no gui.SessionPerformance panel.
     %
     % The choice data itself is scored by a psychophysics.NAFC built in
     % createPsych over SignedContrast (choices from the ChoiceSide read
@@ -65,6 +67,7 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
         ModeLabel     matlab.ui.control.Label
         TrialLabel    matlab.ui.control.Label
         TallyLabel    matlab.ui.control.Label
+        SummaryValues matlab.ui.control.Label % one per SUMMARY_ROWS entry
         ChoiceAxes    matlab.ui.control.UIAxes
     end
 
@@ -80,6 +83,11 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
 
     properties (Constant, Access = private)
         PATCH_DARK = [0.06 0.06 0.06] % between trials, both fields near-black
+
+        % Session summary rows, in display order. Every one of them comes
+        % from psychophysics.NAFC.Results; see the panel comment in build.
+        SUMMARY_ROWS = ["Trials", "Correct", "Chose right", ...
+            "No response", "Aborted (early)"]
     end
 
     methods
@@ -106,13 +114,22 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             % Register the subject's choice: 0 = left, 1 = right. Public so
             % a script (or the smoke test) can answer programmatically, and
             % the single path every response takes — button, arrow key, or
-            % script. Ignored outside the response window.
+            % script.
+            %
+            % A response while the lamps are still lit is an ABORT, not a
+            % choice: the subject answered before the response window
+            % opened, so there is nothing to score. The buttons are disabled
+            % then, but the arrow keys are always live — which is exactly
+            % the early-guess this catches. Outside a trial the press is
+            % simply dropped.
             arguments
                 obj
                 side (1,1) double {mustBeMember(side, [0 1])}
             end
-            if ~strcmp(obj.RigState, 'respwin'), return; end
-            obj.score_(side);
+            switch obj.RigState
+                case 'respwin', obj.score_(side);
+                case 'stim',    obj.score_(-2);
+            end
         end
     end
 
@@ -120,12 +137,9 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
         function p = createPsych(obj, R)
             % Track choices against SignedContrast with the N-AFC analysis:
             % ChoiceSide is the chosen alternative (-1 sentinel = no
-            % answer), TrialType the correct one. No trial-type overrides
-            % are needed for the session summary either: scoring
-            % left-correct trials as Hit/Miss and right-correct trials as
-            % CorrectReject/FalseAlarm already matches the defaults
-            % (stimulus = TrialType_0, catch = TrialType_1), which is the
-            % reason for that mapping.
+            % answer), TrialType the correct one. NAFC scores correctness
+            % by comparing the two, not by reading the Hit/Miss bits, so
+            % the session summary needs no trial-type arguments at all.
             p = [];
             if isfield(obj.P, 'SignedContrast')
                 p = psychophysics.NAFC(R, obj.P.SignedContrast, ...
@@ -193,13 +207,36 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             obj.addControl(col, 'RespWinDur', Text = 'Response window (ms)');
             obj.addUpdateButton(col);
 
-            % Percent correct and criterion are the 2AFC numbers; the
-            % criterion is the side bias, negative when the subject
-            % favours LEFT (the nominal yes-response).
+            % Session summary, read straight off the psychophysics.NAFC.
+            % A detection tutorial would put a gui.SessionPerformance here
+            % instead, and it is deliberately absent: that component
+            % computes through psychophysics.SessionMetrics, whose whole
+            % model — hit rate over stimulus trials, false-alarm rate over
+            % catch trials, and the d' and criterion built on the pair — is
+            % a detection model. A forced choice has no catch trials and no
+            % yes-response, so those numbers are undefined here however the
+            % bits are arranged. Proportion correct against 1/N, and the
+            % side bias read off the choice proportions, are the 2AFC
+            % numbers; psychophysics.NAFC computes both.
             pnl = uipanel(og, 'Title', 'Session Performance');
             pnl.Layout.Row = 2;
-            obj.addPerformance(pnl, ShowDetail = false, ...
-                Metrics = ["Trials", "PercentCorrect", "AbortRate", "DPrime", "Criterion"]);
+            sg2 = uigridlayout(pnl, [numel(obj.SUMMARY_ROWS) 2]);
+            sg2.RowHeight   = repmat({20}, 1, numel(obj.SUMMARY_ROWS));
+            sg2.ColumnWidth = {'1.4x', '1x'};
+            sg2.RowSpacing  = 2;
+            % Built into a local first: the property is typed, and gobjects
+            % preallocates GraphicsPlaceholder, which a Label property
+            % refuses.
+            vals = matlab.ui.control.Label.empty(1, 0);
+            for k = 1:numel(obj.SUMMARY_ROWS)
+                lbl = uilabel(sg2, Text = obj.SUMMARY_ROWS(k));
+                lbl.Layout.Row = k; lbl.Layout.Column = 1;
+                vals(k) = uilabel(sg2, Text = '—', ...
+                    FontWeight = 'bold', HorizontalAlignment = 'right');
+                vals(k).Layout.Row = k;
+                vals(k).Layout.Column = 2;
+            end
+            obj.SummaryValues = vals;
 
             % Per-trial complement to the binned table below: every trial's
             % signed contrast plotted at the side actually chosen, colored by
@@ -271,8 +308,22 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             R = P.Results;
             pct = round(100 * R.PercentCorrect);
             if isnan(pct), pct = 0; end
-            obj.TallyLabel.Text = sprintf('%d trials | %d%% correct | %d aborted', ...
-                R.NumTrials, pct, R.NumAborted);
+            obj.TallyLabel.Text = sprintf('%d trials | %d%% correct | %d unanswered', ...
+                R.NumTrials, pct, R.NumUnanswered);
+
+            % ChoiceProportion(2) is P(chose right): index k+1 holds
+            % alternative k, and right is alternative 1 here.
+            pRight = 100 * R.ChoiceProportion(min(2, end));
+            pRightText = '—';
+            if ~isnan(pRight), pRightText = sprintf('%.0f%%', pRight); end
+            values = {sprintf('%d', R.NumTrials), ...
+                      sprintf('%d%%', pct), ...
+                      pRightText, ...
+                      sprintf('%d', R.NumNoResponse), ...
+                      sprintf('%d', R.NumAborted)};
+            for k = 1:numel(obj.SummaryValues)
+                obj.SummaryValues(k).Text = values{k};
+            end
         end
     end
 
@@ -332,7 +383,7 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
                         end
                     case 'respwin'
                         if toc(obj.RespClock) >= obj.StateDur
-                            obj.score_(-1); % no answer in time: abort
+                            obj.score_(-1); % window lapsed: no response
                         end
                     otherwise
                         % idle / done: nothing to advance.
@@ -353,40 +404,46 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
 
         function score_(obj, choiceSide)
             % Score the current trial and complete it. choiceSide is 0
-            % (left), 1 (right), or -1 when the response window lapsed.
+            % (left), 1 (right), -1 when the response window lapsed, or -2
+            % when the subject answered before it opened. Both negatives
+            % reach ChoiceSide as -1: the two ways of not choosing are told
+            % apart by the Abort bit, not by a second sentinel value.
             % -1 rather than NaN because a parameter cannot store NaN: the
             % write is clamped with max(value, Min), which ignores NaN and
             % yields Min instead (see create_2afc_protocol).
             rt = -1;
             answered = choiceSide >= 0;
+            early    = choiceSide == -2;
             if answered && strcmp(obj.RigState, 'respwin')
                 rt = round(toc(obj.RespClock) * 1000);
             end
 
             leftCorrect = obj.TrialCorrectSide == 0;
-            if ~answered
+            if early
+                % Answered before the response window opened. Nothing to
+                % score, so the trial is aborted; the side pressed is not
+                % recorded as a Choice, because it was not a choice among
+                % the alternatives on offer.
                 bits = epsych.BitMask.Abort;
+            elseif ~answered
+                % No response at all is Undefined: no outcome bit and no
+                % Choice bit. That absence is the encoding -- it is what
+                % separates "never chose" from Miss, which means "chose,
+                % and chose wrong". Bits2Mask cannot be handed the
+                % Undefined member (bit 0 is not a bit), so the trial-type
+                % bit below is the whole response code.
+                bits = epsych.BitMask.empty;
             else
                 correct = choiceSide == obj.TrialCorrectSide;
-                % Outcome names are the detection ones recast with LEFT as
-                % the yes-response: choosing left is a Hit when left was
-                % correct and a FalseAlarm when it was not. Keeping Hit on
-                % TrialType_0 trials is what lets psychophysics.Detection
-                % and SessionMetrics score this session with their default
-                % stimulus/catch settings.
-                if leftCorrect
-                    if correct, bits = epsych.BitMask.Hit;
-                    else,       bits = epsych.BitMask.Miss;
-                    end
-                else
-                    if correct, bits = epsych.BitMask.CorrectReject;
-                    else,       bits = epsych.BitMask.FalseAlarm;
-                    end
-                end
+                % Correct is Hit and only Hit; wrong is Miss. The side is
+                % carried by the Choice bit alone, never by the outcome
+                % name, which is what keeps this reading identical for a
+                % 2AFC and a 4AFC. Reward/Punish are this paradigm's
+                % contingency, not part of the scoring.
                 if correct
-                    bits(end+1) = epsych.BitMask.Reward;
+                    bits = [epsych.BitMask.Hit, epsych.BitMask.Reward];
                 else
-                    bits(end+1) = epsych.BitMask.Punish;
+                    bits = [epsych.BitMask.Miss, epsych.BitMask.Punish];
                 end
                 % Which alternative was chosen, independent of correctness.
                 if choiceSide == 1
@@ -395,6 +452,11 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
                     bits(end+1) = epsych.BitMask.Choice_0;
                 end
             end
+            % The trial's category. Here that is which side carried the
+            % target, so it doubles as the correct alternative and
+            % psychophysics.NAFC could recover it from the bits alone; a
+            % paradigm whose types are stimulus/catch/remind would put the
+            % category here and the correct alternative in its own field.
             if leftCorrect
                 bits(end+1) = epsych.BitMask.TrialType_0;
             else
@@ -403,10 +465,10 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
 
             obj.armButtons_(false);
             obj.setPatches_(false);
-            obj.showFeedback_(answered, answered && choiceSide == obj.TrialCorrectSide);
+            obj.showFeedback_(answered, early, answered && choiceSide == obj.TrialCorrectSide);
 
             rc = epsych.BitMask.Bits2Mask(uint32(bits));
-            obj.setReadParameter_(obj.P.ChoiceSide, choiceSide);
+            obj.setReadParameter_(obj.P.ChoiceSide, max(choiceSide, -1));
             obj.setReadParameter_(obj.P.RT_ms, rt);
             obj.setReadParameter_(obj.P.RespCode, double(rc));
             % Negative = left brighter (left correct), matching the sign
@@ -423,16 +485,19 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             obj.setState_('done', 0);
         end
 
-        function showFeedback_(obj, answered, correct)
-            if ~answered
-                obj.FeedbackLabel.Text = 'TOO SLOW';
+        function showFeedback_(obj, answered, early, correct)
+            if early
+                obj.FeedbackLabel.Text = 'TOO SOON';
                 obj.FeedbackLabel.FontColor = epsych.BitMask.getDefaultColors(epsych.BitMask.Abort);
+            elseif ~answered
+                obj.FeedbackLabel.Text = 'TOO SLOW';
+                obj.FeedbackLabel.FontColor = epsych.BitMask.getDefaultColors(epsych.BitMask.Undefined);
             elseif correct
                 obj.FeedbackLabel.Text = 'CORRECT';
                 obj.FeedbackLabel.FontColor = epsych.BitMask.getDefaultColors(epsych.BitMask.Hit);
             else
                 obj.FeedbackLabel.Text = 'INCORRECT';
-                obj.FeedbackLabel.FontColor = epsych.BitMask.getDefaultColors(epsych.BitMask.FalseAlarm);
+                obj.FeedbackLabel.FontColor = epsych.BitMask.getDefaultColors(epsych.BitMask.Miss);
             end
         end
 

@@ -46,6 +46,12 @@ classdef Detection < handle & matlab.mixin.SetGet
         % Ensures that hit and false alarm rates are within (0,1) exclusive
         infCorrection (1,2) double {mustBeInRange(infCorrection,0,1,"exclusive")} = [0.05 0.95];
 
+        % IncludeAborts - Count aborted trials against Hit_Rate and FA_Rate,
+        % as failures to respond. False by default, so the rates describe the
+        % trials the subject answered; see
+        % psychophysics.Metrics.rateDenominator.
+        IncludeAborts (1,1) logical = false
+
         % targetTrialType - Target trial type to analyze (epsych.BitMask)
         targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
 
@@ -382,20 +388,42 @@ classdef Detection < handle & matlab.mixin.SetGet
         % Rate ----------------------------------------------------
         function r = get.Hit_Rate(obj)
             % get.Hit_Rate Hit rate per unique stimulus value
+            %
+            %   Hit / (Hit + Miss) at each value, so an aborted trial does
+            %   not depress the rate. Set IncludeAborts to score aborts as
+            %   failures to respond instead. Note this is NOT [obj.Rate.Hit],
+            %   which is the proportion of every trial at that value.
             obj.targetTrialType = obj.ttStimulus;
-            r = [obj.Rate.Hit];
+            c = obj.Count;
+            if isempty(c), r = []; return; end
+            r = psychophysics.Metrics.rate([c.Hit], ...
+                psychophysics.Metrics.rateDenominator([c.Hit] + [c.Miss], ...
+                    [c.Abort], obj.IncludeAborts));
         end
 
         function r = get.Miss_Rate(obj)
+            % The complement of the hit rate. With IncludeAborts this is the
+            % proportion that were not hits rather than the miss rate proper,
+            % since aborts are then in the denominator too.
             r = 1 - obj.Hit_Rate;
         end
 
         function r = get.FA_Rate(obj)
             % get.FA_Rate Catch-trial false alarm rate, replicated to match
             % the number of unique stimulus values for plotting
+            %
+            %   FA / (FA + CR) over every catch trial in the session; see
+            %   Hit_Rate for the aborts policy.
             obj.targetTrialType = obj.ttCatch;
-            CT = obj.Rate;
-            far = CT(1).FalseAlarm;
+            c = obj.Count;
+            if isempty(c)
+                far = [];
+            else
+                far = psychophysics.Metrics.rate(sum([c.FalseAlarm]), ...
+                    psychophysics.Metrics.rateDenominator( ...
+                        sum([c.FalseAlarm]) + sum([c.CorrectReject]), ...
+                        sum([c.Abort]), obj.IncludeAborts));
+            end
 
             obj.targetTrialType = obj.ttStimulus;
             n = max(numel(obj.uniqueValues),1);
@@ -520,51 +548,34 @@ classdef Detection < handle & matlab.mixin.SetGet
             %   d = d_prime(hitRate, faRate, bounds) computes the d-prime
             %   value using the provided hitRate and faRate, applying the
             %   specified bounds to avoid infinite z-scores.
+            %
+            %   Kept for compatibility, including its [0.01 0.99] default.
+            %   psychophysics.Metrics.dprime is the implementation and the
+            %   one to call in new code, where the correction is named rather
+            %   than implied by a pair of bounds, and where the trial-count
+            %   dependent corrections are available.
 
             arguments
                 hitRate
                 faRate
                 bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
             end
-            d = psychophysics.Detection.norminv(hitRate, bounds) - psychophysics.Detection.norminv(faRate, bounds);
+            d = psychophysics.Metrics.dprime(hitRate, faRate, Correction="clamp", Bounds=bounds);
         end
 
         function a = a_prime(hitRate, faRate)
             % a_prime Computes the nonparametric sensitivity index A'
             %
             %   a = a_prime(hitRate, faRate) returns Grier's (1971) A' from
-            %   the hit and false alarm rates:
-            %
-            %       A' = 0.5 + sign(H-FA) * ((H-FA)^2 + |H-FA|)
-            %                               / (4*max(H,FA) - 4*H*FA)
-            %
-            %   A' runs from 0 to 1: 0.5 is chance, 1.0 perfect
-            %   discrimination, and below 0.5 a reversed response mapping.
-            %   It reads as the area under the ROC curve through the single
-            %   observed (FA,H) point, i.e. the probability of a correct
-            %   answer in an equivalent 2AFC task.
-            %
-            %   Unlike d_prime this assumes no distribution and takes no
-            %   infCorrection bounds: rates of exactly 0 or 1 are defined,
-            %   which is what makes A' the safer summary for the small trial
-            %   counts and extreme rates a single session produces.
-            %
-            %   Inputs broadcast, so a vector of hit rates may be paired with
-            %   a scalar false alarm rate. NaN rates yield NaN.
-            %
-            %   Grier JB (1971) Nonparametric indexes for sensitivity and
-            %   bias: computing formulas. Psychol Bull 75(6):424-429.
+            %   the hit and false alarm rates. See
+            %   psychophysics.Metrics.aprime, which owns the formula and
+            %   documents it; this is kept because A' is public API.
 
             arguments
                 hitRate double
                 faRate  double
             end
-            d = hitRate - faRate;
-            a = 0.5 + sign(d) .* (d.^2 + abs(d)) ./ (4.*max(hitRate,faRate) - 4.*hitRate.*faRate);
-
-            % H == FA is chance whatever the rates are; taken separately
-            % because the denominator also vanishes at H == FA == 0 or 1.
-            a(d == 0) = 0.5;
+            a = psychophysics.Metrics.aprime(hitRate, faRate);
         end
 
         function c = bias(hitRate, faRate, bounds)
@@ -573,24 +584,35 @@ classdef Detection < handle & matlab.mixin.SetGet
             %   c = bias(hitRate, faRate, bounds) computes the bias value
             %   using the provided hitRate and faRate, applying the specified
             %   bounds to avoid infinite z-scores.
+            %
+            %   Kept for compatibility. psychophysics.Metrics.criterion is
+            %   the implementation, and the unambiguous name -- "bias" also
+            %   names beta and B''.
 
             arguments
                 hitRate
                 faRate
                 bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
             end
-            h = psychophysics.Detection.norminv(hitRate, bounds);
-            f = psychophysics.Detection.norminv(faRate, bounds);
-            c = -(h + f) ./ 2;
+            c = psychophysics.Metrics.criterion(hitRate, faRate, Correction="clamp", Bounds=bounds);
         end
 
         function n = norminv(r,bounds)
+            % norminv Bounded inverse normal CDF
+            %
+            %   Kept for compatibility. psychophysics.Metrics.z is the
+            %   implementation, and needs no Statistics Toolbox.
+            %
+            %   One behavior change: an undefined rate now yields NaN. The
+            %   max/min clamp this replaced dropped NaN -- min(NaN,0.99) is
+            %   0.99 -- so a missing rate silently became a bound.
+
             arguments
                 r
                 bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
             end
-            r = max(min(r,bounds(2)),bounds(1));
-            n = norminv(r);
+            r = psychophysics.Metrics.correctRates(r, r, Correction="clamp", Bounds=bounds);
+            n = psychophysics.Metrics.z(r);
         end
     end
 end

@@ -14,17 +14,49 @@ classdef NAFC < psychophysics.Psych & gui.PopOut
     %     2AFC over a signed stimulus IS the psychometric function
     %   - the confusion matrix (correct alternative x chosen alternative)
     %   - each alternative's overall choice proportion and bias re 1/N
-    %   - answered / aborted / invalid trial counts
+    %   - answered / aborted / no-response / invalid trial counts
+    %
+    % SCORING AN N-AFC TRIAL
+    %   Every alternative is a response, so no outcome name may carry the
+    %   side. CorrectReject and FalseAlarm belong to detection -- they name
+    %   what a subject does when there is nothing to respond to -- and are
+    %   NOT used in an N-AFC. What was chosen and whether it was right are
+    %   recorded as separate bits (epsych.BitMask.getResponses lists the
+    %   outcome bits; epsych.BitMask.getChoices the choice bits):
+    %
+    %     Choice_k    which alternative was chosen, k = 0..5. Set on every
+    %                 trial the subject answered, and only those.
+    %     Hit         the chosen alternative was the correct one.
+    %     Miss        the subject chose, but chose wrong.
+    %     Abort       a response arrived before the response window opened.
+    %     (no bit)    no response at all: Undefined. No outcome bit and no
+    %                 Choice bit, which is what distinguishes it from Miss.
+    %     TrialType_k the trial's category -- stimulus, catch, remind, or
+    %                 whatever else the paradigm defines. A property of the
+    %                 trial, independent of the response.
+    %     Reward / Punish are experimental design, not scoring: include them
+    %                 when the paradigm delivers one, omit them otherwise.
+    %
+    %   So a rightward choice is Choice_1 + Hit when right was correct and
+    %   Choice_1 + Miss when it was not. Correct is Hit and only Hit, which
+    %   is what makes proportion correct read the same for every N.
     %
     % Where the data comes from:
     %   Choice   - Choice_0..Choice_5 bits decoded from RespCode by default,
     %       or a DATA field named by ChoiceField holding the 0-based chosen
     %       alternative (negative = no answer). A field supports any N;
     %       the bits stop at 6 alternatives.
-    %   Correct  - the DATA field named by CorrectField (default TrialType,
-    %       matching the examples/two_afc convention that TrialType stores
-    %       the correct alternative), else TrialType_* bits from RespCode.
+    %   Correct  - the DATA field named by CorrectField (default TrialType),
+    %       else TrialType_* bits from RespCode. The bit fallback works only
+    %       where the trial's category IS the correct alternative, as in the
+    %       examples/two_afc left-target / right-target trials; a paradigm
+    %       whose trial types are stimulus/catch/remind must name a field.
     %   Value    - the tracked Parameter, as in every psychophysics.Psych.
+    %
+    %   Note that NAFC derives correctness from Choice vs Correct, never
+    %   from the Hit/Miss bits, so it also scores a session whose rig wrote
+    %   only the Choice_* bits (an on-board state machine that cannot see
+    %   which alternative was correct: see teensy.Templates.twoAFC).
     %
     % Like every psychophysics.Psych subclass it works online (construct with
     % a Runtime and it follows NewData events) or offline (construct with a
@@ -364,8 +396,18 @@ classdef NAFC < psychophysics.Psych & gui.PopOut
 
             R.NumTrials   = sum(included);
             R.NumAnswered = sum(answered);
-            R.NumAborted  = R.NumTrials - R.NumAnswered;
-            R.AbortRate   = obj.ratio_(R.NumAborted, R.NumTrials);
+
+            % Two ways to leave a trial unanswered, and they are not the same
+            % failure: an Abort is a response that came too early, so the bit
+            % is the only record of it, while a trial that simply lapsed
+            % carries no outcome bit at all (Undefined). A session whose rig
+            % wrote no response codes reports every unanswered trial as a
+            % no-response, which is the safe reading.
+            R.NumUnanswered  = R.NumTrials - R.NumAnswered;
+            R.NumAborted     = sum(included & ~answered & obj.abortMask_(n));
+            R.NumNoResponse  = R.NumUnanswered - R.NumAborted;
+            R.AbortRate      = obj.ratio_(R.NumAborted, R.NumTrials);
+            R.NoResponseRate = obj.ratio_(R.NumNoResponse, R.NumTrials);
 
             R.ChoiceTotals = zeros(1, N);
             for k = 1:N
@@ -514,6 +556,18 @@ classdef NAFC < psychophysics.Psych & gui.PopOut
             cv = obj.bitIndexValues_(n, epsych.BitMask.getTrialTypes);
         end
 
+        function m = abortMask_(obj, n)
+            % Trials carrying the Abort bit, padded/trimmed to n. All false
+            % when the session recorded no response codes.
+            m = false(1, n);
+            rc = obj.responseCodes;
+            if isempty(rc), return; end
+
+            a = reshape(logical(bitget(uint32(rc), uint32(epsych.BitMask.Abort))), 1, []);
+            k = min(n, numel(a));
+            m(1:k) = a(1:k);
+        end
+
         function idx = bitIndexValues_(obj, n, bits)
             % 0-based index per trial from a family of one-hot bits in the
             % response code; the lowest set bit wins, no bit set stays NaN.
@@ -597,9 +651,12 @@ classdef NAFC < psychophysics.Psych & gui.PopOut
                 'ChanceLevel',        0.5, ...
                 'NumTrials',          0, ...
                 'NumAnswered',        0, ...
+                'NumUnanswered',      0, ...
                 'NumAborted',         0, ...
+                'NumNoResponse',      0, ...
                 'NumInvalid',         0, ...
                 'AbortRate',          NaN, ...
+                'NoResponseRate',     NaN, ...
                 'PercentCorrect',     NaN, ...
                 'Choice',             zeros(1,0), ...
                 'CorrectAlternative', zeros(1,0), ...

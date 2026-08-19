@@ -7,26 +7,28 @@ function R = explore_2afc_data(datafile)
 % just-noticeable difference, and reaction times.
 %
 % Two analyses of the same file run side by side: one hand-rolled from the
-% decoded bits, and one from psychophysics.SessionMetrics, which produces
-% percent correct, d' and criterion for a two-choice task once each
-% alternative is nominated as stimulus/catch. They should agree.
+% decoded bits, and one from psychophysics.NAFC, which produces percent
+% correct against a 1/N chance level and the per-alternative choice bias.
+% They should agree.
 %
 % Works on any session whose DATA records carry RespCode (epsych.BitMask
-% codes with TrialType_0 = left correct, TrialType_1 = right correct),
-% TrialType, Contrast, ChoiceSide, and RT_ms.
+% codes: Choice_k for the alternative chosen, Hit when it was correct and
+% Miss when it was not, Abort for an answer before the response window,
+% and no outcome bit at all when the trial lapsed), TrialType, Contrast,
+% ChoiceSide, and RT_ms.
 %
 % Parameters:
 %   datafile - Path to a session .mat (variables Data and, optionally,
 %              Info). Default: the newest .mat under data/ in this folder.
 %
 % Returns:
-%   R - Results struct: datafile, nTrials, nAborted, signedLevels,
-%       pRight, contrasts, accuracy, pse, jnd, dprime, criterion,
-%       medianRT, and the decoded flag struct M.
+%   R - Results struct: datafile, nTrials, nNoResponse, nAborted,
+%       signedLevels, pRight, contrasts, accuracy, pse, jnd, pctCorrect,
+%       choiceBias, medianRT, and the decoded flag struct M.
 %
 % Walkthrough: https://github.com/dstolz/epsych2/wiki/Two-AFC-Task
 %
-% See also run_2afc_experiment, epsych.BitMask, psychophysics.SessionMetrics
+% See also run_2afc_experiment, epsych.BitMask, psychophysics.NAFC
 
 arguments
     datafile (1,:) char = ''
@@ -68,24 +70,36 @@ end
 % RespCode packs the whole trial outcome into one uint32; decode() expands
 % it to one logical-array field per epsych.BitMask member. Choice_1 marks
 % a rightward choice whether or not it was correct - that separation of
-% "what was chosen" (Choice_*) from "was it right" (Hit/Miss/CR/FA) is
-% what a 2AFC analysis needs, and the reason both are recorded.
+% "what was chosen" (Choice_*) from "was it right" (Hit / Miss) is what a
+% forced choice needs, and the reason both are recorded. In an N-AFC every
+% alternative is a response, so no outcome name carries the side and
+% CorrectReject / FalseAlarm are never set: those are detection outcomes.
 rc = uint32([DATA.RespCode]);
 M  = epsych.BitMask.decode(rc);
 
 side     = [DATA.TrialType];           % 0 = left correct, 1 = right correct
 contrast = [DATA.Contrast];
 choice   = [DATA.ChoiceSide];          % 0 = left, 1 = right, -1 = no answer
-rt       = [DATA.RT_ms];               % -1 on an aborted trial
+rt       = [DATA.RT_ms];               % -1 when the trial was not answered
 signed   = contrast .* (2 * side - 1); % negative = left lamp brighter
 
 answered = choice >= 0;
-correct  = M.Hit | M.CorrectReject;    % left-when-left, or right-when-right
+correct  = M.Hit;                      % correct is Hit, and only Hit
+
+% Two ways to leave a trial unanswered, and the bits keep them apart: an
+% Abort answered too early, while a lapsed trial carries no outcome bit at
+% all. getResponses() is the list of outcome bits, so "none of them set"
+% is Undefined without hardcoding which names exist.
+outcomes = string(epsych.BitMask.getResponses());
+scored   = false(size(rc));
+for k = 1:numel(outcomes), scored = scored | M.(outcomes(k)); end
+noResponse = ~scored;
 
 fprintf('\nOutcome counts\n')
 fprintf('  Answered     : %3d  (%d correct, %d incorrect)\n', ...
-    sum(answered), sum(correct), sum(answered) - sum(correct))
-fprintf('  Aborted      : %3d  (no answer inside the response window)\n', sum(M.Abort))
+    sum(answered), sum(correct), sum(M.Miss))
+fprintf('  No response  : %3d  (window lapsed; Undefined - no outcome bit)\n', sum(noResponse))
+fprintf('  Aborted      : %3d  (answered before the response window opened)\n', sum(M.Abort))
 fprintf('  Chose right  : %3d of %d answered (%.0f%%)\n', ...
     sum(M.Choice_1), sum(answered), 100 * sum(M.Choice_1) / max(1, sum(answered)))
 
@@ -139,13 +153,25 @@ else
 end
 
 % --- The same session through the toolbox --------------------------------
-% No trial-type arguments are needed: the behavior GUI scored left-correct
-% trials as Hit/Miss and right-correct trials as CorrectReject/FalseAlarm,
-% which is exactly what the defaults expect. PercentCorrect is then 2AFC
-% accuracy, and Criterion is the side bias — negative toward LEFT.
-SM = psychophysics.SessionMetrics(DATA);
-fprintf('\npsychophysics.SessionMetrics over the whole session\n')
-disp(SM.summary())
+% psychophysics.NAFC is the analysis a forced choice belongs in, and it
+% needs no trial-type arguments: correctness comes from comparing the
+% chosen alternative with the correct one, never from the Hit/Miss bits.
+% (psychophysics.SessionMetrics is deliberately NOT used here. Its hit
+% rate, false-alarm rate, d' and criterion are built on a stimulus/catch
+% split that a forced choice does not have.)
+NA = psychophysics.NAFC(DATA, 'SignedContrast', NumAlternatives = 2, ...
+    ChoiceField = "ChoiceSide", ChoiceLabels = ["Left", "Right"]);
+NR = NA.Results;
+fprintf('\npsychophysics.NAFC over the whole session\n')
+fprintf('  Trials          : %d\n', NR.NumTrials)
+fprintf('  Percent correct : %.1f%%  (chance %.0f%%)\n', ...
+    100 * NR.PercentCorrect, 100 * NR.ChanceLevel)
+fprintf('  Chose left      : %.1f%%   (bias %+.1f%% re chance)\n', ...
+    100 * NR.ChoiceProportion(1), 100 * NR.ChoiceBias(1))
+fprintf('  Chose right     : %.1f%%   (bias %+.1f%% re chance)\n', ...
+    100 * NR.ChoiceProportion(2), 100 * NR.ChoiceBias(2))
+fprintf('  No response     : %d\n', NR.NumNoResponse)
+fprintf('  Aborted (early) : %d\n', NR.NumAborted)
 
 % --- Session figure ------------------------------------------------------
 fig = figure(Name = 'Your 2AFC session', Color = 'w', ...
@@ -161,11 +187,11 @@ refColor  = [0.45 0.45 0.45];
 ax = nexttile(tl, [1 2]);
 hold(ax, 'on')
 trialNum = 1:numel(DATA);
-groups = {correct & answered, ~correct & answered, M.Abort};
-labels = {'Correct', 'Incorrect', 'Aborted'};
-clr = epsych.BitMask.getDefaultColors( ...
-    [epsych.BitMask.Hit, epsych.BitMask.FalseAlarm, epsych.BitMask.Abort]);
-markers = {'o', 'x', 's'};
+groups = {correct, M.Miss, noResponse, M.Abort};
+labels = {'Correct', 'Incorrect', 'No response', 'Aborted'};
+clr = epsych.BitMask.getDefaultColors([epsych.BitMask.Hit, ...
+    epsych.BitMask.Miss, epsych.BitMask.Undefined, epsych.BitMask.Abort]);
+markers = {'o', 'x', 's', 'd'};
 for k = 1:numel(groups)
     ind = groups{k};
     if ~any(ind), continue; end
@@ -221,9 +247,10 @@ title(ax, 'Accuracy by difficulty')
 grid(ax, 'on'); ax.GridAlpha = 0.12; ax.Box = 'off';
 
 R = struct('datafile', datafile, 'nTrials', numel(DATA), ...
-    'nAborted', sum(M.Abort), 'signedLevels', signedLevels, 'pRight', pRight, ...
+    'nNoResponse', sum(noResponse), 'nAborted', sum(M.Abort), ...
+    'signedLevels', signedLevels, 'pRight', pRight, ...
     'contrasts', contrasts, 'accuracy', accuracy, 'pse', pse, 'jnd', jnd, ...
-    'dprime', SM.Results.DPrime, 'criterion', SM.Results.Criterion, ...
+    'pctCorrect', NR.PercentCorrect, 'choiceBias', NR.ChoiceBias, ...
     'medianRT', median(rt(answered & rt >= 0)), 'M', M);
 
 if nargout == 0, clear R; end

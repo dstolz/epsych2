@@ -102,7 +102,10 @@ GUI components (`gui`):
 
 Analysis (`psychophysics`):
 
+- [psychophysics.Metrics](psychophysics/psychophysics_Metrics.md) — stateless signal-detection arithmetic (d', criterion, A', B'', and the corrections for rates of 0 and 1)
 - [psychophysics.Psych](psychophysics/psychophysics_Psych.md) — analysis base class (online/offline)
+- [psychophysics.SessionMetrics](psychophysics/psychophysics_SessionMetrics.md) — session counts, rates and sensitivity over a trial window
+- [psychophysics.NAFC](psychophysics/psychophysics_NAFC.md) — N-alternative forced choice: choice functions, confusion matrix, choice bias
 - [psychophysics.Staircase](psychophysics/psychophysics_Staircase.md) — reversals and threshold estimation
 - [psychophysics.BestPEST](psychophysics/psychophysics_BestPEST.md) — maximum-likelihood threshold tracking
 - [psychophysics.MLP](psychophysics/psychophysics_MLP.md) — Bayesian psychometric estimation

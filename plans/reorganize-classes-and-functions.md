@@ -221,10 +221,13 @@ and `Parameter_Control.m:1028`). `helpers/bitmask_gui.m` → `obj/+gui/bitmaskGU
 `obj/+gui/eval_dependent_parameter_randomization.m` and `eval_staircase_training_mode.m` → `obj/+hw/`
 with camelCase names (they operate on `hw.Parameter` semantics, not GUI).
 
-**`gui.Helper` split:** `dprime2AFC`/`criterion`/`percent_correct` duplicate
-`psychophysics.Detection.d_prime`/`.criterion`. Move the *bodies* out and leave **thin forwarders** in
-`gui.Helper` — it is a documented mixin that lab BehaviorGUIs inherit, and removing superclass
-methods breaks out-of-repo subclasses silently. Delete the forwarders in a later release.
+**`gui.Helper` split:** ~~`dprime2AFC`/`criterion`/`percent_correct` duplicate
+`psychophysics.Detection.d_prime`/`.criterion`.~~ **Done 2026-08-19.** The destination this step
+was missing is `psychophysics.Metrics`; the bodies moved there and `gui.Helper` keeps thin
+forwarders — it is a documented mixin that lab BehaviorGUIs inherit, and removing superclass
+methods breaks out-of-repo subclasses silently. Their hard-coded `[0.01 0.99]` bounds were
+preserved for the same reason. Delete the forwarders in a later release; no deprecation warning
+yet, since they run in per-trial callbacks.
 
 **5b — `epsych.eventModeChange` → `epsych.ModeChangeEventData`.** 26 sites; the only PascalCase
 violation among the three `event.EventData` types. **The event *name* string `'ModeChange'` must not

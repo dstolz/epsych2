@@ -65,26 +65,60 @@ exclusions are *trials that should never count*.
 |-------|----------|
 | `Window` | The `TrialWindow` the results were computed with |
 | `TrialIndex`, `FirstTrial`, `LastTrial` | Trials actually included |
-| `N` | `Total`, `Stimulus`, `Catch`, `Hit`, `Miss`, `CorrectReject`, `FalseAlarm`, `Abort`, `Scored`, `CatchScored` |
+| `N` | `Total`, `Stimulus`, `Catch`, `Hit`, `Miss`, `CorrectReject`, `FalseAlarm`, `Abort`, `AbortStimulus`, `AbortCatch`, `Scored`, `CatchScored` |
 | `Rate` | `Hit`, `Miss`, `FalseAlarm`, `CorrectReject`, `Abort`, `Correct` |
 | `DPrime`, `Criterion` | Signal-detection measures, `NaN` when either rate is undefined |
 | `APrime` | Nonparametric sensitivity A' (chance 0.5), `NaN` when either rate is undefined |
+| `BPrimePrime` | Nonparametric response bias B'', −1 (liberal) to +1 (conservative) |
 
 Denominators follow the paradigm:
 
 - **Hit / Miss rate** — scored stimulus trials (`Hit + Miss`), so aborts do
-  not dilute the rate.
-- **False alarm / Correct reject rate** — scored catch trials (`FA + CR`).
+  not dilute the rate. Set `IncludeAborts` to score them as failures to
+  respond; `N.AbortStimulus` and `N.AbortCatch` report the split, and
+  `N.Scored`/`N.CatchScored` always give the denominator actually used.
+- **False alarm / Correct reject rate** — scored catch trials (`FA + CR`),
+  with the same aborts policy.
 - **Abort rate** — every included trial.
 - **Percent correct** — `(Hit + CR) / (Scored + CatchScored)`.
-- **d' and criterion** — computed by `psychophysics.Detection.d_prime` and
-  `.bias` from the hit and false alarm rates, with `infCorrection` (default
-  `[0.05 0.95]`) clamping the rates before the z-transform. Both are `NaN`
-  when either rate is undefined, rather than silently using a clamp bound.
-- **A'** — computed by `psychophysics.Detection.a_prime` from the *uncorrected*
-  rates. `infCorrection` does not apply: A' is defined at rates of 0 and 1, and
-  clamping them would only pull it toward chance. See
-  [A' (nonparametric sensitivity)](psychophysics_APrime.md).
+- **d' and criterion** — computed by
+  [psychophysics.Metrics](psychophysics_Metrics.md) from the outcome counts.
+  Both are `NaN` when either rate is undefined.
+- **A' and B''** — computed from the *uncorrected* rates: both are defined at
+  rates of 0 and 1, and correcting them would only pull them toward chance.
+  See [A' (nonparametric sensitivity)](psychophysics_APrime.md).
+
+### Rates of 0 and 1
+
+A perfect or empty rate sends the z-transform to infinity, and `CorrectionMode`
+names what to do about it — `"none"`, `"clamp"` (the default and the historic
+behavior), `"halfcell"`, or `"loglinear"`. `infCorrection` (default
+`[0.05 0.95]`) supplies the bounds for `"clamp"` only; the last two derive
+their own from the trial counts, which is why they are available here and not
+on the rate-only entry points:
+
+```matlab
+S.CorrectionMode = "loglinear";   % correction shrinks as trials accumulate
+S.infCorrection  = [0.01 0.99];   % applies to "clamp" only
+```
+
+Counts are passed to `Metrics`, not rates, so no trial number has to be
+recovered by un-dividing. See
+[psychophysics.Metrics](psychophysics_Metrics.md) for what each mode does and
+when to prefer it.
+
+### Aborts
+
+`IncludeAborts` (default `false`) decides whether an aborted trial counts
+against the hit and false alarm rates. Leaving it off — the historic behavior
+here — means a rate describes the trials the subject answered:
+
+```matlab
+S.IncludeAborts = true;    % score aborts as failures to respond
+```
+
+The `AbortRate` metric is unaffected either way: it is always aborts over
+every included trial.
 
 A paradigm that never labels trial types — no `TrialType` field and no
 `TrialType_*` bits in `RespCode` — scores every outcome over the whole
@@ -157,6 +191,7 @@ the untyped-paradigm fallback, and the GUI paths on top of them.
 
 - [gui.SessionPerformance](../gui/gui_SessionPerformance.md) — the display component
 - [psychophysics.Psych](psychophysics_Psych.md) — the base class (`DATA`, `ExcludedTrials`, `NewData`)
-- [A' (nonparametric sensitivity)](psychophysics_APrime.md) — the `APrime` metric, and when to prefer it to d'
-- `psychophysics.Detection` (`obj/+psychophysics/@Detection/`) — per-stimulus-value psychometric analysis, and the source of the `d_prime`/`bias` arithmetic reused here
+- [psychophysics.Metrics](psychophysics_Metrics.md) — the arithmetic behind every metric here, and the corrections `CorrectionMode` selects
+- [A' (nonparametric sensitivity)](psychophysics_APrime.md) — the `APrime` and `BPrimePrime` metrics, and when to prefer them to d'
+- `psychophysics.Detection` (`obj/+psychophysics/@Detection/`) — per-stimulus-value psychometric analysis
 - [epsych.BitMask](../epsych/epsych_BitMask.md) — response codes

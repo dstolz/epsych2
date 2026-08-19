@@ -13,8 +13,10 @@ function R = explore_saved_data(datafile)
 %              Default: the newest .mat under data/ in this folder.
 %
 % Returns:
-%   R - Results struct: datafile, nTrials, levels, nGo, hitRate, faRate,
-%       dprime, and the decoded flag struct M.
+%   R - Results struct: datafile, nTrials, levels, nGo, nScored, hitRate,
+%       faRate, dprime, and the decoded flag struct M. nGo counts every go
+%       trial at a level; nScored counts the ones the subject answered, and
+%       is the denominator behind hitRate.
 %
 % Walkthrough: documentation/examples/Detection_Task_5_Data.md
 %
@@ -72,27 +74,45 @@ fprintf('  Catch trials : %3d  (%d false alarms, %d correct rejects)\n', ...
     sum(ctIdx), sum(M.FalseAlarm), sum(M.CorrectReject))
 
 % --- Performance per stimulus level --------------------------------------
-faRate = sum(M.FalseAlarm & ctIdx) / max(1, sum(ctIdx));
+% Rates count the trials the subject answered. An abort is a lapse of
+% engagement rather than a wrong answer, so it is left out of the denominator
+% by default; pass true below to score aborts as failures to respond instead.
+% psychophysics.Metrics.rateDenominator is where that convention lives, and
+% every analysis class in the toolbox takes the same IncludeAborts option.
+includeAborts = false;
 
-levels  = unique(lvl(goIdx));
-nGo     = zeros(size(levels));
-hitRate = zeros(size(levels));
+nCatchScored = psychophysics.Metrics.rateDenominator( ...
+    sum(M.FalseAlarm & ctIdx) + sum(M.CorrectReject & ctIdx), ...
+    sum(M.Abort & ctIdx), includeAborts);
+faRate = psychophysics.Metrics.rate(sum(M.FalseAlarm & ctIdx), nCatchScored);
+
+levels   = unique(lvl(goIdx));
+nGo      = zeros(size(levels));   % every go trial at that level
+nScored  = zeros(size(levels));   % ...of which the subject answered
+hitRate  = zeros(size(levels));
 for k = 1:numel(levels)
-    ind        = goIdx & lvl == levels(k);
-    nGo(k)     = sum(ind);
-    hitRate(k) = sum(M.Hit & ind) / nGo(k);
+    ind         = goIdx & lvl == levels(k);
+    nGo(k)      = sum(ind);
+    nScored(k)  = psychophysics.Metrics.rateDenominator( ...
+        sum(M.Hit & ind) + sum(M.Miss & ind), sum(M.Abort & ind), includeAborts);
+    hitRate(k)  = psychophysics.Metrics.rate(sum(M.Hit & ind), nScored(k));
 end
 
-% d' from hit rate per level against the session-wide catch false-alarm
-% rate, with the same finite corrections the online tools use.
-dprime = arrayfun(@(h) psychophysics.Detection.d_prime(h, faRate), hitRate);
+% d' from hit rate per level against the session-wide catch false-alarm rate.
+% A level where every trial was a hit would send the z-transform to infinity,
+% so the log-linear correction pulls the rates in by half a trial -- which is
+% why the trial counts travel alongside the rates, and why a level with 8
+% trials is corrected harder than one with 80.
+dprime = psychophysics.Metrics.dprime(hitRate, faRate, ...
+    Correction="loglinear", NSignal=nScored, NNoise=nCatchScored);
 
-fprintf('\n  Level (dB SPL)   # Go   Hit rate     d''\n')
+fprintf('\n  Level (dB SPL)   # Go   # Answered   Hit rate     d''\n')
 for k = 1:numel(levels)
-    fprintf('  %10g       %4d      %5.2f   %6.2f\n', ...
-        levels(k), nGo(k), hitRate(k), dprime(k))
+    fprintf('  %10g       %4d         %4d      %5.2f   %6.2f\n', ...
+        levels(k), nGo(k), nScored(k), hitRate(k), dprime(k))
 end
-fprintf('  Catch FA rate: %.2f\n\n', faRate)
+fprintf('  Catch FA rate: %.2f  (%d of %d catch trials answered)\n\n', ...
+    faRate, nCatchScored, sum(ctIdx))
 
 % --- Session figure ------------------------------------------------------
 fig = figure(Name = 'EPsych session summary', Color = 'w', ...
@@ -157,6 +177,7 @@ title(ax, 'Sensitivity')
 grid(ax, 'on'); ax.GridAlpha = 0.12; ax.Box = 'off';
 
 R = struct('datafile', datafile, 'nTrials', numel(DATA), 'levels', levels, ...
-    'nGo', nGo, 'hitRate', hitRate, 'faRate', faRate, 'dprime', dprime, 'M', M);
+    'nGo', nGo, 'nScored', nScored, 'hitRate', hitRate, 'faRate', faRate, ...
+    'dprime', dprime, 'M', M);
 
 if nargout == 0, clear R; end

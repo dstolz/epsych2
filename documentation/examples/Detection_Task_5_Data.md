@@ -58,19 +58,42 @@ find(M.FalseAlarm, 5)             % first five false-alarm trials
 ```
 
 From there the standard detection metrics are a few lines — hit rate per level
-among go trials, false-alarm rate from catch trials, and d' via the same
-static helper the online tools use (it applies finite corrections so a perfect
-or empty cell stays finite):
+among go trials, false-alarm rate from catch trials, and d' through
+[psychophysics.Metrics](../psychophysics/psychophysics_Metrics.md), which is
+the same arithmetic the online tools use:
 
 ```matlab
-faRate = sum(M.FalseAlarm & M.TrialType_1) / sum(M.TrialType_1);
+includeAborts = false;   % an abort is a lapse, not a wrong answer
+
+nCatch = psychophysics.Metrics.rateDenominator( ...
+    sum(M.FalseAlarm & M.TrialType_1) + sum(M.CorrectReject & M.TrialType_1), ...
+    sum(M.Abort & M.TrialType_1), includeAborts);
+faRate = psychophysics.Metrics.rate(sum(M.FalseAlarm & M.TrialType_1), nCatch);
+
 levels = unique(lvl(M.TrialType_0));
 for k = 1:numel(levels)
     ind = M.TrialType_0 & lvl == levels(k);
-    hitRate(k) = sum(M.Hit & ind) / sum(ind);
+    nScored(k) = psychophysics.Metrics.rateDenominator( ...
+        sum(M.Hit & ind) + sum(M.Miss & ind), sum(M.Abort & ind), includeAborts);
+    hitRate(k) = psychophysics.Metrics.rate(sum(M.Hit & ind), nScored(k));
 end
-dprime = arrayfun(@(h) psychophysics.Detection.d_prime(h, faRate), hitRate);
+dprime = psychophysics.Metrics.dprime(hitRate, faRate, ...
+    Correction="loglinear", NSignal=nScored, NNoise=nCatch);
 ```
+
+Rates divide by the trials the subject *answered*, not by every trial presented —
+`rateDenominator` is where that convention lives, and every analysis class in the
+toolbox takes the same `IncludeAborts` option. `explore_saved_data` prints both counts
+side by side, so a level where the animal disengaged is visible rather than hidden in a
+depressed hit rate.
+
+A level where the animal hit every trial would send the z-transform to
+infinity. The `"loglinear"` correction pulls each rate in by half a trial,
+which is why the counts travel alongside the rates — and why two levels that
+both scored 100% get *different* d' when one had 7 go trials and the other 8.
+A fixed clamp would have reported them as identical. See
+[psychophysics.Metrics](../psychophysics/psychophysics_Metrics.md) for the
+other corrections and when to prefer them.
 
 `explore_saved_data` wraps exactly this into a printed report and a
 three-panel figure: the trial timeline (every trial in presentation order,

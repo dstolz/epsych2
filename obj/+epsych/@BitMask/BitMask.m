@@ -7,6 +7,31 @@ classdef BitMask < uint32
     % Use epsych.BitMask to build masks, decode stored response codes, validate
     % enum values, and retrieve default colors for visualization.
     %
+    % What the outcome bits mean depends on the task, and the two families
+    % do not mix. getResponses lists the valid response types:
+    %
+    %   Detection (go / no-go, a stimulus or a catch trial)
+    %     Hit           responded on a stimulus trial
+    %     Miss          withheld on a stimulus trial
+    %     FalseAlarm    responded on a catch trial
+    %     CorrectReject withheld on a catch trial
+    %
+    %   Forced choice (N alternatives, every trial demands a response)
+    %     Choice_k      which alternative was chosen -- and the ONLY bit
+    %                   that carries which one it was
+    %     Hit           that choice was the correct alternative
+    %     Miss          the subject chose, and chose wrong
+    %     (no bit)      no response at all: Undefined
+    %     CorrectReject and FalseAlarm are NEVER used: there is no trial
+    %                   with nothing to respond to.
+    %
+    %   Either way, Abort marks a response that arrived before the response
+    %   window opened, TrialType_k names the trial's category (stimulus,
+    %   catch, remind, ...), and Reward / Punish record the contingency the
+    %   paradigm delivered rather than how the trial was scored.
+    %
+    % See psychophysics.Detection and psychophysics.NAFC, which read them.
+    %
     % Example:
     %   flags = [epsych.BitMask.Hit epsych.BitMask.Reward];
     %   mask = epsych.BitMask.Bits2Mask(uint32(flags));
@@ -120,10 +145,15 @@ classdef BitMask < uint32
 
         function m = getResponses()
             % m = epsych.BitMask.getResponses()
-            % Return the response outcome flags.
+            % Return the response outcome flags -- the valid response types.
             % Returns:
             %   m - epsych.BitMask array containing Hit, Miss, CorrectReject,
             %       FalseAlarm, and Abort.
+            %
+            % Use this rather than a hardcoded name list when code has to
+            % ask "how was this trial scored". A trial carrying none of them
+            % has no outcome: Undefined, which in a forced choice is how a
+            % trial the subject never answered is recorded.
             m = epsych.BitMask(1:5);
         end
 

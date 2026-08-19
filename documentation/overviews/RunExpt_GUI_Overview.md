@@ -304,6 +304,7 @@ The recording paths in force for a session live on `RunExpt.PATHS`, seeded from 
   - Verbosity... — sets how much detail EPsych prints to the command window. Everything at or below the chosen level is also written to the daily log; see [../eplog/eplog_Logging.md](../eplog/eplog_Logging.md).
   - **Example Experiments** (submenu) — one item per walkthrough under [../../examples/](../../examples/): **Your First Experiment...** and **Two-AFC Task...**. Each opens that walkthrough's wiki page in the default browser, the same way **Documentation** does; the page's Quick Start section holds the MATLAB commands that actually run it. The menu deliberately links rather than launches, because running an example starts an interactive session — you are the subject, clicking through trials — rather than opening a self-contained window.
   - GitHub Repository / Documentation / Commit History Overview — online resources.
+  - Report an Issue on GitHub — opens the repository's issue tracker (<https://github.com/dstolz/epsych2/issues>) in the default browser, for reporting a bug or requesting a feature. Include the version and commit shown by **View → Version Info** and, where relevant, the day's error log.
 
 ## 9) Keyboard shortcuts
 

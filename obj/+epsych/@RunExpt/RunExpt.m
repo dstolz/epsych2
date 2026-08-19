@@ -53,16 +53,13 @@ classdef RunExpt < handle
         AddSubject(self, S)             % Append subject struct S to CONFIG
         RemoveSubject(self, idx)        % Remove subject at index idx from CONFIG
 
-        DefineSavingFcn(self, a)        % Set the data-saving callback function name
         DefineConfigBrowserRoot(self)   % Set the root folder used by the config browser
         BrowseConfigs(self)             % Open the config browser dialog
 
         DefineAddSubject(self, a)       % Set the add-subject callback function name
-        DefineBehaviorGUI(self, a)      % Set the session's behavior GUI callback function name
-        DefineTimerPeriod(self)         % Set the PsychTimer period (0.001–1 s)
         DefineLogPath(self)             % Set the directory +eplog writes daily error logs to
 
-        OpenCustomizeDialog(self)       % Open the Customize Settings dialog for this machine's settings (a project owns the rest)
+        OpenCustomizeDialog(self)       % Open the Customize Settings dialog for this machine's settings (the membership owns the rest)
         OpenSelfTest(self)              % Open the pre-flight self-test window
         OpenParameterDebugger(self)     % Open the parameter debugger window
         OpenSubjectManager(self)        % Open the Subjects & Projects manager window
@@ -583,29 +580,18 @@ classdef RunExpt < handle
 
         subject_list_SelectionChanged(self, hObj, evt)  % Prints subject and protocol info to the command window when selection changes
 
-        function SetDefaultFuncs(self, F)
-            % SetDefaultFuncs(self, F)
-            % Persist all callback function names from struct F to MATLAB preferences.
-            setpref('ep_RunExpt_FUNCS','SavingFcn',    F.SavingFcn)
-            setpref('ep_RunExpt_FUNCS','AddSubjectFcn',F.AddSubjectFcn)
-            % Both names: this pref is the rig's default behavior GUI, and a rig
-            % one release behind reads the old key. GetDefaultFuncs prefers the
-            % new one, so the pair converges on the first save either way.
-            setpref('ep_RunExpt_FUNCS','BehaviorGUI',  F.BehaviorGUI)
-            setpref('ep_RunExpt_FUNCS','BoxFig',       F.BehaviorGUI)
-
-            setpref('ep_RunExpt_TIMER','Start',     F.TIMERfcn.Start)
-            setpref('ep_RunExpt_TIMER','RunTime',   F.TIMERfcn.RunTime)
-            setpref('ep_RunExpt_TIMER','Stop',      F.TIMERfcn.Stop)
-            setpref('ep_RunExpt_TIMER','Error',     F.TIMERfcn.Error)
-            setpref('ep_RunExpt_TIMER','Period',    F.TimerPeriod)
-        end
-
         function F = GetDefaultFuncs(self)
             % F = GetDefaultFuncs(self)
-            % Load all callback function names from MATLAB preferences into struct F.
-            % Stored values that are no longer resolvable are silently reset to the
-            % current built-in defaults.
+            % The built-in session callbacks a fresh session starts on.
+            %
+            % Constants, not preferences: a paradigm's settings ride each
+            % subject's roster membership and land on the session at commit
+            % (epsych.SubjectRoster.assignToSession), so a rig-local default
+            % layer would only make "inherit" mean something different on
+            % every machine. AddSubjectFcn is the one survivor -- it names the
+            % lab's add-subject dialog, a fact about the rig, set in the
+            % Customize dialog. A stored value that no longer resolves is
+            % silently reset to the built-in default.
             DFLT_ADD_SUBJECT = 'epsych.DefaultSubject.open';
             stored = getpref('ep_RunExpt_FUNCS','AddSubjectFcn', DFLT_ADD_SUBJECT);
             % Validate: accept the built-in static method or any function on the path
@@ -619,15 +605,14 @@ classdef RunExpt < handle
                 setpref('ep_RunExpt_FUNCS', 'AddSubjectFcn', DFLT_ADD_SUBJECT);
             end
 
-            F.SavingFcn      = getpref('ep_RunExpt_FUNCS','SavingFcn',    'ep_SaveDataFcn');
-            F.BehaviorGUI    = getpref('ep_RunExpt_FUNCS','BehaviorGUI', ...
-                getpref('ep_RunExpt_FUNCS','BoxFig',      'ep_GenericGUI'));
+            F.SavingFcn   = 'ep_SaveDataFcn';
+            F.BehaviorGUI = 'ep_GenericGUI';
 
-            F.TIMERfcn.Start    = getpref('ep_RunExpt_TIMER','Start',   'ep_TimerFcn_Start');
-            F.TIMERfcn.RunTime  = getpref('ep_RunExpt_TIMER','RunTime', 'ep_TimerFcn_RunTime');
-            F.TIMERfcn.Stop     = getpref('ep_RunExpt_TIMER','Stop',    'ep_TimerFcn_Stop');
-            F.TIMERfcn.Error    = getpref('ep_RunExpt_TIMER','Error',   'ep_TimerFcn_Error');
-            F.TimerPeriod       = getpref('ep_RunExpt_TIMER','Period',   0.01);
+            F.TIMERfcn.Start   = 'ep_TimerFcn_Start';
+            F.TIMERfcn.RunTime = 'ep_TimerFcn_RunTime';
+            F.TIMERfcn.Stop    = 'ep_TimerFcn_Stop';
+            F.TIMERfcn.Error   = 'ep_TimerFcn_Error';
+            F.TimerPeriod      = 0.01;
         end
 
         function P = GetDefaultPaths(self)

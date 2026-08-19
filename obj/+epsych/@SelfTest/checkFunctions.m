@@ -75,7 +75,7 @@ timerSpecs = { ...
 if ~isfield(F, 'TIMERfcn')
     r = epsych.SelfTest.result("B4_TimerFcns", GROUP, "Timer functions", "fail", ...
         'FUNCS has no TIMERfcn struct.', ...
-        Remedy = "Reload the configuration, or run rmpref('ep_RunExpt_TIMER') to restore the ep_TimerFcn_* defaults.");
+        Remedy = "Add the subjects again from Subjects & Projects; a session with no membership-set callbacks runs the ep_TimerFcn_* built-ins.");
 else
     rows = epsych.SelfTest.result();
     for i = 1:size(timerSpecs, 1)
@@ -83,7 +83,7 @@ else
         rows(end+1) = localCheckCallable("B4_Timer" + nm, GROUP, "Timer function: " + nm, ...
             localField(F.TIMERfcn, nm, ''), ...
             ExpectedNargin = timerSpecs{i,3}, ExpectedNargout = timerSpecs{i,4}, ...
-            Remedy = "Reset the timer-function preferences: rmpref('ep_RunExpt_TIMER') restores the ep_TimerFcn_* defaults.");
+            Remedy = "Fix the timer functions on the subject's Session Settings (or the project template) in Subjects & Projects, then add the subjects again; empty fields run the ep_TimerFcn_* built-ins.");
     end
 
     % status is a string scalar inside a cell, which strcmp against a char
@@ -97,7 +97,7 @@ else
         r = epsych.SelfTest.result("B4_TimerFcns", GROUP, "Timer functions", "fail", ...
             sprintf('%d of 4 timer callbacks are unusable.', numel(bad)), ...
             Detail = string({bad.summary}), ...
-            Remedy = "Reset the timer-function preferences: rmpref('ep_RunExpt_TIMER') restores the ep_TimerFcn_* defaults.");
+            Remedy = "Fix the timer functions on the subject's Session Settings (or the project template) in Subjects & Projects, then add the subjects again; empty fields run the ep_TimerFcn_* built-ins.");
     end
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
@@ -124,16 +124,16 @@ end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
 % --- B6: in-memory vs persisted preferences ---------------------------
-% Drift is informational and now usually expected: a project applies its own
-% saving function and behavior GUI to the session without touching the machine's
-% preferences. It still explains why a rig behaves differently after loading a
-% colleague's configuration.
+% Drift is informational: a script may have set a session's AddSubjectFcn
+% directly, and this explains why the rig's dialog differs from Customize.
 t = tic;
 drift = strings(1,0);
+% AddSubjectFcn is the only session callback still backed by a machine
+% preference; the rest are built-in constants overridden per-membership, so
+% comparing them against a pref would report permanent drift against a value
+% nothing reads.
 prefSpecs = { ...
-    'SavingFcn',     getpref('ep_RunExpt_FUNCS','SavingFcn','ep_SaveDataFcn'); ...
-    'AddSubjectFcn', getpref('ep_RunExpt_FUNCS','AddSubjectFcn','epsych.DefaultSubject.open'); ...
-    'BehaviorGUI',        getpref('ep_RunExpt_FUNCS','BehaviorGUI','ep_GenericGUI')};
+    'AddSubjectFcn', getpref('ep_RunExpt_FUNCS','AddSubjectFcn','epsych.DefaultSubject.open')};
 
 for i = 1:size(prefSpecs, 1)
     inMemory = string(localField(F, prefSpecs{i,1}, ''));
@@ -146,12 +146,12 @@ end
 
 if isempty(drift)
     r = epsych.SelfTest.result("B6_PrefDrift", GROUP, "Preference consistency", "pass", ...
-        'Session callbacks match the stored preferences.');
+        'The add-subject function matches the stored preference.');
 else
     r = epsych.SelfTest.result("B6_PrefDrift", GROUP, "Preference consistency", "info", ...
         sprintf('%d callback(s) differ from the stored preferences.', numel(drift)), ...
         Detail = drift, ...
-        Remedy = "Expected when a project applied its session defaults, or after loading a configuration that carries its own functions.");
+        Remedy = "Expected when a script set the session's add-subject function directly.");
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 

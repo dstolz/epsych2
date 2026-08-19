@@ -51,10 +51,8 @@ PREFS = self.PREF_GROUP;
 % ---- what each field opens on -------------------------------------------
 vDataPath  = localSeed(seed.DefaultDataPath,  PREFS, 'DataPath', ...
     char(getpref('RunExpt','DataPath', cd)));
-vSaving    = localSeed(seed.SavingFcn,        PREFS, 'SavingFcn', ...
-    char(getpref('ep_RunExpt_FUNCS','SavingFcn','ep_SaveDataFcn')));
-vBehaviorGUI = localSeed(seed.BehaviorGUI,       PREFS, 'BehaviorGUI', ...
-    char(getpref('ep_RunExpt_FUNCS','BehaviorGUI','ep_GenericGUI')));
+vSaving    = localSeed(seed.SavingFcn,        PREFS, 'SavingFcn', 'ep_SaveDataFcn');
+vBehaviorGUI = localSeed(seed.BehaviorGUI,       PREFS, 'BehaviorGUI', 'ep_GenericGUI');
 vVideo     = localSeed(seed.VideoRootDir,     PREFS, 'VideoRootDir', ...
     localOr(char(getpref('ep_RunExpt_Video','RecordingRootDir','')), vDataPath));
 vIntan     = localSeed(seed.IntanRootDir,     PREFS, 'IntanRootDir', ...
@@ -78,7 +76,7 @@ end
 % NaN is the record's "inherit" state; the field itself cannot hold it.
 vPeriod = seed.TimerPeriod;
 if ~isscalar(vPeriod) || isnan(vPeriod)
-    vPeriod = localRecentPeriod(PREFS, getpref('ep_RunExpt_TIMER','Period',0.01));
+    vPeriod = localRecentPeriod(PREFS, 0.01);
 end
 
 nRows = 11 + options.IncludeProtocol;

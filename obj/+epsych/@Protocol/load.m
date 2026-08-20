@@ -36,8 +36,6 @@ function obj = load(filename)
     end
     if ismember('protocol', vars)
         S = builtin('load', filename, '-mat', 'protocol');
-    elseif ismember('protocol_struct', vars)
-        S = builtin('load', filename, '-mat', 'protocol_struct');
     else
         S = builtin('load', filename, '-mat');
     end

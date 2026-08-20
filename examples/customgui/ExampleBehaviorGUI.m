@@ -12,8 +12,11 @@ classdef ExampleBehaviorGUI < gui.BehaviorGUI
 
     methods
         function obj = ExampleBehaviorGUI(RUNTIME)
+            % RestorePopOuts reopens the display windows the operator had
+            % open last session, each as they left it. Drop the option if a
+            % shared rig should start every session with a clean desktop.
             obj@gui.BehaviorGUI(RUNTIME, Name='Example Task', ...
-                DefaultPosition=[100 100 1100 650]);
+                DefaultPosition=[100 100 1100 650], RestorePopOuts=true);
             if nargout == 0, clear obj; end
         end
     end

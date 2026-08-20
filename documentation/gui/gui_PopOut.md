@@ -136,6 +136,34 @@ The consequence worth knowing: a pop-out mirrors its host's current settings
 only the *first* time it is opened. After that it restores what it was last
 showing, exactly like every other component in the toolbox.
 
+## Reopening them next session
+
+Those preferences make each window come back as it was — but only once
+something reopens it. `gui.BehaviorGUI` will, given
+`RestorePopOuts=true`:
+
+```matlab
+obj@gui.BehaviorGUI(RUNTIME, Name='My Task', RestorePopOuts=true);
+```
+
+The GUI then remembers **which** displays were open and reopens them at the
+end of its construction, each in the position, size, font and pinned state
+its own preference key already held. Windows `gui.ComponentToolbar` opened
+for lazy entries are remembered the same way. See
+[gui_BehaviorGUI.md](gui_BehaviorGUI.md#remembering-the-display-windows).
+
+The seam it uses is an event on this mixin:
+
+```matlab
+listener(component, 'PopOutStateChanged', @(~,~) disp('opened or closed'));
+```
+
+`PopOutStateChanged` fires when the window opens and when it closes. Raising
+an already-open window is not a change and does not notify, and neither does
+the teardown that follows the host component's own destruction — which is
+what keeps closing a GUI from being mistaken for the operator closing its
+windows.
+
 ## Adding the mixin to a component
 
 Three steps:
@@ -222,6 +250,16 @@ toolbar-owned window offers the item too.
 
 ```
 matlab -batch "run('tmp/smoke_test_popout_alwaysontop.m')"
+```
+
+`tmp/smoke_test_popout_restore.m` covers the reopening: a window is recorded
+as it opens rather than at teardown, both kinds come back sized and pinned as
+they were left, one the operator closed stays closed, a remembered display
+the GUI does not have is skipped but not erased, and `RestorePopOuts=false`
+neither reopens nor records anything.
+
+```
+matlab -batch "run('tmp/smoke_test_popout_restore.m')"
 ```
 
 See also: [gui_BehaviorGUI.md](gui_BehaviorGUI.md),

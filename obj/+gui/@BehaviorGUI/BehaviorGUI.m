@@ -43,6 +43,17 @@ classdef (Abstract) BehaviorGUI < handle
     %   can additionally open components the GUI does not display at all. It
     %   is optional: a GUI that never calls it gets no toolbar.
     %
+    %   RestorePopOuts=true makes the GUI remember WHICH of those windows the
+    %   operator had open and reopen them the next time it is launched. What
+    %   each window shows is not saved here — every component already
+    %   remembers its own position, font size, columns, and pinned state
+    %   under its pop-out preference key — so this records only the list of
+    %   open displays, rewritten whenever one opens or closes rather than at
+    %   teardown, which is what makes it survive a MATLAB that never closed
+    %   cleanly. A remembered display that this protocol does not have is
+    %   skipped and LEFT in the list, so running one paradigm cannot erase
+    %   the layout of another.
+    %
     %   NewData listener source: when createPsych returns a psychophysics
     %   object, NewData is taken from Psych.Events so the psych object has
     %   already processed the trial before onNewData runs; otherwise
@@ -61,6 +72,10 @@ classdef (Abstract) BehaviorGUI < handle
         PreferenceTag (1,:) char % Figure Tag and getpref/setpref group
     end
 
+    properties
+        RestorePopOuts (1,1) logical = false % Reopen the displays left open last session
+    end
+
     properties (Access = private)
         Components_ (1,:) cell = {} % registered components, deleted in reverse on teardown
         ComponentNames_ (1,:) cell = {} % register names, one per Components_ entry
@@ -68,6 +83,14 @@ classdef (Abstract) BehaviorGUI < handle
         Deferred_ (1,:) cell = {}   % closures queued until the first NewTrial
         FirstTrialSeen_ (1,1) logical = false
         ButtonCount_ (1,1) double = 0 % rotation index for addButton colors
+        PopOutListeners_ = event.listener.empty(1,0) % PopOutStateChanged, one per poppable component
+        RestoringPopOuts_ (1,1) logical = false % suspends recording while windows are reopened
+        UnresolvedPopOuts_ (1,:) string = string.empty(1,0) % remembered displays this GUI does not have
+        TearingDown_ (1,1) logical = false % set by delete before components go
+    end
+
+    properties (Constant, Hidden)
+        POPOUT_LAYOUT_PREF = 'OpenPopOuts' % Preference key holding the remembered display list
     end
 
     properties (Hidden, SetAccess = protected)
@@ -82,19 +105,25 @@ classdef (Abstract) BehaviorGUI < handle
 
     methods
         function obj = BehaviorGUI(RUNTIME, options)
-            % obj = BehaviorGUI(RUNTIME, Name=..., DefaultPosition=..., PreferenceTag=..., Visible=...)
+            % obj = BehaviorGUI(RUNTIME, Name=..., DefaultPosition=..., PreferenceTag=..., Visible=..., RestorePopOuts=...)
             % Create the figure, call the subclass build method, and wire
             % runtime event listeners.
-            %  RUNTIME - epsych.Runtime (may have no interfaces attached).
+            %  RUNTIME        - epsych.Runtime (may have no interfaces attached).
+            %  RestorePopOuts - reopen the display windows the operator had
+            %                   open when this GUI was last used, each with
+            %                   the position, size, font, options and pinned
+            %                   state it was left in. Off by default.
             arguments
                 RUNTIME (1,1)
                 options.Name (1,:) char = 'Behavior Box'
                 options.DefaultPosition (1,4) double = [100 100 1100 680]
                 options.PreferenceTag (1,:) char = ''
                 options.Visible (1,1) logical = true
+                options.RestorePopOuts (1,1) logical = false
             end
 
-            obj.RUNTIME = RUNTIME;
+            obj.RUNTIME        = RUNTIME;
+            obj.RestorePopOuts = options.RestorePopOuts;
 
             obj.PreferenceTag = options.PreferenceTag;
             if isempty(obj.PreferenceTag)
@@ -150,12 +179,29 @@ classdef (Abstract) BehaviorGUI < handle
                 end
                 obj.hl_NewData = listener(newDataSrc, 'NewData', @obj.dispatchNewData_);
             end
+
+            % Last, so a reopened window finds the GUI wired to the runtime
+            % exactly as one opened by hand later in the session would. The
+            % listeners are attached whether or not the memory is switched
+            % on -- one event.listener per display costs nothing, and it lets
+            % a GUI turn RestorePopOuts on mid-session and be obeyed.
+            obj.attachPopOutListeners_();
+            if obj.RestorePopOuts
+                obj.restorePopOutLayout();
+            end
         end
 
         function delete(obj)
             % Destructor: tear down listeners, registered components, the
             % psych object, and the figure — in that order.
             vprintf(3, '%s: destructor', class(obj))
+
+            % FIRST, while every component and window is still intact: the
+            % list is normally already current, but a window closed by
+            % something that never reached closePopOut is only seen here.
+            obj.savePopOutLayout();
+            obj.TearingDown_ = true;
+            obj.detachPopOutListeners_();
 
             for h = [obj.hl_NewTrial, obj.hl_NewData, obj.hl_ModeChange]
                 try
@@ -664,6 +710,95 @@ classdef (Abstract) BehaviorGUI < handle
                 obj.Deferred_{end+1} = fcn;
             end
         end
+
+        function savePopOutLayout(obj)
+            % savePopOutLayout(obj)
+            % Record which display windows are open right now. Called for you
+            % whenever one opens or closes, and once more as the GUI comes
+            % apart; call it by hand only after turning RestorePopOuts on
+            % with windows already up. Does nothing while RestorePopOuts is
+            % off, or while restorePopOutLayout is doing the reopening.
+            if ~obj.RestorePopOuts || obj.RestoringPopOuts_, return; end
+            ids = obj.openPopOutIdentities_();
+            try
+                setpref(obj.PreferenceTag, obj.POPOUT_LAYOUT_PREF, cellstr(ids));
+                vprintf(3, '%s: remembering %d open display window(s)', class(obj), numel(ids))
+            catch ME
+                vprintf(2, '%s: could not save the display layout: %s', class(obj), ME.message)
+            end
+        end
+
+        function n = restorePopOutLayout(obj)
+            % n = restorePopOutLayout(obj)
+            % Reopen the display windows recorded by the last session and
+            % return how many opened. Each comes back in the position, size,
+            % font, options and pinned state it was left in, because those
+            % belong to the component's own pop-out preference key rather
+            % than to the list this reads.
+            %
+            % A remembered entry the GUI no longer has -- a component
+            % renamed, a paradigm changed, a protocol without that parameter
+            % -- is skipped with a message and left in the list, so a GUI
+            % that opens against a reduced protocol does not erase the
+            % layout the full one had.
+            n = 0;
+            ids = obj.savedPopOutIdentities_();
+            if isempty(ids), return; end
+
+            obj.RestoringPopOuts_  = true;
+            obj.UnresolvedPopOuts_ = string.empty(1,0);
+            try
+                [comps, entryIds] = obj.popOutEntries_();
+                for k = 1:numel(ids)
+                    if startsWith(ids(k), "Toolbar:")
+                        n = n + obj.reopenToolbarEntry_(ids(k));
+                    else
+                        n = n + obj.reopenComponent_(ids(k), comps, entryIds);
+                    end
+                end
+            catch ME
+                vprintf(0,1, ME)
+            end
+            obj.RestoringPopOuts_ = false;
+
+            if n == 0, return; end
+            vprintf(1, '%s: reopened %d display window(s) from the last session', class(obj), n)
+
+            % The GUI itself was made first and is now underneath whatever
+            % came back; put it in front so the operator sees the controls.
+            try
+                if obj.h_figure.Visible == "on"
+                    figure(obj.h_figure);
+                end
+            catch
+            end
+        end
+
+        function forgetPopOutLayout(obj)
+            % forgetPopOutLayout(obj)
+            % Discard the remembered list, so the next launch opens with no
+            % display windows. The windows themselves, and everything each
+            % remembers about its own appearance, are left alone.
+            try
+                if ispref(obj.PreferenceTag, obj.POPOUT_LAYOUT_PREF)
+                    rmpref(obj.PreferenceTag, obj.POPOUT_LAYOUT_PREF);
+                end
+            catch ME
+                vprintf(2, '%s: could not clear the display layout: %s', class(obj), ME.message)
+            end
+        end
+    end
+
+    methods (Hidden)
+
+        function notePopOutStateChanged_(obj)
+            % notePopOutStateChanged_(obj)
+            % A display window opened or closed. gui.ComponentToolbar calls
+            % this for the windows it owns; the windows components own are
+            % reported by their own PopOutStateChanged event.
+            if ~isvalid(obj) || obj.TearingDown_, return; end
+            obj.savePopOutLayout();
+        end
     end
 
     methods (Access = protected)
@@ -797,6 +932,139 @@ classdef (Abstract) BehaviorGUI < handle
             if any(cellfun(@(c) c == p, comps)), return; end
             comps{end+1}  = p;
             labels(end+1) = gui.ComponentToolbar.entryLabel(class(p));
+        end
+
+        function [comps, ids] = popOutEntries_(obj)
+            % Poppable components with the identity each is remembered under.
+            % The identity is the name the component toolbar would give it —
+            % its register name, else its class spaced out — made unique the
+            % same way, so a GUI holding two of a class still tells them
+            % apart. Registration order decides which is which, which is why
+            % a paradigm that reorders build should expect the memory to
+            % point at the other one; naming both in register() pins it.
+            [comps, labels] = obj.popOutComponents_();
+            ids = strings(1, numel(comps));
+            for i = 1:numel(comps)
+                n = sum(labels(1:i) == labels(i));
+                if n > 1
+                    ids(i) = sprintf('Component:%s %d', labels(i), n);
+                else
+                    ids(i) = "Component:" + labels(i);
+                end
+            end
+        end
+
+        function ids = openPopOutIdentities_(obj)
+            % Identities of every display window open right now. Toolbar
+            % entries are asked only about the windows the TOOLBAR owns: an
+            % automatic entry's window belongs to its component, which is
+            % already counted above and would otherwise be listed twice.
+            ids = string.empty(1,0);
+            [comps, entryIds] = obj.popOutEntries_();
+            for i = 1:numel(comps)
+                try
+                    if comps{i}.hasPopOut()
+                        ids(end+1) = entryIds(i);
+                    end
+                catch
+                end
+            end
+
+            tb = obj.ComponentToolbar_;
+            if ~isempty(tb) && isvalid(tb)
+                try
+                    ids = [ids, "Toolbar:" + tb.openLazyNames_()];
+                catch ME
+                    vprintf(2, '%s: could not list the toolbar windows: %s', class(obj), ME.message)
+                end
+            end
+
+            % Carried over from the restore: displays this GUI cannot show
+            % stay remembered rather than being written out of the list.
+            ids = unique([ids, obj.UnresolvedPopOuts_], 'stable');
+        end
+
+        function ids = savedPopOutIdentities_(obj)
+            % The remembered list, as a string row. Anything that is not a
+            % list of text is treated as nothing saved rather than repaired:
+            % a preference written by an older or different version of this
+            % class is not something to guess at.
+            ids = string.empty(1,0);
+            try
+                if ~ispref(obj.PreferenceTag, obj.POPOUT_LAYOUT_PREF), return; end
+                raw = getpref(obj.PreferenceTag, obj.POPOUT_LAYOUT_PREF);
+                if isempty(raw), return; end
+                if ~iscellstr(raw) && ~isstring(raw)
+                    vprintf(2, '%s: ignoring an unreadable saved display layout', class(obj))
+                    return
+                end
+                ids = reshape(string(raw), 1, []);
+            catch ME
+                vprintf(2, '%s: could not read the saved display layout: %s', class(obj), ME.message)
+            end
+        end
+
+        function n = reopenComponent_(obj, id, comps, entryIds)
+            % Pop out the registered component recorded as id.
+            n = 0;
+            j = find(entryIds == id, 1);
+            if isempty(j)
+                obj.noteUnresolved_(id, extractAfter(id, "Component:"), 'this GUI has no such display');
+                return
+            end
+            comps{j}.popOut();
+            n = double(comps{j}.hasPopOut());
+        end
+
+        function n = reopenToolbarEntry_(obj, id)
+            % Open the toolbar's own window for the lazy entry id names.
+            n = 0;
+            name = extractAfter(id, "Toolbar:");
+            tb = obj.ComponentToolbar_;
+            if isempty(tb) || ~isvalid(tb) || ~tb.openLazyByName_(name)
+                obj.noteUnresolved_(id, name, 'it is no longer on the toolbar');
+                return
+            end
+            n = 1;
+        end
+
+        function noteUnresolved_(obj, id, label, why)
+            % Set a remembered display aside instead of dropping it. It is
+            % written back out with the next save, so a session run against
+            % a protocol that has fewer displays does not quietly erase the
+            % layout the fuller one had.
+            obj.UnresolvedPopOuts_(end+1) = id;
+            vprintf(2, '%s: "%s" was open last session but %s; leaving it remembered', ...
+                class(obj), label, why)
+        end
+
+        function attachPopOutListeners_(obj)
+            % One PopOutStateChanged listener per poppable component, so the
+            % memory is written the moment a window opens or closes rather
+            % than at teardown — which a MATLAB that was killed never reaches.
+            obj.detachPopOutListeners_();
+            comps = obj.popOutComponents_();
+            L = event.listener.empty(1,0);
+            for i = 1:numel(comps)
+                try
+                    L(end+1) = listener(comps{i}, 'PopOutStateChanged', ...
+                        @(~,~) obj.notePopOutStateChanged_());
+                catch ME
+                    vprintf(3, '%s: cannot watch %s for pop-out changes: %s', ...
+                        class(obj), class(comps{i}), ME.message)
+                end
+            end
+            obj.PopOutListeners_ = L;
+        end
+
+        function detachPopOutListeners_(obj)
+            for i = 1:numel(obj.PopOutListeners_)
+                try
+                    delete(obj.PopOutListeners_(i));
+                catch
+                end
+            end
+            obj.PopOutListeners_ = event.listener.empty(1,0);
         end
 
         function dispatchNewTrial_(obj, src, event)

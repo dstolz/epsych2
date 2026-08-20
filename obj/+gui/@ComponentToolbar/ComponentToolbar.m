@@ -33,6 +33,11 @@ classdef ComponentToolbar < handle
     %   the automatic ones after a separator, because those are not known
     %   until build has returned.
     %
+    %   Both kinds take part in gui.BehaviorGUI's RestorePopOuts memory: a
+    %   lazy window reports itself to the parent GUI as it opens and closes,
+    %   and is reopened by name next session -- so a display the GUI never
+    %   shows can still be one the operator always has up.
+    %
     %   Style='toggle' makes every tool show whether its window is open. A
     %   toggle reads the component rather than its own button state when
     %   clicked, so a window opened from a right-click menu -- which the
@@ -194,6 +199,40 @@ classdef ComponentToolbar < handle
                 obj.makeTool_(numel(obj.Entries_));
             end
         end
+
+        function names = openLazyNames_(obj)
+            % names = openLazyNames_(obj)
+            % Lazy entries whose window is open, in toolbar order. Automatic
+            % entries are deliberately left out: their windows belong to the
+            % components, and a gui.BehaviorGUI remembering its layout counts
+            % those from the components themselves.
+            names = string.empty(1,0);
+            for i = 1:numel(obj.Entries_)
+                e = obj.Entries_(i);
+                if e.kind == "lazy" && ~isempty(e.fig) && isvalid(e.fig)
+                    names(end+1) = e.name;
+                end
+            end
+        end
+
+        function tf = openLazyByName_(obj, name)
+            % tf = openLazyByName_(obj, name)
+            % Open the lazy entry called name, or raise its window if it is
+            % already up. False means no such lazy entry — a paradigm that
+            % renamed or dropped one since a layout was remembered — which is
+            % the caller's cue to say so rather than to fail.
+            tf = false;
+            i = obj.findEntry_(name);
+            if i == 0 || obj.Entries_(i).kind ~= "lazy", return; end
+            tf = true;
+
+            if ~isempty(obj.Entries_(i).fig) && isvalid(obj.Entries_(i).fig)
+                gui.ComponentToolbar.raise_(obj.Entries_(i).fig);
+                return
+            end
+            obj.openLazy_(i);
+            obj.syncTool_(i);
+        end
     end
 
     methods (Access = private)
@@ -300,6 +339,7 @@ classdef ComponentToolbar < handle
 
             fig.Visible = 'on';
             vprintf(2, 'gui.ComponentToolbar: opened "%s"', fig.Name)
+            obj.noteParent_();
         end
 
         function closeLazy_(obj, name)
@@ -319,6 +359,23 @@ classdef ComponentToolbar < handle
 
             gui.ComponentToolbar.teardownWindow_(e.comp, e.fig, e.prefTag);
             obj.syncTool_(i);
+            obj.noteParent_();
+        end
+
+        function noteParent_(obj)
+            % Tell the behavior GUI a window it does not own opened or
+            % closed, so one that remembers its layout records the change.
+            % The toolbar's own destructor does not come through here: it
+            % tears the windows down directly, which is what keeps closing
+            % the GUI from erasing what was open when it closed.
+            try
+                g = obj.ParentGUI;
+                if ~isempty(g) && isvalid(g)
+                    g.notePopOutStateChanged_();
+                end
+            catch ME
+                vprintf(3, 'gui.ComponentToolbar: could not report a window change: %s', ME.message)
+            end
         end
 
         function attachSync_(obj, i, fig)

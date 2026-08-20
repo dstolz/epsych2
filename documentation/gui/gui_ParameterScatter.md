@@ -41,7 +41,12 @@ third parameter mapped to marker color.
   value keeps its assigned position/color once seen, even as later trials
   introduce new categories.
 - **Aesthetics**: right-click the axes for marker style, size, opacity,
-  marker color, colormap (color-by mode), log X/Y, and grid.
+  marker color, colormap (color-by mode), log X/Y, and grid. Each marker is
+  outlined in a brighter shade of its own fill, so overlapping trials keep a
+  visible boundary. The outline is a second scatter object drawn over the
+  first — one marker takes one `CData`, so face and edge cannot carry
+  different colors on a single object — and it is inert to the mouse, leaving
+  datatips to the fill underneath.
 - **Pop-out**: right-click → **Open in Separate Window** (the `gui.PopOut`
   mixin, or the `popOut` method) opens a second, independent scatter over the
   same data — its own selections and aesthetics, so a large exploratory view

@@ -108,6 +108,7 @@ classdef ParameterScatter < gui.PopOut
         LabelY_ = []                 % Y control label (legacy-figure hosting only)
         LabelC_ = []                 % Color control label (legacy-figure hosting only)
         ContextMenuH_ = []           % Right-click aesthetics menu
+        EdgeScatterH_ = []           % Outline overlay drawn on top of ScatterH
         PendingSelections_ = []      % Requested selections awaiting their parameters
         PreferenceTag_ char = ''     % Optional explicit preference key
         isWeb_ (1,1) logical = true  % True when hosted in uifigure-family graphics
@@ -703,6 +704,22 @@ classdef ParameterScatter < gui.PopOut
                 box(ax,'on');
             end
 
+            % The outline is a second scatter over the same points: a marker
+            % takes one CData, so face and edge cannot carry different colors
+            % on one object. It is inert to the mouse so datatips still land
+            % on the fill underneath.
+            eh = obj.EdgeScatterH_;
+            if isempty(eh) || ~isvalid(eh)
+                wasHeld = ishold(ax);
+                hold(ax,'on');
+                eh = scatter(ax,nan,nan,obj.MarkerSize, ...
+                    'MarkerFaceColor','none','MarkerEdgeColor','flat','LineWidth',1);
+                if ~wasHeld, hold(ax,'off'); end
+                eh.Annotation.LegendInformation.IconDisplayStyle = 'off';
+                set(eh,'PickableParts','none','HitTest','off');
+                obj.EdgeScatterH_ = eh;
+            end
+
             isCatX = ismember(obj.XParameter,obj.CategoricalNames_);
             isCatY = ismember(obj.YParameter,obj.CategoricalNames_);
             isCatC = ~strcmp(obj.ColorParameter,obj.NONE_LABEL) ...
@@ -721,6 +738,7 @@ classdef ParameterScatter < gui.PopOut
                 yLabels = {};
             end
 
+            c = []; % color-by values, kept for the outline colors below
             if strcmp(obj.ColorParameter,obj.NONE_LABEL)
                 set(sh,'XData',x,'YData',y,'CData',obj.MarkerColor);
                 if ~isempty(obj.ColorbarH) && isvalid(obj.ColorbarH)
@@ -773,6 +791,18 @@ classdef ParameterScatter < gui.PopOut
             set(sh,'Marker',obj.Marker,'SizeData',obj.MarkerSize, ...
                 'MarkerFaceAlpha',obj.MarkerAlpha,'MarkerEdgeAlpha',obj.MarkerAlpha);
 
+            % Outline: the fill color brightened. Colormapped fills are mapped
+            % here rather than left to 'flat', which would hand the outline the
+            % marker's own fill color and erase the boundary again.
+            if isempty(c)
+                edgeC = obj.brighter_(obj.MarkerColor);
+            else
+                edgeC = obj.brighter_(obj.colormapColors_(ax,c));
+            end
+            set(eh,'XData',x,'YData',y,'CData',edgeC, ...
+                'Marker',obj.Marker,'SizeData',obj.MarkerSize, ...
+                'MarkerEdgeAlpha',obj.MarkerAlpha);
+
             if obj.LogX && ~isCatX, ax.XScale = 'log'; else, ax.XScale = 'linear'; end
             if obj.LogY && ~isCatY, ax.YScale = 'log'; else, ax.YScale = 'linear'; end
             if obj.ShowGrid, grid(ax,'on'); else, grid(ax,'off'); end
@@ -800,6 +830,32 @@ classdef ParameterScatter < gui.PopOut
 
             xlabel(ax,obj.XParameter,'Interpreter','none');
             ylabel(ax,obj.YParameter,'Interpreter','none');
+        end
+
+        function rgb = colormapColors_(~,ax,c)
+            % Per-point RGB the axes colormap gives these values, using the
+            % same index formula scatter applies to a scalar CData.
+            cmap = colormap(ax);
+            n = size(cmap,1);
+            lims = ax.CLim;
+            c = c(:);
+            if diff(lims) <= 0
+                idx = ones(numel(c),1);
+            else
+                idx = floor((c - lims(1)) ./ diff(lims) .* n) + 1;
+            end
+            idx(~isfinite(idx)) = 1; % NaN values plot at NaN x, so any index will do
+            idx = min(max(idx,1),n);
+            rgb = cmap(idx,:);
+        end
+
+        function e = brighter_(~,rgb)
+            % A lighter version of a fill color for its outline. The gamma
+            % lift keeps the hue saturated where blending toward white would
+            % wash it out, but leaves a zero channel at zero, so a small white
+            % blend follows it to give near-black fills a visible edge.
+            e = rgb .^ 0.6;
+            e = e + 0.1 .* (1 - e);
         end
 
         % ------------------------------------------------------------------

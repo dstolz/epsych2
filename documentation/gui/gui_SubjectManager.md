@@ -1,6 +1,6 @@
 # `gui.SubjectManager`
 
-The window an operator uses to pick the animals running today. Choose a project, tick the subjects, press **Add Checked to Session** — each one gets a free box and the protocol it last ran, so a four-box session takes two clicks instead of four dialogs and four file browsers.
+The window an operator uses to pick the animals running today. Choose a project, tick the subjects, press **Add Checked to Session** — each one gets a free box and the protocol it last ran, and together they become the session's whole subject list, so a four-box session takes two clicks instead of four dialogs and four file browsers.
 
 ```matlab
 epsych.RunExpt          % then the Subjects toolbar button, or Ctrl+B
@@ -17,7 +17,7 @@ The old **Add Subject** toolbar button opened a modal dialog for one animal, the
 
 A lab that points `FUNCS.AddSubjectFcn` at its own dialog keeps working: **New Subject...** and **Edit Subject...** both route through the same dispatch (`epsych.RunExpt.dispatchAddSubjectFcn_`), so there is still exactly one place that knows how to open a subject dialog.
 
-**Box IDs in that dialog:** all 16 boxes are always listed and box 1 is always the default, unmarked either way — the dialog used to hide occupied boxes, which made box 1 disappear the moment a second subject was added. Picking an occupied box anyway is the operator's call; the row is then reported as skipped at commit ("box 1 is already taken") instead of being silently prevented.
+**Box IDs in that dialog:** all 16 boxes are always listed and box 1 is always the default, unmarked either way — the dialog used to hide occupied boxes, which made box 1 disappear the moment a second subject was added. Picking an occupied box anyway is the operator's call; if two rows in the same batch want it, the second is reported as skipped at commit ("box 1 is already taken") instead of being silently prevented. A box held by a subject the commit is about to remove is not occupied at all, so the animal replacing it can keep the same box.
 
 ---
 
@@ -212,10 +212,12 @@ All of the above is [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#p
 
 The button collects what you ticked and typed; every decision belongs to [`epsych.SubjectRoster.assignToSession`](../epsych/epsych_SubjectRoster.md). Boxes and protocols are resolved and each membership's session settings are applied to the session, but **everything is validated before `CONFIG` is touched** — a protocol that fails to load halfway through must never leave a half-populated session.
 
+**The checked subjects become the session's whole subject list.** Whoever is in the session window's table is removed as they land — what you tick here is the answer to "who is running today", and an animal left over from the last session would sit in a box dispatching trials. Re-ticking a subject that is already in the session is therefore normal, not a duplicate: it keeps its place, and its box if you left the Box cell alone. The names removed are listed in the commit report, and the session status line counts them.
+
 - Refused outright while a session is running, or with no session window open (the button is disabled and says why).
-- A missing protocol, or needing more than 16 boxes, **aborts the whole batch** and changes nothing.
+- A missing protocol, or needing more than 16 boxes, **aborts the whole batch** and changes nothing — including the subjects already in the session, which are cleared only once the commit is certain.
 - Checked subjects whose memberships **disagree on a session-level setting** abort the whole batch too — one session cannot run two saving functions. The refusal names the field and who carries what; the fixes it names are *Session Settings...* and *Re-apply Project Template*, and the **Settings** column shows the divergence before the click.
-- A subject already in the session, or with no protocol resolvable at all, is skipped and reported; the rest still go in.
+- A subject with no protocol resolvable at all is skipped and reported; the rest still go in. If *nothing* is usable, the session keeps the list it had.
 - On success the window closes and the session window is raised — the next stop is the session, not this table. It stays open on a partial commit (so the skipped-subject report is visible) or when the batch is refused or aborted, so the operator can fix the problem without reopening it.
 
 ---

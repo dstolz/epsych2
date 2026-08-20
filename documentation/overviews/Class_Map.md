@@ -7,6 +7,8 @@ This document complements the architecture overview with two class-oriented view
 
 The emphasis is on the classes developers are most likely to touch when changing experiment startup, runtime behavior, hardware integration, online analysis, or live GUIs.
 
+**This map is the shape; the [Class Reference](https://github.com/dstolz/epsych2/wiki/Class-Reference) is the directory.** The wiki index carries one page per class — a class diagram, the properties and methods, and what each default means — grouped by topic and alphabetical within a group. Use the maps below when you do not know where a class sits, and the class page when you know which class you need.
+
 ## Inheritance map
 
 This view shows inheritance only. To keep the tree readable, detailed MATLAB base types are moved into the summary tables below.
@@ -28,6 +30,8 @@ EPsych major classes
 │  │  └─ DefaultSubject
 │  ├─ BitMask
 │  ├─ TrialJournal
+│  ├─ ReviewSession
+│  ├─ SessionSnapshot
 │  ├─ eventModeChange
 │  └─ TrialsData
 ├─ hw
@@ -36,6 +40,7 @@ EPsych major classes
 │  │  ├─ TDT_RPcox
 │  │  ├─ Intan_RHX
 │  │  ├─ VlcRecorder
+│  │  ├─ Replay
 │  │  └─ Software
 │  ├─ Module
 │  ├─ Parameter
@@ -274,6 +279,7 @@ If you are tracing online plots or task summaries, start with the task GUI class
 
 ## Related documentation
 
+- Per-class reference pages: [Class Reference](https://github.com/dstolz/epsych2/wiki/Class-Reference) (wiki) — one page per class, with its class diagram and members
 - Architecture overview: [Architecture_Overview.md](Architecture_Overview.md)
 - Runtime details: [../epsych/epsych_Runtime.md](../epsych/epsych_Runtime.md)
 - Hardware interfaces: [../hw/hw_Interface.md](../hw/hw_Interface.md)

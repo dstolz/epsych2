@@ -44,10 +44,16 @@ for i = 1:RUNTIME.NSubjects
 
     fileloc = localTargetFile(RUNTIME,i,S);
 
+    % Saved alongside Data so the session can be reopened later in
+    % epsych.ReviewSession with this paradigm's own behavior GUI. Without it a
+    % file still loads and still analyzes -- the snapshot is what carries the
+    % protocol, and therefore the parameter controls.
+    Info = epsych.SessionSnapshot.forSubject(RUNTIME,i);
+
     try
         pn = fileparts(fileloc);
         if ~isempty(pn) && ~isfolder(pn), mkdir(pn); end
-        save(fileloc,'Data')
+        save(fileloc,'Data','Info')
 
     catch me
         vprintf(0,1,me)

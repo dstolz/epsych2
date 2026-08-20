@@ -70,6 +70,26 @@ Link rewrites when regenerating a mirror:
 - `obj/stimgen/…` → the stimgen repository URL
 - `+package` in a URL is `%2B`
 
+## 📘 Class reference — one page per class
+
+Generated coverage, not a curated list: every class in `obj/`, `helpers/`,
+`runtime/`, and `paradigms/` has a `<pkg.Class>-Class-Reference` page, and
+`Class-Reference` indexes them by topic then alphabetically. Those pages own the
+**class card** — the diagram, the members, the defaults — while the guide pages
+above own the workflow and the repo's `documentation/` owns the long rationale.
+
+They are deliberately absent from `pagemap.tsv`: `classes.sh` derives the whole
+mapping from the source tree, so there is nothing to keep in sync by hand. See
+`references/class-pages.md` for the template, the diagram conventions, and the
+index markers.
+
+`Class-Reference` sits in **📄 Reference Overviews**, next to `Class-Map`, and the
+two link to each other in both directions — the map is the shape, the index is the
+directory. It is the one page in that section with no `documentation/overviews/`
+mirror, because the class pages it indexes exist only in the wiki; `Class_Map.md`
+in the code repo therefore links to it by its wiki URL, and the wiki mirror by
+`[[Class-Reference]]`. Keep both halves when either file is regenerated.
+
 ## Adding a page
 
 1. Create `Page-Name.md` in the wiki clone. The file name *is* the URL; use
@@ -80,6 +100,9 @@ Link rewrites when regenerating a mirror:
    `Home.md` with a one-line "what it gets you" cell.
 4. Add a `pagemap.tsv` row so the next survey routes changes to it.
 5. `verify.sh` will tell you if you missed step 3.
+
+A **class page** skips steps 3 and 4: it is reached through `Class-Reference`,
+which `classes.sh --index` regenerates, and it is not routed by `pagemap.tsv`.
 
 ## Known discrepancies to keep in mind
 

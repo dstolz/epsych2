@@ -80,6 +80,15 @@ self.H.save_data = uipushtool(tb, ...
     'Tooltip','Save each subject''s behavioral data (available after Stop, or on Error)', ...
     'ClickedCallback', @(~,~) self.SaveDataCallback);
 
+% Beside Save Data rather than with the designers: both are about this rig's
+% data files, and reviewing one is what an operator does immediately after
+% saving it. No 'setup' tag, so it stays live during a run.
+self.H.tb_review_session = uipushtool(tb, ...
+    'Tag','tb_review_session', ...
+    'Icon',gui.toolbarIcon("review"), ...
+    'Tooltip','Review Saved Session... (Ctrl+K)', ...
+    'ClickedCallback', @(~,~) self.OpenSessionForReview);
+
 self.H.tb_customize = uipushtool(tb, ...
     'Icon',gui.toolbarIcon("customize"), ...
     'Separator','on', ...
@@ -162,6 +171,15 @@ uimenu(mCustom,'Label','Customize...','MenuSelectedFcn', @(~,~) self.OpenCustomi
 mUtil = uimenu(f,'Label','Utilities');
 self.H.mnu_utilities = mUtil;
 
+% Reopening a finished session reads a file and touches no session state, so
+% unlike almost everything else on this menu it carries no 'setup' tag prefix:
+% UpdateGUIstate disables those while a run is in progress, and there is no
+% reason an operator cannot look back at yesterday's session mid-run.
+self.H.mnu_review_session = uimenu(mUtil,'Label','Review Saved Session...', ...
+    'Tag','mnu_review_session','Accelerator','K', ...
+    'Tooltip','Reopen a saved session in its behavior GUI', ...
+    'MenuSelectedFcn', @(~,~) self.OpenSessionForReview);
+
 % The designer GUIs (protocol authoring, Teensy trial-program authoring)
 % share one submenu, distinct from the launch-and-use tools below. Nesting is
 % invisible to UpdateGUIstate, which reaches the 'setup' tags with a
@@ -238,58 +256,86 @@ self.H.always_on_top = uimenu(mView,'Label','Always On Top','Checked','off', ...
     'MenuSelectedFcn', @(~,~) self.AlwaysOnTop);
 uimenu(mView,'Label','Version Info','MenuSelectedFcn', @(~,~) self.version_info,'Accelerator','I')
 
+% Help is ordered by who is asking: the two items a new operator wants (what
+% does this window do, show me a worked example) stay at the top level, and
+% the tool categories below become submenus so the list reads at a glance
+% instead of as one flat column of a dozen items. Nesting is invisible to
+% everything that reaches these items -- UpdateGUIstate and the smoke tests
+% use the self.H handles or a recursive findall on the tag, and an
+% accelerator still fires from inside a submenu.
 mHelp = uimenu(f,'Label','Help');
-self.H.mnu_open_error_log = uimenu(mHelp,'Label','Open Current Error Log', ...
-    'MenuSelectedFcn', @(~,~) self.OpenCurrentErrorLog);
-% Separate item rather than a replacement: the association route above is the
-% right one on most rigs, but where MATLAB owns .txt it lands the log back in
-% the editor -- unsearchable while the session is running and easy to edit by
-% accident. This one goes straight to the viewer named in Customize > Paths.
-self.H.mnu_open_error_log_ext = uimenu(mHelp,'Label','Open Current Error Log (External Viewer)', ...
-    'MenuSelectedFcn', @(~,~) self.OpenCurrentErrorLog(true));
-% Deliberately not tagged 'setup': the read-only checks stay available while a
-% session is running, which is when an operator most wants them.
-self.H.mnu_self_test = uimenu(mHelp,'Label','Run Self-&Test...', ...
-    'Tag','mnu_self_test','Accelerator','D', ...
-    'MenuSelectedFcn', @(~,~) self.OpenSelfTest);
-% Also deliberately untagged: the debugger reads nothing on its own, so having
-% it open during a run cannot disturb one, and mid-run is when an operator most
-% needs to see what the hardware is actually holding.
-self.H.mnu_param_debugger = uimenu(mHelp,'Label','Parameter D&ebugger...', ...
-    'Tag','mnu_param_debugger','Accelerator','E', ...
-    'MenuSelectedFcn', @(~,~) self.OpenParameterDebugger);
-self.H.mnu_assign_runtime = uimenu(mHelp,'Label','Assign RUNTIME to Command Window', ...
-    'Enable','off', ...
-    'MenuSelectedFcn', @(~,~) self.AssignRuntimeToCommandWindow);
-uimenu(mHelp,'Label','Verbosity...','MenuSelectedFcn', @(~,~) self.verbosity,'Accelerator','V')
+self.H.mnu_help = mHelp;
+
+uimenu(mHelp,'Label','Documentation','MenuSelectedFcn', ...
+    @(~,~) web(EPsychInfo.DocumentationURL,'-browser'))
 
 % One wiki page per examples/ walkthrough, opened the same way Documentation
 % opens a doc page (web() on the wiki URL). Each page's Quick Start section
 % has the MATLAB commands to actually run it -- this menu is a link to that,
 % not a launcher, since running one starts an interactive session (be the
 % subject, click through trials) rather than opening a self-contained window.
-mExamples = uimenu(mHelp,'Label','Example Experiments','Separator','on');
+mExamples = uimenu(mHelp,'Label','Example Experiments');
 self.H.mnu_examples = mExamples;
 uimenu(mExamples,'Label','Your First Experiment...', ...
     'MenuSelectedFcn', @(~,~) self.OpenExampleExperiment("first_experiment"));
 uimenu(mExamples,'Label','Two-AFC Task...', ...
     'MenuSelectedFcn', @(~,~) self.OpenExampleExperiment("two_afc"));
 
-uimenu(mHelp,'Label','GitHub Repository','Separator','on', ...
-    'MenuSelectedFcn', @(~,~) web(EPsychInfo.RepositoryURL,'-browser'))
-uimenu(mHelp,'Label','Documentation','MenuSelectedFcn', ...
-    @(~,~) web(EPsychInfo.DocumentationURL,'-browser'))
-uimenu(mHelp,'Label','Commit History Overview','MenuSelectedFcn', ...
+% Everything used to work out why a session is misbehaving under one submenu:
+% the pre-flight checks and the parameter table, then the log and the level
+% that decides what reaches it, then the escape hatch to the command window.
+% The separators mark those three groups -- they answer "is the session set up
+% right", "what has it been saying", and "let me look myself".
+mDiagnostics = uimenu(mHelp,'Label','Diagnostics','Separator','on');
+self.H.mnu_diagnostics = mDiagnostics;
+
+% Deliberately not tagged 'setup': the read-only checks stay available while a
+% session is running, which is when an operator most wants them.
+self.H.mnu_self_test = uimenu(mDiagnostics,'Label','Run Self-&Test...', ...
+    'Tag','mnu_self_test','Accelerator','D', ...
+    'MenuSelectedFcn', @(~,~) self.OpenSelfTest);
+% Also deliberately untagged: the debugger reads nothing on its own, so having
+% it open during a run cannot disturb one, and mid-run is when an operator most
+% needs to see what the hardware is actually holding.
+self.H.mnu_param_debugger = uimenu(mDiagnostics,'Label','Parameter D&ebugger...', ...
+    'Tag','mnu_param_debugger','Accelerator','E', ...
+    'MenuSelectedFcn', @(~,~) self.OpenParameterDebugger);
+
+self.H.mnu_open_error_log = uimenu(mDiagnostics,'Label','Open Current Error Log', ...
+    'Separator','on', ...
+    'MenuSelectedFcn', @(~,~) self.OpenCurrentErrorLog);
+% Separate item rather than a replacement: the association route above is the
+% right one on most rigs, but where MATLAB owns .txt it lands the log back in
+% the editor -- unsearchable while the session is running and easy to edit by
+% accident. This one goes straight to the viewer named in Customize > Paths.
+self.H.mnu_open_error_log_ext = uimenu(mDiagnostics,'Label','Open Current Error Log (External Viewer)', ...
+    'MenuSelectedFcn', @(~,~) self.OpenCurrentErrorLog(true));
+% Sits with the log rather than on its own: the level is what decides how much
+% of a run ends up in the file the two items above open.
+uimenu(mDiagnostics,'Label','Verbosity...','MenuSelectedFcn', @(~,~) self.verbosity,'Accelerator','V')
+
+self.H.mnu_assign_runtime = uimenu(mDiagnostics,'Label','Assign RUNTIME to Command Window', ...
+    'Separator','on','Enable','off', ...
+    'MenuSelectedFcn', @(~,~) self.AssignRuntimeToCommandWindow);
+
+% The four ways out to the repository share a submenu: all of them leave MATLAB
+% for a browser, and the two that file something belong beside the two that
+% only read. The labels drop the redundant "on GitHub" the flat menu needed.
+mGitHub = uimenu(mHelp,'Label','GitHub','Separator','on');
+self.H.mnu_github = mGitHub;
+uimenu(mGitHub,'Label','Repository','MenuSelectedFcn', ...
+    @(~,~) web(EPsychInfo.RepositoryURL,'-browser'))
+uimenu(mGitHub,'Label','Commit History Overview','MenuSelectedFcn', ...
     @(~,~) web(EPsychInfo.CommitHistoryURL,'-browser'))
-% Not a bare web() on the issues page like the three links above it: this one
+% Not a bare web() on the issues page like the two links above it: this one
 % composes the report first (environment, session, log excerpt) and shows it for
 % review, because the operator is the only one who can say which log lines may
 % be published.
-uimenu(mHelp,'Label','Report an Issue on GitHub...','MenuSelectedFcn', ...
+uimenu(mGitHub,'Label','Report an Issue...','Separator','on','MenuSelectedFcn', ...
     @(~,~) self.ReportIssue)
 % The feature form needs no preview and so no dialog: a version line is all it
 % carries, and the operator edits it in the browser like the rest of the form.
-uimenu(mHelp,'Label','Request a Feature on GitHub...','MenuSelectedFcn', ...
+uimenu(mGitHub,'Label','Request a Feature...','MenuSelectedFcn', ...
     @(~,~) self.RequestFeature)
 
 % Layout

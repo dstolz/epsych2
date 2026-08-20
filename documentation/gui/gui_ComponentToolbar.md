@@ -191,6 +191,16 @@ component each session.
 Automatic entries store nothing of their own: the window belongs to the
 component, so its position is `gui.PopOut`'s to remember.
 
+A GUI built with `RestorePopOuts=true` also remembers **which** of these
+windows were open and reopens them next session — lazy entries included, by
+entry name, so a display the GUI never shows on its own can still be one the
+operator always has up. A lazy window reports itself to the parent GUI as it
+opens and closes; the toolbar's own teardown deliberately does not, which is
+what keeps closing the GUI from reading as the operator closing its windows.
+An entry that has since been renamed or dropped is skipped with a message and
+left in the remembered list. See
+[gui_BehaviorGUI.md](gui_BehaviorGUI.md#remembering-the-display-windows).
+
 ## Lifecycle
 
 The toolbar is added to the GUI's teardown registry by `addComponentToolbar`,
@@ -212,6 +222,10 @@ persistence, `Exclude`/`AutoDiscover`, the icon fallback, and full teardown:
 ```
 matlab -batch "run('tmp/smoke_test_component_toolbar.m')"
 ```
+
+`tmp/smoke_test_popout_restore.m` covers a lazy window taking part in a GUI's
+`RestorePopOuts` memory: recorded as it opens, reopened at the size it was
+left, and skipped without complaint once its entry is gone.
 
 ## See also
 

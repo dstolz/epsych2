@@ -13,7 +13,7 @@ classdef SelfTest < handle
     % in the toolbar and are refused outright while a session is running.
     %
     % Usage:
-    %   gui.SelfTest(RunExptInstance)   % normally via Help > Run Self-Test...
+    %   gui.SelfTest(RunExptInstance)   % normally via Help > Diagnostics > Run Self-Test...
     %
     % See also: epsych.SelfTest, epsych.RunExpt.OpenSelfTest,
     %   documentation/overviews/RunExpt_SelfTest.md

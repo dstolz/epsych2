@@ -64,12 +64,16 @@ assert(isequal(g.SessionClock.PanelH.Layout.Row, 1) && isequal(g.SessionClock.Pa
 fprintf('PASS: panels and components\n');
 
 % 4. Automatic Parameter_Update wiring ------------------------------------
+% Everything on the staircase and stimulus-delay rows commits on edit, so
+% what is left for the deferred-commit button is the plain trial and sound
+% controls. Depth is not among them: both bound-property rows (Min and Max)
+% are autoCommit.
 wh = g.UpdateButton.watchedHandles;
-assert(numel(wh) == 7, ...
-    'update button should watch the 7 non-autoCommit controls (got %d)', numel(wh));
-assert(all(ismember({wh.Name}, ...
-    {'Depth','ITIDur','RespWinPreStim','RespWinPostStim','NumPellets','TimeoutDur','dBSPL'})), ...
-    'watchedHandles should be exactly the deferred-commit controls');
+watched = sort(string({wh.Name}));
+expectWatched = sort(["ITIDur","RespWinPreStim","RespWinPostStim","NumPellets","TimeoutDur","dBSPL"]);
+assert(isequal(watched, expectWatched), ...
+    'watchedHandles should be exactly the deferred-commit controls (got %s)', ...
+    strjoin(watched, ', '));
 fprintf('PASS: watchedHandles wired from the registry\n');
 
 % 5. Catch-trial switch ---------------------------------------------------

@@ -13,8 +13,6 @@ function RUNTIME = ep_TimerFcn_Start(RUNTIME,CONFIG)
 % updated for hardware abstraction 2024 DS
 
 
-E = EPsychInfo;
-
 nSubjs = length(CONFIG);
 
 T = struct([]);
@@ -46,16 +44,39 @@ for i = 1:nSubjs
     T(i).FORCE_TRIAL = false;
     T(i).RECOMPILE_REQUESTED = false;
 
-    
+
+    % Initialize data filename
+    vprintf(3, 'Initializing data filename for subject "%s" on box %d', T(i).Subject.Name, T(i).Subject.BoxID)
+    % RunExpt reserves these before the run so the webcam recording carries the
+    % same name; generate one only when Start is invoked without a reservation.
+    if numel(RUNTIME.SessionDataFilename) >= i && strlength(RUNTIME.SessionDataFilename(i)) > 0
+        T(i).DataFilename = char(RUNTIME.SessionDataFilename(i));
+    else
+        sn = T(i).Subject.Name;
+        pth = fullfile(RUNTIME.DefaultDataPath,sn);
+        T(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
+    end
+
+
+    % Everything a later review needs to rebuild this session's parameter tree:
+    % the serialized protocol, the compiled trial table, and the provenance.
+    % Taken here rather than at save time so that a session that ends in a
+    % crash is just as reviewable as one that saves normally -- it goes into
+    % the recovery file's info record below, and onto the runtime, where any
+    % saving function can write it out with one line.
+    % See epsych.SessionSnapshot, epsych.ReviewSession.
+    T(i).SessionInfo = epsych.SessionSnapshot.capture(RUNTIME, i, T(i));
+
+
     % Create data file for saving data during runtime in case there is a problem
     % * this file is automatically overwritten
 
-    % Create data file info structure
-    info.Subject = T(i).Subject;
-    info.CompStartTimestamp = datetime("now");
-    info.EPsychMeta = E.meta;
-    info.isTest = RUNTIME.isTest;
-    
+    % Create data file info structure. It IS the snapshot: the fields the
+    % recovery path always had (Subject, EPsychMeta, isTest) are part of it,
+    % and epsych.SessionSnapshot.fromInfo still reads the older flat shape.
+    info = T(i).SessionInfo;
+    info.CompStartTimestamp = info.StartTime;
+
     dfn = sprintf('RUNTIME_DATA_%s_Box_%02d_%s.mat', ...
         T(i).Subject.Name, ...
         T(i).Subject.BoxID, ...
@@ -86,20 +107,6 @@ for i = 1:nSubjs
         RUNTIME.Journal(i) = J;
     end
     RUNTIME.Journal(i).append('info', info);
-
-
-
-    % Initialize default data filename
-    vprintf(3, 'Initializing data filename for subject "%s" on box %d', T(i).Subject.Name, T(i).Subject.BoxID)
-    % RunExpt reserves these before the run so the webcam recording carries the
-    % same name; generate one only when Start is invoked without a reservation.
-    if numel(RUNTIME.SessionDataFilename) >= i && strlength(RUNTIME.SessionDataFilename(i)) > 0
-        T(i).DataFilename = char(RUNTIME.SessionDataFilename(i));
-    else
-        sn = T(i).Subject.Name;
-        pth = fullfile(RUNTIME.DefaultDataPath,sn);
-        T(i).DataFilename = epsych.RunExpt.defaultFilename(pth,sn);
-    end
 
 
     % Initialize first trial using selector

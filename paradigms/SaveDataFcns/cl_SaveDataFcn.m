@@ -82,11 +82,15 @@ try
 catch
 end
 
-Info = EPsychInfo().meta;
-
 for i = 1:RUNTIME.NSubjects
     name  = RUNTIME.TRIALS(i).Subject.Name;
     boxid = RUNTIME.TRIALS(i).Subject.BoxID;
+
+    % Was EPsychInfo().meta. The snapshot carries that same provenance under
+    % Info.EPsychMeta plus the serialized protocol and trial table, which is
+    % what lets epsych.ReviewSession reopen this session in the paradigm's own
+    % behavior GUI. Per-subject, since each subject ran its own protocol.
+    Info = epsych.SessionSnapshot.forSubject(RUNTIME,i);
 
 
     % h = msgbox(sprintf('Save Data for ''%s'' in Box ID %d',name,boxid), ...

@@ -59,7 +59,7 @@ GLogVerbosity = Inf;   % the default: everything is written to the log
 
 So **every** message reaches the log regardless of what the command window is
 showing. Turning `GVerbosity` down hides output; it does not throw it away. In
-the session GUI, set the console level from **Help ▸ Verbosity...** or
+the session GUI, set the console level from **Help ▸ Diagnostics ▸ Verbosity...** or
 <kbd>Ctrl</kbd>+<kbd>0</kbd>…<kbd>4</kbd>.
 
 If `GVerbosity` is empty, non-numeric, non-scalar, `NaN` or `Inf`, it is

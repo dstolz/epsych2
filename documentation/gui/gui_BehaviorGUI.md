@@ -67,8 +67,50 @@ No destructor, no closeGUI, no single-instance code, no position prefs, no liste
 | `DefaultPosition` | `[100 100 1100 680]` | `[x y w h]` used when no saved position exists |
 | `PreferenceTag` | class name | Figure `Tag`, single-instance key, and `getpref`/`setpref` group for the saved position |
 | `Visible` | `true` | Set `false` to build hidden (useful in tests) |
+| `RestorePopOuts` | `false` | Reopen the display windows the operator had open last time — see [Remembering the display windows](#remembering-the-display-windows) |
 
-Constructor sequence: single-instance replacement → cache `obj.P = RUNTIME.all_parameters(asStruct=true, includeTriggers=true)` → `createPsych` → create the `uifigure` → `build(fig)` → wire `Parameter_Update.watchedHandles` from the registry → attach `NewTrial`/`NewData`/`ModeChange` listeners.
+Constructor sequence: single-instance replacement → cache `obj.P = RUNTIME.all_parameters(asStruct=true, includeTriggers=true)` → `createPsych` → create the `uifigure` → `build(fig)` → wire `Parameter_Update.watchedHandles` from the registry → attach `NewTrial`/`NewData`/`ModeChange` listeners → reopen remembered display windows.
+
+## Remembering the display windows
+
+An operator who works with the history on a second monitor and the scatter
+pinned over the rig software has to reopen both, every session, from the
+right-click menus. `RestorePopOuts=true` makes the GUI remember which
+display windows were open and bring them back:
+
+```matlab
+obj@gui.BehaviorGUI(RUNTIME, Name='My Task', RestorePopOuts=true);
+```
+
+What each window *shows* is not part of this. Every component already saves
+its own position, size, font size, column and field selection, sort order,
+trial window, and **Keep Window on Top** state under its pop-out preference
+key, so a restored window comes back exactly as it was left — this option
+only adds the list of *which* windows to open. Both kinds are covered: a
+component's own pop-out, and a window `gui.ComponentToolbar` opened for a
+lazy entry the GUI does not display at all.
+
+The list is rewritten **the moment a window opens or closes**, not at
+teardown, so a MATLAB that was killed rather than closed still remembers.
+It lives under the GUI's own `PreferenceTag`, as `OpenPopOuts`.
+
+An entry the GUI cannot resolve — a display renamed, a paradigm changed, a
+protocol that does not define the parameter behind it — is skipped with a
+debug message and **left in the list**, so running one protocol that shows
+less than another does not quietly erase the fuller layout. Clearing the
+list is explicit:
+
+```matlab
+n = obj.restorePopOutLayout();  % reopen now; returns how many opened
+obj.savePopOutLayout();         % record what is open (automatic; call after
+                                % turning RestorePopOuts on mid-session)
+obj.forgetPopOutLayout();       % forget which were open, not how they look
+```
+
+Components are identified the way `gui.ComponentToolbar` labels them: the
+name passed to `register(comp, name)`, else the class name split into words.
+A GUI holding two components of one class tells them apart by registration
+order, so **name them in `register`** if their order in `build` might change.
 
 ## Protected hooks (all optional except build)
 
@@ -106,9 +148,38 @@ All helpers register what they create, guaranteeing teardown (see below).
 - **Single instance**: constructing a second GUI with the same `PreferenceTag` saves the old window's position and fully tears down the old instance first.
 - **Close**: the figure's close button routes through `closeGUI`, which saves the window position and deletes the object.
 - **Close while running**: if the session driving this GUI is still `PRGMSTATE.RUNNING`, `closeGUI` first raises a modal dialog offering **Close GUI** (leave the session running without its controls), **Halt Experiment** (`RunExpt.halt`, which routes through the same dispatch as the session window's own Stop control, so the mode broadcast, timer stop, and data save all happen while this GUI's listeners are still alive — then close), and **Cancel** (default; the window stays open). The prompt only appears for the session that actually owns this GUI: the open `RunExpt` window's `RUNTIME` must be the same handle as `obj.RUNTIME`, so a window left over from an earlier run, or one opened against the synthetic runtime of SelfTest check I6, closes silently as before.
-- **Destructor**: disables and deletes the three event listeners, deletes every registered component in reverse order (this is what prevents leaked listeners and timers — deleting a figure alone only removes graphics, not the component handle objects), deletes the psych object, then the figure.
+- **Destructor**: takes the `RestorePopOuts` snapshot first, while every component and window is still intact, then disables and deletes the three event listeners, deletes every registered component in reverse order (this is what prevents leaked listeners and timers — deleting a figure alone only removes graphics, not the component handle objects), deletes the psych object, then the figure.
 
 Because of the registry, a subclass normally needs **no destructor at all**. Only add one if you own resources the registry cannot know about, and call `delete@gui.BehaviorGUI(obj)` at the end.
+
+## Review mode
+
+`epsych.ReviewSession` reopens a **finished** session in the paradigm's own GUI, by attaching it to an offline `epsych.Runtime` and firing real `NewTrial`/`NewData` events out of a real `epsych.EventHub`. Every display therefore works unchanged: the events, the trial data and the parameter reads are all real.
+
+**A GUI that only displays needs no changes at all.**
+
+**A GUI that drives the rig needs one guard.** Some subclasses do more than display — they run their own timer, write parameters, and hand the trial back by raising `x_TrialComplete_*`. Against a finished session that would be scoring trials nobody ran. The base class cannot decide this for you: it does not know which of your methods are display and which are contingency.
+
+`obj.ReviewMode` (dependent, read-only; forwards `RUNTIME.ReviewMode`) is the flag. The rule of thumb: **guard anything that would still be a mistake if the hardware were switched off.**
+
+```matlab
+function tf = rigReady_(obj)
+    if obj.ReviewMode      % a review has no rig to drive
+        tf = false;
+        return
+    end
+    ...
+end
+```
+
+`TwoAFCBehaviorGUI`, `FirstExperimentBehaviorGUI` and `PumpBehaviorGUI` put it in `rigReady_` — the single gate their trial cycle already passed through — and additionally skip starting their rig timer. `PumpBehaviorGUI` also skips its blocking `waitForBegin`: a constructor that blocks would hang the review inside `feval`, with a half-built window and no way to reach the Begin button.
+
+Two things the review does for you, so no subclass has to:
+
+- **Controls disable themselves.** The review moves its backends `Standby → Idle` *after* `build` returns, and every `gui.Parameter_Control` greys out through the `mode` listener it already has.
+- **Monitors stop polling.** The review broadcasts `ModeChange(Idle)`, and the base class stops every registered `gui.Parameter_Monitor`.
+
+A file saved before the session snapshot existed carries no protocol, so no parameters resolve — `addControl`/`addButton` skip them as they already do, and the GUI opens with its data displays and no control column. See [epsych_ReviewSession.md](../epsych/epsych_ReviewSession.md).
 
 ## Utilities
 
@@ -119,6 +190,6 @@ Because of the registry, a subclass normally needs **no destructor at all**. Onl
 
 - [runtime/guis/@ep_GenericGUI](../../runtime/guis/@ep_GenericGUI/ep_GenericGUI.m) — the default BehaviorGUI, a ~95-line subclass that auto-discovers all parameters.
 - [examples/customgui/ExampleBehaviorGUI.m](../../examples/customgui/ExampleBehaviorGUI.m) — the copyable paradigm-GUI template.
-- Validation: `tmp/smoke_test_behaviorgui.m` (headless; `matlab -batch "run('tmp/smoke_test_behaviorgui.m')"`).
+- Validation: `tmp/smoke_test_behaviorgui.m` (headless; `matlab -batch "run('tmp/smoke_test_behaviorgui.m')"`); `tmp/smoke_test_popout_restore.m` for the `RestorePopOuts` memory.
 
 See also: [Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md) for the surrounding concepts (parameters, events, layout strategy), [Parameter_Control.md](Parameter_Control.md), [Parameter_Update.md](Parameter_Update.md), [Parameter_Monitor.md](Parameter_Monitor.md), [gui_NextTrial.md](gui_NextTrial.md), [gui_PopOut.md](gui_PopOut.md), [gui_ComponentToolbar.md](gui_ComponentToolbar.md), [gui_ParameterDebugger.md](gui_ParameterDebugger.md) — for the parameters a behavior GUI does not expose, [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md).

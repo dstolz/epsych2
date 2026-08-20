@@ -194,9 +194,12 @@ end
 % --- Stop and save -------------------------------------------------------
 RUNTIME.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Stop));
 
-% Same file layout as cl_SaveDataFcn: per-subject DATA plus repo metadata.
+% Same file layout as ep_SaveDataFcn and cl_SaveDataFcn: per-subject DATA plus
+% the session snapshot, which carries the repo metadata this used to save on
+% its own AND the serialized protocol -- so the saved file can be reopened in
+% DetectionBehaviorGUI later with epsych.ReviewSession.
 Data = RUNTIME.TRIALS(1).DATA;
-Info = EPsychInfo().meta;
+Info = epsych.SessionSnapshot.forSubject(RUNTIME, 1);
 save(dataFile, 'Data', 'Info')
 vprintf(0, 'Simulated session complete: %d trials saved to %s', numel(Data), dataFile)
 vprintf(0, 'Next: explore_saved_data(''%s'')', dataFile)

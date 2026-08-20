@@ -79,7 +79,12 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             % After the base constructor, so the button and its listeners
             % exist to be pressed. Closing the window during the wait deletes
             % obj, which every line below has to tolerate.
-            if options.WaitForBegin
+            %
+            % Never in a review: the wait exists to hold a starting session
+            % until the operator is at the box, and there is no session here to
+            % hold. Blocking would hang epsych.ReviewSession inside feval, with
+            % a half-built window and no way to reach the Begin button.
+            if options.WaitForBegin && ~obj.ReviewMode
                 obj.waitForBegin();
             end
 
@@ -235,6 +240,12 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             % dispense that has to outlast that callback cannot be waited for
             % from within it. fixedSpacing + drop so a slow serial reply
             % delays the next tick instead of queueing more of them.
+            % A review has no pump to drive and no trial to hand back, so the
+            % cycle clock never starts.
+            if obj.ReviewMode
+                return
+            end
+
             obj.RigTimer_ = timer( ...
                 Name = [obj.PreferenceTag '_rig'], ...
                 Period = 0.05, ...
@@ -464,6 +475,18 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             % The cycle can only run against a runtime that actually has this
             % protocol loaded: the pre-flight SelfTest opens behavior GUIs
             % against a synthetic runtime with no parameters at all.
+            %
+            % A review is the other case where it must not run. The cycle
+            % dispenses reward and hands the trial back by raising
+            % x_TrialComplete_1, which against a finished session would mean a
+            % pump running for trials nobody is present for. The base class
+            % cannot decide this for a subclass, so every rig-driving GUI has
+            % to say so here. See gui.BehaviorGUI.ReviewMode.
+            if obj.ReviewMode
+                tf = false;
+                return
+            end
+
             tf = isfield(obj.P, 'x_TrialComplete_1') ...
                 && ~isempty(obj.RUNTIME.TRIALS) && isstruct(obj.RUNTIME.TRIALS);
         end

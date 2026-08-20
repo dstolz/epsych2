@@ -44,6 +44,13 @@ classdef (Abstract) PopOut < handle
     %     closePopOut - close it (the host component is unaffected)
     %     hasPopOut   - true while a pop-out window is open
     %
+    %   Events:
+    %     PopOutStateChanged - the window opened or closed. It is what lets a
+    %       gui.BehaviorGUI with RestorePopOuts remember which displays were
+    %       open without polling for them. Raising an already-open window is
+    %       not a change and does not notify, and neither does the teardown
+    %       that follows the host component's own destruction.
+    %
     %   Static, for windows built outside this mixin:
     %     markStandaloneWindow(fig, prefTag) - declare a one-component window
     %     isAlwaysOnTop(fig) / setAlwaysOnTop(fig, tf)
@@ -74,6 +81,10 @@ classdef (Abstract) PopOut < handle
 
     properties (Access = private)
         PopOutDestroyListener_ = event.listener.empty
+    end
+
+    events
+        PopOutStateChanged % The pop-out window opened or closed
     end
 
     properties (Constant, Hidden)
@@ -146,6 +157,7 @@ classdef (Abstract) PopOut < handle
 
             fig.Visible = 'on';
             vprintf(2, '%s: opened pop-out window "%s"', class(obj), fig.Name)
+            obj.notifyPopOutState_();
         end
 
         function closePopOut(obj)
@@ -156,6 +168,7 @@ classdef (Abstract) PopOut < handle
             gui.PopOut.teardownPopOut_(obj.PopOutComponent, obj.PopOutFigure, ...
                 obj.popOutPreferenceTag_());
             obj.forgetPopOut_();
+            obj.notifyPopOutState_();
         end
 
         function tf = hasPopOut(obj)
@@ -306,6 +319,18 @@ classdef (Abstract) PopOut < handle
                 figure(obj.PopOutFigure);
             catch
                 obj.PopOutFigure.Visible = 'on';
+            end
+        end
+
+        function notifyPopOutState_(obj)
+            % Announce that the window opened or closed. A listener that
+            % throws is logged rather than allowed back out into the click
+            % that opened the window: the pop-out itself is already open.
+            try
+                obj.notify('PopOutStateChanged');
+            catch ME
+                vprintf(2, '%s: PopOutStateChanged listener failed: %s', ...
+                    class(obj), ME.message)
             end
         end
 

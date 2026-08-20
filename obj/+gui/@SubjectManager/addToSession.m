@@ -8,6 +8,13 @@ function addToSession(self)
 % refusal -- belong to the engine, so this method has no rules of its own and
 % the whole path stays testable without a window.
 %
+% The checked rows become the session's WHOLE subject list: whoever was in the
+% table is removed as they land. What is ticked here is the operator's answer
+% to "who is running", and leaving yesterday's subject behind it -- in a box,
+% with a protocol, dispatching trials -- is the failure mode this prevents. The
+% engine only clears once the batch is certain to commit, so a refused batch
+% still leaves the session as it was, and the removed names are reported.
+%
 % On success the window closes and the session window is raised: the
 % operator's next stop is the session, not this table. It stays open on
 % failure, or when nothing was checked, so the operator can fix the problem
@@ -37,7 +44,8 @@ try
     report = self.Roster.assignToSession(self.RunExpt, ids, ...
         ProjectID = self.selectedProject_(), ...
         BoxIDs = boxes, ...
-        Protocols = protocols);
+        Protocols = protocols, ...
+        ReplaceExisting = true);
 catch ME
     vprintf(0, 1, ME);
     uialert(self.H.figure, ME.message, 'Add to Session', 'Icon','error');
@@ -75,6 +83,13 @@ self.refresh();
 self.setStatus_(report.message);
 
 summary = localAddedList(report.added);
+if ~isempty(report.removed)
+    % Named only in a report the operator was already going to read: the
+    % session table showing the new list is the primary evidence, and a dialog
+    % on every commit would be in the way of the normal case.
+    summary = sprintf('%s\n\nRemoved from the session:\n  %s', summary, ...
+        strjoin(report.removed, sprintf('\n  ')));
+end
 if ~isempty(report.skipped)
     % Raised only once the report is dismissed: the alert belongs to this
     % window, so closing it out from under the operator would bury the list

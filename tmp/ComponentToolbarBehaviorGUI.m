@@ -3,7 +3,9 @@ classdef ComponentToolbarBehaviorGUI < gui.BehaviorGUI
     % Registers two poppable components -- one anonymously, one under a
     % register name -- and declares two lazy entries, so the test can check
     % automatic discovery, labelling, lazy construction and the icon fallback
-    % against one GUI.
+    % against one GUI. RestorePopOuts is forwarded so
+    % tmp/smoke_test_popout_restore.m can exercise the layout memory over
+    % both kinds of window against the same fixture.
     %
     % Toolbar options reach build through a static holder because build runs
     % inside the superclass constructor, before a subclass can set any
@@ -24,10 +26,12 @@ classdef ComponentToolbarBehaviorGUI < gui.BehaviorGUI
                 options.Exclude (1,:) string = string.empty(1,0)
                 options.AutoDiscover (1,1) logical = true
                 options.PreferenceTag (1,:) char = 'smokeCT_GUI'
+                options.RestorePopOuts (1,1) logical = false
             end
             ComponentToolbarBehaviorGUI.pendingOptions(options);
             obj@gui.BehaviorGUI(RUNTIME, Name='Component Toolbar GUI', ...
                 PreferenceTag=options.PreferenceTag, ...
+                RestorePopOuts=options.RestorePopOuts, ...
                 DefaultPosition=[100 100 700 450], Visible=false);
             if nargout == 0, clear obj; end
         end

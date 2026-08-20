@@ -611,6 +611,47 @@ end
 assert(threw, 'Copying a project that does not exist must say so');
 fprintf('PASS: a project copies its settings, and its subjects only when asked\n');
 
+% 18. Replacing the session subject list ------------------------------------
+% What the manager's "Add Checked to Session" button asks for: the batch IS the
+% session's subject list, so yesterday's animal cannot be left behind in a box.
+delete(findall(groot,'Type','figure','Tag','RunExpt'));
+rx5 = epsych.RunExpt;
+cleanupRx5 = onCleanup(@() delete(findall(groot,'Type','figure','Tag','RunExpt')));
+
+rep = R.assignToSession(rx5, {s1, s2}, ProjectID = p1);
+assert(rep.ok && numel(rx5.CONFIG) == 2, 'Two subjects should be in the session to displace');
+assert(isempty(rep.removed), 'An appending commit must remove nobody');
+firstBoxes = arrayfun(@(c) c.SUBJECT.BoxID, rx5.CONFIG);
+
+rep = R.assignToSession(rx5, {s3}, ProjectID = p1, ReplaceExisting = true);
+assert(rep.ok && isscalar(rx5.CONFIG), ...
+    'A replacing commit should leave only the checked subject (got %d)', numel(rx5.CONFIG));
+assert(strcmp(rx5.CONFIG(1).SUBJECT.Name, 'M003'), 'The wrong subject survived the replacement');
+assert(numel(rep.removed) == 2 && all(ismember({'M001','M002'}, rep.removed)), ...
+    'The report must name both displaced subjects');
+assert(rx5.CONFIG(1).SUBJECT.BoxID == firstBoxes(1), ...
+    'A box the outgoing subject held must be free to the batch');
+assert(rx5.STATE >= PRGMSTATE.CONFIGLOADED, 'The session should still be ready after a replacement');
+
+% The same animal, re-added in the box it already occupies: with the old list
+% treated as occupied this would skip as "already in the session" and commit
+% nothing.
+rep = R.assignToSession(rx5, {s3}, ProjectID = p1, ...
+    BoxIDs = rx5.CONFIG(1).SUBJECT.BoxID, ReplaceExisting = true);
+assert(rep.ok && isscalar(rx5.CONFIG) && isempty(rep.skipped), ...
+    'Re-adding the same subject in the same box must commit: %s', rep.message);
+
+% A refused batch must not cost the operator the list they had.
+rep = R.assignToSession(rx5, {s1, s2}, ProjectID = p1, ReplaceExisting = true, ...
+    Protocols = {proto, fullfile(root,'still_not_there.eprot')});
+assert(rep.aborted && isempty(rep.removed), 'A missing protocol must abort before anything is removed');
+assert(isscalar(rx5.CONFIG) && strcmp(rx5.CONFIG(1).SUBJECT.Name,'M003'), ...
+    'An aborted replacement must leave the session exactly as it was');
+fprintf('PASS: a replacing commit swaps the subject list, and an aborted one leaves it alone\n');
+
+clear cleanupRx5
+delete(findall(groot,'Type','figure','Tag','RunExpt'));
+
 % N. No default location ---------------------------------------------------
 % The roster used to fall back to <prefdir>/epsych/subjects.esub, which meant a
 % lab's only copy of its animal records lived somewhere nobody chose and a

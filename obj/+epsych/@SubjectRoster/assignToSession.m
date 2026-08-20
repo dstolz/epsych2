@@ -28,6 +28,15 @@ function report = assignToSession(self, runExpt, subjectIds, options)
 %               no settings are applied at all.
 %   BoxIDs    - per-subject box, NaN to auto-assign the lowest free one.
 %   Protocols - per-subject .eprot path, '' to resolve from protocol memory.
+%   ReplaceExisting - true to make the batch the session's whole subject list:
+%               whoever is already in CONFIG is removed as the new rows land.
+%               The removal happens only once the batch is certain to commit,
+%               so an aborted batch still leaves the session as it was. Boxes
+%               and names held by the outgoing subjects are free to the batch,
+%               which is what lets an operator re-add the same animal in the
+%               same box. Default false: appending is what a script asking for
+%               one more subject means, and the manager's "Add Checked to
+%               Session" button is what asks for a replacement.
 %
 % Returns:
 %   report - struct with fields:
@@ -38,6 +47,7 @@ function report = assignToSession(self, runExpt, subjectIds, options)
 %              mismatch - (1,:) struct: Field, Values, Names; filled when the
 %                         batch was refused because the checked subjects carry
 %                         different session settings
+%              removed  - (1,:) cellstr of subjects the batch displaced
 %              message  - one-line summary suitable for a status bar
 %
 % See also: epsych.RunExpt.appendSubjectToConfig_, epsych.SubjectRoster.lastProtocol,
@@ -49,6 +59,7 @@ arguments
     options.ProjectID (1,:) char = ''
     options.BoxIDs double = []
     options.Protocols cell = {}
+    options.ReplaceExisting (1,1) logical = false
 end
 
 subjectIds = cellstr(string(subjectIds));
@@ -58,6 +69,7 @@ report = struct('ok', false, 'aborted', false, ...
     'added', struct('Name', {}, 'BoxID', {}, 'Protocol', {}), ...
     'skipped', struct('Name', {}, 'reason', {}), ...
     'mismatch', struct('Field', {}, 'Values', {}, 'Names', {}), ...
+    'removed', {{}}, ...
     'message', '');
 
 if n == 0
@@ -85,11 +97,19 @@ if numel(options.Protocols) < n
 end
 
 % --- gather what the session already occupies ---------------------------
+% Under ReplaceExisting these subjects are on their way out, so what they hold
+% is not "taken": treating it as such would skip an animal the operator ticked
+% because an earlier version of the same row is still in the table.
+occupants = {};
+if ~isempty(runExpt.CONFIG) && ~isempty(runExpt.CONFIG(1).SUBJECT)
+    occupants = arrayfun(@(c) c.SUBJECT.Name, runExpt.CONFIG, 'uni', 0);
+end
+
 takenBoxes = [];
 takenNames = {};
-if ~isempty(runExpt.CONFIG) && ~isempty(runExpt.CONFIG(1).SUBJECT)
+if ~options.ReplaceExisting && ~isempty(occupants)
     takenBoxes = arrayfun(@(c) c.SUBJECT.BoxID, runExpt.CONFIG);
-    takenNames = arrayfun(@(c) c.SUBJECT.Name, runExpt.CONFIG, 'uni', 0);
+    takenNames = occupants;
 end
 
 % --- resolve every row before committing anything -----------------------
@@ -217,6 +237,16 @@ for i = 1:numel(planned)
 end
 
 % --- commit --------------------------------------------------------------
+% Clearing happens here and not a line earlier: every check that can refuse the
+% batch has passed, so from this point the session is guaranteed to end up with
+% the new list rather than with no subjects at all.
+if options.ReplaceExisting && ~isempty(occupants)
+    report.removed = occupants;
+    runExpt.ClearConfig();
+    vprintf(1, 'Replaced the session subject list; removed %s.', ...
+        strjoin(occupants, ', '));
+end
+
 for i = 1:numel(planned)
     runExpt.appendSubjectToConfig_( ...
         self.toSubject(planned(i).SubjectID, BoxID = planned(i).BoxID), ...
@@ -252,6 +282,10 @@ runExpt.CheckReady
 
 report.ok = true;
 report.message = sprintf('Added %d subject(s) to the session.', numel(report.added));
+if ~isempty(report.removed)
+    report.message = sprintf('%s Removed %d already there.', ...
+        report.message, numel(report.removed));
+end
 if ~isempty(report.skipped)
     report.message = sprintf('%s %d skipped.', report.message, numel(report.skipped));
 end

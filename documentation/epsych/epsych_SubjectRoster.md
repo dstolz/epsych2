@@ -291,7 +291,19 @@ It is all-or-nothing where partial success would be worse than none:
 
 The distinction: having *no* protocol means the subject simply is not ready, while a protocol that was named but cannot be used means the operator's intent cannot be honoured.
 
-The returned report has `ok`, `aborted`, `added` (Name/BoxID/Protocol), `skipped` (Name/reason) and a one-line `message`.
+The returned report has `ok`, `aborted`, `added` (Name/BoxID/Protocol), `skipped` (Name/reason), `removed` (names displaced by a replacement) and a one-line `message`.
+
+### `ReplaceExisting`
+
+`ReplaceExisting=true` makes the batch the session's **whole** subject list: whoever is in `CONFIG` is cleared as the new rows land. This is what [`gui.SubjectManager`](../gui/gui_SubjectManager.md#add-checked-to-session)'s **Add Checked to Session** button asks for — what an operator ticks there is their answer to "who is running", and yesterday's animal left behind in a box would go on dispatching trials.
+
+Three consequences:
+
+- The clear happens **after** every check that can refuse the batch, and after every protocol has loaded. An aborted batch leaves the session exactly as it was, and `removed` stays empty.
+- Boxes and names held by the outgoing subjects are **not** taken, so the same animal can be re-added in the same box. Without that, a subject already in the session would skip as "already in the session" and the commit would be empty.
+- Nothing is removed when the batch resolves to no usable subject at all: an operator who ticks only unready animals keeps the list they had.
+
+Default `false` — appending is what a script asking for one more subject means.
 
 > ⚠️ Committing more than one subject logs a level-1 note. `ExptDispatch` takes hardware interfaces from `CONFIG(1).PROTOCOL` only, so subjects 2+ can dispatch into orphan objects — see `plans/multi-subject-support.md`. The roster does not cause this, but it makes multi-subject sessions a two-click operation.
 

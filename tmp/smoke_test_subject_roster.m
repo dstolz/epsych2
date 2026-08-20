@@ -459,6 +459,34 @@ assert(rev.ok && rev.Recoverable && strcmp(rev.Source, 'archive') && ~rev.Conten
 assert(strcmp(epsych.Protocol.versionOnDisk(protoA), vA3), ...
     'The file must still hold the newer version after a pointer-only revert');
 
+% ...but it is not cosmetic: the subject is HELD on the restored version, and a
+% session loads that version out of the file's archive rather than its content.
+% Before this the session loaded the file, showed the newer version, and then
+% recorded it straight over the revert.
+assert(rev.Pinned, 'A revert that leaves the file alone must hold the subject');
+st = R.protocolStatus(sv, pv);
+assert(strcmp(st.Status,'pinned') && st.Pinned && ~st.IsOutdated && strcmp(st.Version, vA2), ...
+    'A held subject must read as pinned rather than outdated');
+
+delete(findall(groot,'Type','figure','Tag','RunExpt'));
+rxHold = epsych.RunExpt;
+cleanupHold = onCleanup(@() delete(findall(groot,'Type','figure','Tag','RunExpt')));
+repHold = R.assignToSession(rxHold, {sv}, ProjectID = pv);
+assert(repHold.ok && numel(repHold.added) == 1, 'A held subject must still commit');
+assert(strcmp(char(rxHold.CONFIG(1).PROTOCOL.meta.protocolVersion), vA2), ...
+    'The session must load the held version, not the file''s current content');
+assert(strcmp(R.findMembership(sv, pv).LastProtocolVersion, vA2) && ...
+    R.findMembership(sv, pv).ProtocolPinned, ...
+    'Committing a held subject must leave the hold exactly as it was');
+assert(strcmp(epsych.Protocol.versionOnDisk(protoA), vA3), ...
+    'Honouring a hold must not write to the protocol file');
+
+% Updating is what releases it, and puts the animal back on the file's content.
+R.updateProtocol({sv}, pv);
+assert(~R.findMembership(sv, pv).ProtocolPinned, 'An update must release the hold');
+st = R.protocolStatus(sv, pv);
+assert(strcmp(st.Status,'current') && ~st.Pinned, 'A released subject is simply current');
+
 % ...and reverting WITH content restore rewrites it back, undoably.
 R.updateProtocol({sv}, pv);
 rev = R.revertProtocol(sv, pv, RestoreContent = true);

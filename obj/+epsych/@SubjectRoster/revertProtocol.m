@@ -22,6 +22,16 @@ function report = revertProtocol(self, subjectId, projectId, options)
 % roster recorded on the same file at a different version, so a caller can
 % warn before opting in.
 %
+% Declining the rewrite does not make the revert cosmetic. The membership is
+% PINNED instead (report.Pinned), and assignToSession loads the recorded
+% version out of the file's archive at commit time, so the subject runs what
+% was restored while the shared file keeps serving everyone else the current
+% content. Only this subject is held back, and only until something moves it
+% forward: updateProtocol, or any rememberProtocol naming another file or
+% version, releases the hold. A pin is never needed where the file already
+% agrees -- a revert to a different file, or one that restored the content --
+% and is impossible where the content is gone (Source = 'none').
+%
 % Only a file last written by an EPsych release without version archiving can
 % still defeat a revert (Source = 'none'): the pointer and recorded version
 % come back, and the report says plainly that the content does not.
@@ -44,8 +54,9 @@ function report = revertProtocol(self, subjectId, projectId, options)
 % Returns:
 %   report - struct with fields ok, From, FromVersion, To, ToVersion,
 %            Recoverable, Source ('disk'|'archive'|'none'), ContentRestored,
-%            OthersOnFile (SubjectIDs recorded on the same file at another
-%            version), message.
+%            Pinned (the session will load the recorded version out of the
+%            file's archive), OthersOnFile (SubjectIDs recorded on the same
+%            file at another version), message.
 %
 % See also: epsych.SubjectRoster.protocolHistory, epsych.Protocol.restoreVersion,
 %   epsych.SubjectRoster.updateProtocol
@@ -61,7 +72,7 @@ end
 
 report = struct('ok', false, 'From', '', 'FromVersion', '', ...
     'To', '', 'ToVersion', '', 'Recoverable', false, 'Source', 'none', ...
-    'ContentRestored', false, 'OthersOnFile', {{}}, 'message', '');
+    'ContentRestored', false, 'Pinned', false, 'OthersOnFile', {{}}, 'message', '');
 
 [rec, idx] = self.findMembership(subjectId, projectId);
 if isempty(idx)
@@ -144,6 +155,11 @@ if options.RestoreContent && strcmp(report.Source, 'archive')
     report.ContentRestored = true;
 end
 
+% Pin exactly where the record and the file now disagree but the content is
+% still reachable: the session has to be told to go and get it. Everywhere
+% else the file already answers with the right version.
+report.Pinned = strcmp(report.Source, 'archive') && ~report.ContentRestored;
+
 self.mutate_(@applyRevert);
 
 report.ok = true;
@@ -152,10 +168,10 @@ if report.ContentRestored
     report.message = sprintf(['Restored %s from the version archive of %s%s ' ...
         'and reverted.'], localOrUnknown(targetVersion), tn, te);
 elseif strcmp(report.Source, 'archive')
-    report.message = sprintf(['Reverted to %s%s and recorded version %s. The file ' ...
-        'now holds %s, but %s is in its version archive — revert with content ' ...
-        'restore (or epsych.Protocol.restoreVersion) to bring it back exactly.'], ...
-        tn, te, localOrUnknown(targetVersion), localOrUnknown(onDisk), ...
+    report.message = sprintf(['Reverted to %s (held). The file still holds %s for ' ...
+        'everyone else on it; this subject''s sessions load %s out of its version ' ...
+        'archive until an update moves it forward.'], ...
+        localOrUnknown(targetVersion), localOrUnknown(onDisk), ...
         localOrUnknown(targetVersion));
 elseif report.Recoverable
     report.message = sprintf('Reverted to %s%s (%s).', tn, te, localOrUnknown(targetVersion));
@@ -190,6 +206,7 @@ vprintf(1, 'Reverted protocol for "%s" in "%s": %s -> %s', subjectId, projectId,
         r.Memberships(k).ProtocolHistory     = h;
         r.Memberships(k).LastProtocol        = target;
         r.Memberships(k).LastProtocolVersion = targetVersion;
+        r.Memberships(k).ProtocolPinned      = report.Pinned;
         r.Memberships(k).Modified            = datetime('now');
     end
 

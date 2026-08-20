@@ -230,9 +230,9 @@ Rules that matter:
   **Protocol versions**: a membership records `LastProtocolVersion` alongside the
   path, because a subject carries no version of its own — the roster is the only
   thing that can notice a protocol edited between sessions. `protocolStatus`
-  reports `current|outdated|differs|unknown|missing|none` (`outdated` = the file
-  moved on; `differs` = not the project default), `updateProtocol` records the
-  version now in the file, and `revertProtocol` restores an entry from
+  reports `current|outdated|pinned|differs|unknown|missing|none` (`outdated` =
+  the file moved on; `differs` = not the project default), `updateProtocol`
+  records the version now in the file, and `revertProtocol` restores an entry from
   `ProtocolHistory`. Every `Protocol.save` archives the version it replaces
   INSIDE the `.eprot` (four MAT variables: `protocol` unchanged, `history`,
   `historyIndex`, `historyFormat`; `epsych.Protocol.writeProtocolFile` is the
@@ -241,12 +241,43 @@ Rules that matter:
   reports `Source = disk|archive|none`: `disk` re-points exactly, `archive`
   restores bytes too when asked (`RestoreContent=true`, exact mode, default OFF
   because the file is shared — `OthersOnFile` says who else it changes), `none`
-  = a file last saved pre-archiving, pointer-and-version only. Version reads go
+  = a file last saved pre-archiving, pointer-and-version only.
+  An `archive` revert that does NOT rewrite the file **pins** the membership
+  (`ProtocolPinned`), and `assignToSession` then loads that version out of the
+  archive (`loadVersion`) instead of the file's content — so the subject runs
+  what was restored while the shared file keeps serving everyone else. That is
+  what makes such a revert mean anything: before it, the session loaded the file
+  and `rememberProtocol` wrote the file's version straight back over the revert,
+  so ADDING THE SUBJECT TO A SESSION SILENTLY UNDID IT. Three rules keep it
+  coherent — a pin is set only where the file disagrees and the content is still
+  reachable; `rememberProtocol` clears it whenever the file or version it records
+  differs from what is on record (honouring a hold hands back the pinned version,
+  so only a move forward ends it); and a hold whose version has left the archive
+  ABORTS the batch rather than quietly running the file. `pinned` is kept out of
+  `IsOutdated`, the manager's banner, and Update All — it is deliberate, not a
+  problem — and `RunExpt.UpdateSubjectList` infers it with no new CONFIG field
+  (`Protocol.load` always yields current content, so loaded ≠ disk but present in
+  the archive can only be a honoured hold), showing `vN (held)` unflagged. Version reads go
   through `epsych.Protocol.versionOnDisk`/`versionNumber`, shared with
   `RunExpt.UpdateSubjectList` — both selectively load the one MAT variable, as
   does the phase fast parse, so the archive costs readers nothing; minting
   reconciles with the disk (`max(memory, disk) + 1`) so two stale objects
-  cannot coin one version for different content. Roster fields stay additive,
+  cannot coin one version for different content. **What changed** between two
+  versions is `epsych.Protocol.compareVersions`/`diffStructs`, reading the stored
+  `toStruct` payloads and never rebuilding the object graph — cheap enough for a
+  dialog's selection change, and able to compare a version naming a backend class
+  this installation cannot construct. It takes a file AND a version PER SIDE, so
+  a subject's history compares across the two FILES a protocol revised under a
+  new name leaves behind. `lastModified` is excluded (every save rewrites it, so
+  it would appear in every comparison saying nothing) and `protocolVersion`
+  always is (it is the identity of the sides, not a difference between them);
+  matching is by name, so a rename reads as one add and one remove, because
+  nothing in the file records otherwise. It never throws — every caller is a
+  dialog that has to say why instead. `gui.compareProtocolVersions` is the one
+  window over it, modal because both callers (the designer's Version History,
+  the Subjects window's Revert Protocol) open it from a modal dialog of their
+  own, where an ordinary window would be stranded behind its parent.
+  Roster fields stay additive,
   so `FORMAT_VERSION` stays 1; standing proof
   `tmp/smoke_test_protocol_versioning.m`
   (see documentation/epsych/epsych_SubjectRoster.md,
@@ -479,6 +510,11 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   write after an enumeration or probe re-checks `isvalid(fig)`: `serialportlist`
   and the probe yield, so a rig's timers (gui.SyringePump polls at 4 Hz) can
   close the dialog mid-scan
+- **gui.compareProtocolVersions**: the modal window showing what differs between
+  two protocol versions — a filtered table over `epsych.Protocol.compareVersions`
+  with a Copy Report button for a notebook entry. Shared by the designer's
+  Version History and the Subjects window's Revert Protocol; see the version
+  comparison notes under `epsych.SubjectRoster` above
 - **gui.toolbarIcon**: the 16x16 glyphs for `uitoolbar` tools, drawn as pixel art
   (a string mask per row over a shared palette) so the toolbox ships no image
   files. `uitoolbar` does render in a `uifigure`, but `uibutton`/`uiimage` `Icon`

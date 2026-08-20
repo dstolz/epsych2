@@ -211,7 +211,85 @@ assert(isequal(fastMD.Extra.protocolVersion, slowMD.Extra.protocolVersion), ...
     'Fast and full parse must agree on the file''s version');
 fprintf('PASS: fast parse is unaffected by the embedded archive\n');
 
-% 11. Atomic writes leave no droppings --------------------------------------
+% 11. Comparing two versions of one file ------------------------------------
+% What the Protocol Designer's version history and the Subjects window's
+% revert dialog both ask: what actually differs between these two versions.
+c = fullfile(root, 'compare.eprot');
+Pc = epsych.Protocol.load(fixture);
+Pc.Info = 'baseline';
+Pc.setOption('compileAtRuntime', false);
+Pc.addParameter('Software', 'SmokeLevel', {10, 20, 30}, Unit = 'dB', Type = 'Float');
+Pc.addParameter('Software', 'SmokeDoomed', 1, Type = 'Float');
+Pc.save(c);
+cv1 = epsych.Protocol.versionOnDisk(c);
+
+rep = epsych.Protocol.compareVersions(c, cv1, c, cv1);
+assert(rep.ok && rep.Identical && isempty(rep.Changes), ...
+    'A version compared with itself must report no differences');
+
+Pc.Info = 'revised';
+Pc.setOption('compileAtRuntime', true);
+lvl = Pc.findInterface('Software').find_parameter('SmokeLevel');
+lvl.Values = {10, 20, 40};
+Pc.addParameter('Software', 'SmokeAdded', 1, Type = 'Float');
+Pc.removeParameter('Software', 'SmokeDoomed');
+Pc.save(c);
+cv2 = epsych.Protocol.versionOnDisk(c);
+
+rep = epsych.Protocol.compareVersions(c, cv1, c, cv2);
+assert(rep.ok, 'Comparing two archived versions failed: %s', rep.message);
+assert(~rep.Identical && rep.Counts.Total == numel(rep.Changes), ...
+    'The counts must describe the change list they are computed from');
+assert(strcmp(rep.A.Version, cv1) && strcmp(rep.B.Version, cv2), ...
+    'Each side must report the version actually read');
+
+where = strcat({rep.Changes.Path}, '|', {rep.Changes.Item});
+assert(any(strcmp(where, 'Protocol|Info')), 'A changed Info must be reported');
+assert(any(strcmp(where, 'Options|compileAtRuntime')), 'A changed option must be reported');
+assert(any(contains({rep.Changes.Path}, 'SmokeLevel') & ...
+    strcmp({rep.Changes.Item}, 'Values') & strcmp({rep.Changes.Change}, 'changed')), ...
+    'A changed parameter value list must be reported against that parameter');
+assert(any(contains({rep.Changes.Path}, 'SmokeAdded') & ...
+    strcmp({rep.Changes.Change}, 'added')), 'A new parameter must read as added');
+assert(any(contains({rep.Changes.Path}, 'SmokeDoomed') & ...
+    strcmp({rep.Changes.Change}, 'removed')), 'A deleted parameter must read as removed');
+assert(~any(strcmp({rep.Changes.Item}, 'lastModified')), ...
+    'Timestamps rewritten by every save must stay out of a comparison');
+
+% Reversing the sides turns every add into a remove and back.
+back = epsych.Protocol.compareVersions(c, cv2, c, cv1);
+assert(back.Counts.Total == rep.Counts.Total ...
+    && back.Counts.Added == rep.Counts.Removed ...
+    && back.Counts.Removed == rep.Counts.Added, ...
+    'Comparing the other way round must mirror the adds and removes');
+fprintf('PASS: two versions of one file compare, timestamps excluded\n');
+
+% 12. Comparing across two files, and refusing what it cannot read ----------
+% A protocol revised by saving under a new name puts a subject's history on a
+% different file from the one it is on now: the compare has to span both.
+c2 = fullfile(root, 'compare_other.eprot');
+Pc.Info = 'other file';
+Pc.save(c2);
+
+rep = epsych.Protocol.compareVersions(c, cv1, c2, '');
+assert(rep.ok, 'A cross-file comparison must work: %s', rep.message);
+assert(~isempty(rep.B.Version), 'An empty version must resolve to the file''s current one');
+assert(any(strcmp(strcat({rep.Changes.Path}, '|', {rep.Changes.Item}), 'Protocol|Info')), ...
+    'A cross-file comparison must still report content differences');
+
+rep = epsych.Protocol.compareVersions(c, 'v999.000101');
+assert(~rep.ok && contains(rep.message, 'v999.000101'), ...
+    'A version the file never held must be refused by name, not thrown');
+rep = epsych.Protocol.compareVersions(fullfile(root, 'no_such.eprot'));
+assert(~rep.ok && contains(rep.message, 'missing'), ...
+    'A missing file must be reported, not thrown');
+
+% A legacy file with no archive still compares against another file.
+rep = epsych.Protocol.compareVersions(legacy, '', c, cv1);
+assert(rep.ok, 'A file with no archive must still compare: %s', rep.message);
+fprintf('PASS: comparisons span two files and refuse unreadable sides cleanly\n');
+
+% 13. Atomic writes leave no droppings --------------------------------------
 stray = dir(fullfile(root, '*.tmp'));
 assert(isempty(stray), 'Atomic writes must not leave temp files behind');
 fprintf('PASS: no atomic-write temp files survive\n');

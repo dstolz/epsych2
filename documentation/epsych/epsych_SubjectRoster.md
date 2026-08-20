@@ -240,6 +240,7 @@ Pass an empty `projectId` to search across every project the subject belongs to,
 |---|---|
 | `current` | Recorded version matches the file, and the file is the project's default |
 | `outdated` | The file has been saved since — `LatestVersion` is ahead of `Version` |
+| `pinned` | Behind the file **on purpose**: a revert held this subject on an earlier version, which its sessions load out of the file's archive |
 | `differs` | The subject is on a **different file** from the project's default |
 | `unknown` | Nothing recorded yet; the subject has never been committed to a session |
 | `missing` | The recorded `.eprot` is no longer on disk |
@@ -247,11 +248,15 @@ Pass an empty `projectId` to search across every project the subject belongs to,
 
 Reading the version is a cheap peek (`epsych.Protocol.versionOnDisk`) at one metadata field, not an `epsych.Protocol.load` — the full object graph would be far too expensive for a question asked per subject on every repaint. Results are cached per distinct file within one call, so sixteen animals on one protocol read that file once. `epsych.Protocol.versionNumber` supplies the comparable integer `N`; an unparseable version is `NaN`, which compares false against everything, so **an unknown version is never reported as outdated**.
 
+`pinned` is `outdated`'s deliberate twin and is kept out of `IsOutdated`, out of the manager's banner, and out of Update All — there is nothing here for the operator to put right. It costs one extra small read (`epsych.Protocol.hasVersion`) and only for a row already flagged as pinned in its membership: a hold whose version has since vanished from the file falls back to `outdated`, because that is then the only true thing to say about it.
+
 ### Updating
 
 `updateProtocol(subjectIds, projectId)` records the version each subject's file holds right now. `UseProjectDefault = true` also moves them onto the project's default file, and `Protocol = pfn` onto a named one.
 
 Nothing about a protocol's *content* changes, and nothing needs to: a session loads the `.eprot` at commit time, so the newest saved version runs regardless. What updating changes is which version each subject is *expected* to be on — which is what turns the check green, and what makes the next unexpected edit visible.
+
+For a subject a revert **held** on an earlier version, updating does one more thing: it releases the hold and puts the animal back on the file's content. That needs no special case here — recording a different version is what clears `ProtocolPinned` (see [Reverting](#reverting)).
 
 ### Reverting
 
@@ -262,16 +267,29 @@ Whether the *content* comes back too depends on where the recorded version can s
 | `Source` | Situation | `Recoverable` | Result |
 |---|---|---|---|
 | `disk` | The entry names an `.eprot` that still holds its recorded version | `true` | Exact — re-pointing is enough |
-| `archive` | The file was saved over, but the version sits in the file's [embedded archive](epsych_Protocol.md#4-version-history) | `true` | Exact **when asked**: `RestoreContent = true` rewrites the file back via `epsych.Protocol.restoreVersion(..., Mode='exact')` before touching the roster |
+| `archive` | The file was saved over, but the version sits in the file's [embedded archive](epsych_Protocol.md#4-version-history) | `true` | Exact either way: `RestoreContent = true` rewrites the file back via `epsych.Protocol.restoreVersion(..., Mode='exact')`; left false, this subject alone is **held** on the version and its sessions load it from the archive |
 | `none` | The file was last saved by an EPsych release without version archiving, or is missing | `false` | Pointer and version restored; the report says the content is not recoverable |
 
 `RestoreContent` defaults to **false** because rewriting a protocol file is more than roster bookkeeping: the file may be shared, and every subject on it gets the restored content. The report's `OthersOnFile` lists the other memberships recorded on the same file at a different version so a caller — the manager's dialog does exactly this — can warn before opting in. A content restore archives what it replaces, so it is itself undoable, and `ContentRestored` in the report says whether it happened. `Mode='exact'` is what the roster uses because `LastProtocolVersion` must match the file again afterward; the counter rewinding is the accepted cost, visible to other subjects as `Status = 'current'`-vs-file drift the check reports honestly.
+
+#### Holding one subject back
+
+Declining the rewrite is not a cosmetic revert. The membership is **pinned** (`ProtocolPinned`, reported as `report.Pinned`), and `assignToSession` loads `LastProtocolVersion` out of the file's archive at commit time instead of the file's current content. This subject runs what was restored; the shared file keeps serving everyone else what it holds.
+
+That was the missing half. Before it, declining the rewrite recorded a version nothing downstream honoured: the session loaded the file, RunExpt's subject list showed the file's version, and `rememberProtocol` then wrote that version straight over the restored one — **adding the subject to a session silently undid the revert**.
+
+The rules that keep it coherent:
+
+- **A pin is only set where it is needed and possible.** A revert to a different file, or one that restored the content, leaves the file already agreeing; `Source = 'none'` has no content to hold.
+- **Recording anything else releases it.** `rememberProtocol` clears the pin whenever the file or version it is asked to record differs from what is on record. Honouring a hold hands back the pinned version, so the hold survives that and nothing else — `updateProtocol`, a protocol change, a script naming another file all end it.
+- **A hold that cannot be honoured aborts the batch.** If the pinned version has gone from the file's archive, `assignToSession` refuses the whole commit rather than quietly running the file's content, for the same reason a named-but-unusable protocol does.
+- **RunExpt shows it without being told.** The session carries no pin flag; `UpdateSubjectList` infers it, since `epsych.Protocol.load` always yields a file's current content, so a loaded version that differs from the file's yet sits in its archive can only have come from a honoured hold. Those rows read `vN (held)` and are not flagged as behind.
 
 `protocolHistory(subject, project)` returns the list with `OnDiskVersion`, `Source`, and `Recoverable` already resolved, which is what the manager's revert dialog shows.
 
 ### Format compatibility
 
-`LastProtocolVersion`, `ProtocolHistory`, the four project `Timer*Fcn` template fields, and the membership `SESSION_FIELDS` are all **additive**, so `FORMAT_VERSION` stays at 1: an older file's missing fields normalize to "inherit the built-in default", which is exactly what that file meant. `normalize_` fills them in from the template when an older file is read, and a rig on an older build that writes the file back drops them — losing a version memory that the next commit re-records, rather than losing data. Bumping the format instead would open every new file **read-only** on every rig that had not been updated, which for a shared network roster is much the worse failure.
+`LastProtocolVersion`, `ProtocolPinned`, `ProtocolHistory`, the four project `Timer*Fcn` template fields, and the membership `SESSION_FIELDS` are all **additive**, so `FORMAT_VERSION` stays at 1: an older file's missing fields normalize to "inherit the built-in default", which is exactly what that file meant. `ProtocolPinned` defaults to `false` for the same reason — a roster written before holds existed can only have meant "the file's content wins". `normalize_` fills them in from the template when an older file is read, and a rig on an older build that writes the file back drops them — losing a version memory that the next commit re-records, rather than losing data. Bumping the format instead would open every new file **read-only** on every rig that had not been updated, which for a shared network roster is much the worse failure.
 
 The same reasoning covers `Investigator`, `IACUCProtocol`, `Links`, and `Archived`. This is why every default in `blankProject_` has to mean *what an older file implicitly meant*: no investigator, no links, and not archived are all correct readings of a roster written before those fields existed — exactly as `BehaviorGUI = ''` means "inherit". A default that changed behaviour would silently rewrite the past on first read.
 
@@ -331,7 +349,7 @@ matlab -batch "cd('tmp'); smoke_test_subject_roster"
 
 Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, and all three `BehaviorGUI` states reaching `FUNCS.BehaviorGUI` (applied via the membership, cleared, inherited).
 
-Protocol versions get their own section, driven by real `epsych.Protocol.save` calls rather than hand-written version strings: a fresh subject reads `unknown`, a recorded one `current`, one whose file was saved again `outdated`; `updateProtocol` clears it and the record survives a reload; a superseded same-file entry reports `Recoverable` with `Source = 'archive'` (the save archived it inside the file), a revert between two distinct files is exact from `disk` and leaves the restored entry out of the history rather than in it twice, a default revert never rewrites the protocol file, and `RestoreContent = true` rewrites it back to the recorded version — undoably, with the replaced content archived in turn. The file-side mechanics have their own standing proof in `tmp/smoke_test_protocol_versioning.m`.
+Protocol versions get their own section, driven by real `epsych.Protocol.save` calls rather than hand-written version strings: a fresh subject reads `unknown`, a recorded one `current`, one whose file was saved again `outdated`; `updateProtocol` clears it and the record survives a reload; a superseded same-file entry reports `Recoverable` with `Source = 'archive'` (the save archived it inside the file), a revert between two distinct files is exact from `disk` and leaves the restored entry out of the history rather than in it twice, a default revert never rewrites the protocol file but **holds** the subject on the restored version — proved end to end, by committing that subject to a real session and asserting the session loaded the held version, the file was untouched, and the hold survived the commit that used to erase it — an update then releases it, and `RestoreContent = true` rewrites the file back to the recorded version instead, undoably, with the replaced content archived in turn. The file-side mechanics have their own standing proof in `tmp/smoke_test_protocol_versioning.m`.
 
 Copying gets its own section: a settings-only copy is compared field by field against its source off disk (and asserted **not** archived), a copy with subjects takes the active members while leaving the retired one and the source's own membership alone, an override beats the inherited value, `IncludeRetired` and `CopyProtocolMemory = false` each do exactly one thing, and a copy is refused both an existing name and a source that does not exist.
 

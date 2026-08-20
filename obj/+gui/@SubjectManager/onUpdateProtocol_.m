@@ -174,7 +174,7 @@ for i = 1:numel(st)
 
     changes{end+1} = struct('Name', st(i).Name, ...
         'From', st(i).Protocol, 'FromVersion', st(i).Version, ...
-        'To', file, 'ToVersion', latest);
+        'To', file, 'ToVersion', latest, 'Held', st(i).Pinned);
 end
 
 preview.changes = changes;
@@ -197,7 +197,22 @@ for k = 1:numel(uniqueKeys)
     lines{end+1} = sprintf('  %s  (%d subject%s)', localMoveText(c), n, localPlural(n));
 end
 
+% A held subject is behind the file because somebody put it there, so an update
+% is not just bookkeeping for it: it is what ends the hold and puts the animal
+% back on the file's content. Said before the operator agrees, not after.
+nHeld = nnz(cellfun(@(c) c.Held, changes));
+if nHeld > 0
+    lines{end+1} = '';
+    lines{end+1} = sprintf(['%d of these %s held on an earlier version by a revert. ' ...
+        'Updating releases the hold.'], nHeld, localIsAre(nHeld));
+end
+
 preview.lines = lines;
+end
+
+% -----------------------------------------------------------------------
+function s = localIsAre(n)
+if n == 1, s = 'is'; else, s = 'are'; end
 end
 
 % -----------------------------------------------------------------------

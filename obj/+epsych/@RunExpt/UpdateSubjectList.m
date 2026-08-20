@@ -5,6 +5,14 @@ function UpdateSubjectList(self)
 %   Flags any subject whose loaded protocol is behind the version
 %   currently saved on disk by coloring its Version cell and updating
 %   the table tooltip with concise update instructions.
+%
+%   A subject the roster HOLDS on an earlier version is behind the file on
+%   purpose and is not flagged. The session carries no pin flag, so the
+%   evidence is the load itself: epsych.Protocol.load always yields a file's
+%   current content, so a loaded version that differs from the file's yet sits
+%   in its archive can only have come from epsych.SubjectRoster.assignToSession
+%   honouring a hold. Asked only for the rows that already disagree, so a
+%   healthy list costs nothing extra.
 arguments
     self
 end
@@ -29,12 +37,18 @@ for i = 1:nSubjects
     loadedVersion = char(self.CONFIG(i).PROTOCOL.meta.protocolVersion);
     data{i,4} = loadedVersion;
 
-    diskVersion = epsych.Protocol.versionOnDisk(char(self.CONFIG(i).protocol_fn));
+    pfn = char(self.CONFIG(i).protocol_fn);
+    diskVersion = epsych.Protocol.versionOnDisk(pfn);
     if epsych.Protocol.versionNumber(diskVersion) > epsych.Protocol.versionNumber(loadedVersion)
-        isOutdated(i) = true;
-        nOutdated = nOutdated + 1;
-        outdatedInfo{nOutdated} = sprintf('%s: loaded %s, latest %s', ...
-            self.CONFIG(i).SUBJECT.Name, loadedVersion, diskVersion);
+        if epsych.Protocol.hasVersion(pfn, loadedVersion)
+            % Loaded out of the file's archive: held, not behind.
+            data{i,4} = sprintf('%s (held)', loadedVersion);
+        else
+            isOutdated(i) = true;
+            nOutdated = nOutdated + 1;
+            outdatedInfo{nOutdated} = sprintf('%s: loaded %s, latest %s', ...
+                self.CONFIG(i).SUBJECT.Name, loadedVersion, diskVersion);
+        end
     end
 end
 outdatedInfo = outdatedInfo(1:nOutdated);

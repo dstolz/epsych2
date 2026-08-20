@@ -33,6 +33,8 @@ classdef Protocol < handle & matlab.mixin.SetGet
     %   listVersions     - Static: every version an .eprot holds (current + embedded archive)
     %   loadVersion      - Static: load one archived version as a Protocol
     %   restoreVersion   - Static: rewrite an .eprot back to an archived version
+    %   compareVersions  - Static: what changed between two versions (one file or two)
+    %   diffStructs      - Static: differences between two serialized protocols
     %
     % Example:
     %   P = epsych.Protocol('MyProtocol');
@@ -164,6 +166,11 @@ classdef Protocol < handle & matlab.mixin.SetGet
         tf = hasVersion(filename, version)         % True when the file's content or archive holds this version - hasVersion.m
         [obj, S] = loadVersion(filename, version)  % Load one version (current or archived) as a Protocol - loadVersion.m
         report = restoreVersion(filename, version, options)  % Rewrite the file back to an archived version - restoreVersion.m
+
+        % What changed between two versions, read from the stored structs
+        % alone so no interface, module, or parameter is reconstructed.
+        changes = diffStructs(A, B, options)                             % Differences between two toStruct payloads - diffStructs.m
+        report = compareVersions(fileA, versionA, fileB, versionB, options)  % Compare two versions, in one file or two - compareVersions.m
     end
 
     methods (Static, Hidden)

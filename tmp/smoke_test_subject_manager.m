@@ -97,15 +97,15 @@ mgr.refresh();
 % The summary is where an operator reads what a project will apply, and the box
 % GUI is now one of those things -- named even when the project inherits it, so
 % the field cannot look absent.
-assert(any(contains(string(mgr.H.projectSummary.Text), 'Behavior GUI: (built-in default)')), ...
+assert(any(contains(string(mgr.H.projectSummaryText), 'Behavior GUI: (built-in default)')), ...
     'A project with no behavior GUI should say it inherits the built-in default');
 R.updateProject(p1, struct('BehaviorGUI','ep_GenericGUI'));
 mgr.refresh();
-assert(any(contains(string(mgr.H.projectSummary.Text), 'Behavior GUI: ep_GenericGUI')), ...
+assert(any(contains(string(mgr.H.projectSummaryText), 'Behavior GUI: ep_GenericGUI')), ...
     'The summary should name the project''s behavior GUI');
 R.updateProject(p1, struct('BehaviorGUI', epsych.SubjectRoster.BEHAVIORGUI_NONE));
 mgr.refresh();
-assert(any(contains(string(mgr.H.projectSummary.Text), 'Behavior GUI: (none)')), ...
+assert(any(contains(string(mgr.H.projectSummaryText), 'Behavior GUI: (none)')), ...
     'A project set to launch no behavior GUI should say so');
 R.updateProject(p1, struct('BehaviorGUI',''));
 mgr.refresh();
@@ -373,6 +373,24 @@ assert(rep.ok && numel(rep.updated) == 3, 'All three should have been updated');
 mgr.refresh();
 assert(mgr.H.rightGrid.RowHeight{2} == 0, 'The banner should close once nothing is behind');
 assert(all(strcmp(mgr.H.table.Data(:,col), vA2)), 'The column should show the new version');
+
+% A held subject is behind the file on purpose, so it must read differently
+% from one that is simply behind: marked in the cell, and never the reason the
+% banner opens or a name Update All would collect.
+held = R.revertProtocol(ids{1}, p1, Index = 1);
+assert(held.ok && held.Pinned, 'The revert should have held this subject');
+mgr.refresh();
+assert(strcmp(mgr.H.table.Data{1,col}, sprintf('%s (held)', vA1)), ...
+    'A held row should name its version and say it is held (got "%s")', ...
+    mgr.H.table.Data{1,col});
+assert(mgr.H.rightGrid.RowHeight{2} == 0, ...
+    'A held subject must not open the stale-protocol banner');
+assert(any(contains(string(mgr.H.table.Tooltip), 'Held on')), ...
+    'The tooltip should say what the held subject is held against');
+
+R.updateProtocol(ids(1), p1);
+mgr.refresh();
+assert(strcmp(mgr.H.table.Data{1,col}, vA2), 'Updating should release the hold');
 fprintf('PASS: the Version column and the stale-protocol banner track the roster\n');
 
 % 7b2. Retired members sit outside the protocol workflow --------------------
@@ -449,7 +467,7 @@ R.updateProject(p1, Pu);
 mgr.H.projectList.Value = p1;
 mgr.refresh();
 
-summary = string(mgr.H.projectSummary.Text);
+summary = string(mgr.H.projectSummaryText);
 assert(any(contains(summary, 'Investigator: D. Stolzberg')), ...
     'The summary should name the investigator');
 assert(any(contains(summary, 'IACUC: R-2026-11')), ...
@@ -493,7 +511,7 @@ mgr.H.showArchived.Value = false;
 mgr.refresh();
 assert(strcmp(mgr.H.projectList.Value, p2), ...
     'The selected archived project must survive turning the toggle off');
-assert(any(contains(string(mgr.H.projectSummary.Text), 'Archived')), ...
+assert(any(contains(string(mgr.H.projectSummaryText), 'Archived')), ...
     'The summary should say a project is archived');
 R.updateProject(p2, struct('Archived', false));
 mgr.H.projectList.Value = p1;

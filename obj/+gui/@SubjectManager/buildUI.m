@@ -16,6 +16,11 @@ end
 
 pos = gui.BehaviorGUI.getSavedFigurePosition(self.PREF_TAG, self.DEFAULT_POSITION);
 
+% The project card widened the left column, so a window remembered at the old
+% width would clip the action bar. The remembered size is floored at the
+% default rather than replaced -- someone who made the window bigger keeps it.
+pos(3:4) = max(pos(3:4), self.DEFAULT_POSITION(3:4));
+
 f = uifigure('Name','Subjects & Projects', 'Tag', self.FIGURE_TAG, ...
     'Position', pos, ...
     'WindowKeyPressFcn', @(~,evt) self.onKeyPress_(evt));
@@ -239,14 +244,14 @@ self.H.btnRosterFile = uibutton(gRoster, 'Text','Change...', ...
 % ---------- Row 2: projects | subjects ----------------------------------
 gMain = uigridlayout(g, [1 2]);
 gMain.Layout.Row = 2;
-gMain.ColumnWidth = {260, '1x'};
+gMain.ColumnWidth = {330, '1x'};
 gMain.Padding = [0 0 0 0];
 gMain.ColumnSpacing = 10;
 
-% --- left: project list + per-project summary and links
-gLeft = uigridlayout(gMain, [5 1]);
+% --- left: project list + the info card for the selected project
+gLeft = uigridlayout(gMain, [4 1]);
 gLeft.Layout.Column = 1;
-gLeft.RowHeight = {'1x', 22, 28, 'fit', 'fit'};
+gLeft.RowHeight = {'1x', 22, 28, 'fit'};
 gLeft.Padding = [0 0 0 0];
 gLeft.RowSpacing = 6;
 
@@ -277,22 +282,29 @@ self.H.btnEditProject = uibutton(gProjBtns, 'Text','Edit...', ...
 self.H.btnDeleteProject = uibutton(gProjBtns, 'Text','Delete', ...
     'ButtonPushedFcn', @(~,~) self.onDeleteProject_());
 
-% Read-only summary so the operator can see what a project will apply
-% without opening the edit dialog.
-self.H.projectSummary = uilabel(gLeft, 'Text','', 'WordWrap','on', ...
-    'VerticalAlignment','top', 'FontColor',[0.35 0.38 0.42]);
-self.H.projectSummary.Layout.Row = 4;
+% The info card: everything the selected project carries, read-only, so an
+% operator can see what it will apply without opening the edit dialog.
+%
+% Its rows are rebuilt on every selection by updateProjectSummary_, which is
+% also where the layout is decided -- a project with no notes and no links must
+% not leave the gaps they would occupy. One label-and-value grid rather than one
+% wrapped paragraph: the values are what an operator scans for, and at this
+% width a paragraph wraps them into each other. The links are the last row of
+% the same grid, so they sit with the fields they belong to instead of floating
+% below the card.
+self.H.projectInfo = uigridlayout(gLeft, [1 2]);
+self.H.projectInfo.Layout.Row = 4;
+self.H.projectInfo.ColumnWidth = {86, '1x'};
+self.H.projectInfo.RowHeight = {0};
+self.H.projectInfo.Padding = [8 8 8 8];
+self.H.projectInfo.RowSpacing = 4;
+self.H.projectInfo.ColumnSpacing = 8;
+self.H.projectInfo.BackgroundColor = [0.955 0.960 0.968];
 
-% The project's links, one uihyperlink per row, rebuilt on every selection by
-% updateProjectLinks_. Empty until a project with links is chosen; its rows
-% collapse to zero height rather than the panel hiding, because a hidden child
-% still claims its cell.
-self.H.projectLinks = uigridlayout(gLeft, [1 1]);
-self.H.projectLinks.Layout.Row = 5;
-self.H.projectLinks.RowHeight = {0};
-self.H.projectLinks.ColumnWidth = {'1x'};
-self.H.projectLinks.Padding = [0 0 0 0];
-self.H.projectLinks.RowSpacing = 2;
+% Both are filled by updateProjectSummary_ before the window is shown; seeded
+% here so the handle struct carries the same fields however the card is built.
+self.H.projectLinks = gobjects(0);
+self.H.projectSummaryText = {};
 
 % --- right: filter strip, table, action bar
 gRight = uigridlayout(gMain, [4 1]);

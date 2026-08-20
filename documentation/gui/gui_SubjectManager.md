@@ -72,11 +72,13 @@ Icons are drawn as 16×16 pixel art by [`gui.toolbarIcon`](../../obj/+gui/toolba
 
 `‹All Projects›` is pinned at the top of the project list. It is not a project: it shows every subject regardless of membership, and it is both the empty state for a fresh roster and the way to find a subject whose project you have forgotten.
 
-Below the project list, a read-only summary shows the selected project's notes, investigator, IACUC protocol, default protocol, data path, and behavior GUI — so you can see what the template stamps without opening the edit dialog (the `Template:` line collects the rest). The behavior GUI is named even when the project inherits it (`Behavior GUI: (built-in default)`), since a field that goes silent when unset reads as a field that does not exist. The other fields appear only when set: they carry no default worth announcing.
+Below the project list, an info card shows the selected project read-only: its name, notes, and then one row per setting — investigator, IACUC protocol, default protocol, data path, behavior GUI, and a `Template` row collecting the rest of the session defaults — so you can see what the template stamps without opening the edit dialog. The behavior GUI is named even when the project inherits it (`Behavior GUI: (built-in default)`), since a field that goes silent when unset reads as a field that does not exist. The other fields appear only when set: they carry no default worth announcing. An archived project says so in a `Status` row.
+
+It is a label-and-value grid rather than one wrapped paragraph. In a column this narrow a paragraph wraps the values into each other, and the values are what an operator scans for — so the labels are short and fixed-width on the left, and what a short label leaves out goes in its tooltip (`Protocol` carries the full path of the `.eprot`, `IACUC` says the number is recorded and never enforced). The whole card, links included, is rebuilt on every selection by `updateProjectSummary_`; the plain-text lines it renders are also kept on `H.projectSummaryText`, which is the only form a test can read back once the same text is spread over two dozen labels. The left column is 330 px wide to pay for it, and a window remembered at the old, narrower size is floored at the default so the action bar cannot end up clipped.
 
 ### Links
 
-Under the summary, the project's [links](../epsych/epsych_SubjectRoster.md#links-and-why-the-scheme-is-checked) are listed as clickable `uihyperlink`s — the lab notebook, the shared sheet, the analysis folder — with the full address as each one's tooltip. When a project has none, the rows collapse to nothing rather than leaving a gap.
+The card's last row lists the project's [links](../epsych/epsych_SubjectRoster.md#links-and-why-the-scheme-is-checked) as clickable `uihyperlink`s — the lab notebook, the shared sheet, the analysis folder — with the full address as each one's tooltip. They sit in the card with the fields they belong to rather than floating below it. When a project has none, the row collapses to nothing rather than leaving a gap.
 
 They are the only clickable-through thing in this window, so two details matter:
 
@@ -169,11 +171,14 @@ It shows the version the subject is **on**, not the newest one available, so a r
 |---|---|
 | `v7.260814` | The recorded version. Plain when it matches the file. |
 | `v7.260814` in **bold orange** | The file has been saved since — this subject is behind |
+| `v4.260801 (held)` in **bold blue** | Behind the file because a revert put it there. Its sessions load that version out of the file's archive |
 | `not recorded`, greyed | Never committed to a session, so there is nothing to compare |
 | `(missing)`, bold orange | The `.eprot` is gone |
 | greyed, whatever it says | A retired member — outside the version workflow entirely |
 
 When anything is behind, a banner opens above the table naming the count, with **Update All to Latest** beside it; the table's tooltip names the subjects and both versions. The banner collapses to nothing the moment there is nothing to say — a stale-protocol warning is exactly what an operator will not think to go looking for, so it announces itself rather than waiting to be checked.
+
+Held subjects are the deliberate exception, drawn in blue rather than the warning orange and never the reason the banner opens: nothing is wrong with a subject somebody chose to keep on an earlier version, and sending the operator to *Update All* to fix what they themselves asked for would be worse than saying nothing. They are named in the tooltip and in **Check Protocol Versions**, and counted in the banner only when it is already open for something else. Updating a held subject is what ends the hold — the confirmation says so before you agree, since for that animal an update is not bookkeeping but a change to what it runs.
 
 ### Retired members are outside all of this
 
@@ -206,10 +211,19 @@ Updating changes no protocol *content*, and none is needed — a session loads t
 |---|---|
 | *(none)* | The named file still holds that version — re-pointing is enough |
 | `[in file's version archive]` | The file was saved over, but every save archives the version it replaces inside the `.eprot` — the content can come back |
-| `[file now holds v5 — not archived]` | The file was last saved by an EPsych release without version archiving; only the pointer and recorded version come back |
+| `[file now holds v5 — not archived]` | The file was last saved by an EPsych release without version archiving; only the pointer and recorded version come back, and the subject runs whatever the file holds |
 | `[file missing]` | The `.eprot` is gone |
 
-Choosing an archived entry asks one more question: **Restore File + Revert** rewrites the `.eprot` back to that version through [`epsych.Protocol.restoreVersion`](../epsych/epsych_Protocol.md#4-version-history) — the confirmation says plainly that this changes the file for *every* subject on it — while **Revert Pointer Only** records the protocol and version without touching the file. The content a restore replaces is archived in turn, so it is itself undoable.
+Selecting an entry states, under the list, exactly what going back to it does — whether the subject ends up on the protocol as it was, and whether anything is written to the `.eprot` — in orange for the two cases that cannot come back in full (`not archived`, `file missing`). It is one window: the consequence is read where the choice is made, not raised as a second dialog afterwards, which a modal `uifigure` could leave stranded behind an undismissable window.
+
+An archived entry carries the one choice there is, as the checkbox under the list — and it is **not** a choice between exact and approximate. Either way the subject ends up on that version exactly; what the checkbox decides is whether the *file* moves too:
+
+- **Unticked** (the default) holds this subject alone on the version. The `.eprot` is untouched and keeps serving every other animal on it what it holds now; this subject's sessions load the held version out of the file's archive until an update releases it.
+- **Ticked**, the `.eprot` itself is rewritten back through [`epsych.Protocol.restoreVersion`](../epsych/epsych_Protocol.md#4-version-history), which changes the file for *every* subject on it. The content a restore replaces is archived in turn, so it is itself undoable.
+
+Unticked used to be the cosmetic option — the record changed, but the session loaded the file anyway and then wrote the file's version back over the revert. Now that it delivers the version it names, it is the default: rewriting a shared file is the bigger action, and should be the one you have to ask for.
+
+**Show Changes...** answers the question the consequence text cannot: not what reverting does to the roster, but what the subject would *run* differently afterwards. It opens the comparison window ([`gui.compareProtocolVersions`](../epsych/epsych_Protocol.md#comparing-two-versions)) on what the subject is on now against the selected entry — across two files when the protocol was revised by saving it under a new name — listing every parameter, option, and interface setting that differs, with a filter and a Copy Report button. It writes nothing, and is off for a `[file missing]` or `[... not archived]` entry, whose content cannot be produced to compare.
 
 Revert is itself undoable too — the protocol being left goes onto the history in place of the one restored.
 

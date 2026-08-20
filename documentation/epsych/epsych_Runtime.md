@@ -188,7 +188,7 @@ epsych.Runtime.phaseParameterData(f, UseCache=false, FastParse=false)  % force t
 
 ## Typical usage
 
-Most code receives an already-initialized Runtime rather than building one. Interactive inspection from the base workspace (RunExpt: **Help → Assign RUNTIME to Command Window**):
+Most code receives an already-initialized Runtime rather than building one. Interactive inspection from the base workspace (RunExpt: **Help → Diagnostics → Assign RUNTIME to Command Window**):
 
 ```matlab
 p = RUNTIME.find_parameter('Depth');

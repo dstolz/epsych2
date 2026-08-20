@@ -60,7 +60,13 @@ fprintf('Trials       : %d\n', numel(DATA))
 t = [DATA.computerTimestamp];
 fprintf('Time span    : %s to %s\n', string(t(1)), string(t(end)))
 if isfield(S, 'Info')
-    fprintf('EPsych       : %s (commit %.7s)\n', S.Info.Version, S.Info.Checksum)
+    % Info is a session snapshot since 2026-08 (epsych.SessionSnapshot), which
+    % nests the repository metadata this used to read flat. fromInfo normalizes
+    % both shapes, so an old file and a new one print the same line.
+    meta = epsych.SessionSnapshot.fromInfo(S.Info).EPsychMeta;
+    if isfield(meta, 'Version')
+        fprintf('EPsych       : %s (commit %.7s)\n', meta.Version, meta.Checksum)
+    end
 end
 if any([DATA.isTest])
     fprintf('NOTE         : flagged as test data (preview session)\n')

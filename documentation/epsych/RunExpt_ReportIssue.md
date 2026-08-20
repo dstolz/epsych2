@@ -1,6 +1,6 @@
 # Report an Issue
 
-**Help → Report an Issue on GitHub...** in the RunExpt session window composes a bug report
+**Help → GitHub → Report an Issue...** in the RunExpt session window composes a bug report
 out of what EPsych already knows — version, commit, host, session state, and the tail of the
 day's error log — shows it to you, and then opens GitHub's bug-report form with those sections
 already filled in.
@@ -86,7 +86,7 @@ and `logs` fields, so edited text can be passed straight back in.
 
 ## Requesting a feature
 
-**Help → Request a Feature on GitHub...** opens
+**Help → GitHub → Request a Feature...** opens
 [`feature_request.yml`](../../.github/ISSUE_TEMPLATE/feature_request.yml) in the browser
 straight away. There is no preview because there is nothing to review: the only thing prefilled
 is a **Version** line — EPsych version, commit, and MATLAB release — and none of the session's

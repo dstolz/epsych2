@@ -6,11 +6,11 @@ hardware actually holding what I think it is* — because it shows everything,
 including the parameters no GUI exposes, and it works the same against any
 protocol on any backend.
 
-Opened from the session window's **Help > Parameter Debugger...** (`Ctrl+E`),
+Opened from the session window's **Help > Diagnostics > Parameter Debugger...** (`Ctrl+E`),
 or directly against a protocol, a runtime, or a bare interface array.
 
 ```matlab
-% From a session window: Help > Parameter Debugger... (Ctrl+E)
+% From a session window: Help > Diagnostics > Parameter Debugger... (Ctrl+E)
 RX.OpenParameterDebugger
 
 % Standalone, against anything that owns interfaces
@@ -74,7 +74,7 @@ Three things are deliberately left out of a Read All sweep:
 
 A read that throws is reported in the row and counted in the status line,
 which quotes the first failure; the exception itself goes to the log
-(**Help > Open Current Error Log**). One dead parameter never stops a sweep.
+(**Help > Diagnostics > Open Current Error Log**). One dead parameter never stops a sweep.
 
 ## Colour is the read report
 

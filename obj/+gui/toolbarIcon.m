@@ -305,6 +305,25 @@ switch name
             "................"
             "................"];
 
+    case "review"  % a saved page, played back
+        rows = [ ...
+            "................"
+            "...ssssssssss..."
+            "...swwwwwwwws..."
+            "...swwwwwwwws..."
+            "...swwwwwwwws..."
+            "...swwbwwwwws..."
+            "...swwbbwwwws..."
+            "...swwbbbwwws..."
+            "...swwbbbbwws..."
+            "...swwbbbwwws..."
+            "...swwbbwwwws..."
+            "...swwbwwwwws..."
+            "...swwwwwwwws..."
+            "...swwwwwwwws..."
+            "...ssssssssss..."
+            "................"];
+
     case "wiki"    % open book
         rows = [ ...
             "................"

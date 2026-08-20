@@ -54,7 +54,7 @@ A typical session looks like this:
 3. (Recommended) Set a default data directory: **Customize → Customize... → Data Save Path** for the rig, or per study in **Edit Project → Session Defaults**.
 4. Add one or more subjects:
    - Click the **Subjects** toolbar button (or **Subjects → Subjects & Projects...**, Ctrl+B).
-   - Pick a project on the left, tick the animals running today, and press **Add Checked to Session**. Each one gets a free box and the protocol it last ran.
+   - Pick a project on the left, tick the animals running today, and press **Add Checked to Session**. Each one gets a free box and the protocol it last ran, and the checked animals become the session's whole subject list — anyone already in the table is removed, so a leftover from an earlier commit cannot follow you into the run.
    - For an animal that is not in the roster yet, use **New Subject...** in the same window; it opens the usual subject dialog and files the animal into the selected project.
    - See [Subjects & Projects](../gui/gui_SubjectManager.md) for the full window.
 5. (Optional) Sanity check the protocol/trials:
@@ -243,7 +243,7 @@ Values are stored in MATLAB preferences and are also saved/restored with `*.ecfg
 | Data Save Path | The rig's default data root: used when no project overrides it, and the value a new project starts from. | current directory |
 | Config Browser Root | Folder scanned by **Config → Browse Configs...**. | — |
 | Error Log Path | Directory the daily EPsych error log is written to. **Must be an absolute path.** Leave empty for the default. | `<EPsych root>\.error_logs` |
-| Error Log Viewer | Application used by **Help → Open Current Error Log (External Viewer)**. Leave empty for the platform default. | `notepad.exe` (Windows) |
+| Error Log Viewer | Application used by **Help → Diagnostics → Open Current Error Log (External Viewer)**. Leave empty for the platform default. | `notepad.exe` (Windows) |
 | Subject Roster File | The `.esub` roster behind **Subjects & Projects**. Put it on a shared drive and point every rig at it to share one roster. **There is no default:** left empty, Subjects & Projects asks for a location before it saves anything. | — |
 
 The Functions and Paths tabs each keep a grey line where the moved fields were, naming where they went.
@@ -295,17 +295,20 @@ The recording paths in force for a session live on `RunExpt.PATHS`, seeded from 
 - **View**:
   - Always On Top (also available as the pushpin toolbar toggle).
   - Version Info (`Ctrl+I`) — toolbox version, git commit, and links. A **Worktree** row appears when the session is running from a git worktree rather than the main checkout; the worktree name is also appended to the window title, in brackets, and saved with the session metadata.
-- **Help**:
-  - Open Current Error Log — flushes the logger and opens today's EPsych error log file, creating it if nothing has been logged yet. The file opens through the operating system's `.txt` association.
-  - Open Current Error Log (External Viewer) — the same file, handed to the application named in **Customize → Paths → Error Log Viewer** (`notepad.exe` by default on Windows). Use this on machines where MATLAB owns the `.txt` association and the item above would put the log in the MATLAB editor. The log's location follows **Customize → Paths → Error Log Path**.
-  - Run Self-Test... (`Ctrl+D`) — pre-flight checks against the loaded session: protocol compilation, required trigger parameters, trial selection, data paths, hardware, and GUI wiring. Each check reports pass/fail with what to do about it. See [RunExpt_SelfTest.md](RunExpt_SelfTest.md).
-  - Parameter Debugger... (`Ctrl+E`) — every parameter the loaded protocol defines, in one table, with a Read All button, a per-parameter read on double-clicking its name, and an editable Value column for the writable ones. Colour on the value says whether the read came back, whether a write was confirmed, and whether the backend was even connected. Like the self-test it stays available while a session is running, and it reads nothing on its own, so having it open changes nothing. See [../gui/gui_ParameterDebugger.md](../gui/gui_ParameterDebugger.md).
-  - Assign RUNTIME to Command Window — exports the live `RUNTIME` object to the base workspace for inspection (enabled while hardware is active).
-  - Verbosity... — sets how much detail EPsych prints to the command window. Everything at or below the chosen level is also written to the daily log; see [../eplog/eplog_Logging.md](../eplog/eplog_Logging.md).
+- **Help**: two plain items at the top — the ones a new operator wants — and the tool categories below in submenus.
+  - Documentation — the wiki, in the default browser.
   - **Example Experiments** (submenu) — one item per walkthrough under [../../examples/](../../examples/): **Your First Experiment...** and **Two-AFC Task...**. Each opens that walkthrough's wiki page in the default browser, the same way **Documentation** does; the page's Quick Start section holds the MATLAB commands that actually run it. The menu deliberately links rather than launches, because running an example starts an interactive session — you are the subject, clicking through trials — rather than opening a self-contained window.
-  - GitHub Repository / Documentation / Commit History Overview — online resources.
-  - Report an Issue on GitHub... — composes a bug report for the repository's issue tracker and shows it for review before anything opens. The version, commit, MATLAB release, host, and this session's state, config, interfaces, and callbacks are filled in for you, along with the tail of the day's error log; both sections are editable and the log excerpt can be dropped entirely, because the tracker is public and a log line can name a subject or a data path. Pressing **Open Issue** opens GitHub's bug-report form with those sections already filled in, puts the full log on the clipboard, and shows the log file in the file browser so it can be dragged onto the issue as an attachment. See [../epsych/RunExpt_ReportIssue.md](../epsych/RunExpt_ReportIssue.md).
-  - Request a Feature on GitHub... — opens the repository's feature-request form in the default browser. No preview, because the only thing prefilled is a version line: the version, commit, and MATLAB release, with none of the session's paths, subject names, or log lines. Requests about stimulus generation belong in [dstolz/stimgen](https://github.com/dstolz/stimgen/issues) instead, whose code is a pinned submodule here.
+  - **Diagnostics** (submenu) — everything used to work out why a session is misbehaving. In three groups: what the session is set up to do, what it has been saying, and a way to look for yourself.
+    - Run Self-Test... (`Ctrl+D`) — pre-flight checks against the loaded session: protocol compilation, required trigger parameters, trial selection, data paths, hardware, and GUI wiring. Each check reports pass/fail with what to do about it. See [RunExpt_SelfTest.md](RunExpt_SelfTest.md).
+    - Parameter Debugger... (`Ctrl+E`) — every parameter the loaded protocol defines, in one table, with a Read All button, a per-parameter read on double-clicking its name, and an editable Value column for the writable ones. Colour on the value says whether the read came back, whether a write was confirmed, and whether the backend was even connected. Like the self-test it stays available while a session is running, and it reads nothing on its own, so having it open changes nothing. See [../gui/gui_ParameterDebugger.md](../gui/gui_ParameterDebugger.md).
+    - Open Current Error Log — flushes the logger and opens today's EPsych error log file, creating it if nothing has been logged yet. The file opens through the operating system's `.txt` association.
+    - Open Current Error Log (External Viewer) — the same file, handed to the application named in **Customize → Paths → Error Log Viewer** (`notepad.exe` by default on Windows). Use this on machines where MATLAB owns the `.txt` association and the item above would put the log in the MATLAB editor. The log's location follows **Customize → Paths → Error Log Path**.
+    - Verbosity... (`Ctrl+V`) — sets how much detail EPsych prints to the command window. Everything at or below the chosen level is also written to the daily log; see [../eplog/eplog_Logging.md](../eplog/eplog_Logging.md). It sits with the log items because it decides how much of a run ends up in the file they open.
+    - Assign RUNTIME to Command Window — exports the live `RUNTIME` object to the base workspace for inspection (enabled while hardware is active).
+  - **GitHub** (submenu) — the four ways out to the repository, all of which leave MATLAB for a browser.
+    - Repository / Commit History Overview — online resources.
+    - Report an Issue... — composes a bug report for the repository's issue tracker and shows it for review before anything opens. The version, commit, MATLAB release, host, and this session's state, config, interfaces, and callbacks are filled in for you, along with the tail of the day's error log; both sections are editable and the log excerpt can be dropped entirely, because the tracker is public and a log line can name a subject or a data path. Pressing **Open Issue** opens GitHub's bug-report form with those sections already filled in, puts the full log on the clipboard, and shows the log file in the file browser so it can be dragged onto the issue as an attachment. See [../epsych/RunExpt_ReportIssue.md](../epsych/RunExpt_ReportIssue.md).
+    - Request a Feature... — opens the repository's feature-request form in the default browser. No preview, because the only thing prefilled is a version line: the version, commit, and MATLAB release, with none of the session's paths, subject names, or log lines. Requests about stimulus generation belong in [dstolz/stimgen](https://github.com/dstolz/stimgen/issues) instead, whose code is a pinned submodule here.
 
 ## 9) Keyboard shortcuts
 
@@ -316,7 +319,7 @@ In the RunExpt figure:
 
 ## 10) Notes and common gotchas
 
-> ⚠️ **The four that bite most often:** protocol edits are not reloaded automatically; **Save Data** enables only after **Stop**; the hardware backend comes from the protocol, not from this window; and closing the GUI mid-run stops the session. **Help → Run Self-Test...** catches most of them before a session starts.
+> ⚠️ **The four that bite most often:** protocol edits are not reloaded automatically; **Save Data** enables only after **Stop**; the hardware backend comes from the protocol, not from this window; and closing the GUI mid-run stops the session. **Help → Diagnostics → Run Self-Test...** catches most of them before a session starts.
 
 - **Button enabling/disabling is state-driven**: Add/Remove/Edit actions are disabled while the experiment is running.
 - **Subject names must be unique** within a session; adding a duplicate name will be rejected.
@@ -324,7 +327,7 @@ In the RunExpt figure:
 - **Hardware comes from the protocol**: which backend is used (TDT Synapse, TDT RPvds, Intan, software-only) is defined in the protocol file, not chosen in RunExpt. If hardware fails to connect, check the protocol's interface configuration and the device, then try again.
 - **Protocol edits are not picked up automatically**: after editing a protocol in the Protocol Designer, use **Update to Latest Version** (or **Config → Refresh Config**) so the session loads the new version.
 - **Closing the GUI stops the session**: closing while running prompts first, then stops the timers, releases the hardware, and cleans up.
-- **Check before you run**: **Help → Run Self-Test...** catches most of the above — a missing protocol trigger, an unwritable data path, a stale protocol version — before a session starts rather than partway through one.
+- **Check before you run**: **Help → Diagnostics → Run Self-Test...** catches most of the above — a missing protocol trigger, an unwritable data path, a stale protocol version — before a session starts rather than partway through one.
 
 ## Related documentation
 

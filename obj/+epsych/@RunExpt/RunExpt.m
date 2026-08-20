@@ -66,6 +66,7 @@ classdef RunExpt < handle
         OpenSelfTest(self)              % Open the pre-flight self-test window
         OpenParameterDebugger(self)     % Open the parameter debugger window
         OpenSubjectManager(self)        % Open the Subjects & Projects manager window
+        OpenSessionForReview(self, datafile) % Reopen a saved session in its behavior GUI
         ShowSubjectInManager(self, idx) % Open the manager with the selected session subject revealed
         DefineRosterFile(self)          % Set the shared subject roster (.esub) this rig uses
         EditSubjectDetails(self, idx)   % Edit a session subject's details, writing back to the roster
@@ -456,6 +457,7 @@ classdef RunExpt < handle
     % the internals a batch commit has to drive.
     methods (Access = {?epsych.RunExpt, ?epsych.SubjectRoster})
         appendSubjectToConfig_(self, S, pfn, protocol)     % Write one subject and its protocol into the next CONFIG slot
+        ClearConfig(self)                                  % Reset CONFIG to empty defaults and update program state if not running
         CheckReady(self)                                   % Evaluate whether all conditions to run are met and update STATE
         UpdateSubjectList(self)                            % Repopulate the subject list and flag subjects with an outdated protocol version
     end
@@ -545,7 +547,7 @@ classdef RunExpt < handle
                 self.UpdateGUIstate;
                 vprintf(0,1,ME);
                 self.setStatus(sprintf('%s failed: %s',commandText,ME.message), ...
-                    'see Help > Open Current Error Log.');
+                    'see Help > Diagnostics > Open Current Error Log.');
             end
         end
 
@@ -641,18 +643,6 @@ classdef RunExpt < handle
             P.VideoRootDir      = strtrim(char(getpref('ep_RunExpt_Video','RecordingRootDir','')));
             P.IntanRootDir      = strtrim(char(getpref('ep_RunExpt_Intan','RecordingRootDir','')));
             P.IntanSettingsFile = strtrim(char(getpref('ep_RunExpt_Intan','SettingsFile','')));
-        end
-
-        function ClearConfig(self)
-            % ClearConfig(self)
-            % Reset CONFIG to empty defaults and update program state if not running.
-            self.CONFIG = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[]);
-            if self.STATE >= PRGMSTATE.RUNNING, return, end
-            self.STATE = PRGMSTATE.NOCONFIG;
-            if isfield(self.H,'subject_list') && isgraphics(self.H.subject_list)
-                set(self.H.subject_list,'Data',[])
-            end
-            self.CheckReady
         end
 
         function reportProtocolValidation(~, protocol, subjectName)

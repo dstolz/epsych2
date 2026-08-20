@@ -152,6 +152,35 @@ All helpers register what they create, guaranteeing teardown (see below).
 
 Because of the registry, a subclass normally needs **no destructor at all**. Only add one if you own resources the registry cannot know about, and call `delete@gui.BehaviorGUI(obj)` at the end.
 
+## Review mode
+
+`epsych.ReviewSession` reopens a **finished** session in the paradigm's own GUI, by attaching it to an offline `epsych.Runtime` and firing real `NewTrial`/`NewData` events out of a real `epsych.EventHub`. Every display therefore works unchanged: the events, the trial data and the parameter reads are all real.
+
+**A GUI that only displays needs no changes at all.**
+
+**A GUI that drives the rig needs one guard.** Some subclasses do more than display — they run their own timer, write parameters, and hand the trial back by raising `x_TrialComplete_*`. Against a finished session that would be scoring trials nobody ran. The base class cannot decide this for you: it does not know which of your methods are display and which are contingency.
+
+`obj.ReviewMode` (dependent, read-only; forwards `RUNTIME.ReviewMode`) is the flag. The rule of thumb: **guard anything that would still be a mistake if the hardware were switched off.**
+
+```matlab
+function tf = rigReady_(obj)
+    if obj.ReviewMode      % a review has no rig to drive
+        tf = false;
+        return
+    end
+    ...
+end
+```
+
+`TwoAFCBehaviorGUI`, `FirstExperimentBehaviorGUI` and `PumpBehaviorGUI` put it in `rigReady_` — the single gate their trial cycle already passed through — and additionally skip starting their rig timer. `PumpBehaviorGUI` also skips its blocking `waitForBegin`: a constructor that blocks would hang the review inside `feval`, with a half-built window and no way to reach the Begin button.
+
+Two things the review does for you, so no subclass has to:
+
+- **Controls disable themselves.** The review moves its backends `Standby → Idle` *after* `build` returns, and every `gui.Parameter_Control` greys out through the `mode` listener it already has.
+- **Monitors stop polling.** The review broadcasts `ModeChange(Idle)`, and the base class stops every registered `gui.Parameter_Monitor`.
+
+A file saved before the session snapshot existed carries no protocol, so no parameters resolve — `addControl`/`addButton` skip them as they already do, and the GUI opens with its data displays and no control column. See [epsych_ReviewSession.md](../epsych/epsych_ReviewSession.md).
+
 ## Utilities
 
 - `gui.BehaviorGUI.classifyParameters(params)` — static; splits an `hw.Parameter` array into trigger-style, writable, and read-only visible groups using the standard rules (`isTrigger` or `~`/`!` name prefix marks a trigger). This is what `ep_GenericGUI` uses to auto-build itself.

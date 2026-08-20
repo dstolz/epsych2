@@ -4,7 +4,7 @@ The self-test is a pre-flight check for a session. It runs real checks against w
 
 The problem it solves: almost every way a session can fail is only discovered once the session has started. A protocol missing a trigger parameter aborts inside the timer's start callback. An unwritable data directory trips an assertion after the hardware has already gone into run mode. A custom trial selector with a bug throws in the middle of the trial loop. The self-test moves those discoveries to before you press **Run**.
 
-Open it from **Help → Run Self-Test...** (`Ctrl+D`).
+Open it from **Help → Diagnostics → Run Self-Test...** (`Ctrl+D`).
 
 > 🔑 **These are real checks against what is actually loaded, not a static lint.** The self-test compiles protocols, drives the trial selector, and writes and reads back probe files — which is what lets it move failure discovery to *before* you press **Run** rather than partway through a session with an animal in the box.
 

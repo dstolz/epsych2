@@ -12,6 +12,7 @@ classdef Runtime < handle & dynamicprops
     %   S           - Software interface object(s)
     %   EVENTS      - Event broadcaster (epsych.EventHub)
     %   TIMER       - Timer object for runtime services
+    %   ReviewMode  - True when replaying a finished session (epsych.ReviewSession)
     %
     % Key methods:
     %   Runtime                    - Construct an empty runtime container
@@ -33,6 +34,16 @@ classdef Runtime < handle & dynamicprops
 
     properties
         isTest (1,1) logical = false % True if data is being generated for a test run
+
+        % True when this runtime is replaying a finished session rather than
+        % running one (epsych.ReviewSession). It suppresses the one-shot trial
+        % dispatch in set.TRIALS -- a review must not write parameters or fire
+        % triggers -- and it is the flag a behavior GUI consults before doing
+        % anything that drives the rig. Paradigm GUIs that run their own timer
+        % and hand trials back (examples/two_afc, examples/first_experiment,
+        % examples/syringepump) MUST check it; the base class cannot stand them
+        % down for them. See gui.BehaviorGUI.ReviewMode.
+        ReviewMode (1,1) logical = false
 
         HWinUse (1,:) string % List of hardware in use (string array)
 
@@ -133,6 +144,16 @@ classdef Runtime < handle & dynamicprops
                     continue
                 end
 
+                if self.ReviewMode
+                    % A review attaches hw.Replay backends, which are never
+                    % connected to anything. Announcing a connection here would
+                    % put a line in the log that reads exactly like a rig
+                    % coming up.
+                    vprintf(2,'Attaching replay backend: %s', class(p))
+                    p.Runtime = self;
+                    continue
+                end
+
                 vprintf(0,'Connecting to hardware interface: %s', class(p))
 
                 if ~p.IsConnected
@@ -159,13 +180,27 @@ classdef Runtime < handle & dynamicprops
             % populated by ep_TimerFcn_Start). Later writes, such as
             % updateTrialsFromParameters syncing parameter edits mid-run,
             % must not re-trigger hardware or re-dispatch trials.
+            %
+            % A review skips it outright. dispatchNextTrial writes every
+            % writable parameter through set.Value -- which would clamp,
+            % re-evaluate expressions and re-randomize the very values being
+            % reviewed -- and fires the ResetTrig/NewTrial triggers, none of
+            % which a finished session should be made to do again. The review
+            % positions its own trials through epsych.ReviewSession.seek.
             if ~self.TRIALSInitialized_
-                for i = 1:self.NSubjects
-                    self.resolveTriggerParameters(i);
-                    self.dispatchNextTrial(i);
+                if ~self.ReviewMode
+                    for i = 1:self.NSubjects
+                        self.resolveTriggerParameters(i);
+                        self.dispatchNextTrial(i);
+                    end
+                    self.StartTime = datetime('now');
                 end
+
+                % The parameter map is wanted either way -- it is handles, not
+                % values, so building it reads no hardware -- and a review
+                % keeps the StartTime its snapshot recorded rather than the
+                % moment the file was opened.
                 self.P = self.all_parameters(asStruct=true);
-                self.StartTime = datetime('now');
                 self.TRIALSInitialized_ = true;
             end
 

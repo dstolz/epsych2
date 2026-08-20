@@ -86,8 +86,8 @@ fprintf('PASS: a second invocation reuses the open dialog\n');
 assert(strcmp(epsych.RunExpt.encodeQueryValue('a b+c'),'a%20b%2Bc'), ...
     'a space must encode as %%20 and a literal + as %%2B');
 menuLabels = string(get(findall(rx.H.figure1,'Type','uimenu'),'Text'));
-assert(any(menuLabels == "Report an Issue on GitHub..."), 'Help must offer the bug report');
-assert(any(menuLabels == "Request a Feature on GitHub..."), 'Help must offer the feature request');
+assert(any(menuLabels == "Report an Issue..."), 'Help must offer the bug report');
+assert(any(menuLabels == "Request a Feature..."), 'Help must offer the feature request');
 fprintf('PASS: query encoding is exact and both Help menu items are wired\n');
 
 shot = fullfile(tempdir,'report_issue_dialog.png');

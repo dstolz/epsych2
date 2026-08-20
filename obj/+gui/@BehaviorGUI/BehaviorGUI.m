@@ -76,6 +76,28 @@ classdef (Abstract) BehaviorGUI < handle
         RestorePopOuts (1,1) logical = false % Reopen the displays left open last session
     end
 
+    properties (Dependent, SetAccess = private)
+        % True when this GUI was opened over a finished session by
+        % epsych.ReviewSession rather than over a running one.
+        %
+        % Displays need not care: the events, the trial data and the parameter
+        % reads are all real, so a component that only shows things works
+        % unchanged. This is for the OTHER kind of subclass -- the one that
+        % drives the rig, running its own timer, writing parameters and raising
+        % x_TrialComplete_* to hand the trial back. That code must stand down in
+        % a review, and the base class cannot do it for you: it does not know
+        % which of your methods are display and which are contingency.
+        %
+        % The rule of thumb: guard anything that would still be a mistake if the
+        % hardware were switched off.
+        %
+        %   function onNewTrial(obj, ~, ~)
+        %       if obj.ReviewMode, return; end
+        %       obj.beginTrial_();
+        %   end
+        ReviewMode (1,1) logical
+    end
+
     properties (Access = private)
         Components_ (1,:) cell = {} % registered components, deleted in reverse on teardown
         ComponentNames_ (1,:) cell = {} % register names, one per Components_ entry
@@ -290,6 +312,19 @@ classdef (Abstract) BehaviorGUI < handle
             try
                 delete(src);
             catch
+            end
+        end
+
+        function tf = get.ReviewMode(obj)
+            % Read through to the runtime rather than cached, so a GUI built
+            % against a synthetic runtime (SelfTest check I6) and one built
+            % against a review both answer correctly, and neither has to be
+            % told which it is.
+            tf = false;
+            try
+                tf = isa(obj.RUNTIME, 'epsych.Runtime') && obj.RUNTIME.ReviewMode;
+            catch ME
+                vprintf(3, 'gui.BehaviorGUI: could not determine review mode (%s)', ME.message)
             end
         end
 

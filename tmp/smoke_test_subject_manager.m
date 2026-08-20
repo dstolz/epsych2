@@ -285,6 +285,19 @@ assert(~isvalid(mgr), 'The manager should close itself once everything went in')
 assert(isempty(localManager()), 'and leave no manager window behind');
 fprintf('PASS: the commit raises the session window and closes this one\n');
 
+% The button replaces rather than appends: what is ticked is the operator's
+% answer to "who is running today", and an animal left over from the previous
+% commit would follow them into the run, in a box, dispatching trials.
+gui.SubjectManager(rx);
+mgr = localManager();
+row = find(strcmp(mgr.H.table.Data(:,2), 'S003'));
+assert(isscalar(row), 'S003 should be listed to tick');
+localTick(mgr, row, true);
+mgr.addToSession();
+assert(isscalar(rx.CONFIG) && strcmp(rx.CONFIG(1).SUBJECT.Name, 'S003'), ...
+    'The checked subject should be the session''s whole list (got %d entries)', numel(rx.CONFIG));
+fprintf('PASS: a commit replaces the session subject list rather than adding to it\n');
+
 % 6. Remembered project ----------------------------------------------------
 gui.SubjectManager(rx);
 mgr = localManager();

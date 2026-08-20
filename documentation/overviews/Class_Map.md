@@ -30,6 +30,8 @@ EPsych major classes
 │  │  └─ DefaultSubject
 │  ├─ BitMask
 │  ├─ TrialJournal
+│  ├─ ReviewSession
+│  ├─ SessionSnapshot
 │  ├─ eventModeChange
 │  └─ TrialsData
 ├─ hw
@@ -38,6 +40,7 @@ EPsych major classes
 │  │  ├─ TDT_RPcox
 │  │  ├─ Intan_RHX
 │  │  ├─ VlcRecorder
+│  │  ├─ Replay
 │  │  └─ Software
 │  ├─ Module
 │  ├─ Parameter

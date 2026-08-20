@@ -67,7 +67,7 @@ try
 catch ME
     vprintf(0,1,ME);
     self.setStatus(sprintf('Failed to open %s: %s',label,ME.message), ...
-        'see Help > Open Current Error Log.');
+        'see Help > Diagnostics > Open Current Error Log.');
     return
 end
 

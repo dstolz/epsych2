@@ -171,7 +171,12 @@ classdef FirstExperimentBehaviorGUI < gui.BehaviorGUI
             end
 
             % The rig timer runs for the life of the window; its tick does
-            % nothing until a session mode change arms the first trial.
+            % nothing until a session mode change arms the first trial. A
+            % review has no rig to poll, so it never starts.
+            if obj.ReviewMode
+                return
+            end
+
             obj.RigTimer = timer( ...
                 Name = [obj.PreferenceTag '_rig'], ...
                 Period = 0.02, ...
@@ -222,6 +227,18 @@ classdef FirstExperimentBehaviorGUI < gui.BehaviorGUI
             % The rig can only run against a runtime that actually has the
             % tutorial protocol loaded; the pre-flight SelfTest opens this
             % GUI against a synthetic runtime with no parameters at all.
+            %
+            % A review is the other case where it must not run. This GUI does
+            % not merely display -- it writes parameters and raises
+            % x_TrialComplete_1 to hand the trial back -- and against a
+            % finished session that would be scoring trials nobody ran. The
+            % base class cannot decide this for a subclass, so every
+            % rig-driving GUI has to say so here. See gui.BehaviorGUI.ReviewMode.
+            if obj.ReviewMode
+                tf = false;
+                return
+            end
+
             tf = all(isfield(obj.P, {'TrialType', 'FlashDur', 'ITI', ...
                 'RespWinDelay', 'RespWinDur', 'RespCode', 'RT_ms', ...
                 'InTrial', 'x_TrialComplete_1'})) ...

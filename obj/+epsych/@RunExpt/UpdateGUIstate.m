@@ -122,7 +122,7 @@ switch state
 
     case PRGMSTATE.ERROR
         msg  = 'Session ended with an error.';
-        next = 'see Help > Open Current Error Log.';
+        next = 'see Help > Diagnostics > Open Current Error Log.';
 
     otherwise
         msg  = char(state.asString());

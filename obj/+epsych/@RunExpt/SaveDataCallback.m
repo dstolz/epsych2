@@ -27,7 +27,7 @@ try
 catch me
     vprintf(0,1,me)
     self.setStatus(sprintf('Saving data failed: %s',me.message), ...
-        'see Help > Open Current Error Log.')
+        'see Help > Diagnostics > Open Current Error Log.')
 end
 
 self.UpdateGUIstate

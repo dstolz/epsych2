@@ -169,7 +169,7 @@ disp(L.LogFile)     % where the NEXT record will land, even before one has
 ```
 
 `LogFile` names today's file whether or not anything has been written to it,
-which is what "open the current log" needs. `RunExpt`'s Help ▸ _Open Current
+which is what "open the current log" needs. `RunExpt`'s Help ▸ Diagnostics ▸ _Open Current
 Error Log_, the self-test window's _Open Log_ button, and self-test check A4
 all resolve it this way.
 

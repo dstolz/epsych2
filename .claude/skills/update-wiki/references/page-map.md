@@ -83,6 +83,13 @@ mapping from the source tree, so there is nothing to keep in sync by hand. See
 `references/class-pages.md` for the template, the diagram conventions, and the
 index markers.
 
+`Class-Reference` sits in **📄 Reference Overviews**, next to `Class-Map`, and the
+two link to each other in both directions — the map is the shape, the index is the
+directory. It is the one page in that section with no `documentation/overviews/`
+mirror, because the class pages it indexes exist only in the wiki; `Class_Map.md`
+in the code repo therefore links to it by its wiki URL, and the wiki mirror by
+`[[Class-Reference]]`. Keep both halves when either file is regenerated.
+
 ## Adding a page
 
 1. Create `Page-Name.md` in the wiki clone. The file name *is* the URL; use

@@ -211,26 +211,6 @@ assert(full.aborted && isempty(full.added), 'Box exhaustion must abort the batch
 assert(isempty(rx2.CONFIG(1).protocol_fn), 'An aborted batch must leave CONFIG untouched');
 fprintf('PASS: a bad protocol and box exhaustion each refuse the whole batch\n');
 
-% 11. Import from a config, twice -----------------------------------------
-cfg = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'tmp', 'AversiveDetectionConfig.ecfg');
-if isfile(cfg)
-    fresh = fullfile(root, 'imported.esub');
-    RI = epsych.SubjectRoster(fresh);
-    pi_ = RI.addProject('Imported');
-    r1 = RI.importFromConfig(cfg, ProjectID = pi_);
-    assert(numel(r1.imported) >= 1, 'Import should have created at least one subject');
-    n1 = numel(RI.Subjects);
-
-    r2 = RI.importFromConfig(cfg, ProjectID = pi_);
-    assert(isempty(r2.imported) && ~isempty(r2.linked), ...
-        'A second import must link, not duplicate');
-    assert(numel(RI.Subjects) == n1, 'A second import must not add records');
-    assert(~isempty(RI.Subjects(1).ImportedFrom), 'Provenance should be recorded');
-    fprintf('PASS: import links rather than duplicating on a second run\n');
-else
-    fprintf('SKIP: %s is missing; import not exercised\n', cfg);
-end
-
 % 12. Export ---------------------------------------------------------------
 T = R.exportTable();
 assert(istable(T) && height(T) > 0, 'exportTable should return a populated table');
@@ -238,10 +218,13 @@ assert(all(ismember({'Subject','Project','LastProtocol'}, T.Properties.VariableN
     'exportTable is missing expected columns');
 fprintf('PASS: exportTable flattens the roster for writetable\n');
 
-% 13. A project owns the behavior GUI ------------------------------------------
+% 13. The membership carries the behavior GUI --------------------------------
 % All three states, because each has a different failure mode: a named GUI must
 % reach FUNCS.BehaviorGUI, 'none' must clear it, and empty must leave the session's
-% own value alone rather than silently disabling the GUI.
+% own value alone rather than silently disabling the GUI. The value travels on
+% the MEMBERSHIP: stamped from the project's template at assign, so a template
+% edit alone must NOT change what an existing member commits -- pushing it takes
+% updateMembership or reapplyTemplate, and that re-stamp is asserted here too.
 delete(findall(groot,'Type','figure','Tag','RunExpt'));
 rx3 = epsych.RunExpt;
 
@@ -254,22 +237,29 @@ for i = 1:3
     bg{i} = R.addSubject(struct('Name',sprintf('BG%02d',i),'Sex','Male','Species','Mouse'));
     R.assign(bg{i}, pg);
 end
+assert(strcmp(R.findMembership(bg{1}, pg).BehaviorGUI, 'ep_GenericGUI'), ...
+    'Assign should stamp the template''s BehaviorGUI onto the membership');
 
 rep = R.assignToSession(rx3, bg(1), ProjectID = pg);
 assert(rep.ok && strcmp(rx3.FUNCS.BehaviorGUI, 'ep_GenericGUI'), ...
-    'A commit should apply the project''s behavior GUI to the session');
+    'A commit should apply the membership''s behavior GUI to the session');
 
+% A template edit does not reach an existing member until it is re-stamped.
 R.updateProject(pg, struct('BehaviorGUI', epsych.SubjectRoster.BEHAVIORGUI_NONE));
+assert(strcmp(R.findMembership(bg{2}, pg).BehaviorGUI, 'ep_GenericGUI'), ...
+    'A template edit must not propagate to an existing membership');
+R.reapplyTemplate(bg(2), pg);
 rep = R.assignToSession(rx3, bg(2), ProjectID = pg);
 assert(rep.ok && isempty(rx3.FUNCS.BehaviorGUI), ...
-    'A project set to BEHAVIORGUI_NONE should leave the session with no behavior GUI');
+    'A membership re-stamped to BEHAVIORGUI_NONE should leave the session with no behavior GUI');
 
+% updateMembership is the per-subject path to the same three states.
 rx3.FUNCS.BehaviorGUI = 'ep_GenericGUI';
-R.updateProject(pg, struct('BehaviorGUI',''));
+R.updateMembership(bg{3}, pg, struct('BehaviorGUI',''));
 rep = R.assignToSession(rx3, bg(3), ProjectID = pg);
 assert(rep.ok && strcmp(rx3.FUNCS.BehaviorGUI, 'ep_GenericGUI'), ...
-    'An empty BehaviorGUI must inherit the session default, not clear it');
-fprintf('PASS: a project applies, disables, or inherits the session behavior GUI\n');
+    'An empty BehaviorGUI must inherit the session''s value, not clear it');
+fprintf('PASS: the membership applies, disables, or inherits the session behavior GUI\n');
 
 delete(findall(groot,'Type','figure','Tag','RunExpt'));
 
@@ -336,7 +326,11 @@ memberships   = S.memberships;
 meta          = S.meta;
 projects      = rmfield(S.projects, ...
     {'Investigator','IACUCProtocol','Links','Archived', ...
-     'SavingFcn','TimerPeriod','VideoRootDir','IntanRootDir','IntanSettingsFile'});
+     'SavingFcn','TimerStartFcn','TimerRunTimeFcn','TimerStopFcn','TimerErrorFcn', ...
+     'TimerPeriod','VideoRootDir','IntanRootDir','IntanSettingsFile'});
+% A membership written before it carried session settings: strip them all.
+memberships   = rmfield(memberships, ...
+    intersect(fieldnames(memberships), epsych.SubjectRoster.SESSION_FIELDS));
 save(legacyFile, 'formatVersion', 'subjects', 'projects', 'memberships', 'meta', '-mat');
 
 Rold = epsych.SubjectRoster(legacyFile);
@@ -351,6 +345,16 @@ assert(all(cellfun(@isempty, {Rold.Projects.Links})), 'Links should default to n
 assert(all(isnan([Rold.Projects.TimerPeriod])), 'TimerPeriod should default to NaN (inherit)');
 assert(all(cellfun(@isempty, {Rold.Projects.SavingFcn})), 'SavingFcn should default to empty');
 assert(all(cellfun(@isempty, {Rold.Projects.VideoRootDir})), 'VideoRootDir should default to empty');
+assert(all(cellfun(@isempty, {Rold.Projects.TimerStartFcn})) && ...
+       all(cellfun(@isempty, {Rold.Projects.TimerRunTimeFcn})) && ...
+       all(cellfun(@isempty, {Rold.Projects.TimerStopFcn})) && ...
+       all(cellfun(@isempty, {Rold.Projects.TimerErrorFcn})), ...
+       'The timer callbacks should default to empty (inherit the built-ins)');
+% Old-shape memberships read back as all-inherit, never as an error.
+assert(all(cellfun(@isempty, {Rold.Memberships.SavingFcn})) && ...
+       all(isnan([Rold.Memberships.TimerPeriod])) && ...
+       all(cellfun(@isempty, {Rold.Memberships.BehaviorGUI})), ...
+       'An old-shape membership should normalize to all-inherit session settings');
 oldId = Rold.Projects(1).ProjectID;
 Rold.updateProject(oldId, struct('Notes','still writable'));
 assert(strcmp(epsych.SubjectRoster(legacyFile).findProject(oldId).Notes, 'still writable'), ...
@@ -694,47 +698,18 @@ assert(strcmp(rep.FilePath, [deepFile '.esub']), ...
     epsych.SubjectRoster.FILE_EXTENSION, rep.FilePath);
 assert(isfolder(fullfile(root, 'made', 'up')), ...
     'The folder should be created when the roster is chosen, not at the first save');
-assert(~rep.Existed && ~rep.Migrated, 'A fresh path should report neither existing nor migrated');
+assert(~rep.Existed, 'A fresh path should not report an existing file');
 assert(strcmp(epsych.SubjectRoster().FilePath, rep.FilePath), ...
     'The default constructor should open the file just configured');
 fprintf('PASS: choosing a roster validates the path and makes its folder\n');
 
-% N+2. The legacy per-user roster is adopted once ---------------------------
-% Read-only with respect to the operator's own data: the old file is copied,
-% never moved, and this only ever reads it. Skipped on a machine that never
-% had one.
-legacy = epsych.SubjectRoster.legacyFile();
-if isempty(legacy)
-    fprintf('SKIP: no legacy per-user roster on this machine to adopt\n');
-else
-    before = epsych.SubjectRoster(legacy);
-
-    epsych.SubjectRoster.setConfiguredFile('');
-    adopted = fullfile(root, 'adopted.esub');
-    rep = epsych.SubjectRoster.setConfiguredFile(adopted, AdoptLegacy = true);
-    assert(rep.Migrated && strcmp(rep.MigratedFrom, legacy), ...
-        'The first file chosen should adopt the legacy roster');
-    assert(isfile(legacy), 'Adoption must copy, never move: the original stays put');
-    assert(numel(epsych.SubjectRoster(adopted).Subjects) == numel(before.Subjects), ...
-        'The adopted roster should hold what the legacy one held');
-
-    % Only ever on the FIRST choice. Re-pointing a configured rig at a new
-    % empty file is a deliberate fresh start, and filling it with records from
-    % a file the operator has stopped using would be the opposite of that.
-    again = fullfile(root, 'second_choice.esub');
-    rep2 = epsych.SubjectRoster.setConfiguredFile(again, AdoptLegacy = true);
-    assert(~rep2.Migrated, 'A rig that already has a roster must not adopt the legacy one');
-    assert(~isfile(again), 'A second choice should stay empty until something is saved');
-    fprintf('PASS: the legacy per-user roster is adopted once, by copy, on the first choice\n');
-end
-
-% Off by default, so a script or a test that names a fresh roster gets one.
+% Naming a fresh roster gets a fresh roster: nothing is copied into it.
 epsych.SubjectRoster.setConfiguredFile('');
 plain = fullfile(root, 'plain.esub');
 rep = epsych.SubjectRoster.setConfiguredFile(plain);
-assert(~rep.Migrated && ~isfile(plain), ...
-    'Adoption must be opt-in; a scripted choice should gain nothing it did not ask for');
-fprintf('PASS: adoption is opt-in\n');
+assert(~rep.Existed && ~isfile(plain), ...
+    'A newly named roster should stay empty until something is saved');
+fprintf('PASS: a fresh roster starts empty\n');
 
 fprintf('\nALL SUBJECT ROSTER SMOKE TESTS PASSED\n');
 

@@ -69,8 +69,8 @@ Three things are deliberately left out of a Read All sweep:
   megabyte off the device. They are marked grey, `buffer - double-click to
   read`; naming one — by double-clicking it or selecting it — always reads it,
   and ticking **Include buffers** puts them into the sweep.
-- **Parameters whose object has been deleted**, which is what reloading a
-  config leaves behind. Rebuild the list with `Ctrl+R`.
+- **Parameters whose object has been deleted**, which is what reloading
+  protocols leaves behind (Subjects > Reload All Protocols from Disk, or the roster's Update to Latest Version). Rebuild the list with `Ctrl+R`.
 
 A read that throws is reported in the row and counted in the status line,
 which quotes the first failure; the exception itself goes to the log

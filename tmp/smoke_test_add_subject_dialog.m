@@ -1,8 +1,8 @@
 function smoke_test_add_subject_dialog()
 % smoke_test_add_subject_dialog()
 % Exercise epsych.DefaultSubject: struct construction, sex normalization,
-% the modernized entry dialog (driven programmatically via timers), the
-% ReservedNames duplicate check, and the ep_AddSubject compatibility shim.
+% the modernized entry dialog (driven programmatically via timers), and the
+% ReservedNames duplicate check.
 % Headless-safe: every GUI is closed before returning.
 %
 %   matlab -batch "cd('tmp'); smoke_test_add_subject_dialog"
@@ -61,14 +61,15 @@ assert(~isempty(out) && strcmp(out.Name,'SMOKE2'), ...
     'Dialog should reject reserved name then accept rename (got %s)', resultName(out));
 fprintf('PASS: ReservedNames blocks duplicate (case-insensitive), rename accepted\n');
 
-% 5. Edit mode + legacy shim ----------------------------------------------
+% 5. Edit mode --------------------------------------------------------------
 t = driveTimer(@(f) verifyEditThenOK(f));
-S = ep_AddSubject(struct('Name','EDITME','Sex','F','Species','Rat'), 1:4);
+obj = epsych.DefaultSubject.open(struct('Name','EDITME','Sex','F','Species','Rat'), 1:4);
 stop(t); delete(t);
-assert(isstruct(S), 'ep_AddSubject shim must return a struct');
+assert(isa(obj,'epsych.DefaultSubject'), 'open must return a subject object');
+S = obj.toStruct();
 assert(strcmp(S.Name,'EDITME') && strcmp(S.Sex,'Female'), ...
-    'Shim lost seeded fields (Name=%s, Sex=%s)', S.Name, S.Sex);
-fprintf('PASS: edit mode title + shim struct contract + F -> Female\n');
+    'Dialog lost seeded fields (Name=%s, Sex=%s)', S.Name, S.Sex);
+fprintf('PASS: edit mode title + struct seed contract + F -> Female\n');
 
 % 6. Species list migrated: new entry added, legacy sentinel dropped ------
 pl = getpref('ep_AddSubject', 'species');

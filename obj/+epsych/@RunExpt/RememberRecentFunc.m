@@ -4,13 +4,12 @@ function RememberRecentFunc(self, prefKey, name)
 % list for a Customize dialog field.
 % Inputs
 %   self (epsych.RunExpt) - Scalar RunExpt instance.
-%   prefKey (char|string) - Preference key under ep_RunExpt_FUNCS, one of
-%       'RecentSavingFcn' or 'RecentAddSubjectFcn'.
+%   prefKey (char|string) - Preference key under ep_RunExpt_FUNCS,
+%       e.g. 'RecentAddSubjectFcn'.
 % Outputs
 %   None.
 % Notes
-%   Mirrors RememberRecentConfig: prepend, case-insensitive dedupe, cap.
-%   Empty names are ignored.
+%   Prepend, case-insensitive dedupe, cap. Empty names are ignored.
 
 MAX_RECENT = 12;
 

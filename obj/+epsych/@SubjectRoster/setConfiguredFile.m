@@ -1,6 +1,5 @@
-function report = setConfiguredFile(filePath, options)
+function report = setConfiguredFile(filePath)
 % report = epsych.SubjectRoster.setConfiguredFile(filePath)
-% report = epsych.SubjectRoster.setConfiguredFile(filePath, AdoptLegacy=true)
 % Point this workstation at a roster file.
 %
 % Pass '' to clear the preference, which leaves the workstation with no roster
@@ -18,30 +17,21 @@ function report = setConfiguredFile(filePath, options)
 %              resolved against the current folder and stored absolute, since
 %              the preference outlives whatever folder MATLAB was in.
 %
-% Options:
-%   AdoptLegacy - copy the pre-2026-08-14 per-user roster into this path when
-%                 this is the FIRST file ever configured here and the target
-%                 does not exist yet (default false). Off by default so a
-%                 script or a test that names a fresh roster gets a fresh
-%                 roster; the operator-facing choosers pass true, which is what
-%                 carries an existing rig's records forward exactly once.
-%
 % Returns:
-%   report - struct with fields FilePath (the absolute path stored), Existed
-%            (the file was already there), Migrated, and MigratedFrom.
+%   report - struct with fields FilePath (the absolute path stored) and
+%            Existed (the file was already there).
 %
 % Throws:
 %   epsych:SubjectRoster:PathIsFolder
 %   epsych:SubjectRoster:FolderNotWritable
 %
-% See also: epsych.SubjectRoster.configuredFile, epsych.SubjectRoster.legacyFile,
+% See also: epsych.SubjectRoster.configuredFile,
 %   epsych.RunExpt.DefineRosterFile
 arguments
     filePath (1,:) char
-    options.AdoptLegacy (1,1) logical = false
 end
 
-report = struct('FilePath','', 'Existed',false, 'Migrated',false, 'MigratedFrom','');
+report = struct('FilePath','', 'Existed',false);
 
 filePath = strtrim(filePath);
 
@@ -52,8 +42,6 @@ if isempty(filePath)
     vprintf(1, 'Subject roster path cleared; this workstation has no roster configured.');
     return
 end
-
-wasConfigured = epsych.SubjectRoster.isConfigured();
 
 if ~localIsAbsolute(filePath)
     filePath = fullfile(pwd, filePath);
@@ -87,28 +75,6 @@ end
 
 report.FilePath = filePath;
 report.Existed  = isfile(filePath);
-
-% Adopt the old per-user file, once. Only on the very first choice: re-pointing
-% a configured rig at a new empty file is a deliberate fresh start, and quietly
-% filling it with records from a file the operator has stopped using would be
-% the opposite of what they asked for.
-if options.AdoptLegacy && ~wasConfigured && ~report.Existed
-    legacy = epsych.SubjectRoster.legacyFile();
-    if ~isempty(legacy) && ~strcmpi(legacy, filePath)
-        try
-            copyfile(legacy, filePath);
-            report.Migrated     = true;
-            report.MigratedFrom = legacy;
-            vprintf(1, 'Adopted the existing per-user roster into %s (copied from %s; the original was left in place).', ...
-                filePath, legacy);
-        catch ME
-            % Not fatal: the operator still gets the roster they named, empty.
-            vprintf(0, 1, ME);
-            vprintf(0, 1, 'The existing roster at %s could not be copied to %s; starting empty.', ...
-                legacy, filePath);
-        end
-    end
-end
 
 setpref('ep_RunExpt_Subjects', 'RosterFile', filePath);
 vprintf(1, 'Subject roster file set to: %s', filePath);

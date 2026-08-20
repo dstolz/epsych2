@@ -1,8 +1,8 @@
 function results = checkConfig(self)
 % results = checkConfig(self)
-% Verify the loaded configuration: subjects are complete, box IDs are usable,
-% names are safe to build filenames from, and each subject's protocol file is
-% still where the config says it is.
+% Verify the session's subject configuration: subjects are complete, box IDs
+% are usable, names are safe to build filenames from, and each subject's
+% protocol file is still where the session says it is.
 %
 % Returns:
 %	results	- Result struct array; see epsych.SelfTest.result.
@@ -27,7 +27,7 @@ hasSubjects = nSubjects > 0 && isfield(CONFIG, 'SUBJECT') && ~isempty(CONFIG(1).
 
 if ~hasSubjects
     results = epsych.SelfTest.result("D0_NoConfig", GROUP, "Configuration", "skip", ...
-        'No configuration is loaded; add a subject or load a .ecfg first.');
+        'The session has no subjects; add checked subjects from Subjects & Projects first.');
     return
 end
 
@@ -159,7 +159,7 @@ for i = 1:nSubjects
 
     pfn = string(CONFIG(i).protocol_fn);
     if strlength(pfn) == 0
-        embedded(end+1) = nm + ": protocol is embedded in the config only";
+        embedded(end+1) = nm + ": protocol is embedded in the session only";
     elseif isfile(pfn)
         present(end+1) = nm + ": " + pfn;
     else
@@ -169,7 +169,7 @@ end
 
 if ~isempty(missing)
     r = epsych.SelfTest.result("D4_ProtocolFiles", GROUP, "Protocol files", "fail", ...
-        sprintf('%d protocol file(s) referenced by the config do not exist.', numel(missing)), ...
+        sprintf('%d protocol file(s) referenced by the session do not exist.', numel(missing)), ...
         Detail = missing, ...
         Remedy = "Right-click the subject and use Change Protocol File..., or restore the missing file.");
 elseif ~isempty(embedded)

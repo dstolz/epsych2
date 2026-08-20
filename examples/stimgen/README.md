@@ -1,7 +1,7 @@
 # stimgen example assets
 
 These files stayed in epsych2 when `stimgen` moved to its own repository: the
-`.rcx` circuits are TDT-specific and the `.prot`/`.ecfg` files deserialize into
+`.rcx` circuits are TDT-specific and the `.eprot` files deserialize into
 `epsych.Protocol` objects, so neither is usable from a standalone `stimgen`.
 The `stimgen` documentation refers to them from
 [`stimgen_TDT_RPvds.md`](../../obj/stimgen/documentation/stimgen_TDT_RPvds.md),
@@ -11,8 +11,8 @@ but they ship only from here.
 |---|---|
 | `StimGenCircuit.rcx` | RPvds circuit for hardware-triggered stimulus playback via `stimgen.StimPlayer` |
 | `StimGenCalibration.rcx` | RPvds circuit for play-and-record speaker calibration via `stimbridge.InterfaceAdapter` |
-| `StimGen.prot` / `StimGen.ecfg` | Demo protocol and session config for the playback circuit |
-| `StimGenCal.prot` / `StimGenCal.ecfg` | Demo protocol and session config for the calibration circuit |
+| `StimGen.eprot` | Demo protocol for the playback circuit |
+| `StimGenCal.eprot` | Demo protocol for the calibration circuit |
 
 ## Parameter contracts
 

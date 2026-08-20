@@ -64,7 +64,7 @@ This is the protocol-building side of EPsych. If you are deciding trial structur
 
 ### Session control (`epsych.RunExpt`)
 
-The main GUI most users interact with during an experiment. It manages subjects, protocols, and session state, and starts and stops the experiment. Saved session configurations use `.ecfg` files so a full setup can be reloaded in one step.
+The main GUI most users interact with during an experiment. It manages subjects, protocols, and session state, and starts and stops the experiment. Sessions are assembled from the subject roster: a subject's project membership carries its protocol, box memory, and run configuration, so committing subjects is what configures the session.
 
 ### Stimulus tools (`stimgen`)
 

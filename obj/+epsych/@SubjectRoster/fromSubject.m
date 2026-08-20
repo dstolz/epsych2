@@ -14,17 +14,15 @@ function id = fromSubject(self, S, options)
 % Options:
 %   Update       - overwrite Sex/Species/Weight/Notes on an existing match
 %                  (default false)
-%   ImportedFrom - provenance stamped on newly created records only
 %
 % Returns:
 %   id - SubjectID of the found or created record.
 %
-% See also: epsych.SubjectRoster.toSubject, epsych.SubjectRoster.importFromConfig
+% See also: epsych.SubjectRoster.toSubject, epsych.SubjectRoster.addSubject
 arguments
     self
     S
     options.Update (1,1) logical = false
-    options.ImportedFrom (1,:) char = ''
 end
 
 if isa(S, 'epsych.Subject')
@@ -43,7 +41,6 @@ if ~isempty(rec)
 end
 
 seed = rmfield_(S, {'BoxID'});
-seed.ImportedFrom = options.ImportedFrom;
 id = self.addSubject(seed);
 
 end

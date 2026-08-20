@@ -40,21 +40,14 @@ self.AlwaysOnTop(ontop);
 if isequal(fn, 0), return, end
 
 try
-    % AdoptLegacy: the first file ever named here inherits whatever an older
-    % build accumulated under prefdir, so upgrading a rig does not look like
-    % losing its animals.
-    report = epsych.SubjectRoster.setConfiguredFile(fullfile(pn, fn), AdoptLegacy = true);
+    report = epsych.SubjectRoster.setConfiguredFile(fullfile(pn, fn));
 catch ME
     vprintf(0, 1, ME);
     uialert(self.H.figure1, ME.message, 'Subject Roster', 'Icon', 'error');
     return
 end
 
-if report.Migrated
-    self.setStatus(sprintf('Subject roster: %s', report.FilePath), ...
-        sprintf('the roster from %s was copied into it and left in place.', ...
-        report.MigratedFrom));
-elseif report.Existed
+if report.Existed
     self.setStatus(sprintf('Subject roster: %s', report.FilePath));
 else
     self.setStatus(sprintf('Subject roster: %s', report.FilePath), ...

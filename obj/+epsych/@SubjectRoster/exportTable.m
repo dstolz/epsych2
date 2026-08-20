@@ -13,7 +13,7 @@ function T = exportTable(self)
 % Returns:
 %   T - table ready for writetable.
 %
-% See also: epsych.SubjectRoster.importFromConfig
+% See also: writetable, epsych.SubjectRoster.toSubject
 arguments
     self
 end

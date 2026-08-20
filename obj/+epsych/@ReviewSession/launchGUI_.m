@@ -140,11 +140,8 @@ catch ME
     vprintf(3, 'epsych.ReviewSession: no open session to take a behavior GUI from (%s)', ME.message)
 end
 
-try
-    candidates{end+1} = char(string(getpref('ep_RunExpt_FUNCS', 'BehaviorGUI', '')));
-catch
-end
-
+% No preference fallback here: the behavior GUI is owned by the subject's
+% roster membership, and the retired ep_RunExpt_FUNCS floor is never written.
 candidates{end+1} = 'ep_GenericGUI';
 
 name = '';

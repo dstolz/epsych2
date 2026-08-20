@@ -23,7 +23,7 @@ if isempty(rec)
     self.PendingProject_ = '';
     self.setFilterText_('');
     self.refresh();
-    self.setStatus_(sprintf('"%s" is not in the roster. Use Import from Config... to add it.', name));
+    self.setStatus_(sprintf('"%s" is not in the roster. Use New Subject... to add it.', name));
     return
 end
 

@@ -5,10 +5,11 @@ classdef SubjectRoster < handle
     % Persistent, shareable roster of subjects organized by project.
     %
     % A roster answers "which animals exist, which study is each one in, and
-    % what did it last run" — none of which a .ecfg file records. It is the
-    % headless engine behind gui.SubjectManager: every query, mutation, and the
-    % batch commit into epsych.RunExpt.CONFIG live here, so all of it is
-    % testable with no figure open.
+    % what did it last run" — and, on each membership, the session settings
+    % that subject runs under. It is the headless engine behind
+    % gui.SubjectManager: every query, mutation, and the batch commit into
+    % epsych.RunExpt.CONFIG live here, so all of it is testable with no
+    % figure open.
     %
     % Membership is many-to-many and carries its own attributes (a per-project
     % active/retired flag and the protocol that subject last ran in that
@@ -20,10 +21,16 @@ classdef SubjectRoster < handle
     % filesystem path component (see ExptDispatch) and two projects may
     % legitimately reuse a short animal code.
     %
-    % A project also owns the behavior GUI its sessions run (BehaviorGUI): the GUI
-    % belongs to a paradigm, and a paradigm is what a project is, so it is
-    % applied by assignToSession rather than configured per rig. Alongside it
-    % sit the study's own bookkeeping — Investigator, IACUCProtocol, an
+    % The MEMBERSHIP carries the session settings a paradigm decides (the
+    % SESSION_FIELDS: behavior GUI, saving function, timer callbacks and
+    % period, data and recording roots): selecting a subject selects all
+    % config required to run it. The project holds the TEMPLATE for those
+    % settings, stamped onto the membership when a subject joins (assign) --
+    % later project edits do not reach existing members unless pushed with
+    % reapplyTemplate, and one subject diverges with updateMembership.
+    % assignToSession applies the agreed membership values to the session,
+    % never to the machine preferences. Alongside the template a project holds
+    % the study's own bookkeeping — Investigator, IACUCProtocol, an
     % Archived flag, and Links, a list of addresses for the lab notebook,
     % shared sheet, or issue tracker the study is logged in. Links are checked
     % by isSafeUrl on the way in and again in openLink, because a roster is a
@@ -56,16 +63,17 @@ classdef SubjectRoster < handle
     %   addSubject, updateSubject, deleteSubject, findSubject
     %   addProject, copyProject, updateProject, deleteProject, findProject
     %   assign, unassign, setActive         - membership
+    %   updateMembership, reapplyTemplate   - per-membership session settings
     %   subjectsInProject, projectsForSubject
     %   rememberProtocol, lastProtocol      - per-membership protocol memory
     %   protocolStatus                      - is each subject on the current protocol?
     %   updateProtocol, revertProtocol, protocolHistory
     %   toSubject, fromSubject              - the epsych.Subject seam
     %   assignToSession                     - batch commit into RunExpt.CONFIG
-    %   importFromConfig, exportTable       - migration
+    %   exportTable                         - flatten for writetable
     %
     % Static methods:
-    %   configuredFile, setConfiguredFile, isConfigured, legacyFile
+    %   configuredFile, setConfiguredFile, isConfigured
     %   newId, isNameSafe
     %   emptySubject, emptyProject, emptyMembership, emptyLink
     %   makeLink, isSafeUrl, openLink       - project links
@@ -114,10 +122,11 @@ classdef SubjectRoster < handle
 
         FILE_EXTENSION (1,:) char = '.esub'
 
-        % A project's BehaviorGUI field names the behavior GUI its sessions launch.
-        % Empty means "inherit the session default" -- the only meaning an
-        % existing roster could have -- so "launch nothing" needs a word of its
-        % own rather than a second empty.
+        % A membership's BehaviorGUI field (and the project template it is
+        % stamped from) names the behavior GUI its sessions launch. Empty means
+        % "inherit the built-in default" -- the only meaning an existing roster
+        % could have -- so "launch nothing" needs a word of its own rather than
+        % a second empty.
         BEHAVIORGUI_NONE (1,:) char = 'none'
 
         % How many earlier protocols a membership remembers. Enough to undo a
@@ -125,6 +134,15 @@ classdef SubjectRoster < handle
         % table rather than an audit log — this is a "put it back" affordance,
         % not a provenance record.
         PROTOCOL_HISTORY_LIMIT (1,1) double = 10
+
+        % The session-level settings a membership carries and a project template
+        % stamps. One list, identical field names on both records, so stamping,
+        % the commit-time mismatch check, updateMembership, and the dialogs all
+        % iterate the same constant. All char except TimerPeriod (double, NaN =
+        % inherit).
+        SESSION_FIELDS = {'DefaultDataPath','SavingFcn','BehaviorGUI','TimerPeriod', ...
+            'TimerStartFcn','TimerRunTimeFcn','TimerStopFcn','TimerErrorFcn', ...
+            'VideoRootDir','IntanRootDir','IntanSettingsFile'}
     end
 
     properties (Constant, Access = private)
@@ -187,6 +205,8 @@ classdef SubjectRoster < handle
         assign(self, subjectId, projectId)
         unassign(self, subjectId, projectId)
         setActive(self, subjectId, projectId, tf)
+        updateMembership(self, subjectId, projectId, M)
+        report = reapplyTemplate(self, subjectIds, projectId)
 
         % Queries
         recs = subjectsInProject(self, projectId, options)
@@ -205,9 +225,8 @@ classdef SubjectRoster < handle
         S  = toSubject(self, subjectId, options)
         id = fromSubject(self, S, options)
 
-        % Session commit and migration
+        % Session commit and export
         report = assignToSession(self, runExpt, subjectIds, options)
-        report = importFromConfig(self, configFile, options)
         T = exportTable(self)
 
     end
@@ -226,7 +245,6 @@ classdef SubjectRoster < handle
     methods (Static)
         f  = configuredFile()
         tf = isConfigured()
-        f  = legacyFile()
         report = setConfiguredFile(filePath, options)
         id = newId(prefix)
         [tf, why] = isNameSafe(name)
@@ -250,11 +268,9 @@ classdef SubjectRoster < handle
         m = blankMembership_()
         L = blankLink_()
         L = normalizeLinks_(links, options)
-        p = aliasBehaviorGUI_(p)
         h = blankHistory_()
         h = emptyHistory_()
         h = pushHistory_(history, file, version)
-        found = readConfigSubjects_(configFile)
     end
 
 end

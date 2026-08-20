@@ -8,9 +8,9 @@ function S = dispatchAddSubjectFcn_(self, seed, boxids, reservedNames)
 % points AddSubjectFcn at its own dialog keeps working everywhere rather than
 % only in the one path that happened to be updated.
 %
-% Two calling conventions are supported, as they always have been: the modern
-% epsych.DefaultSubject.open (which takes ReservedNames and returns an object)
-% and the legacy S = fcn(S, boxids) form returning a plain struct.
+% One calling convention: fcn(seed, boxids, 'ReservedNames', names), the
+% epsych.DefaultSubject.open signature. A custom dialog may still return a
+% plain struct rather than an epsych.Subject; both are accepted below.
 %
 % Parameters:
 %   seed          - epsych.Subject or struct to pre-fill the dialog with.
@@ -52,13 +52,8 @@ if any(strcmp(fcn, {'epsych.DefaultSubject.open', 'epsych.DefaultSubject'}))
     % The built-in dialog validates duplicates live so entered data isn't lost
     result = epsych.DefaultSubject.open(seed, boxids, 'ReservedNames', reservedNames);
 else
-    % Legacy path — seed converted for the backward-compatible signature
-    if isa(seed, 'epsych.Subject')
-        seed = seed.toStruct();
-    elseif ~isstruct(seed)
-        seed = struct();
-    end
-    result = feval(fcn, seed, boxids);
+    % A lab's custom dialog, called with the same signature as the built-in.
+    result = feval(fcn, seed, boxids, 'ReservedNames', reservedNames);
 end
 
 if isempty(result), return, end

@@ -1,8 +1,8 @@
 function buildUI(self)
 % buildUI — Create UIFigure, menus, layouts, and controls.
 % Behavior
-%   Assembles the main grid, loaded-config header, subject table, toolbar,
-%   and bottom control bar using uigridlayout and uibutton components.
+%   Assembles the main grid, subject table, toolbar, and bottom control bar
+%   using uigridlayout and uibutton components.
 % Documentation: documentation/overviews/RunExpt_GUI_Overview.md
 
 fpos = epsych.RunExpt.getSavedFigurePosition([100 100 800 400]);
@@ -29,42 +29,18 @@ self.H.figureDefaultColor = f.Color;             % restored when leaving Preview
 movegui(f,'onscreen');
 
 % ---------- Toolbar ----------
-% One-click access to the Config menu actions, subject management and data
-% saving, the Customize dialog, the Protocol Designer, the two webcam
-% controls, Always On Top, and the online wiki. The webcam tools replace
-% the former bottom-bar "Live View" button and "Record video" checkbox;
-% Add Subject, Remove Subject, and Save Data replace the former right-side
-% button stack. Config and webcam tools carry the same 'setup' tag prefix
-% as their menu items, so UpdateGUIstate disables them while a session is
-% RUNNING; Customize, Protocol Designer, and the wiki stay available in
-% every state, as their menu items do. Icons come from gui.toolbarIcon, which
-% draws them as pixel art so the toolbar ships no image files.
+% One-click access to subject management and data saving, the Customize
+% dialog, the Protocol Designer, the two webcam controls, Always On Top,
+% and the online wiki. The webcam tools replace the former bottom-bar
+% "Live View" button and "Record video" checkbox; Add Subject, Remove
+% Subject, and Save Data replace the former right-side button stack.
+% Subject and webcam tools carry the same 'setup' tag prefix as their menu
+% items, so UpdateGUIstate disables them while a session is RUNNING;
+% Customize, Protocol Designer, and the wiki stay available in every state,
+% as their menu items do. Icons come from gui.toolbarIcon, which draws them
+% as pixel art so the toolbar ships no image files.
 tb = uitoolbar(f);
 self.H.toolbar = tb;
-
-self.H.tb_browse_config = uipushtool(tb, ...
-    'Tag','setup_tb_browse_config', ...
-    'Icon',gui.toolbarIcon("browse"), ...
-    'Tooltip','Browse Configs (Ctrl+C)', ...
-    'ClickedCallback', @(~,~) self.BrowseConfigs);
-
-self.H.tb_load_config = uipushtool(tb, ...
-    'Tag','setup_tb_load_config', ...
-    'Icon',gui.toolbarIcon("load"), ...
-    'Tooltip','Load Config... (Ctrl+L)', ...
-    'ClickedCallback', @(~,~) self.LoadConfig);
-
-self.H.tb_refresh_config = uipushtool(tb, ...
-    'Tag','setup_tb_refresh_config', ...
-    'Icon',gui.toolbarIcon("refresh"), ...
-    'Tooltip','Refresh Config: reload the current config file from disk (Ctrl+R)', ...
-    'ClickedCallback', @(~,~) self.RefreshConfig);
-
-self.H.tb_save_config = uipushtool(tb, ...
-    'Tag','setup_tb_save_config', ...
-    'Icon',gui.toolbarIcon("save"), ...
-    'Tooltip','Save Config... (Ctrl+S)', ...
-    'ClickedCallback', @(~,~) self.SaveConfig);
 
 % Subject management and post-run data saving, formerly the right-side
 % button stack. Handle names and tags are unchanged from the buttons they
@@ -80,7 +56,6 @@ self.H.tb_save_config = uipushtool(tb, ...
 self.H.add_subject = uipushtool(tb, ...
     'Tag','add_subject', ...
     'Icon',gui.toolbarIcon("subjects"), ...
-    'Separator','on', ...
     'Tooltip','Subjects & Projects... (Ctrl+B)', ...
     'ClickedCallback', @(~,~) self.OpenSubjectManager);
 
@@ -89,6 +64,14 @@ self.H.setup_remove_subject = uipushtool(tb, ...
     'Icon',gui.toolbarIcon("removesubject"), ...
     'Tooltip','Remove the selected subject', ...
     'ClickedCallback', @(~,~) self.RemoveSubject);
+
+% One click to put every subject onto the freshly saved .eprot -- the
+% per-row form is the subject table's right-click Update Protocol.
+self.H.setup_tb_reload_protocols = uipushtool(tb, ...
+    'Tag','setup_tb_reload_protocols', ...
+    'Icon',gui.toolbarIcon("refresh"), ...
+    'Tooltip','Reload every subject''s protocol from disk (Ctrl+R)', ...
+    'ClickedCallback', @(~,~) self.ReloadProtocols);
 
 self.H.save_data = uipushtool(tb, ...
     'Tag','save_data', ...
@@ -158,28 +141,11 @@ self.H.tb_wiki = uipushtool(tb, ...
     'ClickedCallback', @(~,~) web(EPsychInfo.DocumentationURL,'-browser'));
 
 % Menus
-mConfig = uimenu(f,'Label','Config');
-self.H.mnu_browse_config = uimenu(mConfig,'Label','Browse &Configs...', ...
-    'Tag','setup_mnu_browse_config','MenuSelectedFcn', @(~,~) self.BrowseConfigs,'Accelerator','C');
-self.H.mnu_load_config = uimenu(mConfig,'Label','&Load Config...', ...
-    'Tag','setup_mnu_load_config','MenuSelectedFcn', @(~,~) self.LoadConfig,'Accelerator','L');
-self.H.mnu_refresh_config = uimenu(mConfig,'Label','&Refresh Config', ...
-    'Tag','setup_mnu_refresh_config','MenuSelectedFcn', @(~,~) self.RefreshConfig,'Accelerator','R');
-self.H.mnu_save_config = uimenu(mConfig,'Label','&Save Config...', ...
-    'Tag','setup_mnu_save_config','MenuSelectedFcn', @(~,~) self.SaveConfig,'Accelerator','S');
-% Recents get their own submenu rather than loose items appended to Config:
-% the entry point stays visible (with a disabled placeholder) even after the
-% seven-day window in GetRecentConfigs prunes the list to nothing.
-self.H.mnu_recent_configs = uimenu(mConfig,'Label','&Recent Configs', ...
-    'Tag','setup_mnu_recent_configs','Separator','on');
-self.H.mnu_config = mConfig;
-
-% Subjects gets its own top-level menu rather than an item under Config: the
-% roster is a different noun from the session configuration, and it is the
-% second-most-used action after Run. It does not belong under Utilities
-% either, which is documented as standalone tools -- this one writes CONFIG.
-% Note the doubled ampersand: a single '&' would make P the mnemonic and eat
-% the character.
+% Subjects is the first top-level menu: the roster is where a session is
+% assembled, and it is the second-most-used action after Run. It does not
+% belong under Utilities, which is documented as standalone tools -- this one
+% writes CONFIG. Note the doubled ampersand: a single '&' would make P the
+% mnemonic and eat the character.
 mSubjects = uimenu(f,'Label','Subjects');
 self.H.mnu_subjects = mSubjects;
 self.H.mnu_subject_manager = uimenu(mSubjects,'Label','&Subjects && Projects...', ...
@@ -188,6 +154,9 @@ self.H.mnu_subject_manager = uimenu(mSubjects,'Label','&Subjects && Projects...'
 self.H.mnu_remove_subject = uimenu(mSubjects,'Label','Remove Selected Subject', ...
     'Tag','setup_mnu_remove_subject', ...
     'MenuSelectedFcn', @(~,~) self.RemoveSubject);
+self.H.mnu_reload_protocols = uimenu(mSubjects,'Label','Reload All &Protocols from Disk', ...
+    'Tag','setup_mnu_reload_protocols','Accelerator','R', ...
+    'MenuSelectedFcn', @(~,~) self.ReloadProtocols);
 self.H.mnu_roster_file = uimenu(mSubjects,'Label','Roster File...', ...
     'Tag','setup_mnu_roster_file','Separator','on', ...
     'MenuSelectedFcn', @(~,~) self.DefineRosterFile);
@@ -369,32 +338,14 @@ uimenu(mGitHub,'Label','Report an Issue...','Separator','on','MenuSelectedFcn', 
 uimenu(mGitHub,'Label','Request a Feature...','MenuSelectedFcn', ...
     @(~,~) self.RequestFeature)
 
-self.UpdateRecentConfigsMenu
-
 % Layout
 
-g = uigridlayout(f,[4 2]);
-% Row 4 is two text lines tall so a long status message wraps instead of
+g = uigridlayout(f,[3 2]);
+% Row 3 is two text lines tall so a long status message wraps instead of
 % being clipped at the right edge.
-g.RowHeight   = {22,'1x',40,40};
+g.RowHeight   = {'1x',40,40};
 g.ColumnWidth = {'1x',100};
 g.RowSpacing = 8; g.ColumnSpacing = 8; g.Padding = [8 8 8 8];
-
-% ---------- Loaded config name (top strip) ----------
-% Which .ecfg is in effect is otherwise only visible in the transient status
-% message that LoadConfig posts, so it is lost as soon as anything else
-% reports. updateConfigLabel_ keeps this in step with CurrentConfigFile; the
-% full path lives in the tooltip because configs of the same name routinely
-% exist under different subject folders.
-self.H.config_name = uilabel(g, ...
-    'Tag','config_name', ...
-    'Text','Config: (none loaded)', ...
-    'FontWeight','bold', ...
-    'FontColor',[0.35 0.38 0.44], ...
-    'VerticalAlignment','center');
-self.H.config_name.Layout.Row = 1;
-self.H.config_name.Layout.Column = [1 2];
-self.updateConfigLabel_
 
 % ---------- Subject table (left, top) ----------
 self.H.subject_list = uitable(g, ...
@@ -409,7 +360,7 @@ self.H.subject_list = uitable(g, ...
 % Spans both columns: the former right-side button stack is gone (its
 % actions live on the toolbar and in the table's context menu), so the
 % table takes the full width. Column 2 remains for the mode indicator.
-self.H.subject_list.Layout.Row = 2;
+self.H.subject_list.Layout.Row = 1;
 self.H.subject_list.Layout.Column = [1 2];
 self.H.subject_list.SelectionChangedFcn = @(h,ev) self.subject_list_SelectionChanged(h,ev);
 
@@ -442,7 +393,7 @@ self.H.subject_list.ContextMenu = cmProtocol;
 % The webcam controls (live view toggle, record-video toggle) live on the
 % toolbar above, so the bar holds only the four transport buttons.
 gBottom = uigridlayout(g,[1 4]);
-gBottom.Layout.Row = 3; gBottom.Layout.Column = 1;
+gBottom.Layout.Row = 2; gBottom.Layout.Column = 1;
 gBottom.ColumnWidth = {'1x','1x','1x','1x'}; gBottom.RowHeight = {'1x'};
 gBottom.RowSpacing = 0; gBottom.ColumnSpacing = 8; gBottom.Padding = [0 0 0 0];
 
@@ -468,7 +419,7 @@ self.H.ctrl_halt = uibutton(gBottom,'push','Text','Stop', ...
 
 % ---------- Mode indicator in bottom-right cell ----------
 gLamp = uigridlayout(g,[1 1]);
-gLamp.Layout.Row = 3; gLamp.Layout.Column = 2;
+gLamp.Layout.Row = 2; gLamp.Layout.Column = 2;
 gLamp.RowHeight = {'1x'};
 gLamp.ColumnWidth = {'1x'};
 gLamp.Padding = [0 0 0 0];
@@ -477,7 +428,7 @@ self.H.modeIndicator = gui.ModeIndicator(gLamp);
 
 % ---------- Status bar (spans the full width, below the controls) ----------
 gStatus = uigridlayout(g,[1 2]);
-gStatus.Layout.Row = 4; gStatus.Layout.Column = [1 2];
+gStatus.Layout.Row = 3; gStatus.Layout.Column = [1 2];
 gStatus.RowHeight = {'1x'};
 gStatus.ColumnWidth = {'1x','fit'};
 gStatus.RowSpacing = 0; gStatus.ColumnSpacing = 8; gStatus.Padding = [0 0 0 0];

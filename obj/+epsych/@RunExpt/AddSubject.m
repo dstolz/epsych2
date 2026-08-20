@@ -45,7 +45,7 @@ end
 
 pn = getpref('ep_RunExpt_Setup','PDir',cd);
 if ~exist(pn,'dir'), pn = cd; end
-[fn, pn] = uigetfile({'*.eprot;*.prot','Protocol Files (*.eprot, *.prot)'; ...
+[fn, pn] = uigetfile({'*.eprot','Protocol Files (*.eprot)'; ...
     '*.*','All Files (*.*)'},'Locate Protocol', pn);
 if isequal(fn, 0), return, end
 setpref('ep_RunExpt_Setup','PDir', pn)

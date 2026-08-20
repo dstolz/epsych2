@@ -1,15 +1,13 @@
 function results = checkGui(self)
 % results = checkGui(self)
 % Check the wiring the session window depends on: the handle struct, the tag
-% conventions UpdateGUIstate drives control state from, the .ecfg
-% serialization round trip, the event broadcaster, and optionally the state
-% machine and the behavior GUI.
+% conventions UpdateGUIstate drives control state from, the event
+% broadcaster, and optionally the state machine and the behavior GUI.
 %
 % Returns:
 %	results	- Result struct array; see epsych.SelfTest.result.
 %
-% See also: epsych.SelfTest.run, epsych.RunExpt.UpdateGUIstate,
-%   epsych.RunExpt.SaveConfig, epsych.RunExpt.LoadConfig
+% See also: epsych.SelfTest.run, epsych.RunExpt.UpdateGUIstate
 arguments
     self
 end
@@ -98,14 +96,6 @@ elseif isRunning
 else
     r = localStateCycle(rx, GROUP);
 end
-results = [results epsych.SelfTest.withTime(r, toc(t))];
-
-% --- I4: config serialization round trip --------------------------------
-% SaveConfig flattens Protocol and Subject objects to structs and LoadConfig
-% rebuilds them. This is the most fragile path in the class and nothing else
-% exercises it.
-t = tic;
-r = localConfigRoundTrip(rx, GROUP);
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 
 % --- I5: event broadcaster ----------------------------------------------
@@ -203,151 +193,6 @@ else
         Detail = [problems detail], ...
         Remedy = "UpdateGUIstate and buildUI have diverged; controls will be enabled at the wrong times.", ...
         Mutating = true);
-end
-end
-
-% -----------------------------------------------------------------------
-function r = localConfigRoundTrip(rx, group)
-% Serialize CONFIG the way SaveConfig does, rehydrate it the way LoadConfig
-% does, and compare. Writes to a temporary file which is always removed.
-CONFIG = rx.CONFIG;
-if isempty(CONFIG) || ~isfield(CONFIG,'SUBJECT') || ~isa(CONFIG(1).SUBJECT,'epsych.Subject')
-    r = epsych.SelfTest.result("I4_ConfigRoundTrip", group, "Config round trip", "skip", ...
-        'No configuration is loaded.');
-    return
-end
-
-ffn = fullfile(tempdir, sprintf('epsych_selftest_%s.ecfg', ...
-    char(datetime('now', Format='yyMMddHHmmssSSS'))));
-cleanupFile = onCleanup(@() localDeleteFile(ffn));
-
-problems = strings(1,0);
-detail   = strings(1,0);
-
-try
-    % --- serialize (mirrors SaveConfig)
-    config = CONFIG;
-    for i = 1:numel(config)
-        if isa(config(i).PROTOCOL, 'epsych.Protocol') && isvalid(config(i).PROTOCOL)
-            config(i).PROTOCOL = config(i).PROTOCOL.toStruct();
-        end
-        if isa(config(i).SUBJECT, 'epsych.Subject')
-            config(i).SUBJECT = config(i).SUBJECT.toStruct();
-        end
-    end
-    funcs = rx.FUNCS;
-    save(ffn, 'config', 'funcs', '-mat');
-
-    % --- rehydrate (mirrors LoadConfig)
-    warning('off','MATLAB:dispatcher:UnresolvedFunctionHandle');
-    S = load(ffn, '-mat');
-    warning('on','MATLAB:dispatcher:UnresolvedFunctionHandle');
-
-    restored = S.config;
-    for i = 1:numel(restored)
-        ps = restored(i).PROTOCOL;
-        if isstruct(ps) && isfield(ps, 'formatVersion')
-            P = epsych.Protocol();
-            P.fromStruct(ps);
-            restored(i).PROTOCOL = P;
-        end
-        ss = restored(i).SUBJECT;
-        if isstruct(ss) && isfield(ss, 'Name')
-            restored(i).SUBJECT = epsych.DefaultSubject(ss);
-        end
-    end
-
-    % --- compare
-    if numel(restored) ~= numel(CONFIG)
-        problems(end+1) = sprintf("Subject count changed: %d -> %d", numel(CONFIG), numel(restored));
-    end
-
-    for i = 1:min(numel(restored), numel(CONFIG))
-        problems = [problems localCompareSubject(CONFIG(i).SUBJECT, restored(i).SUBJECT, i)];
-        problems = [problems localCompareProtocol(CONFIG(i).PROTOCOL, restored(i).PROTOCOL, i)];
-        detail(end+1) = sprintf("Subject %d (%s): compared", i, string(CONFIG(i).SUBJECT.Name));
-    end
-catch ME
-    problems(end+1) = "Round trip threw: " + string(ME.message);
-end
-
-if isempty(problems)
-    r = epsych.SelfTest.result("I4_ConfigRoundTrip", group, "Config round trip", "pass", ...
-        sprintf('%d subject(s) and their protocols survive save/load unchanged.', numel(CONFIG)), ...
-        Detail = detail);
-else
-    r = epsych.SelfTest.result("I4_ConfigRoundTrip", group, "Config round trip", "fail", ...
-        sprintf('%d difference(s) after a save/load round trip.', numel(problems)), ...
-        Detail = [problems detail], ...
-        Remedy = "Saving this configuration would lose or alter data. Do not rely on the .ecfg until this is fixed.");
-end
-end
-
-% -----------------------------------------------------------------------
-function problems = localCompareSubject(before, after, idx)
-% Compare all six persisted Subject fields.
-problems = strings(1,0);
-if ~isa(after, 'epsych.Subject')
-    problems(end+1) = sprintf("Subject %d did not rehydrate into an epsych.Subject.", idx);
-    return
-end
-
-for f = ["BoxID","Name","Sex","Species","Weight","Notes"]
-    a = before.(f);
-    b = after.(f);
-    if isnumeric(a) && isnumeric(b)
-        same = isequaln(a, b);
-    else
-        same = isequal(string(a), string(b));
-    end
-    if ~same
-        problems(end+1) = sprintf("Subject %d field %s changed: '%s' -> '%s'", ...
-            idx, f, string(a), string(b));
-    end
-end
-end
-
-% -----------------------------------------------------------------------
-function problems = localCompareProtocol(before, after, idx)
-% Compare interface and parameter structure across the round trip.
-problems = strings(1,0);
-if ~isa(before, 'epsych.Protocol')
-    return
-end
-if ~isa(after, 'epsych.Protocol')
-    problems(end+1) = sprintf("Protocol %d did not rehydrate into an epsych.Protocol.", idx);
-    return
-end
-
-if numel(before.Interfaces) ~= numel(after.Interfaces)
-    problems(end+1) = sprintf("Protocol %d interface count changed: %d -> %d", ...
-        idx, numel(before.Interfaces), numel(after.Interfaces));
-    return
-end
-
-for k = 1:numel(before.Interfaces)
-    nBefore = localParamNames(before.Interfaces(k));
-    nAfter  = localParamNames(after.Interfaces(k));
-
-    lost = setdiff(nBefore, nAfter);
-    if ~isempty(lost)
-        problems(end+1) = sprintf("Protocol %d interface %s lost parameter(s): %s", ...
-            idx, string(before.Interfaces(k).Type), strjoin(string(lost), ", "));
-    end
-end
-
-if ~isequal(before.Options, after.Options)
-    problems(end+1) = sprintf("Protocol %d Options changed across the round trip.", idx);
-end
-end
-
-% -----------------------------------------------------------------------
-function names = localParamNames(iface)
-% Sorted parameter names on one interface, tolerating an empty module list.
-names = {};
-P = iface.all_parameters(includeInvisible=true, includeTriggers=true);
-if ~isempty(P)
-    names = sort({P.Name});
 end
 end
 
@@ -492,10 +337,3 @@ for i = 1:numel(figs)
 end
 end
 
-% -----------------------------------------------------------------------
-function localDeleteFile(ffn)
-% Remove a temporary file if it was created.
-if isfile(ffn)
-    delete(ffn);
-end
-end

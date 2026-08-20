@@ -54,7 +54,7 @@ P = hw.Parameter.empty(1,0);
 
 % If filepath is not provided or invalid, prompt user to select file
 if filepath == "" || ~isfile(filepath)
-    [fn,pth] = uigetfile({'*.eprot;*.prot;*.json','Phase Files (*.eprot, *.prot, *.json)'; ...
+    [fn,pth] = uigetfile({'*.eprot;*.json','Phase Files (*.eprot, *.json)'; ...
         '*.*','All Files (*.*)'}, 'Select Phase File to Load Parameters');
     if isequal(fn,0) || isequal(pth,0)
         vprintf(3,'User canceled load operation.')

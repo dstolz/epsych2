@@ -158,7 +158,7 @@ deliberately pins which item is used):
 - `normalizeConstantExpressions` (public, called by `openProtocolFile` and the file-path
   constructor) converts constants in protocols saved by older designer versions, reports the
   converted names in the status bar, and marks the protocol modified so the healed state gets
-  saved. Files the designer cannot open (`.ecfg` embedded protocols, phase snapshots) must be
+  saved. Files the designer cannot open (embedded protocol structs, phase snapshots) must be
   healed externally or re-saved from a healed session.
 
 Headless coverage: `tmp/smoke_test_designer_constant_expression.m`.

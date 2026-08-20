@@ -1,8 +1,10 @@
 function onCloseRequest(self)
 % onCloseRequest — Graceful shutdown of running experiment and UI.
 % Behavior
-%   Warns if running, stops/deletes timers, resets functions to
-%   preferences, and deletes the main figure.
+%   Warns if running, stops/deletes timers, releases hardware, and deletes
+%   the main figure. Nothing is written to the machine preferences: the
+%   session's FUNCS came from the subjects' memberships, and persisting them
+%   here would turn one study's settings into the rig's defaults.
 arguments
     self
 end
@@ -60,8 +62,6 @@ if ~isempty(self.VlcRecorder_) && isvalid(self.VlcRecorder_)
     catch
     end
 end
-
-self.SetDefaultFuncs(self.FUNCS)
 
 % Closing the session GUI is the one moment the session is known to be over,
 % and the point at which the operator is most likely to go and read the log.

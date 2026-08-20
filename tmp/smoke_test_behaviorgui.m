@@ -150,18 +150,6 @@ assert(cFloat.h_uiobj.Value == pFloat.Min, ...
 delete(cBool); delete(cFloat); delete(figU); delete(swU);
 fprintf('PASS: controls over unseeded parameters\n');
 
-% 10. The deprecated gui.BoxGUI shim --------------------------------------
-% A lab's own GUI outside this repository still says "< gui.BoxGUI". It has
-% to construct, inherit the base behavior, and reach the statics, since
-% those are called as gui.BoxGUI.saveFigurePosition in code we do not own.
-gL = LegacyShimGUI(rt);
-assert(isa(gL,'gui.BehaviorGUI'), 'the shim must be a gui.BehaviorGUI');
-assert(isvalid(gL.h_figure), 'a gui.BoxGUI subclass should still open');
-assert(isequal(gui.BoxGUI.getSavedFigurePosition('noSuchTag',[1 2 3 4]), [1 2 3 4]), ...
-    'statics should resolve through the deprecated name');
-delete(gL);
-fprintf('PASS: deprecated gui.BoxGUI subclass still constructs\n');
-
 fprintf('smoke_test_behaviorgui: ALL PASS\n');
 end
 

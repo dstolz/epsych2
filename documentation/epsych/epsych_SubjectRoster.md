@@ -25,9 +25,9 @@ Membership is many-to-many — one animal can be in several studies — **and** 
 
 | Array | Holds |
 |---|---|
-| `Subjects` | `SubjectID`, `Name`, `Sex`, `Species`, `Weight`, `Notes`, `NameHistory`, `Retired`, `ImportedFrom`, `Created`, `Modified` |
-| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `SavingFcn`, `TimerPeriod`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `BehaviorGUI`, `Links`, `Archived`, `Created`, `Modified` |
-| `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastProtocolVersion`, `LastBoxID`, `ProtocolHistory`, `Added`, `Modified` |
+| `Subjects` | `SubjectID`, `Name`, `Sex`, `Species`, `Weight`, `Notes`, `NameHistory`, `Retired`, `Created`, `Modified` |
+| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `SavingFcn`, `TimerStartFcn`, `TimerRunTimeFcn`, `TimerStopFcn`, `TimerErrorFcn`, `TimerPeriod`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `BehaviorGUI`, `Links`, `Archived`, `Created`, `Modified` |
+| `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastProtocolVersion`, `LastBoxID`, `ProtocolHistory`, the session settings stamped from the project's template (`DefaultDataPath`, `SavingFcn`, `BehaviorGUI`, `TimerPeriod`, `TimerStartFcn`, `TimerRunTimeFcn`, `TimerStopFcn`, `TimerErrorFcn`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile` — see `SESSION_FIELDS`), `Added`, `Modified` |
 
 `Active` is the per-project archive flag. `setActive(s, p, false)` retires a subject from **that project only**; it stays active everywhere else and keeps its protocol memory, which is what makes retiring reversible in one click and `deleteSubject` a last resort.
 
@@ -41,39 +41,42 @@ S = R.toSubject(subjectId, BoxID=4);   % an epsych.DefaultSubject
 
 This is why `epsych.Subject` needs no subclassing and its `isValid()` contract (`BoxID >= 1`) is never violated by a roster record. `fromSubject` is the reverse, and drops the box.
 
-### A project owns the session settings
+### The membership carries the session settings; the project is its template
 
-What a paradigm decides is a project field, not a per-rig preference. These used to be RunExpt's **Customize** dialog, which meant every rig running two paradigms had to be re-pointed by hand between sessions, and a rig set up for one study silently ran the other with the wrong saving function, timer period, or recording root. What is left in Customize is what genuinely describes the machine: the config browser root, the log path and viewer, the roster file, the add-subject dialog, and the rig's default data path.
+What a paradigm decides rides the **subject's membership**, not a per-rig preference: *selecting a subject selects all config required to run it*. These settings used to be RunExpt's **Customize** dialog, which meant every rig running two paradigms had to be re-pointed by hand between sessions, and a rig set up for one study silently ran the other with the wrong saving function, timer period, or recording root. What is left in Customize is what genuinely describes the machine: the log path and viewer, the roster file, the add-subject dialog, and the rig's default data path.
 
-`assignToSession` applies them, after the subjects are committed:
+The project's Session Defaults are a **template**: `assign` stamps them verbatim onto the membership when a subject joins, and later project edits do **not** reach existing members. `reapplyTemplate` is the deliberate push (the manager's *Re-apply Project Template to Checked*), and `updateMembership` is how one subject deliberately diverges (the manager's *Session Settings...*). `copyProject`'s member copies are stamped from the **new** project's template, never from the source memberships, so a study's next phase starts on agreed settings.
 
-| Project field | Applied to | Notes |
+`assignToSession` resolves each planned subject's membership **before any side effect** and refuses the whole batch when the chosen memberships disagree on a session-level field (`report.aborted`, with a machine-readable `report.mismatch` naming the field, the values, and who carries which). The manager's **Settings** column shows `template` or `edited` per row, so the refusal is predictable before the click. Once the batch agrees, any one membership speaks for all, and its values land on the session:
+
+| Membership field | Applied to | Notes |
 |---|---|---|
 | `DefaultDataPath` | `RunExpt.DefaultDataPath` | The root every subject folder is created under. |
 | `SavingFcn` | `RunExpt.FUNCS.SavingFcn` | `SaveFcn(RUNTIME)`; logged at level 0 if it is not on the path. |
-| `TimerPeriod` | `RunExpt.FUNCS.TimerPeriod` | `NaN` inherits. Read by `CreateTimer` at run start, so applying it here is enough. |
+| `TimerStartFcn` … `TimerErrorFcn` | `RunExpt.FUNCS.TIMERfcn.*` | The trial loop itself; `''` runs the `ep_TimerFcn_*` built-ins. A custom loop travels with the study. |
+| `TimerPeriod` | `RunExpt.FUNCS.TimerPeriod` | `NaN` inherits the built-in 0.01 s. Read by `CreateTimer` at run start, so applying it here is enough. |
 | `VideoRootDir` | `RunExpt.PATHS.VideoRootDir` | Empty still falls back to the data path. |
 | `IntanRootDir` | `RunExpt.PATHS.IntanRootDir` | Logged at level 0 if it contains spaces, which RHX cannot express. |
 | `IntanSettingsFile` | `RunExpt.PATHS.IntanSettingsFile` | A protocol that names its own settings file still wins over this. |
 | `BehaviorGUI` | `RunExpt.FUNCS.BehaviorGUI` | Three states; see below. |
 
-Two rules hold across all of them. **Empty is "inherit"** — a project that does not name a field leaves the session's value alone, which is the only meaning a roster written before these fields existed can have. And **nothing is written back to the machine's preferences**: a session follows the study it is running, and the next session without a project gets the rig's own values back. `RunExpt.PATHS` exists for exactly that reason — the recording roots used to be read from `getpref` at the moment of use, which left a project no way to override them for one session only.
+Two rules hold across all of them. **Empty is "inherit the built-in default"** (`ep_SaveDataFcn`, `ep_GenericGUI`, the `ep_TimerFcn_*` callbacks, 0.01 s) — the only meaning a roster written before these fields existed can have, and deterministic for the first time: there is no rig-local preference layer underneath anymore. And **nothing is written back to the machine's preferences**: a session follows the study it is running, and the next session starts from the built-ins again. `RunExpt.PATHS` exists for exactly that reason — the recording roots used to be read from `getpref` at the moment of use, which left a study no way to override them for one session only.
 
-[`gui.SubjectManager`](../gui/gui_SubjectManager.md#the-project-dialog)'s project dialog fills every one of these in before the operator sees it, so a project created there is never partly empty.
+[`gui.SubjectManager`](../gui/gui_SubjectManager.md#the-project-dialog)'s dialogs fill every one of these in before the operator sees it and refuse blanks on OK, so a template or membership written there is never partly empty; the all-inherit state can arise only from scripts and rosters written before the fields existed.
 
 #### The behavior GUI, in three states
 
-Committing a project's subjects is what puts that project's GUI on the session's `FUNCS.BehaviorGUI`. Three states, because "inherit" and "launch nothing" are different answers:
+Committing a subject is what puts its membership's GUI on the session's `FUNCS.BehaviorGUI`. Three states, because "inherit" and "launch nothing" are different answers:
 
 | `BehaviorGUI` | Effect on `FUNCS.BehaviorGUI` |
 |---|---|
-| `''` | Untouched — the session keeps whatever it has (`ep_GenericGUI` unless a `.ecfg` or a script says otherwise). The only meaning an existing roster could have, so old files behave exactly as before. |
+| `''` | Untouched — the session keeps whatever it has (`ep_GenericGUI` unless a script says otherwise). The only meaning an existing roster could have, so old files behave exactly as before. |
 | `epsych.SubjectRoster.BEHAVIORGUI_NONE` (`'none'`) | Cleared: the session runs with no behavior GUI. |
 | anything else | Set to that name; `epsych.RunExpt.PsychTimerStart` will `feval` it with `RUNTIME`. |
 
 A name that is not on the path is still applied — it is the operator's stated intent, and a lab that adds its GUI to the path later would be badly served by having it silently dropped — but it is logged at level 0 when committed, rather than surfacing as a failure at run start.
 
-Nothing here is per-subject: `epsych.RunExpt` launches exactly one behavior GUI per session (see `plans/multi-subject-support.md`), so committing two projects into one session leaves the last one's GUI in place.
+`epsych.RunExpt` launches exactly one behavior GUI per session (see `plans/multi-subject-support.md`); the mismatch refusal is what keeps a multi-subject commit from carrying two answers to that question.
 
 ### The study's own bookkeeping
 
@@ -83,7 +86,7 @@ Nothing here is per-subject: `epsych.RunExpt` launches exactly one behavior GUI 
 
 ### Copying a project
 
-A study's second phase, a replication, a sister experiment on the next rig: each wants the eleven fields above set exactly as they are on a project that already runs. `copyProject` mints a new project carrying all of them, and takes overrides in the same call so nothing has to be written twice.
+A study's second phase, a replication, a sister experiment on the next rig: each wants the template fields above set exactly as they are on a project that already runs. `copyProject` mints a new project carrying all of them, and takes overrides in the same call so nothing has to be written twice.
 
 ```matlab
 p2 = R.copyProject('Tone Detection', 'Tone Detection Phase 2', ...
@@ -140,7 +143,7 @@ Validation is **on the way in only**: `addProject` and `updateProject` refuse an
 
 `-mat`, extension **`.esub`**, holding `formatVersion`, `subjects`, `projects`, `memberships`, `meta`.
 
-MAT rather than JSON for one decisive reason: `jsonencode(NaN)` emits `null` and `jsondecode` returns `[]`, which would silently destroy `Weight = NaN` — the documented "not measured" value. `datetime` also round-trips natively, and `.ecfg`/`.eprot`/`.epj` are all `-mat` already. For a readable copy use `File > Export CSV...` (`exportTable` + `writetable`); the CSV is a one-way snapshot, never re-imported, because a round trip through a spreadsheet mangles both `NaN` and datetimes.
+MAT rather than JSON for one decisive reason: `jsonencode(NaN)` emits `null` and `jsondecode` returns `[]`, which would silently destroy `Weight = NaN` — the documented "not measured" value. `datetime` also round-trips natively, and `.eprot`/`.epj` are `-mat` already. For a readable copy use `File > Export CSV...` (`exportTable` + `writetable`); the CSV is a one-way snapshot, never re-imported, because a round trip through a spreadsheet mangles both `NaN` and datetimes.
 
 `formatVersion` is a gate, not a label: a file written by a newer build opens **read-only**, so this build cannot save it back having dropped fields it does not know about.
 
@@ -164,17 +167,9 @@ Older builds fell back to `<prefdir>/epsych/subjects.esub`. That was the wrong p
 
 ### Who asks, and when
 
-[`gui.SubjectManager`](../gui/gui_SubjectManager.md) opens fine with no file chosen — browsing is harmless, so it explains itself and waits. The demand comes from `ensureRoster_` at the **first action that would write something**: New Project, New Subject, or Import. That prompt is a loop with two exits, choosing a file or closing the window; "carry on without one" is not offered, because it would mean filling in a record with nowhere to save it.
+[`gui.SubjectManager`](../gui/gui_SubjectManager.md) opens fine with no file chosen — browsing is harmless, so it explains itself and waits. The demand comes from `ensureRoster_` at the **first action that would write something**: New Project or New Subject. That prompt is a loop with two exits, choosing a file or closing the window; "carry on without one" is not offered, because it would mean filling in a record with nowhere to save it.
 
 A file can also be named ahead of time, from `Subjects > Roster File...` or the Paths tab of Customize. The file itself need not exist: naming a new shared roster before there is anything to put in it is the normal way to start one.
-
-### Adopting the old per-user file
-
-The **first** file ever chosen through an operator-facing chooser adopts whatever an older build left under `prefdir`, so upgrading a rig does not look like losing its animals. `legacyFile` searches the current `prefdir` **and its sibling release folders**, newest first — the roster built under R2024a is exactly the one worth keeping when the rig moves to R2024b.
-
-It is a **copy**: the original is left in place as a backup, and nothing is ever moved or deleted. It happens once, guarded on *no roster having been configured before* — re-pointing a working rig at a new empty file is a deliberate fresh start, and filling it from a file the operator has stopped using would be the opposite of what they asked for.
-
-Adoption is opt-in at the call site (`setConfiguredFile(path, AdoptLegacy=true)`), so a script or a test that names a fresh roster gets a fresh roster. The choosers pass it; typing a path into Customize does not.
 
 ### What `setConfiguredFile` checks
 
@@ -275,7 +270,7 @@ There is no archive to fall back on, and inventing one would mean copying every 
 
 ### Format compatibility
 
-`LastProtocolVersion` and `ProtocolHistory` are **additive**, so `FORMAT_VERSION` stays at 1. `normalize_` fills them in from the template when an older file is read, and a rig on an older build that writes the file back drops them — losing a version memory that the next commit re-records, rather than losing data. Bumping the format instead would open every new file **read-only** on every rig that had not been updated, which for a shared network roster is much the worse failure.
+`LastProtocolVersion`, `ProtocolHistory`, the four project `Timer*Fcn` template fields, and the membership `SESSION_FIELDS` are all **additive**, so `FORMAT_VERSION` stays at 1: an older file's missing fields normalize to "inherit the built-in default", which is exactly what that file meant. `normalize_` fills them in from the template when an older file is read, and a rig on an older build that writes the file back drops them — losing a version memory that the next commit re-records, rather than losing data. Bumping the format instead would open every new file **read-only** on every rig that had not been updated, which for a shared network roster is much the worse failure.
 
 The same reasoning covers `Investigator`, `IACUCProtocol`, `Links`, and `Archived`. This is why every default in `blankProject_` has to mean *what an older file implicitly meant*: no investigator, no links, and not archived are all correct readings of a roster written before those fields existed — exactly as `BehaviorGUI = ''` means "inherit". A default that changed behaviour would silently rewrite the past on first read.
 
@@ -314,16 +309,6 @@ Default `false` — appending is what a script asking for one more subject means
 
 ---
 
-## Importing from existing configs
-
-`importFromConfig(configFile, ProjectID=..., Actions=...)` reads a `.ecfg` for subject structs and `protocol_fn` only — no `epsych.Protocol` is reconstructed, so it opens a colleague's config whose hardware backend this rig does not have.
-
-Import is **offered, never automatic**, and never overwrites: an existing name defaults to `Link`, and the alternatives are `Import` and `Skip`, never merge-and-clobber. Provenance goes in `ImportedFrom`, never in operator `Notes`. `.ecfg` files are never rewritten.
-
-`epsych.RunExpt.LoadConfig` only *mentions* unrostered subjects, in the status line's next-step half — a modal on every load would be intolerable on a rig that loads the same config every morning.
-
----
-
 ## Preferences
 
 Group **`ep_RunExpt_Subjects`**:
@@ -343,7 +328,7 @@ Group **`ep_RunExpt_Subjects`**:
 matlab -batch "cd('tmp'); smoke_test_subject_roster"
 ```
 
-Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, a repeated import linking rather than duplicating, and all three `BehaviorGUI` states reaching `FUNCS.BehaviorGUI` (applied, cleared, inherited).
+Covers the file round trip (including that a `NaN` weight stays `NaN`), many-to-many membership, per-project retire, the protocol fallback chain, the rename block, two rosters writing one file concurrently, an unwritable target leaving the good file byte-identical, the `BoxID` seam, the batch commit passing self-test group D, both all-or-nothing refusals, and all three `BehaviorGUI` states reaching `FUNCS.BehaviorGUI` (applied via the membership, cleared, inherited).
 
 Protocol versions get their own section, driven by real `epsych.Protocol.save` calls rather than hand-written version strings: a fresh subject reads `unknown`, a recorded one `current`, one whose file was saved again `outdated`; `updateProtocol` clears it and the record survives a reload; a superseded same-file entry reports `Recoverable = false` while a revert between two distinct files is exact and leaves the restored entry out of the history rather than in it twice.
 

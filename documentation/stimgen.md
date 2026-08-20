@@ -65,9 +65,9 @@ none is supplied.
 
 ## Example assets
 
-The demo protocol, config, and TDT circuit files that used to sit inside the
+The demo protocol and TDT circuit files that used to sit inside the
 package are in [`examples/stimgen/`](../examples/stimgen/). They stayed in this
-repository because the `.prot`/`.ecfg` files deserialize into `epsych.Protocol`
+repository because the `.eprot` files deserialize into `epsych.Protocol`
 objects and the `.rcx` files are TDT-specific — neither is usable from a
 standalone `stimgen`. See [`examples/stimgen/README.md`](../examples/stimgen/README.md)
 for the circuit parameter contracts.

@@ -4,14 +4,14 @@ function recent = GetRecentFuncs(self, prefKey)
 % dialog field, pruning entries that no longer resolve on the path.
 % Inputs
 %   self (epsych.RunExpt) - Scalar RunExpt instance.
-%   prefKey (char|string) - Preference key under ep_RunExpt_FUNCS, one of
-%       'RecentSavingFcn' or 'RecentAddSubjectFcn'.
+%   prefKey (char|string) - Preference key under ep_RunExpt_FUNCS,
+%       e.g. 'RecentAddSubjectFcn'.
 % Outputs
 %   recent (1,:) cell - Row cell array of resolvable function names,
 %       most-recent-first.
 % Notes
-%   Mirrors GetRecentConfigs: normalizes stored values, prunes unresolvable
-%   entries, and re-persists the cleaned list when it changes.
+%   Normalizes stored values, prunes unresolvable entries, and re-persists
+%   the cleaned list when it changes.
 
 if ~isscalar(self)
     recent = {};

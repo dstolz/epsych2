@@ -12,7 +12,7 @@ function files = scan(obj)
 % 'pending'.
 %
 % Returns string.empty(0,1) when RootFolder is unset, missing, or no
-% files match -- matching the epsych.RunExpt.FindConfigFiles contract.
+% files match, so callers can iterate the result without guarding.
 arguments
     obj (1,1) util.VideoConverter
 end

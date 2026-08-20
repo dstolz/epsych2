@@ -96,7 +96,7 @@ Rules that matter:
 ### High-Level Flow: From Protocol to Runtime
 
 1. **Protocol Design**: User creates experiment via epsych.ProtocolDesigner GUI, defines hardware interfaces, parameters, and trial options, saves as .eprot file
-2. **Configuration**: epsych.RunExpt loads protocol, adds subjects, selects hardware backend
+2. **Session assembly**: epsych.RunExpt commits subjects from the roster; each membership carries its protocol, box memory, and session settings
 3. **Runtime Setup**: epsych.Runtime creates hardware connections, compiles trials, initializes event system
 4. **Execution**: MATLAB timer fires callbacks: ep_TimerFcn_Start -> ep_TimerFcn_RunTime (repeated) -> ep_TimerFcn_Stop
 5. **Data Saving**: Configurable save function persists session data
@@ -147,30 +147,44 @@ Rules that matter:
   the CRUD methods mint an ID and report success without consulting that return.
   Until 2026-08-14 it fell back to `<prefdir>/epsych/subjects.esub`, which put a
   lab's only copy somewhere release-specific (silently empty after a MATLAB
-  upgrade) that nobody chose; `legacyFile` now exists solely so that file can be
-  adopted, by copy, on the first choice — `setConfiguredFile(..., AdoptLegacy=true)`,
-  opt-in so a script naming a fresh roster gets a fresh one, and guarded on
-  nothing having been configured before. `setConfiguredFile` validates at the
+  upgrade) that nobody chose. `setConfiguredFile` validates at the
   moment of choosing (absolute-izes, refuses a folder, appends `.esub`, makes
   the parent) rather than at the first save.
-  A project also owns the **session settings a paradigm decides**, applied by
-  `assignToSession` after the commit: `BehaviorGUI` → `FUNCS.BehaviorGUI`, `SavingFcn` →
-  `FUNCS.SavingFcn`, `TimerPeriod` → `FUNCS.TimerPeriod`, `DefaultDataPath` →
-  `RunExpt.DefaultDataPath` (same name on both sides since 2026-08; it was
-  `dfltDataPath` on the session), and `VideoRootDir`/`IntanRootDir`/`IntanSettingsFile` →
+  The **MEMBERSHIP carries the session settings a paradigm decides**
+  (`SESSION_FIELDS`: `DefaultDataPath`, `SavingFcn`, `BehaviorGUI`,
+  `TimerPeriod`, the four `Timer*Fcn` PsychTimer callbacks, and the recording
+  roots): selecting a subject selects all config required to run it. The
+  project's Session Defaults are a **template**, stamped verbatim at `assign`
+  (and in `copyProject`'s member copies — from the NEW project's template,
+  never the source memberships); later template edits reach existing members
+  only through `reapplyTemplate`, and one subject diverges with
+  `updateMembership`. `assignToSession` resolves the planned subjects'
+  memberships before any side effect and **refuses the batch when they
+  disagree** on a session-level field (`report.aborted` + machine-readable
+  `report.mismatch`; the manager's Settings column shows `template`/`edited`
+  so the refusal is predictable). The agreed membership lands on the session:
+  `BehaviorGUI` → `FUNCS.BehaviorGUI`, `SavingFcn` → `FUNCS.SavingFcn`,
+  `Timer*Fcn` → `FUNCS.TIMERfcn.*`, `TimerPeriod` → `FUNCS.TimerPeriod`,
+  `DefaultDataPath` → `RunExpt.DefaultDataPath`, and the recording roots →
   `RunExpt.PATHS` (a session-level struct seeded from the `ep_RunExpt_Video`/
-  `ep_RunExpt_Intan` prefs, which exists so a project can override a recording
+  `ep_RunExpt_Intan` prefs, which exists so a study can override a recording
   root for ONE session — the readers used to `getpref` at the point of use).
-  Two rules: **empty means inherit** (`NaN` for `TimerPeriod`), which is the
-  only reading an older roster can have, and **nothing is written back to the
-  preferences** — a session follows its study, the rig keeps its own defaults.
+  Two rules: **empty means inherit the BUILT-IN default** (`NaN` for
+  `TimerPeriod`; there is no rig-pref floor under the callbacks anymore —
+  `GetDefaultFuncs` returns literals, and only `AddSubjectFcn` keeps a pref),
+  which is the only reading an older roster can have, and **nothing is written
+  back to the preferences** — closing the session persists nothing.
   `BehaviorGUI` has a third state: `BEHAVIORGUI_NONE` runs no GUI. These fields were
   RunExpt's Customize dialog until they moved here; what stayed there describes
-  the machine (config browser root, log path/viewer, roster file, add-subject
-  function, the rig's default data path). The project dialog fills every session
-  default in before the operator sees it — from a per-field MRU under
-  `ep_RunExpt_Subjects/Recent<Field>`, else the machine pref — and refuses a
-  blank one, so "empty" in practice means an old roster or a scripted project.
+  the machine (log path/viewer, roster file, add-subject
+  function, the rig's default data path). The dialogs (shared grid:
+  `gui.SubjectManager.sessionDefaultsGrid_`, `ProjectDlg_*` vs `MembershipDlg_*`
+  tags) fill every session default in before the operator sees it — from a
+  per-field MRU under `ep_RunExpt_Subjects/Recent<Field>`, else the built-in —
+  and refuse a blank one, so "empty" in practice means an old roster or a
+  scripted project. When two memberships must converge, the fixes are the
+  Subject menu's Session Settings... and the Project menu's Re-apply Project
+  Template to Checked.
   A project also carries its own bookkeeping: `Investigator` and `IACUCProtocol`
   (recorded, never enforced), an `Archived` flag that hides the project from the
   manager's list without touching its subjects or their protocol memory, and
@@ -675,7 +689,7 @@ ERROR is reachable from any state.
 
 1. **Heterogeneous Hardware Abstraction**: All backends inherit from hw.Interface with common API
 2. **Event-Driven Analysis**: GUIs subscribe to epsych.EventHub events rather than polling
-3. **Configuration Persistence**: Session configs saved as .ecfg MAT files
+3. **Roster-backed sessions**: the .esub subject roster is the persistent session configuration; a subject's membership carries everything a session needs (there is no .ecfg config file)
 4. **Auto-Discovery**: Backends auto-discover modules/parameters on connect via setup_interface()
 5. **Pluggable Trial Selection**: epsych.TrialSelector is abstract and customizable
 6. **Parameter Expressions**: Parameters can reference other parameters (e.g., Param.Prop or Module.Param.Prop). On `String`/`StimType` parameters the result is a 1-based index into `Values` instead of the value itself — `hw.Parameter.expressionSelectsIndex` is the single predicate that decides which meaning applies. A non-empty Expression is re-evaluated by `set.Value` on every dispatch, overriding the assigned value — so constants must live in `Values`, never as an Expression: the ProtocolDesigner converts literal-constant entries to fixed Values on edit and on load (see documentation/design/ProtocolDesigner.md, "Constants are values, not expressions")
@@ -734,7 +748,7 @@ obj/+packagename/@ClassName/
 ```
 
 Procedural functions: Loose .m files in appropriate subdirectories
-Protocol and config files: .eprot (protocol; legacy .prot still loadable), .ecfg (config MAT files)
+Protocol files: .eprot (a MAT file holding a `protocol` struct)
 
 ## Common Development Tasks
 
@@ -782,7 +796,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 ## Where to Look When Making Changes
 
 - **Startup or runtime flow**: obj/+epsych/@RunExpt/, obj/+epsych/@Runtime/, runtime/timerfcns/
-- **Protocol loading or compilation**: obj/+epsych/@Protocol/, obj/+epsych/@ProtocolDesigner/, design/
+- **Protocol loading or compilation**: obj/+epsych/@Protocol/, obj/+epsych/@ProtocolDesigner/
 - **Hardware integration**: obj/+hw/@Interface/, concrete backends, TDTfun/
 - **Stimulus generation**: obj/stimgen/+stimgen/@StimType/, obj/stimgen/+stimgen/@StimPlayer/ (submodule)
 - **Online analysis**: obj/+psychophysics/Psych.m, obj/+gui/@OnlinePlot/
@@ -807,7 +821,6 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 | runtime/timerfcns/ | Timer callbacks |
 | runtime/savefcns/ | Data saving |
 | TDTfun/ | Low-level TDT integration |
-| design/ | Protocol design utilities |
 | paradigms/ | Experiment-specific implementations (one lab's paradigms; `cl_*` function names unchanged) |
 | helpers/ | Shared utilities |
 | documentation/ | User and developer docs |

@@ -32,8 +32,8 @@ L(end+1) = sprintf('Opt-ins   : HardwareConnect=%d  BehaviorGUI=%d  GuiStateCycl
 if isempty(self.RunExpt) || ~isvalid(self.RunExpt)
     L(end+1) = "Session   : none";
 else
-    L(end+1) = sprintf('Session   : state %s, %d subject(s), config "%s"', ...
-        string(self.RunExpt.STATE), numel(self.RunExpt.CONFIG), self.RunExpt.CurrentConfigFile);
+    L(end+1) = sprintf('Session   : state %s, %d subject(s)', ...
+        string(self.RunExpt.STATE), numel(self.RunExpt.CONFIG));
 end
 
 s = epsych.SelfTest.rollup(results);

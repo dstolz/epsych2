@@ -27,16 +27,9 @@ function obj = load(filename)
     % Load MAT file using builtin load function
     S = builtin('load', filename, '-mat');
 
-    % Struct-based format (current and legacy)
+    % Struct-based format
     if isfield(S, 'protocol') && isstruct(S.protocol)
         struct_in = S.protocol;
-    elseif isfield(S, 'protocol_struct')
-        struct_in = S.protocol_struct;
-    elseif isfield(S, 'protocol') && isa(S.protocol, 'epsych.Protocol')
-        % Legacy: file saved as a live handle object before struct migration
-        obj = S.protocol;
-        fprintf('[INFO] Protocol loaded from: %s\n', filename);
-        return
     else
         error('epsych:Protocol:InvalidFile', 'MAT file does not contain expected protocol data');
     end

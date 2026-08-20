@@ -17,6 +17,12 @@ function smoke_test_review_session
 %      down cleanly
 %   7) the crash-recovery .mat (info + data_NNNN) reviews the same way
 %   8) a legacy file with no Info still opens, degraded but usable
+%   9) the transport scrubber drives the review, and follows code-driven seeks
+%  10) a rig-driving behavior GUI stands down (no timer, no trial cycle)
+%  11) a review called with no output argument outlives its constructor
+%  12) TRIALS and the backends are seated at the last trial BEFORE the window
+%      is built, and a parameter stored outside its own bounds does not abort
+%      the build
 %
 % Run headless: matlab -batch "run('c:\src\epsych2\tmp\smoke_test_review_session.m')"
 
@@ -128,7 +134,105 @@ localTestStandDown(scratch);
 % --- 11. the review survives being called with no output -----------------
 localTestLifetime(sessionFile);
 
+% --- 12. seated at the last trial before the window is built -------------
+localTestSeating(scratch, sessionFile);
+
 fprintf('=== smoke_test_review_session: ALL PASS ===\n');
+end
+
+
+
+
+function localTestSeating(scratch, sessionFile)
+% Two things a component reads at CONSTRUCTION, before any event is fired, and
+% which both regressed on a real paradigm (cl_AppetitiveDetection_BehaviorGUI):
+%
+%   1) gui.NextTrial.seedFromRuntime_ reads RUNTIME.TRIALS. An empty
+%      NextTrialID there indexes the trial table with [], which yields zero
+%      elements and throws.
+%   2) gui.Parameter_Control seats its widget from the parameter once and then
+%      waits for a PostSet a review never fires. It must seat from the trial
+%      the session ENDED on, not the protocol's design-time value -- and it
+%      must survive a stored value that falls outside the parameter's own
+%      bounds, which real protocols contain (a backend read-back, or Min/Max
+%      edited after the value was set). uieditfield rejects one outright, and
+%      that used to abort the whole build.
+
+V = epsych.ReviewSession(sessionFile, Show = false);
+cleanupV = onCleanup(@() localDelete(V));
+
+assert(~isempty(V.RUNTIME.TRIALS(1).NextTrialID), ...
+    'TRIALS.NextTrialID must be usable before any event is fired');
+
+% gui.NextTrial against the review runtime, exactly as addNextTrial builds it.
+f = uifigure('Visible','off');
+closeFig = onCleanup(@() delete(f));
+nt = gui.NextTrial(V.RUNTIME, f);
+drawnow
+assert(isvalid(nt), 'gui.NextTrial must construct against a review runtime');
+delete(nt)
+fprintf('PASS: 12 TRIALS is seated before the window is built (gui.NextTrial constructs)\n');
+
+clear cleanupV closeFig
+delete(V);
+
+% --- an out-of-bounds stored value must not abort the build --------------
+P = create_detection_protocol(fullfile(scratch, 'oob.eprot'));
+P.compile();
+
+% ToneLevel is a plain numeric control in DetectionBehaviorGUI. Put its stored
+% value outside its own bounds, the way a real protocol had StimDelay = 0 with
+% Min = 400. Written through the struct, since set.Value would clamp it.
+ps = P.toStruct();
+hit = false;
+for i = 1:numel(ps.InterfaceData)
+    if ~isfield(ps.InterfaceData{i}, 'Modules'), continue; end
+    for m = 1:numel(ps.InterfaceData{i}.Modules)
+        pars = ps.InterfaceData{i}.Modules{m}.Parameters;
+        for p = 1:numel(pars)
+            if ~strcmp(pars{p}.Name, 'ToneFreq'), continue; end
+            pars{p}.Min   = 2000;
+            pars{p}.Max   = 8000;
+            pars{p}.Value = 0;      % outside [2000 8000]
+            hit = true;
+        end
+        ps.InterfaceData{i}.Modules{m}.Parameters = pars;
+    end
+end
+assert(hit, 'expected a ToneFreq parameter to doctor');
+
+S = load(sessionFile);
+Info = S.Info;
+Info.Protocol = ps;
+Data = S.Data;
+oobFile = fullfile(scratch, 'out_of_bounds_value.mat');
+save(oobFile, 'Data', 'Info');
+
+V2 = epsych.ReviewSession(oobFile, BehaviorGUI = 'DetectionBehaviorGUI', Transport = false);
+try
+    assert(isobject(V2.GUI) && isvalid(V2.GUI), ...
+        'a parameter stored outside its own bounds must not abort the GUI build');
+    assert(isgraphics(V2.GUI.h_figure), 'the window must still open');
+
+    % ...and the control exists, showing a value inside the field's limits.
+    found = false;
+    for c = localComponents(V2.GUI)
+        if ~isa(c{1}, 'gui.Parameter_Control') || ~isvalid(c{1}), continue; end
+        if ~strcmp(c{1}.Parameter.Name, 'ToneFreq'), continue; end
+        found = true;
+        h = c{1}.h_uiobj;
+        assert(h.Value >= h.Limits(1) && h.Value <= h.Limits(2), ...
+            'the widget must show a value inside its own Limits, got %g in [%g %g]', ...
+            h.Value, h.Limits(1), h.Limits(2));
+    end
+    assert(found, 'the ToneFreq control should still have been built');
+catch ME
+    delete(V2);
+    rethrow(ME)
+end
+delete(V2);
+fprintf('PASS: 12b a value stored outside its own bounds does not abort the build\n');
+
 end
 
 
@@ -206,6 +310,31 @@ try
     T2 = V.showTransport();
     assert(isobject(T2) && isvalid(T2), 'showTransport must reopen the scrubber');
     fprintf('PASS: 9b transport closes independently and reopens\n');
+
+    % The camera captures the BEHAVIOR GUI, never the scrubber: a picture of a
+    % transport bar is of no use in a notebook.
+    w = warning('off', 'MATLAB:structOnObject');
+    s = struct(V.Transport);
+    warning(w);
+
+    assert(~isempty(s.Capture_) && isvalid(s.Capture_), 'the transport must carry a capture button');
+    assert(isequal(s.Capture_.Target, V.GUI.h_figure), ...
+        'the capture button must target the behavior GUI');
+    assert(~isequal(s.Capture_.Target, V.Transport.h_figure), ...
+        'the capture button must NOT target the transport itself');
+
+    % ...and the always-on-top state button really pins the window.
+    b = s.OnTopButton_;
+    assert(~isempty(b) && isvalid(b), 'the transport must carry an on-top button');
+    b.Value = true;  b.ValueChangedFcn(b, []);
+    drawnow
+    assert(strcmpi(V.Transport.h_figure.WindowStyle, 'alwaysontop'), ...
+        'pressing On Top must pin the window, WindowStyle is "%s"', V.Transport.h_figure.WindowStyle);
+    b.Value = false; b.ValueChangedFcn(b, []);
+    drawnow
+    assert(strcmpi(V.Transport.h_figure.WindowStyle, 'normal'), ...
+        'releasing On Top must unpin the window, WindowStyle is "%s"', V.Transport.h_figure.WindowStyle);
+    fprintf('PASS: 9c camera targets the behavior GUI; On Top pins and unpins\n');
 
 catch ME
     delete(V);

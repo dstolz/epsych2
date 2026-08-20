@@ -115,6 +115,18 @@ classdef ReviewSession < handle
                 return
             end
 
+            % Seat the session at its last trial BEFORE the window is built,
+            % silently -- there are no listeners yet, and two components read
+            % their state at construction rather than waiting for an event:
+            % gui.Parameter_Control reads its parameter once and then waits for
+            % a PostSet a review never fires, so whatever it seats from is what
+            % it shows for good; and gui.NextTrial.seedFromRuntime_ reads
+            % RUNTIME.TRIALS, which without this still has the empty
+            % NextTrialID buildRuntime_ left there.
+            % (gui.Parameter_Monitor and gui.ParameterDebugger poll, so those
+            % DO follow the scrubber afterwards.)
+            obj.seek(obj.NumTrials, Notify = false);
+
             obj.launchGUI_(options.BehaviorGUI);
 
             % After the window exists, not before: gui.Parameter_Control greys
@@ -267,6 +279,15 @@ classdef ReviewSession < handle
         load_(obj, datafile, protocolFile)  % Read the file into Data and Snapshot.
         buildRuntime_(obj)                  % Construct the offline runtime and its replay backends.
         launchGUI_(obj, guiName)            % Resolve and open the behavior GUI.
+
+        function positionBackends_(obj, k)
+            % Point every replay backend at trial k, so a parameter read
+            % reports what the rig held then. Separate from seek so the
+            % constructor can seat the controls before the window exists.
+            for p = obj.Interfaces(:).'
+                p.Position = max(0, min(k, obj.NumTrials));
+            end
+        end
 
         function setIdle_(obj)
             % Put the session in Idle and say so, in the order a real stop uses:

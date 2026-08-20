@@ -38,7 +38,11 @@ replay-from-the-start and no per-component reset to maintain.
 **Controls already disable themselves.** `gui.Parameter_Control` listens for a
 `mode` `PostSet` on its parameter's interface and greys out at `Idle`/`Standby`.
 A review moves its backends `Standby -> Idle` *after* the window is built, and
-every control disables itself. Nothing in `+gui` was modified for this feature.
+every control disables itself.
+
+No **display** component was modified for this feature. The one `+gui` change is
+a robustness fix in `gui.Parameter_Control` (below) that a live session needed
+just as much.
 
 The runtime is therefore a **real `epsych.Runtime` with a real
 `epsych.EventHub`**, not a stand-in. That is required rather than merely tidy:
@@ -47,7 +51,7 @@ struct-source path — it only knows how to listen to `RUNTIME.EVENTS`.
 
 ---
 
-## The three pieces
+## The four pieces
 
 ### `epsych.SessionSnapshot` — what a file has to carry
 
@@ -137,6 +141,32 @@ trial k rather than inventing one.
 Without it, assigning `TRIALS` would write every writable parameter through
 `set.Value` and fire the `ResetTrig`/`NewTrial` hardware triggers.
 
+**The session is seated before the window is built.** The constructor runs
+`seek(NumTrials, Notify=false)` *before* `feval`ing the behavior GUI, because two
+components read their state at construction rather than waiting for an event:
+
+- `gui.Parameter_Control` reads its parameter once and then waits for a `PostSet`
+  a review never fires, so whatever it seats from is what it shows for good. It
+  must seat from the trial the session **ended on**, not the protocol's
+  design-time value.
+- `gui.NextTrial.seedFromRuntime_` reads `RUNTIME.TRIALS`. An empty
+  `NextTrialID` there indexes the trial table with `[]`, which yields zero
+  elements and throws.
+
+`gui.Parameter_Monitor` and `gui.ParameterDebugger` poll, so those *do* follow
+the scrubber afterwards; the controls do not, by design — they show where the
+session finished.
+
+**A stored value outside its own bounds must not abort the build.** Real
+protocols contain them: `hw.Parameter` clamps on write but not on read, so a
+backend read-back, a protocol saved while a device reported 0, or a `Min`/`Max`
+edited after the value was set all produce one. (`cl_AppetitiveDetection`'s
+`StimDelay` ships with `Value = 0` and `Min = 400`.) `uieditfield` rejects such a
+value outright, and one parameter used to take every control after it down with
+it. `gui.Parameter_Control.initialWidgetValue_` now clamps the **widget** into
+its limits and logs at debug level; the parameter itself is untouched, so nothing
+can quietly rewrite a recorded or hardware-held value.
+
 **The windows own the review.** Every window a review opens holds a reference
 back to it in appdata (`epsych_ReviewSession`), so the review lives exactly as
 long as they do. This is load-bearing, not tidiness: `epsych.ReviewSession(file)`
@@ -144,6 +174,37 @@ with no output argument ends in `clear obj`, and without an anchor the handle
 object is deleted the instant the constructor returns — closing the very windows
 it just opened. Deleting a window releases its reference, so nothing has to be
 unwound by hand and the review cannot outlive everything it owns.
+
+### `gui.ReviewTransport` — the scrubber
+
+A window of its own rather than a strip inside the behavior GUI: that layout
+belongs to the paradigm's `build`, and the base class offers no seam for
+inserting into it. Keeping it separate also means a paradigm needs to know
+nothing about review to be reviewable.
+
+Left to right: `|<` `<` **Play** `>` `>|`, the trial readout, the playback rate,
+elapsed time — then two controls that are not transport at all:
+
+- **camera** — copies a picture of the **behavior GUI** to the clipboard, not of
+  the transport. A picture of a scrubber is of no use in a notebook, and the
+  point of parking the transport in its own window is to stay out of the
+  paradigm's layout, screenshots included. It is the same `gui.ScreenCapture` a
+  behavior GUI would add for itself, just aimed elsewhere; with no behavior GUI
+  window it is disabled rather than capturing the wrong thing.
+- **On Top** — pins the window above other applications, so a review stays
+  readable while the operator works in a notebook or spreadsheet. Remembered per
+  window through `gui.PopOut`, and the button reports what actually happened
+  rather than what was asked: a platform that will not honour `WindowStyle`
+  leaves the window unpinned and the button pops back out.
+
+The slider row is 56 px because a `uislider`'s tick labels hang *below* its
+track — at the 32 px an ordinary control gets, they ran into the buttons. A
+remembered window position is floored at `DEFAULT_SIZE` for the same reason: a
+size saved before the row grew would re-crowd the layout.
+
+Closing the transport closes only the transport (`R.showTransport()` brings it
+back). Closing the *behavior GUI* takes the transport with it, since there is
+then nothing left to scrub.
 
 ---
 

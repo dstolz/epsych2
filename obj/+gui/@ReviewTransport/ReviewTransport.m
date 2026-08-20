@@ -7,10 +7,22 @@ classdef ReviewTransport < handle
     % no seam for inserting into it. Keeping the transport separate also means a
     % paradigm needs to know nothing about review to be reviewable.
     %
-    % It is marked as a standalone window (gui.PopOut.markStandaloneWindow), so
-    % it carries the same "Keep Window on Top" behaviour as a popped-out
-    % display and remembers being pinned -- which is what an operator wants
-    % from a transport bar sitting over a full-screen behavior GUI.
+    % Two controls sit apart from the transport itself, at the right:
+    %
+    %   camera  - copies a picture of the BEHAVIOR GUI to the clipboard, not of
+    %             this window. A picture of a scrubber is of no use in a
+    %             notebook, and the reason the transport lives in a window of
+    %             its own is to stay out of the paradigm's layout -- which
+    %             means staying out of its screenshots too. Same
+    %             gui.ScreenCapture a behavior GUI would add for itself, just
+    %             aimed elsewhere.
+    %   On Top  - pins the window above other applications, so a review stays
+    %             readable while the operator works in a notebook or a
+    %             spreadsheet. The state is remembered per window through
+    %             gui.PopOut, and the button reports what actually happened
+    %             rather than what was asked: a platform that will not honour
+    %             WindowStyle leaves the window unpinned and the button pops
+    %             back out.
     %
     % Closing it closes only the transport; the review and its behavior GUI
     % carry on, and R.showTransport() brings it back. Closing the BEHAVIOR GUI,
@@ -30,7 +42,7 @@ classdef ReviewTransport < handle
 
     properties (Constant, Hidden)
         PREFERENCE_TAG = 'gui_ReviewTransport'
-        DEFAULT_SIZE = [620 128]
+        DEFAULT_SIZE = [760 148]
     end
 
     properties (Access = private)
@@ -40,6 +52,8 @@ classdef ReviewTransport < handle
         PlayButton_ = []
         RateField_ = []
         Buttons_ = []
+        Capture_ = []               % gui.ScreenCapture aimed at the behavior GUI
+        OnTopButton_ = []           % Always-on-top state button
         GUIWatcher_ = []   % listener closing this window when the GUI goes
         Refreshing_ (1,1) logical = false % suppresses the slider callback while we set it
     end
@@ -87,6 +101,16 @@ classdef ReviewTransport < handle
             try
                 if ~isempty(obj.GUIWatcher_) && isvalid(obj.GUIWatcher_)
                     delete(obj.GUIWatcher_);
+                end
+            catch
+            end
+
+            % Explicitly, before the figure goes: gui.ScreenCapture owns a
+            % one-shot confirmation timer that deleting the graphics alone
+            % would leave running.
+            try
+                if ~isempty(obj.Capture_) && isvalid(obj.Capture_)
+                    delete(obj.Capture_);
                 end
             catch
             end
@@ -143,10 +167,13 @@ classdef ReviewTransport < handle
     methods (Access = private)
         function build_(obj, fig)
             g = uigridlayout(fig, [2 1]);
-            g.RowHeight = {32, 40};
+            % A uislider needs room for its track AND the tick labels hanging
+            % below it. At the 32 px an ordinary control gets, those labels ran
+            % straight into the button row underneath.
+            g.RowHeight = {56, 38};
             g.ColumnWidth = {'1x'};
-            g.Padding = [10 8 10 6];
-            g.RowSpacing = 2;
+            g.Padding = [10 10 10 8];
+            g.RowSpacing = 6;
 
             n = max(1, obj.Review.NumTrials);
 
@@ -166,9 +193,10 @@ classdef ReviewTransport < handle
             % DATA array. Scrubbing live would recompute on every pixel of
             % drag, which on a long session is slower than it is useful.
 
-            row = uigridlayout(g, [1 8]);
+            row = uigridlayout(g, [1 10]);
             row.Layout.Row = 2;
-            row.ColumnWidth = {40, 40, 72, 40, 40, '1x', 62, 130};
+            %  |<   <   Play  >   >|   trial-label  rate  elapsed  camera  on-top
+            row.ColumnWidth = {38, 38, 66, 38, 38, '1x', 60, 116, 34, 74};
             row.Padding = [0 0 0 0];
             row.ColumnSpacing = 5;
 
@@ -193,6 +221,54 @@ classdef ReviewTransport < handle
 
             obj.TimeLabel_ = uilabel(row, ...
                 'Text', '', 'HorizontalAlignment', 'right', 'FontColor', [0.35 0.35 0.35]);
+
+            % Captures the BEHAVIOR GUI, not this window: a picture of a
+            % scrubber is of no use in a notebook, and the whole point of
+            % parking the transport in a window of its own is that it stays out
+            % of the paradigm's layout -- including out of its screenshots.
+            obj.Capture_ = gui.ScreenCapture(row, ...
+                Target  = obj.behaviorFigure_(), ...
+                Tooltip = 'Copy a picture of the behavior GUI to the clipboard');
+            if isempty(obj.Capture_.Target)
+                obj.Capture_.Button.Enable = 'off';
+                obj.Capture_.Button.Tooltip = 'No behavior GUI window to capture';
+            end
+
+            % A review is something an operator reads while working in another
+            % application -- a notebook, a spreadsheet -- so the transport has
+            % to be able to stay visible. The state is remembered per window by
+            % gui.PopOut, and markStandaloneWindow (called before this runs)
+            % has already restored it onto the figure, so the button seats
+            % itself from the figure rather than from the preference.
+            obj.OnTopButton_ = uibutton(row, 'state', ...
+                'Text',            'On Top', ...
+                'Tooltip',         'Keep this window above other windows', ...
+                'Value',           gui.PopOut.isAlwaysOnTop(obj.h_figure), ...
+                'ValueChangedFcn', @(src,~) obj.onAlwaysOnTop_(src));
+        end
+
+        function f = behaviorFigure_(obj)
+            % f = behaviorFigure_(obj)
+            % The behavior GUI's window, or [] when the review has none -- a
+            % paradigm whose GUI failed to open, or one launched with Show off.
+            f = [];
+            try
+                g = obj.Review.GUI;
+                if isobject(g) && isvalid(g) && isprop(g, 'h_figure') && isgraphics(g.h_figure)
+                    f = g.h_figure;
+                end
+            catch ME
+                vprintf(3, 'gui.ReviewTransport: no behavior GUI to capture (%s)', ME.message)
+            end
+        end
+
+        function onAlwaysOnTop_(obj, src)
+            % Pin or unpin, and let gui.PopOut remember the choice. It reports
+            % what actually happened rather than what was asked for: a release
+            % or platform that will not honour WindowStyle leaves the window
+            % unpinned, and the button must not claim otherwise.
+            gui.PopOut.setAlwaysOnTop(obj.h_figure, src.Value);
+            src.Value = gui.PopOut.isAlwaysOnTop(obj.h_figure);
         end
 
         function h = button_(~, parent, text, tip, fcn)
@@ -307,6 +383,10 @@ classdef ReviewTransport < handle
             p = getpref(obj.PREFERENCE_TAG, 'FigurePosition', []);
             if isnumeric(p) && numel(p) == 4 && all(isfinite(p))
                 p = double(reshape(p, 1, []));
+                % Keep where the operator put it, but never a size smaller than
+                % the contents need: a position remembered from an earlier
+                % layout would otherwise crowd the row it was saved before.
+                p(3:4) = max(p(3:4), obj.DEFAULT_SIZE);
                 return
             end
 

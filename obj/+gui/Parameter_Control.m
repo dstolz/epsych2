@@ -820,11 +820,33 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                     end
 
                 case 'editfield'
-                    % Land inside the field's own Limits: an unseeded parameter
-                    % with a positive Min cannot show 0.
-                    if isempty(v)
-                        lims = obj.widgetLimits_();
+                    % Land inside the field's own Limits, whatever the
+                    % parameter says. An unseeded parameter with a positive Min
+                    % cannot show 0 -- and neither can a parameter whose stored
+                    % value is ALREADY outside its own bounds, which happens
+                    % more often than it looks: hw.Parameter clamps on write but
+                    % not on read, so a backend read-back, a protocol saved
+                    % while a device reported 0, or a Min/Max edited after the
+                    % value was set all produce one. uieditfield rejects it
+                    % outright, and one such parameter would abort the whole
+                    % build -- taking every control after it with it.
+                    %
+                    % Only the WIDGET is clamped. The parameter is left exactly
+                    % as it is, so nothing here can quietly rewrite a recorded
+                    % or hardware-held value.
+                    lims = obj.widgetLimits_();
+                    if isempty(v) || (~isnumeric(v) && ~islogical(v))
                         v = min(max(0,lims(1)),lims(2));
+                    else
+                        v = double(v(1));
+                        if ~isfinite(v)
+                            v = min(max(0,lims(1)),lims(2));
+                        elseif v < lims(1) || v > lims(2)
+                            vprintf(2, ['gui.Parameter_Control: "%s" holds %g, outside its ' ...
+                                'bounds [%g %g]; the field shows the nearest bound'], ...
+                                obj.Parameter.Name, v, lims(1), lims(2))
+                            v = min(max(v,lims(1)),lims(2));
+                        end
                     end
             end
         end

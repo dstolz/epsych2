@@ -254,7 +254,14 @@ Rules that matter:
   interfaces go `Standby → Idle` only AFTER `build` returns, since `mode` is
   `AbortSet` and a control built at `Idle` would never see the transition; and
   `Runtime.ReviewMode` suppresses the one-shot dispatch in `set.TRIALS`, which would
-  otherwise write every parameter and fire the hardware triggers. Every window a
+  otherwise write every parameter and fire the hardware triggers. The constructor
+  runs `seek(NumTrials, Notify=false)` **before** launching the GUI, because two
+  components read state at construction rather than waiting for an event:
+  `gui.Parameter_Control` seats once and then waits for a `PostSet` a review never
+  fires (so it must seat from the trial the session ENDED on, not the design-time
+  value), and `gui.NextTrial.seedFromRuntime_` indexes the trial table with
+  `NextTrialID` — empty there yields zero elements and throws. Monitors and the
+  debugger poll, so those DO follow the scrubber; the controls deliberately do not. Every window a
   review opens **anchors it** in appdata (`epsych_ReviewSession`) — load-bearing,
   not tidiness: the no-output call ends in `clear obj`, and an unanchored handle
   object is deleted the moment the constructor returns, closing the windows it
@@ -393,7 +400,15 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   (`ValueChangedFcn`), since each seek re-notifies every display and each
   recomputes the whole session from the DATA array. Closing it closes only the
   transport (`R.showTransport()` brings it back); closing the BEHAVIOR GUI takes
-  it with them, since there is then nothing to scrub
+  it with them, since there is then nothing to scrub. Two controls at the right
+  are not transport at all: a `gui.ScreenCapture` aimed at the **behavior GUI**
+  rather than at this window (a picture of a scrubber is no use in a notebook,
+  and the reason the transport has its own window is to stay out of the
+  paradigm's layout — screenshots included), and an **On Top** state button, so
+  a review stays readable while the operator works in another application. The
+  slider row is 56 px because a `uislider`'s tick labels hang BELOW its track
+  and ran into the buttons at the 32 px an ordinary control gets; a remembered
+  window position is floored at `DEFAULT_SIZE` for the same reason
 - **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. **Add Checked to Session** REPLACES the session's subject list rather than appending to it (`assignToSession`'s `ReplaceExisting`) — what is ticked is the operator's answer to "who is running", and a leftover animal would keep dispatching trials in its box; the displaced names go in the commit report, and the button and its tool say so in a tooltip. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. **Copy...** (also `Project > Copy Project...` and a two-folders tool) starts a study's next phase from one that already works: it asks the subjects question FIRST in a `uiconfirm` — with subjects, or settings only, skipped entirely for a project with no active members — because that is the one thing the edit dialog cannot show, then opens the ordinary dialog titled `Copy Project` on a non-colliding `(copy)` name, so nothing is written until OK. Copied subjects stay in the source too (membership is many-to-many); the roster's `IncludeRetired`/`CopyProtocolMemory` are script-only. The project dialog has two tabs: **Project** (identity, links, archived) and **Session Defaults**, which is where the settings that moved off Customize are set — protocol, data path, saving function, behavior GUI, timer period, video and Intan paths. Nothing there opens blank: each field is seeded from its MRU (`ep_RunExpt_Subjects/Recent<Field>`, written only on OK) and then the machine pref, and OK refuses a blank one; `DefaultProtocol` and `IntanSettingsFile` are the two deliberate exceptions. The behavior GUI dropdown is fed by the behavior GUIs other projects in the roster use, not by the `RecentBehaviorGUI` pref, so it works with no session open. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. On a rig with no roster file chosen the window opens *unbound* — header `Roster: (no file chosen)`, an explanation where the table goes, and everything off EXCEPT New Project / New Subject / Import, because clicking one of those three is how `ensureRoster_` asks for the file. That prompt loops with two exits (name a file, or close the window): "carry on without one" is never offered, since it would mean filling in a record with nowhere to save it. Browsing never prompts. A configured path whose FOLDER is gone (share moved, drive unmounted, temp dir cleaned up) is treated the same way and marked `(folder not found)` — otherwise it is indistinguishable from a fresh empty roster, and `saveAtomic_` would re-create that dead folder and save into it. The header shows the FULL path plus a Change... button, redundantly with the toolbar tool and File menu, because an icon-only toolbar is no help to someone whose roster is not where they expected. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies. A **Version** column and a **Protocol** menu surface `SubjectRoster`'s version checking: the column shows the version each subject is *on* (bold orange when the file has been saved since), a collapsible banner over the table announces how many are behind and offers Update All, and right-click opens that row's protocol in `epsych.ProtocolDesigner`. "Update All in Project" deliberately covers filtered-out members, but RETIRED members are outside the version workflow entirely: they are skipped by every update, left out of the banner, the tooltip, and Check Protocol Versions, and their Version cell is greyed rather than flagged. A finished animal's recorded protocol is the record of what it ran, and no session will follow to make a newer version true. A project's **links** render under the summary as `uihyperlink`s whose `URL` is left EMPTY on purpose — the click routes through `SubjectRoster.openLink` so a stored address is re-checked before anything navigates, and a `file:` folder goes to the file manager rather than a browser. "Show archived projects" is the project-level counterpart of "Show retired", and the selected project is never hidden by it (documentation/gui/gui_SubjectManager.md)
 - **gui.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, a TTL-trigger enable, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, units, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state. Rate and readout **units** are the operator's too, from the right-click Units menu (µL/mL per min/hr, mL/min by default): changing them converts `Rate` rather than reinterpreting it, puts the interface into the same units — so a protocol column that writes `Rate` means them as well — and is refused while the pump runs, because the pump rejects a units-bearing `RAT` mid-dispense and `hw.NE1000`'s bare-value fallback would land in the OLD units (`gui.BehaviorGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
 - **gui.ScreenCapture**: camera button that copies a picture of the whole window
@@ -487,7 +502,17 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   than invented history, and removing one takes its samples with it
   (documentation/gui/gui_ParameterTracker.md)
 - Diagnostics: SelfTest (window for epsych.SelfTest; opened from RunExpt's Help menu)
-- Parameter control: Parameter_Control, Parameter_Monitor, Parameter_Update
+- Parameter control: Parameter_Control, Parameter_Monitor, Parameter_Update.
+  `Parameter_Control` seats its widget ONCE at construction and then waits for a
+  `PostSet`, so whatever it seats from is what it shows until the parameter is
+  written. `initialWidgetValue_` clamps that seed into the field's own `Limits`:
+  a stored value outside the parameter's bounds is not a corrupt file but a
+  routine one — `hw.Parameter` clamps on write and not on read, so a backend
+  read-back, a protocol saved while a device reported 0, or a `Min`/`Max` edited
+  after the value was set all produce one (`cl_AppetitiveDetection`'s `StimDelay`
+  ships `Value = 0` with `Min = 400`). `uieditfield` rejects it outright, and one
+  such parameter used to abort the whole `build`, taking every control after it.
+  Only the WIDGET is clamped; the parameter is left alone
 - Utilities: ElapsedTrialTimer
 
 #### obj/+teensy/ – Teensy Trial Programs

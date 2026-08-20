@@ -1,5 +1,6 @@
-function seek(obj, k)
+function seek(obj, k, options)
 % seek(obj, k)
+% seek(obj, k, Notify=false)
 % Show trial k, firing the events a live session would have fired there.
 %
 % This is the whole player, and it is short for one reason: every consumer
@@ -30,21 +31,26 @@ function seek(obj, k)
 %   k   - Trial to show, clamped to 0:NumTrials. 0 is before the first trial:
 %         no data, first trial pending, which is what the session looked like
 %         the moment the behavior GUI opened.
+%   Notify - Fire the events. False positions the backends and fills in TRIALS
+%         without broadcasting, which is how the constructor seats the session
+%         at its last trial BEFORE the window is built. Components that read
+%         RUNTIME.TRIALS at construction rather than waiting for an event --
+%         gui.NextTrial.seedFromRuntime_ is the one that matters -- would
+%         otherwise find an empty NextTrialID and come up blank.
 %
 % See also: epsych.TrialsData, runtime/timerfcns/ep_TimerFcn_RunTime.m
 
 arguments
     obj
     k (1,1) double {mustBeInteger}
+    options.Notify (1,1) logical = true
 end
 
 k = max(0, min(k, obj.NumTrials));
 obj.Position = k;
 
 % 1. Position the hardware side.
-for p = obj.Interfaces(:).'
-    p.Position = k;
-end
+obj.positionBackends_(k);
 
 if isempty(obj.RUNTIME) || ~isvalid(obj.RUNTIME) ...
         || isempty(obj.RUNTIME.EVENTS) || ~isvalid(obj.RUNTIME.EVENTS)
@@ -70,7 +76,7 @@ end
 % storing the struct.
 obj.RUNTIME.TRIALS = T;
 
-if k >= 1
+if k >= 1 && options.Notify
     localNotify(obj, 'NewData', T);
 end
 
@@ -81,7 +87,9 @@ if k >= 1 && k < obj.NumTrials
     obj.RUNTIME.TRIALS = T;
 end
 
-localNotify(obj, 'NewTrial', T);
+if options.Notify
+    localNotify(obj, 'NewTrial', T);
+end
 
 % Last, so the scrubber never shows a trial the displays have not caught up to.
 % Done here rather than by the transport's own listener because a seek can come

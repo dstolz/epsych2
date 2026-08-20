@@ -1,6 +1,6 @@
 ---
 name: update-wiki
-description: Bring the GitHub wiki (epsych2.wiki) up to date with recent repository changes — rewrite affected pages, regenerate GUI screenshots, check links, then commit and push. Use when asked to update/sync/refresh the wiki, document a new feature or GUI component in the wiki, regenerate wiki or component screenshots, or check the wiki for stale content.
+description: Bring the GitHub wiki (epsych2.wiki) up to date with recent repository changes — rewrite affected pages, write and refresh the per-class reference pages and their Mermaid class diagrams, regenerate GUI screenshots, check links, then commit and push. Use when asked to update/sync/refresh the wiki, document a new feature, class, or GUI component in the wiki, add or update a class diagram or class reference page, regenerate wiki or component screenshots, or check the wiki for stale content.
 ---
 
 # /update-wiki — sync the wiki to the repository
@@ -15,18 +15,20 @@ is **authoritative** wherever the two overlap.
 | Wiki clone | `c:\src\epsych2.wiki` (override with `EPSYCH_WIKI`) |
 | Wiki remote | `https://github.com/dstolz/epsych2.wiki.git` — published at `/wiki` |
 | Page files | `<wiki>/Page-Name.md`, flat, no subfolders |
+| Class pages | `<wiki>/<pkg.Class>-Class-Reference.md`, one per class, indexed by `<wiki>/Class-Reference.md` |
 | Images | `<wiki>/images/`, component shots in `<wiki>/images/components/` |
 | Navigation | `<wiki>/_Sidebar.md`, `<wiki>/Home.md`, `<wiki>/_Footer.md` |
 | Sync marker | `<wiki>/.synced-commit` — the epsych2 SHA the wiki reflects |
 
-Three scripts do the mechanical work; run them with `bash` (Git Bash is present,
+Four scripts do the mechanical work; run them with `bash` (Git Bash is present,
 Node is not):
 
 | Script | Role |
 |---|---|
 | `.claude/skills/update-wiki/survey.sh` | Read-only. Commits since the last sync, changed files, which pages they touch, screenshot hints. |
+| `.claude/skills/update-wiki/classes.sh` | Read-only. Which classes have a class-reference page, which are missing one, which pages are behind the code; `--index` emits the grouped index body. |
 | `.claude/skills/update-wiki/verify.sh` | Read-only. Broken `[[links]]`, missing images, orphaned pages, dead links into the code repo. |
-| `.claude/skills/update-wiki/pagemap.tsv` | The repo-path → wiki-page mapping both the survey and you read. Keep it current when pages are added. |
+| `.claude/skills/update-wiki/pagemap.tsv` | The repo-path → wiki-page mapping both the survey and you read. Keep it current when pages are added. Class pages are **not** listed here — `classes.sh` derives them from the source tree. |
 
 ## Invocation forms
 
@@ -35,7 +37,9 @@ Node is not):
 | `/update-wiki` | Everything since `.synced-commit`; update every affected page. |
 | `/update-wiki <area>` (e.g. `hw.NE1000`, `gui`) | Only the pages that area touches. |
 | `/update-wiki screenshots` | Regenerate images only — no prose changes. |
-| `/update-wiki check` | Run `verify.sh` and report; change nothing. |
+| `/update-wiki classes` | Class pages only: write the missing ones, refresh the ones behind the code, regenerate the index. Batch by package and say what is left. |
+| `/update-wiki classes <pattern>` (e.g. `hw`, `gui.PopOut`) | The same, restricted — `classes.sh --filter <pattern>`. |
+| `/update-wiki check` | Run `verify.sh` and `classes.sh` and report; change nothing. |
 | `/update-wiki since <sha>` | Use that commit as the baseline instead of the marker. |
 
 ## Step 1 — survey
@@ -81,7 +85,11 @@ Order of work, because the wiki summarizes the repo docs:
    (cross-overview → wiki page names, `../` paths → GitHub blob/tree URLs,
    `obj/stimgen/…` → stimgen repo URLs).
 4. **A new page** needs an entry in `_Sidebar.md` *and* a row in the matching
-   Home.md table, or nobody will find it. `verify.sh` catches a miss.
+   Home.md table, or nobody will find it. `verify.sh` catches a miss. Class
+   pages are the exception — they live only in [[Class-Reference]] (Step 4).
+5. **A new or changed class always earns a class page**, even when the guide
+   pages need nothing: a renamed method or a new property changes the class card
+   and its diagram. `classes.sh` is what notices; Step 4 is what does it.
 
 ## Step 3 — write
 
@@ -106,7 +114,51 @@ House style, taken from the existing pages — match them, do not invent:
   state in the image ("two subjects on boxes 1 and 2", "the green field has been
   edited but not committed") and goes stale silently.
 
-## Step 4 — screenshots
+## Step 4 — class pages
+
+Every class in the repository has a **class-reference page**: a Mermaid class
+diagram plus the members, the contract, and the defaults that are decisions.
+`obj/stimgen/` is excluded — it is a separately released submodule and its own
+docs are authoritative.
+
+```bash
+bash .claude/skills/update-wiki/classes.sh                  # coverage report
+bash .claude/skills/update-wiki/classes.sh --filter '^hw\.' # one package
+bash .claude/skills/update-wiki/classes.sh --index          # index markdown
+```
+
+The report answers three questions, and each has one response:
+
+| Report section | Do |
+|---|---|
+| **MISSING A PAGE** | Write it from the template in `references/class-pages.md`. |
+| **PAGE BEHIND THE CODE** | Re-read the class and refresh the page — the **diagram** too, not only the tables. |
+| **ORPHANED PAGES** | The class was renamed, deleted, or moved into the submodule. Rename the page and fix inbound links, or delete it. |
+
+Then regenerate the index — `classes.sh --index`, pasted between the
+`<!-- BEGIN CLASS INDEX -->` / `<!-- END CLASS INDEX -->` markers in
+`Class-Reference.md`. Rows are generated: a class with a page becomes a
+`[[wiki link]]`, one without shows a `[source]` link instead, so the index is
+always complete and never carries a broken link. Never hand-edit inside the
+markers, and fix a bad one-line description in the **class's header comment**,
+which is where the script reads it from.
+
+Read `references/class-pages.md` before writing or refreshing a page. The three
+things that go wrong most:
+
+- **Class pages do not go in `_Sidebar.md`.** A hundred entries would bury the
+  guides; only [[Class-Reference]] is in the nav.
+- **Mermaid fails silently on GitHub** — a syntax error renders as a grey box and
+  no lint catches it. Class names cannot contain dots (drop the package prefix and
+  say so under the diagram), and a member takes one classifier, not two.
+- **A refresh is a re-read, not a patch.** Walk the class's property and method
+  blocks against the page. A page listing a method deleted three commits ago reads
+  as authoritative because everything around it is right.
+
+Scope honestly: 107 classes is more than one run. Do complete packages, and say
+which groups are still uncovered rather than leaving a half-written page behind.
+
+## Step 5 — screenshots
 
 If `survey.sh` printed `SCREENSHOT HINTS`, the published images may be stale.
 Read `references/screenshots.md` before running anything — it has the
@@ -118,7 +170,7 @@ adding a new shot. Two things that bite first:
 - The generators snapshot and restore every `getpref` group they touch and build
   figures `Visible='off'`. Keep it that way; a shot must never disturb a live rig.
 
-## Step 5 — verify
+## Step 6 — verify
 
 ```bash
 bash .claude/skills/update-wiki/verify.sh
@@ -132,7 +184,7 @@ fixing unrelated pages.
 Then re-read the pages you changed end to end. Section anchors in a page's own
 table of contents break when you retitle a heading, and nothing checks those.
 
-## Step 6 — commit and push the wiki
+## Step 7 — commit and push the wiki
 
 The wiki repo is not this repo — commit **in the wiki clone**, and the `/commit`
 skill does not apply to it. Every run that changes a page ends committed **and
@@ -167,6 +219,16 @@ Document the NE1000 pump and the SyringePump panel
 - Regenerated images/components/SyringePump.png.
 ```
 
+Class-page runs name the package and the count, not every page:
+
+```text
+Add class reference pages for the hw package
+
+- hw.Module, hw.Parameter, hw.Software, hw.TDT_RPcox, hw.NE1000: new class
+  cards with diagrams; hw.Interface refreshed for the connect-recovery hooks.
+- Class-Reference: index regenerated — hw is now fully covered.
+```
+
 If code-repo files also changed (a `documentation/*.md` you fixed, a generator you
 edited, an image under `documentation/*/images/`), those are a **separate commit
 in this repo** — use the `/commit` skill for them.
@@ -189,3 +251,14 @@ in this repo** — use the `/commit` skill for them.
   own copy in `images/`. Update the code repo first, then copy over.
 - **Don't renumber or retitle a heading casually.** Other pages link to
   `#section-anchor`, and `verify.sh` does not check anchors.
+- **A broken Mermaid diagram renders as a grey box, not an error.** Nothing in
+  `verify.sh` catches it, so re-read any diagram you touched. The two that bite:
+  a dot in a class name (`class hw.Interface`) and two classifiers on one member
+  (`+getCreationSpec()$*`).
+- **Never hand-edit inside the class index markers.** `Class-Reference.md` is
+  generated between `<!-- BEGIN CLASS INDEX -->` and `<!-- END CLASS INDEX -->`;
+  the next `classes.sh --index` throws the edit away. A wrong one-line description
+  is a wrong class header comment — fix the `%` line in the source.
+- **`classes.sh` reads `.synced-commit` for "behind the code".** With the marker
+  stale or missing, nothing is reported as behind, and the pages look current when
+  they are not. Pass `--since <sha>` when the marker cannot be trusted.

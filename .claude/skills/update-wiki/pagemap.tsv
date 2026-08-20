@@ -14,7 +14,7 @@ obj/+gui/@SubjectManager	Subjects-and-Projects, Subject-Roster-Internals	documen
 obj/+gui/@VlcRecorderSetup	Video-and-Peripherals	documentation/gui/VlcRecorderSetup.md
 obj/+gui/	Behavior-GUI-Components, GUI-Framework-Internals, Training-and-Online-Analysis, Programmers-Toolkit	documentation/gui/
 obj/+hw/@NE1000	Video-and-Peripherals, Hardware-Abstraction-Layer	documentation/hw/hw_NE1000.md
-obj/+hw/@Interface	Hardware-Abstraction-Layer, Writing-a-Hardware-Backend	documentation/hw/hw_Interface.md, documentation/hw/hw_Interface_Tutorial.md
+obj/+hw/@Interface	Hardware-Abstraction-Layer, hw.Interface-Class-Reference, Writing-a-Hardware-Backend	documentation/hw/hw_Interface.md, documentation/hw/hw_Interface_Tutorial.md
 obj/+hw/@Parameter	Hardware-Abstraction-Layer, Designing-Protocols	documentation/hw/hw_Parameter.md
 obj/+hw/	Hardware-Abstraction-Layer, Writing-a-Hardware-Backend, Programmers-Toolkit	documentation/hw/
 obj/+epsych/@RunExpt	Running-a-Session, RunExpt-GUI-Overview, Utilities	documentation/overviews/RunExpt_GUI_Overview.md

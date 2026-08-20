@@ -1356,7 +1356,17 @@ classdef SubjectManager < handle
             % carried session settings.
             projectId = self.selectedProject_();
             ids = self.checkedIds_();
-            if isempty(projectId) || isempty(ids), return, end
+            % Say why nothing happened: this menu item silently doing nothing
+            % is how a rig ran the generic GUI for a day.
+            if isempty(projectId)
+                self.setStatus_(['Select a project first: templates are ' ...
+                    'per-project, so there is nothing to re-apply in All Subjects.']);
+                return
+            end
+            if isempty(ids)
+                self.setStatus_('Check the subjects to re-apply the template to first.');
+                return
+            end
 
             p = self.Roster.findProject(projectId);
             pName = projectId;

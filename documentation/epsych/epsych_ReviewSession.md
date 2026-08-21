@@ -157,6 +157,17 @@ components read their state at construction rather than waiting for an event:
 the scrubber afterwards; the controls do not, by design — they show where the
 session finished.
 
+**The operator's notes come back with the session.** `buildRuntime_` puts
+`epsych.SessionNotes.fromSnapshot(obj.Snapshot)` on `RUNTIME.NOTES`, so a
+`gui.Notes` in the paradigm's own GUI shows what was typed during the session
+rather than opening blank. That store is deliberately **unbound to this
+runtime**: a review has no journal to write to and no trial count to stamp a new
+note with. `gui.Notes` refuses new notes in `ReviewMode` regardless — the entry
+field and commit button are disabled and *Editable* is refused — because what a
+review shows is the record the file was saved with, and nothing here can reach
+that file. A file that predates notes, or one whose `Info` is a legacy shape,
+yields an empty store rather than an error.
+
 **A stored value outside its own bounds must not abort the build.** Real
 protocols contain them: `hw.Parameter` clamps on write but not on read, so a
 backend read-back, a protocol saved while a device reported 0, or a `Min`/`Max`

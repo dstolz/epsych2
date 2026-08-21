@@ -47,6 +47,16 @@ cell, string, logical, uint32, arrays) — which JSON would not.
    recovery artifact keeps the legacy `info + data_NNNN` layout and every
    downstream consumer is unchanged.
 
+A fourth writer appends out of band: `epsych.SessionNotes` rewrites the
+**whole** notes log under the single record name `notes` every time the
+operator commits one. That is affordable because notes are typed at human
+rates and run to a few hundred bytes, and it is what removes any need to
+stitch fragments together after a crash — the reader resolves records
+last-wins, so the newest complete log is the one that comes back. Records
+are keyed by name, so a repeated name replaces rather than duplicates; the
+per-trial writer relies on the same rule never firing, since each trial
+gets a name of its own.
+
 The `.epj` is left in place after the merge. It costs a second copy of the
 trial records in the temporary data directory and buys a recovery path if the
 merge itself is interrupted; delete it with the `.mat` when clearing that

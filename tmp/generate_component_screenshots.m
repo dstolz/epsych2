@@ -60,6 +60,7 @@ shots = { ...
     'PhaseSelector',                @shotPhaseSelector; ...
     'StaircaseTraining',            @shotStaircaseTraining; ...
     'SyringePump',                  @shotSyringePump; ...
+    'Notes',                        @shotNotes; ...
     'ParameterDebugger',            @shotParameterDebugger; ...
     'FilenameValidator',            @shotFilenameValidator; ...
     'ComponentToolbar',             @shotComponentToolbar; ...
@@ -400,6 +401,41 @@ pushTrial(S);     % and the upcoming-trial panel reads "--"
 end
 
 
+function fig = shotNotes(S)
+% The panel form with a few notes already in the log, beside the button form.
+% Notes go into the shared session's store, so the trial stamps are the
+% simulated session's own rather than invented.
+fig = shotFigure([560 250]);
+g = uigridlayout(fig, [2 2]);
+g.RowHeight    = {'1x', 26};
+g.ColumnWidth  = {'1x', 96};
+g.Padding      = [8 8 8 8];
+
+panel = gui.Notes(S.RUNTIME, g, PreferenceTag='wikiShotNotes');
+panel.LogH.Parent.Layout.Row    = 1;
+panel.LogH.Parent.Layout.Column = [1 2];
+
+button = gui.Notes(S.RUNTIME, g, ButtonOnly=true, PreferenceTag='wikiShotNotesButton');
+button.OpenH.Layout.Row    = 2;
+button.OpenH.Layout.Column = 2;
+
+lbl = uilabel(g, 'Text', 'the button form, for a GUI with no room for a log  ->', ...
+    'HorizontalAlignment', 'right');
+lbl.Layout.Row    = 2;
+lbl.Layout.Column = 1;
+
+% Trial and Time are stated so the three notes sit where they would have been
+% typed across the simulated session; the store would otherwise stamp all
+% three with the trial the session ended on and the same second.
+t0 = S.RUNTIME.StartTime;
+S.RUNTIME.NOTES.add('animal alert, weight 24.1 g', Trial=0,   Time=t0);
+S.RUNTIME.NOTES.add('ear plug reseated, brief pause', Trial=37, Time=t0+minutes(6)+seconds(12));
+S.RUNTIME.NOTES.add('false alarms climbing - watch the ITI', Trial=118, Time=t0+minutes(21)+seconds(48));
+
+fig.UserData = {panel, button};   % closeFigure deletes both, dropping their listeners
+end
+
+
 function fig = shotScreenCapture(~)
 % Both button forms side by side. copyToClipboard is deliberately NOT called:
 % it would put the shot on the developer's own clipboard.
@@ -472,6 +508,7 @@ groups = {'epsych2_gui_History', 'epsych2_gui_NextTrial', ...
     'epsych2_gui_ParameterScatter', 'epsych2_gui_Parameter_Monitor', ...
     'epsych2_gui_SessionPerformance', 'epsych2_gui_PhaseSelector', ...
     'epsych2_gui_SyringePump', 'epsych2_gui_ParameterDebugger', ...
+    'epsych2_gui_Notes', ...
     'StaircaseTraining', 'wikiShotSessionClock', ...
     'wikiShotBehaviorGUIHelpers', 'wikiShotComponentToolbar'};
 P = struct('group', groups, 'value', []);

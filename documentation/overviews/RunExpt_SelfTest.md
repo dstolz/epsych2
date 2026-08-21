@@ -75,7 +75,7 @@ Compilation always happens on an isolated copy of the protocol, so the self-test
 
 The default saving function is interactive, so the self-test deliberately does not invoke it. The per-trial round trip covers the disk path it eventually writes to.
 
-**GUI wiring & state** — that every handle the window's code depends on exists, that the control tag conventions the state machine relies on are intact, that the configuration survives a save/load round trip unchanged, and that the event broadcaster reaches its listeners.
+**GUI wiring & state** — that every handle the window's code depends on exists, that the control tag conventions the state machine relies on are intact, that the state machine cycles through its states with the right controls enabled at each one, that the event broadcaster reaches its listeners, and that the configured behavior GUI constructs and tears down.
 
 ## 5) Logging
 

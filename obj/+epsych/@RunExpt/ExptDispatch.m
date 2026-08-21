@@ -115,8 +115,9 @@ switch COMMAND
         self.RUNTIME.DefaultDataPath = self.DefaultDataPath;
 
         % Reserve each subject's data filename here rather than in the Start
-        % timer function: the recording is named after subject 1's data file,
-        % but it has to launch before the timer runs (see below).
+        % timer function: ep_TimerFcn_Start stamps it onto each subject's
+        % TRIALS, and the video recording PsychTimerStart launches is named
+        % after subject 1's copy, so both need it before the timer starts.
         self.RUNTIME.SessionDataFilename = arrayfun(@(c) string(epsych.RunExpt.defaultFilename( ...
             fullfile(self.DefaultDataPath, c.SUBJECT.Name), c.SUBJECT.Name)), self.CONFIG);
 
@@ -131,13 +132,6 @@ switch COMMAND
         self.H.modeIndicator.attachRuntime(self.RUNTIME);
 
         self.RUNTIME.TIMER = self.CreateTimer;
-
-        % Start video before hardware enters run mode: VLC launch blocks ~1 s,
-        % which must not land inside the trial loop, and the recording should
-        % cover the run from the first trial. Preview never records.
-        if COMMAND == "Record"
-            self.StartVideoRecording_
-        end
 
         % Let each interface stage backend-side recording (e.g. Intan RHX
         % filename/settings) while the hardware is still stopped; RHX ignores

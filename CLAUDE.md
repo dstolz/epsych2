@@ -289,6 +289,28 @@ Rules that matter:
   rebuilds it after a crash. Durability is guarded by a hard-kill harness, not a
   throughput benchmark — run `tmp/crash_test_trialjournal.m` after any change to it
   (see documentation/epsych/epsych_TrialJournal.md)
+- **epsych.SessionNotes**: the operator's typed notes for one session, always
+  present as `RUNTIME.NOTES` so no caller has to test for it. A note is one line
+  stamped with the COMPLETED trial count (0 before the first trial, and the
+  furthest-along subject for a session-wide note on a multi-box rig) — the trial
+  index is the axis the data is already on, where a wall clock has to be
+  reconciled with the session's start first. Notes are session-wide by default
+  (one behavior GUI per session, not per subject) and written into every
+  subject's file; `Subject=i` tags one animal and is then filtered into that
+  file alone. Two things make them durable, and neither costs a saving function
+  an edit: `epsych.SessionSnapshot.withNotes` — called by `forSubject`, NOT by
+  `capture`, since notes are typed long after the start-of-session snapshot is
+  frozen — folds `Notes`/`NotesText`/`NotesEdited` into the `Info` every saving
+  function already writes; and every commit rewrites the WHOLE log into each
+  subject's journal under one record name (`notes`), which the journal reader
+  resolves last-wins, so a crash leaves the newest complete log rather than
+  fragments. **Hand-edited text wins**: `setText` stores the operator's text
+  verbatim and re-parses `Records` from it, a line whose stamp is gone parsing
+  as `Trial = NaN` rather than being dropped, and `NotesEdited` is what tells a
+  later reader which of the two is the operator's own. `fromSnapshot` rebuilds
+  a store from a saved file for `epsych.ReviewSession`, deliberately unbound to
+  a runtime — a review has no journal to write and no trial to stamp with
+  (see documentation/gui/gui_Notes.md)
 - **epsych.ReviewSession** + **epsych.SessionSnapshot** + **hw.Replay**: offline
   session review — reopen a finished session in the paradigm's own
   `gui.BehaviorGUI`, every display showing what it showed when the session ended,
@@ -468,6 +490,29 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   window position is floored at `DEFAULT_SIZE` for the same reason
 - **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. **Add Checked to Session** REPLACES the session's subject list rather than appending to it (`assignToSession`'s `ReplaceExisting`) — what is ticked is the operator's answer to "who is running", and a leftover animal would keep dispatching trials in its box; the displaced names go in the commit report, and the button and its tool say so in a tooltip. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. **Copy...** (also `Project > Copy Project...` and a two-folders tool) starts a study's next phase from one that already works: it asks the subjects question FIRST in a `uiconfirm` — with subjects, or settings only, skipped entirely for a project with no active members — because that is the one thing the edit dialog cannot show, then opens the ordinary dialog titled `Copy Project` on a non-colliding `(copy)` name, so nothing is written until OK. Copied subjects stay in the source too (membership is many-to-many); the roster's `IncludeRetired`/`CopyProtocolMemory` are script-only. The project dialog has two tabs: **Project** (identity, links, archived) and **Session Defaults**, which is where the settings that moved off Customize are set — protocol, data path, saving function, behavior GUI, timer period, video and Intan paths. Nothing there opens blank: each field is seeded from its MRU (`ep_RunExpt_Subjects/Recent<Field>`, written only on OK) and then the machine pref, and OK refuses a blank one; `DefaultProtocol` and `IntanSettingsFile` are the two deliberate exceptions. The behavior GUI dropdown is fed by the behavior GUIs other projects in the roster use, not by the `RecentBehaviorGUI` pref, so it works with no session open. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. On a rig with no roster file chosen the window opens *unbound* — header `Roster: (no file chosen)`, an explanation where the table goes, and everything off EXCEPT New Project / New Subject / Import, because clicking one of those three is how `ensureRoster_` asks for the file. That prompt loops with two exits (name a file, or close the window): "carry on without one" is never offered, since it would mean filling in a record with nowhere to save it. Browsing never prompts. A configured path whose FOLDER is gone (share moved, drive unmounted, temp dir cleaned up) is treated the same way and marked `(folder not found)` — otherwise it is indistinguishable from a fresh empty roster, and `saveAtomic_` would re-create that dead folder and save into it. The header shows the FULL path plus a Change... button, redundantly with the toolbar tool and File menu, because an icon-only toolbar is no help to someone whose roster is not where they expected. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies. A **Version** column and a **Protocol** menu surface `SubjectRoster`'s version checking: the column shows the version each subject is *on* (bold orange when the file has been saved since), a collapsible banner over the table announces how many are behind and offers Update All, and right-click opens that row's protocol in `epsych.ProtocolDesigner`. "Update All in Project" deliberately covers filtered-out members, but RETIRED members are outside the version workflow entirely: they are skipped by every update, left out of the banner, the tooltip, and Check Protocol Versions, and their Version cell is greyed rather than flagged. A finished animal's recorded protocol is the record of what it ran, and no session will follow to make a newer version true. A project's **links** render under the summary as `uihyperlink`s whose `URL` is left EMPTY on purpose — the click routes through `SubjectRoster.openLink` so a stored address is re-checked before anything navigates, and a `file:` folder goes to the file manager rather than a browser. "Show archived projects" is the project-level counterpart of "Show retired", and the selected project is never hidden by it (documentation/gui/gui_SubjectManager.md)
 - **gui.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, a TTL-trigger enable, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, units, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state. Rate and readout **units** are the operator's too, from the right-click Units menu (µL/mL per min/hr, mL/min by default): changing them converts `Rate` rather than reinterpreting it, puts the interface into the same units — so a protocol column that writes `Rate` means them as well — and is refused while the pump runs, because the pump rejects a units-bearing `RAT` mid-dispense and `hw.NE1000`'s bare-value fallback would land in the OLD units (`gui.BehaviorGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
+- **gui.Notes**: the operator's note pad — one entry line (Enter or the button
+  beside it commits), above it a log of everything typed, each line stamped with
+  the trial (`[T042 00:17:05] ear plug slipped`). It STORES NOTHING: every note
+  goes to `epsych.SessionNotes` (normally `RUNTIME.NOTES`), which is what puts
+  it in the data file and the journal, so any number of instances — an embedded
+  panel, its pop-out, a second GUI — are views over one log kept in step by
+  `NotesChanged`. Two forms, and the second is why the pop-out machinery is load
+  bearing rather than a nicety: `ButtonOnly=true`
+  (`gui.BehaviorGUI.addNotesButton`) builds a single button whose click is
+  `popOut()`, so a GUI with no room for a log gets the notes in a window that
+  remembers its position, pins on top, raises instead of duplicating, and closes
+  with its host — all from `gui.PopOut`, with `createPopOut_` returning a full
+  panel over the same store. The log box is a `uitextarea` filling whatever row
+  the host layout gives it (no size option, by design) and is **read-only until
+  the right-click Editable is ticked**, remembered per host GUI; an edit then
+  makes that text authoritative (see `epsych.SessionNotes`). `TimeStamp`
+  (`elapsed` default, `clock`, `none`) and `Subject` are programmatic only — the
+  stamp is the paradigm's decision, not the operator's. In `ReviewMode` the
+  entry row is disabled and Editable is refused: what a review shows is the
+  record the file was saved with. On `gui.BehaviorBuilder`'s palette under
+  Add-ons, where the ButtonOnly form is the one case that CLEARS a region's
+  pop-out flag in `normalizeRegion_` — that button already opens the window a
+  pop-out button would (documentation/gui/gui_Notes.md)
 - **gui.ScreenCapture**: camera button that copies a picture of the whole window
   — controls and plots alike — to the system clipboard, for pasting into a
   notebook entry (`gui.BehaviorGUI.addScreenCapture`). `exportapp` is the

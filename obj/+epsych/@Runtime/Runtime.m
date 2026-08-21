@@ -47,6 +47,14 @@ classdef Runtime < handle & dynamicprops
 
         HWinUse (1,:) string % List of hardware in use (string array)
 
+        % NOTES - The operator's typed session notes (epsych.SessionNotes).
+        % Always present, so a caller never has to test for it: notes typed
+        % before a run are stamped trial 0 and saved just the same. It is
+        % epsych.SessionSnapshot.forSubject that folds them into the Info
+        % variable every saving function already writes. gui.Notes is the
+        % operator-facing end; anything else adds one with NOTES.add(text).
+        NOTES epsych.SessionNotes {mustBeScalarOrEmpty} = epsych.SessionNotes.empty
+
         TRIALS            % Protocol-specific trial information, including trial selection function, trial parameters, and trial count
         DefaultDataPath (1,1) string = "" % Default data path for output
         EVENTS            % Event broadcaster shared by the session (epsych.EventHub)
@@ -108,6 +116,12 @@ classdef Runtime < handle & dynamicprops
             % self = Runtime
             % Construct an empty Runtime container and initialize state.
             vprintf(2, 'Initializing Runtime object')
+
+            % Created here rather than as a property default so the store
+            % carries a back-reference to this runtime: that is what lets it
+            % stamp a note with the current trial and write it to the session
+            % journals without the caller supplying either.
+            self.NOTES = epsych.SessionNotes(self);
         end
 
         function delete(self)

@@ -1,7 +1,8 @@
 classdef VlcRecorderSetup < handle
     % g = gui.VlcRecorderSetup(Recorder, Name=Value,...)
     % Configure hw.VlcRecorder capture parameters (device, frame rate,
-    % resolution, crop) against a live MATLAB webcam preview.
+    % resolution, crop) and VLC window options (minimal interface, always on
+    % top) against a live MATLAB webcam preview.
     %
     % A MATLAB `webcam` feed is shown in an axes with an interactive
     % `images.roi.Rectangle` overlay defining the crop region. Device,
@@ -64,6 +65,8 @@ classdef VlcRecorderSetup < handle
         CropLeftField
         CropRightField
         ResetCropButton
+        MinimalViewCheckBox
+        AlwaysOnTopCheckBox
         VlcPreviewButton
         ApplyButton
         OkButton
@@ -193,12 +196,16 @@ classdef VlcRecorderSetup < handle
             title(obj.PreviewAxes, 'No preview', 'Color', [0.5 0.5 0.5]);
 
             % --- Controls column ---
-            obj.ControlGrid = uigridlayout(obj.RootGrid, [13 1]);
+            obj.ControlGrid = uigridlayout(obj.RootGrid, [16 1]);
             obj.ControlGrid.Layout.Row = 1;
             obj.ControlGrid.Layout.Column = 2;
             obj.ControlGrid.Padding = [0 0 0 0];
             obj.ControlGrid.RowSpacing = 4;
-            obj.ControlGrid.RowHeight = {18,26,18,26,18,26,18,100,26,26,'1x',26,26};
+            obj.ControlGrid.RowHeight = {18,26,18,26,18,26,18,100,26,18,22,22,26,'1x',26,26};
+            % The fixed rows exceed the height of a window saved before the VLC
+            % window section existed, so let the column scroll rather than clip
+            % Apply/OK off the bottom.
+            obj.ControlGrid.Scrollable = 'on';
 
             uilabel(obj.ControlGrid, 'Text', 'Device', 'FontWeight', 'bold');
 
@@ -243,12 +250,23 @@ classdef VlcRecorderSetup < handle
                 'Tag', 'VlcRecorderSetup_CropRightField');
 
             obj.ResetCropButton = uibutton(obj.ControlGrid, 'Text', 'Reset Crop', 'Tag', 'VlcRecorderSetup_ResetCropButton');
+
+            uilabel(obj.ControlGrid, 'Text', 'VLC window', 'FontWeight', 'bold');
+            obj.MinimalViewCheckBox = uicheckbox(obj.ControlGrid, ...
+                'Text', 'Minimal interface (no menus)', ...
+                'Tooltip', 'Start VLC in minimal view: video and playback controls only, no menu bar, playlist, or status bar.', ...
+                'Tag', 'VlcRecorderSetup_MinimalViewCheckBox');
+            obj.AlwaysOnTopCheckBox = uicheckbox(obj.ControlGrid, ...
+                'Text', 'Always on top', ...
+                'Tooltip', 'Keep the VLC window above other windows.', ...
+                'Tag', 'VlcRecorderSetup_AlwaysOnTopCheckBox');
+
             obj.VlcPreviewButton = uibutton(obj.ControlGrid, 'Text', 'Preview in VLC', 'Tag', 'VlcRecorderSetup_VlcPreviewButton');
 
             obj.ApplyButton = uibutton(obj.ControlGrid, 'Text', 'Apply', 'Tag', 'VlcRecorderSetup_ApplyButton');
-            obj.ApplyButton.Layout.Row = 12;
+            obj.ApplyButton.Layout.Row = 15;
             obj.OkButton = uibutton(obj.ControlGrid, 'Text', 'OK', 'Tag', 'VlcRecorderSetup_OkButton');
-            obj.OkButton.Layout.Row = 13;
+            obj.OkButton.Layout.Row = 16;
 
             obj.StatusLabel = uilabel(obj.RootGrid, 'Text', '', 'FontColor', [0.20 0.20 0.20]);
             obj.StatusLabel.Layout.Row = 2;
@@ -263,6 +281,8 @@ classdef VlcRecorderSetup < handle
             obj.CropLeftField.ValueChangedFcn       = @(s,e) obj.onCropFieldChanged(s,e);
             obj.CropRightField.ValueChangedFcn      = @(s,e) obj.onCropFieldChanged(s,e);
             obj.ResetCropButton.ButtonPushedFcn     = @(s,e) obj.onResetCrop(s,e);
+            obj.MinimalViewCheckBox.ValueChangedFcn = @(s,e) obj.markDirty_();
+            obj.AlwaysOnTopCheckBox.ValueChangedFcn = @(s,e) obj.markDirty_();
             obj.VlcPreviewButton.ButtonPushedFcn    = @(s,e) obj.onVlcPreviewToggle(s,e);
             obj.ApplyButton.ButtonPushedFcn         = @(s,e) obj.onApply(s,e);
             obj.OkButton.ButtonPushedFcn            = @(s,e) obj.onOk(s,e);
@@ -297,6 +317,9 @@ classdef VlcRecorderSetup < handle
             cr = obj.numOrZero_(obj.Recorder.get_parameter('CropRight'));
             obj.setCropFields_([ct cb cl cr]);
 
+            obj.MinimalViewCheckBox.Value = obj.logicalOrDefault_(obj.Recorder.get_parameter('MinimalView'), true);
+            obj.AlwaysOnTopCheckBox.Value = obj.logicalOrDefault_(obj.Recorder.get_parameter('AlwaysOnTop'), false);
+
             obj.Dirty = false;
             obj.setStatus('Ready.');
         end
@@ -304,6 +327,16 @@ classdef VlcRecorderSetup < handle
         function v = numOrZero_(~, v)
             if ~isnumeric(v) || isempty(v) || isnan(v)
                 v = 0;
+            end
+        end
+
+        function tf = logicalOrDefault_(~, v, dflt)
+            % get_parameter returns NaN for names it does not recognise, which
+            % is what an older recorder reports for these two.
+            if isempty(v) || (isnumeric(v) && any(isnan(v)))
+                tf = dflt;
+            else
+                tf = logical(v(1));
             end
         end
 
@@ -690,6 +723,8 @@ classdef VlcRecorderSetup < handle
             obj.CropLeftField.Enable = state;
             obj.CropRightField.Enable = state;
             obj.ResetCropButton.Enable = state;
+            obj.MinimalViewCheckBox.Enable = state;
+            obj.AlwaysOnTopCheckBox.Enable = state;
         end
 
         function onApply(obj, ~, ~)
@@ -744,6 +779,11 @@ classdef VlcRecorderSetup < handle
             obj.Recorder.set_parameter('CropLeft',   cropLeft);
             obj.Recorder.set_parameter('CropRight',  cropRight);
 
+            minimalView = obj.MinimalViewCheckBox.Value;
+            alwaysOnTop = obj.AlwaysOnTopCheckBox.Value;
+            obj.Recorder.set_parameter('MinimalView', minimalView);
+            obj.Recorder.set_parameter('AlwaysOnTop', alwaysOnTop);
+
             if obj.PersistPrefs_
                 setpref('ep_RunExpt_Video', 'DeviceName',   device);
                 setpref('ep_RunExpt_Video', 'FrameRate',    obj.FrameRateSpinner.Value);
@@ -752,6 +792,8 @@ classdef VlcRecorderSetup < handle
                 setpref('ep_RunExpt_Video', 'CropBottom',   cropBottom);
                 setpref('ep_RunExpt_Video', 'CropLeft',     cropLeft);
                 setpref('ep_RunExpt_Video', 'CropRight',    cropRight);
+                setpref('ep_RunExpt_Video', 'MinimalView',  minimalView);
+                setpref('ep_RunExpt_Video', 'AlwaysOnTop',  alwaysOnTop);
             end
 
             obj.Dirty = false;

@@ -33,6 +33,8 @@ switch r.Type
         [o, ok] = monitorDialog(obj, r, snap);
     case 'Scatter'
         [o, ok] = scatterDialog(obj, r, snap);
+    case 'Notes'
+        [o, ok] = notesDialog(obj, r);
     case 'SyringePump'
         [o, ok] = pumpDialog(obj, r);
     otherwise
@@ -248,6 +250,65 @@ if ok
 end
 delete(dlg);
 end
+
+function [o, ok] = notesDialog(obj, r)
+% Stamp format, the starting Editable state, and whether the region is the
+% whole pad or just a button that opens it in a window.
+o = r.Options;
+
+stamps = {'elapsed','clock','none'};
+labels = {'Trial + elapsed session time', 'Trial + wall clock', 'Trial number only'};
+
+[dlg, g] = modalShell(obj, sprintf('Session Notes - %s', orLabel(r)), 440, 300, [6 2]);
+g.RowHeight = {22, 22, 22, 22, 22, '1x'};
+g.ColumnWidth = {130, '1x'};
+
+lbl = uilabel(g, 'Text','Stamp each note with:');
+lbl.Layout.Row = 1; lbl.Layout.Column = 1;
+dd = uidropdown(g, 'Items',labels, 'ItemsData',stamps, ...
+    'Value',clampChoice(o.TimeStamp, stamps));
+dd.Layout.Row = 1; dd.Layout.Column = 2;
+
+cbEdit = uicheckbox(g, 'Text','Log box hand-editable from the start', ...
+    'Value',logical(o.Editable));
+cbEdit.Layout.Row = 2; cbEdit.Layout.Column = [1 2];
+
+cbBtn = uicheckbox(g, 'Text','Button only (the notes open in their own window)', ...
+    'Value',logical(o.ButtonOnly));
+cbBtn.Layout.Row = 3; cbBtn.Layout.Column = [1 2];
+
+lblT = uilabel(g, 'Text','Button label:');
+lblT.Layout.Row = 4; lblT.Layout.Column = 1;
+ef = uieditfield(g, 'text', 'Value',char(string(o.Text)));
+ef.Layout.Row = 4; ef.Layout.Column = 2;
+
+note = uilabel(g, 'Text',['Notes are saved with the data either way, in the Info ' ...
+    'variable, and journaled as they are typed.'], ...
+    'WordWrap','on', 'FontAngle','italic', 'FontSize',11);
+note.Layout.Row = [5 6]; note.Layout.Column = [1 2];
+
+% The label only means anything in the button form, and the Editable state
+% belongs to the log box the button form does not have.
+cbBtn.ValueChangedFcn = @(s,~) syncEnable(s.Value);
+syncEnable(cbBtn.Value);
+
+ok = runModal(dlg);
+if ok
+    o.TimeStamp  = dd.Value;
+    o.Editable   = cbEdit.Value;
+    o.ButtonOnly = cbBtn.Value;
+    o.Text       = strtrim(char(ef.Value));
+    if isempty(o.Text), o.Text = 'Notes'; end   % an unlabelled button says nothing
+end
+delete(dlg);
+
+    function syncEnable(buttonOnly)
+        ef.Enable     = matlab.lang.OnOffSwitchState(buttonOnly);
+        lblT.Enable   = matlab.lang.OnOffSwitchState(buttonOnly);
+        cbEdit.Enable = matlab.lang.OnOffSwitchState(~buttonOnly);
+    end
+end
+
 
 function [o, ok] = pumpDialog(obj, r)
 o = r.Options;

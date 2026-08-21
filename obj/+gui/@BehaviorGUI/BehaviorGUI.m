@@ -605,6 +605,64 @@ classdef (Abstract) BehaviorGUI < handle
             obj.register(h);
         end
 
+        function h = addNotes(obj, parent, options)
+            % h = addNotes(obj, parent, ...)
+            % Create a gui.Notes panel -- an entry field and a log of the
+            % operator's typed notes -- and register it for teardown.
+            %
+            % Notes go into this session's store (RUNTIME.NOTES), which means
+            % they are saved with the data: the Info variable every saving
+            % function writes carries them, and each one is journaled as it is
+            % committed, so a crash keeps them. Give the panel a '1x' row and
+            % the log fills it. See gui.Notes.
+            arguments
+                obj
+                parent (1,1)
+                options.Subject (1,1) double = 0
+                options.TimeStamp (1,1) string = "elapsed"
+                options.Editable (1,1) logical = false
+                options.FontSize (1,1) double = 12
+                options.Placeholder (1,:) char = 'Add a note...'
+                options.ButtonOnly (1,1) logical = false
+                options.Text (1,:) char = 'Notes'
+                options.PreferenceTag (1,:) char = ''
+            end
+
+            args = {'Subject', options.Subject, 'TimeStamp', options.TimeStamp, ...
+                'Editable', options.Editable, 'FontSize', options.FontSize, ...
+                'Placeholder', options.Placeholder, 'ButtonOnly', options.ButtonOnly, ...
+                'Text', options.Text};
+            if ~isempty(options.PreferenceTag)
+                args = [args {'PreferenceTag', options.PreferenceTag}];
+            end
+
+            h = gui.Notes(obj.RUNTIME, parent, args{:});
+            obj.register(h);
+        end
+
+        function h = addNotesButton(obj, parent, options)
+            % h = addNotesButton(obj, parent, Text=...)
+            % Create a single Notes button, for a GUI with no room for a log.
+            % Clicking it opens the session notes in a window of their own --
+            % the same store the panel form writes to, so the window shows
+            % every note the session has and anything typed into it is saved
+            % with the data. Clicking again raises that window rather than
+            % opening a second one, and it closes with this GUI.
+            arguments
+                obj
+                parent (1,1)
+                options.Text (1,:) char = 'Notes'
+                options.Subject (1,1) double = 0
+                options.TimeStamp (1,1) string = "elapsed"
+                options.FontSize (1,1) double = 12
+                options.PreferenceTag (1,:) char = ''
+            end
+
+            h = obj.addNotes(parent, ButtonOnly = true, Text = options.Text, ...
+                Subject = options.Subject, TimeStamp = options.TimeStamp, ...
+                FontSize = options.FontSize, PreferenceTag = options.PreferenceTag);
+        end
+
         function h = addScreenCapture(obj, parent, options)
             % h = addScreenCapture(obj, parent, Target=..., Text=..., Tooltip=...)
             % Create a gui.ScreenCapture camera button and register it for

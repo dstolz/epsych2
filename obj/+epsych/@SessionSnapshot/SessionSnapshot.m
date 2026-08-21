@@ -89,14 +89,65 @@ classdef SessionSnapshot
                 T = RUNTIME.TRIALS(subjectIdx);
                 if isfield(T, 'SessionInfo') && ~isempty(T.SessionInfo)
                     S = T.SessionInfo;
-                    return
+                else
+                    S = epsych.SessionSnapshot.capture(RUNTIME, subjectIdx);
                 end
-                S = epsych.SessionSnapshot.capture(RUNTIME, subjectIdx);
+
+                % Notes are the one part of the snapshot that cannot be
+                % captured at session start: they are typed DURING the run.
+                % Folding them in here is what puts them in every saving
+                % function's Info without any of them being edited.
+                S = epsych.SessionSnapshot.withNotes(S, RUNTIME, subjectIdx);
+                return
             catch ME
                 vprintf(0, 1, ME)
                 vprintf(0, 1, ['epsych.SessionSnapshot: could not describe this session; ' ...
                     'the data still saves, but it will review without parameter controls'])
                 S = epsych.SessionSnapshot.fromInfo([]);
+            end
+        end
+
+        function S = withNotes(S, RUNTIME, subjectIdx)
+            % S = epsych.SessionSnapshot.withNotes(S, RUNTIME, subjectIdx)
+            % Fold this session's operator notes into a snapshot.
+            %
+            % Separate from capture() because the notes are the one thing a
+            % start-of-session snapshot cannot hold: they are typed while the
+            % session runs. forSubject calls this at save time; a custom
+            % saving function that builds its own snapshot with capture()
+            % should call it too.
+            %
+            % Three fields go in, and which is authoritative depends on what
+            % the operator did: NotesText is the log as it stood, and once
+            % NotesEdited is true it is what the operator hand-edited and
+            % therefore the record; Notes is the structured form, re-parsed
+            % from that text in the edited case.
+            %
+            % Never throws: notes must not be able to cost a session its file.
+            arguments
+                S (1,1) struct
+                RUNTIME (1,1) epsych.Runtime
+                subjectIdx (1,1) double {mustBeInteger,mustBePositive} = 1
+            end
+
+            S.Notes       = epsych.SessionNotes.emptyRecords();
+            S.NotesText   = '';
+            S.NotesEdited = false;
+
+            try
+                N = RUNTIME.NOTES;
+                if isempty(N) || ~isvalid(N), return; end
+
+                S.Notes       = N.forSubject(subjectIdx);
+                S.NotesEdited = N.IsEdited;
+                if N.IsEdited
+                    S.NotesText = N.Text;
+                else
+                    S.NotesText = char(strjoin(N.render(Subject=subjectIdx), newline));
+                end
+            catch ME
+                vprintf(0, 1, ME)
+                vprintf(0, 1, 'epsych.SessionSnapshot: session notes could not be recorded with this file')
             end
         end
 

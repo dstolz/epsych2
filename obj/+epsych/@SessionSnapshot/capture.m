@@ -101,6 +101,14 @@ S.TrialTable    = T.trials;
 S.WriteParams   = T.writeparams;
 S.WriteParamIdx = T.writeParamIdx;
 
+% Present but empty. The operator's notes are typed during the session, long
+% after this runs, so it is epsych.SessionSnapshot.withNotes -- called by
+% forSubject at save time -- that fills these in. Declaring them here keeps the
+% field set of a captured snapshot and a saved one the same.
+S.Notes       = epsych.SessionNotes.emptyRecords();
+S.NotesText   = '';
+S.NotesEdited = false;
+
 end
 
 

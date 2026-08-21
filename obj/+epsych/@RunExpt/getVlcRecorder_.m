@@ -20,6 +20,8 @@ if isempty(self.VlcRecorder_) || ~isvalid(self.VlcRecorder_)
     rec.set_parameter('CropBottom', getpref('ep_RunExpt_Video','CropBottom', rec.get_parameter('CropBottom')));
     rec.set_parameter('CropLeft',   getpref('ep_RunExpt_Video','CropLeft',   rec.get_parameter('CropLeft')));
     rec.set_parameter('CropRight',  getpref('ep_RunExpt_Video','CropRight',  rec.get_parameter('CropRight')));
+    rec.set_parameter('MinimalView', getpref('ep_RunExpt_Video','MinimalView', rec.get_parameter('MinimalView')));
+    rec.set_parameter('AlwaysOnTop', getpref('ep_RunExpt_Video','AlwaysOnTop', rec.get_parameter('AlwaysOnTop')));
     self.VlcRecorder_ = rec;
 end
 

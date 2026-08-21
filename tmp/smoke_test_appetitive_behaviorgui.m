@@ -61,6 +61,11 @@ assert(isvalid(g.PhaseSelector), 'phase selector should exist');
 assert(isvalid(g.SessionClock), 'session clock should exist');
 assert(isequal(g.SessionClock.PanelH.Layout.Row, 1) && isequal(g.SessionClock.PanelH.Layout.Column, 5), ...
     'session clock should sit in the open top-row cell (row 1, column 5)');
+assert(isvalid(g.NotesButton) && g.NotesButton.IsButtonOnly, ...
+    'notes button should exist in its button-only form');
+assert(g.NotesButton.Store == rt.NOTES, 'notes button should write to the session store');
+assert(numel(g.NotesButton.OpenH.Parent.ColumnWidth) == 7, ...
+    'the button row should have a column for it beside the six triggers');
 fprintf('PASS: panels and components\n');
 
 % 4. Automatic Parameter_Update wiring ------------------------------------

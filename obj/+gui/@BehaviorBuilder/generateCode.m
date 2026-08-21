@@ -250,6 +250,33 @@ switch r.Type
         out('h%d.attachRuntime(obj.RUNTIME);', i);
         out('obj.register(h%d);', i);
 
+    case 'Notes'
+        if o.ButtonOnly
+            % One button in the cell; the notes live in the window it opens,
+            % which is its own pop-out — hence no addPopOutButton here.
+            out('nb%d = uigridlayout(g, [1 1]);', i);
+            out('nb%d.Layout.Row = %s; nb%d.Layout.Column = %s;', ...
+                i, fmtSpan(r.Row), i, fmtSpan(r.Col));
+            args = {sprintf('Text=%s', q(o.Text))};
+            if ~strcmp(o.TimeStamp,'elapsed')
+                args{end+1} = sprintf('TimeStamp="%s"', o.TimeStamp);
+            end
+            if ~isempty(tag), args{end+1} = sprintf('PreferenceTag=%s', q(tag)); end
+            out('obj.addNotesButton(nb%d, %s);', i, strjoin(args, ', '));
+        else
+            [host, popParent] = emitHost(r, i);
+            args = {};
+            if ~strcmp(o.TimeStamp,'elapsed')
+                args{end+1} = sprintf('TimeStamp="%s"', o.TimeStamp);
+            end
+            if o.Editable, args{end+1} = 'Editable=true'; end
+            if ~isempty(tag), args{end+1} = sprintf('PreferenceTag=%s', q(tag)); end
+            s = sprintf('obj.addNotes(%s', host);
+            if ~isempty(args), s = [s ', ' strjoin(args, ', ')]; end
+            s = [s ')'];
+            emitHelperCall(r, i, popParent, s);
+        end
+
     case 'SyringePump'
         [host, popParent] = emitHost(r, i);
         args = {};

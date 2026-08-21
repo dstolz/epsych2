@@ -1,8 +1,10 @@
 classdef NE1000 < hw.Interface
 
     % obj = hw.NE1000(port, Name=Value)
-    % Hardware interface for a New Era NE-1000 Multi-Phaser programmable
-    % syringe pump (SyringePump.com), controlled over RS-232.
+    % Hardware interface for a New Era NE-1000 syringe pump over RS-232.
+    %
+    % The NE-1000 Multi-Phaser (SyringePump.com) is driven here as a
+    % single-rate reward dispenser.
     %
     % Speaks the pump's Basic-mode ASCII protocol (user manual #1200-01,
     % firmware V3.923, sec. 10). Commands are CR-terminated lines optionally

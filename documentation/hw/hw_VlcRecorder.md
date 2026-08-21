@@ -32,6 +32,22 @@ Configured with `set_parameter` and read with `get_parameter`.
   from each edge of the frame. Default `0`. Values are rounded up to the
   nearest even number (x264 requires even frame dimensions). Applied via a
   VLC `croppadd` video filter in both recording and preview-only modes.
+- `MinimalView` (Boolean): start VLC in minimal view (`--qt-minimal-view`) —
+  video and playback controls only, with no menu bar, playlist, or status bar.
+  Default `true`.
+- `AlwaysOnTop` (Boolean): keep the VLC window above other windows
+  (`--video-on-top`). Default `false`. Useful when the operator works in
+  another application and needs the camera view to stay visible.
+
+Both window options are passed on every launch in their explicit form
+(`--qt-minimal-view` / `--no-qt-minimal-view`), never only when enabled. VLC
+persists these settings in the user's `vlcrc`, so an operator who toggled
+minimal view (Ctrl+H) or always-on-top in their own VLC would otherwise carry
+that setting into every session here. They are also declared
+`PersistWithPhase`, since they are settings the operator sets and leaves rather
+than momentary buttons — without that, `hw.Parameter.isTransientControl` treats
+any Boolean the trial dispatcher never refreshes as a button press and a saved
+phase drops it.
 
 ## Triggers
 
@@ -64,7 +80,7 @@ rec.disconnect();
 
 ## Setup GUI
 
-`obj.setupGUI()` opens `gui.VlcRecorderSetup`: a live webcam preview with an interactive crop rectangle for configuring `DeviceName`, `FrameRate`, `Resolution`, and the `Crop*` parameters, plus a "Preview in VLC" toggle to verify the actual recorded frame before starting a session.
+`obj.setupGUI()` opens `gui.VlcRecorderSetup`: a live webcam preview with an interactive crop rectangle for configuring `DeviceName`, `FrameRate`, `Resolution`, and the `Crop*` parameters, a **VLC window** section holding the `MinimalView` and `AlwaysOnTop` checkboxes, plus a "Preview in VLC" toggle to verify the actual recorded frame before starting a session.
 
 ```matlab
 rec = hw.VlcRecorder();

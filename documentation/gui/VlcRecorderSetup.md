@@ -1,6 +1,6 @@
 # VlcRecorderSetup
 
-`gui.VlcRecorderSetup` is a MATLAB App Designer–style UI for configuring `hw.VlcRecorder` capture parameters (device, frame rate, resolution, and crop) against a live webcam preview.
+`gui.VlcRecorderSetup` is a MATLAB App Designer–style UI for configuring `hw.VlcRecorder` capture parameters (device, frame rate, resolution, and crop) and VLC window options (minimal interface, always on top) against a live webcam preview.
 
 It is designed to be embedded inside another UI (panel/grid/etc.) or used standalone in its own figure, and can also be opened directly from the recorder via `rec.setupGUI()`.
 
@@ -11,6 +11,7 @@ It is designed to be embedded inside another UI (panel/grid/etc.) or used standa
 - A live MATLAB `webcam` preview of the configured (or best-guess) camera.
 - An interactive crop rectangle (`images.roi.Rectangle`) on top of the preview, kept in sync with four numeric crop fields.
 - Device, resolution, and frame-rate controls.
+- A **VLC window** section for the two options that shape the VLC window itself rather than the captured frame.
 - A "Preview in VLC" toggle to verify the actual VLC `croppadd` output before recording.
 
 ## Key concepts
@@ -51,11 +52,20 @@ The device dropdown (editable) is populated from the union of `hw.VlcRecorder.li
 
 An explicit resolution selected in the dropdown is always what Apply commits as `Resolution` — even if the MATLAB preview could not switch to it (the driver rejected it, or the preview camera differs from the recording device); VLC's `--dshow-size` asks the driver to negotiate the nearest supported size. When the dropdown shows "(camera default)" and the preview is running, Apply commits the *actual previewed frame size* instead, pinning the crop values to a known frame size. With the preview disabled or unavailable, "(camera default)" commits `[0 0]` (let the camera decide).
 
+### VLC window options
+
+Two checkboxes under **VLC window** configure the window VLC opens, not the frame it captures. Both take effect the next time VLC is launched (Preview in VLC, or the session's video recording); neither changes a VLC window that is already open.
+
+- **Minimal interface (no menus)** → `MinimalView`. Checked by default. VLC opens in minimal view — video and playback controls only, no menu bar, playlist, or status bar — which is what View > Minimal Interface (Ctrl+H) does interactively.
+- **Always on top** → `AlwaysOnTop`. Unchecked by default. Keeps the VLC window above other windows, so the camera view stays visible while the operator works in another application.
+
+Both are stated explicitly on every VLC launch, in the positive or `--no-` form, because VLC persists them in the user's `vlcrc`: an operator who once pressed Ctrl+H in their own VLC would otherwise inherit that setting in every session here. See `documentation/hw/hw_VlcRecorder.md` for the parameter-level detail.
+
 ## Requirements and dependencies
 
 - MATLAB Image Acquisition/USB Webcams support package (`webcam`, `webcamlist`) for the live preview. Without it, the GUI still opens in a numeric-only mode (fields seeded from `Recorder.get_parameter`), with a status message explaining preview is disabled.
 - Image Processing Toolbox (`images.roi.Rectangle`) for the crop ROI.
-- `uifigure`, `uigridlayout`, `uiaxes`, `uidropdown`, `uispinner`, `uibutton`, `uilabel`.
+- `uifigure`, `uigridlayout`, `uiaxes`, `uidropdown`, `uispinner`, `uibutton`, `uicheckbox`, `uilabel`.
 
 ## Constructor
 
@@ -69,7 +79,7 @@ Name–value options:
 - `Parent` (default `[]`): if provided, the GUI is embedded in this container; otherwise a new `uifigure` is created and owned.
 - `WindowStyle`: `"normal" | "alwaysontop" | "modal"` (only used when `Parent=[]`).
 - `EnablePreview` (default `true`): set `false` to skip opening the webcam entirely (headless use, or when a camera is known to be busy). Crop fields remain numerically editable.
-- `PersistPrefs` (default `true`): when applying, also mirror `DeviceName`, `FrameRate`, `Resolution`, and the four crop values to `getpref('ep_RunExpt_Video', ...)` so a later `RunExpt` webcam session can pick them up.
+- `PersistPrefs` (default `true`): when applying, also mirror `DeviceName`, `FrameRate`, `Resolution`, the four crop values, `MinimalView`, and `AlwaysOnTop` to `getpref('ep_RunExpt_Video', ...)` so a later `RunExpt` webcam session can pick them up.
 
 ## Usage examples
 
@@ -109,7 +119,7 @@ Clicking **Preview in VLC**:
 1. Applies current values to the recorder (same as clicking Apply).
 2. Releases the MATLAB webcam.
 3. Calls `Recorder.trigger('Play')` so VLC opens showing exactly the cropped/resized frame it would record.
-4. Disables device/resolution/crop controls (Apply/OK/toggle remain active) and relabels the button "Back to Setup".
+4. Disables the device/resolution/crop and VLC-window controls (Apply/OK/toggle remain active) and relabels the button "Back to Setup".
 
 Clicking **Back to Setup** stops VLC and reopens the MATLAB preview. No recording is ever started from this GUI (`RecordingFile` is left untouched).
 
@@ -125,9 +135,11 @@ Clicking **Back to Setup** stops VLC and reopens the MATLAB preview. No recordin
 - The preview runs at a fixed ~10 Hz sampling of `snapshot(cam)`; this is a setup aid, not a low-latency viewfinder.
 - `Camera.AvailableResolutions` (MATLAB) may not exactly match what VLC's DirectShow backend negotiates; VLC's `--dshow-size` requests the size and the driver picks the nearest.
 - Frame rate only affects VLC's capture (`--dshow-fps`), not the speed of the MATLAB preview.
+- The control column is scrollable. Its fixed rows are taller than a window position saved before the VLC window section existed, so without scrolling Apply/OK would be clipped off the bottom for anyone with an older saved `VlcRecorderSetup/Position`.
 
 ## Related files
 
 - `obj/+gui/@VlcRecorderSetup/VlcRecorderSetup.m` (this class)
 - `obj/+hw/@VlcRecorder/VlcRecorder.m` (`setupGUI()`, `set_parameter`/`get_parameter`/`trigger`, crop even-rounding in `cropFilterSpec_`)
+- `tmp/smoke_test_vlcrecorder_setup.m`, `tmp/smoke_test_vlcrecorder_window_opts.m`
 - `documentation/hw/hw_VlcRecorder.md`

@@ -94,7 +94,7 @@ buttonLayout = uigridlayout(layoutMain,[2 3]);
 buttonLayout.Layout.Row    = 1;
 buttonLayout.Layout.Column = [1 4];
 buttonLayout.Padding       = [0 0 0 0];
-buttonLayout.ColumnWidth   = repmat({'1x'},1,6);
+buttonLayout.ColumnWidth   = repmat({'1x'},1,7);   % six triggers + Notes
 buttonLayout.RowHeight     = {'1x'};
 buttonLayout.RowSpacing    = 0;
 buttonLayout.ColumnSpacing = 0;
@@ -113,6 +113,13 @@ obj.hReminder = obj.addButton(buttonLayout,'~ReminderTrials', Type='toggle', Tex
 obj.addButton(buttonLayout,'~ManualTrigger',  Type='toggle',    Text='Observe');
 obj.addButton(buttonLayout,'~TrialDelivery',  Type='toggle',    Text='Deliver Trials');
 obj.addButton(buttonLayout,'SpoofTrough',     Type='momentary', Text='Trough');
+
+% Session notes: a button rather than a panel, since this layout has no
+% spare rows. It opens the notes in a window of their own, and what is
+% typed there is saved with the session's data (Info.Notes) and journaled
+% as it is typed. Placed after the triggers so it takes the last column.
+obj.NotesButton = obj.addNotesButton(buttonLayout, Text='Notes');
+set(obj.NotesButton.OpenH, FontWeight='bold', FontSize=15);
 
 bcmActive = min(lines(7)+0.4,1);
 bNames = fieldnames(obj.hButtons);

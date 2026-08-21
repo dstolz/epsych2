@@ -112,6 +112,44 @@ assert(isa(gb.Psych, 'psychophysics.Detection'), 'createPsych must build the Det
 delete(gb);
 fprintf('PASS: aux components (clock, timer, mode, pump, psych plot, capture)\n');
 
+% 6b. Session notes: both forms, from one spec ----------------------------
+specC = buildSpecC();
+specFileC = fullfile(outDir, 'TmpBuilderNotesGUI.eblt');
+gui.BehaviorBuilder.saveSpecFile(specC, specFileC);
+mFileC = gui.BehaviorBuilder.writeCode(specC, specFileC);
+msgs = checkcode(mFileC);
+assert(isempty(msgs), 'notes generated file must be lint-clean:%s', formatMsgs(msgs));
+
+srcC = fileread(mFileC);
+assert(contains(srcC, 'obj.addNotes('), 'the panel form must emit addNotes');
+assert(contains(srcC, 'obj.addNotesButton('), 'the button form must emit addNotesButton');
+assert(contains(srcC, 'TimeStamp="clock"'), 'a non-default stamp must be emitted');
+assert(count(srcC, 'PreferenceTag=') >= 2, ...
+    'two gui.Notes in one GUI must get uniqued preference tags');
+assert(~contains(srcC, 'addPopOutButton'), ...
+    'the button form is its own pop-out opener, so no pop-out button is emitted');
+
+rehash
+clear('TmpBuilderNotesGUI')
+rtC = makeRuntimeB();
+gc = TmpBuilderNotesGUI(rtC);
+assert(isvalid(gc) && isvalid(gc.h_figure), 'notes GUI must construct');
+
+% The generated class keeps no handles, so the components are found in the
+% window: one log box (the panel form) and a labelled button (the button form).
+logs = findall(gc.h_figure, 'Type','uitextarea');
+assert(isscalar(logs), 'the panel form must build exactly one log box');
+btns = findall(gc.h_figure, 'Type','uibutton');
+assert(any(strcmp({btns.Text}, 'Session Log')), ...
+    'the button form must build a button carrying the configured label');
+
+rtC.NOTES.add('typed while the generated GUI is open');
+assert(numel(logs.Value) == 1 && contains(logs.Value{1}, 'typed while'), ...
+    'the panel must show a note added through the runtime store');
+assert(contains(logs.Value{1}, ':'), 'the configured clock stamp must be rendered');
+delete(gc);
+fprintf('PASS: session notes place, generate, and run in both forms\n');
+
 % 7. Builder window over the round-tripped spec --------------------------
 b = gui.BehaviorBuilder;
 assert(isvalid(b), 'builder window must construct');
@@ -224,6 +262,37 @@ spec = addRegion(spec, 'R6', 'ModeIndicator', 'Mode', [2 2], [3 3], false, ...
     gui.BehaviorBuilder.defaultOptions('ModeIndicator'));
 spec = addRegion(spec, 'R7', 'NextTrial', 'Next Trial', [3 3], [3 3], false, ...
     gui.BehaviorBuilder.defaultOptions('NextTrial'));
+end
+
+function spec = buildSpecC()
+% Both notes forms in one GUI: the pad, and a button that opens its own
+% window. The button region carries PopOut=true on purpose -- validation must
+% clear it, since that button IS the pop-out opener.
+spec = gui.BehaviorBuilder.specNew;
+spec.ClassName  = 'TmpBuilderNotesGUI';
+spec.WindowName = 'Builder Notes Smoke Test';
+spec.Grid.Rows = 2; spec.Grid.Cols = 1;
+spec.Grid.RowHeight   = {'1x','40'};
+spec.Grid.ColumnWidth = {'1x'};
+
+sw = makeInterfaceB();
+spec.ParameterSnapshot = gui.BehaviorBuilder.snapshotFromParameters( ...
+    sw.all_parameters(includeTriggers=true));
+delete(sw);
+
+pad = gui.BehaviorBuilder.defaultOptions('Notes');
+pad.TimeStamp = 'clock';
+pad.Editable  = true;
+spec = addRegion(spec, 'N1', 'Notes', 'Notes', [1 1], [1 1], false, pad);
+
+btn = gui.BehaviorBuilder.defaultOptions('Notes');
+btn.ButtonOnly = true;
+btn.Text = 'Session Log';
+spec = addRegion(spec, 'N2', 'Notes', '', [2 2], [1 1], true, btn);
+
+spec = gui.BehaviorBuilder.specValidate(spec);
+assert(~spec.Regions(2).PopOut, ...
+    'the button form must have its pop-out flag cleared by validation');
 end
 
 function spec = addRegion(spec, id, type, label, rowSpan, colSpan, popOut, options)

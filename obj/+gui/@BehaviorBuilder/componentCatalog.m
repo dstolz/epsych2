@@ -30,6 +30,7 @@ rows = {
  'SessionClock'  'Session Clock'       'Displays' 'Clock, session duration, and time-since-trial readouts'                                   false {}            false false 'gui.SessionClock'
  'TrialTimer'    'Trial Timer'         'Displays' 'Elapsed time since the last completed trial'                                              false {}            false false ''
  'ModeIndicator' 'Mode Indicator'      'Displays' 'Lamp showing the current run mode'                                                        false {}            false false ''
+ 'Notes'         'Session Notes'       'Add-ons'  'Operator note pad: a typed line stamped with the trial, saved with the data'              false {}            true  true  'gui.Notes'
  'SyringePump'   'Syringe Pump'        'Add-ons'  'Operator panel for an NE-1000 reward pump (uses saved pump preferences)'                  false {}            true  true  'gui.SyringePump'
  'ScreenCapture' 'Screen Capture'      'Add-ons'  'Button that copies the whole window to the clipboard'                                     false {}            false false ''
  };

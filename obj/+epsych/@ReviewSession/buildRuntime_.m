@@ -35,6 +35,12 @@ rt.EVENTS = epsych.EventHub;
 rt.StartTime = obj.Snapshot.StartTime;
 rt.DataFile = string(obj.DataFile);
 
+% The notes the operator typed during the session, so a gui.Notes in the
+% paradigm's own GUI shows them rather than opening blank. Unbound to this
+% runtime -- a review has no journal to write to -- and gui.Notes refuses new
+% notes in ReviewMode anyway: they are a record of what was written at the time.
+rt.NOTES = epsych.SessionNotes.fromSnapshot(obj.Snapshot);
+
 % --- The parameter tree ---------------------------------------------------
 obj.Interfaces = hw.Replay.empty(1,0);
 if isfield(obj.Snapshot, 'Protocol') && isstruct(obj.Snapshot.Protocol) ...

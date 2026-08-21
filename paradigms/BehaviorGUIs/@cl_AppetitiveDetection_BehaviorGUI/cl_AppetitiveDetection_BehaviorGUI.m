@@ -5,7 +5,9 @@ classdef cl_AppetitiveDetection_BehaviorGUI < gui.BehaviorGUI
     % appetitive detection GUI: trigger buttons, staircase and trial
     % parameter controls, sound controls, phase selection, a trial-state
     % monitor, the psychometric plot, a parameter scatter, a session
-    % performance summary, a response history table, and a session clock.
+    % performance summary, a response history table, a session clock, and a
+    % Notes button opening the session notes (saved with the data as
+    % Info.Notes; see gui.Notes).
     %
     % This is the gui.BehaviorGUI-based version of cl_AppetitiveDetection_GUI_B.
     % The layout is the same; single-instance enforcement, figure creation,
@@ -36,6 +38,7 @@ classdef cl_AppetitiveDetection_BehaviorGUI < gui.BehaviorGUI
         UpdateButton           % gui.Parameter_Update commit button
         Performance            % gui.SessionPerformance instance (Session Performance panel)
         NextTrialPanel         % gui.NextTrial instance showing the upcoming trial
+        NotesButton            % gui.Notes (button form) opening the session notes window
     end
 
     properties (Hidden)

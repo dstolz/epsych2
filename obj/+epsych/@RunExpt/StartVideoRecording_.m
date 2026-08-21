@@ -1,8 +1,9 @@
 function StartVideoRecording_(self)
 % StartVideoRecording_(self)
 % Begin the per-run webcam recording when enabled via the "Record video"
-% toolbar toggle / 'EnableRecording' preference. Called at run start, and
-% again whenever the toggle is pressed mid-session. Never throws: a failed
+% toolbar toggle / 'EnableRecording' preference. Called from PsychTimerStart
+% once the behavior GUI is up, and again whenever the toggle is pressed
+% mid-session. Never throws: a failed
 % recording is reported via vprintf and the run proceeds without video — the
 % experiment matters more than the camera.
 arguments

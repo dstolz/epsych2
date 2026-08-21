@@ -794,6 +794,46 @@ switch name
             "................"
             "................"];
 
+    case "notes" % a ruled page with a pencil across its corner
+        rows = [ ...
+            "................"
+            "..kkkkkkkkkkk..."
+            "..kwwwwwwwwwk..."
+            "..kwssswssswk..."
+            "..kwwwwwwwwwk..."
+            "..kwsssssswwk..."
+            "..kwwwwwwwwwk..."
+            "..kwssswsswwk..."
+            "..kwwwwwwwwok..."
+            "..kwsssswwook..."
+            "..kwwwwwwoowk..."
+            "..kwssswoowwk..."
+            "..kwwwwttwwwk..."
+            "..kwwwwkwwwwk..."
+            "..kkkkkkkkkkk..."
+            "................"];
+
+    % ---- note entry (gui.Notes) ----------------------------------------
+
+    case "addnote" % a ruled page with a green plus over its corner
+        rows = [ ...
+            "................"
+            ".kkkkkkkkkk....."
+            ".kwwwwwwwwk....."
+            ".kwsswssswk....."
+            ".kwwwwwwwwk....."
+            ".kwsssswwwk.gg.."
+            ".kwwwwwwwwk.gg.."
+            ".kwsswwwwkkggggk"
+            ".kwwwwwwwkkggggk"
+            ".kwsssswwk.gg.k."
+            ".kwwwwwwwk.gg.k."
+            ".kwsswwwwk...kk."
+            ".kwwwwwwwwk....."
+            ".kkkkkkkkkk....."
+            "................"
+            "................"];
+
     case "component" % generic: a window lifted out of another window
         rows = [ ...
             "................"

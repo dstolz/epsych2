@@ -59,10 +59,14 @@ Reference Documentation opens this file, for a rig with no network.
 |---|---|
 | Controls | Control Column (parameter controls in a titled `controlColumn`, Update button added automatically), Button Row (trigger/toggle buttons, optional Screen Capture) |
 | Displays | Parameter Monitor, Next Trial, Session Performance, Parameter Scatter, Trial History*, Psych Plot*, Staircase Plot*, Session Clock, Trial Timer, Mode Indicator |
-| Add-ons | Syringe Pump (only `Sections` is configurable — everything else follows the rig's saved pump preferences), Screen Capture |
+| Add-ons | Session Notes (stamp format, starting Editable state, and whether the region is the whole pad or just a button opening it), Syringe Pump (only `Sections` is configurable — everything else follows the rig's saved pump preferences), Screen Capture |
 
 \* requires a psych analysis. Pop-out buttons can be added to any
 `gui.PopOut` adopter via the inspector checkbox.
+
+Session Notes in its **Button only** form is its own pop-out opener, so
+validation clears the region's pop-out flag rather than generating a second
+button onto the same window — see [gui_Notes.md](gui_Notes.md).
 
 Control types default through the same scoring `gui.Parameter_Control`
 uses for `Type='auto'` (trigger → momentary, read-only or expression →

@@ -39,6 +39,11 @@ classdef VlcRecorder < hw.Interface
     %   CropTop/Bottom/Left/Right
     %                 - (Integer, Any) Pixels to crop from each edge (default 0).
     %                                  Rounded up to an even number for x264.
+    %   MinimalView   - (Boolean, Any) Start VLC in minimal view (--qt-minimal-view):
+    %                                  video and playback controls, no menu bar,
+    %                                  playlist, or status bar. Default: true.
+    %   AlwaysOnTop   - (Boolean, Any) Keep the VLC window above other windows
+    %                                  (--video-on-top). Default: false.
     %
     % Triggers (via trigger()):
     %   Play        - Launch VLC. Records to RecordingFile if one is set.
@@ -68,7 +73,7 @@ classdef VlcRecorder < hw.Interface
     % Setup GUI
     %   obj.setupGUI() opens gui.VlcRecorderSetup: a live webcam preview with
     %   an interactive crop ROI for configuring DeviceName, FrameRate,
-    %   Resolution, and the Crop* parameters.
+    %   Resolution, the Crop* parameters, MinimalView, and AlwaysOnTop.
     %
     % See also: documentation/hw/hw_VlcRecorder.md, documentation/hw/hw_Interface.md,
     %           hw.Module, hw.Parameter, gui.VlcRecorderSetup
@@ -103,6 +108,8 @@ classdef VlcRecorder < hw.Interface
         cropBottom_    (1,1) double  = 0                   % crop, in pixels, from the bottom edge
         cropLeft_      (1,1) double  = 0                   % crop, in pixels, from the left edge
         cropRight_     (1,1) double  = 0                   % crop, in pixels, from the right edge
+        minimalView_   (1,1) logical = true                % start VLC without menus/playlist (--qt-minimal-view)
+        alwaysOnTop_   (1,1) logical = false               % keep the VLC window above others (--video-on-top)
         isRecording_   (1,1) logical = false               % true when VLC was launched with --sout recording
         rcPort_        (1,1) double  = 0                   % localhost TCP port of the RC interface
         vlcProc_                                           % System.Diagnostics.Process of the running VLC
@@ -264,6 +271,14 @@ classdef VlcRecorder < hw.Interface
                     obj.cropRight_ = max(0, round(double(value)));
                     vprintf(3, 'hw.VlcRecorder: CropRight = %d', obj.cropRight_);
 
+                case 'MinimalView'
+                    obj.minimalView_ = logical(value);
+                    vprintf(3, 'hw.VlcRecorder: MinimalView = %d', obj.minimalView_);
+
+                case 'AlwaysOnTop'
+                    obj.alwaysOnTop_ = logical(value);
+                    vprintf(3, 'hw.VlcRecorder: AlwaysOnTop = %d', obj.alwaysOnTop_);
+
                 otherwise
                     vprintf(3, 'hw.VlcRecorder: set_parameter called for "%s" (no-op)', paramName);
             end
@@ -313,6 +328,12 @@ classdef VlcRecorder < hw.Interface
 
                 case 'CropRight'
                     value = obj.cropRight_;
+
+                case 'MinimalView'
+                    value = obj.minimalView_;
+
+                case 'AlwaysOnTop'
+                    value = obj.alwaysOnTop_;
 
                 otherwise
                     % Triggers and unknown names do not map to readable hardware state.
@@ -594,6 +615,24 @@ classdef VlcRecorder < hw.Interface
                 Min     = 0, ...
                 Description = 'Pixels to crop from the right of the frame (rounded up to an even number).');
 
+            % PersistWithPhase: these are window settings the operator sets and
+            % leaves, not momentary buttons, so a saved phase must restore them
+            % (hw.Parameter.isTransientControl otherwise assumes any Boolean the
+            % dispatcher never refreshes is a button press).
+            obj.add_parameter('MinimalView', obj.minimalView_, ...
+                Type    = 'Boolean', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                PersistWithPhase = true, ...
+                Description = 'Start VLC in minimal view (--qt-minimal-view): no menu bar, playlist, or status bar.');
+
+            obj.add_parameter('AlwaysOnTop', obj.alwaysOnTop_, ...
+                Type    = 'Boolean', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                PersistWithPhase = true, ...
+                Description = 'Keep the VLC window above other windows (--video-on-top).');
+
             obj.add_parameter('Play', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
@@ -695,6 +734,13 @@ classdef VlcRecorder < hw.Interface
                 '--rc-host', sprintf('127.0.0.1:%d', obj.rcPort_), ...
                 '--rc-quiet'};
 
+            % Both are stated explicitly rather than only when enabled: VLC
+            % persists them in the user's vlcrc, so an operator who toggled
+            % minimal view (Ctrl+H) or always-on-top in their own VLC would
+            % otherwise carry that setting into every session here.
+            opts{end+1} = obj.boolOpt_('qt-minimal-view', obj.minimalView_);
+            opts{end+1} = obj.boolOpt_('video-on-top',    obj.alwaysOnTop_);
+
             if strncmpi(uri, 'dshow', 5)
                 opts{end+1} = sprintf('--dshow-vdev="%s"', char(obj.deviceName_));
                 opts{end+1} = '--dshow-adev=none';
@@ -759,6 +805,16 @@ classdef VlcRecorder < hw.Interface
             end
 
             argStr = sprintf('%s "%s"', strjoin(opts, ' '), uri);
+        end
+
+        function opt = boolOpt_(~, name, tf)
+            % opt = boolOpt_(name, tf)
+            % Format a VLC boolean switch as '--name' or '--no-name'.
+            if tf
+                opt = ['--' name];
+            else
+                opt = ['--no-' name];
+            end
         end
 
         function opts = displayBannerOpts_(obj)

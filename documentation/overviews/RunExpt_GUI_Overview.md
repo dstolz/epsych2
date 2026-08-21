@@ -91,7 +91,7 @@ A toolbar under the menu bar gives one-click access to the most common menu acti
 - **Customize** (gear): opens the Customize Settings dialog — same as **Customize → Customize...** (Ctrl+U).
 - **Protocol Designer** (document with pencil): opens the Protocol Designer — same as **Utilities → Protocol Designer...** (Ctrl+P).
 - **Live View** (eye, toggle): opens or closes the display-only camera view described in [7) Menus reference](#7-menus-reference) — same as **Utilities → Video → Live Webcam View (No Recording)**. The tool stays pressed while a view is open. Usable during a session as well as between runs; it still refuses while a recording is in progress, because that recording's VLC window already shows the live stream.
-- **Record video** (red dot, toggle): when pressed, clicking **Run** also starts a webcam recording via VLC for the duration of the session; released by default. The setting persists across sessions. Preview never records. **Toggling it during a running session takes effect immediately** — pressing it starts recording from that moment, releasing it stops and finalizes the file. See [5.1](#51-what-happens-when-you-click-run--preview) and [6) Customization](#6-customization).
+- **Record video** (red dot, toggle): when pressed, clicking **Run** also starts a webcam recording via VLC for the duration of the session — begun once the behavior GUI is up, so VLC's launch does not hold that window back; released by default. The setting persists across sessions. Preview never records. **Toggling it during a running session takes effect immediately** — pressing it starts recording from that moment, releasing it stops and finalizes the file. See [5.1](#51-what-happens-when-you-click-run--preview) and [6) Customization](#6-customization).
 - **Always On Top** (pushpin, toggle): keeps the session window above all other windows — same as **View → Always On Top** (Ctrl+T). The toggle and the menu item's check mark stay in sync whichever one you use.
 - **Wiki** (open book): opens the EPsych wiki in your web browser.
 
@@ -145,6 +145,7 @@ When you click **Run** or **Preview**, RunExpt:
 - Creates the trial timer (`PsychTimer`, default period 0.01 s; set per subject in **Session Settings...** (template: **Edit Project → Session Defaults**)).
 - Sets the hardware mode to Record or Preview and starts the timer.
 - Launches the behavior GUI if one is configured — the behavior GUI the committed subjects' memberships name (see **Subjects & Projects**), or the built-in `ep_GenericGUI` when none named one.
+- Starts the webcam recording last, if **Record video** is pressed and this is a **Run** — after the behavior GUI is on screen, because launching VLC stalls MATLAB for about a second and takes the foreground. The first moment of the run is therefore not filmed.
 
 #### When an interface will not connect
 

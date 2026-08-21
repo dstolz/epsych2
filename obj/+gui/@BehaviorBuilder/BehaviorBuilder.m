@@ -775,6 +775,9 @@ classdef BehaviorBuilder < handle
                 case 'Scatter'
                     o = struct('XParameter','Trial Number', 'YParameter','', ...
                         'ColorParameter','');
+                case 'Notes'
+                    o = struct('TimeStamp','elapsed', 'Editable',false, ...
+                        'ButtonOnly',false, 'Text','Notes');
                 case 'SyringePump'
                     o = struct('Sections', {{}});
                 otherwise
@@ -900,6 +903,20 @@ classdef BehaviorBuilder < handle
                 case 'Scatter'
                     for f = {'XParameter','YParameter','ColorParameter'}
                         o.(f{1}) = char(string(o.(f{1})));
+                    end
+                case 'Notes'
+                    o.TimeStamp = char(string(o.TimeStamp));
+                    assert(ismember(o.TimeStamp, {'elapsed','clock','none'}), ...
+                        'epsych:BehaviorBuilder:BadRegion', ...
+                        'Notes stamp must be elapsed, clock or none')
+                    o.Editable   = logical(o.Editable);
+                    o.ButtonOnly = logical(o.ButtonOnly);
+                    o.Text       = char(string(o.Text));
+                    if o.ButtonOnly
+                        % The button IS the pop-out opener, so a pop-out
+                        % button beside it would be a second control doing
+                        % the same thing to the same window.
+                        r.PopOut = false;
                     end
                 case 'SyringePump'
                     o.Sections = gui.BehaviorBuilder.asRowCellstr_(o.Sections);

@@ -19,6 +19,16 @@ function rememberProtocol(self, subjectId, projectId, protocolFile, boxID, optio
 % pushed onto the membership's ProtocolHistory, which is what revertProtocol
 % offers back.
 %
+% A PINNED membership is the one case where the incoming version does not
+% simply win. revertProtocol pins a subject that was put back on a version
+% living only in the file's archive, and assignToSession then loads that
+% version rather than the file's current content -- so the version it hands
+% back here is the pinned one and the pin survives untouched. Anything
+% recording a DIFFERENT file or version is moving the subject forward, which
+% is exactly what releases the hold, so the pin is cleared. Without that rule
+% adding a subject to a session silently undid the revert: the session loaded
+% whatever the file held and recorded it straight over the restored version.
+%
 % Parameters:
 %   subjectId    - SubjectID or subject Name.
 %   projectId    - ProjectID or project Name.
@@ -77,6 +87,11 @@ vprintf(3, 'Remembered protocol for "%s" in "%s": %s (%s)', subjectId, projectId
 
         r.Memberships(k).LastProtocol        = protocolFile;
         r.Memberships(k).LastProtocolVersion = version;
+        % `changed` is the release condition: the hold survives only a record
+        % of exactly what it was already holding.
+        if changed
+            r.Memberships(k).ProtocolPinned = false;
+        end
         if ~isnan(boxID)
             r.Memberships(k).LastBoxID = boxID;
         end

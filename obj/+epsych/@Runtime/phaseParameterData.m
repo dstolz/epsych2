@@ -177,9 +177,18 @@ ok = false;
 paramData = struct([]);
 metadata = struct();
 
-S = builtin('load', char(filepath), '-mat');
-if ~isfield(S, 'protocol') || ~isstruct(S.protocol)
-    return   % legacy handle-object or 'protocol_struct' layout
+% Load only the protocol variable: an .eprot written with an embedded version
+% archive (epsych.Protocol.writeProtocolFile) also carries every superseded
+% version, and decompressing that here would cost exactly the time this fast
+% path exists to save. The archive is a sibling MAT variable, never a field
+% of 'protocol', so the shape gate below is unaffected.
+vars = {whos('-file', char(filepath)).name};
+if ~ismember('protocol', vars)
+    return   % 'protocol_struct' layout, or not a protocol file at all
+end
+S = builtin('load', char(filepath), '-mat', 'protocol');
+if ~isstruct(S.protocol)
+    return   % legacy handle-object layout
 end
 P = S.protocol;
 

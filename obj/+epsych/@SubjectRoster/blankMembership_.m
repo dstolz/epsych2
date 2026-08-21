@@ -18,6 +18,14 @@ m = struct( ...
     'Active',              true, ... % the per-project archive flag
     'LastProtocol',        '', ...   % .eprot this subject last ran in this project
     'LastProtocolVersion', '', ...   % protocolVersion of that file when it was recorded
+    'ProtocolPinned',      false, ...% hold LastProtocolVersion against the file's current
+    ...                              % content: set by revertProtocol when the version it
+    ...                              % restored lives only in the file's archive, so
+    ...                              % assignToSession loads THAT version rather than what
+    ...                              % the file now holds. False -- the only reading a
+    ...                              % roster written before this field can have -- means
+    ...                              % the file's content wins, which is what "outdated"
+    ...                              % describes.
     'LastBoxID',           NaN, ...  % NaN when never run
     ...                              % Session settings, stamped from the project's
     ...                              % template when the subject joins. Selecting the

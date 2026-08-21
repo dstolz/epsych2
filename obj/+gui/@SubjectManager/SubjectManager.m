@@ -86,7 +86,7 @@ classdef SubjectManager < handle
         % fresh roster and the way to find a subject whose project you forgot.
         ALL_SUBJECTS (1,:) char = '<All Projects>'
 
-        DEFAULT_POSITION (1,4) double = [100 100 1120 640]
+        DEFAULT_POSITION (1,4) double = [100 100 1190 640]
     end
 
     % -----------------------------------------------------------------------
@@ -399,89 +399,129 @@ classdef SubjectManager < handle
         end
 
         function updateProjectSummary_(self)
-            % Show what the selected project will apply to its members.
-            id = self.selectedProject_();
-            if isempty(id)
-                self.H.projectSummary.Text = ...
-                    'Every subject in the roster, in any project or none.';
-                return
-            end
-
-            p = self.Roster.findProject(id);
-            if isempty(p)
-                self.H.projectSummary.Text = '';
-                return
-            end
-
-            lines = {};
-            if p.Archived
-                lines{end+1} = 'Archived.';
-            end
-            if ~isempty(p.Notes), lines{end+1} = p.Notes; end
-            if ~isempty(p.Investigator)
-                lines{end+1} = sprintf('Investigator: %s', p.Investigator);
-            end
-            if ~isempty(p.IACUCProtocol)
-                lines{end+1} = sprintf('IACUC: %s', p.IACUCProtocol);
-            end
-            if isempty(p.DefaultProtocol)
-                lines{end+1} = 'Default protocol: (none)';
-            else
-                [~, pn, pe] = fileparts(p.DefaultProtocol);
-                lines{end+1} = sprintf('Default protocol: %s%s', pn, pe);
-            end
-            if ~isempty(p.DefaultDataPath)
-                lines{end+1} = sprintf('Data path: %s', p.DefaultDataPath);
-            end
-            % Named even when unset: this is where the behavior GUI is configured
-            % now, so the summary has to say so rather than stay silent.
-            if isempty(p.BehaviorGUI)
-                lines{end+1} = 'Behavior GUI: (built-in default)';
-            elseif strcmpi(p.BehaviorGUI, epsych.SubjectRoster.BEHAVIORGUI_NONE)
-                lines{end+1} = 'Behavior GUI: (none)';
-            else
-                lines{end+1} = sprintf('Behavior GUI: %s', p.BehaviorGUI);
-            end
-            % The rest of the session defaults on one line: they matter when
-            % they differ from the rig's, and six more lines would push the
-            % links out of view for the common case where they do not.
-            lines = [lines, localSessionDefaultsLine(p)];
-
-            self.H.projectSummary.Text = lines;
-            self.H.projectSummary.Tooltip = p.DefaultProtocol;
-
-            self.updateProjectLinks_();
-        end
-
-        function updateProjectLinks_(self)
-            % Rebuild the clickable link list under the project summary.
+            % Rebuild the info card under the project list: what the selected
+            % project carries, and what it will apply to its members.
             %
-            % Rebuilt rather than patched: the set changes with every selection,
-            % and a handful of hyperlinks is cheaper to recreate than to diff.
-            panel = self.H.projectLinks;
+            % Rebuilt rather than patched, because which rows a project has to
+            % show changes with the selection and a handful of labels is cheaper
+            % to recreate than to diff. Building all of it in one pass is also
+            % what keeps the links honest -- they used to be refreshed on their
+            % own and were left showing the previous project's after a move to
+            % <All Projects>, which returned before reaching them.
+            panel = self.H.projectInfo;
             delete(panel.Children);
 
-            links = epsych.SubjectRoster.emptyLink();
             id = self.selectedProject_();
-            if ~isempty(id)
+            p = [];
+            if ~isempty(id) && ~isempty(self.Roster) && isvalid(self.Roster)
                 p = self.Roster.findProject(id);
-                if ~isempty(p), links = p.Links; end
             end
 
-            if isempty(links)
-                % A zero-height row rather than a hidden panel: an invisible
-                % child still claims its cell, and this collapses the gap.
-                panel.RowHeight = {0};
-                return
+            heading = '';
+            note    = '';
+            links   = epsych.SubjectRoster.emptyLink();
+            fields  = cell(0,4);   % label, value, tooltip, value colour
+
+            if isempty(id)
+                heading = self.ALL_SUBJECTS;
+                note    = 'Every subject in the roster, in any project or none.';
+            elseif ~isempty(p)
+                heading = p.Name;
+                note    = p.Notes;
+                links   = p.Links;
+                fields  = localProjectFields(p);
             end
 
-            panel.RowHeight = repmat({18}, 1, numel(links));
-            for i = 1:numel(links)
-                % URL is deliberately left unset and the click routed through
-                % openProjectLink_. A uihyperlink with a URL navigates on its
-                % own, before anything has re-checked an address that came out
-                % of a shared file.
-                h = uihyperlink(panel, ...
+            % The link row is always laid out, collapsed to zero height when the
+            % project has none: a hidden child still claims its cell, and this is
+            % the row the rest of the card is measured against.
+            nRows = double(~isempty(heading)) + double(~isempty(note)) ...
+                  + size(fields,1) + 1;
+            panel.RowHeight = repmat({'fit'}, 1, nRows);
+
+            row = 0;
+            record = {};
+
+            if ~isempty(heading)
+                row = row + 1;
+                h = uilabel(panel, 'Text', heading, ...
+                    'FontWeight','bold', 'WordWrap','on', ...
+                    'VerticalAlignment','top', 'FontColor',[0.20 0.22 0.26]);
+                h.Layout.Row = row;
+                h.Layout.Column = [1 2];
+                record{end+1} = heading;
+            end
+
+            if ~isempty(note)
+                row = row + 1;
+                h = uilabel(panel, 'Text', note, 'WordWrap','on', ...
+                    'VerticalAlignment','top', 'FontAngle','italic', ...
+                    'FontColor',[0.35 0.38 0.42]);
+                h.Layout.Row = row;
+                h.Layout.Column = [1 2];
+                record{end+1} = note;
+            end
+
+            for i = 1:size(fields,1)
+                row = row + 1;
+                h = uilabel(panel, 'Text', fields{i,1}, ...
+                    'HorizontalAlignment','right', 'VerticalAlignment','top', ...
+                    'FontColor',[0.45 0.48 0.52]);
+                h.Layout.Row = row;
+                h.Layout.Column = 1;
+
+                h = uilabel(panel, 'Text', fields{i,2}, 'WordWrap','on', ...
+                    'VerticalAlignment','top', 'FontColor', fields{i,4}, ...
+                    'Tooltip', fields{i,3});
+                h.Layout.Row = row;
+                h.Layout.Column = 2;
+
+                record{end+1} = sprintf('%s: %s', fields{i,1}, fields{i,2});
+            end
+
+            % What the card says, as plain lines. Kept because it is the only
+            % form a test -- or a status message -- can read back once the same
+            % text is spread over two dozen labels.
+            self.H.projectSummaryText = record;
+
+            self.buildProjectLinks_(panel, row + 1, links);
+        end
+
+        function buildProjectLinks_(self, panel, row, links)
+            % Fill the card's last row with the project's links.
+            %
+            % URL is deliberately left unset on each hyperlink and the click
+            % routed through openProjectLink_. A uihyperlink with a URL navigates
+            % on its own, before anything has re-checked an address that came out
+            % of a shared file.
+            n = numel(links);
+
+            if n == 0
+                panel.RowHeight{row} = 0;
+            else
+                h = uilabel(panel, 'Text','Links', ...
+                    'HorizontalAlignment','right', 'VerticalAlignment','top', ...
+                    'FontColor',[0.45 0.48 0.52]);
+                h.Layout.Row = row;
+                h.Layout.Column = 1;
+            end
+
+            g = uigridlayout(panel, [max(n,1) 1]);
+            g.Layout.Row = row;
+            g.Layout.Column = 2;
+            g.ColumnWidth = {'1x'};
+            g.Padding = [0 0 0 0];
+            g.RowSpacing = 2;
+            g.BackgroundColor = panel.BackgroundColor;
+            if n == 0
+                g.RowHeight = {0};
+            else
+                g.RowHeight = repmat({18}, 1, n);
+            end
+            self.H.projectLinks = g;
+
+            for i = 1:n
+                h = uihyperlink(g, ...
                     'Text', links(i).Label, ...
                     'Tooltip', links(i).URL, ...
                     'FontColor', [0.00 0.35 0.72], ...
@@ -769,7 +809,14 @@ classdef SubjectManager < handle
 
         function [protoText, verText, flag] = protocolCells_(self, subjectId, st)
             % Text for one row's Protocol and Version cells, and how loudly the
-            % version should be drawn: 0 plain, 1 needs attention, 2 muted.
+            % version should be drawn: 0 plain, 1 needs attention, 2 muted,
+            % 3 deliberately held back.
+            %
+            % 3 is its own mark rather than either of the other two: a held
+            % subject is not on the file's current version, so drawing it plain
+            % would hide that, but nothing is wrong with it either, so drawing
+            % it in the "you are behind" orange would send the operator to
+            % Update All to fix what they themselves asked for.
             %
             % An uncommitted override describes a file the roster has never
             % seen, so its version is read from that file rather than from the
@@ -808,6 +855,12 @@ classdef SubjectManager < handle
                     verText = st.Version;
                     if isempty(verText), verText = 'not recorded'; end
                     flag = 1;
+                case 'pinned'
+                    % The held version, with the mark that says it is held on
+                    % purpose. Which version the file has moved on to is in the
+                    % tooltip, where it belongs: this column says what runs.
+                    verText = sprintf('%s (held)', st.Version);
+                    flag = 3;
                 case 'unknown'
                     verText = 'not recorded';
                     flag = 2;
@@ -862,6 +915,7 @@ classdef SubjectManager < handle
             counts = struct( ...
                 'current',  nnz(strcmp({st.Status},'current')), ...
                 'outdated', nnz(strcmp({st.Status},'outdated')), ...
+                'pinned',   nnz(strcmp({st.Status},'pinned')), ...
                 'differs',  nnz(strcmp({st.Status},'differs')), ...
                 'unknown',  nnz(strcmp({st.Status},'unknown')), ...
                 'missing',  nnz(strcmp({st.Status},'missing')), ...
@@ -870,6 +924,7 @@ classdef SubjectManager < handle
             lines = {sprintf('%d active subject(s) shown:', numel(st)), ''};
             lines = localCount(lines, counts.current,  'on the current version');
             lines = localCount(lines, counts.outdated, 'behind the protocol saved on disk');
+            lines = localCount(lines, counts.pinned,   'held on an earlier version by a revert');
             lines = localCount(lines, counts.differs,  'on a protocol other than the project default');
             lines = localCount(lines, counts.unknown,  'with no version recorded yet');
             lines = localCount(lines, counts.missing,  'whose protocol file is missing');
@@ -884,6 +939,20 @@ classdef SubjectManager < handle
                 end
                 lines{end+1} = '';
                 lines{end+1} = 'Protocol > Update All in Project to Latest Version brings them forward.';
+            end
+
+            % Listed separately from the ones behind, and without the Update
+            % All advice: these are deliberate, and an update is what ends them.
+            held = st(strcmp({st.Status},'pinned'));
+            if ~isempty(held)
+                lines{end+1} = '';
+                for i = 1:numel(held)
+                    lines{end+1} = sprintf('%s: held on %s, file holds %s', ...
+                        held(i).Name, held(i).Version, held(i).LatestVersion);
+                end
+                lines{end+1} = '';
+                lines{end+1} = ['A held subject''s sessions load its version from the ' ...
+                    'protocol file''s archive. Updating it releases the hold.'];
             end
 
             % Said plainly rather than left as a discrepancy between this
@@ -1717,15 +1786,73 @@ classdef SubjectManager < handle
 
 end
 
+function fields = localProjectFields(p)
+% The info card's label/value rows for one project: {label, value, tooltip,
+% value colour}.
+%
+% The labels are short because the card is a narrow column and the label
+% column is fixed: the value is what an operator scans for, and a label wide
+% enough to say "Default protocol" would take that width from it. What the
+% short label leaves out goes in the tooltip.
+NORMAL = [0.13 0.15 0.18];
+MUTED  = [0.45 0.48 0.52];
+FLAG   = [0.62 0.35 0.02];
+
+fields = cell(0,4);
+
+if p.Archived
+    fields(end+1,:) = {'Status', 'Archived', ...
+        'Hidden from the project list; its subjects and their protocols are untouched.', FLAG};
+end
+if ~isempty(p.Investigator)
+    fields(end+1,:) = {'Investigator', p.Investigator, '', NORMAL};
+end
+if ~isempty(p.IACUCProtocol)
+    fields(end+1,:) = {'IACUC', p.IACUCProtocol, ...
+        'Animal-use protocol number, recorded here and never enforced.', NORMAL};
+end
+
+if isempty(p.DefaultProtocol)
+    fields(end+1,:) = {'Protocol', '(none)', ...
+        'No default protocol: a new member joins with none.', MUTED};
+else
+    [~, pn, pe] = fileparts(p.DefaultProtocol);
+    fields(end+1,:) = {'Protocol', [pn pe], ...
+        sprintf('Default protocol for members of this project:\n%s', p.DefaultProtocol), NORMAL};
+end
+
+if ~isempty(p.DefaultDataPath)
+    fields(end+1,:) = {'Data path', p.DefaultDataPath, p.DefaultDataPath, NORMAL};
+end
+
+% Named even when unset: this is where the behavior GUI is configured now, so
+% the card has to say so rather than stay silent.
+if isempty(p.BehaviorGUI)
+    fields(end+1,:) = {'Behavior GUI', '(built-in default)', ...
+        'This project stamps no behavior GUI; the session runs the built-in default.', MUTED};
+elseif strcmpi(p.BehaviorGUI, epsych.SubjectRoster.BEHAVIORGUI_NONE)
+    fields(end+1,:) = {'Behavior GUI', '(none)', ...
+        'Members of this project run no behavior GUI.', MUTED};
+else
+    fields(end+1,:) = {'Behavior GUI', p.BehaviorGUI, '', NORMAL};
+end
+
+rest = localSessionDefaults(p);
+if ~isempty(rest)
+    fields(end+1,:) = {'Template', rest, ...
+        'Session settings stamped onto a membership when a subject joins.', NORMAL};
+end
+end
+
 % -----------------------------------------------------------------------
-function line = localSessionDefaultsLine(p)
-% One summary line naming the session settings this project's template stamps
-% onto new members, or nothing when it names none of them.
+function txt = localSessionDefaults(p)
+% The rest of the session-defaults template on one line, or '' when it names
+% none of them.
 %
 % Only the fields that are set: an older project, or one made by a script,
 % stamps "inherit the built-in default", and listing those as blanks would
 % read as "this project clears them".
-line = {};
+txt = '';
 
 parts = {};
 if ~isempty(p.SavingFcn),   parts{end+1} = sprintf('save %s', p.SavingFcn); end
@@ -1739,6 +1866,6 @@ if ~isempty(p.IntanRootDir),      parts{end+1} = 'Intan path'; end
 if ~isempty(p.IntanSettingsFile), parts{end+1} = 'Intan settings'; end
 
 if ~isempty(parts)
-    line = {sprintf('Template: %s', strjoin(parts, ', '))};
+    txt = strjoin(parts, ', ');
 end
 end

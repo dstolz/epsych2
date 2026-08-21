@@ -69,13 +69,13 @@ if strlength(description) > 0
     protocol.Info = char(description);
 end
 
-% Same MAT layout as epsych.Protocol.save: a single 'protocol' struct variable.
-builtin('save', char(filepath), 'protocol', '-mat');
-
-% The phase cache keys on modification time and size, which already catches a
-% re-saved phase; this drops the entry outright so a rewrite landing within the
-% filesystem's timestamp resolution cannot serve the old parse.
-epsych.Runtime.phaseCache('clear', filepath);
+% Same 'protocol' struct layout as epsych.Protocol.save, written through the
+% shared writer so a target file's embedded version archive survives (and its
+% superseded content is archived when the version differs). Still no version
+% bump here: the file keeps the source protocol's version, and a same-version
+% overwrite replaces content without an archive entry. The writer also makes
+% the write atomic and drops any phase-cache entry for the path.
+epsych.Protocol.writeProtocolFile(char(filepath), protocol, Origin='phase');
 
 vprintf(0, 'Phase protocol saved to: %s', filepath)
 

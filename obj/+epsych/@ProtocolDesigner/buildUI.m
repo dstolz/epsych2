@@ -15,6 +15,7 @@ function buildUI(obj)
     uimenu(obj.FileMenu, 'Text', 'Load Protocol...',       'Accelerator', 'O', 'MenuSelectedFcn', @(~, ~) obj.onLoad());
     uimenu(obj.FileMenu, 'Text', 'Save Protocol...',       'Accelerator', 'S', 'MenuSelectedFcn', @(~, ~) obj.onSave());
     uimenu(obj.FileMenu, 'Text', localShortcutText_('Save Protocol As...', 'Ctrl+Shift+S'), 'MenuSelectedFcn', @(~, ~) obj.onSaveAs());
+    uimenu(obj.FileMenu, 'Text', 'Version History...',     'MenuSelectedFcn', @(~, ~) obj.onVersionHistory());
     uimenu(obj.FileMenu, 'Text', 'Open as JSON in Editor', 'Accelerator', 'J', 'Separator', 'on', 'MenuSelectedFcn', @(~, ~) obj.onOpenAsJSON());
     uimenu(obj.FileMenu, 'Text', 'Export Current Protocol to Workspace', 'Separator', 'on', 'MenuSelectedFcn', @(~, ~) obj.onExportProtocolToWorkspace());
     obj.RecentProtocolsMenu = uimenu(obj.FileMenu, 'Text', 'Recent Protocols', 'Separator', 'on');

@@ -309,9 +309,34 @@ Use the **File** menu to:
 - edit the protocol info text
 - load a protocol from disk
 - save the current protocol
+- browse the file's version history
 - open the current protocol as JSON for inspection
 
-Saving writes an `.eprot` file that can be reopened later.
+Saving writes an `.eprot` file that can be reopened later. Every save also
+archives the version it replaces *inside* the file, so saving over a protocol
+no longer loses what it held.
+
+### Version history
+
+**File > Version History...** lists every version the current `.eprot` holds —
+the current one plus everything earlier saves archived. From there:
+
+- **Show Changes...** compares the selected version with whichever other one
+  the *Compare with* dropdown names — the current content by default — and
+  lists every parameter, option, and interface setting that differs, with a
+  filter and a Copy Report button for a notebook entry. It reads only; the
+  history list stays open behind it, because what changed is usually what
+  decides whether to open or restore.
+- **Open Copy** loads a version into the designer as an unsaved working copy.
+  The file is untouched, and saving (Ctrl+S) writes the copy back to the same
+  file as a new version.
+- **Restore...** rewrites the file back to the selected version. The default,
+  *Restore as New Version*, brings the old content back under a new version
+  number so the version counter keeps moving forward; *Restore Exact* rewinds
+  the file to that version verbatim. Either way, the content being replaced is
+  archived first, so a restore can itself be undone.
+
+JSON protocol files keep no version history.
 
 ## Tips
 

@@ -14,6 +14,14 @@ function report = protocolStatus(self, subjectIds, projectId)
 % overwritten in place on every save, so nothing but the version recorded by
 % rememberProtocol can say what a subject was last on.
 %
+% Being behind the file is not always a problem to fix. A subject revertProtocol
+% put back on an archived version is HELD there deliberately -- assignToSession
+% loads that version out of the archive rather than the file's content -- so it
+% reports as 'pinned' rather than 'outdated' and is left out of IsOutdated, the
+% manager's banner, and Update All. A hold whose version has since vanished from
+% the file reads as 'outdated' again, since that is now the only true thing to
+% say about it.
+%
 % This takes no graphics and returns plain structs, so the whole check is
 % usable from a script and testable with no figure open.
 %
@@ -32,8 +40,11 @@ function report = protocolStatus(self, subjectIds, projectId)
 %     DefaultProtocol    - the project's default, or ''
 %     MatchesDefault     - true when Protocol is the project's default
 %     IsOutdated         - true when the file is a newer version than recorded
-%     Status             - 'current' | 'outdated' | 'differs' | 'unknown' |
-%                          'missing' | 'none'
+%                          and the subject is not deliberately held back
+%     Pinned             - true when the recorded version is held against the
+%                          file's content and can still be loaded from it
+%     Status             - 'current' | 'outdated' | 'pinned' | 'differs' |
+%                          'unknown' | 'missing' | 'none'
 %     Message            - one line naming what is wrong, or ''
 %
 % Example:
@@ -52,7 +63,7 @@ subjectIds = cellstr(string(subjectIds));
 
 report = struct('SubjectID', {}, 'Name', {}, 'Protocol', {}, 'Source', {}, ...
     'Version', {}, 'LatestVersion', {}, 'DefaultProtocol', {}, ...
-    'MatchesDefault', {}, 'IsOutdated', {}, 'Status', {}, 'Message', {});
+    'MatchesDefault', {}, 'IsOutdated', {}, 'Pinned', {}, 'Status', {}, 'Message', {});
 
 if isempty(subjectIds), return, end
 
@@ -71,18 +82,20 @@ for i = 1:numel(subjectIds)
     rec = self.findSubject(subjectIds{i});
     if isempty(rec)
         report(end+1) = localEntry(subjectIds{i}, subjectIds{i}, '', 'none', ...
-            '', '', defaultProtocol, false, false, 'none', ...
+            '', '', defaultProtocol, false, false, false, 'none', ...
             'Not in the roster.');
         continue
     end
 
     version = '';
     source  = 'none';
+    pinned  = false;
 
     m = self.findMembership(rec.SubjectID, projectId);
     if ~isempty(m) && ~isempty(m.LastProtocol)
         protocol = m.LastProtocol;
         version  = m.LastProtocolVersion;
+        pinned   = m.ProtocolPinned;
         source   = 'remembered';
     else
         % No membership record to read (or nothing remembered in it): fall back
@@ -94,14 +107,14 @@ for i = 1:numel(subjectIds)
             if isempty(projectId)
                 % Across-projects fallback: whatever it resolved to came from
                 % some membership, so report its version if we can find it.
-                [protocol, version, source] = localAcrossProjects(self, rec.SubjectID, protocol);
+                [protocol, version, source, pinned] = localAcrossProjects(self, rec.SubjectID, protocol);
             end
         end
     end
 
     if isempty(protocol)
         report(end+1) = localEntry(rec.SubjectID, rec.Name, '', 'none', ...
-            '', '', defaultProtocol, false, false, 'none', ...
+            '', '', defaultProtocol, false, false, false, 'none', ...
             'No protocol: none remembered and the project has no default.');
         continue
     end
@@ -110,7 +123,7 @@ for i = 1:numel(subjectIds)
 
     if ~isfile(protocol)
         report(end+1) = localEntry(rec.SubjectID, rec.Name, protocol, source, ...
-            version, '', defaultProtocol, matchesDefault, false, 'missing', ...
+            version, '', defaultProtocol, matchesDefault, false, false, 'missing', ...
             sprintf('The protocol file is missing: %s', protocol));
         continue
     end
@@ -124,7 +137,20 @@ for i = 1:numel(subjectIds)
 
     isOutdated = epsych.Protocol.versionNumber(latest) > epsych.Protocol.versionNumber(version);
 
-    if isOutdated
+    % A hold is only worth reporting as one while the file can still produce
+    % the version. Asked once per pinned row rather than per subject: this
+    % costs a second small read, and all but a reverted subject skip it.
+    if pinned
+        pinned = ~strcmp(latest, version) && epsych.Protocol.hasVersion(protocol, version);
+    end
+
+    if pinned
+        status  = 'pinned';
+        isOutdated = false;
+        message = sprintf(['Held on %s while the file holds %s. Sessions load the held ' ...
+            'version out of the file''s archive; updating this subject releases it.'], ...
+            version, latest);
+    elseif isOutdated
         status  = 'outdated';
         message = sprintf('The protocol has been saved since this subject last ran it: %s on record, %s in the file.', ...
             version, latest);
@@ -141,27 +167,29 @@ for i = 1:numel(subjectIds)
     end
 
     report(end+1) = localEntry(rec.SubjectID, rec.Name, protocol, source, ...
-        version, latest, defaultProtocol, matchesDefault, isOutdated, status, message);
+        version, latest, defaultProtocol, matchesDefault, isOutdated, pinned, ...
+        status, message);
 end
 
 end
 
 % -----------------------------------------------------------------------
 function e = localEntry(id, name, protocol, source, version, latest, ...
-    defaultProtocol, matchesDefault, isOutdated, status, message)
+    defaultProtocol, matchesDefault, isOutdated, pinned, status, message)
 e = struct('SubjectID', id, 'Name', name, 'Protocol', protocol, ...
     'Source', source, 'Version', version, 'LatestVersion', latest, ...
     'DefaultProtocol', defaultProtocol, 'MatchesDefault', matchesDefault, ...
-    'IsOutdated', isOutdated, 'Status', status, 'Message', message);
+    'IsOutdated', isOutdated, 'Pinned', pinned, 'Status', status, 'Message', message);
 end
 
 % -----------------------------------------------------------------------
-function [protocol, version, source] = localAcrossProjects(self, subjectId, protocol)
+function [protocol, version, source, pinned] = localAcrossProjects(self, subjectId, protocol)
 % In the All Subjects view there is no project context, so lastProtocol may
 % have resolved through any membership. Find the one holding this file to
-% recover the version recorded with it.
+% recover the version recorded with it, and whether it is held there.
 version = '';
 source  = 'remembered';
+pinned  = false;
 
 if isempty(self.Memberships), source = 'project default'; return, end
 
@@ -172,6 +200,7 @@ if isempty(hit)
     return
 end
 version = mine(hit).LastProtocolVersion;
+pinned  = mine(hit).ProtocolPinned;
 end
 
 % -----------------------------------------------------------------------

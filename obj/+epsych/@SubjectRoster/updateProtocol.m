@@ -16,6 +16,12 @@ function report = updateProtocol(self, subjectIds, projectId, options)
 % to be on, which is what turns the check green and what revertProtocol offers
 % back.
 %
+% The one subject for which that is not already true is one revertProtocol
+% HELD on an archived version -- its sessions load that version rather than the
+% file's content. Updating is what releases the hold, which is the same thing as
+% bringing it forward, so nothing special is needed here: recording a different
+% version is what clears the pin (see rememberProtocol).
+%
 % The previous file and version go onto the membership's ProtocolHistory before
 % being replaced, so an update is undoable.
 %

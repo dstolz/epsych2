@@ -10,6 +10,12 @@ function report = assignToSession(self, runExpt, subjectIds, options)
 % Diverged session settings across the batch abort too -- see the mismatch
 % refusal below.
 %
+% What each subject RUNS is the .eprot's current content, except where its
+% membership is pinned: revertProtocol pins a subject it put back on a version
+% held only in the file's archive, and that version is loaded out of the
+% archive here instead. A hold naming a version the file can no longer produce
+% aborts the batch like any other unusable protocol.
+%
 % This is the engine half of the manager's "Add Checked to Session" button. It
 % takes no graphics and returns a report, so the GUI only renders the outcome
 % and the whole path is testable headlessly.
@@ -213,6 +219,13 @@ end
 % --- load every protocol up front ---------------------------------------
 % A failure here must not leave a half-populated CONFIG, so all of them are
 % loaded before the first one is committed.
+%
+% A pinned membership is the one case where the file's current content is not
+% what loads: revertProtocol put this subject back on a version that lives in
+% the file's archive without rewriting the shared file, so the version comes
+% out of the archive instead. Everything downstream then agrees by itself --
+% the object carries the pinned version, so RunExpt's subject list shows it
+% and rememberProtocol records it back unchanged.
 protocols = cell(1, numel(planned));
 for i = 1:numel(planned)
     if ~isfile(planned(i).Protocol)
@@ -224,8 +237,30 @@ for i = 1:numel(planned)
         return
     end
 
+    pinned = localPinnedVersion(memberships, i, planned(i).Protocol);
+
+    % A hold naming a version the file can no longer produce is the operator's
+    % intent gone unhonourable, which aborts the batch here for the same reason
+    % a named-but-unusable protocol does: running the wrong content is worse
+    % than running nothing.
+    if ~isempty(pinned) && ~epsych.Protocol.hasVersion(planned(i).Protocol, pinned)
+        report.aborted = true;
+        report.message = sprintf(['Subject "%s" is held on protocol version %s, which ' ...
+            '%s no longer holds or archives, so the whole batch was refused and nothing ' ...
+            'was changed. Update the subject to release the hold.'], ...
+            planned(i).Name, pinned, planned(i).Protocol);
+        vprintf(0, 1, report.message);
+        return
+    end
+
     try
-        protocols{i} = epsych.Protocol.load(planned(i).Protocol);
+        if isempty(pinned)
+            protocols{i} = epsych.Protocol.load(planned(i).Protocol);
+        else
+            protocols{i} = epsych.Protocol.loadVersion(planned(i).Protocol, pinned);
+            vprintf(1, 'Subject "%s" is held on %s of "%s"; loaded it from the version archive.', ...
+                planned(i).Name, pinned, planned(i).Protocol);
+        end
     catch ME
         vprintf(0, 1, ME);
         report.aborted = true;
@@ -258,7 +293,9 @@ for i = 1:numel(planned)
     if ~isempty(options.ProjectID)
         % The version comes from the object just loaded rather than a second
         % read of the file, and it is what protocolStatus later compares
-        % against to notice that the protocol has been edited since.
+        % against to notice that the protocol has been edited since. For a
+        % pinned subject that object IS the held version, so recording it
+        % leaves the hold exactly where it was.
         self.rememberProtocol(planned(i).SubjectID, options.ProjectID, ...
             planned(i).Protocol, planned(i).BoxID, ...
             Version = char(protocols{i}.meta.protocolVersion));
@@ -304,6 +341,40 @@ if numel(report.added) > 1
         '(see plans/multi-subject-support.md).'], numel(report.added));
 end
 
+end
+
+% -----------------------------------------------------------------------
+function version = localPinnedVersion(memberships, i, protocolPath)
+% The version this row is HELD on, or '' when the file's own content is what
+% should load.
+%
+% A hold only means anything for the file it was recorded against: an operator
+% who names a different protocol for this commit has already moved the subject,
+% and rememberProtocol releases the hold when the commit lands. Nor does it mean
+% anything once the file has come back round to the held version, which a
+% content restore elsewhere can do.
+version = '';
+if isempty(memberships) || numel(memberships) < i, return, end
+
+m = memberships{i};
+if ~m.ProtocolPinned || isempty(m.LastProtocolVersion), return, end
+if ~localSamePath(m.LastProtocol, protocolPath), return, end
+if strcmp(epsych.Protocol.versionOnDisk(protocolPath), m.LastProtocolVersion), return, end
+
+version = m.LastProtocolVersion;
+end
+
+% -----------------------------------------------------------------------
+function tf = localSamePath(a, b)
+% Same protocol file by path text, the way the filesystem would read it.
+a = char(a); b = char(b);
+if isempty(a) || isempty(b), tf = false; return, end
+a = strrep(a, '/', filesep); b = strrep(b, '/', filesep);
+if ispc
+    tf = strcmpi(a, b);
+else
+    tf = strcmp(a, b);
+end
 end
 
 % -----------------------------------------------------------------------

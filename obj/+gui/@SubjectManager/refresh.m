@@ -252,6 +252,14 @@ if ~isempty(muted)
     addStyle(tbl, uistyle('FontColor',[0.55 0.58 0.62]), ...
         'cell', [muted, repmat(5, numel(muted), 1)]);
 end
+
+% Held on an earlier version on purpose: blue rather than the warning orange,
+% because there is nothing here for the operator to put right.
+held = find(flag == 3);
+if ~isempty(held)
+    addStyle(tbl, uistyle('FontColor',[0.13 0.40 0.72], 'FontWeight','bold'), ...
+        'cell', [held, repmat(5, numel(held), 1)]);
+end
 end
 
 % -----------------------------------------------------------------------
@@ -263,10 +271,17 @@ if isempty(st), return, end
 nBehind  = nnz(strcmp({st.Status}, 'outdated'));
 nMissing = nnz(strcmp({st.Status}, 'missing'));
 nDiffers = nnz(strcmp({st.Status}, 'differs'));
+nHeld    = nnz(strcmp({st.Status}, 'pinned'));
 
 parts = {};
 if nBehind > 0
     parts{end+1} = sprintf('%d subject(s) are behind the protocol saved on disk', nBehind);
+end
+% Stated but never the reason the banner opens: a held subject is somebody's
+% decision, so it is worth seeing next to the counts that are problems, and
+% not worth a strip of its own over an otherwise healthy project.
+if nHeld > 0 && ~isempty(parts)
+    parts{end+1} = sprintf('%d held on an earlier version', nHeld);
 end
 if nMissing > 0
     parts{end+1} = sprintf('%d protocol file(s) are missing', nMissing);
@@ -286,11 +301,15 @@ end
 % -----------------------------------------------------------------------
 function tip = localTableTooltip(st)
 % Name the subjects behind the file, rather than only counting them.
+%
+% Held subjects are named too: the Version cell says a hold exists, and this is
+% where what it is held against is written down.
 base = 'Right-click a subject to set, update, revert, or open its protocol.';
 tip = base;
 if isempty(st), return, end
 
-behind = st(strcmp({st.Status}, 'outdated') | strcmp({st.Status}, 'missing'));
+behind = st(strcmp({st.Status}, 'outdated') | strcmp({st.Status}, 'missing') ...
+    | strcmp({st.Status}, 'pinned'));
 if isempty(behind), return, end
 
 lines = arrayfun(@(s) sprintf('%s: %s', s.Name, s.Message), behind, 'uni', 0);

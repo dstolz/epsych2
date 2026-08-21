@@ -37,7 +37,17 @@ function v = versionOnDisk(filename)
             return
         end
 
-        S = load(filename, '-mat');
+        % Load only the protocol variable: a file with an embedded version
+        % archive (see writeProtocolFile) can be far larger than the one
+        % struct this question is about.
+        vars = {whos('-file', filename).name};
+        if ismember('protocol', vars)
+            S = builtin('load', filename, '-mat', 'protocol');
+        elseif ismember('protocol_struct', vars)
+            S = builtin('load', filename, '-mat', 'protocol_struct');
+        else
+            S = struct();
+        end
         if isfield(S, 'protocol') && isstruct(S.protocol) && isfield(S.protocol, 'protocolVersion')
             v = char(S.protocol.protocolVersion);
         elseif isfield(S, 'protocol_struct') && isfield(S.protocol_struct, 'protocolVersion')

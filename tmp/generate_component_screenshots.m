@@ -379,7 +379,7 @@ end
 function fig = shotParameterScatter(S)
 fig = shotFigure([700 380]);   % narrower and the colorbar's outcome names clip
 gui.ParameterScatter(S.DATA, fig, PreferenceTag='wikiShotScatter', ...
-    XParameter='TrialIndex', YParameter='StimDelay', ColorParameter='Response');
+    XParameter='StimDelay', YParameter='RespLatency', ColorParameter='Response');
 end
 
 

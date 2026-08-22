@@ -642,6 +642,25 @@ switch name
     % works on the toolbar before anyone draws its icon -- adding a case here
     % is what replaces the generic two-window glyph with its own.
 
+    case "onlineplot" % stacked digital traces against a time axis
+        rows = [ ...
+            "................"
+            "..k............."
+            "..k...bbbb......"
+            "..k............."
+            "..k.rr....rrr..."
+            "..k............."
+            "..k......gggg..."
+            "..k............."
+            "..k.oooo...oo..."
+            "..k............."
+            "..k..bbb..bbbb.."
+            "..k............."
+            "..k............."
+            "..kkkkkkkkkkkkk."
+            "................"
+            "................"];
+
     case "parameterscatter" % axes with scattered points
         rows = [ ...
             "................"

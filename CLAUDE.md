@@ -478,7 +478,47 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   `writeCode`); `tmp/smoke_test_behaviorbuilder.m` is the standing check. Adding a
   palette component = one `componentCatalog.m` row + one emitter branch in
   `generateCode.m` (documentation/gui/gui_BehaviorBuilder.md)
-- Real-time visualization: OnlinePlot, Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
+- Real-time visualization: Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
+- **gui.OnlinePlot**: the live multi-trace view of one box's hardware —
+  parameters, or the bits of an RPvds bitmask bank, sampled on a timer
+  against a scrolling (or trial-locked) time axis
+  (`gui.BehaviorGUI.addOnlinePlot`). Reads are **batched per interface**,
+  not per trace: `hw.Parameter.get.Value` costs an `isprop` probe plus an
+  `IsConnected` probe before the value, and on `hw.TDT_RPcox` that
+  connection probe is a `GetStatus` COM call per module, so an N-trace plot
+  paid 2N round trips a tick where N+1 would do. Every backend but
+  `hw.Software` and `hw.VlcRecorder` takes a whole `hw.Parameter` array in
+  one `get_parameter` (`hw.Teensy` and `hw.Bpod` serve it from a single
+  snapshot); a backend that refuses the array is demoted to per-parameter
+  polling ONCE rather than failing a call every tick, and write-only,
+  `StimType` and `hw.Software` parameters never join a batch because
+  `get.Value` is where they are correctly served. Which traces, in what
+  order, and how they look are settable BOTH from code (`setWatched`,
+  `setTraceOrder`, `setTraceColor`, the aesthetic properties) and by the
+  operator (right-click: Select Traces..., Reorder Traces..., palette, line
+  width, per-trace colour) — the menu items call the public setters, so
+  nothing the operator can do is out of a script's reach. The arrangement
+  PERSISTS by `PreferenceTag`, with two rules that keep it from fighting the
+  paradigm: order and per-trace style are always re-applied and are matched
+  by trace NAME (so a colour follows its signal through a reorder or a
+  protocol edit), while the trace SELECTION is re-applied only when the
+  operator chose it by hand — a `source` passed to the constructor is what
+  `build()` asked for. A `gui.PopOut` adopter, and the pop-out is a fully
+  independent instance (own timer, read plan, buffers, preference key),
+  which is the point: the usual reason to pop one out is to watch a
+  DIFFERENT set of traces large. Four things a reader would otherwise
+  re-derive: the ring is sized from the time window and timer period (a
+  fixed 1000 samples is 50 s at the bitmask period, so a wider window drew a
+  plot that stopped part way back); trial markers are recycled from a
+  bounded pool, since one line plus one text per onset left ~900 of each on
+  the axes after an hour, all re-rendered by every `drawnow`; a `Text`
+  `Position` is plain numeric even on a duration ruler, and the trial-number
+  labels used to be drawn above the y limit where nothing could see them;
+  and `reorderTraces` may use no nested functions, because a nested callback
+  handle keeps its parent workspace — and the `onCleanup` in it that deletes
+  the window — alive for as long as the figure holds it, so CANCELLING the
+  dialog leaked an invisible modal window and the next one blocked in
+  `uiwait` forever (documentation/gui/gui_OnlinePlot.md)
 - **gui.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
 - **gui.NextTrial**: generic upcoming-trial display driven by NewTrial events
 - **gui.ReviewTransport**: the trial scrubber for an `epsych.ReviewSession` —
@@ -560,7 +600,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   Never in a review — blocking would hang `epsych.ReviewSession` inside
   `feval`. Extracted from `examples/syringepump/PumpBehaviorGUI`, which now
   uses it (documentation/gui/gui_SessionGate.md)
-- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, SyringePump, PsychPlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button, `gui.ComponentToolbar` puts them all on one toolbar. A second item, **Keep Window on Top**, pins the window (`WindowStyle='alwaysontop'`) so a display stays readable while the operator works in another application, and is remembered with the window position. It appears only in a window holding ONE component — a pop-out, or one `ComponentToolbar` opened for a lazy entry, marked as such by `gui.PopOut.markStandaloneWindow` before the component is built — never on the embedded copy, whose window belongs to the behavior GUI and everything else on it. A `PopOutStateChanged` event says when a window opened or closed — NOT when one is merely raised, and not during the host's own destruction, which is what keeps closing a GUI from reading as the operator closing its windows — and is what `gui.BehaviorGUI`'s `RestorePopOuts` listens to: with it on, the GUI remembers WHICH displays were open (`OpenPopOuts` under its own `PreferenceTag`, rewritten at each change rather than at teardown, so a killed MATLAB still remembers) and reopens them at construction. It records only the list; how each window looks — position, font, columns, pinned — was already the component's own pop-out preference key, which is why "restore the configuration" needed no new persistence. Two decisions: an identity is the component-toolbar label (register name, else the class name spaced out, uniquified by registration order), so `register(comp, name)` is what pins it when a GUI holds two of a class; and an entry this GUI cannot resolve is skipped but KEPT in the list — a protocol showing fewer displays than another must not erase the fuller layout (documentation/gui/gui_PopOut.md)
+- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, SyringePump, PsychPlot, OnlinePlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button, `gui.ComponentToolbar` puts them all on one toolbar. A second item, **Keep Window on Top**, pins the window (`WindowStyle='alwaysontop'`) so a display stays readable while the operator works in another application, and is remembered with the window position. It appears only in a window holding ONE component — a pop-out, or one `ComponentToolbar` opened for a lazy entry, marked as such by `gui.PopOut.markStandaloneWindow` before the component is built — never on the embedded copy, whose window belongs to the behavior GUI and everything else on it. A `PopOutStateChanged` event says when a window opened or closed — NOT when one is merely raised, and not during the host's own destruction, which is what keeps closing a GUI from reading as the operator closing its windows — and is what `gui.BehaviorGUI`'s `RestorePopOuts` listens to: with it on, the GUI remembers WHICH displays were open (`OpenPopOuts` under its own `PreferenceTag`, rewritten at each change rather than at teardown, so a killed MATLAB still remembers) and reopens them at construction. It records only the list; how each window looks — position, font, columns, pinned — was already the component's own pop-out preference key, which is why "restore the configuration" needed no new persistence. Two decisions: an identity is the component-toolbar label (register name, else the class name spaced out, uniquified by registration order), so `register(comp, name)` is what pins it when a GUI holds two of a class; and an entry this GUI cannot resolve is skipped but KEPT in the list — a protocol showing fewer displays than another must not erase the fuller layout (documentation/gui/gui_PopOut.md)
 - **gui.ComponentToolbar**: the optional icon toolbar a behavior GUI adds with
   `addComponentToolbar` — one tool per display, opening it in a window of its
   own. Two kinds of entry, differing in who owns the window: **automatic**

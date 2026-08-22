@@ -25,6 +25,7 @@ runtime.
 | `gui.Parameter_Monitor` | a second monitor with **its own polling timer** | which parameters are shown, their order, colors, sort |
 | `gui.SyringePump` | a second panel over the same pump, with **its own readout timer**, built with `ApplyOnStart=false` so it never re-asserts settings | selected port, displayed settings |
 | `gui.PsychPlot` | a second psychometric plot on the same psych object | plot type, log-x, colors |
+| `gui.OnlinePlot` | a second plot of the same box, with **its own sample timer, read plan and buffers** | which traces, their y-axis order, palette and per-trace colours, line width, time window, redraw rate |
 | `psychophysics.Staircase` | a second `Staircase` over the same trials, plotted in the new window | threshold reversals/formula, dB axis, step and reversal overlays |
 
 Two notes on cost, because a pop-out is a real second instance:

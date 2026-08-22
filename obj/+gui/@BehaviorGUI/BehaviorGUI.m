@@ -726,6 +726,58 @@ classdef (Abstract) BehaviorGUI < handle
             obj.register(h);
         end
 
+        function h = addOnlinePlot(obj, parent, options)
+            % h = addOnlinePlot(obj, parent, Source=..., ...)
+            % Create a gui.OnlinePlot of live hardware activity and register
+            % it for teardown.
+            %
+            % gui.OnlinePlot draws into a CLASSIC axes, not a uiaxes (it uses
+            % a duration ruler and sets XLim by hand), so one is made here
+            % inside the container you give: pass a panel or a grid cell
+            % rather than an axes of your own.
+            %
+            % Source names the traces -- parameter names, hw.Parameter
+            % handles, or a bitmask bank name. LEFT EMPTY it puts a list
+            % dialog in front of the operator while the session is starting,
+            % which is almost never what a paradigm wants, so an empty Source
+            % returns [] and logs instead. That matches addControl's
+            % tolerance for a parameter it cannot resolve and keeps a GUI
+            % openable against a runtime with no interfaces (epsych.SelfTest
+            % check I6).
+            %
+            % See gui.OnlinePlot for the trace, order and styling options,
+            % all of which the operator can also reach from its right-click
+            % menu and which persist under PreferenceTag.
+            arguments
+                obj
+                parent (1,1)
+                options.Source = []
+                options.BoxID (1,1) double = 1
+                options.PreferenceTag {mustBeTextScalar} = ''
+                options.TimeWindow (1,2) double = [-10 3]
+            end
+
+            h = [];
+            if isempty(options.Source)
+                vprintf(2,['%s: addOnlinePlot needs a Source; ' ...
+                    'skipping rather than opening a dialog mid-session'], class(obj))
+                return
+            end
+
+            ax = axes(parent);
+            h = gui.OnlinePlot(obj.RUNTIME, options.Source, ax, options.BoxID, ...
+                PreferenceTag=options.PreferenceTag);
+            if isempty(h) || ~isvalid(h), h = []; return; end
+
+            % After construction, and only when nothing was remembered: a
+            % saved window outranks a default, which is the point of
+            % remembering one.
+            if ~h.hasSavedConfiguration()
+                h.timeWindow = seconds(options.TimeWindow);
+            end
+            obj.register(h, 'Online Plot');
+        end
+
         function h = addScatter(obj, parent, options)
             % h = addScatter(obj, parent, ...)
             % Create a gui.ParameterScatter over any two recorded trial

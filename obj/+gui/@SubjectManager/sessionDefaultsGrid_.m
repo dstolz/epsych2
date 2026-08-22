@@ -60,26 +60,13 @@ vIntan     = localSeed(seed.IntanRootDir,     PREFS, 'IntanRootDir', ...
 vIntanSet  = localSeed(seed.IntanSettingsFile, PREFS, 'IntanSettingsFile', ...
     char(getpref('ep_RunExpt_Intan','SettingsFile','')));
 
-% The timer callbacks seed from the MRU else the built-in literal -- there is
-% no machine preference layer for them, by design.
-TIMER_FIELDS = { ...  % record field, label, built-in, nargin, nargout
-    'TimerStartFcn',   'Timer Start Fcn:',    'ep_TimerFcn_Start',   2, 1; ...
-    'TimerRunTimeFcn', 'Timer RunTime Fcn:',  'ep_TimerFcn_RunTime', 1, 1; ...
-    'TimerStopFcn',    'Timer Stop Fcn:',     'ep_TimerFcn_Stop',    1, 1; ...
-    'TimerErrorFcn',   'Timer Error Fcn:',    'ep_TimerFcn_Error',   1, 1};
-vTimer = cell(1, 4);
-for k = 1:4
-    vTimer{k} = localSeed(seed.(TIMER_FIELDS{k,1}), PREFS, TIMER_FIELDS{k,1}, ...
-        TIMER_FIELDS{k,3});
-end
-
 % NaN is the record's "inherit" state; the field itself cannot hold it.
 vPeriod = seed.TimerPeriod;
 if ~isscalar(vPeriod) || isnan(vPeriod)
     vPeriod = localRecentPeriod(PREFS, 0.01);
 end
 
-nRows = 11 + options.IncludeProtocol;
+nRows = 7 + options.IncludeProtocol;
 gs = uigridlayout(parent, [nRows 3]);
 gs.RowHeight = repmat({28}, 1, nRows);
 gs.Scrollable = 'on';
@@ -167,29 +154,11 @@ efPeriod.Layout.Row = row; efPeriod.Layout.Column = 2;
 btnPeriod = uibutton(gs, 'Text','Reset', 'ButtonPushedFcn', @(~,~) set(efPeriod,'Value',0.01));
 btnPeriod.Layout.Row = row; btnPeriod.Layout.Column = 3;
 
-% The four PsychTimer lifecycle callbacks: the trial loop itself. A lab
-% running a custom loop names its functions here, which is the only remaining
-% way to configure them -- there is no dialog on the session and no machine
-% preference.
-ddTimer = cell(1, 4);
-for k = 1:4
-    row = row + 1;
-    localLabel(gs, row, TIMER_FIELDS{k,2});
-    ddTimer{k} = uidropdown(gs, 'Editable','on', ...
-        'Tag',[tagPrefix TIMER_FIELDS{k,1}], ...
-        'Items', localItems(PREFS, TIMER_FIELDS{k,1}, vTimer{k}, TIMER_FIELDS{k,3}), ...
-        'Value', vTimer{k}, ...
-        'Tooltip', sprintf(['PsychTimer %s callback.\nSignature: %d input(s), ' ...
-            '%d output.\nDefault: %s'], ...
-            erase(TIMER_FIELDS{k,1}, ["Timer" "Fcn"]), ...
-            TIMER_FIELDS{k,4}, TIMER_FIELDS{k,5}, TIMER_FIELDS{k,3}));
-    ddTimer{k}.Layout.Row = row; ddTimer{k}.Layout.Column = 2;
-    ddTimer{k}.ValueChangedFcn = @(h,~) onTimerFcnChanged(h, TIMER_FIELDS{k,4}, TIMER_FIELDS{k,5});
-    onTimerFcnChanged(ddTimer{k}, TIMER_FIELDS{k,4}, TIMER_FIELDS{k,5});
-    btnTimer = uibutton(gs, 'Text','Reset', ...
-        'ButtonPushedFcn', @(h,~) localResetTimer(ddTimer{k}, TIMER_FIELDS(k,:)));
-    btnTimer.Layout.Row = row; btnTimer.Layout.Column = 3;
-end
+% The four PsychTimer lifecycle callbacks are deliberately absent: they name
+% the trial loop itself, which belongs to the paradigm rather than to a study,
+% and the record's "" (inherit the ep_TimerFcn_* built-ins) is what every
+% project made here now carries. A lab running a custom loop sets them on the
+% roster record from a script; nothing else reads them from an operator.
 
 row = row + 1;
 localLabel(gs, row, 'Video Recording Path:');
@@ -241,10 +210,6 @@ S.DataPath    = ddDataPath;
 S.Saving      = ddSaving;
 S.BehaviorGUI = ddBehaviorGUI;
 S.Period      = efPeriod;
-S.TimerStart  = ddTimer{1};
-S.TimerRunTime = ddTimer{2};
-S.TimerStop   = ddTimer{3};
-S.TimerError  = ddTimer{4};
 S.Video       = ddVideo;
 S.Intan       = ddIntan;
 S.IntanSet    = efIntanSet;
@@ -263,10 +228,6 @@ S.remember    = @remember;
             'SavingFcn', strtrim(ddSaving.Value), ...
             'BehaviorGUI', localBehaviorGUIValue(ddBehaviorGUI.Value), ...
             'TimerPeriod', efPeriod.Value, ...
-            'TimerStartFcn', strtrim(ddTimer{1}.Value), ...
-            'TimerRunTimeFcn', strtrim(ddTimer{2}.Value), ...
-            'TimerStopFcn', strtrim(ddTimer{3}.Value), ...
-            'TimerErrorFcn', strtrim(ddTimer{4}.Value), ...
             'VideoRootDir', strtrim(ddVideo.Value), ...
             'IntanRootDir', strtrim(ddIntan.Value), ...
             'IntanSettingsFile', strtrim(efIntanSet.Value));
@@ -279,10 +240,6 @@ S.remember    = @remember;
         blanks = {};
         if isempty(vals.DefaultDataPath), blanks{end+1} = 'Data Save Path'; end
         if isempty(vals.SavingFcn),   blanks{end+1} = 'Saving Function'; end
-        if isempty(vals.TimerStartFcn),   blanks{end+1} = 'Timer Start Fcn'; end
-        if isempty(vals.TimerRunTimeFcn), blanks{end+1} = 'Timer RunTime Fcn'; end
-        if isempty(vals.TimerStopFcn),    blanks{end+1} = 'Timer Stop Fcn'; end
-        if isempty(vals.TimerErrorFcn),   blanks{end+1} = 'Timer Error Fcn'; end
         if isempty(vals.VideoRootDir),    blanks{end+1} = 'Video Recording Path'; end
         if isempty(vals.IntanRootDir),    blanks{end+1} = 'Intan Recording Path'; end
         if ~isempty(blanks)
@@ -318,10 +275,6 @@ S.remember    = @remember;
         localRemember(PREFS, 'DataPath',      vals.DefaultDataPath);
         localRemember(PREFS, 'SavingFcn',     vals.SavingFcn);
         localRemember(PREFS, 'BehaviorGUI',   vals.BehaviorGUI);
-        localRemember(PREFS, 'TimerStartFcn',   vals.TimerStartFcn);
-        localRemember(PREFS, 'TimerRunTimeFcn', vals.TimerRunTimeFcn);
-        localRemember(PREFS, 'TimerStopFcn',    vals.TimerStopFcn);
-        localRemember(PREFS, 'TimerErrorFcn',   vals.TimerErrorFcn);
         localRemember(PREFS, 'VideoRootDir',  vals.VideoRootDir);
         localRemember(PREFS, 'IntanRootDir',  vals.IntanRootDir);
         localRemember(PREFS, 'IntanSettingsFile', vals.IntanSettingsFile);
@@ -349,24 +302,6 @@ S.remember    = @remember;
         else
             localTint(h, localArity(v, 1, 0));
         end
-    end
-
-% -------------------------------------------------------------------
-    function onTimerFcnChanged(h, nIn, nOut)
-        % The timer callbacks get the tint too, arity included: a loop
-        % function with the wrong shape fails on the first tick of a run.
-        v = strtrim(h.Value);
-        if isempty(v) || isempty(which(v))
-            localTint(h, false);
-        else
-            localTint(h, localArity(v, nIn, nOut));
-        end
-    end
-
-% -------------------------------------------------------------------
-    function localResetTimer(h, spec)
-        localSetValue(h, spec{3});
-        onTimerFcnChanged(h, spec{4}, spec{5});
     end
 
 % -------------------------------------------------------------------

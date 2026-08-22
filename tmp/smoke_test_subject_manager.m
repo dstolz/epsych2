@@ -491,6 +491,41 @@ assert(isempty(mgr.H.projectLinks.Children) && mgr.H.projectLinks.RowHeight{1} =
     'A project with no links should collapse the link panel');
 fprintf('PASS: project links render as checked hyperlinks and collapse when absent\n');
 
+% 7d. The project's folders are hyperlinks onto the file manager ------------
+% A path is the one session default an operator goes looking for, so each of
+% the three roots gets its own row rather than being folded into Template.
+dataRoot  = fullfile(root, 'proj_data');
+videoRoot = fullfile(root, 'proj_video');
+intanRoot = fullfile(root, 'proj_intan');
+R.updateProject(p1, struct('DefaultDataPath', dataRoot, ...
+    'VideoRootDir', videoRoot, 'IntanRootDir', intanRoot));
+mgr.H.projectList.Value = p1;
+mgr.refresh();
+
+summary = string(mgr.H.projectSummaryText);
+for pair = {'Data path', dataRoot; 'Video path', videoRoot; 'Intan path', intanRoot}'
+    assert(any(contains(summary, sprintf('%s: %s', pair{1}, pair{2}))), ...
+        'The summary should carry the project''s %s', pair{1});
+end
+assert(~any(contains(summary, 'video path')), ...
+    'The Template line must not repeat a path that now has its own row');
+
+% Picked out by their text rather than by parentage: the project's own links
+% are hyperlinks in the same card, in a grid of their own.
+roots = {dataRoot, videoRoot, intanRoot};
+cardLinks = findall(mgr.H.projectInfo, 'Type','uihyperlink');
+folderRows = cardLinks(arrayfun(@(h) any(strcmp(h.Text, roots)), cardLinks));
+assert(numel(folderRows) == 3, ...
+    'Each of the three project folders should be a hyperlink (got %d)', numel(folderRows));
+assert(all(arrayfun(@(h) isempty(h.URL), folderRows)), ...
+    'A folder row must not carry a URL that would navigate on its own');
+assert(all(arrayfun(@(h) ~isempty(h.HyperlinkClickedFcn), folderRows)), ...
+    'A folder row should route its click through openProjectFolder_');
+fprintf('PASS: the project''s data, video, and Intan folders are hyperlink rows\n');
+
+R.updateProject(p1, struct('DefaultDataPath','', 'VideoRootDir','', 'IntanRootDir',''));
+mgr.refresh();
+
 R.updateProject(p2, struct('Archived', true));
 mgr.H.showArchived.Value = false;
 mgr.H.projectList.Value = p1;
@@ -553,8 +588,7 @@ fprintf('PASS: Copy opens the dialog under its own title, on a free name\n');
 % the ambiguity the move was meant to remove.
 assert(any(built.tabs == "Session Defaults (template)"), ...
     'The project dialog should have a Session Defaults (template) tab (got %s)', strjoin(built.tabs, ', '));
-for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "VideoRootDir" "IntanRootDir" "BehaviorGUI" ...
-         "TimerStartFcn" "TimerRunTimeFcn" "TimerStopFcn" "TimerErrorFcn"]
+for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "VideoRootDir" "IntanRootDir" "BehaviorGUI"]
     assert(isfield(built.fields, f), 'The dialog is missing the %s field', f);
     v = built.fields.(f);
     assert(~isempty(v) && (~ischar(v) || ~isempty(strtrim(v))), ...
@@ -562,6 +596,14 @@ for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "VideoRootDir" "IntanRootDi
 end
 assert(built.fields.TimerPeriod >= 0.001 && built.fields.TimerPeriod <= 1, ...
     'The timer period should open on a usable value (got %g)', built.fields.TimerPeriod);
+
+% The four PsychTimer lifecycle callbacks are NOT offered: they name the trial
+% loop, which belongs to the paradigm rather than to a study, and a project
+% made here leaves them inheriting the ep_TimerFcn_* built-ins.
+for f = ["TimerStartFcn" "TimerRunTimeFcn" "TimerStopFcn" "TimerErrorFcn"]
+    assert(~isfield(built.fields, f), ...
+        'The project dialog must not offer the %s field', f);
+end
 
 % Recently-used values seed the next project. Written the way the dialog writes
 % them, then read back through a fresh New Project dialog.
@@ -601,9 +643,12 @@ assert(mdlg.found, 'The membership dialog did not open');
 assert(~isfield(mdlg.fields, 'DefaultProtocol'), ...
     'The membership dialog must not offer a Default Protocol row');
 for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "BehaviorGUI" ...
-         "TimerStartFcn" "TimerRunTimeFcn" "TimerStopFcn" "TimerErrorFcn" ...
          "VideoRootDir" "IntanRootDir"]
     assert(isfield(mdlg.fields, f), 'The membership dialog is missing the %s field', f);
+end
+for f = ["TimerStartFcn" "TimerRunTimeFcn" "TimerStopFcn" "TimerErrorFcn"]
+    assert(~isfield(mdlg.fields, f), ...
+        'The membership dialog must not offer the %s field', f);
 end
 
 % The Settings column says whether a membership still matches its project's

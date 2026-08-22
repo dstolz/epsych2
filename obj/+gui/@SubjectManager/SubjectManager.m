@@ -420,7 +420,7 @@ classdef SubjectManager < handle
             heading = '';
             note    = '';
             links   = epsych.SubjectRoster.emptyLink();
-            fields  = cell(0,4);   % label, value, tooltip, value colour
+            fields  = cell(0,5);   % label, value, tooltip, value colour, folder
 
             if isempty(id)
                 heading = self.ALL_SUBJECTS;
@@ -470,9 +470,20 @@ classdef SubjectManager < handle
                 h.Layout.Row = row;
                 h.Layout.Column = 1;
 
-                h = uilabel(panel, 'Text', fields{i,2}, 'WordWrap','on', ...
-                    'VerticalAlignment','top', 'FontColor', fields{i,4}, ...
-                    'Tooltip', fields{i,3});
+                if isempty(fields{i,5})
+                    h = uilabel(panel, 'Text', fields{i,2}, 'WordWrap','on', ...
+                        'VerticalAlignment','top', 'FontColor', fields{i,4}, ...
+                        'Tooltip', fields{i,3});
+                else
+                    % A folder the project points at opens in the file manager.
+                    % As with the project's links, no URL is set: the click goes
+                    % through openProjectFolder_ so a folder that is not there
+                    % yet can be offered rather than silently doing nothing.
+                    h = uihyperlink(panel, 'Text', fields{i,2}, 'WordWrap','on', ...
+                        'VerticalAlignment','top', 'FontColor',[0.00 0.35 0.72], ...
+                        'Tooltip', fields{i,3}, ...
+                        'HyperlinkClickedFcn', @(~,~) self.openProjectFolder_(fields{i,5}));
+                end
                 h.Layout.Row = row;
                 h.Layout.Column = 2;
 
@@ -539,6 +550,45 @@ classdef SubjectManager < handle
             catch ME
                 vprintf(0, 1, ME);
                 uialert(self.H.figure, ME.message, 'Open Link', 'Icon','warning');
+            end
+        end
+
+        function openProjectFolder_(self, pth)
+            % Open one of the project's folders in the file manager, offering to
+            % create it when it is not there yet.
+            %
+            % A missing folder is the ordinary case rather than a fault: a
+            % project's data and recording roots are configured when the study
+            % is set up, and nothing writes to them until the first session
+            % runs. Creating it here is what makes the card's paths worth
+            % clicking -- the alternative is a dead link until an experiment
+            % has already been run.
+            %
+            % Routed through openLink so the platform dispatch, and the refusal
+            % of anything that is not a plain path, live in one place.
+            try
+                if ~isfolder(pth)
+                    answer = uiconfirm(self.H.figure, ...
+                        sprintf(['%s\n\nThis folder does not exist yet. ' ...
+                        'Create it now?'], pth), 'Open Folder', ...
+                        'Options', {'Create Folder','Cancel'}, ...
+                        'DefaultOption', 1, 'CancelOption', 2, 'Icon','question');
+                    if ~strcmp(answer, 'Create Folder')
+                        self.setStatus_(sprintf('%s does not exist.', pth));
+                        return
+                    end
+                    [ok, msg] = mkdir(pth);
+                    if ~ok
+                        error('epsych:SubjectManager:CreateFolder', ...
+                            'Could not create %s\n\n%s', pth, msg);
+                    end
+                    vprintf(1, 'Created project folder: %s', pth);
+                end
+                epsych.SubjectRoster.openLink(pth);
+                self.setStatus_(sprintf('Opened %s', pth));
+            catch ME
+                vprintf(0, 1, ME);
+                uialert(self.H.figure, ME.message, 'Open Folder', 'Icon','warning');
             end
         end
 
@@ -1474,8 +1524,7 @@ classdef SubjectManager < handle
             % machine's own settings; NaN is the record's "no period yet".
             seed = struct('Name','', 'Notes','', 'Investigator','', ...
                 'IACUCProtocol','', 'DefaultProtocol','', 'DefaultDataPath','', ...
-                'SavingFcn','', 'TimerStartFcn','', 'TimerRunTimeFcn','', ...
-                'TimerStopFcn','', 'TimerErrorFcn','', ...
+                'SavingFcn','', ...
                 'TimerPeriod',NaN, 'VideoRootDir','', ...
                 'IntanRootDir','', 'IntanSettingsFile','', ...
                 'BehaviorGUI','', 'Archived',false);
@@ -1493,10 +1542,6 @@ classdef SubjectManager < handle
                     DefaultProtocol = P.DefaultProtocol, ...
                     DefaultDataPath = P.DefaultDataPath, ...
                     SavingFcn = P.SavingFcn, ...
-                    TimerStartFcn = P.TimerStartFcn, ...
-                    TimerRunTimeFcn = P.TimerRunTimeFcn, ...
-                    TimerStopFcn = P.TimerStopFcn, ...
-                    TimerErrorFcn = P.TimerErrorFcn, ...
                     TimerPeriod = P.TimerPeriod, ...
                     VideoRootDir = P.VideoRootDir, ...
                     IntanRootDir = P.IntanRootDir, ...
@@ -1596,10 +1641,6 @@ classdef SubjectManager < handle
                     DefaultProtocol = P.DefaultProtocol, ...
                     DefaultDataPath = P.DefaultDataPath, ...
                     SavingFcn = P.SavingFcn, ...
-                    TimerStartFcn = P.TimerStartFcn, ...
-                    TimerRunTimeFcn = P.TimerRunTimeFcn, ...
-                    TimerStopFcn = P.TimerStopFcn, ...
-                    TimerErrorFcn = P.TimerErrorFcn, ...
                     TimerPeriod = P.TimerPeriod, ...
                     VideoRootDir = P.VideoRootDir, ...
                     IntanRootDir = P.IntanRootDir, ...
@@ -1788,59 +1829,81 @@ end
 
 function fields = localProjectFields(p)
 % The info card's label/value rows for one project: {label, value, tooltip,
-% value colour}.
+% value colour, folder}.
 %
 % The labels are short because the card is a narrow column and the label
 % column is fixed: the value is what an operator scans for, and a label wide
 % enough to say "Default protocol" would take that width from it. What the
 % short label leaves out goes in the tooltip.
+%
+% A non-empty fifth column makes the row a hyperlink onto that folder. It is
+% the path as configured, not the row's text, so a row is free to abbreviate.
 NORMAL = [0.13 0.15 0.18];
 MUTED  = [0.45 0.48 0.52];
 FLAG   = [0.62 0.35 0.02];
 
-fields = cell(0,4);
+OPENS = ['\n\nClick to open this folder; you will be offered the chance to ' ...
+    'create it if it is not there yet.'];
+
+fields = cell(0,5);
 
 if p.Archived
     fields(end+1,:) = {'Status', 'Archived', ...
-        'Hidden from the project list; its subjects and their protocols are untouched.', FLAG};
+        'Hidden from the project list; its subjects and their protocols are untouched.', FLAG, ''};
 end
 if ~isempty(p.Investigator)
-    fields(end+1,:) = {'Investigator', p.Investigator, '', NORMAL};
+    fields(end+1,:) = {'Investigator', p.Investigator, '', NORMAL, ''};
 end
 if ~isempty(p.IACUCProtocol)
     fields(end+1,:) = {'IACUC', p.IACUCProtocol, ...
-        'Animal-use protocol number, recorded here and never enforced.', NORMAL};
+        'Animal-use protocol number, recorded here and never enforced.', NORMAL, ''};
 end
 
 if isempty(p.DefaultProtocol)
     fields(end+1,:) = {'Protocol', '(none)', ...
-        'No default protocol: a new member joins with none.', MUTED};
+        'No default protocol: a new member joins with none.', MUTED, ''};
 else
     [~, pn, pe] = fileparts(p.DefaultProtocol);
     fields(end+1,:) = {'Protocol', [pn pe], ...
-        sprintf('Default protocol for members of this project:\n%s', p.DefaultProtocol), NORMAL};
+        sprintf('Default protocol for members of this project:\n%s', p.DefaultProtocol), NORMAL, ''};
 end
 
+% The three recording roots, each opening in the file manager. Named
+% individually rather than folded into the Template line below, because a
+% path is the one session default an operator goes looking for -- to check
+% where last night's data landed, or to put a settings file beside it.
 if ~isempty(p.DefaultDataPath)
-    fields(end+1,:) = {'Data path', p.DefaultDataPath, p.DefaultDataPath, NORMAL};
+    fields(end+1,:) = {'Data path', p.DefaultDataPath, ...
+        sprintf(['Session data is written to <path>\\<subject>\\.\n%s' OPENS], ...
+        p.DefaultDataPath), NORMAL, p.DefaultDataPath};
+end
+if ~isempty(p.VideoRootDir)
+    fields(end+1,:) = {'Video path', p.VideoRootDir, ...
+        sprintf(['Root for webcam recordings.\n%s' OPENS], p.VideoRootDir), ...
+        NORMAL, p.VideoRootDir};
+end
+if ~isempty(p.IntanRootDir)
+    fields(end+1,:) = {'Intan path', p.IntanRootDir, ...
+        sprintf(['Root for Intan RHX recordings.\n%s' OPENS], p.IntanRootDir), ...
+        NORMAL, p.IntanRootDir};
 end
 
 % Named even when unset: this is where the behavior GUI is configured now, so
 % the card has to say so rather than stay silent.
 if isempty(p.BehaviorGUI)
     fields(end+1,:) = {'Behavior GUI', '(built-in default)', ...
-        'This project stamps no behavior GUI; the session runs the built-in default.', MUTED};
+        'This project stamps no behavior GUI; the session runs the built-in default.', MUTED, ''};
 elseif strcmpi(p.BehaviorGUI, epsych.SubjectRoster.BEHAVIORGUI_NONE)
     fields(end+1,:) = {'Behavior GUI', '(none)', ...
-        'Members of this project run no behavior GUI.', MUTED};
+        'Members of this project run no behavior GUI.', MUTED, ''};
 else
-    fields(end+1,:) = {'Behavior GUI', p.BehaviorGUI, '', NORMAL};
+    fields(end+1,:) = {'Behavior GUI', p.BehaviorGUI, '', NORMAL, ''};
 end
 
 rest = localSessionDefaults(p);
 if ~isempty(rest)
     fields(end+1,:) = {'Template', rest, ...
-        'Session settings stamped onto a membership when a subject joins.', NORMAL};
+        'Session settings stamped onto a membership when a subject joins.', NORMAL, ''};
 end
 end
 
@@ -1852,17 +1915,21 @@ function txt = localSessionDefaults(p)
 % Only the fields that are set: an older project, or one made by a script,
 % stamps "inherit the built-in default", and listing those as blanks would
 % read as "this project clears them".
+%
+% The video and Intan roots are absent because they have rows of their own
+% now; naming them here as well would say the same thing twice.
 txt = '';
 
 parts = {};
 if ~isempty(p.SavingFcn),   parts{end+1} = sprintf('save %s', p.SavingFcn); end
 if ~isnan(p.TimerPeriod),   parts{end+1} = sprintf('timer %.4g s', p.TimerPeriod); end
+% Reported although no dialog sets them any more: an older project, or one a
+% script configured, can still carry a custom trial loop, and the card is then
+% the only place that says so.
 if ~isempty(p.TimerStartFcn) || ~isempty(p.TimerRunTimeFcn) ...
         || ~isempty(p.TimerStopFcn) || ~isempty(p.TimerErrorFcn)
-    parts{end+1} = 'timer functions';
+    parts{end+1} = 'custom timer functions';
 end
-if ~isempty(p.VideoRootDir),      parts{end+1} = 'video path'; end
-if ~isempty(p.IntanRootDir),      parts{end+1} = 'Intan path'; end
 if ~isempty(p.IntanSettingsFile), parts{end+1} = 'Intan settings'; end
 
 if ~isempty(parts)

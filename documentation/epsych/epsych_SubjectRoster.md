@@ -53,7 +53,7 @@ The project's Session Defaults are a **template**: `assign` stamps them verbatim
 |---|---|---|
 | `DefaultDataPath` | `RunExpt.DefaultDataPath` | The root every subject folder is created under. |
 | `SavingFcn` | `RunExpt.FUNCS.SavingFcn` | `SaveFcn(RUNTIME)`; logged at level 0 if it is not on the path. |
-| `TimerStartFcn` … `TimerErrorFcn` | `RunExpt.FUNCS.TIMERfcn.*` | The trial loop itself; `''` runs the `ep_TimerFcn_*` built-ins. A custom loop travels with the study. |
+| `TimerStartFcn` … `TimerErrorFcn` | `RunExpt.FUNCS.TIMERfcn.*` | The trial loop itself; `''` runs the `ep_TimerFcn_*` built-ins. Script-only — no dialog sets them, so a record written in `gui.SubjectManager` leaves all four empty. A custom loop is set here and then travels with the study. |
 | `TimerPeriod` | `RunExpt.FUNCS.TimerPeriod` | `NaN` inherits the built-in 0.01 s. Read by `CreateTimer` at run start, so applying it here is enough. |
 | `VideoRootDir` | `RunExpt.PATHS.VideoRootDir` | Empty still falls back to the data path. |
 | `IntanRootDir` | `RunExpt.PATHS.IntanRootDir` | Logged at level 0 if it contains spaces, which RHX cannot express. |

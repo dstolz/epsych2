@@ -10,9 +10,9 @@ function P = projectDialog_(self, seed, options)
 % Parameters:
 %   seed - struct with Name, Notes, Investigator, IACUCProtocol,
 %          DefaultProtocol, and the SESSION_FIELDS (DefaultDataPath, SavingFcn,
-%          TimerPeriod, the four Timer*Fcn callbacks, VideoRootDir,
-%          IntanRootDir, IntanSettingsFile, BehaviorGUI), plus Links and
-%          Archived.
+%          TimerPeriod, VideoRootDir, IntanRootDir, IntanSettingsFile,
+%          BehaviorGUI), plus Links and Archived. The membership's four
+%          Timer*Fcn callbacks are read from the seed by neither dialog.
 %
 % Options:
 %   Title - window title. The dialog otherwise infers it from the seed, which
@@ -23,8 +23,11 @@ function P = projectDialog_(self, seed, options)
 %
 % The Session Defaults tab holds what used to be in RunExpt's Customize dialog.
 % Those settings describe a paradigm, not a rig: which function saves the data,
-% which callbacks the timer runs and how fast, where recordings go, which
-% behavior GUI runs. They are a TEMPLATE: stamped onto a subject's membership
+% how fast the timer runs, where recordings go, which behavior GUI runs. The
+% timer's four lifecycle callbacks are NOT among them -- they name the trial
+% loop itself, which belongs to the paradigm's code rather than to an
+% operator, and a project made here leaves them inheriting the ep_TimerFcn_*
+% built-ins. What is here is a TEMPLATE: stamped onto a subject's membership
 % when it joins the project (epsych.SubjectRoster.assign), and edits here do
 % not reach existing members -- Re-apply Project Template is the deliberate
 % push. The field grid itself is built by sessionDefaultsGrid_, shared with
@@ -209,10 +212,6 @@ end
             'DefaultProtocol', vals.DefaultProtocol, ...
             'DefaultDataPath', vals.DefaultDataPath, ...
             'SavingFcn', vals.SavingFcn, ...
-            'TimerStartFcn', vals.TimerStartFcn, ...
-            'TimerRunTimeFcn', vals.TimerRunTimeFcn, ...
-            'TimerStopFcn', vals.TimerStopFcn, ...
-            'TimerErrorFcn', vals.TimerErrorFcn, ...
             'TimerPeriod', vals.TimerPeriod, ...
             'VideoRootDir', vals.VideoRootDir, ...
             'IntanRootDir', vals.IntanRootDir, ...

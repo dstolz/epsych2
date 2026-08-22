@@ -57,6 +57,7 @@ shots = { ...
     'Performance',                  @shotPerformance; ...
     'SlidingWindowPerformancePlot', @shotSlidingWindow; ...
     'Staircase_Plot',               @shotStaircasePlot; ...
+    'SessionGate',                  @shotSessionGate; ...
     'PhaseSelector',                @shotPhaseSelector; ...
     'StaircaseTraining',            @shotStaircaseTraining; ...
     'SyringePump',                  @shotSyringePump; ...
@@ -328,6 +329,22 @@ end
 %% ------------------------------------------------------------------------
 %  Session control
 % -------------------------------------------------------------------------
+function fig = shotSessionGate(~)
+% Both states in one shot: the gate as it opens, and the status line it
+% becomes. A picture of the armed button alone would not show the thing
+% that is easy to miss -- that the button never goes away.
+fig = shotFigure([300 130]);
+g = uigridlayout(fig, [2 1]);
+g.RowHeight = {36, 36};
+g.Padding = [12 12 12 12];
+
+gui.SessionGate(g);                       % armed, as the session opens
+
+retired = gui.SessionGate(g);             % the same button after the press
+retired.release();
+end
+
+
 function fig = shotPhaseSelector(S)
 % A throwaway phase folder, so the dropdown has something to show.
 phaseDir = fullfile(tempdir, 'epsych_wiki_phases');

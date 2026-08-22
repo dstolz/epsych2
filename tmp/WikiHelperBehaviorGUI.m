@@ -4,6 +4,9 @@ classdef WikiHelperBehaviorGUI < gui.BehaviorGUI
     % addUpdateButton, addMonitor — in one screenshot for the wiki's Behavior GUI
     % Components page. Not an example to copy: see
     % examples/customgui/ExampleBehaviorGUI.m for that.
+    %
+    % The parameter names are the appetitive AM-detection rig's own, because
+    % generate_component_screenshots drives this from a real saved session.
 
     methods
         function obj = WikiHelperBehaviorGUI(RUNTIME)
@@ -22,12 +25,12 @@ classdef WikiHelperBehaviorGUI < gui.BehaviorGUI
             row = uigridlayout(g, [1 3]);
             row.Layout.Row = 1; row.Layout.Column = [1 2];
             row.Padding = [0 0 0 0];
-            obj.addButton(row, 'Reward', Text='Manual Reward');
-            obj.addButton(row, 'ToneFreq', Type='momentary', Text='Play Tone');
+            obj.addButton(row, 'DropPellet', Text='Drop Pellet');
+            obj.addButton(row, 'ReminderTrial', Type='momentary', Text='Reminder Trial');
 
             col = obj.controlColumn(g, Title='Session Controls', Row=2, Column=1);
-            obj.addControl(col, 'ToneFreq', Text='Tone Frequency (Hz)');
-            obj.addControl(col, 'ToneDur',  Text='Tone Duration (ms)');
+            obj.addControl(col, 'Rate',    Text='AM Rate (Hz)');
+            obj.addControl(col, 'StimDur', Text='Stimulus Duration (ms)');
             obj.addUpdateButton(col);
 
             pnl = uipanel(g, 'Title', 'Live Values');

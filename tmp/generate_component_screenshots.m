@@ -162,13 +162,10 @@ fprintf('Psych:     %s\n', options.PsychDataFile);
 S.PsychReview  = epsych.ReviewSession(options.PsychDataFile, Show=false);
 S.PsychRUNTIME = S.PsychReview.RUNTIME;
 
-% psychophysics.Detection.responseCodes reads the DATA field 'RespCode' and
-% nothing else, so a session whose saving function wrote the outcome under the
-% older name 'ResponseCode' analyzes as zero trials -- silently, with no error
-% and an empty plot. Alias it here rather than in the library. Where both names
-% are present they hold the same codes.
+% This file writes its outcomes under the older name 'ResponseCode';
+% psychophysics.Detection.responseCodes resolves that pair, so nothing has to
+% be renamed here.
 T = S.PsychRUNTIME.TRIALS(1);
-T.DATA = withRespCode(T.DATA);
 
 % The file records no subject, so the review named it after the file itself and
 % every plot title carries the timestamp -- with the underscore read as a TeX
@@ -194,15 +191,6 @@ S.Psych = psychophysics.Detection(S.PsychRUNTIME, S.Level, epsych.BitMask.TrialT
 S.PsychTrialsEvent = epsych.TrialsData(S.PsychRUNTIME.TRIALS(1));
 S.Psych.update_data([], S.PsychTrialsEvent);   % seed with the whole session
 fprintf('  %d trials, %d depths\n', numel(S.PsychDATA), numel(S.Psych.uniqueValues));
-end
-
-
-function D = withRespCode(D)
-% Give every record a RespCode, copied from ResponseCode when that is the only
-% name the file used. See the note at the call site.
-if isempty(D) || isfield(D, 'RespCode') || ~isfield(D, 'ResponseCode'), return; end
-c = {D.ResponseCode};
-[D.RespCode] = c{:};
 end
 
 

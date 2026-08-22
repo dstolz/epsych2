@@ -245,10 +245,22 @@ classdef Detection < handle & matlab.mixin.SetGet
 
         function rc = get.responseCodes(obj)
             % get.responseCodes Retrieves response codes from DATA
+            %
+            % 'ResponseCode' is the older name for the same field and is still
+            % what many saved sessions carry. Reading only 'RespCode' made such
+            % a session analyze as ZERO trials -- silently, because every
+            % count, rate and d' then comes back empty rather than erroring,
+            % so the failure looks like a subject who never responded.
+            % psychophysics.Psych.responseCodes, BestPEST and MLP already
+            % resolve the pair; Detection is not a Psych subclass and needs its
+            % own. RespCode wins where a file carries both, which is the
+            % order every other resolver uses.
             if isempty(obj.DATA)
                 rc = uint32([]);
             elseif isfield(obj.DATA, 'RespCode')
                 rc = uint32([obj.DATA.RespCode]);
+            elseif isfield(obj.DATA, 'ResponseCode')
+                rc = uint32([obj.DATA.ResponseCode]);
             else
                 rc = uint32([]);
             end

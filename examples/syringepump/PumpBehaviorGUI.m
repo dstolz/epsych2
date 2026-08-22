@@ -13,12 +13,13 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
     %   Experiment button and the session holds until it is pressed, under
     %   RunExpt's Run / Preview buttons as well as run_pump_session.
     %
-    %   The hold is the CONSTRUCTOR blocking in waitForBegin. RunExpt builds
-    %   the behavior GUI from the PsychTimer's StartFcn, start() does not
-    %   return until that callback does, and a timer will not fire its
-    %   TimerFcn during another of its own callbacks — so blocking here holds
-    %   the trial loop. Pass WaitForBegin=false to skip the gate (headless
-    %   tests, or a caller doing its own waiting).
+    %   The button is a gui.SessionGate (obj.addSessionGate) and the hold is
+    %   the CONSTRUCTOR blocking on it. RunExpt builds the behavior GUI from
+    %   the PsychTimer's StartFcn, start() does not return until that
+    %   callback does, and a timer will not fire its TimerFcn during another
+    %   of its own callbacks — so blocking here holds the trial loop. Pass
+    %   WaitForBegin=false to skip the gate (headless tests, or a caller
+    %   doing its own waiting).
     %
     %   Once released, THIS GUI runs the trial cycle, the way
     %   FirstExperimentBehaviorGUI and TwoAFCBehaviorGUI do for their
@@ -36,15 +37,18 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
 
     properties (SetAccess = private)
         Pump = []       % the gui.SyringePump panel under test
-        BeginRequested (1,1) logical = false % the session has been released to run
         RigState (1,:) char = 'idle' % idle | dispense | iti | done
+    end
+
+    properties (Dependent, SetAccess = private)
+        BeginRequested (1,1) logical % the session has been released to run
     end
 
     properties (Access = private)
         LastVolumeH_ = []   % per-trial dispensed-volume label
         StateH_ = []        % what the trial cycle is doing right now
         PrevInfused_ = NaN  % VolumeInfused at the previous trial end
-        BeginButton_ = []   % the Begin Experiment button
+        Gate_ = []          % gui.SessionGate holding the session
         DriveTrials_ (1,1) logical = true % run the trial cycle from here
         RigTimer_ = []      % advances the trial cycle off the session timer
         StateClock_ = []    % tic handle for the current state
@@ -105,15 +109,17 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             end
         end
 
+        function tf = get.BeginRequested(obj)
+            tf = ~isempty(obj.Gate_) && isvalid(obj.Gate_) && obj.Gate_.Released;
+        end
+
         function beginExperiment(obj)
             % beginExperiment(obj)
-            % Release a session waiting in waitForBegin. This is the Begin
-            % Experiment button's callback; calling it by hand is how a
+            % Release a session waiting in waitForBegin. This is what the
+            % Begin Experiment button does; calling it by hand is how a
             % script starts the run without a click.
-            if obj.BeginRequested, return; end
-            obj.BeginRequested = true;
-            obj.setBeginButton_('Experiment Running');
-            vprintf(1, '%s: operator began the experiment', class(obj))
+            if isempty(obj.Gate_) || ~isvalid(obj.Gate_), return; end
+            obj.Gate_.release();
         end
 
         function tf = waitForBegin(obj, timeout)
@@ -123,27 +129,14 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             % operator's way of calling the run off, and returns false.
             %  timeout - seconds to wait. Default Inf.
             %
-            % The wait pauses rather than spins: the pump panel's readout
-            % timer, the port picker and the manual Start / Stop / Zero
-            % controls all have to keep working while it holds, since
-            % priming the line is most of what the operator is doing here.
+            % Kept as a name of this class's own because run_pump_session and
+            % the smoke tests call it; it is gui.BehaviorGUI.waitForSessionGate
+            % underneath, which is what any other paradigm should use.
             arguments
                 obj
                 timeout (1,1) double {mustBePositive} = Inf
             end
-            if obj.BeginRequested, tf = true; return; end
-
-            % RunExpt has already painted "Starting..." by now, so say why
-            % nothing is happening.
-            vprintf(0, 'Holding: press "Begin Experiment" to start the session.')
-            t = tic;
-            % isvalid first on every pass: closing the window deletes obj
-            % out from under this loop.
-            while isvalid(obj) && ~obj.BeginRequested && toc(t) < timeout
-                pause(0.05)
-                drawnow limitrate
-            end
-            tf = isvalid(obj) && obj.BeginRequested;
+            tf = obj.waitForSessionGate(timeout);
         end
     end
 
@@ -186,14 +179,8 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             % none of that is done by the time the window opens — so the
             % first thing in the column is the gate, and the pump panel
             % beside it stays live while the operator primes.
-            obj.BeginButton_ = uibutton(col, ...
-                'Text', 'Begin Experiment', ...
-                'FontSize', 14, 'FontWeight', 'bold', ...
-                'BackgroundColor', [0.45 0.75 0.45], ...
-                'Tooltip', 'Start the session; no trial runs until this is pressed', ...
-                'ButtonPushedFcn', @(~,~) obj.beginExperiment());
+            obj.Gate_ = obj.addSessionGate(col);
             col.RowHeight{1} = 36;
-            obj.register(obj.BeginButton_);
 
             obj.addControl(col, 'Rate', autoCommit = true, Text = 'Pump Rate (uL/min)');
             obj.addControl(col, 'ITI',  Text = 'Intertrial Interval (s)');
@@ -294,29 +281,11 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
         end
 
         function onModeChange(obj, ~, event)
-            % Retire the button once trials are actually running. Normally
-            % the gate has already opened by the time this arrives — RunExpt
-            % broadcasts the mode after the constructor returns — but a
-            % caller that passed WaitForBegin=false never opened it, and the
-            % button must not stand there enabled over a running session.
-            %
-            % Preview is tested alongside Record because it is a DISTINCT
-            % DeviceState (RunExpt.PsychTimerStart picks it from
-            % RUNTIME.isTest) and is not isIdle: matching only Record left
-            % the button live and inert through every Preview run.
-            switch event.NewMode
-                case hw.DeviceState.Record
-                    obj.BeginRequested = true;
-                    obj.setBeginButton_('Experiment Running');
-                case hw.DeviceState.Preview
-                    obj.BeginRequested = true;
-                    obj.setBeginButton_('Preview Running');
-                otherwise
-                    if event.NewMode.isIdle()
-                        obj.setBeginButton_('Session Complete');
-                    end
-            end
-
+            % Retiring the button belongs to gui.SessionGate, which is
+            % listening to the same event and was wired first (build runs
+            % inside the base constructor, before these hooks are attached),
+            % so the gate has already opened by the time this runs. What is
+            % left here is the rig.
             if any(event.NewMode == [hw.DeviceState.Record, hw.DeviceState.Preview])
                 % Trial 1 was dispatched before this window existed (the
                 % TRIALS setter dispatches it from inside ep_TimerFcn_Start),
@@ -572,15 +541,6 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             if ~isfield(obj.P, 'ITI'), return; end
             v = obj.P.ITI.Value;
             if isnumeric(v) && isscalar(v) && isfinite(v) && v >= 0, s = double(v); end
-        end
-
-        function setBeginButton_(obj, text)
-            % Retire the button: the gate opens once and never closes, so
-            % the button becomes a status line for the rest of the session.
-            if isempty(obj.BeginButton_) || ~isvalid(obj.BeginButton_), return; end
-            obj.BeginButton_.Text = text;
-            obj.BeginButton_.Enable = 'off';
-            obj.BeginButton_.BackgroundColor = [0.90 0.90 0.90];
         end
 
     end

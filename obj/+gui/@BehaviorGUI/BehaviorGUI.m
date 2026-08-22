@@ -33,6 +33,19 @@ classdef (Abstract) BehaviorGUI < handle
     %   connected interfaces (epsych.SelfTest check I6): addControl and
     %   addButton silently skip parameter names that do not resolve.
     %
+    %   The add* helpers cover every reusable component a paradigm normally
+    %   wants, and each one registers what it builds for teardown so the
+    %   subclass never has to: controls (addControl, addButton,
+    %   controlColumn, addUpdateButton), displays (addMonitor, addNextTrial,
+    %   addPerformance, addHistory, addScatter, addPsychPlot,
+    %   addStaircasePlot, addSessionClock, addTrialTimer, addModeIndicator),
+    %   and operator add-ons (addNotes, addNotesButton, addScreenCapture,
+    %   addSyringePump, addSessionGate). A helper whose component needs
+    %   something this session does not have -- a parameter that does not
+    %   resolve, an analysis that was never built -- returns [] and says so
+    %   at debug level rather than throwing, so the GUI still opens against a
+    %   runtime with no interfaces (epsych.SelfTest check I6).
+    %
     %   Display components that inherit gui.PopOut (the scatter, history,
     %   performance, next-trial, monitor, and plot components) can be opened
     %   in a window of their own from their right-click menu, or from a
@@ -688,6 +701,236 @@ classdef (Abstract) BehaviorGUI < handle
             obj.register(h);
         end
 
+        function h = addHistory(obj, parent, options)
+            % h = addHistory(obj, parent, ...)
+            % Create a gui.History per-trial outcome table over this GUI's
+            % psychophysics object and register it for teardown.
+            %
+            % Returns [] when createPsych produced nothing, the way
+            % addControl returns [] for a parameter that does not resolve: a
+            % GUI must still open against a runtime with no interfaces
+            % (epsych.SelfTest check I6). See gui.History for options.
+            arguments
+                obj
+                parent (1,1)
+                options.ColumnFormats = string.empty(0,1)
+                options.BitColors = string.empty(0,1)
+                options.PreferenceTag {mustBeTextScalar} = ''
+            end
+
+            h = [];
+            if ~obj.hasPsych_('gui.History'), return; end
+
+            args = namedargs2cell(options);
+            h = gui.History(obj.Psych, parent, args{:});
+            obj.register(h);
+        end
+
+        function h = addScatter(obj, parent, options)
+            % h = addScatter(obj, parent, ...)
+            % Create a gui.ParameterScatter over any two recorded trial
+            % parameters and register it for teardown.
+            %
+            % The source is this GUI's runtime rather than its psych object:
+            % the scatter draws whatever the trials recorded, so it works in
+            % a paradigm that has no analysis at all. See gui.ParameterScatter.
+            arguments
+                obj
+                parent (1,1)
+                options.BoxID (1,:) double = []
+                options.XParameter {mustBeTextScalar} = ''
+                options.YParameter {mustBeTextScalar} = ''
+                options.ColorParameter {mustBeTextScalar} = ''
+                options.PreferenceTag {mustBeTextScalar} = ''
+            end
+
+            args = namedargs2cell(options);
+            h = gui.ParameterScatter(obj.RUNTIME, parent, args{:});
+            obj.register(h);
+        end
+
+        function h = addPsychPlot(obj, parent)
+            % h = addPsychPlot(obj, parent)
+            % Create a gui.PsychPlot psychometric curve over this GUI's
+            % psychophysics object and register it for teardown. Returns []
+            % when there is no psych object.
+            %
+            % gui.PsychPlot draws into a CLASSIC axes, not a uiaxes, so one
+            % is made here inside the container you give: pass a panel or a
+            % grid cell rather than an axes of your own.
+            arguments
+                obj
+                parent (1,1)
+            end
+
+            h = [];
+            if ~obj.hasPsych_('gui.PsychPlot'), return; end
+
+            ax = axes(parent);
+            h = gui.PsychPlot(obj.Psych, ax);
+            obj.register(h);
+        end
+
+        function ax = addStaircasePlot(obj, parent)
+            % ax = addStaircasePlot(obj, parent)
+            % Plot this GUI's psychophysics.Staircase -- its track, reversals
+            % and threshold -- into a new uiaxes inside parent, and return
+            % the axes.
+            %
+            % The staircase draws ITSELF (psychophysics.Staircase.Plot), so
+            % there is no component to register: the analysis object owns the
+            % listener and the redraw, and it is torn down with the GUI that
+            % created it. Returns [] when there is no staircase, or when the
+            % psych object is some other analysis.
+            arguments
+                obj
+                parent (1,1)
+            end
+
+            ax = [];
+            if ~obj.hasPsych_('the staircase plot'), return; end
+            if ~ismethod(obj.Psych, 'Plot')
+                vprintf(2, '%s: staircase plot skipped; %s cannot plot itself', ...
+                    class(obj), class(obj.Psych))
+                return
+            end
+
+            ax = uiaxes(parent);
+            obj.Psych.Plot(ax);
+        end
+
+        function h = addSessionClock(obj, parent, options)
+            % h = addSessionClock(obj, parent, ...)
+            % Create a gui.SessionClock -- time since the last trial, since
+            % the first, session duration, wall clock -- wire it to this
+            % GUI's runtime, start it, and register it for teardown.
+            %
+            % The clock builds its own panel inside parent, so in a grid cell
+            % use the returned object's PanelH to place it:
+            %   c = obj.addSessionClock(g);
+            %   c.PanelH.Layout.Row = 1; c.PanelH.Layout.Column = 2;
+            % See gui.SessionClock for options.
+            arguments
+                obj
+                parent (1,1)
+                options.PreferenceTag (1,:) char = ''
+                options.UpdatePeriod (1,1) double {mustBePositive, mustBeFinite} = 1
+                options.FontSize (1,1) double {mustBePositive, mustBeFinite} = 12
+                options.FontColor (1,3) double {mustBeNonnegative} = [0 0 0]
+                options.ShowTimeSinceLastTrial (1,1) logical = true
+                options.ShowTimeSinceFirstTrial (1,1) logical = true
+                options.ShowSessionDuration (1,1) logical = true
+                options.ShowClockTime (1,1) logical = true
+            end
+
+            args = namedargs2cell(options);
+            h = gui.SessionClock(parent, args{:});
+            h.attachRuntime(obj.RUNTIME);
+            h.start();
+            obj.register(h);
+        end
+
+        function h = addTrialTimer(obj, parent, options)
+            % h = addTrialTimer(obj, parent, ...)
+            % Create a gui.ElapsedTrialTimer -- time since the last completed
+            % trial -- wire it to this GUI's runtime and register it for
+            % teardown. See gui.ElapsedTrialTimer for options.
+            arguments
+                obj
+                parent (1,1)
+                options.UpdatePeriod (1,1) double {mustBePositive, mustBeFinite} = 0.5
+                options.Format (1,:) char = 'hms'
+                options.FontSize (1,1) double {mustBePositive, mustBeFinite} = 12
+                options.FontColor (1,3) double {mustBeNonnegative} = [0 0 0]
+                options.FontWeight (1,:) char = 'normal'
+                options.Prefix (1,:) char = 'Last trial: '
+            end
+
+            args = namedargs2cell(options);
+            h = gui.ElapsedTrialTimer(parent, args{:});
+            h.attachRuntime(obj.RUNTIME);
+            obj.register(h);
+        end
+
+        function h = addModeIndicator(obj, parent, options)
+            % h = addModeIndicator(obj, parent, FontSize=...)
+            % Create a gui.ModeIndicator lamp showing the session's run mode,
+            % wire it to this GUI's runtime and register it for teardown.
+            arguments
+                obj
+                parent (1,1)
+                options.FontSize (1,1) double = 11
+            end
+
+            args = namedargs2cell(options);
+            h = gui.ModeIndicator(parent, args{:});
+            h.attachRuntime(obj.RUNTIME);
+            obj.register(h);
+        end
+
+        function h = addSessionGate(obj, parent, options)
+            % h = addSessionGate(obj, parent, ...)
+            % Create a gui.SessionGate "Begin Experiment" button and register
+            % it for teardown. Nothing runs until it is pressed -- but only
+            % because something WAITS on it, which is the other half:
+            %
+            %   function obj = MyGUI(RUNTIME)
+            %       obj@gui.BehaviorGUI(RUNTIME, Name='My Task');
+            %       obj.waitForSessionGate();   % after the window exists
+            %   end
+            %
+            % The wait cannot happen here: build runs from inside the base
+            % constructor, before the figure is shown, so blocking in it
+            % would hold the session at a window nobody can click.
+            %
+            % See gui.SessionGate for options.
+            arguments
+                obj
+                parent (1,1)
+                options.Text (1,:) char = 'Begin Experiment'
+                options.RunningText (1,:) char = 'Experiment Running'
+                options.PreviewText (1,:) char = 'Preview Running'
+                options.CompleteText (1,:) char = 'Session Complete'
+                options.Tooltip (1,:) char = 'Start the session; no trial runs until this is pressed'
+                options.FontSize (1,1) double {mustBePositive, mustBeFinite} = 14
+                options.FontWeight (1,:) char {mustBeMember(options.FontWeight,{'normal','bold'})} = 'bold'
+                options.BackgroundColor (1,3) double {mustBeNonnegative} = [0.45 0.75 0.45]
+            end
+
+            args = namedargs2cell(options);
+            h = gui.SessionGate(parent, args{:});
+            h.attachRuntime(obj.RUNTIME);
+            obj.register(h);
+        end
+
+        function tf = waitForSessionGate(obj, timeout)
+            % tf = waitForSessionGate(obj, timeout)
+            % Hold the session until the operator presses the gate added by
+            % addSessionGate, returning whether it opened. Call it from the
+            % subclass constructor, after the base constructor has returned.
+            %  timeout - seconds to wait. Default Inf.
+            %
+            % Returns true immediately with no gate in the GUI, so a
+            % paradigm can drop the button without touching its constructor.
+            %
+            % Returns true immediately in ReviewMode as well: the wait exists
+            % to hold a STARTING session until the operator is at the box,
+            % and a review has no session to hold. Blocking there would hang
+            % epsych.ReviewSession inside feval, with a half-built window and
+            % no way to reach the button.
+            arguments
+                obj
+                timeout (1,1) double {mustBePositive} = Inf
+            end
+
+            tf = true;
+            if obj.ReviewMode, return; end
+
+            gates = obj.componentsOfClass_('gui.SessionGate');
+            if isempty(gates), return; end
+            tf = gates{1}.wait(timeout);
+        end
+
         function h = addPopOutButton(obj, parent, component, options)
             % h = addPopOutButton(obj, parent, component, Text=..., Tooltip=...)
             % Create a button that opens a display in a window of its own,
@@ -917,6 +1160,26 @@ classdef (Abstract) BehaviorGUI < handle
     end
 
     methods (Access = private)
+
+        function tf = hasPsych_(obj, what)
+            % Is there a usable analysis object for a display that needs one?
+            % Says so at debug level rather than throwing, because a GUI must
+            % still open against a runtime whose parameters never resolved
+            % and so produced no psych object (epsych.SelfTest check I6).
+            tf = ~isempty(obj.Psych) && isvalid(obj.Psych);
+            if ~tf
+                vprintf(2, '%s: %s skipped; this GUI has no psychophysics object', ...
+                    class(obj), what)
+            end
+        end
+
+        function c = componentsOfClass_(obj, cls)
+            % Registered components of a class, in registration order, as a
+            % cell array. The registry holds graphics handles as well as
+            % component objects, so the class test has to tolerate both.
+            match = cellfun(@(h) isa(h, cls) && isvalid(h), obj.Components_);
+            c = obj.Components_(match);
+        end
 
         function closeExistingInstance_(obj)
             % Only one instance per PreferenceTag: replace an existing

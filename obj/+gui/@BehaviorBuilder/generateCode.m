@@ -230,6 +230,20 @@ switch r.Type
             out('end');
         end
 
+    case 'SlidingWindow'
+        host = emitHost(r, i); % never poppable, so there is no pop-out parent
+        out('if ~isempty(obj.Psych) && isvalid(obj.Psych)');
+        out('    ax%d = axes(%s); %% classic axes: the plot requires one', i, host);
+        out('    h%d = gui.SlidingWindowPerformancePlot(obj.Psych, ax%d);', i, i);
+        out('    obj.register(h%d);', i);
+        out('end');
+
+    case 'OnlinePlot'
+        host = emitHost(r, i); % never poppable, so there is no pop-out parent
+        out('ax%d = axes(%s); %% classic axes: gui.OnlinePlot requires one', i, host);
+        out('h%d = gui.OnlinePlot(obj.RUNTIME, %s, ax%d);', i, fmtCellstr(o.Source), i);
+        out('obj.register(h%d);', i);
+
     case 'SessionClock'
         out('h%d = gui.SessionClock(g%s);', i, tagArg(tag));
         out('h%d.PanelH.Layout.Row = %s; h%d.PanelH.Layout.Column = %s;', ...
@@ -294,6 +308,38 @@ switch r.Type
         out('sc%d.Layout.Row = %s; sc%d.Layout.Column = %s;', ...
             i, fmtSpan(r.Row), i, fmtSpan(r.Col));
         out('obj.addScreenCapture(sc%d);', i);
+
+    case 'SessionGate'
+        % The button is only half of it: waitForSessionGate in the
+        % constructor is what actually holds the session, and the generated
+        % class does not write a constructor. The comment is the handoff.
+        out('sg%d = uigridlayout(g, [1 1]);', i);
+        out('sg%d.Layout.Row = %s; sg%d.Layout.Column = %s;', ...
+            i, fmtSpan(r.Row), i, fmtSpan(r.Col));
+        out('%% Add "obj.waitForSessionGate();" to a constructor of your own');
+        out('%% to make the session hold here until this button is pressed.');
+        out('obj.addSessionGate(sg%d, Text=%s);', i, q(o.Text));
+
+    case 'PhaseSelector'
+        emitPanel(r, i);
+        if isempty(o.PhasePath)
+            out('ps%d = gui.PhaseSelector(obj.RUNTIME);', i);
+        else
+            out('ps%d = gui.PhaseSelector(obj.RUNTIME, %s);', i, q(o.PhasePath));
+        end
+        out('ps%d.createGUI(pnl%d);', i, i);
+        out('obj.register(ps%d);', i);
+
+    case 'StatusBar'
+        emitPanel(r, i);
+        out('h%d = gui.StatusBar(pnl%d, InitialText=%s);', i, i, q(o.InitialText));
+        out('obj.register(h%d);', i);
+
+    case 'FilenameField'
+        emitPanel(r, i);
+        out('h%d = gui.FilenameValidator(obj.RUNTIME, pnl%d, %s);', ...
+            i, i, q(o.DefaultFilename));
+        out('obj.register(h%d);', i);
 
     otherwise
         error('epsych:BehaviorBuilder:BadRegion', ...

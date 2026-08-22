@@ -37,6 +37,16 @@ switch r.Type
         [o, ok] = notesDialog(obj, r);
     case 'SyringePump'
         [o, ok] = pumpDialog(obj, r);
+    case 'OnlinePlot'
+        [o, ok] = onlinePlotDialog(obj, r, snap);
+    case 'SessionGate'
+        [o, ok] = oneFieldDialog(obj, r, 'Text', 'Button label');
+    case 'PhaseSelector'
+        [o, ok] = oneFieldDialog(obj, r, 'PhasePath', 'Phase folder (blank = ask on first use)');
+    case 'StatusBar'
+        [o, ok] = oneFieldDialog(obj, r, 'InitialText', 'Initial text');
+    case 'FilenameField'
+        [o, ok] = oneFieldDialog(obj, r, 'DefaultFilename', 'Default filename (.mat)');
     otherwise
         ok = true;
         return
@@ -341,6 +351,60 @@ end
 
 % =========================================================================
 % Shared scaffolding + converters
+function [o, ok] = oneFieldDialog(obj, r, field, label)
+% One text option, through the shared promptFields form. Cancel leaves the
+% region's options untouched, which is what makes the caller's isNew removal
+% the only thing that undoes a placement.
+o = r.Options;
+f = struct('Name',field, 'Label',label, 'Kind','text', 'Items',{{}}, ...
+    'Value',o.(field));
+out = gui.BehaviorBuilder.promptFields(obj.Fig, ...
+    sprintf('%s - %s', gui.BehaviorBuilder.catalogEntry(r.Type).Display, orLabel(r)), f);
+ok = ~isempty(out);
+if ok, o.(field) = char(string(out.(field))); end
+end
+
+
+function [o, ok] = onlinePlotDialog(obj, r, snap)
+% Read parameters from the snapshot, plus a free-text line for anything the
+% snapshot cannot show. Bitmask BANKS are the reason that line exists: their
+% '~BMid-<bank>' parameters are invisible, so they never reach a snapshot,
+% and a bank name is exactly what gui.OnlinePlot most usefully plots.
+o = r.Options;
+readable = {};
+if ~isempty(snap)
+    isRead = strcmp({snap.Access}, 'Read');
+    readable = {snap(isRead & ~snapTriggerStyle(snap)).Name};
+end
+
+[dlg, g] = modalShell(obj, sprintf('Online Plot - %s', orLabel(r)), 460, 420, [4 1]);
+g.RowHeight = {34, '1x', 34, 22};
+
+lbl = uilabel(g, 'Text','Read parameters to trace:', 'WordWrap','on');
+lbl.Layout.Row = 1;
+lb = uilistbox(g, 'Items',readable, 'Multiselect','on');
+lb.Layout.Row = 2;
+if isempty(readable), lb.Enable = 'off'; end
+lb.Value = intersect(o.Source, readable);
+
+ef = uieditfield(g, 'Value', strjoin(setdiff(o.Source, readable), ', '));
+ef.Layout.Row = 3;
+ef.Placeholder = 'Bitmask bank names, comma separated';
+note = uilabel(g, 'Text','A bank plots one trace per named bit.', ...
+    'FontAngle','italic', 'FontSize',11);
+note.Layout.Row = 4;
+
+ok = runModal(dlg);
+if ok
+    picked = lb.Value;
+    if ischar(picked), picked = {picked}; end
+    typed = strtrim(strsplit(ef.Value, ','));
+    typed = typed(~cellfun(@isempty, typed));
+    o.Source = reshape(unique([cellstr(picked), typed], 'stable'), 1, []);
+end
+end
+
+
 % =========================================================================
 function [dlg, g] = modalShell(obj, title, W, H, dims)
 % Modal dialog centered over the builder with an OK/Cancel row appended

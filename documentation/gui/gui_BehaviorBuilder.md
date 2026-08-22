@@ -58,11 +58,23 @@ Reference Documentation opens this file, for a rig with no network.
 | Category | Components |
 |---|---|
 | Controls | Control Column (parameter controls in a titled `controlColumn`, Update button added automatically), Button Row (trigger/toggle buttons, optional Screen Capture) |
-| Displays | Parameter Monitor, Next Trial, Session Performance, Parameter Scatter, Trial History*, Psych Plot*, Staircase Plot*, Session Clock, Trial Timer, Mode Indicator |
-| Add-ons | Session Notes (stamp format, starting Editable state, and whether the region is the whole pad or just a button opening it), Syringe Pump (only `Sections` is configurable — everything else follows the rig's saved pump preferences), Screen Capture |
+| Displays | Parameter Monitor, Next Trial, Session Performance, Parameter Scatter, Trial History*, Psych Plot*, Staircase Plot*, Sliding Window*, Online Plot (names the parameters or bitmask bank to trace), Session Clock, Trial Timer, Mode Indicator |
+| Add-ons | Session Notes (stamp format, starting Editable state, and whether the region is the whole pad or just a button opening it), Syringe Pump (only `Sections` is configurable — everything else follows the rig's saved pump preferences), Screen Capture, Session Gate (button label), Phase Selector (phase folder), Status Bar (initial text), Filename Field (default `.mat` name) |
 
 \* requires a psych analysis. Pop-out buttons can be added to any
 `gui.PopOut` adopter via the inspector checkbox.
+
+**Session Gate** places only the button. The hold itself is
+`obj.waitForSessionGate()` in a constructor, which the builder does not
+generate — the emitted code carries a comment saying so. See
+[gui_SessionGate.md](gui_SessionGate.md).
+
+**Online Plot** must name at least one source: left empty, `gui.OnlinePlot`
+opens a `listdlg` at construction, which a generated `build` must never do.
+Validation refuses a sourceless region rather than generating one. The
+dialog lists the protocol's Read parameters and takes bitmask **bank** names
+as free text, because a bank's `~BMid-*` parameters are invisible and so
+never reach the layout spec's parameter snapshot.
 
 Session Notes in its **Button only** form is its own pop-out opener, so
 validation clears the region's pop-out flag rather than generating a second

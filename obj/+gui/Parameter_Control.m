@@ -30,6 +30,20 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     %       gui.Parameter_Control(layout, p, Type='range', autoCommit=true, ...
     %           Text='Stimulus Delay (ms):');
     %
+    %   One control can grey another out, for a setting that only means
+    %   something while a governing switch is on:
+    %
+    %       hCatch = gui.Parameter_Control(layout, pCatchEnabled, Type='checkbox');
+    %       gui.Parameter_Control(layout, pCatchRate, EnabledBy=hCatch);
+    %
+    %   EnabledBy greys the new control while the governor reads false,
+    %   DisabledBy while it reads true, and either is re-applied on every
+    %   change to the governor -- from the operator or from the parameter, so
+    %   a phase load moves the greying with it. The dependent is greyed
+    %   rather than hidden, so the configuration that resumes when the
+    %   governor flips back stays readable. setEnabled does the same thing by
+    %   hand, and addDependent wires a governor after the fact.
+    %
     %   Custom validation can be attached through EvaluatorFcn. The callback
     %   is invoked as:
     %       [VALUE,SUCCESS] = EvaluatorFcn(OBJ, EVENT, PARAMETER, EXTRAARGS...)
@@ -108,6 +122,18 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         hl_bounds
         hl_color
         committing_ (1,1) logical = false % true while an autoCommit write-back is in flight; suppresses the re-entrant PostUpdateFcn from value_change_external
+
+        % Enable is decided by TWO independent things and the widget shows
+        % their AND: the interface mode (a control is dead while the hardware
+        % is idle) and the dependency gate set by a governing control. Kept
+        % apart because either can change while the other holds -- a gated
+        % control must not come back to life when the rig starts, and
+        % ungating one must not enable it over an idle interface.
+        Gate_ (1,1) logical = true
+        ModeEnabled_ (1,1) logical = true
+
+        % Controls whose enable this one governs; see addDependent.
+        Dependents_ (1,:) struct = struct('Control',{},'Invert',{})
     end
 
 
@@ -124,6 +150,15 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 options.autoCommit (1,1) logical = false
                 options.Text (1,:) char = Parameter.Name
                 options.Runtime = [] % epsych.Runtime; see the Runtime property
+                % Governing control whose value greys this one out. Both take
+                % a gui.Parameter_Control -- normally a checkbox or toggle
+                % built earlier in the same build method:
+                %   hCatch = obj.addControl(col,'CatchTrialsEnabled');
+                %   obj.addControl(col,'CatchRate', EnabledBy=hCatch);
+                % EnabledBy greys this control while the governor is false,
+                % DisabledBy while it is true. See addDependent.
+                options.EnabledBy = []
+                options.DisabledBy = []
             end
             obj.parent = parent;
             obj.Runtime = options.Runtime;
@@ -167,6 +202,17 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             p = properties(obj);
             p = p(startsWith(p,'color'));
             obj.hl_color = listener(obj,p,'PostSet',@obj.update_color);
+
+            % Last, so the widgets exist to be greyed: registering with the
+            % governor also applies its CURRENT value, which is what makes a
+            % control that starts out gated open greyed rather than waiting
+            % for the operator to touch the governing checkbox once.
+            if ~isempty(options.EnabledBy)
+                options.EnabledBy.addDependent(obj,'enable');
+            end
+            if ~isempty(options.DisabledBy)
+                options.DisabledBy.addDependent(obj,'disable');
+            end
         end
 
         function delete(obj)
@@ -436,9 +482,59 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % user-driven path (value_changed) and the external-change path
             % (value_change_external) so dependent controls stay in sync no
             % matter what triggered the value change.
+            %
+            % Dependents are refreshed FIRST and separately from the
+            % PostUpdateFcn: a paradigm's callback is a single slot that the
+            % GUI may already be using for something else, so gating must not
+            % be built on top of it.
+            obj.refreshDependents_();
             if isa(obj.PostUpdateFcn,'function_handle')
                 obj.PostUpdateFcn(obj,event,obj.Parameter,obj.PostUpdateFcnArgs{:});
             end
+        end
+
+        function setEnabled(obj, tf)
+            % setEnabled(obj, tf)
+            % Grey this control out, or bring it back. Covers every widget it
+            % owns and its label -- a 'range' control has two entry fields,
+            % and a greyed field beside a black label reads as an oversight.
+            %
+            % This is the DEPENDENCY gate only. The interface mode gates the
+            % same widgets independently, so a control ungated here still
+            % stays dead while the hardware is idle.
+            arguments
+                obj
+                tf (1,1) logical
+            end
+            obj.Gate_ = tf;
+            obj.applyEnable_();
+        end
+
+        function addDependent(obj, ctrl, mode)
+            % addDependent(obj, ctrl, mode)
+            % Make another control's enable follow this one's value, and
+            % apply it now.
+            %  ctrl - gui.Parameter_Control to govern. [] is ignored, so a
+            %         list of controls built from a protocol that does not
+            %         define every parameter can be passed straight in.
+            %  mode - 'enable'  (default) ctrl is live while this is true
+            %         'disable'           ctrl is greyed while this is true
+            %
+            % Gating is one-directional and re-applied on every value change,
+            % from the operator or from the parameter, so a phase load moves
+            % the greying with it. What the dependent shows is never touched:
+            % greyed rather than hidden or blanked, so the configuration that
+            % resumes when the governor flips back is still readable.
+            arguments
+                obj
+                ctrl
+                mode (1,:) char {mustBeMember(mode,{'enable','disable'})} = 'enable'
+            end
+            if isempty(ctrl) || ~isa(ctrl,'gui.Parameter_Control') || ~isvalid(ctrl)
+                return
+            end
+            obj.Dependents_(end+1) = struct('Control',ctrl,'Invert',strcmp(mode,'disable'));
+            obj.refreshDependents_();
         end
     end
 
@@ -610,15 +706,43 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
         function mode_change(obj,src,event)
             try
-                s = 'off';
-                if event.AffectedObject.mode > 1
-                    s = 'on';
-                end
+                obj.ModeEnabled_ = event.AffectedObject.mode > 1;
+                obj.applyEnable_();
+            end
+        end
 
-                set(obj.widgets(),'Enable',s);
-                if ishandle(obj.h_label)
-                    obj.h_label.Enable = s;
-                end
+        function applyEnable_(obj)
+            % The widget shows the AND of the two gates; see Gate_.
+            s = 'off';
+            if obj.Gate_ && obj.ModeEnabled_
+                s = 'on';
+            end
+            set(obj.widgets(),'Enable',s);
+            if ishandle(obj.h_label)
+                obj.h_label.Enable = s;
+            end
+        end
+
+        function refreshDependents_(obj)
+            % Push this control's value onto everything it governs. Deleted
+            % dependents are dropped rather than skipped: a governing control
+            % outlives the panel a dependent was torn down with, and the list
+            % would otherwise grow stale entries for the whole session.
+            if isempty(obj.Dependents_), return; end
+
+            alive = arrayfun(@(d) isvalid(d.Control), obj.Dependents_);
+            obj.Dependents_ = obj.Dependents_(alive);
+
+            % A governor is a checkbox or toggle in practice, but nothing
+            % stops one being pointed at a text parameter, where "true" has
+            % no meaning: leave the dependents alone rather than guess.
+            v = obj.getBoundValue();
+            if isempty(v) || ~(isnumeric(v) || islogical(v)), return; end
+            state = logical(v(1));
+
+            for i = 1:numel(obj.Dependents_)
+                d = obj.Dependents_(i);
+                d.Control.setEnabled(xor(state, d.Invert));
             end
         end
 

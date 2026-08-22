@@ -780,6 +780,18 @@ classdef BehaviorBuilder < handle
                         'ButtonOnly',false, 'Text','Notes');
                 case 'SyringePump'
                     o = struct('Sections', {{}});
+                case 'OnlinePlot'
+                    % Empty would send gui.OnlinePlot to a listdlg at
+                    % construction, which a generated build must never do.
+                    o = struct('Source', {{}});
+                case 'SessionGate'
+                    o = struct('Text','Begin Experiment');
+                case 'PhaseSelector'
+                    o = struct('PhasePath','');
+                case 'StatusBar'
+                    o = struct('InitialText','Ready');
+                case 'FilenameField'
+                    o = struct('DefaultFilename','data.mat');
                 otherwise
                     o = struct;
             end
@@ -920,6 +932,21 @@ classdef BehaviorBuilder < handle
                     end
                 case 'SyringePump'
                     o.Sections = gui.BehaviorBuilder.asRowCellstr_(o.Sections);
+                case 'OnlinePlot'
+                    o.Source = gui.BehaviorBuilder.asRowCellstr_(o.Source);
+                    assert(~isempty(o.Source), 'epsych:BehaviorBuilder:BadRegion', ...
+                        'Online Plot needs at least one parameter or bitmask bank name')
+                case 'SessionGate'
+                    o.Text = char(string(o.Text));
+                case 'PhaseSelector'
+                    o.PhasePath = char(string(o.PhasePath));
+                case 'StatusBar'
+                    o.InitialText = char(string(o.InitialText));
+                case 'FilenameField'
+                    o.DefaultFilename = char(string(o.DefaultFilename));
+                    assert(endsWith(o.DefaultFilename, '.mat', 'IgnoreCase', true), ...
+                        'epsych:BehaviorBuilder:BadRegion', ...
+                        'Filename Field default must end in .mat, which is what the field enforces')
             end
             r.Options = o;
         end

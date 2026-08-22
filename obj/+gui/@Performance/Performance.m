@@ -9,6 +9,13 @@ classdef Performance < handle
         psychObj                  % Reference to main psychophysics object providing data
         ParametersOfInterest (:,1) cell   % Fields to display as key independent variables
         SortDirection (1,1) string {mustBeMember(SortDirection,["descend","ascend"])} = "descend"
+
+        % Trial type the table counts and scores. Every row is computed over
+        % the trials carrying this bit, so a paradigm whose stimulus trials
+        % are not TrialType_0 -- anything with more than one target
+        % category, or a protocol that numbers them differently -- sets it
+        % here rather than reading someone else's trials.
+        TargetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
     end
 
     properties (SetAccess = private)
@@ -56,11 +63,16 @@ classdef Performance < handle
             
             P = obj.psychObj;
 
-            P.targetTrialType = epsych.BitMask.TrialType_0; % THIS SHOULD BE SETTABLE BY CALLER
+            P.targetTrialType = obj.TargetTrialType;
 
+            % Count field names are the decoded bitmask flag names, so the
+            % column follows whatever trial type this table was pointed at.
+            % string() on the enum yields the MEMBER NAME; char() would
+            % convert the uint32 it derives from instead.
+            countField = string(obj.TargetTrialType);
 
             D(:,1) = P.uniqueValues;
-            D(:,2) = [P.Count.TrialType_0];
+            D(:,2) = [P.Count.(countField)];
             D(:,3) = P.DPrime;
             D(:,4) = [P.Rate.Hit]*100;
             D(any(isnan(D),2),:) = [];

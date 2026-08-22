@@ -452,7 +452,19 @@ class must be **concrete with a safe default**, or the `stimbridge` subclass bec
 unconstructable. `epsych.SelfTest` check A3 is the tripwire.
 
 #### obj/+gui/ – Reusable GUI Components
-- **gui.BehaviorGUI** (abstract): base class for a paradigm's own experiment GUI, launched once per session as `feval(FUNCS.BehaviorGUI, RUNTIME)` — owns lifecycle, event listeners, position prefs, component-registry teardown, and Parameter_Update wiring; subclasses implement build(fig) (see documentation/gui/gui_BehaviorGUI.md, template in examples/customgui/)
+- **gui.BehaviorGUI** (abstract): base class for a paradigm's own experiment GUI, launched once per session as `feval(FUNCS.BehaviorGUI, RUNTIME)` — owns lifecycle, event listeners, position prefs, component-registry teardown, and Parameter_Update wiring; subclasses implement build(fig) (see documentation/gui/gui_BehaviorGUI.md, template in examples/customgui/).
+  The `add*` helpers are the documented way to reach every reusable
+  component, and each registers what it builds for teardown. A helper whose
+  component needs something the session does not have returns `[]` and logs
+  at debug level rather than throwing — the same tolerance `addControl` has
+  for an unresolved parameter name, and what keeps `epsych.SelfTest` check
+  I6 (open against a runtime with no interfaces) passing. `addHistory`,
+  `addScatter`, `addPsychPlot`, `addStaircasePlot`, `addSessionClock`,
+  `addTrialTimer`, `addModeIndicator` and `addSessionGate` were added
+  2026-08-22 for components that already existed but had no entry point;
+  before that a paradigm constructed them by hand and remembered to
+  `register` and `attachRuntime` itself, which the BehaviorBuilder's
+  emitters had to open-code
 - **gui.BehaviorBuilder**: design-time builder that generates BehaviorGUI subclasses
   for naive users — load a protocol, pick components from a palette, drag snap-to-grid
   regions on an `images.roi.Rectangle` canvas, and export. The design round-trips
@@ -524,6 +536,30 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   `gui.toolbarIcon("camera")`, since `uibutton`'s `Icon` accepts only four
   built-in names — the confirmation flash after a copy is the one place those
   are used (documentation/gui/gui_ScreenCapture.md)
+- **gui.SessionGate**: the "Begin Experiment" button for a rig that must not
+  start dispatching the moment the session does — the syringe line purged,
+  the animal placed. It comes in TWO HALVES in two places, which is the
+  thing to know: `gui.BehaviorGUI.addSessionGate` puts the button in
+  `build`, and `waitForSessionGate` in the SUBCLASS CONSTRUCTOR is what
+  actually holds the session; the wait cannot live in `build`, which runs
+  from inside the base constructor before the window is shown. Blocking
+  works at all because `RunExpt` builds the behavior GUI from the
+  PsychTimer's `StartFcn` and a timer will not fire its `TimerFcn` during
+  another of its own callbacks, so the trial loop is held without the
+  runtime knowing a gate exists. It `pause`s rather than spins, since
+  priming the line through `gui.SyringePump`'s manual controls is most of
+  what the operator does during the hold. Pressing it RETIRES the button
+  into a status line (`Experiment Running`/`Preview Running`/`Session
+  Complete`) rather than removing it, which would reflow the layout, or
+  merely greying it, which could not tell a preview from a record — and
+  Preview is tested alongside Record everywhere because it is a distinct
+  `hw.DeviceState` and is not `isIdle`. `attachRuntime` catches up when a
+  run starts without a press, so a script never leaves an armed button in
+  front of a running loop; an idle mode arriving BEFORE anything ran leaves
+  it armed, since that is a session waiting rather than one that finished.
+  Never in a review — blocking would hang `epsych.ReviewSession` inside
+  `feval`. Extracted from `examples/syringepump/PumpBehaviorGUI`, which now
+  uses it (documentation/gui/gui_SessionGate.md)
 - **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, SyringePump, PsychPlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button, `gui.ComponentToolbar` puts them all on one toolbar. A second item, **Keep Window on Top**, pins the window (`WindowStyle='alwaysontop'`) so a display stays readable while the operator works in another application, and is remembered with the window position. It appears only in a window holding ONE component — a pop-out, or one `ComponentToolbar` opened for a lazy entry, marked as such by `gui.PopOut.markStandaloneWindow` before the component is built — never on the embedded copy, whose window belongs to the behavior GUI and everything else on it. A `PopOutStateChanged` event says when a window opened or closed — NOT when one is merely raised, and not during the host's own destruction, which is what keeps closing a GUI from reading as the operator closing its windows — and is what `gui.BehaviorGUI`'s `RestorePopOuts` listens to: with it on, the GUI remembers WHICH displays were open (`OpenPopOuts` under its own `PreferenceTag`, rewritten at each change rather than at teardown, so a killed MATLAB still remembers) and reopens them at construction. It records only the list; how each window looks — position, font, columns, pinned — was already the component's own pop-out preference key, which is why "restore the configuration" needed no new persistence. Two decisions: an identity is the component-toolbar label (register name, else the class name spaced out, uniquified by registration order), so `register(comp, name)` is what pins it when a GUI holds two of a class; and an entry this GUI cannot resolve is skipped but KEPT in the list — a protocol showing fewer displays than another must not erase the fuller layout (documentation/gui/gui_PopOut.md)
 - **gui.ComponentToolbar**: the optional icon toolbar a behavior GUI adds with
   `addComponentToolbar` — one tool per display, opening it in a window of its
@@ -619,7 +655,19 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   after the value was set all produce one (`cl_AppetitiveDetection`'s `StimDelay`
   ships `Value = 0` with `Min = 400`). `uieditfield` rejects it outright, and one
   such parameter used to abort the whole `build`, taking every control after it.
-  Only the WIDGET is clamped; the parameter is left alone
+  Only the WIDGET is clamped; the parameter is left alone.
+  Enable is the AND of TWO INDEPENDENT GATES kept in separate fields: the
+  interface `mode` (dead while the hardware is idle) and a dependency gate
+  set by `EnabledBy=`/`DisabledBy=` (a governing checkbox), or by hand with
+  `setEnabled`. They must stay apart, or ungating a control would light it up
+  over an idle rig and starting the rig would light up a gated one. Gating
+  covers `widgets()` AND `h_label` (a `range` owns two entry fields, and a
+  greyed field beside a black label reads as an oversight) and re-applies
+  from `runPostUpdateFcn` — which is shared by the operator and external-write
+  paths, so a phase load moves the greying with it — rather than from
+  `PostUpdateFcn`, a single slot a paradigm may already be using.
+  `cl_AppetitiveDetection_BehaviorGUI` predates this and still greys three
+  control groups by hand
 - Utilities: ElapsedTrialTimer
 
 #### obj/+teensy/ – Teensy Trial Programs

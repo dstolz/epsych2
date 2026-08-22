@@ -88,6 +88,11 @@ obj = gui.Parameter_Control(parent, parameter, autoCommit=true, Runtime=RUNTIME)
   - Wire it for **settings** controls (staircase step sizes, p(Catch), stimulus delay). Leave it empty for session-control toggles (Deliver Trials, Reminder, Shape): those rely on the trial-table re-assert to self-clear.
   - Bound-property edits (`Min`, `Max`, `isRandom`, ...) never touch the trial table; they are host-side parameter state.
   - `gui.BehaviorGUI.addControl` passes its runtime automatically; `addButton` deliberately does not.
+- `EnabledBy` / `DisabledBy` (`gui.Parameter_Control`, optional)
+  - Make this control's enable follow a **governing** control's value — normally a checkbox or toggle built earlier in the same `build`.
+  - `EnabledBy` greys this control while the governor reads false; `DisabledBy` greys it while the governor reads true.
+  - Both are applied at construction, so a control that starts out gated opens greyed rather than waiting for the operator to touch the governor once.
+  - `[]` is ignored, so a list of controls built from a protocol that does not define every parameter can be passed straight in.
 
 ## UI types
 
@@ -197,9 +202,26 @@ Signature:
 - Return `success=false` to indicate invalid input; the control briefly flashes `colorOnError`.
 - The returned `value` is written back into the UI, and (if `autoCommit=true`) may be committed to the underlying parameter.
 
-## Enable/disable behavior (parameter parent “mode”)
+## Enable/disable behavior
 
-`Parameter_Control` listens to `parameter.Parent.mode` (PostSet). When `mode > 1`, the UI is enabled; otherwise the UI is disabled. This is used to lock out edits depending on system state.
+Enable is decided by **two independent gates**, and the widget shows their AND:
+
+1. **The interface mode.** `Parameter_Control` listens to `parameter.Parent.mode` (PostSet). When `mode > 1` the UI is enabled; otherwise it is disabled. This locks out edits depending on system state.
+2. **The dependency gate.** Set by `EnabledBy`/`DisabledBy`, or by hand with `setEnabled(tf)`.
+
+They are kept apart because either can change while the other holds: a gated control must not come back to life when the rig starts, and ungating one must not enable it over an idle interface.
+
+```matlab
+hCatch = obj.addControl(col, 'CatchTrialsEnabled', Type='checkbox', autoCommit=true);
+obj.addControl(col, 'CatchRate',  EnabledBy=hCatch);   % greyed while catch trials are off
+obj.addControl(col, 'BlockSize', DisabledBy=hCatch);   % greyed while they are on
+```
+
+`addDependent(ctrl, 'enable'|'disable')` wires a governor after the fact — useful when the dependent has to be built first.
+
+Gating covers every widget the control owns **and its label**: a `range` control has two entry fields, and a greyed field beside a black label reads as an oversight. The dependent is greyed rather than hidden or blanked, so the configuration that resumes when the governor flips back stays readable.
+
+Re-application happens on every change to the governor, from the operator **or from the parameter**, so a phase load moves the greying with it. A dependent deleted before its governor is dropped from the list rather than thrown on.
 
 ## Integration with `gui.Parameter_Update`
 

@@ -27,12 +27,18 @@ rows = {
  'History'       'Trial History'       'Displays' 'Per-trial outcome table (requires a psych analysis)'                                      true  {}            true  false 'gui.History'
  'PsychPlot'     'Psych Plot'          'Displays' 'Psychometric plot (requires a psych analysis)'                                            true  {}            true  false ''
  'StaircasePlot' 'Staircase Plot'      'Displays' 'Staircase track with reversals (requires a Staircase analysis)'                           true  {'Staircase'} true  false ''
+ 'SlidingWindow' 'Sliding Window'      'Displays' 'Hit rate, FA rate and d'' over trials, cumulative or windowed (requires a psych analysis)'  true  {}            false false ''
+ 'OnlinePlot'    'Online Plot'         'Displays' 'Real-time traces of hardware activity for named parameters or a bitmask bank'             false {}            false true  ''
  'SessionClock'  'Session Clock'       'Displays' 'Clock, session duration, and time-since-trial readouts'                                   false {}            false false 'gui.SessionClock'
  'TrialTimer'    'Trial Timer'         'Displays' 'Elapsed time since the last completed trial'                                              false {}            false false ''
  'ModeIndicator' 'Mode Indicator'      'Displays' 'Lamp showing the current run mode'                                                        false {}            false false ''
  'Notes'         'Session Notes'       'Add-ons'  'Operator note pad: a typed line stamped with the trial, saved with the data'              false {}            true  true  'gui.Notes'
  'SyringePump'   'Syringe Pump'        'Add-ons'  'Operator panel for an NE-1000 reward pump (uses saved pump preferences)'                  false {}            true  true  'gui.SyringePump'
  'ScreenCapture' 'Screen Capture'      'Add-ons'  'Button that copies the whole window to the clipboard'                                     false {}            false false ''
+ 'SessionGate'   'Session Gate'        'Add-ons'  'Begin Experiment button; the session holds until the operator presses it'                 false {}            false true  ''
+ 'PhaseSelector' 'Phase Selector'      'Add-ons'  'Save and load named parameter phases from a folder'                                       false {}            false true  ''
+ 'StatusBar'     'Status Bar'          'Add-ons'  'Footer status line, green for messages and red for errors'                                false {}            false true  ''
+ 'FilenameField' 'Filename Field'      'Add-ons'  'Edit field that validates the session data filename'                                      false {}            false true  ''
  };
 
 n = size(rows,1);

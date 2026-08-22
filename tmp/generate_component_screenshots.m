@@ -28,6 +28,7 @@ here = fileparts(mfilename('fullpath'));
 repoRoot = fileparts(here);
 run(fullfile(repoRoot, 'epsych_startup.m'));
 addpath(fullfile(repoRoot, 'examples', 'detection_task'));
+addpath(here);   % BatchProbeInterface, the mock backend behind the OnlinePlot shot
 
 if isempty(options.OutputDir)
     options.OutputDir = fullfile(fileparts(repoRoot), 'epsych2.wiki', 'images', 'components');
@@ -57,6 +58,7 @@ shots = { ...
     'Performance',                  @shotPerformance; ...
     'SlidingWindowPerformancePlot', @shotSlidingWindow; ...
     'Staircase_Plot',               @shotStaircasePlot; ...
+    'OnlinePlot',                   @shotOnlinePlot; ...
     'SessionGate',                  @shotSessionGate; ...
     'PhaseSelector',                @shotPhaseSelector; ...
     'StaircaseTraining',            @shotStaircaseTraining; ...
@@ -323,6 +325,67 @@ ax = axes(uipanel(fig, 'Units', 'normalized', 'Position', [0 0 1 1]));
 W = gui.SlidingWindowPerformancePlot(S.Psych, ax);
 W.windowSize = 30;
 replayTrials(S);   % this one plots per-trial history, so it needs the trials one at a time
+end
+
+
+function fig = shotOnlinePlot(~)
+% The only shot that has to be driven in REAL TIME: gui.OnlinePlot stamps every
+% sample with its own tic, so a window's worth of traces takes a window's worth
+% of seconds to fill. The finished detection session is no use here — it holds
+% trial outcomes, not the sub-second digital activity this component shows — so
+% the box is mocked with BatchProbeInterface and animated.
+fig = shotFigure([680 380]);
+ax = axes(uipanel(fig, 'Units', 'normalized', 'Position', [0 0 1 1]));
+
+rt = epsych.Runtime;
+rt.isTest = true;
+rt.EVENTS = epsych.EventHub;
+iface = BatchProbeInterface();
+
+names = {'SpoutContact','LickDetect','StimOnset','RewardValve','TimeoutFlag','HouseLight'};
+P = hw.Parameter.empty(1,0);
+for i = 1:numel(names)
+    p = iface.add_parameter(names{i}, 0);
+    p.Value = 0;
+    iface.put(p, 0);
+    P(i) = p;
+end
+pTrig = iface.add_parameter('_TrigState~1', 0); iface.put(pTrig, 0);
+pNum  = iface.add_parameter('_TrialNum~1',  1); iface.put(pNum,  1);
+rt.Interfaces = iface;
+
+op = gui.OnlinePlot(rt, P, ax, 1, PreferenceTag='wikiShotOnlinePlot');
+fig.UserData = {op, iface};   % closeFigure deletes these, and the timer with them
+
+% Drive the samples by hand: stop the component's own timer, seat its clock the
+% way its StartFcn would, and step it so the loop controls the sample rate.
+stop(op.h_timer);
+if op.startTic_ == 0
+    op.h_timer.Timer.StartFcn(op.h_timer.Timer, []);
+end
+op.redrawPeriod = 0;
+
+span = abs(diff(seconds(op.timeWindow)));   % run the full width, or the axis opens half empty
+trial = 1;
+lastTrial = -inf;
+t0 = tic;
+while toc(t0) < span
+    ph = toc(t0);
+    for i = 1:numel(P)
+        on = mod(ph + i*0.37, 1.1 + 0.25*i) < (0.25 + 0.08*i);
+        iface.put(P(i), double(on));
+    end
+    if ph - lastTrial > 2.5
+        iface.put(pTrig, 1);
+        trial = trial + 1;
+        iface.put(pNum, trial);
+        lastTrial = ph;
+    else
+        iface.put(pTrig, 0);
+    end
+    op.update();
+    pause(op.periodNom);   % the ring is sized from the timer period; sampling faster fills only part of the window
+end
 end
 
 

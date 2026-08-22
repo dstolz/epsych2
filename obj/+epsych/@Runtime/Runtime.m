@@ -227,7 +227,7 @@ classdef Runtime < handle & dynamicprops
         function value = get.dfltDataPath(self), value = self.DefaultDataPath; end
         function set.dfltDataPath(self, value),  self.DefaultDataPath = value; end
 
-        filter_parameters(obj, propertyName, propertyValue, options, poptions) % Return hw.Parameter objects whose named property matches a target value.
+        P = filter_parameters(obj, propertyName, propertyValue, options, poptions) % Return hw.Parameter objects whose named property matches a target value.
         p = find_parameter(obj, name, options)              % Return hw.Parameter handles matching the given name(s), with optional pre-filtering.
         p = all_parameters(obj, options)                % Retrieve all parameters from all registered interfaces, with optional filtering.
         updateTrialsFromParameters(obj, Parameters)     % Sync writable TRIALS fields from current parameter values.

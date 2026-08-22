@@ -96,7 +96,19 @@ classdef OnlinePlot < handle
             obj.trialNumParam = obj.RUNTIME.find_parameter(sprintf('_TrialNum~%d',BoxID), ...
                 includeInvisible=true,silenceParameterNotFound=true);
 
-            obj.h_timer = gui.GenericTimer(obj.figH,sprintf('epsych_gui_OnlinePlot~%d',BoxID));
+            % gui.GenericTimer ADOPTS an existing timer of the same name, so
+            % a name fixed by BoxID alone makes two plots on one box share a
+            % timer -- and the first one torn down deletes it under the
+            % second, which then throws on its next property write. That was
+            % survivable while this was one window per box; it is not now the
+            % component can be embedded, and placed twice, from
+            % gui.BehaviorBuilder.
+            tname = sprintf('epsych_gui_OnlinePlot~%d',BoxID);
+            existing = timerfindall;
+            if ~isempty(existing)
+                tname = matlab.lang.makeUniqueStrings(tname, {existing.Name});
+            end
+            obj.h_timer = gui.GenericTimer(obj.figH,tname);
             obj.h_timer.Timer.StartFcn = @obj.setup_plot;
             obj.h_timer.Timer.TimerFcn = @obj.update;
             obj.h_timer.Timer.ErrorFcn = @obj.error;
@@ -107,7 +119,17 @@ classdef OnlinePlot < handle
                 obj.h_timer.Timer.Period = 0.05;
             end
             obj.h_timer.Timer.start;
-            obj.hl_mode = listener(RUNTIME.HW,'mode','PostSet',@obj.mode_change);
+
+            % RUNTIME.Interfaces, not the RUNTIME.HW this used to read: the
+            % property was renamed and nothing here followed, so constructing
+            % an OnlinePlot against a current runtime threw. One listener
+            % covers the whole array; with no interfaces at all (a GUI opened
+            % against an empty runtime, epsych.SelfTest check I6) there is
+            % nothing whose mode could change, and the plot still draws.
+            HW = RUNTIME.Interfaces;
+            if ~isempty(HW)
+                obj.hl_mode = listener(HW,'mode','PostSet',@obj.mode_change);
+            end
         end
 
         function delete(obj)

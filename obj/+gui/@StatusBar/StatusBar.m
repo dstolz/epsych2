@@ -56,11 +56,20 @@ classdef StatusBar < handle
         %   Position    - [x y w h] label position in pixels.
         %                 Defaults to spanning the bottom of the parent.
         %   InitialText - Text shown before the first setStatus call (default: 'Ready').
+            % Position is deliberately UNSIZED here. Declaring it (1,4) makes
+            % [] an invalid default, and MATLAB validates a default the
+            % moment it is used -- so the documented gui.StatusBar(parent)
+            % form threw instead of spanning the bottom of its parent, and
+            % every caller passed a Position it did not want. The size is
+            % checked below, where an empty can be told from a bad one.
             arguments
                 parent
-                options.Position    (1,4) double = []
+                options.Position    double = []
                 options.InitialText (1,:) char   = 'Ready'
             end
+            assert(isempty(options.Position) || numel(options.Position) == 4, ...
+                'gui:StatusBar:badPosition', ...
+                'Position must be [x y w h], or empty to span the parent.');
 
             fig = ancestor(parent, 'matlab.ui.Figure');
             if isempty(fig)

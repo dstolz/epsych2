@@ -72,12 +72,17 @@ S = psychophysics.Staircase(..., Name=Value)
   - Accepts `'Up'` or `'Down'`.
   - Default: `'Down'`
   - Controls how step-direction signs are normalized before reversal detection.
-- `ThresholdFromLastNReversals`
-  - Number of most recent reversals used to compute `Results.Threshold` and `Results.ThresholdStd`.
-  - Default: `12`
-- `ThresholdFormula`
-  - Accepts `'Mean'` or `'GeometricMean'`.
-  - Default: `'Mean'`
+> **`ThresholdFromLastNReversals` and `ThresholdFormula` are not accepted here.**
+> They are settable properties rather than constructor name-value options — they
+> are absent from the constructor's `arguments` block, so passing either one
+> errors. Set them after construction and call `refresh_history()`:
+>
+> ```matlab
+> S = psychophysics.Staircase(RUNTIME, Parameter);
+> S.ThresholdFromLastNReversals = 8;
+> S.ThresholdFormula = 'GeometricMean';
+> S.refresh_history();
+> ```
 - `ConvertToDecibels`
   - When `true`, stimulus values are converted with `20*log10(x)` and nonpositive values become `NaN`.
 - `Plot`
@@ -102,9 +107,11 @@ S = psychophysics.Staircase(..., Name=Value)
 - `CatchTrialType`
   - Auxiliary BitMask for workflows that separate catch trials.
 - `ThresholdFromLastNReversals`
-  - Window size used for threshold estimation.
+  - Number of most recent reversals used to compute `Results.Threshold` and `Results.ThresholdStd`.
+  - Default: `12`. Set after construction, then call `refresh_history()`.
 - `ThresholdFormula`
-  - Formula used to combine reversal values.
+  - Accepts `'Mean'` or `'GeometricMean'`; combines the reversal values.
+  - Default: `'Mean'`. Set after construction, then call `refresh_history()`.
 - `ConvertToDecibels`
   - Converts tracked values to decibels before analysis, referenced to full scale (100% depth): `dB = 20*log10(x/1)`.
   - Also toggled at runtime from the plot's right-click menu (**Y Axis in dB (re 100%)**), which recomputes the staircase and relabels the y axis.

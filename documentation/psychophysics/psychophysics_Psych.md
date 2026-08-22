@@ -149,7 +149,7 @@ The destructor removes any valid listener handles stored in `hl_NewData` so onli
 ### Dependent properties
 
 - `responseCodes`
-  - Reads `DATA.ResponseCode` when present and falls back to `DATA.RespCode`.
+  - Reads `DATA.RespCode` when present and falls back to `DATA.ResponseCode`. `RespCode` wins where a file carries both, which is the order every resolver in the package uses.
   - Returns a row vector of `uint32` values or an empty `uint32` array.
 - `trialCount`
   - Returns `numel(obj.DATA)`.
@@ -186,7 +186,7 @@ This matters because saved trial data may store fields as structs or objects tha
 
 ### `resolveDataFieldName_`
 
-Searches candidate field names and returns the first one present in `DATA`. The `responseCodes` property uses this to support both `ResponseCode` and `RespCode`.
+Searches candidate field names and returns the first one present in `DATA`. The `responseCodes` property uses this to support both `RespCode` and `ResponseCode`, in that order.
 
 ### `trialTypeValues_`
 
@@ -225,7 +225,7 @@ Converts the stored exclusion setting into a logical mask aligned to `trialCount
 
 This class assumes each trial entry in `DATA` is a struct with fields that may include:
 
-- `ResponseCode` or `RespCode`
+- `RespCode` or `ResponseCode` (`RespCode` is tried first)
 - `TrialType`
 - one or more parameter fields, often named from `Parameter.validName`
 

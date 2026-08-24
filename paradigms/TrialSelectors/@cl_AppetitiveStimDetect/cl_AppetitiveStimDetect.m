@@ -57,9 +57,11 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     % as before. See setupStimDelay_ and applyStimDelay_.
     %
     % Optional parameters:
-    %   StepDirectionOnHit, StepDirectionOnMiss - sign (-1 = Down, +1 = Up) of
-    %       the Depth step applied on a Hit/Miss. Default: -1 on Hit, +1 on
-    %       Miss. Omit to keep the default down-on-hit/up-on-miss behavior.
+    %   StepDirectionOnHit, StepDirectionOnMiss - NOT READ. stepSign_ resolves
+    %       them to -1/+1, but nothing in selectNext calls it: the staircase
+    %       adds Depth_StepOnHit/OnMiss directly, so the step carries its own
+    %       sign. Declaring either parameter has no effect; invert the
+    %       staircase by negating the step value instead.
     %   StimDelayList - Min and Max are the ends of the block-randomized delay
     %       list, as above. Absent means no block randomization.
     %   StimDelayStep - spacing between list values, in ms. Created by the

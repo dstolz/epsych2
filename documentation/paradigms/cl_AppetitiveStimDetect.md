@@ -69,11 +69,11 @@ The staircase cannot run away past a bound even so, because each step starts fro
 
 ### Optional parameters
 
-> **`StepDirectionOnHit` / `StepDirectionOnMiss` are not read.** A private helper,
-> `stepSign_`, exists to resolve them to `-1` or `+1`, but **nothing in the
-> selection path calls it** — `selectNext` adds `Depth_StepOnHit` and
-> `Depth_StepOnMiss` directly. Defining either parameter in a protocol has no
-> effect. To invert the staircase, change the **sign of the step value itself**.
+> **There is no step-direction parameter.** The staircase direction is the
+> **sign of the step value**, so a negative `Depth_StepOnHit` steps down to a
+> weaker stimulus. A protocol that still declares `StepDirectionOnHit` or
+> `StepDirectionOnMiss` — they were never read — can drop them; the helper that
+> would have resolved them was removed as dead code.
 
 - `CatchTrialsEnabled` — Boolean switch gating catch-trial presentation. The selector creates it if the protocol does not declare it, so this parameter normally needs no attention; see [Switching catch trials off](#switching-catch-trials-off).
 - `StimDelayList` — the ends of a block-randomized stimulus-delay list. Declaring it is what switches the delay from `StimDelay.isRandom` to a balanced [`epsych.BlockSequence`](../epsych/epsych_BlockSequence.md); see [Block-randomized stimulus delay](#block-randomized-stimulus-delay).

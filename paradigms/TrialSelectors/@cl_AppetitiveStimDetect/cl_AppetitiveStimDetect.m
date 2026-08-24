@@ -56,12 +56,12 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     % entirely to isRandom and the abort/CORRECTVAL machinery below, exactly
     % as before. See setupStimDelay_ and applyStimDelay_.
     %
+    % The staircase step is a plain signed add: nextStim = lastStim +
+    % Depth_StepOnHit (or OnMiss). The step carries its own sign, so a
+    % negative Depth_StepOnHit is what steps down to a weaker stimulus.
+    % Invert the staircase by negating the step value.
+    %
     % Optional parameters:
-    %   StepDirectionOnHit, StepDirectionOnMiss - NOT READ. stepSign_ resolves
-    %       them to -1/+1, but nothing in selectNext calls it: the staircase
-    %       adds Depth_StepOnHit/OnMiss directly, so the step carries its own
-    %       sign. Declaring either parameter has no effect; invert the
-    %       staircase by negating the step value instead.
     %   StimDelayList - Min and Max are the ends of the block-randomized delay
     %       list, as above. Absent means no block randomization.
     %   StimDelayStep - spacing between list values, in ms. Created by the
@@ -780,27 +780,6 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % add_parameter seeds Values, not Value; the first write is a
             % trial away, so seat the initial value now.
             p.Value = value;
-        end
-
-        function s = stepSign_(obj, paramName, defaultSign)
-            % s = stepSign_(obj, paramName, defaultSign)
-            % Resolve an optional step-direction parameter to -1 (Down) or +1 (Up).
-            %
-            % Parameters:
-            %   paramName   - name of an optional StepDirectionOnHit/OnMiss parameter
-            %   defaultSign - sign to use when the parameter is absent or zero
-            %
-            % Returns:
-            %   s - -1 or +1
-            %
-            % obj.P only contains parameters the protocol defines, so isfield is the
-            % sanctioned optional-parameter check: an absent parameter means the
-            % protocol keeps the default step direction unchanged.
-            if isfield(obj.P, paramName) && sign(obj.P.(paramName).Value) ~= 0
-                s = sign(obj.P.(paramName).Value);
-            else
-                s = defaultSign;
-            end
         end
 
         function restore_stimdelay_randomization_(obj, pStimDelay)

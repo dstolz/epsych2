@@ -178,16 +178,37 @@ classdef Parameter_Update < handle
                 if ~isequal(h(i).BoundProperty,'Value')
                     curStr = h(i).boundValueText();
                     h(i).setBoundValue(h(i).Value);
+                    newStr = h(i).boundValueText();
                     vprintf(2,'Updated parameter "%s" %s: %s -> %s', ...
-                        P.Name,h(i).BoundProperty,curStr,h(i).boundValueText())
+                        P.Name,h(i).BoundProperty,curStr,newStr)
+                    if ~isequal(curStr,newStr)
+                        epsych.SessionNotes.log(R,'Updated %s.%s: %s -> %s', ...
+                            P.Name,h(i).BoundProperty,curStr,newStr);
+                    end
                     h(i).reset_label;
                     continue
                 end
 
+                % Session-record note: the change lands in every subject's data
+                % file (Info.Notes) via epsych.SessionNotes, whether or not the
+                % GUI shows a notes component. A deferred commit is stamped
+                % "(next trial)" because the live parameter still holds the old
+                % value until the dispatcher applies the trial table.
+                curValStr = P.ValueStr;
                 if obj.updateImmediately || P.Parent.Type == "Software"
-                    curValStr = P.ValueStr;
                     P.Value = h(i).Value;
-                    vprintf(2,'Updated parameter "%s": %s -> %s',P.Name,curValStr,P.ValueStr)
+                    newValStr = P.ValueStr;
+                    when = '';
+                    vprintf(2,'Updated parameter "%s": %s -> %s',P.Name,curValStr,newValStr)
+                else
+                    % Format the staged value with the parameter's own Format
+                    % and Unit, so before and after compare like for like.
+                    newValStr = P.formatValue(h(i).Value);
+                    when = ' (next trial)';
+                end
+                if ~isequal(curValStr,newValStr)
+                    epsych.SessionNotes.log(R,'Updated %s: %s -> %s%s', ...
+                        P.Name,curValStr,newValStr,when);
                 end
 
                 if isfield(loc,P.validName)
@@ -203,5 +224,4 @@ classdef Parameter_Update < handle
         end
     end
 
-    
 end

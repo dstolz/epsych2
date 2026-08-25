@@ -116,6 +116,46 @@ S = load('MOUSE_2026_08_21.mat');
 [S.Info.Notes.Trial]            % the trial each was typed on
 ```
 
+## Automatic entries
+
+The store does not only hold what the operator types. The commit paths of the
+stock GUI components record operator actions into the same log through
+`epsych.SessionNotes.log(RUNTIME, fmt, ...)`:
+
+| Action | Recorded by | Entry |
+|--------|-------------|-------|
+| Update Parameters commit | `gui.Parameter_Update` | `Updated StimDelay: 1000 -> 1500 (next trial)` — one per changed parameter; the suffix marks a deferred commit, absent when the write was immediate |
+| autoCommit control edit | `gui.Parameter_Control` | `Updated Depth.Min: 5 -> 10` — bound property named when it is not `Value` |
+| StimType selection | `gui.Parameter_Control` | `Updated Stim: stimgen.Tone` |
+| Phase load | `gui.PhaseSelector` | `Loaded phase "Stage2"; updated: Depth, P_Catch` |
+| Phase save | `gui.PhaseSelector` | `Saved phase "Stage2"` |
+| Debugger hand-write | `gui.ParameterDebugger` | `Parameter Debugger wrote StimDelay = 1200` — the typed value; what the device holds after clamping is the trial record's job |
+
+Because these ride in `RUNTIME.NOTES`, they land in `Info.Notes` and the trial
+journal for **every** session — a behavior GUI does not need a `gui.Notes`
+component, or any notes UI at all, for its data files to carry the record.
+The debugger entry goes further: it is recorded even for a session running
+with `BEHAVIORGUI_NONE`, since that window opens from RunExpt's Help menu.
+This is standard for every `gui.BehaviorGUI` subclass, since the components
+above are what its `addControl`/`addUpdateButton` helpers and the phase
+selector build.
+
+What is deliberately *not* recorded:
+
+- **Automatic per-trial writes.** A staircase stepping `Depth`, a
+  `BlockSequence` driving `StimDelay`, the dispatcher re-applying the trial
+  table — these are the paradigm running, already in the trial record, and
+  would flood the log. Only the operator-initiated commit paths log.
+- **`addButton` toggles and triggers.** Reminder, Deliver Trials, a manual
+  pellet — momentary by design (their controls carry no `Runtime`), and the
+  trial record already carries their effect.
+- **An edit that changed nothing.** A commit whose read-back text equals what
+  the parameter already showed records no entry.
+
+`epsych.SessionNotes.log` never throws and no-ops without a live store or in
+`ReviewMode` — the record of an action must not be able to break the action,
+and a replayed session must not append to the log it is displaying.
+
 ## Why it is built this way
 
 - **A store, not a cell array in the GUI.** The notes have to outlive the

@@ -46,6 +46,20 @@ classdef (Abstract) BehaviorGUI < handle
     %   at debug level rather than throwing, so the GUI still opens against a
     %   runtime with no interfaces (epsych.SelfTest check I6).
     %
+    %   Session-record notes are standard for every subclass: the commit
+    %   paths of the stock components record what the operator changed into
+    %   RUNTIME.NOTES (epsych.SessionNotes) -- a gui.Parameter_Update commit,
+    %   an autoCommit addControl edit, a gui.PhaseSelector phase load or
+    %   save each add a trial-stamped entry via epsych.SessionNotes.log.
+    %   Because the note store is folded into the Info variable every saving
+    %   function writes and journaled per trial, those entries are part of
+    %   every subject's data file whether or not the GUI includes a
+    %   gui.Notes component. Automatic per-trial writes (a staircase
+    %   stepping a parameter, a trial selector's dispatch) are deliberately
+    %   NOT recorded -- only operator actions are. addButton's session
+    %   toggles and triggers record nothing either: they are momentary by
+    %   design, and the trial record already carries their effect.
+    %
     %   Display components that inherit gui.PopOut (the scatter, history,
     %   performance, next-trial, monitor, and plot components) can be opened
     %   in a window of their own from their right-click menu, or from a

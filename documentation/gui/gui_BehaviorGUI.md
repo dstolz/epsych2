@@ -129,6 +129,15 @@ Hook errors are caught and logged with `vprintf(0,1,ME)` so a display bug never 
 
 All helpers register what they create, guaranteeing teardown (see below).
 
+The stock commit paths also make **session-record notes** standard for every
+subclass: a `gui.Parameter_Update` commit, an `autoCommit` `addControl` edit,
+and a `gui.PhaseSelector` phase load or save each record a trial-stamped entry
+into `RUNTIME.NOTES` via `epsych.SessionNotes.log`. Those entries reach
+`Info.Notes` and the trial journal in every subject's data file, whether or
+not the GUI includes a `gui.Notes` component. Per-trial automatic writes and
+`addButton`'s toggles/triggers deliberately record nothing — see
+[gui_Notes.md](gui_Notes.md#automatic-entries).
+
 - `h = addControl(parent, param, ...)` — a `gui.Parameter_Control`. `param` is an `hw.Parameter` **or a name** resolved against `obj.P` (trigger prefixes `~`/`!` tolerated). Unresolved names log at debug level and return `[]` — no `isfield` guards needed, and one build method serves protocols with differing parameter sets. Options: `Type` (default `'auto'`), `BoundProperty` (default unset — the control type picks it: `Type='range'` binds the `[Min Max]` pair on one row, everything else binds `Value`), `autoCommit`, `Text` (defaults to `Name (Unit)`), `PostUpdateFcn`/`PostUpdateFcnArgs`, `EvaluatorFcn`/`EvaluatorArgs`. The control gets `obj.RUNTIME`, so an `autoCommit` Value edit also lands in the trial table instead of being reverted by the next dispatch or misrecorded by a phase save (see `gui.Parameter_Control`'s `Runtime` option).
 - `h = addButton(parent, param, ...)` — an auto-committing button. `~`-prefixed parameters become toggles, others momentary (`Type` overrides). Rotating accent colors, bold text, prefix stripped from the label. Stored in `obj.hButtons.(validName)`. Buttons deliberately do **not** sync the trial table: session-control toggles rely on the table re-assert to self-clear.
 - `lay = controlColumn(parent, Title=, Row=, Column=, Rows=, RowHeight=)` — titled panel with a scrollable fixed-row grid, ready for a stack of `addControl` calls.

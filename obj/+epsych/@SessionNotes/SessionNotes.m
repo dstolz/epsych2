@@ -53,6 +53,9 @@ classdef SessionNotes < handle
     %   forSubject   - The records that belong in one subject's data file
     %   render       - The log as text lines, in a chosen stamp format
     %   currentTrial - Completed trials, the stamp a new note would carry
+    %   log (static) - Never-throwing entry point for automatic session-record
+    %                  entries (parameter commits, phase loads); no-op in a
+    %                  review or without a live store
     %
     % Events:
     %   NotesChanged - Any add, setText or clear
@@ -274,6 +277,59 @@ classdef SessionNotes < handle
             % and concatenate without testing isempty first.
             recs = struct('Trial', {}, 'Time', {}, 'Elapsed', {}, ...
                 'Subject', {}, 'Text', {});
+        end
+
+        function log(RUNTIME, text, varargin)
+            % epsych.SessionNotes.log(RUNTIME, text, ...)
+            % Commit an automatic session-record entry -- an operator's
+            % parameter commit, a phase load or save -- to the session's note
+            % store. With values after TEXT it is a printf format string,
+            % matching vprintf's format policy. RUNTIME may be the
+            % epsych.Runtime (the usual call), a store directly, or a legacy
+            % RUNTIME struct carrying a NOTES field.
+            %
+            % Because the store is folded into the Info variable every saving
+            % function writes and journaled per trial, an entry recorded here
+            % is part of every subject's data file whether or not the behavior
+            % GUI shows a gui.Notes component. gui.Parameter_Update,
+            % gui.Parameter_Control (autoCommit), and gui.PhaseSelector call
+            % this from their commit paths, which is what makes the record
+            % standard for every gui.BehaviorGUI subclass.
+            %
+            % Never throws, and silently records nothing without a live store:
+            % the callers are UI commit paths, and the record of an action
+            % must not be able to break the action. A review session records
+            % nothing either -- what a review shows is the log the file was
+            % saved with, and replaying a commit must not append to it.
+            arguments
+                RUNTIME
+                text (1,:) char
+            end
+            arguments (Repeating)
+                varargin
+            end
+
+            try
+                if ~isempty(varargin)
+                    text = sprintf(text, varargin{:});
+                end
+
+                if isa(RUNTIME, 'epsych.SessionNotes')
+                    N = RUNTIME;
+                elseif isa(RUNTIME, 'epsych.Runtime')
+                    if ~isvalid(RUNTIME) || RUNTIME.ReviewMode, return; end
+                    N = RUNTIME.NOTES;
+                elseif isstruct(RUNTIME) && isscalar(RUNTIME) && isfield(RUNTIME, 'NOTES')
+                    N = RUNTIME.NOTES;
+                else
+                    return
+                end
+
+                if isempty(N) || ~isvalid(N), return; end
+                N.add(text);
+            catch ME
+                vprintf(3, 'epsych.SessionNotes.log: entry not recorded (%s)', ME.message)
+            end
         end
 
         function obj = fromSnapshot(snapshot)

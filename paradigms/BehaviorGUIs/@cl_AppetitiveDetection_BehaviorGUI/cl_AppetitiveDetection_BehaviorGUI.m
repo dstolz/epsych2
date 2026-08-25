@@ -9,6 +9,14 @@ classdef cl_AppetitiveDetection_BehaviorGUI < gui.BehaviorGUI
     % Notes button opening the session notes (saved with the data as
     % Info.Notes; see gui.Notes).
     %
+    % Operator actions are recorded into those same session notes
+    % automatically -- an Update Parameters commit, an autoCommit edit of a
+    % staircase, catch-rate, or stimulus-delay setting, and every phase load
+    % or save each add a trial-stamped entry (see epsych.SessionNotes.log
+    % and gui.BehaviorGUI). The entries ride along in Info.Notes and the
+    % trial journal, so they are part of the data set even for a session
+    % where nothing was typed into the Notes window.
+    %
     % This is the gui.BehaviorGUI-based version of cl_AppetitiveDetection_GUI_B.
     % The layout is the same; single-instance enforcement, figure creation,
     % position persistence, event listeners, Parameter_Update wiring, and

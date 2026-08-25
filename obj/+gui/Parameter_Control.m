@@ -400,6 +400,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
             if obj.autoCommit
                 if isempty(src), return; end
+                prevStr = obj.boundValueText();
                 % Committing the value re-triggers the bound property's PostSet
                 % listener (value_change_external). Guard the write-back so that path
                 % does not run PostUpdateFcn a second time -- it already ran just above.
@@ -413,6 +414,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 obj.committing_ = false;
 
                 obj.syncRuntimeTrials_();
+                obj.logCommit_(prevStr);
 
             elseif ~obj.ValueUpdated && success
                 obj.reset_label;
@@ -893,12 +895,32 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 return
             end
             obj.Parameter.Value = stim;
+            epsych.SessionNotes.log(obj.Runtime, 'Updated %s: %s', obj.Name, class(stim));
             close(fig);
             obj.open_stimtype_gui([], []);
         end
     end
 
     methods (Access = private)
+        function logCommit_(obj, prevStr)
+            % Record an operator's autoCommit edit as a session note, so the
+            % change lands in every subject's data file (Info.Notes) whether
+            % or not the GUI shows a gui.Notes component. Runtime is empty for
+            % addButton's self-clearing session toggles, and a trigger has no
+            % lasting value: neither is a setting worth a record. A write-back
+            % that read back identical text (e.g. clamping to the same value)
+            % changed nothing and records nothing.
+            if isempty(obj.Runtime) || obj.Parameter.isTrigger, return; end
+            newStr = obj.boundValueText();
+            if strcmp(char(string(prevStr)), char(string(newStr))), return; end
+            label = obj.Name;
+            if ~isequal(obj.BoundProperty,'Value')
+                label = sprintf('%s.%s', label, obj.BoundProperty);
+            end
+            epsych.SessionNotes.log(obj.Runtime, 'Updated %s: %s -> %s', ...
+                label, char(string(prevStr)), char(string(newStr)));
+        end
+
         function syncRuntimeTrials_(obj)
             % syncRuntimeTrials_(obj)
             % Push a just-committed Value into the runtime trial table.

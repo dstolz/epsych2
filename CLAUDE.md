@@ -309,7 +309,15 @@ Rules that matter:
   as `Trial = NaN` rather than being dropped, and `NotesEdited` is what tells a
   later reader which of the two is the operator's own. `fromSnapshot` rebuilds
   a store from a saved file for `epsych.ReviewSession`, deliberately unbound to
-  a runtime — a review has no journal to write and no trial to stamp with
+  a runtime — a review has no journal to write and no trial to stamp with.
+  The log also carries **automatic session-record entries**: the stock commit
+  paths (`gui.Parameter_Update`, autoCommit `gui.Parameter_Control` edits,
+  `gui.PhaseSelector` load/save) record what the operator changed through the
+  never-throwing static `epsych.SessionNotes.log(RUNTIME, fmt, ...)`, so those
+  actions are in every data file whether or not the GUI shows a notes
+  component — standard for every `gui.BehaviorGUI` subclass. Per-trial
+  automatic writes (a staircase stepping a parameter) and `addButton` toggles
+  and triggers deliberately record nothing, and `log` no-ops in `ReviewMode`
   (see documentation/gui/gui_Notes.md)
 - **epsych.ReviewSession** + **epsych.SessionSnapshot** + **hw.Replay**: offline
   session review — reopen a finished session in the paradigm's own

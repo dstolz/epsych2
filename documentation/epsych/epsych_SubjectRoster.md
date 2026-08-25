@@ -299,7 +299,7 @@ The same reasoning covers `Investigator`, `IACUCProtocol`, `Links`, and `Archive
 
 ## Committing to a session
 
-`assignToSession(runExpt, subjectIds, ...)` resolves a free box and a protocol for each subject, validates **everything** up front, then writes into `CONFIG` through `epsych.RunExpt.appendSubjectToConfig_` (which owns the slot-1-reuse rule shared with `AddSubject`), and finally applies the project's [session settings](#a-project-owns-the-session-settings).
+`assignToSession(runExpt, subjectIds, ...)` resolves a free box and a protocol for each subject, validates **everything** up front, then writes into `CONFIG` through `epsych.RunExpt.appendSubjectToConfig_` (which owns the slot-1-reuse rule shared with `AddSubject`), and finally applies the agreed membership's [session settings](#the-membership-carries-the-session-settings-the-project-is-its-template) — the project's template only insofar as the membership was stamped from it.
 
 It is all-or-nothing where partial success would be worse than none:
 

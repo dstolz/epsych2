@@ -54,7 +54,7 @@ Browsing never prompts. A roster is only demanded by an action that writes.
 
 ### Toolbar
 
-Sixteen tools in five groups, left to right, in the order the work happens:
+Fifteen tools in five groups, left to right, in the order the work happens:
 
 | Group | Tools |
 |---|---|

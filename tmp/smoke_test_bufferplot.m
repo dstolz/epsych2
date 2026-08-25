@@ -95,6 +95,29 @@ assert(~bp.ShowGrid && strcmp(bp.Layout,'stacked'), ...
     'a saved arrangement should be restored');
 assert(isequal(bp.bufferNames, {'SmokeWave','SmokeLick'}), ...
     'a selection the operator never made must not be restored over the auto one');
+
+% ...but a selection the operator DID make outranks auto-selection. The
+% constructor must decide "the caller stated buffers" from its options,
+% BEFORE auto-selection fills a list in -- deciding it after made every
+% auto-selected session look explicit, so the remembered selection was never
+% restored anywhere a session had buffers to auto-select.
+s = getpref(PREF_GROUP, PREF_TAG);       % preference key = the figure Tag
+s.SelectionByOperator = true;
+s.Buffers = {'SmokeLick'};
+setpref(PREF_GROUP, PREF_TAG, s);
+delete(bp);
+bp = gui.BufferPlot(rt, fig);
+assert(isequal(bp.bufferNames, {'SmokeLick'}), ...
+    'the operator''s remembered selection must be restored over the auto one');
+delete(bp);
+bp = gui.BufferPlot(rt, fig, Buffers={'SmokeWave','SmokeLick'});
+assert(isequal(bp.bufferNames, {'SmokeWave','SmokeLick'}), ...
+    'a list the caller states still outranks the remembered selection');
+s.SelectionByOperator = false;
+s.Buffers = {};
+setpref(PREF_GROUP, PREF_TAG, s);        % back to the auto pair below
+delete(bp);
+bp = gui.BufferPlot(rt, fig);
 fprintf('PASS: menu changes apply, persist, and restore\n');
 
 % 7. Programmatic changes do NOT persist ----------------------------------

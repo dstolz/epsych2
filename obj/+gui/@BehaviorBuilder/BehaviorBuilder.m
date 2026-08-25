@@ -946,7 +946,16 @@ classdef BehaviorBuilder < handle
                     o.Buffers = gui.BehaviorBuilder.asRowCellstr_(o.Buffers);
                     o.SampleRate = double(o.SampleRate);
                     if ~isfinite(o.SampleRate) || o.SampleRate < 0, o.SampleRate = 0; end
-                    o.Layout = char(string(o.Layout));
+                    o.Layout = lower(char(string(o.Layout)));
+                    % Refused here, not at run time: a bad value in a
+                    % hand-edited spec otherwise passes specValidate and then
+                    % throws mustBeMember inside the GENERATED build(), which
+                    % kills the behavior GUI at session start -- and the
+                    % config dialog too, since uidropdown rejects a Value not
+                    % in Items.
+                    assert(ismember(o.Layout, {'overlay','stacked'}), ...
+                        'epsych:BehaviorBuilder:BadRegion', ...
+                        'Buffer Plot Layout must be ''overlay'' or ''stacked'', not "%s"', o.Layout)
                     o.NumTrialsShown = max(1, round(double(o.NumTrialsShown)));
                 case 'SessionGate'
                     o.Text = char(string(o.Text));

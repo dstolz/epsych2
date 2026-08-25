@@ -248,7 +248,9 @@ switch r.Type
         [host, popParent] = emitHost(r, i);
         args = {};
         if ~isempty(o.Buffers),   args{end+1} = sprintf('Buffers=%s', fmtCellstr(o.Buffers)); end
-        if o.SampleRate > 0,      args{end+1} = sprintf('SampleRate=%g', o.SampleRate); end
+        % mat2str, not %g: %g keeps 6 significant digits, and the TDT rates
+        % this field holds (24414.0625, 97656.25) would bake in wrong.
+        if o.SampleRate > 0,      args{end+1} = sprintf('SampleRate=%s', mat2str(o.SampleRate)); end
         if ~isempty(o.Layout),    args{end+1} = sprintf('Layout=%s', q(o.Layout)); end
         if o.NumTrialsShown > 1,  args{end+1} = sprintf('NumTrialsShown=%d', o.NumTrialsShown); end
         if ~isempty(tag),         args{end+1} = sprintf('PreferenceTag=%s', q(tag)); end

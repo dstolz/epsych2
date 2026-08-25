@@ -921,7 +921,10 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % is recorded is therefore the requested value; what the device
             % holds after clamping or an Expression is the trial record's job.
             if isempty(obj.Runtime) || obj.Parameter.isTrigger, return; end
-            if isequaln(prevValue, newValue), return; end
+            % isequal, NOT isequaln: it must match the gate the commit itself
+            % ran on (ValueUpdated is set with isequal), or a committed NaN --
+            % the write most worth a record -- is the one that goes unrecorded.
+            if isequal(prevValue, newValue), return; end
 
             try
                 label = obj.Name;

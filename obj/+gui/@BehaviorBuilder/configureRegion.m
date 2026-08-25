@@ -416,10 +416,15 @@ trialField = uieditfield(trialRow, 'numeric', 'Value',o.NumTrialsShown, ...
 
 ok = runModal(dlg);
 if ok
-    picked = lb.Value;
-    if ischar(picked), picked = {picked}; end
-    if isempty(buffers), picked = {}; end
-    o.Buffers = reshape(cellstr(picked), 1, []);
+    % With no snapshot buffers the listbox was disabled and shows nothing:
+    % the operator answered the OTHER fields, and a stored Buffers list
+    % (written against the real protocol, edited here in degraded mode) must
+    % survive, not be wiped by a dialog that could not display it.
+    if ~isempty(buffers)
+        picked = lb.Value;
+        if ischar(picked), picked = {picked}; end
+        o.Buffers = reshape(cellstr(picked), 1, []);
+    end
     o.SampleRate = rateField.Value;
     o.Layout = layoutDD.Value;
     o.NumTrialsShown = trialField.Value;

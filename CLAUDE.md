@@ -316,13 +316,20 @@ Rules that matter:
   never-throwing static `epsych.SessionNotes.log(RUNTIME, fmt, ...)`, so those
   actions are in every data file whether or not the GUI shows a notes
   component — standard for every `gui.BehaviorGUI` subclass. **No call site
-  reads the parameter back to build its note**: `hw.Parameter.get.Value` is a
-  device round trip that rethrows what the backend throws, so a read-back
-  would let the record of a successful write fail the write that had already
-  landed, one round trip per committed parameter. Every entry is built from
-  values the caller already holds, so a note names the value REQUESTED — which
-  is also why a deferred commit reads `Staged X = v for the next trial` rather
-  than a before/after it has not earned. Per-trial
+  adds a device read to build its note**: `hw.Parameter.get.Value` is a round
+  trip that rethrows what the backend throws, so a read the commit was not
+  already making would let the record of a successful write fail the write
+  that had already landed. Every entry is built from values the caller
+  already holds (`gui.Parameter_Update`'s immediate path was reading
+  `P.ValueStr` either side of the write before it recorded anything, and its
+  note reuses those reads), so a note names the value REQUESTED — which
+  is also why a deferred commit reads `Staged X = v for the next trial`
+  rather than a before/after it has not earned. A staged note is written only
+  for a parameter with a trials-table column (anything else never reaches a
+  trial, and is told to the operator instead), and only AFTER the trial
+  table's write-back lands, so a commit that throws part way leaves no note
+  asserting a staging that was lost; the autoCommit note gate is `isequal`,
+  matching `ValueUpdated`'s own, so a committed NaN is recorded. Per-trial
   automatic writes (a staircase stepping a parameter) and `addButton` toggles
   and triggers deliberately record nothing, and `log` no-ops in `ReviewMode`
   (see documentation/gui/gui_Notes.md)

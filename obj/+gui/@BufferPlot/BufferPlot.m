@@ -219,8 +219,14 @@ classdef BufferPlot < gui.PopOut
                 if isfield(options,f{1}), obj.(f{1}) = options.(f{1}); end
             end
 
+            % Whether the CALLER stated a buffer list is decided here, before
+            % auto-selection fills one in: loadPreferences_ restores the
+            % operator's remembered selection only over an auto-selected
+            % list, and auto-selection succeeding must not read as the
+            % paradigm having chosen.
             named = obj.namesFromSelection_(options.Buffers);
-            if isempty(named)
+            hasExplicitBuffers = ~isempty(named);
+            if ~hasExplicitBuffers
                 named = obj.autoSelect_();
             end
             obj.setBuffers(named);
@@ -233,7 +239,7 @@ classdef BufferPlot < gui.PopOut
                 obj.XAxisUnits = 'seconds';
             end
 
-            obj.loadPreferences_(~isempty(named), hasRate);
+            obj.loadPreferences_(hasExplicitBuffers, hasRate);
             obj.buildContextMenu_;
 
             obj.Suspend_ = false;
@@ -311,6 +317,7 @@ classdef BufferPlot < gui.PopOut
             % numeric vector. Coefficient buffers are not among them; see the
             % class comment.
             n = {};
+            offered = {};
             try
                 if ~isempty(obj.Runtime_)
                     P = obj.Runtime_.all_parameters(includeInvisible=true, ...
@@ -318,6 +325,7 @@ classdef BufferPlot < gui.PopOut
                     if ~isempty(P)
                         P = P(ismember({P.Type}, obj.BUFFER_TYPES));
                         n = {P.Name};
+                        offered = {P.validName};
                     end
                 end
                 D = obj.currentData_;
@@ -326,8 +334,12 @@ classdef BufferPlot < gui.PopOut
                     % readable parameter, so the DATA sweep has to be told
                     % which fields to leave alone. Offline, with no runtime
                     % to ask, one is indistinguishable from a plain buffer
-                    % and is offered.
-                    skip = obj.excludedNames_;
+                    % and is offered. The sweep also skips the record fields
+                    % of buffers the runtime branch already offers: a
+                    % box-scoped 'Waveform~1' is recorded as 'Waveform_1',
+                    % and listing both spellings put the same buffer in the
+                    % picker twice.
+                    skip = [obj.excludedNames_, offered];
                     f = fieldnames(D);
                     for k = 1:numel(f)
                         if ismember(f{k}, skip), continue; end
@@ -458,11 +470,18 @@ classdef BufferPlot < gui.PopOut
             tag = obj.popOutPreferenceTag_();
             hasSaved = ispref(obj.PREF_GROUP, tag);
 
+            % No Buffers option here on purpose: a stated list reads as the
+            % PARADIGM's choice and would stop the constructor restoring the
+            % pop-out's own remembered selection. The host's selection is
+            % mirrored below, only where the pop-out has no operator
+            % selection of its own.
             h = gui.BufferPlot(obj.Source_, container, ...
-                Buffers = obj.bufferNames, ...
                 BoxID = obj.BoxID, ...
                 PreferenceTag = tag);
             if isempty(h) || ~isvalid(h), h = []; return; end
+            if ~h.SelectionByOperator_
+                h.setBuffers(obj.bufferNames);
+            end
             if hasSaved, return; end
 
             for f = {'XAxisUnits','SampleRate','Layout','NumTrialsShown', ...
@@ -560,7 +579,12 @@ classdef BufferPlot < gui.PopOut
             % Identity of the newest trial, used to key the envelope caches.
             % The runtime's own TrialIndex when there is one; otherwise a
             % counter, which is all a hardware-read buffer can be keyed by.
-            key = obj.Counter_;
+            % Counter keys are NEGATIVE: TrialIndex counts up from 1, and a
+            % pre-session capture cached under a positive counter key used
+            % to collide with the first real trials' indices, so trial 1
+            % drew the stale construction-time device read instead of its
+            % recorded buffer.
+            key = -obj.Counter_;
             D = obj.currentData_;
             if isempty(D), return; end
             if isfield(D,'TrialIndex') && ~isempty(D(end).TrialIndex)

@@ -223,6 +223,14 @@ classdef (Abstract) BehaviorGUI < handle
                 'UserData',        obj);
             fig.Position = gui.BehaviorGUI.getSavedFigurePosition(obj.PreferenceTag, options.DefaultPosition);
             movegui(fig, 'onscreen');
+            if strcmp(gui.BehaviorGUI.getSavedFigureWindowState(obj.PreferenceTag), 'maximized')
+                try
+                    fig.WindowState = 'maximized';
+                catch ME
+                    vprintf(2, '%s: could not restore the maximized window: %s', ...
+                        class(obj), ME.message)
+                end
+            end
             obj.h_figure = fig;
 
             % Before build, so build can bind. A figure has one
@@ -378,7 +386,7 @@ classdef (Abstract) BehaviorGUI < handle
             end
 
             try
-                gui.BehaviorGUI.saveFigurePosition(obj.PreferenceTag, src.Position);
+                gui.BehaviorGUI.saveFigureLayout(obj.PreferenceTag, src);
             catch
             end
             delete(obj);
@@ -1457,7 +1465,7 @@ classdef (Abstract) BehaviorGUI < handle
             f = findall(groot, 'Type', 'figure', '-and', 'Tag', obj.PreferenceTag);
             for i = 1:numel(f)
                 try
-                    gui.BehaviorGUI.saveFigurePosition(obj.PreferenceTag, f(i).Position);
+                    gui.BehaviorGUI.saveFigureLayout(obj.PreferenceTag, f(i));
                     ud = f(i).UserData;
                     f(i).UserData = [];
                     f(i).CloseRequestFcn = '';
@@ -1761,6 +1769,41 @@ classdef (Abstract) BehaviorGUI < handle
                 return
             end
             setpref(prefTag, 'FigurePosition', double(reshape(position, 1, [])));
+        end
+
+        function saveFigureLayout(prefTag, fig)
+            % Persist a figure's position AND maximized state.
+            %
+            % A maximized figure's Position reports the screen-filling
+            % bounds, so it is deliberately NOT written: the position on
+            % record stays the last normal one, which is what un-maximizing
+            % the reopened window should restore. Fullscreen is remembered
+            % as maximized, and a minimized window as its normal self --
+            % nobody wants a GUI that opens minimized.
+            state = 'normal';
+            try
+                state = char(fig.WindowState);
+            catch
+            end
+            if any(strcmp(state, {'maximized', 'fullscreen'}))
+                setpref(prefTag, 'FigureWindowState', 'maximized');
+            else
+                gui.BehaviorGUI.saveFigurePosition(prefTag, fig.Position);
+                setpref(prefTag, 'FigureWindowState', 'normal');
+            end
+        end
+
+        function state = getSavedFigureWindowState(prefTag)
+            % The last-saved window state for this PreferenceTag: 'normal'
+            % or 'maximized'. Anything unreadable is 'normal'.
+            state = 'normal';
+            try
+                saved = getpref(prefTag, 'FigureWindowState', 'normal');
+                if (ischar(saved) || isstring(saved)) && strcmp(saved, 'maximized')
+                    state = 'maximized';
+                end
+            catch
+            end
         end
 
         function [trigParams, ctrlParams, monitorParams] = classifyParameters(params)

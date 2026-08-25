@@ -198,7 +198,7 @@ binding is suppressed during a review unless bound with `EnableInReview=true`.
 ## Lifecycle and teardown guarantees
 
 - **Single instance**: constructing a second GUI with the same `PreferenceTag` saves the old window's position and fully tears down the old instance first.
-- **Close**: the figure's close button routes through `closeGUI`, which saves the window position and deletes the object.
+- **Close**: the figure's close button routes through `closeGUI`, which saves the window position and maximized state, then deletes the object. The next launch reopens the GUI exactly there — maximized again if it was closed maximized. A window closed maximized deliberately does **not** overwrite the saved position (a maximized figure's `Position` reports the screen-filling bounds), so un-maximizing the reopened window restores the last normal size.
 - **Close while running**: if the session driving this GUI is still `PRGMSTATE.RUNNING`, `closeGUI` first raises a modal dialog offering **Close GUI** (leave the session running without its controls), **Halt Experiment** (`RunExpt.halt`, which routes through the same dispatch as the session window's own Stop control, so the mode broadcast, timer stop, and data save all happen while this GUI's listeners are still alive — then close), and **Cancel** (default; the window stays open). The prompt only appears for the session that actually owns this GUI: the open `RunExpt` window's `RUNTIME` must be the same handle as `obj.RUNTIME`, so a window left over from an earlier run, or one opened against the synthetic runtime of SelfTest check I6, closes silently as before.
 - **Destructor**: takes the `RestorePopOuts` snapshot first, while every component and window is still intact, then disables and deletes the three event listeners, deletes every registered component in reverse order (this is what prevents leaked listeners and timers — deleting a figure alone only removes graphics, not the component handle objects), deletes the psych object, then the figure.
 
@@ -237,6 +237,7 @@ A file saved before the session snapshot existed carries no protocol, so no para
 
 - `gui.BehaviorGUI.classifyParameters(params)` — static; splits an `hw.Parameter` array into trigger-style, writable, and read-only visible groups using the standard rules (`isTrigger` or `~`/`!` name prefix marks a trigger). This is what `ep_GenericGUI` uses to auto-build itself.
 - `gui.BehaviorGUI.getSavedFigurePosition(prefTag, default)` / `saveFigurePosition(prefTag, pos)` — static position-preference helpers, keyed by `PreferenceTag`.
+- `gui.BehaviorGUI.saveFigureLayout(prefTag, fig)` / `getSavedFigureWindowState(prefTag)` — the maximize-aware layer over those: `saveFigureLayout` records the figure's maximized state and, only when the window is normal, its position (fullscreen is remembered as maximized, minimized as normal). Any window class can use them for the same behavior.
 
 ## Reference implementations
 

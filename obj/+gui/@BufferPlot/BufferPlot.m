@@ -938,8 +938,11 @@ classdef BufferPlot < gui.PopOut
         end
 
         function names = excludedNames_(obj)
-            % DATA field names that are not plottable buffers -- today, the
-            % session's 'Coefficient Buffer' parameters.
+            % DATA field names the availableBuffers sweep must leave alone:
+            % every parameter this session declares whose Type is not
+            % plottable. 'Coefficient Buffer' is the one that matters -- a
+            % record carries one like any other readable parameter, so the
+            % sweep would otherwise offer it back as an array-valued field.
             names = {};
             if isempty(obj.Runtime_), return; end
             try

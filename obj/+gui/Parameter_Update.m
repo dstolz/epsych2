@@ -206,6 +206,7 @@ classdef Parameter_Update < handle
             h = obj.watchedHandles(vu);
 
             loc = R.TRIALS.writeParamIdx;
+            staged = {};    % deferred-commit notes, held until the table is written
 
             for i = 1:length(h)
                 P = h(i).Parameter;
@@ -219,16 +220,49 @@ classdef Parameter_Update < handle
                 if ~isequal(h(i).BoundProperty,'Value')
                     curStr = h(i).boundValueText();
                     h(i).setBoundValue(h(i).Value);
+                    newStr = h(i).boundValueText();
                     vprintf(2,'Updated parameter "%s" %s: %s -> %s', ...
-                        P.Name,h(i).BoundProperty,curStr,h(i).boundValueText())
+                        P.Name,h(i).BoundProperty,curStr,newStr)
+                    if ~isequal(curStr,newStr)
+                        epsych.SessionNotes.log(R,'Updated %s.%s: %s -> %s', ...
+                            P.Name,h(i).BoundProperty,curStr,newStr);
+                    end
                     h(i).reset_label;
                     continue
                 end
 
+                % Session-record note: the change lands in every subject's data
+                % file (Info.Notes) via epsych.SessionNotes, whether or not the
+                % GUI shows a notes component.
+                %
+                % The two paths are recorded differently because only one of
+                % them has read the parameter. An immediate write already
+                % reads it either side of the write, so it records what
+                % changed, at the moment it changed. A deferred commit has
+                % not touched the parameter -- it still holds its old value
+                % until the dispatcher applies the trial table -- so its
+                % note is HELD BACK until the table is actually written: a
+                % throw part way through this loop abandons the write-back,
+                % and a note already committed would assert a staging that
+                % never happened. And a parameter with no trials-table
+                % column gets no staged note at all, because nothing will
+                % deliver the value -- that case is said to the operator
+                % instead of written into the data file as a success.
                 if obj.updateImmediately || P.Parent.Type == "Software"
                     curValStr = P.ValueStr;
                     P.Value = h(i).Value;
-                    vprintf(2,'Updated parameter "%s": %s -> %s',P.Name,curValStr,P.ValueStr)
+                    newValStr = P.ValueStr;
+                    vprintf(2,'Updated parameter "%s": %s -> %s',P.Name,curValStr,newValStr)
+                    if ~isequal(curValStr,newValStr)
+                        epsych.SessionNotes.log(R,'Updated %s: %s -> %s', ...
+                            P.Name,curValStr,newValStr);
+                    end
+                elseif isfield(loc,P.validName)
+                    staged{end+1} = sprintf('Staged %s = %s for the next trial', ...
+                        P.Name,P.formatValue(h(i).Value));
+                else
+                    vprintf(0,1,['Parameter "%s" has no trial-table column; ' ...
+                        'the deferred edit will not reach the next trial'],P.Name)
                 end
 
                 if isfield(loc,P.validName)
@@ -239,10 +273,14 @@ classdef Parameter_Update < handle
             end
             R.TRIALS.trials = T;
 
+            % The staged values are only now truly bound for the next trial.
+            for i = 1:numel(staged)
+                epsych.SessionNotes.log(R,'%s',staged{i});
+            end
+
             obj.updateImmediately = false;
 
         end
     end
 
-    
 end

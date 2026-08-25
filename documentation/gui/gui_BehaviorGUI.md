@@ -129,6 +129,15 @@ Hook errors are caught and logged with `vprintf(0,1,ME)` so a display bug never 
 
 All helpers register what they create, guaranteeing teardown (see below).
 
+The stock commit paths also make **session-record notes** standard for every
+subclass: a `gui.Parameter_Update` commit, an `autoCommit` `addControl` edit,
+and a `gui.PhaseSelector` phase load or save each record a trial-stamped entry
+into `RUNTIME.NOTES` via `epsych.SessionNotes.log`. Those entries reach
+`Info.Notes` and the trial journal in every subject's data file, whether or
+not the GUI includes a `gui.Notes` component. Per-trial automatic writes and
+`addButton`'s toggles/triggers deliberately record nothing — see
+[gui_Notes.md](gui_Notes.md#automatic-entries).
+
 - `h = addControl(parent, param, ...)` — a `gui.Parameter_Control`. `param` is an `hw.Parameter` **or a name** resolved against `obj.P` (trigger prefixes `~`/`!` tolerated). Unresolved names log at debug level and return `[]` — no `isfield` guards needed, and one build method serves protocols with differing parameter sets. Options: `Type` (default `'auto'`), `BoundProperty` (default unset — the control type picks it: `Type='range'` binds the `[Min Max]` pair on one row, everything else binds `Value`), `autoCommit`, `Text` (defaults to `Name (Unit)`), `PostUpdateFcn`/`PostUpdateFcnArgs`, `EvaluatorFcn`/`EvaluatorArgs`. The control gets `obj.RUNTIME`, so an `autoCommit` Value edit also lands in the trial table instead of being reverted by the next dispatch or misrecorded by a phase save (see `gui.Parameter_Control`'s `Runtime` option).
 - `h = addButton(parent, param, ...)` — an auto-committing button. `~`-prefixed parameters become toggles, others momentary (`Type` overrides). Rotating accent colors, bold text, prefix stripped from the label. Stored in `obj.hButtons.(validName)`. Buttons deliberately do **not** sync the trial table: session-control toggles rely on the table re-assert to self-clear.
 - `lay = controlColumn(parent, Title=, Row=, Column=, Rows=, RowHeight=)` — titled panel with a scrollable fixed-row grid, ready for a stack of `addControl` calls.
@@ -142,6 +151,7 @@ All helpers register what they create, guaranteeing teardown (see below).
 - `h = addHistory(parent, ColumnFormats=, BitColors=, PreferenceTag=)` — a `gui.History` per-trial outcome table over `obj.Psych`. Returns `[]` when `createPsych` produced nothing, so a GUI still opens against a runtime with no interfaces — see [gui_History.md](gui_History.md).
 - `h = addScatter(parent, XParameter=, YParameter=, ColorParameter=, BoxID=, PreferenceTag=)` — a `gui.ParameterScatter` over any two recorded trial parameters. Its source is `obj.RUNTIME` rather than `obj.Psych`, so it works in a paradigm with no analysis at all — see [gui_ParameterScatter.md](gui_ParameterScatter.md).
 - `h = addOnlinePlot(parent, Source=, BoxID=, TimeWindow=, PreferenceTag=)` — a `gui.OnlinePlot` of live hardware activity. Like `addPsychPlot` it makes a **classic** axes inside `parent`, so pass a panel or grid cell. `Source` names the traces (parameter names, `hw.Parameter` handles, or a bitmask bank name); left empty it returns `[]` and logs, rather than putting a list dialog in front of a starting session. `TimeWindow` applies only when nothing was remembered under `PreferenceTag` — see [gui_OnlinePlot.md](gui_OnlinePlot.md).
+- `h = addBufferPlot(parent, Buffers=, SampleRate=, Layout=, NumTrialsShown=, BoxID=, PreferenceTag=)` — a `gui.BufferPlot` of buffer parameter CONTENTS, redrawn once per completed trial. It takes each buffer out of the trial record the runtime already read, so it costs the device nothing; `Buffers` left empty auto-selects the session's `Buffer` parameters, and the x axis is buffer samples until a `SampleRate` (a number, or `"auto"` to take it from the owning `hw.Module`) turns it into seconds — see [gui_BufferPlot.md](gui_BufferPlot.md).
 - `h = addPsychPlot(parent)` — a `gui.PsychPlot` psychometric curve over `obj.Psych`, `[]` when there is none. `gui.PsychPlot` draws into a **classic** axes rather than a `uiaxes`, so one is created inside `parent`: pass a panel or grid cell, not an axes of your own.
 - `ax = addStaircasePlot(parent)` — plots `obj.Psych`'s staircase track, reversals and threshold into a new `uiaxes` and returns the axes. There is no component to register: a `psychophysics.Staircase` draws itself and owns its own listener. Returns `[]` with no staircase.
 - `h = addSessionClock(parent, UpdatePeriod=, FontSize=, FontColor=, ShowTimeSinceLastTrial=, ShowTimeSinceFirstTrial=, ShowSessionDuration=, ShowClockTime=, PreferenceTag=)` — a `gui.SessionClock`, wired to the runtime and started. It builds its own panel, so place it through the returned object: `c.PanelH.Layout.Row = 1`.

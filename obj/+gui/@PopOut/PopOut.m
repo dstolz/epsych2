@@ -66,7 +66,7 @@ classdef (Abstract) PopOut < handle
     %     PopOutLabel               - window title; defaults to the class name
     %
     % Documentation: documentation/gui/gui_PopOut.md
-    % See also gui.BehaviorGUI, gui.ParameterScatter, gui.History,
+    % See also gui.BehaviorGUI, gui.ParameterScatter, gui.BufferPlot, gui.History,
     % gui.SessionPerformance, gui.NextTrial, gui.Parameter_Monitor
 
     properties (SetAccess = private, Transient)

@@ -218,6 +218,7 @@ classdef PhaseSelector < handle
             [~,fn] = fileparts(filepath);
             vprintf(0, 'Writing current parameters to "%s" (%s)', fn, filepath)
             obj.RUNTIME.writeParametersProtocol(filepath);
+            epsych.SessionNotes.log(obj.RUNTIME, 'Saved phase "%s"', fn);
 
             % Adopt the chosen directory when the configured one is unusable,
             % otherwise a first save into a missing phase directory would write a
@@ -361,8 +362,17 @@ classdef PhaseSelector < handle
 
             if isempty(P)
                 vprintf(1, 'Phase "%s" loaded; no parameter values differed from the current session.', phaseName)
+                epsych.SessionNotes.log(obj.RUNTIME, ...
+                    'Loaded phase "%s" (no parameter changes)', phaseName);
             else
                 obj.RUNTIME.updateTrialsFromParameters(P);
+                % Session-record note: the load and what it changed land in
+                % every subject's data file (Info.Notes) via
+                % epsych.SessionNotes, whether or not the GUI shows a notes
+                % component. Names only -- the per-parameter values are the
+                % trial record's job.
+                epsych.SessionNotes.log(obj.RUNTIME, 'Loaded phase "%s"; updated: %s', ...
+                    phaseName, strjoin(cellstr(string({P.Name})), ', '));
             end
 
             % Changes are applied -- closeDlg (onCleanup) dismisses the dialog on return.

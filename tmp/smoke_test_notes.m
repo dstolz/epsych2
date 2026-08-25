@@ -2,8 +2,9 @@ function smoke_test_notes()
 % smoke_test_notes()
 % Standing check for session notes: the epsych.SessionNotes store, the fold
 % into the Info variable a saving function writes, the journal record that
-% survives a crash, and the gui.Notes component in both its forms (panel and
-% button) plus its review-mode stand-down.
+% survives a crash, the gui.Notes component in both its forms (panel and
+% button) plus its review-mode stand-down, and the epsych.SessionNotes.log
+% entry point the GUI commit paths use for automatic session-record entries.
 %
 %   matlab -batch "run('tmp/smoke_test_notes.m')"
 
@@ -215,6 +216,31 @@ popFig = G.NotesButton.PopOutFigure;
 delete(G);
 assert(~isvalid(popFig), 'closing the GUI takes the notes window with it');
 fprintf('PASS: addNotes and addNotesButton wire both forms to the session store\n');
+
+% 11. epsych.SessionNotes.log: the automatic session-record entry ---------
+L = epsych.SessionNotes();
+epsych.SessionNotes.log(L, 'Updated %s: %g -> %g', 'StimDelay', 1000, 1500);
+assert(numel(L.Records) == 1 && strcmp(L.Records(1).Text, 'Updated StimDelay: 1000 -> 1500'), ...
+    'log formats and commits to a bare store');
+
+n0 = numel(RUNTIME.NOTES.Records);
+epsych.SessionNotes.log(RUNTIME, 'Loaded phase "%s"', 'Stage2');
+assert(numel(RUNTIME.NOTES.Records) == n0 + 1, 'log through the runtime reaches its store');
+assert(strcmp(RUNTIME.NOTES.Records(end).Text, 'Loaded phase "Stage2"'), 'with the formatted text');
+
+nRV = numel(RV.NOTES.Records);
+epsych.SessionNotes.log(RV, 'must not appear');
+assert(numel(RV.NOTES.Records) == nRV, 'a review session records nothing');
+
+epsych.SessionNotes.log([], 'nowhere to go');
+epsych.SessionNotes.log(struct('TRIALS', []), 'no NOTES field');
+epsych.SessionNotes.log(struct('NOTES', []), 'an empty NOTES field');
+fprintf('PASS: SessionNotes.log records live sessions, refuses reviews, and never throws\n');
+
+LG = epsych.SessionNotes();
+epsych.SessionNotes.log(struct('NOTES', LG), 'legacy struct runtime');
+assert(numel(LG.Records) == 1, 'a legacy RUNTIME struct with a NOTES field still records');
+fprintf('PASS: SessionNotes.log tolerates a legacy struct RUNTIME\n');
 
 fprintf('\nALL NOTES SMOKE TESTS PASSED\n');
 

@@ -297,6 +297,17 @@ classdef ParameterDebugger < handle
 
             vprintf(1, 'Parameter Debugger wrote "%s" = %s', R.Name, text);
 
+            % Session-record note: a hand-write to live hardware belongs in the
+            % data set's record (Info.Notes), and this window is available even
+            % for a session running with no behavior GUI at all. The typed
+            % value is recorded; what the device actually holds is the trial
+            % record's job. No-op outside a live session.
+            rx = self.RunExpt;
+            if ~isempty(rx) && isvalid(rx)
+                epsych.SessionNotes.log(rx.RUNTIME, ...
+                    'Parameter Debugger wrote %s = %s', R.Name, text);
+            end
+
             % Read-back. A parameter that cannot be read leaves the written
             % value standing, marked as written rather than as confirmed.
             %

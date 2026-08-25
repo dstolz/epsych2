@@ -661,6 +661,25 @@ switch name
             "................"
             "................"];
 
+    case "bufferplot" % buffer samples as bars against an axis
+        rows = [ ...
+            "................"
+            "..k............."
+            "..k.......b....."
+            "..k.....b.b....."
+            "..k...b.b.b....."
+            "..k...b.b.b.b..."
+            "..k...b.bbb.b..."
+            "..k..bb.bbb.b..."
+            "..k..bbbbbb.bb.."
+            "..k..bbbbbbbbb.."
+            "..k.bbbbbbbbbbb."
+            "..k.bbbbbbbbbbb."
+            "..k.bbbbbbbbbbb."
+            "..kkkkkkkkkkkkk."
+            "................"
+            "................"];
+
     case "parameterscatter" % axes with scattered points
         rows = [ ...
             "................"

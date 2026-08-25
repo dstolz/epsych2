@@ -98,8 +98,9 @@ Analysis and GUI classes
    ├─ MicrophonePlot
    ├─ FilenameValidator
    ├─ ModeIndicator
-   ├─ KeyBindings
+   ├─ BufferPlot
    ├─ History
+   ├─ KeyBindings
    ├─ OnlinePlot
    ├─ Performance
    ├─ PhaseSelector
@@ -198,7 +199,7 @@ flowchart TD
     I3 --> I7
     I6 --> I7
     H --> J[gui.Parameter_Control<br/>gui.Parameter_Update<br/>gui.Parameter_Monitor<br/>gui.ParameterDebugger<br/>gui.ParameterTracker]
-    D --> K[gui.OnlinePlot<br/>gui.PsychPlot<br/>gui.ModeIndicator]
+    D --> K[gui.OnlinePlot<br/>gui.BufferPlot<br/>gui.PsychPlot<br/>gui.ModeIndicator]
     D --> L[gui.History<br/>gui.SessionPerformance<br/>gui.Performance<br/>gui.SlidingWindowPerformancePlot]
     L --> I7
     C --> M[cl_AppetitiveDetection_GUI_B]
@@ -243,7 +244,7 @@ Analysis and visualization
 ├─ psychophysics.Detection
 ├─ psychophysics.Metrics  (stateless SDT arithmetic; called by all of the above)
 ├─ gui.Parameter_Control / gui.Parameter_Update / gui.Parameter_Monitor / gui.ParameterDebugger / gui.ParameterTracker
-├─ gui.OnlinePlot / gui.PsychPlot / gui.ModeIndicator
+├─ gui.OnlinePlot / gui.BufferPlot / gui.PsychPlot / gui.ModeIndicator
 └─ gui.History / gui.SessionPerformance / gui.Performance / gui.SlidingWindowPerformancePlot
    ↓
 Task and support branches

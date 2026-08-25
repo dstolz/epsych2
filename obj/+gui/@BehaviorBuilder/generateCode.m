@@ -244,6 +244,22 @@ switch r.Type
         out('h%d = gui.OnlinePlot(obj.RUNTIME, %s, ax%d);', i, fmtCellstr(o.Source), i);
         out('obj.register(h%d);', i);
 
+    case 'BufferPlot'
+        [host, popParent] = emitHost(r, i);
+        args = {};
+        if ~isempty(o.Buffers),   args{end+1} = sprintf('Buffers=%s', fmtCellstr(o.Buffers)); end
+        % mat2str, not %g: %g keeps 6 significant digits, and the TDT rates
+        % this field holds (24414.0625, 97656.25) would bake in wrong.
+        if o.SampleRate > 0,      args{end+1} = sprintf('SampleRate=%s', mat2str(o.SampleRate)); end
+        if ~isempty(o.Layout),    args{end+1} = sprintf('Layout=%s', q(o.Layout)); end
+        if o.NumTrialsShown > 1,  args{end+1} = sprintf('NumTrialsShown=%d', o.NumTrialsShown); end
+        if ~isempty(tag),         args{end+1} = sprintf('PreferenceTag=%s', q(tag)); end
+        s = sprintf('h%d = gui.BufferPlot(obj.RUNTIME, %s', i, host);
+        if ~isempty(args), s = [s ', ' strjoin(args, ', ')]; end
+        out('%s);', s);
+        out('obj.register(h%d);', i);
+        emitPopOut(r, popParent, sprintf('h%d', i), false);
+
     case 'SessionClock'
         out('h%d = gui.SessionClock(g%s);', i, tagArg(tag));
         out('h%d.PanelH.Layout.Row = %s; h%d.PanelH.Layout.Column = %s;', ...

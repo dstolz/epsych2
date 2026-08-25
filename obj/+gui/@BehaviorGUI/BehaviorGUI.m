@@ -37,7 +37,7 @@ classdef (Abstract) BehaviorGUI < handle
     %   wants, and each one registers what it builds for teardown so the
     %   subclass never has to: controls (addControl, addButton,
     %   controlColumn, addUpdateButton), displays (addMonitor, addNextTrial,
-    %   addPerformance, addHistory, addScatter, addPsychPlot,
+    %   addPerformance, addHistory, addScatter, addBufferPlot, addPsychPlot,
     %   addStaircasePlot, addSessionClock, addTrialTimer, addModeIndicator),
     %   and operator add-ons (addNotes, addNotesButton, addScreenCapture,
     %   addSyringePump, addSessionGate). A helper whose component needs
@@ -45,6 +45,20 @@ classdef (Abstract) BehaviorGUI < handle
     %   resolve, an analysis that was never built -- returns [] and says so
     %   at debug level rather than throwing, so the GUI still opens against a
     %   runtime with no interfaces (epsych.SelfTest check I6).
+    %
+    %   Session-record notes are standard for every subclass: the commit
+    %   paths of the stock components record what the operator changed into
+    %   RUNTIME.NOTES (epsych.SessionNotes) -- a gui.Parameter_Update commit,
+    %   an autoCommit addControl edit, a gui.PhaseSelector phase load or
+    %   save each add a trial-stamped entry via epsych.SessionNotes.log.
+    %   Because the note store is folded into the Info variable every saving
+    %   function writes and journaled per trial, those entries are part of
+    %   every subject's data file whether or not the GUI includes a
+    %   gui.Notes component. Automatic per-trial writes (a staircase
+    %   stepping a parameter, a trial selector's dispatch) are deliberately
+    %   NOT recorded -- only operator actions are. addButton's session
+    %   toggles and triggers record nothing either: they are momentary by
+    %   design, and the trial record already carries their effect.
     %
     %   Display components that inherit gui.PopOut (the scatter, history,
     %   performance, next-trial, monitor, and plot components) can be opened
@@ -848,6 +862,51 @@ classdef (Abstract) BehaviorGUI < handle
                 h.timeWindow = seconds(options.TimeWindow);
             end
             obj.register(h, 'Online Plot');
+        end
+
+        function h = addBufferPlot(obj, parent, options)
+            % h = addBufferPlot(obj, parent, Buffers=..., SampleRate=...)
+            % Create a gui.BufferPlot of one or more buffer parameters,
+            % refreshed once per completed trial, and register it for teardown.
+            %
+            % The source is this GUI's runtime: the plot takes each buffer out
+            % of the trial record the runtime already read, so it costs the
+            % device nothing. Buffers left empty auto-selects the session's
+            % 'Buffer' parameters, which is why -- unlike addOnlinePlot -- this
+            % helper has nothing to refuse: there is no dialog it could put in
+            % front of the operator mid-session.
+            %
+            % SampleRate accepts a number or "auto" (take it from the owning
+            % hw.Module); without one the x axis is buffer samples. See
+            % gui.BufferPlot for the display options, all of which the operator
+            % can also reach from its right-click menu and which persist under
+            % PreferenceTag.
+            arguments
+                obj
+                parent (1,1)
+                options.Buffers = {}
+                options.SampleRate = []
+                options.BoxID (1,:) double = []
+                options.PreferenceTag {mustBeTextScalar} = ''
+                options.Layout {mustBeTextScalar} = ''
+                options.NumTrialsShown (1,1) double = 1
+            end
+
+            args = {'Buffers', options.Buffers, 'BoxID', options.BoxID, ...
+                'NumTrialsShown', options.NumTrialsShown};
+            if ~isempty(options.SampleRate)
+                args = [args {'SampleRate', options.SampleRate}];
+            end
+            if ~isempty(options.PreferenceTag)
+                args = [args {'PreferenceTag', options.PreferenceTag}];
+            end
+            if ~isempty(options.Layout)
+                args = [args {'Layout', options.Layout}];
+            end
+
+            h = gui.BufferPlot(obj.RUNTIME, parent, args{:});
+            if isempty(h) || ~isvalid(h), h = []; return; end
+            obj.register(h, 'Buffer Plot');
         end
 
         function h = addScatter(obj, parent, options)

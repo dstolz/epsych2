@@ -125,6 +125,14 @@ The *result* is then checked as well, because arithmetic on digits alone can
 still produce something no backend can send: `1e999` overflows to `Inf` and
 `(-1)^0.5` is complex. Only a real, finite number is written.
 
+Every write is also recorded as a session note (`epsych.SessionNotes.log`
+into the live session's `RUNTIME.NOTES`), so a hand-poke to a running rig is
+in the data set's `Info.Notes` — even for a session running with no behavior
+GUI at all. The typed value is what is recorded; what the device actually
+holds afterwards is the trial record's job. Writes made before a run starts
+are not recorded: RunExpt replaces its runtime at run start, so only writes
+into the live session reach its files.
+
 Every write is followed immediately by a read-back, because on a live backend
 the only proof a write landed is what the device returns afterwards. A
 write-only parameter has no read-back, so what the cell shows is the value

@@ -216,8 +216,10 @@ Two commits.
 
 **5a — moves.** `helpers/isConcreteStimType.m` → `obj/+stimbridge/` (pure stimgen-integration logic;
 called from [inferSerializedParameterType_.m:11](obj/+epsych/@Protocol/inferSerializedParameterType_.m#L11)
-and `Parameter_Control.m:1028`). `helpers/bitmask_gui.m` → `obj/+gui/bitmaskGUI.m` (callers:
-[BitMask.m:117](obj/+epsych/@BitMask/BitMask.m#L117), `TrialDesigner.m:607`).
+and `Parameter_Control.m:1028`). ~~`helpers/bitmask_gui.m` → `obj/+gui/bitmaskGUI.m` (callers:
+[BitMask.m:117](obj/+epsych/@BitMask/BitMask.m#L117), `TrialDesigner.m:607`).~~
+**Renamed in place 2026-08-25** as `helpers/bitmaskGUI.m`, both callers updated, no alias
+left behind. The MOVE into `obj/+gui/` is still open.
 `obj/+gui/eval_dependent_parameter_randomization.m` and `eval_staircase_training_mode.m` → `obj/+hw/`
 with camelCase names (they operate on `hw.Parameter` semantics, not GUI).
 

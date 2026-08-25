@@ -40,7 +40,7 @@ runtime/savefcns/	Data-and-Save-Functions	documentation/paradigms/cl_SaveDataFcn
 runtime/guis/	Building-a-Behavior-GUI, GUI-Framework-Internals	documentation/design/Customized_GUI_Instructions.md
 helpers/	Programmers-Toolkit	documentation/overviews/Programmers_Toolkit.md
 helpers/vprintf.m	Troubleshooting, Contributing-and-Conventions	documentation/helpers/helpers_vprintf.md
-helpers/bitmask_gui.m	Data-and-Save-Functions, Utilities	documentation/overviews/Programmers_Toolkit.md
+helpers/bitmaskGUI.m	Data-and-Save-Functions, Utilities	documentation/overviews/Programmers_Toolkit.md
 helpers/EPsychInfo	Installation-and-Setup, Installation-Guide	documentation/epsych/EPsychInfo.md
 epsych_startup.m	Installation-and-Setup, Installation-Guide, Quick-Start	documentation/overviews/Installation_Guide.md
 examples/customgui/	Building-a-Behavior-GUI, Generating-a-Behavior-GUI-with-AI	documentation/design/Customized_GUI_Instructions.md

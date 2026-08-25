@@ -604,7 +604,7 @@ classdef TrialDesigner < handle
 
         function mask = pickBitMask_(obj, initialMask, contextName)
             % mask = pickBitMask_(obj, initialMask, contextName)
-            % Modal response-code picker, reusing helpers/bitmask_gui.
+            % Modal response-code picker, reusing helpers/bitmaskGUI.
             %
             % Returns:
             %   mask - The chosen uint32 mask, or [] if cancelled.
@@ -621,7 +621,7 @@ classdef TrialDesigner < handle
             host.Layout.Row = 1;
             host.Layout.Column = [1 2];
 
-            inner = bitmask_gui(Parent = host, InitialMask = uint32(initialMask));
+            inner = bitmaskGUI(Parent = host, InitialMask = uint32(initialMask));
 
             b1 = uibutton(g, Text = 'Use These Bits', ...
                 Tooltip = 'Apply the selected outcome bits to this state.', ...
@@ -714,7 +714,7 @@ classdef TrialDesigner < handle
 
         function mask = readBitMaskValue_(~, inner, fallback)
             % mask = readBitMaskValue_(obj, inner, fallback)
-            % Read the mask out of an embedded bitmask_gui.
+            % Read the mask out of an embedded bitmaskGUI.
             %
             % The helper renders a numeric "Mask" field; finding it by type is
             % more robust than depending on the order of its children.

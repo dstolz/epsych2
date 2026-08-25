@@ -135,11 +135,11 @@ classdef BitMask < uint32
             % Returns:
             %   f - Figure handle for the launched GUI.
             %
-            % See also documentation/epsych/epsych_BitMask.md and helpers/bitmask_gui.m.
+            % See also documentation/epsych/epsych_BitMask.md and helpers/bitmaskGUI.m.
             arguments
                 options.InitialMask (1,1) {mustBeNonnegative, mustBeFinite, mustBeInteger} = 0
             end
-            f = bitmask_gui(InitialMask = options.InitialMask);
+            f = bitmaskGUI(InitialMask = options.InitialMask);
             if nargout == 0, clear f; end
         end
 

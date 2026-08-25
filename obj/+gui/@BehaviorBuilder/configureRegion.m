@@ -39,6 +39,8 @@ switch r.Type
         [o, ok] = pumpDialog(obj, r);
     case 'OnlinePlot'
         [o, ok] = onlinePlotDialog(obj, r, snap);
+    case 'BufferPlot'
+        [o, ok] = bufferPlotDialog(obj, r, snap);
     case 'SessionGate'
         [o, ok] = oneFieldDialog(obj, r, 'Text', 'Button label');
     case 'PhaseSelector'
@@ -362,6 +364,67 @@ out = gui.BehaviorBuilder.promptFields(obj.Fig, ...
     sprintf('%s - %s', gui.BehaviorBuilder.catalogEntry(r.Type).Display, orLabel(r)), f);
 ok = ~isempty(out);
 if ok, o.(field) = char(string(out.(field))); end
+end
+
+
+function [o, ok] = bufferPlotDialog(obj, r, snap)
+% Buffer parameters from the snapshot, plus the sample rate and the two
+% display choices worth fixing at design time. Leaving the list EMPTY is a
+% real answer -- gui.BufferPlot then plots the session's own buffers -- so
+% unlike the online plot there is nothing here to insist on.
+o = r.Options;
+buffers = {};
+if ~isempty(snap)
+    buffers = {snap(ismember({snap.Type}, {'Buffer','Coefficient Buffer'})).Name};
+end
+
+[dlg, g] = modalShell(obj, sprintf('Buffer Plot - %s', orLabel(r)), 460, 420, [5 1]);
+g.RowHeight = {34, '1x', 34, 34, 34};
+
+lbl = uilabel(g, 'Text','Buffers to plot (none = every buffer this protocol has):', ...
+    'WordWrap','on');
+lbl.Layout.Row = 1;
+lb = uilistbox(g, 'Items',buffers, 'Multiselect','on');
+lb.Layout.Row = 2;
+if isempty(buffers)
+    lb.Enable = 'off';
+else
+    lb.Value = intersect(o.Buffers, buffers);
+end
+
+rateRow = uigridlayout(g, [1 2]);
+rateRow.Layout.Row = 3;
+rateRow.ColumnWidth = {'fit','1x'};
+rateRow.Padding = [0 0 0 0];
+uilabel(rateRow, 'Text','Sample rate (Hz), 0 = plot samples:');
+rateField = uieditfield(rateRow, 'numeric', 'Value', o.SampleRate, 'Limits',[0 Inf]);
+
+layoutRow = uigridlayout(g, [1 2]);
+layoutRow.Layout.Row = 4;
+layoutRow.ColumnWidth = {'fit','1x'};
+layoutRow.Padding = [0 0 0 0];
+uilabel(layoutRow, 'Text','Layout:');
+layoutDD = uidropdown(layoutRow, 'Items',{'overlay','stacked'}, 'Value',o.Layout);
+
+trialRow = uigridlayout(g, [1 2]);
+trialRow.Layout.Row = 5;
+trialRow.ColumnWidth = {'fit','1x'};
+trialRow.Padding = [0 0 0 0];
+uilabel(trialRow, 'Text','Trials shown:');
+trialField = uieditfield(trialRow, 'numeric', 'Value',o.NumTrialsShown, ...
+    'Limits',[1 50], 'RoundFractionalValues','on');
+
+ok = runModal(dlg);
+if ok
+    picked = lb.Value;
+    if ischar(picked), picked = {picked}; end
+    if isempty(buffers), picked = {}; end
+    o.Buffers = reshape(cellstr(picked), 1, []);
+    o.SampleRate = rateField.Value;
+    o.Layout = layoutDD.Value;
+    o.NumTrialsShown = trialField.Value;
+end
+delete(dlg);
 end
 
 

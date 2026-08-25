@@ -29,6 +29,7 @@ rows = {
  'StaircasePlot' 'Staircase Plot'      'Displays' 'Staircase track with reversals (requires a Staircase analysis)'                           true  {'Staircase'} true  false ''
  'SlidingWindow' 'Sliding Window'      'Displays' 'Hit rate, FA rate and d'' over trials, cumulative or windowed (requires a psych analysis)'  true  {}            false false ''
  'OnlinePlot'    'Online Plot'         'Displays' 'Real-time traces of hardware activity for named parameters or a bitmask bank'             false {}            false true  ''
+ 'BufferPlot'    'Buffer Plot'         'Displays' 'Contents of buffer parameters, redrawn once per completed trial'                          false {}            true  true  'gui.BufferPlot'
  'SessionClock'  'Session Clock'       'Displays' 'Clock, session duration, and time-since-trial readouts'                                   false {}            false false 'gui.SessionClock'
  'TrialTimer'    'Trial Timer'         'Displays' 'Elapsed time since the last completed trial'                                              false {}            false false ''
  'ModeIndicator' 'Mode Indicator'      'Displays' 'Lamp showing the current run mode'                                                        false {}            false false ''

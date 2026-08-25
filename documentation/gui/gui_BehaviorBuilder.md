@@ -58,7 +58,7 @@ Reference Documentation opens this file, for a rig with no network.
 | Category | Components |
 |---|---|
 | Controls | Control Column (parameter controls in a titled `controlColumn`, Update button added automatically), Button Row (trigger/toggle buttons, optional Screen Capture) |
-| Displays | Parameter Monitor, Next Trial, Session Performance, Parameter Scatter, Trial History*, Psych Plot*, Staircase Plot*, Sliding Window*, Online Plot (names the parameters or bitmask bank to trace), Session Clock, Trial Timer, Mode Indicator |
+| Displays | Parameter Monitor, Next Trial, Session Performance, Parameter Scatter, Trial History*, Psych Plot*, Staircase Plot*, Sliding Window*, Online Plot (names the parameters or bitmask bank to trace), Buffer Plot (buffer contents, once per trial), Session Clock, Trial Timer, Mode Indicator |
 | Add-ons | Session Notes (stamp format, starting Editable state, and whether the region is the whole pad or just a button opening it), Syringe Pump (only `Sections` is configurable — everything else follows the rig's saved pump preferences), Screen Capture, Session Gate (button label), Phase Selector (phase folder), Status Bar (initial text), Filename Field (default `.mat` name) |
 
 \* requires a psych analysis. Pop-out buttons can be added to any
@@ -75,6 +75,12 @@ Validation refuses a sourceless region rather than generating one. The
 dialog lists the protocol's Read parameters and takes bitmask **bank** names
 as free text, because a bank's `~BMid-*` parameters are invisible and so
 never reach the layout spec's parameter snapshot.
+
+**Buffer Plot** is the opposite case: leaving its buffer list empty is a real
+answer, since `gui.BufferPlot` then takes the session's own `Buffer`
+parameters, so there is nothing for validation to insist on. Its dialog also
+sets the sample rate (0 keeps the x axis in buffer samples), the layout, and
+how many past trials are drawn — see [gui_BufferPlot.md](gui_BufferPlot.md).
 
 Session Notes in its **Button only** form is its own pop-out opener, so
 validation clears the region's pop-out flag rather than generating a second

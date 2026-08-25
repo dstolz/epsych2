@@ -784,6 +784,12 @@ classdef BehaviorBuilder < handle
                     % Empty would send gui.OnlinePlot to a listdlg at
                     % construction, which a generated build must never do.
                     o = struct('Source', {{}});
+                case 'BufferPlot'
+                    % Empty Buffers is legal and useful: gui.BufferPlot then
+                    % takes the session's own 'Buffer' parameters, so a region
+                    % nobody configured still plots something.
+                    o = struct('Buffers', {{}}, 'SampleRate', 0, ...
+                        'Layout','overlay', 'NumTrialsShown', 1);
                 case 'SessionGate'
                     o = struct('Text','Begin Experiment');
                 case 'PhaseSelector'
@@ -936,6 +942,12 @@ classdef BehaviorBuilder < handle
                     o.Source = gui.BehaviorBuilder.asRowCellstr_(o.Source);
                     assert(~isempty(o.Source), 'epsych:BehaviorBuilder:BadRegion', ...
                         'Online Plot needs at least one parameter or bitmask bank name')
+                case 'BufferPlot'
+                    o.Buffers = gui.BehaviorBuilder.asRowCellstr_(o.Buffers);
+                    o.SampleRate = double(o.SampleRate);
+                    if ~isfinite(o.SampleRate) || o.SampleRate < 0, o.SampleRate = 0; end
+                    o.Layout = char(string(o.Layout));
+                    o.NumTrialsShown = max(1, round(double(o.NumTrialsShown)));
                 case 'SessionGate'
                     o.Text = char(string(o.Text));
                 case 'PhaseSelector'

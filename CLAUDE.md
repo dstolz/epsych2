@@ -519,6 +519,44 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   the window — alive for as long as the figure holds it, so CANCELLING the
   dialog leaked an invisible modal window and the next one blocked in
   `uiwait` forever (documentation/gui/gui_OnlinePlot.md)
+- **gui.BufferPlot**: what is IN a buffer parameter, redrawn once per completed
+  trial — the per-trial counterpart to `gui.OnlinePlot`'s scrolling scalars
+  (`gui.BehaviorGUI.addBufferPlot`). The x axis is BUFFER SAMPLES by default,
+  because that is the only thing a buffer knows about itself; a `SampleRate`
+  (a number, or `"auto"` to take it from the owning `hw.Module`, whose `Fs`
+  reads 1 when unset) turns it into seconds or milliseconds. The thing to know
+  is **where the data comes from**: `ep_TimerFcn_RunTime` already reads every
+  readable parameter at trial completion — buffers included, since
+  `all_parameters(Access='Read')` excludes only write-only ones — so the
+  component takes each buffer out of the TRIAL RECORD rather than reading the
+  device again (a second read of a 131072-sample buffer is another
+  multi-megabyte COM transfer for numbers the runtime is holding). Only a
+  buffer the record cannot carry — an invisible parameter, filtered out of
+  that read — falls back to `Parameter.Value`, once per trial, and is kept in
+  a small ring since DATA will never hold it. That one decision is why the
+  component works live, offline over a saved `DATA` struct array, and under
+  `epsych.ReviewSession` (which notifies with `DATA(1:k)`, so the last record
+  is the reviewed trial and seeking BACKWARD is just a redraw) with no
+  special case for any of them — and why hardware is never read in
+  `ReviewMode`, where `hw.Replay` would answer from a snapshot whose buffer
+  contents were deliberately blanked. Three more a reader would otherwise
+  re-derive: decimation to `MaxPoints` is a min/max ENVELOPE, not a stride,
+  which would hide exactly the transient a buffer is watched for, and it is
+  cached by trial index so a `NumTrialsShown` history costs one pass per
+  trial rather than one per redraw; the history is REBUILT from `DATA` rather
+  than accumulated, so nothing goes stale when `MaxPoints` changes and a
+  review shows the trials before the one being scrubbed to; and faded history
+  traces are BLENDED toward the axes background rather than given an RGBA
+  `Color`, which not every supported release renders alike. Aesthetics are
+  the operator's and persist by `PreferenceTag`; the buffer SELECTION is
+  restored only when they chose it by hand, and a `SampleRate` the caller
+  stated always outranks a saved one — it is a fact about the device, not a
+  taste. A `gui.PopOut` adopter, and on `gui.BehaviorBuilder`'s palette where
+  an EMPTY buffer list is a real answer (unlike Online Plot's source, which
+  validation insists on): the plot then auto-selects the session's plain
+  `Buffer` parameters, capped at four, coefficient buffers excluded since
+  nothing about session-static calibration coefficients is per-trial
+  (documentation/gui/gui_BufferPlot.md)
 - **gui.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
 - **gui.NextTrial**: generic upcoming-trial display driven by NewTrial events
 - **gui.ReviewTransport**: the trial scrubber for an `epsych.ReviewSession` —
@@ -600,7 +638,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   Never in a review — blocking would hang `epsych.ReviewSession` inside
   `feval`. Extracted from `examples/syringepump/PumpBehaviorGUI`, which now
   uses it (documentation/gui/gui_SessionGate.md)
-- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, SyringePump, PsychPlot, OnlinePlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button, `gui.ComponentToolbar` puts them all on one toolbar. A second item, **Keep Window on Top**, pins the window (`WindowStyle='alwaysontop'`) so a display stays readable while the operator works in another application, and is remembered with the window position. It appears only in a window holding ONE component — a pop-out, or one `ComponentToolbar` opened for a lazy entry, marked as such by `gui.PopOut.markStandaloneWindow` before the component is built — never on the embedded copy, whose window belongs to the behavior GUI and everything else on it. A `PopOutStateChanged` event says when a window opened or closed — NOT when one is merely raised, and not during the host's own destruction, which is what keeps closing a GUI from reading as the operator closing its windows — and is what `gui.BehaviorGUI`'s `RestorePopOuts` listens to: with it on, the GUI remembers WHICH displays were open (`OpenPopOuts` under its own `PreferenceTag`, rewritten at each change rather than at teardown, so a killed MATLAB still remembers) and reopens them at construction. It records only the list; how each window looks — position, font, columns, pinned — was already the component's own pop-out preference key, which is why "restore the configuration" needed no new persistence. Two decisions: an identity is the component-toolbar label (register name, else the class name spaced out, uniquified by registration order), so `register(comp, name)` is what pins it when a GUI holds two of a class; and an entry this GUI cannot resolve is skipped but KEPT in the list — a protocol showing fewer displays than another must not erase the fuller layout (documentation/gui/gui_PopOut.md)
+- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, SyringePump, PsychPlot, OnlinePlot, BufferPlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button, `gui.ComponentToolbar` puts them all on one toolbar. A second item, **Keep Window on Top**, pins the window (`WindowStyle='alwaysontop'`) so a display stays readable while the operator works in another application, and is remembered with the window position. It appears only in a window holding ONE component — a pop-out, or one `ComponentToolbar` opened for a lazy entry, marked as such by `gui.PopOut.markStandaloneWindow` before the component is built — never on the embedded copy, whose window belongs to the behavior GUI and everything else on it. A `PopOutStateChanged` event says when a window opened or closed — NOT when one is merely raised, and not during the host's own destruction, which is what keeps closing a GUI from reading as the operator closing its windows — and is what `gui.BehaviorGUI`'s `RestorePopOuts` listens to: with it on, the GUI remembers WHICH displays were open (`OpenPopOuts` under its own `PreferenceTag`, rewritten at each change rather than at teardown, so a killed MATLAB still remembers) and reopens them at construction. It records only the list; how each window looks — position, font, columns, pinned — was already the component's own pop-out preference key, which is why "restore the configuration" needed no new persistence. Two decisions: an identity is the component-toolbar label (register name, else the class name spaced out, uniquified by registration order), so `register(comp, name)` is what pins it when a GUI holds two of a class; and an entry this GUI cannot resolve is skipped but KEPT in the list — a protocol showing fewer displays than another must not erase the fuller layout (documentation/gui/gui_PopOut.md)
 - **gui.ComponentToolbar**: the optional icon toolbar a behavior GUI adds with
   `addComponentToolbar` — one tool per display, opening it in a window of its
   own. Two kinds of entry, differing in who owns the window: **automatic**

@@ -127,6 +127,10 @@ classdef RegenerateTrial < handle
         KeyPressHook_ = []
         KeyReleaseHook_ = []
 
+        % Set when a gui.KeyBindings supplies the modifier state instead.
+        % Its presence is what says the hooks above are not in use.
+        ModifierListener_ event.listener
+
         ArmedColor_ (1,3) double = [0.96 0.78 0.36]
         DisarmedColor_ (1,3) double = [0.90 0.87 0.80]
     end
@@ -179,6 +183,7 @@ classdef RegenerateTrial < handle
                 options.FontSize (1,1) double {mustBePositive, mustBeFinite} = 12
                 options.FontWeight (1,:) char {mustBeMember(options.FontWeight,{'normal','bold'})} = 'normal'
                 options.BackgroundColor (1,3) double {mustBeNonnegative} = [0.96 0.78 0.36]
+                options.KeySource = []
             end
 
             obj.SubjectIndex   = options.SubjectIndex;
@@ -206,12 +211,23 @@ classdef RegenerateTrial < handle
                 obj.ButtonH.Icon = gui.toolbarIcon("refresh");
             end
 
-            obj.installKeyHooks_();
+            % Inside a behavior GUI the modifier state comes from the one
+            % object that owns the figure's key callbacks, so nothing here
+            % has to claim or chain them. Standalone, the hooks below are
+            % still the only way to see a modifier.
+            if isempty(options.KeySource)
+                obj.installKeyHooks_();
+            else
+                obj.ModifierListener_ = listener(options.KeySource, 'ModifiersChanged', ...
+                    @(src,~) obj.setArmed_(src.CurrentModifiers));
+            end
+
             obj.attachRuntime(RUNTIME);
         end
 
         function delete(obj)
             delete(obj.Listener_)
+            delete(obj.ModifierListener_)
             obj.removeKeyHooks_();
         end
 
@@ -315,15 +331,20 @@ classdef RegenerateTrial < handle
 
         function onModeChange_(obj, ev)
             obj.Mode_ = ev.NewMode;
-            % Re-assert the key hooks here as well as at construction. A
-            % figure has ONE WindowKeyPressFcn slot, and gui.Parameter_Update
-            % claims it outright (it does not chain); in a typical build
-            % method the Update button is created after this one, so the
-            % hooks installed in the constructor are already gone by now.
-            % RunExpt broadcasts the run mode only after the whole GUI has
-            % been built, which makes this the first moment every component
-            % has had its turn.
-            obj.installKeyHooks_();
+            % Re-assert the key hooks here as well as at construction, for a
+            % STANDALONE component only. A figure has ONE WindowKeyPressFcn
+            % slot, and a neighbour that claims it outright (as
+            % gui.Parameter_Update does with no KeySource) takes away the
+            % hooks installed in the constructor; RunExpt broadcasts the run
+            % mode only after the whole GUI is built, which makes this the
+            % first moment every component has had its turn.
+            %
+            % With a KeySource there is nothing to re-assert: gui.KeyBindings
+            % owns the slot for the whole window and this component only
+            % listens to it.
+            if isempty(obj.ModifierListener_)
+                obj.installKeyHooks_();
+            end
             obj.applyEnable_();
         end
 

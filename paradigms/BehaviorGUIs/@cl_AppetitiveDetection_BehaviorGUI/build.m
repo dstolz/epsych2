@@ -132,9 +132,9 @@ set(obj.NotesButton.OpenH, FontWeight='bold', FontSize=15);
 % The button is DEAD until Ctrl+Alt+Shift are all held -- the same gesture
 % the Update Parameters button uses -- which is what keeps it out of reach of
 % a mis-click in a row of buttons the operator uses constantly. This GUI also
-% holds a gui.Parameter_Update, created below and therefore AFTER this button;
-% it claims the figure's key callbacks outright, and gui.RegenerateTrial
-% re-installs and chains on the first ModeChange so both work off that key.
+% holds a gui.Parameter_Update, created below, which reads the same three
+% modifiers; both take them from this GUI's gui.KeyBindings, so the order the
+% two are built in no longer decides which of them sees the key.
 %
 % *** ONCE ARMED IT INTERRUPTS THE TRIAL IN PROGRESS AND ASKS NOTHING
 % FURTHER. *** Pressed while the animal is on the platform it restarts the

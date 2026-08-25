@@ -67,6 +67,25 @@ classdef (Abstract) BehaviorGUI < handle
     %   skipped and LEFT in the list, so running one paradigm cannot erase
     %   the layout of another.
     %
+    %   Keyboard shortcuts go through obj.Keys, a gui.KeyBindings that owns
+    %   this figure's key callbacks:
+    %
+    %       obj.Keys.bind('leftarrow', @() obj.respondSide(0), ...
+    %           Description = 'Respond LEFT');
+    %
+    %   Never assign fig.WindowKeyPressFcn or WindowKeyReleaseFcn on the main
+    %   figure. There is one slot for each, and assigning it takes the keys
+    %   away from every component that already asked for one -- which is the
+    %   bug this class exists to prevent. Helpers that come with a default
+    %   chord (addUpdateButton, addScreenCapture, addNotes) take
+    %   KeyBinding='none' to drop it, or a chord of your own to change it.
+    %   Ctrl+Shift+? and F1 list what is bound.
+    %
+    %   Two limits worth knowing: a uifigure delivers no window key event
+    %   while an edit field has focus (which is also what stops a shortcut
+    %   firing mid-note), and a binding is suppressed in a review unless it
+    %   was bound with EnableInReview=true.
+    %
     %   NewData listener source: when createPsych returns a psychophysics
     %   object, NewData is taken from Psych.Events so the psych object has
     %   already processed the trial before onNewData runs; otherwise
@@ -83,6 +102,7 @@ classdef (Abstract) BehaviorGUI < handle
         h_figure                % Main uifigure handle
         hButtons (1,1) struct = struct() % addButton controls keyed by validName
         PreferenceTag (1,:) char % Figure Tag and getpref/setpref group
+        Keys                    % gui.KeyBindings owning this figure's key callbacks
     end
 
     properties
@@ -191,7 +211,25 @@ classdef (Abstract) BehaviorGUI < handle
             movegui(fig, 'onscreen');
             obj.h_figure = fig;
 
+            % Before build, so build can bind. A figure has one
+            % WindowKeyPressFcn slot and components used to take it from one
+            % another silently; this object owns it and hands out bindings.
+            obj.Keys = gui.KeyBindings(fig);
+            obj.Keys.ReviewModeFcn = @() obj.ReviewMode;
+            obj.Keys.bind('ctrl+shift+slash', @() obj.Keys.showHelp(), ...
+                Description = 'Show this shortcut list', Group = 'Help', ...
+                EnableInReview = true);
+            obj.Keys.bind('f1', @() obj.Keys.showHelp(), ...
+                Description = 'Show this shortcut list', Group = 'Help', ...
+                EnableInReview = true);
+
             obj.build(fig);
+
+            % Again after build: a component constructed in there may have
+            % assigned the figure's key callback itself (gui.Parameter_Update
+            % still does when it is used outside a behavior GUI). This takes
+            % the slot back and chains what it found, so both keep working.
+            obj.Keys.claimFigure();
 
             obj.wireUpdateButtons_();
 
@@ -259,6 +297,14 @@ classdef (Abstract) BehaviorGUI < handle
             end
             obj.Components_     = {};
             obj.ComponentNames_ = {};
+
+            % After the components, since one may unbind on its way out.
+            try
+                if ~isempty(obj.Keys) && isvalid(obj.Keys)
+                    delete(obj.Keys);
+                end
+            catch
+            end
 
             try
                 if ~isempty(obj.Psych) && isvalid(obj.Psych)
@@ -479,17 +525,24 @@ classdef (Abstract) BehaviorGUI < handle
             lay.Scrollable = 'on';
         end
 
-        function h = addUpdateButton(obj, parent)
-            % h = addUpdateButton(obj, parent)
+        function h = addUpdateButton(obj, parent, options)
+            % h = addUpdateButton(obj, parent, KeyBinding=)
             % Create a gui.Parameter_Update commit button. Its
             % watchedHandles are filled automatically after build with
             % every registered non-trigger, non-autoCommit control.
+            %
+            % Ctrl+Enter commits, and does nothing when nothing is pending.
+            % KeyBinding='none' drops the shortcut; any other chord replaces
+            % it.
             arguments
                 obj
                 parent (1,1)
+                options.KeyBinding (1,:) char = 'ctrl+return'
             end
-            h = gui.Parameter_Update(obj.RUNTIME, parent);
+            h = gui.Parameter_Update(obj.RUNTIME, parent, KeySource = obj.Keys);
             obj.register(h);
+            obj.bindComponentKey_(options.KeyBinding, @() h.commitPending(), h, ...
+                'Commit pending parameter edits');
         end
 
         function h = addMonitor(obj, parent, params, options)
@@ -591,6 +644,9 @@ classdef (Abstract) BehaviorGUI < handle
             % connect on, so the GUI still opens. Use Sections to show only
             % part of the panel. See gui.SyringePump.
             %
+            % No key chord, deliberately: these controls move a syringe, and
+            % a keystroke is the wrong way to start or stop one.
+            %
             % Options are deliberately declared without defaults: only what
             % the build method actually passes is forwarded, which is what
             % lets the panel fall back to the operator's own remembered
@@ -628,6 +684,10 @@ classdef (Abstract) BehaviorGUI < handle
             % function writes carries them, and each one is journaled as it is
             % committed, so a crash keeps them. Give the panel a '1x' row and
             % the log fills it. See gui.Notes.
+            %
+            % Ctrl+Shift+N jumps to the entry field (or opens the window, in
+            % the ButtonOnly form), so a note can be typed without reaching
+            % for the mouse. KeyBinding='none' drops it.
             arguments
                 obj
                 parent (1,1)
@@ -639,6 +699,7 @@ classdef (Abstract) BehaviorGUI < handle
                 options.ButtonOnly (1,1) logical = false
                 options.Text (1,:) char = 'Notes'
                 options.PreferenceTag (1,:) char = ''
+                options.KeyBinding (1,:) char = 'ctrl+shift+n'
             end
 
             args = {'Subject', options.Subject, 'TimeStamp', options.TimeStamp, ...
@@ -651,6 +712,8 @@ classdef (Abstract) BehaviorGUI < handle
 
             h = gui.Notes(obj.RUNTIME, parent, args{:});
             obj.register(h);
+            obj.bindComponentKey_(options.KeyBinding, @() obj.focusNotes_(h), h, ...
+                'Jump to the session notes');
         end
 
         function h = addNotesButton(obj, parent, options)
@@ -669,11 +732,13 @@ classdef (Abstract) BehaviorGUI < handle
                 options.TimeStamp (1,1) string = "elapsed"
                 options.FontSize (1,1) double = 12
                 options.PreferenceTag (1,:) char = ''
+                options.KeyBinding (1,:) char = 'ctrl+shift+n'
             end
 
             h = obj.addNotes(parent, ButtonOnly = true, Text = options.Text, ...
                 Subject = options.Subject, TimeStamp = options.TimeStamp, ...
-                FontSize = options.FontSize, PreferenceTag = options.PreferenceTag);
+                FontSize = options.FontSize, PreferenceTag = options.PreferenceTag, ...
+                KeyBinding = options.KeyBinding);
         end
 
         function h = addScreenCapture(obj, parent, options)
@@ -681,7 +746,8 @@ classdef (Abstract) BehaviorGUI < handle
             % Create a gui.ScreenCapture camera button and register it for
             % teardown. One click copies a picture of the whole window —
             % controls, plots and all — to the system clipboard, for pasting
-            % into a notebook entry. See gui.ScreenCapture.
+            % into a notebook entry. Ctrl+Shift+C copies too;
+            % KeyBinding='none' drops that. See gui.ScreenCapture.
             arguments
                 obj
                 parent (1,1)
@@ -690,15 +756,21 @@ classdef (Abstract) BehaviorGUI < handle
                 options.Tooltip       (1,:) char = 'Copy this window to the clipboard'
                 options.FontSize      (1,1) double = 12
                 options.FlashDuration (1,1) double = 1.5
+                options.KeyBinding    (1,:) char = 'ctrl+shift+c'
             end
 
             if isempty(options.Target)
                 options.Target = obj.h_figure;
             end
 
+            chord = options.KeyBinding;
+            options = rmfield(options, 'KeyBinding');
+
             args = namedargs2cell(options);
             h = gui.ScreenCapture(parent, args{:});
             obj.register(h);
+            obj.bindComponentKey_(chord, @() h.copyToClipboard(), h, ...
+                'Copy this window to the clipboard');
         end
 
         function h = addHistory(obj, parent, options)
@@ -936,6 +1008,10 @@ classdef (Abstract) BehaviorGUI < handle
             % would hold the session at a window nobody can click.
             %
             % See gui.SessionGate for options.
+            %
+            % No key chord, deliberately: pressing this starts the session
+            % dispatching trials, which is not something a stray keystroke
+            % over the wrong window should be able to do.
             arguments
                 obj
                 parent (1,1)
@@ -1003,6 +1079,11 @@ classdef (Abstract) BehaviorGUI < handle
             %
             % The button is live only while the session is running (Preview
             % or Record) and never in a review. See gui.RegenerateTrial.
+            %
+            % Deliberately the one helper with NO key chord: holding the
+            % three modifiers is the gesture, and a chord that fired it
+            % outright would undo the arming this component exists to
+            % impose. Bind one yourself if a rig wants it.
             arguments
                 obj
                 parent (1,1)
@@ -1020,7 +1101,7 @@ classdef (Abstract) BehaviorGUI < handle
             end
 
             args = namedargs2cell(options);
-            h = gui.RegenerateTrial(obj.RUNTIME, parent, args{:});
+            h = gui.RegenerateTrial(obj.RUNTIME, parent, args{:}, KeySource = obj.Keys);
             obj.register(h);
         end
 
@@ -1253,6 +1334,42 @@ classdef (Abstract) BehaviorGUI < handle
     end
 
     methods (Access = private)
+
+        function bindComponentKey_(obj, chord, callback, owner, description)
+            % Give a helper's component its default shortcut.
+            %
+            % 'none' is how a paradigm declines one. A component that was
+            % skipped (an unresolved parameter, a missing analysis) gets no
+            % binding, and a chord the paradigm has already used for
+            % something else is reported rather than thrown: the shortcut is
+            % a convenience, and losing it must not stop the GUI opening
+            % (epsych.SelfTest check I6).
+            if isempty(chord) || strcmpi(chord, 'none'), return; end
+            if isempty(owner) || ~isvalid(owner), return; end
+            if isempty(obj.Keys) || ~isvalid(obj.Keys), return; end
+
+            try
+                obj.Keys.bind(chord, callback, Description = description, Owner = owner);
+            catch ME
+                vprintf(2, '%s: no %s shortcut (%s)', class(obj), chord, ME.message)
+            end
+        end
+
+        function focusNotes_(~, h)
+            % Put the caret where the note gets typed. The ButtonOnly form
+            % keeps its entry field in a window of its own, so there the
+            % shortcut opens that window instead -- the same thing its
+            % button does.
+            try
+                if h.IsButtonOnly
+                    h.popOut();
+                elseif ~isempty(h.EntryH) && isvalid(h.EntryH)
+                    focus(h.EntryH);
+                end
+            catch ME
+                vprintf(2, 'gui.BehaviorGUI: could not reach the notes entry (%s)', ME.message)
+            end
+        end
 
         function tf = hasPsych_(obj, what)
             % Is there a usable analysis object for a display that needs one?

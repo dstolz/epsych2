@@ -98,6 +98,7 @@ Analysis and GUI classes
    ├─ MicrophonePlot
    ├─ FilenameValidator
    ├─ ModeIndicator
+   ├─ KeyBindings
    ├─ History
    ├─ OnlinePlot
    ├─ Performance

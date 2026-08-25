@@ -64,8 +64,11 @@ assert(isequal(g.SessionClock.PanelH.Layout.Row, 1) && isequal(g.SessionClock.Pa
 assert(isvalid(g.NotesButton) && g.NotesButton.IsButtonOnly, ...
     'notes button should exist in its button-only form');
 assert(g.NotesButton.Store == rt.NOTES, 'notes button should write to the session store');
-assert(numel(g.NotesButton.OpenH.Parent.ColumnWidth) == 7, ...
-    'the button row should have a column for it beside the six triggers');
+assert(numel(g.NotesButton.OpenH.Parent.ColumnWidth) == 8, ...
+    'the button row should hold six triggers, Notes, and Regenerate');
+assert(isvalid(g.RegenerateButton), 'regenerate button should exist');
+assert(isequal(g.RegenerateButton.ButtonH.Parent, g.NotesButton.OpenH.Parent), ...
+    'regenerate button should sit in the same row, in the last column');
 fprintf('PASS: panels and components\n');
 
 % 4. Automatic Parameter_Update wiring ------------------------------------

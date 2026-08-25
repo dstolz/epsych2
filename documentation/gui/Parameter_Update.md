@@ -114,12 +114,26 @@ Current limitation: the implementation notes "CURRENTLY ONLY WORKS FOR SINGLE SU
 
 ## Keyboard handling note
 
-The constructor installs callbacks on the owning figure:
+The button repaints while modifiers are held, so it has to see them. Where it
+reads them from depends on how it was constructed:
 
-- `Figure.WindowKeyPressFcn = @obj.key_press`
-- `Figure.WindowKeyReleaseFcn = @obj.key_release`
+- **Inside a `gui.BehaviorGUI`** (`addUpdateButton`), a `KeySource` is passed
+  in and the button listens to that [`gui.KeyBindings`](gui_KeyBindings.md)'s
+  `ModifiersChanged` event. It touches no figure callback at all, so every
+  other component's keys keep working whatever order `build` creates them in.
+- **Standalone**, with no `KeySource`, it claims
+  `Figure.WindowKeyPressFcn`/`WindowKeyReleaseFcn` as it always has.
 
-If other code in your GUI also needs `WindowKeyPressFcn`/`WindowKeyReleaseFcn`, you may need to chain callbacks or centralize key handling so the most recent assignment does not overwrite other handlers.
+That second path is why the centralization exists: a figure has exactly one of
+each slot, and claiming it outright took the keys away from every component
+built before it — which is what left the arrow keys in
+`examples/two_afc/TwoAFCBehaviorGUI.m` advertised in the button tooltips and
+dead in the window. In a behavior GUI, bind through `obj.Keys` and never
+assign the figure callbacks yourself.
+
+`commitPending()` is what a keyboard shortcut calls (`Ctrl+Enter` by default):
+unlike `commit_changes` it returns immediately when nothing is pending,
+matching the button's own disabled state.
 
 ## Related files
 

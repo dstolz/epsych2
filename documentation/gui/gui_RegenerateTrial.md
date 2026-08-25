@@ -172,6 +172,17 @@ and is not `isIdle`: a preview dispatches trials like any other run.
 
 ## Sharing the key callbacks
 
+**Inside a `gui.BehaviorGUI` this is settled for you.** `addRegenerateTrial`
+passes the GUI's [`gui.KeyBindings`](gui_KeyBindings.md) as `KeySource`, and
+the component then takes the held modifiers from its `ModifiersChanged` event.
+No figure callback is touched, nothing needs re-installing, and the order
+`build` happens to create the Update button in no longer decides which
+component sees the key.
+
+Everything below describes the **standalone** path — a component built into a
+window with no behavior GUI around it, which is still supported and still
+tested.
+
 A figure has exactly **one** `WindowKeyPressFcn` slot, and `gui.Parameter_Update`
 claims it outright — it does not chain. In a typical `build` method the Update
 button is created *after* this one, so hooks installed in this component's

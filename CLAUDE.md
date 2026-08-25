@@ -565,6 +565,47 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   Add-ons, where the ButtonOnly form is the one case that CLEARS a region's
   pop-out flag in `normalizeRegion_` — that button already opens the window a
   pop-out button would (documentation/gui/gui_Notes.md)
+- **gui.KeyBindings**: the keyboard-command processor a behavior GUI owns
+  (`obj.Keys`), and the answer to a figure having exactly ONE
+  `WindowKeyPressFcn` slot that three parties used to claim by assignment —
+  `gui.Parameter_Update` outright, `gui.RegenerateTrial` by chaining and
+  re-installing on every ModeChange, and the subclass itself. Last write won,
+  silently: `TwoAFCBehaviorGUI` wired its arrow keys and then called
+  `addUpdateButton`, so the keys its own tooltips advertised were dead. The
+  class **owns both slots** rather than using `addlistener` — listeners
+  compose, but that leaves the slots a live clobber surface with no defined
+  order, and owning it is what lets `claimFigure` (called by the base AFTER
+  `build`) notice a foreign claim and chain it for unbound keys instead of
+  throwing it away. Bindings are **code, never operator preference**: nothing
+  is persisted, there is no rebinding UI, and `showHelp` (Ctrl+Shift+?, F1) is
+  the only place the set is visible. A chord is the WHOLE modifier set
+  (`ctrl+shift+r` does not fire `ctrl+r`), normalized to one canonical
+  spelling with the aliases the older handlers each special-cased
+  (`command`→ctrl, `numpadN`→N, `?`→slash); a **duplicate errors** rather than
+  warning, since a collision in code is a paradigm bug that should not leave
+  one command quietly dead. Four things a reader would otherwise re-derive: a
+  bare modifier press is STATE and is never looked up as a chord, or holding
+  Ctrl to arm something would also fire whatever `ctrl` was bound to;
+  `CurrentModifiers`/`ModifiersChanged` is what `gui.Parameter_Update` and
+  `gui.RegenerateTrial` now read through an optional `KeySource`, so both keep
+  their whole hook machinery for STANDALONE windows and neither needs it
+  inside a GUI (`smoke_test_regenerate_trial` is unchanged and still green);
+  dispatch is **suppressed in a review** unless a binding asks for
+  `EnableInReview`, defence in depth over the components' own gates; and a
+  binding with an `Owner` dies with that component. The helpers that ship a
+  default chord are `addUpdateButton` (Ctrl+Enter, via a new `commitPending`
+  that is inert when nothing is pending), `addScreenCapture` (Ctrl+Shift+C)
+  and `addNotes`/`addNotesButton` (Ctrl+Shift+N), each dropped with
+  `KeyBinding='none'`; `addSessionGate`, `addSyringePump` and
+  `addRegenerateTrial` deliberately have NONE, since those start a session,
+  move a syringe, or interrupt the trial in progress — the regenerate hold
+  gesture IS its key handling. Two limits are documented rather than fixed: a
+  uifigure delivers no window key event while an edit field has focus (which
+  is also what stops a shortcut firing mid-note), and a modifier released
+  while another window has focus corrects itself only at the next keystroke.
+  Standing proof `tmp/smoke_test_keybindings.m`, whose group 11 is the
+  regression itself — a key bound before `addUpdateButton` still firing after
+  it (documentation/gui/gui_KeyBindings.md)
 - **gui.RegenerateTrial**: a button that re-arms the trial the rig is holding
   (`gui.BehaviorGUI.addRegenerateTrial`). One press is
   `epsych.Runtime.dispatchNextTrial` — the same call the trial loop makes at
@@ -575,9 +616,11 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   combination `gui.Parameter_Update` already uses held-while-clicking, so the
   gesture is not new to an operator. The gate is re-checked inside
   `regenerate` and not only in the button's `Enable`, so a script or a stale
-  enable state fails closed. Sharing that key needs care: a figure has ONE
-  `WindowKeyPressFcn` and `Parameter_Update` claims it outright, so this
-  component CHAINS (wrapped in try/catch — `Parameter_Update`'s own handler
+  enable state fails closed. Inside a behavior GUI the modifiers now arrive
+  from `gui.KeyBindings` through a `KeySource` and none of what follows
+  applies; the hook machinery remains for a STANDALONE window, where a figure
+  has ONE `WindowKeyPressFcn` and `Parameter_Update` claims it outright, so
+  this component CHAINS (wrapped in try/catch — `Parameter_Update`'s own handler
   throws until its `watchedHandles` are wired at the end of `build`) and
   RE-INSTALLS on the first `ModeChange`, which is the first moment every
   component has had its turn. `isInstalled_` tests `~isempty(hook)` before

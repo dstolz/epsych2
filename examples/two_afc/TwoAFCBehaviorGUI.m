@@ -194,7 +194,15 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             % Arrow keys answer too, so a subject can keep their eyes on
             % the lamps instead of hunting for a button. Both routes call
             % respondSide, which ignores anything outside the window.
-            fig.WindowKeyPressFcn = @(~,evt) obj.keyPressed_(evt);
+            %
+            % Through obj.Keys, never fig.WindowKeyPressFcn: a figure has
+            % only one of those, and the addUpdateButton call below used to
+            % claim it -- which left these arrow keys advertised in the
+            % button tooltips and dead in the window.
+            obj.Keys.bind('leftarrow',  @() obj.respondSide(0), ...
+                Description = 'Respond LEFT',  Group = 'Subject response');
+            obj.Keys.bind('rightarrow', @() obj.respondSide(1), ...
+                Description = 'Respond RIGHT', Group = 'Subject response');
 
             % --- Operator panel ------------------------------------------
             og = uigridlayout(g, [4 1]);
@@ -414,15 +422,6 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
                 end
             catch ME
                 vprintf(0, 1, ME)
-            end
-        end
-
-        function keyPressed_(obj, evt)
-            % Arrow keys are the subject's other input. Anything else is
-            % ignored, and respondSide drops presses outside the window.
-            switch evt.Key
-                case {'leftarrow'},  obj.respondSide(0);
-                case {'rightarrow'}, obj.respondSide(1);
             end
         end
 

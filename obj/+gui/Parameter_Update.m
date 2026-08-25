@@ -34,13 +34,24 @@ classdef Parameter_Update < handle
         resetPending (1,1) logical = false % true while Ctrl alone is held, arming the button to discard edits
 
         hl_values
+        hl_modifiers    % listener on a gui.KeyBindings, when one was given
     end
 
     methods
-        function obj = Parameter_Update(RUNTIME,parent)
+        function obj = Parameter_Update(RUNTIME,parent,options)
+            % obj = gui.Parameter_Update(RUNTIME, parent, KeySource=)
+            %
+            % KeySource is a gui.KeyBindings. Given one, the button takes
+            % the held modifiers from its ModifiersChanged event instead of
+            % claiming the figure's key callbacks -- there is one such
+            % callback per figure, and claiming it takes the keys away from
+            % every other component. Without one (a standalone window with
+            % no behavior GUI around it) the callbacks are claimed as
+            % before.
             arguments
                 RUNTIME
                 parent (1,1)
+                options.KeySource = []
             end
 
             obj.RUNTIME = RUNTIME;
@@ -55,8 +66,14 @@ classdef Parameter_Update < handle
             obj.Button.WordWrap = "on";
 
             obj.Figure = ancestor(obj.Button,'figure');
-            obj.Figure.WindowKeyPressFcn = @obj.key_press;
-            obj.Figure.WindowKeyReleaseFcn  = @obj.key_release;
+
+            if isempty(options.KeySource)
+                obj.Figure.WindowKeyPressFcn = @obj.key_press;
+                obj.Figure.WindowKeyReleaseFcn  = @obj.key_release;
+            else
+                obj.hl_modifiers = listener(options.KeySource, 'ModifiersChanged', ...
+                    @(src,~) obj.modifiers_changed(src.CurrentModifiers));
+            end
 
             obj.color_nothingToUpdate = rgb2hex(obj.Button.BackgroundColor);
         end
@@ -64,6 +81,9 @@ classdef Parameter_Update < handle
         function delete(obj)
             try
                 delete(obj.hl_values);
+            end
+            try
+                delete(obj.hl_modifiers);
             end
         end
 
@@ -121,6 +141,21 @@ classdef Parameter_Update < handle
             else
                 obj.value_changed;
             end
+        end
+
+        function commitPending(obj)
+            % commitPending(obj)
+            % Commit the pending edits, or do nothing when there are none.
+            %
+            % This is what a keyboard shortcut calls rather than
+            % commit_changes: the button is disabled when nothing is
+            % pending, so a chord must be inert then too -- otherwise a
+            % stray keystroke rewrites the trial table and logs a commit
+            % that changed nothing.
+            if isempty(obj.watchedHandles) || ~any([obj.watchedHandles.ValueUpdated])
+                return
+            end
+            obj.commit_changes([], []);
         end
 
         function button_pushed(obj,src,event)

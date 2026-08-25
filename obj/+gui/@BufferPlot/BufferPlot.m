@@ -4,13 +4,21 @@ classdef BufferPlot < gui.PopOut
     %   obj = gui.BufferPlot(source, container)
     %   obj = gui.BufferPlot(source, container, Buffers=["Waveform~1"], SampleRate=24414)
     %
-    %   Plots the contents of one or more 'Buffer' (or 'Coefficient Buffer')
-    %   parameters, refreshed once per completed trial. The x axis is BUFFER
-    %   SAMPLES by default, because that is the only thing a buffer is
-    %   guaranteed to know about itself; naming a SampleRate (a number, or
-    %   "auto" to take it from the owning hw.Module) turns it into seconds or
-    %   milliseconds. Everything about how it looks -- traces, order, colour,
-    %   width, palette, layout, how many past trials are drawn -- is settable
+    %   Plots the contents of one or more 'Buffer' parameters, refreshed once
+    %   per completed trial. The x axis is BUFFER SAMPLES by default, because
+    %   that is the only thing a buffer is guaranteed to know about itself;
+    %   naming a SampleRate (a number, or "auto" to take it from the owning
+    %   hw.Module) turns it into seconds or milliseconds.
+    %
+    %   'Coefficient Buffer' parameters are deliberately NOT plottable here.
+    %   They hold session-static data (calibration coefficients), so there is
+    %   nothing per-trial about one and every redraw would show the same
+    %   numbers: they are absent from BUFFER_TYPES, from auto-selection, from
+    %   Select Buffers..., and from gui.BehaviorBuilder's dialog. Naming one
+    %   explicitly still resolves, and says so at debug level.
+    %
+    %   Everything about how it looks -- traces, order, colour, width,
+    %   palette, layout, how many past trials are drawn -- is settable
     %   BOTH from code and from the axes right-click menu, the two paths
     %   landing on the same setters, so nothing the operator can do is out of
     %   a script's reach.
@@ -123,8 +131,7 @@ classdef BufferPlot < gui.PopOut
 
     properties (Constant, Access = private)
         PREF_GROUP = 'epsych2_gui_BufferPlot'
-        BUFFER_TYPES = {'Buffer','Coefficient Buffer'}
-        AUTO_TYPES = {'Buffer'}      % Auto-selected when the caller names none; a coefficient buffer is session-static
+        BUFFER_TYPES = {'Buffer'}    % Plottable parameter types; 'Coefficient Buffer' is session-static and excluded
         MAX_AUTO = 4                 % Auto-selection stops here rather than filling the axes
         PALETTES = {'Okabe-Ito','Lines','Parula','Turbo','Grayscale'}
         LINE_WIDTHS = [0.5 1 1.5 2 3]
@@ -298,10 +305,11 @@ classdef BufferPlot < gui.PopOut
 
         function n = availableBuffers(obj)
             % n = availableBuffers(obj)
-            % Every buffer this source can offer: the buffer-typed parameters
-            % the runtime knows (invisible ones included -- a paradigm may
-            % well want to plot one), or, offline, the DATA fields holding a
-            % numeric vector.
+            % Every buffer this source can offer: the 'Buffer' parameters the
+            % runtime knows (invisible ones included -- a paradigm may well
+            % want to plot one), or, offline, the DATA fields holding a
+            % numeric vector. Coefficient buffers are not among them; see the
+            % class comment.
             n = {};
             try
                 if ~isempty(obj.Runtime_)
@@ -314,8 +322,15 @@ classdef BufferPlot < gui.PopOut
                 end
                 D = obj.currentData_;
                 if ~isempty(D)
+                    % A record carries a coefficient buffer like any other
+                    % readable parameter, so the DATA sweep has to be told
+                    % which fields to leave alone. Offline, with no runtime
+                    % to ask, one is indistinguishable from a plain buffer
+                    % and is offered.
+                    skip = obj.excludedNames_;
                     f = fieldnames(D);
                     for k = 1:numel(f)
+                        if ismember(f{k}, skip), continue; end
                         v = D(end).(f{k});
                         if (isnumeric(v) || islogical(v)) && numel(v) > 1
                             n{end+1} = f{k};
@@ -891,6 +906,9 @@ classdef BufferPlot < gui.PopOut
                 if ~isempty(P)
                     p = {P(1)};
                     if ~ismember(P(1).Type, obj.BUFFER_TYPES)
+                        % Named anyway, since an array parameter of another
+                        % type still plots; a 'Coefficient Buffer' named by
+                        % hand is the one case worth saying out loud.
                         vprintf(2,'gui.BufferPlot: "%s" is a %s parameter, not a buffer', ...
                             name, P(1).Type)
                     end
@@ -919,18 +937,33 @@ classdef BufferPlot < gui.PopOut
             t(1).Cache = struct('Key',{},'XI',{},'Y',{});
         end
 
+        function names = excludedNames_(obj)
+            % DATA field names that are not plottable buffers -- today, the
+            % session's 'Coefficient Buffer' parameters.
+            names = {};
+            if isempty(obj.Runtime_), return; end
+            try
+                P = obj.Runtime_.all_parameters(includeInvisible=true, ...
+                    includeTriggers=false, Access='Read');
+                if ~isempty(P)
+                    P = P(~ismember({P.Type}, obj.BUFFER_TYPES));
+                    names = {P.validName};
+                end
+            catch ME
+                vprintf(2,'gui.BufferPlot: parameter types unavailable: %s', ME.message)
+            end
+        end
+
         function names = autoSelect_(obj)
-            % Every plain 'Buffer' parameter the session declares, capped so
-            % an unconfigured plot cannot fill itself with a dozen traces.
-            % Coefficient buffers are left out: they hold session-static data
-            % (calibration coefficients), so nothing about them is per-trial.
+            % Every 'Buffer' parameter the session declares, capped so an
+            % unconfigured plot cannot fill itself with a dozen traces.
             names = {};
             try
                 if ~isempty(obj.Runtime_)
                     P = obj.Runtime_.all_parameters(includeInvisible=false, ...
                         includeTriggers=false, Access='Read');
                     if ~isempty(P)
-                        names = {P(ismember({P.Type}, obj.AUTO_TYPES)).Name};
+                        names = {P(ismember({P.Type}, obj.BUFFER_TYPES)).Name};
                     end
                 elseif ~isempty(obj.currentData_)
                     names = obj.availableBuffers;

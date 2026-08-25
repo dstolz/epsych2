@@ -30,12 +30,16 @@ assert(isequal(bp.bufferNames, {'SmokeWave','SmokeLick'}), ...
     strjoin(bp.bufferNames,', '));
 assert(strcmp(bp.XAxisUnits,'samples'), 'the default x axis is buffer samples');
 assert(isempty(findobj(bp.AxesH,'Type','line')), 'nothing is drawn before the first trial');
+assert(~any(strcmp(bp.availableBuffers,'SmokeCoef')), ...
+    'a Coefficient Buffer is session-static and must not be offered');
 fprintf('PASS: construction, auto-selection, samples by default\n');
 
 % 2. Capture from the trial record ----------------------------------------
 notifyTrial(rt, makeTrial(1, wave, lick));
 L = findobj(bp.AxesH,'Type','line');
 assert(numel(L) == 2, 'one line per buffer after a trial (got %d)', numel(L));
+assert(~any(strcmp(bp.availableBuffers,'SmokeCoef')), ...
+    'a coefficient buffer must stay out of the list even once a record carries it');
 fprintf('PASS: NewData draws both buffers out of the trial record\n');
 
 % 3. Envelope decimation keeps the extremes -------------------------------
@@ -147,7 +151,8 @@ end
 
 function rt = makeRuntime()
 % Runtime with a software interface carrying two visible buffers, one
-% invisible buffer, and a scalar that must not be auto-selected.
+% invisible buffer, a coefficient buffer, and a scalar -- the last two must
+% not be selected, or offered.
 rt = epsych.Runtime;
 rt.isTest = true;
 rt.EVENTS = epsych.EventHub;
@@ -157,6 +162,7 @@ sw.add_parameter('SmokeWave', 0, Type='Buffer', isArray=true);
 sw.add_parameter('SmokeLick', 0, Type='Buffer', isArray=true);
 p = sw.add_parameter('~SmokeHidden', 0, Type='Buffer', isArray=true, Visible=false);
 p.Value = linspace(0,7,4096)';
+sw.add_parameter('SmokeCoef', 0, Type='Coefficient Buffer', isArray=true);
 sw.add_parameter('SmokeLevel', 60);
 rt.Interfaces = sw;
 end
@@ -164,8 +170,8 @@ end
 
 function t = makeTrial(idx, wave, lick)
 % One DATA record, as ep_TimerFcn_RunTime writes it.
-t = struct('SmokeWave',wave, 'SmokeLick',lick, 'SmokeLevel',60, ...
-    'TrialID',1, 'TrialIndex',idx);
+t = struct('SmokeWave',wave, 'SmokeLick',lick, 'SmokeCoef',(1:64)', ...
+    'SmokeLevel',60, 'TrialID',1, 'TrialIndex',idx);
 end
 
 

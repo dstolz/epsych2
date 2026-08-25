@@ -553,9 +553,11 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   stated always outranks a saved one — it is a fact about the device, not a
   taste. A `gui.PopOut` adopter, and on `gui.BehaviorBuilder`'s palette where
   an EMPTY buffer list is a real answer (unlike Online Plot's source, which
-  validation insists on): the plot then auto-selects the session's plain
-  `Buffer` parameters, capped at four, coefficient buffers excluded since
-  nothing about session-static calibration coefficients is per-trial
+  validation insists on): the plot then auto-selects the session's `Buffer`
+  parameters, capped at four. `Coefficient Buffer` parameters are not
+  plottable at all here — session-static calibration coefficients have
+  nothing per-trial about them, so they are absent from `BUFFER_TYPES`, from
+  the operator's Select Buffers... list, and from the builder's dialog
   (documentation/gui/gui_BufferPlot.md)
 - **gui.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
 - **gui.NextTrial**: generic upcoming-trial display driven by NewTrial events

@@ -375,7 +375,7 @@ function [o, ok] = bufferPlotDialog(obj, r, snap)
 o = r.Options;
 buffers = {};
 if ~isempty(snap)
-    buffers = {snap(ismember({snap.Type}, {'Buffer','Coefficient Buffer'})).Name};
+    buffers = {snap(strcmp({snap.Type}, 'Buffer')).Name};
 end
 
 [dlg, g] = modalShell(obj, sprintf('Buffer Plot - %s', orLabel(r)), 460, 420, [5 1]);

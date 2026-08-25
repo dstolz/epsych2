@@ -9,8 +9,10 @@ Source: `obj/+gui/@BufferPlot/`
 
 ## What it does
 
-- **Plots one or more `Buffer` (or `Coefficient Buffer`) parameters** as
-  traces, refreshed on every `NewData` event.
+- **Plots one or more `Buffer` parameters** as traces, refreshed on every
+  `NewData` event. `Coefficient Buffer` parameters are not offered: they hold
+  session-static data (calibration coefficients), so there is nothing
+  per-trial about one and every redraw would show the same numbers.
 - **Buffer samples by default.** A buffer knows how many samples it holds and
   nothing else, so that is the x axis until someone says otherwise. Naming a
   `SampleRate` — a number, or `"auto"` to take it from the owning `hw.Module`
@@ -115,10 +117,8 @@ Workspace, Reset Appearance, and the `gui.PopOut` items.
   hand.** A `Buffers` list passed to the constructor is what the paradigm's
   `build()` asked for, and a saved list from another protocol must not
   silently replace it — the rule `gui.OnlinePlot` settled on.
-- **Auto-selection stops at four buffers and skips coefficient buffers.** A
-  region nobody configured still plots something, without filling the axes;
-  a coefficient buffer holds session-static data (calibration coefficients),
-  so nothing about it is per-trial. The operator can still add one by hand.
+- **Auto-selection stops at four buffers.** A region nobody configured still
+  plots something, without filling the axes.
 
 ## In the BehaviorBuilder
 

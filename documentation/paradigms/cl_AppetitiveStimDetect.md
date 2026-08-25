@@ -22,7 +22,7 @@ to choose the next row of the trials table.
 ## Quick summary
 
 - First trial: select the first stimulus row.
-- Reminder requested: force the reminder row and present it at 0 dB depth — see [Reminder trials](#reminder-trials).
+- Reminder requested: the scheduled trial's slot goes to the reminder row, presented at 0 dB depth. The override is applied after the rest of the schedule has run, which is what leaves the schedule untouched — see [Reminder trials](#reminder-trials).
 - Hit: add `Depth_StepOnHit` to `Depth`. The step **carries its own sign**, so a negative value is what makes the next stimulus weaker.
 - Miss: add `Depth_StepOnMiss` to `Depth`, likewise signed — positive to make the next stimulus stronger.
 - Abort, correct rejection, or false alarm: keep the same stimulus depth. A pending Hit/Miss step is **not** reverted by these outcomes, so it survives any number of intervening catch trials and takes effect on the next stimulus trial.
@@ -84,7 +84,7 @@ The staircase cannot run away past a bound even so, because each step starts fro
 ## Selection logic (`selectNext`)
 
 1. On the first trial (`TRIALS.TrialIndex == 1`), return the first stimulus row.
-2. If `ReminderTrials` is `1` (or a reminder was already granted for this `TrialIndex`), return the first reminder row, with its `Depth` overwritten to 0 dB, and clear the request — see [Reminder trials](#reminder-trials).
+2. Note whether a reminder is pending — `ReminderTrials` is `1`, or a reminder was already granted for this `TrialIndex`. The flag is only **read** here; nothing is selected on it yet. The override itself is applied last, in step 8 — see [Reminder trials](#reminder-trials).
 3. Decode the completed-trial response history with `epsych.BitMask.decode([TRIALS.DATA.RespCode])`.
 4. Find the depth of the most recent stimulus trial; if none exists yet, start from the maximum compiled depth.
 5. Update the next stimulus depth from the latest outcome:
@@ -95,9 +95,10 @@ The staircase cannot run away past a bound even so, because each step starts fro
    - `FalseAlarm`: keep the same depth and resume the normal delay schedule; a false alarm that was also an abort schedules a catch row immediately
 6. Only on a Hit or Miss: write the new depth into every stimulus row of the live trials table (through the runtime handle stored by `setRuntime`), so the dispatcher sends the new value to hardware. **No clamp is applied here** — `hw.Parameter` enforces `Depth.Min`/`Depth.Max` at dispatch. Abort/CorrectReject/FalseAlarm never touch the table, so a pending step is not lost to an intervening catch trial.
 7. Unless `CatchTrialsEnabled` is off, schedule a catch trial with the hazard probability described below — suppressed after an abort and after a catch trial. Otherwise return the first stimulus row.
-8. Whatever row step 7 chose, write its stimulus delay — see [Block-randomized stimulus delay](#block-randomized-stimulus-delay).
+8. If step 2 noted a pending reminder, replace whatever row step 7 chose with the first reminder row, its `Depth` overwritten to 0 dB, and clear the request. The override is applied **last**, so it takes the scheduled trial's slot without altering the schedule — see [Reminder trials](#reminder-trials). (A history holding nothing but reminders returns earlier, but through the same override.)
+9. Whatever row steps 7–8 settled on, write its stimulus delay — see [Block-randomized stimulus delay](#block-randomized-stimulus-delay).
 
-Steps 1–7 live in the private `selectNextRow_`; the public `selectNext` is that call followed by step 8. The split exists so the delay is applied on **every** path out of the selection logic — the first trial, the reminder override, and the ordinary schedule all leave through the same tail — rather than being repeated at each of `selectNextRow_`'s early returns.
+Steps 1–8 live in the private `selectNextRow_`; the public `selectNext` is that call followed by step 9. The split exists so the delay is applied on **every** path out of the selection logic — the first trial, the reminder override, and the ordinary schedule all leave through the same tail — rather than being repeated at each of `selectNextRow_`'s early returns.
 
 ## Block-randomized stimulus delay
 

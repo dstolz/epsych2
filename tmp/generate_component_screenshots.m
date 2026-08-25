@@ -74,7 +74,10 @@ shots = { ...
     'Performance',                  @shotPerformance; ...
     'SlidingWindowPerformancePlot', @shotSlidingWindow; ...
     'OnlinePlot',                   @shotOnlinePlot; ...
+    'BufferPlot',                   @shotBufferPlot; ...
     'SessionGate',                  @shotSessionGate; ...
+    'RegenerateTrial',              @shotRegenerateTrial; ...
+    'KeyBindings',                  @shotKeyBindings; ...
     'StaircaseTraining',            @shotStaircaseTraining; ...
     'SyringePump',                  @shotSyringePump; ...
     'Notes',                        @shotNotes; ...
@@ -473,6 +476,52 @@ end
 end
 
 
+function fig = shotBufferPlot(S)
+% Mocked, for the same reason gui.OnlinePlot and gui.SyringePump are: the
+% session has nothing to show. The appetitive rig declares exactly ONE
+% buffer parameter, FIRcoefs, and it is a 'Coefficient Buffer' -- the
+% session-static type gui.BufferPlot deliberately refuses to plot -- so no
+% saved file in the lab carries a per-trial Buffer for this to draw.
+%
+% What is real: the offline path (a DATA struct array is one of the
+% component's three documented sources, and the one a review uses), the
+% three trials, their indices, and the AM parameters the traces are built
+% from -- each waveform is the fully modulated 10 Hz AM noise burst the rig
+% played on that trial, and each sensor trace steps at that trial's own
+% recorded response latency.
+fig = shotFigure([700 380]);
+
+fs   = 24414.0625;   % the TDT sample rate this rig runs at
+pre  = 0.1;          % s of baseline before the burst
+post = 0.25;         % ... and after it, long enough to hold the whole trough contact
+amp  = 0.45;         % V RMS at the modulation peak, the swing this rig's DAC runs at
+rs   = RandStream('twister', 'Seed', 11);   % its own stream: a shot must not move the global one
+
+D = S.DATA([S.DATA.TrialType] == 0);   % stimulus trials; a catch trial has no burst
+D = D(end-2:end);                      % three of them, newest last
+for k = 1:numel(D)
+    dur = D(k).StimDur / 1000;
+    t   = (0:1/fs:(pre + dur + post))';
+    m   = 10^(D(k).Depth/20);          % the rig states AM depth in dB re 100%
+
+    env = zeros(size(t));
+    on  = t >= pre & t < pre + dur;
+    env(on) = amp * (1 - m * (1 + cos(2*pi*D(k).Rate*(t(on)-pre)))/2);
+    D(k).StimWaveform = env .* randn(rs, numel(t), 1);
+
+    % The trough sensor going high when the animal collects: this session
+    % recorded the latency, so the step lands where it landed.
+    hit = t >= pre + D(k).RespLatency/1000 & t < pre + D(k).RespLatency/1000 + 0.15;
+    D(k).TroughSensor = 0.9*hit + 0.012*randn(rs, numel(t), 1);
+end
+
+p = gui.BufferPlot(D, fig, Buffers={'StimWaveform','TroughSensor'}, ...
+    SampleRate=fs, XAxisUnits='milliseconds', NumTrialsShown=3, ...
+    PreferenceTag='wikiShotBufferPlot');
+fig.UserData = p;   % closeFigure deletes it, dropping its listeners
+end
+
+
 %% ------------------------------------------------------------------------
 %  Session control
 % -------------------------------------------------------------------------
@@ -489,6 +538,74 @@ gui.SessionGate(g);                       % armed, as the session opens
 
 retired = gui.SessionGate(g);             % the same button after the press
 retired.release();
+end
+
+
+function fig = shotRegenerateTrial(S)
+% Both states in one shot, the way shotSessionGate photographs the gate: the
+% button as it sits for almost all of a session (dead, washed out) and the
+% same button with Ctrl+Alt+Shift held (live, amber). One state alone would
+% not show the thing that matters -- that this button is unreachable until
+% the operator makes a two-handed gesture.
+%
+% Neither state is painted by hand. The run mode is the one a running box is
+% in, broadcast exactly as epsych.RunExpt's PsychTimerStart broadcasts it,
+% and the armed button is armed through its own gui.KeyBindings by a
+% synthesized key event -- the same route the smoke test uses. Two buttons
+% on one figure would share that figure's dispatcher and arm together, so
+% the armed one is given a KeySource of its own on a figure of its own.
+fig = shotFigure([430 120]);
+g = uigridlayout(fig, [2 2]);
+g.RowHeight   = {36, 36};
+g.ColumnWidth = {'1x', 180};
+g.Padding     = [12 12 12 12];
+
+lbl = uilabel(g, 'Text', 'Ctrl+Alt+Shift not held  ->', 'HorizontalAlignment', 'right');
+lbl.Layout.Row = 1; lbl.Layout.Column = 1;
+idle = gui.RegenerateTrial(S.RUNTIME, g);   % this figure's shared dispatcher, never typed into
+
+lbl = uilabel(g, 'Text', 'Ctrl+Alt+Shift held  ->', 'HorizontalAlignment', 'right');
+lbl.Layout.Row = 2; lbl.Layout.Column = 1;
+keyFig = uifigure('Visible', 'off', 'Tag', 'wikiComponentShot', 'Name', '');
+keys   = gui.KeyBindings(keyFig);
+live   = gui.RegenerateTrial(S.RUNTIME, g, KeySource=keys);
+
+% Both buttons follow ModeChange rather than reading the mode at
+% construction, so the broadcast has to come after they exist.
+S.RUNTIME.EVENTS.notify('ModeChange', epsych.eventModeChange(hw.DeviceState.Record));
+keys.dispatchKeyPress(struct('Key','shift', ...
+    'Modifier',{{'control','alt','shift'}}, 'Character',''));
+
+assert(live.Armed && ~idle.Armed, 'generate_component_screenshots:NotArmed', ...
+    'the armed button did not arm, so the shot would show two identical states')
+
+fig.UserData = {idle, live, keys, keyFig};
+end
+
+
+function fig = shotKeyBindings(S)
+% The shortcut list itself, which is the only place the bound set is ever
+% visible: there is no rebinding UI, because bindings are code.
+%
+% Driven from a real gui.BehaviorGUI (tmp/WikiKeysBehaviorGUI) rather than
+% by binding chords here, so every line in the picture is one a paradigm
+% would really have: the base class's own two help chords, the default
+% chords three add* helpers ship with, and two subject-response arrow keys
+% bound in build the way examples/two_afc binds its own.
+G = WikiKeysBehaviorGUI(S.RUNTIME);
+
+% showHelp builds its window for an operator to look at, so it comes up
+% visible and modal. Hidden again immediately: the gallery is captured off
+% screen, and a modal window would sit over the rest of the run.
+before = findall(groot, 'Type', 'figure');
+G.Keys.showHelp();
+fig = setdiff(findall(groot, 'Type', 'figure'), before);
+assert(isscalar(fig), 'generate_component_screenshots:NoHelpWindow', ...
+    'showHelp did not open exactly one window')
+fig.WindowStyle = 'normal';
+fig.Visible     = 'off';
+fig.Tag         = 'wikiComponentShot';
+fig.UserData    = G;   % closeFigure deletes the GUI, which closes its own figure
 end
 
 
@@ -685,8 +802,8 @@ groups = {'epsych2_gui_History', 'epsych2_gui_NextTrial', ...
     'epsych2_gui_ParameterScatter', 'epsych2_gui_Parameter_Monitor', ...
     'epsych2_gui_SessionPerformance', 'epsych2_gui_PhaseSelector', ...
     'epsych2_gui_SyringePump', 'epsych2_gui_ParameterDebugger', ...
-    'epsych2_gui_Notes', ...
-    'StaircaseTraining', 'wikiShotSessionClock', ...
+    'epsych2_gui_Notes', 'epsych2_gui_BufferPlot', ...
+    'StaircaseTraining', 'wikiShotSessionClock', 'wikiShotKeyBindings', ...
     'wikiShotBehaviorGUIHelpers', 'wikiShotComponentToolbar'};
 P = struct('group', groups, 'value', []);
 for k = 1:numel(groups)

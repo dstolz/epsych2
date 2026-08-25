@@ -24,7 +24,7 @@ classdef PhaseSelector < handle
     % Example:
     %   ps = gui.PhaseSelector(RUNTIME, 'C:\path\to\phase_files');
     %   parentUI = uipanel(...); % create parent UI container
-    %   ps.addPhaseSelect(parentUI, [10 10 150 30]);
+    %   h = ps.createGUI(parentUI); % struct of the created UI control handles
     %
     % Properties:
     %   PhasePath          - Directory containing phase files.

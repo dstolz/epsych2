@@ -1,5 +1,5 @@
 classdef BufferPlot < gui.PopOut
-    % BufferPlot: per-trial display of hw.Parameter BUFFER contents.
+    % The contents of buffer parameters, redrawn once per completed trial.
     %
     %   obj = gui.BufferPlot(source, container)
     %   obj = gui.BufferPlot(source, container, Buffers=["Waveform~1"], SampleRate=24414)

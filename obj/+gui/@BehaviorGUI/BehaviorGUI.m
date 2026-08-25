@@ -247,10 +247,12 @@ classdef (Abstract) BehaviorGUI < handle
 
             obj.build(fig);
 
-            % Again after build: a component constructed in there may have
-            % assigned the figure's key callback itself (gui.Parameter_Update
-            % still does when it is used outside a behavior GUI). This takes
-            % the slot back and chains what it found, so both keep working.
+            % Again after build: the subclass, or a component that predates
+            % gui.KeyBindings, may have assigned the figure's key callback
+            % outright in there. This takes the slot back and chains what it
+            % found, so both keep working. The stock components no longer
+            % claim it -- gui.Parameter_Update and gui.RegenerateTrial each
+            % resolve a KeyBindings with getOrCreate instead.
             obj.Keys.claimFigure();
 
             obj.wireUpdateButtons_();

@@ -1,7 +1,8 @@
 classdef RegenerateTrial < handle
     % gui.RegenerateTrial
-    % A button that re-arms the trial the rig is holding: the pending trial
-    % is dispatched again, from the top.
+    % A button that re-arms the trial the rig is holding.
+    %
+    % The pending trial is dispatched again, from the top.
     %
     % One press runs epsych.Runtime.dispatchNextTrial for the box, which is
     % the same call the trial loop makes at every trial boundary -- it fires

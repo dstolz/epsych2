@@ -94,7 +94,11 @@ buttonLayout = uigridlayout(layoutMain,[2 3]);
 buttonLayout.Layout.Row    = 1;
 buttonLayout.Layout.Column = [1 4];
 buttonLayout.Padding       = [0 0 0 0];
-buttonLayout.ColumnWidth   = repmat({'1x'},1,7);   % six triggers + Notes
+% Six triggers, Notes, then Regenerate. The last column is wider because its
+% label is a two-line phrase rather than a single word -- and because the
+% extra width puts a gap between the trigger buttons an operator reaches for
+% constantly and the one that interrupts the trial in progress.
+buttonLayout.ColumnWidth   = [repmat({'1x'},1,7), {'1.3x'}];
 buttonLayout.RowHeight     = {'1x'};
 buttonLayout.RowSpacing    = 0;
 buttonLayout.ColumnSpacing = 0;
@@ -120,6 +124,31 @@ obj.addButton(buttonLayout,'SpoofTrough',     Type='momentary', Text='Trough');
 % as it is typed. Placed after the triggers so it takes the last column.
 obj.NotesButton = obj.addNotesButton(buttonLayout, Text='Notes');
 set(obj.NotesButton.OpenH, FontWeight='bold', FontSize=15);
+
+% Regenerate the pending trial: dispatch it again so the stimulus delay and
+% any other randomized parameter redraw, and committed edits reach the
+% hardware without waiting for the next trial.
+%
+% The button is DEAD until Ctrl+Alt+Shift are all held -- the same gesture
+% the Update Parameters button uses -- which is what keeps it out of reach of
+% a mis-click in a row of buttons the operator uses constantly. This GUI also
+% holds a gui.Parameter_Update, created below and therefore AFTER this button;
+% it claims the figure's key callbacks outright, and gui.RegenerateTrial
+% re-installs and chains on the first ModeChange so both work off that key.
+%
+% *** ONCE ARMED IT INTERRUPTS THE TRIAL IN PROGRESS AND ASKS NOTHING
+% FURTHER. *** Pressed while the animal is on the platform it restarts the
+% delay and response window under the subject, and the DATA record for that
+% trial ends up carrying the values from the LAST dispatch. It is amber and
+% set apart from the trigger buttons for that reason. The selector is NOT
+% re-run (Reselect stays false): cl_AppetitiveStimDetect's selection pass is
+% where the staircase steps, the catch hazard climbs, and a queued reminder
+% is consumed, none of which should move because a delay was redrawn.
+% Each press is written into the session notes, which is the only trace the
+% data file keeps of it.
+obj.RegenerateButton = obj.addRegenerateTrial(buttonLayout, ShowIcon=false);
+set(obj.RegenerateButton.ButtonH, Text=["Regenerate";"Trial"], ...
+    FontWeight='bold', FontSize=15);
 
 bcmActive = min(lines(7)+0.4,1);
 bNames = fieldnames(obj.hButtons);

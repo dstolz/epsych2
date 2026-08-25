@@ -103,6 +103,7 @@ Analysis and GUI classes
    ├─ Performance
    ├─ PhaseSelector
    ├─ PsychPlot
+   ├─ RegenerateTrial
    ├─ ScreenCapture
    ├─ SlidingWindowPerformancePlot
    ├─ StaircaseTraining

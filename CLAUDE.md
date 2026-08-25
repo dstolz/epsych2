@@ -565,6 +565,47 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   Add-ons, where the ButtonOnly form is the one case that CLEARS a region's
   pop-out flag in `normalizeRegion_` — that button already opens the window a
   pop-out button would (documentation/gui/gui_Notes.md)
+- **gui.RegenerateTrial**: a button that re-arms the trial the rig is holding
+  (`gui.BehaviorGUI.addRegenerateTrial`). One press is
+  `epsych.Runtime.dispatchNextTrial` — the same call the trial loop makes at
+  every boundary — so `set.Value` redraws every `isRandom` parameter and
+  re-evaluates every `Expression`, and a mid-trial edit reaches the hardware
+  without waiting for the next trial. The button is **dead until
+  Ctrl+Alt+Shift are all held** and dies again as one is released — the
+  combination `gui.Parameter_Update` already uses held-while-clicking, so the
+  gesture is not new to an operator. The gate is re-checked inside
+  `regenerate` and not only in the button's `Enable`, so a script or a stale
+  enable state fails closed. Sharing that key needs care: a figure has ONE
+  `WindowKeyPressFcn` and `Parameter_Update` claims it outright, so this
+  component CHAINS (wrapped in try/catch — `Parameter_Update`'s own handler
+  throws until its `watchedHandles` are wired at the end of `build`) and
+  RE-INSTALLS on the first `ModeChange`, which is the first moment every
+  component has had its turn. `isInstalled_` tests `~isempty(hook)` before
+  `isequal`, because `isequal('',[])` is TRUE in MATLAB — an `isequal`-only
+  test reports the hook as installed on the bare figure every first install
+  starts from, so nothing was ever wired and the button could never arm.
+  **Once armed it interrupts the trial in progress
+  and asks nothing further**: the component cannot tell an ITI from an animal
+  part way through a response, the reset and new-trial triggers go out
+  either way, and since a `DATA` record is assembled at completion the trial
+  is recorded with the LAST dispatch's values. `TrialIndex` deliberately
+  does not move — one trial, one record, so a session never counts trials
+  the subject never saw — which is exactly why nothing downstream can see it
+  happened, and why every press is written into `RUNTIME.NOTES` tagged with
+  the box. It does **not** re-run the trial selector: selecting is where a
+  paradigm's state moves (a staircase steps, a catch hazard climbs, a queued
+  reminder is consumed), so redrawing a delay must not advance the schedule;
+  `Reselect=true` asks for that and is safe only because every
+  `epsych.TrialSelector` already tolerates being called twice for one trial.
+  The enable state FOLLOWS `ModeChange` rather than being read at
+  construction, since a behavior GUI is built from the PsychTimer `StartFcn`
+  before `RunExpt` broadcasts the mode; a review never arms it. Kept off the
+  `gui.BehaviorBuilder` palette on purpose — that builder is for operators
+  assembling a GUI without writing code, who should not get this button by
+  accident. Used by `cl_AppetitiveDetection_BehaviorGUI`, last in the
+  trigger row and set apart from it; standing proof
+  `tmp/smoke_test_regenerate_trial.m`
+  (documentation/gui/gui_RegenerateTrial.md)
 - **gui.ScreenCapture**: camera button that copies a picture of the whole window
   — controls and plots alike — to the system clipboard, for pasting into a
   notebook entry (`gui.BehaviorGUI.addScreenCapture`). `exportapp` is the

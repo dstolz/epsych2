@@ -189,6 +189,14 @@ classdef (Abstract) BehaviorGUI < handle
                 'UserData',        obj);
             fig.Position = gui.BehaviorGUI.getSavedFigurePosition(obj.PreferenceTag, options.DefaultPosition);
             movegui(fig, 'onscreen');
+            if strcmp(gui.BehaviorGUI.getSavedFigureWindowState(obj.PreferenceTag), 'maximized')
+                try
+                    fig.WindowState = 'maximized';
+                catch ME
+                    vprintf(2, '%s: could not restore the maximized window: %s', ...
+                        class(obj), ME.message)
+                end
+            end
             obj.h_figure = fig;
 
             obj.build(fig);
@@ -318,7 +326,7 @@ classdef (Abstract) BehaviorGUI < handle
             end
 
             try
-                gui.BehaviorGUI.saveFigurePosition(obj.PreferenceTag, src.Position);
+                gui.BehaviorGUI.saveFigureLayout(obj.PreferenceTag, src);
             catch
             end
             delete(obj);
@@ -983,6 +991,47 @@ classdef (Abstract) BehaviorGUI < handle
             tf = gates{1}.wait(timeout);
         end
 
+        function h = addRegenerateTrial(obj, parent, options)
+            % h = addRegenerateTrial(obj, parent, ...)
+            % Create a gui.RegenerateTrial button and register it for
+            % teardown. One press dispatches the pending trial again, so
+            % randomized parameters redraw and committed edits reach the
+            % hardware without waiting for the next trial.
+            %
+            % The button is DEAD until Ctrl+Alt+Shift are all held -- the
+            % same combination gui.Parameter_Update uses -- and dies again
+            % as soon as one is released. RequireArming=false removes that.
+            %
+            % IT INTERRUPTS THE TRIAL IN PROGRESS, and asks nothing first.
+            % The component cannot tell an ITI from an animal part way
+            % through a response, and the DATA record for the trial ends up
+            % describing the last dispatch rather than the first. Add it for
+            % an operator who wants that; do not add it to a layout where it
+            % sits among the trigger buttons a mis-click can reach.
+            %
+            % The button is live only while the session is running (Preview
+            % or Record) and never in a review. See gui.RegenerateTrial.
+            arguments
+                obj
+                parent (1,1)
+                options.Text (1,:) char = 'Regenerate Trial'
+                options.Tooltip (1,:) char = ''
+                options.SubjectIndex (1,1) double {mustBeInteger, mustBePositive} = 1
+                options.Reselect (1,1) logical = false
+                options.Note (1,1) logical = true
+                options.EnableWhenIdle (1,1) logical = false
+                options.RequireArming (1,1) logical = true
+                options.ShowIcon (1,1) logical = true
+                options.FontSize (1,1) double {mustBePositive, mustBeFinite} = 12
+                options.FontWeight (1,:) char {mustBeMember(options.FontWeight,{'normal','bold'})} = 'normal'
+                options.BackgroundColor (1,3) double {mustBeNonnegative} = [0.96 0.78 0.36]
+            end
+
+            args = namedargs2cell(options);
+            h = gui.RegenerateTrial(obj.RUNTIME, parent, args{:});
+            obj.register(h);
+        end
+
         function h = addPopOutButton(obj, parent, component, options)
             % h = addPopOutButton(obj, parent, component, Text=..., Tooltip=...)
             % Create a button that opens a display in a window of its own,
@@ -1240,7 +1289,7 @@ classdef (Abstract) BehaviorGUI < handle
             f = findall(groot, 'Type', 'figure', '-and', 'Tag', obj.PreferenceTag);
             for i = 1:numel(f)
                 try
-                    gui.BehaviorGUI.saveFigurePosition(obj.PreferenceTag, f(i).Position);
+                    gui.BehaviorGUI.saveFigureLayout(obj.PreferenceTag, f(i));
                     ud = f(i).UserData;
                     f(i).UserData = [];
                     f(i).CloseRequestFcn = '';
@@ -1544,6 +1593,41 @@ classdef (Abstract) BehaviorGUI < handle
                 return
             end
             setpref(prefTag, 'FigurePosition', double(reshape(position, 1, [])));
+        end
+
+        function saveFigureLayout(prefTag, fig)
+            % Persist a figure's position AND maximized state.
+            %
+            % A maximized figure's Position reports the screen-filling
+            % bounds, so it is deliberately NOT written: the position on
+            % record stays the last normal one, which is what un-maximizing
+            % the reopened window should restore. Fullscreen is remembered
+            % as maximized, and a minimized window as its normal self --
+            % nobody wants a GUI that opens minimized.
+            state = 'normal';
+            try
+                state = char(fig.WindowState);
+            catch
+            end
+            if any(strcmp(state, {'maximized', 'fullscreen'}))
+                setpref(prefTag, 'FigureWindowState', 'maximized');
+            else
+                gui.BehaviorGUI.saveFigurePosition(prefTag, fig.Position);
+                setpref(prefTag, 'FigureWindowState', 'normal');
+            end
+        end
+
+        function state = getSavedFigureWindowState(prefTag)
+            % The last-saved window state for this PreferenceTag: 'normal'
+            % or 'maximized'. Anything unreadable is 'normal'.
+            state = 'normal';
+            try
+                saved = getpref(prefTag, 'FigureWindowState', 'normal');
+                if (ischar(saved) || isstring(saved)) && strcmp(saved, 'maximized')
+                    state = 'maximized';
+                end
+            catch
+            end
         end
 
         function [trigParams, ctrlParams, monitorParams] = classifyParameters(params)

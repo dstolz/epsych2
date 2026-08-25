@@ -124,7 +124,8 @@ stock GUI components record operator actions into the same log through
 
 | Action | Recorded by | Entry |
 |--------|-------------|-------|
-| Update Parameters commit | `gui.Parameter_Update` | `Updated StimDelay: 1000 -> 1500 (next trial)` — one per changed parameter; the suffix marks a deferred commit, absent when the write was immediate |
+| Update Parameters commit (immediate) | `gui.Parameter_Update` | `Updated StimDelay: 1000 -> 1500` — one per changed parameter |
+| Update Parameters commit (deferred) | `gui.Parameter_Update` | `Staged StimDelay = 1500 for the next trial` — the parameter still holds its old value until the dispatcher applies the trial table |
 | autoCommit control edit | `gui.Parameter_Control` | `Updated Depth.Min: 5 -> 10` — bound property named when it is not `Value` |
 | StimType selection | `gui.Parameter_Control` | `Updated Stim: stimgen.Tone` |
 | Phase load | `gui.PhaseSelector` | `Loaded phase "Stage2"; updated: Depth, P_Catch` |
@@ -149,12 +150,21 @@ What is deliberately *not* recorded:
 - **`addButton` toggles and triggers.** Reminder, Deliver Trials, a manual
   pellet — momentary by design (their controls carry no `Runtime`), and the
   trial record already carries their effect.
-- **An edit that changed nothing.** A commit whose read-back text equals what
-  the parameter already showed records no entry.
+- **An edit that changed nothing.** A commit of the value the parameter
+  already held records no entry.
 
 `epsych.SessionNotes.log` never throws and no-ops without a live store or in
 `ReviewMode` — the record of an action must not be able to break the action,
 and a replayed session must not append to the log it is displaying.
+
+The same principle decides *which* value each entry names. **No call site reads
+the parameter back to build its note.** `hw.Parameter.get.Value` is a device
+round trip on a live backend and rethrows whatever the backend throws, so a
+read-back here would let the record of a successful write fail the write that
+had already landed — and would cost one round trip per committed parameter.
+Every entry is therefore built from values the caller already had, which means
+what is recorded is the value *requested*. What the device holds after
+clamping, an `Expression`, or `isRandom` is the trial record's job.
 
 ## Why it is built this way
 

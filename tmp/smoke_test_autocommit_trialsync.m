@@ -2,6 +2,10 @@ function smoke_test_autocommit_trialsync()
 % smoke_test_autocommit_trialsync()
 % Regression test for autoCommit GUI edits being reverted by the trial table.
 %
+% Section F additionally covers the session-note record these commit paths
+% write (epsych.SessionNotes.log), including the rule that no note is built
+% from a read-back of the parameter.
+%
 % An autoCommit gui.Parameter_Control historically wrote only the live
 % hw.Parameter. For a parameter the dispatcher refreshes every trial
 % (UpdateEveryTrial), the stale trial-table value then clobbered the edit at
@@ -170,6 +174,41 @@ try
 catch ME
     failures{end+1} = sprintf('E. guards: %s', ME.message);
     fprintf('FAIL: E. %s\n', ME.message);
+end
+
+% ===== F. Every operator commit is recorded as a session note ============
+% The commit paths feed epsych.SessionNotes so an operator's change is in the
+% data file (Info.Notes) whether or not the GUI shows a gui.Notes component.
+% A wired control records; addButton's unwired session toggle does not.
+try
+    txt = {R.NOTES.Records.Text};
+
+    assert(any(contains(txt, 'Updated StepOnHit:')), ...
+        'a wired autoCommit Value edit should be recorded');
+    assert(any(contains(txt, 'Updated StepOnMiss:')), ...
+        'the non-dispatched knob edit should be recorded too');
+    assert(any(contains(txt, 'Updated StepOnHit.Min:')), ...
+        'a bound-property edit should name the property it changed');
+    assert(~any(contains(txt, 'Reminder')), ...
+        'an unwired session toggle must record nothing');
+
+    % The note names the value that was requested. Nothing in this path reads
+    % the parameter back: hw.Parameter.get.Value is a device round trip that
+    % rethrows, so a read-back here could fail a write that had already
+    % landed. Regression guard for that (2026-08-25).
+    hit = txt{find(contains(txt, 'Updated StepOnHit:'), 1)};
+    assert(contains(hit, '0.05'), 'the note should carry the committed value');
+
+    % An edit that commits the value already held is not a change.
+    before = numel(R.NOTES.Records);
+    simulate_edit(hHit, 0.05);
+    assert(numel(R.NOTES.Records) == before, ...
+        'committing the value already held should record nothing');
+
+    fprintf('PASS: F. operator commits are recorded as session notes\n');
+catch ME
+    failures{end+1} = sprintf('F. session notes: %s', ME.message);
+    fprintf('FAIL: F. %s\n', ME.message);
 end
 
 % ===== Summary ==========================================================

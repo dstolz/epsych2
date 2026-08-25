@@ -191,24 +191,30 @@ classdef Parameter_Update < handle
 
                 % Session-record note: the change lands in every subject's data
                 % file (Info.Notes) via epsych.SessionNotes, whether or not the
-                % GUI shows a notes component. A deferred commit is stamped
-                % "(next trial)" because the live parameter still holds the old
-                % value until the dispatcher applies the trial table.
-                curValStr = P.ValueStr;
+                % GUI shows a notes component.
+                %
+                % The two paths are recorded differently because only one of
+                % them has read the parameter. An immediate write already
+                % reads it either side of the write, so it records what
+                % changed. A deferred commit has not touched the parameter --
+                % it still holds its old value until the dispatcher applies
+                % the trial table -- and reading it here to say so would add a
+                % device round trip per committed parameter, each able to
+                % throw and abandon the rest of the commit. It records the
+                % staged value instead, which is also the truthful statement
+                % of what just happened.
                 if obj.updateImmediately || P.Parent.Type == "Software"
+                    curValStr = P.ValueStr;
                     P.Value = h(i).Value;
                     newValStr = P.ValueStr;
-                    when = '';
                     vprintf(2,'Updated parameter "%s": %s -> %s',P.Name,curValStr,newValStr)
+                    if ~isequal(curValStr,newValStr)
+                        epsych.SessionNotes.log(R,'Updated %s: %s -> %s', ...
+                            P.Name,curValStr,newValStr);
+                    end
                 else
-                    % Format the staged value with the parameter's own Format
-                    % and Unit, so before and after compare like for like.
-                    newValStr = P.formatValue(h(i).Value);
-                    when = ' (next trial)';
-                end
-                if ~isequal(curValStr,newValStr)
-                    epsych.SessionNotes.log(R,'Updated %s: %s -> %s%s', ...
-                        P.Name,curValStr,newValStr,when);
+                    epsych.SessionNotes.log(R,'Staged %s = %s for the next trial', ...
+                        P.Name,P.formatValue(h(i).Value));
                 end
 
                 if isfield(loc,P.validName)

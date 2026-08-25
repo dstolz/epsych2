@@ -315,7 +315,14 @@ Rules that matter:
   `gui.PhaseSelector` load/save) record what the operator changed through the
   never-throwing static `epsych.SessionNotes.log(RUNTIME, fmt, ...)`, so those
   actions are in every data file whether or not the GUI shows a notes
-  component — standard for every `gui.BehaviorGUI` subclass. Per-trial
+  component — standard for every `gui.BehaviorGUI` subclass. **No call site
+  reads the parameter back to build its note**: `hw.Parameter.get.Value` is a
+  device round trip that rethrows what the backend throws, so a read-back
+  would let the record of a successful write fail the write that had already
+  landed, one round trip per committed parameter. Every entry is built from
+  values the caller already holds, so a note names the value REQUESTED — which
+  is also why a deferred commit reads `Staged X = v for the next trial` rather
+  than a before/after it has not earned. Per-trial
   automatic writes (a staircase stepping a parameter) and `addButton` toggles
   and triggers deliberately record nothing, and `log` no-ops in `ReviewMode`
   (see documentation/gui/gui_Notes.md)

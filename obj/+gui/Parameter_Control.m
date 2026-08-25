@@ -393,14 +393,17 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             end
             % obj.Value = value;
 
-            obj.ValueUpdated = ~isequal(value,obj.getBoundValue());
+            % Keep the pre-commit value: logCommit_ reports what changed
+            % without a second read, and on a live backend a read is a device
+            % round trip that can throw.
+            prevValue = obj.getBoundValue();
+            obj.ValueUpdated = ~isequal(value,prevValue);
 
             % run post-update function, if specified. This allows for any necessary updates after the value is changed, such as re-enabling randomization when repeating a trial after an Abort, or updating other controls based on the new value.
             obj.runPostUpdateFcn(event);
 
             if obj.autoCommit
                 if isempty(src), return; end
-                prevStr = obj.boundValueText();
                 % Committing the value re-triggers the bound property's PostSet
                 % listener (value_change_external). Guard the write-back so that path
                 % does not run PostUpdateFcn a second time -- it already ran just above.
@@ -414,7 +417,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 obj.committing_ = false;
 
                 obj.syncRuntimeTrials_();
-                obj.logCommit_(prevStr);
+                obj.logCommit_(prevValue, value);
 
             elseif ~obj.ValueUpdated && success
                 obj.reset_label;
@@ -902,23 +905,55 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     end
 
     methods (Access = private)
-        function logCommit_(obj, prevStr)
+        function logCommit_(obj, prevValue, newValue)
             % Record an operator's autoCommit edit as a session note, so the
             % change lands in every subject's data file (Info.Notes) whether
             % or not the GUI shows a gui.Notes component. Runtime is empty for
             % addButton's self-clearing session toggles, and a trigger has no
-            % lasting value: neither is a setting worth a record. A write-back
-            % that read back identical text (e.g. clamping to the same value)
-            % changed nothing and records nothing.
+            % lasting value: neither is a setting worth a record. An edit that
+            % committed the value the parameter already held records nothing.
+            %
+            % Both values are the ones value_changed already has -- the
+            % parameter is NOT read back. A read is a device round trip on a
+            % live backend and hw.Parameter.get.Value rethrows what the
+            % backend throws, so reading here would let the record of a
+            % successful write fail the write that had already landed. What
+            % is recorded is therefore the requested value; what the device
+            % holds after clamping or an Expression is the trial record's job.
             if isempty(obj.Runtime) || obj.Parameter.isTrigger, return; end
-            newStr = obj.boundValueText();
-            if strcmp(char(string(prevStr)), char(string(newStr))), return; end
-            label = obj.Name;
-            if ~isequal(obj.BoundProperty,'Value')
-                label = sprintf('%s.%s', label, obj.BoundProperty);
+            if isequaln(prevValue, newValue), return; end
+
+            try
+                label = obj.Name;
+                if ~isequal(obj.BoundProperty,'Value')
+                    label = sprintf('%s.%s', label, obj.BoundProperty);
+                end
+                epsych.SessionNotes.log(obj.Runtime, 'Updated %s: %s -> %s', ...
+                    label, obj.commitValueText_(prevValue), obj.commitValueText_(newValue));
+            catch ME
+                vprintf(3, 'gui.Parameter_Control: commit not recorded for "%s" (%s)', ...
+                    obj.Name, ME.message)
             end
-            epsych.SessionNotes.log(obj.Runtime, 'Updated %s: %s -> %s', ...
-                label, char(string(prevStr)), char(string(newStr)));
+        end
+
+        function s = commitValueText_(obj, v)
+            % One end of a commit as display text. A Value binding is shown
+            % with the parameter's own Format and Unit so both ends of the
+            % note read like the control does; a bound property (Min, Max,
+            % isRandom, the [Min Max] pair) is plain, matching boundValueText.
+            if isequal(obj.BoundProperty,'Value')
+                s = char(string(obj.Parameter.formatValue(v)));
+                return
+            end
+            if isempty(v)
+                s = '';
+            elseif isscalar(v)
+                s = char(string(v));
+            elseif isnumeric(v) || islogical(v)
+                s = mat2str(v);
+            else
+                s = char(string(v));
+            end
         end
 
         function syncRuntimeTrials_(obj)

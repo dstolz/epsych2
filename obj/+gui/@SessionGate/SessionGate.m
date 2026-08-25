@@ -85,6 +85,26 @@ classdef SessionGate < handle
         GateOpened
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.SessionGate.getComponentSpec()
+            % No default key chord ON PURPOSE: this button starts a session,
+            % which is not something a stray keystroke over the wrong window
+            % should be able to do. See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type          = 'SessionGate';
+            s.label         = 'Session Gate';
+            s.category      = 'Add-ons';
+            s.description   = 'Begin Experiment button; the session holds until the operator presses it';
+            s.shape         = "parent";
+            s.attachRuntime = true;
+            s.options       = [ ...
+                gui.ComponentSpecOption('name','Text','inputType','text','defaultValue','Begin Experiment'), ...
+                gui.ComponentSpecOption('name','Tooltip','inputType','text'), ...
+                gui.ComponentSpecOption('name','FontSize','inputType','numeric','defaultValue',14)];
+        end
+    end
+
     methods
         function obj = SessionGate(parent, options)
             % obj = gui.SessionGate(parent, Name=Value)

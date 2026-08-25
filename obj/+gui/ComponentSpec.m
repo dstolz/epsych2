@@ -61,7 +61,8 @@ classdef ComponentSpec
         % --- post-construction ----------------------------------------
         attachRuntime (1,1) logical = false
         start         (1,1) logical = false
-        postFcn       = []   % f(h, guiObj, ctx); ctx has .parent .canvas .options .spec
+        preFcn        = []   % opts = f(opts, guiObj, ctx); runs before construction
+        postFcn       = []   % f(h, guiObj, ctx); ctx has .parent .canvas .options .host .spec
 
         % --- registration and keys ------------------------------------
         registerName   (1,:) char = ''

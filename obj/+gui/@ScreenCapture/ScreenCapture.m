@@ -53,6 +53,29 @@ classdef ScreenCapture < handle
         Tooltip_  (1,:) char    % Tooltip, kept for the restore
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.ScreenCapture.getComponentSpec()
+            % Target defaults to the GUI's own figure, which is what makes
+            % one click copy the whole window. See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type           = 'ScreenCapture';
+            s.label          = 'Screen Capture';
+            s.category       = 'Add-ons';
+            s.description    = 'Button that copies the whole window to the clipboard';
+            s.shape          = "parent";
+            s.inject.Target  = "figure";
+            s.keyBinding     = 'ctrl+shift+c';
+            s.keyAction      = 'copyToClipboard';
+            s.keyDescription = 'Copy this window to the clipboard';
+            s.options        = [ ...
+                gui.ComponentSpecOption('name','Text','inputType','text'), ...
+                gui.ComponentSpecOption('name','Tooltip','inputType','text', ...
+                    'defaultValue','Copy this window to the clipboard'), ...
+                gui.ComponentSpecOption('name','FontSize','inputType','numeric','defaultValue',12)];
+        end
+    end
+
     methods
 
         function obj = ScreenCapture(parent, options)

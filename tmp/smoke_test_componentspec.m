@@ -41,14 +41,21 @@ assert(s.singleton, 'the component toolbar is one to a GUI');
 fprintf('PASS: specs resolve with the wiring each component needs\n');
 
 %% 2. Inference for a class that declares nothing --------------------------
-% gui.BufferPlot has no getComponentSpec, so its shape comes from its
+% gui.MicrophonePlot has no getComponentSpec, so its shape comes from its
 % constructor signature. meta.method.InputNames reports {'varargin'} for any
-% arguments-block function, so this exercises the source-parsing path.
-s = gui.ComponentSpec.forClass('gui.BufferPlot');
-assert(isequal(cellstr(s.shape), {'psychOrRuntime','parent'}), ...
-    'BufferPlot(source, container) should be inferred, got [%s]', ...
+% arguments-block function, so this exercises the source-parsing path that
+% inference actually depends on.
+s = gui.ComponentSpec.forClass('gui.MicrophonePlot');
+assert(isequal(cellstr(s.shape), {'arg:Parameter','parent'}), ...
+    'MicrophonePlot(Parameter, Parent) should be inferred, got [%s]', ...
     strjoin(cellstr(s.shape),' '));
-assert(s.poppable, 'inference must still detect the gui.PopOut mixin');
+
+% And the mixin is detected by walking meta.class.SuperclassList, not by
+% superclasses(), which omits Hidden ancestors.
+assert(gui.ComponentSpec.forClass('gui.ParameterTracker').poppable == false, ...
+    'a plain handle class is not poppable');
+assert(gui.ComponentSpec.forClass('gui.BufferPlot').poppable, ...
+    'a gui.PopOut adopter must be detected as poppable');
 fprintf('PASS: a component that declares nothing still gets a usable spec\n');
 
 %% 3. Degradation: nothing here may throw ---------------------------------

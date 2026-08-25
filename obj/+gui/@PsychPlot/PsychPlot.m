@@ -52,6 +52,23 @@ classdef PsychPlot < gui.PopOut
     
 
     
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.PsychPlot.getComponentSpec()
+            % Draws into a CLASSIC axes, not a uiaxes, so add makes one
+            % inside the container: pass a panel or a grid cell, never an
+            % axes of your own. See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'PsychPlot';
+            s.label       = 'Psych Plot';
+            s.category    = 'Displays';
+            s.description = 'Psychometric plot (requires a psych analysis)';
+            s.shape       = ["psych","canvas"];
+            s.canvas      = 'axes';
+            s.requires    = "psych";
+        end
+    end
+
     methods
         function obj = PsychPlot(pObj,ax)
             % obj = PsychPlot(pObj,ax)

@@ -17,6 +17,20 @@ classdef FilenameValidator < handle
         RUNTIME              % Reference to the main runtime object
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.FilenameValidator.getComponentSpec()
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'FilenameField';
+            s.label       = 'Filename Field';
+            s.category    = 'Add-ons';
+            s.description = 'Edit field that validates the session data filename';
+            s.shape       = ["runtime","parent","arg:defaultFilename"];
+            s.options     = gui.ComponentSpecOption('name','defaultFilename','inputType','text');
+        end
+    end
+
     methods
         function obj = FilenameValidator(RUNTIME, parent, defaultFilename)
             arguments

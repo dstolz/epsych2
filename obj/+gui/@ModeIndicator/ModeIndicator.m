@@ -32,6 +32,22 @@ classdef ModeIndicator < handle
         STATE_MAP_ = gui.ModeIndicator.buildStateMap_()
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.ModeIndicator.getComponentSpec()
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type          = 'ModeIndicator';
+            s.label         = 'Mode Indicator';
+            s.category      = 'Displays';
+            s.description   = 'Lamp showing the current run mode';
+            s.shape         = "parent";
+            s.attachRuntime = true;
+            s.options       = gui.ComponentSpecOption( ...
+                'name','FontSize','inputType','numeric','defaultValue',11);
+        end
+    end
+
     methods
 
         function obj = ModeIndicator(parent, options)

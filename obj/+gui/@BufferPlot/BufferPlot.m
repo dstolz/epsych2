@@ -150,6 +150,30 @@ classdef BufferPlot < gui.PopOut
                     0.350 0.350 0.350 ];
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.BufferPlot.getComponentSpec()
+            % Unlike the online plot this has nothing to refuse: an empty
+            % Buffers list auto-selects the session's buffer parameters, so
+            % there is no dialog it could put in front of the operator.
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type         = 'BufferPlot';
+            s.label        = 'Buffer Plot';
+            s.category     = 'Displays';
+            s.description  = 'Contents of buffer parameters, redrawn once per completed trial';
+            s.shape        = ["runtime","parent"];
+            s.registerName = 'Buffer Plot';
+            s.options      = [ ...
+                gui.ComponentSpecOption('name','Buffers','inputType','paramlist'), ...
+                gui.ComponentSpecOption('name','SampleRate','inputType','numeric'), ...
+                gui.ComponentSpecOption('name','Layout','inputType','text'), ...
+                gui.ComponentSpecOption('name','NumTrialsShown','inputType','numeric','defaultValue',1), ...
+                gui.ComponentSpecOption('name','BoxID','inputType','numeric'), ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text')];
+        end
+    end
+
     methods
         function obj = BufferPlot(source, container, options)
             % obj = gui.BufferPlot(source, container, ...)

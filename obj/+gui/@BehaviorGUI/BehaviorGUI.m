@@ -114,7 +114,6 @@ classdef (Abstract) BehaviorGUI < handle
         P (1,1) struct = struct() % Parameters keyed by validName (may be empty pre-hardware)
         Psych                   % psychophysics object from createPsych, or []
         h_figure                % Main uifigure handle
-        hButtons (1,1) struct = struct() % addButton controls keyed by validName
         PreferenceTag (1,:) char % Figure Tag and getpref/setpref group
         Keys                    % gui.KeyBindings owning this figure's key callbacks
     end
@@ -124,6 +123,14 @@ classdef (Abstract) BehaviorGUI < handle
     end
 
     properties (Dependent, SetAccess = private)
+        % addButton controls, keyed by parameter validName.
+        %
+        % Derived from the component registry rather than accumulated, so it
+        % cannot drift from what was actually built: a button whose parameter
+        % did not resolve was never registered and is simply absent, which is
+        % the same answer the accumulated struct used to give.
+        hButtons (1,1) struct
+
         % True when this GUI was opened over a finished session by
         % epsych.ReviewSession rather than over a running one.
         %
@@ -148,10 +155,8 @@ classdef (Abstract) BehaviorGUI < handle
     properties (Access = private)
         Components_ (1,:) cell = {} % registered components, deleted in reverse on teardown
         ComponentNames_ (1,:) cell = {} % register names, one per Components_ entry
-        ComponentToolbar_ = []      % gui.ComponentToolbar from addComponentToolbar, or []
         Deferred_ (1,:) cell = {}   % closures queued until the first NewTrial
         FirstTrialSeen_ (1,1) logical = false
-        ButtonCount_ (1,1) double = 0 % rotation index for addButton colors
         PopOutListeners_ = event.listener.empty(1,0) % PopOutStateChanged, one per poppable component
         RestoringPopOuts_ (1,1) logical = false % suspends recording while windows are reopened
         UnresolvedPopOuts_ (1,:) string = string.empty(1,0) % remembered displays this GUI does not have
@@ -260,9 +265,10 @@ classdef (Abstract) BehaviorGUI < handle
             % Auto discovery runs here rather than inside addComponentToolbar
             % because build is normally where the toolbar is asked for, before
             % the components it should list have been registered.
-            if ~isempty(obj.ComponentToolbar_) && isvalid(obj.ComponentToolbar_)
+            tb_ = obj.componentToolbar_();
+            if ~isempty(tb_)
                 [comps, labels] = obj.popOutComponents_();
-                obj.ComponentToolbar_.populateAuto_(comps, labels);
+                tb_.populateAuto_(comps, labels);
             end
 
             H = RUNTIME.EVENTS;
@@ -398,6 +404,17 @@ classdef (Abstract) BehaviorGUI < handle
             end
         end
 
+        function s = get.hButtons(obj)
+            % Buttons in registration order, keyed by parameter validName.
+            s = struct();
+            for c = gui.Parameter_Control.buttonsIn(obj)
+                try
+                    s.(c{1}.Parameter.validName) = c{1};
+                catch
+                end
+            end
+        end
+
         function tf = get.ReviewMode(obj)
             % Read through to the runtime rather than cached, so a GUI built
             % against a synthetic runtime (SelfTest check I6) and one built
@@ -495,6 +512,19 @@ classdef (Abstract) BehaviorGUI < handle
 
             [opts, ok] = obj.resolveSpecParameters_(spec, opts);
             if ~ok, return; end
+
+            % Decisions that must be made BEFORE construction, when they
+            % depend on a resolved parameter: gui.Parameter_Control picks
+            % 'toggle' over 'momentary' from a '~'-prefixed name, and its
+            % type is immutable once built.
+            if ~isempty(spec.preFcn)
+                try
+                    opts = spec.preFcn(opts, obj, struct('parent', parent, 'spec', spec));
+                catch ME
+                    vprintf(2, '%s: %s pre-construction step failed (%s)', ...
+                        class(obj), spec.label, ME.message)
+                end
+            end
 
             canvasH = [];
             if ~strcmp(spec.canvas, 'none')
@@ -596,557 +626,254 @@ classdef (Abstract) BehaviorGUI < handle
             c = obj.componentsOfClass_(cls);
         end
 
-        function h = addControl(obj, parent, param, options)
+        % --- Component helpers ------------------------------------------
+        %
+        % Every helper below is a thin wrapper over add. They exist because
+        % their call sites read better -- addControl(col,'ITIDur') says what
+        % it means -- not because they carry any logic of their own. What
+        % each component needs is declared by its own getComponentSpec, so
+        % ADDING A COMPONENT REQUIRES NO EDIT TO THIS CLASS: call
+        % obj.add('pkg.MyComponent', parent, ...) and it works.
+        %
+        % Three helpers are not wrappers, because they build something that
+        % is not a component: controlColumn (layout), addStaircasePlot (the
+        % analysis object draws itself into an axes and there is nothing to
+        % register) and addPopOutButton (a plain button ABOUT a component).
+
+        function h = addControl(obj, parent, param, varargin)
             % h = addControl(obj, parent, param, ...)
             % Create a gui.Parameter_Control bound to a parameter and
             % register it for teardown and Parameter_Update watching.
             %  param - hw.Parameter, or a name resolved against obj.P.
-            %          Unresolved names return [] without error so one
-            %          build method serves protocols with differing
-            %          parameter sets (and the pre-hardware SelfTest run).
-            arguments
-                obj
-                parent (1,1)
-                param
-                options.Type (1,:) char = 'auto'
-                % '' lets Parameter_Control pick the binding from Type
-                % (Type='range' binds the [Min Max] pair, others bind Value).
-                options.BoundProperty (1,:) char = ''
-                options.autoCommit (1,1) logical = false
-                options.Text (1,:) char = ''
-                options.PostUpdateFcn = []
-                options.PostUpdateFcnArgs (1,:) cell = {}
-                options.EvaluatorFcn = []
-                options.EvaluatorArgs (1,:) cell = {}
-            end
-
-            p = obj.resolveParameter_(param);
-            if isempty(p), h = []; return; end
-
-            % Runtime lets an autoCommit Value edit also land in the trial
-            % table (see gui.Parameter_Control.Runtime); settings controls
-            % want that, unlike addButton's self-clearing session toggles.
-            h = gui.Parameter_Control(parent, p, ...
-                Type=options.Type, ...
-                BoundProperty=options.BoundProperty, ...
-                autoCommit=options.autoCommit, ...
-                Runtime=obj.RUNTIME);
-
-            if ~isempty(options.Text)
-                h.Text = options.Text;
-            elseif ~isempty(p.Unit)
-                h.Text = sprintf('%s (%s)', p.Name, p.Unit);
-            end
-
-            if ~isempty(options.PostUpdateFcn)
-                h.PostUpdateFcn     = options.PostUpdateFcn;
-                h.PostUpdateFcnArgs = options.PostUpdateFcnArgs;
-            end
-            if ~isempty(options.EvaluatorFcn)
-                h.EvaluatorFcn  = options.EvaluatorFcn;
-                h.EvaluatorArgs = options.EvaluatorArgs;
-            end
-
-            obj.register(h);
+            %          Unresolved names return [] without error so one build
+            %          method serves protocols with differing parameter sets
+            %          (and the pre-hardware SelfTest run).
+            % Options are forwarded to gui.Parameter_Control unchanged; see
+            % it for Type, BoundProperty, autoCommit, Text, EnabledBy,
+            % DisabledBy, PostUpdateFcn and EvaluatorFcn.
+            h = obj.add('gui.Parameter_Control', parent, 'Parameter', param, varargin{:});
         end
 
-        function h = addButton(obj, parent, param, options)
+        function h = addButton(obj, parent, param, varargin)
             % h = addButton(obj, parent, param, ...)
-            % Create an auto-committing trigger/toggle button. Parameters
-            % whose name starts with '~' become toggles; all others are
-            % momentary. Buttons rotate through accent colors and are
-            % stored in obj.hButtons.(validName).
-            arguments
-                obj
-                parent (1,1)
-                param
-                options.Type (1,:) char = ''
-                options.Text (1,:) char = ''
-                options.PostUpdateFcn = []
-                options.PostUpdateFcnArgs (1,:) cell = {}
-            end
-
-            p = obj.resolveParameter_(param);
-            if isempty(p), h = []; return; end
-
-            btnType = options.Type;
-            if isempty(btnType)
-                if ~isempty(p.Name) && p.Name(1) == '~'
-                    btnType = 'toggle';
-                else
-                    btnType = 'momentary';
-                end
-            end
-
-            h = gui.Parameter_Control(parent, p, Type=btnType, autoCommit=true);
-
-            if ~isempty(options.Text)
-                h.Text = options.Text;
-            else
-                label = regexprep(p.Name, '^[~!]+', '');
-                if ~isempty(p.Unit)
-                    label = sprintf('%s (%s)', label, p.Unit);
-                end
-                h.Text = strtrim(label);
-            end
-
-            obj.ButtonCount_ = obj.ButtonCount_ + 1;
-            accents = min(lines(7) + 0.3, 1);
-            h.colorNormal   = obj.h_figure.Color;
-            h.colorOnUpdate = accents(mod(obj.ButtonCount_-1, 7)+1, :);
-            try
-                set(h.h_uiobj, FontWeight='bold', FontSize=13);
-            catch
-            end
-
-            if ~isempty(options.PostUpdateFcn)
-                h.PostUpdateFcn     = options.PostUpdateFcn;
-                h.PostUpdateFcnArgs = options.PostUpdateFcnArgs;
-            end
-
-            obj.hButtons.(p.validName) = h;
-            obj.register(h);
+            % Create an auto-committing trigger or toggle button. A
+            % '~'-prefixed parameter name makes a latching toggle, anything
+            % else a momentary press; each button takes the next accent
+            % colour. Unresolved names return [] without error.
+            %
+            % Unlike addControl this passes no Runtime, so a self-clearing
+            % session toggle never lands in the trial table.
+            h = obj.add('gui.Parameter_Control', parent, 'Parameter', param, ...
+                'Variant', 'Button', varargin{:});
         end
 
-        function lay = controlColumn(obj, parent, options)
+        function lay = controlColumn(~, parent, varargin)
             % lay = controlColumn(obj, parent, Title=..., Row=..., Column=..., Rows=...)
             % Titled panel containing a scrollable fixed-row-height grid,
-            % ready for a stack of addControl calls.
-            arguments
-                obj % method form keeps call sites uniform with add*
-                parent (1,1)
-                options.Title (1,:) char = ''
-                options.Row = []
-                options.Column = []
-                options.Rows (1,1) double {mustBeInteger,mustBePositive} = 20
-                options.RowHeight (1,1) double = 25
-            end
-
-            p = uipanel(parent, 'Title', options.Title);
-            if ~isempty(options.Row),    p.Layout.Row    = options.Row;    end
-            if ~isempty(options.Column), p.Layout.Column = options.Column; end
-
-            lay = uigridlayout(p, [options.Rows, 1]);
-            lay.RowHeight  = repmat({options.RowHeight}, 1, options.Rows);
-            lay.ColumnWidth = {'1x'};
-            lay.RowSpacing = 1;
-            lay.Padding    = [2 2 2 2];
-            lay.Scrollable = 'on';
+            % ready for a stack of addControl calls. Builds layout, not a
+            % component, so nothing is registered. See gui.controlColumn.
+            lay = gui.controlColumn(parent, varargin{:});
         end
 
-        function h = addUpdateButton(obj, parent, options)
-            % h = addUpdateButton(obj, parent, KeyBinding=)
-            % Create a gui.Parameter_Update commit button. Its
-            % watchedHandles are filled automatically after build with
-            % every registered non-trigger, non-autoCommit control.
-            %
-            % Ctrl+Enter commits, and does nothing when nothing is pending.
-            % KeyBinding='none' drops the shortcut; any other chord replaces
-            % it.
-            arguments
-                obj
-                parent (1,1)
-                options.KeyBinding (1,:) char = 'ctrl+return'
-            end
-            h = gui.Parameter_Update(obj.RUNTIME, parent, KeySource = obj.Keys);
-            obj.register(h);
-            obj.bindComponentKey_(options.KeyBinding, @() h.commitPending(), h, ...
-                'Commit pending parameter edits');
+        function h = addUpdateButton(obj, parent, varargin)
+            % h = addUpdateButton(obj, parent, ...)
+            % Create a gui.Parameter_Update that commits every editable
+            % control in this GUI at once. The controls are found from the
+            % registry after build returns, so this may be called before
+            % them. Ctrl+Enter commits too; KeyBinding='none' drops that.
+            h = obj.add('gui.Parameter_Update', parent, varargin{:});
         end
 
-        function h = addMonitor(obj, parent, params, options)
+        function h = addMonitor(obj, parent, params, varargin)
             % h = addMonitor(obj, parent, params, ...)
-            % Create a gui.Parameter_Monitor over hw.Parameter objects or
-            % resolvable names (unresolved names are skipped). Registered
-            % monitors stop polling when the session mode changes to Stop.
-            arguments
-                obj
-                parent (1,1)
-                params
-                options.pollPeriod (1,1) double = 1
-                options.type (1,1) string = "table"
-                options.Columns (1,:) string = string.empty(1,0)
-                options.PreferenceTag (1,:) char = ''
-            end
-
-            resolved = hw.Parameter.empty(1,0);
-            if isa(params,'hw.Parameter')
-                resolved = params;
-            else
-                params = cellstr(params);
-                for i = 1:numel(params)
-                    p = obj.resolveParameter_(params{i});
-                    if ~isempty(p), resolved(end+1) = p; end
-                end
-            end
-
-            args = {'pollPeriod', options.pollPeriod, 'type', options.type};
-            if ~isempty(options.Columns), args = [args {'Columns',options.Columns}]; end
-            if ~isempty(options.PreferenceTag), args = [args {'PreferenceTag',options.PreferenceTag}]; end
-
-            h = gui.Parameter_Monitor(parent, resolved, args{:});
-            obj.register(h);
+            % Create a gui.Parameter_Monitor polling the named parameters.
+            % Names that do not resolve are dropped individually, so a
+            % protocol missing one still gets a monitor of the rest.
+            h = obj.add('gui.Parameter_Monitor', parent, 'Parameters', params, varargin{:});
         end
 
-        function h = addNextTrial(obj, parent, options)
+        function h = addNextTrial(obj, parent, varargin)
             % h = addNextTrial(obj, parent, ...)
-            % Create a gui.NextTrial bound to this GUI's runtime and
-            % register it for teardown. See gui.NextTrial for options.
-            arguments
-                obj
-                parent (1,1)
-                options.Fields (1,:) string = string.empty(1,0)
-                options.Formatters = containers.Map('KeyType','char','ValueType','any')
-                options.FontSize (1,1) double = 16
-                options.PreferenceTag (1,:) char = ''
-            end
-
-            args = {'Fields', options.Fields, 'Formatters', options.Formatters, ...
-                'FontSize', options.FontSize};
-            if ~isempty(options.PreferenceTag)
-                args = [args {'PreferenceTag', options.PreferenceTag}];
-            end
-
-            h = gui.NextTrial(obj.RUNTIME, parent, args{:});
-            obj.register(h);
+            % Create a gui.NextTrial upcoming-trial display driven by
+            % NewTrial events. See gui.NextTrial for the options.
+            h = obj.add('gui.NextTrial', parent, varargin{:});
         end
 
-        function h = addPerformance(obj, parent, options)
+        function h = addPerformance(obj, parent, varargin)
             % h = addPerformance(obj, parent, ...)
-            % Create a gui.SessionPerformance summary and register it for
-            % teardown. It computes through a psychophysics.SessionMetrics
-            % built over this GUI's psychophysics object when there is one
-            % (so the trial-type conventions match), and over the runtime
-            % otherwise. See gui.SessionPerformance for options.
-            arguments
-                obj
-                parent (1,1)
-                options.Metrics (1,:) string = psychophysics.SessionMetrics.defaultMetrics()
-                options.TrialWindow = psychophysics.TrialWindow
-                options.FontSize (1,1) double = 12
-                options.ShowHeader (1,1) logical = true
-                options.ShowDetail (1,1) logical = true
-                options.PreferenceTag (1,:) char = ''
-            end
-
-            source = obj.Psych;
-            if isempty(source) || ~isvalid(source)
-                source = obj.RUNTIME;
-            end
-
-            args = {'Metrics', options.Metrics, 'TrialWindow', options.TrialWindow, ...
-                'FontSize', options.FontSize, 'ShowHeader', options.ShowHeader, ...
-                'ShowDetail', options.ShowDetail};
-            if ~isempty(options.PreferenceTag)
-                args = [args {'PreferenceTag', options.PreferenceTag}];
-            end
-
-            h = gui.SessionPerformance(source, parent, args{:});
-            obj.register(h);
+            % Create a gui.SessionPerformance summary panel -- rates, counts,
+            % d'. Computed over this GUI's analysis object when there is one,
+            % else over the runtime. See gui.SessionPerformance.
+            h = obj.add('gui.SessionPerformance', parent, varargin{:});
         end
 
-        function h = addSyringePump(obj, parent, options)
+        function h = addSyringePump(obj, parent, varargin)
             % h = addSyringePump(obj, parent, ...)
-            % Create a gui.SyringePump panel over this session's hw.NE1000
-            % and register it for teardown. With no pump in the protocol the
-            % panel constructs a standalone interface and offers a port to
-            % connect on, so the GUI still opens. Use Sections to show only
-            % part of the panel. See gui.SyringePump.
+            % Create a gui.SyringePump operator panel for an hw.NE1000.
+            % With no pump in the protocol the panel constructs a standalone
+            % interface and offers a port to connect on, so the GUI still
+            % opens.
             %
-            % No key chord, deliberately: these controls move a syringe, and
-            % a keystroke is the wrong way to start or stop one.
-            %
-            % Options are deliberately declared without defaults: only what
-            % the build method actually passes is forwarded, which is what
+            % Options you do not name are not passed at all, which is what
             % lets the panel fall back to the operator's own remembered
             % configuration for everything else.
-            arguments
-                obj
-                parent (1,1)
-                options.Diameter (1,1) double
-                options.Rate (1,1) double
-                options.Direction (1,:) char
-                options.TTLTrigger (1,1) logical
-                options.TriggerMode (1,2) char
-                options.RateUnits (1,2) char
-                options.VolumeUnits (1,:) char
-                options.UpdatePeriod (1,1) double
-                options.Port (1,:) char
-                options.ApplyOnStart (1,1) logical
-                options.Sections (1,:) string
-                options.FontSize (1,1) double
-                options.PreferenceTag (1,:) char
-            end
-
-            args = namedargs2cell(options);
-            h = gui.SyringePump(obj.RUNTIME, parent, args{:});
-            obj.register(h);
+            h = obj.add('gui.SyringePump', parent, varargin{:});
         end
 
-        function h = addNotes(obj, parent, options)
+        function h = addNotes(obj, parent, varargin)
             % h = addNotes(obj, parent, ...)
-            % Create a gui.Notes panel -- an entry field and a log of the
-            % operator's typed notes -- and register it for teardown.
+            % Create a gui.Notes operator note pad over this session's note
+            % store, so what is typed reaches every subject's data file.
+            % Ctrl+Shift+N puts the caret in the entry field;
+            % KeyBinding='none' drops that. See gui.Notes.
+            h = obj.add('gui.Notes', parent, varargin{:});
+        end
+
+        function h = addNotesButton(obj, parent, varargin)
+            % h = addNotesButton(obj, parent, ...)
+            % One button that opens the notes in a window of its own, for a
+            % GUI with no room for a log. The window remembers its position,
+            % pins on top, raises instead of duplicating, and closes with
+            % this GUI.
             %
-            % Notes go into this session's store (RUNTIME.NOTES), which means
-            % they are saved with the data: the Info variable every saving
-            % function writes carries them, and each one is journaled as it is
-            % committed, so a crash keeps them. Give the panel a '1x' row and
-            % the log fills it. See gui.Notes.
+            % ButtonOnly goes last so a caller cannot accidentally win it
+            % back: this helper IS the button form.
+            h = obj.add('gui.Notes', parent, varargin{:}, 'ButtonOnly', true);
+        end
+
+        function h = addScreenCapture(obj, parent, varargin)
+            % h = addScreenCapture(obj, parent, ...)
+            % Create a gui.ScreenCapture camera button. One click copies a
+            % picture of the whole window -- controls, plots and all -- to
+            % the system clipboard, for pasting into a notebook entry.
+            % Ctrl+Shift+C copies too; KeyBinding='none' drops that.
             %
-            % Ctrl+Shift+N jumps to the entry field (or opens the window, in
-            % the ButtonOnly form), so a note can be typed without reaching
-            % for the mouse. KeyBinding='none' drops it.
-            arguments
-                obj
-                parent (1,1)
-                options.Subject (1,1) double = 0
-                options.TimeStamp (1,1) string = "elapsed"
-                options.Editable (1,1) logical = false
-                options.FontSize (1,1) double = 12
-                options.Placeholder (1,:) char = 'Add a note...'
-                options.ButtonOnly (1,1) logical = false
-                options.Text (1,:) char = 'Notes'
-                options.PreferenceTag (1,:) char = ''
-                options.KeyBinding (1,:) char = 'ctrl+shift+n'
-            end
-
-            args = {'Subject', options.Subject, 'TimeStamp', options.TimeStamp, ...
-                'Editable', options.Editable, 'FontSize', options.FontSize, ...
-                'Placeholder', options.Placeholder, 'ButtonOnly', options.ButtonOnly, ...
-                'Text', options.Text};
-            if ~isempty(options.PreferenceTag)
-                args = [args {'PreferenceTag', options.PreferenceTag}];
-            end
-
-            h = gui.Notes(obj.RUNTIME, parent, args{:});
-            obj.register(h);
-            obj.bindComponentKey_(options.KeyBinding, @() obj.focusNotes_(h), h, ...
-                'Jump to the session notes');
+            % Target defaults to this GUI's figure.
+            h = obj.add('gui.ScreenCapture', parent, varargin{:});
         end
 
-        function h = addNotesButton(obj, parent, options)
-            % h = addNotesButton(obj, parent, Text=...)
-            % Create a single Notes button, for a GUI with no room for a log.
-            % Clicking it opens the session notes in a window of their own --
-            % the same store the panel form writes to, so the window shows
-            % every note the session has and anything typed into it is saved
-            % with the data. Clicking again raises that window rather than
-            % opening a second one, and it closes with this GUI.
-            arguments
-                obj
-                parent (1,1)
-                options.Text (1,:) char = 'Notes'
-                options.Subject (1,1) double = 0
-                options.TimeStamp (1,1) string = "elapsed"
-                options.FontSize (1,1) double = 12
-                options.PreferenceTag (1,:) char = ''
-                options.KeyBinding (1,:) char = 'ctrl+shift+n'
-            end
-
-            h = obj.addNotes(parent, ButtonOnly = true, Text = options.Text, ...
-                Subject = options.Subject, TimeStamp = options.TimeStamp, ...
-                FontSize = options.FontSize, PreferenceTag = options.PreferenceTag, ...
-                KeyBinding = options.KeyBinding);
-        end
-
-        function h = addScreenCapture(obj, parent, options)
-            % h = addScreenCapture(obj, parent, Target=..., Text=..., Tooltip=...)
-            % Create a gui.ScreenCapture camera button and register it for
-            % teardown. One click copies a picture of the whole window —
-            % controls, plots and all — to the system clipboard, for pasting
-            % into a notebook entry. Ctrl+Shift+C copies too;
-            % KeyBinding='none' drops that. See gui.ScreenCapture.
-            arguments
-                obj
-                parent (1,1)
-                options.Target = []
-                options.Text          (1,:) char = ''
-                options.Tooltip       (1,:) char = 'Copy this window to the clipboard'
-                options.FontSize      (1,1) double = 12
-                options.FlashDuration (1,1) double = 1.5
-                options.KeyBinding    (1,:) char = 'ctrl+shift+c'
-            end
-
-            if isempty(options.Target)
-                options.Target = obj.h_figure;
-            end
-
-            chord = options.KeyBinding;
-            options = rmfield(options, 'KeyBinding');
-
-            args = namedargs2cell(options);
-            h = gui.ScreenCapture(parent, args{:});
-            obj.register(h);
-            obj.bindComponentKey_(chord, @() h.copyToClipboard(), h, ...
-                'Copy this window to the clipboard');
-        end
-
-        function h = addHistory(obj, parent, options)
+        function h = addHistory(obj, parent, varargin)
             % h = addHistory(obj, parent, ...)
             % Create a gui.History per-trial outcome table over this GUI's
-            % psychophysics object and register it for teardown.
-            %
-            % Returns [] when createPsych produced nothing, the way
-            % addControl returns [] for a parameter that does not resolve: a
-            % GUI must still open against a runtime with no interfaces
-            % (epsych.SelfTest check I6). See gui.History for options.
-            arguments
-                obj
-                parent (1,1)
-                options.ColumnFormats = string.empty(0,1)
-                options.BitColors = string.empty(0,1)
-                options.PreferenceTag {mustBeTextScalar} = ''
-            end
-
-            h = [];
-            if ~obj.hasPsych_('gui.History'), return; end
-
-            args = namedargs2cell(options);
-            h = gui.History(obj.Psych, parent, args{:});
-            obj.register(h);
+            % analysis object. Returns [] when createPsych produced nothing,
+            % so a GUI still opens against a runtime with no interfaces.
+            h = obj.add('gui.History', parent, varargin{:});
         end
 
-        function h = addOnlinePlot(obj, parent, options)
+        function h = addOnlinePlot(obj, parent, varargin)
             % h = addOnlinePlot(obj, parent, Source=..., ...)
-            % Create a gui.OnlinePlot of live hardware activity and register
-            % it for teardown.
-            %
-            % gui.OnlinePlot draws into a CLASSIC axes, not a uiaxes (it uses
-            % a duration ruler and sets XLim by hand), so one is made here
-            % inside the container you give: pass a panel or a grid cell
-            % rather than an axes of your own.
+            % Create a gui.OnlinePlot of live hardware activity.
             %
             % Source names the traces -- parameter names, hw.Parameter
-            % handles, or a bitmask bank name. LEFT EMPTY it puts a list
+            % handles, or a bitmask bank name. LEFT EMPTY it would put a list
             % dialog in front of the operator while the session is starting,
-            % which is almost never what a paradigm wants, so an empty Source
-            % returns [] and logs instead. That matches addControl's
-            % tolerance for a parameter it cannot resolve and keeps a GUI
-            % openable against a runtime with no interfaces (epsych.SelfTest
-            % check I6).
+            % so an empty Source returns [] and logs instead.
             %
-            % See gui.OnlinePlot for the trace, order and styling options,
-            % all of which the operator can also reach from its right-click
-            % menu and which persist under PreferenceTag.
-            arguments
-                obj
-                parent (1,1)
-                options.Source = []
-                options.BoxID (1,1) double = 1
-                options.PreferenceTag {mustBeTextScalar} = ''
-                options.TimeWindow (1,2) double = [-10 3]
-            end
-
-            h = [];
-            if isempty(options.Source)
-                vprintf(2,['%s: addOnlinePlot needs a Source; ' ...
-                    'skipping rather than opening a dialog mid-session'], class(obj))
-                return
-            end
-
-            ax = axes(parent);
-            h = gui.OnlinePlot(obj.RUNTIME, options.Source, ax, options.BoxID, ...
-                PreferenceTag=options.PreferenceTag);
-            if isempty(h) || ~isvalid(h), h = []; return; end
-
-            % After construction, and only when nothing was remembered: a
-            % saved window outranks a default, which is the point of
-            % remembering one.
-            if ~h.hasSavedConfiguration()
-                h.timeWindow = seconds(options.TimeWindow);
-            end
-            obj.register(h, 'Online Plot');
+            % The plot draws into a CLASSIC axes, which is made inside the
+            % container you give: pass a panel or a grid cell rather than an
+            % axes of your own.
+            h = obj.add('gui.OnlinePlot', parent, varargin{:});
         end
 
-        function h = addBufferPlot(obj, parent, options)
+        function h = addBufferPlot(obj, parent, varargin)
             % h = addBufferPlot(obj, parent, Buffers=..., SampleRate=...)
             % Create a gui.BufferPlot of one or more buffer parameters,
-            % refreshed once per completed trial, and register it for teardown.
+            % refreshed once per completed trial from the trial record the
+            % runtime already read, so it costs the device nothing.
             %
-            % The source is this GUI's runtime: the plot takes each buffer out
-            % of the trial record the runtime already read, so it costs the
-            % device nothing. Buffers left empty auto-selects the session's
-            % 'Buffer' parameters, which is why -- unlike addOnlinePlot -- this
-            % helper has nothing to refuse: there is no dialog it could put in
-            % front of the operator mid-session.
-            %
-            % SampleRate accepts a number or "auto" (take it from the owning
-            % hw.Module); without one the x axis is buffer samples. See
-            % gui.BufferPlot for the display options, all of which the operator
-            % can also reach from its right-click menu and which persist under
-            % PreferenceTag.
-            arguments
-                obj
-                parent (1,1)
-                options.Buffers = {}
-                options.SampleRate = []
-                options.BoxID (1,:) double = []
-                options.PreferenceTag {mustBeTextScalar} = ''
-                options.Layout {mustBeTextScalar} = ''
-                options.NumTrialsShown (1,1) double = 1
-            end
-
-            args = {'Buffers', options.Buffers, 'BoxID', options.BoxID, ...
-                'NumTrialsShown', options.NumTrialsShown};
-            if ~isempty(options.SampleRate)
-                args = [args {'SampleRate', options.SampleRate}];
-            end
-            if ~isempty(options.PreferenceTag)
-                args = [args {'PreferenceTag', options.PreferenceTag}];
-            end
-            if ~isempty(options.Layout)
-                args = [args {'Layout', options.Layout}];
-            end
-
-            h = gui.BufferPlot(obj.RUNTIME, parent, args{:});
-            if isempty(h) || ~isvalid(h), h = []; return; end
-            obj.register(h, 'Buffer Plot');
+            % Buffers left empty auto-selects the session's buffer
+            % parameters, which is why -- unlike addOnlinePlot -- this has
+            % nothing to refuse.
+            h = obj.add('gui.BufferPlot', parent, varargin{:});
         end
 
-        function h = addScatter(obj, parent, options)
+        function h = addScatter(obj, parent, varargin)
             % h = addScatter(obj, parent, ...)
             % Create a gui.ParameterScatter over any two recorded trial
-            % parameters and register it for teardown.
-            %
-            % The source is this GUI's runtime rather than its psych object:
-            % the scatter draws whatever the trials recorded, so it works in
-            % a paradigm that has no analysis at all. See gui.ParameterScatter.
-            arguments
-                obj
-                parent (1,1)
-                options.BoxID (1,:) double = []
-                options.XParameter {mustBeTextScalar} = ''
-                options.YParameter {mustBeTextScalar} = ''
-                options.ColorParameter {mustBeTextScalar} = ''
-                options.PreferenceTag {mustBeTextScalar} = ''
-            end
-
-            args = namedargs2cell(options);
-            h = gui.ParameterScatter(obj.RUNTIME, parent, args{:});
-            obj.register(h);
+            % parameters. Driven by the runtime rather than an analysis
+            % object, so it works in a paradigm that has no analysis at all.
+            h = obj.add('gui.ParameterScatter', parent, varargin{:});
         end
 
-        function h = addPsychPlot(obj, parent)
+        function h = addPsychPlot(obj, parent, varargin)
             % h = addPsychPlot(obj, parent)
             % Create a gui.PsychPlot psychometric curve over this GUI's
-            % psychophysics object and register it for teardown. Returns []
-            % when there is no psych object.
+            % analysis object. Returns [] when there is none.
             %
-            % gui.PsychPlot draws into a CLASSIC axes, not a uiaxes, so one
-            % is made here inside the container you give: pass a panel or a
-            % grid cell rather than an axes of your own.
-            arguments
-                obj
-                parent (1,1)
-            end
+            % Draws into a CLASSIC axes, made inside the container you give:
+            % pass a panel or a grid cell rather than an axes of your own.
+            h = obj.add('gui.PsychPlot', parent, varargin{:});
+        end
 
-            h = [];
-            if ~obj.hasPsych_('gui.PsychPlot'), return; end
+        function h = addSessionClock(obj, parent, varargin)
+            % h = addSessionClock(obj, parent, ...)
+            % Create a gui.SessionClock -- time since the last trial, since
+            % the first, session duration, wall clock -- wire it to this
+            % GUI's runtime and start it.
+            h = obj.add('gui.SessionClock', parent, varargin{:});
+        end
 
-            ax = axes(parent);
-            h = gui.PsychPlot(obj.Psych, ax);
-            obj.register(h);
+        function h = addTrialTimer(obj, parent, varargin)
+            % h = addTrialTimer(obj, parent, ...)
+            % Create a gui.ElapsedTrialTimer showing time since the last
+            % completed trial, wired to this GUI's runtime.
+            h = obj.add('gui.ElapsedTrialTimer', parent, varargin{:});
+        end
+
+        function h = addModeIndicator(obj, parent, varargin)
+            % h = addModeIndicator(obj, parent, ...)
+            % Create a gui.ModeIndicator lamp showing the current run mode,
+            % wired to this GUI's runtime.
+            h = obj.add('gui.ModeIndicator', parent, varargin{:});
+        end
+
+        function h = addSessionGate(obj, parent, varargin)
+            % h = addSessionGate(obj, parent, ...)
+            % Create a gui.SessionGate "Begin Experiment" button for a rig
+            % that must not start dispatching the moment the session does.
+            %
+            % This is HALF the mechanism: waitForSessionGate, called from the
+            % SUBCLASS CONSTRUCTOR, is what actually holds the session. The
+            % wait cannot live in build, which runs from inside the base
+            % constructor before the window is shown.
+            %
+            % No keyboard shortcut, deliberately: starting a session is not
+            % something a stray keystroke over the wrong window should do.
+            h = obj.add('gui.SessionGate', parent, varargin{:});
+        end
+
+        function h = addRegenerateTrial(obj, parent, varargin)
+            % h = addRegenerateTrial(obj, parent, ...)
+            % Create a gui.RegenerateTrial button that re-arms the trial the
+            % rig is holding. Dead until Ctrl+Alt+Shift are all held.
+            %
+            % No keyboard chord, deliberately: holding the three modifiers IS
+            % the gesture, and a chord that fired it outright would undo the
+            % arming.
+            h = obj.add('gui.RegenerateTrial', parent, varargin{:});
+        end
+
+        function tb = addComponentToolbar(obj, fig, varargin)
+            % tb = addComponentToolbar(obj, fig, Style=..., Exclude=..., AutoDiscover=...)
+            % Add an icon toolbar that opens display components in windows of
+            % their own. Optional: a GUI that never calls this has no toolbar.
+            %
+            % Call it at the TOP of build. Every gui.PopOut component
+            % registered anywhere in build gets a tool automatically, because
+            % the list is collected after build returns rather than now.
+            % Components the GUI does not display are declared on the
+            % returned toolbar with addLazyComponent and built on first click:
+            %
+            %   function build(obj, fig)
+            %       tb = obj.addComponentToolbar(fig);
+            %       tb.addLazyComponent('Performance', ...
+            %           @(c) gui.SessionPerformance(obj.RUNTIME, c), ...
+            %           Icon='sessionperformance');
+            %       ... the rest of the layout ...
+            %   end
+            %
+            % Asking twice returns the toolbar already made.
+            tb = obj.add('gui.ComponentToolbar', fig, varargin{:});
         end
 
         function ax = addStaircasePlot(obj, parent)
@@ -1177,113 +904,6 @@ classdef (Abstract) BehaviorGUI < handle
             obj.Psych.Plot(ax);
         end
 
-        function h = addSessionClock(obj, parent, options)
-            % h = addSessionClock(obj, parent, ...)
-            % Create a gui.SessionClock -- time since the last trial, since
-            % the first, session duration, wall clock -- wire it to this
-            % GUI's runtime, start it, and register it for teardown.
-            %
-            % The clock builds its own panel inside parent, so in a grid cell
-            % use the returned object's PanelH to place it:
-            %   c = obj.addSessionClock(g);
-            %   c.PanelH.Layout.Row = 1; c.PanelH.Layout.Column = 2;
-            % See gui.SessionClock for options.
-            arguments
-                obj
-                parent (1,1)
-                options.PreferenceTag (1,:) char = ''
-                options.UpdatePeriod (1,1) double {mustBePositive, mustBeFinite} = 1
-                options.FontSize (1,1) double {mustBePositive, mustBeFinite} = 12
-                options.FontColor (1,3) double {mustBeNonnegative} = [0 0 0]
-                options.ShowTimeSinceLastTrial (1,1) logical = true
-                options.ShowTimeSinceFirstTrial (1,1) logical = true
-                options.ShowSessionDuration (1,1) logical = true
-                options.ShowClockTime (1,1) logical = true
-            end
-
-            args = namedargs2cell(options);
-            h = gui.SessionClock(parent, args{:});
-            h.attachRuntime(obj.RUNTIME);
-            h.start();
-            obj.register(h);
-        end
-
-        function h = addTrialTimer(obj, parent, options)
-            % h = addTrialTimer(obj, parent, ...)
-            % Create a gui.ElapsedTrialTimer -- time since the last completed
-            % trial -- wire it to this GUI's runtime and register it for
-            % teardown. See gui.ElapsedTrialTimer for options.
-            arguments
-                obj
-                parent (1,1)
-                options.UpdatePeriod (1,1) double {mustBePositive, mustBeFinite} = 0.5
-                options.Format (1,:) char = 'hms'
-                options.FontSize (1,1) double {mustBePositive, mustBeFinite} = 12
-                options.FontColor (1,3) double {mustBeNonnegative} = [0 0 0]
-                options.FontWeight (1,:) char = 'normal'
-                options.Prefix (1,:) char = 'Last trial: '
-            end
-
-            args = namedargs2cell(options);
-            h = gui.ElapsedTrialTimer(parent, args{:});
-            h.attachRuntime(obj.RUNTIME);
-            obj.register(h);
-        end
-
-        function h = addModeIndicator(obj, parent, options)
-            % h = addModeIndicator(obj, parent, FontSize=...)
-            % Create a gui.ModeIndicator lamp showing the session's run mode,
-            % wire it to this GUI's runtime and register it for teardown.
-            arguments
-                obj
-                parent (1,1)
-                options.FontSize (1,1) double = 11
-            end
-
-            args = namedargs2cell(options);
-            h = gui.ModeIndicator(parent, args{:});
-            h.attachRuntime(obj.RUNTIME);
-            obj.register(h);
-        end
-
-        function h = addSessionGate(obj, parent, options)
-            % h = addSessionGate(obj, parent, ...)
-            % Create a gui.SessionGate "Begin Experiment" button and register
-            % it for teardown. Nothing runs until it is pressed -- but only
-            % because something WAITS on it, which is the other half:
-            %
-            %   function obj = MyGUI(RUNTIME)
-            %       obj@gui.BehaviorGUI(RUNTIME, Name='My Task');
-            %       obj.waitForSessionGate();   % after the window exists
-            %   end
-            %
-            % The wait cannot happen here: build runs from inside the base
-            % constructor, before the figure is shown, so blocking in it
-            % would hold the session at a window nobody can click.
-            %
-            % See gui.SessionGate for options.
-            %
-            % No key chord, deliberately: pressing this starts the session
-            % dispatching trials, which is not something a stray keystroke
-            % over the wrong window should be able to do.
-            arguments
-                obj
-                parent (1,1)
-                options.Text (1,:) char = 'Begin Experiment'
-                options.RunningText (1,:) char = 'Experiment Running'
-                options.PreviewText (1,:) char = 'Preview Running'
-                options.CompleteText (1,:) char = 'Session Complete'
-                options.Tooltip (1,:) char = 'Start the session; no trial runs until this is pressed'
-                options.FontSize (1,1) double {mustBePositive, mustBeFinite} = 14
-                options.FontWeight (1,:) char {mustBeMember(options.FontWeight,{'normal','bold'})} = 'bold'
-                options.BackgroundColor (1,3) double {mustBeNonnegative} = [0.45 0.75 0.45]
-            end
-
-            args = namedargs2cell(options);
-            h = gui.SessionGate(parent, args{:});
-            h.attachRuntime(obj.RUNTIME);
-            obj.register(h);
-        end
 
         function tf = waitForSessionGate(obj, timeout)
             % tf = waitForSessionGate(obj, timeout)
@@ -1313,51 +933,6 @@ classdef (Abstract) BehaviorGUI < handle
             tf = gates{1}.wait(timeout);
         end
 
-        function h = addRegenerateTrial(obj, parent, options)
-            % h = addRegenerateTrial(obj, parent, ...)
-            % Create a gui.RegenerateTrial button and register it for
-            % teardown. One press dispatches the pending trial again, so
-            % randomized parameters redraw and committed edits reach the
-            % hardware without waiting for the next trial.
-            %
-            % The button is DEAD until Ctrl+Alt+Shift are all held -- the
-            % same combination gui.Parameter_Update uses -- and dies again
-            % as soon as one is released. RequireArming=false removes that.
-            %
-            % IT INTERRUPTS THE TRIAL IN PROGRESS, and asks nothing first.
-            % The component cannot tell an ITI from an animal part way
-            % through a response, and the DATA record for the trial ends up
-            % describing the last dispatch rather than the first. Add it for
-            % an operator who wants that; do not add it to a layout where it
-            % sits among the trigger buttons a mis-click can reach.
-            %
-            % The button is live only while the session is running (Preview
-            % or Record) and never in a review. See gui.RegenerateTrial.
-            %
-            % Deliberately the one helper with NO key chord: holding the
-            % three modifiers is the gesture, and a chord that fired it
-            % outright would undo the arming this component exists to
-            % impose. Bind one yourself if a rig wants it.
-            arguments
-                obj
-                parent (1,1)
-                options.Text (1,:) char = 'Regenerate Trial'
-                options.Tooltip (1,:) char = ''
-                options.SubjectIndex (1,1) double {mustBeInteger, mustBePositive} = 1
-                options.Reselect (1,1) logical = false
-                options.Note (1,1) logical = true
-                options.EnableWhenIdle (1,1) logical = false
-                options.RequireArming (1,1) logical = true
-                options.ShowIcon (1,1) logical = true
-                options.FontSize (1,1) double {mustBePositive, mustBeFinite} = 12
-                options.FontWeight (1,:) char {mustBeMember(options.FontWeight,{'normal','bold'})} = 'normal'
-                options.BackgroundColor (1,3) double {mustBeNonnegative} = [0.96 0.78 0.36]
-            end
-
-            args = namedargs2cell(options);
-            h = gui.RegenerateTrial(obj.RUNTIME, parent, args{:}, KeySource = obj.Keys);
-            obj.register(h);
-        end
 
         function h = addPopOutButton(obj, parent, component, options)
             % h = addPopOutButton(obj, parent, component, Text=..., Tooltip=...)
@@ -1391,49 +966,7 @@ classdef (Abstract) BehaviorGUI < handle
             obj.register(h);
         end
 
-        function tb = addComponentToolbar(obj, fig, options)
-            % tb = addComponentToolbar(obj, fig, Style=..., Exclude=..., AutoDiscover=...)
-            % Add an icon toolbar that opens display components in windows of
-            % their own. Optional: a GUI that never calls this has no toolbar.
-            %
-            % Call it at the TOP of build. Every gui.PopOut component
-            % registered anywhere in build gets a tool automatically, because
-            % the list is collected after build returns rather than now.
-            % Components the GUI does not display are declared on the returned
-            % toolbar with addLazyComponent and built on first click:
-            %
-            %   function build(obj, fig)
-            %       tb = obj.addComponentToolbar(fig);
-            %       tb.addLazyComponent('Performance', ...
-            %           @(c) gui.SessionPerformance(obj.RUNTIME, c), ...
-            %           Icon='sessionperformance');
-            %       ... the rest of the layout ...
-            %   end
-            %
-            %  Style        - 'push' (default) opens or raises on click;
-            %                 'toggle' also shows which windows are open and
-            %                 closes one when its pressed tool is clicked.
-            %  Exclude      - class or register names to leave off the toolbar.
-            %  AutoDiscover - false lists only what addLazyComponent declares.
-            arguments
-                obj
-                fig (1,1) matlab.ui.Figure
-                options.Style (1,1) string {mustBeMember(options.Style,["push","toggle"])} = "push"
-                options.Exclude (1,:) string = string.empty(1,0)
-                options.AutoDiscover (1,1) logical = true
-            end
 
-            if ~isempty(obj.ComponentToolbar_) && isvalid(obj.ComponentToolbar_)
-                vprintf(2, '%s: component toolbar already added; returning it', class(obj))
-                tb = obj.ComponentToolbar_;
-                return
-            end
-
-            tb = gui.ComponentToolbar(obj, fig, Style=options.Style, ...
-                Exclude=options.Exclude, AutoDiscover=options.AutoDiscover);
-            obj.ComponentToolbar_ = tb;
-            obj.register(tb, 'ComponentToolbar');
-        end
 
         function comp = register(obj, comp, name)
             % comp = register(obj, comp, name)
@@ -1617,22 +1150,6 @@ classdef (Abstract) BehaviorGUI < handle
             end
         end
 
-        function focusNotes_(~, h)
-            % Put the caret where the note gets typed. The ButtonOnly form
-            % keeps its entry field in a window of its own, so there the
-            % shortcut opens that window instead -- the same thing its
-            % button does.
-            try
-                if h.IsButtonOnly
-                    h.popOut();
-                elseif ~isempty(h.EntryH) && isvalid(h.EntryH)
-                    focus(h.EntryH);
-                end
-            catch ME
-                vprintf(2, 'gui.BehaviorGUI: could not reach the notes entry (%s)', ME.message)
-            end
-        end
-
         function [pos, opts, ok] = buildSpecPositionals_(obj, spec, parent, canvasH, opts)
             % Positional arguments named by spec.shape. An arg: token is
             % CONSUMED from opts so it is not also forwarded by name.
@@ -1776,6 +1293,19 @@ classdef (Abstract) BehaviorGUI < handle
                 cb = @() act(h, obj);
             end
             obj.bindComponentKey_(chord, cb, h, spec.keyDescription);
+        end
+
+        function tb = componentToolbar_(obj)
+            % tb = componentToolbar_(obj)
+            % This GUI's component toolbar, or [].
+            %
+            % Read from the registry rather than kept in a property of its
+            % own: addComponentToolbar registers it like anything else, and
+            % one source of truth cannot go stale against the other.
+            tb = [];
+            c = obj.componentsOfClass_('gui.ComponentToolbar');
+            if isempty(c), return; end
+            if isvalid(c{1}), tb = c{1}; end
         end
 
         function tf = hasPsych_(obj, what)
@@ -1943,7 +1473,7 @@ classdef (Abstract) BehaviorGUI < handle
                 end
             end
 
-            tb = obj.ComponentToolbar_;
+            tb = obj.componentToolbar_();
             if ~isempty(tb) && isvalid(tb)
                 try
                     ids = [ids, "Toolbar:" + tb.openLazyNames_()];
@@ -1993,7 +1523,7 @@ classdef (Abstract) BehaviorGUI < handle
             % Open the toolbar's own window for the lazy entry id names.
             n = 0;
             name = extractAfter(id, "Toolbar:");
-            tb = obj.ComponentToolbar_;
+            tb = obj.componentToolbar_();
             if isempty(tb) || ~isvalid(tb) || ~tb.openLazyByName_(name)
                 obj.noteUnresolved_(id, name, 'it is no longer on the toolbar');
                 return

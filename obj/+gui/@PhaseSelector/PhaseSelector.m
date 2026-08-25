@@ -94,6 +94,32 @@ classdef PhaseSelector < handle
     end
 
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.PhaseSelector.getComponentSpec()
+            % Two-step construction: the object is made with the runtime and
+            % a folder, then draws itself into the container.
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'PhaseSelector';
+            s.label       = 'Phase Selector';
+            s.category    = 'Add-ons';
+            s.description = 'Save and load named parameter phases from a folder';
+            s.shape       = ["runtime","arg:PhasePath"];
+            s.postFcn     = @gui.PhaseSelector.buildIntoContainer;
+            s.options     = [ ...
+                gui.ComponentSpecOption('name','PhasePath','inputType','text'), ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text')];
+        end
+
+        function buildIntoContainer(h, ~, ctx)
+            % buildIntoContainer(h, guiObj, ctx)
+            % Post-construction step for gui.BehaviorGUI.add: this component
+            % is created from the runtime and then draws into a container.
+            h.createGUI(ctx.parent);
+        end
+    end
+
     methods
         function obj = PhaseSelector(RUNTIME, PhasePath)
             % PhaseSelector(RUNTIME, PhasePath)

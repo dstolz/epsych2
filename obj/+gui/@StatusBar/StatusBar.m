@@ -45,6 +45,20 @@ classdef StatusBar < handle
     end
 
     % -----------------------------------------------------------------------
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.StatusBar.getComponentSpec()
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'StatusBar';
+            s.label       = 'Status Bar';
+            s.category    = 'Add-ons';
+            s.description = 'Footer status line, green for messages and red for errors';
+            s.shape       = "parent";
+            s.options     = gui.ComponentSpecOption('name','InitialText','inputType','text');
+        end
+    end
+
     methods
 
         function obj = StatusBar(parent, options)

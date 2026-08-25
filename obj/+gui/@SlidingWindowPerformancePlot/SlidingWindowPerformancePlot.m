@@ -83,6 +83,21 @@ classdef SlidingWindowPerformancePlot < handle
         cm % colormap
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.SlidingWindowPerformancePlot.getComponentSpec()
+            % Classic axes, like the psychometric plot. See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'SlidingWindow';
+            s.label       = 'Sliding Window';
+            s.category    = 'Displays';
+            s.description = 'Hit rate, FA rate and d'' over trials, cumulative or windowed';
+            s.shape       = ["psych","canvas"];
+            s.canvas      = 'axes';
+            s.requires    = "psych";
+        end
+    end
+
     methods
         % Constructor
         function obj = SlidingWindowPerformancePlot(pObj, ax)

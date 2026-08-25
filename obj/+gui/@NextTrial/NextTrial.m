@@ -99,6 +99,23 @@ classdef NextTrial < gui.PopOut
         PREF_GROUP = 'epsych2_gui_NextTrial'
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.NextTrial.getComponentSpec()
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'NextTrial';
+            s.label       = 'Next Trial';
+            s.category    = 'Displays';
+            s.description = 'Upcoming-trial display driven by NewTrial events';
+            s.shape       = ["runtime","parent"];
+            s.options     = [ ...
+                gui.ComponentSpecOption('name','Fields','inputType','paramlist'), ...
+                gui.ComponentSpecOption('name','FontSize','inputType','numeric','defaultValue',16), ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text')];
+        end
+    end
+
     methods
         function obj = NextTrial(source, container, options)
             % obj = gui.NextTrial(source, container, ...)

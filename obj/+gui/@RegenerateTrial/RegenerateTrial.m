@@ -148,6 +148,32 @@ classdef RegenerateTrial < handle
             'no questions first.']
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.RegenerateTrial.getComponentSpec()
+            % KeySource is injected so this button joins the figure's one
+            % gui.KeyBindings rather than claiming the key callbacks itself:
+            % two hook-chaining components on one figure could chain each
+            % other and recurse.
+            %
+            % No default chord ON PURPOSE -- holding the three modifiers IS
+            % the gesture, and a chord that fired it outright would undo the
+            % arming. See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type             = 'RegenerateTrial';
+            s.label            = 'Regenerate Trial';
+            s.category         = 'Add-ons';
+            s.description      = 'Re-arm the trial the rig is holding';
+            s.shape            = ["runtime","parent"];
+            s.inject.KeySource = "keys";
+            s.placeable        = false; % deliberately off the builder palette
+            s.options          = [ ...
+                gui.ComponentSpecOption('name','Text','inputType','text','defaultValue','Regenerate Trial'), ...
+                gui.ComponentSpecOption('name','SubjectIndex','inputType','numeric','defaultValue',1), ...
+                gui.ComponentSpecOption('name','Reselect','inputType','logical','defaultValue',false)];
+        end
+    end
+
     methods
 
         function obj = RegenerateTrial(RUNTIME, parent, options)

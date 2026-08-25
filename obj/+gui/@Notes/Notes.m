@@ -111,6 +111,59 @@ classdef Notes < gui.PopOut
         ENTRY_ROW_HEIGHT = 26   % px; one line of text plus its border
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.Notes.getComponentSpec()
+            % Ctrl+Shift+N puts the caret where the note gets typed;
+            % KeyBinding='none' at the call site drops it.
+            %
+            % The ButtonOnly form is reached through the same spec with
+            % ButtonOnly=true (gui.BehaviorGUI.addNotesButton), not through a
+            % variant: it is the same component, configured differently.
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type           = 'Notes';
+            s.label          = 'Session Notes';
+            s.category       = 'Add-ons';
+            s.description    = 'Operator note pad: a typed line stamped with the trial, saved with the data';
+            s.shape          = ["runtime","parent"];
+            s.keyBinding     = 'ctrl+shift+n';
+            s.keyAction      = 'focusEntry';
+            s.keyDescription = 'Add a session note';
+            s.options        = [ ...
+                gui.ComponentSpecOption('name','Subject','inputType','numeric','defaultValue',0), ...
+                gui.ComponentSpecOption('name','TimeStamp','inputType','choice', ...
+                    'choices',{{'elapsed','clock','none'}},'defaultValue','elapsed'), ...
+                gui.ComponentSpecOption('name','Editable','inputType','logical','defaultValue',false), ...
+                gui.ComponentSpecOption('name','ButtonOnly','inputType','logical','defaultValue',false), ...
+                gui.ComponentSpecOption('name','Text','inputType','text','defaultValue','Notes'), ...
+                gui.ComponentSpecOption('name','FontSize','inputType','numeric','defaultValue',12), ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text')];
+        end
+    end
+
+    methods
+        function focusEntry(obj)
+            % obj.focusEntry()
+            % Put the caret where the note gets typed. The ButtonOnly form
+            % keeps its entry field in a window of its own, so there this
+            % opens that window instead -- the same thing its button does.
+            %
+            % This is the Ctrl+Shift+N action named by getComponentSpec. It
+            % lives here rather than on gui.BehaviorGUI because everything it
+            % touches is this component's own state.
+            try
+                if obj.IsButtonOnly
+                    obj.popOut();
+                elseif ~isempty(obj.EntryH) && isvalid(obj.EntryH)
+                    focus(obj.EntryH);
+                end
+            catch ME
+                vprintf(2, 'gui.Notes: could not reach the notes entry (%s)', ME.message)
+            end
+        end
+    end
+
     methods
 
         function obj = Notes(source, container, options)

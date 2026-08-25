@@ -146,6 +146,27 @@ classdef ParameterScatter < gui.PopOut
         MARKER_ALPHAS = [0.25 0.5 0.75 1]
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.ParameterScatter.getComponentSpec()
+            % Driven by the runtime rather than an analysis object: the
+            % scatter draws whatever the trials recorded, so it works in a
+            % paradigm that has no analysis at all. See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'Scatter';
+            s.label       = 'Parameter Scatter';
+            s.category    = 'Displays';
+            s.description = 'Generic X/Y/color scatter over trial parameters';
+            s.shape       = ["runtime","parent"];
+            s.options     = [ ...
+                gui.ComponentSpecOption('name','XParameter','inputType','param'), ...
+                gui.ComponentSpecOption('name','YParameter','inputType','param'), ...
+                gui.ComponentSpecOption('name','ColorParameter','inputType','param'), ...
+                gui.ComponentSpecOption('name','BoxID','inputType','numeric'), ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text')];
+        end
+    end
+
     methods
         function obj = ParameterScatter(source, container, options)
             % obj = gui.ParameterScatter(source, container)

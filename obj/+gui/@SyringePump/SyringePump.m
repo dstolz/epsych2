@@ -233,6 +233,35 @@ classdef SyringePump < gui.PopOut
     end
 
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.SyringePump.getComponentSpec()
+            % No default key chord ON PURPOSE: these controls move a syringe,
+            % and a keystroke is the wrong way to start or stop one.
+            %
+            % Every option is declared WITHOUT a default so that an option the
+            % caller does not name is not passed at all, letting the panel fall
+            % back to the operator's own remembered configuration.
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'SyringePump';
+            s.label       = 'Syringe Pump';
+            s.category    = 'Add-ons';
+            s.description = 'Operator panel for an NE-1000 reward pump (uses saved pump preferences)';
+            s.shape       = ["runtime","parent"];
+            s.options     = [ ...
+                gui.ComponentSpecOption('name','Diameter','inputType','numeric'), ...
+                gui.ComponentSpecOption('name','Rate','inputType','numeric'), ...
+                gui.ComponentSpecOption('name','Direction','inputType','choice', ...
+                    'choices',{{'Infuse','Withdraw'}}), ...
+                gui.ComponentSpecOption('name','TTLTrigger','inputType','logical'), ...
+                gui.ComponentSpecOption('name','Port','inputType','text'), ...
+                gui.ComponentSpecOption('name','Sections','inputType','text','isList',true), ...
+                gui.ComponentSpecOption('name','FontSize','inputType','numeric'), ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text')];
+        end
+    end
+
     methods
 
         function obj = SyringePump(source, container, options)

@@ -64,6 +64,25 @@ classdef ElapsedTrialTimer < handle
     end
 
     % ---------------------------------------------------------------------------
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.ElapsedTrialTimer.getComponentSpec()
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type          = 'TrialTimer';
+            s.label         = 'Trial Timer';
+            s.category      = 'Displays';
+            s.description   = 'Elapsed time since the last completed trial';
+            s.shape         = "parent";
+            s.attachRuntime = true;
+            s.options       = [ ...
+                gui.ComponentSpecOption('name','UpdatePeriod','inputType','numeric','defaultValue',0.5), ...
+                gui.ComponentSpecOption('name','Format','inputType','text','defaultValue','hms'), ...
+                gui.ComponentSpecOption('name','FontSize','inputType','numeric','defaultValue',12), ...
+                gui.ComponentSpecOption('name','Prefix','inputType','text','defaultValue','Last trial: ')];
+        end
+    end
+
     methods
     % ---------------------------------------------------------------------------
 

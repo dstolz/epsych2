@@ -137,6 +137,132 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     end
 
 
+    methods (Static)
+        function specs = getComponentSpec()
+            % specs = gui.Parameter_Control.getComponentSpec()
+            % TWO variants over one class, selected by add's Variant option:
+            %
+            %   Control - an editable parameter control (addControl)
+            %   Button  - an auto-committing trigger or toggle (addButton)
+            %
+            % The difference that matters is Runtime. The Control variant
+            % injects it, so an autoCommit Value edit also lands in the trial
+            % table. The Button variant deliberately does NOT: its toggles
+            % are momentary and self-clearing by design, and the trial record
+            % already carries their effect. Getting that backwards changes
+            % what is written into every subject's data file.
+            %
+            % Both refuse to build when the parameter does not resolve, so
+            % one build method serves protocols with differing parameter
+            % sets and the pre-hardware SelfTest run. See gui.ComponentSpec.
+            common = gui.ComponentSpec();
+            common.className       = 'gui.Parameter_Control';
+            common.category        = 'Controls';
+            common.shape           = ["parent","arg:Parameter"];
+            common.resolve         = "Parameter";
+            common.resolveRequired = true;
+            common.placeable       = false; % the builder places these inside a ControlColumn/ButtonRow
+            common.options         = [ ...
+                gui.ComponentSpecOption('name','Parameter','inputType','param'), ...
+                gui.ComponentSpecOption('name','Text','inputType','text'), ...
+                gui.ComponentSpecOption('name','Type','inputType','text'), ...
+                gui.ComponentSpecOption('name','autoCommit','inputType','logical')];
+
+            ctrl                = common;
+            ctrl.type           = 'Control';
+            ctrl.label          = 'Parameter Control';
+            ctrl.description    = 'Editable control bound to one parameter';
+            ctrl.inject.Runtime = "runtime";
+            ctrl.postFcn        = @gui.Parameter_Control.applyControlDefaults;
+
+            btn                        = common;
+            btn.type                   = 'Button';
+            btn.label                  = 'Parameter Button';
+            btn.description            = 'Auto-committing trigger or toggle button';
+            btn.fixedOptions.autoCommit = true;
+            btn.preFcn                 = @gui.Parameter_Control.applyButtonType;
+            btn.postFcn                = @gui.Parameter_Control.applyButtonStyle;
+
+            specs = [ctrl, btn];
+        end
+
+        function applyControlDefaults(h, ~, ctx)
+            % applyControlDefaults(h, guiObj, ctx)
+            % Post-construction step for the Control variant: label the
+            % control with its unit when the caller named no Text. The
+            % constructor already defaults Text to the parameter name, so
+            % only the unit suffix is added here.
+            if isfield(ctx.options,'Text') && ~isempty(ctx.options.Text), return; end
+            p = h.Parameter;
+            if ~isempty(p.Unit)
+                h.Text = sprintf('%s (%s)', p.Name, p.Unit);
+            end
+        end
+
+        function opts = applyButtonType(opts, ~, ~)
+            % opts = applyButtonType(opts, guiObj, ctx)
+            % Pre-construction step for the Button variant: a '~'-prefixed
+            % trigger parameter means a latching toggle, anything else a
+            % momentary press.
+            %
+            % This runs BEFORE construction because gui.Parameter_Control's
+            % type is immutable once built, and it is not folded into
+            % defaultTypeFromParameter because that function serves every
+            % Type='auto' control, none of which should silently become
+            % toggles.
+            if isfield(opts,'Type') && ~isempty(opts.Type) && ~strcmp(opts.Type,'auto')
+                return
+            end
+            p = opts.Parameter;
+            if ~isempty(p.Name) && p.Name(1) == '~'
+                opts.Type = 'toggle';
+            else
+                opts.Type = 'momentary';
+            end
+        end
+
+        function applyButtonStyle(h, guiObj, ctx)
+            % applyButtonStyle(h, guiObj, ctx)
+            % Post-construction step for the Button variant: the label with
+            % its trigger prefix stripped, and the next accent colour.
+            p = h.Parameter;
+            if ~isfield(ctx.options,'Text') || isempty(ctx.options.Text)
+                label = regexprep(p.Name, '^[~!]+', '');
+                if ~isempty(p.Unit)
+                    label = sprintf('%s (%s)', label, p.Unit);
+                end
+                h.Text = strtrim(label);
+            end
+
+            % Accent rotation counts the buttons ALREADY registered plus this
+            % one. Derived from the registry rather than from a counter on
+            % the GUI, so it stays correct when a build skips a button whose
+            % parameter did not resolve. postFcn runs before register, hence
+            % the +1.
+            n = numel(gui.Parameter_Control.buttonsIn(guiObj)) + 1;
+            accents = min(lines(7) + 0.3, 1);
+            h.colorNormal   = guiObj.h_figure.Color;
+            h.colorOnUpdate = accents(mod(n-1, 7) + 1, :);
+            try
+                set(h.h_uiobj, FontWeight='bold', FontSize=13);
+            catch
+            end
+        end
+
+        function c = buttonsIn(guiObj)
+            % c = gui.Parameter_Control.buttonsIn(behaviorGUI)
+            % Registered accent buttons, in registration order. This is what
+            % gui.BehaviorGUI.hButtons is derived from, so a button is
+            % whatever addButton would have made: auto-committing, and either
+            % momentary or toggle.
+            c = guiObj.componentsOfClass('gui.Parameter_Control');
+            if isempty(c), return; end
+            keep = cellfun(@(x) x.autoCommit && ...
+                any(strcmp(x.type, {'momentary','toggle'})), c);
+            c = c(keep);
+        end
+    end
+
     methods
         % constructor
         function obj = Parameter_Control(parent,Parameter,options)

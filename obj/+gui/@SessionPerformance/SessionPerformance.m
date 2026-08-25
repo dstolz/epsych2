@@ -121,6 +121,27 @@ classdef SessionPerformance < gui.PopOut
         PREF_GROUP = 'epsych2_gui_SessionPerformance'
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.SessionPerformance.getComponentSpec()
+            % Built over the analysis object when there is one, else the
+            % runtime -- the panel computes through psychophysics.SessionMetrics
+            % either way. See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'Performance';
+            s.label       = 'Session Performance';
+            s.category    = 'Displays';
+            s.description = 'Session summary panel: rates, counts, d''';
+            s.shape       = ["psychOrRuntime","parent"];
+            s.options     = [ ...
+                gui.ComponentSpecOption('name','Metrics','inputType','text','isList',true), ...
+                gui.ComponentSpecOption('name','FontSize','inputType','numeric','defaultValue',12), ...
+                gui.ComponentSpecOption('name','ShowHeader','inputType','logical','defaultValue',true), ...
+                gui.ComponentSpecOption('name','ShowDetail','inputType','logical','defaultValue',true), ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text')];
+        end
+    end
+
     methods
         function obj = SessionPerformance(source, container, options)
             % obj = gui.SessionPerformance(source, container, ...)

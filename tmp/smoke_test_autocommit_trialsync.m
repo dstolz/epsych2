@@ -6,7 +6,7 @@ function smoke_test_autocommit_trialsync()
 % write (epsych.SessionNotes.log), including the rule that no note is built
 % from a read-back of the parameter.
 %
-% An autoCommit gui.Parameter_Control historically wrote only the live
+% An autoCommit gui.components.Parameter_Control historically wrote only the live
 % hw.Parameter. For a parameter the dispatcher refreshes every trial
 % (UpdateEveryTrial), the stale trial-table value then clobbered the edit at
 % the next trial boundary, and Runtime.writeParametersProtocol recorded the
@@ -69,7 +69,7 @@ gl = uigridlayout(fig, [8 1]);
 
 % ===== A. Wired autoCommit edit lands on parameter AND trial table =======
 try
-    hHit = gui.Parameter_Control(gl, pHit, autoCommit=true, Runtime=R, Text='Step on Hit');
+    hHit = gui.components.Parameter_Control(gl, pHit, autoCommit=true, Runtime=R, Text='Step on Hit');
     simulate_edit(hHit, 0.05);
 
     assert(isequal(pHit.Value, 0.05), 'edit should commit to the parameter');
@@ -87,7 +87,7 @@ end
 % The dispatched knob survives because the synced table re-asserts the edit;
 % the non-dispatched knob survives because dispatch leaves it alone.
 try
-    hMiss = gui.Parameter_Control(gl, pMiss, autoCommit=true, Runtime=R, Text='Step on Miss');
+    hMiss = gui.components.Parameter_Control(gl, pMiss, autoCommit=true, Runtime=R, Text='Step on Miss');
     simulate_edit(hMiss, 0.12);
 
     R.TRIALS(1).FORCE_TRIAL = true;
@@ -134,7 +134,7 @@ try
     colR = R.TRIALS(1).writeParamIdx.Reminder;
     before = R.TRIALS(1).trials(:, colR);
 
-    hRem = gui.Parameter_Control(gl, pRem, Type='toggle', autoCommit=true, Text='Reminder');
+    hRem = gui.components.Parameter_Control(gl, pRem, Type='toggle', autoCommit=true, Text='Reminder');
     simulate_edit(hRem, true);
 
     assert(isequal(logical(pRem.Value), true), 'toggle should commit to the parameter');
@@ -157,14 +157,14 @@ try
     R2.Protocol = P2;
     pKnob = R2.find_parameter('Knob');
     pKnob.Value = 5;
-    hKnob = gui.Parameter_Control(gl, pKnob, autoCommit=true, Runtime=R2, Text='Knob');
+    hKnob = gui.components.Parameter_Control(gl, pKnob, autoCommit=true, Runtime=R2, Text='Knob');
     simulate_edit(hKnob, 7);
     assert(isequal(pKnob.Value, 7), 'pre-run edit should still commit to the parameter');
 
     % Bound-property edit: host-side state, no trial-table column to sync.
     colH = R.TRIALS(1).writeParamIdx.StepOnHit;
     beforeH = R.TRIALS(1).trials(:, colH);
-    hMin = gui.Parameter_Control(gl, pHit, autoCommit=true, Runtime=R, BoundProperty='Min', Text='Min');
+    hMin = gui.components.Parameter_Control(gl, pHit, autoCommit=true, Runtime=R, BoundProperty='Min', Text='Min');
     simulate_edit(hMin, 0.001);
     assert(isequal(pHit.Min, 0.001), 'bound-property edit should commit');
     assert(isequal(R.TRIALS(1).trials(:, colH), beforeH), ...
@@ -178,7 +178,7 @@ end
 
 % ===== F. Every operator commit is recorded as a session note ============
 % The commit paths feed epsych.SessionNotes so an operator's change is in the
-% data file (Info.Notes) whether or not the GUI shows a gui.Notes component.
+% data file (Info.Notes) whether or not the GUI shows a gui.components.Notes component.
 % A wired control records; addButton's unwired session toggle does not.
 try
     txt = {R.NOTES.Records.Text};
@@ -225,7 +225,7 @@ end
 
 function simulate_edit(h, newValue)
 % simulate_edit(h, newValue)
-% Drive a gui.Parameter_Control the way a user edit does: put the value on
+% Drive a gui.components.Parameter_Control the way a user edit does: put the value on
 % the widget, then fire the ValueChanged path with a non-empty source so the
 % autoCommit branch runs.
 if isprop(h.h_uiobj, 'Value')

@@ -61,8 +61,8 @@ classdef ParameterDebugger < handle
     %   gui.ParameterDebugger(RUNTIME.Interfaces)
     %
     % See also: documentation/gui/gui_ParameterDebugger.md,
-    %   epsych.RunExpt.OpenParameterDebugger, gui.Parameter_Monitor,
-    %   gui.Parameter_Control, hw.Parameter
+    %   epsych.RunExpt.OpenParameterDebugger, gui.components.Parameter_Monitor,
+    %   gui.components.Parameter_Control, hw.Parameter
 
     properties (SetAccess = private)
         RunExpt             % epsych.RunExpt this window belongs to, or []

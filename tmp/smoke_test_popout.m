@@ -1,8 +1,8 @@
 function smoke_test_popout()
 % smoke_test_popout()
 % Exercise the gui.PopOut mixin across every component that adopts it:
-% gui.ParameterScatter, gui.History, gui.SessionPerformance, gui.NextTrial,
-% gui.Parameter_Monitor, gui.PsychPlot, and psychophysics.Staircase, plus
+% gui.components.ParameterScatter, gui.components.History, gui.components.SessionPerformance, gui.components.NextTrial,
+% gui.components.Parameter_Monitor, gui.components.PsychPlot, and psychophysics.Staircase, plus
 % gui.BehaviorGUI.addPopOutButton.
 %
 % The claims under test, for each component:
@@ -28,18 +28,18 @@ TAGS = {'smokePO_scatter','smokePO_hist','smokePO_perf','smokePO_next', ...
 cleanupObj = onCleanup(@() cleanupAll(TAGS));
 cleanupPrefs();
 
-% 1. gui.ParameterScatter: a second, independent scatter ------------------
+% 1. gui.components.ParameterScatter: a second, independent scatter ------------------
 D  = makeData(20);
 f1 = uifigure('Visible','off','Tag','SmokePO_Scatter');
-S  = gui.ParameterScatter(D, f1, PreferenceTag='smokePO_scatter', ...
+S  = gui.components.ParameterScatter(D, f1, PreferenceTag='smokePO_scatter', ...
     XParameter='FreqHz', YParameter='LevelDB');
 
-assert(isa(S,'gui.PopOut'), 'gui.ParameterScatter should adopt the gui.PopOut mixin');
+assert(isa(S,'gui.PopOut'), 'gui.components.ParameterScatter should adopt the gui.PopOut mixin');
 assert(~S.hasPopOut(), 'no pop-out should exist before popOut is called');
-assertMenuItem(f1, 'gui.ParameterScatter');
+assertMenuItem(f1, 'gui.components.ParameterScatter');
 
 P = S.popOut();
-assert(isvalid(P) && isa(P,'gui.ParameterScatter'), 'popOut should return a ParameterScatter');
+assert(isvalid(P) && isa(P,'gui.components.ParameterScatter'), 'popOut should return a ParameterScatter');
 assert(P ~= S, 'the pop-out must be a separate instance, not the host');
 assert(S.hasPopOut() && isvalid(S.PopOutFigure), 'the pop-out figure should be open');
 assert(P.AxesH ~= S.AxesH, 'the pop-out must own separate axes');
@@ -85,14 +85,14 @@ assert(~isvalid(P) && ~isvalid(popFig), 'deleting the host should close its pop-
 delete(f1);
 fprintf('PASS: destroying the host closes the pop-out window\n');
 
-% 2. gui.History ----------------------------------------------------------
+% 2. gui.components.History ----------------------------------------------------------
 HP = psychophysics.FakeHistoryPsych('FreqHz');
 HP.setData(makeData(12));
 f2 = uifigure('Visible','off','Tag','SmokePO_Hist');
-H = gui.History(HP, f2, PreferenceTag='smokePO_hist');
+H = gui.components.History(HP, f2, PreferenceTag='smokePO_hist');
 H.ParametersOfInterest = {'FreqHz','LevelDB'};
 H.update;
-assertMenuItem(f2, 'gui.History');
+assertMenuItem(f2, 'gui.components.History');
 
 HPop = H.popOut();
 assert(isvalid(HPop) && HPop ~= H, 'History popOut should return a separate instance');
@@ -111,11 +111,11 @@ assert(isvalid(H) && isvalid(H.TableH), 'History host should survive its pop-out
 delete(f2);
 fprintf('PASS: history pop-out is independent of the embedded table\n');
 
-% 3. gui.SessionPerformance ----------------------------------------------
+% 3. gui.components.SessionPerformance ----------------------------------------------
 f3 = uifigure('Visible','off','Tag','SmokePO_Perf');
-SP = gui.SessionPerformance(makeData(30), f3, PreferenceTag='smokePO_perf', ...
+SP = gui.components.SessionPerformance(makeData(30), f3, PreferenceTag='smokePO_perf', ...
     Metrics=["Trials","HitRate"]);
-assertMenuItem(f3, 'gui.SessionPerformance');
+assertMenuItem(f3, 'gui.components.SessionPerformance');
 
 SPop = SP.popOut();
 assert(isvalid(SPop) && SPop ~= SP, 'SessionPerformance popOut should return a separate instance');
@@ -133,11 +133,11 @@ assert(isvalid(SP.Analysis), 'the host analysis must survive the pop-out closing
 delete(f3);
 fprintf('PASS: performance pop-out summarizes its own trial window\n');
 
-% 4. gui.NextTrial --------------------------------------------------------
+% 4. gui.components.NextTrial --------------------------------------------------------
 rt  = FakeScatterRuntime();
 f4  = uifigure('Visible','off','Tag','SmokePO_Next');
-NT  = gui.NextTrial(rt, f4, Fields=["FreqHz","LevelDB"], PreferenceTag='smokePO_next');
-assertMenuItem(f4, 'gui.NextTrial');
+NT  = gui.components.NextTrial(rt, f4, Fields=["FreqHz","LevelDB"], PreferenceTag='smokePO_next');
+assertMenuItem(f4, 'gui.components.NextTrial');
 
 NPop = NT.popOut();
 assert(isvalid(NPop) && NPop ~= NT, 'NextTrial popOut should return a separate instance');
@@ -150,16 +150,16 @@ assert(isvalid(NT.TableH), 'NextTrial host should survive its pop-out');
 delete(f4);
 fprintf('PASS: next-trial pop-out keeps its own field selection\n');
 
-% 5. gui.Parameter_Monitor ------------------------------------------------
+% 5. gui.components.Parameter_Monitor ------------------------------------------------
 sw   = hw.Software();
 pIn  = hw.Parameter(sw, Name='InTrial', Type='Boolean'); pIn.Value = 0;
 pLvl = hw.Parameter(sw, Name='Level', Type='Float', Min=0, Max=100); pLvl.Value = 40;
 
 f5 = uifigure('Visible','off','Tag','SmokePO_Mon');
-M  = gui.Parameter_Monitor(f5, [pIn pLvl], pollPeriod=5, type="graphical", ...
+M  = gui.components.Parameter_Monitor(f5, [pIn pLvl], pollPeriod=5, type="graphical", ...
     PreferenceTag="smokePO_mon");
 M.stop();
-assertMenuItem(f5, 'gui.Parameter_Monitor');
+assertMenuItem(f5, 'gui.components.Parameter_Monitor');
 
 MPop = M.popOut();
 MPop.stop();
@@ -204,13 +204,13 @@ delete(SC);
 delete(f6);
 fprintf('PASS: staircase pop-out analyses the same trials independently\n');
 
-% 7. gui.PsychPlot --------------------------------------------------------
+% 7. gui.components.PsychPlot --------------------------------------------------------
 PP_psych = psychophysics.FakeHistoryPsych(pLvl);
 PP_psych.setData(makeData(10));
 f7  = uifigure('Visible','off','Tag','SmokePO_Psych');
 pax = axes(uipanel(f7,'Units','normalized','Position',[0 0 1 1]));
-PP  = gui.PsychPlot(PP_psych, pax);
-assertMenuItem(f7, 'gui.PsychPlot');
+PP  = gui.components.PsychPlot(PP_psych, pax);
+assertMenuItem(f7, 'gui.components.PsychPlot');
 
 PPop = PP.popOut();
 assert(isvalid(PPop) && PPop ~= PP, 'PsychPlot popOut should return a separate instance');
@@ -245,7 +245,7 @@ fprintf('PASS: BehaviorGUI pop-out button opens and closes with the GUI\n');
 % 1x1 layout, which is sized by the window. Enough metrics to overflow a
 % small window is the whole point of the sizes below.
 f9 = uifigure('Visible','off','Tag','SmokePO_Resize');
-R  = gui.SessionPerformance(makeData(12), f9, PreferenceTag='smokePO_resize', ...
+R  = gui.components.SessionPerformance(makeData(12), f9, PreferenceTag='smokePO_resize', ...
     Metrics=[psychophysics.SessionMetrics.catalogue().Name], FontSize=16);
 RPop = R.popOut();
 rfig = R.PopOutFigure;

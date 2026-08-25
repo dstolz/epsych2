@@ -64,7 +64,7 @@ Detailed references: [../hw/](../hw/)
 
 Reusable GUI components live here. These are generally instantiated by `RunExpt`, task GUIs, or experiment-specific workflows.
 
-Key components: `gui.OnlinePlot`, `gui.Performance`, `gui.PsychPlot`, `gui.SlidingWindowPerformancePlot`, `gui.History`, `gui.StaircaseTraining`, `gui.PhaseSelector` (JSON parameter phase switching), `gui.ModeIndicator`, `gui.StatusBar`, `gui.Triggers`, `gui.ElapsedTrialTimer`, `gui.FilenameValidator`, `gui.BasicGUI`, parameter widgets `Parameter_Control`, `Parameter_Monitor`, `Parameter_Update`, and the standalone `gui.ParameterDebugger` window (every protocol parameter, read and written on demand).
+Key components: `gui.components.OnlinePlot`, `gui.components.Performance`, `gui.components.PsychPlot`, `gui.components.SlidingWindowPerformancePlot`, `gui.components.History`, `gui.StaircaseTraining`, `gui.components.PhaseSelector` (JSON parameter phase switching), `gui.components.ModeIndicator`, `gui.components.StatusBar`, `gui.components.Triggers`, `gui.components.ElapsedTrialTimer`, `gui.components.FilenameValidator`, `gui.BasicGUI`, parameter widgets `Parameter_Control`, `Parameter_Monitor`, `Parameter_Update`, and the standalone `gui.ParameterDebugger` window (every protocol parameter, read and written on demand).
 
 Detailed references: [../gui/](../gui/)
 

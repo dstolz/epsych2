@@ -5,7 +5,7 @@ classdef PopOutBehaviorGUI < gui.BehaviorGUI
     % that closing the GUI takes that window with it.
 
     properties
-        Scatter      % gui.ParameterScatter built into the GUI
+        Scatter      % gui.components.ParameterScatter built into the GUI
         PopButton    % addPopOutButton result
     end
 
@@ -25,7 +25,7 @@ classdef PopOutBehaviorGUI < gui.BehaviorGUI
 
             p = uipanel(g);
             p.Layout.Row = 2;
-            obj.Scatter = obj.register(gui.ParameterScatter(obj.RUNTIME, p, ...
+            obj.Scatter = obj.register(gui.components.ParameterScatter(obj.RUNTIME, p, ...
                 PreferenceTag='smokePopOutScatter'));
 
             obj.PopButton = obj.addPopOutButton(g, obj.Scatter, Text='Scatter...');

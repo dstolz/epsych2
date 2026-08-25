@@ -1,8 +1,8 @@
-# gui.BufferPlot
+# gui.components.BufferPlot
 
 The contents of a buffer parameter, redrawn once per completed trial. Where
-`gui.OnlinePlot` polls scalar parameters against a scrolling clock,
-`gui.BufferPlot` shows what is IN a buffer — a recorded waveform, a lick
+`gui.components.OnlinePlot` polls scalar parameters against a scrolling clock,
+`gui.components.BufferPlot` shows what is IN a buffer — a recorded waveform, a lick
 trace, a spike-count vector — one trial at a time.
 
 Source: `obj/+gui/@BufferPlot/`
@@ -42,13 +42,13 @@ obj.addBufferPlot(g, Buffers=["Lick~1" "Spout~1"], Layout='stacked', ...
     NumTrialsShown=5);
 
 % Standalone, over a runtime:
-bp = gui.BufferPlot(RUNTIME, panel, Buffers="Waveform~1", SampleRate=24414);
+bp = gui.components.BufferPlot(RUNTIME, panel, Buffers="Waveform~1", SampleRate=24414);
 bp.XAxisUnits = 'milliseconds';
 bp.setTraceColor('Waveform~1', [0.8 0.2 0.2]);
 
 % Offline, over a saved session:
 S = load('SUBJ01_2026-08-25.mat');
-gui.BufferPlot([S.data_0001 S.data_0002 S.data_0003], uifigure);
+gui.components.BufferPlot([S.data_0001 S.data_0002 S.data_0003], uifigure);
 ```
 
 | Property | Default | Meaning |
@@ -116,7 +116,7 @@ Workspace, Reset Appearance, and the `gui.PopOut` items.
 - **A remembered SELECTION is restored only when the operator made it by
   hand.** A `Buffers` list passed to the constructor is what the paradigm's
   `build()` asked for, and a saved list from another protocol must not
-  silently replace it — the rule `gui.OnlinePlot` settled on.
+  silently replace it — the rule `gui.components.OnlinePlot` settled on.
 - **Auto-selection stops at four buffers.** A region nobody configured still
   plots something, without filling the axes.
 
@@ -125,7 +125,7 @@ Workspace, Reset Appearance, and the `gui.PopOut` items.
 On the palette under **Displays** as *Buffer Plot*, poppable, with an options
 dialog offering the protocol's buffer parameters, the sample rate, the layout,
 and the trial depth. Leaving the buffer list empty is a real answer: the
-generated `build()` then calls `gui.BufferPlot` with no `Buffers` and the plot
+generated `build()` then calls `gui.components.BufferPlot` with no `Buffers` and the plot
 takes the session's own.
 
 ## See also

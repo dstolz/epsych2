@@ -167,7 +167,7 @@ After data is saved but before the next trial is dispatched, two optional operat
 
 If `TRIALS.RECOMPILE_REQUESTED` is `true` (set by the operator through a GUI, or by a phase load), the protocol is recompiled at this safe boundary:
 - `protocol.compile()` regenerates the compiled protocol, and `epsych.Runtime.compiledTrialColumns` installs `parameters`, `trials`, `writeparams`, and `writeParamIdx` together.
-- The column map is part of that install, not an afterthought. A recompile can change the parameter set — a phase load, a protocol edit, or a trial selector that created its own runtime parameters at run start — and every column after the change shifts. Keeping the previous `writeParamIdx` would leave `gui.Parameter_Update`, `updateTrialsFromParameters`, `gui.eval_staircase_training_mode`, and `gui.NextTrial` reading *and writing* the wrong trial column. Regression test: `tmp/smoke_test_recompile_columns.m`.
+- The column map is part of that install, not an afterthought. A recompile can change the parameter set — a phase load, a protocol edit, or a trial selector that created its own runtime parameters at run start — and every column after the change shifts. Keeping the previous `writeParamIdx` would leave `gui.components.Parameter_Update`, `updateTrialsFromParameters`, `gui.eval_staircase_training_mode`, and `gui.components.NextTrial` reading *and writing* the wrong trial column. Regression test: `tmp/smoke_test_recompile_columns.m`.
 - `selector.onRecompile(TRIALS)` lets the selector reconcile its state (e.g., reset trial counts if the number of conditions changed).
 - If recompile fails, the previous state is preserved and an error is logged.
 

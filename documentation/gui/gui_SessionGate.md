@@ -1,4 +1,4 @@
-# gui.SessionGate
+# gui.components.SessionGate
 
 A "Begin Experiment" button that holds a session until the operator is
 actually at the rig. Nothing dispatches until it is pressed; once it is, the
@@ -60,7 +60,7 @@ a paradigm can drop the button without touching its constructor.
 Standalone, in any container:
 
 ```matlab
-gate = gui.SessionGate(panel, Text='Start When Ready');
+gate = gui.components.SessionGate(panel, Text='Start When Ready');
 gate.attachRuntime(RUNTIME);
 if ~gate.wait(300), return; end   % five minutes, then give up
 ```
@@ -101,7 +101,7 @@ what the operator is doing during the hold.
 **Never in a review.** `epsych.ReviewSession` has no session to hold, and
 blocking would hang it inside `feval` with a half-built window and no
 reachable button. `gui.BehaviorGUI.waitForSessionGate` returns immediately in
-`ReviewMode`; a caller driving `gui.SessionGate` directly must make the same
+`ReviewMode`; a caller driving `gui.components.SessionGate` directly must make the same
 check.
 
 **The button retires instead of disappearing.** Removing it would reflow the
@@ -119,5 +119,5 @@ sitting at `Idle` waiting to be released would advertise itself as over.
   (`documentation/gui/gui_BehaviorGUI.md`)
 - `examples/syringepump/PumpBehaviorGUI.m` — the paradigm this was extracted
   from, and the worked example of the two-halves pattern
-- `gui.ModeIndicator` — the lamp for showing run mode when nothing is gated
+- `gui.components.ModeIndicator` — the lamp for showing run mode when nothing is gated
 - `tmp/smoke_test_sessiongate.m` — the standing proof

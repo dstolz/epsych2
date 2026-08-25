@@ -2,7 +2,7 @@ function smoke_test_notes()
 % smoke_test_notes()
 % Standing check for session notes: the epsych.SessionNotes store, the fold
 % into the Info variable a saving function writes, the journal record that
-% survives a crash, the gui.Notes component in both its forms (panel and
+% survives a crash, the gui.components.Notes component in both its forms (panel and
 % button) plus its review-mode stand-down, and the epsych.SessionNotes.log
 % entry point the GUI commit paths use for automatic session-record entries.
 %
@@ -134,7 +134,7 @@ fprintf('PASS: notes round trip through fromInfo and back into a review store\n'
 fig = uifigure('Visible','off','Name','NotesSmoke','Tag','NotesSmoke');
 figs(end+1) = fig;
 g = uigridlayout(fig,[1 1]);
-C = gui.Notes(RUNTIME, g);
+C = gui.components.Notes(RUNTIME, g);
 assert(isvalid(C.LogH) && isvalid(C.EntryH) && isvalid(C.CommitH), 'the panel builds');
 assert(strcmp(C.LogH.Editable,'off'), 'the log is read-only by default');
 assert(numel(C.LogH.Value) == 2, 'it opens showing the notes already taken');
@@ -158,7 +158,7 @@ fprintf('PASS: Editable toggles the log box\n');
 % 7. Two components over one store stay in step ---------------------------
 fig2 = uifigure('Visible','off','Name','NotesSmoke2','Tag','NotesSmoke2');
 figs(end+1) = fig2;
-C2 = gui.Notes(RUNTIME.NOTES, uigridlayout(fig2,[1 1]));
+C2 = gui.components.Notes(RUNTIME.NOTES, uigridlayout(fig2,[1 1]));
 C2.addNote('from the second view');
 assert(numel(C.LogH.Value) == 4, 'the first view saw it too');
 assert(numel(C2.LogH.Value) == 4, 'and so did the second');
@@ -167,7 +167,7 @@ fprintf('PASS: two views over one store update together\n');
 % 8. Button form ----------------------------------------------------------
 fig3 = uifigure('Visible','off','Name','NotesSmoke3','Tag','NotesSmoke3');
 figs(end+1) = fig3;
-B = gui.Notes(RUNTIME, uigridlayout(fig3,[1 1]), ButtonOnly = true);
+B = gui.components.Notes(RUNTIME, uigridlayout(fig3,[1 1]), ButtonOnly = true);
 assert(B.IsButtonOnly && isvalid(B.OpenH), 'the button form builds a button');
 assert(isempty(B.LogH), 'and no log of its own');
 
@@ -190,7 +190,7 @@ RV.ReviewMode = true;
 RV.NOTES = epsych.SessionNotes.fromSnapshot(back);
 fig4 = uifigure('Visible','off','Name','NotesSmoke4','Tag','NotesSmoke4');
 figs(end+1) = fig4;
-CR = gui.Notes(RV, uigridlayout(fig4,[1 1]));
+CR = gui.components.Notes(RV, uigridlayout(fig4,[1 1]));
 assert(numel(CR.LogH.Value) == 2, 'a review shows the notes the file was saved with');
 assert(strcmp(CR.EntryH.Enable,'off'), 'and refuses new ones');
 assert(strcmp(CR.CommitH.Enable,'off'), 'button included');
@@ -201,8 +201,8 @@ fprintf('PASS: a reviewed session''s notes are a read-only record\n');
 % 10. The gui.BehaviorGUI helpers ----------------------------------------
 addpath(here);
 G = NotesBehaviorGUI(RUNTIME);
-assert(isa(G.NotesPanel,'gui.Notes') && ~G.NotesPanel.IsButtonOnly, 'addNotes builds a panel');
-assert(isa(G.NotesButton,'gui.Notes') && G.NotesButton.IsButtonOnly, 'addNotesButton builds a button');
+assert(isa(G.NotesPanel,'gui.components.Notes') && ~G.NotesPanel.IsButtonOnly, 'addNotes builds a panel');
+assert(isa(G.NotesButton,'gui.components.Notes') && G.NotesButton.IsButtonOnly, 'addNotesButton builds a button');
 assert(G.NotesPanel.Store == RUNTIME.NOTES && G.NotesButton.Store == RUNTIME.NOTES, ...
     'both helpers bind to the session store');
 

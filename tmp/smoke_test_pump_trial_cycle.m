@@ -20,7 +20,7 @@
 % Bootstrap: `matlab -batch` starts with whatever path the user profile
 % leaves behind, and this file lives in tmp/, which is only on the path once
 % epsych_startup has run.
-if exist('gui.SyringePump', 'class') ~= 8
+if exist('gui.components.SyringePump', 'class') ~= 8
     run(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'epsych_startup.m'));
 end
 addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'examples', 'syringepump'));

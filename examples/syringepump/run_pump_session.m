@@ -1,6 +1,6 @@
 function RUNTIME = run_pump_session(options)
 % RUNTIME = run_pump_session(Name=Value, ...)
-% Drive PumpBehaviorGUI — and with it the gui.SyringePump panel — through a
+% Drive PumpBehaviorGUI — and with it the gui.components.SyringePump panel — through a
 % session, with a real NE-1000 or the in-process simulated pump.
 %
 % Each trial writes the trial table's reward Volume to the pump, pulses
@@ -34,7 +34,7 @@ function RUNTIME = run_pump_session(options)
 %   run_pump_session                      % simulated pump, 12 rewards
 %   run_pump_session(Port = 'COM4')       % a real NE-1000 on COM4
 %
-% See also create_pump_protocol, PumpBehaviorGUI, gui.SyringePump, hw.NE1000
+% See also create_pump_protocol, PumpBehaviorGUI, gui.components.SyringePump, hw.NE1000
 
 arguments
     options.NumTrials (1,1) double {mustBeInteger, mustBePositive} = 12

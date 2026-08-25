@@ -28,7 +28,7 @@ function populateModule_(obj, module, options)
 %                                   trial, never written into DATA. Every
 %                                   immediate I/O line, both serial channels,
 %                                   all 14 inputs, the three x_*_<Box> trial
-%                                   triggers, and the two gui.OnlinePlot
+%                                   triggers, and the two gui.components.OnlinePlot
 %                                   literals live here; they move only through
 %                                   explicit set_parameter / trigger calls.
 %   Visible=true,  Access='Any'  -> trial CONFIG. A column of the trial table
@@ -220,7 +220,7 @@ specs(end + 1) = local_spec_(sprintf('x_TrialComplete_%d', B), false, ...
            'Description', "Never pulsed. ep_TimerFcn_RunTime reads its Value on every 10 ms tick; hw.Bpod raises it once the matrix-end sentinel and the 10-byte epilogue have both been consumed."));
 
 % --- Shipped-GUI literals ------------------------------------------------
-% gui.OnlinePlot resolves these two names with includeInvisible=true and
+% gui.components.OnlinePlot resolves these two names with includeInvisible=true and
 % silenceParameterNotFound=true, so omitting them silently disables
 % trial-locked plotting instead of raising anything. The '~<BoxID>' suffix is
 % not a typo and does not match the 'x_*_<BoxID>' trigger form: OnlinePlot
@@ -228,11 +228,11 @@ specs(end + 1) = local_spec_(sprintf('x_TrialComplete_%d', B), false, ...
 
 specs(end + 1) = local_spec_(sprintf('_TrigState~%d', B), false, ...
     struct('Type', 'Boolean', 'Access', 'Read', 'Visible', false, ...
-           'Description', "Trial-onset flag polled by gui.OnlinePlot; true while a state matrix is running."));
+           'Description', "Trial-onset flag polled by gui.components.OnlinePlot; true while a state matrix is running."));
 
 specs(end + 1) = local_spec_(sprintf('_TrialNum~%d', B), 0, ...
     struct('Type', 'Integer', 'Access', 'Read', 'Visible', false, ...
-           'Description', "Trial counter polled by gui.OnlinePlot."));
+           'Description', "Trial counter polled by gui.components.OnlinePlot."));
 
 % --- Trial configuration -------------------------------------------------
 % Visible and Access='Any': these are the only two parameters that become

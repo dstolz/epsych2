@@ -1,14 +1,14 @@
 function smoke_test_parameter_control_bounds
 % smoke_test_parameter_control_bounds
-% Validates bound-property editing through gui.Parameter_Control and
-% gui.Parameter_Update:
+% Validates bound-property editing through gui.components.Parameter_Control and
+% gui.components.Parameter_Update:
 %   1. Raising a Max-bound control above the current Max commits and does NOT
 %      log a spurious "outside bounds" warning.
 %   2. A Value-bound edit field's widget Limits track Parameter.Min/Max
 %      changes instead of freezing at creation time.
 %   3. Narrowing the bounds clamps the displayed value so the Limits update
 %      cannot error.
-%   4. The Update button (gui.Parameter_Update) commits a Min-bound control to
+%   4. The Update button (gui.components.Parameter_Update) commits a Min-bound control to
 %      Parameter.Min, not Parameter.Value (staircase floor regression).
 %
 % Run headless: matlab -batch "cd tmp; smoke_test_parameter_control_bounds"
@@ -23,9 +23,9 @@ pSD.Value = 2000; pSD.Min = 1000; pSD.Max = 3000;
 pDepth = sw.add_parameter('Depth',0.94,Unit='%');
 pDepth.Value = 0.94; pDepth.Min = 1e-7; pDepth.Max = 1;
 
-hVal = gui.Parameter_Control(gl,pSD,autoCommit=true,Text='Stimulus Delay (ms):');
-hMax = gui.Parameter_Control(gl,pSD,autoCommit=true,BoundProperty='Max',Text='Stimulus Delay Max (ms):');
-hMin = gui.Parameter_Control(gl,pSD,autoCommit=true,BoundProperty='Min',Text='Stimulus Delay Min (ms):');
+hVal = gui.components.Parameter_Control(gl,pSD,autoCommit=true,Text='Stimulus Delay (ms):');
+hMax = gui.components.Parameter_Control(gl,pSD,autoCommit=true,BoundProperty='Max',Text='Stimulus Delay Max (ms):');
+hMin = gui.components.Parameter_Control(gl,pSD,autoCommit=true,BoundProperty='Min',Text='Stimulus Delay Min (ms):');
 
 % 1. Max control is not capped by the current Max and commits without warning
 assert(isequal(hMax.h_uiobj.Limits,[1000 Inf]), ...
@@ -52,10 +52,10 @@ assert(isequal(hMin.h_uiobj.Limits,[-Inf 1500]), 'Min control tracks Max');
 fprintf('PASS: narrowed bounds clamp the display\n');
 
 % 4. Update button commits Min-bound edits to Parameter.Min, not Value
-hDepthMin = gui.Parameter_Control(gl,pDepth,BoundProperty='Min',Text='Minimum Depth (%):');
+hDepthMin = gui.components.Parameter_Control(gl,pDepth,BoundProperty='Min',Text='Minimum Depth (%):');
 RT.TRIALS.trials = {0.94};
 RT.TRIALS.writeParamIdx.Depth = 1;
-pu = gui.Parameter_Update(RT,gl);
+pu = gui.components.Parameter_Update(RT,gl);
 pu.watchedHandles = hDepthMin;
 
 fire(hDepthMin,1); % pending edit (non-autoCommit)

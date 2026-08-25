@@ -7,9 +7,9 @@ classdef cl_AppetitiveDetection_BehaviorGUI < gui.BehaviorGUI
     % monitor, the psychometric plot, a parameter scatter, a session
     % performance summary, a response history table, a session clock, a
     % Notes button opening the session notes (saved with the data as
-    % Info.Notes; see gui.Notes), and a Regenerate Trial button that
+    % Info.Notes; see gui.components.Notes), and a Regenerate Trial button that
     % re-dispatches the pending trial -- which interrupts a trial in
-    % progress and asks nothing first (see gui.RegenerateTrial).
+    % progress and asks nothing first (see gui.components.RegenerateTrial).
     %
     % Operator actions are recorded into those same session notes
     % automatically -- an Update Parameters commit, an autoCommit edit of a
@@ -37,19 +37,19 @@ classdef cl_AppetitiveDetection_BehaviorGUI < gui.BehaviorGUI
     % documentation/layouts/cl_AppetitiveDetection_GUI_B_layout.md
 
     properties (SetAccess = protected)
-        PhaseSelector          % gui.PhaseSelector instance
+        PhaseSelector          % gui.components.PhaseSelector instance
         h_PhaseSelector        % Container returned by PhaseSelector.createGUI
-        ParameterMonitor       % gui.Parameter_Monitor instance (Trial State panel)
-        SessionClock           % gui.SessionClock instance (top-row status widget)
-        ResponseHistory        % gui.History instance
-        h_ScatterPanel         % gui.ParameterScatter instance
-        FilenameField          % gui.FilenameValidator instance
+        ParameterMonitor       % gui.components.Parameter_Monitor instance (Trial State panel)
+        SessionClock           % gui.components.SessionClock instance (top-row status widget)
+        ResponseHistory        % gui.components.History instance
+        h_ScatterPanel         % gui.components.ParameterScatter instance
+        FilenameField          % gui.components.FilenameValidator instance
         hReminder              % Reminder toggle control (also in hButtons)
-        UpdateButton           % gui.Parameter_Update commit button
-        Performance            % gui.SessionPerformance instance (Session Performance panel)
-        NextTrialPanel         % gui.NextTrial instance showing the upcoming trial
-        NotesButton            % gui.Notes (button form) opening the session notes window
-        RegenerateButton       % gui.RegenerateTrial button re-arming the pending trial
+        UpdateButton           % gui.components.Parameter_Update commit button
+        Performance            % gui.components.SessionPerformance instance (Session Performance panel)
+        NextTrialPanel         % gui.components.NextTrial instance showing the upcoming trial
+        NotesButton            % gui.components.Notes (button form) opening the session notes window
+        RegenerateButton       % gui.components.RegenerateTrial button re-arming the pending trial
     end
 
     properties (Hidden)
@@ -110,7 +110,7 @@ classdef cl_AppetitiveDetection_BehaviorGUI < gui.BehaviorGUI
             % pass that grants it.
             %
             % The session performance summary is not updated here either: the
-            % gui.SessionPerformance panel owns its own
+            % gui.components.SessionPerformance panel owns its own
             % psychophysics.SessionMetrics and follows NewData itself.
         end
 

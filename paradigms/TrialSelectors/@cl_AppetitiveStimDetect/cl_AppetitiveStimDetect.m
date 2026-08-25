@@ -485,7 +485,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % a list whose whole point is even spacing.
             %
             % The step needs a parameter of its own because hw.Parameter
-            % clamps Value into [Min Max] (and gui.Parameter_Control limits
+            % clamps Value into [Min Max] (and gui.components.Parameter_Control limits
             % the edit field to the same range), so a 250 ms step could not be
             % stored on -- or typed into -- a parameter whose Min is 1000.
             % StimDelayList.Value survives only as the seed StimDelayStep is

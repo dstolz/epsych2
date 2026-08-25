@@ -17,11 +17,11 @@ classdef ep_GenericGUI < gui.BehaviorGUI
     % Example:
     %   ep_GenericGUI(RUNTIME)   % called automatically by RunExpt
     %
-    % See also: gui.BehaviorGUI, epsych.RunExpt, gui.Parameter_Monitor,
-    % gui.Parameter_Control
+    % See also: gui.BehaviorGUI, epsych.RunExpt, gui.components.Parameter_Monitor,
+    % gui.components.Parameter_Control
 
     properties (SetAccess = protected)
-        ParameterMonitor        % gui.Parameter_Monitor instance
+        ParameterMonitor        % gui.components.Parameter_Monitor instance
         ParamControls           % Cell array of writable parameter control handles
     end
 

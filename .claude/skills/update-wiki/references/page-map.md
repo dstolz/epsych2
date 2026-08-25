@@ -24,7 +24,7 @@ write MATLAB against the framework.
 | `Behavior-GUI-Builder` | `gui.BehaviorBuilder`: the drag-and-drop route to a behavior GUI, the `.eblt` spec, and what it generates |
 | `Generating-a-Behavior-GUI-with-AI` | Prompting a model to draft a behavior GUI, and verifying what it produced |
 | `Teensy-Trial-Designer` 🚧 | The designer GUI, templates, test bench |
-| `Video-and-Peripherals` | VLC recording, syringe-pump reward (`hw.NE1000` + `gui.SyringePump`), motorized commutators |
+| `Video-and-Peripherals` | VLC recording, syringe-pump reward (`hw.NE1000` + `gui.components.SyringePump`), motorized commutators |
 | `Data-and-Save-Functions` | What is saved, the trial journal, decoding `epsych.BitMask` outcomes, custom save functions |
 | `Troubleshooting` | Self-Test failures, `.error_logs/`, verbosity, common breakages |
 

@@ -10,7 +10,7 @@ EPsych v1 ran several subjects simultaneously (one behavior box each, one shared
 
 - **Configuration layer**: `RunExpt.CONFIG` is a `(1,:)` per-subject struct array (`obj/+epsych/@RunExpt/RunExpt.m:22`). `AddSubject` supports up to 16 boxes with unique BoxIDs and a distinct protocol file per subject; `RemoveSubject`, `SortBoxes`, per-subject `EditProtocol`/`UpdateProtocol`/`ChangeProtocolFile` context actions all index the selected subject. The `.ecfg` save/load layer was removed 2026-08-19 (plans/remove-config-subsystem.md); sessions are assembled from the roster. SelfTest check D5 explicitly guards multi-subject CONFIG capacity.
 - **Trial engine**: `ep_TimerFcn_Start` builds `TRIALS(i)` per subject (own selector, own temp data file, `BoxID`); `ep_TimerFcn_RunTime` loops `1:NSubjects` with per-subject trial-complete polling, data append, recompile, and selector calls. `Runtime.dispatchNextTrial(i)` / `resolveCoreParameters(i)` are per-subject; triggers resolve as `x_<Trigger>_<BoxID>`.
-- **Events**: `epsych.TrialsData` carries `Subject` + `BoxID`, so listeners *can* filter. `gui.ParameterScatter` already filters by BoxID; `gui.OnlinePlot` and `gui.Triggers` take a BoxID argument.
+- **Events**: `epsych.TrialsData` carries `Subject` + `BoxID`, so listeners *can* filter. `gui.components.ParameterScatter` already filters by BoxID; `gui.components.OnlinePlot` and `gui.components.Triggers` take a BoxID argument.
 - **Saving**: `ep_SaveDataFcn` loops subjects and saves one file per subject; `SessionDataFilename` is reserved per subject.
 
 ### What is broken (single-subject drift)
@@ -19,7 +19,7 @@ EPsych v1 ran several subjects simultaneously (one behavior box each, one shared
 2. **Run/stop is all-or-nothing**: one `PsychTimer`; the bottom bar is `Run / Preview / Pause / Stop` for the whole session (`obj/+epsych/@RunExpt/buildUI.m:124-169`). "Pause" is only a ModeChange broadcast — nothing gates trial dispatch per box. Any interface entering Idle auto-stops the *entire* session (`RunExpt.m:471-478`, `PsychTimerRunTime`).
 3. **One BoxFig per session** (`obj/+epsych/@RunExpt/PsychTimerStart.m:17-29`): a single `feval(FUNCS.BoxFig, RUNTIME)`; no subject index passed. (Accepted: sub-GUIs are launched manually as needed.)
 4. **`gui.BoxGUI` is a singleton per class** (`obj/+gui/@BoxGUI/BoxGUI.m:432-450`): `closeExistingInstance_` keys on `PreferenceTag` (defaults to the class name). (Accepted for now; out of scope.)
-5. **`gui.Parameter_Update` is single-subject by admission** (`obj/+gui/Parameter_Update.m:161` — "CURRENTLY ONLY WORKS FOR SINGLE SUBJECT"): `R.TRIALS.trials` scalar dot-indexing errors on a TRIALS array. This is the commit path behind every BoxGUI "Update" button.
+5. **`gui.components.Parameter_Update` is single-subject by admission** (`obj/+gui/Parameter_Update.m:161` — "CURRENTLY ONLY WORKS FOR SINGLE SUBJECT"): `R.TRIALS.trials` scalar dot-indexing errors on a TRIALS array. This is the commit path behind every BoxGUI "Update" button.
 6. **`psychophysics.Psych` has no box filter** (`obj/+psychophysics/Psych.m:95-107`): `update_data` overwrites `DATA` on *every* NewData event, so a Detection/Staircase object for box 1 ingests box 2's trials — cross-contaminated analysis in any multi-box session.
 7. **Trial data capture is unscoped** (`runtime/timerfcns/ep_TimerFcn_RunTime.m:40`): the comment claims Read parameters are "scoped to this subject's box" but `all_parameters` has no box filter — every subject's saved trial rows include every box's readouts.
 8. **Backend constraints**: `hw.Bpod` hard-errors on `NSubjects > 1` and two Bpods per session is unsupported; `hw.Teensy` tracks `BoxIDs` (plural — closest to multi-box ready); `hw.TDT_RPcox` supports the v1-style `~<BoxID>` tag suffix convention (one circuit, many boxes).
@@ -47,7 +47,7 @@ Replace `CONFIG(1).PROTOCOL.Interfaces` with a capability-driven union over all 
 **A2. Remap every subject's compiled parameters onto the connected interface set** — `runtime/timerfcns/ep_TimerFcn_Start.m:28`
 After building `T(i)`, re-resolve `T(i).parameters` by name against `RUNTIME.Interfaces`, generalizing the alias-matching already written in `obj/+epsych/@Protocol/resolveCompiledParameters_.m` (move/share the core as a reusable resolver on `epsych.Runtime`). **Hard-error on unresolved names** — the silent no-op write is exactly the failure being eliminated. Subject 1 resolves to identical handles, so single-subject behavior is unchanged.
 
-**A3. Fix `gui.Parameter_Update` for TRIALS arrays** — `obj/+gui/Parameter_Update.m:152-189`
+**A3. Fix `gui.components.Parameter_Update` for TRIALS arrays** — `obj/+gui/Parameter_Update.m:152-189`
 Add a `SubjectIdx` property (default 1); commit into `R.TRIALS(SubjectIdx).trials` / `.writeParamIdx`. Remove the single-subject caveat from documentation/gui/Parameter_Update.md. (Enables manually launched sub-GUIs to target a specific box.)
 
 **A4. Box filter in `psychophysics.Psych`** — `obj/+psychophysics/Psych.m:95-107`
@@ -87,7 +87,7 @@ Add a `BoxID` option to `epsych.Runtime.all_parameters`: keep unsuffixed (global
 
 1. `tmp/smoke_test_multibox.m` headlessly (`matlab -batch`) — the five assertions above.
 2. Existing smoke tests in `tmp/` still pass (single-subject regression: A2 must resolve subject 1 to identical handles; A1 must reproduce today's behavior for one subject).
-3. Manual: RunExpt session with 2 software-backend subjects, distinct protocols → Preview; confirm independent per-box pause/stop from the subject list, and two data files each containing only its own box's fields. Manually launch a sub-GUI (e.g. `ep_GenericGUI`) and a `gui.ParameterScatter` bound to box 2; confirm correct per-box updates.
+3. Manual: RunExpt session with 2 software-backend subjects, distinct protocols → Preview; confirm independent per-box pause/stop from the subject list, and two data files each containing only its own box's fields. Manually launch a sub-GUI (e.g. `ep_GenericGUI`) and a `gui.components.ParameterScatter` bound to box 2; confirm correct per-box updates.
 4. `epsych.SelfTest` on the 2-subject session — new resolver check passes; D5 passes.
 
 ## Sequencing

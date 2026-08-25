@@ -155,7 +155,7 @@ would block the session timer, exactly the lesson documented in `hw.Bpod/trigger
 Trial control (all `Visible=false`, matching the documented Visible/Access matrix in
 `hw/@Bpod/populateModule_.m`): `x_ResetTrig_<B>`/`x_NewTrial_<B>` (`Access='Any'`, `isTrigger=true`
 — the runtime looks these up literally and errors if missing), `x_TrialComplete_<B>`
-(`Access='Read'`), `_TrigState~<B>`/`_TrialNum~<B>` (Read, invisible, `gui.OnlinePlot` literals).
+(`Access='Read'`), `_TrigState~<B>`/`_TrialNum~<B>` (Read, invisible, `gui.components.OnlinePlot` literals).
 
 Trial configuration: `TrialType`, `TrialDuration` seeded by the backend; **the paradigm author adds
 their own dispatched parameters in ProtocolDesigner on the module** — no backend code needed, since
@@ -166,7 +166,7 @@ routes through `stimulusPayload`.
 **Frozen result set** (`RESULT_PARAMETERS` constant, `Visible=true, Access='Read'`, no `Min` so
 NaN survives clamping — copying the exact discipline `hw.Bpod.RESULT_PARAMETERS` documents,
 because `RUNTIME.TRIALS(i).DATA(k) = data` throws on a field-set mismatch between trials):
-`RespCode` (an `epsych.BitMask` mask — the literal name `gui.History`/`psychophysics.*` look up),
+`RespCode` (an `epsych.BitMask` mask — the literal name `gui.components.History`/`psychophysics.*` look up),
 `RespLatency`, `StimOnsetTimestamp`, `RespTimestamp`, `TrialStartTimestamp`, `TrialDuration_Actual`,
 `Aborted`, `MissedFrames`, `TrialFcnError`. `TrialID`/`computerTimestamp` are added by
 `ep_TimerFcn_RunTime` itself, not by the backend.

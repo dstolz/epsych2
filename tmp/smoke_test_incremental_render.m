@@ -1,7 +1,7 @@
 function smoke_test_incremental_render()
 % smoke_test_incremental_render()
-% Equivalence proof for the per-trial render caches in gui.History,
-% gui.ParameterScatter, and psychophysics.Staircase.
+% Equivalence proof for the per-trial render caches in gui.components.History,
+% gui.components.ParameterScatter, and psychophysics.Staircase.
 %
 % Each component now builds a trial's row, value, or color once and appends
 % it, rather than rebuilding the session on every trial. This test drives
@@ -110,7 +110,7 @@ end
 
 function [fig,H] = makeHistory(P,tag,params)
 fig = uifigure('Visible','off','Position',[100 100 700 500]);
-H = gui.History(P,fig,PreferenceTag=tag);
+H = gui.components.History(P,fig,PreferenceTag=tag);
 H.ParametersOfInterest = params;
 H.update();
 end
@@ -174,7 +174,7 @@ end
 
 function [fig,S] = makeScatter(P,tag)
 fig = uifigure('Visible','off','Position',[100 100 700 500]);
-S = gui.ParameterScatter(P,fig,PreferenceTag=tag);
+S = gui.components.ParameterScatter(P,fig,PreferenceTag=tag);
 end
 
 

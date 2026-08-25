@@ -80,7 +80,7 @@ for i = 1:n
     color = s.Color;
     if s.IsTerminal
         % Terminal nodes take the colour of their dominant outcome bit, so a
-        % diagram reads with the same colour language as gui.History.
+        % diagram reads with the same colour language as gui.components.History.
         color = localOutcomeColor_(s, color);
     end
 

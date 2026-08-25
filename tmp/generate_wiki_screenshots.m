@@ -188,22 +188,22 @@ g.ColumnWidth = {'1.1x', '0.9x', '1x'};
 left = uipanel(g, 'Title', 'Parameter Controls');
 lg = uigridlayout(left, [4 1]);
 lg.RowHeight = {32, 32, 32, 36};
-c1 = gui.Parameter_Control(lg, rt.find_parameter('ToneFreq'),  Text='Tone Frequency (Hz)');
-c2 = gui.Parameter_Control(lg, rt.find_parameter('ToneDur'),   Text='Tone Duration (ms)');
-c3 = gui.Parameter_Control(lg, rt.find_parameter('RewardVol'), Text='Reward Volume (uL)');
-U = gui.Parameter_Update(rt, lg);
+c1 = gui.components.Parameter_Control(lg, rt.find_parameter('ToneFreq'),  Text='Tone Frequency (Hz)');
+c2 = gui.components.Parameter_Control(lg, rt.find_parameter('ToneDur'),   Text='Tone Duration (ms)');
+c3 = gui.components.Parameter_Control(lg, rt.find_parameter('RewardVol'), Text='Reward Volume (uL)');
+U = gui.components.Parameter_Update(rt, lg);
 U.watchedHandles = [c1 c2 c3];
 
 mid = uipanel(g, 'Title', 'Parameter Monitor');
 mg = uigridlayout(mid, [1 1]);
 mg.Padding = [2 2 2 2];
 setReadValue(rt.find_parameter('InTrial'), true);
-gui.Parameter_Monitor(mg, [rt.find_parameter('InTrial'), rt.find_parameter('ToneLevel'), ...
+gui.components.Parameter_Monitor(mg, [rt.find_parameter('InTrial'), rt.find_parameter('ToneLevel'), ...
     rt.find_parameter('ToneFreq'), rt.find_parameter('ToneDur')], ...
     type='graphical', pollPeriod=0.5, PreferenceTag="wikiShotWidgetsMonitor");
 
 right = uipanel(g, 'Title', 'Phase Selector');
-ps = gui.PhaseSelector(rt, phaseDir);
+ps = gui.components.PhaseSelector(rt, phaseDir);
 ps.PhasePath = phaseDir;
 ps.createGUI(right);
 
@@ -219,14 +219,14 @@ function [fig, cleanupFcn] = shotParameterScatter(C)
 % by the decoded response.
 S = detectionSession(C);
 fig = uifigure('Visible', 'off', 'Position', [200 200 760 440], 'Tag', 'wikiShot');
-gui.ParameterScatter(S.DATA, fig, PreferenceTag='wikiShotScatterBig', ...
+gui.components.ParameterScatter(S.DATA, fig, PreferenceTag='wikiShotScatterBig', ...
     XParameter='TrialIndex', YParameter='ToneLevel', ColorParameter='Response');
 cleanupFcn = @() delete(S.Psych);
 end
 
 
 function [fig, cleanupFcn] = shotOnlineAnalysis(C)
-% Caption: gui.History, gui.Performance and gui.PsychPlot side by side, all
+% Caption: gui.components.History, gui.components.Performance and gui.components.PsychPlot side by side, all
 % fed from the same 150-trial detection session.
 S = detectionSession(C);
 sc = psychophysics.Staircase(S.DATA, S.Level);
@@ -235,19 +235,19 @@ fig = uifigure('Visible', 'off', 'Position', [200 200 1200 380], 'Tag', 'wikiSho
 g = uigridlayout(fig, [1 3]);
 g.ColumnWidth = {'1.1x', '1x', '1x'};
 
-pHist = uipanel(g, 'Title', 'gui.History');
-H = gui.History(sc, pHist, PreferenceTag='wikiShotOnlineHistory');
+pHist = uipanel(g, 'Title', 'gui.components.History');
+H = gui.components.History(sc, pHist, PreferenceTag='wikiShotOnlineHistory');
 H.BitColors              = ["#c8ffd9","#ffcdcd","#b3e1ff","#ffeacf","#faffcc"];
 H.ParametersOfInterest   = {'ToneLevel','TrialType'};
 H.ParameterColumnFormats = {'%g','%d'};
 H.update();
 
-pPerf = uipanel(g, 'Title', 'gui.Performance');
-P = gui.Performance(S.Psych, pPerf);
+pPerf = uipanel(g, 'Title', 'gui.components.Performance');
+P = gui.components.Performance(S.Psych, pPerf);
 P.ParametersOfInterest = {'ToneLevel'};
 
-pPsych = uipanel(g, 'Title', 'gui.PsychPlot');
-gui.PsychPlot(S.Psych, axes(pPsych));
+pPsych = uipanel(g, 'Title', 'gui.components.PsychPlot');
+gui.components.PsychPlot(S.Psych, axes(pPsych));
 
 S.RUNTIME.EVENTS.notify('NewData', S.TrialsEvent);
 cleanupFcn = @() cleanupAnalysis(S, sc);

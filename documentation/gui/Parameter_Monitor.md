@@ -1,4 +1,4 @@
-# gui.Parameter_Monitor
+# gui.components.Parameter_Monitor
 
 A drop-in, timer-driven display for watching `hw.Parameter` values in a custom
 experiment GUI. Attach it to any graphics parent (uifigure, uipanel,
@@ -28,9 +28,9 @@ an idle display.
 
 ```matlab
 f = uifigure;
-M = gui.Parameter_Monitor(f, params, pollPeriod=0.5);            % live table
+M = gui.components.Parameter_Monitor(f, params, pollPeriod=0.5);            % live table
 
-M = gui.Parameter_Monitor(f, params, type="graphical", ...       % dashboard
+M = gui.components.Parameter_Monitor(f, params, type="graphical", ...       % dashboard
         LayoutColumns=2, FontSize=14, ...
         Styles=struct(InTrial="lamp", Platform="lamp", Level="gauge"));
 ```
@@ -107,7 +107,7 @@ M.Widgets(3).ValueHandle.FontColor = 'b';
 
 - Columns beyond Parameter/Value are requested via
   `Columns=["Type","Min","Max","isRandom", ...]` (any subset of
-  `gui.Parameter_Monitor.SUPPORTED_COLUMNS`).
+  `gui.components.Parameter_Monitor.SUPPORTED_COLUMNS`).
 - Header clicks sort (toggling ascend/descend); headers can be dragged to
   rearrange. Both persist across sessions via `getpref`/`setpref`, keyed to
   the hosting figure's Tag/Name or an explicit `PreferenceTag`.
@@ -186,7 +186,7 @@ first so they group together at the top of the panel:
 p = [P.Platform, P.Trough, P.InTrial, P.DelayPeriod, P.RespWindow, ...
     P.PelletTotal, P.StimDelay, P.RespWinDelay, P.RespLatency, P.RespCode];
 
-obj.ParameterMonitor = gui.Parameter_Monitor(panelMonitor, p, pollPeriod=0.1, ...
+obj.ParameterMonitor = gui.components.Parameter_Monitor(panelMonitor, p, pollPeriod=0.1, ...
     type="graphical", FontSize=14, ...
     Styles=struct( ...
         Platform="lamp", Trough="lamp", InTrial="lamp", ...

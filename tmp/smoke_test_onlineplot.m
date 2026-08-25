@@ -1,6 +1,6 @@
 function smoke_test_onlineplot()
 % smoke_test_onlineplot()
-% Exercise the refactored gui.OnlinePlot.
+% Exercise the refactored gui.components.OnlinePlot.
 %
 % The claims under test:
 %   - a tick costs ONE get_parameter call per interface, not one per trace,
@@ -254,7 +254,7 @@ close(ancestor(ax,'figure'));
 pTrig = iface.add_parameter('_TrigState~1', 0);
 iface.add_parameter('_TrialNum~1', 1);
 iface.put(pTrig,0);
-op = gui.OnlinePlot(rt, P); % no axes: OnlinePlot makes its own figure
+op = gui.components.OnlinePlot(rt, P); % no axes: OnlinePlot makes its own figure
 f = op.figH;
 
 assert(op.ownsFigure_, 'a plot that made its own figure owns it');
@@ -331,7 +331,7 @@ function [op,ax] = makePlot(rt,source)
 % OnlinePlot on an axes we own, with the timer stopped so the test drives it.
 f = figure('Visible','off','Name','SmokeOnlinePlot','Tag','SmokeOnlinePlot');
 ax = axes(f);
-op = gui.OnlinePlot(rt, source, ax);
+op = gui.components.OnlinePlot(rt, source, ax);
 stop(op.h_timer);
 if op.startTic_ == 0
     op.h_timer.Timer.StartFcn(op.h_timer.Timer,[]); % StartFcn had not run yet

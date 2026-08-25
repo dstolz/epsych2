@@ -17,7 +17,7 @@ classdef NE1000 < hw.Interface
     %     transmits except in answer to a command, and it will not accept a new
     %     command until it has begun answering the previous one. All I/O here
     %     is therefore synchronous single transactions, and a transaction
-    %     re-entered from a timer callback (gui.SyringePump polls at 4 Hz,
+    %     re-entered from a timer callback (gui.components.SyringePump polls at 4 Hz,
     %     and MATLAB runs timers while a serialport read blocks) is DROPPED
     %     rather than allowed to interleave and desync the link.
     %   - A read whose reply goes missing serves the last value the pump
@@ -213,7 +213,7 @@ classdef NE1000 < hw.Interface
 
         % True while a command is on the wire. The pump answers exactly one
         % command at a time, and MATLAB dispatches timer callbacks while a
-        % serialport read blocks, so without this guard gui.SyringePump's
+        % serialport read blocks, so without this guard gui.components.SyringePump's
         % 4 Hz poll lands inside another transaction and the two consume
         % each other's replies (see transact_).
         busy_ (1,1) logical = false
@@ -972,7 +972,7 @@ classdef NE1000 < hw.Interface
             % One command, one reply, no overlap. The pump will not accept a
             % new command until it has begun answering the previous one, and
             % MATLAB runs timer callbacks while a serialport read blocks — so
-            % gui.SyringePump's 4 Hz poll can fire in the middle of the
+            % gui.components.SyringePump's 4 Hz poll can fire in the middle of the
             % runtime's trial-end sweep. Each would then flush and consume the
             % other's reply, and the link stays a packet out of step for the
             % rest of the session. The nested command is dropped instead; its
@@ -1630,7 +1630,7 @@ function specs = local_parameterSpecs_(rateUnits)
 %   VolumeInfused, VolumeWithdrawn  - Visible, 'Read': recorded in DATA only.
 %   Direction, Diameter, Status     - invisible: operator-facing via
 %                                     set_parameter/get_parameter only.
-%   Start, Stop, ClearVolume        - invisible triggers for gui.Triggers and
+%   Start, Stop, ClearVolume        - invisible triggers for gui.components.Triggers and
 %                                     custom behavior GUIs.
 
 switch rateUnits

@@ -1,5 +1,5 @@
 classdef FakeScatterRuntime < handle
-    % Minimal epsych.Runtime stand-in for gui.ParameterScatter smoke tests.
+    % Minimal epsych.Runtime stand-in for gui.components.ParameterScatter smoke tests.
     % Provides the EVENTS broadcaster, a TRIALS struct, and an
     % all_parameters method reporting one invisible parameter, one
     % array-valued parameter, one write-only parameter, and one declared

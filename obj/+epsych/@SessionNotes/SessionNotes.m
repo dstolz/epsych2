@@ -16,7 +16,7 @@ classdef SessionNotes < handle
     %
     %   RUNTIME.NOTES.add('ear plug slipped');
     %
-    % gui.Notes is the operator-facing end of it, and several gui.Notes over
+    % gui.components.Notes is the operator-facing end of it, and several gui.components.Notes over
     % one store (an embedded one and its pop-out) stay in step through the
     % NotesChanged event.
     %
@@ -34,7 +34,7 @@ classdef SessionNotes < handle
     %     newest complete log in the crash-recovery file. A note typed into a
     %     session that then crashes survives.
     %
-    % Hand-edited text wins. When an operator turns on gui.Notes's Editable
+    % Hand-edited text wins. When an operator turns on gui.components.Notes's Editable
     % mode and edits the log by hand, setText makes that text authoritative:
     % it is stored verbatim as Text, and Records is re-parsed from it. A line
     % that no longer carries a readable stamp parses with Trial = NaN rather
@@ -65,7 +65,7 @@ classdef SessionNotes < handle
     %   recs = RUNTIME.NOTES.forSubject(1);
     %
     % Documentation: documentation/gui/gui_Notes.md
-    % See also: gui.Notes, epsych.SessionSnapshot, epsych.TrialJournal
+    % See also: gui.components.Notes, epsych.SessionSnapshot, epsych.TrialJournal
 
     properties (SetAccess = private)
         Records   % struct array of notes; see emptyRecords for the fields
@@ -167,7 +167,7 @@ classdef SessionNotes < handle
             % Replace the log with hand-edited text; that text becomes what is
             % saved, and Records is re-parsed from it.
             %
-            % Called by gui.Notes when the operator edits the box in Editable
+            % Called by gui.components.Notes when the operator edits the box in Editable
             % mode. Text identical to what a re-render would produce still
             % marks the log edited: the component cannot tell the difference,
             % and claiming otherwise would be a guess.
@@ -291,8 +291,8 @@ classdef SessionNotes < handle
             % Because the store is folded into the Info variable every saving
             % function writes and journaled per trial, an entry recorded here
             % is part of every subject's data file whether or not the behavior
-            % GUI shows a gui.Notes component. gui.Parameter_Update,
-            % gui.Parameter_Control (autoCommit), and gui.PhaseSelector call
+            % GUI shows a gui.components.Notes component. gui.components.Parameter_Update,
+            % gui.components.Parameter_Control (autoCommit), and gui.components.PhaseSelector call
             % this from their commit paths, which is what makes the record
             % standard for every gui.BehaviorGUI subclass.
             %
@@ -334,13 +334,13 @@ classdef SessionNotes < handle
 
         function obj = fromSnapshot(snapshot)
             % obj = epsych.SessionNotes.fromSnapshot(snapshot)
-            % The notes a saved session carries, as a store a gui.Notes can
+            % The notes a saved session carries, as a store a gui.components.Notes can
             % display. Used by epsych.ReviewSession, so a reviewed session
             % shows what was typed during it.
             %
             % The store is left unbound to any runtime: a review has no
             % journal to write to and no trial count to stamp with, and
-            % gui.Notes refuses new notes in a review anyway.
+            % gui.components.Notes refuses new notes in a review anyway.
             %
             % A file that predates notes, or one whose Info is a legacy shape,
             % yields an empty store rather than an error.

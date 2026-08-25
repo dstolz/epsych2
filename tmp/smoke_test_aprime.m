@@ -106,11 +106,11 @@ assert(all(diff(D.APrime) > 0), 'A'' should rise with stimulus level in the fixt
 fprintf('PASS: psychophysics.Detection.APrime\n');
 
 % 4. Plot components offer it ----------------------------------------------
-assert(ismember('APrime', gui.PsychPlot.ValidPlotTypes), ...
-    'gui.PsychPlot should offer APrime as a plot type');
-mc = ?gui.SlidingWindowPerformancePlot;
+assert(ismember('APrime', gui.components.PsychPlot.ValidPlotTypes), ...
+    'gui.components.PsychPlot should offer APrime as a plot type');
+mc = ?gui.components.SlidingWindowPerformancePlot;
 assert(ismember("aPrime", string({mc.PropertyList.Name})), ...
-    'gui.SlidingWindowPerformancePlot should accumulate aPrime');
+    'gui.components.SlidingWindowPerformancePlot should accumulate aPrime');
 fprintf('PASS: plot components expose A''\n');
 
 fprintf('\nALL PASS: smoke_test_aprime\n');

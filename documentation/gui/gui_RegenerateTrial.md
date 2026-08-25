@@ -1,4 +1,4 @@
-# gui.RegenerateTrial
+# gui.components.RegenerateTrial
 
 A button that re-arms the trial the rig is holding. One press dispatches the
 pending trial again, from the top: randomized parameters draw fresh values,
@@ -17,7 +17,7 @@ A regeneration therefore takes a two-handed gesture and a click — not
 something a sleeve, a stray elbow, or a mis-aimed click at the neighbouring
 trigger button can do.
 
-That combination is not arbitrary: `gui.Parameter_Update` already uses
+That combination is not arbitrary: `gui.components.Parameter_Update` already uses
 Ctrl+Alt+Shift *held while clicking* to mean "commit now, skip the deferral",
 so an operator on an EPsych rig has met this gesture before.
 
@@ -34,7 +34,7 @@ events, so if the window loses focus while the keys are held — alt-tab, with
 alt being one of the three — the release may never arrive and the button can
 be left armed. It still takes a deliberate click to do anything, and the
 press is still logged and noted, but do not treat arming as a substitute for
-attention. This is the same exposure `gui.Parameter_Update` has always had
+attention. This is the same exposure `gui.components.Parameter_Update` has always had
 with the same gesture.
 
 ## ⚠️ It interrupts the trial in progress
@@ -121,7 +121,7 @@ end
 Standalone, in any container:
 
 ```matlab
-h = gui.RegenerateTrial(RUNTIME, panel, SubjectIndex=2);
+h = gui.components.RegenerateTrial(RUNTIME, panel, SubjectIndex=2);
 h.regenerate();     % the button's own callback; returns whether it went out
 ```
 

@@ -69,7 +69,7 @@ Reference Documentation opens this file, for a rig with no network.
 generate — the emitted code carries a comment saying so. See
 [gui_SessionGate.md](gui_SessionGate.md).
 
-**Online Plot** must name at least one source: left empty, `gui.OnlinePlot`
+**Online Plot** must name at least one source: left empty, `gui.components.OnlinePlot`
 opens a `listdlg` at construction, which a generated `build` must never do.
 Validation refuses a sourceless region rather than generating one. The
 dialog lists the protocol's Read parameters and takes bitmask **bank** names
@@ -77,7 +77,7 @@ as free text, because a bank's `~BMid-*` parameters are invisible and so
 never reach the layout spec's parameter snapshot.
 
 **Buffer Plot** is the opposite case: leaving its buffer list empty is a real
-answer, since `gui.BufferPlot` then takes the session's own `Buffer`
+answer, since `gui.components.BufferPlot` then takes the session's own `Buffer`
 parameters, so there is nothing for validation to insist on. Its dialog also
 sets the sample rate (0 keeps the x axis in buffer samples), the layout, and
 how many past trials are drawn — see [gui_BufferPlot.md](gui_BufferPlot.md).
@@ -86,7 +86,7 @@ Session Notes in its **Button only** form is its own pop-out opener, so
 validation clears the region's pop-out flag rather than generating a second
 button onto the same window — see [gui_Notes.md](gui_Notes.md).
 
-Control types default through the same scoring `gui.Parameter_Control`
+Control types default through the same scoring `gui.components.Parameter_Control`
 uses for `Type='auto'` (trigger → momentary, read-only or expression →
 readonly, Boolean → checkbox, multiple Values → dropdown, else editfield);
 the dialog exposes `auto`/`editfield`/`dropdown`/`checkbox`/`readonly`,

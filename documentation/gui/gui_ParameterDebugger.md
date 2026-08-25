@@ -37,7 +37,7 @@ key. There is no timer and no auto-refresh.
 
 That is the point. A debugger you leave open beside a running experiment must
 not add hardware traffic of its own, or the thing it measures is partly the
-measuring. `gui.Parameter_Monitor` is the polling display, and it is the right
+measuring. `gui.components.Parameter_Monitor` is the polling display, and it is the right
 tool when you want a value to update itself; this window is the one you can
 trust not to.
 

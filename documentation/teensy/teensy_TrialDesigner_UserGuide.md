@@ -107,7 +107,7 @@ fastest way to confirm you wired the valve to the pin you think you did.
 
 The center pane draws the state machine. Terminal states are outlined twice and filled with
 their outcome colour: green for a hit, red for a miss, orange for a false alarm, blue for a
-correct reject — the same colour language `gui.History` uses during a session.
+correct reject — the same colour language `gui.components.History` uses during a session.
 
 Arrows are labelled with their condition in plain English. Drag a node to move it;
 `View > Auto Layout Diagram` puts everything back in depth order.
@@ -181,10 +181,10 @@ expect:
 |---|---|
 | `x_NewTrial_<BoxID>`, `x_ResetTrig_<BoxID>` | The triggers `epsych.Runtime` pulses each trial |
 | `x_TrialComplete_<BoxID>` | Polled every 10 ms tick to detect the end of a trial |
-| `RespCode` | The outcome bitmask `psychophysics.Detection` and `gui.History` read |
+| `RespCode` | The outcome bitmask `psychophysics.Detection` and `gui.components.History` read |
 | `RespLatency` | Milliseconds from trial start to the Mark Latency action |
 | `TrialType` | The integer trial type `psychophysics.Detection` reads separately |
-| `_TrigState~<BoxID>`, `_TrialNum~<BoxID>` | The exact names `gui.OnlinePlot` looks up |
+| `_TrigState~<BoxID>`, `_TrialNum~<BoxID>` | The exact names `gui.components.OnlinePlot` looks up |
 | one per variable | Becomes a trial-table column when Per Trial is set |
 | one per input and counter | Latched sensor state captured into each trial's saved data |
 
@@ -257,7 +257,7 @@ Teensy-backed protocol lights up that existing behavior GUI with no edits to it.
 
 `DelayPeriod` and `RespWindow` in that template are digital *outputs* held high for the duration
 of their phase. That is a useful trick generally: an output driven purely as a phase flag becomes
-a readable parameter, which `gui.Parameter_Monitor` renders as a lamp and a scope can trigger on.
+a readable parameter, which `gui.components.Parameter_Monitor` renders as a lamp and a scope can trigger on.
 
 **Progressive ratio** deliberately does not escalate on the board. The requirement is an
 ordinary per-trial variable, so a trial table, a `psychophysics.Staircase` or a custom

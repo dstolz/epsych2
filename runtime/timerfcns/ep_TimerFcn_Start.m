@@ -26,8 +26,8 @@ for i = 1:nSubjs
     % Trial table and the column map that names its columns, installed
     % together: writeparams is a column-ordered cell of valid parameter
     % names and writeParamIdx maps each valid-name to its trial column.
-    % Consumers (gui.Parameter_Update, updateTrialsFromParameters,
-    % eval_*_training_mode, gui.NextTrial) rely on these to locate writable
+    % Consumers (gui.components.Parameter_Update, updateTrialsFromParameters,
+    % eval_*_training_mode, gui.components.NextTrial) rely on these to locate writable
     % columns, so the safe-boundary recompile must refresh them the same way.
     [T(i).parameters, T(i).trials, T(i).writeparams, T(i).writeParamIdx] = ...
         epsych.Runtime.compiledTrialColumns(compiled);

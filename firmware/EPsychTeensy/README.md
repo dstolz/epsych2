@@ -117,7 +117,7 @@ response, which distinguishes a Miss from a genuine 0 ms latency.
 `RespCode` is a `uint32` bitmask built from the indices in
 [`BitMask.h`](BitMask.h), which mirrors `epsych.BitMask`. It decodes directly
 through `epsych.BitMask.decode` and feeds `psychophysics.Detection` and
-`gui.History` with no translation. To change the paradigm, edit
+`gui.components.History` with no translation. To change the paradigm, edit
 `resolveOutcome()` in [`TrialFSM.cpp`](TrialFSM.cpp) — it is deliberately the
 only place the contingency is expressed.
 

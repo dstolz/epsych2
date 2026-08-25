@@ -66,7 +66,7 @@ assert(isvalid(g.NotesButton) && g.NotesButton.IsButtonOnly, ...
 assert(g.NotesButton.Store == rt.NOTES, 'notes button should write to the session store');
 assert(numel(g.NotesButton.OpenH.Parent.ColumnWidth) == 8, ...
     'the button row should hold six triggers, Notes, and Regenerate');
-assert(isvalid(g.RegenerateButton) && isa(g.RegenerateButton,'gui.RegenerateTrial'), ...
+assert(isvalid(g.RegenerateButton) && isa(g.RegenerateButton,'gui.components.RegenerateTrial'), ...
     'regenerate button should exist');
 assert(isequal(g.RegenerateButton.ButtonH.Parent, g.NotesButton.OpenH.Parent), ...
     'regenerate button should sit in the same row, in the last column');
@@ -181,7 +181,7 @@ assert(isequal(g.NextTrialPanel.TableH.Data, {'Depth','0.5';'TrialTypeNames','ST
 rt.EVENTS.notify('NewTrial', epsych.TrialsData(fakeTrials(2)));
 assert(isequal(g.NextTrialPanel.TableH.Data, {'Depth','0';'TrialTypeNames','CATCH'}), ...
     'next trial panel should show the catch trial');
-fprintf('PASS: gui.NextTrial updates from the NewTrial event\n');
+fprintf('PASS: gui.components.NextTrial updates from the NewTrial event\n');
 
 % 7. NewData hook ---------------------------------------------------------
 % The Reminder request must SURVIVE a completed trial. NewData is broadcast
@@ -413,7 +413,7 @@ end
 
 
 function T = fakeTrials(trialID)
-% Minimal stand-in for RUNTIME.TRIALS as consumed by gui.NextTrial.
+% Minimal stand-in for RUNTIME.TRIALS as consumed by gui.components.NextTrial.
 T.Subject = 'TEST';
 T.BoxID = 1;
 T.NextTrialID = trialID;
@@ -435,7 +435,7 @@ end
 
 
 function s = savedNextTrialPrefs(prefTag)
-% gui.NextTrial keys its saved selection to the hosting figure Tag, which
+% gui.components.NextTrial keys its saved selection to the hosting figure Tag, which
 % here is the same as PREF_TAG; snapshot it so this test leaves the user's
 % saved selection untouched.
 s = [];

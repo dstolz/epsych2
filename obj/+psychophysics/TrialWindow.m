@@ -34,7 +34,7 @@ classdef TrialWindow
     %   idx = w.resolve(47);        % 28:47
     %   disp(w.label(47))           % Last 20 trials (28-47)
     %
-    % See also: psychophysics.SessionMetrics, gui.SessionPerformance,
+    % See also: psychophysics.SessionMetrics, gui.components.SessionPerformance,
     % documentation/psychophysics/psychophysics_SessionMetrics.md
 
     properties (SetAccess = immutable)

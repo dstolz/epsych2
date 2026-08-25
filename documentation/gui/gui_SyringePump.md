@@ -1,4 +1,4 @@
-# `gui.SyringePump`
+# `gui.components.SyringePump`
 
 An operator panel for a New Era NE-1000 syringe pump. It answers the four
 questions a rig operator has about a reward pump — *how much has it
@@ -17,7 +17,7 @@ obj.addSyringePump(panelReward, Sections = ["Volume" "Status" "Triggers"]);
 
 % Standalone: no protocol, pick a port in the panel and connect
 f = uifigure(Name = 'Pump');
-p = gui.SyringePump([], f);
+p = gui.components.SyringePump([], f);
 ```
 
 ![The panel](images/SyringePump.png)
@@ -31,7 +31,7 @@ p = gui.SyringePump([], f);
 
 ## What it is built over
 
-`gui.SyringePump(source, container)` takes any of three sources:
+`gui.components.SyringePump(source, container)` takes any of three sources:
 
 | `source` | The panel drives |
 |---|---|
@@ -248,7 +248,7 @@ have no defaults in the `arguments` block: an option that was never supplied
 is simply absent, which is what distinguishes *the caller did not say* from
 *the caller asked for the default*.
 
-`Sections` is the one exception to the ordering, following `gui.NextTrial`'s
+`Sections` is the one exception to the ordering, following `gui.components.NextTrial`'s
 precedent for saved field selections: the caller's value is the **default**
 layout, and a selection the operator saved overrides it. **Reset to Default**
 restores the caller's layout and forgets the saved one. `Port` is the other:

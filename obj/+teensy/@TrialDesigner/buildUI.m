@@ -48,10 +48,10 @@ obj.HVariables.Tab = uitab(obj.TabGroup, Title = 'Variables');
 obj.HSim.Tab = uitab(obj.TabGroup, Title = 'Test Bench');
 obj.HCompile.Tab = uitab(obj.TabGroup, Title = 'Compile & Upload');
 
-% gui.StatusBar must be given an explicit Position: with it empty the
+% gui.components.StatusBar must be given an explicit Position: with it empty the
 % constructor reads parent.Position(3), and a uigridlayout has no Position.
 % The value is ignored once Layout.Row is set.
-obj.StatusBar = gui.StatusBar(outer, ...
+obj.StatusBar = gui.components.StatusBar(outer, ...
     Position = [1 1 400 24], ...
     InitialText = 'Loading Trial Designer...');
 obj.StatusBar.Label.Layout.Row = 3;

@@ -41,7 +41,7 @@ classdef ExampleBehaviorGUI < gui.BehaviorGUI
             % A display this GUI does not show at all. Nothing is built until
             % the tool is clicked, so it costs no listeners or timers up front.
             tb.addLazyComponent('Performance', ...
-                @(c) gui.SessionPerformance(obj.RUNTIME, c), ...
+                @(c) gui.components.SessionPerformance(obj.RUNTIME, c), ...
                 Icon='sessionperformance', WindowSize=[420 260]);
 
             g = uigridlayout(fig, [3 3]);
@@ -74,7 +74,7 @@ classdef ExampleBehaviorGUI < gui.BehaviorGUI
             % Any other component: construct natively, register for teardown
             p = uipanel(g, 'Title', 'Trial History');
             p.Layout.Row = 3; p.Layout.Column = 2;
-            obj.register(gui.ParameterScatter(obj.RUNTIME, p, ...
+            obj.register(gui.components.ParameterScatter(obj.RUNTIME, p, ...
                 XParameter='Trial Number', YParameter='Depth'));
 
             ax = uiaxes(g);

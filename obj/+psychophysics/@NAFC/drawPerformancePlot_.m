@@ -2,7 +2,7 @@ function drawPerformancePlot_(obj, ax, R)
 % drawPerformancePlot_(obj, ax, R)
 % Proportion correct against the tracked parameter value, with the 1/N
 % chance level for reference. The overall percent correct is in the
-% subtitle position of gui.SessionPerformance, not here; this plot is
+% subtitle position of gui.components.SessionPerformance, not here; this plot is
 % about the shape of performance across difficulty.
 %
 % Parameters:

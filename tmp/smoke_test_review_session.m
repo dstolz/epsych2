@@ -147,10 +147,10 @@ function localTestSeating(scratch, sessionFile)
 % Two things a component reads at CONSTRUCTION, before any event is fired, and
 % which both regressed on a real paradigm (cl_AppetitiveDetection_BehaviorGUI):
 %
-%   1) gui.NextTrial.seedFromRuntime_ reads RUNTIME.TRIALS. An empty
+%   1) gui.components.NextTrial.seedFromRuntime_ reads RUNTIME.TRIALS. An empty
 %      NextTrialID there indexes the trial table with [], which yields zero
 %      elements and throws.
-%   2) gui.Parameter_Control seats its widget from the parameter once and then
+%   2) gui.components.Parameter_Control seats its widget from the parameter once and then
 %      waits for a PostSet a review never fires. It must seat from the trial
 %      the session ENDED on, not the protocol's design-time value -- and it
 %      must survive a stored value that falls outside the parameter's own
@@ -164,14 +164,14 @@ cleanupV = onCleanup(@() localDelete(V));
 assert(~isempty(V.RUNTIME.TRIALS(1).NextTrialID), ...
     'TRIALS.NextTrialID must be usable before any event is fired');
 
-% gui.NextTrial against the review runtime, exactly as addNextTrial builds it.
+% gui.components.NextTrial against the review runtime, exactly as addNextTrial builds it.
 f = uifigure('Visible','off');
 closeFig = onCleanup(@() delete(f));
-nt = gui.NextTrial(V.RUNTIME, f);
+nt = gui.components.NextTrial(V.RUNTIME, f);
 drawnow
-assert(isvalid(nt), 'gui.NextTrial must construct against a review runtime');
+assert(isvalid(nt), 'gui.components.NextTrial must construct against a review runtime');
 delete(nt)
-fprintf('PASS: 12 TRIALS is seated before the window is built (gui.NextTrial constructs)\n');
+fprintf('PASS: 12 TRIALS is seated before the window is built (gui.components.NextTrial constructs)\n');
 
 clear cleanupV closeFig
 delete(V);
@@ -217,7 +217,7 @@ try
     % ...and the control exists, showing a value inside the field's limits.
     found = false;
     for c = localComponents(V2.GUI)
-        if ~isa(c{1}, 'gui.Parameter_Control') || ~isvalid(c{1}), continue; end
+        if ~isa(c{1}, 'gui.components.Parameter_Control') || ~isvalid(c{1}), continue; end
         if ~strcmp(c{1}.Parameter.Name, 'ToneFreq'), continue; end
         found = true;
         h = c{1}.h_uiobj;
@@ -512,12 +512,12 @@ try
 
     assert(V.Position == N, 'a review with a GUI must still open at the last trial');
 
-    % Every parameter control disabled: gui.Parameter_Control does this itself
+    % Every parameter control disabled: gui.components.Parameter_Control does this itself
     % off the interface mode PostSet, which is why the review moves the
     % interfaces Standby -> Idle only after the window is built.
     nControls = 0;
     for c = localComponents(V.GUI)
-        if ~isa(c{1}, 'gui.Parameter_Control'), continue; end
+        if ~isa(c{1}, 'gui.components.Parameter_Control'), continue; end
         nControls = nControls + 1;
         w = c{1}.widgets();
         for h = w(isgraphics(w))

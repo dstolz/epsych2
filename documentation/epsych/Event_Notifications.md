@@ -172,7 +172,7 @@ Common uses:
 
 - enable or disable controls
 - clean up windows or listeners on stop
-- update status indicators (see `gui.ModeIndicator`)
+- update status indicators (see `gui.components.ModeIndicator`)
 - trigger end-of-session behavior
 
 #### Example

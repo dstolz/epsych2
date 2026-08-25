@@ -1,9 +1,9 @@
 function smoke_test_parameter_reset()
 % smoke_test_parameter_reset()
-% Exercise the Ctrl-to-reset path added to gui.Parameter_Update: modifier
+% Exercise the Ctrl-to-reset path added to gui.components.Parameter_Update: modifier
 % key handling (Ctrl arms reset, Ctrl+Shift+Alt still arms immediate
 % commit, release restores the default state), the button-pushed dispatch,
-% and gui.Parameter_Control.reset_value restoring the pre-edit value
+% and gui.components.Parameter_Control.reset_value restoring the pre-edit value
 % without touching hw.Parameter. Also covers checkbox controls, which have
 % no BackgroundColor and must indicate state through FontColor. Headless-
 % safe: the figure is closed before returning.
@@ -28,15 +28,15 @@ rt.EVENTS = epsych.EventHub;
 rt.Interfaces = sw;
 
 g = uigridlayout(fig,[5 1]);
-c(1) = gui.Parameter_Control(g, pFreq);
-c(2) = gui.Parameter_Control(g, pLevel);
-c(3) = gui.Parameter_Control(g, pDur);
-c(4) = gui.Parameter_Control(g, pRand, Type='checkbox'); % no BackgroundColor
+c(1) = gui.components.Parameter_Control(g, pFreq);
+c(2) = gui.components.Parameter_Control(g, pLevel);
+c(3) = gui.components.Parameter_Control(g, pDur);
+c(4) = gui.components.Parameter_Control(g, pRand, Type='checkbox'); % no BackgroundColor
 
 postCount = 0;
 c(3).PostUpdateFcn = @(varargin) incr();
 
-u = gui.Parameter_Update(rt, g);
+u = gui.components.Parameter_Update(rt, g);
 u.watchedHandles = c;
 
 assert(strcmp(u.Button.Enable,'off'), 'button should start disabled');

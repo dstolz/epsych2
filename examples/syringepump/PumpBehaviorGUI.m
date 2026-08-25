@@ -1,6 +1,6 @@
 classdef PumpBehaviorGUI < gui.BehaviorGUI
-    %PUMPBEHAVIORGUI Minimal behavior GUI for exercising the gui.SyringePump panel.
-    %   A gui.SyringePump operator panel beside the two things needed to see
+    %PUMPBEHAVIORGUI Minimal behavior GUI for exercising the gui.components.SyringePump panel.
+    %   A gui.components.SyringePump operator panel beside the two things needed to see
     %   whether it behaves during a session: the trial controls that write
     %   the same pump, and a readout of the reward volume the pump reported
     %   back on every completed trial.
@@ -13,7 +13,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
     %   Experiment button and the session holds until it is pressed, under
     %   RunExpt's Run / Preview buttons as well as run_pump_session.
     %
-    %   The button is a gui.SessionGate (obj.addSessionGate) and the hold is
+    %   The button is a gui.components.SessionGate (obj.addSessionGate) and the hold is
     %   the CONSTRUCTOR blocking on it. RunExpt builds the behavior GUI from
     %   the PsychTimer's StartFcn, start() does not return until that
     %   callback does, and a timer will not fire its TimerFcn during another
@@ -32,11 +32,11 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
     %   DATA and dispatch the next reward. Pass DriveTrials=false for a
     %   caller that runs its own loop (run_pump_session does).
     %
-    % See also gui.SyringePump, run_pump_session, create_pump_protocol,
+    % See also gui.components.SyringePump, run_pump_session, create_pump_protocol,
     %          documentation/gui/gui_SyringePump.md
 
     properties (SetAccess = private)
-        Pump = []       % the gui.SyringePump panel under test
+        Pump = []       % the gui.components.SyringePump panel under test
         RigState (1,:) char = 'idle' % idle | dispense | iti | done
     end
 
@@ -48,7 +48,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
         LastVolumeH_ = []   % per-trial dispensed-volume label
         StateH_ = []        % what the trial cycle is doing right now
         PrevInfused_ = NaN  % VolumeInfused at the previous trial end
-        Gate_ = []          % gui.SessionGate holding the session
+        Gate_ = []          % gui.components.SessionGate holding the session
         DriveTrials_ (1,1) logical = true % run the trial cycle from here
         RigTimer_ = []      % advances the trial cycle off the session timer
         StateClock_ = []    % tic handle for the current state
@@ -58,7 +58,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
 
     properties (Constant, Access = private)
         % The pump is asked whether it is still running no more often than
-        % this. Each ask is an RS-232 round trip, and gui.SyringePump is
+        % this. Each ask is an RS-232 round trip, and gui.components.SyringePump is
         % already polling the same link four times a second.
         STATUS_POLL_PERIOD = 0.25
     end
@@ -170,7 +170,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             % --- Trial controls ------------------------------------------
             % Rate is a trial-table column, so it is re-asserted on every
             % dispatch. autoCommit writes the operator's edit into the trial
-            % table as well as the pump (gui.Parameter_Control's Runtime
+            % table as well as the pump (gui.components.Parameter_Control's Runtime
             % option), which is what keeps the next dispatch from undoing it.
             col = obj.controlColumn(g, Title = 'Trial Controls', Row = 1, Column = 2);
 
@@ -212,7 +212,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             pnl = uipanel(g, 'Title', 'Cumulative Volume Infused');
             pnl.Layout.Row = 1;
             pnl.Layout.Column = 3;
-            obj.register(gui.ParameterScatter(obj.RUNTIME, pnl, ...
+            obj.register(gui.components.ParameterScatter(obj.RUNTIME, pnl, ...
                 XParameter = 'Trial Number', YParameter = 'VolumeInfused'));
 
             pnl = uipanel(g, 'Title', 'Pump Readback');
@@ -281,7 +281,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
         end
 
         function onModeChange(obj, ~, event)
-            % Retiring the button belongs to gui.SessionGate, which is
+            % Retiring the button belongs to gui.components.SessionGate, which is
             % listening to the same event and was wired first (build runs
             % inside the base constructor, before these hooks are attached),
             % so the gate has already opened by the time this runs. What is
@@ -462,7 +462,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
 
         function iface = pumpInterface_(obj)
             % The hw.NE1000 the panel drives, which is the session's pump
-            % when the protocol has one (gui.SyringePump adopts it) and the
+            % when the protocol has one (gui.components.SyringePump adopts it) and the
             % panel's own otherwise.
             iface = [];
             if ~isempty(obj.Pump) && isvalid(obj.Pump) && ~isempty(obj.Pump.Interface) ...

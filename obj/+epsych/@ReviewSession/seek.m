@@ -6,14 +6,14 @@ function seek(obj, k, options)
 % This is the whole player, and it is short for one reason: every consumer
 % takes the WHOLE DATA array out of the payload and recomputes from scratch
 % (psychophysics.Psych.update_data assigns obj.DATA = event.Data.DATA;
-% gui.ParameterScatter, gui.History and gui.SessionPerformance do the
+% gui.components.ParameterScatter, gui.components.History and gui.components.SessionPerformance do the
 % equivalent). So one notify carrying Data(1:k) is worth k notifies, and
 % winding BACK costs exactly what going forward costs. There is no
 % replay-from-the-start and no per-component reset to maintain.
 %
 % Three steps:
 %   1. position the replay backends, so every hw.Parameter read -- a
-%      gui.Parameter_Monitor poll, gui.ParameterDebugger's Read, a paradigm
+%      gui.components.Parameter_Monitor poll, gui.ParameterDebugger's Read, a paradigm
 %      hook -- reports what the rig held on trial k;
 %   2. build the TRIALS struct for that trial;
 %   3. notify NewData then NewTrial, in that order, because that is the order
@@ -22,7 +22,7 @@ function seek(obj, k, options)
 % The two notifies carry deliberately different trials, matching the live
 % meanings: NewData describes the trial that just COMPLETED (TrialIndex == k,
 % numel(DATA) == k), while NewTrial describes the one that would run NEXT, so
-% gui.NextTrial shows the trial that actually followed rather than repeating
+% gui.components.NextTrial shows the trial that actually followed rather than repeating
 % the one being looked at. At the last trial there is no next, so NewTrial
 % repeats trial k rather than inventing one.
 %
@@ -35,7 +35,7 @@ function seek(obj, k, options)
 %         without broadcasting, which is how the constructor seats the session
 %         at its last trial BEFORE the window is built. Components that read
 %         RUNTIME.TRIALS at construction rather than waiting for an event --
-%         gui.NextTrial.seedFromRuntime_ is the one that matters -- would
+%         gui.components.NextTrial.seedFromRuntime_ is the one that matters -- would
 %         otherwise find an empty NextTrialID and come up blank.
 %
 % See also: epsych.TrialsData, runtime/timerfcns/ep_TimerFcn_RunTime.m
@@ -70,7 +70,7 @@ else
 end
 
 % Keep the runtime in step with what was broadcast, for the components that
-% read RUNTIME.TRIALS directly rather than the payload (gui.NextTrial seeds
+% read RUNTIME.TRIALS directly rather than the payload (gui.components.NextTrial seeds
 % itself that way, and paradigm GUIs written in the "GUI plays the rig" style
 % read it on every trial). ReviewMode makes this assignment inert beyond
 % storing the struct.

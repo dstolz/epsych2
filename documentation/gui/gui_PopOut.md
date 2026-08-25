@@ -18,20 +18,20 @@ runtime.
 
 | Component | The pop-out is | Independent of the host in |
 |---|---|---|
-| `gui.ParameterScatter` | a second scatter on the same source | X/Y/color selection, marker style, colormap, log scales, grid |
-| `gui.History` | a second trial table on the same psych object | shown columns, column order, sort column/direction, row block size |
-| `gui.SessionPerformance` | a second summary with **its own `psychophysics.SessionMetrics`** | trial window, metric selection |
-| `gui.NextTrial` | a second upcoming-trial display on the same event source | field selection |
-| `gui.Parameter_Monitor` | a second monitor with **its own polling timer** | which parameters are shown, their order, colors, sort |
-| `gui.SyringePump` | a second panel over the same pump, with **its own readout timer**, built with `ApplyOnStart=false` so it never re-asserts settings | selected port, displayed settings |
-| `gui.PsychPlot` | a second psychometric plot on the same psych object | plot type, log-x, colors |
-| `gui.OnlinePlot` | a second plot of the same box, with **its own sample timer, read plan and buffers** | which traces, their y-axis order, palette and per-trace colours, line width, time window, redraw rate |
-| `gui.BufferPlot` | a second buffer plot on the same source, with **its own envelope caches** | which buffers, sample rate and x units, layout, trial depth, palette and per-trace colours, resolution, y limits |
+| `gui.components.ParameterScatter` | a second scatter on the same source | X/Y/color selection, marker style, colormap, log scales, grid |
+| `gui.components.History` | a second trial table on the same psych object | shown columns, column order, sort column/direction, row block size |
+| `gui.components.SessionPerformance` | a second summary with **its own `psychophysics.SessionMetrics`** | trial window, metric selection |
+| `gui.components.NextTrial` | a second upcoming-trial display on the same event source | field selection |
+| `gui.components.Parameter_Monitor` | a second monitor with **its own polling timer** | which parameters are shown, their order, colors, sort |
+| `gui.components.SyringePump` | a second panel over the same pump, with **its own readout timer**, built with `ApplyOnStart=false` so it never re-asserts settings | selected port, displayed settings |
+| `gui.components.PsychPlot` | a second psychometric plot on the same psych object | plot type, log-x, colors |
+| `gui.components.OnlinePlot` | a second plot of the same box, with **its own sample timer, read plan and buffers** | which traces, their y-axis order, palette and per-trace colours, line width, time window, redraw rate |
+| `gui.components.BufferPlot` | a second buffer plot on the same source, with **its own envelope caches** | which buffers, sample rate and x units, layout, trial depth, palette and per-trace colours, resolution, y limits |
 | `psychophysics.Staircase` | a second `Staircase` over the same trials, plotted in the new window | threshold reversals/formula, dB axis, step and reversal overlays |
 
 Two notes on cost, because a pop-out is a real second instance:
 
-- `gui.Parameter_Monitor` polls the hardware on its own timer. While the
+- `gui.components.Parameter_Monitor` polls the hardware on its own timer. While the
   window is open, every parameter shown in both places is read twice per
   poll period.
 - `psychophysics.Staircase` pops out as a sibling analysis object, not a
@@ -65,7 +65,7 @@ without the plot disappearing behind whatever was clicked last. Choosing it
 again unpins.
 
 The item appears **only in a window holding a single component**: a pop-out,
-or one `gui.ComponentToolbar` opened for a lazy component. The embedded copy
+or one `gui.components.ComponentToolbar` opened for a lazy component. The embedded copy
 does not offer it, because the window it would pin is the behavior GUI's,
 shared with everything else the paradigm shows — pinning that is a decision
 about the GUI, not about one display.
@@ -86,7 +86,7 @@ gui.PopOut.setAlwaysOnTop(fig, true);           % pin, and remember it
 `markStandaloneWindow` both declares the window a one-component window — which
 is what makes the menu item appear — and restores the pinned state it was last
 left in, so it must run before the component's constructor builds its context
-menu. `gui.ComponentToolbar` calls it for the windows it owns; a release or
+menu. `gui.components.ComponentToolbar` calls it for the windows it owns; a release or
 platform that will not honour `WindowStyle` leaves the window as it is and logs,
 rather than taking the click down with it.
 
@@ -103,7 +103,7 @@ function build(obj, fig)
 
     panel = uipanel(g);
     panel.Layout.Row = 2;
-    obj.Scatter = obj.register(gui.ParameterScatter(obj.RUNTIME, panel));
+    obj.Scatter = obj.register(gui.components.ParameterScatter(obj.RUNTIME, panel));
 
     b = obj.addPopOutButton(g, obj.Scatter, Text='Scatter...');
     b.Layout.Row = 1;
@@ -127,7 +127,7 @@ GUI does not host at all, building them on first click. See
 A pop-out saves its layout under its own key, so its choices never overwrite
 the embedded component's. The key is the hosting figure's `Tag` (else its
 `Name`), the component's class, and a `_PopOut` suffix — e.g. a
-`gui.History` inside a BehaviorGUI tagged `cl_AppetitiveDetection_BehaviorGUI` pops out
+`gui.components.History` inside a BehaviorGUI tagged `cl_AppetitiveDetection_BehaviorGUI` pops out
 under `cl_AppetitiveDetection_BehaviorGUI_History_PopOut`, in the same
 `epsych2_gui_History` preference group. The pop-out **window position** is
 remembered under a preference group of that same name, the way
@@ -150,7 +150,7 @@ obj@gui.BehaviorGUI(RUNTIME, Name='My Task', RestorePopOuts=true);
 
 The GUI then remembers **which** displays were open and reopens them at the
 end of its construction, each in the position, size, font and pinned state
-its own preference key already held. Windows `gui.ComponentToolbar` opened
+its own preference key already held. Windows `gui.components.ComponentToolbar` opened
 for lazy entries are remembered the same way. See
 [gui_BehaviorGUI.md](gui_BehaviorGUI.md#remembering-the-display-windows).
 
@@ -214,7 +214,7 @@ Two details to get right in `createPopOut_`:
 - **Share the data, not the display state.** Pass the same source object,
   event broadcaster, or `hw.Parameter` array; never pass a settings-bearing
   object the host is also using, or the two windows stop being independent.
-  `gui.SessionPerformance` is the worked example: given a caller-supplied
+  `gui.components.SessionPerformance` is the worked example: given a caller-supplied
   `SessionMetrics`, it builds a fresh one over the same trials for the
   pop-out and takes ownership of it.
 

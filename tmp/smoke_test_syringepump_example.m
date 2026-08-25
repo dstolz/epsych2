@@ -4,7 +4,7 @@
 % Builds the protocol against tmp/NE1000_Mock, runs a short session through
 % run_pump_session, and asserts what the example claims: the pump's Volume
 % becomes a per-trial trial-table column, PumpBehaviorGUI opens with a
-% gui.SyringePump panel bound to the session's pump, and the volume the pump
+% gui.components.SyringePump panel bound to the session's pump, and the volume the pump
 % reports back lands in DATA.
 %
 % Run headless, from the repository root:
@@ -13,7 +13,7 @@
 % Bootstrap: `matlab -batch` starts with whatever path the user profile leaves
 % behind, and this file lives in tmp/, which is only on the path once
 % epsych_startup has run.
-if exist('gui.SyringePump', 'class') ~= 8
+if exist('gui.components.SyringePump', 'class') ~= 8
     run(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'epsych_startup.m'));
 end
 addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'examples', 'syringepump'));
@@ -101,8 +101,8 @@ try
 
     behaviorGUI = fig(1).UserData;   % gui.BehaviorGUI parks itself there
     results(end+1,:) = check('Figure carries the PumpBehaviorGUI', isa(behaviorGUI, 'PumpBehaviorGUI'));
-    results(end+1,:) = check('It built a gui.SyringePump panel', ...
-        isa(behaviorGUI.Pump, 'gui.SyringePump'));
+    results(end+1,:) = check('It built a gui.components.SyringePump panel', ...
+        isa(behaviorGUI.Pump, 'gui.components.SyringePump'));
 
     sessionPump = RUNTIME.Interfaces(arrayfun(@(i) isa(i, 'hw.NE1000'), RUNTIME.Interfaces));
     results(end+1,:) = check('The panel adopted the session pump', ...

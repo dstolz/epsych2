@@ -33,7 +33,7 @@ classdef Detection < handle & matlab.mixin.SetGet
     %       bias            - Static method to compute bias
     %       norminv         - Static method for bounded inverse normal transformation
     %
-    %   Used by gui.PsychPlot, gui.Performance, and gui.SlidingWindowPerformancePlot.
+    %   Used by gui.components.PsychPlot, gui.components.Performance, and gui.components.SlidingWindowPerformancePlot.
 
     properties (SetObservable)
         % TRIALS - Structure containing trial data (RUNTIME.TRIALS)
@@ -144,7 +144,7 @@ classdef Detection < handle & matlab.mixin.SetGet
         % member of ValidParameters to change the independent variable
         ParameterName (1,:) char
 
-        % ParameterValues - Alias for uniqueValues (used by gui.PsychPlot)
+        % ParameterValues - Alias for uniqueValues (used by gui.components.PsychPlot)
         ParameterValues (1,:)
 
         SUBJECT

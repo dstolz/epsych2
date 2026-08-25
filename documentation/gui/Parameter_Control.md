@@ -1,13 +1,13 @@
-# `gui.Parameter_Control`
+# `gui.components.Parameter_Control`
 
-![Several gui.Parameter_Control widgets stacked in a grid: two edit fields, a range pair binding Min and Max on one row, a checkbox bound to isRandom, and a momentary trigger button; the first field is green because it has been edited but not committed](images/Parameter_Control.png)
+![Several gui.components.Parameter_Control widgets stacked in a grid: two edit fields, a range pair binding Min and Max on one row, a checkbox bound to isRandom, and a momentary trigger button; the first field is green because it has been edited but not committed](images/Parameter_Control.png)
 
-`gui.Parameter_Control` binds a single `hw.Parameter` to a small App Designer-style UI control (edit field, dropdown, checkbox, toggle, label, or button).
+`gui.components.Parameter_Control` binds a single `hw.Parameter` to a small App Designer-style UI control (edit field, dropdown, checkbox, toggle, label, or button).
 
 The screenshot above shows, top to bottom, the `editfield`, `dropdown`, `checkbox`, `toggle`, and `momentary` types from [UI types](#ui-types), plus a `readonly` label at the bottom. It keeps the displayed value synchronized with the underlying parameter and can either:
 
 - **Commit immediately** (`autoCommit=true`) when the user changes the control, or
-- **Stage edits** (`autoCommit=false`, default) by marking the control as “changed” until another component (commonly `gui.Parameter_Update`) commits updates.
+- **Stage edits** (`autoCommit=false`, default) by marking the control as “changed” until another component (commonly `gui.components.Parameter_Update`) commits updates.
 
 This class is intended for use inside `uifigure`/`uigridlayout`-based GUIs.
 
@@ -20,14 +20,14 @@ fig = uifigure;
 layout = uigridlayout(fig,[1 1]);
 
 p = RUNTIME.find_parameter('MyParam');
-ctrl = gui.Parameter_Control(layout, p, Type="editfield");
+ctrl = gui.components.Parameter_Control(layout, p, Type="editfield");
 ```
 
 ### Toggle button with immediate commit
 
 ```matlab
 p = RUNTIME.find_parameter('DeliverTrials');
-ctrl = gui.Parameter_Control(layout, p, Type="toggle", autoCommit=true);
+ctrl = gui.components.Parameter_Control(layout, p, Type="toggle", autoCommit=true);
 ctrl.Text = "Deliver Trials";          % override label text
 ctrl.colorNormal = fig.Color;          % customize appearance
 colors = jet(5);
@@ -38,7 +38,7 @@ ctrl.colorOnUpdate = colors(3,:);      % single 1x3 RGB value
 
 ```matlab
 p = RUNTIME.find_parameter('StimDelay');
-h = gui.Parameter_Control(layout, p, Type="range", autoCommit=true);
+h = gui.components.Parameter_Control(layout, p, Type="range", autoCommit=true);
 h.Text = "Stimulus Delay (ms):";     % one label, two entry fields
 h.Value                              % [Min Max]
 ```
@@ -50,16 +50,16 @@ with one row of the same height.
 
 ```matlab
 p = RUNTIME.find_parameter('StimDelay');
-h = gui.Parameter_Control(layout, p, Type="checkbox", BoundProperty="isRandom", autoCommit=true);
+h = gui.components.Parameter_Control(layout, p, Type="checkbox", BoundProperty="isRandom", autoCommit=true);
 h.Text = "Randomize Stim Delay";
 ```
 
 ## Construction
 
 ```matlab
-obj = gui.Parameter_Control(parent, parameter)
-obj = gui.Parameter_Control(parent, parameter, Type=TYPE, autoCommit=TF)
-obj = gui.Parameter_Control(parent, parameter, autoCommit=true, Runtime=RUNTIME)
+obj = gui.components.Parameter_Control(parent, parameter)
+obj = gui.components.Parameter_Control(parent, parameter, Type=TYPE, autoCommit=TF)
+obj = gui.components.Parameter_Control(parent, parameter, autoCommit=true, Runtime=RUNTIME)
 ```
 
 ### Inputs
@@ -88,7 +88,7 @@ obj = gui.Parameter_Control(parent, parameter, autoCommit=true, Runtime=RUNTIME)
   - Wire it for **settings** controls (staircase step sizes, p(Catch), stimulus delay). Leave it empty for session-control toggles (Deliver Trials, Reminder, Shape): those rely on the trial-table re-assert to self-clear.
   - Bound-property edits (`Min`, `Max`, `isRandom`, ...) never touch the trial table; they are host-side parameter state.
   - `gui.BehaviorGUI.addControl` passes its runtime automatically; `addButton` deliberately does not.
-- `EnabledBy` / `DisabledBy` (`gui.Parameter_Control`, optional)
+- `EnabledBy` / `DisabledBy` (`gui.components.Parameter_Control`, optional)
   - Make this control's enable follow a **governing** control's value — normally a checkbox or toggle built earlier in the same `build`.
   - `EnabledBy` greys this control while the governor reads false; `DisabledBy` greys it while the governor reads true.
   - Both are applied at construction, so a control that starts out gated opens greyed rather than waiting for the operator to touch the governor once.
@@ -106,7 +106,7 @@ obj = gui.Parameter_Control(parent, parameter, autoCommit=true, Runtime=RUNTIME)
   - `uilabel` + **two** numeric `uieditfield`s side by side, still one grid row (the two entries share the width one `editfield` would take).
   - Edits `parameter.Min` (left) and `parameter.Max` (right) as a unit; `obj.Value` is the `1x2` pair and the second field is `obj.h_uiobj2`.
   - Neither field is limited by the other, because the pair is validated as a whole: an edit that leaves minimum above maximum is **rejected** — the offending field reverts, both flash `colorOnError`, the parameter is untouched, and the reason is logged. A randomized parameter (`isRandom`) additionally refuses non-finite bounds.
-  - Both entries commit, stage, highlight, enable/disable, and reset together, so `gui.Parameter_Update` treats the pair as one pending edit.
+  - Both entries commit, stage, highlight, enable/disable, and reset together, so `gui.components.Parameter_Update` treats the pair as one pending edit.
   - `parameter.Type = 'Integer'` rounds both fields.
 - `dropdown`
   - `uilabel` + `uidropdown`
@@ -153,7 +153,7 @@ A flag indicating whether the UI currently differs from the underlying parameter
 - `true` when `obj.Value` is not equal to `obj.Parameter.Value`
 - `false` after committing the value or calling `reset_label()` / `reset_value()`
 
-This is designed to be watched by `gui.Parameter_Update`.
+This is designed to be watched by `gui.components.Parameter_Update`.
 
 ### Color properties
 The control uses several color properties to provide feedback:
@@ -174,7 +174,7 @@ The color is applied to the first of `BackgroundColor`, `Color`, `FontColor` tha
 1. User changes the UI control.
 2. `obj.ValueUpdated` becomes `true` if the new UI value differs from `Parameter.Value`.
 3. The control background changes to `colorOnUpdate`.
-4. Another component (commonly `gui.Parameter_Update`) decides when to apply the staged values.
+4. Another component (commonly `gui.components.Parameter_Update`) decides when to apply the staged values.
 
 ### Auto-commit (`autoCommit=true`)
 - User changes are immediately written to `Parameter.Value`.
@@ -183,7 +183,7 @@ The color is applied to the first of `BackgroundColor`, `Color`, `FontColor` tha
 ### Discarding a staged edit (`reset_value`)
 `reset_value()` undoes an uncommitted edit: the UI is restored from the bound parameter property, `ValueUpdated` clears, and the highlight returns to `colorNormal`. `PostUpdateFcn` runs again against the restored value so dependent controls resync (the same hook already ran when the user made the edit now being discarded). It is a no-op when `ValueUpdated` is `false`, and it never writes to `hw.Parameter`.
 
-`gui.Parameter_Update` calls this on every watched control when its button is clicked with **Ctrl** held.
+`gui.components.Parameter_Update` calls this on every watched control when its button is clicked with **Ctrl** held.
 
 ## Validation with `EvaluatorFcn`
 
@@ -223,24 +223,24 @@ Gating covers every widget the control owns **and its label**: a `range` control
 
 Re-application happens on every change to the governor, from the operator **or from the parameter**, so a phase load moves the greying with it. A dependent deleted before its governor is dropped from the list rather than thrown on.
 
-## Integration with `gui.Parameter_Update`
+## Integration with `gui.components.Parameter_Update`
 
 A common pattern is:
 
-- Create multiple `gui.Parameter_Control` objects with `autoCommit=false`
-- Register them with a single `gui.Parameter_Update` instance
+- Create multiple `gui.components.Parameter_Control` objects with `autoCommit=false`
+- Register them with a single `gui.components.Parameter_Update` instance
 - When the update button is pressed, it commits all staged edits (or, with **Ctrl** held, discards them via `reset_value`)
 
 Example sketch:
 
 ```matlab
 % Create several controls
-h(1) = gui.Parameter_Control(layout, p1, Type="editfield");
-h(2) = gui.Parameter_Control(layout, p2, Type="dropdown");
+h(1) = gui.components.Parameter_Control(layout, p1, Type="editfield");
+h(2) = gui.components.Parameter_Control(layout, p2, Type="dropdown");
 h(2).Values = [0 1 2];
 
 % Create an update button that watches ValueUpdated
-u = gui.Parameter_Update(RUNTIME, layoutButton);
+u = gui.components.Parameter_Update(RUNTIME, layoutButton);
 u.watchedHandles = h;
 ```
 
@@ -256,6 +256,6 @@ This documentation describes: [obj/+gui/Parameter_Control.m](../../obj/+gui/Para
 ## Notes and gotchas
 
 - `readonly` controls display `Parameter.ValueStr` and highlight when the parameter changes externally. With `BoundProperty='MinMax'` they display the bounds as `[min max]`.
-- For `range`, `gui.Parameter_Update` commits the pair through `setBoundValue`, writing `Parameter.Min` and `Parameter.Max`; nothing is written to `Parameter.Value` or the trial table (bounds are host-side parameter state).
+- For `range`, `gui.components.Parameter_Update` commits the pair through `setBoundValue`, writing `Parameter.Min` and `Parameter.Max`; nothing is written to `Parameter.Value` or the trial table (bounds are host-side parameter state).
 - For `dropdown`, external parameter values that are not already in `ItemsData` are added automatically so the UI can display them.
 - For `momentary`, button clicks call `Parameter.Trigger` (useful for actions rather than numeric/boolean settings).

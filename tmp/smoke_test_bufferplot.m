@@ -1,6 +1,6 @@
 function smoke_test_bufferplot()
 % smoke_test_bufferplot()
-% Exercise gui.BufferPlot headlessly: auto-selection, capture from the trial
+% Exercise gui.components.BufferPlot headlessly: auto-selection, capture from the trial
 % record, the hardware-read fallback for a buffer the record does not carry,
 % envelope decimation, the sample-rate x axis, trial history, the operator
 % menu path (which is also what persists preferences), an offline DATA
@@ -23,7 +23,7 @@ lick = double(mod(0:999,100) < 10)';
 
 % 1. Construction and auto-selection ---------------------------------------
 fig = uifigure('Visible','off','Tag',PREF_TAG);
-bp = gui.BufferPlot(rt, fig);
+bp = gui.components.BufferPlot(rt, fig);
 assert(isvalid(bp), 'construction should succeed');
 assert(isequal(bp.bufferNames, {'SmokeWave','SmokeLick'}), ...
     'auto-selection should take the visible Buffer parameters in order (got %s)', ...
@@ -90,7 +90,7 @@ clickMenu(fig, 'aes|Layout|stacked');
 assert(strcmp(bp.Layout,'stacked'), 'the Layout item should have applied');
 delete(bp);
 
-bp = gui.BufferPlot(rt, fig);
+bp = gui.components.BufferPlot(rt, fig);
 assert(~bp.ShowGrid && strcmp(bp.Layout,'stacked'), ...
     'a saved arrangement should be restored');
 assert(isequal(bp.bufferNames, {'SmokeWave','SmokeLick'}), ...
@@ -106,24 +106,24 @@ s.SelectionByOperator = true;
 s.Buffers = {'SmokeLick'};
 setpref(PREF_GROUP, PREF_TAG, s);
 delete(bp);
-bp = gui.BufferPlot(rt, fig);
+bp = gui.components.BufferPlot(rt, fig);
 assert(isequal(bp.bufferNames, {'SmokeLick'}), ...
     'the operator''s remembered selection must be restored over the auto one');
 delete(bp);
-bp = gui.BufferPlot(rt, fig, Buffers={'SmokeWave','SmokeLick'});
+bp = gui.components.BufferPlot(rt, fig, Buffers={'SmokeWave','SmokeLick'});
 assert(isequal(bp.bufferNames, {'SmokeWave','SmokeLick'}), ...
     'a list the caller states still outranks the remembered selection');
 s.SelectionByOperator = false;
 s.Buffers = {};
 setpref(PREF_GROUP, PREF_TAG, s);        % back to the auto pair below
 delete(bp);
-bp = gui.BufferPlot(rt, fig);
+bp = gui.components.BufferPlot(rt, fig);
 fprintf('PASS: menu changes apply, persist, and restore\n');
 
 % 7. Programmatic changes do NOT persist ----------------------------------
 bp.LineWidth = 3;
 delete(bp);
-bp = gui.BufferPlot(rt, fig);
+bp = gui.components.BufferPlot(rt, fig);
 assert(bp.LineWidth == 1, 'a programmatic change must not overwrite the saved arrangement');
 fprintf('PASS: programmatic changes are not persisted\n');
 
@@ -147,7 +147,7 @@ fprintf('PASS: pop-out opens over the same buffers and closes cleanly\n');
 
 % 10. The buffer the trial record does not carry --------------------------
 fig2 = uifigure('Visible','off','Tag',[PREF_TAG '2']);
-bpH = gui.BufferPlot(rt, fig2, Buffers="~SmokeHidden");
+bpH = gui.components.BufferPlot(rt, fig2, Buffers="~SmokeHidden");
 assert(isequal(bpH.bufferNames, {'~SmokeHidden'}), 'an invisible buffer can be named explicitly');
 notifyTrial(rt, makeTrial(5, wave, lick)); % record has no ~SmokeHidden field
 L = findobj(bpH.AxesH,'Type','line');
@@ -159,7 +159,7 @@ fprintf('PASS: hardware fallback for a buffer absent from the trial record\n');
 % 11. Offline, over a saved DATA struct array -----------------------------
 fig3 = uifigure('Visible','off','Tag',[PREF_TAG '3']);
 D = [makeTrial(1, wave, lick), makeTrial(2, wave/2, lick)];
-bpO = gui.BufferPlot(D, fig3, Buffers="SmokeWave", NumTrialsShown=2);
+bpO = gui.components.BufferPlot(D, fig3, Buffers="SmokeWave", NumTrialsShown=2);
 L = findobj(bpO.AxesH,'Type','line');
 assert(numel(L) == 2, 'two trials of one buffer should draw offline (got %d)', numel(L));
 s = bpO.exportToWorkspace('smokeBufferExport');
@@ -222,7 +222,7 @@ end
 function cleanupAll(prefTag, prefGroup)
 % Remove this test's preferences -- including the pop-out's, whose key is
 % derived from the host tag -- and any stray test figures. Never the whole
-% group: a rig running this has real gui.BufferPlot arrangements in it.
+% group: a rig running this has real gui.components.BufferPlot arrangements in it.
 for t = {prefTag, [prefTag '2'], [prefTag '3']}
     delete(findall(groot,'Type','figure','-and','Tag',t{1}));
 end

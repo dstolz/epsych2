@@ -3,7 +3,7 @@ function smoke_test_phase_protocol()
 % Exercise the unified phase/protocol workflow: saving a phase creates a
 % protocol (.eprot) and loading a phase reads a protocol. Covers
 % Runtime.writeParametersProtocol, Runtime.readParameters (protocol and legacy
-% JSON sources), Runtime.phaseParameterData, and gui.PhaseSelector file
+% JSON sources), Runtime.phaseParameterData, and gui.components.PhaseSelector file
 % discovery across both formats.
 %
 %   matlab -batch "run('tmp/smoke_test_phase_protocol.m')"
@@ -18,7 +18,7 @@ if isfolder(tmpDir), rmdir(tmpDir, 's'); end
 mkdir(tmpDir);
 cleanupDir = onCleanup(@() rmdir(tmpDir, 's'));
 
-% gui.PhaseSelector prefers its remembered directory (setpref, written by the
+% gui.components.PhaseSelector prefers its remembered directory (setpref, written by the
 % Dir... button and by Save) over the constructor argument, so an operator's
 % real phase directory would hijack section E. Detach the test from that pref
 % and restore the operator's value afterward.
@@ -126,7 +126,7 @@ end
 
 % ===== E. PhaseSelector discovers both formats ==========================
 try
-    ps = gui.PhaseSelector(R, tmpDir);
+    ps = gui.components.PhaseSelector(R, tmpDir);
     assert(all(ismember(["phaseA","phaseB"], ps.Names)), ...
         'PhaseSelector should list .eprot and .json phases');
     assert(numel(ps.FullFilenames) == 2, 'expected exactly two phase files');
@@ -216,7 +216,7 @@ end
 
 % ===== H. Phase save captures runtime edits =============================
 % Runtime edits arrive by two paths that toStruct alone does not capture:
-% a deferred commit (gui.Parameter_Update) lands only in TRIALS.trials until
+% a deferred commit (gui.components.Parameter_Update) lands only in TRIALS.trials until
 % the next dispatch, and no path refreshes design-time Values. The save must
 % reconcile both, while leaving per-trial-managed columns (staircase) alone.
 try
@@ -247,7 +247,7 @@ try
     R5 = ep_TimerFcn_Start(R5, struct('PROTOCOL', P5, 'SUBJECT', subject));
 
     % Deferred commit: table only, parameter untouched (mimics
-    % gui.Parameter_Update.commit_changes without the immediate modifier).
+    % gui.components.Parameter_Update.commit_changes without the immediate modifier).
     idx = R5.TRIALS(1).writeParamIdx.RespDur;
     T5 = R5.TRIALS(1).trials;
     [T5{:, idx}] = deal(750);

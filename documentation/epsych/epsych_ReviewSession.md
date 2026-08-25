@@ -30,18 +30,18 @@ needs a replay code path.
 
 **Consumers recompute from the whole array.** `psychophysics.Psych.update_data`
 assigns `obj.DATA = event.Data.DATA` and recomputes from scratch;
-`gui.ParameterScatter`, `gui.History` and `gui.SessionPerformance` do the
+`gui.components.ParameterScatter`, `gui.components.History` and `gui.components.SessionPerformance` do the
 equivalent. So **one notify carrying `Data(1:k)` is worth k notifies**, and
 seeking *backward* costs exactly what seeking forward costs. There is no
 replay-from-the-start and no per-component reset to maintain.
 
-**Controls already disable themselves.** `gui.Parameter_Control` listens for a
+**Controls already disable themselves.** `gui.components.Parameter_Control` listens for a
 `mode` `PostSet` on its parameter's interface and greys out at `Idle`/`Standby`.
 A review moves its backends `Standby -> Idle` *after* the window is built, and
 every control disables itself.
 
 No **display** component was modified for this feature. The one `+gui` change is
-a robustness fix in `gui.Parameter_Control` (below) that a live session needed
+a robustness fix in `gui.components.Parameter_Control` (below) that a live session needed
 just as much.
 
 The runtime is therefore a **real `epsych.Runtime` with a real
@@ -124,7 +124,7 @@ something to add to a protocol.
 `seek(k)` is the whole player:
 
 1. set `Position = k` on every `hw.Replay`, so every parameter read — a
-   `gui.Parameter_Monitor` poll, `gui.ParameterDebugger`'s Read, a paradigm hook
+   `gui.components.Parameter_Monitor` poll, `gui.ParameterDebugger`'s Read, a paradigm hook
    — reports what the rig held on trial k;
 2. build the `TRIALS` struct;
 3. notify `NewData` then `NewTrial`, in that order, because that is the order
@@ -133,7 +133,7 @@ something to add to a protocol.
 The two notifies carry deliberately **different** trials, matching the live
 meanings: `NewData` describes the trial that just completed (`TrialIndex == k`,
 `numel(DATA) == k`), while `NewTrial` describes the one that would run *next*, so
-`gui.NextTrial` shows the trial that actually followed rather than repeating the
+`gui.components.NextTrial` shows the trial that actually followed rather than repeating the
 one being looked at. At the last trial there is no next, so `NewTrial` repeats
 trial k rather than inventing one.
 
@@ -145,24 +145,24 @@ Without it, assigning `TRIALS` would write every writable parameter through
 `seek(NumTrials, Notify=false)` *before* `feval`ing the behavior GUI, because two
 components read their state at construction rather than waiting for an event:
 
-- `gui.Parameter_Control` reads its parameter once and then waits for a `PostSet`
+- `gui.components.Parameter_Control` reads its parameter once and then waits for a `PostSet`
   a review never fires, so whatever it seats from is what it shows for good. It
   must seat from the trial the session **ended on**, not the protocol's
   design-time value.
-- `gui.NextTrial.seedFromRuntime_` reads `RUNTIME.TRIALS`. An empty
+- `gui.components.NextTrial.seedFromRuntime_` reads `RUNTIME.TRIALS`. An empty
   `NextTrialID` there indexes the trial table with `[]`, which yields zero
   elements and throws.
 
-`gui.Parameter_Monitor` and `gui.ParameterDebugger` poll, so those *do* follow
+`gui.components.Parameter_Monitor` and `gui.ParameterDebugger` poll, so those *do* follow
 the scrubber afterwards; the controls do not, by design — they show where the
 session finished.
 
 **The operator's notes come back with the session.** `buildRuntime_` puts
 `epsych.SessionNotes.fromSnapshot(obj.Snapshot)` on `RUNTIME.NOTES`, so a
-`gui.Notes` in the paradigm's own GUI shows what was typed during the session
+`gui.components.Notes` in the paradigm's own GUI shows what was typed during the session
 rather than opening blank. That store is deliberately **unbound to this
 runtime**: a review has no journal to write to and no trial count to stamp a new
-note with. `gui.Notes` refuses new notes in `ReviewMode` regardless — the entry
+note with. `gui.components.Notes` refuses new notes in `ReviewMode` regardless — the entry
 field and commit button are disabled and *Editable* is refused — because what a
 review shows is the record the file was saved with, and nothing here can reach
 that file. A file that predates notes, or one whose `Info` is a legacy shape,
@@ -174,7 +174,7 @@ backend read-back, a protocol saved while a device reported 0, or a `Min`/`Max`
 edited after the value was set all produce one. (`cl_AppetitiveDetection`'s
 `StimDelay` ships with `Value = 0` and `Min = 400`.) `uieditfield` rejects such a
 value outright, and one parameter used to take every control after it down with
-it. `gui.Parameter_Control.initialWidgetValue_` now clamps the **widget** into
+it. `gui.components.Parameter_Control.initialWidgetValue_` now clamps the **widget** into
 its limits and logs at debug level; the parameter itself is untouched, so nothing
 can quietly rewrite a recorded or hardware-held value.
 
@@ -199,7 +199,7 @@ elapsed time — then two controls that are not transport at all:
 - **camera** — copies a picture of the **behavior GUI** to the clipboard, not of
   the transport. A picture of a scrubber is of no use in a notebook, and the
   point of parking the transport in its own window is to stay out of the
-  paradigm's layout, screenshots included. It is the same `gui.ScreenCapture` a
+  paradigm's layout, screenshots included. It is the same `gui.components.ScreenCapture` a
   behavior GUI would add for itself, just aimed elsewhere; with no behavior GUI
   window it is disabled rather than capturing the wrong thing.
 - **On Top** — pins the window above other applications, so a review stays
@@ -284,10 +284,10 @@ argue with a stale embedded copy.
 
 ## Known limits
 
-- **`gui.ElapsedTrialTimer`** measures wall-clock since the last event, so it is
+- **`gui.components.ElapsedTrialTimer`** measures wall-clock since the last event, so it is
   meaningless in a review. Derive it from `DATA.computerTimestamp` deltas if you
   need it.
-- **`gui.SlidingWindowPerformancePlot`** accumulates by `trialIndex`, so scrubbing
+- **`gui.components.SlidingWindowPerformancePlot`** accumulates by `trialIndex`, so scrubbing
   backward leaves stale rows past k rather than clearing them. Fixing it needs a
   `reset` method on that component.
 - **The trial table is the one the session started with.** A mid-session

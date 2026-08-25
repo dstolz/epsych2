@@ -1,6 +1,6 @@
 function smoke_test_regenerate_trial()
 % smoke_test_regenerate_trial()
-% Exercise gui.RegenerateTrial against a software-only runtime: the button
+% Exercise gui.components.RegenerateTrial against a software-only runtime: the button
 % re-dispatches the pending trial (redrawing randomized parameters and
 % re-firing the triggers) without advancing the trial counter, is live only
 % while a session runs, refuses a review, and records what it did in the
@@ -32,7 +32,7 @@ cleanupFigArming = onCleanup(@() delete(figArming));
 % broadcasts the run mode, so a button that seated itself at construction
 % would seat itself Idle and stay there for the whole session.
 rt = makeRuntime(tmpDir);
-h  = gui.RegenerateTrial(rt, fig, RequireArming=false);
+h  = gui.components.RegenerateTrial(rt, fig, RequireArming=false);
 
 assert(strcmp(h.ButtonH.Enable,'off'), 'the button should start disabled (Idle)');
 
@@ -117,14 +117,14 @@ fprintf('PASS: regenerations are recorded in the session notes\n');
 % epsych.DefaultTrialSelector counts every row it hands out, so the total is
 % how many times selectNext has run.
 rt2 = makeRuntime(tmpDir);
-h2  = gui.RegenerateTrial(rt2, fig, Reselect=true, EnableWhenIdle=true, RequireArming=false);
+h2  = gui.components.RegenerateTrial(rt2, fig, Reselect=true, EnableWhenIdle=true, RequireArming=false);
 
 selBefore = sum(rt2.TRIALS(1).selector.TrialCount);
 assert(h2.regenerate(), 'Reselect regeneration should succeed');
 assert(sum(rt2.TRIALS(1).selector.TrialCount) == selBefore + 1, ...
     'Reselect should have run the selector exactly once more');
 
-h3 = gui.RegenerateTrial(rt2, fig, EnableWhenIdle=true, RequireArming=false);   % Reselect defaults off
+h3 = gui.components.RegenerateTrial(rt2, fig, EnableWhenIdle=true, RequireArming=false);   % Reselect defaults off
 selBefore = sum(rt2.TRIALS(1).selector.TrialCount);
 assert(h3.regenerate(), 'plain regeneration should succeed');
 assert(sum(rt2.TRIALS(1).selector.TrialCount) == selBefore, ...
@@ -137,7 +137,7 @@ fprintf('PASS: Reselect controls whether the trial selector runs again\n');
 % run randomization and expressions over the very numbers being reviewed.
 rtR = makeRuntime(tmpDir);
 rtR.ReviewMode = true;
-hR = gui.RegenerateTrial(rtR, fig, EnableWhenIdle=true, RequireArming=false);
+hR = gui.components.RegenerateTrial(rtR, fig, EnableWhenIdle=true, RequireArming=false);
 assert(strcmp(hR.ButtonH.Enable,'off'), 'a review must leave the button dead');
 setMode(rtR, hw.DeviceState.Record);
 assert(strcmp(hR.ButtonH.Enable,'off'), 'not even a run mode should arm it in a review');
@@ -149,15 +149,15 @@ fprintf('PASS: a review refuses to regenerate\n');
 % 7. Nothing to regenerate degrades quietly -------------------------------
 % This runs from a button callback beside a live experiment: it logs and
 % returns false rather than throwing an error dialog over the session.
-hNone = gui.RegenerateTrial([], fig, EnableWhenIdle=true, RequireArming=false);
+hNone = gui.components.RegenerateTrial([], fig, EnableWhenIdle=true, RequireArming=false);
 assert(~hNone.regenerate(), 'no session should return false');
 
 rtBare = epsych.Runtime;
 rtBare.EVENTS = epsych.EventHub;
-hBare = gui.RegenerateTrial(rtBare, fig, EnableWhenIdle=true, RequireArming=false);
+hBare = gui.components.RegenerateTrial(rtBare, fig, EnableWhenIdle=true, RequireArming=false);
 assert(~hBare.regenerate(), 'a runtime with no compiled trials should return false');
 
-hBox9 = gui.RegenerateTrial(rt, fig, SubjectIndex=9, EnableWhenIdle=true, RequireArming=false);
+hBox9 = gui.components.RegenerateTrial(rt, fig, SubjectIndex=9, EnableWhenIdle=true, RequireArming=false);
 assert(~hBox9.regenerate(), 'a box that does not exist should return false');
 fprintf('PASS: nothing to regenerate returns false instead of throwing\n');
 
@@ -167,7 +167,7 @@ fprintf('PASS: nothing to regenerate returns false instead of throwing\n');
 % is let go. Driven through the figure's own key callbacks, so this exercises
 % the hooks the component installed rather than a private method.
 rtA = makeRuntime(tmpDir);
-hA  = gui.RegenerateTrial(rtA, figA(), EnableWhenIdle=true);
+hA  = gui.components.RegenerateTrial(rtA, figA(), EnableWhenIdle=true);
 
 assert(hA.RequireArming, 'arming should be required by default');
 assert(~hA.Armed, 'it should start unarmed');
@@ -206,7 +206,7 @@ gB = uigridlayout(figB,[2 1]);
 % the shared dispatcher, modifier presses included.
 probeSeen = 0;
 figB.WindowKeyPressFcn = @(~,~) bumpProbe();
-hB0 = gui.RegenerateTrial(rtB, gB, EnableWhenIdle=true);
+hB0 = gui.components.RegenerateTrial(rtB, gB, EnableWhenIdle=true);
 keyPress(figB, {'control','alt','shift'});
 assert(hB0.Armed, 'the component should arm from the shared dispatcher');
 assert(probeSeen == 1, ...
@@ -220,16 +220,16 @@ keyRelease(figB, {});   % let go of the held set before the next subsection
 fprintf('PASS: an existing key handler is chained, not clobbered\n');
 
 % (b) A neighbour that assigns the figure's key callbacks outright AFTER
-% this component is built (the pre-KeyBindings gui.Parameter_Update pattern)
+% this component is built (the pre-KeyBindings gui.components.Parameter_Update pattern)
 % displaces the shared dispatcher. The component re-claims it through its
 % KeyBindings on the first ModeChange (which RunExpt broadcasts only once
 % the GUI is fully built), and the neighbour is chained, so both keep
 % working. A modern neighbour just joins the same dispatcher.
 figB.WindowKeyPressFcn = '';
 figB.WindowKeyReleaseFcn = '';
-hB = gui.RegenerateTrial(rtB, gB, EnableWhenIdle=true);   % built first...
-pu = gui.Parameter_Update(rtB, gB);        % joins the same shared dispatcher
-pu.watchedHandles = gui.Parameter_Control.empty;
+hB = gui.components.RegenerateTrial(rtB, gB, EnableWhenIdle=true);   % built first...
+pu = gui.components.Parameter_Update(rtB, gB);        % joins the same shared dispatcher
+pu.watchedHandles = gui.components.Parameter_Control.empty;
 lateSeen = 0;
 figB.WindowKeyPressFcn = @(~,~) bumpLate();               % ...then clobbered
 
@@ -257,7 +257,7 @@ fprintf('PASS: arming coexists with a slot-claiming neighbour on the same key\n'
 keyRelease(figB, {});   % let go of the held set before displacing the slot
 figB.WindowKeyPressFcn   = @(~,~) error('smoke:neighbour','deliberate');
 figB.WindowKeyReleaseFcn = @(~,~) error('smoke:neighbour','deliberate');
-hC = gui.RegenerateTrial(rtB, gB, EnableWhenIdle=true);
+hC = gui.components.RegenerateTrial(rtB, gB, EnableWhenIdle=true);
 setMode(rtB, hw.DeviceState.Record);          % re-claim chains the throwers
 
 keyPress(figB, {'control','alt','shift'});
@@ -273,8 +273,8 @@ fprintf('PASS: a throwing chained handler does not break the arming gate\n');
 figD = uifigure('Visible','off');
 cleanupFigD = onCleanup(@() delete(figD));
 gD = uigridlayout(figD,[2 1]);
-hD1 = gui.RegenerateTrial(rtB, gD, EnableWhenIdle=true);
-hD2 = gui.RegenerateTrial(rtB, gD, EnableWhenIdle=true, SubjectIndex=1);
+hD1 = gui.components.RegenerateTrial(rtB, gD, EnableWhenIdle=true);
+hD2 = gui.components.RegenerateTrial(rtB, gD, EnableWhenIdle=true, SubjectIndex=1);
 setMode(rtB, hw.DeviceState.Record);
 keyPress(figD, {'control','alt','shift'});
 assert(hD1.Armed && hD2.Armed, 'both buttons should arm from one dispatcher');

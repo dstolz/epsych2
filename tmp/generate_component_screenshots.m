@@ -144,7 +144,7 @@ fprintf('  %d trials, %d parameters\n', numel(S.DATA), ...
     numel(S.RUNTIME.all_parameters(includeInvisible=true, includeTriggers=true)));
 
 % The gallery photographs the components as they look DURING a session, not
-% after it: gui.Parameter_Control greys itself out on an idle interface, so
+% after it: gui.components.Parameter_Control greys itself out on an idle interface, so
 % every control in every shot would be dead. The review left the backends in
 % Standby; Record is the state a running box is in.
 for p = S.Review.Interfaces(:).'
@@ -154,8 +154,8 @@ end
 % ReviewMode is what suppressed the one-shot dispatch while the review seated
 % itself at the last trial. That has happened; from here nothing assigns
 % RUNTIME.TRIALS again (the re-broadcast helpers below notify the hub
-% directly), so clearing it is inert -- and it is what lets gui.Notes accept
-% typing and gui.SessionGate arm, neither of which a review permits.
+% directly), so clearing it is inert -- and it is what lets gui.components.Notes accept
+% typing and gui.components.SessionGate arm, neither of which a review permits.
 S.RUNTIME.ReviewMode = false;
 
 S.TrialsEvent = epsych.TrialsData(S.RUNTIME.TRIALS(1));
@@ -243,14 +243,14 @@ g = uigridlayout(fig, [5 1]);
 g.RowHeight = repmat({32}, 1, 5);
 g.Padding = [10 10 10 10];
 
-C = gui.Parameter_Control(g, S.RUNTIME.find_parameter('Rate'), ...
+C = gui.components.Parameter_Control(g, S.RUNTIME.find_parameter('Rate'), ...
     Text='AM Rate (Hz)');
-gui.Parameter_Control(g, S.RUNTIME.find_parameter('StimDur'), Text='Stimulus Duration (ms)');
-gui.Parameter_Control(g, S.RUNTIME.find_parameter('StimDelayList'), Type='range', ...
+gui.components.Parameter_Control(g, S.RUNTIME.find_parameter('StimDur'), Text='Stimulus Duration (ms)');
+gui.components.Parameter_Control(g, S.RUNTIME.find_parameter('StimDelayList'), Type='range', ...
     Text='Stimulus Delay (ms)');
-gui.Parameter_Control(g, S.RUNTIME.find_parameter('ITIDur'), BoundProperty='isRandom', ...
+gui.components.Parameter_Control(g, S.RUNTIME.find_parameter('ITIDur'), BoundProperty='isRandom', ...
     Type='checkbox', Text='Randomize ITI');
-gui.Parameter_Control(g, S.RUNTIME.find_parameter('DropPellet'), Type='momentary', ...
+gui.components.Parameter_Control(g, S.RUNTIME.find_parameter('DropPellet'), Type='momentary', ...
     Text='Drop Pellet');
 
 % One staged edit, so the "edited but not committed" highlight is visible.
@@ -264,10 +264,10 @@ g = uigridlayout(fig, [3 1]);
 g.RowHeight = {34, 34, 40};
 g.Padding = [10 10 10 10];
 
-c1 = gui.Parameter_Control(g, S.RUNTIME.find_parameter('Rate'), Text='AM Rate (Hz)');
-c2 = gui.Parameter_Control(g, S.RUNTIME.find_parameter('NumPellets'), Text='Pellets per Reward');
+c1 = gui.components.Parameter_Control(g, S.RUNTIME.find_parameter('Rate'), Text='AM Rate (Hz)');
+c2 = gui.components.Parameter_Control(g, S.RUNTIME.find_parameter('NumPellets'), Text='Pellets per Reward');
 
-U = gui.Parameter_Update(S.RUNTIME, g);
+U = gui.components.Parameter_Update(S.RUNTIME, g);
 U.watchedHandles = [c1 c2];
 c1.Value = 12;   % stage an edit: the button turns green and says so
 end
@@ -278,7 +278,7 @@ fig = shotFigure([510 195]);
 P = [S.RUNTIME.find_parameter('Depth'), S.RUNTIME.find_parameter('StimDelay'), ...
     S.RUNTIME.find_parameter('RespWinDelay'), S.RUNTIME.find_parameter('RespLatency'), ...
     S.RUNTIME.find_parameter('RespCode'), S.RUNTIME.find_parameter('InTrial')];
-gui.Parameter_Monitor(fig, P, type='table', pollPeriod=0.5, ...
+gui.components.Parameter_Monitor(fig, P, type='table', pollPeriod=0.5, ...
     Columns=["Type","UpdateEveryTrial"], PreferenceTag="wikiShotMonitorTable");
 end
 
@@ -287,7 +287,7 @@ function fig = shotMonitorGraphical(S)
 fig = shotFigure([300 125]);
 P = [S.RUNTIME.find_parameter('InTrial'), S.RUNTIME.find_parameter('RespWindow'), ...
     S.RUNTIME.find_parameter('StimDelay'), S.RUNTIME.find_parameter('RespLatency')];
-gui.Parameter_Monitor(fig, P, type='graphical', pollPeriod=0.5, ...
+gui.components.Parameter_Monitor(fig, P, type='graphical', pollPeriod=0.5, ...
     PreferenceTag="wikiShotMonitorGraphical");
 end
 
@@ -300,7 +300,7 @@ function fig = shotNextTrial(S)
 % block sequence at dispatch, so the compiled table holds the parameter's floor
 % in the StimDelay column and the condition's list bound in this one.
 fig = shotFigure([330 165]);
-gui.NextTrial(S.RUNTIME, fig, FontSize=14, PreferenceTag='wikiShotNextTrial', ...
+gui.components.NextTrial(S.RUNTIME, fig, FontSize=14, PreferenceTag='wikiShotNextTrial', ...
     Fields=["TrialType","Depth","StimDelayList","ITIDur"]);
 pushTrial(S);
 end
@@ -321,7 +321,7 @@ was = S.RUNTIME.StartTime;
 S.RUNTIME.StartTime = datetime('now') - (S.DATA(end).computerTimestamp - was);
 cleanup = onCleanup(@() setStartTime(S.RUNTIME, was));
 
-c = gui.SessionClock(g, PreferenceTag='wikiShotSessionClock', FontSize=13);
+c = gui.components.SessionClock(g, PreferenceTag='wikiShotSessionClock', FontSize=13);
 c.attachRuntime(S.RUNTIME);
 c.start();
 pushTrial(S);      % without a trial the two trial lines read "--"
@@ -333,7 +333,7 @@ end
 function fig = shotElapsedTrialTimer(S)
 fig = shotFigure([300 70]);
 g = uigridlayout(fig, [1 1]);
-t = gui.ElapsedTrialTimer(g, FontSize=18, Prefix='Last trial: ', FontWeight='bold');
+t = gui.components.ElapsedTrialTimer(g, FontSize=18, Prefix='Last trial: ', FontWeight='bold');
 t.attachRuntime(S.RUNTIME);
 t.start();
 pause(3.2)   % let the counter run, so the shot shows a live clock not 00:00:00
@@ -342,14 +342,14 @@ end
 
 function fig = shotModeIndicator(~)
 fig = shotFigure([170 120]);
-ind = gui.ModeIndicator(fig, FontSize=13);
+ind = gui.components.ModeIndicator(fig, FontSize=13);
 ind.setState(hw.DeviceState.Record);
 end
 
 
 function fig = shotStatusBar(~)
 fig = shotFigure([560 80]);
-sb = gui.StatusBar(fig, Position=[15 22 530 36]);
+sb = gui.components.StatusBar(fig, Position=[15 22 530 36]);
 sb.setStatus('Protocol compiled: 21 conditions.', 'Press Run to start the session.');
 end
 
@@ -358,12 +358,12 @@ end
 %  Online analysis
 % -------------------------------------------------------------------------
 function fig = shotHistory(S)
-% gui.History reads responseBits, so it wants a psychophysics.Psych
+% gui.components.History reads responseBits, so it wants a psychophysics.Psych
 % subclass; psychophysics.Detection is not one. A Staircase in offline mode
 % is the same object a real behavior GUI hands it.
 fig = shotFigure([540 300]);
 sc = psychophysics.Staircase(S.DATA, S.RUNTIME.find_parameter('StimDelay'));
-H = gui.History(sc, fig, PreferenceTag='wikiShotHistory');
+H = gui.components.History(sc, fig, PreferenceTag='wikiShotHistory');
 % green hit, red miss, blue correct reject, orange false alarm, yellow abort
 H.BitColors               = ["#c8ffd9","#ffcdcd","#b3e1ff","#ffeacf","#faffcc"];
 H.ParametersOfInterest    = {'StimDelay','TrialType'};
@@ -375,13 +375,13 @@ end
 function fig = shotSessionPerformance(S)
 fig = shotFigure([340 175]);
 p = uipanel(fig, 'Title', 'Session Performance', 'Units', 'normalized', 'Position', [0 0 1 1]);
-gui.SessionPerformance(S.DATA, p, PreferenceTag='wikiShotSessionPerformance');
+gui.components.SessionPerformance(S.DATA, p, PreferenceTag='wikiShotSessionPerformance');
 end
 
 
 function fig = shotParameterScatter(S)
 fig = shotFigure([700 380]);   % narrower and the colorbar's outcome names clip
-gui.ParameterScatter(S.DATA, fig, PreferenceTag='wikiShotScatter', ...
+gui.components.ParameterScatter(S.DATA, fig, PreferenceTag='wikiShotScatter', ...
     XParameter='StimDelay', YParameter='RespLatency', ColorParameter='Response');
 end
 
@@ -389,14 +389,14 @@ end
 function fig = shotPsychPlot(S)
 fig = shotFigure([520 360]);
 ax = axes(uipanel(fig, 'Units', 'normalized', 'Position', [0 0 1 1]));
-gui.PsychPlot(S.Psych, ax);
+gui.components.PsychPlot(S.Psych, ax);
 S.PsychRUNTIME.EVENTS.notify('NewData', S.PsychTrialsEvent);
 end
 
 
 function fig = shotPerformance(S)
 fig = shotFigure([540 185]);
-P = gui.Performance(S.Psych, fig);
+P = gui.components.Performance(S.Psych, fig);
 P.ParametersOfInterest = {'Depth'};
 S.PsychRUNTIME.EVENTS.notify('NewData', S.PsychTrialsEvent);
 end
@@ -405,7 +405,7 @@ end
 function fig = shotSlidingWindow(S)
 fig = shotFigure([580 320]);
 ax = axes(uipanel(fig, 'Units', 'normalized', 'Position', [0 0 1 1]));
-W = gui.SlidingWindowPerformancePlot(S.Psych, ax);
+W = gui.components.SlidingWindowPerformancePlot(S.Psych, ax);
 % 100 rather than the usual 30: only a fifth of the trials carry a stimulus and
 % they are spread over five depths, so a 30-trial window is empty at most
 % depths most of the time and the traces come out as square waves.
@@ -415,7 +415,7 @@ end
 
 
 function fig = shotOnlinePlot(~)
-% The only shot that has to be driven in REAL TIME: gui.OnlinePlot stamps every
+% The only shot that has to be driven in REAL TIME: gui.components.OnlinePlot stamps every
 % sample with its own tic, so a window's worth of traces takes a window's worth
 % of seconds to fill. A finished session is no use here — it holds trial
 % outcomes, not the sub-second digital activity this component shows — so the
@@ -441,7 +441,7 @@ pTrig = iface.add_parameter('_TrigState~1', 0); iface.put(pTrig, 0);
 pNum  = iface.add_parameter('_TrialNum~1',  1); iface.put(pNum,  1);
 rt.Interfaces = iface;
 
-op = gui.OnlinePlot(rt, P, ax, 1, PreferenceTag='wikiShotOnlinePlot');
+op = gui.components.OnlinePlot(rt, P, ax, 1, PreferenceTag='wikiShotOnlinePlot');
 fig.UserData = {op, iface};   % closeFigure deletes these, and the timer with them
 
 % Drive the samples by hand: stop the component's own timer, seat its clock the
@@ -477,10 +477,10 @@ end
 
 
 function fig = shotBufferPlot(S)
-% Mocked, for the same reason gui.OnlinePlot and gui.SyringePump are: the
+% Mocked, for the same reason gui.components.OnlinePlot and gui.components.SyringePump are: the
 % session has nothing to show. The appetitive rig declares exactly ONE
 % buffer parameter, FIRcoefs, and it is a 'Coefficient Buffer' -- the
-% session-static type gui.BufferPlot deliberately refuses to plot -- so no
+% session-static type gui.components.BufferPlot deliberately refuses to plot -- so no
 % saved file in the lab carries a per-trial Buffer for this to draw.
 %
 % What is real: the offline path (a DATA struct array is one of the
@@ -515,7 +515,7 @@ for k = 1:numel(D)
     D(k).TroughSensor = 0.9*hit + 0.012*randn(rs, numel(t), 1);
 end
 
-p = gui.BufferPlot(D, fig, Buffers={'StimWaveform','TroughSensor'}, ...
+p = gui.components.BufferPlot(D, fig, Buffers={'StimWaveform','TroughSensor'}, ...
     SampleRate=fs, XAxisUnits='milliseconds', NumTrialsShown=3, ...
     PreferenceTag='wikiShotBufferPlot');
 fig.UserData = p;   % closeFigure deletes it, dropping its listeners
@@ -534,9 +534,9 @@ g = uigridlayout(fig, [2 1]);
 g.RowHeight = {36, 36};
 g.Padding = [12 12 12 12];
 
-gui.SessionGate(g);                       % armed, as the session opens
+gui.components.SessionGate(g);                       % armed, as the session opens
 
-retired = gui.SessionGate(g);             % the same button after the press
+retired = gui.components.SessionGate(g);             % the same button after the press
 retired.release();
 end
 
@@ -562,13 +562,13 @@ g.Padding     = [12 12 12 12];
 
 lbl = uilabel(g, 'Text', 'Ctrl+Alt+Shift not held  ->', 'HorizontalAlignment', 'right');
 lbl.Layout.Row = 1; lbl.Layout.Column = 1;
-idle = gui.RegenerateTrial(S.RUNTIME, g);   % this figure's shared dispatcher, never typed into
+idle = gui.components.RegenerateTrial(S.RUNTIME, g);   % this figure's shared dispatcher, never typed into
 
 lbl = uilabel(g, 'Text', 'Ctrl+Alt+Shift held  ->', 'HorizontalAlignment', 'right');
 lbl.Layout.Row = 2; lbl.Layout.Column = 1;
 keyFig = uifigure('Visible', 'off', 'Tag', 'wikiComponentShot', 'Name', '');
 keys   = gui.KeyBindings(keyFig);
-live   = gui.RegenerateTrial(S.RUNTIME, g, KeySource=keys);
+live   = gui.components.RegenerateTrial(S.RUNTIME, g, KeySource=keys);
 
 % Both buttons follow ModeChange rather than reading the mode at
 % construction, so the broadcast has to come after they exist.
@@ -623,7 +623,7 @@ for k = 1:numel(src)
 end
 
 fig = shotFigure([420 145]);
-ps = gui.PhaseSelector(S.RUNTIME, phaseDir);
+ps = gui.components.PhaseSelector(S.RUNTIME, phaseDir);
 ps.PhasePath = phaseDir;     % outrank any saved directory preference
 ps.createGUI(fig);
 % The phase this session actually ran, when it is there; otherwise the middle
@@ -656,7 +656,7 @@ mock = NE1000_Mock(SyringeDiameter=21.59);
 mock.SimInfused = 0.836;              % mL, the units the panel displays by default
 
 fig = shotFigure([380 330]);
-p = gui.SyringePump(mock, fig, PreferenceTag='wikiShotSyringePump');
+p = gui.components.SyringePump(mock, fig, PreferenceTag='wikiShotSyringePump');
 p.refresh();
 fig.UserData = {p, mock};             % closeFigure tears both down
 end
@@ -678,7 +678,7 @@ fig = shotFigure([540 72]);
 g = uigridlayout(fig, [1 1]);
 g.Padding = [8 8 8 8];
 [~, stem] = fileparts(S.RUNTIME.TRIALS(1).DataFilename);
-gui.FilenameValidator(S.RUNTIME, g, stem);
+gui.components.FilenameValidator(S.RUNTIME, g, stem);
 end
 
 
@@ -704,11 +704,11 @@ g.RowHeight    = {'1x', 26};
 g.ColumnWidth  = {'1x', 96};
 g.Padding      = [8 8 8 8];
 
-panel = gui.Notes(S.RUNTIME, g, PreferenceTag='wikiShotNotes');
+panel = gui.components.Notes(S.RUNTIME, g, PreferenceTag='wikiShotNotes');
 panel.LogH.Parent.Layout.Row    = 1;
 panel.LogH.Parent.Layout.Column = [1 2];
 
-button = gui.Notes(S.RUNTIME, g, ButtonOnly=true, PreferenceTag='wikiShotNotesButton');
+button = gui.components.Notes(S.RUNTIME, g, ButtonOnly=true, PreferenceTag='wikiShotNotesButton');
 button.OpenH.Layout.Row    = 2;
 button.OpenH.Layout.Column = 2;
 
@@ -742,8 +742,8 @@ fig = shotFigure([300 66]);
 g = uigridlayout(fig, [1 2]);
 g.ColumnWidth = {36, '1x'};
 g.Padding = [10 10 10 10];
-icon = gui.ScreenCapture(g);
-labeled = gui.ScreenCapture(g, Text='Screenshot');
+icon = gui.components.ScreenCapture(g);
+labeled = gui.components.ScreenCapture(g, Text='Screenshot');
 fig.UserData = {icon, labeled};   % closeFigure deletes both, stopping their timers
 end
 

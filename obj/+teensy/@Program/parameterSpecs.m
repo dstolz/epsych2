@@ -9,8 +9,8 @@ function specs = parameterSpecs(obj)
 %
 % The names here are not arbitrary. epsych.Runtime.resolveTriggerParameters looks
 % up x_NewTrial_<BoxID>, x_ResetTrig_<BoxID> and x_TrialComplete_<BoxID>
-% literally and aborts the run if any is missing; gui.OnlinePlot looks up
-% _TrigState~<BoxID> and _TrialNum~<BoxID> literally; gui.History requires
+% literally and aborts the run if any is missing; gui.components.OnlinePlot looks up
+% _TrigState~<BoxID> and _TrialNum~<BoxID> literally; gui.components.History requires
 % RespCode; and psychophysics.Detection reads RespCode plus a separate integer
 % TrialType. Emitting all of them is what makes a Teensy protocol light up the
 % shipped GUIs with no extra wiring.
@@ -32,7 +32,7 @@ function specs = parameterSpecs(obj)
 %   specs = program.parameterSpecs();
 %   disp(string({specs.Name})')
 %
-% See also: teensy.Program.applyToModule, epsych.Runtime, gui.OnlinePlot
+% See also: teensy.Program.applyToModule, epsych.Runtime, gui.components.OnlinePlot
 
 arguments
     obj (1,1) teensy.Program
@@ -81,17 +81,17 @@ specs(end+1) = localSpec_('StateIndex', 0, ...
     struct('Type', 'Integer', 'Access', 'Read'), false, ...
     "core", "Index of the state the board is currently in; drives the live monitor.");
 
-% --- gui.OnlinePlot literals ---------------------------------------------
+% --- gui.components.OnlinePlot literals ---------------------------------------------
 % The ~<BoxID> suffix form differs from the x_*_<BoxID> trigger form. That is
 % not a typo: OnlinePlot looks these two names up exactly as written.
 
 specs(end+1) = localSpec_(sprintf('_TrigState~%d', box), 0, ...
     struct('Type', 'Boolean', 'Access', 'Read', 'Visible', false), false, ...
-    "core", "Trial-state flag polled by gui.OnlinePlot.");
+    "core", "Trial-state flag polled by gui.components.OnlinePlot.");
 
 specs(end+1) = localSpec_(sprintf('_TrialNum~%d', box), 0, ...
     struct('Type', 'Integer', 'Access', 'Read', 'Visible', false), false, ...
-    "core", "Trial counter polled by gui.OnlinePlot.");
+    "core", "Trial counter polled by gui.components.OnlinePlot.");
 
 % --- Program variables ----------------------------------------------------
 
@@ -115,7 +115,7 @@ end
 % Outputs are included as well as inputs. That is what lets a state drive a
 % named output purely as a phase flag -- a "RespWindow" output held high for
 % the duration of the response window shows up as a readable RespWindow
-% parameter, which is exactly what gui.Parameter_Monitor renders as a lamp.
+% parameter, which is exactly what gui.components.Parameter_Monitor renders as a lamp.
 
 for i = 1:numel(obj.Channels)
     c = obj.Channels(i);

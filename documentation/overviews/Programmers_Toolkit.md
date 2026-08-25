@@ -140,9 +140,9 @@ Every class in this section works **online** (construct with a `Runtime`; it fol
 |---|---|
 | [`psychophysics.Metrics`](../../obj/+psychophysics/Metrics.m) | The formulas themselves, with no state: d′, criterion, relative criterion, ln β, A′, B″, proportion correct, and the four named corrections for rates of exactly 0 or 1 — including the trial-count dependent log-linear and 1/(2N) rules. Needs no Statistics Toolbox, broadcasts, and propagates NaN rather than turning a missing rate into a bound. `fromCounts(nHit,nMiss,nFA,nCR)` returns the lot. `rateDenominator` holds the one judgement call in the denominators — aborts are excluded by default, and every class here takes the same `IncludeAborts` option. Call this rather than re-deriving a z-transform; everything below delegates to it. See [psychophysics_Metrics.md](../psychophysics/psychophysics_Metrics.md). |
 | [`psychophysics.Psych`](../../obj/+psychophysics/Psych.m) | The abstract base: shared trial data, the `ExcludedTrials` mask, `StimulusTrialType`, `refresh`, and `NewData` propagation. Subclass it rather than writing a listener by hand. |
-| [`psychophysics.SessionMetrics`](../../obj/+psychophysics/@SessionMetrics/SessionMetrics.m) | Session-level counts, outcome rates, d′ and criterion over a configurable trial window, computed from the decoded response bitmask — so it serves any paradigm that writes `RespCode`. The computation behind `gui.SessionPerformance`, and equally usable headlessly. |
+| [`psychophysics.SessionMetrics`](../../obj/+psychophysics/@SessionMetrics/SessionMetrics.m) | Session-level counts, outcome rates, d′ and criterion over a configurable trial window, computed from the decoded response bitmask — so it serves any paradigm that writes `RespCode`. The computation behind `gui.components.SessionPerformance`, and equally usable headlessly. |
 | [`psychophysics.TrialWindow`](../../obj/+psychophysics/TrialWindow.m) | The immutable "which trials" value object: all, last *N*, first *N*, or an explicit range. `parse` accepts the shorthand — `"all"`, `50`, `[20 100]`, `"last 20"`, `"20-100"` — so a window can be written the way you would say it. |
-| [`psychophysics.Detection`](../../obj/+psychophysics/@Detection/Detection.m) | Hit and false-alarm rates, d′, and bias **grouped by unique stimulus value** — the psychometric-function view of a detection task. `Hit_Rate` is `Hit/(Hit+Miss)` at each value and `FA_Rate` is `FA/(FA+CR)` over the session, both honoring `IncludeAborts`; `gui.SlidingWindowPerformancePlot` follows the same setting. Note `Hit_Rate` is deliberately *not* `[obj.Rate.Hit]`, which is the proportion of every trial at that value. |
+| [`psychophysics.Detection`](../../obj/+psychophysics/@Detection/Detection.m) | Hit and false-alarm rates, d′, and bias **grouped by unique stimulus value** — the psychometric-function view of a detection task. `Hit_Rate` is `Hit/(Hit+Miss)` at each value and `FA_Rate` is `FA/(FA+CR)` over the session, both honoring `IncludeAborts`; `gui.components.SlidingWindowPerformancePlot` follows the same setting. Note `Hit_Rate` is deliberately *not* `[obj.Rate.Hit]`, which is the proportion of every trial at that value. |
 | [`psychophysics.NAFC`](../../obj/+psychophysics/@NAFC/NAFC.m) | N-alternative forced choice: per-alternative choice functions, proportion correct against a 1/N chance level, the confusion matrix, and choice bias. Choices come from `Choice_*` bits or a named DATA field, the correct alternative from `TrialType`. It also defines the forced-choice bit encoding: `Choice_k` alone carries which alternative was chosen, `Hit` means that choice was correct and `Miss` means it was wrong, an early answer is an `Abort`, and a trial with no response carries no outcome bit at all (Undefined). `CorrectReject`/`FalseAlarm` are detection outcomes and are never set; `psychophysics.SessionMetrics` does not apply. Its plot (three switchable `PlotType`s) redraws itself on every refresh, and it is a `gui.PopOut` adopter. Embedded live in `examples/two_afc`. |
 | [`psychophysics.Staircase`](../../obj/+psychophysics/@Staircase/Staircase.m) | Step direction, reversal detection, and threshold estimation for adaptive procedures. Also a `gui.PopOut` adopter, so it plots in a window of its own. |
 | [`psychophysics.BestPEST`](../../obj/+psychophysics/@BestPEST/BestPEST.m) | Maximum-likelihood threshold seeking: grid MLE fit after each trial, next level placed at the current estimate, with a profile-likelihood confidence interval. |
@@ -163,14 +163,14 @@ A paradigm GUI subclasses [`gui.BehaviorGUI`](../../obj/+gui/@BehaviorGUI/Behavi
 
 | `build` helper | Creates |
 |---|---|
-| `addControl(parent, param, …)` | A `gui.Parameter_Control` bound to a parameter. **An unresolved name returns `[]` without error**, so one `build` serves protocols with differing parameter sets. |
+| `addControl(parent, param, …)` | A `gui.components.Parameter_Control` bound to a parameter. **An unresolved name returns `[]` without error**, so one `build` serves protocols with differing parameter sets. |
 | `addButton(parent, param, …)` | An auto-committing trigger button; a parameter whose name starts with `~` becomes a toggle. |
 | `controlColumn(parent, Title=…)` | A titled panel wrapping a scrollable fixed-row-height grid, ready for a stack of `addControl` calls. |
 | `addUpdateButton(parent)` | The commit button; its watch list is filled automatically after `build` with every non-trigger, non-autoCommit control. |
-| `addMonitor(parent, params, …)` | A `gui.Parameter_Monitor`. Registered monitors stop polling when the session mode goes to Stop. |
+| `addMonitor(parent, params, …)` | A `gui.components.Parameter_Monitor`. Registered monitors stop polling when the session mode goes to Stop. |
 | `addNextTrial(parent, …)` | The upcoming-trial display. |
-| `addPerformance(parent, …)` | A `gui.SessionPerformance` computed through this GUI's psychophysics object when it has one, so trial-type conventions match. |
-| `addSyringePump(parent, …)` | The `gui.SyringePump` panel over the session's `hw.NE1000` — or a standalone one when the protocol has no pump, so the GUI still opens. |
+| `addPerformance(parent, …)` | A `gui.components.SessionPerformance` computed through this GUI's psychophysics object when it has one, so trial-type conventions match. |
+| `addSyringePump(parent, …)` | The `gui.components.SyringePump` panel over the session's `hw.NE1000` — or a standalone one when the protocol has no pump, so the GUI still opens. |
 | `addScreenCapture(parent, …)` | The camera button that copies the whole window to the clipboard. |
 | `addPopOutButton(parent, component, …)` | A button opening any `gui.PopOut` component in its own window. A non-poppable component is skipped with a message. |
 | `addComponentToolbar(fig, …)` | The icon toolbar. Call it at the **top** of `build`: automatic entries are collected after `build` returns, so everything built later is still listed. |
@@ -181,36 +181,36 @@ Display components (all adopt `gui.PopOut` unless noted):
 
 | Component | Shows |
 |---|---|
-| [`gui.History`](../../obj/+gui/@History/History.m) | Trial-by-trial table, rows colorable by decoded response bit. |
-| [`gui.NextTrial`](../../obj/+gui/@NextTrial/NextTrial.m) | Parameters of the trial about to run, refreshed on every `NewTrial`. |
-| [`gui.SessionPerformance`](../../obj/+gui/@SessionPerformance/SessionPerformance.m) | Counts, rates, d′, criterion, with the trial window on a right-click menu. |
-| [`gui.ParameterScatter`](../../obj/+gui/@ParameterScatter/ParameterScatter.m) | Any per-trial parameter against any other, with an optional color-by parameter, all chosen from dropdowns at runtime. |
-| [`gui.PsychPlot`](../../obj/+gui/@PsychPlot/PsychPlot.m) | Online psychometric summary (d′, hit rate, FA rate, bias) driven by a psychophysics object's own `NewData`. |
-| [`gui.OnlinePlot`](../../obj/+gui/@OnlinePlot/OnlinePlot.m) | Real-time multi-trace hardware activity for one box, with time window and trial-locked modes. |
-| [`gui.SlidingWindowPerformancePlot`](../../obj/+gui/@SlidingWindowPerformancePlot/SlidingWindowPerformancePlot.m) | Performance metrics over a moving trial window. |
-| [`gui.Performance`](../../obj/+gui/@Performance/Performance.m) | Summary table of performance metrics from a linked psychophysics object. |
-| [`gui.Parameter_Monitor`](../../obj/+gui/@Parameter_Monitor/Parameter_Monitor.m) | Polled current values of an array of parameters. |
-| [`gui.SessionClock`](../../obj/+gui/@SessionClock/SessionClock.m) | Up to four live readouts: since last trial, since first trial, since session start, wall clock. |
-| [`gui.ElapsedTrialTimer`](../../obj/+gui/@ElapsedTrialTimer/ElapsedTrialTimer.m) | Time since the last completed trial; usable headlessly by reading `ElapsedTime`. |
-| [`gui.ModeIndicator`](../../obj/+gui/@ModeIndicator/ModeIndicator.m) | Lamp and label reflecting the current `hw.DeviceState`. |
-| [`gui.StatusBar`](../../obj/+gui/@StatusBar/StatusBar.m) | Footer message line, green for success and red for errors; double-click copies the text. |
+| [`gui.components.History`](../../obj/+gui/@History/History.m) | Trial-by-trial table, rows colorable by decoded response bit. |
+| [`gui.components.NextTrial`](../../obj/+gui/@NextTrial/NextTrial.m) | Parameters of the trial about to run, refreshed on every `NewTrial`. |
+| [`gui.components.SessionPerformance`](../../obj/+gui/@SessionPerformance/SessionPerformance.m) | Counts, rates, d′, criterion, with the trial window on a right-click menu. |
+| [`gui.components.ParameterScatter`](../../obj/+gui/@ParameterScatter/ParameterScatter.m) | Any per-trial parameter against any other, with an optional color-by parameter, all chosen from dropdowns at runtime. |
+| [`gui.components.PsychPlot`](../../obj/+gui/@PsychPlot/PsychPlot.m) | Online psychometric summary (d′, hit rate, FA rate, bias) driven by a psychophysics object's own `NewData`. |
+| [`gui.components.OnlinePlot`](../../obj/+gui/@OnlinePlot/OnlinePlot.m) | Real-time multi-trace hardware activity for one box, with time window and trial-locked modes. |
+| [`gui.components.SlidingWindowPerformancePlot`](../../obj/+gui/@SlidingWindowPerformancePlot/SlidingWindowPerformancePlot.m) | Performance metrics over a moving trial window. |
+| [`gui.components.Performance`](../../obj/+gui/@Performance/Performance.m) | Summary table of performance metrics from a linked psychophysics object. |
+| [`gui.components.Parameter_Monitor`](../../obj/+gui/@Parameter_Monitor/Parameter_Monitor.m) | Polled current values of an array of parameters. |
+| [`gui.components.SessionClock`](../../obj/+gui/@SessionClock/SessionClock.m) | Up to four live readouts: since last trial, since first trial, since session start, wall clock. |
+| [`gui.components.ElapsedTrialTimer`](../../obj/+gui/@ElapsedTrialTimer/ElapsedTrialTimer.m) | Time since the last completed trial; usable headlessly by reading `ElapsedTime`. |
+| [`gui.components.ModeIndicator`](../../obj/+gui/@ModeIndicator/ModeIndicator.m) | Lamp and label reflecting the current `hw.DeviceState`. |
+| [`gui.components.StatusBar`](../../obj/+gui/@StatusBar/StatusBar.m) | Footer message line, green for success and red for errors; double-click copies the text. |
 
 Infrastructure and design-time tools:
 
 | Tool | Use it for |
 |---|---|
 | [`gui.PopOut`](../../obj/+gui/@PopOut/PopOut.m) | The mixin that gives a component its own window. A pop-out is a **second instance** over the same data source with its own graphics, listeners, and preference key, so it can never disturb the embedded one. Adopting takes three steps: inherit, implement `createPopOut_`, implement `popOutHostContainer_`. |
-| [`gui.ComponentToolbar`](../../obj/+gui/@ComponentToolbar/ComponentToolbar.m) | One tool per display. **Lazy** entries declared with `addLazyComponent(name, factory, …)` are built on first click, which is how a paradigm offers a display without spending a polling timer or listeners on it up front. |
-| [`gui.Parameter_Control`](../../obj/+gui/Parameter_Control.m) | The bound editor itself: edit field, range pair, dropdown, checkbox, button, or `'auto'`. |
-| [`gui.Parameter_Update`](../../obj/+gui/Parameter_Update.m) | The commit button controller — enables itself when any watched editor is dirty; Ctrl-click discards. |
+| [`gui.components.ComponentToolbar`](../../obj/+gui/@ComponentToolbar/ComponentToolbar.m) | One tool per display. **Lazy** entries declared with `addLazyComponent(name, factory, …)` are built on first click, which is how a paradigm offers a display without spending a polling timer or listeners on it up front. |
+| [`gui.components.Parameter_Control`](../../obj/+gui/Parameter_Control.m) | The bound editor itself: edit field, range pair, dropdown, checkbox, button, or `'auto'`. |
+| [`gui.components.Parameter_Update`](../../obj/+gui/Parameter_Update.m) | The commit button controller — enables itself when any watched editor is dirty; Ctrl-click discards. |
 | [`gui.ParameterDebugger`](../../obj/+gui/@ParameterDebugger/ParameterDebugger.m) | Every parameter a protocol defines, readable and writable by hand. **It never polls** — reads happen only on demand — which is what makes it safe beside a running experiment. Cell color *is* the read report. |
 | [`gui.ParameterTracker`](../../obj/+gui/@ParameterTracker/ParameterTracker.m) | The same parameters *against time* — scalar values on one live plot, in a window that owns its timer, its rate (0.1–20 Hz), and a Pause button. This is where the polling the debugger refuses to do actually lives, which is why it is a separate window rather than a debugger tab. A failed or non-scalar read is `NaN` (an honest break in the line) and is logged once per parameter, not once per sample. |
 | [`gui.BehaviorBuilder`](../../obj/+gui/@BehaviorBuilder/BehaviorBuilder.m) | Design-time generator for `BehaviorGUI` subclasses: drag regions on a canvas, export a subclass that calls only the documented `add*` DSL. The headless statics (`specNew`, `specValidate`, `writeCode`) are testable on their own. |
 | [`gui.BasicGUI`](../../obj/+gui/@BasicGUI/BasicGUI.m) | A tabbed GUI built automatically from any protocol — one tab per interface, one panel per module. The zero-effort GUI for prototyping. |
-| [`gui.ScreenCapture`](../../obj/+gui/@ScreenCapture/ScreenCapture.m) | Copy the whole window — controls and plots alike — to the clipboard. Renders offscreen, so an obscured window still copies. |
+| [`gui.components.ScreenCapture`](../../obj/+gui/@ScreenCapture/ScreenCapture.m) | Copy the whole window — controls and plots alike — to the clipboard. Renders offscreen, so an obscured window still copies. |
 | [`gui.toolbarIcon`](../../obj/+gui/toolbarIcon.m) | The 16×16 glyphs, drawn as pixel art so the toolbox ships no image files. `uibutton`'s `Icon` accepts only four built-in names, so every other glyph comes from here. |
 | [`gui.GenericTimer`](../../obj/+gui/GenericTimer.m) | Timer creation, lookup, and start/stop lifecycle tied to a figure — instead of a bare `timer` that outlives its GUI. |
-| [`gui.FilenameValidator`](../../obj/+gui/@FilenameValidator/FilenameValidator.m) | Edit field that enforces `.mat`, rejects invalid characters, and warns on an existing file. |
+| [`gui.components.FilenameValidator`](../../obj/+gui/@FilenameValidator/FilenameValidator.m) | Edit field that enforces `.mat`, rejects invalid characters, and warns on an existing file. |
 | [`showGridBorders`](../../helpers/showGridBorders.m) | Draw and label every cell of a `uigridlayout` while you are fighting a layout. Debug only — it adds child labels. |
 | [`findFigure`](../../helpers/findFigure.m) | Find a figure by tag, creating it if absent. Keeps a repeatedly-opened window from spawning duplicates. |
 
@@ -302,7 +302,7 @@ The pairs that look interchangeable and are not. Each row is a mistake that has 
 | To know a trial finished | a listener on `RUNTIME.EVENTS` | a polling timer | Everything downstream of the runtime is event-driven; the timer callback is the only intended polling loop. |
 | Session-level d′ and rates | `psychophysics.SessionMetrics` | `psychophysics.Detection` | `Detection` groups by unique stimulus value (a psychometric function); `SessionMetrics` collapses the session to the numbers on the status panel. |
 | A window of trials | `psychophysics.TrialWindow` | index arithmetic | The window resolves against the analysis's own trial count, so it stays meaningful as the session grows. |
-| To read a parameter beside a running session | `gui.ParameterDebugger` | `gui.Parameter_Monitor` | The debugger reads only on demand; the monitor polls, which is a cost you should choose deliberately. |
+| To read a parameter beside a running session | `gui.ParameterDebugger` | `gui.components.Parameter_Monitor` | The debugger reads only on demand; the monitor polls, which is a cost you should choose deliberately. |
 | To watch a parameter *change* | `gui.ParameterTracker` | pressing Read All repeatedly | Repeated reads give you the values but not when they arrived. The tracker stamps every sample with the clock, so a period the timer missed widens a gap instead of drifting the time axis. |
 | A protocol's version | `epsych.Protocol.versionOnDisk` | `epsych.Protocol.load` | `load` rebuilds every interface, module, and parameter — far too expensive for a question asked once per subject per repaint. |
 | A second view of a display | `gui.PopOut` | a new `figure` | A pop-out is a second instance with its own listeners and preferences, so closing or restyling it cannot disturb the embedded component. |

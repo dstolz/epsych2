@@ -190,7 +190,7 @@ switch r.Type
         if ~isempty(o.YParameter),     args{end+1} = sprintf('YParameter=%s', q(o.YParameter)); end
         if ~isempty(o.ColorParameter), args{end+1} = sprintf('ColorParameter=%s', q(o.ColorParameter)); end
         if ~isempty(tag),              args{end+1} = sprintf('PreferenceTag=%s', q(tag)); end
-        s = sprintf('h%d = gui.ParameterScatter(obj.RUNTIME, %s', i, host);
+        s = sprintf('h%d = gui.components.ParameterScatter(obj.RUNTIME, %s', i, host);
         if ~isempty(args), s = [s ', ' strjoin(args, ', ')]; end
         out('%s);', s);
         out('obj.register(h%d);', i);
@@ -199,7 +199,7 @@ switch r.Type
     case 'History'
         [host, popParent] = emitHost(r, i);
         out('if ~isempty(obj.Psych) && isvalid(obj.Psych)');
-        out('    h%d = gui.History(obj.Psych, %s%s);', i, host, tagArg(tag));
+        out('    h%d = gui.components.History(obj.Psych, %s%s);', i, host, tagArg(tag));
         out('    obj.register(h%d);', i);
         emitPopOut(r, popParent, sprintf('h%d', i), true);
         out('end');
@@ -207,8 +207,8 @@ switch r.Type
     case 'PsychPlot'
         [host, popParent] = emitHost(r, i);
         out('if ~isempty(obj.Psych) && isvalid(obj.Psych)');
-        out('    ax%d = axes(%s); %% classic axes: gui.PsychPlot requires one', i, host);
-        out('    h%d = gui.PsychPlot(obj.Psych, ax%d);', i, i);
+        out('    ax%d = axes(%s); %% classic axes: gui.components.PsychPlot requires one', i, host);
+        out('    h%d = gui.components.PsychPlot(obj.Psych, ax%d);', i, i);
         out('    obj.register(h%d);', i);
         emitPopOut(r, popParent, sprintf('h%d', i), true);
         out('end');
@@ -234,14 +234,14 @@ switch r.Type
         host = emitHost(r, i); % never poppable, so there is no pop-out parent
         out('if ~isempty(obj.Psych) && isvalid(obj.Psych)');
         out('    ax%d = axes(%s); %% classic axes: the plot requires one', i, host);
-        out('    h%d = gui.SlidingWindowPerformancePlot(obj.Psych, ax%d);', i, i);
+        out('    h%d = gui.components.SlidingWindowPerformancePlot(obj.Psych, ax%d);', i, i);
         out('    obj.register(h%d);', i);
         out('end');
 
     case 'OnlinePlot'
         host = emitHost(r, i); % never poppable, so there is no pop-out parent
-        out('ax%d = axes(%s); %% classic axes: gui.OnlinePlot requires one', i, host);
-        out('h%d = gui.OnlinePlot(obj.RUNTIME, %s, ax%d);', i, fmtCellstr(o.Source), i);
+        out('ax%d = axes(%s); %% classic axes: gui.components.OnlinePlot requires one', i, host);
+        out('h%d = gui.components.OnlinePlot(obj.RUNTIME, %s, ax%d);', i, fmtCellstr(o.Source), i);
         out('obj.register(h%d);', i);
 
     case 'BufferPlot'
@@ -254,14 +254,14 @@ switch r.Type
         if ~isempty(o.Layout),    args{end+1} = sprintf('Layout=%s', q(o.Layout)); end
         if o.NumTrialsShown > 1,  args{end+1} = sprintf('NumTrialsShown=%d', o.NumTrialsShown); end
         if ~isempty(tag),         args{end+1} = sprintf('PreferenceTag=%s', q(tag)); end
-        s = sprintf('h%d = gui.BufferPlot(obj.RUNTIME, %s', i, host);
+        s = sprintf('h%d = gui.components.BufferPlot(obj.RUNTIME, %s', i, host);
         if ~isempty(args), s = [s ', ' strjoin(args, ', ')]; end
         out('%s);', s);
         out('obj.register(h%d);', i);
         emitPopOut(r, popParent, sprintf('h%d', i), false);
 
     case 'SessionClock'
-        out('h%d = gui.SessionClock(g%s);', i, tagArg(tag));
+        out('h%d = gui.components.SessionClock(g%s);', i, tagArg(tag));
         out('h%d.PanelH.Layout.Row = %s; h%d.PanelH.Layout.Column = %s;', ...
             i, fmtSpan(r.Row), i, fmtSpan(r.Col));
         out('h%d.attachRuntime(obj.RUNTIME);', i);
@@ -270,13 +270,13 @@ switch r.Type
 
     case 'TrialTimer'
         emitPanel(r, i);
-        out('h%d = gui.ElapsedTrialTimer(pnl%d);', i, i);
+        out('h%d = gui.components.ElapsedTrialTimer(pnl%d);', i, i);
         out('h%d.attachRuntime(obj.RUNTIME);', i);
         out('obj.register(h%d);', i);
 
     case 'ModeIndicator'
         emitPanel(r, i);
-        out('h%d = gui.ModeIndicator(pnl%d);', i, i);
+        out('h%d = gui.components.ModeIndicator(pnl%d);', i, i);
         out('h%d.attachRuntime(obj.RUNTIME);', i);
         out('obj.register(h%d);', i);
 
@@ -339,21 +339,21 @@ switch r.Type
     case 'PhaseSelector'
         emitPanel(r, i);
         if isempty(o.PhasePath)
-            out('ps%d = gui.PhaseSelector(obj.RUNTIME);', i);
+            out('ps%d = gui.components.PhaseSelector(obj.RUNTIME);', i);
         else
-            out('ps%d = gui.PhaseSelector(obj.RUNTIME, %s);', i, q(o.PhasePath));
+            out('ps%d = gui.components.PhaseSelector(obj.RUNTIME, %s);', i, q(o.PhasePath));
         end
         out('ps%d.createGUI(pnl%d);', i, i);
         out('obj.register(ps%d);', i);
 
     case 'StatusBar'
         emitPanel(r, i);
-        out('h%d = gui.StatusBar(pnl%d, InitialText=%s);', i, i, q(o.InitialText));
+        out('h%d = gui.components.StatusBar(pnl%d, InitialText=%s);', i, i, q(o.InitialText));
         out('obj.register(h%d);', i);
 
     case 'FilenameField'
         emitPanel(r, i);
-        out('h%d = gui.FilenameValidator(obj.RUNTIME, pnl%d, %s);', ...
+        out('h%d = gui.components.FilenameValidator(obj.RUNTIME, pnl%d, %s);', ...
             i, i, q(o.DefaultFilename));
         out('obj.register(h%d);', i);
 

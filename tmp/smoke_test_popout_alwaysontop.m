@@ -12,7 +12,7 @@ function smoke_test_popout_alwaysontop()
 %   - the choice is remembered with the window's other preferences, so a
 %     pinned pop-out reopens pinned and already ticked, under the pop-out's
 %     own preference key rather than its host's
-%   - a window gui.ComponentToolbar opens for a lazy component gets the item
+%   - a window gui.components.ComponentToolbar opens for a lazy component gets the item
 %     too, since that window also holds one component
 %
 % Headless-safe: every GUI is closed and every preference removed before
@@ -30,7 +30,7 @@ cleanupPrefs();
 % 1. The embedded component is not offered the item ------------------------
 D  = makeData(12);
 f1 = uifigure('Visible','off','Tag','smokeAOT_host');
-S  = gui.ParameterScatter(D, f1, PreferenceTag='smokeAOT_scatter', ...
+S  = gui.components.ParameterScatter(D, f1, PreferenceTag='smokeAOT_scatter', ...
     XParameter='FreqHz', YParameter='LevelDB');
 
 assert(isempty(aotItem(f1)), ...
@@ -94,7 +94,7 @@ g  = ComponentToolbarBehaviorGUI(makeRuntime());
 tb = g.Toolbar;
 assert(isvalid(tb), 'expected a component toolbar');
 
-tool = findTool(g.h_figure, 'Mystery');   % a lazy gui.NextTrial
+tool = findTool(g.h_figure, 'Mystery');   % a lazy gui.components.NextTrial
 tool.ClickedCallback([],[]);
 lazyFig = findall(groot,'Type','figure','-and','Tag','smokeCT_GUI_Mystery');
 if isempty(lazyFig)

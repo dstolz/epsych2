@@ -47,7 +47,7 @@ fprintf('  speedup                  : %7.1fx\n', tPer/tBatch);
 % full tick, redraw included
 f = figure('Visible','off','Tag','BenchOnlinePlot');
 ax = axes(f);
-op = gui.OnlinePlot(rt,P,ax);
+op = gui.components.OnlinePlot(rt,P,ax);
 stop(op.h_timer);
 if op.startTic_ == 0
     op.h_timer.Timer.StartFcn(op.h_timer.Timer,[]);

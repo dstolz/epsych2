@@ -68,8 +68,8 @@ leave their domain packages; `@RunExpt`'s 5,140 stay by design, documented as a 
 ## Corrections made during planning
 
 - **Not dead code — keeping.** `gui.BasicGUI` (docstring: "a functional starting point for custom
-  experiment GUIs"), `gui.Performance` and `gui.SlidingWindowPerformancePlot` (both rendered into
-  the wiki by `generate_wiki_screenshots.m`), `gui.MicrophonePlot`, and helpers `showGridBorders`
+  experiment GUIs"), `gui.components.Performance` and `gui.components.SlidingWindowPerformancePlot` (both rendered into
+  the wiki by `generate_wiki_screenshots.m`), `gui.components.MicrophonePlot`, and helpers `showGridBorders`
   (documented in `Customized_GUI_Instructions.md`), `randGellerman`, `FellowsSeq`,
   `RandomTrialSequence`. These have no *internal* caller, which is not the same as dead.
 - **`tmp/+psychophysics/FakeHistoryPsych.m` is not a hazard.** MATLAB merges same-named namespace
@@ -354,7 +354,7 @@ through the `matlab-mcp-server`; never `clear`, `close all`, or `restoredefaultp
 
 - **`epsych.RunExpt`'s 47 PascalCase method renames** — deferred per your call; collides with
   `plans/remove-config-subsystem.md`. Restated here so Stage 5 doesn't reintroduce it.
-- **`gui.Parameter_Control` / `Parameter_Update` / `Parameter_Monitor` renames.** I proposed these as
+- **`gui.components.Parameter_Control` / `Parameter_Update` / `Parameter_Monitor` renames.** I proposed these as
   "cheap" when asking; they are not. 124 code sites, 75 doc mentions, and they are live public API
   used directly in `examples/syringepump/`, `paradigms/BehaviorGUIs/`, and `runtime/guis/@ep_GenericGUI/`
   — every lab's custom BehaviorGUI would break with no shim. Worth doing as its own change with a

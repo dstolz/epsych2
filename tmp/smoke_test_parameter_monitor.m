@@ -1,6 +1,6 @@
 function smoke_test_parameter_monitor()
 % smoke_test_parameter_monitor()
-% Exercise the refactored gui.Parameter_Monitor: graphical display type
+% Exercise the refactored gui.components.Parameter_Monitor: graphical display type
 % (auto/forced widget styles, lamp state colors, gauge tracking, value-label
 % change highlight lifecycle), runtime add/remove with rebuild, layout
 % variants, table-mode render skipping when values are unchanged, unique
@@ -25,7 +25,7 @@ pPlt = hw.Parameter(sw, Name='Platform');                           pPlt.Value =
 
 % 1. Graphical: style resolution and initial render -----------------------
 f1 = uifigure('Visible','off','Tag','SmokePM_Graphical');
-M = gui.Parameter_Monitor(f1, [pIn pLat pLvl pPlt], pollPeriod=5, ...
+M = gui.components.Parameter_Monitor(f1, [pIn pLat pLvl pPlt], pollPeriod=5, ...
     type="graphical", Styles=struct(Level="gauge", Platform="lamp"));
 M.stop();
 
@@ -71,7 +71,7 @@ fprintf('PASS: runtime add/remove with rebuild\n');
 
 % 4. Layout variants ------------------------------------------------------
 f2 = uifigure('Visible','off','Tag','SmokePM_Layout');
-M2 = gui.Parameter_Monitor(f2, [pIn pLat pLvl pPlt], pollPeriod=5, ...
+M2 = gui.components.Parameter_Monitor(f2, [pIn pLat pLvl pPlt], pollPeriod=5, ...
     type="graphical", LayoutColumns=2, LabelPosition="above", FontSize=14);
 M2.stop();
 assert(numel(M2.handle.ColumnWidth) == 2, 'LayoutColumns=2 should yield 2 grid columns');
@@ -81,7 +81,7 @@ fprintf('PASS: layout variants (columns, label-above, font size)\n');
 
 % 5. Table mode skips re-render when values are unchanged -----------------
 f3 = uifigure('Visible','off','Tag','SmokePM_Table');
-M3 = gui.Parameter_Monitor(f3, [pIn pLat], pollPeriod=5, type="table", ...
+M3 = gui.components.Parameter_Monitor(f3, [pIn pLat], pollPeriod=5, type="table", ...
     PreferenceTag='smokePM_table');
 M3.stop();
 M3.handle.Data{1,2} = '__sentinel__';
@@ -109,7 +109,7 @@ fprintf('PASS: unique timers and self-cleanup on figure close\n');
 
 % 8. Legacy-figure text mode ----------------------------------------------
 f4 = figure('Visible','off');
-M4 = gui.Parameter_Monitor(f4, [pIn pLat], pollPeriod=5, type="text");
+M4 = gui.components.Parameter_Monitor(f4, [pIn pLat], pollPeriod=5, type="text");
 M4.stop();
 assert(~isempty(M4.handle.String), 'text display should render');
 assert(ismember("InTrial", M4.ParameterNames), 'text mode should poll parameter names');
@@ -131,7 +131,7 @@ pset = [mkp('Platform','Boolean'), mkp('Trough','Boolean'), ...
         mkp('StimDelay','Float'), mkp('RespWinDelay','Float'), ...
         mkp('RespLatency','Float'), mkp('RespCode','Integer')];
 
-M5 = gui.Parameter_Monitor(panelMonitor, pset, pollPeriod=0.1, ...
+M5 = gui.components.Parameter_Monitor(panelMonitor, pset, pollPeriod=0.1, ...
     type="graphical", FontSize=14, ...
     Styles=struct(Platform="lamp", Trough="lamp", InTrial="lamp", ...
         DelayPeriod="lamp", RespWindow="lamp"));
@@ -160,7 +160,7 @@ clear_pref(prefTag);
 restorePref = onCleanup(@() clear_pref(prefTag));
 
 f6 = uifigure('Visible','off','Tag','SmokePM_Layout2');
-M6 = gui.Parameter_Monitor(f6, [pIn pLat pLvl pPlt], pollPeriod=5, ...
+M6 = gui.components.Parameter_Monitor(f6, [pIn pLat pLvl pPlt], pollPeriod=5, ...
     type="graphical", PreferenceTag=prefTag);
 M6.stop();
 assert(numel(M6.VisibleParameters) == 4, 'all parameters visible by default');
@@ -215,7 +215,7 @@ M6.move_parameter("Platform", -1);   % InTrial, Platform, Level
 delete(f6);
 
 f7 = uifigure('Visible','off','Tag','SmokePM_Layout3');
-M7 = gui.Parameter_Monitor(f7, [pIn pLat pLvl pPlt], pollPeriod=5, ...
+M7 = gui.components.Parameter_Monitor(f7, [pIn pLat pLvl pPlt], pollPeriod=5, ...
     type="graphical", PreferenceTag=prefTag);
 M7.stop();
 names = arrayfun(@(w) string(w.Parameter.Name), M7.Widgets);
@@ -227,7 +227,7 @@ fprintf('PASS: visibility and order persist across sessions\n');
 
 % a parameter added later honours the remembered layout
 pHid = hw.Parameter(sw, Name='RespLatency', Unit='ms'); pHid.Value = 1;
-M8 = gui.Parameter_Monitor(f7, [pIn pLvl], pollPeriod=5, ...
+M8 = gui.components.Parameter_Monitor(f7, [pIn pLvl], pollPeriod=5, ...
     type="graphical", PreferenceTag=prefTag);
 M8.stop();
 M8.add_parameter(pHid);
@@ -247,7 +247,7 @@ clear_pref('smokePM_table2');
 restorePref2 = onCleanup(@() clear_pref('smokePM_table2'));
 
 f8 = uifigure('Visible','off','Tag','SmokePM_TableMenu');
-M9 = gui.Parameter_Monitor(f8, [pIn pLat pLvl], pollPeriod=5, type="table", ...
+M9 = gui.components.Parameter_Monitor(f8, [pIn pLat pLvl], pollPeriod=5, type="table", ...
     PreferenceTag='smokePM_table2');
 M9.stop();
 M9.SortByColumn = "Parameter";
@@ -287,7 +287,7 @@ restorePrefC = onCleanup(@() clear_pref(prefTagC));
 
 f9 = uifigure('Visible','off','Tag','SmokePM_Colors');
 pIn.Value = 1; % lamp starts "on" so OnColor is exercised at build time
-M10 = gui.Parameter_Monitor(f9, [pIn pLat pLvl pPlt], pollPeriod=5, ...
+M10 = gui.components.Parameter_Monitor(f9, [pIn pLat pLvl pPlt], pollPeriod=5, ...
     type="graphical", PreferenceTag=prefTagC, ...
     Styles=struct(Level="gauge", Platform="lamp"), ...
     Colors=struct('InTrial',struct('OnColor',[1 0 0]), 'RespLatency',struct('Color',[0 0 1])));
@@ -365,7 +365,7 @@ M10.set_parameter_color("Level", Color=[1 0 1]); % gauge: Colors is set but has 
 delete(f9);
 
 f10 = uifigure('Visible','off','Tag','SmokePM_Colors2');
-M11 = gui.Parameter_Monitor(f10, [pIn pLat pLvl pPlt], pollPeriod=5, ...
+M11 = gui.components.Parameter_Monitor(f10, [pIn pLat pLvl pPlt], pollPeriod=5, ...
     type="graphical", PreferenceTag=prefTagC, Styles=struct(Level="gauge", Platform="lamp"));
 M11.stop();
 assert(isequal(M11.Widgets(4).ValueHandle.Color,[0 1 0]), ...
@@ -374,7 +374,7 @@ assert(isfield(M11.Colors,'Level'), 'an override for a non-color-capable style s
 delete(f10);
 fprintf('PASS: per-parameter colors persist across sessions\n');
 
-fprintf('\nAll gui.Parameter_Monitor smoke tests passed.\n');
+fprintf('\nAll gui.components.Parameter_Monitor smoke tests passed.\n');
 
 end
 

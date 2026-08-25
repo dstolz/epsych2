@@ -1,6 +1,6 @@
 function smoke_test_onlineplot_dialogs()
 % smoke_test_onlineplot_dialogs()
-% Drive gui.OnlinePlot's two modal operator dialogs and the
+% Drive gui.components.OnlinePlot's two modal operator dialogs and the
 % gui.BehaviorGUI.addOnlinePlot helper.
 %
 % Kept apart from smoke_test_onlineplot_config so it can be run through
@@ -34,7 +34,7 @@ cleanup_all(TAG);
 [rt,~,P] = makeRuntime(4);
 f = figure('Visible','off','Name','SmokeOnlinePlotDlg','Tag',TAG);
 ax = axes(f);
-op = gui.OnlinePlot(rt,P,ax,1,PreferenceTag=TAG);
+op = gui.components.OnlinePlot(rt,P,ax,1,PreferenceTag=TAG);
 stop(op.h_timer);
 if op.startTic_ == 0
     op.h_timer.Timer.StartFcn(op.h_timer.Timer,[]);
@@ -76,7 +76,7 @@ delete(op); close(f);
 %% 4. gui.BehaviorGUI.addOnlinePlot --------------------------------------
 g = OnlinePlotBehaviorGUI(rt);
 assert(~isempty(g.Plot) && isvalid(g.Plot), 'addOnlinePlot should have built a plot');
-assert(isa(g.Plot,'gui.OnlinePlot'), 'and it should be a gui.OnlinePlot');
+assert(isa(g.Plot,'gui.components.OnlinePlot'), 'and it should be a gui.components.OnlinePlot');
 assert(isequal(g.Plot.traceNames,{'Trace01','Trace02'}), ...
     'the helper should honour Source, got %s', strjoin(g.Plot.traceNames,','));
 assert(isequal(seconds(g.Plot.timeWindow),[-20 5]), ...

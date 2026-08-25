@@ -34,7 +34,7 @@ classdef (Abstract) PopOut < handle
     %   which pins that window above everything else (WindowStyle
     %   'alwaysontop') so a plot stays readable while the operator works in
     %   another application. The item appears ONLY in a window holding a
-    %   single component -- a pop-out, or one gui.ComponentToolbar opened --
+    %   single component -- a pop-out, or one gui.components.ComponentToolbar opened --
     %   never on the embedded copy, whose window belongs to the behavior GUI.
     %   The choice is remembered per window alongside its position, so a
     %   pinned pop-out reopens pinned.
@@ -66,8 +66,8 @@ classdef (Abstract) PopOut < handle
     %     PopOutLabel               - window title; defaults to the class name
     %
     % Documentation: documentation/gui/gui_PopOut.md
-    % See also gui.BehaviorGUI, gui.ParameterScatter, gui.BufferPlot, gui.History,
-    % gui.SessionPerformance, gui.NextTrial, gui.Parameter_Monitor
+    % See also gui.BehaviorGUI, gui.components.ParameterScatter, gui.components.BufferPlot, gui.components.History,
+    % gui.components.SessionPerformance, gui.components.NextTrial, gui.components.Parameter_Monitor
 
     properties (SetAccess = private, Transient)
         PopOutComponent = []    % Sibling instance while its window is open, else []
@@ -213,7 +213,7 @@ classdef (Abstract) PopOut < handle
             % m = addAlwaysOnTopMenu_(obj, cm, Text=..., Separator=...)
             % Append the "Keep Window on Top" toggle to a uicontextmenu, but
             % ONLY when this component sits in a window of its own -- a
-            % pop-out, or a window gui.ComponentToolbar opened for it. In an
+            % pop-out, or a window gui.components.ComponentToolbar opened for it. In an
             % embedded component the item is omitted rather than disabled:
             % pinning the behavior GUI itself is not what the operator asked
             % for, and there is no per-component window to pin. Returns [].
@@ -352,7 +352,7 @@ classdef (Abstract) PopOut < handle
         function p = makeContentPanel(fig)
             % p = gui.PopOut.makeContentPanel(fig)
             % Borderless panel filling fig, for a window built to hold ONE
-            % component. gui.ComponentToolbar builds the windows it owns the
+            % component. gui.components.ComponentToolbar builds the windows it owns the
             % same way.
             %
             % A panel rather than a bare uigridlayout, because a component
@@ -375,7 +375,7 @@ classdef (Abstract) PopOut < handle
             % component's context menu offers "Keep Window on Top", and
             % restore the pinned state the operator last left it in. Call it
             % after the figure is made and BEFORE the component is built into
-            % it. gui.ComponentToolbar calls this for the windows it owns.
+            % it. gui.components.ComponentToolbar calls this for the windows it owns.
             if isempty(fig) || ~isvalid(fig), return; end
             try
                 setappdata(fig, gui.PopOut.STANDALONE_APPDATA, char(prefTag));

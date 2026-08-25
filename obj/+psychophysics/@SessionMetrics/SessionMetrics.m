@@ -44,7 +44,7 @@ classdef SessionMetrics < psychophysics.Psych
     %   disp(S.Results.Rate.Hit)
     %   disp(S.summary())
     %
-    % See also: psychophysics.TrialWindow, gui.SessionPerformance,
+    % See also: psychophysics.TrialWindow, gui.components.SessionPerformance,
     % psychophysics.Detection, documentation/psychophysics/psychophysics_SessionMetrics.md
 
     properties (SetObservable)
@@ -388,7 +388,7 @@ classdef SessionMetrics < psychophysics.Psych
             % Returns:
             %   C - Struct array with fields Name, Label, Group, Kind, Format.
             %       Kind names the outcome family a metric belongs to, which
-            %       gui.SessionPerformance maps to a display color.
+            %       gui.components.SessionPerformance maps to a display color.
             defs = {
             % Name              Label                    Group          Kind           Format
               "Trials",         "Trials",                "Counts",      "count",       "%d"

@@ -43,7 +43,7 @@ classdef TrialDesigner < handle
     % method, so it cannot write a protected property.
     properties (Hidden)
         TabGroup matlab.ui.container.TabGroup
-        StatusBar gui.StatusBar
+        StatusBar gui.components.StatusBar
 
         % One handle struct per tab. Keeping them separate means a tab can be
         % rebuilt wholesale without disturbing the others.
@@ -472,7 +472,7 @@ classdef TrialDesigner < handle
             % Mouse interaction on the state diagram.
             %
             % Presses arrive through ButtonDownFcn on the axes and on each
-            % node. gui.StatusBar owns fig.WindowButtonDownFcn for its
+            % node. gui.components.StatusBar owns fig.WindowButtonDownFcn for its
             % double-click-to-copy behavior, so assigning that here would
             % silently destroy it; only the motion and up callbacks are
             % borrowed, and only for the duration of a drag.

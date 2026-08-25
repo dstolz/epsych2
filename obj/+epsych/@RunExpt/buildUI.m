@@ -424,7 +424,7 @@ gLamp.RowHeight = {'1x'};
 gLamp.ColumnWidth = {'1x'};
 gLamp.Padding = [0 0 0 0];
 
-self.H.modeIndicator = gui.ModeIndicator(gLamp);
+self.H.modeIndicator = gui.components.ModeIndicator(gLamp);
 
 % ---------- Status bar (spans the full width, below the controls) ----------
 gStatus = uigridlayout(g,[1 2]);
@@ -433,11 +433,11 @@ gStatus.RowHeight = {'1x'};
 gStatus.ColumnWidth = {'1x','fit'};
 gStatus.RowSpacing = 0; gStatus.ColumnSpacing = 8; gStatus.Padding = [0 0 0 0];
 
-% gui.StatusBar must be given an explicit Position: with it empty the
+% gui.components.StatusBar must be given an explicit Position: with it empty the
 % constructor reads parent.Position(3), and a uigridlayout has no Position.
 % The value is ignored once Layout.Row is set. The first real message comes
 % from UpdateGUIstate, which the constructor calls immediately.
-self.H.statusBar = gui.StatusBar(gStatus, ...
+self.H.statusBar = gui.components.StatusBar(gStatus, ...
     Position = [1 1 400 22], ...
     InitialText = 'Starting up...');
 self.H.statusBar.Label.Layout.Row = 1;

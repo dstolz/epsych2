@@ -1,4 +1,4 @@
-# gui.OnlinePlot
+# gui.components.OnlinePlot
 
 Real-time multi-trace plotting of hardware activity for one experimental box.
 Each trace is a parameter (or one bit of a bitmask bank) sampled on a timer and
@@ -10,7 +10,7 @@ stimulus gates, reward valves and trial flags fire against each other.
 obj.Plot = obj.addOnlinePlot(panel, Source={'Lick','StimOn','Reward'});
 
 % Or directly
-op = gui.OnlinePlot(RUNTIME, {'Lick','StimOn','Reward'}, ax, BoxID);
+op = gui.components.OnlinePlot(RUNTIME, {'Lick','StimOn','Reward'}, ax, BoxID);
 ```
 
 ## What it does
@@ -127,8 +127,8 @@ plot:
 
 ## Pop-out
 
-`gui.OnlinePlot` is a `gui.PopOut` adopter, so it appears on a
-`gui.ComponentToolbar` and takes part in `gui.BehaviorGUI`'s `RestorePopOuts`.
+`gui.components.OnlinePlot` is a `gui.PopOut` adopter, so it appears on a
+`gui.components.ComponentToolbar` and takes part in `gui.BehaviorGUI`'s `RestorePopOuts`.
 The pop-out is a **fully independent instance**: its own timer, read plan,
 buffers and preference key, and therefore its own trace selection, order and
 styling. That is the point — the usual reason to pop one out is to watch a
@@ -183,5 +183,5 @@ and restores its own arrangement thereafter.
 
 - [gui.PopOut](gui_PopOut.md)
 - [gui.BehaviorGUI](gui_BehaviorGUI.md) — `addOnlinePlot`
-- [gui.ComponentToolbar](gui_ComponentToolbar.md)
-- [gui.ParameterScatter](gui_ParameterScatter.md)
+- [gui.components.ComponentToolbar](gui_ComponentToolbar.md)
+- [gui.components.ParameterScatter](gui_ParameterScatter.md)

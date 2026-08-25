@@ -14,7 +14,7 @@ function [value,success] = eval_dependent_parameter_randomization(src,event,chan
 %   success - True when the randomized parameter bounds were updated.
 
 arguments
-    src (1,1) gui.Parameter_Control
+    src (1,1) gui.components.Parameter_Control
     event (1,1) struct
     changedParam (1,1) hw.Parameter
     pMin (1,1) hw.Parameter

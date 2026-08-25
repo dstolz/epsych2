@@ -324,7 +324,7 @@ end
 
 function [o, ok] = pumpDialog(obj, r)
 o = r.Options;
-sections = cellstr(gui.SyringePump.SECTIONS);
+sections = cellstr(gui.components.SyringePump.SECTIONS);
 
 [dlg, g] = modalShell(obj, sprintf('Syringe Pump - %s', orLabel(r)), 420, 420, [3 1]);
 g.RowHeight = {40, '1x', 22};
@@ -370,7 +370,7 @@ end
 function [o, ok] = bufferPlotDialog(obj, r, snap)
 % Buffer parameters from the snapshot, plus the sample rate and the two
 % display choices worth fixing at design time. Leaving the list EMPTY is a
-% real answer -- gui.BufferPlot then plots the session's own buffers -- so
+% real answer -- gui.components.BufferPlot then plots the session's own buffers -- so
 % unlike the online plot there is nothing here to insist on.
 o = r.Options;
 buffers = {};
@@ -437,7 +437,7 @@ function [o, ok] = onlinePlotDialog(obj, r, snap)
 % Read parameters from the snapshot, plus a free-text line for anything the
 % snapshot cannot show. Bitmask BANKS are the reason that line exists: their
 % '~BMid-<bank>' parameters are invisible, so they never reach a snapshot,
-% and a bank name is exactly what gui.OnlinePlot most usefully plots.
+% and a bank name is exactly what gui.components.OnlinePlot most usefully plots.
 o = r.Options;
 readable = {};
 if ~isempty(snap)

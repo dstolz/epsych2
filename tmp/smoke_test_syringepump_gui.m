@@ -1,5 +1,5 @@
 % smoke_test_syringepump_gui.m
-% Offline smoke tests for gui.SyringePump — no pump required.
+% Offline smoke tests for gui.components.SyringePump — no pump required.
 %
 % Drives the panel against tmp/NE1000_Mock, so every write the GUI makes
 % travels the real hw.NE1000 protocol path and is asserted on the simulated
@@ -15,11 +15,11 @@
 % Bootstrap: `matlab -batch` starts with whatever path the user profile leaves
 % behind, and this file lives in tmp/, which is only on the path once
 % epsych_startup has run.
-if exist('gui.SyringePump', 'class') ~= 8
+if exist('gui.components.SyringePump', 'class') ~= 8
     run(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'epsych_startup.m'));
 end
 
-fprintf('\n=== gui.SyringePump Smoke Test ===\n\n');
+fprintf('\n=== gui.components.SyringePump Smoke Test ===\n\n');
 results = {};
 
 PREF = 'smoke_test_syringepump';
@@ -33,7 +33,7 @@ try
     fig = uifigure(Visible = 'off', Name = 'Pump Smoke', Tag = PREF);
     figs(end+1) = fig;
 
-    panel = gui.SyringePump(mock, fig, PreferenceTag = PREF);
+    panel = gui.components.SyringePump(mock, fig, PreferenceTag = PREF);
 
     results(end+1,:) = check('Panel reports the link is up',  panel.IsConnected);
     results(end+1,:) = check('Panel adopted the interface',   panel.Interface == mock);
@@ -126,7 +126,7 @@ try
     fig2 = uifigure(Visible = 'off', Name = 'Pump Read', Tag = [PREF '_read']);
     figs(end+1) = fig2;
 
-    reader = gui.SyringePump(mock, fig2, ApplyOnStart = false, ...
+    reader = gui.components.SyringePump(mock, fig2, ApplyOnStart = false, ...
         PreferenceTag = [PREF '_read']);
     results(end+1,:) = check('ApplyOnStart=false reads the rate',      abs(reader.Rate - 4) < 1e-9);
     results(end+1,:) = check('ApplyOnStart=false reads the direction', strcmp(reader.Direction, 'Withdraw'));
@@ -152,7 +152,7 @@ try
     % The mode is programmatic only: it is nobody's section and nothing in
     % the panel can change it.
     results(end+1,:) = check('No section offers the trigger mode', ...
-        ~any(contains(lower(gui.SyringePump.SECTIONS), "mode")));
+        ~any(contains(lower(gui.components.SyringePump.SECTIONS), "mode")));
 
     panel.TTLTrigger = false;
     results(end+1,:) = check('Disabling takes it back (TRG OF)', strcmp(mock.SimTrigger, 'OF'));
@@ -170,14 +170,14 @@ try
     mock.TriggerMode = 'RL';
     figTTL = uifigure(Visible = 'off', Name = 'Pump TTL', Tag = [PREF '_ttl']);
     figs(end+1) = figTTL;
-    moded = gui.SyringePump(mock, figTTL, ApplyOnStart = false, ...
+    moded = gui.components.SyringePump(mock, figTTL, ApplyOnStart = false, ...
         TriggerMode = 'FH', PreferenceTag = [PREF '_ttl']);
     results(end+1,:) = check('The TriggerMode option reaches the interface', ...
         strcmp(moded.TriggerMode, 'FH') && strcmp(mock.TriggerMode, 'FH'));
     delete(moded)
 
     mock.TriggerMode = 'SL';
-    plain = gui.SyringePump(mock, figTTL, ApplyOnStart = false, ...
+    plain = gui.components.SyringePump(mock, figTTL, ApplyOnStart = false, ...
         PreferenceTag = [PREF '_ttl2']);
     results(end+1,:) = check('Without it, the interface keeps its mode', ...
         strcmp(plain.TriggerMode, 'SL') && strcmp(mock.TriggerMode, 'SL'));
@@ -250,7 +250,7 @@ try
     clickMenu(unitsItem(cmU, 'Rate', 'uL/min'));
     figU = uifigure(Visible = 'off', Name = 'Pump Units', Tag = PREF);
     figs(end+1) = figU;
-    remembered = gui.SyringePump(mock, figU, ApplyOnStart = false, PreferenceTag = PREF);
+    remembered = gui.components.SyringePump(mock, figU, ApplyOnStart = false, PreferenceTag = PREF);
     results(end+1,:) = check('A new panel restores the operator units', ...
         strcmp(remembered.RateUnits, 'UM') && strcmp(remembered.VolumeUnits, 'auto'));
     results(end+1,:) = check('The remembered rate comes back in them', ...
@@ -264,7 +264,7 @@ try
     % thing being outranked.)
     figU2 = uifigure(Visible = 'off', Name = 'Pump Units 2', Tag = PREF);
     figs(end+1) = figU2;
-    stated = gui.SyringePump(mock, figU2, RateUnits = 'MM', PreferenceTag = PREF);
+    stated = gui.components.SyringePump(mock, figU2, RateUnits = 'MM', PreferenceTag = PREF);
     results(end+1,:) = check('An explicit RateUnits beats the remembered one', ...
         strcmp(stated.RateUnits, 'MM') && abs(stated.Rate - 0.5) < 1e-9 ...
         && abs(mock.SimRate - 0.5) < 1e-9 && strcmp(mock.SimRateUnits, 'MM'));
@@ -308,7 +308,7 @@ try
     fig3 = uifigure(Visible = 'off', Name = 'Pump Runtime', Tag = [PREF '_rt']);
     figs(end+1) = fig3;
 
-    fromRuntime = gui.SyringePump(R, fig3, ApplyOnStart = false, ...
+    fromRuntime = gui.components.SyringePump(R, fig3, ApplyOnStart = false, ...
         PreferenceTag = [PREF '_rt']);
     results(end+1,:) = check('Runtime source resolves the NE1000', fromRuntime.Interface == mock);
     delete(fig3)
@@ -324,7 +324,7 @@ try
     fig4 = uifigure(Visible = 'off', Name = 'Pump Standalone', Tag = [PREF '_solo']);
     figs(end+1) = fig4;
 
-    solo = gui.SyringePump([], fig4, PreferenceTag = [PREF '_solo']);
+    solo = gui.components.SyringePump([], fig4, PreferenceTag = [PREF '_solo']);
     results(end+1,:) = check('Standalone panel opens',        isvalid(solo));
     results(end+1,:) = check('Standalone made an interface',  isa(solo.Interface, 'hw.NE1000'));
     results(end+1,:) = check('Standalone is disconnected',    ~solo.IsConnected);
@@ -352,7 +352,7 @@ end
 %% 9. Section visibility
 try
     results(end+1,:) = check('Everything is shown by default', ...
-        isequal(sort(panel.Sections), sort(gui.SyringePump.SECTIONS)));
+        isequal(sort(panel.Sections), sort(gui.components.SyringePump.SECTIONS)));
 
     panel.hide(["Diameter", "Connection"]);   % Connection = Port + Detect
     results(end+1,:) = check('hide removes the named sections', ...
@@ -442,7 +442,7 @@ try
 
     fig5 = uifigure(Visible = 'off', Name = 'Pump Again', Tag = PREF);
     figs(end+1) = fig5;
-    again = gui.SyringePump(mock, fig5, ApplyOnStart = false, PreferenceTag = PREF);
+    again = gui.components.SyringePump(mock, fig5, ApplyOnStart = false, PreferenceTag = PREF);
     results(end+1,:) = check('A new panel restores the operator layout', ...
         ~again.isSectionVisible("Detect"));
     results(end+1,:) = check('A new panel restores an operator value', ...
@@ -454,7 +454,7 @@ try
     % instead would make the pump, not the memory, the thing being outranked.)
     fig6 = uifigure(Visible = 'off', Name = 'Pump Stated', Tag = PREF);
     figs(end+1) = fig6;
-    stated = gui.SyringePump(mock, fig6, Direction = 'Infuse', PreferenceTag = PREF);
+    stated = gui.components.SyringePump(mock, fig6, Direction = 'Infuse', PreferenceTag = PREF);
     results(end+1,:) = check('An explicit option beats the remembered value', ...
         strcmp(stated.Direction, 'Infuse') && strcmp(mock.SimDir, 'INF'));
     delete(stated)
@@ -464,7 +464,7 @@ try
     panel.Sections = ["Volume", "Status"];
     fig7 = uifigure(Visible = 'off', Name = 'Pump Prog', Tag = PREF);
     figs(end+1) = fig7;
-    prog = gui.SyringePump(mock, fig7, ApplyOnStart = false, PreferenceTag = PREF);
+    prog = gui.components.SyringePump(mock, fig7, ApplyOnStart = false, PreferenceTag = PREF);
     results(end+1,:) = check('A programmatic layout is not remembered', ...
         prog.isSectionVisible("Rate"));
     delete(prog)
@@ -477,7 +477,7 @@ try
     results(end+1,:) = check('Reset to Default forgets the saved layout', ...
         ~isfield(saved, 'Sections'));
     results(end+1,:) = check('Reset to Default restores everything', ...
-        isequal(sort(panel.Sections), sort(gui.SyringePump.SECTIONS)));
+        isequal(sort(panel.Sections), sort(gui.components.SyringePump.SECTIONS)));
 catch ME
     results(end+1,:) = check(['Remembered configuration: ' ME.message], false);
 end

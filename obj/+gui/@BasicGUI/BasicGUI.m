@@ -4,9 +4,9 @@ classdef BasicGUI < handle
 % Automatically builds a tabbed interface from an epsych.Protocol:
 %   - One tab per hw.Interface with visible writable parameters
 %   - One labeled panel per hw.Module within each tab
-%   - gui.Parameter_Control (type='auto') for each visible writable parameter
-%   - gui.Parameter_Monitor (table, right panel) for strictly Read-access parameters
-%   - gui.Parameter_Update button below the tabs when RUNTIME is supplied
+%   - gui.components.Parameter_Control (type='auto') for each visible writable parameter
+%   - gui.components.Parameter_Monitor (table, right panel) for strictly Read-access parameters
+%   - gui.components.Parameter_Update button below the tabs when RUNTIME is supplied
 %
 % Intended as a functional starting point for custom experiment GUIs. Subclasses
 % can access every generated control via the Controls struct and modify behavior
@@ -29,9 +29,9 @@ classdef BasicGUI < handle
 %   Figure        - uifigure or supplied parent container.
 %   Protocol      - The epsych.Protocol.
 %   RUNTIME       - Runtime object (may be empty).
-%   Controls      - Struct of gui.Parameter_Control handles keyed by Parameter.validName.
-%   Monitor       - gui.Parameter_Monitor handle.
-%   UpdateButton  - gui.Parameter_Update handle (empty when no RUNTIME supplied).
+%   Controls      - Struct of gui.components.Parameter_Control handles keyed by Parameter.validName.
+%   Monitor       - gui.components.Parameter_Monitor handle.
+%   UpdateButton  - gui.components.Parameter_Update handle (empty when no RUNTIME supplied).
 %   colWidth      - Column width in pixels.
 %   monitorWidth  - Monitor panel width in pixels.
 %
@@ -42,7 +42,7 @@ classdef BasicGUI < handle
 %   % Access the generated control for a parameter named 'Frequency':
 %   g.Controls.Frequency
 %
-% See also gui.Parameter_Control, gui.Parameter_Update, gui.Parameter_Monitor,
+% See also gui.components.Parameter_Control, gui.components.Parameter_Update, gui.components.Parameter_Monitor,
 %   epsych.Protocol
 
     properties (SetAccess = protected)
@@ -51,8 +51,8 @@ classdef BasicGUI < handle
         RUNTIME
 
         Controls    (1,1) struct = struct()  % keyed by Parameter.validName
-        Monitor                              % gui.Parameter_Monitor
-        UpdateButton                         % gui.Parameter_Update (empty when no RUNTIME)
+        Monitor                              % gui.components.Parameter_Monitor
+        UpdateButton                         % gui.components.Parameter_Update (empty when no RUNTIME)
 
         colWidth     (1,1) double = 200      % px per parameter column
         monitorWidth (1,1) double = 250      % px for right monitor panel
@@ -233,7 +233,7 @@ classdef BasicGUI < handle
 
             for k = 1:numel(params)
                 pr = params(k);
-                pc = gui.Parameter_Control(g, pr, Type='auto', autoCommit=pr.isTrigger);
+                pc = gui.components.Parameter_Control(g, pr, Type='auto', autoCommit=pr.isTrigger);
                 obj.Controls.(pr.validName) = pc;
             end
         end
@@ -256,7 +256,7 @@ classdef BasicGUI < handle
                 readParams = hw.Parameter.empty(1,0);
             end
 
-            obj.Monitor = gui.Parameter_Monitor(rightPanel, readParams, ...
+            obj.Monitor = gui.components.Parameter_Monitor(rightPanel, readParams, ...
                 pollPeriod=obj.pollPeriod_, type="table");
         end
 
@@ -273,7 +273,7 @@ classdef BasicGUI < handle
 
             if isempty(obj.RUNTIME), return; end
 
-            obj.UpdateButton = gui.Parameter_Update(obj.RUNTIME, btnContainer);
+            obj.UpdateButton = gui.components.Parameter_Update(obj.RUNTIME, btnContainer);
 
             % Wire all non-trigger controls as watched handles
             names = fieldnames(obj.Controls);

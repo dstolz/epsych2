@@ -100,7 +100,7 @@ or a hardware-free smoke test can drive the engine explicitly.
 | Within-trial timing | **Zero.** The contingency runs on the device at its 100 µs tick. Host latency never enters a response-to-reward path that lives inside the state matrix. |
 
 What you get in exchange is a session that never freezes: the Stop button
-responds mid-trial, `gui.OnlinePlot` and every other listener redraw while the
+responds mid-trial, `gui.components.OnlinePlot` and every other listener redraw while the
 matrix runs, other interfaces (Intan, TDT, a video recorder) keep being polled,
 and an error in one component does not strand a subject inside a blocked
 `while` loop with a valve open.
@@ -300,7 +300,7 @@ Access on the triggers is `'Any'`, never `'Write'` — the resolver filters with
 simply never found and the session dies with `epsych:RunExpt:MissingTrigger`.
 
 **Shipped-GUI literals** — `Visible=false`, `Access='Read'`: `_TrigState~<N>`
-and `_TrialNum~<N>`, which `gui.OnlinePlot` resolves with
+and `_TrialNum~<N>`, which `gui.components.OnlinePlot` resolves with
 `includeInvisible=true, silenceParameterNotFound=true`. The `~<BoxID>` suffix is
 not a typo and does not follow the `x_*_<BoxID>` form; OnlinePlot looks them up
 exactly as written.

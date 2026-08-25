@@ -76,21 +76,21 @@ S.Results.APrime
 S.metric("APrime")  % value, "0.873", supporting counts
 
 % Plots
-plt = gui.PsychPlot(P, ax);  plt.PlotType = 'APrime';   % vs stimulus value
-swp = gui.SlidingWindowPerformancePlot(P, ax);
+plt = gui.components.PsychPlot(P, ax);  plt.PlotType = 'APrime';   % vs stimulus value
+swp = gui.components.SlidingWindowPerformancePlot(P, ax);
 swp.plotType = "aPrime";                                 % vs trial number
 ```
 
-In a GUI, `gui.SessionPerformance` lists **A'** in its right-click *Show
+In a GUI, `gui.components.SessionPerformance` lists **A'** in its right-click *Show
 Metric* menu — it is generated from the `SessionMetrics` catalogue, so nothing
-had to be registered for it to appear — and `gui.PsychPlot`'s right-click
+had to be registered for it to appear — and `gui.components.PsychPlot`'s right-click
 *ordinate* picker offers `APrime` beside `DPrime`. Neither is shown by default;
 `defaultMetrics` and the default plot type are unchanged, so an existing rig
 looks the same until someone asks for A'.
 
 Both plots move their reference line to chance when A' is selected:
-`gui.SlidingWindowPerformancePlot` draws a dashed line at 0.5 instead of the
-d' = 1 line, and `gui.PsychPlot`'s horizontal reference line drops from 1 to
+`gui.components.SlidingWindowPerformancePlot` draws a dashed line at 0.5 instead of the
+d' = 1 line, and `gui.components.PsychPlot`'s horizontal reference line drops from 1 to
 0.5 — on an A' axis, 1 is the ceiling rather than a landmark.
 
 ## Reference
@@ -110,7 +110,7 @@ conservative), and is to `Criterion` (c) what A' is to d': distribution-free,
 and defined at rates of exactly 0 and 1, so it needs no correction. It is
 available as `psychophysics.Metrics.bprimeprime` and as the `BPrimePrime`
 metric on `psychophysics.SessionMetrics` — in the catalogue, so
-`gui.SessionPerformance` offers it, but not in the default display.
+`gui.components.SessionPerformance` offers it, but not in the default display.
 
 Unlike A', B'' is *unchanged* when the two rates are swapped. The `sign` factor
 exists precisely for that: a subject who says "yes" rarely reads as
@@ -120,5 +120,5 @@ conservative whichever distribution the rates came from.
 
 - [psychophysics.Metrics](psychophysics_Metrics.md) — `aprime` and `bprimeprime`, and the rest of the arithmetic
 - [psychophysics.SessionMetrics](psychophysics_SessionMetrics.md) — the `APrime` and `BPrimePrime` session metrics
-- [gui.SessionPerformance](../gui/gui_SessionPerformance.md) — the panel that displays them
+- [gui.components.SessionPerformance](../gui/gui_SessionPerformance.md) — the panel that displays them
 - `psychophysics.Detection` (`obj/+psychophysics/@Detection/`) — `d_prime`, `a_prime`, `bias` (forwarders to `Metrics`)

@@ -68,7 +68,7 @@ end
 eplog.Logger.instance().flush();
 
 % Deleting the status bar hands the figure's WindowButtonDownFcn back, which
-% gui.StatusBar took over for its copy-to-clipboard gesture. It has to happen
+% gui.components.StatusBar took over for its copy-to-clipboard gesture. It has to happen
 % while the figure is still alive for that handover to mean anything.
 if isfield(self.H,'statusBar') && ~isempty(self.H.statusBar) && isvalid(self.H.statusBar)
     try

@@ -37,7 +37,7 @@ classdef KeyBindings < handle
     % another window has focus is not reported -- the held set corrects
     % itself at the next keystroke.
     %
-    % See also gui.BehaviorGUI, gui.Parameter_Update, gui.RegenerateTrial
+    % See also gui.BehaviorGUI, gui.components.Parameter_Update, gui.components.RegenerateTrial
     % Documentation: documentation/gui/gui_KeyBindings.md
 
     properties (SetAccess = private)
@@ -261,7 +261,7 @@ classdef KeyBindings < handle
                 % A modifier is state, never a chord of its own -- but a
                 % chained foreign handler still needs to see it going DOWN:
                 % a legacy handler that tracks held modifiers itself (the
-                % pre-KeyBindings gui.Parameter_Update pattern) arms its
+                % pre-KeyBindings gui.components.Parameter_Update pattern) arms its
                 % Ctrl-hold gestures from exactly these presses, and a
                 % release only ever reports a smaller held set.
                 obj.callLegacy_(obj.LegacyKeyPress_, evt);
@@ -528,15 +528,15 @@ classdef KeyBindings < handle
         end
 
         function name = spacedClassName_(cls)
-            % gui.RegenerateTrial -> 'Regenerate Trial', matching how
-            % gui.ComponentToolbar labels a component with no given name.
+            % gui.components.RegenerateTrial -> 'Regenerate Trial', matching how
+            % gui.components.ComponentToolbar labels a component with no given name.
             %
             % The capture-group form is load bearing. The obvious
             % zero-width version, regexprep(name,'(?<=[a-z0-9])(?=[A-Z])',
             % ' '), matches but inserts NOTHING in MATLAB, so every group
             % heading came out as the unsplit class name (SCREENCAPTURE).
             % Consuming the two characters and putting them back with
-            % '$1 $2' is what gui.ComponentToolbar.labelForClass already
+            % '$1 $2' is what gui.components.ComponentToolbar.labelForClass already
             % does; an all-caps name like NAFC is left alone by both.
             parts = strsplit(cls, '.');
             name = parts{end};

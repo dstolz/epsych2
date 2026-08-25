@@ -323,7 +323,7 @@ classdef ComponentSpec
         end
 
         function spec = pickVariant_(s, variant, cls)
-            % One class may declare several variants (gui.Parameter_Control
+            % One class may declare several variants (gui.components.Parameter_Control
             % is both the Control and the Button). Element 1 is the primary.
             s = gui.ComponentSpec.normalizeArrayLike_(s);
             if isempty(s)
@@ -409,7 +409,7 @@ classdef ComponentSpec
                         seenSource = true;
                     case {'source','src'}
                         % Only a LEADING source names the data object; a
-                        % later one is the component's own (gui.OnlinePlot's
+                        % later one is the component's own (gui.components.OnlinePlot's
                         % source is a trace list, not a runtime).
                         if seenSource
                             tok(end+1) = "arg:" + string(n); %#ok<AGROW>

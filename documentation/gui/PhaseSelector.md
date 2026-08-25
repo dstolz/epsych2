@@ -1,8 +1,8 @@
-# gui.PhaseSelector
+# gui.components.PhaseSelector
 
-![gui.PhaseSelector component: a phase dropdown above a row of Load, Save, and Dir... buttons, with the description label below; a phase is selected but not yet loaded, so Load is amber and reads "Load *"](images/PhaseSelector.png)
+![gui.components.PhaseSelector component: a phase dropdown above a row of Load, Save, and Dir... buttons, with the description label below; a phase is selected but not yet loaded, so Load is amber and reads "Load *"](images/PhaseSelector.png)
 
-`gui.PhaseSelector` is a GUI component for switching between named **experiment phases** — saved parameter sets stored as protocol files. It lets an operator move a subject between training stages (for example, shaping → detection → psychometric testing) without editing the protocol or restarting the session.
+`gui.components.PhaseSelector` is a GUI component for switching between named **experiment phases** — saved parameter sets stored as protocol files. It lets an operator move a subject between training stages (for example, shaping → detection → psychometric testing) without editing the protocol or restarting the session.
 
 The first half of this page explains the workflow for operators; the integration section at the end is for developers embedding the component in a task GUI.
 
@@ -42,7 +42,7 @@ Loads are logged on the runtime (`RUNTIME.Phase`) with a timestamp and source pa
 ## Integration (developers)
 
 ```matlab
-ps = gui.PhaseSelector(RUNTIME, phaseDir);  % phaseDir contains *.eprot phase files (legacy *.json also found)
+ps = gui.components.PhaseSelector(RUNTIME, phaseDir);  % phaseDir contains *.eprot phase files (legacy *.json also found)
 h  = ps.createGUI(parentContainer);          % description label + dropdown + Load/Save/Dir... buttons
 ```
 
@@ -57,7 +57,7 @@ Key behavior:
 - `loadPhaseParameters` delegates to `RUNTIME.readParameters`, which parses the file (`epsych.Runtime.phaseParameterData`), resolves each named parameter against the live interfaces, assigns its value, and schedules a safe-boundary protocol recompile (`TRIALS.RECOMPILE_REQUESTED`, applied by `ep_TimerFcn_RunTime`); `RUNTIME.updateTrialsFromParameters` then pushes writable values into the trial table for trials dispatched before that boundary.
 - Parameters satisfying `hw.Parameter.isTransientControl` — triggers, and writable Booleans with `UpdateEveryTrial == false`, `SetOnce == false`, and `PersistWithPhase == false` (the operator's toggles and momentary buttons) — have their metadata and design-time `Values` restored but keep their live value. `resolvePhaseAgainstRuntime` skips them so `computePhaseChanges` never previews a change that will not happen, and `loadPhaseParameters` drops them from the set handed to `updateTrialsFromParameters`. `PersistWithPhase` is read from the **live** parameter rather than the file (it is code-owned; see `documentation/hw/hw_Parameter.md`), which is why that test runs after the file entry has been resolved to its `hw.Parameter` rather than before.
 - A preview-plus-**Load** reads the phase file **once**. `loadPhaseParameters` parses it up front and hands the entries to `resolvePhaseAgainstRuntime` for the pre-load snapshot; `readParameters` then gets the same parse back from `epsych.Runtime.phaseCache`, as did the dropdown preview seconds earlier. (Each of those three used to parse the file for itself, which on a real protocol cost seconds inside a running session.) The snapshot itself is deliberately *not* carried over from the preview: live values can change while the operator decides, and a stale snapshot would credit the phase with someone else's edit. Browsing the dropdown is likewise free after the first look at each phase.
-- `writePhaseParameters` delegates to `RUNTIME.writeParametersProtocol`, which serializes the session's `epsych.Protocol` (`RUNTIME.Protocol`) and then reconciles the snapshot with the session's effective values: deferred trial-table commits (`gui.Parameter_Update` without the immediate modifier) that have not yet dispatched are captured, and each single-level parameter's design-time `Values` list is refreshed to the effective value so the phase's recompile-on-load reproduces the runtime edits instead of reverting them. Roved, expression-driven, randomized, trigger, and per-trial-managed (e.g. staircase) parameters keep their design state.
+- `writePhaseParameters` delegates to `RUNTIME.writeParametersProtocol`, which serializes the session's `epsych.Protocol` (`RUNTIME.Protocol`) and then reconciles the snapshot with the session's effective values: deferred trial-table commits (`gui.components.Parameter_Update` without the immediate modifier) that have not yet dispatched are captured, and each single-level parameter's design-time `Values` list is refreshed to the effective value so the phase's recompile-on-load reproduces the runtime edits instead of reverting them. Roved, expression-driven, randomized, trigger, and per-trial-managed (e.g. staircase) parameters keep their design state.
 
 Keep the handle returned by the constructor on your GUI object so the component is not garbage-collected, and follow the cleanup guidance in [../design/Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md).
 

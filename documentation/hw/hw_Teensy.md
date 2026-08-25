@@ -70,9 +70,9 @@ session aborts with `epsych:RunExpt:MissingTrigger`.
 
 `RespCode` (uint32 `epsych.BitMask`), `RespLatency` (ms, `-1` for no response),
 `InTrial`, `TrialType`, and the hidden `_TrigState~<N>` / `_TrialNum~<N>` pair
-that `gui.OnlinePlot` uses for trial-onset detection. Because the firmware
+that `gui.components.OnlinePlot` uses for trial-onset detection. Because the firmware
 emits a real `epsych.BitMask` value, `psychophysics.Detection` and
-`gui.History` work with no translation layer.
+`gui.components.History` work with no translation layer.
 
 ### Name prefixes
 

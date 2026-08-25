@@ -3,7 +3,7 @@ classdef KeyBindingsBehaviorGUI < gui.BehaviorGUI
     %
     % The build order is the point of this fixture: the arrow key is bound
     % FIRST and addUpdateButton is called after it, which is the order that
-    % used to leave the binding dead -- gui.Parameter_Update claimed the
+    % used to leave the binding dead -- gui.components.Parameter_Update claimed the
     % figure's only key callback on its way in.
 
     properties

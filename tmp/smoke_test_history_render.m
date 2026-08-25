@@ -1,6 +1,6 @@
 function smoke_test_history_render()
 % smoke_test_history_render()
-% Cover gui.History's render path after the update-speed work: the Trial
+% Cover gui.components.History's render path after the update-speed work: the Trial
 % column that replaced the uitable RowName, block padding of the rendered
 % row count, per-response row colors, sorting on raw values, per-parameter
 % format alignment, and the guards that make a torn-down or reentrant
@@ -22,7 +22,7 @@ cleanupObj = onCleanup(@() cleanupPrefs(PREF_GROUP, TAGS));
 P = psychophysics.FakeHistoryPsych('FreqHz');
 P.setData(makeData(7));
 f = uifigure('Visible','off','Tag','SmokeHistRender1');
-H = gui.History(P, f, PreferenceTag='smokeHistRender1');
+H = gui.components.History(P, f, PreferenceTag='smokeHistRender1');
 H.ParametersOfInterest = {'FreqHz','LevelDB'};
 H.ParameterColumnFormats = {'%0.1f','%d'};
 H.update();
@@ -112,7 +112,7 @@ D2 = makeData(3);
 D2(1).TrialID = [];
 P2.setData(D2);
 f2 = uifigure('Visible','off','Tag','SmokeHistRender2');
-H2 = gui.History(P2, f2, PreferenceTag='smokeHistRender2');
+H2 = gui.components.History(P2, f2, PreferenceTag='smokeHistRender2');
 H2.update();
 assert(isvalid(H2), 'empty TrialID should return early, not error');
 delete(H2); close(f2);

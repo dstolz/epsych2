@@ -113,7 +113,7 @@ In `tmp/generate_component_screenshots.m`:
      in the frame, so the shot should be tight.
    - Most components need a layout cell, not a bare figure — hand them a
      `uigridlayout` with a small `Padding`, or they take a default position and
-     lay out off-screen (`gui.SessionClock` is the worked example).
+     lay out off-screen (`gui.components.SessionClock` is the worked example).
    - Use the shared session `S` — `S.RUNTIME`, `S.DATA`, `S.Psych`, `S.Level`,
      `S.TrialsEvent` — so every image shows the *same* simulated 150-trial
      detection session. Never build your own data.
@@ -145,7 +145,7 @@ Below every image, one italic line, describing the *specific state in the shot* 
 not what the component is for:
 
 ```markdown
-![gui.Parameter_Control](images/components/Parameter_Control.png)
+![gui.components.Parameter_Control](images/components/Parameter_Control.png)
 
 *Five controls over one protocol: an edit field, a second edit field, a `range`
 pair binding `[Min Max]` on one row, a checkbox bound to `isRandom`, and a

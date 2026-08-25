@@ -1,4 +1,4 @@
-# gui.Notes
+# gui.components.Notes
 
 A line of notes, stamped with the trial it was typed on, saved with the data.
 
@@ -124,16 +124,16 @@ stock GUI components record operator actions into the same log through
 
 | Action | Recorded by | Entry |
 |--------|-------------|-------|
-| Update Parameters commit (immediate) | `gui.Parameter_Update` | `Updated StimDelay: 1000 -> 1500` — one per changed parameter |
-| Update Parameters commit (deferred) | `gui.Parameter_Update` | `Staged StimDelay = 1500 for the next trial` — the parameter still holds its old value until the dispatcher applies the trial table |
-| autoCommit control edit | `gui.Parameter_Control` | `Updated Depth.Min: 5 -> 10` — bound property named when it is not `Value` |
-| StimType selection | `gui.Parameter_Control` | `Updated Stim: stimgen.Tone` |
-| Phase load | `gui.PhaseSelector` | `Loaded phase "Stage2"; updated: Depth, P_Catch` |
-| Phase save | `gui.PhaseSelector` | `Saved phase "Stage2"` |
+| Update Parameters commit (immediate) | `gui.components.Parameter_Update` | `Updated StimDelay: 1000 -> 1500` — one per changed parameter |
+| Update Parameters commit (deferred) | `gui.components.Parameter_Update` | `Staged StimDelay = 1500 for the next trial` — the parameter still holds its old value until the dispatcher applies the trial table |
+| autoCommit control edit | `gui.components.Parameter_Control` | `Updated Depth.Min: 5 -> 10` — bound property named when it is not `Value` |
+| StimType selection | `gui.components.Parameter_Control` | `Updated Stim: stimgen.Tone` |
+| Phase load | `gui.components.PhaseSelector` | `Loaded phase "Stage2"; updated: Depth, P_Catch` |
+| Phase save | `gui.components.PhaseSelector` | `Saved phase "Stage2"` |
 | Debugger hand-write | `gui.ParameterDebugger` | `Parameter Debugger wrote StimDelay = 1200` — the typed value; what the device holds after clamping is the trial record's job |
 
 Because these ride in `RUNTIME.NOTES`, they land in `Info.Notes` and the trial
-journal for **every** session — a behavior GUI does not need a `gui.Notes`
+journal for **every** session — a behavior GUI does not need a `gui.components.Notes`
 component, or any notes UI at all, for its data files to carry the record.
 The debugger entry goes further: it is recorded even for a session running
 with `BEHAVIORGUI_NONE`, since that window opens from RunExpt's Help menu.

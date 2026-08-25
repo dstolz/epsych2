@@ -36,7 +36,7 @@ P = psychophysics.FakeHistoryPsych('FreqHz');
 P.setData(makeData(N));
 f = uifigure('Visible','off','Position',[100 100 700 500]);
 c = onCleanup(@() close(f));
-H = gui.History(P,f,PreferenceTag='perfSection34');
+H = gui.components.History(P,f,PreferenceTag='perfSection34');
 H.ParametersOfInterest = {'FreqHz','LevelDB','RespLatency','StimName'};
 H.update();
 
@@ -62,7 +62,7 @@ P = psychophysics.FakeHistoryPsych('FreqHz');
 P.setData(makeData(N));
 f = uifigure('Visible','off','Position',[100 100 700 500]);
 c = onCleanup(@() close(f));
-S = gui.ParameterScatter(P,f,PreferenceTag='perfSection34');
+S = gui.components.ParameterScatter(P,f,PreferenceTag='perfSection34');
 S.XParameter = 'FreqHz';
 S.YParameter = 'LevelDB';
 S.ColorParameter = 'Response';

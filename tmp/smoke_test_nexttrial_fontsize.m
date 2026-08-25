@@ -1,6 +1,6 @@
 function smoke_test_nexttrial_fontsize()
 % smoke_test_nexttrial_fontsize()
-% Exercise gui.NextTrial's font-size control: the FontSize property, the
+% Exercise gui.components.NextTrial's font-size control: the FontSize property, the
 % setFontSize method, clamping, the right-click Font Size menu, and the
 % saved size outranking the constructor default on the next session.
 % Headless-safe: every figure is closed and every preference this test
@@ -21,7 +21,7 @@ hub = epsych.EventHub();
 fig = uifigure('Visible','off','Tag',PREF_TAG,'Position',[100 100 380 300]);
 
 % 1. Constructor default and programmatic control -------------------------
-NT = gui.NextTrial(hub, fig, PreferenceTag=PREF_TAG);
+NT = gui.components.NextTrial(hub, fig, PreferenceTag=PREF_TAG);
 assert(NT.FontSize == 16, 'the default table font size is 16pt');
 assert(NT.TableH.FontSize == 16, 'the table should be built at that size');
 
@@ -85,7 +85,7 @@ NT.setFontSize(20);
 NT.setFields(["Depth","Lowpass"]);
 delete(NT);
 
-NT2 = gui.NextTrial(hub, fig, FontSize=16, PreferenceTag=PREF_TAG);
+NT2 = gui.components.NextTrial(hub, fig, FontSize=16, PreferenceTag=PREF_TAG);
 assert(NT2.FontSize == 20 && NT2.TableH.FontSize == 20, ...
     'a saved size should outrank the constructor default');
 assert(isequal(NT2.SelectedFields, ["Depth","Lowpass"]), ...
@@ -94,7 +94,7 @@ delete(NT2);
 fprintf('PASS: the operator''s font size persists across sessions\n');
 
 close(fig);
-fprintf('\nALL PASS: gui.NextTrial font size\n');
+fprintf('\nALL PASS: gui.components.NextTrial font size\n');
 end
 
 

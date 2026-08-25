@@ -9,7 +9,7 @@ function smoke_test_popout_restore()
 %   - a window opening or closing is recorded AS IT HAPPENS, not at teardown,
 %     so a MATLAB that never closed cleanly still remembers
 %   - both kinds of window are remembered: a component's own pop-out and one
-%     gui.ComponentToolbar opened for a lazy entry
+%     gui.components.ComponentToolbar opened for a lazy entry
 %   - relaunching reopens them at the size they were left, still pinned if
 %     they were pinned, with the lazy factory run once
 %   - closing one window updates the memory, so it stays shut next time
@@ -188,7 +188,7 @@ end
 
 
 function f = lazyWindow(entryName)
-% The window gui.ComponentToolbar owns for a lazy entry, by its preference tag.
+% The window gui.components.ComponentToolbar owns for a lazy entry, by its preference tag.
 f = findall(groot, 'Type', 'figure', '-and', 'Tag', ...
     matlab.lang.makeValidName(sprintf('smokeCT_GUI_%s_Tool', entryName)));
 end

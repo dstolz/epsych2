@@ -11,7 +11,7 @@ classdef ReviewSession < handle
     %
     % What makes that cheap is that the consumers take the WHOLE DATA array out
     % of each payload and recompute from scratch (psychophysics.Psych.update_data,
-    % gui.ParameterScatter, gui.History, gui.SessionPerformance all do). So one
+    % gui.components.ParameterScatter, gui.components.History, gui.components.SessionPerformance all do). So one
     % notify carrying Data(1:k) is worth k notifies, and winding BACK to an
     % earlier trial costs exactly the same as going forward -- there is no
     % replay-from-the-start.
@@ -21,7 +21,7 @@ classdef ReviewSession < handle
     % RUNTIME.ReviewMode suppresses the first-trial dispatch in
     % epsych.Runtime.set.TRIALS; and the session is put into hw.DeviceState.Idle
     % once the window is built, which is what greys out every
-    % gui.Parameter_Control through the mode listener it already has.
+    % gui.components.Parameter_Control through the mode listener it already has.
     %
     % Usage
     %   epsych.ReviewSession                     % pick a file
@@ -118,18 +118,18 @@ classdef ReviewSession < handle
             % Seat the session at its last trial BEFORE the window is built,
             % silently -- there are no listeners yet, and two components read
             % their state at construction rather than waiting for an event:
-            % gui.Parameter_Control reads its parameter once and then waits for
+            % gui.components.Parameter_Control reads its parameter once and then waits for
             % a PostSet a review never fires, so whatever it seats from is what
-            % it shows for good; and gui.NextTrial.seedFromRuntime_ reads
+            % it shows for good; and gui.components.NextTrial.seedFromRuntime_ reads
             % RUNTIME.TRIALS, which without this still has the empty
             % NextTrialID buildRuntime_ left there.
-            % (gui.Parameter_Monitor and gui.ParameterDebugger poll, so those
+            % (gui.components.Parameter_Monitor and gui.ParameterDebugger poll, so those
             % DO follow the scrubber afterwards.)
             obj.seek(obj.NumTrials, Notify = false);
 
             obj.launchGUI_(options.BehaviorGUI);
 
-            % After the window exists, not before: gui.Parameter_Control greys
+            % After the window exists, not before: gui.components.Parameter_Control greys
             % itself out from a mode PostSet, and AbortSet means a repeated
             % value never fires. buildRuntime_ left the interfaces in Standby
             % so this is a real transition.
@@ -291,7 +291,7 @@ classdef ReviewSession < handle
 
         function setIdle_(obj)
             % Put the session in Idle and say so, in the order a real stop uses:
-            % the interfaces first, then the broadcast. gui.Parameter_Control
+            % the interfaces first, then the broadcast. gui.components.Parameter_Control
             % watches the interface mode; gui.BehaviorGUI stops its registered
             % monitors on the broadcast.
             try

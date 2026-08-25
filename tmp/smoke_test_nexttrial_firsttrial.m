@@ -2,7 +2,7 @@ function smoke_test_nexttrial_firsttrial()
 % smoke_test_nexttrial_firsttrial()
 % Trial 1 is dispatched by ep_TimerFcn_Start (through
 % epsych.Runtime.set.TRIALS) BEFORE RunExpt fevals FUNCS.BehaviorGUI, so a
-% gui.NextTrial built by that GUI attaches its listener one trial too late.
+% gui.components.NextTrial built by that GUI attaches its listener one trial too late.
 % This checks the constructor seeds itself from RUNTIME.TRIALS instead of
 % showing an empty table until trial 2, that a source with no trials yet
 % is still harmless, and that a pop-out opens populated.
@@ -26,7 +26,7 @@ fig = uifigure('Visible','off','Tag',PREF_TAG,'Position',[100 100 380 300]);
 
 % 1. The first trial is on screen at construction -------------------------
 rt = makeRuntime(2);   % first trial already selected: row 2
-NT = gui.NextTrial(rt, fig, PreferenceTag=PREF_TAG);
+NT = gui.components.NextTrial(rt, fig, PreferenceTag=PREF_TAG);
 
 D = NT.TableH.Data;
 assert(size(D,1) == 2, 'both declared fields should show before any event (got %d rows)', size(D,1));
@@ -56,7 +56,7 @@ delete(NT);
 
 % 4. No trials compiled yet is harmless -----------------------------------
 rt2 = NextTrialFakeRuntime();          % TRIALS still struct([])
-NT2 = gui.NextTrial(rt2, fig, PreferenceTag=PREF_TAG);
+NT2 = gui.components.NextTrial(rt2, fig, PreferenceTag=PREF_TAG);
 assert(isempty(NT2.TableH.Data), 'with no compiled trials the table should stay blank');
 rt2.TRIALS = makeTrials(1);
 rt2.EVENTS.notify('NewTrial', epsych.TrialsData(rt2.TRIALS));
@@ -65,13 +65,13 @@ assert(isequal(NT2.TableH.Data(:,2), {'1000';'60'}), ...
 delete(NT2);
 
 hub = epsych.EventHub();               % a bare event hub has no TRIALS at all
-NT3 = gui.NextTrial(hub, fig, PreferenceTag=PREF_TAG);
+NT3 = gui.components.NextTrial(hub, fig, PreferenceTag=PREF_TAG);
 assert(isempty(NT3.TableH.Data), 'an EventHub source should construct without error');
 delete(NT3);
 fprintf('PASS: a source with no trials yet is harmless\n');
 
 close(fig);
-fprintf('\nALL PASS: gui.NextTrial shows the first trial\n');
+fprintf('\nALL PASS: gui.components.NextTrial shows the first trial\n');
 end
 
 

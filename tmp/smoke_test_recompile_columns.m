@@ -13,7 +13,7 @@ function smoke_test_recompile_columns()
 % run start, the first phase load recompiled with them present, and the
 % stale index for Depth landed two columns earlier, on the Lowpass setting.
 %
-% The write path is the dangerous half: gui.Parameter_Update and
+% The write path is the dangerous half: gui.components.Parameter_Update and
 % Runtime.updateTrialsFromParameters commit operator edits *into* the column
 % writeParamIdx names, so a stale map writes one parameter's value over
 % another parameter's trial column.
@@ -101,10 +101,10 @@ assert(T.trials{1, T.writeParamIdx.Lowpass} == 20000, 'no other column should ha
 fprintf('PASS: parameter commits land in the named column\n');
 
 % 5. The display reads the right column -----------------------------------
-% gui.NextTrial resolves a field through writeParamIdx, which is how the
+% gui.components.NextTrial resolves a field through writeParamIdx, which is how the
 % wrong value reached the Next Trial panel.
 fig = uifigure('Visible','off','Tag',PREF_TAG);
-NT = gui.NextTrial(R.EVENTS, fig, Fields=["Depth","Lowpass"], PreferenceTag=PREF_TAG);
+NT = gui.components.NextTrial(R.EVENTS, fig, Fields=["Depth","Lowpass"], PreferenceTag=PREF_TAG);
 
 R.EVENTS.notify('NewTrial', epsych.TrialsData(R.TRIALS(1)));
 shown = string(NT.TableH.Data);
@@ -117,7 +117,7 @@ assert(shown(depthRow,2) == "0.25", ...
 assert(shown(lowRow,2) == "20000", 'Lowpass must show its own value');
 delete(NT);
 close(fig);
-fprintf('PASS: gui.NextTrial reads the refreshed map\n');
+fprintf('PASS: gui.components.NextTrial reads the refreshed map\n');
 
 fprintf('smoke_test_recompile_columns: ALL PASS\n');
 end

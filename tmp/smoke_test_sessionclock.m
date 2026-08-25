@@ -1,6 +1,6 @@
 function smoke_test_sessionclock()
 % smoke_test_sessionclock()
-% Exercise gui.SessionClock: UI construction (4 labels, no-clip row
+% Exercise gui.components.SessionClock: UI construction (4 labels, no-clip row
 % layout), context menu creation and checked-state sync, programmatic
 % visibility control, right-click toggle simulation, font-size control
 % (programmatic, menu presets, clamping), per-PreferenceTag
@@ -19,7 +19,7 @@ cleanupObj = onCleanup(@() cleanupAll({PREF_TAG_A, PREF_TAG_B}));
 
 % 1. Construction: 4 labels, all shown, no-clip row config ----------------
 figA = uifigure('Tag', PREF_TAG_A, 'Visible', 'off');
-c1 = gui.SessionClock(figA, 'PreferenceTag', PREF_TAG_A);
+c1 = gui.components.SessionClock(figA, 'PreferenceTag', PREF_TAG_A);
 lineKeys = {'LastTrial','FirstTrial','SessionDuration','ClockTime'};
 for i = 1:numel(lineKeys)
     assert(isfield(c1.LabelH, lineKeys{i}) && isvalid(c1.LabelH.(lineKeys{i})), ...
@@ -66,7 +66,7 @@ fprintf('PASS: right-click toggle applies immediately and persists\n');
 
 % 5. A fresh instance on the same PreferenceTag remembers the choice ------
 figA2 = uifigure('Tag', [PREF_TAG_A '_2'], 'Visible', 'off');
-c1b = gui.SessionClock(figA2, 'PreferenceTag', PREF_TAG_A);
+c1b = gui.components.SessionClock(figA2, 'PreferenceTag', PREF_TAG_A);
 assert(~c1b.ShowSessionDuration, 'a new instance on the same PreferenceTag should load the saved choice');
 assert(c1b.ShowClockTime, 'lines never toggled should keep their default');
 delete(c1b);
@@ -98,7 +98,7 @@ assert(c1.FontSize == 16, 'the Larger entry should step up 2 pt (got %g)', c1.Fo
 
 assert(ispref(PREF_TAG_A, 'SessionClockFontSize'), 'a font change should persist a preference');
 figA3 = uifigure('Tag', [PREF_TAG_A '_3'], 'Visible', 'off');
-c1c = gui.SessionClock(figA3, 'PreferenceTag', PREF_TAG_A, 'FontSize', 9);
+c1c = gui.components.SessionClock(figA3, 'PreferenceTag', PREF_TAG_A, 'FontSize', 9);
 assert(c1c.FontSize == 16, ...
     'a saved font size should override the constructor default (got %g)', c1c.FontSize);
 assert(c1c.LabelH.ClockTime.FontSize == 16, 'restored size should reach the labels');
@@ -109,7 +109,7 @@ fprintf('PASS: font size settable programmatically and from the menu, clamped an
 
 % 6. PreferenceTag defaults to the ancestor figure's Tag -------------------
 figB = uifigure('Tag', PREF_TAG_B, 'Visible', 'off');
-c2 = gui.SessionClock(figB);
+c2 = gui.components.SessionClock(figB);
 assert(strcmp(c2.PreferenceTag, PREF_TAG_B), ...
     'PreferenceTag should default to the ancestor figure Tag (BehaviorGUI scoping)');
 fprintf('PASS: PreferenceTag infers the hosting figure''s Tag\n');

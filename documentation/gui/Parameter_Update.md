@@ -1,8 +1,8 @@
-# `gui.Parameter_Update`
+# `gui.components.Parameter_Update`
 
-![Two gui.Parameter_Control editors above an Update Parameters button; the first field is highlighted green to show a pending edit and the button is enabled](images/Parameter_Update.png)
+![Two gui.components.Parameter_Control editors above an Update Parameters button; the first field is highlighted green to show a pending edit and the button is enabled](images/Parameter_Update.png)
 
-`gui.Parameter_Update` is a small controller class that owns an **"Update Parameters"** button and keeps it in sync with a set of parameter editor widgets.
+`gui.components.Parameter_Update` is a small controller class that owns an **"Update Parameters"** button and keeps it in sync with a set of parameter editor widgets.
 
 The screenshot above shows the pending-edit state described in [Basic usage](#basic-usage): the `PulseWidth` control has an uncommitted change (`colorOnUpdate` highlight) and the **Update Parameters** button has enabled itself in response.
 
@@ -17,9 +17,9 @@ It solves a common GUI workflow:
 
 ## Where it fits
 
-In EPsych, parameter editing is typically done with [`gui.Parameter_Control`](../../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](../hw/hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
+In EPsych, parameter editing is typically done with [`gui.components.Parameter_Control`](../../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](../hw/hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
 
-`gui.Parameter_Update` watches one or more `gui.Parameter_Control` objects and:
+`gui.components.Parameter_Update` watches one or more `gui.components.Parameter_Control` objects and:
 
 - Enables/disables the button based on whether any `ValueUpdated` flags are true.
 - Updates button color/text to reflect the current state.
@@ -37,11 +37,11 @@ pPulseWidth = RUNTIME.find_parameter('PulseWidth');
 pLevel      = RUNTIME.find_parameter('Level');
 
 % Create parameter controls (one per hw.Parameter)
-ctrl(1) = gui.Parameter_Control(parent, pPulseWidth, Type="editfield");
-ctrl(2) = gui.Parameter_Control(parent, pLevel,      Type="editfield");
+ctrl(1) = gui.components.Parameter_Control(parent, pPulseWidth, Type="editfield");
+ctrl(2) = gui.components.Parameter_Control(parent, pLevel,      Type="editfield");
 
 % Create the update button controller
-updater = gui.Parameter_Update(RUNTIME, parent);
+updater = gui.components.Parameter_Update(RUNTIME, parent);
 
 % Tell it which controls to watch
 updater.watchedHandles = ctrl;
@@ -99,7 +99,7 @@ Reset is available from the moment an edit is pending until it is committed. Onc
 - A method `reset_label()` that clears the pending-edit indication
 - A method `reset_value()` that restores the UI to the parameter's current value and clears the indication
 
-`gui.Parameter_Control` satisfies this contract.
+`gui.components.Parameter_Control` satisfies this contract.
 
 ## Runtime/trials expectations
 

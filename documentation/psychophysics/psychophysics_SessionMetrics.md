@@ -26,7 +26,7 @@ S = psychophysics.SessionMetrics(RUNTIME);   % online: follows NewData
 S = psychophysics.SessionMetrics(Data);      % offline: a saved DATA struct array
 ```
 
-[`gui.SessionPerformance`](../gui/gui_SessionPerformance.md) is the display
+[`gui.components.SessionPerformance`](../gui/gui_SessionPerformance.md) is the display
 component built on it.
 
 ## The trial window
@@ -197,7 +197,7 @@ the untyped-paradigm fallback, and the GUI paths on top of them.
 
 ## See also
 
-- [gui.SessionPerformance](../gui/gui_SessionPerformance.md) — the display component
+- [gui.components.SessionPerformance](../gui/gui_SessionPerformance.md) — the display component
 - [psychophysics.Psych](psychophysics_Psych.md) — the base class (`DATA`, `ExcludedTrials`, `NewData`)
 - [psychophysics.Metrics](psychophysics_Metrics.md) — the arithmetic behind every metric here, and the corrections `CorrectionMode` selects
 - [A' (nonparametric sensitivity)](psychophysics_APrime.md) — the `APrime` and `BPrimePrime` metrics, and when to prefer them to d'

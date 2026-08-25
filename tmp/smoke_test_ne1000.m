@@ -277,7 +277,7 @@ try
     results(end+1,:) = check('A rejected mode leaves the old one in place', ...
         strcmp(on.TriggerMode, 'T2'));
 
-    % The parameter path: what a trial table, gui.Triggers, or the operator
+    % The parameter path: what a trial table, gui.components.Triggers, or the operator
     % panel writes.
     results(end+1,:) = check('set_parameter enables the trigger', ...
         on.set_parameter('TTLTrigger', true) && strcmp(on.SimTrigger, 'T2'));
@@ -337,7 +337,7 @@ catch ME
 end
 
 %% 8b. Degraded link: dropped replies and re-entrancy
-% The failure this guards against was seen on a real pump: gui.SyringePump's
+% The failure this guards against was seen on a real pump: gui.components.SyringePump's
 % 4 Hz poll fired inside the runtime's trial-end sweep, the two consumed each
 % other's replies, and the reads that came back empty crashed the consumers a
 % layer up.

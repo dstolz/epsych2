@@ -7,13 +7,13 @@ function setStatus(self, message, nextStep)
 %	message		- What the program just did, in plain language.
 %	nextStep	- Optional hint, appended as "Next: <nextStep>".
 %
-% Messages containing any gui.StatusBar.ErrorPatterns term are styled red;
+% Messages containing any gui.components.StatusBar.ErrorPatterns term are styled red;
 % everything else is green.
 %
 % Never throws: the status bar is an aid, so a window that is mid-teardown
 % must not take down the action that was reporting its progress.
 %
-% See also: gui.StatusBar, epsych.RunExpt.UpdateGUIstate
+% See also: gui.components.StatusBar, epsych.RunExpt.UpdateGUIstate
 arguments
     self
     message  (1,:) char

@@ -7,7 +7,7 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
     %     trial and re-broadcasts NewData on its own Events broadcaster; the base class
     %     automatically makes that broadcaster this GUI's NewData source, so
     %     onNewData always sees an up-to-date Psych object.
-    %   - gui.PsychPlot draws the live d' curve from the same Detection.
+    %   - gui.components.PsychPlot draws the live d' curve from the same Detection.
     %   - onNewTrial announces the upcoming trial from the event payload.
     %   - onNewData refreshes a per-level performance table and session tally.
     %   - onModeChange tracks Preview/Record/Pause/Stop in the header.
@@ -18,7 +18,7 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
     %
     % Walkthrough: documentation/examples/Detection_Task_3_BehaviorGUI.md
     %
-    % See also gui.BehaviorGUI, psychophysics.Detection, gui.PsychPlot
+    % See also gui.BehaviorGUI, psychophysics.Detection, gui.components.PsychPlot
 
     properties (SetAccess = private)
         ModeLabel    matlab.ui.control.Label
@@ -85,20 +85,20 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
             obj.SummaryTable = uitable(inner);
             obj.SummaryTable.ColumnName = {'Level (dB SPL)', '# Go', 'Hit %', 'd'''};
 
-            % Live psychometric summary. gui.PsychPlot needs a classic axes
+            % Live psychometric summary. gui.components.PsychPlot needs a classic axes
             % (not uiaxes); axes() inside a uifigure panel provides one.
             pnl = uipanel(g, 'Title', 'Detection Performance');
             pnl.Layout.Row = [3 4]; pnl.Layout.Column = 3;
             if ~isempty(obj.Psych)
                 ax = axes(pnl);
-                obj.register(gui.PsychPlot(obj.Psych, ax));
+                obj.register(gui.components.PsychPlot(obj.Psych, ax));
             end
 
             % Response latency, refreshed automatically on every trial via
             % its own NewData listener (no wiring needed in onNewData).
             pnl = uipanel(g, 'Title', 'Response Latency by Trial');
             pnl.Layout.Row = [3 4]; pnl.Layout.Column = 4;
-            obj.register(gui.ParameterScatter(obj.RUNTIME, pnl, ...
+            obj.register(gui.components.ParameterScatter(obj.RUNTIME, pnl, ...
                 XParameter = 'Trial Number', YParameter = 'RT_ms', ...
                 ColorParameter = 'Response'));
         end

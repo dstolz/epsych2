@@ -1,6 +1,6 @@
 function smoke_test_parameter_scatter()
 % smoke_test_parameter_scatter()
-% Exercise gui.ParameterScatter: offline construction in a uifigure,
+% Exercise gui.components.ParameterScatter: offline construction in a uifigure,
 % parameter list filtering (non-scalar/non-text fields excluded, Trial
 % Number included), immediate updates on selection changes, color-by mode,
 % categorical (text) parameters as an axis and as color-by, preference
@@ -23,7 +23,7 @@ cleanupObj = onCleanup(@() cleanupPrefs(PREF_GROUP, TAGS));
 % 1. Offline DATA in a uifigure: parameter list + defaults ----------------
 D = makeData(20);
 f1 = uifigure('Visible','off','Tag','SmokeScatter1');
-S = gui.ParameterScatter(D, f1, PreferenceTag='smokePS1');
+S = gui.components.ParameterScatter(D, f1, PreferenceTag='smokePS1');
 items = S.DropdownX.Items;
 assert(ismember('Trial Number', items), 'Trial Number missing from parameter list');
 assert(all(ismember({'FreqHz','LevelDB','RespCode'}, items)), 'numeric fields missing');
@@ -80,7 +80,7 @@ S.DropdownC.Value = 'RespCode';
 S.onSelectionChanged; % simulates the user's dropdown interaction
 delete(S); close(f1);
 f1b = uifigure('Visible','off','Tag','SmokeScatter1b');
-S2 = gui.ParameterScatter(D, f1b, PreferenceTag='smokePS1');
+S2 = gui.components.ParameterScatter(D, f1b, PreferenceTag='smokePS1');
 assert(strcmp(S2.XParameter,'LevelDB'), 'saved X selection not restored (got %s)', S2.XParameter);
 assert(strcmp(S2.YParameter,'FreqHz'), 'saved Y selection not restored (got %s)', S2.YParameter);
 assert(strcmp(S2.ColorParameter,'RespCode'), 'saved color selection not restored (got %s)', S2.ColorParameter);
@@ -94,7 +94,7 @@ for k = 1:5, D5(k).HiddenParam = k; end
 trials = struct('DATA',D5,'Subject',struct('Name','SMOKE'),'BoxID',1);
 R.TRIALS = trials;
 f2 = uifigure('Visible','off','Tag','SmokeScatter2');
-S3 = gui.ParameterScatter(R, f2, PreferenceTag='smokePS2');
+S3 = gui.components.ParameterScatter(R, f2, PreferenceTag='smokePS2');
 R.EVENTS.notify('NewData', epsych.TrialsData(trials));
 assert(numel(S3.ScatterH.XData) == 5, 'NewData event should populate 5 trials');
 assert(~ismember('HiddenParam', S3.DropdownX.Items), 'invisible parameter should be excluded');
@@ -116,14 +116,14 @@ fprintf('PASS: runtime NewData path, invisible exclusion, BoxID filter\n');
 % 6. Preallocated-but-empty DATA guard ------------------------------------
 Dpre = struct('TrialID',[],'FreqHz',[]);
 f3 = uifigure('Visible','off','Tag','SmokeScatter3');
-S4 = gui.ParameterScatter(Dpre, f3, PreferenceTag='smokePS3');
+S4 = gui.components.ParameterScatter(Dpre, f3, PreferenceTag='smokePS3');
 assert(isempty(S4.ScatterH.XData), 'preallocated empty trial should plot nothing');
 delete(S4); close(f3);
 fprintf('PASS: preallocated empty-trial guard\n');
 
 % 7. Legacy figure hosting with resize ------------------------------------
 f4 = figure('Visible','off','Tag','SmokeScatter4');
-S5 = gui.ParameterScatter(D, f4, PreferenceTag='smokePS4');
+S5 = gui.components.ParameterScatter(D, f4, PreferenceTag='smokePS4');
 assert(strcmp(S5.DropdownX.Style,'popupmenu'), 'legacy hosting should use popupmenu controls');
 assert(numel(S5.ScatterH.XData) == 20, 'legacy hosting should plot all trials');
 f4.Position(3:4) = [900 500];
@@ -145,7 +145,7 @@ R8 = FakeScatterRuntime;
 R8.TRIALS = struct('DATA',struct('TrialID',[],'FreqHz',[]), ...
     'Subject',struct('Name','SMOKE'),'BoxID',1);
 f5 = uifigure('Visible','off','Tag','SmokeScatter5');
-S6 = gui.ParameterScatter(R8, f5, PreferenceTag='smokePS5', ...
+S6 = gui.components.ParameterScatter(R8, f5, PreferenceTag='smokePS5', ...
     XParameter='LevelDB', YParameter='FreqHz', ColorParameter='RespCode');
 assert(isempty(S6.ScatterH.XData), 'nothing should plot before the first trial');
 assert(all(ismember({'FreqHz','LevelDB'}, S6.DropdownX.Items)), ...
@@ -173,7 +173,7 @@ R8b = FakeScatterRuntime;
 R8b.TRIALS = struct('DATA',struct('TrialID',[],'FreqHz',[]), ...
     'Subject',struct('Name','SMOKE'),'BoxID',1);
 f5b = uifigure('Visible','off','Tag','SmokeScatter5b');
-S6b = gui.ParameterScatter(R8b, f5b, PreferenceTag='smokePS7', ...
+S6b = gui.components.ParameterScatter(R8b, f5b, PreferenceTag='smokePS7', ...
     XParameter='LevelDB', YParameter='FreqHz', ColorParameter='RespCode');
 assert(strcmp(S6b.XParameter,'LevelDB'), ...
     'declared constructor X should apply immediately (got %s)', S6b.XParameter);
@@ -190,7 +190,7 @@ R9 = FakeScatterRuntime;
 R9.TRIALS = struct('DATA',struct('TrialID',[],'FreqHz',[]), ...
     'Subject',struct('Name','SMOKE'),'BoxID',1);
 f6 = uifigure('Visible','off','Tag','SmokeScatter6');
-S7 = gui.ParameterScatter(R9, f6, PreferenceTag='smokePS6', ColorParameter='RespCode');
+S7 = gui.components.ParameterScatter(R9, f6, PreferenceTag='smokePS6', ColorParameter='RespCode');
 S7.DropdownC.Value = '(none)';
 S7.onSelectionChanged; % user overrules the still-staged RespCode request
 R9.EVENTS.notify('NewData', epsych.TrialsData(struct('DATA',makeData(5), ...
@@ -205,7 +205,7 @@ R10 = FakeScatterRuntime;
 R10.TRIALS = struct('DATA',struct('TrialID',[],'FreqHz',[]), ...
     'Subject',struct('Name','SMOKE'),'BoxID',1);
 f7 = uifigure('Visible','off','Tag','SmokeScatter7');
-S8 = gui.ParameterScatter(R10, f7, PreferenceTag='smokePS8');
+S8 = gui.components.ParameterScatter(R10, f7, PreferenceTag='smokePS8');
 assert(ismember('TrialTypeName', S8.DropdownX.Items), ...
     'declared Type=String parameter should be selectable before the first trial');
 delete(S8); close(f7);

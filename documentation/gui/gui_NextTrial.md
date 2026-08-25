@@ -1,4 +1,4 @@
-# gui.NextTrial
+# gui.components.NextTrial
 
 A generic "upcoming trial" display for custom behavior GUIs, showing the
 compiled parameter values of the trial about to be presented.
@@ -51,11 +51,11 @@ Source: `obj/+gui/@NextTrial/`
 
 ```matlab
 % Minimal: show every declared field
-obj.NextTrialPanel = gui.NextTrial(RUNTIME, panelNextTrial);
+obj.NextTrialPanel = gui.components.NextTrial(RUNTIME, panelNextTrial);
 
 % Programmatic default plus a custom label for TrialType
 fmt = containers.Map({'TrialType'}, {@myTrialTypeLabel});
-obj.NextTrialPanel = gui.NextTrial(RUNTIME, panelNextTrial, ...
+obj.NextTrialPanel = gui.components.NextTrial(RUNTIME, panelNextTrial, ...
     Fields=["Depth","TrialType"], Formatters=fmt, FontSize=20);
 
 % From a gui.BehaviorGUI subclass's build(fig) (preferred: registers for teardown)
@@ -70,7 +70,7 @@ obj.NextTrialPanel.FontSize = 28;   % readable from across the room
 ### Constructor
 
 ```matlab
-obj = gui.NextTrial(source, container, options)
+obj = gui.components.NextTrial(source, container, options)
 ```
 
 | Input | Description |
@@ -96,7 +96,7 @@ obj = gui.NextTrial(source, container, options)
 
 ## gui.BehaviorGUI integration
 
-`gui.BehaviorGUI.addNextTrial(parent, ...)` constructs a `gui.NextTrial` bound to
+`gui.BehaviorGUI.addNextTrial(parent, ...)` constructs a `gui.components.NextTrial` bound to
 `obj.RUNTIME` and registers it for teardown, matching `addMonitor`:
 
 ```matlab
@@ -131,9 +131,9 @@ need one to render as anything other than its raw number.
 
 ## See also
 
-- [gui.Parameter_Monitor](Parameter_Monitor.md) — the closest structural
+- [gui.components.Parameter_Monitor](Parameter_Monitor.md) — the closest structural
   analog: right-click show/hide, `getpref`/`setpref` persistence keyed by
   parameter name
-- [gui.ParameterScatter](gui_ParameterScatter.md) — the same persistence
+- [gui.components.ParameterScatter](gui_ParameterScatter.md) — the same persistence
   pattern applied to plot axis selections
 - [gui.BehaviorGUI](gui_BehaviorGUI.md), [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md)

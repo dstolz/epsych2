@@ -1,6 +1,6 @@
 function smoke_test_parameter_control_range
 % smoke_test_parameter_control_range
-% Validates the single-row [min max] control, gui.Parameter_Control with
+% Validates the single-row [min max] control, gui.components.Parameter_Control with
 % Type='range':
 %   1. Layout: one label plus two entry fields in a single grid row.
 %   2. An autoCommit edit of either field writes Parameter.Min/Parameter.Max.
@@ -8,7 +8,7 @@ function smoke_test_parameter_control_range
 %      and the parameter is untouched.
 %   4. An external Min/Max change (phase load, linked parameter) refreshes
 %      both fields.
-%   5. Staged edits work with gui.Parameter_Update: commit writes the pair,
+%   5. Staged edits work with gui.components.Parameter_Update: commit writes the pair,
 %      reset restores it.
 %   6. Unbounded parameters (-Inf/Inf) display, and a randomized parameter
 %      refuses non-finite bounds.
@@ -25,7 +25,7 @@ sw = hw.Software;
 pSD = sw.add_parameter('StimDelay',2000,Unit='ms');
 pSD.Value = 2000; pSD.Min = 1000; pSD.Max = 3000;
 
-h = gui.Parameter_Control(gl,pSD,Type='range',autoCommit=true, ...
+h = gui.components.Parameter_Control(gl,pSD,Type='range',autoCommit=true, ...
     Text='Stimulus Delay (ms):');
 
 % 1. one row, three columns: label + two entries
@@ -58,10 +58,10 @@ assert(isequal(h.Value,[500 2500]),'external Min/Max change must refresh both en
 fprintf('PASS: external bound changes refresh both entries\n');
 
 % 5. staged edit + Parameter_Update commit and reset
-hs = gui.Parameter_Control(gl,pSD,Type='range',Text='Delay range (ms):');
+hs = gui.components.Parameter_Control(gl,pSD,Type='range',Text='Delay range (ms):');
 RT.TRIALS.trials = {2000};
 RT.TRIALS.writeParamIdx.StimDelay = 1;
-pu = gui.Parameter_Update(RT,gl);
+pu = gui.components.Parameter_Update(RT,gl);
 pu.watchedHandles = hs;
 
 fire(hs,hs.h_uiobj2,3300);
@@ -81,7 +81,7 @@ fprintf('PASS: staged edits commit and reset as a pair\n');
 
 % 6. unbounded display and the randomized-parameter finite-bounds rule
 pFree = sw.add_parameter('Unbounded',0);
-hFree = gui.Parameter_Control(gl,pFree,Type='range',autoCommit=true);
+hFree = gui.components.Parameter_Control(gl,pFree,Type='range',autoCommit=true);
 assert(isequal(hFree.Value,[-Inf Inf]),'default bounds should display as -Inf/Inf');
 fire(hFree,hFree.h_uiobj,-10);
 assert(pFree.Min == -10,'an infinite bound should still be editable');
@@ -95,13 +95,13 @@ fprintf('PASS: unbounded display works; randomized bounds stay finite\n');
 
 % 7. binding errors
 try
-    gui.Parameter_Control(gl,pSD,Type='range',BoundProperty='Min');
+    gui.components.Parameter_Control(gl,pSD,Type='range',BoundProperty='Min');
     error('smoke:NoError','range with a scalar BoundProperty should error');
 catch ME
     assert(isequal(ME.identifier,'gui:Parameter_Control:InvalidRangeBinding'),ME.message);
 end
 try
-    gui.Parameter_Control(gl,pSD,Type='editfield',BoundProperty='MinMax');
+    gui.components.Parameter_Control(gl,pSD,Type='editfield',BoundProperty='MinMax');
     error('smoke:NoError','MinMax on an editfield should error');
 catch ME
     assert(isequal(ME.identifier,'gui:Parameter_Control:InvalidMinMaxType'),ME.message);

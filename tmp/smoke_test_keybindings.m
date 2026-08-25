@@ -3,7 +3,7 @@ function smoke_test_keybindings()
 % Exercise gui.KeyBindings: chord normalization, dispatch, duplicate and
 % review policy, modifier tracking, owner pruning, and the figure-callback
 % ownership that is the whole point of the class -- a binding made before
-% gui.Parameter_Update is constructed must still fire afterwards.
+% gui.components.Parameter_Update is constructed must still fire afterwards.
 %
 % Uses invisible uifigures; no hardware.
 %
@@ -96,7 +96,7 @@ fprintf('PASS: a duplicate chord errors unless Replace is asked for\n');
 
 
 % 4. Modifier state -------------------------------------------------------
-% This is what gui.Parameter_Update and gui.RegenerateTrial read instead of
+% This is what gui.components.Parameter_Update and gui.components.RegenerateTrial read instead of
 % installing hooks of their own.
 changes = 0;
 hl = listener(kb, 'ModifiersChanged', @(~,~) countChange());
@@ -211,7 +211,7 @@ fprintf('PASS: the help list is ordered, grouped and readable\n');
 
 
 % 9. Figure ownership, which is the bug this class exists to fix -----------
-% gui.Parameter_Update used to claim WindowKeyPressFcn outright at
+% gui.components.Parameter_Update used to claim WindowKeyPressFcn outright at
 % construction; today it joins the figure's shared KeyBindings instead. A
 % GUI that binds a key BEFORE the update button is created must still have
 % that key working afterwards.
@@ -225,7 +225,7 @@ kb2.bind('leftarrow', @() addHit('left'), Description='Respond LEFT');
 
 rt = makeRuntime();
 g = uigridlayout(fig2, [1 1]);
-pu = gui.Parameter_Update(rt, g);       % joins kb2 through the figure
+pu = gui.components.Parameter_Update(rt, g);       % joins kb2 through the figure
 cleanupPU = onCleanup(@() delete(pu));
 
 kb2.claimFigure();                      % what gui.BehaviorGUI does after build

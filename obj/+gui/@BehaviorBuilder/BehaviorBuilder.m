@@ -730,7 +730,7 @@ classdef BehaviorBuilder < handle
         end
 
         function t = defaultControlType(snapRow)
-            % Mirror of gui.Parameter_Control's 'auto' scoring, decidable
+            % Mirror of gui.components.Parameter_Control's 'auto' scoring, decidable
             % from the snapshot alone (design time, protocol may be absent).
             if snapRow.isTrigger
                 t = 'momentary';
@@ -781,11 +781,11 @@ classdef BehaviorBuilder < handle
                 case 'SyringePump'
                     o = struct('Sections', {{}});
                 case 'OnlinePlot'
-                    % Empty would send gui.OnlinePlot to a listdlg at
+                    % Empty would send gui.components.OnlinePlot to a listdlg at
                     % construction, which a generated build must never do.
                     o = struct('Source', {{}});
                 case 'BufferPlot'
-                    % Empty Buffers is legal and useful: gui.BufferPlot then
+                    % Empty Buffers is legal and useful: gui.components.BufferPlot then
                     % takes the session's own 'Buffer' parameters, so a region
                     % nobody configured still plots something.
                     o = struct('Buffers', {{}}, 'SampleRate', 0, ...

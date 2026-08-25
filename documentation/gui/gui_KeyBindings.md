@@ -28,7 +28,7 @@ Source: `obj/+gui/@KeyBindings/`
   that chord arrives. `Ctrl+Shift+R` is a *different* command and does not
   fire `Ctrl+R`.
 - **Publishes modifier state.** `CurrentModifiers` and the `ModifiersChanged`
-  event are what `gui.Parameter_Update` and `gui.RegenerateTrial` read to see
+  event are what `gui.components.Parameter_Update` and `gui.components.RegenerateTrial` read to see
   a held Ctrl+Alt+Shift, instead of installing hooks of their own.
 - **Lists itself.** `Ctrl+Shift+?` or `F1` opens `showHelp`, the only place an
   operator can see what a paradigm bound.
@@ -96,9 +96,9 @@ have none — see below.
 - **A modifier keypress is state, never a chord.** A bare Ctrl press updates
   `CurrentModifiers` and looks up nothing, or holding Ctrl to arm something
   would also fire whatever `ctrl` was bound to.
-- **No chord for the hardware-risky helpers.** `gui.SessionGate` starts the
-  session dispatching trials, `gui.SyringePump` moves a syringe, and
-  `gui.RegenerateTrial` interrupts the trial in progress — its
+- **No chord for the hardware-risky helpers.** `gui.components.SessionGate` starts the
+  session dispatching trials, `gui.components.SyringePump` moves a syringe, and
+  `gui.components.RegenerateTrial` interrupts the trial in progress — its
   hold-Ctrl+Alt+Shift gesture *is* its key handling, and a chord that fired it
   outright would undo the arming it exists to impose. Bind one by hand if a
   rig wants it.

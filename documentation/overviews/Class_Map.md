@@ -198,9 +198,9 @@ flowchart TD
     I7[psychophysics.Metrics<br/>stateless SDT arithmetic]
     I3 --> I7
     I6 --> I7
-    H --> J[gui.Parameter_Control<br/>gui.Parameter_Update<br/>gui.Parameter_Monitor<br/>gui.ParameterDebugger<br/>gui.ParameterTracker]
-    D --> K[gui.OnlinePlot<br/>gui.BufferPlot<br/>gui.PsychPlot<br/>gui.ModeIndicator]
-    D --> L[gui.History<br/>gui.SessionPerformance<br/>gui.Performance<br/>gui.SlidingWindowPerformancePlot]
+    H --> J[gui.components.Parameter_Control<br/>gui.components.Parameter_Update<br/>gui.components.Parameter_Monitor<br/>gui.ParameterDebugger<br/>gui.ParameterTracker]
+    D --> K[gui.components.OnlinePlot<br/>gui.components.BufferPlot<br/>gui.components.PsychPlot<br/>gui.components.ModeIndicator]
+    D --> L[gui.components.History<br/>gui.components.SessionPerformance<br/>gui.components.Performance<br/>gui.components.SlidingWindowPerformancePlot]
     L --> I7
     C --> M[cl_AppetitiveDetection_GUI_B]
     C --> N[peripherals.PumpCom]
@@ -243,9 +243,9 @@ Analysis and visualization
 ├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.NAFC / psychophysics.BestPEST / psychophysics.MLP / psychophysics.SessionMetrics
 ├─ psychophysics.Detection
 ├─ psychophysics.Metrics  (stateless SDT arithmetic; called by all of the above)
-├─ gui.Parameter_Control / gui.Parameter_Update / gui.Parameter_Monitor / gui.ParameterDebugger / gui.ParameterTracker
-├─ gui.OnlinePlot / gui.BufferPlot / gui.PsychPlot / gui.ModeIndicator
-└─ gui.History / gui.SessionPerformance / gui.Performance / gui.SlidingWindowPerformancePlot
+├─ gui.components.Parameter_Control / gui.components.Parameter_Update / gui.components.Parameter_Monitor / gui.ParameterDebugger / gui.ParameterTracker
+├─ gui.components.OnlinePlot / gui.components.BufferPlot / gui.components.PsychPlot / gui.components.ModeIndicator
+└─ gui.components.History / gui.components.SessionPerformance / gui.components.Performance / gui.components.SlidingWindowPerformancePlot
    ↓
 Task and support branches
 ├─ cl_AppetitiveDetection_GUI_B

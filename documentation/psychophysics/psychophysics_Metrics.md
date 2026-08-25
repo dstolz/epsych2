@@ -131,7 +131,7 @@ unconditionally and flip one option.
 
 Every class that computes a rate takes the same option and routes through the same
 function — `psychophysics.SessionMetrics.IncludeAborts`,
-`psychophysics.Detection.IncludeAborts` (which `gui.SlidingWindowPerformancePlot`
+`psychophysics.Detection.IncludeAborts` (which `gui.components.SlidingWindowPerformancePlot`
 follows from its analysis object) — so the convention is stated once rather than
 implied in four places.
 
@@ -174,7 +174,7 @@ S.PercentCorrectBalanced  % 0.65 -- what a balanced session would have given
 ```
 
 The gap is the trial mix, not the subject. `fromCounts` returns both, named apart;
-`gui.SessionPerformance` reports the observed one.
+`gui.components.SessionPerformance` reports the observed one.
 
 ## Relationship to the other classes
 
@@ -183,7 +183,7 @@ The gap is the trial mix, not the subject. `fromCounts` returns both, named apar
 | [psychophysics.SessionMetrics](psychophysics_SessionMetrics.md) | Trial window, exclusions, trial-type classification, counts, display labels and formats |
 | `psychophysics.Detection` | Per-stimulus-value grouping, and the `IncludeAborts` the plots follow. Its `d_prime`, `bias`, `a_prime` and `norminv` statics are forwarders kept for compatibility |
 | `gui.Helper` | `dprime2AFC`, `criterion`, `percent_correct` are forwarders, kept because out-of-repo lab GUIs inherit the mixin |
-| `gui.SlidingWindowPerformancePlot` | Per-window rates and d' over a session |
+| `gui.components.SlidingWindowPerformancePlot` | Per-window rates and d' over a session |
 | `teensy.Simulator` | Monte Carlo summaries, using `"halfcell"` |
 
 ## Example
@@ -226,7 +226,7 @@ and that the `Detection` and `gui.Helper` forwarders still return their historic
 - [psychophysics.SessionMetrics](psychophysics_SessionMetrics.md) — the stateful session-level consumer
 - [A' (nonparametric sensitivity)](psychophysics_APrime.md) — A' and B'', and when to prefer them to d'
 - [psychophysics.Psych](psychophysics_Psych.md) — where trial classification lives
-- [gui.SessionPerformance](../gui/gui_SessionPerformance.md) — the display
+- [gui.components.SessionPerformance](../gui/gui_SessionPerformance.md) — the display
 - [Detection task: working with saved data](../examples/Detection_Task_5_Data.md) — the offline walkthrough
 
 ## Changelog

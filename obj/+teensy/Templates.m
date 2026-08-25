@@ -419,7 +419,7 @@ classdef Templates
             % edits: Platform, Trough,
             % InTrial, DelayPeriod, RespWindow, PelletTotal, RespWinDelay,
             % RespLatency and RespCode are exactly the names its
-            % gui.Parameter_Monitor looks up.
+            % gui.components.Parameter_Monitor looks up.
             %
             % DelayPeriod and RespWindow are digital outputs held high for the
             % duration of their phase. That is what turns a phase into a

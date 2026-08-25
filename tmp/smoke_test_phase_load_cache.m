@@ -22,7 +22,7 @@ if isfolder(tmpDir), rmdir(tmpDir, 's'); end
 mkdir(tmpDir);
 cleanupDir = onCleanup(@() rmdir(tmpDir, 's'));
 
-% gui.PhaseSelector prefers its remembered directory (setpref) over the
+% gui.components.PhaseSelector prefers its remembered directory (setpref) over the
 % constructor argument, so an operator's real phase directory would hijack this.
 prefGroup = 'epsych2_gui_PhaseSelector';
 prefKey   = 'LastPhasePath';
@@ -68,7 +68,7 @@ R.writeParametersProtocol(phaseFile, "Cache phase");
 
 fig = uifigure('Visible', 'on');   % uiprogressdlg refuses a hidden figure
 cleanupFig = onCleanup(@() delete(fig));
-ps = gui.PhaseSelector(R, tmpDir);
+ps = gui.components.PhaseSelector(R, tmpDir);
 h  = ps.createGUI(uipanel(fig));
 h.PhaseSelect.Value = 'phaseCache';
 

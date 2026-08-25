@@ -90,7 +90,7 @@ classdef Program < handle
         FORMAT_VERSION = 1
 
         % Conventional parameter names the shipped GUIs and analyses look up.
-        % gui.OnlinePlot searches for the ~<BoxID> forms literally, which is a
+        % gui.components.OnlinePlot searches for the ~<BoxID> forms literally, which is a
         % different shape from the x_*_<BoxID> triggers -- do not unify them.
         CORE_TRIGGERS = ["NewTrial", "ResetTrig"]
     end

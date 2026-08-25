@@ -5,7 +5,7 @@ classdef ScreenCaptureSmokeGUI < gui.BehaviorGUI
     % and its confirmation timer — with it.
 
     properties
-        Capture      % gui.ScreenCapture built by addScreenCapture
+        Capture      % gui.components.ScreenCapture built by addScreenCapture
     end
 
     methods

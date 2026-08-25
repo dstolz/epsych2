@@ -51,7 +51,7 @@ classdef Runtime < handle & dynamicprops
         % Always present, so a caller never has to test for it: notes typed
         % before a run are stamped trial 0 and saved just the same. It is
         % epsych.SessionSnapshot.forSubject that folds them into the Info
-        % variable every saving function already writes. gui.Notes is the
+        % variable every saving function already writes. gui.components.Notes is the
         % operator-facing end; anything else adds one with NOTES.add(text).
         NOTES epsych.SessionNotes {mustBeScalarOrEmpty} = epsych.SessionNotes.empty
 

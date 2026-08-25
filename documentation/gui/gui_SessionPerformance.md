@@ -1,4 +1,4 @@
-# gui.SessionPerformance
+# gui.components.SessionPerformance
 
 A generic session performance summary for custom behavior GUIs: the numbers
 an experimenter watches while a session runs — trial counts, hit / false
@@ -24,7 +24,7 @@ bitmask arithmetic in `onNewData`).
   chosen programmatically or from the right-click **Show Metric** menu.
 - **Color-coded values**: green hits, red misses, blue correct rejects,
   orange false alarms, olive aborts, teal sensitivity measures — the same
-  semantic hues `gui.History` uses for response rows.
+  semantic hues `gui.components.History` uses for response rows.
 - **Supporting counts**: each rate shows its denominator (`18/25`), so a
   rate computed from three trials never reads like a rate computed from
   three hundred.
@@ -57,11 +57,11 @@ obj.Performance = obj.addPerformance(panelPerf, ...
     Metrics=["HitRate","FARate","AbortRate","DPrime"], FontSize=11);
 
 % Standalone, over a runtime or an existing psychophysics object
-P = gui.SessionPerformance(RUNTIME, panel);
-P = gui.SessionPerformance(obj.Psych, panel);   % reuses its trial-type conventions
+P = gui.components.SessionPerformance(RUNTIME, panel);
+P = gui.components.SessionPerformance(obj.Psych, panel);   % reuses its trial-type conventions
 
 % Offline review of a saved session
-P = gui.SessionPerformance(Data, panel);
+P = gui.components.SessionPerformance(Data, panel);
 ```
 
 ### Choosing which trials to summarize
@@ -98,7 +98,7 @@ for the full metric list and the denominators each rate uses.
 ### Constructor
 
 ```matlab
-obj = gui.SessionPerformance(source, container, options)
+obj = gui.components.SessionPerformance(source, container, options)
 ```
 
 | Input | Description |
@@ -113,7 +113,7 @@ obj = gui.SessionPerformance(source, container, options)
 | `PreferenceTag` | Key for saved preferences (defaults to the hosting figure `Tag`/`Name`) |
 
 A saved selection takes precedence over the constructor's `Metrics`,
-`TrialWindow`, and `FontSize` defaults, matching `gui.NextTrial`.
+`TrialWindow`, and `FontSize` defaults, matching `gui.components.NextTrial`.
 
 ### Key properties and methods
 
@@ -165,6 +165,6 @@ The GUI's `onNewData` no longer computes rates: the panel owns its own
 
 - [psychophysics.SessionMetrics](../psychophysics/psychophysics_SessionMetrics.md) — the metrics and the trial-window semantics
 - `gui.PopOut` (`obj/+gui/@PopOut/`) — the separate-window mixin
-- [gui.NextTrial](gui_NextTrial.md) — the same right-click + persistence pattern
-- [gui.History](gui_History.md) — trial-by-trial detail behind these totals
+- [gui.components.NextTrial](gui_NextTrial.md) — the same right-click + persistence pattern
+- [gui.components.History](gui_History.md) — trial-by-trial detail behind these totals
 - [gui.BehaviorGUI](gui_BehaviorGUI.md)

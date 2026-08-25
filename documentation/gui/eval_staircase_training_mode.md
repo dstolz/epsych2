@@ -6,13 +6,13 @@ It is typically used by parameter-control widgets that need to temporarily suspe
 
 ## Wiring it to a state button or to a parameter
 
-Either a state `uibutton`'s `ValueChangedFcn` or the `PostUpdateFcn` of a `gui.Parameter_Control` checkbox works — both receive an `event` carrying `.Value`.
+Either a state `uibutton`'s `ValueChangedFcn` or the `PostUpdateFcn` of a `gui.components.Parameter_Control` checkbox works — both receive an `event` carrying `.Value`.
 
 Prefer the checkbox. A state button's state lives only in the widget, so nothing records it and a saved phase cannot restore it; a checkbox bound to a Boolean `hw.Parameter` marked `PersistWithPhase` makes the training state part of the stage's configuration (see `documentation/hw/hw_Parameter.md`). `cl_AppetitiveDetection_BehaviorGUI` does this with `StimDelayTrainingEnabled`.
 
 Pass `[]` as `src` when the toggle itself is the control: a non-empty `src` is *disabled* while training runs, which for the toggle would leave the operator no way to switch training back off.
 
-Bound to a parameter, the callback also runs for **external** writes — `gui.Parameter_Control` invokes `PostUpdateFcn` on the parameter's `PostSet`, which is what lets a phase load open or close the training window. It is therefore idempotent in both directions: a repeated enable does not re-snapshot over the suspended values, and a disable with no preceding enable returns without trying to restore a snapshot that was never taken. The map entry in `StaircaseTrainingGUIs` is the record of which state is in effect.
+Bound to a parameter, the callback also runs for **external** writes — `gui.components.Parameter_Control` invokes `PostUpdateFcn` on the parameter's `PostSet`, which is what lets a phase load open or close the training window. It is therefore idempotent in both directions: a repeated enable does not re-snapshot over the suspended values, and a disable with no preceding enable returns without trying to restore a snapshot that was never taken. The map entry in `StaircaseTrainingGUIs` is the record of which state is in effect.
 
 ## Call signatures
 

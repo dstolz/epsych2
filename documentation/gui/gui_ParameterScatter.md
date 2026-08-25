@@ -1,4 +1,4 @@
-# gui.ParameterScatter
+# gui.components.ParameterScatter
 
 A generic scatter plot for custom behavior GUIs that compares any two
 per-trial parameters recorded in the current experiment, with an optional
@@ -67,13 +67,13 @@ third parameter mapped to marker color.
 
 ```matlab
 % Online, from a psychophysics object (updates via its Events NewData event)
-obj.hScatter = gui.ParameterScatter(pObj, parentPanel);
+obj.hScatter = gui.components.ParameterScatter(pObj, parentPanel);
 
 % Online, directly from the runtime (updates via RUNTIME.EVENTS)
-obj.hScatter = gui.ParameterScatter(RUNTIME, parentPanel, PreferenceTag='MyTaskGUI');
+obj.hScatter = gui.components.ParameterScatter(RUNTIME, parentPanel, PreferenceTag='MyTaskGUI');
 
 % Offline, from saved trial data (no listener)
-S = gui.ParameterScatter(DATA, uifigure);
+S = gui.components.ParameterScatter(DATA, uifigure);
 
 % Programmatic control (updates immediately)
 S.XParameter = 'FreqHz';
@@ -84,7 +84,7 @@ S.ColorParameter = 'Response';   % decoded outcome name; or 'RespCode', or '(non
 ### Constructor
 
 ```matlab
-obj = gui.ParameterScatter(source, container, options)
+obj = gui.components.ParameterScatter(source, container, options)
 ```
 
 | Input | Description |
@@ -135,6 +135,6 @@ delete(obj.hScatter);
 ## See also
 
 - [Customized GUI Instructions](../design/Customized_GUI_Instructions.md)
-- [gui.History](gui_History.md) — trial-by-trial history table with the same
+- [gui.components.History](gui_History.md) — trial-by-trial history table with the same
   preference-persistence pattern
 - [Event notifications](../epsych/Event_Notifications.md)

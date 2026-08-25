@@ -1,10 +1,10 @@
-# gui.History
+# gui.components.History
 
 ## Overview
 
-![gui.History table showing the newest trial at the top, a Response column, and parameter columns, with rows colored by decoded response bit](images/History.png)
+![gui.components.History table showing the newest trial at the top, a Response column, and parameter columns, with rows colored by decoded response bit](images/History.png)
 
-`gui.History` renders a trial-by-trial summary table for behavioral sessions.
+`gui.components.History` renders a trial-by-trial summary table for behavioral sessions.
 
 The screenshot above shows the default display: newest trial first (row 6 at top), the `Time`/`Response` columns from [Display Format](#display-format), and rows colored per [Color Resolution](#color-resolution) (green Hit, red Miss, blue CorrectReject, orange FalseAlarm, gray Abort).
 It listens for new data events from a linked psychophysics object and updates
@@ -34,10 +34,10 @@ Source file: [obj/+gui/@History/History.m](../../obj/+gui/@History/History.m)
 ## Constructor
 
 ```matlab
-H = gui.History(pObj, container)
-H = gui.History(pObj, container, BitColors=colors)
-H = gui.History(pObj, container, ColumnFormats=formats)
-H = gui.History(pObj, container, PreferenceTag=tag)
+H = gui.components.History(pObj, container)
+H = gui.components.History(pObj, container, BitColors=colors)
+H = gui.components.History(pObj, container, ColumnFormats=formats)
+H = gui.components.History(pObj, container, PreferenceTag=tag)
 ```
 
 ### Inputs
@@ -58,7 +58,7 @@ H = gui.History(pObj, container, PreferenceTag=tag)
 ### Returns
 
 - `H`
-  - A `gui.History` instance.
+  - A `gui.components.History` instance.
 
 ## Display Format
 
@@ -190,7 +190,7 @@ Validation behavior:
 
 ```matlab
 fig = uifigure('Name', 'Trial History');
-H = gui.History(pObj, fig);
+H = gui.components.History(pObj, fig);
 
 H.ParametersOfInterest = {'SNR', 'TargetLevel', 'Block'};
 H.update();
@@ -229,5 +229,5 @@ H.update();
   `TrialID`). Added user-sortable columns that persist across trial updates,
   a right-click menu for column selection and sort reset, and per-GUI
   preference persistence via `getpref`/`setpref`.
-- 2026-04-03: Initial documentation for `gui.History`.
+- 2026-04-03: Initial documentation for `gui.components.History`.
 

@@ -125,7 +125,7 @@ assert(contains(srcC, 'obj.addNotes('), 'the panel form must emit addNotes');
 assert(contains(srcC, 'obj.addNotesButton('), 'the button form must emit addNotesButton');
 assert(contains(srcC, 'TimeStamp="clock"'), 'a non-default stamp must be emitted');
 assert(count(srcC, 'PreferenceTag=') >= 2, ...
-    'two gui.Notes in one GUI must get uniqued preference tags');
+    'two gui.components.Notes in one GUI must get uniqued preference tags');
 assert(~contains(srcC, 'addPopOutButton'), ...
     'the button form is its own pop-out opener, so no pop-out button is emitted');
 

@@ -14,7 +14,7 @@ classdef ReviewTransport < handle
     %             notebook, and the reason the transport lives in a window of
     %             its own is to stay out of the paradigm's layout -- which
     %             means staying out of its screenshots too. Same
-    %             gui.ScreenCapture a behavior GUI would add for itself, just
+    %             gui.components.ScreenCapture a behavior GUI would add for itself, just
     %             aimed elsewhere.
     %   On Top  - pins the window above other applications, so a review stays
     %             readable while the operator works in a notebook or a
@@ -52,7 +52,7 @@ classdef ReviewTransport < handle
         PlayButton_ = []
         RateField_ = []
         Buttons_ = []
-        Capture_ = []               % gui.ScreenCapture aimed at the behavior GUI
+        Capture_ = []               % gui.components.ScreenCapture aimed at the behavior GUI
         OnTopButton_ = []           % Always-on-top state button
         GUIWatcher_ = []   % listener closing this window when the GUI goes
         Refreshing_ (1,1) logical = false % suppresses the slider callback while we set it
@@ -105,7 +105,7 @@ classdef ReviewTransport < handle
             catch
             end
 
-            % Explicitly, before the figure goes: gui.ScreenCapture owns a
+            % Explicitly, before the figure goes: gui.components.ScreenCapture owns a
             % one-shot confirmation timer that deleting the graphics alone
             % would leave running.
             try
@@ -226,7 +226,7 @@ classdef ReviewTransport < handle
             % scrubber is of no use in a notebook, and the whole point of
             % parking the transport in a window of its own is that it stays out
             % of the paradigm's layout -- including out of its screenshots.
-            obj.Capture_ = gui.ScreenCapture(row, ...
+            obj.Capture_ = gui.components.ScreenCapture(row, ...
                 Target  = obj.behaviorFigure_(), ...
                 Tooltip = 'Copy a picture of the behavior GUI to the clipboard');
             if isempty(obj.Capture_.Target)

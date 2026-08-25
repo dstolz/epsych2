@@ -4,7 +4,7 @@ function [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,
 % Enable or disable staircase-training mode for a single hw.Parameter.
 %
 % This callback is intended for a state-button ValueChangedFcn, or for the
-% PostUpdateFcn of a gui.Parameter_Control checkbox bound to a Boolean
+% PostUpdateFcn of a gui.components.Parameter_Control checkbox bound to a Boolean
 % parameter (which is what lets a saved phase carry the training state --
 % see hw.Parameter.PersistWithPhase). When enabled, it suspends
 % Parameter.isRandom, opens or focuses a gui.StaircaseTraining window, and
@@ -14,14 +14,14 @@ function [value,success] = eval_staircase_training_mode(obj,src,event,Parameter,
 %
 % It is idempotent in both directions. Bound to a parameter, either state can
 % arrive without the matching transition -- a phase load writes the value and
-% gui.Parameter_Control runs this for the external change -- so a repeated
+% gui.components.Parameter_Control runs this for the external change -- so a repeated
 % enable must not re-snapshot over the suspended values, and a disable with no
 % preceding enable must not try to restore a snapshot that was never taken.
 %
 % Inputs
 %   obj - GUI controller exposing RUNTIME, StaircaseTrainingGUIs, and
 %       StaircaseTrainingListeners.
-%   src - gui.Parameter_Control to disable while training is active, or
+%   src - gui.components.Parameter_Control to disable while training is active, or
 %       [] to skip UI state changes.
 %   event - Callback event whose Value field is the on/off toggle state.
 %   Parameter - hw.Parameter adjusted by the staircase listener.
@@ -84,7 +84,7 @@ try
     % STAIRCASE snapshot therefore exists; the window may since have been
     % closed on its own. Both matter now that the toggle can be bound to an
     % hw.Parameter: a phase load writes the parameter and
-    % gui.Parameter_Control runs this for the external change, so either state
+    % gui.components.Parameter_Control runs this for the external change, so either state
     % can arrive without the matching transition.
     hasEntry  = obj.StaircaseTrainingGUIs.isKey(pName);
     hasWindow = hasEntry && isvalid(obj.StaircaseTrainingGUIs(pName));

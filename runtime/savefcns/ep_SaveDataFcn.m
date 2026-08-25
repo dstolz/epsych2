@@ -4,7 +4,7 @@ function ep_SaveDataFcn(RUNTIME)
 % Default function for saving behavioral data.
 %
 % Saves each subject's trial data to the filename the session is already
-% carrying -- RUNTIME.TRIALS(i).DataFilename, which is what gui.FilenameValidator
+% carrying -- RUNTIME.TRIALS(i).DataFilename, which is what gui.components.FilenameValidator
 % writes when the operator edits the name during a run -- without prompting.
 % The name was chosen (or accepted) before the run; asking for it again at the
 % end is a dialog with no decision in it.
@@ -18,13 +18,13 @@ function ep_SaveDataFcn(RUNTIME)
 % Parameters:
 %   RUNTIME - epsych.Runtime for the finished session
 %
-% See also: gui.FilenameValidator, epsych.RunExpt.defaultFilename, cl_SaveDataFcn
+% See also: gui.components.FilenameValidator, epsych.RunExpt.defaultFilename, cl_SaveDataFcn
 %
 % Daniel.Stolzberg@gmail.com 2014
 
 % Copyright (C) 2025  Daniel Stolzberg, PhD
 
-% A Preview run promises no data file -- gui.FilenameValidator says so on the
+% A Preview run promises no data file -- gui.components.FilenameValidator says so on the
 % field itself -- and saving without a dialog would quietly break that promise.
 % The trials are still in the runtime and in the crash-recovery .mat.
 if RUNTIME.isTest
@@ -76,7 +76,7 @@ function ffn = localTargetFile(RUNTIME,i,S)
 % ffn = localTargetFile(RUNTIME, i, S)
 %
 % The file this subject's data is going to: the name the session already holds,
-% which ep_TimerFcn_Start seeds and gui.FilenameValidator updates. A run that
+% which ep_TimerFcn_Start seeds and gui.components.FilenameValidator updates. A run that
 % never had one -- a scripted session that filled TRIALS itself -- gets the same
 % timestamped default the timer function would have made.
 

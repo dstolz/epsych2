@@ -11,8 +11,8 @@ function [parameters, trials, writeparams, writeParamIdx] = compiledTrialColumns
 % the map that indexes it.
 %
 % Forgetting it is not a cosmetic bug. Every consumer of writeParamIdx
-% (gui.Parameter_Update, Runtime.updateTrialsFromParameters,
-% gui.eval_staircase_training_mode, gui.NextTrial) reads or WRITES a trial
+% (gui.components.Parameter_Update, Runtime.updateTrialsFromParameters,
+% gui.eval_staircase_training_mode, gui.components.NextTrial) reads or WRITES a trial
 % column by name, so a stale map silently reads one parameter's value under
 % another's label and commits operator edits into the wrong column. A
 % recompile that adds or removes a parameter -- an operator recompile, a

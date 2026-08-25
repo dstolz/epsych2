@@ -161,10 +161,10 @@ try
         results(end+1,:) = check(sprintf('Firmware publishes %s', nm{1}), ...
             any(strcmp(fwNames, nm{1})));
     end
-    % gui.OnlinePlot looks up these exact literals, note the ~<BoxID> suffix
+    % gui.components.OnlinePlot looks up these exact literals, note the ~<BoxID> suffix
     % form rather than the x_*_<BoxID> form used by the required triggers.
     for nm = {sprintf('_TrigState~%d', boxID), sprintf('_TrialNum~%d', boxID)}
-        results(end+1,:) = check(sprintf('Firmware publishes %s for gui.OnlinePlot', nm{1}), ...
+        results(end+1,:) = check(sprintf('Firmware publishes %s for gui.components.OnlinePlot', nm{1}), ...
             any(strcmp(fwNames, nm{1})));
     end
 

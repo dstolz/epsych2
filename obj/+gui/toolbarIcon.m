@@ -25,7 +25,7 @@ function icon = toolbarIcon(name)
 %   tb = uitoolbar(uifigure);
 %   uipushtool(tb,'Icon',gui.toolbarIcon("refresh"),'Tooltip','Refresh');
 %
-% See also: epsych.RunExpt.buildUI, gui.SubjectManager.buildUI, gui.ScreenCapture
+% See also: epsych.RunExpt.buildUI, gui.SubjectManager.buildUI, gui.components.ScreenCapture
 
 arguments
     name (1,1) string
@@ -611,7 +611,7 @@ switch name
             "................"
             "................"];
 
-    % ---- behavior windows (gui.ScreenCapture) --------------------------
+    % ---- behavior windows (gui.components.ScreenCapture) --------------------------
 
     case "camera"  % camera body with a lens and a flash
         rows = [ ...
@@ -632,12 +632,12 @@ switch name
             "................"
             "................"];
 
-    % ---- behavior GUI component toolbar (gui.ComponentToolbar) ---------
+    % ---- behavior GUI component toolbar (gui.components.ComponentToolbar) ---------
     %
     % One glyph per display component the toolbar can open in its own window.
     % The name is the component's class name without its package, lowercased,
-    % with underscores removed: gui.Parameter_Monitor -> "parametermonitor".
-    % gui.ComponentToolbar builds that name itself and falls back to
+    % with underscores removed: gui.components.Parameter_Monitor -> "parametermonitor".
+    % gui.components.ComponentToolbar builds that name itself and falls back to
     % "component" when there is no case for it, so a new gui.PopOut adopter
     % works on the toolbar before anyone draws its icon -- adding a case here
     % is what replaces the generic two-window glyph with its own.
@@ -851,7 +851,7 @@ switch name
             "..kkkkkkkkkkk..."
             "................"];
 
-    % ---- note entry (gui.Notes) ----------------------------------------
+    % ---- note entry (gui.components.Notes) ----------------------------------------
 
     case "addnote" % a ruled page with a green plus over its corner
         rows = [ ...

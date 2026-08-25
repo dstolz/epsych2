@@ -1,6 +1,6 @@
 function smoke_test_history_column_rearrange()
 % smoke_test_history_column_rearrange()
-% Exercise gui.History's drag-to-rearrange column support: default column
+% Exercise gui.components.History's drag-to-rearrange column support: default column
 % order, applying a simulated drag-to-rearrange event, persisting that
 % order via getpref/setpref, recalling it in a fresh instance keyed to the
 % same PreferenceTag, and gracefully handling a saved order that no longer
@@ -22,7 +22,7 @@ cleanupObj = onCleanup(@() cleanupPrefs(PREF_GROUP, TAGS));
 P1 = psychophysics.FakeHistoryPsych('FreqHz');
 P1.setData(makeData(5));
 f1 = uifigure('Visible','off','Tag','SmokeHistCol1');
-H1 = gui.History(P1, f1, PreferenceTag='smokeHistCol1');
+H1 = gui.components.History(P1, f1, PreferenceTag='smokeHistCol1');
 assert(isequal(H1.TableH.ColumnRearrangeable, matlab.lang.OnOffSwitchState.on), ...
     'table should be configured as column-rearrangeable');
 defaultOrder = {'Trial';'Time';'Response';'FreqHz';'LevelDB'};
@@ -49,7 +49,7 @@ fprintf('PASS: simulated drag-to-rearrange reorders columns\n');
 P2 = psychophysics.FakeHistoryPsych('FreqHz');
 P2.setData(makeData(5));
 f2 = uifigure('Visible','off','Tag','SmokeHistCol2');
-H2 = gui.History(P2, f2, PreferenceTag='smokeHistCol1');
+H2 = gui.components.History(P2, f2, PreferenceTag='smokeHistCol1');
 % A saved order predating the Trial column is migrated by leading with it,
 % rather than letting it be appended to the far right.
 recalledOrder = {'Trial';'LevelDB';'Time';'FreqHz';'Response'};
@@ -64,7 +64,7 @@ fprintf('PASS: column order recalled from a prior session via preferences\n');
 P3 = psychophysics.FakeHistoryPsych('FreqHz');
 P3.setData(makeDataNoLevel(5)); % no LevelDB field this session
 f3 = uifigure('Visible','off','Tag','SmokeHistCol3');
-H3 = gui.History(P3, f3, PreferenceTag='smokeHistCol1');
+H3 = gui.components.History(P3, f3, PreferenceTag='smokeHistCol1');
 gotOrder = cellstr(string(H3.TableH.ColumnName(:)));
 assert(isequal(gotOrder, {'Trial';'Time';'FreqHz';'Response'}), ...
     'missing saved column should be dropped, remaining known columns kept in saved order (got %s)', ...

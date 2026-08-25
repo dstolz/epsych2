@@ -12,7 +12,7 @@ classdef ComponentToolbarBehaviorGUI < gui.BehaviorGUI
     % property. A real paradigm just writes its choice into the build call.
 
     properties
-        Toolbar         % gui.ComponentToolbar under test
+        Toolbar         % gui.components.ComponentToolbar under test
         Scatter         % registered with no name -> label from the class
         Upcoming        % registered as 'Upcoming'  -> label from the name
         LazyCalls (1,1) double = 0 % times the Performance factory has run
@@ -75,7 +75,7 @@ classdef ComponentToolbarBehaviorGUI < gui.BehaviorGUI
             % No glyph of this name exists: the generic one must stand in
             % rather than the tool failing to appear.
             obj.Toolbar.addLazyComponent('Mystery', ...
-                @(c) gui.NextTrial(obj.RUNTIME, c, Fields="SmokeFreq", ...
+                @(c) gui.components.NextTrial(obj.RUNTIME, c, Fields="SmokeFreq", ...
                     PreferenceTag='smokeCT_mystery'), ...
                 Icon='nosuchglyph');
 
@@ -83,11 +83,11 @@ classdef ComponentToolbarBehaviorGUI < gui.BehaviorGUI
             g.RowHeight = {'1x','1x'};
 
             p1 = uipanel(g);
-            obj.Scatter = obj.register(gui.ParameterScatter(obj.RUNTIME, p1, ...
+            obj.Scatter = obj.register(gui.components.ParameterScatter(obj.RUNTIME, p1, ...
                 PreferenceTag='smokeCT_scatter'));
 
             p2 = uipanel(g);
-            obj.Upcoming = obj.register(gui.NextTrial(obj.RUNTIME, p2, ...
+            obj.Upcoming = obj.register(gui.components.NextTrial(obj.RUNTIME, p2, ...
                 Fields="SmokeFreq", PreferenceTag='smokeCT_next'), 'Upcoming');
         end
     end
@@ -95,7 +95,7 @@ classdef ComponentToolbarBehaviorGUI < gui.BehaviorGUI
     methods (Access = private)
         function h = makePerformance_(obj, container)
             obj.LazyCalls = obj.LazyCalls + 1;
-            h = gui.SessionPerformance(obj.RUNTIME, container, ...
+            h = gui.components.SessionPerformance(obj.RUNTIME, container, ...
                 PreferenceTag='smokeCT_perf');
         end
     end

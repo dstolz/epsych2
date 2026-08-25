@@ -159,7 +159,7 @@ already has so applying twice is idempotent.
 Every channel — input *and* output — is emitted as a readable parameter, so the per-trial DATA
 record carries what each sensor and each output was doing. That is also what makes phase flags
 work: a digital output held high for the duration of a state shows up as a readable parameter of
-that name, which `gui.Parameter_Monitor` renders as a lamp. The `AppetitiveDetection` template
+that name, which `gui.components.Parameter_Monitor` renders as a lamp. The `AppetitiveDetection` template
 uses this for `DelayPeriod` and `RespWindow`.
 
 Three details that will silently break a session if changed:
@@ -170,7 +170,7 @@ Three details that will silently break a session if changed:
 - `UpdateEveryTrial` is assigned **after** `add_parameter` returns, because `add_parameter` has
   no such option and setting `isTrigger` rewrites the flag.
 - `_TrigState~<BoxID>` and `_TrialNum~<BoxID>` use a `~<BoxID>` suffix, not the `x_*_<BoxID>`
-  form the triggers use. `gui.OnlinePlot` looks up both literally; the inconsistency is
+  form the triggers use. `gui.components.OnlinePlot` looks up both literally; the inconsistency is
   historical and must be preserved.
 
 Response codes are `epsych.BitMask` values, which are **1-based bit indices**. A mask sets bit

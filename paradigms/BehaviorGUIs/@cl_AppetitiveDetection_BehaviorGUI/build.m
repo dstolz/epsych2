@@ -132,7 +132,7 @@ set(obj.NotesButton.OpenH, FontWeight='bold', FontSize=15);
 % The button is DEAD until Ctrl+Alt+Shift are all held -- the same gesture
 % the Update Parameters button uses -- which is what keeps it out of reach of
 % a mis-click in a row of buttons the operator uses constantly. This GUI also
-% holds a gui.Parameter_Update, created below, which reads the same three
+% holds a gui.components.Parameter_Update, created below, which reads the same three
 % modifiers; both take them from this GUI's gui.KeyBindings, so the order the
 % two are built in no longer decides which of them sees the key.
 %
@@ -163,7 +163,7 @@ end
 % SESSION CLOCK ---------------------------------------------
 % Only open cell in the top row: buttons fill columns 1-4, and the Next
 % Trial / Performance panels span columns 6-7 across rows 1-2.
-obj.SessionClock = obj.register(gui.SessionClock(layoutMain, FontSize=10));
+obj.SessionClock = obj.register(gui.components.SessionClock(layoutMain, FontSize=10));
 obj.SessionClock.PanelH.Layout.Row    = 1;
 obj.SessionClock.PanelH.Layout.Column = 5;
 obj.SessionClock.attachRuntime(R);
@@ -183,7 +183,7 @@ panelMonitor.Layout.Row    = [6 8];
 monitorParams = collect_params(P, {'Platform','Trough','InTrial','DelayPeriod','RespWindow', ...
     'PelletTotal','StimDelay','RespWinDelay','RespLatency','RespCode','P_Catch_Current'});
 
-obj.ParameterMonitor = obj.register(gui.Parameter_Monitor(panelMonitor, monitorParams, ...
+obj.ParameterMonitor = obj.register(gui.components.Parameter_Monitor(panelMonitor, monitorParams, ...
     pollPeriod = 0.1, ...
     type       = "graphical", ...
     FontSize   = 14, ...
@@ -199,10 +199,10 @@ if ~isfolder(PhasePath)
     PhasePath = fullfile(EPsychInfo.root,'cl','@cl_AppetitiveDetection_GUI_B','Phases'); % pre-rename layout
 end
 
-% Built unconditionally: gui.PhaseSelector tolerates a missing or empty phase
+% Built unconditionally: gui.components.PhaseSelector tolerates a missing or empty phase
 % directory (empty dropdown, Save still available), and hiding the control
 % because no phases exist yet leaves no way to create the first one.
-obj.PhaseSelector = obj.register(gui.PhaseSelector(R,PhasePath));
+obj.PhaseSelector = obj.register(gui.components.PhaseSelector(R,PhasePath));
 h = uipanel(layoutMain);
 h.Layout.Row    = [2 3];
 h.Layout.Column = [1 2];
@@ -337,7 +337,7 @@ else
     % launch (SelfTest I6), where no selector has run. Its default matches the
     % selector's: a list of more than one value is worth randomizing.
     % The step is its own parameter because hw.Parameter clamps Value into
-    % [Min Max] and gui.Parameter_Control limits the edit field to the same
+    % [Min Max] and gui.components.Parameter_Control limits the edit field to the same
     % range: a 250 ms step could be neither stored on nor typed into the
     % 1000-4000 ms list parameter. cl_AppetitiveStimDetect creates it at run
     % start; this call covers the hardware-free launch (SelfTest I6).
@@ -391,7 +391,7 @@ if ~isempty(pStimDelay) && ~isempty(pStepUp) && ~isempty(pStepDown) && ~isempty(
         autoCommit=true,Text="Stimulus Delay Training Mode");
 
     % PostUpdateFcn rather than the widget's own ValueChangedFcn:
-    % gui.Parameter_Control runs it for external writes too, which is what
+    % gui.components.Parameter_Control runs it for external writes too, which is what
     % lets a phase load open or close the training window. The src argument
     % is [] deliberately -- passing the checkbox would disable it and leave
     % the operator no way to switch training back off.
@@ -451,7 +451,7 @@ panelFilename.Layout.Column = [3 5];
 layoutFilename = simple_layout(panelFilename);
 
 try
-    obj.FilenameField = obj.register(gui.FilenameValidator(R,layoutFilename,R.TRIALS.DataFilename));
+    obj.FilenameField = obj.register(gui.components.FilenameValidator(R,layoutFilename,R.TRIALS.DataFilename));
 catch ME
     % a runtime without compiled trials (self-test) has no filename yet
     vprintf(2,'cl_AppetitiveDetection_BehaviorGUI: filename field skipped (%s)',ME.message)
@@ -482,7 +482,7 @@ end
 
 
 % Panel for "Performance" --------------------------------------------
-% gui.SessionPerformance computes through a psychophysics.SessionMetrics,
+% gui.components.SessionPerformance computes through a psychophysics.SessionMetrics,
 % so the rates here and the psychometric plot read the same trials. The
 % header names the trial window in effect; right-click to change it (all
 % trials, the last N, or an explicit range) or to add metrics.
@@ -508,7 +508,7 @@ for i = 1:size(scatterSel,1)
         scatterArgs = [scatterArgs, scatterSel(i,1), {q.validName}];
     end
 end
-obj.h_ScatterPanel = obj.register(gui.ParameterScatter(R,panelScatter,scatterArgs{:}));
+obj.h_ScatterPanel = obj.register(gui.components.ParameterScatter(R,panelScatter,scatterArgs{:}));
 
 
 % Panel for "Response History" --------------------------------------
@@ -517,7 +517,7 @@ panelResponseHistory.Layout.Row    = [6 11];
 panelResponseHistory.Layout.Column = [6 7];
 
 if ~isempty(obj.Psych)
-    obj.ResponseHistory = obj.register(gui.History(obj.Psych,panelResponseHistory));
+    obj.ResponseHistory = obj.register(gui.components.History(obj.Psych,panelResponseHistory));
     % green hit, red miss, blue correct reject, orange false alarm, yellow abort
     obj.ResponseHistory.BitColors = ["#c8ffd9", "#ffcdcd", "#b3e1ff","#ffeacf","#faffcc"];
     obj.ResponseHistory.ParametersOfInterest    = {'Depth','TrialType','RespLatency'};
@@ -655,11 +655,11 @@ function set_catch_trials_state(src,newValue,~,varargin)
 % cl_AppetitiveStimDetect is no longer running.
 %
 % Parameters:
-%   src : gui.Parameter_Control
+%   src : gui.components.Parameter_Control
 %       Catch-trial checkbox that triggered the update.
 %   newValue : logical scalar | struct
 %       New CatchTrialsEnabled value, or the event struct carrying it.
-%   varargin : gui.Parameter_Control
+%   varargin : gui.components.Parameter_Control
 %       p(Catch) controls to enable or disable; [] entries (parameters the
 %       loaded protocol does not define) are skipped.
 
@@ -709,7 +709,7 @@ function set_stimdelay_training_state(obj,event,pStimDelay,pStepUp,pStepDown,hCo
 %       Parameter the training staircase steps.
 %   pStepUp, pStepDown : hw.Parameter
 %       Training step magnitudes.
-%   hControls : cell of gui.Parameter_Control
+%   hControls : cell of gui.components.Parameter_Control
 %       Delay controls to grey while training runs. The first entry is the
 %       randomization checkbox, which is also what restores the others when
 %       training ends; [] entries are skipped.
@@ -760,15 +760,15 @@ function set_stimdelay_randomization_state(src,newValue,param,hStimDelayValue,va
 % variable-length list rather than as one named argument.
 %
 % Parameters:
-%   src : gui.Parameter_Control
+%   src : gui.components.Parameter_Control
 %       Randomization checkbox that triggered the update.
 %   newValue : logical scalar | struct
 %       New checkbox value, or the event struct carrying it.
 %   param : hw.Parameter
-%       Bound parameter passed by gui.Parameter_Control PostUpdateFcn (unused).
-%   hStimDelayValue : gui.Parameter_Control
+%       Bound parameter passed by gui.components.Parameter_Control PostUpdateFcn (unused).
+%   hStimDelayValue : gui.components.Parameter_Control
 %       UI control for direct StimDelay value editing.
-%   varargin : gui.Parameter_Control
+%   varargin : gui.components.Parameter_Control
 %       Controls describing the varying delay; [] entries (parameters the
 %       loaded protocol does not define) are skipped.
 

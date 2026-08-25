@@ -27,7 +27,7 @@ changes where the GUI's `NewData` events come from:
 RUNTIME.EVENTS ── NewData ──▶ psychophysics.Detection (ingests the trial)
                                      │
                               Psych.Events ── NewData ──▶ this GUI's onNewData
-                                                     └──▶ gui.PsychPlot
+                                                     └──▶ gui.components.PsychPlot
 ```
 
 `psychophysics.Detection` listens to `RUNTIME.EVENTS`, decodes each trial's
@@ -35,14 +35,14 @@ RUNTIME.EVENTS ── NewData ──▶ psychophysics.Detection (ingests the tri
 `gui.BehaviorGUI` subscribes to `Psych.Events` when `createPsych` returns an object,
 `onNewData` is guaranteed to run *after* the Detection object has processed the
 trial — its dependent properties (`NumTrials`, `Hit_Rate`, `DPrime`, `Count`)
-are always current inside the hook. `gui.PsychPlot` hangs off the same broadcaster
+are always current inside the hook. `gui.components.PsychPlot` hangs off the same broadcaster
 and redraws itself; the GUI never touches it after construction.
 
 Guarding on `isfield(obj.P, 'ToneLevel')` keeps the class loadable against
 protocols that lack the parameter — `obj.P` holds every runtime parameter
 keyed by `validName`.
 
-One layout note: `gui.PsychPlot` requires a classic `axes` (its argument
+One layout note: `gui.components.PsychPlot` requires a classic `axes` (its argument
 validation rejects `uiaxes`); `axes(panel)` inside a uifigure panel provides
 one. Non-BehaviorGUI components are wrapped with `obj.register(...)` so the base
 class tears them down (listeners included) when the figure closes.

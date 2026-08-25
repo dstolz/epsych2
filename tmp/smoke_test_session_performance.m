@@ -1,7 +1,7 @@
 function smoke_test_session_performance()
 % smoke_test_session_performance()
 % Exercise psychophysics.TrialWindow, psychophysics.SessionMetrics, and
-% gui.SessionPerformance: window parsing and resolution, metric arithmetic
+% gui.components.SessionPerformance: window parsing and resolution, metric arithmetic
 % over every window mode, live updates from a NewData event, the
 % programmatic and context-menu paths for changing the trial window and the
 % metric selection, preference persistence, and teardown. Headless-safe:
@@ -133,12 +133,12 @@ assert(Sp.Results.N.Hit == 8 && Sp.Results.N.FalseAlarm == 2, ...
 delete(Sp);
 fprintf('PASS: SessionMetrics falls back when trial types are absent\n');
 
-% 6. gui.SessionPerformance over a live runtime ---------------------------
+% 6. gui.components.SessionPerformance over a live runtime ---------------------------
 rt = fakeRuntime();
 fig = uifigure('Visible','off','Tag',PREF_TAG,'Position',[100 100 380 320]);
 panel = uipanel(fig,'Title','Session Performance','Units','normalized','Position',[0 0 1 1]);
 
-P = gui.SessionPerformance(rt, panel, Metrics=["Trials","HitRate","FARate","DPrime"]);
+P = gui.components.SessionPerformance(rt, panel, Metrics=["Trials","HitRate","FARate","DPrime"]);
 assert(isa(P.Analysis,'psychophysics.SessionMetrics'), 'the panel should own a SessionMetrics');
 assert(P.TrialWindow.Mode == "All", 'the default window is every trial');
 assert(contains(P.HeaderH.Text,'All trials'), 'the header should name the active window');
@@ -149,7 +149,7 @@ rt.EVENTS.notify('NewData', trialsEvent(DATA));
 assert(P.Analysis.trialCount == 20, 'the analysis should follow the NewData event');
 assert(valueText(P,"HitRate") == "72.7%", 'the panel should show the computed hit rate');
 assert(contains(P.HeaderH.Text,'1-20'), 'the header should show the resolved span');
-fprintf('PASS: gui.SessionPerformance builds and follows NewData\n');
+fprintf('PASS: gui.components.SessionPerformance builds and follows NewData\n');
 
 % 7. Programmatic trial-window control ------------------------------------
 P.TrialWindow = 10;
@@ -250,7 +250,7 @@ P.setTrialWindow([5 15]);
 P.setFontSize(15);
 delete(P);
 
-P2 = gui.SessionPerformance(rt, panel, Metrics="HitRate");
+P2 = gui.components.SessionPerformance(rt, panel, Metrics="HitRate");
 assert(isequal(P2.Metrics, ["Trials","DPrime"]), 'a saved selection should outrank the constructor default');
 assert(P2.TrialWindow.Mode == "Range" && isequal(P2.TrialWindow.Range,[5 15]), ...
     'the saved trial window should be restored');
@@ -285,13 +285,13 @@ assert(~isvalid(analysis), 'a panel-created analysis should be deleted with the 
 
 % an analysis supplied by the caller is left alone
 shared = psychophysics.SessionMetrics(DATA);
-P3 = gui.SessionPerformance(shared, panel, PreferenceTag='smoke_shared');
+P3 = gui.components.SessionPerformance(shared, panel, PreferenceTag='smoke_shared');
 delete(P3);
 assert(isvalid(shared), 'a caller-supplied analysis should survive the panel');
 delete(shared);
 
 % deleting the graphics tears the component down too
-P4 = gui.SessionPerformance(rt, panel, PreferenceTag='smoke_shared');
+P4 = gui.components.SessionPerformance(rt, panel, PreferenceTag='smoke_shared');
 grid4 = P4.GridH;
 delete(grid4);
 assert(~isvalid(P4), 'destroying the layout should delete the component');

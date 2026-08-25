@@ -44,7 +44,7 @@ classdef ParameterTracker < handle
     %   S = t.data;   % S.Time, S.Values, S.Names
     %
     % See also: documentation/gui/gui_ParameterTracker.md,
-    %   gui.ParameterDebugger, gui.Parameter_Monitor, hw.Parameter
+    %   gui.ParameterDebugger, gui.components.Parameter_Monitor, hw.Parameter
 
     properties (SetAccess = private)
         Parameters = hw.Parameter.empty(1,0)  % tracked parameters, in plot order

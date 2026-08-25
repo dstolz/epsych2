@@ -82,20 +82,20 @@ Utilities (`util`):
 
 GUI components (`gui`):
 
-- [gui.Parameter_Control](gui/Parameter_Control.md) — binding a parameter to a UI widget
-- [gui.Parameter_Update](gui/Parameter_Update.md) — commit button for staged parameter edits
+- [gui.components.Parameter_Control](gui/Parameter_Control.md) — binding a parameter to a UI widget
+- [gui.components.Parameter_Update](gui/Parameter_Update.md) — commit button for staged parameter edits
 - [gui.ParameterDebugger](gui/gui_ParameterDebugger.md) — read and write every parameter a protocol defines, on demand
 - [gui.ParameterTracker](gui/gui_ParameterTracker.md) — plot scalar parameters against time, live
-- [gui.History](gui/gui_History.md) — trial-by-trial history table
+- [gui.components.History](gui/gui_History.md) — trial-by-trial history table
 - [gui.SubjectManager](gui/gui_SubjectManager.md) — subjects by project, and the batch commit into a session
 - [gui.BehaviorGUI](gui/gui_BehaviorGUI.md) — the base class a paradigm's own experiment GUI subclasses, and its component helpers
 - [gui.BehaviorBuilder](gui/gui_BehaviorBuilder.md) — design-time builder that generates a `gui.BehaviorGUI` subclass from a protocol and a drag-and-drop layout
-- [gui.ComponentToolbar](gui/gui_ComponentToolbar.md) — one toolbar opening each display in a window of its own, including displays the GUI does not host
-- [gui.ScreenCapture](gui/gui_ScreenCapture.md) — camera button copying the whole window to the clipboard
+- [gui.components.ComponentToolbar](gui/gui_ComponentToolbar.md) — one toolbar opening each display in a window of its own, including displays the GUI does not host
+- [gui.components.ScreenCapture](gui/gui_ScreenCapture.md) — camera button copying the whole window to the clipboard
 - [gui.PopOut](gui/gui_PopOut.md) — the mixin that makes a display component poppable
-- [gui.NextTrial](gui/gui_NextTrial.md) — upcoming-trial display driven by `NewTrial`
-- [gui.SessionPerformance](gui/gui_SessionPerformance.md) — session summary: rates, counts, d'
-- [gui.SyringePump](gui/gui_SyringePump.md) — operator panel for an `hw.NE1000` reward pump
+- [gui.components.NextTrial](gui/gui_NextTrial.md) — upcoming-trial display driven by `NewTrial`
+- [gui.components.SessionPerformance](gui/gui_SessionPerformance.md) — session summary: rates, counts, d'
+- [gui.components.SyringePump](gui/gui_SyringePump.md) — operator panel for an `hw.NE1000` reward pump
 - [gui.VlcRecorderSetup](gui/VlcRecorderSetup.md) — webcam preview UI for configuring VlcRecorder device/fps/resolution/crop
 - [gui.VideoConverterSetup](util/VideoConverter.md) — batch video conversion UI (see util.VideoConverter)
 - [eval_staircase_training_mode](gui/eval_staircase_training_mode.md) — training-mode toggle callback

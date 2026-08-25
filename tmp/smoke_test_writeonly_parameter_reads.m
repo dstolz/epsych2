@@ -183,7 +183,7 @@ catch ME
 end
 
 % ===== H. Phase-load trial sync never reads back ===========================
-% gui.PhaseSelector deliberately keeps write-only parameters in the change set
+% gui.components.PhaseSelector deliberately keeps write-only parameters in the change set
 % and hands them to updateTrialsFromParameters, which read Value and wrote the
 % resulting NaN into every trial row for that parameter.
 try

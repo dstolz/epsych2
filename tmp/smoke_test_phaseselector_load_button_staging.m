@@ -1,6 +1,6 @@
 function smoke_test_phaseselector_load_button_staging()
 % smoke_test_phaseselector_load_button_staging()
-% gui.PhaseSelector's Load button must visually distinguish "a phase is
+% gui.components.PhaseSelector's Load button must visually distinguish "a phase is
 % selected but not yet applied" (staged) from its default/loaded look, and
 % must drop the staged look once Load actually runs.
 %
@@ -16,7 +16,7 @@ if isfolder(tmpDir), rmdir(tmpDir, 's'); end
 mkdir(tmpDir);
 cleanupDir = onCleanup(@() rmdir(tmpDir, 's'));
 
-% gui.PhaseSelector prefers its remembered directory (setpref) over the
+% gui.components.PhaseSelector prefers its remembered directory (setpref) over the
 % constructor argument, so an operator's real phase directory would hijack this.
 prefGroup = 'epsych2_gui_PhaseSelector';
 prefKey   = 'LastPhasePath';
@@ -43,7 +43,7 @@ R.find_parameter('StimDelay').Value = 5;  % restore before Load runs
 
 fig = uifigure('Visible', 'on');   % uiprogressdlg refuses a hidden figure
 cleanupFig = onCleanup(@() delete(fig));
-ps = gui.PhaseSelector(R, tmpDir);
+ps = gui.components.PhaseSelector(R, tmpDir);
 h  = ps.createGUI(uipanel(fig));
 
 defaultText  = h.LoadPhase.Text;

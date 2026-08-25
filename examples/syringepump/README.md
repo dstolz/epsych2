@@ -1,7 +1,7 @@
 # Example: Testing the Syringe Pump Panel
 
 The smallest complete session that exercises
-[`gui.SyringePump`](../../documentation/gui/gui_SyringePump.md) the way a real
+[`gui.components.SyringePump`](../../documentation/gui/gui_SyringePump.md) the way a real
 paradigm would: a protocol whose reward `Volume` steps through three levels,
 a behavior GUI that embeds the pump panel beside the controls that write the same
 pump, and a trial loop that dispenses on every trial.
@@ -95,7 +95,7 @@ the `.eprot` reloads with an *offline* interface carrying that same table, so
 `run_pump_session` rebuilds rather than loads — `epsych.Runtime` asserts that
 every interface connects.
 
-**Rate units are the panel's, not the protocol's.** `gui.SyringePump` puts the
+**Rate units are the panel's, not the protocol's.** `gui.components.SyringePump` puts the
 interface into the units it displays when it attaches, so a protocol has to be
 authored in the same ones. This one is in µL/min (`RateUnits = 'UM'` in
 `create_pump_protocol`), so `PumpBehaviorGUI` states `RateUnits = 'UM'` on the panel

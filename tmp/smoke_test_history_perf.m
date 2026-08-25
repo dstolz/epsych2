@@ -1,6 +1,6 @@
 function smoke_test_history_perf()
 % smoke_test_history_perf()
-% Report per-update cost for gui.History. This is a measurement harness, not
+% Report per-update cost for gui.components.History. This is a measurement harness, not
 % a pass/fail test: it fails only if the harness itself breaks.
 %
 % Sections:
@@ -28,7 +28,7 @@ cleanupObj = onCleanup(@() cleanupPrefs(PREF_GROUP, {TAG}));
 VISIBLE = 'on'; % 'on' exercises real marshalling; a headless run understates it
 NREP    = 20;   % single-trial appends timed per configuration
 
-fprintf('\n=== gui.History update cost ===\n');
+fprintf('\n=== gui.components.History update cost ===\n');
 fprintf('MATLAB %s | visible=%s | reps=%d\n\n', version('-release'), VISIBLE, NREP);
 
 %% 1. Per-update cost vs. trial count -------------------------------------
@@ -93,7 +93,7 @@ P = psychophysics.FakeHistoryPsych('FreqHz');
 P.setData(makeData(N));
 f = uifigure('Visible',visible,'Position',[100 100 700 500],'Tag','SmokeHistPerf');
 c = onCleanup(@() close(f));
-H = gui.History(P, f, PreferenceTag=tag);
+H = gui.components.History(P, f, PreferenceTag=tag);
 H.RowBlockSize = blockSize;
 H.ParametersOfInterest = {'FreqHz','LevelDB','RespLatency'};
 H.update();

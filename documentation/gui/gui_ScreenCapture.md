@@ -1,4 +1,4 @@
-# gui.ScreenCapture
+# gui.components.ScreenCapture
 
 A camera button for a behavior GUI: one click puts a picture of the whole
 window on the system clipboard, ready to paste into an electronic lab
@@ -31,7 +31,7 @@ obj.addScreenCapture(row);                        % icon-only button
 obj.addScreenCapture(row, Text='Screenshot');     % labeled
 
 % Standalone, in any container:
-sc = gui.ScreenCapture(fig, Tooltip='Copy this window');
+sc = gui.components.ScreenCapture(fig, Tooltip='Copy this window');
 sc.copyToClipboard();                             % also callable from code
 ```
 

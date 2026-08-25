@@ -1,6 +1,6 @@
 function smoke_test_onlineplot_config()
 % smoke_test_onlineplot_config()
-% Exercise gui.OnlinePlot's configurability: pop-out, programmatic and
+% Exercise gui.components.OnlinePlot's configurability: pop-out, programmatic and
 % operator-facing trace selection, y-axis reordering, aesthetics, and
 % cross-session persistence.
 %
@@ -233,7 +233,7 @@ delete(opb); close(ancestor(axb,'figure'));
 
 %% 7. Pop-out ------------------------------------------------------------
 [op5,ax5] = makePlot(rt,P(1:3),TAG);
-assert(isa(op5,'gui.PopOut'), 'gui.OnlinePlot should be a gui.PopOut adopter');
+assert(isa(op5,'gui.PopOut'), 'gui.components.OnlinePlot should be a gui.PopOut adopter');
 assert(~op5.hasPopOut(), 'nothing should be open yet');
 poItem = findall(op5.hax.ContextMenu,'Tag',gui.PopOut.POPOUT_MENU_TAG);
 assert(~isempty(poItem), 'the context menu should carry the pop-out item');
@@ -292,7 +292,7 @@ end
 function [op,ax] = makePlot(rt,source,tag)
 f = figure('Visible','off','Name','SmokeOnlinePlotCfg','Tag',tag);
 ax = axes(f);
-op = gui.OnlinePlot(rt, source, ax, 1, PreferenceTag=tag);
+op = gui.components.OnlinePlot(rt, source, ax, 1, PreferenceTag=tag);
 stop(op.h_timer);
 if op.startTic_ == 0
     op.h_timer.Timer.StartFcn(op.h_timer.Timer,[]);

@@ -32,7 +32,7 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
     % chance level, and the side bias is P(chose right) re 0.5.
     % psychophysics.SessionMetrics — hit rate, false-alarm rate, d',
     % criterion — is a DETECTION summary and does not apply here, which is
-    % why this GUI has no gui.SessionPerformance panel.
+    % why this GUI has no gui.components.SessionPerformance panel.
     %
     % The choice data itself is scored by a psychophysics.NAFC built in
     % createPsych over SignedContrast (choices from the ChoiceSide read
@@ -156,7 +156,7 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
 
             % Header. The trial label never names the upcoming side or
             % contrast: subject and operator share one screen here. For the
-            % same reason this GUI has no gui.NextTrial panel — it displays
+            % same reason this GUI has no gui.components.NextTrial panel — it displays
             % the dispatched condition, which would show the answer.
             hdr = uigridlayout(g, [1 3]);
             hdr.Layout.Row = 1; hdr.Layout.Column = [1 2];
@@ -216,7 +216,7 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             obj.addUpdateButton(col);
 
             % Session summary, read straight off the psychophysics.NAFC.
-            % A detection tutorial would put a gui.SessionPerformance here
+            % A detection tutorial would put a gui.components.SessionPerformance here
             % instead, and it is deliberately absent: that component
             % computes through psychophysics.SessionMetrics, whose whole
             % model — hit rate over stimulus trials, false-alarm rate over
@@ -251,7 +251,7 @@ classdef TwoAFCBehaviorGUI < gui.BehaviorGUI
             % outcome. Refreshes itself on every completed trial.
             pnl = uipanel(og, 'Title', 'Signed Contrast by Chosen Side');
             pnl.Layout.Row = 3;
-            obj.register(gui.ParameterScatter(obj.RUNTIME, pnl, ...
+            obj.register(gui.components.ParameterScatter(obj.RUNTIME, pnl, ...
                 XParameter = 'SignedContrast', YParameter = 'ChoiceSide', ...
                 ColorParameter = 'Response'));
 

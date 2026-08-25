@@ -80,7 +80,7 @@ neither simply omits them.
 > split that a 2AFC does not have. `psychophysics.NAFC` is the analysis for
 > this task: proportion correct against 1/N, the choice functions, the
 > confusion matrix, and the per-alternative choice bias. That is also why
-> `TwoAFCBehaviorGUI` has no `gui.SessionPerformance` panel.
+> `TwoAFCBehaviorGUI` has no `gui.components.SessionPerformance` panel.
 
 `TrialType_0` / `TrialType_1` name the trial's **category**. In this task the
 category and the correct alternative are the same thing — a left-target trial
@@ -126,7 +126,7 @@ analyses of the same file side by side, and they agree:
   choice bias, and the no-response / abort split.
 
 No shipped class computes P(choice) against a signed value or a PSE, which is
-why the fit lives in the example. For a live display, `gui.ParameterScatter`
+why the fit lives in the example. For a live display, `gui.components.ParameterScatter`
 (X = a signed parameter, Y = a numeric choice column, colour = outcome) is the
 closest ready-made equivalent.
 

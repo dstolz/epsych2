@@ -156,7 +156,7 @@ function refreshCheckCalculations(obj)
     nErrors = nnz([report.issues.severity] == 2);
     nWarnings = nnz([report.issues.severity] == 1);
     % StatusBar colors by substring match on "error" with no count awareness
-    % (see gui.StatusBar.applyColors_), so a clean run must not spell out
+    % (see gui.components.StatusBar.applyColors_), so a clean run must not spell out
     % "0 error(s)" or it paints red despite success.
     countParts = {};
     if nErrors > 0

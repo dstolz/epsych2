@@ -44,7 +44,7 @@ classdef ProtocolDesigner < handle
         CheckCalcFigure matlab.ui.Figure
 
         EditInfo matlab.ui.control.EditField
-        StatusBar gui.StatusBar  % Footer status-label component.
+        StatusBar gui.components.StatusBar  % Footer status-label component.
 
         % Toolbar buttons.
         BtnNew matlab.ui.control.Button

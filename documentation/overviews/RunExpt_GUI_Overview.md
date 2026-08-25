@@ -191,7 +191,7 @@ The hardware connection itself stays open so you can run again without reconnect
 
 After **Stop** (or if a timer error occurs), click **Save Data**.
 
-By default, `ep_SaveDataFcn(RUNTIME)` saves each subject's trial data without prompting, to the filename the session is already carrying (`RUNTIME.TRIALS(i).DataFilename` — the name seeded at **Run** and edited during the session by the behavior GUI's filename field, `gui.FilenameValidator`). Missing folders are created, and a `.mat` extension is added if the name lacks one.
+By default, `ep_SaveDataFcn(RUNTIME)` saves each subject's trial data without prompting, to the filename the session is already carrying (`RUNTIME.TRIALS(i).DataFilename` — the name seeded at **Run** and edited during the session by the behavior GUI's filename field, `gui.components.FilenameValidator`). Missing folders are created, and a `.mat` extension is added if the name lacks one.
 
 Each save is reported in the command window with the full path as a hyperlink; clicking it loads that file into a base workspace variable named after the subject (`Data_<Subject>`), so the session's data is one click away from the prompt. A **Preview** run writes no data file — the filename field says as much while the preview runs — and a subject with no completed trials is skipped. If a save fails, the message names the crash-recovery `.mat` in the temporary data directory, which already holds every completed trial.
 

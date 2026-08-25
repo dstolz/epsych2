@@ -1,6 +1,6 @@
-# gui.ComponentToolbar — one toolbar for a GUI's separate windows
+# gui.components.ComponentToolbar — one toolbar for a GUI's separate windows
 
-`gui.ComponentToolbar` is an icon toolbar across the top of a behavior GUI, one
+`gui.components.ComponentToolbar` is an icon toolbar across the top of a behavior GUI, one
 tool per display, that opens that display in a window of its own. It answers
 two things at once: it gives the pop-out windows of
 [`gui.PopOut`](gui_PopOut.md) a place an operator can find without knowing
@@ -24,12 +24,12 @@ function build(obj, fig)
 
     % Not on screen; built the first time its tool is clicked.
     tb.addLazyComponent('Performance', ...
-        @(c) gui.SessionPerformance(obj.RUNTIME, c), ...
+        @(c) gui.components.SessionPerformance(obj.RUNTIME, c), ...
         Icon='sessionperformance', WindowSize=[420 260]);
 
     g = uigridlayout(fig, [2 1]);
-    obj.Scatter  = obj.register(gui.ParameterScatter(obj.RUNTIME, uipanel(g)));
-    obj.Upcoming = obj.register(gui.NextTrial(obj.RUNTIME, uipanel(g)), 'Upcoming');
+    obj.Scatter  = obj.register(gui.components.ParameterScatter(obj.RUNTIME, uipanel(g)));
+    obj.Upcoming = obj.register(gui.components.NextTrial(obj.RUNTIME, uipanel(g)), 'Upcoming');
 end
 ```
 
@@ -73,7 +73,7 @@ rather than something `build` registered, so nothing else would find it; a
 subclass that registers it as well gets one tool, not two.
 
 A lazy entry costs nothing until it is clicked, which is the reason to use one:
-a `gui.Parameter_Monitor` starts a polling timer and a `gui.ParameterScatter`
+a `gui.components.Parameter_Monitor` starts a polling timer and a `gui.components.ParameterScatter`
 attaches event listeners the moment they are constructed, so a display that
 is only wanted occasionally is better declared than embedded and hidden.
 
@@ -96,17 +96,17 @@ showing what it was showing.
 Constructor shapes worth knowing when writing one:
 
 ```matlab
-@(c) gui.SessionPerformance(obj.RUNTIME, c)                 % container required
-@(c) gui.NextTrial(obj.RUNTIME, c, Fields=["Freq" "Level"]) % container required
-@(c) gui.History(obj.Psych, c)
-@(c) gui.ParameterScatter(obj.RUNTIME, c, XParameter='Trial Number')
-@(c) gui.Parameter_Monitor(c, [obj.P.Level obj.P.InTrial], pollPeriod=1)
-@(c) gui.PsychPlot(obj.Psych, axes(c))                      % a CLASSIC axes
-@(c) gui.SyringePump(obj.RUNTIME, c)
+@(c) gui.components.SessionPerformance(obj.RUNTIME, c)                 % container required
+@(c) gui.components.NextTrial(obj.RUNTIME, c, Fields=["Freq" "Level"]) % container required
+@(c) gui.components.History(obj.Psych, c)
+@(c) gui.components.ParameterScatter(obj.RUNTIME, c, XParameter='Trial Number')
+@(c) gui.components.Parameter_Monitor(c, [obj.P.Level obj.P.InTrial], pollPeriod=1)
+@(c) gui.components.PsychPlot(obj.Psych, axes(c))                      % a CLASSIC axes
+@(c) gui.components.SyringePump(obj.RUNTIME, c)
 @(c) psychophysics.Staircase(obj.RUNTIME, obj.P.Depth, Plot=true, PlotAxes=axes(c))
 ```
 
-`gui.PsychPlot` and `psychophysics.Staircase` want a classic `axes`, not a
+`gui.components.PsychPlot` and `psychophysics.Staircase` want a classic `axes`, not a
 `uiaxes` — `axes(container)` is what their own `createPopOut_` does.
 
 ## Styles
@@ -132,8 +132,8 @@ A tool is labelled by the name the component was **registered** under, and by
 its class name split at camelCase boundaries when there is none:
 
 ```matlab
-obj.register(gui.ParameterScatter(...))            % -> "Parameter Scatter"
-obj.register(gui.ParameterScatter(...), 'Left Box') % -> "Left Box"
+obj.register(gui.components.ParameterScatter(...))            % -> "Parameter Scatter"
+obj.register(gui.components.ParameterScatter(...), 'Left Box') % -> "Left Box"
 ```
 
 Register a name whenever one GUI holds two components of the same class, or the
@@ -152,8 +152,8 @@ removed**.
 
 | Class | Icon name |
 |---|---|
-| `gui.ParameterScatter` | `parameterscatter` |
-| `gui.Parameter_Monitor` | `parametermonitor` |
+| `gui.components.ParameterScatter` | `parameterscatter` |
+| `gui.components.Parameter_Monitor` | `parametermonitor` |
 | `psychophysics.Staircase` | `staircase` |
 
 All eight `gui.PopOut` adopters have one. A component with no case in

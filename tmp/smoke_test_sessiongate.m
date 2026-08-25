@@ -1,18 +1,18 @@
 function smoke_test_sessiongate()
 % smoke_test_sessiongate()
-% Standing proof for gui.SessionGate and the component-exposure work that
+% Standing proof for gui.components.SessionGate and the component-exposure work that
 % went in beside it:
 %
-%   1. gui.SessionGate on its own - release, wait, retire, and the
+%   1. gui.components.SessionGate on its own - release, wait, retire, and the
 %      ModeChange catch-up that closes the gate a script never pressed.
 %   2. The gui.BehaviorGUI add* helpers that had no entry point before
 %      (history, scatter, psych plot, staircase plot, session clock, trial
 %      timer, mode indicator, session gate), including the promise that a
 %      helper needing something the session does not have returns [] rather
 %      than taking the whole build down with it.
-%   3. gui.Parameter_Control dependency gating (EnabledBy / DisabledBy /
+%   3. gui.components.Parameter_Control dependency gating (EnabledBy / DisabledBy /
 %      setEnabled) and its composition with the interface-mode gate.
-%   4. gui.Performance.TargetTrialType, which used to be hardcoded.
+%   4. gui.components.Performance.TargetTrialType, which used to be hardcoded.
 %   5. The gui.BehaviorBuilder palette entries added for components that
 %      already existed but could not be placed.
 %
@@ -29,10 +29,10 @@ cleanupObj = onCleanup(@() cleanupAll(PREF_TAG, outDir));
 
 results = strings(0,2);
 
-% 1. gui.SessionGate on its own -------------------------------------------
+% 1. gui.components.SessionGate on its own -------------------------------------------
 fig = uifigure('Visible','off','Position',[100 100 300 120]);
 g = uigridlayout(fig,[1 1]);
-gate = gui.SessionGate(g, Text='Start Now');
+gate = gui.components.SessionGate(g, Text='Start Now');
 
 results(end+1,:) = check('The gate starts shut', ~gate.Released);
 results(end+1,:) = check('It builds a live button', ...
@@ -87,15 +87,15 @@ rt = makeRuntime();
 gui1 = SessionGateSmokeGUI(rt);
 results(end+1,:) = check('The GUI opens', isvalid(gui1) && isvalid(gui1.h_figure));
 results(end+1,:) = check('addSessionGate built a gate', ...
-    isa(gui1.hGate,'gui.SessionGate') && ~gui1.hGate.Released);
+    isa(gui1.hGate,'gui.components.SessionGate') && ~gui1.hGate.Released);
 results(end+1,:) = check('addScatter built a scatter', ...
-    isa(gui1.hScatter,'gui.ParameterScatter'));
+    isa(gui1.hScatter,'gui.components.ParameterScatter'));
 results(end+1,:) = check('addSessionClock built a clock', ...
-    isa(gui1.hClock,'gui.SessionClock'));
+    isa(gui1.hClock,'gui.components.SessionClock'));
 results(end+1,:) = check('addTrialTimer built a timer', ...
-    isa(gui1.hTimer,'gui.ElapsedTrialTimer'));
+    isa(gui1.hTimer,'gui.components.ElapsedTrialTimer'));
 results(end+1,:) = check('addModeIndicator built an indicator', ...
-    isa(gui1.hMode,'gui.ModeIndicator'));
+    isa(gui1.hMode,'gui.components.ModeIndicator'));
 
 % The graceful half: this GUI has no psych object, so every psych-backed
 % helper must hand back [] and leave the build standing.
@@ -139,9 +139,9 @@ sw.connect();
 
 fig5 = uifigure('Visible','off','Position',[100 100 420 240]);
 g5 = uigridlayout(fig5,[3 1]);
-cEnable = gui.Parameter_Control(g5, pEnable, Type='checkbox', autoCommit=true);
-cRate   = gui.Parameter_Control(g5, pRate, EnabledBy=cEnable);
-cOther  = gui.Parameter_Control(g5, pOther, DisabledBy=cEnable);
+cEnable = gui.components.Parameter_Control(g5, pEnable, Type='checkbox', autoCommit=true);
+cRate   = gui.components.Parameter_Control(g5, pRate, EnabledBy=cEnable);
+cOther  = gui.components.Parameter_Control(g5, pOther, DisabledBy=cEnable);
 
 results(end+1,:) = check('EnabledBy greys a control whose governor is false', ...
     allOff(cRate));
@@ -183,8 +183,8 @@ results(end+1,:) = check('A deleted dependent is dropped, not thrown on', ok);
 delete(fig5);
 delete(sw);
 
-% 4. gui.Performance.TargetTrialType ---------------------------------------
-p = gui.Performance();
+% 4. gui.components.Performance.TargetTrialType ---------------------------------------
+p = gui.components.Performance();
 results(end+1,:) = check('Performance defaults to TrialType_0', ...
     p.TargetTrialType == epsych.BitMask.TrialType_0);
 p.TargetTrialType = epsych.BitMask.TrialType_2;
@@ -217,13 +217,13 @@ results(end+1,:) = check('The gate is emitted through the helper', ...
     contains(src,'obj.addSessionGate('));
 results(end+1,:) = check('The gate emits the waitForSessionGate handoff', ...
     contains(src,'waitForSessionGate'));
-results(end+1,:) = check('The phase selector is emitted', contains(src,'gui.PhaseSelector('));
-results(end+1,:) = check('The status bar is emitted', contains(src,'gui.StatusBar('));
-results(end+1,:) = check('The filename field is emitted', contains(src,'gui.FilenameValidator('));
+results(end+1,:) = check('The phase selector is emitted', contains(src,'gui.components.PhaseSelector('));
+results(end+1,:) = check('The status bar is emitted', contains(src,'gui.components.StatusBar('));
+results(end+1,:) = check('The filename field is emitted', contains(src,'gui.components.FilenameValidator('));
 results(end+1,:) = check('The online plot is emitted with its source', ...
-    contains(src,'gui.OnlinePlot(') && contains(src,'SmokeState'));
+    contains(src,'gui.components.OnlinePlot(') && contains(src,'SmokeState'));
 
-% An Online Plot with no source would send gui.OnlinePlot to a listdlg at
+% An Online Plot with no source would send gui.components.OnlinePlot to a listdlg at
 % construction, which a generated build must never do.
 bad = loaded;
 ix = strcmp({bad.Regions.Type},'OnlinePlot');
@@ -260,7 +260,7 @@ rt.isTest = true;
 rt.EVENTS = epsych.EventHub;
 fig = uifigure('Visible','off','Position',[100 100 300 120]);
 g = uigridlayout(fig,[1 1]);
-gate = gui.SessionGate(g);
+gate = gui.components.SessionGate(g);
 gate.attachRuntime(rt);
 end
 

@@ -1,6 +1,6 @@
 function shoot_onlineplot()
 % shoot_onlineplot()
-% Render a populated gui.OnlinePlot and save a PNG, to eyeball the appearance.
+% Render a populated gui.components.OnlinePlot and save a PNG, to eyeball the appearance.
 % Writes tmp/onlineplot_after.png.
 
 here = fileparts(mfilename('fullpath'));
@@ -21,7 +21,7 @@ pNum  = iface.add_parameter('_TrialNum~1', 1);
 iface.put(pTrig,0); iface.put(pNum,1);
 rt.Interfaces = iface;
 
-op = gui.OnlinePlot(rt, P);
+op = gui.components.OnlinePlot(rt, P);
 stop(op.h_timer);
 if op.startTic_ == 0
     op.h_timer.Timer.StartFcn(op.h_timer.Timer,[]);

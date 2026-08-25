@@ -1,5 +1,5 @@
 % smoke_test_screen_capture.m
-% Headless check of gui.ScreenCapture and gui.BehaviorGUI.addScreenCapture.
+% Headless check of gui.components.ScreenCapture and gui.BehaviorGUI.addScreenCapture.
 %
 % Asserts the camera glyph exists and reaches the uibutton's Icon property, a
 % click puts a bitmap of the whole window on the Windows clipboard at the
@@ -16,7 +16,7 @@
 % Bootstrap: `matlab -batch` starts with whatever path the user profile leaves
 % behind, and this file lives in tmp/, which is only on the path once
 % epsych_startup has run.
-if exist('gui.ScreenCapture', 'class') ~= 8
+if exist('gui.components.ScreenCapture', 'class') ~= 8
     run(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'epsych_startup.m'));
 end
 
@@ -45,7 +45,7 @@ try
         'Position', [100 100 420 260]);
     uilabel(fig, 'Position', [20 200 380 30], 'Text', 'Window content', 'FontSize', 18);
 
-    sc = gui.ScreenCapture(fig, Tooltip = 'Copy me', FlashDuration = 0.4);
+    sc = gui.components.ScreenCapture(fig, Tooltip = 'Copy me', FlashDuration = 0.4);
 
     results(end+1,:) = check('Button is a uibutton', ...
         isa(sc.Button, 'matlab.ui.control.Button'));

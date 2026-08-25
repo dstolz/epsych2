@@ -35,9 +35,9 @@ rt.EVENTS = epsych.EventHub;
 rt.StartTime = obj.Snapshot.StartTime;
 rt.DataFile = string(obj.DataFile);
 
-% The notes the operator typed during the session, so a gui.Notes in the
+% The notes the operator typed during the session, so a gui.components.Notes in the
 % paradigm's own GUI shows them rather than opening blank. Unbound to this
-% runtime -- a review has no journal to write to -- and gui.Notes refuses new
+% runtime -- a review has no journal to write to -- and gui.components.Notes refuses new
 % notes in ReviewMode anyway: they are a record of what was written at the time.
 rt.NOTES = epsych.SessionNotes.fromSnapshot(obj.Snapshot);
 
@@ -52,7 +52,7 @@ if isempty(obj.Interfaces)
     vprintf(0, ['epsych.ReviewSession: this session carries no protocol, so it opens ' ...
         'without parameter controls. Pass Protocol="...eprot" to supply one.'])
 else
-    % Standby rather than Idle: gui.Parameter_Control disables on a mode
+    % Standby rather than Idle: gui.components.Parameter_Control disables on a mode
     % PostSet, and mode is AbortSet, so a control built while the interface is
     % already Idle would never see the transition and would stay enabled.
     for p = obj.Interfaces(:).'
@@ -110,7 +110,7 @@ function [parameters, trials, writeparams, writeParamIdx] = localTrialColumns(sn
 % The compiled trial table and the column map that names it, re-linked to the
 % replay parameters. epsych.Runtime.compiledTrialColumns guarantees that
 % parameters, trials and writeparams are column-aligned 1:1, and consumers
-% (gui.NextTrial above all) index a column by name and then read
+% (gui.components.NextTrial above all) index a column by name and then read
 % parameters(i).Name/.Unit for its label -- so the handles must line up with
 % the columns or a label ends up over the wrong number.
 %

@@ -1,6 +1,6 @@
 classdef FakeHistoryPsych < psychophysics.Psych
     % Minimal offline psychophysics.Psych subclass for smoke-testing
-    % gui.History without a live runtime.
+    % gui.components.History without a live runtime.
 
     properties (SetAccess = protected)
         Results = []

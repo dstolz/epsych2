@@ -125,7 +125,7 @@ end
         end
 
         % Enumerating ports queries the OS and yields, so a timer callback --
-        % gui.SyringePump polls at 4 Hz, and a rig has several such -- can
+        % gui.components.SyringePump polls at 4 Hz, and a rig has several such -- can
         % close this dialog in the middle of the scan. Anything below would
         % then be writing to deleted widgets.
         if ~isvalid(fig)

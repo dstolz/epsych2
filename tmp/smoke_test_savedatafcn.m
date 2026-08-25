@@ -1,7 +1,7 @@
 function smoke_test_savedatafcn()
 % smoke_test_savedatafcn()
 % Exercise runtime/savefcns/ep_SaveDataFcn: automatic save to the filename the
-% session carries (the field gui.FilenameValidator writes), missing-folder
+% session carries (the field gui.components.FilenameValidator writes), missing-folder
 % creation, missing/extension-less filename fallbacks, empty-DATA and
 % Preview-run skips, the failure path's crash-recovery hint, and the
 % command-window report -- including running the hyperlink's own command to

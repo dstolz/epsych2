@@ -4,7 +4,7 @@ function [paramData, metadata] = phaseParameterData(filepath, options)
 %
 % Phases are stored as protocol files (.eprot/.prot; see epsych.Protocol) or as
 % legacy JSON parameter snapshots (writeParametersJSON). Both are reduced here to
-% the same shape so loading (readParameters) and previewing (gui.PhaseSelector)
+% the same shape so loading (readParameters) and previewing (gui.components.PhaseSelector)
 % have a single format to resolve: one struct per parameter carrying the fields
 % produced by hw.Parameter.toStruct plus ParentType, the owning interface Type
 % used to match the entry to a live interface.

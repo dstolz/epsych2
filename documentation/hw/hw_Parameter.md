@@ -227,7 +227,7 @@ stops ignoring the value it is already being handed.
   constructor option or a direct property write), never authored in a file.
   `toStruct` records it, but `fromStruct` deliberately does **not** restore
   it, and the phase load path (`epsych.Runtime.readParameters`,
-  `gui.PhaseSelector`) takes it from the live parameter and ignores what the
+  `gui.components.PhaseSelector`) takes it from the live parameter and ignores what the
   file says. That asymmetry is the point: a phase saved from a session that
   predated the declaration records `false`, and if the file were authoritative
   that one file would demote the setting back to a momentary button —

@@ -1,5 +1,5 @@
 % smoke_test_phaseselector_nodir
-% gui.PhaseSelector must build a usable GUI when its phase directory is
+% gui.components.PhaseSelector must build a usable GUI when its phase directory is
 % missing, unset, or empty -- the host GUI should never lose the control just
 % because no phase files exist yet.
 %
@@ -9,7 +9,7 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', 'epsych_startup.m'));
 
 failures = {};
 
-% gui.PhaseSelector prefers its remembered directory (setpref, written by the
+% gui.components.PhaseSelector prefers its remembered directory (setpref, written by the
 % Dir... button and by Save) over the constructor argument, so an operator's
 % real phase directory would defeat every case below. Detach the test from
 % that pref and restore the operator's value afterward.
@@ -38,7 +38,7 @@ for c = 1:size(cases,1)
     label = cases{c,1};
     pth   = cases{c,2};
     try
-        ps = gui.PhaseSelector(R, pth);
+        ps = gui.components.PhaseSelector(R, pth);
         assert(numel(ps.Names) == 1, 'expected only the null entry, got %d', numel(ps.Names));
         assert(isempty(ps.FullFilenames), 'expected no phase files');
 
@@ -71,7 +71,7 @@ if ~isfolder(popDir), mkdir(popDir); end
 touch = fullfile(popDir,'zz_late.eprot'); fclose(fopen(touch,'w'));
 touch2 = fullfile(popDir,'aa_early.json'); fclose(fopen(touch2,'w'));
 try
-    ps = gui.PhaseSelector(R, popDir);
+    ps = gui.components.PhaseSelector(R, popDir);
     assert(isequal(ps.Names, ["< Select Phase >","aa_early","zz_late"]), ...
         'expected alphabetical phases, got %s', strjoin(ps.Names,', '));
     fprintf('PASS: populated directory -> %s\n', strjoin(ps.Names,', '));

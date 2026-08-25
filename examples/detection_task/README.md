@@ -21,7 +21,7 @@ explore_saved_data             % decode + plot the session just saved
 |---|---|---|
 | `create_detection_protocol.m` | Builds and saves the `.eprot` in code: paired conditions, randomized ITI, an expression parameter, read-backs, triggers | [1 — Protocol](../../documentation/examples/Detection_Task_1_Protocol.md) |
 | `ExampleDetectionSelector.m` | `epsych.TrialSelector` subclass: catch-trial probability, run cap, balanced levels | [2 — Trial selector](../../documentation/examples/Detection_Task_2_TrialSelector.md) |
-| `DetectionBehaviorGUI.m` | `gui.BehaviorGUI` subclass wired to `psychophysics.Detection` and `gui.PsychPlot`, using every event hook | [3 — Behavior GUI](../../documentation/examples/Detection_Task_3_BehaviorGUI.md) |
+| `DetectionBehaviorGUI.m` | `gui.BehaviorGUI` subclass wired to `psychophysics.Detection` and `gui.components.PsychPlot`, using every event hook | [3 — Behavior GUI](../../documentation/examples/Detection_Task_3_BehaviorGUI.md) |
 | `run_detection_session.m` | Hardware-free session: mirrors the real runtime loop with a simulated observer; saves a session file | [4 — Running](../../documentation/examples/Detection_Task_4_Running.md) |
 | `explore_saved_data.m` | Loads the saved file, decodes `RespCode` via `epsych.BitMask`, reports hit rate / FA / d', plots the session | [5 — Data](../../documentation/examples/Detection_Task_5_Data.md) |
 

@@ -19,7 +19,7 @@ function tf = isConcreteStimType(className)
 %   names = stimgen.StimType.list();
 %   names = names(cellfun(@(n) isConcreteStimType("stimgen." + n), names));
 %
-% See also: stimgen.StimType, gui.Parameter_Control, epsych.Protocol
+% See also: stimgen.StimType, gui.components.Parameter_Control, epsych.Protocol
 
 arguments
     className (1,1) string

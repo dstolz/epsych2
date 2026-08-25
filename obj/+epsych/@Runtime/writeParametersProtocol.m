@@ -6,7 +6,7 @@ function writeParametersProtocol(obj, filepath, description)
 % epsych.Protocol. Because the Runtime borrows the Protocol's own hw.Interface
 % handles (see RunExpt.ExptDispatch), the protocol's parameters hold the live
 % runtime values -- but not all runtime edits land on those handles when they
-% are made: a deferred commit (gui.Parameter_Update without the immediate
+% are made: a deferred commit (gui.components.Parameter_Update without the immediate
 % modifier) writes only TRIALS.trials until the next trial dispatch, and no
 % editing path updates a parameter's design-time Values list at all. The
 % serialized snapshot is therefore reconciled with the session's effective
@@ -87,7 +87,7 @@ function protocol = local_syncRuntimeValues(obj, protocol)
 % Reconcile the serialized parameter structs with the session's effective values.
 %
 % Two runtime editing paths leave the serialized snapshot stale:
-%   - gui.Parameter_Update's deferred commit writes only TRIALS.trials; the
+%   - gui.components.Parameter_Update's deferred commit writes only TRIALS.trials; the
 %     hw.Parameter (and hardware) catch up at the next trial dispatch, so a
 %     phase saved before that boundary records the pre-edit Value.
 %   - No editing path updates a parameter's design-time Values list, and a

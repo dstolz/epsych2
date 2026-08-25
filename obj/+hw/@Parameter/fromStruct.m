@@ -67,7 +67,7 @@ end
 % one phase saved before the owner was updated demote a persistent setting
 % back to a momentary button -- permanently, since every later save would then
 % record the demotion too. Readers that need it (readParameters,
-% gui.PhaseSelector) take it from the live parameter instead.
+% gui.components.PhaseSelector) take it from the live parameter instead.
 
 % Bounds
 obj.Min = obj.safeToNumeric_(S.Min);

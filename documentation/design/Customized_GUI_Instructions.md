@@ -1,10 +1,10 @@
 # Customized GUI Instructions (EPsych / Caras Lab style)
 
-![Small example task GUI built from the components described in this guide: Trial Controls (gui.Parameter_Control), Phase Selector (gui.PhaseSelector), and a Commit Changes button (gui.Parameter_Update) with a pending edit highlighted](images/CustomGUIDemo.png)
+![Small example task GUI built from the components described in this guide: Trial Controls (gui.components.Parameter_Control), Phase Selector (gui.components.PhaseSelector), and a Commit Changes button (gui.components.Parameter_Update) with a pending edit highlighted](images/CustomGUIDemo.png)
 
 This document describes a *general* pattern for building custom MATLAB GUIs that interface with EPsych-style experiments. It uses the class `cl_AppetitiveDetection_GUI_B` and its GUI builder `create_gui.m` as a concrete reference, but the ideas apply broadly to other tasks (appetitive/aversive, staircase, go/no-go, training modes, etc.).
 
-The screenshot above is a minimal example assembled from the same building blocks `create_gui.m` uses: a `gui.Parameter_Control` bound to a real `hw.Parameter` (with the "SoundLevel" field showing a pending edit in green), a `gui.PhaseSelector`, and a `gui.Parameter_Update` commit button. It is not `cl_AppetitiveDetection_GUI_B` itself — that production GUI is larger — but it demonstrates the same wiring pattern described in [Section 3](#3-wiring-parameters-to-ui-controls) and [Section 5](#5-common-gui-helper-classes-you-may-use).
+The screenshot above is a minimal example assembled from the same building blocks `create_gui.m` uses: a `gui.components.Parameter_Control` bound to a real `hw.Parameter` (with the "SoundLevel" field showing a pending edit in green), a `gui.components.PhaseSelector`, and a `gui.components.Parameter_Update` commit button. It is not `cl_AppetitiveDetection_GUI_B` itself — that production GUI is larger — but it demonstrates the same wiring pattern described in [Section 3](#3-wiring-parameters-to-ui-controls) and [Section 5](#5-common-gui-helper-classes-you-may-use).
 
 ## Overview (start here)
 
@@ -40,11 +40,11 @@ A typical EPsych GUI follows this workflow:
    * Use scrollable containers for long parameter lists.
 4. **Create controls using helper wrappers (recommended).**
 
-   * Use `gui.Parameter_Control` to bind a parameter to a widget (toggle, edit field, dropdown, momentary button).
-   * Use `gui.Parameter_Update` if you want a deliberate “Apply/Commit” step.
+   * Use `gui.components.Parameter_Control` to bind a parameter to a widget (toggle, edit field, dropdown, momentary button).
+   * Use `gui.components.Parameter_Update` if you want a deliberate “Apply/Commit” step.
 5. **Update displays using either monitors or events.**
 
-   * Use `gui.Parameter_Monitor` for read-only live tables or graphical dashboards (lamps/labels/gauges).
+   * Use `gui.components.Parameter_Monitor` for read-only live tables or graphical dashboards (lamps/labels/gauges).
    * Prefer `addlistener(...)` callbacks for “once-per-trial” updates (plots, summaries, previews).
 6. **Clean up on close.**
 
@@ -61,7 +61,7 @@ For a first pass, read Sections **1–4** in order. Sections **6–9** are the m
 
 ## 0) The fast path: subclass `gui.BehaviorGUI`
 
-Most of the plumbing this guide explains — single-instance enforcement, figure creation with saved window position, the three event listeners, cleanup of listeners/timers/components on close, and wiring `gui.Parameter_Update` to your controls — is provided by the base class **`gui.BehaviorGUI`**. A new task GUI only needs:
+Most of the plumbing this guide explains — single-instance enforcement, figure creation with saved window position, the three event listeners, cleanup of listeners/timers/components on close, and wiring `gui.components.Parameter_Update` to your controls — is provided by the base class **`gui.BehaviorGUI`**. A new task GUI only needs:
 
 1. A constructor that forwards the runtime: `obj@gui.BehaviorGUI(RUNTIME, Name='My Task')`
 2. A protected `build(fig)` method that lays out the window using one-line helpers: `addButton`, `addControl`, `controlColumn`, `addUpdateButton`, `addMonitor`, and `register` for any other component
@@ -192,29 +192,29 @@ These settings help:
 
 ## 3) Wiring parameters to UI controls
 
-### 3.1 `gui.Parameter_Control` for user-editable controls
+### 3.1 `gui.components.Parameter_Control` for user-editable controls
 
-`gui.Parameter_Control` is a central convenience wrapper that creates an appropriate UI widget and binds it to a parameter.
+`gui.components.Parameter_Control` is a central convenience wrapper that creates an appropriate UI widget and binds it to a parameter.
 
 Common patterns from `create_gui.m`:
 
 * Momentary button:
 
-  * `gui.Parameter_Control(parentLayout, p, Type='momentary', autoCommit=true)`
+  * `gui.components.Parameter_Control(parentLayout, p, Type='momentary', autoCommit=true)`
 * Toggle button:
 
-  * `gui.Parameter_Control(parentLayout, p, Type='toggle', autoCommit=true)`
+  * `gui.components.Parameter_Control(parentLayout, p, Type='toggle', autoCommit=true)`
 * Numeric edit field:
 
-  * `gui.Parameter_Control(parentLayout, p, Type='editfield')`
+  * `gui.components.Parameter_Control(parentLayout, p, Type='editfield')`
 * Dropdown:
 
-  * `gui.Parameter_Control(parentLayout, p, Type='dropdown')`
+  * `gui.components.Parameter_Control(parentLayout, p, Type='dropdown')`
 
 Guidance:
 
 * Use `autoCommit=true` for actions that should be applied immediately (e.g., hardware triggers like dropping a pellet).
-* Use a manual “commit” mechanism (see `gui.Parameter_Update`) when you want a deliberate apply step.
+* Use a manual “commit” mechanism (see `gui.components.Parameter_Update`) when you want a deliberate apply step.
 * Store the returned object somewhere stable (e.g., in `obj.hButtons` or a list) if you need to update styles, enable/disable it, or read state later.
 
 ### 3.2 Post-update hooks: `PostUpdateFcn`
@@ -264,18 +264,18 @@ This avoids repeating formatting for every control.
 
 ## 4) Monitoring experiment state in the GUI
 
-### 4.1 `gui.Parameter_Monitor` for read-only live displays
+### 4.1 `gui.components.Parameter_Monitor` for read-only live displays
 
-Use `gui.Parameter_Monitor` when you want parameters that update continuously (e.g., trial state, latencies, response codes). It offers a sortable live table (`type="table"`, the default), a graphical dashboard (`type="graphical"`) with lamps for boolean state, value labels, and gauges, or a plain text block (`type="text"`). See [../gui/Parameter_Monitor.md](../gui/Parameter_Monitor.md) for the full option set.
+Use `gui.components.Parameter_Monitor` when you want parameters that update continuously (e.g., trial state, latencies, response codes). It offers a sortable live table (`type="table"`, the default), a graphical dashboard (`type="graphical"`) with lamps for boolean state, value labels, and gauges, or a plain text block (`type="text"`). See [../gui/Parameter_Monitor.md](../gui/Parameter_Monitor.md) for the full option set.
 
 Pattern:
 
 * `p = R.find_parameter({...}, includeInvisible=true);`
-* `obj.ParameterMonitor = gui.Parameter_Monitor(parentPanel, p, pollPeriod=0.1);`
+* `obj.ParameterMonitor = gui.components.Parameter_Monitor(parentPanel, p, pollPeriod=0.1);`
 
 Graphical dashboard variant (lamps for binary state monitors):
 
-* `gui.Parameter_Monitor(parentPanel, p, pollPeriod=0.1, type="graphical", Styles=struct(InTrial="lamp", Platform="lamp"))`
+* `gui.components.Parameter_Monitor(parentPanel, p, pollPeriod=0.1, type="graphical", Styles=struct(InTrial="lamp", Platform="lamp"))`
 
 Notes:
 
@@ -307,14 +307,14 @@ Guidance:
 
 The example GUI uses several helper classes that encapsulate common UI elements:
 
-* `gui.Parameter_Control`: user-editable parameter widgets
-* `gui.Parameter_Monitor`: read-only monitoring table or graphical dashboard ([../gui/Parameter_Monitor.md](../gui/Parameter_Monitor.md))
-* `gui.Parameter_Update`: a unified “Update Parameters”/commit mechanism ([../gui/Parameter_Update.md](../gui/Parameter_Update.md))
-* `gui.PhaseSelector`: dropdown for loading/saving named parameter sets (JSON phase files) between training blocks
-* `gui.FilenameValidator`: file naming / data filename UX
-* `gui.ElapsedTrialTimer`: elapsed-time display driven by trial events
+* `gui.components.Parameter_Control`: user-editable parameter widgets
+* `gui.components.Parameter_Monitor`: read-only monitoring table or graphical dashboard ([../gui/Parameter_Monitor.md](../gui/Parameter_Monitor.md))
+* `gui.components.Parameter_Update`: a unified “Update Parameters”/commit mechanism ([../gui/Parameter_Update.md](../gui/Parameter_Update.md))
+* `gui.components.PhaseSelector`: dropdown for loading/saving named parameter sets (JSON phase files) between training blocks
+* `gui.components.FilenameValidator`: file naming / data filename UX
+* `gui.components.ElapsedTrialTimer`: elapsed-time display driven by trial events
 * `psychophysics.Staircase` plotting (`Plot`): online staircase visualization
-* `gui.History`: response history table ([../gui/gui_History.md](../gui/gui_History.md))
+* `gui.components.History`: response history table ([../gui/gui_History.md](../gui/gui_History.md))
 
 General advice:
 
@@ -420,9 +420,9 @@ Example patterns:
 
 * During layout development, temporarily call `showGridBorders(layoutHandle)` (e.g., `showGridBorders(layoutMain)`) to visualize grid cell boundaries and quickly spot mis-assigned `Layout.Row`/`Layout.Column` settings. Disable/remove this once the layout is finalized.
 
-1. Add parameter controls using `gui.Parameter_Control` for the most important parameters.
-1. Add a `gui.Parameter_Update` commit button if you want batch updates.
-1. Add monitoring using `gui.Parameter_Monitor` and/or event listeners.
+1. Add parameter controls using `gui.components.Parameter_Control` for the most important parameters.
+1. Add a `gui.components.Parameter_Update` commit button if you want batch updates.
+1. Add monitoring using `gui.components.Parameter_Monitor` and/or event listeners.
 1. Add plots (e.g., `S.Plot(ax)` on a `psychophysics.Staircase`) once the basics are stable.
 1. Audit cleanup (listeners/timers/figures) and verify closing the GUI leaves no background processes.
 
@@ -439,7 +439,7 @@ The recommended skeleton is a `gui.BehaviorGUI` subclass — copy [examples/cust
     * create the main `uigridlayout` and panels for grouped controls
     * `obj.addButton(...)` for triggers/toggles, `obj.addControl(...)` for editable parameters (names that are missing from the loaded protocol are skipped), `obj.addUpdateButton(...)` to commit them
     * `obj.addMonitor(...)` for read-only live values
-    * `obj.register(...)` for any other component (`gui.ParameterScatter`, `gui.History`, `gui.PhaseSelector`, ...)
+    * `obj.register(...)` for any other component (`gui.components.ParameterScatter`, `gui.components.History`, `gui.components.PhaseSelector`, ...)
   * hooks `onNewTrial` / `onNewData` / `onModeChange` / `onFirstTrial` for per-trial displays
 
 No properties for listeners, no destructor, no `closeGUI`: the base class owns the lifecycle. See [../gui/gui_BehaviorGUI.md](../gui/gui_BehaviorGUI.md) for the full API.

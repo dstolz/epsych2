@@ -119,7 +119,7 @@ p.Access = 'Read';
 % timeline and choice curve into the classic 2AFC picture: negative = left
 % brighter, positive = right brighter. Recorded (rather than only derived
 % offline, as explore_2afc_data does from Contrast and TrialType) so it is
-% directly plottable, e.g. in gui.ParameterScatter.
+% directly plottable, e.g. in gui.components.ParameterScatter.
 p = sw.add_parameter('SignedContrast', 0, ...
     Description = "Contrast signed by the correct side: negative = left brighter, positive = right brighter");
 p.Value = 0;

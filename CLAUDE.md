@@ -127,7 +127,7 @@ Rules that matter:
   stimulus delay, which is also where the practical traps are written down:
   the list ends live on `StimDelayList.Min/.Max` but the STEP needs its own
   parameter (`hw.Parameter` clamps `Value` into `[Min Max]` and
-  `gui.Parameter_Control` limits the edit field to the same range, so a 250 ms
+  `gui.components.Parameter_Control` limits the edit field to the same range, so a 250 ms
   step in a 1000-4000 ms list silently becomes 1000); a repeat-on-abort is a
   held index rather than a stashed value; and anything ELSE that drives the
   same parameter — `gui.StaircaseTraining` in training mode — has to make the
@@ -311,8 +311,8 @@ Rules that matter:
   a store from a saved file for `epsych.ReviewSession`, deliberately unbound to
   a runtime — a review has no journal to write and no trial to stamp with.
   The log also carries **automatic session-record entries**: the stock commit
-  paths (`gui.Parameter_Update`, autoCommit `gui.Parameter_Control` edits,
-  `gui.PhaseSelector` load/save) record what the operator changed through the
+  paths (`gui.components.Parameter_Update`, autoCommit `gui.components.Parameter_Control` edits,
+  `gui.components.PhaseSelector` load/save) record what the operator changed through the
   never-throwing static `epsych.SessionNotes.log(RUNTIME, fmt, ...)`, so those
   actions are in every data file whether or not the GUI shows a notes
   component — standard for every `gui.BehaviorGUI` subclass. **No call site
@@ -320,7 +320,7 @@ Rules that matter:
   trip that rethrows what the backend throws, so a read the commit was not
   already making would let the record of a successful write fail the write
   that had already landed. Every entry is built from values the caller
-  already holds (`gui.Parameter_Update`'s immediate path was reading
+  already holds (`gui.components.Parameter_Update`'s immediate path was reading
   `P.ValueStr` either side of the write before it recorded anything, and its
   note reuses those reads), so a note names the value REQUESTED — which
   is also why a deferred commit reads `Staged X = v for the next trial`
@@ -341,7 +341,7 @@ Rules that matter:
   `NotifyAccess = 'public'`; every consumer takes the WHOLE `DATA` array out of the
   payload and recomputes (`Psych.update_data` assigns `obj.DATA = event.Data.DATA`),
   so one notify carrying `Data(1:k)` is worth k notifies and seeking BACKWARD costs
-  what seeking forward costs; and `gui.Parameter_Control` already greys out on an
+  what seeking forward costs; and `gui.components.Parameter_Control` already greys out on an
   interface `mode` of `Idle`. The runtime is therefore a REAL `epsych.Runtime` with a
   real `EventHub`, not a fake — required rather than tidy, since
   `psychophysics.Detection` is not a `Psych` subclass and has no struct-source path.
@@ -358,9 +358,9 @@ Rules that matter:
   otherwise write every parameter and fire the hardware triggers. The constructor
   runs `seek(NumTrials, Notify=false)` **before** launching the GUI, because two
   components read state at construction rather than waiting for an event:
-  `gui.Parameter_Control` seats once and then waits for a `PostSet` a review never
+  `gui.components.Parameter_Control` seats once and then waits for a `PostSet` a review never
   fires (so it must seat from the trial the session ENDED on, not the design-time
-  value), and `gui.NextTrial.seedFromRuntime_` indexes the trial table with
+  value), and `gui.components.NextTrial.seedFromRuntime_` indexes the trial table with
   `NextTrialID` — empty there yields zero elements and throws. Monitors and the
   debugger poll, so those DO follow the scrubber; the controls deliberately do not. Every window a
   review opens **anchors it** in appdata (`epsych_ReviewSession`) — load-bearing,
@@ -501,7 +501,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   palette component = one `componentCatalog.m` row + one emitter branch in
   `generateCode.m` (documentation/gui/gui_BehaviorBuilder.md)
 - Real-time visualization: Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
-- **gui.OnlinePlot**: the live multi-trace view of one box's hardware —
+- **gui.components.OnlinePlot**: the live multi-trace view of one box's hardware —
   parameters, or the bits of an RPvds bitmask bank, sampled on a timer
   against a scrolling (or trial-locked) time axis
   (`gui.BehaviorGUI.addOnlinePlot`). Reads are **batched per interface**,
@@ -541,8 +541,8 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   the window — alive for as long as the figure holds it, so CANCELLING the
   dialog leaked an invisible modal window and the next one blocked in
   `uiwait` forever (documentation/gui/gui_OnlinePlot.md)
-- **gui.BufferPlot**: what is IN a buffer parameter, redrawn once per completed
-  trial — the per-trial counterpart to `gui.OnlinePlot`'s scrolling scalars
+- **gui.components.BufferPlot**: what is IN a buffer parameter, redrawn once per completed
+  trial — the per-trial counterpart to `gui.components.OnlinePlot`'s scrolling scalars
   (`gui.BehaviorGUI.addBufferPlot`). The x axis is BUFFER SAMPLES by default,
   because that is the only thing a buffer knows about itself; a `SampleRate`
   (a number, or `"auto"` to take it from the owning `hw.Module`, whose `Fs`
@@ -581,8 +581,8 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   nothing per-trial about them, so they are absent from `BUFFER_TYPES`, from
   the operator's Select Buffers... list, and from the builder's dialog
   (documentation/gui/gui_BufferPlot.md)
-- **gui.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
-- **gui.NextTrial**: generic upcoming-trial display driven by NewTrial events
+- **gui.components.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
+- **gui.components.NextTrial**: generic upcoming-trial display driven by NewTrial events
 - **gui.ReviewTransport**: the trial scrubber for an `epsych.ReviewSession` —
   slider, step, play/pause, rate, and elapsed-time readout. Its OWN window, not a
   strip added to the behavior GUI, because that layout belongs to the paradigm's
@@ -594,7 +594,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   recomputes the whole session from the DATA array. Closing it closes only the
   transport (`R.showTransport()` brings it back); closing the BEHAVIOR GUI takes
   it with them, since there is then nothing to scrub. Two controls at the right
-  are not transport at all: a `gui.ScreenCapture` aimed at the **behavior GUI**
+  are not transport at all: a `gui.components.ScreenCapture` aimed at the **behavior GUI**
   rather than at this window (a picture of a scrubber is no use in a notebook,
   and the reason the transport has its own window is to stay out of the
   paradigm's layout — screenshots included), and an **On Top** state button, so
@@ -603,8 +603,8 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   and ran into the buttons at the 32 px an ordinary control gets; a remembered
   window position is floored at `DEFAULT_SIZE` for the same reason
 - **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. **Add Checked to Session** REPLACES the session's subject list rather than appending to it (`assignToSession`'s `ReplaceExisting`) — what is ticked is the operator's answer to "who is running", and a leftover animal would keep dispatching trials in its box; the displaced names go in the commit report, and the button and its tool say so in a tooltip. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. **Copy...** (also `Project > Copy Project...` and a two-folders tool) starts a study's next phase from one that already works: it asks the subjects question FIRST in a `uiconfirm` — with subjects, or settings only, skipped entirely for a project with no active members — because that is the one thing the edit dialog cannot show, then opens the ordinary dialog titled `Copy Project` on a non-colliding `(copy)` name, so nothing is written until OK. Copied subjects stay in the source too (membership is many-to-many); the roster's `IncludeRetired`/`CopyProtocolMemory` are script-only. The project dialog has two tabs: **Project** (identity, links, archived) and **Session Defaults**, which is where the settings that moved off Customize are set — protocol, data path, saving function, behavior GUI, timer period, video and Intan paths. Nothing there opens blank: each field is seeded from its MRU (`ep_RunExpt_Subjects/Recent<Field>`, written only on OK) and then the machine pref, and OK refuses a blank one; `DefaultProtocol` and `IntanSettingsFile` are the two deliberate exceptions. The behavior GUI dropdown is fed by the behavior GUIs other projects in the roster use, not by the `RecentBehaviorGUI` pref, so it works with no session open. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. On a rig with no roster file chosen the window opens *unbound* — header `Roster: (no file chosen)`, an explanation where the table goes, and everything off EXCEPT New Project / New Subject / Import, because clicking one of those three is how `ensureRoster_` asks for the file. That prompt loops with two exits (name a file, or close the window): "carry on without one" is never offered, since it would mean filling in a record with nowhere to save it. Browsing never prompts. A configured path whose FOLDER is gone (share moved, drive unmounted, temp dir cleaned up) is treated the same way and marked `(folder not found)` — otherwise it is indistinguishable from a fresh empty roster, and `saveAtomic_` would re-create that dead folder and save into it. The header shows the FULL path plus a Change... button, redundantly with the toolbar tool and File menu, because an icon-only toolbar is no help to someone whose roster is not where they expected. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies. A **Version** column and a **Protocol** menu surface `SubjectRoster`'s version checking: the column shows the version each subject is *on* (bold orange when the file has been saved since), a collapsible banner over the table announces how many are behind and offers Update All, and right-click opens that row's protocol in `epsych.ProtocolDesigner`. "Update All in Project" deliberately covers filtered-out members, but RETIRED members are outside the version workflow entirely: they are skipped by every update, left out of the banner, the tooltip, and Check Protocol Versions, and their Version cell is greyed rather than flagged. A finished animal's recorded protocol is the record of what it ran, and no session will follow to make a newer version true. A project's **links** render under the summary as `uihyperlink`s whose `URL` is left EMPTY on purpose — the click routes through `SubjectRoster.openLink` so a stored address is re-checked before anything navigates, and a `file:` folder goes to the file manager rather than a browser. "Show archived projects" is the project-level counterpart of "Show retired", and the selected project is never hidden by it (documentation/gui/gui_SubjectManager.md)
-- **gui.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, a TTL-trigger enable, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, units, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state. Rate and readout **units** are the operator's too, from the right-click Units menu (µL/mL per min/hr, mL/min by default): changing them converts `Rate` rather than reinterpreting it, puts the interface into the same units — so a protocol column that writes `Rate` means them as well — and is refused while the pump runs, because the pump rejects a units-bearing `RAT` mid-dispense and `hw.NE1000`'s bare-value fallback would land in the OLD units (`gui.BehaviorGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
-- **gui.Notes**: the operator's note pad — one entry line (Enter or the button
+- **gui.components.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, a TTL-trigger enable, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, units, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state. Rate and readout **units** are the operator's too, from the right-click Units menu (µL/mL per min/hr, mL/min by default): changing them converts `Rate` rather than reinterpreting it, puts the interface into the same units — so a protocol column that writes `Rate` means them as well — and is refused while the pump runs, because the pump rejects a units-bearing `RAT` mid-dispense and `hw.NE1000`'s bare-value fallback would land in the OLD units (`gui.BehaviorGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
+- **gui.components.Notes**: the operator's note pad — one entry line (Enter or the button
   beside it commits), above it a log of everything typed, each line stamped with
   the trial (`[T042 00:17:05] ear plug slipped`). It STORES NOTHING: every note
   goes to `epsych.SessionNotes` (normally `RUNTIME.NOTES`), which is what puts
@@ -630,7 +630,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
 - **gui.KeyBindings**: the keyboard-command processor a behavior GUI owns
   (`obj.Keys`), and the answer to a figure having exactly ONE
   `WindowKeyPressFcn` slot that three parties used to claim by assignment —
-  `gui.Parameter_Update` outright, `gui.RegenerateTrial` by chaining and
+  `gui.components.Parameter_Update` outright, `gui.components.RegenerateTrial` by chaining and
   re-installing on every ModeChange, and the subclass itself. Last write won,
   silently: `TwoAFCBehaviorGUI` wired its arrow keys and then called
   `addUpdateButton`, so the keys its own tooltips advertised were dead. The
@@ -652,7 +652,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   modifiers from exactly those presses (a release only ever reports a
   smaller set); the instance registers on its figure and
   `gui.KeyBindings.getOrCreate(fig)` returns it, which is how
-  `gui.Parameter_Update` and `gui.RegenerateTrial` with no `KeySource` join
+  `gui.components.Parameter_Update` and `gui.components.RegenerateTrial` with no `KeySource` join
   the figure's one dispatcher instead of claiming the slot themselves — two
   components that each claimed and chained the slot could chain EACH OTHER
   and recurse to the recursion limit per keystroke, so neither keeps hook
@@ -674,14 +674,14 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   Standing proof `tmp/smoke_test_keybindings.m`, whose group 11 is the
   regression itself — a key bound before `addUpdateButton` still firing after
   it (documentation/gui/gui_KeyBindings.md)
-- **gui.RegenerateTrial**: a button that re-arms the trial the rig is holding
+- **gui.components.RegenerateTrial**: a button that re-arms the trial the rig is holding
   (`gui.BehaviorGUI.addRegenerateTrial`). One press is
   `epsych.Runtime.dispatchNextTrial` — the same call the trial loop makes at
   every boundary — so `set.Value` redraws every `isRandom` parameter and
   re-evaluates every `Expression`, and a mid-trial edit reaches the hardware
   without waiting for the next trial. The button is **dead until
   Ctrl+Alt+Shift are all held** and dies again as one is released — the
-  combination `gui.Parameter_Update` already uses held-while-clicking, so the
+  combination `gui.components.Parameter_Update` already uses held-while-clicking, so the
   gesture is not new to an operator. The gate is re-checked inside
   `regenerate` and not only in the button's `Enable`, so a script or a stale
   enable state fails closed. The modifiers always arrive from a
@@ -721,7 +721,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   trigger row and set apart from it; standing proof
   `tmp/smoke_test_regenerate_trial.m`
   (documentation/gui/gui_RegenerateTrial.md)
-- **gui.ScreenCapture**: camera button that copies a picture of the whole window
+- **gui.components.ScreenCapture**: camera button that copies a picture of the whole window
   — controls and plots alike — to the system clipboard, for pasting into a
   notebook entry (`gui.BehaviorGUI.addScreenCapture`). `exportapp` is the
   capture because it is the only one that includes UI components, and it
@@ -732,7 +732,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   `gui.toolbarIcon("camera")`, since `uibutton`'s `Icon` accepts only four
   built-in names — the confirmation flash after a copy is the one place those
   are used (documentation/gui/gui_ScreenCapture.md)
-- **gui.SessionGate**: the "Begin Experiment" button for a rig that must not
+- **gui.components.SessionGate**: the "Begin Experiment" button for a rig that must not
   start dispatching the moment the session does — the syringe line purged,
   the animal placed. It comes in TWO HALVES in two places, which is the
   thing to know: `gui.BehaviorGUI.addSessionGate` puts the button in
@@ -743,7 +743,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   PsychTimer's `StartFcn` and a timer will not fire its `TimerFcn` during
   another of its own callbacks, so the trial loop is held without the
   runtime knowing a gate exists. It `pause`s rather than spins, since
-  priming the line through `gui.SyringePump`'s manual controls is most of
+  priming the line through `gui.components.SyringePump`'s manual controls is most of
   what the operator does during the hold. Pressing it RETIRES the button
   into a status line (`Experiment Running`/`Preview Running`/`Session
   Complete`) rather than removing it, which would reflow the layout, or
@@ -756,8 +756,8 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   Never in a review — blocking would hang `epsych.ReviewSession` inside
   `feval`. Extracted from `examples/syringepump/PumpBehaviorGUI`, which now
   uses it (documentation/gui/gui_SessionGate.md)
-- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, SyringePump, PsychPlot, OnlinePlot, BufferPlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button, `gui.ComponentToolbar` puts them all on one toolbar. A second item, **Keep Window on Top**, pins the window (`WindowStyle='alwaysontop'`) so a display stays readable while the operator works in another application, and is remembered with the window position. It appears only in a window holding ONE component — a pop-out, or one `ComponentToolbar` opened for a lazy entry, marked as such by `gui.PopOut.markStandaloneWindow` before the component is built — never on the embedded copy, whose window belongs to the behavior GUI and everything else on it. A `PopOutStateChanged` event says when a window opened or closed — NOT when one is merely raised, and not during the host's own destruction, which is what keeps closing a GUI from reading as the operator closing its windows — and is what `gui.BehaviorGUI`'s `RestorePopOuts` listens to: with it on, the GUI remembers WHICH displays were open (`OpenPopOuts` under its own `PreferenceTag`, rewritten at each change rather than at teardown, so a killed MATLAB still remembers) and reopens them at construction. It records only the list; how each window looks — position, font, columns, pinned — was already the component's own pop-out preference key, which is why "restore the configuration" needed no new persistence. Two decisions: an identity is the component-toolbar label (register name, else the class name spaced out, uniquified by registration order), so `register(comp, name)` is what pins it when a GUI holds two of a class; and an entry this GUI cannot resolve is skipped but KEPT in the list — a protocol showing fewer displays than another must not erase the fuller layout (documentation/gui/gui_PopOut.md)
-- **gui.ComponentToolbar**: the optional icon toolbar a behavior GUI adds with
+- **gui.PopOut** (abstract mixin): adds the right-click "Open in Separate Window" item and the `popOut` method to a display component. A pop-out is a SECOND instance over the same data source with its own graphics, listeners, and preference key (`<hostTag>_<Class>_PopOut`), so it never disturbs the embedded one; adopters implement `createPopOut_` and `popOutHostContainer_`. Adopted by ParameterScatter, History, SessionPerformance, NextTrial, Parameter_Monitor, SyringePump, PsychPlot, OnlinePlot, BufferPlot, and psychophysics.Staircase; `gui.BehaviorGUI.addPopOutButton` opens one from a button, `gui.components.ComponentToolbar` puts them all on one toolbar. A second item, **Keep Window on Top**, pins the window (`WindowStyle='alwaysontop'`) so a display stays readable while the operator works in another application, and is remembered with the window position. It appears only in a window holding ONE component — a pop-out, or one `ComponentToolbar` opened for a lazy entry, marked as such by `gui.PopOut.markStandaloneWindow` before the component is built — never on the embedded copy, whose window belongs to the behavior GUI and everything else on it. A `PopOutStateChanged` event says when a window opened or closed — NOT when one is merely raised, and not during the host's own destruction, which is what keeps closing a GUI from reading as the operator closing its windows — and is what `gui.BehaviorGUI`'s `RestorePopOuts` listens to: with it on, the GUI remembers WHICH displays were open (`OpenPopOuts` under its own `PreferenceTag`, rewritten at each change rather than at teardown, so a killed MATLAB still remembers) and reopens them at construction. It records only the list; how each window looks — position, font, columns, pinned — was already the component's own pop-out preference key, which is why "restore the configuration" needed no new persistence. Two decisions: an identity is the component-toolbar label (register name, else the class name spaced out, uniquified by registration order), so `register(comp, name)` is what pins it when a GUI holds two of a class; and an entry this GUI cannot resolve is skipped but KEPT in the list — a protocol showing fewer displays than another must not erase the fuller layout (documentation/gui/gui_PopOut.md)
+- **gui.components.ComponentToolbar**: the optional icon toolbar a behavior GUI adds with
   `addComponentToolbar` — one tool per display, opening it in a window of its
   own. Two kinds of entry, differing in who owns the window: **automatic**
   entries are the registered `gui.PopOut` components, whose windows stay
@@ -785,7 +785,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   not selectable, because a pump held open by a stale MATLAB is a likely reason
   for the failure and hiding it would make the port look missing. Every widget
   write after an enumeration or probe re-checks `isvalid(fig)`: `serialportlist`
-  and the probe yield, so a rig's timers (gui.SyringePump polls at 4 Hz) can
+  and the probe yield, so a rig's timers (gui.components.SyringePump polls at 4 Hz) can
   close the dialog mid-scan
 - **gui.compareProtocolVersions**: the modal window showing what differs between
   two protocol versions — a filtered table over `epsych.Protocol.compareVersions`
@@ -797,10 +797,10 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   files. `uitoolbar` does render in a `uifigure`, but `uibutton`/`uiimage` `Icon`
   accepts only four built-in names — `success`, `error`, `warning`, `info` — so
   every other glyph has to be drawn here or supplied as a file. Shared by
-  `epsych.RunExpt`, `gui.SubjectManager`, and `gui.ComponentToolbar`; a new tool
+  `epsych.RunExpt`, `gui.SubjectManager`, and `gui.components.ComponentToolbar`; a new tool
   adds a `case` to it. The component-toolbar section is the one place a MISSING
   case is not an error: those names are computed from a class name
-  (`gui.Parameter_Monitor` → `parametermonitor`) and `gui.ComponentToolbar`
+  (`gui.components.Parameter_Monitor` → `parametermonitor`) and `gui.components.ComponentToolbar`
   falls back to the generic `component` glyph, so a new `gui.PopOut` adopter
   works before anyone draws for it
 - Session control: StaircaseTraining, StatusBar, Triggers
@@ -808,7 +808,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   hw.Parameter a protocol defines, in one table, readable and writable by hand. It
   **never polls**: a read happens only on a double-click, Read Selected, or Read All
   (F5), which is what makes it safe to leave open beside a running experiment;
-  `gui.Parameter_Monitor` is the polling display when you want one. Colour on the
+  `gui.components.Parameter_Monitor` is the polling display when you want one. Colour on the
   Value cell IS the read report — green read, blue written-and-confirmed, amber
   written-but-reads-back-different (clamping, an `Expression`, a coarse device — not
   an error), red threw, grey unreadable, uncoloured never asked. Read All skips
@@ -911,7 +911,7 @@ re-uploading the state table.
   judgement call in the denominators, and `rateDenominator` is the single place
   it lives: **excluded by default** (an abort is a lapse of engagement, not a
   wrong answer), with an `IncludeAborts` option on `fromCounts`,
-  `SessionMetrics`, and `Detection` — `gui.SlidingWindowPerformancePlot`
+  `SessionMetrics`, and `Detection` — `gui.components.SlidingWindowPerformancePlot`
   follows its analysis object. Before 2026-08-19 the toolbox disagreed with
   itself here: `SessionMetrics` excluded aborts while `Detection.Hit_Rate`, the
   sliding-window plot, and the offline examples divided by EVERY trial at a
@@ -930,8 +930,8 @@ re-uploading the state table.
   clamping the rates would only bias it toward chance, which is why the clamp is
   passed to `d_prime`/`bias` and withheld from `a_prime` at every call site.
   Exposed as `Detection.APrime` (per stimulus value),
-  `SessionMetrics.Results.APrime`, and a plot type on `gui.PsychPlot` (`APrime`)
-  and `gui.SlidingWindowPerformancePlot` (`aPrime`); shown by default nowhere,
+  `SessionMetrics.Results.APrime`, and a plot type on `gui.components.PsychPlot` (`APrime`)
+  and `gui.components.SlidingWindowPerformancePlot` (`aPrime`); shown by default nowhere,
   since `defaultMetrics` and the default plot types are unchanged
   (documentation/psychophysics/psychophysics_APrime.md)
 - **psychophysics.NAFC**: N-alternative forced choice — choice functions, proportion
@@ -961,13 +961,13 @@ re-uploading the state table.
   the two failure modes stay separable; and **psychophysics.SessionMetrics does
   not apply** — its hit/false-alarm/d'/criterion model assumes a stimulus/catch
   split a forced choice does not have, which is why TwoAFCBehaviorGUI has no
-  gui.SessionPerformance panel
+  gui.components.SessionPerformance panel
   (documentation/psychophysics/psychophysics_NAFC.md)
 - **psychophysics.Staircase**: Reversal detection and threshold estimation
 - **psychophysics.BestPEST**, **psychophysics.MLP**: Threshold-seeking algorithms
 - **psychophysics.SessionMetrics**: Session-level counts, rates, d', A' and criterion over a
   `psychophysics.TrialWindow` (all trials, last N, first N, or an explicit range). The
-  computation behind `gui.SessionPerformance`; also usable headlessly and offline
+  computation behind `gui.components.SessionPerformance`; also usable headlessly and offline
   (documentation/psychophysics/psychophysics_SessionMetrics.md)
 
 #### runtime/ – Execution Callbacks & Services
@@ -1014,7 +1014,7 @@ The epsych.EventHub event broadcaster is the primary communication channel:
 - **NewTrial**: Fired when a new trial begins
 - **ModeChange**: Fired when session mode changes
 
-Subscribers (e.g., psychophysics.Psych subclasses, gui.OnlinePlot) listen to these events and update state.
+Subscribers (e.g., psychophysics.Psych subclasses, gui.components.OnlinePlot) listen to these events and update state.
 
 ### Program State Machine
 

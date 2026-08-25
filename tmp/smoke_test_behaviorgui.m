@@ -141,8 +141,8 @@ assert(isempty(pBool.Value) && isempty(pFloat.Value), ...
 
 figU = uifigure('Visible','off');
 gl = uigridlayout(figU,[2 1]);
-cBool  = gui.Parameter_Control(gl, pBool,  Type='checkbox');
-cFloat = gui.Parameter_Control(gl, pFloat, Type='editfield');
+cBool  = gui.components.Parameter_Control(gl, pBool,  Type='checkbox');
+cFloat = gui.components.Parameter_Control(gl, pFloat, Type='editfield');
 assert(cBool.h_uiobj.Value == false, 'unseeded Boolean should render unchecked');
 assert(cFloat.h_uiobj.Value == pFloat.Min, ...
     'unseeded numeric should land inside Limits (got %g, Min %g)', ...

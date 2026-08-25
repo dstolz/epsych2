@@ -1,6 +1,6 @@
 function [P, pump] = create_pump_protocol(filename, options)
 % [P, pump] = create_pump_protocol(filename, Name=Value, ...)
-% Build the smallest protocol that exercises gui.SyringePump end to end: an
+% Build the smallest protocol that exercises gui.components.SyringePump end to end: an
 % hw.NE1000 reward pump whose dispensed Volume steps through three levels
 % across trials, plus the software parameters and core triggers every
 % protocol needs.
@@ -30,7 +30,7 @@ function [P, pump] = create_pump_protocol(filename, options)
 %   create_pump_protocol                     % simulated pump
 %   create_pump_protocol(Port = 'COM4')      % a real NE-1000
 %
-% See also run_pump_session, PumpBehaviorGUI, gui.SyringePump, hw.NE1000
+% See also run_pump_session, PumpBehaviorGUI, gui.components.SyringePump, hw.NE1000
 
 arguments
     filename (1,:) char = ''
@@ -49,7 +49,7 @@ end
 
 % --- The pump ------------------------------------------------------------
 % RateUnits is fixed at uL/min here rather than left at the interface default
-% of mL/hr, because gui.SyringePump puts the interface into the units it
+% of mL/hr, because gui.components.SyringePump puts the interface into the units it
 % displays when it attaches. Authoring the protocol in those same units keeps
 % the Rate the trial table re-asserts every trial and the Rate the operator
 % sees in the panel the same number -- which is why PumpBehaviorGUI states
@@ -65,7 +65,7 @@ else
 end
 
 P = epsych.Protocol(Name = 'PumpExample', ...
-    Info = 'Minimal reward-pump protocol for testing gui.SyringePump');
+    Info = 'Minimal reward-pump protocol for testing gui.components.SyringePump');
 P.addInterface(pump);
 
 % --- Per-trial reward size -----------------------------------------------
@@ -82,7 +82,7 @@ pVol.Description = "Reward volume dispensed by one Start pulse, in mL " + ...
 % the units it actually reports volumes in from the SYRINGE DIAMETER — uL
 % below 14 mm, mL at or above. With Rate in uL/min and a 21.59 mm syringe
 % those disagree, so the labels are corrected here; otherwise every display
-% fed by these parameters (gui.NextTrial, gui.Parameter_Monitor, the trial
+% fed by these parameters (gui.components.NextTrial, gui.components.Parameter_Monitor, the trial
 % table) reads "0.04 uL" for a 40 uL reward.
 volumeUnit = 'mL';
 if options.Diameter < 14, volumeUnit = 'uL'; end

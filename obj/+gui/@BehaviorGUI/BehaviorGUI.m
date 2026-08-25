@@ -983,6 +983,47 @@ classdef (Abstract) BehaviorGUI < handle
             tf = gates{1}.wait(timeout);
         end
 
+        function h = addRegenerateTrial(obj, parent, options)
+            % h = addRegenerateTrial(obj, parent, ...)
+            % Create a gui.RegenerateTrial button and register it for
+            % teardown. One press dispatches the pending trial again, so
+            % randomized parameters redraw and committed edits reach the
+            % hardware without waiting for the next trial.
+            %
+            % The button is DEAD until Ctrl+Alt+Shift are all held -- the
+            % same combination gui.Parameter_Update uses -- and dies again
+            % as soon as one is released. RequireArming=false removes that.
+            %
+            % IT INTERRUPTS THE TRIAL IN PROGRESS, and asks nothing first.
+            % The component cannot tell an ITI from an animal part way
+            % through a response, and the DATA record for the trial ends up
+            % describing the last dispatch rather than the first. Add it for
+            % an operator who wants that; do not add it to a layout where it
+            % sits among the trigger buttons a mis-click can reach.
+            %
+            % The button is live only while the session is running (Preview
+            % or Record) and never in a review. See gui.RegenerateTrial.
+            arguments
+                obj
+                parent (1,1)
+                options.Text (1,:) char = 'Regenerate Trial'
+                options.Tooltip (1,:) char = ''
+                options.SubjectIndex (1,1) double {mustBeInteger, mustBePositive} = 1
+                options.Reselect (1,1) logical = false
+                options.Note (1,1) logical = true
+                options.EnableWhenIdle (1,1) logical = false
+                options.RequireArming (1,1) logical = true
+                options.ShowIcon (1,1) logical = true
+                options.FontSize (1,1) double {mustBePositive, mustBeFinite} = 12
+                options.FontWeight (1,:) char {mustBeMember(options.FontWeight,{'normal','bold'})} = 'normal'
+                options.BackgroundColor (1,3) double {mustBeNonnegative} = [0.96 0.78 0.36]
+            end
+
+            args = namedargs2cell(options);
+            h = gui.RegenerateTrial(obj.RUNTIME, parent, args{:});
+            obj.register(h);
+        end
+
         function h = addPopOutButton(obj, parent, component, options)
             % h = addPopOutButton(obj, parent, component, Text=..., Tooltip=...)
             % Create a button that opens a display in a window of its own,

@@ -196,6 +196,17 @@ L2 = kb.list();
 assert(any(strcmp({L2.Group}, 'Button')), 'an owner groups the binding by its class');
 assert(any(strcmp({L2.Display}, 'Ctrl+Shift+B')), 'the list carries the display chord');
 
+% A camelCase owner class is split into words. This is the regression the
+% group heading had: the zero-width lookaround spacedClassName_ used to use
+% MATCHES but inserts nothing in MATLAB, so a two-word class read as one
+% ('SCREENCAPTURE' in the help window). 'Button' above cannot catch it --
+% it is a single word either way.
+b3 = uibutton(fig, 'state');   % matlab.ui.control.StateButton
+kb.bind('ctrl+shift+t', @() addHit('t'), Owner=b3, Description='Toggle something');
+L3 = kb.list();
+assert(any(strcmp({L3.Group}, 'State Button')), ...
+    'a camelCase owner class name is split into words');
+
 fprintf('PASS: the help list is ordered, grouped and readable\n');
 
 

@@ -530,10 +530,18 @@ classdef KeyBindings < handle
         function name = spacedClassName_(cls)
             % gui.RegenerateTrial -> 'Regenerate Trial', matching how
             % gui.ComponentToolbar labels a component with no given name.
+            %
+            % The capture-group form is load bearing. The obvious
+            % zero-width version, regexprep(name,'(?<=[a-z0-9])(?=[A-Z])',
+            % ' '), matches but inserts NOTHING in MATLAB, so every group
+            % heading came out as the unsplit class name (SCREENCAPTURE).
+            % Consuming the two characters and putting them back with
+            % '$1 $2' is what gui.ComponentToolbar.labelForClass already
+            % does; an all-caps name like NAFC is left alone by both.
             parts = strsplit(cls, '.');
             name = parts{end};
             name = regexprep(name, '_', ' ');
-            name = strtrim(regexprep(name, '(?<=[a-z0-9])(?=[A-Z])', ' '));
+            name = strtrim(regexprep(name, '([a-z0-9])([A-Z])', '$1 $2'));
         end
 
         function tf = isInstalled_(current, hook)

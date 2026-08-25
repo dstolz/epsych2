@@ -411,6 +411,191 @@ classdef (Abstract) BehaviorGUI < handle
             end
         end
 
+        function h = add(obj, cls, parent, varargin)
+            % h = add(obj, cls, parent, Name=Value, ...)
+            % Build a component of class cls into parent, wire it to this
+            % GUI, and register it for teardown.
+            %
+            % cls is a FULLY-QUALIFIED class name. A class that declares a
+            % static getComponentSpec is built to that spec; anything else
+            % gets one inferred from its constructor signature, so a
+            % component from outside this toolbox needs no registration of
+            % any kind:
+            %
+            %   obj.add("mylab.RasterPlot", pnl, Channel=3)
+            %
+            % Returns [] and says why at debug level when the session cannot
+            % support the component -- a parameter that does not resolve, an
+            % analysis that was never built -- so a GUI still opens against a
+            % runtime with no interfaces (epsych.SelfTest check I6).
+            %
+            % Options are forwarded VERBATIM: an option you do not name is
+            % not passed at all, which is what lets a component fall back to
+            % the operator's own saved preference rather than being handed a
+            % default nobody chose.
+            %
+            % Three option names are consumed here and never forwarded:
+            %   Variant      - select a non-primary variant of a class that
+            %                  declares several (gui.Parameter_Control is
+            %                  both the Control and the Button)
+            %   KeyBinding   - replace, or drop with 'none', the component's
+            %                  default keyboard chord
+            %   RegisterName - name this instance for the component toolbar
+            %                  and the pop-out memory
+            %
+            % See also gui.ComponentSpec, register
+            h = [];
+            cls = char(string(cls));
+
+            [opts, ok] = gui.BehaviorGUI.parseOptions_(varargin, cls, class(obj));
+            if ~ok, return; end
+
+            variant = '';
+            if isfield(opts, 'Variant')
+                variant = char(string(opts.Variant));
+                opts = rmfield(opts, 'Variant');
+            end
+
+            spec = gui.ComponentSpec.forClass(cls, variant);
+            if isempty(spec.className)
+                vprintf(2, '%s: no class "%s" on the path; component skipped', class(obj), cls)
+                return
+            end
+
+            chord = spec.keyBinding;
+            if isfield(opts, 'KeyBinding')
+                chord = char(string(opts.KeyBinding));
+                opts = rmfield(opts, 'KeyBinding');
+            end
+            regName = spec.registerName;
+            if isfield(opts, 'RegisterName')
+                regName = char(string(opts.RegisterName));
+                opts = rmfield(opts, 'RegisterName');
+            end
+
+            % Variant defaults, e.g. addButton's autoCommit. The caller
+            % always outranks them.
+            fn = fieldnames(spec.fixedOptions);
+            for k = 1:numel(fn)
+                if ~isfield(opts, fn{k})
+                    opts.(fn{k}) = spec.fixedOptions.(fn{k});
+                end
+            end
+
+            if spec.singleton
+                existing = obj.componentsOfClass_(cls);
+                if ~isempty(existing)
+                    vprintf(2, '%s: %s already added; returning it', class(obj), spec.label)
+                    h = existing{1};
+                    return
+                end
+            end
+
+            if ~obj.specPreconditionsMet_(spec, opts), return; end
+
+            [opts, ok] = obj.resolveSpecParameters_(spec, opts);
+            if ~ok, return; end
+
+            canvasH = [];
+            if ~strcmp(spec.canvas, 'none')
+                try
+                    switch spec.canvas
+                        case 'axes',   canvasH = axes(parent);
+                        case 'uiaxes', canvasH = uiaxes(parent);
+                    end
+                catch ME
+                    vprintf(2, '%s: could not make the %s for %s (%s)', ...
+                        class(obj), spec.canvas, spec.label, ME.message)
+                    return
+                end
+            end
+
+            [pos, opts, ok] = obj.buildSpecPositionals_(spec, parent, canvasH, opts);
+            if ~ok
+                delete(canvasH)
+                return
+            end
+
+            opts = obj.applySpecInjections_(spec, opts);
+
+            % Options this GUI acts on itself rather than handing to the
+            % constructor (gui.OnlinePlot's TimeWindow, which is applied
+            % after construction and only if nothing was remembered).
+            hostOpts = struct();
+            for o = spec.hostOptions
+                n = char(o);
+                if isfield(opts, n)
+                    hostOpts.(n) = opts.(n);
+                    opts = rmfield(opts, n);
+                end
+            end
+
+            % Not namedargs2cell: opts holds only what was stated, and an
+            % absent field must stay an absent argument.
+            f  = fieldnames(opts);
+            nv = cell(1, 2*numel(f));
+            nv(1:2:end) = f;
+            nv(2:2:end) = struct2cell(opts);
+            try
+                h = feval(cls, pos{:}, nv{:});
+            catch ME
+                % Louder than a skip: a precondition failing is expected, a
+                % constructor throwing is a defect. Never rethrown (I6).
+                vprintf(1, '%s: %s could not be created from [%s]', ...
+                    class(obj), spec.label, strjoin(f, ' '))
+                vprintf(1, 1, ME)
+                delete(canvasH)
+                h = [];
+                return
+            end
+
+            % gui.OnlinePlot deletes itself when its source dialog is
+            % cancelled, so this tests validity, not emptiness alone.
+            if isempty(h) || ~isvalid(h)
+                vprintf(2, '%s: %s returned nothing usable; skipping', class(obj), spec.label)
+                delete(canvasH)
+                h = [];
+                return
+            end
+
+            if spec.attachRuntime
+                try
+                    h.attachRuntime(obj.RUNTIME);
+                catch ME
+                    vprintf(2, '%s: %s would not take the runtime (%s)', ...
+                        class(obj), spec.label, ME.message)
+                end
+            end
+            if spec.start
+                try
+                    h.start();
+                catch ME
+                    vprintf(2, '%s: %s would not start (%s)', class(obj), spec.label, ME.message)
+                end
+            end
+            if ~isempty(spec.postFcn)
+                ctx = struct('parent', parent, 'canvas', canvasH, ...
+                    'options', opts, 'host', hostOpts, 'spec', spec);
+                try
+                    spec.postFcn(h, obj, ctx);
+                catch ME
+                    vprintf(2, '%s: %s post-construction step failed (%s)', ...
+                        class(obj), spec.label, ME.message)
+                end
+            end
+
+            obj.register(h, regName);
+            obj.bindSpecKey_(spec, chord, h);
+        end
+
+        function c = componentsOfClass(obj, cls)
+            % c = componentsOfClass(obj, cls)
+            % Registered components of a class, in registration order, as a
+            % cell array. Public so a component's own spec helpers can ask
+            % what else this GUI already holds.
+            c = obj.componentsOfClass_(cls);
+        end
+
         function h = addControl(obj, parent, param, options)
             % h = addControl(obj, parent, param, ...)
             % Create a gui.Parameter_Control bound to a parameter and
@@ -1370,6 +1555,14 @@ classdef (Abstract) BehaviorGUI < handle
 
     methods (Hidden)
 
+        function names = componentNames(obj)
+            % names = componentNames(obj)
+            % Names components were registered under, in registration order,
+            % '' where none was given. Hidden: the toolbar reaches these
+            % through popOutComponents_, and this is for tests and debugging.
+            names = obj.ComponentNames_;
+        end
+
         function notePopOutStateChanged_(obj)
             % notePopOutStateChanged_(obj)
             % A display window opened or closed. gui.ComponentToolbar calls
@@ -1438,6 +1631,151 @@ classdef (Abstract) BehaviorGUI < handle
             catch ME
                 vprintf(2, 'gui.BehaviorGUI: could not reach the notes entry (%s)', ME.message)
             end
+        end
+
+        function [pos, opts, ok] = buildSpecPositionals_(obj, spec, parent, canvasH, opts)
+            % Positional arguments named by spec.shape. An arg: token is
+            % CONSUMED from opts so it is not also forwarded by name.
+            ok  = true;
+            tok = spec.shape;
+            pos  = cell(1, numel(tok));
+            have = true(1, numel(tok));
+            for k = 1:numel(tok)
+                t = char(tok(k));
+                if startsWith(t, 'arg:')
+                    name = t(5:end);
+                    if isfield(opts, name)
+                        pos{k} = opts.(name);
+                        opts   = rmfield(opts, name);
+                    else
+                        [d, hasD] = spec.optionDefault(name);
+                        pos{k}  = d;
+                        have(k) = hasD;
+                    end
+                    continue
+                end
+                switch t
+                    case 'parent', pos{k} = parent;
+                    case 'figure', pos{k} = obj.h_figure;
+                    case 'host',   pos{k} = obj;
+                    case 'runtime',pos{k} = obj.RUNTIME;
+                    case 'psych',  pos{k} = obj.Psych;
+                    case 'keys',   pos{k} = obj.Keys;
+                    case 'canvas', pos{k} = canvasH;
+                    case 'psychOrRuntime'
+                        s = obj.Psych;
+                        if isempty(s) || ~isvalid(s), s = obj.RUNTIME; end
+                        pos{k} = s;
+                    otherwise
+                        vprintf(2, '%s: %s declares an unknown positional "%s"; skipping', ...
+                            class(obj), spec.label, t)
+                        ok = false;
+                        pos = {};
+                        return
+                end
+            end
+            % Unstated trailing optionals are DROPPED rather than passed as
+            % [], so the component sees the nargin a hand-written call gives.
+            last = find(have, 1, 'last');
+            if isempty(last), last = 0; end
+            pos = pos(1:last);
+        end
+
+        function opts = applySpecInjections_(obj, spec, opts)
+            % Name-values this GUI supplies (KeySource, Runtime, Target),
+            % only where the caller did not state them. addButton's
+            % deliberate absence of Runtime= is expressed by its spec simply
+            % not injecting one.
+            fn = fieldnames(spec.inject);
+            for k = 1:numel(fn)
+                if isfield(opts, fn{k}), continue; end
+                switch char(spec.inject.(fn{k}))
+                    case 'runtime', opts.(fn{k}) = obj.RUNTIME;
+                    case 'keys',    opts.(fn{k}) = obj.Keys;
+                    case 'figure',  opts.(fn{k}) = obj.h_figure;
+                    case 'host',    opts.(fn{k}) = obj;
+                    case 'psych',   opts.(fn{k}) = obj.Psych;
+                end
+            end
+        end
+
+        function tf = specPreconditionsMet_(obj, spec, opts)
+            % Everything the session must already have for this component to
+            % mean anything. Each failure is a debug-level skip, never a
+            % throw (epsych.SelfTest check I6).
+            tf = false;
+            for r = spec.requires
+                switch char(r)
+                    case 'psych'
+                        if ~obj.hasPsych_(spec.label), return; end
+                        if ~isempty(spec.psychTypes) && ~any(arrayfun( ...
+                                @(t) isa(obj.Psych, char(t)), spec.psychTypes))
+                            vprintf(2, '%s: %s needs a %s analysis; this session has %s', ...
+                                class(obj), spec.label, ...
+                                strjoin(cellstr(spec.psychTypes), '/'), class(obj.Psych))
+                            return
+                        end
+                    case 'psychPlot'
+                        if ~obj.hasPsych_(spec.label), return; end
+                        if ~ismethod(obj.Psych, 'Plot')
+                            vprintf(2, '%s: %s skipped; %s cannot plot itself', ...
+                                class(obj), spec.label, class(obj.Psych))
+                            return
+                        end
+                end
+            end
+            for o = spec.requiredOptions
+                n = char(o);
+                if ~isfield(opts, n) || isempty(opts.(n))
+                    vprintf(2, ['%s: %s needs %s; skipping rather than opening ' ...
+                        'a dialog mid-session'], class(obj), spec.label, n)
+                    return
+                end
+            end
+            tf = true;
+        end
+
+        function [opts, ok] = resolveSpecParameters_(obj, spec, opts)
+            % Turn parameter NAMES into hw.Parameter handles. A miss drops
+            % that entry, or kills the component when resolveRequired.
+            ok = true;
+            for nm = spec.resolve
+                n = char(nm);
+                if ~isfield(opts, n), continue; end
+                raw = opts.(n);
+                if isa(raw, 'hw.Parameter'), continue; end
+                if ischar(raw) || (isstring(raw) && isscalar(raw))
+                    p = obj.resolveParameter_(raw);
+                    if isempty(p)
+                        if spec.resolveRequired, ok = false; return; end
+                        opts = rmfield(opts, n);
+                    else
+                        opts.(n) = p;
+                    end
+                    continue
+                end
+                names = cellstr(raw);
+                res = hw.Parameter.empty(1,0);
+                for i = 1:numel(names)
+                    p = obj.resolveParameter_(names{i});
+                    if ~isempty(p), res(end+1) = p; end %#ok<AGROW>
+                end
+                if isempty(res) && spec.resolveRequired, ok = false; return; end
+                opts.(n) = res;
+            end
+        end
+
+        function bindSpecKey_(obj, spec, chord, h)
+            % Default keyboard chord, if the spec ships one and the caller
+            % did not drop it. bindComponentKey_ already honours 'none'.
+            if isempty(chord) || isempty(spec.keyAction), return; end
+            act = spec.keyAction;
+            if ischar(act) || isstring(act)
+                cb = @() feval(char(act), h);
+            else
+                cb = @() act(h, obj);
+            end
+            obj.bindComponentKey_(chord, cb, h, spec.keyDescription);
         end
 
         function tf = hasPsych_(obj, what)
@@ -1750,6 +2088,37 @@ classdef (Abstract) BehaviorGUI < handle
                 obj.onModeChange(src, event);
             catch ME
                 vprintf(0,1, ME)
+            end
+        end
+    end
+
+    methods (Static, Hidden)
+
+        function [opts, ok] = parseOptions_(args, cls, guiCls)
+            % Name=Value pairs into a struct holding ONLY what was stated.
+            %
+            % An arguments block cannot do this: it would fill in defaults,
+            % and "not stated" would stop being distinguishable from "stated
+            % as the default" -- which is what lets a component fall back to
+            % the operator's saved preference. A malformed call is a
+            % debug-level skip, not a throw (epsych.SelfTest check I6).
+            ok = true;
+            opts = struct();
+            if mod(numel(args), 2) ~= 0
+                vprintf(2, '%s: add(%s, ...) needs Name=Value pairs; component skipped', ...
+                    guiCls, cls)
+                ok = false;
+                return
+            end
+            for k = 1:2:numel(args)
+                n = args{k};
+                if ~(ischar(n) || (isstring(n) && isscalar(n))) || ~isvarname(char(n))
+                    vprintf(2, ['%s: add(%s, ...) got a non-name where an option ' ...
+                        'name belongs; component skipped'], guiCls, cls)
+                    ok = false;
+                    return
+                end
+                opts.(char(n)) = args{k+1};   % last wins, as MATLAB does
             end
         end
     end

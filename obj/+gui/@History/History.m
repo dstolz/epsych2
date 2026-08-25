@@ -104,6 +104,25 @@ classdef History < gui.PopOut
         TRIAL_COLUMN = 'Trial'        % Leading column holding the chronological trial number
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.History.getComponentSpec()
+            % Built over the GUI's analysis object, so it is skipped when
+            % there is none rather than throwing. See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'History';
+            s.label       = 'Trial History';
+            s.category    = 'Displays';
+            s.description = 'Per-trial outcome table (requires a psych analysis)';
+            s.shape       = ["psych","parent"];
+            s.requires    = "psych";
+            s.options     = [ ...
+                gui.ComponentSpecOption('name','ColumnFormats','inputType','text','isList',true), ...
+                gui.ComponentSpecOption('name','BitColors','inputType','text','isList',true), ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text')];
+        end
+    end
+
     methods
 
         function obj = History(pObj,container,options)

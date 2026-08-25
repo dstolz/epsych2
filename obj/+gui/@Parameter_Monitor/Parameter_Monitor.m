@@ -324,6 +324,31 @@ classdef Parameter_Monitor < gui.PopOut
         PREF_GROUP = 'epsych2_gui_Parameter_Monitor' % getpref/setpref group name
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.Parameter_Monitor.getComponentSpec()
+            % Takes the container FIRST and its parameters second, which the
+            % shape says explicitly. Parameter names are resolved against the
+            % GUI's parameter set and misses are dropped individually, so a
+            % protocol missing one still gets a monitor of the rest.
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type        = 'Monitor';
+            s.label       = 'Parameter Monitor';
+            s.category    = 'Displays';
+            s.description = 'Polled read-only display of chosen parameters (table or text)';
+            s.shape       = ["parent","arg:Parameters"];
+            s.resolve     = "Parameters";
+            s.options     = [ ...
+                gui.ComponentSpecOption('name','Parameters','inputType','paramlist'), ...
+                gui.ComponentSpecOption('name','pollPeriod','inputType','numeric','defaultValue',1), ...
+                gui.ComponentSpecOption('name','type','inputType','choice', ...
+                    'choices',{{'text','table','graphical'}},'defaultValue','table'), ...
+                gui.ComponentSpecOption('name','Columns','inputType','text','isList',true), ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text')];
+        end
+    end
+
     methods
 
         function obj = Parameter_Monitor(parent,Parameters,options)

@@ -150,6 +150,48 @@ classdef OnlinePlot < gui.PopOut
         REDRAW_RATES = [2 5 10 20]        % Hz, offered on the menu
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.OnlinePlot.getComponentSpec()
+            % How gui.BehaviorGUI.add builds this component.
+            %
+            % Source is REQUIRED: left empty this class puts a list dialog in
+            % front of the operator while the session is starting, which is
+            % almost never what a paradigm wants, so add skips instead.
+            %
+            % TimeWindow is a hostOption -- applied after construction, and
+            % only when nothing was remembered, since a saved window outranks
+            % a default. See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type            = 'OnlinePlot';
+            s.label           = 'Online Plot';
+            s.category        = 'Displays';
+            s.description     = 'Real-time traces of hardware activity for named parameters or a bitmask bank';
+            s.shape           = ["runtime","arg:Source","canvas","arg:BoxID"];
+            s.canvas          = 'axes';
+            s.requiredOptions = "Source";
+            s.registerName    = 'Online Plot';
+            s.hostOptions     = "TimeWindow";
+            s.postFcn         = @gui.OnlinePlot.applySpecDefaults;
+            s.options         = [ ...
+                gui.ComponentSpecOption('name','Source','inputType','paramlist'), ...
+                gui.ComponentSpecOption('name','BoxID','inputType','numeric','defaultValue',1), ...
+                gui.ComponentSpecOption('name','TimeWindow','inputType','numeric','defaultValue',[-10 3]), ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text')];
+        end
+
+        function applySpecDefaults(h, ~, ctx)
+            % applySpecDefaults(h, guiObj, ctx)
+            % Post-construction step for gui.BehaviorGUI.add: seat the
+            % default time window, but only when nothing was remembered --
+            % a saved window outranks a default, which is the point of
+            % remembering one.
+            if ~isfield(ctx.host, 'TimeWindow'), return; end
+            if h.hasSavedConfiguration(), return; end
+            h.timeWindow = seconds(ctx.host.TimeWindow);
+        end
+    end
+
     methods
         function obj = OnlinePlot(RUNTIME,source,hax,BoxID,options)
             % Constructor: initializes online plot for the chosen source and axes.

@@ -63,6 +63,30 @@ classdef ComponentToolbar < handle
         AutoAdded_ (1,1) logical = false % populateAuto_ runs once, after build
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.ComponentToolbar.getComponentSpec()
+            % Takes the GUI itself and its FIGURE, not a container, and is a
+            % singleton: asking twice returns the toolbar already made. Its
+            % tools are collected after build returns, which is why a GUI can
+            % ask for it on its first line. See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type         = 'ComponentToolbar';
+            s.label        = 'Component Toolbar';
+            s.category     = 'Add-ons';
+            s.description  = 'Icon toolbar opening each display in a window of its own';
+            s.shape        = ["host","figure"];
+            s.singleton    = true;
+            s.registerName = 'ComponentToolbar';
+            s.placeable    = false; % added by a build, not placed on a canvas
+            s.options      = [ ...
+                gui.ComponentSpecOption('name','Style','inputType','choice', ...
+                    'choices',{{'push','toggle'}},'defaultValue','push'), ...
+                gui.ComponentSpecOption('name','Exclude','inputType','text','isList',true), ...
+                gui.ComponentSpecOption('name','AutoDiscover','inputType','logical','defaultValue',true)];
+        end
+    end
+
     methods
 
         function obj = ComponentToolbar(parentGUI, fig, options)

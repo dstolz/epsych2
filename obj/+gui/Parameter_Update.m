@@ -37,6 +37,28 @@ classdef Parameter_Update < handle
         hl_modifiers    % listener on a gui.KeyBindings, when one was given
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.Parameter_Update.getComponentSpec()
+            % KeySource is injected rather than passed positionally: this
+            % component must join the figure's one gui.KeyBindings instead of
+            % claiming the key callbacks itself. Ctrl+Enter commits whatever
+            % is pending; KeyBinding='none' at the call site drops it.
+            % See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type           = 'UpdateButton';
+            s.label          = 'Update Button';
+            s.category       = 'Controls';
+            s.description    = 'Commits every pending parameter control at once';
+            s.shape          = ["runtime","parent"];
+            s.inject.KeySource = "keys";
+            s.keyBinding     = 'ctrl+return';
+            s.keyAction      = 'commitPending';
+            s.keyDescription = 'Commit pending parameter changes';
+            s.placeable      = false; % the builder emits it inside a ControlColumn
+        end
+    end
+
     methods
         function obj = Parameter_Update(RUNTIME,parent,options)
             % obj = gui.Parameter_Update(RUNTIME, parent, KeySource=)

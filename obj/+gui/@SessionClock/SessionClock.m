@@ -74,6 +74,26 @@ classdef SessionClock < handle
             'Prefix', {'Last trial: ',            'Since first trial: ',     'Session duration: ',   'Time: '})
     end
 
+    methods (Static)
+        function s = getComponentSpec()
+            % s = gui.SessionClock.getComponentSpec()
+            % How gui.BehaviorGUI.add builds this component. Constructed with
+            % the container alone, then given the runtime; the one component
+            % that also wants start(). See gui.ComponentSpec.
+            s = gui.ComponentSpec();
+            s.type          = 'SessionClock';
+            s.label         = 'Session Clock';
+            s.category      = 'Displays';
+            s.description   = 'Clock, session duration, and time-since-trial readouts';
+            s.shape         = "parent";
+            s.attachRuntime = true;
+            s.start         = true;
+            s.options       = [ ...
+                gui.ComponentSpecOption('name','PreferenceTag','inputType','text'), ...
+                gui.ComponentSpecOption('name','FontSize','inputType','numeric')];
+        end
+    end
+
     methods
 
         function obj = SessionClock(parent, options)

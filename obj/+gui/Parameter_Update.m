@@ -46,8 +46,8 @@ classdef Parameter_Update < handle
             % claiming the figure's key callbacks -- there is one such
             % callback per figure, and claiming it takes the keys away from
             % every other component. Without one (a standalone window with
-            % no behavior GUI around it) the callbacks are claimed as
-            % before.
+            % no behavior GUI around it) the figure's shared KeyBindings is
+            % looked up, or started, for the same reason.
             arguments
                 RUNTIME
                 parent (1,1)
@@ -67,13 +67,17 @@ classdef Parameter_Update < handle
 
             obj.Figure = ancestor(obj.Button,'figure');
 
-            if isempty(options.KeySource)
-                obj.Figure.WindowKeyPressFcn = @obj.key_press;
-                obj.Figure.WindowKeyReleaseFcn  = @obj.key_release;
-            else
-                obj.hl_modifiers = listener(options.KeySource, 'ModifiersChanged', ...
-                    @(src,~) obj.modifiers_changed(src.CurrentModifiers));
+            ks = options.KeySource;
+            if isempty(ks)
+                % Join (or start) the figure's shared KeyBindings rather
+                % than assigning the key callbacks outright: assigning took
+                % them away from every neighbour, and two components each
+                % chaining what they displaced could recurse into each
+                % other on every keystroke.
+                ks = gui.KeyBindings.getOrCreate(obj.Figure);
             end
+            obj.hl_modifiers = listener(ks, 'ModifiersChanged', ...
+                @(src,~) obj.modifiers_changed(src.CurrentModifiers));
 
             obj.color_nothingToUpdate = rgb2hex(obj.Button.BackgroundColor);
         end
@@ -125,7 +129,9 @@ classdef Parameter_Update < handle
             obj.updateImmediately = all(ismember({'shift','control','alt'},mods));
             obj.resetPending = ~obj.updateImmediately && isscalar(mods) && isequal(char(mods{1}),'control');
 
-            if ~any([obj.watchedHandles.ValueUpdated])
+            % The modifier listener is live from construction, before any
+            % handles are watched; there is nothing to repaint yet.
+            if isempty(obj.watchedHandles) || ~any([obj.watchedHandles.ValueUpdated])
                 obj.resetPending = false;
                 return
             end

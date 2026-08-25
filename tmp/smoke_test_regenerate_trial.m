@@ -192,71 +192,95 @@ assert(~hA.regenerate(), 'regenerate must refuse once disarmed');
 fprintf('PASS: Ctrl+Alt+Shift arms the button, releasing any one disarms it\n');
 
 
-% 9. Arming survives a neighbour claiming the key callbacks ----------------
-% gui.Parameter_Update takes the figure's WindowKeyPressFcn outright, and in
-% a typical build method it is created AFTER this button -- so the hooks from
-% the constructor are already gone. The component re-installs on the first
-% ModeChange (which RunExpt broadcasts only once the GUI is fully built) and
-% chains, so both features work off the same key.
+% 9. Arming shares the figure's keyboard with its neighbours ---------------
+% A standalone component (no KeySource) joins the figure's shared
+% gui.KeyBindings instead of claiming the one WindowKeyPressFcn slot for
+% itself: two components that each claimed and chained the slot could chain
+% each other and recurse on every keystroke.
 rtB = makeRuntime(tmpDir);
 figB = uifigure('Visible','off');
 cleanupFigB = onCleanup(@() delete(figB));
 gB = uigridlayout(figB,[2 1]);
 
-% (a) A handler already on the figure keeps receiving events.
+% (a) A handler already on the figure keeps receiving events -- chained by
+% the shared dispatcher, modifier presses included.
 probeSeen = 0;
 figB.WindowKeyPressFcn = @(~,~) bumpProbe();
 hB0 = gui.RegenerateTrial(rtB, gB, EnableWhenIdle=true);
 keyPress(figB, {'control','alt','shift'});
-assert(hB0.Armed, 'the component should arm from its own hook');
+assert(hB0.Armed, 'the component should arm from the shared dispatcher');
 assert(probeSeen == 1, ...
     'the handler that was already installed must still be called (got %d)', probeSeen);
 delete(hB0);
 assert(probeSeen == 1, 'sanity: no extra calls during teardown');
 keyPress(figB, {'control','alt','shift'});
-assert(probeSeen == 2, 'teardown should hand the slot back to the original handler');
+assert(probeSeen == 2, ...
+    'the dispatcher outlives the button and keeps chaining the original handler');
+keyRelease(figB, {});   % let go of the held set before the next subsection
 fprintf('PASS: an existing key handler is chained, not clobbered\n');
 
-% (b) The real neighbour, built AFTER this component the way a build method
-% orders them, so the constructor's hooks are gone by the time it is done.
+% (b) A neighbour that assigns the figure's key callbacks outright AFTER
+% this component is built (the pre-KeyBindings gui.Parameter_Update pattern)
+% displaces the shared dispatcher. The component re-claims it through its
+% KeyBindings on the first ModeChange (which RunExpt broadcasts only once
+% the GUI is fully built), and the neighbour is chained, so both keep
+% working. A modern neighbour just joins the same dispatcher.
 figB.WindowKeyPressFcn = '';
 figB.WindowKeyReleaseFcn = '';
 hB = gui.RegenerateTrial(rtB, gB, EnableWhenIdle=true);   % built first...
-pu = gui.Parameter_Update(rtB, gB);                       % ...and clobbered here
-% gui.BehaviorGUI.wireUpdateButtons_ does this after build; without it the
-% neighbour's own key handler throws on the first key event.
+pu = gui.Parameter_Update(rtB, gB);        % joins the same shared dispatcher
 pu.watchedHandles = gui.Parameter_Control.empty;
+lateSeen = 0;
+figB.WindowKeyPressFcn = @(~,~) bumpLate();               % ...then clobbered
 
 keyPress(figB, {'control','alt','shift'});
 assert(~hB.Armed, ...
     'sanity: the neighbour really does take the slot, leaving this button unarmable');
+assert(lateSeen == 1, 'sanity: the clobbering neighbour sees its own events');
 
-setMode(rtB, hw.DeviceState.Record);          % the re-install moment
+setMode(rtB, hw.DeviceState.Record);          % the re-claim moment
 keyPress(figB, {'control','alt','shift'});
 assert(hB.Armed, 'arming must be restored once the GUI is fully built');
+assert(lateSeen == 2, 'the clobbering neighbour must be chained, not thrown away');
 
-% Teardown hands the slot back to the neighbour rather than nulling it.
+% Teardown leaves the shared dispatcher (and the chained neighbour) alone.
 delete(hB);
 assert(~isempty(figB.WindowKeyPressFcn), ...
-    'deleting the button must leave the neighbour''s key handler in place');
+    'deleting the button must leave the figure''s key dispatch in place');
 assert(isvalid(pu), 'the neighbour should be untouched');
 keyPress(figB, {'control','alt','shift'});    % must not error
-fprintf('PASS: arming coexists with gui.Parameter_Update on the same key\n');
+assert(lateSeen == 3, 'the chained neighbour keeps working after teardown');
+fprintf('PASS: arming coexists with a slot-claiming neighbour on the same key\n');
 
 
 % (c) A chained handler that THROWS must not take the arming down with it.
-% This is not hypothetical: gui.Parameter_Update's own key handler throws
-% whenever its watchedHandles have not been wired yet, which is every key
-% event between its construction and the end of build.
+keyRelease(figB, {});   % let go of the held set before displacing the slot
 figB.WindowKeyPressFcn   = @(~,~) error('smoke:neighbour','deliberate');
 figB.WindowKeyReleaseFcn = @(~,~) error('smoke:neighbour','deliberate');
 hC = gui.RegenerateTrial(rtB, gB, EnableWhenIdle=true);
+setMode(rtB, hw.DeviceState.Record);          % re-claim chains the throwers
 
 keyPress(figB, {'control','alt','shift'});
 assert(hC.Armed, 'a throwing neighbour must not prevent arming');
 keyRelease(figB, {'control'});
 assert(~hC.Armed, 'a throwing neighbour must not prevent disarming either');
 fprintf('PASS: a throwing chained handler does not break the arming gate\n');
+
+
+% (d) Two standalone buttons on one figure share one dispatcher: no chain,
+% no recursion, both arm. This exact arrangement (one button per box on a
+% multi-box rig) used to recurse to MATLAB's recursion limit per keystroke.
+figD = uifigure('Visible','off');
+cleanupFigD = onCleanup(@() delete(figD));
+gD = uigridlayout(figD,[2 1]);
+hD1 = gui.RegenerateTrial(rtB, gD, EnableWhenIdle=true);
+hD2 = gui.RegenerateTrial(rtB, gD, EnableWhenIdle=true, SubjectIndex=1);
+setMode(rtB, hw.DeviceState.Record);
+keyPress(figD, {'control','alt','shift'});
+assert(hD1.Armed && hD2.Armed, 'both buttons should arm from one dispatcher');
+keyRelease(figD, {'control'});
+assert(~hD1.Armed && ~hD2.Armed, 'both buttons should disarm together');
+fprintf('PASS: two standalone buttons share one dispatcher without recursion\n');
 
 
 fprintf('smoke_test_regenerate_trial: ALL PASS\n');
@@ -275,6 +299,10 @@ fprintf('smoke_test_regenerate_trial: ALL PASS\n');
 
     function bumpProbe()
         probeSeen = probeSeen + 1;
+    end
+
+    function bumpLate()
+        lateSeen = lateSeen + 1;
     end
 end
 

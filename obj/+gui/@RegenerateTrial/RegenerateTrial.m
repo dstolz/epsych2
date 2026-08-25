@@ -118,17 +118,13 @@ classdef RegenerateTrial < handle
         ReviewMode_ (1,1) logical = false
         Mode_ = hw.DeviceState.Idle
 
-        % The figure callbacks that were in place when this component
-        % installed its own, and the handles it installed. Both are kept so
-        % the neighbour keeps working and so teardown can put back what it
-        % found. See installKeyHooks_.
-        PrevKeyPress_ = []
-        PrevKeyRelease_ = []
-        KeyPressHook_ = []
-        KeyReleaseHook_ = []
-
-        % Set when a gui.KeyBindings supplies the modifier state instead.
-        % Its presence is what says the hooks above are not in use.
+        % The gui.KeyBindings supplying the modifier state, and whether
+        % this component resolved it itself (getOrCreate on the figure)
+        % rather than being handed one. Only a self-resolved source is
+        % re-claimed on ModeChange; a KeySource handed in belongs to
+        % whoever supplied it.
+        KeySource_ = []
+        OwnsKeySource_ (1,1) logical = false
         ModifierListener_ event.listener
 
         ArmedColor_ (1,3) double = [0.96 0.78 0.36]
@@ -212,13 +208,23 @@ classdef RegenerateTrial < handle
             end
 
             % Inside a behavior GUI the modifier state comes from the one
-            % object that owns the figure's key callbacks, so nothing here
-            % has to claim or chain them. Standalone, the hooks below are
-            % still the only way to see a modifier.
-            if isempty(options.KeySource)
-                obj.installKeyHooks_();
-            else
-                obj.ModifierListener_ = listener(options.KeySource, 'ModifiersChanged', ...
+            % object that owns the figure's key callbacks. Standalone, the
+            % component joins (or starts) the figure's shared
+            % gui.KeyBindings rather than claiming the key-callback slot
+            % itself: two components that each claimed and chained the slot
+            % could chain each other, and every stray keystroke then
+            % recursed to MATLAB's recursion limit.
+            ks = options.KeySource;
+            if isempty(ks)
+                fig = ancestor(obj.ButtonH, 'figure');
+                if ~isempty(fig) && isvalid(fig)
+                    ks = gui.KeyBindings.getOrCreate(fig);
+                    obj.OwnsKeySource_ = true;
+                end
+            end
+            if ~isempty(ks)
+                obj.KeySource_ = ks;
+                obj.ModifierListener_ = listener(ks, 'ModifiersChanged', ...
                     @(src,~) obj.setArmed_(src.CurrentModifiers));
             end
 
@@ -228,7 +234,6 @@ classdef RegenerateTrial < handle
         function delete(obj)
             delete(obj.Listener_)
             delete(obj.ModifierListener_)
-            obj.removeKeyHooks_();
         end
 
         function attachRuntime(obj, RUNTIME)
@@ -331,78 +336,19 @@ classdef RegenerateTrial < handle
 
         function onModeChange_(obj, ev)
             obj.Mode_ = ev.NewMode;
-            % Re-assert the key hooks here as well as at construction, for a
-            % STANDALONE component only. A figure has ONE WindowKeyPressFcn
-            % slot, and a neighbour that claims it outright (as
-            % gui.Parameter_Update does with no KeySource) takes away the
-            % hooks installed in the constructor; RunExpt broadcasts the run
-            % mode only after the whole GUI is built, which makes this the
-            % first moment every component has had its turn.
-            %
-            % With a KeySource there is nothing to re-assert: gui.KeyBindings
-            % owns the slot for the whole window and this component only
-            % listens to it.
-            if isempty(obj.ModifierListener_)
-                obj.installKeyHooks_();
+            % Re-assert the shared KeyBindings' claim on the figure here as
+            % well as at construction, for a component that resolved its own
+            % KeySource: a neighbour built after this one may have assigned
+            % the figure's key callbacks outright, and RunExpt broadcasts
+            % the run mode only after the whole GUI is built, which makes
+            % this the first moment every component has had its turn.
+            % claimFigure chains what it finds, so that neighbour keeps
+            % working. A KeySource handed in belongs to whoever supplied it
+            % (gui.BehaviorGUI re-claims after build itself).
+            if obj.OwnsKeySource_ && ~isempty(obj.KeySource_) && isvalid(obj.KeySource_)
+                obj.KeySource_.claimFigure();
             end
             obj.applyEnable_();
-        end
-
-        function installKeyHooks_(obj)
-            % Take over the figure's key callbacks, keeping whatever was
-            % there and calling it afterwards, so arming costs the GUI
-            % nothing that was already wired up.
-            fig = obj.figure_();
-            if isempty(fig), return; end
-
-            if ~gui.RegenerateTrial.isInstalled_(fig.WindowKeyPressFcn, obj.KeyPressHook_)
-                obj.PrevKeyPress_ = fig.WindowKeyPressFcn;
-                obj.KeyPressHook_ = @(s,e) obj.onKeyPress_(s,e);
-                fig.WindowKeyPressFcn = obj.KeyPressHook_;
-            end
-
-            if ~gui.RegenerateTrial.isInstalled_(fig.WindowKeyReleaseFcn, obj.KeyReleaseHook_)
-                obj.PrevKeyRelease_ = fig.WindowKeyReleaseFcn;
-                obj.KeyReleaseHook_ = @(s,e) obj.onKeyRelease_(s,e);
-                fig.WindowKeyReleaseFcn = obj.KeyReleaseHook_;
-            end
-        end
-
-        function removeKeyHooks_(obj)
-            % Put back what was found, but only where this component's hook
-            % is still the one installed: something else may have claimed
-            % the slot since, and restoring over it would break that
-            % neighbour instead of tidying up after this one.
-            fig = obj.figure_();
-            if isempty(fig), return; end
-
-            if gui.RegenerateTrial.isInstalled_(fig.WindowKeyPressFcn, obj.KeyPressHook_)
-                fig.WindowKeyPressFcn = obj.PrevKeyPress_;
-            end
-            if gui.RegenerateTrial.isInstalled_(fig.WindowKeyReleaseFcn, obj.KeyReleaseHook_)
-                fig.WindowKeyReleaseFcn = obj.PrevKeyRelease_;
-            end
-        end
-
-        function fig = figure_(obj)
-            fig = [];
-            if isempty(obj.ButtonH) || ~isvalid(obj.ButtonH), return; end
-            f = ancestor(obj.ButtonH, 'figure');
-            if ~isempty(f) && isvalid(f), fig = f; end
-        end
-
-        function onKeyPress_(obj, src, ev)
-            obj.setArmed_(ev.Modifier);
-            obj.callPrevious_(obj.PrevKeyPress_, src, ev);
-        end
-
-        function onKeyRelease_(obj, src, ev)
-            % A release event reports the modifiers STILL held, so the same
-            % test disarms on the way down. It is also the reason letting go
-            % of any one of the three is enough: the set is no longer
-            % complete.
-            obj.setArmed_(ev.Modifier);
-            obj.callPrevious_(obj.PrevKeyRelease_, src, ev);
         end
 
         function setArmed_(obj, mods)
@@ -411,24 +357,6 @@ classdef RegenerateTrial < handle
             obj.Armed = tf;
             obj.applyEnable_();
             notify(obj, 'ArmedStateChanged');
-        end
-
-        function callPrevious_(~, fcn, src, ev)
-            % Never let a neighbour's key handler take the arming down with
-            % it: this one is a safety gate, and it has to keep working
-            % whatever else is wired to the same key.
-            if isempty(fcn), return; end
-            try
-                if isa(fcn, 'function_handle')
-                    fcn(src, ev);
-                elseif ischar(fcn) || isstring(fcn)
-                    evalin('base', char(fcn));
-                elseif iscell(fcn)
-                    fcn{1}(src, ev, fcn{2:end});
-                end
-            catch ME
-                vprintf(2, 'gui.RegenerateTrial: chained key callback failed: %s', ME.message)
-            end
         end
 
         function applyEnable_(obj)
@@ -507,22 +435,6 @@ classdef RegenerateTrial < handle
             if isempty(notes) || ~isvalid(notes), return; end
 
             notes.add(sprintf('Operator regenerated %s', what), Subject = obj.SubjectIndex);
-        end
-    end
-
-    methods (Static, Access = private)
-
-        function tf = isInstalled_(current, hook)
-            % Is `current` this component's own hook `hook`?
-            %
-            % The isempty test is load bearing: an unset figure callback is
-            % '' and an uninstalled hook is [], and isequal('',[]) is TRUE
-            % in MATLAB -- both are 0x0 empty. Testing with isequal alone
-            % therefore reported the hook as already installed on a figure
-            % that had no key callback at all, which is exactly the fresh
-            % figure every install starts from, so nothing was ever wired
-            % up and the button could never arm.
-            tf = ~isempty(hook) && isequal(current, hook);
         end
     end
 end

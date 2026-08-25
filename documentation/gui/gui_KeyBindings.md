@@ -14,7 +14,16 @@ Source: `obj/+gui/@KeyBindings/`
 
 - **Owns the figure's key callbacks.** `gui.BehaviorGUI` constructs one before
   `build` and re-claims the slot after it, so a component that assigned the
-  callback during `build` is chained rather than thrown away.
+  callback during `build` is chained rather than thrown away. A chained
+  handler sees every key this object does not answer — modifier presses
+  included, since a legacy handler tracks held modifiers from exactly those —
+  and is called with the figure as its source, as MATLAB itself would.
+- **One per figure.** The constructor registers the instance on its figure,
+  and `gui.KeyBindings.getOrCreate(fig)` returns it (creating one when the
+  figure has none). A component constructed without a `KeySource` joins the
+  figure's dispatcher this way instead of claiming the callback slot for
+  itself: two components that each claimed and chained the slot could end up
+  chained to each other, recursing on every unbound keystroke.
 - **Dispatches chords.** `bind('ctrl+r', @() ...)` is answered when exactly
   that chord arrives. `Ctrl+Shift+R` is a *different* command and does not
   fire `Ctrl+R`.

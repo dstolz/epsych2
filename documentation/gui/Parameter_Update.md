@@ -121,12 +121,14 @@ reads them from depends on how it was constructed:
   in and the button listens to that [`gui.KeyBindings`](gui_KeyBindings.md)'s
   `ModifiersChanged` event. It touches no figure callback at all, so every
   other component's keys keep working whatever order `build` creates them in.
-- **Standalone**, with no `KeySource`, it claims
-  `Figure.WindowKeyPressFcn`/`WindowKeyReleaseFcn` as it always has.
+- **Standalone**, with no `KeySource`, it joins (or starts) the figure's
+  shared `gui.KeyBindings` — `gui.KeyBindings.getOrCreate` — and listens the
+  same way.
 
-That second path is why the centralization exists: a figure has exactly one of
-each slot, and claiming it outright took the keys away from every component
-built before it — which is what left the arrow keys in
+It used to claim `Figure.WindowKeyPressFcn`/`WindowKeyReleaseFcn` outright in
+the standalone case, and that claim is why the centralization exists: a
+figure has exactly one of each slot, and claiming it took the keys away from
+every component built before it — which is what left the arrow keys in
 `examples/two_afc/TwoAFCBehaviorGUI.m` advertised in the button tooltips and
 dead in the window. In a behavior GUI, bind through `obj.Keys` and never
 assign the figure callbacks yourself.

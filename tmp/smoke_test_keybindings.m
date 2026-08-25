@@ -200,9 +200,10 @@ fprintf('PASS: the help list is ordered, grouped and readable\n');
 
 
 % 9. Figure ownership, which is the bug this class exists to fix -----------
-% gui.Parameter_Update claims WindowKeyPressFcn outright at construction.
-% A GUI that binds a key BEFORE the update button is created must still
-% have that key working afterwards.
+% gui.Parameter_Update used to claim WindowKeyPressFcn outright at
+% construction; today it joins the figure's shared KeyBindings instead. A
+% GUI that binds a key BEFORE the update button is created must still have
+% that key working afterwards.
 delete(kb);
 fig2 = uifigure('Visible','off');
 cleanupFig2 = onCleanup(@() delete(fig2));
@@ -213,7 +214,7 @@ kb2.bind('leftarrow', @() addHit('left'), Description='Respond LEFT');
 
 rt = makeRuntime();
 g = uigridlayout(fig2, [1 1]);
-pu = gui.Parameter_Update(rt, g);       % claims the slot, as it does today
+pu = gui.Parameter_Update(rt, g);       % joins kb2 through the figure
 cleanupPU = onCleanup(@() delete(pu));
 
 kb2.claimFigure();                      % what gui.BehaviorGUI does after build

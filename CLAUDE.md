@@ -585,14 +585,20 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   warning, since a collision in code is a paradigm bug that should not leave
   one command quietly dead. Four things a reader would otherwise re-derive: a
   bare modifier press is STATE and is never looked up as a chord, or holding
-  Ctrl to arm something would also fire whatever `ctrl` was bound to;
-  `CurrentModifiers`/`ModifiersChanged` is what `gui.Parameter_Update` and
-  `gui.RegenerateTrial` now read through an optional `KeySource`, so both keep
-  their whole hook machinery for STANDALONE windows and neither needs it
-  inside a GUI (`smoke_test_regenerate_trial` is unchanged and still green);
-  dispatch is **suppressed in a review** unless a binding asks for
-  `EnableInReview`, defence in depth over the components' own gates; and a
-  binding with an `Owner` dies with that component. The helpers that ship a
+  Ctrl to arm something would also fire whatever `ctrl` was bound to — but it
+  IS still chained to a displaced foreign handler, which tracks held
+  modifiers from exactly those presses (a release only ever reports a
+  smaller set); the instance registers on its figure and
+  `gui.KeyBindings.getOrCreate(fig)` returns it, which is how
+  `gui.Parameter_Update` and `gui.RegenerateTrial` with no `KeySource` join
+  the figure's one dispatcher instead of claiming the slot themselves — two
+  components that each claimed and chained the slot could chain EACH OTHER
+  and recurse to the recursion limit per keystroke, so neither keeps hook
+  machinery of its own any more; dispatch is **suppressed in a review**
+  unless a binding asks for `EnableInReview`, defence in depth over the
+  components' own gates; and a binding with an `Owner` dies with that
+  component. A chained legacy handler is called with the FIGURE as src, as
+  MATLAB itself would. The helpers that ship a
   default chord are `addUpdateButton` (Ctrl+Enter, via a new `commitPending`
   that is inert when nothing is pending), `addScreenCapture` (Ctrl+Shift+C)
   and `addNotes`/`addNotesButton` (Ctrl+Shift+N), each dropped with
@@ -616,14 +622,18 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   combination `gui.Parameter_Update` already uses held-while-clicking, so the
   gesture is not new to an operator. The gate is re-checked inside
   `regenerate` and not only in the button's `Enable`, so a script or a stale
-  enable state fails closed. Inside a behavior GUI the modifiers now arrive
-  from `gui.KeyBindings` through a `KeySource` and none of what follows
-  applies; the hook machinery remains for a STANDALONE window, where a figure
-  has ONE `WindowKeyPressFcn` and `Parameter_Update` claims it outright, so
-  this component CHAINS (wrapped in try/catch — `Parameter_Update`'s own handler
-  throws until its `watchedHandles` are wired at the end of `build`) and
-  RE-INSTALLS on the first `ModeChange`, which is the first moment every
-  component has had its turn. `isInstalled_` tests `~isempty(hook)` before
+  enable state fails closed. The modifiers always arrive from a
+  `gui.KeyBindings`: the one passed as `KeySource` inside a behavior GUI, or
+  the figure's shared instance (`gui.KeyBindings.getOrCreate`) resolved by
+  the constructor when standalone — the component installs no figure hooks
+  of its own, since two hook-chaining components on one figure could chain
+  each other and recurse. A self-resolved source is re-claimed
+  (`claimFigure`) on the first `ModeChange` — the first moment every
+  component has had its turn at the slot — so a neighbour that assigned the
+  figure callbacks outright after this button was built is chained rather
+  than left holding the keys; a `KeySource` handed in is never re-claimed,
+  because whoever supplied it owns that policy. `isInstalled_` (now only in
+  `gui.KeyBindings`) tests `~isempty(hook)` before
   `isequal`, because `isequal('',[])` is TRUE in MATLAB — an `isequal`-only
   test reports the hook as installed on the bare figure every first install
   starts from, so nothing was ever wired and the button could never arm.

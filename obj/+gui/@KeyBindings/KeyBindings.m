@@ -21,6 +21,7 @@ classdef KeyBindings < handle
     %
     % Methods:
     %   bind, unbind, isBound, list, showHelp, claimFigure, modifiersDown
+    %   gui.KeyBindings.getOrCreate(fig) - the figure's shared instance
     %
     % Events:
     %   ModifiersChanged - the held modifier set changed
@@ -82,6 +83,11 @@ classdef KeyBindings < handle
             obj.Figure = fig;
             obj.Bindings_ = containers.Map('KeyType','char','ValueType','any');
             obj.claimFigure();
+
+            % Register on the figure, so a component constructed without a
+            % KeySource can find this instance (getOrCreate) instead of
+            % claiming the key-callback slot for itself.
+            setappdata(fig, 'epsych_KeyBindings', obj);
         end
 
         function delete(obj)
@@ -96,6 +102,10 @@ classdef KeyBindings < handle
                 end
                 if gui.KeyBindings.isInstalled_(fig.WindowKeyReleaseFcn, obj.KeyReleaseHook_)
                     fig.WindowKeyReleaseFcn = obj.LegacyKeyRelease_;
+                end
+                if isappdata(fig, 'epsych_KeyBindings') && ...
+                        isequal(getappdata(fig, 'epsych_KeyBindings'), obj)
+                    rmappdata(fig, 'epsych_KeyBindings');
                 end
             catch ME
                 vprintf(3, 'gui.KeyBindings: could not restore key callbacks (%s)', ME.message)
@@ -248,7 +258,14 @@ classdef KeyBindings < handle
 
             key = gui.KeyBindings.eventKey_(evt);
             if isempty(key) || ismember(key, gui.KeyBindings.MODIFIER_KEYS)
-                return      % a modifier is state, never a chord of its own
+                % A modifier is state, never a chord of its own -- but a
+                % chained foreign handler still needs to see it going DOWN:
+                % a legacy handler that tracks held modifiers itself (the
+                % pre-KeyBindings gui.Parameter_Update pattern) arms its
+                % Ctrl-hold gestures from exactly these presses, and a
+                % release only ever reports a smaller held set.
+                obj.callLegacy_(obj.LegacyKeyPress_, evt);
+                return
             end
 
             chord = gui.KeyBindings.chordString_(gui.KeyBindings.eventModifiers_(evt), key);
@@ -309,18 +326,21 @@ classdef KeyBindings < handle
             end
         end
 
-        function callLegacy_(~, fcn, evt)
+        function callLegacy_(obj, fcn, evt)
             % Call a foreign handler found in the slot. Never let it take
             % this dispatcher down with it: the bindings have to keep
-            % working whatever else was wired to the same key.
+            % working whatever else was wired to the same key. The figure
+            % is passed as the source, because that is what MATLAB itself
+            % would have passed a WindowKeyPressFcn -- a handler reading
+            % src must keep working chained.
             if isempty(fcn), return; end
             try
                 if isa(fcn, 'function_handle')
-                    fcn([], evt);
+                    fcn(obj.Figure, evt);
                 elseif ischar(fcn) || isstring(fcn)
                     evalin('base', char(fcn));
                 elseif iscell(fcn)
-                    fcn{1}([], evt, fcn{2:end});
+                    fcn{1}(obj.Figure, evt, fcn{2:end});
                 end
             catch ME
                 vprintf(2, 'gui.KeyBindings: chained key callback failed: %s', ME.message)
@@ -335,6 +355,30 @@ classdef KeyBindings < handle
     end
 
     methods (Static)
+        function obj = getOrCreate(fig)
+            % obj = gui.KeyBindings.getOrCreate(fig)
+            % The figure's registered KeyBindings, creating and registering
+            % one when the figure has none.
+            %
+            % This is how a component constructed WITHOUT a KeySource joins
+            % the figure's keyboard: two components that each claimed the
+            % figure's one WindowKeyPressFcn slot and chained what they
+            % found could end up chained to each other, and every unbound
+            % keystroke then recursed to MATLAB's recursion limit. One
+            % shared dispatcher per figure makes that impossible.
+            arguments
+                fig (1,1) matlab.ui.Figure
+            end
+            obj = [];
+            if isappdata(fig, 'epsych_KeyBindings')
+                k = getappdata(fig, 'epsych_KeyBindings');
+                if isa(k, 'gui.KeyBindings') && isvalid(k), obj = k; end
+            end
+            if isempty(obj)
+                obj = gui.KeyBindings(fig);
+            end
+        end
+
         function chord = normalize(chord)
             % chord = gui.KeyBindings.normalize('Ctrl+Shift+R')
             % Canonical form: modifiers in a fixed order, lowercase, joined

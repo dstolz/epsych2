@@ -179,37 +179,31 @@ No figure callback is touched, nothing needs re-installing, and the order
 `build` happens to create the Update button in no longer decides which
 component sees the key.
 
-Everything below describes the **standalone** path — a component built into a
-window with no behavior GUI around it, which is still supported and still
-tested.
+**Standalone** — a component built into a window with no behavior GUI around
+it — is still supported and still tested, and it works the same way: with no
+`KeySource` the constructor joins (or starts) the figure's shared
+`gui.KeyBindings` (`gui.KeyBindings.getOrCreate`) and listens to that. The
+component never assigns a figure key callback itself. It used to: each
+standalone component claimed the slot and chained what it displaced, and two
+such components on one figure could end up chained to *each other*, recursing
+to MATLAB's recursion limit on every stray keystroke. One shared dispatcher
+per figure makes that impossible — a multi-box rig's several buttons all
+listen to the same one.
 
-A figure has exactly **one** `WindowKeyPressFcn` slot, and `gui.Parameter_Update`
-claims it outright — it does not chain. In a typical `build` method the Update
-button is created *after* this one, so hooks installed in this component's
-constructor are gone by the time `build` returns.
+Two things keep the gate working beside a neighbour that still assigns the
+figure callbacks outright:
 
-Two things make both features work off the same key:
-
-- **This component chains.** It keeps whatever callback it found and calls it
-  after updating the arming state, so a handler already on the figure keeps
-  receiving events. The chained call is wrapped in `try`/`catch`: a
-  neighbour that throws must not take the safety gate down with it, and
-  `gui.Parameter_Update`'s own handler *does* throw on every key event until
-  its `watchedHandles` are wired at the end of `build`.
-- **It re-installs on the first `ModeChange`.** `epsych.RunExpt` broadcasts
-  the run mode only once the whole GUI has been built, which makes that the
-  first moment every component has had its turn at the slot. The hooks are
-  re-asserted there, chaining onto whoever ended up holding it.
-
-Teardown puts back what was found, but only where this component's hook is
-still the one installed — something else may have claimed the slot since, and
-restoring over it would break that neighbour instead of tidying up.
-
-One trap this cost a debugging round: `isequal('', [])` is **true** in MATLAB
-(both are 0×0 empty), so an "is my hook already installed?" test written with
-`isequal` alone reports yes on a fresh figure with no key callback at all —
-which is the state every first install starts from. Nothing was ever wired up
-and the button could never arm. `isInstalled_` tests `~isempty(hook)` first.
+- **The shared dispatcher chains.** `gui.KeyBindings` keeps whatever callback
+  it displaced and calls it for every key it does not answer — modifier
+  presses included, since a legacy handler tracks held modifiers from exactly
+  those. The chained call is wrapped in `try`/`catch`: a neighbour that
+  throws must not take the safety gate down with it.
+- **A self-resolved KeySource is re-claimed on the first `ModeChange`.**
+  `epsych.RunExpt` broadcasts the run mode only once the whole GUI has been
+  built, which makes that the first moment every component has had its turn
+  at the slot. `claimFigure` takes it back there, chaining onto whoever ended
+  up holding it. A `KeySource` handed in is left alone — whoever supplied it
+  owns that policy (`gui.BehaviorGUI` re-claims after `build` itself).
 
 ## Verification
 
@@ -221,12 +215,13 @@ redraw, the session-note record, `Reselect` on and off (counted through
 the degraded cases above.
 
 The arming groups drive the figure's own installed callbacks rather than a
-private method, so they exercise the hooks and the chain as built: that two
-of the three modifiers do not arm, that releasing one disarms, that a handler
-already on the figure keeps receiving events and gets the slot back at
-teardown, that arming survives a real `gui.Parameter_Update` claiming the
-slot afterwards, and that a chained handler which throws breaks neither
-arming nor disarming.
+private method, so they exercise the shared dispatcher and its chain as
+built: that two of the three modifiers do not arm, that releasing one
+disarms, that a handler already on the figure keeps receiving events, that
+arming survives a neighbour assigning the figure callbacks outright after
+`build` (re-claimed on `ModeChange`, with the neighbour chained), that a
+chained handler which throws breaks neither arming nor disarming, and that
+two standalone buttons on one figure share one dispatcher without recursing.
 
 ## See also
 

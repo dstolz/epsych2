@@ -66,7 +66,7 @@ Reference: [epsych_TrialSelector.md](../epsych/epsych_TrialSelector.md), [epsych
 | Tool | Use it for |
 |---|---|
 | [`epsych.BitMask`](../../obj/+epsych/@BitMask/BitMask.m) | The `uint32` enumeration behind every response code: behavioral states, contingencies, trial types, choices, options. `Bits2Mask` builds a mask, `Mask2Bits` decodes one, and the `getResponses` / `getContingencies` / `getTrialTypes` / `getChoices` group accessors save you from hard-coding bit lists. Also carries the default plot colors, so a figure legend and a history table agree. |
-| [`bitmask_gui`](../../helpers/bitmask_gui.m) | Build a mask interactively — check the flags, read the integer, click to copy it. Useful when writing a save function or a filter by hand. |
+| [`bitmaskGUI`](../../helpers/bitmaskGUI.m) | Build a mask interactively — check the flags, read the integer, click to copy it. Useful when writing a save function or a filter by hand. |
 | [`epsych.TrialJournal`](../../obj/+epsych/@TrialJournal/TrialJournal.m) | Append-only, crash-safe `.epj` journal written per trial during a run: one length-prefixed record per named variable, flat ~2 ms per append regardless of session length. `ep_TimerFcn_Stop` merges it into the seed `.mat`; `epsych.TrialJournal.recover` rebuilds that artifact after a crash from an orphaned journal. |
 | [`epsych.TrialsData`](../../obj/+epsych/TrialsData.m) | The `event.EventData` payload delivered with `NewData` / `NewTrial` — `Data`, `Subject`, `BoxID`. What your listener's second argument actually is. |
 | [`epsych.eventModeChange`](../../obj/+epsych/eventModeChange.m) | The `ModeChange` payload: `NewMode`, typically an `hw.DeviceState`. |

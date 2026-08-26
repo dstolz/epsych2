@@ -1,10 +1,10 @@
-function fig = bitmask_gui(opts)
-%BITMASK_GUI Interactive GUI to build an integer bitmask from epsych.BitMask
-%   FIG = BITMASK_GUI() builds a GUI with a table of epsych.BitMask names,
+function fig = bitmaskGUI(opts)
+%BITMASKGUI Interactive GUI to build an integer bitmask from epsych.BitMask
+%   FIG = BITMASKGUI() builds a GUI with a table of epsych.BitMask names,
 %   their bit indices, and a checkbox to select flags. A large button shows
 %   the current integer mask; clicking it copies the value to the clipboard.
 %
-%   FIG = BITMASK_GUI(opts) allows Name-Value options:
+%   FIG = BITMASKGUI(opts) allows Name-Value options:
 %     Parent       : UI container to place the GUI into (default = new uifigure)
 %     InitialMask  : uint32 initial mask to preselect rows (default = 0)
 %     Title        : figure title (default = "BitMask Builder")
@@ -14,7 +14,7 @@ function fig = bitmask_gui(opts)
 %     - Toggling rows updates the field and big button.
 %
 %   Example:
-%     fig = bitmask_gui(InitialMask=uint32(2626));
+%     fig = bitmaskGUI(InitialMask=uint32(2626));
 %
 %   Requires: epsych.BitMask on path.
 

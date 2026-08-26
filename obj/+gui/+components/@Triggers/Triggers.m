@@ -1,10 +1,17 @@
-classdef Triggers < gui.Helper & handle
+classdef Triggers < handle
     % gui.components.Triggers
     % obj = gui.components.Triggers(RUNTIME, TDTActiveX)
     % obj = gui.components.Triggers(RUNTIME, TDTActiveX, container, boxId)
     %
     % Simple GUI helper that displays available TDT trigger tags and allows
     % toggling them interactively via a table control.
+    %
+    % Do not inherit gui.Helper here. It is Sealed -- a namespace of static
+    % utilities, not a base class -- so subclassing it makes this class
+    % UNCONSTRUCTABLE: metaclass resolution throws before anything can be
+    % built. This class did exactly that until 2026-08-25, which is why
+    % nothing in the toolbox could use it. Its one utility is static, so
+    % call it qualified: gui.Helper.update_highlight(...).
     %
     % Properties
     % - BoxID: Trial/box index used to pick module trigger definitions
@@ -78,7 +85,7 @@ classdef Triggers < gui.Helper & handle
                 'Enable','on');
                 
             obj.ContainerH.Units = ou;
-            obj.update_highlight(obj.TableH,find(state),[1 0.6 0.6]);
+            gui.Helper.update_highlight(obj.TableH,find(state),[1 0.6 0.6]);
         end
     end
 
@@ -101,7 +108,7 @@ classdef Triggers < gui.Helper & handle
             end
             hObj.Data{row,2} = logical(state);
             
-            obj.update_highlight(hObj,find([hObj.Data{:,2}]),[1 0.6 0.6]);
+            gui.Helper.update_highlight(hObj,find([hObj.Data{:,2}]),[1 0.6 0.6]);
         end
 
         

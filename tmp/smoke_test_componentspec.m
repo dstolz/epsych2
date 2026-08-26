@@ -40,6 +40,36 @@ s = gui.ComponentSpec.forClass('gui.components.ComponentToolbar');
 assert(s.singleton, 'the component toolbar is one to a GUI');
 fprintf('PASS: specs resolve with the wiring each component needs\n');
 
+% Regression: every component in the package must at least LOAD. gui.Triggers
+% inherited the Sealed gui.Helper, so metaclass resolution threw and the class
+% could not be constructed at all -- invisible for as long as nothing tried.
+%
+% The comparison has to be against what is ON DISK. meta.package.ClassList
+% silently OMITS a class it cannot load, so enumerating the package and
+% checking those names could never fail: it would just describe a shorter
+% list. That omission is exactly how the bug stayed hidden.
+pkgDir = fullfile(fileparts(which('gui.ComponentSpec')), '+components');
+onDisk = [ ...
+    string(erase({dir(fullfile(pkgDir,'@*')).name}, '@')), ...
+    string(erase({dir(fullfile(pkgDir,'*.m')).name}, '.m'))];
+onDisk = onDisk(strlength(onDisk) > 0);
+unloadable = strings(1,0);
+for nm = onDisk
+    full = "gui.components." + nm;
+    ok_ = false;
+    try
+        ok_ = ~isempty(meta.class.fromName(full)) || ~isempty(which(char(full)));
+    catch
+    end
+    if ~ok_, unloadable(end+1) = full; end %#ok<SAGROW>
+end
+assert(isempty(unloadable), ...
+    'these components are on disk but cannot be loaded at all: %s', ...
+    strjoin(cellstr(unloadable), ', '));
+assert(~isempty(meta.class.fromName('gui.components.Triggers')), ...
+    'gui.components.Triggers must not inherit the Sealed gui.Helper');
+fprintf('PASS: all %d classes in gui.components load\n', numel(onDisk));
+
 %% 2. Inference for a class that declares nothing --------------------------
 % gui.components.MicrophonePlot has no getComponentSpec, so its shape comes from its
 % constructor signature. meta.method.InputNames reports {'varargin'} for any
@@ -129,6 +159,23 @@ assert(hStated.FontSize == 21, 'a stated option must reach the component');
 assert(hDefault.FontSize ~= 21, 'an unstated option must not be invented');
 fprintf('PASS: options forwarded verbatim; unstated stays unstated\n');
 
+% Regression: EnabledBy through addControl. gui.Parameter_Control has always
+% taken this option and two doc pages have always shown it, but the old
+% addControl declared its own arguments block and silently dropped anything
+% not listed there -- so the documented call errored. Verbatim forwarding is
+% what fixes it, which is why the proof belongs here.
+colG  = g.controlColumn(uigridlayout(g.h_figure, [1 1]), Title = 'Gating');
+hGov  = g.addControl(colG, 'SmokeGate');
+hGate = g.addControl(colG, 'SmokeGated', EnabledBy = hGov);
+assert(~isempty(hGate), 'addControl(..., EnabledBy=...) must build a control');
+assert(strcmp(hGate.widgets().Enable, 'off'), ...
+    'the dependent should be greyed while its governor is false');
+g.P.SmokeGate.Value = true;
+drawnow
+assert(strcmp(hGate.widgets().Enable, 'on'), ...
+    'and live once the governor turns true');
+fprintf('PASS: addControl forwards EnabledBy, as both doc pages promise\n');
+
 %% 8. Reserved options are consumed, not forwarded ------------------------
 hNamed = g.add('gui.components.SessionClock', gridA, 'RegisterName', 'My Clock');
 names = g.registeredNamesForTest();
@@ -174,6 +221,9 @@ p = sw.add_parameter('SmokeFreq', 1000, Unit='Hz'); p.Value = 1000;
 p = sw.add_parameter('SmokeLevel', 60);             p.Value = 60;
 p = sw.add_parameter('SmokeState', 0);              p.Value = 0;
 p.Access = 'Read';
+% A governor and its dependent, for the EnabledBy regression.
+p = sw.add_parameter('SmokeGate', false, Type='Boolean'); p.Value = false;
+p = sw.add_parameter('SmokeGated', 0.2);                  p.Value = 0.2;
 rt.Interfaces = sw;
 end
 

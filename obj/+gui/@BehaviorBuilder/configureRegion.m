@@ -50,8 +50,9 @@ switch r.Type
     case 'FilenameField'
         [o, ok] = oneFieldDialog(obj, r, 'DefaultFilename', 'Default filename (.mat)');
     otherwise
-        ok = true;
-        return
+        % A discovered component: its options come from its own spec, on
+        % the shared form. A spec with no options has nothing to configure.
+        [o, ok] = specDialog(obj, r);
 end
 if ~ok, return, end
 obj.Spec.Regions(ix).Options = o;
@@ -366,6 +367,82 @@ ok = ~isempty(out);
 if ok, o.(field) = char(string(out.(field))); end
 end
 
+
+function [o, ok] = specDialog(obj, r)
+% Every option a discovered component's gui.ComponentSpec declares, on the
+% shared promptFields form. This is what puts a component added to the
+% gui.components package behind a working Configure... button with no
+% dialog written for it.
+%
+% The form renders text, numeric, logical and choice. A parameter picker or
+% a list is shown as text: a single name, or names separated by commas,
+% which is what a build method would write anyway.
+o = r.Options;
+s = gui.ComponentSpec.forClass(gui.BehaviorBuilder.classForType_(r.Type));
+fields = struct('Name',{}, 'Label',{}, 'Kind',{}, 'Items',{}, 'Value',{});
+for k = 1:numel(s.options)
+    op = s.options(k);
+    f  = op.toPromptField();
+    if isfield(o, f.Name), f.Value = o.(f.Name); end
+    if strcmp(f.Kind, 'text')
+        f.Value = asFormText(f.Value);
+    elseif strcmp(f.Kind, 'numeric') && ~isnumeric(f.Value)
+        f.Value = [];
+    elseif strcmp(f.Kind, 'logical')
+        f.Value = logical(f.Value);
+        if isempty(f.Value), f.Value = false; end
+    end
+    fields(end+1) = f; %#ok<AGROW>
+end
+if isempty(fields)
+    ok = true;
+    return
+end
+
+out = gui.BehaviorBuilder.promptFields(obj.Fig, ...
+    sprintf('%s - %s', s.label, orLabel(r)), fields);
+ok = ~isempty(out);
+if ~ok, return; end
+
+for k = 1:numel(fields)
+    nm = fields(k).Name;
+    v  = out.(nm);
+    op = s.options(strcmp({s.options.name}, nm));
+    if strcmp(fields(k).Kind, 'text')
+        v = fromFormText(v, op);
+    end
+    o.(nm) = v;
+end
+end
+
+function t = asFormText(v)
+% Display form for a value the shared form can only show as text.
+if ischar(v) || (isstring(v) && isscalar(v))
+    t = char(v);
+elseif isstring(v) || iscellstr(v) %#ok<ISCLSTR>
+    t = strjoin(cellstr(v), ', ');
+elseif isempty(v)
+    t = '';
+else
+    t = mat2str(v);
+end
+end
+
+function v = fromFormText(t, op)
+% Take a text field back to the shape its option wants: a list splits on
+% commas, a scalar stays text. Nothing is evaluated -- this dialog edits a
+% file that becomes source, and a cell that could eval anything is a trap.
+t = strtrim(char(string(t)));
+if op.isList || any(strcmp(op.inputType, {'paramlist'}))
+    if isempty(t)
+        v = {};
+    else
+        v = strtrim(strsplit(t, ','));
+    end
+else
+    v = t;
+end
+end
 
 function [o, ok] = bufferPlotDialog(obj, r, snap)
 % Buffer parameters from the snapshot, plus the sample rate and the two

@@ -58,7 +58,7 @@ classdef SessionPerformance < gui.PopOut
     % Requires a uifigure-based container (uipanel, uigridlayout, or uifigure).
     %
     % See also: psychophysics.SessionMetrics, psychophysics.TrialWindow,
-    % gui.BehaviorGUI.addPerformance, documentation/gui/gui_SessionPerformance.md
+    % gui.BehaviorGUI.add, documentation/gui/gui_SessionPerformance.md
 
     properties (Dependent)
         TrialWindow  % Trials included in the summary (psychophysics.TrialWindow)

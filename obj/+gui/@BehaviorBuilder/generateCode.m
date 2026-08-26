@@ -31,10 +31,15 @@ emitClasses = cell(1,numel(R));
 for i = 1:numel(R)
     emitClasses{i} = gui.BehaviorBuilder.catalogEntry(R(i).Type).EmitClass;
 end
+% ... but only for a class whose spec DECLARES a PreferenceTag option. A
+% discovered component's emitClass is always filled in, so without this
+% test a component that cannot take the option would be handed one and
+% fail construction the second time it is placed.
 needsTag = false(1,numel(R));
 for i = 1:numel(R)
     c = emitClasses{i};
-    needsTag(i) = ~isempty(c) && sum(strcmp(emitClasses, c)) > 1;
+    needsTag(i) = ~isempty(c) && sum(strcmp(emitClasses, c)) > 1 && ...
+        gui.ComponentSpec.forClass(c).declaresOption('PreferenceTag');
 end
 
 L = {};
@@ -390,11 +395,17 @@ end
 
         args = {};
         fn = fieldnames(rr.Options);
-        for k = 1:numel(fn)
-            v = rr.Options.(fn{k});
-            [d, hasD] = s.optionDefault(fn{k});
-            if hasD && isequal(v, d), continue; end   % never emit a default
-            args{end+1} = sprintf('%s=%s', fn{k}, fmtLiteral(v)); %#ok<AGROW>
+        for kk = 1:numel(fn)
+            v = rr.Options.(fn{kk});
+            [d, hasD] = s.optionDefault(fn{kk});
+            % Never emit a default. Compared shape-blind: a vector default
+            % comes back from jsondecode as a column, and an empty list as
+            % [], and neither is a change the operator made.
+            if hasD && (isequal(v, d) || (isempty(v) && isempty(d)) || ...
+                    (isnumeric(v) && isnumeric(d) && isequal(v(:), d(:))))
+                continue
+            end
+            args{end+1} = sprintf('%s=%s', fn{kk}, fmtLiteral(v)); %#ok<AGROW>
         end
         if ~isempty(tg)
             args{end+1} = sprintf('PreferenceTag=%s', q(tg));

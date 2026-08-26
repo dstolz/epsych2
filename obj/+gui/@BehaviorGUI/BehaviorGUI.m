@@ -33,18 +33,26 @@ classdef (Abstract) BehaviorGUI < handle
     %   connected interfaces (epsych.SelfTest check I6): addControl and
     %   addButton silently skip parameter names that do not resolve.
     %
-    %   The add* helpers cover every reusable component a paradigm normally
-    %   wants, and each one registers what it builds for teardown so the
-    %   subclass never has to: controls (addControl, addButton,
-    %   controlColumn, addUpdateButton), displays (addMonitor, addNextTrial,
-    %   addPerformance, addHistory, addScatter, addBufferPlot, addPsychPlot,
-    %   addStaircasePlot, addSessionClock, addTrialTimer, addModeIndicator),
-    %   and operator add-ons (addNotes, addNotesButton, addScreenCapture,
-    %   addSyringePump, addSessionGate). A helper whose component needs
-    %   something this session does not have -- a parameter that does not
-    %   resolve, an analysis that was never built -- returns [] and says so
-    %   at debug level rather than throwing, so the GUI still opens against a
-    %   runtime with no interfaces (epsych.SelfTest check I6).
+    %   Every reusable component is placed with ONE method:
+    %
+    %       h = obj.add('gui.components.NextTrial', pnl, FontSize=14);
+    %
+    %   add registers what it builds for teardown, wires it to the runtime,
+    %   the analysis object or the key bindings as the component's own
+    %   gui.ComponentSpec says, and returns [] at debug level rather than
+    %   throwing when the session cannot support it -- a parameter that does
+    %   not resolve, an analysis that was never built -- so the GUI still
+    %   opens against a runtime with no interfaces (epsych.SelfTest check
+    %   I6). A class from outside this toolbox works the same way with no
+    %   registration: its constructor signature is enough.
+    %
+    %   The short names that survive are sugar over add, kept because they
+    %   read better at 68 call sites: addControl and addButton (both
+    %   gui.components.Parameter_Control), addUpdateButton, controlColumn.
+    %   addStaircasePlot and addPopOutButton are not wrappers -- they build
+    %   things that are not components. Nothing per-component lives in this
+    %   class any more; see gui.ComponentSpec for how a component declares
+    %   what it needs.
     %
     %   Session-record notes are standard for every subclass: the commit
     %   paths of the stock components record what the operator changed into
@@ -66,7 +74,7 @@ classdef (Abstract) BehaviorGUI < handle
     %   button made with addPopOutButton. A pop-out is a separate instance
     %   over the same data, so it never disturbs the embedded one.
     %
-    %   addComponentToolbar collects those windows onto one icon toolbar, and
+    %   add('gui.components.ComponentToolbar', fig) collects those windows onto one icon toolbar, and
     %   can additionally open components the GUI does not display at all. It
     %   is optional: a GUI that never calls it gets no toolbar.
     %
@@ -91,7 +99,7 @@ classdef (Abstract) BehaviorGUI < handle
     %   figure. There is one slot for each, and assigning it takes the keys
     %   away from every component that already asked for one -- which is the
     %   bug this class exists to prevent. Helpers that come with a default
-    %   chord (addUpdateButton, addScreenCapture, addNotes) take
+    %   chord (addUpdateButton, and the ScreenCapture and Notes components) take
     %   KeyBinding='none' to drop it, or a chord of your own to change it.
     %   Ctrl+Shift+? and F1 list what is bound.
     %
@@ -262,7 +270,7 @@ classdef (Abstract) BehaviorGUI < handle
 
             obj.wireUpdateButtons_();
 
-            % Auto discovery runs here rather than inside addComponentToolbar
+            % Auto discovery runs here rather than when the toolbar is added
             % because build is normally where the toolbar is asked for, before
             % the components it should list have been registered.
             tb_ = obj.componentToolbar_();
@@ -467,15 +475,15 @@ classdef (Abstract) BehaviorGUI < handle
             [opts, ok] = gui.BehaviorGUI.parseOptions_(varargin, cls, class(obj));
             if ~ok, return; end
 
-            variant = '';
-            if isfield(opts, 'Variant')
-                variant = char(string(opts.Variant));
-                opts = rmfield(opts, 'Variant');
-            end
+            [variant, opts] = gui.BehaviorGUI.popOption_(opts, 'Variant', '');
+            variant = char(string(variant));
 
             spec = gui.ComponentSpec.forClass(cls, variant);
             if isempty(spec.className)
-                vprintf(2, '%s: no class "%s" on the path; component skipped', class(obj), cls)
+                % Level 1, not 2: a typo in a paradigm's build must be visible
+                % at default verbosity, or SelfTest passes over a GUI that is
+                % quietly missing a display.
+                vprintf(1, '%s: no class "%s" on the path; component skipped', class(obj), cls)
                 return
             end
             if spec.isAbstract
@@ -486,16 +494,17 @@ classdef (Abstract) BehaviorGUI < handle
                 return
             end
 
-            chord = spec.keyBinding;
-            if isfield(opts, 'KeyBinding')
-                chord = char(string(opts.KeyBinding));
-                opts = rmfield(opts, 'KeyBinding');
-            end
-            regName = spec.registerName;
-            if isfield(opts, 'RegisterName')
-                regName = char(string(opts.RegisterName));
-                opts = rmfield(opts, 'RegisterName');
-            end
+            % Option names the spec knows are matched case-insensitively,
+            % the way the arguments block they end up in would match them.
+            % Every consumer below tests exact field names, so without this
+            % 'autocommit=false' would sit beside a fixedOptions 'autoCommit'
+            % and lose to it -- the opposite of "the caller always wins".
+            opts = gui.BehaviorGUI.canonicalizeOptions_(spec, opts);
+
+            [chord, opts]   = gui.BehaviorGUI.popOption_(opts, 'KeyBinding',   spec.keyBinding);
+            [regName, opts] = gui.BehaviorGUI.popOption_(opts, 'RegisterName', spec.registerName);
+            chord   = char(string(chord));
+            regName = char(string(regName));
 
             % Variant defaults, e.g. addButton's autoCommit. The caller
             % always outranks them.
@@ -722,7 +731,7 @@ classdef (Abstract) BehaviorGUI < handle
         function tf = waitForSessionGate(obj, timeout)
             % tf = waitForSessionGate(obj, timeout)
             % Hold the session until the operator presses the gate added by
-            % addSessionGate, returning whether it opened. Call it from the
+            % add('gui.components.SessionGate', ...), returning whether it opened. Call it from the
             % subclass constructor, after the base constructor has returned.
             %  timeout - seconds to wait. Default Inf.
             %
@@ -1082,11 +1091,36 @@ classdef (Abstract) BehaviorGUI < handle
                     end
                     continue
                 end
-                names = cellstr(raw);
+
+                % A list: resolved ELEMENT BY ELEMENT, because this runs
+                % before the try/catch around construction and so must not
+                % throw (epsych.SelfTest check I6). cellstr would throw on a
+                % cell holding hw.Parameter handles, or a mix of handles and
+                % names, or a number -- and a caller passing handles it
+                % already holds is the normal case, not an error.
+                if isstring(raw)
+                    items = cellstr(raw);
+                elseif iscell(raw)
+                    items = raw;
+                else
+                    vprintf(2, ['%s: %s option "%s" must name parameters ' ...
+                        '(got %s); skipping'], class(obj), spec.label, n, class(raw))
+                    if spec.resolveRequired, ok = false; return; end
+                    opts = rmfield(opts, n);
+                    continue
+                end
                 res = hw.Parameter.empty(1,0);
-                for i = 1:numel(names)
-                    p = obj.resolveParameter_(names{i});
-                    if ~isempty(p), res(end+1) = p; end %#ok<AGROW>
+                for i = 1:numel(items)
+                    it = items{i};
+                    if isa(it, 'hw.Parameter')
+                        res = [res, it(:)']; %#ok<AGROW>
+                    elseif ischar(it) || (isstring(it) && isscalar(it))
+                        p = obj.resolveParameter_(it);
+                        if ~isempty(p), res(end+1) = p; end %#ok<AGROW>
+                    else
+                        vprintf(2, '%s: %s ignored a %s in "%s"', ...
+                            class(obj), spec.label, class(it), n)
+                    end
                 end
                 if isempty(res) && spec.resolveRequired, ok = false; return; end
                 opts.(n) = res;
@@ -1096,7 +1130,14 @@ classdef (Abstract) BehaviorGUI < handle
         function bindSpecKey_(obj, spec, chord, h)
             % Default keyboard chord, if the spec ships one and the caller
             % did not drop it. bindComponentKey_ already honours 'none'.
-            if isempty(chord) || isempty(spec.keyAction), return; end
+            if isempty(spec.keyAction)
+                if ~isempty(chord) && ~strcmp(chord, spec.keyBinding) && ~strcmpi(chord, 'none')
+                    vprintf(2, '%s: %s has no keyboard action, so KeyBinding=%s is ignored', ...
+                        class(obj), spec.label, chord)
+                end
+                return
+            end
+            if isempty(chord), return; end
             act = spec.keyAction;
             if ischar(act) || isstring(act)
                 cb = @() feval(char(act), h);
@@ -1111,7 +1152,7 @@ classdef (Abstract) BehaviorGUI < handle
             % This GUI's component toolbar, or [].
             %
             % Read from the registry rather than kept in a property of its
-            % own: addComponentToolbar registers it like anything else, and
+            % own: add registers it like anything else, and
             % one source of truth cannot go stale against the other.
             tb = [];
             c = obj.componentsOfClass_('gui.components.ComponentToolbar');
@@ -1135,7 +1176,10 @@ classdef (Abstract) BehaviorGUI < handle
             % Registered components of a class, in registration order, as a
             % cell array. The registry holds graphics handles as well as
             % component objects, so the class test has to tolerate both.
-            match = cellfun(@(h) isa(h, cls) && isvalid(h), obj.Components_);
+            % isscalar first: register accepts anything, and a handle ARRAY
+            % registered by a subclass would make isvalid non-scalar and
+            % throw here -- from the base constructor, after build returned.
+            match = cellfun(@(h) isscalar(h) && isa(h, cls) && isvalid(h), obj.Components_);
             c = obj.Components_(match);
         end
 
@@ -1453,13 +1497,54 @@ classdef (Abstract) BehaviorGUI < handle
             end
             for k = 1:2:numel(args)
                 n = args{k};
-                if ~(ischar(n) || (isstring(n) && isscalar(n))) || ~isvarname(char(n))
+                isName = ischar(n) || (isstring(n) && isscalar(n) && ~ismissing(n));
+                if ~isName || ~isvarname(char(n))
                     vprintf(2, ['%s: add(%s, ...) got a non-name where an option ' ...
                         'name belongs; component skipped'], guiCls, cls)
                     ok = false;
                     return
                 end
                 opts.(char(n)) = args{k+1};   % last wins, as MATLAB does
+            end
+        end
+
+        function [v, opts] = popOption_(opts, name, default)
+            % Take one reserved option out of opts, matched case-insensitively
+            % so 'variant' and 'Variant' both count, and never forwarded.
+            v = default;
+            fn = fieldnames(opts);
+            ix = find(strcmpi(fn, name), 1, 'last');   % last wins
+            if isempty(ix), return; end
+            v = opts.(fn{ix});
+            opts = rmfield(opts, fn(strcmpi(fn, name)));
+        end
+
+        function opts = canonicalizeOptions_(spec, opts)
+            % Rename each stated option to the spelling the spec declares,
+            % matched case-insensitively. An option the spec does not know is
+            % left exactly as written and forwarded as such. Where a caller
+            % stated both spellings, the variant is taken to be the later one
+            % and wins, matching MATLAB's own last-wins rule.
+            known = string(fieldnames(spec.fixedOptions)');
+            known = [known, string(fieldnames(spec.inject)'), spec.hostOptions, ...
+                spec.resolve, spec.requiredOptions];
+            for t = spec.shape
+                if startsWith(t, "arg:"), known(end+1) = extractAfter(t, 4); end %#ok<AGROW>
+            end
+            if ~isempty(spec.options)
+                known = [known, string({spec.options.name})];
+            end
+            known = unique(known(strlength(known) > 0), 'stable');
+            if isempty(known), return; end
+
+            fn = fieldnames(opts);
+            for k = 1:numel(fn)
+                if any(known == fn{k}), continue; end   % already canonical
+                ix = find(strcmpi(known, fn{k}));
+                if numel(ix) ~= 1, continue; end        % unknown, or ambiguous
+                canonical = char(known(ix));
+                opts.(canonical) = opts.(fn{k});
+                opts = rmfield(opts, fn{k});
             end
         end
     end

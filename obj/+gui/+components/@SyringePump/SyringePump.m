@@ -102,7 +102,7 @@ classdef SyringePump < gui.PopOut
     %   p = gui.components.SyringePump([], f);
     %
     % See also: documentation/gui/gui_SyringePump.md, hw.NE1000,
-    % gui.BehaviorGUI.addSyringePump, gui.components.Parameter_Monitor, gui.PopOut
+    % gui.BehaviorGUI.add, gui.components.Parameter_Monitor, gui.PopOut
 
     properties
         % Syringe inside diameter in mm. Scales every rate and volume the

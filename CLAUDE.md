@@ -497,9 +497,13 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   never emits lifecycle code, so output survives SelfTest I6 like a hand-written
   subclass; duplicate component classes get explicit PreferenceTags. The spec model
   and codegen are headless statics (`specNew`/`specValidate`/`saveSpecFile`/
-  `writeCode`); `tmp/smoke_test_behaviorbuilder.m` is the standing check. Adding a
-  palette component = one `componentCatalog.m` row + one emitter branch in
-  `generateCode.m` (documentation/gui/gui_BehaviorBuilder.md)
+  `writeCode`); `tmp/smoke_test_behaviorbuilder.m` is the standing check. A
+  component in the `gui.components` package is DISCOVERED onto the palette from
+  its own `gui.ComponentSpec` (`componentCatalog` appends `discoveredEntries_`),
+  emitted by `generateCode`'s generic branch and configured by
+  `configureRegion`'s `specDialog` — adding one needs no builder edit. The 22
+  hand-written catalog rows and emitter branches remain only because saved
+  `.eblt` files use their option field names (documentation/gui/gui_BehaviorBuilder.md)
 - Real-time visualization: Performance, PsychPlot, ParameterScatter (generic X/Y/color parameter scatter for custom GUIs)
 - **gui.components.OnlinePlot**: the live multi-trace view of one box's hardware —
   parameters, or the bits of an RPvds bitmask bank, sampled on a timer

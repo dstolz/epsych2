@@ -5,11 +5,11 @@
 obj/+gui/@BehaviorGUI	Building-a-Behavior-GUI, Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_BehaviorGUI.md
 obj/+gui/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/RunExpt_SelfTest.md
 obj/+gui/@PopOut	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_PopOut.md
-obj/+gui/@SyringePump	Behavior-GUI-Components, Video-and-Peripherals	documentation/gui/gui_SyringePump.md
+obj/+gui/+components/@SyringePump	Behavior-GUI-Components, Video-and-Peripherals	documentation/gui/gui_SyringePump.md
 obj/+gui/@ParameterDebugger	Behavior-GUI-Components, GUI-Framework-Internals, Troubleshooting	documentation/gui/gui_ParameterDebugger.md
 obj/+gui/@BehaviorBuilder	Behavior-GUI-Builder, Building-a-Behavior-GUI	documentation/gui/gui_BehaviorBuilder.md
-obj/+gui/@ComponentToolbar	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_ComponentToolbar.md
-obj/+gui/@ScreenCapture	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_ScreenCapture.md
+obj/+gui/+components/@ComponentToolbar	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_ComponentToolbar.md
+obj/+gui/+components/@ScreenCapture	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_ScreenCapture.md
 obj/+gui/@SubjectManager	Subjects-and-Projects, Subject-Roster-Internals	documentation/gui/gui_SubjectManager.md
 obj/+gui/@VlcRecorderSetup	Video-and-Peripherals	documentation/gui/VlcRecorderSetup.md
 obj/+gui/	Behavior-GUI-Components, GUI-Framework-Internals, Training-and-Online-Analysis, Programmers-Toolkit	documentation/gui/

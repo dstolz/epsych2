@@ -23,7 +23,7 @@ classdef Notes < gui.PopOut
     % its pop-out -- show the same log and update together.
     %
     % A GUI with no room for a log can take the panel as a single button
-    % instead -- ButtonOnly=true, or gui.BehaviorGUI.addNotesButton -- which
+    % instead -- ButtonOnly=true -- which
     % opens the notes in a window of their own. That window is an ordinary
     % gui.PopOut pop-out over the SAME store, so it shows every note the
     % session already has and anything typed into it is the session's note,
@@ -72,7 +72,7 @@ classdef Notes < gui.PopOut
     % with and refuses new ones: there is nothing left to write them to.
     %
     % Documentation: documentation/gui/gui_Notes.md
-    % See also: epsych.SessionNotes, gui.BehaviorGUI.addNotes, gui.PopOut
+    % See also: epsych.SessionNotes, gui.BehaviorGUI.add, gui.PopOut
 
     properties (Dependent)
         Editable    % Whether the log box can be typed in
@@ -118,7 +118,7 @@ classdef Notes < gui.PopOut
             % KeyBinding='none' at the call site drops it.
             %
             % The ButtonOnly form is reached through the same spec with
-            % ButtonOnly=true (gui.BehaviorGUI.addNotesButton), not through a
+            % ButtonOnly=true, not through a
             % variant: it is the same component, configured differently.
             % See gui.ComponentSpec.
             s = gui.ComponentSpec();

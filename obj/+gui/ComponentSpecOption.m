@@ -51,11 +51,14 @@ classdef ComponentSpecOption
             % f = toPromptField(obj)
             % Row for gui.BehaviorBuilder.promptFields, which already speaks
             % Name/Label/Kind/Items/Value.
+            % Kind must be one of the four promptFieldsImpl_ renders --
+            % 'text' | 'numeric' | 'logical' | 'choice' -- anything else
+            % silently becomes a text field.
             switch lower(obj.inputType)
                 case 'numeric',              kind = 'numeric';
-                case {'logical','boolean'},  kind = 'checkbox';
-                case 'choice',               kind = 'dropdown';
-                case {'param','paramlist'},  kind = 'text'; % picker is wired by the builder
+                case {'logical','boolean'},  kind = 'logical';
+                case 'choice',               kind = 'choice';
+                case {'param','paramlist'},  kind = 'text'; % shown as names, comma-separated
                 otherwise,                   kind = 'text';
             end
             v = obj.defaultValue;

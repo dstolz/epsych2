@@ -57,7 +57,7 @@ classdef NextTrial < gui.PopOut
     %   obj.NextTrialPanel = gui.components.NextTrial(RUNTIME, panelNextTrial, ...
     %       Fields=["Depth","TrialType"], Formatters=fmt, FontSize=20);
     %
-    % See also: documentation/gui/gui_NextTrial.md, gui.BehaviorGUI.addNextTrial,
+    % See also: documentation/gui/gui_NextTrial.md, gui.BehaviorGUI.add,
     % gui.components.Parameter_Monitor, gui.components.ParameterScatter, epsych.TrialsData
 
     properties (Dependent)

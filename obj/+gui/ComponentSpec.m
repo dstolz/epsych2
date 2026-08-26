@@ -32,6 +32,35 @@ classdef ComponentSpec
     %   canvas          the axes made per obj.canvas
     %   arg:Name        the named option Name, CONSUMED from the forwarded set
     %
+    % WHEN NOTHING IS DECLARED the shape is inferred from the constructor's
+    % argument NAMES, so a class from outside this toolbox only has to name
+    % them recognizably (matched case-insensitively):
+    %   runtime, rt                -> runtime
+    %   pObj, psychObj             -> psych
+    %   source, src (leading only) -> psychOrRuntime
+    %   parent, container, hParent -> parent
+    %   fig, hFig, figure          -> figure
+    %   parentGUI, guiObj          -> host
+    %   ax, hax, axes, haxes       -> canvas (and canvas = 'axes')
+    %   options, opts, varargin    -> end of the positional list
+    % Anything else becomes arg:Name and is filled from the option of that
+    % name. A constructor whose container is called something unlisted
+    % (hostPanel) will NOT receive the container: declare a spec, or rename.
+    % Inference cannot see the arguments block, so an inferred spec has no
+    % option metadata; add still forwards every option verbatim.
+    %
+    % Two conventions the stock components follow, and a new one should:
+    %   * Declare a PreferenceTag option (with no default) if the component
+    %     remembers anything by tag. The builder unique-tags a component
+    %     placed twice ONLY when its spec declares that option.
+    %   * Give an option a defaultValue only when the component has a real
+    %     one. An option with none stays unstated, so a saved preference can
+    %     win; the builder seeds only declared defaults.
+    %
+    % Option NAMES are matched case-insensitively against what the spec
+    % declares, to mirror the arguments blocks they end up in; an option the
+    % spec does not know is forwarded exactly as written.
+    %
     % Documentation: documentation/gui/gui_BehaviorGUI.md
     % See also gui.ComponentSpecOption, gui.BehaviorGUI.add
 
@@ -213,11 +242,16 @@ classdef ComponentSpec
                 mc = meta.class.fromName(cls);
             catch ME
                 % A class file with a syntax error throws here.
-                vprintf(2, 'gui.ComponentSpec: cannot resolve "%s" (%s)', cls, ME.message)
+                % Level 1: a component class that will not parse is a
+                % defect someone needs to see at default verbosity.
+                vprintf(1, 'gui.ComponentSpec: cannot resolve "%s" (%s)', cls, ME.message)
             end
             if isempty(mc)
+                % A miss is NOT memoized. A class that is not on the path
+                % yet -- a GUI built before a lab's folder is added, or
+                % SelfTest run before startup finished -- must resolve the
+                % moment it appears, not stay unresolvable for the session.
                 spec = spec.normalized();
-                gui.ComponentSpec.cache_("put", key, spec);
                 return
             end
 
@@ -226,7 +260,7 @@ classdef ComponentSpec
                     s = feval([cls '.getComponentSpec']);
                     spec = gui.ComponentSpec.pickVariant_(s, variant, cls);
                 catch ME
-                    vprintf(2, ['gui.ComponentSpec: %s.getComponentSpec failed (%s); ' ...
+                    vprintf(1, ['gui.ComponentSpec: %s.getComponentSpec failed (%s); ' ...
                         'inferring a spec from the constructor'], cls, ME.message)
                     spec = gui.ComponentSpec.infer_(mc);
                 end
@@ -380,8 +414,13 @@ classdef ComponentSpec
                 short = gui.ComponentSpec.shortName_(cls);
                 txt = fileread(f);
                 txt = regexprep(txt, '\.\.\.\s*\r?\n\s*', ' ');   % join continuations
+                % Anchored to a line that STARTS with function, and neither
+                % class may span a newline: [^=]* would otherwise reach from
+                % an earlier method across a header comment containing a
+                % usage example -- "obj = Foo(x, y)" -- and return those.
                 tok = regexp(txt, ...
-                    ['function\s+[^=]*=\s*' short '\s*\(([^)]*)\)'], 'tokens', 'once');
+                    ['^\s*function\s+[^=\n]*=\s*' short '\s*\(([^)\n]*)\)'], ...
+                    'tokens', 'once', 'lineanchors');
                 if isempty(tok), return; end
                 names = strtrim(strsplit(tok{1}, ','));
                 names = names(~cellfun(@isempty, names));

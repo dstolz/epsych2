@@ -7,7 +7,7 @@ classdef ComponentToolbar < handle
     %   which is what lets a paradigm offer a display without spending screen
     %   space, listeners or a polling timer on it up front.
     %
-    %   Created only through gui.BehaviorGUI.addComponentToolbar, which
+    %   Created only through gui.BehaviorGUI.add, which
     %   registers it for teardown and feeds it the automatic entries:
     %
     %       function build(obj, fig)
@@ -91,7 +91,7 @@ classdef ComponentToolbar < handle
 
         function obj = ComponentToolbar(parentGUI, fig, options)
             % obj = ComponentToolbar(parentGUI, fig, Style=..., Exclude=..., AutoDiscover=...)
-            % Call gui.BehaviorGUI.addComponentToolbar instead: it registers
+            % Call obj.add('gui.components.ComponentToolbar', fig) instead: it registers
             % the toolbar for teardown and arranges automatic discovery.
             arguments
                 parentGUI (1,1) gui.BehaviorGUI

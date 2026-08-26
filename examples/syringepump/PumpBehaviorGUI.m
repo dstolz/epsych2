@@ -13,7 +13,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
     %   Experiment button and the session holds until it is pressed, under
     %   RunExpt's Run / Preview buttons as well as run_pump_session.
     %
-    %   The button is a gui.components.SessionGate (obj.addSessionGate) and the hold is
+    %   The button is a gui.components.SessionGate (via obj.add) and the hold is
     %   the CONSTRUCTOR blocking on it. RunExpt builds the behavior GUI from
     %   the PsychTimer's StartFcn, start() does not return until that
     %   callback does, and a timer will not fire its TimerFcn during another

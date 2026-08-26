@@ -101,6 +101,42 @@ assert(isempty(g.add('gui.components.SessionClock', g.h_figure, 'oddNumberOfArgs
     'a malformed option list must return [] without throwing');
 assert(isempty(g.add('gui.components.OnlinePlot', g.h_figure)), ...
     'a missing required option must return [] rather than open a dialog');
+
+% Parameter lists arrive in every shape a caller already holds. Resolution
+% runs BEFORE the try/catch around construction, so each of these used to
+% escape add as a thrown error from cellstr. A cell of handles is the
+% normal case for a build that resolved them itself, not a mistake.
+gridD = uigridlayout(g.h_figure, [1 1]);
+hM = g.add('gui.components.Parameter_Monitor', gridD, 'Parameters', {g.P.SmokeFreq, g.P.SmokeLevel});
+assert(~isempty(hM) && numel(hM.Parameters) == 2, 'a cell of hw.Parameter handles must be accepted');
+hM = g.add('gui.components.Parameter_Monitor', gridD, 'Parameters', {'SmokeFreq', g.P.SmokeLevel});
+assert(~isempty(hM) && numel(hM.Parameters) == 2, 'a mix of names and handles must be accepted');
+hM = g.add('gui.components.Parameter_Monitor', gridD, 'Parameters', ["SmokeFreq" "SmokeLevel"]);
+assert(~isempty(hM) && numel(hM.Parameters) == 2, 'a string array must be accepted');
+hM = g.add('gui.components.Parameter_Monitor', gridD, 'Parameters', 42);
+assert(~isempty(hM) && isempty(hM.Parameters), ...
+    'a numeric list is dropped at debug level, not thrown');
+
+% A class that is not on the path yet must resolve once it appears. forClass
+% memoizes, and a memoized MISS would stay unresolvable for the session --
+% which is what a GUI built before a lab folder is added, or SelfTest run
+% before startup finished, would hit.
+lateDir = fullfile(tempdir, 'epsych_componentspec_late');
+if ~isfolder(lateDir), mkdir(lateDir); end
+lateFile = fullfile(lateDir, 'SpecLateArrival.m');
+lateCleanup = onCleanup(@() cleanupLate(lateDir, lateFile)); %#ok<NASGU>
+gui.ComponentSpec.flushCache();
+assert(isempty(gui.ComponentSpec.forClass('SpecLateArrival').className), ...
+    'the late class should be unknown before it exists');
+fid = fopen(lateFile, 'w');
+fprintf(fid, ['classdef SpecLateArrival < handle\n  methods\n' ...
+    '    function obj = SpecLateArrival(parent, options)\n' ...
+    '      arguments\n        parent\n        options.X = 1\n      end\n' ...
+    '    end\n  end\nend\n']);
+fclose(fid);
+addpath(lateDir); rehash path;
+assert(strcmp(gui.ComponentSpec.forClass('SpecLateArrival').className, 'SpecLateArrival'), ...
+    'a class that appears after a miss must resolve without a cache flush');
 assert(isempty(g.add('gui.components.History', g.h_figure)), ...
     'a component needing an analysis must return [] when there is none');
 fprintf('PASS: every failure mode degrades to [] (SelfTest check I6)\n');
@@ -200,7 +236,74 @@ assert(~isempty(g.componentsOfClass('SmokeOutsideComponent')), ...
     'and it must be registered for teardown like anything else');
 fprintf('PASS: a component from outside the toolbox works with no registration\n');
 
-%% 10. Teardown -------------------------------------------------------------
+%% 10. Review findings, pinned ---------------------------------------------
+% Option names match case-insensitively, as the arguments block they land in
+% would match them. Every consumer in add tests exact field names, so before
+% canonicalizeOptions_ a caller's 'autocommit=false' sat beside the Button
+% variant's fixedOptions 'autoCommit=true' and LOST to it -- the opposite of
+% "the caller always wins".
+hB = g.addButton(gridA, 'SmokeFreq', autocommit = false);
+assert(~isempty(hB) && ~hB.autoCommit, 'a lower-case option must still outrank fixedOptions');
+hC = g.addControl(gridA, 'SmokeLevel', text = 'Level!');
+assert(strcmp(hC.Text, 'Level!'), 'a lower-case Text must reach the control, not be overwritten');
+hV = g.add('gui.components.Parameter_Control', gridA, 'Parameter', 'SmokeFreq', 'variant', 'Button');
+assert(~isempty(hV) && hV.autoCommit, 'a lower-case reserved name (variant) must be honoured');
+fprintf('PASS: option names are matched case-insensitively against the spec\n');
+
+% The inference regex is anchored to a line that starts with "function".
+% SpecRegexProbe's header comment and an earlier method both carry
+% "= SpecRegexProbe(...)" decoys; unanchored, [^=]* reached them first.
+s = gui.ComponentSpec.forClass('SpecRegexProbe');
+assert(isequal(cellstr(s.shape), {'parent','arg:channel'}), ...
+    'the regex must find the real constructor, not a usage example (got [%s])', ...
+    strjoin(cellstr(s.shape),' '));
+hP = g.add('SpecRegexProbe', gridA, 'Color', 'red');
+assert(~isempty(hP) && hP.Channel == 1, ...
+    'an unstated trailing positional is dropped so the constructor default applies');
+fprintf('PASS: constructor inference ignores usage examples in comments\n');
+
+% A required positional the constructor has no default for is refused as a
+% CONDITION (debug level, []), not reported as a defective constructor.
+assert(isempty(g.add('gui.components.FilenameValidator', gridA)), ...
+    'FilenameValidator without defaultFilename must return []');
+assert(~isempty(g.add('gui.components.FilenameValidator', gridA, 'defaultFilename', 'x.mat')), ...
+    'and build once it is stated');
+fprintf('PASS: a missing required positional is a condition, not a defect\n');
+
+% toPromptField must speak promptFieldsImpl_'s vocabulary, or the builder's
+% generic Configure dialog renders every option as a text field.
+k1 = gui.ComponentSpecOption('name','a','inputType','logical').toPromptField().Kind;
+k2 = gui.ComponentSpecOption('name','b','inputType','choice','choices',{{'x','y'}}).toPromptField().Kind;
+assert(strcmp(k1,'logical') && strcmp(k2,'choice'), ...
+    'toPromptField Kinds must be logical/choice, got %s/%s', k1, k2);
+fprintf('PASS: spec options map onto the shared form''s field kinds\n');
+
+% Builder side. A fully-qualified class name is a valid region Type all the
+% way through -- specValidate used to look the Type up in the catalog
+% directly and refuse what catalogEntry advertised -- and a class placed
+% twice is handed a unique PreferenceTag ONLY when its spec declares that
+% option. ModeIndicator declares none; SessionClock does.
+bs = gui.BehaviorBuilder.specNew;
+bs.ClassName = 'TmpSpecReviewGUI';
+mk = @(id, type, row, col) struct('Id',id, 'Type',type, 'Label','', ...
+    'Row',row, 'Col',col, 'PopOut',false, 'Options',struct());
+bs.Regions(end+1) = mk('R1', 'gui.components.ModeIndicator', [1 1], [1 1]);
+bs.Regions(end+1) = mk('R2', 'gui.components.ModeIndicator', [1 1], [2 2]);
+bs.Regions(end+1) = mk('R3', 'gui.components.SessionClock',  [2 2], [1 1]);
+bs.Regions(end+1) = mk('R4', 'gui.components.SessionClock',  [2 2], [2 2]);
+bs  = gui.BehaviorBuilder.specValidate(bs);
+src = gui.BehaviorBuilder.generateCode(bs, '');
+miLines = src(contains(src, 'gui.components.ModeIndicator'));
+scLines = src(contains(src, 'gui.components.SessionClock'));
+assert(numel(miLines) == 2 && numel(scLines) == 2, ...
+    'every dotted-Type region must be emitted (got %d + %d)', numel(miLines), numel(scLines));
+assert(~any(contains(miLines, 'PreferenceTag')), ...
+    'a class with no PreferenceTag option must not be handed one when placed twice');
+assert(all(contains(scLines, 'PreferenceTag=')), ...
+    'a class that declares PreferenceTag must get a unique one per placement');
+fprintf('PASS: dotted Types validate and generate; PreferenceTag follows the spec\n');
+
+%% 11. Teardown -------------------------------------------------------------
 fig = g.h_figure;
 close(fig);
 assert(~isvalid(g), 'GUI should be deleted by closeGUI');
@@ -233,4 +336,17 @@ if ispref(prefTag)
     rmpref(prefTag);
 end
 delete(findall(groot,'Type','figure','-and','Tag',prefTag));
+end
+
+
+function cleanupLate(lateDir, lateFile)
+% Take the late-arriving class back off the path and disk, and forget it,
+% so a rerun in the same session starts from a genuine miss.
+try
+    rmpath(lateDir);
+catch
+end
+if isfile(lateFile), delete(lateFile); end
+if isfolder(lateDir), rmdir(lateDir, 's'); end
+gui.ComponentSpec.flushCache();
 end

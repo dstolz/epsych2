@@ -10,7 +10,7 @@ classdef BehaviorBuilder < handle
     %   through an .eblt layout-spec file (JSON) that the builder can re-open,
     %   and exports a readable gui.BehaviorGUI subclass whose build() targets
     %   only the documented helper API (addControl, addButton, controlColumn,
-    %   addMonitor, ...), so the generated GUI survives the SelfTest I6
+    %   obj.add, ...), so the generated GUI survives the SelfTest I6
     %   empty-runtime launch like a hand-written one.
     %
     %   The spec model and the code generator are usable headlessly:
@@ -647,10 +647,10 @@ classdef BehaviorBuilder < handle
                 'epsych:BehaviorBuilder:DuplicateId', 'Region Ids must be unique')
             for i = 1:numel(R)
                 r = R(i);
-                cix = strcmp({cat.Type}, r.Type);
-                assert(any(cix), 'epsych:BehaviorBuilder:BadRegion', ...
-                    'Unknown component type "%s"', r.Type)
-                e = cat(cix);
+                % catalogEntry, not a direct catalog lookup: it also accepts
+                % a fully-qualified class name, so a hand-written spec can
+                % place a component from outside this toolbox.
+                e = gui.BehaviorBuilder.catalogEntry(r.Type);
                 assert(all(r.Row >= 1) && r.Row(2) <= g.Rows && ...
                        all(r.Col >= 1) && r.Col(2) <= g.Cols, ...
                     'epsych:BehaviorBuilder:BadRegion', ...

@@ -536,7 +536,7 @@ classdef KeyBindings < handle
             % ' '), matches but inserts NOTHING in MATLAB, so every group
             % heading came out as the unsplit class name (SCREENCAPTURE).
             % Consuming the two characters and putting them back with
-            % '$1 $2' is what gui.components.ComponentToolbar.labelForClass already
+            % '$1 $2' is what gui.components.ComponentToolbar.entryLabel already
             % does; an all-caps name like NAFC is left alone by both.
             parts = strsplit(cls, '.');
             name = parts{end};

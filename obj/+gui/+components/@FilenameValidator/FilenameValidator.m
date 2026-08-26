@@ -27,6 +27,9 @@ classdef FilenameValidator < handle
             s.category    = 'Add-ons';
             s.description = 'Edit field that validates the session data filename';
             s.shape       = ["runtime","parent","arg:defaultFilename"];
+            % The constructor has no default for it, so an add without one
+            % is refused as a condition rather than reported as a defect.
+            s.requiredOptions = "defaultFilename";
             s.options     = gui.ComponentSpecOption('name','defaultFilename','inputType','text');
         end
     end

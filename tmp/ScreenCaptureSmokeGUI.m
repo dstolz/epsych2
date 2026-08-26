@@ -22,7 +22,7 @@ classdef ScreenCaptureSmokeGUI < gui.BehaviorGUI
             g = uigridlayout(fig, [2 1]);
             g.RowHeight = {30, '1x'};
 
-            obj.Capture = obj.addScreenCapture(g, Text='Screenshot');
+            obj.Capture = obj.add('gui.components.ScreenCapture', g, Text='Screenshot');
             obj.Capture.Button.Layout.Row = 1;
 
             lbl = uilabel(g, 'Text', 'Session content', 'FontSize', 20, ...

@@ -478,6 +478,13 @@ classdef (Abstract) BehaviorGUI < handle
                 vprintf(2, '%s: no class "%s" on the path; component skipped', class(obj), cls)
                 return
             end
+            if spec.isAbstract
+                % A condition, not a defect: refuse it here rather than
+                % letting the constructor throw and logging it as one.
+                vprintf(2, '%s: "%s" is abstract and cannot be built; component skipped', ...
+                    class(obj), cls)
+                return
+            end
 
             chord = spec.keyBinding;
             if isfield(opts, 'KeyBinding')
@@ -684,198 +691,6 @@ classdef (Abstract) BehaviorGUI < handle
             h = obj.add('gui.components.Parameter_Update', parent, varargin{:});
         end
 
-        function h = addMonitor(obj, parent, params, varargin)
-            % h = addMonitor(obj, parent, params, ...)
-            % Create a gui.components.Parameter_Monitor polling the named parameters.
-            % Names that do not resolve are dropped individually, so a
-            % protocol missing one still gets a monitor of the rest.
-            h = obj.add('gui.components.Parameter_Monitor', parent, 'Parameters', params, varargin{:});
-        end
-
-        function h = addNextTrial(obj, parent, varargin)
-            % h = addNextTrial(obj, parent, ...)
-            % Create a gui.components.NextTrial upcoming-trial display driven by
-            % NewTrial events. See gui.components.NextTrial for the options.
-            h = obj.add('gui.components.NextTrial', parent, varargin{:});
-        end
-
-        function h = addPerformance(obj, parent, varargin)
-            % h = addPerformance(obj, parent, ...)
-            % Create a gui.components.SessionPerformance summary panel -- rates, counts,
-            % d'. Computed over this GUI's analysis object when there is one,
-            % else over the runtime. See gui.components.SessionPerformance.
-            h = obj.add('gui.components.SessionPerformance', parent, varargin{:});
-        end
-
-        function h = addSyringePump(obj, parent, varargin)
-            % h = addSyringePump(obj, parent, ...)
-            % Create a gui.components.SyringePump operator panel for an hw.NE1000.
-            % With no pump in the protocol the panel constructs a standalone
-            % interface and offers a port to connect on, so the GUI still
-            % opens.
-            %
-            % Options you do not name are not passed at all, which is what
-            % lets the panel fall back to the operator's own remembered
-            % configuration for everything else.
-            h = obj.add('gui.components.SyringePump', parent, varargin{:});
-        end
-
-        function h = addNotes(obj, parent, varargin)
-            % h = addNotes(obj, parent, ...)
-            % Create a gui.components.Notes operator note pad over this session's note
-            % store, so what is typed reaches every subject's data file.
-            % Ctrl+Shift+N puts the caret in the entry field;
-            % KeyBinding='none' drops that. See gui.components.Notes.
-            h = obj.add('gui.components.Notes', parent, varargin{:});
-        end
-
-        function h = addNotesButton(obj, parent, varargin)
-            % h = addNotesButton(obj, parent, ...)
-            % One button that opens the notes in a window of its own, for a
-            % GUI with no room for a log. The window remembers its position,
-            % pins on top, raises instead of duplicating, and closes with
-            % this GUI.
-            %
-            % ButtonOnly goes last so a caller cannot accidentally win it
-            % back: this helper IS the button form.
-            h = obj.add('gui.components.Notes', parent, varargin{:}, 'ButtonOnly', true);
-        end
-
-        function h = addScreenCapture(obj, parent, varargin)
-            % h = addScreenCapture(obj, parent, ...)
-            % Create a gui.components.ScreenCapture camera button. One click copies a
-            % picture of the whole window -- controls, plots and all -- to
-            % the system clipboard, for pasting into a notebook entry.
-            % Ctrl+Shift+C copies too; KeyBinding='none' drops that.
-            %
-            % Target defaults to this GUI's figure.
-            h = obj.add('gui.components.ScreenCapture', parent, varargin{:});
-        end
-
-        function h = addHistory(obj, parent, varargin)
-            % h = addHistory(obj, parent, ...)
-            % Create a gui.components.History per-trial outcome table over this GUI's
-            % analysis object. Returns [] when createPsych produced nothing,
-            % so a GUI still opens against a runtime with no interfaces.
-            h = obj.add('gui.components.History', parent, varargin{:});
-        end
-
-        function h = addOnlinePlot(obj, parent, varargin)
-            % h = addOnlinePlot(obj, parent, Source=..., ...)
-            % Create a gui.components.OnlinePlot of live hardware activity.
-            %
-            % Source names the traces -- parameter names, hw.Parameter
-            % handles, or a bitmask bank name. LEFT EMPTY it would put a list
-            % dialog in front of the operator while the session is starting,
-            % so an empty Source returns [] and logs instead.
-            %
-            % The plot draws into a CLASSIC axes, which is made inside the
-            % container you give: pass a panel or a grid cell rather than an
-            % axes of your own.
-            h = obj.add('gui.components.OnlinePlot', parent, varargin{:});
-        end
-
-        function h = addBufferPlot(obj, parent, varargin)
-            % h = addBufferPlot(obj, parent, Buffers=..., SampleRate=...)
-            % Create a gui.components.BufferPlot of one or more buffer parameters,
-            % refreshed once per completed trial from the trial record the
-            % runtime already read, so it costs the device nothing.
-            %
-            % Buffers left empty auto-selects the session's buffer
-            % parameters, which is why -- unlike addOnlinePlot -- this has
-            % nothing to refuse.
-            h = obj.add('gui.components.BufferPlot', parent, varargin{:});
-        end
-
-        function h = addScatter(obj, parent, varargin)
-            % h = addScatter(obj, parent, ...)
-            % Create a gui.components.ParameterScatter over any two recorded trial
-            % parameters. Driven by the runtime rather than an analysis
-            % object, so it works in a paradigm that has no analysis at all.
-            h = obj.add('gui.components.ParameterScatter', parent, varargin{:});
-        end
-
-        function h = addPsychPlot(obj, parent, varargin)
-            % h = addPsychPlot(obj, parent)
-            % Create a gui.components.PsychPlot psychometric curve over this GUI's
-            % analysis object. Returns [] when there is none.
-            %
-            % Draws into a CLASSIC axes, made inside the container you give:
-            % pass a panel or a grid cell rather than an axes of your own.
-            h = obj.add('gui.components.PsychPlot', parent, varargin{:});
-        end
-
-        function h = addSessionClock(obj, parent, varargin)
-            % h = addSessionClock(obj, parent, ...)
-            % Create a gui.components.SessionClock -- time since the last trial, since
-            % the first, session duration, wall clock -- wire it to this
-            % GUI's runtime and start it.
-            h = obj.add('gui.components.SessionClock', parent, varargin{:});
-        end
-
-        function h = addTrialTimer(obj, parent, varargin)
-            % h = addTrialTimer(obj, parent, ...)
-            % Create a gui.components.ElapsedTrialTimer showing time since the last
-            % completed trial, wired to this GUI's runtime.
-            h = obj.add('gui.components.ElapsedTrialTimer', parent, varargin{:});
-        end
-
-        function h = addModeIndicator(obj, parent, varargin)
-            % h = addModeIndicator(obj, parent, ...)
-            % Create a gui.components.ModeIndicator lamp showing the current run mode,
-            % wired to this GUI's runtime.
-            h = obj.add('gui.components.ModeIndicator', parent, varargin{:});
-        end
-
-        function h = addSessionGate(obj, parent, varargin)
-            % h = addSessionGate(obj, parent, ...)
-            % Create a gui.components.SessionGate "Begin Experiment" button for a rig
-            % that must not start dispatching the moment the session does.
-            %
-            % This is HALF the mechanism: waitForSessionGate, called from the
-            % SUBCLASS CONSTRUCTOR, is what actually holds the session. The
-            % wait cannot live in build, which runs from inside the base
-            % constructor before the window is shown.
-            %
-            % No keyboard shortcut, deliberately: starting a session is not
-            % something a stray keystroke over the wrong window should do.
-            h = obj.add('gui.components.SessionGate', parent, varargin{:});
-        end
-
-        function h = addRegenerateTrial(obj, parent, varargin)
-            % h = addRegenerateTrial(obj, parent, ...)
-            % Create a gui.components.RegenerateTrial button that re-arms the trial the
-            % rig is holding. Dead until Ctrl+Alt+Shift are all held.
-            %
-            % No keyboard chord, deliberately: holding the three modifiers IS
-            % the gesture, and a chord that fired it outright would undo the
-            % arming.
-            h = obj.add('gui.components.RegenerateTrial', parent, varargin{:});
-        end
-
-        function tb = addComponentToolbar(obj, fig, varargin)
-            % tb = addComponentToolbar(obj, fig, Style=..., Exclude=..., AutoDiscover=...)
-            % Add an icon toolbar that opens display components in windows of
-            % their own. Optional: a GUI that never calls this has no toolbar.
-            %
-            % Call it at the TOP of build. Every gui.PopOut component
-            % registered anywhere in build gets a tool automatically, because
-            % the list is collected after build returns rather than now.
-            % Components the GUI does not display are declared on the
-            % returned toolbar with addLazyComponent and built on first click:
-            %
-            %   function build(obj, fig)
-            %       tb = obj.addComponentToolbar(fig);
-            %       tb.addLazyComponent('Performance', ...
-            %           @(c) gui.components.SessionPerformance(obj.RUNTIME, c), ...
-            %           Icon='sessionperformance');
-            %       ... the rest of the layout ...
-            %   end
-            %
-            % Asking twice returns the toolbar already made.
-            tb = obj.add('gui.components.ComponentToolbar', fig, varargin{:});
-        end
-
         function ax = addStaircasePlot(obj, parent)
             % ax = addStaircasePlot(obj, parent)
             % Plot this GUI's psychophysics.Staircase -- its track, reversals
@@ -904,7 +719,6 @@ classdef (Abstract) BehaviorGUI < handle
             obj.Psych.Plot(ax);
         end
 
-
         function tf = waitForSessionGate(obj, timeout)
             % tf = waitForSessionGate(obj, timeout)
             % Hold the session until the operator presses the gate added by
@@ -932,7 +746,6 @@ classdef (Abstract) BehaviorGUI < handle
             if isempty(gates), return; end
             tf = gates{1}.wait(timeout);
         end
-
 
         function h = addPopOutButton(obj, parent, component, options)
             % h = addPopOutButton(obj, parent, component, Text=..., Tooltip=...)
@@ -965,8 +778,6 @@ classdef (Abstract) BehaviorGUI < handle
                 'ButtonPushedFcn', @(~,~) component.popOut());
             obj.register(h);
         end
-
-
 
         function comp = register(obj, comp, name)
             % comp = register(obj, comp, name)

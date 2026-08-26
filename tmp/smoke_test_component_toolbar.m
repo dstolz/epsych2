@@ -183,7 +183,7 @@ assert(isequal(g4.Toolbar.Names, ["Performance" "Mystery"]), ...
 fprintf('PASS: Exclude drops one entry and AutoDiscover=false drops discovery\n');
 
 % 8. Asking twice returns the toolbar already made ------------------------
-again = g4.addComponentToolbar(g4.h_figure);
+again = g4.add('gui.components.ComponentToolbar', g4.h_figure);
 assert(again == g4.Toolbar, 'a second addComponentToolbar should return the existing toolbar');
 assert(isscalar(findall(g4.h_figure,'Type','uitoolbar')), 'only one toolbar should exist');
 g4.closeGUI(g4.h_figure, []);

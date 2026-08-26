@@ -23,12 +23,12 @@ classdef NotesBehaviorGUI < gui.BehaviorGUI
             g = uigridlayout(fig, [2 1]);
             g.RowHeight = {30, '1x'};
 
-            obj.NotesButton = obj.addNotesButton(g, Text='Notes...');
+            obj.NotesButton = obj.add('gui.components.Notes', g, 'ButtonOnly', true, Text='Notes...');
             obj.NotesButton.OpenH.Layout.Row = 1;
 
             p = uipanel(g);
             p.Layout.Row = 2;
-            obj.NotesPanel = obj.addNotes(p, PreferenceTag='smokeNotesPanel');
+            obj.NotesPanel = obj.add('gui.components.Notes', p, PreferenceTag='smokeNotesPanel');
         end
     end
 end

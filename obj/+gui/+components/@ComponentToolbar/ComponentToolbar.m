@@ -11,7 +11,7 @@ classdef ComponentToolbar < handle
     %   registers it for teardown and feeds it the automatic entries:
     %
     %       function build(obj, fig)
-    %           tb = obj.addComponentToolbar(fig);
+    %           tb = obj.add('gui.components.ComponentToolbar', fig);
     %           tb.addLazyComponent('Performance', ...
     %               @(c) gui.components.SessionPerformance(obj.RUNTIME, c), ...
     %               Icon='sessionperformance');

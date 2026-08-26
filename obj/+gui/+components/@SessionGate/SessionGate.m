@@ -27,7 +27,7 @@ classdef SessionGate < handle
     %       end
     %       function build(obj, fig)
     %           g = uigridlayout(fig, [2 1]);
-    %           obj.addSessionGate(g);
+    %           obj.add('gui.components.SessionGate', g);
     %           ...
     %       end
     %

@@ -59,7 +59,7 @@ classdef SyringePump < gui.PopOut
     % follows how the rig is wired, so it is a construction option and the
     % TriggerMode property, never a control:
     %
-    %   obj.addSyringePump(panel, TriggerMode='ST', TTLTrigger=true);
+    %   obj.add('gui.components.SyringePump', panel, TriggerMode='ST', TTLTrigger=true);
     %
     % Properties:
     %   Diameter        - Syringe inside diameter, mm (default 21.59)
@@ -91,11 +91,11 @@ classdef SyringePump < gui.PopOut
     %
     % Examples:
     %   % Inside a gui.BehaviorGUI build method
-    %   obj.addSyringePump(panelReward);
-    %   obj.addSyringePump(panelReward, Rate=1.5, Diameter=14.43);
+    %   obj.add('gui.components.SyringePump', panelReward);
+    %   obj.add('gui.components.SyringePump', panelReward, Rate=1.5, Diameter=14.43);
     %
     %   % Only the readout and the manual buttons; the protocol owns the rest
-    %   obj.addSyringePump(panelReward, Sections=["Volume" "Status" "Triggers"]);
+    %   obj.add('gui.components.SyringePump', panelReward, Sections=["Volume" "Status" "Triggers"]);
     %
     %   % Standalone, no protocol: pick a port in the panel and connect
     %   f = uifigure('Name','Pump');

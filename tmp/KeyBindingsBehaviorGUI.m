@@ -36,8 +36,8 @@ classdef KeyBindingsBehaviorGUI < gui.BehaviorGUI
             col = obj.controlColumn(g, Title='Controls', Row=1, Rows=5);
             obj.addControl(col, 'SmokeFreq', Text='Frequency (Hz)');
             obj.hUpdate  = obj.addUpdateButton(col);
-            obj.hCapture = obj.addScreenCapture(col);
-            obj.hRegen   = obj.addRegenerateTrial(col);
+            obj.hCapture = obj.add('gui.components.ScreenCapture', col);
+            obj.hRegen   = obj.add('gui.components.RegenerateTrial', col);
         end
     end
 end

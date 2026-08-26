@@ -36,7 +36,7 @@ classdef ExampleBehaviorGUI < gui.BehaviorGUI
             % Optional toolbar: one tool per display, opening it in a window
             % of its own. Asked for FIRST, yet it still lists the components
             % registered below -- those are collected after build returns.
-            tb = obj.addComponentToolbar(fig);
+            tb = obj.add('gui.components.ComponentToolbar', fig);
 
             % A display this GUI does not show at all. Nothing is built until
             % the tool is clicked, so it costs no listeners or timers up front.
@@ -55,7 +55,7 @@ classdef ExampleBehaviorGUI < gui.BehaviorGUI
             obj.addButton(row, '~TrialDelivery', Text='Deliver Trials');
 
             % Copies this whole window to the clipboard for a notebook entry
-            obj.addScreenCapture(row);
+            obj.add('gui.components.ScreenCapture', row);
 
             % Editable parameters: one line each. Names that do not exist
             % in the loaded protocol are skipped silently.
@@ -69,7 +69,7 @@ classdef ExampleBehaviorGUI < gui.BehaviorGUI
             % Live read-only display
             p = uipanel(g, 'Title', 'Monitor');
             p.Layout.Row = 2; p.Layout.Column = 2;
-            obj.addMonitor(p, {'InTrial','RespCode','TrialCount'}, pollPeriod=0.5);
+            obj.add('gui.components.Parameter_Monitor', p, 'Parameters', {'InTrial','RespCode','TrialCount'}, pollPeriod=0.5);
 
             % Any other component: construct natively, register for teardown
             p = uipanel(g, 'Title', 'Trial History');

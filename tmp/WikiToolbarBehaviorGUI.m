@@ -24,7 +24,7 @@ classdef WikiToolbarBehaviorGUI < gui.BehaviorGUI
     methods (Access = protected)
         function build(obj, fig)
             % Asked for first, yet it still lists what is registered below.
-            obj.Toolbar = obj.addComponentToolbar(fig);
+            obj.Toolbar = obj.add('gui.components.ComponentToolbar', fig);
 
             % Displays this GUI does not show at all: nothing is constructed,
             % so neither the polling timer nor the listeners exist yet.

@@ -75,7 +75,7 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
             % Live read-back values
             pnl = uipanel(g, 'Title', 'Live Values');
             pnl.Layout.Row = 3; pnl.Layout.Column = 2;
-            obj.addMonitor(pnl, {'InTrial', 'RespCode'}, pollPeriod = 0.5);
+            obj.add('gui.components.Parameter_Monitor', pnl, 'Parameters', {'InTrial', 'RespCode'}, pollPeriod = 0.5);
 
             % Per-level performance, refreshed by onNewData
             pnl = uipanel(g, 'Title', 'Performance by Level');

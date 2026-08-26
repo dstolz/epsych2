@@ -164,7 +164,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             pnl = uipanel(g, 'Title', 'Reward Pump');
             pnl.Layout.Row = [1 2];
             pnl.Layout.Column = 1;
-            obj.Pump = obj.addSyringePump(pnl, Rate = 1000, Diameter = 21.59, ...
+            obj.Pump = obj.add('gui.components.SyringePump', pnl, Rate = 1000, Diameter = 21.59, ...
                 RateUnits = 'UM', VolumeUnits = 'uL');
 
             % --- Trial controls ------------------------------------------
@@ -179,7 +179,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             % none of that is done by the time the window opens — so the
             % first thing in the column is the gate, and the pump panel
             % beside it stays live while the operator primes.
-            obj.Gate_ = obj.addSessionGate(col);
+            obj.Gate_ = obj.add('gui.components.SessionGate', col);
             col.RowHeight{1} = 36;
 
             obj.addControl(col, 'Rate', autoCommit = true, Text = 'Pump Rate (uL/min)');
@@ -203,7 +203,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             pnl = uipanel(g, 'Title', 'Next Trial');
             pnl.Layout.Row = 2;
             pnl.Layout.Column = 2;
-            obj.addNextTrial(pnl, Fields = ["Volume", "Rate"], FontSize = 14);
+            obj.add('gui.components.NextTrial', pnl, Fields = ["Volume", "Rate"], FontSize = 14);
 
             % --- What the pump reported back ------------------------------
             % VolumeInfused is Visible + Access='Read', so the runtime's
@@ -218,7 +218,7 @@ classdef PumpBehaviorGUI < gui.BehaviorGUI
             pnl = uipanel(g, 'Title', 'Pump Readback');
             pnl.Layout.Row = 2;
             pnl.Layout.Column = 3;
-            obj.addMonitor(pnl, {'Volume', 'VolumeInfused', 'VolumeWithdrawn'}, ...
+            obj.add('gui.components.Parameter_Monitor', pnl, 'Parameters', {'Volume', 'VolumeInfused', 'VolumeWithdrawn'}, ...
                 pollPeriod = 1);
 
             % --- The clock the trial cycle runs on ------------------------

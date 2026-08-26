@@ -32,7 +32,7 @@ classdef ScreenCapture < handle
     %   sc = gui.components.ScreenCapture(fig, Target=otherFig);  % capture a different window
     %   sc.copyToClipboard();                          % from a script or a menu
     %
-    % In a gui.BehaviorGUI subclass use obj.addScreenCapture(parent), which
+    % In a gui.BehaviorGUI subclass use obj.add('gui.components.ScreenCapture', parent), which
     % registers the component for teardown.
     %
     % Documentation: documentation/gui/gui_ScreenCapture.md

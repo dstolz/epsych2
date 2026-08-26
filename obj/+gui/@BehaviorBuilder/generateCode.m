@@ -165,7 +165,7 @@ switch r.Type
             end
         end
         if o.IncludeScreenCapture
-            out('obj.addScreenCapture(row%d);', i);
+            out('obj.add(''gui.components.ScreenCapture'', row%d);', i);
         end
 
     case 'Monitor'
@@ -173,15 +173,15 @@ switch r.Type
         args = {fmtCellstr(o.Params), sprintf('pollPeriod=%s', mat2str(o.PollPeriod)), ...
                 sprintf('type="%s"', o.Style)};
         if ~isempty(tag), args{end+1} = sprintf('PreferenceTag=%s', q(tag)); end
-        emitHelperCall(r, i, popParent, sprintf('obj.addMonitor(%s, %s)', host, strjoin(args, ', ')));
+        emitHelperCall(r, i, popParent, sprintf('obj.add(''gui.components.Parameter_Monitor'', %s, ''Parameters'', %s)', host, strjoin(args, ', ')));
 
     case 'NextTrial'
         [host, popParent] = emitHost(r, i);
-        emitHelperCall(r, i, popParent, sprintf('obj.addNextTrial(%s%s)', host, tagArg(tag)));
+        emitHelperCall(r, i, popParent, sprintf('obj.add(''gui.components.NextTrial'', %s%s)', host, tagArg(tag)));
 
     case 'Performance'
         [host, popParent] = emitHost(r, i);
-        emitHelperCall(r, i, popParent, sprintf('obj.addPerformance(%s%s)', host, tagArg(tag)));
+        emitHelperCall(r, i, popParent, sprintf('obj.add(''gui.components.SessionPerformance'', %s%s)', host, tagArg(tag)));
 
     case 'Scatter'
         [host, popParent] = emitHost(r, i);
@@ -292,7 +292,7 @@ switch r.Type
                 args{end+1} = sprintf('TimeStamp="%s"', o.TimeStamp);
             end
             if ~isempty(tag), args{end+1} = sprintf('PreferenceTag=%s', q(tag)); end
-            out('obj.addNotesButton(nb%d, %s);', i, strjoin(args, ', '));
+            out('obj.add(''gui.components.Notes'', nb%d, ''ButtonOnly'', true, %s);', i, strjoin(args, ', '));
         else
             [host, popParent] = emitHost(r, i);
             args = {};
@@ -301,7 +301,7 @@ switch r.Type
             end
             if o.Editable, args{end+1} = 'Editable=true'; end
             if ~isempty(tag), args{end+1} = sprintf('PreferenceTag=%s', q(tag)); end
-            s = sprintf('obj.addNotes(%s', host);
+            s = sprintf('obj.add(''gui.components.Notes'', %s', host);
             if ~isempty(args), s = [s ', ' strjoin(args, ', ')]; end
             s = [s ')'];
             emitHelperCall(r, i, popParent, s);
@@ -314,7 +314,7 @@ switch r.Type
             args{end+1} = sprintf('Sections=%s', fmtStringArray(o.Sections));
         end
         if ~isempty(tag), args{end+1} = sprintf('PreferenceTag=%s', q(tag)); end
-        s = sprintf('obj.addSyringePump(%s', host);
+        s = sprintf('obj.add(''gui.components.SyringePump'', %s', host);
         if ~isempty(args), s = [s ', ' strjoin(args, ', ')]; end
         s = [s ')'];
         emitHelperCall(r, i, popParent, s);
@@ -323,7 +323,7 @@ switch r.Type
         out('sc%d = uigridlayout(g, [1 1]);', i);
         out('sc%d.Layout.Row = %s; sc%d.Layout.Column = %s;', ...
             i, fmtSpan(r.Row), i, fmtSpan(r.Col));
-        out('obj.addScreenCapture(sc%d);', i);
+        out('obj.add(''gui.components.ScreenCapture'', sc%d);', i);
 
     case 'SessionGate'
         % The button is only half of it: waitForSessionGate in the
@@ -334,7 +334,7 @@ switch r.Type
             i, fmtSpan(r.Row), i, fmtSpan(r.Col));
         out('%% Add "obj.waitForSessionGate();" to a constructor of your own');
         out('%% to make the session hold here until this button is pressed.');
-        out('obj.addSessionGate(sg%d, Text=%s);', i, q(o.Text));
+        out('obj.add(''gui.components.SessionGate'', sg%d, Text=%s);', i, q(o.Text));
 
     case 'PhaseSelector'
         emitPanel(r, i);
@@ -358,9 +358,53 @@ switch r.Type
         out('obj.register(h%d);', i);
 
     otherwise
-        error('epsych:BehaviorBuilder:BadRegion', ...
-            'No emitter for component type "%s"', r.Type)
+        % A component with no hand-written branch above: everything needed
+        % to place it is in its own gui.ComponentSpec, so one generic
+        % emitter serves every component added from now on. The branches
+        % above are kept only because saved .eblt specs already use their
+        % option field names.
+        emitGeneric(r, i, tag);
 end
+
+    function emitGeneric(rr, ii, tg)
+        % obj.add(...) for a discovered component, driven by its spec.
+        s = gui.ComponentSpec.forClass(gui.BehaviorBuilder.classForType_(rr.Type));
+        if isempty(s.className)
+            error('epsych:BehaviorBuilder:BadRegion', ...
+                'No emitter and no component class for type "%s"', rr.Type)
+        end
+
+        % A component that takes a container gets the usual titled panel; one
+        % that only wants an axes gets the panel and lets add make the axes
+        % inside it.
+        if any(s.shape == "parent")
+            [host, popParent] = emitHost(rr, ii);
+        else
+            emitPanel(rr, ii);
+            host = sprintf('pnl%d', ii);
+            popParent = '';
+            if rr.PopOut
+                [host, popParent] = emitHost(rr, ii);
+            end
+        end
+
+        args = {};
+        fn = fieldnames(rr.Options);
+        for k = 1:numel(fn)
+            v = rr.Options.(fn{k});
+            [d, hasD] = s.optionDefault(fn{k});
+            if hasD && isequal(v, d), continue; end   % never emit a default
+            args{end+1} = sprintf('%s=%s', fn{k}, fmtLiteral(v)); %#ok<AGROW>
+        end
+        if ~isempty(tg)
+            args{end+1} = sprintf('PreferenceTag=%s', q(tg));
+        end
+
+        call = sprintf('obj.add(%s, %s', q(s.className), host);
+        if ~isempty(args), call = [call ', ' strjoin(args, ', ')]; end
+        call = [call ')'];
+        emitHelperCall(rr, ii, popParent, call);
+    end
 
     function out(fmt, varargin)
         lines{end+1} = ['            ' sprintf(fmt, varargin{:})];
@@ -471,5 +515,26 @@ if ~isempty(ix)
     vn = snap(ix).validName;
 else
     vn = matlab.lang.makeValidName(name);
+end
+end
+
+function s = fmtLiteral(v)
+% MATLAB source for an option value of any of the shapes a spec option can
+% hold. Used only by the generic emitter; the hand-written branches format
+% their own values because they know exactly which shape each one is.
+if ischar(v)
+    s = q(v);
+elseif isstring(v) && isscalar(v)
+    s = sprintf('"%s"', char(v));
+elseif isstring(v)
+    s = fmtStringArray(v);
+elseif iscell(v)
+    s = fmtCellstr(v);
+elseif islogical(v)
+    if v, s = 'true'; else, s = 'false'; end
+else
+    % mat2str, not %g: %g keeps 6 significant digits, and a TDT sample rate
+    % (24414.0625) would bake in wrong.
+    s = mat2str(v);
 end
 end

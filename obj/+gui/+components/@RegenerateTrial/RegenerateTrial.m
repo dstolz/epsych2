@@ -51,7 +51,7 @@ classdef RegenerateTrial < handle
     %
     %   function build(obj, fig)
     %       g = uigridlayout(fig, [2 1]);
-    %       obj.addRegenerateTrial(g);
+    %       obj.add('gui.components.RegenerateTrial', g);
     %   end
     %
     % Standalone, in any container:

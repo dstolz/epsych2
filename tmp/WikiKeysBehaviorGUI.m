@@ -49,8 +49,8 @@ classdef WikiKeysBehaviorGUI < gui.BehaviorGUI
             row.Layout.Row = 2;
             row.ColumnWidth = {36, 96, '1x'};
             row.Padding = [0 0 0 0];
-            obj.addScreenCapture(row);         % Ctrl+Shift+C
-            obj.addNotesButton(row);           % Ctrl+Shift+N
+            obj.add('gui.components.ScreenCapture', row);         % Ctrl+Shift+C
+            obj.add('gui.components.Notes', row, 'ButtonOnly', true);           % Ctrl+Shift+N
         end
     end
 

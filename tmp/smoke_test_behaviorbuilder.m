@@ -121,8 +121,9 @@ msgs = checkcode(mFileC);
 assert(isempty(msgs), 'notes generated file must be lint-clean:%s', formatMsgs(msgs));
 
 srcC = fileread(mFileC);
-assert(contains(srcC, 'obj.addNotes('), 'the panel form must emit addNotes');
-assert(contains(srcC, 'obj.addNotesButton('), 'the button form must emit addNotesButton');
+assert(contains(srcC, 'gui.components.Notes'), 'the panel form must emit a Notes component');
+assert(contains(srcC, 'ButtonOnly'), ...
+    'the button form must emit a ButtonOnly Notes component');
 assert(contains(srcC, 'TimeStamp="clock"'), 'a non-default stamp must be emitted');
 assert(count(srcC, 'PreferenceTag=') >= 2, ...
     'two gui.components.Notes in one GUI must get uniqued preference tags');

@@ -57,13 +57,13 @@ classdef Notes < gui.PopOut
     %
     % Examples:
     %   % In a gui.BehaviorGUI subclass build():
-    %   obj.NotesPanel = obj.addNotes(g);           % g is a uigridlayout cell
+    %   obj.NotesPanel = obj.add('gui.components.Notes', g);           % g is a uigridlayout cell
     %
     %   % Wall-clock stamps, tagged to subject 2, hand-editable from the start:
-    %   obj.addNotes(g, TimeStamp="clock", Subject=2, Editable=true);
+    %   obj.add('gui.components.Notes', g, TimeStamp="clock", Subject=2, Editable=true);
     %
     %   % Just a button; the notes live in the window it opens:
-    %   obj.addNotesButton(toolRow);
+    %   obj.add('gui.components.Notes', toolRow, 'ButtonOnly', true);
     %
     %   % From anywhere holding the runtime, no GUI involved:
     %   RUNTIME.NOTES.add('water bottle refilled');

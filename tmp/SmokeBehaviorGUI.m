@@ -49,7 +49,7 @@ classdef SmokeBehaviorGUI < gui.BehaviorGUI
             p = uipanel(g, 'Title', 'Monitor');
             p.Layout.Row = 2;
             p.Layout.Column = 2;
-            obj.hMon = obj.addMonitor(p, {'SmokeState','AlsoMissing'}, pollPeriod=0.2);
+            obj.hMon = obj.add('gui.components.Parameter_Monitor', p, 'Parameters', {'SmokeState','AlsoMissing'}, pollPeriod=0.2);
 
             obj.defer(@() obj.markDeferred);
         end

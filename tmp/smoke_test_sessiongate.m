@@ -213,8 +213,8 @@ mFile = gui.BehaviorBuilder.writeCode(loaded, specFile);
 msgs = checkcode(mFile);
 results(end+1,:) = check('The generated file is lint-clean', isempty(msgs));
 src = fileread(mFile);
-results(end+1,:) = check('The gate is emitted through the helper', ...
-    contains(src,'obj.addSessionGate('));
+results(end+1,:) = check('The gate is emitted through add', ...
+    contains(src,'gui.components.SessionGate'));
 results(end+1,:) = check('The gate emits the waitForSessionGate handoff', ...
     contains(src,'waitForSessionGate'));
 results(end+1,:) = check('The phase selector is emitted', contains(src,'gui.components.PhaseSelector('));

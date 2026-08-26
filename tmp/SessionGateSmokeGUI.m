@@ -36,29 +36,29 @@ classdef SessionGateSmokeGUI < gui.BehaviorGUI
             top = uigridlayout(g, [1 3]);
             top.Layout.Row = 1;
             top.Layout.Column = [1 3];
-            obj.hGate = obj.addSessionGate(top);
-            obj.hMode = obj.addModeIndicator(top);
-            obj.hTimer = obj.addTrialTimer(top);
+            obj.hGate = obj.add('gui.components.SessionGate', top);
+            obj.hMode = obj.add('gui.components.ModeIndicator', top);
+            obj.hTimer = obj.add('gui.components.ElapsedTrialTimer', top);
 
-            obj.hClock = obj.addSessionClock(g);
+            obj.hClock = obj.add('gui.components.SessionClock', g);
             obj.hClock.PanelH.Layout.Row = 2;
             obj.hClock.PanelH.Layout.Column = 1;
 
             pScatter = uipanel(g, 'Title','Scatter');
             pScatter.Layout.Row = 2;
             pScatter.Layout.Column = 2;
-            obj.hScatter = obj.addScatter(pScatter, XParameter='Trial Number');
+            obj.hScatter = obj.add('gui.components.ParameterScatter', pScatter, XParameter='Trial Number');
 
             % The three psych-backed helpers, against a GUI with no analysis.
             pHist = uipanel(g, 'Title','History');
             pHist.Layout.Row = 2;
             pHist.Layout.Column = 3;
-            obj.hHistory = obj.addHistory(pHist);
+            obj.hHistory = obj.add('gui.components.History', pHist);
 
             pPlot = uipanel(g, 'Title','Psych Plot');
             pPlot.Layout.Row = 3;
             pPlot.Layout.Column = [1 2];
-            obj.hPsychPlot = obj.addPsychPlot(pPlot);
+            obj.hPsychPlot = obj.add('gui.components.PsychPlot', pPlot);
 
             pStair = uipanel(g, 'Title','Staircase');
             pStair.Layout.Row = 3;

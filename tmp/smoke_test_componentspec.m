@@ -85,7 +85,7 @@ gridA = uigridlayout(g.h_figure, [1 2]);
 runningClocks = @() numel(findobj(timerfindall, 'Tag', 'EPsychSessionClock', ...
     'Running', 'on'));
 n0 = runningClocks();
-hHelper = g.addSessionClock(gridA);
+hHelper = g.add('gui.components.SessionClock', gridA);
 n1 = runningClocks();
 hGeneric = g.add('gui.components.SessionClock', gridA);
 n2 = runningClocks();
@@ -96,7 +96,7 @@ assert(n1 == n0 + 1, 'addSessionClock should start its timer');
 assert(n2 == n1 + 1, 'spec.start must start the timer too (%d -> %d)', n1, n2);
 fprintf('PASS: addSessionClock and add("gui.components.SessionClock") agree, both started\n');
 
-hHelperM  = g.addMonitor(gridA, {'SmokeFreq','SmokeNotThere','SmokeLevel'});
+hHelperM  = g.add('gui.components.Parameter_Monitor', gridA, 'Parameters', {'SmokeFreq','SmokeNotThere','SmokeLevel'});
 hGenericM = g.add('gui.components.Parameter_Monitor', gridA, ...
     'Parameters', {'SmokeFreq','SmokeNotThere','SmokeLevel'});
 assert(numel(hGenericM.Parameters) == numel(hHelperM.Parameters), ...
@@ -136,7 +136,24 @@ assert(any(strcmp(names, 'My Clock')), 'RegisterName must reach the registry');
 assert(isvalid(hNamed), 'and must not be forwarded to the constructor');
 fprintf('PASS: RegisterName consumed by add, not passed on\n');
 
-%% 9. Teardown -------------------------------------------------------------
+%% 9. The point of the whole mechanism ------------------------------------
+% A component that lives outside gui.components, declares no spec, and is
+% registered nowhere. If this works, adding a component needs no edit to
+% gui.BehaviorGUI, to gui.BehaviorBuilder, or to any table.
+s = gui.ComponentSpec.forClass('SmokeOutsideComponent');
+assert(isequal(cellstr(s.shape), {'runtime','parent'}), ...
+    'the constructor signature alone should say RUNTIME first, container second (got [%s])', ...
+    strjoin(cellstr(s.shape),' '));
+
+hOut = g.add('SmokeOutsideComponent', gridA, 'Color', 'red');
+assert(~isempty(hOut) && isvalid(hOut), 'an unregistered outside component must build');
+assert(strcmp(hOut.Color,'red'), 'its options must be forwarded');
+assert(isequal(hOut.RUNTIME, g.RUNTIME), 'and it must have been handed the runtime');
+assert(~isempty(g.componentsOfClass('SmokeOutsideComponent')), ...
+    'and it must be registered for teardown like anything else');
+fprintf('PASS: a component from outside the toolbox works with no registration\n');
+
+%% 10. Teardown -------------------------------------------------------------
 fig = g.h_figure;
 close(fig);
 assert(~isvalid(g), 'GUI should be deleted by closeGUI');

@@ -122,7 +122,7 @@ obj.addButton(buttonLayout,'SpoofTrough',     Type='momentary', Text='Trough');
 % spare rows. It opens the notes in a window of their own, and what is
 % typed there is saved with the session's data (Info.Notes) and journaled
 % as it is typed. Placed after the triggers so it takes the last column.
-obj.NotesButton = obj.addNotesButton(buttonLayout, Text='Notes');
+obj.NotesButton = obj.add('gui.components.Notes', buttonLayout, 'ButtonOnly', true, Text='Notes');
 set(obj.NotesButton.OpenH, FontWeight='bold', FontSize=15);
 
 % Regenerate the pending trial: dispatch it again so the stimulus delay and
@@ -146,7 +146,7 @@ set(obj.NotesButton.OpenH, FontWeight='bold', FontSize=15);
 % is consumed, none of which should move because a delay was redrawn.
 % Each press is written into the session notes, which is the only trace the
 % data file keeps of it.
-obj.RegenerateButton = obj.addRegenerateTrial(buttonLayout, ShowIcon=false);
+obj.RegenerateButton = obj.add('gui.components.RegenerateTrial', buttonLayout, ShowIcon=false);
 set(obj.RegenerateButton.ButtonH, Text=["Regenerate";"Trial"], ...
     FontWeight='bold', FontSize=15);
 
@@ -467,7 +467,7 @@ layoutNextTrial = simple_layout(panelNextTrial);
 
 % TrialTypeNames is the protocol's own text label for TrialType (STIM,
 % CATCH, REMIND, ...), so it needs no Formatters decode here.
-obj.NextTrialPanel = obj.addNextTrial(layoutNextTrial, ...
+obj.NextTrialPanel = obj.add('gui.components.NextTrial', layoutNextTrial, ...
     Fields=["Depth","TrialTypeNames"], FontSize=20);
 
 
@@ -490,7 +490,7 @@ panelPerformance = uipanel(layoutMain, 'Title', 'Session Performance');
 panelPerformance.Layout.Row    = [1 2];
 panelPerformance.Layout.Column = 7;
 
-obj.Performance = obj.addPerformance(panelPerformance, ...
+obj.Performance = obj.add('gui.components.SessionPerformance', panelPerformance, ...
     Metrics=["HitRate","FARate","AbortRate","DPrime"], ...
     FontSize=11, ShowDetail=false);
 

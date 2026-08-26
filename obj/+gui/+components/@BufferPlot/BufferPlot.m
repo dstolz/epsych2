@@ -75,7 +75,7 @@ classdef BufferPlot < gui.PopOut
     %
     %   Examples:
     %     % In a behavior GUI's build():
-    %     obj.addBufferPlot(g, Buffers="Waveform~1", SampleRate="auto");
+    %     obj.add('gui.components.BufferPlot', g, Buffers="Waveform~1", SampleRate="auto");
     %
     %     % Offline, over a saved session:
     %     S = load('subject_2026-08-25.mat');

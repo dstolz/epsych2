@@ -77,6 +77,11 @@ classdef ComponentSpec
         placeable (1,1) logical = true
         poppable  (1,1) logical = false  % OR-ed with isa(cls,'gui.PopOut')
         emitClass (1,:) char = ''
+
+        % Abstract classes cannot be built at all. Recorded so add can
+        % refuse one as a condition rather than letting the constructor
+        % throw and reporting it as a defect.
+        isAbstract (1,1) logical = false
     end
 
     properties (Dependent, SetAccess = private)
@@ -233,6 +238,7 @@ classdef ComponentSpec
             if isempty(spec.type),  spec.type  = gui.ComponentSpec.shortName_(cls);  end
             if isempty(spec.label), spec.label = gui.ComponentSpec.spacedName_(cls); end
             if isempty(spec.emitClass), spec.emitClass = cls; end
+            spec.isAbstract = mc.Abstract;
             if mc.Abstract
                 spec.placeable = false;
             end

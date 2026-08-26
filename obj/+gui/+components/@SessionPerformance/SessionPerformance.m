@@ -51,7 +51,7 @@ classdef SessionPerformance < gui.PopOut
     %
     % Example:
     %   % In a gui.BehaviorGUI subclass's build(fig)
-    %   obj.Performance = obj.addPerformance(panelPerformance, ...
+    %   obj.Performance = obj.add('gui.components.SessionPerformance', panelPerformance, ...
     %       Metrics=["HitRate","FARate","AbortRate","DPrime"], FontSize=12);
     %   obj.Performance.TrialWindow = 20;   % summarize the last 20 trials
     %

@@ -58,4 +58,15 @@ for i = 1:n
     cat(i).HasOptions  = rows{i,8};
     cat(i).EmitClass   = rows{i,9};
 end
+
+% Anything else in the gui.components package joins the palette on its own.
+% A component added to that package needs NO edit here: it is discovered,
+% its own gui.ComponentSpec supplies the label, category, description and
+% options, and generateCode's generic emitter writes the obj.add call.
+%
+% The rows above are kept rather than derived because they carry two things
+% a spec does not: the option field names saved .eblt files already use, and
+% the HasOptions flag that says which types have a bespoke configureRegion
+% dialog. Discovery appends; it never overrides.
+cat = [cat, gui.BehaviorBuilder.discoveredEntries_({cat.EmitClass}, {cat.Type})];
 end

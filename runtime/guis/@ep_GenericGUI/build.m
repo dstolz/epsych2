@@ -106,7 +106,7 @@ panelMonitor.Layout.Row    = 1;
 panelMonitor.Layout.Column = 1;
 
 if nMonitor > 0
-    obj.ParameterMonitor = obj.addMonitor(panelMonitor, monitorParams, pollPeriod=1);
+    obj.ParameterMonitor = obj.add('gui.components.Parameter_Monitor', panelMonitor, 'Parameters', monitorParams, pollPeriod=1);
 else
     monitorGrid = uigridlayout(panelMonitor, [1, 1]);
     monitorGrid.Padding = [0 0 0 0];

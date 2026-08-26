@@ -151,7 +151,7 @@ classdef FirstExperimentBehaviorGUI < gui.BehaviorGUI
             % Live per-flash-duration performance.
             pnl = uipanel(og, 'Title', 'Session Performance');
             pnl.Layout.Row = 2;
-            obj.addPerformance(pnl);
+            obj.add('gui.components.SessionPerformance', pnl);
 
             % Manual scoring: the operator can end the current trial with a
             % forced outcome at any point in its timeline — handy for

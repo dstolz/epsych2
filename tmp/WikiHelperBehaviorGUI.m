@@ -35,7 +35,7 @@ classdef WikiHelperBehaviorGUI < gui.BehaviorGUI
 
             pnl = uipanel(g, 'Title', 'Live Values');
             pnl.Layout.Row = 2; pnl.Layout.Column = 2;
-            obj.addMonitor(pnl, {'InTrial','RespCode'}, pollPeriod=0.5);
+            obj.add('gui.components.Parameter_Monitor', pnl, 'Parameters', {'InTrial','RespCode'}, pollPeriod=0.5);
         end
     end
 end

@@ -758,9 +758,20 @@ classdef BehaviorBuilder < handle
         function e = catalogEntry(type)
             cat = gui.BehaviorBuilder.componentCatalog;
             ix = strcmp({cat.Type}, char(type));
-            assert(any(ix), 'epsych:BehaviorBuilder:BadRegion', ...
+            if any(ix), e = cat(ix); return; end
+
+            % A fully-qualified class name is a valid type even when no
+            % palette row claims it, so a component from outside this
+            % toolbox works in a spec written by hand.
+            if contains(char(type), '.')
+                s = gui.ComponentSpec.forClass(type);
+                assert(~isempty(s.className), 'epsych:BehaviorBuilder:BadRegion', ...
+                    'Unknown component type "%s"', char(type))
+                e = s.toCatalogEntry();
+                return
+            end
+            error('epsych:BehaviorBuilder:BadRegion', ...
                 'Unknown component type "%s"', char(type))
-            e = cat(ix);
         end
 
         function o = defaultOptions(type)
@@ -799,12 +810,54 @@ classdef BehaviorBuilder < handle
                 case 'FilenameField'
                     o = struct('DefaultFilename','data.mat');
                 otherwise
-                    o = struct;
+                    % A discovered component: its defaults come from its own
+                    % spec, keyed by the option names the component actually
+                    % takes, so generateCode can emit them without a mapping.
+                    o = gui.BehaviorBuilder.specDefaultOptions_(type);
+            end
+        end
+
+        function o = specDefaultOptions_(type)
+            % o = specDefaultOptions_(type)
+            % Default option struct for a component that has no hand-written
+            % row, read from its gui.ComponentSpec. Only options that DECLARE
+            % a default are seeded: an option the component has no default
+            % for must stay unstated, or the operator's saved preference
+            % could never win.
+            o = struct;
+            e = [];
+            try
+                e = gui.ComponentSpec.forClass( ...
+                    gui.BehaviorBuilder.classForType_(type));
+            catch
+            end
+            if isempty(e) || isempty(e.className), return; end
+            for k = 1:numel(e.options)
+                op = e.options(k);
+                if op.hasDefault
+                    o.(op.name) = op.defaultValue;
+                end
+            end
+        end
+
+        function cls = classForType_(type)
+            % cls = classForType_(type)
+            % Class behind a palette type. A fully-qualified name is itself;
+            % otherwise the catalog row's EmitClass names it.
+            cls = char(type);
+            if contains(cls, '.'), return; end
+            cat = gui.BehaviorBuilder.componentCatalog;
+            ix = strcmp({cat.Type}, cls);
+            if any(ix)
+                c = cat(find(ix,1)).EmitClass;
+                if ~isempty(c), cls = c; end
             end
         end
     end
 
     methods (Static, Access = private)
+        entries = discoveredEntries_(knownClasses, knownTypes)
+
         function spec = normalizeSpec_(spec)
             % Coerce jsondecode's shapes and fill defaults for fields added
             % in later FormatVersions (SubjectRoster.normalize_ discipline).

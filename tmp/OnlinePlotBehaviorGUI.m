@@ -21,19 +21,19 @@ classdef OnlinePlotBehaviorGUI < gui.BehaviorGUI
 
     methods (Access = protected)
         function build(obj, fig)
-            obj.Toolbar = obj.addComponentToolbar(fig);
+            obj.Toolbar = obj.add('gui.components.ComponentToolbar', fig);
 
             g = uigridlayout(fig, [1 1]);
             p = uipanel(g, 'Title', 'Activity');
             p.Layout.Row = 1;
             p.Layout.Column = 1;
 
-            obj.Plot = obj.addOnlinePlot(p, ...
+            obj.Plot = obj.add('gui.components.OnlinePlot', p, ...
                 Source={'Trace01','Trace02'}, ...
                 TimeWindow=[-20 5], ...
                 PreferenceTag='OnlinePlotBehaviorGUI_Main');
 
-            obj.Blank = obj.addOnlinePlot(p); % no Source: must be refused
+            obj.Blank = obj.add('gui.components.OnlinePlot', p); % no Source: must be refused
         end
     end
 end

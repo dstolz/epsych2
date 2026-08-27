@@ -244,7 +244,7 @@ end
 
 function n = localCountWriteOnlyRecords_()
 % Number of '... is a write-only parameter' records in the session log so far.
-logger = eplog.Logger.instance();
+logger = granary.Logger.instance();
 logger.flush();
 logFile = logger.LogFile;
 if isempty(logFile) || ~isfile(logFile)

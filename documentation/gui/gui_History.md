@@ -137,7 +137,7 @@ There is no per-update `vprintf`. `GLogVerbosity` defaults to `Inf`, so a
 level-4 record is never suppressed and would cost a `dbstack('-completenames')`
 plus a log write on every trial. Lowering `GLogVerbosity` to a finite level on
 a rig removes that class of cost application-wide; see
-[../eplog/eplog_Logging.md](../eplog/eplog_Logging.md).
+[../granary/granary_Logging.md](../granary/granary_Logging.md).
 
 Measure with `tmp/smoke_test_history_perf.m` and
 `tmp/smoke_test_incremental_perf.m`; behavior is covered by

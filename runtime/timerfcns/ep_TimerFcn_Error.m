@@ -9,7 +9,7 @@ function RUNTIME = ep_TimerFcn_Error(RUNTIME)
 
 % RUNTIME = ep_TimerFcn_Stop(RUNTIME); % same as TimerFcn_Stop function
 %
-% RUNTIME.ERROR is an MException or a timer ErrorFcn event struct; eplog
+% RUNTIME.ERROR is an MException or a timer ErrorFcn event struct; granary
 % accepts either and writes identifier, message and stack as one record.
 % Level 0, not 1: the failure that ended the run must reach the log and the
 % console even when the operator is running at the quietest verbosity.
@@ -28,6 +28,6 @@ end
 
 % rethrow leaves immediately and the session is over, so the record of what
 % ended it is put on disk first.
-eplog.Logger.instance().flush();
+granary.Logger.instance().flush();
 
 rethrow(RUNTIME.ERROR)

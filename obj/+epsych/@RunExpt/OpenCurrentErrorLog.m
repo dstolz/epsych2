@@ -16,9 +16,9 @@ function OpenCurrentErrorLog(~, useExternalViewer)
 %                         plain text viewer instead of the editor.
 %
 % The log's location follows Customize > Paths > Error Log Path; see
-% eplog.setLogDir.
+% granary.setLogDir.
 %
-% See also: eplog.Logger, eplog.setLogDir, epsych.RunExpt.defaultLogViewer
+% See also: granary.Logger, granary.setLogDir, epsych.RunExpt.defaultLogViewer
 
 % No arguments block: the object input is unused here, and an arguments block
 % must name every input including the ignored one.
@@ -28,7 +28,7 @@ useExternalViewer = logical(useExternalViewer);
 % The file sink buffers, and MATLAB offers no fflush; without this the last
 % few messages -- usually the ones the operator opened the log to read -- are
 % still in the buffer.
-L = eplog.Logger.instance();
+L = granary.Logger.instance();
 L.flush();
 
 logPath = L.LogFile;

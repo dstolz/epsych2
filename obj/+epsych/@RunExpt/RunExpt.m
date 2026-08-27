@@ -50,7 +50,7 @@ classdef RunExpt < handle
         RemoveSubject(self, idx)        % Remove subject at index idx from CONFIG
 
         DefineAddSubject(self, a)       % Set the add-subject callback function name
-        DefineLogPath(self)             % Set the directory +eplog writes daily error logs to
+        DefineLogPath(self)             % Set the directory +granary writes daily error logs to
 
         OpenCustomizeDialog(self)       % Open the Customize Settings dialog for this machine's settings (the membership owns the rest)
         OpenSelfTest(self)              % Open the pre-flight self-test window

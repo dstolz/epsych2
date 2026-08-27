@@ -45,7 +45,7 @@ end
 
 %% 2. Logging attribution --------------------------------------------------
 % GLogVerbosity is the documented public control for log verbosity; see
-% eplog.isEnabled, which is the only other place it is interpreted.
+% granary.isEnabled, which is the only other place it is interpreted.
 global GLogVerbosity
 savedLog = GLogVerbosity;
 restoreLog = onCleanup(@() setGlobalLogVerbosity(savedLog));

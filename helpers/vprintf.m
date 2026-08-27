@@ -5,10 +5,17 @@ function vprintf(verbose_level,varargin)
 % vprintf(verbose_level,red,msg,value1,value2,...)
 % vprintf(verbose_level,[red],exception)
 %
-% Verbosity-gated console and log printing. This is the front door to the
-% +eplog package: it parses the historical calling convention and hands the
-% result to eplog.Logger, which formats the record once and dispatches it to
-% every configured sink (console, daily text file, optional JSON Lines).
+% Verbosity-gated console and log printing, and EPsych's front door to the
+% granary logging package. This function is a thin forward to granary.printf,
+% which parses the calling convention and hands the result to granary.Logger.
+%
+% It exists rather than having every call site say granary.printf for two
+% reasons: EPsych has over a thousand vprintf calls, and a library has no
+% business claiming an unqualified name on the Matlab path. epsych_startup
+% registers this file with granary.config's FacadeFiles, so a log record is
+% attributed to the code that called vprintf rather than to vprintf itself --
+% without that registration the caller column of every line in the log would
+% read "vprintf" at one fixed line number.
 %
 % Levels are integers normally between -1 and 4:
 %  -1 log message, but do not print to screen
@@ -17,7 +24,7 @@ function vprintf(verbose_level,varargin)
 %   2 medium, information that can be helpful for debugging
 %   3 high, lots of information about nearly all processes (debugging)
 %   4 trace, per-trial detail
-% See eplog.Level for the named form.
+% See granary.Level for the named form.
 %
 % The two destinations are filtered separately:
 %   GVerbosity    - command window. Default 1, unchanged.
@@ -27,7 +34,7 @@ function vprintf(verbose_level,varargin)
 % GLogVerbosity to a finite level on a rig where per-trial level-4 traces are
 % too expensive to write.
 %
-% Format policy (eplog.format):
+% Format policy (granary.format):
 %   With values, msg is a printf format string, exactly as documented.
 %   With no values, msg is LITERAL text -- nothing is interpreted -- so a
 %   runtime-built message such as ME.message or 'C:\new\data.mat' survives
@@ -54,42 +61,13 @@ function vprintf(verbose_level,varargin)
 %      vprintf(1,1,'This is a red level %d message: %s',1,'low verbosity')
 %      18:51:35.958: This is a red level 1 message: low verbosity
 %
-% See documentation/eplog/eplog_Logging.md for the package overview and
-% documentation/helpers/helpers_vprintf.md for a usage guide.
+% See documentation/helpers/helpers_vprintf.md for a usage guide, and the
+% granary repository for the package itself.
 %
-% See also: visenabled, eplog.Logger, eplog.isEnabled, eplog.Level, eplog.format
+% See also: visenabled, granary.printf, granary.Logger, granary.isEnabled
 %
 % Daniel.Stolzberg@gmail.com 2015
 
 % Copyright (C) 2016  Daniel Stolzberg, PhD
 
-% The gate comes first and is the only cost a suppressed message pays: no
-% timestamp, no dbstack, no formatting. At a 100 Hz trial timer that is the
-% difference between level-4 traces being free and being a timing hazard --
-% which is now a reason to lower GLogVerbosity there, since the default asks
-% for everything and only a message no destination wants stops here. Each sink
-% applies its own level once the record is built.
-if ~eplog.isEnabled(verbose_level,'any'), return; end
-
-if isempty(varargin)
-    % Nothing to say. Historically this errored on an undefined variable
-    % inside the logger, which is the worst possible place to raise.
-    return
-end
-
-% Calling convention: an optional red flag sits between the level and the
-% message. It is only a flag when something follows it, and only when it is
-% numeric or logical -- the old test was ~ischar, which read a string scalar
-% message as the flag and then failed on it.
-if numel(varargin) >= 2 && (isnumeric(varargin{1}) || islogical(varargin{1})) ...
-        && isscalar(varargin{1})
-    red    = logical(varargin{1});
-    msg    = varargin{2};
-    values = varargin(3:end);
-else
-    red    = false;
-    msg    = varargin{1};
-    values = varargin(2:end);
-end
-
-eplog.Logger.instance().emit(verbose_level,red,msg,values);
+granary.printf(verbose_level,varargin{:});

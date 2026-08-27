@@ -91,12 +91,13 @@ addpath(subdirs);
 path(path)
 fprintf(' done\n')
 
-% Rebuild the session logger now that the path is set. A file sink captures
-% its directory when it is constructed, so a logger created against an older
-% root -- or created before this repository was on the path at all, when
-% eplog.defaultLogDir falls back to tempdir -- would keep writing there for
-% the rest of the session.
-eplog.Logger.instance('-reset');
+% Find and configure the logging package, then rebuild the session logger now
+% that the path is set. A file sink captures its directory when it is
+% constructed, so a logger created against an older root -- or created before
+% this repository was on the path at all, when granary.defaultLogDir falls back
+% to tempdir -- would keep writing there for the rest of the session.
+setup_granary(rootdir);
+granary.Logger.instance('-reset');
 
 % stimgen logs through its own front door. Give it somewhere to send the
 % messages, so a StimPlayer or calibration failure lands in .error_logs with
@@ -242,6 +243,73 @@ for i = 1:numel(evicted)
         'memory -- run "clear classes" or restart Matlab before starting a session.'], ...
         evicted{i},rootdir);
 end
+
+
+function setup_granary(rootdir)
+% Put the granary logging package on the path and configure it for this tree.
+%
+% granary is a separate repository: vprintf is a thin facade over it, so
+% nothing in the toolbox can log until it is found.  That makes this the one
+% dependency worth failing loudly about -- left to itself it would surface as
+% "Undefined variable granary" from whichever call site happened to log first,
+% which is never the code that is actually wrong.
+%
+% Searched in order: already on the path, an explicit preference, obj/granary
+% inside this checkout (where a submodule would sit), a sibling beside this
+% checkout, then a sibling one level up -- which is where a "git worktree"
+% finds it, since a worktree lives a directory deeper than the checkout it was
+% made from.
+
+if isempty(which('granary.printf'))
+    candidates = {};
+
+    % An explicit override wins, so a rig that keeps its checkouts somewhere
+    % unusual sets this once instead of editing startup.
+    try
+        if ispref('EPsych','GranaryPath')
+            candidates{end+1} = char(getpref('EPsych','GranaryPath'));
+        end
+    catch
+        % Preferences unreadable; fall through to the search.
+    end
+
+    up1 = fileparts(rootdir);
+    candidates = [candidates, { ...
+        fullfile(rootdir,'obj','granary'), ...
+        fullfile(up1,'granary'), ...
+        fullfile(fileparts(up1),'granary')}];
+
+    for i = 1:numel(candidates)
+        if isfolder(fullfile(candidates{i},'+granary'))
+            addpath(candidates{i});
+            break
+        end
+    end
+end
+
+assert(~isempty(which('granary.printf')),'epsych_startup:granaryMissing', ...
+    ['The granary logging package was not found, so EPsych cannot log and ' ...
+     'will not start.\n' ...
+     '    Clone it beside this checkout:\n' ...
+     '        git clone https://github.com/dstolz/granary "%s"\n' ...
+     '    or point at an existing copy:\n' ...
+     '        setpref(''EPsych'',''GranaryPath'',''<folder holding +granary>'')\n' ...
+     '    or add it to the Matlab path before calling epsych_startup.'], ...
+    fullfile(fileparts(rootdir),'granary'));
+
+% LogRoot puts .error_logs inside this checkout, which is where EPsych has
+% always written.  FacadeFiles names the two files that stand between a call
+% site and the logger, so records keep naming the code that logged rather than
+% the wrapper: vprintf for EPsych's own calls, and stimbridge.LogBridge for
+% stimgen's, which adds two frames of its own.
+%
+% PrefGroup is 'eplog' rather than the package default: that preference
+% predates this extraction, and moving the group would silently orphan every
+% rig's configured Error Log Path.
+granary.config( ...
+    'LogRoot',     rootdir, ...
+    'PrefGroup',   'eplog', ...
+    'FacadeFiles', {'vprintf.m','LogBridge.m'});
 
 
 function install_stimgen_log_bridge()

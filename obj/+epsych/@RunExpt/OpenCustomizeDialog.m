@@ -23,16 +23,19 @@ dataPath  = char(getpref('RunExpt','DataPath', char(self.DefaultDataPath)));
 % Shown empty when unset, so the field reads as "the EPsych default" rather
 % than proposing the repository path as something the operator chose.
 logDir    = '';
-if ispref('eplog','LogDir')   % three-arg getpref would create the preference
-    logDir = char(getpref('eplog','LogDir'));
+% The group is asked of granary rather than spelled here, so this dialog and
+% granary.setLogDir cannot drift apart over which preference holds the override.
+logGroup  = granary.config().PrefGroup;
+if ispref(logGroup,'LogDir')  % three-arg getpref would create the preference
+    logDir = char(getpref(logGroup,'LogDir'));
 end
 logViewer = char(getpref('ep_RunExpt_Logging','ExternalViewer',''));
 % What "empty" actually resolves to, shown as placeholder text so the operator
 % can read the default instead of inferring it. Named from the same functions
 % that pick it at run time, and deliberately the built-in rather than
-% eplog.defaultLogDir -- clearing the field must preview the fallback, not echo
+% granary.defaultLogDir -- clearing the field must preview the fallback, not echo
 % the override being cleared.
-dfltLogDir    = eplog.builtinLogDir();
+dfltLogDir    = granary.builtinLogDir();
 dfltLogViewer = epsych.RunExpt.defaultLogViewer();
 
 % The roster is the one path here with no default at all: empty means no roster
@@ -319,10 +322,10 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
 
         % Error log path: a relative path would follow the working directory,
         % scattering log folders and pointing the Help menu at whichever one is
-        % current. Refused here rather than in eplog so the operator sees it
+        % current. Refused here rather than in granary so the operator sees it
         % against the field they typed it into.
         ld = strtrim(ef_logdir.Value);
-        if ~isempty(ld) && ~eplog.isAbsolutePath(ld)
+        if ~isempty(ld) && ~granary.isAbsolutePath(ld)
             errs{end+1} = sprintf('Error Log Path must be an absolute path; ''%s'' is relative.', ld);
         end
 
@@ -364,7 +367,7 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         % has already been persisted and re-applying it on the next OK is
         % harmless.
         try
-            eplog.setLogDir(ld);
+            granary.setLogDir(ld);
         catch ME
             vprintf(0,1,ME);
             uialert(dlg, ME.message, 'Error Log Path', 'Icon', 'error');

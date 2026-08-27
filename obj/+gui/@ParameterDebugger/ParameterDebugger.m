@@ -798,7 +798,7 @@ classdef ParameterDebugger < handle
             end
 
             try
-                L = eplog.Logger.instance();
+                L = granary.Logger.instance();
                 L.flush();
                 if isempty(L.LogFile)
                     self.setStatus_('File logging is disabled for this session.');

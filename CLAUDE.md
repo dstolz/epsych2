@@ -23,6 +23,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 git clone --recurse-submodules https://github.com/dstolz/epsych2.git
 # For an existing clone:
 git submodule update --init --recursive
+
+# granary (the logging package) is a separate repository and a HARD dependency
+# -- nothing in the toolbox can log without it. Clone it beside epsych2:
+git clone https://github.com/dstolz/granary.git
+# Somewhere else? Point at it once instead:
+#   setpref('EPsych','GranaryPath','<folder holding +granary>')
 ```
 
 ```matlab
@@ -465,7 +471,7 @@ host it falls back to `fullfile(tempdir,'stimgen_error_logs')`.
 #### obj/+stimbridge/ – EPsych ↔ stimgen Seam
 - **stimbridge.RuntimeHost**: Implements `stimgen.HardwareHost` over epsych.Runtime/Protocol
 - **stimbridge.InterfaceAdapter**: Implements `stimgen.calibration.HwAdapter` over hw.Interface
-- **stimbridge.LogBridge**: Implements `stimgen.LogSink` over `eplog.Logger`, so stimgen's
+- **stimbridge.LogBridge**: Implements `stimgen.LogSink` over `granary.Logger`, so stimgen's
   messages land in the session log attributed to their own call site. Installed by
   `epsych_startup`, guarded so a stimgen pinned before the seam still starts
 
@@ -1016,29 +1022,49 @@ re-uploading the state table.
 - RPco.x connection (TDTRP) and RPvds tag reading (ReadRPvdsTags)
 - Synapse SDK (SynapseAPI/)
 
-#### obj/+eplog/ – Logging
+#### granary – Logging (SEPARATE REPOSITORY)
 The machinery behind vprintf; almost nothing should call it directly.
-- **eplog.isEnabled**: the verbosity gate, and the only interpreter of GVerbosity
+**It is not in this repository.** `granary` lives at
+[dstolz/granary](https://github.com/dstolz/granary) and is a hard dependency:
+vprintf is a thin facade over `granary.printf`, so nothing in the toolbox can
+log without it. `epsych_startup`'s `setup_granary` finds it — already on the
+path, else `getpref('EPsych','GranaryPath')`, else `obj/granary` (where a
+submodule would sit), else a sibling of the checkout, else a sibling one level
+up, which is where a **git worktree** finds it — and asserts with clone
+instructions when it cannot, rather than letting "Undefined variable granary"
+surface from whichever call site logged first. Three settings are applied there
+and nowhere else: `LogRoot` = the checkout (so `.error_logs` stays where EPsych
+has always written), `FacadeFiles` = `{'vprintf.m','LogBridge.m'}` (see
+`granary.callerFrame` below), and **`PrefGroup` = `'eplog'`, deliberately not
+the package default** — that preference predates the extraction and renaming
+the group would silently orphan every rig's configured Error Log Path.
+Ask `granary.config().PrefGroup` rather than spelling `'eplog'` at a new call site.
+- **granary.isEnabled**: the verbosity gate, and the only interpreter of GVerbosity
   (console) and GLogVerbosity (error log, default Inf = log everything). It answers
   per destination — `isEnabled(level,'console'|'log'|'any')` — because the two are
   decoupled: a quiet command window no longer costs the record of what happened
-- **eplog.Logger**: session singleton; builds one record per message and dispatches
+- **granary.Logger**: session singleton; builds one record per message and dispatches
   to its sinks. `instance()`, `emit`, `flush`, `addSink`, `LogFile`
-- **eplog.sink.Console / TextFile / JsonLines**: destinations. Each applies its own
+- **granary.sink.Console / TextFile / JsonLines**: destinations. Each applies its own
   level in `accepts(rec)` — the logger's gate only asks whether ANY destination
   wants the record. FileSink owns the daily .error_logs file — rotation, flush,
   handle recovery, failure latching
-- **eplog.format / formatException**: message text policy; an exception (or a
+- **granary.format / formatException**: message text policy; an exception (or a
   lasterror/timer-event struct) becomes ONE record at the catch site
-- **eplog.callerFrame**: attributes a record to the code that logged it, by skipping
-  logger frames by filename. Any new wrapper in the call chain must be added to its
-  skip list or it silently claims every message routed through it
+- **granary.callerFrame**: attributes a record to the code that logged it, by skipping
+  the package's own frames plus every filename in `granary.config`'s `FacadeFiles`.
+  Any new wrapper in the call chain must be added to that list — set in
+  `epsych_startup`, not in the package — or it silently claims every message
+  routed through it, at one fixed line number
 Nothing in the package throws: EPsych logs from inside catch blocks.
 stimgen reaches this package through `stimbridge.LogBridge`, not by calling `vprintf`.
-See documentation/eplog/eplog_Logging.md.
+See documentation/granary/granary_Logging.md for the seam, and the granary
+repository's own README for the package. Its standing proofs are split to match:
+`tests/smoke_test_logging.m` there covers the package, `tmp/smoke_test_granary_integration.m`
+here covers the wiring.
 
 #### helpers/ – Shared Utilities
-- **vprintf.m**: Verbosity-gated printing and logging; a façade over obj/+eplog/
+- **vprintf.m**: Verbosity-gated printing and logging; a façade over `granary.printf`
 - **visenabled.m**: The gate alone, for guarding expensive log arguments
 - **EPsychInfo**: Version and git metadata
 - **Trial sequence generators**: randGellerman, RandomTrialSequence, FellowsSeq
@@ -1091,10 +1117,10 @@ ERROR is reachable from any state.
 - Format policy: **with** values the message is a printf format string; **with no**
   values it is literal text. Pass runtime-built strings (ME.message, file paths,
   tool output) as the whole message so '%' and backslashes survive
-- vprintf is a façade over obj/+eplog/, which logs to .error_logs/
+- vprintf is a façade over `granary.printf` (separate repo), which logs to .error_logs/
 - The console and the log have separate levels: GVerbosity gates the command window,
   GLogVerbosity gates the file and defaults to Inf, so EVERY message is logged
-- Never rebuild the log path by hand. `eplog.Logger.instance().LogFile` names the
+- Never rebuild the log path by hand. `granary.Logger.instance().LogFile` names the
   current file; call `flush()` first if something is about to read or open it
 - Guard only genuinely expensive log arguments with `visenabled(level)`; vprintf's
   own gate already makes a message no destination wants ~4 us. Note visenabled is
@@ -1188,7 +1214,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 | examples/stimgen/ | Demo protocol/config/TDT circuit assets |
 | obj/+gui/ | GUI components |
 | obj/+teensy/ | Teensy trial programs: state-machine model, compiler, simulator, TrialDesigner GUI |
-| obj/+eplog/ | Logging: verbosity gate, record dispatcher, console/file/JSON sinks |
+| *(external)* granary | Logging: verbosity gate, record dispatcher, console/file/JSON sinks. Separate repo, located by `epsych_startup` |
 | obj/+psychophysics/ | Analysis (Detection, Staircase, BestPEST, MLP) |
 | obj/+peripherals/ | Motor control, pump communication |
 | firmware/ | Microcontroller firmware (EPsychTeensy) |
@@ -1214,7 +1240,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 - **Pre-flight self-test**: documentation/overviews/RunExpt_SelfTest.md
 - **Runtime events**: documentation/epsych/Event_Notifications.md
 - **Offline session review**: documentation/epsych/epsych_ReviewSession.md
-- **Logging**: documentation/eplog/eplog_Logging.md, documentation/helpers/helpers_vprintf.md
+- **Logging**: documentation/granary/granary_Logging.md, documentation/helpers/helpers_vprintf.md
 - **Architecture**: documentation/overviews/Architecture_Overview.md
 - **Class map**: documentation/overviews/Class_Map.md
 - **Toolbox overview**: documentation/overviews/Toolbox_Overview.md

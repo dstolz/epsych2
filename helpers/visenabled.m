@@ -16,16 +16,16 @@ function tf = visenabled(verbose_level)
 % It answers for BOTH destinations, matching vprintf: the error log takes every
 % level by default (GLogVerbosity), so a guarded block now runs even when the
 % console is quiet, and its message is written to the log. Guard on
-% eplog.isEnabled(level,'console') instead only where the console is genuinely
-% the sole consumer -- a guard that hides the argument also hides it from the
-% log, which is the file that has to explain the failure afterwards.
+% granary.isEnabled(level,'console') instead only where the console is
+% genuinely the sole consumer -- a guard that hides the argument also hides it
+% from the log, which is the file that has to explain the failure afterwards.
 %
 % Parameters:
-%   verbose_level - numeric verbosity level (see eplog.Level)
+%   verbose_level - numeric verbosity level (see granary.Level)
 %
 % Returns:
 %   tf - logical scalar
 %
-% See also: vprintf, eplog.isEnabled, eplog.Level
+% See also: vprintf, granary.isEnabled, granary.Level
 
-tf = eplog.isEnabled(verbose_level,'any');
+tf = granary.isEnabled(verbose_level,'any');

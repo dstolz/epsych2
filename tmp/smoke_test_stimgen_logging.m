@@ -3,7 +3,7 @@ function smoke_test_stimgen_logging
 % Verify the stimgen <-> EPsych logging seam.
 %
 % stimgen ships its own logger so it can run standalone. stimbridge.LogBridge
-% makes it forward to eplog instead, so one session produces one log. This test
+% makes it forward to granary instead, so one session produces one log. This test
 % covers both halves of that: the forwarding path with a bridge installed, and
 % the built-in fallback with none.
 %
@@ -91,12 +91,12 @@ assert(isa(rec(1).msg,'MException'),'the exception must arrive unexpanded');
 fprintf('PASS: 4 an exception is forwarded raw, as a single message\n');
 
 % 5. Caller attribution through the real bridge -----------------------------
-% Without the LogBridge marker in eplog.callerFrame, every stimgen message is
+% Without the LogBridge marker in granary.callerFrame, every stimgen message is
 % stamped with the bridge instead of its call site. This is the regression
 % guard for that fix.
-L = eplog.Logger.instance('-reset');
-L.removeSink(L.sinkOfType('eplog.sink.FileSink'));
-sink = eplog.sink.TextFile(scratch);
+L = granary.Logger.instance('-reset');
+L.removeSink(L.sinkOfType('granary.sink.FileSink'));
+sink = granary.sink.TextFile(scratch);
 L.addSink(sink);
 stimgen.util.logSink(stimbridge.LogBridge());
 
@@ -173,7 +173,7 @@ stimgen.util.logSink(stimbridge.LogBridge());
 fprintf('PASS: 9 a broken sink falls back without throwing or latching\n');
 
 % 10. Gate delegation -------------------------------------------------------
-% With the bridge installed, eplog.isEnabled is the single reader of the
+% With the bridge installed, granary.isEnabled is the single reader of the
 % verbosity globals for both code bases -- including the split between them, so
 % a stimgen message the console is too quiet for still reaches the session log
 % instead of being dropped by stimgen's own single-destination gate.
@@ -220,9 +220,9 @@ assert(isa(second,'stimbridge.LogBridge'),'startup must leave a bridge installed
 assert(first == second,'re-running startup must not replace a working bridge');
 
 % epsych_startup rebuilt the logger, so redirect the fresh one back to scratch.
-L = eplog.Logger.instance();
-L.removeSink(L.sinkOfType('eplog.sink.FileSink'));
-sink = eplog.sink.TextFile(scratch);
+L = granary.Logger.instance();
+L.removeSink(L.sinkOfType('granary.sink.FileSink'));
+sink = granary.sink.TextFile(scratch);
 L.addSink(sink);
 fprintf('PASS: 11 installing the bridge is idempotent\n');
 
@@ -333,7 +333,7 @@ catch
     stimgen.util.logSink([]);
 end
 
-eplog.Logger.instance('-reset');
+granary.Logger.instance('-reset');
 
 if isfolder(scratch)
     try

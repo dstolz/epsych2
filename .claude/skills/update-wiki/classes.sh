@@ -78,7 +78,7 @@ group_for() {
         gui.*)           GNUM=4;  GLABEL="GUI components";            GPKG="gui" ;;
         psychophysics.*) GNUM=5;  GLABEL="Psychophysics and analysis"; GPKG="psychophysics" ;;
         teensy.*)        GNUM=6;  GLABEL="Teensy trial programs";     GPKG="teensy" ;;
-        eplog.*)         GNUM=7;  GLABEL="Logging";                   GPKG="eplog" ;;
+        granary.*)         GNUM=7;  GLABEL="Logging";                   GPKG="granary" ;;
         peripherals.*|util.*) GNUM=8; GLABEL="Peripherals and media"; GPKG="peripherals, util" ;;
         cl_*|ep_*)       GNUM=9;  GLABEL="Paradigms and runtime shells"; GPKG="paradigms/, runtime/" ;;
         *)               GNUM=10; GLABEL="Toolbox level";             GPKG="top level" ;;

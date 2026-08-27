@@ -57,7 +57,7 @@ rather than the report.
 
 `issueReportFields` flushes the logger first (the file sink buffers, so without it the excerpt
 would end several messages before the failure) and takes the last 120 lines of
-`eplog.Logger.instance().LogFile`. The dialog header names the file and says how much of it the
+`granary.Logger.instance().LogFile`. The dialog header names the file and says how much of it the
 excerpt covers. When file logging is disabled for the session there is no excerpt: the section
 is disabled and says so, and the report goes without it.
 
@@ -112,5 +112,5 @@ both open a browser on a public tracker.
 ## See also
 
 - [RunExpt_GUI_Overview.md](../overviews/RunExpt_GUI_Overview.md) — the Help menu in context
-- [eplog_Logging.md](../eplog/eplog_Logging.md) — where the log comes from and how to change its
+- [granary_Logging.md](../granary/granary_Logging.md) — where the log comes from and how to change its
   level or location

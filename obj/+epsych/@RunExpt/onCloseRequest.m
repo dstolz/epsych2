@@ -65,7 +65,7 @@ end
 
 % Closing the session GUI is the one moment the session is known to be over,
 % and the point at which the operator is most likely to go and read the log.
-eplog.Logger.instance().flush();
+granary.Logger.instance().flush();
 
 % Deleting the status bar hands the figure's WindowButtonDownFcn back, which
 % gui.components.StatusBar took over for its copy-to-clipboard gesture. It has to happen

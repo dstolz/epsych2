@@ -122,7 +122,7 @@ Support and task-specific classes
 │  └─ NanoMotorControlGUI
 ├─ util
 │  └─ VideoConverter → gui.VideoConverterSetup
-├─ eplog
+├─ granary
 │  ├─ Logger
 │  ├─ Level (int32 enumeration)
 │  └─ sink.Sink
@@ -155,7 +155,7 @@ Support and task-specific classes
 | stimgen | `HardwareHost` | `handle` | Abstract contract a host implements to give stimgen GUIs hardware access |
 | stimgen | `calibration.HwAdapter` | `handle` | Abstract play/record contract for the calibration engine |
 | gui | `Helper` | `handle` | Shared GUI helper base |
-| eplog | `sink.Sink` | `handle` | Abstract log destination behind `vprintf` |
+| granary | `sink.Sink` | `handle` | Abstract log destination behind `vprintf` |
 
 > 🔑 **Four abstract classes are the toolbox's extension points.** `hw.Interface` (a backend), `epsych.TrialSelector` (trial selection), `psychophysics.Psych` (analysis), and `stimgen.StimType` (a stimulus, in the submodule). Almost every extension is a subclass of one of them.
 

@@ -4,7 +4,7 @@ function verbosity(self, varargin)
 %   Presents a list dialog and updates GVerbosity accordingly.
 %   When called with a numeric scalar, sets that level directly.
 %   This is the console level only. The error log keeps every message at any
-%   setting (GLogVerbosity, see eplog.isEnabled), so quieting the command
+%   setting (GLogVerbosity, see granary.isEnabled), so quieting the command
 %   window never costs the record of what happened.
 
 global GVerbosity

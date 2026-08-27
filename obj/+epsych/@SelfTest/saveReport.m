@@ -3,7 +3,7 @@ function ffn = saveReport(self, results, ffn)
 % ffn = saveReport(self, results, ffn)
 % Write the plain-text report to disk.
 %
-% Reports default to the eplog log directory alongside the daily text log,
+% Reports default to the granary log directory alongside the daily text log,
 % so a rig's diagnostics all live in one place.
 %
 % Parameters:
@@ -24,7 +24,7 @@ end
 if strlength(ffn) == 0
     % Same directory the logger writes to, resolved the same way, so the
     % report cannot land somewhere the daily log does not.
-    logDir = eplog.defaultLogDir();
+    logDir = granary.defaultLogDir();
     if ~isfolder(logDir)
         mkdir(logDir);
     end

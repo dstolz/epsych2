@@ -1,9 +1,9 @@
-function smoke_test_eplog_integration
-% smoke_test_eplog_integration
-% Verify that EPsych actually logs THROUGH the +eplog package.
+function smoke_test_granary_integration
+% smoke_test_granary_integration
+% Verify that EPsych actually logs THROUGH the +granary package.
 %
-% smoke_test_eplog proves the package works in isolation. This one proves the
-% seam: that vprintf is a façade over eplog.Logger, that the calling
+% granary's own tests/smoke_test_logging.m proves the package in isolation. This one proves the
+% seam: that vprintf is a façade over granary.Logger, that the calling
 % conventions used across the repository still mean what they meant, and that
 % the consumers which name the log file agree with the sink about where it is.
 %
@@ -11,7 +11,7 @@ function smoke_test_eplog_integration
 % duration, so the repository .error_logs is untouched. The logger is reset
 % afterwards.
 %
-% Run headless: matlab -batch "addpath('c:\src\epsych2'); epsych_startup('c:\src\epsych2',false); run('c:\src\epsych2\tmp\smoke_test_eplog_integration.m')"
+% Run headless: matlab -batch "addpath('c:\src\epsych2'); epsych_startup('c:\src\epsych2',false); run('c:\src\epsych2\tmp\smoke_test_granary_integration.m')"
 
 global GVerbosity GLogVerbosity %#ok<GVMIS>
 priorVerbosity = GVerbosity;
@@ -25,7 +25,7 @@ if ispref('eplog','LogDir')
     rmpref('eplog','LogDir');
 end
 
-scratch = fullfile(tempdir,sprintf('eplog_integration_%d',feature('getpid')));
+scratch = fullfile(tempdir,sprintf('granary_integration_%d',feature('getpid')));
 if isfolder(scratch), rmdir(scratch,'s'); end
 
 cleanup = onCleanup(@() localCleanup(priorVerbosity,priorLogVerbosity,priorLogDir,scratch));
@@ -33,13 +33,13 @@ cleanup = onCleanup(@() localCleanup(priorVerbosity,priorLogVerbosity,priorLogDi
 GVerbosity = 3;
 GLogVerbosity = Inf;
 
-fprintf('\n=== smoke_test_eplog_integration ===\n');
+fprintf('\n=== smoke_test_granary_integration ===\n');
 
 % Redirect the singleton's file sink into the scratch directory. Everything
 % below goes through vprintf, so it exercises the real path.
-L = eplog.Logger.instance('-reset');
-L.removeSink(L.sinkOfType('eplog.sink.FileSink'));
-sink = eplog.sink.TextFile(scratch);
+L = granary.Logger.instance('-reset');
+L.removeSink(L.sinkOfType('granary.sink.FileSink'));
+sink = granary.sink.TextFile(scratch);
 L.addSink(sink);
 
 % 1. vprintf reaches the sink, attributed to its caller ---------------------
@@ -47,13 +47,13 @@ vprintf(1,'plain message');
 L.flush();
 txt = fileread(sink.Path);
 assert(contains(txt,': plain message'),'vprintf did not reach the file sink');
-assert(contains(txt,'smoke_test_eplog_integration'), ...
+assert(contains(txt,'smoke_test_granary_integration'), ...
     'the log must name the function that called vprintf, not vprintf');
 fprintf('PASS: 1 vprintf routes through the session logger\n');
 
 % 2. The four calling conventions -------------------------------------------
 % These are the shapes in use across the repository; all four must survive
-% the move to eplog.
+% the move to granary.
 before = localBytes(sink.Path);
 out = evalc('vprintf(1,''level %d for box %d'',2,7)');
 assert(contains(out,'level 2 for box 7'),'msg + values path broken');
@@ -129,7 +129,7 @@ catch ME
 end
 L.flush();
 lines = localNewLines(sink.Path,before);
-assert(contains(lines{1},'smoke_test_eplog_integration'), ...
+assert(contains(lines{1},'smoke_test_granary_integration'), ...
     sprintf('the exception must be stamped with the catch site, got: %s',lines{1}));
 assert(contains(lines{1},'epsych:integration:deliberate'),'identifier must be logged');
 assert(any(contains(lines,'    at localThrow')),'the stack must be indented under the record');
@@ -168,21 +168,21 @@ fprintf('PASS: 8 malformed vprintf calls degrade instead of throwing\n');
 assert(strcmp(L.LogFile,sink.Path), ...
     sprintf('LogFile (%s) disagrees with the open sink (%s)',L.LogFile,sink.Path));
 
-fresh = eplog.sink.TextFile(fullfile(scratch,'never_written'));
-LF = eplog.Logger({fresh});
-assert(endsWith(LF.LogFile,sprintf('error_log_%s.txt',eplog.dateTag(clock))), ...
+fresh = granary.sink.TextFile(fullfile(scratch,'never_written'));
+LF = granary.Logger({fresh});
+assert(endsWith(LF.LogFile,sprintf('error_log_%s.txt',granary.dateTag(clock))), ...
     'LogFile must name today''s file even before anything is written');
 assert(~isfile(LF.LogFile),'querying LogFile must not create the file');
 delete(LF);
 fprintf('PASS: 9 LogFile names the file the next record will land in\n');
 
 % 10. The default logger writes where EPsych has always written -------------
-D = eplog.Logger.instance('-reset');
+D = granary.Logger.instance('-reset');
 expected = fullfile(epsych_path,'.error_logs', ...
-    sprintf('error_log_%s.txt',eplog.dateTag(clock)));
+    sprintf('error_log_%s.txt',granary.dateTag(clock)));
 assert(strcmp(D.LogFile,expected), ...
     sprintf('default log path moved: %s (expected %s)',D.LogFile,expected));
-assert(~isempty(D.sinkOfType('eplog.sink.Console')),'the default logger must echo to the console');
+assert(~isempty(D.sinkOfType('granary.sink.Console')),'the default logger must echo to the console');
 fprintf('PASS: 10 the default log path is unchanged\n');
 
 % 11. SelfTest check A4 passes against the live logger ----------------------
@@ -194,27 +194,27 @@ evalc('results = st.run("Environment")');
 a4 = results(strcmp([results.id],"A4_Logging"));
 assert(isscalar(a4),'A4_Logging is missing from the Environment group');
 assert(a4.status == "pass", ...
-    sprintf('SelfTest A4 failed against the eplog logger: %s',a4.summary));
-fprintf('PASS: 11 SelfTest A4 passes through the eplog file sink\n');
+    sprintf('SelfTest A4 failed against the granary logger: %s',a4.summary));
+fprintf('PASS: 11 SelfTest A4 passes through the granary file sink\n');
 
 % 12. saveReport lands beside the daily log ---------------------------------
 ffn = st.saveReport(results);
 assert(isfile(ffn),'the self-test report was not written');
-assert(strcmp(fileparts(char(ffn)),eplog.defaultLogDir()), ...
+assert(strcmp(fileparts(char(ffn)),granary.defaultLogDir()), ...
     'the report must be written to the logger''s own directory');
 delete(ffn);
 fprintf('PASS: 12 self-test reports are written beside the daily log\n');
 
 % 13. The log directory override --------------------------------------------
-% Customize > Paths > Error Log Path, and eplog.setLogDir behind it. The move
+% Customize > Paths > Error Log Path, and granary.setLogDir behind it. The move
 % must take effect immediately, not at the next MATLAB session.
 alt = fullfile(scratch,'alt_logs');
-d = eplog.setLogDir(alt);
+d = granary.setLogDir(alt);
 assert(strcmp(d,alt),'setLogDir must report the directory now in effect');
-assert(strcmp(eplog.defaultLogDir(),alt),'the override must win over the built-in default');
+assert(strcmp(granary.defaultLogDir(),alt),'the override must win over the built-in default');
 
 vprintf(1,'written after the move');
-M = eplog.Logger.instance();
+M = granary.Logger.instance();
 M.flush();
 assert(strcmp(fileparts(M.LogFile),alt), ...
     sprintf('the live logger did not follow the move: %s',M.LogFile));
@@ -223,14 +223,14 @@ assert(contains(fileread(M.LogFile),'written after the move'), ...
 
 threw = false;
 try
-    eplog.setLogDir(fullfile('relative','logs'));
+    granary.setLogDir(fullfile('relative','logs'));
 catch relErr
-    threw = strcmp(relErr.identifier,'eplog:setLogDir:RelativePath');
+    threw = strcmp(relErr.identifier,'granary:setLogDir:RelativePath');
 end
 assert(threw,'a relative log directory must be refused');
-assert(strcmp(eplog.defaultLogDir(),alt),'a refused path must not disturb the current one');
+assert(strcmp(granary.defaultLogDir(),alt),'a refused path must not disturb the current one');
 
-d = eplog.setLogDir('');
+d = granary.setLogDir('');
 assert(strcmp(d,fullfile(epsych_path,'.error_logs')), ...
     'clearing the override must restore the built-in default');
 assert(~ispref('eplog','LogDir'),'clearing must remove the preference, not blank it');
@@ -245,7 +245,7 @@ viewer = epsych.RunExpt.defaultLogViewer();
 assert(ischar(viewer) && ~isempty(viewer),'a platform default viewer must be named');
 fprintf('PASS: 14 an external log viewer default exists (%s)\n',viewer);
 
-fprintf('\nAll smoke_test_eplog_integration checks passed.\n\n');
+fprintf('\nAll smoke_test_granary_integration checks passed.\n\n');
 end
 
 
@@ -279,7 +279,7 @@ if isempty(priorLogDir)
 else
     setpref('eplog','LogDir',priorLogDir);
 end
-eplog.Logger.instance('-reset');
+granary.Logger.instance('-reset');
 if isfolder(scratch)
     try
         rmdir(scratch,'s');

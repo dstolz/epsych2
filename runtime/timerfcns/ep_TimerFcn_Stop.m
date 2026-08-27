@@ -36,4 +36,4 @@ end
 % Put the run's log on disk. The file sink buffers everything above its
 % FlushLevel, and the end of a run is the point at which the operator may
 % read, copy or archive the log.
-eplog.Logger.instance().flush();
+granary.Logger.instance().flush();

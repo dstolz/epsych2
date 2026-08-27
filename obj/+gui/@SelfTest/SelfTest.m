@@ -182,7 +182,7 @@ classdef SelfTest < handle
             % Open today's error log, which holds the full run-by-run detail.
             % Flush first: check results are logged at level -1 and would
             % otherwise still be sitting in the file sink's buffer.
-            L = eplog.Logger.instance();
+            L = granary.Logger.instance();
             L.flush();
 
             logPath = L.LogFile;

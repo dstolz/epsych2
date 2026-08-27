@@ -237,11 +237,11 @@ Reference: [epsych_SubjectRoster.md](../epsych/epsych_SubjectRoster.md), [gui_Su
 |---|---|
 | [`vprintf`](../../helpers/vprintf.m) | Every message EPsych prints. `vprintf(level, msg, …)`, or `vprintf(level, 1, msg)` for red. Levels: `-1` log only, `0` critical, `1` info, `2` debug, `3` verbose, `4` trace. **Never end a message with `\n`.** With values the message is a format string; with no values it is literal text — which is what lets `ME.message` and Windows paths survive intact. |
 | [`visenabled`](../../helpers/visenabled.m) | The gate alone, for guarding a log argument that is genuinely expensive to build. `vprintf`'s own gate already makes an unwanted message cost microseconds, so use this only around real work. |
-| [`eplog.isEnabled`](../../obj/+eplog/isEnabled.m) | The gate itself, per destination: `isEnabled(level,'console'\|'log'\|'any')`. The console (`GVerbosity`, default 1) and the error log (`GLogVerbosity`, default `Inf`) are decoupled — a quiet command window no longer costs the record. |
-| [`eplog.Level`](../../obj/+eplog/Level.m) | Named levels — `LogOnly`, `Critical`, `Info`, `Debug`, `Verbose` — usable anywhere a number is accepted. |
-| [`eplog.Logger`](../../obj/+eplog/@Logger/Logger.m) | The session singleton behind `vprintf`. `instance()`, `emit`, `flush`, `addSink`, and `LogFile` — **the** way to name the current log file. Never rebuild that path by hand; call `flush()` first if something is about to open it. |
-| [`eplog.setLogDir`](../../obj/+eplog/setLogDir.m) | Point the daily logs somewhere else — a rig whose repository sits on a read-only or synced share. Persists as a preference and re-points the live logger immediately. Unlike the rest of the package it *does* throw, because it is configuration rather than logging. |
-| [`eplog.formatException`](../../obj/+eplog/formatException.m) | Render an `MException` — or a `lasterror`-style struct such as `RUNTIME.ERROR` — as one record, preserving the catch site as the caller. This is what `catch ME; vprintf(0,1,ME); end` calls. |
+| [`granary.isEnabled`](https://github.com/dstolz/granary/blob/main/+granary/isEnabled.m) | The gate itself, per destination: `isEnabled(level,'console'\|'log'\|'any')`. The console (`GVerbosity`, default 1) and the error log (`GLogVerbosity`, default `Inf`) are decoupled — a quiet command window no longer costs the record. |
+| [`granary.Level`](https://github.com/dstolz/granary/blob/main/+granary/Level.m) | Named levels — `LogOnly`, `Critical`, `Info`, `Debug`, `Verbose` — usable anywhere a number is accepted. |
+| [`granary.Logger`](https://github.com/dstolz/granary/blob/main/+granary/@Logger/Logger.m) | The session singleton behind `vprintf`. `instance()`, `emit`, `flush`, `addSink`, and `LogFile` — **the** way to name the current log file. Never rebuild that path by hand; call `flush()` first if something is about to open it. |
+| [`granary.setLogDir`](https://github.com/dstolz/granary/blob/main/+granary/setLogDir.m) | Point the daily logs somewhere else — a rig whose repository sits on a read-only or synced share. Persists as a preference and re-points the live logger immediately. Unlike the rest of the package it *does* throw, because it is configuration rather than logging. |
+| [`granary.formatException`](https://github.com/dstolz/granary/blob/main/+granary/formatException.m) | Render an `MException` — or a `lasterror`-style struct such as `RUNTIME.ERROR` — as one record, preserving the catch site as the caller. This is what `catch ME; vprintf(0,1,ME); end` calls. |
 | [`EPsychInfo`](../../helpers/@EPsychInfo/EPsychInfo.m) | Version, license, git checksum, commit timestamp, latest tag, the pinned stimgen checksum, and a `diagnostics` struct of host and software environment. What saved session metadata records, and what a bug report should include. |
 | [`epsych_path`](../../epsych_path.m) | The toolbox root, resolved from `which`. Build paths from it rather than from `pwd`. |
 
@@ -253,7 +253,7 @@ Reference: [epsych_SubjectRoster.md](../epsych/epsych_SubjectRoster.md), [gui_Su
 |---|---|
 | [`stimbridge.RuntimeHost`](../../obj/+stimbridge/RuntimeHost.m) | Implements `stimgen.HardwareHost` over `epsych.Runtime` / `epsych.Protocol`, so stimgen GUIs drive EPsych hardware without naming an EPsych type. |
 | [`stimbridge.InterfaceAdapter`](../../obj/+stimbridge/InterfaceAdapter.m) | Implements `stimgen.calibration.HwAdapter` over an `hw.Interface`. Resolves its five required parameters at construction and errors immediately if any is absent; discovers `Fs` from the first module reporting a device rate. |
-| [`stimbridge.LogBridge`](../../obj/+stimbridge/LogBridge.m) | Routes stimgen's messages into `eplog`, so a `StimPlayer` failure lands in the session log instead of `tempdir`. Installed by `epsych_startup`. |
+| [`stimbridge.LogBridge`](../../obj/+stimbridge/LogBridge.m) | Routes stimgen's messages into `granary`, so a `StimPlayer` failure lands in the session log instead of `tempdir`. Installed by `epsych_startup`. |
 | [`epsych.calibrate`](../../obj/+epsych/calibrate.m) | Launch the stimgen calibration GUI with the bridge already wired — with a protocol it loads, connects, and enters Preview first. |
 | [`isConcreteStimType`](../../helpers/isConcreteStimType.m) | Whether a class name is an **instantiable** stimulus. `stimgen.StimType` is `Hidden`, so the obvious `superclasses` test returns false for every stimulus; this walks `meta.class` instead, and also covers an unchecked-out submodule. |
 
@@ -300,7 +300,7 @@ The pairs that look interchangeable and are not. Each row is a mistake that has 
 |---|---|---|---|
 | A trial-varying value that is balanced | `epsych.BlockSequence` | `hw.Parameter.isRandom` | `isRandom` redraws per dispatch: memoryless, integer-only, unbalanced over any finite session, and unrecoverable after a rewind. |
 | To print anything | `vprintf` | `fprintf` | `fprintf` bypasses the verbosity gate and never reaches `.error_logs/`, which is the file that has to explain a failure afterwards. |
-| The current log file | `eplog.Logger.instance().LogFile` | a rebuilt path | The directory is overridable per rig, and the file rotates daily. |
+| The current log file | `granary.Logger.instance().LogFile` | a rebuilt path | The directory is overridable per rig, and the file rotates daily. |
 | Per-trial durability | `epsych.TrialJournal` | `save('-append')` | Append cost grows with file size (4.9 → 19.7 ms over 300 trials), and a crash mid-rewrite can lose the whole file rather than one record. |
 | To know a trial finished | a listener on `RUNTIME.EVENTS` | a polling timer | Everything downstream of the runtime is event-driven; the timer callback is the only intended polling loop. |
 | Session-level d′ and rates | `psychophysics.SessionMetrics` | `psychophysics.Detection` | `Detection` groups by unique stimulus value (a psychometric function); `SessionMetrics` collapses the session to the numbers on the status panel. |
@@ -317,4 +317,4 @@ The pairs that look interchangeable and are not. Each row is a mistake that has 
 
 ## Where the full reference lives
 
-Everything here is a summary. The authoritative treatment of each subsystem is in [documentation/](../README.md): `epsych/` for the framework, `hw/` for backends and parameters, `gui/` for components, `psychophysics/` for analysis, `eplog/` for logging, `teensy/` for the program model, and the submodule's own documentation for stimulus generation. Each class's help text is the last word on its own arguments — `doc epsych.BlockSequence` and its neighbors are written to be read.
+Everything here is a summary. The authoritative treatment of each subsystem is in [documentation/](../README.md): `epsych/` for the framework, `hw/` for backends and parameters, `gui/` for components, `psychophysics/` for analysis, `granary/` for logging, `teensy/` for the program model, and the submodule's own documentation for stimulus generation. Each class's help text is the last word on its own arguments — `doc epsych.BlockSequence` and its neighbors are written to be read.

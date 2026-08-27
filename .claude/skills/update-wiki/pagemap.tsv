@@ -1,4 +1,4 @@
-﻿# Repo path prefix -> wiki pages -> authoritative repo docs.
+# Repo path prefix -> wiki pages -> authoritative repo docs.
 # One source of truth: survey.sh reads this, references/page-map.md explains it.
 # Columns are TAB separated. Longest matching prefix wins; a file may match several rows.
 # Prefixes are matched against forward-slash repo-relative paths.
@@ -32,7 +32,7 @@ obj/+psychophysics/	Psychophysics-Framework, Training-and-Online-Analysis, Progr
 obj/+stimbridge/	Stimgen-Integration, Stimuli-and-Calibration	documentation/stimgen.md
 obj/stimgen	Stimgen-Integration, Stimuli-and-Calibration	documentation/stimgen.md (submodule docs are authoritative)
 obj/+teensy/	Teensy-Trial-Designer, Teensy-Program-Model, Programmers-Toolkit	documentation/teensy/, documentation/hw/hw_Teensy_Program_Protocol.md
-obj/+eplog/	Troubleshooting, Contributing-and-Conventions, Programmers-Toolkit	documentation/eplog/eplog_Logging.md
+helpers/vprintf.m	Troubleshooting, Contributing-and-Conventions, Programmers-Toolkit	documentation/granary/granary_Logging.md
 obj/+peripherals/	Video-and-Peripherals, Utilities	documentation/peripherals/
 obj/+util/	Video-and-Peripherals, Utilities	documentation/util/VideoConverter.md
 runtime/timerfcns/	Trial-Lifecycle, Runtime-and-Events	documentation/epsych/epsych_TrialLifecycle.md

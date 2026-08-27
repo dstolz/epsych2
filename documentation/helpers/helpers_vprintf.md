@@ -9,9 +9,9 @@ level, and writes it both to the command window and to a daily log file under
 **_All EPsych functions should use this in place of calling `fprintf` directly._**
 
 `vprintf` is a thin façade: it parses the calling convention and hands the
-result to the [`eplog`](../eplog/eplog_Logging.md) package, which formats the
+result to the [`granary`](../granary/granary_Logging.md) package, which formats the
 record and dispatches it to every configured destination. This page covers
-using it; [eplog](../eplog/eplog_Logging.md) covers the machinery, the log file
+using it; [granary](../granary/granary_Logging.md) covers the machinery, the log file
 lifecycle, and adding destinations.
 
 ## Function signature
@@ -24,7 +24,7 @@ vprintf(verbose_level, red, msg, value1, value2, ...)
 vprintf(verbose_level, [red], exception)
 ```
 
-- `verbose_level`: Numeric message level, or an `eplog.Level` member.
+- `verbose_level`: Numeric message level, or an `granary.Level` member.
 - `red`: Optional flag. Use `1` to print to MATLAB's error stream (`fprintf(2,...)`).
 - `msg`: Message text, a format string, an `MException`, or an error struct.
 - `value1, value2, ...`: Optional values consumed by the format string.
@@ -135,7 +135,7 @@ end
 `visenabled` answers for both destinations, matching `vprintf`. At the default
 `GLogVerbosity` the log wants every level, so such a block runs even with a
 quiet command window — and its message is written to the log. Guard on
-`eplog.isEnabled(4,'console')` instead only where the command window is
+`granary.isEnabled(4,'console')` instead only where the command window is
 genuinely the sole consumer; a guard that skips the argument also keeps it out
 of the file that has to explain the failure afterwards.
 
@@ -149,13 +149,13 @@ directly.
 ```
 
 By default the directory sits under the folder returned by `epsych_path`;
-RunExpt's **Customize ▸ Paths ▸ Error Log Path** (or `eplog.setLogDir`) points
+RunExpt's **Customize ▸ Paths ▸ Error Log Path** (or `granary.setLogDir`) points
 it elsewhere. The file rolls over at midnight and reopens if its handle is
 closed underneath it. Do not rebuild this path in your own code — ask the
 logger:
 
 ```matlab
-L = eplog.Logger.instance();
+L = granary.Logger.instance();
 L.flush();
 disp(L.LogFile)
 ```
@@ -164,7 +164,7 @@ The file sink buffers, so `flush` first if you are about to read, copy or open
 the log. Critical messages (level `0`) flush automatically, as does the end of
 a run and the close of the session GUI.
 
-See [eplog](../eplog/eplog_Logging.md) for rotation, failure handling,
+See [granary](../granary/granary_Logging.md) for rotation, failure handling,
 per-process log files, and the opt-in structured JSON Lines log.
 
 ## Notes and limitations
@@ -186,5 +186,5 @@ per-process log files, and the opt-in structured JSON Lines log.
 
 - [helpers/vprintf.m](../../helpers/vprintf.m)
 - [helpers/visenabled.m](../../helpers/visenabled.m)
-- [eplog package overview](../eplog/eplog_Logging.md)
+- [granary package overview](../granary/granary_Logging.md)
 - [epsych_path.m](../../epsych_path.m)

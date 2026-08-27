@@ -17,13 +17,6 @@ body:
         describing the control you imagine: the same need often has a shorter
         answer than the one it looks like it needs.
   - type: textarea
-    id: problem
-    attributes:
-      label: What are you trying to do?
-      description: The experiment, the rig, and where EPsych gets in the way today.
-    validations:
-      required: true
-  - type: textarea
     id: proposal
     attributes:
       label: What would you like EPsych to do?

@@ -108,6 +108,34 @@ have none — see below.
   other callback in this toolbox: one broken command must not take the
   keyboard down with it.
 
+## Held gestures, not chords
+
+Some commands are named by modifiers **alone** — `gui.components.RegenerateTrial`
+arms on Ctrl+Alt+Shift, `gui.components.Parameter_Update` commits immediately on
+the same three, and a `gui.components.Parameter_Control` button switches to an
+alternate action while a declared chord is held. Those are not bindings: they
+never fire on their own, they change what a *click* does.
+
+`CurrentModifiers` is what they read, and `gui.KeyBindings.normalizeModifiers`
+is what makes it comparable:
+
+```matlab
+mods = gui.KeyBindings.normalizeModifiers('Ctrl+Shift');   % {'control','shift'}
+isequal(mods, gui.KeyBindings.normalizeModifiers(kb.CurrentModifiers))
+```
+
+Both sides have to go through it. `CurrentModifiers` carries whatever
+`evt.Modifier` reported, so a mac keyboard says `command` where the paradigm
+wrote `ctrl`. It is a separate method from `normalize` because `normalize`
+deliberately **refuses** a modifier-only chord (`epsych:KeyBindings:modifiersOnly`)
+— a chord needs a key — and `normalizeModifiers` refuses one that names a key
+(`epsych:KeyBindings:notModifiers`). The two cover disjoint inputs and share one
+alias table, so they cannot drift apart. `displayChord` spells either.
+
+`modifiersDown` is the *subset* test ("is Ctrl among what is held"). A component
+choosing between several declared chords wants exact set equality instead, or the
+longer chord matches the shorter one too.
+
 ## Two limits, neither fixable here
 
 - **Edit fields swallow keys.** A uifigure delivers no window key event while
@@ -135,5 +163,6 @@ binding dead.
 
 - [gui_BehaviorGUI.md](gui_BehaviorGUI.md) — the `Keys` property and the component DSL
 - [Parameter_Update.md](Parameter_Update.md) — reads modifier state from here
+- [Parameter_Control.md](Parameter_Control.md) — `ModifierActions`, a held chord that changes what a button does
 - [gui_RegenerateTrial.md](gui_RegenerateTrial.md) — the arming gesture, and the standalone fallback
 - `obj/+gui/@KeyBindings/`, `examples/two_afc/TwoAFCBehaviorGUI.m`

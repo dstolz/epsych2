@@ -88,6 +88,12 @@ obj = gui.components.Parameter_Control(parent, parameter, autoCommit=true, Runti
   - Wire it for **settings** controls (staircase step sizes, p(Catch), stimulus delay). Leave it empty for session-control toggles (Deliver Trials, Reminder, Shape): those rely on the trial-table re-assert to self-clear.
   - Bound-property edits (`Min`, `Max`, `isRandom`, ...) never touch the trial table; they are host-side parameter state.
   - `gui.BehaviorGUI.addControl` passes its runtime automatically; `addButton` deliberately does not.
+- `ModifierActions` (cell, optional)
+  - Alternate actions armed by held modifier keys, as an `Nx2` `{chord, fcn}` or `Nx3` `{chord, fcn, text}` cell. See [Modifier actions](#modifier-actions).
+- `KeySource` (`gui.KeyBindings`, optional)
+  - Where the held modifier set comes from. `gui.BehaviorGUI` injects the figure's one instance; standalone, the component resolves it with `gui.KeyBindings.getOrCreate`. Only used when a `ModifierAction` exists.
+- `Host` (`gui.BehaviorGUI`, optional)
+  - Injected by `addButton`, and read only for its `RUNTIME`, so a `ModifierAction`'s session note has a store to reach. Deliberately **not** `Runtime`: see the `Runtime` option above.
 - `EnabledBy` / `DisabledBy` (`gui.components.Parameter_Control`, optional)
   - Make this control's enable follow a **governing** control's value — normally a checkbox or toggle built earlier in the same `build`.
   - `EnabledBy` greys this control while the governor reads false; `DisabledBy` greys it while the governor reads true.
@@ -222,6 +228,57 @@ obj.addControl(col, 'BlockSize', DisabledBy=hCatch);   % greyed while they are o
 Gating covers every widget the control owns **and its label**: a `range` control has two entry fields, and a greyed field beside a black label reads as an oversight. The dependent is greyed rather than hidden or blanked, so the configuration that resumes when the governor flips back stays readable.
 
 Re-application happens on every change to the governor, from the operator **or from the parameter**, so a phase load moves the greying with it. A dependent deleted before its governor is dropped from the list rather than thrown on.
+
+## Modifier actions
+
+One button can carry more than one job, the alternates armed while modifier keys
+are held. A rig wanting a normal reward and a large one no longer needs two
+buttons and two slots in a layout that has none to spare:
+
+```matlab
+obj.addButton(row, '!Reward', ModifierActions = { ...
+    'ctrl',       @(c,~,~) obj.P.BigReward.Trigger(), 'Large Reward'; ...
+    'ctrl+shift', @(c,~,~) obj.purgeLine(),           'Purge Line'});
+```
+
+`addModifierAction` is the same thing after the fact, with the full option set:
+
+```matlab
+h.addModifierAction('ctrl+alt', @(c,e,p) p.Parent.trigger(p), ...
+    Text = 'Prime', Tooltip = 'Fill the line', Color = [0.9 0.7 0.4], Note = true);
+```
+
+The callback shape is `fcn(control, event, parameter)` — the same one
+`PreUpdateFcn` and `EvaluatorFcn` use.
+
+**While the chord is held the button repaints itself**: the action's `Text` (or
+the chord over the normal label), its `Tooltip`, and its `Color`. That is not
+decoration. The whole risk of this feature is a button doing something its label
+does not say, and the label is the only warning the operator gets.
+
+Rules worth knowing:
+
+- **A chord matches by exact set equality**, not "these are among the keys held".
+  With `ctrl` and `ctrl+shift` both declared, a subset test would make
+  `ctrl+shift` match both and which one wins would fall out of declaration order.
+- **The armed action replaces the normal one.** A momentary button does not also
+  `Trigger`; a toggle does not also commit — and the toggle's widget is put back
+  where it was, since a `uistatebutton` has already flipped its `Value` by the
+  time the callback runs.
+- **The arm is re-checked at the click**, from the live modifier set rather than
+  from the cached arm state, so a stale state or a scripted call fails closed.
+- **A greyed control never arms.** The gate is the same AND the widget's enable
+  is: the dependency gate and the interface mode. A review is covered by the
+  latter.
+- **Arming reads no hardware.** The pre-arm appearance is cached and restored
+  verbatim, because the obvious repaint goes through `getBoundValue` — a device
+  round trip, once per keystroke, that `hw.Parameter.get.Value` rethrows from.
+- **Every alternate press is recorded** in the session notes by default
+  (`Note=false` opts out), unlike an ordinary `addButton` press. The action is
+  invisible in the trial record and differs from the button's own label.
+- A throwing action is logged, not propagated: the button recovers and still works.
+- `ModifierActions` is **code only**. It carries function handles, so it is not a
+  `gui.ComponentSpecOption` and does not appear on the `gui.BehaviorBuilder` palette.
 
 ## Integration with `gui.components.Parameter_Update`
 

@@ -169,7 +169,21 @@ classdef RunExpt < handle
                         existingFigure.Visible = 'on';
                     catch
                     end
-                    movegui(existingFigure,'onscreen');
+                    % Move it only if it has actually drifted off a screen.
+                    % This used to be movegui(...,'onscreen'), which yanked a
+                    % window the operator had placed on a secondary monitor
+                    % back onto the primary every time the session was raised.
+                    % A maximized window is left alone: its Position already
+                    % reports the screen it fills.
+                    try
+                        if strcmp(char(existingFigure.WindowState),'normal')
+                            fitted = gui.fitPositionToMonitor(existingFigure.Position);
+                            if ~isequal(fitted, existingFigure.Position)
+                                existingFigure.Position = fitted;
+                            end
+                        end
+                    catch
+                    end
                     try
                         uifigure(existingFigure);
                     catch

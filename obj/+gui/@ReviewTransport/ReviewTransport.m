@@ -77,7 +77,6 @@ classdef ReviewTransport < handle
                 'Resize',          'on', ...
                 'UserData',        obj);
             fig.Position = obj.startPosition_();
-            movegui(fig, 'onscreen');
             obj.h_figure = fig;
 
             % Before the contents, as gui.PopOut.popOut does: it restores the
@@ -379,7 +378,12 @@ classdef ReviewTransport < handle
 
         function p = startPosition_(obj)
             % Where the window opens: where the operator last left it, else
-            % tucked under the behavior GUI, else centred by movegui.
+            % tucked under the behavior GUI, else the default corner.
+            %
+            % Either way the last word is gui.fitPositionToMonitor, which
+            % keeps the window on the monitor it belongs to -- the tuck
+            % below reasons in the behavior GUI's own coordinates and can
+            % put the transport below the bottom of that screen.
             p = getpref(obj.PREFERENCE_TAG, 'FigurePosition', []);
             if isnumeric(p) && numel(p) == 4 && all(isfinite(p))
                 p = double(reshape(p, 1, []));
@@ -387,6 +391,7 @@ classdef ReviewTransport < handle
                 % the contents need: a position remembered from an earlier
                 % layout would otherwise crowd the row it was saved before.
                 p(3:4) = max(p(3:4), obj.DEFAULT_SIZE);
+                p = gui.fitPositionToMonitor(p);
                 return
             end
 
@@ -395,10 +400,11 @@ classdef ReviewTransport < handle
                 g = obj.Review.GUI;
                 if isobject(g) && isvalid(g) && isprop(g, 'h_figure') && isgraphics(g.h_figure)
                     gp = g.h_figure.Position;
-                    p = [gp(1), max(40, gp(2) - obj.DEFAULT_SIZE(2) - 44), obj.DEFAULT_SIZE];
+                    p = [gp(1), gp(2) - obj.DEFAULT_SIZE(2) - 44, obj.DEFAULT_SIZE];
                 end
             catch
             end
+            p = gui.fitPositionToMonitor(p);
         end
 
         function savePosition_(obj)

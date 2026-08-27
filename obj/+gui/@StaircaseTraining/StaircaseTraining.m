@@ -241,8 +241,8 @@ classdef StaircaseTraining < handle
             % Create UI under Parent (embedded) or inside a new owned figure.
             if isempty(obj.Parent)
                 fpos = getpref('StaircaseTraining', 'Position', [500 400 300 400]);
-                fig = uifigure('Name', 'Staircase Training', 'Position', fpos);
-                movegui(fig, 'onscreen');
+                fig = uifigure('Name', 'Staircase Training', ...
+                    'Position', gui.fitPositionToMonitor(fpos));
                 fig.WindowStyle = char(obj.WindowStyle);
                 fig.CloseRequestFcn = @(~,~)delete(obj);
                 obj.Parent = fig;

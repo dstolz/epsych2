@@ -325,7 +325,6 @@ classdef ComponentToolbar < handle
 
             fig = uifigure('Name', obj.windowName_(e.name), 'Tag', tag, 'Visible', 'off');
             fig.Position = gui.BehaviorGUI.getSavedFigurePosition(tag, obj.defaultPosition_(e.windowSize));
-            movegui(fig, 'onscreen');
 
             % This window holds one component, so it gets the same "Keep
             % Window on Top" item a pop-out has -- marked before the factory

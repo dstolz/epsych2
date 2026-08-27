@@ -20,4 +20,8 @@ position = double(reshape(position,1,[]));
 % trusted.
 MIN_HEIGHT = 260;
 position(4) = max(position(4), MIN_HEIGHT);
+
+% Onto the monitor it was last on, rather than movegui's 'onscreen', which
+% attributes a window hanging off an edge to a neighbouring monitor.
+position = gui.fitPositionToMonitor(position);
 end

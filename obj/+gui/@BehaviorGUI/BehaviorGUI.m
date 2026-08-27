@@ -235,7 +235,6 @@ classdef (Abstract) BehaviorGUI < handle
                 'CloseRequestFcn', @(src,evt) obj.closeGUI(src,evt), ...
                 'UserData',        obj);
             fig.Position = gui.BehaviorGUI.getSavedFigurePosition(obj.PreferenceTag, options.DefaultPosition);
-            movegui(fig, 'onscreen');
             if strcmp(gui.BehaviorGUI.getSavedFigureWindowState(obj.PreferenceTag), 'maximized')
                 try
                     fig.WindowState = 'maximized';
@@ -311,6 +310,18 @@ classdef (Abstract) BehaviorGUI < handle
             % list is normally already current, but a window closed by
             % something that never reached closePopOut is only seen here.
             obj.savePopOutLayout();
+
+            % Likewise the window's own position. closeGUI already saved it
+            % on the operator's path out, but a GUI torn down any other way
+            % -- delete(obj) from a script, a review session closing down --
+            % would otherwise leave the next session opening at whatever
+            % rectangle was last written, on whatever monitor that was.
+            try
+                if ~isempty(obj.h_figure) && isvalid(obj.h_figure)
+                    gui.BehaviorGUI.saveFigureLayout(obj.PreferenceTag, obj.h_figure);
+                end
+            catch
+            end
             obj.TearingDown_ = true;
             obj.detachPopOutListeners_();
 
@@ -1552,12 +1563,19 @@ classdef (Abstract) BehaviorGUI < handle
     methods (Static)
 
         function position = getSavedFigurePosition(prefTag, defaultPosition)
-            % Retrieve the last-saved [x y w h] for this PreferenceTag.
+            % Retrieve the last-saved [x y w h] for this PreferenceTag,
+            % fitted to the monitor it was last on.
+            %
+            % The fit is here rather than at each caller so that every
+            % restored window is on-screen without a movegui(fig,'onscreen')
+            % afterwards -- which is what used to reopen a window left on a
+            % secondary monitor on the primary one (see
+            % gui.fitPositionToMonitor).
             position = getpref(prefTag, 'FigurePosition', defaultPosition);
             if ~isnumeric(position) || numel(position) ~= 4 || any(~isfinite(position))
                 position = defaultPosition;
             end
-            position = double(reshape(position, 1, []));
+            position = gui.fitPositionToMonitor(double(reshape(position, 1, [])));
         end
 
         function saveFigurePosition(prefTag, position)

@@ -386,7 +386,6 @@ classdef ParameterTracker < handle
                 'WindowKeyPressFcn', @(~,evt) self.onKeyPress_(evt));
             f.UserData = self;
             f.CloseRequestFcn = @(~,~) delete(self);
-            movegui(f, 'onscreen');
             self.H.figure = f;
 
             g = uigridlayout(f, [3 2]);

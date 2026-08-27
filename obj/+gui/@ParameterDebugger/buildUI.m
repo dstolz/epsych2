@@ -23,7 +23,6 @@ f = uifigure('Name','EPsych Parameter Debugger', 'Tag', self.FIGURE_TAG, ...
     'WindowKeyPressFcn', @(~,evt) self.onKeyPress_(evt));
 f.UserData = self;
 f.CloseRequestFcn = @(~,~) self.onClose_();
-movegui(f, 'onscreen');
 self.H.figure = f;
 
 % ---------- Menus -------------------------------------------------------

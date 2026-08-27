@@ -26,7 +26,6 @@ f.UserData = self;
 self.H.figure1 = f;
 self.H.figureBaseName    = string(figureName);  % restored when leaving Preview mode
 self.H.figureDefaultColor = f.Color;             % restored when leaving Preview mode
-movegui(f,'onscreen');
 
 % ---------- Toolbar ----------
 % One-click access to subject management and data saving, the Customize

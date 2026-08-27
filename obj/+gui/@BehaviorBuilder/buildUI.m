@@ -9,7 +9,6 @@ pos = gui.BehaviorGUI.getSavedFigurePosition(obj.PREF_TAG, [80 80 1250 760]);
 obj.Fig = uifigure('Name','Behavior GUI Builder', 'Tag',obj.PREF_TAG, ...
     'Position',pos, 'AutoResizeChildren','on', ...
     'CloseRequestFcn',@(~,~) localOnClose(obj), 'UserData',obj);
-movegui(obj.Fig, 'onscreen');
 obj.Fig.KeyPressFcn = @(~,evt) localOnKeyPress(obj, evt);
 
 % --- menus ---------------------------------------------------------------

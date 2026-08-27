@@ -22,7 +22,7 @@ fig = findall(groot,'Type','figure','-and','Tag','RunExptReportIssue');
 if ~isempty(fig) && isgraphics(fig(1))
     fig = fig(1);
     fig.Visible = 'on';
-    movegui(fig,'onscreen');
+    fig.Position = gui.fitPositionToMonitor(fig.Position);   % not onto the primary
     figure(fig);
     return
 end

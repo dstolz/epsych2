@@ -173,8 +173,8 @@ classdef VideoConverterSetup < handle
                 % from an earlier layout can be too short for the panels;
                 % ensureContentFits_ grows it once the panels are built.
                 fpos = getpref('ep_VideoConverter', 'Position', [300 200 1040 640]);
-                fig = uifigure('Name', 'Video Converter', 'Position', fpos);
-                movegui(fig, 'onscreen');
+                fig = uifigure('Name', 'Video Converter', ...
+                    'Position', gui.fitPositionToMonitor(fpos));
                 fig.WindowStyle = char(windowStyle);
                 fig.CloseRequestFcn = @(~,~) delete(obj);
                 obj.Parent = fig;
@@ -288,8 +288,9 @@ classdef VideoConverterSetup < handle
             screen = get(groot, 'ScreenSize');
             need = min(need, screen(4) - 100);   % leave room for title bar and taskbar
             if obj.Parent.Position(4) < need
-                obj.Parent.Position(4) = need;
-                movegui(obj.Parent, 'onscreen');
+                p = obj.Parent.Position;
+                p(4) = need;
+                obj.Parent.Position = gui.fitPositionToMonitor(p);
             end
         end
 

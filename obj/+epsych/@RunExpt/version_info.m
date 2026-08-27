@@ -5,7 +5,7 @@ fig = findall(groot,'Type','figure','-and','Tag','RunExptVersionInfo');
 if ~isempty(fig) && isgraphics(fig(1))
     fig = fig(1);
     fig.Visible = 'on';
-    movegui(fig,'onscreen');
+    fig.Position = gui.fitPositionToMonitor(fig.Position);   % not onto the primary
     return
 end
 

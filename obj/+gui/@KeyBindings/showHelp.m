@@ -42,8 +42,13 @@ catch ME
     vprintf(3, 'gui.KeyBindings: could not centre the shortcut list (%s)', ME.message)
 end
 
+% Fitted rather than movegui'd onscreen: centring on a GUI that sits near the
+% edge of a secondary monitor puts part of the dialog off that screen, and
+% movegui would answer by moving it to the primary one, away from the window
+% whose shortcuts it lists.
+dlgPos = gui.fitPositionToMonitor(dlgPos);
+
 dlg = uifigure('Name', obj.Title, 'Position', dlgPos, 'Resize', 'off', 'WindowStyle', 'modal');
-movegui(dlg, 'onscreen');
 
 uitextarea(dlg, ...
     'Value',           lines, ...

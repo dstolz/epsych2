@@ -20,13 +20,13 @@ pos = gui.BehaviorGUI.getSavedFigurePosition(self.PREF_TAG, self.DEFAULT_POSITIO
 % width would clip the action bar. The remembered size is floored at the
 % default rather than replaced -- someone who made the window bigger keeps it.
 pos(3:4) = max(pos(3:4), self.DEFAULT_POSITION(3:4));
+pos = gui.fitPositionToMonitor(pos);   % again: growing it may have run off the edge
 
 f = uifigure('Name','Subjects & Projects', 'Tag', self.FIGURE_TAG, ...
     'Position', pos, ...
     'WindowKeyPressFcn', @(~,evt) self.onKeyPress_(evt));
 f.UserData = self;
 f.CloseRequestFcn = @(~,~) delete(self);
-movegui(f, 'onscreen');
 self.H.figure = f;
 
 % ---------- Toolbar -----------------------------------------------------

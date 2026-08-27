@@ -238,11 +238,14 @@ A file saved before the session snapshot existed carries no protocol, so no para
 - `gui.BehaviorGUI.classifyParameters(params)` — static; splits an `hw.Parameter` array into trigger-style, writable, and read-only visible groups using the standard rules (`isTrigger` or `~`/`!` name prefix marks a trigger). This is what `ep_GenericGUI` uses to auto-build itself.
 - `gui.BehaviorGUI.getSavedFigurePosition(prefTag, default)` / `saveFigurePosition(prefTag, pos)` — static position-preference helpers, keyed by `PreferenceTag`.
 - `gui.BehaviorGUI.saveFigureLayout(prefTag, fig)` / `getSavedFigureWindowState(prefTag)` — the maximize-aware layer over those: `saveFigureLayout` records the figure's maximized state and, only when the window is normal, its position (fullscreen is remembered as maximized, minimized as normal). Any window class can use them for the same behavior.
+- `gui.fitPositionToMonitor(pos)` — applied by `getSavedFigurePosition` to whatever it returns, so a restored window is on-screen without a `movegui(fig,'onscreen')` after it. This is what makes the GUI reopen on the **monitor it was last on**: `movegui` takes its reference monitor from the first corner of the window it finds inside one, so a window left hanging a little off the edge of a secondary monitor was attributed to a neighbour — usually the primary — and clamped onto it. Choosing the monitor by overlap **area** instead cannot be fooled that way. A rectangle that already fits its monitor is returned untouched, so an unchanged monitor layout restores exactly; a window whose monitor is gone overlaps nothing and falls back to the primary.
+
+The position is written by `closeGUI` on the operator's way out and, for any other teardown path (`delete(obj)` from a script, a review session closing down), by the destructor.
 
 ## Reference implementations
 
 - [runtime/guis/@ep_GenericGUI](../../runtime/guis/@ep_GenericGUI/ep_GenericGUI.m) — the default BehaviorGUI, a ~95-line subclass that auto-discovers all parameters.
 - [examples/customgui/ExampleBehaviorGUI.m](../../examples/customgui/ExampleBehaviorGUI.m) — the copyable paradigm-GUI template.
-- Validation: `tmp/smoke_test_behaviorgui.m` (headless; `matlab -batch "run('tmp/smoke_test_behaviorgui.m')"`); `tmp/smoke_test_popout_restore.m` for the `RestorePopOuts` memory.
+- Validation: `tmp/smoke_test_behaviorgui.m` (headless; `matlab -batch "run('tmp/smoke_test_behaviorgui.m')"`); `tmp/smoke_test_popout_restore.m` for the `RestorePopOuts` memory; `tmp/smoke_test_monitor_restore.m` for the monitor a window reopens on.
 
 See also: [Customized_GUI_Instructions.md](../design/Customized_GUI_Instructions.md) for the surrounding concepts (parameters, events, layout strategy), [Parameter_Control.md](Parameter_Control.md), [Parameter_Update.md](Parameter_Update.md), [Parameter_Monitor.md](Parameter_Monitor.md), [gui_NextTrial.md](gui_NextTrial.md), [gui_PopOut.md](gui_PopOut.md), [gui_ComponentToolbar.md](gui_ComponentToolbar.md), [gui_ParameterDebugger.md](gui_ParameterDebugger.md) — for the parameters a behavior GUI does not expose, [../epsych/Event_Notifications.md](../epsych/Event_Notifications.md).

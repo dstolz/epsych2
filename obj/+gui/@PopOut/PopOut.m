@@ -120,7 +120,6 @@ classdef (Abstract) PopOut < handle
             tag = obj.popOutPreferenceTag_();
             fig = uifigure('Name', obj.popOutWindowName_(), 'Tag', tag, 'Visible', 'off');
             fig.Position = gui.BehaviorGUI.getSavedFigurePosition(tag, obj.defaultPopOutPosition_());
-            movegui(fig, 'onscreen');
 
             % Marked -- and put back on top if that is how it was last left --
             % BEFORE the component is built, so the context menu it builds in

@@ -161,8 +161,8 @@ classdef VlcRecorderSetup < handle
             % Build UI under Parent (embedded) or inside a new owned figure.
             if isempty(obj.Parent)
                 fpos = getpref('VlcRecorderSetup', 'Position', [400 300 780 480]);
-                fig = uifigure('Name', 'VLC Recorder Setup', 'Position', fpos);
-                movegui(fig, 'onscreen');
+                fig = uifigure('Name', 'VLC Recorder Setup', ...
+                    'Position', gui.fitPositionToMonitor(fpos));
                 fig.WindowStyle = char(windowStyle);
                 fig.CloseRequestFcn = @(~,~) delete(obj);
                 obj.Parent = fig;

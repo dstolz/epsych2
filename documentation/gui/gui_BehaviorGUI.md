@@ -45,7 +45,8 @@ classdef MyTaskGUI < gui.BehaviorGUI
             obj.addUpdateButton(col);
 
             p = uipanel(g, 'Title', 'Monitor'); p.Layout.Row = 2; p.Layout.Column = 2;
-            obj.addMonitor(p, {'InTrial','RespCode'}, pollPeriod=0.5);
+            obj.add('gui.components.Parameter_Monitor', p, ...
+                'Parameters', {'InTrial','RespCode'}, pollPeriod=0.5);
         end
 
         function onNewData(obj, src, event)
@@ -125,46 +126,153 @@ order, so **name them in `register`** if their order in `build` might change.
 
 Hook errors are caught and logged with `vprintf(0,1,ME)` so a display bug never kills the event chain.
 
-## Component helpers
+## Placing components
 
-All helpers register what they create, guaranteeing teardown (see below).
+Every reusable component is placed with **one** method:
 
-The stock commit paths also make **session-record notes** standard for every
-subclass: a `gui.components.Parameter_Update` commit, an `autoCommit` `addControl` edit,
-and a `gui.components.PhaseSelector` phase load or save each record a trial-stamped entry
-into `RUNTIME.NOTES` via `epsych.SessionNotes.log`. Those entries reach
-`Info.Notes` and the trial journal in every subject's data file, whether or
-not the GUI includes a `gui.components.Notes` component. Per-trial automatic writes and
-`addButton`'s toggles/triggers deliberately record nothing — see
+```matlab
+h = obj.add('gui.components.NextTrial', pnl, FontSize=14);
+```
+
+`add` builds the class into `parent`, wires it to the runtime, the analysis
+object or the key bindings as the component's own `gui.ComponentSpec` says,
+and registers it for teardown. Nothing per-component lives in
+`gui.BehaviorGUI` any more.
+
+It **never throws**. When the session cannot support the component — a
+parameter name that does not resolve, an analysis that was never built, a
+class that is not on the path — it returns `[]` and says why in the log, so
+the GUI still opens against a runtime with no interfaces (`epsych.SelfTest`
+check I6). A class name that does not resolve and a `getComponentSpec` that
+throws are logged at level 1, not 2: a typo in a paradigm's `build` must be
+visible at default verbosity, or SelfTest passes over a GUI quietly missing a
+display.
+
+Options are forwarded **verbatim**. An option you do not name is not passed at
+all, which is what lets a component fall back to the operator's own saved
+preference rather than being handed a default nobody chose. Three names are
+consumed by `add` and never forwarded:
+
+| Option | Effect |
+|---|---|
+| `Variant` | Select a non-primary variant of a class that declares several (`gui.components.Parameter_Control` is both the Control and the Button). |
+| `KeyBinding` | Replace the component's default chord, or drop it with `'none'`. |
+| `RegisterName` | Name this instance for the component toolbar and the pop-out memory. |
+
+A class from **outside this toolbox** works the same way, with no registration
+of any kind — its constructor signature is enough:
+
+```matlab
+obj.add('mylab.RasterPlot', pnl, Channel=3);
+```
+
+### The stock components
+
+Each takes the options its own class documents; the pages below are the
+reference for what they do.
+
+| `add` line | What it is |
+|---|---|
+| `obj.add('gui.components.Parameter_Monitor', p, 'Parameters', {'InTrial','RespCode'}, pollPeriod=0.5)` | Read-only live values. Registered monitors stop polling when the session stops. |
+| `obj.add('gui.components.NextTrial', p, Fields=["Depth" "TrialType"])` | The upcoming trial's parameters, bound to `obj.RUNTIME`. |
+| `obj.add('gui.components.SessionPerformance', p, TrialWindow=…)` | Hit / false-alarm / abort rates, d', counts, through a `psychophysics.SessionMetrics` over `obj.Psych` when there is one — see [gui_SessionPerformance.md](gui_SessionPerformance.md). |
+| `obj.add('gui.components.History', p)` | Per-trial outcome table over `obj.Psych`; `[]` when `createPsych` produced nothing — see [gui_History.md](gui_History.md). |
+| `obj.add('gui.components.ParameterScatter', p, XParameter=…, YParameter=…)` | Any two recorded trial parameters. Its source is `obj.RUNTIME`, so it works with no analysis at all — see [gui_ParameterScatter.md](gui_ParameterScatter.md). |
+| `obj.add('gui.components.OnlinePlot', p, Source={'Lick','StimOn'})` | Live hardware traces. Makes a **classic** axes inside `parent`, so pass a panel or grid cell. `Source` left empty returns `[]` rather than putting a dialog in front of a starting session; `TimeWindow` applies only when nothing was remembered — see [gui_OnlinePlot.md](gui_OnlinePlot.md). |
+| `obj.add('gui.components.BufferPlot', p, Buffers="Waveform~1", SampleRate="auto")` | Buffer CONTENTS, redrawn once per completed trial, taken from the trial record the runtime already read — see [gui_BufferPlot.md](gui_BufferPlot.md). |
+| `obj.add('gui.components.PsychPlot', p)` | Psychometric curve over `obj.Psych`, `[]` when there is none. Also a **classic** axes: pass a panel, not an axes of your own. |
+| `obj.add('gui.components.SessionClock', p)` | Session and inter-trial elapsed time. Builds its own panel — place it through the returned object: `c.PanelH.Layout.Row = 1`. |
+| `obj.add('gui.components.ElapsedTrialTimer', p)` | Time since the last completed trial. |
+| `obj.add('gui.components.ModeIndicator', p)` | Lamp showing the session's run mode. |
+| `obj.add('gui.components.Notes', g)` | The operator's note pad — entry line over a trial-stamped log. Notes reach `Info.Notes` in every subject's data file and are journaled as committed — see [gui_Notes.md](gui_Notes.md). |
+| `obj.add('gui.components.Notes', row, ButtonOnly=true)` | The same notes as a single button, for a GUI with no room for a log. |
+| `obj.add('gui.components.SyringePump', p, Sections=["Volume" "Status"])` | Panel over this session's `hw.NE1000`, or a standalone one when the protocol has no pump, so the GUI still opens — see [gui_SyringePump.md](gui_SyringePump.md). |
+| `obj.add('gui.components.ScreenCapture', row)` | Camera button; copies the whole window to the clipboard. `Ctrl+Shift+C` too — see [gui_ScreenCapture.md](gui_ScreenCapture.md). |
+| `obj.add('gui.components.SessionGate', g)` | **Begin Experiment** button. Only half of it: `waitForSessionGate` in your constructor is what holds the session — see [gui_SessionGate.md](gui_SessionGate.md). |
+| `obj.add('gui.components.RegenerateTrial', g)` | Dispatches the pending trial again. Dead until Ctrl+Alt+Shift are held; **interrupts the trial in progress and asks nothing first** — see [gui_RegenerateTrial.md](gui_RegenerateTrial.md). |
+| `obj.add('gui.components.ComponentToolbar', fig)` | Icon toolbar, one tool per display. Call it **first** in `build` — see below. |
+| `obj.add('gui.components.PhaseSelector', p)` | Phase load / save — see [PhaseSelector.md](PhaseSelector.md). |
+| `obj.add('gui.components.StatusBar', p)` | Session status strip. |
+
+`gui.components.ComponentToolbar` is collected **after** `build` returns, so
+calling it on the first line of `build` still lists everything created below
+it. Displays the GUI does not show are declared on the returned toolbar and
+built the first time their tool is clicked:
+
+```matlab
+tb = obj.add('gui.components.ComponentToolbar', fig);
+tb.addLazyComponent('Performance', ...
+    @(c) gui.components.SessionPerformance(obj.RUNTIME, c), ...
+    Icon='sessionperformance', WindowSize=[420 260]);
+```
+
+### The short names that survive
+
+These are sugar over `add`, kept because they read better at their call sites,
+plus three methods that build something which is not a component at all.
+
+The stock commit paths make **session-record notes** standard for every
+subclass: a `gui.components.Parameter_Update` commit, an `autoCommit`
+`addControl` edit, and a `gui.components.PhaseSelector` phase load or save each
+record a trial-stamped entry into `RUNTIME.NOTES` via
+`epsych.SessionNotes.log`. Those entries reach `Info.Notes` and the trial
+journal in every subject's data file, whether or not the GUI includes a
+`gui.components.Notes` component. Per-trial automatic writes and `addButton`'s
+toggles/triggers deliberately record nothing — see
 [gui_Notes.md](gui_Notes.md#automatic-entries).
 
-- `h = addControl(parent, param, ...)` — a `gui.components.Parameter_Control`. `param` is an `hw.Parameter` **or a name** resolved against `obj.P` (trigger prefixes `~`/`!` tolerated). Unresolved names log at debug level and return `[]` — no `isfield` guards needed, and one build method serves protocols with differing parameter sets. Options: `Type` (default `'auto'`), `BoundProperty` (default unset — the control type picks it: `Type='range'` binds the `[Min Max]` pair on one row, everything else binds `Value`), `autoCommit`, `Text` (defaults to `Name (Unit)`), `PostUpdateFcn`/`PostUpdateFcnArgs`, `EvaluatorFcn`/`EvaluatorArgs`. The control gets `obj.RUNTIME`, so an `autoCommit` Value edit also lands in the trial table instead of being reverted by the next dispatch or misrecorded by a phase save (see `gui.components.Parameter_Control`'s `Runtime` option).
-- `h = addButton(parent, param, ...)` — an auto-committing button. `~`-prefixed parameters become toggles, others momentary (`Type` overrides). Rotating accent colors, bold text, prefix stripped from the label. Stored in `obj.hButtons.(validName)`. Buttons deliberately do **not** sync the trial table: session-control toggles rely on the table re-assert to self-clear.
-- `lay = controlColumn(parent, Title=, Row=, Column=, Rows=, RowHeight=)` — titled panel with a scrollable fixed-row grid, ready for a stack of `addControl` calls.
+- `h = addControl(parent, param, ...)` — a `gui.components.Parameter_Control`. `param` is an `hw.Parameter` **or a name** resolved against `obj.P` (trigger prefixes `~`/`!` tolerated). Unresolved names log at debug level and return `[]` — no `isfield` guards needed, and one build method serves protocols with differing parameter sets. Options: `Type` (default `'auto'`), `BoundProperty` (default unset — the control type picks it: `Type='range'` binds the `[Min Max]` pair on one row, everything else binds `Value`), `autoCommit`, `Text` (defaults to `Name (Unit)`), `EnabledBy`/`DisabledBy`, `PostUpdateFcn`/`PostUpdateFcnArgs`, `EvaluatorFcn`/`EvaluatorArgs`. Because it routes through `add`, options are forwarded verbatim: anything `gui.components.Parameter_Control` accepts works here. The control gets `obj.RUNTIME`, so an `autoCommit` Value edit also lands in the trial table instead of being reverted by the next dispatch or misrecorded by a phase save (see that class's `Runtime` option).
+- `h = addButton(parent, param, ...)` — the Button **variant** of the same class: an auto-committing button. `~`-prefixed parameters become toggles, others momentary (`Type` overrides). Rotating accent colors, bold text, prefix stripped from the label. Stored in `obj.hButtons.(validName)`, which is derived from the registry rather than accumulated, so it cannot drift from what was actually built. Buttons deliberately do **not** sync the trial table: session-control toggles rely on the table re-assert to self-clear.
+- `lay = controlColumn(parent, Title=, Row=, Column=, Rows=, RowHeight=)` — titled panel with a scrollable fixed-row grid, ready for a stack of `addControl` calls. It builds layout, not a component, so nothing is registered.
 - `h = addUpdateButton(parent, KeyBinding=)` — a `gui.components.Parameter_Update` commit button. Its `watchedHandles` are filled automatically after `build` with every registered non-trigger, non-autoCommit control, regardless of creation order. `Ctrl+Enter` commits as well, and is inert when nothing is pending; `KeyBinding='none'` drops the shortcut.
-- `h = addMonitor(parent, params, pollPeriod=, type=, ...)` — a `gui.components.Parameter_Monitor` over parameters or resolvable names (missing names skipped). Registered monitors stop polling when the session stops.
-- `h = addNextTrial(parent, Fields=, Formatters=, FontSize=, PreferenceTag=)` — a `gui.components.NextTrial` showing the upcoming trial's parameters, bound to `obj.RUNTIME`. Which fields are shown is programmatic (`Fields`) and/or operator-driven (right-click **Show Field** menu), and persists across sessions.
-- `h = addPerformance(parent, Metrics=, TrialWindow=, FontSize=, ShowHeader=, ShowDetail=, PreferenceTag=)` — a `gui.components.SessionPerformance` summary (hit / false alarm / abort rates, d', counts) computed by a `psychophysics.SessionMetrics` over `obj.Psych`'s data when there is one, the runtime otherwise. Which trials it summarizes is programmatic (`TrialWindow`) and operator-driven (right-click **Trials Included**), and persists across sessions.
-- `h = addSyringePump(parent, Diameter=, Rate=, Direction=, RateUnits=, VolumeUnits=, UpdatePeriod=, Port=, ApplyOnStart=, Sections=, FontSize=, PreferenceTag=)` — a `gui.components.SyringePump` panel over this session's `hw.NE1000`: dispensed-volume readout, port picker, syringe diameter, rate, push/withdraw, and manual Start / Stop / Zero. `Sections` picks which of those appear (`Sections=["Volume" "Status" "Triggers"]` for a readout with buttons and nothing else), and the operator can re-show any of them from the panel's right-click menu, which is remembered across sessions. Rate and readout units (µL or mL, per minute or per hour; mL/min by default) are on that menu too — state `RateUnits` when the protocol owns the rate, since the panel puts the interface into the units it displays. With no pump in the protocol it makes a standalone interface and offers a port to connect on, so the GUI still opens — see [gui_SyringePump.md](gui_SyringePump.md). Options are declared without defaults, so only what the build method states is forwarded; the rest falls back to the operator's remembered configuration.
-- `h = addNotes(parent, Subject=, TimeStamp=, Editable=, FontSize=, Placeholder=, ButtonOnly=, Text=, PreferenceTag=, KeyBinding=)` — a `gui.components.Notes` panel: an entry line the operator types a note into (Enter, or the button beside it, commits) over a log of everything typed, each line stamped with the trial it was typed on. The notes go into this session's store, which means they are saved with the data — the `Info` variable every saving function writes carries them — and journaled as they are committed, so a crash keeps them. The log box fills whatever row the layout gives it and is read-only until the right-click **Editable** is ticked — see [gui_Notes.md](gui_Notes.md).
-- `h = addNotesButton(parent, Text=, Subject=, TimeStamp=, FontSize=, PreferenceTag=)` — the same notes as a single button, for a GUI with no room for a log. It opens them in a window of its own, over the same store: the window shows every note the session has and anything typed there is saved with the data just the same.
-- `h = addHistory(parent, ColumnFormats=, BitColors=, PreferenceTag=)` — a `gui.components.History` per-trial outcome table over `obj.Psych`. Returns `[]` when `createPsych` produced nothing, so a GUI still opens against a runtime with no interfaces — see [gui_History.md](gui_History.md).
-- `h = addScatter(parent, XParameter=, YParameter=, ColorParameter=, BoxID=, PreferenceTag=)` — a `gui.components.ParameterScatter` over any two recorded trial parameters. Its source is `obj.RUNTIME` rather than `obj.Psych`, so it works in a paradigm with no analysis at all — see [gui_ParameterScatter.md](gui_ParameterScatter.md).
-- `h = addOnlinePlot(parent, Source=, BoxID=, TimeWindow=, PreferenceTag=)` — a `gui.components.OnlinePlot` of live hardware activity. Like `addPsychPlot` it makes a **classic** axes inside `parent`, so pass a panel or grid cell. `Source` names the traces (parameter names, `hw.Parameter` handles, or a bitmask bank name); left empty it returns `[]` and logs, rather than putting a list dialog in front of a starting session. `TimeWindow` applies only when nothing was remembered under `PreferenceTag` — see [gui_OnlinePlot.md](gui_OnlinePlot.md).
-- `h = addBufferPlot(parent, Buffers=, SampleRate=, Layout=, NumTrialsShown=, BoxID=, PreferenceTag=)` — a `gui.components.BufferPlot` of buffer parameter CONTENTS, redrawn once per completed trial. It takes each buffer out of the trial record the runtime already read, so it costs the device nothing; `Buffers` left empty auto-selects the session's `Buffer` parameters, and the x axis is buffer samples until a `SampleRate` (a number, or `"auto"` to take it from the owning `hw.Module`) turns it into seconds — see [gui_BufferPlot.md](gui_BufferPlot.md).
-- `h = addPsychPlot(parent)` — a `gui.components.PsychPlot` psychometric curve over `obj.Psych`, `[]` when there is none. `gui.components.PsychPlot` draws into a **classic** axes rather than a `uiaxes`, so one is created inside `parent`: pass a panel or grid cell, not an axes of your own.
 - `ax = addStaircasePlot(parent)` — plots `obj.Psych`'s staircase track, reversals and threshold into a new `uiaxes` and returns the axes. There is no component to register: a `psychophysics.Staircase` draws itself and owns its own listener. Returns `[]` with no staircase.
-- `h = addSessionClock(parent, UpdatePeriod=, FontSize=, FontColor=, ShowTimeSinceLastTrial=, ShowTimeSinceFirstTrial=, ShowSessionDuration=, ShowClockTime=, PreferenceTag=)` — a `gui.components.SessionClock`, wired to the runtime and started. It builds its own panel, so place it through the returned object: `c.PanelH.Layout.Row = 1`.
-- `h = addTrialTimer(parent, UpdatePeriod=, Format=, FontSize=, FontColor=, FontWeight=, Prefix=)` — a `gui.components.ElapsedTrialTimer` showing time since the last completed trial, wired to the runtime.
-- `h = addModeIndicator(parent, FontSize=)` — a `gui.components.ModeIndicator` lamp showing the session's run mode, wired to the runtime.
-- `h = addSessionGate(parent, Text=, RunningText=, PreviewText=, CompleteText=, Tooltip=, FontSize=, FontWeight=, BackgroundColor=)` — a `gui.components.SessionGate` **Begin Experiment** button, for a rig that must not start dispatching until the animal is placed and the line is primed. This is only half of it: `waitForSessionGate` in your constructor is what actually holds the session, and it cannot be called from `build` — see [gui_SessionGate.md](gui_SessionGate.md).
+- `h = addPopOutButton(parent, component, Text=, Tooltip=)` — a button that opens a poppable display in a window of its own, for something the operator only wants to see occasionally. `component` is any `gui.PopOut` component; one that is not poppable is skipped with a message. The embedded component stays exactly where it is — see [gui_PopOut.md](gui_PopOut.md).
 - `tf = waitForSessionGate(timeout)` — hold the session until the gate opens, returning whether it did. Call it from the **subclass constructor**, after the base constructor has returned and the window exists to be clicked. Returns `true` immediately with no gate in the GUI, and in `ReviewMode`.
-- `h = addScreenCapture(parent, Target=, Text=, Tooltip=, FontSize=, FlashDuration=, KeyBinding=)` — a `gui.components.ScreenCapture` camera button. One click copies a picture of the whole window — controls, plots and all — to the system clipboard, for pasting into a notebook entry; the button flashes a check to confirm, since the clipboard gives no feedback of its own. `Target` defaults to this GUI's figure. A failed capture is logged and flashed, never thrown. `Ctrl+Shift+C` copies too — see [gui_ScreenCapture.md](gui_ScreenCapture.md).
-- `h = addRegenerateTrial(parent, Text=, Tooltip=, SubjectIndex=, Reselect=, Note=, EnableWhenIdle=, RequireArming=, ShowIcon=, FontSize=, FontWeight=, BackgroundColor=)` — a `gui.components.RegenerateTrial` button that dispatches the pending trial again, so randomized parameters redraw and committed edits reach the hardware without waiting for the next trial. The button is **dead until Ctrl+Alt+Shift are all held** — the same gesture `gui.components.Parameter_Update` uses — and dies again the moment one is released; `RequireArming=false` removes that. The helper passes the GUI's `Keys` as its `KeySource`, so the button reads the held modifiers from the one dispatcher that owns the figure's key callbacks and touches no figure callback itself — it coexists with the Update button whichever order `build` creates them in. Once armed, **it interrupts the trial in progress and asks nothing first**: the reset and new-trial triggers go out whether the rig is in an ITI or the animal is part way through a response, and the `DATA` record for that trial ends up describing the last dispatch rather than the first. Each press is written into the session notes, which is the only trace the trial data keeps. Live only during Preview or Record, never in a review. Add it for an operator who wants it, and not into a row of trigger buttons a mis-click can reach — see [gui_RegenerateTrial.md](gui_RegenerateTrial.md).
-- `h = addPopOutButton(parent, component, Text=, Tooltip=)` — a button that opens a poppable display in a window of its own, for something the operator only wants to see occasionally. `component` is any `gui.PopOut` component (scatter, history, performance, next-trial, monitor, plot, a plotted `psychophysics.Staircase`); one that is not poppable is skipped with a message. The embedded component stays exactly where it is — see [gui_PopOut.md](gui_PopOut.md).
-- `tb = addComponentToolbar(parent, Style=, Exclude=, AutoDiscover=)` — an optional icon toolbar that opens displays in windows of their own, one tool each. Call it **first** in `build`: every `gui.PopOut` component registered anywhere in `build` gets a tool, because the list is collected after `build` returns. Displays the GUI does *not* show are declared on the returned toolbar with `tb.addLazyComponent(name, factory, Icon=, WindowSize=, Style=)` and built the first time their tool is clicked, so an occasional display costs no listeners or polling timer up front. `Style="toggle"` makes the tools show which windows are open. A GUI that never calls this has no toolbar — see [gui_ComponentToolbar.md](gui_ComponentToolbar.md).
-- `register(comp, name)` — add **any** component built with its native API (`gui.components.PhaseSelector`, `gui.components.StatusBar`, `gui.components.OnlinePlot`, a secondary figure, ...) to the teardown registry. The optional `name` is what a component toolbar calls it; without one the tool is labelled from the class name, which is only ambiguous when one GUI holds two components of the same class.
+- `register(comp, name)` — add **any** component built with its native API, or a secondary figure, to the teardown registry. The optional `name` is what a component toolbar calls it; without one the tool is labelled from the class name, which is only ambiguous when one GUI holds two components of the same class.
 - `defer(fcn)` — queue a closure until the first `NewTrial`, when trial data and late-bound parameters exist. Runs immediately if the first trial already happened.
+
+### ComponentSpec: what a component declares
+
+A component declares one static method, and `add`, the
+[builder](gui_BehaviorBuilder.md) palette and its code generator all read that
+one declaration:
+
+```matlab
+methods (Static)
+    function s = getComponentSpec()
+        s = gui.ComponentSpec();
+        s.shape    = ["runtime","parent"];
+        s.category = 'Displays';
+    end
+end
+```
+
+This mirrors `hw.Interface.getCreationSpec` / `hw.InterfaceSpec`, which does
+the same job for hardware backends. `shape` is the positional argument list as
+tokens — `parent`, `figure`, `host`, `runtime`, `psych`, `psychOrRuntime`,
+`keys`, `canvas`, or `arg:Name` for a named option consumed positionally.
+
+A class that declares **nothing** still works: `gui.ComponentSpec.forClass`
+infers a spec from the constructor's argument *names*, read from the `function`
+line rather than `meta.method.InputNames`, which collapses every
+arguments-block signature to `{'varargin'}`. `runtime`/`rt`, `pObj`/`psychObj`,
+`source`/`src`, `parent`/`container`/`hParent`, `fig`/`hFig`, `ax`/`haxes` and
+`options`/`varargin` are all recognized. A constructor whose container is
+called something unlisted (`hostPanel`) will **not** receive it: declare a
+spec, or rename the argument.
+
+Two conventions a new component should follow:
+
+- Declare a `PreferenceTag` option (with no default) if it remembers anything
+  by tag. The builder unique-tags a component placed twice **only** when its
+  spec declares that option.
+- Give an option a `defaultValue` only when the component has a real one. An
+  option with none stays unstated, so a saved preference can still win.
+
+Specs are memoized, so editing one mid-session needs
+`gui.ComponentSpec.flushCache`. A class that is not on the path yet is **not**
+cached as a miss, so a GUI built before a lab folder was added to the path can
+still find it afterwards.
 
 ## Keyboard shortcuts
 
@@ -181,12 +289,12 @@ every component that already asked for one — the bug this centralization
 exists to prevent. (A subclass that still does is chained rather than dropped,
 but it will take the keys from anything bound after it.)
 
-Three helpers come with a default chord, each dropped with `KeyBinding='none'`
-or replaced with a chord of your own: `addUpdateButton` (`Ctrl+Enter`),
-`addScreenCapture` (`Ctrl+Shift+C`), `addNotes`/`addNotesButton`
+Three things come with a default chord, each dropped with `KeyBinding='none'`
+or replaced with a chord of your own: `addUpdateButton` (`Ctrl+Enter`), the
+`ScreenCapture` component (`Ctrl+Shift+C`) and the `Notes` component
 (`Ctrl+Shift+N`). `Ctrl+Shift+?` and `F1` list everything bound.
 
-`addSessionGate`, `addSyringePump`, `addRegenerateTrial` and the trigger
+`SessionGate`, `SyringePump`, `RegenerateTrial` and the trigger
 helpers deliberately have none: those start sessions, move syringes, or
 interrupt the trial in progress, and a keystroke is the wrong way to do any of
 them.

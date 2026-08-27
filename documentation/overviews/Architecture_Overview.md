@@ -318,8 +318,8 @@ the submodule pointer:
 Look first at:
 
 - [obj/+psychophysics/Psych.m](../../obj/+psychophysics/Psych.m)
-- [obj/+gui/@OnlinePlot/OnlinePlot.m](../../obj/+gui/@OnlinePlot/OnlinePlot.m)
-- [obj/+gui/@Performance/Performance.m](../../obj/+gui/@Performance/Performance.m)
+- [obj/+gui/+components/@OnlinePlot/OnlinePlot.m](../../obj/+gui/+components/@OnlinePlot/OnlinePlot.m)
+- [obj/+gui/+components/@Performance/Performance.m](../../obj/+gui/+components/@Performance/Performance.m)
 
 ### If you are changing session GUI behavior
 

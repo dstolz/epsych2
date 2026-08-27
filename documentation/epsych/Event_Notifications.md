@@ -114,8 +114,8 @@ end
 
 #### Real uses in this repository
 
-- Performance table: [obj/+gui/@Performance/Performance.m](../../obj/+gui/@Performance/Performance.m)
-- History table: [obj/+gui/@History/History.m](../../obj/+gui/@History/History.m)
+- Performance table: [obj/+gui/+components/@Performance/Performance.m](../../obj/+gui/+components/@Performance/Performance.m)
+- History table: [obj/+gui/+components/@History/History.m](../../obj/+gui/+components/@History/History.m)
 - Appetitive GUI listener: [paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m](../../paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m)
 
 ### `NewTrial`
@@ -198,7 +198,7 @@ end
 
 - Appetitive GUI registration: [paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m](../../paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/build.m)
 - Appetitive GUI handler: [paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/cl_AppetitiveDetection_BehaviorGUI.m](../../paradigms/BehaviorGUIs/@cl_AppetitiveDetection_BehaviorGUI/cl_AppetitiveDetection_BehaviorGUI.m)
-- Mode indicator widget: [obj/+gui/@ModeIndicator/ModeIndicator.m](../../obj/+gui/@ModeIndicator/ModeIndicator.m)
+- Mode indicator widget: [obj/+gui/+components/@ModeIndicator/ModeIndicator.m](../../obj/+gui/+components/@ModeIndicator/ModeIndicator.m)
 
 ## Summary Table
 

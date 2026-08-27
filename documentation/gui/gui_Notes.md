@@ -2,7 +2,7 @@
 
 A line of notes, stamped with the trial it was typed on, saved with the data.
 
-Source: `obj/+gui/@Notes/` (the component), `obj/+epsych/@SessionNotes/` (the store)
+Source: `obj/+gui/+components/@Notes/` (the component), `obj/+epsych/@SessionNotes/` (the store)
 
 ![The notes panel, with the button form at the right](images/Notes.png)
 
@@ -30,13 +30,13 @@ Source: `obj/+gui/@Notes/` (the component), `obj/+epsych/@SessionNotes/` (the st
 
 ```matlab
 % In a gui.BehaviorGUI subclass build() — registered for teardown:
-obj.NotesPanel = obj.addNotes(g);            % g is a uigridlayout cell
+obj.NotesPanel = obj.add('gui.components.Notes', g);            % g is a uigridlayout cell
 
 % Wall-clock stamps, tagged to subject 2, hand-editable from the start:
-obj.addNotes(g, TimeStamp="clock", Subject=2, Editable=true);
+obj.add('gui.components.Notes', g, TimeStamp="clock", Subject=2, Editable=true);
 
 % No room for a log? One button; the notes live in the window it opens:
-obj.addNotesButton(toolRow);
+obj.add('gui.components.Notes', toolRow, ButtonOnly=true);
 
 % From anywhere holding the runtime — a paradigm callback, a script:
 RUNTIME.NOTES.add('water bottle refilled');
@@ -81,8 +81,8 @@ by drag-and-drop can have one without any hand-written code. Its options
 dialog offers the stamp format, whether the log starts hand-editable, and
 **Button only** with the button's label. Picking Button only clears the
 region's pop-out flag — that button already opens the window a pop-out button
-would — and the generated line is `obj.addNotesButton(...)` rather than
-`obj.addNotes(...)`. Two notes regions in one GUI get uniqued
+would — and the generated line is `obj.add('gui.components.Notes', ..., ButtonOnly=true)` rather than
+`obj.add('gui.components.Notes', ...)`. Two notes regions in one GUI get uniqued
 `PreferenceTag`s like any other repeated component.
 
 ## Where the notes end up
@@ -213,7 +213,7 @@ matlab -batch "run('tmp/smoke_test_notes.m')"
 
 ## See also
 
-- `documentation/gui/gui_BehaviorGUI.md` — `addNotes`, `addNotesButton`
+- `documentation/gui/gui_BehaviorGUI.md` — `add` and the component DSL
 - `documentation/gui/gui_PopOut.md` — the pop-out window the button opens
 - `documentation/epsych/epsych_ReviewSession.md` — notes in a reviewed session
 - `documentation/epsych/epsych_TrialJournal.md` — the crash-recovery channel

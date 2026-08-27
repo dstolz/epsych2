@@ -3,7 +3,7 @@
 A generic "upcoming trial" display for custom behavior GUIs, showing the
 compiled parameter values of the trial about to be presented.
 
-Source: `obj/+gui/@NextTrial/`
+Source: `obj/+gui/+components/@NextTrial/`
 
 ## What it does
 
@@ -59,7 +59,7 @@ obj.NextTrialPanel = gui.components.NextTrial(RUNTIME, panelNextTrial, ...
     Fields=["Depth","TrialType"], Formatters=fmt, FontSize=20);
 
 % From a gui.BehaviorGUI subclass's build(fig) (preferred: registers for teardown)
-obj.NextTrialPanel = obj.addNextTrial(panelNextTrial, ...
+obj.NextTrialPanel = obj.add('gui.components.NextTrial', panelNextTrial, ...
     Fields=["Depth","TrialType"], Formatters=fmt, FontSize=20);
 
 % Programmatic control at any time
@@ -96,20 +96,20 @@ obj = gui.components.NextTrial(source, container, options)
 
 ## gui.BehaviorGUI integration
 
-`gui.BehaviorGUI.addNextTrial(parent, ...)` constructs a `gui.components.NextTrial` bound to
-`obj.RUNTIME` and registers it for teardown, matching `addMonitor`:
+`obj.add('gui.components.NextTrial', parent, ...)` constructs one bound to
+`obj.RUNTIME` and registers it for teardown:
 
 ```matlab
 function build(obj, fig)
     ...
     p = uipanel(g, 'Title', 'Next Trial'); p.Layout.Row = 1; p.Layout.Column = 2;
-    obj.NextTrialPanel = obj.addNextTrial(p, Fields=["Depth","TrialType"]);
+    obj.NextTrialPanel = obj.add('gui.components.NextTrial', p, Fields=["Depth","TrialType"]);
 end
 ```
 
 ## Cleanup
 
-Registered through `gui.BehaviorGUI.register` (via `addNextTrial`), it is deleted
+Registered through `gui.BehaviorGUI.register` (via `add`), it is deleted
 automatically with the rest of the GUI. Constructed standalone, `delete(obj)`
 releases the `NewTrial` listener and context menu; the table graphics are
 left for the hosting figure to tear down.
@@ -120,7 +120,7 @@ left for the hosting figure to tear down.
 protocol's own text label for TrialType:
 
 ```matlab
-obj.NextTrialPanel = obj.addNextTrial(layoutNextTrial, ...
+obj.NextTrialPanel = obj.add('gui.components.NextTrial', layoutNextTrial, ...
     Fields=["Depth","TrialTypeNames"], FontSize=20);
 ```
 

@@ -4,7 +4,7 @@ A camera button for a behavior GUI: one click puts a picture of the whole
 window on the system clipboard, ready to paste into an electronic lab
 notebook, a slide, or a message to whoever is asking what the rig is doing.
 
-Source: `obj/+gui/@ScreenCapture/`
+Source: `obj/+gui/+components/@ScreenCapture/`
 
 ## What it does
 
@@ -27,8 +27,8 @@ Source: `obj/+gui/@ScreenCapture/`
 
 ```matlab
 % In a gui.BehaviorGUI subclass — registered for teardown:
-obj.addScreenCapture(row);                        % icon-only button
-obj.addScreenCapture(row, Text='Screenshot');     % labeled
+obj.add('gui.components.ScreenCapture', row);                        % icon-only button
+obj.add('gui.components.ScreenCapture', row, Text='Screenshot');     % labeled
 
 % Standalone, in any container:
 sc = gui.components.ScreenCapture(fig, Tooltip='Copy this window');
@@ -82,6 +82,6 @@ takes the component and its timer along.
 
 ## See also
 
-- [gui_BehaviorGUI.md](gui_BehaviorGUI.md) — `addScreenCapture` and the other
+- [gui_BehaviorGUI.md](gui_BehaviorGUI.md) — `add` and the other
   component helpers
 - `obj/+gui/toolbarIcon.m` — where the camera glyph is drawn

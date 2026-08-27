@@ -11,7 +11,7 @@ It listens for new data events from a linked psychophysics object and updates
 an on-screen table with relative time, decoded response labels, and selected
 trial parameters.
 
-Source file: [obj/+gui/@History/History.m](../../obj/+gui/@History/History.m)
+Source file: [obj/+gui/+components/@History/History.m](../../obj/+gui/+components/@History/History.m)
 
 ## What This Class Does
 

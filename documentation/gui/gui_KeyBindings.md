@@ -71,11 +71,11 @@ Helpers that come with a default chord take `KeyBinding=`:
 | Helper | Default chord | Action |
 |---|---|---|
 | `addUpdateButton` | `Ctrl+Enter` | Commit pending parameter edits |
-| `addScreenCapture` | `Ctrl+Shift+C` | Copy the window to the clipboard |
-| `addNotes` / `addNotesButton` | `Ctrl+Shift+N` | Jump to the notes entry |
+| `gui.components.ScreenCapture` | `Ctrl+Shift+C` | Copy the window to the clipboard |
+| `gui.components.Notes` | `Ctrl+Shift+N` | Jump to the notes entry |
 
-`KeyBinding='none'` drops one; any other chord replaces it. `addSessionGate`,
-`addSyringePump`, `addRegenerateTrial` and the trigger helpers deliberately
+`KeyBinding='none'` drops one; any other chord replaces it. `SessionGate`,
+`SyringePump`, `RegenerateTrial` and the trigger helpers deliberately
 have none — see below.
 
 ## Why it is built this way
@@ -133,7 +133,7 @@ binding dead.
 
 ## See also
 
-- [gui_BehaviorGUI.md](gui_BehaviorGUI.md) — the `Keys` property and the `add*` helpers
+- [gui_BehaviorGUI.md](gui_BehaviorGUI.md) — the `Keys` property and the component DSL
 - [Parameter_Update.md](Parameter_Update.md) — reads modifier state from here
 - [gui_RegenerateTrial.md](gui_RegenerateTrial.md) — the arming gesture, and the standalone fallback
 - `obj/+gui/@KeyBindings/`, `examples/two_afc/TwoAFCBehaviorGUI.m`

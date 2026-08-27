@@ -93,13 +93,48 @@ the dialog exposes `auto`/`editfield`/`dropdown`/`checkbox`/`readonly`,
 and anything fancier (`range`, `stimtype`, PostUpdateFcn chains) is a
 hand edit in the generated file.
 
+### A new component needs no builder edit
+
+`componentCatalog` is no longer where a component is *declared*. It keeps its
+22 hand-written rows and **appends whatever else it finds in the
+`gui.components` package**, reading each class's own
+[`gui.ComponentSpec`](gui_BehaviorGUI.md). A component that declares
+`getComponentSpec` — or one outside the toolbox named in a hand-written spec,
+since `catalogEntry` accepts a fully-qualified class name — reaches the
+palette, the Configure... form and the code generator without a line changing
+here.
+
+Discovery never overrides a hand-written row. The 22 carry two things a spec
+does not: the option field names that saved `.eblt` files already use, and the
+`HasOptions` flag marking which types have a bespoke `configureRegion` dialog.
+Keeping them is what preserves file compatibility — making them generic would
+mean renaming option fields inside every saved `.eblt` on every rig, the same
+class of silent breakage as changing the `Type` strings. So the 22 keep their
+exact behaviour, and everything new is free.
+
+For a discovered component the builder builds the shared form from the spec:
+each `gui.ComponentSpecOption` becomes a field of the kind its `Kind` names,
+and `generateCode`'s generic emitter writes an `obj.add(...)` line with the
+options that differ from the spec's declared defaults. Only options that
+actually **declare** a default are seeded, so an option the component has no
+real default for stays unstated and the operator's saved preference can still
+win. A `PreferenceTag` is minted for a class placed twice only when its spec
+declares that option, since a component that cannot take it would fail to
+construct on the second placement.
+
+Two classes in the package are marked `placeable = false` to keep the palette
+honest: the legacy `Performance`, which would collide with
+`SessionPerformance` over the `Performance` type, and `MicrophonePlot`, which
+needs a specific parameter to mean anything.
+
 ## What the generated code looks like
 
 The emitted class mirrors `examples/customgui/ExampleBehaviorGUI.m`: a
 constructor that forwards `Name=`/`DefaultPosition=`, an optional guarded
 `createPsych`, and a `build(obj, fig)` of `uigridlayout` +
-`obj.add*` helper calls (plus registered native constructions where no
-helper exists). It never emits destructors, listeners, or `closeGUI` —
+`obj.add(...)` calls, the `addControl`/`addButton` sugar, and guarded
+`obj.register(...)` natives for the three types with no component class.
+It never emits destructors, listeners, or `closeGUI` —
 the base class owns lifecycle — and every parameter-dependent construction
 is guarded, so the GUI survives `epsych.SelfTest` check I6's
 empty-runtime launch. A `LayoutSpecFile` constant records the `.eblt`

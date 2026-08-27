@@ -246,12 +246,12 @@ u.watchedHandles = h;
 
 ## Related files
 
-- Source: obj/+gui/Parameter_Control.m
-- Update button: obj/+gui/Parameter_Update.m
+- Source: obj/+gui/+components/Parameter_Control.m
+- Update button: obj/+gui/+components/Parameter_Update.m
 - Polling display: obj/+gui/Parameter_Monitor.m
 - GUI utility: obj/+gui/@Helper/Helper.m
 
-This documentation describes: [obj/+gui/Parameter_Control.m](../../obj/+gui/Parameter_Control.m)
+This documentation describes: [obj/+gui/+components/Parameter_Control.m](../../obj/+gui/+components/Parameter_Control.m)
 
 ## Notes and gotchas
 

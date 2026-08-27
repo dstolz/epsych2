@@ -64,7 +64,7 @@ For a first pass, read Sections **1–4** in order. Sections **6–9** are the m
 Most of the plumbing this guide explains — single-instance enforcement, figure creation with saved window position, the three event listeners, cleanup of listeners/timers/components on close, and wiring `gui.components.Parameter_Update` to your controls — is provided by the base class **`gui.BehaviorGUI`**. A new task GUI only needs:
 
 1. A constructor that forwards the runtime: `obj@gui.BehaviorGUI(RUNTIME, Name='My Task')`
-2. A protected `build(fig)` method that lays out the window using one-line helpers: `addButton`, `addControl`, `controlColumn`, `addUpdateButton`, `addMonitor`, and `register` for any other component
+2. A protected `build(fig)` method that lays out the window using the one-line DSL: `add` for any reusable component, plus `addButton`, `addControl`, `controlColumn` and `addUpdateButton`
 3. Optional hooks: `createPsych`, `onNewTrial`, `onNewData`, `onModeChange`, `onFirstTrial`
 
 Start by copying [examples/customgui/ExampleBehaviorGUI.m](../../examples/customgui/ExampleBehaviorGUI.m) (launchable without hardware via `examples/customgui/run_example.m`) and see [../gui/gui_BehaviorGUI.md](../gui/gui_BehaviorGUI.md) for the full API. `ep_GenericGUI`, the default behavior GUI, is itself a small `gui.BehaviorGUI` subclass and a good second reference.
@@ -438,7 +438,7 @@ The recommended skeleton is a `gui.BehaviorGUI` subclass — copy [examples/cust
 
     * create the main `uigridlayout` and panels for grouped controls
     * `obj.addButton(...)` for triggers/toggles, `obj.addControl(...)` for editable parameters (names that are missing from the loaded protocol are skipped), `obj.addUpdateButton(...)` to commit them
-    * `obj.addMonitor(...)` for read-only live values
+    * `obj.add('gui.components.Parameter_Monitor', ...)` for read-only live values
     * `obj.register(...)` for any other component (`gui.components.ParameterScatter`, `gui.components.History`, `gui.components.PhaseSelector`, ...)
   * hooks `onNewTrial` / `onNewData` / `onModeChange` / `onFirstTrial` for per-trial displays
 

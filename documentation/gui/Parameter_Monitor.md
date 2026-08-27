@@ -5,7 +5,7 @@ experiment GUI. Attach it to any graphics parent (uifigure, uipanel,
 uigridlayout, or legacy figure for text mode), hand it an array of parameters,
 and it polls and renders them for you.
 
-Source: `obj/+gui/@Parameter_Monitor/`
+Source: `obj/+gui/+components/@Parameter_Monitor/`
 
 ## Display types
 

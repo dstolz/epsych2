@@ -116,7 +116,7 @@ tolerance of parameter names a protocol does not define.
 
 ### A toolbar of them
 
-For more than one or two, `gui.BehaviorGUI.addComponentToolbar` puts every
+For more than one or two, `gui.components.ComponentToolbar` puts every
 poppable component the GUI registered onto one icon toolbar, without naming
 them: it collects them after `build` returns. It can also open displays the
 GUI does not host at all, building them on first click. See

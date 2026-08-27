@@ -8,19 +8,19 @@ which display to right-click, and it lets a paradigm offer a display it does
 **not** put on screen — the toolbar builds that one the first time its tool is
 clicked.
 
-Source: `obj/+gui/@ComponentToolbar/`
+Source: `obj/+gui/+components/@ComponentToolbar/`
 
-It is entirely optional. A GUI that never calls `addComponentToolbar` gets no
+It is entirely optional. A GUI that never adds one gets no
 toolbar and behaves exactly as before.
 
 ## Using it
 
-Call `addComponentToolbar` at the **top** of `build`, then declare anything the
+Add it at the **top** of `build`, then declare anything the
 GUI does not display:
 
 ```matlab
 function build(obj, fig)
-    tb = obj.addComponentToolbar(fig);
+    tb = obj.add('gui.components.ComponentToolbar', fig);
 
     % Not on screen; built the first time its tool is clicked.
     tb.addLazyComponent('Performance', ...
@@ -39,7 +39,7 @@ adopt `gui.PopOut`. Calling the toolbar first and still getting the components
 built after it is the point: the list is collected once `build` has returned,
 not when the toolbar is made.
 
-`addComponentToolbar(fig, Style=, Exclude=, AutoDiscover=)`:
+`obj.add('gui.components.ComponentToolbar', fig, Style=, Exclude=, AutoDiscover=)`:
 
 | Option | Meaning |
 |---|---|
@@ -203,7 +203,7 @@ left in the remembered list. See
 
 ## Lifecycle
 
-The toolbar is added to the GUI's teardown registry by `addComponentToolbar`,
+The toolbar is added to the GUI's teardown registry by `add`,
 so closing the GUI takes it down. Because it is registered first — from the top
 of `build` — reverse-order teardown deletes it **last**, after the components
 it points at; every handle it touches is checked for validity for that reason.

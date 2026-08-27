@@ -4,7 +4,7 @@ A "Begin Experiment" button that holds a session until the operator is
 actually at the rig. Nothing dispatches until it is pressed; once it is, the
 button retires into a status line that says which kind of run is going.
 
-Source: `obj/+gui/@SessionGate/`
+Source: `obj/+gui/+components/@SessionGate/`
 
 ## What it does
 
@@ -47,7 +47,7 @@ classdef MyGUI < gui.BehaviorGUI
     methods (Access = protected)
         function build(obj, fig)
             g = uigridlayout(fig, [2 1]);
-            obj.addSessionGate(g);          % <- the button
+            obj.add('gui.components.SessionGate', g);          % <- the button
             % ... the rest of the layout ...
         end
     end
@@ -115,7 +115,7 @@ sitting at `Idle` waiting to be released would advertise itself as over.
 
 ## See also
 
-- `gui.BehaviorGUI` — `addSessionGate`, `waitForSessionGate`
+- `gui.BehaviorGUI` — `add`, `waitForSessionGate`
   (`documentation/gui/gui_BehaviorGUI.md`)
 - `examples/syringepump/PumpBehaviorGUI.m` — the paradigm this was extracted
   from, and the worked example of the two-halves pattern

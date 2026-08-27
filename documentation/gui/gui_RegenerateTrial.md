@@ -7,7 +7,7 @@ committed, and the hardware is reset and re-triggered.
 
 The button is **dead until Ctrl+Alt+Shift are all held down**.
 
-Source: `obj/+gui/@RegenerateTrial/`
+Source: `obj/+gui/+components/@RegenerateTrial/`
 
 ## Arming: hold Ctrl+Alt+Shift
 
@@ -114,7 +114,7 @@ Through `gui.BehaviorGUI`, which registers it for teardown:
 ```matlab
 function build(obj, fig)
     g = uigridlayout(fig, [2 1]);
-    obj.addRegenerateTrial(g);
+    obj.add('gui.components.RegenerateTrial', g);
 end
 ```
 
@@ -172,7 +172,7 @@ and is not `isIdle`: a preview dispatches trials like any other run.
 
 ## Sharing the key callbacks
 
-**Inside a `gui.BehaviorGUI` this is settled for you.** `addRegenerateTrial`
+**Inside a `gui.BehaviorGUI` this is settled for you.** `add`
 passes the GUI's [`gui.KeyBindings`](gui_KeyBindings.md) as `KeySource`, and
 the component then takes the held modifiers from its `ModifiersChanged` event.
 No figure callback is touched, nothing needs re-installing, and the order
@@ -225,7 +225,7 @@ two standalone buttons on one figure share one dispatcher without recursing.
 
 ## See also
 
-- [gui_BehaviorGUI.md](gui_BehaviorGUI.md) — `addRegenerateTrial` and the rest
+- [gui_BehaviorGUI.md](gui_BehaviorGUI.md) — `add` and the rest
   of the component helpers
 - [gui_Notes.md](gui_Notes.md) — where the record of each press goes
 - `epsych.Runtime.dispatchNextTrial`, `epsych.TrialSelector`

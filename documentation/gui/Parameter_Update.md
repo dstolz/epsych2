@@ -17,7 +17,7 @@ It solves a common GUI workflow:
 
 ## Where it fits
 
-In EPsych, parameter editing is typically done with [`gui.components.Parameter_Control`](../../obj/+gui/Parameter_Control.m), which binds a single [`hw.Parameter`](../hw/hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
+In EPsych, parameter editing is typically done with [`gui.components.Parameter_Control`](../../obj/+gui/+components/Parameter_Control.m), which binds a single [`hw.Parameter`](../hw/hw_Parameter.md) to a UI control and exposes a boolean `ValueUpdated` flag when the UI differs from the underlying parameter value.
 
 `gui.components.Parameter_Update` watches one or more `gui.components.Parameter_Control` objects and:
 
@@ -139,8 +139,8 @@ matching the button's own disabled state.
 
 ## Related files
 
-- [obj/+gui/Parameter_Update.m](../../obj/+gui/Parameter_Update.m): Implementation
-- [obj/+gui/Parameter_Control.m](../../obj/+gui/Parameter_Control.m): Typical watched editor control
+- [obj/+gui/+components/Parameter_Update.m](../../obj/+gui/+components/Parameter_Update.m): Implementation
+- [obj/+gui/+components/Parameter_Control.m](../../obj/+gui/+components/Parameter_Control.m): Typical watched editor control
 - [../hw/hw_Parameter.md](../hw/hw_Parameter.md): `hw.Parameter` overview
 - [Parameter_Control.md](Parameter_Control.md): Editor control reference
 - [runtime/timerfcns/ep_TimerFcn_Start.m](../../runtime/timerfcns/ep_TimerFcn_Start.m): Creates `TRIALS.writeParamIdx`

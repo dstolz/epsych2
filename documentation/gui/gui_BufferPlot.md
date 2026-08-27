@@ -5,7 +5,7 @@ The contents of a buffer parameter, redrawn once per completed trial. Where
 `gui.components.BufferPlot` shows what is IN a buffer — a recorded waveform, a lick
 trace, a spike-count vector — one trial at a time.
 
-Source: `obj/+gui/@BufferPlot/`
+Source: `obj/+gui/+components/@BufferPlot/`
 
 ## What it does
 
@@ -37,8 +37,8 @@ Source: `obj/+gui/@BufferPlot/`
 
 ```matlab
 % In a gui.BehaviorGUI subclass's build() — registered for teardown:
-obj.addBufferPlot(g, Buffers="Waveform~1", SampleRate="auto");
-obj.addBufferPlot(g, Buffers=["Lick~1" "Spout~1"], Layout='stacked', ...
+obj.add('gui.components.BufferPlot', g, Buffers="Waveform~1", SampleRate="auto");
+obj.add('gui.components.BufferPlot', g, Buffers=["Lick~1" "Spout~1"], Layout='stacked', ...
     NumTrialsShown=5);
 
 % Standalone, over a runtime:

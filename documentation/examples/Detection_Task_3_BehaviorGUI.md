@@ -6,7 +6,7 @@ Base-class reference: [gui.BehaviorGUI](../gui/gui_BehaviorGUI.md).
 
 The starter template [examples/customgui/ExampleBehaviorGUI.m](../../examples/customgui/ExampleBehaviorGUI.m)
 shows the layout helpers (`addButton`, `addControl`, `controlColumn`,
-`addMonitor`, `addUpdateButton`). This example builds on it with the parts a
+`add`, `addUpdateButton`). This example builds on it with the parts a
 real task GUI needs: a live analysis pipeline and the event hooks.
 
 ## The analysis pipeline: createPsych and the event chain

@@ -5,7 +5,7 @@ an experimenter watches while a session runs — trial counts, hit / false
 alarm / abort rates, percent correct, d' and criterion — over a trial window
 the operator controls.
 
-Source: `obj/+gui/@SessionPerformance/`
+Source: `obj/+gui/+components/@SessionPerformance/`
 
 This is the reusable replacement for the hand-rolled performance labels that
 each paradigm GUI used to build (a `uilabel` with `sprintf` and inline
@@ -53,7 +53,7 @@ Requires a uifigure-based container (`uipanel`, `uigridlayout`, or
 ```matlab
 % From a gui.BehaviorGUI subclass's build(fig) — preferred: registers for teardown
 panelPerf = uipanel(layoutMain,'Title','Session Performance');
-obj.Performance = obj.addPerformance(panelPerf, ...
+obj.Performance = obj.add('gui.components.SessionPerformance', panelPerf, ...
     Metrics=["HitRate","FARate","AbortRate","DPrime"], FontSize=11);
 
 % Standalone, over a runtime or an existing psychophysics object
@@ -137,7 +137,7 @@ A saved selection takes precedence over the constructor's `Metrics`,
 
 ## Cleanup
 
-Registered through `gui.BehaviorGUI.register` (via `addPerformance`), it is
+Registered through `gui.BehaviorGUI.register` (via `add`), it is
 deleted with the rest of the GUI. `delete(obj)` releases the listeners and
 the context menu, deletes the `SessionMetrics` **it created** (an analysis
 object supplied by the caller is left alone), closes any pop-out window, and
@@ -153,7 +153,7 @@ panelPerformance = uipanel(layoutMain, 'Title', 'Session Performance');
 panelPerformance.Layout.Row    = [1 2];
 panelPerformance.Layout.Column = 7;
 
-obj.Performance = obj.addPerformance(panelPerformance, ...
+obj.Performance = obj.add('gui.components.SessionPerformance', panelPerformance, ...
     Metrics=["HitRate","FARate","AbortRate","DPrime"], ...
     FontSize=11, ShowDetail=false);
 ```

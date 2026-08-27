@@ -9,11 +9,11 @@ trials.
 
 ```matlab
 % Inside a gui.BehaviorGUI build method
-obj.addSyringePump(panelReward);
-obj.addSyringePump(panelReward, Rate = 1.5, Diameter = 14.43);
+obj.add('gui.components.SyringePump', panelReward);
+obj.add('gui.components.SyringePump', panelReward, Rate = 1.5, Diameter = 14.43);
 
 % Only the readout and the manual buttons; the protocol owns the rest
-obj.addSyringePump(panelReward, Sections = ["Volume" "Status" "Triggers"]);
+obj.add('gui.components.SyringePump', panelReward, Sections = ["Volume" "Status" "Triggers"]);
 
 % Standalone: no protocol, pick a port in the panel and connect
 f = uifigure(Name = 'Pump');
@@ -110,7 +110,7 @@ the operator; the checkbox's tooltip and the menu entry name the current one
 so nobody has to guess what the switch will do.
 
 ```matlab
-obj.addSyringePump(panelReward, TriggerMode = 'ST', TTLTrigger = true);
+obj.add('gui.components.SyringePump', panelReward, TriggerMode = 'ST', TTLTrigger = true);
 ```
 
 Left unset, `TriggerMode` adopts whatever the interface is configured for, so a

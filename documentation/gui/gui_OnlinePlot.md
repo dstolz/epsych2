@@ -7,7 +7,7 @@ stimulus gates, reward valves and trial flags fire against each other.
 
 ```matlab
 % From a behavior GUI's build()
-obj.Plot = obj.addOnlinePlot(panel, Source={'Lick','StimOn','Reward'});
+obj.Plot = obj.add('gui.components.OnlinePlot', panel, Source={'Lick','StimOn','Reward'});
 
 % Or directly
 op = gui.components.OnlinePlot(RUNTIME, {'Lick','StimOn','Reward'}, ax, BoxID);
@@ -176,12 +176,12 @@ and restores its own arrangement thereafter.
 |---|---|
 | `tmp/smoke_test_onlineplot.m` | batched reads, buffering, markers, teardown, a live timer run |
 | `tmp/smoke_test_onlineplot_config.m` | selection, order, aesthetics, persistence, pop-out |
-| `tmp/smoke_test_onlineplot_dialogs.m` | the two modal dialogs and `addOnlinePlot` (run via `matlab -batch`) |
+| `tmp/smoke_test_onlineplot_dialogs.m` | the two modal dialogs and the `add` path (run via `matlab -batch`) |
 | `tmp/bench_onlineplot.m` | read-path and draw-path timings |
 
 ## See also
 
 - [gui.PopOut](gui_PopOut.md)
-- [gui.BehaviorGUI](gui_BehaviorGUI.md) — `addOnlinePlot`
+- [gui.BehaviorGUI](gui_BehaviorGUI.md) — `add` and the component DSL
 - [gui.components.ComponentToolbar](gui_ComponentToolbar.md)
 - [gui.components.ParameterScatter](gui_ParameterScatter.md)

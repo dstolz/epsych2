@@ -6,7 +6,7 @@
 
 The first half of this page explains the workflow for operators; the integration section at the end is for developers embedding the component in a task GUI.
 
-Source class: [obj/+gui/@PhaseSelector/PhaseSelector.m](../../obj/+gui/@PhaseSelector/PhaseSelector.m)
+Source class: [obj/+gui/+components/@PhaseSelector/PhaseSelector.m](../../obj/+gui/+components/@PhaseSelector/PhaseSelector.m)
 
 ## What a phase file is
 

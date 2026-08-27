@@ -22,6 +22,8 @@ classdef KeyBindings < handle
     % Methods:
     %   bind, unbind, isBound, list, showHelp, claimFigure, modifiersDown
     %   gui.KeyBindings.getOrCreate(fig) - the figure's shared instance
+    %   gui.KeyBindings.normalizeModifiers('Ctrl+Shift') - a held gesture,
+    %       canonicalized for comparison against CurrentModifiers
     %
     % Events:
     %   ModifiersChanged - the held modifier set changed
@@ -388,39 +390,63 @@ classdef KeyBindings < handle
                 chord (1,:) char
             end
 
-            parts = strsplit(lower(strtrim(chord)), '+');
-            parts = parts(~cellfun(@isempty, parts));
+            parts = gui.KeyBindings.chordParts_(chord);
             if isempty(parts)
                 error('epsych:KeyBindings:emptyChord', 'A chord needs at least a key.')
             end
 
-            hasCtrl = false; hasAlt = false; hasShift = false;
-            key = '';
-            for i = 1:numel(parts)
-                switch parts{i}
-                    case {'ctrl','control','command','cmd'}
-                        hasCtrl = true;
-                    case {'alt','option'}
-                        hasAlt = true;
-                    case 'shift'
-                        hasShift = true;
-                    otherwise
-                        if ~isempty(key)
-                            error('epsych:KeyBindings:badChord', ...
-                                'A chord names one key: "%s" has both "%s" and "%s".', ...
-                                chord, key, parts{i})
-                        end
-                        key = gui.KeyBindings.aliasKey_(parts{i});
-                end
+            [mods, keys] = gui.KeyBindings.splitModifiers_(parts);
+            if numel(keys) > 1
+                error('epsych:KeyBindings:badChord', ...
+                    'A chord names one key: "%s" has both "%s" and "%s".', ...
+                    chord, keys{1}, keys{2})
             end
-
-            if isempty(key)
+            if isempty(keys)
                 error('epsych:KeyBindings:modifiersOnly', ...
                     '"%s" names only modifiers; a chord needs a key.', chord)
             end
 
-            chord = gui.KeyBindings.chordString_(...
-                [repmat({'control'},1,hasCtrl), repmat({'alt'},1,hasAlt), repmat({'shift'},1,hasShift)], key);
+            chord = gui.KeyBindings.chordString_(mods, gui.KeyBindings.aliasKey_(keys{1}));
+        end
+
+        function mods = normalizeModifiers(spec)
+            % mods = gui.KeyBindings.normalizeModifiers('Ctrl+Shift')
+            % A modifier-only chord as the canonical ordered cell
+            % CurrentModifiers is compared against, e.g. {'control','shift'}.
+            % Accepts a chord string, a string array, or a cell of names, and
+            % folds the mac spellings (command, option) like normalize does.
+            %
+            % This exists because normalize deliberately REFUSES the input
+            % this one requires: a held gesture -- gui.components.Parameter_Control's
+            % ModifierActions, gui.components.RegenerateTrial's arming -- is named by
+            % modifiers alone, and both sides of the comparison have to pass
+            % through one canonicalizer. CurrentModifiers carries whatever
+            % evt.Modifier reported, so on a mac the raw held set says
+            % 'command' where the paradigm wrote 'ctrl'.
+            arguments
+                spec
+            end
+
+            if ischar(spec) || isstring(spec)
+                parts = gui.KeyBindings.chordParts_(strjoin(cellstr(string(spec)), '+'));
+            elseif iscell(spec)
+                parts = gui.KeyBindings.chordParts_(strjoin(cellstr(spec), '+'));
+            else
+                error('epsych:KeyBindings:badModifiers', ...
+                    'A modifier set is a chord string or a cell of modifier names.')
+            end
+
+            if isempty(parts)
+                error('epsych:KeyBindings:emptyChord', ...
+                    'A modifier set names at least one modifier.')
+            end
+
+            [mods, keys] = gui.KeyBindings.splitModifiers_(parts);
+            if ~isempty(keys)
+                error('epsych:KeyBindings:notModifiers', ...
+                    '"%s" is not a modifier; a modifier set names only ctrl, alt and shift.', ...
+                    keys{1})
+            end
         end
 
         function chord = chordOf(evt)
@@ -438,7 +464,20 @@ classdef KeyBindings < handle
         function s = displayChord(chord)
             % s = gui.KeyBindings.displayChord('ctrl+shift+slash')
             % The chord as an operator reads it: 'Ctrl+Shift+/'.
-            parts = strsplit(gui.KeyBindings.normalize(chord), '+');
+            %
+            % A HELD gesture is spelled here too -- displayChord('ctrl+shift')
+            % is 'Ctrl+Shift' -- because gui.components.Parameter_Control paints the
+            % armed chord onto its button, and normalize alone would refuse
+            % the very input that names such a gesture.
+            try
+                canonical = gui.KeyBindings.normalize(chord);
+            catch ME
+                if ~strcmp(ME.identifier, 'epsych:KeyBindings:modifiersOnly')
+                    rethrow(ME)
+                end
+                canonical = strjoin(gui.KeyBindings.normalizeModifiers(chord), '+');
+            end
+            parts = strsplit(canonical, '+');
             out = cell(1, numel(parts));
             for i = 1:numel(parts)
                 switch parts{i}
@@ -471,6 +510,37 @@ classdef KeyBindings < handle
     end
 
     methods (Static, Access = private)
+        function parts = chordParts_(chord)
+            % 'Ctrl+Shift+R' -> {'ctrl','shift','r'}, empties dropped.
+            parts = strsplit(lower(strtrim(char(chord))), '+');
+            parts = strtrim(parts);
+            parts = parts(~cellfun(@isempty, parts));
+        end
+
+        function [mods, keys] = splitModifiers_(parts)
+            % Fold the modifier aliases into the canonical ordered set,
+            % handing back whatever was not a modifier untouched. The one
+            % place command/option are known to mean ctrl/alt, so normalize
+            % and normalizeModifiers cannot drift apart on a mac keyboard.
+            hasCtrl = false; hasAlt = false; hasShift = false;
+            keys = {};
+            for i = 1:numel(parts)
+                switch parts{i}
+                    case {'ctrl','control','command','cmd'}
+                        hasCtrl = true;
+                    case {'alt','option'}
+                        hasAlt = true;
+                    case 'shift'
+                        hasShift = true;
+                    otherwise
+                        keys{end+1} = parts{i};
+                end
+            end
+            mods = [repmat({'control'},1,hasCtrl), ...
+                    repmat({'alt'},1,hasAlt), ...
+                    repmat({'shift'},1,hasShift)];
+        end
+
         function chord = chordString_(mods, key)
             % Modifiers in a fixed order so 'shift+ctrl+r' and 'ctrl+shift+r'
             % are the same binding.

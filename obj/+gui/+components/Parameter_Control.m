@@ -44,6 +44,17 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     %   governor flips back stays readable. setEnabled does the same thing by
     %   hand, and addDependent wires a governor after the fact.
     %
+    %   A button can carry more than one action, the alternates armed by
+    %   held modifier keys, so one slot in a cramped layout covers both a
+    %   normal reward and a large one:
+    %
+    %       obj.addButton(row, '!Reward', ModifierActions = { ...
+    %           'ctrl', @(c,~,~) pBig.Trigger(), 'Large Reward'});
+    %
+    %   While the chord is held the button repaints to say what a click will
+    %   now do, because the whole risk here is a button doing something its
+    %   label does not say. See addModifierAction.
+    %
     %   Custom validation can be attached through EvaluatorFcn. The callback
     %   is invoked as:
     %       [VALUE,SUCCESS] = EvaluatorFcn(OBJ, EVENT, PARAMETER, EXTRAARGS...)
@@ -83,6 +94,13 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
     properties (SetObservable,AbortSet,SetAccess = protected)
         ValueUpdated (1,1) logical = false % flag indicating that the gui value has been updated
+    end
+
+    properties (SetAccess = private)
+        % gui.KeyBindings supplying the held modifier set for
+        % ModifierActions. Resolved from the figure when the caller named
+        % none, and left empty until an action is actually declared.
+        KeySource = []
     end
 
     properties
@@ -134,6 +152,23 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
 
         % Controls whose enable this one governs; see addDependent.
         Dependents_ (1,:) struct = struct('Control',{},'Invert',{})
+
+        % Alternate actions armed by a held modifier chord; see
+        % addModifierAction. Empty on almost every control, and the whole
+        % feature costs nothing until one is declared: no KeyBindings
+        % listener is created for an empty list.
+        ModifierActions_ (1,:) struct = struct( ...
+            'Mods',{},'Chord',{},'Fcn',{},'Text',{},'Tooltip',{},'Color',{},'Note',{})
+        ModifierListener_ = []
+        Host_ = []                      % gui.BehaviorGUI, for the note's runtime
+        ArmedAction_ (1,1) double = 0   % index into ModifierActions_, 0 = none
+
+        % The button's own appearance, saved on the way in and restored
+        % verbatim on disarm. Cached rather than recomputed because the
+        % obvious repaint (indicate_change) reads getBoundValue, and on a
+        % live backend that is a device round trip hw.Parameter.get.Value
+        % rethrows from -- one per modifier keystroke.
+        PreArm_ = []
     end
 
 
@@ -162,6 +197,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             common.resolve         = "Parameter";
             common.resolveRequired = true;
             common.placeable       = false; % the builder places these inside a ControlColumn/ButtonRow
+            % The figure's one gui.KeyBindings, for ModifierActions. Injected
+            % on BOTH variants and costing nothing: no listener is created
+            % unless an action is actually declared. ModifierActions itself is
+            % NOT a ComponentSpecOption -- it carries function handles, which
+            % gui.BehaviorBuilder cannot serialize into an .eblt, and add
+            % forwards an undeclared option verbatim anyway. The feature is
+            % therefore code-only, off the builder palette.
+            common.inject.KeySource = "keys";
             common.options         = [ ...
                 gui.ComponentSpecOption('name','Parameter','inputType','param'), ...
                 gui.ComponentSpecOption('name','Text','inputType','text'), ...
@@ -180,6 +223,12 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             btn.label                  = 'Parameter Button';
             btn.description            = 'Auto-committing trigger or toggle button';
             btn.fixedOptions.autoCommit = true;
+            % The behavior GUI itself, for the session note a ModifierAction
+            % records. NOT Runtime: injecting one here would put this
+            % variant's self-clearing toggles into the trial table, which is
+            % the mistake the comment above warns about. Host is read only
+            % for its RUNTIME's note store.
+            btn.inject.Host            = "host";
             btn.preFcn                 = @gui.components.Parameter_Control.applyButtonType;
             btn.postFcn                = @gui.components.Parameter_Control.applyButtonStyle;
 
@@ -285,9 +334,19 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 % DisabledBy while it is true. See addDependent.
                 options.EnabledBy = []
                 options.DisabledBy = []
+                % Alternate actions armed by a held modifier chord, as an
+                % Nx2 {chord, fcn} or Nx3 {chord, fcn, text} cell:
+                %   obj.addButton(row,'!Reward', ModifierActions = { ...
+                %       'ctrl', @(c,~,p) c.Parameter.Parent.trigger(pBig), 'Large Reward'});
+                % See addModifierAction for the full per-action options.
+                options.ModifierActions (:,:) cell = {}
+                options.KeySource = []   % gui.KeyBindings; see ModifierActions
+                options.Host = []        % gui.BehaviorGUI, for a ModifierAction's session note
             end
             obj.parent = parent;
             obj.Runtime = options.Runtime;
+            obj.Host_ = options.Host;
+            obj.KeySource = options.KeySource;
 
             obj.Parameter = Parameter;
             controlType = options.Type;
@@ -339,6 +398,8 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             if ~isempty(options.DisabledBy)
                 options.DisabledBy.addDependent(obj,'disable');
             end
+
+            obj.addModifierActions_(options.ModifierActions);
         end
 
         function delete(obj)
@@ -346,6 +407,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             delete(obj.hl_uiobj)
             delete(obj.hl_bounds)
             delete(obj.hl_color)
+            delete(obj.ModifierListener_)
         end
 
 
@@ -472,6 +534,15 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             warning('on','MATLAB:structOnObject')
             if ~isfield(event,'PreviousValue')
                 event.PreviousValue = [];
+            end
+
+            % An armed modifier action REPLACES this control's normal trigger
+            % or commit -- before every hook, so a pre-update that disarms
+            % randomization does not run for a press that never reached the
+            % parameter. Nothing runs unless a chord is both declared and
+            % held right now; see addModifierAction.
+            if obj.runModifierAction_(event)
+                return
             end
 
             % A range control reports only the field the user touched; fold
@@ -667,6 +738,61 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             obj.Dependents_(end+1) = struct('Control',ctrl,'Invert',strcmp(mode,'disable'));
             obj.refreshDependents_();
         end
+
+        function addModifierAction(obj, chord, fcn, options)
+            % addModifierAction(obj, chord, fcn, Text=..., Tooltip=..., Color=..., Note=...)
+            % Give this control an alternate action, armed while CHORD's
+            % modifier keys are held. One button then covers two jobs -- a
+            % normal reward and a large one, a trigger and a line purge --
+            % without a second slot in a layout that has none to spare.
+            %
+            %  chord - modifiers alone: 'ctrl', 'ctrl+shift', {'control','alt'}.
+            %          Named as a HELD gesture, so it takes no key.
+            %  fcn   - @(control, event, parameter) ..., the same shape as
+            %          PreUpdateFcn and EvaluatorFcn.
+            %  Text    - button label while armed. Default: the chord, then
+            %            the normal label.
+            %  Tooltip - hover text while armed. Default: the normal one.
+            %  Color   - background while armed. Default: the amber this
+            %            toolbox already uses for a change from outside.
+            %  Note    - record the press in the session notes (default true).
+            %
+            % While armed the button ADVERTISES the alternate action by
+            % repainting itself, because the whole risk of this feature is
+            % that a button does something its label does not say.
+            %
+            % A chord is matched by EXACT set equality, not "these are among
+            % the keys held": with 'ctrl' and 'ctrl+shift' both declared, a
+            % subset test makes ctrl+shift match both and which one wins
+            % falls out of declaration order.
+            arguments
+                obj
+                chord
+                fcn (1,1) function_handle
+                options.Text (1,:) char = ''
+                options.Tooltip (1,:) char = ''
+                options.Color = []
+                options.Note (1,1) logical = true
+            end
+
+            mods = gui.KeyBindings.normalizeModifiers(chord);
+            if any(cellfun(@(a) isequal(a, mods), {obj.ModifierActions_.Mods}))
+                error('gui:Parameter_Control:DuplicateModifierAction', ...
+                    'Control "%s" already has an action for %s.', ...
+                    obj.Name, strjoin(mods,'+'))
+            end
+
+            obj.ModifierActions_(end+1) = struct( ...
+                'Mods',    {mods}, ...
+                'Chord',   {strjoin(mods,'+')}, ...
+                'Fcn',     {fcn}, ...
+                'Text',    {options.Text}, ...
+                'Tooltip', {options.Tooltip}, ...
+                'Color',   {options.Color}, ...
+                'Note',    {options.Note});
+
+            obj.ensureKeySource_();
+        end
     end
 
 
@@ -852,6 +978,12 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             if ishandle(obj.h_label)
                 obj.h_label.Enable = s;
             end
+
+            % A control greyed while a chord was held must not keep
+            % advertising an action its click can no longer reach.
+            if isequal(s,'off') && obj.ArmedAction_ ~= 0
+                obj.applyArm_(0);
+            end
         end
 
         function refreshDependents_(obj)
@@ -1031,6 +1163,209 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function addModifierActions_(obj, spec)
+            % The constructor's ModifierActions cell, as repeated
+            % addModifierAction calls. Nx2 {chord, fcn} or Nx3 adding the
+            % armed label, which is the only per-action option worth the
+            % noise inline; the rest are named on addModifierAction.
+            if isempty(spec), return; end
+            if size(spec,2) < 2 || size(spec,2) > 3
+                error('gui:Parameter_Control:BadModifierActions', ...
+                    'ModifierActions is an Nx2 {chord, fcn} or Nx3 {chord, fcn, text} cell.')
+            end
+            for k = 1:size(spec,1)
+                if size(spec,2) == 3
+                    obj.addModifierAction(spec{k,1}, spec{k,2}, Text = spec{k,3});
+                else
+                    obj.addModifierAction(spec{k,1}, spec{k,2});
+                end
+            end
+        end
+
+        function ensureKeySource_(obj)
+            % Resolve the gui.KeyBindings supplying the held modifier set and
+            % start following it. Called only once an action exists, so a
+            % control with none -- almost every one -- creates no listener.
+            %
+            % Standalone, the component JOINS the figure's shared instance
+            % rather than claiming the key-callback slot itself: two
+            % components that each claimed and chained the slot could chain
+            % each other, and every keystroke then recursed to MATLAB's
+            % recursion limit (gui.components.RegenerateTrial makes the same call).
+            if ~isempty(obj.ModifierListener_) && isvalid(obj.ModifierListener_)
+                return
+            end
+
+            ks = obj.KeySource;
+            if isempty(ks) || ~isvalid(ks)
+                fig = ancestor(obj.container, 'figure');
+                if isempty(fig) || ~isvalid(fig)
+                    vprintf(2, 'gui.components.Parameter_Control: "%s" has no figure; its modifier actions are inert', ...
+                        obj.Name)
+                    return
+                end
+                ks = gui.KeyBindings.getOrCreate(fig);
+                obj.KeySource = ks;
+            end
+
+            obj.ModifierListener_ = listener(ks, 'ModifiersChanged', ...
+                @(src,~) obj.modifiersChanged_(src.CurrentModifiers));
+        end
+
+        function idx = matchModifiers_(obj, mods)
+            % idx = matchModifiers_(obj, heldModifiers)
+            % The declared action whose chord is EXACTLY the held set, or 0.
+            % Both sides go through gui.KeyBindings.normalizeModifiers:
+            % CurrentModifiers carries whatever evt.Modifier reported, so on a
+            % mac the raw held set says 'command' where the paradigm wrote
+            % 'ctrl'.
+            idx = 0;
+            if isempty(obj.ModifierActions_) || isempty(mods), return; end
+
+            try
+                held = gui.KeyBindings.normalizeModifiers(mods);
+            catch
+                % A held set carrying something that is not a modifier cannot
+                % match a chord that by definition holds only modifiers.
+                return
+            end
+
+            for k = 1:numel(obj.ModifierActions_)
+                if isequal(obj.ModifierActions_(k).Mods, held)
+                    idx = k;
+                    return
+                end
+            end
+        end
+
+        function modifiersChanged_(obj, mods)
+            % Arm or disarm as the held set changes, repainting the button so
+            % it says what a click will now do.
+            if ~isvalid(obj) || isempty(obj.h_uiobj) || ~isvalid(obj.h_uiobj)
+                return
+            end
+
+            idx = obj.matchModifiers_(mods);
+
+            % Never arm a control the operator cannot click anyway: a gated
+            % control, an idle rig, and a review are all covered by this one
+            % test. ModifiersChanged DOES fire in a review -- KeyBindings
+            % tracks the held set before its per-binding review gate.
+            if ~(obj.Gate_ && obj.ModeEnabled_), idx = 0; end
+
+            if idx == obj.ArmedAction_, return; end
+            obj.applyArm_(idx);
+        end
+
+        function applyArm_(obj, idx)
+            % Repaint for the armed action, or put back what was there.
+            % Restored from a cache taken on the way in: the obvious repaint,
+            % indicate_change, goes through getBoundValue, and on a live
+            % backend that is a device round trip per modifier keystroke that
+            % hw.Parameter.get.Value rethrows from.
+            h = obj.h_uiobj;
+
+            if idx == 0
+                if ~isempty(obj.PreArm_)
+                    set(h, obj.PreArm_);
+                    obj.PreArm_ = [];
+                end
+                obj.ArmedAction_ = 0;
+                return
+            end
+
+            a = obj.ModifierActions_(idx);
+            if isempty(obj.PreArm_)
+                obj.PreArm_ = struct('Text', h.Text, 'Tooltip', h.Tooltip, ...
+                    'BackgroundColor', h.BackgroundColor);
+            end
+
+            if isempty(a.Text)
+                h.Text = sprintf('%s: %s', gui.KeyBindings.displayChord(a.Chord), obj.PreArm_.Text);
+            else
+                h.Text = a.Text;
+            end
+            if ~isempty(a.Tooltip)
+                h.Tooltip = a.Tooltip;
+            end
+            if isempty(a.Color)
+                h.BackgroundColor = obj.colorOnUpdateExternal;
+            else
+                h.BackgroundColor = a.Color;
+            end
+
+            obj.ArmedAction_ = idx;
+        end
+
+        function tf = runModifierAction_(obj, event)
+            % tf = runModifierAction_(obj, event)
+            % Run the armed alternate action instead of this control's normal
+            % trigger or commit, reporting whether one ran.
+            %
+            % The armed action is RE-RESOLVED from the live modifier set
+            % rather than read off ArmedAction_: a stale arm state or a
+            % scripted click must fail closed, the same rule
+            % gui.components.RegenerateTrial.regenerate follows.
+            tf = false;
+            if isempty(obj.ModifierActions_) || isempty(obj.KeySource) || ...
+                    ~isvalid(obj.KeySource) || ~(obj.Gate_ && obj.ModeEnabled_)
+                return
+            end
+
+            idx = obj.matchModifiers_(obj.KeySource.CurrentModifiers);
+            if idx == 0, return; end
+            tf = true;
+            a = obj.ModifierActions_(idx);
+
+            % A uistatebutton has ALREADY flipped its Value by the time this
+            % runs. Pre-empting the normal commit would leave the button
+            % showing a state nothing was ever written for.
+            if isequal(obj.type,'toggle') && ~isempty(event.PreviousValue)
+                obj.h_uiobj.Value = event.PreviousValue;
+            end
+
+            try
+                a.Fcn(obj, event, obj.Parameter);
+            catch ME
+                % The operator's action is theirs; a throw in it must not
+                % leave the button stuck armed or take the GUI with it.
+                vprintf(0,1,ME)
+            end
+
+            if a.Note
+                epsych.SessionNotes.log(obj.notesRuntime_(), '%s: %s on "%s"', ...
+                    gui.KeyBindings.displayChord(a.Chord), obj.armedActionLabel_(a), obj.Name);
+            end
+        end
+
+        function s = armedActionLabel_(obj, a)
+            % What to call the action in a session note: the label the
+            % operator saw on the armed button.
+            s = a.Text;
+            if isempty(s)
+                if isempty(obj.PreArm_)
+                    s = obj.h_uiobj.Text;
+                else
+                    s = obj.PreArm_.Text;
+                end
+            end
+            s = char(string(s));
+        end
+
+        function rt = notesRuntime_(obj)
+            % The note store's owner. addButton's variant has no Runtime BY
+            % DESIGN -- injecting one would put its self-clearing toggles into
+            % the trial table -- so the host behavior GUI's RUNTIME stands in.
+            % epsych.SessionNotes.log never throws and records nothing without
+            % a live store, so [] needs no guard here.
+            rt = obj.Runtime;
+            if ~isempty(rt), return; end
+            rt = [];
+            if ~isempty(obj.Host_) && isvalid(obj.Host_)
+                rt = obj.Host_.RUNTIME;
+            end
+        end
+
         function logCommit_(obj, prevValue, newValue)
             % Record an operator's autoCommit edit as a session note, so the
             % change lands in every subject's data file (Info.Notes) whether

@@ -867,7 +867,40 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   paths, so a phase load moves the greying with it — rather than from
   `PostUpdateFcn`, a single slot a paradigm may already be using.
   `cl_AppetitiveDetection_BehaviorGUI` predates this and still greys three
-  control groups by hand
+  control groups by hand.
+  **`ModifierActions`** gives one button a second job — a normal reward and a
+  large one, a trigger and a line purge — armed while a declared modifier
+  chord is held, so a cramped layout needs one slot rather than two
+  (`addButton(..., ModifierActions={'ctrl', @fcn, 'Large Reward'})`, or
+  `addModifierAction` after the fact; the callback shape is
+  `fcn(control,event,parameter)`, matching `PreUpdateFcn`). The armed button
+  REPAINTS itself, which is the point rather than decoration: the whole risk
+  is a button doing what its label does not say. Chords match by EXACT set
+  equality, not `modifiersDown`'s subset test — with `ctrl` and `ctrl+shift`
+  both declared, a subset test makes the longer one match both and the winner
+  falls out of declaration order — through
+  `gui.KeyBindings.normalizeModifiers`, a second canonicalizer because
+  `normalize` refuses the modifier-only input a HELD gesture is named by (the
+  two cover disjoint inputs over one alias table, so a mac's `command` cannot
+  drift from a paradigm's `ctrl`). Four things a reader would otherwise
+  re-derive: the armed action REPLACES the normal trigger or commit, and a
+  toggle's widget is put back first, since a `uistatebutton` has already
+  flipped its `Value` by the time the callback runs; the arm is re-checked
+  from the live modifier set INSIDE the click, so a stale state or a script
+  fails closed, and a greyed control never arms at all (the same AND of
+  dependency gate and interface mode the widget's enable is, which is what
+  covers a review); the pre-arm appearance is CACHED and restored verbatim
+  rather than recomputed, because the obvious repaint goes through
+  `getBoundValue` — a device round trip per keystroke that
+  `hw.Parameter.get.Value` rethrows from; and every alternate press IS written
+  to `RUNTIME.NOTES` although an ordinary `addButton` press is not, the
+  action being invisible in the trial record and different from the label
+  (the note reaches a store through an injected `Host`, never a `Runtime` —
+  injecting one here would put this variant's self-clearing toggles into the
+  trial table). Code only: it carries function handles, so it is no
+  `gui.ComponentSpecOption` and stays off the `gui.BehaviorBuilder` palette.
+  Standing proof `tmp/smoke_test_modifier_buttons.m`
+  (documentation/gui/Parameter_Control.md)
 - Utilities: ElapsedTrialTimer
 
 #### obj/+teensy/ – Teensy Trial Programs

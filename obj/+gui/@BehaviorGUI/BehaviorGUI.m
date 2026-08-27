@@ -690,6 +690,15 @@ classdef (Abstract) BehaviorGUI < handle
             %
             % Unlike addControl this passes no Runtime, so a self-clearing
             % session toggle never lands in the trial table.
+            %
+            % ModifierActions gives one button a second job, armed while the
+            % named modifiers are held -- the button repaints to say so, and
+            % the press is recorded in the session notes:
+            %
+            %   obj.addButton(row, '!Reward', ModifierActions = { ...
+            %       'ctrl', @(c,~,~) obj.P.BigReward.Trigger(), 'Large Reward'});
+            %
+            % See gui.components.Parameter_Control.addModifierAction.
             h = obj.add('gui.components.Parameter_Control', parent, 'Parameter', param, ...
                 'Variant', 'Button', varargin{:});
         end

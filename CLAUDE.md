@@ -399,7 +399,23 @@ Rules that matter:
   take its parameters out of `dispatchNextTrial` and `readParameters`. The flag
   is cleared every connect pass, so the choice lasts one run. Only override
   `canRunOffline` for a peripheral whose absence is visible (the reward pump),
-  never for the interface making the stimulus or taking the data
+  never for the interface making the stimulus or taking the data.
+  Interfaces are borrowed from the protocol and stay connected across Stop→Run
+  (`Runtime.delete`: RPcoX/zBus cannot survive a delete/recreate per run), so
+  a fourth concrete no-op hook, `resetSession(runtime)`, is called on every
+  interface at the start of every Run/Preview — before `prepareRecording` and
+  the mode write — to clear what the device accumulated last run.
+  `hw.TDT_RPcox` reloads its circuits there (`TDTRP.reload`: Halt → ClearCOF →
+  LoadCOF → Run, every return value checked) because Halt/Run leave DSP memory
+  intact — issue #19, a counter tag carrying its count into the same subject's
+  next run while a new subject's fresh constructor started at zero — and
+  `hw.Software` resets its in-memory values. Both call the protected
+  `resetParametersToDesign_`, which returns to `Values{1}` only the writable
+  parameters `dispatchNextTrial` will NOT write on trial 1 (`~Visible` or
+  neither `UpdateEveryTrial` nor `SetOnce`), so a stimulus or coefficient
+  buffer is not uploaded twice. Do not put once-per-run work in `set.mode`:
+  `mode` is `AbortSet` against the LIVE getter, and a freshly loaded circuit
+  already reports Record, so that write is skipped
 - **hw.Module**: Parameter container
 - **hw.Parameter**: Single parameter with validation and callbacks
 - **Concrete Backends**:

@@ -167,6 +167,21 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % this; the default is a no-op.
         end
 
+        % resetSession - Hook to return per-session device state to its start-of-run condition
+        function resetSession(~, ~)
+            % resetSession(obj, runtime)
+            % Lifecycle hook invoked on every interface at the start of every
+            % Run and Preview (see epsych.RunExpt.ExptDispatch), before
+            % prepareRecording and the mode write, while the hardware is
+            % halted. Interfaces are borrowed from the protocol and stay
+            % connected between runs (see epsych.Runtime.delete), so whatever
+            % the device accumulated during the previous run -- an RPvds
+            % counter, a pump's dispensed volume -- is still there when the
+            % next one starts. Backends with such state override this; the
+            % default is a no-op. resetParametersToDesign_ is the shared pass
+            % for host-side parameter values.
+        end
+
         % displayLabel - Human-readable name for this backend, for operator messages
         function label = displayLabel(obj)
             % label = displayLabel(obj)
@@ -672,5 +687,70 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             end
         end
 
+    end
+
+    methods (Access = protected)
+        function n = resetParametersToDesign_(obj)
+            % n = resetParametersToDesign_(obj)
+            % Return every writable parameter the trial dispatcher will NOT
+            % write on the first trial to its design-time value, Values{1}.
+            % Shared by the resetSession overrides (hw.Software, hw.TDT_RPcox).
+            %
+            % Selection mirrors epsych.Runtime.dispatchNextTrial: a Visible
+            % parameter with UpdateEveryTrial or SetOnce is written from the
+            % trial table on trial 1 of every new Runtime, so resetting it
+            % here would only put a stimulus or a coefficient buffer on the
+            % wire twice. What is left is the operator's toggles, invisible
+            % setup values, and anything else the dispatcher never touches --
+            % exactly the values that otherwise carry over from run to run.
+            % Read-only parameters cannot be assigned, triggers hold only the
+            % residue of their last firing, and a parameter with no Values has
+            % no design-time value to return to.
+            %
+            % Assignment goes through set.Value, so randomize, Expression and
+            % clamping apply as they do on dispatch (an isRandom parameter
+            % resets to a fresh draw). Expression parameters are ordered after
+            % what they read, across every interface of the owning runtime
+            % when there is one. One failing parameter is logged, not fatal:
+            % this runs at session start, where it must not end the run.
+            %
+            % Returns:
+            %   n - number of parameters reset.
+            n = 0;
+            P = obj.all_parameters(includeInvisible=true);
+            if isempty(P)
+                return
+            end
+
+            keep = false(size(P));
+            for i = 1:numel(P)
+                p = P(i);
+                keep(i) = ~strcmp(p.Access, 'Read') && ~p.isTrigger && ~isempty(p.Values) ...
+                    && ~(p.Visible && (p.UpdateEveryTrial || p.SetOnce));
+            end
+            P = P(keep);
+            n = numel(P);
+            if n == 0
+                return
+            end
+
+            scope = P;
+            if isa(obj.Runtime, 'epsych.Runtime') && isvalid(obj.Runtime) && ~isempty(obj.Runtime.Interfaces)
+                scope = hw.Parameter.empty(1, 0);
+                for k = 1:numel(obj.Runtime.Interfaces)
+                    scope = [scope, obj.Runtime.Interfaces(k).all_parameters(includeInvisible=true)];
+                end
+            end
+            P = P(hw.Parameter.orderByDependencies(P, scope));
+
+            for i = 1:n
+                try
+                    P(i).Value = P(i).Values{1};
+                catch ME
+                    vprintf(0, 1, ME)
+                end
+            end
+            vprintf(2, '%s: %d parameter(s) reset to design-time values', obj.displayLabel(), n)
+        end
     end
 end

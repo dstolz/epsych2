@@ -112,7 +112,11 @@ interface helpers and tracks current experiment metadata.
 
 `hw.TDT_RPcox` connects to RPvds-based TDT devices through the TDTRP layer.
 It loads one or more circuits, creates corresponding `hw.Module` objects, and
-routes parameter I/O through the shared interface contract.
+routes parameter I/O through the shared interface contract. Its `resetSession`
+reloads every module's circuit at the start of every Run and Preview: Stop
+only halts the device and Run only restarts the processing chain, neither of
+which clears DSP memory, so a counter tag would otherwise carry its count from
+one run into the next of the same subject.
 
 ### `hw.Intan_RHX`
 
@@ -220,6 +224,36 @@ needs to know what to do, not just that something is wrong.
 `hw.Software`, `hw.Intan_RHX`, `hw.VlcRecorder`, `hw.TDT_RPcox`, and
 `hw.TDT_Synapse` all implement the hook; see
 [RunExpt_SelfTest.md](../overviews/RunExpt_SelfTest.md) for what each one checks.
+
+### `resetSession`
+
+```matlab
+I.resetSession(runtime)
+```
+
+Lifecycle hook called on every interface at the start of every Run and
+Preview (`epsych.RunExpt.ExptDispatch`), before `prepareRecording` and before
+the mode write, while the hardware is halted. Like `prepareRecording`, it is a
+concrete no-op on the base class.
+
+It exists because interfaces are borrowed from the protocol and stay connected
+between runs (`epsych.Runtime.delete` explains why reconnecting is not an
+option): whatever the device accumulated during the previous run — an RPvds
+counter, a pump's dispensed volume — is still there when the next one starts.
+A backend with such state overrides the hook to clear it. Two do today:
+`hw.TDT_RPcox` reloads its circuits, and `hw.Software` resets its in-memory
+values.
+
+The base class also provides the protected helper `resetParametersToDesign_`,
+which both overrides call. It returns every writable parameter that the trial
+dispatcher will **not** write on the first trial — the operator's toggles,
+invisible setup values, anything with `UpdateEveryTrial` and `SetOnce` both
+false — to its design-time value, `Values{1}`. Parameters the dispatcher does
+write on trial 1 are left alone, so a stimulus or a coefficient buffer is not
+put on the wire twice; read-only parameters, triggers, and parameters with no
+`Values` are skipped. Assignment goes through `set.Value`, so an `isRandom`
+parameter resets to a fresh draw and an `Expression` is re-evaluated, ordered
+after what it reads. A parameter that fails to reset is logged, not fatal.
 
 ### `connectionRecoveryLabel` / `recoverConnection` / `canRunOffline`
 

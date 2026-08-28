@@ -62,6 +62,7 @@ classdef TDTRP < handle
        DEVICETYPE = '';
        NUMBER     = 1;
        CYC        = -1;
+       FSOVERRIDE = 0;  % sample-rate override given at construction (0 = circuit's own); FS is the actual rate after setup()
     end
     
     methods
@@ -89,6 +90,10 @@ classdef TDTRP < handle
                 end
             end
             
+            % setup() replaces FS with the device's actual rate; keep the
+            % override so reload() can apply the same one.
+            obj.FSOVERRIDE = obj.FS;
+
             %First instantiate a variable for the ActiveX wrapper interface
             obj.RP = actxserver('RPco.X');
             
@@ -169,6 +174,49 @@ classdef TDTRP < handle
             else
                 obj.RP.LoadCOF(CIRCUITPATH);
             end
+        end
+
+        function obj = reload(obj, CIRCUITPATH)
+            % reload(obj, CIRCUITPATH)
+            % Put the device back where the constructor left it: halt, clear,
+            % load the circuit, run, re-read the tag map. Halt and Run alone
+            % leave DSP memory intact -- a counter keeps its count across
+            % them -- so this is the only way to start a circuit over without
+            % rebuilding the RPcoX connection. Each step is checked, one at a
+            % time, for the reason given in the constructor. The sample-rate
+            % override given at construction is reapplied; FS itself holds
+            % the device's actual rate once setup() has run.
+            if ~(exist(CIRCUITPATH, 'file'))
+                error('TDTRP:CircuitNotFound', 'Circuit "%s" does not exist.', CIRCUITPATH);
+            end
+
+            obj.RP.Halt;
+
+            if ~obj.RP.ClearCOF
+                error('TDTRP:ClearCOFFailed', ...
+                    'Could not clear the circuit already on %s #%d. Power-cycle the device and try again.', ...
+                    obj.DEVICETYPE, obj.NUMBER);
+            end
+
+            if obj.FSOVERRIDE > 0
+                loaded = obj.RP.LoadCOFsf(CIRCUITPATH, obj.FSOVERRIDE);
+            else
+                loaded = obj.RP.LoadCOF(CIRCUITPATH);
+            end
+            if ~loaded
+                error('TDTRP:LoadCOFFailed', ...
+                    'Device %s #%d rejected the circuit "%s" on reload%s.', ...
+                    obj.DEVICETYPE, obj.NUMBER, CIRCUITPATH, localFsNote_(obj.FSOVERRIDE));
+            end
+
+            if ~obj.RP.Run
+                error('TDTRP:RunFailed', ...
+                    'Circuit "%s" loaded onto %s #%d but would not start.', ...
+                    CIRCUITPATH, obj.DEVICETYPE, obj.NUMBER);
+            end
+
+            obj.status();
+            obj.setup();
         end
         
         function obj = run(obj)

@@ -141,6 +141,7 @@ When you click **Run** or **Preview**, RunExpt:
 - Resets the session runtime (a fresh `epsych.Runtime`).
 - Validates each subject's protocol and compiles it if needed.
 - Connects the hardware interfaces defined in the protocol (TDT, Intan, software, etc.). Hardware connections persist between runs within the same session, so a rerun does not reconnect from scratch.
+- Resets each interface's per-session state (`resetSession`): a TDT RPvds circuit is reloaded on every Run and Preview, so counters start from zero, and software parameters the trial table does not write return to their design-time values.
 - Creates a temporary data directory (a `DATA` folder next to the repository) with one crash-recovery `.mat` file per subject.
 - Creates the trial timer (`PsychTimer`, default period 0.01 s; set per subject in **Session Settings...** (template: **Edit Project → Session Defaults**)).
 - Sets the hardware mode to Record or Preview and starts the timer.

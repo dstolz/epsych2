@@ -175,6 +175,37 @@ classdef TDT_RPcox < hw.Interface
             obj.close_interface();
         end
 
+        function resetSession(obj, ~)
+            % resetSession(obj, runtime)
+            % Reload every module's circuit so the run starts from the
+            % circuit file's state. Stop only halts the device and Run only
+            % restarts the processing chain; neither clears DSP memory, so
+            % without this a counter tag carried its count from one run into
+            % the next of the same subject (issue #19, PelletTotal), while a
+            % new subject -- whose fresh TDTRP constructor loads the circuit --
+            % started at zero. The reload happens on EVERY run, the first
+            % after connect included, so nobody has to reason about whether
+            % the circuit has run since it was loaded. The reload leaves the
+            % circuit file's defaults in every tag, so writable tags the
+            % dispatcher never writes are then re-sent their design values.
+            %
+            % Runs before the mode write and before the PsychTimer exists,
+            % so nothing can read the device while the circuit is out.
+            if ~obj.IsConnected || isempty(obj.HW)
+                return
+            end
+
+            for idx = 1:numel(obj.Module)
+                module = obj.Module(idx);
+                rpvdsFile = localGetModuleConfig_(module, idx);
+                vprintf(1, 'Reloading circuit on module "%s": %s', module.Label, rpvdsFile)
+                obj.HW(idx).reload(rpvdsFile);
+                module.Fs = obj.HW(idx).RP.GetSFreq;
+            end
+
+            obj.resetParametersToDesign_();
+        end
+
         function results = selfTest(obj, options)
             % results = selfTest(obj)
             % results = selfTest(obj, Invasive=true)

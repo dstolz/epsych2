@@ -133,6 +133,14 @@ switch COMMAND
 
         self.RUNTIME.TIMER = self.CreateTimer;
 
+        % Return each interface's per-session device state to its start-of-run
+        % condition. Interfaces stay connected between runs, so a rerun of the
+        % same subject would otherwise inherit the previous run's counters
+        % (issue #19). hw.TDT_RPcox reloads its circuits here; nothing can
+        % observe the unloaded window because the timer has not started.
+        self.setStatus('Resetting hardware...')
+        arrayfun(@(p) p.resetSession(self.RUNTIME), self.RUNTIME.Interfaces);
+
         % Let each interface stage backend-side recording (e.g. Intan RHX
         % filename/settings) while the hardware is still stopped; RHX ignores
         % filename.* once the board is running, so this must precede the mode

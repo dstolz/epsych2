@@ -354,6 +354,14 @@ end
 If your backend does not expose a clean state model, define a conservative
 mapping and document it.
 
+One trap: `mode` is declared `AbortSet`, and MATLAB decides whether to abort by
+calling your `get.mode` — the live device query — not by comparing against a
+stored value. A write that matches what the device already reports is skipped,
+and `set.mode` never runs. A freshly loaded RPvds circuit is already running,
+so the Record-mode write at the start of that run is one such skip. Anything
+that must happen once per run belongs in `resetSession`, which is called
+unconditionally, never in `set.mode`.
+
 ## 9. Implement `trigger`, `set_parameter`, and `get_parameter`
 
 This is where backend-specific I/O lives. The common pattern in both TDT

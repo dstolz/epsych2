@@ -135,6 +135,9 @@ classdef Runtime < handle & dynamicprops
             % run. Disconnecting them here would force a delete/recreate of
             % the backend connection on every rerun, which some hardware
             % (e.g. TDT RPcoX/zBus) cannot survive, breaking the second run.
+            % What a reused interface must forget between runs -- a counter
+            % on the device, an in-memory value -- is cleared by
+            % hw.Interface.resetSession at the start of the next run instead.
             % Hardware is released explicitly when the session closes
             % (see RunExpt.onCloseRequest).
             vprintf(2, 'Cleaning up Runtime resources')

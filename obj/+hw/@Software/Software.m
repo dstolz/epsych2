@@ -81,6 +81,15 @@ classdef Software < hw.Interface
             obj.IsConnected = false;
         end
 
+        function resetSession(obj, ~)
+            % resetSession(obj, runtime)
+            % Software parameters live only in memory, so every value the
+            % previous run left behind is still there at the next Run. Put
+            % the ones the trial dispatcher will not overwrite back to their
+            % design-time levels (see hw.Interface.resetParametersToDesign_).
+            obj.resetParametersToDesign_();
+        end
+
         function mode_handler(obj,src,event)
             disp(event)
         end

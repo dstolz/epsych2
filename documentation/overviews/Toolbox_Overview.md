@@ -74,6 +74,14 @@ Stimulus objects (tones, noise, clicks, and more), a stimulus bank player, and s
 
 > ⚠️ **A missing stimgen submodule degrades silently.** Protocols with stimulus parameters load with placeholder values instead of failing, so the numbers are simply wrong. Clone with `--recurse-submodules`, or run `git submodule update --init --recursive` in an existing clone.
 
+### Logging (`granary`)
+
+Every message EPsych prints or records goes through `vprintf`, which is a thin facade over `granary.printf`. The package behind it keeps the command window and the daily log file on **separate** verbosity levels, so quieting the console never discards the record that explains a failure. See [../granary/granary_Logging.md](../granary/granary_Logging.md).
+
+`granary` is a separate repository ([dstolz/granary](https://github.com/dstolz/granary)) and, unlike stimgen, is **not** a submodule — clone it beside your EPsych checkout, or point at it once with `setpref('EPsych','GranaryPath',...)`.
+
+> 🔑 **This dependency fails loudly, not silently.** Nothing in the toolbox can log without `granary`, so `epsych_startup` stops with clone instructions rather than starting. That is the opposite of the stimgen failure above, and deliberately so.
+
 ### Hardware layers (`obj/+hw/` and `TDTfun/`)
 
 These folders handle hardware communication (TDT Synapse, TDT RPvds, Intan RHX, Teensy, Bpod, webcam recording, and a software-only test backend). As a user you normally do not touch this layer directly — the protocol file records which hardware your experiment uses. The TDT Synapse, Intan RHX, Teensy, and Bpod backends are under development.

@@ -55,12 +55,14 @@ Typical use case:
 ## Install EPsych
 
 1. Clone the repository **with submodules** to a stable local folder.
-2. Open MATLAB.
-3. Add the repository root to the MATLAB path.
-4. Run the EPsych startup helper.
+2. Clone **`granary`**, the logging package, beside it.
+3. Open MATLAB.
+4. Add the repository root to the MATLAB path.
+5. Run the EPsych startup helper.
 
-EPsych uses a git submodule for the stimulus-generation package
-([`stimgen`](https://github.com/dstolz/stimgen)), so the clone must include it:
+EPsych depends on two other repositories, and they are attached differently.
+[`stimgen`](https://github.com/dstolz/stimgen), the stimulus-generation package,
+is a git submodule at `obj/stimgen/`, so the clone must include it:
 
 ```bash
 git clone --recurse-submodules https://github.com/dstolz/epsych2.git
@@ -74,6 +76,25 @@ cd epsych2
 git submodule update --init --recursive
 ```
 
+[`granary`](https://github.com/dstolz/granary), the logging package, is **not** a
+submodule — it is a standalone library, so clone it separately. The simplest
+place is beside the EPsych checkout, which is where `epsych_startup` looks:
+
+```bash
+git clone https://github.com/dstolz/granary.git
+```
+
+That gives you `C:\src\epsych2` and `C:\src\granary` side by side. To keep it
+somewhere else, say so once and EPsych will remember:
+
+```matlab
+setpref('EPsych','GranaryPath','D:\shared\granary')   % the folder holding +granary
+```
+
+Unlike the submodule, this failure is **loud**: `vprintf` is a thin facade over
+`granary.printf`, so nothing in the toolbox can log without it and
+`epsych_startup` stops with clone instructions rather than starting.
+
 Then, in MATLAB:
 
 ```matlab
@@ -81,10 +102,11 @@ addpath('C:\path\to\epsych2')
 epsych_startup
 ```
 
-`epsych_startup` verifies the submodule is present and prints an actionable
-message if it is not. Do not skip that warning: without `stimgen`, protocols
-containing stimulus parameters load with silently degraded values instead of
-failing outright. See [stimgen.md](../stimgen.md).
+`epsych_startup` locates `granary` and verifies the submodule is present,
+printing an actionable message for each. Do not skip the stimgen warning:
+without it, protocols containing stimulus parameters load with silently
+degraded values instead of failing outright. See [stimgen.md](../stimgen.md)
+and [granary_Logging.md](../granary/granary_Logging.md).
 
 > ⚠️ **The submodule failure is silent, not loud.** Without `stimgen`, nothing errors when a protocol loads — the stimulus values are simply wrong. Heed `epsych_startup`'s warning and run `git submodule update --init --recursive`.
 

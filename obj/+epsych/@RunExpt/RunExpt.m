@@ -516,6 +516,7 @@ classdef RunExpt < handle
         connectInterfaces_(self, interfaces)               % Connect every interface, offering the operator a fix when one fails
         action = promptConnectFailure_(self, iface, ME)    % Ask what to do about an interface that would not connect
         StartVideoRecording_(self)                          % Begin the per-run webcam recording when the checkbox/preference is enabled
+        txt = videoCaptionText_(self, recordingFile)        % Resolve the recorder's caption template against this session's subjects
         StopVideoRecording_(self)                           % Stop the active per-run webcam recording, if any
         onRecordVideoToggled_(self, enable)                 % Persist the "Record video" opt-in and start/stop recording when toggled mid-session
         StopVideoLiveView_(self)                            % Close the display-only webcam view, if any

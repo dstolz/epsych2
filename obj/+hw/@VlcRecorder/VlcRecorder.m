@@ -90,6 +90,38 @@ classdef VlcRecorder < hw.Interface
 
     properties (Constant)
         Type = 'VlcRecorder'
+
+        % Cardinal caption corners -> VLC's --marq-position bitfield
+        % (center 0, left 1, right 2, top 4, bottom 8). Cardinal names rather
+        % than the bitfield because the operator picks a corner, not a number.
+        CAPTION_POSITIONS = struct( ...
+            'center',    0, ...
+            'west',      1, ...
+            'east',      2, ...
+            'north',     4, ...
+            'northwest', 5, ...
+            'northeast', 6, ...
+            'south',     8, ...
+            'southwest', 9, ...
+            'southeast', 10)
+
+        % Caption colours as VLC's packed RGB integer (--marq-color). Kept to a
+        % named few: this is a legibility choice over an unknown scene, not a
+        % palette. Red is offered but is not the default -- a red overlay reads
+        % as "recording" on camera software, which is not what this marks.
+        CAPTION_COLORS = struct( ...
+            'white',   16777215, ...
+            'yellow',  16776960, ...
+            'green',      65280, ...
+            'cyan',       65535, ...
+            'magenta', 16711935, ...
+            'red',     16711680, ...
+            'black',          0)
+
+        % Frame transforms, passed straight to VLC's transform{type=...}. One
+        % filter takes one type, so rotating AND flipping is not offered: the
+        % eight values are every orientation VLC can produce.
+        TRANSFORMS = {'none','90','180','270','hflip','vflip','transpose','antitranspose'}
     end
 
     properties (SetObservable, AbortSet)
@@ -108,6 +140,13 @@ classdef VlcRecorder < hw.Interface
         cropBottom_    (1,1) double  = 0                   % crop, in pixels, from the bottom edge
         cropLeft_      (1,1) double  = 0                   % crop, in pixels, from the left edge
         cropRight_     (1,1) double  = 0                   % crop, in pixels, from the right edge
+        captionEnabled_  (1,1) logical = false              % burn CaptionText into the recording
+        captionTemplate_ (1,1) string = "{subject}  {datetime}" % operator's caption, with {tokens}
+        captionText_     (1,1) string = ""                  % resolved caption; "" = expand the template here
+        captionPosition_ (1,1) string = "southwest"         % cardinal corner of the burned-in caption
+        captionSize_     (1,1) double = 20                  % caption font size, px
+        captionColor_    (1,1) string = "yellow"            % caption colour name (see CAPTION_COLORS)
+        transform_       (1,1) string = "none"              % rotate/flip applied to the frame
         minimalView_   (1,1) logical = true                % start VLC without menus/playlist (--qt-minimal-view)
         alwaysOnTop_   (1,1) logical = false               % keep the VLC window above others (--video-on-top)
         isRecording_   (1,1) logical = false               % true when VLC was launched with --sout recording
@@ -242,6 +281,55 @@ classdef VlcRecorder < hw.Interface
                     obj.displayBanner_ = string(value);
                     vprintf(3, 'hw.VlcRecorder: DisplayBanner = "%s"', char(value));
 
+                case 'EnableCaption'
+                    obj.captionEnabled_ = logical(value);
+                    vprintf(3, 'hw.VlcRecorder: EnableCaption = %d', obj.captionEnabled_);
+
+                case 'CaptionTemplate'
+                    obj.captionTemplate_ = string(value);
+                    vprintf(3, 'hw.VlcRecorder: CaptionTemplate = "%s"', char(value));
+
+                case 'CaptionText'
+                    obj.captionText_ = string(value);
+                    vprintf(3, 'hw.VlcRecorder: CaptionText = "%s"', char(value));
+
+                case 'CaptionPosition'
+                    % An unknown corner falls back to the default rather than
+                    % failing the launch: a caption in the wrong corner is a far
+                    % better outcome than a run with no video.
+                    v = lower(strtrim(string(value)));
+                    if isfield(hw.VlcRecorder.CAPTION_POSITIONS, v)
+                        obj.captionPosition_ = v;
+                    else
+                        vprintf(0, 1, 'hw.VlcRecorder: unknown CaptionPosition "%s"; keeping "%s".', ...
+                            char(v), char(obj.captionPosition_));
+                    end
+                    vprintf(3, 'hw.VlcRecorder: CaptionPosition = "%s"', char(obj.captionPosition_));
+
+                case 'CaptionSize'
+                    obj.captionSize_ = min(200, max(6, round(double(value))));
+                    vprintf(3, 'hw.VlcRecorder: CaptionSize = %d', obj.captionSize_);
+
+                case 'CaptionColor'
+                    v = lower(strtrim(string(value)));
+                    if isfield(hw.VlcRecorder.CAPTION_COLORS, v)
+                        obj.captionColor_ = v;
+                    else
+                        vprintf(0, 1, 'hw.VlcRecorder: unknown CaptionColor "%s"; keeping "%s".', ...
+                            char(v), char(obj.captionColor_));
+                    end
+                    vprintf(3, 'hw.VlcRecorder: CaptionColor = "%s"', char(obj.captionColor_));
+
+                case 'Transform'
+                    v = lower(strtrim(string(value)));
+                    if any(strcmp(hw.VlcRecorder.TRANSFORMS, v))
+                        obj.transform_ = v;
+                    else
+                        vprintf(0, 1, 'hw.VlcRecorder: unknown Transform "%s"; keeping "%s".', ...
+                            char(v), char(obj.transform_));
+                    end
+                    vprintf(3, 'hw.VlcRecorder: Transform = "%s"', char(obj.transform_));
+
                 case 'FrameRate'
                     obj.frameRate_ = max(0, double(value));
                     vprintf(3, 'hw.VlcRecorder: FrameRate = %g', obj.frameRate_);
@@ -310,6 +398,27 @@ classdef VlcRecorder < hw.Interface
 
                 case 'DisplayBanner'
                     value = char(obj.displayBanner_);
+
+                case 'EnableCaption'
+                    value = obj.captionEnabled_;
+
+                case 'CaptionTemplate'
+                    value = char(obj.captionTemplate_);
+
+                case 'CaptionText'
+                    value = char(obj.captionText_);
+
+                case 'CaptionPosition'
+                    value = char(obj.captionPosition_);
+
+                case 'CaptionSize'
+                    value = obj.captionSize_;
+
+                case 'CaptionColor'
+                    value = char(obj.captionColor_);
+
+                case 'Transform'
+                    value = char(obj.transform_);
 
                 case 'FrameRate'
                     value = obj.frameRate_;
@@ -481,6 +590,65 @@ classdef VlcRecorder < hw.Interface
                 @(~) hw.VlcRecorder());
         end
 
+        function txt = expandCaption(template, tokens)
+            % txt = hw.VlcRecorder.expandCaption(template)
+            % txt = hw.VlcRecorder.expandCaption(template, tokens)
+            % Fill the {tokens} in a caption template.
+            %
+            % Recognised: {subject} {subjects} {box} {file}, supplied by the
+            % session, and {date} {time} {datetime}, taken from tokens.When (the
+            % session start) or the clock. An unsupplied token expands to
+            % nothing rather than being left as literal braces -- a caption
+            % reading "{subject}" over a recording is worse than one with a gap,
+            % and a rig running without a session has no subject to name.
+            %
+            % Parameters:
+            %   template - caption text with {tokens}
+            %   tokens   - struct with any of Subject, Subjects, Box, File, When
+            %
+            % Returns:
+            %   txt - the expanded caption, whitespace-trimmed
+            arguments
+                template (1,1) string = ""
+                tokens (1,1) struct = struct()
+            end
+
+            txt = template;
+            if strlength(strtrim(txt)) == 0, return, end
+
+            when = datetime('now');
+            if isfield(tokens, 'When') && ~isempty(tokens.When)
+                when = tokens.When;
+            end
+
+            map = struct( ...
+                'subject',  localToken(tokens, 'Subject'), ...
+                'subjects', localToken(tokens, 'Subjects'), ...
+                'box',      localToken(tokens, 'Box'), ...
+                'file',     localToken(tokens, 'File'), ...
+                'date',     string(datetime(when, 'Format', 'yyyy-MM-dd')), ...
+                'time',     string(datetime(when, 'Format', 'HH:mm:ss')), ...
+                'datetime', string(datetime(when, 'Format', 'yyyy-MM-dd HH:mm:ss')));
+
+            names = fieldnames(map);
+            for i = 1:numel(names)
+                txt = replace(txt, "{" + names{i} + "}", map.(names{i}));
+            end
+
+            % Anything still in braces was never a token this class knows.
+            txt = regexprep(txt, '\{[A-Za-z_]*\}', '');
+            txt = strtrim(regexprep(txt, ' {2,}', '  '));
+
+            function v = localToken(s, name)
+                if isfield(s, name) && ~isempty(s.(name))
+                    v = string(s.(name));
+                    v = strjoin(v(:)', ", ");
+                else
+                    v = "";
+                end
+            end
+        end
+
         function exePath = findVlcExe()
             % exePath = hw.VlcRecorder.findVlcExe()
             % Locate vlc.exe from the registry, standard install folders, or the
@@ -565,6 +733,57 @@ classdef VlcRecorder < hw.Interface
                 Access  = 'Any', ...
                 Visible = true, ...
                 Description = 'Text overlaid on the video window and used as its title. Display-only mode; never burned into a recording.');
+
+            obj.add_parameter('EnableCaption', false, ...
+                Type    = 'Boolean', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                PersistWithPhase = true, ...
+                Description = 'Burn a caption into the recording naming the subject and session start.');
+
+            obj.add_parameter('CaptionTemplate', char(obj.captionTemplate_), ...
+                Type    = 'String', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Description = 'Caption text. Tokens {subject} {subjects} {box} {date} {time} {datetime} {file} are filled in when recording starts.');
+
+            obj.add_parameter('CaptionText', char(obj.captionText_), ...
+                Type    = 'String', ...
+                Access  = 'Any', ...
+                Visible = false, ...
+                Description = 'Resolved caption actually burned in. Set by the session at recording start; empty means expand CaptionTemplate here.');
+
+            % Values is not an add_parameter option; the choice list goes on the
+            % handle it returns.
+            P = obj.add_parameter('CaptionPosition', char(obj.captionPosition_), ...
+                Type    = 'String', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Description = 'Corner of the frame the caption sits in.');
+            P.Values = fieldnames(hw.VlcRecorder.CAPTION_POSITIONS)';
+
+            obj.add_parameter('CaptionSize', obj.captionSize_, ...
+                Type    = 'Integer', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Unit    = 'px', ...
+                Min     = 6, ...
+                Max     = 200, ...
+                Description = 'Caption font size in pixels.');
+
+            P = obj.add_parameter('CaptionColor', char(obj.captionColor_), ...
+                Type    = 'String', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Description = 'Caption colour.');
+            P.Values = fieldnames(hw.VlcRecorder.CAPTION_COLORS)';
+
+            P = obj.add_parameter('Transform', char(obj.transform_), ...
+                Type    = 'String', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Description = 'Rotate or flip the frame (VLC transform filter). Applies to the recording and the preview alike.');
+            P.Values = hw.VlcRecorder.TRANSFORMS;
 
             obj.add_parameter('FrameRate', obj.frameRate_, ...
                 Type    = 'Float', ...
@@ -752,7 +971,7 @@ classdef VlcRecorder < hw.Interface
                 end
             end
 
-            cropSpec = obj.cropFilterSpec_();
+            filterSpec = obj.videoFilterSpec_();
 
             recording = ~isempty(recFile);
             if recording
@@ -779,25 +998,42 @@ classdef VlcRecorder < hw.Interface
                 recVlc = strrep(recFile, '\', '/');
                 recVlc = strrep(recVlc, '''', '''''');
 
-                if isempty(cropSpec)
+                if isempty(filterSpec)
                     vfilterOpt = '';
                 else
-                    vfilterOpt = sprintf('vfilter=%s,', cropSpec);
+                    % Single-quoted: without the quotes VLC's sout parser splits
+                    % the value at ':' and silently keeps only the first filter.
+                    vfilterOpt = sprintf('vfilter=''%s'',', filterSpec);
+                end
+
+                % sfilter=marq puts the marquee INTO the transcode's subpicture
+                % chain and soverlay blends it into the frames, which is what
+                % burns the caption into the file. The marquee's text and
+                % appearance ride along as ordinary --marq-* options.
+                captionOpts = obj.captionOpts_();
+                if isempty(captionOpts)
+                    soverlayOpt = '';
+                else
+                    soverlayOpt = ',sfilter=marq,soverlay';
                 end
 
                 % transcode must come before duplicate: a chained value inside
                 % duplicate{dst=...} is split at ':' by VLC's option parser.
                 % zerolatency stops x264 buffering frames so the file grows
                 % continuously and short recordings are not lost in the encoder.
-                sout = sprintf(['#transcode{%svcodec=h264,venc=x264{preset=ultrafast,tune=zerolatency},vb=1200,acodec=none}' ...
-                    ':duplicate{dst=display,dst=standard{access=file,mux=%s,dst=''%s''}}'], vfilterOpt, mux, recVlc);
+                sout = sprintf(['#transcode{%svcodec=h264,venc=x264{preset=ultrafast,tune=zerolatency},vb=1200,acodec=none%s}' ...
+                    ':duplicate{dst=display,dst=standard{access=file,mux=%s,dst=''%s''}}'], ...
+                    vfilterOpt, soverlayOpt, mux, recVlc);
                 opts{end+1} = sprintf('"--sout=%s"', sout);
                 opts{end+1} = '--sout-keep';
+                opts = [opts, captionOpts];
             else
-                if ~isempty(cropSpec)
-                    % Display-only mode: apply the crop filter directly so the
-                    % preview matches what a recording would contain.
-                    opts{end+1} = sprintf('--video-filter=%s', cropSpec);
+                if ~isempty(filterSpec)
+                    % Display-only mode: apply the filter chain directly so the
+                    % preview matches what a recording would contain. Here the
+                    % ':' chain needs no quoting -- it is a plain option value,
+                    % not a sout config chain.
+                    opts{end+1} = sprintf('--video-filter=%s', filterSpec);
                 end
                 % The banner is only ever added on this branch, so no code path
                 % can burn it into a recorded file.
@@ -872,6 +1108,75 @@ classdef VlcRecorder < hw.Interface
                 spec = '';
             else
                 spec = sprintf('croppadd{%s}', strjoin(terms, ','));
+            end
+        end
+
+        function spec = videoFilterSpec_(obj)
+            % spec = videoFilterSpec_()
+            % The whole video filter chain -- crop, then rotate/flip -- as VLC's
+            % ':'-separated module chain, or '' when neither is configured.
+            %
+            % Crop comes first so the crop values keep meaning what the operator
+            % sees in the un-rotated preview; rotating first would silently
+            % reinterpret "top" as "left".
+            %
+            % NOTE the chain is returned UNQUOTED. Where it goes decides how it
+            % must be embedded, and the two are not the same:
+            %   --video-filter=a:b        (display) chains as-is
+            %   vfilter='a:b'             (inside --sout) needs the single quotes
+            % Without them VLC's sout config-chain parser splits the value at
+            % the ':' and keeps only the first filter -- no error, no log line,
+            % the rotation simply never happens. Verified on VLC 3 against a
+            % dshow capture (see documentation/hw/hw_VlcRecorder.md).
+            terms = {obj.cropFilterSpec_()};
+            if ~strcmp(obj.transform_, "none")
+                terms{end+1} = sprintf('transform{type=%s}', char(obj.transform_));
+            end
+            terms = terms(~cellfun('isempty', terms));
+            spec = strjoin(terms, ':');
+        end
+
+        function opts = captionOpts_(obj)
+            % opts = captionOpts_()
+            % VLC options for the burned-in recording caption, or {} when the
+            % caption is off or resolves to nothing.
+            %
+            % These carry only the marquee's TEXT and appearance. What actually
+            % gets it into the file is 'sfilter=marq,soverlay' inside the
+            % transcode chain (see buildArgs): '--sub-source=marq' decorates the
+            % display vout only, and a recording made with it -- plus soverlay --
+            % comes out clean, which is how the display banner has always been
+            % kept out of recordings.
+            txt = strtrim(char(obj.resolvedCaption_()));
+            if isempty(txt)
+                opts = {};
+                return
+            end
+
+            % Double quotes terminate the option value; swap them for single.
+            txt = strrep(txt, '"', '''');
+
+            opts = { ...
+                sprintf('--marq-marquee="%s"', txt), ...
+                sprintf('--marq-position=%d', hw.VlcRecorder.CAPTION_POSITIONS.(char(obj.captionPosition_))), ...
+                sprintf('--marq-color=%d', hw.VlcRecorder.CAPTION_COLORS.(char(obj.captionColor_))), ...
+                sprintf('--marq-size=%d', obj.captionSize_), ...
+                '--marq-opacity=255', ...
+                '--marq-timeout=0'};
+        end
+
+        function txt = resolvedCaption_(obj)
+            % txt = resolvedCaption_()
+            % The caption text to burn in: whatever the session resolved into
+            % CaptionText, else the template expanded against what this object
+            % knows on its own (the clock), so a recorder driven directly still
+            % captions its recordings.
+            if ~obj.captionEnabled_
+                txt = "";
+            elseif strlength(strtrim(obj.captionText_)) > 0
+                txt = obj.captionText_;
+            else
+                txt = hw.VlcRecorder.expandCaption(obj.captionTemplate_);
             end
         end
 

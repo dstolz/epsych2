@@ -46,6 +46,13 @@ try
     rec = self.getVlcRecorder_();
     rec.set_parameter('RecordingFile', ffn);
 
+    % Resolve the operator's caption template against this session. Done here
+    % rather than in the recorder because this is the only place that knows the
+    % subjects; the recorder falls back to expanding what it can (the clock) on
+    % its own when nothing is set. {subject} names the same subject the
+    % recording file is named after, so a caption and a filename never disagree.
+    rec.set_parameter('CaptionText', char(self.videoCaptionText_(ffn)));
+
     if rec.trigger('Play')
         self.VideoRecordingActive_ = true;
         vprintf(0,'Video recording started: %s',ffn)

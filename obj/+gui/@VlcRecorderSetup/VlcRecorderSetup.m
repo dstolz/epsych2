@@ -65,6 +65,12 @@ classdef VlcRecorderSetup < handle
         CropLeftField
         CropRightField
         ResetCropButton
+        TransformDropDown
+        CaptionCheckBox
+        CaptionTemplateField
+        CaptionPositionDropDown
+        CaptionColorDropDown
+        CaptionSizeSpinner
         MinimalViewCheckBox
         AlwaysOnTopCheckBox
         VlcPreviewButton
@@ -196,12 +202,13 @@ classdef VlcRecorderSetup < handle
             title(obj.PreviewAxes, 'No preview', 'Color', [0.5 0.5 0.5]);
 
             % --- Controls column ---
-            obj.ControlGrid = uigridlayout(obj.RootGrid, [16 1]);
+            obj.ControlGrid = uigridlayout(obj.RootGrid, [22 1]);
             obj.ControlGrid.Layout.Row = 1;
             obj.ControlGrid.Layout.Column = 2;
             obj.ControlGrid.Padding = [0 0 0 0];
             obj.ControlGrid.RowSpacing = 4;
-            obj.ControlGrid.RowHeight = {18,26,18,26,18,26,18,100,26,18,22,22,26,'1x',26,26};
+            obj.ControlGrid.RowHeight = {18,26,18,26,18,26,18,100,26, ...
+                18,26,18,22,26,78, 18,22,22,26,'1x',26,26};
             % The fixed rows exceed the height of a window saved before the VLC
             % window section existed, so let the column scroll rather than clip
             % Apply/OK off the bottom.
@@ -251,6 +258,45 @@ classdef VlcRecorderSetup < handle
 
             obj.ResetCropButton = uibutton(obj.ControlGrid, 'Text', 'Reset Crop', 'Tag', 'VlcRecorderSetup_ResetCropButton');
 
+            uilabel(obj.ControlGrid, 'Text', 'Orientation', 'FontWeight', 'bold');
+            obj.TransformDropDown = uidropdown(obj.ControlGrid, ...
+                'Items', hw.VlcRecorder.TRANSFORMS, ...
+                'Tooltip', ['Rotate or flip the frame. One transform at a time: the eight ' ...
+                            'values cover every orientation VLC can produce. Applied to the ' ...
+                            'recording and the preview alike, after the crop.'], ...
+                'Tag', 'VlcRecorderSetup_TransformDropDown');
+
+            uilabel(obj.ControlGrid, 'Text', 'Caption in recording', 'FontWeight', 'bold');
+            obj.CaptionCheckBox = uicheckbox(obj.ControlGrid, ...
+                'Text', 'Burn caption into recording', ...
+                'Tooltip', ['Overlay the subject and session start on the recorded video. ' ...
+                            'The live view keeps its own "NOT RECORDING" banner regardless.'], ...
+                'Tag', 'VlcRecorderSetup_CaptionCheckBox');
+            obj.CaptionTemplateField = uieditfield(obj.ControlGrid, 'text', ...
+                'Tooltip', ['Caption text. {subject} {subjects} {box} {date} {time} ' ...
+                            '{datetime} {file} are filled in when recording starts; ' ...
+                            '{subject} is the subject the recording file is named after.'], ...
+                'Tag', 'VlcRecorderSetup_CaptionTemplateField');
+
+            captionGrid = uigridlayout(obj.ControlGrid, [3 2]);
+            captionGrid.ColumnWidth = {60, '1x'};
+            captionGrid.RowHeight = {22,22,22};
+            captionGrid.Padding = [0 0 0 0];
+            captionGrid.RowSpacing = 2;
+            uilabel(captionGrid, 'Text', 'Corner:');
+            obj.CaptionPositionDropDown = uidropdown(captionGrid, ...
+                'Items', fieldnames(hw.VlcRecorder.CAPTION_POSITIONS)', ...
+                'Tag', 'VlcRecorderSetup_CaptionPositionDropDown');
+            uilabel(captionGrid, 'Text', 'Colour:');
+            obj.CaptionColorDropDown = uidropdown(captionGrid, ...
+                'Items', fieldnames(hw.VlcRecorder.CAPTION_COLORS)', ...
+                'Tag', 'VlcRecorderSetup_CaptionColorDropDown');
+            uilabel(captionGrid, 'Text', 'Size:');
+            obj.CaptionSizeSpinner = uispinner(captionGrid, ...
+                'Limits', [6 200], 'Step', 2, 'RoundFractionalValues', 'on', ...
+                'ValueDisplayFormat', '%d px', ...
+                'Tag', 'VlcRecorderSetup_CaptionSizeSpinner');
+
             uilabel(obj.ControlGrid, 'Text', 'VLC window', 'FontWeight', 'bold');
             obj.MinimalViewCheckBox = uicheckbox(obj.ControlGrid, ...
                 'Text', 'Minimal interface (no menus)', ...
@@ -264,9 +310,9 @@ classdef VlcRecorderSetup < handle
             obj.VlcPreviewButton = uibutton(obj.ControlGrid, 'Text', 'Preview in VLC', 'Tag', 'VlcRecorderSetup_VlcPreviewButton');
 
             obj.ApplyButton = uibutton(obj.ControlGrid, 'Text', 'Apply', 'Tag', 'VlcRecorderSetup_ApplyButton');
-            obj.ApplyButton.Layout.Row = 15;
+            obj.ApplyButton.Layout.Row = 21;
             obj.OkButton = uibutton(obj.ControlGrid, 'Text', 'OK', 'Tag', 'VlcRecorderSetup_OkButton');
-            obj.OkButton.Layout.Row = 16;
+            obj.OkButton.Layout.Row = 22;
 
             obj.StatusLabel = uilabel(obj.RootGrid, 'Text', '', 'FontColor', [0.20 0.20 0.20]);
             obj.StatusLabel.Layout.Row = 2;
@@ -281,6 +327,12 @@ classdef VlcRecorderSetup < handle
             obj.CropLeftField.ValueChangedFcn       = @(s,e) obj.onCropFieldChanged(s,e);
             obj.CropRightField.ValueChangedFcn      = @(s,e) obj.onCropFieldChanged(s,e);
             obj.ResetCropButton.ButtonPushedFcn     = @(s,e) obj.onResetCrop(s,e);
+            obj.TransformDropDown.ValueChangedFcn       = @(s,e) obj.markDirty_();
+            obj.CaptionCheckBox.ValueChangedFcn         = @(s,e) obj.onCaptionEnableChanged(s,e);
+            obj.CaptionTemplateField.ValueChangedFcn    = @(s,e) obj.markDirty_();
+            obj.CaptionPositionDropDown.ValueChangedFcn = @(s,e) obj.markDirty_();
+            obj.CaptionColorDropDown.ValueChangedFcn    = @(s,e) obj.markDirty_();
+            obj.CaptionSizeSpinner.ValueChangedFcn      = @(s,e) obj.markDirty_();
             obj.MinimalViewCheckBox.ValueChangedFcn = @(s,e) obj.markDirty_();
             obj.AlwaysOnTopCheckBox.ValueChangedFcn = @(s,e) obj.markDirty_();
             obj.VlcPreviewButton.ButtonPushedFcn    = @(s,e) obj.onVlcPreviewToggle(s,e);
@@ -317,11 +369,55 @@ classdef VlcRecorderSetup < handle
             cr = obj.numOrZero_(obj.Recorder.get_parameter('CropRight'));
             obj.setCropFields_([ct cb cl cr]);
 
+            % A recorder value the dropdown does not offer would throw on
+            % assignment, so fall back to the item already selected.
+            obj.TransformDropDown.Value = obj.dropdownValue_(obj.TransformDropDown, ...
+                obj.Recorder.get_parameter('Transform'));
+            obj.CaptionPositionDropDown.Value = obj.dropdownValue_(obj.CaptionPositionDropDown, ...
+                obj.Recorder.get_parameter('CaptionPosition'));
+            obj.CaptionColorDropDown.Value = obj.dropdownValue_(obj.CaptionColorDropDown, ...
+                obj.Recorder.get_parameter('CaptionColor'));
+
+            obj.CaptionCheckBox.Value = obj.logicalOrDefault_(obj.Recorder.get_parameter('EnableCaption'), false);
+            obj.CaptionTemplateField.Value = char(string(obj.Recorder.get_parameter('CaptionTemplate')));
+            cs = obj.numOrZero_(obj.Recorder.get_parameter('CaptionSize'));
+            if cs < 6, cs = 20; end
+            obj.CaptionSizeSpinner.Value = min(200, cs);
+            obj.updateCaptionEnable_();
+
             obj.MinimalViewCheckBox.Value = obj.logicalOrDefault_(obj.Recorder.get_parameter('MinimalView'), true);
             obj.AlwaysOnTopCheckBox.Value = obj.logicalOrDefault_(obj.Recorder.get_parameter('AlwaysOnTop'), false);
 
             obj.Dirty = false;
             obj.setStatus('Ready.');
+        end
+
+        function v = dropdownValue_(~, dd, wanted)
+            % v = dropdownValue_(dd, wanted)
+            % 'wanted' if the dropdown offers it, else whatever it has selected.
+            % Assigning an Item a dropdown does not carry throws, and a recorder
+            % restored from an older preference may name one that has since gone.
+            v = char(string(wanted));
+            if ~any(strcmp(dd.Items, v))
+                v = dd.Value;
+            end
+        end
+
+        function onCaptionEnableChanged(obj, ~, ~)
+            obj.updateCaptionEnable_();
+            obj.markDirty_();
+        end
+
+        function updateCaptionEnable_(obj)
+            % Grey the caption's text and appearance controls when no caption
+            % will be drawn, so the checkbox reads as the switch it is. The
+            % values are left alone: unticking and re-ticking must not lose the
+            % operator's template.
+            en = matlab.lang.OnOffSwitchState(logical(obj.CaptionCheckBox.Value));
+            obj.CaptionTemplateField.Enable    = en;
+            obj.CaptionPositionDropDown.Enable = en;
+            obj.CaptionColorDropDown.Enable    = en;
+            obj.CaptionSizeSpinner.Enable      = en;
         end
 
         function v = numOrZero_(~, v)
@@ -779,6 +875,19 @@ classdef VlcRecorderSetup < handle
             obj.Recorder.set_parameter('CropLeft',   cropLeft);
             obj.Recorder.set_parameter('CropRight',  cropRight);
 
+            transform      = char(obj.TransformDropDown.Value);
+            enableCaption  = obj.CaptionCheckBox.Value;
+            capTemplate    = char(obj.CaptionTemplateField.Value);
+            capPosition    = char(obj.CaptionPositionDropDown.Value);
+            capColor       = char(obj.CaptionColorDropDown.Value);
+            capSize        = obj.CaptionSizeSpinner.Value;
+            obj.Recorder.set_parameter('Transform',       transform);
+            obj.Recorder.set_parameter('EnableCaption',   enableCaption);
+            obj.Recorder.set_parameter('CaptionTemplate', capTemplate);
+            obj.Recorder.set_parameter('CaptionPosition', capPosition);
+            obj.Recorder.set_parameter('CaptionColor',    capColor);
+            obj.Recorder.set_parameter('CaptionSize',     capSize);
+
             minimalView = obj.MinimalViewCheckBox.Value;
             alwaysOnTop = obj.AlwaysOnTopCheckBox.Value;
             obj.Recorder.set_parameter('MinimalView', minimalView);
@@ -794,6 +903,15 @@ classdef VlcRecorderSetup < handle
                 setpref('ep_RunExpt_Video', 'CropRight',    cropRight);
                 setpref('ep_RunExpt_Video', 'MinimalView',  minimalView);
                 setpref('ep_RunExpt_Video', 'AlwaysOnTop',  alwaysOnTop);
+                % CaptionText is not persisted: it is resolved per run from the
+                % template, so a remembered one would caption a recording with
+                % the previous session's subject.
+                setpref('ep_RunExpt_Video', 'Transform',       transform);
+                setpref('ep_RunExpt_Video', 'EnableCaption',   enableCaption);
+                setpref('ep_RunExpt_Video', 'CaptionTemplate', capTemplate);
+                setpref('ep_RunExpt_Video', 'CaptionPosition', capPosition);
+                setpref('ep_RunExpt_Video', 'CaptionColor',    capColor);
+                setpref('ep_RunExpt_Video', 'CaptionSize',     capSize);
             end
 
             obj.Dirty = false;

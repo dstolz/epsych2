@@ -36,6 +36,7 @@ classdef PhaseSelector < handle
     %   h_Description      - Handle to description label UI control.
     %   RUNTIME            - Main runtime object.
     %   Names              - List of phase file names without extension.
+    %   DisplayNames       - Names decorated with each phase's protocol version.
     %   Filenames          - List of phase file names without path.
     %   FullFilenames      - Full paths to phase files.
     %   LastLoadedFile     - File name of the most recently loaded phase.
@@ -73,6 +74,7 @@ classdef PhaseSelector < handle
     properties (SetAccess = private)
         RUNTIME                 % Main runtime object
         Names (1,:) string      % List of phase file names without extension
+        DisplayNames (1,:) string   % Names decorated with each phase's protocol version, as shown in the dropdown
         Filenames (1,:) string      % List of phase file names without path
         FullFilenames (1,:) string {mustBeFile} % Full paths to phase files
         LastLoadedFile (1,1) string = ""      % File name (with extension) of the most recently loaded phase
@@ -180,6 +182,7 @@ classdef PhaseSelector < handle
             % Null/default phase is always present, so the dropdown has a valid
             % Value even when no files were found.
             obj.Names = "< Select Phase >";
+            obj.DisplayNames = obj.Names;
             obj.Filenames = string.empty(1,0);
             obj.FullFilenames = string.empty(1,0);
 
@@ -212,6 +215,7 @@ classdef PhaseSelector < handle
             [~,names] = fileparts(string({phaseFiles.name}));
             % Do NOT prepend the null entry to Filenames/FullFilenames (mustBeFile constraint)
             obj.Names = ["< Select Phase >", names];
+            obj.DisplayNames = ["< Select Phase >", obj.versionLabels_(obj.FullFilenames, names)];
             vprintf(3, 'Found %d phase files from "%s".', nFiles, obj.PhasePath)
         end
 
@@ -494,7 +498,7 @@ classdef PhaseSelector < handle
 
             % Start on the null entry with Load/Info disabled until a phase is selected.
             if ~isempty(obj.h_PhaseSelect)
-                obj.h_PhaseSelect.Value = obj.Names(1);
+                obj.h_PhaseSelect.Value = char(obj.Names(1));
             end
             obj.onPhaseSelectionChanged(obj.h_PhaseSelect);
 
@@ -586,9 +590,14 @@ classdef PhaseSelector < handle
                 parent {mustBeNonempty} = gcf
             end
 
+            % Items carry the version suffix, ItemsData the bare name: Value
+            % stays the undecorated phase name, so selectedPhaseFile's lookup
+            % into Names -- and any caller setting Value by name -- is unaffected
+            % by how the list is labelled.
             h = uidropdown(parent, ...
-                'Items', cellstr(obj.Names), ...
-                'Value', obj.Names(1), ...
+                'Items', cellstr(obj.DisplayNames), ...
+                'ItemsData', cellstr(obj.Names), ...
+                'Value', char(obj.Names(1)), ...
                 'ValueChangedFcn', @(src,evt)obj.onPhaseSelectionChanged(src));
 
             obj.h_PhaseSelect = h;
@@ -621,6 +630,28 @@ classdef PhaseSelector < handle
 
 
     methods (Access = private)
+        function labels = versionLabels_(~, fullPaths, names)
+            % labels = versionLabels_(fullPaths, names)
+            % Decorate each phase name with the protocol version stored in its
+            % file: 'Appetitive_Platform (v3.260814)'.
+            %
+            % A phase saved before versions were stamped, a legacy .json
+            % snapshot, and an unreadable file all read as '' and are shown
+            % undecorated -- an absent version is not "version 0", and the
+            % dropdown must still name every file it found. versionOnDisk reads
+            % the one metadata variable rather than rebuilding the object graph
+            % and never throws, so a directory of phases costs one small MAT
+            % read each.
+            labels = names;
+            for i = 1:numel(fullPaths)
+                v = epsych.Protocol.versionOnDisk(char(fullPaths(i)));
+                if ~isempty(v)
+                    labels(i) = sprintf('%s (%s)', names(i), v);
+                end
+            end
+        end
+
+
         function refreshPhaseDropdown(obj)
             % refreshPhaseDropdown(obj)
             % Reset the dropdown to the null entry using the current Names list and
@@ -629,8 +660,11 @@ classdef PhaseSelector < handle
             % writePhaseParameters and changePhaseDirectory, both of which rescan
             % PhasePath before calling this.
             if ~isempty(obj.h_PhaseSelect) && isvalid(obj.h_PhaseSelect)
-                obj.h_PhaseSelect.Items = cellstr(obj.Names);
-                obj.h_PhaseSelect.Value = obj.Names(1);
+                % One set() call: Items and ItemsData must never be left at
+                % different lengths, which a pair of dot assignments would do.
+                set(obj.h_PhaseSelect, 'Items', cellstr(obj.DisplayNames), ...
+                    'ItemsData', cellstr(obj.Names));
+                obj.h_PhaseSelect.Value = char(obj.Names(1));
             end
             obj.onPhaseSelectionChanged(obj.h_PhaseSelect);
         end

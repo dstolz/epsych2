@@ -125,8 +125,16 @@ try
 
     assert(hw.VlcRecorder.expandCaption("", tok) == "", 'an empty template should stay empty');
 
+    % sampleCaption stands in for a session, for previewing with none open.
+    % Every session token must yield something VISIBLE: a preview that expanded
+    % to a bare date would misrepresent the caption's length and position.
+    smp = hw.VlcRecorder.sampleCaption("{subject} box {box}  {datetime}");
+    assert(contains(smp, "SUBJECT") && contains(smp, "box 1"), ...
+        'sampleCaption should fill session tokens with stand-ins: "%s"', smp);
+    assert(~contains(smp, '{'), 'sampleCaption left a token unexpanded: "%s"', smp);
+
     report.steps.(stepName) = struct('passed', true, ...
-        'detail', 'Tokens fill in; unsupplied and unknown ones are dropped, not left as braces.');
+        'detail', 'Tokens fill in; unsupplied and unknown ones are dropped; sampleCaption stands in for a session.');
 catch ME
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end
@@ -240,6 +248,41 @@ else
         report.steps.(stepName) = struct('passed', true, ...
             'detail', sprintf('Recorded %d bytes; frame %dx%d, so crop and transform both applied.', ...
             d.bytes, sz(1), sz(2)));
+    catch ME
+        report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
+    end
+end
+
+% Step 6 (gated): the preview branch accepts the caption options
+stepName = 'vlcPreviewCaption';
+if ~options.LaunchVlc
+    report.steps.(stepName) = struct('passed', true, 'detail', 'Skipped (LaunchVlc=false).');
+else
+    try
+        rec = hw.VlcRecorder();
+        c6 = onCleanup(@() localStop_(rec));
+        rec.connect();
+        rec.set_parameter('DeviceName', ...
+            getpref('ep_RunExpt_Video', 'DeviceName', char(rec.get_parameter('DeviceName'))));
+        rec.set_parameter('RecordingFile', '');   % display-only branch
+        rec.set_parameter('DisplayBanner', '');   % empty, so the caption wins
+        rec.set_parameter('EnableCaption', true);
+        rec.set_parameter('CaptionText', hw.VlcRecorder.sampleCaption("{subject}  {datetime}"));
+        rec.set_parameter('CaptionPosition', 'southwest');
+        rec.set_parameter('CaptionSize', 24);
+
+        % VLC rejects an unknown option and exits immediately, so surviving the
+        % launch is how a malformed --marq-* shows up. The overlay itself is a
+        % sub-source drawn at the vout and cannot be captured by VLC's scene
+        % filter, so it is verified by eye rather than asserted here (see
+        % documentation/hw/hw_VlcRecorder.md).
+        assert(rec.trigger('Play') == 1, 'SmokeTest:PreviewFailed', ...
+            'VLC did not survive launch with the preview caption options.');
+        pause(4);
+        rec.trigger('Stop');
+
+        report.steps.(stepName) = struct('passed', true, ...
+            'detail', 'Display-only launch accepts the caption options and runs.');
     catch ME
         report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
     end

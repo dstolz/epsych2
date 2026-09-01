@@ -649,6 +649,29 @@ classdef VlcRecorder < hw.Interface
             end
         end
 
+        function txt = sampleCaption(template)
+            % txt = hw.VlcRecorder.sampleCaption(template)
+            % Expand a caption template with visible stand-ins for what only a
+            % session knows, for previewing the caption with no session open.
+            %
+            % Stand-ins rather than empty: the point of a preview is to judge
+            % the corner, colour and size against a real frame, and a caption
+            % that expanded to a bare date would misrepresent both its length
+            % and its position.
+            %
+            % Parameters:
+            %   template - caption text with {tokens}
+            %
+            % Returns:
+            %   txt - the expanded sample caption
+            arguments
+                template (1,1) string = ""
+            end
+            txt = hw.VlcRecorder.expandCaption(template, ...
+                struct('Subject', "SUBJECT", 'Subjects', "SUBJECT", ...
+                       'Box', "1", 'File', "preview"));
+        end
+
         function exePath = findVlcExe()
             % exePath = hw.VlcRecorder.findVlcExe()
             % Locate vlc.exe from the registry, standard install folders, or the
@@ -1035,9 +1058,22 @@ classdef VlcRecorder < hw.Interface
                     % not a sout config chain.
                     opts{end+1} = sprintf('--video-filter=%s', filterSpec);
                 end
+                % One marquee sub-source, so these two cannot both be drawn.
+                % DisplayBanner wins when set: its whole job is to warn that a
+                % stream is NOT being recorded, and a caption must never
+                % displace that. It is empty in the setup dialog's "Preview in
+                % VLC", which is where the caption preview is wanted -- so the
+                % preview shows the caption in its real corner, colour and
+                % size, and the live view keeps its warning.
+                %
                 % The banner is only ever added on this branch, so no code path
                 % can burn it into a recorded file.
-                opts = [opts, obj.displayBannerOpts_()];
+                bannerOpts = obj.displayBannerOpts_();
+                if isempty(bannerOpts)
+                    opts = [opts, obj.displayCaptionOpts_()];
+                else
+                    opts = [opts, bannerOpts];
+                end
             end
 
             argStr = sprintf('%s "%s"', strjoin(opts, ' '), uri);
@@ -1068,18 +1104,56 @@ classdef VlcRecorder < hw.Interface
                 return
             end
 
+            opts = [{'--sub-source=marq'}, ...
+                obj.marqOpts_(banner, 'north', 'yellow', 24), ...
+                {sprintf('--meta-title="%s"', strrep(banner, '"', ''''))}];
+        end
+
+        function opts = displayCaptionOpts_(obj)
+            % opts = displayCaptionOpts_()
+            % The recording caption drawn on a PREVIEW window, in its own
+            % position, colour and size, so "Preview in VLC" shows what the
+            % recording will actually look like. Returns {} when the caption is
+            % off or resolves to nothing.
+            %
+            % A preview needs '--sub-source=marq' because there is no transcode
+            % chain to hang an sfilter on; that is the whole difference between
+            % this and captionOpts_, which is why the two are separate methods
+            % over one shared option builder rather than one method with a flag.
+            txt = strtrim(char(obj.resolvedCaption_()));
+            if isempty(txt)
+                opts = {};
+                return
+            end
+
+            opts = [{'--sub-source=marq'}, ...
+                obj.marqOpts_(txt, char(obj.captionPosition_), ...
+                              char(obj.captionColor_), obj.captionSize_)];
+        end
+
+        function opts = marqOpts_(~, txt, position, color, fontSize)
+            % opts = marqOpts_(txt, position, color, fontSize)
+            % The --marq-* options for one marquee: text, corner, colour, size.
+            % Shared by the display banner, the preview caption, and the
+            % recording caption, so all three quote and place text alike.
+            %
+            % VLC has ONE marquee sub-source with one set of options, so a
+            % window can show one marquee and not two; who wins is decided by
+            % the caller (see buildVlcArgs_).
+            %
+            % marq-timeout=0 keeps the overlay up for the life of the window, so
+            % a label cannot scroll away and leave an unmarked stream.
+
             % Double quotes terminate the option value; swap them for single.
-            banner = strrep(banner, '"', '''');
+            txt = strrep(char(txt), '"', '''');
 
             opts = { ...
-                '--sub-source=marq', ...
-                sprintf('--marq-marquee="%s"', banner), ...
-                '--marq-position=4', ...    % top-center
-                '--marq-color=16776960', ...% yellow
+                sprintf('--marq-marquee="%s"', txt), ...
+                sprintf('--marq-position=%d', hw.VlcRecorder.CAPTION_POSITIONS.(char(position))), ...
+                sprintf('--marq-color=%d', hw.VlcRecorder.CAPTION_COLORS.(char(color))), ...
                 '--marq-opacity=255', ...
-                '--marq-size=24', ...
-                '--marq-timeout=0', ...
-                sprintf('--meta-title="%s"', banner)};
+                sprintf('--marq-size=%d', fontSize), ...
+                '--marq-timeout=0'};
         end
 
         function spec = cropFilterSpec_(obj)
@@ -1153,16 +1227,10 @@ classdef VlcRecorder < hw.Interface
                 return
             end
 
-            % Double quotes terminate the option value; swap them for single.
-            txt = strrep(txt, '"', '''');
-
-            opts = { ...
-                sprintf('--marq-marquee="%s"', txt), ...
-                sprintf('--marq-position=%d', hw.VlcRecorder.CAPTION_POSITIONS.(char(obj.captionPosition_))), ...
-                sprintf('--marq-color=%d', hw.VlcRecorder.CAPTION_COLORS.(char(obj.captionColor_))), ...
-                sprintf('--marq-size=%d', obj.captionSize_), ...
-                '--marq-opacity=255', ...
-                '--marq-timeout=0'};
+            % No '--sub-source=marq' here: on the recording branch the marquee
+            % is reached through the transcode's sfilter instead (see buildArgs).
+            opts = obj.marqOpts_(txt, char(obj.captionPosition_), ...
+                                 char(obj.captionColor_), obj.captionSize_);
         end
 
         function txt = resolvedCaption_(obj)

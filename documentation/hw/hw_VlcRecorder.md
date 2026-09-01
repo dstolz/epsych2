@@ -106,6 +106,20 @@ it leaking into recordings. Burning one in needs `sfilter=marq,soverlay` inside
 as usual. `captionOpts_` builds those options and `buildVlcArgs_` adds the
 `sfilter`.
 
+The two routes are why the caption has two methods over one shared
+`marqOpts_` builder: `captionOpts_` for the recording (no `--sub-source`, the
+`sfilter` carries it) and `displayCaptionOpts_` for a preview (which has no
+transcode chain to hang an `sfilter` on, so it needs `--sub-source=marq`).
+
+**A window can show one marquee, not two.** VLC has a single `marq`
+sub-source with a single set of options, so `DisplayBanner` and the caption
+cannot both be drawn on a preview. `DisplayBanner` **wins when set**: its job
+is to warn that a stream is *not* being recorded, and a caption must never
+displace that warning. It is empty in the setup dialog's "Preview in VLC",
+which is where a caption preview is wanted — so that preview shows the caption
+in its real corner, colour and size, while `epsych.RunExpt`'s Live Webcam View
+keeps its `LIVE VIEW - NOT RECORDING` banner.
+
 **A video filter chain inside `--sout` must be single-quoted.**
 
 | Where | Form | Chains? |
@@ -151,6 +165,8 @@ rec.disconnect();
 ## Setup GUI
 
 `obj.setupGUI()` opens `gui.VlcRecorderSetup`: a live webcam preview with an interactive crop rectangle for configuring `DeviceName`, `FrameRate`, `Resolution`, and the `Crop*` parameters, an **Orientation** dropdown for `Transform`, a **Caption in recording** section (the enable checkbox, the template field, and the corner/colour/size controls, which grey out when the caption is off but keep their values so unticking never loses the operator's template), a **VLC window** section holding the `MinimalView` and `AlwaysOnTop` checkboxes, plus a "Preview in VLC" toggle to verify the actual recorded frame before starting a session.
+
+**"Preview in VLC" draws the caption** in the corner, colour and size configured, so it can be judged against a real frame rather than guessed at. There is no session open to name a subject, so `hw.VlcRecorder.sampleCaption` fills `{subject}`/`{box}` with visible stand-ins (`SUBJECT`, `1`) — a preview that expanded to a bare date would misrepresent both the caption's length and its position. The sample is staged into `CaptionText` for the preview and cleared when leaving it.
 
 Every one of these is mirrored into the `ep_RunExpt_Video` preference group on Apply and seeded back by `epsych.RunExpt.getVlcRecorder_`, so a rig keeps its caption and orientation across sessions — `CaptionText` excepted, as above.
 

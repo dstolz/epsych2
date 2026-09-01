@@ -782,8 +782,16 @@ classdef VlcRecorderSetup < handle
                 obj.setStatus('Recorder is no longer valid.', true);
                 return
             end
+            % Show the caption as the recording will carry it. There is no
+            % session here to name a subject, so {subject}/{box} get visible
+            % stand-ins rather than expanding to nothing -- the point of the
+            % preview is to judge the corner, colour and size against a real
+            % frame, which an empty or date-only caption cannot show.
+            obj.applyPreviewCaption_();
+
             result = obj.Recorder.trigger('Play');
             if ~result
+                obj.clearPreviewCaption_();
                 obj.setStatus('Failed to launch VLC preview.', true);
                 if obj.EnablePreview_
                     obj.startPreview();
@@ -793,13 +801,38 @@ classdef VlcRecorderSetup < handle
             obj.setControlsEnabled_(false);
             obj.VlcPreviewButton.Text = 'Back to Setup';
             obj.InVlcPreview = true;
-            obj.setStatus('Previewing in VLC (crop/fps/resolution as configured).');
+            if logical(obj.Recorder.get_parameter('EnableCaption'))
+                obj.setStatus('Previewing in VLC (crop/fps/resolution/caption as configured).');
+            else
+                obj.setStatus('Previewing in VLC (crop/fps/resolution as configured).');
+            end
+        end
+
+        function applyPreviewCaption_(obj)
+            % Stage a sample caption for the VLC preview. Stand-ins for what
+            % only a session knows, so the operator sees text of a realistic
+            % length in the corner and size they chose.
+            if ~obj.recorderValid_(), return, end
+            if ~logical(obj.Recorder.get_parameter('EnableCaption')), return, end
+
+            txt = hw.VlcRecorder.sampleCaption( ...
+                string(obj.Recorder.get_parameter('CaptionTemplate')));
+            obj.Recorder.set_parameter('CaptionText', char(txt));
+        end
+
+        function clearPreviewCaption_(obj)
+            % Drop the sample caption, so nothing can mistake it for a resolved
+            % one. StartVideoRecording_ writes CaptionText afresh before every
+            % recording, so this is belt and braces rather than load-bearing.
+            if ~obj.recorderValid_(), return, end
+            obj.Recorder.set_parameter('CaptionText', '');
         end
 
         function backToSetup_(obj)
             if obj.recorderValid_()
                 obj.Recorder.trigger('Stop');
             end
+            obj.clearPreviewCaption_();
             obj.setControlsEnabled_(true);
             obj.VlcPreviewButton.Text = 'Preview in VLC';
             obj.InVlcPreview = false;

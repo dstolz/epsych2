@@ -5,7 +5,9 @@ classdef NanoMotorControlGUI < handle
 %   control panel for the peripherals.NanoMotorControl serial interface.
 %
 %   Capabilities
-%     - Jog CW/CCW (click-to-toggle)
+%     - Jog in either direction (click-to-toggle), each button carrying a
+%       circular-arrow icon for the rotation it commands
+%     - Menu option to swap which button reads CW and which reads CCW
 %     - Set rotation speed (RPM)
 %     - Send MOVEDEG commands using either degrees or rotations
 %     - STOP (halts jogging and stops any active MOVE)
@@ -31,6 +33,16 @@ classdef NanoMotorControlGUI < handle
         % If true, sets the hosting figure WindowStyle="alwaysontop".
         AlwaysOnTop (1,1) logical = false
 
+        % Swap which jog button reads CW and which reads CCW. Jog commands
+        % (DIR/SPD/RPM) act in MOTOR direction, while moveDeg/positionDeg are
+        % output-shaft degrees the firmware already corrects with its gear
+        % OutputDirSign -- so on a drive that reverses, the jog buttons are the
+        % half that reads backwards. A swap moves the labels, icons, tooltips
+        % and status text only; MOVE and the position readout are untouched.
+        % Left unstated, the GUI takes the controller's OutputDirSign at
+        % connect; toggling it from the menu remembers the choice per machine.
+        SwapDirectionLabels (1,1) logical = false
+
         FigurePosition (1,4) double {mustBeFinite} = [100 100 420 320]
         FigureName (1,1) string = "Nano Motor Control"
     end
@@ -51,6 +63,7 @@ classdef NanoMotorControlGUI < handle
 
         JogActive (1,1) logical = false
         JogSign (1,1) double = 0
+        SwapExplicit_ (1,1) logical = false
         PrevWinUpFcn = []
         PrevWinUpFcnStored (1,1) logical = false
 
@@ -76,6 +89,9 @@ classdef NanoMotorControlGUI < handle
         MenuWindow = []
         MiAlwaysOnTop = []
 
+        MenuDirection = []
+        MiSwapLabels = []
+
         % UI
         LblStatus
         StatusGrid
@@ -84,8 +100,10 @@ classdef NanoMotorControlGUI < handle
 
         LblSpeed
         NumSpeed
-        BtnCCW
-        BtnCW
+        % Named for the MOTOR direction each button commands, never for what it
+        % says: a swap moves text and icons, not the wiring.
+        BtnJogNeg
+        BtnJogPos
 
         BtnStop
 
@@ -101,6 +119,15 @@ classdef NanoMotorControlGUI < handle
         LblPosVal
     end
 
+    properties (Constant, Access=private)
+        PREF_GROUP = 'epsych2_peripherals_NanoMotorControlGUI'
+        PREF_SWAP = 'SwapDirectionLabels'
+
+        % Glyph edge in pixels, sized for the 110 px jog row rather than
+        % gui.toolbarIcon's 16 px toolbar tools.
+        ICON_SIZE = 58
+    end
+
     methods
         function obj = NanoMotorControlGUI(opts)
             arguments
@@ -113,6 +140,7 @@ classdef NanoMotorControlGUI < handle
                 opts.DefaultMoveUnits (1,1) string = "deg"
                 opts.Verbosity (1,1) string = "SILENT"
                 opts.AlwaysOnTop (1,1) logical = false
+                opts.SwapDirectionLabels (1,1) logical   % no default: unstated falls back to the saved choice, then the device
                 opts.FigurePosition (1,4) double {mustBeFinite} = [100 100 420 320]
                 opts.FigureName (1,1) string = "Nano Motor Control"
             end
@@ -134,6 +162,8 @@ classdef NanoMotorControlGUI < handle
 
             obj.AlwaysOnTop = logical(opts.AlwaysOnTop);
 
+            obj.resolveSwapDirectionLabels(opts);
+
             obj.resolveParentAndFigure();
             obj.applyAlwaysOnTop();
             obj.buildMenus();
@@ -149,6 +179,15 @@ classdef NanoMotorControlGUI < handle
                 obj.cleanup();
                 rethrow(ME);
             end
+        end
+
+        function set.SwapDirectionLabels(obj, tf)
+            obj.SwapDirectionLabels = logical(tf);
+
+            % A set method may not touch another property, so what counts as a
+            % deliberate choice is recorded where the choice is made
+            % (resolveSwapDirectionLabels, onSwapLabelsToggled) rather than here.
+            obj.applyDirectionLabels();
         end
 
         function delete(obj)
@@ -207,6 +246,10 @@ classdef NanoMotorControlGUI < handle
             obj.MiAlwaysOnTop = uimenu(obj.MenuWindow, Text="Always on top", ...
                 MenuSelectedFcn=@(~,~)obj.onAlwaysOnTopToggled());
 
+            obj.MenuDirection = uimenu(obj.MenuRoot, Text="Direction");
+            obj.MiSwapLabels = uimenu(obj.MenuDirection, Text="Swap CW / CCW labels", ...
+                MenuSelectedFcn=@(~,~)obj.onSwapLabelsToggled());
+
             obj.applyVerbosityChecks();
             obj.applyAlwaysOnTopChecks();
 
@@ -218,6 +261,11 @@ classdef NanoMotorControlGUI < handle
 
             obj.trySetTooltip(obj.MenuWindow, "Figure behavior.");
             obj.trySetTooltip(obj.MiAlwaysOnTop, "Toggle WindowStyle between normal and alwaysontop.");
+
+            obj.trySetTooltip(obj.MenuDirection, "How the two jog buttons are labelled.");
+            obj.trySetTooltip(obj.MiSwapLabels, "Swap which jog button reads CW and which reads CCW. Labels, icons and status text only; MOVE and the position readout are unaffected.");
+
+            obj.applyDirectionChecks();
         end
 
         function onAlwaysOnTopToggled(obj)
@@ -329,19 +377,23 @@ classdef NanoMotorControlGUI < handle
             obj.NumSpeed.ValueChangedFcn = @(src,evt)obj.onSpeedChanged(src,evt);
             obj.NumSpeed.Tooltip = "Rotation speed in RPM. Used for jog and, if >0, passed to MOVE.";
 
-            obj.BtnCCW = uibutton(obj.Grid, Text="CCW", FontSize=20, FontWeight="bold");
-            obj.BtnCCW.Layout.Row = 3;
-            obj.BtnCCW.Layout.Column = 1;
-            obj.BtnCCW.BackgroundColor = obj.BaseBtnColor;
-            obj.BtnCCW.ButtonPushedFcn = @(src,evt)obj.onJogDown(-1,src,evt);
-            obj.BtnCCW.Tooltip = "Jog CCW at Speed(RPM). Click to start; click again or press STOP to stop.";
+            % Labels, icons and tooltips are applied together by
+            % applyDirectionLabels so the swap has one place to reach them.
+            obj.BtnJogNeg = uibutton(obj.Grid, FontSize=20, FontWeight="bold");
+            obj.BtnJogNeg.Layout.Row = 3;
+            obj.BtnJogNeg.Layout.Column = 1;
+            obj.BtnJogNeg.BackgroundColor = obj.BaseBtnColor;
+            obj.BtnJogNeg.IconAlignment = "top";
+            obj.BtnJogNeg.ButtonPushedFcn = @(src,evt)obj.onJogDown(-1,src,evt);
 
-            obj.BtnCW = uibutton(obj.Grid, Text="CW", FontSize=20, FontWeight="bold");
-            obj.BtnCW.Layout.Row = 3;
-            obj.BtnCW.Layout.Column = 2;
-            obj.BtnCW.BackgroundColor = obj.BaseBtnColor;
-            obj.BtnCW.ButtonPushedFcn = @(src,evt)obj.onJogDown(+1,src,evt);
-            obj.BtnCW.Tooltip = "Jog CW at Speed(RPM). Click to start; click again or press STOP to stop.";
+            obj.BtnJogPos = uibutton(obj.Grid, FontSize=20, FontWeight="bold");
+            obj.BtnJogPos.Layout.Row = 3;
+            obj.BtnJogPos.Layout.Column = 2;
+            obj.BtnJogPos.BackgroundColor = obj.BaseBtnColor;
+            obj.BtnJogPos.IconAlignment = "top";
+            obj.BtnJogPos.ButtonPushedFcn = @(src,evt)obj.onJogDown(+1,src,evt);
+
+            obj.applyDirectionLabels();
 
             obj.BtnStop = uibutton(obj.Grid, Text="STOP", FontSize=16);
             obj.BtnStop.Layout.Row = 4;
@@ -407,6 +459,8 @@ classdef NanoMotorControlGUI < handle
             obj.Motor.mode("USB");
             obj.Motor.enable(true);
 
+            obj.adoptSwapFromDevice();
+
             % Pull limits from device if available
             S = obj.Motor.status();
             if isfield(S, "LIMRPM")
@@ -462,11 +516,7 @@ classdef NanoMotorControlGUI < handle
 
             if obj.JogActive
                 state = "moving";
-                if obj.JogSign < 0
-                    dirTxt = "CCW";
-                else
-                    dirTxt = "CW";
-                end
+                dirTxt = obj.directionName(obj.JogSign);
                 txt = sprintf("Jogging %s @ %.4g RPM", dirTxt, abs(obj.NumSpeed.Value));
                 return;
             end
@@ -709,14 +759,119 @@ classdef NanoMotorControlGUI < handle
 
         function setJogVisual(obj, sign, tf)
             if sign < 0
-                if ~isempty(obj.BtnCCW) && isvalid(obj.BtnCCW)
-                    obj.BtnCCW.BackgroundColor = tf*obj.ActiveBtnColor + (~tf)*obj.BaseBtnColor;
-                end
+                b = obj.BtnJogNeg;
             else
-                if ~isempty(obj.BtnCW) && isvalid(obj.BtnCW)
-                    obj.BtnCW.BackgroundColor = tf*obj.ActiveBtnColor + (~tf)*obj.BaseBtnColor;
-                end
+                b = obj.BtnJogPos;
             end
+
+            if isempty(b) || ~isvalid(b)
+                return;
+            end
+
+            if tf
+                b.BackgroundColor = obj.ActiveBtnColor;
+            else
+                b.BackgroundColor = obj.BaseBtnColor;
+            end
+
+            % The glyph's soft edge is blended against the button it sits on, so
+            % it has to be redrawn whenever that button changes colour.
+            obj.applyDirectionIcons();
+        end
+
+        function name = directionName(obj, sign)
+            % A negative motor sign reads CCW unless the labels are swapped for
+            % a drive that reverses the output shaft.
+            if xor(sign < 0, obj.SwapDirectionLabels)
+                name = "CCW";
+            else
+                name = "CW";
+            end
+        end
+
+        function applyDirectionLabels(obj)
+            signs = [-1 1];
+            btns = {obj.BtnJogNeg, obj.BtnJogPos};
+
+            for k = 1:numel(btns)
+                b = btns{k};
+                if isempty(b) || ~isvalid(b)
+                    continue;
+                end
+
+                name = obj.directionName(signs(k));
+                b.Text = name;
+                b.Tooltip = "Jog " + name + " at Speed(RPM). Click to start; click again or press STOP to stop.";
+            end
+
+            obj.applyDirectionIcons();
+            obj.applyDirectionChecks();
+
+            % The status line names the direction too, so a swap mid-jog reaches
+            % it without waiting for the next poll.
+            if obj.JogActive
+                [state, txt] = obj.inferMotionStatus();
+                obj.setStatus(state, txt);
+            end
+        end
+
+        function applyDirectionIcons(obj)
+            signs = [-1 1];
+            btns = {obj.BtnJogNeg, obj.BtnJogPos};
+
+            for k = 1:numel(btns)
+                b = btns{k};
+                if isempty(b) || ~isvalid(b)
+                    continue;
+                end
+
+                cw = obj.directionName(signs(k)) == "CW";
+                b.Icon = obj.rotationIcon(cw, obj.ICON_SIZE, b.BackgroundColor);
+            end
+        end
+
+        function applyDirectionChecks(obj)
+            obj.setChecked(obj.MiSwapLabels, obj.SwapDirectionLabels);
+        end
+
+        function resolveSwapDirectionLabels(obj, opts)
+            % Three sources, most specific first: what the caller stated, what
+            % this machine last chose from the menu, and -- left to
+            % adoptSwapFromDevice -- the controller's own OutputDirSign.
+            obj.SwapExplicit_ = true;
+
+            if isfield(opts, "SwapDirectionLabels")
+                obj.SwapDirectionLabels = logical(opts.SwapDirectionLabels);
+                return;
+            end
+
+            if ispref(obj.PREF_GROUP, obj.PREF_SWAP)
+                obj.SwapDirectionLabels = logical(getpref(obj.PREF_GROUP, obj.PREF_SWAP));
+            else
+                % Nothing stated and nothing remembered: leave it to the device.
+                obj.SwapExplicit_ = false;
+            end
+        end
+
+        function adoptSwapFromDevice(obj)
+            if obj.SwapExplicit_ || isempty(obj.Motor) || ~obj.Motor.IsConnected
+                return;
+            end
+
+            % connect() has just read the firmware's gear configuration, and a
+            % reversing drive is the case the swap exists for. This is a starting
+            % point rather than a choice, so it never raises SwapExplicit_ and an
+            % operator toggle still outranks it.
+            obj.SwapDirectionLabels = obj.Motor.OutputDirSign < 0;
+        end
+
+        function onSwapLabelsToggled(obj)
+            obj.SwapDirectionLabels = ~obj.SwapDirectionLabels;
+            obj.SwapExplicit_ = true;
+
+            % Which way a rig's gearbox turns is a fact about the bench, not
+            % about this session, so the operator's answer is remembered.
+            setpref(obj.PREF_GROUP, obj.PREF_SWAP, obj.SwapDirectionLabels);
         end
 
         function txt = connectedText(obj)
@@ -775,6 +930,76 @@ classdef NanoMotorControlGUI < handle
             s = replace(s, newline, " ");
             if strlength(s) > 90
                 s = extractBefore(s, 90) + "...";
+            end
+        end
+    end
+
+    methods (Static, Access=private)
+        function icon = rotationIcon(clockwise, sz, blendColor)
+            % icon = rotationIcon(clockwise, sz, blendColor)
+            % Circular-arrow glyph for one jog button.
+            %
+            % Drawn here rather than shipped as an image file, for
+            % gui.toolbarIcon's reasons, but sized for a 110 px jog row instead
+            % of a 16 px toolbar tool. Empty pixels are NaN, which uibutton
+            % renders transparent; the partly covered edge has to be blended
+            % against something, and the button it sits on is the only right
+            % answer -- these buttons turn green while jogging.
+            arguments
+                clockwise (1,1) logical
+                sz (1,1) double {mustBePositive}
+                blendColor (1,3) double = [0.94 0.94 0.94]
+            end
+
+            glyph = [0.20 0.22 0.26];   % gui.toolbarIcon's outline colour
+
+            ss = 3;                     % supersampling factor
+            n = sz*ss;
+            v = linspace(-1, 1, n);
+            [X, Y] = meshgrid(v, v);
+            Y = -Y;                     % image rows run top-down; draw with y up
+
+            rMid = 0.57;
+            halfWidth = 0.115;
+            gapCenter = 90;             % opening at the top, as in the Unicode arrows
+            gapHalf = 62;
+            headSpan = 48;              % arrowhead length, degrees
+            headHalf = 0.31;            % arrowhead half-height, normalized radius
+
+            ang = mod(atan2(Y, X)*180/pi, 360);
+            ring = abs(hypot(X, Y) - rMid) <= halfWidth;
+            inGap = abs(mod(ang - gapCenter + 180, 360) - 180) < gapHalf;
+            mask = ring & ~inGap;
+
+            % Counter-clockwise travel ends where the gap begins, at the upper
+            % right, and the head fills the gap from there, so the glyph reads as
+            % travel rather than as a broken ring.
+            aEnd = (gapCenter - gapHalf)*pi/180;
+            aTip = (gapCenter - gapHalf + headSpan)*pi/180;
+            p1 = (rMid + headHalf)*[cos(aEnd) sin(aEnd)];
+            p2 = (rMid - headHalf)*[cos(aEnd) sin(aEnd)];
+            p3 = rMid*[cos(aTip) sin(aTip)];
+
+            s1 = (p2(1)-p1(1)).*(Y-p1(2)) - (p2(2)-p1(2)).*(X-p1(1));
+            s2 = (p3(1)-p2(1)).*(Y-p2(2)) - (p3(2)-p2(2)).*(X-p2(1));
+            s3 = (p1(1)-p3(1)).*(Y-p3(2)) - (p1(2)-p3(2)).*(X-p3(1));
+            headMask = (s1 >= 0 & s2 >= 0 & s3 >= 0) | (s1 <= 0 & s2 <= 0 & s3 <= 0);
+
+            mask = mask | headMask;
+
+            if clockwise
+                mask = fliplr(mask);    % the clockwise glyph is the mirror image
+            end
+
+            % Block-average the supersampled mask into per-pixel coverage.
+            alpha = squeeze(mean(mean(reshape(double(mask), ss, sz, ss, sz), 1), 3));
+            hit = alpha > 0;
+
+            icon = nan(sz, sz, 3);
+            for k = 1:3
+                ch = nan(sz, sz);
+                ch(hit) = glyph(k)*alpha(hit) + blendColor(k)*(1 - alpha(hit));
+                icon(:,:,k) = ch;
             end
         end
     end

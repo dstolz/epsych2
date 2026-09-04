@@ -77,6 +77,15 @@ classdef NanoMotorControl < handle
 %       If true (default), connect() queries the device (GEAR? or STATUS?)
 %       to populate Gear* and OutputDirSign.
 %
+%     DisableSerialQuietOnConnect
+%       If true (default), connect() sends SERQUIET 0 so the firmware answers
+%       queries with values rather than "BUSY" while the motor is moving.
+%       This class (and NanoMotorControlGUI, which polls positionDeg() several
+%       times a second) needs values; SERQUIET exists to keep serial traffic
+%       from disturbing step timing, so set false and call setSerialQuiet(true)
+%       for a run where timing matters more than telemetry. Firmware without
+%       the command is tolerated (the ERR reply is ignored).
+%
 %     HelpQuietTime
 %       When reading multi-line text (HELP or greeting), stop after this many
 %       seconds without receiving additional bytes (default 0.25).
@@ -106,7 +115,7 @@ classdef NanoMotorControl < handle
 %       Most recent single-line reply string read via send().
 %
 %     LastError
-%       Most recent reply string beginning with "ERR".
+%       Most recent reply string beginning with "ERR", or "BUSY".
 %
 %     LastGreeting
 %       Lines read during connect() when ReadGreeting=true.
@@ -115,6 +124,14 @@ classdef NanoMotorControl < handle
 %     - send() assumes the sketch returns a single line per command.
 %     - help() and the boot greeting can be multi-line; those are collected
 %       using readAvailableLines().
+%     - The firmware is obj/+peripherals/@NanoMotorControl/sketch_NanoMotorControl/.
+%       Errors raised from a reply: NanoMotorControl:DeviceError (an ERR line),
+%       NanoMotorControl:DeviceBusy (a BUSY line -- ask again later),
+%       NanoMotorControl:ParseError (anything else that will not parse), and
+%       NanoMotorControl:Timeout (no line at all).
+%     - One reader at a time. Sending commands to a controller that a
+%       NanoMotorControlGUI is polling makes the two consume each other's
+%       replies, which surfaces as NanoMotorControl:Timeout.
 %
 %   See also serialport, serialportlist, writeline, readline, configureTerminator
 
@@ -135,6 +152,8 @@ classdef NanoMotorControl < handle
         GearDrivenTeeth (1,1) double {mustBePositive, mustBeFinite} = 1
         OutputDirSign (1,1) double {mustBeMember(OutputDirSign,[-1 1])} = 1
         SyncGearOnConnect (1,1) logical = true
+
+        DisableSerialQuietOnConnect (1,1) logical = true
 
         HelpQuietTime (1,1) double {mustBeNonnegative} = 0.25
         PollPause (1,1) double {mustBeNonnegative} = 0.01
@@ -176,6 +195,7 @@ classdef NanoMotorControl < handle
                 opts.GearDrivenTeeth (1,1) double {mustBePositive, mustBeFinite} = 1
                 opts.OutputDirSign (1,1) double {mustBeMember(opts.OutputDirSign,[-1 1])} = 1
                 opts.SyncGearOnConnect (1,1) logical = true
+                opts.DisableSerialQuietOnConnect (1,1) logical = true
                 opts.HelpQuietTime (1,1) double {mustBeNonnegative} = 0.25
                 opts.PollPause (1,1) double {mustBeNonnegative} = 0.01
                 opts.RaiseOnErr (1,1) logical = true
@@ -195,6 +215,7 @@ classdef NanoMotorControl < handle
             obj.GearDrivenTeeth = opts.GearDrivenTeeth;
             obj.OutputDirSign = opts.OutputDirSign;
             obj.SyncGearOnConnect = opts.SyncGearOnConnect;
+            obj.DisableSerialQuietOnConnect = opts.DisableSerialQuietOnConnect;
             obj.HelpQuietTime = opts.HelpQuietTime;
             obj.PollPause = opts.PollPause;
             obj.RaiseOnErr = opts.RaiseOnErr;
@@ -222,6 +243,7 @@ classdef NanoMotorControl < handle
                 opts.AutoDetect (1,1) logical = obj.AutoDetect
                 opts.ReadGreeting (1,1) logical = obj.ReadGreeting
                 opts.SyncGear (1,1) logical = obj.SyncGearOnConnect
+                opts.DisableSerialQuiet (1,1) logical = obj.DisableSerialQuietOnConnect
             end
 
             if obj.IsConnected
@@ -265,6 +287,15 @@ classdef NanoMotorControl < handle
             obj.LastCommand = "";
             obj.LastReply = "";
             obj.LastError = "";
+
+            if opts.DisableSerialQuiet
+                try
+                    obj.setSerialQuiet(false);
+                catch
+                    % Firmware predates SERQUIET (answers ERR): nothing to disable.
+                    obj.LastError = "";
+                end
+            end
 
             if opts.SyncGear
                 try
@@ -340,23 +371,7 @@ classdef NanoMotorControl < handle
                 opts.FlushBefore (1,1) logical = true
             end
 
-            obj.assertConnected();
-            if opts.FlushBefore
-                flush(obj.Serial_, "input");
-            end
-
-            oldTimeout = obj.Serial_.Timeout;
-            obj.Serial_.Timeout = opts.Timeout;
-            try
-                obj.logTx(cmd);
-                writeline(obj.Serial_, cmd);
-                reply = obj.readLine(Timeout=opts.Timeout);
-                obj.logRx(reply);
-            catch ME
-                obj.Serial_.Timeout = oldTimeout;
-                rethrow(ME);
-            end
-            obj.Serial_.Timeout = oldTimeout;
+            reply = obj.transact_(cmd, opts.Timeout, opts.FlushBefore);
 
             obj.LastCommand = cmd;
             obj.LastReply = reply;
@@ -368,6 +383,17 @@ classdef NanoMotorControl < handle
                 end
                 if obj.RaiseOnErr
                     error("NanoMotorControl:DeviceError", "%s", reply);
+                end
+            end
+
+            % Firmware answers BUSY to a query while moving when SERQUIET is on.
+            % Given its own identifier so a caller can tell "ask again later"
+            % apart from a malformed reply. connect() turns SERQUIET off.
+            if reply == "BUSY"
+                obj.LastError = reply;
+                if obj.RaiseOnErr
+                    error("NanoMotorControl:DeviceBusy", ...
+                        "Controller replied BUSY to '%s' (SERQUIET is on); send SERQUIET 0 to get values while moving.", cmd);
                 end
             end
 
@@ -406,9 +432,37 @@ classdef NanoMotorControl < handle
             reply = obj.send("EN " + string(double(tf)), ExpectOk=true);
         end
 
-        function state = enableQuery(obj)
+        function [permitted, actual] = enableQuery(obj)
+            %ENABLEQUERY Query motion permission and the driver's live state.
+            %   permitted = enableQuery() returns the EN flag (motion permitted).
+            %   [permitted, actual] = enableQuery() also returns whether the
+            %   driver is enabled right now; the two differ because the firmware
+            %   auto-enables the driver only around motion.
+            %
+            %   The firmware answers "EN <permitted> ACTUAL <driverEnabled>",
+            %   which is not a bare prefixed number.
             reply = obj.send("EN?", ExpectOk=false);
-            state = logical(obj.parsePrefixedNumber(reply, "EN"));
+
+            % Split rather than match: regexp drops the token of a group nested
+            % inside an optional (?:...), which would lose ACTUAL without a word.
+            toks = strsplit(strtrim(reply));
+            if numel(toks) < 2 || ~strcmpi(toks{1}, "EN")
+                error("NanoMotorControl:ParseError", "Could not parse EN reply: %s", reply);
+            end
+
+            v = str2double(toks{2});
+            if isnan(v)
+                error("NanoMotorControl:ParseError", "Could not parse EN reply: %s", reply);
+            end
+            permitted = v ~= 0;
+
+            actual = permitted;   % firmware without the ACTUAL field
+            if numel(toks) >= 4 && strcmpi(toks{3}, "ACTUAL")
+                v = str2double(toks{4});
+                if ~isnan(v)
+                    actual = v ~= 0;
+                end
+            end
         end
 
         function reply = mode(obj, modeName)
@@ -527,6 +581,29 @@ classdef NanoMotorControl < handle
         function rpm = rpmQuery(obj)
             reply = obj.send("RPM?", ExpectOk=false);
             rpm = obj.parsePrefixedNumber(reply, "RPM");
+        end
+
+        function reply = setSerialQuiet(obj, tf)
+            %SETSERIALQUIET Suppress (true) or allow (false) queries while moving.
+            %   With SERQUIET on, the firmware answers BUSY to POS?/POSD?/STATUS?/
+            %   MOVE?/GEAR?/HELP while the motor is moving, so serial traffic
+            %   cannot disturb step timing. This class polls, so connect() turns
+            %   it off; turn it on only for a run where timing beats telemetry.
+            arguments
+                obj
+                tf (1,1) logical
+            end
+
+            if obj.isInfo()
+                obj.logInfo("Setting SERQUIET to " + string(double(tf)) + ".");
+            end
+
+            reply = obj.send("SERQUIET " + string(double(tf)), ExpectOk=true);
+        end
+
+        function tf = serialQuietQuery(obj)
+            reply = obj.send("SERQUIET?", ExpectOk=false);
+            tf = logical(obj.parsePrefixedNumber(reply, "SERQUIET"));
         end
 
         function reply = setLimitRPM(obj, rpm)
@@ -752,6 +829,32 @@ classdef NanoMotorControl < handle
         end
     end
 
+    methods (Access=protected)
+        function reply = transact_(obj, cmd, timeoutSec, flushBefore)
+            %TRANSACT_ One serial round trip: write a line, read the reply line.
+            %   Separated from send() so send()'s reply policy (ERR, BUSY,
+            %   ExpectOk, Last*) can be exercised by a subclass that answers
+            %   without a port -- see tmp/NanoMotorControl_Mock.
+            obj.assertConnected();
+            if flushBefore
+                flush(obj.Serial_, "input");
+            end
+
+            oldTimeout = obj.Serial_.Timeout;
+            obj.Serial_.Timeout = timeoutSec;
+            try
+                obj.logTx(cmd);
+                writeline(obj.Serial_, cmd);
+                reply = obj.readLine(Timeout=timeoutSec);
+                obj.logRx(reply);
+            catch ME
+                obj.Serial_.Timeout = oldTimeout;
+                rethrow(ME);
+            end
+            obj.Serial_.Timeout = oldTimeout;
+        end
+    end
+
     methods (Access=private)
         function syncGearFromStatus(obj, S)
             if isfield(S,"OUTDIR")
@@ -834,6 +937,15 @@ classdef NanoMotorControl < handle
             end
             obj.Serial_.Timeout = oldTimeout;
             ln = strtrim(ln);
+
+            % readline() returns 0x0 on timeout, which would surface as a
+            % "Value must be a scalar" failure assigning LastReply -- naming the
+            % wrong problem. The usual causes are a controller that is gone and
+            % a second reader on the port (a GUI poll timer) taking the reply.
+            if ~isscalar(ln)
+                error("NanoMotorControl:Timeout", ...
+                    "No reply from the controller within %g s on %s.", opts.Timeout, obj.Port);
+            end
         end
 
         function lines = readAvailableLines(obj, opts)

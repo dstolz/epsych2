@@ -80,6 +80,17 @@
     STATUS?
       One-line status dump.
 
+    ENDELAY <ms>   (and ENDELAY?)
+      Delay between asserting ENA and the first step pulse.
+
+    GEAR <driver_teeth> <driven_teeth> [outdir]   (and GEAR?)
+      Motor-to-output gearing; outdir is +1 or -1.
+
+    SERQUIET <0|1>   (and SERQUIET?)
+      When 1, POS?/POSD?/STATUS?/MOVE?/GEAR?/HELP answer "BUSY" while the motor
+      is moving, so telemetry cannot disturb step timing. Default 0: a polling
+      host (peripherals.NanoMotorControl) expects a value, not "BUSY".
+
   Relative motion:
     MOVEDEG <deg> [rpm]
       Rotate relative to current position by <deg> degrees.
@@ -95,13 +106,26 @@
 
   Notes on position:
     - Position is open-loop (commanded steps). If steps are missed mechanically, POS/POSD will not reflect that.
+
+  ----------------------
+  HOST
+  ----------------------
+  The MATLAB side of this protocol is peripherals.NanoMotorControl (and its GUI,
+  peripherals.NanoMotorControlGUI), which sends one command and reads one line back.
+  Two rules follow from that and are easy to break:
+    - Every reply is exactly one line, and floats are rendered with dtostrf. The
+      Arduino AVR core links avr-libc's integer-only vfprintf, so a "%f" in an
+      snprintf format emits '?' and the host's parse fails.
+    - Replies must not be dropped or reordered; see txBegin/txCommit/txFlush.
 */
 
 #include <Arduino.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <math.h>
+#include <avr/pgmspace.h>
 
 // ----------------------
 // DEBUG / SERIAL PLOTTER
@@ -233,22 +257,14 @@ static const float    JOY_LP_ALPHA  = 0.2f;   // low-pass alpha (0..1)
 // ----------------------
 // Serial TX is made non-blocking during motion by queueing at most one outbound line.
 // This prevents Serial.print() from stalling the main loop (which can cause missed steps at high pulse rates).
-static char txLine[220];
+// Sized for the longest reply (the STATUS line); the printers use the same length.
+static const size_t REPLY_BUF_LEN = 240;
+static char txLine[REPLY_BUF_LEN];
 static uint16_t txLen = 0;
 static uint16_t txPos = 0;
 
 static inline bool txBusy() { return txPos < txLen; }
 static inline void txClear() { txLen = 0; txPos = 0; }
-
-static inline void txQueueLine(const char* s) {
-  // Overwrite any pending line. (Prefer latest status over old.)
-  size_t n = strnlen(s, sizeof(txLine) - 2);
-  memcpy(txLine, s, n);
-  txLine[n++] = '\n';
-  txLine[n] = 0;
-  txLen = (uint16_t)n;
-  txPos = 0;
-}
 
 static inline void txService() {
   if (!txBusy()) return;
@@ -258,6 +274,58 @@ static inline void txService() {
     avail--;
   }
   if (txPos >= txLen) txClear();
+}
+
+// Block until the queue is empty. Called wherever dropping or reordering a reply
+// would desync a host that reads one line per command.
+static inline void txFlush() {
+  while (txBusy()) txService();
+}
+
+// Replies are formatted directly into txLine rather than into a local buffer:
+// a second REPLY_BUF_LEN array on the stack is a quarter of this board's free RAM.
+// Format strings live in flash (PSTR), which is what keeps .data near B's footprint.
+//
+//   n = txBegin();
+//   n = txAppend_P(n, PSTR("..."), ...);   // repeat as needed
+//   txCommit(n);
+//
+// or txPrintf_P(PSTR("..."), ...) for a line built in one shot.
+
+static inline size_t txBegin() {
+  // Never overwrite an unsent reply: the host is waiting for it.
+  txFlush();
+  txLine[0] = 0;
+  return 0;
+}
+
+static size_t txAppend_P(size_t n, PGM_P fmt, ...) {
+  if (n >= sizeof(txLine) - 2) return n;
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf_P(txLine + n, sizeof(txLine) - 1 - n, fmt, ap);
+  va_end(ap);
+  // strlen, not vsnprintf's return: that reports what WOULD have been written,
+  // so a truncated append would push the next one past the end of the buffer.
+  return strlen(txLine);
+}
+
+static void txCommit(size_t n) {
+  if (n > sizeof(txLine) - 2) n = sizeof(txLine) - 2;
+  txLine[n++] = '\n';
+  txLine[n] = 0;
+  txLen = (uint16_t)n;
+  txPos = 0;
+}
+
+static void txPrintf_P(PGM_P fmt, ...) {
+  size_t n = txBegin();
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf_P(txLine, sizeof(txLine) - 1, fmt, ap);
+  va_end(ap);
+  n = strlen(txLine);
+  txCommit(n);
 }
 enum ControlMode : uint8_t { MODE_USB = 0, MODE_JOY = 1, MODE_AUTO = 2 };
 static ControlMode controlMode = MODE_USB;  // default control source
@@ -269,7 +337,9 @@ static bool driverEnabled = false;
 
 // If true, large/verbose query responses are suppressed while motor is moving.
 // Short acknowledgements (OK/ERR) are still queued.
-static bool suppressVerboseDuringMotion = true;  // SERQUIET <0|1> / SERQUIET?
+// Default OFF: a host that polls POS?/POSD?/MOVE? during a move expects the value,
+// not "BUSY". Turn it on with SERQUIET 1 when step timing matters more than telemetry.
+static bool suppressVerboseDuringMotion = false;  // SERQUIET <0|1> / SERQUIET?
 
 static inline bool isMotionActive();
 
@@ -420,6 +490,15 @@ static void strToUpper(char *s) {
   for (size_t i = 0; s[i]; ++i) s[i] = (char)toupper((unsigned char)s[i]);
 }
 
+// The Arduino AVR core links avr-libc's integer-only vfprintf: a "%f" conversion
+// consumes the argument and emits a bare '?'. Every float in a reply is therefore
+// rendered with dtostrf and spliced in as "%s" -- do not reintroduce %f here.
+static const size_t FLOAT_BUF_LEN = 20;   // "-34000000.000000" + NUL
+static inline char* fmtFloat(char *dst, float v, uint8_t decimals) {
+  dtostrf((double)v, 0, decimals, dst);
+  return dst;
+}
+
 static const __FlashStringHelper* modeNameStr(ControlMode m) {
   switch (m) {
     case MODE_USB:  return F("USB");
@@ -430,14 +509,14 @@ static const __FlashStringHelper* modeNameStr(ControlMode m) {
 }
 
 static void replyOk() {
-  txQueueLine("OK");
+  txPrintf_P(PSTR("OK"));
 }
-static void replyErr(const char* m) {
-  // Format: ERR <msg>
-  char buf[220];
-  snprintf(buf, sizeof(buf), "ERR %s", m);
-  txQueueLine(buf);
+
+// Error text stays in flash: replyErr("...") expands to a PROGMEM literal.
+static void replyErr_P(PGM_P m) {
+  txPrintf_P(PSTR("ERR %S"), m);
 }
+#define replyErr(msg) replyErr_P(PSTR(msg))
 
 static inline float stepsToDeg(long steps) {
   // Output-shaft degrees (after gear ratio and optional direction inversion).
@@ -457,15 +536,15 @@ static inline void recomputeGear() {
 }
 
 static void printGear() {
-  char buf[220];
-  snprintf(buf, sizeof(buf), "GEAR DRIVER=%u DRIVEN=%u OUTDIR=%d OUTREV_PER_MOTORREV=%.6f",
-           (unsigned)gearDriverTeeth, (unsigned)gearDrivenTeeth, (int)outputDirSign, outputRevPerMotorRev);
-  txQueueLine(buf);
+  char rev[FLOAT_BUF_LEN];
+  txPrintf_P(PSTR("GEAR DRIVER=%u DRIVEN=%u OUTDIR=%d OUTREV_PER_MOTORREV=%s"),
+             (unsigned)gearDriverTeeth, (unsigned)gearDrivenTeeth, (int)outputDirSign,
+             fmtFloat(rev, outputRevPerMotorRev, 6));
 }
 
 static void printHelp() {
   if (suppressVerboseDuringMotion && isMotionActive()) {
-    txQueueLine("BUSY");
+    txPrintf_P(PSTR("BUSY"));
     return;
   }
   Serial.println(F("Commands (newline-terminated):"));
@@ -486,26 +565,21 @@ static void printHelp() {
   Serial.println(F("  POSD?               : position in OUTPUT degrees (after gearing)"));
   Serial.println(F("  ZERO                : set position counter to 0"));
   Serial.println(F("  STATUS?             : status line"));
-  Serial.println(F("  SERQUIET <0|1>       : suppress verbose replies while moving. SERQUIET? queries"));
+  Serial.println(F("  SERQUIET <0|1>       : reply BUSY to queries while moving (default 0). SERQUIET? queries"));
 }
 
 static void printPos() {
-  char buf[80];
-  snprintf(buf, sizeof(buf), "POS %ld", positionSteps);
-  txQueueLine(buf);
+  txPrintf_P(PSTR("POS %ld"), positionSteps);
 }
 
 static void printPosDeg() {
-  char buf[120];
-  snprintf(buf, sizeof(buf), "POSD %.6f", stepsToDeg(positionSteps));
-  txQueueLine(buf);
+  char deg[FLOAT_BUF_LEN];
+  txPrintf_P(PSTR("POSD %s"), fmtFloat(deg, stepsToDeg(positionSteps), 6));
 }
 
 static void printMoveQuery() {
-  char buf[220];
   if (!moveActive) {
-    snprintf(buf, sizeof(buf), "MOVE 0");
-    txQueueLine(buf);
+    txPrintf_P(PSTR("MOVE 0"));
     return;
   }
 
@@ -513,29 +587,34 @@ static void printMoveQuery() {
   const float remDeg = stepsToDeg(remaining);
   const float rpm = (moveSpeedMagSps * 60.0f) / (float)STEPS_PER_REV;
 
-  snprintf(buf, sizeof(buf), "MOVE 1 TGT=%ld REM=%ld REMDEG=%.6f RPM=%.3f",
-           moveTargetPosSteps, remaining, remDeg, rpm);
-  txQueueLine(buf);
+  char remDegStr[FLOAT_BUF_LEN];
+  char rpmStr[FLOAT_BUF_LEN];
+
+  txPrintf_P(PSTR("MOVE 1 TGT=%ld REM=%ld REMDEG=%s RPM=%s"),
+             moveTargetPosSteps, remaining,
+             fmtFloat(remDegStr, remDeg, 6), fmtFloat(rpmStr, rpm, 3));
 }
 
 static void printStatus() {
-  char buf[220];
+  char f[FLOAT_BUF_LEN];   // reused: one float per append
 
-  const float hwMax = maxRpmHardware();
   const float usbSignedSps = (float)usbDirSign * usbSpeedMagSps;
   const float usbRpm = (usbSignedSps * 60.0f) / (float)STEPS_PER_REV;
 
-  snprintf(buf, sizeof(buf),
-           "STATUS EN=%d MODE=%s GEAR=%u/%u OUTDIR=%d ENDELAYMS=%u LIMRPM=%.3f HWMAXRPM=%.3f USB_RPM=%.3f TGT_SPS=%.3f MOVE=%d POS=%ld POSD=%.6f",
-           driverEnabled ? 1 : 0,
-           (controlMode == MODE_USB ? "USB" : (controlMode == MODE_JOY ? "JOY" : "AUTO")),
-           (unsigned)gearDriverTeeth, (unsigned)gearDrivenTeeth, (int)outputDirSign,
-           (unsigned)preEnableDelayMs,
-           rpmLimit, hwMax, usbRpm, targetSpeedSps,
-           moveActive ? 1 : 0,
-           positionSteps, stepsToDeg(positionSteps));
-
-  txQueueLine(buf);
+  // Appended in pieces because each float has to be rendered separately.
+  size_t n = txBegin();
+  n = txAppend_P(n, PSTR("STATUS EN=%d MODE=%S GEAR=%u/%u OUTDIR=%d ENDELAYMS=%u"),
+                 driverEnabled ? 1 : 0,
+                 (PGM_P)modeNameStr(controlMode),
+                 (unsigned)gearDriverTeeth, (unsigned)gearDrivenTeeth, (int)outputDirSign,
+                 (unsigned)preEnableDelayMs);
+  n = txAppend_P(n, PSTR(" LIMRPM=%s"),   fmtFloat(f, rpmLimit, 3));
+  n = txAppend_P(n, PSTR(" HWMAXRPM=%s"), fmtFloat(f, maxRpmHardware(), 3));
+  n = txAppend_P(n, PSTR(" USB_RPM=%s"),  fmtFloat(f, usbRpm, 3));
+  n = txAppend_P(n, PSTR(" TGT_SPS=%s"),  fmtFloat(f, targetSpeedSps, 3));
+  n = txAppend_P(n, PSTR(" MOVE=%d POS=%ld"), moveActive ? 1 : 0, positionSteps);
+  n = txAppend_P(n, PSTR(" POSD=%s"),     fmtFloat(f, stepsToDeg(positionSteps), 6));
+  txCommit(n);
 }
 
 // ----------------------
@@ -797,10 +876,10 @@ static void processLine(char *line) {
   strToUpper(cmd);
 
   // HELP
-  if (strcmp(cmd, "HELP") == 0) { printHelp(); return; }
+  if (strcmp_P(cmd, PSTR("HELP")) == 0) { printHelp(); return; }
 
   // EN
-  if (strcmp(cmd, "EN") == 0) {
+  if (strcmp_P(cmd, PSTR("EN")) == 0) {
     if (isQuery) {
       // Report motion permission and instantaneous enable state.
       Serial.print(F("EN "));
@@ -825,7 +904,7 @@ static void processLine(char *line) {
   }
 
   // MODE
-  if (strcmp(cmd, "MODE") == 0) {
+  if (strcmp_P(cmd, PSTR("MODE")) == 0) {
     if (isQuery) {
       Serial.print(F("MODE "));
       Serial.println(modeNameStr(controlMode));
@@ -834,16 +913,16 @@ static void processLine(char *line) {
     char *arg = strtok(NULL, " 	");
     if (!arg) { replyErr("MODE requires USB, JOY, or AUTO"); return; }
     strToUpper(arg);
-    if      (strcmp(arg, "USB")  == 0) controlMode = MODE_USB;
-    else if (strcmp(arg, "JOY")  == 0) controlMode = MODE_JOY;
-    else if (strcmp(arg, "AUTO") == 0) controlMode = MODE_AUTO;
+    if      (strcmp_P(arg, PSTR("USB"))  == 0) controlMode = MODE_USB;
+    else if (strcmp_P(arg, PSTR("JOY"))  == 0) controlMode = MODE_JOY;
+    else if (strcmp_P(arg, PSTR("AUTO")) == 0) controlMode = MODE_AUTO;
     else { replyErr("MODE must be USB, JOY, or AUTO"); return; }
     replyOk();
     return;
   }
 
   // DIR
-  if (strcmp(cmd, "DIR") == 0) {
+  if (strcmp_P(cmd, PSTR("DIR")) == 0) {
     if (isQuery) {
       Serial.print(F("DIR "));
       Serial.println((usbDirSign > 0) ? F("CW") : F("CCW"));
@@ -852,15 +931,15 @@ static void processLine(char *line) {
     char *arg = strtok(NULL, " 	");
     if (!arg) { replyErr("DIR requires CW or CCW"); return; }
     strToUpper(arg);
-    if      (strcmp(arg, "CW")  == 0) usbDirSign = +1;
-    else if (strcmp(arg, "CCW") == 0) usbDirSign = -1;
+    if      (strcmp_P(arg, PSTR("CW"))  == 0) usbDirSign = +1;
+    else if (strcmp_P(arg, PSTR("CCW")) == 0) usbDirSign = -1;
     else { replyErr("DIR must be CW or CCW"); return; }
     replyOk();
     return;
   }
 
   // LIMRPM
-  if (strcmp(cmd, "LIMRPM") == 0) {
+  if (strcmp_P(cmd, PSTR("LIMRPM")) == 0) {
     if (isQuery) {
       Serial.print(F("LIMRPM "));
       Serial.println(rpmLimit, 3);
@@ -881,11 +960,9 @@ static void processLine(char *line) {
   }
 
   // ENDELAY
-  if (strcmp(cmd, "ENDELAY") == 0) {
+  if (strcmp_P(cmd, PSTR("ENDELAY")) == 0) {
     if (isQuery) {
-      char buf[48];
-      snprintf(buf, sizeof(buf), "ENDELAY %u", (unsigned)preEnableDelayMs);
-      txQueueLine(buf);
+      txPrintf_P(PSTR("ENDELAY %u"), (unsigned)preEnableDelayMs);
       return;
     }
     char *arg = strtok(NULL, " 	");
@@ -898,11 +975,9 @@ static void processLine(char *line) {
   }
 
   // SERQUIET
-  if (strcmp(cmd, "SERQUIET") == 0) {
+  if (strcmp_P(cmd, PSTR("SERQUIET")) == 0) {
     if (isQuery) {
-      char buf[24];
-      snprintf(buf, sizeof(buf), "SERQUIET %d", suppressVerboseDuringMotion ? 1 : 0);
-      txQueueLine(buf);
+      txPrintf_P(PSTR("SERQUIET %d"), suppressVerboseDuringMotion ? 1 : 0);
       return;
     }
     char *arg = strtok(NULL, " 	");
@@ -914,9 +989,9 @@ static void processLine(char *line) {
   }
 
   // GEAR
-  if (strcmp(cmd, "GEAR") == 0) {
+  if (strcmp_P(cmd, PSTR("GEAR")) == 0) {
     if (isQuery) {
-      if (suppressVerboseDuringMotion && isMotionActive()) { txQueueLine("BUSY"); return; }
+      if (suppressVerboseDuringMotion && isMotionActive()) { txPrintf_P(PSTR("BUSY")); return; }
       printGear();
       return;
     }
@@ -962,7 +1037,7 @@ static void processLine(char *line) {
   }
 
   // SPD (steps per second)
-  if (strcmp(cmd, "SPD") == 0) {
+  if (strcmp_P(cmd, PSTR("SPD")) == 0) {
     if (isQuery) {
       Serial.print(F("SPD "));
       Serial.println(usbDirSign * usbSpeedMagSps, 3);
@@ -978,7 +1053,7 @@ static void processLine(char *line) {
   }
 
   // RPM (continuous)
-  if (strcmp(cmd, "RPM") == 0) {
+  if (strcmp_P(cmd, PSTR("RPM")) == 0) {
     if (isQuery) {
       const float signedSps = (float)usbDirSign * usbSpeedMagSps;
       const float rpm = (signedSps * 60.0f) / (float)STEPS_PER_REV;
@@ -998,7 +1073,7 @@ static void processLine(char *line) {
   }
 
   // MOVEDEG <deg> [rpm]
-  if (strcmp(cmd, "MOVEDEG") == 0) {
+  if (strcmp_P(cmd, PSTR("MOVEDEG")) == 0) {
     if (isQuery) { replyErr("MOVEDEG? not supported; use MOVE? and POS?/POSD?"); return; }
 
     char *degArg = strtok(NULL, " 	");
@@ -1028,15 +1103,15 @@ static void processLine(char *line) {
   }
 
   // MOVE?
-  if (strcmp(cmd, "MOVE") == 0) {
+  if (strcmp_P(cmd, PSTR("MOVE")) == 0) {
     if (!isQuery) { replyErr("Use MOVEDEG to command motion; MOVE? to query"); return; }
-    if (suppressVerboseDuringMotion && isMotionActive()) { txQueueLine("BUSY"); return; }
+    if (suppressVerboseDuringMotion && isMotionActive()) { txPrintf_P(PSTR("BUSY")); return; }
     printMoveQuery();
     return;
   }
 
   // CANCEL
-  if (strcmp(cmd, "CANCEL") == 0) {
+  if (strcmp_P(cmd, PSTR("CANCEL")) == 0) {
     if (moveActive) {
       moveActive = false;
       stopAllMotion(false);
@@ -1046,32 +1121,32 @@ static void processLine(char *line) {
   }
 
   // STOP
-  if (strcmp(cmd, "STOP") == 0) {
+  if (strcmp_P(cmd, PSTR("STOP")) == 0) {
     stopAllMotion(true);
     replyOk();
     return;
   }
 
   // POS
-  if (strcmp(cmd, "POS") == 0) {
-    if (suppressVerboseDuringMotion && isMotionActive()) { txQueueLine("BUSY"); return; }
+  if (strcmp_P(cmd, PSTR("POS")) == 0) {
+    if (suppressVerboseDuringMotion && isMotionActive()) { txPrintf_P(PSTR("BUSY")); return; }
     printPos();
     return;
   }
 
   // POSD
-  if (strcmp(cmd, "POSD") == 0) {
-    if (suppressVerboseDuringMotion && isMotionActive()) { txQueueLine("BUSY"); return; }
+  if (strcmp_P(cmd, PSTR("POSD")) == 0) {
+    if (suppressVerboseDuringMotion && isMotionActive()) { txPrintf_P(PSTR("BUSY")); return; }
     printPosDeg();
     return;
   }
 
   // ZERO
-  if (strcmp(cmd, "ZERO") == 0) { positionSteps = 0; replyOk(); return; }
+  if (strcmp_P(cmd, PSTR("ZERO")) == 0) { positionSteps = 0; replyOk(); return; }
 
   // STATUS
-  if (strcmp(cmd, "STATUS") == 0) {
-    if (suppressVerboseDuringMotion && isMotionActive()) { txQueueLine("BUSY"); return; }
+  if (strcmp_P(cmd, PSTR("STATUS")) == 0) {
+    if (suppressVerboseDuringMotion && isMotionActive()) { txPrintf_P(PSTR("BUSY")); return; }
     printStatus();
     return;
   }
@@ -1087,6 +1162,9 @@ static void handleSerial() {
     if (c == '\n' || c == '\r') {
       if (cmdIdx > 0) {
         cmdBuf[cmdIdx] = 0;
+        // Some handlers reply through the queue and others print directly; drain
+        // first so the previous command's reply cannot be overtaken by this one's.
+        txFlush();
         processLine(cmdBuf);
         cmdIdx = 0;
       }

@@ -410,7 +410,21 @@ if ~isempty(pStimDelay) && ~isempty(pStepUp) && ~isempty(pStepDown) && ~isempty(
 end
 
 % >> Number of Pellets to Deliver
-obj.addControl(layoutTrialControls,'NumPellets',Type='dropdown',Text="# Pellets:");
+%
+% Was a dropdown; its Items list ran off the bottom of the panel with no
+% way to scroll to anything past "1". A plain numeric field has no such
+% layout limit. Min is ratcheted up to 1 -- never lowered -- since a
+% protocol may already have set a stricter floor, and RoundFractionalValues
+% is forced on directly on the widget because Parameter.Type ('Float' by
+% default from ProtocolDesigner) is immutable and cannot be changed here.
+pNumPellets = getp(P,'NumPellets');
+if ~isempty(pNumPellets)
+    pNumPellets.Min = max(pNumPellets.Min,1);
+end
+hNumPellets = obj.addControl(layoutTrialControls,'NumPellets',Type='editfield',Text="# Pellets:");
+if ~isempty(hNumPellets) && isprop(hNumPellets.h_uiobj,'RoundFractionalValues')
+    hNumPellets.h_uiobj.RoundFractionalValues = 'on';
+end
 
 % >> Timeout Duration
 obj.addControl(layoutTrialControls,'TimeoutDur',Text="Timeout Duration (ms):");

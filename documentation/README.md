@@ -86,6 +86,7 @@ GUI components (`gui`):
 - [gui.components.Parameter_Update](gui/Parameter_Update.md) — commit button for staged parameter edits
 - [gui.ParameterDebugger](gui/gui_ParameterDebugger.md) — read and write every parameter a protocol defines, on demand
 - [gui.ParameterTracker](gui/gui_ParameterTracker.md) — plot scalar parameters against time, live
+- [gui.MetricsExplorer](gui/gui_MetricsExplorer.md) — map d′, criterion and the other detection metrics over the hit-rate/false-alarm plane
 - [gui.components.History](gui/gui_History.md) — trial-by-trial history table
 - [gui.SubjectManager](gui/gui_SubjectManager.md) — subjects by project, and the batch commit into a session
 - [gui.BehaviorGUI](gui/gui_BehaviorGUI.md) — the base class a paradigm's own experiment GUI subclasses, and its component helpers

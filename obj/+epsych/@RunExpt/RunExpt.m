@@ -55,6 +55,7 @@ classdef RunExpt < handle
         OpenCustomizeDialog(self)       % Open the Customize Settings dialog for this machine's settings (the membership owns the rest)
         OpenSelfTest(self)              % Open the pre-flight self-test window
         OpenParameterDebugger(self)     % Open the parameter debugger window
+        OpenMetricsExplorer(self)       % Open the psychophysics metrics explorer window
         OpenSubjectManager(self)        % Open the Subjects & Projects manager window
         OpenSessionForReview(self, datafile) % Reopen a saved session in its behavior GUI
         ShowSubjectInManager(self, idx) % Open the manager with the selected session subject revealed

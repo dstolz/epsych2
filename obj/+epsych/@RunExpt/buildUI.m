@@ -165,8 +165,8 @@ uimenu(mCustom,'Label','Customize...','MenuSelectedFcn', @(~,~) self.OpenCustomi
 
 % Utilities collects every standalone tool that ships with the toolbox, so an
 % operator reaches the designers, the stimulus tools, and the peripheral GUIs
-% from the session window instead of from the command line. View keeps only
-% what changes this window.
+% from the session window instead of from the command line. View holds what
+% changes this window, plus the reference windows that change nothing at all.
 mUtil = uimenu(f,'Label','Utilities');
 self.H.mnu_utilities = mUtil;
 
@@ -254,6 +254,15 @@ self.H.always_on_top = uimenu(mView,'Label','Always On Top','Checked','off', ...
     'Accelerator','T', ...
     'MenuSelectedFcn', @(~,~) self.AlwaysOnTop);
 uimenu(mView,'Label','Version Info','MenuSelectedFcn', @(~,~) self.version_info,'Accelerator','I')
+
+% A reference window, not a session control -- but it is what an operator
+% reaches for while looking at the numbers this window's session produced, so
+% it sits with the other things you open to LOOK at something rather than under
+% Utilities with the tools that build a session.
+self.H.mnu_metrics_explorer = uimenu(mView,'Label','Psychophysics &Metrics...', ...
+    'Tag','mnu_metrics_explorer','Accelerator','M','Separator','on', ...
+    'Tooltip','Map d'', criterion and the other detection metrics over hit and false alarm rate', ...
+    'MenuSelectedFcn', @(~,~) self.OpenMetricsExplorer);
 
 % Help is ordered by who is asking: the two items a new operator wants (what
 % does this window do, show me a worked example) stay at the top level, and

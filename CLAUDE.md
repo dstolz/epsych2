@@ -942,6 +942,32 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   five records a second. A parameter added mid-run gets NaN for what it missed rather
   than invented history, and removing one takes its samples with it
   (documentation/gui/gui_ParameterTracker.md)
+- **gui.MetricsExplorer**: one signal-detection metric drawn over the whole
+  hit-rate/false-alarm plane (RunExpt's View menu, Ctrl+M) — d', c, c', ln beta,
+  A', B'' and the balanced proportion correct, with contours, a readout of every
+  metric at the point clicked, and the selected one explained in words beside the
+  map. It **computes nothing of its own**: every surface and every readout is
+  `psychophysics.Metrics`, so it is a picture OF the arithmetic a session runs
+  rather than a second implementation that could drift, and adding a metric is a
+  `catalog` entry naming a Metrics method — there is no formula in the class.
+  Four decisions a reader would otherwise re-derive: the CORRECTION for rates of
+  0 and 1 is a control rather than a default, because the interesting part of
+  this plane is its edges and z(0)/z(1) are infinite — and the three metrics
+  defined at 0 and 1 (`aprime`, `bprimeprime`, `percentCorrect`) grey those
+  controls out and say why, rather than leaving a setting on screen the picture
+  is ignoring (the same split `fromCounts` makes internally); colour limits are
+  SYMMETRIC about the metric's neutral value so white always means chance or no
+  bias, only the half-width is settable, and a scale that clips says so with
+  `<=`/`>=` on the end ticks, since a saturated colour that does not admit it
+  reads as a measured value; infinities are LEFT infinite (they saturate, which
+  is what they mean) and dropped only from the contour input, where a crossing
+  at infinity is meaningless; and the heavy black line is the metric's neutral
+  LEVEL, which is why `ln beta` shows two branches — it is c*d', so it vanishes
+  both at no bias and at chance. No runtime, no hardware, no listeners, so it is
+  safe beside a running session. Standing proof
+  `tmp/smoke_test_metrics_explorer.m`, which cross-checks every surface against
+  `psychophysics.Metrics` and every readout against `Metrics.fromCounts`
+  (documentation/gui/gui_MetricsExplorer.md)
 - Diagnostics: SelfTest (window for epsych.SelfTest; opened from RunExpt's Help menu)
 - Parameter control: Parameter_Control, Parameter_Monitor, Parameter_Update.
   `Parameter_Control` seats its widget ONCE at construction and then waits for a

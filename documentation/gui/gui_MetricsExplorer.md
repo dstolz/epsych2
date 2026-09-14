@@ -21,6 +21,10 @@ gui.MetricsExplorer(Correction="none")
 It reads no hardware and holds no runtime, so it is safe to leave open beside a
 running experiment — there is nothing for it to poll.
 
+The window's **Help** menu opens the guide on the wiki
+([Metrics-Explorer](https://github.com/dstolz/epsych2/wiki/Metrics-Explorer))
+or this file, and the same wiki link sits at the foot of the explanation panel.
+
 ---
 
 ## It computes nothing of its own
@@ -121,6 +125,21 @@ Right-click the map for **Assign Surface to Command Window**, which puts the
 surface, the rate vectors and the probe values in the base workspace as
 `METRICS`.
 
+## The explanation and its references
+
+The panel on the right is assembled from the selected metric's catalog entry:
+the formula, what the number means, how to read the map, how rates of 0 and 1
+are handled, and what to watch for. Under it are the works the explanation
+rests on, each followed by its DOI as a link (`doi:10.1037/h0031246`) that
+opens `https://doi.org/…` in the system browser. The link text is the DOI
+itself, so the identifier can be copied off the window as well as clicked.
+
+Citations are kept in one table, `gui.MetricsExplorer.citations`, and a
+catalog entry names them by key — so a DOI is written once however many
+metrics cite the work, and a mistyped key fails when the catalog is built
+rather than showing up as a missing link. A work with no DOI (Green & Swets,
+1966) is listed without a link rather than given an invented one.
+
 ## Programmatic use
 
 ```matlab
@@ -133,6 +152,8 @@ S = E.values();                   % every metric here, fromCounts field names
 gui.MetricsExplorer.catalog()                     % the metrics on offer
 gui.MetricsExplorer.metric("criterion")           % one entry
 gui.MetricsExplorer.evaluate("criterion", H, F)   % rates broadcast
+gui.MetricsExplorer.citations("Grier1971")        % Key, Short, Full, DOI
+gui.MetricsExplorer.openGuide()                   % the wiki page, in a browser
 ```
 
 `values()` uses the field names `psychophysics.Metrics.fromCounts` uses
@@ -160,7 +181,11 @@ the same number out of a session are looked up under one name.
 
 ## References
 
-- Green DM, Swets JA (1966) *Signal Detection Theory and Psychophysics*. Wiley.
-- Macmillan NA, Creelman CD (2005) *Detection Theory: A User's Guide*, 2nd ed. Erlbaum.
+- Green DM, Swets JA (1966) *Signal Detection Theory and Psychophysics*. New
+  York: Wiley. (No DOI.)
+- Macmillan NA, Creelman CD (2005) *Detection Theory: A User's Guide*, 2nd ed.
+  Mahwah, NJ: Erlbaum.
+  [doi:10.4324/9781410611147](https://doi.org/10.4324/9781410611147)
 - Grier JB (1971) Nonparametric indexes for sensitivity and bias: computing
   formulas. *Psychol Bull* 75(6):424–429.
+  [doi:10.1037/h0031246](https://doi.org/10.1037/h0031246)

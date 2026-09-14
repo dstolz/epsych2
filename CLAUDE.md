@@ -964,7 +964,12 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   at infinity is meaningless; and the heavy black line is the metric's neutral
   LEVEL, which is why `ln beta` shows two branches — it is c*d', so it vanishes
   both at no bias and at chance. No runtime, no hardware, no listeners, so it is
-  safe beside a running session. Standing proof
+  safe beside a running session. Catalog entries cite by KEY into one
+  `citations` table (DOI written once; a bad key fails at catalog build), shown
+  under the explanation as `uihyperlink`s to `doi.org` because a `uitextarea`
+  cannot hold a link; a work with no DOI (Green & Swets) is listed unlinked.
+  The Help menu and the panel's foot open the wiki page (`WIKI_URL`,
+  Metrics-Explorer). Standing proof
   `tmp/smoke_test_metrics_explorer.m`, which cross-checks every surface against
   `psychophysics.Metrics` and every readout against `Metrics.fromCounts`
   (documentation/gui/gui_MetricsExplorer.md)

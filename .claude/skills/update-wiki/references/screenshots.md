@@ -69,6 +69,7 @@ Whole-window shots (`<wiki>/images/`), and the pages that embed them:
 | `BehaviorBuilder_Generated.png` | `BehaviorBuilder_Generated` | Behavior-GUI-Builder |
 | `RunExpt.png` | `RunExpt` | Home, Quick-Start, Running-a-Session, RunExpt-GUI-Overview |
 | `SelfTest.png` | `SelfTest` | Running-a-Session, Troubleshooting |
+| `MetricsExplorer.png` | `MetricsExplorer` | Metrics-Explorer |
 | `StimPlayer.png` | `StimPlayer` | Stimuli-and-Calibration |
 | `CalibrationGui.png` | `CalibrationGui` | Stimuli-and-Calibration |
 | `VlcRecorderSetup.png` | `VlcRecorderSetup` | Video-and-Peripherals |

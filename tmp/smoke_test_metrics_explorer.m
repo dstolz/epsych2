@@ -391,7 +391,51 @@ catch ME
     results(end+1,:) = check(['Bounds: ' ME.message], false);
 end
 
-%% 13. Teardown
+%% 13. Citations carry their DOIs, and the guide is one click away
+try
+    R = gui.MetricsExplorer.citations();
+    results(end+1,:) = check('Citation keys are unique', ...
+        numel(unique({R.Key})) == numel(R));
+    hasDoi = ~cellfun(@isempty, {R.DOI});
+    results(end+1,:) = check('Every DOI is a DOI, not a URL', ...
+        all(cellfun(@(d) ~isempty(regexp(d, '^10\.\d{4,9}/\S+$', 'once')), {R(hasDoi).DOI})));
+    results(end+1,:) = check('doiUrl is the https resolver form', ...
+        strcmp(gui.MetricsExplorer.doiUrl('10.1037/h0031246'), 'https://doi.org/10.1037/h0031246'));
+    results(end+1,:) = check('An unknown citation key is refused by name', ...
+        throwsWith(@() gui.MetricsExplorer.citations("nope"), ...
+                   'gui:MetricsExplorer:UnknownCitation'));
+
+    C = gui.MetricsExplorer.catalog();
+    results(end+1,:) = check('Every metric cites at least one work', ...
+        all(arrayfun(@(c) ~isempty(c.Citations), C)));
+    results(end+1,:) = check('Reference is the short form of Citations', ...
+        all(arrayfun(@(c) strcmp(c.Reference, strjoin({c.Citations.Short}, '; ')), C)));
+
+    % The panel shows a link for exactly the citations that have a DOI.
+    E.setMetric("aprime");
+    links = findall(E.H.references, 'Type', 'uihyperlink');
+    results(end+1,:) = check('A'' links Grier (1971) by DOI', ...
+        isscalar(links) && strcmp(links.URL, 'https://doi.org/10.1037/h0031246') ...
+        && strcmp(links.Text, 'doi:10.1037/h0031246'));
+
+    E.setMetric("dprime");
+    links = findall(E.H.references, 'Type', 'uihyperlink');
+    labels = findall(E.H.references, 'Type', 'uilabel');
+    results(end+1,:) = check('d'' lists both works and links only the one with a DOI', ...
+        isscalar(links) && strcmp(links.URL, 'https://doi.org/10.4324/9781410611147') ...
+        && numel(labels) == 3);   % heading + two citations
+    results(end+1,:) = check('Switching metric rebuilds the list rather than adding to it', ...
+        numel(E.H.references.Children) == numel(E.H.references.RowHeight));
+
+    results(end+1,:) = check('The guide link points at the wiki page', ...
+        strcmp(E.H.guideLink.URL, gui.MetricsExplorer.WIKI_URL));
+    results(end+1,:) = check('The Help menu offers the guide', ...
+        isgraphics(E.H.menuGuide) && contains(E.H.menuGuide.Text, 'Wiki'));
+catch ME
+    results(end+1,:) = check(['Citations: ' ME.message], false);
+end
+
+%% 14. Teardown
 try
     fig = E.H.figure;
     fig.CloseRequestFcn(fig, []);

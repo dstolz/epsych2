@@ -65,6 +65,7 @@ shots = { ...
     'RunExpt',           @shotRunExpt; ...
     'SubjectManager',    @shotSubjectManager; ...
     'SelfTest',          @shotSelfTest; ...
+    'MetricsExplorer',   @shotMetricsExplorer; ...
     'StimPlayer',        @shotStimPlayer; ...
     'CalibrationGui',    @shotCalibrationGui; ...
     'VlcRecorderSetup',  @shotVlcRecorderSetup; ...
@@ -658,6 +659,22 @@ closeRunExpt(RE);
 end
 
 
+function [fig, cleanupFcn] = shotMetricsExplorer(~)
+% Caption: the criterion map probed at H = 0.635, F = 0.738 -- the worked
+% example the window was built from (c = -0.490, d' = -0.291) -- with the
+% explanation and its DOI-linked reference on the right.
+%
+% The size is set rather than restored: the window remembers its position in
+% epsych2_gui_MetricsExplorer, which snapshotPrefs covers, and a shot sized by
+% the developer's last drag is not reproducible.
+E = gui.MetricsExplorer(Metric="criterion", HitRate=0.635, FalseAlarmRate=0.738, ...
+    Visible=false);
+fig = E.H.figure;
+fig.Position(3:4) = [1180 700];
+cleanupFcn = @() delete(E);
+end
+
+
 function [fig, cleanupFcn] = shotSelfTest(C)
 % Caption: a real pre-flight result whose red rows come from a subject sitting
 % in box 2 while the protocol only defines the box-1 trigger parameters.
@@ -905,7 +922,7 @@ groups = {'ProtocolDesigner', 'epsych2_gui_History', 'epsych2_gui_ParameterScatt
     'epsych2_gui_Parameter_Monitor', 'epsych2_gui_PhaseSelector', 'AdaptiveTraining', ...
     'ExampleBehaviorGUI', 'DetectionBehaviorGUI', 'TwoAFCBehaviorGUI', ...
     'ep_RunExpt_Subjects', 'epsych2_gui_SubjectManager', ...
-    'gui_BehaviorBuilder', 'ToneDetectionGUI'};
+    'gui_BehaviorBuilder', 'ToneDetectionGUI', 'epsych2_gui_MetricsExplorer'};
 P = struct('group', groups, 'value', []);
 for k = 1:numel(groups)
     if ispref(groups{k}), P(k).value = getpref(groups{k}); end

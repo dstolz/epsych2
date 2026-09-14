@@ -62,9 +62,11 @@ classdef MetricsExplorer < handle
     % Static:
     %   catalog      - The metrics this window offers, as a struct array
     %   metric       - One catalog entry by key
+    %   citations    - The works the explanations cite, with their DOIs
     %   evaluate     - One metric over any rates, the way this window computes it
     %   formatValue  - One value as readout text
     %   divergingMap - The blue-white-red colormap the map is drawn in
+    %   openGuide    - The wiki page for this window, in the system browser
     %
     % Examples:
     %   gui.MetricsExplorer
@@ -72,7 +74,8 @@ classdef MetricsExplorer < handle
     %   S = gui.MetricsExplorer.evaluate("dprime", 0.8, 0.2, Correction="none");
     %
     % See also: documentation/gui/gui_MetricsExplorer.md, psychophysics.Metrics,
-    %   psychophysics.SessionMetrics, gui.components.SessionPerformance
+    %   psychophysics.SessionMetrics, gui.components.SessionPerformance,
+    %   https://github.com/dstolz/epsych2/wiki/Metrics-Explorer
 
     properties (SetAccess = private)
         H = struct()    % graphics handles
@@ -90,6 +93,7 @@ classdef MetricsExplorer < handle
 
     properties (Constant)
         FIGURE_TAG (1,:) char = 'EPsychMetricsExplorer'
+        WIKI_URL (1,:) char = 'https://github.com/dstolz/epsych2/wiki/Metrics-Explorer'
     end
 
     properties (Constant, Access = private)
@@ -348,6 +352,14 @@ classdef MetricsExplorer < handle
             f.CloseRequestFcn = @(~,~) delete(self);
             self.H.figure = f;
 
+            % The wiki page is the guide; the repository doc is the same text
+            % at full length, and the one a rig with no network can still open.
+            mHelp = uimenu(f, 'Text','&Help');
+            self.H.menuGuide = uimenu(mHelp, 'Text','Metrics Explorer &Guide (Wiki)', ...
+                'MenuSelectedFcn', @(~,~) gui.MetricsExplorer.openGuide());
+            uimenu(mHelp, 'Text','&Reference Documentation', ...
+                'MenuSelectedFcn', @(~,~) openReferenceDoc_());
+
             g = uigridlayout(f, [5 2]);
             g.RowHeight = {'fit', 'fit', '1x', 62, 'fit'};
             g.ColumnWidth = {'1x', 340};
@@ -534,13 +546,28 @@ classdef MetricsExplorer < handle
             self.H.status.Layout.Column = 1;
 
             % ---------- Explanation ------------------------------------------------
+            % The citations sit under the text rather than in it: a uitextarea
+            % cannot hold a link, and a DOI that has to be retyped is one
+            % nobody follows. Their grid is rebuilt per metric.
             p = uipanel(g, 'Title','What this metric means');
             p.Layout.Row = [1 5];
             p.Layout.Column = 2;
-            gp = uigridlayout(p, [1 1]);
+            gp = uigridlayout(p, [3 1]);
+            gp.RowHeight = {'1x', 'fit', 'fit'};
+            gp.RowSpacing = 8;
             gp.Padding = [6 6 6 6];
             self.H.explain = uitextarea(gp, 'Editable','off', 'Value', {''}, ...
                 'FontSize', 12);
+            self.H.explain.Layout.Row = 1;
+
+            self.H.references = uigridlayout(gp, [1 1]);
+            self.H.references.Layout.Row = 2;
+            self.H.references.Padding = [0 0 0 0];
+            self.H.references.RowSpacing = 1;
+
+            self.H.guideLink = uihyperlink(gp, 'Text','Full guide on the EPsych wiki', ...
+                'URL', self.WIKI_URL, 'Tooltip', self.WIKI_URL);
+            self.H.guideLink.Layout.Row = 3;
         end
     end
 
@@ -679,10 +706,40 @@ classdef MetricsExplorer < handle
                 txt{end+1} = 'Watch for';
                 txt{end+1} = ['  ' m.Caution];
             end
-            txt{end+1} = '';
-            txt{end+1} = m.Reference;
 
             self.H.explain.Value = txt;
+            self.refreshReferences_(m.Citations);
+        end
+
+        function refreshReferences_(self, cites)
+            % One wrapped line per citation, and under it the DOI as a link
+            % when the work has one. The link's text IS the DOI, so the
+            % identifier can be read off the window as well as clicked.
+            g = self.H.references;
+            delete(g.Children);
+
+            n = 1 + numel(cites) + nnz(~cellfun(@isempty, {cites.DOI}));
+            g.RowHeight = repmat({'fit'}, 1, n);
+
+            lbl = uilabel(g, 'Text','References', 'FontWeight','bold', ...
+                'FontColor', self.LABEL_COLOR);
+            place_(lbl, 1, 1);
+
+            row = 1;
+            for i = 1:numel(cites)
+                row = row + 1;
+                lbl = uilabel(g, 'Text', cites(i).Full, 'WordWrap','on', ...
+                    'FontSize', 11, 'VerticalAlignment','top');
+                place_(lbl, row, 1);
+                if isempty(cites(i).DOI), continue, end
+
+                row = row + 1;
+                url = gui.MetricsExplorer.doiUrl(cites(i).DOI);
+                h = uihyperlink(g, 'Text', ['doi:' cites(i).DOI], 'URL', url, ...
+                    'FontSize', 11, 'Tooltip', url, ...
+                    'Tag', ['MetricsExplorerDOI_' cites(i).Key]);
+                place_(h, row, 1);
+            end
         end
 
         function setStatus_(self, msg)
@@ -810,7 +867,10 @@ classdef MetricsExplorer < handle
             % Returns:
             %   C - 1-by-N struct array. Key, Field, Label, Symbol, Fcn,
             %       UsesCorrection, Neutral, NeutralMeaning, Range, LowWord,
-            %       HighWord, Formula, Summary, Reading, Caution, Reference.
+            %       HighWord, Formula, Summary, Reading, Caution, Reference,
+            %       Citations. Reference is the short in-text form
+            %       ("Grier (1971)"); Citations is the matching entries of
+            %       gui.MetricsExplorer.citations, DOIs included.
             C = [ ...
                 mk_('dprime', 'DPrime', "d' -- sensitivity", "d'", ...
                     @psychophysics.Metrics.dprime, ...
@@ -831,7 +891,7 @@ classdef MetricsExplorer < handle
                         'correction was applied rather than by the data: with the ' ...
                         'default clamp of [0.01 0.99] no session can report more than ' ...
                         '4.653, however good the subject.'], ...
-                    'Reference', 'Green & Swets (1966); Macmillan & Creelman (2005)'), ...
+                    'References', ["GreenSwets1966", "MacmillanCreelman2005"]), ...
                 mk_('criterion', 'Criterion', 'c -- decision criterion', 'c', ...
                     @psychophysics.Metrics.criterion, ...
                     'Neutral', 0, 'Range', 2, ...
@@ -851,7 +911,7 @@ classdef MetricsExplorer < handle
                     'Caution', ['c is in units of the noise distribution, so comparing it ' ...
                         'between subjects whose d'' differ compares different rulers. ' ...
                         'c/d'' is the comparable form.'], ...
-                    'Reference', 'Macmillan & Creelman (2005)'), ...
+                    'References', "MacmillanCreelman2005"), ...
                 mk_('criterionRelative', 'CriterionRelative', "c' -- relative criterion", "c'", ...
                     @psychophysics.Metrics.criterionRelative, ...
                     'Neutral', 0, 'Range', 2, ...
@@ -867,7 +927,7 @@ classdef MetricsExplorer < handle
                         'relative criterion where there is no sensitivity.'], ...
                     'Caution', ['Read it only where d'' is comfortably away from 0. Near ' ...
                         'the diagonal a tiny change in either rate swings it wildly.'], ...
-                    'Reference', 'Macmillan & Creelman (2005)'), ...
+                    'References', "MacmillanCreelman2005"), ...
                 mk_('lnBeta', 'LnBeta', 'ln(beta) -- likelihood-ratio bias', 'ln B', ...
                     @psychophysics.Metrics.lnBeta, ...
                     'Neutral', 0, 'Range', 4, ...
@@ -885,7 +945,7 @@ classdef MetricsExplorer < handle
                     'Caution', ['Because it is the product, ln(beta) confounds bias with ' ...
                         'sensitivity: a strongly biased subject at chance scores the same ' ...
                         '0 as an unbiased expert. Prefer c when the question is bias.'], ...
-                    'Reference', 'Macmillan & Creelman (2005)'), ...
+                    'References', "MacmillanCreelman2005"), ...
                 mk_('aprime', 'APrime', "A' -- nonparametric sensitivity", "A'", ...
                     @psychophysics.Metrics.aprime, ...
                     'UsesCorrection', false, 'Neutral', 0.5, 'Range', 0.5, ...
@@ -904,7 +964,7 @@ classdef MetricsExplorer < handle
                     'Caution', ['Bounded at 1, so it compresses exactly where d'' spreads ' ...
                         'out: two excellent sessions that differ in d'' can both read ' ...
                         '0.99.'], ...
-                    'Reference', 'Grier (1971)'), ...
+                    'References', "Grier1971"), ...
                 mk_('bprimeprime', 'BPrimePrime', "B'' -- nonparametric bias", "B''", ...
                     @psychophysics.Metrics.bprimeprime, ...
                     'UsesCorrection', false, 'Neutral', 0, 'Range', 1, ...
@@ -921,7 +981,7 @@ classdef MetricsExplorer < handle
                         'both rates are 0 or 1 the formula is 0/0 and is reported as 0: ' ...
                         'rates that extreme carry no evidence about bias either way.'], ...
                     'Caution', 'Bounded, so it cannot be averaged as if it were in criterion units.', ...
-                    'Reference', 'Grier (1971)'), ...
+                    'References', "Grier1971"), ...
                 mk_('percentCorrect', 'PercentCorrectBalanced', ...
                     'balanced proportion correct', 'pc', ...
                     @psychophysics.Metrics.percentCorrect, ...
@@ -939,7 +999,7 @@ classdef MetricsExplorer < handle
                     'Caution', ['This is NOT the observed proportion correct a session ' ...
                         'reports. With 90 stimulus and 10 catch trials the two differ, ' ...
                         'and the difference is the trial mix, not the subject.'], ...
-                    'Reference', 'Macmillan & Creelman (2005)')];
+                    'References', "MacmillanCreelman2005")];
         end
 
         function m = metric(key)
@@ -955,6 +1015,66 @@ classdef MetricsExplorer < handle
                     'No metric named "%s". Known metrics: %s.', key, strjoin({C.Key}, ', '));
             end
             m = C(idx);
+        end
+
+        function R = citations(keys)
+            % R = gui.MetricsExplorer.citations()
+            % R = gui.MetricsExplorer.citations(keys)
+            % The works the explanations cite, in the order asked for.
+            %
+            % One table, so a DOI is written down once however many metrics
+            % cite the work. DOI is empty for a work that has none (Green &
+            % Swets predates them) -- the window then shows the citation
+            % without a link rather than inventing one.
+            %
+            % Parameters:
+            %   keys - Citation keys; all of them when omitted.
+            %
+            % Returns:
+            %   R - Struct array. Key, Short (in-text form), Full, DOI.
+            arguments
+                keys (1,:) string = string.empty(1,0)
+            end
+
+            R = [ ...
+                cite_('GreenSwets1966', 'Green & Swets (1966)', ...
+                    ['Green DM, Swets JA (1966) Signal Detection Theory and ' ...
+                     'Psychophysics. New York: Wiley.'], ''), ...
+                cite_('MacmillanCreelman2005', 'Macmillan & Creelman (2005)', ...
+                    ['Macmillan NA, Creelman CD (2005) Detection Theory: A ' ...
+                     'User''s Guide, 2nd ed. Mahwah, NJ: Erlbaum.'], ...
+                    '10.4324/9781410611147'), ...
+                cite_('Grier1971', 'Grier (1971)', ...
+                    ['Grier JB (1971) Nonparametric indexes for sensitivity ' ...
+                     'and bias: computing formulas. Psychol Bull 75(6):424-429.'], ...
+                    '10.1037/h0031246')];
+
+            % nargin, not isempty: an entry that cites nothing asks for no
+            % citations, and must not be handed all of them.
+            if nargin == 0, return, end
+            [found, idx] = ismember(keys, string({R.Key}));
+            if ~all(found)
+                error('gui:MetricsExplorer:UnknownCitation', ...
+                    'No citation named "%s". Known citations: %s.', ...
+                    strjoin(keys(~found), '", "'), strjoin({R.Key}, ', '));
+            end
+            R = R(idx);
+        end
+
+        function url = doiUrl(doi)
+            % url = gui.MetricsExplorer.doiUrl(doi)
+            % The resolver address for a DOI -- the https form Crossref
+            % recommends, which survives a publisher moving the work.
+            arguments
+                doi (1,:) char
+            end
+            url = ['https://doi.org/' doi];
+        end
+
+        function openGuide()
+            % gui.MetricsExplorer.openGuide()
+            % Open this window's wiki page in the system browser.
+            web(gui.MetricsExplorer.WIKI_URL, '-browser');
         end
 
         function v = evaluate(key, hitRate, falseAlarmRate, opts)
@@ -1084,8 +1204,12 @@ arguments
     opts.Summary (1,1) string = ""
     opts.Reading (1,1) string = ""
     opts.Caution (1,1) string = ""
-    opts.Reference (1,1) string = ""
+    opts.References (1,:) string = string.empty(1,0)
 end
+
+% Keys rather than text, so a DOI lives once in citations() and a typo in a
+% key fails here, when the catalog is built, not as a missing link on screen.
+cites = gui.MetricsExplorer.citations(opts.References);
 
 m = struct( ...
     'Key', key, ...
@@ -1103,5 +1227,25 @@ m = struct( ...
     'Summary', char(opts.Summary), ...
     'Reading', char(opts.Reading), ...
     'Caution', char(opts.Caution), ...
-    'Reference', char(opts.Reference));
+    'Reference', strjoin({cites.Short}, '; '), ...
+    'Citations', {cites});   % braced, or struct() would expand m to one per citation
+end
+
+
+function c = cite_(key, short, full, doi)
+% One citations() entry.
+c = struct('Key', key, 'Short', short, 'Full', full, 'DOI', doi);
+end
+
+
+function openReferenceDoc_()
+% The in-repository reference, for a rig with no network. The wiki page is
+% the guide and is what the Help menu offers first; this is the full text.
+root = fileparts(which('epsych_startup'));
+docFile = fullfile(root, 'documentation', 'gui', 'gui_MetricsExplorer.md');
+if isfile(docFile)
+    open(docFile);
+else
+    gui.MetricsExplorer.openGuide();
+end
 end

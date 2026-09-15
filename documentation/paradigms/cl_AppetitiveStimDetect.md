@@ -90,7 +90,7 @@ The staircase cannot run away past a bound even so, because each step starts fro
 5. Update the next stimulus depth from the latest outcome:
    - `Hit`: `nextStim = lastStim + Depth_StepOnHit.Value` — the step is signed, so a negative value steps down to a weaker stimulus
    - `Miss`: `nextStim = lastStim + Depth_StepOnMiss.Value` — likewise signed, positive to step up
-   - `Abort`: keep the same depth; if `RepeatDelayOnAbort` is enabled, repeat the identical stimulus delay (after three consecutive aborts, the delay moves on instead)
+   - `Abort`: keep the same depth; if `RepeatDelayOnAbort` is enabled, repeat the identical stimulus delay (every third consecutive abort moves the delay on instead, and the count restarts there, so the new delay is itself held for the next two aborts)
    - `CorrectReject`: keep the same depth and resume the normal delay schedule
    - `FalseAlarm`: keep the same depth and resume the normal delay schedule; a false alarm that was also an abort schedules a catch row immediately
 6. Only on a Hit or Miss: write the new depth into every stimulus row of the live trials table (through the runtime handle stored by `setRuntime`), so the dispatcher sends the new value to hardware. **No clamp is applied here** — `hw.Parameter` enforces `Depth.Min`/`Depth.Max` at dispatch. Abort/CorrectReject/FalseAlarm never touch the table, so a pending step is not lost to an intervening catch trial.
@@ -118,7 +118,7 @@ So `1000` / `4000` with a step of `250` is `1000:250:4000` — thirteen delays, 
 
 **`StimDelay.isRandom` is held false** for the whole session while block randomization is on, re-asserted on every selection pass so a phase load cannot turn it back on underneath the sequence. `randomize_value` runs inside `set.Value`, so an `isRandom` left true would overwrite the balanced value at dispatch. The two mechanisms are alternatives, not layers — which is why the GUI's "Randomize Stimulus Delay" checkbox is bound to `StimDelayBlockEnabled` here rather than to `isRandom`.
 
-**Repeat on abort is a held index.** Because the caller owns the index, repeating a delay after an abort means simply not advancing it: the next trial reads the same position and gets the identical value, jitter included. Nothing is stashed and no randomization is suspended. The third consecutive abort releases the hold, as it always did.
+**Repeat on abort is a held index.** Because the caller owns the index, repeating a delay after an abort means simply not advancing it: the next trial reads the same position and gets the identical value, jitter included. Nothing is stashed and no randomization is suspended. The third consecutive abort releases the hold, and the count restarts there: aborts four and five hold the delay the third moved to, and the sixth releases again. Before issue #27 every abort past the third released it, so a subject that kept aborting got a new delay on every trial.
 
 **Training mode wins.** While `StimDelayTrainingEnabled` is on, `gui.AdaptiveTraining` steps `StimDelay` itself and writes it into the trials table; the sequence stands down for the duration without clearing the operator's checkbox, so switching training off resumes where the sequence stood.
 

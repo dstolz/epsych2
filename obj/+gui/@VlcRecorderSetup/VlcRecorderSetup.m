@@ -1,8 +1,9 @@
 classdef VlcRecorderSetup < handle
     % g = gui.VlcRecorderSetup(Recorder, Name=Value,...)
     % Configure hw.VlcRecorder capture parameters (device, frame rate,
-    % resolution, crop, orientation), the caption burned into recordings, and
-    % VLC window options (minimal interface, always on top) against a live
+    % resolution, crop, orientation), the caption burned into recordings, the
+    % audio track (on/off, microphone), and VLC window options (minimal
+    % interface, always on top) against a live
     % MATLAB webcam preview.
     %
     % A MATLAB `webcam` feed is shown in an axes with an interactive
@@ -72,6 +73,8 @@ classdef VlcRecorderSetup < handle
         CaptionPositionDropDown
         CaptionColorDropDown
         CaptionSizeSpinner
+        RecordAudioCheckBox
+        AudioDeviceDropDown
         MinimalViewCheckBox
         AlwaysOnTopCheckBox
         VlcPreviewButton
@@ -96,6 +99,7 @@ classdef VlcRecorderSetup < handle
 
     properties (Constant, Access = private)
         DefaultResLabel = '(camera default)'
+        DefaultAudioLabel = '(default audio device)'   % AudioDevice = ''
         MinRoiPx = 16   % smallest allowed crop-region width/height, in pixels
     end
 
@@ -203,13 +207,13 @@ classdef VlcRecorderSetup < handle
             title(obj.PreviewAxes, 'No preview', 'Color', [0.5 0.5 0.5]);
 
             % --- Controls column ---
-            obj.ControlGrid = uigridlayout(obj.RootGrid, [22 1]);
+            obj.ControlGrid = uigridlayout(obj.RootGrid, [25 1]);
             obj.ControlGrid.Layout.Row = 1;
             obj.ControlGrid.Layout.Column = 2;
             obj.ControlGrid.Padding = [0 0 0 0];
             obj.ControlGrid.RowSpacing = 4;
             obj.ControlGrid.RowHeight = {18,26,18,26,18,26,18,100,26, ...
-                18,26,18,22,26,78, 18,22,22,26,'1x',26,26};
+                18,26,18,22,26,78, 18,22,26, 18,22,22,26,'1x',26,26};
             % The fixed rows exceed the height of a window saved before the VLC
             % window section existed, so let the column scroll rather than clip
             % Apply/OK off the bottom.
@@ -298,6 +302,19 @@ classdef VlcRecorderSetup < handle
                 'ValueDisplayFormat', '%d px', ...
                 'Tag', 'VlcRecorderSetup_CaptionSizeSpinner');
 
+            uilabel(obj.ControlGrid, 'Text', 'Audio', 'FontWeight', 'bold');
+            obj.RecordAudioCheckBox = uicheckbox(obj.ControlGrid, ...
+                'Text', 'Record audio with video', ...
+                'Tooltip', ['Record a microphone track into the video file. Recording only: ' ...
+                            'the preview never opens the microphone or plays it.'], ...
+                'Tag', 'VlcRecorderSetup_RecordAudioCheckBox');
+            obj.AudioDeviceDropDown = uidropdown(obj.ControlGrid, ...
+                'Editable', 'on', ...
+                'Items', {obj.DefaultAudioLabel}, ...
+                'Tooltip', ['Microphone to record, e.g. the webcam''s own. The default is ' ...
+                            'VLC''s default audio device, which need not be the webcam.'], ...
+                'Tag', 'VlcRecorderSetup_AudioDeviceDropDown');
+
             uilabel(obj.ControlGrid, 'Text', 'VLC window', 'FontWeight', 'bold');
             obj.MinimalViewCheckBox = uicheckbox(obj.ControlGrid, ...
                 'Text', 'Minimal interface (no menus)', ...
@@ -311,9 +328,9 @@ classdef VlcRecorderSetup < handle
             obj.VlcPreviewButton = uibutton(obj.ControlGrid, 'Text', 'Preview in VLC', 'Tag', 'VlcRecorderSetup_VlcPreviewButton');
 
             obj.ApplyButton = uibutton(obj.ControlGrid, 'Text', 'Apply', 'Tag', 'VlcRecorderSetup_ApplyButton');
-            obj.ApplyButton.Layout.Row = 21;
+            obj.ApplyButton.Layout.Row = 24;
             obj.OkButton = uibutton(obj.ControlGrid, 'Text', 'OK', 'Tag', 'VlcRecorderSetup_OkButton');
-            obj.OkButton.Layout.Row = 22;
+            obj.OkButton.Layout.Row = 25;
 
             obj.StatusLabel = uilabel(obj.RootGrid, 'Text', '', 'FontColor', [0.20 0.20 0.20]);
             obj.StatusLabel.Layout.Row = 2;
@@ -334,6 +351,8 @@ classdef VlcRecorderSetup < handle
             obj.CaptionPositionDropDown.ValueChangedFcn = @(s,e) obj.markDirty_();
             obj.CaptionColorDropDown.ValueChangedFcn    = @(s,e) obj.markDirty_();
             obj.CaptionSizeSpinner.ValueChangedFcn      = @(s,e) obj.markDirty_();
+            obj.RecordAudioCheckBox.ValueChangedFcn     = @(s,e) obj.onRecordAudioChanged(s,e);
+            obj.AudioDeviceDropDown.ValueChangedFcn     = @(s,e) obj.markDirty_();
             obj.MinimalViewCheckBox.ValueChangedFcn = @(s,e) obj.markDirty_();
             obj.AlwaysOnTopCheckBox.ValueChangedFcn = @(s,e) obj.markDirty_();
             obj.VlcPreviewButton.ButtonPushedFcn    = @(s,e) obj.onVlcPreviewToggle(s,e);
@@ -386,6 +405,10 @@ classdef VlcRecorderSetup < handle
             obj.CaptionSizeSpinner.Value = min(200, cs);
             obj.updateCaptionEnable_();
 
+            obj.RecordAudioCheckBox.Value = obj.logicalOrDefault_(obj.Recorder.get_parameter('RecordAudio'), true);
+            obj.refreshAudioDeviceList_(char(string(obj.Recorder.get_parameter('AudioDevice'))));
+            obj.updateAudioEnable_();
+
             obj.MinimalViewCheckBox.Value = obj.logicalOrDefault_(obj.Recorder.get_parameter('MinimalView'), true);
             obj.AlwaysOnTopCheckBox.Value = obj.logicalOrDefault_(obj.Recorder.get_parameter('AlwaysOnTop'), false);
 
@@ -419,6 +442,32 @@ classdef VlcRecorderSetup < handle
             obj.CaptionPositionDropDown.Enable = en;
             obj.CaptionColorDropDown.Enable    = en;
             obj.CaptionSizeSpinner.Enable      = en;
+        end
+
+        function onRecordAudioChanged(obj, ~, ~)
+            obj.updateAudioEnable_();
+            obj.markDirty_();
+        end
+
+        function updateAudioEnable_(obj)
+            % Grey the device picker when no audio is recorded; its value is
+            % kept, as the caption's are.
+            obj.AudioDeviceDropDown.Enable = matlab.lang.OnOffSwitchState( ...
+                logical(obj.RecordAudioCheckBox.Value));
+        end
+
+        function refreshAudioDeviceList_(obj, wanted)
+            % Populate the audio device dropdown from the capture endpoints
+            % Windows reports, keeping 'wanted' selectable even when it is not
+            % present right now (an unplugged webcam must not lose its setting).
+            % '' is shown as DefaultAudioLabel.
+            if isempty(wanted)
+                wanted = obj.DefaultAudioLabel;
+            end
+            names = hw.VlcRecorder.listAudioDevices();
+            names = unique([{obj.DefaultAudioLabel, wanted}, names(:)'], 'stable');
+            obj.AudioDeviceDropDown.Items = names;
+            obj.AudioDeviceDropDown.Value = wanted;
         end
 
         function v = numOrZero_(~, v)
@@ -764,6 +813,15 @@ classdef VlcRecorderSetup < handle
 
         function onRefreshDevices(obj, ~, ~)
             obj.refreshDeviceList();
+            obj.refreshAudioDeviceList_(obj.audioDeviceValue_());
+        end
+
+        function name = audioDeviceValue_(obj)
+            % The AudioDevice the dropdown stands for: '' for the default label.
+            name = char(obj.AudioDeviceDropDown.Value);
+            if strcmp(name, obj.DefaultAudioLabel)
+                name = '';
+            end
         end
 
         function onVlcPreviewToggle(obj, ~, ~)
@@ -853,6 +911,9 @@ classdef VlcRecorderSetup < handle
             obj.CropLeftField.Enable = state;
             obj.CropRightField.Enable = state;
             obj.ResetCropButton.Enable = state;
+            obj.RecordAudioCheckBox.Enable = state;
+            obj.AudioDeviceDropDown.Enable = matlab.lang.OnOffSwitchState( ...
+                tf && logical(obj.RecordAudioCheckBox.Value));
             obj.MinimalViewCheckBox.Enable = state;
             obj.AlwaysOnTopCheckBox.Enable = state;
         end
@@ -922,6 +983,11 @@ classdef VlcRecorderSetup < handle
             obj.Recorder.set_parameter('CaptionColor',    capColor);
             obj.Recorder.set_parameter('CaptionSize',     capSize);
 
+            recordAudio = obj.RecordAudioCheckBox.Value;
+            audioDevice = obj.audioDeviceValue_();
+            obj.Recorder.set_parameter('RecordAudio', recordAudio);
+            obj.Recorder.set_parameter('AudioDevice', audioDevice);
+
             minimalView = obj.MinimalViewCheckBox.Value;
             alwaysOnTop = obj.AlwaysOnTopCheckBox.Value;
             obj.Recorder.set_parameter('MinimalView', minimalView);
@@ -937,6 +1003,8 @@ classdef VlcRecorderSetup < handle
                 setpref('ep_RunExpt_Video', 'CropRight',    cropRight);
                 setpref('ep_RunExpt_Video', 'MinimalView',  minimalView);
                 setpref('ep_RunExpt_Video', 'AlwaysOnTop',  alwaysOnTop);
+                setpref('ep_RunExpt_Video', 'RecordAudio',  recordAudio);
+                setpref('ep_RunExpt_Video', 'AudioDevice',  audioDevice);
                 % CaptionText is not persisted: it is resolved per run from the
                 % template, so a remembered one would caption a recording with
                 % the previous session's subject.

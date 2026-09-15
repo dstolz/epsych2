@@ -22,6 +22,8 @@ if isempty(self.VlcRecorder_) || ~isvalid(self.VlcRecorder_)
     rec.set_parameter('CropRight',  getpref('ep_RunExpt_Video','CropRight',  rec.get_parameter('CropRight')));
     rec.set_parameter('MinimalView', getpref('ep_RunExpt_Video','MinimalView', rec.get_parameter('MinimalView')));
     rec.set_parameter('AlwaysOnTop', getpref('ep_RunExpt_Video','AlwaysOnTop', rec.get_parameter('AlwaysOnTop')));
+    rec.set_parameter('RecordAudio', getpref('ep_RunExpt_Video','RecordAudio', rec.get_parameter('RecordAudio')));
+    rec.set_parameter('AudioDevice', getpref('ep_RunExpt_Video','AudioDevice', char(rec.get_parameter('AudioDevice'))));
     % CaptionText is deliberately NOT seeded: it is resolved per run from the
     % template (see StartVideoRecording_), so a remembered one would caption a
     % recording with the previous session's subject.

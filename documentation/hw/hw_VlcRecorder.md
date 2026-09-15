@@ -89,6 +89,25 @@ than momentary buttons — without that, `hw.Parameter.isTransientControl` treat
 any Boolean the trial dispatcher never refreshes as a button press and a saved
 phase drops it.
 
+- `RecordAudio` (Boolean): record a microphone track with the video. Default
+  `true`. **Recording only**: the preview-only branch keeps `--no-audio` and
+  `--dshow-adev=none`, and the recording's display branch is
+  `display{noaudio}`, so the microphone is never played through the rig's
+  speakers — that would feed back into the recording and be audible to the
+  animal. The track is MPEG audio (`acodec=mpga`, 128 kb/s, resampled to
+  48 kHz), which both `.ts` and `.avi` carry; AAC in AVI is not reliable, and
+  the mp2 encoder refuses some rates a webcam microphone reports. `--no-audio`
+  is dropped when recording audio because it deselects the audio track
+  altogether, which would keep it out of the `--sout` chain too.
+  `PersistWithPhase`, like the window options.
+- `AudioDevice` (String): the DirectShow audio device, passed as
+  `--dshow-adev`. Default `''`, VLC's default audio device — stated explicitly
+  even then, so a device saved in the user's own `vlcrc` cannot leak in. That
+  default is usually a laptop's built-in microphone, not the webcam's; name the
+  webcam's own (e.g. `Microphone (Logi C270 HD WebCam)`) to record it.
+  `hw.VlcRecorder.listAudioDevices()` lists the candidates: the Windows capture
+  endpoints (`Get-PnpDevice -Class AudioEndpoint`, instance IDs `{0.0.1.*}`).
+
 ## Two VLC quirks the command line depends on
 
 Both were established on the bench (VLC 3, dshow capture, verified by decoding

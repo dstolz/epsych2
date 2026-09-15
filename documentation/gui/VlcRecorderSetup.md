@@ -13,6 +13,7 @@ It is designed to be embedded inside another UI (panel/grid/etc.) or used standa
 - Device, resolution, and frame-rate controls.
 - An **Orientation** dropdown for `Transform` (rotate or flip the frame).
 - A **Caption in recording** section for the caption burned into every recorded frame.
+- An **Audio** section: whether a recording carries a microphone track, and which microphone.
 - A **VLC window** section for the two options that shape the VLC window itself rather than the captured frame.
 - A "Preview in VLC" toggle to verify the actual VLC output — crop, orientation, and caption — before recording.
 
@@ -62,6 +63,13 @@ An explicit resolution selected in the dropdown is always what Apply commits as 
 
 **Preview in VLC draws the caption** in the configured corner, colour, and size. With no session open there is no subject to name, so `hw.VlcRecorder.sampleCaption` fills `{subject}` and `{box}` with visible stand-ins (`SUBJECT`, `1`); the sample is staged into `CaptionText` for the preview and cleared on leaving it. All of these are committed by Apply/OK like everything else here, and mirrored into `ep_RunExpt_Video` — except `CaptionText`, which is resolved from the session at recording start and never remembered. See `documentation/hw/hw_VlcRecorder.md` for the parameter-level detail and the two VLC quirks the caption depends on.
 
+### Audio
+
+- **Record audio with video** → `RecordAudio`. Checked by default. The recording gets a microphone track; the VLC preview never opens the microphone or plays it.
+- The device dropdown (editable) → `AudioDevice`. Filled from `hw.VlcRecorder.listAudioDevices()` — the Windows capture endpoints, whose names are what VLC's `--dshow-adev` matches — and refreshed by the device row's **Refresh** button. `(default audio device)` commits `''`, VLC's default microphone, which on a laptop is usually the built-in one rather than the webcam's: pick the webcam's own microphone (e.g. `Microphone (Logi C270 HD WebCam)`) to record it. A saved device that is not plugged in stays selectable rather than being dropped. It greys out while audio is off.
+
+Both are mirrored into `ep_RunExpt_Video` on Apply.
+
 ### VLC window options
 
 Two checkboxes under **VLC window** configure the window VLC opens, not the frame it captures. Both take effect the next time VLC is launched (Preview in VLC, or the session's video recording); neither changes a VLC window that is already open.
@@ -89,7 +97,7 @@ Name–value options:
 - `Parent` (default `[]`): if provided, the GUI is embedded in this container; otherwise a new `uifigure` is created and owned.
 - `WindowStyle`: `"normal" | "alwaysontop" | "modal"` (only used when `Parent=[]`).
 - `EnablePreview` (default `true`): set `false` to skip opening the webcam entirely (headless use, or when a camera is known to be busy). Crop fields remain numerically editable.
-- `PersistPrefs` (default `true`): when applying, also mirror `DeviceName`, `FrameRate`, `Resolution`, the four crop values, `MinimalView`, and `AlwaysOnTop` to `getpref('ep_RunExpt_Video', ...)` so a later `RunExpt` webcam session can pick them up.
+- `PersistPrefs` (default `true`): when applying, also mirror `DeviceName`, `FrameRate`, `Resolution`, the four crop values, `RecordAudio`, `AudioDevice`, `MinimalView`, and `AlwaysOnTop` (plus the orientation and caption settings) to `getpref('ep_RunExpt_Video', ...)` so a later `RunExpt` webcam session can pick them up.
 
 ## Usage examples
 
@@ -151,5 +159,5 @@ Clicking **Back to Setup** stops VLC and reopens the MATLAB preview. No recordin
 
 - `obj/+gui/@VlcRecorderSetup/VlcRecorderSetup.m` (this class)
 - `obj/+hw/@VlcRecorder/VlcRecorder.m` (`setupGUI()`, `set_parameter`/`get_parameter`/`trigger`, crop even-rounding in `cropFilterSpec_`)
-- `tmp/smoke_test_vlcrecorder_setup.m`, `tmp/smoke_test_vlcrecorder_window_opts.m`
+- `tmp/smoke_test_vlcrecorder_setup.m`, `tmp/smoke_test_vlcrecorder_window_opts.m`, `tmp/smoke_test_vlcrecorder_audio.m`
 - `documentation/hw/hw_VlcRecorder.md`

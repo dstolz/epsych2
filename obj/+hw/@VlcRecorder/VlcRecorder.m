@@ -44,6 +44,12 @@ classdef VlcRecorder < hw.Interface
     %                                  playlist, or status bar. Default: true.
     %   AlwaysOnTop   - (Boolean, Any) Keep the VLC window above other windows
     %                                  (--video-on-top). Default: false.
+    %   RecordAudio   - (Boolean, Any) Record an audio track with the video.
+    %                                  Recording only: the preview never opens
+    %                                  the microphone or plays it. Default: true.
+    %   AudioDevice   - (String, Any)  DirectShow audio device name, e.g. the
+    %                                  webcam's 'Microphone (Logi C270 HD WebCam)'.
+    %                                  Default: '' (VLC's default audio device).
     %
     % Triggers (via trigger()):
     %   Play        - Launch VLC. Records to RecordingFile if one is set.
@@ -149,7 +155,9 @@ classdef VlcRecorder < hw.Interface
         transform_       (1,1) string = "none"              % rotate/flip applied to the frame
         minimalView_   (1,1) logical = true                % start VLC without menus/playlist (--qt-minimal-view)
         alwaysOnTop_   (1,1) logical = false               % keep the VLC window above others (--video-on-top)
-        isRecording_   (1,1) logical = false               % true when VLC was launched with --sout recording
+        recordAudio_   (1,1) logical = true                % record an audio track with the video
+        audioDevice_   (1,1) string  = ""                  % DirectShow audio device; "" = VLC's default
+        isRecording_  (1,1) logical = false               % true when VLC was launched with --sout recording
         rcPort_        (1,1) double  = 0                   % localhost TCP port of the RC interface
         vlcProc_                                           % System.Diagnostics.Process of the running VLC
     end
@@ -367,6 +375,14 @@ classdef VlcRecorder < hw.Interface
                     obj.alwaysOnTop_ = logical(value);
                     vprintf(3, 'hw.VlcRecorder: AlwaysOnTop = %d', obj.alwaysOnTop_);
 
+                case 'RecordAudio'
+                    obj.recordAudio_ = logical(value);
+                    vprintf(3, 'hw.VlcRecorder: RecordAudio = %d', obj.recordAudio_);
+
+                case 'AudioDevice'
+                    obj.audioDevice_ = string(value);
+                    vprintf(3, 'hw.VlcRecorder: AudioDevice = "%s"', char(value));
+
                 otherwise
                     vprintf(3, 'hw.VlcRecorder: set_parameter called for "%s" (no-op)', paramName);
             end
@@ -443,6 +459,12 @@ classdef VlcRecorder < hw.Interface
 
                 case 'AlwaysOnTop'
                     value = obj.alwaysOnTop_;
+
+                case 'RecordAudio'
+                    value = obj.recordAudio_;
+
+                case 'AudioDevice'
+                    value = char(obj.audioDevice_);
 
                 otherwise
                     % Triggers and unknown names do not map to readable hardware state.
@@ -717,6 +739,39 @@ classdef VlcRecorder < hw.Interface
                 devices = lines(~cellfun('isempty', lines));
             end
         end
+
+        function devices = listAudioDevices()
+            % devices = hw.VlcRecorder.listAudioDevices()
+            % Enumerate audio capture device names (microphones) via PowerShell
+            % Get-PnpDevice, for the AudioDevice parameter.
+            % Returns a cell array of char vectors; empty when none are found.
+            %
+            % AudioEndpoint lists speakers and microphones alike; a capture
+            % endpoint's instance ID carries {0.0.1.*}, a render one {0.0.0.*}.
+            %
+            % The names travel as base64 UTF-8 because console output goes
+            % through the OEM code page, which turns 'Intel(R)'s registered
+            % sign into a plain 'r' -- and a name that no longer matches is a
+            % recording with no audio.
+            devices = {};
+            [st, raw] = system(['powershell -NoProfile -Command "' ...
+                '$n = @(Get-PnpDevice -Class AudioEndpoint -Status OK | ' ...
+                'Where-Object { $_.InstanceId -like ''*{0.0.1.*'' } | ' ...
+                'Select-Object -ExpandProperty FriendlyName) -join [char]10; ' ...
+                '[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($n))"']);
+            raw = strtrim(raw);
+            if st ~= 0 || isempty(raw)
+                return
+            end
+            try
+                txt = native2unicode(matlab.net.base64decode(raw), 'UTF-8');
+            catch ME
+                vprintf(0, 1, ME);
+                return
+            end
+            lines = strtrim(splitlines(string(txt)));
+            devices = cellstr(lines(strlength(lines) > 0));
+        end
     end
 
 
@@ -875,6 +930,19 @@ classdef VlcRecorder < hw.Interface
                 PersistWithPhase = true, ...
                 Description = 'Keep the VLC window above other windows (--video-on-top).');
 
+            obj.add_parameter('RecordAudio', obj.recordAudio_, ...
+                Type    = 'Boolean', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                PersistWithPhase = true, ...
+                Description = 'Record an audio track with the video (recording only; the preview stays silent).');
+
+            obj.add_parameter('AudioDevice', char(obj.audioDevice_), ...
+                Type    = 'String', ...
+                Access  = 'Any', ...
+                Visible = true, ...
+                Description = 'DirectShow audio device name, e.g. the webcam''s microphone. Empty = VLC''s default audio device.');
+
             obj.add_parameter('Play', 0, ...
                 isTrigger = true, ...
                 Visible   = false, ...
@@ -966,15 +1034,26 @@ classdef VlcRecorder < hw.Interface
                 uri = 'dshow://';
             end
             recFile = strtrim(char(obj.recordingFile_));
+            recording = ~isempty(recFile);
+
+            % Audio is recorded, never previewed: a preview has no use for the
+            % microphone, and playing it through the rig's speakers would feed
+            % back into the recording and be audible to the animal.
+            withAudio = recording && obj.recordAudio_;
 
             opts = { ...
                 '--no-one-instance', ...  % never forward args to a pre-existing VLC window
                 '--no-qt-privacy-ask', ...
                 '--no-video-title-show', ...
-                '--no-audio', ...
                 '--extraintf', 'rc', ...
                 '--rc-host', sprintf('127.0.0.1:%d', obj.rcPort_), ...
                 '--rc-quiet'};
+
+            % --no-audio deselects the audio track altogether, which would keep
+            % it out of the --sout chain too, so it goes only when audio is off.
+            if ~withAudio
+                opts{end+1} = '--no-audio';
+            end
 
             % Both are stated explicitly rather than only when enabled: VLC
             % persists them in the user's vlcrc, so an operator who toggled
@@ -985,7 +1064,13 @@ classdef VlcRecorder < hw.Interface
 
             if strncmpi(uri, 'dshow', 5)
                 opts{end+1} = sprintf('--dshow-vdev="%s"', char(obj.deviceName_));
-                opts{end+1} = '--dshow-adev=none';
+                if withAudio
+                    % Stated even when empty (= VLC's default device), so an
+                    % audio device saved in the user's own vlcrc cannot leak in.
+                    opts{end+1} = sprintf('--dshow-adev="%s"', char(obj.audioDevice_));
+                else
+                    opts{end+1} = '--dshow-adev=none';
+                end
                 if obj.frameRate_ > 0
                     opts{end+1} = sprintf('--dshow-fps=%g', obj.frameRate_);
                 end
@@ -996,7 +1081,6 @@ classdef VlcRecorder < hw.Interface
 
             filterSpec = obj.videoFilterSpec_();
 
-            recording = ~isempty(recFile);
             if recording
                 [recDir, recBase, recExt] = fileparts(recFile);
                 if ~isempty(recDir) && ~isfolder(recDir)
@@ -1040,13 +1124,26 @@ classdef VlcRecorder < hw.Interface
                     soverlayOpt = ',sfilter=marq,soverlay';
                 end
 
+                % MPEG audio rather than AAC because both supported containers
+                % carry it (AAC in AVI is not reliable). The rate is pinned
+                % because the mp2 encoder refuses some rates a webcam
+                % microphone reports. display{noaudio} keeps the track out of
+                % the speakers, for the same feedback reason as the preview.
+                if withAudio
+                    acodecOpt  = 'acodec=mpga,ab=128,samplerate=48000';
+                    displayDst = 'display{noaudio}';
+                else
+                    acodecOpt  = 'acodec=none';
+                    displayDst = 'display';
+                end
+
                 % transcode must come before duplicate: a chained value inside
                 % duplicate{dst=...} is split at ':' by VLC's option parser.
                 % zerolatency stops x264 buffering frames so the file grows
                 % continuously and short recordings are not lost in the encoder.
-                sout = sprintf(['#transcode{%svcodec=h264,venc=x264{preset=ultrafast,tune=zerolatency},vb=1200,acodec=none%s}' ...
-                    ':duplicate{dst=display,dst=standard{access=file,mux=%s,dst=''%s''}}'], ...
-                    vfilterOpt, soverlayOpt, mux, recVlc);
+                sout = sprintf(['#transcode{%svcodec=h264,venc=x264{preset=ultrafast,tune=zerolatency},vb=1200,%s%s}' ...
+                    ':duplicate{dst=%s,dst=standard{access=file,mux=%s,dst=''%s''}}'], ...
+                    vfilterOpt, acodecOpt, soverlayOpt, displayDst, mux, recVlc);
                 opts{end+1} = sprintf('"--sout=%s"', sout);
                 opts{end+1} = '--sout-keep';
                 opts = [opts, captionOpts];

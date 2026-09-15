@@ -150,6 +150,25 @@ assert(numel(unique(d)) >= 4, ...
 fprintf('PASS: repeat-on-abort holds the sequence index, three aborts release it\n');
 
 
+% 4b. The abort count restarts after each release (issue #27) ---------------
+% Aborts 4 and 5 of an unbroken run must hold the delay the third abort moved
+% to, and so must 7 and 8 the one the sixth moved to -- not a new delay on
+% every abort once the run passes three. Only the holds are asserted: a held
+% index repeats the identical value, jitter included, whereas a release can
+% land on an equal value by chance and the sequence seed is not fixed.
+[rt,TRIALS] = makeRuntime(tmpDir, 1000, 4000, 1000, 25);
+delayCol = TRIALS.writeParamIdx.StimDelay;
+rt.find_parameter('RepeatDelayOnAbort').Value = true;
+
+TRIALS = runTrials(rt, TRIALS, {'Hit'}, delayCol);
+[~,d] = runTrials(rt, TRIALS, repmat({'Abort'},1,8), delayCol);
+assertNear(d([4 5]), [d(3) d(3)], ...
+    'aborts 4 and 5 should hold the delay the third abort moved to');
+assertNear(d([7 8]), [d(6) d(6)], ...
+    'aborts 7 and 8 should hold the delay the sixth abort moved to');
+fprintf('PASS: the consecutive-abort count restarts after each delay update\n');
+
+
 % 5. The operator's switch --------------------------------------------------
 % StimDelayBlockEnabled is created by the selector, marked PersistWithPhase
 % so a phase carries whether the subject trains on a varying delay, and

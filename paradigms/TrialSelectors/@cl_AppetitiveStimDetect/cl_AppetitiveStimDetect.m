@@ -305,7 +305,16 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
                 end
 
             elseif RC.Abort(end)
-                tooManyAborts = length(RC.Abort) >= 3 && all(RC.Abort(end-2:end));
+                % Release the hold on every third consecutive abort, not on
+                % every abort after the third: testing only the last three
+                % trials stays true for the whole run, so the delay would
+                % move on each trial once a subject passed three aborts.
+                % Counting the run modulo 3 restarts the count at each
+                % release, so the new delay is itself held for two more.
+                lastNonAbort = find(~RC.Abort, 1, 'last');
+                if isempty(lastNonAbort), lastNonAbort = 0; end
+                nConsecutiveAborts = numel(RC.Abort) - lastNonAbort;
+                tooManyAborts = mod(nConsecutiveAborts, 3) == 0;
 
                 if ~isfield(obj.P.StimDelay.UserData, 'CORRECTVAL')
                     obj.P.StimDelay.UserData.CORRECTVAL = [];

@@ -81,6 +81,15 @@ classdef PhaseSelector < handle
         LastLoadedTime (1,1) datetime = NaT   % Time the most recently loaded phase was loaded
     end
 
+    properties
+        % Re-dispatch each affected box's pending trial after a load that
+        % changed something, exactly as gui.components.RegenerateTrial does
+        % (without its arming). Without it the trial the rig is holding was
+        % dispatched with the PREVIOUS phase's values, and the new phase
+        % reached the hardware only at the next trial boundary.
+        RegenerateOnLoad (1,1) logical = true
+    end
+
 
     properties (Constant, Access = private)
         PREF_GROUP = 'epsych2_gui_PhaseSelector'
@@ -93,6 +102,12 @@ classdef PhaseSelector < handle
 
     properties (Access = private)
         LoadButtonDefaultColor % Load button's un-staged BackgroundColor, captured at creation
+
+        % Run mode, FOLLOWED from ModeChange rather than read: a behavior GUI
+        % is built before RunExpt broadcasts the run mode, and asking the
+        % interfaces would be a device round trip.
+        Mode_ = hw.DeviceState.Idle
+        ModeListener_ event.listener
     end
 
 
@@ -149,6 +164,18 @@ classdef PhaseSelector < handle
                 end
             end
             obj.PhasePath = PhasePath;
+
+            % A scripted runtime may have no EventHub; the component then
+            % never sees a run and so never regenerates.
+            if isa(RUNTIME, 'epsych.Runtime') && isvalid(RUNTIME) && ~isempty(RUNTIME.EVENTS)
+                obj.ModeListener_ = listener(RUNTIME.EVENTS, 'ModeChange', ...
+                    @(~,ev) obj.onModeChange_(ev));
+            end
+        end
+
+
+        function delete(obj)
+            delete(obj.ModeListener_)
         end
 
 
@@ -406,6 +433,8 @@ classdef PhaseSelector < handle
                 % trial record's job.
                 epsych.SessionNotes.log(obj.RUNTIME, 'Loaded phase "%s"; updated: %s', ...
                     phaseName, strjoin(cellstr(string({P.Name})), ', '));
+
+                obj.regenerateAfterLoad_(phaseName);
             end
 
             % Changes are applied -- closeDlg (onCleanup) dismisses the dialog on return.
@@ -633,6 +662,41 @@ classdef PhaseSelector < handle
 
 
     methods (Access = private)
+        function onModeChange_(obj, ev)
+            obj.Mode_ = ev.NewMode;
+        end
+
+
+        function regenerateAfterLoad_(obj, phaseName)
+            % regenerateAfterLoad_(obj, phaseName)
+            % Re-dispatch the pending trial of every box this load changed,
+            % so the phase reaches the hardware now rather than at the next
+            % trial boundary. Only during a run (Preview is a run too): over
+            % a stopped rig nothing reads what would be written. Boxes on a
+            % different protocol object are skipped, matching the recompile
+            % readParameters schedules -- their parameters were not touched.
+            %
+            % Like the button, this interrupts a trial in progress, and the
+            % session note is what records that it did.
+            if ~obj.RegenerateOnLoad, return, end
+            if ~any(obj.Mode_ == [hw.DeviceState.Preview, hw.DeviceState.Record]), return, end
+
+            R = obj.RUNTIME;
+            if ~isa(R, 'epsych.Runtime') || ~isvalid(R) || R.ReviewMode || ~isstruct(R.TRIALS)
+                return
+            end
+
+            reason = sprintf('phase "%s" loaded', phaseName);
+            for i = 1:numel(R.TRIALS)
+                if isfield(R.TRIALS, 'protocol') && isa(R.TRIALS(i).protocol, 'epsych.Protocol') ...
+                        && ~isempty(R.Protocol) && R.TRIALS(i).protocol ~= R.Protocol
+                    continue
+                end
+                gui.components.RegenerateTrial.redispatch(R, i, Reason = reason);
+            end
+        end
+
+
         function labels = versionLabels_(~, fullPaths, names)
             % labels = versionLabels_(fullPaths, names)
             % Decorate each phase name with the protocol version stored in its

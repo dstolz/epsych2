@@ -778,7 +778,13 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   before `RunExpt` broadcasts the mode; a review never arms it. Kept off the
   `gui.BehaviorBuilder` palette on purpose — that builder is for operators
   assembling a GUI without writing code, who should not get this button by
-  accident. Used by `cl_AppetitiveDetection_BehaviorGUI`, last in the
+  accident. The dispatch itself is the public static `redispatch` (no
+  arming, optional `Reason`), which `gui.components.PhaseSelector` calls
+  after every load that changed something during a run, so a loaded phase
+  reaches the held trial at once rather than at the next boundary — it
+  interrupts that trial exactly as a press would (`RegenerateOnLoad=false`
+  turns it off; `tmp/smoke_test_phaseselector_regenerate.m`). Used by
+  `cl_AppetitiveDetection_BehaviorGUI`, last in the
   trigger row and set apart from it; standing proof
   `tmp/smoke_test_regenerate_trial.m`
   (documentation/gui/gui_RegenerateTrial.md)

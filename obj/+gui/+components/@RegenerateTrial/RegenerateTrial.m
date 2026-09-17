@@ -172,6 +172,128 @@ classdef RegenerateTrial < handle
                 gui.ComponentSpecOption('name','SubjectIndex','inputType','numeric','defaultValue',1), ...
                 gui.ComponentSpecOption('name','Reselect','inputType','logical','defaultValue',false)];
         end
+
+        function tf = redispatch(RUNTIME, subjectIdx, options)
+            % tf = gui.components.RegenerateTrial.redispatch(RUNTIME, subjectIdx, ...)
+            % Dispatch one box's pending trial again, returning whether it
+            % went out. This is what the button does once armed, without the
+            % arming: it is shared with code that has already decided a
+            % regeneration is wanted (gui.components.PhaseSelector after a
+            % phase load), so the dispatch, the log line, and the session note
+            % cannot drift between the two. Everything in the class comment
+            % about interrupting the trial in progress applies.
+            %
+            % Refusals -- a review, no session, no compiled trials, a box not
+            % in the session, no trial selected yet -- are logged and return
+            % false rather than throwing.
+            %
+            % Options:
+            %   Reselect - re-run the trial selector first (default false).
+            %   Note     - write the regeneration into RUNTIME.NOTES (default true).
+            %   Reason   - why, for the log and the note. Empty means the
+            %              operator pressed the button.
+            arguments
+                RUNTIME
+                subjectIdx (1,1) double {mustBeInteger, mustBePositive}
+                options.Reselect (1,1) logical = false
+                options.Note (1,1) logical = true
+                options.Reason (1,1) string = ""
+            end
+
+            tf = false;
+            if ~gui.components.RegenerateTrial.canRedispatch_(RUNTIME, subjectIdx), return; end
+
+            R = RUNTIME;
+            i = subjectIdx;
+            fromID   = R.TRIALS(i).NextTrialID;
+            trialIdx = R.TRIALS(i).TrialIndex;
+
+            if options.Reselect
+                try
+                    R.TRIALS(i).NextTrialID = R.TRIALS(i).selector.selectNext(R.TRIALS(i));
+                catch ME
+                    vprintf(0, 1, ME);
+                    vprintf(0, 1, ['gui.components.RegenerateTrial: re-selection failed for box %d; ' ...
+                        'the trial was left as it was'], i);
+                    return
+                end
+            end
+
+            try
+                R.dispatchNextTrial(i);
+            catch ME
+                % A dispatch that throws part way has already fired ResetTrig
+                % and written some parameters, so the box is in neither the
+                % old trial nor the new one. Say so rather than reporting a
+                % clean failure.
+                vprintf(0, 1, ME);
+                vprintf(0, 1, ['gui.components.RegenerateTrial: dispatch failed part way for box %d; ' ...
+                    'the hardware may be holding a partly written trial'], i);
+                return
+            end
+
+            toID = R.TRIALS(i).NextTrialID;
+            tf = true;
+
+            if toID == fromID
+                what = sprintf('trial %d (row %d)', trialIdx, toID);
+            else
+                what = sprintf('trial %d (row %d -> %d)', trialIdx, fromID, toID);
+            end
+            if strlength(options.Reason) == 0
+                msg = sprintf('Operator regenerated %s', what);
+            else
+                msg = sprintf('Regenerated %s: %s', what, options.Reason);
+            end
+
+            % Level 1, not debug: a regeneration changes what a trial record
+            % means, and the log is where anyone reading the session back
+            % will look for it.
+            vprintf(1, 'gui.components.RegenerateTrial: %s on box %d', msg, i);
+
+            % The regenerated trial writes one DATA record like any other, so
+            % the note is the only place the intervention survives into the
+            % data file. Tagged with the subject, so on a multi-box rig it
+            % lands in the file of the animal it happened to.
+            if options.Note
+                notes = R.NOTES;
+                if ~isempty(notes) && isvalid(notes)
+                    notes.add(msg, Subject = i);
+                end
+            end
+        end
+    end
+
+    methods (Static, Access = private)
+        function tf = canRedispatch_(R, subjectIdx)
+            tf = false;
+
+            if ~isa(R, 'epsych.Runtime') || ~isvalid(R)
+                vprintf(1, 'gui.components.RegenerateTrial: no session to regenerate a trial for')
+                return
+            end
+            if R.ReviewMode
+                vprintf(1, ['gui.components.RegenerateTrial: ignored -- a review replays a finished ' ...
+                    'session and must not write to hardware'])
+                return
+            end
+            if isempty(R.TRIALS)
+                vprintf(1, 'gui.components.RegenerateTrial: the session has no compiled trials')
+                return
+            end
+            if numel(R.TRIALS) < subjectIdx
+                vprintf(1, 'gui.components.RegenerateTrial: box %d is not in this session (%d running)', ...
+                    subjectIdx, numel(R.TRIALS))
+                return
+            end
+            if isempty(R.TRIALS(subjectIdx).NextTrialID)
+                vprintf(1, ['gui.components.RegenerateTrial: box %d has no trial selected yet; ' ...
+                    'there is nothing to regenerate'], subjectIdx)
+                return
+            end
+
+            tf = true;
+        end
     end
 
     methods
@@ -306,50 +428,11 @@ classdef RegenerateTrial < handle
             tf = false;
             if ~obj.canRegenerate_(), return; end
 
-            R = obj.RUNTIME_;
-            i = obj.SubjectIndex;
-            fromID   = R.TRIALS(i).NextTrialID;
-            trialIdx = R.TRIALS(i).TrialIndex;
+            tf = gui.components.RegenerateTrial.redispatch(obj.RUNTIME_, obj.SubjectIndex, ...
+                Reselect = obj.Reselect, Note = obj.Note);
+            if ~tf, return; end
 
-            if obj.Reselect
-                try
-                    R.TRIALS(i).NextTrialID = R.TRIALS(i).selector.selectNext(R.TRIALS(i));
-                catch ME
-                    vprintf(0, 1, ME);
-                    vprintf(0, 1, ['gui.components.RegenerateTrial: re-selection failed for box %d; ' ...
-                        'the trial was left as it was'], i);
-                    return
-                end
-            end
-
-            try
-                R.dispatchNextTrial(i);
-            catch ME
-                % A dispatch that throws part way has already fired ResetTrig
-                % and written some parameters, so the box is in neither the
-                % old trial nor the new one. Say so rather than reporting a
-                % clean failure.
-                vprintf(0, 1, ME);
-                vprintf(0, 1, ['gui.components.RegenerateTrial: dispatch failed part way for box %d; ' ...
-                    'the hardware may be holding a partly written trial'], i);
-                return
-            end
-
-            toID = R.TRIALS(i).NextTrialID;
             obj.Count = obj.Count + 1;
-            tf = true;
-
-            % Level 1, not debug: this is an operator intervention that
-            % changes what a trial record means, and the log is where anyone
-            % reading the session back will look for it.
-            if toID == fromID
-                what = sprintf('trial %d (row %d)', trialIdx, toID);
-            else
-                what = sprintf('trial %d (row %d -> %d)', trialIdx, fromID, toID);
-            end
-            vprintf(1, 'gui.components.RegenerateTrial: operator regenerated %s on box %d', what, i);
-
-            obj.addNote_(what);
             notify(obj, 'TrialRegenerated');
         end
 
@@ -412,8 +495,9 @@ classdef RegenerateTrial < handle
         end
 
         function tf = canRegenerate_(obj)
+            % The session-side checks live in redispatch; these are the
+            % button's own.
             tf = false;
-            R = obj.RUNTIME_;
 
             if obj.ReviewMode_
                 vprintf(1, ['gui.components.RegenerateTrial: ignored -- a review replays a finished ' ...
@@ -429,39 +513,8 @@ classdef RegenerateTrial < handle
                     'before regenerating a trial'])
                 return
             end
-            if ~isa(R, 'epsych.Runtime') || ~isvalid(R)
-                vprintf(1, 'gui.components.RegenerateTrial: no session to regenerate a trial for')
-                return
-            end
-            if isempty(R.TRIALS)
-                vprintf(1, 'gui.components.RegenerateTrial: the session has no compiled trials')
-                return
-            end
-            if numel(R.TRIALS) < obj.SubjectIndex
-                vprintf(1, 'gui.components.RegenerateTrial: box %d is not in this session (%d running)', ...
-                    obj.SubjectIndex, numel(R.TRIALS))
-                return
-            end
-            if isempty(R.TRIALS(obj.SubjectIndex).NextTrialID)
-                vprintf(1, ['gui.components.RegenerateTrial: box %d has no trial selected yet; ' ...
-                    'there is nothing to regenerate'], obj.SubjectIndex)
-                return
-            end
 
             tf = true;
-        end
-
-        function addNote_(obj, what)
-            % The regenerated trial writes one DATA record like any other, so
-            % the note is the only place the intervention survives into the
-            % data file. Tagged with the subject, so on a multi-box rig it
-            % lands in the file of the animal it happened to.
-            if ~obj.Note, return; end
-
-            notes = obj.RUNTIME_.NOTES;
-            if isempty(notes) || ~isvalid(notes), return; end
-
-            notes.add(sprintf('Operator regenerated %s', what), Subject = obj.SubjectIndex);
         end
     end
 end

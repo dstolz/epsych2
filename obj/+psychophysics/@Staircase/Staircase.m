@@ -101,6 +101,8 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             'StimulusTrialIdx', [], ...
             'Threshold', [], ...
             'ThresholdStd', [], ...
+            'MinBlockThreshold', [], ...
+            'MinBlockReversals', [], ...
             'Weighted', [])  % Computed staircase outputs; Weighted only with ApplyWeightedCorrection
     end
 
@@ -188,8 +190,8 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 options.Plot (1,1) logical = false
                 options.PlotAxes = []
                 options.ExcludedTrials = []
-                options.ShowSteps (1,1) logical = true
-                options.ShowReversals (1,1) logical = true
+                options.ShowSteps (1,1) logical
+                options.ShowReversals (1,1) logical
             end
 
             obj = obj@psychophysics.Psych(RUNTIME, Parameter, ExcludedTrials=options.ExcludedTrials);
@@ -202,7 +204,12 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             end
 
             if options.Plot
-                obj.Plot(options.PlotAxes, ShowSteps=options.ShowSteps, ShowReversals=options.ShowReversals);
+                % Forward only what the caller stated (see Plot).
+                shown = rmfield(options, intersect(fieldnames(options), ...
+                    {'StimulusTrialType','CatchTrialType','StaircaseDirection', ...
+                    'Plot','PlotAxes','ExcludedTrials'}));
+                args = namedargs2cell(shown);
+                obj.Plot(options.PlotAxes, args{:});
             end
 
         end
@@ -249,17 +256,17 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             %   ShowReversals - Show reversal markers. The default is obj.ShowReversals.
             %
             % See documentation/psychophysics/psychophysics_Staircase.md for plotting workflows.
+            % ShowSteps/ShowReversals carry no arguments-block defaults, so a
+            % caller who did not state one can be told apart from one who
+            % did: the operator's saved choice fills in only the former.
             arguments
                 obj
                 ax = []
-                options.ShowSteps (1,1) logical = obj.ShowSteps
-                options.ShowReversals (1,1) logical = obj.ShowReversals
+                options.ShowSteps (1,1) logical
+                options.ShowReversals (1,1) logical
             end
 
             obj.disablePlot();
-
-            obj.ShowSteps = options.ShowSteps;
-            obj.ShowReversals = options.ShowReversals;
 
             if isempty(ax)
                 fig = uifigure('Name', sprintf('Staircase | %s', char(obj.ParameterName)));
@@ -276,6 +283,13 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             end
 
             obj.plotAxes_ = ax;
+
+            % Restored before the plot is enabled, so a changed threshold
+            % setting recomputes once without redrawing axes not yet set up.
+            obj.loadMenuPreferences_();
+            if isfield(options, 'ShowSteps'), obj.ShowSteps = options.ShowSteps; end
+            if isfield(options, 'ShowReversals'), obj.ShowReversals = options.ShowReversals; end
+
             obj.plotEnabled_ = true;
 
             obj.attachPlotDestructionListeners_();
@@ -442,6 +456,9 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
 
                 results.Threshold = obj.thresholdFromReversals_(thresholdValues);
                 results.ThresholdStd = std(thresholdValues);
+
+                [results.MinBlockThreshold, results.MinBlockReversals] = ...
+                    obj.minBlockThreshold_(s.stimValues(results.ReversalIdx));
             end
 
             obj.Results = results;
@@ -500,6 +517,38 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             end
         end
 
+        function [thr, span] = minBlockThreshold_(obj, reversalValues)
+            % The lowest threshold over every run of ThresholdFromLastNReversals
+            % consecutive reversals, and the reversal numbers [first last] of
+            % that run. The last-N threshold follows the track wherever it
+            % drifts late in a session (fatigue, satiety); this is the best
+            % the subject managed at any point. Blocks slide by one reversal,
+            % so a best stretch is not split across two fixed blocks. Empty
+            % until one whole block exists, since a partial block is not the
+            % same estimate. Blocks whose formula is undefined are skipped,
+            % and NaN reversal values are left to propagate into their block.
+            thr = [];
+            span = [];
+            n = obj.ThresholdFromLastNReversals;
+            numBlocks = numel(reversalValues) - n + 1;
+            if numBlocks < 1
+                return
+            end
+
+            blockThr = nan(1, numBlocks);
+            for k = 1:numBlocks
+                v = reversalValues(k:k+n-1);
+                if obj.ThresholdFormula == "Mean"
+                    blockThr(k) = mean(v);
+                elseif all(v >= 0)
+                    blockThr(k) = geomean(v);
+                end
+            end
+
+            [thr, k] = min(blockThr);   % min skips NaN; all-NaN returns NaN
+            span = [k, k + n - 1];
+        end
+
         function thr = thresholdFromReversals_(obj, values)
             % thr = thresholdFromReversals_(obj, values)
             % Combine reversal values into a threshold under ThresholdFormula.
@@ -538,6 +587,8 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             results.StimulusTrialIdx = [];
             results.Threshold = [];
             results.ThresholdStd = [];
+            results.MinBlockThreshold = [];
+            results.MinBlockReversals = [];
             results.Weighted = [];
         end
 
@@ -572,9 +623,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 StimulusTrialType  = obj.StimulusTrialType, ...
                 CatchTrialType     = obj.CatchTrialType, ...
                 StaircaseDirection = obj.StaircaseDirection, ...
-                ExcludedTrials     = obj.ExcludedTrials, ...
-                ShowSteps          = obj.ShowSteps, ...
-                ShowReversals      = obj.ShowReversals);
+                ExcludedTrials     = obj.ExcludedTrials);
 
             % The weighted-correction settings are analysis settings too: left
             % out, a pop-out would show the uncorrected threshold beside a
@@ -584,7 +633,8 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 'WeightedStepFieldYes','WeightedStepFieldNo', ...
                 'LineColor','StepColor','NeutralColor','ReversalColor', ...
                 'ThresholdColor','MarkerSize','StepMarkerSize', ...
-                'ReversalMarkerSize','Bits','BitColors'};
+                'ReversalMarkerSize','Bits','BitColors', ...
+                'ShowSteps','ShowReversals'};
             for k = 1:numel(props)
                 h.(props{k}) = obj.(props{k});
             end
@@ -597,6 +647,8 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             end
             h.refresh();
 
+            % The embedded plot's settings are the starting point; the
+            % pop-out's own saved menu choices, if any, then win in Plot.
             h.Plot(ax);
         end
 
@@ -626,6 +678,71 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         c = responseCodeColors_(obj, decodedResponses, mask)
         values = columnize_(obj, values)
         s = sessionVectors_(obj)
+
+        function name = menuPreferenceName_(obj)
+            % Preference name for the right-click menu choices: the hosting
+            % figure's Tag (else Name) and the tracked parameter, so two
+            % staircases in one GUI, or one staircase in two GUIs, keep
+            % their own settings. A pop-out window has its own Tag, so it
+            % never writes over the embedded plot's choices.
+            host = '';
+            f = obj.plotFigure_;
+            if ~isempty(f) && isvalid(f)
+                host = f.Tag;
+                if isempty(host), host = f.Name; end
+            end
+            if isempty(host), host = 'default'; end
+            name = matlab.lang.makeValidName(sprintf('%s_%s', host, char(obj.ParameterName)));
+        end
+
+        function loadMenuPreferences_(obj)
+            % Apply the operator's saved menu choices, recomputing once if a
+            % threshold setting changed. Only menu actions save, so a
+            % programmatic setting is never persisted.
+            try
+                name = obj.menuPreferenceName_();
+                if ~ispref(obj.MENU_PREF_GROUP, name), return; end
+                s = getpref(obj.MENU_PREF_GROUP, name);
+
+                oldN = obj.ThresholdFromLastNReversals;
+                oldFormula = obj.ThresholdFormula;
+                if isfield(s, 'ThresholdFromLastNReversals')
+                    obj.ThresholdFromLastNReversals = s.ThresholdFromLastNReversals;
+                end
+                if isfield(s, 'ThresholdFormula')
+                    obj.ThresholdFormula = s.ThresholdFormula;
+                end
+                if isfield(s, 'ShowSteps'), obj.ShowSteps = s.ShowSteps; end
+                if isfield(s, 'ShowReversals'), obj.ShowReversals = s.ShowReversals; end
+
+                if oldN ~= obj.ThresholdFromLastNReversals || oldFormula ~= obj.ThresholdFormula
+                    obj.refresh();
+                end
+            catch ME
+                vprintf(2, 'Staircase %s: saved menu preferences not applied: %s', ...
+                    char(obj.ParameterName), ME.message);
+            end
+        end
+
+        function saveMenuPreferences_(obj)
+            % Persist the right-click menu choices; called by the menu
+            % callbacks in createPlotContextMenu_.
+            try
+                s = struct( ...
+                    'ThresholdFromLastNReversals', obj.ThresholdFromLastNReversals, ...
+                    'ThresholdFormula', char(obj.ThresholdFormula), ...
+                    'ShowSteps', obj.ShowSteps, ...
+                    'ShowReversals', obj.ShowReversals);
+                setpref(obj.MENU_PREF_GROUP, obj.menuPreferenceName_(), s);
+            catch ME
+                vprintf(2, 'Staircase %s: menu preferences not saved: %s', ...
+                    char(obj.ParameterName), ME.message);
+            end
+        end
+    end
+
+    properties (Constant, Access = private)
+        MENU_PREF_GROUP = 'epsych2_psychophysics_Staircase'
     end
 
 

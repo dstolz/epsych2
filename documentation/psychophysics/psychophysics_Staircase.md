@@ -285,6 +285,13 @@ reviewing a session: **Threshold Reversals**, **Threshold Formula**, **Show Step
 **Show Reversals**. Values are plotted and analyzed in the parameter's own units; a quantity
 wanted in dB is recorded in dB, as `cl_AppetitiveStimDetect` records `Depth`.
 
+Choices made from that menu are **remembered across sessions** (preference group
+`epsych2_psychophysics_Staircase`), keyed by the hosting figure's Tag (else Name) and the
+tracked parameter, and restored when `Plot` attaches to axes. Only menu actions save, so
+setting the properties from code is never persisted; a `ShowSteps`/`ShowReversals` passed
+explicitly to `Plot` or the constructor still wins over the saved choice. A pop-out window
+has its own Tag, so it remembers its own choices without overwriting the embedded plot's.
+
 The same menu offers **Open in Separate Window** (`S.popOut()`), which plots the staircase
 larger in a window of its own. That window holds a *second* `psychophysics.Staircase` over the
 same trials — the settings above are analysis settings, so a shared object would make changing
@@ -325,6 +332,13 @@ If at least one reversal is available, the class uses the most recent `Threshold
 
 - `Results.Threshold` with either `mean` or `geomean` (`NaN` when a geometric mean is asked of negative values)
 - `Results.ThresholdStd` with `std`
+
+Once at least `ThresholdFromLastNReversals` reversals exist, the same formula is also applied to every run of that many *consecutive* reversals (a window sliding by one reversal), and the lowest is kept:
+
+- `Results.MinBlockThreshold` — the minimum block threshold, the best the subject managed at any point in the session, where `Results.Threshold` follows the track wherever it drifts late in a session
+- `Results.MinBlockReversals` — `[first last]` reversal numbers of that block
+
+The plot title shows it beside the current estimate, e.g. `Threshold (6/6 rev): -14.00 (min -16.40)`. Both are empty until one whole block exists, and neither is computed under `ApplyWeightedCorrection`.
 
 ## Examples
 

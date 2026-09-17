@@ -57,6 +57,7 @@ end
 function setReversalCount(obj, parentMenu, n)
     obj.ThresholdFromLastNReversals = n;
     obj.refresh();
+    obj.saveMenuPreferences_();
     updateReversalChecks(parentMenu, n);
 end
 
@@ -72,6 +73,7 @@ function customReversalCount(obj, parentMenu)
     end
     obj.ThresholdFromLastNReversals = n;
     obj.refresh();
+    obj.saveMenuPreferences_();
     updateReversalChecks(parentMenu, n);
 end
 
@@ -89,6 +91,7 @@ end
 function setFormula(obj, parentMenu, formula)
     obj.ThresholdFormula = formula;
     obj.refresh();
+    obj.saveMenuPreferences_();
     formulaMap = struct('Mean', 'Mean', 'GeometricMean', 'Geometric Mean');
     activeText = formulaMap.(char(formula));
     for k = 1:numel(parentMenu.Children)
@@ -101,10 +104,12 @@ function toggleShowSteps(obj, src)
     obj.ShowSteps = ~obj.ShowSteps;
     src.Checked = matlab.lang.OnOffSwitchState(obj.ShowSteps);
     obj.updatePlot_();
+    obj.saveMenuPreferences_();
 end
 
 function toggleShowReversals(obj, src)
     obj.ShowReversals = ~obj.ShowReversals;
     src.Checked = matlab.lang.OnOffSwitchState(obj.ShowReversals);
     obj.updatePlot_();
+    obj.saveMenuPreferences_();
 end

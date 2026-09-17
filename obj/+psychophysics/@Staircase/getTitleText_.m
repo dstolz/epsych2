@@ -64,6 +64,11 @@ if ~isempty(obj.Results.Threshold)
         else
             titleParts{end+1} = sprintf('Threshold: %.2f', threshold);
         end
+
+        minBlock = obj.Results.MinBlockThreshold;
+        if isscalar(minBlock) && isfinite(minBlock)
+            titleParts{end} = sprintf('%s (min %.2f)', titleParts{end}, minBlock);
+        end
     end
 end
 

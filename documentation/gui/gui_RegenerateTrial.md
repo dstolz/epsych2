@@ -128,6 +128,25 @@ h.regenerate();     % the button's own callback; returns whether it went out
 One button drives one box. A multi-box rig wants one per box, each with its
 own `SubjectIndex`.
 
+### Without the button: `redispatch`
+
+The dispatch itself — the refusals, `Reselect`, the log line and the session
+note — is the public static `gui.components.RegenerateTrial.redispatch`, and
+`regenerate` is the arming gate plus `Count` and `TrialRegenerated` around it.
+It is for code that has already decided a regeneration is wanted, so it has
+no arming, no mode check, and no button:
+
+```matlab
+tf = gui.components.RegenerateTrial.redispatch(RUNTIME, 1, ...
+    Reason = 'phase "Detection" loaded');   % note: "Regenerated trial 12 (row 3): phase ..."
+```
+
+`Reason` goes into the log and the note; left empty, the note reads
+`Operator regenerated ...` as a button press always has. Its first caller is
+[`gui.components.PhaseSelector`](PhaseSelector.md), which regenerates the
+pending trial after every load that changed something during a run —
+everything under *It interrupts the trial in progress* applies there too.
+
 ## Options
 
 | Option | Default | Meaning |
@@ -222,6 +241,10 @@ arming survives a neighbour assigning the figure callbacks outright after
 `build` (re-claimed on `ModeChange`, with the neighbour chained), that a
 chained handler which throws breaks neither arming nor disarming, and that
 two standalone buttons on one figure share one dispatcher without recursing.
+
+`tmp/smoke_test_phaseselector_regenerate.m` covers `redispatch` through its
+phase-load caller, and group 6 re-checks that the button's own press and note
+wording are unchanged by going through it.
 
 ## See also
 

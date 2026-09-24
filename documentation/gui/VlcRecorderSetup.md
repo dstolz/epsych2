@@ -49,7 +49,7 @@ Dragging the rectangle updates the four spinners live; the values are only marke
 
 ### Device-name mapping
 
-The device dropdown (editable) is populated from the union of `hw.VlcRecorder.listDevices()` (PnP `FriendlyName`s — what VLC's `--dshow-vdev` matches) and `webcamlist` (what the MATLAB preview can open). These are usually identical. If the selected recording device can't be matched to a `webcamlist` entry, the preview opens the first available camera instead and shows a status warning; the committed `DeviceName` is unaffected.
+The device dropdown (editable) is populated from the union of `hw.VlcRecorder.listDevices()` (PnP `FriendlyName`s — what VLC's `--dshow-vdev` matches) and `webcamlist` (what the MATLAB preview can open). These are usually identical. When the recorder has no `DeviceName` (or still carries the old `Integrated Camera` default and no camera by that name exists), the dropdown opens on the first camera found — the one `hw.VlcRecorder.chooseDevice` would launch with — and **Apply** commits it. The name committed must be a camera present on the machine: VLC fails to open `dshow://` for any other. If the selected recording device can't be matched to a `webcamlist` entry, the preview opens the first available camera instead and shows a status warning; the committed `DeviceName` is unaffected.
 
 ### Resolution and Apply
 

@@ -14,7 +14,13 @@ The interface exposes configurable parameters and trigger-style controls. Intern
 
 Configured with `set_parameter` and read with `get_parameter`.
 
-- `DeviceName` (String): DirectShow camera device name.
+- `DeviceName` (String): DirectShow camera device name. **It must match a
+  camera present on the machine exactly** — VLC otherwise fails with *"The
+  device you selected cannot be used, because its type is not supported"*
+  followed by *"VLC is unable to open the MRL 'dshow://'"*. Default `''`: at
+  launch the recorder uses the first camera Windows reports
+  (`hw.VlcRecorder.listDevices()`) and logs which one. See
+  [Selecting the camera](#selecting-the-camera).
 - `VlcExePath` (String): full path to `vlc.exe`.
 - `MediaFile` (String): VLC media URI (default `dshow://`).
 - `RecordingFile` (File): output path; empty means preview-only.
@@ -176,6 +182,38 @@ rec.disconnect();
 ```
 
 `connect` creates module parameters/triggers through `setup_interface`. `disconnect` ensures VLC is stopped.
+
+## Selecting the camera
+
+VLC matches `--dshow-vdev` against the DirectShow names of the cameras actually
+attached, so a `DeviceName` naming anything else — a camera that was unplugged
+or swapped, or a name carried over from another machine — ends the launch with
+VLC's *"Capture failed"* dialog. Pick the camera in **Utilities > Video > Webcam
+Recorder Setup** and press **Apply**; that writes the name to the
+`ep_RunExpt_Video` preference group, which `epsych.RunExpt` reads for every
+later session.
+
+An **unset** name is filled in automatically. `launchVlc_` calls
+`resolveDeviceName_`, which replaces an empty `DeviceName` with the first camera
+`listDevices()` returns and logs the choice at level 1. The rule itself is the
+static `hw.VlcRecorder.chooseDevice(configured, devices)`:
+
+- a name the operator chose is **never** replaced, present or not — silently
+  recording a different camera is worse than a launch that fails and says why;
+  `selfTest` (Invasive) is what reports a configured name that is absent;
+- `''` becomes the first device;
+- `LEGACY_DEFAULT_DEVICE` (`"Integrated Camera"`, the default before it became
+  `''`) is treated as unset **unless** a camera by that name is present, so a
+  protocol or preference still carrying the old default does not keep failing;
+- with no devices enumerated, the name is left as it is and VLC tries its own
+  default.
+
+Enumeration is a PowerShell call (~1 s), so it runs only when the name is unset,
+and the choice is kept on the object: later relaunches, `StartRecord` among
+them, do not repeat it. On a rig with more than one camera the first one found
+may not be the one aimed at the subject — select it explicitly.
+
+`gui.VlcRecorderSetup` opens on the same camera `chooseDevice` would pick.
 
 ## Device Selection Helper
 

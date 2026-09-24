@@ -504,7 +504,11 @@ classdef VlcRecorderSetup < handle
             if obj.DeviceListInitialized_
                 wanted = char(obj.DeviceDropDown.Value);
             else
-                wanted = char(obj.Recorder.get_parameter('DeviceName'));
+                % An unset (or legacy default) name opens on the first camera
+                % found -- normally the one the recorder would launch with --
+                % rather than on a name that matches no device.
+                wanted = char(hw.VlcRecorder.chooseDevice( ...
+                    obj.Recorder.get_parameter('DeviceName'), names));
                 obj.DeviceListInitialized_ = true;
             end
 

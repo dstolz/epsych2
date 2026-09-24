@@ -104,6 +104,15 @@ if isempty(ridx)
     return
 end
 
+% ReversalIdx names the FIRST stimulus trial at the extremum, but an abort or
+% a held trial can share that value; the reversal belongs to the response that
+% moved the staircase off it, so the marker goes on the last Hit or Miss in
+% that run of equal values, and is dropped when the run has none.
+ridx = obj.columnize_(reversalMarkerTrials_(ridx, trialValue, stimMask, s.decoded));
+keep = ~isnan(ridx);
+ridx = ridx(keep);
+rdir = rdir(keep);
+
 upMask = rdir > 0;
 if any(upMask)
     plotData.revUp.x = trialIndex(ridx(upMask));
@@ -114,4 +123,31 @@ downMask = rdir < 0;
 if any(downMask)
     plotData.revDown.x = trialIndex(ridx(downMask));
     plotData.revDown.y = trialValue(ridx(downMask));
+end
+end
+
+
+function markIdx = reversalMarkerTrials_(ridx, trialValue, stimMask, decoded)
+% markIdx = reversalMarkerTrials_(ridx, trialValue, stimMask, decoded)
+% Trial to draw each reversal marker on; NaN where no Hit/Miss is available.
+markIdx = nan(size(ridx));
+if isempty(decoded) || numel(decoded.Hit) ~= numel(trialValue)
+    return
+end
+scored = reshape((decoded.Hit | decoded.Miss) & ~decoded.Abort, [], 1);
+stimIdx = find(stimMask);
+for k = 1:numel(ridx)
+    j = find(stimIdx == ridx(k), 1);
+    if isempty(j), continue; end
+    v = trialValue(ridx(k));
+    last = j;
+    while last < numel(stimIdx) && trialValue(stimIdx(last + 1)) == v
+        last = last + 1;
+    end
+    plateau = stimIdx(j:last);
+    plateau = plateau(scored(plateau));
+    if ~isempty(plateau)
+        markIdx(k) = plateau(end);
+    end
+end
 end

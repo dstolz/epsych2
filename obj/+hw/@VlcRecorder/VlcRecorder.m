@@ -17,8 +17,10 @@ classdef VlcRecorder < hw.Interface
     % by this object is ever touched.
     %
     % Parameters exposed (via all_parameters):
-    %   DeviceName    - (String, Any)  DirectShow video device name.
-    %                                  Default: 'Integrated Camera'.
+    %   DeviceName    - (String, Any)  DirectShow video device name. It must
+    %                                  match a camera present on this machine.
+    %                                  Default: '' -- the first camera Windows
+    %                                  reports is used at launch.
     %   VlcExePath    - (String, Any)  Path to vlc.exe. Auto-detected from the
     %                                  standard install locations when possible.
     %   RecordingFile - (File, Any)    Output file path. Leave empty for display
@@ -128,6 +130,12 @@ classdef VlcRecorder < hw.Interface
         % filter takes one type, so rotating AND flipping is not offered: the
         % eight values are every orientation VLC can produce.
         TRANSFORMS = {'none','90','180','270','hflip','vflip','transpose','antitranspose'}
+
+        % The DeviceName default before it became ''. It names one laptop's
+        % built-in camera, so a protocol or preference that still carries it
+        % almost never names a real device; chooseDevice treats it as unset
+        % unless a camera by that name is actually present.
+        LEGACY_DEFAULT_DEVICE = "Integrated Camera"
     end
 
     properties (SetObservable, AbortSet)
@@ -136,7 +144,8 @@ classdef VlcRecorder < hw.Interface
 
     properties (Access = private)
         vlcExePath_    (1,1) string = ""                   % path to vlc.exe; auto-detected when empty
-        deviceName_    (1,1) string = "Integrated Camera"  % DirectShow video device name
+        deviceName_    (1,1) string = ""                   % DirectShow video device name; "" = first found
+        deviceResolved_ (1,1) logical = false              % deviceName_ already checked against the enumerated cameras
         recordingFile_ (1,1) string = ""                   % output file path; empty = display only
         mediaUri_      (1,1) string = "dshow://"           % media URI for VLC
         displayBanner_ (1,1) string = ""                   % display-only overlay/title text; "" = none
@@ -271,6 +280,7 @@ classdef VlcRecorder < hw.Interface
             switch paramName
                 case 'DeviceName'
                     obj.deviceName_ = string(value);
+                    obj.deviceResolved_ = false;
                     vprintf(3, 'hw.VlcRecorder: DeviceName = "%s"', char(value));
 
                 case 'VlcExePath'
@@ -554,7 +564,7 @@ classdef VlcRecorder < hw.Interface
             % Camera selection
             if strlength(strtrim(obj.deviceName_)) == 0
                 results(end+1) = hw.Interface.selfTestResult('Capture device', 'warn', ...
-                    'No DeviceName configured; VLC will fall back to its default camera.', ...
+                    'No DeviceName configured; the first camera Windows reports will be used at launch.', ...
                     Remedy = "Pick a camera in Utilities > Video > Webcam Recorder Setup.");
             else
                 results(end+1) = hw.Interface.selfTestResult('Capture device', 'pass', ...
@@ -575,7 +585,14 @@ classdef VlcRecorder < hw.Interface
             end
 
             detail = "Available: " + string(devices(:).');
-            if strlength(strtrim(obj.deviceName_)) > 0 && ~any(strcmpi(devices, char(obj.deviceName_)))
+            configured = strtrim(obj.deviceName_);
+            chosen = hw.VlcRecorder.chooseDevice(configured, devices);
+            if chosen ~= configured
+                results(end+1) = hw.Interface.selfTestResult('Device enumeration', 'warn', ...
+                    sprintf('No camera selected; VLC will use the first one found, "%s".', chosen), ...
+                    Detail = detail, ...
+                    Remedy = "Select the camera in Utilities > Video > Webcam Recorder Setup if this is not the right one.");
+            elseif strlength(configured) > 0 && ~any(strcmpi(devices, char(configured)))
                 results(end+1) = hw.Interface.selfTestResult('Device enumeration', 'fail', ...
                     sprintf('Configured device "%s" is not among the %d device(s) present.', ...
                     obj.deviceName_, numel(devices)), ...
@@ -724,6 +741,27 @@ classdef VlcRecorder < hw.Interface
                     exePath = string(lines{1});
                 end
             end
+        end
+
+        function name = chooseDevice(configured, devices)
+            % name = hw.VlcRecorder.chooseDevice(configured, devices)
+            % The camera to use given a configured DeviceName and the
+            % enumerated devices (hw.VlcRecorder.listDevices). A configured
+            % name is kept as-is, present or not; an empty one, or
+            % LEGACY_DEFAULT_DEVICE when no camera by that name exists,
+            % becomes the first device. With no devices the configured name
+            % is returned unchanged.
+            % Returns:
+            %   name - string scalar.
+            name = strtrim(string(configured));
+            if isempty(devices)
+                return
+            end
+            if strlength(name) > 0 && (name ~= hw.VlcRecorder.LEGACY_DEFAULT_DEVICE ...
+                    || any(strcmpi(devices, name)))
+                return
+            end
+            name = string(devices{1});
         end
 
         function devices = listDevices()
@@ -1001,6 +1039,8 @@ classdef VlcRecorder < hw.Interface
                 obj.vlcExePath_ = exe;
             end
 
+            obj.resolveDeviceName_();
+
             obj.rcPort_ = obj.pickFreePort_();
             [argStr, recording] = obj.buildVlcArgs_();
 
@@ -1023,6 +1063,41 @@ classdef VlcRecorder < hw.Interface
             obj.isRecording_ = recording;
             vprintf(2, 'hw.VlcRecorder: VLC launched (PID %d), recording=%d', double(proc.Id), recording);
             ok = true;
+        end
+
+        function resolveDeviceName_(obj)
+            % resolveDeviceName_()
+            % Replace an unset DeviceName with the first camera Windows
+            % reports. VLC fails with "The device you selected cannot be
+            % used" for a name that matches no camera, so a default that
+            % names nobody's device is no default at all. Enumeration
+            % (a PowerShell call, ~1 s) runs only when the name is unset,
+            % and the choice is kept, so later relaunches -- StartRecord
+            % among them -- pay nothing. A name the operator chose is never
+            % replaced: silently recording a different camera is worse than
+            % a launch that fails and says why.
+            configured = strtrim(obj.deviceName_);
+            if obj.deviceResolved_ || (strlength(configured) > 0 ...
+                    && configured ~= hw.VlcRecorder.LEGACY_DEFAULT_DEVICE)
+                return
+            end
+
+            devices = hw.VlcRecorder.listDevices();
+            chosen = hw.VlcRecorder.chooseDevice(configured, devices);
+            if isempty(devices)
+                % Not marked resolved: the next launch enumerates again, in
+                % case the camera was plugged in meanwhile.
+                vprintf(0, 1, ['hw.VlcRecorder: no camera selected and none found by enumeration; ' ...
+                    'VLC will try its default device. Select a camera in Webcam Recorder Setup.']);
+                return
+            end
+            obj.deviceResolved_ = true;
+            if chosen ~= configured
+                obj.deviceName_ = chosen;
+                vprintf(1, ['hw.VlcRecorder: no camera selected; using the first one found, "%s" ' ...
+                    '(%d available). Select a camera in Webcam Recorder Setup to fix the choice.'], ...
+                    char(chosen), numel(devices));
+            end
         end
 
         function [argStr, recording] = buildVlcArgs_(obj)

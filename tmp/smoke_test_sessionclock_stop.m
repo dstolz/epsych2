@@ -1,9 +1,9 @@
 function smoke_test_sessionclock_stop()
 % smoke_test_sessionclock_stop()
 % Exercise gui.components.SessionClock against the run-mode broadcasts a
-% session makes: a stop holds the three elapsed readouts at the instant the
-% session ended, a pause does not, a run releases the hold, and the widget
-% stops ticking once nothing on it can change. Also checks that the host's
+% session makes: a stop holds every readout, computer time included, at the
+% instant the session ended and stops the refresh timer, a pause does not,
+% and a run releases the hold. Also checks that the host's
 % own stop() outranks the run mode.
 %
 % Uses an invisible uifigure and a bare epsych.EventHub; no hardware.
@@ -64,21 +64,22 @@ assert(isequal(held, elapsedLines(c)), ...
 fprintf('PASS: a stop holds the elapsed readouts at the end of the session\n');
 
 
-% 3. The wall clock is never held -----------------------------------------
-% Freezing the computer time would simply be wrong, so the widget keeps
-% ticking after a stop while that line is shown.
-assert(strcmp(T.Running,'on'), 'the computer time still moves, so the timer should still run');
-assertAdvances(c, 'ClockTime', 'the computer time should keep updating after a stop');
-
-% ... and with that line hidden there is nothing left to redraw.
+% 3. The computer time stops too ------------------------------------------
+% It reads when the session ended, so nothing on the widget moves and the
+% refresh timer has nothing left to do -- whether or not the line is shown.
+assert(strcmp(T.Running,'off'), 'a stopped session should stop the refresh timer');
+clockHeld = lineText(c, 'ClockTime');
+pause(1.3)
+assert(strcmp(clockHeld, lineText(c,'ClockTime')), ...
+    'the computer time should hold at the stop instant');
 c.ShowClockTime = false;
 c.refresh();
-assert(strcmp(T.Running,'off'), ...
-    'a stopped session with no live line should stop the refresh timer');
 c.ShowClockTime = true;
 c.refresh();
-assert(strcmp(T.Running,'on'), 'showing the computer time again should resume ticking');
-fprintf('PASS: the computer time keeps running; the timer stops when nothing moves\n');
+assert(strcmp(T.Running,'off'), 'toggling the computer time must not restart a stopped clock');
+assert(strcmp(clockHeld, lineText(c,'ClockTime')), ...
+    'a redraw after the stop must still show the stop instant');
+fprintf('PASS: the computer time holds at the stop and the timer stops\n');
 
 
 % 4. A trial arriving after the stop is ignored ---------------------------

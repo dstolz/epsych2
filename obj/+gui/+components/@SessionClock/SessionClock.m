@@ -19,16 +19,15 @@ classdef SessionClock < handle
     % read from across the room gets it back next session. Unlike the Show*
     % properties, a font change applies immediately.
     %
-    % The elapsed readouts STOP with the session. attachRuntime wires a
-    % ModeChange listener, and the first terminal mode (Stop, Idle or Error —
-    % RunExpt broadcasts Stop the moment the operator presses it, ep_TimerFcn_Stop
-    % Idle just after) holds all three durations at that instant, so the clock
-    % reports how long the session ran rather than how long ago it was. A Pause
-    % is not a stop: wall time passes and the readouts keep counting. Record or
-    % Preview releases the hold, which is what lets one clock survive a
-    % stop-and-rerun. The computer time is never held — a frozen wall clock
-    % would simply be wrong — so the widget keeps ticking after a stop only
-    % while that line is shown.
+    % Every readout STOPS with the session. attachRuntime wires a ModeChange
+    % listener, and the first terminal mode (Stop, Idle or Error — RunExpt
+    % broadcasts Stop the moment the operator presses it, ep_TimerFcn_Stop
+    % Idle just after) holds all four lines at that instant: the three
+    % durations report how long the session ran rather than how long ago it
+    % was, and the computer time reads when it ended. With nothing left to
+    % move, the refresh timer stops too. A Pause is not a stop: wall time
+    % passes and the readouts keep counting. Record or Preview releases the
+    % hold, which is what lets one clock survive a stop-and-rerun.
     %
     % Usage (inside a gui.BehaviorGUI build(fig)):
     %   c = gui.components.SessionClock(parent);
@@ -243,7 +242,8 @@ classdef SessionClock < handle
 
         function sessionStopped(obj, when)
             % obj.sessionStopped(when)
-            % Hold every elapsed readout at the instant the session ended.
+            % Hold every readout, computer time included, at the instant the
+            % session ended, and stop the refresh timer.
             % Normally the ModeChange listener calls this; a paradigm that ends
             % a run some other way can call it by hand.
             %   when - the stop instant. Default now.
@@ -437,7 +437,9 @@ classdef SessionClock < handle
                 end
 
                 if strcmp(L.Key, 'ClockTime')
-                    lbl.Text = [L.Prefix char(datetime('now', 'Format', 'HH:mm:ss'))];
+                    t = obj.elapsedReference_();
+                    t.Format = 'HH:mm:ss';
+                    lbl.Text = [L.Prefix char(t)];
                 else
                     lbl.Text = obj.formatLine_(L.Prefix, timeSource.(L.Key));
                 end
@@ -455,13 +457,12 @@ classdef SessionClock < handle
 
         function applyTickRequirement_(obj)
             % Run the refresh timer only while something on the widget can
-            % change. Once the elapsed lines are held, the computer time is
-            % the only line still moving, so a stopped session with that line
-            % hidden needs no timer at all -- and toggling the line back on
+            % change. A stopped session holds every line, computer time
+            % included, so it needs no timer at all; a run releasing the hold
             % starts one again, since every path through updateDisplay_ ends
             % here. Stopping from inside the timer's own callback is allowed.
             if isempty(obj.Timer_) || ~isvalid(obj.Timer_), return; end
-            want = obj.Started_ && (~obj.IsStopped || obj.ShowClockTime);
+            want = obj.Started_ && ~obj.IsStopped;
             if want && ~obj.isTicking_()
                 obj.Timer_.Period = obj.UpdatePeriod;
                 start(obj.Timer_);
@@ -566,9 +567,10 @@ classdef SessionClock < handle
 
         function t = elapsedReference_(obj)
             % t = elapsedReference_(obj)
-            % The instant elapsed times are measured to: the moment the session
+            % The instant every line is measured to: the moment the session
             % stopped, once it has, so the durations report how long the
-            % session ran rather than counting on into the night.
+            % session ran rather than counting on into the night, and the
+            % computer time reads when it ended.
             if obj.IsStopped
                 t = obj.StopTime_;
             else

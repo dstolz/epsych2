@@ -39,9 +39,11 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
     % value. Those feed an epsych.BlockSequence indexed by the selector, so
     % every delay appears exactly its share within each block instead of
     % merely on average -- which is what StimDelay.isRandom's randi([Min Max])
-    % could not do. isRandom is consequently held FALSE for the whole session:
-    % it redraws inside set.Value on dispatch and would throw the balanced
-    % value away. cl_AppetitiveDetection_BehaviorGUI exposes the switch as the
+    % could not do. No two consecutive delays come from the same list value,
+    % across a block boundary or a mid-session edit included; a
+    % repeat-on-abort is the one deliberate exception. isRandom is held
+    % FALSE for the whole session: it redraws inside set.Value on dispatch
+    % and would throw the balanced value away. cl_AppetitiveDetection_BehaviorGUI exposes the switch as the
     % "Randomize Stimulus Delay" checkbox over StimDelayBlockEnabled, which
     % the selector creates when the protocol does not declare it.
     %
@@ -981,16 +983,25 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             end
             if isequaln(spec, obj.stimDelaySpec_), return; end
 
+            % No two consecutive delays from the same list value. A block
+            % holds each value once, so this only binds at a block boundary,
+            % where one boundary in numel(v) would otherwise repeat. A
+            % one-value list has nothing to alternate with, and BlockSequence
+            % refuses a run cap it cannot satisfy.
+            maxRun = Inf;
+            if numel(v) > 1, maxRun = 1; end
+
             if isempty(obj.stimDelaySeq_)
                 % ValueLimits mirrors the clamp hw.Parameter applies on
                 % dispatch, so the sequence's own record matches what the
                 % hardware is actually given. JitterQuantum keeps delays on
                 % whole milliseconds, as the randi path produced.
                 obj.stimDelaySeq_ = epsych.BlockSequence(v, ...
-                    Jitter        = j, ...
-                    JitterQuantum = 1, ...
-                    ValueLimits   = lim, ...
-                    Label         = "StimDelay");
+                    Jitter         = j, ...
+                    JitterQuantum  = 1, ...
+                    ValueLimits    = lim, ...
+                    MaxConsecutive = maxRun, ...
+                    Label          = "StimDelay");
                 obj.stimDelaySpec_ = spec;
 
                 if ~obj.stimDelaySeq_.IsValid
@@ -1016,6 +1027,7 @@ classdef cl_AppetitiveStimDetect < epsych.TrialSelector
             % lookup-table swap, so retuning the values keeps the ordering.
             obj.stimDelaySeq_.ValueLimits = lim;
             obj.stimDelaySeq_.Jitter = j;
+            obj.stimDelaySeq_.MaxConsecutive = maxRun;
             obj.stimDelaySeq_.Values = v;
             obj.stimDelaySpec_ = spec;
 

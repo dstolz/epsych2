@@ -121,6 +121,21 @@ assertNear(seq, round(seq), 'JitterQuantum should keep delays on whole milliseco
 fprintf('PASS: jitter is applied, symmetric, and quantized to whole ms\n');
 
 
+% 3b. No two consecutive delays from the same list value --------------------
+% A block holds each value once, so a repeat can only happen where one block
+% ends and the next begins -- about one boundary in four here, before the
+% run cap. Jitter moves the value, not the bin, so the bin is compared.
+% Fifty boundaries: an unconstrained sequence passes by luck ~1e-6 of the time.
+[rt,TRIALS] = makeRuntime(tmpDir, 1000, 4000, 1000, 25);
+delayCol = TRIALS.writeParamIdx.StimDelay;
+[~,delays] = runTrials(rt, TRIALS, repmat({'Hit'},1,200), delayCol);
+bin = interp1(LIST, LIST, delays, 'nearest', 'extrap');
+rep = find(bin(2:end) == bin(1:end-1), 1);
+assert(isempty(rep), 'trials %d and %d both drew the %g ms delay (%g, %g)', ...
+    rep, rep+1, bin(rep), delays(rep), delays(rep+1));
+fprintf('PASS: consecutive delays never come from the same list value\n');
+
+
 % 4. Repeat-on-abort holds the delay, three aborts release it ---------------
 % Under the block sequence a repeat is a held index, so the repeated delay is
 % identical down to the jitter -- there is no value to stash and no
@@ -259,6 +274,11 @@ assert(all(ismember(after(end-3:end), 2000:1000:5000)), ...
     'after the edit the delays should come from the new list (got %s)', mat2str(after(end-3:end)));
 assert(all(ismember(before, 1000:1000:4000)), ...
     'the delays already delivered must not be rewritten');
+% The two lists share 2000-4000, so the regenerated sequence could open on
+% the delay just delivered unless the splice is held to the same rule.
+both = [before after];
+assert(~any(both(2:end) == both(1:end-1)), ...
+    'the edit put the same delay on two consecutive trials (%s)', mat2str(both));
 fprintf('PASS: a mid-session list edit takes effect without rewriting history\n');
 
 

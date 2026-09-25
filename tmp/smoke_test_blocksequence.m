@@ -352,6 +352,87 @@ catch ME
     fprintf('FAIL: 19. %s\n', ME.message);
 end
 
+% 20. The run constraints hold across a mid-session rebuild -----------------
+% The first block after a rebuild used to be checked against nothing, so an
+% edit could open the new sequence on the value just delivered -- one splice
+% in numel(Values). Fifty seeds: an unconstrained splice passes ~1e-5 of the time.
+try
+    edits = { ...
+        {'Values', [1 2 3 4 5]}, ...     % length change: rebuild, not remap
+        {'Jitter', 10}, ...              % same values, rebuilt tail
+        {'Seed', 9999}};
+    for e = 1:numel(edits)
+        for seed = 1:50
+            s = epsych.BlockSequence([1 2 3 4], MaxConsecutive = 1, Seed = seed);
+            v = s.indexAt(1:10);
+            s.valueAt(1:10);                         % commit a partial block
+            s.(edits{e}{1}) = edits{e}{2};
+            assert(s.indexAt(11) ~= v(10), ...
+                'seed %d, %s edit: the splice repeated the last delivered value %g', ...
+                seed, edits{e}{1}, v(10));
+        end
+    end
+
+    % NoRepeatAcrossBlocks is the same rule at the same seam.
+    for seed = 1:50
+        s = epsych.BlockSequence([1 2 3 4], NoRepeatAcrossBlocks = true, Seed = seed);
+        v = s.valueAt(1:4);
+        s.Values = [1 2 3 4 5];
+        assert(s.valueAt(5, Commit = false) ~= v(4), ...
+            'seed %d: NoRepeatAcrossBlocks ignored the delivered block', seed);
+    end
+    fprintf('PASS: 20. a rebuild honours the run constraints against delivered values\n');
+catch ME
+    failures{end+1} = sprintf('20. splice constraints: %s', ME.message);
+    fprintf('FAIL: 20. %s\n', ME.message);
+end
+
+% 21. A splice no block can satisfy degrades, not throws ---------------------
+% Delivered under no run cap, the prefix can end [1 1]; with MaxConsecutive =
+% 2 every block of [1 1 1 2] then starts with 1, so nothing may follow. A
+% throw here would leave a running session with no sequence at all.
+try
+    s = epsych.BlockSequence([1 2], Repeats = [3 1], Seed = 61, MinLength = 4);
+    v = s.valueAt(1:4, Commit = false);
+    k = find(v(1:end-1) == 1 & v(2:end) == 1, 1) + 1;   % 3 ones in 4 always pair up
+    s.valueAt(1:k);
+    s.MaxConsecutive = 2;
+    s.valueAt(k + 1, Commit = false);
+    assert(isequal(s.valueAt(1:k, Commit = false), v(1:k)), 'the degraded splice rewrote the prefix');
+    fprintf('PASS: 21. an unsatisfiable splice is left unconstrained rather than throwing\n');
+catch ME
+    failures{end+1} = sprintf('21. unsatisfiable splice: %s', ME.message);
+    fprintf('FAIL: 21. %s\n', ME.message);
+end
+
+% 22. A same-length remap is held to the run constraints too -----------------
+% A remap keeps positions, so moving the delivered value into the next slot
+% would repeat it. That edit must rebuild instead; one that moves nothing
+% onto the seam still remaps, ordering intact.
+try
+    for seed = 1:50
+        s = epsych.BlockSequence([10 20 30 40], MaxConsecutive = 1, Seed = seed);
+        s.valueAt(1:10);
+        p = s.indexAt(10);
+        q = s.indexAt(11);
+        vals = [10 20 30 40];
+        vals([p q]) = vals([q p]);           % slot q now holds the value just delivered
+        s.Values = vals;
+        assert(s.valueAt(11, Commit = false) ~= s.valueAt(10, Commit = false), ...
+            'seed %d: the remap repeated the delivered value', seed);
+    end
+
+    s = epsych.BlockSequence([10 20 30 40], MaxConsecutive = 1, Seed = 3);
+    s.valueAt(1:10);
+    ord = s.indexAt(11:60);
+    s.Values = [11 21 31 41];                % nothing collides with the delivered 10-40
+    assert(isequal(s.indexAt(11:60), ord), 'a harmless remap lost the ordering');
+    fprintf('PASS: 22. a remap that would repeat the delivered value rebuilds instead\n');
+catch ME
+    failures{end+1} = sprintf('22. remap seam: %s', ME.message);
+    fprintf('FAIL: 22. %s\n', ME.message);
+end
+
 % -------------------------------------------------------------------------
 if isempty(failures)
     fprintf('\nsmoke_test_blocksequence: ALL PASS\n');

@@ -572,8 +572,10 @@ classdef BlockSequence < handle
             obj.Values = v;
             obj.grp_   = epsych.BlockSequence.groupsOf_(v);
 
-            if remapOnly
+            if remapOnly && obj.remapSeamOK_()
                 vprintf(2, 'BlockSequence(%s): value list remapped in place; ordering preserved', obj.Label)
+            elseif remapOnly
+                obj.invalidate_('Values changed; a remap would break a run constraint at the edit');
             else
                 obj.invalidate_('Values changed');
             end
@@ -720,8 +722,8 @@ classdef BlockSequence < handle
 
             newIdx = zeros(1, nBlocks * B);
             for b = 1:nBlocks
-                tailGrp = obj.tailGroups_(newIdx, (b - 1) * B);
-                blk = obj.makeBlock_(pool, tailGrp);
+                [tailGrp, nFrozen] = obj.tailGroups_(newIdx, (b - 1) * B);
+                blk = obj.makeBlock_(pool, tailGrp, nFrozen);
                 newIdx((b - 1) * B + (1:B)) = blk;
             end
 
@@ -734,22 +736,67 @@ classdef BlockSequence < handle
             end
         end
 
-        function g = tailGroups_(obj, newIdx, nNew)
+        function [g, nFrozen] = tailGroups_(obj, newIdx, nNew)
             % The last few group ids before the block being built. Only as many
             % as the run cap can see, which is what keeps extension O(block)
             % rather than O(length).
+            %
+            % The first block after a rebuild follows the frozen prefix, not
+            % nothing: without it, an edit mid-session could open the new
+            % sequence on the value the subject was just given. nFrozen says
+            % how many of g came from there.
+            g = [];
+            nFrozen = 0;
+            if ~obj.NoRepeatAcrossBlocks && ~isfinite(obj.MaxConsecutive), return; end
             need = 1;
             if isfinite(obj.MaxConsecutive), need = max(need, obj.MaxConsecutive); end
-            if ~obj.NoRepeatAcrossBlocks && ~isfinite(obj.MaxConsecutive)
-                g = [];
-                return
-            end
+
             avail = [obj.seqIdx_ newIdx(1:nNew)];
-            if isempty(avail), g = []; return; end
-            g = obj.grp_(avail(max(1, end - need + 1):end));
+            if ~isempty(avail)
+                g = obj.grp_(avail(max(1, end - need + 1):end));
+            end
+
+            % Caller index offset_ is the one just before seqIdx_(1), and
+            % after a rebuild it is the last frozen value.
+            if numel(g) < need && obj.offset_ > 0 && obj.offset_ <= obj.frozenThrough_
+                nFrozen = min(need - numel(g), obj.offset_);
+                g = [obj.frozenGroups_(obj.offset_ - nFrozen + 1 : obj.offset_) g];
+            end
         end
 
-        function blk = makeBlock_(obj, pool, tailGrp)
+        function tf = remapSeamOK_(obj)
+            % Whether the live sequence, under a value list just remapped in
+            % place, may follow the frozen prefix. A remap keeps every
+            % position, so a value that moved to another slot can put the next
+            % undelivered element on the value just delivered.
+            tf = true;
+            if ~obj.NoRepeatAcrossBlocks && ~isfinite(obj.MaxConsecutive), return; end
+            n = obj.frozenThrough_;
+            p = n + 1 - obj.offset_;   % live position of the next undelivered index
+            if n < 1 || p < 1 || p > numel(obj.seqIdx_), return; end
+
+            need = 1;
+            if isfinite(obj.MaxConsecutive), need = obj.MaxConsecutive; end
+            tail  = obj.frozenGroups_(max(1, n - need + 1):n);
+            ahead = obj.seqIdx_(p:min(end, p + need - 1));
+            if mod(p - 1, obj.BlockSize) == 0
+                tf = obj.blockOK_(ahead, tail);    % a block starts here
+            elseif isfinite(obj.MaxConsecutive)
+                tf = epsych.BlockSequence.maxRun_([tail obj.grp_(ahead)]) <= obj.MaxConsecutive;
+            end
+        end
+
+        function g = frozenGroups_(obj, k)
+            % Group ids, in the CURRENT value list, of frozen caller indices k.
+            % Matched by base value, since a stored position means nothing
+            % once the list has changed; a value the list no longer holds gets
+            % an id no real group can equal.
+            [tf, loc] = ismember(obj.frozenBase_(k), obj.Values);
+            g = -(1:numel(k));
+            g(tf) = obj.grp_(loc(tf));
+        end
+
+        function blk = makeBlock_(obj, pool, tailGrp, nFrozen)
             % Rejection first: a uniform permutation preserves the distribution
             % over valid arrangements, which a swap-based repair does not.
             % Repair is the fallback for a block the sampler keeps missing.
@@ -764,6 +811,17 @@ classdef BlockSequence < handle
             if obj.blockOK_(blk, tailGrp)
                 vprintf(2, 'BlockSequence(%s): block repaired after %d rejected permutations', ...
                     obj.Label, obj.MAX_ATTEMPTS)
+                return
+            end
+
+            if nFrozen > 0
+                % Values delivered under an older configuration can leave a
+                % seam no block satisfies. Throwing here would strand a
+                % running session with no sequence at all, so this one seam
+                % goes unconstrained, and says so.
+                vprintf(1, ['BlockSequence(%s): no block satisfies the run constraints after the ' ...
+                    'values already delivered; the seam at the edit is left unconstrained'], obj.Label)
+                blk = obj.makeBlock_(pool, tailGrp(nFrozen + 1:end), 0);
                 return
             end
 

@@ -184,6 +184,14 @@ retuning the values. The committed prefix is still frozen.
 Changing `Seed` mid-session takes the identical path and is logged the same way, because it
 changes the session's reproducibility record.
 
+**The run constraints hold across the edit.** The first block after a rebuild is checked
+against the values already delivered — matched by value, since a stored position means nothing
+once the list has changed — so an edit cannot open the new sequence on the value the subject
+was just given. A same-length remap is checked the same way: moving the delivered value into
+the next slot would repeat it, so that remap rebuilds instead. If the delivered values leave a
+seam no block can satisfy (possible only when the constraints themselves just changed), that
+one seam is left unconstrained and logged at level 1 rather than throwing on a running session.
+
 A configuration error found on the dispatch path never takes down a running experiment:
 `valueAt` logs a critical record, keeps serving the sequence already in hand, and leaves the
 object dirty so a corrected configuration takes effect on the next read. Call `validate`
@@ -247,14 +255,15 @@ opens.
 
 ## Verification
 
-`tmp/smoke_test_blocksequence.m` — headless, no figures, no hardware. Nineteen sections
+`tmp/smoke_test_blocksequence.m` — headless, no figures, no hardware. Twenty-two sections
 covering determinism from a seed, that the global rng is never advanced, exact block balance
 for both scalar and per-value `Repeats`, rewind stability across three successive extensions,
 run-cap and boundary-rule satisfaction, analytic rejection of impossible configurations, all
 three exhaustion policies, index validation, jitter being baked rather than redrawn, string
 and cellstr pools, the frozen prefix across both a same-length and a length-changing edit, a
-mid-session reseed, shuffled-seed reporting, the struct round trip, the commit policy, and a
-generation-time guard.
+mid-session reseed, shuffled-seed reporting, the struct round trip, the commit policy, a
+generation-time guard, and the run constraints across a rebuild and a remap — including the
+unsatisfiable seam that must degrade rather than throw.
 
 ```matlab
 matlab -batch "run('tmp/smoke_test_blocksequence.m')"

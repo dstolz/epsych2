@@ -13,9 +13,14 @@ classdef RunExpt < handle
     % Documentation: documentation/overviews/RunExpt_GUI_Overview.md
     % See also: epsych.Runtime, ep_ExperimentDesign, ep_CompiledProtocolTrials.
 
+    % Observable so a window that is only usable between sessions can follow
+    % the state instead of re-checking it at every click (gui.SessionBrowser).
+    properties (SetObservable)
+        STATE (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG                                              % Current experiment program state
+    end
+
     properties
         H                                                                                        % Handles to UI components and figures
-        STATE (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG                                              % Current experiment program state
         % One element per subject. Declared (1,:) rather than (1,1) because
         % AddSubject appends via CONFIG(numel+1); a scalar constraint here made
         % every multi-subject session fail with "Value must be a scalar".

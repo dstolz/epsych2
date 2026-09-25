@@ -17,6 +17,11 @@ From the session window: **Utilities > Review Saved Session...** (Ctrl+K), or th
 toolbar's page-with-a-play-triangle tool. Both stay available while a session is
 running — a review reads a file and touches no session state.
 
+To pick from one subject's sessions instead of a file browser, right-click the
+subject in **Subjects & Projects** and choose **View Data Files...**
+([`gui.SessionBrowser`](../gui/gui_SessionBrowser.md)). That one is available
+only between sessions, because listing the sessions reads every file.
+
 ---
 
 ## Why it works without changing any display component

@@ -1,5 +1,6 @@
-function S = fromInfo(info)
+function S = fromInfo(info, options)
 % S = epsych.SessionSnapshot.fromInfo(info)
+% S = epsych.SessionSnapshot.fromInfo(info, Quiet = true)
 % Normalize whatever a file carries as Info into a snapshot struct.
 %
 % Three shapes are in the wild and all three have to open:
@@ -21,7 +22,10 @@ function S = fromInfo(info)
 % let absent controls look like a bug.
 %
 % Parameters:
-%   info - The Info (or info) variable from a session file; [] when absent.
+%   info  - The Info (or info) variable from a session file; [] when absent.
+%   Quiet - Skip the debug line a legacy file otherwise logs. For a caller
+%           reading many files at once (epsych.SessionFiles), where one line
+%           per file would bury the log in a sentence it already knows.
 %
 % Returns:
 %   S - Snapshot struct with every documented field present.
@@ -30,6 +34,7 @@ function S = fromInfo(info)
 
 arguments
     info = []
+    options.Quiet (1,1) logical = false
 end
 
 S = localBlank();
@@ -72,7 +77,9 @@ end
 % (examples/*/explore_*_data.m) that have no interest in reviewing anything,
 % and a line about parameter controls is noise there. The review path says so
 % itself, in its own words, from epsych.ReviewSession.buildRuntime_.
-vprintf(2, 'epsych.SessionSnapshot: this file predates the session snapshot; its protocol is unknown')
+if ~options.Quiet
+    vprintf(2, 'epsych.SessionSnapshot: this file predates the session snapshot; its protocol is unknown')
+end
 
 end
 

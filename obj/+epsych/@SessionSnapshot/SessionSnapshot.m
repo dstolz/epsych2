@@ -60,7 +60,7 @@ classdef SessionSnapshot
 
     methods (Static)
         S = capture(RUNTIME, subjectIdx, trialsStruct) % Build the snapshot for one subject of a live runtime.
-        S = fromInfo(info)                % Normalize a file's Info variable into a snapshot struct.
+        S = fromInfo(info, options)       % Normalize a file's Info variable into a snapshot struct.
 
         function S = forSubject(RUNTIME, subjectIdx)
             % S = epsych.SessionSnapshot.forSubject(RUNTIME, subjectIdx)

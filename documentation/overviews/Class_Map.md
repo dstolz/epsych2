@@ -32,6 +32,7 @@ EPsych major classes
 │  ├─ TrialJournal
 │  ├─ ReviewSession
 │  ├─ SessionSnapshot
+│  ├─ SessionFiles              (static only; finds and describes a subject's session files)
 │  ├─ eventModeChange
 │  └─ TrialsData
 ├─ hw
@@ -93,6 +94,7 @@ Analysis and GUI classes
    ├─ Parameter_Update
    ├─ ParameterDebugger
    ├─ ParameterTracker
+   ├─ SessionBrowser
    ├─ MetricsExplorer
    ├─ ElapsedTrialTimer
    ├─ GenericTimer

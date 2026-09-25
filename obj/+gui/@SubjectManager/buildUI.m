@@ -393,6 +393,11 @@ uimenu(cm, 'Text','Edit Subject...', 'Separator','on', ...
     'MenuSelectedFcn', @(~,~) self.onEditSubject_());
 uimenu(cm, 'Text','Session Settings for This Row...', ...
     'MenuSelectedFcn', @(~,~) self.onEditMembership_());
+% Gated on the session state when the menu opens, not in updateEnableStates_:
+% RunExpt starting or stopping is nothing this window hears about.
+self.H.cmnu_data_files = uimenu(cm, 'Text','View Data Files...', 'Separator','on', ...
+    'MenuSelectedFcn', @(~,~) self.onViewDataFiles_());
+cm.ContextMenuOpeningFcn = @(~,evt) self.onTableContextMenuOpening_(evt);
 self.H.table.ContextMenu = cm;
 
 % The empty-state label occupies the table's cell and is shown instead of it.

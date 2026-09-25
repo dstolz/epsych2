@@ -159,6 +159,12 @@ The dropdown is editable, and its list is drawn from **the behavior GUIs other p
 
 **Why Protocol is read-only in the grid:** `uitable`'s `ColumnFormat` is per-column, not per-row, so a dropdown there would share one item list across every row and could not offer each subject its own remembered protocol. Instead, right-click gives **Set Protocol for This Row...** and **Set Protocol for Checked Rows...**, which covers both the common case (one protocol for the whole project) and the exception.
 
+### A subject's data files
+
+Right-click a subject, **View Data Files...**, to open [`gui.SessionBrowser`](gui_SessionBrowser.md): every session that animal has saved, sortable by date, duration or trial count, with a button that reopens the selected one in its behavior GUI through `epsych.ReviewSession`. It looks in every data path the subject's projects and memberships name, under its current and former names.
+
+The item acts on the row **under the pointer**, not the selection, and is **unavailable while a session runs** — it reads the session state each time the menu opens (this window is never told when a run starts) and says so in its label. See [Only between sessions](gui_SessionBrowser.md#only-between-sessions) for why.
+
 ---
 
 ## Protocol versions

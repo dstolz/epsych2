@@ -62,6 +62,7 @@ classdef SubjectManager < handle
         ProtocolOverrides_  % containers.Map SubjectID -> .eprot, cleared on commit
         Refreshing_ (1,1) logical = false  % guards callbacks fired by repopulation
         PendingProject_ (1,:) char = ''    % project to select once refresh builds the list
+        ContextRow_ = []                   % row the table's context menu was last opened on
 
         % Which face the Retire tool is currently wearing, so its icon is
         % repainted on the transition rather than on every refresh.
@@ -1059,6 +1060,63 @@ classdef SubjectManager < handle
             [~, pn, pe] = fileparts(pfn);
             self.setStatus_(sprintf(['Opened %s%s in the Protocol Designer. Refresh (F5) ' ...
                 'after saving to see the new version.'], pn, pe));
+        end
+
+        function onTableContextMenuOpening_(self, evt)
+            % Note the row the right-click landed on, and switch View Data
+            % Files... on or off for the session state right now.
+            %
+            % The state is read here because nothing tells this window when a
+            % session starts or stops, so a value updateEnableStates_ saw at the
+            % last refresh could be minutes stale.
+            self.ContextRow_ = [];
+            try
+                row = evt.InteractionInformation.Row;
+                if ~isempty(row) && row(1) <= numel(self.Rows_)
+                    self.ContextRow_ = row(1);
+                end
+            catch ME
+                vprintf(3, 'gui.SubjectManager: cannot resolve the right-clicked row: %s', ME.message)
+            end
+
+            running = gui.SessionBrowser.sessionIsRunning(self.RunExpt);
+            self.H.cmnu_data_files.Enable = matlab.lang.OnOffSwitchState(~running && ~isempty(self.Rows_));
+            if running
+                self.H.cmnu_data_files.Text = 'View Data Files... (not while a session runs)';
+            else
+                self.H.cmnu_data_files.Text = 'View Data Files...';
+            end
+        end
+
+        function onViewDataFiles_(self)
+            % Open gui.SessionBrowser on the subject that was right-clicked,
+            % falling back on the selected row for a click that landed off one.
+            %
+            % Refused while a session runs -- by the browser itself, and again
+            % here so the operator gets the reason rather than an error.
+            rec = [];
+            if ~isempty(self.ContextRow_) && self.ContextRow_ <= numel(self.Rows_)
+                rec = self.Rows_(self.ContextRow_);
+            end
+            if isempty(rec)
+                rec = self.selectedRow_();
+            end
+            if isempty(rec), return, end
+
+            if gui.SessionBrowser.sessionIsRunning(self.RunExpt)
+                uialert(self.H.figure, ['A session is running. A subject''s data files ' ...
+                    'can be browsed once it has stopped.'], 'View Data Files', 'Icon','info');
+                return
+            end
+
+            try
+                gui.SessionBrowser(rec.Name, Roster = self.Roster, RunExpt = self.RunExpt);
+            catch ME
+                vprintf(0, 1, ME);
+                uialert(self.H.figure, ME.message, 'View Data Files', 'Icon','error');
+                return
+            end
+            self.setStatus_(sprintf('Opened the data files of "%s".', rec.Name));
         end
 
         % ---- table and filter plumbing ---------------------------------

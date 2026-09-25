@@ -384,6 +384,30 @@ Rules that matter:
   displays work and the controls are absent (`IsDegraded` says so). A GUI that DRIVES
   the rig must stand down on `gui.BehaviorGUI.ReviewMode` — the base class cannot
   tell display from contingency (see documentation/epsych/epsych_ReviewSession.md)
+- **epsych.SessionFiles**: static-only, headless — finds a subject's session
+  files and describes each in one row (start, duration, trials, box, paradigm,
+  video, notes, whether a review will be Full or data-only), for
+  `gui.SessionBrowser` and for scripts. `locations` gathers every root the data
+  can be under, since nothing records which one a session used: the
+  `RunExpt/DataPath` pref, the session window's path, and every project's AND
+  membership's `DefaultDataPath`, under the current name and every
+  `NameHistory` name. It reads prefs behind `ispref` because
+  `getpref(group,pref,default)` CREATES a missing pref — an empty `DataPath`
+  planted that way would replace RunExpt's fallback to `cd`. What a reader
+  would otherwise re-derive: a session is decided from `whos` alone (struct
+  `Data`, or scalar struct `info` for a recovery seed), so an analysis `.mat`
+  is never loaded; a recovery seed loads `info` plus only its first and last
+  `data_NNNN`; an all-empty `Data` record is ZERO trials (old saving functions'
+  placeholder), not one; three name generations are parsed
+  (`_yyMMddTHHmmss`, the recovery stamp — read to the MINUTE, because seeds
+  written before 2026-09-25 carry hundredths in its last two digits, an `SS`
+  in `ep_TimerFcn_Start`'s format since fixed to `ss` — and `_dd-MMM-yyyy`);
+  a seed whose journal was never merged is replaced by its `.epj`, which is
+  also what a review must open; recovery names match the WHOLE name
+  (`M1` never finds `M10`); summaries are cached on size + mtime; and
+  `SessionSnapshot.fromInfo` gained `Quiet=true` for it, or every legacy file
+  would log a debug line. Standing proof `tmp/smoke_test_session_browser.m`
+  (documentation/epsych/epsych_SessionFiles.md)
 - **Phase loading**: `Runtime.phaseParameterData` is the single chokepoint for reading a
   phase (.eprot) file. It reads the saved `hw.Parameter.toStruct` entries straight out of
   the MAT file — the file already holds exactly what it returns — and falls back to the
@@ -627,6 +651,28 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   slider row is 56 px because a `uislider`'s tick labels hang BELOW its track
   and ran into the buttons at the 32 px an ordinary control gets; a remembered
   window position is floored at `DEFAULT_SIZE` for the same reason
+- **gui.SessionBrowser**: one subject's saved sessions in a sortable table,
+  with Review Session handing the selected file to `epsych.ReviewSession`
+  (the same door as RunExpt's Review Saved Session...). Opened from
+  `gui.SubjectManager`'s right-click **View Data Files...**, which acts on the
+  row under the pointer. **Only between sessions**: listing reads every file
+  on the MATLAB thread the trial-loop timer runs on, so a scan mid-run holds up
+  dispatch — whereas Review Saved Session... (one chosen file) deliberately
+  stays available during a run. The gate is in three places: the manager's
+  item, re-checked in `ContextMenuOpeningFcn` because the manager is never told
+  when a run starts; the constructor (`gui:SessionBrowser:SessionRunning`);
+  and `review`/`rescan` themselves, failing closed. An open window follows the
+  session through a PostSet listener on `epsych.RunExpt.STATE`, which was made
+  `SetObservable` for it (its own properties block). `sessionIsRunning([])`
+  asks whichever RunExpt is open, so an unbound caller cannot read "not told"
+  as "stopped"; RUNNING and POSTRUN both count. Two display decisions: Date
+  and Trials are typed columns but Start, Duration and Box are FIXED-WIDTH
+  TEXT, because a typed column shows unknown as `NaN` (every legacy file's
+  Box) and fixed width keeps a text sort numeric; and unreviewable rows (no
+  trials, unreadable) are greyed, never hidden. Every row index is the DATA
+  row, never the sorted display row. Alerts go through `alert_`, since
+  `uialert` throws on a hidden figure and `review` is public
+  (documentation/gui/gui_SessionBrowser.md)
 - **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. **Add Checked to Session** REPLACES the session's subject list rather than appending to it (`assignToSession`'s `ReplaceExisting`) — what is ticked is the operator's answer to "who is running", and a leftover animal would keep dispatching trials in its box; the displaced names go in the commit report, and the button and its tool say so in a tooltip. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. **Copy...** (also `Project > Copy Project...` and a two-folders tool) starts a study's next phase from one that already works: it asks the subjects question FIRST in a `uiconfirm` — with subjects, or settings only, skipped entirely for a project with no active members — because that is the one thing the edit dialog cannot show, then opens the ordinary dialog titled `Copy Project` on a non-colliding `(copy)` name, so nothing is written until OK. Copied subjects stay in the source too (membership is many-to-many); the roster's `IncludeRetired`/`CopyProtocolMemory` are script-only. The project dialog has two tabs: **Project** (identity, links, archived) and **Session Defaults**, which is where the settings that moved off Customize are set — protocol, data path, saving function, behavior GUI, timer period, video and Intan paths. Nothing there opens blank: each field is seeded from its MRU (`ep_RunExpt_Subjects/Recent<Field>`, written only on OK) and then the machine pref, and OK refuses a blank one; `DefaultProtocol` and `IntanSettingsFile` are the two deliberate exceptions. The behavior GUI dropdown is fed by the behavior GUIs other projects in the roster use, not by the `RecentBehaviorGUI` pref, so it works with no session open. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. On a rig with no roster file chosen the window opens *unbound* — header `Roster: (no file chosen)`, an explanation where the table goes, and everything off EXCEPT New Project / New Subject / Import, because clicking one of those three is how `ensureRoster_` asks for the file. That prompt loops with two exits (name a file, or close the window): "carry on without one" is never offered, since it would mean filling in a record with nowhere to save it. Browsing never prompts. A configured path whose FOLDER is gone (share moved, drive unmounted, temp dir cleaned up) is treated the same way and marked `(folder not found)` — otherwise it is indistinguishable from a fresh empty roster, and `saveAtomic_` would re-create that dead folder and save into it. The header shows the FULL path plus a Change... button, redundantly with the toolbar tool and File menu, because an icon-only toolbar is no help to someone whose roster is not where they expected. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies. A **Version** column and a **Protocol** menu surface `SubjectRoster`'s version checking: the column shows the version each subject is *on* (bold orange when the file has been saved since), a collapsible banner over the table announces how many are behind and offers Update All, and right-click opens that row's protocol in `epsych.ProtocolDesigner`. "Update All in Project" deliberately covers filtered-out members, but RETIRED members are outside the version workflow entirely: they are skipped by every update, left out of the banner, the tooltip, and Check Protocol Versions, and their Version cell is greyed rather than flagged. A finished animal's recorded protocol is the record of what it ran, and no session will follow to make a newer version true. A project's **links** render under the summary as `uihyperlink`s whose `URL` is left EMPTY on purpose — the click routes through `SubjectRoster.openLink` so a stored address is re-checked before anything navigates, and a `file:` folder goes to the file manager rather than a browser. "Show archived projects" is the project-level counterpart of "Show retired", and the selected project is never hidden by it (documentation/gui/gui_SubjectManager.md)
 - **gui.components.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, a TTL-trigger enable, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, units, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state. Rate and readout **units** are the operator's too, from the right-click Units menu (µL/mL per min/hr, mL/min by default): changing them converts `Rate` rather than reinterpreting it, puts the interface into the same units — so a protocol column that writes `Rate` means them as well — and is refused while the pump runs, because the pump rejects a units-bearing `RAT` mid-dispense and `hw.NE1000`'s bare-value fallback would land in the OLD units (`gui.BehaviorGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
 - **gui.components.NanoMotor**: the DM320T commutator controller

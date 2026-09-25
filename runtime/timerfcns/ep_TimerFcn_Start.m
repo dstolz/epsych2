@@ -77,10 +77,14 @@ for i = 1:nSubjs
     info = T(i).SessionInfo;
     info.CompStartTimestamp = info.StartTime;
 
+    % 'ss' is seconds. Until 2026-09-25 this read 'SS' -- hundredths of a
+    % second -- so two starts in one minute could share a name, and the delete
+    % below would recycle the earlier session's recovery file. Seeds written
+    % before then carry hundredths in those two digits.
     dfn = sprintf('RUNTIME_DATA_%s_Box_%02d_%s.mat', ...
         T(i).Subject.Name, ...
         T(i).Subject.BoxID, ...
-        datetime('now',Format='yyMMddHHmmSS'));
+        datetime('now',Format='yyMMddHHmmss'));
 
     assert(isfolder(RUNTIME.TempDataDir),'Invalid Data Directory "%s"',RUNTIME.TempDataDir)
     RUNTIME.DataFile(i) = fullfile(RUNTIME.TempDataDir,dfn);

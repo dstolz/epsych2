@@ -108,7 +108,7 @@ classdef Runtime < handle & dynamicprops
         writeParametersJSON(obj, filepath)      % Serialize runtime parameters to a JSON file (legacy phase format).
         writeParametersProtocol(obj, filepath, description) % Save the current session as a protocol (.eprot) phase file.
         P = readParametersJSON(obj, filepath)   % Back-compat wrapper for readParameters.
-        P = readParameters(obj, filepath)       % Load a phase file (.eprot/.prot or legacy .json); returns the resolved hw.Parameter array.
+        [P, Excluded] = readParameters(obj, filepath, options) % Load a phase file (.eprot/.prot or legacy .json); returns the resolved hw.Parameter array. Exclude=params leaves those parameters untouched.
         dispatchNextTrial(obj, subjectIdx)      % Dispatch the already selected next trial for one subject.
         resolveTriggerParameters(obj, subjectIdx) % Locate and cache the required trigger parameters (NewTrial, ResetTrig, TrialComplete) for one subject.
 

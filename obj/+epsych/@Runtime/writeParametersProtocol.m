@@ -102,28 +102,17 @@ function protocol = local_syncRuntimeValues(obj, protocol)
 % carry a single committed scalar are left untouched: read-only, trigger,
 % StimType, expression-driven, randomized, multi-level (roved), and any whose
 % trial-table column varies across rows (managed per trial, e.g. by a
-% staircase trial selector).
+% staircase trial selector). The rule lives in effectiveDesignValue, shared
+% with readParameters, which applies it to the parameters a load excludes.
+%
+% Transient control state (triggers, operator toggles) is captured in Value
+% like any other live reading, but is never promoted into the design-time
+% Values list: a phase load never restores it (see
+% hw.Parameter.isTransientControl), so writing a momentary button press into
+% the protocol's design state would only mislead ProtocolDesigner about the
+% parameter's default.
 
-% Committed trial-table values keyed by validName: one entry per writeparam
-% column whose rows all agree. A column whose rows differ marks its parameter
-% as per-trial managed, exempting it from syncing entirely.
-committed = struct;
-perTrial = struct;
-TR = obj.TRIALS;
-if isstruct(TR) && ~isempty(TR) && isfield(TR, 'trials') && isfield(TR, 'writeParamIdx') ...
-        && iscell(TR(1).trials) && isstruct(TR(1).writeParamIdx)
-    % Phase saves snapshot subject 1's protocol (see RunExpt.ExptDispatch).
-    T = TR(1);
-    fn = fieldnames(T.writeParamIdx);
-    for k = 1:numel(fn)
-        col = T.trials(:, T.writeParamIdx.(fn{k}));
-        if all(cellfun(@(c) isequaln(c, col{1}), col))
-            committed.(fn{k}) = col{1};
-        else
-            perTrial.(fn{k}) = true;
-        end
-    end
-end
+[committed, perTrial] = committedTrialValues(obj.TRIALS);
 
 synced = strings(1, 0);
 for i = 1:numel(protocol.InterfaceData)
@@ -133,35 +122,8 @@ for i = 1:numel(protocol.InterfaceData)
         for k = 1:numel(params)
             S = params{k};
 
-            % Transient control state (triggers, operator toggles) is captured
-            % in Value like any other live reading, but must not be promoted
-            % into the design-time Values list: a phase load never restores it
-            % (see hw.Parameter.isTransientControl), so writing a momentary
-            % button press into the protocol's design state would only mislead
-            % ProtocolDesigner about the parameter's default.
-            if strcmp(S.Access, 'Read') || S.isRandom ...
-                    || strcmp(S.Type, 'StimType') ...
-                    || strlength(string(S.Expression)) > 0 ...
-                    || numel(S.Values) > 1 ...
-                    || hw.Parameter.isTransientControl(S)
-                continue
-            end
-
-            vn = matlab.lang.makeValidName(S.Name);
-            if isfield(perTrial, vn), continue, end
-
-            % Between trial boundaries the trial table is the source of truth
-            % for dispatched parameters (a deferred commit lands there first
-            % and dispatch copies it onto the parameter); the live Value is
-            % authoritative for everything else.
-            if S.UpdateEveryTrial && isfield(committed, vn)
-                v = committed.(vn);
-            else
-                v = S.Value;
-            end
-            if isempty(v) || (isnumeric(v) && any(isnan(v(:))))
-                continue
-            end
+            [v, ok] = effectiveDesignValue(S, committed, perTrial);
+            if ~ok, continue, end
 
             if ~isequaln(S.Value, v) || ~isequaln(S.Values, {v})
                 synced(end+1) = string(S.Name);

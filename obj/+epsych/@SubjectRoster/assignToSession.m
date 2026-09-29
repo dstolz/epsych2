@@ -185,11 +185,13 @@ end
 % applied, matching how protocols are resolved.
 memberships = {};
 projectName = '';
+projectKey = '';
 configNotes = {};
 if ~isempty(options.ProjectID)
     p = self.findProject(options.ProjectID);
     if ~isempty(p)
         projectName = p.Name;
+        projectKey = p.ProjectID;
         memberships = cell(1, numel(planned));
         for i = 1:numel(planned)
             m = self.findMembership(planned(i).SubjectID, p.ProjectID);
@@ -282,10 +284,22 @@ if options.ReplaceExisting && ~isempty(occupants)
         strjoin(occupants, ', '));
 end
 
+nWithDefaults = 0;
 for i = 1:numel(planned)
+    % Where the subject came from rides on its CONFIG entry, so Run can read
+    % the membership's parameter defaults as they are THEN (an edit made after
+    % this commit still counts) -- see epsych.ParameterDefaults.lookup. With no
+    % project context there is no membership, so nothing to link.
+    link = [];
+    if ~isempty(memberships)
+        link = epsych.ParameterDefaults.rosterLink(self.FilePath, ...
+            planned(i).SubjectID, projectKey, memberships{i}.ParameterDefaults);
+        nWithDefaults = nWithDefaults + ~isempty(link.ParameterDefaults);
+    end
+
     runExpt.appendSubjectToConfig_( ...
         self.toSubject(planned(i).SubjectID, BoxID = planned(i).BoxID), ...
-        planned(i).Protocol, protocols{i});
+        planned(i).Protocol, protocols{i}, link);
 
     report.added(end+1) = struct('Name', planned(i).Name, ...
         'BoxID', planned(i).BoxID, 'Protocol', planned(i).Protocol);
@@ -310,6 +324,10 @@ end
 % fields the membership actually names: an empty one must leave the session's
 % own value alone rather than blanking it.
 notes = configNotes;
+if nWithDefaults > 0
+    notes{end+1} = sprintf('%d subject(s) carry parameter defaults, applied at Run.', ...
+        nWithDefaults);
+end
 if ~isempty(memberships)
     notes = [notes, localApplySessionDefaults(runExpt, memberships{1}, projectName)];
 end

@@ -15,7 +15,7 @@ arguments
     self
 end
 
-self.CONFIG = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[]);
+self.CONFIG = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[],'ROSTER',[]);
 if self.STATE >= PRGMSTATE.RUNNING, return, end
 self.STATE = PRGMSTATE.NOCONFIG;
 if isfield(self.H,'subject_list') && isgraphics(self.H.subject_list)

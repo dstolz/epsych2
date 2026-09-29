@@ -52,3 +52,9 @@ m = struct( ...
 % would build a 0x0 array of the OUTER struct instead of a scalar with an empty
 % field, and this record would come back empty.
 m.ProtocolHistory = epsych.SubjectRoster.emptyHistory_();
+
+% Values that replace the protocol's for this subject in this project, applied
+% on every Run (see epsych.ParameterDefaults). Assigned here for the same
+% reason as ProtocolHistory. Empty -- the only reading a roster written before
+% this field can have -- runs the protocol as it stands.
+m.ParameterDefaults = epsych.ParameterDefaults.empty();

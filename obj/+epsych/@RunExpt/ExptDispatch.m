@@ -34,6 +34,12 @@ switch COMMAND
         self.RUNTIME = epsych.Runtime; % reset RUNTIME
         self.RUNTIME.isTest = COMMAND == "Preview";
 
+        % Each subject's parameter defaults go onto its protocol before it is
+        % validated and compiled, so the trial table -- and the first trial --
+        % carry them. Read from the roster now rather than at commit, so an
+        % edit made since the subject was added counts.
+        defaultsChanged = self.applyParameterDefaults_();
+
         % Validate embedded protocols
         for i = 1:length(self.CONFIG)
             assert(isa(self.CONFIG(i).PROTOCOL, 'epsych.Protocol') && isvalid(self.CONFIG(i).PROTOCOL), ...
@@ -51,7 +57,10 @@ switch COMMAND
                 end
             end
 
-            if self.CONFIG(i).PROTOCOL.needsCompile
+            % needsCompile compares the file's save time with the last
+            % compile, so it cannot see Values changed in memory; a subject
+            % whose defaults changed anything is compiled regardless.
+            if defaultsChanged(i) || self.CONFIG(i).PROTOCOL.needsCompile
                 vprintf(0, 'Compiling protocol for subject "%s"...', self.CONFIG(i).SUBJECT.Name);
                 self.setStatus(sprintf('Compiling protocol for subject "%s"...', ...
                     self.CONFIG(i).SUBJECT.Name))

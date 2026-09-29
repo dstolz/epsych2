@@ -78,6 +78,18 @@ A name that is not on the path is still applied — it is the operator's stated 
 
 `epsych.RunExpt` launches exactly one behavior GUI per session (see `plans/multi-subject-support.md`); the mismatch refusal is what keeps a multi-subject commit from carrying two answers to that question.
 
+### Parameter defaults
+
+A membership also carries **`ParameterDefaults`**: values that replace its protocol's for that subject alone — a start depth, a reward volume, a narrower delay range. `parameterDefaults(subject, project)` reads them and `setParameterDefaults(subject, project, D)` replaces the whole set (an empty `D` clears it); the records, and what happens to them, are [`epsych.ParameterDefaults`](epsych_ParameterDefaults.md)'s. The operator edits them in [`gui.ParameterDefaultsEditor`](../gui/gui_ParameterDefaultsEditor.md).
+
+They differ from the session settings above in three ways, all because they are per-subject by nature:
+
+- **No template.** `assign` gives a new membership none, `reapplyTemplate` never touches them, and `assignToSession` never refuses a batch over them.
+- **Read at Run, not at commit.** `assignToSession` puts a link on each CONFIG entry (`CONFIG(i).ROSTER`: this file, the SubjectID and ProjectID, and a copy of the defaults as they stood), and `RunExpt` re-reads the roster through it every time Run or Preview is pressed. An edit made after the subject was added therefore counts; if the roster cannot be read at Run, the copy is used and that is logged.
+- **Checked for shape only.** `setParameterDefaults` refuses a record that names nothing, sets nothing, has `Min > Max`, or repeats a parameter (`epsych:SubjectRoster:InvalidParameterDefaults`), but does not consult a protocol: a default for a parameter the current protocol lacks is kept and skipped at Run, so a protocol reverted to an older version finds it again.
+
+The field is additive: a roster written before it existed reads as "no defaults". `reload` normalizes each membership's records the way it does a project's `Links` — without validating, so one odd record cannot make the shared file unreadable.
+
 ### The study's own bookkeeping
 
 `Investigator` and `IACUCProtocol` are free text the roster only records — nothing validates or enforces them. They are here because they are the two facts a lab is asked for about a study and has nowhere else to keep next to the animals themselves.
@@ -104,6 +116,7 @@ Every override option deliberately has **no default**, so "not stated" and "stat
 | `IncludeSubjects` | `false` | Enroll the source's members in the copy. They stay in the source too: membership is many-to-many, so a subject is simply in both. |
 | `IncludeRetired` | `false` | Bring retired members as well, still retired. Off because a finished animal has no place in a study that has not started. |
 | `CopyProtocolMemory` | `true` | Copied memberships keep the protocol, version, and box they last used in the source. `false` gives the same cohort with no memory, so each member falls back to the copy's `DefaultProtocol`. |
+| `CopyParameterDefaults` | `true` | Copied memberships keep their [parameter defaults](#parameter-defaults) — the animal's own tuning, which a next phase usually starts from. Unlike the session fields there is no mismatch refusal for this to seed; a default the new protocol lacks is skipped at Run. |
 
 `ProtocolHistory` is never copied, even with `CopyProtocolMemory` on. The history answers "put this membership back the way it was", and a membership created a moment ago has no way it was — the pointer it starts on is a starting point, not a change to undo.
 
@@ -289,7 +302,7 @@ The rules that keep it coherent:
 
 ### Format compatibility
 
-`LastProtocolVersion`, `ProtocolPinned`, `ProtocolHistory`, the four project `Timer*Fcn` template fields, and the membership `SESSION_FIELDS` are all **additive**, so `FORMAT_VERSION` stays at 1: an older file's missing fields normalize to "inherit the built-in default", which is exactly what that file meant. `ProtocolPinned` defaults to `false` for the same reason — a roster written before holds existed can only have meant "the file's content wins". `normalize_` fills them in from the template when an older file is read, and a rig on an older build that writes the file back drops them — losing a version memory that the next commit re-records, rather than losing data. Bumping the format instead would open every new file **read-only** on every rig that had not been updated, which for a shared network roster is much the worse failure.
+`LastProtocolVersion`, `ProtocolPinned`, `ProtocolHistory`, `ParameterDefaults`, the four project `Timer*Fcn` template fields, and the membership `SESSION_FIELDS` are all **additive**, so `FORMAT_VERSION` stays at 1: an older file's missing fields normalize to "inherit the built-in default", which is exactly what that file meant. `ProtocolPinned` defaults to `false` for the same reason — a roster written before holds existed can only have meant "the file's content wins". `normalize_` fills them in from the template when an older file is read, and a rig on an older build that writes the file back drops them — losing a version memory that the next commit re-records, rather than losing data. Bumping the format instead would open every new file **read-only** on every rig that had not been updated, which for a shared network roster is much the worse failure.
 
 The same reasoning covers `Investigator`, `IACUCProtocol`, `Links`, and `Archived`. This is why every default in `blankProject_` has to mean *what an older file implicitly meant*: no investigator, no links, and not archived are all correct readings of a roster written before those fields existed — exactly as `BehaviorGUI = ''` means "inherit". A default that changed behaviour would silently rewrite the past on first read.
 
@@ -355,4 +368,6 @@ Copying gets its own section: a settings-only copy is compared field by field ag
 
 Project options get two more: every `isSafeUrl` verdict and normalization, links surviving a reload, a `matlab:` address refused by `updateProject` leaving the stored links untouched — and, separately, a roster **written without the new fields at all**, synthesized by stripping them from a real `.esub`. That one asserts the file still opens writable, still reports every project, and defaults each new field to what the older file meant. It is the assertion that fails if a default is ever chosen for convenience rather than for backward compatibility.
 
-See also: [`gui.SubjectManager`](../gui/gui_SubjectManager.md), [`epsych.Subject`](../overviews/Class_Map.md), `plans/multi-subject-support.md`
+Parameter defaults have their own headless proof, `tmp/smoke_test_parameter_defaults.m`: the round trip with each value type, the shape refusal leaving the file alone, the export column, `copyProject` with and without `CopyParameterDefaults`, a roster written before the field existed, and the CONFIG link Run reads through — including an edit after commit counting and an unreadable roster falling back to the commit-time copy.
+
+See also: [`gui.SubjectManager`](../gui/gui_SubjectManager.md), [`epsych.Subject`](../overviews/Class_Map.md), [`epsych.ParameterDefaults`](epsych_ParameterDefaults.md), `plans/multi-subject-support.md`

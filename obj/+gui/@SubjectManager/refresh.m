@@ -318,10 +318,15 @@ end
 
 % -----------------------------------------------------------------------
 function txt = localSettingsCell(project, mrec)
-% The Settings cell: does this membership still match the project's template?
-% '' outside a project view or with no membership -- there is nothing to
-% compare. isequaln so two "inherit" TimerPeriods (NaN) agree, matching the
-% commit-time mismatch check this column exists to make predictable.
+% The Settings cell: does this membership still match the project's template,
+% and does it carry parameter defaults? '' outside a project view or with no
+% membership -- there is nothing to compare. isequaln so two "inherit"
+% TimerPeriods (NaN) agree, matching the commit-time mismatch check this column
+% exists to make predictable.
+%
+% The defaults count rides here rather than in a column of its own: it answers
+% the same question -- will this subject run differently from the project's
+% plan -- and the table is already as wide as the window.
 txt = '';
 if isempty(project) || isempty(mrec), return, end
 
@@ -335,8 +340,13 @@ for f = epsych.SubjectRoster.SESSION_FIELDS
     if isempty(pv) && isempty(mv), continue, end
     if ~isequaln(pv, mv)
         txt = 'edited';
-        return
+        break
     end
+end
+
+n = numel(mrec.ParameterDefaults);
+if n > 0
+    txt = sprintf('%s + %d default%s', txt, n, repmat('s', 1, n ~= 1));
 end
 end
 

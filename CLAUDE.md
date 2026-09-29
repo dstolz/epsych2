@@ -408,6 +408,43 @@ Rules that matter:
   `SessionSnapshot.fromInfo` gained `Quiet=true` for it, or every legacy file
   would log a debug line. Standing proof `tmp/smoke_test_session_browser.m`
   (documentation/epsych/epsych_SessionFiles.md)
+- **epsych.ParameterDefaults**: per-subject parameter values — a start depth,
+  a reward volume, a delay range — stored on the MEMBERSHIP
+  (`SubjectRoster.setParameterDefaults`/`parameterDefaults`, field
+  `ParameterDefaults`: records of `Interface`/`Module`/`Name` plus `Value`
+  ([] = keep) and `Min`/`Max` (NaN = keep)) and applied to the subject's
+  protocol **every time Run or Preview is pressed**, by
+  `RunExpt.applyParameterDefaults_` at the top of `ExptDispatch`, before
+  validate and compile. Static only; `gui.ParameterDefaultsEditor` is the
+  window. Things a reader would otherwise re-derive: they are read from the
+  roster AT RUN, not trusted from the commit — `assignToSession` puts a link
+  on `CONFIG(i).ROSTER` (`rosterLink`: file, IDs, and a commit-time copy used
+  only when the roster cannot be read then), so an edit after adding the
+  subject counts; a default replaces the parameter's design `Values` (and
+  seats `Value` for one level), since `compile` builds from `Values` and
+  `resetSession` returns undispatched parameters to `Values{1}` —
+  `needsCompile` cannot see an in-memory change, so `ExptDispatch`
+  recompiles whatever changed; bounds go on BEFORE the value because
+  `set.Value` clamps, and `check` refuses a value still out of range rather
+  than letting the clamp change it; what a Run replaced is kept in
+  `ROSTER.State` and RESTORED before the next Run applies anything, so a
+  default removed between runs returns the protocol's value (the state is
+  tied to the protocol handle, so a reloaded protocol starts clean); a record
+  that no longer fits is SKIPPED and logged, noted and put on the status
+  bar, never thrown — a protocol revision must not stop a subject running;
+  only writable, non-trigger, non-transient, expression-free
+  Float/Integer/Boolean/String/File parameters qualify, and a randomized one
+  takes bounds only; a paired parameter must keep its level count; not part
+  of the project template, never stamped, never a mismatch refusal;
+  `copyProject` carries them (`CopyParameterDefaults`, default true). What
+  was applied goes into the subject's `RUNTIME.NOTES`, and `ViewTrials`
+  previews with them. Capture: `readSession` (the phase-save rule —
+  committed trial-table value for dispatched parameters, live `Value`
+  otherwise — except a staircase-managed column reads its live level),
+  `latestDataFile` (via `epsych.SessionFiles`, saved non-Preview sessions)
+  and `readDataFile` (last filled `Data` record, values only). Standing proof
+  `tmp/smoke_test_parameter_defaults.m`
+  (documentation/epsych/epsych_ParameterDefaults.md)
 - **Phase loading**: `Runtime.phaseParameterData` is the single chokepoint for reading a
   phase (.eprot) file. It reads the saved `hw.Parameter.toStruct` entries straight out of
   the MAT file — the file already holds exactly what it returns — and falls back to the
@@ -673,6 +710,25 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   row, never the sorted display row. Alerts go through `alert_`, since
   `uialert` throws on a hidden figure and `review` is public
   (documentation/gui/gui_SessionBrowser.md)
+- **gui.ParameterDefaultsEditor**: the window over `epsych.ParameterDefaults`
+  for one membership, opened from `gui.SubjectManager`'s right-click
+  **Parameter Defaults for This Row...** and **Subject > Parameter
+  Defaults...**. Non-modal and ONE PER MEMBERSHIP (`open` raises an existing
+  window rather than building a second that could overwrite its edits). Lists
+  every parameter of the subject's protocol that can take a default — the
+  membership's protocol, loaded out of the version archive when the
+  membership is held — beside the protocol's value and range; Default/Min/Max
+  are edited in place and checked on entry, a refused edit is put back by the
+  repaint. Nothing is written until Save; `DefaultsSaved` makes the manager
+  repaint, whose Settings column appends `+ N defaults`. Copy from Session /
+  Copy from Last Data File take only what DIFFERS from the protocol and never
+  clear a default; the session copy is refused until the subject has run in
+  it, the file copy while a session runs (it reads folders on the trial
+  loop's thread) and names the file before copying. The filter keeps
+  keystrokes in `LiveFilter_`, never writing the field's `Value` from
+  `ValueChangingFcn` (the manager's documented dropped-characters trap). The
+  editing methods are public so a script can do what the table does
+  (documentation/gui/gui_ParameterDefaultsEditor.md)
 - **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. **Add Checked to Session** REPLACES the session's subject list rather than appending to it (`assignToSession`'s `ReplaceExisting`) — what is ticked is the operator's answer to "who is running", and a leftover animal would keep dispatching trials in its box; the displaced names go in the commit report, and the button and its tool say so in a tooltip. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. **Copy...** (also `Project > Copy Project...` and a two-folders tool) starts a study's next phase from one that already works: it asks the subjects question FIRST in a `uiconfirm` — with subjects, or settings only, skipped entirely for a project with no active members — because that is the one thing the edit dialog cannot show, then opens the ordinary dialog titled `Copy Project` on a non-colliding `(copy)` name, so nothing is written until OK. Copied subjects stay in the source too (membership is many-to-many); the roster's `IncludeRetired`/`CopyProtocolMemory` are script-only. The project dialog has two tabs: **Project** (identity, links, archived) and **Session Defaults**, which is where the settings that moved off Customize are set — protocol, data path, saving function, behavior GUI, timer period, video and Intan paths. Nothing there opens blank: each field is seeded from its MRU (`ep_RunExpt_Subjects/Recent<Field>`, written only on OK) and then the machine pref, and OK refuses a blank one; `DefaultProtocol` and `IntanSettingsFile` are the two deliberate exceptions. The behavior GUI dropdown is fed by the behavior GUIs other projects in the roster use, not by the `RecentBehaviorGUI` pref, so it works with no session open. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. On a rig with no roster file chosen the window opens *unbound* — header `Roster: (no file chosen)`, an explanation where the table goes, and everything off EXCEPT New Project / New Subject / Import, because clicking one of those three is how `ensureRoster_` asks for the file. That prompt loops with two exits (name a file, or close the window): "carry on without one" is never offered, since it would mean filling in a record with nowhere to save it. Browsing never prompts. A configured path whose FOLDER is gone (share moved, drive unmounted, temp dir cleaned up) is treated the same way and marked `(folder not found)` — otherwise it is indistinguishable from a fresh empty roster, and `saveAtomic_` would re-create that dead folder and save into it. The header shows the FULL path plus a Change... button, redundantly with the toolbar tool and File menu, because an icon-only toolbar is no help to someone whose roster is not where they expected. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies. A **Version** column and a **Protocol** menu surface `SubjectRoster`'s version checking: the column shows the version each subject is *on* (bold orange when the file has been saved since), a collapsible banner over the table announces how many are behind and offers Update All, and right-click opens that row's protocol in `epsych.ProtocolDesigner`. "Update All in Project" deliberately covers filtered-out members, but RETIRED members are outside the version workflow entirely: they are skipped by every update, left out of the banner, the tooltip, and Check Protocol Versions, and their Version cell is greyed rather than flagged. A finished animal's recorded protocol is the record of what it ran, and no session will follow to make a newer version true. A project's **links** render under the summary as `uihyperlink`s whose `URL` is left EMPTY on purpose — the click routes through `SubjectRoster.openLink` so a stored address is re-checked before anything navigates, and a `file:` folder goes to the file manager rather than a browser. "Show archived projects" is the project-level counterpart of "Show retired", and the selected project is never hidden by it (documentation/gui/gui_SubjectManager.md)
 - **gui.components.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, a TTL-trigger enable, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, units, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state. Rate and readout **units** are the operator's too, from the right-click Units menu (µL/mL per min/hr, mL/min by default): changing them converts `Rate` rather than reinterpreting it, puts the interface into the same units — so a protocol column that writes `Rate` means them as well — and is refused while the pump runs, because the pump rejects a units-bearing `RAT` mid-dispense and `hw.NE1000`'s bare-value fallback would land in the OLD units (`gui.BehaviorGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
 - **gui.components.NanoMotor**: the DM320T commutator controller

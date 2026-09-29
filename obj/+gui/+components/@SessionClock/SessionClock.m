@@ -7,7 +7,8 @@ classdef SessionClock < handle
     %   - The current computer (wall-clock) time
     %
     % Right-click the widget for a context menu that toggles which lines
-    % are shown and sizes the text. Both choices persist across sessions via
+    % are shown, sizes the text, and resets the Session Duration line to 0
+    % (resetSessionDuration; the reset is noted in the session record). Both choices persist across sessions via
     % getpref/setpref, keyed by PreferenceTag (by default the hosting figure's
     % Tag, which for a gui.BehaviorGUI subclass is that GUI's own PreferenceTag
     % — so the remembered display is scoped per BehaviorGUI automatically). Each
@@ -72,7 +73,8 @@ classdef SessionClock < handle
         FirstTrialTime_   datetime = NaT
         LastTrialTime_    datetime = NaT
         StopTime_         datetime = NaT % Instant the session stopped; every elapsed line is measured to it while set
-        Started_ (1,1) logical = false   % Whether the host asked for ticks; a mode change must not start a clock nobody started
+        Runtime_                         % Attached epsych.Runtime, for the session record; empty when standalone
+        Started_ (1,1) logical = false  % Whether the host asked for ticks; a mode change must not start a clock nobody started
         FontSize_ (1,1) double = 12
         FontMenuH_                   % "Font Size" submenu handle
     end
@@ -167,6 +169,7 @@ classdef SessionClock < handle
             delete(obj.ModeListener_);
             obj.StopTime_ = NaT;
             obj.SessionStartTime_ = NaT;
+            obj.Runtime_ = RUNTIME;
             try
                 if ~isnat(RUNTIME.StartTime)
                     obj.SessionStartTime_ = RUNTIME.StartTime;
@@ -238,6 +241,27 @@ classdef SessionClock < handle
             if wasTicking
                 vprintf(2, 'SessionClock stopped')
             end
+        end
+
+        function resetSessionDuration(obj)
+            % obj.resetSessionDuration()
+            % Restart the Session Duration line from 0 now. Only that line
+            % moves: the time since the first and the last trial are facts
+            % about trials and keep their origins. On a stopped session the
+            % origin is the stop instant, so the held line reads 0 rather
+            % than clamping a future origin. The reset is written to
+            % RUNTIME.NOTES, since nothing else in the data file would show
+            % that the duration was not measured from the session start.
+            if obj.IsStopped
+                obj.SessionStartTime_ = obj.StopTime_;
+            else
+                obj.SessionStartTime_ = datetime('now');
+            end
+            obj.updateDisplay_();
+            if ~isempty(obj.Runtime_)
+                epsych.SessionNotes.log(obj.Runtime_, 'Session Clock: session duration reset to 0');
+            end
+            vprintf(2, 'SessionClock session duration reset')
         end
 
         function sessionStopped(obj, when)
@@ -337,6 +361,8 @@ classdef SessionClock < handle
                 obj.FontMenuH_ = uimenu(cm, 'Text', 'Font Size', 'Tag', 'fontmenu', ...
                     'Separator', 'on');
                 obj.refreshFontMenu_();
+                uimenu(cm, 'Text', 'Reset Session Duration to 0', 'Tag', 'resetduration', ...
+                    'Separator', 'on', 'MenuSelectedFcn', @(~,~) obj.resetSessionDuration());
                 try
                     cm.ContextMenuOpeningFcn = @(~,~) obj.refreshMenus_();
                 catch

@@ -1,5 +1,6 @@
-function P = readParameters(obj, filepath)
+function [P, Excluded] = readParameters(obj, filepath, options)
 % P = readParameters(obj, filepath)
+% [P, Excluded] = readParameters(obj, filepath, Exclude=params)
 % Load a phase file (protocol or legacy JSON) and apply its parameters to the runtime.
 %
 % Phases and protocols share one format: a phase file is an .eprot/.prot protocol
@@ -28,6 +29,17 @@ function P = readParameters(obj, filepath)
 % by ep_TimerFcn_RunTime), so trials regenerate from the loaded phase's design-time
 % Values and Expressions — not just its current values.
 %
+% Parameters named in Exclude are left exactly as the session has them: no
+% metadata, no Values, no Value (gui.components.PhaseSelector's per-parameter
+% load). The recompile still happens for the rest, and it regenerates every
+% column from design-time Values -- which no runtime edit updates -- so each
+% excluded single-level parameter first has its Values brought up to what it
+% is running now (effectiveDesignValue, the rule a phase save applies to the
+% file). Without that, "leave it alone" would quietly revert an operator's
+% edit at the next trial boundary. Buffers are not reconciled: their content
+% comes from the dispatch, not an edit, and reading one back is a
+% multi-megabyte transfer.
+%
 % The resolved parameters are returned so the caller can apply them as needed (e.g.
 % updateTrialsFromParameters). This avoids re-reading parameters via all_parameters,
 % which would discard the loaded values.
@@ -37,10 +49,15 @@ function P = readParameters(obj, filepath)
 %   filepath (1,:) string
 %                        Path to the phase file (.eprot, .prot, or legacy .json).
 %                        If not provided or invalid, prompts user to select a file.
+%   Exclude  hw.Parameter
+%                        Live parameters to leave untouched (default none). A
+%                        parameter the file does not name is simply ignored.
 %
 % Returns:
-%   P  hw.Parameter array of the resolved parameters, in file order. Empty if the
-%      load is canceled or the file cannot be read.
+%   P         hw.Parameter array of the resolved parameters, in file order. Empty
+%             if the load is canceled or the file cannot be read.
+%   Excluded  hw.Parameter array of the file's parameters that Exclude kept
+%             from loading, in file order.
 %
 % See also: writeParametersProtocol, phaseParameterData, readParametersJSON,
 %   updateTrialsFromParameters, hw.Parameter, epsych.Protocol
@@ -48,9 +65,11 @@ function P = readParameters(obj, filepath)
 arguments
     obj
     filepath (1,:) string = ""
+    options.Exclude hw.Parameter = hw.Parameter.empty(1,0)
 end
 
 P = hw.Parameter.empty(1,0);
+Excluded = hw.Parameter.empty(1,0);
 
 % If filepath is not provided or invalid, prompt user to select file
 if filepath == "" || ~isfile(filepath)
@@ -72,6 +91,7 @@ interfaceTypes = arrayfun(@(x) string(x.Type), obj.Interfaces);
 % a handle array one element at a time reallocates it on every entry, and a
 % phase file carries every parameter in the protocol.
 hits = cell(1, nP);
+skipped = cell(1, nP);
 
 % Resolve each file entry to its live hw.Parameter and restore its saved properties.
 for k = 1:nP
@@ -93,6 +113,11 @@ for k = 1:nP
         continue
     end
     xp = xp(1);
+
+    if ~isempty(options.Exclude) && any(options.Exclude == xp)
+        skipped{k} = xp;
+        continue
+    end
 
     % Restore metadata and design-time Values. fromStruct deliberately leaves the runtime Value
     % alone, so set it here for writable, non-StimType parameters (StimType Value is handled by
@@ -147,6 +172,11 @@ P = [hits{:}];
 if isempty(P)
     P = hw.Parameter.empty(1,0);
 end
+if ~isempty([skipped{:}])
+    Excluded = [skipped{:}];
+    vprintf(2, 'Phase load: left %d excluded parameter(s) as they were: %s', ...
+        numel(Excluded), strjoin({Excluded.Name}, ', '))
+end
 
 % One line rather than one per entry: with GLogVerbosity defaulting to Inf a
 % per-parameter trace is always emitted, and every emission walks the stack.
@@ -175,6 +205,7 @@ if ~isempty(P) && isstruct(obj.TRIALS) && isfield(obj.TRIALS, 'RECOMPILE_REQUEST
     end
     obj.TRIALS = TRIALS;
     if scheduled > 0
+        local_keepExcludedValues(obj, Excluded);
         vprintf(1, 'Phase load: protocol recompile scheduled at the next trial boundary for %d subject(s).', scheduled)
     end
 end
@@ -189,7 +220,36 @@ obj.Phase(end).ParameterData = paramData;
 obj.Phase(end).LoadTimestamp = datetime('now');
 obj.Phase(end).Source = metadata.Source;
 obj.Phase(end).Metadata = metadata.Extra;
+obj.Phase(end).Excluded = string({Excluded.Name});
 
 vprintf(3, 'Read %d parameters from %s', numel(P), filepath)
 
+end
+
+
+function local_keepExcludedValues(obj, Excluded)
+% local_keepExcludedValues(obj, Excluded)
+% Bring each excluded parameter's design-time Values up to what it is running
+% now, so the recompile this load scheduled reproduces it rather than
+% reverting it (see the header). Only single-level parameters are touched;
+% effectiveDesignValue leaves everything else alone, exactly as a phase save
+% does.
+if isempty(Excluded), return, end
+
+[committed, perTrial] = committedTrialValues(obj.TRIALS);
+
+synced = strings(1, 0);
+for p = Excluded
+    if any(strcmp(p.Type, {'Buffer', 'Coefficient Buffer'})), continue, end
+    [v, ok] = effectiveDesignValue(p, committed, perTrial);
+    if ok && ~isequaln(p.Values, {v})
+        p.Values = {v};
+        synced(end+1) = string(p.Name);
+    end
+end
+
+if ~isempty(synced)
+    vprintf(2, 'Phase load: kept the current value of %d excluded parameter(s) across the recompile: %s', ...
+        numel(synced), strjoin(synced, ', '))
+end
 end

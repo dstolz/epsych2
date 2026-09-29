@@ -414,7 +414,23 @@ Rules that matter:
   full `epsych.Protocol.load` reconstruction whenever the shape is not recognized in full.
   Results are memoized by `Runtime.phaseCache` on path+mtime+size. Both are transparent:
   `FastParse=false`, `UseCache=false`, and `phaseCache('clear'|'disable')` restore the
-  original behavior, and `tmp/smoke_test_phase_fastparse.m` is the standing equivalence proof
+  original behavior, and `tmp/smoke_test_phase_fastparse.m` is the standing equivalence proof.
+  **A load can leave parameters out**: `readParameters(file, Exclude=params)` skips them
+  entirely (no metadata, `Values`, or `Value`) and returns them as `Excluded`. The trap is
+  the recompile the load still schedules — it rebuilds EVERY column from design-time
+  `Values`, which no runtime edit updates — so each excluded single-level parameter first
+  gets `Values = {what it runs now}`, by the rule a phase save applies to its snapshot
+  (`@Runtime/private/effectiveDesignValue.m` + `committedTrialValues.m`, shared with
+  `writeParametersProtocol` so the two cannot drift). Without it, "leave it alone" would
+  revert an operator's edit at the next boundary. Unlike a save this mutates the live
+  protocol, because the recompile reads it; buffers are skipped (dispatch content, and a
+  multi-megabyte read). The operator's way in is `gui.components.PhaseSelector`: right-click
+  Load for once, or `SelectParametersOnLoad` for every press (the button then reads
+  `Load...`; only the menu toggle is remembered, as a pref). **Only the button consults
+  that property** — `loadPhaseParameters`' own `SelectParameters` default is false, so a
+  scripted load can never block on a modal dialog however a rig's operator set it.
+  Standing proof `tmp/smoke_test_phaseselector_select_parameters.m`, -batch only (it
+  drives the dialog from a timer)
 - **PRGMSTATE** (top-level class in obj/PRGMSTATE.m): Session state enumeration
 
 #### obj/+hw/ – Hardware Abstraction Layer
@@ -900,6 +916,15 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   write after an enumeration or probe re-checks `isvalid(fig)`: `serialportlist`
   and the probe yield, so a rig's timers (gui.components.SyringePump polls at 4 Hz) can
   close the dialog mid-scan
+- **gui.selectPhaseParameters**: the modal checkbox table `gui.components.PhaseSelector`
+  opens before a load — one row per parameter the phase would load (Current, New, and
+  "Other Changes": range, roved levels, expression, randomization, type, visibility),
+  every box checked, unchanged rows hidden behind "Show unchanged" (a hidden row keeps
+  its check; loading it is a no-op). Returns the check mask, `[]` on Cancel. Built
+  HIDDEN and shown complete, and blocks in `waitfor`, not `uiwait`: building a uifigure
+  yields, so a timer (or a fast click) could answer a half-built window, and `uiwait`
+  yields again before validating its argument and throws on the deleted handle
+  (documentation/gui/PhaseSelector.md)
 - **gui.compareProtocolVersions**: the modal window showing what differs between
   two protocol versions — a filtered table over `epsych.Protocol.compareVersions`
   with a Copy Report button for a notebook entry. Shared by the designer's

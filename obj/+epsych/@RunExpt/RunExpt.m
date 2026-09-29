@@ -24,7 +24,11 @@ classdef RunExpt < handle
         % One element per subject. Declared (1,:) rather than (1,1) because
         % AddSubject appends via CONFIG(numel+1); a scalar constraint here made
         % every multi-subject session fail with "Value must be a scalar".
-        CONFIG (1,:) struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[])  % Per-subject configuration array; each element holds SUBJECT, PROTOCOL, RUNTIME, and protocol_fn
+        % ROSTER is where a roster subject came from (see
+        % epsych.ParameterDefaults.rosterLink): what a Run reads its parameter
+        % defaults through, and what those defaults replaced last run. [] for a
+        % subject that did not come from a roster.
+        CONFIG (1,:) struct = struct('SUBJECT',[],'PROTOCOL',[],'RUNTIME',[],'protocol_fn',[],'ROSTER',[])  % Per-subject configuration array; each element holds SUBJECT, PROTOCOL, RUNTIME, protocol_fn, and ROSTER
         FUNCS (1,1) struct = struct()                                                            % Preference-backed callback function names for saving, timers, and GUI
         RUNTIME (1,1) epsych.Runtime = epsych.Runtime                                           % Shared runtime state passed to all callbacks during the session
         DefaultDataPath (1,1) string = cd                                                          % Default directory for saving experiment data
@@ -491,7 +495,7 @@ classdef RunExpt < handle
     % slot-reuse rule and the two refreshes are internals, but they are exactly
     % the internals a batch commit has to drive.
     methods (Access = {?epsych.RunExpt, ?epsych.SubjectRoster})
-        appendSubjectToConfig_(self, S, pfn, protocol)     % Write one subject and its protocol into the next CONFIG slot
+        appendSubjectToConfig_(self, S, pfn, protocol, roster) % Write one subject, its protocol, and its roster link into the next CONFIG slot
         ClearConfig(self)                                  % Reset CONFIG to empty defaults and update program state if not running
         CheckReady(self)                                   % Evaluate whether all conditions to run are met and update STATE
         UpdateSubjectList(self)                            % Repopulate the subject list and flag subjects with an outdated protocol version
@@ -512,6 +516,7 @@ classdef RunExpt < handle
         recent = GetRecentFuncs(self, prefKey)             % Return the MRU function-name list for a Customize dialog field
         RememberRecentFunc(self, prefKey, name)            % Record an accepted function name in a Customize dialog field's MRU list
         ExptDispatch(self, COMMAND)                        % Dispatch a named command (Start/Stop/Pause) to the experiment
+        changed = applyParameterDefaults_(self)            % Put each subject's roster parameter defaults on its protocol before a run
         T = CreateTimer(self)                              % Create and configure the psychophysics trial timer object
         PsychTimerStart(self)                              % Initialize runtime state and start the trial timer
 

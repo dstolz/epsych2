@@ -29,7 +29,12 @@ classdef SubjectRoster < handle
     % later project edits do not reach existing members unless pushed with
     % reapplyTemplate, and one subject diverges with updateMembership.
     % assignToSession applies the agreed membership values to the session,
-    % never to the machine preferences. Alongside the template a project holds
+    % never to the machine preferences. A membership also carries PARAMETER
+    % DEFAULTS: values that replace its protocol's for that subject alone, read
+    % from the roster and applied by epsych.RunExpt every time Run or Preview is
+    % pressed (see epsych.ParameterDefaults). Unlike the session settings they
+    % are per-subject by nature, so a batch never has to agree on them and no
+    % template stamps them. Alongside the template a project holds
     % the study's own bookkeeping — Investigator, IACUCProtocol, an
     % Archived flag, and Links, a list of addresses for the lab notebook,
     % shared sheet, or issue tracker the study is logged in. Links are checked
@@ -64,6 +69,7 @@ classdef SubjectRoster < handle
     %   addProject, copyProject, updateProject, deleteProject, findProject
     %   assign, unassign, setActive         - membership
     %   updateMembership, reapplyTemplate   - per-membership session settings
+    %   parameterDefaults, setParameterDefaults - per-membership parameter values
     %   subjectsInProject, projectsForSubject
     %   rememberProtocol, lastProtocol      - per-membership protocol memory
     %   protocolStatus                      - is each subject on the current protocol?
@@ -207,6 +213,10 @@ classdef SubjectRoster < handle
         setActive(self, subjectId, projectId, tf)
         updateMembership(self, subjectId, projectId, M)
         report = reapplyTemplate(self, subjectIds, projectId)
+
+        % Per-membership parameter defaults, applied on every Run
+        D = parameterDefaults(self, subjectId, projectId)
+        setParameterDefaults(self, subjectId, projectId, D)
 
         % Queries
         recs = subjectsInProject(self, projectId, options)

@@ -63,6 +63,7 @@ classdef SubjectManager < handle
         Refreshing_ (1,1) logical = false  % guards callbacks fired by repopulation
         PendingProject_ (1,:) char = ''    % project to select once refresh builds the list
         ContextRow_ = []                   % row the table's context menu was last opened on
+        DefaultsListeners_ = {}            % DefaultsSaved listeners on open parameter-default editors
 
         % Which face the Retire tool is currently wearing, so its icon is
         % repainted on the transition rather than on every refresh.
@@ -727,6 +728,7 @@ classdef SubjectManager < handle
             % handler, like every other right-click action here.
             self.H.mnu_reapply_template.Enable = onoff(writable && inProject && hasChecked);
             self.H.mnu_edit_membership.Enable = onoff(writable && inProject && hasSelection);
+            self.H.mnu_parameter_defaults.Enable = onoff(writable && inProject && hasSelection);
             self.H.btnNewProject.Enable = onoff(canCreate);
             self.H.tb_new_project.Enable = onoff(canCreate);
 
@@ -1524,6 +1526,66 @@ classdef SubjectManager < handle
 
             self.refresh();
             self.setStatus_(sprintf('Updated session settings for "%s".', rec.Name));
+        end
+
+        function onEditParameterDefaults_(self, fromContextMenu)
+            % Open gui.ParameterDefaultsEditor on a row in the current
+            % project: the right-clicked one from the table's menu, else the
+            % selected one. Needs a project for the same reason Session
+            % Settings does: the defaults are the membership's, and the
+            % parameter names come from its protocol.
+            projectId = self.selectedProject_();
+            if isempty(projectId)
+                self.setStatus_(['Select a project first: parameter defaults live on ' ...
+                    'the membership.']);
+                return
+            end
+
+            % Only the table's own menu may use ContextRow_: it is left over
+            % from the last right-click, which the menu bar knows nothing of.
+            rec = [];
+            if fromContextMenu && ~isempty(self.ContextRow_) && self.ContextRow_ <= numel(self.Rows_)
+                rec = self.Rows_(self.ContextRow_);
+            end
+            if isempty(rec)
+                rec = self.selectedRow_();
+            end
+            if isempty(rec), return, end
+
+            if isempty(self.Roster.findMembership(rec.SubjectID, projectId))
+                uialert(self.H.figure, sprintf( ...
+                    '"%s" is not a member of this project.', rec.Name), ...
+                    'Parameter Defaults', 'Icon','warning');
+                return
+            end
+
+            try
+                E = gui.ParameterDefaultsEditor.open(self.Roster, rec.SubjectID, projectId, ...
+                    RunExpt = self.RunExpt);
+            catch ME
+                vprintf(0, 1, ME);
+                uialert(self.H.figure, ME.message, 'Parameter Defaults', 'Icon','error');
+                return
+            end
+
+            % One listener per editor, however many times it is raised; a
+            % closed editor's listener is dropped on the next open.
+            keep = cellfun(@(L) isvalid(L) && all(cellfun(@isvalid, L.Source)), self.DefaultsListeners_);
+            self.DefaultsListeners_ = self.DefaultsListeners_(keep);
+            if ~any(cellfun(@(L) L.Source{1} == E, self.DefaultsListeners_))
+                self.DefaultsListeners_{end+1} = listener(E, 'DefaultsSaved', ...
+                    @(src, ~) self.onParameterDefaultsSaved_(src));
+            end
+            self.setStatus_(sprintf('Editing the parameter defaults of "%s".', rec.Name));
+        end
+
+        function onParameterDefaultsSaved_(self, editor)
+            % The Settings column counts defaults, so repaint once they land.
+            if ~isvalid(self) || ~isfield(self.H, 'figure') || ~isgraphics(self.H.figure)
+                return
+            end
+            self.refresh();
+            self.setStatus_(sprintf('Saved the parameter defaults of "%s".', editor.SubjectName));
         end
 
         function onReapplyTemplate_(self)

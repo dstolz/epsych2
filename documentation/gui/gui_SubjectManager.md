@@ -120,6 +120,12 @@ The four PsychTimer lifecycle callbacks (`TimerStartFcn` … `TimerErrorFcn`) ar
 
 **Session Settings...** (Subject menu, and the row context menu's *Session Settings for This Row...*) opens the same field grid — minus the Default Protocol row, since a membership's protocol goes through the protocol-memory workflow — on **one subject's membership** in the selected project. This is how one animal deliberately diverges from the template: a longer timer period for a slow subject, a different saving function for a pilot. It refuses blanks exactly as the template dialog does, so the all-inherit state can never be created here.
 
+### Parameter defaults
+
+**Parameter Defaults...** (Subject menu, and the row context menu's *Parameter Defaults for This Row...*) opens [`gui.ParameterDefaultsEditor`](gui_ParameterDefaultsEditor.md) on the same membership: values that replace the protocol's for that one subject every time Run or Preview is pressed — a start depth, a reward volume, a delay range. It lists every parameter of the subject's protocol that can take one beside the protocol's value and range, and can fill itself from the session that is running or from the subject's last saved data file. Like *Session Settings...* it needs a project selected; unlike it, it is a separate, non-modal window, one per membership, and saving it repaints the table here. See [`epsych.ParameterDefaults`](../epsych/epsych_ParameterDefaults.md) for how they reach a run.
+
+The context-menu item acts on the row under the pointer; the Subject-menu item on the selected row.
+
 #### Nothing in those dialogs opens blank
 
 Every session default arrives already filled in: from **the value last used in these dialogs**, else the built-in default (`ep_SaveDataFcn`, `ep_GenericGUI`, 0.01 s; the paths from `RunExpt/DataPath`, `ep_RunExpt_Video`, `ep_RunExpt_Intan`). The recents are stored per field under `ep_RunExpt_Subjects` as `Recent<Field>`, capped at 12, most-recent-first, and written only when OK is accepted — a cancelled or refused dialog must not seed the next project with a typo. They are *user* preferences, not roster contents, so two rigs sharing one roster still propose their own drives.
@@ -153,7 +159,7 @@ The dropdown is editable, and its list is drawn from **the behavior GUIs other p
 | Box | **yes** | Blank means "assign the lowest free one". Values outside 1–16 are rejected and the old value restored. |
 | Protocol | no | See below |
 | Version | no | The protocol version this subject is on — see [Protocol versions](#protocol-versions) |
-| Settings | no | `template` when the membership still matches the project's Session Defaults, `edited` when it has diverged (via *Session Settings...*), blank in the All Projects view. What makes the commit-time mismatch refusal predictable before the click. |
+| Settings | no | `template` when the membership still matches the project's Session Defaults, `edited` when it has diverged (via *Session Settings...*), blank in the All Projects view. What makes the commit-time mismatch refusal predictable before the click. `+ N defaults` is appended when the membership carries [parameter defaults](#parameter-defaults) — the same question, "will this subject run differently from the project's plan", so it shares the column rather than widening the table. |
 | Species, Sex, Weight, Last Run | no | So two similarly-named animals are distinguishable |
 | Status | no | Active / Retired |
 

@@ -27,6 +27,10 @@ function newId = copyProject(self, id, newName, options)
 %   IncludeRetired     - bring retired members too, still retired (default false)
 %   CopyProtocolMemory - copied members keep the protocol, version, and box
 %                        they last used in the source (default true)
+%   CopyParameterDefaults - copied members keep their parameter defaults
+%                        (default true). They are the animal's own tuning, which
+%                        a study's next phase usually wants to start from; a
+%                        default the new protocol lacks is skipped at Run.
 %   Notes, Investigator, IACUCProtocol, DefaultProtocol, DefaultDataPath,
 %   SavingFcn, TimerStartFcn, TimerRunTimeFcn, TimerStopFcn, TimerErrorFcn,
 %   TimerPeriod, VideoRootDir, IntanRootDir, IntanSettingsFile,
@@ -72,6 +76,7 @@ arguments
     options.IncludeSubjects (1,1) logical = false
     options.IncludeRetired (1,1) logical = false
     options.CopyProtocolMemory (1,1) logical = true
+    options.CopyParameterDefaults (1,1) logical = true
     options.Notes (1,:) char
     options.Investigator (1,:) char
     options.IACUCProtocol (1,:) char
@@ -181,6 +186,12 @@ vprintf(1, 'Copied project "%s" to "%s" with %d subject(s).', ...
                 m.LastProtocol        = source(i).LastProtocol;
                 m.LastProtocolVersion = source(i).LastProtocolVersion;
                 m.LastBoxID           = source(i).LastBoxID;
+            end
+
+            % Per-subject by nature, so unlike the session fields above there
+            % is no mismatch refusal for carrying them to seed.
+            if options.CopyParameterDefaults
+                m.ParameterDefaults = source(i).ParameterDefaults;
             end
 
             m.Added    = now_;

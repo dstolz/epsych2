@@ -100,6 +100,14 @@ for i = 1:numel(self.Projects)
     self.Projects(i).Links = epsych.SubjectRoster.normalizeLinks_(self.Projects(i).Links);
 end
 
+% The same for a membership's parameter defaults, and for the same reason
+% unvalidated: a record another build wrote oddly is dropped or coerced, never
+% allowed to make the file unreadable. apply() checks each against the protocol.
+for i = 1:numel(self.Memberships)
+    self.Memberships(i).ParameterDefaults = ...
+        epsych.ParameterDefaults.normalize(self.Memberships(i).ParameterDefaults);
+end
+
 self.IsWritable = ~self.IsReadOnly;
 self.FileStamp_ = epsych.SubjectRoster.stamp_(self.FilePath);
 self.LastRead   = datetime('now');

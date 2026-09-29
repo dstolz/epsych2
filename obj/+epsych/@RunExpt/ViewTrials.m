@@ -21,6 +21,20 @@ catch ME
 end
 warning('on', 'MATLAB:dispatcher:UnresolvedFunctionHandle');
 
+% Preview what the subject will run: its parameter defaults applied to a fresh
+% copy, never to the session's own protocol object.
+defaultsNote = '';
+if isfield(self.CONFIG, 'ROSTER') && ~isempty(self.CONFIG(idx).ROSTER)
+    D = epsych.ParameterDefaults.lookup(self.CONFIG(idx).ROSTER);
+    if ~isempty(D)
+        [~, rep] = epsych.ParameterDefaults.apply(protocol, D);
+        defaultsNote = sprintf(', with %d subject default(s)', numel(rep.Applied));
+        if ~isempty(rep.Skipped)
+            defaultsNote = sprintf('%s (%d skipped)', defaultsNote, numel(rep.Skipped));
+        end
+    end
+end
+
 protocol.compile();
 C = protocol.COMPILED;
 
@@ -52,7 +66,7 @@ columnNames = {C.parameters.Name};
 fig = uifigure('Name', sprintf('Compiled Trials — %s', pfn), ...
     'Position', [200 100 900 520]);
 uilabel(fig, ...
-    'Text', sprintf('Showing %d of %d compiled trials', size(trials, 1), C.ntrials), ...
+    'Text', sprintf('Showing %d of %d compiled trials%s', size(trials, 1), C.ntrials, defaultsNote), ...
     'Position', [20 486 860 25], ...
     'FontWeight', 'bold');
 uitable(fig, ...

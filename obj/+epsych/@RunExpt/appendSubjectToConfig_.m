@@ -1,5 +1,6 @@
-function appendSubjectToConfig_(self, S, pfn, protocol)
+function appendSubjectToConfig_(self, S, pfn, protocol, roster)
 % appendSubjectToConfig_(self, S, pfn, protocol)
+% appendSubjectToConfig_(self, S, pfn, protocol, roster)
 % Write one subject and its protocol into the next CONFIG slot.
 %
 % CONFIG starts life as a single placeholder element with empty fields, so the
@@ -14,13 +15,19 @@ function appendSubjectToConfig_(self, S, pfn, protocol)
 %   S        - epsych.Subject to store.
 %   pfn      - full path to the protocol file.
 %   protocol - the loaded epsych.Protocol.
+%   roster   - where a roster subject came from
+%              (epsych.ParameterDefaults.rosterLink), or [] (default) for one
+%              that did not. Run reads the subject's parameter defaults
+%              through it.
 %
-% See also: epsych.RunExpt.AddSubject, epsych.SubjectRoster.assignToSession
+% See also: epsych.RunExpt.AddSubject, epsych.SubjectRoster.assignToSession,
+%   epsych.RunExpt.applyParameterDefaults_
 arguments
     self
     S (1,1) epsych.Subject
     pfn (1,:) char
     protocol (1,1) epsych.Protocol
+    roster = []
 end
 
 if isempty(self.CONFIG(1).protocol_fn)
@@ -32,3 +39,4 @@ end
 self.CONFIG(idx).protocol_fn = pfn;
 self.CONFIG(idx).PROTOCOL    = protocol;
 self.CONFIG(idx).SUBJECT     = S;
+self.CONFIG(idx).ROSTER      = roster;

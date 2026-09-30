@@ -108,7 +108,7 @@ classdef Runtime < handle & dynamicprops
         writeParametersJSON(obj, filepath)      % Serialize runtime parameters to a JSON file (legacy phase format).
         writeParametersProtocol(obj, filepath, description) % Save the current session as a protocol (.eprot) phase file.
         P = readParametersJSON(obj, filepath)   % Back-compat wrapper for readParameters.
-        [P, Excluded] = readParameters(obj, filepath, options) % Load a phase file (.eprot/.prot or legacy .json); returns the resolved hw.Parameter array. Exclude=params leaves those parameters untouched.
+        [P, Excluded, Overridden] = readParameters(obj, filepath, options) % Load a phase file (.eprot/.prot or legacy .json); returns the resolved hw.Parameter array. Exclude=params leaves those parameters untouched; Override loads chosen values in place of the file's.
         dispatchNextTrial(obj, subjectIdx)      % Dispatch the already selected next trial for one subject.
         resolveTriggerParameters(obj, subjectIdx) % Locate and cache the required trigger parameters (NewTrial, ResetTrig, TrialComplete) for one subject.
 
@@ -242,6 +242,7 @@ classdef Runtime < handle & dynamicprops
         [parameters, trials, writeparams, writeParamIdx] = compiledTrialColumns(compiled) % Trial table and the column map that names its columns, from a compiled protocol.
         [paramData, metadata] = phaseParameterData(filepath, options) % Parse a phase file (.eprot/.prot or legacy .json) into uniform parameter structs.
         varargout = phaseCache(action, filepath, entry) % Session-lifetime memo backing phaseParameterData.
+        [ok, reason] = phaseValueOverridable(S, P) % Whether a phase entry's value can be replaced for one load (readParameters' Override).
     end
 end
 

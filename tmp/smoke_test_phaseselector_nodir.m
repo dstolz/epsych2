@@ -46,10 +46,13 @@ for c = 1:size(cases,1)
         cleanupFig = onCleanup(@() delete(fig));
         h = ps.createGUI(uipanel(fig));
 
-        assert(isvalid(h.PhaseSelect) && isvalid(h.LoadPhase) && isvalid(h.SavePhase) ...
+        assert(isvalid(h.PhaseSelect) && isvalid(h.LoadPhase) && isvalid(h.SelectParameters) ...
             && isvalid(h.Description), 'all four controls should exist');
         assert(h.LoadPhase.Enable == "off", 'Load should be disabled with no phase selected');
-        assert(h.SavePhase.Enable == "on", 'Save must stay available to create the first phase');
+        % Save lives on the right-click menu now.
+        saveItem = findall(h.ContextMenu, 'Text', 'Save Current Parameters as Phase...');
+        assert(isscalar(saveItem) && saveItem.Enable == "on", ...
+            'Save must stay available to create the first phase');
         descText = string(h.Description.Text);
         assert(any(contains(descText,"Save")), ...
             'description should tell the operator how to create a phase; got "%s"', strjoin(descText,' | '));

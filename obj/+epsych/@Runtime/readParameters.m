@@ -1,6 +1,7 @@
-function [P, Excluded] = readParameters(obj, filepath, options)
+function [P, Excluded, Overridden] = readParameters(obj, filepath, options)
 % P = readParameters(obj, filepath)
 % [P, Excluded] = readParameters(obj, filepath, Exclude=params)
+% [P, Excluded, Overridden] = readParameters(obj, filepath, Override=O)
 % Load a phase file (protocol or legacy JSON) and apply its parameters to the runtime.
 %
 % Phases and protocols share one format: a phase file is an .eprot/.prot protocol
@@ -40,6 +41,16 @@ function [P, Excluded] = readParameters(obj, filepath, options)
 % comes from the dispatch, not an edit, and reading one back is a
 % multi-megabyte transfer.
 %
+% Override loads a different value than the file holds for chosen parameters,
+% for this load only: the value replaces the entry's Value -- and its Values,
+% which is what the scheduled recompile rebuilds from -- in this function's
+% copy of the parsed entry, so neither the file nor the phase cache changes.
+% Everything else the entry carries (range, visibility, ...) loads as usual.
+% An override on a parameter that could not hold it as one fixed value
+% (phaseValueOverridable: expression, randomized, roved, stimulus, ...) is
+% logged and ignored, and the file's value loads. set.Value clamps an
+% override into the range the entry restores, as it does any value.
+%
 % The resolved parameters are returned so the caller can apply them as needed (e.g.
 % updateTrialsFromParameters). This avoids re-reading parameters via all_parameters,
 % which would discard the loaded values.
@@ -52,12 +63,17 @@ function [P, Excluded] = readParameters(obj, filepath, options)
 %   Exclude  hw.Parameter
 %                        Live parameters to leave untouched (default none). A
 %                        parameter the file does not name is simply ignored.
+%   Override struct      Values to load in place of the file's: a struct array
+%                        with fields Parameter (a live hw.Parameter) and Value.
+%                        Default none. An excluded parameter's override is moot.
 %
 % Returns:
 %   P         hw.Parameter array of the resolved parameters, in file order. Empty
 %             if the load is canceled or the file cannot be read.
 %   Excluded  hw.Parameter array of the file's parameters that Exclude kept
 %             from loading, in file order.
+%   Overridden  hw.Parameter array of the parameters that loaded an Override
+%             value instead of the file's, in file order.
 %
 % See also: writeParametersProtocol, phaseParameterData, readParametersJSON,
 %   updateTrialsFromParameters, hw.Parameter, epsych.Protocol
@@ -66,10 +82,17 @@ arguments
     obj
     filepath (1,:) string = ""
     options.Exclude hw.Parameter = hw.Parameter.empty(1,0)
+    options.Override struct = struct('Parameter', {}, 'Value', {})
 end
 
 P = hw.Parameter.empty(1,0);
 Excluded = hw.Parameter.empty(1,0);
+Overridden = hw.Parameter.empty(1,0);
+overrideParams = hw.Parameter.empty(1,0);
+if ~isempty(options.Override)
+    overrideParams = [options.Override.Parameter];
+end
+applied = cell(1, 0);
 
 % If filepath is not provided or invalid, prompt user to select file
 if filepath == "" || ~isfile(filepath)
@@ -147,6 +170,20 @@ for k = 1:nP
     S.PersistWithPhase = xp.PersistWithPhase;
     restoreValue = ~hw.Parameter.isTransientControl(S);
 
+    % Checked against the parameter as it is BEFORE fromStruct, because the
+    % expression rule needs the live Expression that fromStruct may replace.
+    j = find(overrideParams == xp, 1, 'last');
+    if ~isempty(j)
+        [canOverride, why] = epsych.Runtime.phaseValueOverridable(S, xp);
+        if canOverride
+            S.Value = options.Override(j).Value;
+            S.Values = {options.Override(j).Value};
+            applied{end+1} = xp;
+        else
+            vprintf(0, 1, 'Phase load: cannot override "%s" (%s); loading the phase''s value.', xp.Name, why)
+        end
+    end
+
     liveExpression = xp.Expression;
     xp.fromStruct(S, restoreValue);
     if strlength(xp.Expression) == 0 && strlength(liveExpression) > 0
@@ -176,6 +213,11 @@ if ~isempty([skipped{:}])
     Excluded = [skipped{:}];
     vprintf(2, 'Phase load: left %d excluded parameter(s) as they were: %s', ...
         numel(Excluded), strjoin({Excluded.Name}, ', '))
+end
+if ~isempty(applied)
+    Overridden = [applied{:}];
+    vprintf(2, 'Phase load: loaded %d overridden value(s) in place of the file''s: %s', ...
+        numel(Overridden), strjoin({Overridden.Name}, ', '))
 end
 
 % One line rather than one per entry: with GLogVerbosity defaulting to Inf a
@@ -221,6 +263,11 @@ obj.Phase(end).LoadTimestamp = datetime('now');
 obj.Phase(end).Source = metadata.Source;
 obj.Phase(end).Metadata = metadata.Extra;
 obj.Phase(end).Excluded = string({Excluded.Name});
+obj.Phase(end).Overrides = struct('Name', {}, 'Value', {});
+for p = Overridden
+    j = find(overrideParams == p, 1, 'last');
+    obj.Phase(end).Overrides(end+1) = struct('Name', string(p.Name), 'Value', {options.Override(j).Value});
+end
 
 vprintf(3, 'Read %d parameters from %s', numel(P), filepath)
 

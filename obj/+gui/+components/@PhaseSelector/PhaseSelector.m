@@ -10,13 +10,23 @@ classdef PhaseSelector < handle
     % loadable. Selecting a phase in the dropdown prints its parameter changes to
     % the command window.
     %
-    % Load applies every parameter the phase defines unless the operator chooses
-    % otherwise: with SelectParametersOnLoad on, or from the Load button's
-    % right-click "Choose Parameters to Load...", it first opens
-    % gui.selectPhaseParameters, a checkbox table of the phase's parameters
-    % (current value, new value, what else changes). An unchecked parameter is
-    % left exactly as the session has it -- value, range, and levels
-    % (epsych.Runtime.readParameters' Exclude).
+    % The component shows a dropdown and two buttons: Load, and Parameters...,
+    % which opens gui.selectPhaseParameters -- a checkbox table of the selected
+    % phase's parameters (current value, new value, what else changes) -- and
+    % KEEPS the answer until Load is pressed. An unchecked parameter is left
+    % exactly as the session has it (epsych.Runtime.readParameters' Exclude); a
+    % New value edited in that table is loaded in place of the phase's
+    % (readParameters' Override) for that one load, and the phase file is never
+    % changed. A selection belongs to one phase: choosing another phase, or the
+    % file changing on disk, discards it, and a load consumes it. With
+    % SelectParametersOnLoad on, Load opens the same table itself first.
+    %
+    % Everything else is on a right-click menu shared by every part of the
+    % component: Load, Select Parameters to Load..., Clear Parameter Selection,
+    % Always Choose Before Loading, Print Phase Changes, Save Current
+    % Parameters as Phase..., Change Phase Directory..., and Rescan Phase
+    % Directory. addSavePhaseButton and addChangeDirectoryButton remain for a
+    % host that lays the component out itself and wants those as buttons.
     %
     % A missing, unset, or empty phase directory is a normal state, not an error:
     % the component builds with an empty phase list and a description explaining
@@ -39,9 +49,11 @@ classdef PhaseSelector < handle
     %   CurrentPhase       - Index of currently loaded phase.
     %   h_PhaseSelect      - Handle to dropdown UI control.
     %   h_LoadPhase        - Handle to load button UI control.
-    %   h_WritePhase       - Handle to write button UI control.
-    %   h_ChangeDirectory  - Handle to change-directory button UI control.
+    %   h_SelectParameters - Handle to the Parameters... button UI control.
+    %   h_WritePhase       - Handle to write button UI control (addSavePhaseButton only).
+    %   h_ChangeDirectory  - Handle to change-directory button UI control (addChangeDirectoryButton only).
     %   h_Description      - Handle to description label UI control.
+    %   h_ContextMenu      - The right-click menu every part of the component shares.
     %   RUNTIME            - Main runtime object.
     %   Names              - List of phase file names without extension.
     %   DisplayNames       - Names decorated with each phase's protocol version.
@@ -50,6 +62,7 @@ classdef PhaseSelector < handle
     %   LastLoadedFile     - File name of the most recently loaded phase.
     %   LastLoadedTime     - Time the most recently loaded phase was loaded.
     %   SelectParametersOnLoad - Load asks which parameters to load first (default false).
+    %   ParameterSelection - The kept Parameters... answer, read-only (see chooseParameters).
     %   RegenerateOnLoad   - Re-dispatch the pending trial after a changing load (default true).
     %
     % Methods:
@@ -57,12 +70,16 @@ classdef PhaseSelector < handle
     %   addDescriptionLabel     - Add label UI control for description text.
     %   addPhaseSelectDropdown  - Add dropdown UI control for phase selection.
     %   addLoadPhaseButton      - Add button UI control for loading the selected phase.
+    %   addSelectParametersButton - Add the Parameters... button.
     %   addSavePhaseButton      - Add button UI control for saving phase parameters.
     %   addChangeDirectoryButton- Add button UI control for choosing a new phase directory.
-    %   createGUI               - Create dropdown and button UI controls for phase selection, loading, and saving.
+    %   createGUI               - Create the dropdown, Load and Parameters... buttons, description, and right-click menu.
     %   findPhaseFiles          - Scan PhasePath for phase files; empty list if the directory is missing or empty.
+    %   rescanPhaseDirectory    - Rescan PhasePath, keeping the selected phase when it is still there.
     %   onPhaseSelectionChanged - Callback for dropdown value change; updates state without loading, and prints the phase's parameter changes.
-    %   loadPhaseParameters     - Load parameters from the selected phase file into the runtime (optionally a chosen subset).
+    %   chooseParameters        - Choose which parameters the next Load applies, and edit values for it.
+    %   clearParameterSelection - Discard that choice, so Load applies the whole phase again.
+    %   loadPhaseParameters     - Load parameters from the selected phase file into the runtime (optionally a chosen subset, with edited values).
     %   showPhaseInfo           - Print a table of the parameter changes the selected phase would apply.
     %   set.PhasePath           - Set method for PhasePath property, loads phase files from new path.
     %   writePhaseParameters    - Save the current session as a protocol (.eprot) phase file.
@@ -76,9 +93,11 @@ classdef PhaseSelector < handle
         CurrentPhase (1,1) uint8 = 0 % Index of currently loaded phase (0 = no phase)
         h_PhaseSelect           % Handle to dropdown UI control
         h_LoadPhase             % Handle to load button UI control
-        h_WritePhase            % Handle to write button UI control
-        h_ChangeDirectory       % Handle to change-directory button UI control
+        h_SelectParameters      % Handle to the Parameters... button UI control
+        h_WritePhase            % Handle to write button UI control (addSavePhaseButton only)
+        h_ChangeDirectory       % Handle to change-directory button UI control (addChangeDirectoryButton only)
         h_Description           % Handle to description label UI control
+        h_ContextMenu           % The right-click menu every part of the component shares
     end
 
     properties (SetAccess = private)
@@ -110,6 +129,14 @@ classdef PhaseSelector < handle
         % loadPhaseParameters call opens the dialog only when it passes
         % SelectParameters=true, so automation can never block on it.
         SelectParametersOnLoad
+
+        % What the Parameters... button chose for the next Load (read-only):
+        % a struct with File (the phase it belongs to; "" when there is no
+        % selection and Load applies the whole phase), Exclude (hw.Parameter
+        % array left as they are), Override (struct array Parameter/Value,
+        % loaded in place of the phase's values), and NumListed (how many
+        % parameters the phase offered).
+        ParameterSelection
     end
 
 
@@ -121,6 +148,7 @@ classdef PhaseSelector < handle
         STAGED_SUFFIX = ' *'
         LOADED_TEXT = 'Load'
         SELECT_TEXT = 'Load...' % the ellipsis says a dialog follows
+        PARAMS_TEXT = 'Parameters...'
     end
 
 
@@ -128,7 +156,12 @@ classdef PhaseSelector < handle
         LoadButtonDefaultColor % Load button's un-staged BackgroundColor, captured at creation
         Staged_ (1,1) logical = false % a phase is selected but not yet loaded
         SelectParametersOnLoad_ (1,1) logical = false
-        h_SelectMenu_ = [] % the Load button's "Always Choose Before Loading" menu item
+        Selection_ struct % the Parameters... answer; see ParameterSelection
+        h_SelectMenu_ = [] % the menu's "Always Choose Before Loading" item
+        h_LoadMenu_ = []   % menu items whose Enable follows the selected phase
+        h_ChooseMenu_ = []
+        h_ClearMenu_ = []
+        h_InfoMenu_ = []
 
         % Run mode, FOLLOWED from ModeChange rather than read: a behavior GUI
         % is built before RunExpt broadcasts the run mode, and asking the
@@ -184,6 +217,7 @@ classdef PhaseSelector < handle
                 PhasePath (1,1) string = ""
             end
             obj.RUNTIME = RUNTIME;
+            obj.Selection_ = obj.emptySelection_();
             if ispref(obj.PREF_GROUP, obj.PREF_SELECT_KEY)
                 obj.SelectParametersOnLoad_ = logical(getpref(obj.PREF_GROUP, obj.PREF_SELECT_KEY));
             end
@@ -217,6 +251,11 @@ classdef PhaseSelector < handle
         function set.SelectParametersOnLoad(obj, tf)
             obj.SelectParametersOnLoad_ = tf;
             obj.refreshLoadButton_();
+        end
+
+
+        function s = get.ParameterSelection(obj)
+            s = obj.Selection_;
         end
 
 
@@ -365,7 +404,15 @@ classdef PhaseSelector < handle
             %
             % Parameters:
             %   src - Source dropdown UI control
-            [~, idx, phaseName] = obj.selectedPhaseFile();
+            [filepath, idx] = obj.selectedPhaseFile();
+
+            % A parameter selection is an answer about one phase's file; it
+            % means nothing for another. Reselecting the same phase keeps it.
+            if strlength(obj.Selection_.File) > 0 && obj.Selection_.File ~= filepath
+                vprintf(1, 'gui.components.PhaseSelector: discarded the parameter selection made for "%s"', ...
+                    obj.Selection_.File)
+                obj.Selection_ = obj.emptySelection_();
+            end
 
             enable = matlab.lang.OnOffSwitchState(idx > 0);
             if ~isempty(obj.h_LoadPhase) && isvalid(obj.h_LoadPhase)
@@ -376,16 +423,8 @@ classdef PhaseSelector < handle
                     obj.resetLoadButtonAppearance();
                 end
             end
-
-            if ~isempty(obj.h_Description) && isvalid(obj.h_Description)
-                if isempty(obj.FullFilenames)
-                    obj.h_Description.Text = obj.withLastLoaded(obj.noPhasesText());
-                elseif idx == 0
-                    obj.h_Description.Text = obj.withLastLoaded("No phase selected. Select a phase, then press Load to apply its parameters.");
-                else
-                    obj.h_Description.Text = obj.withLastLoaded(sprintf('Phase "%s" selected. Press Load to apply its parameters.', phaseName));
-                end
-            end
+            obj.refreshSelectButton_();
+            obj.refreshSelectedText_();
 
             if idx > 0
                 obj.showPhaseInfo(src);
@@ -396,6 +435,8 @@ classdef PhaseSelector < handle
         function loadPhaseParameters(obj, ~, options)
             % loadPhaseParameters(obj)
             % loadPhaseParameters(obj, src, SelectParameters=true, Exclude=names)
+            % loadPhaseParameters(obj, src, Override={'Name', value, ...})
+            % loadPhaseParameters(obj, src, UseSelection=true)
             % Load parameters from the currently selected phase file into the runtime.
             % Invoked by the Load button. Reads the selection from the dropdown, applies the
             % resolved parameters to TRIALS, and updates the description. readParameters
@@ -417,6 +458,22 @@ classdef PhaseSelector < handle
             %                      interfaces excludes each) or as hw.Parameter
             %                      handles. With SelectParameters they start
             %                      unchecked instead, and the dialog decides.
+            %   Override         - Values to load in place of the phase's, for
+            %                      this load only (the file is not changed): a
+            %                      cell of name/value pairs, or a struct array
+            %                      with fields Parameter (name or hw.Parameter)
+            %                      and Value. A parameter that cannot hold one
+            %                      fixed value (epsych.Runtime.phaseValueOverridable)
+            %                      loads the phase's value, and the log says so.
+            %   UseSelection     - Apply the selection chosen with the Parameters...
+            %                      button (chooseParameters), merged under
+            %                      Exclude/Override. Default false; the Load button
+            %                      passes true. A selection whose phase file has
+            %                      changed since it was made is discarded and
+            %                      nothing is loaded, since what was chosen may no
+            %                      longer describe the file.
+            %
+            % Any successful load consumes the kept selection.
             %
             % Updates:
             %   obj.CurrentPhase
@@ -425,6 +482,8 @@ classdef PhaseSelector < handle
                 ~
                 options.SelectParameters (1,1) logical = false
                 options.Exclude = strings(1, 0)
+                options.Override = struct('Parameter', {}, 'Value', {})
+                options.UseSelection (1,1) logical = false
             end
 
             [filepath, idx, phaseName] = obj.selectedPhaseFile();
@@ -440,8 +499,20 @@ classdef PhaseSelector < handle
             paramData = epsych.Runtime.phaseParameterData(filepath);
 
             exclude = obj.parametersNamed_(options.Exclude);
+            override = obj.overridesNamed_(options.Override);
+            if options.UseSelection && obj.Selection_.File == filepath
+                if ~obj.selectionIsCurrent_()
+                    obj.refuseStaleSelection_(phaseName);
+                    return
+                end
+                % Stated options come last so they win: readParameters takes
+                % the last override naming a parameter.
+                exclude = [obj.Selection_.Exclude, exclude];
+                override = [obj.Selection_.Override, override];
+            end
             if options.SelectParameters
-                [exclude, ok] = obj.chooseParameters_(filepath, paramData, phaseName, exclude);
+                [exclude, override, ok] = obj.chooseParameters_(filepath, paramData, phaseName, ...
+                    exclude, override, "Load");
                 if ~ok
                     vprintf(1, 'Phase "%s" not loaded: parameter selection cancelled.', phaseName)
                     return
@@ -471,7 +542,7 @@ classdef PhaseSelector < handle
             % readParameters resolves the file entries to live parameters and returns them
             % (with restored values). Use the returned set directly; re-reading via all_parameters
             % here would discard the loaded values. Excluded parameters are not in P.
-            [P, kept] = obj.RUNTIME.readParameters(filepath, Exclude=exclude);
+            [P, kept, edited] = obj.RUNTIME.readParameters(filepath, Exclude=exclude, Override=override);
             keptNames = strjoin(cellstr(string({kept.Name})), ', ');
 
             % REMOVE TRIALTYPE
@@ -500,6 +571,14 @@ classdef PhaseSelector < handle
             keptNote = '';
             if ~isempty(kept)
                 keptNote = sprintf('; kept as they were: %s', keptNames);
+            end
+            % An edited value is not what the phase file says, so the record
+            % has to: otherwise a reader would take the file for what ran.
+            if ~isempty(edited)
+                keptNote = sprintf('%s; values edited for this load: %s', keptNote, ...
+                    obj.describeOverrides_(edited, override, before));
+                vprintf(1, 'Phase "%s": loaded edited value(s) in place of the phase''s: %s', ...
+                    phaseName, obj.describeOverrides_(edited, override, before))
             end
 
             if isempty(P)
@@ -531,7 +610,10 @@ classdef PhaseSelector < handle
             obj.LastLoadedFile = loadedName + loadedExt;
             obj.LastLoadedTime = datetime('now', Format='HH:mm:ss');
 
-            % The staged phase has now been applied; drop the staged look.
+            % The staged phase has now been applied; drop the staged look. The
+            % parameter selection was an answer about that load, so it goes too.
+            obj.Selection_ = obj.emptySelection_();
+            obj.refreshSelectButton_();
             obj.resetLoadButtonAppearance();
 
             % update description text to show loaded phase description from JSON, if available
@@ -550,6 +632,9 @@ classdef PhaseSelector < handle
                 end
                 if ~isempty(kept)
                     baseText = baseText + sprintf(" (%d parameter(s) kept as they were)", numel(kept));
+                end
+                if ~isempty(edited)
+                    baseText = baseText + sprintf(" (%d value(s) edited)", numel(edited));
                 end
                 obj.h_Description.Text = obj.withLastLoaded(baseText);
             end
@@ -581,41 +666,45 @@ classdef PhaseSelector < handle
 
         function h = createGUI(obj, parent)
             % createGUI(obj, parent)
-            % Creates dropdown and button UI controls for phase selection and saving.
+            % Creates the phase dropdown, the Load and Parameters... buttons, and
+            % the description, all sharing one right-click menu that also holds
+            % Save, Change Directory, and the rest (see the class help).
             %
             % Parameters:
             %   parent - Handle to parent UI container (e.g., uifigure, uipanel)
             %
             % Returns:
-            %   h - Struct containing handles to created UI controls
+            %   h - Struct containing handles to created UI controls, and
+            %       ContextMenu, the shared menu
             arguments
                 obj
                 parent {mustBeNonempty} = uifigure
             end
 
-            gl = uigridlayout(parent, [3 3]);
+            gl = uigridlayout(parent, [3 2]);
             gl.RowHeight = {30,30,'fit'};
-            gl.ColumnWidth = {'1x','1x','1x'};
+            gl.ColumnWidth = {'1x','1x'};
 
             h.PhaseSelect = obj.addPhaseSelectDropdown(gl);
             h.PhaseSelect.Layout.Row = 1;
-            h.PhaseSelect.Layout.Column = [1 3];
+            h.PhaseSelect.Layout.Column = [1 2];
 
             h.LoadPhase = obj.addLoadPhaseButton(gl);
             h.LoadPhase.Layout.Row = 2;
             h.LoadPhase.Layout.Column = 1;
 
-            h.SavePhase = obj.addSavePhaseButton(gl);
-            h.SavePhase.Layout.Row = 2;
-            h.SavePhase.Layout.Column = 2;
-
-            h.ChangeDirectory = obj.addChangeDirectoryButton(gl);
-            h.ChangeDirectory.Layout.Row = 2;
-            h.ChangeDirectory.Layout.Column = 3;
+            h.SelectParameters = obj.addSelectParametersButton(gl);
+            h.SelectParameters.Layout.Row = 2;
+            h.SelectParameters.Layout.Column = 2;
 
             h.Description = obj.addDescriptionLabel(gl);
             h.Description.Layout.Row = 3;
-            h.Description.Layout.Column = [1 3];
+            h.Description.Layout.Column = [1 2];
+
+            % The empty space between the controls answers a right-click too,
+            % so the menu is found wherever the operator tries.
+            obj.attachContextMenu_(gl);
+            h.ContextMenu = obj.h_ContextMenu;
 
             % Start on the null entry with Load/Info disabled until a phase is selected.
             if ~isempty(obj.h_PhaseSelect)
@@ -640,34 +729,50 @@ classdef PhaseSelector < handle
                 parent {mustBeNonempty} = gcf
             end
 
-            % SelectParametersOnLoad is read at click time, not captured here.
             h = uibutton(parent, ...
                 'Enable', 'off', ...
-                'ButtonPushedFcn', @(src,evt) obj.loadPhaseParameters(src, ...
-                    SelectParameters = obj.SelectParametersOnLoad));
-
-            % Choosing parameters is one right-click away either way: once, or
-            % as what Load always does. The menu is the only place the operator
-            % can change the setting, and the one place it is remembered.
-            fig = ancestor(h, 'figure');
-            if ~isempty(fig)
-                cm = uicontextmenu(fig);
-                uimenu(cm, 'Text', 'Choose Parameters to Load...', ...
-                    'MenuSelectedFcn', @(~,~) obj.loadPhaseParameters([], SelectParameters = true));
-                obj.h_SelectMenu_ = uimenu(cm, 'Text', 'Always Choose Before Loading', ...
-                    'MenuSelectedFcn', @(~,~) obj.toggleSelectParameters_());
-                h.ContextMenu = cm;
-            end
+                'ButtonPushedFcn', @(src,~) obj.pressLoad_(src));
 
             obj.LoadButtonDefaultColor = h.BackgroundColor;
             obj.h_LoadPhase = h;
+            obj.attachContextMenu_(h);
             obj.refreshLoadButton_();
+        end
+
+
+        function h = addSelectParametersButton(obj, parent)
+            % h = addSelectParametersButton(obj, parent)
+            % Adds the Parameters... button: choose which of the selected
+            % phase's parameters the next Load applies, and edit values for it
+            % (chooseParameters). Disabled until a phase is selected; shows
+            % "Parameters... *" in bold while a selection is being kept.
+            %
+            % Parameters:
+            %   parent   - Handle to parent container (e.g., uifigure, uipanel)
+            %
+            % Returns:
+            %   h - Handle to created button UI control
+            arguments
+                obj
+                parent {mustBeNonempty} = gcf
+            end
+
+            h = uibutton(parent, ...
+                'Text', obj.PARAMS_TEXT, ...
+                'Enable', 'off', ...
+                'ButtonPushedFcn', @(src,~) obj.chooseParameters(src));
+
+            obj.h_SelectParameters = h;
+            obj.attachContextMenu_(h);
+            obj.refreshSelectButton_();
         end
 
 
         function h = addSavePhaseButton(obj, parent)
             % h = addSavePhaseButton(obj, parent)
             % Adds a button UI control to parent for saving current phase parameters to file.
+            % createGUI does not use it (Save is on the right-click menu); it is
+            % for a host laying the component out itself.
             %
             % Parameters:
             %   parent   - Handle to parent container (e.g., uifigure, uipanel)
@@ -684,12 +789,15 @@ classdef PhaseSelector < handle
                 'ButtonPushedFcn', @(src,evt) obj.writePhaseParameters(src));
 
             obj.h_WritePhase = h;
+            obj.attachContextMenu_(h);
         end
 
 
         function h = addChangeDirectoryButton(obj, parent)
             % h = addChangeDirectoryButton(obj, parent)
             % Adds a button UI control to parent for choosing a new phase directory.
+            % createGUI does not use it (Change Phase Directory... is on the
+            % right-click menu); it is for a host laying the component out itself.
             %
             % Parameters:
             %   parent   - Handle to parent container (e.g., uifigure, uipanel)
@@ -707,6 +815,7 @@ classdef PhaseSelector < handle
                 'ButtonPushedFcn', @(src,evt) obj.changePhaseDirectory(src));
 
             obj.h_ChangeDirectory = h;
+            obj.attachContextMenu_(h);
         end
 
 
@@ -736,6 +845,7 @@ classdef PhaseSelector < handle
                 'ValueChangedFcn', @(src,evt)obj.onPhaseSelectionChanged(src));
 
             obj.h_PhaseSelect = h;
+            obj.attachContextMenu_(h);
         end
 
         function h = addDescriptionLabel(obj, parent)
@@ -759,6 +869,93 @@ classdef PhaseSelector < handle
                 'FontSize', 10);
 
             obj.h_Description = h;
+            obj.attachContextMenu_(h);
+        end
+
+
+        function tf = chooseParameters(obj, ~)
+            % tf = chooseParameters(obj)
+            % Open gui.selectPhaseParameters for the selected phase and KEEP the
+            % answer for the next Load (the Parameters... button). Unchecked
+            % parameters will be left as they are; an edited New value will be
+            % loaded in place of the phase's, for that load only -- the phase
+            % file is never changed. Reopening shows the kept answer. Accepting
+            % a full, unedited selection clears it, since that is what Load
+            % does anyway.
+            %
+            % Returns:
+            %   tf - true when the operator accepted, false when cancelled or
+            %        there was nothing to choose from
+            tf = false;
+            [filepath, idx, phaseName] = obj.selectedPhaseFile();
+            if idx == 0
+                vprintf(1, 'No phase selected. Select a phase to choose its parameters.')
+                return
+            end
+
+            exclude = hw.Parameter.empty(1, 0);
+            override = obj.emptyOverride_();
+            if obj.Selection_.File == filepath
+                if obj.selectionIsCurrent_()
+                    exclude = obj.Selection_.Exclude;
+                    override = obj.Selection_.Override;
+                else
+                    vprintf(1, 'Phase "%s" changed on disk; its parameter selection starts over.', phaseName)
+                end
+            end
+
+            paramData = epsych.Runtime.phaseParameterData(filepath);
+            [exclude, override, ok, nListed] = obj.chooseParameters_(filepath, paramData, phaseName, ...
+                exclude, override, "OK");
+            if ~ok
+                return
+            end
+            tf = true;
+
+            if isempty(exclude) && isempty(override)
+                obj.Selection_ = obj.emptySelection_();
+            else
+                obj.Selection_ = struct('File', filepath, 'FileDate', obj.fileDate_(filepath), ...
+                    'Exclude', exclude, 'Override', override, 'NumListed', nListed);
+                vprintf(2, 'Phase "%s": parameter selection kept for the next load (%s)', ...
+                    phaseName, obj.selectionSummary_())
+            end
+            obj.refreshSelectButton_();
+            obj.refreshSelectedText_();
+        end
+
+
+        function clearParameterSelection(obj)
+            % clearParameterSelection(obj)
+            % Discard the Parameters... selection, so the next Load applies the
+            % whole phase again.
+            obj.Selection_ = obj.emptySelection_();
+            obj.refreshSelectButton_();
+            obj.refreshSelectedText_();
+        end
+
+
+        function rescanPhaseDirectory(obj)
+            % rescanPhaseDirectory(obj)
+            % Rescan PhasePath for phase files -- one saved from another window
+            % or copied in by hand -- keeping the selected phase (and any
+            % parameter selection for it) when it is still there.
+            if isempty(obj.h_PhaseSelect) || ~isvalid(obj.h_PhaseSelect)
+                obj.findPhaseFiles();
+                return
+            end
+            previous = string(obj.h_PhaseSelect.Value);
+            obj.findPhaseFiles();
+            set(obj.h_PhaseSelect, 'Items', cellstr(obj.DisplayNames), ...
+                'ItemsData', cellstr(obj.Names));
+            if any(obj.Names == previous)
+                obj.h_PhaseSelect.Value = char(previous);
+                obj.refreshSelectButton_();
+                obj.refreshSelectedText_();
+            else
+                obj.h_PhaseSelect.Value = char(obj.Names(1));
+                obj.onPhaseSelectionChanged(obj.h_PhaseSelect);
+            end
         end
 
     end
@@ -883,10 +1080,12 @@ classdef PhaseSelector < handle
             end
             if obj.SelectParametersOnLoad
                 txt = obj.SELECT_TEXT;
-                tip = 'Choose which of the selected phase''s parameters to apply, then apply them. Right-click to load everything without asking.';
+                tip = ['Choose which of the selected phase''s parameters to apply, then apply them. ' ...
+                    'Right-click and untick "Always Choose Before Loading" to load without asking.'];
             else
                 txt = obj.LOADED_TEXT;
-                tip = 'Apply the selected phase''s parameters to the current session. Right-click to choose which parameters to load.';
+                tip = ['Apply the selected phase''s parameters to the current session ' ...
+                    '(only those chosen with Parameters..., if any). Right-click for more.'];
             end
             if obj.Staged_
                 txt = [txt obj.STAGED_SUFFIX];
@@ -903,6 +1102,237 @@ classdef PhaseSelector < handle
             % setting the property from code is not.
             obj.SelectParametersOnLoad = ~obj.SelectParametersOnLoad;
             setpref(obj.PREF_GROUP, obj.PREF_SELECT_KEY, obj.SelectParametersOnLoad);
+        end
+
+
+        function pressLoad_(obj, src)
+            % pressLoad_(obj, src)
+            % What the Load button and the menu's Load item do: apply the kept
+            % parameter selection, asking first when SelectParametersOnLoad is
+            % on (read here, at click time).
+            obj.loadPhaseParameters(src, SelectParameters = obj.SelectParametersOnLoad, ...
+                UseSelection = true);
+        end
+
+
+        function attachContextMenu_(obj, h)
+            % attachContextMenu_(obj, h)
+            % Give control h the component's shared right-click menu, building
+            % it on first use. One menu for every part, so Save and the rest
+            % are found wherever the operator right-clicks, and its Enable and
+            % check states have one place to be kept right.
+            fig = ancestor(h, 'figure');
+            if isempty(fig), return, end
+            cm = obj.h_ContextMenu;
+            if isempty(cm) || ~isvalid(cm) || ancestor(cm, 'figure') ~= fig
+                cm = obj.buildContextMenu_(fig);
+            end
+            h.ContextMenu = cm;
+        end
+
+
+        function cm = buildContextMenu_(obj, fig)
+            % cm = buildContextMenu_(obj, fig)
+            % Everything the component can do, including what used to be the
+            % Save and Dir... buttons. Enable states are refreshed as the menu
+            % opens, since selecting a phase is not the only thing that moves them.
+            cm = uicontextmenu(fig, 'ContextMenuOpeningFcn', @(~,~) obj.refreshMenu_());
+            obj.h_LoadMenu_ = uimenu(cm, 'Text', 'Load Selected Phase', ...
+                'MenuSelectedFcn', @(~,~) obj.pressLoad_([]));
+            obj.h_ChooseMenu_ = uimenu(cm, 'Text', 'Select Parameters to Load...', ...
+                'MenuSelectedFcn', @(~,~) obj.chooseParameters());
+            obj.h_ClearMenu_ = uimenu(cm, 'Text', 'Clear Parameter Selection', ...
+                'MenuSelectedFcn', @(~,~) obj.clearParameterSelection());
+            % The only place the operator can change this setting, and the one
+            % place it is remembered.
+            obj.h_SelectMenu_ = uimenu(cm, 'Text', 'Always Choose Before Loading', ...
+                'Separator', 'on', ...
+                'MenuSelectedFcn', @(~,~) obj.toggleSelectParameters_());
+            obj.h_InfoMenu_ = uimenu(cm, 'Text', 'Print Phase Changes to Command Window', ...
+                'MenuSelectedFcn', @(~,~) obj.showPhaseInfo());
+            uimenu(cm, 'Text', 'Save Current Parameters as Phase...', 'Separator', 'on', ...
+                'MenuSelectedFcn', @(~,~) obj.writePhaseParameters([]));
+            uimenu(cm, 'Text', 'Change Phase Directory...', ...
+                'MenuSelectedFcn', @(~,~) obj.changePhaseDirectory());
+            uimenu(cm, 'Text', 'Rescan Phase Directory', ...
+                'MenuSelectedFcn', @(~,~) obj.rescanPhaseDirectory());
+            obj.h_ContextMenu = cm;
+            obj.refreshMenu_();
+        end
+
+
+        function refreshMenu_(obj)
+            if isempty(obj.h_ContextMenu) || ~isvalid(obj.h_ContextMenu), return, end
+            [~, idx] = obj.selectedPhaseFile();
+            phaseOn = matlab.lang.OnOffSwitchState(idx > 0);
+            obj.h_LoadMenu_.Enable = phaseOn;
+            obj.h_ChooseMenu_.Enable = phaseOn;
+            obj.h_InfoMenu_.Enable = phaseOn;
+            obj.h_ClearMenu_.Enable = matlab.lang.OnOffSwitchState(strlength(obj.Selection_.File) > 0);
+            obj.h_SelectMenu_.Checked = matlab.lang.OnOffSwitchState(obj.SelectParametersOnLoad);
+        end
+
+
+        function refreshSelectButton_(obj)
+            % refreshSelectButton_(obj)
+            % The Parameters... button: enabled with a phase selected, and
+            % marked ("Parameters... *", bold, a summary in the tooltip) while
+            % a selection is kept, so a partial load is never a surprise.
+            b = obj.h_SelectParameters;
+            if isempty(b) || ~isvalid(b), return, end
+            [~, idx] = obj.selectedPhaseFile();
+            b.Enable = matlab.lang.OnOffSwitchState(idx > 0);
+            if strlength(obj.Selection_.File) > 0
+                b.Text = [obj.PARAMS_TEXT obj.STAGED_SUFFIX];
+                b.FontWeight = 'bold';
+                b.Tooltip = sprintf(['Next Load: %s. Click to change; right-click ' ...
+                    '"Clear Parameter Selection" to load the whole phase.'], obj.selectionSummary_());
+            else
+                b.Text = obj.PARAMS_TEXT;
+                b.FontWeight = 'normal';
+                b.Tooltip = ['Choose which of the selected phase''s parameters Load applies, ' ...
+                    'and edit values for this load (the phase file is not changed).'];
+            end
+        end
+
+
+        function refreshSelectedText_(obj)
+            % refreshSelectedText_(obj)
+            % Description text for the current dropdown state, naming a kept
+            % parameter selection when there is one.
+            if isempty(obj.h_Description) || ~isvalid(obj.h_Description), return, end
+            [~, idx, phaseName] = obj.selectedPhaseFile();
+            if isempty(obj.FullFilenames)
+                txt = obj.noPhasesText();
+            elseif idx == 0
+                txt = "No phase selected. Select a phase, then press Load to apply its parameters.";
+            elseif strlength(obj.Selection_.File) > 0
+                txt = sprintf('Phase "%s" selected; Load will apply %s.', phaseName, obj.selectionSummary_());
+            else
+                txt = sprintf('Phase "%s" selected. Press Load to apply its parameters.', phaseName);
+            end
+            obj.h_Description.Text = obj.withLastLoaded(txt);
+        end
+
+
+        function txt = selectionSummary_(obj)
+            % "10 of 12 parameters, 2 edited values" -- the kept selection.
+            S = obj.Selection_;
+            nExcluded = numel(unique(S.Exclude));
+            nEdited = numel(unique(obj.overrideParams_(S.Override)));
+            txt = sprintf('%d of %d parameter(s)', max(S.NumListed - nExcluded, 0), S.NumListed);
+            if nEdited > 0
+                txt = sprintf('%s, %d edited value(s)', txt, nEdited);
+            end
+        end
+
+
+        function tf = selectionIsCurrent_(obj)
+            % Whether the phase file is still the one the selection was made
+            % from: a re-saved phase can list different parameters or values.
+            tf = isequal(obj.fileDate_(obj.Selection_.File), obj.Selection_.FileDate);
+        end
+
+
+        function refuseStaleSelection_(obj, phaseName)
+            % Load with a selection made before the phase file last changed.
+            % Loading the whole phase instead would undo what the operator
+            % unchecked, so nothing loads and they are asked to choose again.
+            msg = sprintf(['Phase "%s" has changed on disk since its parameters were selected, ' ...
+                'so it was not loaded. Choose its parameters again (or clear the selection), ' ...
+                'then press Load.'], phaseName);
+            vprintf(0, 1, msg)
+            obj.Selection_ = obj.emptySelection_();
+            obj.refreshSelectButton_();
+            obj.refreshSelectedText_();
+            if ~isempty(obj.h_PhaseSelect) && isvalid(obj.h_PhaseSelect)
+                fig = ancestor(obj.h_PhaseSelect, 'figure');
+                if ~isempty(fig) && fig.Visible
+                    uialert(fig, msg, 'Phase Changed', Icon = 'warning');
+                end
+            end
+        end
+
+
+        function O = overridesNamed_(obj, spec)
+            % O = overridesNamed_(obj, spec)
+            % Resolve loadPhaseParameters' Override -- name/value pairs in a
+            % cell, or a Parameter/Value struct array whose Parameter is a
+            % name or a handle -- to a struct array over live parameters. A
+            % name the session has twice overrides both; an unknown one is
+            % logged, as for Exclude.
+            O = obj.emptyOverride_();
+            if iscell(spec)
+                assert(mod(numel(spec), 2) == 0, 'gui:PhaseSelector:OverridePairs', ...
+                    'Override must be name/value pairs.');
+                spec = struct('Parameter', spec(1:2:end), 'Value', spec(2:2:end));
+            end
+            for s = reshape(spec, 1, [])
+                if isa(s.Parameter, 'hw.Parameter')
+                    P = reshape(s.Parameter, 1, []);
+                else
+                    P = obj.RUNTIME.find_parameter(string(s.Parameter), includeInvisible = true, ...
+                        silenceParameterNotFound = true);
+                    if isempty(P)
+                        vprintf(1, 'gui.components.PhaseSelector: no parameter named "%s" to override in the phase load', ...
+                            string(s.Parameter))
+                    end
+                end
+                for p = reshape(P, 1, [])
+                    O(end+1) = struct('Parameter', p, 'Value', {s.Value});
+                end
+            end
+        end
+
+
+        function txt = describeOverrides_(obj, edited, override, before)
+            % txt = describeOverrides_(obj, edited, override, before)
+            % "StimDelay = 500 (phase: 250), ..." for the session record. Built
+            % from values already in hand -- the override and the phase entry
+            % -- never from a device read, which a record of a load that has
+            % already landed must not be able to fail.
+            ovParams = obj.overrideParams_(override);
+            beforeParams = hw.Parameter.empty(1, 0);
+            if ~isempty(before), beforeParams = [before.Param]; end
+            parts = strings(1, numel(edited));
+            for k = 1:numel(edited)
+                p = edited(k);
+                j = find(ovParams == p, 1, 'last');
+                parts(k) = sprintf('%s = %s', p.Name, epsych.ParameterDefaults.formatValue(override(j).Value));
+                b = find(beforeParams == p, 1);
+                if ~isempty(b)
+                    parts(k) = sprintf('%s (phase: %s)', parts(k), obj.cellText_(before(b).New));
+                end
+            end
+            txt = char(strjoin(parts, ', '));
+        end
+
+
+        function P = overrideParams_(~, override)
+            P = hw.Parameter.empty(1, 0);
+            if ~isempty(override)
+                P = [override.Parameter];
+            end
+        end
+
+
+        function d = fileDate_(~, filepath)
+            d = NaN;
+            info = dir(filepath);
+            if isscalar(info)
+                d = info.datenum;
+            end
+        end
+
+
+        function S = emptySelection_(obj)
+            S = struct('File', "", 'FileDate', NaN, 'Exclude', hw.Parameter.empty(1, 0), ...
+                'Override', obj.emptyOverride_(), 'NumListed', 0);
+        end
+
+
+        function O = emptyOverride_(~)
+            O = struct('Parameter', {}, 'Value', {});
         end
 
 
@@ -931,30 +1361,48 @@ classdef PhaseSelector < handle
         end
 
 
-        function [exclude, ok] = chooseParameters_(obj, filepath, paramData, phaseName, exclude)
-            % [exclude, ok] = chooseParameters_(obj, filepath, paramData, phaseName, exclude)
-            % Ask the operator which of the phase's parameters to load, through
+        function [exclude, override, ok, nListed] = chooseParameters_(obj, filepath, paramData, ...
+                phaseName, exclude, override, acceptText)
+            % [exclude, override, ok, nListed] = chooseParameters_(obj, filepath,
+            %     paramData, phaseName, exclude, override, acceptText)
+            % Ask the operator which of the phase's parameters to load, and
+            % which values to load in place of the phase's, through
             % gui.selectPhaseParameters. Parameters already in exclude start
-            % unchecked. Returns the full exclusion list, and ok = false when
-            % the operator cancelled.
+            % unchecked and those in override start edited. Returns the full
+            % exclusion and override lists, ok = false when the operator
+            % cancelled, and how many parameters were listed.
             %
             % The dialog lists exactly what the preview does (resolvePhaseAgainstRuntime):
             % session-control toggles are not listed, since a load never moves
-            % them anyway, and an excluded one stays excluded.
+            % them anyway, and an excluded one stays excluded. Entries for
+            % parameters the dialog did not list pass through untouched.
             ok = true;
+            nListed = 0;
             R = obj.resolvePhaseAgainstRuntime(filepath, paramData);
             if isempty(R)
                 return
             end
             listed = [R.Param];
+            nListed = numel(listed);
             initial = arrayfun(@(p) ~any(exclude == p), listed)';
+
+            rows = obj.parameterRows_(R);
+            edits = repmat(string(missing), nListed, 1);
+            ovParams = obj.overrideParams_(override);
+            for k = 1:nListed
+                j = find(ovParams == listed(k), 1, 'last');
+                if ~isempty(j) && rows.Editable(k)
+                    edits(k) = string(epsych.ParameterDefaults.formatValue(override(j).Value));
+                end
+            end
 
             fig = [];
             if ~isempty(obj.h_PhaseSelect) && isvalid(obj.h_PhaseSelect)
                 fig = ancestor(obj.h_PhaseSelect, 'figure');
             end
-            include = gui.selectPhaseParameters(obj.parameterRows_(R), Include = initial, ...
-                PhaseName = phaseName, Parent = fig);
+            [include, edits] = gui.selectPhaseParameters(rows, Include = initial, Edits = edits, ...
+                ValidateFcn = @(k, txt) obj.validateEdit_(R(k), txt), ...
+                PhaseName = phaseName, AcceptText = acceptText, Parent = fig);
             if isempty(include)
                 ok = false;
                 return
@@ -962,6 +1410,54 @@ classdef PhaseSelector < handle
 
             notListed = arrayfun(@(p) ~any(listed == p), exclude);
             exclude = [exclude(notListed), listed(~include)];
+
+            % The dialog's edits replace whatever was stated for the listed
+            % parameters; an edit on a row left unchecked goes nowhere.
+            override = override(arrayfun(@(p) ~any(listed == p), ovParams));
+            for k = reshape(find(~ismissing(edits) & include), 1, [])
+                [~, ~, ~, value] = obj.validateEdit_(R(k), edits(k));
+                override(end+1) = struct('Parameter', listed(k), 'Value', {value});
+            end
+        end
+
+
+        function [ok, message, normalized, value] = validateEdit_(obj, r, text)
+            % [ok, message, normalized, value] = validateEdit_(obj, r, text)
+            % Whether text, typed into the chooser's New cell, is a value the
+            % resolved phase entry r can load in place of its own. Parsed the
+            % way epsych.ParameterDefaults reads a typed default (no eval), as
+            % the entry's type; a number must be ONE value, whole for an
+            % Integer, and inside the range the load will restore -- set.Value
+            % would clamp anything outside it, loading something other than
+            % what was typed.
+            S = r.Entry;
+            normalized = "";
+            [value, ok, message] = epsych.ParameterDefaults.parseValue(text, struct('Type', char(S.Type)));
+            if ~ok, return, end
+            if isempty(value) && ~ischar(value)
+                ok = false;
+                message = 'enter a value, or clear the cell to load the phase''s.';
+                return
+            end
+            if isnumeric(value)
+                lo = obj.toNumber_(S.Min);
+                hi = obj.toNumber_(S.Max);
+                if ~isscalar(value)
+                    ok = false;
+                    message = 'enter one value; a phase load sets a single level here.';
+                elseif strcmp(S.Type, 'Integer') && value ~= round(value)
+                    ok = false;
+                    message = sprintf('%g is not a whole number.', value);
+                elseif value < lo || value > hi
+                    ok = false;
+                    message = sprintf('%g is outside the phase''s range [%g, %g].', value, lo, hi);
+                end
+                if ~ok
+                    value = [];
+                    return
+                end
+            end
+            normalized = string(epsych.ParameterDefaults.formatValue(value));
         end
 
 
@@ -980,9 +1476,13 @@ classdef PhaseSelector < handle
             Changes      = strings(n, 1);
             Module       = strings(n, 1);
             ValueChanged = false(n, 1);
+            Editable     = false(n, 1);
+            EditNote     = strings(n, 1);
             for k = 1:n
                 r = R(k);
                 p = r.Param;
+                [Editable(k), why] = epsych.Runtime.phaseValueOverridable(r.Entry, p);
+                EditNote(k) = why;
                 Parameter(k) = string(p.Name);
                 Description(k) = p.Description;
                 if strlength(Description(k)) == 0
@@ -999,7 +1499,8 @@ classdef PhaseSelector < handle
                     Changes(k) = strjoin(notes, '; ');
                 end
             end
-            T = table(Parameter, Description, Current, New, Unit, Changes, Module, ValueChanged);
+            T = table(Parameter, Description, Current, New, Unit, Changes, Module, ValueChanged, ...
+                Editable, EditNote);
         end
 
 
@@ -1141,10 +1642,11 @@ classdef PhaseSelector < handle
             % Description-label text for the empty state, naming the directory that
             % was searched so a mistyped or not-yet-created phase directory is
             % diagnosable from the GUI rather than only from the log.
+            saveHint = 'Right-click and choose "Save Current Parameters as Phase..." to store the current parameters as a phase file.';
             if strlength(obj.PhasePath) == 0
-                txt = "No phase directory set. Press Save to store the current parameters as a phase file.";
+                txt = sprintf('No phase directory set. %s', saveHint);
             else
-                txt = sprintf('No phase files in "%s". Press Save to store the current parameters as a phase file.', obj.PhasePath);
+                txt = sprintf('No phase files in "%s". %s', obj.PhasePath, saveHint);
             end
             txt = string(txt);
         end

@@ -461,13 +461,25 @@ Rules that matter:
   `writeParametersProtocol` so the two cannot drift). Without it, "leave it alone" would
   revert an operator's edit at the next boundary. Unlike a save this mutates the live
   protocol, because the recompile reads it; buffers are skipped (dispatch content, and a
-  multi-megabyte read). The operator's way in is `gui.components.PhaseSelector`: right-click
-  Load for once, or `SelectParametersOnLoad` for every press (the button then reads
-  `Load...`; only the menu toggle is remembered, as a pref). **Only the button consults
-  that property** — `loadPhaseParameters`' own `SelectParameters` default is false, so a
-  scripted load can never block on a modal dialog however a rig's operator set it.
-  Standing proof `tmp/smoke_test_phaseselector_select_parameters.m`, -batch only (it
-  drives the dialog from a timer)
+  multi-megabyte read). **A load can also replace values**: `readParameters(file,
+  Override=O)` writes each value into its OWN COPY of the parsed entry — `Value` and
+  `Values = {v}`, since the recompile rebuilds from `Values` — before `fromStruct`, so
+  neither the file nor `phaseCache` changes; `epsych.Runtime.phaseValueOverridable` is
+  the one rule (no expression — including the live one kept when the file's is empty —
+  randomization, roving, non-value type, read-only, or session control) shared by the
+  chooser's editable cells and the loader's refusal. The operator's way in is
+  `gui.components.PhaseSelector`: Load plus a **Parameters...** button whose answer
+  (unchecks and edited values) is KEPT in `ParameterSelection` until Load, tied to the
+  file path AND its mtime — a re-saved phase makes Load refuse rather than silently load
+  what was unchecked — and consumed by any load; everything else (Save, Change
+  Directory, Rescan, Always Choose Before Loading, ...) is one right-click menu shared by
+  every part of the component. `SelectParametersOnLoad` opens the chooser from Load (the
+  button then reads `Load...`; only the menu toggle is remembered, as a pref). **Only
+  the button consults that property or the kept selection** — `loadPhaseParameters`'
+  `SelectParameters` and `UseSelection` default false, so a scripted load never blocks
+  on a modal dialog or inherits an operator's pending choice. Standing proof
+  `tmp/smoke_test_phaseselector_select_parameters.m`, -batch only (it drives the dialog
+  from a timer)
 - **PRGMSTATE** (top-level class in obj/PRGMSTATE.m): Session state enumeration
 
 #### obj/+hw/ – Hardware Abstraction Layer
@@ -973,10 +985,14 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   and the probe yield, so a rig's timers (gui.components.SyringePump polls at 4 Hz) can
   close the dialog mid-scan
 - **gui.selectPhaseParameters**: the modal checkbox table `gui.components.PhaseSelector`
-  opens before a load — one row per parameter the phase would load (Current, New, and
-  "Other Changes": range, roved levels, expression, randomization, type, visibility),
-  every box checked, unchanged rows hidden behind "Show unchanged" (a hidden row keeps
-  its check; loading it is a no-op). Returns the check mask, `[]` on Cancel. Built
+  opens from Parameters... (or before a load) — one row per parameter the phase would
+  load (Current, New, and "Other Changes": range, roved levels, expression,
+  randomization, type, visibility), every box checked, unchanged rows hidden behind
+  "Show unchanged" (a hidden row keeps its check; loading it is a no-op). New is
+  editable on rows the caller marks `Editable` (shaded); a caller-supplied
+  `ValidateFcn` checks each entry, a refused one is put back with the reason in the
+  status line, and an edited row is checked and stays listed whatever the filter.
+  Returns the check mask and the edits (missing = phase value), `[]` on Cancel. Built
   HIDDEN and shown complete, and blocks in `waitfor`, not `uiwait`: building a uifigure
   yields, so a timer (or a fast click) could answer a half-built window, and `uiwait`
   yields again before validating its argument and throws on the deleted handle

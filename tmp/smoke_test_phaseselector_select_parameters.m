@@ -13,6 +13,15 @@ function smoke_test_phaseselector_select_parameters()
 %      None, Cancel, Include, the nothing-changes case
 %   6. The chooser end to end from Load: what it lists, unchecking, Cancel
 %      loading nothing, Exclude pre-unchecking
+%   7. Parameters... keeps a selection with an edited value; Load applies it
+%      (value, Values, trial table, recompile, note) and the file is untouched
+%   8. Edits the chooser refuses (roved, out of range, text, a list), and
+%      reverting one by clearing it or typing the phase's own value
+%   9. A selection is dropped by choosing another phase, kept by a rescan,
+%      and refused (nothing loads) once its phase file has changed
+%  10. Override from a script, ignored on a roved parameter; readParameters'
+%      Override/Overridden directly
+%  11. One right-click menu shared by every part, holding every action
 %
 % The dialog blocks in uiwait, so sections 5 and 6 drive it from a timer. Run
 % under -batch (a Software-only runtime; a visible uifigure because
@@ -63,7 +72,7 @@ dialogError = '';
 assert(~ps.SelectParametersOnLoad, 'SelectParametersOnLoad should default to false');
 assert(strcmp(h.LoadPhase.Text, 'Load'), 'default Load text changed: "%s"', h.LoadPhase.Text);
 menuToggle = findall(h.LoadPhase.ContextMenu, 'Text', 'Always Choose Before Loading');
-menuOnce   = findall(h.LoadPhase.ContextMenu, 'Text', 'Choose Parameters to Load...');
+menuOnce   = findall(h.LoadPhase.ContextMenu, 'Text', 'Select Parameters to Load...');
 assert(isscalar(menuToggle) && isscalar(menuOnce), 'the Load button should carry both menu items');
 assert(~logical(menuToggle.Checked), 'the toggle should start unchecked');
 
@@ -213,6 +222,134 @@ assert(~D.Load(D.Parameter == "Depth") && D.Load(D.Parameter == "StimDelay"), ..
 assert(isequal(pDepth.Value, -2) && isequal(pDelay.Value, 250), 'the chooser''s answer should be what loads');
 fprintf('PASS: 6. the chooser from Load: rows, uncheck, Cancel, Exclude pre-unchecks\n');
 
+
+%% 7. Parameters... keeps a selection, with an edited value, for Load ------
+resetLive();
+ps.SelectParametersOnLoad = false;
+selectPhase('phaseA');
+assert(strcmp(h.SelectParameters.Text, 'Parameters...') && h.SelectParameters.Enable == "on", ...
+    'Parameters... should be plain and enabled with a phase selected');
+fileBytes = fileread(phaseFile);
+
+tf = runDialog(@() ps.chooseParameters(), @(d) editAndAccept(d, "Depth", "StimDelay", "300"));
+assert(tf, 'accepting the chooser should report true');
+sel = ps.ParameterSelection;
+assert(sel.File == string(phaseFile), 'the selection should belong to the selected phase');
+assert(isscalar(sel.Exclude) && sel.Exclude == pDepth, 'Depth should be kept out');
+assert(isscalar(sel.Override) && sel.Override.Parameter == pDelay && isequal(sel.Override.Value, 300), ...
+    'StimDelay should be overridden to 300');
+assert(strcmp(h.SelectParameters.Text, 'Parameters... *'), 'a kept selection should mark the button');
+assert(contains(string(h.Description.Text(1)), '2 of 3 parameter(s), 1 edited value(s)'), ...
+    'the description should summarize the selection, got "%s"', h.Description.Text(1));
+assert(isequal(pDelay.Value, 5) && isequal(pDepth.Value, -2), 'choosing must not load anything');
+
+% Reopening shows the kept answer.
+runDialog(@() ps.chooseParameters(), @(d) inspectAndClick(d, 'Cancel'));
+D = driverLog{1};
+assert(D.New(D.Parameter == "StimDelay") == "300" && ~D.Load(D.Parameter == "Depth"), ...
+    'reopening should show the kept edit and uncheck');
+assert(ps.ParameterSelection.File == string(phaseFile), 'Cancel must keep the selection');
+
+nNotes = numel(rt.NOTES.Records);
+evalc('feval(h.LoadPhase.ButtonPushedFcn, h.LoadPhase, []);');
+assert(isequal(pDelay.Value, 300) && isequal(pDelay.Values, {300}), ...
+    'Load should apply the edited value, and put it in Values for the recompile');
+assert(pDelay.Max == 1000, 'the rest of the edited entry (its range) should still load');
+assert(isequal(pDepth.Value, -2) && pDepth.Min == -40, 'the unchecked parameter must be left alone');
+assert(isequal(pLevel.Values, {1 2 3 4}), 'the untouched parameter should load as usual');
+col = rt.TRIALS(1).writeParamIdx.StimDelay;
+assert(all(cellfun(@(c) isequal(c, 300), rt.TRIALS(1).trials(:, col))), 'the trial table should carry 300');
+[trials, idx] = recompile();
+assert(all(cellfun(@(c) isequal(c, 300), trials(:, idx.StimDelay))), 'the recompile must keep the edit');
+newText = strjoin(cellstr(string({rt.NOTES.Records(nNotes+1:end).Text})), ' | ');
+assert(contains(newText, 'values edited for this load: StimDelay = 300 (phase: 250)'), ...
+    'the session note should record the edit and the phase''s value, got: %s', newText);
+assert(isequal([rt.Phase(end).Overrides.Name], "StimDelay") && rt.Phase(end).Overrides.Value == 300, ...
+    'RUNTIME.Phase should record the override');
+assert(strcmp(fileread(phaseFile), fileBytes), 'the phase file must not change');
+epsych.Runtime.phaseCache('clear');
+fresh = epsych.Runtime.phaseParameterData(phaseFile);
+assert(isequal(fresh(string({fresh.Name}) == "StimDelay").Value, 250), 'the file still says 250');
+assert(strlength(ps.ParameterSelection.File) == 0 && strcmp(h.SelectParameters.Text, 'Parameters...'), ...
+    'a load should consume the selection');
+fprintf('PASS: 7. Parameters... keeps a selection; Load applies it with the edit; file untouched\n');
+
+
+%% 8. Edits the chooser refuses, and reverting -------------------------------
+resetLive();
+selectPhase('phaseA');
+runDialog(@() ps.chooseParameters(), @(d) tryRefusedEdits(d));
+R8 = driverLog{1};
+assert(contains(R8.level, 'cannot be edited') && contains(R8.level, 'roved'), ...
+    'a roved parameter should refuse an edit, saying why: "%s"', R8.level);
+assert(R8.levelCell == R8.levelBefore, 'a refused edit should be put back, got "%s"', R8.levelCell);
+assert(contains(R8.range, 'outside the phase''s range [0, 1000]'), 'out-of-range: "%s"', R8.range);
+assert(contains(R8.text, 'not a number'), 'non-numeric: "%s"', R8.text);
+assert(contains(R8.list, 'one value'), 'a list: "%s"', R8.list);
+assert(R8.cleared == "250", 'clearing the cell should restore the phase''s value, got "%s"', R8.cleared);
+assert(R8.same == "250" && ~R8.sameEdited, 'typing the phase''s own value should not count as an edit');
+assert(strlength(ps.ParameterSelection.File) == 0, 'an unedited, full selection keeps nothing');
+fprintf('PASS: 8. refused edits explain themselves and are put back; clearing reverts\n');
+
+
+%% 9. A selection is dropped by another phase and refused when stale -------
+copyfile(phaseFile, fullfile(tmpDir, 'phaseB.eprot'));
+ps.rescanPhaseDirectory();
+selectPhase('phaseA');
+runDialog(@() ps.chooseParameters(), @(d) editAndAccept(d, "", "StimDelay", "300"));
+assert(strlength(ps.ParameterSelection.File) > 0, 'setup: a selection should be kept');
+ps.rescanPhaseDirectory();
+assert(strlength(ps.ParameterSelection.File) > 0, 'a rescan keeping the phase should keep its selection');
+selectPhase('phaseB');
+assert(strlength(ps.ParameterSelection.File) == 0, 'choosing another phase should drop the selection');
+
+resetLive();
+selectPhase('phaseA');
+runDialog(@() ps.chooseParameters(), @(d) editAndAccept(d, "", "StimDelay", "300"));
+jf = java.io.File(phaseFile);
+jf.setLastModified(jf.lastModified() + 60000);
+nNotes = numel(rt.NOTES.Records);
+evalc('feval(h.LoadPhase.ButtonPushedFcn, h.LoadPhase, []);');
+assert(isequal(pDelay.Value, 5) && numel(rt.NOTES.Records) == nNotes, ...
+    'a selection made before the file changed must not load anything');
+assert(strlength(ps.ParameterSelection.File) == 0, 'the stale selection should be discarded');
+fprintf('PASS: 9. selections follow their phase; a stale one refuses to load\n');
+
+
+%% 10. Override from a script, and readParameters directly -----------------
+resetLive();
+loadPhase(Override = {'StimDelay', 400});
+assert(isequal(pDelay.Value, 400) && isequal(pDepth.Value, -10), 'a scripted override should load');
+resetLive();
+loadPhase(Override = struct('Parameter', pLevel, 'Value', 9));
+assert(isequal(pLevel.Values, {1 2 3 4}), 'an override on a roved parameter must be ignored');
+resetLive();
+[~, ~, ov] = rt.readParameters(phaseFile, Override = struct('Parameter', pDelay, 'Value', 123));
+assert(isscalar(ov) && ov == pDelay && isequal(pDelay.Value, 123), 'readParameters Override');
+[~, ~, ov] = rt.readParameters(phaseFile, Exclude = pDelay, Override = struct('Parameter', pDelay, 'Value', 7));
+assert(isempty(ov) && isequal(pDelay.Value, 123), 'an excluded parameter''s override is moot');
+fprintf('PASS: 10. scripted Override; roved refused; readParameters Override/Overridden\n');
+
+
+%% 11. One right-click menu for everything ----------------------------------
+cm = h.ContextMenu;
+assert(isequal(h.PhaseSelect.ContextMenu, cm) && isequal(h.LoadPhase.ContextMenu, cm) ...
+    && isequal(h.SelectParameters.ContextMenu, cm) && isequal(h.Description.ContextMenu, cm), ...
+    'every part of the component should share one menu');
+want = ["Load Selected Phase", "Select Parameters to Load...", "Clear Parameter Selection", ...
+    "Always Choose Before Loading", "Print Phase Changes to Command Window", ...
+    "Save Current Parameters as Phase...", "Change Phase Directory...", "Rescan Phase Directory"];
+have = string({cm.Children.Text});
+assert(all(ismember(want, have)), 'menu items missing: %s', strjoin(want(~ismember(want, have)), ', '));
+assert(~isfield(h, 'SavePhase') && ~isfield(h, 'ChangeDirectory'), 'Save and Dir... are no longer buttons');
+selectPhase('< Select Phase >');
+feval(cm.ContextMenuOpeningFcn, cm, []);
+loadItem = findall(cm, 'Text', 'Load Selected Phase');
+clearItem = findall(cm, 'Text', 'Clear Parameter Selection');
+assert(loadItem.Enable == "off" && clearItem.Enable == "off", ...
+    'phase items should be off with no phase, Clear with no selection');
+fprintf('PASS: 11. one shared right-click menu with every action\n');
+
 fprintf('ALL PASS: smoke_test_phaseselector_select_parameters\n');
 
 
@@ -328,6 +465,69 @@ fprintf('ALL PASS: smoke_test_phaseselector_select_parameters\n');
         driverLog{1} = tbl.Data;
         clickButton(d, 'Load');
     end
+
+    function inspectAndClick(d, button)
+        showUnchanged(d);
+        tbl = findall(d, 'Type', 'uitable');
+        driverLog{1} = tbl.Data;
+        clickButton(d, button);
+    end
+
+    function editAndAccept(d, uncheckName, editName, value)
+        showUnchanged(d);
+        tbl = findall(d, 'Type', 'uitable');
+        if strlength(uncheckName) > 0
+            editCheck(tbl, uncheckName, false);
+        end
+        editNew(tbl, editName, value);
+        clickButton(d, 'OK');
+    end
+
+    function tryRefusedEdits(d)
+        showUnchanged(d);
+        tbl = findall(d, 'Type', 'uitable');
+        status = statusText(d);
+        r = struct();
+        r.levelBefore = cellOf(tbl, "Level");
+        editNew(tbl, "Level", "5");
+        r.level = status(); r.levelCell = cellOf(tbl, "Level");
+        editNew(tbl, "StimDelay", "5000");  r.range = status();
+        editNew(tbl, "StimDelay", "abc");   r.text = status();
+        editNew(tbl, "StimDelay", "1, 2");  r.list = status();
+        editNew(tbl, "StimDelay", "300");
+        editNew(tbl, "StimDelay", "");      r.cleared = cellOf(tbl, "StimDelay");
+        editNew(tbl, "StimDelay", "250.0"); r.same = cellOf(tbl, "StimDelay");
+        r.sameEdited = contains(status(), 'edited');
+        driverLog{1} = r;
+        clickButton(d, 'OK');
+    end
+end
+
+
+function showUnchanged(d)
+cb = findall(d, 'Type', 'uicheckbox');
+cb.Value = true;
+feval(cb.ValueChangedFcn, cb, []);
+end
+
+
+function editNew(tbl, name, text)
+% Type into one row's New cell the way an edit would report it.
+r = find(tbl.Data.Parameter == name, 1);
+assert(~isempty(r), 'no row "%s" in the chooser', name);
+feval(tbl.CellEditCallback, tbl, struct('Indices', [r 4], 'NewData', char(text)));
+end
+
+
+function v = cellOf(tbl, name)
+v = tbl.Data.New(tbl.Data.Parameter == name);
+end
+
+
+function f = statusText(d)
+labels = findall(d, 'Type', 'uilabel');
+lbl = labels(arrayfun(@(l) strcmp(l.FontAngle, 'italic'), labels));
+f = @() string(lbl.Text);
 end
 
 

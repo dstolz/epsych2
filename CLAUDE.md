@@ -1118,6 +1118,16 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   ships `Value = 0` with `Min = 400`). `uieditfield` rejects it outright, and one
   such parameter used to abort the whole `build`, taking every control after it.
   Only the WIDGET is clamped; the parameter is left alone.
+  A STAGED (non-autoCommit) edit outranks outside writes: `value_change_external`
+  leaves the widget alone while `ValueUpdated` is true and the write differs from
+  what it shows, because `dispatchNextTrial` re-writes every per-trial parameter at
+  each boundary. Without that, the first boundary replaced the edit with the old
+  value under a still-green Update button, and the click committed the OLD value.
+  That is why `Parameter_Update` clears the flag BEFORE writing (so its own write
+  shows the clamped read-back that goes into the trial table), and why its failure
+  path re-marks the edit through `value_changed`: `Value` is `AbortSet`, so
+  assigning the value the widget already shows is skipped
+  (`tmp/smoke_test_pending_edit_survives_dispatch.m`).
   Enable is the AND of TWO INDEPENDENT GATES kept in separate fields: the
   interface `mode` (dead while the hardware is idle) and a dependency gate
   set by `EnabledBy=`/`DisabledBy=` (a governing checkbox), or by hand with

@@ -233,6 +233,16 @@ classdef Parameter_Update < handle
             for i = 1:length(h)
                 P = h(i).Parameter;
 
+                % Take the edit and clear the pending mark BEFORE writing. A
+                % control ignores outside writes while it holds a pending edit
+                % (that is what keeps a trial boundary from replacing it), so
+                % clearing first is what lets this commit's own write show
+                % the value the parameter actually took -- clamped, or
+                % rewritten by an Expression -- and that shown value is what
+                % the trial table gets below.
+                pending = h(i).Value;
+                h(i).reset_label;
+
                 % A control bound to a property other than Value (Min, Max,
                 % isRandom, ...) edits host-side parameter state, not a trial
                 % value: it has no trials-table column and takes effect the
@@ -241,7 +251,12 @@ classdef Parameter_Update < handle
                 % silently write the wrong property.
                 if ~isequal(h(i).BoundProperty,'Value')
                     curStr = h(i).boundValueText();
-                    h(i).setBoundValue(h(i).Value);
+                    try
+                        h(i).setBoundValue(pending);
+                    catch ME
+                        obj.remarkPending_(h(i),pending);
+                        rethrow(ME)
+                    end
                     newStr = h(i).boundValueText();
                     vprintf(2,'Updated parameter "%s" %s: %s -> %s', ...
                         P.Name,h(i).BoundProperty,curStr,newStr)
@@ -249,7 +264,6 @@ classdef Parameter_Update < handle
                         epsych.SessionNotes.log(R,'Updated %s.%s: %s -> %s', ...
                             P.Name,h(i).BoundProperty,curStr,newStr);
                     end
-                    h(i).reset_label;
                     continue
                 end
 
@@ -272,7 +286,12 @@ classdef Parameter_Update < handle
                 % instead of written into the data file as a success.
                 if obj.updateImmediately || P.Parent.Type == "Software"
                     curValStr = P.ValueStr;
-                    P.Value = h(i).Value;
+                    try
+                        P.Value = pending;
+                    catch ME
+                        obj.remarkPending_(h(i),pending);
+                        rethrow(ME)
+                    end
                     newValStr = P.ValueStr;
                     vprintf(2,'Updated parameter "%s": %s -> %s',P.Name,curValStr,newValStr)
                     if ~isequal(curValStr,newValStr)
@@ -281,17 +300,17 @@ classdef Parameter_Update < handle
                     end
                 elseif isfield(loc,P.validName)
                     staged{end+1} = sprintf('Staged %s = %s for the next trial', ...
-                        P.Name,P.formatValue(h(i).Value));
+                        P.Name,P.formatValue(pending));
                 else
                     vprintf(0,1,['Parameter "%s" has no trial-table column; ' ...
                         'the deferred edit will not reach the next trial'],P.Name)
                 end
 
+                % h(i).Value rather than pending: after an immediate write the
+                % widget shows the read-back, which is what the parameter took.
                 if isfield(loc,P.validName)
                     [T{:,loc.(P.validName)}] = deal(h(i).Value);
                 end
-
-                h(i).reset_label;
             end
             R.TRIALS.trials = T;
 
@@ -302,6 +321,18 @@ classdef Parameter_Update < handle
 
             obj.updateImmediately = false;
 
+        end
+    end
+
+    methods (Access = private)
+        function remarkPending_(~,h,pending)
+            % remarkPending_(obj,h,pending)
+            % Put an edit back to pending after its commit write threw, so a
+            % failed commit keeps the operator's value and its highlight.
+            % Calls value_changed rather than assigning h.Value: Value is
+            % AbortSet and the widget already shows pending, so the
+            % assignment would be skipped and the flag left cleared.
+            h.value_changed([],struct('Value',pending,'PreviousValue',[]));
         end
     end
 

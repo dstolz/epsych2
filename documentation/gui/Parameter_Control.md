@@ -182,6 +182,10 @@ The color is applied to the first of `BackgroundColor`, `Color`, `FontColor` tha
 3. The control background changes to `colorOnUpdate`.
 4. Another component (commonly `gui.components.Parameter_Update`) decides when to apply the staged values.
 
+A staged edit **outranks writes from outside** until it is committed or discarded. While `ValueUpdated` is `true`, a write to the bound parameter that does not match what the widget shows leaves the widget alone and skips `PostUpdateFcn`. Such writes come from a phase load, a linked parameter, and above all `epsych.Runtime.dispatchNextTrial`, which re-applies every per-trial parameter at every trial boundary. If the write lands on the staged value, the edit simply counts as satisfied: the highlight clears as before. This rule is what keeps an edit from being lost. Before it, the first trial boundary after an edit replaced the staged value with the old one while `ValueUpdated` stayed `true`. The Update button therefore stayed green, and a click committed the **old** value. Operators saw this as "the value reverts on the next trial". Ctrl-click (`reset_value`) is how the operator takes the parameter's current value instead. An `autoCommit` control is exempt, because it never holds a staged edit.
+
+`gui.components.Parameter_Update` clears the pending flag *before* it writes each edit, so its own write still refreshes the widget with the value the parameter actually took (clamped, or rewritten by an `Expression` or `EvaluatorFcn`). That shown value is what goes into the trial table. If the write throws, the edit is marked pending again.
+
 ### Auto-commit (`autoCommit=true`)
 - User changes are immediately written to `Parameter.Value`.
 - If you also need the change reflected in trial tables or runtime configuration, pair this with the surrounding system’s update logic.

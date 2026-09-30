@@ -1016,6 +1016,22 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             v = obj.getBoundValue();
             if isempty(v), return; end % ?????
 
+            % An uncommitted edit is the operator's, and it outranks a write
+            % from outside. dispatchNextTrial re-applies every trial-table
+            % value at each boundary, so without this the pending value was
+            % replaced by the old one while ValueUpdated stayed true -- and
+            % the Update button then committed the OLD value. PostUpdateFcn
+            % is skipped as well: dependents were synced to the pending value
+            % when it was entered and must keep matching the widget. Ctrl-click
+            % (reset_value) is how the operator takes the parameter's value.
+            % An autoCommit control never holds one -- its edit is written as
+            % it is made -- yet value_changed leaves ValueUpdated set after
+            % that write, so it must not be read as pending here.
+            if obj.ValueUpdated && ~obj.autoCommit && ~obj.committing_ ...
+                    && obj.displayDiffers_(v)
+                return
+            end
+
             % PostSet fires on every write, not only on writes that change the
             % value -- a parameter re-applied at the start of each trial would
             % otherwise flash a control that never moved, making the indication

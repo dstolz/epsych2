@@ -729,6 +729,9 @@ classdef SubjectManager < handle
             self.H.mnu_reapply_template.Enable = onoff(writable && inProject && hasChecked);
             self.H.mnu_edit_membership.Enable = onoff(writable && inProject && hasSelection);
             self.H.mnu_parameter_defaults.Enable = onoff(writable && inProject && hasSelection);
+            % The toolbar twin is gated only on there being a roster to
+            % read, so a click with no row selected can explain itself.
+            self.H.tb_parameter_defaults.Enable = onoff(hasRoster);
             self.H.btnNewProject.Enable = onoff(canCreate);
             self.H.tb_new_project.Enable = onoff(canCreate);
 
@@ -1534,13 +1537,6 @@ classdef SubjectManager < handle
             % selected one. Needs a project for the same reason Session
             % Settings does: the defaults are the membership's, and the
             % parameter names come from its protocol.
-            projectId = self.selectedProject_();
-            if isempty(projectId)
-                self.setStatus_(['Select a project first: parameter defaults live on ' ...
-                    'the membership.']);
-                return
-            end
-
             % Only the table's own menu may use ContextRow_: it is left over
             % from the last right-click, which the menu bar knows nothing of.
             rec = [];
@@ -1550,7 +1546,20 @@ classdef SubjectManager < handle
             if isempty(rec)
                 rec = self.selectedRow_();
             end
-            if isempty(rec), return, end
+            if isempty(rec)
+                % The toolbar tool is never greyed, so say why nothing opened.
+                uialert(self.H.figure, 'Select a subject first.', ...
+                    'Parameter Defaults', 'Icon','info');
+                return
+            end
+
+            projectId = self.selectedProject_();
+            if isempty(projectId)
+                uialert(self.H.figure, ['Select a project first: parameter defaults ' ...
+                    'live on the subject''s membership in it.'], ...
+                    'Parameter Defaults', 'Icon','info');
+                return
+            end
 
             if isempty(self.Roster.findMembership(rec.SubjectID, projectId))
                 uialert(self.H.figure, sprintf( ...

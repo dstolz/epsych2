@@ -66,7 +66,19 @@ delete(hAuto);
 fprintf('PASS: outside writes still sync a control with nothing pending\n');
 
 
-% 3. Range and Min-bound controls keep their pending edits too --------------
+% 2b. A write that CHANGES the parameter supersedes the pending edit --------
+% A phase load (or a linked parameter) is newer than the edit. Kept, the
+% stale edit would hide the phase's value, and the next Update click would
+% quietly write it back over the phase the operator just chose.
+typeInto(hITI, 2500);
+pITI.Value = 1500;                   % e.g. a phase load
+assert(hITI.Value == 1500, 'a real change should replace the pending edit (shows %g)', hITI.Value);
+assert(~hITI.ValueUpdated, 'a superseded edit should no longer be pending');
+pITI.Value = 1000;                   % back to the trial-table value for what follows
+fprintf('PASS: a real outside change supersedes a pending edit\n');
+
+
+% 3. Range and Min-bound controls follow the same rule ----------------------
 hRange = gui.components.Parameter_Control(fig, pDelay, Type='range');
 hRange.h_uiobj.Value  = 1200;
 hRange.h_uiobj2.Value = 2800;
@@ -74,21 +86,25 @@ hRange.value_changed(hRange.h_uiobj, struct('Value',1200,'PreviousValue',1000, .
     'EventName','ValueChanged'));
 assert(hRange.ValueUpdated, 'a range edit should be pending');
 
-pDelay.Min = 1100;   % e.g. a phase load
-assert(isequal(hRange.Value, [1200 2800]), 'an outside Min write replaced the pending range');
+pDelay.Min = 1000;   % re-asserting the bound the edit was made against
+assert(isequal(hRange.Value, [1200 2800]), 'a re-asserted Min replaced the pending range');
 assert(hRange.ValueUpdated, 'the range edit should still be pending');
 
-hRange.reset_value;
-assert(isequal(hRange.Value, [1100 3000]), 'reset should take the parameter''s current bounds');
-assert(~hRange.ValueUpdated, 'reset should clear the pending flag');
+pDelay.Min = 1100;   % a real change, e.g. a phase load
+assert(isequal(hRange.Value, [1100 3000]), 'a changed Min should replace the pending range');
+assert(~hRange.ValueUpdated, 'the superseded range edit should no longer be pending');
 
 hMin = gui.components.Parameter_Control(fig, pLevel, Type='editfield', BoundProperty='Min');
 typeInto(hMin, 10);
-pLevel.Min = 5;
-assert(hMin.Value == 10 && hMin.ValueUpdated, 'an outside write replaced the pending Min edit');
+pLevel.Min = 0;      % re-assert
+assert(hMin.Value == 10 && hMin.ValueUpdated, 'a re-asserted Min replaced the pending Min edit');
+pLevel.Min = 5;      % real change
+assert(hMin.Value == 5 && ~hMin.ValueUpdated, 'a changed Min should replace the pending Min edit');
+
+typeInto(hMin, 10);
 hMin.reset_value;
 assert(hMin.Value == 5 && ~hMin.ValueUpdated, 'reset should restore the current Min');
-fprintf('PASS: range and Min-bound pending edits survive outside writes\n');
+fprintf('PASS: range and Min-bound edits: kept on re-assert, replaced on change\n');
 
 
 % 4. End to end: edit -> boundary -> Update -> next boundary ----------------
@@ -141,6 +157,45 @@ assert(hITI.ValueUpdated && hITI.Value == 4000, ...
 assert(pITI.Value == 3500, 'the refused write should have left the parameter alone');
 fprintf('PASS: a failed commit leaves the edit pending\n');
 
+
+% 7. A commit survives the recompile a phase load schedules -----------------
+% The rig log that reported this: a phase load set NumPellets = 1 and
+% scheduled a recompile; an immediate commit of 2 then reached the hardware
+% and the table, and the recompile at the next boundary rebuilt the table
+% from Values -- still {1} -- so the next trial ran 1 again.
+rt.TRIALS(1).RECOMPILE_REQUESTED = true;    % what readParameters does
+typeInto(hITI, 5000);
+U.modifiers_changed({'shift','control','alt'});
+U.button_pushed([], []);
+assert(isequal(pITI.Values, {5000}), 'the commit should carry the value into Values');
+
+boundary(rt);
+assert(~rt.TRIALS(1).RECOMPILE_REQUESTED, 'the boundary should have run the recompile');
+col = rt.TRIALS(1).writeParamIdx.ITIDur;
+assert(all(cellfun(@(v) isequal(v,5000), rt.TRIALS(1).trials(:,col))), ...
+    'the recompiled trial table lost the committed value');
+assert(pITI.Value == 5000, 'the recompile reverted the committed value (%g)', pITI.Value);
+
+% The autoCommit path writes the table the same way and needs the same hold.
+hAutoL = gui.components.Parameter_Control(fig, pLevel, Type='editfield', ...
+    autoCommit=true, Runtime=rt);
+rt.TRIALS(1).RECOMPILE_REQUESTED = true;
+typeInto(hAutoL, 55);
+boundary(rt);
+assert(pLevel.Value == 55, 'the recompile reverted an autoCommit edit (%g)', pLevel.Value);
+delete(hAutoL);
+fprintf('PASS: commits survive a recompile scheduled before them\n');
+
+
+% 8. With no recompile pending, Values is left as the protocol designed it ---
+typeInto(hITI, 6000);
+U.modifiers_changed({'shift','control','alt'});
+U.button_pushed([], []);
+assert(pITI.Value == 6000, 'the commit should still land');
+assert(isequal(pITI.Values, {5000}), ...
+    'with nothing pending, a commit must not rewrite the design Values');
+fprintf('PASS: design Values are touched only while a recompile is pending\n');
+
 delete(U); delete(hITI); delete(hRange); delete(hMin);
 fprintf('\nAll pending-edit checks passed.\n');
 end
@@ -153,6 +208,15 @@ field = h.h_uiobj;
 ev = struct('Value', v, 'PreviousValue', field.Value, 'EventName', 'ValueChanged');
 field.Value = v;
 h.value_changed(field, ev);
+end
+
+
+function boundary(rt)
+% boundary(rt)
+% One trial boundary through the real trial loop; FORCE_TRIAL skips waiting
+% on the (software) TrialComplete trigger.
+rt.TRIALS(1).FORCE_TRIAL = true;
+ep_TimerFcn_RunTime(rt);
 end
 
 

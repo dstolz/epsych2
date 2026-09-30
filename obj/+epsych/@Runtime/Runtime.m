@@ -234,6 +234,7 @@ classdef Runtime < handle & dynamicprops
         p = find_parameter(obj, name, options)              % Return hw.Parameter handles matching the given name(s), with optional pre-filtering.
         p = all_parameters(obj, options)                % Retrieve all parameters from all registered interfaces, with optional filtering.
         updateTrialsFromParameters(obj, Parameters)     % Sync writable TRIALS fields from current parameter values.
+        held = holdCommittedValues(obj, Parameters)     % Carry just-committed trial values through a pending recompile.
     end
 
     methods (Static)

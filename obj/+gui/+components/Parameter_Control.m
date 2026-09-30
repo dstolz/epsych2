@@ -140,6 +140,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         hl_bounds
         hl_color
         committing_ (1,1) logical = false % true while an autoCommit write-back is in flight; suppresses the re-entrant PostUpdateFcn from value_change_external
+        PendingBase_ = [] % the bound value a pending edit was made against; see value_change_external
 
         % Enable is decided by TWO independent things and the widget shows
         % their AND: the interface mode (a control is dead while the hardware
@@ -595,6 +596,7 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % round trip that can throw.
             prevValue = obj.getBoundValue();
             obj.ValueUpdated = ~isequal(value,prevValue);
+            obj.PendingBase_ = prevValue;
 
             % run post-update function, if specified. This allows for any necessary updates after the value is changed, such as re-enabling randomization when repeating a trial after an Abort, or updating other controls based on the new value.
             obj.runPostUpdateFcn(event);
@@ -1016,20 +1018,30 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             v = obj.getBoundValue();
             if isempty(v), return; end % ?????
 
-            % An uncommitted edit is the operator's, and it outranks a write
-            % from outside. dispatchNextTrial re-applies every trial-table
-            % value at each boundary, so without this the pending value was
-            % replaced by the old one while ValueUpdated stayed true -- and
-            % the Update button then committed the OLD value. PostUpdateFcn
-            % is skipped as well: dependents were synced to the pending value
-            % when it was entered and must keep matching the widget. Ctrl-click
-            % (reset_value) is how the operator takes the parameter's value.
-            % An autoCommit control never holds one -- its edit is written as
-            % it is made -- yet value_changed leaves ValueUpdated set after
-            % that write, so it must not be read as pending here.
+            % An uncommitted edit outranks a write that merely RE-ASSERTS the
+            % value it was made against. dispatchNextTrial re-applies every
+            % trial-table value at each boundary; without this the pending
+            % value was replaced by the old one while ValueUpdated stayed true
+            % -- and the Update button then committed the OLD value.
+            % PostUpdateFcn is skipped as well: dependents were synced to the
+            % pending value when it was entered and must keep matching it.
+            %
+            % A write that CHANGES the parameter (a phase load, a linked
+            % parameter) is newer than the edit and supersedes it: kept, the
+            % stale edit would hide the new value and a later Update would
+            % quietly write it back over, e.g., the phase just chosen.
+            %
+            % An autoCommit control never holds a pending edit -- its edit is
+            % written as it is made -- yet value_changed leaves ValueUpdated
+            % set after that write, so it must not be read as pending here.
             if obj.ValueUpdated && ~obj.autoCommit && ~obj.committing_ ...
                     && obj.displayDiffers_(v)
-                return
+                if isequaln(v, obj.PendingBase_)
+                    return
+                end
+                vprintf(1, 'Pending edit of "%s" (%s) discarded: the parameter was changed to %s', ...
+                    obj.Name, obj.commitValueText_(obj.Value), obj.commitValueText_(v))
+                obj.reset_label;
             end
 
             % PostSet fires on every write, not only on writes that change the
@@ -1442,11 +1454,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % Only a Value edit has a trials-table column; a bound-property
             % edit (Min, Max, isRandom, ...) is host-side parameter state
             % with nothing to sync. updateTrialsFromParameters is a no-op
-            % before the session compiles TRIALS.
+            % before the session compiles TRIALS. holdCommittedValues keeps
+            % the edit through a recompile a phase load has scheduled, which
+            % would otherwise rebuild the table from the old Values.
             if isempty(obj.Runtime) || ~isequal(obj.BoundProperty,'Value')
                 return
             end
             obj.Runtime.updateTrialsFromParameters(obj.Parameter);
+            obj.Runtime.holdCommittedValues(obj.Parameter);
         end
 
         function names = boundPropertyNames_(obj)

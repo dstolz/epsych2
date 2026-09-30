@@ -1134,16 +1134,26 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   ships `Value = 0` with `Min = 400`). `uieditfield` rejects it outright, and one
   such parameter used to abort the whole `build`, taking every control after it.
   Only the WIDGET is clamped; the parameter is left alone.
-  A STAGED (non-autoCommit) edit outranks outside writes: `value_change_external`
-  leaves the widget alone while `ValueUpdated` is true and the write differs from
-  what it shows, because `dispatchNextTrial` re-writes every per-trial parameter at
-  each boundary. Without that, the first boundary replaced the edit with the old
+  A STAGED (non-autoCommit) edit outranks an outside write that RE-ASSERTS the
+  bound value it was made against (`PendingBase_`, recorded in `value_changed`),
+  because `dispatchNextTrial` re-writes every per-trial parameter at each
+  boundary. Without that, the first boundary replaced the edit with the old
   value under a still-green Update button, and the click committed the OLD value.
+  A write that CHANGES the parameter (phase load, linked parameter) supersedes the
+  edit instead — widget follows, flag clears, logged — or the stale edit would hide
+  the phase's value and a later Update would write it back over it.
   That is why `Parameter_Update` clears the flag BEFORE writing (so its own write
   shows the clamped read-back that goes into the trial table), and why its failure
   path re-marks the edit through `value_changed`: `Value` is `AbortSet`, so
   assigning the value the widget already shows is skipped
-  (`tmp/smoke_test_pending_edit_survives_dispatch.m`).
+  (`tmp/smoke_test_pending_edit_survives_dispatch.m`). Both commit paths (Update
+  button, autoCommit with a `Runtime`) then call `Runtime.holdCommittedValues`,
+  which — ONLY while `RECOMPILE_REQUESTED` is set — brings each committed
+  single-level parameter's `Values` up to the value (`effectiveDesignValue`, the
+  excluded-phase-load rule). A phase load's recompile rebuilds every column from
+  `Values`, so a commit made between the load and the next boundary was
+  otherwise lost after one trial; with nothing pending `Values` stays the
+  protocol's design, keeping one session's edits out of the next Run's compile.
   Enable is the AND of TWO INDEPENDENT GATES kept in separate fields: the
   interface `mode` (dead while the hardware is idle) and a dependency gate
   set by `EnabledBy=`/`DisabledBy=` (a governing checkbox), or by hand with

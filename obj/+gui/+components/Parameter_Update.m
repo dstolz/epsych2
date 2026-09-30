@@ -229,6 +229,7 @@ classdef Parameter_Update < handle
 
             loc = R.TRIALS.writeParamIdx;
             staged = {};    % deferred-commit notes, held until the table is written
+            tabled = hw.Parameter.empty(1,0); % parameters whose trial-table column was written
 
             for i = 1:length(h)
                 P = h(i).Parameter;
@@ -310,9 +311,18 @@ classdef Parameter_Update < handle
                 % widget shows the read-back, which is what the parameter took.
                 if isfield(loc,P.validName)
                     [T{:,loc.(P.validName)}] = deal(h(i).Value);
+                    tabled(end+1) = P;
                 end
             end
             R.TRIALS.trials = T;
+
+            % A recompile scheduled by a phase load rebuilds the trial table
+            % from Values at the next boundary, which would discard what was
+            % just written; carry it into Values first. A bare struct stands
+            % in for the runtime in some callers and has nothing to recompile.
+            if ~isempty(tabled) && isa(R,'epsych.Runtime')
+                R.holdCommittedValues(tabled);
+            end
 
             % The staged values are only now truly bound for the next trial.
             for i = 1:numel(staged)

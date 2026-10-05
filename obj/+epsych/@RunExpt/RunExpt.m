@@ -42,6 +42,18 @@ classdef RunExpt < handle
         IsClosing (1,1) logical = false                                                         % True while the close sequence is in progress; prevents re-entrant callbacks
     end
 
+    % Whether THIS session records webcam video, which is what the Record Video
+    % toolbar toggle shows. Seeded from the rig preference ('EnableRecording')
+    % at construction; the toggle sets both. Adding roster subjects sets only
+    % this, from their memberships' RecordVideo (see
+    % epsych.SubjectRoster.assignToSession), so an animal that must be filmed
+    % is filmed without the operator remembering to press the toggle, and the
+    % rig's own choice survives in the preference for the next session.
+    % SetAccess private so nothing can change it without the toggle following.
+    properties (SetAccess = private)
+        RecordVideo (1,1) logical = false                                                       % Session's webcam-recording choice; see applyRecordVideo_
+    end
+
     properties (Access = private)
         VlcRecorder_ = []          % Lazily-created hw.VlcRecorder backing the webcam setup dialog
         VlcRecorderSetupGUI_ = []  % Currently-open gui.VlcRecorderSetup instance, if any
@@ -218,6 +230,8 @@ classdef RunExpt < handle
             self.UpdateGUIstate
             self.DefaultDataPath = getpref('RunExpt','DataPath',cd);
             self.PATHS = self.GetDefaultPaths;
+            % The rig's choice, the same value buildUI seeded the toggle from.
+            self.RecordVideo = logical(getpref('ep_RunExpt_Video','EnableRecording',false));
             % The data-path prompt is skipped on a project launch: a stamped
             % membership names its data path, and a modal here would block a
             % headless script on a fresh machine.
@@ -497,6 +511,7 @@ classdef RunExpt < handle
     methods (Access = {?epsych.RunExpt, ?epsych.SubjectRoster})
         appendSubjectToConfig_(self, S, pfn, protocol, roster) % Write one subject, its protocol, and its roster link into the next CONFIG slot
         ClearConfig(self)                                  % Reset CONFIG to empty defaults and update program state if not running
+        changed = applyRecordVideo_(self, tf)              % Set this session's webcam-recording choice and the toggle showing it, leaving the rig preference alone
         CheckReady(self)                                   % Evaluate whether all conditions to run are met and update STATE
         UpdateSubjectList(self)                            % Repopulate the subject list and flag subjects with an outdated protocol version
     end

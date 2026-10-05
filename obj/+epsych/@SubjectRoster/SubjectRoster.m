@@ -34,7 +34,10 @@ classdef SubjectRoster < handle
     % from the roster and applied by epsych.RunExpt every time Run or Preview is
     % pressed (see epsych.ParameterDefaults). Unlike the session settings they
     % are per-subject by nature, so a batch never has to agree on them and no
-    % template stamps them. Alongside the template a project holds
+    % template stamps them. RecordVideo is per-membership on the same terms:
+    % whether that animal's sessions are filmed automatically (on, off, or
+    % follow the rig's Record Video toggle), combined across a batch by
+    % assignToSession rather than required to agree. Alongside the template a project holds
     % the study's own bookkeeping — Investigator, IACUCProtocol, an
     % Archived flag, and Links, a list of addresses for the lab notebook,
     % shared sheet, or issue tracker the study is logged in. Links are checked
@@ -70,6 +73,7 @@ classdef SubjectRoster < handle
     %   assign, unassign, setActive         - membership
     %   updateMembership, reapplyTemplate   - per-membership session settings
     %   parameterDefaults, setParameterDefaults - per-membership parameter values
+    %   setRecordVideo                      - per-membership automatic webcam recording
     %   subjectsInProject, projectsForSubject
     %   rememberProtocol, lastProtocol      - per-membership protocol memory
     %   protocolStatus                      - is each subject on the current protocol?
@@ -218,6 +222,9 @@ classdef SubjectRoster < handle
         D = parameterDefaults(self, subjectId, projectId)
         setParameterDefaults(self, subjectId, projectId, D)
 
+        % Per-membership automatic webcam recording, read when added to a session
+        report = setRecordVideo(self, subjectIds, projectId, value, options)
+
         % Queries
         recs = subjectsInProject(self, projectId, options)
         recs = projectsForSubject(self, subjectId)
@@ -258,6 +265,7 @@ classdef SubjectRoster < handle
         report = setConfiguredFile(filePath, options)
         id = newId(prefix)
         [tf, why] = isNameSafe(name)
+        [v, ok] = recordVideoSetting(value)
         s  = emptySubject()
         p  = emptyProject()
         m  = emptyMembership()

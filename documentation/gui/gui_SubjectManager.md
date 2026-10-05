@@ -126,6 +126,16 @@ The four PsychTimer lifecycle callbacks (`TimerStartFcn` … `TimerErrorFcn`) ar
 
 The context-menu item acts on the row under the pointer; the Subject-menu item on the selected row.
 
+### Webcam recording
+
+Whether a subject is filmed automatically is set per membership (see [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md#automatic-webcam-recording)), in three places:
+
+- the **Video** column — a dropdown of *Rig toggle* / *Record* / *Off*, written to the roster the moment it is chosen. Editable only in a project view on a writable roster; blank in the All Projects view, where a subject's projects may disagree.
+- **Subject > Webcam Recording** — *Record*, *Do Not Record*, or *Follow the Rig Toggle* for every **checked** subject.
+- **Project > Webcam Recording for All Subjects** — the same three for **every member** of the selected project, ticked or not, filtered out or not, retired or not. It confirms first, because it reaches subjects the operator cannot see. A subject added to the project later starts on *Rig toggle*.
+
+*Rig toggle* is what every existing membership shows: the session window's Record Video toggle decides, exactly as before. The setting is applied when subjects are **added** to the session (any *Record* wins, then any *Off*); changing it for a subject already in the open session takes effect when it is added again, and the status line names those subjects.
+
 #### Nothing in those dialogs opens blank
 
 Every session default arrives already filled in: from **the value last used in these dialogs**, else the built-in default (`ep_SaveDataFcn`, `ep_GenericGUI`, 0.01 s; the paths from `RunExpt/DataPath`, `ep_RunExpt_Video`, `ep_RunExpt_Intan`). The recents are stored per field under `ep_RunExpt_Subjects` as `Recent<Field>`, capped at 12, most-recent-first, and written only when OK is accepted — a cancelled or refused dialog must not seed the next project with a typo. They are *user* preferences, not roster contents, so two rigs sharing one roster still propose their own drives.
@@ -160,6 +170,7 @@ The dropdown is editable, and its list is drawn from **the behavior GUIs other p
 | Protocol | no | See below |
 | Version | no | The protocol version this subject is on — see [Protocol versions](#protocol-versions) |
 | Settings | no | `template` when the membership still matches the project's Session Defaults, `edited` when it has diverged (via *Session Settings...*), blank in the All Projects view. What makes the commit-time mismatch refusal predictable before the click. `+ N defaults` is appended when the membership carries [parameter defaults](#parameter-defaults) — the same question, "will this subject run differently from the project's plan", so it shares the column rather than widening the table. |
+| Video | **yes** (project view) | Automatic webcam recording: *Rig toggle*, *Record*, or *Off*. Written to the roster at once — see [Webcam recording](#webcam-recording). |
 | Species, Sex, Weight, Last Run | no | So two similarly-named animals are distinguishable |
 | Status | no | Active / Retired |
 

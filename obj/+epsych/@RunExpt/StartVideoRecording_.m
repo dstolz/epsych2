@@ -1,7 +1,8 @@
 function StartVideoRecording_(self)
 % StartVideoRecording_(self)
-% Begin the per-run webcam recording when enabled via the "Record video"
-% toolbar toggle / 'EnableRecording' preference. Called from PsychTimerStart
+% Begin the per-run webcam recording when this session records (RecordVideo:
+% the "Record video" toolbar toggle, which the rig preference seeds and the
+% session's roster subjects may set). Called from PsychTimerStart
 % once the behavior GUI is up, and again whenever the toggle is pressed
 % mid-session. Never throws: a failed
 % recording is reported via vprintf and the run proceeds without video — the
@@ -12,7 +13,7 @@ end
 
 % A run without recording leaves any live view alone, so the operator can
 % still watch the camera through the session.
-if ~getpref('ep_RunExpt_Video','EnableRecording',false), return, end
+if ~self.RecordVideo, return, end
 
 % Recording relaunches VLC, which would silently take down a live view and
 % leave the window claiming one is open.

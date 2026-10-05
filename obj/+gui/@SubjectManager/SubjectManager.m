@@ -89,6 +89,14 @@ classdef SubjectManager < handle
         ALL_SUBJECTS (1,:) char = '<All Projects>'
 
         DEFAULT_POSITION (1,4) double = [100 100 1190 640]
+
+        % The Video column's dropdown and the membership value each choice
+        % writes (epsych.SubjectRoster.recordVideoSetting), in the same order.
+        % "Rig toggle" first because it is what every existing membership
+        % holds: the session window's Record Video toggle decides, as it did
+        % before memberships carried a setting.
+        VIDEO_CHOICES = {'Rig toggle', 'Record', 'Off'}
+        VIDEO_VALUES (1,3) double = [NaN 1 0]
     end
 
     % -----------------------------------------------------------------------
@@ -728,6 +736,10 @@ classdef SubjectManager < handle
             % handler, like every other right-click action here.
             self.H.mnu_reapply_template.Enable = onoff(writable && inProject && hasChecked);
             self.H.mnu_edit_membership.Enable = onoff(writable && inProject && hasSelection);
+            % Webcam recording is a membership write too. The project-wide
+            % submenu needs no ticks: it covers every member.
+            self.H.mnu_video_checked.Enable = onoff(writable && inProject && hasChecked);
+            self.H.mnu_video_project.Enable = onoff(writable && inProject);
             self.H.mnu_parameter_defaults.Enable = onoff(writable && inProject && hasSelection);
             % The toolbar twin is gated only on there being a roster to
             % read, so a click with no row selected can explain itself.
@@ -1157,6 +1169,13 @@ classdef SubjectManager < handle
                     else
                         self.BoxOverrides_(id) = box;
                     end
+
+                case 7
+                    % Written straight to the roster, unlike Box and
+                    % Protocol, which are proposals for the next commit: the
+                    % setting is the membership's, and it repaints the table.
+                    self.onVideoCellEdit_(row, evt);
+                    return
             end
 
             self.updateEnableStates_();
@@ -1641,6 +1660,117 @@ classdef SubjectManager < handle
             self.setStatus_(rep.message);
         end
 
+        % ---- webcam recording ------------------------------------------
+
+        function onSetRecordVideo_(self, scope, value)
+            % Set the automatic webcam recording of the checked memberships
+            % ('checked') or of every member of the project ('project').
+            %
+            % value is true (record), false (do not), or NaN (follow the
+            % session window's Record Video toggle). The project-wide form
+            % confirms first, because it reaches subjects the operator cannot
+            % see -- filtered out, unticked, or retired.
+            projectId = self.selectedProject_();
+            if isempty(projectId)
+                self.setStatus_(['Select a project first: webcam recording is set ' ...
+                    'on each subject''s membership in a project.']);
+                return
+            end
+
+            p = self.Roster.findProject(projectId);
+            pName = projectId;
+            if ~isempty(p), pName = p.Name; end
+
+            try
+                switch scope
+                    case 'checked'
+                        ids = self.checkedIds_();
+                        if isempty(ids)
+                            self.setStatus_('Check the subjects to set webcam recording for first.');
+                            return
+                        end
+                        rep = self.Roster.setRecordVideo(ids, projectId, value);
+
+                    case 'project'
+                        n = numel(self.Roster.subjectsInProject(projectId, IncludeRetired = true));
+                        if n == 0
+                            self.setStatus_(sprintf('"%s" has no subjects to set.', pName));
+                            return
+                        end
+                        answer = uiconfirm(self.H.figure, sprintf( ...
+                            ['Set all %d subject(s) in "%s" to %s?\n\nRetired subjects ' ...
+                             'are included. A subject added to the project later follows ' ...
+                             'the rig toggle until it is set.'], n, pName, localVideoPhrase(value)), ...
+                            'Webcam Recording for All Subjects', ...
+                            'Options', {'Apply','Cancel'}, ...
+                            'DefaultOption','Apply', 'CancelOption','Cancel', 'Icon','question');
+                        if ~strcmp(answer, 'Apply'), return, end
+                        rep = self.Roster.setRecordVideo([], projectId, value, AllMembers = true);
+                end
+            catch ME
+                vprintf(0, 1, ME);
+                uialert(self.H.figure, ME.message, 'Webcam Recording', 'Icon','error');
+                return
+            end
+
+            self.refresh();
+            self.setStatus_(self.recordVideoMessage_(rep));
+        end
+
+        function onVideoCellEdit_(self, row, evt)
+            % A choice made in the Video column: write it to that row's
+            % membership, or put the cell back and say why not.
+            projectId = self.selectedProject_();
+            k = find(strcmp(self.VIDEO_CHOICES, char(string(evt.NewData))), 1);
+            if isempty(projectId) || isempty(k)
+                self.H.table.Data{row, 7} = evt.PreviousData;
+                self.setStatus_(['Select a project first: webcam recording is set ' ...
+                    'on each subject''s membership in a project.']);
+                return
+            end
+
+            rec = self.Rows_(row);
+            try
+                rep = self.Roster.setRecordVideo({rec.SubjectID}, projectId, self.VIDEO_VALUES(k));
+            catch ME
+                vprintf(0, 1, ME);
+                self.H.table.Data{row, 7} = evt.PreviousData;
+                uialert(self.H.figure, ME.message, 'Webcam Recording', 'Icon','error');
+                return
+            end
+
+            self.refresh();
+            self.setStatus_(self.recordVideoMessage_(rep));
+        end
+
+        function msg = recordVideoMessage_(self, rep)
+            % The status line after a webcam-recording change, naming any
+            % changed subject already in the open session: the setting is read
+            % when a subject is ADDED, so those are not affected until they are
+            % added again -- the Record Video toggle covers this session.
+            msg = rep.message;
+            if ~rep.ok || isempty(rep.updated), return, end
+
+            names = {rep.updated.Name};
+            live = names(cellfun(@(n) self.isInSession_(n), names));
+            if isempty(live), return, end
+
+            msg = sprintf(['%s %s already in the open session: add again to apply, ' ...
+                'or use its Record Video toggle.'], msg, strjoin(live, ', '));
+        end
+
+        function txt = videoCell_(self, mrec)
+            % The Video column's text for one membership, or '' with none
+            % (the All Projects view, where a subject's projects may disagree).
+            txt = '';
+            if isempty(mrec), return, end
+
+            v = epsych.SubjectRoster.recordVideoSetting(mrec.RecordVideo);
+            k = find(self.VIDEO_VALUES == v, 1);
+            if isempty(k), k = 1; end   % NaN never compares equal: the rig toggle
+            txt = self.VIDEO_CHOICES{k};
+        end
+
         % ---- project actions -------------------------------------------
 
         function onNewProject_(self)
@@ -2063,5 +2193,17 @@ if ~isempty(p.IntanSettingsFile), parts{end+1} = 'Intan settings'; end
 
 if ~isempty(parts)
     txt = strjoin(parts, ', ');
+end
+end
+
+function s = localVideoPhrase(value)
+% What a webcam-recording value does, worded for a confirmation question.
+v = epsych.SubjectRoster.recordVideoSetting(value);
+if isnan(v)
+    s = 'follow the session window''s Record Video toggle';
+elseif v == 1
+    s = 'record webcam video automatically';
+else
+    s = 'not record webcam video';
 end
 end

@@ -2,8 +2,13 @@ function onRecordVideoToggled_(self, enable)
 % onRecordVideoToggled_(self, enable)
 % Handle the "Record video" toolbar toggle.
 %
-% The toggle is the recording opt-in for the next run ('EnableRecording'
-% preference), and while a session is already RUNNING it also starts or stops
+% The toggle is the recording opt-in for this session (RecordVideo) and the
+% rig's default for sessions whose subjects do not say ('EnableRecording'
+% preference). Adding roster subjects that carry a RecordVideo setting moves
+% the toggle without touching the preference (applyRecordVideo_); pressing it
+% afterwards still has the last word for this session.
+%
+% While a session is already RUNNING it also starts or stops
 % the recording immediately: an operator who decides mid-session that a
 % subject is worth filming should not have to end the run to get video.
 %
@@ -23,6 +28,7 @@ arguments
     enable (1,1) logical
 end
 
+self.RecordVideo = enable;
 setpref('ep_RunExpt_Video','EnableRecording',enable);
 
 if self.STATE ~= PRGMSTATE.RUNNING, return, end
@@ -35,7 +41,7 @@ if self.RUNTIME.isTest
 end
 
 if enable
-    % StartVideoRecording_ re-reads the preference set above, closes any live
+    % StartVideoRecording_ re-reads RecordVideo set above, closes any live
     % view, and reports its own success or failure without throwing.
     if self.VideoRecordingActive_, return, end
     self.StartVideoRecording_

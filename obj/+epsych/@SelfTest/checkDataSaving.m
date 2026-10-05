@@ -186,7 +186,8 @@ results = [results epsych.SelfTest.withTime(r, toc(t))];
 
 % --- H6: video recording pairing ---------------------------------------
 t = tic;
-if ~getpref('ep_RunExpt_Video','EnableRecording',false)
+% The session's choice, not the preference: roster subjects may have set it.
+if ~self.RunExpt.RecordVideo
     r = epsych.SelfTest.result("H6_Video", GROUP, "Video recording paths", "skip", ...
         'Video recording is disabled.');
 elseif isempty(CONFIG) || ~isfield(CONFIG,'SUBJECT') || ~isa(CONFIG(1).SUBJECT,'epsych.Subject')

@@ -31,6 +31,9 @@ function newId = copyProject(self, id, newName, options)
 %                        (default true). They are the animal's own tuning, which
 %                        a study's next phase usually wants to start from; a
 %                        default the new protocol lacks is skipped at Run.
+%   CopyRecordVideo    - copied members keep their webcam-recording setting
+%                        (default true): whether an animal is filmed is the
+%                        animal's, like its parameter defaults.
 %   Notes, Investigator, IACUCProtocol, DefaultProtocol, DefaultDataPath,
 %   SavingFcn, TimerStartFcn, TimerRunTimeFcn, TimerStopFcn, TimerErrorFcn,
 %   TimerPeriod, VideoRootDir, IntanRootDir, IntanSettingsFile,
@@ -77,6 +80,7 @@ arguments
     options.IncludeRetired (1,1) logical = false
     options.CopyProtocolMemory (1,1) logical = true
     options.CopyParameterDefaults (1,1) logical = true
+    options.CopyRecordVideo (1,1) logical = true
     options.Notes (1,:) char
     options.Investigator (1,:) char
     options.IACUCProtocol (1,:) char
@@ -192,6 +196,10 @@ vprintf(1, 'Copied project "%s" to "%s" with %d subject(s).', ...
             % is no mismatch refusal for carrying them to seed.
             if options.CopyParameterDefaults
                 m.ParameterDefaults = source(i).ParameterDefaults;
+            end
+
+            if options.CopyRecordVideo
+                m.RecordVideo = source(i).RecordVideo;
             end
 
             m.Added    = now_;

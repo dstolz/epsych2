@@ -144,7 +144,7 @@ self.H.emptyState.Visible = 'off';
 self.H.table.Visible = 'on';
 
 nRows = numel(recs);
-data = cell(nRows, 11);
+data = cell(nRows, 12);
 retired = false(nRows, 1);
 projectId = self.selectedProject_();
 
@@ -178,19 +178,28 @@ for i = 1:nRows
 
     [lastRun, isRetired, mrec] = localMembershipInfo(self.Roster, r.SubjectID, projectId);
     data{i,6} = localSettingsCell(project, mrec);
+    data{i,7} = self.videoCell_(mrec);
 
-    data{i,7} = r.Species;
-    data{i,8} = r.Sex;
-    data{i,9} = r.Weight;
+    data{i,8} = r.Species;
+    data{i,9} = r.Sex;
+    data{i,10} = r.Weight;
 
-    data{i,10} = lastRun;
+    data{i,11} = lastRun;
     retired(i) = isRetired;
     if isRetired
-        data{i,11} = 'Retired';
+        data{i,12} = 'Retired';
     else
-        data{i,11} = 'Active';
+        data{i,12} = 'Active';
     end
 end
+
+% The Video setting is the membership's, so it is editable only where there is
+% one to write: in the All Projects view a subject may sit in several projects
+% that disagree, and the cell is blank. A read-only roster offers no dropdown
+% rather than one whose choice is refused.
+editable = self.H.table.ColumnEditable;
+editable(7) = ~isempty(projectId) && self.Roster.IsWritable && ~self.Roster.IsReadOnly;
+self.H.table.ColumnEditable = editable;
 
 self.H.table.Data = data;
 self.Retired_ = retired;

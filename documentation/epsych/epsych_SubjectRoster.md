@@ -90,6 +90,16 @@ They differ from the session settings above in three ways, all because they are 
 
 The field is additive: a roster written before it existed reads as "no defaults". `reload` normalizes each membership's records the way it does a project's `Links` — without validating, so one odd record cannot make the shared file unreadable.
 
+### Automatic webcam recording
+
+A membership carries **`RecordVideo`**: whether that subject's sessions are filmed. It is tri-state and stored as a double — `1` records, `0` does not, `NaN` follows the session window's **Record Video** toolbar toggle. `NaN` is the default and what every membership written before the field existed reads as, so a lab that never sets it sees no change: the toggle decides, as it always did. `recordVideoSetting(value)` is the one mapping (it also accepts `true`/`false`, `"on"`/`"off"`/`"rig"`, and never throws), and `setRecordVideo(subjects, project, value)` writes it — for named subjects, or with `AllMembers=true` for every member of the project, retired ones included, resolved inside the mutation so a subject another rig just enrolled is covered too. A value already in place is not an edit and leaves `Modified` alone.
+
+Like parameter defaults it is per-subject: no template stamps it, `reapplyTemplate` leaves it alone, and `copyProject` carries it (`CopyRecordVideo`, default true). Unlike them it is read **at commit**, because what it controls — the toggle — is something the operator may then override for the session:
+
+- `assignToSession` combines the batch instead of refusing it, since one camera films the whole rig. **Any subject set to record turns recording on** (the others in the session are filmed too, which is logged); otherwise **any subject set to off turns it off**; otherwise nobody said, and the session gets the rig's own choice — the `EnableRecording` preference — back. Resolving the all-silent case to the preference is what keeps one batch's setting from outliving its subjects when *Add Checked to Session* replaces them.
+- The result goes on `RunExpt.RecordVideo` and the toggle through `RunExpt.applyRecordVideo_`, **never into the preference**. Pressing the toggle afterwards still has the last word for that session, and (as before) also sets the rig preference.
+- A change to the roster after a subject was added does not reach the open session until the subject is added again; the manager's status line says so.
+
 ### The study's own bookkeeping
 
 `Investigator` and `IACUCProtocol` are free text the roster only records — nothing validates or enforces them. They are here because they are the two facts a lab is asked for about a study and has nowhere else to keep next to the animals themselves.

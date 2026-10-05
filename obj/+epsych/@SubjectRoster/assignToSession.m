@@ -30,8 +30,11 @@ function report = assignToSession(self, runExpt, subjectIds, options)
 %               session settings (behavior GUI, data path, saving function,
 %               timer callbacks and period, video and Intan recording paths).
 %               A field the membership leaves empty inherits the built-in
-%               default rather than being blanked. With no project context,
-%               no settings are applied at all.
+%               default rather than being blanked. The memberships'
+%               RecordVideo settings set the session's Record Video toggle:
+%               any subject asking to be filmed turns it on, else any
+%               refusing turns it off, else it returns to the rig's own
+%               choice. With no project context, no settings are applied at all.
 %   BoxIDs    - per-subject box, NaN to auto-assign the lowest free one.
 %   Protocols - per-subject .eprot path, '' to resolve from protocol memory.
 %   ReplaceExisting - true to make the batch the session's whole subject list:
@@ -330,6 +333,7 @@ if nWithDefaults > 0
 end
 if ~isempty(memberships)
     notes = [notes, localApplySessionDefaults(runExpt, memberships{1}, projectName)];
+    notes = [notes, localApplyRecordVideo(runExpt, memberships, {planned.Name})];
 end
 
 runExpt.UpdateSubjectList
@@ -566,6 +570,56 @@ end
 if ~isempty(applied)
     vprintf(1, 'Project "%s" set the session %s.', projectName, strjoin(applied, ', '));
     notes{end+1} = sprintf('Project %s applied.', strjoin(applied, ', '));
+end
+end
+
+% -----------------------------------------------------------------------
+function notes = localApplyRecordVideo(runExpt, memberships, names)
+% Put the batch's webcam-recording choice on the session's Record Video toggle,
+% returning a clause for the report when a subject decided it.
+%
+% Unlike the SESSION_FIELDS this is never a mismatch refusal: one camera films
+% the whole rig, so "record M1, not M2" in a two-box session has exactly one
+% honest answer -- record, since M1 asked for it and filming M2 as well costs
+% only disk. The rule is therefore: any subject that asks to be filmed wins;
+% otherwise any subject that refuses wins; otherwise nobody said, and the
+% session gets the rig's own choice (the toggle's preference) back. Resolving
+% the all-silent case to the preference rather than leaving the toggle alone
+% is what stops one batch's subject setting outliving its subjects when
+% "Add Checked to Session" replaces them.
+%
+% Only the session is changed, never the preference: running one animal must
+% not redefine what the rig does for the next.
+notes = {};
+
+v = cellfun(@(m) epsych.SubjectRoster.recordVideoSetting(m.RecordVideo), memberships);
+on  = v == 1;
+off = v == 0;
+
+if any(on)
+    tf = true;
+    why = sprintf('on, for %s', strjoin(names(on), ', '));
+    if any(off)
+        vprintf(1, ['Webcam recording is on for this session because %s asked for it; ' ...
+            '%s, set not to record, share the camera and are filmed too.'], ...
+            strjoin(names(on), ', '), strjoin(names(off), ', '));
+    end
+elseif any(off)
+    tf = false;
+    why = sprintf('off, for %s', strjoin(names(off), ', '));
+else
+    tf = logical(getpref('ep_RunExpt_Video','EnableRecording',false));
+    why = '';
+end
+
+changed = runExpt.applyRecordVideo_(tf);
+
+if ~isempty(why)
+    vprintf(1, 'Webcam recording %s (subject setting).', why);
+    notes{end+1} = sprintf('Webcam recording %s.', why);
+elseif changed
+    notes{end+1} = sprintf('Webcam recording back to the rig setting (%s).', ...
+        char(matlab.lang.OnOffSwitchState(tf)));
 end
 end
 

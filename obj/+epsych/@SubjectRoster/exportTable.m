@@ -19,7 +19,8 @@ arguments
 end
 
 vars = {'Subject','Species','Sex','Weight','Project','Active','LastProtocol', ...
-    'LastProtocolVersion','LastBoxID','ParameterDefaults','Notes','SubjectID','Created'};
+    'LastProtocolVersion','LastBoxID','ParameterDefaults','RecordVideo','Notes', ...
+    'SubjectID','Created'};
 
 if isempty(self.Subjects)
     T = cell2table(cell(0, numel(vars)), VariableNames = vars);
@@ -38,7 +39,7 @@ for i = 1:numel(self.Subjects)
 
     if isempty(mine)
         rows(end+1, :) = {s.Name, s.Species, s.Sex, s.Weight, '', ...
-            ~s.Retired, '', '', NaN, '', s.Notes, s.SubjectID, s.Created};
+            ~s.Retired, '', '', NaN, '', '', s.Notes, s.SubjectID, s.Created};
         continue
     end
 
@@ -50,9 +51,24 @@ for i = 1:numel(self.Subjects)
         rows(end+1, :) = {s.Name, s.Species, s.Sex, s.Weight, pName, ...
             mine(k).Active, mine(k).LastProtocol, mine(k).LastProtocolVersion, ...
             mine(k).LastBoxID, epsych.ParameterDefaults.summary(mine(k).ParameterDefaults), ...
+            localRecordVideoText(mine(k).RecordVideo), ...
             s.Notes, s.SubjectID, s.Created};
     end
 end
 
 T = cell2table(rows, VariableNames = vars);
 T = sortrows(T, {'Subject','Project'});
+end
+
+% -----------------------------------------------------------------------
+function s = localRecordVideoText(v)
+% Words rather than 1/0/NaN: a spreadsheet reader would take NaN for missing.
+v = epsych.SubjectRoster.recordVideoSetting(v);
+if isnan(v)
+    s = 'rig';
+elseif v == 1
+    s = 'on';
+else
+    s = 'off';
+end
+end

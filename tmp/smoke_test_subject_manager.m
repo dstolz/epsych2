@@ -221,11 +221,16 @@ assert(size(mgr.H.table.Data,1) == 3, 'The roster should be back to three visibl
 % updateEnableStates_, so a tool left behind would offer an action the rest of
 % the window has already refused.
 tools = findall(mgr.H.toolbar, 'Type','uipushtool');
-assert(numel(tools) == 15, 'Expected 15 toolbar tools (found %d)', numel(tools));
+assert(numel(tools) == 16, 'Expected 16 toolbar tools (found %d)', numel(tools));
 for tool = tools(:)'
     assert(isequal(size(tool.Icon), [16 16 3]), '%s has no 16x16 icon', tool.Tag);
     assert(~isempty(tool.Tooltip), '%s has no tooltip', tool.Tag);
 end
+
+% The one tool gated on the roster alone: with no row selected a click still
+% has to explain itself, so it must not grey out the way its menu twin does.
+assert(strcmp(mgr.H.tb_parameter_defaults.Enable,'on'), ...
+    'Parameter Defaults should stay enabled with no row selected');
 
 assert(strcmp(mgr.H.tb_add_to_session.Enable,'off'), ...
     'Add to Session should be off with nothing checked');

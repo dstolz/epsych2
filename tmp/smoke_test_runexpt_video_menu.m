@@ -14,6 +14,8 @@ function report = smoke_test_runexpt_video_menu()
 %      pattern, and idle.
 %   4) An unset recording root falls back to the Data Save Path.
 
+epsych_startup
+
 report = struct();
 report.timestamp = datetime('now');
 report.steps = struct();
@@ -109,9 +111,13 @@ catch ME
 end
 
 % Step 4: unset recording root falls back to the Data Save Path
+% The root is the SESSION's (RunExpt.PATHS), read from the preference once at
+% construction and then overwritten by a project's Session Defaults, so
+% "unset" means the session's value is empty. Removing the preference here
+% would leave the live session holding the root it was seeded with.
 stepName = 'rootFallback';
 try
-    rmpref(PREF_GROUP, 'RecordingRootDir');
+    rx.PATHS.VideoRootDir = '';
     before = findall(groot, 'Type', 'figure');
     rx.LaunchUtility("VideoConverter");
     newFigs = setdiff(findall(groot,'Type','figure'), before);

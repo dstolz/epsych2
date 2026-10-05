@@ -4,7 +4,7 @@ function report = smoke_test_runexpt_video_recording()
 % No VLC install or webcam is required — recording is never triggered
 % (EnableRecording stays false throughout), so only the GUI/pref plumbing
 % is exercised: filename generation, toggle <-> preference round-trip,
-% Customize dialog persistence, and teardown safety.
+% the session-level recording path, and teardown safety.
 %
 % Verifies:
 %   1) epsych.RunExpt.videoRecordingFilename mirrors the data file's
@@ -15,10 +15,13 @@ function report = smoke_test_runexpt_video_recording()
 %   3) Both webcam toolbar controls, and the live-view menu item, stay
 %      enabled while STATE is RUNNING, and a mid-run toggle during a Preview
 %      run updates the preference without starting a recording.
-%   4) The Customize dialog's Video Recording Path field persists to the
-%      'RecordingRootDir' preference on OK, and the pre-existing Data Save
-%      Path field still applies (regression check on the Paths tab resize).
+%   4) RunExpt.PATHS.VideoRootDir seeds from the 'RecordingRootDir'
+%      preference, is not moved by a later preference change, and is
+%      independent of the Data Save Path. (The path itself is set on a
+%      project's Session Defaults now, not in the Customize dialog.)
 %   5) delete(RunExpt) completes cleanly with no stray figures.
+
+epsych_startup
 
 report = struct();
 report.timestamp = datetime('now');
@@ -113,36 +116,33 @@ catch ME
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end
 
-% Step 4: Customize dialog Video Recording Path persistence
-stepName = 'customizeDialogVideoPath';
+% Step 4: the Video Recording Path is session state, seeded from the rig
+% preference. The Customize dialog's field moved to each project's Session
+% Defaults (gui.SubjectManager), which reach the session as
+% RunExpt.PATHS.VideoRootDir when its subjects are added -- that half is
+% smoke_test_subject_roster's. This is the RunExpt half: PATHS seeds from
+% 'RecordingRootDir', a later preference change does not move a live session,
+% and the Data Save Path is independent of it.
+stepName = 'sessionVideoPath';
 try
     assert(~isempty(rx) && isvalid(rx), 'SmokeTest:PrereqFailed', 'RunExpt instance from Step 2 is unavailable.');
 
     savedDataPath = char(rx.DefaultDataPath);
+    seeded = char(rx.PATHS.VideoRootDir);
+    assert(strcmp(seeded, strtrim(char(getpref(PREF_GROUP, 'RecordingRootDir', '')))), ...
+        'SmokeTest:SeedMismatch', 'PATHS.VideoRootDir "%s" did not seed from RecordingRootDir.', seeded);
+
     testRoot = fullfile(tempdir, 'epsych_video_smoke_test');
+    setpref(PREF_GROUP, 'RecordingRootDir', testRoot);
+    assert(strcmp(char(rx.PATHS.VideoRootDir), seeded), 'SmokeTest:LiveSessionMoved', ...
+        'Changing the preference must not move the live session''s recording path.');
 
-    rx.OpenCustomizeDialog;
-    drawnow;
-    dlg = findall(groot, 'Type', 'figure', 'Tag', 'RunExptCustomize');
-    assert(~isempty(dlg), 'SmokeTest:MissingDialog', 'Customize dialog did not open.');
-    dlgCleanup = onCleanup(@() localDeleteFigure_(dlg)); %#ok<NASGU>
+    rx.PATHS.VideoRootDir = testRoot;
+    assert(strcmp(char(rx.DefaultDataPath), savedDataPath), 'SmokeTest:DataPathRegression', ...
+        'Setting the session''s video path must not change the Data Save Path.');
 
-    ef_vidroot = findall(dlg, 'Tag', 'Customize_VideoRootDir');
-    assert(~isempty(ef_vidroot), 'SmokeTest:MissingControl', 'Could not locate Video Recording Path field.');
-    ef_vidroot.Value = testRoot;
-
-    btn_ok = findall(dlg, 'Type', 'uibutton', 'Text', 'OK');
-    assert(~isempty(btn_ok), 'SmokeTest:MissingControl', 'Could not locate the OK button.');
-    btn_ok.ButtonPushedFcn(btn_ok, []);
-    drawnow;
-
-    assert(strcmp(getpref(PREF_GROUP, 'RecordingRootDir'), testRoot), ...
-        'SmokeTest:PrefNotUpdated', 'RecordingRootDir preference was not updated by OK.');
-    assert(strcmp(char(rx.DefaultDataPath), savedDataPath), ...
-        'SmokeTest:DataPathRegression', 'Data Save Path unexpectedly changed by the Paths tab resize.');
-    assert(~isgraphics(dlg), 'SmokeTest:DialogNotClosed', 'Customize dialog did not close after OK.');
-
-    report.steps.(stepName) = struct('passed', true, 'detail', 'Video Recording Path persisted via OK; Data Save Path field unaffected.');
+    report.steps.(stepName) = struct('passed', true, 'detail', ...
+        'PATHS.VideoRootDir seeds from the preference, stays put when it changes, and leaves the data path alone.');
 catch ME
     report.steps.(stepName) = struct('passed', false, 'detail', getReport(ME, 'basic', 'hyperlinks', 'off'));
 end
@@ -209,11 +209,5 @@ end
 function localDeleteRunExpt_(rx)
 if ~isempty(rx) && isvalid(rx)
     delete(rx);
-end
-end
-
-function localDeleteFigure_(fig)
-if ~isempty(fig) && isgraphics(fig)
-    delete(fig);
 end
 end

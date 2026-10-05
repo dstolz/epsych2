@@ -5,7 +5,7 @@ function LaunchUtility(self, target)
 % Parameters:
 %	target	- Tool to open: "ProtocolDesigner", "TrialDesigner",
 %			  "BehaviorBuilder", "StimPlayer", "StimInspector",
-%			  "Calibration", or "VideoConverter".
+%			  "SpotCheck", "Calibration", or "VideoConverter".
 %
 % Each tool owns its own window and lifecycle; RunExpt only launches it and
 % keeps no handle. Always-on-top is cleared first so the new window does not
@@ -15,13 +15,14 @@ function LaunchUtility(self, target)
 % disturb a loaded or running session.
 %
 % See also: epsych.ProtocolDesigner, teensy.TrialDesigner, gui.BehaviorBuilder,
-%           stimgen.StimPlayer, stimgen.StimInspector, epsych.calibrate,
+%           stimgen.StimPlayer, stimgen.StimInspector, stimgen.SpotCheck,
+%           epsych.calibrate,
 %           util.VideoConverter
 arguments
     self
     target (1,1) string {mustBeMember(target, ...
         ["ProtocolDesigner","TrialDesigner","BehaviorBuilder","StimPlayer", ...
-         "StimInspector","Calibration","VideoConverter"])}
+         "StimInspector","SpotCheck","Calibration","VideoConverter"])}
 end
 
 switch target
@@ -30,6 +31,7 @@ switch target
     case "BehaviorBuilder",  label = 'Behavior GUI Builder';
     case "StimPlayer",       label = 'Stimulus Player';
     case "StimInspector",    label = 'Stimulus Inspector';
+    case "SpotCheck",        label = 'Spot Check';
     case "Calibration",      label = 'Calibration GUI';
     case "VideoConverter",   label = 'Batch Video Converter';
 end
@@ -52,6 +54,10 @@ try
             stimgen.StimPlayer(stimbridge.RuntimeHost);
         case "StimInspector"
             stimgen.StimInspector;
+        case "SpotCheck"
+            % A bare host, as for the player: the rig's adapter is taken
+            % from it, and with none the window opens offline.
+            stimgen.SpotCheck(stimbridge.RuntimeHost);
         case "Calibration"
             epsych.calibrate;
         case "VideoConverter"

@@ -12,6 +12,11 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
     % Key methods:
     %   refresh        - Recompute subclass results and rebroadcast updates.
     %   update_data    - Handle runtime NewData events and refresh results.
+    %   setData        - Replace an offline analysis's trials and refresh.
+    %
+    % Offline (DATA-sourced) analyses broadcast Events.NewData on refresh and
+    % on an ExcludedTrials change exactly as online ones do on a trial, so a
+    % History table or a pop-out over a saved session follows them.
     %
     % See documentation/psychophysics/psychophysics_Psych.md for subclassing details.
 
@@ -108,6 +113,30 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
             obj.recomputeResults_();
             obj.afterRefresh_();
             obj.notifyDataUpdate_(event.Data);
+        end
+
+        function setData(obj, DATA)
+            % setData(obj, DATA)
+            % Replace the trials of an OFFLINE analysis and recompute, as a
+            % NewData event does for an online one. DATA is otherwise
+            % read-only, so this is the one door through which a saved
+            % session's trials change under an existing object -- a review
+            % tool paging through sessions, or a script narrowing one.
+            %
+            % Parameters:
+            %   DATA  - Per-trial struct array, as the constructor takes it.
+            arguments
+                obj
+                DATA struct
+            end
+            if ~isempty(obj.RUNTIME)
+                ME = MException(obj.classIdentifier_('OnlineSetData'), ...
+                    ['setData is for an offline analysis. This one follows a ' ...
+                     'runtime and takes its trials from its NewData events.']);
+                throwAsCaller(ME);
+            end
+            obj.DATA = DATA;
+            obj.refresh();
         end
 
         % Deprecated alias for Events, kept so paradigm GUIs written against
@@ -248,12 +277,18 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
         end
 
         function notifyDataUpdate_(obj, trialsStruct)
-            % Broadcast NewData through obj.Events when runtime trial state is available.
+            % Broadcast NewData through obj.Events. Online the payload is the
+            % runtime's TRIALS; offline it is built from DATA, so a History
+            % table or a pop-out over a saved session follows refresh() and
+            % an ExcludedTrials change exactly as it follows a live session.
             if nargin < 2 || isempty(trialsStruct)
-                if isempty(obj.RUNTIME) || ~isprop(obj.RUNTIME, 'TRIALS') || isempty(obj.RUNTIME.TRIALS)
+                if isempty(obj.RUNTIME)
+                    trialsStruct = struct('DATA', obj.DATA, 'Subject', [], 'BoxID', []);
+                elseif ~isprop(obj.RUNTIME, 'TRIALS') || isempty(obj.RUNTIME.TRIALS)
                     return
+                else
+                    trialsStruct = obj.RUNTIME.TRIALS;
                 end
-                trialsStruct = obj.RUNTIME.TRIALS;
             end
 
             evtdata = epsych.TrialsData(trialsStruct);

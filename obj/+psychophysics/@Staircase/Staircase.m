@@ -23,9 +23,15 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
     %       1-based trial indices.
     %   Results - Structure containing computed staircase outputs such as
     %       Threshold, ReversalIdx, and StepDirection.
+    %   Subject, BoxID, Unit - What the plot's title and y axis say. Left
+    %       empty they come from the runtime and the hw.Parameter; an offline
+    %       staircase has neither, so the caller sets them.
     %
     % Key methods:
-    %   refresh_history  - Recompute reversals and the reversal threshold.
+    %   refresh_history  - Recompute reversals and the reversal threshold. The
+    %       analysis settings recompute on their own when set; this is the
+    %       explicit refresh for a change they cannot see.
+    %   setData          - Replace an offline staircase's trials (psychophysics.Psych).
     %   Plot / popOut    - The staircase track, embedded or in its own window.
     %   fitPsychometric  - Maximum-likelihood threshold, slope and psychometric
     %       function from the trials themselves, rather than from the
@@ -80,6 +86,14 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         WeightedStepFieldYes (1,1) string = ""    % DATA field holding the step; "" = none
         WeightedStepFieldNo  (1,1) string = ""
 
+        % What the plot's title and y-axis label say. Left empty, an online
+        % staircase reads them from RUNTIME.TRIALS (subject, box) and the
+        % hw.Parameter (unit). An offline staircase has neither, so a review
+        % tool or a script sets them and gets the same labelled plot.
+        Subject (1,1) string = ""
+        BoxID double {mustBeScalarOrEmpty} = []
+        Unit (1,1) string = ""
+
         % Optional plotting configuration (when enabled via Plot or constructor option).
         % Accent colors avoid the reserved response-outcome hues (green/red/blue/
         % orange from epsych.BitMask) so overlays never read as an outcome.
@@ -123,7 +137,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
 
     properties (Dependent)
         % Dependent properties provide read-only access to computed trial data
-        stimulusValues  % Stimulus parameter values from DATA, optionally converted to decibels
+        stimulusValues  % Tracked parameter value per trial, from DATA
     end
 
     properties (Access = private)
@@ -131,6 +145,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         geomeanUndefined_ (1,1) logical = false  % latches the undefined-geometric-mean log to once per episode
         weightedRefusal_ (1,1) string = ""       % last weighted-correction refusal logged; see logWeightedRefusal_
         weightedBlockMemo_ = []                  % corrected sliding blocks; see weightedBlockThresholds_
+        initialized_ (1,1) logical = false       % constructor done: a settings change now recomputes
 
         % Plot state (optional).
         plotEnabled_ (1,1) logical = false
@@ -182,9 +197,9 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             % Pass a DATA struct array as the first input to compute staircase history
             % immediately without attaching listeners.
             %
-            % In online mode, the staircase automatically recomputes reversals and
-            % thresholds when new trial data arrives. In offline mode, call refresh_history()
-            % after modifying obj.DATA.
+            % In online mode, the staircase recomputes reversals and thresholds
+            % when new trial data arrives. In offline mode, setData replaces the
+            % trials. In either mode a changed analysis setting recomputes at once.
             %
             % Stimulus trials are filtered by StimulusTrialType mask for reversal detection.
             %
@@ -232,6 +247,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             if isempty(obj.RUNTIME)
                 obj.refresh();
             end
+            obj.initialized_ = true;   % from here on, a settings change recomputes
 
             if options.Plot
                 % Forward only what the caller stated (see Plot).
@@ -259,8 +275,80 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             % Parameters:
             %   obj - psychophysics.Staircase instance.
             %
-            % Use this after changing DATA or analysis settings in offline workflows.
+            % The analysis settings (StaircaseDirection, ThresholdFromLastNReversals,
+            % ThresholdFormula and the weighted-correction properties) recompute as
+            % they are set, so this is needed only for a change they cannot see:
+            % StimulusTrialType, CatchTrialType, or a DATA field edited in place.
             obj.refresh();
+        end
+
+        % ------------------------------------------------------------------
+        % Analysis settings recompute when set, as psychophysics.SessionMetrics's
+        % do, so Results can never be stale beside the setting that defines
+        % it. The constructor seeds them first (initialized_ false), and
+        % assigning the value already held is not a change.
+        function set.StaircaseDirection(obj, value)
+            changed = ~isequal(obj.StaircaseDirection, value);
+            obj.StaircaseDirection = value;
+            if changed, obj.settingChanged_(); end
+        end
+
+        function set.ThresholdFromLastNReversals(obj, value)
+            changed = ~isequal(obj.ThresholdFromLastNReversals, value);
+            obj.ThresholdFromLastNReversals = value;
+            if changed, obj.settingChanged_(); end
+        end
+
+        function set.ThresholdFormula(obj, value)
+            changed = ~isequal(obj.ThresholdFormula, value);
+            obj.ThresholdFormula = value;
+            if changed, obj.settingChanged_(); end
+        end
+
+        function set.ApplyWeightedCorrection(obj, value)
+            changed = ~isequal(obj.ApplyWeightedCorrection, value);
+            obj.ApplyWeightedCorrection = value;
+            if changed, obj.settingChanged_(); end
+        end
+
+        function set.WeightedStepAfterYes(obj, value)
+            changed = ~isequaln(obj.WeightedStepAfterYes, value);
+            obj.WeightedStepAfterYes = value;
+            if changed, obj.settingChanged_(); end
+        end
+
+        function set.WeightedStepAfterNo(obj, value)
+            changed = ~isequaln(obj.WeightedStepAfterNo, value);
+            obj.WeightedStepAfterNo = value;
+            if changed, obj.settingChanged_(); end
+        end
+
+        function set.WeightedStepFieldYes(obj, value)
+            changed = ~isequal(obj.WeightedStepFieldYes, value);
+            obj.WeightedStepFieldYes = value;
+            if changed, obj.settingChanged_(); end
+        end
+
+        function set.WeightedStepFieldNo(obj, value)
+            changed = ~isequal(obj.WeightedStepFieldNo, value);
+            obj.WeightedStepFieldNo = value;
+            if changed, obj.settingChanged_(); end
+        end
+
+        % The display identity redraws only the labels.
+        function set.Subject(obj, value)
+            obj.Subject = value;
+            obj.labelsChanged_();
+        end
+
+        function set.BoxID(obj, value)
+            obj.BoxID = value;
+            obj.labelsChanged_();
+        end
+
+        function set.Unit(obj, value)
+            obj.Unit = value;
+            obj.labelsChanged_();
         end
 
         function Plot(obj, ax, options)
@@ -765,6 +853,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             props = {'ThresholdFromLastNReversals','ThresholdFormula', ...
                 'ApplyWeightedCorrection','WeightedStepAfterYes','WeightedStepAfterNo', ...
                 'WeightedStepFieldYes','WeightedStepFieldNo', ...
+                'Subject','BoxID','Unit', ...
                 'LineColor','StepColor','NeutralColor','ReversalColor', ...
                 'ThresholdColor','MarkerSize','StepMarkerSize', ...
                 'ReversalMarkerSize','Bits','BitColors', ...
@@ -782,7 +871,8 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             h.refresh();
 
             % The embedded plot's settings are the starting point; the
-            % pop-out's own saved menu choices, if any, then win in Plot.
+            % pop-out's own remembered menu choices then apply in Plot (the
+            % display ones always, the analysis ones only online).
             h.Plot(ax);
         end
 
@@ -818,6 +908,21 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         values = columnize_(obj, values)
         s = sessionVectors_(obj)
 
+        function settingChanged_(obj)
+            % An analysis setting changed: recompute (and redraw) unless the
+            % constructor is still seeding the object.
+            if obj.initialized_
+                obj.refresh();
+            end
+        end
+
+        function labelsChanged_(obj)
+            % Subject, BoxID or Unit changed: only the plot's labels follow.
+            if obj.plotEnabled_ && ~isempty(obj.plotAxes_) && isvalid(obj.plotAxes_)
+                obj.updatePlotLabels_();
+            end
+        end
+
         function name = menuPreferenceName_(obj)
             % Preference name for the right-click menu choices: the hosting
             % figure's Tag (else Name) and the tracked parameter, so two
@@ -835,36 +940,38 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         end
 
         function loadMenuPreferences_(obj)
-            % Apply the operator's saved menu choices, recomputing once if a
-            % threshold setting changed. Only menu actions save, so a
-            % programmatic setting is never persisted.
+            % Apply the operator's remembered right-click choices. The display
+            % flags are restored for every staircase. The three ANALYSIS
+            % settings (ThresholdFromLastNReversals, ThresholdFormula,
+            % ApplyWeightedCorrection) are restored only when the staircase
+            % follows a runtime: there the remembered choice is the operator's,
+            % made for this GUI and this parameter. An offline staircase
+            % belongs to whoever built it -- a review tool, a script -- and
+            % its settings are the record of the analysis, so a plot call must
+            % not change them. Only menu actions save, so a programmatic
+            % setting is never persisted. The setters recompute, so nothing is
+            % refreshed here.
             try
                 name = obj.menuPreferenceName_();
                 if ~ispref(obj.MENU_PREF_GROUP, name), return; end
                 s = getpref(obj.MENU_PREF_GROUP, name);
 
-                oldN = obj.ThresholdFromLastNReversals;
-                oldFormula = obj.ThresholdFormula;
-                oldCorrection = obj.ApplyWeightedCorrection;
-                if isfield(s, 'ApplyWeightedCorrection')
-                    obj.ApplyWeightedCorrection = s.ApplyWeightedCorrection;
-                end
-                if isfield(s, 'ThresholdFromLastNReversals')
-                    obj.ThresholdFromLastNReversals = s.ThresholdFromLastNReversals;
-                end
-                if isfield(s, 'ThresholdFormula')
-                    obj.ThresholdFormula = s.ThresholdFormula;
+                if ~isempty(obj.RUNTIME)
+                    if isfield(s, 'ApplyWeightedCorrection')
+                        obj.ApplyWeightedCorrection = s.ApplyWeightedCorrection;
+                    end
+                    if isfield(s, 'ThresholdFromLastNReversals')
+                        obj.ThresholdFromLastNReversals = s.ThresholdFromLastNReversals;
+                    end
+                    if isfield(s, 'ThresholdFormula')
+                        obj.ThresholdFormula = s.ThresholdFormula;
+                    end
                 end
                 if isfield(s, 'ShowSteps'), obj.ShowSteps = s.ShowSteps; end
                 if isfield(s, 'ShowReversals'), obj.ShowReversals = s.ShowReversals; end
                 if isfield(s, 'ShowDistribution'), obj.ShowDistribution = s.ShowDistribution; end
                 if isfield(s, 'DistributionSource'), obj.DistributionSource = s.DistributionSource; end
                 if isfield(s, 'ShowSlidingThreshold'), obj.ShowSlidingThreshold = s.ShowSlidingThreshold; end
-
-                if oldN ~= obj.ThresholdFromLastNReversals || oldFormula ~= obj.ThresholdFormula ...
-                        || oldCorrection ~= obj.ApplyWeightedCorrection
-                    obj.refresh();
-                end
             catch ME
                 vprintf(2, 'Staircase %s: saved menu preferences not applied: %s', ...
                     char(obj.ParameterName), ME.message);

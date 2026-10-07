@@ -107,9 +107,17 @@ This makes the analysis object behave like a secondary event source: listeners c
 obj.refresh()
 ```
 
-`refresh` recomputes the subclass results from the current `DATA`, runs any subclass post-refresh hook, and emits a `NewData` event through `obj.Events` when runtime trial state is available.
+`refresh` recomputes the subclass results from the current `DATA`, runs any subclass post-refresh hook, and emits a `NewData` event through `obj.Events`. Online the payload is the runtime's `TRIALS`; offline it is built from `DATA` (with an empty `Subject` and `BoxID`), so a `gui.components.History` or a pop-out over a saved session follows an offline refresh exactly as it follows a live trial. Before 2026-10-07 an offline refresh emitted nothing.
 
-This is the main method to call in offline workflows after changing DATA-dependent configuration.
+This is the method to call in offline workflows after changing DATA-dependent configuration that the subclass does not already react to on its own.
+
+### `setData`
+
+```matlab
+obj.setData(DATA)
+```
+
+Replaces the trials of an **offline** analysis and calls `refresh`, as a `NewData` event does for an online one. `DATA` is otherwise read-only, so this is the one door through which a saved session's trials change under an existing object — a review tool paging through sessions, or a script narrowing one. It is refused (`<Class>:OnlineSetData`) on an analysis that follows a runtime, whose trials come from its `NewData` events.
 
 ### `update_data`
 

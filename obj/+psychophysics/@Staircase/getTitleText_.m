@@ -1,6 +1,10 @@
 function [titleText, hasTitle] = getTitleText_(obj)
 % [titleText, hasTitle] = getTitleText_(obj)
-% Build plot title string from runtime + staircase state.
+% Build the plot title from the staircase's identity and its results.
+%
+% The identity is obj.Subject / obj.BoxID when set, else what the runtime's
+% TRIALS carries. An offline staircase has no runtime, which is what the two
+% properties exist for.
 %
 % Parameters:
 %   obj — psychophysics.Staircase instance
@@ -11,28 +15,22 @@ function [titleText, hasTitle] = getTitleText_(obj)
 
 titleParts = {};
 
-if ~isempty(obj.RUNTIME) && isprop(obj.RUNTIME,'TRIALS') && ~isempty(obj.RUNTIME.TRIALS)
-    trials = obj.RUNTIME.TRIALS;
+subjectName = obj.Subject;
+boxID = obj.BoxID;
+if strlength(subjectName) == 0 || isempty(boxID)
+    [rtSubject, rtBox] = localRuntimeIdentity(obj.RUNTIME);
+    if strlength(subjectName) == 0, subjectName = rtSubject; end
+    if isempty(boxID), boxID = rtBox; end
+end
 
-    subjectName = "";
-    if isprop(trials, 'Subject') && ~isempty(trials.Subject) && isprop(trials.Subject, 'Name')
-        subjectName = string(trials.Subject.Name);
+if isempty(boxID)
+    if strlength(subjectName) > 0
+        titleParts{end+1} = char(subjectName);
     end
-
-    boxID = [];
-    if isprop(trials, 'BoxID')
-        boxID = trials.BoxID;
-    end
-
-    if isempty(boxID)
-        if strlength(subjectName) > 0
-            titleParts{end+1} = char(subjectName);
-        end
-    elseif strlength(subjectName) == 0
-        titleParts{end+1} = sprintf('[%d]', boxID);
-    else
-        titleParts{end+1} = sprintf('%s [%d]', subjectName, boxID);
-    end
+elseif strlength(subjectName) == 0
+    titleParts{end+1} = sprintf('[%d]', boxID);
+else
+    titleParts{end+1} = sprintf('%s [%d]', subjectName, boxID);
 end
 
 if ~isempty(obj.Results.ReversalCount)
@@ -48,7 +46,7 @@ hasThreshold = isscalar(threshold) && isfinite(threshold);
 configuredReversals = obj.ThresholdFromLastNReversals;
 
 % Results.Weighted, not the flag: the title describes what Results holds,
-% and the flag can be set before refresh_history() has run.
+% and the flag can be set before the recompute it triggers has run.
 isCorrected = ~isempty(R.Weighted);
 
 if hasThreshold && isCorrected
@@ -91,4 +89,25 @@ if hasTitle
     titleText = strjoin(titleParts, ' | ');
 else
     titleText = '';
+end
+end
+
+function [subjectName, boxID] = localRuntimeIdentity(RUNTIME)
+% Subject name and box from RUNTIME.TRIALS, or "" and [] when there is no
+% runtime, the session has not started, or TRIALS holds several subjects
+% (this staircase cannot tell which is its own; the caller sets Subject).
+subjectName = "";
+boxID = [];
+if isempty(RUNTIME) || ~isprop(RUNTIME, 'TRIALS') || isempty(RUNTIME.TRIALS)
+    return
+end
+trials = RUNTIME.TRIALS;
+if ~isscalar(trials)
+    return
+end
+S = trials.Subject;   % epsych.Subject, or a struct in a stub runtime
+if ~isempty(S)
+    subjectName = string(S.Name);
+end
+boxID = trials.BoxID;
 end

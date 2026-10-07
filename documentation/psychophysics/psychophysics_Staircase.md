@@ -66,7 +66,7 @@ S = psychophysics.Staircase(..., Name=Value)
 - `CatchTrialType`
   - Stored as a configuration property for workflows that distinguish catch trials.
   - Default: `epsych.BitMask.TrialType_1`
-  - Current implementation note: `recompute_history` uses `StimulusTrialType` directly for reversal detection and threshold estimation.
+  - Current implementation note: `recomputeResults_` uses `StimulusTrialType` directly for reversal detection and threshold estimation.
 - `StaircaseDirection`
   - Accepts `'Up'` or `'Down'`.
   - Default: `'Down'`
@@ -74,13 +74,12 @@ S = psychophysics.Staircase(..., Name=Value)
 > **`ThresholdFromLastNReversals` and `ThresholdFormula` are not accepted here.**
 > They are settable properties rather than constructor name-value options — they
 > are absent from the constructor's `arguments` block, so passing either one
-> errors. Set them after construction and call `refresh_history()`:
+> errors. Set them after construction; each recomputes `Results` as it is set:
 >
 > ```matlab
 > S = psychophysics.Staircase(RUNTIME, Parameter);
 > S.ThresholdFromLastNReversals = 8;
 > S.ThresholdFormula = 'GeometricMean';
-> S.refresh_history();
 > ```
 - `Plot`
   - When `true`, plotting is enabled during construction.
@@ -103,6 +102,12 @@ S = psychophysics.Staircase(..., Name=Value)
 
 - `Parameter`
   - Parameter object used to extract the tracked stimulus value from each trial.
+- `Subject`, `BoxID`, `Unit`
+  - What the plot's title (`Subject [BoxID]`) and y-axis label (`Name (Unit)`) say.
+    Left empty, an online staircase reads them from `RUNTIME.TRIALS` and the
+    tracked `hw.Parameter`. An offline staircase has neither, so a review tool
+    or a script sets them and gets the same labelled plot. Setting one redraws
+    only the labels.
 - `StaircaseDirection`
   - Direction convention used during reversal analysis.
 - `StimulusTrialType`
@@ -111,10 +116,10 @@ S = psychophysics.Staircase(..., Name=Value)
   - Auxiliary BitMask for workflows that separate catch trials.
 - `ThresholdFromLastNReversals`
   - Number of most recent reversals used to compute `Results.Threshold` and `Results.ThresholdStd`.
-  - Default: `12`. Set after construction, then call `refresh_history()`.
+  - Default: `12`. Set after construction; `Results` recomputes as it is set.
 - `ThresholdFormula`
   - Accepts `'Mean'` or `'GeometricMean'`; combines the reversal values.
-  - Default: `'Mean'`. Set after construction, then call `refresh_history()`.
+  - Default: `'Mean'`. Set after construction; `Results` recomputes as it is set.
   - Use `'Mean'` for a parameter already on a log scale, such as an AM depth
     in dB re 100%: the arithmetic mean of `20*log10(x)` IS `20*log10(geomean(x))`,
     so it is already the geometric mean of the linear quantity.
@@ -127,10 +132,11 @@ S = psychophysics.Staircase(..., Name=Value)
   - When `true`, `Results.Threshold` is the Hoover-corrected threshold of a weighted
     staircase from `weightedThreshold`, `NaN` until it can be computed, and
     `Results.Weighted` holds the full result.
-  - Default: `false`, so no existing session changes its numbers. Set after
-    construction, then call `refresh_history()` — or tick **Apply Weighted
-    Correction** on the plot's right-click menu, which does both and is
-    remembered like the other menu choices.
+  - Default: `false`, so no existing session changes its numbers. Setting it
+    recomputes at once — or tick **Apply Weighted Correction** on the plot's
+    right-click menu, which is remembered like the other menu choices (and
+    restored, like them, only for a runtime-sourced staircase; see
+    [How the plot reads](#how-the-plot-reads)).
   - Every threshold estimate follows it, not only `Results.Threshold`: the
     sliding-block thresholds (`Results.BlockThreshold` and the
     `Min`/`Median`/`Mean`/`MaxBlockThreshold` summaries) are corrected block by
@@ -193,7 +199,15 @@ S.refresh_history()
 
 Recomputes staircase history from the current `DATA`, refreshes the plot when plotting is enabled, and notifies listeners through `S.Events`.
 
-Use this after changing analysis settings such as `StaircaseDirection`, `StimulusTrialType`, `ThresholdFormula`, or `ThresholdFromLastNReversals` in offline workflows.
+The analysis settings — `StaircaseDirection`, `ThresholdFromLastNReversals`, `ThresholdFormula`, `ApplyWeightedCorrection` and the `WeightedStep*` properties — recompute on their own as they are set, so this is needed only for a change they cannot see: `StimulusTrialType` or `CatchTrialType`, or a `DATA` field edited in place. To replace the trials of an offline staircase, use `setData`.
+
+### `setData`
+
+```matlab
+S.setData(DATA)
+```
+
+Inherited from `psychophysics.Psych`. Replaces an offline staircase's trials and recomputes, as a `NewData` event does online; refused on a staircase that follows a runtime. Offline, `refresh_history`, `setData` and an `ExcludedTrials` change all broadcast `Events.NewData`, so a `gui.components.History` or a pop-out over a saved session follows them exactly as it follows a live one.
 
 ### `fitPsychometric`
 
@@ -295,7 +309,9 @@ within two rows in an embedded axes. It is rebuilt only when its contents change
 
 The y axis is labeled `<Name> (<Unit>)` from the tracked `hw.Parameter`, using its raw `Unit`
 string exactly as entered in the Protocol Designer. Parameters with no unit, and offline
-staircases constructed from a DATA field name, are labeled with the name alone.
+staircases constructed from a DATA field name, are labeled with the name alone until `Unit` is
+set. The title likewise names the subject and box from `RUNTIME.TRIALS`, or from the `Subject`
+and `BoxID` properties offline.
 
 Right-clicking the plot axes exposes the analysis settings that are worth changing while
 reviewing a session: **Threshold Reversals**, **Threshold Formula**, **Apply Weighted
@@ -304,7 +320,12 @@ wanted in dB is recorded in dB, as `cl_AppetitiveStimDetect` records `Depth`.
 
 Choices made from that menu are **remembered across sessions** (preference group
 `epsych2_psychophysics_Staircase`), keyed by the hosting figure's Tag (else Name) and the
-tracked parameter, and restored when `Plot` attaches to axes. Only menu actions save, so
+tracked parameter, and restored when `Plot` attaches to axes — the display choices for every
+staircase, the three analysis settings (**Threshold Reversals**, **Threshold Formula**, **Apply
+Weighted Correction**) only for a staircase that follows a runtime. There the remembered choice
+is the operator's, made for that GUI and that parameter. An offline staircase belongs to whoever
+built it — a review tool, a script — and its settings are the record of the analysis, so a plot
+call never changes them (`tmp/smoke_test_psych_offline_fixes.m`). Only menu actions save, so
 setting the properties from code is never persisted; a `ShowSteps`/`ShowReversals` passed
 explicitly to `Plot` or the constructor still wins over the saved choice. A pop-out window
 has its own Tag, so it remembers its own choices without overwriting the embedded plot's.
@@ -364,8 +385,8 @@ The plot title shows them beside the current (most recent) estimate, e.g. `Thres
 
 ```matlab
 S = psychophysics.Staircase(DATA, Parameter);
-S.ThresholdFormula = 'GeometricMean';   % a property, not a constructor option
-S.refresh_history();
+S.ThresholdFormula = 'GeometricMean';   % a property, not a constructor option; recomputes as set
+S.Subject = "M01";  S.Unit = "dB";      % what an offline plot's title and y axis say
 
 fprintf('Reversals: %d\n', S.Results.ReversalCount);
 fprintf('Threshold: %.3f\n', S.Results.Threshold);
@@ -406,6 +427,13 @@ S.Plot();
 
 ## Changelog
 
+- 2026-10-07: Analysis settings recompute as they are set, so `refresh_history`
+  is no longer needed after `S.ThresholdFormula = ...`. `Plot` restores the
+  remembered **analysis** menu choices only for a runtime-sourced staircase,
+  never over an offline caller's settings. New `Subject`/`BoxID`/`Unit`
+  properties label an offline plot. `setData` (from `psychophysics.Psych`)
+  replaces an offline staircase's trials, and offline refreshes now broadcast
+  `Events.NewData`. Proof: `tmp/smoke_test_psych_offline_fixes.m`.
 - 2026-10-07: **Apply Weighted Correction** on the plot's right-click menu toggles
   `ApplyWeightedCorrection` and is remembered. The correction now reaches every
   threshold estimate rather than only `Results.Threshold`: the sliding-block

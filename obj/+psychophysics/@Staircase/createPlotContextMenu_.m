@@ -75,10 +75,11 @@ obj.plotContextMenu_ = cm;
 end
 
 %% --- Local helper functions ---
+% The analysis setters recompute and redraw; these helpers only record the
+% choice and keep the check marks honest.
 
 function setReversalCount(obj, parentMenu, n)
     obj.ThresholdFromLastNReversals = n;
-    obj.refresh();
     obj.saveMenuPreferences_();
     updateReversalChecks(parentMenu, n);
 end
@@ -94,7 +95,6 @@ function customReversalCount(obj, parentMenu)
         return
     end
     obj.ThresholdFromLastNReversals = n;
-    obj.refresh();
     obj.saveMenuPreferences_();
     updateReversalChecks(parentMenu, n);
 end
@@ -112,7 +112,6 @@ end
 
 function setFormula(obj, parentMenu, formula)
     obj.ThresholdFormula = formula;
-    obj.refresh();
     obj.saveMenuPreferences_();
     formulaMap = struct('Mean', 'Mean', 'GeometricMean', 'Geometric Mean');
     activeText = formulaMap.(char(formula));
@@ -125,7 +124,6 @@ end
 function toggleWeightedCorrection(obj, src)
     obj.ApplyWeightedCorrection = ~obj.ApplyWeightedCorrection;
     src.Checked = matlab.lang.OnOffSwitchState(obj.ApplyWeightedCorrection);
-    obj.refresh();
     obj.saveMenuPreferences_();
 end
 

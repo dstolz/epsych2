@@ -9,7 +9,11 @@ function [P, Excluded, Overridden] = readParameters(obj, filepath, options)
 % writeParametersJSON remain loadable. The file is reduced to uniform parameter
 % structs by epsych.Runtime.phaseParameterData, then each entry is resolved to the
 % live hw.Parameter that owns it (matched to an interface by ParentType and to a
-% parameter by Name) and its saved properties are restored.
+% parameter by Name) and its saved properties are restored. A ParentType the
+% session has no interface of is tried against the interfaces it is
+% interchangeable with (epsych.Runtime.INTERCHANGEABLE_PARENT_TYPES: the two
+% TDT backends, which drive one circuit), so a phase saved under hw.TDT_RPcox
+% loads into a hw.TDT_Synapse session and back; the crossing is logged once.
 %
 % Serialized metadata and design-time Values are applied via fromStruct; the runtime
 % Value is restored here for writable parameters (fromStruct intentionally leaves
@@ -116,6 +120,11 @@ interfaceTypes = arrayfun(@(x) string(x.Type), obj.Interfaces);
 hits = cell(1, nP);
 skipped = cell(1, nP);
 
+% Entries applied to an interface of another, interchangeable type (a phase
+% saved under TDT_RPcox loading into a TDT_Synapse session): counted and
+% reported once at the end rather than once per parameter.
+crossed = containers.Map('KeyType', 'char', 'ValueType', 'double');
+
 % Resolve each file entry to its live hw.Parameter and restore its saved properties.
 for k = 1:nP
     S = paramData(k);
@@ -123,8 +132,19 @@ for k = 1:nP
     parentType = string(S.ParentType);
     S = rmfield(S, 'ParentType'); % remove ParentType from struct before applying to Parameter since it's not an actual field of hw.Parameter and is only used for matching to the correct interface during load
 
-    % Match the interface that owns this parameter by its Type
+    % Match the interface that owns this parameter by its Type. With no
+    % interface of that type in the session, the types it is interchangeable
+    % with are tried instead -- never when one of the recorded type exists,
+    % since the file's author meant that one.
     iface = obj.Interfaces(interfaceTypes == parentType);
+    if isempty(iface)
+        for group = epsych.Runtime.INTERCHANGEABLE_PARENT_TYPES
+            if any(group{1} == parentType)
+                iface = obj.Interfaces(ismember(interfaceTypes, group{1}));
+                break
+            end
+        end
+    end
     if isempty(iface)
         vprintf(0,1, 'No matching interface found for parameter "%s" with parent "%s". Skipping.', S.Name, parentType)
         continue
@@ -136,6 +156,15 @@ for k = 1:nP
         continue
     end
     xp = xp(1);
+
+    if string(iface(1).Type) ~= parentType
+        key = sprintf('%s -> %s', parentType, string(iface(1).Type));
+        if crossed.isKey(key)
+            crossed(key) = crossed(key) + 1;
+        else
+            crossed(key) = 1;
+        end
+    end
 
     if ~isempty(options.Exclude) && any(options.Exclude == xp)
         skipped{k} = xp;
@@ -206,6 +235,11 @@ for k = 1:nP
 end
 
 P = [hits{:}];
+
+for key = crossed.keys
+    vprintf(1, 'Phase saved against another backend: %d parameter(s) applied across %s, the same circuit''s tags under either', ...
+        crossed(key{1}), key{1})
+end
 if isempty(P)
     P = hw.Parameter.empty(1,0);
 end

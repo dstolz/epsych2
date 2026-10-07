@@ -129,44 +129,57 @@ There are two established discovery models in this repository.
 
 ### Pattern A: discover modules from the backend (`hw.TDT_Synapse`)
 
-`hw.TDT_Synapse` connects to the API first, queries available devices and
-sample rates, and then creates one `hw.Module` per discovered gizmo.
+`hw.TDT_Synapse` connects to the API first, puts Synapse in Standby, and
+then either binds the modules it already holds or, when it holds none,
+creates one `hw.Module` per Synapse object that exposes API parameters.
 
 The sequence is:
 
-1. Construct the API object.
-2. Put the backend into a safe starting state.
-3. Ask the backend for module names and rates.
-4. Create `hw.Module` objects from that metadata.
-5. Query parameter metadata for each module.
-6. Create `hw.Parameter` objects from the returned metadata.
+1. Construct the API object (behind a `createApi_` seam, so a test double
+   can stand in for the server).
+2. Put the backend into a safe starting state, and fail with a remedy if it
+   refuses.
+3. If the interface already has modules, check each against the backend,
+   refresh what only the backend knows (sample rate, category), and populate
+   parameters only where a module has none. Never rebuild `obj.Module`: the
+   protocol's parameters live there.
+4. Otherwise ask the backend what exists, and create `hw.Module` objects for
+   the objects that have parameters.
+5. Translate the backend's parameter metadata into the `hw.Parameter`
+   vocabulary in one pure, testable function
+   (`hw.TDT_Synapse.parameterSpecFromInfo`).
 
 Relevant implementation:
 
 - [obj/+hw/@TDT_Synapse/TDT_Synapse.m](../../obj/+hw/@TDT_Synapse/TDT_Synapse.m)
 - [obj/+hw/@TDT_Synapse/setup_interface.m](../../obj/+hw/@TDT_Synapse/setup_interface.m)
+- [obj/+hw/@TDT_Synapse/discoverModules_.m](../../obj/+hw/@TDT_Synapse/discoverModules_.m)
+- [obj/+hw/@TDT_Synapse/bindModules_.m](../../obj/+hw/@TDT_Synapse/bindModules_.m)
 
 Representative setup flow:
 
 ```matlab
-obj.HW = SynapseAPI(obj.Server);
+obj.HW = obj.createApi_();
 
-if obj.HW.getMode > 0
+if obj.HW.getMode() > 0
   obj.HW.setMode(0);
 end
-
-obj.HW.setModeStr('Standby');
-
-h = obj.HW.getSamplingRates;
-
-for m = 1:length(mName)
-  obj.Module(m) = hw.Module(obj, mLabel{m}, mName{m}, mIdx(m));
-  obj.Module(m).Fs = mFs(m);
+obj.HW.setMode(1);                      % Standby
+if obj.HW.getMode() ~= 1
+  error('hw:TDT_Synapse:ModeRejected', ...)
 end
+
+if isempty(obj.Module)
+  obj.Module = obj.discoverModules_(obj.HW);
+else
+  obj.bindModules_(obj.HW);
+end
+obj.ensureUniqueParameterNames();
 ```
 
 Use this pattern when the vendor API can tell you what modules and parameters
-exist at runtime.
+exist at runtime. See [hw_TDT_Synapse.md](hw_TDT_Synapse.md) for how a
+processor in legacy mode fits it.
 
 ### Pattern B: create modules from configuration, then scan tags (`hw.TDT_RPcox`)
 
@@ -277,21 +290,18 @@ is often simpler because it creates and appends the parameter in one step.
 The current TDT backends use parameter name prefixes to drive behavior.
 
 - Trigger parameters start with `!`.
-- Synapse hides names beginning with `_` or `~`.
-- RPcox hides names beginning with `_`, `~`, `#`, or `%`.
-- RPcox marks array parameters from `tag_size > 1`.
+- Both TDT backends hide names beginning with `_`, `~`, or `#`.
+- `%`-prefixed tags are RPvds-internal and never become parameters.
+- RPcox marks array parameters from `tag_size > 1`; Synapse from the
+  `Array` field of `getParameterInfo` (`'Yes'` at design time, a count at
+  runtime). Synapse cannot address a `#` tag at all over its HTTP path,
+  so those are dropped there rather than hidden.
 
-Examples from the repository:
+Example from the repository:
 
 ```matlab
 P.isTrigger = P.Name(1) == '!';
 P.Visible = ~any(P.Name(1) == '_~#%');
-```
-
-```matlab
-P.isTrigger = P.Name(1) == '!';
-P.Visible = P.Name(1) ~= '_';
-P.Visible = P.Name(1) ~= '~';
 ```
 
 If your backend does not already encode these meanings in the parameter name,
@@ -310,11 +320,13 @@ The interface layer expects parameter `Type` values that fit the
 - `String`
 - `Undefined`
 
-`hw.TDT_Synapse` receives these values directly from the API metadata.
-`hw.TDT_RPcox` has to translate numeric RP tag codes into EPsych type names.
+Neither TDT backend receives these values verbatim. `hw.TDT_RPcox` translates
+numeric RP tag codes; `hw.TDT_Synapse` translates the API's `Float`, `Int`
+and `Logic` (plus its array report) in `hw.TDT_Synapse.parameterSpecFromInfo`.
 
-That translation step is part of the interface author's job. Do it once in
-`setup_interface()` and keep the rest of the code type-agnostic.
+That translation step is part of the interface author's job. Do it once, in
+a pure function the smoke test can call with a struct, and keep the rest of
+the code type-agnostic.
 
 ## 8. Implement mode translation
 

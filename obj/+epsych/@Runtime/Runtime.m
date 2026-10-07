@@ -103,6 +103,17 @@ classdef Runtime < handle & dynamicprops
     properties (Constant)
         % Define any constant properties here (e.g., default timer settings, required trigger names)
         REQUIRED_TRIGGERS = ["NewTrial", "ResetTrig", "TrialComplete"] % List of required trigger parameter suffixes
+
+        % Interface types a phase file's entries may be applied across, in
+        % groups. A phase records each parameter's owning interface Type
+        % (ParentType) so that a Software parameter and a hardware tag of
+        % the same name are never confused; but the two TDT backends drive
+        % the SAME RPvdsEx circuit -- hw.TDT_RPcox over RPco.x, hw.TDT_Synapse
+        % through Synapse in legacy mode -- so a tag is the same parameter
+        % under either, and a phase library saved against one is good for
+        % the other. readParameters falls back to a group only when the
+        % session holds NO interface of the recorded type.
+        INTERCHANGEABLE_PARENT_TYPES = {["TDT_RPcox", "TDT_Synapse"]}
     end
 
     properties (Access = private)

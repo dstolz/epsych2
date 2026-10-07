@@ -105,8 +105,15 @@ that should run without a physical device connection.
 without notice.
 
 `hw.TDT_Synapse` connects EPsych to TDT Synapse through the Synapse API
-wrapper. It exposes Synapse modules and parameters through the common
-interface helpers and tracks current experiment metadata.
+wrapper. A module is one Synapse object that exposes API parameters: a
+gizmo, or a processor running an RPvdsEx circuit in **legacy mode**, which
+Synapse lists as its own gizmo (`RZ6(1)`, category `Legacy`) with the
+circuit's parameter tags as its parameters. The module `Label` is that
+Synapse name. Connect brings Synapse to Standby and binds the protocol's
+modules to the server rather than rebuilding them, translates Synapse's
+`Float`/`Int`/`Logic` and design-time/runtime array reports into
+`hw.Parameter` metadata, and writes a stimulus into a legacy circuit's
+buffer tag as `hw.TDT_RPcox` does. See [hw_TDT_Synapse.md](hw_TDT_Synapse.md).
 
 ### `hw.TDT_RPcox`
 
@@ -326,6 +333,9 @@ Backend behavior:
 - `hw.TDT_Synapse` queries the Synapse server's parameter info for the gizmo
   named by the module's Label. Read-only HTTP queries via a temporary
   `SynapseAPI` client when offline; the server is never driven into Standby.
+  A Label Synapse does not recognize is declined with the names it has, and
+  the read also records whether the module is a legacy-mode processor and
+  its sample rate.
 - `hw.Software`, `hw.Intan_RHX`, and `hw.VlcRecorder` do not support discovery
   and inherit the declining default.
 

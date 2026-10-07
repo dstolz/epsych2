@@ -513,7 +513,55 @@ Rules that matter:
 - **hw.Module**: Parameter container
 - **hw.Parameter**: Single parameter with validation and callbacks
 - **Concrete Backends**:
-  - hw.TDT_Synapse: TDT Synapse API backend (under development)
+  - hw.TDT_Synapse: TDT Synapse API backend (under development). A module
+    is one Synapse object that answers `getParameterNames` — a gizmo, or a
+    processor in LEGACY mode, where Synapse loads an RPvdsEx circuit whole
+    and lists the processor as its own gizmo (`RZ6(1)`, category `Legacy`,
+    NO parent, so its sample rate is read under its own name) with the
+    circuit's tags as parameters; the module's Label OR Name is that name,
+    verbatim (`resolveGizmo_`: Label first, since RPcox keeps its device
+    type there, then Name, which `hw.Module` documents as the
+    hardware-specific field — the first protocol put `RZ6(2)` in Name and
+    `Behavior` in Label; the match is recorded as `Info.SynapseName` and
+    is what all I/O addresses). `connect` goes to Standby and BINDS
+    existing modules (parameters populated only where there are none) —
+    it used to rebuild `obj.Module` from the server on every Run,
+    discarding the protocol's parameters. A protocol must not ALSO hold a
+    `TDT_RPcox` interface for the same processor: RPcox loads the circuit
+    over RPco.x at connect, which legacy-mode Synapse does itself. The
+    lab's PHASE LIBRARY was saved under RPcox, every entry stamped
+    `ParentType='TDT_RPcox'`, and `Runtime.readParameters` matches on that
+    type; it now falls back to `Runtime.INTERCHANGEABLE_PARENT_TYPES`
+    (the RPcox/Synapse pair, one circuit) only when the session has NO
+    interface of the recorded type, logging the crossing once
+    (`tmp/smoke_test_phase_parent_type_fallback.m`). Two
+    traps the first Run found: the SynapseAPI client's size cache is a
+    struct keyed `Gizmo_Param`, so `getParameterValues` with no count
+    throws `Invalid field name: 'RZ6(2)_Stim'` for EVERY legacy
+    processor — every array read states its count (`readOne_`); and a
+    mode change takes seconds and may answer 503 mid-change, so
+    `awaitMode_` polls for the target up to `ModeTimeout` (20 s) rather
+    than reading the request's return. Synapse's vocabulary is not
+    `hw.Parameter`'s (`Int`/`Logic`; `Array` is `'Yes'` at design time and
+    a COUNT at runtime; `Access` values undocumented), and
+    `parameterSpecFromInfo` is the one pure translation; a tag listed but
+    not described is kept as `Undefined`, not dropped (the old integration
+    met these on triggers). Name conventions are RPcox's and ONLY RPcox's
+    (`!` trigger; `_~#` hidden): the runtime's `x_NewTrial_<box>` tags are
+    ordinary parameters the author marks as triggers in the designer, as
+    for RPcox. Confirmed live (2026-10-07): Synapse at IDLE reports every
+    legacy tag as `Float`/`Read / Write`/±1e20/`Array='No'`, FIR
+    coefficient buffer included, so Read HW Params cannot type a buffer —
+    ±1e20 reads as unbounded, and `bindModules_` reports at connect (the
+    first moment sizes are visible) any array on the device still typed
+    as a scalar. `#` tags are unreachable over the
+    HTTP path and dropped by `filterParameterNames`. A `StimType` is
+    written into the circuit's buffer tag with `setParameterValues`,
+    bounded by `getParameterSize`, as RPcox does with WriteTagV. No
+    `resetSession`: Stop writes Idle, which unloads the circuit. Standing
+    proof `tmp/smoke_test_synapse_legacy.m` over `tmp/SynapseAPI_Mock`
+    (documentation/hw/hw_TDT_Synapse.md, which also lists what only a
+    live rig can confirm)
   - hw.TDT_RPcox: RPvds/RPco.x backend
   - hw.Intan_RHX: Intan RHX TCP interface (under development)
   - hw.Teensy: Teensy 4.x USB-serial backend; firmware in firmware/EPsychTeensy/ (under development)

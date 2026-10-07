@@ -76,6 +76,13 @@ classdef Runtime < handle & dynamicprops
         StartTime datetime = NaT % Experiment start time (datetime)
 
         TrialComplete  % Manual trial completion flag (if in use, wait for manual completion of trial in RPvds)
+
+        % The error that ended the run: RunExpt.PsychTimerError stores the
+        % timer's lasterror here and the Error timer function (ep_TimerFcn_Error)
+        % logs and rethrows it. Declared, because an undeclared property made
+        % that handler itself throw "Unrecognized property 'ERROR'" and hide
+        % whatever had actually failed.
+        ERROR = []
     end
 
     properties (SetAccess = private)

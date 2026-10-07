@@ -592,10 +592,24 @@ classdef RunExpt < handle
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.RunTime, self.RUNTIME);
         end
 
-        function PsychTimerError(self)
-            % Timer error callback; records the last error, invokes the error handler, saves data, and updates GUI state.
+        function PsychTimerError(self, evt)
+            % PsychTimerError(self, evt)
+            % Timer error callback; records the error, invokes the error
+            % handler, saves data, and updates GUI state.
+            %
+            % The error comes from the timer's ErrorFcn event: a callback
+            % that fails inside a timer never reaches lasterror, which the
+            % old code read and found empty, so the Error timer function
+            % logged a blank line and rethrew nothing. The event carries only
+            % the message and identifier (MATLAB has already printed the
+            % stack to the command window as "Error while evaluating
+            % StartFcn"); they are put into an MException so that
+            % ep_TimerFcn_Error can log and rethrow it as one record.
+            if nargin < 2
+                evt = [];
+            end
             self.STATE = PRGMSTATE.ERROR;
-            self.RUNTIME.ERROR = lasterror;
+            self.RUNTIME.ERROR = epsych.RunExpt.timerErrorException_(evt);
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Error, self.RUNTIME);
             self.UpdateGUIstate
             self.SaveDataCallback
@@ -766,6 +780,45 @@ classdef RunExpt < handle
     end
 
     methods (Static)
+        function ME = timerErrorException_(evt)
+            % ME = epsych.RunExpt.timerErrorException_(evt)
+            % The exception a timer ErrorFcn event describes. The event's
+            % Data carries a message and a messageID and nothing else (the
+            % stack has already gone to the command window); an empty or
+            % unfamiliar argument becomes a generic exception rather than a
+            % blank one, so the Error timer function always has something
+            % to log and to rethrow.
+            message = 'The PsychTimer callback failed; see the command window for the error.';
+            identifier = 'epsych:PsychTimer:CallbackFailed';
+
+            if isa(evt, 'MException')
+                ME = evt;
+                return
+            end
+
+            data = [];
+            if isstruct(evt) && isfield(evt, 'Data')
+                data = evt.Data;
+            elseif isstruct(evt)
+                data = evt;
+            end
+
+            if isstruct(data)
+                if isfield(data, 'message') && ~isempty(data.message)
+                    message = char(data.message);
+                end
+                for field = {'messageID', 'identifier'}
+                    if isfield(data, field{1}) && ~isempty(data.(field{1})) ...
+                            && ~isempty(regexp(char(data.(field{1})), '^[A-Za-z]\w*(:[A-Za-z]\w*)+$', 'once'))
+                        identifier = char(data.(field{1}));
+                        break
+                    end
+                end
+            end
+
+            ME = MException(identifier, '%s', message);
+        end
+
         position = getSavedFigurePosition(defaultPosition)
         saveFigurePosition(position)
         ffn = defaultFilename(pth,name)

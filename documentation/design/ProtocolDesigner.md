@@ -40,7 +40,7 @@ ui = epsych.ProtocolDesigner.openFromFile('path/to/file.eprot');
 
 - Main figure and menu system (`buildUI`)
 - Toolbar (`buildToolbar`) — New, Open, Save | Interfaces, Options | Compile, Preview, Check Calcs, Dependencies | Find/Replace, Shortcuts. Buttons are placed from a running cursor, so retitling or reordering one entry does not shift the rest by hand.
-- Parameter editing panel (`buildParametersTab`) — table columns: Interface / Module, Name, Type, Expression, Value, Min, Max, Random, Pair, Access, Unit, Visible, Trigger, Update Every Trial, Set Once, Description
+- Parameter editing panel (`buildParametersTab`) — table columns: Interface / Module, Name, Type, Expression, Value, Min, Max, Random, Pair, Access, Unit, Visible, Trigger, Update Every Trial, Set Once, Description. The button row under the table holds Remove Selected, Refresh, Edit Selected Value, Read HW Params, and Copy / Move... (`onCopyMoveParameters`)
 - Interfaces dialog (`buildInterfaceTab` / `onOpenInterfaceDialog`) — Add Interface builder plus the interface/module tree and its Remove / Options / Add Module / Remove Module actions
 - Options dialog (`buildOptionsTab` / open options callback)
 - Compiled preview dialog (`buildPreviewTab` / open preview callback)
@@ -48,7 +48,7 @@ ui = epsych.ProtocolDesigner.openFromFile('path/to/file.eprot');
 - Parameter dependency graph figure (`onShowParameterDependencyGraph`, backed by `epsych.Protocol.dependencyGraph`) — node labels and per-parameter `= expression` annotations are drawn as tagged `text` objects (`nodeLabel` / `formulaLabel`) rather than GraphPlot labels, and formula boxes are nudged vertically to clear each other and the node labels
 - Footer status messaging via `gui.components.StatusBar`
 
-All four tool dialogs are tracked by a figure property (`InterfaceFigure`, `OptionsFigure`, `PreviewFigure`, `CheckCalcFigure`) and opened through `openToolDialog`, which raises an already-open window instead of building a second one. Without that, a duplicate would take ownership of the shared control properties and every earlier copy would go stale, refreshing nothing. Because the interface controls only exist while their dialog is open, `refreshInterfaceSummary`, `refreshInterfaceBuilder`, and `getSelectedInterfaceSpec` all tolerate their absence, and `getSelectedInterfaceRowIndex` falls back to `SelectedInterfaceRow` and then the Add To Interface dropdown. `onAddInterface` and `onAddModule` open the dialog first so the menu and keyboard entry points act on a visible selection.
+The tool dialogs are tracked by a figure property (`InterfaceFigure`, `OptionsFigure`, `PreviewFigure`, `CheckCalcFigure`, `TransferFigure`) and opened through `openToolDialog`, which raises an already-open window instead of building a second one. Without that, a duplicate would take ownership of the shared control properties and every earlier copy would go stale, refreshing nothing. Because the interface controls only exist while their dialog is open, `refreshInterfaceSummary`, `refreshInterfaceBuilder`, and `getSelectedInterfaceSpec` all tolerate their absence, and `getSelectedInterfaceRowIndex` falls back to `SelectedInterfaceRow` and then the Add To Interface dropdown. `onAddInterface` and `onAddModule` open the dialog first so the menu and keyboard entry points act on a visible selection.
 
 Interface creation is data-driven: the "Add Interface" panel enumerates `hw.Interface` subclasses and builds each creation dialog from the class's static `getCreationSpec()` (see [../hw/hw_Interface_Tutorial.md](../hw/hw_Interface_Tutorial.md)). Interfaces are held in an offline/serialized form while editing; live hardware communication is not started by the designer.
 
@@ -77,6 +77,7 @@ Implemented in `onFigureKeyPress` and shown by `showKeyboardShortcuts`.
 - Ctrl+Shift+F add float parameter
 - Ctrl+Shift+N add integer parameter
 - Ctrl+Shift+R remove selected parameter
+- Ctrl+Shift+X copy or move parameters to another module
 - Ctrl+F focus the parameter Find box
 - Ctrl+H open Find and Replace for parameter names
 - Ctrl+S save
@@ -174,6 +175,66 @@ in code are the user's responsibility.
 
 Headless coverage: `tmp/smoke_test_parameter_find_replace.m`.
 
+## Copying and moving parameters
+
+The Copy or Move Parameters dialog follows the Find and Replace split, so the logic is
+testable without it:
+
+- `planParameterTransfer(parameters, targetModule, Mode=, OnConflict=)` returns a scalar plan
+  struct (`Entries`, `Rewrites`, `Warnings`, plus `Mode`, `OnConflict`, `TargetModule`,
+  `TargetLocation`) and never mutates the protocol. `Mode` is `copy` or `move`; `OnConflict`
+  (`rename`, `overwrite`, `skip`) governs only a clash inside the target module.
+- `[transferred, problems] = applyParameterTransfer(plan)` applies every entry whose
+  `Status` is not `skip`, then refreshes the parameter tab. It re-checks the plan against the
+  protocol first and throws `epsych:ProtocolDesigner:StalePlan` rather than half-applying one
+  made before an edit. `problems` names each parameter that landed but is not right yet: a
+  value `fromStruct` could not restore, or an expression (transferred or rewritten) that the
+  post-transfer `refreshExpressionValues` flagged.
+- `onCopyMoveParameters` / `refreshTransferPreview` are the dialog. It is tracked by
+  `TransferFigure` through `openToolDialog`, keeps ticked rows by handle in
+  `TransferChecked`, and is refreshed from `refreshParameterTab` (a no-op while closed). Its
+  module dropdowns re-select by module handle on every refresh, so removing a module
+  elsewhere cannot silently retarget a transfer; Apply re-plans before applying.
+  Apply then **closes the dialog** and reports in the main window — a `uialert` listing what
+  was transferred, skipped, and needs attention, plus the status line. That is deliberate:
+  left open, the dialog re-rendered a fresh plan for the still-ticked rows and looked
+  exactly as if the click had done nothing. A failed apply also closes it, saying whether
+  anything changed (`StalePlan` means nothing did).
+
+Rules a reader would otherwise re-derive:
+
+- **Names are unique across the protocol, not just the module.** `epsych.Protocol.compile`
+  asserts it (`epsych:Protocol:DuplicateParameterNames`), so a name used anywhere outside
+  the target is always renamed `Name_1`, `Name_2`, ... whatever `OnConflict` says. A copy
+  into another module is therefore always renamed, since the original keeps the name; a move
+  frees the names it takes away.
+- **A renamed hardware parameter keeps its device tag.** On a target interface other than
+  `hw.Software`, each entry records a `HardwareName` — the source's tag for a copy or move,
+  the existing parameter's for an overwrite — and the applier stores it as
+  `UserData.HardwareName` when it differs from the new name (clearing the field when it does
+  not). That is the field `hw.Interface.getHardwareParameterName` already reads for every
+  backend, so `ToneLevel_1` on a TDT module still writes tag `ToneLevel`. A second parameter
+  in the target writing the same tag is reported in the entry's `Message`.
+- **`hw.Parameter.Parent` is immutable**, so only a move within one interface re-homes the
+  same handle. A copy, or a move to another interface, builds a new parameter on the target
+  interface from `toStruct`/`fromStruct(S, false)`; values are restored afterwards, every
+  parameter already in place, under `Protocol.linkInterfacesForValueRestore` — the
+  `cloneModulesToInterface` pattern. An overwrite writes onto the existing handle, so the
+  expressions naming it survive.
+- **Expressions are rewritten so every reference names the same parameter afterwards.**
+  The rewriter tokenizes dotted identifier chains and resolves them in
+  `hw.Parameter.resolveExpressionContext`'s own order (`Module.Param.Prop`, sibling
+  `Param.Prop`, `Module.Param`, bare sibling). A reference to another parameter in the same
+  transfer follows it to its new module and name; a bare sibling that would stop being one
+  is qualified as `Module.Param`; on a move, every other expression that named a moved
+  parameter is repointed (`plan.Rewrites`). A copy changes no expression outside the new
+  parameters. Module names are unique only within an interface, so a qualified reference
+  written to a name another interface shares is reported in `plan.Warnings`.
+- A copy of a roved, unpaired parameter multiplies the trial count; the entry's `Message`
+  says so. The Pair is copied, so a paired copy joins its original's group.
+
+Headless coverage: `tmp/smoke_test_parameter_transfer.m`.
+
 ## Recent Export Features
 
 ### Export protocol object to workspace
@@ -199,6 +260,8 @@ If no compiled data exists, export is blocked with status + alert guidance.
 - `onAddModule`, `onRemoveModule`
 - `onAddParam`, `onRemoveParam`, `onParamEdited`, `onParamSelected`
 - `onReadHardwareParams` (Read HW Params button)
+- `onCopyMoveParameters`, `refreshTransferPreview`, `planParameterTransfer`,
+  `applyParameterTransfer` (Copy / Move... button); private helper `getModuleChoices`
 
 ### Find and rename
 

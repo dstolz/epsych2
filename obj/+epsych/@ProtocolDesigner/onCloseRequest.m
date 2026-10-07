@@ -9,7 +9,7 @@ function onCloseRequest(obj)
     % Tool dialogs are sibling figures, not children of obj.Figure, so closing
     % the designer does not take them with it.
     siblingFigures = {obj.FindReplaceFigure, obj.InterfaceFigure, ...
-        obj.OptionsFigure, obj.PreviewFigure, obj.CheckCalcFigure};
+        obj.OptionsFigure, obj.PreviewFigure, obj.CheckCalcFigure, obj.TransferFigure};
     for idx = 1:numel(siblingFigures)
         fig = siblingFigures{idx};
         if ~isempty(fig) && isvalid(fig)

@@ -5,5 +5,6 @@ function refreshParameterTab(obj)
     obj.refreshInterfaceSummary();
     obj.refreshParameterTable();
     obj.refreshModuleActionButtons();
+    obj.refreshTransferPreview();  % no-op unless the Copy or Move dialog is open
 end
 

@@ -85,6 +85,8 @@ Leave the Interfaces window open beside the main window while you work; the para
 
 Not every interface allows manual module changes. For some hardware-backed interfaces, the module list is controlled by the interface implementation rather than by the designer.
 
+To copy or move parameters from one module to another, see [Copying and moving parameters between modules](#copying-and-moving-parameters-between-modules).
+
 ## Adding and editing parameters
 
 Use **Add To Interface** and **Module** above the parameter table to choose where a new parameter will be created, then click **Add Parameter**.
@@ -152,6 +154,60 @@ rows individually. **Replace All** applies every row marked **Rename**.
 Renaming cannot reach outside the protocol. Custom trial functions, save functions, and
 custom GUIs that refer to a parameter by name must be updated by hand, and there is no undo,
 so save the protocol before a large rename.
+
+## Copying and moving parameters between modules
+
+**Copy / Move...** below the parameter table (also **Parameter > Copy or Move
+Parameters...**, **Ctrl+Shift+X**) copies or moves parameters from one module into another
+— a second module on the same interface, or a module on a different interface, such as
+from the Software interface onto a TDT device.
+
+1. Select the rows you want in the parameter table first (optional): the dialog opens on
+   their module with them already ticked.
+2. **From** picks the module whose parameters are listed; tick the ones to transfer
+   (**Tick All** / **Tick None** help with large modules).
+3. **To** picks the module that receives them.
+4. **Action** is **Copy** (the originals stay) or **Move** (the originals leave their module).
+5. **If target has it** decides what happens when the target module already has a
+   parameter of the same name: give the new one a numbered name, **overwrite** the one in
+   the target with the source's settings, or skip it.
+
+Nothing changes until you press **Copy** or **Move**. The table previews every ticked row:
+its new name, its action, and notes explaining anything unusual. Click a row to read its
+notes in full under the table. Rows to be overwritten are shaded amber and skipped rows red.
+Overwriting asks for confirmation, because the replaced settings cannot be recovered.
+
+Pressing **Copy** or **Move** closes the dialog and reports the outcome in the main window:
+how many parameters were copied or moved and their new names, any that were skipped and
+why, and any that landed but need attention — for example a copied expression that cannot
+be calculated in its new module, which is also highlighted in the table. If the transfer
+fails outright, the message says so and whether anything was changed. The same summary
+stays in the status line at the bottom of the window.
+
+Things the dialog does for you:
+
+- **Names stay unique.** A protocol only compiles when every parameter name is unique
+  across the whole protocol, so a copy into another module is always given a numbered
+  name (`ToneLevel` becomes `ToneLevel_1`) — the original keeps the plain name. A move
+  frees its own name, so a moved parameter keeps it wherever it can. Rename the result
+  afterwards with Find and Replace if you prefer another name.
+- **Hardware tags stay put.** When a renamed parameter lands on a hardware interface, it
+  still addresses the device tag its source used (the notes say *Addresses device tag
+  ToneLevel*), so the new name does not silently point it at a different tag in the
+  circuit. If the target module already has a parameter writing that same tag, the notes
+  say so — overwriting that parameter is usually what you want instead.
+- **Expressions keep working.** References are rewritten so each one still names the
+  parameter it named before. Parameters transferred together stay wired to each other,
+  and a reference to a parameter left behind is written as `Module.Parameter` so it still
+  reaches the original. A move also updates every other expression in the protocol that
+  named a moved parameter; those are listed in the lower table before you apply.
+- **Trial counts are flagged.** Copying a parameter that roves over several values, with
+  no Pair, multiplies the number of trials; the notes say so, and suggest giving both the
+  same **Pair** if they should vary together.
+
+Settings travel with the parameter: type, values, limits, randomization, pair, access,
+unit, flags, and description. As with renaming, code outside the protocol that refers to a
+parameter by name must be updated by hand, and there is no undo, so save first.
 
 ## Working with file parameters
 

@@ -39,6 +39,7 @@ function buildUI(obj)
     uimenu(parameterMenu, 'Text', localShortcutText_('Add Integer Parameter', 'Ctrl+Shift+N'), 'MenuSelectedFcn', @(~, ~) obj.onAddParamWithDefaults('integer', false));
     uimenu(parameterMenu, 'Text', localShortcutText_('Remove Selected Parameter', 'Ctrl+Shift+R'), 'Separator', 'on', 'MenuSelectedFcn', @(~, ~) obj.onRemoveParam());
     uimenu(parameterMenu, 'Text', localShortcutText_('Show Selected Parameter Details', 'Ctrl+Shift+D'), 'MenuSelectedFcn', @(~, ~) obj.onShowSelectedParameterDetails());
+    uimenu(parameterMenu, 'Text', localShortcutText_('Copy or Move Parameters...', 'Ctrl+Shift+X'), 'MenuSelectedFcn', @(~, ~) obj.onCopyMoveParameters());
     uimenu(parameterMenu, 'Text', localShortcutText_('Find Parameter by Name', 'Ctrl+F'), 'Separator', 'on', 'MenuSelectedFcn', @(~, ~) obj.focusParameterFind());
     uimenu(parameterMenu, 'Text', localShortcutText_('Find and Replace in Names...', 'Ctrl+H'), 'MenuSelectedFcn', @(~, ~) obj.onFindReplaceParameterNames());
 

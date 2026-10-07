@@ -93,6 +93,23 @@ classdef ProtocolDesigner < handle
         FindReplaceChanges struct = struct('Parameter', {}, 'Module', {}, ...
             'Location', {}, 'OldName', {}, 'NewName', {}, 'Status', {}, 'Message', {})
 
+        % Copy / Move Parameters dialog (onCopyMoveParameters).
+        TransferFigure matlab.ui.Figure
+        TransferSource matlab.ui.control.DropDown
+        TransferTarget matlab.ui.control.DropDown
+        TransferMode matlab.ui.control.DropDown
+        TransferConflict matlab.ui.control.DropDown
+        TransferTable matlab.ui.control.Table
+        TransferRewriteLabel matlab.ui.control.Label
+        TransferRewriteTable matlab.ui.control.Table
+        TransferSummary matlab.ui.control.Label
+        TransferApply matlab.ui.control.Button
+        % Ticked rows, kept by handle so switching the source module and back
+        % does not lose them.
+        TransferChecked (1,:) hw.Parameter = hw.Parameter.empty(1, 0)
+        % Plan last shown in the dialog (planParameterTransfer).
+        TransferPlan struct = struct()
+
         EditTrialFunc matlab.ui.control.EditField
         CheckCompileAtRuntime matlab.ui.control.CheckBox
         CheckIncludeWAVBuffers matlab.ui.control.CheckBox
@@ -163,7 +180,11 @@ classdef ProtocolDesigner < handle
                 'no target module selected', ...
                 'no writable parameters', ...
                 'no interfaces defined', ...
-                'read hardware parameters failed'}];
+                'read hardware parameters failed', ...
+                'no modules to copy parameters between', ...
+                'copy failed', ...
+                'move failed', ...
+                'problem(s) found'}];
 
             obj.refreshUI();
 
@@ -177,6 +198,7 @@ classdef ProtocolDesigner < handle
             % Ctrl+1..Ctrl+9: Change selected parameter type
             % Ctrl+F: Focus the parameter Find box
             % Ctrl+H: Open Find and Replace for parameter names
+            % Ctrl+Shift+X: Copy or move parameters to another module
             % Ctrl+Shift+B: Add boolean parameter
             % Ctrl+Shift+T: Add boolean parameter with trigger=true
             % Ctrl+Shift+F: Add float parameter
@@ -293,6 +315,10 @@ classdef ProtocolDesigner < handle
                 case "r"
                     if hasShift
                         obj.onRemoveParam();
+                    end
+                case "x"
+                    if hasShift
+                        obj.onCopyMoveParameters();
                     end
                 case "d"
                     if hasShift

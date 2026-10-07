@@ -67,8 +67,13 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         % so no existing session changes its numbers. When on,
         % Results.Threshold is the corrected, balanced value -- NaN until it
         % can be computed, never the uncorrected mean under a flag that says
-        % otherwise -- and Results.Weighted holds the full result. Set, then
-        % refresh_history(), as for ThresholdFromLastNReversals.
+        % otherwise -- and Results.Weighted holds the full result. The
+        % sliding-block thresholds (BlockThreshold and the Min/Median/Mean/
+        % MaxBlockThreshold summaries) are corrected block by block, so the
+        % title, threshold line, sliding line and sliding-threshold
+        % distribution all show the same kind of estimate. Set, then
+        % refresh_history(), as for ThresholdFromLastNReversals; the plot's
+        % right-click "Apply Weighted Correction" does both, and remembers it.
         ApplyWeightedCorrection (1,1) logical = false
         WeightedStepAfterYes (1,1) double = NaN   % signed; NaN = find it
         WeightedStepAfterNo  (1,1) double = NaN
@@ -125,6 +130,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         sessionCache_ = []     % memoized per-trial vectors; see sessionVectors_
         geomeanUndefined_ (1,1) logical = false  % latches the undefined-geometric-mean log to once per episode
         weightedRefusal_ (1,1) string = ""       % last weighted-correction refusal logged; see logWeightedRefusal_
+        weightedBlockMemo_ = []                  % corrected sliding blocks; see weightedBlockThresholds_
 
         % Plot state (optional).
         plotEnabled_ (1,1) logical = false
@@ -487,17 +493,8 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 results.Threshold = obj.thresholdFromReversals_(thresholdValues);
                 results.ThresholdStd = std(thresholdValues);
 
-                [results.MinBlockThreshold, results.MinBlockReversals, blockThr] = ...
-                    obj.minBlockThreshold_(s.stimValues(results.ReversalIdx));
-                if ~isempty(blockThr)
-                    results.MedianBlockThreshold = median(blockThr, 'omitnan');
-                    results.MeanBlockThreshold = mean(blockThr, 'omitnan');
-                    results.MaxBlockThreshold = max(blockThr);
-                    % Each block's estimate becomes known at its last reversal.
-                    n = obj.ThresholdFromLastNReversals;
-                    results.BlockThreshold = blockThr;
-                    results.BlockThresholdTrial = results.ReversalIdx(n:end);
-                end
+                results = obj.withBlockThresholds_(results, ...
+                    obj.blockThresholds_(s.stimValues(results.ReversalIdx)));
             end
 
             obj.Results = results;
@@ -518,9 +515,110 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 if W.Valid
                     results.ThresholdStd = W.ReversalStd;
                 end
+                % The sliding blocks are threshold estimates too, so they are
+                % corrected with the latest one; otherwise the title's
+                % min/median/max and the sliding line would quietly stay
+                % uncorrected beside a corrected threshold.
+                results = obj.withBlockThresholds_(results, ...
+                    obj.weightedBlockThresholds_(results.ReversalCount, W.Threshold));
                 obj.Results = results;
                 obj.logWeightedRefusal_(W);
             end
+        end
+
+        function blockThr = weightedBlockThresholds_(obj, reversalCount, latest)
+            % The corrected threshold of every sliding block of
+            % ThresholdFromLastNReversals reversals, NaN where a block's
+            % correction is refused. Each block is balanced and corrected by
+            % the steps behind its own reversals (weightedThreshold's
+            % LastReversal), not the latest block's, so a track that ran
+            % coarse steps first is not corrected by its fine ones. Reads
+            % obj.Results, so the reversals must already be published.
+            %
+            % Memoized, because this runs from the NewData listener on every
+            % trial and one weightedThreshold call costs ~0.4 ms, so a
+            % 300-trial session paid ~60 ms a trial recomputing blocks that
+            % cannot have changed. Block k reads nothing past the trial of
+            % reversal k+n (the step out of its last reversal lands at or
+            % before it), so it is reused while the settings are the same
+            % and every per-trial input up to that trial is identical. That
+            % prefix test is what makes it safe for a review seeking
+            % backward (DATA(1:k)), an edited ExcludedTrials, or new DATA.
+            n = obj.ThresholdFromLastNReversals;
+            numBlocks = reversalCount - n + 1;
+            blockThr = [];
+            if numBlocks < 1
+                obj.weightedBlockMemo_ = [];
+                return
+            end
+
+            s = obj.sessionVectors_();
+            revIdx = reshape(obj.Results.ReversalIdx, 1, []);
+            M.settings = {n, obj.WeightedStepAfterYes, obj.WeightedStepAfterNo, ...
+                obj.WeightedStepFieldYes, obj.WeightedStepFieldNo, ...
+                obj.StaircaseDirection, obj.ThresholdFormula};
+            M.inputs = {s.stimValues, s.stimMask, s.respCodes, ...
+                obj.stepFieldValues_(obj.WeightedStepFieldYes), ...
+                obj.stepFieldValues_(obj.WeightedStepFieldNo)};
+            M.revIdx = revIdx;
+
+            reusable = 0;
+            old = obj.weightedBlockMemo_;
+            if ~isempty(old) && isequaln(old.settings, M.settings)
+                P = commonPrefix_(old.inputs, M.inputs);
+                for k = 1:min(numel(old.blockThr), numBlocks)
+                    j = k + n - 1;
+                    if j >= numel(revIdx) || revIdx(j+1) > P ...
+                            || numel(old.revIdx) < j || ~isequal(old.revIdx(1:j), revIdx(1:j))
+                        break
+                    end
+                    reusable = k;
+                end
+            end
+
+            blockThr = nan(1, numBlocks);
+            if reusable > 0
+                blockThr(1:reusable) = old.blockThr(1:reusable);
+            end
+            % The last block is the latest threshold (same reversals, same
+            % NumReversals), which the caller has already computed.
+            for k = reusable+1:numBlocks-1
+                W = obj.weightedThreshold(NumReversals=n, LastReversal=k+n-1);
+                blockThr(k) = W.Threshold;
+            end
+            blockThr(numBlocks) = latest;
+
+            M.blockThr = blockThr;
+            obj.weightedBlockMemo_ = M;
+        end
+
+        function v = stepFieldValues_(obj, fieldName)
+            % A named step field's per-trial values, for the block memo's
+            % prefix test; [] when none is named or DATA lacks it.
+            v = [];
+            if strlength(fieldName) > 0 && isfield(obj.DATA, char(fieldName))
+                v = obj.dataFieldValues_(char(fieldName));
+            end
+        end
+
+        function results = withBlockThresholds_(obj, results, blockThr)
+            % Fill the sliding-block fields from one threshold per block.
+            % The last-N threshold follows the track wherever it drifts late
+            % in a session (fatigue, satiety); the minimum is the best the
+            % subject managed at any point. Empty until one whole block
+            % exists, since a partial block is not the same estimate.
+            if isempty(blockThr)
+                return
+            end
+            n = obj.ThresholdFromLastNReversals;
+            [results.MinBlockThreshold, k] = min(blockThr);   % min skips NaN; all-NaN returns NaN
+            results.MinBlockReversals = [k, k + n - 1];
+            results.MedianBlockThreshold = median(blockThr, 'omitnan');
+            results.MeanBlockThreshold = mean(blockThr, 'omitnan');
+            results.MaxBlockThreshold = max(blockThr);
+            % Each block's estimate becomes known at its last reversal.
+            results.BlockThreshold = blockThr;
+            results.BlockThresholdTrial = results.ReversalIdx(n:end);
         end
 
         function logWeightedRefusal_(obj, W)
@@ -556,20 +654,12 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             end
         end
 
-        function [thr, span, blockThr] = minBlockThreshold_(obj, reversalValues)
-            % The lowest threshold over every run of ThresholdFromLastNReversals
-            % consecutive reversals, and the reversal numbers [first last] of
-            % that run. The last-N threshold follows the track wherever it
-            % drifts late in a session (fatigue, satiety); this is the best
-            % the subject managed at any point. Blocks slide by one reversal,
-            % so a best stretch is not split across two fixed blocks. Empty
-            % until one whole block exists, since a partial block is not the
-            % same estimate. Blocks whose formula is undefined are skipped,
-            % and NaN reversal values are left to propagate into their block.
-            % blockThr is every block's threshold, for the title's
-            % median/mean/max over the same blocks.
-            thr = [];
-            span = [];
+        function blockThr = blockThresholds_(obj, reversalValues)
+            % The threshold over every run of ThresholdFromLastNReversals
+            % consecutive reversals, under ThresholdFormula. Blocks slide by
+            % one reversal, so a best stretch is not split across two fixed
+            % blocks. Blocks whose formula is undefined are NaN, and NaN
+            % reversal values are left to propagate into their block.
             blockThr = [];
             n = obj.ThresholdFromLastNReversals;
             numBlocks = numel(reversalValues) - n + 1;
@@ -586,9 +676,6 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                     blockThr(k) = geomean(v);
                 end
             end
-
-            [thr, k] = min(blockThr);   % min skips NaN; all-NaN returns NaN
-            span = [k, k + n - 1];
         end
 
         function thr = thresholdFromReversals_(obj, values)
@@ -758,6 +845,10 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
 
                 oldN = obj.ThresholdFromLastNReversals;
                 oldFormula = obj.ThresholdFormula;
+                oldCorrection = obj.ApplyWeightedCorrection;
+                if isfield(s, 'ApplyWeightedCorrection')
+                    obj.ApplyWeightedCorrection = s.ApplyWeightedCorrection;
+                end
                 if isfield(s, 'ThresholdFromLastNReversals')
                     obj.ThresholdFromLastNReversals = s.ThresholdFromLastNReversals;
                 end
@@ -770,7 +861,8 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 if isfield(s, 'DistributionSource'), obj.DistributionSource = s.DistributionSource; end
                 if isfield(s, 'ShowSlidingThreshold'), obj.ShowSlidingThreshold = s.ShowSlidingThreshold; end
 
-                if oldN ~= obj.ThresholdFromLastNReversals || oldFormula ~= obj.ThresholdFormula
+                if oldN ~= obj.ThresholdFromLastNReversals || oldFormula ~= obj.ThresholdFormula ...
+                        || oldCorrection ~= obj.ApplyWeightedCorrection
                     obj.refresh();
                 end
             catch ME
@@ -786,6 +878,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 s = struct( ...
                     'ThresholdFromLastNReversals', obj.ThresholdFromLastNReversals, ...
                     'ThresholdFormula', char(obj.ThresholdFormula), ...
+                    'ApplyWeightedCorrection', obj.ApplyWeightedCorrection, ...
                     'ShowSteps', obj.ShowSteps, ...
                     'ShowReversals', obj.ShowReversals, ...
                     'ShowDistribution', obj.ShowDistribution, ...
@@ -805,4 +898,31 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
     end
 
 
+end
+
+function P = commonPrefix_(a, b)
+% Number of leading trials on which every per-trial vector in cell array a
+% equals its counterpart in b (NaN equal to NaN). Inf when all are empty; 0
+% when a pair cannot be compared element by element.
+P = Inf;
+for i = 1:numel(a)
+    x = a{i};
+    y = b{i};
+    if isempty(x) && isempty(y)
+        continue
+    end
+    if isempty(x) || isempty(y) || ~(isnumeric(x) || islogical(x)) || ~(isnumeric(y) || islogical(y))
+        P = 0;
+        return
+    end
+    m = min(numel(x), numel(y));
+    x = double(reshape(x(1:m), [], 1));   % a row against a column would broadcast
+    y = double(reshape(y(1:m), [], 1));
+    d = find(~(x == y | (isnan(x) & isnan(y))), 1);
+    if isempty(d)
+        P = min(P, m);
+    else
+        P = min(P, d - 1);
+    end
+end
 end

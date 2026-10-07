@@ -91,7 +91,7 @@ S = psychophysics.Staircase(..., Name=Value)
 - `ShowReversals`
   - Toggle plotting of reversal markers.
 - `ShowSlidingThreshold`
-  - Off by default. Draws a light stepped line over the trace: the threshold of each sliding block of `ThresholdFromLastNReversals` reversals, known at the block's last reversal and held until the next. It starts once one whole block exists, ends on the current threshold, and is not drawn under `ApplyWeightedCorrection`. Values are in `Results.BlockThreshold` at the trials in `Results.BlockThresholdTrial`.
+  - Off by default. Draws a light stepped line over the trace: the threshold of each sliding block of `ThresholdFromLastNReversals` reversals, known at the block's last reversal and held until the next. It starts once one whole block exists and ends on the current threshold. Under `ApplyWeightedCorrection` each block is the corrected threshold of its reversals and the legend reads **Corrected Sliding Threshold**. Values are in `Results.BlockThreshold` at the trials in `Results.BlockThresholdTrial`.
 - `ShowDistribution`
   - Off by default. Adds a small axes to the right of the plot with a histogram of the stimulus value at every reversal, on the same value axis, with the mean (solid) and median (dashed) as lines and the range as a capped bar. The staircase axes is wrapped in a grid that takes its cell in the host layout (or, in a non-grid parent, splits its own rectangle) and is handed back when switched off. A pop-out shows it too.
 - `DistributionSource`
@@ -128,7 +128,16 @@ S = psychophysics.Staircase(..., Name=Value)
     staircase from `weightedThreshold`, `NaN` until it can be computed, and
     `Results.Weighted` holds the full result.
   - Default: `false`, so no existing session changes its numbers. Set after
-    construction, then call `refresh_history()`.
+    construction, then call `refresh_history()` — or tick **Apply Weighted
+    Correction** on the plot's right-click menu, which does both and is
+    remembered like the other menu choices.
+  - Every threshold estimate follows it, not only `Results.Threshold`: the
+    sliding-block thresholds (`Results.BlockThreshold` and the
+    `Min`/`Median`/`Mean`/`MaxBlockThreshold` summaries) are corrected block by
+    block, each by the steps behind its own reversals, so the title, the
+    threshold line (dashed, legend **Corrected Threshold**), the sliding line,
+    and the sliding-threshold distribution all show the same kind of number.
+    The reversal distribution is raw data and does not change.
 - `WeightedStepAfterYes`, `WeightedStepAfterNo`
   - Signed steps after a yes and after a no, in the parameter's units; `NaN` (default)
     means find them. Also the defaults of `weightedThreshold`.
@@ -242,8 +251,10 @@ target, so a ratio wired backwards shows up as 0.25 rather than a plausible
 threshold. Steps that change mid-session are flagged in `T.StepConsistency`,
 not refused. Check `T.Valid` before reading `T.Threshold`.
 
-`ApplyWeightedCorrection = true` makes the corrected value `Results.Threshold`
-and the plotted threshold. The estimator is a pure static:
+`ApplyWeightedCorrection = true` (or the plot's right-click **Apply Weighted
+Correction**) makes the corrected value `Results.Threshold` and the plotted
+threshold, and corrects the sliding-block estimates with it. The estimator is a
+pure static:
 
 ```matlab
 T = psychophysics.Staircase.correctedReversalMean(values, isAscending, stepAfterYes, stepAfterNo, ...)
@@ -287,8 +298,8 @@ string exactly as entered in the Protocol Designer. Parameters with no unit, and
 staircases constructed from a DATA field name, are labeled with the name alone.
 
 Right-clicking the plot axes exposes the analysis settings that are worth changing while
-reviewing a session: **Threshold Reversals**, **Threshold Formula**, **Show Steps**, and
-**Show Reversals**, **Show Sliding Threshold**, **Show Reversal Distribution**, and **Show Sliding Threshold Distribution**. The last two are mutually exclusive: choosing the one already showing turns the distribution off, choosing the other switches to it. The distribution's value axis is the staircase's own (same limits and ticks, kept in step through zooms), and it carries a title naming what it shows and its count. Values are plotted and analyzed in the parameter's own units; a quantity
+reviewing a session: **Threshold Reversals**, **Threshold Formula**, **Apply Weighted
+Correction**, **Show Steps**, **Show Reversals**, **Show Sliding Threshold**, **Show Reversal Distribution**, and **Show Sliding Threshold Distribution**. The last two are mutually exclusive: choosing the one already showing turns the distribution off, choosing the other switches to it. The distribution's value axis is the staircase's own (same limits and ticks, kept in step through zooms), and it carries a title naming what it shows and its count. Values are plotted and analyzed in the parameter's own units; a quantity
 wanted in dB is recorded in dB, as `cl_AppetitiveStimDetect` records `Depth`.
 
 Choices made from that menu are **remembered across sessions** (preference group
@@ -345,7 +356,7 @@ Once at least `ThresholdFromLastNReversals` reversals exist, the same formula is
 - `Results.MinBlockReversals` — `[first last]` reversal numbers of that block
 - `Results.MedianBlockThreshold`, `Results.MeanBlockThreshold`, `Results.MaxBlockThreshold` — the median, mean and maximum over the same blocks
 
-The plot title shows them beside the current (most recent) estimate, e.g. `Threshold (6/6 rev) latest: -14.00; min -16.40; med: -15.10; mean: -15.00; max: -13.90`. The block statistics are empty until one whole block exists (the title then shows only the most recent value), and none is computed under `ApplyWeightedCorrection`.
+The plot title shows them beside the current (most recent) estimate, e.g. `Threshold (6/6 rev) latest: -14.00; min -16.40; med: -15.10; mean: -15.00; max: -13.90`. The block statistics are empty until one whole block exists (the title then shows only the most recent value). Under `ApplyWeightedCorrection` they are computed from the corrected blocks and the title reads `Corrected threshold (12/12 rev, -0.50) latest: …`, naming the balanced reversal count and the correction applied; a correction that cannot be computed shows `Corrected threshold: unavailable` (the reason is in `Results.Weighted.Message` and the log). A refresh with the flag on runs `weightedThreshold` once per sliding block, so earlier blocks are memoized: a block reads nothing past the trial of the next reversal, and is reused while the settings and every per-trial input up to that trial are unchanged (which also covers a review seeking backward).
 
 ## Examples
 
@@ -395,6 +406,16 @@ S.Plot();
 
 ## Changelog
 
+- 2026-10-07: **Apply Weighted Correction** on the plot's right-click menu toggles
+  `ApplyWeightedCorrection` and is remembered. The correction now reaches every
+  threshold estimate rather than only `Results.Threshold`: the sliding-block
+  thresholds and their min/median/mean/max are corrected block by block (they
+  were previously not computed at all under the flag), the threshold line is
+  dashed and named **Corrected Threshold**, the sliding line and the
+  sliding-threshold distribution say corrected, and a refused correction says
+  `unavailable` in the title instead of the threshold silently vanishing.
+  `weightedThreshold` gains `LastReversal`. Standing proof
+  `tmp/smoke_test_staircase_weighted_toggle.m`.
 - 2026-09-11: `weightedThreshold` reports the Hoover (2025) corrected threshold
   of a weighted (asymmetric-step) staircase — a balanced reversal mean plus
   (δ₋ − δ₊)/4 — with the step ratio and the probability the steps actually

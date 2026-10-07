@@ -1374,7 +1374,16 @@ re-uploading the state table.
   threshold rather than overwriting it (else `GeometricMean` logs "threshold not
   shown" beside a shown one), and its five properties are in `createPopOut_`'s
   copy list or a pop-out would show the uncorrected number beside a corrected
-  plot. Not for mAFC with few alternatives, lapse rates above 1/10, asymmetric
+  plot. The plot's right-click **Apply Weighted Correction** toggles it (and
+  persists), and since 2026-10-07 the flag corrects the SLIDING-BLOCK
+  thresholds too — each block by the steps behind its own reversals, via
+  `weightedThreshold(LastReversal=)` — so the title's min/median/max, the
+  sliding line, and the sliding-threshold distribution never sit uncorrected
+  beside a corrected threshold; those blocks are memoized on an unchanged
+  input prefix (a block reads nothing past the next reversal's trial), or a
+  300-trial session paid ~60 ms a trial. The display keys on
+  `~isempty(Results.Weighted)`, not the flag, which can be set before a
+  refresh. Not for mAFC with few alternatives, lapse rates above 1/10, asymmetric
   PFs (Weibull), or `gui.AdaptiveTraining`'s warped-space ladders. Too little
   data is always a refusal naming its cause, never a throw — the minimum is one
   ascending and one descending reversal (four stimulus trials) — and the

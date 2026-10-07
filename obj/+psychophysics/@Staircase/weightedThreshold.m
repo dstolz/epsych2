@@ -53,6 +53,12 @@ function T = weightedThreshold(obj, options)
 %       WeightedStepFieldYes / WeightedStepFieldNo properties, "" = none).
 %   NumReversals    - Start from the last N reversals, then balance
 %                     (default ThresholdFromLastNReversals).
+%   LastReversal    - Treat the session as ending at this reversal (default
+%                     Inf, the latest). How the sliding-block thresholds
+%                     are corrected one block at a time: block k is
+%                     NumReversals=N, LastReversal=k+N-1, and its steps are
+%                     read from behind ITS reversals, so a coarse-then-fine
+%                     track corrects each block by the steps it ran.
 %   StepTolerance   - Absolute distance within which two step samples are
 %                     the same step. Default NaN: one millionth of the
 %                     largest step seen, which absorbs the float drift of
@@ -82,6 +88,7 @@ arguments
     options.StepFieldYes (1,1) string = obj.WeightedStepFieldYes
     options.StepFieldNo (1,1) string = obj.WeightedStepFieldNo
     options.NumReversals (1,1) double {mustBeCountOrInf} = obj.ThresholdFromLastNReversals
+    options.LastReversal (1,1) double {mustBeCountOrInf} = Inf
     options.StepTolerance (1,1) double {mustBeNonnegativeOrNaN} = NaN
     options.ExpectedTarget (1,1) double {mustBeProbabilityOrNaN} = NaN
     options.TargetTolerance (1,1) double {mustBeNonnegative} = 0.01
@@ -123,6 +130,11 @@ end
 % an extremum left going down.
 revIdx = reshape(R.ReversalIdx, 1, []);
 rawDir = reshape(R.ReversalDirection, 1, []);
+if isfinite(options.LastReversal)
+    keep = 1:min(numel(revIdx), options.LastReversal);
+    revIdx = revIdx(keep);
+    rawDir = rawDir(keep);
+end
 if obj.StaircaseDirection == "Up"
     rawDir = -rawDir;
 end
@@ -390,7 +402,7 @@ end
 function mustBeCountOrInf(x)
 if ~(x > 0 && (isinf(x) || x == fix(x)))
     error('psychophysics:Staircase:InvalidNumReversals', ...
-        'NumReversals must be a positive integer or Inf.');
+        'NumReversals and LastReversal must be a positive integer or Inf.');
 end
 end
 

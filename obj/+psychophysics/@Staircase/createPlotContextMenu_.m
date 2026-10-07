@@ -1,7 +1,8 @@
 function createPlotContextMenu_(obj)
 % createPlotContextMenu_(obj)
 % Build a right-click context menu on the plot axes for adjusting
-% ThresholdFromLastNReversals, ThresholdFormula, ShowSteps, and ShowReversals,
+% ThresholdFromLastNReversals, ThresholdFormula, ApplyWeightedCorrection,
+% ShowSteps, ShowReversals, the sliding threshold and the distribution axes,
 % and for opening the plot in a window of its own.
 %
 % Parameters:
@@ -34,6 +35,13 @@ uimenu(mFormula, 'Text', 'Mean', ...
 uimenu(mFormula, 'Text', 'Geometric Mean', ...
     'Checked', matlab.lang.OnOffSwitchState(obj.ThresholdFormula == "GeometricMean"), ...
     'MenuSelectedFcn', @(src,~) setFormula(obj, mFormula, "GeometricMean"));
+
+% --- Weighted-staircase correction (Hoover 2025) ---
+% An analysis setting, not a display one: it changes Results.Threshold and
+% the sliding-block estimates, so every threshold the plot shows moves with it.
+uimenu(cm, 'Text', 'Apply Weighted Correction', ...
+    'Checked', matlab.lang.OnOffSwitchState(obj.ApplyWeightedCorrection), ...
+    'MenuSelectedFcn', @(src,~) toggleWeightedCorrection(obj, src));
 
 % --- Show Steps toggle ---
 uimenu(cm, 'Text', 'Show Steps', 'Separator', 'on', ...
@@ -112,6 +120,13 @@ function setFormula(obj, parentMenu, formula)
         parentMenu.Children(k).Checked = matlab.lang.OnOffSwitchState( ...
             strcmp(parentMenu.Children(k).Text, activeText));
     end
+end
+
+function toggleWeightedCorrection(obj, src)
+    obj.ApplyWeightedCorrection = ~obj.ApplyWeightedCorrection;
+    src.Checked = matlab.lang.OnOffSwitchState(obj.ApplyWeightedCorrection);
+    obj.refresh();
+    obj.saveMenuPreferences_();
 end
 
 function toggleShowSteps(obj, src)

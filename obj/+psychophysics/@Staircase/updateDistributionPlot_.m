@@ -21,6 +21,12 @@ if obj.DistributionSource == "SlidingThreshold"
     what = 'no sliding estimates yet';
     label = 'thr ';
     heading = 'Sliding Threshold';
+    if ~isempty(obj.Results.Weighted)
+        % The raw reversal histogram is data and never changes with the
+        % correction; these estimates do, so the axes says which it shows.
+        label = 'corrected thr ';
+        heading = 'Corrected Sliding Thr.';
+    end
 else
     vals = [plotData.revUp.y(:); plotData.revDown.y(:)];
     what = 'no reversals yet';

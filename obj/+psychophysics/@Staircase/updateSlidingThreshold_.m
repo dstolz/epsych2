@@ -27,5 +27,13 @@ if obj.ShowSlidingThreshold
         y = reshape([v, v].', [], 1);
     end
 end
-set(h, 'XData', x, 'YData', y, 'Visible', matlab.lang.OnOffSwitchState(obj.ShowSlidingThreshold));
+% Under the weighted correction each block is a corrected estimate; the
+% legend says so, since the line otherwise looks the same either way.
+if isempty(obj.Results.Weighted)
+    name = 'Sliding Threshold';
+else
+    name = 'Corrected Sliding Threshold';
+end
+set(h, 'XData', x, 'YData', y, 'DisplayName', name, ...
+    'Visible', matlab.lang.OnOffSwitchState(obj.ShowSlidingThreshold));
 end

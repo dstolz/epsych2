@@ -79,6 +79,13 @@ S.ApplyWeightedCorrection = true;
 S.refresh_history();
 ```
 
+On a plot, the right-click **Apply Weighted Correction** does the last two
+lines and is remembered. With the flag on, every threshold estimate the plot
+shows is corrected — the title and its sliding-block min/median/mean/max, the
+threshold line (dashed, **Corrected Threshold**), the sliding-threshold line,
+and the sliding-threshold distribution — so turning it off and on compares the
+two directly.
+
 ## The equations
 
 Hoover (2025), p. 201: *"Calculation of threshold using the proposed
@@ -279,7 +286,7 @@ existing session changes its numbers. Like `ThresholdFromLastNReversals` and
 
 | Property | Default | Meaning |
 |---|---|---|
-| `ApplyWeightedCorrection` | `false` | Route `Results.Threshold` through `weightedThreshold`. |
+| `ApplyWeightedCorrection` | `false` | Route `Results.Threshold` and the sliding-block thresholds through `weightedThreshold`. Also the plot's right-click **Apply Weighted Correction**. |
 | `WeightedStepAfterYes` | `NaN` | Stated step after a yes; `NaN` = find it. |
 | `WeightedStepAfterNo` | `NaN` | Stated step after a no. |
 | `WeightedStepFieldYes` | `""` | DATA field holding the step after a yes; `""` = none. |
@@ -318,6 +325,7 @@ throws for a data problem.
 | `StepFieldYes` | `WeightedStepFieldYes` | DATA field holding the step after a yes. |
 | `StepFieldNo` | `WeightedStepFieldNo` | DATA field holding the step after a no. |
 | `NumReversals` | `ThresholdFromLastNReversals` | Start from the last N reversals, then balance. `Inf` for all. |
+| `LastReversal` | `Inf` | Treat the session as ending at this reversal. How the sliding-block thresholds are corrected: block k is `NumReversals=N, LastReversal=k+N-1`, with steps read from behind its own reversals. |
 | `StepTolerance` | `NaN` | Absolute grouping distance for step samples; `NaN` = 1e-6 of the largest step. |
 | `ExpectedTarget` | `NaN` | The ψ the steps were meant to target, checked, never used. |
 | `TargetTolerance` | `0.01` | How far `TargetProbability` may sit from `ExpectedTarget`. |
@@ -381,7 +389,11 @@ order, so no caller needs `isfield`.
 δ₊, r and ψ, so a result reads straight against the article.
 
 **Nothing is stored** by `weightedThreshold`. Only `ApplyWeightedCorrection`
-writes a result onto `S.Results`, and it recomputes it with every refresh.
+writes a result onto `S.Results`, and it recomputes it with every refresh —
+except the sliding blocks before the latest, which are memoized while the
+settings and the trials they read are unchanged
+(`tmp/smoke_test_staircase_weighted_toggle.m` checks the memo against a fresh
+object trial by trial, seeking backward, and after a mid-session edit).
 
 ## Standing proof
 

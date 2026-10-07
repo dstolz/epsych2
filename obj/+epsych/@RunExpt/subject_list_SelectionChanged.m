@@ -1,5 +1,5 @@
 function subject_list_SelectionChanged(self, hObj, ~)
-% Prints subject and protocol info to the command window when selection changes.
+% Prints subject, roster, session-history and protocol info to the command window when selection changes.
 if isempty(hObj.Selection), return, end
 idx = hObj.Selection(1);
 S = self.CONFIG(idx).SUBJECT;
@@ -8,17 +8,36 @@ C = self.CONFIG(idx);
 fprintf('\n--- Subject ---\n')
 fprintf('  Name:     %s\n', S.Name);
 fprintf('  Box ID:   %d\n', S.BoxID);
-if isfield(S,'Species') && ~isempty(S.Species)
+if ~isempty(S.Species)
     fprintf('  Species:  %s\n', S.Species);
 end
-if isfield(S,'Sex') && ~isempty(S.Sex)
+if ~isempty(S.Sex)
     fprintf('  Sex:      %s\n', S.Sex);
 end
-if isfield(S,'Weight') && ~isempty(S.Weight)
+if ~isnan(S.Weight)
     fprintf('  Weight:   %g g\n', S.Weight);
 end
-if isfield(S,'Notes') && ~isempty(strtrim(char(S.Notes)))
+if ~isempty(strtrim(char(S.Notes)))
     fprintf('  Notes:    %s\n', strtrim(char(S.Notes)));
+end
+
+R = [];
+try
+    R = printRoster_(C.ROSTER);
+catch ME
+    vprintf(1, ME);
+    fprintf('--- Roster ---\n  (could not read the roster)\n');
+end
+
+% Listing session files reads each one on the thread the trial loop runs on,
+% so it waits for the gap between sessions, like gui.SessionBrowser.
+if self.STATE < PRGMSTATE.RUNNING
+    try
+        printSessions_(self, S, R);
+    catch ME
+        vprintf(1, ME);
+        fprintf('--- Sessions ---\n  (could not list session files)\n');
+    end
 end
 
 protocolFile = char(C.protocol_fn);
@@ -121,6 +140,108 @@ elseif isstruct(proto) && isfield(proto,'OPTIONS')
     if isfield(proto,'ntrials') && proto.ntrials > 0
         fprintf('  Trials:   %d\n', proto.ntrials);
     end
+end
+end
+
+function R = printRoster_(link)
+% Roster record, project, membership and protocol status for a roster subject.
+% Returns the open roster so the session listing can reuse it, [] when the
+% subject did not come from one.
+R = [];
+if isempty(link) || ~isstruct(link) || isempty(link.File), return, end
+
+R = epsych.SubjectRoster(link.File);
+fprintf('--- Roster ---\n')
+if ~R.IsBound || ~isempty(R.LoadError)
+    fprintf('  Roster:   %s (unreadable: %s)\n', link.File, R.LoadError);
+    R = [];
+    return
+end
+
+subj = R.findSubject(link.SubjectID);
+proj = R.findProject(link.ProjectID);
+mem  = R.findMembership(link.SubjectID, link.ProjectID);
+if isempty(subj) || isempty(mem)
+    fprintf('  Roster:   %s\n  No longer in the roster or project it was added from.\n', link.File);
+    return
+end
+
+fprintf('  Roster:   %s\n', link.File);
+fprintf('  Project:  %s', proj.Name);
+if ~mem.Active, fprintf('  (retired from this project)'); end
+fprintf('\n');
+if ~isempty(proj.Investigator)
+    fprintf('  Investigator: %s\n', proj.Investigator);
+end
+if ~isempty(proj.IACUCProtocol)
+    fprintf('  IACUC:    %s\n', proj.IACUCProtocol);
+end
+otherProjects = setdiff(string({R.projectsForSubject(subj.SubjectID).Name}), string(proj.Name));
+if ~isempty(otherProjects)
+    fprintf('  Also in:  %s\n', strjoin(otherProjects, ', '));
+end
+if subj.Retired
+    fprintf('  Status:   RETIRED\n');
+end
+if ~isempty(subj.NameHistory)
+    fprintf('  Formerly: %s\n', strjoin(subj.NameHistory, ', '));
+end
+if ~isnat(subj.Created)
+    fprintf('  In roster since: %s\n', char(subj.Created, 'yyyy-MM-dd'));
+end
+if ~isnan(mem.LastBoxID)
+    fprintf('  Last box: %d\n', mem.LastBoxID);
+end
+
+if ~isempty(mem.DefaultDataPath)
+    fprintf('  Data path:    %s\n', mem.DefaultDataPath);
+end
+if ~isempty(mem.SavingFcn)
+    fprintf('  Saving fcn:   %s\n', mem.SavingFcn);
+end
+if ~isempty(mem.BehaviorGUI)
+    fprintf('  Behavior GUI: %s\n', mem.BehaviorGUI);
+end
+if ~isnan(mem.TimerPeriod)
+    fprintf('  Timer period: %g s\n', mem.TimerPeriod);
+end
+if ~isnan(mem.RecordVideo)
+    fprintf('  Record video: %s\n', string(mem.RecordVideo > 0));
+end
+if ~isempty(mem.ParameterDefaults)
+    fprintf('  Parameter defaults: %d\n', numel(mem.ParameterDefaults));
+end
+
+st = R.protocolStatus(subj.SubjectID, proj.ProjectID);
+fprintf('  Protocol status: %s', st.Status);
+if ~isempty(st.Message), fprintf(' - %s', st.Message); end
+fprintf('\n');
+end
+
+function printSessions_(self, S, R)
+% Count and most recent of the subject's saved sessions.
+if isempty(R)
+    L = epsych.SessionFiles.locations(S.Name, RunExpt=self);
+else
+    L = epsych.SessionFiles.locations(S.Name, Roster=R, RunExpt=self);
+end
+T = epsych.SessionFiles.scan(L.Names, Roots=L.Roots, VideoRoots=L.VideoRoots);
+
+fprintf('--- Sessions ---\n')
+T = T(T.IsSession, :);
+if isempty(T)
+    fprintf('  None found\n');
+    return
+end
+fprintf('  Saved:    %d session(s), %d trial(s) in all\n', height(T), sum(T.Trials));
+last = T(1,:);
+fprintf('  Latest:   %s, %d trial(s)', char(last.StartTime, 'yyyy-MM-dd HH:mm'), last.Trials);
+if ~isnan(last.Duration)
+    fprintf(', %s', char(last.Duration));
+end
+fprintf('\n');
+if strlength(last.Paradigm) > 0
+    fprintf('  Paradigm: %s\n', last.Paradigm);
 end
 end
 

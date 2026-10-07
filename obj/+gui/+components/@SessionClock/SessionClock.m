@@ -59,7 +59,8 @@ classdef SessionClock < handle
 
     properties (SetAccess = private)
         PreferenceTag (1,:) char = '' % getpref/setpref group for remembered line visibility and font size
-        LabelH        (1,1) struct = struct() % uilabel handles keyed by line name
+        LabelH        (1,1) struct = struct() % uilabel handles for the right-justified time, keyed by line name
+        PrefixH       (1,1) struct = struct() % uilabel handles for the left-justified caption, keyed by line name
         ContextMenuH                 % Right-click menu handle
         PanelH                       % Outer uipanel handle
         GridH                        % Inner uigridlayout handle (one row per line)
@@ -323,23 +324,34 @@ classdef SessionClock < handle
             obj.PanelH = uipanel(parent, 'BorderType', 'none');
 
             n = numel(obj.LINES_);
-            g = uigridlayout(obj.PanelH, [n 1]);
+            g = uigridlayout(obj.PanelH, [n 2]);
             g.RowHeight   = repmat({'fit'}, 1, n);
-            g.ColumnWidth = {'1x'};
+            g.ColumnWidth = {'fit', '1x'};
             g.RowSpacing  = 2;
+            g.ColumnSpacing = 8;
             g.Padding     = [4 4 4 4];
             obj.GridH = g;
 
+            % Two labels per row so the caption stays left-justified while
+            % the time is right-justified, keeping the digits aligned.
             for i = 1:n
                 key = obj.LINES_(i).Key;
-                lbl = uilabel(g, ...
-                    'Text',                '', ...
-                    'WordWrap',            'on', ...
+                cap = uilabel(g, ...
+                    'Text',                strtrim(obj.LINES_(i).Prefix), ...
                     'HorizontalAlignment', 'left', ...
                     'FontSize',            fontSize, ...
                     'FontColor',           fontColor);
+                cap.Layout.Row    = i;
+                cap.Layout.Column = 1;
+                obj.PrefixH.(key) = cap;
+
+                lbl = uilabel(g, ...
+                    'Text',                '', ...
+                    'HorizontalAlignment', 'right', ...
+                    'FontSize',            fontSize, ...
+                    'FontColor',           fontColor);
                 lbl.Layout.Row    = i;
-                lbl.Layout.Column = 1;
+                lbl.Layout.Column = 2;
                 obj.LabelH.(key) = lbl;
             end
 
@@ -373,6 +385,7 @@ classdef SessionClock < handle
                 fns = fieldnames(obj.LabelH);
                 for k = 1:numel(fns)
                     obj.LabelH.(fns{k}).ContextMenu = cm;
+                    obj.PrefixH.(fns{k}).ContextMenu = cm;
                 end
             catch ME
                 vprintf(3, 'gui.components.SessionClock: context menu unavailable: %s', ME.message)
@@ -456,6 +469,7 @@ classdef SessionClock < handle
                 tf  = obj.(L.Prop);
                 lbl = obj.LabelH.(L.Key);
                 lbl.Visible = matlab.lang.OnOffSwitchState(tf);
+                obj.PrefixH.(L.Key).Visible = lbl.Visible;
                 if tf
                     rh{i} = 'fit';
                 else
@@ -465,9 +479,9 @@ classdef SessionClock < handle
                 if strcmp(L.Key, 'ClockTime')
                     t = obj.elapsedReference_();
                     t.Format = 'HH:mm:ss';
-                    lbl.Text = [L.Prefix char(t)];
+                    lbl.Text = char(t);
                 else
-                    lbl.Text = obj.formatLine_(L.Prefix, timeSource.(L.Key));
+                    lbl.Text = obj.formatLine_('', timeSource.(L.Key));
                 end
             end
             obj.GridH.RowHeight = rh;
@@ -559,6 +573,7 @@ classdef SessionClock < handle
                 if isempty(lbl) || ~isvalid(lbl), continue; end
                 try
                     lbl.FontSize = obj.FontSize_;
+                    obj.PrefixH.(fns{k}).FontSize = obj.FontSize_;
                 catch ME
                     vprintf(3, 'gui.components.SessionClock: unable to set font size: %s', ME.message)
                 end

@@ -24,12 +24,12 @@ lineKeys = {'LastTrial','FirstTrial','SessionDuration','ClockTime'};
 for i = 1:numel(lineKeys)
     assert(isfield(c1.LabelH, lineKeys{i}) && isvalid(c1.LabelH.(lineKeys{i})), ...
         'label "%s" should exist', lineKeys{i});
-    assert(strcmp(c1.LabelH.(lineKeys{i}).WordWrap, 'on'), ...
-        'label "%s" should word-wrap instead of clipping', lineKeys{i});
+    assert(strcmp(c1.LabelH.(lineKeys{i}).HorizontalAlignment, 'right') && strcmp(c1.PrefixH.(lineKeys{i}).HorizontalAlignment, 'left'), ...
+        'line "%s" should have a left caption and a right-justified time', lineKeys{i});
     assert(c1.LabelH.(lineKeys{i}).Visible == "on", 'line "%s" should be shown by default', lineKeys{i});
 end
 assert(isequal(c1.GridH.RowHeight, repmat({'fit'},1,4)), 'all rows should be fit-height when shown');
-fprintf('PASS: construction, 4 word-wrapped labels, fit-height rows\n');
+fprintf('PASS: construction, 4 caption+time label pairs, fit-height rows\n');
 
 % 2. Context menu: one checked item per line -------------------------------
 assert(~isempty(c1.ContextMenuH) && isvalid(c1.ContextMenuH), 'context menu should be created');

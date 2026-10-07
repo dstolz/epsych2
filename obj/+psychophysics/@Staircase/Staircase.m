@@ -90,6 +90,11 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
 
         ShowSteps (1,1) logical = true
         ShowReversals (1,1) logical = true
+        ShowDistribution (1,1) logical = false  % small histogram of reversal values (mean, median, range) right of the plot
+        % What the distribution axes histograms: the stimulus value at every
+        % reversal, or the sliding-block threshold estimates (Results.BlockThreshold).
+        DistributionSource (1,1) string {mustBeMember(DistributionSource,["Reversals","SlidingThreshold"])} = "Reversals"
+        ShowSlidingThreshold (1,1) logical = false  % light stepped line: the threshold over each sliding block of reversals
     end
 
     properties (SetAccess = protected)
@@ -103,6 +108,11 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             'ThresholdStd', [], ...
             'MinBlockThreshold', [], ...
             'MinBlockReversals', [], ...
+            'MedianBlockThreshold', [], ...
+            'MeanBlockThreshold', [], ...
+            'MaxBlockThreshold', [], ...
+            'BlockThreshold', [], ...
+            'BlockThresholdTrial', [], ...
             'Weighted', [])  % Computed staircase outputs; Weighted only with ApplyWeightedCorrection
     end
 
@@ -128,6 +138,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         CatchH
         h_thrreg
         h_thrline
+        h_thrslide
         StepH
         ReversalUpH
         ReversalDownH
@@ -135,6 +146,16 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         legendH_ = []          % legend built from the currently visible series
         legendKey_ = ""        % identifies the last legend contents; skips rebuilds
         plotContextMenu_ = []  % uicontextmenu for plot axes
+
+        % Reversal-distribution axes (see setupDistributionAxes_).
+        distGrid_ = []         % grid wrapping the staircase axes while the distribution shows
+        distAxes_ = []         % the distribution axes
+        distHome_ = []         % where the staircase axes lived before it was wrapped
+        distListener_ = []     % keeps the distribution's value axis equal to the staircase's
+        h_distBars_
+        h_distRange_
+        h_distMedian_
+        h_distMean_
     end
 
     methods
@@ -192,6 +213,9 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 options.ExcludedTrials = []
                 options.ShowSteps (1,1) logical
                 options.ShowReversals (1,1) logical
+                options.ShowDistribution (1,1) logical
+                options.DistributionSource (1,1) string {mustBeMember(options.DistributionSource,["Reversals","SlidingThreshold"])}
+                options.ShowSlidingThreshold (1,1) logical
             end
 
             obj = obj@psychophysics.Psych(RUNTIME, Parameter, ExcludedTrials=options.ExcludedTrials);
@@ -264,6 +288,9 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 ax = []
                 options.ShowSteps (1,1) logical
                 options.ShowReversals (1,1) logical
+                options.ShowDistribution (1,1) logical
+                options.DistributionSource (1,1) string {mustBeMember(options.DistributionSource,["Reversals","SlidingThreshold"])}
+                options.ShowSlidingThreshold (1,1) logical
             end
 
             obj.disablePlot();
@@ -289,6 +316,9 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             obj.loadMenuPreferences_();
             if isfield(options, 'ShowSteps'), obj.ShowSteps = options.ShowSteps; end
             if isfield(options, 'ShowReversals'), obj.ShowReversals = options.ShowReversals; end
+            if isfield(options, 'ShowDistribution'), obj.ShowDistribution = options.ShowDistribution; end
+            if isfield(options, 'DistributionSource'), obj.DistributionSource = options.DistributionSource; end
+            if isfield(options, 'ShowSlidingThreshold'), obj.ShowSlidingThreshold = options.ShowSlidingThreshold; end
 
             obj.plotEnabled_ = true;
 
@@ -457,8 +487,17 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 results.Threshold = obj.thresholdFromReversals_(thresholdValues);
                 results.ThresholdStd = std(thresholdValues);
 
-                [results.MinBlockThreshold, results.MinBlockReversals] = ...
+                [results.MinBlockThreshold, results.MinBlockReversals, blockThr] = ...
                     obj.minBlockThreshold_(s.stimValues(results.ReversalIdx));
+                if ~isempty(blockThr)
+                    results.MedianBlockThreshold = median(blockThr, 'omitnan');
+                    results.MeanBlockThreshold = mean(blockThr, 'omitnan');
+                    results.MaxBlockThreshold = max(blockThr);
+                    % Each block's estimate becomes known at its last reversal.
+                    n = obj.ThresholdFromLastNReversals;
+                    results.BlockThreshold = blockThr;
+                    results.BlockThresholdTrial = results.ReversalIdx(n:end);
+                end
             end
 
             obj.Results = results;
@@ -517,7 +556,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             end
         end
 
-        function [thr, span] = minBlockThreshold_(obj, reversalValues)
+        function [thr, span, blockThr] = minBlockThreshold_(obj, reversalValues)
             % The lowest threshold over every run of ThresholdFromLastNReversals
             % consecutive reversals, and the reversal numbers [first last] of
             % that run. The last-N threshold follows the track wherever it
@@ -527,8 +566,11 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             % until one whole block exists, since a partial block is not the
             % same estimate. Blocks whose formula is undefined are skipped,
             % and NaN reversal values are left to propagate into their block.
+            % blockThr is every block's threshold, for the title's
+            % median/mean/max over the same blocks.
             thr = [];
             span = [];
+            blockThr = [];
             n = obj.ThresholdFromLastNReversals;
             numBlocks = numel(reversalValues) - n + 1;
             if numBlocks < 1
@@ -589,6 +631,11 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             results.ThresholdStd = [];
             results.MinBlockThreshold = [];
             results.MinBlockReversals = [];
+            results.MedianBlockThreshold = [];
+            results.MeanBlockThreshold = [];
+            results.MaxBlockThreshold = [];
+            results.BlockThreshold = [];
+            results.BlockThresholdTrial = [];
             results.Weighted = [];
         end
 
@@ -634,7 +681,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 'LineColor','StepColor','NeutralColor','ReversalColor', ...
                 'ThresholdColor','MarkerSize','StepMarkerSize', ...
                 'ReversalMarkerSize','Bits','BitColors', ...
-                'ShowSteps','ShowReversals'};
+                'ShowSteps','ShowReversals','ShowDistribution','DistributionSource','ShowSlidingThreshold'};
             for k = 1:numel(props)
                 h.(props{k}) = obj.(props{k});
             end
@@ -666,6 +713,11 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
         createPlotContextMenu_(obj)
         updatePlot_(obj)
         updateThresholdOverlay_(obj)
+        updateSlidingThreshold_(obj)
+        setupDistributionAxes_(obj)
+        teardownDistributionAxes_(obj)
+        updateDistributionPlot_(obj, plotData)
+        syncDistributionYAxis_(obj)
         updatePlotLimits_(obj, plotData)
         updateLegend_(obj, plotData)
 
@@ -714,6 +766,9 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                 end
                 if isfield(s, 'ShowSteps'), obj.ShowSteps = s.ShowSteps; end
                 if isfield(s, 'ShowReversals'), obj.ShowReversals = s.ShowReversals; end
+                if isfield(s, 'ShowDistribution'), obj.ShowDistribution = s.ShowDistribution; end
+                if isfield(s, 'DistributionSource'), obj.DistributionSource = s.DistributionSource; end
+                if isfield(s, 'ShowSlidingThreshold'), obj.ShowSlidingThreshold = s.ShowSlidingThreshold; end
 
                 if oldN ~= obj.ThresholdFromLastNReversals || oldFormula ~= obj.ThresholdFormula
                     obj.refresh();
@@ -732,7 +787,10 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
                     'ThresholdFromLastNReversals', obj.ThresholdFromLastNReversals, ...
                     'ThresholdFormula', char(obj.ThresholdFormula), ...
                     'ShowSteps', obj.ShowSteps, ...
-                    'ShowReversals', obj.ShowReversals);
+                    'ShowReversals', obj.ShowReversals, ...
+                    'ShowDistribution', obj.ShowDistribution, ...
+                    'DistributionSource', char(obj.DistributionSource), ...
+                    'ShowSlidingThreshold', obj.ShowSlidingThreshold);
                 setpref(obj.MENU_PREF_GROUP, obj.menuPreferenceName_(), s);
             catch ME
                 vprintf(2, 'Staircase %s: menu preferences not saved: %s', ...
@@ -743,6 +801,7 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
 
     properties (Constant, Access = private)
         MENU_PREF_GROUP = 'epsych2_psychophysics_Staircase'
+        DISTRIBUTION_WIDTH = 190  % px for the reversal-distribution axes
     end
 
 

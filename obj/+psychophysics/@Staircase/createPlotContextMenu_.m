@@ -45,6 +45,20 @@ uimenu(cm, 'Text', 'Show Reversals', ...
     'Checked', matlab.lang.OnOffSwitchState(obj.ShowReversals), ...
     'MenuSelectedFcn', @(src,~) toggleShowReversals(obj, src));
 
+% --- Sliding threshold toggle ---
+uimenu(cm, 'Text', 'Show Sliding Threshold', ...
+    'Checked', matlab.lang.OnOffSwitchState(obj.ShowSlidingThreshold), ...
+    'MenuSelectedFcn', @(src,~) toggleShowSlidingThreshold(obj, src));
+
+% --- Distribution axes: one item per source, mutually exclusive, both
+% unchecked meaning no distribution axes. They share the pair of properties
+% ShowDistribution and DistributionSource, so the checks are derived from them.
+mDistRev = uimenu(cm, 'Text', 'Show Reversal Distribution');
+mDistThr = uimenu(cm, 'Text', 'Show Sliding Threshold Distribution');
+mDistRev.MenuSelectedFcn = @(~,~) selectDistribution(obj, mDistRev, mDistThr, "Reversals");
+mDistThr.MenuSelectedFcn = @(~,~) selectDistribution(obj, mDistRev, mDistThr, "SlidingThreshold");
+checkDistributionItems(obj, mDistRev, mDistThr);
+
 % --- Pop-out window (gui.PopOut) ---
 obj.addPopOutMenu_(cm);
 
@@ -105,6 +119,34 @@ function toggleShowSteps(obj, src)
     src.Checked = matlab.lang.OnOffSwitchState(obj.ShowSteps);
     obj.updatePlot_();
     obj.saveMenuPreferences_();
+end
+
+function toggleShowSlidingThreshold(obj, src)
+    obj.ShowSlidingThreshold = ~obj.ShowSlidingThreshold;
+    src.Checked = matlab.lang.OnOffSwitchState(obj.ShowSlidingThreshold);
+    obj.updatePlot_();
+    obj.saveMenuPreferences_();
+end
+
+function selectDistribution(obj, mRev, mThr, source)
+    % Choosing the source already showing turns the distribution off; the
+    % other one switches to it.
+    if obj.ShowDistribution && obj.DistributionSource == source
+        obj.ShowDistribution = false;
+    else
+        obj.DistributionSource = source;
+        obj.ShowDistribution = true;
+    end
+    checkDistributionItems(obj, mRev, mThr);
+    obj.updatePlot_();
+    obj.saveMenuPreferences_();
+end
+
+function checkDistributionItems(obj, mRev, mThr)
+    mRev.Checked = matlab.lang.OnOffSwitchState( ...
+        obj.ShowDistribution && obj.DistributionSource == "Reversals");
+    mThr.Checked = matlab.lang.OnOffSwitchState( ...
+        obj.ShowDistribution && obj.DistributionSource == "SlidingThreshold");
 end
 
 function toggleShowReversals(obj, src)

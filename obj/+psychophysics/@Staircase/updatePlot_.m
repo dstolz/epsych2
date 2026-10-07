@@ -50,6 +50,8 @@ else
 end
 
 obj.updateThresholdOverlay_();
+obj.updateSlidingThreshold_();
 obj.updatePlotLimits_(p);
+obj.updateDistributionPlot_(p);
 obj.updatePlotLabels_();
 obj.updateLegend_(p);

@@ -42,6 +42,10 @@ if ~isempty(obj.Results.Threshold) && any(isfinite(obj.h_thrline.YData))
     items{end+1} = obj.h_thrline;
 end
 
+if obj.ShowSlidingThreshold && any(isfinite(obj.h_thrslide.YData))
+    items{end+1} = obj.h_thrslide;
+end
+
 for idx = find(plotData.bitsPresent)
     if idx <= numel(obj.bitSwatchH_) && isvalid(obj.bitSwatchH_(idx))
         items{end+1} = obj.bitSwatchH_(idx);

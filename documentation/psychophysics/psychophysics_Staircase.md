@@ -90,6 +90,12 @@ S = psychophysics.Staircase(..., Name=Value)
   - Toggle plotting of step-direction markers.
 - `ShowReversals`
   - Toggle plotting of reversal markers.
+- `ShowSlidingThreshold`
+  - Off by default. Draws a light stepped line over the trace: the threshold of each sliding block of `ThresholdFromLastNReversals` reversals, known at the block's last reversal and held until the next. It starts once one whole block exists, ends on the current threshold, and is not drawn under `ApplyWeightedCorrection`. Values are in `Results.BlockThreshold` at the trials in `Results.BlockThresholdTrial`.
+- `ShowDistribution`
+  - Off by default. Adds a small axes to the right of the plot with a histogram of the stimulus value at every reversal, on the same value axis, with the mean (solid) and median (dashed) as lines and the range as a capped bar. The staircase axes is wrapped in a grid that takes its cell in the host layout (or, in a non-grid parent, splits its own rectangle) and is handed back when switched off. A pop-out shows it too.
+- `DistributionSource`
+  - What the distribution axes histograms: `"Reversals"` (default, the stimulus value at every reversal) or `"SlidingThreshold"` (the sliding-block estimates in `Results.BlockThreshold`, so mean, median and range describe how the threshold itself wandered). Chosen from the right-click menu and remembered like the other menu choices.
 
 ## Core Properties
 
@@ -282,7 +288,7 @@ staircases constructed from a DATA field name, are labeled with the name alone.
 
 Right-clicking the plot axes exposes the analysis settings that are worth changing while
 reviewing a session: **Threshold Reversals**, **Threshold Formula**, **Show Steps**, and
-**Show Reversals**. Values are plotted and analyzed in the parameter's own units; a quantity
+**Show Reversals**, **Show Sliding Threshold**, **Show Reversal Distribution**, and **Show Sliding Threshold Distribution**. The last two are mutually exclusive: choosing the one already showing turns the distribution off, choosing the other switches to it. The distribution's value axis is the staircase's own (same limits and ticks, kept in step through zooms), and it carries a title naming what it shows and its count. Values are plotted and analyzed in the parameter's own units; a quantity
 wanted in dB is recorded in dB, as `cl_AppetitiveStimDetect` records `Depth`.
 
 Choices made from that menu are **remembered across sessions** (preference group
@@ -337,8 +343,9 @@ Once at least `ThresholdFromLastNReversals` reversals exist, the same formula is
 
 - `Results.MinBlockThreshold` — the minimum block threshold, the best the subject managed at any point in the session, where `Results.Threshold` follows the track wherever it drifts late in a session
 - `Results.MinBlockReversals` — `[first last]` reversal numbers of that block
+- `Results.MedianBlockThreshold`, `Results.MeanBlockThreshold`, `Results.MaxBlockThreshold` — the median, mean and maximum over the same blocks
 
-The plot title shows it beside the current estimate, e.g. `Threshold (6/6 rev): -14.00 (min -16.40)`. Both are empty until one whole block exists, and neither is computed under `ApplyWeightedCorrection`.
+The plot title shows them beside the current (most recent) estimate, e.g. `Threshold (6/6 rev) latest: -14.00; min -16.40; med: -15.10; mean: -15.00; max: -13.90`. The block statistics are empty until one whole block exists (the title then shows only the most recent value), and none is computed under `ApplyWeightedCorrection`.
 
 ## Examples
 

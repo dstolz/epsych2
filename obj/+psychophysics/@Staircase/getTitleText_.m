@@ -57,17 +57,24 @@ if ~isempty(obj.Results.Threshold)
         if isscalar(configuredReversals) && isfinite(configuredReversals)
             if isscalar(actualReversals) && isfinite(actualReversals)
                 nUsed = min(actualReversals, configuredReversals);
-                titleParts{end+1} = sprintf('Threshold (%d/%d rev): %.2f', nUsed, configuredReversals, threshold);
+                label = sprintf('Threshold (%d/%d rev)', nUsed, configuredReversals);
             else
-                titleParts{end+1} = sprintf('Threshold (last %d rev): %.2f', configuredReversals, threshold);
+                label = sprintf('Threshold (last %d rev)', configuredReversals);
             end
         else
-            titleParts{end+1} = sprintf('Threshold: %.2f', threshold);
+            label = 'Threshold';
         end
 
-        minBlock = obj.Results.MinBlockThreshold;
-        if isscalar(minBlock) && isfinite(minBlock)
-            titleParts{end} = sprintf('%s (min %.2f)', titleParts{end}, minBlock);
+        % The summary spans every sliding block of N reversals, which exists
+        % only once one whole block does; before that only the latest shows.
+        R = obj.Results;
+        blockStats = [R.MinBlockThreshold R.MedianBlockThreshold ...
+            R.MeanBlockThreshold R.MaxBlockThreshold];
+        if numel(blockStats) == 4 && all(isfinite(blockStats))
+            titleParts{end+1} = sprintf('%s latest: %.2f; min %.2f; med: %.2f; mean: %.2f; max: %.2f', ...
+                label, threshold, blockStats);
+        else
+            titleParts{end+1} = sprintf('%s latest: %.2f', label, threshold);
         end
     end
 end

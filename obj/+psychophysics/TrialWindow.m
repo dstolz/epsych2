@@ -156,6 +156,26 @@ classdef TrialWindow
             end
         end
 
+        function txt = toText(obj)
+            % txt = toText(obj)
+            % The shorthand parse reads back as this window: "all", "last N",
+            % "first N", "A-B", or "A+" for a range running to the end.
+            switch obj.Mode
+                case "All"
+                    txt = "all";
+                case "Last"
+                    txt = sprintf("last %d", obj.N);
+                case "First"
+                    txt = sprintf("first %d", obj.N);
+                case "Range"
+                    if isinf(obj.Range(2))
+                        txt = sprintf("%d+", obj.Range(1));
+                    else
+                        txt = sprintf("%d-%d", obj.Range(1), obj.Range(2));
+                    end
+            end
+        end
+
         function s = toStruct(obj)
             % s = toStruct(obj)
             % Plain struct form for getpref/setpref persistence.

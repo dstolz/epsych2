@@ -51,6 +51,9 @@ stimgen.StimPlayer
 % Speaker calibration GUI, wired to EPsych hardware via stimbridge
 epsych.calibrate
 
+% Offline behavioral analysis of a data root (Project -> Subject -> sessions)
+epsych.BehaviorAnalysis("D:\Data\Lab")
+
 % View repository information
 E = EPsychInfo;
 disp(E.meta)
@@ -139,6 +142,48 @@ Rules that matter:
   sequence stand down, since suspending `isRandom` does not stop a selector
   (see documentation/epsych/epsych_BlockSequence.md,
   documentation/paradigms/cl_AppetitiveStimDetect.md)
+- **epsych.BehaviorAnalysis** (2026-10-07): the offline behavioral-analysis
+  window, a main entry point beside `epsych.RunExpt` and
+  `epsych.ProtocolDesigner` — `epsych.BehaviorAnalysis(root)` opens a data root
+  laid out `<root>/<Project>/<Subject>/<file>.mat`. It is a shell over
+  `behavior.Study` (the headless model; see obj/+behavior/ below): a checkbox
+  `uitree` browser (Project ▸ Subject ▸ Session; the CHECKED set is the
+  analysed set, persisted in the project file; search filters on
+  `ValueChanging` with keystrokes kept in `LiveFilter_`; Show = All · Checked ·
+  Hidden · Test · Needs attention), a header (root, preset, analysis,
+  parameter, trial window, exclusions, counts, save state), four tabs that are
+  `gui.behavior.View` subclasses (`SessionView` — the session's own
+  `psychophysics.Staircase` in a grid cell of its own, numbers, fit, notes;
+  `SubjectView` — learning curves and the staircase overlay; `CompareView` —
+  group comparisons with descriptive statistics only; `TableView`), dialogs
+  (`SettingsDialog` with the presets, `GroupingsDialog`, `ExportDialog`), and
+  a status bar. **Views never compute**: they call the Study and redraw on
+  its events, which is what keeps the Session tab's staircase, the Table
+  tab's number and the generated script's number the same number. Four things
+  a reader would otherwise re-derive: a second call RAISES the open window
+  (it holds unsaved decisions) and opens another root in it rather than
+  replacing it; it refuses to SCAN while `gui.SessionBrowser.sessionIsRunning()`
+  (a scan reads every file on the trial-loop thread) but Review Session…
+  stays available; `Project.Dirty` is only asked about from `CloseRequestFcn`
+  (`delete(app)` never prompts, so tests can tear down); and F1/F5/Del/Enter/
+  Ctrl+Shift+F cannot be `uimenu` accelerators, so the window's key handler
+  takes them. Subject, Compare and Table redraw only while in front and mark
+  themselves stale otherwise. Prefs (group `epsych2_BehaviorAnalysis`, read
+  behind `ispref`, written only from controls the user operated):
+  FigurePosition, RecentRoots, LastRoot, AlternateStores, BrowserVisible,
+  ShowFilter, LastTab, ExportFolder, ExportFormats, FigureFormat — everything
+  else is in `<root>/EPsych_Analysis/project.json` through the Study. The
+  Session tab REBUILDS its staircase only when its signature (key | settings
+  hash | window) changes, and writes a right-click change of the three
+  analysis settings into `Study.setSettings` with the signature pre-set, so
+  the drawn staircase is kept while every other tab follows. `exportFigure`
+  calls `drawnow` before `exportgraphics`, because a tab never laid out fails
+  inside the legend otherwise. Not probed at open: the store folder is created
+  by `Project.canWrite` at the first save; "Choose store folder…" reopens the
+  root with the new store. Standing proofs `tmp/smoke_test_behavior_app.m`
+  (Visible=false; 69 checks) and `tmp/smoke_test_behavior_sessionview.m`
+  (documentation/behavior/BehaviorAnalysis_UserGuide.md,
+  documentation/behavior/behavior_Classes.md)
 - **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
 - **epsych.BitMask**: uint32 enumeration for trial outcomes
 - **epsych.SubjectRoster**: shared, file-backed roster of subjects organized by
@@ -1305,7 +1350,13 @@ re-uploading the state table.
   `bias`/`a_prime`/`norminv` and `gui.Helper.dprime2AFC`/`criterion`/
   `percent_correct` are forwarders kept because they are public API and an
   inherited mixin (see documentation/psychophysics/psychophysics_Metrics.md)
-- **psychophysics.Psych** (abstract): Base for all analysis
+- **psychophysics.Psych** (abstract): Base for all analysis. Since 2026-10-07 an
+  OFFLINE (DATA-sourced) object broadcasts `Events.NewData` on `refresh`, on an
+  `ExcludedTrials` change and on `setData` exactly as an online one does on a
+  trial (the payload's `Subject`/`BoxID` are empty), so a History table or a
+  pop-out over a saved session follows it; `setData` is the one door through
+  which an offline object's trials change, and is refused on a runtime-bound one
+  (proof `tmp/smoke_test_psych_offline_fixes.m`)
 - **psychophysics.Detection**: Hit rate, false alarm rate, d', grouped by unique
   stimulus value; its four statics forward to `psychophysics.Metrics`, A'. It owns the
   signal-detection arithmetic every other component reuses (`d_prime`, `bias`,
@@ -1416,8 +1467,8 @@ re-uploading the state table.
   impossible number (zero/same-signed step, no reversals, one direction, no way to
   find a step); `ExpectedTarget` is an assertion that never moves the threshold,
   there to catch a ratio wired backwards (0.25 for 0.75). The opt-in
-  `ApplyWeightedCorrection` (default false, set-then-`refresh_history` like
-  `ThresholdFormula`) makes `Results.Threshold` the corrected value and `NaN` —
+  `ApplyWeightedCorrection` (default false, recomputing as it is set like every
+  Staircase analysis setting) makes `Results.Threshold` the corrected value and `NaN` —
   never the uncorrected mean — while it cannot be computed; it SKIPS the legacy
   threshold rather than overwriting it (else `GeometricMean` logs "threshold not
   shown" beside a shown one), and its five properties are in `createPopOut_`'s
@@ -1447,12 +1498,136 @@ re-uploading the state table.
   inference, since the same slide would misattribute every later step. Standing
   proof `tmp/smoke_test_weighted_staircase.m`, whose Monte Carlo moves ψ = 0.75
   from p = 0.794 to 0.759 and whose group 11 is every short, empty and
-  malformed session (see documentation/psychophysics/psychophysics_WeightedStaircase.md)
+  malformed session (see documentation/psychophysics/psychophysics_WeightedStaircase.md).
+  Since 2026-10-07 every Staircase ANALYSIS setting recomputes as it is set
+  (`refresh_history` remains for `StimulusTrialType`/`CatchTrialType` and a DATA
+  field edited in place); `Plot` restores the remembered analysis menu choices —
+  reversal count, formula, weighted correction — only for a RUNTIME-sourced
+  staircase, never over an offline caller's settings, which are the record of
+  the analysis (display choices are restored for both); and `Subject`/`BoxID`/
+  `Unit` label an offline plot, whose title and y axis used to read only the
+  runtime and the `hw.Parameter` (proof `tmp/smoke_test_psych_offline_fixes.m`)
 - **psychophysics.BestPEST**, **psychophysics.MLP**: Threshold-seeking algorithms
 - **psychophysics.SessionMetrics**: Session-level counts, rates, d', A' and criterion over a
   `psychophysics.TrialWindow` (all trials, last N, first N, or an explicit range). The
   computation behind `gui.components.SessionPerformance`; also usable headlessly and offline
   (documentation/psychophysics/psychophysics_SessionMetrics.md)
+
+#### obj/+behavior/ – Offline Behavioral Analysis (headless layer under epsych.BehaviorAnalysis)
+Added 2026-10-07; mirrors the sibling MABR project's `mabr.analysis` design
+(`C:\src\MABR\+mabr\+analysis\`). Everything works from a script with no
+window, which is what lets the window write the script that reproduces what it
+shows. Developer reference documentation/behavior/behavior_Classes.md; user
+guide documentation/behavior/BehaviorAnalysis_UserGuide.md.
+- **behavior.Catalog**: every session file under a data root
+  (`<root>/<Project>/<Subject>/<file>.mat`), described from ONE load each
+  through `epsych.SessionFiles.summarize(file, Extra=@(Data, info) ...)` —
+  the `Extra` callback (added for this) runs during the load summarize already
+  makes, so a file is never opened twice; it bypasses summarize's in-memory
+  cache in both directions, since that cache's key does not include the
+  callback. **Nothing is written under the root**: the scan cache lives in
+  `%LOCALAPPDATA%\EPsych\AnalysisCache\catalog_<hex8(lower(root))>.mat`
+  (`behavior.hex8` is a stable FNV-1a, computed without integer-saturating
+  multiplies), and a CacheFolder inside the root or `""` disables caching
+  rather than break the rule. Sessions are FILES keyed by path relative to the
+  root with `/` in on-disk spelling, compared with `keyEquals` (case-insensitive
+  on Windows); subject = the folder a file sits in, project = the folder above
+  (the root's own name when a subject folder sits directly under the root).
+  `parseName` matches the subject prefix LAZILY up to the first
+  `_yyMMddTHHmmss` (underscored subjects survive), the tokens after it are free
+  tags with no semantics except a single capital letter in the first position,
+  which is `defaultFilename`'s collision suffix; `_dd-MMM-yyyy` names parse to
+  the day; a name that disagrees with its folder is QC flag `name_mismatch`,
+  never a refusal. File-level `QCFile` flags: unreadable, no_trials, test_mode,
+  name_mismatch, unparsed_name, not_in_subject_folder. A file whose read
+  failed is NOT retried on later scans. `applyRoster([] | path | roster)` only
+  ENRICHES `Subjects` from `epsych.SubjectRoster` (read behind `ispref`), never
+  writes it. Standing proof `tmp/smoke_test_behavior_model.m` groups 1–3, 11
+- **behavior.Settings**: every analysis setting as ONE value object (`Analysis`,
+  `Parameter` ("" = first candidate), `Window` as `TrialWindow` text,
+  `ExcludeTest`, `ExcludeTrialTypes`, `IncludeAborts`, trial types, and the
+  sub-structs `Staircase`, `Fit`, `Metrics`, `QC`, `Compare`, reserved
+  `Detection`/`NAFC`). `hash()` = `hex8` of the results-affecting settings in
+  canonical text (QC and Compare excluded): the memo key and the generated
+  script's assertion. JSON-safe by construction — "find it" numbers are `[]`,
+  never NaN (`jsonencode(NaN)` is `null`); `fromStruct` is forgiving and
+  reshapes what `jsondecode` returns. `staircaseArgs/staircaseProperties/
+  metricsArgs/fitArgs` are the ONE translation into psychophysics options; the
+  fit direction follows the staircase direction, so there is no second setting
+  that could disagree. `Fit.Engine = "psignifit"` is the v2 seam
+  (`behavior.fit.Psignifit`, https://github.com/wichmann-lab/psignifit, found
+  through pref `EPsych/PsignifitPath`): `[Levels NumYes NumTotal]` of the common
+  fit struct is exactly psignifit's data matrix
+- **behavior.Facet**: how sessions are grouped (project, projectpath, subject,
+  tag:k, tags, sex, species, paradigm, protocolversion, box, date, week (ISO),
+  month, year, session ordinal, manual:<Grouping>); `values(T)` and `order(T)`
+  are what every plot, summary and export use, `toText/fromText` the spelling
+  the project file and scripts carry. **Tag levels are ordered by the phase
+  they name** — each level by its earliest session's Start — because the
+  alphabet puts "Post" before "Pre"; `fromText` never throws (unknown → "none")
+- **behavior.Session**: one loaded session. `exclusionMask(Data, Window=,
+  ExcludeTest=, ExcludeTrialTypes=)` is THE ONE RULE for which trials are in,
+  called by the window, `analyze` and the generated script alike;
+  `candidates`/`parameterTable` are the single implementations the Catalog's
+  `extra_` delegates to; `staircase(settings, Window=)` builds the configured
+  `psychophysics.Staircase` labelled from the session (`Subject`, `Unit`);
+  `analyze(settings, Window=)` is the whole v1 analysis as one struct and
+  **never throws for a bad session** (NaN + a Message; later stages still run).
+  QC flags `low_trials`, `high_abort_rate`, `few_reversals` (only when a
+  staircase ran), `no_parameter`, `fit_failed`; `parameter_differs` is
+  `behavior.Study`'s, which alone sees the root's modal parameter. A failed fit
+  keeps the reversal threshold and sets `Fit.Threshold = NaN`
+- **behavior.Project**: what a person decided — hidden sessions and why,
+  per-session window overrides, comments, the settings, presets, the compare
+  facets, named groupings (level per subject, per-session override), the
+  checked selection — in ONE file `<root>/EPsych_Analysis/project.json` (or
+  `<Store>/project.json` for a root that cannot be written). **Opening writes
+  nothing**; an unreadable or newer-`FormatVersion` file opens read-only (edits
+  allowed, save refused). `save()` re-reads a changed file and merges RECORD BY
+  RECORD (later `Modified` wins; a record only one side has is kept — except
+  one present at the last read and untouched since, which is a REMOVAL, so an
+  un-hidden session does not come back from another writer's copy), writes
+  atomically, keeps the newest three copies in `.history/`. Records are arrays
+  of objects (an object keyed by path would have `jsondecode` mangle the key
+  into a field name); datetimes are ISO text to the millisecond, local, no
+  zone (writers in different zones would mis-order edits — documented
+  limitation). Standing proof group 7
+- **behavior.Study** (+ `behavior.StudyEvent`): the window's model — Catalog +
+  Project + the Project's Settings, with `result(key)` memoized on
+  `key|bytes|mtime||settings hash|window`, an LRU of eight loaded sessions, and
+  the events every tab redraws on (`CatalogChanged`, `ProjectChanged`,
+  `SettingsChanged`, `SelectionChanged`, `ResultsChanged`, `Busy`). Every
+  decision goes through it; it never opens a window and never touches a
+  preference. Standing proof `tmp/smoke_test_behavior_study.m` group 4
+- **behavior.Aggregate** / **behavior.Stats**: `thresholds(results, sessions)`
+  is the ONE tidy table across sessions (joined on key so every facet column
+  rides along; Tag1..TagN, SessionOrdinal, DaysSinceFirst per subject);
+  `valueColumns()` lists what can be plotted; `Stats.describe` is DESCRIPTIVE
+  ONLY by decision (n, mean, SD, SEM, median, quartiles, a seeded `bootci`
+  interval on the mean with the global stream restored) — no test statistic
+  exists in the package, so a p-value cannot appear by accident
+- **behavior.Plot**: static drawing into any axes, every object tagged
+  `BehaviorPlot:<Role>`, "No data" instead of an error, NaN skipped never
+  drawn as zero, a facet level keeping its colour across calls (`colorsFor`),
+  a colour-blind-safe palette that stays ≥0.25 RGB from every `epsych.BitMask`
+  outcome hue, fixed-sequence jitter so the global random stream is never
+  touched, `cla(ax,'reset')` because a datetime x axis left by one figure
+  refuses the numeric x of the next. Standing proof `tmp/smoke_test_behavior_plot.m`
+- **behavior.Export**: tidy snake_case tables built FROM `schema()` (the single
+  source of truth for name, type, unit, meaning); CSV writes NaN as an empty
+  field and **never writes Inf**; `trials` table is v2
+- **behavior.ScriptWriter**: the plain `.m` that reproduces an analysis. The
+  script calls `behavior.Session.load(fullfile(ROOT, key), Root = ROOT)
+  .analyze(cfg, Window=...)` — the SAME path the window takes — with EVERY
+  setting written out as a literal and `assert(cfg.hash() == "...")`, so a
+  later default change cannot silently change the analysis; the variable is
+  `cfg`, not `settings`, which shadows a MATLAB function. `literal(v)` is exact
+  (`eval(literal(v))` is `isequaln` to `v`, same class and size — datetimes
+  through three verified tiers: ISO text, ms text + exact remainder, epoch +
+  two ms parts; handles/objects/complex THROW rather than becoming something
+  else); `checkFunction()` is the never-throwing `compareWithRecorded` every
+  script ends with (rounding within 1e-6 counted, not listed). Standing proofs
+  `tmp/smoke_test_scriptwriter.m`, model group 9
 
 #### runtime/ – Execution Callbacks & Services
 - **runtime/timerfcns/**: Timer lifecycle (Start, RunTime, Stop, Error)
@@ -1682,6 +1857,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 | obj/granary/ | Logging: verbosity gate, record dispatcher, console/file/JSON sinks (git submodule: dstolz/granary) |
 | obj/+psychophysics/ | Analysis (Detection, Staircase, BestPEST, MLP) |
 | obj/+peripherals/ | Motor control, pump communication |
+| obj/+behavior/ | Offline behavioral analysis (headless): Catalog, Project, Settings, Facet, Session, Study, Aggregate, Stats, Plot, Export, ScriptWriter |
 | firmware/ | Microcontroller firmware (EPsychTeensy) |
 | runtime/timerfcns/ | Timer callbacks |
 | runtime/savefcns/ | Data saving |

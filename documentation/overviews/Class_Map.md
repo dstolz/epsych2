@@ -112,8 +112,29 @@ Analysis and GUI classes
    ├─ ScreenCapture
    ├─ SlidingWindowPerformancePlot
    ├─ AdaptiveTraining
-   └─ StatusBar
+   ├─ StatusBar
+   └─ behavior (views of epsych.BehaviorAnalysis)
+      ├─ View (abstract: a tab over a behavior.Study)
+      │  ├─ SessionView
+      │  ├─ SubjectView
+      │  ├─ CompareView
+      │  ├─ TableView
+      │  └─ Browser
+      └─ SettingsDialog / GroupingsDialog / ExportDialog
+
+└─ behavior (offline analysis, headless; see behavior_Classes.md)
+   ├─ Catalog ── what is on disk (one load per file, cache outside the root)
+   ├─ Project ── what a person decided (one JSON file, merged on save)
+   ├─ Settings, Facet ── what an analysis is and how sessions group
+   ├─ Session ── one loaded session: exclusionMask, staircase, fit, analyze
+   │  └─ fit.Builtin / fit.Psignifit (v2 seam)
+   ├─ Study ── app state: Catalog + Project + Settings, memoized results, events
+   ├─ Aggregate, Stats ── across sessions (descriptive only)
+   ├─ Plot ── pictures into any axes
+   └─ Export, ScriptWriter ── tidy tables; the script that reproduces an analysis
 ```
+
+`epsych.BehaviorAnalysis` is the window over `behavior.Study`, beside `epsych.RunExpt` and `epsych.ProtocolDesigner` as a main entry point.
 
 ### Support branches
 
@@ -270,6 +291,7 @@ Task and support branches
 | Online analysis | `epsych.EventHub events -> psychophysics.Psych subclasses` |
 | Parameter GUIs | `gui.Parameter_* <-> hw.Parameter` |
 | Task GUIs | `cl.* -> epsych.Runtime -> psychophysics.* + gui.*` |
+| Offline analysis | `epsych.BehaviorAnalysis -> gui.behavior.* views -> behavior.Study -> behavior.Catalog / behavior.Project / behavior.Session -> psychophysics.Staircase, psychophysics.SessionMetrics` |
 
 ## Practical reading order
 

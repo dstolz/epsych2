@@ -1,6 +1,7 @@
 function s = summarize(file, options)
 % s = epsych.SessionFiles.summarize(file)
 % s = epsych.SessionFiles.summarize(file, UseCache = false)
+% s = epsych.SessionFiles.summarize(file, Extra = @(Data, info) struct(...))
 % Describe one session file in one row, reading as little of it as it can.
 %
 % A saved session is Data (one record per trial) plus, since 2026-08, Info (an
@@ -12,7 +13,18 @@ function s = summarize(file, options)
 % Parameters:
 %   file     - Saved session .mat, crash-recovery .mat, or .epj journal.
 %   UseCache - Reuse an earlier summary while the file's size and modification
-%              time are unchanged. Default true.
+%              time are unchanged. Default true. Ignored (treated as false)
+%              when Extra is given, because the cached summary was not made
+%              by that callback.
+%   Extra    - @(Data, info) returning a scalar struct, called during the one
+%              load this function already makes, so a caller that needs more
+%              of the file than a summary (behavior.Catalog) does not load it
+%              a second time. Data is the session's trial records (only the
+%              filled ones, so numel(Data) == s.Trials) and info the
+%              normalized snapshot (epsych.SessionSnapshot.fromInfo). The
+%              result is s.Extra. A callback that throws is reported in
+%              s.Error ("Extra: ..."), never dropped. Not called for a file
+%              that is not a session or could not be read. Default [].
 %
 % Returns:
 %   s - Scalar struct with the fields of epsych.SessionFiles.blank. Never
@@ -25,6 +37,18 @@ function s = summarize(file, options)
 arguments
     file (1,1) string
     options.UseCache (1,1) logical = true
+    options.Extra = []
+end
+
+hasExtra = ~isempty(options.Extra);
+if hasExtra
+    if ~isa(options.Extra, 'function_handle')
+        error('epsych:SessionFiles:InvalidExtra', ...
+            'Extra must be a function handle @(Data, info).');
+    end
+    % The cache is keyed by file alone: a summary made without this callback
+    % (or with another) must neither be served nor be replaced by this one.
+    options.UseCache = false;
 end
 
 s = epsych.SessionFiles.blank();
@@ -60,9 +84,12 @@ else
 end
 
 try
-    [info, first, last, s.Trials, s.IsSession] = localRead(char(file), char(ext));
+    [info, first, last, s.Trials, s.IsSession, Data] = localRead(char(file), char(ext), hasExtra);
     if s.IsSession
-        s = localDescribe(s, info, first, last, char(base));
+        [s, snap] = localDescribe(s, info, first, last, char(base));
+        if hasExtra
+            s = localExtra(s, options.Extra, Data, snap);
+        end
     end
 catch ME
     % A save interrupted by a crash is still somebody's session. Only a .mat
@@ -73,26 +100,59 @@ catch ME
     s = localDescribe(s, [], [], [], char(base));
 end
 
-epsych.SessionFiles.cache_('put', key, s);
+if ~hasExtra
+    epsych.SessionFiles.cache_('put', key, s);
+end
 
 end
 
 
 
 
-function [info, first, last, nTrials, isSession] = localRead(file, ext)
-% [info, first, last, nTrials, isSession] = localRead(file, ext)
+function s = localExtra(s, fcn, Data, snap)
+% s = localExtra(s, fcn, Data, snap)
+%
+% Run the caller's Extra callback. Its failure is the caller's to see, so it
+% lands in s.Error alongside anything the read itself reported.
+
+try
+    x = fcn(Data, snap);
+    if ~isstruct(x) || ~isscalar(x)
+        error('epsych:SessionFiles:InvalidExtra', ...
+            'Extra returned a %s, not a scalar struct.', class(x));
+    end
+    s.Extra = x;
+catch ME
+    vprintf(2, 'epsych.SessionFiles: Extra failed on "%s": %s', s.File, ME.message)
+    msg = "Extra: " + string(ME.message);
+    if s.Error == ""
+        s.Error = msg;
+    else
+        s.Error = s.Error + "; " + msg;
+    end
+end
+
+end
+
+
+
+
+function [info, first, last, nTrials, isSession, Data] = localRead(file, ext, wantData)
+% [info, first, last, nTrials, isSession, Data] = localRead(file, ext, wantData)
 %
 % The file's session description (Info/info, [] when it has none), its first
 % and last trial records ([] when it has none), and how many trials it holds.
 % isSession is false for a .mat that holds neither shape, decided from whos
-% alone so that an unrelated file is never loaded.
+% alone so that an unrelated file is never loaded. Data is every filled trial
+% record, but only when wantData: a recovery seed then has to load every
+% data_NNNN rather than only the first and last.
 
 info = [];
 first = [];
 last = [];
 nTrials = 0;
 isSession = false;
+Data = struct([]);
 
 if strcmpi(ext, '.epj')
     [S, torn] = epsych.TrialJournal.read(file);
@@ -106,6 +166,9 @@ if strcmpi(ext, '.epj')
     if nTrials > 0
         first = S.(names{1});
         last  = S.(names{end});
+    end
+    if wantData
+        Data = localStack(cellfun(@(n) S.(n), names, 'UniformOutput', false));
     end
     return
 end
@@ -121,7 +184,7 @@ if any(strcmp(names, 'Data') & isStruct)
     isSession = true;
     S = localLoad(file, [{'Data'}, infoVar(1:min(1,end))]);
     if ~isempty(infoVar), info = S.(infoVar{1}); end
-    [first, last, nTrials] = localRecords(S.Data);
+    [first, last, nTrials, Data] = localRecords(S.Data);
 
 elseif any(strcmp(names, 'info') & isStruct)
     % A crash-recovery seed: info, then one data_NNNN variable per trial once
@@ -130,7 +193,9 @@ elseif any(strcmp(names, 'info') & isStruct)
     dataNames = localDataNames(names);
     nTrials = numel(dataNames);
     vars = {'info'};
-    if nTrials > 0
+    if wantData
+        vars = [vars, dataNames];
+    elseif nTrials > 0
         vars = unique([vars, dataNames(1), dataNames(end)], 'stable');
     end
     S = localLoad(file, vars);
@@ -139,6 +204,9 @@ elseif any(strcmp(names, 'info') & isStruct)
         first = S.(dataNames{1});
         last  = S.(dataNames{end});
     end
+    if wantData
+        Data = localStack(cellfun(@(n) S.(n), dataNames, 'UniformOutput', false));
+    end
 end
 
 end
@@ -146,16 +214,18 @@ end
 
 
 
-function [first, last, n] = localRecords(Data)
-% [first, last, n] = localRecords(Data)
+function [first, last, n, filledData] = localRecords(Data)
+% [first, last, n, filledData] = localRecords(Data)
 %
-% First and last trial records of a saved Data array, and how many there are.
-% A record whose every field is empty is not a trial: older saving functions
-% wrote one such placeholder for a session that completed none.
+% First and last trial records of a saved Data array, how many there are, and
+% the filled records themselves. A record whose every field is empty is not a
+% trial: older saving functions wrote one such placeholder for a session that
+% completed none.
 
 first = [];
 last = [];
 n = 0;
+filledData = struct([]);
 
 if isempty(Data) || isempty(fieldnames(Data)), return, end
 
@@ -164,10 +234,37 @@ c = struct2cell(Data);                       % fields x 1 x trials
 filled = reshape(any(~cellfun(@isempty, c), 1), 1, []);
 idx = find(filled);
 n = numel(idx);
+filledData = Data(idx);
 if n == 0, return, end
 
 first = Data(idx(1));
 last  = Data(idx(end));
+
+end
+
+
+
+
+function Data = localStack(records)
+% Data = localStack(records)
+%
+% One struct array from per-trial records written one at a time (a journal or
+% a recovery seed). Records written by different builds can differ in fields;
+% a field one record lacks is left empty rather than refusing the session.
+
+Data = struct([]);
+records = records(cellfun(@isstruct, records));
+if isempty(records), return, end
+
+names = cellfun(@(r) reshape(fieldnames(r), 1, []), records, 'UniformOutput', false);
+names = unique([names{:}], 'stable');
+for k = 1:numel(records)
+    for f = setdiff(names, fieldnames(records{k}), 'stable')
+        records{k}.(f{1}) = [];
+    end
+    records{k} = orderfields(records{k}, names);
+end
+Data = [records{:}];
 
 end
 
@@ -214,11 +311,12 @@ end
 
 
 
-function s = localDescribe(s, info, first, last, base)
-% s = localDescribe(s, info, first, last, base)
+function [s, snap] = localDescribe(s, info, first, last, base)
+% [s, snap] = localDescribe(s, info, first, last, base)
 %
 % Fill the descriptive fields from what the file said about itself, falling
-% back on its name and its trial records for what it did not say.
+% back on its name and its trial records for what it did not say. snap is the
+% normalized snapshot, which an Extra callback is handed.
 
 snap = epsych.SessionSnapshot.fromInfo(localScalar(info), Quiet = true);
 

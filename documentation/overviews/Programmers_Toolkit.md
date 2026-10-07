@@ -157,6 +157,24 @@ disp(S.Results)
 
 Reference: [psychophysics_SessionMetrics.md](../psychophysics/psychophysics_SessionMetrics.md).
 
+### Offline analysis across sessions
+
+The `behavior` package is the headless layer under `epsych.BehaviorAnalysis`, the window that browses a data root (`<root>/<Project>/<Subject>/<file>.mat`), analyses staircase sessions and compares them. Every piece works from a script with no window, which is what lets the window write the script that reproduces what it shows.
+
+| Tool | Use it for |
+|---|---|
+| [`behavior.Catalog`](../../obj/+behavior/@Catalog/Catalog.m) | Every session file under a root, described from ONE load each and cached in `%LOCALAPPDATA%` — nothing is ever written under the root. Sessions are keyed by path relative to the root; subject and project come from the folder tree; the file name's tokens after the timestamp are free tags (`parseName`). |
+| [`behavior.Settings`](../../obj/+behavior/Settings.m) | Every analysis setting as one value object with a `hash()`, JSON-safe `toStruct`/`fromStruct`, `problems()`, and the one translation into psychophysics options (`staircaseArgs`, `fitArgs`, ...). |
+| [`behavior.Facet`](../../obj/+behavior/Facet.m) | How sessions are grouped: a tag position, project, subject, sex, date/week/month, a named manual grouping. `values(T)` and `order(T)` are what every plot, summary and export use. |
+| [`behavior.Session`](../../obj/+behavior/@Session/Session.m) | One loaded session: `exclusionMask` (the ONE rule for which trials are in), `staircase`, `fit`, and `analyze`, which never throws for a bad session. |
+| [`behavior.Project`](../../obj/+behavior/@Project/Project.m) | What a person decided — hidden sessions, window overrides, comments, settings, presets, groupings, the checked selection — in `<root>/EPsych_Analysis/project.json`, merged record by record on save. |
+| [`behavior.Study`](../../obj/+behavior/@Study/Study.m) | The window's model: Catalog + Project + Settings, memoized results, and the events every tab redraws on. |
+| [`behavior.Aggregate`](../../obj/+behavior/Aggregate.m) / [`behavior.Stats`](../../obj/+behavior/Stats.m) | One tidy row per session across sessions, and descriptive statistics per facet level (no p-values, by decision). |
+| [`behavior.Plot`](../../obj/+behavior/Plot.m) | Timelines, group comparisons, paired subject lines, the staircase overlay, the psychometric function — into any axes, every object tagged. |
+| [`behavior.Export`](../../obj/+behavior/@Export/Export.m) / [`behavior.ScriptWriter`](../../obj/+behavior/@ScriptWriter/ScriptWriter.m) | Tidy CSV/XLSX/MAT tables from one schema, and the plain `.m` that reproduces an analysis exactly (`literal` round-trips every value; the script checks its numbers against the recorded ones and never throws). |
+
+Reference: [behavior_Classes.md](../behavior/behavior_Classes.md), [BehaviorAnalysis_UserGuide.md](../behavior/BehaviorAnalysis_UserGuide.md).
+
 ## Behavior GUI building blocks
 
 A paradigm GUI subclasses [`gui.BehaviorGUI`](../../obj/+gui/@BehaviorGUI/BehaviorGUI.m) and implements `build(fig)` — nothing else. The base class owns single-instance enforcement, figure creation with position persistence, event listeners, the teardown registry, and `Parameter_Update` wiring. Inside `build`, **one method places every reusable component**: `add` constructs the class, wires it to the runtime, the analysis object or the key bindings as the component's own `gui.ComponentSpec` says, registers it for teardown, and returns the handle. It never throws — a component the session cannot support comes back `[]` with a log line, so the GUI still opens against a runtime with no interfaces.

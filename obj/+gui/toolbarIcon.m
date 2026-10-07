@@ -229,7 +229,7 @@ switch name
             "................"
             "................"];
 
-    case "customize" % gear
+    case {"customize", "gear"} % gear
         rows = [ ...
             "................"
             ".......ss......."
@@ -909,6 +909,105 @@ switch name
             ".kkkkkkkkkk....."
             "................"
             "................"];
+
+    % ---- offline behavior analysis (epsych.BehaviorAnalysis) ----------
+
+    case "script" % a page of code: an indented block and a prompt chevron
+        rows = [ ...
+            "................"
+            "..kkkkkkkkk....."
+            "..kwwwwwwwkk...."
+            "..kwwwwwwwkwk..."
+            "..kwbwwwwwkkkk.."
+            "..kwwbwssssswk.."
+            "..kwwwbwwwwwwk.."
+            "..kwwbwsssswwk.."
+            "..kwbwwwwwwwwk.."
+            "..kwwwwssssswk.."
+            "..kwwwwwwwwwwk.."
+            "..kwssssswwwwk.."
+            "..kwwwwwwwwwwk.."
+            "..kkkkkkkkkkkk.."
+            "................"
+            "................"];
+
+    case "figure" % axes with a plotted line
+        rows = [ ...
+            "................"
+            ".k.............."
+            ".k..........bb.."
+            ".k.........b...."
+            ".k........b....."
+            ".k.......b......"
+            ".k...bb.b......."
+            ".k..b..b........"
+            ".k.b............"
+            ".kb............."
+            ".k.............."
+            ".k.............."
+            ".kkkkkkkkkkkkkk."
+            "..k..k..k..k..k."
+            "................"
+            "................"];
+
+    case "hide" % an eye struck through
+        rows = [ ...
+            "................"
+            "..............r."
+            ".............r.."
+            "......kkkk..r..."
+            "....kkwwwwkr...."
+            "...kwwwbbwrwk..."
+            "..kwwwbbbrbwwk.."
+            ".kwwwwbbrbbwwwk."
+            "..kwwwbrbbbwwk.."
+            "...kwwrbbbwwk..."
+            "....krwwwwkk...."
+            "...r..kkkk......"
+            "..r............."
+            ".r.............."
+            "................"
+            "................"];
+
+    case "analysis" % bars against a dashed threshold
+        rows = [ ...
+            "................"
+            "................"
+            "...........gg..."
+            "...........gg..."
+            "r.r.r.r.r.rggr.r"
+            ".......bb..gg..."
+            ".......bb..gg..."
+            "...ss..bb..gg..."
+            "...ss..bb..gg..."
+            "...ss..bb..gg..."
+            "...ss..bb..gg..."
+            "...ss..bb..gg..."
+            ".kkkkkkkkkkkkkk."
+            "................"
+            "................"
+            "................"];
+
+    case "overlay" % three staircase tracks on one axis
+        rows = [ ...
+            "................"
+            "bbbb............"
+            "...b............"
+            "...bbbb........."
+            "gggg..b........."
+            "...g..bbb.b....."
+            "...gggg.b.bb.bb."
+            "rrrr..g.bbb.bb.b"
+            "...r..ggg.g....."
+            "...rrrr.g.gg.gg."
+            "......r.ggg.gg.g"
+            "......rrr.r....."
+            "........r.rr.rr."
+            "........rrr.rr.r"
+            "................"
+            "kkkkkkkkkkkkkkkk"];
+
+    % ---- the component toolbar's fallback (gui.components.ComponentToolbar) ------
 
     case "component" % generic: a window lifted out of another window
         rows = [ ...

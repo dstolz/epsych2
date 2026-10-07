@@ -31,6 +31,8 @@ classdef SessionFiles
     %   NotesText, NumNotes     - the operator's session notes
     %   EPsychVersion, Bytes, Modified
     %   Error                   - why the file could not be read, or ""
+    %   Extra                   - what summarize's Extra callback returned
+    %                             (an empty struct when none was given)
     %
     % Things a reader would otherwise re-derive:
     %   * A file is a session when whos shows a struct named Data (saved) or a
@@ -104,7 +106,8 @@ classdef SessionFiles
                 'EPsychVersion',   "", ...
                 'Bytes',           0, ...
                 'Modified',        NaT, ...
-                'Error',           "");
+                'Error',           "", ...
+                'Extra',           struct());
         end
     end
 

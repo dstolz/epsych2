@@ -29,6 +29,7 @@ Daily workflow:
 - [Phase Selector](gui/PhaseSelector.md) — switching parameter sets between training stages
 - [Adaptive Training GUI](gui/AdaptiveTraining.md) — step rules, bounds, and the value space (linear, proportional, power-law, piecewise) an adaptive track steps in
 - [Parameter Debugger](gui/gui_ParameterDebugger.md) — reading and writing hardware parameters by hand when a paradigm misbehaves
+- [Offline Behavioral Analysis](behavior/BehaviorAnalysis_UserGuide.md) — `epsych.BehaviorAnalysis`: browse a data root's sessions by project and subject, analyse staircase sessions over any trial window, compare across subjects and groups, export tables, and write a script that reproduces the analysis
 
 Stimuli and calibration — these live in the `stimgen` submodule, which maintains
 its own documentation set. Start at its index rather than at a link list here,
@@ -75,6 +76,10 @@ executes, rather than as firmware:
 - [Teensy Trial Designer user guide](teensy/teensy_TrialDesigner_UserGuide.md) — designing, simulating and uploading a paradigm
 - [teensy program model](teensy/teensy_Program_Model.md) — the classes, validation, compiler and simulator
 - [Teensy program wire protocol](hw/hw_Teensy_Program_Protocol.md) — the contract the firmware implements
+
+Offline analysis (`behavior`):
+
+- [behavior package](behavior/behavior_Classes.md) — the headless layer under `epsych.BehaviorAnalysis`: Catalog (what is on disk), Project (what a person decided, one JSON file), Settings, Facet, Session, Study (app state and memo), Aggregate and Stats (across sessions, descriptive), Plot, Export, ScriptWriter
 
 Utilities (`util`):
 

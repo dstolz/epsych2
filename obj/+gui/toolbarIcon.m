@@ -910,7 +910,8 @@ switch name
             "................"
             "................"];
 
-    % ---- offline behavior analysis (epsych.BehaviorAnalysis) ----------
+    % ---- offline behavior analysis (behavior.App, in the separate behavior_analysis
+    % repository: these glyphs are its, though nothing in EPsych draws them) ----
 
     case "script" % a page of code: an indented block and a prompt chevron
         rows = [ ...

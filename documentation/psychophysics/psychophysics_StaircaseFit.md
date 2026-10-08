@@ -19,7 +19,7 @@ Five files implement it, all in `obj/+psychophysics/@Staircase/`:
 
 | Entry point | What it is |
 |---|---|
-| `S.psychometricCounts(...)` | The staircase's scored trials as per-level counts (and the catch-trial false-alarm rate). What every fit takes: `fitPsychometric` fits it, and `[Levels' NumYes' NumTotal']` is exactly the data matrix psignifit takes (`behavior.fit.Psignifit`). |
+| `S.psychometricCounts(...)` | The staircase's scored trials as per-level counts (and the catch-trial false-alarm rate). What every fit takes: `fitPsychometric` fits it, and `[Levels' NumYes' NumTotal']` is exactly the data matrix psignifit takes (`behavior.fit.Psignifit` in the [behavior_analysis](https://github.com/dstolz/behavior_analysis) add-on). |
 | `S.fitPsychometric(...)` | The session-level helper: pulls the staircase's trials, counts them per level, fits, returns. |
 | `psychophysics.Staircase.fitProportions(levels, numYes, numTotal, ...)` | The estimator. Pure — counts in, fit out. No object, no runtime, no figure. |
 | `psychophysics.Staircase.psychometricFunction(x, alpha, beta, ...)` | The function being fitted. |

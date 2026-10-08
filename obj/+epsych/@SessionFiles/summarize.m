@@ -18,7 +18,8 @@ function s = summarize(file, options)
 %              by that callback.
 %   Extra    - @(Data, info) returning a scalar struct, called during the one
 %              load this function already makes, so a caller that needs more
-%              of the file than a summary (behavior.Catalog) does not load it
+%              of the file than a summary (behavior.Catalog, in the separate
+%              behavior_analysis repository) does not load it
 %              a second time. Data is the session's trial records (only the
 %              filled ones, so numel(Data) == s.Trials) and info the
 %              normalized snapshot (epsych.SessionSnapshot.fromInfo). The

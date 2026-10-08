@@ -166,25 +166,47 @@ The subject of the selected node:
 
 - its reversal threshold per session over time, with the fitted threshold beside it;
 - a **learning curve** of any value (d′, abort rate, trials, …), chosen above it;
-- **every staircase** of the subject overlaid;
+- **every staircase** of the subject: overlaid, stacked, or as a heatmap;
 - a table of its sessions. Double-click a row to open it on the Session tab.
 
 It shows the subject's checked sessions. When none of them is checked, it shows all of its visible sessions.
 
-### The staircase overlay
+### The staircases
 
-The controls above the overlay change how it looks, not what is analysed:
+The controls above the staircases change how they look, not what is analysed. The first dropdown picks how they are shown:
 
-- **Color by** picks the facet the staircases are coloured by. It starts at **Session #**, so you can see the threshold move from the first session to the last.
+- **Overlay** draws every staircase on one axes. This is the default.
+- **Stacked** gives each session a band of its own, first session at the top. Every band has the same scale, so you can compare where the staircases sit from band to band:
+  - a scale bar beside the bottom band gives the scale in the parameter's units;
+  - a dotted line in every band marks the median threshold, as a common level to compare against.
+- **Heatmap** gives each session a row, first session at the top, with one cell per trial. A cell's colour is the level the staircase held on that trial, and the colour bar gives its value.
+
+**Missing cells in the heatmap are hatched**: grey diagonal lines on a pale ground, a colour no map uses, named in the key below the plot. A cell is missing before a session's first included trial, after its last, or past the end of a shorter session. A session with no staircase at all is a hatched row whose label ends in "(no staircase)". In the stacked plot, a band with no staircase says "No staircase".
+
+The other controls:
+
+- **Color by** picks the facet the overlay colours the staircases by. For Stacked and Heatmap it reads **Rows** and picks what a band or row is. It starts at **Session #**, one band or row per session, so you can see the threshold move from the first session to the last. Choose **Date**, **Tag 1** or a grouping to give each level a row instead. Sessions that share a level share its band or row.
 - The colour dropdown picks the **colour map**:
   - **Auto** uses a gradient for a facet with an order (Session #, Date, Week, Month, Year) and distinct colours for anything else.
   - **Distinct colours** gives each level its own colour from the palette the other plots use.
   - **Gradient: Parula / Turbo / Cool / Copper / Winter / Gray** spreads the map from the first level to the last. The first level is the dark end of the map.
-- **X** aligns the staircases on the trial number in the session, on the stimulus trial (catch trials and aborts left out), or on the fraction of the session, so every staircase ends at 1.
 
-Right-click the overlay to show or hide each session's reversals and its threshold, and to draw the staircases as steps or as sloped lines. A staircase holds its level until the next trial, so steps are the default.
+  A heatmap's colours are always a gradient over the value. Auto draws it in Parula, and Distinct colours is not offered.
+- **X** lines the staircases up on one of three things:
+  - the trial number in the session;
+  - the stimulus trial, with catch trials and aborts left out;
+  - the fraction of the session, so every staircase ends at 1. A heatmap then has 100 columns, each a hundredth of the session.
 
-Each session's threshold is a circle at the end of its staircase, in the staircase's colour. A gradient with more than eight levels is keyed by a colour bar instead of the legend. A part of the level names that every level shares, such as the year and month of a run of dates, moves into the colour bar's title.
+  On the trial number, a heatmap cell on a catch trial or an abort shows the level held from the trial before, as the overlay's steps do.
+
+Right-click the staircases for more:
+
+- show or hide each session's reversals;
+- show or hide each session's threshold (overlay and stacked);
+- draw the staircases as steps or as sloped lines (overlay and stacked). A staircase holds its level until the next trial, so steps are the default.
+- for a heatmap whose rows hold several sessions, **Combine Sessions in a Row** takes the mean (default) or the median of the sessions that have data at each cell. Reversals are marked only in rows that hold one session.
+
+Each session's threshold is a circle at the end of its staircase, in the staircase's colour. On the overlay, a gradient with more than eight levels is keyed by a colour bar instead of the legend. A part of the level names that every level shares, such as the year and month of a run of dates, moves into the colour bar's title.
 
 The window remembers these choices on this computer.
 
@@ -196,12 +218,32 @@ The checked sessions, one value each, grouped:
 - **Color by** colours the points.
 - **Colors** sets how **Staircase overlay** colours the Color by levels: **Auto**, **Distinct colours**, or a gradient, as on the Subject tab. It is saved with the project and its presets, and the generated script uses it.
 - **X axis** sets the levels along x for **Subject lines**.
-- **Value** is the number compared: reversal threshold, fitted threshold, weighted threshold, d′, A′, the rates, reversals, trials, and more.
+- **Value** is the number compared. Pick it in up to three menus:
+  - **Staircase threshold**, then which estimate:
+    - **Last N reversals**: the session's reversal threshold.
+    - **Min**, **Median**, **Mean** or **Max of blocks**: one threshold for every sliding block of N reversals, then the smallest, middle, average or largest of them. The minimum is the best the subject managed at any point. The maximum shows the worst stretch.
+  - and which correction:
+    - **As analysed** follows **Settings ▸ Staircase ▸ Apply weighted correction**.
+    - **Unweighted** and **Weighted** are fixed, whatever that setting says. Weighted is the asymmetric-step (Hoover 2025) correction. Every session has both, so you can compare them without changing the settings.
+  - **Psychometric fit**, then the fitted parameter: threshold, location (α), slope (β), width, lapse rate (λ), guess rate (γ), overdispersion (η) or deviance. Width and overdispersion come only from a psignifit fit. Choose psignifit under **Settings ▸ Fit**. A psignifit width is in log units for a `logn` or `weibull` fit. The y axis says which unit it uses.
+  - Or a single measure: d′, A′, criterion, hit, false-alarm and abort rates, reversals, trials, reversal SD.
 - **Plot**:
   - **Box**, **Bar (mean)** and **Strip** plot one value per session in each group. Each subject's median is marked as a larger diamond.
   - **Subject lines** draws one line per subject through its median at each level. Use it for paired designs such as Pre and Post.
   - **Staircase overlay** draws every checked session's staircase on one axes.
-- **Bootstrap CI** adds a percentile bootstrap confidence interval on each group's mean.
+- **Mean** shows or hides each group's mean:
+  - in Bar, the mean is the bar;
+  - in Strip, it is the black line;
+  - beside a box, it is a black square;
+  - in Subject lines, it is the heavy line through the means of the subject medians.
+- **Spread** sets the dispersion drawn for each group:
+  - **SEM**, **SD** or **Bootstrap CI**, about the mean;
+  - **IQR** (Q1 to Q3) or **Range** (min to max), about the median;
+  - **None**;
+  - **Auto** (the default) draws what this tab drew before these options existed. That is the SEM, or the CI when Bootstrap CI is ticked. Beside a box it draws nothing unless Bootstrap CI is ticked, because the box already shows the quartiles.
+
+  Mean and Spread are greyed for the overlay. They are saved with the project and its presets. The generated script draws them the same way.
+- **Bootstrap CI** adds a percentile bootstrap confidence interval on each group's mean to the statistics. With Spread on Auto, the plot draws it too.
 
 ### Groups and facets
 
@@ -228,7 +270,9 @@ Beside the plot, per group, the window shows:
 
 - n, mean, SD, SEM;
 - the median and the interquartile range (Q1, Q3);
-- with Bootstrap CI ticked, a confidence interval on the mean, from a fixed seed. A group of fewer than five values has no CI.
+- a confidence interval on the mean when Bootstrap CI is ticked or Spread is Bootstrap CI. It comes from a fixed seed. A group of fewer than five values has no CI.
+
+When no session has the value, the status line says why if the settings explain it. For example, fitting may be off, or width may need psignifit.
 
 The same numbers, in one sentence, go to the status line.
 
@@ -304,7 +348,17 @@ Tick **Fit with psignifit** on the psignifit page (it is the same setting as **F
 
 **A staircase is adaptive.** psignifit sets its priors from the range of levels tested, which a staircase chooses in response to the subject. psignifit's advice for adaptive data is to state **StimulusRange** as the range the psychometric function could span — for example the whole range the staircase was allowed to move over. psignifit will not remind you: its own warning for this never fires.
 
-**Speed.** A fit on the standard grid takes a few seconds per session. Each fit is remembered on this computer (`%LOCALAPPDATA%\EPsych\AnalysisCache\psignifit`), so a session is fitted once for each set of options. To fit many sessions quickly, use **Grid ▸ coarse**.
+**Speed.** A fit on the standard grid takes a few seconds per session. Each fit is remembered on this computer (`%LOCALAPPDATA%\EPsych\AnalysisCache\psignifit`, about 40 kB a fit), so a session is fitted once for each set of options. To fit many sessions quickly, use **Grid ▸ coarse**, or precompute them (below).
+
+### Precomputing fits
+
+Without help, a tab fits each session the first time it shows it, and the window stops for those seconds. Precomputing fits every visible session **in the background**, before you ask for it, so paging through sessions and switching tabs is immediate afterwards:
+
+- **Analysis ▸ Precompute Fits Now** fits every visible session, the checked ones first. The fits run on MATLAB's background workers (`backgroundPool`, MATLAB R2021b or later), up to four at a time, and the window stays usable meanwhile. The status bar counts them: *Precomputing: 12 of 80 session(s) ready, 4 psignifit fit(s) on background workers.*
+- **Analysis ▸ Precompute psignifit Fits Automatically** does the same whenever the results go out of date while psignifit is the fit engine: when a setting changes, when **Rescan** (F5) finds new or changed files, when a root opens, and when a trial-window override is set. It is remembered on this computer. Changing a setting again while it runs starts it over on the new settings; fits still wanted carry on, and the rest are cancelled.
+- **Analysis ▸ Stop Precomputing** cancels what is queued and running. What was fitted is kept; the rest is fitted when a tab asks for it.
+
+A session you open while its fit is on a worker waits for that worker rather than fitting it a second time. Precomputing waits while **RunExpt** is running a session, as scanning does, and carries on when the session stops; fits already on a worker finish. **Recompute All** fits on the same workers, under its progress dialog. Without a background pool (before R2021b) fits are made one at a time on the MATLAB thread: **Precompute Fits Now** then runs under a progress dialog, and the automatic option does nothing.
 
 If psignifit is chosen but not installed on a computer that opens the project, every fit is marked `fit_failed` with the reason, and the reversal thresholds are unaffected.
 
@@ -333,7 +387,7 @@ A **preset** is a named copy of the settings and the Compare view:
 
 The header shows the preset whose settings are in force, or "(custom)". Presets are kept in the project file, so everyone who opens the root has them.
 
-**Analysis ▸ Parameter** chooses the tracked parameter. **(auto)** takes each session's best candidate, and flags `parameter_differs` on a session whose choice differs from most of the others. **Analysis ▸ Recompute All** forgets every result and analyses every visible session again.
+**Analysis ▸ Parameter** chooses the tracked parameter. **(auto)** takes each session's best candidate, and flags `parameter_differs` on a session whose choice differs from most of the others. **Analysis ▸ Recompute All** forgets every result and analyses every visible session again (psignifit fits on background workers; see [Precomputing fits](#precomputing-fits)).
 
 ## Export
 
@@ -359,7 +413,27 @@ Every export also writes `<prefix>columns.csv`, the dictionary of every column: 
 - the comparison on the Compare tab;
 - the psychometric function on the Fit tab.
 
-The format follows the extension: `.png`, `.pdf` or `.svg`.
+The format follows the extension: `.png`, `.pdf` or `.svg`. To save any other plot, open it in a figure of its own first (below), then use that figure's **File ▸ Save As…**.
+
+## Opening a plot in its own figure
+
+Every plot in the window can be opened in a MATLAB figure of its own:
+
+- right-click the plot and choose **Open in New Figure**, or
+- choose **View ▸ Open Plot in New Figure**, which lists the plots on the tab in front.
+
+The plot is drawn again at the new figure's size, titled with what it shows (the subject or session, and the plot). The figure is an ordinary MATLAB figure, so it has the usual toolbar and menus:
+
+- zoom, pan and data tips;
+- **Edit ▸ Copy Figure**;
+- **File ▸ Save As…**;
+- `gca` and `gcf` from the command window, to change it further.
+
+The new figure is a **snapshot**. It keeps what it showed when it opened, so you can select another subject or change a setting and open a second figure beside it to compare. It stays open when you close the analysis window.
+
+On the Session tab, the staircase opens in its own window instead (its right-click **Open in Separate Window**). That window is a second copy of the staircase, with its own right-click menu and reversal distribution.
+
+On the Fit tab, opening the joint posterior refits psignifit's grid again, which takes a few seconds.
 
 ## The generated script
 
@@ -420,7 +494,7 @@ Closing the window with unsaved changes asks **Save**, **Discard** or **Cancel**
 | `%LOCALAPPDATA%\EPsych\AnalysisCache\catalog_*.mat` | the scan cache, one per root | each scan |
 | `%LOCALAPPDATA%\EPsych\AnalysisCache\psignifit\fit_*.mat` | psignifit fits, one small file per distinct fit | each new psignifit fit |
 | the folder you choose | exported tables, `columns.csv`, figures, scripts | when you export or generate |
-| MATLAB preferences, group `epsych2_BehaviorAnalysis` | window position, recent roots, last root, alternate stores, browser shown, Show filter, last tab, export folder and formats, figure format, the Subject tab's overlay choices | when you use the control |
+| MATLAB preferences, group `epsych2_BehaviorAnalysis` | window position, recent roots, last root, alternate stores, browser shown, Show filter, last tab, export folder and formats, figure format, the Subject tab's overlay choices, whether fits are precomputed automatically | when you use the control |
 | MATLAB preference `EPsych/PsignifitPath` | the psignifit folder | when you choose it with Locate Folder… |
 
 Nothing else is written, and nothing under the root but `EPsych_Analysis\`.

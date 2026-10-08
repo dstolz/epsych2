@@ -35,7 +35,8 @@ end
 
 F = P.Facets;
 s.Facets = struct('GroupBy', F.GroupBy, 'ColorBy', F.ColorBy, 'XAxis', F.XAxis, ...
-    'Value', F.Value, 'Kind', F.Kind, 'ColorMap', F.ColorMap, 'Modified', iso(F.Modified));
+    'Value', F.Value, 'Kind', F.Kind, 'ColorMap', F.ColorMap, 'ShowMean', F.ShowMean, ...
+    'Spread', F.Spread, 'Modified', iso(F.Modified));
 
 s.Groupings = cell(1, numel(P.Groupings));
 for k = 1:numel(P.Groupings)

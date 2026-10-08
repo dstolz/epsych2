@@ -25,6 +25,15 @@ classdef Study < handle
     % SESSIONS ARE LOADED ON DEMAND and the last few kept (LRU_SIZE), so paging
     % through a subject's sessions does not reload the one just left.
     %
+    % PSIGNIFIT FITS AHEAD OF TIME. A psignifit fit takes seconds, everything
+    % else about a session milliseconds, so prepare(key) makes a result at
+    % once unless its fit is not cached -- then it returns that fit's job and
+    % keeps nothing. behavior.Precompute runs those jobs on background
+    % workers and calls result(key) as each fit lands; with ParallelFits,
+    % results() does the same for its own keys before its loop. IsComputing
+    % tells a timer-driven Precompute to wait while a result is being made,
+    % so the two never interleave.
+    %
     % EVENTS, so a window can follow rather than poll: CatalogChanged (after a
     % scan), ProjectChanged (after any decision: hide, window override,
     % comment, grouping, facet, preset, save), SettingsChanged, SelectionChanged,
@@ -37,6 +46,11 @@ classdef Study < handle
     %   Settings (dependent)             - Project.Settings
     %   Selection (dependent)            - the checked keys, Project.Selection.Keys
     %   RosterMode                       - "auto" | "none" | the file used
+    %   IsComputing (dependent)          - a result is being made now
+    %
+    % Properties (settable):
+    %   ParallelFits                     - results() fits on background workers
+    %                                      (default false)
     %
     % See also: behavior.Catalog, behavior.Project, behavior.Session,
     %   behavior.Aggregate, behavior.Settings
@@ -52,6 +66,14 @@ classdef Study < handle
     properties (Dependent)
         Settings
         Selection
+        IsComputing    % a result is being computed now (behavior.Precompute waits)
+    end
+
+    properties
+        % results() hands its psignifit fits to background workers (see
+        % behavior.Precompute) instead of fitting one after another. Off by
+        % default, so a script's Study computes exactly as it always has.
+        ParallelFits (1,1) logical = false
     end
 
     properties (Constant)
@@ -62,6 +84,7 @@ classdef Study < handle
         Memo_          % containers.Map: memo key -> result struct
         Loaded_        % containers.Map: lowered session key -> behavior.Session
         LoadOrder_ (1,:) string = strings(1, 0)   % least recently used first
+        Computing_ (1,1) double = 0   % depth of result/results/prepare calls
     end
 
     events
@@ -114,6 +137,10 @@ classdef Study < handle
 
         function keys = get.Selection(obj)
             keys = reshape(string(obj.Project.Selection.Keys), 1, []);
+        end
+
+        function tf = get.IsComputing(obj)
+            tf = obj.Computing_ > 0;
         end
 
         % ------------------------------------------------------------------
@@ -208,9 +235,78 @@ classdef Study < handle
                 R = obj.Memo_(mk);
                 return
             end
+            busy = obj.computing_();
             sess = obj.session(key);
             R = sess.analyze(obj.Settings, Window = win);
             obj.Memo_(mk) = R;
+            delete(busy);
+        end
+
+        function [done, job] = prepare(obj, key)
+            % [done, job] = prepare(obj, key)
+            % Make a session's result now unless it needs a psignifit fit
+            % that is not cached: then return the job that would make it
+            % (behavior.fit.Psignifit.submit), and keep nothing -- result(key)
+            % makes the result once the fit is in the cache. What
+            % behavior.Precompute is built on.
+            %
+            % Returns:
+            %   done - the result is current (it was, or it is now)
+            %   job  - [] when done; else the fit's job plus SessionKey and
+            %          MemoKey (what isCurrentJob compares)
+            arguments
+                obj
+                key (1,1) string
+            end
+            job = [];
+            row = obj.Catalog.session(key);
+            win = obj.Project.windowFor(string(row.Key));
+            mk = obj.memoKey_(row, win);
+            done = obj.Memo_.isKey(mk);
+            if done
+                return
+            end
+            busy = obj.computing_();
+            sess = obj.session(key);
+            [R, job] = sess.analyze(obj.Settings, Window = win, DeferFit = true);
+            delete(busy);
+            if isempty(job)
+                obj.Memo_(mk) = R;
+                done = true;
+            else
+                job.SessionKey = string(row.Key);
+                job.MemoKey = mk;
+            end
+        end
+
+        function tf = isCurrent(obj, key)
+            % tf = isCurrent(obj, key)
+            % Whether the session's result under the current settings and
+            % window is already made (result(key) would cost nothing).
+            arguments
+                obj
+                key (1,1) string
+            end
+            row = obj.Catalog.session(key);
+            tf = obj.Memo_.isKey(obj.memoKey_(row, obj.Project.windowFor(string(row.Key))));
+        end
+
+        function tf = isCurrentJob(obj, job)
+            % tf = isCurrentJob(obj, job)
+            % Whether a job from prepare is still the one its session needs:
+            % false once the settings, its window or its file changed, or
+            % the session left the catalog.
+            arguments
+                obj
+                job (1,1) struct
+            end
+            tf = false;
+            try
+                row = obj.Catalog.session(job.SessionKey);
+            catch
+                return
+            end
+            tf = obj.memoKey_(row, obj.Project.windowFor(string(row.Key))) == job.MemoKey;
         end
 
         function [T, R] = results(obj, keys, options)
@@ -220,6 +316,11 @@ classdef Study < handle
             % study-level QC flag parameter_differs (a session analysed on a
             % different parameter than most of the others). R is the results
             % themselves, one struct per key, in the keys' order.
+            %
+            % With ParallelFits, psignifit fits that are not cached are first
+            % made several at a time on background workers
+            % (behavior.Precompute.run); Progress then counts sessions made,
+            % and stopping it keeps only the results already made.
             arguments
                 obj
                 keys (1,:) string = obj.Selection
@@ -228,11 +329,25 @@ classdef Study < handle
             n = numel(keys);
             R = cell(n, 1);
             computed = false;
+            stopped = false;
             if n > 0
                 obj.busy_(sprintf("Analysing %d session(s)", n));
             end
+            busy = obj.computing_();
             try
+                if obj.ParallelFits && n > 1 && behavior.Precompute.isParallel(obj.Settings)
+                    P = behavior.Precompute(obj);
+                    stopped = ~P.run(keys, Progress = options.Progress);
+                    computed = P.Computed > 0;
+                    delete(P);
+                end
                 for k = 1:n
+                    if stopped
+                        if obj.isCurrent(keys(k))
+                            R{k} = obj.result(keys(k));
+                        end
+                        continue
+                    end
                     if ~isempty(options.Progress) && ~options.Progress(k, n)
                         break
                     end
@@ -242,9 +357,11 @@ classdef Study < handle
                     R{k} = obj.result(keys(k));
                 end
             catch ME
+                delete(busy);
                 obj.busy_("");
                 rethrow(ME);
             end
+            delete(busy);
             obj.busy_("");
             R = R(~cellfun(@isempty, R));
             T = behavior.Aggregate.thresholds(R, obj.sessions(IncludeHidden = true));
@@ -462,7 +579,8 @@ classdef Study < handle
         end
 
         function setFacets(obj, options)
-            % setFacets(obj, GroupBy = "tag:1", ColorBy = "subject", XAxis = "date", Value = "Threshold", Kind = "box", ColorMap = "auto")
+            % setFacets(obj, GroupBy = "tag:1", ColorBy = "subject", XAxis = "date", Value = "Threshold", Kind = "box", ColorMap = "auto", ShowMean = true, Spread = "auto")
+            % The compare view (behavior.Project.setFacets).
             arguments
                 obj
                 options.GroupBy (1,1) string
@@ -471,6 +589,8 @@ classdef Study < handle
                 options.Value (1,1) string
                 options.Kind (1,1) string
                 options.ColorMap (1,1) string
+                options.ShowMean (1,1)
+                options.Spread (1,1) string
             end
             args = namedargs2cell(options);
             obj.Project.setFacets(args{:});
@@ -594,6 +714,19 @@ classdef Study < handle
 
         function busy_(obj, message)
             notify(obj, 'Busy', behavior.StudyEvent(message));
+        end
+
+        function c = computing_(obj)
+            % IsComputing is true until the returned object is deleted (or
+            % goes out of scope, which is what an error does to it).
+            obj.Computing_ = obj.Computing_ + 1;
+            c = onCleanup(@() obj.doneComputing_());
+        end
+
+        function doneComputing_(obj)
+            if isvalid(obj)
+                obj.Computing_ = max(0, obj.Computing_ - 1);
+            end
         end
     end
 end

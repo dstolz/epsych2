@@ -26,6 +26,11 @@ function [code, info] = compare(study, keys, options)
 %                ("overlay" as a box, since the overlay is drawn beside it anyway)
 %   ColorMap   - how the overlay colours ColorBy, a behavior.Plot.COLOR_MAPS
 %                name ("" = Project.Facets.ColorMap)
+%   ShowMean   - whether the comparison draws each group's mean (not given =
+%                Project.Facets.ShowMean)
+%   Spread     - the spread drawn per group, a behavior.Plot.SPREADS name
+%                ("" = Project.Facets.Spread); "auto" follows
+%                cfg.Compare.BootstrapCI in the script as it does in the tab
 %   Title, Figures, Export, OutFolder, EPsychRoot - as behavior.ScriptWriter.session
 %
 % Returns:
@@ -43,6 +48,8 @@ arguments
     options.XAxis (1,1) string = ""
     options.Kind (1,1) string = ""
     options.ColorMap (1,1) string = ""
+    options.ShowMean (1,1) logical
+    options.Spread (1,1) string = ""
     options.Title (1,1) string = ""
     options.Figures (1,1) logical = true
     options.Export (1,1) logical = true

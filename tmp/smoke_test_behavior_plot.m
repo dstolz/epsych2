@@ -245,6 +245,66 @@ try
     results(end+1,:) = check(nm + ": comparison of an empty table draws No data", localIsNoData(ax, H));
     H = behavior.Plot.groupComparison(ax, Tnan, "Threshold", GroupBy = fTag, Kind = "bar");
     results(end+1,:) = check(nm + ": comparison of an all-NaN column draws No data", localIsNoData(ax, H));
+
+    % Mean and spread: what Spread names is what is drawn, about the mean
+    % (sem, sd, ci) or the median (iqr, range); ShowMean takes the mean away.
+    D4 = behavior.Stats.describe(T, "Threshold", GroupBy = fTag);
+    H = behavior.Plot.groupComparison(ax, T, "Threshold", GroupBy = fTag);
+    mn = localTagged(ax, "Mean");
+    results(end+1,:) = check(nm + ": box by default: a mean square beside each box, no spread", ...
+        isscalar(mn) && max(abs(mn.XData(:) - [1.36; 2.36])) < 1e-12 && max(abs(mn.YData(:) - D4.Mean)) < 1e-12 ...
+        && isempty(localTagged(ax, "ErrorBar")) && isempty(localTagged(ax, "CI")) && H.SpreadKind == "none");
+    H = behavior.Plot.groupComparison(ax, T, "Threshold", GroupBy = fTag, ShowMean = false);
+    results(end+1,:) = check(nm + ": box with ShowMean false and no spread: no mean, no Stats needed", ...
+        isempty(localTagged(ax, "Mean")) && isempty(H.Stats) && numel(localTagged(ax, "Box")) == 2);
+    H = behavior.Plot.groupComparison(ax, T, "Threshold", GroupBy = fTag, Kind = "strip", Spread = "sd");
+    eb = localTagged(ax, "ErrorBar");
+    results(end+1,:) = check(nm + ": strip Spread sd: mean +/- SD bars, tagged ErrorBar, named in the legend", ...
+        isscalar(eb) && eb.UserData.Spread == "sd" && max(abs(eb.YData(:) - D4.Mean)) < 1e-12 ...
+        && max(abs(eb.YPositiveDelta(:) - D4.SD)) < 1e-12 && H.Spread == eb ...
+        && any(contains(H.Legend.String, "SD")) && any(strcmp(H.Legend.String, 'Mean')));
+    behavior.Plot.groupComparison(ax, T, "Threshold", GroupBy = fTag, Kind = "bar", Spread = "iqr");
+    eb = localTagged(ax, "ErrorBar");
+    results(end+1,:) = check(nm + ": bar Spread iqr: bars from Q1 to Q3 through the median", ...
+        isscalar(eb) && max(abs(eb.YData(:) - D4.Median)) < 1e-12 ...
+        && max(abs(eb.YData(:) - eb.YNegativeDelta(:) - D4.Q1)) < 1e-12 ...
+        && max(abs(eb.YData(:) + eb.YPositiveDelta(:) - D4.Q3)) < 1e-12 && numel(localTagged(ax, "Bar")) == 2);
+    behavior.Plot.groupComparison(ax, T, "Threshold", GroupBy = fTag, Kind = "bar", Spread = "range", ShowMean = false);
+    eb = localTagged(ax, "ErrorBar");
+    results(end+1,:) = check(nm + ": bar Spread range, ShowMean false: min-to-max bars and no bars", ...
+        isscalar(eb) && max(abs(eb.YData(:) - eb.YNegativeDelta(:) - D4.Min)) < 1e-12 ...
+        && max(abs(eb.YData(:) + eb.YPositiveDelta(:) - D4.Max)) < 1e-12 && isempty(localTagged(ax, "Bar")));
+    H = behavior.Plot.groupComparison(ax, T, "Threshold", GroupBy = fTag, Spread = "ci", NumBoot = 200);
+    ci = localTagged(ax, "CI");
+    results(end+1,:) = check(nm + ": Spread ci draws the bootstrap CI beside a box without ShowCI", ...
+        isscalar(ci) && max(abs(ci.XData(:) - [1.36; 2.36])) < 1e-12 && all(isfinite(H.Stats.CILo)) ...
+        && H.Stats.Properties.UserData.NumBoot == 200 && H.SpreadKind == "ci");
+    behavior.Plot.groupComparison(ax, T, "Threshold", GroupBy = fTag, Kind = "strip", ShowMean = false, Spread = "none");
+    results(end+1,:) = check(nm + ": strip with no mean and no spread is points alone", ...
+        isempty(localTagged(ax, "Mean")) && isempty(localTagged(ax, "ErrorBar")) ...
+        && localCount(localTagged(ax, "Point")) == 12);
+    results(end+1,:) = check(nm + ": resolveSpread: auto is none beside a box, SEM elsewhere, the CI with ShowCI", ...
+        behavior.Plot.resolveSpread("auto", Kind = "box") == "none" ...
+        && behavior.Plot.resolveSpread("auto", Kind = "strip") == "sem" ...
+        && behavior.Plot.resolveSpread("auto", Kind = "lines", ShowCI = true) == "ci" ...
+        && behavior.Plot.resolveSpread("iqr", Kind = "box", ShowCI = true) == "iqr");
+    results(end+1,:) = check(nm + ": an unknown spread is refused", ...
+        throwsWith(@() behavior.Plot.groupComparison(ax, T, "Threshold", Spread = "banana"), 'behavior:Plot:UnknownSpread'));
+
+    % The threshold both ways, and the psignifit parameters, as values.
+    behavior.Plot.groupComparison(ax, T, "WeightedMedianBlockThreshold", GroupBy = fTag);
+    results(end+1,:) = check(nm + ": a weighted block threshold is compared, labelled with its unit", ...
+        localCount(localTagged(ax, "Point")) == sum(isfinite(T.WeightedMedianBlockThreshold)) ...
+        && contains(ax.YLabel.String, "Median block threshold, weighted (dB)"));
+    Tw = T;
+    Tw.FitWidth = 2 + (1:height(Tw))' / 10;
+    Tw.FitShape(:) = "weibull";
+    behavior.Plot.groupComparison(ax, Tw, "FitWidth", GroupBy = fTag);
+    yLog = string(ax.YLabel.String);
+    Tw.FitShape(:) = "norm";
+    behavior.Plot.groupComparison(ax, Tw, "FitWidth", GroupBy = fTag);
+    results(end+1,:) = check(nm + ": a psignifit width is in log units for weibull, the parameter's otherwise", ...
+        contains(yLog, "Fitted width (log units)") && contains(ax.YLabel.String, "Fitted width (dB)"));
 catch ME
     results(end+1,:) = check(nm + ": group 4: " + ME.message, false);
 end
@@ -271,6 +331,22 @@ try
     results(end+1,:) = check(nm + ": subject lines of an all-NaN column draw No data", localIsNoData(ax, H));
     H = behavior.Plot.subjectLines(ax, E, "Threshold");
     results(end+1,:) = check(nm + ": subject lines of an empty table draw No data", localIsNoData(ax, H));
+
+    H = behavior.Plot.subjectLines(ax, T, "Threshold");
+    eb = localTagged(ax, "ErrorBar");
+    results(end+1,:) = check(nm + ": subject lines: the mean line and a SEM of the subject medians by default", ...
+        isscalar(eb) && eb.UserData.Spread == "sem" && H.SpreadKind == "sem" ...
+        && max(abs(eb.YPositiveDelta(:) - H.Stats.SEM)) < 1e-12 ...
+        && any(contains(H.Legend.String, "Mean of subject medians")));
+    H = behavior.Plot.subjectLines(ax, T, "Threshold", Spread = "range");
+    eb = localTagged(ax, "ErrorBar");
+    results(end+1,:) = check(nm + ": subject lines Spread range: min to max of the subject medians", ...
+        isscalar(eb) && max(abs(eb.YData(:) - H.Stats.Median)) < 1e-12 ...
+        && max(abs(eb.YData(:) + eb.YPositiveDelta(:) - H.Stats.Max)) < 1e-12);
+    H = behavior.Plot.subjectLines(ax, T, "Threshold", ShowMean = false, Spread = "none");
+    results(end+1,:) = check(nm + ": subject lines with neither: the subjects alone", ...
+        isempty(localTagged(ax, "Mean")) && isempty(localTagged(ax, "ErrorBar")) ...
+        && numel(H.SubjectLine) == 2 && istable(H.Stats));
 catch ME
     results(end+1,:) = check(nm + ": group 5: " + ME.message, false);
 end
@@ -361,6 +437,165 @@ try
     results(end+1,:) = check(nm + ": overlay of an empty struct draws No data", localIsNoData(ax, H));
 catch ME
     results(end+1,:) = check(nm + ": group 6: " + ME.message, false);
+end
+
+% One subject's six sessions, and the same with its first session's
+% staircase taken away (a session with no tracked parameter).
+Rs1 = Rs([Rs.Subject] == "S1");
+Rgap = Rs1;
+Rgap(1).Track = struct('TrialIndex', zeros(1, 0), 'Value', zeros(1, 0), 'Reversal', false(1, 0));
+Rgap(1).Threshold = NaN;
+noTrack = Rs;
+for k = 1:numel(noTrack)
+    noTrack(k).Track = Rgap(1).Track;
+end
+% A session's row (and band) is its ordinal within the subject.
+T1 = behavior.Aggregate.thresholds(Rs1, cat.Sessions);
+rowOf = @(r) double(T1.SessionOrdinal(T1.Key == r.Key));
+gapRow = rowOf(Rgap(1));
+
+%% 6b. staircaseStack
+try
+    H = behavior.Plot.staircaseStack(ax, Rs1, cat.Sessions);
+    span = diff(H.ValueRange);
+    inBand = true;
+    for h = H.Track
+        c = h.UserData.Level;
+        inBand = inBand && all(h.YData >= H.Offsets(c) - 1e-9 & h.YData <= H.Offsets(c) + span + 1e-9);
+    end
+    results(end+1,:) = check(nm + ": stack: a band per session, first on top, every track inside its own band", ...
+        isequal(H.Levels, string(1:6)') && issorted(flip(H.Offsets)) && H.Offsets(1) > H.Offsets(end) ...
+        && numel(H.Track) == 6 && inBand && numel(localTagged(ax, "Track")) == 6);
+    lens = arrayfun(@(h) numel(h.XData), H.Track);
+    want = arrayfun(@(h) numel(Rs1(arrayfun(@(r) r.Key == h.UserData.Key, Rs1)).Track.Value), H.Track);
+    results(end+1,:) = check(nm + ": stack: each track has its session's stimulus trials, drawn as steps", ...
+        isequal(lens, want) && all(strcmp(get(H.Track, 'Type'), 'stair')));
+    results(end+1,:) = check(nm + ": stack: bands labelled top to bottom, every other one shaded", ...
+        isequal(string(ax.YTickLabel), string(6:-1:1)') && numel(H.Band) == 3 ...
+        && all(arrayfun(@(p) isequal(p.FaceColor, behavior.Plot.BAND_SHADE), H.Band)));
+    ref = median([Rs1(isfinite([Rs1.Threshold])).Threshold]);
+    results(end+1,:) = check(nm + ": stack: the median threshold as a dotted reference in every band, a scale bar in dB", ...
+        isscalar(H.Reference) && numel(H.Reference.YData) == 18 && strcmp(H.Reference.LineStyle, ':') ...
+        && contains(H.Reference.DisplayName, sprintf('%.4g dB', ref)) ...
+        && numel(H.ScaleBar) == 2 && endsWith(string(H.ScaleBar(2).String), " dB") ...
+        && numel(localTagged(ax, "ScaleBar")) == 2 && any(contains(H.Legend.String, "Median threshold")));
+    results(end+1,:) = check(nm + ": stack: no x tick under the scale bar", ...
+        max(ax.XTick) <= max(arrayfun(@(h) max(h.XData), H.Track)) && ax.XLim(2) > max(ax.XTick));
+    results(end+1,:) = check(nm + ": stack: thresholds at the tracks' ends, reversals only when asked", ...
+        numel(H.Threshold) == sum(isfinite([Rs1.Threshold])) && isempty(H.Reversal));
+
+    H = behavior.Plot.staircaseStack(ax, Rgap, cat.Sessions, ShowReversals = true);
+    results(end+1,:) = check(nm + ": stack: a session with no staircase keeps its band, says so, gets no reference", ...
+        numel(H.Track) == 5 && isscalar(H.Missing) && string(H.Missing.String) == "No staircase" ...
+        && abs(H.Missing.Position(2) - (H.Offsets(gapRow) + diff(H.ValueRange) / 2)) < 1e-9 ...
+        && numel(H.Reference.YData) == 15 && ~isempty(H.Reversal));
+
+    H = behavior.Plot.staircaseStack(ax, Rs, cat.Sessions, Rows = fTag, Normalize = "fraction", Steps = false);
+    results(end+1,:) = check(nm + ": stack by tag: two bands in phase order, n per band, every track ends at 1", ...
+        isequal(H.Levels, ["Pre"; "Post"]) && isequal(string(ax.YTickLabel), ["Post (n=6)"; "Pre (n=6)"]) ...
+        && numel(H.Track) == 12 && size(unique(vertcat(H.Track.Color), 'rows'), 1) == 2 ...
+        && all(arrayfun(@(h) h.XData(end) == 1, H.Track)) && all(strcmp(get(H.Track, 'Type'), 'line')));
+    H = behavior.Plot.staircaseStack(ax, Rs1, [], Reference = "none", ShowThresholds = false);
+    H2 = behavior.Plot.staircaseStack(ax, Rs1, [], Reference = 1e6);
+    results(end+1,:) = check(nm + ": stack: no reference when told none, or when it lies outside the tracks", ...
+        isempty(H.Reference) && isempty(H.Threshold) && isempty(H2.Reference));
+    H = behavior.Plot.staircaseStack(ax, Rs1, [], Reference = 30);
+    results(end+1,:) = check(nm + ": stack: a stated reference is drawn at that value in each band", ...
+        isscalar(H.Reference) && abs(H.Reference.YData(1) - (H.Offsets(1) + 30 - H.ValueRange(1))) < 1e-9 ...
+        && startsWith(H.Reference.DisplayName, "Reference 30"));
+    results(end+1,:) = check(nm + ": stack: a Reference that is no value is refused", ...
+        throwsWith(@() behavior.Plot.staircaseStack(ax, Rs1, [], Reference = "banana"), 'behavior:Plot:InvalidReference'));
+    H = behavior.Plot.staircaseStack(ax, {}, cat.Sessions);
+    results(end+1,:) = check(nm + ": stack of no results draws No data", localIsNoData(ax, H));
+    H = behavior.Plot.staircaseStack(ax, noTrack, cat.Sessions);
+    results(end+1,:) = check(nm + ": stack with no staircase anywhere draws No data and says why", ...
+        localIsNoData(ax, H) && contains(strjoin(string(H.NoData.String)), "staircase"));
+catch ME
+    results(end+1,:) = check(nm + ": group 6b: " + ME.message, false);
+end
+
+%% 6c. staircaseHeatmap
+try
+    H = behavior.Plot.staircaseHeatmap(ax, Rs1, cat.Sessions);
+    G = H.Grid;
+    fin = isfinite(G);
+    lastTrial = max(arrayfun(@(r) max(r.Track.TrialIndex), Rs1));
+    results(end+1,:) = check(nm + ": heatmap: a row per session, first on top, a column per trial", ...
+        isequal(H.Levels, string(1:6)') && isequal(H.Count, ones(6, 1)) && isequal(size(G), [6 lastTrial]) ...
+        && strcmp(ax.YDir, 'reverse') && isequal(string(ax.YTickLabel), string(1:6)'));
+    results(end+1,:) = check(nm + ": heatmap: the image is the grid, transparent exactly where there is no data", ...
+        isscalar(H.Heatmap) && isequaln(H.Heatmap.CData, G) && isequal(H.Heatmap.AlphaData, double(fin)) ...
+        && isequal(ax.Color, behavior.Plot.MISSING_COLOR) && isscalar(localTagged(ax, "Heatmap")));
+    held = true;
+    for c = 1:6
+        tr = Rs1(c).Track;
+        cc = rowOf(Rs1(c));
+        held = held && isequal(G(cc, tr.TrialIndex), tr.Value) ...
+            && all(fin(cc, tr.TrialIndex(1):tr.TrialIndex(end))) && ~any(fin(cc, 1:tr.TrialIndex(1) - 1)) ...
+            && ~any(fin(cc, tr.TrialIndex(end) + 1:end));
+        between = setdiff(tr.TrialIndex(1):tr.TrialIndex(end), tr.TrialIndex);
+        for j = between
+            prev = find(tr.TrialIndex < j, 1, 'last');
+            held = held && G(cc, j) == tr.Value(prev);
+        end
+    end
+    results(end+1,:) = check(nm + ": heatmap: a cell holds the level of the last stimulus trial before it, missing outside the track", held);
+    results(end+1,:) = check(nm + ": heatmap: a colour bar names the parameter; parula by default", ...
+        isscalar(H.ColorBar) && contains(string(H.ColorBar.Label.String), "Depth (dB)") && H.ColorMap == "parula" ...
+        && isequal(ax.Colormap, behavior.Plot.sequential("parula", 256)) ...
+        && isequal(ax.CLim, [min(G(fin)) max(G(fin))]));
+
+    H = behavior.Plot.staircaseHeatmap(ax, Rgap, cat.Sessions, Normalize = "trial", ShowReversals = true);
+    G = H.Grid;
+    fin = isfinite(G);
+    seg = localSegments(H.Missing);
+    inside = all(arrayfun(@(k) ~fin(round(seg(k, 2)), round(seg(k, 1))), 1:size(seg, 1)));
+    results(end+1,:) = check(nm + ": heatmap by stimulus trial: a row holds its track from column 1, NaN past its end", ...
+        all(arrayfun(@(k) isequal(G(rowOf(Rgap(k)), 1:numel(Rgap(k).Track.Value)), Rgap(k).Track.Value), 2:6)) ...
+        && all(arrayfun(@(k) sum(fin(rowOf(Rgap(k)), :)) == numel(Rgap(k).Track.Value), 1:6)));
+    results(end+1,:) = check(nm + ": heatmap: missing cells hatched -- every stroke inside a missing cell -- and named in the key", ...
+        isscalar(H.Missing) && ~isempty(seg) && inside && isequal(H.Missing.Color, behavior.Plot.HATCH_COLOR) ...
+        && any(startsWith(string(H.Legend.String), "No data, hatched")) && strcmp(H.Legend.Location, 'southoutside'));
+    results(end+1,:) = check(nm + ": heatmap: a session with no staircase is a hatched row that says so", ...
+        ~any(fin(gapRow, :)) && string(ax.YTickLabel{gapRow}) == gapRow + " (no staircase)");
+    results(end+1,:) = check(nm + ": heatmap: reversals marked in one-session rows", ...
+        isscalar(H.Reversal) && numel(H.Reversal.XData) == sum(arrayfun(@(r) sum(r.Track.Reversal), Rgap)));
+
+    H = behavior.Plot.staircaseHeatmap(ax, Rs1, [], Normalize = "fraction", NumBins = 40, ColorMap = "turbo");
+    results(end+1,:) = check(nm + ": heatmap by fraction: NumBins columns, every cell filled, no hatch or key", ...
+        isequal(size(H.Grid), [6 40]) && all(isfinite(H.Grid(:))) && isempty(H.Missing) && isempty(H.Legend) ...
+        && abs(H.X(1) - 1/80) < 1e-12 && isequal(ax.XLim, [0 1]) && H.ColorMap == "turbo");
+    v = Rs1(1).Track.Value;
+    r1 = rowOf(Rs1(1));
+    results(end+1,:) = check(nm + ": heatmap by fraction: a slice takes the trial its centre falls in", ...
+        isequal(H.Grid(r1, [1 40]), v([1 end])) && H.Grid(r1, 20) == v(ceil(19.5 / 40 * numel(v))));
+
+    Hm = behavior.Plot.staircaseHeatmap(ax, Rs, cat.Sessions, Rows = fTag, Normalize = "trial", ShowReversals = true);
+    Hd = behavior.Plot.staircaseHeatmap(ax, Rs, cat.Sessions, Rows = fTag, Normalize = "trial", Combine = "median");
+    pre = Rs(arrayfun(@(r) any(r.Tags == "Pre"), Rs));
+    n = max(arrayfun(@(r) numel(r.Track.Value), Rs));
+    M = nan(numel(pre), n);
+    for k = 1:numel(pre)
+        M(k, 1:numel(pre(k).Track.Value)) = pre(k).Track.Value;
+    end
+    results(end+1,:) = check(nm + ": heatmap by tag: a row per phase combining its sessions, mean or median", ...
+        isequal(Hm.Levels, ["Pre"; "Post"]) && isequal(Hm.Count, [6; 6]) ...
+        && isequaln(Hm.Grid(1, :), mean(M, 1, 'omitnan')) && isequaln(Hd.Grid(1, :), median(M, 1, 'omitnan')) ...
+        && isequal(string(ax.YTickLabel), ["Pre (n=6)"; "Post (n=6)"]));
+    results(end+1,:) = check(nm + ": heatmap: no reversals in a combined row", isempty(Hm.Reversal));
+
+    H = behavior.Plot.staircaseHeatmap(ax, Rs1, [], ColorMap = "categorical", CLim = [10 50]);
+    results(end+1,:) = check(nm + ": heatmap: Distinct colours draws as Auto; a stated CLim is kept", ...
+        H.ColorMap == "parula" && isequal(ax.CLim, [10 50]));
+    results(end+1,:) = check(nm + ": heatmap: a CLim that is no range is refused", ...
+        throwsWith(@() behavior.Plot.staircaseHeatmap(ax, Rs1, [], CLim = [5 5]), 'behavior:Plot:InvalidCLim'));
+    H = behavior.Plot.staircaseHeatmap(ax, {}, []);
+    results(end+1,:) = check(nm + ": heatmap of no results draws No data", localIsNoData(ax, H));
+    H = behavior.Plot.staircaseHeatmap(ax, noTrack, cat.Sessions);
+    results(end+1,:) = check(nm + ": heatmap with no staircase anywhere draws No data", ...
+        localIsNoData(ax, H) && isempty(findall(ancestor(ax, 'figure'), 'Tag', 'BehaviorPlot:ColorBar')));
+catch ME
+    results(end+1,:) = check(nm + ": group 6c: " + ME.message, false);
 end
 
 %% 7. psychometric
@@ -465,6 +700,16 @@ for k = 1:numel(h)
         c = h(k).MarkerFaceColor;
     end
 end
+end
+
+function mid = localSegments(h)
+% The midpoint [x y] of each stroke of a NaN-separated line, one row each.
+mid = zeros(0, 2);
+if isempty(h), return, end
+x = h.XData;
+y = h.YData;
+k = find(~isnan(x(1:end-1)) & ~isnan(x(2:end)));
+mid = [reshape(x(k) + x(k + 1), [], 1), reshape(y(k) + y(k + 1), [], 1)] / 2;
 end
 
 function tags = localTagSet(ax)

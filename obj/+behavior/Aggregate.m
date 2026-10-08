@@ -31,6 +31,17 @@ classdef Aggregate
     % SUBJECT's sessions by Start across the whole table (one animal learning
     % one task), NaN where Start is unknown; Date is Start at midnight.
     %
+    % THE THRESHOLD BOTH WAYS. Threshold and the Min/Median/Mean/Max
+    % BlockThreshold columns are the analysis's own record, so they follow
+    % Settings.Staircase.ApplyWeightedCorrection. Unweighted<that> and
+    % Weighted<that> are the same five numbers computed each way whatever
+    % the setting (behavior.Session.analyze's Estimates; WeightedThreshold
+    % is the weighted last-N one), for a comparison that wants one or the
+    % other. The fit columns (FitWidth, FitLambda, FitGamma, FitEta,
+    % FitDeviance, FitEngine, FitShape beside FitThreshold/Alpha/Beta) are
+    % the common fit schema's (behavior.fit.Builtin); Width and Eta exist
+    % only for a psignifit fit.
+    %
     % See also: behavior.Session.analyze, behavior.Facet, behavior.Stats,
     %   behavior.Plot, behavior.Export
 
@@ -39,6 +50,9 @@ classdef Aggregate
         SESSION_COLUMNS = ["Project" "ProjectPath" "Subject" "Tags" "TagText" "NumTags" ...
             "Start" "SubjectSex" "SubjectSpecies" "Paradigm" "ProtocolVersion" "BoxID" ...
             "Trials" "QCFile" "NotesText" "NumNotes" "Hidden" "HiddenReason" "Window" "Comment"]
+        % The valueColumns measures that have several forms.
+        STAIRCASE_MEASURE = "Staircase threshold"
+        FIT_MEASURE = "Psychometric fit"
     end
 
     methods (Static)
@@ -80,32 +94,96 @@ classdef Aggregate
             % V = behavior.Aggregate.valueColumns()
             % The columns of thresholds() a plot or a summary can be asked for.
             %
+            % A column is also placed in a two-level menu: its Measure, and
+            % within a measure that has several, its Statistic and (for the
+            % staircase threshold) its Correction. A menu shows the measures,
+            % then the statistics and corrections of the chosen one, and
+            % finds the column at that address (valueAt); the column NAME is
+            % what a project, a preset and a script store.
+            %
+            % The staircase threshold comes three ways: "As analysed" follows
+            % Settings.Staircase.ApplyWeightedCorrection (the Threshold and
+            % *BlockThreshold columns, the analysis's own record), while
+            % "Unweighted" and "Weighted" are fixed whatever the setting
+            % (behavior.Session.analyze computes both). Each is the last-N
+            % reversal threshold, or the min/median/mean/max of the
+            % thresholds of every sliding block of N reversals.
+            %
             % Returns:
-            %   V - table Name, Label, Kind. Kind is "parameter" (in the tracked
-            %       parameter's unit), "rate" (0-1), "index" (d', A', c) or
-            %       "count".
-            V = cell2table({ ...
-                "Threshold",            "Reversal threshold",      "parameter"
-                "FitThreshold",         "Fitted threshold",        "parameter"
-                "WeightedThreshold",    "Weighted threshold",      "parameter"
-                "MedianBlockThreshold", "Median block threshold",  "parameter"
-                "MinBlockThreshold",    "Min block threshold",     "parameter"
-                "MaxBlockThreshold",    "Max block threshold",     "parameter"
-                "ThresholdStd",         "Reversal std",            "parameter"
-                "FitBeta",              "Fitted slope",            "index"
-                "DPrime",               "d'",                      "index"
-                "APrime",               "A'",                      "index"
-                "Criterion",            "Criterion",               "index"
-                "HitRate",              "Hit rate",                "rate"
-                "FARate",               "False-alarm rate",        "rate"
-                "AbortRate",            "Abort rate",              "rate"
-                "ReversalCount",        "Reversals",               "count"
-                "NumIncluded",          "Trials included",         "count"
-                "NumTrials",            "Trials",                  "count"}, ...
-                'VariableNames', {'Name', 'Label', 'Kind'});
-            V.Name = string(V.Name);
-            V.Label = string(V.Label);
-            V.Kind = string(V.Kind);
+            %   V - table Name, Label, Kind, Measure, Statistic, Correction
+            %       (Statistic/Correction "" where the measure has one form).
+            %       Kind is "parameter" (in the tracked parameter's unit),
+            %       "width" (a psignifit width: the parameter's unit, or log
+            %       units for a logn/weibull fit), "rate" (0-1), "index" (d',
+            %       A', c, a slope) or "count".
+            ST = behavior.Aggregate.STAIRCASE_MEASURE;
+            FT = behavior.Aggregate.FIT_MEASURE;
+            rows = { ...
+                "Threshold",                      "Reversal threshold",                 "parameter", ST, "Last N reversals", "As analysed"
+                "MinBlockThreshold",              "Min block threshold",                "parameter", ST, "Min of blocks",    "As analysed"
+                "MedianBlockThreshold",           "Median block threshold",             "parameter", ST, "Median of blocks", "As analysed"
+                "MeanBlockThreshold",             "Mean block threshold",               "parameter", ST, "Mean of blocks",   "As analysed"
+                "MaxBlockThreshold",              "Max block threshold",                "parameter", ST, "Max of blocks",    "As analysed"
+                "UnweightedThreshold",            "Reversal threshold, unweighted",     "parameter", ST, "Last N reversals", "Unweighted"
+                "UnweightedMinBlockThreshold",    "Min block threshold, unweighted",    "parameter", ST, "Min of blocks",    "Unweighted"
+                "UnweightedMedianBlockThreshold", "Median block threshold, unweighted", "parameter", ST, "Median of blocks", "Unweighted"
+                "UnweightedMeanBlockThreshold",   "Mean block threshold, unweighted",   "parameter", ST, "Mean of blocks",   "Unweighted"
+                "UnweightedMaxBlockThreshold",    "Max block threshold, unweighted",    "parameter", ST, "Max of blocks",    "Unweighted"
+                "WeightedThreshold",              "Reversal threshold, weighted",       "parameter", ST, "Last N reversals", "Weighted"
+                "WeightedMinBlockThreshold",      "Min block threshold, weighted",      "parameter", ST, "Min of blocks",    "Weighted"
+                "WeightedMedianBlockThreshold",   "Median block threshold, weighted",   "parameter", ST, "Median of blocks", "Weighted"
+                "WeightedMeanBlockThreshold",     "Mean block threshold, weighted",     "parameter", ST, "Mean of blocks",   "Weighted"
+                "WeightedMaxBlockThreshold",      "Max block threshold, weighted",      "parameter", ST, "Max of blocks",    "Weighted"
+                "ThresholdStd",                   "Reversal std",                       "parameter", "Reversal std", "", ""
+                "FitThreshold",                   "Fitted threshold",                   "parameter", FT, "Threshold", ""
+                "FitAlpha",                       "Fitted location",                    "parameter", FT, "Location (alpha)", ""
+                "FitBeta",                        "Fitted slope",                       "index",     FT, "Slope (beta)", ""
+                "FitWidth",                       "Fitted width",                       "width",     FT, "Width", ""
+                "FitLambda",                      "Fitted lapse rate",                  "rate",      FT, "Lapse rate (lambda)", ""
+                "FitGamma",                       "Fitted guess rate",                  "rate",      FT, "Guess rate (gamma)", ""
+                "FitEta",                         "Fitted overdispersion",              "index",     FT, "Overdispersion (eta)", ""
+                "FitDeviance",                    "Fit deviance",                       "index",     FT, "Deviance", ""
+                "DPrime",                         "d'",                                 "index",     "d'", "", ""
+                "APrime",                         "A'",                                 "index",     "A'", "", ""
+                "Criterion",                      "Criterion",                          "index",     "Criterion", "", ""
+                "HitRate",                        "Hit rate",                           "rate",      "Hit rate", "", ""
+                "FARate",                         "False-alarm rate",                   "rate",      "False-alarm rate", "", ""
+                "AbortRate",                      "Abort rate",                         "rate",      "Abort rate", "", ""
+                "ReversalCount",                  "Reversals",                          "count",     "Reversals", "", ""
+                "NumIncluded",                    "Trials included",                    "count",     "Trials included", "", ""
+                "NumTrials",                      "Trials",                             "count",     "Trials", "", ""};
+            V = cell2table(rows, 'VariableNames', {'Name', 'Label', 'Kind', 'Measure', 'Statistic', 'Correction'});
+            for c = string(V.Properties.VariableNames)
+                V.(c) = string(V.(c));
+            end
+        end
+
+        function name = valueAt(measure, statistic, correction)
+            % name = behavior.Aggregate.valueAt(measure, statistic, correction)
+            % The valueColumns column at a menu address; "" or a form the
+            % measure does not have falls back, in order, to the measure's
+            % first statistic and its first correction, so a menu that
+            % changes one level keeps the others where it can.
+            %
+            % Returns:
+            %   name - the column name; "" when the measure is unknown
+            arguments
+                measure (1,1) string
+                statistic (1,1) string = ""
+                correction (1,1) string = ""
+            end
+            V = behavior.Aggregate.valueColumns();
+            V = V(V.Measure == measure, :);
+            name = "";
+            if height(V) == 0, return, end
+            if ~ismember(statistic, V.Statistic)
+                statistic = V.Statistic(1);
+            end
+            V = V(V.Statistic == statistic, :);
+            if ~ismember(correction, V.Correction)
+                correction = V.Correction(1);
+            end
+            name = V.Name(find(V.Correction == correction, 1));
         end
 
         function S = bySubject(T, value, options)
@@ -243,7 +321,13 @@ classdef Aggregate
 
             fitThreshold = nan(n, 1); fitAlpha = nan(n, 1); fitBeta = nan(n, 1);
             fitConverged = false(n, 1); fitLo = nan(n, 1); fitHi = nan(n, 1);
-            weighted = nan(n, 1);
+            fitWidth = nan(n, 1); fitLambda = nan(n, 1); fitGamma = nan(n, 1);
+            fitEta = nan(n, 1); fitDeviance = nan(n, 1);
+            fitEngine = strings(n, 1); fitShape = strings(n, 1);
+            % The threshold both ways (behavior.Session.analyze's Estimates).
+            est = ["Threshold" "MinBlockThreshold" "MedianBlockThreshold" "MeanBlockThreshold" "MaxBlockThreshold"];
+            unweighted = nan(n, numel(est));
+            weighted = nan(n, numel(est));
             dprime = nan(n, 1); aprime = nan(n, 1); crit = nan(n, 1);
             hit = nan(n, 1); fa = nan(n, 1); abortRate = nan(n, 1); numTrials = nan(n, 1);
             qc = strings(n, 1); numQC = zeros(n, 1); msgs = strings(n, 1);
@@ -253,15 +337,32 @@ classdef Aggregate
                     fitThreshold(k) = behavior.Aggregate.scalar_(F, 'Threshold');
                     fitAlpha(k) = behavior.Aggregate.scalar_(F, 'Alpha');
                     fitBeta(k) = behavior.Aggregate.scalar_(F, 'Beta');
+                    fitWidth(k) = behavior.Aggregate.scalar_(F, 'Width');
+                    fitLambda(k) = behavior.Aggregate.scalar_(F, 'Lambda');
+                    fitGamma(k) = behavior.Aggregate.scalar_(F, 'Gamma');
+                    fitEta(k) = behavior.Aggregate.scalar_(F, 'Eta');
+                    fitDeviance(k) = behavior.Aggregate.scalar_(F, 'Deviance');
+                    fitEngine(k) = behavior.Aggregate.text_(F, 'Engine');
+                    fitShape(k) = behavior.Aggregate.text_(F, 'Shape');
                     fitConverged(k) = isfield(F, 'Converged') && isscalar(F.Converged) && logical(F.Converged);
                     if isfield(F, 'CI') && isstruct(F.CI)
                         fitLo(k) = behavior.Aggregate.scalar_(F.CI, 'ThresholdLo');
                         fitHi(k) = behavior.Aggregate.scalar_(F.CI, 'ThresholdHi');
                     end
                 end
-                W = R(k).Weighted;
-                if isstruct(W) && ~isempty(W) && isfield(W, 'Valid') && W.Valid
-                    weighted(k) = behavior.Aggregate.scalar_(W, 'Threshold');
+                if isfield(R(k), 'Estimates') && isstruct(R(k).Estimates) && isscalar(R(k).Estimates)
+                    E = R(k).Estimates;
+                    for j = 1:numel(est)
+                        unweighted(k, j) = behavior.Aggregate.scalar_(E.Unweighted, est(j));
+                        weighted(k, j) = behavior.Aggregate.scalar_(E.Weighted, est(j));
+                    end
+                else
+                    % A result made before both were computed: the weighted
+                    % threshold only when its correction was on.
+                    W = R(k).Weighted;
+                    if isstruct(W) && ~isempty(W) && isfield(W, 'Valid') && W.Valid
+                        weighted(k, 1) = behavior.Aggregate.scalar_(W, 'Threshold');
+                    end
                 end
                 M = R(k).Metrics;
                 if isstruct(M) && ~isempty(M)
@@ -287,15 +388,34 @@ classdef Aggregate
                 gs('Unit'), gs('Window'), g('NumIncluded'), g('NumStimulus'), g('NumCatch'), ...
                 g('Threshold'), g('ThresholdStd'), g('ReversalCount'), ...
                 g('MinBlockThreshold'), g('MedianBlockThreshold'), g('MeanBlockThreshold'), g('MaxBlockThreshold'), ...
-                weighted, fitThreshold, fitAlpha, fitBeta, fitConverged, fitLo, fitHi, ...
+                weighted(:, 1), fitThreshold, fitAlpha, fitBeta, fitConverged, fitLo, fitHi, ...
+                fitWidth, fitLambda, fitGamma, fitEta, fitDeviance, fitEngine, fitShape, ...
                 dprime, aprime, crit, hit, fa, abortRate, numTrials, ...
                 qc, numQC, msgs, gs('SettingsHash'), g('Elapsed'), ...
                 'VariableNames', {'Parameter','ParameterAuto','Unit','Window','NumIncluded','NumStimulus','NumCatch', ...
                 'Threshold','ThresholdStd','ReversalCount', ...
                 'MinBlockThreshold','MedianBlockThreshold','MeanBlockThreshold','MaxBlockThreshold', ...
                 'WeightedThreshold','FitThreshold','FitAlpha','FitBeta','FitConverged','FitCILo','FitCIHi', ...
+                'FitWidth','FitLambda','FitGamma','FitEta','FitDeviance','FitEngine','FitShape', ...
                 'DPrime','APrime','Criterion','HitRate','FARate','AbortRate','NumTrials', ...
                 'QC','NumQC','Messages','SettingsHash','Elapsed'});
+            for j = 1:numel(est)
+                T.("Unweighted" + est(j)) = unweighted(:, j);
+            end
+            for j = 2:numel(est)            % WeightedThreshold is placed above
+                T.("Weighted" + est(j)) = weighted(:, j);
+            end
+        end
+
+        function t = text_(s, f)
+            % One string from a struct field, "" when absent or not text.
+            t = "";
+            if ~isfield(s, f), return, end
+            v = s.(f);
+            if (isstring(v) || ischar(v)) && ~isempty(v)
+                t = string(v);
+                t = t(1);
+            end
         end
 
         function x = scalar_(s, f)

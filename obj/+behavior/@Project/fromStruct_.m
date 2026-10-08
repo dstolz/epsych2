@@ -105,9 +105,14 @@ warn = [warn; vertcat(strings(0, 1), notes{:})];
 F = localGet(s, "Facets", struct());
 if isstruct(F) && isscalar(F)
     D = P.Facets;
-    for f = ["GroupBy" "ColorBy" "XAxis" "Value" "Kind" "ColorMap"]
+    for f = setdiff(behavior.Project.VIEW_FIELDS, "ShowMean", 'stable')
         t = localText(localGet(F, f, D.(f)));
         if t ~= "", D.(f) = t; end
+    end
+    try
+        D.ShowMean = localLogical(localGet(F, "ShowMean", D.ShowMean));
+    catch ME
+        warn(end+1, 1) = "Facets.ShowMean could not be read: " + ME.message;
     end
     try
         D.Modified = behavior.Project.parseIso_(localText(localGet(F, "Modified", "")));
@@ -300,11 +305,12 @@ function V = localView(v)
 V = struct();
 if ~isstruct(v) || ~isscalar(v) || isempty(fieldnames(v)), return, end
 D = behavior.Project.defaultFacets_();
-for f = ["GroupBy" "ColorBy" "XAxis" "Value" "Kind" "ColorMap"]
+for f = setdiff(behavior.Project.VIEW_FIELDS, "ShowMean", 'stable')
     t = localText(localGet(v, f, ""));
     if t == "", t = D.(f); end
     V.(f) = t;
 end
+V.ShowMean = localLogical(localGet(v, "ShowMean", D.ShowMean));
 end
 
 

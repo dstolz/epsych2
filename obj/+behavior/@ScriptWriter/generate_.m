@@ -14,7 +14,8 @@ function [code, info] = generate_(study, keys, kind, options)
 %   keys  - session keys (one for "session")
 %   kind  - "session" | "compare"
 %   options - Title, Figures, Export, OutFolder, EPsychRoot, and for
-%             "compare" Value, GroupBy, ColorBy, Kind, ColorMap (see compare)
+%             "compare" Value, GroupBy, ColorBy, Kind, ColorMap, ShowMean,
+%             Spread (see compare)
 %
 % Returns:
 %   code - cellstr, one line of source each
@@ -37,6 +38,8 @@ arguments
     options.XAxis (1,1) string = ""
     options.Kind (1,1) string = ""
     options.ColorMap (1,1) string = ""
+    options.ShowMean (1,1) logical
+    options.Spread (1,1) string = ""
 end
 
 settings = study.Settings;
@@ -244,14 +247,19 @@ if g.Kind == "session"
         fitPlot}];
 else
     F = g.Facets;
+    % The mean and spread as the Compare tab draws them; an "auto" spread
+    % reads the CI setting here as it does there.
+    summary = [', ShowMean = ' lit(F.ShowMean) ', Spread = ' lit(F.Spread) ', ...' newline ...
+        '    ShowCI = cfg.Compare.BootstrapCI, ConfidenceLevel = cfg.Compare.ConfidenceLevel, ' ...
+        'NumBoot = cfg.Compare.NumBoot);'];
     if F.Kind == "lines"
         L = [L, localStatement('behavior.Plot.subjectLines(uiaxes(g), T, ', lit(F.Value), ...
-            ', XAxis = xAxis, ColorBy = colorBy);')];
+            [', XAxis = xAxis, ColorBy = colorBy' summary])];
     else
         plotKind = F.Kind;
         if plotKind == "overlay", plotKind = "box"; end
         L = [L, localStatement('behavior.Plot.groupComparison(uiaxes(g), T, ', lit(F.Value), ...
-            [', GroupBy = groupBy, ColorBy = colorBy, Kind = ' lit(plotKind) ');'])];
+            [', GroupBy = groupBy, ColorBy = colorBy, Kind = ' lit(plotKind) summary])];
     end
     L = [L, localStatement('behavior.Plot.staircaseOverlay(uiaxes(g), results, T, ColorBy = colorBy, ColorMap = ', ...
         lit(F.ColorMap), ');')];
@@ -376,6 +384,16 @@ kinds = ["box" "bar" "strip" "lines" "overlay"];
 if ~ismember(F.Kind, kinds)
     error('behavior:ScriptWriter:UnknownKind', '"%s" is not a plot kind (%s).', ...
         F.Kind, strjoin(kinds, ", "));
+end
+if isfield(options, 'ShowMean')
+    F.ShowMean = options.ShowMean;
+else
+    F.ShowMean = logical(P.ShowMean);
+end
+F.Spread = lower(localPick(options.Spread, P.Spread));
+if ~ismember(F.Spread, behavior.Plot.SPREADS)
+    error('behavior:ScriptWriter:UnknownSpread', '"%s" is not a spread (%s).', ...
+        F.Spread, strjoin(behavior.Plot.SPREADS, ", "));
 end
 
 % A facet reading a catalog, roster or project column would find it empty in

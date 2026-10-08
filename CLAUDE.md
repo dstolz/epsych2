@@ -154,7 +154,9 @@ Rules that matter:
   parameter, trial window, exclusions, counts, save state), five tabs that are
   `gui.behavior.View` subclasses (`SessionView` — the session's own
   `psychophysics.Staircase` in a grid cell of its own, numbers, fit, notes;
-  `SubjectView` — learning curves and the staircase overlay; `CompareView` —
+  `SubjectView` — learning curves and the staircases as an overlay, a stack
+  or a heatmap (`Overlay.Display`; the facet reads Rows for the last two);
+  `CompareView` —
   group comparisons with descriptive statistics only; `TableView`; `FitView`
   — the shown session's fit, drawn with psignifit's own plots when psignifit
   fits, fifth so Ctrl+1..4 kept their tabs), dialogs (`SettingsDialog` with
@@ -170,12 +172,33 @@ Rules that matter:
   (`delete(app)` never prompts, so tests can tear down); and F1/F5/Del/Enter/
   Ctrl+Shift+F cannot be `uimenu` accelerators, so the window's key handler
   takes them. Subject, Compare, Table and Fit redraw only while in front and
-  mark themselves stale otherwise. Prefs (group `epsych2_BehaviorAnalysis`, read
+  mark themselves stale otherwise. Every plot has right-click **Open in New
+  Figure** (also View ▸ Open Plot in New Figure, `openPlotInFigure`): a view
+  draws through `View.plotInto_(key, ax, fcn, name)`, which keeps `fcn` and
+  `openInFigure` runs it again into a CLASSIC figure (toolbar, `gca`,
+  `savefig`) — a SNAPSHOT, because `fcn` is built in a local function over
+  the data, never over the view, so the figure keeps what it showed and
+  outlives the window; the menu goes on the axes' children too (a heatmap's
+  image covers the axes) and is re-attached after each draw (psignifit's
+  plots `cla(ax,'reset')`). The Session staircase opens through its own
+  `gui.PopOut` instead, since a `uigridlayout` cannot live in a classic
+  figure. Prefs (group `epsych2_BehaviorAnalysis`, read
   behind `ispref`, written only from controls the user operated):
   FigurePosition, RecentRoots, LastRoot, AlternateStores, BrowserVisible,
   ShowFilter, LastTab, ExportFolder, ExportFormats, FigureFormat,
-  SubjectOverlay (the Subject tab's overlay display) — everything
-  else is in `<root>/EPsych_Analysis/project.json` through the Study. The
+  SubjectOverlay (the Subject tab's overlay display), PrecomputeFits (the
+  Analysis menu's automatic precompute; `setAutoPrecompute` from code does
+  not write it) — everything
+  else is in `<root>/EPsych_Analysis/project.json` through the Study.
+  **Precomputing**: the window owns a `behavior.Precompute` (public
+  read-only `Precompute`) and sets `Study.ParallelFits`; Analysis ▸
+  Precompute Fits Now / Automatically / Stop. Automatic restarts on
+  SettingsChanged, CatalogChanged and ProjectChanged (a restart over results
+  that are still current is one memo check each, and posts no status), only
+  while `Precompute.isParallel` (psignifit engine, psignifit found, a
+  pool); it holds while `gui.SessionBrowser.sessionIsRunning()`. Its status
+  line can be overwritten by the status of the edit that started it, so a
+  test asks `app.Precompute`, not the status bar. The
   Session tab REBUILDS its staircase only when its signature (key | settings
   hash | window) changes, and writes a right-click change of the three
   analysis settings into `Study.setSettings` with the signature pre-set, so
@@ -186,7 +209,9 @@ Rules that matter:
   root with the new store. Standing proofs `tmp/smoke_test_behavior_app.m`
   (Visible=false; 75 checks), `tmp/smoke_test_behavior_sessionview.m` and
   `tmp/smoke_test_behavior_psignifit.m` (the engine, its plots, the settings
-  page and the Fit tab; groups 3–10 skip without psignifit)
+  page and the Fit tab; groups 3–10 skip without psignifit) and
+  `tmp/smoke_test_behavior_precompute.m` (fresh data each run, so its fits
+  are real; it removes the cache files it made)
   (documentation/behavior/BehaviorAnalysis_UserGuide.md,
   documentation/behavior/behavior_Classes.md)
 - **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
@@ -1582,9 +1607,24 @@ guide documentation/behavior/BehaviorAnalysis_UserGuide.md.
   `[Levels NumYes NumTotal]` is psignifit's data matrix. Things a reader would
   otherwise re-derive: `Raw` keeps psignifit's result WITHOUT `Posterior`/
   `weight` (~100 MB each on the standard grid; `posterior(F)` refits for
-  `plot2D`/`plotBayes`); a standard-grid fit takes seconds, so fits are
+  `plot2D`/`plotBayes`) AND with `psiHandle` rebuilt over the fit alone
+  (`psi_`, psignifit's expression term for term) — psignifit's own closes
+  over the whole result, grids included, which `whos` does not count but
+  `save` writes and memory holds: until `CACHE_FORMAT` 2 every cache file
+  was ~100 MB and ~3 s to write, and every memoized result carried ~200 MB;
+  the folder's `format.txt` makes the first write of a session delete files
+  of another format; a standard-grid fit takes seconds, so fits are
   cached on exact input + commit + `CACHE_FORMAT`, in memory and under
   `behavior.Catalog.defaultCacheFolder()/psignifit`, never under a root;
+  a fit is a JOB (`fromCounts(Defer=true)` returns one on a miss) and
+  `fitEntry(job)` touches no state, so `submit` runs it on MATLAB's
+  `backgroundPool` (thread workers: shared path and cache folder,
+  bit-identical fits; `evalc` works there) — an in-flight job is registered
+  on its cache key, so a fit asked for meanwhile WAITS for the worker
+  instead of fitting twice; `collect`/`cancel`/`running`; `workers()` caps
+  at `MAX_WORKERS` = 4 because psignifit's grid is multithreaded already
+  (16 cores: 4.3 s a fit alone, 2.2 s each six at once) and a running fit
+  holds ~200 MB; `override("serial")` fakes no pool;
   psignifit's warnings are captured with `evalc` (stripping MATLAB's `[\b
   … ]\b` markers) into `Fit.Warnings`, never printed; its `probablyAdaptive`
   warnings can never fire (they test `numel(stimulusRange)==1` after filling
@@ -1637,11 +1677,42 @@ guide documentation/behavior/BehaviorAnalysis_UserGuide.md.
   the events every tab redraws on (`CatalogChanged`, `ProjectChanged`,
   `SettingsChanged`, `SelectionChanged`, `ResultsChanged`, `Busy`). Every
   decision goes through it; it never opens a window and never touches a
-  preference. Standing proof `tmp/smoke_test_behavior_study.m` group 4
+  preference. `prepare(key)` makes a result at once unless its psignifit
+  fit is not cached — then it keeps NOTHING (`analyze(DeferFit=true)`'s R is
+  incomplete) and returns the job plus `SessionKey`/`MemoKey`;
+  `isCurrent`/`isCurrentJob` say what is still wanted; `ParallelFits`
+  (default false, the window sets it) makes `results()` fit through
+  `behavior.Precompute.run` first; `IsComputing` (depth counter released by
+  `onCleanup`) is what a timer-driven Precompute waits on so the two never
+  interleave. Standing proof `tmp/smoke_test_behavior_study.m` group 4
+- **behavior.Precompute**: sessions' results made ahead of time — prepared
+  on the MATLAB thread (~50 ms each), psignifit fits on background workers,
+  each result made from the cache as its fit lands. `run(keys, Progress=)`
+  blocks; `start(keys)` runs on a timer (≤ `TickBudget` of the thread per
+  `Period`, at most `workers()` fits in flight) and a second `start` is a
+  RESTART that keeps fits still wanted and cancels stale ones; `stop`
+  cancels. Things a reader would otherwise re-derive: a tick does nothing
+  while `Study.IsComputing`, and while `HoldFcn` holds it does not even
+  collect a finished fit (that reads the session file on the trial loop's
+  thread); a fit that lands for a session whose settings changed sends the
+  session back to the queue; a worker's failure is retried on the MATLAB
+  thread so the recorded reason is a tab's; without a pool fits are made
+  one per tick. Standing proof `tmp/smoke_test_behavior_precompute.m`
 - **behavior.Aggregate** / **behavior.Stats**: `thresholds(results, sessions)`
   is the ONE tidy table across sessions (joined on key so every facet column
   rides along; Tag1..TagN, SessionOrdinal, DaysSinceFirst per subject);
-  `valueColumns()` lists what can be plotted; `Stats.describe` is DESCRIPTIVE
+  `valueColumns()` lists what can be plotted, each at a menu address
+  (Measure/Statistic/Correction, found by `valueAt`) so the Compare tab
+  offers "Staircase threshold ▸ Median of blocks ▸ Weighted" or
+  "Psychometric fit ▸ Width" rather than a flat list. The threshold comes
+  three ways: `Threshold`/`*BlockThreshold` follow
+  `Staircase.ApplyWeightedCorrection` (the analysis's record), while
+  `Unweighted*`/`Weighted*` are fixed whatever it says — `Session.analyze`
+  fills `Estimates` by flipping the flag on the same staircase AFTER the
+  fit, which costs one weighted threshold per sliding block (~0.35 ms each)
+  when the correction is off. The Compare view's `ShowMean`/`Spread`
+  (`behavior.Plot.SPREADS`; "auto" = what the tab drew before they existed)
+  are `Project.Facets` fields. `Stats.describe` is DESCRIPTIVE
   ONLY by decision (n, mean, SD, SEM, median, quartiles, a seeded `bootci`
   interval on the mean with the global stream restored) — no test statistic
   exists in the package, so a p-value cannot appear by accident
@@ -1658,7 +1729,16 @@ guide documentation/behavior/BehaviorAnalysis_UserGuide.md.
   is keyed by a colour bar whose tick labels are kept short (shared prefix
   into the title), because a uiaxes in a grid layout reserves room only for
   a narrow label. Compare's choice is `Project.Facets.ColorMap`; the Subject
-  tab's overlay controls are view state remembered as a window pref Standing proof `tmp/smoke_test_behavior_plot.m`
+  tab's overlay controls are view state remembered as a window pref.
+  `staircaseStack` (a band per `Rows` level, ALL bands on one scale so a
+  position compares across bands, a scale bar and a median-threshold
+  reference line) and `staircaseHeatmap` (a row per level, a cell per trial
+  position holding the staircase's level between stimulus trials; a row of
+  several sessions is their mean/median) share the overlay's `tracks_`.
+  Heatmap cells with no data are HATCHED — an image with `AlphaData =
+  isfinite` over a `MISSING_COLOR` axes, plus one NaN-separated stroke line —
+  because no fill colour is safe against every map (`gray` reaches light
+  grey); a row with no data is labelled "(no staircase)". Standing proof `tmp/smoke_test_behavior_plot.m`
 - **behavior.Export**: tidy snake_case tables built FROM `schema()` (the single
   source of truth for name, type, unit, meaning); CSV writes NaN as an empty
   field and **never writes Inf**; `trials` table is v2
@@ -1903,7 +1983,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 | obj/granary/ | Logging: verbosity gate, record dispatcher, console/file/JSON sinks (git submodule: dstolz/granary) |
 | obj/+psychophysics/ | Analysis (Detection, Staircase, BestPEST, MLP) |
 | obj/+peripherals/ | Motor control, pump communication |
-| obj/+behavior/ | Offline behavioral analysis (headless): Catalog, Project, Settings, Facet, Session, fit.Builtin/fit.Psignifit, Study, Aggregate, Stats, Plot, Export, ScriptWriter |
+| obj/+behavior/ | Offline behavioral analysis (headless): Catalog, Project, Settings, Facet, Session, fit.Builtin/fit.Psignifit, Study, Precompute, Aggregate, Stats, Plot, Export, ScriptWriter |
 | firmware/ | Microcontroller firmware (EPsychTeensy) |
 | runtime/timerfcns/ | Timer callbacks |
 | runtime/savefcns/ | Data saving |

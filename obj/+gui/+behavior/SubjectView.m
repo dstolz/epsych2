@@ -6,17 +6,31 @@ classdef SubjectView < gui.behavior.View
     % the reversal threshold per session against time with the fitted
     % threshold beside it (behavior.Plot.thresholdTimeline), any other value
     % against time (metricTimeline, value chosen above it), every one of
-    % the subject's staircases overlaid (staircaseOverlay), and a table of
-    % the sessions.
+    % the subject's staircases, and a table of the sessions.
     %
-    % The overlay has controls of its own -- Color by (any facet, default
-    % Session #), Colors (behavior.Plot.COLOR_MAPS; Auto is a gradient
-    % across an ordered facet, so the subject's sessions run from first to
-    % last along the map) and X (trial, stimulus trial, or fraction of the
-    % session) -- and a right-click menu for reversals, thresholds and step
-    % drawing. They are display choices, not analysis: kept in Overlay,
-    % changed with setOverlay, and reported through OnOverlayChanged when
-    % the operator changes one, so the window can remember them.
+    % The staircases are shown one of three ways (Show):
+    %   Overlay - every track on one axes (behavior.Plot.staircaseOverlay),
+    %             coloured by a facet
+    %   Stacked - a band per level of the facet, top to bottom on one scale
+    %             (staircaseStack)
+    %   Heatmap - a row per level of the facet, a cell per trial position
+    %             coloured by the level held there, cells with no data
+    %             hatched (staircaseHeatmap)
+    % The facet -- "Color by" for the overlay, "Rows" for the other two --
+    % defaults to Session #, so each band or row is a session. Colors
+    % (behavior.Plot.COLOR_MAPS; Auto is a gradient across an ordered facet,
+    % so the subject's sessions run from first to last along the map) and X
+    % (trial, stimulus trial, or fraction of the session) apply to all
+    % three; a heatmap is always a gradient. A right-click menu holds
+    % reversals, thresholds, step drawing and, for a heatmap, how a row of
+    % several sessions combines them. These are display choices, not
+    % analysis: kept in Overlay, changed with setOverlay, and reported
+    % through OnOverlayChanged when the operator changes one, so the window
+    % can remember them.
+    %
+    % Every plot here has "Open in New Figure" on its right-click menu
+    % (gui.behavior.View.openInFigure): keys "timeline", "metric" and
+    % "staircases".
     %
     % The sessions are the subject's CHECKED ones; when none
     % of its sessions is checked, all of its visible sessions, so selecting
@@ -25,7 +39,8 @@ classdef SubjectView < gui.behavior.View
     %   V = gui.behavior.SubjectView(container, study);
     %   V.setSubject("SUBJ-ID-1234");
     %   V.OnOpenSession = @(key) ...;      % double-click a row
-    %   V.setOverlay(ColorBy = "date", ColorMap = "turbo", Normalize = "fraction");
+    %   V.setOverlay(Display = "heatmap", ColorBy = "date", Normalize = "trial");
+    %   fig = V.openInFigure("staircases");
     %
     % Only redrawn while its tab is in front (setActive); a change while it
     % is behind marks it stale, and it redraws when brought forward.
@@ -43,20 +58,27 @@ classdef SubjectView < gui.behavior.View
         Value (1,1) string = "DPrime"         % metric timeline's value
         Table = table()                       % behavior.Aggregate.thresholds shown
         Active (1,1) logical = true
-        % The overlay's display choices: ColorBy (facet text), ColorMap
-        % (behavior.Plot.COLOR_MAPS), Normalize ("none"|"trial"|"fraction"),
-        % ShowReversals, ShowThresholds, Steps.
-        Overlay (1,1) struct = struct('ColorBy', "session", 'ColorMap', "auto", 'Normalize', "none", ...
-            'ShowReversals', false, 'ShowThresholds', true, 'Steps', true)
+        % The staircases' display choices: Display (DISPLAYS), ColorBy
+        % (facet text), ColorMap (behavior.Plot.COLOR_MAPS), Normalize
+        % ("none"|"trial"|"fraction"), ShowReversals, ShowThresholds, Steps,
+        % Combine ("mean"|"median": a heatmap row of several sessions).
+        Overlay (1,1) struct = struct('Display', "overlay", 'ColorBy', "session", 'ColorMap', "auto", ...
+            'Normalize', "none", 'ShowReversals', false, 'ShowThresholds', true, 'Steps', true, ...
+            'Combine', "mean")
+    end
+
+    properties (Constant)
+        DISPLAYS = ["overlay" "stacked" "heatmap"]
     end
 
     properties (Access = private)
         Stale_ (1,1) logical = false
-        Results_ = []             % the shown sessions' analyze results, for an overlay redraw
+        Results_ = []             % the shown sessions' analyze results, for a staircase redraw
     end
 
     properties (Constant, Access = private)
         MUTED (1,3) double = [0.35 0.38 0.42]
+        DISPLAY_LABELS = ["Overlay" "Stacked" "Heatmap"]
         NORMALIZE = ["none" "trial" "fraction"]
         NORMALIZE_LABELS = ["Trial in session" "Stimulus trial" "Fraction of session"]
     end
@@ -98,19 +120,21 @@ classdef SubjectView < gui.behavior.View
             o.RowSpacing = 2;
             o.Layout.Row = 3;
             o.Layout.Column = 1;
-            oc = uigridlayout(o, [1 6]);
-            oc.ColumnWidth = {'fit', 120, 130, 'fit', 120, '1x'};
+            oc = uigridlayout(o, [1 7]);
+            oc.ColumnWidth = {92, 'fit', 110, 115, 'fit', 115, '1x'};
             oc.Padding = [0 0 0 0];
             oc.ColumnSpacing = 4;
-            uilabel(oc, 'Text', 'Color by');
+            obj.H.ovDisplay = uidropdown(oc, 'Items', cellstr(obj.DISPLAY_LABELS), ...
+                'ItemsData', cellstr(obj.DISPLAYS), 'Value', 'overlay', ...
+                'Tooltip', ['Overlay: every staircase on one axes. Stacked: a band per row. ' ...
+                'Heatmap: a row per session (or per Rows level), cells with no data hatched.'], ...
+                'ValueChangedFcn', @(src, ~) obj.onOverlay_("Display", string(src.Value)));
+            obj.H.ovColorByLabel = uilabel(oc, 'Text', 'Color by');
             obj.H.ovColorBy = uidropdown(oc, 'Items', {'Session #'}, 'ItemsData', {'session'}, ...
-                'Tooltip', 'What the staircases are coloured by', ...
                 'ValueChangedFcn', @(src, ~) obj.onOverlay_("ColorBy", string(src.Value)));
             maps = behavior.Plot.COLOR_MAPS;
             obj.H.ovColorMap = uidropdown(oc, 'Items', cellstr(arrayfun(@behavior.Plot.colorMapLabel, maps)), ...
                 'ItemsData', cellstr(maps), 'Value', 'auto', ...
-                'Tooltip', ['Distinct colours, or a gradient from the first level to the last ' ...
-                '(Auto: a gradient for Session #, Date, Week, Month, Year)'], ...
                 'ValueChangedFcn', @(src, ~) obj.onOverlay_("ColorMap", string(src.Value)));
             uilabel(oc, 'Text', 'X');
             obj.H.ovNormalize = uidropdown(oc, 'Items', cellstr(obj.NORMALIZE_LABELS), ...
@@ -128,6 +152,11 @@ classdef SubjectView < gui.behavior.View
                 'MenuSelectedFcn', @(~, ~) obj.onOverlay_("ShowThresholds", ~obj.Overlay.ShowThresholds));
             obj.H.ovSteps = uimenu(cm, 'Text', 'Draw as Steps', ...
                 'MenuSelectedFcn', @(~, ~) obj.onOverlay_("Steps", ~obj.Overlay.Steps));
+            obj.H.ovCombine = uimenu(cm, 'Text', 'Combine Sessions in a Row');
+            obj.H.ovCombineMean = uimenu(obj.H.ovCombine, 'Text', 'Mean', ...
+                'MenuSelectedFcn', @(~, ~) obj.onOverlay_("Combine", "mean"));
+            obj.H.ovCombineMedian = uimenu(obj.H.ovCombine, 'Text', 'Median', ...
+                'MenuSelectedFcn', @(~, ~) obj.onOverlay_("Combine", "median"));
             obj.H.overlay.ContextMenu = cm;
             obj.syncOverlayControls_();
             obj.H.table = uitable(g, 'ColumnName', {'Date', 'Tags', 'Window', 'Trials', 'Threshold', ...
@@ -175,23 +204,30 @@ classdef SubjectView < gui.behavior.View
         end
 
         function setOverlay(obj, options)
-            % setOverlay(obj, ColorBy=, ColorMap=, Normalize=, ShowReversals=, ShowThresholds=, Steps=)
-            % The overlay's display choices. Only the options given change;
-            % a ColorBy that names no facet, or a ColorMap or Normalize that
-            % is not one of the choices, is refused before anything changes.
+            % setOverlay(obj, Display=, ColorBy=, ColorMap=, Normalize=, ShowReversals=,
+            %     ShowThresholds=, Steps=, Combine=)
+            % The staircases' display choices. Only the options given change;
+            % a ColorBy that names no facet, or a Display, ColorMap,
+            % Normalize or Combine that is not one of the choices, is
+            % refused before anything changes.
             arguments
                 obj
+                options.Display (1,1) string
                 options.ColorBy (1,1) string
                 options.ColorMap (1,1) string
                 options.Normalize (1,1) string
                 options.ShowReversals (1,1) logical
                 options.ShowThresholds (1,1) logical
                 options.Steps (1,1) logical
+                options.Combine (1,1) string
             end
             O = obj.Overlay;
             for f = reshape(string(fieldnames(options)), 1, [])
                 v = options.(f);
                 switch f
+                    case "Display"
+                        v = lower(v);
+                        obj.mustBeChoice_(v, obj.DISPLAYS, "a staircase display");
                     case "ColorBy"
                         fac = behavior.Facet.fromText(v);
                         if fac.Kind == "none" && lower(strtrim(v)) ~= "none"
@@ -202,10 +238,10 @@ classdef SubjectView < gui.behavior.View
                         v = lower(v);
                         behavior.Plot.mustBeColorMap(v);
                     case "Normalize"
-                        if ~ismember(v, obj.NORMALIZE)
-                            error('gui:behavior:SubjectView:InvalidOverlay', ...
-                                '"%s" is not an overlay x axis (%s).', v, strjoin(obj.NORMALIZE, ", "));
-                        end
+                        obj.mustBeChoice_(v, obj.NORMALIZE, "an overlay x axis");
+                    case "Combine"
+                        v = lower(v);
+                        obj.mustBeChoice_(v, ["mean" "median"], "a way to combine a heatmap row");
                 end
                 O.(f) = v;
             end
@@ -260,8 +296,16 @@ classdef SubjectView < gui.behavior.View
             if any(T.NumTags > 0)
                 color = behavior.Facet("tag", Index = 1);
             end
-            obj.draw_(@() behavior.Plot.thresholdTimeline(obj.H.timeline, T, ColorBy = color), obj.H.timeline);
-            obj.draw_(@() behavior.Plot.metricTimeline(obj.H.metric, T, obj.Value, ColorBy = color), obj.H.metric);
+            value = obj.Value;
+            V = behavior.Aggregate.valueColumns();
+            label = V.Label(V.Name == value);
+            if isempty(label), label = value; end
+            obj.plotInto_("timeline", obj.H.timeline, ...
+                @(ax) behavior.Plot.thresholdTimeline(ax, T, ColorBy = color), ...
+                obj.Subject + " · Threshold per session");
+            obj.plotInto_("metric", obj.H.metric, ...
+                @(ax) behavior.Plot.metricTimeline(ax, T, value, ColorBy = color), ...
+                obj.Subject + " · Learning curve: " + label(1));
             obj.Results_ = R;
             obj.syncOverlayControls_();
             obj.drawOverlay_();
@@ -284,8 +328,8 @@ classdef SubjectView < gui.behavior.View
         end
 
         function drawOverlay_(obj)
-            % The overlay alone, from the results already in hand: changing
-            % how it looks never asks the Study for anything.
+            % The staircases alone, from the results already in hand:
+            % changing how they look never asks the Study for anything.
             if isempty(obj.Results_) || obj.Subject == ""
                 return
             end
@@ -296,16 +340,21 @@ classdef SubjectView < gui.behavior.View
             O = obj.Overlay;
             R = obj.Results_;
             T = obj.Table;
-            obj.draw_(@() behavior.Plot.staircaseOverlay(obj.H.overlay, R, T, ...
-                ColorBy = behavior.Facet.fromText(O.ColorBy), ColorMap = O.ColorMap, ...
-                Normalize = O.Normalize, ShowReversals = O.ShowReversals, ...
-                ShowThresholds = O.ShowThresholds, Steps = O.Steps), obj.H.overlay);
-            title(obj.H.overlay, sprintf('Every staircase (n=%d)', height(T)), 'Interpreter', 'none');
+            facet = behavior.Facet.fromText(O.ColorBy);
+            switch O.Display
+                case "overlay", what = "Staircase overlay, coloured by " + facet.label();
+                case "stacked", what = "Staircases stacked by " + facet.label();
+                case "heatmap", what = "Staircase heatmap by " + facet.label();
+            end
+            obj.plotInto_("staircases", obj.H.overlay, @(ax) localDrawStaircases(ax, R, T, O), ...
+                sprintf("%s · %s (%d sessions)", obj.Subject, what, height(T)));
         end
 
         function syncOverlayControls_(obj)
-            % The overlay controls showing Overlay; Color by offers every
-            % facet the root has, plus a remembered one it no longer offers.
+            % The staircase controls showing Overlay; Color by / Rows offers
+            % every facet the root has, plus a remembered one it no longer
+            % offers. A heatmap is always a gradient, so it is not offered
+            % Distinct colours, and draws a remembered one as Auto.
             O = obj.Overlay;
             P = obj.Study.Project;
             F = behavior.Facet.available(obj.Study.sessions(IncludeHidden = true), ...
@@ -316,14 +365,42 @@ classdef SubjectView < gui.behavior.View
                 labels(end+1) = behavior.Facet.fromText(O.ColorBy).label() + " (missing)";
                 texts(end+1) = O.ColorBy;
             end
+            isHeat = O.Display == "heatmap";
+            isOverlay = O.Display == "overlay";
+            obj.H.ovDisplay.Value = char(O.Display);
             obj.H.ovColorBy.Items = cellstr(labels);
             obj.H.ovColorBy.ItemsData = cellstr(texts);
             obj.H.ovColorBy.Value = char(O.ColorBy);
-            obj.H.ovColorMap.Value = char(O.ColorMap);
+            if isOverlay
+                obj.H.ovColorByLabel.Text = 'Color by';
+                obj.H.ovColorBy.Tooltip = 'What the staircases are coloured by';
+            else
+                obj.H.ovColorByLabel.Text = 'Rows';
+                obj.H.ovColorBy.Tooltip = ['A row per level -- Session #: one per session; ' ...
+                    'sessions sharing a level share its row'];
+            end
+            maps = behavior.Plot.COLOR_MAPS;
+            map = O.ColorMap;
+            if isHeat
+                maps = maps(maps ~= "categorical");
+                if map == "categorical", map = "auto"; end
+                obj.H.ovColorMap.Tooltip = 'The colour map of the tracked value (Auto: Parula)';
+            else
+                obj.H.ovColorMap.Tooltip = ['Distinct colours, or a gradient from the first level to the last ' ...
+                    '(Auto: a gradient for Session #, Date, Week, Month, Year)'];
+            end
+            obj.H.ovColorMap.Items = cellstr(arrayfun(@behavior.Plot.colorMapLabel, maps));
+            obj.H.ovColorMap.ItemsData = cellstr(maps);
+            obj.H.ovColorMap.Value = char(map);
             obj.H.ovNormalize.Value = char(O.Normalize);
             obj.H.ovShowReversals.Checked = matlab.lang.OnOffSwitchState(O.ShowReversals);
             obj.H.ovShowThresholds.Checked = matlab.lang.OnOffSwitchState(O.ShowThresholds);
             obj.H.ovSteps.Checked = matlab.lang.OnOffSwitchState(O.Steps);
+            obj.H.ovShowThresholds.Enable = matlab.lang.OnOffSwitchState(~isHeat);
+            obj.H.ovSteps.Enable = matlab.lang.OnOffSwitchState(~isHeat);
+            obj.H.ovCombine.Enable = matlab.lang.OnOffSwitchState(isHeat);
+            obj.H.ovCombineMean.Checked = matlab.lang.OnOffSwitchState(O.Combine == "mean");
+            obj.H.ovCombineMedian.Checked = matlab.lang.OnOffSwitchState(O.Combine == "median");
         end
 
         function onOverlay_(obj, field, value)
@@ -342,17 +419,6 @@ classdef SubjectView < gui.behavior.View
                 catch ME
                     vprintf(2, ME);
                 end
-            end
-        end
-
-        function draw_(obj, fcn, ax)
-            try
-                fcn();
-            catch ME
-                vprintf(0, 1, ME);
-                cla(ax);
-                text(ax, 0.5, 0.5, string(ME.message), 'Units', 'normalized', ...
-                    'HorizontalAlignment', 'center', 'Color', obj.MUTED, 'Interpreter', 'none');
             end
         end
 
@@ -389,6 +455,9 @@ classdef SubjectView < gui.behavior.View
                 legend(ax, 'off');
                 colorbar(ax, 'off');
             end
+            for key = ["timeline" "metric" "staircases"]
+                obj.forgetPlot_(key);
+            end
             obj.Results_ = [];
             obj.H.table.Data = table();
             obj.Keys = strings(1, 0);
@@ -396,4 +465,38 @@ classdef SubjectView < gui.behavior.View
             obj.H.title.Text = 'Select a subject or one of its sessions in the browser';
         end
     end
+
+    methods (Static, Access = private)
+        function mustBeChoice_(v, choices, what)
+            if ~ismember(v, choices)
+                error('gui:behavior:SubjectView:InvalidOverlay', ...
+                    '"%s" is not %s (%s).', v, what, strjoin(choices, ", "));
+            end
+        end
+    end
+end
+
+
+% ---------------------------------------------------------------------------
+function H = localDrawStaircases(ax, R, T, O)
+% The subject's staircases as Overlay asks, titled. A local function so the
+% handle the view keeps for Open in New Figure holds the data, not the view.
+facet = behavior.Facet.fromText(O.ColorBy);
+switch O.Display
+    case "overlay"
+        H = behavior.Plot.staircaseOverlay(ax, R, T, ColorBy = facet, ColorMap = O.ColorMap, ...
+            Normalize = O.Normalize, ShowReversals = O.ShowReversals, ...
+            ShowThresholds = O.ShowThresholds, Steps = O.Steps);
+        txt = sprintf('Every staircase (n=%d)', height(T));
+    case "stacked"
+        H = behavior.Plot.staircaseStack(ax, R, T, Rows = facet, ColorMap = O.ColorMap, ...
+            Normalize = O.Normalize, ShowReversals = O.ShowReversals, ...
+            ShowThresholds = O.ShowThresholds, Steps = O.Steps);
+        txt = sprintf('Staircases by %s (n=%d)', facet.label(), height(T));
+    case "heatmap"
+        H = behavior.Plot.staircaseHeatmap(ax, R, T, Rows = facet, ColorMap = O.ColorMap, ...
+            Normalize = O.Normalize, Combine = O.Combine, ShowReversals = O.ShowReversals);
+        txt = sprintf('Staircases by %s (n=%d)', facet.label(), height(T));
+end
+title(ax, txt, 'Interpreter', 'none');
 end

@@ -62,11 +62,13 @@ classdef Project < handle
     %   Saved, Writer     - When, and by whom ("user@host"), it was last saved
     %   Settings          - behavior.Settings; SettingsModified its time
     %   Presets           - struct array: Name, Settings (Settings STRUCT),
-    %                       View (GroupBy/ColorBy/XAxis/Value/Kind/
-    %                       ColorMap, or no fields), Modified
+    %                       View (the VIEW_FIELDS, or no fields), Modified
     %   Facets            - struct: GroupBy, ColorBy, XAxis (facet text),
     %                       Value, Kind, ColorMap (behavior.Plot.COLOR_MAPS;
-    %                       "auto" in a file written before it), Modified
+    %                       "auto" in a file written before it), ShowMean
+    %                       (logical; true before it), Spread
+    %                       (behavior.Plot.SPREADS; "auto" before it, which
+    %                       draws what the tab drew then), Modified
     %   Groupings         - struct array: Name, Levels (1,:) string, Subjects
     %                       (Subject/Level), Sessions (Key/Level), Modified
     %   Sessions          - table: Key, Hidden, HiddenReason, Window, Comment,
@@ -88,6 +90,8 @@ classdef Project < handle
         HistoryFolder (1,1) string = ".history"
         HistoryKeep (1,1) double = 3
         ViewKinds (1,:) string = ["box" "bar" "strip" "lines" "overlay"]
+        % The fields of a compare view (Facets, a preset's View).
+        VIEW_FIELDS (1,:) string = ["GroupBy" "ColorBy" "XAxis" "Value" "Kind" "ColorMap" "ShowMean" "Spread"]
         TimeFormat (1,1) string = "yyyy-MM-dd'T'HH:mm:ss.SSS"
     end
 
@@ -241,8 +245,8 @@ classdef Project < handle
             % savePreset(P, name, View = struct())
             % Keep the current Settings under a name (replacing a preset of
             % that name). View, when it has fields, is the compare view the
-            % preset also restores: any of GroupBy, ColorBy, XAxis, Value,
-            % Kind, ColorMap, the rest taken from the current Facets.
+            % preset also restores: any of VIEW_FIELDS, the rest taken from
+            % the current Facets.
             arguments
                 P
                 name (1,1) string
@@ -422,14 +426,16 @@ classdef Project < handle
 
         % -------------------------------------------------------- view, check
         function setFacets(P, options)
-            % setFacets(P, GroupBy=, ColorBy=, XAxis=, Value=, Kind=, ColorMap=)
+            % setFacets(P, GroupBy=, ColorBy=, XAxis=, Value=, Kind=, ColorMap=, ShowMean=, Spread=)
             % The compare view. GroupBy, ColorBy and XAxis are facet text
             % (behavior.Facet.toText: "tag:1", "manual:Treatment", "month"),
             % refused when behavior.Facet.fromText cannot read it; Value names
             % a result column; Kind is one of ViewKinds; ColorMap one of
-            % behavior.Plot.COLOR_MAPS (how the overlay colours ColorBy).
-            % Only the options given change (no defaults, so "not stated"
-            % stays distinct).
+            % behavior.Plot.COLOR_MAPS (how the overlay colours ColorBy);
+            % ShowMean whether the comparison draws each group's mean (a
+            % logical, or text "true"/"false"/"on"/"off"); Spread one of
+            % behavior.Plot.SPREADS. Only the options given change (no
+            % defaults, so "not stated" stays distinct).
             arguments
                 P
                 options.GroupBy (1,1) string
@@ -438,6 +444,8 @@ classdef Project < handle
                 options.Value (1,1) string
                 options.Kind (1,1) string
                 options.ColorMap (1,1) string
+                options.ShowMean (1,1)
+                options.Spread (1,1) string
             end
             F = P.Facets;
             for f = reshape(string(fieldnames(options)), 1, [])
@@ -642,7 +650,8 @@ classdef Project < handle
 
         function F = defaultFacets_()
             F = struct('GroupBy', "none", 'ColorBy', "subject", 'XAxis', "date", ...
-                'Value', "Threshold", 'Kind', "box", 'ColorMap', "auto", 'Modified', NaT);
+                'Value', "Threshold", 'Kind', "box", 'ColorMap', "auto", ...
+                'ShowMean', true, 'Spread', "auto", 'Modified', NaT);
         end
 
         function tf = isDefaultRow_(row)
@@ -673,6 +682,10 @@ classdef Project < handle
 
         function v = checkViewField_(field, v)
             % One field of a view, validated and in canonical form.
+            if field == "ShowMean"
+                v = behavior.Project.viewLogical_(v);
+                return
+            end
             v = strtrim(string(v));
             switch field
                 case {"GroupBy", "ColorBy", "XAxis"}
@@ -697,6 +710,29 @@ classdef Project < handle
                         error('behavior:Project:InvalidView', '"%s" is not a colour map (%s).', ...
                             v, strjoin(behavior.Plot.COLOR_MAPS, ", "));
                     end
+                case "Spread"
+                    v = lower(v);
+                    if ~ismember(v, behavior.Plot.SPREADS)
+                        error('behavior:Project:InvalidView', '"%s" is not a spread (%s).', ...
+                            v, strjoin(behavior.Plot.SPREADS, ", "));
+                    end
+            end
+        end
+
+        function tf = viewLogical_(v)
+            % A view's on/off field from a logical, a number, or the text a
+            % menu or a script may give ("true", "off", "1").
+            if (islogical(v) || isnumeric(v)) && isscalar(v) && ~isnan(v)
+                tf = logical(v);
+                return
+            end
+            t = lower(strtrim(string(v)));
+            if isscalar(t) && ismember(t, ["true" "on" "1" "yes"])
+                tf = true;
+            elseif isscalar(t) && ismember(t, ["false" "off" "0" "no"])
+                tf = false;
+            else
+                error('behavior:Project:InvalidView', 'ShowMean must be true or false.');
             end
         end
 
@@ -803,8 +839,7 @@ classdef Project < handle
                 return
             end
             given = string(fieldnames(V));
-            names = ["GroupBy" "ColorBy" "XAxis" "Value" "Kind" "ColorMap"];
-            bad = setdiff(given, names);
+            bad = setdiff(given, behavior.Project.VIEW_FIELDS);
             if ~isempty(bad)
                 error('behavior:Project:InvalidView', 'A view has no field "%s".', bad(1));
             end

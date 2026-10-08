@@ -51,7 +51,10 @@ classdef (Abstract) Psignifit
     % border warning, meaning the data cannot rule out a threshold beyond it
     % -- is NOT identifiable, so Threshold is NaN and QC says fit_failed.
     % Raw keeps psignifit's result WITHOUT Posterior and weight (two 5-D
-    % grids, ~100 MB each on the standard grid): everything plotPsych and
+    % grids, ~100 MB each on the standard grid), and with psiHandle rebuilt
+    % over the fitted parameters alone -- psignifit's own closes over the
+    % whole result, grids included, which would put them back into every
+    % cache file and every memoized result. Everything plotPsych and
     % plotMarginal read is there; posterior(F) refits for the 2-D and Bayes
     % plots that need the whole grid.
     %
@@ -59,6 +62,17 @@ classdef (Abstract) Psignifit
     % the exact data, options and psignifit commit -- in memory, and as small
     % files under behavior.Catalog.defaultCacheFolder()/psignifit, never under
     % a data root. A hit is checked against the whole input, not the hash.
+    %
+    % OFF THE MATLAB THREAD. A fit is a JOB -- its exact input and cache key
+    % (fromCounts with Defer = true hands one back instead of fitting) -- and
+    % fitEntry(job), the only thing that runs psignifit, touches no state, so
+    % submit(job) can run it on MATLAB's backgroundPool (thread workers in
+    % this process: they share the path and the cache folder, and their fits
+    % are bit-identical to the client's). An in-flight job is registered on
+    % its cache key, so a fit asked for while a worker is making it WAITS for
+    % that worker instead of making it twice, and collect(job) stores what a
+    % worker made into both caches. behavior.Precompute is what submits jobs;
+    % behavior.Study.results fans its misses out the same way.
     %
     % Documentation: documentation/behavior/behavior_Classes.md
     % See also: behavior.fit.Builtin, behavior.fit.PsignifitPlot,
@@ -75,8 +89,16 @@ classdef (Abstract) Psignifit
         MAX_MEMORY_ENTRIES (1,1) double = 500
         MAX_CACHE_FILES (1,1) double = 5000
         % Part of every cache key: raise it when what a cache entry holds
-        % changes, so an older entry is never read as a newer one.
-        CACHE_FORMAT (1,1) double = 1
+        % changes, so an older entry is never read as a newer one. The disk
+        % cache's format.txt records it, and files of another format are
+        % deleted at the first write (2: psiHandle no longer carries the
+        % posterior grid, which made each format-1 file ~100 MB).
+        CACHE_FORMAT (1,1) double = 2
+        % Fits run at once on the background pool. psignifit's grid is
+        % multithreaded already, so throughput stops growing near four (on a
+        % 16-core machine: 4.3 s a fit alone, 2.6 s three at a time, 2.2 s
+        % six at a time), and each running fit holds a ~200 MB grid.
+        MAX_WORKERS (1,1) double = 4
     end
 
     methods (Static)
@@ -213,9 +235,10 @@ classdef (Abstract) Psignifit
             v = strtrim(v);
         end
 
-        function F = fromCounts(levels, numYes, numTotal, o, info, options)
+        function [F, job] = fromCounts(levels, numYes, numTotal, o, info, options)
             % F = behavior.fit.Psignifit.fromCounts(levels, numYes, numTotal, o, info)
             % F = behavior.fit.Psignifit.fromCounts(..., UseCache = false)
+            % [F, job] = behavior.fit.Psignifit.fromCounts(..., Defer = true)
             % Fit psignifit to per-level counts and return the common fit
             % schema. Never throws for data psignifit refuses: the reason goes
             % in Message. Throws behavior:fit:Psignifit:NotAvailable when
@@ -226,6 +249,15 @@ classdef (Abstract) Psignifit
             %                              matrix, column by column)
             %   o, info  - [o, info] = settings.psignifitOptions(...)
             %   UseCache - reuse a fit of the identical input (default true)
+            %   Defer    - do not fit: when the fit is not cached, return the
+            %              job that would make it (for submit) and an F that
+            %              says so. A cached fit is returned as usual, and
+            %              data psignifit would refuse give no job.
+            %
+            % Returns:
+            %   F   - common fit struct (behavior.fit.Builtin)
+            %   job - [] unless Defer left the fit to be made: struct Key,
+            %         Text, Data, Options, Version
             arguments
                 levels double
                 numYes double
@@ -233,7 +265,9 @@ classdef (Abstract) Psignifit
                 o (1,1) struct
                 info (1,1) struct
                 options.UseCache (1,1) logical = true
+                options.Defer (1,1) logical = false
             end
+            job = [];
             if ~behavior.fit.Psignifit.available()
                 error('behavior:fit:Psignifit:NotAvailable', '%s', behavior.fit.Psignifit.whyUnavailable());
             end
@@ -256,6 +290,15 @@ classdef (Abstract) Psignifit
                 F.Message = "The " + erase(string(o.sigmoidName), "neg_") + ...
                     " sigmoid is fitted on a log axis and needs positive stimulus levels; choose another sigmoid.";
                 return
+            end
+
+            if options.Defer && options.UseCache
+                J = behavior.fit.Psignifit.job_(data, o);
+                if isempty(behavior.fit.Psignifit.lookup_(J))
+                    job = J;
+                    F.Message = "Not fitted yet: the psignifit fit is queued.";
+                    return
+                end
             end
 
             try
@@ -296,6 +339,171 @@ classdef (Abstract) Psignifit
             lastFull = full;
         end
 
+        function entry = fitEntry(job)
+            % entry = behavior.fit.Psignifit.fitEntry(job)
+            % Run psignifit on a job (fromCounts' Defer output) and return
+            % the cache entry: struct Text, Result (psignifit's result
+            % without Posterior and weight), Warnings. Touches no cache, no
+            % preference and no log, so it can run on a background worker;
+            % submit runs it there, and fromCounts runs it here.
+            arguments
+                job (1,1) struct
+            end
+            [full, warnings] = behavior.fit.Psignifit.call_(job.Data, job.Options);
+            res = rmfield(full, intersect(fieldnames(full), {'Posterior', 'weight'}));
+            % psignifit's psiHandle closes over its WHOLE result, Posterior
+            % and weight included: kept as it is, it carries ~200 MB into
+            % every cache entry and every result holding the fit, and save
+            % writes it out (~100 MB and ~3 s a file). The same function,
+            % closing over the fit alone:
+            res.psiHandle = behavior.fit.Psignifit.psi_(res.Fit, res.options.sigmoidHandle);
+            res.Input = struct('data', job.Data, 'options', job.Options);
+            res.Version = job.Version;
+            entry = struct('Text', job.Text, 'Result', res, 'Warnings', warnings);
+        end
+
+        function [fut, state] = submit(job)
+            % [fut, state] = behavior.fit.Psignifit.submit(job)
+            % Start fitting a job on the background pool, unless it needs no
+            % fit. Returns the future and what happened:
+            %   "cached"      - the fit is already in a cache; fut is []
+            %   "running"     - a worker is already making it; fut is its future
+            %   "submitted"   - a worker has been given it
+            %   "unavailable" - there is no background pool (pool() is []);
+            %                   fut is [], and fromCounts will fit it here
+            arguments
+                job (1,1) struct
+            end
+            fut = [];
+            if ~isempty(behavior.fit.Psignifit.lookup_(job))
+                state = "cached";
+                return
+            end
+            rec = behavior.fit.Psignifit.inflight_('get', job.Key);
+            if ~isempty(rec) && rec.Job.Text == job.Text && isempty(rec.Future.Error) ...
+                    && rec.Future.State ~= "unavailable"
+                fut = rec.Future;
+                state = "running";
+                return
+            end
+            p = behavior.fit.Psignifit.pool();
+            if isempty(p)
+                state = "unavailable";
+                return
+            end
+            fut = parfeval(p, @behavior.fit.Psignifit.fitEntry, 1, job);
+            behavior.fit.Psignifit.inflight_('put', job.Key, struct('Job', job, 'Future', fut));
+            state = "submitted";
+        end
+
+        function [state, message] = collect(job)
+            % [state, message] = behavior.fit.Psignifit.collect(job)
+            % Never waits. When the worker fitting a job has finished, store
+            % its fit in both caches. Returns:
+            %   "running" - still being fitted
+            %   "fitted"  - in the cache now (or already was)
+            %   "failed"  - the worker failed or the job is gone; message says
+            %               why, and fromCounts will fit it here when asked
+            arguments
+                job (1,1) struct
+            end
+            message = "";
+            rec = behavior.fit.Psignifit.inflight_('get', job.Key);
+            if isempty(rec) || rec.Job.Text ~= job.Text
+                if isempty(behavior.fit.Psignifit.lookup_(job))
+                    state = "failed";
+                    message = "The background fit was cancelled.";
+                else
+                    state = "fitted";
+                end
+                return
+            end
+            if rec.Future.State ~= "finished"
+                state = "running";
+                return
+            end
+            if ~isempty(rec.Future.Error)
+                message = string(rec.Future.Error.message);
+            end
+            if isempty(behavior.fit.Psignifit.finish_(rec))
+                state = "failed";
+            else
+                state = "fitted";
+            end
+        end
+
+        function n = cancel(jobs)
+            % n = behavior.fit.Psignifit.cancel(jobs)
+            % n = behavior.fit.Psignifit.cancel()        every background fit
+            % Stop background fits and forget them; returns how many were
+            % still running. Whoever then asks for one fits it here.
+            arguments
+                jobs struct = struct('Key', {})
+            end
+            if nargin == 0
+                recs = behavior.fit.Psignifit.inflight_('all');
+            else
+                found = cell(1, numel(jobs));
+                for k = 1:numel(jobs)
+                    found{k} = behavior.fit.Psignifit.inflight_('get', jobs(k).Key);
+                end
+                recs = [struct('Job', {}, 'Future', {}) found{:}];
+            end
+            n = 0;
+            for k = 1:numel(recs)
+                try
+                    if recs(k).Future.State ~= "finished"
+                        n = n + 1;
+                    end
+                    cancel(recs(k).Future);
+                catch ME
+                    vprintf(2, 'behavior.fit.Psignifit: cancel: %s', ME.message);
+                end
+                behavior.fit.Psignifit.inflight_('remove', recs(k).Job.Key);
+            end
+        end
+
+        function n = running()
+            % n = behavior.fit.Psignifit.running()
+            % How many fits are on the background pool now.
+            recs = behavior.fit.Psignifit.inflight_('all');
+            n = 0;
+            for k = 1:numel(recs)
+                n = n + (recs(k).Future.State ~= "finished");
+            end
+        end
+
+        function p = pool()
+            % p = behavior.fit.Psignifit.pool()
+            % MATLAB's backgroundPool, where submit runs fits; [] when this
+            % MATLAB has none (before R2021b) or override("serial") is set.
+            persistent told
+            p = [];
+            if behavior.fit.Psignifit.override_() == "serial"
+                return
+            end
+            try
+                p = backgroundPool;
+            catch ME
+                if isempty(told)
+                    told = true;
+                    vprintf(1, 'behavior.fit.Psignifit: no background pool, so fits run on the MATLAB thread: %s', ...
+                        ME.message);
+                end
+            end
+        end
+
+        function n = workers()
+            % n = behavior.fit.Psignifit.workers()
+            % How many fits are worth running at once: the background pool's
+            % workers, at most MAX_WORKERS; 0 without a pool.
+            p = behavior.fit.Psignifit.pool();
+            n = 0;
+            if ~isempty(p)
+                n = min(p.NumWorkers, behavior.fit.Psignifit.MAX_WORKERS);
+            end
+        end
+
         function n = clearCache(options)
             % n = behavior.fit.Psignifit.clearCache()
             % n = behavior.fit.Psignifit.clearCache(Disk = true)
@@ -324,12 +532,14 @@ classdef (Abstract) Psignifit
         end
 
         function override(state)
-            % behavior.fit.Psignifit.override("missing" | "")
+            % behavior.fit.Psignifit.override("missing" | "serial" | "")
             % FOR TESTS AND DEMONSTRATIONS: "missing" makes available() report
             % psignifit absent wherever it is, so the not-installed path can be
-            % exercised on a machine that has it; "" restores the truth.
+            % exercised on a machine that has it; "serial" makes pool() report
+            % no background pool, so fits run on the MATLAB thread as they do
+            % before R2021b; "" restores the truth.
             arguments
-                state (1,1) string {mustBeMember(state, ["" "missing"])}
+                state (1,1) string {mustBeMember(state, ["" "missing" "serial"])}
             end
             behavior.fit.Psignifit.override_(state);
         end
@@ -450,31 +660,112 @@ classdef (Abstract) Psignifit
         end
 
         function [res, warnings] = run_(data, o, useCache)
-            % The slim psignifit result for this input, from a cache or a fit.
-            ver = behavior.fit.Psignifit.version();
-            inputText = behavior.fit.Psignifit.inputText_(data, o) + "|psignifit " + ver + ...
-                "|cache " + behavior.fit.Psignifit.CACHE_FORMAT;
-            key = "fit_" + behavior.hex8(char(inputText));
+            % The slim psignifit result for this input: from a cache, from the
+            % worker already making it, or from a fit made here.
+            job = behavior.fit.Psignifit.job_(data, o);
+            entry = [];
             if useCache
-                entry = behavior.fit.Psignifit.memory_('get', key);
+                entry = behavior.fit.Psignifit.lookup_(job);
                 if isempty(entry)
-                    entry = behavior.fit.Psignifit.readDisk_(key);
-                end
-                if ~isempty(entry) && isfield(entry, 'Text') && entry.Text == inputText
-                    res = entry.Result;
-                    warnings = entry.Warnings;
-                    behavior.fit.Psignifit.memory_('put', key, entry);
-                    return
+                    entry = behavior.fit.Psignifit.awaitInFlight_(job);
                 end
             end
+            if isempty(entry)
+                entry = behavior.fit.Psignifit.fitEntry(job);
+                behavior.fit.Psignifit.store_(job, entry);
+            end
+            res = entry.Result;
+            warnings = entry.Warnings;
+        end
 
-            [full, warnings] = behavior.fit.Psignifit.call_(data, o);
-            res = rmfield(full, intersect(fieldnames(full), {'Posterior', 'weight'}));
-            res.Input = struct('data', data, 'options', o);
-            res.Version = ver;
-            entry = struct('Text', inputText, 'Result', res, 'Warnings', warnings);
-            behavior.fit.Psignifit.memory_('put', key, entry);
-            behavior.fit.Psignifit.writeDisk_(key, entry);
+        function job = job_(data, o)
+            % One fit's exact input and its cache key (see fromCounts).
+            ver = behavior.fit.Psignifit.version();
+            text = behavior.fit.Psignifit.inputText_(data, o) + "|psignifit " + ver + ...
+                "|cache " + behavior.fit.Psignifit.CACHE_FORMAT;
+            job = struct('Key', "fit_" + behavior.hex8(char(text)), 'Text', text, ...
+                'Data', data, 'Options', o, 'Version', ver);
+        end
+
+        function entry = lookup_(job)
+            % The cached entry for a job (memory, then disk), [] when none.
+            entry = behavior.fit.Psignifit.memory_('get', job.Key);
+            if isempty(entry)
+                entry = behavior.fit.Psignifit.readDisk_(job.Key);
+            end
+            if ~isempty(entry) && isfield(entry, 'Text') && entry.Text == job.Text
+                behavior.fit.Psignifit.memory_('put', job.Key, entry);
+            else
+                entry = [];
+            end
+        end
+
+        function store_(job, entry)
+            behavior.fit.Psignifit.memory_('put', job.Key, entry);
+            behavior.fit.Psignifit.writeDisk_(job.Key, entry);
+        end
+
+        function entry = awaitInFlight_(job)
+            % What the worker already fitting this job made ([] when no
+            % worker is, or it failed: the caller then fits it itself).
+            entry = [];
+            rec = behavior.fit.Psignifit.inflight_('get', job.Key);
+            if ~isempty(rec) && rec.Job.Text == job.Text
+                entry = behavior.fit.Psignifit.finish_(rec);
+            end
+        end
+
+        function entry = finish_(rec)
+            % Wait for an in-flight fit, store what it made, and unregister it.
+            entry = [];
+            fut = rec.Future;
+            try
+                if fut.State ~= "finished"
+                    wait(fut);
+                end
+                if isempty(fut.Error)
+                    entry = fetchOutputs(fut);
+                    behavior.fit.Psignifit.store_(rec.Job, entry);
+                else
+                    vprintf(2, 'behavior.fit.Psignifit: a background fit failed (%s): %s', ...
+                        rec.Job.Key, fut.Error.message);
+                end
+            catch ME
+                vprintf(2, 'behavior.fit.Psignifit: a background fit could not be collected (%s): %s', ...
+                    rec.Job.Key, ME.message);
+            end
+            behavior.fit.Psignifit.inflight_('remove', rec.Job.Key);
+        end
+
+        function out = inflight_(op, key, rec)
+            % The fits running on the background pool, by cache key:
+            % 'get', 'put', 'remove', 'all' (every record, as a struct array).
+            persistent map
+            if isempty(map)
+                map = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            end
+            out = [];
+            switch op
+                case 'get'
+                    if map.isKey(char(key))
+                        out = map(char(key));
+                    end
+                case 'put'
+                    map(char(key)) = rec;
+                case 'remove'
+                    if map.isKey(char(key))
+                        map.remove(char(key));
+                    end
+                case 'all'
+                    out = map.values();
+                    out = [struct('Job', {}, 'Future', {}) out{:}];
+            end
+        end
+
+        function h = psi_(fit, sigmoid)
+            % psignifit's psiHandle, term for term (psignifit.m), over the
+            % fitted parameters and the sigmoid only.
+            h = @(x) fit(4) + (1 - fit(3) - fit(4)) * sigmoid(x, fit(1), fit(2));
         end
 
         function [res, warnings] = call_(data, o)
@@ -571,6 +862,7 @@ classdef (Abstract) Psignifit
             try
                 folder = behavior.fit.Psignifit.cacheFolder();
                 if ~isfolder(folder), mkdir(folder); end
+                behavior.fit.Psignifit.migrate_(folder);
                 save(fullfile(folder, key + ".mat"), 'entry');
                 files = dir(fullfile(folder, 'fit_*.mat'));
                 if numel(files) > behavior.fit.Psignifit.MAX_CACHE_FILES
@@ -583,6 +875,38 @@ classdef (Abstract) Psignifit
             catch ME
                 vprintf(2, 'behavior.fit.Psignifit: fit not cached: %s', ME.message);
             end
+        end
+
+        function migrate_(folder)
+            % Once per folder per MATLAB session: a disk cache written in
+            % another CACHE_FORMAT can never be read (the format is part of
+            % every key), so its files are deleted rather than left to fill
+            % the disk.
+            persistent checked
+            if ~isempty(checked) && checked == string(folder)
+                return
+            end
+            marker = fullfile(folder, "format.txt");
+            fmt = "";
+            if isfile(marker)
+                fmt = strtrim(string(fileread(marker)));
+            end
+            if fmt ~= string(behavior.fit.Psignifit.CACHE_FORMAT)
+                files = dir(fullfile(folder, 'fit_*.mat'));
+                for k = 1:numel(files)
+                    delete(fullfile(files(k).folder, files(k).name));
+                end
+                if ~isempty(files)
+                    vprintf(1, 'behavior.fit.Psignifit: removed %d cached fit(s) of an older format from "%s"', ...
+                        numel(files), folder);
+                end
+                fid = fopen(marker, 'w');
+                if fid > 0
+                    fprintf(fid, '%d', behavior.fit.Psignifit.CACHE_FORMAT);
+                    fclose(fid);
+                end
+            end
+            checked = string(folder);
         end
 
         function F = toCommon_(F, res, warnings, o, info)

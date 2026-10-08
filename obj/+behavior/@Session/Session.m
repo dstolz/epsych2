@@ -78,8 +78,8 @@ classdef Session < handle
         m = parameterMeta(sess, field)
         [field, auto] = resolveParameter(sess, settings)
         S = staircase(sess, settings, options)
-        F = fit(sess, S, settings)
-        R = analyze(sess, settings, options)
+        [F, job] = fit(sess, S, settings, options)
+        [R, job] = analyze(sess, settings, options)
     end
 
     methods (Static)

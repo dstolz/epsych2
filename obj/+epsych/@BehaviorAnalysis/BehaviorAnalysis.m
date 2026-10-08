@@ -44,20 +44,46 @@ classdef BehaviorAnalysis < handle
     %   check(keys, tf), hide(keys, tf), setWindowOverride(key, text),
     %   setFacet(role, text), applySettings(s), showTab(name),
     %   exportTables(folder, Formats=), exportFigure(file),
-    %   writeScript(file, Scope=), recomputeAll()
+    %   writeScript(file, Scope=), recomputeAll(),
+    %   plotsOnTab(), openPlotInFigure(key, Visible=),
+    %   precomputeFits(), stopPrecompute(), setAutoPrecompute(tf)
+    %
+    % PRECOMPUTING FITS. A psignifit fit takes seconds, so with psignifit as
+    % the fit engine a tab stops for each session it has not seen. Analysis
+    % > Precompute Fits Now makes every visible session's result (checked
+    % sessions first) in the background -- each fit on a worker of MATLAB's
+    % backgroundPool, the window usable meanwhile, progress on the status
+    % bar -- and Precompute psignifit Fits Automatically (remembered, pref
+    % PrecomputeFits) does so whenever the results go stale: the settings
+    % change, a rescan finds new or changed files, a root opens, a window
+    % override is set. It waits while epsych.RunExpt runs a session, and
+    % Recompute All fits on the same workers (behavior.Precompute,
+    % behavior.Study.ParallelFits).
+    %
+    % OPEN IN NEW FIGURE. Every plot on every tab has "Open in New Figure"
+    % on its right-click menu, and View > Open Plot in New Figure lists the
+    % plots of the tab in front: the plot is drawn again into an ordinary
+    % MATLAB figure of its own -- MATLAB's toolbar, menus, gca and savefig
+    % -- as a snapshot that keeps what it showed while the tab moves on
+    % (gui.behavior.View.openInFigure). The Session tab's staircase opens
+    % in its own pop-out window instead. The figures outlive this window.
     %
     % Properties (read-only):
     %   Study - the behavior.Study ([] until a root is open)
     %   Views - struct Browser, Session, Subject, Compare, Table, Fit
     %   H     - graphics handles
+    %   Precompute - the behavior.Precompute over the Study ([] without
+    %           one): its State, counts and message() say where it is
     %
     % Documentation: documentation/behavior/BehaviorAnalysis_UserGuide.md
-    % See also: behavior.Study, gui.behavior.View, behavior.ScriptWriter
+    % See also: behavior.Study, gui.behavior.View, behavior.ScriptWriter,
+    %   behavior.Precompute
 
     properties (SetAccess = private)
         Study = []
         Views (1,1) struct = struct()
         H (1,1) struct = struct()
+        Precompute = []
     end
 
     properties (Constant)
@@ -74,6 +100,12 @@ classdef BehaviorAnalysis < handle
         BAR_COLOR (1,3) double = [1.00 0.95 0.75]
         DEFAULT_BROWSER_WIDTH (1,1) double = 340
         BAR_HEIGHT (1,1) double = 30
+    end
+
+    properties (Access = private)
+        PrecomputeListeners_ = event.listener.empty
+        AutoPrecompute_ (1,1) logical = false
+        PrecomputeAsked_ (1,1) logical = false   % the operator started it: always report
     end
 
     properties (Access = private)
@@ -126,6 +158,7 @@ classdef BehaviorAnalysis < handle
             self.CacheFolder_ = options.CacheFolder;
             self.Roster_ = options.Roster;
             self.BrowserVisible_ = logical(self.getPref_('BrowserVisible', true));
+            self.AutoPrecompute_ = logical(self.getPref_('PrecomputeFits', false));
             self.buildUI(options.Visible);
             self.refreshHeader_();
 
@@ -256,11 +289,13 @@ classdef BehaviorAnalysis < handle
         function ok = setFacet(self, role, text)
             % ok = setFacet(self, role, text)
             % One part of the Compare view: role GroupBy, ColorBy, XAxis,
-            % Value, Kind or ColorMap; text as behavior.Facet.toText
-            % ("tag:1"), or a behavior.Plot.COLOR_MAPS name for ColorMap.
+            % Value, Kind, ColorMap, ShowMean or Spread; text as
+            % behavior.Facet.toText ("tag:1"), a behavior.Plot.COLOR_MAPS
+            % name for ColorMap, a behavior.Plot.SPREADS name for Spread,
+            % "true"/"false" for ShowMean.
             arguments
                 self
-                role (1,1) string {mustBeMember(role, ["GroupBy" "ColorBy" "XAxis" "Value" "Kind" "ColorMap"])}
+                role (1,1) string {mustBeMember(role, ["GroupBy" "ColorBy" "XAxis" "Value" "Kind" "ColorMap" "ShowMean" "Spread"])}
                 text (1,1) string
             end
             ok = false;
@@ -314,6 +349,75 @@ classdef BehaviorAnalysis < handle
             self.setStatus_(sprintf("Recomputed %d session(s).", n));
         end
 
+        function n = precomputeFits(self)
+            % n = precomputeFits(self)
+            % Make every visible session's result ahead of time, the checked
+            % ones first (Analysis > Precompute Fits Now): in the background
+            % on MATLAB's backgroundPool, progress on the status bar -- or,
+            % with psignifit fitting and no pool (before R2021b), under a
+            % progress dialog, since the window would stop for each fit
+            % anyway. Refused while a session is running. Returns how many
+            % sessions were queued.
+            n = 0;
+            P = self.Precompute;
+            if isempty(self.Study) || isempty(P) || ~isvalid(P), return, end
+            if gui.SessionBrowser.sessionIsRunning()
+                self.alert_(['A session is running. Fits can be precomputed once it has stopped; ' ...
+                    'Review Session... is still available.'], 'Precompute Fits', 'warning');
+                return
+            end
+            keys = P.defaultKeys();
+            n = numel(keys);
+            self.PrecomputeAsked_ = true;
+            s = self.Study.Settings;
+            if s.Fit.Enabled && s.Fit.Engine == "psignifit" && behavior.fit.Psignifit.workers() == 0
+                dlg = self.progress_('Precompute Fits', 'Fitting sessions...');
+                closeDlg = onCleanup(@() epsych.BehaviorAnalysis.closeDialog_(dlg));
+                P.run(keys, Progress = @(k, m) epsych.BehaviorAnalysis.progressStep_(dlg, k, m, 'Fitting session'));
+                clear closeDlg
+                return
+            end
+            P.start(keys);
+        end
+
+        function stopPrecompute(self)
+            % stopPrecompute(self)
+            % Stop precomputing (Analysis > Stop Precomputing): the queue is
+            % forgotten and the fits on the workers cancelled. What was made
+            % is kept; the rest is made when a tab asks for it.
+            P = self.Precompute;
+            if ~isempty(P) && isvalid(P) && any(P.State == ["running" "held"])
+                self.PrecomputeAsked_ = true;
+                P.stop();
+            end
+        end
+
+        function setAutoPrecompute(self, tf)
+            % setAutoPrecompute(self, tf)
+            % Precompute every visible session's result whenever the results
+            % go stale (settings changed, files rescanned, root opened,
+            % window override set), while psignifit is the fit engine. The
+            % menu item also remembers the choice (pref PrecomputeFits);
+            % this does not.
+            arguments
+                self
+                tf (1,1) logical
+            end
+            self.AutoPrecompute_ = tf;
+            if isfield(self.H, 'mnu_autoPrecompute') && isgraphics(self.H.mnu_autoPrecompute)
+                self.H.mnu_autoPrecompute.Checked = matlab.lang.OnOffSwitchState(tf);
+            end
+            if tf && ~isempty(self.Study)
+                if behavior.Precompute.isParallel(self.Study.Settings)
+                    self.PrecomputeAsked_ = true;
+                    self.autoPrecompute_();
+                else
+                    self.setStatus_(['Fits are precomputed automatically while psignifit is the fit ' ...
+                        'engine and MATLAB has a background pool (R2021b or later).']);
+                end
+            end
+        end
+
         function keys = analysedKeys(self)
             % keys = analysedKeys(self)
             % The checked sessions that are not hidden: what Subject,
@@ -330,6 +434,34 @@ classdef BehaviorAnalysis < handle
             % name = currentTab(self)
             % The tab in front: "Session", "Subject", "Compare" or "Table".
             name = string(self.H.tabs.SelectedTab.Title);
+        end
+
+        function L = plotsOnTab(self)
+            % L = plotsOnTab(self)
+            % The plots of the tab in front that openPlotInFigure opens:
+            % struct array Key, Name (gui.behavior.View.plots).
+            L = struct('Key', {}, 'Name', {});
+            if isempty(self.Study) || ~isfield(self.Views, self.currentTab())
+                return
+            end
+            L = self.Views.(self.currentTab()).plots();
+        end
+
+        function fig = openPlotInFigure(self, key, options)
+            % fig = openPlotInFigure(self, key, Visible = true)
+            % One plot of the tab in front -- a key from plotsOnTab -- in a
+            % figure of its own, as its right-click "Open in New Figure"
+            % does. Returns the figure, or empty when there is no such plot.
+            arguments
+                self
+                key (1,1) string
+                options.Visible (1,1) logical = true
+            end
+            fig = gobjects(0);
+            if isempty(self.Study) || ~isfield(self.Views, self.currentTab())
+                return
+            end
+            fig = self.Views.(self.currentTab()).openInFigure(key, Visible = options.Visible);
         end
     end
 
@@ -393,7 +525,21 @@ classdef BehaviorAnalysis < handle
         end
 
         function releaseStudy_(self)
-            % Views first (their listeners and graphics), then the window's own.
+            % The precompute first (its timer and the fits on the workers),
+            % then the views (their listeners and graphics), then the
+            % window's own.
+            try
+                L = self.PrecomputeListeners_;
+                L = L(isvalid(L));
+                if ~isempty(L), delete(L); end
+                if ~isempty(self.Precompute) && isvalid(self.Precompute)
+                    delete(self.Precompute);
+                end
+            catch ME
+                vprintf(2, ME);
+            end
+            self.PrecomputeListeners_ = event.listener.empty;
+            self.Precompute = [];
             names = ["Browser" self.TAB_NAMES];
             for v = names
                 if isfield(self.Views, v)
@@ -450,6 +596,20 @@ classdef BehaviorAnalysis < handle
                 self.StudyListeners_(end+1) = addlistener(S, n, @(~,~) self.refreshHeader_());
             end
             self.StudyListeners_(end+1) = addlistener(S, 'Busy', @(~, evt) self.onBusy_(evt));
+
+            % Fits ahead of time, and Recompute All on the same workers. Any
+            % of these events can leave results stale; a restart over results
+            % that are still current costs one memo check each.
+            S.ParallelFits = true;
+            P = behavior.Precompute(S);
+            P.HoldFcn = @() gui.SessionBrowser.sessionIsRunning();
+            self.Precompute = P;
+            self.PrecomputeListeners_ = [ ...
+                addlistener(P, 'Progress', @(~,~) self.onPrecomputeProgress_()), ...
+                addlistener(P, 'Finished', @(~,~) self.onPrecomputeFinished_())];
+            for n = ["CatalogChanged" "ProjectChanged" "SettingsChanged"]
+                self.StudyListeners_(end+1) = addlistener(S, n, @(~,~) self.autoPrecompute_());
+            end
         end
 
         function activateTab_(self, name)
@@ -499,6 +659,25 @@ classdef BehaviorAnalysis < handle
             name = self.currentTab();
             self.activateTab_(name);
             self.setPref_('LastTab', char(name));
+            self.fillPlotMenu_();
+        end
+
+        function fillPlotMenu_(self)
+            % View > Open Plot in New Figure: the plots of the tab in front,
+            % refilled as the View menu opens (a plot appears when drawn).
+            if ~isfield(self.H, 'mnu_openfig') || ~isgraphics(self.H.mnu_openfig)
+                return
+            end
+            mm = self.H.mnu_openfig;
+            delete(mm.Children);
+            L = self.plotsOnTab();
+            for k = 1:numel(L)
+                key = L(k).Key;
+                uimenu(mm, 'Text', char(L(k).Name), 'MenuSelectedFcn', @(~,~) self.openPlotInFigure(key));
+            end
+            if isempty(L)
+                uimenu(mm, 'Text', '(no plot on this tab yet)', 'Enable', 'off');
+            end
         end
 
         function ax = figureTarget_(self)
@@ -877,6 +1056,56 @@ classdef BehaviorAnalysis < handle
                     drawnow limitrate
                 end
             end
+        end
+
+        % ---- precomputing ------------------------------------------------
+        function autoPrecompute_(self)
+            % Restart the precompute when automatic precomputing is on and
+            % there is something slow to precompute (psignifit on a pool).
+            P = self.Precompute;
+            if ~self.AutoPrecompute_ || isempty(self.Study) || isempty(P) || ~isvalid(P)
+                return
+            end
+            if behavior.Precompute.isParallel(self.Study.Settings)
+                P.start();
+            end
+        end
+
+        function toggleAutoPrecompute_(self)
+            % The menu item: also remembered for the next window.
+            tf = ~self.AutoPrecompute_;
+            self.setPref_('PrecomputeFits', tf);
+            self.setAutoPrecompute(tf);
+            if ~tf
+                self.setStatus_("Fits are no longer precomputed automatically.");
+            end
+        end
+
+        function onPrecomputeProgress_(self)
+            % The status bar follows a precompute that has work to do; a
+            % restart over results that are all current says nothing, so it
+            % does not cover the status line it was triggered from.
+            P = self.Precompute;
+            if isempty(P) || ~isvalid(P), return, end
+            running = any(P.State == ["running" "held"]);
+            if isfield(self.H, 'mnu_stopPrecompute') && isgraphics(self.H.mnu_stopPrecompute)
+                self.H.mnu_stopPrecompute.Enable = matlab.lang.OnOffSwitchState(running);
+            end
+            if running && (self.PrecomputeAsked_ || P.Computed > 0 || P.Fitting > 0 || P.State == "held")
+                self.setStatus_(P.message());
+            end
+        end
+
+        function onPrecomputeFinished_(self)
+            P = self.Precompute;
+            if isempty(P) || ~isvalid(P), return, end
+            if isfield(self.H, 'mnu_stopPrecompute') && isgraphics(self.H.mnu_stopPrecompute)
+                self.H.mnu_stopPrecompute.Enable = 'off';
+            end
+            if self.PrecomputeAsked_ || P.Computed > 0 || P.Failed > 0
+                self.setStatus_(P.message());
+            end
+            self.PrecomputeAsked_ = false;
         end
 
         function setStatus_(self, text)

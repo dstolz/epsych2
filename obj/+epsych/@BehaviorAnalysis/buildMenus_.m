@@ -56,6 +56,14 @@ uimenu(m, 'Text', 'ps&ignifit Settings...', ...
 self.H.mnu_presets = uimenu(m, 'Text', '&Presets');
 self.H.mnu_parameter = uimenu(m, 'Text', 'P&arameter');
 uimenu(m, 'Text', '&Recompute All', 'Separator', 'on', 'MenuSelectedFcn', @(~,~) self.recomputeAll());
+% Background precompute (behavior.Precompute): Now, Automatically, Stop.
+self.H.mnu_precompute = uimenu(m, 'Text', 'Pre&compute Fits Now', ...
+    'MenuSelectedFcn', @(~,~) self.precomputeFits());
+self.H.mnu_autoPrecompute = uimenu(m, 'Text', 'Precompute psignifit Fits &Automatically', ...
+    'Checked', matlab.lang.OnOffSwitchState(self.AutoPrecompute_), ...
+    'MenuSelectedFcn', @(~,~) self.toggleAutoPrecompute_());
+self.H.mnu_stopPrecompute = uimenu(m, 'Text', 'S&top Precomputing', 'Enable', 'off', ...
+    'MenuSelectedFcn', @(~,~) self.stopPrecompute());
 
 % ---------- Groups ---------------------------------------------------------
 m = uimenu(f, 'Text', '&Groups');
@@ -78,6 +86,10 @@ self.H.mnu_browser = uimenu(m, 'Text', '&Browser', 'Accelerator', 'B', 'Separato
     'Checked', matlab.lang.OnOffSwitchState(self.BrowserVisible_), ...
     'MenuSelectedFcn', @(~,~) self.toggleBrowser_());
 uimenu(m, 'Text', '&Find', 'Accelerator', 'F', 'MenuSelectedFcn', @(~,~) self.find_());
+% Every plot also has the item on its own right-click menu.
+self.H.mnu_openfig = uimenu(m, 'Text', 'Open Plot in New Fi&gure', 'Separator', 'on');
+uimenu(self.H.mnu_openfig, 'Text', '(no plot on this tab yet)', 'Enable', 'off');
+m.MenuSelectedFcn = @(~,~) self.fillPlotMenu_();
 
 % ---------- Help -----------------------------------------------------------
 m = uimenu(f, 'Text', '&Help');

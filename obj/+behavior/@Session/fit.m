@@ -1,5 +1,6 @@
-function F = fit(~, S, settings)
+function [F, job] = fit(~, S, settings, options)
 % F = fit(sess, S, settings)
+% [F, job] = fit(sess, S, settings, Defer = true)
 % The psychometric fit of a staircase's trials, in the common fit schema
 % (behavior.fit.Builtin): the same fields whichever engine made it.
 %
@@ -15,10 +16,14 @@ function F = fit(~, S, settings)
 % Parameters:
 %   S        - psychophysics.Staircase (from staircase())
 %   settings - behavior.Settings
+%   Defer    - leave a psignifit fit that is not cached unmade and return
+%              its job instead (behavior.fit.Psignifit.fromCounts); the
+%              built-in engine is quick and always fits
 %
 % Returns:
-%   F - common fit struct; read F.Threshold only when F.Converged and
-%       F.Identifiable (it is NaN otherwise)
+%   F   - common fit struct; read F.Threshold only when F.Converged and
+%         F.Identifiable (it is NaN otherwise)
+%   job - [] unless Defer left a psignifit fit to be made
 %
 % See also: behavior.fit.Builtin, behavior.fit.Psignifit
 
@@ -26,8 +31,10 @@ arguments
     ~
     S (1,1) psychophysics.Staircase
     settings (1,1) behavior.Settings
+    options.Defer (1,1) logical = false
 end
 
+job = [];
 if ~settings.Fit.Enabled
     F = behavior.fit.Builtin.empty();
     F.Message = "Fitting is off in these settings.";
@@ -45,7 +52,8 @@ try
     if C.Message ~= ""
         error('behavior:Session:NoCounts', '%s', C.Message);
     end
-    F = behavior.fit.Psignifit.fromCounts(C.Levels, C.NumYes, C.NumTotal, o, info);
+    [F, job] = behavior.fit.Psignifit.fromCounts(C.Levels, C.NumYes, C.NumTotal, o, info, ...
+        Defer = options.Defer);
 catch ME
     F = behavior.fit.Builtin.empty();
     F.Engine = "psignifit";

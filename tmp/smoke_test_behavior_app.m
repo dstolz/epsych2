@@ -164,9 +164,113 @@ try
     results(end+1,:) = check('an overlay facet that names nothing is refused, nothing changed', ...
         refused && isequal(VS.Overlay, overlayBefore));
     VS.setOverlay(ColorBy = "session", ColorMap = "auto", Normalize = "none", ShowReversals = false);
+
+    % Show: stacked and heatmap.
+    VS.setOverlay(Display = "stacked");
+    results(end+1,:) = check('Show Stacked: a band per session, the facet control reads Rows', ...
+        numel(findobj(VS.H.overlay, 'Tag', 'BehaviorPlot:Track')) == 3 ...
+        && numel(findobj(VS.H.overlay, 'Tag', 'BehaviorPlot:ScaleBar')) == 2 ...
+        && strcmp(VS.H.ovDisplay.Value, 'stacked') && strcmp(VS.H.ovColorByLabel.Text, 'Rows') ...
+        && contains(string(VS.H.overlay.Title.String), "Session #"));
+    VS.setOverlay(Display = "heatmap", ColorMap = "categorical");
+    img = findobj(VS.H.overlay, 'Tag', 'BehaviorPlot:Heatmap');
+    results(end+1,:) = check('Show Heatmap: a row per session; Distinct colours not offered and shown as Auto', ...
+        isscalar(img) && size(img.CData, 1) == 3 && ~ismember('categorical', VS.H.ovColorMap.ItemsData) ...
+        && strcmp(VS.H.ovColorMap.Value, 'auto') && VS.Overlay.ColorMap == "categorical");
+    results(end+1,:) = check('heatmap: thresholds and steps greyed in the menu, Combine offered', ...
+        VS.H.ovShowThresholds.Enable == "off" && VS.H.ovSteps.Enable == "off" && VS.H.ovCombine.Enable == "on" ...
+        && VS.H.ovCombineMean.Checked == "on");
+    VS.setOverlay(ColorBy = "tag:1", Combine = "median");
+    img = findobj(VS.H.overlay, 'Tag', 'BehaviorPlot:Heatmap');
+    results(end+1,:) = check('heatmap by tag: a row per phase, combined by the median, menu checked', ...
+        isscalar(img) && size(img.CData, 1) == 2 && VS.H.ovCombineMedian.Checked == "on" ...
+        && any(contains(string(VS.H.overlay.YTickLabel), "(n=2)")));
+    VS.H.ovDisplay.Value = 'overlay';
+    VS.H.ovDisplay.ValueChangedFcn(VS.H.ovDisplay, []);
+    remembered = [];
+    if ispref(PREF, 'SubjectOverlay'), remembered = getpref(PREF, 'SubjectOverlay'); end
+    results(end+1,:) = check('choosing Show is remembered with the rest of the display (SubjectOverlay pref)', ...
+        isstruct(remembered) && remembered.Display == "overlay" && remembered.Combine == "median" ...
+        && strcmp(VS.H.ovColorByLabel.Text, 'Color by'));
+    refused = false;
+    try
+        VS.setOverlay(Display = "pie");
+    catch
+        refused = true;
+    end
+    results(end+1,:) = check('a Show that is no display is refused', refused && VS.Overlay.Display == "overlay");
+    VS.setOverlay(ColorBy = "session", ColorMap = "auto", Combine = "mean");
 catch ME
     results(end+1,:) = check(['group 5: ' ME.message], false);
 end
+
+%% 5b. Open in New Figure
+try
+    VS = app.Views.Subject;
+    L = app.plotsOnTab();
+    results(end+1,:) = check('the Subject tab lists its three plots', ...
+        isequal(sort([L.Key]), sort(["timeline" "metric" "staircases"])) && all(contains([L.Name], VS.Subject)));
+    item = @(ax) findobj(ax.ContextMenu, 'Tag', 'BehaviorView:OpenInFigure');
+    results(end+1,:) = check('every Subject plot has Open in New Figure on its right-click menu', ...
+        all(arrayfun(@(ax) isscalar(item(ax)), [VS.H.timeline VS.H.metric VS.H.overlay])) ...
+        && isscalar(findobj(VS.H.overlay.ContextMenu, 'Tag', 'BehaviorView:OpenInFigure')) ...
+        && VS.H.overlay.ContextMenu == VS.H.ovShowReversals.Parent);
+    VS.setOverlay(Display = "heatmap");
+    img = findobj(VS.H.overlay, 'Tag', 'BehaviorPlot:Heatmap');
+    results(end+1,:) = check('the heatmap''s image carries the menu, so a right-click on a cell finds it', ...
+        isscalar(img) && img.ContextMenu == VS.H.overlay.ContextMenu);
+    f1 = app.openPlotInFigure("staircases", Visible = false);
+    ax1 = findobj(f1, 'Type', 'axes');
+    results(end+1,:) = check('it opens in an ordinary figure, redrawn and titled with the subject', ...
+        isscalar(f1) && isgraphics(f1) && strcmp(f1.HandleVisibility, 'on') && gcf == f1 ...
+        && strcmp(f1.Tag, gui.behavior.View.FIGURE_TAG) && isscalar(ax1) ...
+        && isscalar(findobj(ax1, 'Tag', 'BehaviorPlot:Heatmap')) ...
+        && contains(string(ax1.Title.String), VS.Subject) && contains(string(f1.Name), "heatmap") ...
+        && isequaln(findobj(ax1, 'Tag', 'BehaviorPlot:Heatmap').CData, img.CData));
+    VS.setOverlay(Display = "overlay");
+    results(end+1,:) = check('it is a snapshot: the tab moving on leaves the figure as it was', ...
+        isscalar(findobj(ax1, 'Tag', 'BehaviorPlot:Heatmap')) ...
+        && isempty(findobj(VS.H.overlay, 'Tag', 'BehaviorPlot:Heatmap')));
+    m = item(VS.H.timeline);
+    nBefore = numel(findall(groot, 'Type', 'figure', 'Tag', gui.behavior.View.FIGURE_TAG));
+    m.MenuSelectedFcn(m, []);
+    f2 = findall(groot, 'Type', 'figure', 'Tag', gui.behavior.View.FIGURE_TAG);
+    results(end+1,:) = check('the right-click item opens the timeline in a figure of its own', ...
+        numel(f2) == nBefore + 1 && any(arrayfun(@(f) ~isempty(findobj(f, 'Tag', 'BehaviorPlot:Point')), f2)));
+    set(f2, 'Visible', 'off');
+    menuView = app.H.mnu_openfig.Parent;
+    menuView.MenuSelectedFcn(menuView, []);
+    results(end+1,:) = check('View > Open Plot in New Figure lists the tab''s plots', ...
+        numel(app.H.mnu_openfig.Children) == 3);
+    results(end+1,:) = check('an unknown plot opens nothing', isempty(app.openPlotInFigure("banana", Visible = false)));
+
+    app.showTab("Session");
+    VSe = app.Views.Session;
+    L = app.plotsOnTab();
+    results(end+1,:) = check('the Session tab lists its staircase and its fit', ...
+        isequal([L.Key], ["staircase" "fit"]) && isscalar(findobj(VSe.H.fitAxes.ContextMenu, 'Tag', 'BehaviorView:OpenInFigure')));
+    f3 = app.openPlotInFigure("fit", Visible = false);
+    results(end+1,:) = check('the fit opens in a figure of its own', ...
+        isscalar(f3) && ~isempty(findobj(f3, 'Tag', 'BehaviorPlot:Proportion')));
+
+    app.showTab("Fit");
+    L = app.plotsOnTab();
+    results(end+1,:) = check('the Fit tab lists its psychometric plot', ismember("psych", [L.Key]));
+    f4 = app.openPlotInFigure("psych", Visible = false);
+    results(end+1,:) = check('and opens it', isscalar(f4) && isgraphics(f4));
+    app.showTab("Compare");
+    L = app.plotsOnTab();
+    f5 = app.openPlotInFigure("compare", Visible = false);
+    results(end+1,:) = check('the Compare tab lists its plot and opens it, titled with what it compares', ...
+        isequal([L.Key], "compare") && isscalar(f5) && startsWith(string(f5.Name), "Compare · ") ...
+        && isscalar(findobj(app.Views.Compare.H.axes.ContextMenu, 'Tag', 'BehaviorView:OpenInFigure')));
+    app.showTab("Table");
+    results(end+1,:) = check('the Table tab has no plot to open', isempty(app.plotsOnTab()));
+    app.showTab("Subject");
+catch ME
+    results(end+1,:) = check(['group 5b: ' ME.message], false);
+end
+delete(findall(groot, 'Type', 'figure', 'Tag', gui.behavior.View.FIGURE_TAG));
 
 %% 6. Compare tab
 try
@@ -197,6 +301,51 @@ try
     results(end+1,:) = check('subject lines are drawn', ~isempty(findobj(VC.H.axes, 'Tag', 'BehaviorPlot:SubjectLine')));
     app.setFacet("Kind", "box");
     results(end+1,:) = check('an unknown facet is refused', ~app.setFacet("ColorBy", "banana"));
+
+    % The value menus: measure, then statistic and correction.
+    results(end+1,:) = check('the value menus show the saved value''s address', ...
+        strcmp(VC.H.measure.Value, 'Staircase threshold') && strcmp(VC.H.statistic.Value, 'Last N reversals') ...
+        && strcmp(VC.H.correction.Value, 'As analysed') && VC.H.correction.Enable == "on");
+    VC.H.statistic.Value = 'Median of blocks';
+    VC.H.statistic.ValueChangedFcn(VC.H.statistic, []);
+    VC.H.correction.Value = 'Weighted';
+    VC.H.correction.ValueChangedFcn(VC.H.correction, []);
+    results(end+1,:) = check('statistic then correction choose the weighted median block threshold', ...
+        S.Project.Facets.Value == "WeightedMedianBlockThreshold" && strcmp(VC.H.statistic.Value, 'Median of blocks') ...
+        && contains(VC.H.axes.YLabel.String, "Median block threshold, weighted") ...
+        && isempty(findobj(VC.H.axes, 'Tag', 'BehaviorPlot:NoData')));
+    VC.H.measure.Value = 'Psychometric fit';
+    VC.H.measure.ValueChangedFcn(VC.H.measure, []);
+    results(end+1,:) = check('the fit measure offers its parameters, with no correction', ...
+        S.Project.Facets.Value == "FitThreshold" && VC.H.correction.Enable == "off" ...
+        && ismember('Lapse rate (lambda)', VC.H.statistic.Items) && ismember('Width', VC.H.statistic.Items));
+    VC.H.statistic.Value = 'Width';
+    VC.H.statistic.ValueChangedFcn(VC.H.statistic, []);
+    results(end+1,:) = check('a width under the built-in engine says why there is none', ...
+        S.Project.Facets.Value == "FitWidth" && contains(string(app.H.status.Text), "psignifit"));
+    app.setFacet("Value", "Threshold");
+
+    % Mean and spread.
+    ok = app.setFacet("Spread", "sd");
+    eb = findobj(VC.H.axes, 'Tag', 'BehaviorPlot:ErrorBar');
+    results(end+1,:) = check('setFacet Spread draws that spread and moves the menu', ok ...
+        && S.Project.Facets.Spread == "sd" && strcmp(VC.H.spread.Value, 'sd') ...
+        && isscalar(eb) && eb.UserData.Spread == "sd" && VC.Plotted.SpreadKind == "sd");
+    ok = app.setFacet("ShowMean", "false");
+    results(end+1,:) = check('setFacet ShowMean false takes the mean away and unticks Mean', ok ...
+        && ~S.Project.Facets.ShowMean && ~VC.H.mean.Value ...
+        && isempty(findobj(VC.H.axes, 'Tag', 'BehaviorPlot:Mean')));
+    VC.H.mean.Value = true;
+    VC.H.mean.ValueChangedFcn(VC.H.mean, []);
+    results(end+1,:) = check('ticking Mean puts it back', S.Project.Facets.ShowMean ...
+        && ~isempty(findobj(VC.H.axes, 'Tag', 'BehaviorPlot:Mean')));
+    results(end+1,:) = check('an unknown spread is refused', ~app.setFacet("Spread", "banana") ...
+        && S.Project.Facets.Spread == "sd");
+    app.setFacet("Kind", "overlay");
+    results(end+1,:) = check('overlay: Mean and Spread are greyed', ...
+        VC.H.mean.Enable == "off" && VC.H.spread.Enable == "off");
+    app.setFacet("Kind", "box");
+    app.setFacet("Spread", "auto");
 catch ME
     results(end+1,:) = check(['group 6: ' ME.message], false);
 end
@@ -464,7 +613,7 @@ while ~isempty(app)
     delete(app);
     app = epsych.BehaviorAnalysis.find();
 end
-for tag = {'EPsychBehaviorSettings', 'EPsychBehaviorGroupings', 'EPsychBehaviorExport'}
+for tag = {'EPsychBehaviorSettings', 'EPsychBehaviorGroupings', 'EPsychBehaviorExport', 'EPsychBehaviorPlotFigure'}
     delete(findall(groot, 'Type', 'figure', 'Tag', tag{1}));
 end
 end

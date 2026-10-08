@@ -1,6 +1,7 @@
-function R = analyze(sess, settings, options)
+function [R, job] = analyze(sess, settings, options)
 % R = analyze(sess, settings)
 % R = analyze(sess, settings, Window = "3-83")
+% [R, job] = analyze(sess, settings, DeferFit = true)
 % The whole v1 analysis of one session, as one plain struct: the staircase
 % threshold, the session metrics, the psychometric fit, and QC flags.
 %
@@ -13,6 +14,8 @@ function R = analyze(sess, settings, options)
 % Parameters:
 %   settings - behavior.Settings
 %   Window   - this session's trial window; "" (default) = settings.Window
+%   DeferFit - do not make a psignifit fit that is not cached: return its
+%              job instead (default false)
 %
 % Returns:
 %   R - struct:
@@ -30,6 +33,14 @@ function R = analyze(sess, settings, options)
 %     MinBlockThreshold, MedianBlockThreshold, MeanBlockThreshold,
 %     MaxBlockThreshold - over the sliding blocks of reversals
 %     Weighted      - Results.Weighted ([] unless the correction is on)
+%     Estimates     - struct Unweighted, Weighted: the threshold both ways
+%                     WHATEVER Staircase.ApplyWeightedCorrection says, each
+%                     a struct Threshold, ThresholdStd, MinBlockThreshold,
+%                     MedianBlockThreshold, MeanBlockThreshold,
+%                     MaxBlockThreshold, Message (why the weighted one is
+%                     NaN; "" otherwise). The fields above follow the
+%                     setting and equal one of these; these exist so a
+%                     comparison can ask for either without re-analysing.
 %     Track         - struct TrialIndex, Value, Reversal: one entry per
 %                     included stimulus trial (the overlay plot's line)
 %     Metrics       - psychophysics.SessionMetrics Results
@@ -40,6 +51,10 @@ function R = analyze(sess, settings, options)
 %                     no_parameter, fit_failed
 %     Messages      - string column, one sentence per problem
 %     Elapsed       - seconds taken
+%   job - [] unless DeferFit left a psignifit fit unmade (behavior.Session.fit):
+%         R is then INCOMPLETE and must not be kept; behavior.Study.prepare
+%         hands the job to the background pool and analyses again once it
+%         is fitted
 %
 % See also: behavior.Session.staircase, behavior.Session.fit,
 %   behavior.Session.exclusionMask
@@ -48,9 +63,11 @@ arguments
     sess (1,1) behavior.Session
     settings (1,1) behavior.Settings
     options.Window (1,1) string = ""
+    options.DeferFit (1,1) logical = false
 end
 
 t0 = tic;
+job = [];
 n = numel(sess.Data);
 messages = strings(0, 1);
 
@@ -68,6 +85,7 @@ R = struct( ...
     'MinBlockThreshold', NaN, 'MedianBlockThreshold', NaN, ...
     'MeanBlockThreshold', NaN, 'MaxBlockThreshold', NaN, ...
     'Weighted', [], ...
+    'Estimates', struct('Unweighted', localEstimate([]), 'Weighted', localEstimate([])), ...
     'Track', struct('TrialIndex', zeros(1, 0), 'Value', zeros(1, 0), 'Reversal', false(1, 0)), ...
     'Metrics', [], 'MetricsSummary', table(), ...
     'Fit', behavior.fit.Builtin.empty(), ...
@@ -170,9 +188,23 @@ if sess.Error == "" && ~noParameter && any(~excl)
             end
         end
 
-        R.Fit = sess.fit(S, settings);
+        [R.Fit, job] = sess.fit(S, settings, Defer = options.DeferFit);
         if settings.Fit.Enabled && ~(R.Fit.Converged && R.Fit.Identifiable)
             messages(end+1, 1) = "Fit: " + R.Fit.Message;
+        end
+
+        % The other estimate, by flipping the correction on the same object
+        % (the setter recomputes), once the fit no longer needs S as
+        % configured. Turning the correction ON costs a weighted
+        % threshold per sliding block (~0.35 ms each); turning it off is
+        % cheap. A refusal of the other one is not a problem with the
+        % analysis asked for, so it adds no message or QC flag.
+        if S.ApplyWeightedCorrection
+            S.ApplyWeightedCorrection = false;
+            R.Estimates = struct('Unweighted', localEstimate(S.Results), 'Weighted', localEstimate(Z));
+        else
+            S.ApplyWeightedCorrection = true;
+            R.Estimates = struct('Unweighted', localEstimate(Z), 'Weighted', localEstimate(S.Results));
         end
     catch ME
         messages(end+1, 1) = "Staircase: " + string(ME.message);
@@ -194,5 +226,24 @@ if isempty(x)
     x = NaN;
 else
     x = double(x(1));
+end
+end
+
+
+function E = localEstimate(Z)
+% One way of estimating the threshold, from a psychophysics.Staircase
+% Results struct ([] = none: every number NaN). A weighted Results carries
+% the reason its correction was refused.
+E = struct('Threshold', NaN, 'ThresholdStd', NaN, 'MinBlockThreshold', NaN, ...
+    'MedianBlockThreshold', NaN, 'MeanBlockThreshold', NaN, 'MaxBlockThreshold', NaN, ...
+    'Message', "");
+if isempty(Z), return, end
+for f = ["Threshold" "ThresholdStd" "MinBlockThreshold" "MedianBlockThreshold" ...
+        "MeanBlockThreshold" "MaxBlockThreshold"]
+    E.(f) = localScalar(Z.(f));
+end
+W = Z.Weighted;
+if isstruct(W) && ~isempty(W) && ~W.Valid
+    E.Message = string(W.Message);
 end
 end

@@ -27,6 +27,11 @@ classdef FitView < gui.behavior.View
     % front, and marks itself stale otherwise; it redraws only when the
     % session, the settings or the window it was drawn for changed.
     %
+    % Every plot has "Open in New Figure" on its right-click menu
+    % (gui.behavior.View.openInFigure): keys "psych", "marginal1" to
+    % "marginal5" (psignifit's parameter order) and "pair". Opening the
+    % joint posterior refits the grid again, as drawing it does.
+    %
     %   V = gui.behavior.FitView(container, study);
     %   V.show(key);
     %
@@ -251,17 +256,15 @@ classdef FitView < gui.behavior.View
             obj.H.title.Text = char(obj.titleText_(row, R));
             obj.H.engine.Text = char(obj.engineText_(F));
 
+            prefix = obj.figureLabel_(R);
+            unit = R.Unit;
+            param = R.Parameter;
             if isPs
-                behavior.fit.PsignifitPlot.psych(obj.H.psychAxes, F, Unit = R.Unit, Parameter = R.Parameter);
+                fcn = @(ax) behavior.fit.PsignifitPlot.psych(ax, F, Unit = unit, Parameter = param);
             else
-                try
-                    behavior.Plot.psychometric(obj.H.psychAxes, F, Unit = R.Unit);
-                catch ME
-                    vprintf(2, 'gui.behavior.FitView: fit plot not drawn: %s', ME.message);
-                    cla(obj.H.psychAxes, 'reset');
-                end
-                title(obj.H.psychAxes, 'Psychometric function (built-in fit)', 'FontWeight', 'normal');
+                fcn = @(ax) localBuiltinPsych(ax, F, unit);
             end
+            obj.plotInto_("psych", obj.H.psychAxes, fcn, prefix + " · Psychometric fit");
 
             obj.H.table.Data = obj.parameterRows_(F);
             notes = strings(0, 1);
@@ -287,15 +290,18 @@ classdef FitView < gui.behavior.View
             if hasRaw
                 obj.H.root.RowHeight{2} = obj.POSTERIOR_HEIGHT;
                 obj.H.hint.Text = '';
+                names = ["Threshold" "Width" "Lapse rate (lambda)" "Guess rate (gamma)" "Overdispersion (eta)"];
                 for k = 1:5
-                    try
-                        behavior.fit.PsignifitPlot.marginal(obj.H.marginalAxes(k), F, k, Unit = R.Unit);
-                    catch ME
-                        vprintf(2, 'gui.behavior.FitView: marginal %d not drawn: %s', k, ME.message);
-                    end
+                    dim = k;
+                    obj.plotInto_("marginal" + k, obj.H.marginalAxes(k), ...
+                        @(ax) behavior.fit.PsignifitPlot.marginal(ax, F, dim, Unit = unit), ...
+                        prefix + " · Marginal posterior: " + names(k));
                 end
                 obj.drawPair_();
             else
+                for key = ["marginal" + (1:5), "pair"]
+                    obj.forgetPlot_(key);
+                end
                 obj.H.root.RowHeight{2} = 0;
                 if isPs
                     obj.H.hint.Text = 'psignifit made no fit of this session; the reason is above.';
@@ -321,17 +327,32 @@ classdef FitView < gui.behavior.View
                     'Tag', 'FitView:PairHint');
                 ax.XTick = [];
                 ax.YTick = [];
+                obj.forgetPlot_("pair");
                 return
             end
             obj.setStatus("Refitting the posterior grid for the joint posterior...");
             drawnow
-            try
-                behavior.fit.PsignifitPlot.pair(ax, F, string(obj.H.ddPairY.Value), string(obj.H.ddPairX.Value));
-                obj.setStatus("Joint posterior (plot2D): " + obj.H.ddPairY.Value + " against " + obj.H.ddPairX.Value + ".");
-            catch ME
-                vprintf(0, 1, ME);
-                obj.setStatus("Joint posterior: " + string(ME.message));
+            y = string(obj.H.ddPairY.Value);
+            x = string(obj.H.ddPairX.Value);
+            [~, ok] = obj.plotInto_("pair", ax, @(a) behavior.fit.PsignifitPlot.pair(a, F, y, x), ...
+                obj.figureLabel_(obj.Result) + " · Joint posterior: " + y + " against " + x);
+            if ok
+                obj.setStatus("Joint posterior (plot2D): " + y + " against " + x + ".");
+            else
+                obj.setStatus("Joint posterior: see the plot for why it was not drawn.");
             end
+        end
+
+        function t = figureLabel_(~, R)
+            % "S1 · 2026-10-01 09:00": what a figure of this session's fit is called.
+            when = "";
+            if isdatetime(R.Start) && ~isnat(R.Start)
+                when = string(R.Start, 'yyyy-MM-dd HH:mm');
+            end
+            parts = [R.Subject, when];
+            parts = parts(strlength(parts) > 0);
+            t = "Fit";
+            if ~isempty(parts), t = strjoin(parts, " · "); end
         end
 
         function F = fit_(obj)
@@ -436,6 +457,9 @@ classdef FitView < gui.behavior.View
             for ax = [obj.H.marginalAxes obj.H.pairAxes]
                 cla(ax, 'reset');
             end
+            for key = ["psych", "marginal" + (1:5), "pair"]
+                obj.forgetPlot_(key);
+            end
             for h = [obj.H.btnBayes obj.H.btnPriors obj.H.btnChecks]
                 h.Enable = 'off';
             end
@@ -452,4 +476,19 @@ classdef FitView < gui.behavior.View
             end
         end
     end
+end
+
+
+% ---------------------------------------------------------------------------
+function H = localBuiltinPsych(ax, F, unit)
+% The built-in fit's psychometric function, titled as such. A local function
+% so the handle kept for Open in New Figure holds the fit, not the view.
+H = struct();
+try
+    H = behavior.Plot.psychometric(ax, F, Unit = unit);
+catch ME
+    vprintf(2, 'gui.behavior.FitView: fit plot not drawn: %s', ME.message);
+    cla(ax, 'reset');
+end
+title(ax, 'Psychometric function (built-in fit)', 'FontWeight', 'normal');
 end

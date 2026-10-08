@@ -33,6 +33,14 @@ classdef SessionView < gui.behavior.View
     % (steps, reversals, distribution) remain the operator's and persist
     % through the staircase's own preference.
     %
+    % OPENING A PLOT ON ITS OWN. The psychometric fit has "Open in New
+    % Figure" (gui.behavior.View.openInFigure, key "fit"). The staircase
+    % has its own "Open in Separate Window" (gui.PopOut): a second
+    % psychophysics.Staircase over the same trials, which keeps its menus
+    % and its reversal distribution -- what a redraw into an ordinary
+    % figure could not. plots() lists it as key "staircase", and
+    % openInFigure("staircase") opens that window.
+    %
     % See also: gui.behavior.View, behavior.Study, behavior.Session.staircase,
     %   psychophysics.Staircase, behavior.Plot
 
@@ -185,6 +193,39 @@ classdef SessionView < gui.behavior.View
             catch ME
                 obj.setStatus("The clipboard is not available here: " + string(ME.message));
             end
+        end
+
+        function L = plots(obj)
+            % L = plots(obj)
+            % What can be opened on its own: the staircase (in its own
+            % pop-out window) and the fit. See gui.behavior.View.plots.
+            L = plots@gui.behavior.View(obj);
+            if ~isempty(obj.Staircase) && isvalid(obj.Staircase)
+                L = [struct('Key', "staircase", 'Name', obj.label_(obj.Result) + " · Staircase") L];
+            end
+        end
+
+        function fig = openInFigure(obj, key, options)
+            % fig = openInFigure(obj, key, Visible = true)
+            % As gui.behavior.View.openInFigure; "staircase" opens the
+            % staircase's own pop-out window (always shown) instead.
+            arguments
+                obj
+                key (1,1) string
+                options.Visible (1,1) logical = true
+            end
+            if key ~= "staircase"
+                fig = openInFigure@gui.behavior.View(obj, key, Visible = options.Visible);
+                return
+            end
+            fig = gobjects(0);
+            S = obj.Staircase;
+            if isempty(S) || ~isvalid(S)
+                obj.setStatus("No staircase is shown to open.");
+                return
+            end
+            S.popOut();
+            fig = S.PopOutFigure;
         end
 
         function review(obj)
@@ -351,30 +392,24 @@ classdef SessionView < gui.behavior.View
         end
 
         function drawFit_(obj, R)
-            % psignifit's own plotPsych when psignifit made the fit (the Fit
-            % tab has the rest of its plots); behavior.Plot's otherwise.
-            ax = obj.H.fitAxes;
-            try
-                F = R.Fit;
-                if isstruct(F) && ~isempty(F) && string(F.Engine) == "psignifit" ...
-                        && isstruct(F.Raw) && isfield(F.Raw, 'Fit')
-                    behavior.fit.PsignifitPlot.psych(ax, F, Unit = R.Unit, Parameter = R.Parameter);
-                    subtitle(ax, '');
-                else
-                    behavior.Plot.psychometric(ax, F, Unit = R.Unit);
-                end
-            catch ME
-                vprintf(2, 'gui.behavior.SessionView: fit plot not drawn: %s', ME.message);
-                cla(ax);
-                F = R.Fit;
-                msg = "No psychometric plot";
-                if isstruct(F) && isfield(F, 'Message') && strlength(string(F.Message)) > 0
-                    msg = string(F.Message);
-                end
-                text(ax, 0.5, 0.5, msg, 'Units', 'normalized', 'HorizontalAlignment', 'center', ...
-                    'Color', obj.MUTED, 'Tag', 'SessionView:NoFit');
-                title(ax, 'Psychometric function');
+            F = R.Fit;
+            unit = R.Unit;
+            param = R.Parameter;
+            obj.plotInto_("fit", obj.H.fitAxes, @(ax) localDrawFit(ax, F, unit, param), ...
+                obj.label_(R) + " · Psychometric fit");
+        end
+
+        function t = label_(~, R)
+            % "S1 · 2026-10-01 09:00": what a figure of this session is called.
+            t = "Session";
+            if isempty(R), return, end
+            when = "";
+            if isdatetime(R.Start) && ~isnat(R.Start)
+                when = string(R.Start, 'yyyy-MM-dd HH:mm');
             end
+            parts = [R.Subject, when];
+            parts = parts(strlength(parts) > 0);
+            if ~isempty(parts), t = strjoin(parts, " · "); end
         end
 
         function lines = summaryLines_(obj, R)
@@ -447,6 +482,7 @@ classdef SessionView < gui.behavior.View
             obj.H.metrics.Data = cell(0, 3);
             cla(obj.H.fitAxes);
             title(obj.H.fitAxes, '');
+            obj.forgetPlot_("fit");
             obj.H.flags.Text = '';
             obj.H.notes.Value = {''};
             obj.H.btnReview.Enable = 'off';
@@ -492,4 +528,33 @@ classdef SessionView < gui.behavior.View
             end
         end
     end
+end
+
+
+% ---------------------------------------------------------------------------
+function H = localDrawFit(ax, F, unit, parameter)
+% psignifit's own plotPsych when psignifit made the fit (the Fit tab has the
+% rest of its plots); behavior.Plot's otherwise; the reason when neither can.
+% A local function so the handle kept for Open in New Figure holds the fit,
+% not the view.
+H = struct();
+try
+    if isstruct(F) && ~isempty(F) && string(F.Engine) == "psignifit" ...
+            && isstruct(F.Raw) && isfield(F.Raw, 'Fit')
+        H = behavior.fit.PsignifitPlot.psych(ax, F, Unit = unit, Parameter = parameter);
+        subtitle(ax, '');
+    else
+        H = behavior.Plot.psychometric(ax, F, Unit = unit);
+    end
+catch ME
+    vprintf(2, 'gui.behavior.SessionView: fit plot not drawn: %s', ME.message);
+    cla(ax);
+    msg = "No psychometric plot";
+    if isstruct(F) && isfield(F, 'Message') && strlength(string(F.Message)) > 0
+        msg = string(F.Message);
+    end
+    text(ax, 0.5, 0.5, msg, 'Units', 'normalized', 'HorizontalAlignment', 'center', ...
+        'Color', [0.35 0.38 0.42], 'Tag', 'SessionView:NoFit');
+    title(ax, 'Psychometric function');
+end
 end

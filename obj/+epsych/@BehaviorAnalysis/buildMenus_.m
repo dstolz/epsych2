@@ -51,6 +51,8 @@ uimenu(m, 'Text', 'Show in &Folder', 'MenuSelectedFcn', @(~,~) self.sessionActio
 m = uimenu(f, 'Text', '&Analysis');
 self.H.mnu_analysis = m;
 uimenu(m, 'Text', '&Settings...', 'MenuSelectedFcn', @(~,~) self.settingsDialog_());
+uimenu(m, 'Text', 'ps&ignifit Settings...', ...
+    'MenuSelectedFcn', @(~,~) self.settingsDialog_(Section = "psignifit"));
 self.H.mnu_presets = uimenu(m, 'Text', '&Presets');
 self.H.mnu_parameter = uimenu(m, 'Text', 'P&arameter');
 uimenu(m, 'Text', '&Recompute All', 'Separator', 'on', 'MenuSelectedFcn', @(~,~) self.recomputeAll());
@@ -66,7 +68,7 @@ self.H.mnu_xaxis = uimenu(m, 'Text', '&X axis');
 
 % ---------- View -----------------------------------------------------------
 m = uimenu(f, 'Text', '&View');
-keys = ["1" "2" "3" "4"];
+keys = ["1" "2" "3" "4" "5"];
 for k = 1:numel(self.TAB_NAMES)
     name = self.TAB_NAMES(k);
     uimenu(m, 'Text', char(name), 'Accelerator', char(keys(k)), ...

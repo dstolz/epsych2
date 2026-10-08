@@ -33,8 +33,8 @@ classdef Plot
     %   - Every graphics object carries a Tag "BehaviorPlot:<Role>" (Point,
     %     SubjectLine, SubjectMedian, Fit, QC, Box, Bar, Mean, ErrorBar, CI,
     %     Track, Reversal, Threshold, Curve, Proportion, Histogram, Median,
-    %     Message, LegendKey, Legend, NoData), so a test or the window finds
-    %     them with findobj rather than by drawing order.
+    %     Message, LegendKey, Legend, ColorBar, NoData), so a test or the
+    %     window finds them with findobj rather than by drawing order.
     %   - Nothing to draw -- an empty table, no results, a column of NaN --
     %     is a centred "No data" text, never an error. NaN values are
     %     skipped, never plotted as zero.
@@ -42,12 +42,14 @@ classdef Plot
     %     its position in the facet's order(T) over the WHOLE table (before
     %     NaN rows are dropped), so a level keeps its colour from one figure
     %     to the next over the same table. colorsFor is the one place that
-    %     rule lives.
+    %     rule lives. A figure taking ColorMap (staircaseOverlay) may instead
+    %     spread a sequential map over an ordered facet's levels.
     %   - Text is drawn with the 'none' interpreter: subject names and tags
     %     carry underscores, which TeX would turn into subscripts.
-    %   - The axes' own Tag and UserData survive the clear; every other axes
-    %     property is reset, because a datetime x ruler from one figure
-    %     would refuse the numeric x of the next.
+    %   - The axes' own Tag, UserData and ContextMenu survive the clear, and
+    %     its colour bar is removed; every other axes property is reset,
+    %     because a datetime x ruler from one figure would refuse the
+    %     numeric x of the next.
     %
     % Documentation: documentation/behavior/behavior_Classes.md
     % See also: behavior.Aggregate, behavior.Facet, behavior.Stats,
@@ -67,6 +69,21 @@ classdef Plot
         % palette entry or outcome colour is.
         INK = [0.15 0.15 0.15]
         TAG_PREFIX = "BehaviorPlot:"
+        % How a figure that takes ColorMap colours a facet's levels:
+        % "categorical" is palette(); the others are sequential maps sampled
+        % over the levels in order, for a facet whose order means something
+        % (behavior.Facet.isOrdered). "auto" is the sequential default for an
+        % ordered facet and categorical for any other. Sequential maps do
+        % not keep palette()'s distance from the outcome hues; an overlay
+        % draws no outcome, so nothing on it can be mistaken for one.
+        COLOR_MAPS = ["auto" "categorical" "parula" "turbo" "cool" "copper" "winter" "gray"]
+        % The sequential map "auto" picks.
+        AUTO_SEQUENTIAL = "parula"
+        % Above this many levels a gradient is keyed by a colour bar and a
+        % categorical legend moves outside the axes.
+        MAX_LEGEND_LEVELS = 8
+        % The longest colour-bar tick label (see compactLabels_).
+        MAX_TICK_CHARS = 8
     end
 
     methods (Static)
@@ -96,21 +113,98 @@ classdef Plot
             end
         end
 
-        function [c, levels, idx] = colorsFor(facet, T)
-            % [c, levels, idx] = behavior.Plot.colorsFor(facet, T)
+        function [c, levels, idx, map] = colorsFor(facet, T, options)
+            % [c, levels, idx, map] = behavior.Plot.colorsFor(facet, T, ColorMap = "categorical")
             % The colour of each level of a facet over a table: level k (in
-            % facet.order(T)) gets palette row k, whatever is later drawn.
+            % facet.order(T)) gets palette row k, whatever is later drawn --
+            % or, with a sequential ColorMap, the map sampled evenly from the
+            % first level to the last, "(none)" in NEUTRAL outside the ramp.
             %
             % Returns:
             %   c      - m-by-3 RGB, one row per level
             %   levels - m-by-1 string, the facet's levels in order
             %   idx    - height(T)-by-1, each row's level position
+            %   map    - the map used: "categorical" or a sequential name
+            %            ("auto" resolved through resolveColorMap)
             arguments
                 facet (1,1) behavior.Facet
                 T table
+                options.ColorMap (1,1) string {behavior.Plot.mustBeColorMap} = "categorical"
             end
             [levels, idx] = facet.order(T);
-            c = behavior.Plot.palette(numel(levels));
+            map = behavior.Plot.resolveColorMap(options.ColorMap, facet);
+            if map == "categorical"
+                c = behavior.Plot.palette(numel(levels));
+                return
+            end
+            c = repmat(behavior.Plot.NEUTRAL, numel(levels), 1);
+            ramp = levels ~= behavior.Facet.NONE;
+            c(ramp, :) = behavior.Plot.sequential(map, sum(ramp));
+        end
+
+        function map = resolveColorMap(map, facet)
+            % map = behavior.Plot.resolveColorMap(map, facet)
+            % "auto" as the map it stands for: AUTO_SEQUENTIAL for an
+            % ordered facet (behavior.Facet.isOrdered), else "categorical".
+            % Any other name is returned as it is.
+            arguments
+                map (1,1) string {behavior.Plot.mustBeColorMap}
+                facet (1,1) behavior.Facet
+            end
+            if map == "auto"
+                map = "categorical";
+                if facet.isOrdered()
+                    map = behavior.Plot.AUTO_SEQUENTIAL;
+                end
+            end
+        end
+
+        function c = sequential(map, n)
+            % c = behavior.Plot.sequential(map, n)
+            % n colours sampled evenly along a sequential map, n-by-3. Each
+            % map is cut where it fades into a white axes (parula's yellow,
+            % gray's white), so the last level is as visible as the first.
+            arguments
+                map (1,1) string {mustBeMember(map, ["parula" "turbo" "cool" "copper" "winter" "gray"])}
+                n (1,1) double {mustBeInteger, mustBeNonnegative}
+            end
+            switch map
+                case "parula", span = [0 0.88];
+                case "turbo",  span = [0.05 0.95];
+                case "copper", span = [0.12 0.9];
+                case "gray",   span = [0 0.72];
+                otherwise,     span = [0 1];
+            end
+            if n == 1
+                at = mean(span);
+            else
+                at = linspace(span(1), span(2), n);
+            end
+            base = feval(char(map), 256);
+            c = interp1(linspace(0, 1, 256), base, reshape(at, [], 1));
+            c = reshape(c, n, 3);
+        end
+
+        function mustBeColorMap(map)
+            % behavior.Plot.mustBeColorMap(map)
+            % Argument validator: map names a COLOR_MAPS entry.
+            if ~ismember(string(map), behavior.Plot.COLOR_MAPS)
+                error('behavior:Plot:UnknownColorMap', '"%s" is not a colour map (%s).', ...
+                    string(map), strjoin(behavior.Plot.COLOR_MAPS, ", "));
+            end
+        end
+
+        function txt = colorMapLabel(map)
+            % txt = behavior.Plot.colorMapLabel(map)
+            % What a menu calls a COLOR_MAPS entry.
+            arguments
+                map (1,1) string {behavior.Plot.mustBeColorMap}
+            end
+            switch map
+                case "auto",        txt = "Auto";
+                case "categorical", txt = "Distinct colours";
+                otherwise,          txt = "Gradient: " + upper(extractBefore(map, 2)) + extractAfter(map, 1);
+            end
         end
 
         function H = thresholdTimeline(ax, T, options)
@@ -441,28 +535,44 @@ classdef Plot
             %                    behavior.Aggregate.thresholds' join. []
             %                    uses what the results themselves carry.
             %   ColorBy        - behavior.Facet (default subject)
+            %   ColorMap       - one of COLOR_MAPS (default "auto": a
+            %                    gradient for an ordered facet such as
+            %                    session or date, distinct colours
+            %                    otherwise). A gradient is keyed by a colour
+            %                    bar once it has more than MAX_LEGEND_LEVELS
+            %                    levels, and by the legend below that.
             %   Normalize      - "none" (x = trial number in the session),
             %                    "trial" (included stimulus trials 1..n) or
             %                    "fraction" (k/n, so every track ends at 1)
+            %   Steps          - draw each track as steps (default true): a
+            %                    staircase HOLDS its level until the next
+            %                    trial, which a sloped line misrepresents
             %   ShowReversals  - mark each reversal
-            %   ShowThresholds - each result's Threshold as a short dashed
-            %                    level at its track's end
+            %   ShowThresholds - each result's Threshold as a marker at its
+            %                    track's end, drawn over every track
             %   Unit           - y unit; "" = the results' Unit
             %
+            % Tracks are drawn in level order, so with a gradient the latest
+            % level lies on top.
+            %
             % Returns:
-            %   H - struct Axes, NoData, Legend, Track, Reversal, Threshold;
-            %       H.Track(k).UserData.Key names the session
+            %   H - struct Axes, NoData, Legend, Track, Reversal, Threshold,
+            %       LegendKey, ColorBar, ColorMap (the map used, "auto"
+            %       resolved); H.Track(k).UserData.Key names the session
             arguments
                 ax (1,1)
                 results
                 sessions = []
                 options.ColorBy (1,1) behavior.Facet = behavior.Facet("subject")
+                options.ColorMap (1,1) string {behavior.Plot.mustBeColorMap} = "auto"
                 options.Normalize (1,1) string {mustBeMember(options.Normalize, ["none" "trial" "fraction"])} = "none"
+                options.Steps (1,1) logical = true
                 options.ShowReversals (1,1) logical = false
                 options.ShowThresholds (1,1) logical = true
                 options.Unit (1,1) string = ""
             end
-            H = behavior.Plot.prepare_(ax, ["Track" "Reversal" "Threshold"]);
+            H = behavior.Plot.prepare_(ax, ["Track" "Reversal" "Threshold" "LegendKey" "ColorBar"]);
+            H.ColorMap = behavior.Plot.resolveColorMap(options.ColorMap, options.ColorBy);
             R = behavior.Plot.asResults_(results);
             if isempty(R)
                 H = behavior.Plot.noData_(H);
@@ -470,10 +580,17 @@ classdef Plot
             end
             % The join gives every result the facet columns its session has.
             T = behavior.Aggregate.thresholds(R, sessions);
-            [cols, clev, cidx] = behavior.Plot.colorsFor(options.ColorBy, T);
+            [cols, clev, cidx, map] = behavior.Plot.colorsFor(options.ColorBy, T, ColorMap = options.ColorMap);
             nPer = accumarray(cidx, 1, [numel(clev) 1]);
+            gradient = map ~= "categorical";
+            lw = 1.5;
+            if numel(R) > 12
+                lw = 1;             % a dense overlay reads better thin
+            end
 
-            for k = 1:numel(R)
+            thX = nan(1, numel(R)); thY = thX; thC = nan(numel(R), 3);
+            [~, drawOrder] = sort(cidx);       % stable: within a level, as given
+            for k = reshape(drawOrder, 1, [])
                 tr = R(k).Track;
                 ti = reshape(double(tr.TrialIndex), 1, []);
                 v = reshape(double(tr.Value), 1, []);
@@ -489,25 +606,47 @@ classdef Plot
                 end
                 c = cidx(k);
                 col = cols(c, :);
-                h = plot(ax, x, v, '-', 'Color', col, 'LineWidth', 1, 'Tag', behavior.Plot.tag_("Track"), ...
-                    'DisplayName', sprintf('%s (n=%d)', clev(c), nPer(c)), ...
-                    'UserData', struct('Key', string(R(k).Key), 'Level', c));
+                name = clev(c);
+                if any(nPer > 1)        % one session per level (session #, date) needs no count
+                    name = sprintf('%s (n=%d)', clev(c), nPer(c));
+                end
+                args = {'Color', col, 'LineWidth', lw, 'Tag', behavior.Plot.tag_("Track"), ...
+                    'DisplayName', name, ...
+                    'UserData', struct('Key', string(R(k).Key), 'Level', c)};
+                if options.Steps
+                    h = stairs(ax, x, v, args{:});
+                else
+                    h = plot(ax, x, v, '-', args{:});
+                end
                 H.Track(end+1) = h;
                 if options.ShowReversals && any(rev)
                     H.Reversal(end+1) = plot(ax, x(rev), v(rev), 'LineStyle', 'none', 'Marker', 'o', ...
-                        'MarkerSize', 4, 'MarkerFaceColor', col, 'MarkerEdgeColor', col * 0.6, ...
+                        'MarkerSize', 4.5, 'MarkerFaceColor', col, 'MarkerEdgeColor', 'w', 'LineWidth', 0.5, ...
                         'Tag', behavior.Plot.tag_("Reversal"));
                 end
                 th = double(R(k).Threshold);
                 if options.ShowThresholds && isscalar(th) && isfinite(th)
-                    span = max(x(end) - x(1), eps);
-                    H.Threshold(end+1) = plot(ax, x(end) - [0.15 0] * span, [th th], '--', 'Color', col, ...
-                        'LineWidth', 2, 'Tag', behavior.Plot.tag_("Threshold"));
+                    thX(k) = x(end); thY(k) = th; thC(k, :) = col;
                 end
             end
             if isempty(H.Track)
                 H = behavior.Plot.noData_(H, "No result has a staircase track.");
                 return
+            end
+
+            % Thresholds last, so no later track hides an earlier one's.
+            for k = reshape(drawOrder, 1, [])
+                if isnan(thY(k)), continue, end
+                H.Threshold(end+1) = plot(ax, thX(k), thY(k), 'LineStyle', 'none', 'Marker', 'o', ...
+                    'MarkerSize', 7, 'MarkerFaceColor', thC(k, :), 'MarkerEdgeColor', behavior.Plot.INK, ...
+                    'LineWidth', 1, 'Tag', behavior.Plot.tag_("Threshold"));
+            end
+            if ~isempty(H.Threshold)
+                H.LegendKey(end+1) = behavior.Plot.markerKey_(ax, 'o', 7, 'w', ...
+                    sprintf('Session threshold (n=%d)', numel(H.Threshold)));
+            end
+            if ~isempty(H.Reversal)
+                H.LegendKey(end+1) = behavior.Plot.markerKey_(ax, 'o', 4.5, behavior.Plot.NEUTRAL, 'Reversal');
             end
 
             switch options.Normalize
@@ -518,9 +657,30 @@ classdef Plot
             if options.Normalize == "fraction"
                 xlim(ax, [0 1]);
             end
+            grid(ax, 'on');
+            ax.GridAlpha = 0.1;
+            ax.TickDir = 'out';
             xlabel(ax, xl, 'Interpreter', 'none');
             ylabel(ax, behavior.Plot.parameterLabel_(R, options.Unit, ""), 'Interpreter', 'none');
-            H.Legend = behavior.Plot.legend_(ax, behavior.Plot.firstPerName_(H.Track), options.ColorBy.label());
+
+            % The key: a colour bar for a long gradient, the legend otherwise.
+            ramp = clev ~= behavior.Facet.NONE;
+            levelKeys = behavior.Plot.firstPerName_(H.Track);
+            legendTitle = options.ColorBy.label();
+            if gradient && sum(ramp) > behavior.Plot.MAX_LEGEND_LEVELS
+                H.ColorBar = behavior.Plot.levelColorBar_(ax, cols(ramp, :), clev(ramp), legendTitle);
+                lvl = arrayfun(@(h) h.UserData.Level, levelKeys);
+                levelKeys = levelKeys(~ramp(lvl));          % "(none)" still needs its entry
+                if isempty(levelKeys)
+                    legendTitle = "";                       % the colour bar is already titled
+                end
+            end
+            entries = [levelKeys H.LegendKey];
+            loc = 'best';
+            if numel(entries) > behavior.Plot.MAX_LEGEND_LEVELS
+                loc = 'eastoutside';
+            end
+            H.Legend = behavior.Plot.legend_(ax, entries, legendTitle, loc);
             hold(ax, 'off');
         end
 
@@ -807,9 +967,12 @@ classdef Plot
             end
             tag = ax.Tag;
             ud = ax.UserData;
+            menu = ax.ContextMenu;
+            colorbar(ax, 'off');             % a sibling of the axes: cla leaves it
             cla(ax, 'reset');
             ax.Tag = tag;
             ax.UserData = ud;
+            ax.ContextMenu = menu;
             box(ax, 'on');
             hold(ax, 'on');
             H = struct('Axes', ax, 'NoData', gobjects(0), 'Legend', gobjects(0));
@@ -837,20 +1000,83 @@ classdef Plot
             hold(ax, 'off');
         end
 
-        function lg = legend_(ax, h, titleText)
+        function lg = legend_(ax, h, titleText, location)
             % A legend over the given handles, or none when there are none.
+            arguments
+                ax
+                h
+                titleText (1,1) string
+                location = 'best'
+            end
             lg = gobjects(0);
             h = h(isgraphics(h));
             if isempty(h)
                 legend(ax, 'off');
                 return
             end
-            lg = legend(ax, h, 'Interpreter', 'none', 'Location', 'best', 'Tag', behavior.Plot.tag_("Legend"));
+            lg = legend(ax, h, 'Interpreter', 'none', 'Location', location, 'Tag', behavior.Plot.tag_("Legend"));
             lg.AutoUpdate = 'off';
             if strlength(titleText) > 0
                 lg.Title.String = titleText;
                 lg.Title.Interpreter = 'none';
             end
+        end
+
+        function key = markerKey_(ax, marker, sz, face, name)
+            % A legend-only marker (NaN data draws nothing) in INK outline.
+            key = plot(ax, NaN, NaN, 'LineStyle', 'none', 'Marker', marker, 'MarkerSize', sz, ...
+                'MarkerFaceColor', face, 'MarkerEdgeColor', behavior.Plot.INK, 'LineWidth', 1, ...
+                'Tag', behavior.Plot.tag_("LegendKey"), 'DisplayName', name);
+        end
+
+        function cb = levelColorBar_(ax, cols, levels, titleText)
+            % A colour bar with one band per level, ticked at the levels'
+            % centres -- every level when they fit, else about ten spread
+            % evenly with the first and last always labelled.
+            n = size(cols, 1);
+            colormap(ax, cols);
+            ax.CLim = [0.5, n + 0.5];
+            at = 1:n;
+            if n > 12
+                at = unique(round(linspace(1, n, 10)));
+            end
+            [labels, prefix] = behavior.Plot.compactLabels_(levels);
+            if prefix ~= ""
+                titleText = titleText + " (" + prefix + char(8230) + ")";
+            end
+            cb = colorbar(ax, 'Ticks', at, 'TickLabels', cellstr(labels(at)), ...
+                'TickLabelInterpreter', 'none', 'TickDirection', 'out', 'Tag', behavior.Plot.tag_("ColorBar"));
+            cb.Label.String = titleText;
+            cb.Label.Interpreter = 'none';
+        end
+
+        function [labels, prefix] = compactLabels_(levels)
+            % Colour-bar tick labels kept short, because a uiaxes in a grid
+            % layout reserves room for a narrow label only and a wide one
+            % runs into the neighbouring control. A prefix every level
+            % shares up to a separator ("2026-09-" of a run of dates, "2026-"
+            % of weeks) is lifted into the title; what remains is cut to
+            % MAX_TICK_CHARS.
+            levels = reshape(string(levels), [], 1);
+            prefix = "";
+            if numel(levels) > 1
+                c = char(levels(1));
+                n = numel(c);
+                for k = 2:numel(levels)
+                    o = char(levels(k));
+                    m = min(n, numel(o));
+                    d = find(c(1:m) ~= o(1:m), 1);
+                    if isempty(d), n = m; else, n = d - 1; end
+                end
+                cut = find(ismember(c(1:n), '-_ /:'), 1, 'last');
+                % Only when every level keeps something after the cut.
+                if ~isempty(cut) && all(strlength(levels) > cut)
+                    prefix = string(c(1:cut));
+                end
+            end
+            labels = extractAfter(levels, strlength(prefix));
+            long = strlength(labels) > behavior.Plot.MAX_TICK_CHARS;
+            labels(long) = extractBefore(labels(long), behavior.Plot.MAX_TICK_CHARS) + char(8230);
         end
 
         function h = firstPerName_(h)

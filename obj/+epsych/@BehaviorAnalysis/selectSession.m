@@ -1,7 +1,8 @@
 function selectSession(self, key)
 % selectSession(self, key)
-% Show one session: the Session tab draws it, the Subject tab follows its
-% subject, and the browser selects its node (when the filter lists it).
+% Show one session: the Session and Fit tabs draw it, the Subject tab
+% follows its subject, and the browser selects its node (when the filter
+% lists it).
 % Does not change the tab in front; Session > Open does.
 %
 % Parameters:
@@ -25,6 +26,7 @@ catch ME
 end
 key = string(row.Key);
 self.Views.Session.show(key);
+self.Views.Fit.show(key);
 self.Views.Subject.setSubject(string(row.Subject));
 self.Views.Browser.reveal(key);
 self.setStatus_(row.FileName + "  ·  " + row.Project + " / " + row.Subject);

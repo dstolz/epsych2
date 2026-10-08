@@ -119,6 +119,7 @@ Analysis and GUI classes
       │  ├─ SubjectView
       │  ├─ CompareView
       │  ├─ TableView
+      │  ├─ FitView (psignifit's plots and posteriors)
       │  └─ Browser
       └─ SettingsDialog / GroupingsDialog / ExportDialog
 
@@ -127,7 +128,7 @@ Analysis and GUI classes
    ├─ Project ── what a person decided (one JSON file, merged on save)
    ├─ Settings, Facet ── what an analysis is and how sessions group
    ├─ Session ── one loaded session: exclusionMask, staircase, fit, analyze
-   │  └─ fit.Builtin / fit.Psignifit (v2 seam)
+   │  └─ fit.Builtin / fit.Psignifit (+ fit.PsignifitPlot) ── the two fitting engines, one result schema
    ├─ Study ── app state: Catalog + Project + Settings, memoized results, events
    ├─ Aggregate, Stats ── across sessions (descriptive only)
    ├─ Plot ── pictures into any axes

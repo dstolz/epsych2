@@ -343,6 +343,8 @@ src.ci_hi = g('FitCIHi', 'double');
 
 engine = strings(n, 1); shape = strings(n, 1); message = strings(n, 1);
 gamma = nan(n, 1); lambda = nan(n, 1);
+width = nan(n, 1); eta = nan(n, 1); deviance = nan(n, 1);
+gammaSource = strings(n, 1); engineVersion = strings(n, 1);
 identifiable = false(n, 1);
 nLevels = nan(n, 1); nScored = nan(n, 1);
 for k = 1:n
@@ -354,6 +356,19 @@ for k = 1:n
     if isfield(F, 'Message'), message(k) = strjoin(reshape(string(F.Message), 1, []), " "); end
     gamma(k) = localNum(F, 'Gamma');
     lambda(k) = localNum(F, 'Lambda');
+    width(k) = localNum(F, 'Width');
+    eta(k) = localNum(F, 'Eta');
+    deviance(k) = localNum(F, 'Deviance');
+    if isfield(F, 'Raw') && isstruct(F.Raw) && isscalar(F.Raw)
+        if isfield(F.Raw, 'GammaSource')           % psignifit
+            gammaSource(k) = string(F.Raw.GammaSource);
+        elseif isfield(F.Raw, 'GuessRateSource')   % built-in
+            gammaSource(k) = string(F.Raw.GuessRateSource);
+        end
+        if isfield(F.Raw, 'Version')
+            engineVersion(k) = string(F.Raw.Version);
+        end
+    end
     if isfield(F, 'Identifiable') && isscalar(F.Identifiable)
         identifiable(k) = logical(F.Identifiable);
     end
@@ -368,6 +383,11 @@ src.engine = engine;
 src.shape = shape;
 src.gamma = gamma;
 src.lambda = lambda;
+src.width = width;
+src.eta = eta;
+src.deviance = deviance;
+src.guess_rate_source = gammaSource;
+src.engine_version = engineVersion;
 src.identifiable = identifiable;
 src.n_levels = nLevels;
 src.n_scored = nScored;

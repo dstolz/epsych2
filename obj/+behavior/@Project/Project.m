@@ -62,10 +62,11 @@ classdef Project < handle
     %   Saved, Writer     - When, and by whom ("user@host"), it was last saved
     %   Settings          - behavior.Settings; SettingsModified its time
     %   Presets           - struct array: Name, Settings (Settings STRUCT),
-    %                       View (GroupBy/ColorBy/XAxis/Value/Kind, or no
-    %                       fields), Modified
+    %                       View (GroupBy/ColorBy/XAxis/Value/Kind/
+    %                       ColorMap, or no fields), Modified
     %   Facets            - struct: GroupBy, ColorBy, XAxis (facet text),
-    %                       Value, Kind, Modified
+    %                       Value, Kind, ColorMap (behavior.Plot.COLOR_MAPS;
+    %                       "auto" in a file written before it), Modified
     %   Groupings         - struct array: Name, Levels (1,:) string, Subjects
     %                       (Subject/Level), Sessions (Key/Level), Modified
     %   Sessions          - table: Key, Hidden, HiddenReason, Window, Comment,
@@ -241,7 +242,7 @@ classdef Project < handle
             % Keep the current Settings under a name (replacing a preset of
             % that name). View, when it has fields, is the compare view the
             % preset also restores: any of GroupBy, ColorBy, XAxis, Value,
-            % Kind, the rest taken from the current Facets.
+            % Kind, ColorMap, the rest taken from the current Facets.
             arguments
                 P
                 name (1,1) string
@@ -421,12 +422,14 @@ classdef Project < handle
 
         % -------------------------------------------------------- view, check
         function setFacets(P, options)
-            % setFacets(P, GroupBy=, ColorBy=, XAxis=, Value=, Kind=)
+            % setFacets(P, GroupBy=, ColorBy=, XAxis=, Value=, Kind=, ColorMap=)
             % The compare view. GroupBy, ColorBy and XAxis are facet text
             % (behavior.Facet.toText: "tag:1", "manual:Treatment", "month"),
             % refused when behavior.Facet.fromText cannot read it; Value names
-            % a result column; Kind is one of ViewKinds. Only the options
-            % given change (no defaults, so "not stated" stays distinct).
+            % a result column; Kind is one of ViewKinds; ColorMap one of
+            % behavior.Plot.COLOR_MAPS (how the overlay colours ColorBy).
+            % Only the options given change (no defaults, so "not stated"
+            % stays distinct).
             arguments
                 P
                 options.GroupBy (1,1) string
@@ -434,6 +437,7 @@ classdef Project < handle
                 options.XAxis (1,1) string
                 options.Value (1,1) string
                 options.Kind (1,1) string
+                options.ColorMap (1,1) string
             end
             F = P.Facets;
             for f = reshape(string(fieldnames(options)), 1, [])
@@ -638,7 +642,7 @@ classdef Project < handle
 
         function F = defaultFacets_()
             F = struct('GroupBy', "none", 'ColorBy', "subject", 'XAxis', "date", ...
-                'Value', "Threshold", 'Kind', "box", 'Modified', NaT);
+                'Value', "Threshold", 'Kind', "box", 'ColorMap', "auto", 'Modified', NaT);
         end
 
         function tf = isDefaultRow_(row)
@@ -686,6 +690,12 @@ classdef Project < handle
                     if ~ismember(v, behavior.Project.ViewKinds)
                         error('behavior:Project:InvalidView', '"%s" is not a plot kind (%s).', ...
                             v, strjoin(behavior.Project.ViewKinds, ", "));
+                    end
+                case "ColorMap"
+                    v = lower(v);
+                    if ~ismember(v, behavior.Plot.COLOR_MAPS)
+                        error('behavior:Project:InvalidView', '"%s" is not a colour map (%s).', ...
+                            v, strjoin(behavior.Plot.COLOR_MAPS, ", "));
                     end
             end
         end
@@ -793,7 +803,7 @@ classdef Project < handle
                 return
             end
             given = string(fieldnames(V));
-            names = ["GroupBy" "ColorBy" "XAxis" "Value" "Kind"];
+            names = ["GroupBy" "ColorBy" "XAxis" "Value" "Kind" "ColorMap"];
             bad = setdiff(given, names);
             if ~isempty(bad)
                 error('behavior:Project:InvalidView', 'A view has no field "%s".', bad(1));

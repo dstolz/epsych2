@@ -351,9 +351,18 @@ classdef SessionView < gui.behavior.View
         end
 
         function drawFit_(obj, R)
+            % psignifit's own plotPsych when psignifit made the fit (the Fit
+            % tab has the rest of its plots); behavior.Plot's otherwise.
             ax = obj.H.fitAxes;
             try
-                behavior.Plot.psychometric(ax, R.Fit, Unit = R.Unit);
+                F = R.Fit;
+                if isstruct(F) && ~isempty(F) && string(F.Engine) == "psignifit" ...
+                        && isstruct(F.Raw) && isfield(F.Raw, 'Fit')
+                    behavior.fit.PsignifitPlot.psych(ax, F, Unit = R.Unit, Parameter = R.Parameter);
+                    subtitle(ax, '');
+                else
+                    behavior.Plot.psychometric(ax, F, Unit = R.Unit);
+                end
             catch ME
                 vprintf(2, 'gui.behavior.SessionView: fit plot not drawn: %s', ME.message);
                 cla(ax);
@@ -396,7 +405,10 @@ classdef SessionView < gui.behavior.View
                 if isfield(F, 'CI') && isstruct(F.CI) && isfinite(F.CI.ThresholdLo)
                     ci = sprintf(" [%s, %s]", obj.num_(F.CI.ThresholdLo), obj.num_(F.CI.ThresholdHi));
                 end
-                if F.Converged && F.Identifiable
+                if F.Converged && F.Identifiable && string(F.Engine) == "psignifit"
+                    lines(end+1) = sprintf("Fitted threshold: %s%s%s  (psignifit %s, slope %s, width %s)", ...
+                        obj.num_(F.Threshold), unit, ci, string(F.Shape), obj.num_(F.Beta), obj.num_(F.Width));
+                elseif F.Converged && F.Identifiable
                     lines(end+1) = sprintf("Fitted threshold: %s%s%s  (%s, slope %s)", ...
                         obj.num_(F.Threshold), unit, ci, string(F.Shape), obj.num_(F.Beta));
                 else

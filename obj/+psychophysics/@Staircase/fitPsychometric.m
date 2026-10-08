@@ -102,101 +102,29 @@ arguments
     options.MaxIterations (1,1) double {mustBePositive, mustBeInteger} = 2000
 end
 
+% The scoring and the per-level counts are psychometricCounts', shared with
+% every other fit of these trials (psignifit takes the same data matrix).
+C = obj.psychometricCounts(IncludeAborts = options.IncludeAborts, ...
+    LevelTolerance = options.LevelTolerance);
+
 extra = struct( ...
-    'ParameterName',     obj.ParameterName, ...
-    'NumScored',         0, ...
-    'NumAborted',        0, ...
-    'NumUnscored',       0, ...
-    'NumUndefinedLevel', 0, ...
+    'ParameterName',     C.ParameterName, ...
+    'NumScored',         C.NumScored, ...
+    'NumAborted',        C.NumAborted, ...
+    'NumUnscored',       C.NumUnscored, ...
+    'NumUndefinedLevel', C.NumUndefinedLevel, ...
     'GuessRateSource',   "fixed");
 
-if isempty(obj.DATA)
+if C.Message ~= ""
     F = decorate_(psychophysics.Staircase.emptyFit_(), options, extra);
-    F.Message = "The staircase holds no trials to fit.";
+    F.Message = C.Message;
     return
 end
-
-s = obj.sessionVectors_();
-
-if isempty(s.decoded)
-    F = decorate_(psychophysics.Staircase.emptyFit_(), options, extra);
-    F.Message = "DATA carries no response codes, so no trial can be scored.";
-    return
-end
-
-% ---- Score the stimulus trials ------------------------------------------
-% A code carrying both Hit and Miss says two contradictory things about one
-% trial; it is counted as unscored rather than resolved in either direction.
-isHit   = reshape(s.decoded.Hit,   1, []);
-isMiss  = reshape(s.decoded.Miss,  1, []);
-isAbort = reshape(s.decoded.Abort, 1, []);
-
-yes = isHit & ~isMiss;
-no  = isMiss & ~isHit;
-
-stim = s.stimMask;                            % exclusions already applied
-
-% One level per trial, or nothing can be paired. A tracked parameter with no
-% value on some trials produces a short vector, and pairing it with the trial
-% masks would be arithmetic on two different sessions.
-if numel(s.stimValues) ~= numel(stim)
-    F = decorate_(psychophysics.Staircase.emptyFit_(), options, extra);
-    F.Message = "The tracked parameter has no value on every trial, so levels and responses cannot be paired.";
-    return
-end
-
-scored = stim & (yes | no);
-if options.IncludeAborts
-    scored = scored | (stim & isAbort & ~yes & ~no);
-end
-
-extra.NumAborted  = sum(stim & isAbort & ~yes & ~no);
-extra.NumScored   = sum(scored);
-extra.NumUnscored = sum(stim) - extra.NumScored;
-
-lv     = s.stimValues(scored);
-isYes  = yes(scored);
-
-% A level of NaN (a trial whose value was not recorded) is dropped and
-% counted, never treated as zero.
-usable = isfinite(lv);
-extra.NumUndefinedLevel = sum(~usable);
-lv    = lv(usable);
-isYes = isYes(usable);
-
-if isempty(lv)
-    F = decorate_(psychophysics.Staircase.emptyFit_(), options, extra);
-    F.Message = "No stimulus trial could be scored at a defined stimulus level.";
-    return
-end
-
-% ---- Counts per level ----------------------------------------------------
-if options.LevelTolerance > 0
-    % DataScale 1 makes the tolerance absolute; uniquetol's default scales it
-    % by the largest value, which is not what "within 0.01 dB" means.
-    [~, ~, ic] = uniquetol(lv, options.LevelTolerance, 'DataScale', 1);
-else
-    [~, ~, ic] = unique(lv);
-end
-ic = ic(:);
-
-uLevels  = accumarray(ic, lv(:), [], @mean)';
-numTotal = accumarray(ic, 1)';
-numYes   = accumarray(ic, double(isYes(:)))';
 
 % ---- Lower asymptote from the catch trials -------------------------------
 guessRate = options.GuessRate;
 if options.GuessFromCatchTrials
-    isFA = reshape(s.decoded.FalseAlarm,   1, []);
-    isCR = reshape(s.decoded.CorrectReject, 1, []);
-    ctch = s.catchMask;
-
-    nFA = sum(ctch & isFA & ~isCR);
-    nCR = sum(ctch & isCR & ~isFA);
-    den = psychophysics.Metrics.rateDenominator(nFA + nCR, ...
-        sum(ctch & isAbort), options.IncludeAborts);
-    fa  = psychophysics.Metrics.rate(nFA, den);
-
+    fa = C.CatchFalseAlarmRate;
     if isfinite(fa) && fa < 1 - options.LapseRate
         guessRate = fa;
         extra.GuessRateSource = "catch";
@@ -220,7 +148,7 @@ if ~isfinite(fitOpts.StartAlpha) && isscalar(obj.Results.Threshold) && isfinite(
 end
 
 args = namedargs2cell(fitOpts);
-F = decorate_(psychophysics.Staircase.fitProportions(uLevels, numYes, numTotal, args{:}), ...
+F = decorate_(psychophysics.Staircase.fitProportions(C.Levels, C.NumYes, C.NumTotal, args{:}), ...
     options, extra);
 end
 

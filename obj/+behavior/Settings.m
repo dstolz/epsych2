@@ -33,9 +33,20 @@ classdef Settings
     %
     % THE HASH covers what changes a result and nothing else: QC thresholds
     % and Compare options are left out (they change flags and plots, not
-    % numbers). It is FNV-1a over a canonical text -- fields sorted, numbers
-    % written %.17g -- so it is the same on every machine and in every field
-    % order.
+    % numbers), and so is the Psignifit group unless Fit.Engine is
+    % "psignifit" -- with the built-in engine those options fit nothing, and
+    % leaving them out is also what keeps every hash written before the group
+    % existed (and every generated script asserting one) valid. It is FNV-1a
+    % over a canonical text -- fields sorted, numbers written %.17g -- so it
+    % is the same on every machine and in every field order.
+    %
+    % PSIGNIFIT (https://github.com/wichmann-lab/psignifit) fits when
+    % Fit.Engine = "psignifit"; Fit.Enabled still switches fitting off for
+    % both engines. Every option psignifit reads is in the Psignifit group
+    % rather than shared with the built-in engine's Fit fields, so the two
+    % engines can be configured independently and switched between without
+    % losing either; psignifitOptions() is the one translation. The fit
+    % direction follows Staircase.Direction for both, as fitArgs explains.
     %
     % Properties:
     %   Analysis          - "Staircase" (v1); "Detection" and "NAFC" are
@@ -52,9 +63,21 @@ classdef Settings
     %               ThresholdFormula ("Mean"|"GeometricMean"),
     %               ApplyWeightedCorrection, WeightedStepAfterYes/No ([] =
     %               find it), WeightedStepFieldYes/No ("" = none)
-    %   Fit       - Enabled, Engine ("builtin"|"psignifit"), Shape, ThresholdCriterion,
-    %               CriterionScale, GuessFromCatchTrials, GuessRate, LapseRate,
-    %               EstimateLapse, Bootstrap, ConfidenceLevel, RandomSeed
+    %   Fit       - Enabled, Engine ("builtin"|"psignifit"), and the built-in
+    %               engine's Shape, ThresholdCriterion, CriterionScale,
+    %               GuessFromCatchTrials, GuessRate, LapseRate, EstimateLapse,
+    %               Bootstrap, ConfidenceLevel, RandomSeed
+    %   Psignifit - the psignifit engine's options (psignifit's own name in
+    %               brackets): Sigmoid [sigmoidName], ExpType [expType], ExpN
+    %               [expN], EstimateType [estimateType], ThresholdPC
+    %               [threshPC], CriterionScale ("relative" = psignifit's
+    %               threshold, "absolute" = getThreshold at that proportion),
+    %               ConfidenceLevel [confP], CIMethod [CImethod], WidthAlpha
+    %               [widthalpha], GammaMode/GammaValue, LambdaMode/LambdaValue,
+    %               EtaMode/EtaValue [fixedPars], BetaPrior [betaPrior],
+    %               StimulusRange [stimulusRange; [] = the data's],
+    %               PoolTolerance [poolxTol], MaxBlocks [nblocks], Grid
+    %               ("standard" | "coarse": stepN/mbStepN)
     %   Metrics   - CorrectionMode, infCorrection
     %   QC        - MinTrials, MaxAbortRate, MinReversals
     %   Compare   - BootstrapCI, ConfidenceLevel, NumBoot
@@ -79,6 +102,7 @@ classdef Settings
         CatchTrialType (1,1) double {mustBeInteger, mustBeInRange(CatchTrialType,0,5)} = 1
         Staircase (1,1) struct = behavior.Settings.defaults_("Staircase")
         Fit (1,1) struct = behavior.Settings.defaults_("Fit")
+        Psignifit (1,1) struct = behavior.Settings.defaults_("Psignifit")
         Metrics (1,1) struct = behavior.Settings.defaults_("Metrics")
         QC (1,1) struct = behavior.Settings.defaults_("QC")
         Compare (1,1) struct = behavior.Settings.defaults_("Compare")
@@ -86,8 +110,15 @@ classdef Settings
         NAFC (1,1) struct = behavior.Settings.defaults_("NAFC")
     end
 
+    properties (Constant)
+        % psignifit's sigmoids by the names it takes (sigmoidName). A
+        % decreasing fit uses the same name with "neg_" in front, which
+        % psignifitOptions adds from Staircase.Direction.
+        PSIGNIFIT_SIGMOIDS = ["norm" "logistic" "gumbel" "rgumbel" "tdist" "logn" "weibull"]
+    end
+
     properties (Constant, Access = private)
-        GROUPS_ = ["Staircase" "Fit" "Metrics" "QC" "Compare" "Detection" "NAFC"]
+        GROUPS_ = ["Staircase" "Fit" "Psignifit" "Metrics" "QC" "Compare" "Detection" "NAFC"]
         EXCLUDED_FROM_HASH_ = ["QC" "Compare"]
     end
 
@@ -108,6 +139,7 @@ classdef Settings
 
         function obj = set.Staircase(obj, v), obj.Staircase = behavior.Settings.merge_("Staircase", v, true); end
         function obj = set.Fit(obj, v),       obj.Fit = behavior.Settings.merge_("Fit", v, true); end
+        function obj = set.Psignifit(obj, v), obj.Psignifit = behavior.Settings.merge_("Psignifit", v, true); end
         function obj = set.Metrics(obj, v),   obj.Metrics = behavior.Settings.merge_("Metrics", v, true); end
         function obj = set.QC(obj, v),        obj.QC = behavior.Settings.merge_("QC", v, true); end
         function obj = set.Compare(obj, v),   obj.Compare = behavior.Settings.merge_("Compare", v, true); end
@@ -128,8 +160,13 @@ classdef Settings
         function st = resultsStruct(obj)
             % st = resultsStruct(obj)
             % toStruct without the settings that do not change a result (QC
-            % and Compare): what hash() names.
-            st = rmfield(obj.toStruct(), cellstr(behavior.Settings.EXCLUDED_FROM_HASH_));
+            % and Compare, and the Psignifit options while the built-in
+            % engine fits): what hash() names.
+            drop = behavior.Settings.EXCLUDED_FROM_HASH_;
+            if obj.Fit.Engine ~= "psignifit"
+                drop(end+1) = "Psignifit";
+            end
+            st = rmfield(obj.toStruct(), cellstr(drop));
         end
 
         function h = hash(obj)
@@ -162,28 +199,154 @@ classdef Settings
                     + obj.StimulusTrialType + ", so no trial can be a catch trial.";
             end
 
+            % Each engine's options are checked only while that engine fits:
+            % a stale built-in criterion must not block a psignifit analysis,
+            % nor the reverse.
             F = obj.Fit;
-            crit = F.ThresholdCriterion;
-            if ~(crit > 0 && crit < 1)
-                p(end+1, 1) = "Fit.ThresholdCriterion must lie strictly between 0 and 1 (it is " + crit + ").";
-            elseif F.CriterionScale == "absolute"
-                lo = F.GuessRate;
-                hi = 1 - F.LapseRate;
-                if F.GuessFromCatchTrials
-                    lo = 0;     % the guess rate is the data's, unknown here
+            if F.Engine == "builtin"
+                crit = F.ThresholdCriterion;
+                if ~(crit > 0 && crit < 1)
+                    p(end+1, 1) = "Fit.ThresholdCriterion must lie strictly between 0 and 1 (it is " + crit + ").";
+                elseif F.CriterionScale == "absolute"
+                    lo = F.GuessRate;
+                    hi = 1 - F.LapseRate;
+                    if F.GuessFromCatchTrials
+                        lo = 0;     % the guess rate is the data's, unknown here
+                    end
+                    if crit <= lo || (~F.EstimateLapse && crit >= hi)
+                        p(end+1, 1) = sprintf(['Fit.ThresholdCriterion %g on the absolute scale lies outside ' ...
+                            'the asymptotes [%g %g]; the fitted threshold would be NaN.'], crit, lo, hi);
+                    end
                 end
-                if crit <= lo || (~F.EstimateLapse && crit >= hi)
-                    p(end+1, 1) = sprintf(['Fit.ThresholdCriterion %g on the absolute scale lies outside ' ...
-                        'the asymptotes [%g %g]; the fitted threshold would be NaN.'], crit, lo, hi);
+                if F.GuessRate + F.LapseRate >= 1
+                    p(end+1, 1) = "Fit.GuessRate + Fit.LapseRate leave the psychometric function no span.";
                 end
+            elseif F.Enabled
+                p = [p; obj.psignifitProblems_()];
             end
-            if F.GuessRate + F.LapseRate >= 1
-                p(end+1, 1) = "Fit.GuessRate + Fit.LapseRate leave the psychometric function no span.";
+        end
+
+        function [o, info] = psignifitOptions(obj, options)
+            % [o, info] = psignifitOptions(obj, CatchFalseAlarmRate = rate)
+            % The options struct psignifit(data, o) takes, from the Psignifit
+            % group: the one translation, as fitArgs is for the built-in
+            % engine. Every field psignifit would otherwise default is stated,
+            % so a later change to one of psignifit's defaults cannot change
+            % a result silently.
+            %
+            % The fit direction follows Staircase.Direction (see fitArgs): an
+            % "Up" staircase fits psignifit's "neg_" sigmoid. GammaMode
+            % "catch" fixes the guess rate at CatchFalseAlarmRate, the
+            % session's false-alarm rate on catch trials; with no usable rate
+            % it is estimated instead, and info says so.
+            %
+            % Parameters:
+            %   CatchFalseAlarmRate - the session's catch-trial false-alarm
+            %                         rate (psychophysics.Staircase.
+            %                         psychometricCounts); NaN when none
+            %
+            % Returns:
+            %   o    - psignifit options struct
+            %   info - struct Sigmoid (the name psignifit was given),
+            %          GammaSource ("estimated" | "fixed" | "catch" |
+            %          "estimated (no usable catch trials)" | "1/N" |
+            %          "lambda"), Criterion, CriterionScale
+            arguments
+                obj
+                options.CatchFalseAlarmRate (1,1) double = NaN
+            end
+            P = obj.Psignifit;
+            sigmoid = P.Sigmoid;
+            if obj.Staircase.Direction == "Up"
+                sigmoid = "neg_" + sigmoid;
             end
 
-            if F.Engine == "psignifit"
-                p(end+1, 1) = "psignifit: " + behavior.fit.Psignifit.whyUnavailable();
+            o = struct();
+            o.sigmoidName = char(sigmoid);
+            o.expType = char(P.ExpType);
+            if P.ExpType == "nAFC"
+                o.expN = P.ExpN;
             end
+            o.estimateType = char(P.EstimateType);
+            % An absolute criterion is read off the fit afterwards (getThreshold),
+            % so the fit itself keeps psignifit's 0.5, for which its standard
+            % priors are designed.
+            if P.CriterionScale == "relative"
+                o.threshPC = P.ThresholdPC;
+            else
+                o.threshPC = 0.5;
+            end
+            o.confP = P.ConfidenceLevel;
+            o.CImethod = char(P.CIMethod);
+            o.widthalpha = P.WidthAlpha;
+            o.betaPrior = P.BetaPrior;
+            o.nblocks = P.MaxBlocks;
+            o.poolxTol = P.PoolTolerance;
+            o.poolMaxGap = Inf;
+            o.poolMaxLength = Inf;
+            o.instantPlot = 0;
+            o.moveBorders = 1;
+            o.dynamicGrid = 0;
+            o.fastOptim = false;
+            o.useGPU = 0;
+            o.verbose = 0;
+            if ~isempty(P.StimulusRange)
+                o.stimulusRange = P.StimulusRange;
+            end
+
+            fixed = nan(5, 1);
+            if P.LambdaMode == "fixed"
+                fixed(3) = P.LambdaValue;
+            end
+            switch P.ExpType
+                case "nAFC"
+                    gammaSource = "1/N";
+                case "equalAsymptote"
+                    gammaSource = "lambda";
+                otherwise
+                    switch P.GammaMode
+                        case "fixed"
+                            fixed(4) = P.GammaValue;
+                            gammaSource = "fixed";
+                        case "catch"
+                            rate = options.CatchFalseAlarmRate;
+                            upper = 1;
+                            if ~isnan(fixed(3)), upper = 1 - fixed(3); end
+                            if isfinite(rate) && rate >= 0 && rate < upper
+                                fixed(4) = rate;
+                                gammaSource = "catch";
+                            else
+                                gammaSource = "estimated (no usable catch trials)";
+                            end
+                        otherwise
+                            gammaSource = "estimated";
+                    end
+            end
+            if P.EtaMode == "fixed"
+                fixed(5) = P.EtaValue;
+            end
+            o.fixedPars = fixed;
+
+            o.gridSetType = 'cumDist';
+            o.maxBorderValue = .00001;
+
+            % Grid points per parameter [threshold width lambda gamma eta]:
+            % "standard" is psignifit's own default for the experiment type
+            % (where the guess rate is not free it takes 1), "coarse" about
+            % half each way -- roughly a tenth of the time and memory, for
+            % nearly the same point estimates.
+            if P.ExpType == "YesNo"
+                stepN = [40 40 20 20 20]; mbStepN = [25 30 10 10 15];
+                if P.Grid == "coarse", stepN = [20 20 10 10 10]; mbStepN = [15 15 6 6 8]; end
+            else
+                stepN = [40 40 20 1 20]; mbStepN = [30 40 10 1 20];
+                if P.Grid == "coarse", stepN = [20 20 10 1 10]; mbStepN = [15 20 6 1 10]; end
+            end
+            o.stepN = stepN;
+            o.mbStepN = mbStepN;
+
+            info = struct('Sigmoid', sigmoid, 'GammaSource', gammaSource, ...
+                'Criterion', P.ThresholdPC, 'CriterionScale', P.CriterionScale);
         end
 
         function w = window(obj)
@@ -225,7 +388,11 @@ classdef Settings
             end
 
             F = obj.Fit;
-            if F.Enabled
+            if F.Enabled && F.Engine == "psignifit"
+                P = obj.Psignifit;
+                fit = sprintf('; psignifit %s fit (%s, %s) read at %g (%s)', P.Sigmoid, ...
+                    P.ExpType, P.EstimateType, P.ThresholdPC, P.CriterionScale);
+            elseif F.Enabled
                 fit = sprintf('; %s %s fit read at %g (%s)', F.Engine, F.Shape, ...
                     F.ThresholdCriterion, F.CriterionScale);
             else
@@ -371,6 +538,32 @@ classdef Settings
         end
     end
 
+    methods (Access = private)
+        function p = psignifitProblems_(obj)
+            % What would stop the psignifit engine, one sentence each.
+            p = strings(0, 1);
+            if ~behavior.fit.Psignifit.available()
+                p(end+1, 1) = "psignifit: " + behavior.fit.Psignifit.whyUnavailable();
+            end
+            P = obj.Psignifit;
+            if P.ExpType == "YesNo" && P.GammaMode == "fixed" && P.LambdaMode == "fixed" ...
+                    && P.GammaValue + P.LambdaValue >= 1
+                p(end+1, 1) = "Psignifit.GammaValue + Psignifit.LambdaValue leave the psychometric function no span.";
+            end
+            if P.ExpType == "nAFC" && P.LambdaMode == "fixed" && 1 / P.ExpN + P.LambdaValue >= 1
+                p(end+1, 1) = "Psignifit: a guess rate of 1/ExpN plus the fixed LambdaValue leave no span.";
+            end
+            if P.CriterionScale == "absolute" && P.ExpType == "nAFC" && P.ThresholdPC <= 1 / P.ExpN
+                p(end+1, 1) = sprintf(['Psignifit.ThresholdPC %g on the absolute scale is at or below the ' ...
+                    'guess rate 1/%d; the threshold would be NaN.'], P.ThresholdPC, P.ExpN);
+            end
+            if any(P.Sigmoid == ["logn" "weibull"]) && ~isempty(P.StimulusRange) && P.StimulusRange(1) <= 0
+                p(end+1, 1) = "Psignifit.StimulusRange must be positive for the " + P.Sigmoid ...
+                    + " sigmoid, which psignifit fits on a log axis.";
+            end
+        end
+    end
+
     methods (Static, Access = private)
         function names = propertyNames_()
             % Every saved property, in declaration order.
@@ -412,6 +605,7 @@ classdef Settings
             %   number   - finite real scalar in Bounds (Open = exclusive)
             %   optional - [] or a number (NaN reads as [])
             %   pair     - 1x2 numbers in Bounds
+            %   optpair  - [] or 1x2 increasing numbers in Bounds
             T = @(name, default, allowed) struct('Name', name, 'Default', default, ...
                 'Kind', "text", 'Allowed', allowed, 'Bounds', [-Inf Inf], 'Open', false, 'Integer', false);
             L = @(name, default) struct('Name', name, 'Default', default, ...
@@ -444,6 +638,30 @@ classdef Settings
                         N("Bootstrap", 0, [0 Inf], false, true, "number"), ...
                         N("ConfidenceLevel", 0.95, [0 1], true, false, "number"), ...
                         N("RandomSeed", 1, [0 Inf], false, true, "optional")];
+                case "Psignifit"
+                    % Defaults are psignifit's own, so choosing the engine
+                    % and changing nothing gives what psignifit(data) gives.
+                    spec = [ ...
+                        T("Sigmoid", "norm", behavior.Settings.PSIGNIFIT_SIGMOIDS), ...
+                        T("ExpType", "YesNo", ["YesNo" "nAFC" "equalAsymptote"]), ...
+                        N("ExpN", 2, [2 Inf], false, true, "number"), ...
+                        T("EstimateType", "MAP", ["MAP" "mean"]), ...
+                        N("ThresholdPC", 0.5, [0 1], true, false, "number"), ...
+                        T("CriterionScale", "relative", ["relative" "absolute"]), ...
+                        N("ConfidenceLevel", 0.95, [0 1], true, false, "number"), ...
+                        T("CIMethod", "percentiles", ["percentiles" "stripes" "project"]), ...
+                        N("WidthAlpha", 0.05, [0 0.5], true, false, "number"), ...
+                        T("GammaMode", "estimate", ["estimate" "fixed" "catch"]), ...
+                        N("GammaValue", 0, [0 1], false, false, "number"), ...
+                        T("LambdaMode", "estimate", ["estimate" "fixed"]), ...
+                        N("LambdaValue", 0, [0 1], false, false, "number"), ...
+                        T("EtaMode", "estimate", ["estimate" "fixed"]), ...
+                        N("EtaValue", 0, [0 1], false, false, "number"), ...
+                        N("BetaPrior", 10, [0 Inf], true, false, "number"), ...
+                        N("StimulusRange", [], [-Inf Inf], false, false, "optpair"), ...
+                        N("PoolTolerance", 0, [0 Inf], false, false, "number"), ...
+                        N("MaxBlocks", 25, [1 Inf], false, true, "number"), ...
+                        T("Grid", "standard", ["standard" "coarse"])];
                 case "Metrics"
                     spec = [ ...
                         T("CorrectionMode", "clamp", ["none" "clamp" "halfcell" "loglinear"]), ...
@@ -570,6 +788,17 @@ classdef Settings
                     if ~isnumeric(v) || numel(v) ~= 2, return, end
                     v = reshape(double(v), 1, 2);
                     ok = all(arrayfun(@(x) behavior.Settings.inBounds_(spec, x), v));
+
+                case "optpair"
+                    rule = ['[] or two increasing numbers, each ' behavior.Settings.numberRule_(spec)];
+                    if isempty(v) && (isnumeric(v) || iscell(v))
+                        v = [];
+                        ok = true;
+                        return
+                    end
+                    if ~isnumeric(v) || numel(v) ~= 2, return, end
+                    v = reshape(double(v), 1, 2);
+                    ok = all(arrayfun(@(x) behavior.Settings.inBounds_(spec, x), v)) && v(1) < v(2);
             end
         end
 

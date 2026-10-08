@@ -8,7 +8,7 @@ It is a window over the [`behavior.*` classes](behavior_Classes.md). Everything 
 1 Open a root · 2 Check sessions · 3 Session · 4 Subject · 5 Compare · 6 Table · 7 Export
 ```
 
-Version 1 analyses **staircases**: `psychophysics.Staircase` and `psychophysics.SessionMetrics` on every session, with a psychometric fit. Detection and N-AFC analyses are planned. They are listed in the Analysis dropdown, marked "v2", and cannot be chosen yet.
+Version 1 analyses **staircases**: `psychophysics.Staircase` and `psychophysics.SessionMetrics` on every session, with a psychometric fit — EPsych's own maximum-likelihood fit, or [psignifit](#psignifit) when it is installed. Detection and N-AFC analyses are planned. They are listed in the Analysis dropdown, marked "v2", and cannot be chosen yet.
 
 ## Starting it
 
@@ -56,7 +56,7 @@ The same bar says when the project file is **read-only**: it could not be read, 
   - the analysis settings you change most: **Preset**, **Analysis**, **Parameter**, **Window**, **Exclude test trials** and **Exclude trial types**.
 - **Notification bar**: a store that cannot be written, and the number of warnings from the scan and the project file. **Warnings** lists them; **Dismiss** hides the bar until something else needs saying.
 - **Browser** on the left (**Ctrl+B** hides it).
-- **Four tabs**: Session, Subject, Compare, Table (**Ctrl+1** to **Ctrl+4**).
+- **Five tabs**: Session, Subject, Compare, Table, Fit (**Ctrl+1** to **Ctrl+5**).
 - **Status line** along the bottom. What the window just did, and what the Study is busy with.
 
 The title bar shows the root's name, with a `*` while there are unsaved changes.
@@ -155,7 +155,7 @@ The selected session:
 - its **staircase**, drawn by `psychophysics.Staircase` itself, titled with the subject;
 - the **trial window** in force, editable here as this session's override;
 - the **numbers**: the reversal threshold ± SD over the reversals used, the sliding-block thresholds, the weighted threshold when the weighted correction is on, the fitted threshold with its CI, d′, A′, criterion, and the hit, false-alarm and abort rates;
-- the session metrics table and the **psychometric fit**;
+- the session metrics table and the **psychometric fit** (psignifit's own plot when psignifit fits; the Fit tab shows it large, with the posteriors);
 - **QC flags**, the operator's **notes**, and **Copy Values** and **Review Session…** buttons.
 
 **The staircase's right-click menu is another way to edit the settings.** Changing **Threshold from last N reversals**, the threshold formula or the weighted correction there changes the analysis settings for every session, and every tab follows. A remembered right-click choice from the live experiment GUI never overrides the settings here.
@@ -171,12 +171,30 @@ The subject of the selected node:
 
 It shows the subject's checked sessions. When none of them is checked, it shows all of its visible sessions.
 
+### The staircase overlay
+
+The controls above the overlay change how it looks, not what is analysed:
+
+- **Color by** picks the facet the staircases are coloured by. It starts at **Session #**, so you can see the threshold move from the first session to the last.
+- The colour dropdown picks the **colour map**:
+  - **Auto** uses a gradient for a facet with an order (Session #, Date, Week, Month, Year) and distinct colours for anything else.
+  - **Distinct colours** gives each level its own colour from the palette the other plots use.
+  - **Gradient: Parula / Turbo / Cool / Copper / Winter / Gray** spreads the map from the first level to the last. The first level is the dark end of the map.
+- **X** aligns the staircases on the trial number in the session, on the stimulus trial (catch trials and aborts left out), or on the fraction of the session, so every staircase ends at 1.
+
+Right-click the overlay to show or hide each session's reversals and its threshold, and to draw the staircases as steps or as sloped lines. A staircase holds its level until the next trial, so steps are the default.
+
+Each session's threshold is a circle at the end of its staircase, in the staircase's colour. A gradient with more than eight levels is keyed by a colour bar instead of the legend. A part of the level names that every level shares, such as the year and month of a run of dates, moves into the colour bar's title.
+
+The window remembers these choices on this computer.
+
 ## Compare
 
 The checked sessions, one value each, grouped:
 
 - **Group by** puts sessions into groups along x.
 - **Color by** colours the points.
+- **Colors** sets how **Staircase overlay** colours the Color by levels: **Auto**, **Distinct colours**, or a gradient, as on the Subject tab. It is saved with the project and its presets, and the generated script uses it.
 - **X axis** sets the levels along x for **Subject lines**.
 - **Value** is the number compared: reversal threshold, fitted threshold, weighted threshold, d′, A′, the rates, reversals, trials, and more.
 - **Plot**:
@@ -226,16 +244,82 @@ The numbers of the checked sessions, one row each.
 - **Copy** puts the shown columns on the clipboard as tab-separated text, formatted as the CSV export is, ready to paste into a spreadsheet or a notebook.
 - **Export…** opens the export dialog.
 
+## Fit
+
+The psychometric fit of the session shown on the Session tab, in more detail than the Session tab has room for:
+
+- the **psychometric function**: the proportion "yes" at each level (marker area grows with the trials there), the fitted function (dashed beyond the data), its asymptotes, and the threshold with its credible interval. With psignifit fitting, this is psignifit's own `plotPsych`.
+- a **table** of every parameter with its estimate and interval: threshold, width, lapse rate (λ), guess rate (γ), overdispersion (η), and the slope at the threshold, the deviance, and where the guess rate came from. A parameter the settings hold fixed says "(fixed)".
+- anything the fit **warned about**: a threshold outside the levels tested (an extrapolation), psignifit pooling the data, an approximate interval.
+- the **marginal posteriors** of the five parameters (psignifit's `plotMarginal`): the posterior, its credible interval shaded, and the prior dashed.
+- a **joint posterior** of any two parameters (psignifit's `plot2D`). Tick **Joint posterior** and choose the pair. It is drawn only while ticked, because it refits the posterior grid: a second or more per session on the standard grid.
+- **All Pairs (plotBayes)…**, **Priors (plotPrior)…** and **Model Checks…** (`plotsModelfit`: the fit, deviance residuals by level and by block, and the deviance against its bootstrap distribution) open psignifit's own figures in windows of their own.
+
+With the built-in fit, the tab shows the function and its parameters; the posteriors, priors and model checks are psignifit's, and the tab says so.
+
+## psignifit
+
+[psignifit](https://github.com/wichmann-lab/psignifit) is a free MATLAB toolbox that fits psychometric functions by Bayesian inference (Schütt, Harmeling, Macke & Wichmann 2016, *Vision Research* 122:105–123). It gives credible intervals for every parameter, estimates the lapse and guess rates rather than fixing them, and allows for overdispersion. EPsych does not ship it.
+
+### Installing it
+
+**Analysis ▸ psignifit Settings…** says whether psignifit is installed, where it was found and at which commit. When it is not:
+
+1. Download it from <https://github.com/wichmann-lab/psignifit> (**Code ▸ Download ZIP**, then unzip), or clone it:
+
+   ```text
+   git clone https://github.com/wichmann-lab/psignifit.git
+   ```
+
+2. Put the folder **beside the EPsych folder** (for EPsych in `C:\src\epsych2`, as `C:\src\psignifit`). It is found there automatically.
+   Anywhere else, press **Locate Folder…** and choose the folder that holds `psignifit.m`. The choice is remembered on this computer:
+
+   ```matlab
+   >> setpref('EPsych', 'PsignifitPath', 'D:\Toolboxes\psignifit')   % the same, from the command line
+   ```
+
+3. Press **Check Again**.
+
+psignifit is added to the end of the MATLAB path, so it never hides one of EPsych's own functions.
+
+### Using it
+
+Tick **Fit with psignifit** on the psignifit page (it is the same setting as **Fit ▸ Engine** on the Analysis page) and press **Apply**. Every session is then fitted by psignifit, and every number, table, export and script uses that fit. The options are saved with the other settings in the project file and in presets.
+
+| Option | What it sets (psignifit's name) | Default |
+|---|---|---|
+| Sigmoid | the function's shape (`sigmoidName`): norm, logistic, gumbel, rgumbel, tdist, logn, weibull. An **Up** staircase is fitted with the decreasing form. logn and weibull are fitted on a log axis and need positive levels | norm |
+| ExpType, ExpN | YesNo (both asymptotes free), nAFC (guess rate 1/ExpN), equalAsymptote (`expType`, `expN`) | YesNo |
+| EstimateType | the posterior's maximum (MAP) or mean (`estimateType`) | MAP |
+| ThresholdPC, CriterionScale | where the threshold is read: relative, between the asymptotes (`threshPC`); or absolute, where the function reaches that proportion (psignifit calls that interval approximate) | 0.5, relative |
+| ConfidenceLevel, CIMethod | the credible interval (`confP`, `CImethod`) | 0.95, percentiles |
+| WidthAlpha | the width spans this to 1 − this (`widthalpha`) | 0.05 |
+| GammaMode, GammaValue | the guess rate: estimate it, fix it, or fix it at the session's false-alarm rate on catch trials (YesNo only) | estimate |
+| LambdaMode, LambdaValue | the lapse rate: estimate or fix | estimate |
+| EtaMode, EtaValue | overdispersion: estimate or fix (0 is a binomial observer) | estimate |
+| BetaPrior | how strongly a binomial observer is preferred (`betaPrior`) | 10 |
+| StimulusRange | the levels the function could span (`stimulusRange`); empty = the levels tested | empty |
+| PoolTolerance, MaxBlocks | merge levels this close; pool when there are more levels than this (`poolxTol`, `nblocks`) | 0, 25 |
+| Grid | the posterior grid: standard (psignifit's own) or coarse (about ten times faster, nearly the same estimates) | standard |
+
+**A staircase is adaptive.** psignifit sets its priors from the range of levels tested, which a staircase chooses in response to the subject. psignifit's advice for adaptive data is to state **StimulusRange** as the range the psychometric function could span — for example the whole range the staircase was allowed to move over. psignifit will not remind you: its own warning for this never fires.
+
+**Speed.** A fit on the standard grid takes a few seconds per session. Each fit is remembered on this computer (`%LOCALAPPDATA%\EPsych\AnalysisCache\psignifit`), so a session is fitted once for each set of options. To fit many sessions quickly, use **Grid ▸ coarse**.
+
+If psignifit is chosen but not installed on a computer that opens the project, every fit is marked `fit_failed` with the reason, and the reversal thresholds are unaffected.
+
 ## Presets and settings
 
 **Analysis ▸ Settings…** (the gear) shows every analysis setting:
 
 - the general settings;
 - **Staircase**: direction, reversals used, formula, weighted correction and its steps;
-- **Fit**: engine, shape, criterion and its scale, guess and lapse rates, bootstrap;
+- **Fit**: whether to fit, the engine, and the built-in engine's shape, criterion and its scale, guess and lapse rates, bootstrap;
 - **Metrics**: the correction for rates of 0 and 1;
 - **QC**: minimum trials, maximum abort rate, minimum reversals;
 - **Compare**: bootstrap CI, its level and its resamples.
+
+The dialog's second page, **psignifit**, holds the psignifit engine: whether it is installed, the switch that makes it the engine, and every one of its options (see [psignifit](#psignifit)). **Analysis ▸ psignifit Settings…** opens that page directly.
 
 A value the settings cannot use, or a combination that cannot run, is named under the grid and greys **OK** and **Apply**. **Defaults** fills in the default settings, to apply if you choose.
 
@@ -272,7 +356,8 @@ Every export also writes `<prefix>columns.csv`, the dictionary of every column: 
 
 - the staircase on the Session tab;
 - the threshold timeline on the Subject tab;
-- the comparison on the Compare tab.
+- the comparison on the Compare tab;
+- the psychometric function on the Fit tab.
 
 The format follows the extension: `.png`, `.pdf` or `.svg`.
 
@@ -284,7 +369,7 @@ The format follows the extension: `.png`, `.pdf` or `.svg`.
 - **This Session…** covers the session on the Session tab.
 - **Every Visible Session…** covers the whole root.
 
-The script needs nothing but EPsych and the data. It holds:
+The script needs nothing but EPsych and the data — and psignifit, when psignifit made the fits: the script names the folder and the commit it was made with, and stops with the download directions if it cannot find psignifit. It holds:
 
 - every setting, written out, with a check that they still hash to the value the results were made with;
 - every session by its key, with its trial window;
@@ -314,7 +399,7 @@ The script does not use the window, your preferences or the project file. To run
 | Ctrl+W | Trial Window Override… |
 | Ctrl+N | Comment… |
 | Ctrl+M | Manage Groupings… |
-| Ctrl+1 … Ctrl+4 | Session, Subject, Compare, Table |
+| Ctrl+1 … Ctrl+5 | Session, Subject, Compare, Table, Fit |
 | Ctrl+B | Show or hide the browser |
 | Ctrl+F | Find |
 | F1 | This guide |
@@ -333,8 +418,10 @@ Closing the window with unsaved changes asks **Save**, **Discard** or **Cancel**
 | `<root>\EPsych_Analysis\.history\project_*.json` | the three previous versions | each save |
 | alternate store folder | `project.json` and `.history` instead of the above | when chosen for a root that cannot be written |
 | `%LOCALAPPDATA%\EPsych\AnalysisCache\catalog_*.mat` | the scan cache, one per root | each scan |
+| `%LOCALAPPDATA%\EPsych\AnalysisCache\psignifit\fit_*.mat` | psignifit fits, one small file per distinct fit | each new psignifit fit |
 | the folder you choose | exported tables, `columns.csv`, figures, scripts | when you export or generate |
-| MATLAB preferences, group `epsych2_BehaviorAnalysis` | window position, recent roots, last root, alternate stores, browser shown, Show filter, last tab, export folder and formats, figure format | when you use the control |
+| MATLAB preferences, group `epsych2_BehaviorAnalysis` | window position, recent roots, last root, alternate stores, browser shown, Show filter, last tab, export folder and formats, figure format, the Subject tab's overlay choices | when you use the control |
+| MATLAB preference `EPsych/PsignifitPath` | the psignifit folder | when you choose it with Locate Folder… |
 
 Nothing else is written, and nothing under the root but `EPsych_Analysis\`.
 

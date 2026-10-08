@@ -141,6 +141,29 @@ try
         numel(VS.Keys) == 3 && all(ismember(VS.Keys, good(1:3))));
     results(end+1,:) = check('the overlay has a track per session', ...
         numel(findobj(VS.H.overlay, 'Tag', 'BehaviorPlot:Track')) == 3);
+    VS.setOverlay(ColorBy = "session", ColorMap = "auto", Normalize = "none");
+    tr = findobj(VS.H.overlay, 'Tag', 'BehaviorPlot:Track');
+    seq = behavior.Plot.sequential("parula", 3);
+    results(end+1,:) = check('the overlay colours the sessions along a gradient, first to last', ...
+        numel(tr) == 3 && all(arrayfun(@(h) isequal(h.Color, seq(h.UserData.Level, :)), tr)) ...
+        && strcmp(VS.H.ovColorBy.Value, 'session') && strcmp(VS.H.ovColorMap.Value, 'auto'));
+    VS.setOverlay(ColorMap = "categorical", Normalize = "fraction", ShowReversals = true);
+    tr = findobj(VS.H.overlay, 'Tag', 'BehaviorPlot:Track');
+    results(end+1,:) = check('setOverlay redraws: distinct colours, fraction x, reversals, menu checked', ...
+        all(ismember(vertcat(tr.Color), behavior.Plot.palette(3), 'rows')) ...
+        && all(arrayfun(@(h) h.XData(end) == 1, tr)) ...
+        && ~isempty(findobj(VS.H.overlay, 'Tag', 'BehaviorPlot:Reversal')) ...
+        && VS.H.ovShowReversals.Checked == "on" && strcmp(VS.H.ovNormalize.Value, 'fraction'));
+    overlayBefore = VS.Overlay;
+    refused = false;
+    try
+        VS.setOverlay(ColorBy = "banana");
+    catch
+        refused = true;
+    end
+    results(end+1,:) = check('an overlay facet that names nothing is refused, nothing changed', ...
+        refused && isequal(VS.Overlay, overlayBefore));
+    VS.setOverlay(ColorBy = "session", ColorMap = "auto", Normalize = "none", ShowReversals = false);
 catch ME
     results(end+1,:) = check(['group 5: ' ME.message], false);
 end
@@ -161,6 +184,15 @@ try
     app.setFacet("Kind", "overlay");
     results(end+1,:) = check('overlay: one track per checked session', ...
         numel(findobj(VC.H.axes, 'Tag', 'BehaviorPlot:Track')) == 4);
+    results(end+1,:) = check('overlay: Colors is offered, Auto by default', ...
+        VC.H.colorMap.Enable == "on" && strcmp(VC.H.colorMap.Value, 'auto') && VC.Plotted.ColorMap == "categorical");
+    ok = app.setFacet("ColorMap", "turbo");
+    results(end+1,:) = check('setFacet ColorMap reaches the project, the dropdown and the overlay', ok ...
+        && S.Project.Facets.ColorMap == "turbo" && strcmp(VC.H.colorMap.Value, 'turbo') ...
+        && VC.Plotted.ColorMap == "turbo");
+    results(end+1,:) = check('an unknown colour map is refused', ~app.setFacet("ColorMap", "rainbow") ...
+        && S.Project.Facets.ColorMap == "turbo");
+    app.setFacet("ColorMap", "auto");
     app.setFacet("Kind", "lines");
     results(end+1,:) = check('subject lines are drawn', ~isempty(findobj(VC.H.axes, 'Tag', 'BehaviorPlot:SubjectLine')));
     app.setFacet("Kind", "box");

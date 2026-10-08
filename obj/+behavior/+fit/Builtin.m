@@ -16,9 +16,16 @@ classdef (Abstract) Builtin
     %   Threshold    - level at the criterion; NaN unless Converged AND
     %                  Identifiable (Raw.Threshold keeps whatever the
     %                  optimizer stopped at)
-    %   Alpha, Beta  - location and slope
+    %   Alpha, Beta  - location and slope (psignifit: its threshold parameter
+    %                  in stimulus units, and the slope AT the threshold)
     %   Gamma        - lower asymptote (guess rate) used
     %   Lambda       - upper asymptote offset (lapse rate), fixed or fitted
+    %   Width        - psignifit's width (the span between widthalpha and
+    %                  1-widthalpha; log units for logn/weibull); NaN here
+    %   Eta          - psignifit's overdispersion; NaN here
+    %   Deviance     - deviance of the fit from the per-level data
+    %   Warnings     - what the engine warned about but did not fail on
+    %                  (string row; psignifit's captured warnings)
     %   Levels, NumYes, NumTotal, Proportion - per-level data (1,:)
     %   Curve        - struct x, P: the fitted function, for plotting
     %   CI           - struct ThresholdLo, ThresholdHi, Level (NaN without
@@ -57,6 +64,7 @@ classdef (Abstract) Builtin
             F.Beta = R.Beta;
             F.Gamma = R.GuessRate;
             F.Lambda = R.LapseRate;
+            F.Deviance = R.Deviance;
             F.Levels = reshape(R.Levels, 1, []);
             F.NumYes = reshape(R.NumYes, 1, []);
             F.NumTotal = reshape(R.NumTotal, 1, []);
@@ -87,6 +95,10 @@ classdef (Abstract) Builtin
                 'Beta',         NaN, ...
                 'Gamma',        NaN, ...
                 'Lambda',       NaN, ...
+                'Width',        NaN, ...
+                'Eta',          NaN, ...
+                'Deviance',     NaN, ...
+                'Warnings',     strings(1,0), ...
                 'Levels',       zeros(1,0), ...
                 'NumYes',       zeros(1,0), ...
                 'NumTotal',     zeros(1,0), ...

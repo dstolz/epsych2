@@ -2,12 +2,14 @@ classdef BehaviorAnalysis < handle
     % epsych.BehaviorAnalysis  Offline behavioral analysis across sessions, subjects and projects.
     %
     % One window over one data root (<root>/<Project>/<Subject>/<files>.mat):
-    % a checkbox tree of every session on the left, and four tabs on the
+    % a checkbox tree of every session on the left, and five tabs on the
     % right -- one Session (its staircase, thresholds, fit and notes), one
     % Subject (learning curves and every staircase overlaid), a Compare tab
-    % across the checked sessions grouped by any facet, and a Table of the
-    % numbers. Every analysis it shows can be written out as a plain MATLAB
-    % script that reproduces it exactly, and every table exported.
+    % across the checked sessions grouped by any facet, a Table of the
+    % numbers, and the shown session's psychometric Fit (psignifit's own
+    % plots and posteriors when psignifit fits). Every analysis it shows can
+    % be written out as a plain MATLAB script that reproduces it exactly,
+    % and every table exported.
     %
     %   epsych.BehaviorAnalysis                    % opens the last root
     %   epsych.BehaviorAnalysis("D:\Data\Lab")
@@ -29,8 +31,9 @@ classdef BehaviorAnalysis < handle
     % %LOCALAPPDATA%\EPsych\AnalysisCache; a root that cannot be written gets
     % an alternate store folder, remembered per root. This window's own
     % preferences (group PREF_TAG) are machine state only -- position, recent
-    % roots, the browser's filter, the last tab, export folder and formats --
-    % and are written only from controls the user operated.
+    % roots, the browser's filter, the last tab, export folder and formats,
+    % the Subject tab's overlay display (SubjectOverlay) -- and are written
+    % only from controls the user operated.
     %
     % Only between sessions: scanning reads every file on the MATLAB thread
     % the trial loop runs on, so the window refuses to scan while
@@ -45,7 +48,7 @@ classdef BehaviorAnalysis < handle
     %
     % Properties (read-only):
     %   Study - the behavior.Study ([] until a root is open)
-    %   Views - struct Browser, Session, Subject, Compare, Table
+    %   Views - struct Browser, Session, Subject, Compare, Table, Fit
     %   H     - graphics handles
     %
     % Documentation: documentation/behavior/BehaviorAnalysis_UserGuide.md
@@ -61,7 +64,7 @@ classdef BehaviorAnalysis < handle
         FIGURE_TAG (1,:) char = 'EPsychBehaviorAnalysis'
         PREF_TAG (1,:) char = 'epsych2_BehaviorAnalysis'
         DEFAULT_POSITION (1,4) double = [80 60 1440 880]
-        TAB_NAMES (1,4) string = ["Session" "Subject" "Compare" "Table"]
+        TAB_NAMES (1,5) string = ["Session" "Subject" "Compare" "Table" "Fit"]
         MAX_RECENT (1,1) double = 10
     end
 
@@ -253,10 +256,11 @@ classdef BehaviorAnalysis < handle
         function ok = setFacet(self, role, text)
             % ok = setFacet(self, role, text)
             % One part of the Compare view: role GroupBy, ColorBy, XAxis,
-            % Value or Kind; text as behavior.Facet.toText ("tag:1").
+            % Value, Kind or ColorMap; text as behavior.Facet.toText
+            % ("tag:1"), or a behavior.Plot.COLOR_MAPS name for ColorMap.
             arguments
                 self
-                role (1,1) string {mustBeMember(role, ["GroupBy" "ColorBy" "XAxis" "Value" "Kind"])}
+                role (1,1) string {mustBeMember(role, ["GroupBy" "ColorBy" "XAxis" "Value" "Kind" "ColorMap"])}
                 text (1,1) string
             end
             ok = false;
@@ -420,6 +424,7 @@ classdef BehaviorAnalysis < handle
             self.Views.Subject = gui.behavior.SubjectView(self.H.tab.Subject, S);
             self.Views.Compare = gui.behavior.CompareView(self.H.tab.Compare, S);
             self.Views.Table = gui.behavior.TableView(self.H.tab.Table, S);
+            self.Views.Fit = gui.behavior.FitView(self.H.tab.Fit, S);
             for v = ["Browser" self.TAB_NAMES]
                 self.Views.(v).StatusFcn = @(t) self.setStatus_(t);
             end
@@ -428,9 +433,12 @@ classdef BehaviorAnalysis < handle
             B.OnOpenSession = @(key) self.openSession_(key);
             B.OnFilterChanged = @(f) self.setPref_('ShowFilter', char(f));
             self.Views.Subject.OnOpenSession = @(key) self.openSession_(key);
+            self.restoreSubjectOverlay_();
+            self.Views.Subject.OnOverlayChanged = @(o) self.setPref_('SubjectOverlay', o);
             self.Views.Table.OnOpenSession = @(key) self.openSession_(key);
             self.Views.Table.OnSelect = @(key) self.selectSession(key);
             self.Views.Table.OnExport = @() self.exportDialog_();
+            self.Views.Fit.OnSettings = @() self.settingsDialog_(Section = "psignifit");
             filter = string(self.getPref_('ShowFilter', "All"));
             if ismember(filter, gui.behavior.Browser.SHOW)
                 B.setFilter(filter);
@@ -447,7 +455,7 @@ classdef BehaviorAnalysis < handle
         function activateTab_(self, name)
             % Only the tab in front redraws on every change; the others are
             % marked stale and redraw when brought forward.
-            for v = ["Subject" "Compare" "Table"]
+            for v = ["Subject" "Compare" "Table" "Fit"]
                 if isfield(self.Views, v)
                     self.Views.(v).setActive(v == name);
                 end
@@ -505,6 +513,9 @@ classdef BehaviorAnalysis < handle
                     ax = self.Views.Subject.H.timeline;
                 case "Compare"
                     ax = self.Views.Compare.H.axes;
+                case "Fit"
+                    V = self.Views.Fit;
+                    if V.Key ~= "", ax = V.H.psychAxes; end
             end
             if ~isempty(ax) && ~isgraphics(ax)
                 ax = [];
@@ -519,6 +530,9 @@ classdef BehaviorAnalysis < handle
                 name = string(name);
             elseif self.currentTab() == "Subject" && self.Views.Subject.Subject ~= ""
                 name = self.Views.Subject.Subject + "_timeline";
+            elseif self.currentTab() == "Fit" && self.Views.Fit.Key ~= ""
+                [~, name] = fileparts(self.Views.Fit.Key);
+                name = string(name) + "_fit";
             end
         end
 
@@ -791,6 +805,24 @@ classdef BehaviorAnalysis < handle
             R = R(1:min(end, self.MAX_RECENT));
             self.setPref_('RecentRoots', R);
             self.setPref_('LastRoot', char(root));
+        end
+
+        function restoreSubjectOverlay_(self)
+            % The Subject tab's overlay as the operator last left it. A
+            % remembered choice this release no longer reads is dropped
+            % (logged), not fatal: it is only how the overlay looks.
+            o = self.getPref_('SubjectOverlay', struct());
+            if ~isstruct(o) || ~isscalar(o), return, end
+            V = self.Views.Subject;
+            names = intersect(string(fieldnames(o)), string(fieldnames(V.Overlay)), 'stable');
+            for f = reshape(names, 1, [])
+                try
+                    args = {char(f), o.(f)};
+                    V.setOverlay(args{:});
+                catch ME
+                    vprintf(2, 'epsych.BehaviorAnalysis: remembered overlay %s not applied (%s)', f, ME.message)
+                end
+            end
         end
 
         function v = getPref_(self, name, default)

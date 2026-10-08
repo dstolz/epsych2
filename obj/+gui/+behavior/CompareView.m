@@ -9,7 +9,10 @@ classdef CompareView < gui.behavior.View
     %   lines           - behavior.Plot.subjectLines: one line per subject
     %                     through its per-level medians along X axis
     %   overlay         - behavior.Plot.staircaseOverlay: every checked
-    %                     session's staircase, coloured by Color by
+    %                     session's staircase, coloured by Color by through
+    %                     Colors (behavior.Plot.COLOR_MAPS: distinct colours,
+    %                     or a gradient across an ordered facet such as
+    %                     Session # or Date; Auto picks between them)
     % Beside it, the descriptive statistics of the value per Group by level
     % (behavior.Stats.describe: n, mean, SD, SEM, median, IQR, and the
     % bootstrap CI when Bootstrap CI is ticked), and their sentence on the
@@ -51,8 +54,8 @@ classdef CompareView < gui.behavior.View
             g.RowSpacing = 6;
             obj.H.root = g;
 
-            c = uigridlayout(g, [1 11]);
-            c.ColumnWidth = {'fit', 140, 'fit', 140, 'fit', 140, 'fit', 160, 'fit', 130, 'fit'};
+            c = uigridlayout(g, [1 13]);
+            c.ColumnWidth = {'fit', 140, 'fit', 140, 'fit', 120, 'fit', 140, 'fit', 160, 'fit', 130, 'fit'};
             c.Padding = [0 0 0 0];
             c.ColumnSpacing = 6;
             uilabel(c, 'Text', 'Group by');
@@ -61,6 +64,13 @@ classdef CompareView < gui.behavior.View
             uilabel(c, 'Text', 'Color by');
             obj.H.colorBy = uidropdown(c, 'Items', {'Subject'}, 'ItemsData', {'subject'}, ...
                 'ValueChangedFcn', @(src, ~) obj.onFacet_("ColorBy", src.Value));
+            uilabel(c, 'Text', 'Colors');
+            maps = behavior.Plot.COLOR_MAPS;
+            obj.H.colorMap = uidropdown(c, 'Items', cellstr(arrayfun(@behavior.Plot.colorMapLabel, maps)), ...
+                'ItemsData', cellstr(maps), 'Value', 'auto', ...
+                'Tooltip', ['How the Staircase overlay colours Color by: distinct colours, or a gradient ' ...
+                'from the first level to the last (Auto: a gradient for Session #, Date, Week, Month, Year)'], ...
+                'ValueChangedFcn', @(src, ~) obj.onFacet_("ColorMap", src.Value));
             uilabel(c, 'Text', 'X axis');
             obj.H.xAxis = uidropdown(c, 'Items', {'Date'}, 'ItemsData', {'date'}, ...
                 'Tooltip', 'The levels along x for Subject lines', ...
@@ -172,11 +182,22 @@ classdef CompareView < gui.behavior.View
             obj.H.value.ItemsData = cellstr(names);
             obj.H.value.Value = char(fac.Value);
             obj.H.kind.Value = char(fac.Kind);
+            obj.H.colorMap.Value = char(obj.colorMap_());
             obj.H.boot.Value = obj.Study.Settings.Compare.BootstrapCI;
             isLines = string(fac.Kind) == "lines";
             obj.H.xAxis.Enable = matlab.lang.OnOffSwitchState(isLines);
             obj.H.groupBy.Enable = matlab.lang.OnOffSwitchState(~isLines);
+            obj.H.colorMap.Enable = matlab.lang.OnOffSwitchState(string(fac.Kind) == "overlay");
             delete(cleanup);
+        end
+
+        function m = colorMap_(obj)
+            % The project's overlay colour map; a hand-edited file naming
+            % none is read as "auto" rather than breaking the overlay.
+            m = lower(string(obj.Study.Project.Facets.ColorMap));
+            if ~ismember(m, behavior.Plot.COLOR_MAPS)
+                m = "auto";
+            end
         end
 
         function doneUpdating_(obj)
@@ -206,7 +227,8 @@ classdef CompareView < gui.behavior.View
                         Hp = behavior.Plot.subjectLines(ax, T, value, XAxis = X, ColorBy = C);
                         D = Hp.Stats;
                     case "overlay"
-                        Hp = behavior.Plot.staircaseOverlay(ax, obj.Results, T, ColorBy = C);
+                        Hp = behavior.Plot.staircaseOverlay(ax, obj.Results, T, ColorBy = C, ...
+                            ColorMap = obj.colorMap_());
                 end
             catch ME
                 vprintf(0, 1, ME);

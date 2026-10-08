@@ -14,7 +14,7 @@ function [code, info] = generate_(study, keys, kind, options)
 %   keys  - session keys (one for "session")
 %   kind  - "session" | "compare"
 %   options - Title, Figures, Export, OutFolder, EPsychRoot, and for
-%             "compare" Value, GroupBy, ColorBy, Kind (see compare)
+%             "compare" Value, GroupBy, ColorBy, Kind, ColorMap (see compare)
 %
 % Returns:
 %   code - cellstr, one line of source each
@@ -36,6 +36,7 @@ arguments
     options.ColorBy (1,1) string = ""
     options.XAxis (1,1) string = ""
     options.Kind (1,1) string = ""
+    options.ColorMap (1,1) string = ""
 end
 
 settings = study.Settings;
@@ -138,8 +139,23 @@ if g.Export
         L = [L, localStatement('if ~exist(''OUTFOLDER'', ''var''), OUTFOLDER = ', lit(g.OutFolder), '; end')];
     end
 end
-L = [L, {'addpath(EPSYCHROOT);', 'epsych_startup(EPSYCHROOT, false);', ...
-    sprintf('replicated = false(1, %d);', numel(g.Keys)), ''}];
+L = [L, {'addpath(EPSYCHROOT);', 'epsych_startup(EPSYCHROOT, false);'}];
+if g.Settings.Fit.Enabled && g.Settings.Fit.Engine == "psignifit"
+    % The fits came from psignifit, which EPsych does not ship: name the
+    % folder and the commit used, and find it the way the window did when
+    % that folder is not here.
+    P = behavior.fit.Psignifit.locate();
+    used = "psignifit (" + behavior.fit.Psignifit.URL + ")";
+    if P.Version ~= "", used = used + ", commit " + P.Version; end
+    L = [L, localComment("The fits were made with " + used + "."), ...
+        localStatement('PSIGNIFITROOT = ', lit(P.Folder), ';'), ...
+        {'if ~behavior.fit.Psignifit.available() && isfolder(PSIGNIFITROOT)', ...
+         '    behavior.fit.Psignifit.setFolder(PSIGNIFITROOT, Remember = false);', ...
+         'end', ...
+         'assert(behavior.fit.Psignifit.available(), ''behavior:ScriptWriter:psignifit'', ''%s'', ...', ...
+         '    behavior.fit.Psignifit.whyUnavailable());'}];
+end
+L = [L, {sprintf('replicated = false(1, %d);', numel(g.Keys)), ''}];
 end
 
 
@@ -217,10 +233,15 @@ L = [{'%% Figures'}, ...
     localStatement('fig = uifigure(Name = ', lit(g.Title), ', Tag = "EPsychBehaviorScript");'), ...
     {'g = uigridlayout(fig, [1 2]);'}];
 if g.Kind == "session"
+    if g.Settings.Fit.Engine == "psignifit"
+        fitPlot = 'behavior.fit.PsignifitPlot.psych(uiaxes(g), R.Fit, Unit = R.Unit, Parameter = R.Parameter);';
+    else
+        fitPlot = 'behavior.Plot.psychometric(uiaxes(g), R.Fit, Unit = R.Unit);';
+    end
     L = [L, {'ax = uiaxes(g);', ...
         ['S = sess.staircase(cfg' localWindowArg(g.Windows(1)) ');'], ...
         'S.Plot(ax);', ...
-        'behavior.Plot.psychometric(uiaxes(g), R.Fit, Unit = R.Unit);'}];
+        fitPlot}];
 else
     F = g.Facets;
     if F.Kind == "lines"
@@ -232,7 +253,8 @@ else
         L = [L, localStatement('behavior.Plot.groupComparison(uiaxes(g), T, ', lit(F.Value), ...
             [', GroupBy = groupBy, ColorBy = colorBy, Kind = ' lit(plotKind) ');'])];
     end
-    L = [L, {'behavior.Plot.staircaseOverlay(uiaxes(g), results, T, ColorBy = colorBy);'}];
+    L = [L, localStatement('behavior.Plot.staircaseOverlay(uiaxes(g), results, T, ColorBy = colorBy, ColorMap = ', ...
+        lit(F.ColorMap), ');')];
 end
 L = [L, {''}];
 end
@@ -345,6 +367,11 @@ F.GroupBy = behavior.Facet.fromText(localPick(options.GroupBy, P.GroupBy)).toTex
 F.ColorBy = behavior.Facet.fromText(localPick(options.ColorBy, P.ColorBy)).toText();
 F.XAxis = behavior.Facet.fromText(localPick(options.XAxis, P.XAxis)).toText();
 F.Kind = lower(localPick(options.Kind, P.Kind));
+F.ColorMap = lower(localPick(options.ColorMap, P.ColorMap));
+if ~ismember(F.ColorMap, behavior.Plot.COLOR_MAPS)
+    error('behavior:ScriptWriter:UnknownColorMap', '"%s" is not a colour map (%s).', ...
+        F.ColorMap, strjoin(behavior.Plot.COLOR_MAPS, ", "));
+end
 kinds = ["box" "bar" "strip" "lines" "overlay"];
 if ~ismember(F.Kind, kinds)
     error('behavior:ScriptWriter:UnknownKind', '"%s" is not a plot kind (%s).', ...

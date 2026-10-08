@@ -15,10 +15,11 @@ symmetric 2-down-1-up settles near 70.7 %, not 50 %. A fit uses every scored
 trial at every level the session visited, and reports the location parameter
 of the function together with the level at any criterion you choose.
 
-Four files implement it, all in `obj/+psychophysics/@Staircase/`:
+Five files implement it, all in `obj/+psychophysics/@Staircase/`:
 
 | Entry point | What it is |
 |---|---|
+| `S.psychometricCounts(...)` | The staircase's scored trials as per-level counts (and the catch-trial false-alarm rate). What every fit takes: `fitPsychometric` fits it, and `[Levels' NumYes' NumTotal']` is exactly the data matrix psignifit takes (`behavior.fit.Psignifit`). |
 | `S.fitPsychometric(...)` | The session-level helper: pulls the staircase's trials, counts them per level, fits, returns. |
 | `psychophysics.Staircase.fitProportions(levels, numYes, numTotal, ...)` | The estimator. Pure — counts in, fit out. No object, no runtime, no figure. |
 | `psychophysics.Staircase.psychometricFunction(x, alpha, beta, ...)` | The function being fitted. |
@@ -79,7 +80,8 @@ otherwise produce silently.
 
 ## Where the counts come from
 
-`fitPsychometric` scores the staircase's **stimulus** trials — the ones
+`fitPsychometric` (through `psychometricCounts`, which any other fit of the
+same trials calls too) scores the staircase's **stimulus** trials — the ones
 `StimulusTrialType` selects — with `ExcludedTrials` already removed, so the
 fit is always in the units the staircase plot is showing: the parameter's own.
 

@@ -37,6 +37,8 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
     %       function from the trials themselves, rather than from the
     %       reversals. Returned, never stored, so it cannot go stale beside
     %       live data. See documentation/psychophysics/psychophysics_StaircaseFit.md.
+    %   psychometricCounts - The scored stimulus trials as per-level counts
+    %       (the data fitPsychometric fits, and psignifit's data matrix).
     %   weightedThreshold - Hoover (2025) corrected threshold for a weighted
     %       (asymmetric-step) staircase: a balanced reversal mean plus
     %       (delta_- - delta_+)/4, and the probability the steps actually
@@ -481,7 +483,10 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
             end
         end
 
-        % Psychometric fit (implemented as separate files in @Staircase)
+        % Psychometric fit (implemented as separate files in @Staircase).
+        % psychometricCounts is the data every fit takes; fitPsychometric
+        % fits it by maximum likelihood.
+        C = psychometricCounts(obj, options)
         F = fitPsychometric(obj, options)
 
         % Weighted-staircase threshold (Hoover 2025), a separate file in @Staircase

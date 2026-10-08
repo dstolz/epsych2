@@ -214,6 +214,14 @@ classdef Facet
             end
         end
 
+        function tf = isOrdered(obj)
+            % tf = isOrdered(obj)
+            % Whether the levels run in a meaningful order -- session
+            % ordinal and the calendar facets -- so a colour gradient reads
+            % as "earlier to later" rather than as an arbitrary ranking.
+            tf = ismember(obj.Kind, ["session" "date" "week" "month" "year"]);
+        end
+
         function txt = toText(obj)
             % txt = toText(obj)
             % "tag:1", "manual:Treatment", or the kind itself ("month").

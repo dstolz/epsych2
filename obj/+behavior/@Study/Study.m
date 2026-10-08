@@ -462,7 +462,7 @@ classdef Study < handle
         end
 
         function setFacets(obj, options)
-            % setFacets(obj, GroupBy = "tag:1", ColorBy = "subject", XAxis = "date", Value = "Threshold", Kind = "box")
+            % setFacets(obj, GroupBy = "tag:1", ColorBy = "subject", XAxis = "date", Value = "Threshold", Kind = "box", ColorMap = "auto")
             arguments
                 obj
                 options.GroupBy (1,1) string
@@ -470,6 +470,7 @@ classdef Study < handle
                 options.XAxis (1,1) string
                 options.Value (1,1) string
                 options.Kind (1,1) string
+                options.ColorMap (1,1) string
             end
             args = namedargs2cell(options);
             obj.Project.setFacets(args{:});

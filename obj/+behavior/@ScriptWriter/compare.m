@@ -24,6 +24,8 @@ function [code, info] = compare(study, keys, options)
 %                over XAxis, as the Compare tab does; every other kind
 %                behavior.Plot.groupComparison
 %                ("overlay" as a box, since the overlay is drawn beside it anyway)
+%   ColorMap   - how the overlay colours ColorBy, a behavior.Plot.COLOR_MAPS
+%                name ("" = Project.Facets.ColorMap)
 %   Title, Figures, Export, OutFolder, EPsychRoot - as behavior.ScriptWriter.session
 %
 % Returns:
@@ -40,6 +42,7 @@ arguments
     options.ColorBy (1,1) string = ""
     options.XAxis (1,1) string = ""
     options.Kind (1,1) string = ""
+    options.ColorMap (1,1) string = ""
     options.Title (1,1) string = ""
     options.Figures (1,1) logical = true
     options.Export (1,1) logical = true

@@ -151,12 +151,14 @@ Rules that matter:
   analysed set, persisted in the project file; search filters on
   `ValueChanging` with keystrokes kept in `LiveFilter_`; Show = All · Checked ·
   Hidden · Test · Needs attention), a header (root, preset, analysis,
-  parameter, trial window, exclusions, counts, save state), four tabs that are
+  parameter, trial window, exclusions, counts, save state), five tabs that are
   `gui.behavior.View` subclasses (`SessionView` — the session's own
   `psychophysics.Staircase` in a grid cell of its own, numbers, fit, notes;
   `SubjectView` — learning curves and the staircase overlay; `CompareView` —
-  group comparisons with descriptive statistics only; `TableView`), dialogs
-  (`SettingsDialog` with the presets, `GroupingsDialog`, `ExportDialog`), and
+  group comparisons with descriptive statistics only; `TableView`; `FitView`
+  — the shown session's fit, drawn with psignifit's own plots when psignifit
+  fits, fifth so Ctrl+1..4 kept their tabs), dialogs (`SettingsDialog` with
+  the presets and a psignifit page, `GroupingsDialog`, `ExportDialog`), and
   a status bar. **Views never compute**: they call the Study and redraw on
   its events, which is what keeps the Session tab's staircase, the Table
   tab's number and the generated script's number the same number. Four things
@@ -167,11 +169,12 @@ Rules that matter:
   stays available; `Project.Dirty` is only asked about from `CloseRequestFcn`
   (`delete(app)` never prompts, so tests can tear down); and F1/F5/Del/Enter/
   Ctrl+Shift+F cannot be `uimenu` accelerators, so the window's key handler
-  takes them. Subject, Compare and Table redraw only while in front and mark
-  themselves stale otherwise. Prefs (group `epsych2_BehaviorAnalysis`, read
+  takes them. Subject, Compare, Table and Fit redraw only while in front and
+  mark themselves stale otherwise. Prefs (group `epsych2_BehaviorAnalysis`, read
   behind `ispref`, written only from controls the user operated):
   FigurePosition, RecentRoots, LastRoot, AlternateStores, BrowserVisible,
-  ShowFilter, LastTab, ExportFolder, ExportFormats, FigureFormat — everything
+  ShowFilter, LastTab, ExportFolder, ExportFormats, FigureFormat,
+  SubjectOverlay (the Subject tab's overlay display) — everything
   else is in `<root>/EPsych_Analysis/project.json` through the Study. The
   Session tab REBUILDS its staircase only when its signature (key | settings
   hash | window) changes, and writes a right-click change of the three
@@ -181,7 +184,9 @@ Rules that matter:
   inside the legend otherwise. Not probed at open: the store folder is created
   by `Project.canWrite` at the first save; "Choose store folder…" reopens the
   root with the new store. Standing proofs `tmp/smoke_test_behavior_app.m`
-  (Visible=false; 69 checks) and `tmp/smoke_test_behavior_sessionview.m`
+  (Visible=false; 75 checks), `tmp/smoke_test_behavior_sessionview.m` and
+  `tmp/smoke_test_behavior_psignifit.m` (the engine, its plots, the settings
+  page and the Fit tab; groups 3–10 skip without psignifit)
   (documentation/behavior/BehaviorAnalysis_UserGuide.md,
   documentation/behavior/behavior_Classes.md)
 - **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
@@ -1408,10 +1413,12 @@ re-uploading the state table.
   parameter plus the level at a criterion the caller names. The estimator
   (`fitProportions`) is a pure static over counts and the function it fits
   (`psychometricFunction`/`psychometricLevel`) another, so both are testable with
-  no DATA, no runtime and no figure; `fitPsychometric` is only the seam that turns
-  a session into `(levels, numYes, numTotal)` — Hit is a yes, Miss a no, an abort
-  neither (`Metrics.rateDenominator`'s convention), a code carrying both counted
-  in `NumUnscored` rather than resolved. Shapes and parameterization are
+  no DATA, no runtime and no figure; `psychometricCounts` is the seam that turns
+  a session into `(levels, numYes, numTotal)` (and the catch-trial false-alarm
+  rate) — Hit is a yes, Miss a no, an abort neither
+  (`Metrics.rateDenominator`'s convention), a code carrying both counted in
+  `NumUnscored` rather than resolved — and `fitPsychometric` fits what it
+  returns, as `behavior.fit.Psignifit` does with psignifit. Shapes and parameterization are
   `psychophysics.BestPEST`'s exactly, so a threshold from either is comparable,
   and the arithmetic is the Statistics Toolbox's throughout (`normcdf`,
   `norminv`, `chi2cdf`, `binornd`, `prctile`, with `fminsearch` optimizing). What a reader would otherwise
@@ -1546,18 +1553,50 @@ guide documentation/behavior/BehaviorAnalysis_UserGuide.md.
 - **behavior.Settings**: every analysis setting as ONE value object (`Analysis`,
   `Parameter` ("" = first candidate), `Window` as `TrialWindow` text,
   `ExcludeTest`, `ExcludeTrialTypes`, `IncludeAborts`, trial types, and the
-  sub-structs `Staircase`, `Fit`, `Metrics`, `QC`, `Compare`, reserved
-  `Detection`/`NAFC`). `hash()` = `hex8` of the results-affecting settings in
-  canonical text (QC and Compare excluded): the memo key and the generated
-  script's assertion. JSON-safe by construction — "find it" numbers are `[]`,
-  never NaN (`jsonencode(NaN)` is `null`); `fromStruct` is forgiving and
-  reshapes what `jsondecode` returns. `staircaseArgs/staircaseProperties/
-  metricsArgs/fitArgs` are the ONE translation into psychophysics options; the
-  fit direction follows the staircase direction, so there is no second setting
-  that could disagree. `Fit.Engine = "psignifit"` is the v2 seam
-  (`behavior.fit.Psignifit`, https://github.com/wichmann-lab/psignifit, found
-  through pref `EPsych/PsignifitPath`): `[Levels NumYes NumTotal]` of the common
-  fit struct is exactly psignifit's data matrix
+  sub-structs `Staircase`, `Fit`, `Psignifit`, `Metrics`, `QC`, `Compare`,
+  reserved `Detection`/`NAFC`). `hash()` = `hex8` of the results-affecting
+  settings in canonical text (QC and Compare excluded, and `Psignifit` too
+  unless `Fit.Engine == "psignifit"` — which is also what kept every hash and
+  generated-script assertion written before the group existed valid): the
+  memo key and the generated script's assertion. JSON-safe by construction —
+  "find it" numbers are `[]`, never NaN (`jsonencode(NaN)` is `null`);
+  `fromStruct` is forgiving and reshapes what `jsondecode` returns.
+  `staircaseArgs/staircaseProperties/metricsArgs/fitArgs` are the ONE
+  translation into psychophysics options and `psignifitOptions` the one into
+  psignifit's (every option stated, so a psignifit default change cannot move
+  a result); the fit direction follows the staircase direction for both
+  engines (`Up` fits psignifit's `neg_` sigmoid). `problems()` checks each
+  engine's options only while it fits. The `Psignifit` group's defaults are
+  psignifit's own, so choosing the engine and changing nothing is
+  `psignifit(data)`
+- **behavior.fit.Psignifit** + **behavior.fit.PsignifitPlot**: the psignifit
+  engine (https://github.com/wichmann-lab/psignifit, Schütt et al. 2016; NOT
+  shipped). `locate` finds it on the path, else in pref `EPsych/PsignifitPath`
+  (behind `ispref`), else beside the EPsych checkout (granary's search), and
+  adds it at the path's END so `getThreshold`/`plot2D` shadow nothing;
+  `setFolder`/`directions`/`whyUnavailable` serve the Settings dialog's
+  psignifit page (download directions, Locate Folder…, Check Again), and
+  `override("missing")` fakes absence for tests. The data are
+  `psychophysics.Staircase.psychometricCounts` — extracted from
+  `fitPsychometric` for this, so neither engine runs the other — and
+  `[Levels NumYes NumTotal]` is psignifit's data matrix. Things a reader would
+  otherwise re-derive: `Raw` keeps psignifit's result WITHOUT `Posterior`/
+  `weight` (~100 MB each on the standard grid; `posterior(F)` refits for
+  `plot2D`/`plotBayes`); a standard-grid fit takes seconds, so fits are
+  cached on exact input + commit + `CACHE_FORMAT`, in memory and under
+  `behavior.Catalog.defaultCacheFolder()/psignifit`, never under a root;
+  psignifit's warnings are captured with `evalc` (stripping MATLAB's `[\b
+  … ]\b` markers) into `Fit.Warnings`, never printed; its `probablyAdaptive`
+  warnings can never fire (they test `numel(stimulusRange)==1` after filling
+  it in), so staircase users must be TOLD to state `StimulusRange`; psignifit
+  draws into the current axes, so `PsignifitPlot` makes a uiaxes current and
+  restores HandleVisibility, CurrentFigure AND Visible (`axes(h)` shows a
+  hidden window); and `plot2D` draws in an off-screen scratch figure whose
+  objects are moved over, because a FIGURE colormap write recolours every
+  axes in that window, even ones with their own colormap. `plotBayes`,
+  `plotPrior`, `plotsModelfit` (bootstrap seeded, global stream restored)
+  open windows of their own. Standing proof
+  `tmp/smoke_test_behavior_psignifit.m`
 - **behavior.Facet**: how sessions are grouped (project, projectpath, subject,
   tag:k, tags, sex, species, paradigm, protocolversion, box, date, week (ISO),
   month, year, session ordinal, manual:<Grouping>); `values(T)` and `order(T)`
@@ -1612,7 +1651,14 @@ guide documentation/behavior/BehaviorAnalysis_UserGuide.md.
   a colour-blind-safe palette that stays ≥0.25 RGB from every `epsych.BitMask`
   outcome hue, fixed-sequence jitter so the global random stream is never
   touched, `cla(ax,'reset')` because a datetime x axis left by one figure
-  refuses the numeric x of the next. Standing proof `tmp/smoke_test_behavior_plot.m`
+  refuses the numeric x of the next. `staircaseOverlay` takes a `ColorMap`
+  (`COLOR_MAPS`; `"auto"` = a sequential map for an ordered facet —
+  `Facet.isOrdered`: session/date/week/month/year — else the palette, so a
+  subject-coloured overlay is unchanged); past `MAX_LEGEND_LEVELS` a gradient
+  is keyed by a colour bar whose tick labels are kept short (shared prefix
+  into the title), because a uiaxes in a grid layout reserves room only for
+  a narrow label. Compare's choice is `Project.Facets.ColorMap`; the Subject
+  tab's overlay controls are view state remembered as a window pref Standing proof `tmp/smoke_test_behavior_plot.m`
 - **behavior.Export**: tidy snake_case tables built FROM `schema()` (the single
   source of truth for name, type, unit, meaning); CSV writes NaN as an empty
   field and **never writes Inf**; `trials` table is v2
@@ -1857,7 +1903,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 | obj/granary/ | Logging: verbosity gate, record dispatcher, console/file/JSON sinks (git submodule: dstolz/granary) |
 | obj/+psychophysics/ | Analysis (Detection, Staircase, BestPEST, MLP) |
 | obj/+peripherals/ | Motor control, pump communication |
-| obj/+behavior/ | Offline behavioral analysis (headless): Catalog, Project, Settings, Facet, Session, Study, Aggregate, Stats, Plot, Export, ScriptWriter |
+| obj/+behavior/ | Offline behavioral analysis (headless): Catalog, Project, Settings, Facet, Session, fit.Builtin/fit.Psignifit, Study, Aggregate, Stats, Plot, Export, ScriptWriter |
 | firmware/ | Microcontroller firmware (EPsychTeensy) |
 | runtime/timerfcns/ | Timer callbacks |
 | runtime/savefcns/ | Data saving |

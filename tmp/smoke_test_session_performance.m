@@ -119,6 +119,43 @@ assert(height(T) == numel(psychophysics.SessionMetrics.metricNames()), ...
 assert(T.Text(T.Name == "HitRate") == "72.7%", 'hit rate should render as a percentage');
 assert(T.Detail(T.Name == "HitRate") == "8/11", 'hit rate detail should show its denominator');
 assert(T.Text(T.Name == "Trials") == "20", 'counts render as integers');
+
+% Every metric states the trials it rests on, over what it was divided by:
+% answered stimulus trials (11 of 12, one abort), answered catch trials (8),
+% and for the abort rate and the sensitivity indices their own denominators.
+both = 'H 8/11, FA 2/8';
+expectedDetail = containers.Map( ...
+    {'Trials','StimulusTrials','CatchTrials','Hits','Misses','CorrectRejects', ...
+     'FalseAlarms','Aborts','HitRate','MissRate','FARate','CRRate', ...
+     'AbortRate','PercentCorrect','DPrime','APrime','Criterion','BPrimePrime'}, ...
+    {'20/20','12/20','8/20','8/11','3/11','6/8', ...
+     '2/8','1/20','8/11','3/11','2/8','6/8', ...
+     '1/20','14/19',both,both,both,both});
+for name = psychophysics.SessionMetrics.metricNames()
+    key = char(name);
+    assert(isKey(expectedDetail, key), 'every catalogue metric needs an expected count: %s', key);
+    got = char(T.Detail(T.Name == name));
+    assert(strcmp(got, expectedDetail(key)), ...
+        '%s should read "%s" (got "%s")', key, expectedDetail(key), got);
+end
+
+[~, ~, ~, sup] = S.metric("DPrime");
+assert(numel(sup) == 2 && sup(1).Tag == "H" && sup(2).Tag == "FA" ...
+    && sup(1).Num == 8 && sup(1).Den == 11 && sup(2).Num == 2 && sup(2).Den == 8, ...
+    'a sensitivity index should carry its hit and false alarm fractions');
+[~, ~, ~, sup] = S.metric("HitRate");
+assert(isscalar(sup) && sup.Tag == "" && sup.Num == 8 && sup.Den == 11, ...
+    'a rate should carry one untagged fraction');
+
+% A windowed summary says how much of the session it covers, and a metric
+% with nothing to divide by says so rather than going blank.
+S.TrialWindow = 10;
+assert(S.summary().Detail(S.summary().Name == "Trials") == "10/20", ...
+    'the Trials count should state the window out of the session');
+S.TrialWindow = psychophysics.TrialWindow.range(50,60);
+[~, txt, det] = S.metric("HitRate");
+assert(txt == "--" && det == "0/0", 'an undefined rate should show the empty count (got "%s")', det);
+S.TrialWindow = psychophysics.TrialWindow.allTrials();
 assert(contains(S.summaryText(), 'Hit Rate'), 'the text summary should label its metrics');
 assertThrows(@() S.metric("NotAMetric"), 'an unknown metric name should be rejected');
 fprintf('PASS: SessionMetrics summary formatting\n');
@@ -178,6 +215,63 @@ P.setMetrics("NotAMetric");
 assert(isequal(P.Metrics, psychophysics.SessionMetrics.defaultMetrics()), ...
     'an entirely unknown selection should fall back to the defaults');
 fprintf('PASS: metric selection\n');
+
+% 8b. Trial counts beside every value, in aligned columns -------------------
+assert(P.ShowDetail, 'trial counts are shown by default');
+rowNames = ["Trials","Hit Rate","False Alarm Rate","Abort Rate","d'"];
+
+hit = rowCells(P,'Hit Rate');
+texts = string({hit.Text});
+assert(isequal(texts(1:4), ["Hit Rate","72.7%","8","/11"]), ...
+    'the count should follow the value as numerator and denominator (got %s)', strjoin(texts,'|'));
+d = rowCells(P,"d'");
+[~, dText] = P.Analysis.metric("DPrime");
+assert(isequal(string({d.Text}), ["d'", string(dText), "H 8", "/11", "FA 2/8"]), ...
+    'a sensitivity index should show both fractions');
+
+% Every row puts each cell in the same column, numerators flush right and
+% denominators flush left, so the slashes share one vertical line.
+cols = zeros(numel(rowNames), 5);
+for r = 1:numel(rowNames)
+    c = rowCells(P, rowNames(r));
+    cols(r,:) = arrayfun(@(x) x.Layout.Column(1), c)';
+    assert(strcmp(c(3).HorizontalAlignment,'right') && strcmp(c(4).HorizontalAlignment,'left'), ...
+        'numerators align right and denominators left (%s)', rowNames(r));
+    assert(all(strcmp({c.VerticalAlignment},'bottom')), ...
+        'every cell in a row should sit on one baseline (%s)', rowNames(r));
+end
+assert(all(all(cols == cols(1,:))), 'each count should land in the same column on every row');
+
+% The second-fraction column costs nothing unless a sensitivity index is shown.
+withPair = numel(P.GridH.ColumnWidth);
+P.setMetrics(["HitRate","FARate"]);
+assert(numel(P.GridH.ColumnWidth) == withPair - 2, ...
+    'no sensitivity index means no second-fraction column');
+P.setMetrics(psychophysics.SessionMetrics.defaultMetrics());
+
+% Hiding the counts leaves caption and value, and a menu item does the same.
+P.ShowDetail = false;
+assert(~P.ShowDetail && numel(rowCells(P,'Hit Rate')) == 2, ...
+    'hiding the counts should leave the caption and the value');
+allText = string({findobj(P.GridH,'Type','uilabel').Text});
+assert(~any(contains(allText, "/")), 'no count should remain once they are hidden');
+assert(valueText(P,"HitRate") == "72.7%", 'the value is unaffected by hiding the counts');
+
+P.ContextMenu.ContextMenuOpeningFcn([],[]);
+item = findobj(P.ContextMenu,'Text','Show Trial Counts');
+assert(~isempty(item) && item.Checked == "off", 'the menu should show the counts as off');
+item.MenuSelectedFcn([],[]);
+assert(P.ShowDetail, 'choosing the menu item should show the counts');
+P.ContextMenu.ContextMenuOpeningFcn([],[]);
+assert(findobj(P.ContextMenu,'Text','Show Trial Counts').Checked == "on", ...
+    'the check should follow the setting');
+assert(numel(rowCells(P,'Hit Rate')) == 5, 'the counts should be back');
+
+% Reset to Defaults returns them too, along with the window and metrics.
+P.ShowDetail = false;
+findobj(P.ContextMenu,'Text','Reset to Defaults').MenuSelectedFcn([],[]);
+assert(P.ShowDetail, 'Reset to Defaults should show the counts');
+fprintf('PASS: trial counts, aligned in columns, with an option to hide them\n');
 
 % 9. Context menu ----------------------------------------------------------
 assert(~isempty(P.ContextMenu) && isvalid(P.ContextMenu), 'a context menu should exist');
@@ -282,6 +376,7 @@ P.setMetrics(["Trials","DPrime"]);
 P.setMetricOrder(["DPrime","Trials"]);
 P.setTrialWindow([5 15]);
 P.setFontSize(15);
+P.setShowDetail(false);
 delete(P);
 
 P2 = gui.components.SessionPerformance(rt, panel, Metrics="HitRate");
@@ -302,12 +397,15 @@ other = gui.components.SessionPerformance(rt, otherPanel, Metrics=["HitRate","Tr
     PreferenceTag='smoke_other_gui');
 assert(isequal(other.Metrics, ["HitRate","Trials"]), ...
     'a different PreferenceTag should not inherit this GUI''s order');
+assert(other.ShowDetail, 'a different PreferenceTag should not inherit this GUI''s hidden counts');
 delete(other);
 delete(otherPanel);
 assert(P2.TrialWindow.Mode == "Range" && isequal(P2.TrialWindow.Range,[5 15]), ...
     'the saved trial window should be restored');
 assert(P2.FontSize == 15 && P2.HeaderH.FontSize == 14, ...
     'the saved font size should be restored and applied to the rows');
+assert(~P2.ShowDetail && numel(rowCells(P2,'d''')) == 2, ...
+    'a saved choice to hide the counts should outrank the constructor default');
 fprintf('PASS: preferences persist across construction\n');
 
 % 11. Pop-out window (gui.PopOut mixin) -----------------------------------
@@ -317,6 +415,7 @@ pop = P2.popOut();
 assert(~isempty(pop) && isvalid(pop) && P2.hasPopOut(), 'popOut should open a sibling panel');
 assert(pop.Analysis ~= P2.Analysis, 'the pop-out should compute through its own analysis');
 assert(isequal(pop.Metrics, P2.Metrics), 'the pop-out should open showing what the host shows');
+assert(pop.ShowDetail == P2.ShowDetail, 'the pop-out should open with the host''s trial-count setting');
 
 hostWindow = P2.TrialWindow;
 pop.setTrialWindow(5);
@@ -361,6 +460,19 @@ h = findobj(P.GridH,'Type','uilabel');
 [~, text] = P.Analysis.metric(name);
 s = string(text);
 assert(any(strcmp({h.Text}, char(text))), 'metric "%s" should be displayed', name);
+end
+
+
+function cells = rowCells(P, caption)
+% Every label in the row captioned `caption`, left to right -- caption,
+% value, then the count cells. Spacer columns hold no label.
+h = findobj(P.GridH,'Type','uilabel');
+inCaptionColumn = arrayfun(@(x) isequal(x.Layout.Column,1), h)';
+cap = h(inCaptionColumn & strcmp({h.Text}, char(caption)));
+assert(isscalar(cap), 'exactly one row should be captioned "%s"', caption);
+inRow = h(arrayfun(@(x) isequal(x.Layout.Row, cap.Layout.Row), h));
+[~, order] = sort(arrayfun(@(x) x.Layout.Column(1), inRow));
+cells = inRow(order);
 end
 
 

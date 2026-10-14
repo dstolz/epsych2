@@ -139,14 +139,31 @@ and `TrialType_1`) name which trial type is which.
 
 ```matlab
 T = S.summary();          % table: Name, Label, Group, Kind, Value, Text, Detail
-[v, txt, detail] = S.metric("HitRate");    % 0.727, "72.7%", "18/25"
+[v, txt, detail, support] = S.metric("HitRate");   % 0.727, "72.7%", "18/25", struct
 disp(S.summaryText())                      % window label + one line per metric
 ```
 
-`Text` is the formatted value (`"--"` when undefined) and `Detail` the
-supporting counts. `Kind` names the outcome family (`hit`, `miss`, `cr`,
+`Text` is the formatted value (`"--"` when undefined) and `Detail` the trials
+the value rests on. `Kind` names the outcome family (`hit`, `miss`, `cr`,
 `fa`, `abort`, `sensitivity`, `count`, `neutral`), which the GUI maps to a
 color.
+
+**Every metric has a `Detail`**, over what it was actually divided by rather
+than the window's trial count: a hit or miss rate (and `Hits`, `Misses`) over
+the stimulus trials the subject answered, a false alarm or correct reject
+rate (and their counts) over answered catch trials, `AbortRate` and `Aborts`
+over every included trial, `PercentCorrect` over answered stimulus plus
+catch trials, and `Trials` out of the whole session (so a `last 20` window
+reads `20/150`). A sensitivity index — `DPrime`, `APrime`, `Criterion`,
+`BPrimePrime` — is a function of both rates, so it reports both:
+`"H 18/25, FA 3/12"`. With nothing to count the text is `"0/0"`, the reason
+the value is `"--"`.
+
+`support` is the same information structured, for a display that wants
+columns rather than a string: a struct array of one element (a rate) or two
+(a sensitivity index) with fields `Tag` (`""`, or `"H"`/`"FA"`), `Num`, and
+`Den`. `gui.components.SessionPerformance` lays these out in aligned columns
+from it instead of parsing `Detail`.
 
 The catalogue — the metric definitions themselves — is a static method, so a
 new metric is added in one place:

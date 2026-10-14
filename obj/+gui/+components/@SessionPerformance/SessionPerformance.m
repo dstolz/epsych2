@@ -20,6 +20,15 @@ classdef SessionPerformance < gui.PopOut
     %                     offers All Trials, a set of Last-N presets, and
     %                     prompts for a custom last-N, first-N, or range.
     %
+    % Every row also states the trials its value rests on, beside the value
+    % ("Hit Rate  72.7%  8/11"). A rate is divided by the trials the subject
+    % ANSWERED, not by every trial in the window, so the same percentage reads
+    % very differently at 8/11 and at 80/110 -- and a sensitivity index shows
+    % both of its fractions ("H 8/11  FA 2/8"). The counts sit in their own
+    % columns, numerators right-aligned against the slash, so they read down
+    % the panel as a table. Turn them off with obj.ShowDetail = false or the
+    % right-click Show Trial Counts item.
+    %
     % Font size works the same two ways -- obj.FontSize = 16, or the
     % right-click Font Size menu. It is the caption size: values render 2pt
     % larger, the supporting counts 2pt smaller, and the header 1pt smaller,
@@ -47,6 +56,7 @@ classdef SessionPerformance < gui.PopOut
     %   TrialWindow   - Trials included; accepts any TrialWindow.parse form
     %   Metrics       - Metric names displayed, in display order
     %   FontSize      - Caption font size in points; values render 2pt larger
+    %   ShowDetail    - Show the trial counts beside each value
     %   ValueColors   - Struct mapping metric Kind -> hex color
     %   ContextMenu   - The right-click menu; host GUIs may append items
     %
@@ -56,6 +66,7 @@ classdef SessionPerformance < gui.PopOut
     %   setMetricOrder - Rearrange the displayed metrics, top row first
     %   reorderMetrics - Operator dialog behind setMetricOrder
     %   setFontSize    - Choose the caption font size
+    %   setShowDetail  - Show or hide the trial counts
     %   refresh        - Redraw values from the current results
     %   summaryText    - Plain-text summary of what is displayed
     %
@@ -74,6 +85,7 @@ classdef SessionPerformance < gui.PopOut
         TrialWindow  % Trials included in the summary (psychophysics.TrialWindow)
         Metrics      % Metric names displayed, in display order
         FontSize     % Caption font size in points; values render 2pt larger
+        ShowDetail   % Trial counts beside each value (logical)
     end
 
     properties
@@ -114,7 +126,10 @@ classdef SessionPerformance < gui.PopOut
         % True once the operator (or setMetricOrder) has arranged the rows by
         % hand; toggleMetric_ then stops re-sorting into catalogue order.
         MetricOrderCustom_ (1,1) logical = false
-        Rows_ = struct('Name',{},'LabelH',{},'ValueH',{},'DetailH',{})
+        % One struct per displayed metric. NumH/DenH hold the first count as
+        % "8" and "/11" in separate columns (empty when counts are hidden);
+        % PairH is the second fraction of a sensitivity index.
+        Rows_ = struct('Name',{},'LabelH',{},'ValueH',{},'NumH',{},'DenH',{},'PairH',{})
         FillerH_ = []
         FontSize_ (1,1) double = 12
         ShowHeader_ (1,1) logical = true
@@ -125,6 +140,7 @@ classdef SessionPerformance < gui.PopOut
         WindowMenuH_ = []
         MetricMenuH_ = []
         FontMenuH_ = []
+        DetailMenuH_ = []
         hl_NewData_ = event.listener.empty
         hl_Window_ = event.listener.empty
         selfDeleteListener_ = event.listener.empty
@@ -173,7 +189,10 @@ classdef SessionPerformance < gui.PopOut
             %                   Default 12. Like the metric selection, a size
             %                   saved for this PreferenceTag takes precedence.
             %   ShowHeader    - Show the trial-window header. Default true.
-            %   ShowDetail    - Show the supporting counts column. Default true.
+            %   ShowDetail    - Show the trial counts beside each value
+            %                   ("8/11"). Default true. Like the metric
+            %                   selection, a choice saved for this
+            %                   PreferenceTag takes precedence.
             %   PreferenceTag - Key for saved preferences (defaults to the
             %                   hosting figure Tag/Name).
             arguments
@@ -362,6 +381,32 @@ classdef SessionPerformance < gui.PopOut
             obj.savePreferences_();
         end
 
+        % -- Trial counts -----------------------------------------------
+
+        function tf = get.ShowDetail(obj)
+            tf = obj.ShowDetail_;
+        end
+
+        function set.ShowDetail(obj, tf)
+            obj.setShowDetail(tf);
+        end
+
+        function setShowDetail(obj, tf)
+            % setShowDetail(obj, tf)
+            % Show or hide the trial counts beside each value. The rows are
+            % rebuilt because the counts live in columns of their own, not
+            % because anything is recomputed. Persists like a menu selection.
+            arguments
+                obj
+                tf (1,1) logical
+            end
+            if tf ~= obj.ShowDetail_
+                obj.ShowDetail_ = tf;
+                obj.rebuildRows_();
+            end
+            obj.savePreferences_();
+        end
+
         % -- Display -----------------------------------------------------
 
         function refresh(obj)
@@ -376,11 +421,9 @@ classdef SessionPerformance < gui.PopOut
                 for i = 1:numel(obj.Rows_)
                     r = obj.Rows_(i);
                     if ~isvalid(r.ValueH), continue; end
-                    [~, text, detail] = obj.Analysis.metric(r.Name);
+                    [~, text, ~, support] = obj.Analysis.metric(r.Name);
                     r.ValueH.Text = char(text);
-                    if ~isempty(r.DetailH) && isvalid(r.DetailH)
-                        r.DetailH.Text = char(detail);
-                    end
+                    obj.showSupport_(r, support);
                 end
             catch ME
                 vprintf(0,1,ME)
@@ -491,7 +534,7 @@ classdef SessionPerformance < gui.PopOut
             g.ColumnWidth   = {'1x','fit','fit'};
             g.RowHeight     = {'1x'};
             g.RowSpacing    = 2;
-            g.ColumnSpacing = 8;
+            g.ColumnSpacing = 0;   % gaps are explicit columns; see rebuildRows_
             g.Padding       = [6 4 6 4];
             try
                 g.Scrollable = 'on';   % more metrics than the panel can show
@@ -525,7 +568,7 @@ classdef SessionPerformance < gui.PopOut
             if isempty(obj.GridH) || ~isvalid(obj.GridH), return; end
 
             delete(obj.GridH.Children);
-            obj.Rows_ = struct('Name',{},'LabelH',{},'ValueH',{},'DetailH',{});
+            obj.Rows_ = struct('Name',{},'LabelH',{},'ValueH',{},'NumH',{},'DenH',{},'PairH',{});
             obj.HeaderH = [];
             obj.FillerH_ = [];
 
@@ -535,11 +578,34 @@ classdef SessionPerformance < gui.PopOut
             heights = repmat({'fit'}, 1, n + double(obj.ShowHeader_) + 1);
             heights{end} = '1x';   % filler row absorbs slack and keeps rows top-aligned
             obj.GridH.RowHeight = heights;
+
+            % Columns, left to right:
+            %   caption | gap | value | gap | numerator | /denominator |
+            %   gap | second fraction
+            %
+            % A count is split across a numerator label (right-aligned) and
+            % a denominator label (left-aligned), so every slash falls on one
+            % vertical line and digits stack by place value whatever their
+            % widths; padding a single string would depend on a monospaced
+            % font instead. ColumnSpacing is zero so the two halves of a
+            % fraction touch, and the gaps between columns are columns of
+            % their own.
+            %
+            % The second fraction exists only for a sensitivity index (it
+            % rests on a hit AND a false alarm rate) and costs no width
+            % unless one is displayed.
+            col = struct('Caption',1, 'Value',3, 'Num',0, 'Den',0, 'Pair',0);
+            widths = {'1x', 10, 'fit'};
             if obj.ShowDetail_
-                obj.GridH.ColumnWidth = {'1x','fit','fit'};
-            else
-                obj.GridH.ColumnWidth = {'1x','fit'};
+                widths = [widths, {8, 'fit', 'fit'}];
+                col.Num = 5;
+                col.Den = 6;
+                if obj.anyPairedSupport_()
+                    widths = [widths, {10, 'fit'}];
+                    col.Pair = 8;
+                end
             end
+            obj.GridH.ColumnWidth = widths;
 
             row = 0;
             if obj.ShowHeader_
@@ -561,32 +627,33 @@ classdef SessionPerformance < gui.PopOut
 
                 lbl = uilabel(obj.GridH);
                 lbl.Layout.Row    = row;
-                lbl.Layout.Column = 1;
+                lbl.Layout.Column = col.Caption;
                 lbl.Text          = char(def.Label);
                 lbl.FontSize      = obj.FontSize_;
                 lbl.FontColor     = obj.LabelColor;
+                lbl.VerticalAlignment = 'bottom';   % one baseline across the row
 
                 val = uilabel(obj.GridH);
                 val.Layout.Row    = row;
-                val.Layout.Column = 2;
+                val.Layout.Column = col.Value;
                 val.Text          = '--';
                 val.FontSize      = obj.FontSize_ + 2;
                 val.FontWeight    = 'bold';
                 val.FontColor     = obj.colorFor_(def.Kind);
                 val.HorizontalAlignment = 'right';
+                val.VerticalAlignment   = 'bottom';
 
-                det = [];
+                num = []; den = []; pair = [];
                 if obj.ShowDetail_
-                    det = uilabel(obj.GridH);
-                    det.Layout.Row    = row;
-                    det.Layout.Column = 3;
-                    det.Text          = '';
-                    det.FontSize      = max(obj.FontSize_ - 2, 7);
-                    det.FontColor     = obj.LabelColor;
-                    det.VerticalAlignment = 'bottom';   % sits on the value's baseline
+                    num  = obj.countLabel_(row, col.Num,  'right');
+                    den  = obj.countLabel_(row, col.Den,  'left');
+                    if col.Pair > 0
+                        pair = obj.countLabel_(row, col.Pair, 'left');
+                    end
                 end
 
-                obj.Rows_(end+1) = struct('Name',name,'LabelH',lbl,'ValueH',val,'DetailH',det);
+                obj.Rows_(end+1) = struct('Name',name,'LabelH',lbl,'ValueH',val, ...
+                    'NumH',num,'DenH',den,'PairH',pair);
             end
 
             % Empty space still answers the right-click, so the menu is
@@ -614,12 +681,63 @@ classdef SessionPerformance < gui.PopOut
                     r = obj.Rows_(i);
                     if isvalid(r.LabelH), r.LabelH.FontSize = obj.FontSize_;     end
                     if isvalid(r.ValueH), r.ValueH.FontSize = obj.FontSize_ + 2; end
-                    if ~isempty(r.DetailH) && isvalid(r.DetailH)
-                        r.DetailH.FontSize = max(obj.FontSize_ - 2, 7);
+                    for h = [r.NumH, r.DenH, r.PairH]
+                        if isvalid(h), h.FontSize = max(obj.FontSize_ - 2, 7); end
                     end
                 end
             catch ME
                 vprintf(3,'gui.components.SessionPerformance: unable to set font size: %s', ME.message)
+            end
+        end
+
+        function h = countLabel_(obj, row, column, alignment)
+            % One cell of the trial-count columns, in the supporting-text
+            % style: smaller than the caption, in the caption's colour.
+            h = uilabel(obj.GridH);
+            h.Layout.Row    = row;
+            h.Layout.Column = column;
+            h.Text          = '';
+            h.FontSize      = max(obj.FontSize_ - 2, 7);
+            h.FontColor     = obj.LabelColor;
+            h.HorizontalAlignment = alignment;
+            h.VerticalAlignment   = 'bottom';   % sits on the value's baseline
+        end
+
+        function tf = anyPairedSupport_(obj)
+            % True when a displayed metric rests on two fractions (a
+            % sensitivity index). Asked of the analysis rather than inferred
+            % from the catalogue, so the answer cannot drift from what
+            % metric() actually returns.
+            tf = false;
+            for i = 1:numel(obj.Metrics_)
+                [~, ~, ~, support] = obj.Analysis.metric(obj.Metrics_(i));
+                if numel(support) > 1
+                    tf = true;
+                    return
+                end
+            end
+        end
+
+        function showSupport_(~, r, support)
+            % Put one metric's counts into its row's columns: "8" over "/11",
+            % and the second fraction of a sensitivity index beyond them.
+            if isempty(r.NumH) || ~isvalid(r.NumH), return; end
+
+            first = support(1);
+            num = sprintf('%d', first.Num);
+            if strlength(first.Tag) > 0
+                num = sprintf('%s %s', first.Tag, num);   % "H 8": the digits still align
+            end
+            r.NumH.Text = num;
+            r.DenH.Text = sprintf('/%d', first.Den);
+
+            if ~isempty(r.PairH) && isvalid(r.PairH)
+                if numel(support) > 1
+                    r.PairH.Text = sprintf('%s %d/%d', ...
+                        support(2).Tag, support(2).Num, support(2).Den);
+                else
+                    r.PairH.Text = '';
+                end
             end
         end
 
@@ -657,6 +775,8 @@ classdef SessionPerformance < gui.PopOut
                 uimenu(cm,'Text','Reorder Metrics...', ...
                     'MenuSelectedFcn',@(~,~) obj.reorderMetrics());
                 obj.FontMenuH_   = uimenu(cm,'Text','Font Size');
+                obj.DetailMenuH_ = uimenu(cm,'Text','Show Trial Counts', ...
+                    'MenuSelectedFcn',@(~,~) obj.setShowDetail(~obj.ShowDetail_));
                 uimenu(cm,'Text','Copy Summary','Separator','on', ...
                     'MenuSelectedFcn',@(~,~) obj.copySummary_());
                 uimenu(cm,'Text','Reset to Defaults', ...
@@ -695,6 +815,11 @@ classdef SessionPerformance < gui.PopOut
             obj.refreshWindowMenu_();
             obj.refreshMetricMenu_();
             obj.refreshFontMenu_();
+
+            % The check follows a value set from code, as the others do.
+            if ~isempty(obj.DetailMenuH_) && isvalid(obj.DetailMenuH_)
+                obj.DetailMenuH_.Checked = obj.ShowDetail_;
+            end
         end
 
         function refreshFontMenu_(obj)
@@ -880,6 +1005,7 @@ classdef SessionPerformance < gui.PopOut
         function resetToDefaults_(obj)
             obj.setTrialWindow(psychophysics.TrialWindow.allTrials());
             obj.MetricOrderCustom_ = false;   % back to catalogue order
+            obj.ShowDetail_ = true;           % rebuilt by setMetrics just below
             obj.setMetrics(psychophysics.SessionMetrics.defaultMetrics());
         end
 
@@ -923,6 +1049,11 @@ classdef SessionPerformance < gui.PopOut
                     % Applied by the rows built after this returns.
                     obj.FontSize_ = min(max(round(s.FontSize), 6), 72);
                 end
+                % Absent in preferences written before the counts could be
+                % turned off, which leaves the constructor's choice alone.
+                if isfield(s,'ShowDetail') && isscalar(s.ShowDetail)
+                    obj.ShowDetail_ = logical(s.ShowDetail);
+                end
                 vprintf(3,'gui.components.SessionPerformance: loaded saved preferences "%s"', pname)
             catch ME
                 vprintf(2,'gui.components.SessionPerformance: failed to load preferences: %s', ME.message)
@@ -934,7 +1065,8 @@ classdef SessionPerformance < gui.PopOut
                 s = struct('Metrics', {cellstr(obj.Metrics_)}, ...
                     'MetricOrderCustom', obj.MetricOrderCustom_, ...
                     'TrialWindow', obj.TrialWindow.toStruct(), ...
-                    'FontSize', obj.FontSize_);
+                    'FontSize', obj.FontSize_, ...
+                    'ShowDetail', obj.ShowDetail_);
                 setpref(obj.PREF_GROUP, obj.preferenceName_(), s);
             catch ME
                 vprintf(2,'gui.components.SessionPerformance: failed to save preferences: %s', ME.message)

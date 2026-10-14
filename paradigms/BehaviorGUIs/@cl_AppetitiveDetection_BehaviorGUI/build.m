@@ -501,14 +501,15 @@ end
 % gui.components.SessionPerformance computes through a psychophysics.SessionMetrics,
 % so the rates here and the psychometric plot read the same trials. The
 % header names the trial window in effect; right-click to change it (all
-% trials, the last N, or an explicit range) or to add metrics.
+% trials, the last N, or an explicit range), to add metrics, or to hide the
+% trial counts beside each value (Show Trial Counts).
 panelPerformance = uipanel(layoutMain, 'Title', 'Session Performance');
 panelPerformance.Layout.Row    = [1 2];
 panelPerformance.Layout.Column = 7;
 
 obj.Performance = obj.add('gui.components.SessionPerformance', panelPerformance, ...
     Metrics=["HitRate","FARate","AbortRate","DPrime"], ...
-    FontSize=11, ShowDetail=false);
+    FontSize=11);
 
 
 % Panel for Scatter plot ------------------------------------------------

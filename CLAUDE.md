@@ -760,7 +760,7 @@ unconstructable. `epsych.SelfTest` check A3 is the tripwire.
   nothing per-trial about them, so they are absent from `BUFFER_TYPES`, from
   the operator's Select Buffers... list, and from the builder's dialog
   (documentation/gui/gui_BufferPlot.md)
-- **gui.components.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu (documentation/gui/gui_SessionPerformance.md)
+- **gui.components.SessionPerformance**: generic session summary panel (rates, counts, d'); computes through psychophysics.SessionMetrics and exposes the trial window both programmatically and on a right-click menu. Every row states the trials its value rests on in aligned numerator|/denominator columns (`ShowDetail`, right-click Show Trial Counts) — over what the metric was DIVIDED by (answered stimulus trials for a hit rate), not the window's trial count; a sensitivity index shows both of its fractions, and the panel lays out `SessionMetrics.metric`'s 4th output `support` rather than parsing the text (documentation/gui/gui_SessionPerformance.md)
 - **gui.components.NextTrial**: generic upcoming-trial display driven by NewTrial events
 - **gui.ReviewTransport**: the trial scrubber for an `epsych.ReviewSession` —
   slider, step, play/pause, rate, and elapsed-time readout. Its OWN window, not a

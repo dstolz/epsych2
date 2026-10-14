@@ -151,7 +151,8 @@ classdef SessionMetrics < psychophysics.Psych
             %       Kind   - Outcome family, used for color coding
             %       Value  - Numeric value in canonical units (rates are fractions)
             %       Text   - Formatted value, e.g. "72.0%" or "1.84"
-            %       Detail - Supporting counts, e.g. "18/25"
+            %       Detail - Trials the value rests on, e.g. "18/25", or
+            %                "H 18/25, FA 3/12" for a sensitivity index
             C = psychophysics.SessionMetrics.catalogue();
             n = numel(C);
 
@@ -170,17 +171,32 @@ classdef SessionMetrics < psychophysics.Psych
             T = table(Name, Label, Group, Kind, Value, Text, Detail);
         end
 
-        function [value, text, detail] = metric(obj, name)
-            % [value, text, detail] = metric(obj, name)
+        function [value, text, detail, support] = metric(obj, name)
+            % [value, text, detail, support] = metric(obj, name)
             % One metric by name, in canonical units plus display strings.
             %
             % Parameters:
             %   name - Metric name from psychophysics.SessionMetrics.catalogue.
             %
             % Returns:
-            %   value  - Numeric value (rates are fractions, not percentages)
-            %   text   - Formatted value, "--" when undefined
-            %   detail - Supporting counts, e.g. "18/25"; "" when not applicable
+            %   value   - Numeric value (rates are fractions, not percentages)
+            %   text    - Formatted value, "--" when undefined
+            %   detail  - The trials the value rests on, as text: "18/25" for
+            %             one fraction, "H 18/25, FA 3/12" for a sensitivity
+            %             index, which rests on both a hit and a false alarm
+            %             rate. Every metric has one; with nothing to count it
+            %             reads "0/0", which says why the value is "--".
+            %   support - The same counts, structured: a struct array of one or
+            %             two elements with fields Tag ("" or the "H"/"FA" that
+            %             names a fraction of a sensitivity index), Num, and
+            %             Den. gui.components.SessionPerformance lays these out
+            %             in columns rather than parsing `detail`.
+            %
+            % The denominator is whatever the metric was actually divided by,
+            % not the number of trials in the window: a hit rate is scored over
+            % the stimulus trials the subject ANSWERED (aborts are left out
+            % unless IncludeAborts), a false alarm rate over answered catch
+            % trials, and only the abort rate over every included trial.
             arguments
                 obj
                 name (1,1) string
@@ -195,44 +211,55 @@ classdef SessionMetrics < psychophysics.Psych
 
             R = obj.Results;
             N = R.N;
-            detail = "";
+            frac = @psychophysics.SessionMetrics.fraction_;
+
+            % Each fraction a metric is divided by, named once so that a count
+            % row and the rate built from it can never disagree about it.
+            onHit   = frac("", N.Hit,           N.Scored);
+            onMiss  = frac("", N.Miss,          N.Scored);
+            onFA    = frac("", N.FalseAlarm,    N.CatchScored);
+            onCR    = frac("", N.CorrectReject, N.CatchScored);
+            onAbort = frac("", N.Abort,         N.Total);
+
+            % A sensitivity index is a function of the hit AND the false alarm
+            % rate, so how far to trust it is set by the smaller of the two
+            % denominators -- both are shown.
+            onBoth  = [frac("H", N.Hit, N.Scored), frac("FA", N.FalseAlarm, N.CatchScored)];
 
             switch name
-                case "Trials",          value = N.Total;
-                case "StimulusTrials",  value = N.Stimulus;
-                case "CatchTrials",     value = N.Catch;
-                case "Hits",            value = N.Hit;
-                case "Misses",          value = N.Miss;
-                case "CorrectRejects",  value = N.CorrectReject;
-                case "FalseAlarms",     value = N.FalseAlarm;
-                case "Aborts",          value = N.Abort;
+                case "Trials"
+                    % Of the session, so a windowed summary says so.
+                    value = N.Total;
+                    support = frac("", N.Total, obj.trialCount);
+                case "StimulusTrials"
+                    value = N.Stimulus;
+                    support = frac("", N.Stimulus, N.Total);
+                case "CatchTrials"
+                    value = N.Catch;
+                    support = frac("", N.Catch, N.Total);
+                case "Hits",            value = N.Hit;           support = onHit;
+                case "Misses",          value = N.Miss;          support = onMiss;
+                case "CorrectRejects",  value = N.CorrectReject; support = onCR;
+                case "FalseAlarms",     value = N.FalseAlarm;    support = onFA;
+                case "Aborts",          value = N.Abort;         support = onAbort;
 
-                case "HitRate"
-                    value = R.Rate.Hit;
-                    detail = obj.fraction_(N.Hit, N.Scored);
-                case "MissRate"
-                    value = R.Rate.Miss;
-                    detail = obj.fraction_(N.Miss, N.Scored);
-                case "FARate"
-                    value = R.Rate.FalseAlarm;
-                    detail = obj.fraction_(N.FalseAlarm, N.CatchScored);
-                case "CRRate"
-                    value = R.Rate.CorrectReject;
-                    detail = obj.fraction_(N.CorrectReject, N.CatchScored);
-                case "AbortRate"
-                    value = R.Rate.Abort;
-                    detail = obj.fraction_(N.Abort, N.Total);
+                case "HitRate",         value = R.Rate.Hit;           support = onHit;
+                case "MissRate",        value = R.Rate.Miss;          support = onMiss;
+                case "FARate",          value = R.Rate.FalseAlarm;    support = onFA;
+                case "CRRate",          value = R.Rate.CorrectReject; support = onCR;
+                case "AbortRate",       value = R.Rate.Abort;         support = onAbort;
                 case "PercentCorrect"
                     value = R.Rate.Correct;
-                    detail = obj.fraction_(N.Hit + N.CorrectReject, N.Scored + N.CatchScored);
+                    support = frac("", N.Hit + N.CorrectReject, N.Scored + N.CatchScored);
 
-                case "DPrime",      value = R.DPrime;
-                case "APrime",      value = R.APrime;
-                case "Criterion",   value = R.Criterion;
-                case "BPrimePrime", value = R.BPrimePrime;
+                case "DPrime",          value = R.DPrime;      support = onBoth;
+                case "APrime",          value = R.APrime;      support = onBoth;
+                case "Criterion",       value = R.Criterion;   support = onBoth;
+                case "BPrimePrime",     value = R.BPrimePrime; support = onBoth;
             end
 
-            text = psychophysics.SessionMetrics.formatValue_(value, C(idx).Format);
+            text   = psychophysics.SessionMetrics.formatValue_(value, C(idx).Format);
+            detail = psychophysics.SessionMetrics.supportText_(support);
         end
 
         function s = summaryText(obj, names)
@@ -370,14 +397,6 @@ classdef SessionMetrics < psychophysics.Psych
             end
         end
 
-        function s = fraction_(~, num, den)
-            % "18/25", or "" when the denominator is empty
-            if den == 0
-                s = "";
-            else
-                s = sprintf("%d/%d", num, den);
-            end
-        end
     end
 
     methods (Static)
@@ -431,6 +450,26 @@ classdef SessionMetrics < psychophysics.Psych
     end
 
     methods (Static, Access = private)
+        function f = fraction_(tag, num, den)
+            % One supporting count: what was counted over what it was
+            % counted out of. Tag names it where a metric has two.
+            f = struct('Tag', string(tag), 'Num', num, 'Den', den);
+        end
+
+        function s = supportText_(support)
+            % "18/25", or "H 18/25, FA 3/12" -- the plain-text form of what
+            % a GUI lays out in columns. An empty denominator is stated ("0/0")
+            % rather than blanked: it is the reason the value reads "--".
+            parts = strings(1, numel(support));
+            for i = 1:numel(support)
+                parts(i) = sprintf("%d/%d", support(i).Num, support(i).Den);
+                if strlength(support(i).Tag) > 0
+                    parts(i) = support(i).Tag + " " + parts(i);
+                end
+            end
+            s = strjoin(parts, ", ");
+        end
+
         function R = emptyResults_()
             % Result skeleton, so every field exists before the first trial.
             zeroCounts = struct('Total',0,'Stimulus',0,'Catch',0, ...

@@ -28,9 +28,20 @@ bitmask arithmetic in `onNewData`).
 - **Color-coded values**: green hits, red misses, blue correct rejects,
   orange false alarms, olive aborts, teal sensitivity measures — the same
   semantic hues `gui.components.History` uses for response rows.
-- **Supporting counts**: each rate shows its denominator (`18/25`), so a
-  rate computed from three trials never reads like a rate computed from
-  three hundred.
+- **Trial counts beside every value**: each row states the trials its value
+  rests on (`Hit Rate  72.7%  8/11`), so a rate computed from three trials
+  never reads like a rate computed from three hundred. The denominator is
+  what the metric was actually divided by, which is *not* the number of trials
+  in the window — a hit rate is over the stimulus trials the subject
+  **answered** (aborts are left out unless `IncludeAborts`), a false alarm
+  rate over answered catch trials, and only the abort rate over every
+  included trial. A sensitivity index (d', A', criterion, B'') rests on both
+  a hit and a false alarm rate, so it shows both fractions
+  (`H 8/11  FA 2/8`). See [Trial counts](#trial-counts) below.
+- **Aligned columns**: captions, values, and counts each have a column of
+  their own; numerators are right-aligned against the slash and denominators
+  left-aligned after it, so every slash stands on one vertical line and the
+  digits stack by place value.
 - **Pop-out**: right-click → **Open in Separate Window** (the `gui.PopOut`
   mixin) repeats the summary in a window of its own, with its own analysis
   object — so watching the last 20 trials there leaves the embedded panel
@@ -122,6 +133,32 @@ would silently discard the arrangement the operator just made. **Reset to
 Defaults** returns to catalogue order. The order persists per GUI like every
 other choice here, and a pop-out opens showing the host's arrangement.
 
+### Trial counts
+
+Every metric has a count, not only the rates:
+
+| Metric | Shows | Out of |
+|--------|-------|--------|
+| Hit Rate, Hits, Miss Rate, Misses | hits (misses) | answered stimulus trials |
+| False Alarm Rate, False Alarms, Correct Reject Rate, Correct Rejects | false alarms (correct rejects) | answered catch trials |
+| Abort Rate, Aborts | aborts | every included trial |
+| Percent Correct | hits + correct rejects | answered stimulus + catch trials |
+| d', A', Criterion, B'' | `H` hits/answered stimulus, `FA` false alarms/answered catch | — |
+| Trials | trials in the window | trials in the session, so `Last 20` reads `20/150` |
+| Stimulus Trials, Catch Trials | that trial type | trials in the window |
+
+An empty count reads `0/0`, which is the reason the value beside it is `--`.
+
+The operator turns the counts off from the right-click **Show Trial Counts**
+item; from code, `P.ShowDetail = false` or `P.setShowDetail(false)`. The
+choice persists per GUI like the window and metric selection, and a
+pop-out opens with the host's setting. **Reset to Defaults** turns them back
+on.
+
+The counts come from `psychophysics.SessionMetrics.metric`'s fourth output,
+`support`, which the panel lays out in columns instead of parsing the text
+form (`detail`). The headless summary and the clipboard copy use that text.
+
 ### Constructor
 
 ```matlab
@@ -136,7 +173,7 @@ obj = gui.components.SessionPerformance(source, container, options)
 | `TrialWindow` | Trials to summarize; any form `psychophysics.TrialWindow.parse` accepts. Default: all |
 | `FontSize` | Caption font size; values render 2 pt larger. Default `12`; a size saved for this `PreferenceTag` takes precedence |
 | `ShowHeader` | Show the trial-window header. Default `true` |
-| `ShowDetail` | Show the supporting-counts column. Default `true` |
+| `ShowDetail` | Show the trial counts beside each value. Default `true`; a choice saved for this `PreferenceTag` takes precedence |
 | `PreferenceTag` | Key for saved preferences (defaults to the hosting figure `Tag`/`Name`) |
 
 A saved selection takes precedence over the constructor's `Metrics`,
@@ -152,6 +189,7 @@ A saved selection takes precedence over the constructor's `Metrics`,
 | `ValueColors` | Struct mapping metric `Kind` → hex color; assign to restyle |
 | `LabelColor`, `HeaderColor` | Caption and header colors |
 | `FontSize` | Caption font size in points; assigning routes through `setFontSize` |
+| `ShowDetail` | Trial counts beside each value; assigning routes through `setShowDetail` |
 | `WindowPresets` | Trial counts offered as one-click **Last N** menu entries. Default `[10 20 50 100]` |
 | `FontPresets` | Sizes offered as one-click **Font Size** menu entries. Default `[10 12 14 16 20 24]` |
 | `ContextMenu` | The right-click menu; host GUIs may append with `uimenu(obj.ContextMenu, ...)` |
@@ -160,6 +198,7 @@ A saved selection takes precedence over the constructor's `Metrics`,
 | `setMetricOrder(order)` | Rearrange the displayed metrics (names or a permutation), top row first; persists like a menu selection |
 | `reorderMetrics()` | The **Reorder Metrics...** dialog behind `setMetricOrder` |
 | `setFontSize(points)` | Set the caption size (clamped to 6–72 pt); persists like a menu selection |
+| `setShowDetail(tf)` | Show or hide the trial counts; persists like a menu selection |
 | `refresh()` | Redraw from the current results |
 | `summaryText()` | Plain-text summary of what is displayed (also on **Copy Summary**) |
 | `popOut()` / `closePopOut()` / `hasPopOut()` | Open, close, and query the separate-window copy (`gui.PopOut`) |
@@ -184,11 +223,13 @@ panelPerformance.Layout.Column = 7;
 
 obj.Performance = obj.add('gui.components.SessionPerformance', panelPerformance, ...
     Metrics=["HitRate","FARate","AbortRate","DPrime"], ...
-    FontSize=11, ShowDetail=false);
+    FontSize=11);
 ```
 
 The GUI's `onNewData` no longer computes rates: the panel owns its own
-`SessionMetrics` and follows `NewData` itself.
+`SessionMetrics` and follows `NewData` itself. The trial counts are shown
+(the GUI used to pass `ShowDetail=false`); the operator can hide them from
+the right-click menu.
 
 ## See also
 

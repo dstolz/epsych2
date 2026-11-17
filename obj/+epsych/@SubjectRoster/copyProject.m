@@ -37,7 +37,7 @@ function newId = copyProject(self, id, newName, options)
 %   Notes, Investigator, IACUCProtocol, DefaultProtocol, DefaultDataPath,
 %   SavingFcn, TimerStartFcn, TimerRunTimeFcn, TimerStopFcn, TimerErrorFcn,
 %   TimerPeriod, VideoRootDir, IntanRootDir, IntanSettingsFile,
-%   BehaviorGUI, Links, Archived
+%   BehaviorGUI, Links, Archived, RegistryID
 %                      - override the source's value for that field. Each has
 %                        no default, so "not stated" and "stated as empty" stay
 %                        distinguishable and only the former follows the source.
@@ -98,6 +98,7 @@ arguments
     options.BehaviorGUI (1,:) char
     options.Links
     options.Archived (1,1) logical
+    options.RegistryID (1,:) char
 end
 
 src = self.findProject(id);
@@ -114,7 +115,7 @@ for f = ["Notes" "Investigator" "IACUCProtocol" "DefaultProtocol" ...
          "DefaultDataPath" "SavingFcn" ...
          "TimerStartFcn" "TimerRunTimeFcn" "TimerStopFcn" "TimerErrorFcn" ...
          "TimerPeriod" "VideoRootDir" ...
-         "IntanRootDir" "IntanSettingsFile" "BehaviorGUI" "Links"]
+         "IntanRootDir" "IntanSettingsFile" "BehaviorGUI" "Links" "RegistryID"]
     if isfield(options, f)
         A.(f) = options.(f);
     else

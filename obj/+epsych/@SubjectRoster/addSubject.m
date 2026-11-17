@@ -4,7 +4,10 @@ function id = addSubject(self, S)
 %
 % Parameters:
 %   S - struct or epsych.Subject with at least a Name. A BoxID is accepted and
-%       ignored: a box belongs to a session, not to an animal.
+%       ignored: a box belongs to a session, not to an animal. A struct may
+%       carry RegistryID, the animal's id in the lab's subject registry.
+%       A finite Weight is also reported to the registry as a weighing
+%       (epsych.SubjectRegistry.notifyWeight; a no-op when none is set up).
 %
 % Returns:
 %   id - the minted SubjectID.
@@ -12,6 +15,8 @@ function id = addSubject(self, S)
 % Throws:
 %   epsych:SubjectRoster:InvalidName    - name is empty or not filename-safe
 %   epsych:SubjectRoster:DuplicateName  - a subject with that name exists
+%   epsych:SubjectRoster:DuplicateRegistryID - another subject is linked to
+%                                         that RegistryID
 %
 % See also: epsych.SubjectRoster.updateSubject, epsych.SubjectRoster.fromSubject
 arguments
@@ -24,12 +29,13 @@ if isa(S, 'epsych.Subject')
 end
 
 rec = epsych.SubjectRoster.blankSubject_();
-for f = ["Name" "Sex" "Species" "Weight" "Notes"]
+for f = ["Name" "Sex" "Species" "Weight" "Notes" "RegistryID"]
     if isfield(S, f)
         rec.(f) = S.(f);
     end
 end
 rec.Name = char(string(rec.Name));
+rec.RegistryID = strtrim(char(string(rec.RegistryID)));
 
 [ok, why] = epsych.SubjectRoster.isNameSafe(rec.Name);
 if ~ok
@@ -40,6 +46,7 @@ if ~isempty(self.findSubject(rec.Name))
     error('epsych:SubjectRoster:DuplicateName', ...
         'A subject named "%s" is already in the roster.', rec.Name);
 end
+self.refuseLinked_(rec.RegistryID, '');
 
 rec.SubjectID = epsych.SubjectRoster.newId('S');
 rec.Created   = datetime('now');
@@ -50,6 +57,11 @@ self.mutate_(@applyAdd);
 id = rec.SubjectID;
 vprintf(1, 'Added subject "%s" to the roster.', rec.Name);
 
+% A weight typed with a new animal is a weighing like any other.
+if isnumeric(rec.Weight) && isscalar(rec.Weight) && isfinite(rec.Weight)
+    epsych.SubjectRegistry.notifyWeight(rec, rec.Weight, rec.Created);
+end
+
     % Nested rather than local so it keeps the method's access to the
     % private-set properties, and so the duplicate re-check below sees the
     % roster as mutate_ just re-read it.
@@ -58,6 +70,7 @@ vprintf(1, 'Added subject "%s" to the roster.', rec.Name);
             error('epsych:SubjectRoster:DuplicateName', ...
                 'A subject named "%s" was just added by another session.', rec.Name);
         end
+        r.refuseLinked_(rec.RegistryID, '');
         r.Subjects = [r.Subjects, rec];
     end
 

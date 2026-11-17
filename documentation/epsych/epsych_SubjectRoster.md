@@ -180,6 +180,19 @@ Records are keyed by a minted `SubjectID` (`S_20260814T143012_7f3a9c` — timest
 
 A typo discovered after the first session is therefore not correctable here. That is a deliberate trade — the alternative silently orphans data.
 
+### Links to the lab's subject registry
+
+A subject and a project may carry a **`RegistryID`**: the animal's or study's id in the lab's subject registry (see [epsych.SubjectRegistry](epsych_SubjectRegistry.md)). The default `''` means "not linked", which is what a roster written before the field means, so older files need no migration.
+
+- The registry owns identity and the roster owns how an animal is run.
+- One registry id links at most one subject (`DuplicateRegistryID`).
+- `findSubject` does not resolve registry ids; `findByRegistryID` does.
+- `copyProject` carries a project's link, because the next phase of a study is the same study.
+
+`importSubjects(records, ProjectID=)` brings registry animals in, in a single write. It links by id, then by name to an unlinked subject, else adds one. It updates Sex and Species and touches nothing else. It enrols new members without reviving a retired one.
+
+A changed `Weight` (or a weight given to `addSubject`) is reported to the registry as a weighing through `epsych.SubjectRegistry.notifyWeight`. With no registry set up that call does nothing.
+
 ---
 
 ## Where the file lives — there is no default
@@ -333,7 +346,7 @@ It is all-or-nothing where partial success would be worse than none:
 
 The distinction: having *no* protocol means the subject simply is not ready, while a protocol that was named but cannot be used means the operator's intent cannot be honoured.
 
-The returned report has `ok`, `aborted`, `added` (Name/BoxID/Protocol), `skipped` (Name/reason), `removed` (names displaced by a replacement) and a one-line `message`.
+The returned report has `ok`, `aborted`, `added` (Name/BoxID/Protocol), `skipped` (Name/reason), `removed` (names displaced by a replacement), `registryWarnings` and a one-line `message`. `registryWarnings` lists what the lab's subject registry last said about the committed animals: an endpoint, or a weight under baseline. It is logged, never a refusal, and empty with no registry.
 
 ### `ReplaceExisting`
 
@@ -380,4 +393,6 @@ Project options get two more: every `isSafeUrl` verdict and normalization, links
 
 Parameter defaults have their own headless proof, `tmp/smoke_test_parameter_defaults.m`: the round trip with each value type, the shape refusal leaving the file alone, the export column, `copyProject` with and without `CopyParameterDefaults`, a roster written before the field existed, and the CONFIG link Run reads through — including an edit after commit counting and an unreadable roster falling back to the commit-time copy.
 
-See also: [`gui.SubjectManager`](../gui/gui_SubjectManager.md), [`epsych.Subject`](../overviews/Class_Map.md), [`epsych.ParameterDefaults`](epsych_ParameterDefaults.md), `plans/multi-subject-support.md`
+Registry links, `importSubjects` and the weight hook are proved by `tmp/smoke_test_subject_registry.m`, which includes a roster written before `RegistryID` existed.
+
+See also: [`gui.SubjectManager`](../gui/gui_SubjectManager.md), [`epsych.SubjectRegistry`](epsych_SubjectRegistry.md), [`epsych.Subject`](../overviews/Class_Map.md), [`epsych.ParameterDefaults`](epsych_ParameterDefaults.md), `plans/multi-subject-support.md`

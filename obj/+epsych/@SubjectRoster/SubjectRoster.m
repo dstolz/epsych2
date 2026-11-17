@@ -44,6 +44,12 @@ classdef SubjectRoster < handle
     % by isSafeUrl on the way in and again in openLink, because a roster is a
     % shared file and an address that could run code would run it on every rig.
     %
+    % A subject and a project may be LINKED to the lab's subject registry
+    % (RegistryID; see epsych.SubjectRegistry), which owns an animal's
+    % identity -- sex, species, birth, endpoint -- while the roster keeps
+    % owning how it is run. importSubjects brings registry animals in; a link
+    % is never required, and nothing here contacts a registry.
+    %
     % The roster never holds an epsych.Subject object — only plain structs with
     % no BoxID field, because a box is a property of a session, not of an
     % animal. A subject is materialized into an epsych.DefaultSubject at the
@@ -69,6 +75,7 @@ classdef SubjectRoster < handle
     % Methods:
     %   reload, save                        - lifecycle
     %   addSubject, updateSubject, deleteSubject, findSubject
+    %   findByRegistryID, importSubjects    - the lab's subject registry
     %   addProject, copyProject, updateProject, deleteProject, findProject
     %   assign, unassign, setActive         - membership
     %   updateMembership, reapplyTemplate   - per-membership session settings
@@ -203,6 +210,10 @@ classdef SubjectRoster < handle
         updateSubject(self, id, S)
         deleteSubject(self, id)
         [rec, idx] = findSubject(self, key)
+        [rec, idx] = findByRegistryID(self, registryId)
+
+        % The lab's subject registry (epsych.SubjectRegistry)
+        report = importSubjects(self, records, options)
 
         % Projects
         id  = addProject(self, name, options)
@@ -256,6 +267,7 @@ classdef SubjectRoster < handle
         releaseLock_(self)
         reloadIfStale_(self)
         blocker = renameBlocker_(self, oldName)
+        refuseLinked_(self, registryId, exceptSubjectId)
     end
 
     % -----------------------------------------------------------------------

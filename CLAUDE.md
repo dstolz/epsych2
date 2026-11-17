@@ -304,6 +304,56 @@ Rules that matter:
   `tmp/smoke_test_protocol_versioning.m`
   (see documentation/epsych/epsych_SubjectRoster.md,
   documentation/epsych/epsych_Protocol.md)
+  A subject and a project may be **linked to the lab's subject registry**
+  (`RegistryID`, `''` = not linked, which is what an older file means).
+  The registry owns identity and the roster owns how an animal is run.
+  One registry id links at most one subject (`DuplicateRegistryID`).
+  `findSubject` deliberately does NOT resolve registry ids, or a new
+  subject's name could collide with another's link; `findByRegistryID`
+  does. `importSubjects(records, ProjectID=)` does everything in ONE
+  write: it links by id, then by name to an unlinked subject, else adds;
+  it updates Sex/Species only; it enrols without reviving a retired
+  member. A finite weight given to `addSubject`, or a CHANGED one given to
+  `updateSubject`, calls `epsych.SubjectRegistry.notifyWeight` (an
+  unchanged one does not, since `EditSubjectDetails` mirrors every edit
+  with the weight it already had)
+- **epsych.SubjectRegistry**: the seam to a lab's subject registry (the
+  Caras lab's CarasLabDB through `labdb.Registry`, below). **EPsych needs
+  none**: the base class IS the "none" registry, and `current()` returns
+  it until preference `EPsych/SubjectRegistry` names an adapter (RunExpt
+  → Customize → Subject Registry). Nothing creates that preference, and
+  every surface that shows registry state asks `isEnabled()` and stays
+  hidden otherwise. Things a reader would otherwise re-derive:
+  - Core calls only the never-throwing statics
+    (`notifySessionRunning`/`notifySessionSaved`/`notifyWeight`):
+    `PsychTimerStart` suspends (`true`), and `SaveDataCallback` records
+    after a SUCCESSFUL save (never a Preview) and resumes (`false`)
+    whether or not the save worked. The trial loop shares the MATLAB
+    thread with anything an adapter sends.
+  - An adapter must record locally and send later, never during a run.
+    `subjectStatus` answers from a cache (with `AsOf`); `findSubjects`
+    honours `CacheOnly`, which the manager sets during a run.
+  - `sessionWarnings` (endpoint recorded, or weight under
+    `LOW_WEIGHT_PERCENT` = 85 of baseline) is concrete in the base so
+    every adapter warns alike. The manager's Add Checked to Session ASKS;
+    `assignToSession` only reports (`report.registryWarnings`) and logs.
+  - A method added to the base must be concrete with a safe default (the
+    stimbridge rule). `KNOWN_ADAPTERS` lists what the Customize dialog
+    offers.
+  - `epsych.SessionRecord.fromRun(RUNTIME, CONFIG, i)` is the per-subject
+    record, built in RunExpt rather than a saving function (which gets
+    only RUNTIME, so knows neither the protocol file nor the roster link),
+    reading the roster's links NOW.
+  - **`SessionUID`**: minted per subject per Run in `ExptDispatch` beside
+    the reserved filename (`epsych.newUUID`: `tempname`'s OS v4 UUID, no
+    Java, never the global random stream), captured into `Info.SessionUID`
+    and the recovery seed, reported by `epsych.SessionFiles`. It is useful
+    without any registry.
+  - Self-test check A7 passes with none.
+  - Standing proofs `tmp/smoke_test_subject_registry.m` and
+    `tmp/smoke_test_subject_registry_gui.m` (opens windows) over
+    `tmp/FakeSubjectRegistry.m`
+  (documentation/epsych/epsych_SubjectRegistry.md)
 - **epsych.TrialJournal**: append-only, crash-safe `.epj` journal that per-trial data
   is written to during a run (flat ~2 ms, versus a `save('-append')` that grew to
   40 ms by trial 600). `ep_TimerFcn_Stop` merges it back into the seed `.mat`, so the

@@ -698,6 +698,35 @@ All three contracts follow the same rule: a new method added to a `stimgen.*` ab
 class must be **concrete with a safe default**, or the `stimbridge` subclass becomes
 unconstructable. `epsych.SelfTest` check A3 is the tripwire.
 
+#### obj/+labdb/ – the Caras lab's CarasLabDB as the subject registry (OPTIONAL)
+The one `epsych.SubjectRegistry` adapter this repository ships. It needs the
+CarasLabDB checkout on the path (its `@CarasLabDB` class and its `+labclient`
+package, the offline-first client every lab toolbox shares, extracted from
+ephys_analysis). Without that checkout, `labdb.Registry.isAvailable` is false,
+the Customize dialog does not offer it, and nothing else here references it.
+It is the dependency direction that matters: core names it only as a string
+in `SubjectRegistry.KNOWN_ADAPTERS`.
+- **labdb.Registry**: records through `labclient`, so one computer has one
+  setup (settings, vault password, storage roots), one outbox and one sender,
+  whichever toolbox records. `sessionRunning(true)` holds a
+  `labclient.Sync.suspend()` handle, and clearing it resumes the sender.
+  Records are kept only while labclient's `Enabled` is on (as ephys_analysis
+  does); the lamp then reads "off". A save after the record was SENT goes as
+  a `labclient.Bundles.files` replacement (`Replaces` = the old artifact),
+  because `Outbox.put` refuses a sent id. A save before then simply replaces
+  the waiting record. A same-day weight correction reuses the waiting
+  husbandry event's id; this is tracked per MATLAB session only.
+- **labdb.SessionBundle**: the static mapping, testable with no outbox. A
+  behavior event's id IS the `SessionUID`. It names the subject directly (the
+  roster link, else the roster name, which holds the record until assigned)
+  and has no dataset folder, so any MATLAB may send it. The output's
+  artifact id is derived from the SessionUID and the file's SHA-256, so a
+  record rebuilt from the same bytes names the same file. ephys_analysis's
+  copySessions dedups against it by bytes (`labclient.Sync.copyOf`).
+- Standing proof `tmp/smoke_test_labdb_registry.m` (SKIPPED without the
+  checkout) over `labclient.FakeBackend`, in a temporary prefs file, client
+  folder and vault (documentation/labdb/labdb_Registry.md)
+
 #### obj/+gui/ – Reusable GUI Components
 - **gui.BehaviorGUI** (abstract): base class for a paradigm's own experiment GUI, launched once per session as `feval(FUNCS.BehaviorGUI, RUNTIME)` — owns lifecycle, event listeners, position prefs, component-registry teardown, and Parameter_Update wiring; subclasses implement build(fig) (see documentation/gui/gui_BehaviorGUI.md, template in examples/customgui/).
   The `add*` helpers are the documented way to reach every reusable
@@ -1759,6 +1788,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 | obj/+hw/ | Hardware abstraction |
 | obj/stimgen/ | Stimulus generation (git submodule: dstolz/stimgen) |
 | obj/+stimbridge/ | EPsych-to-stimgen adapters (hardware host, calibration adapter, log bridge) |
+| obj/+labdb/ | Optional CarasLabDB subject-registry adapter (needs the CarasLabDB checkout and its +labclient package) |
 | examples/stimgen/ | Demo protocol/config/TDT circuit assets |
 | obj/+gui/ | GUI components |
 | obj/+teensy/ | Teensy trial programs: state-machine model, compiler, simulator, TrialDesigner GUI |

@@ -267,6 +267,38 @@ The button collects what you ticked and typed; every decision belongs to [`epsyc
 - Checked subjects whose memberships **disagree on a session-level setting** abort the whole batch too — one session cannot run two saving functions. The refusal names the field and who carries what; the fixes it names are *Session Settings...* and *Re-apply Project Template*, and the **Settings** column shows the divergence before the click.
 - A subject with no protocol resolvable at all is skipped and reported; the rest still go in. If *nothing* is usable, the session keeps the list it had.
 - On success the window closes and the session window is raised — the next stop is the session, not this table. It stays open on a partial commit (so the skipped-subject report is visible) or when the batch is refused or aborted, so the operator can fix the problem without reopening it.
+- With a [subject registry](../epsych/epsych_SubjectRegistry.md) set up, the window asks before committing an animal the registry has recorded an endpoint for, or one whose latest weight is under 85% of its baseline. The information comes from what the registry last told this computer, with its date, so it works offline. Going ahead is logged. The question is never asked without a registry.
+
+---
+
+## The lab database
+
+None of this is visible unless a [subject registry](../epsych/epsych_SubjectRegistry.md) is set up on this computer (RunExpt → Customize → Subject Registry). With one, the window gains four things, each named after the registry (e.g. "Lab DB").
+
+**A lamp** beside the roster path shows the registry's state and how many records wait to be sent, or need a person. It is red when something needs you, and clicking it opens the registry's settings.
+
+**A column** at the end of the table shows each subject's registry id, or `—` when it is not linked. It also shows what the registry last said about the animal:
+
+- an endpoint in red;
+- the latest weight as a percentage of baseline, in orange when it is under 85%.
+
+The column is read from the registry's cache, so a repaint never waits on the network.
+
+**A menu** with these items:
+
+| Item | What it does |
+|---|---|
+| **Link Selected Subject...** | Pick the registry animal this subject is. Names closest to the roster name are listed first, and animals already linked elsewhere are not offered. Sex and species are copied from the registry. |
+| **Unlink Selected Subject** | Clears the link. |
+| **Import Subjects into Project...** | Tick registry animals to bring into the selected project. When the project is linked, its registry project's animals are listed. This is `epsych.SubjectRoster.importSubjects`, so an animal already here is linked, not duplicated, and keeps its settings. |
+| **Link Project...** | Links the selected project to a registry project. |
+| **Refresh Status** | Re-reads the registry for every linked subject. Refused while a session runs, because it reads on the trial loop's thread. |
+| **Retire Endpointed Subjects in Project...** | Lists the active members with an endpoint and retires them on confirmation. It is never automatic. |
+| **Settings...** | The registry's own window. |
+
+**A context-menu item**, *Link to … Subject...*, which acts on the row that was right-clicked.
+
+During a session, link and import lookups use only what is already on this computer.
 
 ---
 
@@ -363,4 +395,15 @@ Project options are asserted the same way: the summary names the investigator an
 
 Copy is asserted on both halves. Its three surfaces switch off in the All Projects view like Edit and Delete, since there is nothing to copy there; the copy appears in the project list with the source's members and leaves the source untouched. The dialog half is driven through the same probe, from a project with **no** members so the subjects question — an in-figure `uiconfirm` the probe cannot reach — is not raised: it must open titled `Copy Project` rather than `Edit Project`, on a name that does not collide, and cancelling must leave nothing behind.
 
-See also: [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md), [`gui.BehaviorGUI`](gui_BehaviorGUI.md), [RunExpt GUI Overview](../overviews/RunExpt_GUI_Overview.md)
+The lab-database parts are asserted in `tmp/smoke_test_subject_registry_gui.m` over `tmp/FakeSubjectRegistry.m`:
+
+- with no registry, the window is unchanged;
+- with one, the lamp, menu and column appear and show the flags;
+- each menu action does what it says, including a cancelled pick;
+- Add to Session asks, and asks only about animals the registry has concerns about;
+- a broken registry is shown and blocks nothing;
+- the Customize tab offers "(none)" without creating a preference.
+
+The questions go through the hidden `RegistryPickerFcn` and `RegistryConfirmFcn`, so no timer has to race a modal window.
+
+See also: [`epsych.SubjectRoster`](../epsych/epsych_SubjectRoster.md), [`epsych.SubjectRegistry`](../epsych/epsych_SubjectRegistry.md), [`gui.BehaviorGUI`](gui_BehaviorGUI.md), [RunExpt GUI Overview](../overviews/RunExpt_GUI_Overview.md)

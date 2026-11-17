@@ -20,6 +20,9 @@ try
         self.setStatus(sprintf('Saving data via %s...',self.FUNCS.SavingFcn))
         feval(self.FUNCS.SavingFcn, self.RUNTIME);
         self.setStatus('Data saved.')
+        % Only once the save landed: a registry records the file it finds on
+        % disk. A no-op unless one is set up, and never for a Preview.
+        epsych.SubjectRegistry.notifySessionSaved(self.RUNTIME, self.CONFIG, self.FUNCS);
     else
         vprintf(0,1,'No data to save!')
         self.setStatus('No data to save.')
@@ -31,6 +34,9 @@ catch me
 end
 
 self.UpdateGUIstate
+
+% Whether or not the save worked, the run is over: a registry may send again.
+epsych.SubjectRegistry.notifySessionRunning(false);
 
 self.STATE = oldstate;
 vprintf(3,'SaveDataCallback: Calling UpdateGUIstate')

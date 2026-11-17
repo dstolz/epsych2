@@ -156,7 +156,7 @@ Rules that matter:
   calls), and `gui.toolbarIcon`'s offline-analysis glyphs. Changing an API it
   calls means a follow-up commit there; its `behavior_analysis_startup`
   refuses an EPsych older than the APIs it uses
-- **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
+- **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups; Environment's A7 is the optional subject registry); GUI in obj/+gui/@SelfTest/
 - **epsych.BitMask**: uint32 enumeration for trial outcomes
 - **epsych.SubjectRoster**: shared, file-backed roster of subjects organized by
   project (many-to-many, with a per-project active/retired flag and per-membership

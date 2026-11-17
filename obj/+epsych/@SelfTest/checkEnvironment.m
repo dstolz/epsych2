@@ -2,7 +2,8 @@ function results = checkEnvironment(self)
 % results = checkEnvironment(self)
 % Verify the installation itself: repository metadata, MATLAB path, the
 % stimgen submodule and the stimbridge contract over it, working log output,
-% and the absence of stale figures or timers left behind by a previous session.
+% the absence of stale figures or timers left behind by a previous session,
+% and the state of the lab's subject registry when one is set up.
 %
 % Returns:
 %	results	- Result struct array; see epsych.SelfTest.result.
@@ -242,6 +243,55 @@ else
                     "stimgen.util.logSink(stimbridge.LogBridge())");
         end
     end
+end
+results = [results epsych.SelfTest.withTime(r, toc(t))];
+
+% --- A7: the lab's subject registry -----------------------------------
+% Optional by design, so "none" passes. When one is set up it can only ever
+% warn: a registry that is down or needs a person costs a record waiting to be
+% sent, never a session (see epsych.SubjectRegistry).
+t = tic;
+NAME7 = "Subject registry";
+try
+    reg = epsych.SubjectRegistry.current();
+    if ~reg.isEnabled()
+        cls = epsych.SubjectRegistry.configuredClass();
+        if isempty(cls)
+            r = epsych.SelfTest.result("A7_SubjectRegistry", GROUP, NAME7, "pass", ...
+                'No subject registry is set up on this computer (optional).');
+        else
+            r = epsych.SelfTest.result("A7_SubjectRegistry", GROUP, NAME7, "warn", ...
+                sprintf('The registry "%s" set on this computer could not start; sessions run without it.', cls), ...
+                Remedy = "Put its code on the MATLAB path, or turn it off in RunExpt's Customize dialog.");
+        end
+    else
+        st = reg.status();
+        detail = [ ...
+            sprintf("Registry: %s (%s)", reg.label(), class(reg)), ...
+            sprintf("State: %s", st.State), ...
+            sprintf("Records waiting to be sent: %d", st.Pending), ...
+            sprintf("Records that need a person: %d", st.NeedYou)];
+        if st.Message ~= "", detail(end+1) = "Message: " + st.Message; end
+        if st.NeedYou > 0
+            r = epsych.SelfTest.result("A7_SubjectRegistry", GROUP, NAME7, "warn", ...
+                sprintf('%d record(s) for the %s need a person.', st.NeedYou, reg.label()), ...
+                Detail = detail, ...
+                Remedy = "Open the registry's settings window (Subjects & Projects > Lab Database) and resolve them.");
+        elseif any(st.State == ["offline" "attention"])
+            r = epsych.SelfTest.result("A7_SubjectRegistry", GROUP, NAME7, "warn", ...
+                sprintf('The %s is %s; records wait on this computer and sessions are unaffected.', ...
+                reg.label(), st.State), Detail = detail, ...
+                Remedy = "Check the network and the registry's settings window.");
+        else
+            r = epsych.SelfTest.result("A7_SubjectRegistry", GROUP, NAME7, "pass", ...
+                sprintf('%s: %s, %d record(s) waiting.', reg.label(), st.State, st.Pending), ...
+                Detail = detail);
+        end
+    end
+catch ME
+    r = epsych.SelfTest.result("A7_SubjectRegistry", GROUP, NAME7, "warn", ...
+        sprintf('The subject registry could not report its state: %s', ME.message), ...
+        Remedy = "Sessions are unaffected; see the log for the registry's error.");
 end
 results = [results epsych.SelfTest.withTime(r, toc(t))];
 

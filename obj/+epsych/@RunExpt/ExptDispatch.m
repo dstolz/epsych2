@@ -130,6 +130,11 @@ switch COMMAND
         self.RUNTIME.SessionDataFilename = arrayfun(@(c) string(epsych.RunExpt.defaultFilename( ...
             fullfile(self.DefaultDataPath, c.SUBJECT.Name), c.SUBJECT.Name)), self.CONFIG);
 
+        % One identity per subject per run, minted with the filename and for
+        % the same reason: ep_TimerFcn_Start captures it into the snapshot, so
+        % the recovery seed and the saved file both carry it.
+        self.RUNTIME.SessionUID = arrayfun(@(~) epsych.newUUID(), 1:numel(self.CONFIG));
+
         % make temporary directory for storing data during runtime in case of a computer crash
         E_ = EPsychInfo;
         if strlength(self.RUNTIME.TempDataDir) == 0 || ~isfolder(self.RUNTIME.TempDataDir)

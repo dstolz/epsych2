@@ -58,6 +58,12 @@ S.BoxID        = T.BoxID;
 S.isTest       = RUNTIME.isTest;
 S.DataFilename = char(string(T.DataFilename));
 
+% Minted by RunExpt at Run; a scripted runtime may have none.
+S.SessionUID = '';
+if numel(RUNTIME.SessionUID) >= subjectIdx
+    S.SessionUID = char(RUNTIME.SessionUID(subjectIdx));
+end
+
 % RUNTIME.StartTime is stamped by set.TRIALS, which has not run yet when
 % ep_TimerFcn_Start captures this -- assigning TRIALS is the last thing it
 % does. Stamp it here in that case, so the snapshot always carries a real

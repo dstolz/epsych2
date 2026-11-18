@@ -40,6 +40,13 @@ for i = 1:numel(ids)
     protocols{i} = self.resolveProtocol_(ids{i});
 end
 
+% The lab database's word on these animals (an endpoint recorded, a weight
+% under baseline), from what it last told this computer: asked, never
+% enforced, and a no-op unless a subject registry is set up.
+if ~self.registryAction_('guard', ids)
+    return
+end
+
 try
     report = self.Roster.assignToSession(self.RunExpt, ids, ...
         ProjectID = self.selectedProject_(), ...

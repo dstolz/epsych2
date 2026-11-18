@@ -57,6 +57,12 @@ function report = assignToSession(self, runExpt, subjectIds, options)
 %                         batch was refused because the checked subjects carry
 %                         different session settings
 %              removed  - (1,:) cellstr of subjects the batch displaced
+%              registryWarnings - (1,:) struct: what the lab's subject
+%                         registry last said about the committed animals
+%                         (an endpoint, a low weight; see
+%                         epsych.SubjectRegistry.sessionWarnings). Reported
+%                         and logged, never a refusal: gui.SubjectManager
+%                         asks the operator before it gets here.
 %              message  - one-line summary suitable for a status bar
 %
 % See also: epsych.RunExpt.appendSubjectToConfig_, epsych.SubjectRoster.lastProtocol,
@@ -79,6 +85,7 @@ report = struct('ok', false, 'aborted', false, ...
     'skipped', struct('Name', {}, 'reason', {}), ...
     'mismatch', struct('Field', {}, 'Values', {}, 'Names', {}), ...
     'removed', {{}}, ...
+    'registryWarnings', struct('Name', {}, 'RegistryID', {}, 'Kind', {}, 'Message', {}, 'AsOf', {}), ...
     'message', '');
 
 if n == 0
@@ -352,6 +359,23 @@ if ~isempty(notes)
     report.message = sprintf('%s %s', report.message, strjoin(notes, ' '));
 end
 runExpt.setStatus(report.message);
+
+% From the registry's cache, so it costs nothing and works offline.
+try
+    reg = epsych.SubjectRegistry.current();
+    if reg.isEnabled()
+        recs = cell(1, numel(planned));
+        for i = 1:numel(planned)
+            recs{i} = self.findSubject(planned(i).SubjectID);
+        end
+        report.registryWarnings = reg.sessionWarnings([recs{:}]);
+        for i = 1:numel(report.registryWarnings)
+            vprintf(0, 1, 'Added to the session: %s', report.registryWarnings(i).Message);
+        end
+    end
+catch ME
+    vprintf(0, 1, ME);
+end
 
 % Multi-subject sessions reach a known limitation more easily than the
 % one-at-a-time flow did: ExptDispatch takes hardware interfaces from

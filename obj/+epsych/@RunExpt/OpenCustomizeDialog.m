@@ -194,6 +194,44 @@ lblMovedPaths = uilabel(gPaths, 'Text', ...
                 'The Intan paths must contain no spaces (RHX cannot express them).']);
 lblMovedPaths.Layout.Row = 5; lblMovedPaths.Layout.Column = [1 3];
 
+% ---- TAB: Subject Registry -------------------------------------------
+% Machine configuration like the roster file: which lab database (if any) this
+% computer records its sessions and weighings in. "(none)" is the default and
+% changes nothing anywhere -- see epsych.SubjectRegistry.
+tabReg = uitab(tg,'Title','Subject Registry');
+gReg = uigridlayout(tabReg,[3 3]);
+gReg.RowHeight    = {28, 28, 'fit'};
+gReg.ColumnWidth  = {160, '1x', 80};
+gReg.Padding      = [10 12 10 12];
+gReg.RowSpacing   = 6;
+
+addLabel_(gReg, 1, 'Subject Registry:');
+[regItems, regData] = registryItems_();
+dd_reg = uidropdown(gReg, 'Items', regItems, 'ItemsData', regData, ...
+    'Value', epsych.SubjectRegistry.configuredClass(), ...
+    'Tag', 'Customize_SubjectRegistry', ...
+    'ValueChangedFcn', @(~,~) refreshRegistryRow_(), ...
+    'Tooltip', ['The lab database this computer records sessions and weighings in.' newline ...
+                'Optional: with (none), EPsych runs exactly as it does without one.']);
+dd_reg.Layout.Row = 1; dd_reg.Layout.Column = 2;
+btn_regset = uibutton(gReg, 'Text', 'Settings...', 'Tag', 'Customize_RegistrySettings', ...
+    'ButtonPushedFcn', @(~,~) openRegistrySettings_(), ...
+    'Tooltip', 'The registry''s own settings: server, login, storage roots, what waits to be sent.');
+btn_regset.Layout.Row = 1; btn_regset.Layout.Column = 3;
+
+addLabel_(gReg, 2, 'State:');
+lbl_regstate = uilabel(gReg, 'Text', '', 'Tag', 'Customize_RegistryState');
+lbl_regstate.Layout.Row = 2; lbl_regstate.Layout.Column = [2 3];
+
+lblReg = uilabel(gReg, 'Text', ...
+    ['A subject registry links roster subjects to the lab''s animal records and ' ...
+     'keeps a record there of every session (and its data file) and every weighing. ' ...
+     'Records are kept on this computer and sent when the database answers, never ' ...
+     'during a run: a database that is down never stops a session.'], ...
+    'FontColor',[0.35 0.38 0.42], 'WordWrap','on');
+lblReg.Layout.Row = 3; lblReg.Layout.Column = [1 3];
+refreshRegistryRow_();
+
 % ---- Button row ------------------------------------------------------
 gBtns = uigridlayout(g,[1 3]);
 gBtns.Layout.Row = 2; gBtns.Layout.Column = 1;
@@ -296,6 +334,65 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
         end
     end
 
+    function [items, data] = registryItems_()
+        % "(none)" plus every adapter whose dependencies are present; the
+        % configured class is always listed, so the dropdown can show it even
+        % when it is missing here (and OK does not silently turn it off).
+        items = {'(none)'};
+        data  = {''};
+        A = epsych.SubjectRegistry.availableAdapters();
+        for ii = 1:numel(A)
+            if A(ii).Available
+                items{end+1} = char(A(ii).Label);
+                data{end+1}  = char(A(ii).Class);
+            end
+        end
+        cur = epsych.SubjectRegistry.configuredClass();
+        if ~isempty(cur) && ~any(strcmp(data, cur))
+            items{end+1} = sprintf('%s (not available here)', cur);
+            data{end+1}  = cur;
+        end
+    end
+
+    function refreshRegistryRow_()
+        % The state shown is the RUNNING registry's; a choice not yet applied
+        % says so instead, since nothing is started until OK.
+        chosen = dd_reg.Value;
+        if ~strcmp(chosen, epsych.SubjectRegistry.configuredClass())
+            lbl_regstate.Text = 'Takes effect when you click OK.';
+            btn_regset.Enable = 'off';
+            return
+        end
+        reg = epsych.SubjectRegistry.current();
+        if ~reg.isEnabled()
+            if isempty(chosen)
+                lbl_regstate.Text = 'Off.';
+            else
+                lbl_regstate.Text = 'Set, but could not start here; see the log.';
+            end
+            btn_regset.Enable = 'off';
+            return
+        end
+        try
+            st = reg.status();
+            lbl_regstate.Text = sprintf('%s: %s; %d waiting, %d need a person.%s', ...
+                reg.label(), st.State, st.Pending, st.NeedYou, ...
+                char(" " + st.Message));
+        catch ME
+            lbl_regstate.Text = sprintf('%s: could not report its state (%s).', reg.label(), ME.message);
+        end
+        btn_regset.Enable = 'on';
+    end
+
+    function openRegistrySettings_()
+        try
+            epsych.SubjectRegistry.current().openSettings();
+        catch ME
+            vprintf(0,1,ME);
+            uialert(dlg, ME.message, 'Subject Registry', 'Icon', 'error');
+        end
+    end
+
     function onClose_()
         % Restore always-on-top state and destroy the dialog.
         self.AlwaysOnTop(ontop);
@@ -393,6 +490,18 @@ btn_cancel.Layout.Row = 1; btn_cancel.Layout.Column = 3;
             vprintf(0,1,ME);
             uialert(dlg, ME.message, 'Subject Roster File', 'Icon', 'error');
             return
+        end
+
+        % Apply: Subject Registry. Only on a change, so a missing adapter the
+        % dropdown merely displays is not re-validated (and refused) on every OK.
+        if ~strcmp(dd_reg.Value, epsych.SubjectRegistry.configuredClass())
+            try
+                epsych.SubjectRegistry.setConfiguredClass(dd_reg.Value);
+            catch ME
+                vprintf(0,1,ME);
+                uialert(dlg, ME.message, 'Subject Registry', 'Icon', 'error');
+                return
+            end
         end
 
         self.CheckReady;

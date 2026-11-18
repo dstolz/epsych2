@@ -244,6 +244,25 @@ self.H.mnu_add_to_session = uimenu(mSession, 'Text','Add &Checked to Session', .
 self.H.mnu_set_protocol = uimenu(mSession, 'Text','Set &Protocol for Checked...', ...
     'MenuSelectedFcn', @(~,~) self.onSetProtocol_(true));
 
+% The lab's subject registry (epsych.SubjectRegistry). Built always, shown only
+% when one is set up -- updateRegistryView_ also renames it after the registry.
+mRegistry = uimenu(f, 'Text','Lab DB', 'Visible','off', 'Tag','SubjectManager_RegistryMenu');
+self.H.mnu_registry = mRegistry;
+self.H.mnu_reg_link = uimenu(mRegistry, 'Text','&Link Selected Subject...', ...
+    'MenuSelectedFcn', @(~,~) self.registryAction_('link'));
+self.H.mnu_reg_unlink = uimenu(mRegistry, 'Text','&Unlink Selected Subject', ...
+    'MenuSelectedFcn', @(~,~) self.registryAction_('unlink'));
+self.H.mnu_reg_import = uimenu(mRegistry, 'Text','&Import Subjects into Project...', ...
+    'Separator','on', 'MenuSelectedFcn', @(~,~) self.registryAction_('import'));
+self.H.mnu_reg_link_project = uimenu(mRegistry, 'Text','Link &Project...', ...
+    'MenuSelectedFcn', @(~,~) self.registryAction_('linkProject'));
+self.H.mnu_reg_refresh = uimenu(mRegistry, 'Text','&Refresh Status', 'Separator','on', ...
+    'MenuSelectedFcn', @(~,~) self.registryAction_('refresh'));
+self.H.mnu_reg_retire = uimenu(mRegistry, 'Text','Retire &Endpointed Subjects in Project...', ...
+    'MenuSelectedFcn', @(~,~) self.registryAction_('retireEndpointed'));
+self.H.mnu_reg_settings = uimenu(mRegistry, 'Text','&Settings...', 'Separator','on', ...
+    'MenuSelectedFcn', @(~,~) self.registryAction_('settings'));
+
 % ---------- Root layout -------------------------------------------------
 g = uigridlayout(f, [3 1]);
 g.RowHeight = {'fit', '1x', 22};
@@ -261,13 +280,21 @@ g.RowSpacing = 8;
 % tool and the File menu. Those are where the action belongs; this is where
 % someone looks when the path on the left is not the one they expected, and
 % an icon-only toolbar is no help to them.
-gRoster = uigridlayout(g, [1 2]);
+gRoster = uigridlayout(g, [1 3]);
 gRoster.Layout.Row = 1;
-gRoster.ColumnWidth = {'1x', 100};
+% Column 2 is the lab-database lamp, zero width until a subject registry is
+% set up on this computer (updateRegistryView_): without one, nothing here
+% says a registry exists.
+gRoster.ColumnWidth = {'1x', 0, 100};
 gRoster.Padding = [0 0 0 0];
 gRoster.ColumnSpacing = 6;
 
 self.H.rosterLabel = uilabel(gRoster, 'Text','', 'FontColor',[0.35 0.38 0.42]);
+self.H.rosterGrid = gRoster;
+
+self.H.btnRegistry = uibutton(gRoster, 'Text','', 'Visible','off', ...
+    'Tag','SubjectManager_RegistryLamp', ...
+    'ButtonPushedFcn', @(~,~) self.registryAction_('settings'));
 
 self.H.btnRosterFile = uibutton(gRoster, 'Text','Change...', ...
     'Tooltip','Choose which roster file this window reads and writes', ...
@@ -438,6 +465,8 @@ uimenu(cm, 'Text','Parameter Defaults for This Row...', ...
 % RunExpt starting or stopping is nothing this window hears about.
 self.H.cmnu_data_files = uimenu(cm, 'Text','View Data Files...', 'Separator','on', ...
     'MenuSelectedFcn', @(~,~) self.onViewDataFiles_());
+self.H.cmnu_reg_link = uimenu(cm, 'Text','Link to Lab DB Subject...', 'Separator','on', ...
+    'Visible','off', 'MenuSelectedFcn', @(~,~) self.registryAction_('linkContext'));
 cm.ContextMenuOpeningFcn = @(~,evt) self.onTableContextMenuOpening_(evt);
 self.H.table.ContextMenu = cm;
 

@@ -9,6 +9,11 @@ function PsychTimerStart(self)
 self.STATE = PRGMSTATE.RUNNING;
 self.UpdateGUIstate
 
+% The trial loop shares this thread with anything a subject registry would
+% send in the background; it stands down until SaveDataCallback says the data
+% is saved. A no-op unless a registry is set up (epsych.SubjectRegistry).
+epsych.SubjectRegistry.notifySessionRunning(true);
+
 % Call Start timer function to initialize runtime state and selector objects for each subject.
 self.RUNTIME = feval(self.FUNCS.TIMERfcn.Start, self.RUNTIME, self.CONFIG);
 self.RUNTIME.StartTime = datetime('now');

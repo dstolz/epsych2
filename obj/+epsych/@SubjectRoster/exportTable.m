@@ -20,7 +20,7 @@ end
 
 vars = {'Subject','Species','Sex','Weight','Project','Active','LastProtocol', ...
     'LastProtocolVersion','LastBoxID','ParameterDefaults','RecordVideo','Notes', ...
-    'SubjectID','Created'};
+    'SubjectID','RegistryID','Created'};
 
 if isempty(self.Subjects)
     T = cell2table(cell(0, numel(vars)), VariableNames = vars);
@@ -39,7 +39,7 @@ for i = 1:numel(self.Subjects)
 
     if isempty(mine)
         rows(end+1, :) = {s.Name, s.Species, s.Sex, s.Weight, '', ...
-            ~s.Retired, '', '', NaN, '', '', s.Notes, s.SubjectID, s.Created};
+            ~s.Retired, '', '', NaN, '', '', s.Notes, s.SubjectID, s.RegistryID, s.Created};
         continue
     end
 
@@ -52,7 +52,7 @@ for i = 1:numel(self.Subjects)
             mine(k).Active, mine(k).LastProtocol, mine(k).LastProtocolVersion, ...
             mine(k).LastBoxID, epsych.ParameterDefaults.summary(mine(k).ParameterDefaults), ...
             localRecordVideoText(mine(k).RecordVideo), ...
-            s.Notes, s.SubjectID, s.Created};
+            s.Notes, s.SubjectID, s.RegistryID, s.Created};
     end
 end
 

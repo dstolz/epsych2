@@ -9,6 +9,11 @@ function updateSubject(self, id, S)
 % Renaming is refused once experiment data exists on disk under the old name —
 % see renameBlocker_ for why nothing on disk is reconciled instead.
 %
+% RegistryID links the subject to the lab's subject registry ('' unlinks it);
+% one registry id names at most one roster subject. A Weight that differs
+% from the stored one is reported to the registry as a weighing
+% (epsych.SubjectRegistry.notifyWeight; a no-op when none is set up).
+%
 % Parameters:
 %   id - SubjectID or current Name.
 %   S  - struct or epsych.Subject carrying the fields to change.
@@ -18,6 +23,7 @@ function updateSubject(self, id, S)
 %   epsych:SubjectRoster:InvalidName
 %   epsych:SubjectRoster:DuplicateName
 %   epsych:SubjectRoster:RenameBlocked
+%   epsych:SubjectRoster:DuplicateRegistryID
 %
 % See also: epsych.SubjectRoster.addSubject, epsych.SubjectRoster.renameBlocker_
 arguments
@@ -64,13 +70,27 @@ if isRename
     end
 end
 
+if isfield(S, 'RegistryID')
+    S.RegistryID = strtrim(char(string(S.RegistryID)));
+    self.refuseLinked_(S.RegistryID, rec.SubjectID);
+end
+
 subjectId = rec.SubjectID;
+updated = rec;
 self.mutate_(@applyUpdate);
 
 if isRename
     vprintf(1, 'Renamed subject "%s" to "%s".', oldName, newName);
 else
     vprintf(2, 'Updated subject "%s".', newName);
+end
+
+% A changed weight is a weighing, reported whether or not the roster write
+% landed: the animal was weighed either way. An unchanged one is not, because
+% EditSubjectDetails mirrors every edit here with the weight it already had.
+if isfield(S, 'Weight') && isnumeric(S.Weight) && isscalar(S.Weight) ...
+        && isfinite(S.Weight) && ~isequal(S.Weight, rec.Weight)
+    epsych.SubjectRegistry.notifyWeight(updated, S.Weight, datetime('now'));
 end
 
     function applyUpdate(r)
@@ -89,12 +109,15 @@ end
                 char(cur.Modified), char(rec.Modified));
         end
 
-        for f = ["Name" "Sex" "Species" "Weight" "Notes" "Retired"]
+        for f = ["Name" "Sex" "Species" "Weight" "Notes" "Retired" "RegistryID"]
             if isfield(S, f)
                 cur.(f) = S.(f);
             end
         end
         cur.Name = char(string(cur.Name));
+        if isfield(S, 'RegistryID')
+            r.refuseLinked_(cur.RegistryID, subjectId);
+        end
 
         if isRename
             cur.NameHistory = [cur.NameHistory, string(oldName)];
@@ -102,6 +125,7 @@ end
         cur.Modified = datetime('now');
 
         r.Subjects(k) = cur;
+        updated = cur;
     end
 
 end

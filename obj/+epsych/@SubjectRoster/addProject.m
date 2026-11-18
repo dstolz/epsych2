@@ -43,6 +43,8 @@ function id = addProject(self, name, options)
 %   Links           - (1,:) struct array of Label/URL records pointing at the
 %                     study's logs; see makeLink. Unsafe addresses are refused
 %   Archived        - hide the project from the manager's list (default false)
+%   RegistryID      - the study's id in the lab's subject registry ('' = not
+%                     linked; see epsych.SubjectRegistry)
 %
 % Returns:
 %   id - the minted ProjectID.
@@ -75,6 +77,7 @@ arguments
     options.BehaviorGUI (1,:) char = ''
     options.Links = epsych.SubjectRoster.emptyLink()
     options.Archived (1,1) logical = false
+    options.RegistryID (1,:) char = ''
 end
 
 [ok, why] = epsych.SubjectRoster.isNameSafe(name);
@@ -111,6 +114,7 @@ rec.TimerPeriod     = options.TimerPeriod;
 rec.VideoRootDir    = options.VideoRootDir;
 rec.IntanRootDir    = options.IntanRootDir;
 rec.IntanSettingsFile = options.IntanSettingsFile;
+rec.RegistryID      = strtrim(options.RegistryID);
 rec.BehaviorGUI     = options.BehaviorGUI;
 rec.Links           = epsych.SubjectRoster.normalizeLinks_(options.Links, Validate = true);
 rec.Archived        = options.Archived;

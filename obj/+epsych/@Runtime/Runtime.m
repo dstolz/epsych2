@@ -65,6 +65,7 @@ classdef Runtime < handle & dynamicprops
         DataFile string = strings(0,1)   % Filepath(s) for acquired data
         Journal          % epsych.TrialJournal array, one per subject; per-trial crash-safe append target (see ep_TimerFcn_Start)
         SessionDataFilename (1,:) string = strings(1,0) % Per-subject data file paths reserved before the run starts, so the save function and the video recorder agree on one name
+        SessionUID (1,:) string = strings(1,0) % Per-subject session identity (epsych.newUUID), minted at Run: carried into each file's Info so every copy of a session, and the lab's subject registry, name the same session
 
         Interfaces        % Cell array of hardware and software interfaces (e.g., hw.TDT_RPcox, hw.Software)
 

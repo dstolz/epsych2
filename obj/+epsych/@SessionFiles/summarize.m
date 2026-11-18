@@ -371,6 +371,7 @@ try
 catch
 end
 
+s.SessionUID = localText(snap.SessionUID);
 s.NotesText = localText(snap.NotesText, newline);
 s.NumNotes = numel(snap.Notes);
 

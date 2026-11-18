@@ -26,6 +26,8 @@ if ~isfield(self.H,'figure') || ~isgraphics(self.H.figure), return, end
 self.Refreshing_ = true;
 restoreFlag = onCleanup(@() localClearFlag(self));
 
+self.updateRegistryView_();
+
 % --- roster health -------------------------------------------------------
 if isempty(self.Roster) || ~isvalid(self.Roster)
     self.H.rosterLabel.Text = 'Roster: (none)';
@@ -144,7 +146,11 @@ self.H.emptyState.Visible = 'off';
 self.H.table.Visible = 'on';
 
 nRows = numel(recs);
-data = cell(nRows, 12);
+% Column 13 is the lab's subject registry, present only when one is set up.
+reg = epsych.SubjectRegistry.current();
+regOn = reg.isEnabled();
+localRegistryColumn(self.H.table, regOn, reg);
+data = cell(nRows, 12 + regOn);
 retired = false(nRows, 1);
 projectId = self.selectedProject_();
 
@@ -221,6 +227,11 @@ end
 % describe exactly the subjects that button would move.
 versionFlag(retired & versionFlag == 1) = 2;
 localStyleVersions(self.H.table, versionFlag);
+if regOn
+    [data(:,13), regFlag] = localRegistryCells(reg, recs);
+    self.H.table.Data = data;
+    localStyleRegistry(self.H.table, regFlag);
+end
 self.showVersionBanner_(localBannerText(self.Statuses_(~retired)));
 self.H.table.Tooltip = localTableTooltip(self.Statuses_(~retired));
 
@@ -387,5 +398,86 @@ stamps = [mine.Modified];
 stamps = stamps(~isnat(stamps));
 if ~isempty(stamps)
     lastRun = char(max(stamps), 'dd-MMM-yyyy HH:mm');
+end
+end
+
+% -----------------------------------------------------------------------
+function localRegistryColumn(tbl, regOn, reg)
+% Add or remove the registry column so the table matches whether a registry
+% is set up; done here, not in buildUI, because one can be switched on or off
+% while this window is open.
+names = tbl.ColumnName;
+has = numel(names) == 13;
+if regOn == has
+    if regOn, tbl.ColumnName{13} = char(reg.label()); end
+    return
+end
+fmt = tbl.ColumnFormat;
+ed = tbl.ColumnEditable;
+w = tbl.ColumnWidth;
+if regOn
+    tbl.Data = cell(0, 13);
+    tbl.ColumnName = [names(:)', {char(reg.label())}];
+    tbl.ColumnFormat = [fmt, {'char'}];
+    tbl.ColumnEditable = [ed, false];
+    tbl.ColumnWidth = [w, {150}];
+else
+    tbl.Data = cell(0, 12);
+    tbl.ColumnName = names(1:12);
+    tbl.ColumnFormat = fmt(1:12);
+    tbl.ColumnEditable = ed(1:12);
+    tbl.ColumnWidth = w(1:12);
+end
+end
+
+% -----------------------------------------------------------------------
+function [cells, flag] = localRegistryCells(reg, recs)
+% The registry column: the linked id, and what the registry last said about
+% the animal -- from its cache, so a repaint never waits on a network.
+% FLAG: 0 plain, 1 not linked (grey), 2 low weight (orange), 3 endpoint (red).
+n = numel(recs);
+cells = repmat({''}, n, 1);
+flag = zeros(n, 1);
+ids = string({recs.RegistryID});
+linked = ids ~= "";
+cells(~linked) = {char(8212)};
+flag(~linked) = 1;
+if ~any(linked), return, end
+try
+    T = reg.subjectStatus(ids(linked));
+catch ME
+    vprintf(0, 1, ME);
+    T = epsych.SubjectRegistry.emptyStatus(ids(linked));
+end
+rows = find(linked);
+for k = 1:numel(rows)
+    txt = char(ids(rows(k)));
+    if T.Endpointed(k)
+        if isnat(T.EndpointAt(k))
+            txt = sprintf('%s %s endpoint', txt, char(183));
+        else
+            txt = sprintf('%s %s endpoint %s', txt, char(183), char(string(T.EndpointAt(k), 'yyyy-MM-dd')));
+        end
+        flag(rows(k)) = 3;
+    elseif isfinite(T.WeightG(k)) && isfinite(T.BaselineG(k)) && T.BaselineG(k) > 0
+        pct = 100 * T.WeightG(k) / T.BaselineG(k);
+        txt = sprintf('%s %s %.0f%% of baseline', txt, char(183), pct);
+        if pct < epsych.SubjectRegistry.LOW_WEIGHT_PERCENT
+            flag(rows(k)) = 2;
+        end
+    end
+    cells{rows(k)} = txt;
+end
+end
+
+% -----------------------------------------------------------------------
+function localStyleRegistry(tbl, flag)
+% Grey for unlinked, orange for under weight, red for an endpoint.
+colors = {[0.55 0.58 0.62], [0.80 0.45 0.05], [0.80 0.10 0.10]};
+for f = 1:3
+    r = find(flag == f);
+    if ~isempty(r)
+        addStyle(tbl, uistyle('FontColor', colors{f}), 'cell', [r, repmat(13, numel(r), 1)]);
+    end
 end
 end

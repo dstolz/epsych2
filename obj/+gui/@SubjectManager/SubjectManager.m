@@ -53,6 +53,14 @@ classdef SubjectManager < handle
         H = struct()        % graphics handles
     end
 
+    % The two places the lab-database integration asks the operator something,
+    % swappable so a test can answer them without a timer racing a modal
+    % window. Signatures as gui.selectRegistrySubjects and uiconfirm.
+    properties (Hidden)
+        RegistryPickerFcn = @gui.selectRegistrySubjects
+        RegistryConfirmFcn = @uiconfirm
+    end
+
     properties (Access = private)
         Rows_ = []          % subject records currently shown, one per table row
         Statuses_ = []      % protocolStatus for Rows_, in the same order
@@ -183,6 +191,8 @@ classdef SubjectManager < handle
         S = sessionDefaultsGrid_(self, parent, seed, tagPrefix, options)
         onUpdateProtocol_(self, scope, options)
         onRevertProtocol_(self)
+        out = registryAction_(self, action, varargin)
+        updateRegistryView_(self)
     end
 
     % -----------------------------------------------------------------------

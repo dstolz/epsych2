@@ -156,7 +156,7 @@ Rules that matter:
   calls), and `gui.toolbarIcon`'s offline-analysis glyphs. Changing an API it
   calls means a follow-up commit there; its `behavior_analysis_startup`
   refuses an EPsych older than the APIs it uses
-- **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups); GUI in obj/+gui/@SelfTest/
+- **epsych.SelfTest**: Headless pre-flight diagnostics for a RunExpt session (9 check groups; Environment's A7 is the optional subject registry); GUI in obj/+gui/@SelfTest/
 - **epsych.BitMask**: uint32 enumeration for trial outcomes
 - **epsych.SubjectRoster**: shared, file-backed roster of subjects organized by
   project (many-to-many, with a per-project active/retired flag and per-membership
@@ -304,6 +304,56 @@ Rules that matter:
   `tmp/smoke_test_protocol_versioning.m`
   (see documentation/epsych/epsych_SubjectRoster.md,
   documentation/epsych/epsych_Protocol.md)
+  A subject and a project may be **linked to the lab's subject registry**
+  (`RegistryID`, `''` = not linked, which is what an older file means).
+  The registry owns identity and the roster owns how an animal is run.
+  One registry id links at most one subject (`DuplicateRegistryID`).
+  `findSubject` deliberately does NOT resolve registry ids, or a new
+  subject's name could collide with another's link; `findByRegistryID`
+  does. `importSubjects(records, ProjectID=)` does everything in ONE
+  write: it links by id, then by name to an unlinked subject, else adds;
+  it updates Sex/Species only; it enrols without reviving a retired
+  member. A finite weight given to `addSubject`, or a CHANGED one given to
+  `updateSubject`, calls `epsych.SubjectRegistry.notifyWeight` (an
+  unchanged one does not, since `EditSubjectDetails` mirrors every edit
+  with the weight it already had)
+- **epsych.SubjectRegistry**: the seam to a lab's subject registry (the
+  Caras lab's CarasLabDB through `labdb.Registry`, below). **EPsych needs
+  none**: the base class IS the "none" registry, and `current()` returns
+  it until preference `EPsych/SubjectRegistry` names an adapter (RunExpt
+  → Customize → Subject Registry). Nothing creates that preference, and
+  every surface that shows registry state asks `isEnabled()` and stays
+  hidden otherwise. Things a reader would otherwise re-derive:
+  - Core calls only the never-throwing statics
+    (`notifySessionRunning`/`notifySessionSaved`/`notifyWeight`):
+    `PsychTimerStart` suspends (`true`), and `SaveDataCallback` records
+    after a SUCCESSFUL save (never a Preview) and resumes (`false`)
+    whether or not the save worked. The trial loop shares the MATLAB
+    thread with anything an adapter sends.
+  - An adapter must record locally and send later, never during a run.
+    `subjectStatus` answers from a cache (with `AsOf`); `findSubjects`
+    honours `CacheOnly`, which the manager sets during a run.
+  - `sessionWarnings` (endpoint recorded, or weight under
+    `LOW_WEIGHT_PERCENT` = 85 of baseline) is concrete in the base so
+    every adapter warns alike. The manager's Add Checked to Session ASKS;
+    `assignToSession` only reports (`report.registryWarnings`) and logs.
+  - A method added to the base must be concrete with a safe default (the
+    stimbridge rule). `KNOWN_ADAPTERS` lists what the Customize dialog
+    offers.
+  - `epsych.SessionRecord.fromRun(RUNTIME, CONFIG, i)` is the per-subject
+    record, built in RunExpt rather than a saving function (which gets
+    only RUNTIME, so knows neither the protocol file nor the roster link),
+    reading the roster's links NOW.
+  - **`SessionUID`**: minted per subject per Run in `ExptDispatch` beside
+    the reserved filename (`epsych.newUUID`: `tempname`'s OS v4 UUID, no
+    Java, never the global random stream), captured into `Info.SessionUID`
+    and the recovery seed, reported by `epsych.SessionFiles`. It is useful
+    without any registry.
+  - Self-test check A7 passes with none.
+  - Standing proofs `tmp/smoke_test_subject_registry.m` and
+    `tmp/smoke_test_subject_registry_gui.m` (opens windows) over
+    `tmp/FakeSubjectRegistry.m`
+  (documentation/epsych/epsych_SubjectRegistry.md)
 - **epsych.TrialJournal**: append-only, crash-safe `.epj` journal that per-trial data
   is written to during a run (flat ~2 ms, versus a `save('-append')` that grew to
   40 ms by trial 600). `ep_TimerFcn_Stop` merges it back into the seed `.mat`, so the
@@ -648,6 +698,45 @@ host it falls back to `fullfile(tempdir,'stimgen_error_logs')`.
 All three contracts follow the same rule: a new method added to a `stimgen.*` abstract
 class must be **concrete with a safe default**, or the `stimbridge` subclass becomes
 unconstructable. `epsych.SelfTest` check A3 is the tripwire.
+
+#### obj/+labdb/ – the Caras lab's CarasLabDB as the subject registry (OPTIONAL)
+The one `epsych.SubjectRegistry` adapter this repository ships. It needs the
+CarasLabDB checkout on the path (its `@CarasLabDB` class and its `+labclient`
+package, the offline-first client every lab toolbox shares, extracted from
+ephys_analysis). Without that checkout, `labdb.Registry.isAvailable` is false,
+the Customize dialog does not offer it, and nothing else here references it.
+The checkout must also be recent enough: `labdb.Registry.CLIENT_VERSION` is the
+version of labclient's interface the adapter is written for, held against
+`labclient.Api.Version`, and `isAvailable`'s `why` says to update the checkout
+when it is older (a checkout from before `labclient.Api` has no version and is
+too old). Raise `CLIENT_VERSION` when the adapter starts to use something a
+later labclient added; CarasLabDB's CI reads this repository's calls against
+its package (`tests/check_consumers.py` there), so a call that package does
+not have fails there.
+It is the dependency direction that matters: core names it only as a string
+in `SubjectRegistry.KNOWN_ADAPTERS`.
+- **labdb.Registry**: records through `labclient`, so one computer has one
+  setup (settings, vault password, storage roots), one outbox and one sender,
+  whichever toolbox records. `sessionRunning(true)` holds a
+  `labclient.Sync.suspend()` handle, and clearing it resumes the sender.
+  Records are kept only while labclient's `Enabled` is on (as ephys_analysis
+  does); the lamp then reads "off". A save after the record was SENT goes as
+  a `labclient.Bundles.files` replacement (`Replaces` = the artifact of the
+  record that was sent, so always the session's FIRST file; labclient follows
+  it to the file at the path now, which is why version 3 is needed),
+  because `Outbox.put` refuses a sent id. A save before then simply replaces
+  the waiting record. A same-day weight correction reuses the waiting
+  husbandry event's id; this is tracked per MATLAB session only.
+- **labdb.SessionBundle**: the static mapping, testable with no outbox. A
+  behavior event's id IS the `SessionUID`. It names the subject directly (the
+  roster link, else the roster name, which holds the record until assigned)
+  and has no dataset folder, so any MATLAB may send it. The output's
+  artifact id is derived from the SessionUID and the file's SHA-256, so a
+  record rebuilt from the same bytes names the same file. ephys_analysis's
+  copySessions dedups against it by bytes (`labclient.Sync.copyOf`).
+- Standing proof `tmp/smoke_test_labdb_registry.m` (SKIPPED without the
+  checkout) over `labclient.FakeBackend`, in a temporary prefs file, client
+  folder and vault (documentation/labdb/labdb_Registry.md)
 
 #### obj/+gui/ – Reusable GUI Components
 - **gui.BehaviorGUI** (abstract): base class for a paradigm's own experiment GUI, launched once per session as `feval(FUNCS.BehaviorGUI, RUNTIME)` — owns lifecycle, event listeners, position prefs, component-registry teardown, and Parameter_Update wiring; subclasses implement build(fig) (see documentation/gui/gui_BehaviorGUI.md, template in examples/customgui/).
@@ -1746,6 +1835,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 | obj/+hw/ | Hardware abstraction |
 | obj/stimgen/ | Stimulus generation (git submodule: dstolz/stimgen) |
 | obj/+stimbridge/ | EPsych-to-stimgen adapters (hardware host, calibration adapter, log bridge) |
+| obj/+labdb/ | Optional CarasLabDB subject-registry adapter (needs the CarasLabDB checkout and its +labclient package) |
 | examples/stimgen/ | Demo protocol/config/TDT circuit assets |
 | obj/+gui/ | GUI components |
 | obj/+teensy/ | Teensy trial programs: state-machine model, compiler, simulator, TrialDesigner GUI |

@@ -29,6 +29,9 @@ if ~localFindCaras(string(carasRoot))
 end
 [ok, why] = labdb.Registry.isAvailable();
 assert(ok, 'labdb.Registry should be available once CarasLabDB is on the path: %s', why);
+assert(labclient.Api.Version >= labdb.Registry.CLIENT_VERSION, ...
+    'An available adapter has the labclient it is written for (%d, needs %d)', ...
+    labclient.Api.Version, labdb.Registry.CLIENT_VERSION);
 
 % --- an isolated client: prefs file, client folder, vault, backend, no timer
 savedEPsych = localSavePrefs('EPsych');
@@ -94,7 +97,21 @@ labclient.Sync.flush(Budget = 20);
 A = localFiles(fake, uid);
 assert(height(A) == 2, 'A session saved again after sending registers the new file (%d)', height(A));
 assert(any(fake.Dispositions.disposition == "replaced"), 'The earlier file is recorded as replaced');
-fprintf('PASS: a resend writes once; a later save replaces the file\n');
+% A third save still names the FIRST file as the one it replaces (the adapter
+% reads the id from the record it sent); labclient follows it to the second.
+localResave(dataFile);
+epsych.SubjectRegistry.notifySessionSaved(RT, CONFIG);
+labclient.Sync.flush(Budget = 20);
+A = localFiles(fake, uid);
+assert(height(A) == 3, 'A third save registers a third file (%d)', height(A));
+D = fake.Dispositions(fake.Dispositions.disposition == "replaced" & ismember(fake.Dispositions.artifact_id, A.artifact_id), :);
+assert(height(D) == 2 && numel(unique(D.artifact_id)) == 2, ...
+    'Each earlier file is recorded as replaced, once (%d)', height(D));
+be = labclient.DB.connect();
+P = be.artifacts(struct('PresentOnly', true));
+assert(nnz(ismember(P.artifact_id, A.artifact_id)) == 1, ...
+    'One file of the session is present, the last save (%d)', nnz(ismember(P.artifact_id, A.artifact_id)));
+fprintf('PASS: a resend writes once; a later save replaces the file, a third the second\n');
 
 % 3. Saving again before sending replaces the record ----------------------
 [RT2, C2, f2] = localRun(root, 'SUBJ-ID-11');

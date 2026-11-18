@@ -7,8 +7,10 @@ classdef Registry < epsych.SubjectRegistry
     % Optional twice over: EPsych never needs it, and it switches itself off
     % (isAvailable false, so the Customize dialog does not offer it) unless
     % the CarasLabDB checkout -- its @CarasLabDB class and +labclient package
-    % -- is on the MATLAB path. Turn it on with labdb.Registry.enable() or
-    % RunExpt > Customize > Subject Registry.
+    % -- is on the MATLAB path, with a labclient recent enough for what this
+    % adapter calls (CLIENT_VERSION against labclient.Api.Version; an older
+    % checkout is said to need updating, in the log). Turn it on with
+    % labdb.Registry.enable() or RunExpt > Customize > Subject Registry.
     %
     % It records through labclient, which every toolbox on the computer shares:
     % one settings struct (server, login, storage roots), one password in the
@@ -37,6 +39,11 @@ classdef Registry < epsych.SubjectRegistry
     properties (Constant)
         REQUIRED_CLASSES = ["CarasLabDB" "labclient.Settings" "labclient.Bundles" ...
             "labclient.Outbox" "labclient.Sync" "labclient.DB" "labclient.SubjectCache"]
+        % The version of labclient's interface this adapter is written for
+        % (labclient.Api.Version). From 3 a session saved a third time
+        % replaces the SECOND file: the adapter names the first file at every
+        % save, and an older labclient left the second marked present.
+        CLIENT_VERSION = 3
     end
 
     properties (Access = private)
@@ -50,7 +57,10 @@ classdef Registry < epsych.SubjectRegistry
         end
 
         function [ok, why] = isAvailable()
-            % Whether this computer has what the adapter needs on the path.
+            % [ok, why] = labdb.Registry.isAvailable()
+            % Whether this computer has what the adapter needs on the path: the
+            % CarasLabDB checkout, and one whose labclient package is recent
+            % enough (CLIENT_VERSION). WHY says what to do when it has not.
             missing = labdb.Registry.REQUIRED_CLASSES(arrayfun(@(c) exist(c, 'class') ~= 8, ...
                 labdb.Registry.REQUIRED_CLASSES));
             ok = isempty(missing);
@@ -58,6 +68,19 @@ classdef Registry < epsych.SubjectRegistry
             if ~ok
                 why = "add the CarasLabDB checkout to the MATLAB path (missing " + ...
                     strjoin(missing, ", ") + ")";
+                return
+            end
+            % A checkout from before labclient.Api has no version to ask for,
+            % and is older than any this adapter can use.
+            needed = labdb.Registry.CLIENT_VERSION;
+            if exist('labclient.Api', 'class') ~= 8
+                ok = false;
+                why = sprintf("update the CarasLabDB checkout (git pull): its labclient package is from " + ...
+                    "before version %d of its interface, which this adapter needs", needed);
+            elseif labclient.Api.Version < needed
+                ok = false;
+                why = sprintf("update the CarasLabDB checkout (git pull): its labclient package is version " + ...
+                    "%d of its interface, and this adapter needs %d", labclient.Api.Version, needed);
             end
         end
 

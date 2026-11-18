@@ -4,7 +4,7 @@ A distribution-free companion to d', available anywhere EPsych reports
 sensitivity.
 
 Source: `psychophysics.Metrics.aprime` (`obj/+psychophysics/Metrics.m`);
-`psychophysics.Detection.a_prime` forwards to it and is kept for compatibility
+(`psychophysics.Detection` reports it per stimulus value as `Results.APrime`).
 
 A' summarizes how well a subject separates signal from noise using nothing but
 the hit and false alarm rates, and without assuming the equal-variance Gaussian
@@ -63,12 +63,12 @@ but never A'. That is deliberate, and `tmp/smoke_test_aprime.m` asserts it.
 
 ```matlab
 % The arithmetic, on any pair of rates (they broadcast; NaN in, NaN out)
-a = psychophysics.Detection.a_prime(0.8, 0.2);      % 0.875
-a = psychophysics.Detection.a_prime([0.3 0.6 0.9], 0.2);
+a = psychophysics.Metrics.aprime(0.8, 0.2);         % 0.875
+a = psychophysics.Metrics.aprime([0.3 0.6 0.9], 0.2);
 
 % Per unique stimulus value, from a live or saved session
 P = psychophysics.Detection(RUNTIME, RUNTIME.find_parameter('ToneLevel'));
-P.APrime            % one A' per stimulus value, against the catch-trial FA rate
+P.Results.APrime    % one A' per stimulus value, against the pooled catch-trial FA rate
 
 % Session summary, over any trial window
 S = psychophysics.SessionMetrics(RUNTIME, TrialWindow="last 50");
@@ -78,7 +78,7 @@ S.metric("APrime")  % value, "0.873", supporting counts
 % Plots
 plt = gui.components.PsychPlot(P, ax);  plt.PlotType = 'APrime';   % vs stimulus value
 swp = gui.components.SlidingWindowPerformancePlot(P, ax);
-swp.plotType = "aPrime";                                 % vs trial number
+swp.plotType = "APrime";                                 % vs trial number
 ```
 
 In a GUI, `gui.components.SessionPerformance` lists **A'** in its right-click *Show
@@ -121,4 +121,4 @@ conservative whichever distribution the rates came from.
 - [psychophysics.Metrics](psychophysics_Metrics.md) — `aprime` and `bprimeprime`, and the rest of the arithmetic
 - [psychophysics.SessionMetrics](psychophysics_SessionMetrics.md) — the `APrime` and `BPrimePrime` session metrics
 - [gui.components.SessionPerformance](../gui/gui_SessionPerformance.md) — the panel that displays them
-- `psychophysics.Detection` (`obj/+psychophysics/@Detection/`) — `d_prime`, `a_prime`, `bias` (forwarders to `Metrics`)
+- [psychophysics.Detection](psychophysics_Detection.md) — `Results.APrime` per stimulus value, and `windowed()` for A' over trials

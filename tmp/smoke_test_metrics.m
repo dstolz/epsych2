@@ -278,12 +278,16 @@ end
 fprintf('PASS: round trips against theory\n');
 
 % 8. Nonparametric metrics -------------------------------------------------
-% A' moved from psychophysics.Detection; the move must be exact
+% A' against Grier's (1971) formula written out independently here
 grid = 0:0.1:1;
 for h = grid
     for f = grid
-        assert(abs(A(h,f) - psychophysics.Detection.a_prime(h,f)) < tol, ...
-            'aprime should match Detection.a_prime at (%g,%g)', h, f);
+        if h == f
+            grier = 0.5;
+        else
+            grier = 0.5 + sign(h-f) * ((h-f)^2 + abs(h-f)) / (4*max(h,f) - 4*h*f);
+        end
+        assert(abs(A(h,f) - grier) < tol, 'aprime should match Grier''s formula at (%g,%g)', h, f);
     end
 end
 assert(abs(A(1,0) - 1) < tol && abs(A(0,1)) < tol, 'A'' should span [0 1]');
@@ -408,15 +412,18 @@ assert(isequaln(rmfield(A0,'N'), rmfield(Ax,'N')), ...
     'abort counts should be inert while IncludeAborts is false');
 fprintf('PASS: the aborts policy\n');
 
-% 12. Backward-compatibility shims -----------------------------------------
+% 12. Historic values and the gui.Helper shims ------------------------------
+% psychophysics.Detection's static d_prime/bias/norminv forwarders were
+% removed with its re-base on Psych; the values they guaranteed are the
+% Metrics calls they forwarded to, checked here against the legacy formula.
 for h = 0.05:0.1:0.95
     for f = 0.05:0.1:0.95
         legacy = zLegacy(max(min(h,0.99),0.01)) - zLegacy(max(min(f,0.99),0.01));
-        assert(abs(psychophysics.Detection.d_prime(h,f) - legacy) < tol, ...
-            'Detection.d_prime should keep its historic value at (%g,%g)', h, f);
+        assert(abs(psychophysics.Metrics.dprime(h,f,Correction="clamp") - legacy) < tol, ...
+            'Metrics.dprime should keep the historic value at (%g,%g)', h, f);
         legacyC = -(zLegacy(max(min(h,0.95),0.05)) + zLegacy(max(min(f,0.95),0.05)))/2;
-        assert(abs(psychophysics.Detection.bias(h,f,[0.05 0.95]) - legacyC) < tol, ...
-            'Detection.bias should keep its historic value at (%g,%g)', h, f);
+        assert(abs(psychophysics.Metrics.criterion(h,f,Correction="clamp",Bounds=[0.05 0.95]) - legacyC) < tol, ...
+            'Metrics.criterion should keep the historic value at (%g,%g)', h, f);
         assert(abs(gui.Helper.criterion(h,f) - ...
             (-(zLegacy(max(min(h,0.99),0.01)) + zLegacy(max(min(f,0.99),0.01)))/2)) < tol, ...
             'gui.Helper.criterion should keep its historic value');
@@ -426,16 +433,14 @@ for h = 0.05:0.1:0.95
             'gui.Helper.percent_correct should keep its historic value');
     end
 end
-assert(abs(psychophysics.Detection.norminv(0.5) - 0) < tol, 'Detection.norminv should still work');
-assert(abs(psychophysics.Detection.norminv(0.999) - zLegacy(0.99)) < tol, ...
-    'Detection.norminv should still clamp');
+zc = @(p) psychophysics.Metrics.z(psychophysics.Metrics.correctRates(p, p, Correction="clamp"));
+assert(abs(zc(0.5) - 0) < tol, 'the clamped z-transform at 0.5');
+assert(abs(zc(0.999) - zLegacy(0.99)) < tol, 'the clamped z-transform clamps');
 
-% The one intentional change: an undefined rate no longer becomes a bound
-assert(isnan(psychophysics.Detection.norminv(NaN)), ...
-    'Detection.norminv(NaN) should now be NaN rather than the upper bound');
-assert(isnan(psychophysics.Detection.d_prime(NaN,0.2)), ...
-    'Detection.d_prime should now propagate an undefined rate');
-fprintf('PASS: Detection and gui.Helper shims\n');
+% An undefined rate stays undefined rather than becoming a bound
+assert(isnan(zc(NaN)), 'a clamped NaN rate should be NaN rather than the upper bound');
+assert(isnan(psychophysics.Metrics.dprime(NaN,0.2)), 'dprime should propagate an undefined rate');
+fprintf('PASS: historic values and gui.Helper shims\n');
 
 % 13. Consumers still agree ------------------------------------------------
 % 20 trials: 12 stimulus (8 hit, 3 miss, 1 abort), 8 catch (2 FA, 6 CR).
@@ -488,18 +493,21 @@ fprintf('PASS: psychophysics.SessionMetrics delegates unchanged\n');
 % 3 levels x 10 stimulus trials (3/6/9 hits, the rest split miss/abort) and
 % 20 catch trials (4 FA, 14 CR, 2 aborts).
 DT = fakeDetection();
-assert(max(abs(DT.Hit_Rate - [3/8 6/9 9/10])) < tol, ...
-    'Hit_Rate should divide by the answered stimulus trials, not all of them');
-assert(max(abs(DT.FA_Rate - 4/18)) < tol, ...
-    'FA_Rate should divide by the answered catch trials');
-assert(max(abs(DT.Miss_Rate - (1 - DT.Hit_Rate))) < tol, 'Miss_Rate is the complement');
+assert(max(abs(DT.Results.Rate.Hit - [3/8 6/9 9/10])) < tol, ...
+    'the hit rate should divide by the answered stimulus trials, not all of them');
+assert(abs(DT.Results.Rate.FalseAlarm - 4/18) < tol, ...
+    'the false alarm rate should divide by the answered catch trials');
+assert(max(abs(DT.Results.Rate.Miss - (1 - DT.Results.Rate.Hit))) < tol, ...
+    'with aborts left out the miss rate is the complement');
 
 DT.IncludeAborts = true;
-assert(max(abs(DT.Hit_Rate - [3/10 6/10 9/10])) < tol, ...
+assert(max(abs(DT.Results.Rate.Hit - [3/10 6/10 9/10])) < tol, ...
     'IncludeAborts should put the aborted trials back in the denominator');
-assert(max(abs(DT.FA_Rate - 4/20)) < tol, 'and on the catch side too');
+assert(abs(DT.Results.Rate.FalseAlarm - 4/20) < tol, 'and on the catch side too');
+assert(max(abs(DT.Results.Rate.Miss + DT.Results.Rate.Hit - 1)) > 0.05, ...
+    'with aborts counted the miss rate is NOT the complement (aborts are neither)');
 DT.IncludeAborts = false;
-assert(max(abs(DT.Hit_Rate - [3/8 6/9 9/10])) < tol, 'the policy should be reversible');
+assert(max(abs(DT.Results.Rate.Hit - [3/8 6/9 9/10])) < tol, 'the policy should be reversible');
 fprintf('PASS: psychophysics.Detection honors IncludeAborts\n');
 
 fprintf('\nALL PASS: smoke_test_metrics\n');
@@ -588,10 +596,10 @@ TRIALS.Subject     = struct('Name','TEST');
 TRIALS.BoxID       = 1;
 TRIALS.writeparams = {'Level'};
 
+RUNTIME = epsych.Runtime;
 RUNTIME.EVENTS = epsych.EventHub;
-P = struct('Name','Level','validName','Level');
 
-D = psychophysics.Detection(RUNTIME, P, epsych.BitMask.TrialType_0);
+D = psychophysics.Detection(RUNTIME, "Level");
 D.update_data([], epsych.TrialsData(TRIALS));
 end
 

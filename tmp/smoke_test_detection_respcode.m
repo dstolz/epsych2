@@ -66,16 +66,16 @@ assert(isequal(r3.hits, r1.hits), ...
 fprintf('  3) both present      : RespCode wins\n');
 
 % 4. Neither ---------------------------------------------------------------
-% Only the resolver is checked here. Count/Rate/DPrime THROW on such a
-% session -- get.Count indexes the decoded masks, which are empty, by a mask
-% sized to the trials -- and that is a separate defect from the one this test
-% covers. Reading Count here would be asserting on that bug rather than this
-% resolver.
+% No codes at all. The pre-Psych Detection THREW here once anything read a
+% count (it indexed the empty decoded masks by a mask sized to the trials);
+% now every stimulus trial is simply unscored.
 D = makeData(levels, codes, "RespCode");
 D = rmfield(D, 'RespCode');
-r4 = analyzeData(D, CodesOnly=true);
+r4 = analyzeData(D);
 assert(isempty(r4.codes), 'expected no response codes, got %s', mat2str(r4.codes));
-fprintf('  4) neither field     : resolver returns empty\n');
+assert(isequal(r4.hits, [0 0]) && isequal(r4.misses, [0 0]) && all(isnan(r4.dprime)), ...
+    'with no codes every level should be unscored, not throw');
+fprintf('  4) neither field     : resolver returns empty; the analysis does not throw\n');
 
 fprintf('smoke_test_detection_respcode PASSED\n');
 end
@@ -115,15 +115,16 @@ T = struct('DATA', D, 'TrialIndex', numel(D), 'Subject', struct('Name', 'smoke')
     'BoxID', 1, 'NextTrialID', 1);
 rt.TRIALS = T;
 
-psy = psychophysics.Detection(rt, P, epsych.BitMask.TrialType_0);
+psy = psychophysics.Detection(rt, P);
 cleanup = onCleanup(@() delete(psy));
 psy.update_data([], epsych.TrialsData(T));
 
 r.codes = psy.responseCodes;
 if options.CodesOnly, return; end
 
-r.uniqueValues = psy.uniqueValues;
-r.hits         = [psy.Count.Hit];
-r.misses       = [psy.Count.Miss];
-r.dprime       = psy.DPrime;
+R = psy.Results;
+r.uniqueValues = R.Values;
+r.hits         = R.N.Hit;
+r.misses       = R.N.Miss;
+r.dprime       = R.DPrime;
 end

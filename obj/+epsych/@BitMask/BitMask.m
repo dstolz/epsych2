@@ -55,6 +55,7 @@ classdef BitMask < uint32
     %   Mask2Bits        - Convert integer masks to logical bit arrays.
     %   Bits2Mask        - Convert bit arrays or bit positions to uint32 masks.
     %   decode           - Decode masks into a struct with named logical fields.
+    %   responseBits     - The one outcome each mask was scored as.
     enumeration
         Undefined           (0)
         Hit                 (1)
@@ -229,6 +230,7 @@ classdef BitMask < uint32
         [bits, BM] = Mask2Bits(mask, nbits) % Convert integer masks to logical bit arrays and active BitMask values
         mask = Bits2Mask(bits, dim) % Convert bit vectors or bit positions to uint32 masks
         [M, N] = decode(responseCodes) % Decode response codes into named logical flag arrays
+        r = responseBits(responseCodes, bits) % The one outcome each code was scored as
 
     end
 

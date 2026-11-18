@@ -6,16 +6,9 @@ classdef Performance < handle
     % when new data is available.
 
     properties
-        psychObj                  % Reference to main psychophysics object providing data
+        psychObj                  % psychophysics.Detection providing the rows
         ParametersOfInterest (:,1) cell   % Fields to display as key independent variables
         SortDirection (1,1) string {mustBeMember(SortDirection,["descend","ascend"])} = "descend"
-
-        % Trial type the table counts and scores. Every row is computed over
-        % the trials carrying this bit, so a paradigm whose stimulus trials
-        % are not TrialType_0 -- anything with more than one target
-        % category, or a protocol that numbers them differently -- sets it
-        % here rather than reading someone else's trials.
-        TargetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
     end
 
     properties (SetAccess = private)
@@ -41,6 +34,7 @@ classdef Performance < handle
             s.category    = 'Displays';
             s.shape       = ["psych","parent"];
             s.requires    = "psych";
+            s.psychTypes  = "psychophysics.Detection";
             s.placeable   = false;
         end
     end
@@ -62,6 +56,7 @@ classdef Performance < handle
             % Destructor: cleans up the listener.
             try
                 delete(obj.hl_NewData);
+            catch
             end
         end
 
@@ -71,39 +66,32 @@ classdef Performance < handle
                 'Position',[0 0 1 1],'RowStriping','on','FontSize',14);
         end
 
-        function update(obj,src,event)
+        function update(obj,~,~)
+            % One row per stimulus value of the analysis's Results. Which
+            % trials are stimulus trials is the analysis's setting
+            % (StimulusTrialType); the table reads, it never sets.
             vprintf(4,'Updating performance table')
-            
-            % Updates the table with the latest performance metrics from psychObj.
-            if isempty(obj.psychObj.DATA), return; end
-            
-            if ~isvalid(obj.TableH), return; end % TO DO: Track down why this function is being called twice
-            
-            P = obj.psychObj;
+            if isempty(obj.psychObj) || ~isvalid(obj.TableH), return; end
 
-            P.targetTrialType = obj.TargetTrialType;
+            R = obj.psychObj.Results;
+            if isempty(R.Values)
+                obj.TableH.Data = cell(0,4);
+                return
+            end
 
-            % Count field names are the decoded bitmask flag names, so the
-            % column follows whatever trial type this table was pointed at.
-            % string() on the enum yields the MEMBER NAME; char() would
-            % convert the uint32 it derives from instead.
-            countField = string(obj.TargetTrialType);
-
-            D(:,1) = P.uniqueValues;
-            D(:,2) = [P.Count.(countField)];
-            D(:,3) = P.DPrime;
-            D(:,4) = [P.Rate.Hit]*100;
-            D(any(isnan(D),2),:) = [];
-
+            D = [R.Values(:), R.N.Trials(:), R.DPrime(:), 100*R.Rate.Hit(:)];
             D = sortrows(D,1,obj.SortDirection);
-            
-            % S = string(D);
-            S(:,1) = compose("%.4g",D(:,1));
-            S(:,2) = compose("%d",D(:,2));
-            S(:,3) = compose("%.4g",D(:,3));
-            S(:,4) = compose("%.1f",D(:,4));
-            
-            obj.TableH.Data = S;
+
+            % Every value keeps its row: an undefined d' (no catch trials
+            % yet) or hit rate (every trial aborted) reads "--". Dropping
+            % such rows hid levels that had real trials behind them.
+            S = [compose("%.4g",D(:,1)), compose("%d",D(:,2)), ...
+                 compose("%.4g",D(:,3)), compose("%.1f",D(:,4))];
+            S(isnan(D)) = "--";
+
+            % A cellstr, not a string array: the default container is a
+            % classic figure, whose uitable refuses strings.
+            obj.TableH.Data = cellstr(S);
             obj.TableH.ColumnName = [obj.ParametersOfInterest{:}, {'# Trials'}, {'d'''},{'Hit Rate'}];
         end
 

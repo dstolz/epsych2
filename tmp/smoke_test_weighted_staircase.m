@@ -448,14 +448,21 @@ end
     'a trial with no recorded level reads as NaN, and later levels stay on their own trials');
 if ~threw, delete(Sm1); end
 
-% A response code missing from one trial would pair every later code with
-% the wrong trial; the steps are refused rather than misattributed.
+% A response code missing from one trial used to pair every later code with
+% the wrong trial ([DATA.RespCode] dropped it), so inference was refused.
+% psychophysics.Psych.responseCodes now reads it as 0 -- an unscored trial
+% -- and keeps every later code on its own trial, so the result must be
+% exactly that of a trial scored 0 on purpose: its step is attributed to
+% neither response, and nothing after it moves.
 Drc = mk([-10 -12 -6 -8], [HIT MISS HIT HIT], [0 0 0 0]);
 Drc(3).RespCode = [];
 Src = psychophysics.Staircase(Drc, 'Depth');
 Trc = Src.weightedThreshold();
-[nPass,nFail] = check(nPass, nFail, ~Trc.Valid && contains(Trc.Message, 'no response code on every trial'), ...
-    'a response code missing on one trial refuses inference rather than misattributing steps');
+Dz = mk([-10 -12 -6 -8], [HIT MISS 0 HIT], [0 0 0 0]);
+Tz = psychophysics.Staircase(Dz, 'Depth').weightedThreshold();
+[nPass,nFail] = check(nPass, nFail, isequaln(Trc, Tz) && Src.responseCodes(3) == 0 ...
+    && Src.responseCodes(4) == HIT && ~contains(Trc.Message, 'no response code on every trial'), ...
+    'a response code missing on one trial reads as unscored, and later codes stay on their own trials');
 delete(Src);
 
 % Step fields that are there but cannot be used.

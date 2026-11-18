@@ -479,9 +479,12 @@ classdef History < gui.PopOut
                 c = obj.emptyRowCache(key);
             end
 
-            % Response bits come from the psychophysics object, which decodes
-            % the session; only the new trials' labels are converted to text.
-            rb = obj.psychObj.responseBits;
+            % Response labels are decoded from the analysis object's
+            % responseCodes -- the documented contract -- by the rule
+            % psychophysics.Psych.responseBits also applies, so a
+            % psychophysics.Detection (not a Psych, no responseBits) works
+            % too. Only the new trials' labels are converted to text.
+            rb = epsych.BitMask.responseBits(obj.psychObj.responseCodes);
             rb = rb(:);
             obj.Info.ResponseBit = rb;
 

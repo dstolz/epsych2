@@ -9,4 +9,7 @@ examples/first_experiment/data/
 examples/two_afc/TwoAFC.eprot
 examples/two_afc/data/
 examples/syringepump/PumpExample.eprot
+examples/oddball/Oddball.eprot
+examples/oddball/data/
+examples/oddball/sounds/
 tmp/staircase_shots/*_current.png

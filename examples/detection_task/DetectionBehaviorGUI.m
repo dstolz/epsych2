@@ -37,12 +37,13 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
 
     methods (Access = protected)
         function p = createPsych(obj, R)
-            % Track go-trial performance against ToneLevel. Runs before the
-            % figure exists; return [] to fall back to the RUNTIME.EVENTS broadcaster.
+            % Go-trial (TrialType 0) performance by ToneLevel, against the
+            % pooled catch (TrialType 1) false-alarm rate -- Detection's
+            % defaults. Runs before the figure exists; return [] to fall back
+            % to the RUNTIME.EVENTS broadcaster.
             p = [];
             if isfield(obj.P, 'ToneLevel')
-                p = psychophysics.Detection(R, obj.P.ToneLevel, ...
-                    epsych.BitMask.TrialType_0);
+                p = psychophysics.Detection(R, obj.P.ToneLevel);
             end
         end
 
@@ -126,16 +127,15 @@ classdef DetectionBehaviorGUI < gui.BehaviorGUI
             P = obj.Psych;
             if isempty(P) || isempty(P.DATA), return; end
 
+            R = P.Results;
             obj.TallyLabel.Text = sprintf('%d trials | %d hits | %d false alarms', ...
-                P.NumTrials, sum(P.Hit_Ind), sum(P.FA_Ind));
+                P.trialCount, sum(R.N.Hit), R.Catch.FalseAlarm);
 
-            P.targetTrialType = epsych.BitMask.TrialType_0;
-            uv = P.uniqueValues;
-            if isempty(uv), return; end
-            S = [compose("%g", uv(:)), ...
-                 compose("%d", [P.Count.TrialType_0].'), ...
-                 compose("%.0f", 100 * P.Hit_Rate(:)), ...
-                 compose("%.2f", P.DPrime(:))];
+            if isempty(R.Values), return; end
+            S = [compose("%g", R.Values(:)), ...
+                 compose("%d", R.N.Trials(:)), ...
+                 compose("%.0f", 100 * R.Rate.Hit(:)), ...
+                 compose("%.2f", R.DPrime(:))];
             obj.SummaryTable.Data = flipud(S); % loudest level first
         end
 

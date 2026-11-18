@@ -73,7 +73,7 @@ surprising d' — is answerable without re-deriving it.
 | `rateDenominator(nScored, nAbort, include)` | `nScored (+ nAbort)` | The aborts policy, in one place — see below. |
 | `correctRates(H, F, ...)` | — | Returns the corrected pair, `[H F]`. |
 | `dprime(H, F, ...)` | `z(H) - z(F)` | |
-| `criterion(H, F, ...)` | `-(z(H) + z(F))/2` | 0 unbiased, positive conservative. The unambiguous name for what `Detection.bias` returns. |
+| `criterion(H, F, ...)` | `-(z(H) + z(F))/2` | 0 unbiased, positive conservative. What `psychophysics.Detection` reports per value as `Results.Criterion`. |
 | `criterionRelative(H, F, ...)` | `c/d'` | Bias comparable across subjects whose d' differ. Undefined at d' = 0. |
 | `lnBeta(H, F, ...)` | `(z(F)² - z(H)²)/2` | Equals `c·d'`. Prefer this to `beta` for anything averaged or plotted. |
 | `beta(H, F, ...)` | `exp(lnBeta)` | Present because the literature uses the name. |
@@ -132,8 +132,8 @@ unconditionally and flip one option.
 
 Every class that computes a rate takes the same option and routes through the same
 function — `psychophysics.SessionMetrics.IncludeAborts`,
-`psychophysics.Detection.IncludeAborts` (which `gui.components.SlidingWindowPerformancePlot`
-follows from its analysis object) — so the convention is stated once rather than
+`psychophysics.Detection.IncludeAborts` (whose `windowed` curve `gui.components.SlidingWindowPerformancePlot`
+draws) — so the convention is stated once rather than
 implied in four places.
 
 > **Changed 2026-08-19.** The toolbox used to disagree with itself: `SessionMetrics`
@@ -182,9 +182,9 @@ The gap is the trial mix, not the subject. `fromCounts` returns both, named apar
 | Class | What it adds |
 |---|---|
 | [psychophysics.SessionMetrics](psychophysics_SessionMetrics.md) | Trial window, exclusions, trial-type classification, counts, display labels and formats |
-| `psychophysics.Detection` | Per-stimulus-value grouping, and the `IncludeAborts` the plots follow. Its `d_prime`, `bias`, `a_prime` and `norminv` statics are forwarders kept for compatibility |
+| [psychophysics.Detection](psychophysics_Detection.md) | Per-stimulus-value grouping against a pooled catch-trial rate (a row of counts broadcast through `fromCounts`), `windowed()` curves over trials, and the `IncludeAborts`/`CorrectionMode` the plots follow. Its old `d_prime`/`bias`/`a_prime`/`norminv` forwarders were removed with its re-base on `Psych` (2026-11-17) |
 | `gui.Helper` | `dprime2AFC`, `criterion`, `percent_correct` are forwarders, kept because out-of-repo lab GUIs inherit the mixin |
-| `gui.components.SlidingWindowPerformancePlot` | Per-window rates and d' over a session |
+| `gui.components.SlidingWindowPerformancePlot` | Draws `Detection.windowed` -- computes nothing itself |
 | `teensy.Simulator` | Monte Carlo summaries, using `"halfcell"` |
 
 ## Example
@@ -220,7 +220,8 @@ every correction and every metric, broadcasting, the correction equivalences —
 that `"halfcell"` leaves interior rates untouched and reproduces the implementation
 retired from `teensy.Simulator` — round trips from rates generated at a known d' and c,
 the aborts policy on `rateDenominator`, `fromCounts`, `SessionMetrics` and `Detection`,
-and that the `Detection` and `gui.Helper` forwarders still return their historic values.
+and that the historic values hold -- on the `gui.Helper` forwarders and on the `Metrics` calls
+Detection's removed forwarders made.
 `tmp/smoke_test_aprime.m` and `tmp/smoke_test_session_performance.m` cover the consumers.
 
 ## See also

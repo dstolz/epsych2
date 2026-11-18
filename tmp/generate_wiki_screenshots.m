@@ -884,7 +884,7 @@ S.RUNTIME = run_detection_session(NumTrials=150, ShowGUI=false, ...
     DataPath=C.scratch, Seed=7);
 S.RUNTIME.TRIALS(1).TrialIndex = numel(S.RUNTIME.TRIALS(1).DATA);
 S.Level = S.RUNTIME.find_parameter('ToneLevel');
-S.Psych = psychophysics.Detection(S.RUNTIME, S.Level, epsych.BitMask.TrialType_0);
+S.Psych = psychophysics.Detection(S.RUNTIME, S.Level);
 S.DATA  = S.RUNTIME.TRIALS(1).DATA;
 S.TrialsEvent = epsych.TrialsData(S.RUNTIME.TRIALS(1));
 S.Psych.update_data([], S.TrialsEvent);

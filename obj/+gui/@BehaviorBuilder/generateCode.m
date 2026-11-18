@@ -81,10 +81,12 @@ if ~strcmp(spec.Psych.Type, 'none')
         case 'Staircase'
             add('                p = psychophysics.Staircase(R, obj.P.%s);', vn);
         case 'Detection'
+            % The spec's TargetTrialType names the stimulus trials -- the
+            % ones grouped by value; catch trials keep Detection's default.
             if isempty(spec.Psych.TargetTrialType)
                 add('                p = psychophysics.Detection(R, obj.P.%s);', vn);
             else
-                add('                p = psychophysics.Detection(R, obj.P.%s, epsych.BitMask.%s);', ...
+                add('                p = psychophysics.Detection(R, obj.P.%s, StimulusTrialType = epsych.BitMask.%s);', ...
                     vn, spec.Psych.TargetTrialType);
             end
     end
@@ -211,7 +213,9 @@ switch r.Type
 
     case 'PsychPlot'
         [host, popParent] = emitHost(r, i);
-        out('if ~isempty(obj.Psych) && isvalid(obj.Psych)');
+        % A Detection analysis specifically: a Staircase has no per-value
+        % Results for this plot to draw.
+        out('if isa(obj.Psych, ''psychophysics.Detection'') && isvalid(obj.Psych)');
         out('    ax%d = axes(%s); %% classic axes: gui.components.PsychPlot requires one', i, host);
         out('    h%d = gui.components.PsychPlot(obj.Psych, ax%d);', i, i);
         out('    obj.register(h%d);', i);
@@ -237,7 +241,7 @@ switch r.Type
 
     case 'SlidingWindow'
         host = emitHost(r, i); % never poppable, so there is no pop-out parent
-        out('if ~isempty(obj.Psych) && isvalid(obj.Psych)');
+        out('if isa(obj.Psych, ''psychophysics.Detection'') && isvalid(obj.Psych)');
         out('    ax%d = axes(%s); %% classic axes: the plot requires one', i, host);
         out('    h%d = gui.components.SlidingWindowPerformancePlot(obj.Psych, ax%d);', i, i);
         out('    obj.register(h%d);', i);

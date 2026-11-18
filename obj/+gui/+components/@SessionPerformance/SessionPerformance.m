@@ -504,10 +504,6 @@ classdef SessionPerformance < gui.PopOut
                 args = {'StimulusTrialType', source.StimulusTrialType, ...
                         'CatchTrialType',    source.CatchTrialType};
                 dataSource = obj.liveSource_(source.RUNTIME, source.DATA);
-            elseif isa(source,'psychophysics.Detection')
-                args = {'StimulusTrialType', source.ttStimulus, ...
-                        'CatchTrialType',    source.ttCatch};
-                dataSource = obj.liveSource_(source.RUNTIME, source.DATA);
             elseif isstruct(source) || isempty(source)
                 dataSource = source;
             else

@@ -365,8 +365,9 @@ Rules that matter:
   so one notify carrying `Data(1:k)` is worth k notifies and seeking BACKWARD costs
   what seeking forward costs; and `gui.components.Parameter_Control` already greys out on an
   interface `mode` of `Idle`. The runtime is therefore a REAL `epsych.Runtime` with a
-  real `EventHub`, not a fake — required rather than tidy, since
-  `psychophysics.Detection` is not a `Psych` subclass and has no struct-source path.
+  real `EventHub`, not a fake — required rather than tidy, since a paradigm's
+  `createPsych` builds its analysis over the runtime it is handed and so listens to
+  `RUNTIME.EVENTS` (an online analysis also seeds from `RUNTIME.TRIALS`).
   Things a reader would otherwise re-derive: `hw.Replay` reports
   `IsConnected = true` **on purpose**, because `get.Value` short-circuits to the
   cached DESIGN-TIME value for an `hw.Software` parent or a disconnected one, and
@@ -1316,31 +1317,64 @@ re-uploading the state table.
   follows its analysis object. Before 2026-08-19 the toolbox disagreed with
   itself here: `SessionMetrics` excluded aborts while `Detection.Hit_Rate`, the
   sliding-window plot, and the offline examples divided by EVERY trial at a
-  stimulus value, so one session gave two different d'. `Detection.Hit_Rate` is
-  therefore no longer `[obj.Rate.Hit]` — `Rate` stays the proportion of all
-  trials at a value. `Detection.d_prime`/
-  `bias`/`a_prime`/`norminv` and `gui.Helper.dprime2AFC`/`criterion`/
-  `percent_correct` are forwarders kept because they are public API and an
-  inherited mixin (see documentation/psychophysics/psychophysics_Metrics.md)
+  stimulus value, so one session gave two different d'. `gui.Helper.dprime2AFC`/
+  `criterion`/`percent_correct` are forwarders kept because they are public API
+  and an inherited mixin; Detection's own `d_prime`/`bias`/`a_prime`/`norminv`
+  forwarders went with its re-base on Psych (2026-11-17)
+  (see documentation/psychophysics/psychophysics_Metrics.md)
 - **psychophysics.Psych** (abstract): Base for all analysis. Since 2026-10-07 an
   OFFLINE (DATA-sourced) object broadcasts `Events.NewData` on `refresh`, on an
   `ExcludedTrials` change and on `setData` exactly as an online one does on a
   trial (the payload's `Subject`/`BoxID` are empty), so a History table or a
   pop-out over a saved session follows it; `setData` is the one door through
   which an offline object's trials change, and is refused on a runtime-bound one
-  (proof `tmp/smoke_test_psych_offline_fixes.m`)
-- **psychophysics.Detection**: Hit rate, false alarm rate, d', grouped by unique
-  stimulus value; its four statics forward to `psychophysics.Metrics`, A'. It owns the
-  signal-detection arithmetic every other component reuses (`d_prime`, `bias`,
-  `a_prime`). **A'** is the nonparametric sensitivity index (Grier 1971): chance
-  0.5, defined at rates of 0 and 1, so unlike d' it takes NO `infCorrection` —
-  clamping the rates would only bias it toward chance, which is why the clamp is
-  passed to `d_prime`/`bias` and withheld from `a_prime` at every call site.
-  Exposed as `Detection.APrime` (per stimulus value),
-  `SessionMetrics.Results.APrime`, and a plot type on `gui.components.PsychPlot` (`APrime`)
-  and `gui.components.SlidingWindowPerformancePlot` (`aPrime`); shown by default nowhere,
-  since `defaultMetrics` and the default plot types are unchanged
-  (documentation/psychophysics/psychophysics_APrime.md)
+  (proof `tmp/smoke_test_psych_offline_fixes.m`). Three base fixes made with the
+  Detection re-base (2026-11-17), proved by `tmp/smoke_test_detection.m`: `Events`
+  is made in the CONSTRUCTOR — as a property default it was built once per
+  class, so every analysis in the session shared one hub and each one's NewData
+  fired every other's listeners; `responseCodes` and the TrialType reader go
+  through `perTrialNumeric_`, one value per trial with a fill where a trial
+  recorded none, because `[DATA.(f)]` drops an empty value and slid every later
+  outcome onto the wrong trial (a TrialType field empty on EVERY trial still
+  falls back to the bits); and an online `refresh` over a multi-box runtime
+  builds its payload from the object's own DATA, since `epsych.TrialsData`
+  takes one TRIALS entry and threw on the array
+- **psychophysics.Detection**: yes/no detection grouped by stimulus value, a
+  `Psych` subclass since 2026-11-17 (it stood alone before, which is where most
+  of its defects came from — documentation/psychophysics/psychophysics_Detection.md
+  lists them). Stimulus trials are grouped by the value they recorded for
+  `Parameter`; every catch trial goes into ONE pool whatever value it recorded;
+  each value gets hit rate and, against the pooled false-alarm rate, d'/A'/c/B''
+  from `Metrics.fromCounts` (a row of per-value counts broadcast against the
+  catch counts), so one stimulus value agrees exactly with `SessionMetrics`.
+  `Results` (Values, per-value `N`, pooled `Catch`, `Rate`, the four indices,
+  `NumNoValue`, `TrialIndex`, `Message`) is recomputed on every change;
+  `metric(name)` is a row over Values for plotting; `windowed(w)` is every metric
+  as a curve over trials from running sums (cumulative or sliding) — the whole
+  of what `gui.components.SlidingWindowPerformancePlot` draws, so it redraws the
+  whole curve rather than appending a point per event; `candidateParameters()`
+  is what `gui.components.PsychPlot`'s abscissa picker offers. Things a reader
+  would otherwise re-derive: READING NEVER WRITES — the old getters set
+  `targetTrialType` as a side effect, so a PsychPlot sharing the object with a
+  sliding-window plot read values over one set of trials and rates over
+  another; every setting (Parameter, Stimulus/CatchTrialType — caught by a
+  PostSet listener because the base declares them — TrialWindow,
+  ExcludedTrials, IncludeAborts, CorrectionMode, infCorrection) recomputes and
+  broadcasts once; a DATA field NAME is a valid Parameter online too
+  (`normalizeParameter_` override; the base refuses it because a Staircase needs
+  the hw.Parameter); `BoxID` filters NewData on a multi-box rig (empty follows
+  every box, the ParameterScatter convention) and an online object seeds from
+  `RUNTIME.TRIALS` at construction, so a pop-out or a second analysis is not
+  empty until the next trial; History rows stay pastel (`ROW_COLORS` into
+  `BitColors`). The plot components declare `psychTypes` so a Staircase GUI
+  skips them, and BehaviorBuilder's rows and emitted guards ask for a Detection.
+  **A'** is the nonparametric sensitivity index (Grier 1971): chance 0.5,
+  defined at rates of 0 and 1, so it takes the observed rates under every
+  `CorrectionMode` — correcting them would only bias it toward chance.
+  Exposed as `Results.APrime` (per value), `SessionMetrics.Results.APrime`, and
+  the `APrime` plot type on PsychPlot and SlidingWindowPerformancePlot
+  (documentation/psychophysics/psychophysics_APrime.md). Standing proof
+  `tmp/smoke_test_detection.m`
 - **psychophysics.NAFC**: N-alternative forced choice — choice functions, proportion
   correct vs a 1/N chance level, confusion matrix, choice bias — with customizable,
   self-refreshing plotting (three PlotTypes, right-click switchable, gui.PopOut).
@@ -1468,8 +1502,11 @@ re-uploading the state table.
   reversals came from. `stimulusValues` reads an EMPTY tracked value as NaN
   (`stimulusValuesPerTrial_`): `[DATA.(f)]` silently drops that trial, sliding
   every later level onto the wrong trial and throwing from the constructor and
-  the NewData listener; a missing response code is instead refused for
-  inference, since the same slide would misattribute every later step. Standing
+  the NewData listener; a missing response code reads as 0 (unscored) since
+  `Psych.responseCodes` went per-trial (2026-11-17), so that trial moves
+  neither step and every later code stays on its own trial — it used to be
+  refused for inference, because the same slide misattributed every later
+  step. Standing
   proof `tmp/smoke_test_weighted_staircase.m`, whose Monte Carlo moves ψ = 0.75
   from p = 0.794 to 0.759 and whose group 11 is every short, empty and
   malformed session (see documentation/psychophysics/psychophysics_WeightedStaircase.md).

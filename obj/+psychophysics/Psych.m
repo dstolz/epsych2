@@ -34,7 +34,13 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
 
     properties (SetAccess = protected)
         RUNTIME = []  % Runtime object containing trial data and event infrastructure
-        Events = epsych.EventHub  % Event broadcaster this analysis re-broadcasts NewData on
+
+        % Event broadcaster this analysis re-broadcasts NewData on. Made in
+        % the constructor, one per object: a handle as a property DEFAULT is
+        % built once per class, so every analysis in the session shared one
+        % hub and each one's NewData fired every other's listeners.
+        Events = []
+
         DATA = []  % Trial data array extracted from runtime events or offline input
     end
 
@@ -71,6 +77,7 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
                 options.ExcludedTrials = []
             end
 
+            obj.Events = epsych.EventHub;
             obj.configureSource_(source);
             obj.Parameter = obj.normalizeParameter_(Parameter);
             obj.excludedTrials_ = obj.normalizeExcludedTrialsValue_(options.ExcludedTrials);
@@ -149,19 +156,17 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
             %
             % Returns:
             %   rc  - Row vector of response codes, or empty when unavailable.
+            %
+            % One code per trial: a trial that recorded none reads 0 (no
+            % outcome bit, i.e. Undefined) rather than being dropped, which
+            % slid every later outcome onto the wrong trial.
             fieldName = obj.resolveDataFieldName_(["RespCode", "ResponseCode"]);
             if strlength(fieldName) == 0
                 rc = uint32([]);
                 return
             end
 
-            rc = obj.dataFieldValues_(fieldName);
-            if isempty(rc)
-                rc = uint32([]);
-                return
-            end
-
-            rc = uint32(rc);
+            rc = uint32(obj.perTrialNumeric_(char(fieldName), 0));
         end
 
         function n = get.trialCount(obj)
@@ -179,24 +184,11 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
             %
             % Returns:
             %   r  - Row vector of epsych.BitMask values, one per trial.
-            rc = obj.responseCodes;
-            if isempty(rc)
-                r = epsych.BitMask.empty(1,0);
-                return
-            end
-
-            decoded = epsych.BitMask.decode(rc);
-            r = repmat(epsych.BitMask(0), size(rc));
-
-            for bm = obj.Bits
-                ind = decoded.(char(bm));
-                if ~any(ind)
-                    continue
-                end
-                r(ind) = bm;
-            end
-
-            r = reshape(r, 1, []);
+            %
+            % The rule is epsych.BitMask.responseBits, shared with
+            % gui.components.History so an analysis that is not a Psych
+            % labels its trials identically.
+            r = epsych.BitMask.responseBits(obj.responseCodes, obj.Bits);
         end
 
         function value = get.ExcludedTrials(obj)
@@ -283,11 +275,16 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
             % an ExcludedTrials change exactly as it follows a live session.
             if nargin < 2 || isempty(trialsStruct)
                 if isempty(obj.RUNTIME)
-                    trialsStruct = struct('DATA', obj.DATA, 'Subject', [], 'BoxID', []);
+                    trialsStruct = struct('DATA', {obj.DATA}, 'Subject', [], 'BoxID', []);
                 elseif ~isprop(obj.RUNTIME, 'TRIALS') || isempty(obj.RUNTIME.TRIALS)
                     return
-                else
+                elseif isscalar(obj.RUNTIME.TRIALS)
                     trialsStruct = obj.RUNTIME.TRIALS;
+                else
+                    % A multi-box session: TRIALS is one entry per subject
+                    % and epsych.TrialsData takes one. The analysis's own
+                    % DATA is what it computed from.
+                    trialsStruct = struct('DATA', {obj.DATA}, 'Subject', [], 'BoxID', []);
                 end
             end
 
@@ -300,13 +297,56 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
         end
 
         function tt = trialTypeValues_(obj)
-            % Return per-trial TrialType values when present in DATA.
+            % Return per-trial TrialType values when present in DATA: one per
+            % trial, NaN where a trial recorded none. A field that is empty on
+            % EVERY trial is treated as absent, so the TrialType bits in the
+            % response codes are used instead.
             if isempty(obj.DATA) || ~isfield(obj.DATA, 'TrialType')
                 tt = [];
                 return
             end
 
-            tt = double(obj.dataFieldValues_('TrialType'));
+            tt = obj.perTrialNumeric_('TrialType', NaN);
+            if all(isnan(tt))
+                tt = [];
+            end
+        end
+
+        function v = perTrialNumeric_(obj, fieldName, fill)
+            % v = perTrialNumeric_(obj, fieldName, fill)
+            % One double per trial from a DATA field, FILL where a trial
+            % recorded no numeric scalar (empty, a vector, text). [DATA.(f)]
+            % silently drops an empty value, sliding every later value onto
+            % the wrong trial; this keeps index k on trial k. A saved
+            % Value container ({struct|object}.Value) is unwrapped.
+            %
+            % Parameters:
+            %   fieldName - DATA field to read.
+            %   fill      - Value for a trial with nothing usable (NaN, 0, ...).
+            n = obj.trialCount;
+            v = repmat(double(fill), 1, n);
+            if n == 0 || ~isfield(obj.DATA, fieldName)
+                return
+            end
+
+            raw = {obj.DATA.(fieldName)};
+            if all(cellfun('prodofsize', raw) == 1)
+                x = [raw{:}];
+                if isnumeric(x) || islogical(x)
+                    v = double(reshape(x, 1, []));   % the usual case, vectorized
+                    return
+                end
+            end
+
+            for k = 1:n
+                x = raw{k};
+                if isscalar(x) && ((isstruct(x) && isfield(x, 'Value')) || (isobject(x) && isprop(x, 'Value')))
+                    x = x.Value;
+                end
+                if isscalar(x) && (isnumeric(x) || islogical(x))
+                    v(k) = double(x);
+                end
+            end
         end
 
         function mask = trialTypeMask_(obj, trialTypeBit)

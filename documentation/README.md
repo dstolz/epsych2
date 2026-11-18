@@ -107,6 +107,7 @@ Analysis (`psychophysics`):
 - [psychophysics.Metrics](psychophysics/psychophysics_Metrics.md) — stateless signal-detection arithmetic (d', criterion, A', B'', and the corrections for rates of 0 and 1)
 - [psychophysics.Psych](psychophysics/psychophysics_Psych.md) — analysis base class (online/offline)
 - [psychophysics.SessionMetrics](psychophysics/psychophysics_SessionMetrics.md) — session counts, rates and sensitivity over a trial window
+- [psychophysics.Detection](psychophysics/psychophysics_Detection.md) — yes/no detection by stimulus value, against a pooled false-alarm rate; curves over trials
 - [psychophysics.NAFC](psychophysics/psychophysics_NAFC.md) — N-alternative forced choice: choice functions, confusion matrix, choice bias
 - [psychophysics.Staircase](psychophysics/psychophysics_Staircase.md) — reversals and threshold estimation
 - [Psychometric fitting](psychophysics/psychophysics_StaircaseFit.md) — maximum-likelihood threshold, slope and goodness of fit from a staircase's trials

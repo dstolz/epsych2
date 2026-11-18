@@ -92,8 +92,7 @@ classdef FirstExperimentBehaviorGUI < gui.BehaviorGUI
             % a runtime whose protocol lacks the parameter (SelfTest I6).
             p = [];
             if isfield(obj.P, 'FlashDur')
-                p = psychophysics.Detection(R, obj.P.FlashDur, ...
-                    epsych.BitMask.TrialType_0);
+                p = psychophysics.Detection(R, obj.P.FlashDur);
             end
         end
 
@@ -217,7 +216,7 @@ classdef FirstExperimentBehaviorGUI < gui.BehaviorGUI
             P = obj.Psych;
             if isempty(P) || ~isvalid(P) || isempty(P.DATA), return; end
             obj.TallyLabel.Text = sprintf('%d trials | %d hits | %d false alarms', ...
-                P.NumTrials, sum(P.Hit_Ind), sum(P.FA_Ind));
+                P.trialCount, sum(P.Results.N.Hit), P.Results.Catch.FalseAlarm);
         end
     end
 

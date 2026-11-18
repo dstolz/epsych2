@@ -183,15 +183,25 @@ results(end+1,:) = check('A deleted dependent is dropped, not thrown on', ok);
 delete(fig5);
 delete(sw);
 
-% 4. gui.components.Performance.TargetTrialType ---------------------------------------
-p = gui.components.Performance();
-results(end+1,:) = check('Performance defaults to TrialType_0', ...
-    p.TargetTrialType == epsych.BitMask.TrialType_0);
-p.TargetTrialType = epsych.BitMask.TrialType_2;
-results(end+1,:) = check('The target trial type is settable', ...
-    p.TargetTrialType == epsych.BitMask.TrialType_2);
-results(end+1,:) = check('The enum names the Count field', ...
-    strcmp(string(p.TargetTrialType), "TrialType_2"));
+% 4. gui.components.Performance follows the analysis's trial type ---------------
+% The table used to carry a TargetTrialType of its own, applied by setting
+% it on the shared analysis object before each read. Which trials are
+% stimulus trials now belongs to the analysis alone (StimulusTrialType);
+% the table reads Results and never writes.
+stimT = epsych.BitMask.TrialType_0; catchT = epsych.BitMask.TrialType_2;
+code = @(o, t) double(bitset(bitset(uint32(0), uint32(o)), uint32(t)));
+perfData = struct('RespCode', {code(epsych.BitMask.Hit, stimT), code(epsych.BitMask.Miss, stimT), ...
+    code(epsych.BitMask.Hit, catchT), code(epsych.BitMask.Hit, catchT)}, ...
+    'Level', {10, 10, 20, 20});
+dPerf = psychophysics.Detection(perfData, "Level");
+p = gui.components.Performance(dPerf);
+results(end+1,:) = check('Performance shows the analysis''s stimulus trials', ...
+    isequal(p.TableH.Data(:,1), {'10'}));
+dPerf.StimulusTrialType = catchT;
+results(end+1,:) = check('and follows the analysis when its trial type changes', ...
+    isequal(p.TableH.Data(:,1), {'20'}));
+results(end+1,:) = check('without the table writing to the analysis', ...
+    ~isprop(p, 'TargetTrialType'));
 delete(p.ContainerH);
 delete(p);
 

@@ -24,7 +24,7 @@ Use `psychophysics.Psych` when you are building a new analysis object that shoul
 - Offline mode:
   Construct from a saved `DATA` struct array and compute results from stored trial data without attaching listeners.
 
-The current staircase analysis class is the main example of this pattern in the repository: `obj/+psychophysics/@Staircase/Staircase.m`.
+The current staircase analysis class is the main example of this pattern in the repository: `obj/+psychophysics/@Staircase/Staircase.m`. [`psychophysics.Detection`](psychophysics_Detection.md) is the compact one: every setting recomputes and broadcasts, and it overrides `normalizeParameter_` (to take a field name online) and `update_data` (to filter by box).
 
 ## Constructor
 
@@ -92,6 +92,8 @@ Both call:
 ### 3. Re-broadcast analysis updates
 
 The class owns its own `Events` object and publishes `NewData` after a refresh through `notifyDataUpdate_`.
+
+The hub is made in the **constructor**, one per object. Until 2026-11-17 it was a property default (`Events = epsych.EventHub`), which MATLAB evaluates once per class, so every analysis in the session shared one hub and each one's `NewData` fired every other's listeners. Online, `refresh` sends the runtime's `TRIALS` as the payload when it has one entry, and a payload built from the object's own `DATA` on a multi-box runtime (`epsych.TrialsData` takes one entry).
 
 That helper is an instance of `epsych.EventHub`, whose event definitions include `NewData`, `NewTrial`, and `ModeChange`.
 
@@ -192,13 +194,23 @@ Returns a row vector containing the values of a named `DATA` field. It also unwr
 
 This matters because saved trial data may store fields as structs or objects that expose a `Value` property rather than plain numeric values.
 
+It concatenates (`[DATA.(f)]`), so a trial whose value is empty is **dropped** and every later value moves up one trial. Use `perTrialNumeric_` wherever the values must line up with the trials.
+
+### `perTrialNumeric_`
+
+```matlab
+v = obj.perTrialNumeric_(fieldName, fill)
+```
+
+One double per trial — `v(k)` is always trial `k` — with `fill` where a trial recorded no numeric scalar (empty, a vector, text). Unwraps `Value` containers like `dataFieldValues_`, and takes a vectorized path when every value is a scalar. `responseCodes` (fill 0: a trial with no code has no outcome) and `trialTypeValues_` (fill `NaN`) read through it since 2026-11-17; before that an empty `RespCode` slid every later outcome onto the wrong trial. `psychophysics.Detection` reads its stimulus values the same way.
+
 ### `resolveDataFieldName_`
 
 Searches candidate field names and returns the first one present in `DATA`. The `responseCodes` property uses this to support both `RespCode` and `ResponseCode`, in that order.
 
 ### `trialTypeValues_`
 
-Returns the saved numeric `TrialType` values from `DATA` when available.
+Returns the saved numeric `TrialType` values from `DATA` when available — one per trial, `NaN` where a trial recorded none. A field empty on **every** trial is treated as absent, so the trial types come from the response-code bits instead.
 
 ### `trialTypeMask_`
 

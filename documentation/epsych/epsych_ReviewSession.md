@@ -51,8 +51,9 @@ just as much.
 
 The runtime is therefore a **real `epsych.Runtime` with a real
 `epsych.EventHub`**, not a stand-in. That is required rather than merely tidy:
-`psychophysics.Detection` is not a `psychophysics.Psych` subclass and has no
-struct-source path — it only knows how to listen to `RUNTIME.EVENTS`.
+a paradigm's `createPsych` builds its analysis over the runtime it is handed, so
+the analysis listens to `RUNTIME.EVENTS` (and an online
+`psychophysics.Detection` seeds itself from `RUNTIME.TRIALS` at construction).
 
 ---
 

@@ -1,8 +1,8 @@
 function smoke_test_aprime()
 % smoke_test_aprime()
 % Exercise the nonparametric sensitivity index A' (Grier 1971) everywhere it
-% is now available: the psychophysics.Detection.a_prime arithmetic, the
-% per-stimulus-value Detection.APrime property, and the SessionMetrics
+% is now available: the psychophysics.Metrics.aprime arithmetic, the
+% per-stimulus-value Detection Results.APrime, and the SessionMetrics
 % catalogue entry. Headless-safe: no figures are created.
 %
 %   matlab -batch "run('tmp/smoke_test_aprime.m')"
@@ -10,7 +10,7 @@ function smoke_test_aprime()
 here = fileparts(mfilename('fullpath'));
 run(fullfile(here,'..','epsych_startup.m'));
 
-A = @psychophysics.Detection.a_prime;
+A = @psychophysics.Metrics.aprime;
 tol = 1e-12;
 
 % 1. Arithmetic ------------------------------------------------------------
@@ -59,7 +59,7 @@ for d = [0.5 1 2 3]
     assert(abs(A(h,f) - normcdf(d/sqrt(2))) < 0.03, ...
         'A'' should track the Gaussian ROC area at d'' = %g', d);
 end
-fprintf('PASS: psychophysics.Detection.a_prime\n');
+fprintf('PASS: psychophysics.Metrics.aprime\n');
 
 % 2. SessionMetrics --------------------------------------------------------
 % 20 trials: 12 stimulus (8 hit, 3 miss, 1 abort), 8 catch (2 FA, 6 CR)
@@ -94,23 +94,25 @@ assert(txt == "--", 'an undefined A'' should render as --');
 fprintf('PASS: psychophysics.SessionMetrics reports A''\n');
 
 % 3. Detection: A' per unique stimulus value -------------------------------
-D = fakeDetection();
-assert(isequal(D.uniqueValues, [10 20 30]), 'the fixture should give three stimulus values');
-assert(max(abs(D.Hit_Rate - [0.3 0.6 0.9])) < tol, 'hit rates per value');
-assert(max(abs(D.FA_Rate - 0.2)) < tol, 'the catch-trial false alarm rate');
+R = fakeDetection().Results;
+assert(isequal(R.Values, [10 20 30]), 'the fixture should give three stimulus values');
+assert(max(abs(R.Rate.Hit - [0.3 0.6 0.9])) < tol, 'hit rates per value');
+assert(abs(R.Rate.FalseAlarm - 0.2) < tol, 'the catch-trial false alarm rate');
 
 expected = A([0.3 0.6 0.9], 0.2);
-assert(isequal(size(D.APrime), size(expected)), 'APrime should be a row, one per stimulus value');
-assert(max(abs(D.APrime - expected)) < tol, 'APrime should be A'' of each hit rate against the FA rate');
-assert(all(diff(D.APrime) > 0), 'A'' should rise with stimulus level in the fixture');
-fprintf('PASS: psychophysics.Detection.APrime\n');
+assert(isequal(size(R.APrime), size(expected)), 'APrime should be a row, one per stimulus value');
+assert(max(abs(R.APrime - expected)) < tol, 'APrime should be A'' of each hit rate against the FA rate');
+assert(all(diff(R.APrime) > 0), 'A'' should rise with stimulus level in the fixture');
+fprintf('PASS: psychophysics.Detection Results.APrime\n');
 
 % 4. Plot components offer it ----------------------------------------------
 assert(ismember('APrime', gui.components.PsychPlot.ValidPlotTypes), ...
     'gui.components.PsychPlot should offer APrime as a plot type');
 mc = ?gui.components.SlidingWindowPerformancePlot;
-assert(ismember("aPrime", string({mc.PropertyList.Name})), ...
-    'gui.components.SlidingWindowPerformancePlot should accumulate aPrime');
+pt = mc.PropertyList(strcmp({mc.PropertyList.Name}, 'plotType'));
+pt.Validation.ValidatorFunctions{1}("APrime");   % throws unless APrime is a plot type
+assert(isfield(fakeDetection().windowed(0), 'APrime'), ...
+    'gui.components.SlidingWindowPerformancePlot draws A'' from Detection.windowed');
 fprintf('PASS: plot components expose A''\n');
 
 fprintf('\nALL PASS: smoke_test_aprime\n');
@@ -166,13 +168,12 @@ TRIALS.Subject     = struct('Name','TEST');
 TRIALS.BoxID       = 1;
 TRIALS.writeparams = {'Level'};
 
+RUNTIME = epsych.Runtime;
 RUNTIME.EVENTS = epsych.EventHub;
 
-% Parameter only has to name the DATA field; a struct keeps the fixture free
-% of hardware objects
-P = struct('Name','Level','validName','Level');
-
-D = psychophysics.Detection(RUNTIME, P, epsych.BitMask.TrialType_0);
+% Parameter only has to name the DATA field, which keeps the fixture free of
+% hardware objects
+D = psychophysics.Detection(RUNTIME, "Level");
 D.update_data([], epsych.TrialsData(TRIALS));
 end
 

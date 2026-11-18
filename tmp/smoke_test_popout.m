@@ -205,8 +205,7 @@ delete(f6);
 fprintf('PASS: staircase pop-out analyses the same trials independently\n');
 
 % 7. gui.components.PsychPlot --------------------------------------------------------
-PP_psych = psychophysics.FakeHistoryPsych(pLvl);
-PP_psych.setData(makeData(10));
+PP_psych = psychophysics.Detection(makeData(10), "LevelDB");
 f7  = uifigure('Visible','off','Tag','SmokePO_Psych');
 pax = axes(uipanel(f7,'Units','normalized','Position',[0 0 1 1]));
 PP  = gui.components.PsychPlot(PP_psych, pax);
@@ -215,7 +214,7 @@ assertMenuItem(f7, 'gui.components.PsychPlot');
 PPop = PP.popOut();
 assert(isvalid(PPop) && PPop ~= PP, 'PsychPlot popOut should return a separate instance');
 assert(PPop.ax ~= PP.ax, 'the pop-out must own separate axes');
-PPop.PlotType = 'Hit_Rate';
+PPop.PlotType = 'HitRate';
 assert(strcmp(PP.PlotType,'DPrime'), 'host plot type changed with the pop-out');
 PP.closePopOut();
 assert(isvalid(PP.ax), 'PsychPlot host should survive its pop-out');

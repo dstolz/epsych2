@@ -62,9 +62,9 @@ Analysis and GUI classes
 │  │  ├─ NAFC
 │  │  ├─ BestPEST
 │  │  ├─ MLP
-│  │  └─ SessionMetrics
+│  │  ├─ SessionMetrics
+│  │  └─ Detection
 │  ├─ Detect
-│  ├─ Detection
 │  ├─ Metrics                   (static only; stateless SDT arithmetic)
 │  └─ TrialWindow               (value class)
 ├─ stimgen                      (submodule; concrete stimuli vary by pinned commit)
@@ -199,7 +199,7 @@ flowchart TD
     I --> I4[psychophysics.BestPEST]
     I --> I5[psychophysics.MLP]
     I --> I6[psychophysics.SessionMetrics]
-    C --> I3[psychophysics.Detection]
+    I --> I3[psychophysics.Detection]
     I7[psychophysics.Metrics<br/>stateless SDT arithmetic]
     I3 --> I7
     I6 --> I7
@@ -245,8 +245,7 @@ Trial selection
 └─ epsych.DefaultTrialSelector / cl_AppetitiveStimDetect
    ↓
 Analysis and visualization
-├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.NAFC / psychophysics.BestPEST / psychophysics.MLP / psychophysics.SessionMetrics
-├─ psychophysics.Detection
+├─ psychophysics.Psych → psychophysics.Staircase / psychophysics.NAFC / psychophysics.BestPEST / psychophysics.MLP / psychophysics.SessionMetrics / psychophysics.Detection
 ├─ psychophysics.Metrics  (stateless SDT arithmetic; called by all of the above)
 ├─ gui.components.Parameter_Control / gui.components.Parameter_Update / gui.components.Parameter_Monitor / gui.ParameterDebugger / gui.ParameterTracker
 ├─ gui.components.OnlinePlot / gui.components.BufferPlot / gui.components.PsychPlot / gui.components.ModeIndicator

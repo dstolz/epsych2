@@ -82,8 +82,8 @@ assert(abs(S.Results.Rate.FalseAlarm - 2/8) < 1e-12, 'FA rate is scored over cat
 assert(abs(S.Results.Rate.Abort - 1/20) < 1e-12, 'abort rate is scored over every included trial');
 assert(abs(S.Results.Rate.Correct - 14/19) < 1e-12, 'percent correct pools hits and correct rejects');
 
-expectedD = psychophysics.Detection.d_prime(8/11, 2/8, [0.05 0.95]);
-assert(abs(S.Results.DPrime - expectedD) < 1e-12, 'd'' should match psychophysics.Detection');
+expectedD = psychophysics.Metrics.dprime(8/11, 2/8, Correction="clamp", Bounds=[0.05 0.95]);
+assert(abs(S.Results.DPrime - expectedD) < 1e-12, 'd'' should match psychophysics.Metrics');
 fprintf('PASS: SessionMetrics computes session totals\n');
 
 % 3. The trial window changes what is computed ----------------------------

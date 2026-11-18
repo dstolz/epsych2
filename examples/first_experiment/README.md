@@ -49,6 +49,9 @@ device; nothing else changes.
 - [examples/two_afc/](../two_afc/) — the companion tutorial: a two-alternative
   forced choice, where a choice is compulsory, chance is 50%, and the analysis
   measures bias as well as threshold
+- [examples/oddball/](../oddball/) — an auditory oddball: deviant sounds among
+  standards, both drawn block-randomized from banks of `.wav` files, with
+  Start/Pause/Stop in the behavior GUI
 - [examples/detection_task/](../detection_task/) — a worked example with a
   custom trial selector, online psychometrics, and a simulated observer
   instead of a human

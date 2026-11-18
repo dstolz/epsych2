@@ -1,631 +1,601 @@
-classdef Detection < handle & matlab.mixin.SetGet
-    % Detection   Class for analyzing psychophysical detection task data
+classdef Detection < psychophysics.Psych
+    % D = psychophysics.Detection(RUNTIME, Parameter)
+    % D = psychophysics.Detection(DATA, "FieldName")
+    % D = psychophysics.Detection(..., Name=Value)
+    % Yes/no (Go/No-Go) detection analysis, by stimulus value.
     %
-    %   Processes trial data from a running session (RUNTIME.TRIALS), decoding
-    %   trial outcome bitmasks and computing signal detection metrics (hit and
-    %   false alarm rates, d-prime, A-prime, bias) grouped by unique stimulus
-    %   values.
+    % Stimulus trials are grouped by the value they recorded for Parameter
+    % (a tone level, a flash duration, a deviant sound's ID); every catch
+    % trial goes into ONE pool, whatever value it recorded. Each stimulus
+    % value then gets its hit rate and, against the pooled false-alarm rate,
+    % d', A', criterion c and B''. psychophysics.SessionMetrics is the same
+    % arithmetic collapsed over every stimulus value; both delegate the
+    % formulas to psychophysics.Metrics, so for one stimulus value the two
+    % agree exactly.
     %
-    %   Detection Properties:
-    %       TRIALS          - Structure containing trial data (RUNTIME.TRIALS)
-    %       Parameter       - Parameter object defining trial parameters (hw.Parameter)
-    %       infCorrection   - Correction bounds for infinite z-scores [lower upper]
-    %       targetTrialType - Target trial type to analyze (epsych.BitMask)
-    %       ttStimulus      - Trial type representing stimulus trials
-    %       ttCatch         - Trial type representing catch trials
+    % Like every psychophysics.Psych it runs online (construct with a
+    % runtime; it follows NewData) or offline (construct with a saved DATA
+    % struct array; change it with setData). Online it also accepts a DATA
+    % field NAME as Parameter -- the analysis needs only the field, which is
+    % how a plot switches its independent variable mid-session.
     %
-    %   Detection Dependent Properties:
-    %       DATA            - Extracted trial data from TRIALS
-    %       trialValues     - Parameter values for targetTrialType trials
-    %       uniqueValues    - Unique parameter values in trialValues
-    %       Count           - Struct with counts of trial outcomes per unique value
-    %       Rate            - Struct with rates of trial outcomes per unique value
-    %       DPrime          - d-prime per unique stimulus value (catch-trial FAR)
-    %       APrime          - Nonparametric A' per unique stimulus value
-    %       Bias            - Response bias per unique stimulus value
-    %       Hit_Rate        - Hit rate per unique stimulus value
-    %       FA_Rate         - Catch-trial false alarm rate (replicated per value)
+    % Every analysis setting -- Parameter, StimulusTrialType,
+    % CatchTrialType, TrialWindow, ExcludedTrials, IncludeAborts,
+    % CorrectionMode, infCorrection -- recomputes Results and broadcasts
+    % Events.NewData when it changes, so every display over the object
+    % follows. Reading a result never changes anything.
     %
-    %   Detection Methods:
-    %       Detection       - Constructor to initialize the class
-    %       d_prime         - Static method to compute d-prime
-    %       a_prime         - Static method to compute nonparametric A'
-    %       bias            - Static method to compute bias
-    %       norminv         - Static method for bounded inverse normal transformation
+    % Results (struct):
+    %   Parameter    - DATA field the stimulus trials are grouped by
+    %   Values       - 1xK stimulus values, ascending
+    %   N            - Per value (1xK): Trials, Hit, Miss, Abort, and Scored,
+    %                  the hit rate's denominator (Hit+Miss, plus Abort under
+    %                  IncludeAborts)
+    %   Catch        - Pooled catch trials (scalars): Trials, FalseAlarm,
+    %                  CorrectReject, Abort, Scored
+    %   Rate         - Hit and Miss (1xK); FalseAlarm and CorrectReject
+    %                  (scalars, pooled)
+    %   DPrime, APrime, Criterion, BPrimePrime - 1xK, each value's hit rate
+    %                  against the pooled false-alarm rate
+    %   NumNoValue   - Stimulus trials left out because they recorded no
+    %                  numeric value for Parameter
+    %   TrialIndex   - Trials included (TrialWindow minus ExcludedTrials)
+    %   Window       - The psychophysics.TrialWindow applied
+    %   Message      - Why Results are empty, or ""
     %
-    %   Used by gui.components.PsychPlot, gui.components.Performance, and gui.components.SlidingWindowPerformancePlot.
+    % Methods:
+    %   metric               - One metric as a row over Values, for plotting
+    %   summary              - Per-value table
+    %   windowed             - Every metric as a curve over trials
+    %                          (cumulative, or a sliding window)
+    %   candidateParameters  - DATA fields that could be the independent variable
+    %   sourceLabel          - "Subject [box]" for a title
+    %
+    % Trial types come from DATA.TrialType when present, else from the
+    % TrialType_* bits in the response codes (psychophysics.Psych). A
+    % paradigm that labels neither is analysed as all stimulus trials,
+    % with false alarms counted wherever they were scored -- the rule
+    % SessionMetrics applies.
+    %
+    % Example:
+    %   D = psychophysics.Detection(RUNTIME, RUNTIME.find_parameter('ToneLevel'));
+    %   D = psychophysics.Detection(S.Data, "ToneLevel", TrialWindow="last 100");
+    %   plot(D.Results.Values, D.Results.Rate.Hit)
+    %
+    % See also: psychophysics.Psych, psychophysics.SessionMetrics,
+    %   psychophysics.Metrics, gui.components.PsychPlot,
+    %   gui.components.SlidingWindowPerformancePlot,
+    %   documentation/psychophysics/psychophysics_Detection.md
 
     properties (SetObservable)
-        % TRIALS - Structure containing trial data (RUNTIME.TRIALS)
-        TRIALS
+        % TrialWindow - Trials included; anything psychophysics.TrialWindow.parse
+        % takes ("all", 50 for the last 50, [20 100], "last 20").
+        TrialWindow = psychophysics.TrialWindow
 
-        % Parameter - Parameter object defining trial parameters (hw.Parameter)
-        Parameter (1,1)
-
-        % infCorrection - Correction bounds for infinite z-scores [lower upper]
-        % Ensures that hit and false alarm rates are within (0,1) exclusive
-        infCorrection (1,2) double {mustBeInRange(infCorrection,0,1,"exclusive")} = [0.05 0.95];
-
-        % IncludeAborts - Count aborted trials against Hit_Rate and FA_Rate,
-        % as failures to respond. False by default, so the rates describe the
-        % trials the subject answered; see
+        % IncludeAborts - Count aborted trials against the hit and false
+        % alarm rates, as failures to respond. False by default, so the rates
+        % describe the trials the subject answered; see
         % psychophysics.Metrics.rateDenominator.
         IncludeAborts (1,1) logical = false
 
-        % targetTrialType - Target trial type to analyze (epsych.BitMask)
-        targetTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
+        % CorrectionMode - How rates of exactly 0 or 1 are handled before the
+        % z-transform behind d' and c; see psychophysics.Metrics. A' and B''
+        % take the observed rates under every mode.
+        CorrectionMode (1,1) string {mustBeMember(CorrectionMode, ...
+            ["none","clamp","halfcell","loglinear"])} = "clamp"
 
-        ttStimulus (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
-        ttCatch    (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
+        % infCorrection - Rate bounds for CorrectionMode "clamp".
+        infCorrection (1,2) double {mustBeInRange(infCorrection,0,1,"exclusive")} = [0.05 0.95]
 
-        BitsInUse (1,:) epsych.BitMask = epsych.BitMask.getResponses % [Hit Miss CR FA Abort]
-        BitColors (5,1) string = ["#dff7df","#fcdcdc","#d9f2ff","#fcdefc","#fcfcd4"];
+        % BoxID - Follow only this box's NewData. Empty follows every box,
+        % which is right for a single-box rig and wrong for a multi-box one,
+        % where it would mix subjects.
+        BoxID double {mustBeScalarOrEmpty} = []
+
+        % Subject - Label for titles. Empty uses the subject named by the
+        % session's own NewData.
+        Subject (1,1) string = ""
+    end
+
+    properties (SetAccess = protected)
+        Results = []  % Computed analysis; see the class help
     end
 
     properties (SetAccess = private)
-        % Events - Event broadcaster this analysis re-broadcasts NewData on
-        Events = epsych.EventHub
-
-        % M - Logical arrays for each decoded bitmask flag
-        M
-        % N - Counts of each decoded bitmask flag
-        N
-
-        RUNTIME
-    end
-
-    properties (Dependent, Hidden)
-        % Helper - Deprecated alias for Events; remove once paradigm GUIs migrate
-        Helper
+        SourceSubject (1,1) string = ""  % Subject named by the last NewData accepted
+        SourceBoxID = []                 % Box of the last NewData accepted
     end
 
     properties (Dependent)
-        % DATA - Extracted trial data from TRIALS
-        DATA
-
-        % responseCodes - Response codes from TRIALS.DATA
-        responseCodes (1,:) uint32
-
-        % trialIndex - Current trial index from TRIALS
-        trialIndex
-
-        % trialCount - Number of trials matching targetTrialType
-        trialCount
-
-        % trialTypes - Trial types from DATA as epsych.BitMask values
-        trialTypes
-
-        % trialValues - Parameter values for targetTrialType trials
-        trialValues
-
-        % uniqueValues - Unique parameter values in trialValues
-        uniqueValues
-
-        % countUniqueValues - Counts of unique parameter values in trialValues
-        countUniqueValues
-
-        % Count - Struct with counts of trial outcomes (Hit, Miss, etc.)
-        Count
-
-        % Rate - Struct with rates of trial outcomes (Hit, Miss, etc.)
-        Rate
-
-        % DPrime - d-prime per unique stimulus value
-        DPrime      (1,:) double
-
-        % APrime - Nonparametric sensitivity A' per unique stimulus value
-        APrime      (1,:) double
-
-        % Bias - Response bias per unique stimulus value
-        Bias        (1,:) double
-
-        Hit_Rate    (1,:) double
-        Miss_Rate   (1,:) double
-        FA_Rate     (1,:) double
-        CR_Rate     (1,:) double
-
-        Hit_Ind     (1,:) logical
-        Miss_Ind    (1,:) logical
-        FA_Ind      (1,:) logical
-        CR_Ind      (1,:) logical
-
-        % TrialType - Numeric trial types from DATA
-        TrialType   (1,:) double
-
-        NumTrials   (1,1) uint16
-        Trial_Index (1,1) double
-
-        ResponsesEnum (1,:) epsych.BitMask
-        ResponsesChar (1,:) cell
-
-        ValidParameters (1,:) cell
-
-        % ParameterName - Name of the analyzed parameter; settable to any
-        % member of ValidParameters to change the independent variable
-        ParameterName (1,:) char
-
-        % ParameterValues - Alias for uniqueValues (used by gui.components.PsychPlot)
-        ParameterValues (1,:)
-
-        SUBJECT
+        ParameterField  % DATA field the analysis reads (string)
     end
 
     properties (Access = private)
-        hl_NewData
+        trial_ = []                          % per-trial arrays, rebuilt by recomputeResults_
+        constructing_ (1,1) logical = true   % settings do not recompute until the end of the constructor
+        settingListener_ = event.listener.empty  % PostSet on the inherited analysis settings
+    end
 
-        % ParameterName_ - Optional override of the analyzed DATA field
-        ParameterName_ (1,:) char = ''
+    properties (Constant, Hidden)
+        % History row colours, pastel so the row text stays readable; in the
+        % order of epsych.BitMask.getResponses (Hit Miss CR FA Abort).
+        ROW_COLORS = ["#dff7df"; "#fcdcdc"; "#d9f2ff"; "#fcdefc"; "#fcfcd4"]
+
+        % DATA fields that are bookkeeping, never an independent variable.
+        BOOKKEEPING_FIELDS = ["RespCode","ResponseCode","TrialType","TrialIndex", ...
+            "TrialID","computerTimestamp","isTest"]
     end
 
     methods
-        function obj = Detection(RUNTIME, Parameter, targetTrialType)
-            % Detection Constructor to initialize the Detection class
+        function obj = Detection(source, Parameter, options)
+            % D = psychophysics.Detection(source, Parameter, Name=Value)
             %
-            %   obj = Detection(RUNTIME, Parameter, targetTrialType)
-            %
-            %   Inputs:
-            %       RUNTIME         - Runtime structure containing trial data
-            %       Parameter       - Parameter object defining trial parameters
-            %       targetTrialType - Target trial type to analyze
+            % Parameters:
+            %   source            - epsych.Runtime (online) or a per-trial DATA
+            %                       struct array (offline).
+            %   Parameter         - hw.Parameter, or the name of a DATA field
+            %                       (online or offline).
+            %   StimulusTrialType - Trials grouped by value. Default TrialType_0.
+            %   CatchTrialType    - Trials pooled for the false-alarm rate.
+            %                       Default TrialType_1.
+            %   TrialWindow       - Trials included. Default all.
+            %   ExcludedTrials    - Logical mask or 1-based indices to drop.
+            %   IncludeAborts     - Default false.
+            %   CorrectionMode    - Default "clamp".
+            %   infCorrection     - Default [0.05 0.95].
+            %   BoxID             - Follow only this box online. Default [] (all).
+            %   Subject           - Title label. Default "" (the session's).
             arguments
-                RUNTIME
-                Parameter (1,1)  %hw.Parameter
-                targetTrialType (1,1) epsych.BitMask = epsych.BitMask.Undefined
+                source = []
+                Parameter = []
+                options.StimulusTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_0
+                options.CatchTrialType (1,1) epsych.BitMask = epsych.BitMask.TrialType_1
+                options.TrialWindow = psychophysics.TrialWindow
+                options.ExcludedTrials = []
+                options.IncludeAborts (1,1) logical = false
+                options.CorrectionMode (1,1) string = "clamp"
+                options.infCorrection (1,2) double = [0.05 0.95]
+                options.BoxID double {mustBeScalarOrEmpty} = []
+                options.Subject (1,1) string = ""
             end
 
-            obj.RUNTIME = RUNTIME;
-            obj.Parameter = Parameter;
-            obj.targetTrialType = targetTrialType;
+            obj@psychophysics.Psych(source, Parameter, ExcludedTrials=options.ExcludedTrials);
 
-            obj.hl_NewData = addlistener(RUNTIME.EVENTS,'NewData',@obj.update_data);
+            obj.StimulusTrialType = options.StimulusTrialType;
+            obj.CatchTrialType    = options.CatchTrialType;
+            obj.TrialWindow       = options.TrialWindow;
+            obj.IncludeAborts     = options.IncludeAborts;
+            obj.CorrectionMode    = options.CorrectionMode;
+            obj.infCorrection     = options.infCorrection;
+            obj.BoxID             = options.BoxID;
+            obj.Subject           = options.Subject;
+            obj.BitColors         = psychophysics.Detection.ROW_COLORS;
+
+            % Built mid-session (a pop-out, a review), an online analysis
+            % would otherwise read empty until the next trial completes.
+            obj.seedFromRuntime_();
+
+            obj.constructing_ = false;
+            obj.recomputeResults_();
+
+            % The inherited settings have no setter this class can define, so
+            % their change is caught here; each recomputes and broadcasts
+            % like the settings declared above.
+            obj.settingListener_ = addlistener(obj, ...
+                {'Parameter','StimulusTrialType','CatchTrialType'}, 'PostSet', ...
+                @(~,~) obj.refresh());
         end
 
         function delete(obj)
-            % Destructor: cleans up the listener.
-            try
-                delete(obj.hl_NewData);
-            catch ME
-                vprintf(0,1,ME);
+            % Release the settings listener; Psych releases the runtime one.
+            delete(obj.settingListener_(isvalid(obj.settingListener_)));
+        end
+
+        function update_data(obj, src, event)
+            % update_data(obj, src, event)
+            % A completed trial from the runtime. Ignored when it is another
+            % box's (BoxID); otherwise the base class takes the trials,
+            % recomputes and broadcasts.
+            if ~isempty(obj.BoxID) && ~isempty(event.BoxID) && ~any(event.BoxID == obj.BoxID)
+                return
+            end
+            obj.noteSource_(event.Subject, event.BoxID);
+            update_data@psychophysics.Psych(obj, src, event);
+        end
+
+        % --- Settings: each recomputes and broadcasts ----------------------
+        function set.TrialWindow(obj, value)
+            obj.TrialWindow = psychophysics.TrialWindow.parse(value);
+            obj.settingChanged_();
+        end
+
+        function set.IncludeAborts(obj, value)
+            obj.IncludeAborts = value;
+            obj.settingChanged_();
+        end
+
+        function set.CorrectionMode(obj, value)
+            obj.CorrectionMode = value;
+            obj.settingChanged_();
+        end
+
+        function set.infCorrection(obj, value)
+            obj.infCorrection = value;
+            obj.settingChanged_();
+        end
+
+        function set.BoxID(obj, value)
+            obj.BoxID = value;
+            obj.boxChanged_();
+        end
+
+        function f = get.ParameterField(obj)
+            f = "";
+            if ~isempty(obj.Parameter)
+                f = string(obj.parameterFieldName_());
             end
         end
 
-        function update_data(obj,~,event)
-            obj.TRIALS = event.Data;
-            vprintf(4,'psychophysics.Detection.update_data: Trial %d',obj.TRIALS.TrialIndex)
-            % Decode response codes into M and N
-            % M contains logical arrays for each bitmask flag
-            % N contains counts of each bitmask flag
-            [obj.M,obj.N] = epsych.BitMask.decode(obj.responseCodes);
-            evtdata = epsych.TrialsData(obj.TRIALS);
-            obj.Events.notify('NewData',evtdata);
-        end
-
-
-
-        function value = get.Helper(obj), value = obj.Events; end
-
-        function d = get.DATA(obj)
-            % get.DATA Extracts trial data from TRIALS
-            if isempty(obj.TRIALS)
-                d = [];
-            else
-                d = obj.TRIALS.DATA;
-                if isempty(d), return; end
-                % The runtime stores plain values (ep_TimerFcn_RunTime
-                % collects valueOnly=true); legacy records stored the
-                % hw.Parameter handles themselves, so unwrap only those.
-                fn = fieldnames(d);
-                for i = 1:numel(d)
-                    for j = 1:numel(fn)
-                        p = d(i).(fn{j});
-                        if isa(p, 'hw.Parameter')
-                            d(i).(fn{j}) = [p.Value];
-                        end
-                    end
-                end
-            end
-        end
-
-        function ti = get.trialIndex(obj)
-            % get.trialIndex Retrieves the current trial index
-            if isempty(obj.TRIALS)
-                ti = [];
-            else
-                ti = obj.TRIALS.TrialIndex;
-            end
-        end
-
-        function i = get.Trial_Index(obj)
-            if isempty(obj.TRIALS)
-                i = 1;
-            else
-                i = obj.TRIALS.TrialIndex;
-            end
-        end
-
-        function rc = get.responseCodes(obj)
-            % get.responseCodes Retrieves response codes from DATA
+        % --- Reading results -------------------------------------------------
+        function y = metric(obj, name)
+            % y = metric(obj, name)
+            % One metric as a row over Results.Values, for plotting. The
+            % pooled false-alarm and correct-reject rates are repeated once
+            % per value so every metric lines up with Values.
             %
-            % 'ResponseCode' is the older name for the same field and is still
-            % what many saved sessions carry. Reading only 'RespCode' made such
-            % a session analyze as ZERO trials -- silently, because every
-            % count, rate and d' then comes back empty rather than erroring,
-            % so the failure looks like a subject who never responded.
-            % psychophysics.Psych.responseCodes, BestPEST and MLP already
-            % resolve the pair; Detection is not a Psych subclass and needs its
-            % own. RespCode wins where a file carries both, which is the
-            % order every other resolver uses.
-            if isempty(obj.DATA)
-                rc = uint32([]);
-            elseif isfield(obj.DATA, 'RespCode')
-                rc = uint32([obj.DATA.RespCode]);
-            elseif isfield(obj.DATA, 'ResponseCode')
-                rc = uint32([obj.DATA.ResponseCode]);
-            else
-                rc = uint32([]);
+            % Parameters:
+            %   name - One of psychophysics.Detection.metricNames().
+            arguments
+                obj
+                name (1,1) string {mustBeMember(name, ["HitRate","MissRate","FARate", ...
+                    "CRRate","DPrime","APrime","Criterion","BPrimePrime"])}
+            end
+            R = obj.Results;
+            K = numel(R.Values);
+            switch name
+                case "HitRate",     y = R.Rate.Hit;
+                case "MissRate",    y = R.Rate.Miss;
+                case "FARate",      y = repmat(R.Rate.FalseAlarm, 1, K);
+                case "CRRate",      y = repmat(R.Rate.CorrectReject, 1, K);
+                otherwise,          y = R.(name);
             end
         end
 
-        function r = get.ResponsesEnum(obj)
-            r = epsych.BitMask.Mask2Bits(obj.responseCodes);
+        function T = summary(obj)
+            % T = summary(obj)
+            % One row per stimulus value: the trials it rests on and every
+            % metric. The pooled catch-trial side is in Results.Catch.
+            R = obj.Results;
+            T = table(R.Values(:), R.N.Trials(:), R.N.Hit(:), R.N.Miss(:), R.N.Abort(:), ...
+                R.Rate.Hit(:), R.DPrime(:), R.APrime(:), R.Criterion(:), ...
+                VariableNames = {'Value','Trials','Hits','Misses','Aborts', ...
+                    'HitRate','DPrime','APrime','Criterion'});
         end
 
-        function c = get.ResponsesChar(obj)
-            [~,b] = epsych.BitMask.Mask2Bits(obj.responseCodes);
-            c = cellfun(@cellstr,b,'uni',0);
-        end
-
-        function tt = get.TrialType(obj)
-            if isempty(obj.DATA)
-                tt = [];
-            else
-                tt = [obj.DATA.TrialType];
-            end
-        end
-
-        function tt = get.trialTypes(obj)
-            % get.trialTypes Trial types from DATA as epsych.BitMask values
-            if isempty(obj.DATA)
-                tt = [];
-            else
-                tt = epsych.BitMask("TrialType_" + [obj.DATA.TrialType]);
-            end
-        end
-
-        function n = get.trialCount(obj)
-            % get.trialCount Counts trials matching targetTrialType
-            if obj.targetTrialType == epsych.BitMask.Undefined
-                n = length(obj.trialTypes);
-            else
-                n = sum(obj.trialTypes == obj.targetTrialType);
-            end
-        end
-
-        function n = get.NumTrials(obj)
-            n = length(obj.DATA);
-        end
-
-        function v = get.trialValues(obj)
-            % get.trialValues Retrieves parameter values for targetTrialType
-            if obj.targetTrialType == epsych.BitMask.Undefined
-                ind = true(size(obj.trialTypes));
-            else
-                ind = obj.trialTypes == obj.targetTrialType;
-            end
-            if any(ind)
-                v = [obj.DATA.(obj.parameterField)];
-                v = v(ind);
-            else
-                v = [];
-            end
-        end
-
-        function uv = get.uniqueValues(obj)
-            % get.uniqueValues Identifies unique parameter values
-            uv = unique(obj.trialValues);
-        end
-
-        function n = get.countUniqueValues(obj)
-            n = arrayfun(@(a) sum(obj.trialValues==a),obj.uniqueValues);
-        end
-
-        function c = get.Count(obj)
-            % get.Count Computes counts of trial outcomes
+        function W = windowed(obj, windowSize)
+            % W = windowed(obj, windowSize)
+            % Every metric as a curve over trials: row t is computed from the
+            % trials in the window ending at trial t -- all trials so far
+            % when windowSize is 0, else the last windowSize. Excluded trials
+            % count nowhere; TrialWindow is not applied (the window is).
             %
-            %   c = obj.Count returns a struct array where each element
-            %   corresponds to a unique parameter value and contains fields
-            %   such as Hit, Miss, etc., representing the count of each
-            %   outcome type.
-
-            tv = obj.trialValues;
-            uv = obj.uniqueValues;
-            bm = epsych.BitMask.getDefined;
-            x = [cellstr(bm), cell(size(bm))]';
-            c = struct(x{:});
-            c = repmat(c,length(uv),1);
-
-            if isempty(c), return; end
-
-            M_ = obj.M;
-            if obj.targetTrialType ~= epsych.BitMask.Undefined
-                ind = obj.trialTypes == obj.targetTrialType;
-                M_ = structfun(@(a) a(ind),M_,'uni',0);
-            end
-            for i = 1:length(uv)
-                ind = uv(i) == tv;
-                c(i) = structfun(@(a) sum(a(ind)), M_, 'uni', 0);
-            end
-        end
-
-        function r = get.Rate(obj)
-            % get.Rate Computes rates of trial outcomes
+            % Computed from running sums, so the whole curve costs one pass
+            % whatever the session length.
             %
-            %   r = obj.Rate returns a struct array where each element
-            %   corresponds to a unique parameter value and contains fields
-            %   representing the rate (proportion) of each outcome type.
-
-            c = obj.Count;
-            n = obj.countUniqueValues;
-
-            bm = epsych.BitMask.getDefined;
-            x = [cellstr(bm), cell(size(bm))]';
-            r = struct(x{:});
-
-            if isempty(c), return; end
-
-            r = repmat(r,length(c),1);
-
-            for i = 1:length(c)
-                r(i) = structfun(@(a) a./n(i), c(i), 'uni', 0);
+            % Returns:
+            %   W - struct: TrialIndex (n x 1), Values (1 x K), WindowSize,
+            %       HitRate, DPrime, APrime, Criterion, BPrimePrime (n x K),
+            %       FARate (n x 1), NScored (n x K), CatchScored (n x 1).
+            arguments
+                obj
+                windowSize (1,1) double {mustBeNonnegative, mustBeInteger} = 0
             end
+            c = obj.trial_;
+            n = c.n;
+
+            withValue = c.stim & ~isnan(c.value);
+            vals = unique(c.value(withValue));
+            K = numel(vals);
+            [~, g] = ismember(c.value, vals);
+            g(~withValue) = 0;
+
+            onehot = zeros(n, K);
+            rows = find(g > 0);
+            onehot(sub2ind([n K], rows, g(rows))) = 1;
+
+            sumW = @(X) psychophysics.Detection.windowSum_(X, windowSize);
+            nHit   = sumW(onehot .* c.hit(:));
+            nMiss  = sumW(onehot .* c.miss(:));
+            nAbort = sumW(onehot .* c.abort(:));
+            nFA    = sumW(double(c.catch & c.fa).');
+            nCR    = sumW(double(c.catch & c.cr).');
+            nAbC   = sumW(double(c.catch & c.abort).');
+
+            S = psychophysics.Metrics.fromCounts(nHit, nMiss, nFA, nCR, ...
+                AbortSignal=nAbort, AbortNoise=nAbC, IncludeAborts=obj.IncludeAborts, ...
+                Correction=obj.CorrectionMode, Bounds=obj.infCorrection);
+            catchScored = psychophysics.Metrics.rateDenominator(nFA + nCR, nAbC, obj.IncludeAborts);
+
+            W = struct();
+            W.TrialIndex  = (1:n).';
+            W.Values      = reshape(vals, 1, []);
+            W.WindowSize  = windowSize;
+            W.HitRate     = S.Rate.Hit;
+            W.DPrime      = S.DPrime;
+            W.APrime      = S.APrime;
+            W.Criterion   = S.Criterion;
+            W.BPrimePrime = S.BPrimePrime;
+            W.FARate      = psychophysics.Metrics.rate(nFA, catchScored);
+            W.NScored     = psychophysics.Metrics.rateDenominator(nHit + nMiss, nAbort, obj.IncludeAborts);
+            W.CatchScored = catchScored;
         end
 
-        % Ind ------------------------------------------------------
-        function r = get.Hit_Ind(obj)
-            r = logical(bitget(obj.responseCodes,epsych.BitMask.Hit));
+        function names = candidateParameters(obj)
+            % names = candidateParameters(obj)
+            % DATA fields that could be the independent variable: every field
+            % holding a numeric value on at least one trial, bookkeeping
+            % (RespCode, TrialType, TrialIndex, ...) left out.
+            names = strings(1, 0);
+            if isempty(obj.DATA), return; end
+            fn = setdiff(string(fieldnames(obj.DATA)).', ...
+                psychophysics.Detection.BOOKKEEPING_FIELDS, 'stable');
+            numeric = false(size(fn));
+            for k = 1:numel(fn)
+                numeric(k) = any(~isnan(obj.perTrialNumeric_(char(fn(k)), NaN)));
+            end
+            names = fn(numeric);
         end
 
-        function r = get.Miss_Ind(obj)
-            r = logical(bitget(obj.responseCodes,epsych.BitMask.Miss));
-        end
-
-        function r = get.FA_Ind(obj)
-            r = logical(bitget(obj.responseCodes,epsych.BitMask.FalseAlarm));
-        end
-
-        function r = get.CR_Ind(obj)
-            r = logical(bitget(obj.responseCodes,epsych.BitMask.CorrectReject));
-        end
-
-        % Rate ----------------------------------------------------
-        function r = get.Hit_Rate(obj)
-            % get.Hit_Rate Hit rate per unique stimulus value
-            %
-            %   Hit / (Hit + Miss) at each value, so an aborted trial does
-            %   not depress the rate. Set IncludeAborts to score aborts as
-            %   failures to respond instead. Note this is NOT [obj.Rate.Hit],
-            %   which is the proportion of every trial at that value.
-            obj.targetTrialType = obj.ttStimulus;
-            c = obj.Count;
-            if isempty(c), r = []; return; end
-            r = psychophysics.Metrics.rate([c.Hit], ...
-                psychophysics.Metrics.rateDenominator([c.Hit] + [c.Miss], ...
-                    [c.Abort], obj.IncludeAborts));
-        end
-
-        function r = get.Miss_Rate(obj)
-            % The complement of the hit rate. With IncludeAborts this is the
-            % proportion that were not hits rather than the miss rate proper,
-            % since aborts are then in the denominator too.
-            r = 1 - obj.Hit_Rate;
-        end
-
-        function r = get.FA_Rate(obj)
-            % get.FA_Rate Catch-trial false alarm rate, replicated to match
-            % the number of unique stimulus values for plotting
-            %
-            %   FA / (FA + CR) over every catch trial in the session; see
-            %   Hit_Rate for the aborts policy.
-            obj.targetTrialType = obj.ttCatch;
-            c = obj.Count;
-            if isempty(c)
-                far = [];
+        function s = sourceLabel(obj)
+            % s = sourceLabel(obj)
+            % "Subject [box]" for a plot title; "" when neither is known.
+            name = obj.Subject;
+            if strlength(name) == 0, name = obj.SourceSubject; end
+            box = obj.BoxID;
+            if isempty(box), box = obj.SourceBoxID; end
+            if isempty(box)
+                s = name;
             else
-                far = psychophysics.Metrics.rate(sum([c.FalseAlarm]), ...
-                    psychophysics.Metrics.rateDenominator( ...
-                        sum([c.FalseAlarm]) + sum([c.CorrectReject]), ...
-                        sum([c.Abort]), obj.IncludeAborts));
-            end
-
-            obj.targetTrialType = obj.ttStimulus;
-            n = max(numel(obj.uniqueValues),1);
-            if isempty(far)
-                r = nan(1,n);
-            else
-                r = repmat(far,1,n);
-            end
-        end
-
-        function r = get.CR_Rate(obj)
-            r = 1 - obj.FA_Rate;
-        end
-
-        function d = get.DPrime(obj)
-            % get.DPrime d-prime per unique stimulus value
-            %
-            %   Computed from the Hit rate at each unique stimulus value and
-            %   the overall catch-trial FalseAlarm rate, using the specified
-            %   infCorrection bounds.
-
-            obj.targetTrialType = obj.ttCatch;
-            % this is kludgy and should be reworked
-            CT = obj.Rate;
-            FAR = CT(1).FalseAlarm;
-
-            obj.targetTrialType = obj.ttStimulus;
-            r = obj.Rate;
-            d = nan(size(r));
-            if isempty(r(1).Hit), return; end
-            for i = 1:numel(r)
-                x = psychophysics.Detection.d_prime(r(i).Hit, FAR, obj.infCorrection);
-                if isempty(x), x = inf; end
-                d(i) = x;
-            end
-        end
-
-        function a = get.APrime(obj)
-            % get.APrime Nonparametric sensitivity A' per unique stimulus value
-            %
-            %   Computed from the Hit rate at each unique stimulus value and
-            %   the overall catch-trial FalseAlarm rate. Unlike DPrime this
-            %   needs no infCorrection: A' is defined at rates of 0 and 1.
-
-            obj.targetTrialType = obj.ttCatch;
-            CT = obj.Rate;
-            FAR = CT(1).FalseAlarm;
-
-            obj.targetTrialType = obj.ttStimulus;
-            r = obj.Rate;
-            a = nan(1,numel(r));
-            if isempty(r) || isempty(r(1).Hit), return; end
-            for i = 1:numel(r)
-                a(i) = psychophysics.Detection.a_prime(r(i).Hit, FAR);
-            end
-        end
-
-        function c = get.Bias(obj)
-            % get.Bias Response bias per unique stimulus value
-            obj.targetTrialType = obj.ttCatch;
-            CT = obj.Rate;
-
-            obj.targetTrialType = obj.ttStimulus;
-            r = obj.Rate;
-            c = psychophysics.Detection.bias([r.Hit], CT(1).FalseAlarm, obj.infCorrection);
-        end
-
-        % Parameter -------------------------------------------------
-        function p = get.ValidParameters(obj)
-            if isempty(obj.TRIALS)
-                p = [];
-            else
-                p = fieldnames(obj.DATA);
-                p(~ismember(p,obj.TRIALS.writeparams)) = [];
-            end
-        end
-
-        function n = get.ParameterName(obj)
-            if isempty(obj.ParameterName_)
-                n = obj.Parameter.Name;
-            else
-                n = obj.ParameterName_;
-            end
-        end
-
-        function set.ParameterName(obj,n)
-            vp = obj.ValidParameters;
-            assert(isempty(vp) || ismember(n,vp), ...
-                'psychophysics:Detection:invalidParameter', ...
-                '"%s" is not a member of ValidParameters',n);
-            obj.ParameterName_ = n;
-        end
-
-        function v = get.ParameterValues(obj)
-            v = obj.uniqueValues;
-        end
-
-        function s = get.SUBJECT(obj)
-            if isempty(obj.TRIALS)
-                s = [];
-            else
-                s = obj.TRIALS.Subject;
-            end
-        end
-    end
-
-    methods (Access = private)
-        function n = parameterField(obj)
-            % DATA field name of the analyzed parameter
-            if isempty(obj.ParameterName_)
-                n = obj.Parameter.validName;
-            else
-                n = obj.ParameterName_;
+                s = strtrim(sprintf('%s [%d]', name, box));
             end
         end
     end
 
     methods (Static)
-        function d = d_prime(hitRate, faRate, bounds)
-            % d_prime Computes d-prime from hit and false alarm rates
-            %
-            %   d = d_prime(hitRate, faRate, bounds) computes the d-prime
-            %   value using the provided hitRate and faRate, applying the
-            %   specified bounds to avoid infinite z-scores.
-            %
-            %   Kept for compatibility, including its [0.01 0.99] default.
-            %   psychophysics.Metrics.dprime is the implementation and the
-            %   one to call in new code, where the correction is named rather
-            %   than implied by a pair of bounds, and where the trial-count
-            %   dependent corrections are available.
+        function names = metricNames()
+            % names = psychophysics.Detection.metricNames()
+            % Every name metric() accepts, for a plot's type picker.
+            names = ["HitRate","FARate","DPrime","APrime","Criterion","BPrimePrime","MissRate","CRRate"];
+        end
+    end
 
-            arguments
-                hitRate
-                faRate
-                bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
-            end
-            d = psychophysics.Metrics.dprime(hitRate, faRate, Correction="clamp", Bounds=bounds);
+    methods (Access = protected)
+        function recomputeResults_(obj)
+            if obj.constructing_, return; end
+            obj.trial_ = obj.perTrialArrays_();
+            obj.Results = obj.tabulate_(obj.windowMask_());
         end
 
-        function a = a_prime(hitRate, faRate)
-            % a_prime Computes the nonparametric sensitivity index A'
-            %
-            %   a = a_prime(hitRate, faRate) returns Grier's (1971) A' from
-            %   the hit and false alarm rates. See
-            %   psychophysics.Metrics.aprime, which owns the formula and
-            %   documents it; this is kept because A' is public API.
-
-            arguments
-                hitRate double
-                faRate  double
+        function P = normalizeParameter_(~, P)
+            % A DATA field name is as good as a parameter object, online too:
+            % the analysis reads only the field. The base class refuses a name
+            % online because a Staircase needs the hw.Parameter itself.
+            if ischar(P) || (isstring(P) && isscalar(P))
+                P = string(P);
             end
-            a = psychophysics.Metrics.aprime(hitRate, faRate);
+        end
+    end
+
+    methods (Access = private)
+        function settingChanged_(obj)
+            if ~obj.constructing_
+                obj.refresh();
+            end
         end
 
-        function c = bias(hitRate, faRate, bounds)
-            % bias Computes bias (criterion) from hit and false alarm rates
-            %
-            %   c = bias(hitRate, faRate, bounds) computes the bias value
-            %   using the provided hitRate and faRate, applying the specified
-            %   bounds to avoid infinite z-scores.
-            %
-            %   Kept for compatibility. psychophysics.Metrics.criterion is
-            %   the implementation, and the unambiguous name -- "bias" also
-            %   names beta and B''.
-
-            arguments
-                hitRate
-                faRate
-                bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
-            end
-            c = psychophysics.Metrics.criterion(hitRate, faRate, Correction="clamp", Bounds=bounds);
+        function boxChanged_(obj)
+            % Changing box changes whose trials these are, so an online
+            % analysis takes that box's trials from the runtime at once.
+            if obj.constructing_ || isempty(obj.RUNTIME), return; end
+            obj.DATA = [];
+            obj.seedFromRuntime_();
+            obj.refresh();
         end
 
-        function n = norminv(r,bounds)
-            % norminv Bounded inverse normal CDF
-            %
-            %   Kept for compatibility. psychophysics.Metrics.z is the
-            %   implementation, which since 2026-09-11 is the Statistics
-            %   Toolbox norminv -- NOT this method, which clamps first.
-            %
-            %   One behavior change: an undefined rate now yields NaN. The
-            %   max/min clamp this replaced dropped NaN -- min(NaN,0.99) is
-            %   0.99 -- so a missing rate silently became a bound.
-
-            arguments
-                r
-                bounds (1,2) double {mustBeInRange(bounds,0,1,"exclusive")} = [0.01 0.99]
+        function seedFromRuntime_(obj)
+            % Take this box's trials from the runtime when it already has
+            % some. With no BoxID only a single-subject runtime is
+            % unambiguous; a multi-box one waits for its NewData.
+            if isempty(obj.RUNTIME), return; end
+            T = [];
+            try
+                T = obj.RUNTIME.TRIALS;
+            catch
             end
-            r = psychophysics.Metrics.correctRates(r, r, Correction="clamp", Bounds=bounds);
-            n = psychophysics.Metrics.z(r);
+            if ~isstruct(T) || isempty(T) || ~isfield(T, 'DATA'), return; end
+            if isempty(obj.BoxID)
+                if ~isscalar(T), return; end
+                k = 1;
+            elseif isfield(T, 'BoxID')
+                k = find([T.BoxID] == obj.BoxID, 1);
+                if isempty(k), return; end
+            else
+                return
+            end
+            obj.DATA = T(k).DATA;
+            subj = [];
+            box = [];
+            if isfield(T, 'Subject'), subj = T(k).Subject; end
+            if isfield(T, 'BoxID'),   box  = T(k).BoxID;   end
+            obj.noteSource_(subj, box);
+        end
+
+        function noteSource_(obj, subject, box)
+            name = "";
+            try
+                if isstruct(subject) || isobject(subject)
+                    name = string(subject.Name);
+                elseif ~isempty(subject)
+                    name = string(subject);
+                end
+            catch
+            end
+            obj.SourceSubject = name;
+            obj.SourceBoxID = box;
+        end
+
+        function c = perTrialArrays_(obj)
+            % Everything the counts are built from, one entry per trial.
+            n = obj.trialCount;
+            c.n = n;
+            c.field = obj.ParameterField;
+            if strlength(c.field) > 0
+                c.value = obj.perTrialNumeric_(char(c.field), NaN);
+            else
+                c.value = nan(1, n);
+            end
+            c.hasField = strlength(c.field) > 0 && n > 0 && isfield(obj.DATA, c.field);
+
+            rc = obj.responseCodes;
+            if isempty(rc)
+                M = [];
+                f = false(1, n);
+                [c.hit, c.miss, c.fa, c.cr, c.abort] = deal(f);
+            else
+                M = epsych.BitMask.decode(rc);
+                c.hit   = reshape(M.Hit, 1, []);
+                c.miss  = reshape(M.Miss, 1, []);
+                c.fa    = reshape(M.FalseAlarm, 1, []);
+                c.cr    = reshape(M.CorrectReject, 1, []);
+                c.abort = reshape(M.Abort, 1, []);
+            end
+
+            c.excluded = obj.excludedTrialMask_();
+            masks = obj.trialTypeMasks_([obj.StimulusTrialType obj.CatchTrialType], M);
+            c.stim  = masks(1, :);
+            c.catch = masks(2, :);
+            c.unlabeled = n > 0 && ~any(c.stim) && ~any(c.catch);
+            if c.unlabeled
+                c.stim  = ~c.excluded;
+                c.catch = ~c.excluded;
+            end
+        end
+
+        function use = windowMask_(obj)
+            n = obj.trial_.n;
+            use = false(1, n);
+            use(obj.TrialWindow.resolve(n)) = true;
+            use = use & ~obj.trial_.excluded;
+        end
+
+        function R = tabulate_(obj, use)
+            % Results over the trials USE selects.
+            c = obj.trial_;
+            R = psychophysics.Detection.emptyResults_();
+            R.Parameter  = c.field;
+            R.Window     = obj.TrialWindow;
+            R.TrialIndex = find(use);
+
+            if c.n == 0
+                R.Message = "No trials yet.";
+                return
+            end
+            if strlength(c.field) == 0
+                R.Message = "No Parameter set: nothing to group the stimulus trials by.";
+            elseif ~c.hasField
+                R.Message = "DATA has no field """ + c.field + """.";
+            end
+
+            stim = c.stim & use;
+            ctch = c.catch & use;
+            withValue = stim & ~isnan(c.value);
+            R.NumNoValue = nnz(stim & ~withValue);
+
+            vals = unique(c.value(withValue));
+            K = numel(vals);
+            R.Values = reshape(vals, 1, []);
+            [~, g] = ismember(c.value, vals);
+            g(~withValue) = 0;
+
+            countBy = @(m) psychophysics.Detection.countBy_(g, m, K);
+            R.N.Trials = countBy(true(1, c.n));
+            R.N.Hit    = countBy(c.hit);
+            R.N.Miss   = countBy(c.miss);
+            R.N.Abort  = countBy(c.abort);
+            R.N.Scored = psychophysics.Metrics.rateDenominator( ...
+                R.N.Hit + R.N.Miss, R.N.Abort, obj.IncludeAborts);
+
+            R.Catch.Trials        = nnz(ctch);
+            R.Catch.FalseAlarm    = nnz(ctch & c.fa);
+            R.Catch.CorrectReject = nnz(ctch & c.cr);
+            R.Catch.Abort         = nnz(ctch & c.abort);
+            R.Catch.Scored        = psychophysics.Metrics.rateDenominator( ...
+                R.Catch.FalseAlarm + R.Catch.CorrectReject, R.Catch.Abort, obj.IncludeAborts);
+
+            R.Rate.FalseAlarm    = psychophysics.Metrics.rate(R.Catch.FalseAlarm, R.Catch.Scored);
+            R.Rate.CorrectReject = psychophysics.Metrics.rate(R.Catch.CorrectReject, R.Catch.Scored);
+
+            if K == 0
+                if strlength(R.Message) == 0
+                    R.Message = "No stimulus trial with a value yet.";
+                end
+                return
+            end
+
+            % psychophysics.Metrics owns every formula; a row of per-value
+            % counts against the pooled catch counts broadcasts to one value
+            % per stimulus level.
+            S = psychophysics.Metrics.fromCounts(R.N.Hit, R.N.Miss, ...
+                R.Catch.FalseAlarm, R.Catch.CorrectReject, ...
+                AbortSignal=R.N.Abort, AbortNoise=R.Catch.Abort, ...
+                IncludeAborts=obj.IncludeAborts, ...
+                Correction=obj.CorrectionMode, Bounds=obj.infCorrection);
+            R.Rate.Hit    = S.Rate.Hit;
+            R.Rate.Miss   = S.Rate.Miss;
+            R.DPrime      = S.DPrime;
+            R.APrime      = S.APrime;
+            R.Criterion   = S.Criterion;
+            R.BPrimePrime = S.BPrimePrime;
+        end
+    end
+
+    methods (Static, Access = private)
+        function out = countBy_(g, m, K)
+            % Trials per value group (g > 0) among those M selects.
+            sel = g > 0 & m;
+            out = zeros(1, K);
+            if K > 0 && any(sel)
+                out = accumarray(g(sel).', 1, [K 1]).';
+            end
+        end
+
+        function S = windowSum_(X, w)
+            % Running sums down the trials (rows): all so far when w is 0,
+            % else over the last w.
+            S = cumsum(X, 1);
+            if w > 0 && size(X, 1) > 0
+                k = min(w, size(X, 1));
+                S = S - [zeros(k, size(X, 2)); S(1:end-k, :)];
+            end
+        end
+
+        function R = emptyResults_()
+            % Every field present before the first trial.
+            e = zeros(1, 0);
+            R = struct( ...
+                'Parameter',  "", ...
+                'Values',     e, ...
+                'N',          struct('Trials', e, 'Hit', e, 'Miss', e, 'Abort', e, 'Scored', e), ...
+                'Catch',      struct('Trials', 0, 'FalseAlarm', 0, 'CorrectReject', 0, 'Abort', 0, 'Scored', 0), ...
+                'Rate',       struct('Hit', e, 'Miss', e, 'FalseAlarm', NaN, 'CorrectReject', NaN), ...
+                'DPrime',     e, ...
+                'APrime',     e, ...
+                'Criterion',  e, ...
+                'BPrimePrime', e, ...
+                'NumNoValue', 0, ...
+                'TrialIndex', e, ...
+                'Window',     psychophysics.TrialWindow, ...
+                'Message',    "");
         end
     end
 end

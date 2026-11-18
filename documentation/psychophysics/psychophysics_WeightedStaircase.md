@@ -223,10 +223,13 @@ Two data faults are handled rather than propagated:
   trial — and, for a stimulus trial, made the `Staircase` constructor throw.
   This fix is in `stimulusValues`, so the plain reversal threshold and the plot
   get it too.
-- **A trial with no response code** is refused for inference ("no response code
-  on every trial") rather than attributed: the same concatenation would pair
-  every later code with the wrong trial's step. Stated steps and a named DATA
-  field still work.
+- **A trial with no response code** reads as unscored (code 0): its step is
+  attributed to neither response, and every later code stays on its own trial.
+  Until 2026-11-17 the concatenation in `psychophysics.Psych.responseCodes`
+  dropped such a code, pairing every later code with the wrong trial's step, so
+  inference was refused instead; `responseCodes` now reads one code per trial.
+  A session with no response codes at all is still refused ("no response code
+  on every trial"); stated steps and a named DATA field still work.
 
 The static's inputs may be empty (`[]`, `0x1`) or columns. `reversalIsAscending`
 must be logical or numeric 0/1; a `NaN` or a `2` is a bug upstream and throws

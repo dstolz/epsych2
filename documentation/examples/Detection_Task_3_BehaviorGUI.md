@@ -15,7 +15,7 @@ real task GUI needs: a live analysis pipeline and the event hooks.
 function p = createPsych(obj, R)
     p = [];
     if isfield(obj.P, 'ToneLevel')
-        p = psychophysics.Detection(R, obj.P.ToneLevel, epsych.BitMask.TrialType_0);
+        p = psychophysics.Detection(R, obj.P.ToneLevel);   % go trials = TrialType 0, catch = 1
     end
 end
 ```
@@ -31,12 +31,13 @@ RUNTIME.EVENTS ── NewData ──▶ psychophysics.Detection (ingests the tri
 ```
 
 `psychophysics.Detection` listens to `RUNTIME.EVENTS`, decodes each trial's
-`RespCode`, and re-broadcasts `NewData` on its own `Events`. Because
-`gui.BehaviorGUI` subscribes to `Psych.Events` when `createPsych` returns an object,
-`onNewData` is guaranteed to run *after* the Detection object has processed the
-trial — its dependent properties (`NumTrials`, `Hit_Rate`, `DPrime`, `Count`)
-are always current inside the hook. `gui.components.PsychPlot` hangs off the same broadcaster
-and redraws itself; the GUI never touches it after construction.
+`RespCode`, recomputes its `Results`, and re-broadcasts `NewData` on its own
+`Events`. Because `gui.BehaviorGUI` subscribes to `Psych.Events` when
+`createPsych` returns an object, `onNewData` is guaranteed to run *after* the
+Detection object has processed the trial — `Results` (values, per-level counts,
+rates, d′) is always current inside the hook. `gui.components.PsychPlot` hangs off
+the same broadcaster and redraws itself; the GUI never touches it after
+construction. See [psychophysics_Detection.md](../psychophysics/psychophysics_Detection.md).
 
 Guarding on `isfield(obj.P, 'ToneLevel')` keeps the class loadable against
 protocols that lack the parameter — `obj.P` holds every runtime parameter
@@ -64,15 +65,16 @@ The per-level table in `onNewData` is a compact template for any summary
 readout driven by `psychophysics.Detection`:
 
 ```matlab
-P = obj.Psych;
-P.targetTrialType = epsych.BitMask.TrialType_0;   % analyze go trials
-uv = P.uniqueValues;                              % levels seen so far
-S = [compose("%g", uv(:)), ...
-     compose("%d", [P.Count.TrialType_0].'), ...
-     compose("%.0f", 100 * P.Hit_Rate(:)), ...
-     compose("%.2f", P.DPrime(:))];
+R = obj.Psych.Results;                            % recomputed before this hook ran
+if isempty(R.Values), return; end                 % no go trial yet
+S = [compose("%g", R.Values(:)), ...              % levels seen so far
+     compose("%d", R.N.Trials(:)), ...
+     compose("%.0f", 100 * R.Rate.Hit(:)), ...
+     compose("%.2f", R.DPrime(:))];
 obj.SummaryTable.Data = flipud(S);
 ```
+
+`obj.Psych.summary()` returns the same per-level numbers as a table.
 
 ## Launching it
 

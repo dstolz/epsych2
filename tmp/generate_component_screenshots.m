@@ -189,12 +189,12 @@ S.Level = S.PsychIface.Module.add_parameter('Depth', ...
     median(unique([S.PsychDATA([S.PsychDATA.TrialType] == 0).Depth])), ...
     Description="Amplitude modulation depth", Format='%.3g');
 
-% Stimulus trials only: without it the catch trials contribute a level of their
-% own at the bottom of the axis.
-S.Psych = psychophysics.Detection(S.PsychRUNTIME, S.Level, epsych.BitMask.TrialType_0);
+% Stimulus trials (TrialType 0, the default) are grouped by level; the catch
+% trials pool into the false-alarm rate rather than becoming a level.
+S.Psych = psychophysics.Detection(S.PsychRUNTIME, S.Level);
 S.PsychTrialsEvent = epsych.TrialsData(S.PsychRUNTIME.TRIALS(1));
 S.Psych.update_data([], S.PsychTrialsEvent);   % seed with the whole session
-fprintf('  %d trials, %d depths\n', numel(S.PsychDATA), numel(S.Psych.uniqueValues));
+fprintf('  %d trials, %d depths\n', numel(S.PsychDATA), numel(S.Psych.Results.Values));
 end
 
 
@@ -359,9 +359,9 @@ end
 %  Online analysis
 % -------------------------------------------------------------------------
 function fig = shotHistory(S)
-% gui.components.History reads responseBits, so it wants a psychophysics.Psych
-% subclass; psychophysics.Detection is not one. A Staircase in offline mode
-% is the same object a real behavior GUI hands it.
+% A Staircase in offline mode is the same object a real behavior GUI hands
+% gui.components.History; any psychophysics.Psych (Detection included) would
+% do.
 fig = shotFigure([540 300]);
 sc = psychophysics.Staircase(S.DATA, S.RUNTIME.find_parameter('StimDelay'));
 H = gui.components.History(sc, fig, PreferenceTag='wikiShotHistory');

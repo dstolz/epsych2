@@ -1,86 +1,72 @@
 classdef SlidingWindowPerformancePlot < handle
-    % SlidingWindowPerformancePlot - Live-updating performance plot for psychophysics data
+    % SlidingWindowPerformancePlot - A detection metric over trials, one line
+    % per stimulus value.
     %
-    %   This class visualizes behavioral performance metrics over time, based on
-    %   trial-by-trial data from a connected psychophysics experiment object.
+    %   obj = gui.components.SlidingWindowPerformancePlot(pObj, ax)
     %
-    %   Metrics computed and plotted:
-    %       - dPrime      : Sensitivity (signal detection theory)
-    %       - aPrime      : Nonparametric sensitivity A' (chance = 0.5)
-    %       - HitRate     : Proportion of correct detections on stimulus trials
-    %       - FARate      : False alarm rate on catch trials
-    %       - Bias        : Response bias (criterion) estimate
+    %   Plots one metric of a psychophysics.Detection as a curve over the
+    %   session: the point at trial t is computed from every trial so far
+    %   (windowSize = 0, cumulative) or from the last windowSize trials. The
+    %   curve is pObj.windowed(windowSize) -- the analysis computes it, this
+    %   class only draws it -- so it is redrawn whole on every update: a
+    %   review scrubbed backwards, an offline analysis, an ExcludedTrials
+    %   change all show the right curve, not one point per event received.
     %
-    %   The class supports plotting these metrics either cumulatively or over a
-    %   fixed-size sliding window of recent trials.
-    %
-    %   Usage:
-    %       obj = SlidingWindowPerformancePlot(pObj, ax);
-    %
-    %   Inputs:
-    %       pObj - (optional) Psychophysics object providing trial data
-    %       ax   - (optional) Axes object for plotting (default: gca)
+    %   Metrics (plotType): "DPrime", "APrime", "HitRate", "Criterion" -- one
+    %   line per stimulus value -- and "FARate", one line for the pooled catch
+    %   trials. Right-click the axes to change the metric or the window.
     %
     %   Example:
-    %       swp = SlidingWindowPerformancePlot(myPsychObj);
+    %       swp = gui.components.SlidingWindowPerformancePlot(D, axes(fig));
     %       swp.plotType = "HitRate";
-    %       swp.windowSize = 50;  % Plot performance over last 50 trials
+    %       swp.windowSize = 50;   % the last 50 trials
     %
-    %   Note: This object attaches a listener to the psychObj's 'NewData' event
-    %   and updates the plot automatically when new trials are added.
+    % See also psychophysics.Detection.windowed, gui.components.PsychPlot
 
     properties (SetObservable)
-        psychObj  % Reference to the main psychophysics object providing data
+        psychObj  % psychophysics.Detection the curve is computed by
 
-        plotType (1,1) string {mustBeMember(plotType,["dPrime","aPrime","HitRate","FARate","Bias"])} = "dPrime";
-        % Type of metric to plot. Options: 'dPrime', 'aPrime', 'HitRate', 'FARate', 'Bias'
+        % Metric plotted.
+        plotType (1,1) string {mustBeMember(plotType,["DPrime","APrime","HitRate","FARate","Criterion"])} = "DPrime"
 
-        palettename (1,1) string = "lines";  % Color palette for the lines
+        palettename (1,1) string = "lines"  % Colormap function for the lines
 
-        MarkerSize (1,1) {mustBePositive} = 10;  % Marker size for plot points
-        Marker (1,1) char = '.';               % Marker type (e.g. '.', 'o', etc.)
+        MarkerSize (1,1) {mustBePositive} = 10
+        Marker (1,1) char = '.'
+        LineStyle (1,:) char = ':'
+        LineWidth (1,1) double = 1.5
 
-        LineStyle (1,:) char = ':';            % Line style for connecting points
-        LineWidth (1,1) double = 1.5;          % Line width
-
-        windowSize (1,1) double {mustBeNonnegative,mustBeInteger,mustBeFinite} = 0;
-        % Number of recent trials to include in each sliding window.
-        %   If 0: Use cumulative data from start to current trial (default).
-        %   If >0: Use only the last N trials as a sliding window.
+        % Trials in each window: 0 is cumulative (every trial so far).
+        windowSize (1,1) double {mustBeNonnegative,mustBeInteger,mustBeFinite} = 0
     end
 
     properties (SetAccess = private)
-        hAxes                               % Axes handle for plotting
-        hLines %(:,1) matlab.graphics.primitive.Line  % Line object handles
+        hAxes                       % Axes handle for plotting
+        hLines = gobjects(0)        % One line per plotted series
+        Curves = []                 % psychObj.windowed(windowSize) as last drawn
+        hl_NewData                  % Listener for new data events
+        cm                          % Line colours
+    end
 
-        Data                                % Placeholder for future data struct
-        hl_NewData                          % Listener for new data events
+    properties (Access = private)
+        built_ (1,1) logical = false
+        ContextMenuH_ = []
 
-        plotValues                          % Unique stimulus values being plotted
+        % The reference line, made once and moved. It is HandleVisibility
+        % 'off' (kept out of the legend), which also hides it from findobj,
+        % so it is held here: looking it up by tag found nothing and a new
+        % one piled up on every redraw.
+        RefLine_ = []
+        LegendKey_ (1,1) string = ""  % series + title the legend was built for
 
-        trialBits                           % Bitmask representation of trial outcomes
+        % Updates skipped while the axes sit on a hidden tab, caught up when
+        % the tab is shown (gui.isShown / gui.onShown).
+        Stale_ (1,1) logical = false
+        TabListeners_ = event.listener.empty(1,0)
+    end
 
-        % Struct for storing raw trial counts per value/window
-        N = struct( ...
-            'Stimulus', [], ...
-            'Hit', [], ...
-            'Catch', [], ...
-            'FalseAlarm', [], ...
-            'Values', [], ...
-            'TrialIdx', [] ...
-        );
-
-        % Struct for storing computed rates
-        Rate = struct( ...
-            'Hit', [], ...
-            'FalseAlarm', [] ...
-        );
-
-        dPrime = [];  % Matrix of d-prime values by trial
-        aPrime = [];  % Matrix of nonparametric A' values by trial
-        Bias = [];    % Matrix of bias values by trial
-
-        cm % colormap
+    properties (Constant)
+        WINDOW_CHOICES = [0 10 20 50 100]  % offered on the right-click menu
     end
 
     methods (Static)
@@ -91,234 +77,229 @@ classdef SlidingWindowPerformancePlot < handle
             s.type        = 'SlidingWindow';
             s.label       = 'Sliding Window';
             s.category    = 'Displays';
-            s.description = 'Hit rate, FA rate and d'' over trials, cumulative or windowed';
+            s.description = 'Hit rate, FA rate, d'', A'' or c over trials, cumulative or windowed (requires a Detection analysis)';
             s.shape       = ["psych","canvas"];
             s.canvas      = 'axes';
             s.requires    = "psych";
+            s.psychTypes  = "psychophysics.Detection";
         end
     end
 
     methods
-        % Constructor
         function obj = SlidingWindowPerformancePlot(pObj, ax)
-            % Constructs the SlidingWindowPerformancePlot object and sets up plot.
+            % obj = SlidingWindowPerformancePlot(pObj, ax)
             %
-            %   Inputs:
-            %       pObj - Psychometric object (optional)
-            %       ax   - Axes for plotting (optional; defaults to gca)
-
-            if nargin < 2 || isempty(ax), ax = gca; end
-            obj.hAxes = ax;
-
-            if nargin >= 1 && ~isempty(pObj), obj.psychObj = pObj; end
-
-            obj.setup_plot;
-
-            % Listen for new trial data
-            obj.hl_NewData = listener(pObj.Events, 'NewData', @obj.update);
-        end
-
-        function delete(obj)
-            % Destructor: cleans up the data listener
-            try
-                delete(obj.hl_NewData);
+            %   pObj - psychophysics.Detection
+            %   ax   - Axes for plotting (default gca)
+            arguments
+                pObj (1,1) psychophysics.Detection
+                ax = gca
             end
-        end
+            obj.hAxes = ax;
+            obj.psychObj = pObj;
+            obj.cm = feval(obj.palettename, 64);
 
-        function update(obj, src, event)
-            % Called automatically when new data arrives
-            obj.compute;
-            obj.plot;
-        end
-
-        function setup_plot(obj)
-            % Initializes the plot with default line styles and appearance
-
-            obj.cm = colormap(obj.palettename);
-
-            % obj.hLines = matlab.graphics.primitive.Line;
-            obj.hLines = [];
-            
             grid(obj.hAxes, 'on');
             box(obj.hAxes, 'on');
             xlabel(obj.hAxes, 'Trials');
+            obj.buildContextMenu_();
 
+            obj.hl_NewData = listener(pObj.Events, 'NewData', @obj.update);
+            obj.TabListeners_ = gui.onShown(ax, @() obj.catchUp_());
+            obj.built_ = true;
+            obj.update();
+        end
 
-            % Add legend unless plotting non-stimulus-specific metric
-            if obj.plotType == "FARate"
-                legend(obj.hAxes, 'off');
-            else
-                h = legend(obj.hAxes, Location = "eastoutside");
-                h.Title.String = obj.psychObj.Parameter.Name;
+        function delete(obj)
+            try
+                delete(obj.hl_NewData);
+                delete(obj.TabListeners_);
+            catch
             end
+            try
+                if ~isempty(obj.ContextMenuH_) && isvalid(obj.ContextMenuH_)
+                    delete(obj.ContextMenuH_);
+                end
+            catch
+            end
+        end
+
+        function set.plotType(obj, v)
+            obj.plotType = v;
+            obj.redrawIfBuilt_();
+        end
+
+        function set.windowSize(obj, v)
+            obj.windowSize = v;
+            obj.updateIfBuilt_();
+        end
+
+        function set.Marker(obj, v),     obj.Marker = v;     obj.restyle_(); end
+        function set.MarkerSize(obj, v), obj.MarkerSize = v; obj.restyle_(); end
+        function set.LineStyle(obj, v),  obj.LineStyle = v;  obj.restyle_(); end
+        function set.LineWidth(obj, v),  obj.LineWidth = v;  obj.restyle_(); end
+
+        function update(obj, ~, ~)
+            % Recompute the curve from the analysis and redraw it.
+            if isempty(obj.hAxes) || ~isvalid(obj.hAxes) || ~isvalid(obj.psychObj), return; end
+            % On a hidden tab a redraw costs and shows nothing: defer it.
+            if ~gui.isShown(obj.hAxes)
+                obj.Stale_ = true;
+                return
+            end
+            obj.Stale_ = false;
+            obj.Curves = obj.psychObj.windowed(obj.windowSize);
+            obj.plot();
         end
 
         function plot(obj)
-            % Plots the selected performance metric across trials.
-            % Automatically updates line objects for each unique stimulus value.
+            % Draw obj.Curves as the selected metric.
+            W = obj.Curves;
+            if isempty(W) || isempty(obj.hAxes) || ~isvalid(obj.hAxes), return; end
 
-            vprintf(4, 'Plotting psychometric data');
+            if obj.plotType == "FARate"
+                Y = W.FARate;
+                labels = "Catch trials";
+                legendTitle = "False alarms";
+            else
+                Y = W.(obj.plotType);
+                labels = string(W.Values);
+                legendTitle = string(obj.psychObj.ParameterName);
+            end
+            x = W.TrialIndex;
 
-            y = obj.(obj.plotType);
-            if isempty(y), return; end  % No data yet
-
-            % if isempty(obj.hLines) || ~isvalid(obj.hLines(1))
-            %     obj.setup_plot;
-            % end
-
-            x = [obj.N.TrialIdx]'; % X-axis: Trial indices
-            nStim = size(y, 2);  % Number of stimulus values
-
-
-            if nStim > length(obj.hLines)  % Add new line objects if needed
-                for i = length(obj.hLines)+1:nStim
+            % New series (a value first seen, a metric switched to or from
+            % the pooled false-alarm line) rebuild the lines; otherwise only
+            % their data change.
+            current = strings(0, 1);
+            if ~isempty(obj.hLines) && all(isvalid(obj.hLines))
+                current = string(get(obj.hLines, 'DisplayName'));
+            end
+            if numel(current) ~= numel(labels) || ~isequal(current(:), labels(:))
+                delete(obj.hLines(isvalid(obj.hLines)));
+                obj.hLines = gobjects(1, numel(labels));
+                for i = 1:numel(labels)
                     obj.hLines(i) = line(obj.hAxes, nan, nan, ...
-                        Color = obj.cm(i,:), ...
-                        UserData = obj.plotValues(i)); 
+                        Color = obj.cm(mod(i-1, size(obj.cm,1)) + 1, :), ...
+                        DisplayName = labels(i), ...
+                        Marker = obj.Marker, MarkerSize = obj.MarkerSize, ...
+                        LineStyle = obj.LineStyle, LineWidth = obj.LineWidth);
                 end
             end
-
-            % Update existing lines
-            % Map plot values to line handles
-            ud = get(obj.hLines,'UserData');
-            if iscell(ud), ud = cell2mat(ud); end
-            for i = 1:nStim
-                ind = obj.plotValues == ud(i);
-                set(obj.hLines(ind),XData = x,YData = y(:,i),DisplayName = string(ud(i)));
+            % Only the data change per trial; style is set when a line is
+            % made (and by restyle_ when a style property changes).
+            for i = 1:numel(labels)
+                set(obj.hLines(i), XData = x, YData = Y(:, i));
             end
 
-            % Update appearance
-            addArgs = {'Marker', obj.Marker, ...
-                       'MarkerSize', obj.MarkerSize, ...
-                       'LineStyle', obj.LineStyle, ...
-                       'LineWidth', obj.LineWidth};
-            set(obj.hLines, addArgs{:});
-
-
-            % Add reference line for d' = 1
-            if obj.plotType == "dPrime"
-                yline(obj.hAxes, 1, '--k', HandleVisibility = "off");
-            elseif obj.plotType == "aPrime"
-                % A' chance level, the counterpart of d' = 0
-                yline(obj.hAxes, 0.5, '--k', HandleVisibility = "off");
+            switch obj.plotType
+                case "DPrime",    refY = 1;
+                case "APrime",    refY = 0.5;
+                case "Criterion", refY = 0;
+                otherwise,        refY = NaN;
+            end
+            if isempty(obj.RefLine_) || ~isvalid(obj.RefLine_)
+                obj.RefLine_ = yline(obj.hAxes, 0, '--k', HandleVisibility = "off", ...
+                    Tag = 'reference', Visible = 'off');
+            end
+            wantVisible = ~isnan(refY);
+            if logical(obj.RefLine_.Visible) ~= wantVisible
+                obj.RefLine_.Visible = wantVisible;
+            end
+            if wantVisible && obj.RefLine_.Value ~= refY
+                obj.RefLine_.Value = refY;
             end
 
-            ylabel(obj.hAxes, obj.plotType);
+            % The legend, labels and title change only with the series, the
+            % metric or the window; rebuilding them on every trial made each
+            % redraw re-lay out the axes.
+            if obj.windowSize == 0
+                ttl = "Cumulative";
+            else
+                ttl = sprintf("Last %d trials", obj.windowSize);
+            end
+            key = strjoin([obj.plotType; labels(:); legendTitle; ttl], "|");
+            if key ~= obj.LegendKey_
+                if isempty(labels)
+                    legend(obj.hAxes, 'off');
+                else
+                    h = legend(obj.hAxes, Location = "eastoutside");
+                    h.Title.String = legendTitle;
+                end
+                ylabel(obj.hAxes, obj.plotType);
+                title(obj.hAxes, ttl, 'FontWeight', 'normal');
+                obj.LegendKey_ = key;
+            end
+        end
+    end
+
+    methods (Access = private)
+        function redrawIfBuilt_(obj)
+            if obj.built_, obj.plot(); obj.syncMenu_(); end
         end
 
-        function compute(obj)
-            % Computes performance metrics based on the sliding or cumulative window.
-            %
-            %   This function calculates hit rate, false alarm rate, d-prime,
-            %   and bias for the most recent trials based on `windowSize`.
-            %
-            %   If windowSize == 0:
-            %       - Uses all trials from the beginning (cumulative).
-            %   If windowSize > 0:
-            %       - Uses only the last N trials up to the current trial index.
+        function updateIfBuilt_(obj)
+            if obj.built_, obj.update(); obj.syncMenu_(); end
+        end
 
-            if isempty(obj.psychObj.DATA), return; end
-            vprintf(4, 'Computing psychometric data');
-
-            P = obj.psychObj;
-            P.targetTrialType = epsych.BitMask.Undefined;
-
-            vals = P.trialValues;
-            RC = P.responseCodes;
-            if isempty(RC), return; end
-
-            obj.trialBits = epsych.BitMask.Mask2Bits(RC);
-            if isempty(obj.trialBits), return; end
-
-            idxCatch = uint32(P.ttCatch);
-            isCatch = obj.trialBits(:, idxCatch);
-            valCatch = unique(vals(isCatch));
-            uv = unique(vals,'stable');
-            uv(ismember(uv, valCatch)) = [];  % Exclude catch-only values
-
-            nStim = nan(1, length(uv));
-            nHit = nStim;
-
-            iStim  = uint32(P.ttStimulus);
-            iCatch = uint32(P.ttCatch);
-            iHit   = uint32(epsych.BitMask.Hit);
-            iMiss  = uint32(epsych.BitMask.Miss);
-            iFA    = uint32(epsych.BitMask.FalseAlarm);
-            iCR    = uint32(epsych.BitMask.CorrectReject);
-            iAbort = uint32(epsych.BitMask.Abort);
-
-            tidx = P.trialIndex;
-
-            % === SLIDING OR CUMULATIVE WINDOW ===
-            if obj.windowSize == 0
-                idx = 1:tidx;  % Cumulative
-            else
-                idx = max(tidx - obj.windowSize + 1, 1):tidx;  % Sliding
+        function buildContextMenu_(obj)
+            % Metric and window, the two things an operator changes.
+            f = ancestor(obj.hAxes, 'figure');
+            if isempty(f) || ~isvalid(f), return; end
+            try
+                cm_ = uicontextmenu(f);
+                mt = uimenu(cm_, Text = 'Metric');
+                for t = ["DPrime","APrime","HitRate","FARate","Criterion"]
+                    uimenu(mt, Text = t, Tag = "metric|" + t, ...
+                        MenuSelectedFcn = @(~,~) obj.choose_('plotType', t));
+                end
+                mw = uimenu(cm_, Text = 'Window');
+                for w = obj.WINDOW_CHOICES
+                    if w == 0, txt = 'Cumulative'; else, txt = sprintf('Last %d trials', w); end
+                    uimenu(mw, Text = txt, Tag = "window|" + w, ...
+                        MenuSelectedFcn = @(~,~) obj.choose_('windowSize', w));
+                end
+                obj.hAxes.ContextMenu = cm_;
+                obj.ContextMenuH_ = cm_;
+                obj.syncMenu_();
+            catch ME
+                vprintf(3, 'gui.components.SlidingWindowPerformancePlot: context menu unavailable: %s', ME.message)
             end
+        end
 
-            for i = 1:length(uv)
-                iv = intersect(idx, find(uv(i) == vals(:)));
-
-                if isempty(iv), continue; end
-
-                % Every count is a conjunction between two decoded columns.
-                % Both operands are bit POSITIONS, so "iStim & iHit" would be
-                % a logical AND of 11 and 1 -- it indexes column 1 and
-                % quietly drops the trial-type term.
-                onStim = obj.trialBits(iv, iStim);
-
-                % Answered stimulus trials, not every stimulus trial, so an
-                % abort does not depress the hit rate; P.IncludeAborts puts
-                % them back.
-                sn = sum(psychophysics.Metrics.rateDenominator( ...
-                    (onStim & obj.trialBits(iv, iHit)) + (onStim & obj.trialBits(iv, iMiss)), ...
-                    onStim & obj.trialBits(iv, iAbort), P.IncludeAborts), 1);
-                if ~isempty(sn), nStim(i) = sn; end
-
-                sh = sum(onStim & obj.trialBits(iv, iHit), 1);
-                if ~isempty(sh), nHit(i) = sh; end
+        function catchUp_(obj)
+            % A tab selection changed: update now if this plot was skipped
+            % while hidden and is shown at last.
+            if obj.Stale_ && gui.isShown(obj.hAxes)
+                obj.update();
             end
+        end
 
-            onCatch = obj.trialBits(idx, iCatch);
-            nCatch = sum(psychophysics.Metrics.rateDenominator( ...
-                (onCatch & obj.trialBits(idx, iFA)) + (onCatch & obj.trialBits(idx, iCR)), ...
-                onCatch & obj.trialBits(idx, iAbort), P.IncludeAborts), 1);
-            nFA = sum(onCatch & obj.trialBits(idx, iFA), 1);
+        function restyle_(obj)
+            % Apply the style properties to the lines already drawn; new
+            % lines take them when they are made.
+            ok = obj.hLines(isgraphics(obj.hLines));
+            if isempty(ok), return; end
+            set(ok, Marker = obj.Marker, MarkerSize = obj.MarkerSize, ...
+                LineStyle = obj.LineStyle, LineWidth = obj.LineWidth);
+        end
 
-            obj.N(tidx).Stimulus   = nStim;
-            obj.N(tidx).Hit        = nHit;
-            obj.N(tidx).Catch      = nCatch;
-            obj.N(tidx).FalseAlarm = nFA;
-            obj.N(tidx).Values     = uv;
-            obj.N(tidx).TrialIdx   = tidx;
+        function choose_(obj, prop, value)
+            % Menu callback; the property setter redraws.
+            obj.(prop) = value;
+        end
 
-            nuv = unique([obj.N.Values],'stable');
-            obj.plotValues = nuv;
-
-            if isempty(obj.Rate.Hit), obj.Rate.Hit = nan; end
-
-            if size(obj.Rate.Hit,2) < length(nuv)
-                obj.Rate.Hit(:,end:length(nuv)) = nan;
+        function syncMenu_(obj)
+            if isempty(obj.ContextMenuH_) || ~isvalid(obj.ContextMenuH_), return; end
+            items = findall(obj.ContextMenuH_, 'Type', 'uimenu');
+            for it = reshape(items, 1, [])
+                tag = string(it.Tag);
+                if startsWith(tag, "metric|")
+                    it.Checked = extractAfter(tag, "|") == obj.plotType;
+                elseif startsWith(tag, "window|")
+                    it.Checked = str2double(extractAfter(tag, "|")) == obj.windowSize;
+                end
             end
-
-            ind = ismember(nuv, uv);
-
-            % psychophysics.Metrics.rate leaves a window with no trials of a
-            % kind undefined rather than Inf, and its d' propagates that NaN
-            % on its own -- the d(isnan(HR)) = nan this replaces was a
-            % workaround for a clamp that dropped NaN.
-            HR  = psychophysics.Metrics.rate(nHit, nStim);
-            FAR = psychophysics.Metrics.rate(nFA, nCatch);
-
-            obj.Rate.Hit(tidx, ind) = HR;
-            obj.Rate.FalseAlarm(tidx) = FAR;
-
-            obj.dPrime(tidx, ind) = psychophysics.Metrics.dprime(HR, FAR, ...
-                Correction="clamp", Bounds=P.infCorrection);
-
-            % A' needs no infCorrection: it is defined at rates of 0 and 1,
-            % which is what keeps it usable in the first few trials of a window
-            obj.aPrime(tidx, ind) = psychophysics.Metrics.aprime(HR, FAR);
         end
     end
 end

@@ -1,57 +1,67 @@
 classdef PsychPlot < gui.PopOut
     % obj = gui.components.PsychPlot(pObj, ax)
-    % Online psychometric summary plot (d', A', hit rate, FA rate, bias).
+    % Psychometric summary of a psychophysics.Detection: one metric (d',
+    % A', hit rate, false-alarm rate, criterion, B'') against the stimulus
+    % value, marker size following the trials behind each point.
     %
-    % The plot listens to the psychophysics object's Events.NewData event
-    % and refreshes automatically when new trial data arrive.
+    % Everything drawn comes from pObj.Results in one read -- the values
+    % and the metric over them -- so the two cannot disagree, and the plot
+    % follows the analysis's Events.NewData, which it broadcasts on every
+    % trial and on every change of its settings.
     %
-    % Right-click the axes for "Open in Separate Window" (see gui.PopOut):
-    % a second, independent plot of the same psychophysics object, whose
-    % plot type and axis scaling are its own.
+    % Click the y label to choose the metric, the x label to choose which
+    % DATA field the analysis groups the stimulus trials by (that sets
+    % pObj.Parameter, so every other display over the same analysis follows
+    % too). Right-click the axes for "Open in Separate Window" (see
+    % gui.PopOut): a second, independent plot whose metric is its own.
     %
     % Inputs:
-    %   pObj - psychophysics object (e.g., psychophysics.Detection).
+    %   pObj - psychophysics.Detection.
     %   ax   - Target axes (default = gca).
 
     properties
         ax       (1,1)
-        
-        
-        psychObj % psychophysics...
-        
-        % must jive with obj.ValidPlotTypes
-        PlotType    (1,:) char {mustBeMember(PlotType,{'DPrime','APrime','Hit_Rate','FA_Rate','Bias'})} = 'DPrime';
-        
+
+        psychObj % psychophysics.Detection
+
+        % Metric on the y axis; one of ValidPlotTypes.
+        PlotType    (1,:) char {mustBeMember(PlotType,{'DPrime','APrime','HitRate','FARate','Criterion','BPrimePrime'})} = 'DPrime';
+
         LineColor   (:,:) double {mustBeNonnegative,mustBeLessThanOrEqual(LineColor,1)}   = [.2 .6 1; 1 .6 .2];
         MarkerColor (:,:) double {mustBeNonnegative,mustBeLessThanOrEqual(MarkerColor,1)} = [0 .4 .8; .8 .4 0];
 
-
         logx    (1,1) logical = false
     end
-    
+
     properties (SetAccess = private)
         LineH
         ScatterH
-        TextH
 
         hl_NewData
     end
 
     properties (Access = private)
         ContextMenuH_ = [] % right-click menu on the axes
+
+        % The reference line, held because it is HandleVisibility 'off'
+        % and findobj cannot see it: looked up by tag, it was never found,
+        % so it stayed at 1 whatever the metric.
+        RefH_ = []
+
+        % Redraws skipped while the axes sit on a hidden tab, caught up
+        % when the tab is shown (gui.isShown / gui.onShown).
+        Stale_ (1,1) logical = false
+        TabListeners_ = event.listener.empty(1,0)
     end
-    
-    
+
     properties (Dependent)
         ParameterName
     end
-    properties (Constant)
-        ValidPlotTypes = {'DPrime','APrime','Hit_Rate','FA_Rate','Bias'};
-    end
-    
-    
 
-    
+    properties (Constant)
+        ValidPlotTypes = {'DPrime','APrime','HitRate','FARate','Criterion','BPrimePrime'};
+    end
+
     methods (Static)
         function s = getComponentSpec()
             % s = gui.components.PsychPlot.getComponentSpec()
@@ -62,10 +72,11 @@ classdef PsychPlot < gui.PopOut
             s.type        = 'PsychPlot';
             s.label       = 'Psych Plot';
             s.category    = 'Displays';
-            s.description = 'Psychometric plot (requires a psych analysis)';
+            s.description = 'Psychometric plot (requires a Detection analysis)';
             s.shape       = ["psych","canvas"];
             s.canvas      = 'axes';
             s.requires    = "psych";
+            s.psychTypes  = "psychophysics.Detection";
         end
     end
 
@@ -73,29 +84,30 @@ classdef PsychPlot < gui.PopOut
         function obj = PsychPlot(pObj,ax)
             % obj = PsychPlot(pObj,ax)
             %
-            % pObj      psychophysics object (ex: psychophysics.Detection)
+            % pObj      psychophysics.Detection
             % ax        Target axes (default = gca)
 
             arguments
-                pObj (1,1) 
+                pObj (1,1) psychophysics.Detection
                 ax (1,1) matlab.graphics.axis.Axes = gca
             end
-            
+
             obj.ax = ax;
-            
+
             obj.psychObj = pObj;
-            obj.setup_xaxis_label;
-            obj.setup_yaxis_label;
 
             obj.hl_NewData = listener(pObj.Events,'NewData',@obj.update_plot);
+            obj.TabListeners_ = gui.onShown(ax, @() obj.catchUp_());
 
             obj.build_context_menu_;
         end
 
         function delete(obj)
-            % Destructor: cleans up the listener and the context menu.
+            % Destructor: cleans up the listeners and the context menu.
             try
                 delete(obj.hl_NewData);
+                delete(obj.TabListeners_);
+            catch
             end
             try
                 if ~isempty(obj.ContextMenuH_) && isvalid(obj.ContextMenuH_)
@@ -104,126 +116,103 @@ classdef PsychPlot < gui.PopOut
             catch
             end
         end
-        
 
         function n = get.ParameterName(obj)
-            n = obj.psychObj.Parameter.Name;
-        end
-        
-
-
-
-        function h = get.LineH(obj)
-            h = findobj(obj.ax,'type','line');
+            n = obj.psychObj.ParameterName;
         end
 
-       
-        
-        function update_plot(obj,src,event)
-            % although data is updated in src and event, just use the obj.psychObj
+        function set.PlotType(obj, v)
+            obj.PlotType = v;
+            obj.update_plot;
+        end
+
+        function update_plot(obj,~,~)
+            % Redraw from the analysis's current Results.
             vprintf(4,'Updating PsychPlot')
-            if ~isvalid(obj.ax), return; end
-
-            lh = obj.LineH;
-            sh = obj.ScatterH;
-            if isempty(lh) || isempty(sh) || ~isvalid(lh) || ~isvalid(sh)
-                sh = scatter(nan,nan,100,'filled','Parent',obj.ax,'Marker','s');
-%                     'MarkerFaceColor','flat');
-                
-                lh = line(obj.ax,nan,nan,'Marker','none', ...
-                    'AlignVertexCenters','on', ...
-                    'LineWidth',2,'Color',obj.LineColor(1,:));
-                
-                obj.LineH = lh;
-                obj.ScatterH = sh;
-
-                line(obj.ax,[-1 1]*1e6,[1 1],Color = 'k', ...
-                    AffectAutoLimits = 'off', ...
-                    HandleVisibility = 'off', ...
-                    Tag = 'reference')
-
-                grid(obj.ax,'on');
-                box(obj.ax,'on');
-            end
-
-            try
-                nStim = obj.psychObj.countUniqueValues;
-                if isempty(nStim), return; end
-                X = obj.psychObj.uniqueValues;
-                Y = obj.psychObj.(obj.PlotType);
-                %C = obj.psychObj.Trial_Count;
-                
-            catch me
+            if isempty(obj.ax) || ~isvalid(obj.ax) || isempty(obj.psychObj) || ~isvalid(obj.psychObj)
                 return
             end
 
-            set(lh,'XData',X,'YData',Y);
-            set(sh,'XData',X,'YData',Y);
+            % On a hidden tab a redraw costs and shows nothing: defer it to
+            % the moment the tab is shown.
+            if ~gui.isShown(obj.ax)
+                obj.Stale_ = true;
+                return
+            end
+            obj.Stale_ = false;
 
-            % The reference line means d' = 1 for every plot type except A',
-            % whose landmark is chance at 0.5
-            refY = 1;
-            if strcmp(obj.PlotType,'APrime'), refY = 0.5; end
-            set(findobj(obj.ax,'Tag','reference'),'YData',[refY refY]);
+            obj.ensureGraphics_();
 
-            ya = min(0,Y);
-            ylim_ = [min(ya) 0.5+max(Y,[],'omitnan')];
-            if isnan(ylim_(2)), ylim_(2) = 1; end
-            set(obj.ax,'ylim',ylim_)
-            
+            R = obj.psychObj.Results;
+            X = R.Values;
+            Y = obj.psychObj.metric(string(obj.PlotType));
+            N = R.N.Trials;
 
-            sh.SizeData = nStim*10+1;
-            c = repmat(obj.MarkerColor(1,:),length(X),1);
-            sh.CData = c;
-            
-            uistack(sh,'top');
-            
-            % for i = 1:length(X)
-            %     if i > size(C,1), break; end
-            %     if nnz(C(i,:)) == 0, continue; end
-            %     obj.TextH(i) = text(obj.ax,X(i),Y(i),num2str(C(i,:),'%d/%d'), ...
-            %         'HorizontalAlignment','center','VerticalAlignment','middle', ...
-            %         'Color',[0 0 0],'FontSize',9);
-            % end
+            if isempty(X)
+                set([obj.LineH obj.ScatterH],'XData',nan,'YData',nan);
+            else
+                set(obj.LineH,'XData',X,'YData',Y);
+                set(obj.ScatterH,'XData',X,'YData',Y,'SizeData',N*10+1, ...
+                    'CData',repmat(obj.MarkerColor(1,:),numel(X),1));
+                uistack(obj.ScatterH,'top');
+            end
 
+            % Only what changed is written; a redraw per trial is enough
+            % graphics traffic without rewriting what already holds.
+            [refY, yl] = obj.referenceAndLimits_(Y);
+            wantVisible = ~isnan(refY);
+            if logical(obj.RefH_.Visible) ~= wantVisible
+                obj.RefH_.Visible = wantVisible;
+            end
+            if wantVisible && ~isequal(obj.RefH_.YData, [refY refY])
+                obj.RefH_.YData = [refY refY];
+            end
+            if ~isequal(obj.ax.YLim, yl)
+                set(obj.ax,'YLim',yl);
+            end
 
             if obj.logx
                 obj.ax.XScale = 'log';
             end
 
-
-            obj.setup_xaxis_label;
-            obj.setup_yaxis_label;
-            
-
-            sstr = sprintf('# Stimulus Trials = %d',obj.psychObj.trialCount);
-            subtitle(obj.ax,sstr);
-
-            tstr = sprintf('%s [%d]', ...
-                obj.psychObj.TRIALS.Subject.Name, ...
-                obj.psychObj.TRIALS.BoxID);
-
-            title(obj.ax,tstr);
-
-            obj.ax.TitleHorizontalAlignment ='right';
+            % Labels and titles are set only when their text changes, so a
+            % trial does not re-lay out the axes for nothing.
+            if ~strcmp(string(obj.ax.XLabel.String), string(obj.ParameterName))
+                obj.setup_xaxis_label;
+            end
+            if ~strcmp(string(obj.ax.YLabel.String), string(obj.PlotType))
+                obj.setup_yaxis_label;
+            end
+            sub = sprintf('# Stimulus Trials = %d',sum(N));
+            if ~strcmp(string(obj.ax.Subtitle.String), sub)
+                obj.ax.Subtitle.String = sub;
+            end
+            ttl = obj.psychObj.sourceLabel();
+            if ~strcmp(string(obj.ax.Title.String), ttl)
+                obj.ax.Title.String = ttl;
+                obj.ax.Title.Interpreter = 'none';
+                obj.ax.TitleHorizontalAlignment = 'right';
+            end
         end
-        
-        function update_parameter(obj,hObj,event)
-            % TO DO: support multiple parameters at a time
+
+        function update_parameter(obj,hObj,~)
+            % Click on an axis label: choose what it shows.
             switch hObj.Tag
                 case 'abscissa'
-                    i = find(ismember(obj.psychObj.ValidParameters,obj.psychObj.ParameterName));
-                    [sel,ok] = listdlg('ListString',obj.psychObj.ValidParameters, ...
+                    % The analysis's grouping field, so every display over
+                    % it follows; it recomputes and broadcasts on the set.
+                    list = obj.psychObj.candidateParameters();
+                    if isempty(list), return; end
+                    i = find(list == obj.psychObj.ParameterField, 1);
+                    if isempty(i), i = 1; end
+                    [sel,ok] = listdlg('ListString',cellstr(list), ...
                         'SelectionMode','single', ...
                         'InitialValue',i,'Name','Plot', ...
                         'PromptString','Select Independent Variable:', ...
                         'ListSize',[180 150]);
                     if ~ok, return; end
-                    obj.psychObj.ParameterName = obj.psychObj.ValidParameters{sel};
-                    try
-                        delete(obj.TextH(length(obj.psychObj.ParameterValues)+1:end));
-                    end
-                    
+                    obj.psychObj.Parameter = list(sel);
+
                 case 'ordinate'
                     i = find(ismember(obj.ValidPlotTypes,obj.PlotType));
                     [sel,ok] = listdlg('ListString',obj.ValidPlotTypes, ...
@@ -233,26 +222,20 @@ classdef PsychPlot < gui.PopOut
                         'ListSize',[180 150]);
                     if ~ok, return; end
                     obj.PlotType = obj.ValidPlotTypes{sel};
-                    
             end
-            obj.update_plot;
         end
-        
-        
+
         function setup_xaxis_label(obj)
             x = xlabel(obj.ax,obj.ParameterName,'Tag','abscissa','Interpreter','none');
             x.ButtonDownFcn = @obj.update_parameter;
         end
-        
+
         function setup_yaxis_label(obj)
             y = ylabel(obj.ax,obj.PlotType,'Tag','ordinate','Interpreter','none');
             y.ButtonDownFcn = @obj.update_parameter;
         end
-        
+
         function set.psychObj(obj,pobj)
-            assert(epsych.EventHub.valid_psych_obj(pobj), ...
-                'gui.components.History:set.PsychophysiccsObj', ...
-                'psychObj must be from the toolbox "psychophysics"');
             obj.psychObj = pobj;
             obj.update_plot;
         end
@@ -267,21 +250,71 @@ classdef PsychPlot < gui.PopOut
         end
 
         function h = createPopOut_(obj,container)
-            % A second psychometric plot on the same psychophysics object,
-            % in its own window. gui.components.PsychPlot needs a classic axes, which
+            % A second psychometric plot on the same analysis, in its own
+            % window. gui.components.PsychPlot needs a classic axes, which
             % axes() inside the pop-out's panel provides.
             popAx = axes(container);
             h = gui.components.PsychPlot(obj.psychObj,popAx);
-            h.PlotType    = obj.PlotType;
             h.LineColor   = obj.LineColor;
             h.MarkerColor = obj.MarkerColor;
             h.logx        = obj.logx;
-            h.update_plot;
+            h.PlotType    = obj.PlotType;
         end
     end
 
 
     methods (Access = private)
+
+        function catchUp_(obj)
+            % A tab selection changed: draw now if this plot was skipped
+            % while hidden and is shown at last.
+            if obj.Stale_ && gui.isShown(obj.ax)
+                obj.update_plot();
+            end
+        end
+
+        function ensureGraphics_(obj)
+            % The line, the markers and the reference line, made once.
+            if ~isempty(obj.LineH) && isvalid(obj.LineH) && ~isempty(obj.ScatterH) && isvalid(obj.ScatterH) ...
+                    && ~isempty(obj.RefH_) && isvalid(obj.RefH_)
+                return
+            end
+            old = [obj.LineH obj.ScatterH obj.RefH_];
+            if ~isempty(old), delete(old(isvalid(old))); end
+            obj.ScatterH = scatter(obj.ax,nan,nan,100,'filled','Marker','s');
+            obj.LineH = line(obj.ax,nan,nan,'Marker','none', ...
+                'AlignVertexCenters','on', ...
+                'LineWidth',2,'Color',obj.LineColor(1,:));
+            obj.RefH_ = line(obj.ax,[-1 1]*1e6,[1 1],Color = 'k', ...
+                AffectAutoLimits = 'off', ...
+                HandleVisibility = 'off', ...
+                Tag = 'reference');
+            grid(obj.ax,'on');
+            box(obj.ax,'on');
+        end
+
+        function [refY, yl] = referenceAndLimits_(obj, Y)
+            % The landmark each metric is read against -- d' = 1, chance
+            % (0.5) for A', no bias (0) for c and B'' -- and y limits that
+            % keep it and the data in view. Rates are bounded to [0 1] and
+            % need no landmark.
+            switch obj.PlotType
+                case {'HitRate','FARate'}
+                    refY = NaN;
+                    yl = [0 1.05];
+                    return
+                case 'APrime',      refY = 0.5;
+                case 'DPrime',      refY = 1;
+                otherwise,          refY = 0;
+            end
+            v = [Y(isfinite(Y)) refY];
+            lo = min(v); hi = max(v);
+            pad = max(0.1*(hi - lo), 0.25);
+            yl = [lo - pad, hi + pad];
+            if strcmp(obj.PlotType,'APrime')
+                yl = [0 1];
+            end
+        end
 
         function build_context_menu_(obj)
             % The pop-out item is the whole menu here: everything else this

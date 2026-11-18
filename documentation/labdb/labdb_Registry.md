@@ -11,6 +11,7 @@ It is optional. EPsych works the same without it, and with it **a database that 
 ## What you need
 
 - The CarasLabDB checkout on the MATLAB path: its `@CarasLabDB` class and its `+labclient` package, which is the client every lab toolbox shares. `addpath('C:\src\CarasLabDB')` in your `startup.m` is enough.
+- That checkout must be recent enough: `labclient.Api.Version` of 3 or later (`labdb.Registry.CLIENT_VERSION`). An older one is not used; `[ok, why] = labdb.Registry.isAvailable()` says so, and the log says it when the registry is set but could not start. `git pull` in the CarasLabDB folder fixes it.
 - The Database Toolbox, which CarasLabDB connects through.
 - MATLAB R2024a or later, for the password vault (`setSecret`).
 

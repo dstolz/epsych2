@@ -704,6 +704,14 @@ CarasLabDB checkout on the path (its `@CarasLabDB` class and its `+labclient`
 package, the offline-first client every lab toolbox shares, extracted from
 ephys_analysis). Without that checkout, `labdb.Registry.isAvailable` is false,
 the Customize dialog does not offer it, and nothing else here references it.
+The checkout must also be recent enough: `labdb.Registry.CLIENT_VERSION` is the
+version of labclient's interface the adapter is written for, held against
+`labclient.Api.Version`, and `isAvailable`'s `why` says to update the checkout
+when it is older (a checkout from before `labclient.Api` has no version and is
+too old). Raise `CLIENT_VERSION` when the adapter starts to use something a
+later labclient added; CarasLabDB's CI reads this repository's calls against
+its package (`tests/check_consumers.py` there), so a call that package does
+not have fails there.
 It is the dependency direction that matters: core names it only as a string
 in `SubjectRegistry.KNOWN_ADAPTERS`.
 - **labdb.Registry**: records through `labclient`, so one computer has one
@@ -712,7 +720,9 @@ in `SubjectRegistry.KNOWN_ADAPTERS`.
   `labclient.Sync.suspend()` handle, and clearing it resumes the sender.
   Records are kept only while labclient's `Enabled` is on (as ephys_analysis
   does); the lamp then reads "off". A save after the record was SENT goes as
-  a `labclient.Bundles.files` replacement (`Replaces` = the old artifact),
+  a `labclient.Bundles.files` replacement (`Replaces` = the artifact of the
+  record that was sent, so always the session's FIRST file; labclient follows
+  it to the file at the path now, which is why version 3 is needed),
   because `Outbox.put` refuses a sent id. A save before then simply replaces
   the waiting record. A same-day weight correction reuses the waiting
   husbandry event's id; this is tracked per MATLAB session only.

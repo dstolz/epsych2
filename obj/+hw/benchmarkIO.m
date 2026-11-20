@@ -21,8 +21,10 @@ function varargout = benchmarkIO(iface, varargin)
 %   ScalarWrite  writable scalar                         default WScalar
 %   ScalarRead   readable scalar                         default RScalar
 %   Trigger      parameter flagged isTrigger             default BenchTrig (or !BenchTrig)
-%   Buffers      writable (preferably readable) buffers  default Buf_<N>
-% Each buffer is written at its capacity and read back. A role a backend
+%   Buffers      writable (preferably readable) buffers  default Buf (or Buf_<N>)
+% Each buffer is written and read back at every length in Sizes -- one tag
+% timed at several lengths is what the Fit table needs -- or, with no Sizes,
+% once at its own size. A role a backend
 % cannot fill is reported in results.Unsupported, never as an error or a time.
 %
 % It writes to the contract parameters only, and leaves the last
@@ -44,12 +46,22 @@ function varargout = benchmarkIO(iface, varargin)
 %       (or with the discovered list, in results.Contract order). NaN =
 %       unknown. Used only where parameterCapacity is NaN; after it, the N in
 %       a Buf_<N> name, then the length one untimed read returns.
+%   Sizes       - element counts to time every buffer at, e.g. [1024 4096].
+%       A size above what the backend, BufferSizes or a Buf_<N> name says the
+%       buffer holds is reported in results.Unsupported and skipped; where
+%       none of those is known (hw.Software) the sizes are trusted. Default
+%       [] (each buffer once, at its own size). Note a backend that reads a
+%       whole tag back returns its full size whatever was written, so the
+%       read fit then has one distinct length and reports no slope.
 %   Repeats         - timed calls per measurement. Default 50.
 %   Warmup          - calls discarded before them. Default 5.
 %   VerifyRoundTrip - write a fresh vector to each readable buffer, read it
 %       back, compare at float32 precision. Default true.
 %   IncludeLookup   - also time each call by NAME, besides the pre-resolved
-%       hw.Parameter, to separate lookup cost from transport. Default true.
+%       hw.Parameter ("by handle"), so the lookup cost -- what find_parameter
+%       adds -- can be told from the transport and is plotted. A session
+%       dispatches handles, so the by-handle times are the ones it pays.
+%       Default true.
 %   TargetSamples   - length to predict one and two buffer uploads for.
 %       Default 292969 (3 s at 97656.25 Hz).
 %   SaveTo   - an existing folder (or a path ending in a separator), where
@@ -60,6 +72,16 @@ function varargout = benchmarkIO(iface, varargin)
 %   CompareToSoftware - run the same contract on an in-memory twin
 %       (hw.Software) and report each time minus that floor. Skipped when
 %       iface is itself simulated. Default true.
+%   Progress - log what is being timed, and how long each measurement took,
+%       as it runs (vprintf level 1, so it reaches the command window at the
+%       default verbosity). A large buffer over a slow link can take minutes;
+%       without this the call is silent until the end. Default true.
+%   CancelFcn - function handle called with no arguments between timed calls;
+%       when it returns true the run ends with the error
+%       hw:benchmarkIO:Cancelled and no results. It is checked outside every
+%       timed span, so it never adds to a measurement, and a call already in
+%       progress (one large buffer write) finishes first. Make it yield to the
+%       GUI (drawnow) if it reads a flag a button sets. Default [] (never).
 %
 % Returns:
 %   results - struct with fields
@@ -127,6 +149,7 @@ arguments
     options.Trigger
     options.Buffers
     options.BufferSizes (1,:) double = []
+    options.Sizes (1,:) double {mustBeInteger, mustBePositive} = []
     options.Repeats (1,1) double {mustBeInteger, mustBePositive} = 50
     options.Warmup (1,1) double {mustBeInteger, mustBeNonnegative} = 5
     options.VerifyRoundTrip (1,1) logical = true
@@ -135,6 +158,8 @@ arguments
     options.SaveTo (1,:) char = ''
     options.Plot (1,1) logical = true
     options.CompareToSoftware (1,1) logical = true
+    options.Progress (1,1) logical = true
+    options.CancelFcn = []
 end
 
 % First, before anything else asks the interface for anything.
@@ -171,14 +196,28 @@ nBlocks = numel(blocks);
 rawTables = cell(nBlocks, 1);
 problems = emptyIssues_();
 backend = string(class(iface));
+runTimer = tic;
+
+progress_(options.Progress, 'hw.benchmarkIO: timing %s -- %d measurements of %d calls each (%d warm-up)', ...
+    env.DisplayLabel, nBlocks, options.Repeats, options.Warmup)
 
 for b = 1:nBlocks
     B = blocks(b);
+    % Said before the block runs, since one large buffer write can take long
+    % enough that the operator needs to know it has not hung.
+    progress_(options.Progress, 'hw.benchmarkIO: [%d/%d] %s, %s%s ...', b, nBlocks, ...
+        B.Role, char(pathWords_(B.Path)), sizeSuffix_(B))
+    blockTimer = tic;
     try
-        [t, nOut, ok] = timeBlock_(iface, B.Kind, B.Target, B.Payload, nTotal);
+        checkCancel_(options.CancelFcn)
+        [t, nOut, ok] = timeBlock_(iface, B.Kind, B.Target, B.Payload, nTotal, options.CancelFcn);
     catch ME
+        if strcmp(ME.identifier, 'hw:benchmarkIO:Cancelled')
+            rethrow(ME)
+        end
         vprintf(0, 1, ME)
         problems = appendRow_(problems, issueRow_(B, string(ME.message)));
+        progress_(options.Progress, 'hw.benchmarkIO: [%d/%d] FAILED: %s', b, nBlocks, ME.message)
         continue
     end
 
@@ -201,8 +240,22 @@ for b = 1:nBlocks
             min(nOut(keep)), max(nOut(keep)))));
     end
 
-    vprintf(2, 'hw.benchmarkIO: %s %s [%s] N=%d: median %.4g ms over %d calls', ...
-        B.Role, B.Parameter, B.Path, B.NRequested, 1e3 * median(t(keep)), n)
+    % A buffer block also says what its median came to as a line speed.
+    rateNote = '';
+    if ismember(B.Role, ["BufferWrite", "BufferRead"])
+        direction = "TX";
+        if B.Role == "BufferRead"
+            direction = "RX";
+        end
+        mbit = 8 * C.BYTES_PER_SAMPLE * median(nOut(keep)) / median(t(keep)) / 1e6;
+        rateNote = sprintf(', %s %s', direction, formatRate_(mbit));
+    end
+    progress_(options.Progress, 'hw.benchmarkIO: [%d/%d] median %s over %d calls%s (%.1f s)', ...
+        b, nBlocks, formatTime_(median(t(keep))), n, rateNote, toc(blockTimer))
+    if ~all(ok(keep))
+        progress_(options.Progress, 'hw.benchmarkIO: [%d/%d] WARNING: %d of %d writes were reported failed', ...
+            b, nBlocks, sum(~ok(keep)), n)
+    end
 end
 
 raw = vertcat(rawTables{~cellfun(@isempty, rawTables)});
@@ -216,7 +269,13 @@ results.Summary = summarize_(raw);
 results.Fit = fitTable_(results.Summary, options.TargetSamples);
 
 if options.VerifyRoundTrip
-    results.RoundTrip = verifyRoundTrip_(iface, contract.Buffers);
+    progress_(options.Progress, 'hw.benchmarkIO: verifying the transfer (%d write-and-read-back checks) ...', ...
+        sum([contract.Buffers.Readable]))
+    results.RoundTrip = verifyRoundTrip_(iface, contract.Buffers, options.CancelFcn);
+    if ~isempty(results.RoundTrip)
+        progress_(options.Progress, 'hw.benchmarkIO: round trip: %d of %d passed', ...
+            sum(results.RoundTrip.Pass), height(results.RoundTrip))
+    end
 else
     results.RoundTrip = emptyRoundTrip_();
 end
@@ -224,6 +283,7 @@ end
 results.Floor = emptyFloor_();
 results.Software = [];
 if options.CompareToSoftware && ~env.IsSimulated
+    progress_(options.Progress, 'hw.benchmarkIO: timing the same calls on an in-memory Software twin (the floor) ...')
     [results.Floor, results.Software] = softwareFloor_(contract, results.Summary, options);
 elseif options.CompareToSoftware
     vprintf(2, 'hw.benchmarkIO: Software floor skipped; the interface is itself simulated')
@@ -236,9 +296,11 @@ results.Unsupported = contract.Unsupported;
 results.Problems = problems;
 results.Environment = env;
 results.Options = rmfield(options, intersect(fieldnames(options), ...
-    {'ScalarWrite', 'ScalarRead', 'Trigger', 'Buffers'}));
+    {'ScalarWrite', 'ScalarRead', 'Trigger', 'Buffers', 'CancelFcn'}));
 results.Figure = [];
 results.Files = struct('Mat', '', 'Csv', '', 'SummaryCsv', '');
+
+progress_(options.Progress, 'hw.benchmarkIO: done in %.1f s', toc(runTimer))
 
 if options.Plot
     results.Figure = plot_(results);
@@ -251,10 +313,38 @@ end
 
 
 % =====================================================================
+function progress_(on, fmt, varargin)
+% Operator-facing progress, one record per call. Level 1 so the command
+% window shows it at the default verbosity; nothing here can throw.
+if on
+    vprintf(1, fmt, varargin{:})
+end
+end
+
+
+function w = pathWords_(path)
+% The call path in words: param is the pre-resolved hw.Parameter.
+w = replace(string(path), ["param", "name"], ["by handle", "by name"]);
+end
+
+
+function s = sizeSuffix_(B)
+% ", N=4096" for a buffer block; nothing for a scalar.
+s = '';
+if ismember(B.Role, ["BufferWrite", "BufferRead"])
+    s = sprintf(', N=%d', B.NRequested);
+end
+end
+
+
+% =====================================================================
 function C = defaults_()
 C.ROLES = ["ScalarWrite", "ScalarRead", "Trigger"];
 C.DEFAULT_NAMES = {{'WScalar'}, {'RScalar'}, {'BenchTrig', '!BenchTrig'}};
-C.BUFFER_PATTERN = '^Buf_(\d+)$';
+% A single tag named Buf, or the older one-tag-per-size Buf_<N>.
+% The one capture holds '_<N>' or nothing (MATLAB returns no token at all for
+% a group nested inside an optional non-capturing one).
+C.BUFFER_PATTERN = '^Buf(_\d+)?$';
 C.BUFFER_TYPES = {'Buffer', 'Coefficient Buffer'};
 C.NON_SCALAR_TYPES = {'Buffer', 'Coefficient Buffer', 'String', 'File', 'StimType'};
 C.RAW_VARIABLES = {'Role', 'Parameter', 'Backend', 'Path', 'NRequested', ...
@@ -351,7 +441,7 @@ else
     explicit = false;
     if isempty(P)
         unsupported = appendRow_(unsupported, issueTableRow_("Buffers", "", "", ...
-            "no parameter named Buf_<N>"));
+            "no parameter named Buf or Buf_<N>"));
     end
 end
 
@@ -375,7 +465,32 @@ for k = 1:numel(P)
     end
     [N, sizeSource, capacity, note] = bufferSize_(iface, p, d);
 
-    reason = bufferRequirement_(p, N);
+    % Sizes asks for several lengths on this one tag. A length is held to
+    % what the backend or the caller said the tag holds; where the size came
+    % from a read or is unknown, the request is trusted -- an hw.Software
+    % buffer has no capacity, and a length of 1 read from its initial Value
+    % is not a limit.
+    sizes = N;
+    if ~isempty(options.Sizes)
+        sizes = unique(options.Sizes, 'stable');
+        if ismember(sizeSource, ["parameterCapacity", "BufferSizes", "name"])
+            limit = N;
+            tooBig = sizes > limit;
+            if any(tooBig)
+                for s = sizes(tooBig)
+                    unsupported = appendRow_(unsupported, issueTableRow_("Buffers", string(p.Name), "", ...
+                        sprintf('size %d exceeds the %d samples this buffer holds', s, limit)));
+                end
+                sizes = sizes(~tooBig);
+            end
+            if isempty(sizes)
+                continue
+            end
+        end
+        sizeSource = "Sizes";
+    end
+
+    reason = bufferRequirement_(p, max(sizes));
     if reason ~= ""
         if explicit
             error('hw:benchmarkIO:RoleRequirement', ...
@@ -385,22 +500,25 @@ for k = 1:numel(P)
         continue
     end
 
-    data = randomPayload_(rs, N);
     [nm, nameReason] = namePath_(iface, p);
-    rows = appendRow_(rows, contractRow_("Buffers", p, source, capacity, d, N, sizeSource, nm, note));
-
-    [blocks, unsupported] = addBlocks_(blocks, unsupported, "BufferWrite", "bufferwrite", p, nm, ...
-        nameReason, {data}, N, options.IncludeLookup);
-
     readable = ~strcmp(p.Access, 'Write');
-    if readable
-        [blocks, unsupported] = addBlocks_(blocks, unsupported, "BufferRead", "read", p, nm, ...
-            nameReason, [], N, options.IncludeLookup);
-    else
+    for N = sizes
+        data = randomPayload_(rs, N);
+        rows = appendRow_(rows, contractRow_("Buffers", p, source, capacity, d, N, sizeSource, nm, note));
+
+        [blocks, unsupported] = addBlocks_(blocks, unsupported, "BufferWrite", "bufferwrite", p, nm, ...
+            nameReason, {data}, N, options.IncludeLookup);
+
+        if readable
+            [blocks, unsupported] = addBlocks_(blocks, unsupported, "BufferRead", "read", p, nm, ...
+                nameReason, [], N, options.IncludeLookup);
+        end
+        buffers = appendRow_(buffers, struct('Parameter', p, 'N', N, 'Readable', readable));
+    end
+    if ~readable
         unsupported = appendRow_(unsupported, issueTableRow_("BufferRead", string(p.Name), "", ...
             "write-only parameter"));
     end
-    buffers = appendRow_(buffers, struct('Parameter', p, 'N', N, 'Readable', readable));
 end
 
 contract.Blocks = blocks;
@@ -459,15 +577,18 @@ end
 
 
 % =====================================================================
-function [t, nOut, ok] = timeBlock_(iface, kind, target, payload, nTotal)
+function [t, nOut, ok] = timeBlock_(iface, kind, target, payload, nTotal, cancelFcn)
 % Time nTotal calls of one kind, one call per tic/toc. Each kind has its own
-% loop so nothing but the interface call sits between tic and toc.
+% loop so nothing but the interface call sits between tic and toc. The cancel
+% check runs between calls, outside the timed span, so a stop takes effect
+% after the call in progress and never inside a measurement.
 arguments
     iface (1,1) hw.Interface
     kind (1,1) string {mustBeMember(kind, ["scalarwrite", "bufferwrite", "read", "trigger"])}
     target
     payload
     nTotal (1,1) double {mustBeInteger, mustBePositive}
+    cancelFcn
 end
 t = zeros(nTotal, 1);
 nOut = zeros(nTotal, 1);
@@ -478,6 +599,7 @@ switch kind
         % Alternate two values so a backend that skips an unchanged write
         % still does the work.
         for k = 1:nTotal
+            checkCancel_(cancelFcn)
             v = payload(mod(k, 2) + 1);
             t0 = tic;
             r = iface.set_parameter(target, v);
@@ -490,6 +612,7 @@ switch kind
         % The value is a scalar cell around the vector: the shape
         % hw.Parameter.set.Value hands every backend for an array.
         for k = 1:nTotal
+            checkCancel_(cancelFcn)
             t0 = tic;
             r = iface.set_parameter(target, payload);
             t(k) = toc(t0);
@@ -499,6 +622,7 @@ switch kind
 
     case "read"
         for k = 1:nTotal
+            checkCancel_(cancelFcn)
             t0 = tic;
             v = iface.get_parameter(target);
             t(k) = toc(t0);
@@ -507,11 +631,23 @@ switch kind
 
     case "trigger"
         for k = 1:nTotal
+            checkCancel_(cancelFcn)
             t0 = tic;
             iface.trigger(target);
             t(k) = toc(t0);
         end
         nOut(:) = 1;
+end
+end
+
+
+function checkCancel_(cancelFcn)
+% Ends the run when the caller's CancelFcn says so. Thrown as an error so it
+% unwinds through every loop at once; run_ lets this one identifier through
+% its per-block catch, which would otherwise record it as a failed block.
+if ~isempty(cancelFcn) && cancelFcn()
+    vprintf(1, 'hw.benchmarkIO: stopped by the caller')
+    error('hw:benchmarkIO:Cancelled', 'The benchmark was stopped by the caller.');
 end
 end
 
@@ -548,9 +684,11 @@ if isempty(raw)
     return
 end
 
-[g, keys] = findgroups(raw(:, {'Role', 'Parameter', 'Path'}));
+% The requested size is part of the key: one buffer tag is timed at several
+% lengths, and pooling them would be a median over different transfers.
+[g, keys] = findgroups(raw(:, {'Role', 'Parameter', 'Path', 'NRequested'}));
 nG = height(keys);
-NReq = zeros(nG, 1);
+NReq = keys.NRequested;
 NTr = zeros(nG, 1);
 nIt = zeros(nG, 1);
 med = zeros(nG, 1);
@@ -560,7 +698,6 @@ mx = zeros(nG, 1);
 for k = 1:nG
     m = g == k;
     s = raw.Seconds(m);
-    NReq(k) = raw.NRequested(find(m, 1));
     NTr(k) = median(raw.NTransferred(m));
     nIt(k) = numel(s);
     med(k) = median(s);
@@ -576,10 +713,12 @@ msps = NaN(nG, 1);
 mbps = NaN(nG, 1);
 msps(isBuf) = NFit(isBuf) ./ med(isBuf) / 1e6;
 mbps(isBuf) = C.BYTES_PER_SAMPLE * NFit(isBuf) ./ med(isBuf) / 1e6;
+% The same rate as a line speed: TX is BufferWrite, RX is BufferRead.
+mbitps = 8 * mbps;
 
-S = [keys, table(NReq, NTr, nIt, med, p5, p95, mx, msps, mbps, ...
-    'VariableNames', {'NRequested', 'NTransferred', 'Iterations', 'Median_s', ...
-    'P5_s', 'P95_s', 'Max_s', 'MSamplesPerSec', 'MBPerSec'})];
+S = [keys, table(NTr, nIt, med, p5, p95, mx, msps, mbps, mbitps, ...
+    'VariableNames', {'NTransferred', 'Iterations', 'Median_s', ...
+    'P5_s', 'P95_s', 'Max_s', 'MSamplesPerSec', 'MBPerSec', 'MbitPerSec'})];
 S = sortrows(S, {'Role', 'Path', 'NRequested'});
 end
 
@@ -671,13 +810,14 @@ end
 
 
 % =====================================================================
-function RT = verifyRoundTrip_(iface, buffers)
+function RT = verifyRoundTrip_(iface, buffers, cancelFcn)
 % Untimed: write a vector the timed blocks never wrote, read it back through
 % the pre-resolved parameter, compare at float32 precision.
 C = defaults_();
 RT = emptyRoundTrip_();
 rs = RandStream('mt19937ar', 'Seed', C.SEED + 1);
 for k = 1:numel(buffers)
+    checkCancel_(cancelFcn)   % outside the try below, which logs what it catches
     if ~buffers(k).Readable
         continue
     end
@@ -736,6 +876,8 @@ arguments
     options (1,1) struct
 end
 [twin, map] = buildTwin_(contract);
+% A cancelled run unwinds through here; do not leave the twin behind.
+twinGuard = onCleanup(@() delete(twin));
 
 C = defaults_();
 roles = C.ROLES;
@@ -745,19 +887,30 @@ for r = 1:numel(roles)
     args{2 * r} = twinFor_(map, contract.Table, roles(r));
 end
 bufRows = contract.Table(contract.Table.Role == "Buffers", :);
-[~, loc] = ismember(bufRows.Parameter, map.Name);
+[bufNames, first] = unique(bufRows.Parameter, 'stable');
+[~, loc] = ismember(bufNames, map.Name);
 qb = reshape(map.Twin(loc), 1, []);
 
-twinResults = run_(twin, args{:}, Buffers = qb, BufferSizes = reshape(bufRows.N, 1, []), ...
-    Repeats = options.Repeats, Warmup = options.Warmup, VerifyRoundTrip = false, ...
-    IncludeLookup = options.IncludeLookup, TargetSamples = options.TargetSamples, ...
-    Plot = false, CompareToSoftware = false);
+% The twin has no capacity to report, so it is told the sizes the device
+% was actually timed at: the requested list when there was one (trimmed per
+% buffer by what the device holds, hence the union), else each buffer's own.
+if isempty(options.Sizes)
+    sizeArgs = {'BufferSizes', reshape(bufRows.N(first), 1, [])};
+else
+    sizeArgs = {'Sizes', reshape(unique(bufRows.N), 1, [])};
+end
+
+twinResults = run_(twin, args{:}, sizeArgs{:}, 'Buffers', qb, ...
+    'Repeats', options.Repeats, 'Warmup', options.Warmup, 'VerifyRoundTrip', false, ...
+    'IncludeLookup', options.IncludeLookup, 'TargetSamples', options.TargetSamples, ...
+    'Plot', false, 'CompareToSoftware', false, 'Progress', false, 'CancelFcn', options.CancelFcn);
 twinResults.Figure = [];
 
 T = twinResults.Summary;
 Floor = emptyFloor_();
 for k = 1:height(S)
-    m = T.Role == S.Role(k) & T.Parameter == S.Parameter(k) & T.Path == S.Path(k);
+    m = T.Role == S.Role(k) & T.Parameter == S.Parameter(k) & T.Path == S.Path(k) ...
+        & T.NRequested == S.NRequested(k);
     floorMed = NaN;
     if any(m)
         floorMed = T.Median_s(find(m, 1));
@@ -795,6 +948,7 @@ arguments
     options.Trigger
     options.Buffers
     options.BufferSizes (1,:) double = []
+    options.Sizes (1,:) double {mustBeInteger, mustBePositive} = []
 end
 opts = options;
 opts.IncludeLookup = false;
@@ -850,7 +1004,7 @@ end
 nameN = NaN;
 tok = regexp(P.Name, C.BUFFER_PATTERN, 'tokens', 'once');
 if ~isempty(tok)
-    nameN = str2double(tok{1});
+    nameN = str2double(strrep(tok{1}, '_', ''));
 end
 
 if isfinite(capacity)
@@ -1000,7 +1154,8 @@ if ~any(hit)
     return
 end
 P = allP(hit);
-n = cellfun(@(c) str2double(c{1}), tok(hit));
+n = cellfun(@(c) str2double(strrep(c{1}, '_', '')), tok(hit));
+n(isnan(n)) = 0;   % the bare Buf sorts first
 [~, order] = sortrows([n(:), (1:numel(n))']);
 P = P(order);
 end
@@ -1134,16 +1289,18 @@ S = results.Summary;
 F = results.Fit;
 fig = figure('Name', sprintf('hw.benchmarkIO: %s', results.Environment.DisplayLabel), ...
     'NumberTitle', 'off', 'Color', 'w');
-tl = tiledlayout(fig, 1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+fig.Position(3:4) = [1100 660];
+tl = tiledlayout(fig, 2, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
 title(tl, sprintf('%s (%s), %s', results.Environment.DisplayLabel, ...
     results.Environment.BackendClass, results.Environment.Date), 'Interpreter', 'none');
 
 % ---- buffers: median with 5th-95th percentile bars, fit, prediction
-ax = nexttile(tl);
+ax = nexttile(tl, 1);
 hold(ax, 'on')
 grid(ax, 'on')
 colors = lines(4);
 ci = 0;
+seriesColor = struct();   % one colour per series, shared with the bit-rate panel
 for role = ["BufferWrite", "BufferRead"]
     for path = ["param", "name"]
         m = S.Role == role & S.Path == path;
@@ -1152,10 +1309,11 @@ for role = ["BufferWrite", "BufferRead"]
         end
         ci = ci + 1;
         c = colors(mod(ci - 1, size(colors, 1)) + 1, :);
+        seriesColor.(char(role + "_" + path)) = c;
         x = fitAbscissa_(S.Role(m), S.NRequested(m), S.NTransferred(m));
         y = 1e3 * S.Median_s(m);
         errorbar(ax, x, y, y - 1e3 * S.P5_s(m), 1e3 * S.P95_s(m) - y, 'o', ...
-            'Color', c, 'MarkerFaceColor', c, 'DisplayName', sprintf('%s (%s)', role, path));
+            'Color', c, 'MarkerFaceColor', c, 'DisplayName', char(pathLabel_(role, path)));
 
         f = F(F.Role == role & F.Path == path, :);
         if ~isempty(f) && isfinite(f.PerSample_s(1))
@@ -1170,7 +1328,9 @@ end
 set(ax, 'XScale', 'log')
 xlabel(ax, 'Samples per call')
 ylabel(ax, 'Time per call (ms)')
-title(ax, 'Buffers (pentagram: predicted at TargetSamples)')
+title(ax, 'Buffers')
+subtitle(ax, {'Dots: median; bars: 5th-95th percentile; line: linear fit;', ...
+    'pentagram: predicted at TargetSamples.'})
 if ci > 0
     xline(ax, results.Options.TargetSamples, ':', 'TargetSamples', 'HandleVisibility', 'off');
     lgd = legend(ax);
@@ -1181,24 +1341,292 @@ else
         'HorizontalAlignment', 'center')
 end
 
+% A size the buffer cannot hold is skipped, so its point is simply absent;
+% say so here, or the plot reads as a measurement that failed silently.
+skipped = skippedSizeNotes_(results.Unsupported);
+if ~isempty(skipped)
+    text(ax, 0.98, 0.03, [{'Sizes skipped (larger than the buffer holds):'}; cellstr(skipped)], ...
+        'Units', 'normalized', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', ...
+        'FontSize', 9, 'Interpreter', 'none', 'BackgroundColor', 'w', ...
+        'EdgeColor', [0.85 0.33 0.1], 'Margin', 4);
+end
+
+% ---- bit rate: what the buffer times above come to as a line speed
+plotBitRate_(nexttile(tl, 3), S, F, seriesColor);
+
 % ---- scalars and triggers
-ax = nexttile(tl);
+ax = nexttile(tl, 2);
 m = ismember(S.Role, ["ScalarWrite", "ScalarRead", "Trigger"]);
 if any(m)
-    labels = S.Role(m) + " (" + S.Path(m) + ")";
-    y = 1e3 * S.Median_s(m);
-    x = (1:numel(y))';
-    bar(ax, x, y)
+    % Every timed call, not a summary of them: call times are right-skewed
+    % with occasional scheduler spikes, which a median bar hides. One box
+    % (median, quartiles) per measurement with each call drawn over it, on a
+    % log axis because the paths differ by decades.
+    % Role by role, by handle first, so the two paths sit side by side.
+    labels = strings(0, 1);
+    for role = ["ScalarWrite", "ScalarRead", "Trigger"]
+        for path = ["param", "name"]
+            if any(S.Role == role & S.Path == path)
+                labels(end+1, 1) = pathLabel_(role, path);
+            end
+        end
+    end
+    labels = cellstr(labels);
+    R = results.Raw;
+    key = pathLabel_(R.Role, R.Path);
+    keep = ismember(key, string(labels)) & R.Seconds > 0;   % log axis cannot show 0
+    grp = categorical(cellstr(key(keep)), labels, labels, 'Ordinal', true);
+    ms = 1e3 * R.Seconds(keep);
     hold(ax, 'on')
-    errorbar(ax, x, y, y - 1e3 * S.P5_s(m), 1e3 * S.P95_s(m) - y, 'k.', 'LineStyle', 'none')
-    set(ax, 'XTick', x, 'XTickLabel', cellstr(labels), 'TickLabelInterpreter', 'none')
-    ylabel(ax, 'Median time per call (ms)')
+    boxchart(ax, grp, ms, 'MarkerStyle', 'none', 'BoxFaceAlpha', 0.25, ...
+        'BoxEdgeColor', [0.15 0.15 0.15], 'WhiskerLineColor', [0.15 0.15 0.15]);
+    swarmchart(ax, grp, ms, 8, [0 0.447 0.741], 'filled', 'MarkerFaceAlpha', 0.45, ...
+        'XJitterWidth', 0.5);
+    set(ax, 'YScale', 'log', 'TickLabelInterpreter', 'none')
+    ylabel(ax, 'Time per call (ms, log scale)')
+    % The median above each group's slowest call, in whatever unit reads best.
+    for k = 1:numel(labels)
+        v = ms(grp == labels{k});
+        if ~isempty(v)
+            text(ax, k, max(v) * 1.25, formatTime_(1e-3 * median(v)), ...
+                'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', ...
+                'FontSize', 9, 'Interpreter', 'none', 'Clipping', 'off');
+        end
+    end
+    if ~isempty(ms)
+        ylim(ax, [min(ms) / 1.5, max(ms) * 2.5])
+    end
 else
     text(ax, 0.5, 0.5, 'No scalar or trigger measurements', 'Units', 'normalized', ...
         'HorizontalAlignment', 'center')
 end
 grid(ax, 'on')
-title(ax, 'Scalars and triggers (bars: 5th-95th percentile)')
+title(ax, 'Scalars and triggers')
+subtitle(ax, {'Box: quartiles; dots: every timed call; label: median.', ...
+    'By handle: the call is given the hw.Parameter. By name: it is given the name.'})
+
+% ---- what looking a parameter up by name adds
+plotLookup_(nexttile(tl, 4), S);
+end
+
+
+function plotBitRate_(ax, S, F, seriesColor)
+% TX (BufferWrite) and RX (BufferRead) as bits per second against the samples
+% moved, by handle: the transport, with no lookup in it. The rate is what the
+% Summary's MbitPerSec says -- 32 bits per sample over the median call time --
+% so it grows with size while a fixed per-call cost is amortized, and the fit
+% gives the ceiling that curve approaches (1 / PerSample_s).
+C = defaults_();
+bitsPerSample = 8 * C.BYTES_PER_SAMPLE;
+hold(ax, 'on')
+grid(ax, 'on')
+roles = ["BufferWrite", "BufferRead"];
+names = ["TX (buffer write)", "RX (buffer read)"];
+plotted = 0;
+top = 0;
+bottom = Inf;
+for k = 1:2
+    m = S.Role == roles(k) & S.Path == "param";
+    if ~any(m)
+        continue
+    end
+    plotted = plotted + 1;
+    x = fitAbscissa_(S.Role(m), S.NRequested(m), S.NTransferred(m));
+    y = S.MbitPerSec(m);
+    c = seriesColor.(char(roles(k) + "_param"));
+    plot(ax, x, y, '-o', 'Color', c, 'MarkerFaceColor', c, 'DisplayName', char(names(k)));
+    for j = 1:numel(x)
+        text(ax, x(j), y(j), formatRate_(y(j)), 'HorizontalAlignment', 'center', ...
+            'VerticalAlignment', 'bottom', 'FontSize', 9, 'Interpreter', 'none', 'Clipping', 'off');
+    end
+    top = max([top; y(isfinite(y))]);
+    bottom = min([bottom; y(isfinite(y) & y > 0)]);
+end
+
+if plotted == 0
+    axis(ax, 'off')
+    text(ax, 0.5, 0.5, 'No buffer measurements', 'Units', 'normalized', ...
+        'HorizontalAlignment', 'center')
+    return
+end
+
+% The ceiling the fit implies, where it exists and is on the scale of the data.
+% A fit with no measurable per-sample cost (an in-memory backend) has an
+% unbounded one, which would only flatten the axis.
+for k = 1:2
+    f = F(F.Role == roles(k) & F.Path == "param", :);
+    if isempty(f) || ~isfinite(f.PerSample_s(1)) || f.PerSample_s(1) <= 0
+        continue
+    end
+    limit = bitsPerSample / f.PerSample_s(1) / 1e6;
+    if limit > 10 * top
+        continue
+    end
+    c = seriesColor.(char(roles(k) + "_param"));
+    yline(ax, limit, ':', ['limit ' formatRate_(limit)], 'Color', c, ...
+        'LabelHorizontalAlignment', 'right', 'HandleVisibility', 'off', 'Interpreter', 'none');
+    top = max(top, limit);
+end
+
+% Log both ways: TX and RX routinely differ by decades, and on a linear axis
+% the slower direction is a line on the floor.
+set(ax, 'XScale', 'log', 'YScale', 'log')
+if top > 0 && isfinite(bottom)
+    ylim(ax, [bottom / 2, top * 4])
+end
+xlabel(ax, 'Samples moved per call')
+ylabel(ax, 'Bit rate (Mbit/s)')
+title(ax, 'Throughput')
+subtitle(ax, {sprintf('Bit rate = %d bits x samples moved / median call time, by handle.', bitsPerSample), ...
+    'Dotted: ceiling implied by the fit (1 / per-sample cost).'})
+lgd = legend(ax);
+lgd.Location = 'southeast';
+lgd.Interpreter = 'none';
+end
+
+
+function txt = formatRate_(mbit)
+% A bit rate in the unit that keeps three significant figures readable.
+arguments
+    mbit (1,1) double
+end
+if ~isfinite(mbit)
+    txt = 'n/a';
+elseif abs(mbit) >= 1e3
+    txt = sprintf('%.3g Gbit/s', mbit / 1e3);
+elseif abs(mbit) >= 1
+    txt = sprintf('%.3g Mbit/s', mbit);
+elseif abs(mbit) >= 1e-3
+    txt = sprintf('%.3g kbit/s', 1e3 * mbit);
+else
+    txt = sprintf('%.3g bit/s', 1e6 * mbit);
+end
+end
+
+
+function notes = skippedSizeNotes_(U)
+% One line per buffer that had requested sizes skipped, naming the sizes and
+% what the buffer holds: "Buf: 4096, 65536 (holds 1024)". Read from the
+% Unsupported rows resolveContract_ writes, so plot and status agree.
+notes = strings(0, 1);
+if isempty(U)
+    return
+end
+rows = U(U.Role == "Buffers" & contains(U.Reason, "exceeds"), :);
+for name = unique(rows.Parameter, 'stable')'
+    % cellstr: regexp wraps a cell input per element, but returns a scalar
+    % string's tokens bare, which would make one skipped size a different shape.
+    r = cellstr(rows.Reason(rows.Parameter == name));
+    sz = regexp(r,'^size (\d+) exceeds the (\d+) samples', 'tokens', 'once');
+    sz = vertcat(sz{:});
+    notes(end+1, 1) = sprintf('%s: %s (holds %s)', name, strjoin(sz(:, 1), ', '), sz{1, 2});
+end
+end
+
+
+function plotLookup_(ax, S)
+% By-name median minus by-handle median, per measurement. Both calls move the
+% same data, so the difference is the lookup.
+[lab, cost] = lookupCost_(S);
+if isempty(cost)
+    axis(ax, 'off')
+    text(ax, 0.5, 0.5, {'Lookup cost not measured.', 'Run with IncludeLookup=true.'}, ...
+        'Units', 'normalized', 'HorizontalAlignment', 'center')
+    return
+end
+
+[scale, unit] = timeUnit_(max(abs(cost)));
+x = categorical(cellstr(lab), cellstr(lab), cellstr(lab), 'Ordinal', true);
+bar(ax, x, scale * cost, 0.6, 'FaceColor', [0.85 0.33 0.1])
+hold(ax, 'on')
+set(ax, 'TickLabelInterpreter', 'none')
+ylabel(ax, sprintf('Added by name lookup (%s)', unit))
+for k = 1:numel(cost)
+    va = 'bottom';
+    if cost(k) < 0
+        va = 'top';
+    end
+    text(ax, k, scale * cost(k), formatTime_(cost(k)), 'HorizontalAlignment', 'center', ...
+        'VerticalAlignment', va, 'FontSize', 9, 'Interpreter', 'none', 'Clipping', 'off');
+end
+yl = ylim(ax);
+ylim(ax, [min(yl(1), 0) - 0.08 * diff(yl), yl(2) + 0.12 * diff(yl)])
+grid(ax, 'on')
+title(ax, 'Lookup cost')
+subtitle(ax, {'By-name median minus by-handle median: what find_parameter adds per call.', ...
+    'A session dispatches handles, so it does not pay this.'})
+ax.Subtitle.Interpreter = 'none';   % find_parameter is not a subscript
+end
+
+
+function [lab, cost] = lookupCost_(S)
+% One entry per measurement timed both ways, scalars first.
+lab = strings(0, 1);
+cost = zeros(0, 1);
+byHandle = S(S.Path == "param", :);
+roleOrder = ["ScalarWrite", "ScalarRead", "Trigger", "BufferWrite", "BufferRead"];
+[~, order] = sortrows([double(arrayfun(@(r) find(roleOrder == r, 1), byHandle.Role)), ...
+    byHandle.NRequested]);
+byHandle = byHandle(order, :);
+for k = 1:height(byHandle)
+    j = find(S.Path == "name" & S.Role == byHandle.Role(k) & ...
+        S.Parameter == byHandle.Parameter(k) & S.NRequested == byHandle.NRequested(k), 1);
+    if isempty(j)
+        continue
+    end
+    name = byHandle.Role(k);
+    if ismember(name, ["BufferWrite", "BufferRead"])
+        name = sprintf('%s, N=%d', name, byHandle.NRequested(k));
+    end
+    lab(end+1, 1) = name;
+    cost(end+1, 1) = S.Median_s(j) - byHandle.Median_s(k);
+end
+end
+
+
+function [scale, unit] = timeUnit_(seconds)
+% The multiplier and unit name that put seconds in a readable range.
+if seconds >= 1
+    scale = 1;
+    unit = 's';
+elseif seconds >= 1e-3
+    scale = 1e3;
+    unit = 'ms';
+elseif seconds >= 1e-6
+    scale = 1e6;
+    unit = [char(181) 's'];
+else
+    scale = 1e9;
+    unit = 'ns';
+end
+end
+
+
+function lab = pathLabel_(role, path)
+% "ScalarRead, by handle" / "ScalarRead, by name": the call path in words.
+% param is the pre-resolved hw.Parameter; name is the text the interface has
+% to look up first.
+lab = role + ", by " + replace(path, "param", "handle");
+end
+
+
+function txt = formatTime_(seconds)
+% Seconds as text in the unit that keeps three significant figures readable:
+% ns, us (micro), ms or s. The micro sign is built from its code point so the source
+% file stays ASCII.
+arguments
+    seconds (1,1) double
+end
+a = abs(seconds);
+if a >= 1
+    txt = sprintf('%.3g s', seconds);
+elseif a >= 1e-3
+    txt = sprintf('%.3g ms', 1e3 * seconds);
+elseif a >= 1e-6
+    txt = sprintf('%.3g %cs', 1e6 * seconds, char(181));
+else
+    txt = sprintf('%.3g ns', 1e9 * seconds);
+end
 end
 
 
@@ -1239,8 +1667,8 @@ txt = sprintf([ ...
     '  ScalarWrite: WScalar -- writable numeric scalar\n' ...
     '  ScalarRead:  RScalar -- readable numeric scalar, e.g. driven by a counter\n' ...
     '  Trigger:     BenchTrig or !BenchTrig -- isTrigger true (an RPvds tag needs the ! prefix)\n' ...
-    '  Buffers:     Buf_<N> -- writable, preferably readable, buffer of capacity N\n' ...
-    'Or name them: hw.benchmarkIO(iface, ScalarWrite="X", Buffers=["A" "B"])']);
+    '  Buffers:     Buf (or Buf_<N>) -- writable, preferably readable buffer; timed at each of Sizes\n' ...
+    'Or name them: hw.benchmarkIO(iface, ScalarWrite="X", Buffers=["A" "B"], Sizes=[1024 4096])']);
 end
 
 
@@ -1317,9 +1745,9 @@ end
 
 function T = emptySummary_()
 T = table(strings(0, 1), strings(0, 1), strings(0, 1), zeros(0, 1), zeros(0, 1), ...
-    zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), ...
+    zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), ...
     'VariableNames', {'Role', 'Parameter', 'Path', 'NRequested', 'NTransferred', ...
-    'Iterations', 'Median_s', 'P5_s', 'P95_s', 'Max_s', 'MSamplesPerSec', 'MBPerSec'});
+    'Iterations', 'Median_s', 'P5_s', 'P95_s', 'Max_s', 'MSamplesPerSec', 'MBPerSec', 'MbitPerSec'});
 end
 
 

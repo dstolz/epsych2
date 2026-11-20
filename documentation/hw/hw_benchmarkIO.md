@@ -39,11 +39,13 @@ block.
 | `BufferWrite` | `set_parameter(target, {data})` | full-capacity random `single` vector, inside a scalar cell, which is the shape `hw.Parameter.set.Value` hands every backend for an array |
 | `BufferRead` | `get_parameter(target)` | the length actually returned is recorded for every call |
 
-**Paths.** Each call is timed with a pre-resolved `hw.Parameter` (`param`). With
-`IncludeLookup` on (the default) it is also timed by name (`name`), so the
-backend's `find_parameter` is part of the cost. The difference between the two
-paths is the lookup cost. The runtime's trial dispatch passes `hw.Parameter`
-handles, so `param` is the path that matches a session.
+**Paths.** Each call is timed two ways. **By handle** (`Path = "param"`) passes
+the pre-resolved `hw.Parameter`. **By name** (`Path = "name"`, `IncludeLookup`,
+on by default) passes the parameter's name, so the backend's `find_parameter` is
+part of the cost. The difference between the two medians is the **lookup cost**,
+drawn in the figure's bottom-right panel. The runtime's trial dispatch passes
+`hw.Parameter` handles, so the by-handle times are the ones a session pays. The
+figure labels every box, dot and legend entry with its path in words.
 
 **The HAL floor.** With `CompareToSoftware` on (the default), the same contract is
 run again on an in-memory twin: an `hw.Software` interface holding one parameter
@@ -81,15 +83,17 @@ R = hw.benchmarkIO(iface, ScalarWrite="Freq", Trigger=[], Buffers=["StimA" "Stim
 |---|---|---|
 | `ScalarWrite`, `ScalarRead`, `Trigger` | discovered | name or `hw.Parameter`. Given: must exist and qualify, or it errors naming it. Given as `[]`: the role is skipped |
 | `Buffers` | discovered | names or `hw.Parameter` array, same rules |
+| `Sizes` | `[]` | element counts to time **every** buffer at, e.g. `[1024 4096]`: one tag, several lengths. A size above what the backend (`parameterCapacity`), `BufferSizes` or a `Buf_<N>` name says the buffer holds is skipped and listed in `R.Unsupported`; with none of those known (`hw.Software`) the sizes are trusted. `[]` times each buffer once, at its own size. The RunExpt menu item asks for these in a dialog, default `1024 4096` |
 | `BufferSizes` | `[]` | declared size per buffer, aligned with `Buffers` (or with the discovered list in `R.Contract` order). `NaN` = unknown |
 | `Repeats` | 50 | timed calls per block |
 | `Warmup` | 5 | discarded calls per block |
 | `VerifyRoundTrip` | true | see above |
-| `IncludeLookup` | true | also time the by-name path |
+| `IncludeLookup` | true | also time the by-name path, which is what the lookup-cost panel needs |
 | `TargetSamples` | 292969 | length to predict one and two buffer uploads for (3 s at 97656.25 Hz) |
 | `SaveTo` | `''` | an existing folder (or a path ending in a separator) gets a timestamped stem. Anything else is a file stem. Writes `<stem>.mat` (`results`), `<stem>.csv` (raw table) and `<stem>_summary.csv` |
 | `Plot` | true | buffers (median, 5th–95th percentile, fit, ★ prediction) beside scalars and triggers |
 | `CompareToSoftware` | true | run the Software floor |
+| `Progress` | true | log each measurement as it starts and finishes (`[7/14] BufferWrite, by handle, N=4096 ...` then its median and elapsed time), the round-trip check, the floor run and the total time. `vprintf` level 1, so it reaches the command window at the default verbosity. A large buffer over a slow link can take minutes, and the call is otherwise silent until the end |
 
 Helpers:
 
@@ -124,9 +128,9 @@ nothing at all can be measured, the call errors and prints this contract.
 | ScalarWrite | `WScalar` | writable (Access not `Read`), not a trigger, numeric scalar |
 | ScalarRead | `RScalar` | readable (Access not `Write`), numeric scalar, e.g. driven by a counter |
 | Trigger | `BenchTrig` or `!BenchTrig` | `isTrigger` true. On RPvds (`hw.TDT_RPcox`, and `hw.TDT_Synapse` in legacy mode) a tag is a trigger only when its name starts with `!`, and the parameter's `Name` is the tag name verbatim, so the tag is `!BenchTrig` |
-| Buffers | `Buf_<N>` | writable, preferably readable, `Type` `Buffer`/`Coefficient Buffer` or `isArray` or size > 1. Tested at its capacity |
+| Buffers | `Buf` (or `Buf_<N>`) | writable, preferably readable, `Type` `Buffer`/`Coefficient Buffer` or `isArray` or size > 1. Timed at each of `Sizes`, else once at its own size |
 
-**Buffer size**, in order of precedence:
+**Buffer size** (what a buffer holds, with no `Sizes` given), in order of precedence:
 
 1. `iface.parameterCapacity(P)`: the device's own answer.
 2. The caller's `BufferSizes` entry.
@@ -134,7 +138,18 @@ nothing at all can be measured, the call errors and prints this contract.
 4. The length one untimed read returns.
 
 When the device's capacity disagrees with a stated size, the capacity is used, and
-`R.Contract.Note` says so. `R.Contract.SizeSource` records which source was used.
+`R.Contract.Note` says so. `R.Contract.SizeSource` records which source was used
+(`Sizes` when the lengths were asked for), and `R.Contract` has one row per
+buffer and size.
+
+**Several sizes on one tag.** The fit `t = Overhead + PerSample*N` needs two
+distinct lengths, which one `Buf` tag now supplies through `Sizes`. Each size is
+its own `Summary` row (the requested size is part of the grouping) and its own
+round-trip check. A write sends exactly `N` samples. A backend that reads the
+**whole tag** back returns its full size whatever was written, so the
+`BufferRead` fit then sees one distinct length and reports `NaN` terms; that is
+the device's behaviour, not a missing measurement. Size the tag for the largest
+length you will ask for.
 
 **By-name path.** The name is timed only when `find_parameter`, at its default
 visibility, resolves it to the same parameter. Most backends call
@@ -149,7 +164,7 @@ timed.
 | Field | Content |
 |---|---|
 | `Raw` | one row per timed call: `Role, Parameter, Backend, Path, NRequested, NTransferred, Iteration, Seconds, Accepted`. `Accepted` is false only where `set_parameter` returned false |
-| `Summary` | per Role/Parameter/Path: `Median_s`, `P5_s`, `P95_s`, `Max_s` (`prctile`, `median`). For buffers also `MSamplesPerSec` and `MBPerSec` at 4 bytes per sample |
+| `Summary` | per Role/Parameter/Path: `Median_s`, `P5_s`, `P95_s`, `Max_s` (`prctile`, `median`). For buffers also `MSamplesPerSec`, `MBPerSec` and `MbitPerSec` (= 8 × `MBPerSec`) at 4 bytes per sample. **TX is the `BufferWrite` rows and RX the `BufferRead` rows**; the rate uses the samples actually moved, so a whole-tag read counts the full tag. The figure's Throughput panel plots it against size, by handle, with the ceiling the fit implies (1 / `PerSample_s`) |
 | `Fit` | per buffer role and path: `t = Overhead_s + PerSample_s*N` (least squares over the per-size medians). `Predicted_s` at `TargetSamples`, `PredictedTwoBuffers_s` = two such calls, and `Extrapolated` when `TargetSamples` lies outside the sizes measured. Needs two distinct sizes. With one, both terms are `NaN` |
 | `RoundTrip` | per readable buffer: `NWritten`, `NRead`, `MaxAbsError`, `Tolerance` (largest ulp of the data), `Pass`, `Note` |
 | `Floor` | per Summary row: `Backend_s`, `Floor_s` (the twin's median), `AboveFloor_s` |
@@ -220,14 +235,17 @@ whatever scalars select or gate it per trial. Those scalars cost the
 
 ### TDT RPcox, and Synapse in legacy mode (one RPvds circuit)
 
-Build a small benchmark circuit, or add these tags to the experiment circuit:
+A ready-made circuit and protocol are in
+[`examples/hw_benchmark/`](../../examples/hw_benchmark/README.md)
+(`HwBenchmark_TDT_RPcox.rcx` and `.eprot`). To build your own, or add these tags
+to the experiment circuit:
 
 | Tag | Suggested RPvds construction | Becomes |
 |---|---|---|
 | `WScalar` | a parameter tag on a writable constant (e.g. a `ConstF` value) | Float, Access `Any` |
 | `RScalar` | a tag on a value that changes, e.g. a counter's output | read as a scalar |
 | `!BenchTrig` | a tag on a logic input the circuit can pulse (`trigger` writes 1, waits 1 ms, writes 0, so the 1 ms `pause` is part of the trigger time) | `isTrigger = true` (the `!` prefix) |
-| `Buf_1024`, `Buf_16384`, `Buf_131072`, `Buf_300000`, `Buf_600000` | a data buffer (e.g. a serial buffer component) of that many samples, tagged on its data | `Type = 'Buffer'` (tag type 68) |
+| `Buf` | one data buffer (e.g. a serial buffer component) at least as long as the largest size you will test, tagged on its data | `Type = 'Buffer'` (tag type 68) |
 
 Notes:
 
@@ -239,13 +257,12 @@ Notes:
   is `TDTRP`'s tag size, so the `N` in the name only needs to be honest for
   readability. Under `hw.TDT_Synapse` it is `getParameterSize`, asked once per
   connection.
-- **Check total buffer memory against the device before building.** The
-  suggested set is about 1.05 M float32 samples (≈ 4.2 MB) on one processor, in
-  addition to whatever the experiment circuit already holds. Confirm it fits the
-  device's memory in the RPvdsEx compile report at the sample rate you will run.
-  If 600000 does not fit, drop it: `TargetSamples` then stays inside 1024–300000,
-  and two buffers are predicted as two calls rather than measured as one large
-  one.
+- **Check buffer memory against the device before building.** One `Buf` of the
+  largest length you will test (4096 for the default dialog sizes; 300000 to
+  bracket a 3 s stimulus) is held on the processor in addition to whatever the
+  experiment circuit already holds. Confirm it fits in the RPvdsEx compile report.
+  `TargetSamples` is extrapolated (and flagged) when it lies outside the sizes
+  tested.
 - **Do not hold the same processor in two interfaces.** A protocol must not have
   both an `hw.TDT_RPcox` and an `hw.TDT_Synapse` for one RZ6.
 - **Synapse refuses parameter access at Idle.** Run it with Synapse in a runtime
@@ -318,9 +335,10 @@ matrix runs. There are no buffers.
   `IsConnected` probe (a `GetStatus` COM call per module on `hw.TDT_RPcox`) and a
   `double` conversion. Those costs are EPsych's and are small next to a buffer
   transfer. They are not in these numbers.
-- **4 bytes per sample** is assumed for `MBPerSec`. A backend that sends text
-  (Synapse's HTTP JSON) moves more bytes than that per sample. `MSamplesPerSec`
-  makes no assumption.
+- **4 bytes (32 bits) per sample** is assumed for `MBPerSec` and `MbitPerSec`,
+  the TX/RX bit rates. They are payload rates, not line rates: protocol framing,
+  a backend that sends text (Synapse's HTTP JSON), and the pause in a trigger all
+  put more on the wire than that. `MSamplesPerSec` makes no assumption.
 - **It writes to the device.** The last values written stay in the contract
   parameters, and the buffers hold random data. It shares the MATLAB thread with
   the trial loop. Never run it during a session.

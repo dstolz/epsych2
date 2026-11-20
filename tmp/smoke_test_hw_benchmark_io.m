@@ -24,6 +24,8 @@
 %   12  SaveTo writes files that reload; the temporary folder is removed
 %   13  Plot with figures invisible
 %   14  no backend class name in hw.benchmarkIO
+%   15  one Buf tag timed at several Sizes; capacity caps them; floor follows
+%   (progress logging is checked in group 3; the other groups run with it off)
 %
 % Run headless, from the repository root:
 %   matlab -batch "run('tmp/smoke_test_hw_benchmark_io.m')"
@@ -35,7 +37,7 @@ end
 fprintf('\n=== hw.benchmarkIO Smoke Test ===\n\n');
 results = {};
 [I, lb, lbF, lbX, rpc, syn, sw, bp, rp] = deal([]);
-quick = {'Repeats', 5, 'Warmup', 1, 'Plot', false, 'CompareToSoftware', false};
+quick = {'Repeats', 5, 'Warmup', 1, 'Plot', false, 'CompareToSoftware', false, 'Progress', false};
 noScalars = {'ScalarWrite', [], 'ScalarRead', [], 'Trigger', []};
 
 %% 1. Hook defaults
@@ -105,6 +107,12 @@ try
         height(R.Raw) == 14 * 5 && all(R.Summary.Iterations == 5));
     results(end+1,:) = check('3  both paths timed', ...
         isequal(sort(unique(R.Raw.Path)), ["name"; "param"]));
+    % Progress reaches the console; Progress=false is silent.
+    said = evalc('hw.benchmarkIO(lb, quick{:}, Repeats=2, Progress=true);');
+    quiet = evalc('hw.benchmarkIO(lb, quick{:}, Repeats=2, Progress=false);');
+    results(end+1,:) = check('3  progress is logged per measurement, and Progress=false silences it', ...
+        contains(said, "[1/14]") && contains(said, "[14/14]") && contains(said, "round trip:") && ...
+        ~contains(quiet, "hw.benchmarkIO"));
     m = R.Raw.Role == "BufferRead" & R.Raw.Parameter == "Buf_4096";
     results(end+1,:) = check('3  buffer sized from its name; read length recorded', ...
         all(R.Raw.NRequested(m) == 4096) && all(R.Raw.NTransferred(m) == 4096));
@@ -380,10 +388,31 @@ try
     R = hw.benchmarkIO(makeLoopback(), Repeats=3, Warmup=0, Plot=true, CompareToSoftware=false);
     results(end+1,:) = check('13 a figure is drawn and stays invisible', ...
         isgraphics(R.Figure) && R.Figure.Visible == "off");
+    axs = findobj(R.Figure, 'Type', 'axes');
+    sub = arrayfun(@(a) string(strjoin(string(a.Subtitle.String), " ")), axs);
+    results(end+1,:) = check('13 four panels, the lookup-cost one explained in its subtitle', ...
+        numel(axs) == 4 && any(contains(sub, "find_parameter")) && any(contains(sub, "By handle")));
+    results(end+1,:) = check('13 a throughput panel states how the bit rate is computed', ...
+        any(contains(sub, "32 bits x samples moved")));
+    leg = findobj(R.Figure, 'Type', 'legend');
+    legNames = strings(0, 1);
+    for l = leg(:)'
+        legNames = [legNames; string(l.String(:))];
+    end
+    results(end+1,:) = check('13 legends name the call path in words, and TX/RX in the throughput panel', ...
+        any(contains(legNames, "by handle")) && any(contains(legNames, "by name")) && ...
+        any(contains(legNames, "TX")) && any(contains(legNames, "RX")));
     delete(R.Figure)
 
     R = hw.benchmarkIO(makeLoopback(), noScalars{:}, Repeats=3, Warmup=0, Plot=true, CompareToSoftware=false);
     results(end+1,:) = check('13 a buffers-only run plots too', isgraphics(R.Figure));
+    delete(R.Figure)
+
+    R = hw.benchmarkIO(makeLoopback(), Repeats=3, Warmup=0, Plot=true, IncludeLookup=false, CompareToSoftware=false);
+    txts = findobj(R.Figure, 'Type', 'text');
+    said = any(arrayfun(@(t) contains(strjoin(string(t.String), " "), "IncludeLookup"), txts));
+    results(end+1,:) = check('13 without IncludeLookup the lookup panel says so instead of failing', ...
+        isgraphics(R.Figure) && said);
     delete(R.Figure)
 catch ME
     results(end+1,:) = check(sprintf('13 Plot threw: %s', ME.message), false);
@@ -396,8 +425,138 @@ backends = {'TDT_RPcox', 'TDT_Synapse', 'Teensy', 'Bpod', 'Intan', 'NE1000', ...
     'VlcRecorder', 'Replay', 'TDTRP', 'SynapseAPI'};
 results(end+1,:) = check('14 no backend class name in hw.benchmarkIO', ...
     ~any(cellfun(@(b) contains(src, b), backends)));
-results(end+1,:) = check('14 no isa() test against an hw class', ...
-    isempty(regexp(src, 'isa\([^)]*''hw\.', 'once')));
+% hw.Parameter is the contract's own value type (a role may be given as a
+% handle), not a backend, so testing for it is not interface type-sniffing.
+results(end+1,:) = check('14 no isa() test against an hw backend class', ...
+    isempty(regexp(src, 'isa\([^)]*''hw\.(?!Parameter'')', 'once')));
+
+%% 15. One Buf tag timed at several Sizes
+try
+    lbS = BenchLoopbackInterface();
+    lbS.add_parameter('Buf', 0, Type='Buffer', isArray=true);
+    Rs = hw.benchmarkIO(lbS, quick{:}, noScalars{:}, Sizes=[1024 4096]);
+    sz = unique(Rs.Summary.NRequested(Rs.Summary.Role == "BufferWrite"))';
+    results(end+1,:) = check('15 a single Buf is discovered and timed at every size', ...
+        isequal(sz, [1024 4096]) && all(Rs.Contract.Parameter == "Buf"));
+    results(end+1,:) = check('15 contract has one row per size, sourced from Sizes', ...
+        height(Rs.Contract) == 2 && all(Rs.Contract.SizeSource == "Sizes"));
+    results(end+1,:) = check('15 each size is its own summary row (not pooled)', ...
+        sum(Rs.Summary.Role == "BufferWrite" & Rs.Summary.Path == "param") == 2);
+    fw = Rs.Fit(Rs.Fit.Role == "BufferWrite" & Rs.Fit.Path == "param", :);
+    results(end+1,:) = check('15 the fit sees two distinct sizes', ...
+        ~isempty(fw) && fw.NumSizes(1) == 2);
+    results(end+1,:) = check('15 round trip checked at every size and passes', ...
+        height(Rs.RoundTrip) == 2 && all(Rs.RoundTrip.Pass));
+
+    % A device that reports a capacity caps the sizes it is asked for.
+    lbC = BenchLoopbackInterface();
+    lbC.add_parameter('Buf', 0, Type='Buffer', isArray=true);
+    lbC.Capacities.Buf = 2048;
+    Rc = hw.benchmarkIO(lbC, quick{:}, noScalars{:}, Sizes=[1024 4096]);
+    results(end+1,:) = check('15 a size above the reported capacity is skipped and reported', ...
+        isequal(unique(Rc.Summary.NRequested)', 1024) && ...
+        any(contains(Rc.Unsupported.Reason, "4096")));
+
+    % ... and the plot says so, rather than just missing the points.
+    oldV = get(groot, 'DefaultFigureVisible');
+    set(groot, 'DefaultFigureVisible', 'off');
+    Rp = hw.benchmarkIO(lbC, Repeats=3, Warmup=0, Plot=true, CompareToSoftware=false, ...
+        ScalarWrite=[], ScalarRead=[], Trigger=[], Sizes=[1024 4096]);
+    pt = findobj(Rp.Figure, 'Type', 'text');
+    noted = any(arrayfun(@(t) contains(strjoin(string(t.String), " "), "4096 (holds 2048)"), pt));
+    delete(Rp.Figure)
+    set(groot, 'DefaultFigureVisible', oldV);
+    results(end+1,:) = check('15 the buffer plot names the skipped sizes and what the buffer holds', noted);
+
+    % The Software floor follows the same sizes, size by size.
+    lbD = BenchLoopbackInterface(Simulated=false);
+    lbD.add_parameter('Buf', 0, Type='Buffer', isArray=true);
+    Rf = hw.benchmarkIO(lbD, Repeats=5, Warmup=1, Plot=false, CompareToSoftware=true, ...
+        ScalarWrite=[], ScalarRead=[], Trigger=[], Sizes=[1024 4096]);
+    results(end+1,:) = check('15 floor rows line up with summary rows, size by size', ...
+        height(Rf.Floor) == height(Rf.Summary) && all(isfinite(Rf.Floor.Floor_s)) && ...
+        isequal(Rf.Floor.NRequested, Rf.Summary.NRequested));
+
+    delete(lbS); delete(lbC); delete(lbD);
+catch ME
+    results(end+1,:) = check(sprintf('15 Sizes threw: %s', ME.message), false);
+end
+
+%% 17. TX / RX bit rate
+try
+    lbR = BenchLoopbackInterface();
+    lbR.add_parameter('Buf', 0, Type='Buffer', isArray=true);
+    Rb = hw.benchmarkIO(lbR, quick{:}, noScalars{:}, Sizes=[1024 4096]);
+    sb = Rb.Summary(Rb.Summary.Path == "param" & startsWith(Rb.Summary.Role, "Buffer"), :);
+    nMoved = sb.NRequested;
+    results(end+1,:) = check('17 MbitPerSec is 32 bits x samples moved / median call time', ...
+        max(abs(sb.MbitPerSec - 32 * sb.NTransferred ./ sb.Median_s / 1e6) ./ sb.MbitPerSec) < 1e-9 ...
+        && all(sb.NTransferred == nMoved));
+    results(end+1,:) = check('17 MbitPerSec is 8 x MBPerSec and set only on buffer rows', ...
+        max(abs(sb.MbitPerSec - 8 * sb.MBPerSec)) < 1e-9 && ...
+        all(isnan(Rb.Summary.MbitPerSec(~startsWith(Rb.Summary.Role, "Buffer")))));
+
+    % A device with a known cost recovers its line speed: 20 ns/sample is a
+    % 1.6 Gbit/s ceiling, and the measured rate approaches it from below.
+    lbR.DelayModel = [0 2e-8];
+    Rc2 = hw.benchmarkIO(lbR, quick{:}, noScalars{:}, IncludeLookup=false, Sizes=[16384 131072]);
+    tx = Rc2.Summary(Rc2.Summary.Role == "BufferWrite", :);
+    results(end+1,:) = check('17 TX of a 20 ns/sample device is within 10% of 1.6 Gbit/s', ...
+        abs(tx.MbitPerSec(end) - 1600) / 1600 < 0.10);
+    delete(lbR);
+catch ME
+    results(end+1,:) = check(sprintf('17 bit rate threw: %s', ME.message), false);
+end
+
+%% 16. CancelFcn stops the run between calls
+try
+    lbK = makeLoopback();
+    setappdata(0, 'bench_polls', 0);
+    try
+        hw.benchmarkIO(lbK, quick{:}, Repeats=50, CancelFcn=@() stopAfter(30));
+        cancelledId = '';
+    catch ME
+        cancelledId = ME.identifier;
+    end
+    results(end+1,:) = check('16 a true CancelFcn ends the run with hw:benchmarkIO:Cancelled', ...
+        strcmp(cancelledId, 'hw:benchmarkIO:Cancelled'));
+    results(end+1,:) = check('16 it is polled between calls, so the stop is prompt (31 polls)', ...
+        getappdata(0, 'bench_polls') == 31);
+
+    % A flag set by a callback that only runs at drawnow (as the Stop button's
+    % does): the CancelFcn must yield for it to be seen.
+    assignin('base', 'bench_stop_flag', false);
+    tm = timer(StartDelay=0.05, TimerFcn=@(~,~) assignin('base', 'bench_stop_flag', true));
+    start(tm);
+    t0 = tic;
+    try
+        hw.benchmarkIO(lbK, quick{:}, Repeats=200000, Warmup=0, CancelFcn=@() pollFlag());
+        stopped = false;
+    catch ME
+        stopped = strcmp(ME.identifier, 'hw:benchmarkIO:Cancelled');
+    end
+    stop(tm); delete(tm);
+    evalin('base', 'clear bench_stop_flag')
+    results(end+1,:) = check('16 a callback that runs at drawnow stops a long run promptly', ...
+        stopped && toc(t0) < 10);
+
+    % Cancelling during the Software floor run also unwinds cleanly.
+    lbD = BenchLoopbackInterface(Simulated=false);
+    lbD.add_parameter('Buf', 0, Type='Buffer', isArray=true);
+    setappdata(0, 'bench_polls', 0);
+    try
+        hw.benchmarkIO(lbD, Repeats=5, Warmup=1, Plot=false, Progress=false, ...
+            ScalarWrite=[], ScalarRead=[], Trigger=[], Sizes=[1024 4096], ...
+            VerifyRoundTrip=false, CancelFcn=@() stopAfter(80));
+        floorCancelled = false;
+    catch ME
+        floorCancelled = strcmp(ME.identifier, 'hw:benchmarkIO:Cancelled');
+    end
+    results(end+1,:) = check('16 cancelling during the Software floor run also ends the call', floorCancelled);
+    delete(lbK); delete(lbD);
+catch ME
+    results(end+1,:) = check(sprintf('16 cancel threw: %s', ME.message), false);
+end
 
 %% Teardown
 for h = {I, lb, lbF, lbX, rpc, syn, sw, bp, rp}
@@ -458,4 +617,25 @@ catch ME
         row = {sprintf('%s (threw %s: %s)', label, ME.identifier, ME.message), false};
     end
 end
+end
+
+
+function tf = stopAfter(n)
+% True once it has been called more than n times; the count lives in appdata
+% so the test can zero and read it.
+k = getappdata(0, 'bench_polls');
+if isempty(k)
+    k = 0;
+end
+k = k + 1;
+setappdata(0, 'bench_polls', k);
+tf = k > n;
+end
+
+
+function tf = pollFlag()
+% What a Stop button's CancelFcn does: yield so queued callbacks run, then read
+% the flag they set.
+drawnow limitrate
+tf = evalin('base', 'bench_stop_flag');
 end

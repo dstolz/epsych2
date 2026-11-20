@@ -63,6 +63,12 @@ classdef RunExpt < handle
         % refresh does not overwrite the more specific message an action posted.
         LastStatusState_ (1,1) PRGMSTATE = PRGMSTATE.NOCONFIG
         StatusStateReported_ (1,1) logical = false   % False until the first state message is posted
+        % An I/O benchmark (LaunchHardwareBenchmark) holds the MATLAB thread.
+        % While it does, Run/Preview/Pause and the 'setup' items are locked and
+        % Stop means "stop the benchmark", not "stop the session".
+        BenchmarkRunning_ (1,1) logical = false
+        BenchmarkStopRequested_ (1,1) logical = false
+        BenchmarkLastYield_ (1,1) uint64 = uint64(0)   % tic of the last drawnow the benchmark's Stop poll made
     end
 
     methods
@@ -442,18 +448,7 @@ classdef RunExpt < handle
         LaunchUtility(self, target)      % Open a standalone tool from the Utilities menu
         OpenExampleExperiment(self, exampleName)  % Open an examples/ walkthrough README in the default browser
 
-        function LaunchCommutatorGUI(self)
-            % obj.LaunchCommutatorGUI
-            % Launch the Commutator GUI
-            comPort = getpref('ep_RunExpt_Commutator','Port',"COM6");
-            try
-                peripherals.NanoMotorControlGUI(Port=comPort);
-            catch me
-                vprintf(0,1,me)
-                a = repmat('*',1,50);
-                vprintf(0,1,'%s\nFailed to launch Commutator GUI: %s\n%s',a,comPort,a)
-            end
-        end
+        LaunchHardwareBenchmark(self, options)    % Time a loaded protocol's interface with hw.benchmarkIO
 
         function OpenVlcRecorderSetup(self)
             % obj.OpenVlcRecorderSetup
@@ -559,6 +554,19 @@ classdef RunExpt < handle
             % Run one named command with the controls locked for its
             % duration, restoring a usable UI state if it throws. Shared by
             % the window's own controls (onCommand) and by halt.
+            if self.BenchmarkRunning_
+                % There is no session to stop: the only live command is Stop,
+                % and it ends the benchmark. Everything else is ignored, since
+                % the buttons are locked and a stale click must not start a
+                % run on a thread the benchmark is holding.
+                if commandText == "Stop"
+                    self.BenchmarkStopRequested_ = true;
+                    set(self.H.ctrl_halt, 'Enable', 'off')
+                    self.setStatus('Stopping the I/O benchmark ...', ...
+                        'it ends after the call in progress finishes.');
+                end
+                return
+            end
             hCtrl = findobj(self.H.figure1, '-regexp', 'tag', '^ctrl')';
             set(hCtrl, 'Enable', 'off');
             drawnow
@@ -580,6 +588,33 @@ classdef RunExpt < handle
                 vprintf(0,1,ME);
                 self.setStatus(sprintf('%s failed: %s',commandText,ME.message), ...
                     'see Help > Diagnostics > Open Current Error Log.');
+            end
+        end
+
+        function tf = benchmarkStopRequested_(self)
+            % Polled by hw.benchmarkIO between timed calls. A full drawnow is
+            % what lets the Stop button's callback run at all while the
+            % benchmark holds the thread (drawnow limitrate flushes graphics
+            % but does not reliably service queued callbacks), so it is made
+            % at most every 50 ms: a click is seen promptly without paying a
+            % drawnow between every 400 ns call.
+            if self.BenchmarkLastYield_ == 0 || toc(self.BenchmarkLastYield_) > 0.05
+                drawnow
+                self.BenchmarkLastYield_ = tic;
+            end
+            tf = self.BenchmarkStopRequested_;
+        end
+
+        function endBenchmark_(self)
+            % Hand the controls back to whatever the session state says they
+            % should be. Runs from an onCleanup, so on every exit.
+            if ~isvalid(self)
+                return
+            end
+            self.BenchmarkRunning_ = false;
+            self.BenchmarkStopRequested_ = false;
+            if isfield(self.H,'figure1') && isgraphics(self.H.figure1)
+                self.UpdateGUIstate
             end
         end
 

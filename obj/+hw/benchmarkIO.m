@@ -87,7 +87,8 @@ function varargout = benchmarkIO(iface, varargin)
 %   results - struct with fields
 %     Raw          long table: Role, Parameter, Backend, Path, NRequested,
 %                  NTransferred, Iteration, Seconds, Accepted
-%     Summary      per Role/Parameter/Path: median, 5th/95th percentile, max,
+%     Summary      per Role/Parameter/Path: min, 5th percentile, median, mean,
+%                  95th percentile, max,
 %                  and for buffers MSamples/s and MB/s at 4 bytes per sample
 %     Fit          per buffer role and path: t = Overhead + PerSample*N, and
 %                  the predicted time for TargetSamples and for two buffers
@@ -250,8 +251,15 @@ for b = 1:nBlocks
         mbit = 8 * C.BYTES_PER_SAMPLE * median(nOut(keep)) / median(t(keep)) / 1e6;
         rateNote = sprintf(', %s %s', direction, formatRate_(mbit));
     end
+    % The spread beside the median, since a backend's occasional slow call
+    % (scheduler, USB polling) is what a trial boundary actually waits on.
+    tk = t(keep);
+    pr = prctile(tk, [5 95]);
     progress_(options.Progress, 'hw.benchmarkIO: [%d/%d] median %s over %d calls%s (%.1f s)', ...
-        b, nBlocks, formatTime_(median(t(keep))), n, rateNote, toc(blockTimer))
+        b, nBlocks, formatTime_(median(tk)), n, rateNote, toc(blockTimer))
+    progress_(options.Progress, 'hw.benchmarkIO: [%d/%d]   min %s | p5 %s | mean %s | p95 %s | max %s', ...
+        b, nBlocks, formatTime_(min(tk)), formatTime_(pr(1)), formatTime_(mean(tk)), ...
+        formatTime_(pr(2)), formatTime_(max(tk)))
     if ~all(ok(keep))
         progress_(options.Progress, 'hw.benchmarkIO: [%d/%d] WARNING: %d of %d writes were reported failed', ...
             b, nBlocks, sum(~ok(keep)), n)
@@ -691,8 +699,10 @@ nG = height(keys);
 NReq = keys.NRequested;
 NTr = zeros(nG, 1);
 nIt = zeros(nG, 1);
-med = zeros(nG, 1);
+mn = zeros(nG, 1);
 p5 = zeros(nG, 1);
+med = zeros(nG, 1);
+avg = zeros(nG, 1);
 p95 = zeros(nG, 1);
 mx = zeros(nG, 1);
 for k = 1:nG
@@ -700,7 +710,9 @@ for k = 1:nG
     s = raw.Seconds(m);
     NTr(k) = median(raw.NTransferred(m));
     nIt(k) = numel(s);
+    mn(k) = min(s);
     med(k) = median(s);
+    avg(k) = mean(s);
     pr = prctile(s, [5 95]);
     p5(k) = pr(1);
     p95(k) = pr(2);
@@ -716,9 +728,9 @@ mbps(isBuf) = C.BYTES_PER_SAMPLE * NFit(isBuf) ./ med(isBuf) / 1e6;
 % The same rate as a line speed: TX is BufferWrite, RX is BufferRead.
 mbitps = 8 * mbps;
 
-S = [keys, table(NTr, nIt, med, p5, p95, mx, msps, mbps, mbitps, ...
-    'VariableNames', {'NTransferred', 'Iterations', 'Median_s', ...
-    'P5_s', 'P95_s', 'Max_s', 'MSamplesPerSec', 'MBPerSec', 'MbitPerSec'})];
+S = [keys, table(NTr, nIt, mn, p5, med, avg, p95, mx, msps, mbps, mbitps, ...
+    'VariableNames', {'NTransferred', 'Iterations', 'Min_s', 'P5_s', 'Median_s', ...
+    'Mean_s', 'P95_s', 'Max_s', 'MSamplesPerSec', 'MBPerSec', 'MbitPerSec'})];
 S = sortrows(S, {'Role', 'Path', 'NRequested'});
 end
 
@@ -1746,8 +1758,10 @@ end
 function T = emptySummary_()
 T = table(strings(0, 1), strings(0, 1), strings(0, 1), zeros(0, 1), zeros(0, 1), ...
     zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), ...
+    zeros(0, 1), zeros(0, 1), ...
     'VariableNames', {'Role', 'Parameter', 'Path', 'NRequested', 'NTransferred', ...
-    'Iterations', 'Median_s', 'P5_s', 'P95_s', 'Max_s', 'MSamplesPerSec', 'MBPerSec', 'MbitPerSec'});
+    'Iterations', 'Min_s', 'P5_s', 'Median_s', 'Mean_s', 'P95_s', 'Max_s', ...
+    'MSamplesPerSec', 'MBPerSec', 'MbitPerSec'});
 end
 
 

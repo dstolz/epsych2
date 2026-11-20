@@ -132,6 +132,22 @@ classdef Parameter < matlab.mixin.SetGet
         FullName  % full name including parent module (e.g., "ModuleName.ParamName");
     end
 
+    properties (Constant)
+        % The toStruct fields a phase file OWNS: the operator's settings for a
+        % stage of training. Every other field is the protocol's structure.
+        % epsych.Protocol.updatePhase keeps these from the phase and takes the
+        % rest from the session's protocol, so a phase saved under an older
+        % protocol version can be brought up to date without losing what
+        % made it that phase.
+        PHASE_OWNED_FIELDS = {'Value', 'Values', 'Min', 'Max', 'isRandom'}
+
+        % Fields that say what a value MEANS. When the protocol changed any of
+        % them since the phase was saved, the phase's values describe a
+        % different quantity (a linear depth carried into a dB parameter), so
+        % updatePhase takes the protocol's values instead of keeping them.
+        PHASE_VALUE_DEFINING_FIELDS = {'Type', 'Unit', 'isArray'}
+    end
+
     methods (Static)
         values = normalizeValues(value) % convert any value type to a uniform 1xN cell array of trial levels
 

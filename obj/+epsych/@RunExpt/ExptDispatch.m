@@ -92,6 +92,12 @@ switch COMMAND
             % Interfaces come from subject 1's protocol, so phases snapshot
             % that protocol as well.
             self.RUNTIME.Protocol = self.CONFIG(1).PROTOCOL;
+            % The file it came from, for bringing phases up to its version
+            % (Runtime.updatePhase): the design lives in the file, the live
+            % object also carries this session's edits.
+            % char() first: an embedded protocol's protocol_fn is [], and
+            % string([]) is 1x0, which the scalar property refuses.
+            self.RUNTIME.ProtocolFile = string(char(self.CONFIG(1).protocol_fn));
 
             % Seed Intan interfaces from prefs before connecting: the settings
             % file loads inside setup_interface, which the assignment below

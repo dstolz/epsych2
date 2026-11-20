@@ -17,6 +17,7 @@ classdef Runtime < handle & dynamicprops
     % Key methods:
     %   Runtime                    - Construct an empty runtime container
     %   writeParametersProtocol    - Save the current session as a protocol (.eprot) phase file
+    %   updatePhase                - Bring a phase file up to the session's protocol version
     %   readParameters             - Load a phase file (.eprot/.prot or legacy .json)
     %   writeParametersJSON        - Serialize runtime parameters to JSON (legacy phase format)
     %   readParametersJSON         - Back-compat wrapper for readParameters
@@ -70,6 +71,13 @@ classdef Runtime < handle & dynamicprops
         Interfaces        % Cell array of hardware and software interfaces (e.g., hw.TDT_RPcox, hw.Software)
 
         Protocol epsych.Protocol {mustBeScalarOrEmpty} = epsych.Protocol.empty % Session protocol whose Interfaces this runtime borrows; phases are saved by serializing it (writeParametersProtocol)
+
+        % The file Protocol was loaded from (RunExpt sets it with Protocol at
+        % dispatch from CONFIG(1).protocol_fn). It is what updatePhase reads
+        % the session's protocol version from: the live object carries session
+        % edits and parameter defaults, the file only the design. "" when the
+        % runtime was built by a script or a review.
+        ProtocolFile (1,1) string = ""
  
         TRIGGERS          % Per-subject cached handles to the REQUIRED_TRIGGERS parameters (NewTrial, ResetTrig, TrialComplete)
         P                % Cached hw.Parameter array for all parameters in use (struct form)
@@ -126,6 +134,7 @@ classdef Runtime < handle & dynamicprops
     methods
         writeParametersJSON(obj, filepath)      % Serialize runtime parameters to a JSON file (legacy phase format).
         writeParametersProtocol(obj, filepath, description) % Save the current session as a protocol (.eprot) phase file.
+        report = updatePhase(obj, phaseFile, options) % Bring a phase file up to the protocol version this session runs (epsych.Protocol.updatePhase).
         P = readParametersJSON(obj, filepath)   % Back-compat wrapper for readParameters.
         [P, Excluded, Overridden] = readParameters(obj, filepath, options) % Load a phase file (.eprot/.prot or legacy .json); returns the resolved hw.Parameter array. Exclude=params leaves those parameters untouched; Override loads chosen values in place of the file's.
         dispatchNextTrial(obj, subjectIdx)      % Dispatch the already selected next trial for one subject.

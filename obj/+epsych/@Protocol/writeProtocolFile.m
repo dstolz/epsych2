@@ -1,6 +1,6 @@
 function writeProtocolFile(filename, protocolStruct, options)
     % epsych.Protocol.writeProtocolFile(filename, protocolStruct)
-    % epsych.Protocol.writeProtocolFile(..., Origin='save'|'phase'|'restore')
+    % epsych.Protocol.writeProtocolFile(..., Origin='save'|'phase'|'restore'|'update')
     %
     % Single low-level chokepoint for writing a protocol MAT file.
     %
@@ -31,7 +31,7 @@ function writeProtocolFile(filename, protocolStruct, options)
     %
     % Options:
     %   Origin - recorded on the archived entry: 'save' (default), 'phase',
-    %            or 'restore'.
+    %            'restore', or 'update' (epsych.Protocol.updatePhase).
     %   History / UseExplicitHistory - restoreVersion supplies a history it
     %            has already rearranged; by default the history is read from
     %            the existing file.
@@ -42,7 +42,7 @@ function writeProtocolFile(filename, protocolStruct, options)
     arguments
         filename (1,:) char
         protocolStruct (1,1) struct
-        options.Origin (1,:) char {mustBeMember(options.Origin, {'save','phase','restore'})} = 'save'
+        options.Origin (1,:) char {mustBeMember(options.Origin, {'save','phase','restore','update'})} = 'save'
         options.History struct = struct([])
         options.UseExplicitHistory (1,1) logical = false
     end

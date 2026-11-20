@@ -613,7 +613,7 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 'remedy',  options.Remedy);
         end
 
-        function r = transferContextRecord(options)
+        function r = transferContextRecord(varargin)
             % r = hw.Interface.transferContextRecord()
             % r = hw.Interface.transferContextRecord(Name=Value)
             % Build one transferContext record, or the 1x0 empty prototype
@@ -637,6 +637,16 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             %   r - 1x1 record, or a 1x0 struct array with the same fields.
             %
             % See also: hw.Interface.transferContext
+            % nargin is counted here and not in the validated helper: inside a
+            % function with an arguments block it reads 0 for a name-value-only
+            % call, which made every Name=Value record come back as the 1x0 prototype.
+            r = hw.Interface.transferContextRecord_(varargin{:});
+            if nargin == 0
+                r = repmat(r, 1, 0);
+            end
+        end
+
+        function r = transferContextRecord_(options)
             arguments
                 options.Module (1,:) char = ''
                 options.Device (1,:) char = ''
@@ -652,9 +662,6 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             end
 
             r = options;
-            if nargin == 0
-                r = repmat(r, 1, 0);
-            end
         end
 
         function tf = isStimulusValue(value)

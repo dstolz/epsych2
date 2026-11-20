@@ -1507,8 +1507,10 @@ S = results.Summary;
 F = results.Fit;
 fig = figure('Name', sprintf('hw.benchmarkIO: %s', results.Environment.DisplayLabel), ...
     'NumberTitle', 'off', 'Color', 'w');
-fig.Position(3:4) = [1100 660];
-tl = tiledlayout(fig, 2, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+fig.Position(3:4) = [1200 760];
+% Room between tiles: the subtitles and the rotated tick labels of the tile
+% above otherwise run into the title of the one below.
+tl = tiledlayout(fig, 2, 2, 'TileSpacing', 'normal', 'Padding', 'compact');
 title(tl, sprintf('%s (%s), %s', results.Environment.DisplayLabel, ...
     results.Environment.BackendClass, results.Environment.Date), 'Interpreter', 'none');
 
@@ -1543,35 +1545,48 @@ set(ax, 'XScale', 'log')
 xlabel(ax, 'Samples per call')
 ylabel(ax, 'Time per call (ms)')
 title(ax, 'Buffers')
-subtitle(ax, {'Dots: median; bars: 5th-95th percentile; line: linear fit (dashed outside the sizes timed);', ...
-    'pentagram: predicted at TargetSamples (hollow: extrapolated).'})
+subtitle(ax, {'Dots: median; bars: 5th-95th percentile; line: linear fit (dashed: extrapolated).', ...
+    'Pentagram and dotted line: prediction at TargetSamples (hollow: extrapolated).'})
 if ci > 0
-    xline(ax, results.Options.TargetSamples, ':', 'TargetSamples', 'HandleVisibility', 'off');
+    xline(ax, results.Options.TargetSamples, ':', 'HandleVisibility', 'off');
+    % Outside the axes, above them: inside, it competed with the prediction
+    % list and the curves for the same corners.
     lgd = legend(ax);
-    lgd.Location = 'northwest';
+    lgd.Location = 'northoutside';
+    lgd.NumColumns = 2;
     lgd.Interpreter = 'none';
+    lgd.FontSize = 8;
+    lgd.Box = 'off';
+    % Headroom, so a prediction label above the highest point is not clipped.
+    % Times are positive, so the bars' padding should not take the axis below 0.
+    yl = ylim(ax);
+    ylim(ax, [max(0, yl(1)), yl(2) + 0.1 * diff(yl) + 0.06 * numel(findobj(ax, 'Tag', 'benchmarkIO:predictionLabel')) * diff(yl)])
 else
     text(ax, 0.5, 0.5, 'No buffer measurements', 'Units', 'normalized', ...
         'HorizontalAlignment', 'center')
 end
 
+% Notes stack up from the lower right corner, where the curves are lowest
+% (small sizes sit at the left), each wrapped narrow so it covers little.
 % A size the buffer cannot hold is skipped, so its point is simply absent;
 % say so here, or the plot reads as a measurement that failed silently.
+noteY = 0.03;
 skipped = skippedSizeNotes_(results.Unsupported);
 if ~isempty(skipped)
-    text(ax, 0.98, 0.03, [{'Sizes skipped (larger than the buffer holds):'}; cellstr(skipped)], ...
+    h = text(ax, 0.98, noteY, wrapText_([{'Sizes skipped (larger than the buffer holds):'}; cellstr(skipped)], 46), ...
         'Units', 'normalized', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', ...
-        'FontSize', 9, 'Interpreter', 'none', 'BackgroundColor', 'w', ...
-        'EdgeColor', [0.85 0.33 0.1], 'Margin', 4);
+        'FontSize', 8, 'Interpreter', 'none', 'BackgroundColor', [1 1 1 0.85], ...
+        'EdgeColor', [0.85 0.33 0.1], 'Margin', 3);
+    noteY = h.Extent(2) + h.Extent(4) + 0.02;
 end
 
 % A buffer that could hold TargetSamples but was not timed either side of it.
 notes = targetNotes_(results.Contract, results.Options.TargetSamples);
 if ~isempty(notes)
-    text(ax, 0.98, 0.97, cellstr(notes), 'Units', 'normalized', ...
-        'HorizontalAlignment', 'right', 'VerticalAlignment', 'top', ...
-        'FontSize', 8, 'Interpreter', 'none', 'BackgroundColor', 'w', ...
-        'EdgeColor', [0.85 0.33 0.1], 'Margin', 4, 'Tag', 'benchmarkIO:targetNote');
+    text(ax, 0.98, noteY, wrapText_(cellstr(notes), 46), 'Units', 'normalized', ...
+        'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', ...
+        'FontSize', 7, 'Interpreter', 'none', 'BackgroundColor', [1 1 1 0.85], ...
+        'EdgeColor', [0.85 0.33 0.1], 'Margin', 3, 'Tag', 'benchmarkIO:targetNote');
 end
 
 % A failed round trip heads the whole figure: every buffer time on it may
@@ -1638,10 +1653,42 @@ end
 grid(ax, 'on')
 title(ax, 'Scalars and triggers')
 subtitle(ax, {'Box: quartiles; dots: every timed call; label: median.', ...
-    'By handle: the call is given the hw.Parameter. By name: it is given the name.'})
+    'By handle: given the hw.Parameter. By name: given the name.'})
 
 % ---- what looking a parameter up by name adds
 plotLookup_(nexttile(tl, 4), results.Lookup);
+
+% Subtitles are explanation, not the headline: smaller and lighter than the
+% title, so they stay inside their tile.
+for ax = findobj(fig, 'Type', 'axes')'
+    ax.Subtitle.FontSize = 8;
+    ax.Subtitle.FontAngle = 'normal';
+    ax.Subtitle.Color = [0.35 0.35 0.35];
+end
+end
+
+
+function lines = wrapText_(lines, width)
+% Break each line at spaces so none exceeds width characters (a longer word
+% stays whole). For annotations that must stay narrow.
+lines = cellstr(lines);
+out = {};
+for k = 1:numel(lines)
+    words = strsplit(lines{k}, ' ');
+    cur = '';
+    for w = 1:numel(words)
+        if isempty(cur)
+            cur = words{w};
+        elseif numel(cur) + 1 + numel(words{w}) <= width
+            cur = [cur ' ' words{w}];
+        else
+            out{end+1, 1} = cur;
+            cur = words{w};
+        end
+    end
+    out{end+1, 1} = cur;
+end
+lines = out;
 end
 
 
@@ -1669,11 +1716,13 @@ end
 
 if f.Extrapolated
     face = 'w';
-    where = "beyond the largest size timed";
+    % Beyond the largest size is the usual case and what the hollow star
+    % already says; only the unusual direction is spelled out.
+    where = "";
     if T < f.NMin
-        where = "below the smallest size timed";
+        where = " below the smallest size";
     end
-    label = sprintf('%s, EXTRAPOLATED %.1fx %s', formatTime_(f.Predicted_s), ...
+    label = sprintf('%s, EXTRAPOLATED %.1fx%s', formatTime_(f.Predicted_s), ...
         f.ExtrapolationFactor, where);
 else
     face = c;
@@ -1682,9 +1731,14 @@ end
 plot(ax, T, 1e3 * f.Predicted_s, 'p', 'MarkerSize', 12, 'Color', c, ...
     'MarkerFaceColor', face, 'LineWidth', 1.25, 'HandleVisibility', 'off', ...
     'Tag', 'benchmarkIO:prediction');
-text(ax, T, 1e3 * f.Predicted_s, {'', label}, 'HorizontalAlignment', 'right', ...
-    'VerticalAlignment', 'top', 'FontSize', 8, 'Color', c, 'Interpreter', 'none', ...
-    'Clipping', 'off', 'Tag', 'benchmarkIO:predictionLabel');
+% The labels form a coloured list down the upper right corner, one row per
+% series, rather than sitting beside their stars: the stars of several series
+% cluster at TargetSamples and labels there printed over each other and over
+% the curves.
+row = numel(findobj(ax, 'Tag', 'benchmarkIO:predictionLabel'));
+text(ax, 0.98, 0.98 - 0.055 * row, sprintf('%s: %s', pathLabel_(f.Role(1), f.Path(1)), label), ...
+    'Units', 'normalized', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'top', ...
+    'FontSize', 8, 'Color', c, 'Interpreter', 'none', 'Tag', 'benchmarkIO:predictionLabel');
 end
 
 
@@ -1701,6 +1755,7 @@ grid(ax, 'on')
 roles = ["BufferWrite", "BufferRead"];
 names = ["TX (buffer write)", "RX (buffer read)"];
 plotted = 0;
+xAll = zeros(0, 1);
 top = 0;
 bottom = Inf;
 for k = 1:2
@@ -1713,10 +1768,17 @@ for k = 1:2
     y = S.MbitPerSec(m);
     c = seriesColor.(char(roles(k) + "_param"));
     plot(ax, x, y, '-o', 'Color', c, 'MarkerFaceColor', c, 'DisplayName', char(names(k)));
+    % Write labels go below their points and read labels above, so two
+    % series that run close together do not print over each other.
+    valign = 'bottom';
+    if k == 1
+        valign = 'top';
+    end
     for j = 1:numel(x)
         text(ax, x(j), y(j), formatRate_(y(j)), 'HorizontalAlignment', 'center', ...
-            'VerticalAlignment', 'bottom', 'FontSize', 9, 'Interpreter', 'none', 'Clipping', 'off');
+            'VerticalAlignment', valign, 'FontSize', 8, 'Interpreter', 'none', 'Clipping', 'off');
     end
+    xAll = [xAll; x(:)];
     top = max([top; y(isfinite(y))]);
     bottom = min([bottom; y(isfinite(y) & y > 0)]);
 end
@@ -1741,8 +1803,11 @@ for k = 1:2
         continue
     end
     c = seriesColor.(char(roles(k) + "_param"));
+    % Left end, under the line: the right end is where the measured points
+    % approach their ceiling and carry their own labels.
     yline(ax, limit, ':', ['limit ' formatRate_(limit)], 'Color', c, ...
-        'LabelHorizontalAlignment', 'right', 'HandleVisibility', 'off', 'Interpreter', 'none');
+        'LabelHorizontalAlignment', 'left', 'LabelVerticalAlignment', 'top', ...
+        'FontSize', 8, 'HandleVisibility', 'off', 'Interpreter', 'none');
     top = max(top, limit);
 end
 
@@ -1750,16 +1815,23 @@ end
 % the slower direction is a line on the floor.
 set(ax, 'XScale', 'log', 'YScale', 'log')
 if top > 0 && isfinite(bottom)
-    ylim(ax, [bottom / 2, top * 4])
+    ylim(ax, [bottom / 3, top * 5])
+end
+% Pad the x axis so the first and last labels are not against the frame.
+if ~isempty(xAll)
+    xlim(ax, [min(xAll) / 3, max(xAll) * 3])
 end
 xlabel(ax, 'Samples moved per call')
 ylabel(ax, 'Bit rate (Mbit/s)')
 title(ax, 'Throughput')
 subtitle(ax, {sprintf('Bit rate = %d bits x samples moved / median call time, by handle.', bitsPerSample), ...
     'Dotted: ceiling implied by the fit (1 / per-sample cost).'})
+ax.Subtitle.Interpreter = 'none';
 lgd = legend(ax);
-lgd.Location = 'southeast';
+lgd.Location = 'northwest';   % the series climb to the right; upper left is empty
 lgd.Interpreter = 'none';
+lgd.FontSize = 8;
+lgd.Box = 'off';
 end
 
 
@@ -1835,11 +1907,13 @@ for k = 1:numel(cost)
         y = scale * cost(k);
         clr = [0 0 0];
     elseif L.Status(k) == "below resolution"
-        txt = {'below resolution', sprintf('(%s, p = %.2g)', formatTime_(cost(k)), L.PValue(k))};
+        % Narrow lines: neighbouring categories are close, and a wide label
+        % printed over the next one.
+        txt = {'below', 'resolution', formatTime_(cost(k)), sprintf('p = %.2g', L.PValue(k))};
         y = 0;
         clr = [0.4 0.4 0.4];
     else
-        txt = {sprintf('by name %s faster:', formatTime_(-cost(k))), 'not a cost'};
+        txt = {'by name', [formatTime_(-cost(k)) ' faster:'], 'not a cost'};
         y = 0;
         clr = [0.4 0.4 0.4];
     end
@@ -1852,9 +1926,9 @@ ylim(ax, [min(yl(1), 0) - 0.08 * diff(yl), yl(2) + 0.25 * diff(yl)])
 grid(ax, 'on')
 title(ax, 'Lookup cost')
 C = defaults_();
-subtitle(ax, {'By-name median minus by-handle median: what find_parameter adds per call.', ...
-    sprintf(['Drawn only where a rank-sum test resolves it (p < %.2g). ' ...
-    'A session dispatches handles, so it does not pay this.'], C.LOOKUP_ALPHA)})
+subtitle(ax, {'By-name minus by-handle median: what find_parameter adds per call.',...
+    sprintf('Bar only if a rank-sum test resolves it (p < %.2g); a session uses handles.', ...
+    C.LOOKUP_ALPHA)})
 ax.Subtitle.Interpreter = 'none';   % find_parameter is not a subscript
 end
 

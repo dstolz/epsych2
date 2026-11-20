@@ -611,7 +611,7 @@ try
     lbT.Context = hw.Interface.transferContextRecord(Device='Loop', Link='memory', CycleUsage=42);
     R = hw.benchmarkIO(lbT, quick{:}, VerifyRoundTrip=false);
     results(end+1,:) = check('18 Environment.Transfer is what the interface reports', ...
-        isequal(R.Environment.Transfer, lbT.Context));
+        isequaln(R.Environment.Transfer, lbT.Context));
     lbT.ThrowContext = true;
     R = hw.benchmarkIO(lbT, quick{:}, VerifyRoundTrip=false);
     results(end+1,:) = check('18 a transferContext that throws leaves an empty record, and the run goes on', ...
@@ -775,29 +775,29 @@ try
     oldV = get(groot, 'DefaultFigureVisible');
     set(groot, 'DefaultFigureVisible', 'off');
     R = hw.benchmarkIO(lbE, quick{:}, noScalars{:}, Sizes=[1024 4096], Plot=true, IncludeLookup=false);
-    pent = findobj(R.Figure, 'Tag', 'benchmarkIO:prediction');
-    lab = findobj(R.Figure, 'Tag', 'benchmarkIO:predictionLabel');
+    pent = findall(R.Figure, 'Tag', 'benchmarkIO:prediction');
+    lab = findall(R.Figure, 'Tag', 'benchmarkIO:predictionLabel');
     labTxt = strjoin(string(arrayfun(@(t) strjoin(string(t.String), " "), lab)), " ");
     results(end+1,:) = check('21 the extrapolated pentagram is hollow and labelled EXTRAPOLATED with its factor', ...
         ~isempty(pent) && all(arrayfun(@(h) isequal(h.MarkerFaceColor, [1 1 1]), pent)) && ...
         contains(labTxt, "EXTRAPOLATED") && contains(labTxt, sprintf('%.1fx', 292969 / 4096)));
     results(end+1,:) = check('21 the fit beyond the sizes timed is drawn dashed', ...
-        ~isempty(findobj(R.Figure, 'Tag', 'benchmarkIO:extrapolatedFit')));
-    note = findobj(R.Figure, 'Tag', 'benchmarkIO:targetNote');
+        ~isempty(findall(R.Figure, 'Tag', 'benchmarkIO:extrapolatedFit')));
+    note = findall(R.Figure, 'Tag', 'benchmarkIO:targetNote');
     results(end+1,:) = check('21 the buffer plot carries the "does not bracket" note', ...
         isscalar(note) && contains(strjoin(string(note.String), " "), "do not bracket"));
     delete(R.Figure)
 
     R = hw.benchmarkIO(lbE, quick{:}, noScalars{:}, Sizes=[1024 4096], Plot=true, ...
         IncludeLookup=false, TargetSamples=2000);
-    pent = findobj(R.Figure, 'Tag', 'benchmarkIO:prediction');
-    lab = findobj(R.Figure, 'Tag', 'benchmarkIO:predictionLabel');
+    pent = findall(R.Figure, 'Tag', 'benchmarkIO:prediction');
+    lab = findall(R.Figure, 'Tag', 'benchmarkIO:predictionLabel');
     labTxt = strjoin(string(arrayfun(@(t) strjoin(string(t.String), " "), lab)), " ");
     results(end+1,:) = check('21 an interpolated prediction is filled, unflagged, with no note or dashed line', ...
         ~isempty(pent) && ~any(arrayfun(@(h) isequal(h.MarkerFaceColor, [1 1 1]), pent)) && ...
         ~contains(labTxt, "EXTRAPOLATED") && contains(labTxt, "predicted") && ...
-        isempty(findobj(R.Figure, 'Tag', 'benchmarkIO:targetNote')) && ...
-        isempty(findobj(R.Figure, 'Tag', 'benchmarkIO:extrapolatedFit')));
+        isempty(findall(R.Figure, 'Tag', 'benchmarkIO:targetNote')) && ...
+        isempty(findall(R.Figure, 'Tag', 'benchmarkIO:extrapolatedFit')));
     delete(R.Figure)
 
     lbE.Capacities.Buf = 65536;

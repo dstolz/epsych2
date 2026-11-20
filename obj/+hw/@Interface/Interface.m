@@ -271,6 +271,33 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             tf = false;
         end
 
+        % transferContext - What a reader needs to compare this backend's I/O timings
+        function ctx = transferContext(~)
+            % ctx = transferContext(obj)
+            % One record per device link describing the conditions an I/O
+            % time depends on and the interface does not otherwise expose:
+            % the device model, the link, the calls a buffer transfer goes
+            % through and their sample format, the sample rate, and how busy
+            % the device's processor was. hw.benchmarkIO records it in
+            % results.Environment.Transfer, so a timing can be held against a
+            % vendor figure quoted for stated conditions (TDT's, for one, is
+            % quoted at 50% cycle usage) without the benchmark asking which
+            % backend it is talking to.
+            %
+            % The default is an empty record array: this backend says
+            % nothing. Overrides build each record with
+            % hw.Interface.transferContextRecord so every backend's records
+            % concatenate, may make at most one cheap device query per link
+            % (a live cycle-usage reading), must answer while disconnected
+            % with what is known offline, and must never throw.
+            %
+            % Returns:
+            %   ctx - struct array from hw.Interface.transferContextRecord.
+            %
+            % See also: hw.Interface.transferContextRecord, hw.benchmarkIO
+            ctx = hw.Interface.transferContextRecord();
+        end
+
         % selfTest - Optional diagnostic hook reporting on this backend's health
         function results = selfTest(~, options)
             % results = selfTest(obj)
@@ -584,6 +611,50 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                 'summary', summary, ...
                 'detail',  {options.Detail}, ...
                 'remedy',  options.Remedy);
+        end
+
+        function r = transferContextRecord(options)
+            % r = hw.Interface.transferContextRecord()
+            % r = hw.Interface.transferContextRecord(Name=Value)
+            % Build one transferContext record, or the 1x0 empty prototype
+            % when called with no arguments. Every field has an "unknown"
+            % value ('' or NaN), so a backend fills in only what it knows.
+            %
+            % Name=Value options (all optional):
+            %   Module           - module label the record describes.
+            %   Device           - device model, e.g. 'RZ6'.
+            %   Link             - transport as the backend names it, e.g. 'GB'.
+            %   DeviceNumber     - device index on that link.
+            %   SampleRate       - device sample rate, Hz.
+            %   CycleUsage       - processor cycle usage, percent.
+            %   CycleUsageSource - where CycleUsage came from, e.g. 'live'.
+            %   WriteCall        - the driver call an array write is made with.
+            %   ReadCall         - the driver call an array read is made with.
+            %   SampleFormat     - the on-the-wire sample format, e.g. 'F32'.
+            %   Notes            - anything else a reader of the timing needs.
+            %
+            % Returns:
+            %   r - 1x1 record, or a 1x0 struct array with the same fields.
+            %
+            % See also: hw.Interface.transferContext
+            arguments
+                options.Module (1,:) char = ''
+                options.Device (1,:) char = ''
+                options.Link (1,:) char = ''
+                options.DeviceNumber (1,1) double = NaN
+                options.SampleRate (1,1) double = NaN
+                options.CycleUsage (1,1) double = NaN
+                options.CycleUsageSource (1,:) char = ''
+                options.WriteCall (1,:) char = ''
+                options.ReadCall (1,:) char = ''
+                options.SampleFormat (1,:) char = ''
+                options.Notes (1,:) char = ''
+            end
+
+            r = options;
+            if nargin == 0
+                r = repmat(r, 1, 0);
+            end
         end
 
         function tf = isStimulusValue(value)

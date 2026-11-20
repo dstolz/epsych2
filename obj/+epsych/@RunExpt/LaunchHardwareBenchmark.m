@@ -133,19 +133,12 @@ end
 assignin('base', 'benchmarkIO_results', R);
 vprintf(1,'I/O benchmark of %s finished; results in base workspace as benchmarkIO_results.', label);
 
-% A size the buffer cannot hold is skipped rather than failed, so it would
-% otherwise vanish from the plot unremarked.
-skipped = R.Unsupported(R.Unsupported.Role == "Buffers" & contains(R.Unsupported.Reason, "exceeds"), :);
-if isempty(skipped)
-    self.setStatus(sprintf('I/O benchmark of %s finished.', label), ...
-        'Results are in the base workspace as benchmarkIO_results.');
-else
-    vprintf(1, 'I/O benchmark: %d requested buffer size(s) skipped: %s', ...
-        height(skipped), strjoin(skipped.Reason, '; '))
-    self.setStatus(sprintf('I/O benchmark of %s finished; %d buffer size(s) skipped.', ...
-        label, height(skipped)), ...
-        'A requested size is larger than the buffer holds; see the note on the buffer plot. Enlarge the buffer, or ask for smaller sizes.');
-end
+% What the operator must not miss goes on the status line, worst first: a
+% failed round trip (the buffer times may not describe a clean transfer),
+% then sizes skipped because the buffer cannot hold them (they would
+% otherwise vanish from the plot unremarked).
+[status, detail] = epsych.RunExpt.benchmarkStatus_(R, label);
+self.setStatus(status, detail);
 
 end
 

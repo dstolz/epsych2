@@ -90,13 +90,10 @@ page, one image per `###` entry: `Parameter_Control`, `Parameter_Update`,
 `SessionClock`, `ElapsedTrialTimer`, `ModeIndicator`, `StatusBar`, `History`,
 `SessionPerformance`, `ParameterScatter`, `PsychPlot`, `Performance`,
 `SlidingWindowPerformancePlot`, `Staircase_Plot`, `PhaseSelector`,
-`AdaptiveTraining`, `SyringePump`, `NanoMotor`, `ParameterDebugger`,
+`AdaptiveTraining`, `SyringePump`, `ParameterDebugger`,
 `FilenameValidator`, `BehaviorGUI_Helpers`.
 
-**Not generated:** `NanoMotorControlGUI.png` was captured by hand: its window
-connects from its constructor and rethrows, so it cannot open without a board on
-the bench. Leave it alone unless the user can supply a new capture; do not delete
-it as "stale". (`VlcRecorderSetup.png` used to be hand-captured too; its shot
+**Not generated:** none at present. (`VlcRecorderSetup.png` used to be hand-captured; its shot
 now runs numeric-only, `EnablePreview=false`, which needs no camera.)
 
 Branded assets — `banner.svg`, `workflow-diagram.svg`, `architecture-diagram.svg`,

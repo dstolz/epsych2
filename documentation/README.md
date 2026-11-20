@@ -128,7 +128,6 @@ Task-specific reference (`cl`):
 
 Peripherals and utilities:
 
-- [peripherals.NanoMotorControl](peripherals/peripherals_NanoMotorControl.md) — commutator motor control
 - [peripherals.PumpCom](peripherals/peripherals_PumpCom.md) — syringe pump serial interface
 - [vprintf](helpers/helpers_vprintf.md) — verbosity-gated printing and logging, the API all EPsych code uses
 - [granary](granary/granary_Logging.md) — the logger behind `vprintf`: levels, format policy, sinks, log file lifecycle

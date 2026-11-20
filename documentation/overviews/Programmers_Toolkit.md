@@ -293,7 +293,6 @@ Reference: [teensy_TrialDesigner_UserGuide.md](../teensy/teensy_TrialDesigner_Us
 | [`gexf`](../../helpers/gexf.m) | Write an adjacency matrix as a GEXF graph for Gephi. |
 | [`util.VideoConverter`](../../obj/+util/@VideoConverter/VideoConverter.m) | Batch ffmpeg transcoding as *tracked child processes* — true per-file progress, instant cancellation, optional N-way parallelism, and a MATLAB that does not freeze for the whole encode. Progress arrives as [`util.ProgressEventData`](../../obj/+util/ProgressEventData.m); [`gui.VideoConverterSetup`](../../obj/+gui/@VideoConverterSetup/VideoConverterSetup.m) is the front end. |
 | [`hw.VlcRecorder`](../../obj/+hw/@VlcRecorder/VlcRecorder.m) / [`gui.VlcRecorderSetup`](../../obj/+gui/@VlcRecorderSetup/VlcRecorderSetup.m) | Webcam recording under session control, configured against a live preview with an interactive crop rectangle. |
-| [`peripherals.NanoMotorControl`](../../obj/+peripherals/@NanoMotorControl/NanoMotorControl.m) | The Arduino Nano DM320T stepper controller (motorized commutator) over its ASCII serial protocol, with a GUI in `peripherals.NanoMotorControlGUI`. |
 | [`peripherals.PumpCom`](../../obj/+peripherals/@PumpCom/PumpCom.m) | Direct serial control of a syringe pump outside the `hw` hierarchy. For a pump the protocol should drive, use [`hw.NE1000`](../../obj/+hw/@NE1000/NE1000.m) instead. |
 
 ## Reach for this, not that

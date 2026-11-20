@@ -117,6 +117,14 @@ end
 function [action, ver] = localChooseVersion(parent, filePath, fileLabel, index)
 % Modal list of the file's versions. uiconfirm cannot show a list, so this is
 % a small figure, in the style of gui.SubjectManager's revert dialog.
+%
+% Deliberately free of nested functions: a callback handle onto a nested
+% function keeps this workspace alive for as long as the figure holds the
+% handle, and the onCleanup below lives in that workspace. The dialog then
+% outlived its answer — still modal — and the Restore Version uiconfirm that
+% follows opened in the designer BEHIND it, unreachable, leaving "close all
+% force" as the only way out. The answer travels back through the figure's
+% UserData instead, and the window is deleted explicitly before returning.
     action = 'cancel';
     ver = '';
 
@@ -137,8 +145,7 @@ function [action, ver] = localChooseVersion(parent, filePath, fileLabel, index)
 
     items = arrayfun(@(e) localItemText(e), index, 'uni', 0);
     lst = uilistbox(g, 'Items', items, 'ItemsData', 1:numel(index), ...
-        'Value', 1, 'Multiselect', 'off', ...
-        'ValueChangedFcn', @(~, ~) localSelectionChanged());
+        'Value', 1, 'Multiselect', 'off');
     lst.Layout.Row = 2; lst.Layout.Column = [1 2];
 
     % Comparing is a read, so it sits with the list rather than with the
@@ -150,8 +157,7 @@ function [action, ver] = localChooseVersion(parent, filePath, fileLabel, index)
     gCmp.Padding = [0 0 0 0];
     uilabel(gCmp, 'Text', 'Compare with:');
     ddCompare = uidropdown(gCmp, 'Items', {'(nothing to compare)'}, 'ItemsData', 0);
-    btnCompare = uibutton(gCmp, 'Text', 'Show Changes...', ...
-        'ButtonPushedFcn', @(~, ~) localCompare());
+    btnCompare = uibutton(gCmp, 'Text', 'Show Changes...');
 
     note = uilabel(g, 'WordWrap', 'on', 'FontColor', [0.45 0.48 0.52], 'Text', ...
         ['Open Copy loads a version into the designer without touching the file. ' ...
@@ -164,64 +170,87 @@ function [action, ver] = localChooseVersion(parent, filePath, fileLabel, index)
     gBtn.ColumnWidth = {'1x', 110, 110, 100};
     gBtn.Padding = [0 0 0 0];
     uilabel(gBtn, 'Text', '');
-    uibutton(gBtn, 'Text', 'Open Copy', 'ButtonPushedFcn', @(~, ~) localAccept('open'));
+    uibutton(gBtn, 'Text', 'Open Copy', ...
+        'ButtonPushedFcn', @(~, ~) localAccept(d, lst, index, 'open'));
     btnRestore = uibutton(gBtn, 'Text', 'Restore...', ...
-        'ButtonPushedFcn', @(~, ~) localAccept('restore'));
+        'ButtonPushedFcn', @(~, ~) localAccept(d, lst, index, 'restore'));
     uibutton(gBtn, 'Text', 'Cancel', 'ButtonPushedFcn', @(~, ~) uiresume(d));
 
-    localSelectionChanged();
+    % Every handle a callback needs is passed to it, never reached through the
+    % enclosing workspace.
+    lst.ValueChangedFcn = @(~, ~) localSelectionChanged( ...
+        lst, index, items, ddCompare, btnCompare, btnRestore);
+    btnCompare.ButtonPushedFcn = @(~, ~) localCompare( ...
+        d, lst, ddCompare, index, filePath, fileLabel);
+
+    localSelectionChanged(lst, index, items, ddCompare, btnCompare, btnRestore);
 
     d.CloseRequestFcn = @(~, ~) uiresume(d);
     uiwait(d);
 
-    function localSelectionChanged()
-        % The current version is already on disk; only archived rows restore.
-        btnRestore.Enable = ~index(lst.Value).IsCurrent;
-
-        % Offer every OTHER version as the other side of a comparison,
-        % defaulting to what the file holds now — "what changed since this
-        % version" is the question a history list is usually opened with.
-        % An archived entry carrying no version string is left out: a version
-        % is the only handle the archive can be addressed by, and asking for
-        % '' would silently fetch the file's current content instead.
-        others = setdiff(1:numel(index), lst.Value, 'stable');
-        others = others(arrayfun(@localAddressable, index(others)));
-        if isempty(others) || ~localAddressable(index(lst.Value))
-            ddCompare.Items = {'(nothing to compare)'};
-            ddCompare.ItemsData = 0;
-            ddCompare.Enable = 'off';
-            btnCompare.Enable = 'off';
-            return
-        end
-        ddCompare.Items = items(others);
-        ddCompare.ItemsData = others;
-        ddCompare.Value = others(1);
-        ddCompare.Enable = 'on';
-        btnCompare.Enable = 'on';
+    if isgraphics(d) && ~isempty(d.UserData)
+        action = d.UserData.Action;
+        ver = d.UserData.Version;
     end
 
-    function localCompare()
-        % listVersions returns newest first, so the higher row index is the
-        % older side; naming them that way round keeps From/To meaning what a
-        % person expects even when the newer one is the selected row.
-        a = lst.Value;
-        b = ddCompare.Value;
-        if b == 0, return, end
-        older = index(max(a, b));
-        newer = index(min(a, b));
+    % Gone before the caller opens anything of its own: the next window is a
+    % uiconfirm on the designer, and it must not meet a modal figure still
+    % tearing down. Deleting is not enough on its own — the web window closes
+    % on the next event flush, hence the drawnow.
+    localClose(d);
+    clear cleanup
+    drawnow;
+end
 
-        gui.compareProtocolVersions(d, ...
-            struct('File', filePath, 'Version', older.Version), ...
-            struct('File', filePath, 'Version', newer.Version), ...
-            Name = sprintf('Protocol Changes - %s', fileLabel), ...
-            Note = 'Nothing here changes the file; this is a read of what the archive holds.');
-    end
+% -----------------------------------------------------------------------
+function localSelectionChanged(lst, index, items, ddCompare, btnCompare, btnRestore)
+% The current version is already on disk; only archived rows restore.
+    btnRestore.Enable = ~index(lst.Value).IsCurrent;
 
-    function localAccept(a)
-        action = a;
-        ver = index(lst.Value).Version;
-        uiresume(d);
+    % Offer every OTHER version as the other side of a comparison,
+    % defaulting to what the file holds now — "what changed since this
+    % version" is the question a history list is usually opened with.
+    % An archived entry carrying no version string is left out: a version
+    % is the only handle the archive can be addressed by, and asking for
+    % '' would silently fetch the file's current content instead.
+    others = setdiff(1:numel(index), lst.Value, 'stable');
+    others = others(arrayfun(@localAddressable, index(others)));
+    if isempty(others) || ~localAddressable(index(lst.Value))
+        ddCompare.Items = {'(nothing to compare)'};
+        ddCompare.ItemsData = 0;
+        ddCompare.Enable = 'off';
+        btnCompare.Enable = 'off';
+        return
     end
+    ddCompare.Items = items(others);
+    ddCompare.ItemsData = others;
+    ddCompare.Value = others(1);
+    ddCompare.Enable = 'on';
+    btnCompare.Enable = 'on';
+end
+
+% -----------------------------------------------------------------------
+function localCompare(d, lst, ddCompare, index, filePath, fileLabel)
+% listVersions returns newest first, so the higher row index is the
+% older side; naming them that way round keeps From/To meaning what a
+% person expects even when the newer one is the selected row.
+    a = lst.Value;
+    b = ddCompare.Value;
+    if b == 0, return, end
+    older = index(max(a, b));
+    newer = index(min(a, b));
+
+    gui.compareProtocolVersions(d, ...
+        struct('File', filePath, 'Version', older.Version), ...
+        struct('File', filePath, 'Version', newer.Version), ...
+        Name = sprintf('Protocol Changes - %s', fileLabel), ...
+        Note = 'Nothing here changes the file; this is a read of what the archive holds.');
+end
+
+% -----------------------------------------------------------------------
+function localAccept(d, lst, index, action)
+    d.UserData = struct('Action', action, 'Version', index(lst.Value).Version);
+    uiresume(d);
 end
 
 % -----------------------------------------------------------------------

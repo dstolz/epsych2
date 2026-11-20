@@ -11,7 +11,7 @@ function LaunchUtility(self, target)
 % keeps no handle. Always-on-top is cleared first so the new window does not
 % open behind the session figure, and a launch failure is logged and reported
 % on the status bar rather than thrown: a missing optional component (an
-% unpopulated stimgen submodule, an absent peripheral package) must not
+% unpopulated stimgen submodule, an absent optional package) must not
 % disturb a loaded or running session.
 %
 % See also: epsych.ProtocolDesigner, teensy.TrialDesigner, gui.BehaviorBuilder,

@@ -41,6 +41,17 @@ switch self.STATE
         self.H.modeIndicator.setState(hw.DeviceState.Error);
 end
 
+% An I/O benchmark owns the thread: nothing may start a session or edit the
+% configuration under it, and Stop is the one way out. Applied after the
+% state switch so it wins over whatever that enabled, and so any refresh that
+% arrives mid-benchmark cannot hand the buttons back.
+if self.BenchmarkRunning_
+    set([hCtrl self.H.save_data hSetup], 'Enable', 'off')
+    if ~self.BenchmarkStopRequested_
+        set(self.H.ctrl_halt, 'Enable', 'on')
+    end
+end
+
 % The webcam controls are exempt from the RUNNING lockout the 'setup' prefix
 % otherwise imposes: an operator has to be able to look in on a subject, or
 % decide a session is worth filming, after the run has already started.

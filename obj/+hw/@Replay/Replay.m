@@ -99,6 +99,11 @@ classdef Replay < hw.Interface
             obj.IsConnected = false;
         end
 
+        function tf = isSimulated(~)
+            % Reads come from a saved record; nothing behind it is a device.
+            tf = true;
+        end
+
         function result = trigger(~,~)
             % No hardware to fire. The timestamp keeps hw.Parameter.Trigger's
             % lastUpdated stamp meaningful, as on every other backend.

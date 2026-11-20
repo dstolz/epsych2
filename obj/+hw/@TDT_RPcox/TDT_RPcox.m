@@ -313,6 +313,32 @@ classdef TDT_RPcox < hw.Interface
                 (isfield(module.Info, 'RPvdsFile') && ~isempty(module.Info.RPvdsFile));
         end
 
+        function n = parameterCapacity(obj, P)
+            % n = parameterCapacity(obj, P)
+            % The tag's size from the PARTAG map TDTRP.setup reads at every
+            % circuit load: a property read, so no COM call is made. NaN while
+            % no circuit is loaded or when the tag is not in the circuit.
+            %
+            % See also: hw.Interface.parameterCapacity
+            n = NaN;
+            idx = double(P.Module.Index);
+            if isempty(obj.HW) || idx < 1 || idx > numel(obj.HW) || ~isvalid(obj.HW(idx))
+                return
+            end
+
+            tag = obj.getHardwareParameterName(P);
+            pt = obj.HW(idx).PARTAG;
+            for k = 1:numel(pt)
+                if strcmp(pt{k}.tag_name, tag)
+                    sz = double(pt{k}.tag_size);
+                    if sz >= 1
+                        n = sz;
+                    end
+                    return
+                end
+            end
+        end
+
         function setModules(obj, modules)
             if obj.IsConnected
                 error('hw:TDT_RPcox:ConnectedModuleEdit', ...

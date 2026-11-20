@@ -168,7 +168,7 @@ mCustom = uimenu(f,'Label','Customize');
 uimenu(mCustom,'Label','Customize...','MenuSelectedFcn', @(~,~) self.OpenCustomizeDialog,'Accelerator','U')
 
 % Utilities collects every standalone tool that ships with the toolbox, so an
-% operator reaches the designers, the stimulus tools, and the peripheral GUIs
+% operator reaches the designers, the stimulus tools, and the hardware tools
 % from the session window instead of from the command line. View holds what
 % changes this window, plus the reference windows that change nothing at all.
 mUtil = uimenu(f,'Label','Utilities');
@@ -221,15 +221,15 @@ self.H.mnu_calibration = uimenu(mStimGen,'Label','Calibration GUI...','Enable','
     'Separator','on','Tag','setup_mnu_calibration', ...
     'MenuSelectedFcn', @(~,~) self.LaunchUtility("Calibration"));
 
-% Peripheral hardware GUIs that aren't video get their own submenu; currently
-% just the commutator, but it gives future peripherals (e.g. the syringe
-% pump panel) a place to land without crowding Utilities.
-mPeripherals = uimenu(mUtil,'Label','Peripherals...','Separator','on');
-self.H.mnu_peripherals = mPeripherals;
+% Tools that talk to the rig's hardware itself. The benchmark writes to the
+% device, so it carries the 'setup' tag prefix and is out of reach while a
+% session is RUNNING; nesting is invisible to UpdateGUIstate's recursive findobj.
+mHardware = uimenu(mUtil,'Label','Hardware','Separator','on');
+self.H.mnu_hardware = mHardware;
 
-self.H.mnu_CommutatorGUI = uimenu(mPeripherals,'Label','Commutator GUI','Enable','on', ...
-    'Accelerator','G', ...
-    'MenuSelectedFcn', @(~,~) self.LaunchCommutatorGUI);
+self.H.mnu_hw_benchmark = uimenu(mHardware,'Label','I/O Benchmark...','Enable','on', ...
+    'Tag','setup_mnu_hw_benchmark', ...
+    'MenuSelectedFcn', @(~,~) self.LaunchHardwareBenchmark);
 
 % Everything that touches video -- the recorder, the live view, and the
 % offline batch converter -- lives under one submenu so the Utilities list

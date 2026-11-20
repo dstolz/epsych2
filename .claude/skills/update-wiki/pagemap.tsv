@@ -6,7 +6,6 @@ obj/+gui/@BehaviorGUI	Building-a-Behavior-GUI, Behavior-GUI-Components, GUI-Fram
 obj/+gui/@SelfTest	RunExpt-SelfTest, Troubleshooting	documentation/overviews/RunExpt_SelfTest.md
 obj/+gui/@PopOut	Behavior-GUI-Components, GUI-Framework-Internals	documentation/gui/gui_PopOut.md
 obj/+gui/+components/@SyringePump	Behavior-GUI-Components, Video-and-Peripherals	documentation/gui/gui_SyringePump.md
-obj/+gui/+components/@NanoMotor	Behavior-GUI-Components, Video-and-Peripherals	documentation/gui/gui_NanoMotor.md
 obj/+gui/@AdaptiveTraining	Training-and-Online-Analysis, Behavior-GUI-Components	documentation/gui/AdaptiveTraining.md
 obj/+gui/eval_adaptive_training_mode.m	Training-and-Online-Analysis	documentation/gui/eval_adaptive_training_mode.md
 obj/+gui/@ParameterDebugger	Behavior-GUI-Components, GUI-Framework-Internals, Troubleshooting	documentation/gui/gui_ParameterDebugger.md

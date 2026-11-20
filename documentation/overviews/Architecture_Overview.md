@@ -136,7 +136,7 @@ Detailed references: [../psychophysics/](../psychophysics/)
 
 ### `obj/+peripherals/`
 
-Peripheral hardware interfaces that do not fit the core `hw` hierarchy: `peripherals.PumpCom` (syringe pump), `peripherals.NanoMotorControl` and `peripherals.NanoMotorControlGUI` (motorized commutator).
+Peripheral hardware interfaces that do not fit the core `hw` hierarchy: `peripherals.PumpCom` (syringe pump).
 
 Detailed references: [../peripherals/](../peripherals/)
 

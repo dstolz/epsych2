@@ -753,8 +753,7 @@ classdef Teensy < hw.Interface
             % Scan available serial ports for an EPsychTeensy board.
             %
             % Opens each candidate, waits out the USB CDC boot delay, and looks
-            % for the firmware's boot greeting. Mirrors
-            % peripherals.NanoMotorControl.findControllerPort.
+            % for the firmware's boot greeting.
             %
             % Name=Value
             %   BaudRate (double)   - Default 115200

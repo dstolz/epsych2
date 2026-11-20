@@ -90,6 +90,11 @@ classdef Software < hw.Interface
             obj.resetParametersToDesign_();
         end
 
+        function tf = isSimulated(~)
+            % Values live only in memory: there is no device to be disconnected from.
+            tf = true;
+        end
+
         function mode_handler(obj,src,event)
             disp(event)
         end

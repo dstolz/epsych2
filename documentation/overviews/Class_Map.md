@@ -122,9 +122,7 @@ Offline behavioral analysis (`behavior.App` over the `behavior.*` package) is no
 ```text
 Support and task-specific classes
 ├─ peripherals
-│  ├─ PumpCom
-│  ├─ NanoMotorControl
-│  └─ NanoMotorControlGUI
+│  └─ PumpCom
 ├─ util
 │  └─ VideoConverter → gui.VideoConverterSetup
 ├─ granary                        (git submodule at obj/granary: dstolz/granary)
@@ -209,7 +207,6 @@ flowchart TD
     L --> I7
     C --> M[cl_AppetitiveDetection_GUI_B]
     C --> N[peripherals.PumpCom]
-    C --> O[peripherals.NanoMotorControl<br/>peripherals.NanoMotorControlGUI]
     C --> P[stimgen.StimType family<br/>StimCalibration<br/>StimPlay<br/>StimPlayer]
     C --> Q[EPsychInfo]
     P --> W[stimgen.calibration.Engine<br/>stimgen.calibration.HwAdapter family]
@@ -254,7 +251,6 @@ Analysis and visualization
 Task and support branches
 ├─ cl_AppetitiveDetection_GUI_B
 ├─ peripherals.PumpCom
-├─ peripherals.NanoMotorControl / peripherals.NanoMotorControlGUI
 ├─ stimbridge.RuntimeHost / stimbridge.InterfaceAdapter  (seam into the submodule)
 ├─ stimgen.StimType family / StimCalibration / StimPlay / StimPlayer
 └─ stimgen.calibration.Engine / HwAdapter family

@@ -832,25 +832,6 @@ switch name
             "................"
             "................"];
 
-    case "nanomotor" % stepper motor: body, output shaft, and a turn arrow
-        rows = [ ...
-            "................"
-            "................"
-            ".....gggg......."
-            "....g....g......"
-            "...g......g....."
-            "...g...kkkkkkkk."
-            "......kkssssssk."
-            "...g..kssssssskk"
-            "...g..ksswwsssk."
-            "....g.kssswssskk"
-            ".....gksssssssk."
-            "......kkssssssk."
-            "......kkkkkkkk.."
-            "................"
-            "................"
-            "................"];
-
     case "staircase" % steps descending to a reversal, over a threshold
         rows = [ ...
             "................"

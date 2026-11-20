@@ -236,6 +236,41 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             tf = false;
         end
 
+        % parameterCapacity - Element count the device storage behind a parameter holds
+        function n = parameterCapacity(~, ~)
+            % n = parameterCapacity(obj, P)
+            % How many elements the device storage behind P holds -- an RPvds
+            % tag's size, a Synapse array parameter's count -- or NaN when this
+            % backend does not know. hw.benchmarkIO sizes its buffer writes
+            % from this, so it never has to ask which backend it is talking to.
+            %
+            % The default is NaN: unknown. Overrides answer from what the
+            % backend already holds (a tag map read at circuit load, a size
+            % cache), must not add a device round trip for an answer already
+            % cached, and must never throw.
+            %
+            % Parameters:
+            %   P - hw.Parameter owned by this interface.
+            %
+            % Returns:
+            %   n - element count, or NaN when unknown.
+            n = NaN;
+        end
+
+        % isSimulated - Whether there is no device behind this interface
+        function tf = isSimulated(~)
+            % tf = isSimulated(obj)
+            % True for a backend that answers from memory with no device behind
+            % it, so it is usable whether or not it reports a connection and
+            % what it costs describes EPsych rather than any transport.
+            %
+            % The default is false. hw.benchmarkIO refuses a disconnected
+            % interface unless this is true: several backends report a write as
+            % successful and serve the cached Value while disconnected, so
+            % timing them would report numbers for I/O that never happened.
+            tf = false;
+        end
+
         % selfTest - Optional diagnostic hook reporting on this backend's health
         function results = selfTest(~, options)
             % results = selfTest(obj)

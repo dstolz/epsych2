@@ -29,7 +29,7 @@ A lab that points `FUNCS.AddSubjectFcn` at its own dialog keeps working: **New S
 | Projects (left) | `uilistbox` | Projects are a flat, single-selection set; a listbox gives arrow-key and type-ahead navigation for free. A tree would show a two-project subject twice with ambiguous checkbox state. |
 | Subjects (right) | `uitable` | Each row needs its own box assignment *before* it is committed. A checkbox tree has no columns; a listbox would force a second modal — exactly the step this collapses. |
 
-Under the toolbar, a single line shows the **full path** of the roster file in effect, with a **Change...** button beside it. Two rigs can be pointed at different rosters and everything below acts on this one, so where the records live is a question the window answers without being asked — a bare `subjects.esub` answers none of it, and a path hidden in a tooltip is not an answer either. The button is deliberately redundant with the toolbar tool and `File > Roster File...`: those are where the action belongs, this is where someone looks when the path on the left is not the one they expected.
+Under the toolbar, a single line shows the **full path** of the roster file in effect, with a **Change...** button beside it. Two rigs can be pointed at different rosters and everything below acts on this one, so where the records live is a question the window answers without being asked — a bare `subjects.esub` answers none of it, and a path hidden in a tooltip is not an answer either. The button is deliberately redundant with the toolbar tool and `File > Open Roster File...` / `New Roster File...`: those are where the action belongs, this is where someone looks when the path on the left is not the one they expected.
 
 The line turns amber and appends a reason when something is wrong:
 
@@ -46,7 +46,7 @@ EPsych keeps **no default location** for subjects and projects — see [`epsych.
 
 So on a rig that has never been pointed at one, this window opens *unbound*: the header reads `Roster: (no file chosen)`, the table is replaced by an explanation of the choice, and every action is switched off **except New Project and New Subject** — clicking one of those is how the operator is asked, and their tooltips say so before the click.
 
-The prompt (`ensureRoster_`) has exactly two exits: name a file, or close the window. Cancelling the file browser asks again. Nothing offers to proceed without a roster, because that would mean filling in an animal or a project with nowhere to save it.
+The prompt (`ensureRoster_`) has exactly two exits: choose a file (**Open Existing...** or **Create New...**), or close the window. Cancelling the file browser asks again. Nothing offers to proceed without a roster, because that would mean filling in an animal or a project with nowhere to save it.
 
 The same prompt fires for a **stale** path (folder gone), for the reason given under [Layout](#layout): otherwise the record is saved into a resurrected dead folder.
 
@@ -58,7 +58,7 @@ Fifteen tools in five groups, left to right, in the order the work happens:
 
 | Group | Tools |
 |---|---|
-| Roster | Refresh · Roster File... · Export CSV... |
+| Roster | Refresh · Roster File... (asks Open Existing / Create New) · Export CSV... |
 | Project | New · Copy · Edit · Delete |
 | Subject | New · Edit · Delete from Roster |
 | Membership | Add to Project · Remove from Project · Retire/Restore |

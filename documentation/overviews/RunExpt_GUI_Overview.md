@@ -249,7 +249,7 @@ The recording paths in force for a session live on `RunExpt.PATHS`, seeded from 
   - Subjects & Projects... (`Ctrl+B`) — the [subject manager](../gui/gui_SubjectManager.md). Available in every state, including during a run, so an animal's notes stay readable mid-session.
   - Remove Selected Subject — takes the selected row out of the session; the roster is untouched.
   - Reload All Protocols from Disk (`Ctrl+R`) — reloads every subject's protocol object from its `.eprot`, reporting how many were updated, already latest, or failed.
-  - Roster File... — chooses the `.esub` roster this rig uses. Point several rigs at one file on a shared drive to share a roster. There is no default location and no fallback: until this is answered once — here, or when Subjects & Projects asks at the first project — the rig has no roster.
+  - Open Roster File... / New Roster File... — open an existing `.esub` roster or create a new one for this rig. Point several rigs at one file on a shared drive to share a roster. There is no default location and no fallback: until this is answered once — here, or when Subjects & Projects asks at the first project — the rig has no roster.
 - **Customize**: Customize... (the machine settings in [6.1](#61-machine-settings--customize--customize)).
 - **Utilities**: the standalone tools that ship with the toolbox, opened from the session window instead of the command line. Each opens its own window with its own lifecycle; RunExpt keeps no handle on it, and a tool that fails to open reports on the status bar rather than interrupting the session.
   - **Designers...** (submenu) — the tools for authoring, rather than just running, an experiment:

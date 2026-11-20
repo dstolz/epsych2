@@ -57,21 +57,27 @@ else
         'choose where this roster file lives before %s.' newline newline ...
         'Put it on a shared drive and point every rig at the same file to share ' ...
         'one roster across the lab, or keep it beside your own data to make it ' ...
-        'private to this workstation. The file is created when you save the ' ...
-        'first record.'], action);
+        'private to this workstation. A new roster''s file is created when you ' ...
+        'save the first record.'], action);
 end
 
+% Open and Create are separate answers rather than one "Choose File..." that
+% leads to a Save dialog: picking an existing roster in a Save dialog draws the
+% operating system's "replace it?" prompt (see gui.chooseRosterFile).
 while true
     answer = uiconfirm(self.H.figure, msg, 'Choose a Subject Roster', ...
-        'Options', {'Choose File...', 'Close Manager'}, ...
-        'DefaultOption', 1, 'CancelOption', 2, 'Icon', 'question');
+        'Options', {'Open Existing...', 'Create New...', 'Close Manager'}, ...
+        'DefaultOption', 1, 'CancelOption', 3, 'Icon', 'question');
 
-    if strcmp(answer, 'Close Manager')
-        delete(self);
-        return
+    switch answer
+        case 'Open Existing...', mode = "open";
+        case 'Create New...',    mode = "create";
+        otherwise
+            delete(self);
+            return
     end
 
-    if self.chooseRosterFile_()
+    if self.chooseRosterFile_(mode)
         tf = true;
         return
     end
@@ -79,6 +85,6 @@ while true
     % Cancelled the file dialog. Round again rather than falling through: the
     % caller is about to write, and there is still nowhere to put it.
     msg = sprintf(['A roster file is still needed before %s.' newline newline ...
-        'Choose or name a .esub file, or close the Subjects & Projects window.'], ...
-        action);
+        'Open an existing .esub file, create a new one, or close the ' ...
+        'Subjects & Projects window.'], action);
 end

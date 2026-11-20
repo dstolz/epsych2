@@ -205,7 +205,7 @@ Older builds fell back to `<prefdir>/epsych/subjects.esub`. That was the wrong p
 
 [`gui.SubjectManager`](../gui/gui_SubjectManager.md) opens fine with no file chosen — browsing is harmless, so it explains itself and waits. The demand comes from `ensureRoster_` at the **first action that would write something**: New Project or New Subject. That prompt is a loop with two exits, choosing a file or closing the window; "carry on without one" is not offered, because it would mean filling in a record with nowhere to save it.
 
-A file can also be named ahead of time, from `Subjects > Roster File...` or the Paths tab of Customize. The file itself need not exist: naming a new shared roster before there is anything to put in it is the normal way to start one.
+A file can also be named ahead of time, from `Subjects > Open Roster File...` / `New Roster File...` or the Paths tab of Customize. The file itself need not exist: naming a new shared roster before there is anything to put in it is the normal way to start one.
 
 ### What `setConfiguredFile` checks
 
@@ -223,7 +223,7 @@ Validation happens when the file is chosen, not at the first save, so an unusabl
 
 ## Sharing one file between rigs
 
-Point every rig at the same file (`Subjects > Roster File...`, or the Paths tab of Customize) and they share one roster.
+Point every rig at the same file (`Subjects > Open Roster File...`, or the Paths tab of Customize) and they share one roster.
 
 Every mutation runs through `mutate_`, which is the whole of the concurrency story:
 

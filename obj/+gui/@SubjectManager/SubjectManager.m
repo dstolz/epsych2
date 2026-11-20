@@ -1984,38 +1984,33 @@ classdef SubjectManager < handle
 
         % ---- file actions ----------------------------------------------
 
-        function tf = chooseRosterFile_(self)
-            % Ask for the roster file and open it. Shared by the File menu, the
-            % toolbar, and ensureRoster_, which needs the answer rather than
-            % just the side effect.
-            %
-            % uiputfile rather than uigetfile: naming a roster that does not
-            % exist yet is how a lab starts one, and the file appears on the
-            % first record saved.
+        function tf = chooseRosterFile_(self, mode)
+            % Open an existing roster or create a new one, and show it. Shared
+            % by the File menu, the toolbar, the Change... button and
+            % ensureRoster_, which needs the answer rather than just the side
+            % effect. mode is "ask" (put the question first), "open" or
+            % "create"; see gui.chooseRosterFile for why they are separate.
+            arguments
+                self
+                mode (1,1) string = "ask"
+            end
             tf = false;
-            ext = epsych.SubjectRoster.FILE_EXTENSION;
 
-            % Nothing configured yet means nowhere obvious to open. The
+            % Nothing configured yet means nowhere obvious to start. The
             % session's data path is the best guess available -- it is already
             % somewhere this operator writes -- but only as a starting folder;
             % the choice itself stays theirs.
-            current = epsych.SubjectRoster.configuredFile();
-            if isempty(current)
-                startDir = '';
-                if ~isempty(self.RunExpt) && isvalid(self.RunExpt)
-                    startDir = char(self.RunExpt.DefaultDataPath);
-                end
-                if isempty(startDir) || ~isfolder(startDir), startDir = pwd; end
-                current = fullfile(startDir, ['subjects' ext]);
+            startDir = '';
+            if ~isempty(self.RunExpt) && isvalid(self.RunExpt)
+                startDir = char(self.RunExpt.DefaultDataPath);
             end
 
-            [fn, pn] = uiputfile( ...
-                {['*' ext], ['Subject Roster (*' ext ')']; '*.*','All Files (*.*)'}, ...
-                'Select or Name a Subject Roster', current);
-            if isequal(fn, 0), return, end
+            [file, mode] = gui.chooseRosterFile(self.H.figure, Mode = mode, ...
+                Current = epsych.SubjectRoster.configuredFile(), StartFolder = startDir);
+            if isempty(file), return, end
 
             try
-                report = epsych.SubjectRoster.setConfiguredFile(fullfile(pn, fn));
+                report = epsych.SubjectRoster.setConfiguredFile(file);
                 self.Roster = epsych.SubjectRoster(report.FilePath);
             catch ME
                 vprintf(0, 1, ME);
@@ -2031,7 +2026,12 @@ classdef SubjectManager < handle
             self.restoreProject_();
             self.refresh();
 
-            self.setStatus_(sprintf('Roster: %s', report.FilePath));
+            if strcmp(mode, 'create') && ~report.Existed
+                self.setStatus_(sprintf(['New roster: %s -- the file is created ' ...
+                    'when the first record is saved.'], report.FilePath));
+            else
+                self.setStatus_(sprintf('Opened roster: %s', report.FilePath));
+            end
 
             tf = true;
         end

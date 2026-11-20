@@ -80,7 +80,7 @@ classdef RunExpt < handle
         OpenSubjectManager(self)        % Open the Subjects & Projects manager window
         OpenSessionForReview(self, datafile) % Reopen a saved session in its behavior GUI
         ShowSubjectInManager(self, idx) % Open the manager with the selected session subject revealed
-        DefineRosterFile(self)          % Set the shared subject roster (.esub) this rig uses
+        DefineRosterFile(self, mode)    % Open or create the subject roster (.esub) this rig uses
         EditSubjectDetails(self, idx)   % Edit a session subject's details, writing back to the roster
 
         % Public because it is a pure UI refresh with no invariant to protect,

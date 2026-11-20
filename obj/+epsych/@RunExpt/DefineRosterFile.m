@@ -1,6 +1,8 @@
-function DefineRosterFile(self)
+function DefineRosterFile(self, mode)
 % DefineRosterFile(self)
-% Prompt for and persist the subject roster file this rig uses.
+% DefineRosterFile(self, mode)
+% Open an existing subject roster, or create a new one, and persist it as the
+% roster this rig uses.
 %
 % A lab shares one roster by putting it on a network drive and pointing every
 % rig at the same file; a rig that works alone keeps its own. There is no
@@ -8,48 +10,39 @@ function DefineRosterFile(self)
 % until this has been answered once, Subjects & Projects has nowhere to save
 % and asks for itself at the first project.
 %
-% uiputfile rather than uigetfile: naming a roster that does not exist yet is
-% the normal way to start one, and the file is created on the first mutation.
+% Opening and creating are separate (gui.chooseRosterFile): one Save dialog
+% for both made Windows ask "replace it?" whenever the operator picked the
+% roster they meant to open.
 %
-% See also: epsych.SubjectRoster.setConfiguredFile, epsych.RunExpt.OpenSubjectManager
+% Parameters:
+%   mode - "open", "create", or "ask" (default; asks which first).
+%
+% See also: gui.chooseRosterFile, epsych.SubjectRoster.setConfiguredFile,
+%   epsych.RunExpt.OpenSubjectManager
 arguments
     self
+    mode (1,1) string {mustBeMember(mode, ["ask","open","create"])} = "ask"
 end
-
-current = epsych.SubjectRoster.configuredFile();
-if isempty(current)
-    current = ['subjects' epsych.SubjectRoster.FILE_EXTENSION];
-end
-% The configured roster may live on a share that is currently unreachable, in
-% which case opening the dialog there would hang or fail; fall back to the data
-% path but keep the file name.
-[startDir, base, baseExt] = fileparts(current);
-if isempty(startDir) || ~isfolder(startDir)
-    startDir = char(self.DefaultDataPath);
-end
-suggested = fullfile(startDir, [base baseExt]);
-
-ext = epsych.SubjectRoster.FILE_EXTENSION;
 
 ontop = self.AlwaysOnTop(false);
-[fn, pn] = uiputfile( ...
-    {['*' ext], ['Subject Roster (*' ext ')']; '*.*', 'All Files (*.*)'}, ...
-    'Select or Name a Subject Roster', suggested);
+[file, mode] = gui.chooseRosterFile(self.H.figure1, Mode = mode, ...
+    Current = epsych.SubjectRoster.configuredFile(), ...
+    StartFolder = char(self.DefaultDataPath));
 self.AlwaysOnTop(ontop);
 
-if isequal(fn, 0), return, end
+if isempty(file), return, end
 
 try
-    report = epsych.SubjectRoster.setConfiguredFile(fullfile(pn, fn));
+    report = epsych.SubjectRoster.setConfiguredFile(file);
 catch ME
     vprintf(0, 1, ME);
     uialert(self.H.figure1, ME.message, 'Subject Roster', 'Icon', 'error');
     return
 end
 
-if report.Existed
-    self.setStatus(sprintf('Subject roster: %s', report.FilePath));
-else
-    self.setStatus(sprintf('Subject roster: %s', report.FilePath), ...
+if strcmp(mode, 'create') && ~report.Existed
+    self.setStatus(sprintf('New subject roster: %s', report.FilePath), ...
         'the file will be created when you add your first subject.');
+else
+    self.setStatus(sprintf('Opened subject roster: %s', report.FilePath));
 end

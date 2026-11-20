@@ -31,7 +31,7 @@ self.updateRegistryView_();
 % --- roster health -------------------------------------------------------
 if isempty(self.Roster) || ~isvalid(self.Roster)
     self.H.rosterLabel.Text = 'Roster: (none)';
-    self.showEmptyState_('The subject roster could not be opened. Use Roster File... to choose one.');
+    self.showEmptyState_('The subject roster could not be opened. Use File > Open Roster File... to choose one.');
     self.updateEnableStates_();
     return
 end
